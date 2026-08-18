@@ -18,6 +18,7 @@ import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
 import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
+import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
 import { evaluatePolicyGate } from "../review/policy-gate.js";
 
 // KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
@@ -241,11 +242,18 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       ? `⚠ policy standing [${e.rule_id}] — excepción permanente viva hasta ${e.standing.expiresAt} (${e.standing.justification || "sin justificación"})`
       : `⚠ policy exempt [${e.rule_id}] — excepción registrada en .karajan/policy-exceptions.jsonl (${e.justification})`);
   }
+  // GOV-C (KJC-TSK-0747): las decisiones de chokepoint dejan rastro
+  // hash-encadenado — cada deny, cada excepción, y el allow del commit.
+  const chokepoint = flags.check ? "commit" : "review";
+  const seal = (decision, extra = {}) =>
+    recordGateDecision(projectDir, { decision, chokepoint, policy_hash: policyFileHash(projectDir), artifact_hash: diffHash(diff), ...extra });
+  if (gate.exempted.length > 0) seal("exempt", { rule_ids: gate.exempted.map((e) => e.rule_id) });
   if (!gate.ok) {
     for (const d of gate.denials) {
       const sec = d.class === "security" ? " [security — sin escape ni arbitraje]" : "";
       console.log(`✗ policy [${d.rule_id}]${sec} ${d.reason}${at(d)}`);
     }
+    seal("deny", { rule_ids: gate.denials.map((d) => d.rule_id) });
     const reason = gate.invalid
       ? "policy.yml inválida — una regla que miente es peor que ninguna: corrígela"
       : `${gate.denials.length} violación(es) de policy con enforcement=deny — el diff no entra`;
@@ -273,6 +281,8 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     console.log(res.ok
       ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
       : `✗ ${res.reason}`);
+    // GOV-C: el allow del chokepoint de COMMIT es evidencia — se sella.
+    if (res.ok) seal("allow");
     process.exitCode = res.ok ? 0 : 1;
     return res;
   }
