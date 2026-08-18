@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>kaWATCHan — What else breaks when this merges?</title>
+  <meta name="description" content="karajan-watch watches every merge in your organisation: keeps a shared multi-repo RAG fresh, ranks what else may be affected with the evidence, and flags the documentation that just went stale.">
+  <meta name="theme-color" content="#0f1520" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f7f9" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/favicon-48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="kaWATCHan — What else breaks when this merges?">
+  <meta property="og:description" content="Cross-repo impact analysis on every merge: retrieval over your shared code corpus, git co-changes and a policy-governed LLM verdict — a risk ranking with evidence, never a probability.">
+  <meta property="og:image" content="https://watch.karajancode.com/img/logo-480.png">
+  <meta property="og:url" content="https://watch.karajancode.com">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" onload="this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet"></noscript>
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+      --serif: 'Instrument Serif', Georgia, serif;
+      /* Karajan family palette — the gold conducts; green is RESERVED for earned verdicts */
+      --baton-gold: #e8b04b;
+      --baton-gold-deep: #b7832a;
+      --verdict-green: #34d399;
+      --verdict-green-dim: #059669;
+      --reject-red: #f87171;
+      --brand-steel: #6b8fa3;
+      --brand-steel-light: #8cb4c9;
+    }
+
+    :root, [data-theme="dark"] {
+      --bg: #0f1520;
+      --bg-card: #1a2332;
+      --border: #2a3a4e;
+      --text: #e2e8f0;
+      --text-muted: #a4aeb6;
+      --text-dim: #94a4ac;
+      --gold-ink: var(--baton-gold);
+      --steel-ink: var(--brand-steel-light);
+      --verdict-ink: var(--verdict-green);
+      --risk-ink: var(--reject-red);
+      --accent: var(--baton-gold);
+      color-scheme: dark;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f4f7f9;
+        --bg-card: #ffffff;
+        --border: #d0dbe3;
+        --text: #1a2a35;
+        --text-muted: #424c52;
+        --text-dim: #4b555b;
+        --gold-ink: var(--baton-gold-deep);
+        --steel-ink: #4d6a79;
+        --verdict-ink: var(--verdict-green-dim);
+        --risk-ink: #c2413f;
+        --accent: var(--baton-gold-deep);
+        color-scheme: light;
+      }
+    }
+    [data-theme="light"] {
+      --bg: #f4f7f9;
+      --bg-card: #ffffff;
+      --border: #d0dbe3;
+      --text: #1a2a35;
+      --text-muted: #424c52;
+      --text-dim: #4b555b;
+      --gold-ink: var(--baton-gold-deep);
+      --steel-ink: #4d6a79;
+      --verdict-ink: var(--verdict-green-dim);
+      --risk-ink: #c2413f;
+      --accent: var(--baton-gold-deep);
+      color-scheme: light;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    .skip-link {
+      position: absolute; top: -100%; left: 50%; transform: translateX(-50%);
+      background: var(--brand-steel); color: #fff; padding: 0.5rem 1.5rem;
+      border-radius: 0 0 8px 8px; z-index: 100; font-size: 0.9rem; text-decoration: none;
+      transition: top 0.2s;
+    }
+    .skip-link:focus { top: 0; }
+
+    body {
+      font-family: var(--font); background: var(--bg); color: var(--text);
+      line-height: 1.6; overflow-x: hidden;
+    }
+
+    /* --- HERO --- */
+    .hero {
+      min-height: 92vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 2rem; position: relative;
+    }
+    .hero::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 600px 400px at 50% 40%, rgba(107,143,163,0.08), transparent),
+        radial-gradient(ellipse 400px 300px at 60% 35%, rgba(232,176,75,0.05), transparent);
+    }
+    .hero-logo {
+      width: clamp(120px, 16vw, 180px); height: auto;
+      /* Halo en el acento propio de watch, no en el oro de la batuta. */
+      filter: drop-shadow(0 0 30px rgba(56,189,248,0.14));
+    }
+
+    /* --- WATCH ORBIT: the repos it watches, and the pulse a merge sends across them --- */
+    .logo-orbit {
+      position: relative;
+      margin-bottom: 1.2rem;
+      width: 260px; height: 260px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .orbit-pulse {
+      position: absolute; inset: 34px;
+      border: 1px solid var(--brand-steel); border-radius: 50%;
+      opacity: 0; animation: pulse-out 6s ease-out infinite;
+    }
+    .orbit-pulse:nth-of-type(2) { animation-delay: 2s; }
+    .orbit-ring {
+      position: absolute; inset: 0;
+      animation: orbit-spin 38s linear infinite;
+    }
+    /* Traza circular: girando con los iconos, hace legible el movimiento. */
+    .orbit-track {
+      position: absolute; inset: 6px;
+      border: 1px dashed var(--border); border-radius: 50%;
+      opacity: 0.85;
+    }
+    .orbit-item {
+      position: absolute;
+      width: 24px; height: 24px;
+      margin: -12px 0 0 -12px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 50%;
+      animation: orbit-counter 38s linear infinite;
+    }
+    .orbit-item svg {
+      width: 15px; height: 15px;
+      fill: none; stroke: var(--steel-ink); stroke-width: 1.7;
+      stroke-linecap: round; stroke-linejoin: round; opacity: 0.95;
+      transition: opacity 0.3s, stroke 0.3s;
+    }
+    .orbit-item:hover { border-color: var(--accent); }
+    .orbit-item:hover svg { opacity: 1; stroke: var(--gold-ink); }
+    /* 5 items on r=120 circle, center=(130,130) */
+    .orbit-item:nth-of-type(1) { top: 10px;  left: 130px; }
+    .orbit-item:nth-of-type(2) { top: 93px;  left: 244px; }
+    .orbit-item:nth-of-type(3) { top: 216px; left: 201px; }
+    .orbit-item:nth-of-type(4) { top: 216px; left: 59px; }
+    .orbit-item:nth-of-type(5) { top: 93px;  left: 16px; }
+
+    @keyframes orbit-spin { to { transform: rotate(360deg); } }
+    @keyframes orbit-counter { to { transform: rotate(-360deg); } }
+    @keyframes pulse-out {
+      0% { transform: scale(0.55); opacity: 0; }
+      15% { opacity: 0.5; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+
+    @media (max-width: 640px) {
+      .orbit-ring, .orbit-pulse { display: none; }
+      .logo-orbit { width: auto; height: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .orbit-ring { animation: none; }
+      .orbit-item { animation: none; }
+      .orbit-pulse { animation: none; opacity: 0.18; }
+    }
+    /* --- FAMILY: los dos hermanos, mismo trato que en las otras landings.
+       En escritorio quedan FUERA del radio de giro de la órbita (radio 120
+       + chip); en móvil la órbita se oculta y pueden entrar al flujo. --- */
+    .family-child {
+      position: absolute; bottom: 30px; z-index: 2; line-height: 0;
+      text-align: center; text-decoration: none;
+      filter: drop-shadow(0 0 14px rgba(232,176,75,0.10));
+      transition: transform 0.2s;
+    }
+    .family-child img { height: 58px; width: auto; }
+    .family-child-label {
+      display: block; margin-top: 5px; line-height: 1;
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 600;
+      letter-spacing: 0.18em; color: var(--text-dim);
+      transition: color 0.2s;
+    }
+    .family-child:hover .family-child-label { color: var(--gold-ink); }
+    .family-child:hover, .family-child:focus-visible { transform: scale(1.1); }
+    .family-child:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .family-child-left { left: -86px; }
+    .family-child-right { right: -86px; }
+    @media (max-width: 640px) {
+      /* Al entrar en el flujo, uno a cada lado del logo en vez de los dos
+         apilados a su derecha (la órbita ya está oculta a este ancho). */
+      .family-child { position: static; margin: 0 0.5rem; vertical-align: bottom; display: inline-block; }
+      .family-child-left { order: -1; }
+      .logo-orbit { flex-wrap: wrap; justify-content: center; }
+    }
+
+    .hero-family {
+      font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--text-dim); margin-bottom: 1.2rem;
+    }
+    .hero-family a { color: var(--steel-ink); text-decoration: none; }
+    .hero-family a:hover, .hero-family a:focus-visible { color: var(--gold-ink); }
+
+    .wordmark {
+      font-size: clamp(2.6rem, 8vw, 5rem); font-weight: 700; letter-spacing: -0.03em;
+      line-height: 1.05; margin-bottom: 1rem;
+    }
+    .wordmark .watch {
+      color: var(--gold-ink);
+      text-shadow: 0 0 34px rgba(232,176,75,0.22);
+    }
+    .hero-tagline { font-size: clamp(1.1rem, 2.6vw, 1.45rem); color: var(--text); max-width: 660px; margin-bottom: 0.5rem; font-weight: 300; }
+    .guarantee { font-family: var(--serif); font-style: italic; font-size: 1.12em; color: var(--gold-ink); }
+    .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.4rem; letter-spacing: 0.04em; max-width: 640px; }
+    .hero-badge { margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
+    .hero-badge a { display: flex; align-items: center; }
+    .hero-badge a:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+
+    .hero-install {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 0.9rem 1.8rem; font-family: var(--mono); font-size: 0.95rem;
+      color: var(--steel-ink); display: flex; align-items: center; gap: 1rem;
+      cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; position: relative;
+      margin-bottom: 2.2rem;
+    }
+    [data-theme="light"] .hero-install,
+    :root:not([data-theme="dark"]) .hero-install { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .hero-install { box-shadow: none; }
+    }
+    .hero-install:hover, .hero-install:focus-visible { border-color: var(--accent); }
+    .hero-install:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .hero-install .prompt { color: var(--text-dim); user-select: none; }
+    .hero-install .copy-hint {
+      font-family: var(--font); font-size: 0.75rem; color: var(--text-dim);
+      position: absolute; right: -0.5rem; top: -1.6rem; opacity: 0; transition: opacity 0.2s;
+    }
+    .hero-install:hover .copy-hint { opacity: 1; }
+    .hero-install.copied .copy-hint { opacity: 1; color: var(--accent); }
+
+    .hero-note { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.65rem; letter-spacing: 0.02em; max-width: 640px; }
+    .hero-note code { font-family: var(--mono); font-size: 0.92em; color: var(--steel-ink); }
+    .hero-note-last { margin-bottom: 2.4rem; }
+    .hero-links { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
+    .hero-links a {
+      color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .hero-links a:hover, .hero-links a:focus-visible { color: var(--accent); }
+    .hero-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* --- WHAT IT WATCHES: the three capabilities --- */
+    .caps-section { padding: 3rem 2rem 1rem; max-width: 1000px; margin: 0 auto; }
+    .caps-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
+    .caps-title { text-align: center; font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 2rem; }
+    .caps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.2rem; }
+    .cap {
+      border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);
+      padding: 1.5rem 1.4rem;
+    }
+    .cap-num { font-family: var(--mono); font-size: 0.72rem; color: var(--brand-steel); letter-spacing: 0.2em; }
+    .cap h3 { font-size: 1.08rem; font-weight: 600; margin: 0.5rem 0 0.6rem; }
+    .cap p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.65; }
+    .cap p + p { margin-top: 0.6rem; }
+    .cap code { font-family: var(--mono); font-size: 0.85em; color: var(--steel-ink); }
+    .cap a { color: var(--accent); text-decoration: none; }
+    .cap a:hover { color: var(--text); }
+    .cap a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* --- THE SCORE (the life of one merge) --- */
+    .score-section { padding: 3rem 2rem 4rem; max-width: 820px; margin: 0 auto; }
+    .score-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
+    .score-title { text-align: center; font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 2rem; }
+    .score { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); padding: 1.3rem 0; }
+    .score-row {
+      display: grid; grid-template-columns: 96px 1fr; gap: 1.1rem; padding: 0.55rem 1.5rem;
+      opacity: 0.14; transform: translateX(-6px); border-left: 2px solid transparent;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .score-row.on { opacity: 1; transform: none; }
+    .score-player { font-family: var(--mono); font-size: 0.78rem; color: var(--brand-steel); text-align: right; padding-top: 0.12rem; }
+    .score-line { font-family: var(--mono); font-size: 0.84rem; color: var(--text-muted); line-height: 1.55; }
+    .score-row.risk { border-left-color: var(--reject-red); }
+    .score-row.risk .score-line { color: var(--risk-ink); }
+    .score-row.verdict { border-left-color: var(--verdict-green); }
+    .score-row.verdict .score-line { color: var(--verdict-ink); font-weight: 600; }
+    .score-row.gate { border-left-color: var(--baton-gold); }
+    .score-row.gate .score-line { color: var(--gold-ink); }
+    .score-caption { text-align: center; margin-top: 1.1rem; font-size: 0.82rem; color: var(--text-dim); }
+    .score-caption strong { color: var(--verdict-ink); font-weight: 600; }
+    .score-replay {
+      display: block; margin: 0.9rem auto 0; background: none; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text-dim); font-family: var(--mono); font-size: 0.7rem; padding: 0.3rem 0.85rem; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .score-replay:hover { border-color: var(--baton-gold); color: var(--baton-gold); }
+    .score-replay:focus-visible { outline: 2px solid var(--baton-gold); outline-offset: 2px; }
+    @media (max-width: 640px) {
+      .score-row { grid-template-columns: 68px 1fr; gap: 0.7rem; padding: 0.55rem 1rem; }
+      .score-line { font-size: 0.75rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .score-row { opacity: 1 !important; transform: none; transition: none; }
+    }
+
+    /* --- HONESTY --- */
+    .honesty-section { padding: 1rem 2rem 4rem; max-width: 720px; margin: 0 auto; text-align: center; }
+    .honesty-card {
+      border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);
+      padding: 2rem 1.8rem;
+    }
+    .honesty-badge {
+      display: inline-block; font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
+      border: 1px solid var(--baton-gold-deep); border-radius: 6px; color: var(--gold-ink);
+      padding: 0.25rem 0.8rem; margin-bottom: 1rem; letter-spacing: 0.04em;
+    }
+    .honesty-card h2 { font-size: 1.35rem; font-weight: 600; margin-bottom: 0.8rem; }
+    .honesty-card p { color: var(--text-muted); font-size: 0.95rem; max-width: 580px; margin: 0 auto 0.7rem; }
+    .honesty-card a { color: var(--accent); text-decoration: none; }
+    .honesty-card a:hover { color: var(--text); }
+    .honesty-card a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* --- QUICKSTART --- */
+    .start-section { padding: 0 2rem 4rem; max-width: 820px; margin: 0 auto; }
+    .start-title { text-align: center; font-size: clamp(1.3rem, 3vw, 1.7rem); font-weight: 600; margin-bottom: 0.6rem; }
+    .start-lead { text-align: center; color: var(--text-muted); font-size: 0.92rem; max-width: 620px; margin: 0 auto 1.6rem; }
+    .start-lead code { font-family: var(--mono); font-size: 0.9em; color: var(--steel-ink); }
+    .code-card {
+      border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);
+      overflow: hidden;
+    }
+    .code-head {
+      font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim);
+      padding: 0.6rem 1.2rem; border-bottom: 1px solid var(--border); letter-spacing: 0.06em;
+    }
+    .code-card pre {
+      margin: 0; padding: 1.2rem; overflow-x: auto;
+      font-family: var(--mono); font-size: 0.8rem; line-height: 1.7; color: var(--text-muted);
+    }
+    .code-card .k { color: var(--steel-ink); }
+    .code-card .c { color: var(--text-dim); font-style: italic; }
+
+    /* --- MORE --- */
+    .more-section { padding: 0 2rem 5rem; max-width: 720px; margin: 0 auto; }
+    .more-section details {
+      border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card);
+    }
+    .more-section summary {
+      padding: 1rem 1.5rem; cursor: pointer; font-weight: 500; font-size: 1rem;
+      color: var(--text-muted); list-style: none; transition: color 0.2s;
+    }
+    .more-section summary::-webkit-details-marker { display: none; }
+    .more-section summary::before { content: '+ '; font-family: var(--mono); color: var(--brand-steel); }
+    .more-section details[open] summary::before { content: '- '; }
+    .more-section details[open] summary { color: var(--text); }
+    .more-list { padding: 0 1.5rem 1.5rem; list-style: none; }
+    .more-list li { padding: 0.6rem 0; color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; }
+    .more-list li + li { border-top: 1px solid var(--border); }
+    .more-list strong { color: var(--text); font-weight: 600; }
+    .more-list a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
+    .more-list a:hover { color: var(--text); }
+    .more-list a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .more-list code { font-family: var(--mono); font-size: 0.85em; color: var(--steel-ink); }
+
+    /* --- FOOTER --- */
+    footer {
+      text-align: center; padding: 3rem 2rem; border-top: 1px solid var(--border);
+      color: var(--text-dim); font-size: 0.85rem;
+    }
+    footer a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+    footer a:hover, footer a:focus-visible { color: var(--accent); }
+    footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .footer-brand { margin-top: 0.4rem; }
+    .footer-author { margin-top: 0.4rem; }
+
+    /* --- THEME TOGGLE --- */
+    .theme-toggle {
+      position: fixed; top: 1rem; right: 1rem; z-index: 50;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.5rem; cursor: pointer; color: var(--text-muted);
+      font-size: 1.2rem; line-height: 1; transition: border-color 0.2s, color 0.2s;
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+    .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="light"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="light"] .theme-toggle .icon-moon { display: none; }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) .theme-toggle .icon-sun { display: block; }
+      :root:not([data-theme="dark"]) .theme-toggle .icon-moon { display: none; }
+    }
+
+    @media (max-width: 640px) {
+      .hero-install { padding: 0.8rem 1.2rem; font-size: 0.82rem; }
+    }
+
+    .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .fade-in { opacity: 1; transform: none; transition: none; }
+    }
+  </style>
+  <noscript><style>.fade-in { opacity: 1; transform: none; } .score-row { opacity: 1; transform: none; }</style></noscript>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('theme') || localStorage.getItem('starlight-theme');
+      if (saved && saved !== 'auto') {
+        document.documentElement.setAttribute('data-theme', saved);
+        localStorage.setItem('theme', saved);
+        localStorage.setItem('starlight-theme', saved);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <button type="button" class="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
+    <span class="icon-sun" aria-hidden="true">&#9728;</span>
+    <span class="icon-moon" aria-hidden="true">&#9790;</span>
+  </button>
+
+  <main id="main-content">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="logo-orbit">
+      <span class="orbit-pulse" aria-hidden="true"></span>
+      <span class="orbit-pulse" aria-hidden="true"></span>
+      <picture>
+        <source type="image/webp"
+          srcset="/img/logo-120.webp 120w, /img/logo-160.webp 160w, /img/logo-200.webp 200w, /img/logo-240.webp 240w, /img/logo-320.webp 320w, /img/logo-480.webp 480w"
+          sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
+        <source type="image/png"
+          srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
+          sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
+        <img src="/img/logo-240.png" alt="kaWATCHan — robot conductor mascot with cyan eyes, bow tie and suspenders, holding a baton" class="hero-logo" width="163" height="180" fetchpriority="high">
+      </picture>
+      <div class="orbit-ring" aria-hidden="true">
+        <div class="orbit-track"></div>
+        <!-- Repo -->
+        <span class="orbit-item" title="Watched repos"><svg viewBox="0 0 16 16"><path d="M3 2.5h8a1.5 1.5 0 0 1 1.5 1.5v9.5H4.5A1.5 1.5 0 0 1 3 12z"/><path d="M3 11.5h9.5"/><path d="M6 5h4"/></svg></span>
+        <!-- Merge -->
+        <span class="orbit-item" title="Merge to main"><svg viewBox="0 0 16 16"><circle cx="4" cy="3.5" r="1.6"/><circle cx="4" cy="12.5" r="1.6"/><circle cx="12" cy="8" r="1.6"/><path d="M4 5.1v5.8"/><path d="M5.6 3.5h3A1.9 1.9 0 0 1 10.5 5.4V6.5"/></svg></span>
+        <!-- Shared corpus -->
+        <span class="orbit-item" title="Shared multi-repo corpus"><svg viewBox="0 0 16 16"><ellipse cx="8" cy="3.5" rx="5.5" ry="2"/><path d="M2.5 3.5v9c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2v-9"/><path d="M2.5 8c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2"/></svg></span>
+        <!-- Impact radar -->
+        <span class="orbit-item" title="Cross-repo impact"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="8" r="4"/><circle cx="8" cy="8" r="6.4"/></svg></span>
+        <!-- Docs -->
+        <span class="orbit-item" title="Documentation drift"><svg viewBox="0 0 16 16"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13"/><path d="M6 8h5M6 10.5h5M6 5.5h1.5"/></svg></span>
+      </div>
+      <a class="family-child family-child-left" href="https://karajancode.com" aria-label="Karajan Code — code with several AIs, with guarantees" title="Karajan Code — code with several AIs, with guarantees">
+        <picture>
+          <source type="image/webp" srcset="/img/code-logo-120.webp">
+          <img src="/img/code-logo-120.png" alt="Karajan Code" width="53" height="58" loading="lazy">
+        </picture>
+        <span class="family-child-label">CODE</span>
+      </a>
+      <a class="family-child family-child-right" href="https://rag.karajancode.com" aria-label="kaRAGan — RAG over your code, docs and data" title="kaRAGan — RAG over your code, docs and data">
+        <picture>
+          <source type="image/webp" srcset="/img/rag-logo-120.webp">
+          <img src="/img/rag-logo-120.png" alt="kaRAGan" width="53" height="58" loading="lazy">
+        </picture>
+        <span class="family-child-label">RAG</span>
+      </a>
+    </div>
+    <p class="hero-family"><a href="https://karajancode.com">Karajan</a> family</p>
+    <h1 class="wordmark">ka<span class="watch">WATCH</span>an</h1>
+    <p class="hero-tagline">Every merge asks the same question. This answers it: <em class="guarantee">what else just became risky</em> — and shows you why.</p>
+    <p class="hero-sub">Shared multi-repo RAG always fresh &middot; cross-repo impact ranked with evidence &middot; stale documentation flagged &middot; local embedders, your code never leaves your runner</p>
+    <p class="hero-badge">
+      <a href="https://www.npmjs.com/package/karajan-watch" aria-label="Current version on npm">
+        <img src="https://img.shields.io/npm/v/karajan-watch.svg?style=flat-square&color=e8b04b&label=latest" alt="npm version" height="22">
+      </a>
+    </p>
+    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
+      <span class="prompt" aria-hidden="true">&gt;</span>
+      <span>I want cross-repo impact analysis in my organisation: read watch.karajancode.com/start.md and do what it says.</span>
+      <span class="copy-hint" aria-live="polite">click to copy</span>
+    </button>
+    <p class="hero-note">Paste it into your AI agent (Claude Code, Codex, Cursor). It checks your machine, asks YOU what only you can decide &mdash; which repos to watch, how sensitive that code is, where the corpus lives, where alerts land &mdash; wires your own deployment repo, and <em>stops to wait for you</em> whenever a step needs your permission. It never handles your secrets: it tells you which ones to create and waits.</p>
+    <p class="hero-note">Prefer to drive? <code>npm i -g karajan-watch</code> and follow <a href="https://watch.karajancode.com/config.md" style="color: var(--steel-ink); text-decoration: none;">the configuration reference</a>. Nothing about your organisation lives here &mdash; it all stays in your deployment repo.</p>
+    <p class="hero-note hero-note-last">Engine: <a href="https://rag.karajancode.com" style="color: var(--steel-ink); text-decoration: none;">kaRAGan</a> &middot; Node &ge; 20 &middot; AGPL-3.0</p>
+    <nav class="hero-links" aria-label="Primary links">
+      <a href="https://github.com/manufosela/karajan-watch">GitHub</a>
+      <a href="https://www.npmjs.com/package/karajan-watch">npm</a>
+      <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/impact.md">How impact works</a>
+      <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/config.md">Configuration</a>
+    </nav>
+  </section>
+
+  <!-- WHAT IT WATCHES -->
+  <section class="caps-section fade-in" aria-label="What karajan-watch does">
+    <p class="caps-eyebrow">Three things, on every merge</p>
+    <h2 class="caps-title">A conductor needs to hear the <em class="guarantee">whole</em> orchestra</h2>
+    <div class="caps">
+      <article class="cap">
+        <p class="cap-num">01</p>
+        <h3>A shared RAG that never goes stale</h3>
+        <p>Every merge reindexes only what changed into a corpus that spans <strong>all</strong> your repos — code and docs in separate indexes, each chunk stamped with its sensitivity level.</p>
+        <p>Embedders run locally on your runner. An index that cannot be written is a <strong>red job</strong>, never a half-built corpus. <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/ingest.md">How ingestion works &rarr;</a></p>
+      </article>
+      <article class="cap">
+        <p class="cap-num">02</p>
+        <h3>What else did this just break?</h3>
+        <p>Three independent signals: retrieval of the merged diff against the other repos, git <strong>co-changes</strong> mined from history, and an LLM verdict routed by your sensitivity policy.</p>
+        <p>Out comes a risk ranking where every entry carries its evidence — the chunk that matched, the line, the co-change count. <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/impact.md">The pipeline &rarr;</a></p>
+      </article>
+      <article class="cap">
+        <p class="cap-num">03</p>
+        <h3>The docs that just went stale</h3>
+        <p>The same skeleton pointed at your documentation corpus: which sections mention what you changed, linked <code>file:line</code>, with an optional LLM pass to cut the noise.</p>
+        <p>Because the paragraph that lies is worse than the one that is missing. <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/drift.md">Documentation drift &rarr;</a></p>
+      </article>
+    </div>
+  </section>
+
+  <!-- THE SCORE: the life of one merge -->
+  <section class="score-section fade-in" aria-label="Demo of one merge going through the pipeline">
+    <p class="score-eyebrow">One merge, start to finish</p>
+    <h2 class="score-title">The evidence arrives <em class="guarantee">before</em> the incident does</h2>
+    <div class="score" id="the-score">
+      <div class="score-row"><span class="score-player">you</span><span class="score-line">merge PR #412 into backend-api@main &nbsp;&rarr;&nbsp; 12 files, 2 endpoints touched</span></div>
+      <div class="score-row"><span class="score-player">kj-watch</span><span class="score-line">reindex incremental &nbsp;&rarr;&nbsp; 12 files, 148 chunks &mdash; local embedder, nothing left the runner</span></div>
+      <div class="score-row"><span class="score-player">kj-watch</span><span class="score-line">diff as query vs the shared corpus &nbsp;&rarr;&nbsp; 6 candidates, backend-api itself excluded</span></div>
+      <div class="score-row"><span class="score-player">kj-watch</span><span class="score-line">git co-changes &nbsp;&rarr;&nbsp; web-frontend/src/api-client.js moved with this area in 3 of the last 4 windows</span></div>
+      <div class="score-row gate"><span class="score-player">policy</span><span class="score-line">corpus level "internal" &mdash; judgement routed to an allowed adapter; a forbidden one is an error, never a silent swap</span></div>
+      <div class="score-row risk"><span class="score-player">verdict</span><span class="score-line">&#9888; HIGH &mdash; web-frontend/src/api-client.js retries against the endpoint you renamed</span></div>
+      <div class="score-row"><span class="score-player">kj-watch</span><span class="score-line">comment on PR #412: ranking + evidence per entry, PII redacted &mdash; no probability, ever</span></div>
+      <div class="score-row verdict"><span class="score-player">you</span><span class="score-line">&#10003; fixed the client and its doc in the same sprint &mdash; the incident that never happened</span></div>
+    </div>
+    <p class="score-caption">Signals, not certainties &mdash; and calibrated against your own past incidents. <strong>That green is the only green on this page.</strong></p>
+    <button type="button" class="score-replay" onclick="playScore(true)">&#8634; replay</button>
+  </section>
+
+  <!-- HONESTY -->
+  <section class="honesty-section fade-in" aria-label="What this does not promise">
+    <div class="honesty-card">
+      <span class="honesty-badge">RANKING WITH EVIDENCE</span>
+      <h2>What it will never tell you</h2>
+      <p>Vector similarity is <strong>not</strong> causal analysis. So there is no "87&percnt; chance of breaking" anywhere in this product: you get a ranking, and next to every entry, the evidence that put it there. You decide.</p>
+      <p>And the ranking is measurable: feed it a golden set of your own past incidents and <code style="font-family: var(--mono); font-size: 0.9em;">karajan-watch eval</code> reports precision and recall, failing the job when the thresholds you declared are not met. <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/eval.md">Calibration &rarr;</a></p>
+    </div>
+  </section>
+
+  <!-- QUICKSTART -->
+  <section class="start-section fade-in" aria-label="Quickstart">
+    <h2 class="start-title">Your organisation stays in <em class="guarantee">your</em> repo</h2>
+    <p class="start-lead">karajan-watch ships the generic machinery. The list of repos, the sensitivity levels, the thresholds and where the alerts land live in a private deployment repo of yours — which just calls the reusable workflows.</p>
+    <div class="code-card">
+      <p class="code-head">your-deployment-repo/.github/workflows/on-merge.yml</p>
+      <pre><code><span class="k">jobs:</span>
+  <span class="k">impact:</span>
+    <span class="k">uses:</span> manufosela/karajan-watch/.github/workflows/impact.yml@main
+    <span class="k">with:</span>
+      <span class="k">org:</span> your-org
+      <span class="k">repo:</span> backend-api
+      <span class="k">base-sha:</span> ${{ github.event.before }}
+      <span class="k">head-sha:</span> ${{ github.sha }}
+      <span class="k">pr-number:</span> <span class="c">'412'</span>
+    <span class="k">secrets:</span>
+      <span class="k">REPOS_TOKEN:</span> ${{ secrets.REPOS_TOKEN }}
+      <span class="k">PG_URL:</span> ${{ secrets.PG_URL_CODE }}
+
+<span class="c"># or drive it yourself, anywhere:</span>
+<span class="c">#   karajan-watch ingest --workspace .kjw-workspace --corpus code</span>
+<span class="c">#   karajan-watch impact --workspace .kjw-workspace --repo backend-api --diff merge.diff</span>
+<span class="c">#   karajan-watch drift  --workspace .kjw-workspace --repo backend-api --diff merge.diff</span></code></pre>
+    </div>
+  </section>
+
+  <!-- WANT TO KNOW MORE? -->
+  <section class="more-section fade-in">
+    <details>
+      <summary>Want to know more?</summary>
+      <ul class="more-list">
+        <li><strong>Sensitivity first</strong> &mdash; your code is <code>internal</code> at the very least. Local embedders on ingestion, LLM judgement only through adapters your policy allows for that level, PII redacted on every output. <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/config.md">Declare your policy &rarr;</a></li>
+        <li><strong>No silent fallbacks</strong> &mdash; an index that cannot be written, a workspace missing a declared repo, an unreachable alert target: all of them turn the job red. Never a green tick over a half-done corpus.</li>
+        <li><strong>Co-changes are cheap and blind to content</strong> &mdash; mined from git history, they catch couplings that no embedding will ever see. A repo without enough history says so explicitly instead of quietly scoring zero.</li>
+        <li><strong>Powered by <a href="https://rag.karajancode.com">kaRAGan</a></strong> &mdash; indexing, hybrid retrieval, sensitivity policy and PII redaction come from the engine; anything generic goes upstream instead of being reimplemented here. <a href="https://github.com/manufosela/karajan-watch/blob/main/docs/karajan-rag-contract.md">The contract &rarr;</a></li>
+        <li><strong>88 tests. Zero runtime dependencies beyond the engine. Open source (AGPL-3.0).</strong> <a href="https://github.com/manufosela/karajan-watch">See the repo &rarr;</a></li>
+      </ul>
+    </details>
+  </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="https://github.com/manufosela/karajan-watch">GitHub</a>
+      <a href="https://www.npmjs.com/package/karajan-watch">npm</a>
+      <a href="https://github.com/manufosela/karajan-watch/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/manufosela/karajan-watch/issues">Issues</a>
+      <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a>
+    </nav>
+    <p class="footer-brand">kaWATCHan &mdash; the watchful ear of the <a href="https://karajancode.com">Karajan</a> orchestra, alongside <a href="https://rag.karajancode.com">kaRAGan</a>. Package: <code style="font-family: var(--mono); font-size: 0.9em;">karajan-watch</code></p>
+    <p class="footer-author">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
+  </footer>
+
+  <script>
+    /* --- COPY SETUP PROMPT --- */
+    function copyInstall(btn) {
+      var text = 'I want cross-repo impact analysis in my organisation: read https://watch.karajancode.com/start.md and do what it says.';
+      navigator.clipboard.writeText(text).then(function() {
+        btn.classList.add('copied');
+        var hint = btn.querySelector('.copy-hint');
+        if (hint) hint.textContent = 'copied!';
+        setTimeout(function() {
+          btn.classList.remove('copied');
+          if (hint) hint.textContent = 'click to copy';
+        }, 2000);
+      });
+    }
+
+    /* --- THEME TOGGLE --- */
+    function toggleTheme() {
+      var html = document.documentElement;
+      var current = html.getAttribute('data-theme');
+      var next;
+      if (current) { next = current === 'dark' ? 'light' : 'dark'; }
+      else { next = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'; }
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      localStorage.setItem('starlight-theme', next);
+    }
+
+    /* --- FADE-IN REVEALS --- */
+    (function() {
+      var els = document.querySelectorAll('.fade-in');
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(function(e){ e.classList.add('visible'); });
+        return;
+      }
+      var io = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.15 });
+      els.forEach(function(e){ io.observe(e); });
+    })();
+
+    /* --- THE SCORE --- */
+    var scoreTimers = [];
+    function playScore(force) {
+      var el = document.getElementById('the-score');
+      if (!el) return;
+      var rows = el.querySelectorAll('.score-row');
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      scoreTimers.forEach(clearTimeout); scoreTimers = [];
+      if (reduced && !force) { rows.forEach(function(r){ r.classList.add('on'); }); return; }
+      rows.forEach(function(r){ r.classList.remove('on'); });
+      rows.forEach(function(r, i) {
+        scoreTimers.push(setTimeout(function(){ r.classList.add('on'); }, 350 + i * 850));
+      });
+    }
+    (function() {
+      var el = document.getElementById('the-score');
+      if (!el) return;
+      if (!('IntersectionObserver' in window)) { playScore(); return; }
+      var played = false;
+      new IntersectionObserver(function(entries, obs) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting && !played) { played = true; playScore(); obs.disconnect(); }
+        });
+      }, { threshold: 0.35 }).observe(el);
+    })();
+  </script>
+</body>
+</html>

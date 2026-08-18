@@ -1,0 +1,149 @@
+---
+title: Inicio Rápido
+description: Ejecuta tu primera tarea con Karajan Code en 5 minutos.
+---
+
+:::caution[Docs de v3 (legacy)]
+Estás leyendo la documentación del pipeline headless v3. Karajan v4 se une al agente de IA con el que ya trabajas — empieza en [Instalación (v4)](/docs/es/v4/install/).
+:::
+
+import { Steps } from '@astrojs/starlight/components';
+
+Esta guía asume que ya has [instalado Karajan Code](/docs/es/getting-started/installation/) y ejecutado `kj init`.
+
+## Tu primera ejecución
+
+<Steps>
+
+1. **Navega a tu proyecto**
+
+   ```bash
+   cd /ruta/a/tu/proyecto
+   ```
+
+2. **Ejecuta una tarea**
+
+   Pide algo que puedas abrir y ver funcionando al instante — un tres en raya contra un bot, en un único fichero y sin servidor:
+
+   ```bash
+   kj run "Crea un juego de tres en raya en un único index.html autocontenido — HTML, CSS y JavaScript sin frameworks, sin servidor y sin paso de build. El humano juega con X, el bot con O y bloquea o remata cuando puede ganar. Detecta victorias y empates, y añade un botón para reiniciar. Abrir index.html en el navegador debe bastar para jugar."
+   ```
+
+   Esto lanza el pipeline completo con tus defaults configurados (ej: Claude como coder, Codex como reviewer, metodología TDD).
+
+3. **Observa el pipeline**
+
+   Verás output en tiempo real a medida que cada rol se ejecuta:
+
+   ```
+   [triage]     Tarea simple → pipeline ligero
+   [coder]      Escribiendo index.html — tablero, estilos y lógica en JS vanilla...
+   [coder]      Commit: feat: create tic-tac-toe game in single HTML file
+   [sonar]      Omitido — no hay remoto git configurado
+   [impeccable] Auditoría de diseño superada
+   ✔ Pipeline completed (iteration 1/5)
+   ```
+
+   Triage clasificó esto como tarea simple, así que ejecutó un pipeline ligero — sin framework de test en una carpeta vacía la metodología es standard, y SonarQube se omite cuando no hay remoto que analizar. En un repo real con remoto y suite de tests verás además el quality gate de SonarQube y el bucle completo del reviewer, donde el coder recibe otra oportunidad cada vez que el reviewer encuentra problemas, hasta el límite de iteraciones.
+
+4. **Juégalo**
+
+   El resultado es un único `index.html` que puedes abrir directamente — sin servidor, sin build:
+
+   ```bash
+   git diff                  # Ver qué cambió
+   xdg-open index.html       # Linux — o haz doble clic en el fichero (open en macOS)
+   kj report                 # Resumen de la sesión
+   ```
+
+   Haz clic en una casilla para jugar con la X, y el bot responde con la O — bloqueando tus líneas y rematando cuando puede ganar. Pulsa **New Game** para reiniciar.
+
+</Steps>
+
+## Tres formas de usar `kj`
+
+### 1. Pipeline completo (`kj run`)
+
+El workflow estándar — el coder escribe, SonarQube analiza, el reviewer revisa, bucle hasta aprobación:
+
+```bash
+kj run "Corregir el bug de login que ignora contraseñas vacías"
+```
+
+### 2. Solo coder (`kj code`)
+
+Sin bucle de revisión. Útil para cambios rápidos que revisarás tú mismo:
+
+```bash
+kj code "Añadir un spinner de carga al dashboard"
+```
+
+### 3. Solo reviewer (`kj review`)
+
+Revisar el diff actual sin escribir código. Útil después de cambios manuales:
+
+```bash
+kj review "Revisar mi refactor de autenticación"
+```
+
+## Uso via MCP (recomendado)
+
+La forma más potente de usar Karajan Code es como **servidor MCP** dentro de tu agente de IA. Tras `npm install -g karajan-code`, el servidor MCP se auto-registra en Claude y Codex.
+
+Desde tu agente, simplemente pídele que ejecute una tarea:
+
+> "Usa kj_run para corregir la vulnerabilidad de inyección SQL en el endpoint de búsqueda"
+
+El agente envía la tarea a `kj_run`, recibe notificaciones de progreso en tiempo real, y obtiene resultados estructurados — todo sin salir de la conversación.
+
+Configuración MCP manual (si es necesario):
+
+```json
+{
+  "mcpServers": {
+    "karajan-mcp": {
+      "command": "karajan-mcp"
+    }
+  }
+}
+```
+
+Ver la [guía del Servidor MCP](/docs/es/guides/mcp-server/) para la lista completa de 27 herramientas disponibles.
+
+## Opciones comunes
+
+| Flag | Qué hace |
+|------|----------|
+| `--coder claude` | Elegir qué agente escribe código |
+| `--reviewer codex` | Elegir qué agente revisa |
+| `--methodology tdd` | Forzar test-driven development |
+| `--mode paranoid` | Usar el perfil de revisión más estricto |
+| `--enable-triage` | Clasificar automáticamente la complejidad |
+| `--enable-security` | Ejecutar auditoría de seguridad OWASP |
+| `--auto-commit` | Git commit tras aprobación |
+| `--no-sonar` | Saltar análisis SonarQube |
+| `--max-iterations 3` | Limitar bucles coder/reviewer |
+
+Para la lista completa, ver la [Referencia CLI](/docs/es/reference/cli/).
+
+## Qué ocurre durante una ejecución
+
+```
+triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
+```
+
+1. **Triage** (opcional) clasifica la complejidad de la tarea y activa solo los roles necesarios
+2. **Coder** escribe código y tests siguiendo metodología TDD
+3. **SonarQube** (opcional) ejecuta análisis estático con quality gates
+4. **Reviewer** revisa el código con exigencia configurable
+5. Si hay problemas, el **coder** recibe otra oportunidad con el feedback del reviewer
+6. Bucle hasta aprobación o límite de iteraciones
+
+Guardarraíles integrados previenen sesiones descontroladas: máximo de iteraciones, timeouts por iteración, timeout total de sesión, y topes de presupuesto estimado opcionales. Karajan no tiene coste adicional — ejecuta agentes CLI bajo tus suscripciones existentes.
+
+## Siguientes Pasos
+
+- [Pipeline](/docs/es/guides/pipeline/) — Entender cada rol en detalle
+- [Configuración](/docs/es/guides/configuration/) — Personalizar el pipeline
+- [Referencia CLI](/docs/es/reference/cli/) — Todos los comandos y flags
+- [Ejemplos](/docs/es/examples/fix-a-bug/) — Ejemplos de workflows reales

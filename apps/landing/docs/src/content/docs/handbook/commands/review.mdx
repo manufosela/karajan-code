@@ -1,0 +1,80 @@
+---
+title: kj review
+description: Reviewer-only — evaluate an existing diff against the task, no coder, no changes. The inverse of kj code.
+---
+
+`kj review` runs **just the reviewer** over a diff that already exists in your working tree (or against a base ref). It writes nothing, changes nothing — it returns the same structural judgement the reviewer gives inside `kj run`, but on code you (or anyone) wrote, on demand.
+
+## What it does
+
+`kj review` takes a task description — what the change was *supposed* to do — and the current diff, and invokes the reviewer role to evaluate whether the diff actually accomplishes that task correctly and cleanly. By default the diff is your uncommitted working-tree changes; `--base-ref` lets you review the delta against an arbitrary commit/branch instead.
+
+The reviewer produces a verdict (approve / reject) with structured findings: what's wrong, where, and whether each issue is structural (correctness, missing cases, broken contracts) or style-only. It's the exact same reviewer agent and rubric `kj run` uses in its iteration loop — the difference is there's no coder to act on the feedback and no loop to iterate. The output is the review itself; acting on it is up to you.
+
+Nothing is committed, nothing is modified. `kj review` is pure read-and-judge.
+
+## When to use
+
+- **Reviewing a human-written change** — `kj review "add rate limiting to /api/login"` before opening the PR.
+- **Reviewing a `kj code` result** — split the loop manually: `kj code` then `kj review`, deciding yourself whether to iterate.
+- **Reviewing against a branch** — `kj review "<intent>" --base-ref origin/main` to evaluate the whole feature branch's delta.
+- **A second opinion in CI** — run it on a PR diff with a reviewer agent different from whoever/whatever wrote the code.
+- **Pre-commit gate** — judge the working tree before you even stage.
+
+## When NOT to use
+
+- **You want the issues fixed, not just found** — `kj review` only reports. Feed the intent into [`kj run`](./run/) to get fix + review + iteration.
+- **There's no diff yet** — reviewing nothing returns nothing. Write the change first ([`kj code`](./code/)) or use [`kj run`](./run/).
+- **Whole-codebase quality assessment** — that's [`kj audit`](./audit/), which evaluates the codebase, not a changeset.
+- **Just a Sonar gate** — [`kj scan`](./scan/) is the deterministic-only path; `kj review` is the LLM reviewer's judgement.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | The intent the diff is meant to satisfy — the reviewer needs to know what "correct" means here. | — |
+| `--task-file <path>` | none | The intent is long or lives in a `.md`. | Supersedes the inline `[task]`. |
+| `--reviewer <name>` | config (`roles.reviewer.provider`) | Force a specific reviewer: `--reviewer gemini`. For a second opinion, pick one different from the code's author. | — |
+| `--reviewer-model <name>` | tier-driven | Pin the reviewer model. | — |
+| `--base-ref <ref>` | working-tree diff | Review the delta against a specific ref: `--base-ref origin/main`. | When set, reviews committed delta vs that ref instead of uncommitted changes. |
+
+## Examples
+
+### Typical: review your own change before the PR
+
+```bash
+kj review "Add exponential backoff to the webhook sender"
+```
+
+What happens: the reviewer reads your uncommitted diff against that stated intent and returns approve/reject with structured findings. You fix what matters and commit — you are the loop.
+
+### Review a feature branch against main
+
+```bash
+kj review "Implement SSO via SAML" --base-ref origin/main --reviewer codex
+```
+
+What happens: evaluates the entire branch delta vs `origin/main` using Codex as reviewer. Useful as a pre-merge second opinion when Claude wrote the code.
+
+### Manual code → review split
+
+```bash
+kj code "Refactor the retry helper to async/await"
+kj review "Refactor the retry helper to async/await"
+```
+
+What happens: you drive the iteration yourself — coder writes once, reviewer judges once, you decide whether to re-run. The `kj run` loop, unbundled.
+
+## How it works internally
+
+`kj review` is the reviewer role lifted out of the loop. The design point is that the reviewer's judgement has **value independent of the coder**: a diff doesn't care whether a human or an agent produced it, and the rubric (does this satisfy the intent, is it correct, is what's wrong structural or cosmetic) applies identically. Exposing it standalone means Karajan's review quality is available for human PRs, not just agent output — and it makes the `kj run` loop legible, because you can run its two halves (`kj code`, `kj review`) by hand and see exactly what the loop automates.
+
+The structural-vs-style classification in the output is the same signal `kj run` feeds to Solomon for arbitration. Standalone, that classification is for *you*: it tells you which findings are "must fix before merge" and which are "the reviewer's taste". Surfacing it rather than collapsing to a binary verdict is deliberate — a review that only says "rejected" without saying *which kind* of rejected forces the reader to re-derive what the tool already knows.
+
+## Related
+
+- [`kj code`](./code/) — the inverse: write a diff with no review.
+- [`kj run`](./run/) — bundles code + review + iteration into the converging loop.
+- [`kj audit`](./audit/) — whole-codebase evaluation rather than per-diff review.
+- [Pipeline roles → `reviewer`](../pipeline-roles/#reviewer) — the role this command runs standalone.
+- [Pipeline roles → `solomon`](../pipeline-roles/#solomon) — what arbitrates the structural/style split inside `kj run`.

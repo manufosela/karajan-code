@@ -1,0 +1,209 @@
+---
+title: Tutorial · Java
+description: Bootstrapea un CLI Java con Maven + JUnit 5 y entrega tu primera feature con Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="JVM" variant="note" /> · Tiempo estimado: ~15 min · Iteraciones Karajan: 2–3
+
+Este tutorial te lleva desde un directorio vacío hasta una feature mergeada en un pequeño proyecto **CLI Java** (Maven + JUnit 5). También cubre la variante Gradle — solo cambia el wrapper y el comando de tests.
+
+## Prerrequisitos
+
+Deberías haber completado el [setup común](/docs/es/examples/howto/): `npm install -g karajan-code`, `kj init` dentro del proyecto y un `kj doctor` verde. Si `kj doctor` está rojo, arréglalo antes — `kj run` se negará a arrancar.
+
+También necesitas JDK 17+ (`java --version`) y Maven 3.8+ (`mvn --version`) o un wrapper de Gradle.
+
+## Tutorial
+
+<Steps>
+
+1. **Bootstrapea el proyecto.**
+
+   ```bash
+   mkdir hello-java && cd hello-java
+   mvn -q archetype:generate -DgroupId=dev.kj.hello \
+     -DartifactId=hello-java -DarchetypeArtifactId=maven-archetype-quickstart \
+     -DinteractiveMode=false
+   mv hello-java/* . && rm -rf hello-java
+   git init -b main && git add -A && git commit -m "chore: scaffold"
+   ```
+
+   Abre `pom.xml` y sube JUnit a 5, más añade el plugin surefire para que `mvn test` ejecute JUnit 5:
+
+   ```xml
+   <properties>
+     <maven.compiler.source>17</maven.compiler.source>
+     <maven.compiler.target>17</maven.compiler.target>
+     <junit.version>5.10.2</junit.version>
+   </properties>
+
+   <dependencies>
+     <dependency>
+       <groupId>org.junit.jupiter</groupId>
+       <artifactId>junit-jupiter</artifactId>
+       <version>${junit.version}</version>
+       <scope>test</scope>
+     </dependency>
+   </dependencies>
+   ```
+
+   <Aside type="tip" title="Por qué JDK 17+">
+   El coder de Karajan tiende a sintaxis Java moderna (records, switch expressions, `var`). En JDK 11 tendrías rechazos del reviewer pidiendo backports. Si estás atascado en 11, decláralo explícitamente en el run y el planner se adapta.
+   </Aside>
+
+2. **Inicializa Karajan en el repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` crea `.karajan/` y escribe la configuración del orquestador; `kj doctor` confirma que los CLIs de los agentes, Docker, Ollama, los puertos están sanos y detecta el JDK + build tool.
+
+3. **Describe la feature en lenguaje natural.**
+
+   Sin fichero de spec. Sin JSON. Solo la tarea como se la dirías a un compañero:
+
+   ```bash
+   kj run "Añade un método estático 'greet(String name)' a \
+   src/main/java/dev/kj/hello/Greeter.java que devuelva 'Hello, <name>!'. \
+   Añade un test JUnit 5 en src/test/java/dev/kj/hello/GreeterTest.java \
+   que verifique la salida para el nombre 'world'." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="Qué pasa por debajo">
+   Con `--methodology tdd`, Karajan escribe primero el test que falla, luego la implementación, luego ejecuta `mvn test`. El reviewer (Codex por defecto, Claude como fallback) revisa el diff. Si lo rechaza, Karajan vuelve a llamar al coder — hasta `--max-iterations`. El adapter del tester reconoce Maven vía `pom.xml` y Gradle vía `build.gradle(.kts)` automáticamente.
+   </Aside>
+
+4. **Mira el run en el HU Board.**
+
+   Abre [http://localhost:4000](http://localhost:4000) en otra pestaña mientras el pipeline corre. Verás, en tiempo real:
+
+   - Cada rol activándose (planner → coder → tester → reviewer).
+   - El prompt y la respuesta exactos de cada llamada al agente.
+   - El diff tras cada iteración.
+   - La salida del surefire de Maven (o del test report de Gradle) línea a línea.
+   - El veredicto del reviewer.
+
+   También puedes hacer tail del mismo trace en el terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspecciona el resultado.**
+
+   ```bash
+   git status
+   git diff --stat
+   mvn test
+   ```
+
+   Salida esperada de `mvn test`:
+
+   ```
+   [INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+   [INFO] BUILD SUCCESS
+   ```
+
+6. **Mergea.**
+
+   Karajan no hace push ni merge por ti por defecto — esa decisión es tuya. Cuando estés contento con el diff:
+
+   ```bash
+   git checkout -b feat/greeter
+   git add -A && git commit -m "feat: add Greeter.greet(name)"
+   git push -u origin feat/greeter
+   gh pr create --fill
+   ```
+
+   O, si quieres que Karajan abra la PR por ti, añade `--auto-commit --auto-pr` a la invocación `kj run`.
+
+</Steps>
+
+## Errores posibles y cómo resolverlos
+
+<Aside type="caution" title="`mvn: command not found`">
+Instala Maven (`brew install maven` en macOS, `sdk install maven` vía SDKMAN en Linux). El doctor de Karajan marca el build tool faltante pero no instala toolchains JVM por ti.
+</Aside>
+
+<Aside type="caution" title="El reviewer rechaza con `JUnit 4 imports leaking`">
+El archetype scaffoldea JUnit 4 por defecto. Asegúrate de que la dependencia en `pom.xml` usa `junit-jupiter` (Jupiter = JUnit 5). El coder migra los imports automáticamente en la iteración 2 si hace falta.
+</Aside>
+
+<Aside type="caution" title="`kj run` sale con `no coder configured`">
+Ejecuta `kj doctor` y sigue las instrucciones de instalación del CLI del agente. La causa más común es tener Claude instalado pero sin sesión iniciada (`claude login`).
+</Aside>
+
+<Aside type="caution" title="El pipeline se queda en `coder:hibernate`">
+Has tocado techo de cuota. Karajan persiste la sesión a `~/.karajan/standby/<sessionId>.json`; resúmela con `kj standby list` y luego `kj standby resume <sessionId> --force` cuando se resetee la cuota.
+</Aside>
+
+## Variantes
+
+<Tabs>
+<TabItem label="Gradle (Kotlin DSL)">
+
+Mismo flow, distinta herramienta de build. Bootstrapea con el wrapper de Gradle:
+
+```bash
+mkdir hello-java && cd hello-java
+gradle init --type java-application --dsl kotlin --test-framework junit-jupiter
+git init -b main && git add -A && git commit -m "chore: scaffold"
+```
+
+Y lanza la misma invocación `kj run`. Karajan auto-detecta `build.gradle.kts` y usa `./gradlew test` en lugar de `mvn test`.
+
+</TabItem>
+<TabItem label="Con MCP">
+
+El mismo run lanzado vía MCP desde cualquier cliente MCP-capable (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añade un método estático 'greet(String name)' devolviendo 'Hello, <name>!'. Test JUnit 5.",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Quality gate más estricto">
+
+Añade `--mode strict` y los collectors deterministas de seguridad:
+
+```bash
+kj run "<tarea>" \
+  --mode strict \
+  --enable-security \
+  --enable-sonarcloud \
+  --methodology tdd
+```
+
+Esto cablea los collectors OSV-Scanner y Semgrep en el audit (ruleset Java activado), y gatea el merge contra el quality gate de Sonar además del veredicto del reviewer. El analizador Java de Sonar es particularmente fuerte en null-safety y resource leaks.
+
+</TabItem>
+</Tabs>
+
+## Siguientes pasos
+
+<Card title="Otros stacks" icon="seti:folder">
+Misma receta, distinto bootstrap: [Node CLI](/docs/es/examples/howto/node-cli/) · [Python](/docs/es/examples/howto/python/) · [Web Component](/docs/es/examples/howto/web-component/) · [REST API (Node)](/docs/es/examples/howto/rest-api-node/) · [Go](/docs/es/examples/howto/go/) · [Rust](/docs/es/examples/howto/rust/)
+</Card>
+
+<Card title="Volver al índice" icon="open-book">
+[Índice How-To](/docs/es/examples/howto/) · setup + troubleshooting
+</Card>

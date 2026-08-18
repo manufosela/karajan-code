@@ -1,0 +1,215 @@
+---
+title: Tutorial · Rust
+description: Bootstrapea un crate CLI Rust con clap + cargo test y entrega tu primera feature con Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Systems" variant="note" /> · Tiempo estimado: ~15 min · Iteraciones Karajan: 2–3
+
+Este tutorial te lleva desde un directorio vacío hasta una feature mergeada en un pequeño crate **CLI Rust** usando `cargo` + `clap` para parsear argumentos. Incluye el loop de tests exacto que Karajan usa para gatear merges (`cargo test`), para que lo puedas re-ejecutar sobre un repo real cambiando el bootstrap por `cd <tu-repo>`.
+
+## Prerrequisitos
+
+Deberías haber completado el [setup común](/docs/es/examples/howto/): `npm install -g karajan-code`, `kj init` dentro del proyecto y un `kj doctor` verde. Si `kj doctor` está rojo, arréglalo antes — `kj run` se negará a arrancar.
+
+También necesitas una toolchain de Rust vía [rustup](https://rustup.rs) (`rustc --version` → 1.75+ recomendado) y `cargo` en `PATH`.
+
+## Tutorial
+
+<Steps>
+
+1. **Bootstrapea el proyecto.**
+
+   ```bash
+   cargo new hello-rs --bin
+   cd hello-rs
+   cargo add clap --features derive
+   git add -A && git commit -m "chore: scaffold"
+   ```
+
+   `cargo new --bin` genera `Cargo.toml`, `src/main.rs` con un stub `Hello, world!` e inicializa un repo git automáticamente. Confirma que `cargo test` corre (reportará 0 tests por ahora):
+
+   ```bash
+   cargo test
+   ```
+
+   <Aside type="tip" title="Por qué clap con derive">
+   La feature `derive` permite a Karajan generar el parser CLI desde un struct (`#[derive(Parser)]`), que es el patrón idiomático 2024 y lo que el reviewer espera. Sin ella, el coder cae en código estilo builder más difícil de mantener y que recibe rechazos en revisión.
+   </Aside>
+
+2. **Inicializa Karajan en el repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` crea `.karajan/` y escribe la configuración del orquestador; `kj doctor` confirma que los CLIs de los agentes, Docker, Ollama, los puertos están sanos y detecta la toolchain de Rust (versión de `cargo`, `rustc`).
+
+3. **Describe la feature en lenguaje natural.**
+
+   Sin fichero de spec. Sin JSON. Solo la tarea como se la dirías a un compañero:
+
+   ```bash
+   kj run "Añade un subcomando 'greet --name=<name>' a src/main.rs \
+   usando clap con derive. Debe imprimir 'Hello, <name>!' por stdout. \
+   Si falta --name, imprime 'Hello, stranger!'. Añade tests unitarios \
+   en un módulo #[cfg(test)] cubriendo la función greet para ambos casos." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="Qué pasa por debajo">
+   Con `--methodology tdd`, Karajan escribe primero los tests que fallan, luego la implementación, luego ejecuta `cargo test`. El reviewer (Codex por defecto, Claude como fallback) revisa el diff buscando Rust idiomático: `Result<T, E>` en lugar de `unwrap()` en código de librería, `&str` vs `String`, derive macros sobre llamadas builder. Si lo rechaza, Karajan vuelve a llamar al coder — hasta `--max-iterations`. El adapter del tester detecta `Cargo.toml` automáticamente.
+   </Aside>
+
+4. **Mira el run en el HU Board.**
+
+   Abre [http://localhost:4000](http://localhost:4000) en otra pestaña mientras el pipeline corre. Verás, en tiempo real:
+
+   - Cada rol activándose (planner → coder → tester → reviewer).
+   - El prompt y la respuesta exactos de cada llamada al agente.
+   - El diff tras cada iteración.
+   - La salida de `cargo test` línea a línea, incluyendo warnings de `rustc`.
+   - El veredicto del reviewer.
+
+   También puedes hacer tail del mismo trace en el terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspecciona el resultado.**
+
+   ```bash
+   git status
+   git diff --stat
+   cargo test
+   ```
+
+   Salida esperada de `cargo test`:
+
+   ```
+   running 2 tests
+   test tests::greet_with_name ... ok
+   test tests::greet_without_name ... ok
+
+   test result: ok. 2 passed; 0 failed; 0 ignored
+   ```
+
+   Comprueba en vivo:
+
+   ```bash
+   cargo run -- greet --name=world
+   # Hello, world!
+   cargo run -- greet
+   # Hello, stranger!
+   ```
+
+6. **Mergea.**
+
+   Karajan no hace push ni merge por ti por defecto — esa decisión es tuya. Cuando estés contento con el diff:
+
+   ```bash
+   git checkout -b feat/greet
+   git add -A && git commit -m "feat: add greet subcommand"
+   git push -u origin feat/greet
+   gh pr create --fill
+   ```
+
+   O, si quieres que Karajan abra la PR por ti, añade `--auto-commit --auto-pr` a la invocación `kj run`.
+
+</Steps>
+
+## Errores posibles y cómo resolverlos
+
+<Aside type="caution" title="`cargo: command not found`">
+Instala Rust vía rustup: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`. El doctor de Karajan marca toolchains faltantes pero no instala Rust por ti.
+</Aside>
+
+<Aside type="caution" title="El reviewer rechaza con `unwrap() in library code`">
+Usaste `args.name.unwrap()` en lugar de pattern matching con `Option`. El reviewer es estricto con paths no-panicking en código de librería — `unwrap` está bien en tests, pero el código de producción debe usar `match` o `unwrap_or`. El coder lo reescribe en la iteración 2.
+</Aside>
+
+<Aside type="caution" title="`kj run` sale con `no coder configured`">
+Ejecuta `kj doctor` y sigue las instrucciones de instalación del CLI del agente. La causa más común es tener Claude instalado pero sin sesión iniciada (`claude login`).
+</Aside>
+
+<Aside type="caution" title="El pipeline se queda en `coder:hibernate`">
+Has tocado techo de cuota. Karajan persiste la sesión a `~/.karajan/standby/<sessionId>.json`; resúmela con `kj standby list` y luego `kj standby resume <sessionId> --force` cuando se resetee la cuota.
+</Aside>
+
+## Variantes
+
+<Tabs>
+<TabItem label="Con MCP">
+
+El mismo run lanzado vía MCP desde cualquier cliente MCP-capable (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añade un subcomando clap 'greet --name=<name>' imprimiendo 'Hello, <name>!' (o 'Hello, stranger!' si falta). Tests unitarios en #[cfg(test)].",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Crate de librería (sin binario)">
+
+Si estás construyendo un crate de librería en lugar de un CLI:
+
+```bash
+cargo new hello-rs --lib
+cd hello-rs
+```
+
+Después lanza con un hint explícito:
+
+```bash
+kj run "Implementa pub fn greet(name: Option<&str>) -> String en \
+src/lib.rs devolviendo 'Hello, <name>!' o 'Hello, stranger!'. \
+Añade tests unitarios #[cfg(test)]." \
+  --methodology tdd \
+  --max-iterations 5
+```
+
+El coder se salta la dependencia clap y escribe una API de librería pura. `cargo doc --open` genera docs navegables a partir de los comentarios `///`.
+
+</TabItem>
+<TabItem label="Quality gate más estricto">
+
+Añade `--mode strict` y los collectors deterministas de seguridad:
+
+```bash
+kj run "<tarea>" \
+  --mode strict \
+  --enable-security \
+  --enable-sonarcloud \
+  --methodology tdd
+```
+
+Esto cablea los collectors OSV-Scanner y Semgrep en el audit (ruleset Rust activado), y gatea el merge contra el quality gate de Sonar además del veredicto del reviewer. Para Rust en concreto también puedes activar `cargo clippy -- -D warnings` y `cargo audit` vía la config `audit.tools` — el reviewer de Karajan lee su salida como señal adicional.
+
+</TabItem>
+</Tabs>
+
+## Siguientes pasos
+
+<Card title="Otros stacks" icon="seti:folder">
+Misma receta, distinto bootstrap: [Node CLI](/docs/es/examples/howto/node-cli/) · [Python](/docs/es/examples/howto/python/) · [Web Component](/docs/es/examples/howto/web-component/) · [REST API (Node)](/docs/es/examples/howto/rest-api-node/) · [Java](/docs/es/examples/howto/java/) · [Go](/docs/es/examples/howto/go/)
+</Card>
+
+<Card title="Volver al índice" icon="open-book">
+[Índice How-To](/docs/es/examples/howto/) · setup + troubleshooting
+</Card>

@@ -1,0 +1,61 @@
+---
+title: kaRAGan — karajan-rag
+description: The context-strategy engine of the Karajan family — RAG, CAG and hybrid over the same index, sensitivity-first, from laptop to Cloud Run.
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+**karajan-rag** (kaRAGan) is the context engine of the Karajan family:
+index a codebase, documents or data with one command and decide — with
+data, not faith — which context travels to the model. Everything runs
+through the same guarded path: sensitivity policy plus PII redaction on
+every output towards an LLM.
+
+```bash
+npm install -g karajan-rag
+karajan-rag index ./my-project
+karajan-rag query "how is billing calculated?" ./my-project
+```
+
+<CardGrid stagger>
+  <Card title="A context-strategy engine" icon="setting">
+    Not just retrieval: `rag` (top-k chunks), `cag` (whole corpus,
+    cache-friendly) and `hybrid` (whole files picked by retrieval) over
+    the same index — and `eval --compare-modes` to choose with numbers.
+  </Card>
+  <Card title="Sensitivity first" icon="seti:lock">
+    `public` / `internal` / `confidential` per corpus or path prefix.
+    The policy routes every LLM call; `redactPII` runs in depth. Audited
+    end to end — the full third-party review trail is
+    [published verbatim](https://github.com/manufosela/karajan-rag/tree/main/docs/security/reviews).
+  </Card>
+  <Card title="Serve it anywhere" icon="rocket">
+    MCP server for agents, HTTP API with a self-contained web
+    playground, or embed it with `createRag()` — same `RagService`
+    underneath, from laptop to Cloud Run.
+  </Card>
+  <Card title="No silent fallbacks" icon="warning">
+    Missing peer, invalid config or incompatible vector space fail
+    loudly with the exact fix. The local flow is deterministic: no
+    credentials, no network.
+  </Card>
+</CardGrid>
+
+## Start here
+
+<CardGrid>
+  <LinkCard title="RAG in 5 minutes" href="/docs/karagan/quickstart/" description="Index, query, answer — offline and credential-free." />
+  <LinkCard title="Context strategies" href="/docs/karagan/context-strategies/" description="rag vs cag vs hybrid, and how to decide with data." />
+  <LinkCard title="Serve and configure" href="/docs/karagan/serve/" description="MCP for agents, HTTP + playground, project defaults." />
+  <LinkCard title="Sensitivity and privacy" href="/docs/karagan/sensitivity/" description="Levels, policy routing and PII redaction." />
+  <LinkCard title="Container and GCP" href="/docs/karagan/deploy/" description="Docker and Terraform: private by default on Cloud Run." />
+  <LinkCard title="Embeddable SDK" href="/docs/karagan/sdk/" description="createRag() in Astro, Next, Fastify or any Node worker." />
+</CardGrid>
+
+:::note[Source of truth]
+These pages are synced from the canonical docs in the
+[karajan-rag repo](https://github.com/manufosela/karajan-rag) (pinned to
+`v1.5.0`) — they are regenerated, never hand-copied. Landing:
+[rag.karajancode.com](https://rag.karajancode.com) · npm:
+[karajan-rag](https://www.npmjs.com/package/karajan-rag)
+:::

@@ -1,0 +1,14 @@
+{
+  "name": "karajan-telemetry-functions",
+  "description": "Firebase Functions backend for Karajan Code telemetry",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "private": true
+}

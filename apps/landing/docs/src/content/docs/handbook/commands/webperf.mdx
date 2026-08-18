@@ -1,0 +1,77 @@
+---
+title: kj webperf
+description: Run a Lighthouse scan against a URL — Core Web Vitals + opportunities, persisted for kj audit to read.
+---
+
+`kj webperf <url>` runs **Lighthouse** against a live URL and reports Core Web Vitals (LCP, INP, CLS) plus the prioritised opportunities. It's the one command that drives a real headless browser — and the producer of the web-perf result `kj audit` later consumes.
+
+## What it does
+
+`kj webperf` takes a target URL, launches Lighthouse against it in a headless browser, and parses the result into Core Web Vitals and a ranked list of performance opportunities (render-blocking resources, unoptimised images, excessive main-thread work, …). It prints a verdict and, by default, **persists** the result to `~/.karajan/webperf/<slug>/last.json`.
+
+That persistence is the integration point: [`kj audit`](./audit/) does not launch a browser — it *reads* this file into its performance section. So `kj webperf` is both a standalone tool and the upstream producer for the audit's web-perf input. `--no-persist` runs it as a pure one-off without writing the file.
+
+The exit code is meaningful: a FAIL verdict exits non-zero so CI can gate a deploy on Core Web Vitals. `--mobile` switches from the default desktop preset to Lighthouse's mobile throttling profile.
+
+## When to use
+
+- **Checking a deployed/staging frontend** — `kj webperf https://staging.example.com`.
+- **Feeding the audit's perf section** — run `kj webperf` first, then `kj audit` reads the result.
+- **CI performance gate** — `kj webperf <url> --mobile` failing the build on a CWV regression.
+- **Before/after a frontend optimisation** — measure, optimise, measure again.
+- **Mobile-profile check** — `--mobile` to see throttled real-world numbers, not desktop best-case.
+
+## When NOT to use
+
+- **Backend / API / CLI projects** — no rendered page, nothing for Lighthouse to measure. Skip it (it's stack-gated in [`kj install-tools`](./install-tools/) for this reason).
+- **No running URL** — Lighthouse needs a live endpoint. Start the server first; `kj webperf` can't measure source.
+- **You want code-level perf findings** — that's the performance dimension of [`kj audit`](./audit/) (N+1, sync I/O). `kj webperf` measures the rendered result, not the source.
+- **Lighthouse not installed** — install via [`kj install-tools`](./install-tools/) first.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `<url>` (arg) | — | The live target. Required. | — |
+| `--mobile` | desktop preset | Measure under Lighthouse's mobile throttling — closer to real-world median hardware. | Changes the numbers; pick one preset consistently for before/after comparisons. |
+| `--json` | off | Programmatic consumption / CI parsing. | — |
+| `--no-persist` | persist on | Pure one-off — don't write `~/.karajan/webperf/<slug>/last.json`. | When off, `kj audit` won't see this run's result. |
+
+## Examples
+
+### Typical: scan a staging deploy
+
+```bash
+kj webperf https://staging.example.com
+```
+
+What happens: Lighthouse runs desktop-preset against the URL, prints CWV + opportunities, persists `last.json`. A later `kj audit` picks it up automatically.
+
+### CI gate on mobile CWV
+
+```bash
+kj webperf https://preview-$PR.example.com --mobile --json || exit 1
+```
+
+What happens: mobile-throttled scan, JSON for the pipeline, non-zero exit on a FAIL verdict stops the deploy. Gate Core Web Vitals per-PR.
+
+### One-off, don't pollute the audit input
+
+```bash
+kj webperf http://localhost:3000 --no-persist
+```
+
+What happens: quick local check; nothing written, so the next `kj audit` keeps using whatever the last *real* measurement was rather than a localhost number.
+
+## How it works internally
+
+The **persist-then-read decoupling is the key design decision**. Running Lighthouse is expensive and explicit — it needs a live URL, a browser, real seconds. The audit, by contrast, should be cheap and runnable anytime. Coupling them (audit launches Lighthouse) would make every audit slow and require a running frontend even when you only want the code dimensions. So `kj webperf` owns the expensive browser run and writes a snapshot; `kj audit` just consumes the latest snapshot. The trade-off is honest and visible: the audit's perf section is as fresh as your last `kj webperf`, no more — and `--no-persist` exists so throwaway local runs don't silently become the audit's truth.
+
+The meaningful exit code reflects the same philosophy as `kj scan` and `kj doctor`: these are designed to be CI gates, not just human-facing reports. A perf number nobody can gate on is decoration; a non-zero exit on FAIL makes Core Web Vitals enforceable in the same `||  exit 1` shape as every other deterministic check in the suite.
+
+## Related
+
+- [`kj audit`](./audit/) — reads the `last.json` this command persists into its performance section.
+- [`kj install-tools`](./install-tools/) — installs Lighthouse (stack-gated to frontend/fullstack).
+- [External tools → Lighthouse](../external-tools/#lighthouse) — what Lighthouse is and the integration mechanics.
+- [Pipeline roles → `perf`](../pipeline-roles/#perf) — the `kj run` role that gates frontend changes on CWV.

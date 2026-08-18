@@ -1,0 +1,71 @@
+---
+title: kj scan
+description: Corre solo el escaneo SonarQube y el quality gate — la rebanada solo-determinista del pipeline, sin LLM.
+---
+
+`kj scan` corre **solo el escaneo SonarQube** contra el proyecto actual y reporta el quality gate. Sin coder, sin reviewer, sin LLM, sin tokens. Es la señal externa y determinista de `kj run`, disponible por sí sola.
+
+## Qué hace
+
+`kj scan` invoca el Sonar scanner contra tu codebase usando el servidor SonarQube gestionado localmente, espera el análisis, y reporta el quality gate resultante (pass/fail) más los findings (bugs, vulnerabilidades, code smells, duplicación, cobertura). Es exactamente el escaneo que el rol `sonar` hace dentro del loop de `kj run` — aquí standalone y one-shot.
+
+Requiere un contenedor SonarQube corriendo (gestionado vía [`kj sonar`](./sonar/) / levantado por [`kj init`](./init/)), que a su vez requiere Docker. Si Sonar es inalcanzable, `kj scan` no puede hacer su trabajo — a diferencia del colector del audit, que se degrada en silencio, `scan` *es* el paso Sonar, así que no queda nada que hacer sin él.
+
+El output es determinista y reproducible: el mismo código da los mismos findings. Nada se modifica.
+
+## Cuándo usarlo
+
+- **Check de calidad pre-commit** — `kj scan` antes de hacer stage, para cazar smells/caídas de cobertura que Sonar marca.
+- **Gate determinista de CI** — un paso de pipeline que falla el build ante un quality gate rojo, con cero coste LLM.
+- **Aislar una regresión de Sonar** — cuando `kj run` reporta un fallo de Sonar y quieres reproducir solo eso, rápido.
+- **Baseline antes de un refactor** — scan, refactor, scan otra vez, comparas.
+
+## Cuándo NO usarlo
+
+- **Quieres findings explicados / arreglados** — `kj scan` reporta output Sonar crudo. Para razonamiento LLM sobre él usa [`kj audit`](./audit/); para arreglar, [`kj run`](./run/).
+- **Sin Docker / sin Sonar** — `kj scan` no puede correr. Usa [`kj audit --deterministic-only`](./audit/) para una pasada determinista sin Sonar, o [`kj install-tools`](./install-tools/) para provisionarlo.
+- **Salud multi-dimensional** — Sonar es una lente. [`kj audit`](./audit/) añade OSV, Semgrep, dead-exports y las seis dimensiones LLM.
+
+## Opciones
+
+`kj scan` no toma **opciones**. Escanea el proyecto actual con el servidor Sonar configurado y reporta el gate. Esto es deliberado — es el comando más reproducible de la suite, y los flags solo añadirían formas de hacerlo menos reproducible. La configuración (project key, server URL, token) vive en `karajan.config.yml`, fijada por [`kj init`](./init/).
+
+## Ejemplos
+
+### Típico: gate pre-commit
+
+```bash
+kj scan
+```
+
+Qué pasa: escanea el working tree, imprime el quality gate y los findings agrupados por severidad. El exit refleja el estado del gate, así que `kj scan && git commit ...` solo commitea en verde.
+
+### Paso de CI, cero tokens
+
+```bash
+kj scan || exit 1
+```
+
+Qué pasa: en un job de CI, el escaneo corre contra el Sonar del proyecto; un gate rojo para el pipeline. Sin LLM, sin coste, totalmente reproducible — el primer gate barato antes de cualquier `kj run`.
+
+### Reproducir un fallo de Sonar del pipeline
+
+```bash
+kj sonar status && kj scan
+```
+
+Qué pasa: confirma que el contenedor está arriba, luego corre exactamente el escaneo que el rol `sonar` de `kj run` corre — aislando si el fallo es Sonar o algo más en el loop.
+
+## Cómo funciona por dentro
+
+`kj scan` es el rol `sonar` sin nada atado. Existe porque la **señal determinista es valiosa precisamente por ser determinista**: la opinión del reviewer puede variar de run a run, pero un quality gate de Sonar sobre código fijo no. Exponerlo standalone te da un gate estable y de coste cero que puedes poner delante del pipeline caro — muchos setups de CI corren `kj scan` en cada push y `kj run` solo cuando está verde, porque quemar tokens LLM en código que falla el análisis estático es desperdicio.
+
+El diseño sin opciones es intencional, no una omisión. Cualquier otro comando gana expresividad con flags; toda la propuesta de valor de `kj scan` es la reproducibilidad, y la configuración que afecta resultados pertenece al `karajan.config.yml` commiteado donde está versionada y compartida, no en flags de invocación que driftean entre máquinas. La dependencia dura de un Sonar alcanzable (en vez de degradación con gracia como el colector del audit) también es deliberada: `kj audit` puede perder uno de varios inputs y seguir siendo útil, pero un `kj scan` que "tuvo éxito" sin escanear de verdad sería un falso verde peligroso.
+
+## Relacionado
+
+- [`kj sonar`](./sonar/) — gestiona el contenedor SonarQube del que `kj scan` depende.
+- [`kj audit`](./audit/) — razonamiento LLM sobre findings de Sonar más cinco inputs adicionales.
+- [`kj run`](./run/) — corre este escaneo como el rol `sonar` dentro del loop.
+- [Herramientas externas → SonarQube](../external-tools/#sonarqube) — qué es Sonar y cómo Karajan lo integra.
+- [Roles del pipeline → `sonar`](../pipeline-roles/#sonar) — el rol que este comando corre standalone.

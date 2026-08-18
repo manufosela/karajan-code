@@ -1,0 +1,64 @@
+---
+title: Handbook
+description: Karajan Code in depth — every command, every option, every pipeline role, with the reasoning behind each decision.
+---
+
+:::caution[v3 docs (legacy)]
+You are reading the docs for the v3 headless pipeline. Karajan v4 attaches to the AI agent you already work with — start at [Install (v4)](/docs/v4/install/).
+:::
+
+The **Handbook** is the long-form companion to the [CLI reference](../reference/cli/). The reference is the quick lookup ("what does `--enable-tester` do?"); the handbook is the deep dive ("when does enabling the tester role actually pay off, when is it overkill, and how does it interact with TDD methodology?").
+
+Every page follows the same canonical structure so you always know where to find the bit you need:
+
+- **What it does** — detailed behaviour, in plain prose.
+- **When to use** — concrete scenarios where the command/role/option pays off, each with a one-line example.
+- **When NOT to use** — scenarios where it's overhead, noise, or a footgun, with the reason why.
+- **Options** — every flag with default, when to flip it, and how it interacts with the rest.
+- **Examples** — 3-5 representative recipes (typical use, CI/automation, advanced).
+- **How it works internally** — 2-3 paragraphs of reasoning for users who want the "why behind the why".
+- **Related** — links to the rest of the handbook.
+
+## Where to start
+
+If you've never used Karajan before, start at **[Install (v4)](/docs/v4/install/)** — your agent drives kj there. This handbook covers the v3 headless pipeline in depth; come here when you run `kj` directly (CI, automation, `kj advanced` commands) and want the reasoning behind each option.
+
+From there, what you read depends on what you're trying to do:
+
+| Goal | Start here |
+| --- | --- |
+| Understand `kj run` end-to-end | [`kj run`](./commands/run/) and [Pipeline roles](./pipeline-roles/) |
+| Generate and execute a plan | [`kj plan`](./commands/plan/) |
+| Audit a codebase | [`kj audit`](./commands/audit/) and [Audit dimensions](./audit-dimensions/) |
+| Set up your environment | [`kj init`](./commands/init/) → [`kj doctor`](./commands/doctor/) → [`kj install-tools`](./commands/install-tools/) |
+| Pick the right external tool | [External tools](./external-tools/) |
+| Run a single role standalone | [`kj code`](./commands/code/), [`kj review`](./commands/review/), [`kj scan`](./commands/scan/), [`kj triage`](./commands/triage/) |
+
+## Sections
+
+- **Commands** — one page per `kj` command with the full Handbook treatment. See the sidebar under "Handbook" for the full list.
+- **Pipeline roles** — the 24 roles that make up `kj run`: when each activates, why it exists, when it's overhead. [Read it →](./pipeline-roles/)
+- **Audit dimensions** — the six dimensions `kj audit` evaluates (security, codeQuality, performance, architecture, testing, accessibility). [Read it →](./audit-dimensions/)
+- **External tools** — the five non-bundled tools Karajan integrates with (Sonar, OSV-Scanner, Semgrep, Lighthouse, Docker): what each adds, how Karajan calls them, what to do when they're missing. [Read it →](./external-tools/)
+
+## Reading order suggestions
+
+**"I want to start running real pipelines today":**
+1. [`kj init`](./commands/init/)
+2. [`kj doctor`](./commands/doctor/) → [`kj install-tools`](./commands/install-tools/)
+3. [`kj run`](./commands/run/) — read the "What it does", skim the options, run a tiny task.
+4. Come back to [Pipeline roles](./pipeline-roles/) the first time you wonder "what is `solomon` and why is it firing?"
+
+**"I want to understand the design":**
+1. [Pipeline roles](./pipeline-roles/) — the heart of the system.
+2. [`kj run`](./commands/run/) → "How it works internally" section at the end.
+3. [Audit dimensions](./audit-dimensions/) — what counts as a finding and why.
+
+**"I'm setting up CI/CD automation":**
+1. [`kj run`](./commands/run/) — focus on `--yes`, `--methodology`, `--max-iterations`, `--auto-pr`.
+2. [`kj plan`](./commands/plan/) and [`kj audit`](./commands/audit/) — both have `--deterministic-only` flags worth knowing.
+3. [`kj install-tools`](./commands/install-tools/) — `--yes --only <subset>` for non-interactive provisioning.
+
+---
+
+The handbook is updated alongside every minor release. If you find a discrepancy between the handbook and what `kj` actually does in the version you're running, please [open an issue](https://github.com/manufosela/karajan-code/issues). The page footer of every entry shows the version it was last revised against.

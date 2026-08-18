@@ -1,0 +1,3 @@
+.firebase/
+*.log
+node_modules/

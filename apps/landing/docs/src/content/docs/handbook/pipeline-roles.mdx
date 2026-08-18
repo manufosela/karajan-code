@@ -1,0 +1,911 @@
+---
+title: Pipeline roles
+description: The 24 roles that make up kj run — what each does, when it activates, when it pays off, when it's overhead.
+---
+
+`kj run` is a pipeline of **roles**. A role is a logical task ("review the diff", "scan with Sonar", "decide arbitrage between coder and reviewer") backed by either an AI agent, a deterministic check, or a managed subprocess.
+
+This page documents every role with the same shape:
+
+- **Default** — is it on, opt-in (`--enable-X`), or config-driven.
+- **Phase** — pre-loop (runs once before iteration starts) / iteration (runs every loop) / post-loop (runs once after approval).
+- **What it does, Why it exists, When it activates, When it pays off, When it doesn't, Example.**
+
+Use the sidebar TOC on the right (or Ctrl-F) to jump to a role. The roles below are grouped by phase.
+
+---
+
+## Pre-loop roles
+
+These run once at the start of `kj run`. Their job is to set up the context the iteration loop will consume.
+
+### intent
+
+**Default:** on (always runs).
+**Phase:** pre-loop.
+
+#### What it does
+
+Reads the task description and infers the **task type**: `sw` (software change), `infra` (devops/CI/config), `doc` (documentation), `add-tests` (test-only change), `refactor`, or `audit` (read-only analysis). The inferred type drives downstream decisions: which roles auto-activate, whether the coder loop runs at all, what stages can be skipped.
+
+#### Why it exists
+
+Without intent, every task would go through the full software-change pipeline (coder + sonar + reviewer + iteration). For a doc change or a Python config tweak, that's wasted tokens and time. Intent lets Karajan pick the right shape automatically.
+
+#### When it activates
+
+Always, first thing in `kj run`. The detection is deterministic (keyword + structural heuristics on the task text), not LLM-based — so it's free.
+
+#### When it pays off
+
+- Doc-only tasks ("Update README's install section") — intent classifies as `doc`, sonar/tdd/reviewer skip, you save 80% of the pipeline.
+- Test-only tasks ("Add coverage for the auth middleware") — intent classifies as `add-tests`, the coder is prompted differently.
+
+#### When it doesn't
+
+Never costs anything. If you disagree with its classification, override with `--task-type sw` (or whichever).
+
+#### Example
+
+```bash
+kj run "Add a section about troubleshooting to docs/getting-started.md"
+# Intent → "doc" → skips coder loop, runs only writer + reviewer on doc style.
+```
+
+---
+
+### triage
+
+**Default:** off — `--enable-triage` (auto-on under `--mode paranoid`).
+**Phase:** pre-loop.
+
+#### What it does
+
+Classifies the task complexity (trivial / simple / medium / complex) and picks a **model tier** for each role: haiku for trivial, sonnet for medium, opus for complex. With `--smart-models` (default when triage is on), expensive roles use cheaper models when the task allows.
+
+#### Why it exists
+
+Most tasks are not complex. Using Opus/GPT-4o-class models for "fix a typo" is overpaying. Triage lets Karajan match the model to the task.
+
+#### When it activates
+
+Only with `--enable-triage` or `--mode paranoid`.
+
+#### When it pays off
+
+- Codebases with mixed task complexity. The cost savings on the long tail of trivial tasks compound.
+- CI runs where you're billed per token.
+
+#### When it doesn't
+
+- Tasks where you've already pinned the model with `--coder-model`. Triage is bypassed.
+- Single-task runs where the overhead of running triage (one LLM call) doesn't amortise.
+
+#### Example
+
+```bash
+kj run "Add an alias for --enable-tester to be -t" --enable-triage
+# Triage → "trivial" → coder uses haiku, saves ~80% in coder tokens.
+```
+
+---
+
+### discover
+
+**Default:** off — `--enable-discover`.
+**Phase:** pre-loop.
+
+#### What it does
+
+Searches the codebase for code patterns, files, and modules related to the task. Produces a structured summary (paths, signatures, related tests) that gets injected into the coder's prompt as pre-resolved context.
+
+#### Why it exists
+
+Modern coder agents (Claude Code, Codex CLI) do their own discovery internally on every iteration — they grep, glob, Read. That's expensive when the iteration loop runs 3-5 times. Discover does it **once**, the result feeds every subsequent iteration for free.
+
+#### When it activates
+
+Only with `--enable-discover`.
+
+#### When it pays off
+
+- Codebases >20k LOC where exploration costs tokens.
+- Tasks touching already-implemented code (refactors, extensions, bug fixes in old features).
+- Multi-iteration runs (`--max-iterations > 1`).
+
+#### When it doesn't
+
+- Greenfield projects — nothing to discover.
+- Single-file tasks.
+- `--max-iterations 1` runs — the savings don't amortise.
+
+#### Example
+
+```bash
+kj run "Replace bcrypt with argon2 in src/auth/*" --enable-discover
+# Discover finds: src/auth/hash.js, src/auth/verify.js, 3 tests, package.json has bcrypt@5.
+# Coder receives this context in iter 1 and every iter after.
+```
+
+---
+
+### researcher
+
+**Default:** off — `--enable-researcher`.
+**Phase:** pre-loop.
+
+#### What it does
+
+Investigates **external** information: library options, design patterns, best practices for the technology stack detected. Produces a research brief that informs the architect/coder.
+
+#### Why it exists
+
+Decisions like "what caching strategy?" or "which JWT library?" benefit from a single, focused research pass rather than the coder making the call mid-iteration.
+
+#### When it activates
+
+Only with `--enable-researcher`.
+
+#### When it pays off
+
+- Tasks where the tech is undecided ("Add caching" — Redis? In-memory? CDN?).
+- Tasks introducing new dependencies.
+- When paired with `--enable-architect` — gives architect concrete options to choose from.
+
+#### When it doesn't
+
+- Bug fixes (the fix is the fix).
+- Tasks with prescribed tech ("Use Redis", "Use jsonwebtoken").
+- Mechanical work (rename, move, format).
+
+#### Example
+
+```bash
+kj run "Implement rate limiting on /api/login" --enable-researcher
+# Researcher brief: leaky bucket vs token bucket, in-memory vs Redis, npm libs (rate-limiter-flexible vs express-rate-limit).
+# Coder picks one with context.
+```
+
+---
+
+### architect
+
+**Default:** off — `--enable-architect`.
+**Phase:** pre-loop (after researcher).
+**Pairs with:** `researcher`.
+
+#### What it does
+
+Designs the solution shape **before** the coder writes anything: data model changes, API contracts, module boundaries, dependency graph. Output is a markdown design doc that goes into the coder's prompt.
+
+#### Why it exists
+
+For non-trivial changes, having the architecture decided upfront prevents the coder from getting stuck in local optima ("I'll just add another field to this table" instead of normalising properly).
+
+#### When it activates
+
+Only with `--enable-architect`.
+
+#### When it pays off
+
+- New features touching ≥3 modules.
+- Changes with database schema or API contract impact.
+- When the task description is high-level ("add a permissions system") — architect turns it into concrete decisions.
+
+#### When it doesn't
+
+- Tasks ≤1 file.
+- When you've already designed it yourself (pass the design via `--task-file` or `--domain` instead).
+
+#### Example
+
+```bash
+kj run "Add organization-level permissions to the user model" \
+  --enable-researcher --enable-architect
+# Architect produces a design covering: schema changes, middleware order, migration strategy, API breakage.
+```
+
+---
+
+### planner
+
+**Default:** off — `--enable-planner`. Auto-on when `--plan <id>` is given (the plan was already generated).
+**Phase:** pre-loop.
+
+#### What it does
+
+Decomposes the task into **HUs** (Historias de Usuario — user stories), each with `acceptance_criteria`, dependencies, and complexity points. Output is stored as a plan; the coder loop then runs each HU.
+
+#### Why it exists
+
+Karajan's iteration loop converges best on **focused** tasks. A vague task like "implement a CMS" doesn't converge — every iteration produces something different. Planner forces the task into atomic HUs first.
+
+#### When it activates
+
+- Explicit: `--enable-planner`.
+- Implicit: `--plan <id>` (loads an already-generated plan).
+
+#### When it pays off
+
+- Tasks with ≥3 distinct deliverables.
+- Tasks where you want to track per-HU progress (HU Board).
+- When the task description was written by a non-developer (spec → HUs translates intent into actionable units).
+
+#### When it doesn't
+
+- Single-deliverable tasks.
+- Plan already exists — use `--plan <id>` instead.
+- Spike work where you don't yet know what to plan.
+
+#### Example
+
+```bash
+kj run "Implement OAuth login with Google + GitHub" --enable-planner
+# Planner generates: HU-001 (Google), HU-002 (GitHub), HU-003 (session callback), HU-004 (logout).
+```
+
+---
+
+### hu-reviewer
+
+**Default:** off — `--enable-hu-reviewer`.
+**Phase:** pre-loop (after planner or when loading `--plan`).
+
+#### What it does
+
+Reviews the **plan** (not the code) before any coder runs. Detects six classes of antipatterns: dependency cycles, scope creep (HU touches more than it should), missing `acceptance_criteria`, async-observer dependencies, orphan references, and structural inconsistencies. Self-fix loop: if findings, re-invoke planner with structured feedback, up to 5 iterations.
+
+#### Why it exists
+
+A bad plan produces bad code 100% of the time. Catching plan issues before the coder spends tokens is cheap; catching them after is expensive.
+
+#### When it activates
+
+Only with `--enable-hu-reviewer`.
+
+#### When it pays off
+
+- Plans from `--task-file` written by humans.
+- Plans for codebases with strict architecture rules (impeccable / layered).
+- Always, on plans with ≥5 HUs — at that size, dependency mistakes are common.
+
+#### When it doesn't
+
+- Single-HU "plans".
+- Plans you've already reviewed manually.
+
+#### Example
+
+```bash
+kj run --task-file spec.md --enable-planner --enable-hu-reviewer
+# hu-reviewer finds: HU-003 depends on HU-005 which doesn't exist (typo); HU-007 scope creep.
+# Re-invokes planner with feedback; second iteration clean.
+```
+
+---
+
+### skills
+
+**Default:** on (always runs).
+**Phase:** pre-loop.
+
+#### What it does
+
+Detects the project's tech stack (Astro, Lit, Vitest, Playwright, Express, FastAPI, Django, ...) and loads the corresponding **skills**: focused expertise modules with patterns, conventions, and gotchas for each tech. The skill content is injected into the coder/reviewer prompts.
+
+#### Why it exists
+
+A generic coder prompt produces generic code. With Astro-specific skills loaded, the coder knows about `client:idle`, content collections, and Astro's hydration model.
+
+#### When it activates
+
+Always. Mode controlled by `--skills-mode <auto|regex|semantic|none>`.
+
+#### When it pays off
+
+Every run on a non-trivial stack.
+
+#### When it doesn't
+
+- `--skills-mode none` for tasks where skills make the prompt noisy (e.g. a pure-JSON config change).
+- Greenfield projects with no detectable stack.
+
+#### Example
+
+```bash
+kj run "Convert the home page to islands architecture"
+# Skills detect: astro, lit, vite. Loads astro-islands.md, lit-elements.md.
+# Coder produces idiomatic Astro/Lit code instead of plain JS.
+```
+
+---
+
+### domain-curator
+
+**Default:** off — config: `domain.curator: true` or `--domain <text-or-path>`.
+**Phase:** pre-loop.
+
+#### What it does
+
+Injects project-specific domain knowledge into the coder's context: ADRs from `~/.karajan/domains/<project>/`, project conventions, business rules. This is **project knowledge**, not technical skills.
+
+#### Why it exists
+
+The coder doesn't know your business rules ("orders can only be cancelled within 24h"), your ADRs ("we settled on event sourcing for orders, not CRUD"), or your conventions ("we prefix all API routes with /api/v2"). Domain curator gives it that context.
+
+#### When it activates
+
+When `config.domain.curator: true`, or when `--domain <text-or-path>` is given for the run.
+
+#### When it pays off
+
+- Codebases with non-obvious business rules.
+- Projects with documented ADRs that the coder should respect.
+
+#### When it doesn't
+
+- Greenfield projects with no domain yet.
+- Tasks unrelated to business logic (purely technical).
+
+#### Example
+
+```bash
+kj run "Add cancel-order endpoint" --domain ~/.karajan/domains/shop/order-rules.md
+# Coder respects the 24h-cancellation rule found in order-rules.md.
+```
+
+---
+
+### acceptance
+
+**Default:** on (when the task has `acceptance_criteria`).
+**Phase:** pre-loop.
+
+#### What it does
+
+Synthesises **acceptance tests** from the structured `acceptance_criteria` of a task or HU. If criteria are in Gherkin (Given/When/Then), the tests are Playwright/Vitest skeletons that match each scenario.
+
+#### Why it exists
+
+Acceptance criteria written for humans aren't directly testable. Translating them to tests up front lets the TDD gate verify the coder met the spec, not just made the tests pass.
+
+#### When it activates
+
+Always, when the task has `acceptance_criteria`. No-op when criteria are empty.
+
+#### When it pays off
+
+- Tasks with structured criteria (from `kj plan` or `kj run --task-file` with Given/When/Then).
+- TDD methodology runs.
+
+#### When it doesn't
+
+- Tasks with no acceptance criteria (free-form one-liners).
+- `--methodology standard` runs where TDD gate is off.
+
+#### Example
+
+```bash
+# task.md contains:
+# acceptance_criteria:
+#   - given: a user with role=admin
+#     when: they DELETE /api/users/:id
+#     then: the response is 204 and the user row is soft-deleted
+kj run --task-file task.md
+# acceptance role generates: tests/api/users-delete.test.js with a failing spec matching the criterion.
+```
+
+---
+
+## Iteration-loop roles
+
+These run on every iteration (up to `--max-iterations`). One iteration = one cycle of coder → checks → reviewer.
+
+### coder
+
+**Default:** on (always runs when there's code work).
+**Phase:** iteration.
+
+#### What it does
+
+Writes / modifies code to implement the task. Uses the agent specified by `--coder` (default Claude). Sees: task description, accumulated feedback from previous iterations, discover/researcher/architect context if those ran, skills, domain, acceptance tests (if TDD).
+
+#### Why it exists
+
+Self-evident — it's the role that actually writes code. The interesting design decisions are around what it sees as context.
+
+#### When it activates
+
+Every iteration of `kj run`, except in analysis-only flows (`taskType=audit/doc/infra` where applicable).
+
+#### When it pays off
+
+Always — it's the work.
+
+#### When it doesn't
+
+- Analysis-only runs (intent classifies the task as not requiring code changes).
+- You want only review/audit — use `kj review` / `kj audit` instead.
+
+#### Example
+
+```bash
+kj run "Add input validation to POST /api/users"
+# Coder reads existing src/routes/users.js, modifies it to add zod schema validation, writes a test.
+```
+
+---
+
+### refactorer
+
+**Default:** off — `--enable-refactorer`.
+**Phase:** iteration (after coder).
+
+#### What it does
+
+Cleanup pass on the coder's output: extract long methods, deduplicate, rename for clarity. Doesn't change behaviour — `tests` should still pass after refactorer.
+
+#### Why it exists
+
+The coder is optimised for "produce working code". Refactorer is optimised for "produce *clean* working code". Separating them lets each role be focused.
+
+#### When it activates
+
+Only with `--enable-refactorer`. Costs one extra LLM call per iteration.
+
+#### When it pays off
+
+- Tasks that you expect the coder to "make work but ugly" (complex algorithms, awkward integrations).
+- Code that will see human review.
+
+#### When it doesn't
+
+- Simple tasks where the coder's output is already clean.
+- Cost-sensitive runs.
+
+#### Example
+
+```bash
+kj run "Implement merge-sort with type hints" --enable-refactorer
+# Coder produces a working but procedural impl; refactorer pulls helpers, adds JSDoc, simplifies edge cases.
+```
+
+---
+
+### guard (output)
+
+**Default:** on (always runs).
+**Phase:** iteration (after coder, deterministic).
+
+#### What it does
+
+Scans the coder's diff for **15 credential patterns** (AWS keys, GitHub/npm/PyPI/Slack tokens, JWTs, generic secrets, private keys), filesystem leaks (`rm -rf` on host paths, modifications to `.env` / `serviceAccountKey.json`), and destructive operations. **Blocking on critical** by default.
+
+#### Why it exists
+
+Without it, a coder hallucination ("I'll just `rm -rf ~`") or a copy-paste of a real key into a test fixture goes to production. Output-guard is the deterministic backstop the LLM can't talk its way out of.
+
+#### When it activates
+
+Always. Deterministic, no LLM cost.
+
+#### When it pays off
+
+Every run.
+
+#### When it doesn't
+
+Never — always cheap. If you're hitting false positives, configure `guards.output.protected_files` and `guards.output.patterns` in `kj.config.yml`.
+
+#### Example
+
+```bash
+# Coder hallucinates: "to test I'll commit a test API key to .env"
+# Output-guard sees AWS_ACCESS_KEY_ID=AKIA... in the diff → blocks, sends feedback to coder.
+```
+
+---
+
+### guard (perf)
+
+**Default:** on (advisory, configurable to block).
+**Phase:** iteration (after coder, deterministic).
+
+#### What it does
+
+Detects frontend performance antipatterns in the diff: `<img>` without `width/height/loading=lazy`, render-blocking scripts, missing `font-display: swap`, `document.write`, heavy deps (moment, lodash, jquery as global imports).
+
+#### Why it exists
+
+These are well-known regressions you don't want a coder to introduce silently. Catching them at iteration-time prevents the perf role (post-loop) from finding the same thing 4 iterations later.
+
+#### When it activates
+
+Always. Deterministic.
+
+#### When it pays off
+
+Frontend projects (auto-detected from stack).
+
+#### When it doesn't
+
+Backend-only projects — the patterns won't match anyway.
+
+#### Example
+
+```bash
+# Coder adds <img src="hero.jpg"> without dimensions
+# Perf-guard flags it advisory → feedback to coder → next iter has width/height.
+```
+
+---
+
+### sonar
+
+**Default:** on if SonarQube is reachable.
+**Phase:** iteration (after coder, between guards and reviewer).
+
+#### What it does
+
+Runs a SonarQube scan on the changed files, fetches findings (filtered through the [audit FP filter](../external-tools/#sonar)), and injects critical / major issues into the reviewer's context. The reviewer then evaluates the diff *and* the Sonar findings together.
+
+#### Why it exists
+
+Sonar catches rules the LLM doesn't reliably enforce: cognitive complexity thresholds, cyclomatic complexity, exact code smells (S3776, S1192, ...), specific security hotspots. The combination "LLM + Sonar" catches more than either alone.
+
+#### When it activates
+
+Always when SonarQube is running locally. `--no-sonar` disables. `--enable-sonarcloud` adds SonarCloud as a complement.
+
+#### When it pays off
+
+- Codebases that already enforce Sonar rules.
+- Refactors where complexity / duplication matter.
+
+#### When it doesn't
+
+- New / greenfield projects without a Sonar project key yet.
+- Sonar is unavailable (container stopped) — Karajan auto-skips with a warning.
+
+#### Example
+
+```bash
+# Coder adds a 30-line method with cognitive-complexity=22
+# Sonar flags S3776 critical → reviewer sees it in feedback → loop with "refactor for cog-complexity ≤15".
+```
+
+---
+
+### tdd
+
+**Default:** on when `--methodology=tdd` (default methodology).
+**Phase:** iteration (after sonar, before reviewer).
+
+#### What it does
+
+**Fail-fast gate**: verifies that acceptance tests for this task/HU **already exist** and are **currently failing** (because the implementation didn't exist before the coder ran). If tests pass *before* the coder's work, that's suspicious (no real test for the new functionality). If tests don't exist, fail-fast to Solomon.
+
+#### Why it exists
+
+Without TDD gate, a coder can write code that doesn't actually map to tests. The gate enforces "tests come first" structurally.
+
+#### When it activates
+
+When `config.development.methodology=tdd` (default) or `--methodology tdd`. Disabled with `--methodology standard`.
+
+#### When it pays off
+
+- Teams already practising TDD.
+- High-trust scenarios where tests are the contract.
+
+#### When it doesn't
+
+- Spike code where tests don't exist yet by design.
+- Refactors of code without tests (use `--methodology standard` for those).
+
+#### Example
+
+```bash
+# Acceptance role generated tests/api/cancel-order.test.js (failing).
+# Coder implements cancel-order.
+# TDD gate: tests now pass → ok. If they still fail → loop with feedback "your impl doesn't satisfy the spec".
+```
+
+---
+
+### reviewer
+
+**Default:** on (always runs).
+**Phase:** iteration (last step).
+
+#### What it does
+
+Reads the diff and evaluates it against the task / acceptance criteria. Returns either **approved** (loop ends) or **rejected** with structured feedback. By default the reviewer uses the **cross-provider** of the coder (claude↔codex) so two different LLM perspectives evaluate the work.
+
+#### Why it exists
+
+The fundamental quality gate. Without a reviewer, the coder is its own judge — that converges on local optima, not "what the user actually asked for".
+
+#### When it activates
+
+Every iteration.
+
+#### When it pays off
+
+Always.
+
+#### When it doesn't
+
+- `kj code` (coder-only, no reviewer) — when you trust the coder and want speed.
+- `--mode trivial` or `--auto-simplify` may skip it for one-line tasks.
+
+#### Example
+
+```bash
+# Reviewer reads the diff, compares to "add input validation".
+# Approves: "Validation added, all required fields covered. Test exercises happy + error paths."
+```
+
+---
+
+### solomon
+
+**Default:** on (always available, fires only when needed).
+**Phase:** iteration (after reviewer rejection).
+
+#### What it does
+
+The **arbiter**. When the reviewer rejects, Solomon classifies the rejection into: `structural` (real bug, design issue), `style-only` (formatting, naming, no impact), or `mixed`. For pure style-only rejections, Solomon can **override** and approve the iteration — preventing infinite loops where coder and reviewer disagree on tabs vs spaces.
+
+#### Why it exists
+
+Reviewer rejections aren't all equal. A "your method name should be more descriptive" rejection doesn't justify another full iteration. Solomon prevents iteration loops on cosmetic disagreements.
+
+#### When it activates
+
+Only when the reviewer rejects. Doesn't fire if reviewer approves.
+
+#### When it pays off
+
+- Every run where coder and reviewer have different style preferences (cross-provider review).
+- Long-iteration runs where you want to converge.
+
+#### When it doesn't
+
+Never overhead — only fires when needed.
+
+#### Example
+
+```bash
+# Reviewer rejects: "rename `handleErr` to `handleError`".
+# Solomon classifies: style-only → overrides, approves the iteration.
+# Saves one full coder+reviewer iteration.
+```
+
+---
+
+### brain
+
+**Default:** on — `--brain off` to disable.
+**Phase:** iteration (wraps every agent call).
+
+#### What it does
+
+The **universal error recovery layer**. Every LLM call goes through Brain. When an agent fails (rate limit, network timeout, quota exhausted, silenced response), Brain classifies the error and decides: **retry now** (transient), **standby** (wait minutes, in-process), **hibernate** (persist + exit, resume at cooldown), or **fallback** (switch provider). Configurable per-role fallback chain.
+
+#### Why it exists
+
+Without Brain, every transient error abort the run. With Brain, runs survive Anthropic rate limits, OpenAI 5xx, network blips. Critical for long pipelines and CI.
+
+#### When it activates
+
+Every agent call, transparently. Visible in logs as `brain` stage events.
+
+#### When it pays off
+
+- Multi-hour runs that span rate-limit windows.
+- CI on flaky networks.
+- Runs around the Anthropic $200/month Agent SDK cap — Brain switches to Codex when Anthropic exhausts.
+
+#### When it doesn't
+
+- Debugging routing decisions — `--brain off` to see raw provider errors.
+
+#### Example
+
+```bash
+# Iteration 3: Claude returns 429 with retry-after 45s.
+# Brain: classify=RATE_LIMIT_SHORT → standby 45s → retry → iteration continues seamlessly.
+```
+
+---
+
+## Post-loop roles
+
+These run once, after the iteration loop approves. They add extra layers of quality verification on top.
+
+### tester
+
+**Default:** off — `--enable-tester`.
+**Phase:** post-loop.
+
+#### What it does
+
+Executes the project's test suite (Vitest, Jest, Playwright, pytest — auto-detected) against the final state of the code. Reports pass/fail, coverage delta if available.
+
+#### Why it exists
+
+The TDD gate verifies tests pass *at iteration time*. Tester verifies they still pass on the final state, including any test the coder didn't touch. Catches regressions in unrelated areas.
+
+#### When it activates
+
+Only with `--enable-tester`.
+
+#### When it pays off
+
+- Codebases with mature test suites.
+- Refactors where the coder might break unrelated tests.
+
+#### When it doesn't
+
+- Projects without tests.
+- When you trust the TDD gate.
+
+#### Example
+
+```bash
+kj run "Refactor src/utils/date.js for readability" --enable-tester
+# Tester runs full suite: 4872/4872 pass. Confidence the refactor didn't break anything.
+```
+
+---
+
+### security
+
+**Default:** off — `--enable-security`.
+**Phase:** post-loop.
+
+#### What it does
+
+LLM-driven security review of the final diff: OWASP Top 10 (injection, broken auth, XSS, CSRF, ...), insecure crypto, token handling, file uploads, deserialisation. Complements Semgrep (deterministic SAST) with reasoning-based analysis.
+
+#### Why it exists
+
+Some vulnerabilities require reasoning about flow ("this user input reaches this DB query"). Semgrep matches patterns; security role connects them.
+
+#### When it activates
+
+Only with `--enable-security` or `--mode paranoid`.
+
+#### When it pays off
+
+- Auth, payment, file-upload, API gateway changes.
+- Code that handles untrusted input.
+
+#### When it doesn't
+
+- Internal-only utility changes with no input boundary.
+- Cost-sensitive runs.
+
+#### Example
+
+```bash
+kj run "Add file upload for user avatars" --enable-security
+# Security role flags: missing MIME type validation, no max file size, path traversal risk in filename.
+```
+
+---
+
+### perf
+
+**Default:** off — `--enable-perf`.
+**Phase:** post-loop.
+
+#### What it does
+
+LLM pass focused on performance: algorithm complexity, render-blocking resources, bundle size impact, N+1 queries. **Activates Lighthouse** automatically if the stack is frontend and lighthouse is available.
+
+#### Why it exists
+
+Performance is hard to verify deterministically — needs reasoning ("this loop is O(n²) where O(n) is achievable"). Perf-guard catches the obvious patterns; perf role catches the structural ones.
+
+#### When it activates
+
+Only with `--enable-perf` or `--mode paranoid`.
+
+#### When it pays off
+
+- Frontend changes affecting user-perceived speed.
+- Backend changes touching hot paths.
+
+#### When it doesn't
+
+- Doc / config / non-functional changes.
+
+#### Example
+
+```bash
+kj run "Add product search to /products page" --enable-perf
+# Perf flags: search runs unindexed query (suggests adding index), client bundle includes all 12k products on initial load.
+```
+
+---
+
+### impeccable
+
+**Default:** off — `--enable-impeccable`.
+**Phase:** post-loop.
+
+#### What it does
+
+"Final polish" pass — design audit for accessibility, performance, theming, responsive, anti-patterns. Includes WebPerf Quality Gate (Core Web Vitals via Chrome DevTools MCP). By default **read-only** (flags issues); `--design` lets it apply fixes.
+
+#### Why it exists
+
+UI work has many small "is this right?" decisions. Impeccable systematises them. Useful before promoting a UI change to design review.
+
+#### When it activates
+
+Only with `--enable-impeccable` or `--mode paranoid`.
+
+#### When it pays off
+
+- Frontend changes going to design review / senior approval.
+- High-stakes UI (landing pages, conversion flows).
+
+#### When it doesn't
+
+- Backend changes.
+- Throwaway / spike UI.
+
+#### Example
+
+```bash
+kj run "Add hero section to landing page" --enable-impeccable
+# Impeccable: 'h1 contrast 3.2:1 fails WCAG AA; image lacks alt; CLS likely >0.1 due to font-display'.
+```
+
+---
+
+### audit (post-run)
+
+**Default:** off — `--enable-audit` (also available as `kj audit` standalone).
+**Phase:** post-loop.
+
+#### What it does
+
+Runs `kj audit` integrated as a final stage: deterministic collectors (Sonar / OSV / Semgrep / madge / knip) + LLM dimension evaluation (security, codeQuality, performance, architecture, testing, accessibility). Loops the coder back to fix critical / high findings if any are found.
+
+#### Why it exists
+
+Reviewer signs off on the diff; audit signs off on the **resulting state**. Different lenses.
+
+#### When it activates
+
+Only with `--enable-audit`.
+
+#### When it pays off
+
+- High-stakes runs going straight to production.
+- Long-iteration runs where you want a final consolidated quality report.
+
+#### When it doesn't
+
+- Run-of-the-mill changes where reviewer approval is enough.
+- When you'll run `kj audit` manually later anyway.
+
+#### Example
+
+```bash
+kj run "Implement payment refund flow" --enable-audit
+# Audit: 0 critical, 1 high (idempotency key not enforced) → loops coder back → second pass clean.
+```
+
+---
+
+## Reading this further
+
+- Each role's behaviour, when activated and when not, with reasoning — that's this page.
+- Each **flag** of `kj run` (including `--enable-X` for each role here) — see [`kj run`](./commands/run/).
+- The internal architecture (driver modules, how iteration is wired) — see [`kj run` → How it works internally](./commands/run/#how-it-works-internally).
+- What audit dimensions and external collectors do — see [Audit dimensions](./audit-dimensions/) and [External tools](./external-tools/).
