@@ -47,7 +47,10 @@ jobs:
   commitlint:
     name: Commit messages (Conventional Commits)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    # `imported-history` (MONO fusions, ADR 0002): a repo import carries its
+    # era's messages verbatim — rewriting them to satisfy today's rules would
+    # falsify history. The label skips ONLY this check, never the code gates.
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'imported-history')
 
     steps:
       - name: Checkout
