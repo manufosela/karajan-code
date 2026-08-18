@@ -7,24 +7,24 @@
 export function globToRegExp(glob) {
   let re = "";
   const s = String(glob);
-  for (let i = 0; i < s.length; i++) {
+  let i = 0;
+  while (i < s.length) {
     const c = s[i];
-    if (c === "*") {
-      if (s[i + 1] === "*") {
-        if (s[i + 2] === "/") {
-          re += "(?:.*/)?";
-          i += 2;
-        } else {
-          re += ".*";
-          i++;
-        }
-      } else {
-        re += "[^/]*";
-      }
+    if (c === "*" && s[i + 1] === "*" && s[i + 2] === "/") {
+      re += "(?:.*/)?";
+      i += 3;
+    } else if (c === "*" && s[i + 1] === "*") {
+      re += ".*";
+      i += 2;
+    } else if (c === "*") {
+      re += "[^/]*";
+      i += 1;
     } else if (c === "?") {
       re += "[^/]";
+      i += 1;
     } else {
-      re += c.replaceAll(/[.+^${}()|[\]\\]/g, "\\$&");
+      re += c.replaceAll(/[.+^${}()|[\]\\]/g, String.raw`\$&`);
+      i += 1;
     }
   }
   return new RegExp(`^${re}$`);
@@ -33,3 +33,12 @@ export function globToRegExp(glob) {
 /** true si `value` casa con ALGUNO de los globs (lista no-array ⇒ false). */
 export const matchesAny = (value, globs) =>
   Array.isArray(globs) && globs.some((g) => globToRegExp(g).test(value));
+
+/** Patrón de comando shell → RegExp anclada al INICIO: `*` = cualquier cosa
+ *  (los comandos no son rutas — sin semántica de segmentos). */
+export function commandPatternToRegExp(pattern) {
+  const re = String(pattern)
+    .replaceAll(/[.+^${}()|[\]\\?]/g, String.raw`\$&`)
+    .replaceAll("*", ".*");
+  return new RegExp(`^${re}`);
+}

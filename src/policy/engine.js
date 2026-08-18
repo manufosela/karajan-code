@@ -9,18 +9,17 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, posix, relative } from "node:path";
 import yaml from "js-yaml";
-import { matchesAny } from "./glob.js";
+import { commandPatternToRegExp, matchesAny } from "./glob.js";
 
 // Vocabulario CERRADO e incremental: cada capacidad entra al set EN el PR
 // que trae su evaluación — declararla antes sería una regla que miente.
-const ROLE_CAPS = new Set(["write"]);
-const INVARIANT_KINDS = new Set([]);
+const ROLE_CAPS = new Set(["write", "shell"]);
+const INVARIANT_KINDS = new Set(["diff-threshold"]);
+const INVARIANT_METRICS = new Set(["net_lines_added"]);
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 // Registro de tools conocidas (fallo de solomon: lo desconocido no se
-// permite a un rol DECLARADO — crece por PR consciente). Bash es conocida:
-// su capacidad shell se evalúa cuando el kind entre al vocabulario.
+// permite a un rol DECLARADO — crece por PR consciente).
 const READONLY_TOOLS = new Set(["Read", "Grep", "Glob", "LS", "WebFetch", "WebSearch"]);
-const KNOWN_PENDING_TOOLS = new Set(["Bash"]);
 export const DEFAULT_POLICY = Object.freeze({ version: 1, roles: {}, invariants: [] });
 
 function defaultReadFile(projectDir) {
@@ -67,13 +66,16 @@ export function loadPolicy({ projectDir = process.cwd(), deps = {} } = {}) {
     validateRoles(roles, errors);
   }
   const invs = doc.invariants ?? [];
-  if (!Array.isArray(invs)) errors.push("policy.yml: invariants debe ser una lista");
-  else {
+  if (Array.isArray(invs)) {
     for (const inv of invs) {
       if (!INVARIANT_KINDS.has(inv?.kind)) {
         errors.push(`policy.yml: invariant "${inv?.id}" con kind "${inv?.kind}" no existe en el vocabulario v1`);
+      } else if (!INVARIANT_METRICS.has(inv?.metric) || !Number.isFinite(inv?.max) || typeof inv?.id !== "string") {
+        errors.push(`policy.yml: invariant "${inv?.id}" requiere id string, metric (${[...INVARIANT_METRICS].join(", ")}) y max numérico`);
       }
     }
+  } else {
+    errors.push("policy.yml: invariants debe ser una lista");
   }
   return { policy: { roles: {}, invariants: [], ...doc }, errors };
 }
@@ -136,11 +138,139 @@ function evalWrite(policy, role, filePath, root) {
   return ALLOW;
 }
 
+// Launchers y asignaciones de entorno se PELAN antes de casar patrones
+// (reviewer catch: "sudo git push" o "FOO=1 git add -A" no esquivan la
+// regla del subcomando real); capas excesivas ⇒ opaco ⇒ deny.
+const LAUNCHER_RE = /^(sudo(\s+-\S+)*|command|nohup|time|nice(\s+-n\s*\d+)?|stdbuf\s+\S+|env)\s+|^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/;
+function stripLaunchers(seg) {
+  let s = seg;
+  for (let i = 0; i < 5; i++) {
+    const m = s.match(LAUNCHER_RE);
+    if (!m) return s;
+    // Asignaciones que alteran QUÉ ejecutable resuelve (PATH, LD_*, GIT_*,
+    // NODE_OPTIONS) o llevan expansión son opacas — no se pelan, denegan.
+    if (/^(PATH|LD_\w*|NODE_OPTIONS|GIT_\w*)=/.test(m[0]) || m[0].includes("$")) return null;
+    s = s.slice(m[0].length);
+  }
+  return null; // sigue envuelto tras 5 capas: no verificable
+}
+
+// Tokenizador consciente de comillas: separa segmentos SOLO por operadores
+// no entrecomillados (reviewer catch: un ';' dentro de un mensaje no es
+// separador) y canonicaliza tokens sin comillas a la vez. Cualquier
+// construcción que ejecute o redirija texto opaco al análisis — escapes,
+// expansión ($ salvo entre comillas simples), sustitución/backticks,
+// redirecciones, backgrounding, comillas sin cerrar — devuelve null.
+function parseCommand(cmd) {
+  const segs = [];
+  let toks = [];
+  let cur = "";
+  let q = null;
+  const pushTok = () => {
+    if (cur) {
+      toks.push(cur);
+      cur = "";
+    }
+  };
+  const pushSeg = () => {
+    pushTok();
+    if (toks.length > 0) {
+      segs.push(toks.join(" "));
+      toks = [];
+    }
+  };
+  const s = String(cmd);
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === "\\" || ch === "`") return null;
+    if (ch === "$" && q !== "'") return null;
+    if (q) {
+      if (ch === q) q = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      q = ch;
+      continue;
+    }
+    if (ch === ">" || ch === "<") return null;
+    if (ch === "&" && s[i + 1] === "&") {
+      pushSeg();
+      i++;
+      continue;
+    }
+    if (ch === "|" && s[i + 1] === "|") {
+      pushSeg();
+      i++;
+      continue;
+    }
+    if (ch === "&") return null;
+    if (ch === ";" || ch === "|" || ch === "\n") {
+      pushSeg();
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      pushTok();
+      continue;
+    }
+    cur += ch;
+  }
+  if (q) return null;
+  pushSeg();
+  return segs;
+}
+
+// Envolturas que re-ejecutan texto (lección del guard del Sentinel).
+const WRAPPER_RE = /^(sh|bash|zsh|dash|ksh)\s+(-\S+\s+)*-\S*c(\s|$)|^eval\b|^xargs\b|^source\b|^\.\s/;
+
+// Deny si CUALQUIER segmento casa; con allow-list, CADA segmento debe casar.
+function evalShell(policy, role, command) {
+  const shell = policy.roles?.[role]?.shell;
+  if (!shell) return ALLOW;
+  if (!command) return deny(`roles.${role}.shell`, `comando ausente — no verificable para el rol ${role}`);
+  const segs = parseCommand(command);
+  if (segs == null) {
+    return deny(`roles.${role}.shell`, "construcciones opacas (escapes, expansión, sustitución, redirecciones, backgrounding o comillas sin cerrar) — no verificable");
+  }
+  for (const raw of segs) {
+    const seg = stripLaunchers(raw);
+    if (seg == null) return deny(`roles.${role}.shell`, `el segmento "${raw}" no es canonicalizable — no verificable`);
+    if (WRAPPER_RE.test(seg)) return deny(`roles.${role}.shell`, `el segmento "${seg}" re-ejecuta texto (envoltura/eval) — no verificable`);
+    const hit = Array.isArray(shell.deny) && shell.deny.find((p) => commandPatternToRegExp(p).test(seg));
+    if (hit) return deny(`roles.${role}.shell.deny`, `el segmento "${seg}" casa con el patrón denegado "${hit}"`);
+    if (Array.isArray(shell.allow) && !shell.allow.some((p) => commandPatternToRegExp(p).test(seg))) {
+      return deny(`roles.${role}.shell.allow`, `el segmento "${seg}" está fuera de la allow-list de shell del rol ${role}`);
+    }
+  }
+  return ALLOW;
+}
+
 /** One tool call against the policy. `root` permite evaluar file_path
  *  absolutos. Un rol DECLARADO solo usa tools del registro: lo desconocido
  *  es no-verificable ⇒ deny (roles sin declarar quedan como hoy). */
 export function evalToolCall(policy, { role = "coder", tool, input = {}, root = null }) {
   if (WRITE_TOOLS.has(tool)) return evalWrite(policy, role, input.file_path || input.notebook_path, root);
-  if (READONLY_TOOLS.has(tool) || KNOWN_PENDING_TOOLS.has(tool) || !policy.roles?.[role]) return ALLOW;
+  if (tool === "Bash") return evalShell(policy, role, input.command);
+  if (READONLY_TOOLS.has(tool) || !policy.roles?.[role]) return ALLOW;
   return deny(`roles.${role}.tools`, `tool "${tool}" fuera del registro de la policy — no verificable para el rol declarado ${role}`);
+}
+
+/** El gate del RESULTADO: ficheros del diff + métricas contra rol e invariantes. */
+export function checkStagedDiff(policy, { role = "coder", files = [], netLinesAdded = null } = {}) {
+  const violations = [];
+  for (const f of files) {
+    const r = evalWrite(policy, role, f);
+    if (r.decision === "deny") violations.push({ rule_id: r.rule_id, reason: r.reason, file: f });
+  }
+  for (const inv of policy.invariants || []) {
+    if (inv.kind !== "diff-threshold" || inv.metric !== "net_lines_added") continue;
+    if (!Number.isFinite(netLinesAdded)) {
+      // Métrica ausente con invariante declarado = no verificable, jamás un
+      // pase silencioso (reviewer catch).
+      violations.push({ rule_id: inv.id, reason: "net_lines_added no disponible — el invariante no es verificable sin la métrica" });
+    } else if (netLinesAdded > inv.max) {
+      violations.push({ rule_id: inv.id, reason: `net_lines_added=${netLinesAdded} supera el máximo ${inv.max}` });
+    }
+  }
+  return violations;
 }
