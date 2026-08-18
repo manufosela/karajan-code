@@ -1,0 +1,74 @@
+{
+  "name": "karajan-watch",
+  "version": "0.6.0",
+  "description": "El vigía de la orquesta Karajan: RAG compartido multi-repo siempre fresco, análisis de impacto cross-repo en cada merge y detección de documentación desactualizada. Motor: karajan-rag.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "karajan-watch": "bin/karajan-watch.js"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "bin/",
+    "docs/config.md",
+    "docs/ingest.md",
+    "docs/impact.md",
+    "docs/drift.md",
+    "docs/eval.md",
+    "docs/karajan-rag-contract.md",
+    "docs/prompts/start.md",
+    "karajan-watch.config.example.json",
+    "karajan-watch.config.full.example.json",
+    "golden-incidents.example.json",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "coverage": "c8 --check-coverage --statements 95 --lines 95 --functions 92 --branches 87 node --test tests/*.test.js",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "rag",
+    "impact-analysis",
+    "multi-repo",
+    "ci",
+    "documentation-drift",
+    "karajan"
+  ],
+  "author": "Manu Fosela (https://github.com/manufosela)",
+  "homepage": "https://github.com/manufosela/karajan-watch",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-watch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/manufosela/karajan-watch/issues"
+  },
+  "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@11.5.2",
+  "dependencies": {
+    "karajan-rag": "^1.2.0"
+  },
+  "peerDependencies": {
+    "@lancedb/lancedb": ">=0.21.0",
+    "pg": ">=8.11.0"
+  },
+  "peerDependenciesMeta": {
+    "@lancedb/lancedb": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "c8": "^12.0.0",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0"
+  }
+}
