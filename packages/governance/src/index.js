@@ -11,3 +11,4 @@
  * not the owner.
  */
 export { globToRegExp, matchesAny, commandPatternToRegExp } from "./glob.js";
+export { parsePolicy, evalWrite, evalShell, checkArtifacts, ALLOW_VERDICT, denyVerdict, DEFAULT_POLICY } from "./engine.js";
