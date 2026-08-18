@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.17.0] - 2026-08-18
+### Added
+
+- **Policy enforcement — deny at every chokepoint, exceptions with evidentiary weight** (PL-B, KJC-TSK-0734, epic KJC-PCS-0074, ADR 0001, PRs #1435-#1439): the declarative policy grows teeth. Each rule and invariant now carries `enforcement: warn | deny` (default `warn` — PL-A behavior intact) and optionally `class: security`, both closed-vocabulary and fail-loud. The rules the Sentinel's PreToolUse hook used to hardcode (`.claude/settings.json`, `.karajan/hooks/**`, `.karajan/harness/**`) now live as EMBEDDED ENGINE DEFAULTS — `class: security`, `enforcement: deny`, evaluated before any role cap, and no project policy can weaken them. Enforcement lands at all three chokepoints: `kj review --staged` AND `--check` reject deny-violations deterministically before spending a reviewer token (the pre-commit inherits the teeth with no hook regeneration), `kj solomon` refuses to arbitrate security-class findings or an invalid policy (fail closed — an empty result from a load error can never mean "go ahead"), and the PreToolUse gate delegates to `kj policy eval --strict` when `.karajan/policy.yml` exists, fail-closed on every non-zero outcome including an unexecutable kj (no gate goes down silently). The escape follows the evidentiary model a reader of the policy-layer discussion sharpened: the value of an exception is WHO approved it and with what context — `KJ_ALLOW_POLICY=1` only exempts with `KJ_POLICY_REASON` written AT THE MOMENT, recorded append-only in `.karajan/policy-exceptions.jsonl` with git+os identity, the exact rule, the justification, and the diff hash (scope = that exact diff, so expiry is implicit); `class: security` has no escape and no arbitration, full stop. Forged through 4 cross-AI review catches, each locked as a regression test.
 
 ### Added
 
