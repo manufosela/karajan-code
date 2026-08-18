@@ -16,6 +16,19 @@ import { commandPatternToRegExp, matchesAny } from "./glob.js";
 const ROLE_CAPS = new Set(["write", "shell"]);
 const INVARIANT_KINDS = new Set(["diff-threshold"]);
 const INVARIANT_METRICS = new Set(["net_lines_added"]);
+// PL-B (KJC-TSK-0734): enforcement por regla y clase. Cerrados como todo lo
+// demás — un valor desconocido es error de carga, nunca un default silencioso.
+const ENFORCEMENTS = new Set(["warn", "deny"]);
+const CLASSES = new Set(["security"]);
+// Defaults embarcados del supervisor (antes hardcodeados en el PRETOOL del
+// Sentinel): se evalúan SIEMPRE, antes que los caps del rol, y ninguna
+// policy de proyecto los debilita. Misma semántica textual que el PRETOOL:
+// nombrar estos ficheros deniega, con o sin root.
+const SUPERVISOR_RE = /\.claude\/settings\.json\b|\.karajan\/(hooks|harness)\//;
+const supervisorDeny = (rule_id, what) => ({
+  decision: "deny", rule_id, enforcement: "deny", class: "security",
+  reason: `${what} nombra ficheros del supervisor — solo el humano los modifica, fuera de la sesión`,
+});
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 // Registro de tools conocidas (fallo de solomon: lo desconocido no se
 // permite a un rol DECLARADO — crece por PR consciente).
@@ -72,6 +85,8 @@ export function loadPolicy({ projectDir = process.cwd(), deps = {} } = {}) {
         errors.push(`policy.yml: invariant "${inv?.id}" con kind "${inv?.kind}" no existe en el vocabulario v1`);
       } else if (!INVARIANT_METRICS.has(inv?.metric) || !Number.isFinite(inv?.max) || typeof inv?.id !== "string") {
         errors.push(`policy.yml: invariant "${inv?.id}" requiere id string, metric (${[...INVARIANT_METRICS].join(", ")}) y max numérico`);
+      } else if (inv?.enforcement !== undefined && !ENFORCEMENTS.has(inv.enforcement)) {
+        errors.push(`policy.yml: invariant "${inv.id}" enforcement "${inv.enforcement}" no existe en el vocabulario (v1: ${[...ENFORCEMENTS].join(", ")})`);
       }
     }
   } else {
@@ -92,8 +107,8 @@ function validateRoles(roles, errors) {
         continue;
       }
       for (const key of Object.keys(spec)) {
-        if (key !== "allow" && key !== "deny") {
-          errors.push(`policy.yml: roles.${role}.${cap}.${key} no existe en el vocabulario (v1: allow, deny)`);
+        if (!["allow", "deny", "enforcement", "class"].includes(key)) {
+          errors.push(`policy.yml: roles.${role}.${cap}.${key} no existe en el vocabulario (v1: allow, deny, enforcement, class)`);
         }
       }
       for (const list of ["allow", "deny"]) {
@@ -101,6 +116,12 @@ function validateRoles(roles, errors) {
         if (v !== undefined && (!Array.isArray(v) || v.some((g) => typeof g !== "string"))) {
           errors.push(`policy.yml: roles.${role}.${cap}.${list} debe ser una lista de strings (glob)`);
         }
+      }
+      if (spec.enforcement !== undefined && !ENFORCEMENTS.has(spec.enforcement)) {
+        errors.push(`policy.yml: roles.${role}.${cap}.enforcement "${spec.enforcement}" no existe en el vocabulario (v1: ${[...ENFORCEMENTS].join(", ")})`);
+      }
+      if (spec.class !== undefined && !CLASSES.has(spec.class)) {
+        errors.push(`policy.yml: roles.${role}.${cap}.class "${spec.class}" no existe en el vocabulario (v1: ${[...CLASSES].join(", ")})`);
       }
     }
   }
@@ -122,18 +143,26 @@ function normalizeTarget(filePath, root) {
   return p.startsWith("..") || isAbsolute(p) ? null : p;
 }
 
+// enforcement/class del cap viajan en cada deny (default warn = PL-A intacto).
+const capMeta = (spec) => ({ enforcement: spec?.enforcement || "warn", ...(spec?.class ? { class: spec.class } : {}) });
+
 function evalWrite(policy, role, filePath, root) {
+  // Defaults del supervisor primero: sobre el TEXTO del destino (con o sin
+  // root), igual que el PRETOOL que sustituyen — la policy no los debilita.
+  if (filePath && SUPERVISOR_RE.test(String(filePath).replaceAll("\\", "/"))) {
+    return supervisorDeny("defaults.supervisor.write", `el destino "${filePath}"`);
+  }
   const write = policy.roles?.[role]?.write;
   if (!write) return ALLOW;
   // Rol restringido + destino ausente/no-canonizable = no verificable ⇒ deny
   // (reviewer catches: tool call malformado, traversal, absoluta sin root).
   const p = filePath ? normalizeTarget(filePath, root) : null;
-  if (p == null) return deny(`roles.${role}.write`, `destino "${filePath ?? ""}" no verificable contra la policy del rol ${role}`);
+  if (p == null) return { ...deny(`roles.${role}.write`, `destino "${filePath ?? ""}" no verificable contra la policy del rol ${role}`), ...capMeta(write) };
   if (matchesAny(p, write.deny)) {
-    return deny(`roles.${role}.write.deny`, `${p} esta denegado para el rol ${role}`);
+    return { ...deny(`roles.${role}.write.deny`, `${p} esta denegado para el rol ${role}`), ...capMeta(write) };
   }
   if (Array.isArray(write.allow) && !matchesAny(p, write.allow)) {
-    return deny(`roles.${role}.write.allow`, `${p} esta fuera de la allow-list de escritura del rol ${role}`);
+    return { ...deny(`roles.${role}.write.allow`, `${p} esta fuera de la allow-list de escritura del rol ${role}`), ...capMeta(write) };
   }
   return ALLOW;
 }
@@ -225,21 +254,27 @@ const WRAPPER_RE = /^(sh|bash|zsh|dash|ksh)\s+(-\S+\s+)*-\S*c(\s|$)|^eval\b|^xar
 
 // Deny si CUALQUIER segmento casa; con allow-list, CADA segmento debe casar.
 function evalShell(policy, role, command) {
+  // Defaults del supervisor: un Bash que NOMBRA sus ficheros deniega, con o
+  // sin caps del rol (misma semántica textual que el PRETOOL que sustituyen).
+  if (command && SUPERVISOR_RE.test(String(command).replaceAll("\\", "/"))) {
+    return supervisorDeny("defaults.supervisor.shell", "el comando");
+  }
   const shell = policy.roles?.[role]?.shell;
   if (!shell) return ALLOW;
-  if (!command) return deny(`roles.${role}.shell`, `comando ausente — no verificable para el rol ${role}`);
+  const meta = capMeta(shell);
+  if (!command) return { ...deny(`roles.${role}.shell`, `comando ausente — no verificable para el rol ${role}`), ...meta };
   const segs = parseCommand(command);
   if (segs == null) {
-    return deny(`roles.${role}.shell`, "construcciones opacas (escapes, expansión, sustitución, redirecciones, backgrounding o comillas sin cerrar) — no verificable");
+    return { ...deny(`roles.${role}.shell`, "construcciones opacas (escapes, expansión, sustitución, redirecciones, backgrounding o comillas sin cerrar) — no verificable"), ...meta };
   }
   for (const raw of segs) {
     const seg = stripLaunchers(raw);
-    if (seg == null) return deny(`roles.${role}.shell`, `el segmento "${raw}" no es canonicalizable — no verificable`);
-    if (WRAPPER_RE.test(seg)) return deny(`roles.${role}.shell`, `el segmento "${seg}" re-ejecuta texto (envoltura/eval) — no verificable`);
+    if (seg == null) return { ...deny(`roles.${role}.shell`, `el segmento "${raw}" no es canonicalizable — no verificable`), ...meta };
+    if (WRAPPER_RE.test(seg)) return { ...deny(`roles.${role}.shell`, `el segmento "${seg}" re-ejecuta texto (envoltura/eval) — no verificable`), ...meta };
     const hit = Array.isArray(shell.deny) && shell.deny.find((p) => commandPatternToRegExp(p).test(seg));
-    if (hit) return deny(`roles.${role}.shell.deny`, `el segmento "${seg}" casa con el patrón denegado "${hit}"`);
+    if (hit) return { ...deny(`roles.${role}.shell.deny`, `el segmento "${seg}" casa con el patrón denegado "${hit}"`), ...meta };
     if (Array.isArray(shell.allow) && !shell.allow.some((p) => commandPatternToRegExp(p).test(seg))) {
-      return deny(`roles.${role}.shell.allow`, `el segmento "${seg}" está fuera de la allow-list de shell del rol ${role}`);
+      return { ...deny(`roles.${role}.shell.allow`, `el segmento "${seg}" está fuera de la allow-list de shell del rol ${role}`), ...meta };
     }
   }
   return ALLOW;
@@ -260,16 +295,17 @@ export function checkStagedDiff(policy, { role = "coder", files = [], netLinesAd
   const violations = [];
   for (const f of files) {
     const r = evalWrite(policy, role, f);
-    if (r.decision === "deny") violations.push({ rule_id: r.rule_id, reason: r.reason, file: f });
+    if (r.decision === "deny") violations.push({ rule_id: r.rule_id, reason: r.reason, file: f, enforcement: r.enforcement || "warn", ...(r.class ? { class: r.class } : {}) });
   }
   for (const inv of policy.invariants || []) {
     if (inv.kind !== "diff-threshold" || inv.metric !== "net_lines_added") continue;
+    const meta = { enforcement: inv.enforcement || "warn" };
     if (!Number.isFinite(netLinesAdded)) {
       // Métrica ausente con invariante declarado = no verificable, jamás un
       // pase silencioso (reviewer catch).
-      violations.push({ rule_id: inv.id, reason: "net_lines_added no disponible — el invariante no es verificable sin la métrica" });
+      violations.push({ rule_id: inv.id, reason: "net_lines_added no disponible — el invariante no es verificable sin la métrica", ...meta });
     } else if (netLinesAdded > inv.max) {
-      violations.push({ rule_id: inv.id, reason: `net_lines_added=${netLinesAdded} supera el máximo ${inv.max}` });
+      violations.push({ rule_id: inv.id, reason: `net_lines_added=${netLinesAdded} supera el máximo ${inv.max}`, ...meta });
     }
   }
   return violations;
