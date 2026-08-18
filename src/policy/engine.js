@@ -9,7 +9,8 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, posix, relative } from "node:path";
 import yaml from "js-yaml";
-import { commandPatternToRegExp, matchesAny } from "./glob.js";
+// GOV-A (KJC-TSK-0745): the glob primitive lives in the governance kernel.
+import { commandPatternToRegExp, matchesAny } from "../../packages/governance/src/glob.js";
 
 // Vocabulario CERRADO e incremental: cada capacidad entra al set EN el PR
 // que trae su evaluación — declararla antes sería una regla que miente.

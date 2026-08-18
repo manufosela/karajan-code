@@ -1,0 +1,23 @@
+{
+  "name": "@karajan/governance",
+  "version": "0.1.0",
+  "description": "Governance kernel for agent actions — Policy, Decision and Exception as first-class objects. Deterministic, local, domain-agnostic: adapters map each domain's actions and artifacts (karajan-code is the first consumer, not the owner).",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./glob": "./src/glob.js"
+  },
+  "files": [
+    "src/"
+  ],
+  "keywords": [
+    "governance",
+    "policy",
+    "agents",
+    "audit",
+    "karajan"
+  ],
+  "author": "@manufosela",
+  "license": "MIT"
+}

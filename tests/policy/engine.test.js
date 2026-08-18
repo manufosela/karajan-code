@@ -179,4 +179,4 @@ describe("checkStagedDiff — el gate del resultado", () => {
   });
 });
 
-// (globToRegExp/matchesAny se prueban en tests/policy/glob.test.js — #1429.)
+// (globToRegExp/matchesAny se prueban en tests/governance/glob.test.js — #1429.)
