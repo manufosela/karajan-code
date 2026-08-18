@@ -16,7 +16,7 @@ import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js"
 import { checkCardFirst } from "../review/card-first.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
-import { loadPolicy } from "../policy/engine.js";
+import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
 import { recordPolicyException } from "../policy/exceptions.js";
 import { evaluatePolicyGate } from "../review/policy-gate.js";
 
@@ -78,6 +78,28 @@ function printVerdict(record) {
 export async function solomonCommand({ config, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   const diff = await rawDiff(flags.range);
+  // KJC-TSK-0734 (PL-B): un hallazgo de policy de clase seguridad no es
+  // arbitrable — solomon se niega antes de gastar un token. Y una policy
+  // inválida cierra el arbitraje en vez de abrirlo (fail closed, catch de
+  // codex: un `sec` vacío por error de carga NO puede significar "adelante").
+  const files = (await rawDiff(flags.range, ["--name-only"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  const pol = loadPolicy({ projectDir });
+  if (pol.errors.length > 0) {
+    for (const e of pol.errors) console.log(`✗ ${e}`);
+    console.log("⚖ Solomon no arbitra con policy.yml inválida — corrígela primero: una regla que miente es peor que ninguna.");
+    process.exitCode = 1;
+    return { ruling: "reject", reasoning: "invalid policy.yml — arbitration refused (fail closed)" };
+  }
+  const sec = checkStagedDiff(pol.policy, { files, netLinesAdded: 0 }).filter((v) => v.class === "security" && v.enforcement === "deny");
+  if (sec.length > 0) {
+    for (const v of sec) {
+      const where = v.file ? ` (${v.file})` : "";
+      console.log(`✗ policy [${v.rule_id}] ${v.reason}${where}`);
+    }
+    console.log("⚖ Solomon no arbitra hallazgos de clase seguridad — resuélvelos; la regla no es negociable.");
+    process.exitCode = 1;
+    return { ruling: "reject", reasoning: "security-class policy denial — not arbitrable" };
+  }
   const res = await runSolomonArbitration({ diff, position: flags.position, config, logger, projectDir });
   if (res.ruling === "approve") {
     console.log(`⚖ Solomon (${res.solomon}) rules for the brain — verdict recorded, the gate is open.`);
