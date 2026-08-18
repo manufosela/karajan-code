@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#0f2354"/>
+
+  <!-- Radar rings -->
+  <circle cx="256" cy="256" r="200" stroke="#338bff" stroke-width="1.5" stroke-opacity="0.15"/>
+  <circle cx="256" cy="256" r="150" stroke="#338bff" stroke-width="1.5" stroke-opacity="0.25"/>
+  <circle cx="256" cy="256" r="100" stroke="#338bff" stroke-width="2" stroke-opacity="0.35"/>
+  <circle cx="256" cy="256" r="50" stroke="#338bff" stroke-width="2" stroke-opacity="0.5"/>
+
+  <!-- Cross lines -->
+  <line x1="256" y1="56" x2="256" y2="456" stroke="#338bff" stroke-width="1" stroke-opacity="0.1"/>
+  <line x1="56" y1="256" x2="456" y2="256" stroke="#338bff" stroke-width="1" stroke-opacity="0.1"/>
+
+  <!-- Sweep arc (radar scan effect) -->
+  <path d="M256 256 L256 56 A200 200 0 0 1 397 115 Z" fill="url(#sweep)"/>
+
+  <!-- Signal dots -->
+  <circle cx="310" cy="180" r="6" fill="#10b981" opacity="0.9"/>
+  <circle cx="310" cy="180" r="12" stroke="#10b981" stroke-width="1.5" fill="none" opacity="0.4"/>
+
+  <circle cx="195" cy="200" r="5" fill="#f59e0b" opacity="0.9"/>
+  <circle cx="195" cy="200" r="10" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.3"/>
+
+  <circle cx="340" cy="290" r="4" fill="#338bff" opacity="0.8"/>
+
+  <circle cx="180" cy="320" r="5" fill="#07c6b1" opacity="0.9"/>
+  <circle cx="180" cy="320" r="10" stroke="#07c6b1" stroke-width="1" fill="none" opacity="0.3"/>
+
+  <!-- Center dot -->
+  <circle cx="256" cy="256" r="8" fill="#338bff"/>
+  <circle cx="256" cy="256" r="14" stroke="#338bff" stroke-width="2" fill="none" opacity="0.5"/>
+
+  <!-- Gradients -->
+  <defs>
+    <radialGradient id="sweep" cx="256" cy="256" r="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#338bff" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#338bff" stop-opacity="0.02"/>
+    </radialGradient>
+  </defs>
+</svg>

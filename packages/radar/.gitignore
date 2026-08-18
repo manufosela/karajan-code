@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+*.egg-info/
+build/
+*.egg
+
+# Node.js
+node_modules/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-volumes/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Misc
+.scannerwork/
+
+# Karajan Code
+.kj/
+.agent/
+.reviews/
+# Karajan environment (verdicts stay local; the contract is tracked)
+.karajan/*
+# …except the v4 environment contract, which the whole team inherits:
+!.karajan/review-gate
+!.karajan/hooks/
+.karajan/hooks/*
+!.karajan/hooks/pre-commit
+!.karajan/hooks/commit-msg
+!.karajan/hooks/pre-push
+!.karajan/hooks/post-merge
+!.karajan/adrs/
+
+# The exported corpus is data, not source: it is rebuilt from the database by
+# `python -m app.jobs.export_corpus` and can carry internal analysis. Only the
+# engine config and the README that explains the layout are tracked.
+backend/corpus/sources/
+backend/corpus/analysis/
+backend/corpus/quarantine/

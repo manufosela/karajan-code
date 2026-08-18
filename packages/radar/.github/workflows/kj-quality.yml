@@ -1,0 +1,42 @@
+# Adapted from the kj-managed template. The generic version ran `pytest` from
+# the repository root having installed only ruff and pytest, which cannot work
+# here: the backend lives in backend/ and declares its dependencies through
+# uv, so collection failed on the first third-party import.
+#
+# Re-running `kj harden` may regenerate this file. If it does, keep the
+# working-directory, the dev extra and APP_SECRET_KEY.
+name: Quality
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: 'latest'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --frozen --extra dev
+
+      - name: Lint
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Format check
+        working-directory: backend
+        run: uv run ruff format --check .
+
+      - name: Tests
+        working-directory: backend
+        env:
+          APP_SECRET_KEY: ci-secret-key-not-used-outside-tests
+        run: uv run pytest -q

@@ -27,6 +27,12 @@ jobs:
           git diff "origin/${BASE_REF}...HEAD" \
             -- ':!src/utils/injection-guard.js' \
             ':!tests/**' \
+            ':!packages/**/tests/**' \
+            ':!packages/radar/backend/app/security/**' \
+            ':!packages/radar/backend/profiles/**' \
+            ':!packages/radar/backend/app/profiles/**' \
+            ':!packages/radar/backend/app/corpus/documents.py' \
+            ':!packages/radar/README.md' \
             ':!.github/workflows/*.yml' \
             ':!CHANGELOG.md' \
             ':!src/mcp/handlers/*' \

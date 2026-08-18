@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE eSearchResult PUBLIC "-//NLM//DTD esearch 20060628//EN" "https://eutils.ncbi.nlm.nih.gov/eutils/dtd/20060628/esearch.dtd">
+<eSearchResult>
+  <Count>3</Count>
+  <RetMax>3</RetMax>
+  <RetStart>0</RetStart>
+  <IdList>
+    <Id>38001234</Id>
+    <Id>38005678</Id>
+    <Id>38009012</Id>
+  </IdList>
+</eSearchResult>

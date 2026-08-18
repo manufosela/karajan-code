@@ -1,0 +1,242 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message-version": "1.0.0",
+  "message": {
+    "facets": {},
+    "total-results": 2,
+    "items": [
+      {
+        "indexed": {
+          "date-parts": [[2024, 9, 10]],
+          "date-time": "2024-09-10T12:34:56Z",
+          "timestamp": 1725969296000
+        },
+        "reference-count": 42,
+        "publisher": "Elsevier BV",
+        "issue": "4",
+        "license": [
+          {
+            "start": {
+              "date-parts": [[2024, 7, 1]],
+              "date-time": "2024-07-01T00:00:00Z",
+              "timestamp": 1719792000000
+            },
+            "content-version": "tdm",
+            "delay-in-days": 0,
+            "URL": "https://www.elsevier.com/tdm/userlicense/1.0/"
+          }
+        ],
+        "content-domain": {
+          "domain": ["elsevier.com", "sciencedirect.com"],
+          "crossmark-restriction": true
+        },
+        "short-container-title": ["Am J Orthod Dentofacial Orthop"],
+        "published-print": {
+          "date-parts": [[2024, 10]]
+        },
+        "DOI": "10.1016/j.ajodo.2024.06.015",
+        "type": "journal-article",
+        "created": {
+          "date-parts": [[2024, 7, 15]],
+          "date-time": "2024-07-15T08:22:11Z",
+          "timestamp": 1721031731000
+        },
+        "page": "428-441",
+        "update-policy": "http://dx.doi.org/10.1016/elsevier_cm_policy",
+        "source": "Crossref",
+        "is-referenced-by-count": 7,
+        "title": [
+          "Biomechanical effects of attachment design and placement on force delivery during clear aligner treatment: a systematic review and meta-analysis"
+        ],
+        "prefix": "10.1016",
+        "volume": "166",
+        "author": [
+          {
+            "given": "Laura",
+            "family": "Cassetta",
+            "sequence": "first",
+            "affiliation": [
+              {
+                "name": "Department of Oral and Maxillofacial Sciences, Sapienza University of Rome, Rome, Italy"
+              }
+            ],
+            "ORCID": "https://orcid.org/0000-0002-4567-8901"
+          },
+          {
+            "given": "Markus",
+            "family": "Examined",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "Division of Orthodontics, University Medical Center Freiburg, Freiburg, Germany"
+              }
+            ]
+          },
+          {
+            "given": "Deepak",
+            "family": "Khurana",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "Faculty of Dentistry, University of Toronto, Toronto, ON, Canada"
+              }
+            ],
+            "ORCID": "https://orcid.org/0000-0003-1234-5678"
+          }
+        ],
+        "member": "78",
+        "container-title": [
+          "American Journal of Orthodontics and Dentofacial Orthopedics"
+        ],
+        "original-title": [],
+        "language": "en",
+        "link": [
+          {
+            "URL": "https://api.elsevier.com/content/article/PII:S0889540624003457",
+            "content-type": "text/xml",
+            "content-version": "vor",
+            "intended-application": "text-mining"
+          }
+        ],
+        "deposited": {
+          "date-parts": [[2024, 9, 10]],
+          "date-time": "2024-09-10T12:34:56Z",
+          "timestamp": 1725969296000
+        },
+        "score": 1,
+        "resource": {
+          "primary": {
+            "URL": "https://linkinghub.elsevier.com/retrieve/pii/S0889540624003457"
+          }
+        },
+        "subtitle": [],
+        "short-title": [],
+        "issued": {
+          "date-parts": [[2024, 10]]
+        },
+        "references-count": 42,
+        "alternative-id": ["S0889540624003457"],
+        "URL": "http://dx.doi.org/10.1016/j.ajodo.2024.06.015",
+        "relation": {},
+        "ISSN": ["0889-5406", "1097-6752"],
+        "issn-type": [
+          {"value": "0889-5406", "type": "print"},
+          {"value": "1097-6752", "type": "electronic"}
+        ],
+        "subject": ["Orthodontics"],
+        "published": {
+          "date-parts": [[2024, 10]]
+        },
+        "abstract": "<jats:p>Clear aligners rely on attachment configurations to deliver controlled orthodontic forces. This systematic review and meta-analysis evaluates the biomechanical effects of attachment design parameters (geometry, dimensions, placement location, and number) on force delivery during clear aligner treatment. A comprehensive search of PubMed, Scopus, Web of Science, and Embase identified 34 eligible studies (18 finite element analyses, 9 in vitro studies, and 7 clinical investigations) published between 2015 and 2024. Meta-analysis of in vitro force measurements showed that rectangular attachments (3 mm height) generated significantly higher retraction forces compared to ellipsoid attachments (mean difference: 0.42 N, 95% CI: 0.28-0.56, p &lt; 0.001). Beveled attachments produced superior moment-to-force ratios for torque expression (pooled estimate: 8.7:1 vs. 5.2:1, p = 0.003). Attachment placement at 40-50% of the clinical crown height optimized force delivery for translation movements. The evidence supports that attachment geometry is the primary determinant of biomechanical performance, followed by vertical position and dimensions. Clinical implications for evidence-based attachment selection are discussed.</jats:p>"
+      },
+      {
+        "indexed": {
+          "date-parts": [[2024, 8, 22]],
+          "date-time": "2024-08-22T14:00:00Z",
+          "timestamp": 1724335200000
+        },
+        "reference-count": 87,
+        "publisher": "Springer Science and Business Media LLC",
+        "issue": "1",
+        "license": [
+          {
+            "start": {
+              "date-parts": [[2024, 8, 1]],
+              "date-time": "2024-08-01T00:00:00Z",
+              "timestamp": 1722470400000
+            },
+            "content-version": "tdm",
+            "delay-in-days": 0,
+            "URL": "https://creativecommons.org/licenses/by/4.0/"
+          }
+        ],
+        "content-domain": {
+          "domain": ["link.springer.com"],
+          "crossmark-restriction": false
+        },
+        "short-container-title": ["Prog Orthod"],
+        "published-print": {
+          "date-parts": [[2024, 12]]
+        },
+        "DOI": "10.1016/j.ajodo.2024.08.003",
+        "type": "journal-article",
+        "created": {
+          "date-parts": [[2024, 8, 5]],
+          "date-time": "2024-08-05T10:15:30Z",
+          "timestamp": 1722852930000
+        },
+        "page": "1-28",
+        "source": "Crossref",
+        "is-referenced-by-count": 12,
+        "title": [
+          "Digital orthodontics: a comprehensive review of the clinical workflow from intraoral scanning to AI-driven treatment planning"
+        ],
+        "prefix": "10.1016",
+        "volume": "25",
+        "author": [
+          {
+            "given": "Nikhilesh",
+            "family": "Vaid",
+            "sequence": "first",
+            "affiliation": [
+              {
+                "name": "Department of Orthodontics, European University College, Dubai, UAE"
+              }
+            ],
+            "ORCID": "https://orcid.org/0000-0001-9876-5432"
+          },
+          {
+            "given": "Cristina",
+            "family": "Torrejon-Moya",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "Department of Orthodontics, University of Barcelona, Barcelona, Spain"
+              }
+            ]
+          }
+        ],
+        "member": "297",
+        "container-title": [
+          "Progress in Orthodontics"
+        ],
+        "original-title": [],
+        "language": "en",
+        "deposited": {
+          "date-parts": [[2024, 8, 22]],
+          "date-time": "2024-08-22T14:00:00Z",
+          "timestamp": 1724335200000
+        },
+        "score": 1,
+        "resource": {
+          "primary": {
+            "URL": "https://link.springer.com/article/10.1186/s40510-024-00521-3"
+          }
+        },
+        "subtitle": [],
+        "short-title": [],
+        "issued": {
+          "date-parts": [[2024, 8]]
+        },
+        "references-count": 87,
+        "URL": "http://dx.doi.org/10.1016/j.ajodo.2024.08.003",
+        "relation": {},
+        "ISSN": ["2196-1042"],
+        "issn-type": [
+          {"value": "2196-1042", "type": "electronic"}
+        ],
+        "subject": ["Orthodontics"],
+        "published": {
+          "date-parts": [[2024, 8]]
+        },
+        "abstract": "<jats:title>Abstract</jats:title><jats:sec><jats:title>Background</jats:title><jats:p>The digital transformation of orthodontics has accelerated rapidly in the past decade, fundamentally altering clinical workflows from diagnosis through retention. This comprehensive review examines the current state of digital orthodontics, focusing on the integrated clinical workflow that encompasses intraoral scanning, digital treatment planning, computer-aided manufacturing of appliances, and emerging AI-driven decision support systems.</jats:p></jats:sec><jats:sec><jats:title>Methods</jats:title><jats:p>A narrative review of the literature was conducted, synthesizing evidence from 203 articles published between 2018 and 2024 across PubMed, Scopus, and Web of Science databases.</jats:p></jats:sec><jats:sec><jats:title>Results</jats:title><jats:p>Intraoral scanners achieve clinically acceptable accuracy for full-arch impressions (trueness &lt; 100 μm). AI-powered cephalometric analysis matches expert performance with processing times under 1 second. Digital setup and treatment simulation tools enable visualization of predicted outcomes, though prediction accuracy varies by tooth movement type (translation: 72-89%, rotation: 54-78%, torque: 41-67%). Automated aligner design algorithms can reduce laboratory turnaround by 60%. Current limitations include cost barriers, interoperability challenges between proprietary systems, and insufficient long-term clinical validation of AI-generated treatment plans.</jats:p></jats:sec><jats:sec><jats:title>Conclusions</jats:title><jats:p>Digital orthodontics offers substantial improvements in efficiency, precision, and patient communication. Future developments in AI, 4D printing, and bioresponsive materials are expected to further transform orthodontic practice.</jats:p></jats:sec>"
+      }
+    ],
+    "items-per-page": 20,
+    "query": {
+      "start-index": 0,
+      "search-terms": "orthodontics aligners digital workflow"
+    }
+  }
+}

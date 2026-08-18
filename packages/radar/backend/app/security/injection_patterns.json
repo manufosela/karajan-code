@@ -1,0 +1,145 @@
+{
+  "version": "1.0.0",
+  "vendored_from": {
+    "package": "karajan-code",
+    "version": "4.15.0",
+    "path": "src/utils/injection-guard.js",
+    "captured": "2026-08-08"
+  },
+  "note": "Copied from karajan-code, which holds the family's knowledge of what an injection attempt looks like. It lives there as JavaScript regexes rather than as a published catalogue, so this is a translation, not a mirror -- see KRD-TSK-0004. Every pattern here needs its own test: JavaScript and Python regexes agree on these constructs, but agreeing by inspection is not the same as agreeing.",
+  "directive": [
+    {
+      "id": "ignore_previous",
+      "regex": "ignore\\s+(all\\s+)?(previous|prior|above|earlier)\\s+(instructions?|rules?|prompts?|guidelines?)",
+      "why": "The classic override: tells the model its real instructions do not count"
+    },
+    {
+      "id": "disregard_previous",
+      "regex": "disregard\\s+(all\\s+)?(previous|prior|above|earlier)\\s+(instructions?|rules?|prompts?)",
+      "why": "Same as ignore_previous, different verb"
+    },
+    {
+      "id": "forget_previous",
+      "regex": "forget\\s+(all\\s+)?(previous|prior|your)\\s+(instructions?|rules?|context)",
+      "why": "Same intent, aimed at the model's memory of its own setup"
+    },
+    {
+      "id": "override_system",
+      "regex": "override\\s+(the\\s+)?(system|reviewer|review)\\s+(prompt|instructions?|rules?)",
+      "why": "Names the system prompt directly"
+    },
+    {
+      "id": "do_not_follow",
+      "regex": "do\\s+not\\s+follow\\s+(the\\s+)?(above|previous|system)\\s+(instructions?|rules?)",
+      "why": "Negative phrasing of the same override"
+    },
+    {
+      "id": "new_instructions",
+      "regex": "new\\s+instructions?\\s*:",
+      "why": "Opens a fake instruction block inside the document"
+    },
+    {
+      "id": "system_you_are",
+      "regex": "system\\s*:\\s*you\\s+are",
+      "why": "Imitates a system turn inside ordinary text"
+    },
+    {
+      "id": "act_as",
+      "regex": "\\bact\\s+as\\s+(a\\s+)?(different|new|my|an?\\s+)",
+      "why": "Role reassignment"
+    },
+    {
+      "id": "you_are_now",
+      "regex": "you\\s+are\\s+now\\s+(a\\s+)?",
+      "why": "Role reassignment, present tense"
+    },
+    {
+      "id": "from_now_on",
+      "regex": "from\\s+now\\s+on\\s*(,|\\s)?\\s*you\\s+(will|should|must|are)",
+      "why": "Role reassignment framed as a rule change"
+    },
+    {
+      "id": "pretend",
+      "regex": "pretend\\s+(you\\s+are|to\\s+be)",
+      "why": "Role reassignment framed as play"
+    },
+    {
+      "id": "respond_approved",
+      "regex": "respond\\s+(only\\s+)?with\\s+[\"']?approved[\"']?",
+      "why": "Dictates the verdict rather than the behaviour"
+    },
+    {
+      "id": "always_approved",
+      "regex": "always\\s+(return|respond|output)\\s+.*approved",
+      "why": "Same, phrased as a standing rule"
+    },
+    {
+      "id": "set_approved_true",
+      "regex": "set\\s+approved\\s*[=:]\\s*true",
+      "why": "Dictates a field of the structured answer"
+    },
+    {
+      "id": "approved_true_ignore",
+      "regex": "\\bapproved[\"']?\\s*:\\s*true\\b.*ignore",
+      "why": "A forged verdict next to an override"
+    },
+    {
+      "id": "output_following_json",
+      "regex": "output\\s+the\\s+following\\s+json",
+      "why": "Supplies the answer the model is meant to produce"
+    },
+    {
+      "id": "return_exact",
+      "regex": "return\\s+this\\s+exact\\s+(json|response|output)",
+      "why": "Same, phrased as an instruction to copy"
+    }
+  ],
+  "unicode": [
+    {
+      "id": "zero_width",
+      "regex": "[\\u200b-\\u200f]",
+      "why": "Zero-width spaces and direction marks: text the reader cannot see"
+    },
+    {
+      "id": "bidi_override",
+      "regex": "[\\u202a-\\u202e]",
+      "why": "Bidirectional overrides can display text in an order it is not written in"
+    },
+    {
+      "id": "bidi_isolate",
+      "regex": "[\\u2066-\\u2069]",
+      "why": "Same family, isolates rather than embeddings"
+    },
+    {
+      "id": "bom_mid_text",
+      "regex": "\\ufeff",
+      "why": "A byte-order mark in the middle of a document has no legitimate reason to be there"
+    },
+    {
+      "id": "soft_hyphen_run",
+      "regex": "\\u00ad{3,}",
+      "why": "Runs of soft hyphens break up words that a scanner would otherwise match"
+    },
+    {
+      "id": "invisible_operators",
+      "regex": "[\\u2060-\\u2064]",
+      "why": "Invisible mathematical operators used as hidden separators"
+    },
+    {
+      "id": "tag_characters",
+      "regex": "[\\U000e0000-\\U000e007f]",
+      "why": "Tag characters can carry an entire hidden instruction"
+    }
+  ],
+  "comment_block": {
+    "max_chars": 2000,
+    "why": "A comment far larger than any real one is a common place to hide a payload, since readers skim comments and models do not",
+    "delimiters": [
+      { "id": "c_style", "regex": "/\\*[\\s\\S]{0,20000}?\\*/" },
+      { "id": "html", "regex": "<!--[\\s\\S]{0,20000}?-->" },
+      { "id": "python_double", "regex": "\"\"\"[\\s\\S]{0,20000}?\"\"\"" },
+      { "id": "python_single", "regex": "'''[\\s\\S]{0,20000}?'''" },
+      { "id": "ruby", "regex": "=begin[\\s\\S]{0,20000}?=end" }
+    ]
+  }
+}

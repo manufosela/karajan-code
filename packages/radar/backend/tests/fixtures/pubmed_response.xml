@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2024//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_240101.dtd">
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">38001234</PMID>
+      <Article PubModel="Electronic">
+        <Journal>
+          <ISSN IssnType="Electronic">1432-0614</ISSN>
+          <JournalIssue CitedMedium="Internet">
+            <Volume>42</Volume>
+            <Issue>3</Issue>
+            <PubDate>
+              <Year>2024</Year>
+              <Month>03</Month>
+              <Day>15</Day>
+            </PubDate>
+          </JournalIssue>
+          <Title>American Journal of Orthodontics and Dentofacial Orthopedics</Title>
+        </Journal>
+        <ArticleTitle>Biomechanical analysis of clear aligner force systems in orthodontic tooth movement: a finite element study.</ArticleTitle>
+        <Abstract>
+          <AbstractText Label="OBJECTIVE">To evaluate the biomechanical effects of clear aligners on orthodontic tooth movement using finite element analysis.</AbstractText>
+          <AbstractText Label="METHODS">Three-dimensional finite element models were constructed from CBCT data of 10 patients. Force systems were simulated for various tooth movements including tipping, rotation, and bodily movement.</AbstractText>
+          <AbstractText Label="RESULTS">Clear aligners produced predictable force systems for simple tipping movements but showed reduced efficiency for complex movements such as root torque and bodily translation.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <LastName>Martinez</LastName>
+            <ForeName>Elena</ForeName>
+            <AffiliationInfo>
+              <Affiliation>Department of Orthodontics, University of Barcelona, Spain</Affiliation>
+            </AffiliationInfo>
+          </Author>
+          <Author ValidYN="Y">
+            <LastName>Chen</LastName>
+            <ForeName>Wei</ForeName>
+            <AffiliationInfo>
+              <Affiliation>School of Dental Medicine, Tsinghua University, Beijing, China</Affiliation>
+            </AffiliationInfo>
+          </Author>
+        </AuthorList>
+        <ArticleDate DateType="Electronic">
+          <Year>2024</Year>
+          <Month>03</Month>
+          <Day>10</Day>
+        </ArticleDate>
+      </Article>
+      <MeshHeadingList>
+        <MeshHeading>
+          <DescriptorName UI="D000090582" MajorTopicYN="N">Clear Aligners</DescriptorName>
+        </MeshHeading>
+        <MeshHeading>
+          <DescriptorName UI="D014087" MajorTopicYN="N">Tooth Movement Techniques</DescriptorName>
+        </MeshHeading>
+        <MeshHeading>
+          <DescriptorName UI="D020342" MajorTopicYN="N">Finite Element Analysis</DescriptorName>
+        </MeshHeading>
+      </MeshHeadingList>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">38001234</ArticleId>
+        <ArticleId IdType="doi">10.1016/j.ajodo.2024.01.015</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">38005678</PMID>
+      <Article PubModel="Print-Electronic">
+        <Journal>
+          <ISSN IssnType="Print">0889-5406</ISSN>
+          <JournalIssue CitedMedium="Print">
+            <Volume>165</Volume>
+            <Issue>2</Issue>
+            <PubDate>
+              <Year>2024</Year>
+              <Month>Feb</Month>
+            </PubDate>
+          </JournalIssue>
+          <Title>The Angle Orthodontist</Title>
+        </Journal>
+        <ArticleTitle>Machine learning approaches for automated cephalometric landmark detection: a systematic review.</ArticleTitle>
+        <Abstract>
+          <AbstractText>This systematic review evaluates the current state of machine learning methods for automated cephalometric landmark detection in orthodontic diagnosis. A comprehensive literature search identified 45 studies published between 2018 and 2024. Deep learning architectures, particularly convolutional neural networks, demonstrated accuracy comparable to expert clinicians for most landmarks.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <LastName>Kim</LastName>
+            <ForeName>Soo-Jin</ForeName>
+            <AffiliationInfo>
+              <Affiliation>Department of Orthodontics, Seoul National University, South Korea</Affiliation>
+            </AffiliationInfo>
+          </Author>
+          <Author ValidYN="Y">
+            <LastName>Patel</LastName>
+            <ForeName>Raj</ForeName>
+            <AffiliationInfo>
+              <Affiliation>AI Research Lab, Stanford University, CA, USA</Affiliation>
+            </AffiliationInfo>
+          </Author>
+          <Author ValidYN="Y">
+            <LastName>Thompson</LastName>
+            <ForeName>Sarah</ForeName>
+            <AffiliationInfo>
+              <Affiliation>Faculty of Dentistry, University of Toronto, Canada</Affiliation>
+            </AffiliationInfo>
+          </Author>
+        </AuthorList>
+        <ArticleDate DateType="Electronic">
+          <Year>2024</Year>
+          <Month>01</Month>
+          <Day>22</Day>
+        </ArticleDate>
+      </Article>
+      <MeshHeadingList>
+        <MeshHeading>
+          <DescriptorName UI="D000069550" MajorTopicYN="Y">Machine Learning</DescriptorName>
+        </MeshHeading>
+        <MeshHeading>
+          <DescriptorName UI="D002508" MajorTopicYN="N">Cephalometry</DescriptorName>
+        </MeshHeading>
+      </MeshHeadingList>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">38005678</ArticleId>
+        <ArticleId IdType="doi">10.2319/071523-489.1</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">38009012</PMID>
+      <Article PubModel="Electronic">
+        <Journal>
+          <JournalIssue CitedMedium="Internet">
+            <Volume>26</Volume>
+            <Issue>1</Issue>
+            <PubDate>
+              <Year>2024</Year>
+              <Month>04</Month>
+              <Day>01</Day>
+            </PubDate>
+          </JournalIssue>
+          <Title>Progress in Orthodontics</Title>
+        </Journal>
+        <ArticleTitle>Efficacy of accelerated orthodontic tooth movement with micro-osteoperforations: a randomized clinical trial.</ArticleTitle>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <LastName>Al-Harbi</LastName>
+            <ForeName>Fahad</ForeName>
+            <AffiliationInfo>
+              <Affiliation>Orthodontic Department, King Saud University, Riyadh, Saudi Arabia</Affiliation>
+            </AffiliationInfo>
+          </Author>
+        </AuthorList>
+        <ArticleDate DateType="Electronic">
+          <Year>2024</Year>
+          <Month>04</Month>
+          <Day>01</Day>
+        </ArticleDate>
+      </Article>
+      <MeshHeadingList>
+        <MeshHeading>
+          <DescriptorName UI="D014087" MajorTopicYN="Y">Tooth Movement Techniques</DescriptorName>
+        </MeshHeading>
+      </MeshHeadingList>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">38009012</ArticleId>
+        <ArticleId IdType="doi">10.1186/s40510-024-00512-2</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>
