@@ -88,7 +88,7 @@ const POST_BODY = `#!/usr/bin/env node
 // a tool call (PostToolUse, always exit 0).
 import { relative } from "node:path";
 import { CODE, TESTS, ROOT, load, save, session } from "./sentinel-lib.mjs";
-const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII"];
+const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -326,6 +326,38 @@ process.stdin.on("end", () => {
           seen.add(abs);
           const lane = laneOf(abs);
           if (lane && laneDeny(m[1], lane)) process.exit(2);
+        }
+      }
+    }
+    // KJC-TSK-0734 (PL-B): con .karajan/policy.yml presente, la evaluacion
+    // la hace el MOTOR via kj policy eval --strict (exit 2 = deny, contrato
+    // PL-A); los defaults del supervisor viven en el motor y el check
+    // PROTECTED inline de arriba queda como red fail-closed si kj falta.
+    // Fail CLOSED por defecto (catches de codex; doctrina KJC-BUG-0095: un
+    // gate no se cae en silencio): solo exit 0 permite. kj inejecutable =
+    // deny duro (el remedio es restaurar kj); cualquier otro fallo de
+    // evaluacion = deny con escape humano registrable — la sesion no queda
+    // presa de un typo de YAML, pero abrirla es decision del usuario.
+    if ((EDIT_TOOLS.includes(tool) || tool === "Bash") && existsSync(resolve(ROOT, ".karajan", "policy.yml"))) {
+      const pres = spawnSync("kj", ["policy", "eval", "--strict", "--role", "coder", "--tool", tool, "--input", JSON.stringify(input)], { cwd: ROOT, encoding: "utf8" });
+      if (pres.error || pres.status === null) {
+        console.error("kj sentinel: .karajan/policy.yml declara enforcement pero kj no es ejecutable — la policy no se puede evaluar; restaura kj en el PATH (npm i -g karajan-code) o retira la policy conscientemente.");
+        process.exit(2);
+      }
+      if (pres.status === 2) {
+        let v = null;
+        try { v = JSON.parse(String(pres.stdout || "").trim().split("\\n").pop()); } catch { /* mensaje generico */ }
+        const secure = !!(v && v.class === "security");
+        if (!secure && process.env.KJ_ALLOW_POLICY === "1") { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
+        else {
+          console.error("kj sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada; el commit exigira ademas KJ_POLICY_REASON)"));
+          process.exit(2);
+        }
+      } else if (pres.status !== 0) {
+        if (process.env.KJ_ALLOW_POLICY === "1") { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
+        else {
+          console.error("kj sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check y corrige .karajan/policy.yml fuera de la sesion (o KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada).");
+          process.exit(2);
         }
       }
     }
