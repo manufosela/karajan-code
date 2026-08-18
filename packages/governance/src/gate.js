@@ -17,6 +17,7 @@ import { checkArtifacts } from "./engine.js";
 export function evaluateGate({
   policy, errors = [], role = "coder", files = [], netLinesAdded = null,
   artifactHash = null, exemption = {}, recordException = () => {},
+  standingExceptions = [], now = new Date(),
 }) {
   if (errors.length > 0) {
     return { ok: false, invalid: true, warns: [], denials: errors.map((e) => ({ rule_id: "policy.load", reason: e })), exempted: [] };
@@ -26,9 +27,22 @@ export function evaluateGate({
   const hard = violations.filter((v) => v.enforcement === "deny");
   const denials = [];
   const exempted = [];
+  // GOV-B (KJC-TSK-0746): standing exceptions — permanentes YA concedidas
+  // (cargadas por el adaptador de su almacén; el kernel no hace I/O) que
+  // eximen la regla exacta mientras VIVEN. `now` lo pone quien evalúa:
+  // la caducidad es la regla, no una sugerencia.
+  // Registros legacy (PL-B, sin scopeKind) se normalizan a `puntual` — su
+  // tipo efectivo de siempre: eximieron EN su momento ligados a un diff y
+  // jamás se re-consultaron. Solo una permanente explícita y VIVA da standing.
+  const alive = (s) => (s.scopeKind ?? "puntual") === "permanente" && Date.parse(s.expiresAt) > now.getTime();
   for (const v of hard) {
     if (v.class === "security") {
-      denials.push(v); // inexcepcionable: sin escape y sin arbitraje — no negociable
+      denials.push(v); // inexcepcionable: sin escape, sin arbitraje, sin standing
+      continue;
+    }
+    const st = standingExceptions.find((s) => s.rule_id === v.rule_id && alive(s));
+    if (st) {
+      exempted.push({ ...v, standing: st });
       continue;
     }
     if (exemption.requested) {
