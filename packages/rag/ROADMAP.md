@@ -1,0 +1,127 @@
+# Karajan RAG — Roadmap
+
+> Versión viva del plan. Se revisa al cierre de cada sprint y al publicar un release.
+> Para el estado actual y los detalles tácticos, ver el backlog privado en **Planning Game** (`KJR-TSK-XXXX`).
+
+Última revisión: **2026-07-22** (post-release 0.2.0; épica Easy RAG entregada en main como 0.3.0).
+
+---
+
+## Principios que guían el roadmap
+
+1. **Sensitivity first.** Ninguna feature puede degradar el routing por sensibilidad ni el redactor PII.
+2. **Determinismo por defecto.** Los stubs locales (HashEmbedder, InMemoryVectorStore) siguen operativos sin credenciales externas.
+3. **Dependencias runtime mínimas.** Las integraciones pesadas (transformers.js, LanceDB, SDKs de cloud) entran vía `peerDependencies` opcionales y dynamic import.
+4. **API pública estable a partir de 1.0.** Hasta entonces (serie 0.x), los cambios breaking se documentan en `CHANGELOG.md` pero no requieren ciclo de deprecación.
+
+---
+
+## 0.1.x — Estabilización (activo)
+
+**Objetivo**: consolidar la superficie actual, pulir documentación, automatización del repo y bugfixes.
+
+- Automatización del repo: Dependabot, templates, workflow de release (✅ `0.1.0+`).
+- Badges, CODEOWNERS, `.editorconfig`, `.nvmrc`, `ROADMAP.md` (✅).
+- Parches menores de documentación y ejemplos.
+- No se añaden features nuevas en esta serie.
+
+## 0.2.0 — Observabilidad y Solomon real (✅ publicada 2026-07-22)
+
+**Estado**: publicada. Los dos flecos que quedaron fuera (adapter OpenTelemetry y
+stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
+
+**Objetivo**: instrumentar el pipeline y sustituir el stub de Solomon por una implementación de referencia.
+
+- **Observabilidad**
+  - ✅ Emisión estructurada de eventos por stage (`onStageStart`, `onStageEnd`, `onStageError`) con duración y tamaño de entrada/salida (PR #50).
+  - ✅ Helper `collectPipelineEvents` para captura sin boilerplate (PR #62).
+  - ✅ Demo `examples/observability-demo.js` (PR #51).
+  - ✅ Métricas de cache de embeddings (`hits, misses, size, evictions`) en `EmbeddingCache.stats` (PR #49).
+  - ⏳ Adapter opcional a OpenTelemetry (peer-dep) — pospuesto a 0.2.x/0.3.0.
+- **Solomon real**
+  - ✅ Tres estrategias: `majority`, `weighted`, `llm-arbiter` (PR #53).
+  - ✅ `ctx.metadata.solomonDecision` como log de auditoría.
+  - ✅ Helper `parallelRetrieve(sources, query, {timeoutMs})` en el caller (PR #56).
+  - ✅ Demo `examples/solomon-multi-source.js` end-to-end (PR #57).
+  - ✅ [ADR-004](./docs/adrs/ADR-004-solomon-implementation.md) cerrando la fase de "stub" (PR #54).
+- **Generator streaming**
+  - ✅ `GeneratorRole.streamGenerate()` como async iterable con fallback a adapter no-streaming (PR #55).
+  - ✅ `createOllamaStreamAdapter` (HTTP NDJSON) como primer streamAdapter real (PR #58).
+  - ✅ Helper `wrapAdapterAsStream` para adapters blocking (PR #61).
+  - ⏳ Stream adapters nativos para Claude/Azure/Vertex — pospuestos a 0.2.x/0.3.0.
+- **API pública**
+  - ✅ `index.js` barrel con 63 símbolos re-exportados (PR #59) + documentación en README (PR #60).
+  - ✅ Tests de contrato (`tests/public-api.test.js`).
+
+## 0.3.0 — Easy RAG: crear RAGs en minutos (✅ publicada 2026-07-22)
+
+**Estado**: publicada (épica KJR-PCS-0016, ADR-005).
+
+**Objetivo**: que montar un RAG sobre código, documentos o datos cueste minutos y cero código, en local y en cloud.
+
+- ✅ Autodetección de fuentes (código/docs/datos) y presets con defaults deterministas.
+- ✅ `karajan-rag index` — índice persistente local (LanceDB) con manifest ADR-002 y reindex incremental.
+- ✅ `karajan-rag query` — retrieval híbrido (vector+BM25) con `fichero:línea` y `--answer` opcional.
+- ✅ `karajan-rag init` — scaffold de `karajan.config.json` como defaults del proyecto.
+- ✅ `karajan-rag serve` — servidor MCP stdio (`rag_query`/`rag_status`) y HTTP (`/query`, `/health`).
+- ✅ Imagen Docker multi-stage + servicio en docker-compose.
+- ✅ Módulo Terraform `deploy/gcp/` (Cloud Run + Cloud SQL pgvector + GCS FUSE + Secret Manager), privado por defecto.
+- ✅ Guía end-to-end [docs/easy-rag.md](./docs/easy-rag.md).
+- Adelanta de 0.5.0: el manifest incremental de ADR-002 (la migración entre stores sigue ahí).
+
+## 0.4.0 — Evaluación avanzada y golden set (✅ publicada 2026-07-22)
+
+**Objetivo**: elevar la calidad del módulo de evaluación y proporcionar un baseline reproducible.
+
+- ✅ **Golden set** en `examples/golden/` con baseline calibrado, corriendo como gate de regresión en CI.
+- ✅ **Métricas locales**: faithfulness, context precision/recall, answer relevance (léxico-deterministas, sin frameworks externos).
+- ✅ **Disagreement auto-labelling**: cada veredicto etiquetado consensus/outlier con deviation respecto a la mediana.
+- ✅ **Reranker LLM** con prompt-template versionado y tests snapshot.
+- ✅ **`karajan-rag eval`** — evaluación declarativa con reporte por métrica, exit code para CI y `--judges` opcional.
+- Incluye los 4 fixes de la validación real en GCP (KJR-BUG-0001..0004) y la guarda manifest↔store (KJR-BUG-0005).
+
+## 0.5.0 — Persistencia y reindexado (✅ publicada 2026-07-22)
+
+**Objetivo**: políticas robustas de reindex, migración entre stores y modelos.
+
+- ✅ **ADR-002 generalizado**: el fingerprint del espacio vectorial vive con los datos (`ensureIndexFingerprint` en los tres stores) — cualquier pipeline falla explícitamente ante espacios incompatibles.
+- ✅ **Migración asistida** `InMemoryVectorStore` ↔ `PgVectorStore` ↔ `LanceDBStore` (`scan` + `migrateVectorStore`, idempotente, con fingerprint viajando).
+- ✅ **`deleteByDocument`** en los tres stores con caché content-addressed (sin invalidación necesaria, demostrado con test).
+- ✅ **Backpressure**: ingesta por lotes configurables (`--batch-size`).
+
+## 0.6.0 — Integraciones embebidas y ecosistema (✅ publicada 2026-07-22)
+
+**Objetivo**: abrir la orquestación a casos fuera del CLI puro.
+
+- ✅ **SDK embebible** `createRag()` para frameworks (ejemplos Fastify y Astro/Next en docs).
+- ✅ **Adapter `openai`** HTTP estándar, gated en el nivel `public` de la sensitivity policy.
+- ✅ **Adapter `anthropic`** HTTP (Messages API) — Claude sin CLI para Cloud Run/workers.
+- ✅ **Factory `ollama` bidireccional** — generación (blocking + streaming) y embeddings del mismo proceso.
+- ✅ **`karajan-rag doctor`** — diagnóstico de entorno, config e índice con fixes accionables.
+
+## 1.0 — Estabilidad de API
+
+**Criterios de salida de la serie 0.x:**
+
+- ✅ API pública documentada, versionada y con test de contrato ([tests/public-api.test.js](./tests/public-api.test.js)).
+- ✅ Superficie cubierta ≥90% con umbrales en CI (97% statements / 94% functions / 89% branches).
+- ✅ Política de deprecación formalizada (2 menores de pre-aviso) — [docs/DEPRECATION.md](./docs/DEPRECATION.md).
+- ✅ Golden set + runbook de evaluación publicados ([examples/golden/](./examples/golden/)).
+- ✅ Auditoría independiente de la política de sensibilidad y del redactor PII — revisión asistida con OpenAI Codex en 3 pasadas iterativas ([histórico y veredicto final APROBADO CON RESERVAS](./docs/security/sensitivity-audit.md#6-revisiones-realizadas)); 8 hallazgos encontrados y corregidos en el proceso (KJR-BUG-0006..0010 + residuales).
+- ✅ Al menos un caso de uso real en producción documentado públicamente — [docs/case-study-gcp.md](./docs/case-study-gcp.md).
+
+---
+
+## Fuera del roadmap (por ahora)
+
+Cosas que pueden llegar, pero no están priorizadas:
+
+- Integración con bases de conocimiento propietarias (Confluence, Notion, SharePoint).
+- UI web propia — el foco es la librería/CLI, la capa visual queda para terceros.
+- Soporte a modelos cerrados sin API compatible (cualquier proveedor requerirá adapter mantenible).
+
+---
+
+## Feedback
+
+Ideas, quejas o propuestas: abre un issue en la categoría **Feature request** o comparte en Discussions. El backlog táctico vive en el Planning Game privado.

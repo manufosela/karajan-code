@@ -1,0 +1,18 @@
+{
+  "reporter": ["text", "text-summary", "lcov"],
+  "include": ["src/**/*.js"],
+  "exclude": [
+    "src/**/*.test.js",
+    "src/ai/types.js",
+    "src/pipeline/types.js",
+    "src/ai/cli-runner.js",
+    "src/ai/adapters/**"
+  ],
+  "check-coverage": true,
+  "lines": 80,
+  "functions": 80,
+  "statements": 80,
+  "branches": 70,
+  "all": true
+}
+

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Reporte de seguridad
+    url: https://github.com/manufosela/karajan-rag/security/policy
+    about: Las vulnerabilidades NO se reportan en issues públicos. Usa el canal privado descrito en SECURITY.md.
+  - name: Pregunta general / discusión
+    url: https://github.com/manufosela/karajan-rag/discussions
+    about: Dudas de uso, arquitectura, o propuestas abiertas.

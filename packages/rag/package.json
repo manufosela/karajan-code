@@ -1,0 +1,75 @@
+{
+  "name": "karajan-rag",
+  "version": "1.5.0",
+  "description": "Orquestador multi-agente de CLIs de IA para pipelines RAG con routing por sensibilidad, policy de proveedores y CLIs intercambiables (Claude, Codex, Gemini, Ollama, Azure, Bedrock, Vertex).",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "karajan-rag": "bin/karajan-rag.js",
+    "kj-rag": "bin/karajan-rag.js",
+    "kjr": "bin/karajan-rag.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "migrations/",
+    "index.js",
+    "README.md",
+    "CHANGELOG.md",
+    "ROADMAP.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node examples/multi-cli-demo.js",
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.js",
+    "coverage": "c8 --check-coverage --statements 95 --lines 95 --functions 92 --branches 87 node --test tests/*.test.js",
+    "smoke": "RUN_SMOKE=1 node scripts/smoke.js",
+    "smoke:codex": "RUN_SMOKE=1 node scripts/smoke.js codex",
+    "smoke:claude": "RUN_SMOKE=1 node scripts/smoke.js claude",
+    "smoke:gemini": "RUN_SMOKE=1 node scripts/smoke.js gemini",
+    "smoke:ollama": "RUN_SMOKE=1 node scripts/smoke.js ollama",
+    "prepublishOnly": "pnpm lint && pnpm test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "rag",
+    "cli",
+    "ai",
+    "orchestrator",
+    "codex",
+    "claude",
+    "gemini",
+    "ollama",
+    "pgvector",
+    "embeddings",
+    "retrieval-augmented-generation"
+  ],
+  "author": "Manu Fosela (https://github.com/manufosela)",
+  "homepage": "https://github.com/manufosela/karajan-rag",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-rag.git"
+  },
+  "bugs": {
+    "url": "https://github.com/manufosela/karajan-rag/issues"
+  },
+  "license": "AGPL-3.0-or-later",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@lancedb/lancedb": "^0.33.0",
+    "c8": "^11.0.0",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0",
+    "pg": "^8.20.0"
+  },
+  "pnpm": {
+    "ignoredOptionalDependencies": [
+      "@huggingface/transformers",
+      "openai"
+    ]
+  }
+}
