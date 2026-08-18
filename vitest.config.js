@@ -16,7 +16,10 @@ export default defineConfig({
     },
   },
   test: {
-    exclude: ["node_modules/**", "packages/**", ".claude/**", ".kj/**", "demo/**"],
+    // apps/** y **/node_modules/**: los paquetes fusionados (ADR 0002) traen
+    // sus propias suites y, tras un deploy local de la landing, node_modules
+    // anidados que el patrón de primer nivel no cubría.
+    exclude: ["**/node_modules/**", "packages/**", "apps/**", ".claude/**", ".kj/**", "demo/**"],
     setupFiles: ["./tests/setup.js"],
     // KJC-BUG-0075: mtime-based purge of stale `karajan-vitest-*` tmp dirs
     // (>24 h) as a safety net for SIGKILL'd / crashed forks that miss the
