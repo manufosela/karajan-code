@@ -1,0 +1,70 @@
+name: Smoke
+
+# Its own workflow, not a step inside Backend CI. The unit suite runs on
+# SQLite in memory and finishes in minutes; this one needs a live PostgreSQL
+# and exists to answer a different question -- do the pieces fit together at
+# start-up. Keeping them apart means a slow smoke run never makes the fast
+# suite slower, and a smoke failure is legible on its own.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-smoke.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-smoke.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # The same PostgreSQL major version docker-compose runs locally. A
+        # smoke suite that passed here on a different engine than the one it
+        # is meant to protect would be worth very little.
+        image: postgres:16
+        env:
+          POSTGRES_DB: karajan_radar_smoke
+          POSTGRES_USER: radar_user
+          POSTGRES_PASSWORD: radar_dev_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U radar_user -d karajan_radar_smoke"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://radar_user:radar_dev_password@localhost:5432/karajan_radar_smoke
+      # Settings declares APP_SECRET_KEY with no default, so importing the app
+      # fails without it. Not a real secret: it never leaves the CI run.
+      APP_SECRET_KEY: ci-secret-key-not-used-outside-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --frozen --extra dev
+
+      - name: Run smoke tests against the real stack
+        working-directory: backend
+        # -m smoke overrides the default marker filter, which excludes them.
+        run: uv run pytest tests/smoke -m smoke

@@ -1,0 +1,57 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/ci-frontend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/ci-frontend.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # Pinned: pnpm 11 requires a newer Node than the 20 used here and
+          # dies with ERR_UNKNOWN_BUILTIN_MODULE. "latest" made this workflow
+          # break without a change to the repository.
+          version: 9
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint with ESLint
+        working-directory: frontend
+        run: pnpm lint
+
+      - name: Type check with TypeScript
+        working-directory: frontend
+        run: pnpm exec tsc --noEmit
+
+      - name: Run tests with coverage
+        working-directory: frontend
+        run: pnpm exec vitest run --coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+          retention-days: 7

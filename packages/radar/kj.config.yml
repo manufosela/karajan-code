@@ -1,0 +1,188 @@
+coder: claude
+reviewer: codex
+roles:
+  planner:
+    provider: null
+    model: null
+  coder:
+    provider: null
+    model: null
+  reviewer:
+    provider: null
+    model: null
+  refactorer:
+    provider: null
+    model: null
+  solomon:
+    provider: gemini
+    model: null
+  researcher:
+    provider: null
+    model: null
+  tester:
+    provider: null
+    model: null
+  security:
+    provider: null
+    model: null
+  triage:
+    provider: null
+    model: null
+pipeline:
+  planner:
+    enabled: false
+  refactorer:
+    enabled: false
+  solomon:
+    enabled: true
+  researcher:
+    enabled: false
+  tester:
+    enabled: true
+  security:
+    enabled: true
+  triage:
+    enabled: true
+review_mode: standard
+max_iterations: 5
+max_budget_usd: null
+review_rules: ./review-rules.md
+coder_rules: ./coder-rules.md
+base_branch: main
+coder_options:
+  model: null
+  auto_approve: true
+  fallback_coder: null
+reviewer_options:
+  output_format: json
+  require_schema: true
+  model: null
+  deterministic: true
+  retries: 1
+  fallback_reviewer: codex
+development:
+  methodology: tdd
+  require_test_changes: true
+  test_file_patterns:
+    - /tests/
+    - /__tests__/
+    - .test.
+    - .spec.
+  source_file_extensions:
+    - .js
+    - .jsx
+    - .ts
+    - .tsx
+    - .py
+    - .go
+    - .java
+    - .rb
+    - .php
+    - .cs
+sonarqube:
+  enabled: false
+  host: http://localhost:9000
+  external: false
+  container_name: karajan-sonarqube
+  network: karajan_sonar_net
+  volumes:
+    data: karajan_sonar_data
+    logs: karajan_sonar_logs
+    extensions: karajan_sonar_extensions
+  timeouts:
+    healthcheck_seconds: 5
+    compose_up_ms: 300000
+    compose_control_ms: 120000
+    logs_ms: 30000
+    scanner_ms: 900000
+  token: null
+  project_key: null
+  admin_user: admin
+  admin_password: null
+  coverage:
+    enabled: false
+    command: null
+    timeout_ms: 300000
+    block_on_failure: true
+    lcov_report_path: null
+  quality_gate: true
+  enforcement_profile: pragmatic
+  gate_block_on:
+    - new_reliability_rating=E
+    - new_security_rating=E
+    - new_maintainability_rating=E
+    - new_coverage<80
+    - new_duplicated_lines_density>5
+  fail_on:
+    - BLOCKER
+    - CRITICAL
+  ignore_on:
+    - INFO
+  max_scan_retries: 3
+  project_key: karajan-radar
+  scanner:
+    sources: backend/app,frontend/src
+    exclusions: '**/node_modules/**,**/dist/**,**/build/**,**/*.min.js,**/__pycache__/**,**/alembic/versions/**'
+    test_inclusions: '**/*.test.ts,**/*.spec.ts,**/tests/**,**/__tests__/**'
+    coverage_exclusions: '**/tests/**,**/__tests__/**,**/*.test.ts,**/*.spec.ts'
+    disabled_rules:
+      - javascript:S1116
+      - javascript:S3776
+policies: {}
+guards:
+  output:
+    enabled: true
+    patterns: []
+    protected_files: []
+    excluded_paths:
+      - '**/alembic/versions/**'
+    on_violation: warn
+serena:
+  enabled: false
+planning_game:
+  enabled: true
+  project_id: Karajan Radar
+  codeveloper: dev_010
+becaria:
+  enabled: false
+  review_event: becaria-review
+  comment_event: becaria-comment
+  comment_prefix: true
+git:
+  auto_commit: true
+  auto_push: true
+  auto_pr: true
+  auto_rebase: true
+  branch_prefix: feat/
+output:
+  report_dir: ./.reviews
+  log_level: info
+budget:
+  warn_threshold_pct: 80
+  currency: usd
+  exchange_rate_eur: 0.92
+model_selection:
+  enabled: true
+  tiers: {}
+  role_overrides: {}
+session:
+  max_iteration_minutes: 30
+  max_total_minutes: 120
+  max_planner_minutes: 60
+  checkpoint_interval_minutes: 5
+  max_agent_silence_minutes: 20
+  fail_fast_repeats: 2
+  repeat_detection_threshold: 2
+  max_sonar_retries: 3
+  max_reviewer_retries: 3
+  max_tester_retries: 1
+  max_security_retries: 1
+  expiry_days: 30
+failFast:
+  repeatThreshold: 2
+retry:
+  max_attempts: 3
+  initial_backoff_ms: 1000
+  max_backoff_ms: 30000
+  backoff_multiplier: 2
+  jitter_factor: 0.1

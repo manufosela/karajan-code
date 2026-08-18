@@ -54,6 +54,11 @@ import security from "eslint-plugin-security";
 import globals from "globals";
 
 export default [
+  // packages/radar llegó del monorepo familiar (MONO-1, KJC-TSK-0738) con su
+  // propio toolchain (frontend TS/React + backend Python): lo linta su
+  // tooling, no este config JS — sin ignore, `eslint packages/` revienta
+  // contra su TS y el pre-commit bloquea cualquier commit del repo.
+  { ignores: ["packages/radar/**"] },
   // ESLint's own recommended set — already enables `no-undef`,
   // `no-unused-vars`, `no-redeclare`, etc. with sensible defaults.
   js.configs.recommended,

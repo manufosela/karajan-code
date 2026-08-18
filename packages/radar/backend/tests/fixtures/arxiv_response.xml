@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <link href="http://arxiv.org/api" rel="service-document" type="application/atomsvc+xml"/>
+  <title type="html">ArXiv Query: search_query=(cat:cs.AI OR cat:cs.CV) AND all:orthodontic</title>
+  <id>http://arxiv.org/api/query</id>
+  <updated>2024-03-15T00:00:00-04:00</updated>
+  <opensearch:totalResults>3</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <opensearch:itemsPerPage>100</opensearch:itemsPerPage>
+
+  <entry>
+    <id>http://arxiv.org/abs/2403.12345v1</id>
+    <updated>2024-03-14T17:59:00Z</updated>
+    <published>2024-03-14T17:59:00Z</published>
+    <title>Deep Learning Framework for Automated Orthodontic Treatment Planning
+  Using 3D Dental Models</title>
+    <summary>We present a novel deep learning framework for automated orthodontic
+treatment planning that leverages 3D dental model analysis. Our approach combines
+graph neural networks with attention mechanisms to predict optimal tooth movements.
+Evaluated on a dataset of 1,200 cases, the system achieves 94.2% agreement with
+expert orthodontists on treatment staging decisions.</summary>
+    <author>
+      <name>Li Zhang</name>
+      <arxiv:affiliation>Tsinghua University</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Maria Garcia</name>
+      <arxiv:affiliation>MIT CSAIL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>James Wilson</name>
+    </author>
+    <arxiv:doi>10.48550/arXiv.2403.12345</arxiv:doi>
+    <link title="pdf" href="http://arxiv.org/pdf/2403.12345v1" rel="related" type="application/pdf"/>
+    <link href="http://arxiv.org/abs/2403.12345v1" rel="alternate" type="text/html"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+
+  <entry>
+    <id>http://arxiv.org/abs/2403.09876v2</id>
+    <updated>2024-03-13T12:30:00Z</updated>
+    <published>2024-03-10T09:15:00Z</published>
+    <title>CephaloNet: Attention-Based Cephalometric Landmark Detection with
+  Sub-Millimeter Accuracy</title>
+    <summary>We introduce CephaloNet, a novel attention-based architecture for
+cephalometric landmark detection in lateral skull radiographs. The model utilizes
+a hierarchical feature pyramid network combined with spatial attention modules
+to achieve sub-millimeter accuracy. On the ISBI 2015 challenge dataset, CephaloNet
+achieves a mean radial error of 1.12mm, establishing a new state of the art.</summary>
+    <author>
+      <name>Priya Sharma</name>
+    </author>
+    <author>
+      <name>David Kim</name>
+    </author>
+    <link title="pdf" href="http://arxiv.org/pdf/2403.09876v2" rel="related" type="application/pdf"/>
+    <link href="http://arxiv.org/abs/2403.09876v2" rel="alternate" type="text/html"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+
+  <entry>
+    <id>http://arxiv.org/abs/2403.05432v1</id>
+    <updated>2024-03-08T14:20:00Z</updated>
+    <published>2024-03-08T14:20:00Z</published>
+    <title>Biomechanical Simulation of Tooth Movement Using Physics-Informed
+  Neural Networks</title>
+    <summary>This paper proposes a physics-informed neural network (PINN) approach
+for simulating orthodontic tooth movement. By incorporating periodontal ligament
+mechanics and alveolar bone remodeling into the loss function, our model predicts
+tooth displacement trajectories with 89% correlation to clinical outcomes. The approach
+reduces simulation time from hours to seconds compared to traditional FEM methods.</summary>
+    <author>
+      <name>Roberto Fernandez</name>
+      <arxiv:affiliation>ETH Zurich</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Yuki Tanaka</name>
+      <arxiv:affiliation>University of Tokyo</arxiv:affiliation>
+    </author>
+    <arxiv:doi>10.48550/arXiv.2403.05432</arxiv:doi>
+    <link title="pdf" href="http://arxiv.org/pdf/2403.05432v1" rel="related" type="application/pdf"/>
+    <link href="http://arxiv.org/abs/2403.05432v1" rel="alternate" type="text/html"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="q-bio.QM" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="physics.med-ph" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>

@@ -1,0 +1,263 @@
+# Shared Mobility and Energy Policy Radar Profile
+#
+# A second bundled domain, deliberately far from the first: it watches
+# carpooling, energy subsidies, the legislation around both, and the companies
+# operating in that space.
+#
+# Note what is absent: this profile declares no `prompts` section. The default
+# templates render their theme lists, vocabularies and rule clauses from the
+# taxonomy below, so a new domain is a data exercise rather than a prompt
+# rewriting exercise.
+
+id: mobility-energy
+name: Shared Mobility and Energy Radar
+version: 1.0.0
+locale: es
+
+organization:
+  name: the operator
+  description: >-
+    a company operating a shared mobility platform and tracking energy
+    affordability policy
+  analyst_role: an expert analyst in shared mobility and energy policy
+
+taxonomy:
+  themes:
+    - id: carpooling
+      label: Carpooling
+      description: >-
+        Ridesharing, carpooling, vanpooling, commuter matching, shared vehicle
+        occupancy, demand-responsive transport.
+    - id: energy_affordability
+      label: Energy affordability
+      description: >-
+        Energy poverty, electricity and gas subsidies, social tariffs, bill
+        support schemes, vulnerable-consumer protection.
+    - id: regulation
+      label: Regulation
+      description: >-
+        Laws enacted or proposed, transport and energy directives, municipal
+        ordinances, licensing regimes, compliance obligations.
+    - id: market
+      label: Market and competition
+      description: >-
+        Competitor products and funding, market entries and exits, pricing
+        moves, partnerships, consolidation.
+    - id: sustainability
+      label: Sustainability
+      description: >-
+        Emissions reduction, modal shift, decarbonisation targets, air quality,
+        low-emission zones.
+    - id: technology
+      label: Technology
+      description: >-
+        Matching and routing algorithms, mobility platforms, telematics,
+        electrification, smart charging.
+    - id: other
+      label: Other
+      description: Topics not fitting the above categories.
+
+  strategic_buckets:
+    - id: core_platform
+      label: Core platform
+      description: >-
+        Carpooling product mechanics: matching quality, pricing, trust and
+        safety, driver and rider supply, retention.
+    - id: energy_policy
+      label: Energy policy
+      description: >-
+        Subsidy schemes, social tariffs and affordability measures that change
+        what households pay for energy.
+    - id: regulatory_landscape
+      label: Regulatory landscape
+      description: >-
+        Enacted or proposed legislation, directives and rulings that create or
+        remove obligations for the operator.
+    - id: competitive_intelligence
+      label: Competitive intelligence
+      description: >-
+        Moves by existing or potential competitors, including funding rounds,
+        launches, pricing and partnerships.
+    - id: market_expansion
+      label: Market expansion
+      description: >-
+        New territories, corridors, customer segments or use cases the operator
+        could address.
+    - id: sustainability_impact
+      label: Sustainability impact
+      description: >-
+        Evidence on emissions, congestion and modal shift attributable to
+        shared mobility.
+    - id: technology_enablers
+      label: Technology enablers
+      description: >-
+        Algorithms, platforms and infrastructure that materially change what
+        the product can do.
+
+  time_horizons:
+    - id: immediate
+      label: Immediate
+      description: Impact expected within 0-6 months.
+    - id: short_term
+      label: Short term
+      description: Impact expected within 6-18 months.
+    - id: medium_term
+      label: Medium term
+      description: Impact expected within 18-36 months.
+    - id: long_term
+      label: Long term
+      description: Impact expected beyond 36 months.
+
+  keywords:
+    - carpooling
+    - ridesharing
+    - shared mobility
+    - commuting
+    - energy poverty
+    - electricity subsidy
+    - social tariff
+    - low-emission zone
+
+vocabulary:
+  impact_levels:
+    - id: transformative
+      label: Transformative
+      description: >-
+        Would fundamentally change the operator's product, market or cost
+        base. Rare -- reserved for genuine discontinuities.
+    - id: significant
+      label: Significant
+      description: >-
+        Major development with clear, direct implications for the product,
+        pricing or regulatory position.
+    - id: moderate
+      label: Moderate
+      description: >-
+        Meaningful development that could improve existing operations or
+        validate the current direction.
+    - id: incremental
+      label: Incremental
+      description: >-
+        Minor development or confirmation of what is already known. Unlikely
+        to drive a decision on its own.
+    - id: minimal
+      label: Minimal
+      description: >-
+        Little to no bearing on the operator's business, or too preliminary to
+        act on.
+
+  hype_risks:
+    - id: low
+      label: Low
+      description: >-
+        Claims are proportionate to the evidence, with sound method, adequate
+        sample and acknowledged limitations. For legislation: the text is
+        actually enacted, with a stated commencement date.
+    - id: medium
+      label: Medium
+      description: >-
+        Promising but incompletely evidenced. For legislation: proposed or
+        under debate, with a plausible but uncertain path to adoption.
+    - id: high
+      label: High
+      description: >-
+        Extraordinary claims on weak evidence, vendor-authored studies, or
+        press coverage of a proposal with no legislative backing.
+
+  impact_recommended_actions:
+    - id: monitor
+      label: Monitor
+      description: Early-stage or low-impact; worth tracking over time.
+    - id: investigate
+      label: Investigate
+      description: >-
+        Promising impact with manageable hype risk; warrants deeper analysis
+        or internal discussion.
+    - id: act_now
+      label: Act now
+      description: >-
+        High impact with low hype risk; justifies immediate action, whether a
+        product change, a compliance review or a market response.
+    - id: archive
+      label: Archive
+      description: Minimal impact or high hype risk. File for reference only.
+
+  scoring_recommended_actions:
+    - id: monitor
+      label: Monitor
+      description: Track over time without committing resources.
+    - id: investigate
+      label: Investigate
+      description: Warrants a deeper review before any decision.
+    - id: test
+      label: Test
+      description: Strong enough to justify a pilot or internal experiment.
+    - id: discard
+      label: Discard
+      description: Not relevant or not credible enough to pursue.
+
+scoring:
+  weights:
+    scientific_strength: 0.4
+    strategic_relevance: 0.6
+
+# The rss connector covers the non-academic half of this domain: official
+# bulletins, ministry press rooms and competitor announcements all publish
+# feeds. Dedicated connectors for BOE (FRD-TSK-0046) and the Congreso's
+# legislative pipeline (FRD-TSK-0047) will add what a feed cannot express,
+# such as a bill's stage of passage.
+#
+# Replace the feed URLs below with the ones an instance actually watches: they
+# are placeholders chosen to show the shape, not a curated list.
+sources:
+  - connector: rss
+    priority: 1
+    query: null
+    config:
+      rate_limit_per_second: 5
+      feeds:
+        - url: https://www.miteco.gob.es/es/prensa/ultimas-noticias.rss
+          name: MITECO press releases
+        - url: https://news.google.com/rss/search?q=carpooling+OR+%22coche+compartido%22&hl=es&gl=ES&ceid=ES:es
+          name: Google News - carpooling (ES)
+        - url: https://news.google.com/rss/search?q=%22bono+social+el%C3%A9ctrico%22&hl=es&gl=ES&ceid=ES:es
+          name: Google News - bono social electrico
+  - connector: arxiv
+    priority: 1
+    query: >-
+      carpooling OR ridesharing OR "shared mobility" OR "demand responsive
+      transport" OR "energy poverty"
+    config:
+      max_results: 50
+      default_categories: [cs.CY, cs.LG, econ.GN, stat.AP]
+  - connector: crossref
+    priority: 2
+    query: carpooling ridesharing shared mobility energy poverty subsidy
+    config:
+      rows: 50
+  - connector: semantic_scholar
+    priority: 2
+    query: carpooling OR ridesharing OR shared mobility OR energy poverty
+    config:
+      limit: 50
+
+llm:
+  provider: openai
+  default_model: gpt-4o
+  fast_model: gpt-4o-mini
+
+branding:
+  app_name: Shared Mobility and Energy Radar
+  short_name: Mobility Radar
+  tagline: Strategic intelligence on shared mobility and energy policy
+
+summary:
+  languages: [es, en]
+
+# Where the line falls between "worth interrupting someone" and "noise".
+# A domain judgement, so it lives here and changes in a pull request. Where
+# the digest is sent, and when, stays in the environment.
+delivery:
+  score_threshold: 6.0
+  max_items: 5
+  sections: [top_insights, strategic_summary, new_opportunities, follow_up_items]
