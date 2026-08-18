@@ -1,0 +1,236 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900" width="800" height="900">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e1a"/>
+      <stop offset="50%" stop-color="#0d1220"/>
+      <stop offset="100%" stop-color="#080c16"/>
+    </linearGradient>
+    
+    <linearGradient id="kGradRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    
+    <linearGradient id="flowGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="40%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+    
+    <linearGradient id="flowGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    
+    <linearGradient id="batonGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+
+    <linearGradient id="circuitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <!-- Glow filters -->
+    <filter id="glowSmall" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="glowMed" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="glowLarge" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="900" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle grid on floor -->
+  <g opacity="0.08">
+    <line x1="100" y1="750" x2="200" y2="700" stroke="#2dd4bf" stroke-width="0.5"/>
+    <line x1="200" y1="750" x2="300" y2="700" stroke="#2dd4bf" stroke-width="0.5"/>
+    <line x1="300" y1="750" x2="400" y2="700" stroke="#2dd4bf" stroke-width="0.5"/>
+    <line x1="400" y1="750" x2="500" y2="700" stroke="#2dd4bf" stroke-width="0.5"/>
+    <line x1="500" y1="750" x2="600" y2="700" stroke="#2dd4bf" stroke-width="0.5"/>
+    <line x1="600" y1="750" x2="700" y2="700" stroke="#2dd4bf" stroke-width="0.5"/>
+    <line x1="100" y1="700" x2="700" y2="700" stroke="#2dd4bf" stroke-width="0.5"/>
+    <line x1="150" y1="720" x2="650" y2="720" stroke="#2dd4bf" stroke-width="0.3"/>
+    <line x1="50" y1="750" x2="750" y2="750" stroke="#2dd4bf" stroke-width="0.5"/>
+  </g>
+
+  <!-- Ambient glow behind K -->
+  <ellipse cx="400" cy="400" rx="200" ry="250" fill="#6366f1" opacity="0.06" filter="url(#softGlow)"/>
+  <ellipse cx="430" cy="380" rx="150" ry="200" fill="#2dd4bf" opacity="0.04" filter="url(#softGlow)"/>
+
+  <!-- === THE K STRUCTURE === -->
+  <g transform="translate(400, 390)">
+    
+    <!-- K vertical stroke (left) -->
+    <path d="M-120,-250 L-120,250 L-80,250 L-80,-250 Z" fill="url(#flowGrad2)" opacity="0.9"/>
+    
+    <!-- K upper diagonal (right) -->
+    <path d="M-80,-60 L120,-250 L90,-250 L-80,-100 Z" fill="url(#circuitGrad)" opacity="0.9"/>
+    
+    <!-- K lower diagonal (right) -->
+    <path d="M-80,60 L120,250 L80,250 L-80,20 Z" fill="url(#kGradRight)" opacity="0.9"/>
+
+    <!-- Circuit board traces on the right side of K -->
+    <g stroke="url(#circuitGrad)" stroke-width="1.5" fill="none" opacity="0.7">
+      <!-- Upper diagonal circuits -->
+      <path d="M-40,-120 L40,-180 L60,-180 L60,-200"/>
+      <path d="M-20,-100 L30,-150 L70,-150"/>
+      <path d="M0,-80 L50,-130 L80,-130 L80,-160"/>
+      <path d="M-60,-140 L-20,-180 L20,-200 L40,-200"/>
+      
+      <!-- Lower diagonal circuits -->
+      <path d="M-40,120 L40,180 L60,180 L60,200"/>
+      <path d="M-20,100 L30,150 L70,150"/>
+      <path d="M0,80 L50,130 L80,130 L80,160"/>
+      <path d="M-60,140 L-20,180 L20,200"/>
+    </g>
+
+    <!-- Circuit nodes (small squares) on right side -->
+    <g fill="url(#circuitGrad)" opacity="0.8">
+      <rect x="57" y="-203" width="6" height="6" rx="1"/>
+      <rect x="67" y="-153" width="6" height="6" rx="1"/>
+      <rect x="77" y="-163" width="6" height="6" rx="1"/>
+      <rect x="37" y="-203" width="6" height="6" rx="1"/>
+      <rect x="57" y="197" width="6" height="6" rx="1"/>
+      <rect x="67" y="147" width="6" height="6" rx="1"/>
+      <rect x="77" y="157" width="6" height="6" rx="1"/>
+      <rect x="17" y="197" width="6" height="6" rx="1"/>
+    </g>
+
+    <!-- === FLOWING LINES (left side - musical/organic) === -->
+    <g fill="none" stroke-linecap="round">
+      <!-- Flow line 1 - outermost -->
+      <path d="M-130,-200 C-200,-150 -220,-50 -200,30 C-180,110 -160,170 -130,230" 
+            stroke="#7c3aed" stroke-width="2.5" opacity="0.8"/>
+      
+      <!-- Flow line 2 -->
+      <path d="M-125,-210 C-190,-160 -210,-40 -185,50 C-160,130 -145,180 -125,225" 
+            stroke="#6366f1" stroke-width="2" opacity="0.7"/>
+      
+      <!-- Flow line 3 -->
+      <path d="M-120,-220 C-180,-170 -195,-30 -175,60 C-150,140 -135,185 -120,220" 
+            stroke="#818cf8" stroke-width="2" opacity="0.6"/>
+      
+      <!-- Flow line 4 -->
+      <path d="M-135,-190 C-210,-130 -230,-20 -210,50 C-190,120 -165,175 -135,235" 
+            stroke="#8b5cf6" stroke-width="2" opacity="0.7"/>
+      
+      <!-- Flow line 5 -->
+      <path d="M-140,-180 C-220,-110 -240,0 -215,70 C-190,140 -170,185 -140,240" 
+            stroke="#a78bfa" stroke-width="1.8" opacity="0.5"/>
+      
+      <!-- Flow line 6 - inner -->
+      <path d="M-128,-195 C-195,-140 -215,-35 -195,45 C-175,115 -155,175 -128,228" 
+            stroke="#3b82f6" stroke-width="2" opacity="0.6"/>
+      
+      <!-- Flow line 7 -->
+      <path d="M-145,-170 C-230,-90 -250,20 -225,90 C-200,155 -175,195 -145,245" 
+            stroke="#7c3aed" stroke-width="1.5" opacity="0.4"/>
+      
+      <!-- Flow line 8 -->
+      <path d="M-150,-160 C-235,-75 -255,35 -230,100 C-205,160 -180,200 -150,248" 
+            stroke="#6366f1" stroke-width="1.5" opacity="0.35"/>
+    </g>
+
+    <!-- Nodes/dots along the flowing lines -->
+    <g filter="url(#glowSmall)">
+      <!-- Purple/blue dots -->
+      <circle cx="-200" cy="30" r="5" fill="#7c3aed" opacity="0.9"/>
+      <circle cx="-185" cy="50" r="4" fill="#6366f1" opacity="0.8"/>
+      <circle cx="-175" cy="60" r="3.5" fill="#818cf8" opacity="0.7"/>
+      <circle cx="-210" cy="50" r="4.5" fill="#8b5cf6" opacity="0.8"/>
+      <circle cx="-195" cy="45" r="3" fill="#3b82f6" opacity="0.7"/>
+      
+      <!-- Upper area dots -->
+      <circle cx="-180" cy="-130" r="4" fill="#6366f1" opacity="0.8"/>
+      <circle cx="-200" cy="-100" r="3" fill="#818cf8" opacity="0.7"/>
+      <circle cx="-215" cy="-60" r="5" fill="#3b82f6" opacity="0.6"/>
+      <circle cx="-165" cy="-160" r="3.5" fill="#7c3aed" opacity="0.7"/>
+      
+      <!-- Lower area dots -->
+      <circle cx="-170" cy="130" r="4" fill="#8b5cf6" opacity="0.7"/>
+      <circle cx="-155" cy="170" r="3.5" fill="#6366f1" opacity="0.8"/>
+      <circle cx="-190" cy="100" r="3" fill="#a78bfa" opacity="0.6"/>
+      
+      <!-- White/bright accent dots -->
+      <circle cx="-190" cy="-120" r="3" fill="#e2e8f0" opacity="0.9"/>
+      <circle cx="-220" cy="-30" r="2.5" fill="#ffffff" opacity="0.8"/>
+      <circle cx="-160" cy="150" r="2.5" fill="#e2e8f0" opacity="0.7"/>
+    </g>
+
+    <!-- Golden/warm accent node (center-left area) -->
+    <circle cx="-195" cy="-10" r="7" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.8" filter="url(#glowSmall)"/>
+    <circle cx="-195" cy="-10" r="3" fill="#fbbf24" opacity="0.9"/>
+
+    <!-- === CONDUCTOR'S BATON === -->
+    <line x1="-170" y1="100" x2="100" y2="-260" 
+          stroke="url(#batonGrad)" stroke-width="2.5" stroke-linecap="round" 
+          opacity="0.9" filter="url(#glowSmall)"/>
+    
+    <!-- Baton tip glow -->
+    <circle cx="100" cy="-260" r="4" fill="#ffffff" opacity="0.9" filter="url(#glowMed)"/>
+    <circle cx="100" cy="-260" r="2" fill="#ffffff"/>
+
+    <!-- Floating sparkle dots -->
+    <g filter="url(#glowMed)">
+      <circle cx="60" cy="-230" r="2.5" fill="#ffffff" opacity="0.7"/>
+      <circle cx="30" cy="-270" r="2" fill="#e2e8f0" opacity="0.5"/>
+      <circle cx="-30" cy="-280" r="3" fill="#ffffff" opacity="0.4"/>
+      <circle cx="80" cy="-290" r="2" fill="#94a3b8" opacity="0.5"/>
+    </g>
+
+  </g>
+
+  <!-- === TEXT === -->
+  <!-- KARJAN CODE -->
+  <text x="400" y="700" text-anchor="middle" 
+        font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" 
+        font-size="52" font-weight="600" letter-spacing="8" 
+        fill="url(#textGrad)">KARAJAN CODE</text>
+  
+  <!-- AI Orchestration Platform -->
+  <text x="400" y="735" text-anchor="middle" 
+        font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" 
+        font-size="18" font-weight="300" letter-spacing="4" 
+        fill="#64748b">AI Orchestration Platform</text>
+
+  <!-- Bottom-right sparkle -->
+  <g transform="translate(720, 780)" fill="#94a3b8" opacity="0.5">
+    <path d="M0,-8 L1.5,-1.5 L8,0 L1.5,1.5 L0,8 L-1.5,1.5 L-8,0 L-1.5,-1.5 Z"/>
+  </g>
+
+</svg>

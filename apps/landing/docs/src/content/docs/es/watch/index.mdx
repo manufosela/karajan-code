@@ -1,0 +1,54 @@
+---
+title: Watch — karajan-watch
+description: El vigía multi-repo de la familia Karajan — un RAG compartido alimentado en cada merge, ranking de impacto cross-repo con evidencia y avisos de deriva de documentación.
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+**karajan-watch** es el vigía de la familia Karajan: un RAG compartido
+sobre TODOS los repos de tu organización, alimentado en cada merge — y,
+encima de él, dos respuestas que ninguna vista de un solo repo puede
+darte: *¿qué otros repos puede romper este cambio?* y *¿qué
+documentación acaba de quedarse desactualizada?*
+
+## Tres capas, estrictamente separadas
+
+| Capa | Qué es | Dónde |
+|---|---|---|
+| **Motor** | [karajan-rag](/docs/es/karagan/) — index/query/serve, estrategias de contexto, sensitivity policy + redacción PII | Open source, npm |
+| **Producto** | **karajan-watch** — orquestación genérica: workflows reusables de ingesta, impacto y deriva. No conoce a ninguna organización. | Open source, npm |
+| **Despliegue** | Un repo privado por organización: lista de repos, umbrales, infra, credenciales, golden set de calibración | Tuyo |
+
+La dependencia apunta siempre hacia arriba — el producto nunca sabe
+quién lo despliega. Como nginx y tu `nginx.conf`: el producto es de
+todos, la instancia es tuya.
+
+## Honesto por diseño
+
+El análisis de impacto produce un **ranking de riesgo con evidencia** —
+similitud del retrieval, historial de co-cambios git, coincidencias
+literales de contratos (rutas HTTP, topics de evento, tablas SQL) y un
+veredicto LLM gobernado por la policy. Nunca se vende como una
+"probabilidad" calibrada: las heurísticas se etiquetan como heurísticas,
+los contratos como evidencia, y los umbrales se calibran contra un
+golden set de tus incidentes reales.
+
+## Empieza por aquí
+
+<CardGrid>
+  <LinkCard title="Diseño y fases" href="/docs/es/watch/design/" description="El problema, las tres capas y el roadmap F1/F2/F3." />
+  <LinkCard title="Configuración" href="/docs/es/watch/config/" description="El contrato estricto entre producto y repo de despliegue." />
+  <LinkCard title="Ingesta por merge" href="/docs/es/watch/ingest/" description="El workflow reusable que mantiene fresco el corpus compartido." />
+  <LinkCard title="Impacto cross-repo" href="/docs/es/watch/impact/" description="Cuatro señales, un ranking con evidencia en cada merge." />
+  <LinkCard title="Deriva de documentación" href="/docs/es/watch/drift/" description="Qué secciones quedaron desactualizadas — con prueba literal." />
+  <LinkCard title="Eval y calibración" href="/docs/es/watch/eval/" description="precision/recall@k contra tu propio historial de incidentes." />
+  <LinkCard title="Contrato con el motor" href="/docs/es/watch/engine-contract/" description="Qué consume watch de karajan-rag, y los gaps upstream." />
+</CardGrid>
+
+:::note[Fuente de verdad]
+Estas páginas se sincronizan desde los docs canónicos del
+[repo karajan-watch](https://github.com/manufosela/karajan-watch)
+(pinneados a `v0.3.0`) — se regeneran, nunca se copian a mano. Landing:
+[watch.karajancode.com](https://watch.karajancode.com) · npm:
+[karajan-watch](https://www.npmjs.com/package/karajan-watch)
+:::

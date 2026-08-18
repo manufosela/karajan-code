@@ -1,0 +1,87 @@
+---
+title: kj doctor
+description: Diagnose the environment and auto-remediate — agent CLIs, Node, ports, tokens, Sonar, MCP health, project readiness. Run it when something's off, or before a CI run.
+---
+
+`kj doctor` answers "why isn't this working?" — and, where it can, fixes it for you. It's the command you run when `kj run` behaves unexpectedly, and the command CI runs before `kj run` to fail fast on a broken runner.
+
+## What it does
+
+`kj doctor` runs a battery of **checks** across the whole environment and prints each as pass / warn / fail, then **auto-remediates** the ones it safely can. The checks span: system dependencies (OS-level binaries), the config files Karajan expects, the agent CLIs and their versions, Node version, the ports Karajan/HU-Board/Sonar use, API tokens, SonarQube container health, MCP server health, skills availability, the `~/.karajan` directory layout, RTK, and CI wiring.
+
+When a check fails and a fix is known and non-destructive, `kj doctor` applies it (e.g. creating a missing directory, starting a stopped Sonar container) and re-reports it as "auto-fixed". Invasive remediations prompt for confirmation on a TTY; `--yes` auto-confirms them for CI. `--check-only` makes it purely diagnostic — detect, never touch.
+
+A second mode, `--project`, runs **only project-aware checks**: it inspects the current repo for stack signals, verifies the external tools each signal needs are present, checks write permissions, `.env` consistency, and that the `gh` remote is reachable. This is the targeted "is this specific project ready for `kj run`?" check, distinct from the broad machine-level sweep.
+
+The exit code is meaningful: a blocking failure (a check that's `fail` or `timeout`) makes `kj doctor` exit non-zero, so a CI step can gate on it.
+
+## When to use
+
+- **`kj run` is misbehaving** — `kj doctor` first; it usually names the cause (wrong Node, missing CLI, dead Sonar).
+- **Before a CI `kj run`** — `kj doctor --check-only --json` as a gating step.
+- **After a machine change** — new Node, reinstalled CLI, OS upgrade: `kj doctor` confirms nothing regressed.
+- **Validating a specific project** — `kj doctor --project` before the first `kj run` in an unfamiliar repo.
+- **Unattended remediation** — `kj doctor --yes` in a provisioning script to fix what's auto-fixable without prompts.
+
+## When NOT to use
+
+- **Initial setup** — `kj doctor` checks an existing setup; it doesn't create one. Run [`kj init`](./init/) first.
+- **Installing missing audit tools** — `kj doctor` will *tell* you semgrep is missing and suggest `kj install-tools`; it doesn't install them itself. Use [`kj install-tools`](./install-tools/).
+- **As a health monitor loop** — it's a point-in-time diagnostic, not a watcher. Don't poll it on a timer; run it when something changed.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `--check-only` | off (auto-fixes) | You want diagnosis without any changes — inspecting a sensitive machine, or just curious what's wrong. | Mutually exclusive in spirit with `--yes` (nothing to confirm if nothing is fixed). |
+| `-y, --yes` | off | CI / unattended — auto-confirm invasive remediations that would otherwise prompt. | No effect with `--check-only`. |
+| `--json` | off (human output) | Programmatic consumption — a CI step parses the result and decides. | Pairs with `--check-only` for a pure machine-readable diagnostic. |
+| `--verbose` | off | You want the *fix hint* and timing for every check, not just failures — useful when a pass is suspiciously slow. | — |
+| `--project` | off (full sweep) | Validate one repo's readiness (stack signals, per-signal tools, write perms, `.env`, `gh` remote) rather than the whole machine. | Replaces the broad checks with project-only ones; combine with `--json` for a CI pre-flight. |
+
+## Examples
+
+### Typical: something's wrong, fix what you can
+
+```bash
+kj doctor
+```
+
+What happens: every check prints with an icon; auto-fixable failures (missing dir, stopped Sonar) are repaired and marked "auto-fixed"; invasive fixes prompt. The summary line says "All checks passed (N auto-fixed)" or lists the blockers. Exit code reflects whether a blocker remains.
+
+### CI gate, no mutations
+
+```bash
+kj doctor --check-only --json
+```
+
+What happens: pure diagnosis, no changes, machine-readable. The CI step inspects the JSON (or just the non-zero exit on a blocking failure) and stops the pipeline before wasting a `kj run` on a broken runner.
+
+### Project readiness before first run
+
+```bash
+cd ../unfamiliar-repo && kj doctor --project --verbose
+```
+
+What happens: only project-aware checks run — detected stack, the external tools that stack needs, write permissions, `.env` consistency, `gh` remote reachability — with fix hints for each. Tells you exactly what to provision before `kj run` here.
+
+### Unattended provisioning
+
+```bash
+kj doctor --yes
+```
+
+What happens: every auto-fixable and invasive-but-known remediation is applied without prompting. Used at the end of a machine-provisioning script so the runner is `kj run`-ready.
+
+## How it works internally
+
+`kj doctor` is built as a **check pipeline**: each domain (system, binaries, node, ports, tokens, sonar, mcp-health, skills, dir-setup, ci, rtk, project) contributes a set of independent checks with a known status and, where applicable, a remediation. The design decision that matters is **detect-and-remediate as one pass, not two**: a check doesn't just report "Sonar down", it carries the knowledge of how to bring it up, so the same run that finds the problem can fix it. This is why `--check-only` is a deliberate opt-out rather than the default — the common case is "I want this working", not "I want a report".
+
+The split between the full sweep and `--project` encodes a real distinction: machine-level health (is Node new enough, are the CLIs installed) is stable and rarely changes, while project readiness (does *this* repo's stack need lighthouse, is the `gh` remote reachable) changes every time you `cd` somewhere new. Bundling them would make the common pre-`kj run` check needlessly slow; separating them lets CI run the cheap project check on every job and the full sweep only at provisioning time. The meaningful exit code exists for exactly that CI use — `kj doctor` is designed to be a gate, not just a console nicety.
+
+## Related
+
+- [`kj init`](./init/) — creates the setup `kj doctor` verifies.
+- [`kj install-tools`](./install-tools/) — installs the external tools `kj doctor` reports missing.
+- [External tools](../external-tools/) — what each tool `doctor` checks for actually does and why it matters.
+- [`kj config`](./maintenance/#kj-config) — inspect the config whose validity `doctor` checks.

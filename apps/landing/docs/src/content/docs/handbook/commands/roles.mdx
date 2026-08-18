@@ -1,0 +1,73 @@
+---
+title: kj roles
+description: List the pipeline roles or print a role's template instructions — the prompt scaffolding behind each role.
+---
+
+`kj roles` is the **introspection command for the pipeline itself**. It lists every role Karajan can run, and shows the actual template instructions a given role is driven by. Where [`kj agents`](./agents/) answers "which provider backs this role", `kj roles` answers "what *is* this role, and what prompt is it running".
+
+## What it does
+
+`kj roles` (or `kj roles list`) prints the catalogue of pipeline roles — the same set documented in [Pipeline roles](../pipeline-roles/) — so you can see, from the CLI, what's available. `kj roles show <role>` prints that role's **template instructions**: the prompt scaffolding Karajan injects when the role runs. This is read-only introspection; it changes nothing.
+
+It's how you answer "why did the reviewer behave like that?" or "what exactly is the `solomon` role told to do?" without reading the source. The templates are the contract between Karajan and the agent; `kj roles show` makes that contract inspectable.
+
+## When to use
+
+- **Understanding a role's behaviour** — `kj roles show reviewer` to see the actual rubric it's given.
+- **Debugging unexpected pipeline output** — read the template of the role that produced it.
+- **Auditing what an agent is instructed to do** — before trusting a role on sensitive code.
+- **Discovering available roles from the terminal** — `kj roles` as a quick reference without leaving the shell.
+
+## When NOT to use
+
+- **Changing a role's provider** — that's [`kj agents`](./agents/); `kj roles` is read-only.
+- **Enabling/disabling a role for a run** — that's `kj run --enable-X` / `--skip-role`; `kj roles` doesn't affect what runs.
+- **A narrative explanation with when-to-use guidance** — that's the [Pipeline roles](../pipeline-roles/) handbook page. `kj roles show` gives you the raw template, not the prose.
+- **Editing the template** — the templates ship with Karajan; `kj roles` shows them, it doesn't open them for editing.
+
+## Options & subcommands
+
+| Form | Effect |
+| --- | --- |
+| `kj roles` / `kj roles list` | List every pipeline role. |
+| `kj roles show <role>` | Print the template instructions for that role (e.g. `kj roles show coder`). |
+
+`kj roles` takes no flags — it's pure introspection over the shipped role templates.
+
+## Examples
+
+### List the roles from the terminal
+
+```bash
+kj roles
+```
+
+What happens: prints the role catalogue — a quick in-shell index when you don't want to open the handbook.
+
+### Inspect what the reviewer is told
+
+```bash
+kj roles show reviewer
+```
+
+What happens: prints the reviewer's template — the exact rubric (correctness, structural-vs-style, verdict format) that drives every `kj review` and the review step of `kj run`.
+
+### Audit the arbiter before trusting it
+
+```bash
+kj roles show solomon
+```
+
+What happens: shows precisely what Solomon is instructed to weigh when arbitrating coder-vs-reviewer disputes — useful before relying on it for production code.
+
+## How it works internally
+
+`kj roles show` exists because **the role templates are the real source of truth for behaviour, and hidden contracts are unauditable contracts**. Karajan's output is a function of these prompts; if you can't see them, "why did it do that?" is unanswerable and trust is blind. Exposing the templates verbatim is a deliberate transparency choice — the same philosophy as [`kj review`](./review/) surfacing its structural/style classification rather than collapsing to a verdict: don't make the user re-derive what the system already encodes.
+
+The split between `kj roles show` (raw template) and the [Pipeline roles](../pipeline-roles/) page (narrative) is intentional. The template is the *contract*; the handbook page is the *explanation*. They serve different needs — debugging unexpected output wants the exact words the agent received, while deciding whether to enable a role wants the reasoning and trade-offs. Merging them would give debuggers prose they have to reverse-engineer and learners a raw prompt with no context.
+
+## Related
+
+- [Pipeline roles](../pipeline-roles/) — the narrative companion: what each role does, when it pays off, when it's overhead.
+- [`kj agents`](./agents/) — set which provider backs a role (`kj roles` shows what it is, `kj agents` sets who runs it).
+- [`kj run`](./run/) — `--enable-X` / `--skip-role` control which of these roles actually run.

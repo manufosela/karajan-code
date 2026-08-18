@@ -1,0 +1,86 @@
+---
+title: Karajan Code
+description: Orquestador de IA basado en roles con 24 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
+template: splash
+hero:
+  tagline: "Desarrolla con varias IAs, con garantías. Tu agente escribe; Karajan gobierna: método TDD-first, revisión IA-cruzada en cada commit, gates de git — el falso verde es imposible."
+  image:
+    html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — orquestador multiagente" width="400" height="400" />'
+  actions:
+    - text: Empezar
+      link: /docs/es/v4/install/
+      icon: right-arrow
+    - text: Ver en GitHub
+      link: https://github.com/manufosela/karajan-code
+      icon: external
+      variant: minimal
+    - text: Roadmap publico
+      link: https://planning-game-xp.web.app/public/?project=Karajan%20Code
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## ¿Por qué Karajan Code?
+
+Tu agente de IA (Claude Code, Codex, Gemini CLI, Cursor…) escribe el código — Karajan gobierna cómo ocurre. `kj` instala un método que tu agente sigue en cada tarea (RAG antes de suponer, card primero, tests primero) y lo hace cumplir con gates de git: **cada commit exige el veredicto de una IA distinta**, los hallazgos de seguridad no los anula nadie, y la rama base solo se mueve por PR. El que hace nunca se califica a sí mismo — y el falso verde es estructuralmente imposible.
+
+## Un runtime de loop engineering
+
+El prompt engineering sacaba una buena respuesta de un buen prompt. El context engineering curaba lo que veía el modelo. La frontera de 2026 es el **loop engineering**: dejas de promptear al agente a mano y diseñas el sistema que lo promptea, lo verifica y decide qué pasa después — hasta que se cumple el objetivo o te lo devuelve a ti. Karajan se construyó alrededor de ese bucle antes de que el término calara:
+
+- **Separación maker / checker** — un coder contra roles independientes de reviewer, tester y security, con Solomon arbitrando los conflictos. El maker nunca corrige su propio trabajo.
+- **Verificación determinista** — TDD, tests de aceptación por HU, gates de SonarQube y guardarraíles deterministas. Verificar es tests, no intuición.
+- **La escalera de autonomía L1 → L2 → L3** — el eje `interactive | assisted | autonomous` (v3.7.0). Informe, luego fixes asistidos, luego `kj autorun` desatendido — con default `interactive`, así que tú decides.
+- **Un spine de estado duradero** — sesiones, el HU Board, journals, el índice RAG y `kj resume` mantienen vivo el bucle entre runs.
+
+El caveat que el loop engineering recalca — *los bucles desatendidos cometen errores desatendidos* — está diseñado de serie: los runs autónomos listan sus defectos residuales, cada historia aterriza tras una PR, y `kj-trash` hace snapshot de las operaciones destructivas. [Lee el mapeo completo de building blocks →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
+
+<CardGrid stagger>
+  <Card title="Arranque en una línea" icon="rocket">
+    Dile a tu agente: *"lee karajancode.com/start.md y haz lo que dice"*. Instala el stack completo, detecta si el proyecto es nuevo o existente, activa el entorno — y PARA a esperarte cuando un paso necesita sudo o una cuenta. [Instalación →](/docs/es/v4/install/)
+  </Card>
+  <Card title="Tu agente, gobernado" icon="approve-check">
+    El playbook aterriza en CLAUDE.md, AGENTS.md y GEMINI.md desde una única fuente: RAG primero, card primero (`kj hu`), TDD, ADRs en git (`kj adr`). Los briefs de rol (`kj brief`) dan a tu agente el método destilado de triage, planner, architect, tester, security y audit. [Trabaja con tu agente →](/docs/es/v4/working-with-your-agent/)
+  </Card>
+  <Card title="Revisión IA-cruzada + gates de git" icon="seti:lock">
+    `kj review --staged` liga el veredicto de una IA *distinta* al diff exacto — cambia el código y hay que revisarlo de nuevo. ¿Discrepas? Una tercera IA arbitra (`kj solomon`); los hallazgos de seguridad no los anula nadie. El gate pre-commit lo convierte en ley. [Los gates →](/docs/es/v4/gates/)
+  </Card>
+  <Card title="RAG sobre tu código" icon="magnifier">
+    Se construye al instalar y se refresca solo: `kj rag query` responde qué hace el código para que ningún agente adivine. En proyectos existentes, `kj onboard` produce un Architecture Brief antes de tocar nada.
+  </Card>
+  <Card title="Ecosistema que se repara solo" icon="github">
+    ¿Tu agente choca con un bug de kj? `kj report-issue` lo diagnostica y lo sube — sanitizado, deduplicado y solo con tu aprobación. Los fixes vuelven a todos. [Referencia de comandos →](/docs/es/v4/commands/)
+  </Card>
+  <Card title="Modo headless" icon="seti:shell">
+    El pipeline multiagente clásico sigue vivo para CI y automatización: `kj run` orquesta roles coder/reviewer/tester en subprocesos sin humano delante, con los mismos gates. [Modo headless →](/docs/es/v4/headless/)
+  </Card>
+  <Card title="Torneo gobernado (v4.15)" icon="star">
+    Una tarea, N coders en carriles worktree aislados: `kj tournament` reparte, `--score` construye un scoreboard determinista sin LLM, un juez cross-AI sin conflicto de interés elige al ganador, y `--crown` lo corona por el gate normal de review — ganar da candidatura, no bypass.
+  </Card>
+</CardGrid>
+
+## Releases recientes
+
+Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
+
+### v4.15.0 — ganar da candidatura, no bypass (actual)
+
+Minor que abre el torneo gobernado (`kj tournament`): la MISMA tarea se reparte a N coders en carriles worktree aislados, cada uno dejando su evidencia por carril. Después el embudo se estrecha: `--score` construye un scoreboard determinista con cero LLM — una suite roja elimina en el acto, y la regla lexicográfica de ranking se imprime con el resultado — `--judge` trae un juez cross-AI sin conflicto de interés (un participante nunca juzga; empate o desacuerdo escalan a solomon), y `--crown` corona al ganador por la puerta NORMAL: review cross-AI del diff staged exacto, veredicto ligado por sha256, commit por el gate real — un rechazo ABORTA. Ganar da candidatura, no bypass — y el ciclo completo corrió EN VIVO el primer día. Más cuatro fixes de campo: GitHub Actions pineadas por SHA (#1374), configs y gate de lint solo con la herramienta presente (#1357), el clipping de diffs declarado como propio del pipeline (#1381), y un split de fichero ya no se lee como borrado de cobertura — las líneas movidas son señal determinista (#1364).
+
+### v4.14.0 — el panel nunca se seca
+
+Minor nacida de un apagón real: codex agotó su cuota semanal en mitad de una tarea y el panel de arbitraje se derrumbó con él — gemini retirado, el modelo local caído, copilot en conflicto por ser el reviewer de la disputa. Un día después, el método es a prueba de apagones. **Failover de cuota con consentimiento**: cuando al reviewer configurado se le seca la cuota, `kj review` cambia a un candidato autenticado de un registro declarativo — avisando en alto y diciéndote cómo fijarlo — o te entrega el menú de candidatos con su tier (gratis / suscripción / local) y el comando de login exacto; jamás un fallo mudo, jamás el brain revisándose a sí mismo. **Dos agentes restauran el panel**: Kimi Code (Moonshot, tier gratis — la reserva sin coste) y Antigravity CLI (`agy`, el sucesor oficial del gemini CLI retirado) entran como octavo y noveno agentes integrados, ambos verificados contra sus CLIs vivos — el primer acto de agy fue aprobar la revisión de su propio adaptador. Y el rincón que nadie miraba: packages/ entra en la superficie de lint, 1.124 errores a cero, con la regresión hecha estructuralmente imposible.
+
+### v4.13.0 — el programa manda, el agente piensa
+
+Minor nacida de la verdad de campo más dura hasta la fecha: un agente como brain no puede ser estricto con sus propias reglas. El **Karajan Sentinel** recupera la autoridad determinista de la v3 sin renunciar a la inteligencia de la v4 — un supervisor con cero LLM cableado a los hooks síncronos del harness. Un hook PostToolUse registra el estado del método de la sesión según corren las herramientas; el gate PreToolUse gana estado (editar una fuente sin card, publicar con el release check en rojo, empujar con violaciones abiertas — bloqueado ANTES del daño); y el **hook Stop impide que el agente termine su turno mientras haya violaciones abiertas**, nombrando cada una con su remediación exacta. El sentinel no se desmonta desde dentro de la sesión: sus scripts los verifica `kj sentinel verify`, cuya raíz de confianza es el paquete kj instalado — nunca el árbol del proyecto — y cada escape `KJ_ALLOW_*` honrado aflora al usuario, porque un escape es decisión tuya, no un atajo del agente. Solo Claude Code, por decisión y no por accidente: para garantizar un harness que controle al LLM, usa Claude como anfitrión.
+
+### v4.12.0 — la memoria es el recordatorio; el check es la garantía
+
+Minor nacida de la crítica más afilada del usuario hasta la fecha: *"da igual lo que apuntes, pasado un tiempo lo ignoras"* — cierto en humanos, más cierto en agentes. Así que el checklist de release deja de vivir en la memoria de nadie: `kj release check` lo verifica determinísticamente — versión del manifest contra la sección superior del CHANGELOG (con Unreleased de verdad vacío), ningún tag adelantado, privacy scan del set exacto de ficheros publicables — más las verdades declaradas de cada proyecto (`release_check.items`: un fichero debe contener `v{version}`, un comando debe salir 0 — como "el sitio desplegado muestra esta versión como actual"). Rojo con la lista exacta, o listo. Completa la tríada por proyecto: commit check (gate pre-commit), PR check (CI de harden), release check. En su primer día cazó dos hallazgos reales — incluido el changelog sin promover de su propio repo.
+
+### v4.11.0 — la caja de herramientas decide
+
+Minor nacida de observar a los agentes trabajar: usan las herramientas que tienen delante, así que el entorno pone ahí las correctas. El **RAG se vuelve herramienta MCP nativa** — `kj env install` cablea `kj-rag-mcp` en el `.mcp.json` del proyecto, haciendo de `kj_rag_query` el camino más barato del agente hacia "qué hace este código" (antes analizaba a mano, porque el RAG era solo un comando Bash mencionado en un texto). Y el **board se vuelve pregunta**: la instalación detecta qué alcanza tu máquina — MCP del Planning Game, tokens de Linear/Jira — y pregunta y persiste en instalaciones interactivas, o nombra el default y la línea exacta para cambiarlo en headless. Nunca más `hu-board` en silencio. Drift de regalo cazado: el schema de config nunca aprendió el backend `external` de la v4.5.0 — arreglado.

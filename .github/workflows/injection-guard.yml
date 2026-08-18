@@ -34,6 +34,8 @@ jobs:
             ':!packages/radar/backend/app/corpus/documents.py' \
             ':!packages/radar/README.md' \
             ':!packages/rag/docs/security/**' \
+            ':!apps/landing/docs/**' \
+            ':!apps/landing/public/docs/**' \
             ':!packages/rag/src/easy/sdk.js' \
             ':!packages/rag/src/easy/rag-service.js' \
             ':!.github/workflows/*.yml' \

@@ -1,0 +1,146 @@
+---
+title: External tools
+description: The five non-bundled tools Karajan integrates with — Sonar, OSV-Scanner, Semgrep, Lighthouse, Docker — what each adds, how Karajan calls it, and what degrades when it's missing.
+---
+
+Karajan deliberately does **not** ship five tools it relies on: SonarQube, OSV-Scanner, Semgrep, Lighthouse, and Docker. They're heavy, OS-specific, or daemon-based, and vendoring them would bloat the npm package and fight your system's package manager. Instead Karajan *integrates* with them: it calls them when present, and **degrades gracefully** when they're not — a missing tool silently drops its contribution rather than failing the run.
+
+This page documents each tool with the same shape:
+
+- **What it is** — the tool itself, independent of Karajan.
+- **What Karajan uses it for** — which command/dimension it feeds.
+- **What degrades without it** — exactly what you lose if it's absent.
+- **How Karajan calls it** — the integration mechanism.
+- **Install** — the one-liner (or `kj install-tools`).
+
+Provision them in one pass with [`kj install-tools`](./commands/install-tools/); check what's missing with [`kj doctor`](./commands/doctor/).
+
+---
+
+## SonarQube
+
+### What it is
+
+A self-hosted static-analysis server that scans a codebase for bugs, code smells, vulnerabilities and duplication, and exposes a **quality gate** (pass/fail) over the result. Runs as a Docker container plus a database.
+
+### What Karajan uses it for
+
+Two places. Inside `kj run`, the **sonar role** scans every iteration's code and contributes the quality gate as one of the signals the reviewer and Brain weigh. Standalone, [`kj scan`](./commands/scan/) runs just the scan, and [`kj audit`](./commands/audit/) ingests Sonar findings as a deterministic collector feeding the code-quality and security dimensions.
+
+### What degrades without it
+
+The `sonar` role and the audit's Sonar collector are skipped automatically. The iteration loop still runs (coder + guards + tdd + reviewer), but you lose the external, deterministic quality-gate signal — the loop leans entirely on the reviewer's judgement. `kj scan` becomes a no-op.
+
+### How Karajan calls it
+
+Karajan manages the container lifecycle (`kj sonar up/down`, auto-start in `kj init`) and bootstraps an auth token. Scans run via the Sonar scanner against the local server; findings are parsed and grouped by severity before being handed to the reviewer or the audit prompt. When the server is unreachable, the collector self-skips with a logged note rather than erroring.
+
+### Install
+
+Requires Docker. `kj install-tools` (brings the container up) or `kj sonar up`. See [`kj sonar`](./commands/sonar/) for the full container management surface.
+
+---
+
+## OSV-Scanner
+
+### What it is
+
+Google's open-source vulnerability scanner. It reads your lockfiles, resolves the exact dependency versions, and matches them against the OSV database of known CVEs — precise, no false "you might be affected", just "this installed version has this CVE".
+
+### What Karajan uses it for
+
+A deterministic collector in [`kj audit`](./commands/audit/). Its CVE findings feed the **security** dimension, so the auditor LLM reasons about *confirmed* vulnerable packages instead of guessing from `package.json`.
+
+### What degrades without it
+
+The audit's OSV collector self-skips. The security dimension still runs (the LLM still looks for hardcoded secrets, injection, etc.), but loses the hard, version-exact CVE list — dependency vulnerabilities become "the model's best guess" rather than a precise enumeration.
+
+### How Karajan calls it
+
+`kj audit` invokes `osv-scanner` against the project, parses the JSON, groups vulnerabilities by severity, and injects the top findings into the audit prompt as ground truth. Absence is detected up front and the collector is dropped with a note; `--no-osv` skips it explicitly even when installed.
+
+### Install
+
+`kj install-tools` (or `brew install osv-scanner` / the Go install). Binary, no daemon.
+
+---
+
+## Semgrep
+
+### What it is
+
+A fast, multi-language **SAST** (static application security testing) engine. It pattern-matches source against rule packs for injection, unsafe APIs, auth mistakes and similar — semantic-aware, not just grep.
+
+### What Karajan uses it for
+
+A deterministic collector in [`kj audit`](./commands/audit/), feeding the **security** dimension alongside OSV. Where OSV covers *dependency* CVEs, Semgrep covers *your own code's* vulnerable patterns.
+
+### What degrades without it
+
+The Semgrep collector self-skips. The security dimension's first-party code analysis falls back entirely to the LLM's reading — you lose the deterministic, rule-pack-backed SAST findings that make "is there an injection here" a checked fact rather than an inference.
+
+### How Karajan calls it
+
+`kj audit` runs `semgrep` over the codebase, groups findings by severity, and feeds the top ones into the audit prompt. Like the other collectors it's auto-skipped when the binary is absent and explicitly skippable with `--no-semgrep`.
+
+### Install
+
+`pipx install semgrep` or `brew install semgrep` (it's a Python toolchain — this is why it isn't bundled). Or `kj install-tools`.
+
+---
+
+## Lighthouse
+
+### What it is
+
+Google's web-performance and quality auditor. It loads a URL in a headless browser and reports **Core Web Vitals** (LCP, INP, CLS), plus performance/accessibility/SEO opportunities, scored.
+
+### What Karajan uses it for
+
+[`kj webperf <url>`](./commands/webperf/) runs Lighthouse directly and persists the result. [`kj audit`](./commands/audit/) then *reads* that persisted result into its **performance** section. The `perf` role inside `kj run` can gate frontend changes on Core Web Vitals.
+
+### What degrades without it
+
+`kj webperf` can't run. `kj audit` simply omits the web-perf section (it reads a persisted result; no result, no section — it never launches a browser itself). The `perf` role degrades to non-Lighthouse heuristics.
+
+### How Karajan calls it
+
+`kj webperf` shells out to the `lighthouse` CLI against the target URL, parses Core Web Vitals and opportunities, and writes them to `~/.karajan/webperf/<slug>/last.json`. `kj audit` reads that file — the decoupling is deliberate: the browser run is expensive and explicit, the audit just consumes the latest snapshot. Lighthouse is **stack-gated** in `kj install-tools` (frontend/fullstack only).
+
+### Install
+
+`npm i -g lighthouse`, or `kj install-tools` (offered only on frontend/fullstack projects unless you pass `--only lighthouse`).
+
+---
+
+## Docker
+
+### What it is
+
+The container runtime. Not an audit tool itself — **infrastructure** the other integrations depend on.
+
+### What Karajan uses it for
+
+It's the substrate for **SonarQube** (server + DB run as containers). `kj sonar up`, the auto-start in `kj init`, and the Sonar collector in `kj audit` all require a working Docker daemon.
+
+### What degrades without it
+
+No Docker ⇒ no SonarQube ⇒ the entire Sonar chain degrades: the `sonar` role in `kj run` skips, `kj scan` is a no-op, and the audit's Sonar collector drops. Everything *not* Sonar-related (coder loop, OSV, Semgrep, Lighthouse, the LLM dimensions) is unaffected — Docker's blast radius is exactly the Sonar features.
+
+### How Karajan calls it
+
+Karajan never asks you to write Docker commands — it manages the Sonar container's lifecycle for you (`kj sonar up/down`, health checks in `kj doctor`). It only needs the daemon present and running. Because Docker can't be installed via a language package manager, `kj install-tools` reports a platform-appropriate install **hint** for it rather than force-installing.
+
+### Install
+
+Platform-specific (Docker Desktop on macOS/Windows, the engine on Linux). `kj install-tools` prints the right hint for your OS; `kj doctor` checks the daemon is up.
+
+---
+
+## Reading this further
+
+- [`kj install-tools`](./commands/install-tools/) — provision all five (stack-gated) in one pass.
+- [`kj doctor`](./commands/doctor/) — detect which are missing and get the fix hint.
+- [`kj audit`](./commands/audit/) — the command whose deterministic collectors these feed.
+- [Audit dimensions](./audit-dimensions/) — how Sonar/OSV/Semgrep/Lighthouse findings map onto the six scored dimensions.
+- [`kj sonar`](./commands/sonar/) — the full SonarQube container management surface.

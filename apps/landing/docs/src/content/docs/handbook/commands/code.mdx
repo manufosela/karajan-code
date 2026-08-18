@@ -1,0 +1,79 @@
+---
+title: kj code
+description: Coder-only — write the code, skip reviewer, sonar, and the iteration loop. The lightweight cousin of kj run.
+---
+
+`kj code` runs **just the coder**. No reviewer, no Sonar, no TDD gate, no iteration loop. You ask, the coder writes, it stops. It's the fast path for when you trust the change and don't want the full negotiation `kj run` puts every diff through.
+
+## What it does
+
+`kj code` takes a task (inline or `--task-file`) and invokes the coder role exactly once against your working tree. The coder reads the relevant code, makes the change, and writes it to disk. That's the whole pipeline — the deterministic guards still protect against catastrophic output (credential leaks, filesystem escapes), but there is no reviewer evaluating quality, no Sonar quality gate, and no loop that re-tries on rejection.
+
+Because there's no loop, there's no convergence behaviour: you get one attempt. If the result is wrong, you read it, adjust the task, and run again — *you* are the review loop. The output is the modified working tree; nothing is committed unless you do it yourself.
+
+It's the same coder agent and the same prompt scaffolding `kj run` uses for its coder step — the difference is purely the absence of everything around it.
+
+## When to use
+
+- **Mechanical, low-risk changes** — `kj code "rename getUser to fetchUser everywhere"`.
+- **You'll review it yourself anyway** — a change you're going to read line-by-line before committing; the reviewer would be redundant.
+- **Speed over rigour in a spike** — exploring an approach you'll likely throw away.
+- **Sonar/reviewer are unavailable** — container down, API rate-limited, and you need to keep moving.
+- **Inside your own script** — when you've built external validation and just need the code-writing step.
+
+## When NOT to use
+
+- **Anything that ships to production** — use [`kj run`](./run/). The reviewer + Sonar + iteration loop exist precisely for code you won't hand-audit.
+- **Tasks bigger than a single clear change** — no loop means no recovery from a wrong first attempt. Use [`kj run`](./run/) (or [`kj plan`](./plan/) first).
+- **When you want tests enforced** — `kj code` has no TDD gate. Use [`kj run`](./run/) with `--methodology tdd`.
+- **Unclear tasks** — without a reviewer, a vague task produces unreviewed vague code. Sharpen the task or use the full pipeline.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | The change to make, inline. Required unless `--task-file`. | — |
+| `--task-file <path>` | none | The task is long or lives in a `.md`. | Supersedes the inline `[task]`. |
+| `--coder <name>` | config (`roles.coder.provider`) | Use a different agent for this run: `--coder codex`. | — |
+| `--coder-model <name>` | tier-driven | Pin a specific model. Bypasses the tier picker. | — |
+
+`kj code` is intentionally minimal — it has no `--enable-X`, no iteration flags. Everything that would add a flag here is the reason to use `kj run` instead.
+
+## Examples
+
+### Typical: a mechanical change
+
+```bash
+kj code "Add a JSDoc block to every exported function in src/utils/date.js"
+```
+
+What happens: the coder edits the file once and stops. You `git diff`, eyeball it, commit if good. No reviewer, no Sonar — seconds, not minutes.
+
+### From a spec file
+
+```bash
+kj code --task-file ./notes/quick-tweak.md --coder claude
+```
+
+What happens: the task is read from the file, the named agent applies it once. Same single-shot behaviour.
+
+### Spike you'll discard
+
+```bash
+kj code "Prototype a WebSocket transport for the notifier" && npm test
+git checkout -- .   # throw the spike away
+```
+
+What happens: fast prototype, your own `npm test` as the only gate, then discard. `kj run`'s machinery would be wasted here.
+
+## How it works internally
+
+`kj code` exists because **not every change deserves the full pipeline, and forcing it would train users to avoid Karajan entirely**. The iteration loop, reviewer and Sonar are what make `kj run` trustworthy for unreviewed-by-human code — but they cost tokens and minutes. For a rename you're going to read anyway, that cost buys nothing. `kj code` is the honest acknowledgement that the human is sometimes the right review loop, and the tool shouldn't pretend otherwise.
+
+What it deliberately keeps is the deterministic guard layer: even single-shot, the coder cannot leak credentials or escape the working tree. The line Karajan draws is "judgement is optional, safety is not" — you can opt out of the reviewer's opinion, never out of the hard guards. This is the same reason `kj code` is a separate command rather than `kj run --no-everything`: collapsing the pipeline to nothing is a different *intent*, and naming it makes that intent explicit.
+
+## Related
+
+- [`kj run`](./run/) — the full pipeline; use it for anything you won't hand-review.
+- [`kj review`](./review/) — the inverse: reviewer-only on an existing diff (run `code` then `review` to split the loop manually).
+- [Pipeline roles → `coder`](../pipeline-roles/#coder) — the role this command runs standalone.

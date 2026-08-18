@@ -1,0 +1,86 @@
+---
+title: Karajan Code
+description: The environment that governs AI-driven development — your agent orchestrates, Karajan installs the method, cross-AI review and git gates that make a false green impossible.
+template: splash
+hero:
+  tagline: "Code with several AIs, with guarantees. Your agent writes; Karajan governs: TDD-first method, cross-AI review on every commit, git gates — a false green is impossible."
+  image:
+    html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
+  actions:
+    - text: Get Started
+      link: /docs/v4/install/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/manufosela/karajan-code
+      icon: external
+      variant: minimal
+    - text: Public roadmap
+      link: https://planning-game-xp.web.app/public/?project=Karajan%20Code
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why Karajan Code?
+
+Your AI agent (Claude Code, Codex, Gemini CLI, Cursor…) writes the code — Karajan governs how it happens. `kj` installs a method your agent follows on every task (RAG before assuming, card first, tests first) and enforces it with git gates: **every commit requires a verdict from a different AI**, security findings are never overridable, and the base branch only moves via PR. The maker never grades its own work — and a false green is structurally impossible.
+
+## A loop-engineering runtime
+
+Prompt engineering got one good answer from one good prompt. Context engineering curated what the model saw. The 2026 frontier is **loop engineering**: you stop prompting the agent by hand and design the system that prompts it, checks it, and decides what happens next — until the goal is met or it hands back to you. Karajan was built around that loop before the term caught on:
+
+- **Maker / checker split** — a coder against independent reviewer, tester and security roles, with Solomon judging disputes. The maker never grades its own work.
+- **Deterministic verification** — TDD, per-HU acceptance tests, SonarQube gates and deterministic guards. Checking is tests, not vibes.
+- **The autonomy ladder L1 → L2 → L3** — the `interactive | assisted | autonomous` axis (v3.7.0). Report, then assisted fixes, then unattended `kj autorun` — defaulting to `interactive`, so you opt in.
+- **A durable state spine** — sessions, the HU Board, journals, the RAG index and `kj resume` keep the loop alive across runs.
+
+The caveat loop engineering insists on — *unattended loops make unattended mistakes* — is designed in: autonomous runs list their residual defects, every story lands behind a PR, and `kj-trash` snapshots destructive operations. [Read the full building-block mapping →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
+
+<CardGrid stagger>
+  <Card title="One-liner setup" icon="rocket">
+    Tell your agent: *"read karajancode.com/start.md and do what it says"*. It installs the full stack, detects new vs existing project, activates the environment — and stops to WAIT for you whenever a step needs sudo or an account. [Install →](/docs/v4/install/)
+  </Card>
+  <Card title="Your agent, governed" icon="approve-check">
+    The playbook lands in CLAUDE.md, AGENTS.md and GEMINI.md from one source: RAG first, card first (`kj hu`), TDD, ADRs in git (`kj adr`). Role briefs (`kj brief`) give your agent the distilled method of triage, planner, architect, tester, security and audit. [Work with your agent →](/docs/v4/working-with-your-agent/)
+  </Card>
+  <Card title="Cross-AI review + git gates" icon="seti:lock">
+    `kj review --staged` binds a verdict from a *different* AI to the exact diff — change the code and it must be reviewed again. Disagree? A third AI arbitrates (`kj solomon`); security findings nobody overrides. The pre-commit gate makes it law. [The gates →](/docs/v4/gates/)
+  </Card>
+  <Card title="RAG over your codebase" icon="magnifier">
+    Built on install, refreshed on drift: `kj rag query` answers what the code does so no agent guesses. On existing projects, `kj onboard` produces an Architecture Brief before anyone touches anything.
+  </Card>
+  <Card title="Self-healing ecosystem" icon="github">
+    Your agent hits a kj bug? `kj report-issue` diagnoses and files it upstream — sanitized, deduped, and only with your approval. Fixes ship back to everyone. [Command reference →](/docs/v4/commands/)
+  </Card>
+  <Card title="Headless mode" icon="seti:shell">
+    The classic multiagent pipeline lives on for CI and automation: `kj run` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. [Headless mode →](/docs/v4/headless/)
+  </Card>
+  <Card title="Governed tournament (v4.15)" icon="star">
+    One task, N coders in isolated worktree lanes: `kj tournament` fans out, `--score` builds a deterministic zero-LLM scoreboard, a cross-AI judge with no conflict of interest picks the winner, and `--crown` promotes it through the normal review gate — winning earns a candidacy, not a bypass.
+  </Card>
+</CardGrid>
+
+## Recent releases
+
+The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
+
+### v4.15.0 — winning earns a candidacy, not a bypass (current)
+
+Minor opening the governed tournament (`kj tournament`): the SAME task fans out to N coders in isolated worktree lanes, each leaving per-lane evidence. Then the funnel narrows: `--score` builds a deterministic, zero-LLM scoreboard — a red suite eliminates on the spot, and the lexicographic ranking rule is printed with the result — `--judge` brings a cross-AI judge with no conflict of interest (a participant never judges; a tie or a disagreement escalates to solomon), and `--crown` promotes the winner through the NORMAL gate: cross-AI review of the exact staged diff, sha256-bound verdict, commit through the real gate — one rejection ABORTS. Winning earns a candidacy, not a bypass — and the full cycle ran LIVE on day one. Plus four field fixes: GitHub Actions pinned by SHA (#1374), lint configs and gate only when the tool is present (#1357), diff clipping declared as the pipeline's own (#1381), and a file split no longer reads as coverage deletion — moved lines are a deterministic signal (#1364).
+
+### v4.14.0 — the panel never runs dry
+
+Minor born from a real outage: codex exhausted its weekly quota mid-task and the arbitration panel collapsed with it — gemini retired, the local model down, copilot conflicted as the disputing reviewer. One day later the method is outage-proof. **Quota failover with consent**: when the configured reviewer runs dry, `kj review` switches to an authenticated candidate from a declarative registry — warning loudly and telling you how to pin it — or hands you the menu of candidates with their tier (free / subscription / local) and the exact login command; never a silent failure, never the brain reviewing itself. **Two agents restore the panel**: Kimi Code (Moonshot, free tier — the no-cost reserve) and Antigravity CLI (`agy`, Google's official successor to the retired gemini CLI) join as the eighth and ninth built-in agents, both verified against their live CLIs — agy's first act was approving the review of its own adapter. And the corner nobody watched: packages/ joins the lint surface, 1,124 errors to zero, with the regression made structurally impossible.
+
+### v4.13.0 — the program rules, the agent thinks
+
+Minor born from the hardest field truth so far: an agent as brain cannot be strict about its own rules. The **Karajan Sentinel** brings back the deterministic authority of v3 without giving up the intelligence of v4 — a zero-LLM supervisor wired into the harness's synchronous hooks. A PostToolUse hook records the method state of the session as tools run; the PreToolUse gate goes stateful (editing a source without a card, publishing with a red release check, pushing with open violations — blocked BEFORE the damage); and the **Stop hook blocks the agent from ending its turn while method violations are open**, each block naming the exact violation and its remediation. The sentinel cannot be dismantled from inside a session: its scripts are verified by `kj sentinel verify`, whose root of trust is the installed kj package — never the project tree — and every honored `KJ_ALLOW_*` escape surfaces to the user, because an escape is your decision, not the agent's shortcut. Claude Code only, by decision, not accident: to guarantee a harness that controls the LLM, use Claude as the host.
+
+### v4.12.0 — memory is the reminder; the check is the guarantee
+
+Minor born from the sharpest user critique yet: *"whatever you note down, you eventually ignore it"* — true of humans, truer of agents. So the release checklist stops living in anyone's memory: `kj release check` verifies it deterministically — manifest version vs the CHANGELOG's top section (with Unreleased actually empty), no tag ahead of the manifest, a privacy scan of the exact publishable file set — plus each project's own declared truths (`release_check.items`: a file must contain `v{version}`, a command must exit 0 — like "the deployed site shows this version as current"). Red with the exact list, or ready. It completes the per-project triad: commit check (pre-commit gate), PR check (harden CI), release check. On its first day it caught two real findings — including its own repo's unpromoted changelog.
+
+### v4.11.0 — the toolbox decides
+
+Minor born from watching agents work: they use the tools in front of them, so the environment now puts the right ones there. The **RAG becomes a native MCP tool** — `kj env install` wires `kj-rag-mcp` into the project's `.mcp.json`, making `kj_rag_query` the agent's cheapest path to "what does this code do" (before, it grepped by hand because the RAG was just a Bash command a text line mentioned). And the **board becomes a question**: the install detects what your machine can reach — Planning Game MCP, Linear/Jira tokens — then asks and persists in interactive installs, or names the default and the exact line to change it in headless ones. Never `hu-board` silently again. Bonus drift caught: the config schema never learned the `external` backend shipped in v4.5.0 — fixed.

@@ -1,0 +1,152 @@
+{
+  "hosting": [{
+    "target": "main",
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      },
+      {
+        "source": "**/*.@(css|js)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      }
+    ],
+    "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/install.sh",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.sh",
+        "type": 302
+      },
+      {
+        "source": "/install.ps1",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.ps1",
+        "type": 302
+      },
+      {
+        "source": "/start.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/start.md",
+        "type": 302
+      },
+      {
+        "source": "/install-machine.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/install-machine.md",
+        "type": 302
+      },
+      {
+        "source": "/project-new.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/project-new.md",
+        "type": 302
+      },
+      {
+        "source": "/project-legacy.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/project-legacy.md",
+        "type": 302
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/api/telemetry",
+        "function": { "functionId": "telemetry", "region": "us-central1", "pinTag": true }
+      }
+    ]
+  }, {
+    "target": "rag",
+    "public": "public-rag",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      },
+      {
+        "source": "**/*.@(css|js)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      }
+    ],
+    "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/install.sh",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/scripts/install.sh",
+        "type": 302
+      },
+      {
+        "source": "/install.ps1",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/scripts/install.ps1",
+        "type": 302
+      },
+      {
+        "source": "/start.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/docs/prompts/start.md",
+        "type": 302
+      },
+      {
+        "source": "/install-machine.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/docs/prompts/install-machine.md",
+        "type": 302
+      },
+      {
+        "source": "/rag-project.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/docs/prompts/rag-project.md",
+        "type": 302
+      }
+    ]
+  }, {
+    "target": "watch",
+    "public": "public-watch",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      },
+      {
+        "source": "**/*.@(css|js)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      }
+    ],
+    "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/start.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/prompts/start.md",
+        "type": 302
+      },
+      {
+        "source": "/config.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/config.md",
+        "type": 302
+      },
+      {
+        "source": "/ingest.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/ingest.md",
+        "type": 302
+      },
+      {
+        "source": "/impact.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/impact.md",
+        "type": 302
+      },
+      {
+        "source": "/drift.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/drift.md",
+        "type": 302
+      },
+      {
+        "source": "/eval.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/eval.md",
+        "type": 302
+      }
+    ]
+  }],
+  "functions": {
+    "source": "functions",
+    "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log"]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

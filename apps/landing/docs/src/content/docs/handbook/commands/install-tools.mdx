@@ -1,0 +1,86 @@
+---
+title: kj install-tools
+description: Install the external audit tools Karajan integrates with but does not bundle — semgrep, osv-scanner, lighthouse, docker, sonar — using your system's package manager.
+---
+
+`kj install-tools` provisions the five external tools `kj audit` and `kj webperf` lean on but deliberately don't ship inside the npm package. It picks the right install command for *your* system so you don't have to remember whether it's `brew`, `apt`, `pipx` or `npm` for each one.
+
+## What it does
+
+`kj install-tools` walks the five tools — **semgrep**, **osv-scanner**, **lighthouse**, **docker**, **sonar** — and for each one: checks whether it's already present, and if not, installs it using the package manager it detected on your system. The install command per tool is resolved from a hint table, so semgrep comes via `pipx`, osv-scanner via `brew`/`go`, lighthouse via `npm -g`, etc., matching what you actually have available.
+
+Two tools are special. **Docker** isn't pip-installable — it's reported with a platform-appropriate install hint rather than force-installed. **Sonar** isn't a binary at all; it's a Docker container, so its "installed" check is "is the SonarQube container running", and provisioning it means bringing that container up (which is why Docker is a prerequisite for Sonar).
+
+**Lighthouse is stack-gated**: by default `kj install-tools` only offers to install it when the current project is frontend or fullstack — a backend-only API has no use for Core Web Vitals tooling. `--only lighthouse` bypasses the gate when you want it regardless.
+
+On a TTY each tool prompts before installing. `--yes` accepts everything non-interactively. `--dry-run` prints the exact commands it *would* run and changes nothing. The exit code reflects whether every requested tool ended up available.
+
+## When to use
+
+- **Right after `kj init`, before the first audit** — `kj install-tools` so `kj audit` has its full collector set.
+- **`kj doctor` reported a tool missing** — it explicitly suggests this command; run it to close the gap.
+- **Provisioning a CI runner** — `kj install-tools --yes --only semgrep,osv-scanner` for exactly the collectors your pipeline gates on.
+- **Adding a frontend to a previously backend-only repo** — `kj install-tools --only lighthouse` now that web-perf matters.
+- **Auditing what setup would change** — `kj install-tools --dry-run` to see the commands before running them on a shared machine.
+
+## When NOT to use
+
+- **Wiring config / choosing agents** — that's [`kj init`](./init/). `install-tools` installs binaries, it doesn't touch `karajan.config.yml`.
+- **Just diagnosing what's missing** — [`kj doctor`](./doctor/) tells you the gaps without installing anything. Use `install-tools` once you've decided to fill them.
+- **You only ever run `kj run`, never `kj audit`** — the coder/reviewer loop doesn't need these tools. They power the audit/webperf paths specifically.
+- **Locked-down machines where you can't install software** — `--dry-run` to get the commands, then hand them to whoever administers the box.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `--only <tools>` | all (stack-gated) | Install a specific subset: `--only semgrep,osv-scanner`. Also the way to force a stack-gated tool (`--only lighthouse` on a backend repo). | Bypasses stack-gating for the listed tools; unknown names error out with the valid list. |
+| `-y, --yes` | off (prompts) | CI / unattended — accept every install prompt. | Non-TTY already assumes the default answer; `--yes` makes that explicit and forces yes. |
+| `--dry-run` | off | Preview the exact per-tool commands without executing — shared machines, change review. | Overrides install behaviour entirely; `--yes` is moot under `--dry-run`. |
+
+## Examples
+
+### Typical: provision everything for this project
+
+```bash
+kj install-tools
+```
+
+What happens: each of the five tools is checked; missing ones prompt with the install command for your OS; lighthouse is offered only if the project is frontend/fullstack. After it finishes, `kj audit` runs with its full deterministic collector set.
+
+### CI runner, exact subset, no prompts
+
+```bash
+kj install-tools --yes --only semgrep,osv-scanner
+```
+
+What happens: only semgrep and osv-scanner are installed, no prompts, stack-gating bypassed for the named tools. Pair with a CI step that runs `kj audit --deterministic-only` gating on SAST + CVE findings.
+
+### See what it would do, change nothing
+
+```bash
+kj install-tools --dry-run
+```
+
+What happens: prints the resolved install command per tool (`pipx install semgrep`, `npm i -g lighthouse`, the Docker hint, …) without running any of them. Safe on a machine you don't want to mutate.
+
+### Force a stack-gated tool
+
+```bash
+kj install-tools --only lighthouse
+```
+
+What happens: installs lighthouse even though the current repo is backend-only and the default gate would have skipped it. Use when you know you'll `kj webperf` against a deployed frontend from this checkout.
+
+## How it works internally
+
+The core decision is **don't bundle these in npm**. semgrep is a Python toolchain, docker is a daemon, sonar is a containerised server — vendoring them would bloat the package and fight every OS's native package manager. So `kj install-tools` is a thin, OS-aware orchestrator over the *real* installers: it knows the per-tool install hint and the package managers present on your system, and composes the two. That's why the same command does the right thing on macOS (`brew`), Debian (`apt`/`pipx`), and a CI image — the knowledge is in the hint table, not hard-coded.
+
+Stack-gating lighthouse encodes the same philosophy as the audit dimensions: don't provision (or later, don't run) frontend tooling on a backend project, because every irrelevant tool is friction and noise. `--only` is the explicit override, mirroring `kj audit --dimensions` — the tool defaults to the minimal correct set but never argues with an explicit instruction. The Docker/Sonar special-casing reflects reality rather than pretending all five are uniform binaries: a command that claimed to "install Docker" via a package manager on every platform would be lying, so it reports a hint instead, and Sonar's lifecycle is correctly modelled as a container, not an executable.
+
+## Related
+
+- [External tools](../external-tools/) — what each of the five tools contributes to an audit and what degrades when it's absent.
+- [`kj doctor`](./doctor/) — detects which of these are missing and points here.
+- [`kj audit`](./audit/) — the command whose deterministic collectors these tools power.
+- [`kj webperf`](./webperf/) — uses the lighthouse this command installs.

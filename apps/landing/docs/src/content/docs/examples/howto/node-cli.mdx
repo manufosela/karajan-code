@@ -1,0 +1,200 @@
+---
+title: How-To · Node CLI
+description: Bootstrap a Node CLI from zero and ship your first feature with Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Recommended" variant="success" /> · Estimated time: ~10 min · Karajan iterations: 1–2
+
+This walkthrough takes you from an empty directory to a merged feature on a small **Node CLI** project. The recipe is deliberately minimal so you can re-run it on a real codebase by swapping the bootstrap step for `cd <your-repo>`.
+
+## Prerequisites
+
+You should already have done the [common setup](/docs/examples/howto/): `npm install -g karajan-code`, `kj init` inside the project, and a green `kj doctor`. If `kj doctor` is red, fix that first — `kj run` will refuse to start otherwise.
+
+## Walkthrough
+
+<Steps>
+
+1. **Bootstrap the project.**
+
+   ```bash
+   mkdir hello-cli && cd hello-cli
+   npm init -y
+   npm install --save-dev vitest
+   git init -b main && git add -A && git commit -m "chore: scaffold"
+   ```
+
+   Edit `package.json` so the test runner is wired up:
+
+   ```json
+   {
+     "type": "module",
+     "scripts": {
+       "test": "vitest run"
+     }
+   }
+   ```
+
+   <Aside type="tip" title="Why ESM + Vitest">
+   Karajan's coder and reviewer are trained on modern Node (ESM, top-level await, `node:` imports). Sticking with ESM avoids back-and-forth iterations where the reviewer flags `require()` calls.
+   </Aside>
+
+2. **Initialize Karajan in the repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` creates `.karajan/` and writes the orchestrator config; `kj doctor` confirms the agent CLIs, Docker, Ollama, and ports are all healthy.
+
+3. **Describe the feature in natural language.**
+
+   No spec file. No JSON. Just the task as you'd describe it to a colleague:
+
+   ```bash
+   kj run "Add a 'greet <name>' command to bin/cli.js that prints \
+   'Hello, <name>!'. Add a Vitest test that runs the CLI via execa \
+   and asserts the stdout for the name 'world'." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="What's happening under the hood">
+   With `--methodology tdd`, Karajan writes the failing test first, then the implementation, then re-runs the suite. The reviewer (Codex by default, Claude as fallback) checks the diff. If the reviewer rejects, Karajan loops the coder again — up to `--max-iterations`.
+   </Aside>
+
+4. **Watch the run on the HU Board.**
+
+   Open [http://localhost:4000](http://localhost:4000) in another tab while the pipeline runs. You'll see, in real time:
+
+   - Each role activating (planner → coder → tester → reviewer).
+   - The exact prompt + response of every agent call.
+   - The diff after each iteration.
+   - The reviewer verdict.
+
+   You can also tail the same trace in the terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspect the result.**
+
+   ```bash
+   git status
+   git diff --stat
+   npm test
+   ```
+
+   Expected output of `npm test`:
+
+   ```
+   ✓ tests/cli.test.js (1)
+     ✓ greets the given name (42ms)
+
+   Test Files  1 passed (1)
+        Tests  1 passed (1)
+   ```
+
+6. **Merge.**
+
+   Karajan does not push or merge for you by default — that's your call. When you're happy with the diff:
+
+   ```bash
+   git checkout -b feat/greet-command
+   git add -A && git commit -m "feat(cli): add greet <name> command"
+   git push -u origin feat/greet-command
+   gh pr create --fill
+   ```
+
+   Or, if you want Karajan to also open the PR for you, add `--auto-commit --auto-pr` to the `kj run` invocation.
+
+</Steps>
+
+## Possible errors and how to clear them
+
+<Aside type="caution" title="`vitest: command not found`">
+You forgot the `npm install --save-dev vitest` step. Karajan will detect the missing dev-dep in iteration 1 and add it — but if you want it before the run, install it manually.
+</Aside>
+
+<Aside type="caution" title="Reviewer rejects with `requires CommonJS`">
+You're not on `"type": "module"`. Either set it, or accept that the coder will rewrite imports to `require()` — the reviewer is consistent either way.
+</Aside>
+
+<Aside type="caution" title="`kj run` exits with `no coder configured`">
+Run `kj doctor` and follow the agent-CLI install instructions. The most common cause is having Claude installed but without a logged-in session (`claude login`).
+</Aside>
+
+<Aside type="caution" title="Pipeline stalls at `coder:hibernate`">
+You hit a quota cap. Karajan persists the session to `~/.karajan/standby/<sessionId>.json`; resume it with `kj standby list` then `kj standby resume <sessionId> --force` after the cap resets.
+</Aside>
+
+## Variants
+
+<Tabs>
+<TabItem label="With MCP">
+
+The same run launched via the MCP from any MCP-capable client (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Add a 'greet <name>' command to bin/cli.js that prints 'Hello, <name>!'. Add a Vitest test.",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Stricter quality gate">
+
+Add `--mode strict` and the deterministic security collectors:
+
+```bash
+kj run "<task>" \
+  --mode strict \
+  --enable-security \
+  --enable-sonarcloud \
+  --methodology tdd
+```
+
+This wires the OSV-Scanner and Semgrep collectors into the audit, and gates the merge on the Sonar quality gate as well as the reviewer verdict.
+
+</TabItem>
+<TabItem label="Local model only">
+
+For air-gapped or budget-constrained runs, swap the coder to **OpenCode** with a local model:
+
+```bash
+kj run "<task>" \
+  --coder opencode \
+  --coder-model gemma-local/coder \
+  --reviewer claude \
+  --max-iterations 8
+```
+
+`--max-iterations` is bumped because local models tend to need an extra loop or two.
+
+</TabItem>
+</Tabs>
+
+## Next steps
+
+<Card title="Other stacks" icon="seti:folder">
+Same recipe, different bootstrap: [Python](/docs/examples/howto/python/) · [Web Component](/docs/examples/howto/web-component/) · [REST API (Node)](/docs/examples/howto/rest-api-node/) · [Java](/docs/examples/howto/java/) · [Go](/docs/examples/howto/go/) · [Rust](/docs/examples/howto/rust/)
+</Card>
+
+<Card title="Back to the index" icon="open-book">
+[How-To index](/docs/examples/howto/) · setup + troubleshooting
+</Card>

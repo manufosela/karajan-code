@@ -1,0 +1,107 @@
+---
+title: Install
+description: Set up the Karajan Environment in a project in under five minutes.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Karajan v4 attaches to the AI agent you already work with (Claude Code, Codex, Gemini CLI, Cursor). You install it once per machine, activate it once per project, and from then on your agent follows the method and git enforces it.
+
+One installer, complete result: `curl -fsSL https://karajancode.com/install.sh | sh` installs the **full product** — it uses your Node (≥ 22.12) if present, and auto-provisions the official Node LTS into `~/.karajan/node` (checksum-verified, nothing system-wide) if not. `npm install -g karajan-code` works too if you prefer it explicit. A CLI-only single binary exists behind `--standalone` for machines where you deliberately want no Node. Requires git, and at least one AI agent CLI — two enables cross-AI review; three enables arbitration.
+
+## The one-liner (recommended)
+
+In your project directory, tell your agent just this — it routes itself:
+
+```text
+I want to use Karajan in this project: read https://karajancode.com/start.md
+and do what it says.
+```
+
+The router prompt makes your agent check whether kj is installed (and set up the whole machine if not), detect whether this is a new project or an existing codebase, activate the environment accordingly, and **stop and WAIT for you** whenever a step needs your permission (sudo/administrator), an account, or `kj` exits with code 3 (`PENDING USER ACTION`) — a partial install is a failed install. The prompts are versioned with kj itself ([docs/prompts/](https://github.com/manufosela/karajan-code/tree/main/docs/prompts)).
+
+Prefer to drive each phase yourself? The three flows below are the same thing, split out.
+
+## 1. Set up your machine (once)
+
+<Tabs>
+<TabItem label="With your AI CLI">
+
+```text
+Read https://karajancode.com/install-machine.md and do what it says: install
+Karajan Code on this machine, FULLY operational. Ask me before each install;
+if a step needs elevated privileges (sudo/administrator) or kj exits
+with code 3, STOP, show me the exact commands and WAIT for my go-ahead.
+```
+
+</TabItem>
+<TabItem label="Manual">
+
+```bash
+curl -fsSL https://karajancode.com/install.sh | sh   # full product; --standalone for CLI-only
+kj doctor                                            # explains anything missing
+kj install-tools                                     # completes the stack; exit 3 = pending user action
+```
+
+Full product always: uses your Node ≥ 22.12 or auto-provisions the official LTS (checksum-verified, in `~/.karajan/node`). Equivalent: `npm install -g karajan-code`.
+
+</TabItem>
+</Tabs>
+
+## 2. Start a new project
+
+<Tabs>
+<TabItem label="With your AI CLI">
+
+```text
+This machine already has kj. Read https://karajancode.com/project-new.md and
+activate Karajan in THIS project (new). Stop and wait for me if anything
+needs my permission, an account, or kj exits with code 3.
+```
+
+</TabItem>
+<TabItem label="Manual">
+
+```bash
+kj init                    # config, rules, quality tooling (agent-safe without a TTY)
+kj env install             # method into CLAUDE.md/AGENTS.md/GEMINI.md + RAG index (exit 3 if it cannot index)
+kj harden                  # git hooks: lint, commit policy, the review gate runner
+kj review --install-gate   # commits now REQUIRE a cross-AI verdict
+git config core.hooksPath .karajan/hooks
+```
+
+Commit the generated contract files (`.karajan/review-gate`, `.karajan/hooks/`, `.karajan/adrs/`, the agent rule files) — everyone who clones inherits the environment (each clone repeats the `core.hooksPath` config once).
+
+</TabItem>
+</Tabs>
+
+## 3. Adopt Karajan in an existing project
+
+<Tabs>
+<TabItem label="With your AI CLI">
+
+```text
+This machine already has kj. Read https://karajancode.com/project-legacy.md
+and adopt Karajan in THIS existing codebase: work on a branch, respect the
+project's own configs, run kj onboard first, and stop and wait for me if
+anything needs my permission or kj exits with code 3.
+```
+
+</TabItem>
+<TabItem label="Manual">
+
+```bash
+git switch -c chore/adopt-karajan   # never on the default branch
+kj onboard                          # brownfield analysis → Architecture Brief
+kj init && kj env install && kj harden && kj review --install-gate
+git config core.hooksPath .karajan/hooks
+```
+
+kj seeds configs only when NO variant exists — your `eslint.config.mjs`, `.prettierrc` or biome.json stay untouched (`covered`). The RAG index over your existing code is the main prize: your agent queries it instead of guessing. Land the contract files through your repo's normal flow (branch + PR).
+
+</TabItem>
+</Tabs>
+
+## Uninstalling / opting out
+
+Every gate is a file you can see: remove `.karajan/review-gate` to disable the review gate, unset `core.hooksPath` to disable the hooks, delete the managed block in the rule files to remove the method. Nothing is hidden.
