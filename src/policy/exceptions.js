@@ -4,7 +4,7 @@
  * este dominio: la identidad (git user + usuario del SO — DECLARADA, no
  * autenticada) y el destino append-only `.karajan/policy-exceptions.jsonl`.
  */
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { userInfo } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -12,7 +12,39 @@ import { recordPolicyException as kernelRecord } from "../../packages/governance
 
 function defaultIdentity(projectDir) {
   const git = (args) => spawnSync("git", ["-C", projectDir, "config", ...args], { encoding: "utf8" }).stdout?.trim() || null;
-  return { git: `${git(["user.name"]) ?? "?"} <${git(["user.email"]) ?? "?"}>`, os: userInfo().username };
+  // grade DECLARADA: git+os es atribución, no autenticación — el registro
+  // no debe venderse como más evidencia de la que es (GOV-B).
+  return { git: `${git(["user.name"]) ?? "?"} <${git(["user.email"]) ?? "?"}>`, os: userInfo().username, grade: "declarada" };
+}
+
+/**
+ * Standing exceptions del dominio code: las permanentes del jsonl. Parse
+ * TOLERANTE — una línea corrupta se descarta CONTÁNDOLA (el gate la
+ * reporta), jamás rompe la evaluación. Las puntuales no dan standing.
+ * @returns {{standing: object[], discarded: number}}
+ */
+export function loadStandingExceptions(projectDir) {
+  let raw;
+  try {
+    raw = readFileSync(join(projectDir, ".karajan", "policy-exceptions.jsonl"), "utf8");
+  } catch {
+    return { standing: [], discarded: 0 };
+  }
+  const standing = [];
+  let discarded = 0;
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const rec = JSON.parse(line);
+      // JSON válido pero no-objeto (null, número…) es tan corrupto como el
+      // que no parsea: se descarta contando (catch de codex, explícito).
+      if (typeof rec !== "object" || rec === null) discarded += 1;
+      else if (rec.scopeKind === "permanente") standing.push(rec);
+    } catch {
+      discarded += 1;
+    }
+  }
+  return { standing, discarded };
 }
 
 function defaultAppend(projectDir, line) {
