@@ -1,7 +1,7 @@
 // PL-A (KJC-TSK-0733) — el primitivo glob de la policy: semántica pequeña,
 // anclada y SIN sorpresas de lib general.
 import { describe, it, expect } from "vitest";
-import { globToRegExp, matchesAny } from "../../src/policy/glob.js";
+import { globToRegExp, matchesAny } from "../../packages/governance/src/glob.js";
 
 describe("globToRegExp", () => {
   it("** cruza directorios, * no sale de su segmento, ? es un carácter", () => {

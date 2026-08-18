@@ -37,7 +37,8 @@
   "workspaces": [
     "packages/ai-trash",
     "packages/core",
-    "packages/hu-board"
+    "packages/hu-board",
+    "packages/governance"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
@@ -52,6 +53,8 @@
     "templates/",
     "scripts/",
     "vendor/tree-sitter-grammars/",
+    "packages/governance/src/",
+    "packages/governance/package.json",
     "packages/hu-board/src/",
     "packages/hu-board/public/",
     "packages/hu-board/package.json",
