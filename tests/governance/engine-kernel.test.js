@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { parsePolicy, evalWrite, evalShell, checkArtifacts } from "../../packages/governance/src/engine.js";
+import { recordPolicyException } from "../../packages/governance/src/exceptions.js";
 
 const LEDGER_DEFAULTS = [
   { id: "defaults.ledger.sealed", pattern: /sealed\//, message: "toca expedientes sellados — solo el registrador los modifica" },
@@ -27,6 +28,10 @@ describe("kernel sin adaptador de code", () => {
     const { policy, errors } = parsePolicy("version: [broken", { defaults: LEDGER_DEFAULTS });
     expect(errors.length).toBeGreaterThan(0);
     expect(evalWrite(policy, "clerk", "sealed/x").decision).toBe("deny");
+  });
+
+  it("el kernel no registra excepciones sin identidad ni almacen inyectados — no sabe quien eres", () => {
+    expect(() => recordPolicyException({ projectDir: "/p", entry: { rule_id: "r" } })).toThrow(/adaptador/);
   });
 
   it("checkArtifacts evalua artefactos y metricas sin saber que son ficheros de git", () => {

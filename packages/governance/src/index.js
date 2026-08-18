@@ -12,3 +12,5 @@
  */
 export { globToRegExp, matchesAny, commandPatternToRegExp } from "./glob.js";
 export { parsePolicy, evalWrite, evalShell, checkArtifacts, ALLOW_VERDICT, denyVerdict, DEFAULT_POLICY } from "./engine.js";
+export { evaluateGate } from "./gate.js";
+export { recordPolicyException } from "./exceptions.js";
