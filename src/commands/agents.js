@@ -1,12 +1,14 @@
 import { loadConfig, writeConfig, getConfigPath, getProjectConfigPath, loadProjectConfig, resolveRole } from "../config.js";
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
 
-const ASSIGNABLE_ROLES = [
+// Exportados para que el --help se autoalimente de las constantes reales
+// (KJC-TSK-0755, hallazgo de campo: la firma genérica obligaba a preguntar).
+export const ASSIGNABLE_ROLES = [
   "coder", "reviewer", "planner", "refactorer", "triage",
   "researcher", "tester", "security", "solomon"
 ];
 
-const VALID_PROVIDERS = KNOWN_AGENTS.map((a) => a.name);
+export const VALID_PROVIDERS = KNOWN_AGENTS.map((a) => a.name);
 
 export function listAgents(config, sessionOverrides = {}, projectConfig = null) {
   return ASSIGNABLE_ROLES.map((role) => {
