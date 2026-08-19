@@ -148,7 +148,15 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // Field case: a 522-line PR sailed past the warning with a
   // rationalization — where the project wants teeth, pr_size: "block"
   // rejects deterministically with a NAMED escape. Default stays warn.
-  const sizeWarn = config?.method_gates?.pr_size_warn ?? 150;
+  // PL-C (KJC-TSK-0735), fuente única de umbrales: si la policy declara el
+  // invariante net_lines_added, SU max es el umbral — el mismo número que
+  // aplican kj policy check y el tier C de CI; method_gates queda de fallback.
+  const pol = loadPolicy({ projectDir });
+  const locInv = pol.errors.length === 0
+    ? (pol.policy.invariants || []).find((i) => i.kind === "diff-threshold" && i.metric === "net_lines_added")
+    : null;
+  const sizeWarn = locInv?.max ?? config?.method_gates?.pr_size_warn ?? 150;
+  const sizeSource = locInv ? `policy [${locInv.id}]` : "method_gates";
   if (sizeWarn > 0) {
     const numstat = await rawDiff(flags.range, ["--numstat"]);
     const added = numstat.split("\n").reduce((acc, l) => acc + (Number(l.split("\t")[0]) || 0), 0);
@@ -157,12 +165,12 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       if (process.env.KJ_ALLOW_LARGE_PR === "1") {
         console.log(`⚠ pr-size exempt: ${added} lines added — KJ_ALLOW_LARGE_PR=1 (explicit escape hatch)`);
       } else if (sizePolicy === "block") {
-        const reason = `${added} lines added exceeds the ${sizeWarn}-line budget (method_gates.pr_size: block) — partition the work, or get your user's explicit OK and re-run with KJ_ALLOW_LARGE_PR=1`;
+        const reason = `${added} lines added exceeds the ${sizeWarn}-line budget (${sizeSource}; method_gates.pr_size: block) — partition the work, or get your user's explicit OK and re-run with KJ_ALLOW_LARGE_PR=1`;
         console.log(`✗ pr-size gate: ${reason}`);
         process.exitCode = 1;
         return { verdict: "rejected", reviewer: "pr-size", issues: [{ severity: "high", description: reason }] };
       } else {
-        console.log(`⚠ pr-size: ${added} lines added (guideline ~${sizeWarn}) — an oversized warning is not an opinion: partition, or ask your user (method_gates.pr_size: block to harden)`);
+        console.log(`⚠ pr-size: ${added} lines added (guideline ~${sizeWarn}, source: ${sizeSource}) — an oversized warning is not an opinion: partition, or ask your user (method_gates.pr_size: block to harden)`);
       }
     }
   }
@@ -218,7 +226,6 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // hooks. enforcement=warn avisa; deny cierra salvo excepción probatoria
   // (KJ_ALLOW_POLICY=1 + KJ_POLICY_REASON, registrada con identidad y hash
   // del diff); class=security cierra sin escape y sin arbitraje.
-  const pol = loadPolicy({ projectDir });
   let net = 0;
   for (const l of (await rawDiff(flags.range, ["--numstat"])).split("\n")) {
     const [a, r] = l.trim().split(/\s+/);
