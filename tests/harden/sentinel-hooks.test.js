@@ -43,6 +43,17 @@ describe("posttooluse script (state writer)", () => {
     expect(s.edited_tests).toEqual(["tests/a.test.js"]);
   });
 
+  it("INF-A (KJC-TSK-0758): la infra ES fuente — .tf/.yaml/.sh/Dockerfile van al bucket de sources y *_test.* al de tests", () => {
+    run(postScript, editTool(path.join(dir, "main.tf")));
+    run(postScript, editTool(path.join(dir, "k8s", "deploy.yaml")));
+    run(postScript, editTool(path.join(dir, "up.sh")));
+    run(postScript, editTool(path.join(dir, "Dockerfile")));
+    run(postScript, editTool(path.join(dir, "modules", "vpc_test.go")));
+    const s = state().sessions.s1;
+    expect(s.edited_sources).toEqual(["main.tf", "k8s/deploy.yaml", "up.sh", "Dockerfile"]);
+    expect(s.edited_tests).toEqual(["modules/vpc_test.go"]);
+  });
+
   it("records used KJ_ALLOW_* escapes and never crashes on garbage input", () => {
     run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_NO_CARD: "1" });
     expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_NO_CARD");
@@ -100,6 +111,13 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
   let gate;
   beforeEach(() => {
     gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
+  });
+
+  it("INF-A: editar un .tf en rama sin card se deniega igual que un .js", () => {
+    execSync("git checkout -q -b sin-card", { cwd: dir });
+    const blocked = run(gate, editTool(path.join(dir, "main.tf")));
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toMatch(/card/i);
   });
 
   it("blocks editing a source on a branch without card ref, with remediation and named escape recorded", () => {
