@@ -80,6 +80,14 @@ describe("getDiffScope", () => {
     expect(scope.targets).toEqual(["src/foo.js:11-13", "src/foo.js:44-44"]);
   });
 
+  it("staged=true scopea al índice (--cached), jamás un rango vacío HEAD..HEAD (MUT-A, catch de codex)", async () => {
+    const calls = [];
+    const run = async (_cmd, args) => { calls.push(args); return { exitCode: 0, stdout: SAMPLE_DIFF }; };
+    const scope = await getDiffScope({ staged: true, language: "javascript", run });
+    expect(calls[0]).toEqual(["diff", "--unified=0", "--cached"]);
+    expect(scope.empty).toBe(false);
+  });
+
   it("returns empty scope when git diff fails", async () => {
     const run = async () => ({ exitCode: 128, stdout: "" });
     const scope = await getDiffScope({ since: "bad", language: "javascript", run });

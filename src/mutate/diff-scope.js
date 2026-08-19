@@ -89,8 +89,12 @@ export function buildScope({ language, files, ranges }) {
  * the injectable git runner (defaults to `runCommand`).
  * @param {{since: string, language: string, toRef?: string, run?: Function}} params
  */
-export async function getDiffScope({ since, language, toRef = "HEAD", run = runCommand }) {
-  const result = await run("git", ["diff", "--unified=0", `${since}..${toRef}`]).catch(
+export async function getDiffScope({ since, language, toRef = "HEAD", staged = false, run = runCommand }) {
+  // MUT-A (KJC-TSK-0716): staged=true scopea al ÍNDICE (git diff --cached) —
+  // lo que el review gate evalúa. since..HEAD con since=HEAD sería un diff
+  // VACÍO y el pre-gate no mutaría nada (catch de codex, agravado).
+  const args = staged ? ["diff", "--unified=0", "--cached"] : ["diff", "--unified=0", `${since}..${toRef}`];
+  const result = await run("git", args).catch(
     () => null,
   );
   if (!result || result.exitCode !== 0) {

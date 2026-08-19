@@ -13,6 +13,7 @@ import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js";
+import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
@@ -322,6 +323,28 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
           + `Deterministic Sonar findings on these files (fold them into your review):\n`
           + pre.advisory.map((f) => `- ${formatSonarFinding(f)}`).join("\n");
       }
+    }
+  }
+
+  // MUT-A (KJC-TSK-0716): mutation pre-gate — opt-in (method_gates.mutation),
+  // SOLO en --staged (jamás en pre-commit: cuesta minutos; y jamás en --range:
+  // el scope es el ÍNDICE y anotaría trabajo ajeno — catch de codex). block
+  // cierra ANTES de gastar reviewer; warn viaja como advisory en su task.
+  const mut = flags.staged && !flags.range ? await runMutationPregate({ config, projectDir }) : { enabled: false, ok: true };
+  if (mut.enabled) {
+    if (mut.available === false) {
+      console.log(`⚠ mutation pre-gate no disponible: ${mut.reason} — degradado avisando (method_gates.mutation)`);
+    } else if (mut.survived.length > 0) {
+      console.log(`Mutantes supervivientes en el diff — score ${mut.score ?? "n/a"}%:`);
+      for (const m of mut.survived) console.log(`  ✗ ${formatSurvivor(m)}`);
+      if (!mut.ok) {
+        console.log("✗ mutation gate: la suite verde no PRUEBA el cambio — mata los supervivientes antes del review (method_gates.mutation: block).");
+        process.exitCode = 1;
+        return { verdict: "rejected", reviewer: "mutation", issues: mut.survived.map((m) => ({ severity: "high", file: m.file, description: formatSurvivor(m) })) };
+      }
+      task = `${task || "Review the following diff for correctness, security and maintainability."}\n\n`
+        + `Surviving mutants on the changed lines (weak asserts — fold into your review):\n`
+        + mut.survived.map((m) => `- ${formatSurvivor(m)}`).join("\n");
     }
   }
 
