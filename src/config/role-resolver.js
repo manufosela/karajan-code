@@ -20,8 +20,13 @@
 
 /**
  * Check if a model string is compatible with an agent provider.
- * Only returns false when the model clearly belongs to a DIFFERENT provider.
+ * Only returns false when the model clearly belongs to a DIFFERENT family.
  * Returns true if we can't determine or if the model is ambiguous.
+ *
+ * KJC-BUG-0144: exported and family-based — an agent may serve another
+ * family's models (agy is Google's Antigravity, gemini family), and the
+ * same check now guards BaseAgent.getRoleModel so per-role defaults
+ * (e.g. start's haiku) never reach a provider from another family.
  */
 const AGENT_MODEL_SIGNATURES = {
   claude: ["claude", "sonnet", "opus", "haiku"],
@@ -29,21 +34,26 @@ const AGENT_MODEL_SIGNATURES = {
   gemini: ["gemini", "flash-"]
 };
 
-function isModelCompatible(agent, model) {
-  if (!model || !agent) return true;
+// Single-family CLIs: they only serve their own vendor's models. Agents NOT
+// in this map (aider, opencode, copilot, kimi...) are multi-model hosts —
+// they route to arbitrary models, so any model name is allowed there.
+const AGENT_FAMILY = { claude: "claude", codex: "codex", gemini: "gemini", agy: "gemini" };
+
+function modelFamily(model) {
   const lower = model.toLowerCase();
-
-  // Check if model clearly belongs to a different provider
-  for (const [provider, signatures] of Object.entries(AGENT_MODEL_SIGNATURES)) {
-    if (provider === agent) continue;
-    if (signatures.some(s => lower.includes(s))) {
-      // Model belongs to a different provider — incompatible
-      return false;
-    }
+  for (const [family, signatures] of Object.entries(AGENT_MODEL_SIGNATURES)) {
+    if (signatures.some(s => lower.includes(s))) return family;
   }
+  return null;
+}
 
-  // Model doesn't clearly belong to any other provider — allow it
-  return true;
+export function isModelCompatible(agent, model) {
+  if (!model || !agent) return true;
+  const agentFamily = AGENT_FAMILY[agent];
+  if (!agentFamily) return true; // multi-model host — bring your own model
+  const family = modelFamily(model);
+  if (!family) return true; // ambiguous/custom/local — allow it
+  return family === agentFamily;
 }
 
 // Roles that inherit provider/model from the coder when not explicitly configured
