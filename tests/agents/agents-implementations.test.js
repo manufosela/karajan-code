@@ -124,13 +124,16 @@ describe("Agent implementations", () => {
       expect(runCommand.mock.calls[0][2]).toMatchObject({ input: "add tests" });
     });
 
-    it("adds --full-auto when auto_approve is enabled", async () => {
+    it("adds --sandbox workspace-write when auto_approve is enabled (KJC-BUG-0143)", async () => {
       const config = { ...baseConfig, coder_options: { auto_approve: true } };
       const { CodexAgent } = await import("../../src/agents/codex-agent.js");
       const agent = new CodexAgent("codex", config, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
 
-      expect(runCommand.mock.calls[0][1]).toContain("--full-auto");
+      const args = runCommand.mock.calls[0][1];
+      expect(args).toContain("--sandbox");
+      expect(args[args.indexOf("--sandbox") + 1]).toBe("workspace-write");
+      expect(args).not.toContain("--full-auto");
     });
 
     it("does not add --full-auto for reviewer role", async () => {
@@ -140,6 +143,7 @@ describe("Agent implementations", () => {
       await agent.reviewTask({ prompt: "review", role: "reviewer" });
 
       expect(runCommand.mock.calls[0][1]).not.toContain("--full-auto");
+      expect(runCommand.mock.calls[0][1]).not.toContain("--sandbox");
     });
 
     it("adds --model flag when configured", async () => {
