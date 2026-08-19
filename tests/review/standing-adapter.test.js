@@ -79,6 +79,20 @@ describe("kj policy grant", () => {
     expect(rec.who.grade).toBe("declarada"); // git+os es atribucion, no autenticacion
   });
 
+  it("la renovacion como señal (GOV-E): la 3ª concesion sobre la MISMA regla lo dice y sugiere cambiar la politica", async () => {
+    const logs = [];
+    const logger = { info: (m) => logs.push(m), warn: (m) => logs.push(m), error: (m) => logs.push(m) };
+    const grant = (rule, until) => policyCommand({ action: "grant", config: { projectDir: dir }, flags: { rule, until, reason: "r" }, logger });
+    expect(await grant("roles.coder.write.deny", "2026-01-01T00:00:00Z")).toBe(0);
+    expect(await grant("roles.coder.shell.deny", "2026-02-01T00:00:00Z")).toBe(0); // otra regla: no cuenta
+    expect(logs.join("\n")).not.toMatch(/concesión/);
+    expect(await grant("roles.coder.write.deny", "2026-03-01T00:00:00Z")).toBe(0);
+    expect(await grant("roles.coder.write.deny", "2027-01-01T00:00:00Z")).toBe(0); // 3ª de write.deny
+    const out = logs.join("\n");
+    expect(out).toMatch(/3ª concesión sobre esta regla/);
+    expect(out).toMatch(/cambiar la política|PR/);
+  });
+
   it("se niega sobre defaults.*, sobre caps class=security (catch de codex) y sin reason/until", async () => {
     const err = [];
     const logger = { info: () => {}, error: (m) => err.push(m) };
