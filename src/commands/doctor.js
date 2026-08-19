@@ -13,6 +13,7 @@
 
 import readline from "node:readline";
 import { runChecks as runCheckPipeline, toLegacyShape } from "../checks/runner.js";
+import { collectGuaranteeFacts } from "../checks/guarantee-level.js";
 import { STATUS } from "../checks/types.js";
 import { getSystemChecks } from "../checks/system.js";
 import { getConfigFileChecks } from "../checks/config-files.js";
@@ -140,14 +141,29 @@ export async function runChecks({ config }) {
  */
 export async function doctorCommand({ config, checkOnly = false, yes = false, json = false, verbose = false, projectOnly = false }) {
   const report = await runDoctor({ config, checkOnly, yes, projectOnly });
+  // KJC-TSK-0756 (campo, Pedro): el guarantee level del host actual se
+  // DECLARA en runtime — la doctrina no vive solo en el README.
+  report.guarantee = collectGuaranteeFacts({ projectDir: config?.projectDir || process.cwd() });
 
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     printHuman(report, { verbose });
+    printGuaranteeLevel(report.guarantee);
   }
 
   return hasBlockingFailure(report) ? 1 : 0;
+}
+
+// KJC-TSK-0756: la seccion de guarantee level — consola es el medio del
+// doctor (excepcion no-console de commands).
+function printGuaranteeLevel(g) {
+  const mark = (t) => (t.active ? "ACTIVE " : "OFF    ");
+  console.log();
+  console.log(`Guarantee level (host: ${g.host ?? "desconocido"}) — kj jamas finge una supervision que no puede aplicar:`);
+  console.log(`  ${mark(g.tierA)} A tool-time (Sentinel en el turno): ${g.tierA.reason}`);
+  console.log(`  ${mark(g.tierB)} B commit-time (git gates, el SUELO): ${g.tierB.reason}`);
+  console.log(`  ${mark(g.tierC)} C merge-time (re-check en CI): ${g.tierC.reason}`);
 }
 
 function hasBlockingFailure(report) {
