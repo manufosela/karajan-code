@@ -226,6 +226,43 @@ process.stdin.on("end", () => {
       process.exit(2);
     }
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
+    // KJC-BUG-0142: cada deny anuncia su escape como prefijo del comando
+    // (KJ_ALLOW_X=1 cmd), pero el hook corre con el env del HOST — el
+    // prefijo jamas llegaba a process.env y el escape era inalcanzable
+    // (deadlock real del gate de release: la landing solo se pone verde
+    // tras el deploy y el deploy estaba bloqueado por el mismo gate). Un
+    // escape es una excepcion CONSCIENTE y auditada, no un boundary de
+    // seguridad (security sigue sin escape y la autoprotecion corre antes),
+    // asi que el TEXTO del comando es fuente valida: solo asignaciones
+    // LITERALES al inicio (tokens VAR=VAL antes del primer verbo) y solo
+    // sobre un comando SIMPLE — con ;|& $() backtick o salto de linea el
+    // prefijo shell no alcanzaria a los comandos posteriores (catch de
+    // codex: "X=1 true && npm publish" escaparia sin serlo), asi que el
+    // escape por texto se rechaza y queda la via env de siempre.
+    const CMD_TEXT = tool === "Bash" ? String(input.command || "") : "";
+    const ESC_TAB = String.fromCharCode(9);
+    const ESC_NL = String.fromCharCode(10);
+    const ESC_BT = String.fromCharCode(96);
+    const escOn = (name) => {
+      if (process.env[name] === "1") return true;
+      let found = false;
+      let i = 0;
+      while (i < CMD_TEXT.length) {
+        while (i < CMD_TEXT.length && (CMD_TEXT[i] === " " || CMD_TEXT[i] === ESC_TAB)) i += 1;
+        const start = i;
+        while (i < CMD_TEXT.length && CMD_TEXT[i] !== " " && CMD_TEXT[i] !== ESC_TAB && CMD_TEXT[i] !== ESC_NL) i += 1;
+        const tok = CMD_TEXT.slice(start, i);
+        const eq = tok.indexOf("=");
+        if (eq <= 0 || !/^[A-Z][A-Z0-9_]*$/.test(tok.slice(0, eq))) break;
+        if (tok === name + "=1") found = true;
+      }
+      if (!found) return false;
+      for (const c of CMD_TEXT) {
+        if (c === ";" || c === "|" || c === "&" || c === ESC_NL || c === ESC_BT) return false;
+        if (c === "$" || c === "(" || c === ")") return false;
+      }
+      return true;
+    };
     // MONO-0 (KJC-TSK-0737, ADR 0002): cada sesion muta solo SU worktree;
     // otro carril del MISMO repo se deniega ANTES del dano. Lectura libre.
     const laneOf = (p) => {
@@ -243,7 +280,7 @@ process.stdin.on("end", () => {
       return d ? foreignLane(d) : null;
     };
     const laneDeny = (what, lane) => {
-      if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); return false; }
+      if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); return false; }
       console.error("kj sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0). Cruce deliberado: KJ_ALLOW_CROSS_LANE=1, queda registrado.");
       return true;
     };
@@ -270,7 +307,7 @@ process.stdin.on("end", () => {
         // directorio se deniega conservadoramente — el remedio es no
         // necesitarlo (git -C, npm --prefix, rutas absolutas).
         if (/(^|[;&|(\\s])(cd|pushd)([ \\t]|$)/.test(cmd)) {
-          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("kj sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables por el guard de carriles (MONO-0); usa git -C / npm --prefix / rutas ABSOLUTAS sin cd (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
             process.exit(2);
@@ -289,7 +326,7 @@ process.stdin.on("end", () => {
         // de tokens de abajo; el residuo (expansion anidada en segmentos
         // runner) queda documentado como en la regla de ficheros PROTECTED.
         if (/>{1,2}[ \\t]*["']?[\\$\`]/.test(cmd)) {
-          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("kj sentinel: redireccion con destino tras variable/sustitucion — el guard de carriles no puede verificarlo (MONO-0); usa una ruta LITERAL (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
             process.exit(2);
@@ -355,7 +392,7 @@ process.stdin.on("end", () => {
           return flush();
         };
         if (/\\$\\(|\`/.test(cmd) || quotedPathWithSpaces(cmd)) {
-          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("kj sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
             process.exit(2);
@@ -364,7 +401,7 @@ process.stdin.on("end", () => {
         const SAFE_EXP_SEG = /^([A-Za-z_][A-Za-z0-9_]*=[^ \\t]*[ \\t]*)*((npm|pnpm|yarn|vitest|jest|kj|gh|echo|printf|true|test)\\b|git[ \\t](?![^\\n]*(-C[ \\t]|--git-dir|--work-tree)))[^;|&\\n]*$|^[A-Za-z_][A-Za-z0-9_]*=[^;|&\\n]*$/;
         const segs = cmd.split(/&&|\\|\\||[;|\\n]/).map((s) => s.trim()).filter(Boolean);
         if (!segs.every((s) => !/[\\$]/.test(s) || SAFE_EXP_SEG.test(s))) {
-          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("kj sentinel: expansion de shell en una herramienta generica de fichero/interprete — el objetivo no es verificable por el guard de carriles (MONO-0); usa rutas LITERALES o un runner del toolchain (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
             process.exit(2);
@@ -406,13 +443,13 @@ process.stdin.on("end", () => {
         let v = null;
         try { v = JSON.parse(String(pres.stdout || "").trim().split("\\n").pop()); } catch { /* mensaje generico */ }
         const secure = !!(v && v.class === "security");
-        if (!secure && process.env.KJ_ALLOW_POLICY === "1") { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
+        if (!secure && escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
         else {
           console.error("kj sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada; el commit exigira ademas KJ_POLICY_REASON)"));
           process.exit(2);
         }
       } else if (pres.status !== 0) {
-        if (process.env.KJ_ALLOW_POLICY === "1") { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
+        if (escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
         else {
           console.error("kj sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check y corrige .karajan/policy.yml fuera de la sesion (o KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada).");
           process.exit(2);
@@ -426,7 +463,7 @@ process.stdin.on("end", () => {
         const branch = branchOf();
         const why = !branch ? null : BASE_BRANCHES.has(branch) ? "base" : !CARD.test(branch) ? "nocard" : null;
         if (why) {
-          if (process.env.KJ_ALLOW_NO_CARD === "1") { recordEscape(sid, "KJ_ALLOW_NO_CARD", tool); process.exit(0); }
+          if (escOn("KJ_ALLOW_NO_CARD")) { recordEscape(sid, "KJ_ALLOW_NO_CARD", tool); process.exit(0); }
           console.error(why === "base"
             ? "kj sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)"
             : "kj sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)");
@@ -437,7 +474,7 @@ process.stdin.on("end", () => {
     if (tool === "Bash") {
       const cmd = String(input.command || "");
       if (PUBLISH.test(cmd)) {
-        if (process.env.KJ_ALLOW_RELEASE === "1") { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
+        if (escOn("KJ_ALLOW_RELEASE")) { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
         const res = spawnSync("kj", ["release", "check", "--json"], { cwd: ROOT, encoding: "utf8" });
         if (res.error || res.status === null) process.exit(0);
         if (res.status !== 0) {

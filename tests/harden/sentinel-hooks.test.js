@@ -143,6 +143,41 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(run(gate, publish, { PATH: path.dirname(process.execPath) }).status).toBe(0);
     expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls -la" } }).status).toBe(0);
   });
+
+  it("KJC-BUG-0142: el escape como PREFIJO del comando funciona — el hook corre con el env del host y el prefijo jamas llegaba a process.env (deadlock real: landing solo verde tras deploy, deploy bloqueado)", () => {
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(
+      path.join(bin, "kj"),
+      `#!/bin/sh\necho '{"ok":false,"checks":[{"ok":false,"name":"landing","detail":"not current"}]}'\nexit 1\n`,
+      { mode: 0o755 },
+    );
+    const env = { PATH: `${bin}:${process.env.PATH}` };
+    const pub = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
+    // El prefijo de asignacion literal al INICIO escapa y queda registrado.
+    expect(pub("KJ_ALLOW_RELEASE=1 npm publish --ignore-scripts --otp=123456").status).toBe(0);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_RELEASE")).toBe(true);
+    // Varias asignaciones encadenadas al inicio tambien cuentan.
+    expect(pub("FOO=bar KJ_ALLOW_RELEASE=1 firebase deploy --only hosting").status).toBe(0);
+    // Una MENCION a mitad de comando o tras el verbo NO escapa.
+    expect(pub("echo KJ_ALLOW_RELEASE=1 && npm publish").status).toBe(2);
+    expect(pub("npm publish # KJ_ALLOW_RELEASE=1").status).toBe(2);
+    // El valor tiene que ser exactamente 1.
+    expect(pub("KJ_ALLOW_RELEASE=0 npm publish").status).toBe(2);
+    // Catch de codex: en una CADENA el prefijo shell no alcanza a los
+    // comandos posteriores — el escape por texto solo vale para un comando
+    // SIMPLE (sin ; | & $ backtick ni salto de linea, tampoco escondidos
+    // en el valor de una asignacion).
+    expect(pub("KJ_ALLOW_RELEASE=1 true && npm publish").status).toBe(2);
+    expect(pub("KJ_ALLOW_RELEASE=1 true; npm publish").status).toBe(2);
+    expect(pub("KJ_ALLOW_RELEASE=1 npm publish | tee log.txt").status).toBe(2);
+    expect(pub("KJ_ALLOW_RELEASE=1 X=$(id) npm publish").status).toBe(2);
+    // Catch de codex (2a ronda): subshells y process substitution.
+    expect(pub("KJ_ALLOW_RELEASE=1 npm publish <(id)").status).toBe(2);
+    expect(pub("KJ_ALLOW_RELEASE=1 (npm publish)").status).toBe(2);
+    // La via env de siempre sigue valiendo para cadenas.
+    expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "npm publish && echo ok" } }, { ...env, KJ_ALLOW_RELEASE: "1" }).status).toBe(0);
+  });
 });
 
 describe("self-protection + audited escapes (SEN-C)", () => {
@@ -254,6 +289,15 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("carril");
     expect(res.stderr).toContain(lane);
+  });
+
+  it("KJC-BUG-0142: el prefijo KJ_ALLOW_CROSS_LANE=1 en el TEXTO del comando Bash escapa el guard de carriles", () => {
+    const target = path.join(lane, "src", "x.js");
+    const denied = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${target}` } });
+    expect(denied.status).toBe(2);
+    const escaped = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `KJ_ALLOW_CROSS_LANE=1 sed -i s/a/b/ ${target}` } });
+    expect(escaped.status).toBe(0);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_CROSS_LANE")).toBe(true);
   });
 
   it("KJ_ALLOW_CROSS_LANE=1 passes AND records the auditable escape", () => {
