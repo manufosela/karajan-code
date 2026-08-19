@@ -16,10 +16,22 @@ import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
 // La versión del kj que corre harden — es la que se pinea en el fallback
-// npx del workflow de policy (jamás @latest en CI).
-const KJ_VERSION = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8"),
-).version;
+// npx del workflow de policy (jamás @latest en CI). Lectura LAZY: en el
+// bundle SEA no hay package.json junto al módulo y una lectura eager a
+// nivel de módulo tumbaba el binario entero al cargar (ENOENT /package.json).
+let _ownVersion;
+function ownVersion() {
+  if (_ownVersion === undefined) {
+    try {
+      _ownVersion = JSON.parse(
+        readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8"),
+      ).version;
+    } catch {
+      _ownVersion = null;
+    }
+  }
+  return _ownVersion;
+}
 
 const BLOCK_VERSION = 1;
 const WORKFLOWS_DIR = join(".github", "workflows");
@@ -59,6 +71,7 @@ export function installWorkflows({
   profile = "standard",
   mutation = false,
   dryRun = false,
+  kjVersion = null,
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const pm = detectPackageManager(projectDir);
@@ -67,8 +80,12 @@ export function installWorkflows({
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy — un
   // workflow que evalúa una policy ausente sería un check que miente.
+  // Versión a pinear: la plumbeada por el CLI (SEA incluida) o la propia
+  // leída del árbol; "latest" es inalcanzable en ambos caminos reales y
+  // queda solo como último recurso documentado.
+  const pinned = kjVersion ?? ownVersion() ?? "latest";
   const policy = existsSync(join(projectDir, ".karajan", "policy.yml"))
-    ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(KJ_VERSION) }
+    ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned) }
     : null;
   const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : [])];
   const results = [];
