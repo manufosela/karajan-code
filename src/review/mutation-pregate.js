@@ -1,10 +1,8 @@
 /**
- * Mutation pre-gate (MUT-A, KJC-TSK-0716, épica KJC-PCS-0072) — el auditor
- * del invariante "tests prove behavior": un test con asserts flojos deja
- * mutantes vivos aunque la suite esté verde. OPT-IN (method_gates.mutation:
- * warn|block — la mutación cuesta minutos, jamás corre sin declararla) y
- * SOLO en --staged, donde ya se va a gastar reviewer: los supervivientes
- * viajan como advisory en su task, y en block cierran el gate ANTES con la
+ * Mutation pre-gate (MUT-A, KJC-TSK-0716) — audita "tests prove behavior":
+ * asserts flojos dejan mutantes vivos con la suite verde. OPT-IN
+ * (method_gates.mutation: warn|block — cuesta minutos) y SOLO en --staged:
+ * supervivientes como advisory al reviewer; block cierra ANTES con la
  * lista exacta. Indisponible = degrada avisando, nunca en silencio.
  */
 import { runMutation } from "../mutate/runner.js";
@@ -37,8 +35,7 @@ export async function runMutationPregate({ config = {}, projectDir = process.cwd
   try {
     outcome = await mutateFn({ projectDir });
   } catch (err) {
-    // Sin herramienta no hay medición: cerrar sería castigar sin juicio y
-    // callar sería un pase falso — se degrada DICIENDO qué red está caída.
+    // Sin herramienta no hay medición: se degrada DICIENDO qué red cayó.
     return { enabled: true, ok: true, available: false, mode, reason: err.message };
   }
   // Payload malformado del runner = misma degradación que el error (catch
