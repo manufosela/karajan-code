@@ -8,10 +8,13 @@ carries a cross-AI verdict.
 Invariants (the git gates enforce these — they are not suggestions):
 
 - The project RAG answers before you assume: `kj rag query` — never guess
-  what the codebase does.
+  what the codebase does. In MCP hosts the same index is the native
+  `kj_rag_query` tool: reach for it before grepping by hand.
 - Every piece of work has a tracked card in the Planning Game MCP before it starts (In Progress while you work it).
 - Tests prove behavior: the failing test exists first (TDD), and the suite
-  is never left red.
+  is never left red. Green is not proof: with `method_gates.mutation`
+  declared, run `kj mutate --since <base>` after green and BEFORE the
+  review — a surviving mutant is a weak assert; kill it first.
 - Every diff is reviewed by a DIFFERENT AI before it is committed
   (`kj review --staged`): verdicts bind to the exact diff — change the code
   and it must be reviewed again. Disagree with a rejection? `kj solomon`.
@@ -26,6 +29,8 @@ Invariants (the git gates enforce these — they are not suggestions):
 - A non-trivial plan names at least two approaches — one as if the
   codebase didn't exist — and says why the winner won. Following the
   legacy line is a choice, never a default.
+- Publishing ANY artifact (a build's dist/, a docs site, a tarball)?
+  `kj privacy scan <dir>` first — nothing personal or secret-shaped ships.
 - Branch first: never commit on the base branch — every change reaches it
   through an atomic PR (~150 net lines, Conventional Commits). More than one
   task, or the base tree must stay untouched? `kj worktree start <slug>`

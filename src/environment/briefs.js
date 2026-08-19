@@ -71,6 +71,9 @@ const B = {
         [
           ...(tdd ? ["TDD is ON: the failing test exists FIRST, then the code."] : []),
           "The suite is never left red, and never goes green by deleting or skipping tests.",
+          ...(config?.method_gates?.mutation
+            ? ["Green is not proof: run `kj mutate --since <base>` after the suite passes and BEFORE review — kill surviving mutants (weak asserts) first."]
+            : []),
         ],
         "green suite + the list of new/changed tests and what each one pins.");
     },
