@@ -299,7 +299,62 @@ process.stdin.on("end", () => {
         // en cualquier posicion, y una ruta entrecomillada con espacios es
         // invisible al tokenizador: ambas => deny conservador (endpoint
         // pedido por el reviewer; friccion asumida, el remedio es literal).
-        if (/\\$\\(|\`/.test(cmd) || /["'][^"'\\n]*\\/[^"'\\n]* [^"'\\n]*["']/.test(cmd)) {
+        // KJC-BUG-0140: pares de comillas REALES, no regex sobre el texto —
+        // la comilla de CIERRE de un string + un redirect literal + la de
+        // apertura del siguiente creaban la ilusion de ruta con espacios y
+        // denegaban el flujo estandar commit -m "..." > log && echo "ok".
+        // Se recorre alternando estado (doctrina del parseCommand del motor):
+        // solo el CONTENIDO realmente entrecomillado con slash y espacio
+        // deniega — incluidas comillas a mitad de token (scp host:"/a b/x")
+        // y la comilla sin cerrar (no verificable).
+        // ...y por TOKEN completo, no por span: spans adyacentes concatenan
+        // ("dir with"" spaces/file" es UNA ruta) — catch de codex.
+        const quotedPathWithSpaces = (s) => {
+          // Un backslash pegado a comilla o blanco (comilla escapada,
+          // espacio escapado) altera donde CIERRA el string o esconde
+          // espacios: opaco => deny (doctrina del motor) — catch de codex.
+          // Caracteres construidos con fromCharCode: CERO escaping en este
+          // template — fuente y artefacto identicos, nada que malinterpretar
+          // (el doble-escaping confundio cuatro reviews; solomon desestimo
+          // la primera y las demas se volvieron ilegibles igual).
+          // El punto escapado de un sed y similares siguen libres.
+          const BS = String.fromCharCode(92);
+          const TAB = String.fromCharCode(9);
+          const NL = String.fromCharCode(10);
+          for (let i = s.indexOf(BS); i !== -1; i = s.indexOf(BS, i + 1)) {
+            const n = s[i + 1] || "";
+            if (n === '"' || n === "'" || n === " " || n === TAB) return true;
+          }
+          let q = null;
+          let tok = "";
+          let hadQuote = false;
+          const flush = () => {
+            const bad = hadQuote && tok.includes("/") && tok.includes(" ");
+            tok = "";
+            hadQuote = false;
+            return bad;
+          };
+          for (const ch of s) {
+            if (q) {
+              if (ch === q) q = null;
+              else tok += ch;
+              continue;
+            }
+            if (ch === '"' || ch === "'") {
+              q = ch;
+              hadQuote = true;
+              continue;
+            }
+            if (ch === " " || ch === TAB || ch === NL || ch === ";" || ch === "|" || ch === "&" || ch === "<" || ch === ">" || ch === "(" || ch === ")") {
+              if (flush()) return true;
+              continue;
+            }
+            tok += ch;
+          }
+          if (q !== null) return true; // comilla sin cerrar: no verificable
+          return flush();
+        };
+        if (/\\$\\(|\`/.test(cmd) || quotedPathWithSpaces(cmd)) {
           if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("kj sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");

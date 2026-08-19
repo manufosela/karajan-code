@@ -325,6 +325,36 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(res.stderr).toContain("carril");
   });
 
+  it("KJC-BUG-0140: un redirect literal ENTRE dos strings entrecomillados no es una ruta con espacios — el flujo estándar commit+log pasa; la ruta REAL entrecomillada con espacios sigue denegando", () => {
+    const standard = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: {
+      command: 'git commit -m "feat(x): mensaje con espacios" > /tmp/kj-log.txt 2>&1 && echo "ok" && git push -u origin rama',
+    } });
+    expect(standard.status).toBe(0);
+    const realQuoted = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: {
+      command: 'cp "/otro carril/con espacios/x.js" destino.js',
+    } });
+    expect(realQuoted.status).toBe(2);
+    const afterEq = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: {
+      command: 'rsync --exclude="/un dir/con espacios" a b',
+    } });
+    expect(afterEq.status).toBe(2);
+    // Pares reales, no contexto (catch de codex): la comilla a mitad de
+    // token (scp host:"...") o pegada a un redirect sigue siendo ruta real.
+    for (const evil of ['tee >"/un dir/con espacios/x.log" archivo', 'scp host:"/path with spaces/file" .', 'touch foo"/path with spaces"', 'touch "dir with"" spaces/file"']) {
+      const res = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: evil } });
+      expect(res.status).toBe(2);
+    }
+    // Escapes que tocan comilla o blanco son opacos (catch de codex): la
+    // comilla escapada moveria el cierre y esconderia el espacio.
+    const escaped = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: 'cp "dir\\" with spaces/file" dest' } });
+    expect(escaped.status).toBe(2);
+    const sedFree = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "sed -i s/a\\.b/c/ notas.txt" } });
+    expect(sedFree.status).toBe(0);
+    // Comilla sin cerrar en mutador = no verificable.
+    const unclosed = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: 'git commit -m "a medias' } });
+    expect(unclosed.status).toBe(2);
+  });
+
   it("cd/pushd in any mutating command is denied conservatively; mutating without cd in own tree passes", () => {
     const res = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "cd /tmp && rm -rf ../whatever" } });
     expect(res.status).toBe(2);
