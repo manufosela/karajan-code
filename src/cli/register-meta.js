@@ -27,6 +27,7 @@ import { huCommand } from "../commands/hu.js";
 import { worktreeCommand } from "../commands/worktree.js";
 import { addAdr, listAdrs } from "../environment/adr.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
+import { policyAddCommand } from "../policy/add.js";
 import { withConfig } from "./_shared.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -315,7 +316,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--yes", "Aplicar el diff propuesto")
     .action(async (textParts, flags) => {
       await withConfig(pkgVersion, "policy-add", flags, async ({ config, logger }) => {
-        const { policyAddCommand } = await import("../policy/add.js");
         process.exitCode = await policyAddCommand({ text: textParts.join(" "), config, flags, logger });
       });
     });
