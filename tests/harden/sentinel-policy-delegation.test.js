@@ -90,6 +90,13 @@ describe("pretooluse delega en kj policy eval --strict (PL-B)", () => {
     expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_POLICY")).toBe(true);
   });
 
+  it("el rol que actua viaja: KJ_POLICY_ROLE=reviewer llega como --role reviewer (PL-C)", () => {
+    const argsFile = path.join(dir, "kj-args.txt");
+    const env = fakeKj(`echo "$@" > ${argsFile}; exit 0`);
+    run(gate, editTool(path.join(dir, "src", "a.js")), { ...env, KJ_POLICY_ROLE: "reviewer" });
+    expect(fs.readFileSync(argsFile, "utf8")).toContain("--role reviewer");
+  });
+
   it("sin policy.yml no se consulta el motor (cero spawn, cero coste)", () => {
     fs.rmSync(path.join(dir, ".karajan", "policy.yml"));
     const env = fakeKj(`echo '${DENY}'; exit 2`);

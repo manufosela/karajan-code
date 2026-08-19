@@ -339,7 +339,10 @@ process.stdin.on("end", () => {
     // evaluacion = deny con escape humano registrable — la sesion no queda
     // presa de un typo de YAML, pero abrirla es decision del usuario.
     if ((EDIT_TOOLS.includes(tool) || tool === "Bash") && existsSync(resolve(ROOT, ".karajan", "policy.yml"))) {
-      const pres = spawnSync("kj", ["policy", "eval", "--strict", "--role", "coder", "--tool", tool, "--input", JSON.stringify(input)], { cwd: ROOT, encoding: "utf8" });
+      // PL-C: el rol que ACTÚA (KJ_POLICY_ROLE, sembrado por los runners de
+      // kj run en los subprocesos) — el anfitrión-brain evalúa como coder.
+      const actorRole = process.env.KJ_POLICY_ROLE || "coder";
+      const pres = spawnSync("kj", ["policy", "eval", "--strict", "--role", actorRole, "--tool", tool, "--input", JSON.stringify(input)], { cwd: ROOT, encoding: "utf8" });
       if (pres.error || pres.status === null) {
         console.error("kj sentinel: .karajan/policy.yml declara enforcement pero kj no es ejecutable — la policy no se puede evaluar; restaura kj en el PATH (npm i -g karajan-code) o retira la policy conscientemente.");
         process.exit(2);

@@ -365,6 +365,11 @@ export class ClaudeAgent extends BaseAgent {
   async _runTaskExec(task, model, _role) {
     const args = buildPromptArgs(task);
     if (model) args.push("--model", model);
+    // PL-C (KJC-TSK-0735): el rol del subproceso viaja en KJ_POLICY_ROLE —
+    // si su harness corre hooks (claude -p), el tier A evalúa la policy con
+    // el rol que ACTÚA. El rol del ORQUESTADOR es autoritativo: task.env no
+    // puede spoofearlo (catch de codex: sería un bypass de reglas por rol).
+    const roleEnv = task.role ? { ...task.env, KJ_POLICY_ROLE: task.role } : task.env;
 
     // Use stream-json when onOutput is provided to get real-time feedback
     if (task.onOutput) {
@@ -374,7 +379,7 @@ export class ClaudeAgent extends BaseAgent {
         onOutput: streamFilter,
         silenceTimeoutMs: task.silenceTimeoutMs,
         timeout: task.timeoutMs,
-        env: task.env,
+        env: roleEnv,
         cwd: task.cwd
       }));
       const raw = pickOutput(res);
@@ -385,7 +390,7 @@ export class ClaudeAgent extends BaseAgent {
 
     // Without streaming, use json output to get structured response via stderr
     args.push("--output-format", "json");
-    const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts({ env: task.env, cwd: task.cwd }));
+    const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts({ env: roleEnv, cwd: task.cwd }));
     const raw = pickOutput(res);
     const output = extractTextFromStreamJson(raw);
     const usage = extractUsageFromStreamJson(raw);
