@@ -78,11 +78,9 @@ export function installWorkflows({
   const quality = qualityWorkflowFor(language, pm, hasLintScript(projectDir));
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
-  // PL-C: el tier C solo existe donde el proyecto DECLARA policy — un
-  // workflow que evalúa una policy ausente sería un check que miente.
-  // Versión a pinear: la plumbeada por el CLI (SEA incluida) o la propia
-  // leída del árbol; "latest" es inalcanzable en ambos caminos reales y
-  // queda solo como último recurso documentado.
+  // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
+  // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
+  // recurso inalcanzable en los caminos reales.
   const pinned = kjVersion ?? ownVersion() ?? "latest";
   const policy = existsSync(join(projectDir, ".karajan", "policy.yml"))
     ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned) }
