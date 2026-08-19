@@ -6,6 +6,7 @@ import { collectSonarFindings } from "../audit/sonar-findings.js";
 import { collectWebPerfInput } from "../audit/webperf-input.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { collectSemgrepFindings } from "../audit/semgrep-findings.js";
+import { collectInfraFindings } from "../audit/infra-findings.js";
 import { collectCircularDeps } from "../audit/circular-deps.js";
 import { collectDeadExports } from "../audit/dead-exports.js";
 import { collectInjectionFindings } from "../audit/injection-findings.js";
@@ -58,6 +59,7 @@ export class AuditRole extends AgentRole {
     const noMadge = (typeof input === "object" ? Boolean(input?.noMadge) : false) || securityOnly;
     const noKnip = (typeof input === "object" ? Boolean(input?.noKnip) : false) || securityOnly;
     const noInjectionScan = typeof input === "object" ? Boolean(input?.noInjectionScan) : false;
+    const noInfraScan = typeof input === "object" ? Boolean(input?.noInfraScan) : false;
     const noAiSlop = (typeof input === "object" ? Boolean(input?.noAiSlop) : false) || securityOnly;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
@@ -70,6 +72,7 @@ export class AuditRole extends AgentRole {
     let circularDeps = null;
     let deadExports = null;
     let injectionFindings = null;
+    let infraFindings = null;
     let aiSlop = null;
     if (!securityOnly) {
       try {
@@ -127,6 +130,14 @@ export class AuditRole extends AgentRole {
         injectionFindings = await collectInjectionFindings(projectDir, this.logger);
       } catch { /* injection scan is best-effort (KJC-TSK-0498) */ }
     }
+    // Checkov infra misconfigs — INF-C (KJC-TSK-0760). Security surface, so
+    // it ALSO runs in securityOnly. Best-effort: no infra markers or missing
+    // checkov return available:false declaring why.
+    if (!noInfraScan) {
+      try {
+        infraFindings = await collectInfraFindings(projectDir, this.logger);
+      } catch { /* checkov is best-effort */ }
+    }
     // AI-slop tells (KJC-TSK-0503). Deterministic, offline, regex-based.
     // Local equivalent of Deslopify-style review. Best-effort.
     if (!noAiSlop) {
@@ -134,7 +145,7 @@ export class AuditRole extends AgentRole {
         aiSlop = await collectAiSlop(projectDir);
       } catch { /* ai-slop scan is best-effort */ }
     }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, aiSlop };
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, infraFindings, aiSlop };
   }
 
   /**

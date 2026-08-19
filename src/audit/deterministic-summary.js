@@ -38,6 +38,7 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.sonarFindings) lines.push(...formatSonarBlock(ctx.sonarFindings));
   if (ctx.osvFindings) lines.push(...formatOsvBlock(ctx.osvFindings));
   if (ctx.semgrepFindings) lines.push(...formatSemgrepBlock(ctx.semgrepFindings));
+  if (ctx.infraFindings) lines.push(...formatInfraBlock(ctx.infraFindings));
   if (ctx.circularDeps) lines.push(...formatCircularDepsBlock(ctx.circularDeps));
   if (ctx.deadExports) lines.push(...formatDeadExportsBlock(ctx.deadExports));
   if (ctx.injectionFindings) lines.push(...formatInjectionBlock(ctx.injectionFindings));
@@ -129,6 +130,25 @@ function formatSemgrepBlock(semgrepFindings) {
       }
     }
   }
+  lines.push("");
+  return lines;
+}
+
+// INF-C (KJC-TSK-0760): checkov misconfigs — same shape as the semgrep
+// block; a not-applicable repo (no infra markers) declares it in one line.
+function formatInfraBlock(infraFindings) {
+  if (!infraFindings.available) {
+    return ["### Infra misconfigurations (checkov)", `- Status: not available — ${infraFindings.reason || "checkov not installed"}`, ""];
+  }
+  const lines = ["### Infra misconfigurations (checkov)"];
+  lines.push(`- Total findings: ${infraFindings.total ?? 0}`);
+  const cap = MAX_SAMPLE_SEMGREP_PER_SEVERITY * 3;
+  for (const f of (infraFindings.findings || []).slice(0, cap)) {
+    const lineSuffix = f.line ? `:${f.line}` : "";
+    lines.push(`  - [${f.severity}] ${f.file}${lineSuffix} [${f.rule}] ${f.message}${f.guideline ? ` (${f.guideline})` : ""}`);
+  }
+  const overflow = (infraFindings.total ?? 0) - cap;
+  if (overflow > 0) lines.push(`  - ... and ${overflow} more`);
   lines.push("");
   return lines;
 }
@@ -298,6 +318,7 @@ export function deterministicContextHasFindings(ctx) {
   if (ctx.sonarFindings?.qualityGate?.status === "ERROR") return true;
   if (ctx.osvFindings?.available && (ctx.osvFindings.total ?? 0) > 0) return true;
   if (ctx.semgrepFindings?.available && (ctx.semgrepFindings.total ?? 0) > 0) return true;
+  if (ctx.infraFindings?.available && (ctx.infraFindings.total ?? 0) > 0) return true;
   if (ctx.circularDeps?.available && (ctx.circularDeps.total ?? 0) > 0) return true;
   if (ctx.deadExports?.available && (ctx.deadExports.total ?? 0) > 0) return true;
   if (ctx.growthDelta && (Math.abs(ctx.growthDelta.lines || 0) > 100 || Math.abs(ctx.growthDelta.deps || 0) > 0)) return true;
