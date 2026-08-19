@@ -116,6 +116,17 @@ export async function detectTestFramework(cwd = process.cwd()) {
   return { hasTests: false, framework: null, language: null };
 }
 
+/**
+ * True when the project carries unequivocal infra markers (terraform, helm,
+ * kustomize, ansible) — regardless of the app framework the repo may also
+ * have. Used by INF-C's audit collector to gate the checkov scan.
+ * @param {string} cwd
+ * @returns {Promise<boolean>}
+ */
+export async function detectInfraMarkers(cwd = process.cwd()) {
+  return Boolean(await matchMarkers(cwd, INFRA_MARKERS));
+}
+
 async function matchMarkers(cwd, markers) {
   for (const marker of markers) {
     try {
