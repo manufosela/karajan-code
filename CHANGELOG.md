@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The escape hatch existed only in the error message** (KJC-BUG-0142, PR #1476, found live while releasing v4.19.0): every Sentinel deny advertises its escape as a command prefix (`KJ_ALLOW_X=1 cmd`), but every check read `process.env` of the HOOK process — inherited from the host, unreachable from a command prefix. Tests passed because they inject env into the hook's spawn: exactly what production never does. The release gate deadlocked itself: the landing item only turns green after the deploy, and the deploy was blocked by the same gate. Now the prefix works — for a SIMPLE command only: any `; | & $ ( )` backtick or newline refuses the textual escape (in a chain the shell prefix would not reach later commands — review catch), assignments must be literal, and the env route stays. Self-protection runs before the helper and security findings remain escape-less. Two codex catches absorbed; the third round (quoted assignment values) went to arbitration and solomon ruled for the brain: fail-closed narrowness is the design — wrong quoting grants wrongly, wrong rejection just falls back. Its first two production uses were this very release's deploy and cleanup.
+
 ## [4.19.0] - 2026-08-19
 
 ### Added
