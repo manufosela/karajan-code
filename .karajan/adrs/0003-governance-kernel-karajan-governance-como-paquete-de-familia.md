@@ -1,4 +1,4 @@
-# Governance kernel: @karajan/governance como paquete de familia
+# Governance kernel: @karajan-family/governance como paquete de familia
 
 Status: accepted
 Date: 2026-08-18
@@ -9,7 +9,9 @@ La policy layer (ADR 0001, PL-A/PL-B) construyó un motor de políticas, un gate
 
 ## Decision
 
-El kernel vive en packages/governance (@karajan/governance; patrón hu-board hasta publicarse: workspace npm + imports relativos + whitelist en files del tarball de kj — GOV-D lo convierte en dependencia real). El kernel conoce EXACTAMENTE tres conceptos abstractos: Política (reglas declarativas versionadas, vocabulario CERRADO fail-loud, con subconjunto inexcepcionable), Decisión (evaluación determinista y local de una acción contra una política, sin red ni LLM, con regla citada y enforcement) y Excepción (objeto de primera clase: identidad de quien aprueba, regla exacta, justificación escrita en el momento, alcance con caducidad, hash del artefacto). El kernel NO conoce git, diffs, Sonar, tool calls concretas, agentes ni LLMs: la noción de artefacto es una interfaz (algo con identidad referenciable y hasheable) y cada adaptador la implementa (code: el diff; rag: documento/chunk; watch: evento; radar: informe). Los defaults inexcepcionables son DATOS que cada consumidor inyecta ({id, pattern, message}); en code protegen los ficheros del supervisor del Sentinel. El criterio de frontera: si una constante nombra una tool de harness, una ruta de un proyecto o un comando de git, es del adaptador; si es evaluación de patrones, vocabulario o flujo warn/deny/inexcepcionable/excepción, es del kernel.
+El kernel vive en packages/governance (@karajan-family/governance; patrón hu-board hasta publicarse: workspace npm + imports relativos + whitelist en files del tarball de kj — GOV-D lo convierte en dependencia real). El kernel conoce EXACTAMENTE tres conceptos abstractos: Política (reglas declarativas versionadas, vocabulario CERRADO fail-loud, con subconjunto inexcepcionable), Decisión (evaluación determinista y local de una acción contra una política, sin red ni LLM, con regla citada y enforcement) y Excepción (objeto de primera clase: identidad de quien aprueba, regla exacta, justificación escrita en el momento, alcance con caducidad, hash del artefacto). El kernel NO conoce git, diffs, Sonar, tool calls concretas, agentes ni LLMs: la noción de artefacto es una interfaz (algo con identidad referenciable y hasheable) y cada adaptador la implementa (code: el diff; rag: documento/chunk; watch: evento; radar: informe). Los defaults inexcepcionables son DATOS que cada consumidor inyecta ({id, pattern, message}); en code protegen los ficheros del supervisor del Sentinel. El criterio de frontera: si una constante nombra una tool de harness, una ruta de un proyecto o un comando de git, es del adaptador; si es evaluación de patrones, vocabulario o flujo warn/deny/inexcepcionable/excepción, es del kernel.
+
+Nota de nombre (2026-08-19): el scope npm "karajan" estaba ocupado; el usuario creó la organización "karajan-family" y el paquete queda como @karajan-family/governance — el nombre dice lo que la org ES (una familia de herramientas) y no ata el kernel al dominio código.
 
 ## Consequences
 

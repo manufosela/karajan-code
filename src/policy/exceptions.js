@@ -1,6 +1,6 @@
 /**
  * Adaptador de excepciones de karajan-code (GOV-A, KJC-TSK-0745). El
- * registro vive en el kernel (@karajan/governance); aquí solo lo que es de
+ * registro vive en el kernel (@karajan-family/governance); aquí solo lo que es de
  * este dominio: la identidad (git user + usuario del SO — DECLARADA, no
  * autenticada) y el destino append-only `.karajan/policy-exceptions.jsonl`.
  */
