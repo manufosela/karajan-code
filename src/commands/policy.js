@@ -8,8 +8,12 @@
  */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
 import { recordPolicyException } from "../policy/exceptions.js";
+import { verifyDecisionChain } from "../../packages/governance/src/decisions.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -37,6 +41,44 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
     for (const e of errors) logger.error?.(`✗ ${e}`);
     logger.error?.("policy: el fichero declara lo que el motor no puede aplicar — corrígelo (una regla que miente es peor que ninguna)");
     return 1;
+  }
+
+  // GOV-C2 (KJC-TSK-0749): anclaje temporal sin blockchain — verificar la
+  // cadena ENTERA y sellar su head-hash en un fichero TRACKEADO por git:
+  // reescribir el log de ayer exige reescribir el repo de ayer. Un anchor
+  // previo con más entradas que el log actual = truncado ⇒ no se re-sella.
+  if (action === "anchor") {
+    let raw;
+    try {
+      raw = readFileSync(join(projectDir, ".karajan", "policy-decisions.jsonl"), "utf8");
+    } catch {
+      logger.info?.("policy anchor: sin decisiones que anclar — el log nace con el primer deny/excepción/commit-allow");
+      return 0;
+    }
+    const lines = raw.split("\n").filter((l) => l.trim());
+    // Fichero vacío o solo whitespace = sin decisiones (catch de codex:
+    // lines.at(-1) undefined reventaba el hash en vez de salir limpio).
+    if (lines.length === 0) {
+      logger.info?.("policy anchor: sin decisiones que anclar — el log nace con el primer deny/excepción/commit-allow");
+      return 0;
+    }
+    const chain = verifyDecisionChain(lines);
+    if (!chain.ok) {
+      logger.error?.(`✗ policy anchor: cadena rota en la entrada ${chain.at} (${chain.reason}) — el log ha sido manipulado; NO se sella`);
+      return 1;
+    }
+    const anchorFile = join(projectDir, ".karajan", "policy-anchor.json");
+    try {
+      const prev = JSON.parse(readFileSync(anchorFile, "utf8"));
+      if (Number.isFinite(prev.length) && prev.length > chain.length) {
+        logger.error?.(`✗ policy anchor: el log retrocede (anchor previo=${prev.length} entradas, actual=${chain.length}) — truncado tras el último sello; NO se re-sella`);
+        return 1;
+      }
+    } catch { /* sin anchor previo (o ilegible): primer sello */ }
+    const head = createHash("sha256").update(lines.at(-1), "utf8").digest("hex");
+    writeFileSync(anchorFile, `${JSON.stringify({ head, length: chain.length, ts: new Date().toISOString() }, null, 2)}\n`, "utf8");
+    logger.info?.(`✓ policy anchor: cadena íntegra (${chain.length} decisiones) — head ${head.slice(0, 12)} sellado en .karajan/policy-anchor.json; committéalo para anclarlo en la historia de git`);
+    return 0;
   }
 
   // GOV-B (KJC-TSK-0746): conceder una excepción PERMANENTE con el modelo

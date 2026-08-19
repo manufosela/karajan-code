@@ -309,6 +309,14 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await policyCommand({ action: "grant", config, flags });
       });
     });
+  policyCmd.command("anchor")
+    .description("Verifica la cadena del decision log y sella su head-hash en .karajan/policy-anchor.json (trackeado) — anclaje temporal en la historia de git, GOV-C2")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "policy-anchor", flags, async ({ config }) => {
+        const { policyCommand } = await import("../commands/policy.js");
+        process.exitCode = await policyCommand({ action: "anchor", config, flags });
+      });
+    });
   policyCmd.command("check")
     .description("Comprueba el diff STAGED contra la policy (write-deny + invariantes) — siempre warn en PL-A; exit 1 solo si policy.yml es inválido")
     .option("--role <role>", "Rol del agente", "coder")
