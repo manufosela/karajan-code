@@ -286,7 +286,7 @@ export function registerMeta(program, { pkgVersion }) {
     });
 
   // KJC-TSK-0733 PL-A — policy as code: motor determinista en modo warn.
-  const policyCmd = program.command("policy").description("Policy as code (.karajan/policy.yml, vocabulario cerrado) — PL-A: modo warn");
+  const policyCmd = program.command("policy").description("Policy as code (.karajan/policy.yml, vocabulario cerrado): eval/check deterministas, grant con caducidad, anchor del decision log — deny en commit y CI");
   policyCmd.command("eval")
     .description("Evalúa UNA tool call: imprime {decision, rule_id, reason}; --strict devuelve exit 2 en deny (contrato para adaptadores de hooks)")
     .option("--role <role>", "Rol del agente", "coder")
