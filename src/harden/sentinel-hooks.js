@@ -35,8 +35,10 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 export const STATE = join(here, "sentinel-state.json");
 export const ROOT = join(here, "..", "..");
-export const TESTS = /(^|\\/)(tests?|__tests__|spec)\\/|\\.(test|spec)\\.[a-z]+$/;
-export const CODE = /\\.(m?[jt]sx?|c[jt]s|py|go|rs|java|rb|php|cs|swift|kt|astro|svelte|vue|c|h|cc|cpp|hpp)$/;
+// INF-A (KJC-TSK-0758): infra IS source — terraform/k8s/shell/Docker edits
+// engage the method like app code; *_test.* files (terratest) are tests.
+export const TESTS = /(^|\\/)(tests?|__tests__|spec)\\/|\\.(test|spec)\\.[a-z]+$|_test\\.[a-z]+$/;
+export const CODE = /\\.(m?[jt]sx?|c[jt]s|py|go|rs|java|rb|php|cs|swift|kt|astro|svelte|vue|c|h|cc|cpp|hpp|tf|hcl|ya?ml|sh)$|(^|\\/)(Dockerfile|Makefile|Vagrantfile)$/;
 export const CARD = new RegExp(${JSON.stringify(CARD_REF_RE.source)}, "i");
 export const BASE_BRANCHES = new Set(["main", "master"]);
 export const load = () => { try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return {}; } };
