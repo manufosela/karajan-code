@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The family scope migration begins — kj no longer hardcodes its own npm name** (MIG-A, KJC-TSK-0751, epic KJC-PCS-0077, ADR 0004, PRs #1461-#1462): executing PRP-0018, everything moves under `@karajan-family` without breaking anyone. Self-references now resolve from the manifest: update-check reads its OWN package name (lazy + legacy fallback — the SEA bundle has no package.json next to the module) with URL-ENCODED registry paths (a scoped name carries `@` and `/`), verify-pack validates whichever tarball it is given, and the policy workflow template pins name AND version. `scripts/dual-publish.mjs` ships the SAME content under both names: in-place name swap with byte-for-byte restore in `finally` (crash included), refuses to rename blindly, merges `publishConfig` instead of clobbering it, and verifies with the SAME verify-pack — proven live: `@karajan-family/code@4.18.0 installs clean and runs`. Nothing published yet: the scoped first-publish rides the next release. An architecture test locks the literal out of the critical paths. Three cross-AI review catches absorbed with regressions.
+
 ## [4.18.0] - 2026-08-19
 
 ### Added
