@@ -1,5 +1,5 @@
 /**
- * @karajan/governance — governance kernel for agent actions (ADR 0003,
+ * @karajan-family/governance — governance kernel for agent actions (ADR 0003,
  * epic KJC-PCS-0076). The kernel knows exactly three concepts, all
  * abstract: Policy (declarative, versioned, closed fail-loud vocabulary,
  * with a non-exemptable subset), Decision (deterministic evaluation of an

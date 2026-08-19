@@ -1,7 +1,7 @@
 /**
  * Adaptador del gate de policy en el flujo de review de karajan-code
  * (GOV-A, KJC-TSK-0745). La decisión warn/deny/inexcepcionable/excepción
- * vive en el kernel (@karajan/governance); aquí solo el dominio: la
+ * vive en el kernel (@karajan-family/governance); aquí solo el dominio: la
  * excepción se pide con KJ_ALLOW_POLICY=1 + KJ_POLICY_REASON, y el
  * artefacto de este dominio es el diff staged — por eso el alcance
  * registrado dice "este diff exacto".

@@ -1,6 +1,6 @@
 /**
  * karajan-code policy ADAPTER (GOV-A, KJC-TSK-0745, ADR 0003). El motor
- * vive en @karajan/governance (packages/governance): aquí queda SOLO lo
+ * vive en @karajan-family/governance (packages/governance): aquí queda SOLO lo
  * que es de este dominio — dónde vive el fichero de policy, los defaults
  * inexcepcionables del supervisor del Sentinel, y el mapeo de tools del
  * harness (Write/Edit/Bash…) a capabilities del kernel. La superficie

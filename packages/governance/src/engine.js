@@ -1,7 +1,7 @@
 /**
  * governance kernel engine — nacido como policy engine de karajan-code
  * (PL-A KJC-TSK-0733, PL-B KJC-TSK-0734, ADR 0001) y extraído a
- * @karajan/governance en GOV-A (KJC-TSK-0745, ADR 0003). Policy as DATA
+ * @karajan-family/governance en GOV-A (KJC-TSK-0745, ADR 0003). Policy as DATA
  * (vocabulario CERRADO), engine as code: módulo puro, determinista, sin
  * red ni LLM. Una regla que el motor no puede aplicar falla FUERTE al
  * cargar — jamás se ignora en silencio. Deny gana a allow; una allow-list
