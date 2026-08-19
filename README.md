@@ -75,6 +75,16 @@ Karajan **governs** any agent with git gates — the false green is structurally
 
 Synchronous blocking hooks exist today only in Claude Code. That makes the supported setup explicit: **to guarantee a harness that controls the LLM, use Claude Code as the host** — Claude writes, Codex reviews (a review subprocess needs no hooks), and a third CLI arbitrates when available. On any other host Karajan still governs at the full git-gate level and tells you which level is active — it never pretends a supervision it cannot enforce.
 
+With a declared `.karajan/policy.yml`, the policy layer enforces at three tiers, and which tier applies depends on the host:
+
+| Tier | Where | Requires | What it guarantees |
+|---|---|---|---|
+| **A — tool time** | Sentinel PreToolUse → `kj policy eval --strict` | Claude Code as host (synchronous hooks) | The rule fires BEFORE the damage; the acting agent's role travels in `KJ_POLICY_ROLE` |
+| **B — commit time** | `kj review --staged` / pre-commit → deny + evidentiary exceptions | Any host (the gate lives in git) | The violating diff never enters, no matter who wrote it or what host ran it |
+| **C — merge time** | `kj-policy.yml` CI workflow → `kj policy check --range --strict` | GitHub Actions (seeded by `kj harden`) | Covers a tampered local hook: the PR diff is re-checked against the same policy, merge-blocking |
+
+Tier B is the guarantee floor — hosts without hooks lose A, never B; C re-verifies both. Security-class rules and consumer defaults are non-exemptable at every tier: no escape, no arbitration, no grant.
+
 ## Headless mode
 
 The classic multiagent pipeline lives on for CI and automation: `kj run "<task>"` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. Agents and CI pass `--non-interactive` (or `KJ_NON_INTERACTIVE=1`): safe gates auto-answer, FAIL findings stop the run with a real exit code. `kj advanced` lists the full surface. [Headless mode docs](https://karajancode.com/docs/v4/headless/).

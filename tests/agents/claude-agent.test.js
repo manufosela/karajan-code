@@ -39,6 +39,15 @@ describe("ClaudeAgent", () => {
       expect(opts.stdin).toBe("ignore");
     });
 
+    it("propaga el rol del task como KJ_POLICY_ROLE al subproceso (PL-C, KJC-TSK-0735)", async () => {
+      await new ClaudeAgent("claude", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(runCommand.mock.calls[0][2].env.KJ_POLICY_ROLE).toBe("coder");
+      // El rol del ORQUESTADOR es autoritativo: task.env no lo spoofea
+      // (catch de codex — un env manipulado seria un bypass de reglas por rol).
+      await new ClaudeAgent("claude", baseConfig, logger).runTask({ prompt: "t", role: "coder", env: { ...process.env, KJ_POLICY_ROLE: "tester" } });
+      expect(runCommand.mock.calls[1][2].env.KJ_POLICY_ROLE).toBe("coder");
+    });
+
     it("does not crash when CLAUDECODE is unset", async () => {
       delete process.env.CLAUDECODE;
       await new ClaudeAgent("claude", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
