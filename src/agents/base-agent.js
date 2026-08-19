@@ -12,6 +12,7 @@
 
 import { defaultEnvironment } from "../infrastructure/environment.js";
 import { buildAgentEnv } from "../utils/role-env.js";
+import { isModelCompatible } from "../config/role-resolver.js";
 
 const MODEL_NOT_SUPPORTED_PATTERNS = [
   /model.{0,30}is not supported/i,
@@ -95,10 +96,19 @@ export class BaseAgent {
    * @returns {string|null}
    */
   getRoleModel(role) {
-    const roleModel = this.config?.roles?.[role]?.model;
-    if (roleModel) return roleModel;
-    if (role === "reviewer") return this.config?.reviewer_options?.model || null;
-    return this.config?.coder_options?.model || null;
+    const roleModel =
+      this.config?.roles?.[role]?.model ||
+      (role === "reviewer" ? this.config?.reviewer_options?.model : this.config?.coder_options?.model) ||
+    null;
+    // KJC-BUG-0144 (campo, issue #1465): un default por-rol (start: haiku)
+    // puede caer sobre un provider de OTRA familia (agy, codex...) — el
+    // modelo se descarta con aviso y el agente usa su propio default,
+    // nunca se le pasa un --model ajeno.
+    if (roleModel && !isModelCompatible(this.name, roleModel)) {
+      this.logger?.warn?.(`model "${roleModel}" belongs to another family — dropping it for ${this.name} (role ${role})`);
+      return null;
+    }
+    return roleModel;
   }
 
   /**
