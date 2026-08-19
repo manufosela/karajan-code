@@ -39,11 +39,16 @@ describe("shrink-budget workflow", () => {
     expect(trigger?.pull_request?.branches).toContain("main");
   });
 
-  it("declares LOC_LIMIT at env level (default 200)", async () => {
+  it("reads LOC_LIMIT from the policy file, fail-loud, and exports it across steps (PL-C)", async () => {
     const wf = await loadWorkflow();
-    expect(wf.env?.LOC_LIMIT).toBeDefined();
-    // Allow string or number; YAML coerces depending on quoting.
-    expect(String(wf.env.LOC_LIMIT)).toBe("200");
+    // Single source of thresholds: the limit lives in .karajan/policy.yml,
+    // not in a workflow env — the gate extracts it and refuses to guess.
+    expect(wf.env?.KJ_POLICY_FILE).toBe(".karajan/policy.yml");
+    expect(wf.env?.LOC_LIMIT).toBeUndefined();
+    const run = wf.jobs["loc-budget"].steps.find((s) => s.id === "loc").run;
+    expect(run).toContain("loc-budget");
+    expect(run).toMatch(/refuses to guess.*exit 1/s);
+    expect(run).toContain('echo "LOC_LIMIT=$LOC_LIMIT" >> "$GITHUB_ENV"');
   });
 
   it("defines exactly the two expected jobs", async () => {

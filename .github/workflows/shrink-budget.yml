@@ -25,10 +25,11 @@ permissions:
   pull-requests: read
 
 env:
-  # Net LOC limit per PR before the budget check fails. Tune carefully —
-  # tightened from 500 → 200 (2026-05-08) — atomic PRs are the rule, not the exception. Use the `large-pr-justified` label
-  # for one-off exceptions instead.
-  LOC_LIMIT: "200"
+  # PL-C (KJC-TSK-0735): the limit's SINGLE SOURCE is .karajan/policy.yml
+  # (invariant loc-budget). The step below extracts it fail-loud — a gate
+  # that cannot find its threshold must not guess. `large-pr-justified`
+  # label remains the one-off escape.
+  KJ_POLICY_FILE: ".karajan/policy.yml"
 
 jobs:
   loc-budget:
@@ -37,8 +38,8 @@ jobs:
     # allowed there — see actionlint expression rules). The original
     # PR carried the same bug, which silently disabled the entire
     # workflow file with a 0s "validation failure" run on every push.
-    # Hard-coded number here; the real limit lives in `env.LOC_LIMIT`
-    # below and the steps still read that — name is purely cosmetic.
+    # The real limit lives in .karajan/policy.yml (single source, PL-C)
+    # and is extracted fail-loud in the compute step — name is cosmetic.
     name: Net LOC delta within budget
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'large-pr-justified') }}
@@ -56,6 +57,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+
+          # Single source of thresholds (PL-C): read the loc-budget max from
+          # the policy file — the same number kj review and kj policy check use.
+          LOC_LIMIT=$(awk '/id: loc-budget/{f=1} f && /max:/{print $2; exit}' "$KJ_POLICY_FILE")
+          case "$LOC_LIMIT" in (''|*[!0-9]*)
+            echo "::error::loc-budget max not found in $KJ_POLICY_FILE — the gate refuses to guess"; exit 1;;
+          esac
+          echo "LOC_LIMIT=$LOC_LIMIT (source: $KJ_POLICY_FILE)"
+          # Exportado a los steps posteriores (Enforce) — el env de un run no cruza steps.
+          echo "LOC_LIMIT=$LOC_LIMIT" >> "$GITHUB_ENV"
 
           # Excluded paths: lockfiles, snapshots, build output, vendored
           # third-party, minified bundles, generated diet baselines,
