@@ -5,9 +5,7 @@
 // quien evalúa, no el kernel).
 
 import { describe, it, expect, vi } from "vitest";
-import { recordPolicyException } from "../../packages/governance/src/exceptions.js";
-import { evaluateGate } from "../../packages/governance/src/gate.js";
-import { parsePolicy } from "../../packages/governance/src/engine.js";
+import { evaluateGate, parsePolicy, recordPolicyException } from "@karajan-family/governance";
 
 const deps = () => {
   const lines = [];

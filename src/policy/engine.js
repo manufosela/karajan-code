@@ -17,7 +17,7 @@ import {
   evalWrite,
   parsePolicy,
   DEFAULT_POLICY as KERNEL_DEFAULT_POLICY,
-} from "../../packages/governance/src/engine.js";
+} from "@karajan-family/governance";
 
 // Defaults inexcepcionables de karajan-code: los ficheros del supervisor
 // (antes hardcodeados en el PRETOOL del Sentinel — PL-B). Misma semántica

@@ -8,7 +8,7 @@ import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { userInfo } from "node:os";
 import { spawnSync } from "node:child_process";
-import { recordPolicyException as kernelRecord } from "../../packages/governance/src/exceptions.js";
+import { recordPolicyException as kernelRecord } from "@karajan-family/governance";
 
 function defaultIdentity(projectDir) {
   const git = (args) => spawnSync("git", ["-C", projectDir, "config", ...args], { encoding: "utf8" }).stdout?.trim() || null;

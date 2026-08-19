@@ -8,7 +8,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { recordDecision } from "../../packages/governance/src/decisions.js";
+import { recordDecision } from "@karajan-family/governance";
 
 const filePath = (projectDir) => join(projectDir, ".karajan", "policy-decisions.jsonl");
 

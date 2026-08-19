@@ -6,7 +6,7 @@
  * artefacto de este dominio es el diff staged — por eso el alcance
  * registrado dice "este diff exacto".
  */
-import { evaluateGate } from "../../packages/governance/src/gate.js";
+import { evaluateGate } from "@karajan-family/governance";
 
 /**
  * @returns {{ok: boolean, invalid?: boolean, warns: object[], denials: object[], exempted: object[]}}

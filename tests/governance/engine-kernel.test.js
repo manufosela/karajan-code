@@ -3,8 +3,7 @@
 // expedientes), no hay tools de harness ni rutas .karajan en el motor.
 
 import { describe, it, expect } from "vitest";
-import { parsePolicy, evalWrite, evalShell, checkArtifacts } from "../../packages/governance/src/engine.js";
-import { recordPolicyException } from "../../packages/governance/src/exceptions.js";
+import { parsePolicy, evalWrite, evalShell, checkArtifacts, recordPolicyException } from "@karajan-family/governance";
 
 const LEDGER_DEFAULTS = [
   { id: "defaults.ledger.sealed", pattern: /sealed\//, message: "toca expedientes sellados — solo el registrador los modifica" },
