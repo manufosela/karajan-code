@@ -61,7 +61,9 @@ Invariants (the git gates enforce these — they are not suggestions):
   \`kj_rag_query\` tool: reach for it before grepping by hand.
 - ${trackingLine(stateBackend, boardName)}
 - Tests prove behavior: the failing test exists first (TDD), and the suite
-  is never left red.
+  is never left red. Green is not proof: with \`method_gates.mutation\`
+  declared, run \`kj mutate --since <base>\` after green and BEFORE the
+  review — a surviving mutant is a weak assert; kill it first.
 - Every diff is reviewed by a DIFFERENT AI before it is committed
   (\`kj review --staged\`): verdicts bind to the exact diff — change the code
   and it must be reviewed again. Disagree with a rejection? \`kj solomon\`.
