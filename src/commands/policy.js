@@ -17,16 +17,19 @@ import { verifyDecisionChain } from "@karajan-family/governance";
 
 const execFileAsync = promisify(execFile);
 
-async function stagedFacts(projectDir, gitFn) {
+async function stagedFacts(projectDir, gitFn, range = null) {
   const run =
     gitFn ||
     (async (args) => (await execFileAsync("git", args, { cwd: projectDir, maxBuffer: 16 * 1024 * 1024 })).stdout);
-  const files = (await run(["diff", "--cached", "--name-only"]))
+  // PL-C (KJC-TSK-0735): en CI no hay staged — con --range se evalúa
+  // base...head, el MISMO motor sobre el diff del PR (tier C del ADR 0001).
+  const base = range ? ["diff", range] : ["diff", "--cached"];
+  const files = (await run([...base, "--name-only"]))
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
   let net = 0;
-  for (const line of (await run(["diff", "--cached", "--numstat"])).split("\n")) {
+  for (const line of (await run([...base, "--numstat"])).split("\n")) {
     const [a, r] = line.trim().split(/\s+/);
     if (a && a !== "-") net += Number(a) || 0;
     if (r && r !== "-") net -= Number(r) || 0;
@@ -125,12 +128,15 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
     return verdict.decision === "deny" && flags.strict ? 2 : 0;
   }
 
-  // check — sobre el diff staged (único modo en PL-A), SIEMPRE warn.
-  const facts = await stagedFacts(projectDir, deps.gitFn);
+  // check — staged por defecto, base...head con --range (CI). Warn salvo
+  // --strict (PL-C): con --strict, una violación enforcement=deny devuelve
+  // exit 2 nombrando la regla — el contrato merge-blocking del tier C.
+  const facts = await stagedFacts(projectDir, deps.gitFn, flags.range || null);
   const violations = checkStagedDiff(policy, { role: flags.role || "coder", ...facts });
+  const hard = flags.strict ? violations.filter((v) => v.enforcement === "deny") : [];
   if (flags.json) {
-    logger.info?.(JSON.stringify({ mode: "warn", violations }));
-    return 0;
+    logger.info?.(JSON.stringify({ mode: flags.strict ? "strict" : "warn", violations }));
+    return hard.length > 0 ? 2 : 0;
   }
   if (violations.length === 0) {
     logger.info?.("policy check: limpio");
@@ -138,7 +144,12 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
   }
   for (const v of violations) {
     const where = v.file ? ` (${v.file})` : "";
-    logger.warn?.(`⚠ policy [${v.rule_id}] ${v.reason}${where}`);
+    const mark = flags.strict && v.enforcement === "deny" ? "✗" : "⚠";
+    logger.warn?.(`${mark} policy [${v.rule_id}] ${v.reason}${where}`);
+  }
+  if (hard.length > 0) {
+    logger.error?.(`policy check: ${hard.length} violación(es) con enforcement=deny — el merge no procede (--strict)`);
+    return 2;
   }
   logger.warn?.(`policy check: ${violations.length} aviso(s) — check es modo warn, no bloquea; los deny los aplican kj review --staged y el pre-commit (PL-B)`);
   return 0;

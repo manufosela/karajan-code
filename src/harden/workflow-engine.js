@@ -9,8 +9,29 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
+import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
+
+// La versión del kj que corre harden — es la que se pinea en el fallback
+// npx del workflow de policy (jamás @latest en CI). Lectura LAZY: en el
+// bundle SEA no hay package.json junto al módulo y una lectura eager a
+// nivel de módulo tumbaba el binario entero al cargar (ENOENT /package.json).
+let _ownVersion;
+function ownVersion() {
+  if (_ownVersion === undefined) {
+    try {
+      _ownVersion = JSON.parse(
+        readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8"),
+      ).version;
+    } catch {
+      _ownVersion = null;
+    }
+  }
+  return _ownVersion;
+}
 
 const BLOCK_VERSION = 1;
 const WORKFLOWS_DIR = join(".github", "workflows");
@@ -50,13 +71,21 @@ export function installWorkflows({
   profile = "standard",
   mutation = false,
   dryRun = false,
+  kjVersion = null,
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const pm = detectPackageManager(projectDir);
   const quality = qualityWorkflowFor(language, pm, hasLintScript(projectDir));
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
-  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : [])];
+  // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
+  // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
+  // recurso inalcanzable en los caminos reales.
+  const pinned = kjVersion ?? ownVersion() ?? "latest";
+  const policy = existsSync(join(projectDir, ".karajan", "policy.yml"))
+    ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned) }
+    : null;
+  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : [])];
   const results = [];
   for (const wf of all) {
     const target = join(dir, wf.file);
@@ -76,7 +105,10 @@ export function installWorkflows({
     });
     if (!dryRun && action !== "unchanged") {
       mkdirSync(dir, { recursive: true });
-      writeFileSync(target, content);
+      // Newline final SIEMPRE: prettier (y POSIX) lo exigen y el bloque
+      // gestionado no lo garantiza — sin esto, el format-check del propio
+      // pre-commit rechaza el fichero recién generado.
+      writeFileSync(target, content.endsWith("\n") ? content : `${content}\n`);
     }
     results.push({ file: label, action });
   }

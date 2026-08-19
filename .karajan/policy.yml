@@ -1,0 +1,11 @@
+# Policy de karajan-code (PL-C, KJC-TSK-0735 — dogfood del tier C).
+# Warn-first por regla (ADR 0001): el invariante informa en local (kj review)
+# y en CI (kj-policy.yml) leyendo AMBOS este mismo valor. Los defaults del
+# supervisor (inexcepcionables) los aporta el motor, no este fichero.
+version: 1
+invariants:
+  - id: loc-budget
+    kind: diff-threshold
+    metric: net_lines_added
+    max: 200
+    enforcement: warn

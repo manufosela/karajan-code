@@ -54,6 +54,34 @@ export const WORKFLOWS = [
   { file: "kj-no-ai-attribution.yml", blockId: "wf-no-ai", body: NO_AI_ATTRIBUTION_WORKFLOW },
 ];
 
+// PL-C (KJC-TSK-0735) — tier C del ADR 0001: re-check merge-blocking en CI
+// (cubre el hook local manipulado). Solo se siembra con policy declarada;
+// npx PINEADO a la versión del kj que corrió harden — jamás @latest en CI.
+export const policyWorkflowFor = (kjVersion) => [
+  "name: Policy",
+  "on:",
+  "  pull_request:",
+  "permissions:",
+  "  contents: read",
+  "jobs:",
+  "  policy-check:",
+  "    runs-on: ubuntu-latest",
+  "    steps:",
+  `      - uses: ${PINNED_ACTIONS.checkout}`,
+  "        with:",
+  "          fetch-depth: 0",
+  `      - uses: ${PINNED_ACTIONS.setupNode}`,
+  "        with:",
+  "          node-version: 22",
+  "      - name: kj policy check (strict) on the PR diff",
+  "        env:",
+  "          BASE_REF: ${{ github.base_ref }}",
+  "        run: |",
+  `          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes karajan-code@${kjVersion}"; fi`,
+  '          $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict',
+  "", // línea en blanco pre-marcador: prettier la exige tras un block scalar
+].join("\n");
+
 const header = (steps) =>
   [
     "name: Quality",

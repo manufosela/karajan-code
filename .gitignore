@@ -13,6 +13,8 @@ dist/
 !.karajan/review-gate
 # GOV-C2: el sello del decision log SE COMMITEA — es el anclaje temporal.
 !.karajan/policy-anchor.json
+# PL-A/PL-C: la policy declarativa es contrato de equipo — se commitea.
+!.karajan/policy.yml
 !.karajan/hooks/
 .karajan/hooks/*
 !.karajan/hooks/pre-commit

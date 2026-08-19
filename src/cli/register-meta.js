@@ -318,8 +318,10 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
   policyCmd.command("check")
-    .description("Comprueba el diff STAGED contra la policy (write-deny + invariantes) — siempre warn en PL-A; exit 1 solo si policy.yml es inválido")
+    .description("Comprueba el diff (staged, o base...head con --range) contra la policy — warn por defecto; --strict devuelve exit 2 si hay violación enforcement=deny (tier C, merge-blocking)")
     .option("--role <role>", "Rol del agente", "coder")
+    .option("--range <ref>", "Evalúa un rango git (p.ej. origin/main...HEAD) en vez del staged (CI)")
+    .option("--strict", "Exit 2 si hay violación con enforcement=deny")
     .option("--json", "Machine-readable")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-check", flags, async ({ config }) => {
