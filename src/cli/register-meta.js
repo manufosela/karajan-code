@@ -309,6 +309,16 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await policyCommand({ action: "grant", config, flags });
       });
     });
+  policyCmd.command("add")
+    .description("Traduce una regla hablada al vocabulario cerrado de policy.yml — propone el diff y SOLO escribe con --yes (PL-C)")
+    .argument("<text...>", "La regla en lenguaje natural")
+    .option("--yes", "Aplicar el diff propuesto")
+    .action(async (textParts, flags) => {
+      await withConfig(pkgVersion, "policy-add", flags, async ({ config, logger }) => {
+        const { policyAddCommand } = await import("../policy/add.js");
+        process.exitCode = await policyAddCommand({ text: textParts.join(" "), config, flags, logger });
+      });
+    });
   policyCmd.command("anchor")
     .description("Verifica la cadena del decision log y sella su head-hash en .karajan/policy-anchor.json (trackeado) — anclaje temporal en la historia de git, GOV-C2")
     .action(async (flags) => {
