@@ -54,6 +54,39 @@ export const WORKFLOWS = [
   { file: "kj-no-ai-attribution.yml", blockId: "wf-no-ai", body: NO_AI_ATTRIBUTION_WORKFLOW },
 ];
 
+// PL-C (KJC-TSK-0735) — tier C del ADR 0001: el re-check merge-blocking de
+// la policy en CI cubre el hook local manipulado. Solo se siembra cuando el
+// proyecto DECLARA policy (.karajan/policy.yml). El paso resuelve kj con el
+// árbol propio si existe (dogfood en el repo de kj) y si no con npx PINEADO
+// a la versión del kj que corrió harden — jamás @latest en CI (catch de
+// codex: supply-chain + reproducibilidad); cada kj harden lo refresca.
+export const policyWorkflowFor = (kjVersion) => [
+  "name: Policy",
+  "on:",
+  "  pull_request:",
+  "permissions:",
+  "  contents: read",
+  "jobs:",
+  "  policy-check:",
+  "    runs-on: ubuntu-latest",
+  "    steps:",
+  `      - uses: ${PINNED_ACTIONS.checkout}`,
+  "        with:",
+  "          fetch-depth: 0",
+  `      - uses: ${PINNED_ACTIONS.setupNode}`,
+  "        with:",
+  "          node-version: 22",
+  "      - name: kj policy check (strict) on the PR diff",
+  "        env:",
+  "          BASE_REF: ${{ github.base_ref }}",
+  "        run: |",
+  `          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes karajan-code@${kjVersion}"; fi`,
+  '          $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict',
+  // Línea en blanco final: separa el block scalar del marcador de cierre
+  // (#) — sin ella, prettier reescribe el fichero y el pre-commit lo veta.
+  "",
+].join("\n");
+
 const header = (steps) =>
   [
     "name: Quality",
