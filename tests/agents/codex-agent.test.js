@@ -34,8 +34,11 @@ describe("CodexAgent", () => {
     });
   });
 
-  // merged-from: 4 --full-auto tests covering coder vs reviewer × on/off/missing.
-  describe("--full-auto flag", () => {
+  // KJC-BUG-0143 (campo, issue #1471): codex exec >= 0.146 no acepta
+  // --full-auto — el flag moderno de auto-aprobación para un coder que
+  // escribe es --sandbox workspace-write; --full-auto queda como retry
+  // para CLIs antiguos.
+  describe("auto-approve flag (--sandbox workspace-write)", () => {
     it.each([
       ["coder, auto_approve=true",  { coder_options: { auto_approve: true } },  "runTask",    true],
       ["coder, auto_approve=false", { coder_options: { auto_approve: false } }, "runTask",    false],
@@ -47,8 +50,43 @@ describe("CodexAgent", () => {
       await agent[method]({ prompt: "t", role: method === "runTask" ? "coder" : "reviewer" });
 
       const args = runCommand.mock.calls[0][1];
-      if (expected) expect(args).toContain("--full-auto");
-      else expect(args).not.toContain("--full-auto");
+      expect(args).not.toContain("--full-auto");
+      if (expected) {
+        expect(args).toContain("--sandbox");
+        expect(args[args.indexOf("--sandbox") + 1]).toBe("workspace-write");
+      } else {
+        expect(args).not.toContain("--sandbox");
+      }
+    });
+
+    it("retries with legacy --full-auto when the CLI rejects --sandbox (codex antiguo)", async () => {
+      const config = { ...baseConfig, coder_options: { auto_approve: true } };
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 2, stdout: "", stderr: "error: unexpected argument '--sandbox' found" })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "done", stderr: "" });
+
+      const result = await new CodexAgent("codex", config, logger).runTask({ prompt: "t", role: "coder" });
+
+      expect(result.ok).toBe(true);
+      expect(runCommand).toHaveBeenCalledTimes(2);
+      const retryArgs = runCommand.mock.calls[1][1];
+      expect(retryArgs).toContain("--full-auto");
+      expect(retryArgs).not.toContain("--sandbox");
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("--full-auto"));
+    });
+
+    it("does NOT retry on unrelated errors or when the flag was never sent", async () => {
+      const config = { ...baseConfig, coder_options: { auto_approve: true } };
+      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "connection timeout" });
+      const unrelated = await new CodexAgent("codex", config, logger).runTask({ prompt: "t", role: "coder" });
+      expect(unrelated.ok).toBe(false);
+      expect(runCommand).toHaveBeenCalledTimes(1);
+
+      runCommand.mockClear();
+      runCommand.mockResolvedValue({ exitCode: 2, stdout: "", stderr: "error: unexpected argument '--sandbox' found" });
+      const noFlag = await new CodexAgent("codex", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(noFlag.ok).toBe(false);
+      expect(runCommand).toHaveBeenCalledTimes(1);
     });
   });
 

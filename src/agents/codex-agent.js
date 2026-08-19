@@ -77,9 +77,26 @@ export class CodexAgent extends BaseAgent {
   }
 
   async _exec(task, model, role) {
+    // KJC-BUG-0143 (campo, issue #1471): codex exec >= 0.146 rechaza
+    // --full-auto ("unexpected argument"); el auto-approve moderno para un
+    // coder que escribe es --sandbox workspace-write. Los CLIs antiguos no
+    // conocen --sandbox: si lo rechazan, se reintenta con el flag legacy.
+    const autoApprove = role !== "reviewer" && this.isAutoApproveEnabled(role);
+    const res = await this._execOnce(task, model, role, { autoApprove, legacyAutoFlag: false });
+    if (!res.ok && autoApprove && /unexpected argument '--sandbox'/.test(res.error || "")) {
+      this.logger?.warn("codex CLI sin --sandbox — reintentando con el flag legacy --full-auto");
+      return this._execOnce(task, model, role, { autoApprove, legacyAutoFlag: true });
+    }
+    return res;
+  }
+
+  async _execOnce(task, model, role, { autoApprove, legacyAutoFlag }) {
     const args = ["exec", "--skip-git-repo-check"];
     if (model) args.push("--model", model);
-    if (role !== "reviewer" && this.isAutoApproveEnabled(role)) args.push("--full-auto");
+    if (autoApprove) {
+      if (legacyAutoFlag) args.push("--full-auto");
+      else args.push("--sandbox", "workspace-write");
+    }
     args.push("-");
     const res = await this.runCommand(resolveBin("codex"), args, {
       onOutput: task.onOutput,
