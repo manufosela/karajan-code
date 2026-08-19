@@ -344,7 +344,7 @@ process.stdin.on("end", () => {
       const actorRole = process.env.KJ_POLICY_ROLE || "coder";
       const pres = spawnSync("kj", ["policy", "eval", "--strict", "--role", actorRole, "--tool", tool, "--input", JSON.stringify(input)], { cwd: ROOT, encoding: "utf8" });
       if (pres.error || pres.status === null) {
-        console.error("kj sentinel: .karajan/policy.yml declara enforcement pero kj no es ejecutable — la policy no se puede evaluar; restaura kj en el PATH (npm i -g karajan-code) o retira la policy conscientemente.");
+        console.error("kj sentinel: .karajan/policy.yml declara enforcement pero kj no es ejecutable — la policy no se puede evaluar; restaura kj en el PATH (npm i -g @karajan-family/code, o el nombre legacy karajan-code) o retira la policy conscientemente.");
         process.exit(2);
       }
       if (pres.status === 2) {
