@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
-import { recordPolicyException } from "../policy/exceptions.js";
+import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { verifyDecisionChain } from "@karajan-family/governance";
 
 const execFileAsync = promisify(execFile);
@@ -103,11 +103,19 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
       return 1;
     }
     try {
+      // GOV-E (KJC-TSK-0750, idea del lector): la renovación es SEÑAL — una
+      // regla re-concedida N veces es la política real pidiendo que la
+      // cambien por su cauce. Se cuenta contra TODAS las permanentes previas
+      // (vencidas incluidas: precisamente esas son la sedimentación).
+      const previous = loadStandingExceptions(projectDir).standing.filter((e) => e.rule_id === rule).length;
       const rec = recordPolicyException({
         projectDir,
         entry: { rule_id: rule, justification: reason.trim(), scopeKind: "permanente", expiresAt: until },
       });
       logger.info?.(`✓ excepción permanente registrada: [${rec.rule_id}] hasta ${rec.expiresAt} — concedida por ${rec.who?.git ?? "?"} (${rec.who?.grade ?? "?"})`);
+      if (previous >= 1) {
+        logger.warn?.(`⚠ ${previous + 1}ª concesión sobre esta regla — una excepción que se renueva ya no es una excepción: considera cambiar la política por su cauce (PR a .karajan/policy.yml)`);
+      }
       return 0;
     } catch (err) {
       logger.error?.(`policy grant: ${err.message}`);
