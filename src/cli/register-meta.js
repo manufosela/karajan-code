@@ -27,6 +27,7 @@ import { huCommand } from "../commands/hu.js";
 import { worktreeCommand } from "../commands/worktree.js";
 import { addAdr, listAdrs } from "../environment/adr.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
+import { policyAddCommand } from "../policy/add.js";
 import { withConfig } from "./_shared.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -307,6 +308,15 @@ export function registerMeta(program, { pkgVersion }) {
       await withConfig(pkgVersion, "policy-grant", flags, async ({ config }) => {
         const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "grant", config, flags });
+      });
+    });
+  policyCmd.command("add")
+    .description("Traduce una regla hablada al vocabulario cerrado de policy.yml — propone el diff y SOLO escribe con --yes (PL-C)")
+    .argument("<text...>", "La regla en lenguaje natural")
+    .option("--yes", "Aplicar el diff propuesto")
+    .action(async (textParts, flags) => {
+      await withConfig(pkgVersion, "policy-add", flags, async ({ config, logger }) => {
+        process.exitCode = await policyAddCommand({ text: textParts.join(" "), config, flags, logger });
       });
     });
   policyCmd.command("anchor")
