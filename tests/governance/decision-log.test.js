@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { recordDecision, verifyDecisionChain } from "../../packages/governance/src/decisions.js";
+import { recordDecision, verifyDecisionChain } from "@karajan-family/governance";
 import { recordGateDecision, policyFileHash } from "../../src/policy/decisions.js";
 
 const reviewMock = vi.fn();

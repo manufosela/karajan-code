@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
 import { recordPolicyException } from "../policy/exceptions.js";
-import { verifyDecisionChain } from "../../packages/governance/src/decisions.js";
+import { verifyDecisionChain } from "@karajan-family/governance";
 
 const execFileAsync = promisify(execFile);
 
