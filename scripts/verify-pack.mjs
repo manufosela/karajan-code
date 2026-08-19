@@ -27,6 +27,9 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"));
 const expectedVersion = pkg.version;
+// MIG-A (KJC-TSK-0751): el nombre sale del manifest — el MISMO verify-pack
+// valida el tarball unscoped y el @karajan-family/* del dual-publish.
+const pkgName = pkg.name;
 
 // Subprocess env: strip CLAUDECODE (Claude Code blocks nested non-interactive
 // runs otherwise) and force a non-interactive, quiet npm.
@@ -54,13 +57,13 @@ let gTmp = null;
 let pnpmTmp = null;
 let qsTmp = null;
 try {
-  console.log(`verify-pack: packing karajan-code@${expectedVersion}…`);
+  console.log(`verify-pack: packing ${pkgName}@${expectedVersion}…`);
   // --json gives us the exact filename without parsing human output.
   const packOut = run("npm", ["pack", "--json", "--silent"], { cwd: repoRoot });
   const filename = JSON.parse(packOut)[0]?.filename;
   if (!filename) fail("npm pack did not report a filename", packOut);
-  // npm normalizes scoped names in --json but karajan-code is unscoped;
-  // the file lands in cwd under the reported name.
+  // npm --json reports the exact filename (scoped names normalized to
+  // scope-name-x.y.z.tgz); the file lands in cwd under that name.
   tgzPath = path.join(repoRoot, filename);
   if (!fs.existsSync(tgzPath)) fail(`packed tarball not found at ${tgzPath}`);
 
@@ -93,7 +96,7 @@ try {
   const { scanPaths, loadPrivacyList } = await import(
     path.join(repoRoot, "src", "privacy", "scan.js")
   );
-  const shippedDir = path.join(tmpDir, "node_modules", "karajan-code");
+  const shippedDir = path.join(tmpDir, "node_modules", ...pkgName.split("/"));
   const pFindings = scanPaths([shippedDir], { list: loadPrivacyList() });
   const pBlocks = pFindings.filter((f) => f.severity === "block");
   if (pBlocks.length > 0) {
@@ -265,7 +268,7 @@ try {
     );
   }
 
-  console.log(`\n✓ verify-pack: karajan-code@${expectedVersion} installs clean and runs.`);
+  console.log(`\n✓ verify-pack: ${pkgName}@${expectedVersion} installs clean and runs.`);
 } finally {
   if (tgzPath && fs.existsSync(tgzPath)) fs.rmSync(tgzPath, { force: true });
   if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });

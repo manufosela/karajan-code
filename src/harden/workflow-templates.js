@@ -57,7 +57,7 @@ export const WORKFLOWS = [
 // PL-C (KJC-TSK-0735) — tier C del ADR 0001: re-check merge-blocking en CI
 // (cubre el hook local manipulado). Solo se siembra con policy declarada;
 // npx PINEADO a la versión del kj que corrió harden — jamás @latest en CI.
-export const policyWorkflowFor = (kjVersion) => [
+export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "name: Policy",
   "on:",
   "  pull_request:",
@@ -77,7 +77,7 @@ export const policyWorkflowFor = (kjVersion) => [
   "        env:",
   "          BASE_REF: ${{ github.base_ref }}",
   "        run: |",
-  `          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes karajan-code@${kjVersion}"; fi`,
+  `          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes ${kjName}@${kjVersion}"; fi`,
   '          $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict',
   "", // línea en blanco pre-marcador: prettier la exige tras un block scalar
 ].join("\n");

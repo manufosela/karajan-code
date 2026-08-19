@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { isSea } from "node:sea";
@@ -8,7 +9,25 @@ const CACHE_FILE = "update-check.json";
 // KJC-TSK-0690: 6h — kj can ship several releases a day; a session should
 // not work a full day blind. KJ_NO_UPDATE_CHECK=1 opts out (CI).
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const PACKAGE_NAME = "karajan-code";
+// MIG-A (KJC-TSK-0751): el nombre npm se lee del PROPIO manifest — con el
+// dual-publish del scope, el mismo código vive como karajan-code y como
+// @karajan-family/code y cada instalación se auto-actualiza por SU nombre.
+// Lazy + fallback: en el bundle SEA no hay package.json junto al módulo.
+let _pkgName;
+export function packageName() {
+  if (_pkgName) return _pkgName;
+  try {
+    _pkgName = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).name || "karajan-code";
+  } catch {
+    _pkgName = "karajan-code";
+  }
+  return _pkgName;
+}
+
+// URL del registro con el nombre CODIFICADO — el scoped @karajan-family/code
+// lleva @ y / que rompen la ruta sin encode (catch de codex).
+export const registryLatestUrl = (name = packageName()) =>
+  `https://registry.npmjs.org/${encodeURIComponent(name)}/latest`;
 const CHANGELOG_URL = "https://raw.githubusercontent.com/manufosela/karajan-code/main/CHANGELOG.md";
 const HIGHLIGHT_MAX = 160;
 
@@ -55,10 +74,10 @@ export function updateInstruction({ channel, platform = process.platform }) {
       : `Re-run the installer: curl -fsSL ${INSTALL_SH_URL} | sh`;
   }
   if (channel === "npm") {
-    return `Run: npm install -g ${PACKAGE_NAME}`;
+    return `Run: npm install -g ${packageName()}`;
   }
   // Channel unknown — offer both paths, never silently pick a wrong one.
-  return `Update: npm install -g ${PACKAGE_NAME}  (or re-run the binary installer — see README)`;
+  return `Update: npm install -g ${packageName()}  (or re-run the binary installer — see README)`;
 }
 
 /**
@@ -100,7 +119,7 @@ export async function checkForUpdate(currentVersion) {
     // Fetch from npm (timeout 3s, don't block)
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
-    const res = await fetch(`https://registry.npmjs.org/${PACKAGE_NAME}/latest`, {
+    const res = await fetch(registryLatestUrl(), {
       signal: controller.signal,
       headers: { "Accept": "application/json" },
     });
@@ -174,7 +193,7 @@ export async function performSelfUpdate({ currentVersion, exec, logger = console
   try {
     // Registry over HTTP, not `npm view` — standalone-binary machines may
     // not have npm at all.
-    const res = await fetchFn(`https://registry.npmjs.org/${PACKAGE_NAME}/latest`, {
+    const res = await fetchFn(registryLatestUrl(), {
       headers: { Accept: "application/json" },
     });
     if (!res.ok) throw new Error(`registry responded ${res.status}`);
@@ -213,7 +232,7 @@ export async function performSelfUpdate({ currentVersion, exec, logger = console
       }
     } else {
       // No stdio:inherit — capture and drop npm's warnings on the success path.
-      await run("npm", ["install", "-g", `${PACKAGE_NAME}@latest`]);
+      await run("npm", ["install", "-g", `${packageName()}@latest`]);
     }
   } catch (err) {
     if (err.stdout) logger.error(err.stdout);

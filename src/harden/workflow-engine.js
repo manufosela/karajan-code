@@ -19,18 +19,18 @@ import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkf
 // npx del workflow de policy (jamás @latest en CI). Lectura LAZY: en el
 // bundle SEA no hay package.json junto al módulo y una lectura eager a
 // nivel de módulo tumbaba el binario entero al cargar (ENOENT /package.json).
-let _ownVersion;
-function ownVersion() {
-  if (_ownVersion === undefined) {
+let _ownPkg;
+function ownPkg() {
+  if (_ownPkg === undefined) {
     try {
-      _ownVersion = JSON.parse(
+      _ownPkg = JSON.parse(
         readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8"),
-      ).version;
+      );
     } catch {
-      _ownVersion = null;
+      _ownPkg = null;
     }
   }
-  return _ownVersion;
+  return _ownPkg;
 }
 
 const BLOCK_VERSION = 1;
@@ -81,9 +81,9 @@ export function installWorkflows({
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
   // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
   // recurso inalcanzable en los caminos reales.
-  const pinned = kjVersion ?? ownVersion() ?? "latest";
+  const pinned = kjVersion ?? ownPkg()?.version ?? "latest";
   const policy = existsSync(join(projectDir, ".karajan", "policy.yml"))
-    ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned) }
+    ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") }
     : null;
   const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : [])];
   const results = [];
