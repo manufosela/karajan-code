@@ -42,6 +42,18 @@ const LANGUAGE_MARKERS = [
   { file: "pubspec.yaml", framework: "dart-test", language: "dart" },
 ];
 
+// --- Infra (INF-B, KJC-TSK-0759) ---
+// Checked AFTER app-language markers: a mixed repo keeps its app framework.
+// Only unequivocal markers — a stray .yaml never classifies as infra.
+const INFRA_MARKERS = [
+  { file: "*.tf", glob: true, framework: "terraform-validate", language: "infra" },
+  { file: "terraform", framework: "terraform-validate", language: "infra" },
+  { file: "Chart.yaml", framework: "helm-lint", language: "infra" },
+  { file: "kustomization.yaml", framework: "kustomize-build", language: "infra" },
+  { file: "kustomization.yml", framework: "kustomize-build", language: "infra" },
+  { file: "ansible.cfg", framework: "ansible-lint", language: "infra" },
+];
+
 /** Test file patterns per language (used by TDD policy). */
 export const TEST_PATTERNS_BY_LANGUAGE = {
   javascript: ["/tests/", "/__tests__/", ".test.", ".spec."],
@@ -55,6 +67,7 @@ export const TEST_PATTERNS_BY_LANGUAGE = {
   php:        ["/tests/", "/test/", "Test.php"],
   swift:      ["/Tests/", "Tests.swift"],
   dart:       ["/test/", "_test.dart"],
+  infra:      ["/tests/", "/test/", "_test."],
 };
 
 function frameworkFromConfig(filename) {
@@ -93,7 +106,18 @@ export async function detectTestFramework(cwd = process.cwd()) {
   }
 
   // 3. Multi-language: check project markers
-  for (const marker of LANGUAGE_MARKERS) {
+  const lang = await matchMarkers(cwd, LANGUAGE_MARKERS);
+  if (lang) return lang;
+
+  // 4. Infra (INF-B): terraform/helm/kustomize/ansible have their own suite.
+  const infra = await matchMarkers(cwd, INFRA_MARKERS);
+  if (infra) return infra;
+
+  return { hasTests: false, framework: null, language: null };
+}
+
+async function matchMarkers(cwd, markers) {
+  for (const marker of markers) {
     try {
       if (marker.glob) {
         const entries = await fs.readdir(cwd);
@@ -107,8 +131,7 @@ export async function detectTestFramework(cwd = process.cwd()) {
       }
     } catch { /* not found */ }
   }
-
-  return { hasTests: false, framework: null, language: null };
+  return null;
 }
 
 /**

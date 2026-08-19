@@ -24,7 +24,14 @@ const COVERAGE_COMMANDS = {
   rspec: "bundle exec rspec 2>&1",
   phpunit: "vendor/bin/phpunit --coverage-text 2>&1",
   "dotnet-test": "dotnet test --collect:\"XPlat Code Coverage\" 2>&1",
-  "dart-test": "dart test 2>&1"
+  "dart-test": "dart test 2>&1",
+  // INF-B: the basic suite ALWAYS runs first; checkov is the additive deep
+  // scan. If checkov is missing this chain fails and the brief falls back to
+  // the basic suite alone (declared degradation, never green-by-omission).
+  "terraform-validate": "terraform init -backend=false -input=false 2>&1 && terraform validate 2>&1 && checkov -d . --compact --quiet 2>&1",
+  "helm-lint": "helm lint . 2>&1 && checkov -d . --compact --quiet 2>&1",
+  "kustomize-build": "kustomize build . > /dev/null && checkov -d . --compact --quiet 2>&1",
+  "ansible-lint": "ansible-lint 2>&1 && checkov -d . --compact --quiet 2>&1"
 };
 
 const TEST_COMMANDS = {
@@ -39,7 +46,12 @@ const TEST_COMMANDS = {
   rspec: "bundle exec rspec 2>&1",
   phpunit: "vendor/bin/phpunit 2>&1",
   "dotnet-test": "dotnet test 2>&1",
-  "dart-test": "dart test 2>&1"
+  "dart-test": "dart test 2>&1",
+  // INF-B (KJC-TSK-0759): infra suites — validity IS the test floor.
+  "terraform-validate": "terraform init -backend=false -input=false 2>&1 && terraform validate 2>&1",
+  "helm-lint": "helm lint . 2>&1",
+  "kustomize-build": "kustomize build . > /dev/null && echo kustomize build: OK",
+  "ansible-lint": "ansible-lint 2>&1"
 };
 
 export class TesterRole extends AgentRole {
@@ -82,9 +94,14 @@ export class TesterRole extends AgentRole {
     if (detection.hasTests && detection.framework) {
       const coverageCmd = COVERAGE_COMMANDS[detection.framework];
       const testCmd = TEST_COMMANDS[detection.framework];
+      // INF-B: infra suites have no node_modules — the step-0 contract is
+      // "the tool exists or you SAY which one is missing", never a fake green.
+      const step0 = detection.language === "infra"
+        ? "**Step 0**: Verify the SUITE tool is installed (`which terraform`/`helm`/`kustomize`/`ansible-lint`). If the suite tool is MISSING, do NOT fake a green: report it in `failures` with the exact install command and set tests_pass: false. `checkov` (the deep scan below) is OPTIONAL: if it is missing, run the basic suite as the fallback and SAY the deep scan was skipped (degraded, never green-by-omission)."
+        : "**Step 0**: If node_modules/ does not exist, run `npm install` (or `pnpm install`) first.";
       sections.push(
         `## Detected test framework: ${detection.framework} (${detection.language})`,
-        "**Step 0**: If node_modules/ does not exist, run `npm install` (or `pnpm install`) first.",
+        step0,
         `**Step 1**: Run the test suite with coverage:`,
         "```bash",
         coverageCmd || testCmd,
