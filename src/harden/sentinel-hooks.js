@@ -90,7 +90,7 @@ const POST_BODY = `#!/usr/bin/env node
 // a tool call (PostToolUse, always exit 0).
 import { relative } from "node:path";
 import { CODE, TESTS, ROOT, load, save, session } from "./sentinel-lib.mjs";
-const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY"];
+const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -194,9 +194,10 @@ const PRETOOL_BODY = `#!/usr/bin/env node
 // before the damage, not in the post-mortem. Exit 2 blocks (stderr says the
 // remediation); read-only tools are never wired here; every honored escape
 // is recorded as an auditable event. Fails OPEN on anything unexpected.
-import { dirname, relative, resolve } from "node:path";
-import { existsSync, realpathSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { homedir } from "node:os";
 import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, violations, recordEscape } from "./sentinel-lib.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
@@ -265,6 +266,77 @@ process.stdin.on("end", () => {
       }
       return true;
     };
+    // IDN-B (KJC-TSK-0763, ADR 0005): identity lock — gh and mutating git never
+    // run under an account other than the one THIS CLONE declared (the incident:
+    // a gh comment without switch went out as the client account). Deny BEFORE
+    // the damage with the literal remedy; never auto-switch; undeclared = closed.
+    if (tool === "Bash" && CMD_TEXT.length > 0) {
+      const idFile = join(ROOT, ".karajan", "identity.local.yml");
+      const idLine = (key) => {
+        if (!existsSync(idFile)) return null;
+        const line = readFileSync(idFile, "utf8").split(ESC_NL).find((l) => l.startsWith(key + ":"));
+        const v = line ? line.slice(key.length + 1).trim() : "";
+        return v.length > 0 ? v : null;
+      };
+      const declaredGh = idLine("gh_user");
+      const ghHostsPath = join(process.env.GH_CONFIG_DIR || join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "gh"), "hosts.yml");
+      const activeGh = () => {
+        if (!existsSync(ghHostsPath)) return null;
+        const lines = readFileSync(ghHostsPath, "utf8").split(ESC_NL);
+        const start = lines.findIndex((l) => l.startsWith("github.com:"));
+        if (start < 0) return null;
+        for (let k = start + 1; k < lines.length; k += 1) {
+          if (lines[k].length > 0 && lines[k][0] !== " " && lines[k][0] !== ESC_TAB) break;
+          const t = lines[k].trim();
+          if (t.startsWith("user:")) { const u = t.slice(5).trim(); return u.length > 0 ? u : null; }
+        }
+        return null;
+      };
+      const words = (seg) => seg.trim().split(" ").filter((w) => w.length > 0 && w !== ESC_TAB);
+      const headOf = (ws) => { let k = 0; while (k < ws.length && ws[k].indexOf("=") > 0 && ws[k].indexOf("=") < ws[k].length) k += 1; return ws.slice(k); };
+      // Wrapper shells hide the payload in a string (review catch): scan inside.
+      const WRAPPERS =["sh", "bash", "zsh", "dash", "eval", "env", "xargs", "sudo", "nohup", "time", "exec"];
+      let switchedTo = null;
+      const problems = [];
+      // $( and backticks are separators too (review catch): their payload is its own segment.
+      const SEPS = [";", "&&", "||", "|", "$(", String.fromCharCode(96), "(", ")"];
+      const bare = (w) => w.replaceAll(String.fromCharCode(39), "").replaceAll(String.fromCharCode(34), "");
+      const scan = (text, depth) => { if (depth > 3) return; for (const seg of SEPS.reduce((acc, s) => acc.flatMap((l) => l.split(s)), text.split(ESC_NL))) checkSeg(headOf(words(seg)), depth, words(seg)); };
+      const checkSeg = (ws, depth, raw) => {
+        if (ws.length === 0) return;
+        if (WRAPPERS.includes(ws[0])) { // wrapper args have arity (sudo -u bob): scan from the first gh/git/wrapper token (review catch)
+          const j = ws.findIndex((w, i) => i > 0 && ["gh", "git", ...WRAPPERS].includes(bare(w)));
+          if (j > 0) scan(ws.slice(j).map(bare).join(" "), depth + 1);
+          return;
+        }
+        if (ws[0] === "gh") {
+          if (ws[1] === "auth") {
+            if (ws[2] === "switch") { const u = ws.indexOf("--user"); if (u > 0 && ws[u + 1]) switchedTo = ws[u + 1]; }
+            return; // session commands ARE the remedy — never blocked
+          }
+          if (!declaredGh) { problems.push("gh without a declared identity for this clone — run: kj identity set"); return; }
+          const eff = switchedTo || activeGh();
+          if (eff !== declaredGh) problems.push("gh as '" + (eff || "no session") + "' but this clone is declared as '" + declaredGh + "' — prefix the command: gh auth switch --user " + declaredGh + " && ...");
+          return;
+        }
+        if (ws[0] === "git") { // git push authenticates with the gh session (review catch); commit authorship = IDN-B2
+          let k = 1;
+          while (k < ws.length && ws[k].startsWith("-")) k += (ws[k] === "-c" || ws[k] === "-C") && ws[k + 1] ? 2 : 1;
+          if (ws[k] !== "push") return;
+          if (!declaredGh) { problems.push("git push without a declared identity for this clone — run: kj identity set"); return; }
+          const eff = switchedTo || activeGh();
+          if (eff !== declaredGh) problems.push("git push with gh session '" + (eff || "no session") + "' but this clone is declared as '" + declaredGh + "' — prefix: gh auth switch --user " + declaredGh + " && ...");
+        }
+      };
+      scan(CMD_TEXT, 0);
+      if (problems.length > 0) {
+        if (escOn("KJ_ALLOW_IDENTITY")) { recordEscape(sid, "KJ_ALLOW_IDENTITY", tool); }
+        else {
+          console.error("kj sentinel: identity lock (ADR 0005) —" + problems.map((p) => ESC_NL + "- " + p).join("") + ESC_NL + "(KJ_ALLOW_IDENTITY=1 = excepcion consciente, queda registrada)");
+          process.exit(2);
+        }
+      }
+    }
     // MONO-0 (KJC-TSK-0737, ADR 0002): cada sesion muta solo SU worktree;
     // otro carril del MISMO repo se deniega ANTES del dano. Lectura libre.
     const laneOf = (p) => {

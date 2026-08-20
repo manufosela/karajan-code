@@ -16,7 +16,7 @@ const run = (script, payload, env = {}) =>
   spawnSync("node", [script], {
     input: JSON.stringify(payload),
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env },
   });
 const editTool = (file) => ({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: file } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
