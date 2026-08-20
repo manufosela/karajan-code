@@ -105,7 +105,8 @@ describe("identity lock — autoria git (IDN-B2)", () => {
     // (EMAIL no: git solo lo usa como fallback cuando no hay user.email configurado).
     expect(run("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.email GIT_CONFIG_VALUE_0=zzz@x.y git commit -m x").status).toBe(2);
     const other = path.join(dir, "otro");
-    execSync(`git init -q ${other} && git -C ${other} config user.email zzz@other.x`, { cwd: dir });
+    // user.name tambien: sin el, git var falla (CI no tiene config global) y el gate deniega por "none".
+    execSync(`git init -q ${other} && git -C ${other} config user.email zzz@other.x && git -C ${other} config user.name z`, { cwd: dir });
     expect(run(`git -C ${other} commit -m x`).status).toBe(2);
     expect(run(`git -C ${other} -c user.email=a@b.c commit -m x`).status).toBe(0);
   });
