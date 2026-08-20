@@ -103,8 +103,25 @@ process.stdin.on("end", () => {
     // KJC-TSK-0765 board-sync: a merge that gh CONFIRMS leaves its card pending
     // in the tracker (the PreToolUse gate then refuses to advance until it is
     // moved). Recorded here, after the fact, so a failed merge never blocks.
+    const text = typeof response === "string" ? response : JSON.stringify(response);
+    // Closing states that count as "registered in the tracker" (PG statuses and
+    // HU Board moves). The pending entry is cleared by the REAL tool call that
+    // moved the card — never by a promise in the agent's prose.
+    const CLOSING = ["to validate", "to-validate", "fixed", "verified", "closed", "done", "done&validated", "validated"];
+    const clearPending = (cardId) => {
+      const state = load();
+      const s = session(state, sid);
+      const before = (s.pending_moves || []).length;
+      s.pending_moves = (s.pending_moves || []).filter((p) => p.card !== null && p.card !== cardId);
+      if (s.pending_moves.length !== before) save(state);
+    };
+    if (/__update_card$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
+      const cid = /"cardId"\\s*:\\s*"([A-Za-z0-9-]+)"/.exec(text);
+      const st = /"status"\\s*:\\s*"([^"]+)"/.exec(text);
+      if (cid && st && CLOSING.includes(st[1].toLowerCase())) clearPending(cid[1].toUpperCase());
+      process.exit(0);
+    }
     if (tool === "Bash") {
-      const text = typeof response === "string" ? response : [response.stdout, response.stderr, response.output].filter(Boolean).join(String.fromCharCode(10));
       const merged = /merged pull request #(\\d+)/i.exec(text);
       if (merged) {
         const state = load();
@@ -113,6 +130,8 @@ process.stdin.on("end", () => {
         (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: Number(merged[1]), at: Date.now() });
         save(state);
       }
+      const moved = /kj\\s+hu\\s+move\\s+([A-Za-z0-9-]+)\\s+([a-z&-]+)/i.exec(String(input.command || ""));
+      if (moved && CLOSING.includes(moved[2].toLowerCase()) && !/error|fail/i.test(text)) clearPending(moved[1].toUpperCase());
       process.exit(0);
     }
     const file = input.file_path || input.notebook_path;
