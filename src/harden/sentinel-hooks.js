@@ -117,8 +117,11 @@ process.stdin.on("end", () => {
       if (s.pending_moves.length !== before) save(state);
     };
     if (/__update_card$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
-      const cid = /"cardId"\\s*:\\s*"([A-Za-z0-9-]+)"/.exec(text);
-      const st = /"status"\\s*:\\s*"([^"]+)"/.exec(text);
+      // The MCP response reaches the hook as {content:[{text:"<json>"}]}: once
+      // stringified, the inner quotes are ESCAPED — match both forms (found live:
+      // the first real update_card did not clear its pending entry).
+      const cid = /\\\\?"cardId\\\\?"\\s*:\\s*\\\\?"([A-Za-z0-9-]+)\\\\?"/.exec(text);
+      const st = /\\\\?"status\\\\?"\\s*:\\s*\\\\?"([^"\\\\]+)\\\\?"/.exec(text);
       if (cid && st && CLOSING.includes(st[1].toLowerCase())) clearPending(cid[1].toUpperCase());
       process.exit(0);
     }

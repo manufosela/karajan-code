@@ -43,6 +43,13 @@ describe("board-sync — limpieza del pendiente", () => {
     expect(hook(gate, { tool_name: "Bash", tool_input: { command: "git commit -m x" } }).status).toBe(0);
   });
 
+  it("la respuesta MCP real llega como content[].text con el JSON ESCAPADO: tambien limpia (hallado en vivo)", () => {
+    seed("KJC-TSK-0042");
+    const mcpShape = { content: [{ type: "text", text: JSON.stringify({ message: "Card updated successfully", card: { cardId: "KJC-TSK-0042", status: "To Validate" } }) }] };
+    hook(post, { tool_name: "mcp__planning-game-personal__update_card", tool_input: { updates: { status: "To Validate" } }, tool_response: mcpShape });
+    expect(state().sessions.s1.pending_moves).toHaveLength(0);
+  });
+
   it("un update_card que NO cierra (In Progress, sin estado) no limpia nada; otro proyecto/tool tampoco", () => {
     seed("KJC-TSK-0042");
     updateCard("KJC-TSK-0042", "In Progress");
