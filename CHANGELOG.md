@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.21.0] - 2026-08-21
+
 ### Added
 
 - **Identity lock — every clone declares who works it, and the method refuses any other account** (epic KJC-PCS-0079, ADR 0005, PRs #1488-#1493): born from a real incident — one `gh` call without an explicit account switch posted as a client account on this public repo, and the rule that would have prevented it lived only in the agent's memory. Now `kj identity set` binds a CLONE (per developer, `.karajan/identity.local.yml`, never tracked) to a gh account and a git email — captured at `kj harden`/`kj env install` only with a human confirming (headless runs declare the pending step, they never bind blindly: the very first `--yes` capture bound a clone to an account another session had switched to). **Tier A** (Sentinel): `gh`, `git push` and every commit-authoring git command (`commit`, `tag`, `merge`, `rebase`, `cherry-pick`, `am`, `revert`) are denied BEFORE running under any other account — gh session read from gh's own `hosts.yml`, authorship resolved by `git var` under the command's own environment with its global options forwarded verbatim (`-C`, `-c`, `--git-dir`, `GIT_*_EMAIL`, `GIT_CONFIG_*`, `--author`), wrapper shells (`bash -c`, `sudo -u`, `eval`), `$()` and backticks scanned inside. **Tier B** (hooks, any host): pre-commit checks authorship, pre-push the gh session; undeclared = advisory. Undeclared under the Sentinel = fail-closed; `KJ_ALLOW_IDENTITY=1` is the audited escape; never auto-switch. Migration: run `kj identity set` once per clone (the next `kj harden` asks).
