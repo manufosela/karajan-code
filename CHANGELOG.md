@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.20.0] - 2026-08-20
+
 ### Added
 
 - **kj governs infra like it governs app code** (epic KJC-PCS-0078, INF-A/B/C, PRs #1480-#1483, born from the demo-kind field case): the method was language-agnostic but three concrete pieces still assumed application code. **The Sentinel counts infra as source** (INF-A): editing `.tf/.hcl/.yaml/.yml/.sh` or a Dockerfile/Makefile/Vagrantfile now engages card-first, the Stop gate and the push gate exactly like a `.js`, with `*_test.*` files (terratest) classifying as tests. **Infra suites exist** (INF-B): `detectTestFramework` gains an infra tier AFTER app frameworks (a mixed repo keeps its framework; a stray yaml never classifies) — `*.tf`/`terraform/` → terraform validate, `Chart.yaml` → helm lint, `kustomization.yaml` → kustomize build, `ansible.cfg` → ansible-lint — and the tester brief orders the suite FIRST with checkov chained as the additive deep scan (review catch: the basic suite always runs; a missing checkov degrades DECLARING it, a missing suite tool is a fail with the install command, never a fake green). **The audit speaks infra** (INF-C): `kj audit --security` runs checkov — one tool covering terraform/k8s/helm/kustomize/ansible/dockerfiles — through the same best-effort channel as semgrep: not-applicable declared on app-only repos, missing binary declared with `pipx install checkov`, non-zero-with-JSON rescued, and it runs in the securityOnly pass because misconfigs ARE security surface.
