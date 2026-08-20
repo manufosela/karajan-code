@@ -706,6 +706,11 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
       { event: "PreToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "pretooluse-sentinel.mjs" },
       { event: "PreToolUse", matcher: "Bash", script: "pretooluse-sentinel.mjs" },
       { event: "PostToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "posttooluse.mjs" },
+      // KJC-TSK-0765 board-sync: the merge (Bash) and the tracker move (MCP
+      // update_card) are observed AFTER the fact — found live: with only the
+      // edit matchers wired, the board-sync recorder never ran in production.
+      { event: "PostToolUse", matcher: "Bash", script: "posttooluse.mjs" },
+      { event: "PostToolUse", matcher: "mcp__.*__update_card", script: "posttooluse.mjs" },
       { event: "Stop", script: "stop.mjs" },
     ],
   });
