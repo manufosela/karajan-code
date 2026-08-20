@@ -475,7 +475,12 @@ describe("installSentinelHooks settings merge", () => {
     const cfg = JSON.parse(fs.readFileSync(settings, "utf8"));
     expect(cfg.model).toBe("opus");
     expect(JSON.stringify(cfg.hooks.PostToolUse)).toContain("echo mine");
-    expect((JSON.stringify(cfg.hooks.PostToolUse).match(/posttooluse\.mjs/g) || []).length).toBe(1);
+    // KJC-TSK-0765: three PostToolUse matchers (edit tools, Bash, MCP update_card),
+    // each wired exactly once across two installs.
+    expect((JSON.stringify(cfg.hooks.PostToolUse).match(/posttooluse\.mjs/g) || []).length).toBe(3);
+    const matchers = cfg.hooks.PostToolUse.map((e) => e.matcher);
+    expect(matchers).toContain("Bash");
+    expect(matchers.some((m) => /update_card/.test(m || ""))).toBe(true);
     expect((JSON.stringify(cfg.hooks.Stop).match(/stop\.mjs/g) || []).length).toBe(1);
   });
 
