@@ -12,7 +12,7 @@ import { installHarnessHooks } from "../../src/harden/harness-hooks.js";
 
 let dir, script;
 const runHook = (payload, env = {}) =>
-  spawnSync("node", [script], { input: JSON.stringify(payload), encoding: "utf8", env: { ...process.env, ...env } });
+  spawnSync("node", [script], { input: JSON.stringify(payload), encoding: "utf8", env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env } });
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-toolgate-"));
