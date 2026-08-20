@@ -65,7 +65,9 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.20.0 — infra is code too (current)
+### v4.20.0 — infra is code too (current, v4.20.1)
+
+Patch v4.20.1 the same day: `kj start` finally sees the project it is standing in — the sweep received an undefined root and read ANY project as empty; now it resolves `cwd` and refuses a missing root out loud.
 
 Minor born from one field project (a kubernetes demo with its code under `backend/`): the method was language-agnostic on paper, but three concrete pieces still assumed application code — now **the Sentinel counts terraform/k8s/shell/Docker edits as sources** (card-first, Stop gate and push gate fire exactly like on a `.js`), **infra has real suites** (`terraform validate`, `helm lint`, `kustomize build`, `ansible-lint`, with checkov chained as the additive deep scan — a missing tool is declared with its install command, never a fake green), and **`kj audit --security` runs checkov** through the same best-effort channel as semgrep, because misconfigs ARE security surface. Plus three fixes reported from the field and shipped within hours: `codex exec` lost `--full-auto` upstream (now `--sandbox workspace-write` with a legacy retry), `kj start` passed the Claude-only `haiku` to agy (models now filter by provider FAMILY at the chokepoint), and the Sentinel's own escape hatch existed only in its error message — every `KJ_ALLOW_X=1` prefix now works on a simple command, fail-closed on chains, proven the same night it deadlocked its author's release.
 
