@@ -279,6 +279,7 @@ process.stdin.on("end", () => {
         return v.length > 0 ? v : null;
       };
       const declaredGh = idLine("gh_user");
+      const declaredEmail = idLine("git_email");
       const ghHostsPath = join(process.env.GH_CONFIG_DIR || join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "gh"), "hosts.yml");
       const activeGh = () => {
         if (!existsSync(ghHostsPath)) return null;
@@ -319,13 +320,43 @@ process.stdin.on("end", () => {
           if (eff !== declaredGh) problems.push("gh as '" + (eff || "no session") + "' but this clone is declared as '" + declaredGh + "' — prefix the command: gh auth switch --user " + declaredGh + " && ...");
           return;
         }
-        if (ws[0] === "git") { // git push authenticates with the gh session (review catch); commit authorship = IDN-B2
+        if (ws[0] === "git") {
+          // Global options (-C, -c, --git-dir, --work-tree...) are NOT re-implemented: they
+          // are forwarded verbatim to git var, so git resolves identity exactly as the real
+          // command would (review catches: -C cumulative, --git-dir, --opt=value forms).
+          const TWO = ["-c", "-C", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--exec-path", "--config-env"];
           let k = 1;
-          while (k < ws.length && ws[k].startsWith("-")) k += (ws[k] === "-c" || ws[k] === "-C") && ws[k + 1] ? 2 : 1;
-          if (ws[k] !== "push") return;
-          if (!declaredGh) { problems.push("git push without a declared identity for this clone — run: kj identity set"); return; }
-          const eff = switchedTo || activeGh();
-          if (eff !== declaredGh) problems.push("git push with gh session '" + (eff || "no session") + "' but this clone is declared as '" + declaredGh + "' — prefix: gh auth switch --user " + declaredGh + " && ...");
+          while (k < ws.length && ws[k].startsWith("-")) k += TWO.includes(ws[k]) && ws[k + 1] ? 2 : 1;
+          const globals = ws.slice(1, k).map(bare);
+          const sub = ws[k];
+          if (sub === "push") { // push authenticates with the gh session, not user.email (review catch)
+            if (!declaredGh) { problems.push("git push without a declared identity for this clone — run: kj identity set"); return; }
+            const eff = switchedTo || activeGh();
+            if (eff !== declaredGh) problems.push("git push with gh session '" + (eff || "no session") + "' but this clone is declared as '" + declaredGh + "' — prefix: gh auth switch --user " + declaredGh + " && ...");
+            return;
+          }
+          // IDN-B2: anything that authors or rewrites commits carries an identity (review catch).
+          if (!["commit", "tag", "merge", "rebase", "cherry-pick", "am", "revert"].includes(sub)) return; // am: the COMMITTER is still this user
+          if (!declaredEmail) { problems.push("git " + sub + " without a declared identity for this clone — run: kj identity set"); return; }
+          // Let GIT resolve author and committer under the command's own environment
+          // (review catch: user.email, -c, GIT_*_EMAIL, EMAIL, GIT_CONFIG_*, includeIf are
+          // its business): git var is the single source of truth.
+          const assigns = raw.slice(0, raw.length - ws.length).filter((w) => w.indexOf("=") > 0);
+          const env = Object.assign({}, process.env);
+          for (const w of assigns) env[w.slice(0, w.indexOf("="))] = bare(w.slice(w.indexOf("=") + 1));
+          const ident = (v) => {
+            const r = spawnSync("git", [...globals, "var", v], { cwd: ROOT, encoding: "utf8", env });
+            const s = r.status === 0 ? String(r.stdout) : "";
+            const a = s.indexOf("<");
+            const b = s.indexOf(">");
+            return a >= 0 && b > a ? s.slice(a + 1, b) : null;
+          };
+          const ai = ws.findIndex((w) => w.startsWith("--author"));
+          const authorRaw = ai < 0 ? null : ws[ai].includes("=") ? ws[ai].slice(ws[ai].indexOf("=") + 1) : ws.slice(ai + 1).join(" ");
+          const authorMail = authorRaw === null ? null : bare(authorRaw.includes("<") ? authorRaw.slice(authorRaw.indexOf("<") + 1, authorRaw.indexOf(">")) : authorRaw.trim());
+          const mails = [authorMail ?? ident("GIT_AUTHOR_IDENT"), ident("GIT_COMMITTER_IDENT")]; // --author overrides the author (review catch); the committer is always git's
+          const offender = mails.find((m) => m !== null && m !== declaredEmail) ?? (mails[0] === null ? "none" : null);
+          if (offender !== null) problems.push("git " + sub + " as '" + offender + "' but this clone is declared as '" + declaredEmail + "' — use: git -c user.email=" + declaredEmail + " " + sub + " ... (or git config user.email " + declaredEmail + ")");
         }
       };
       scan(CMD_TEXT, 0);
