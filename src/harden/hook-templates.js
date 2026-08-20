@@ -52,11 +52,49 @@ function baseBranchGuard(baseBranch) {
   ];
 }
 
+// IDN-C (KJC-TSK-0764, ADR 0005): identity lock at tier B — the declared clone
+// identity (.karajan/identity.local.yml) governs authorship on commit and the
+// gh session on push, on ANY host. Undeclared = advisory only (old clones keep
+// working); the fail-closed default is the Sentinel's (IDN-B).
+function identityGuard(hook) {
+  const head = [
+    "# Identity lock (IDN-C, ADR 0005) — this clone's declared identity governs.",
+    'if [ "$KJ_ALLOW_IDENTITY" != "1" ] && [ -f .karajan/identity.local.yml ]; then',
+  ];
+  const tail = [
+    "elif [ ! -f .karajan/identity.local.yml ]; then",
+    "  echo 'kj harden: no identity declared for this clone — run kj identity set (advisory)'",
+    "fi",
+  ];
+  if (hook === "pre-commit") {
+    return [
+      ...head,
+      "  kj_declared_email=$(sed -n 's/^git_email:[[:space:]]*//p' .karajan/identity.local.yml | head -n1)",
+      "  kj_author=$(git var GIT_AUTHOR_IDENT | sed 's/.*<\\(.*\\)>.*/\\1/')",
+      "  kj_committer=$(git var GIT_COMMITTER_IDENT | sed 's/.*<\\(.*\\)>.*/\\1/')",
+      '  if [ -n "$kj_declared_email" ] && { [ "$kj_author" != "$kj_declared_email" ] || [ "$kj_committer" != "$kj_declared_email" ]; }; then',
+      '    echo "kj harden: identity lock — committing as $kj_author / $kj_committer but this clone is declared as $kj_declared_email (kj identity show; KJ_ALLOW_IDENTITY=1 to override)"; exit 1',
+      "  fi",
+      ...tail,
+    ];
+  }
+  return [
+    ...head,
+    "  kj_declared_gh=$(sed -n 's/^gh_user:[[:space:]]*//p' .karajan/identity.local.yml | head -n1)",
+    '  kj_hosts="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}/hosts.yml"',
+    "  kj_active_gh=$(awk '/^github.com:/{f=1;next} f&&/^[^[:space:]]/{f=0} f&&/^[[:space:]]*user:/{sub(/^[[:space:]]*user:[[:space:]]*/,\"\");print;exit}' \"$kj_hosts\" 2>/dev/null)",
+    '  if [ -n "$kj_declared_gh" ] && [ "$kj_active_gh" != "$kj_declared_gh" ]; then',
+    '    echo "kj harden: identity lock — gh session is ${kj_active_gh:-none} but this clone is declared as $kj_declared_gh — run: gh auth switch --user $kj_declared_gh (KJ_ALLOW_IDENTITY=1 to override)"; exit 1',
+    "  fi",
+    ...tail,
+  ];
+}
+
 export function hookBody(hook, cmds = {}, { globalHooksDir = null, baseBranch = null } = {}) {
   const chain = chainToGlobal(hook, globalHooksDir);
   switch (hook) {
     case "pre-commit": {
-      const lines = [...baseBranchGuard(baseBranch), "# Lint + format the working tree with the project's native tools."];
+      const lines = [...baseBranchGuard(baseBranch), ...identityGuard("pre-commit"), "# Lint + format the working tree with the project's native tools."];
       if (cmds.lint) lines.push(`${cmds.lint} || { echo 'kj harden: lint failed'; exit 1; }`);
       if (cmds.format) lines.push(`${cmds.format} || { echo 'kj harden: format check failed'; exit 1; }`);
       if (!cmds.lint && !cmds.format) lines.push("# (no lint/format command detected for this stack)");
@@ -93,6 +131,7 @@ export function hookBody(hook, cmds = {}, { globalHooksDir = null, baseBranch = 
         "  echo 'kj harden: git user.name/user.email not set — refusing to push'; exit 1",
         "fi",
         'echo "kj harden: pushing as $(git config user.name) <$(git config user.email)>"',
+        ...identityGuard("pre-push"),
         "# Run the test suite before pushing.",
       ];
       if (cmds.test) lines.push(`${cmds.test} || { echo 'kj harden: tests failed'; exit 1; }`);
