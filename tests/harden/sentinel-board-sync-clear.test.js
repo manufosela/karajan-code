@@ -24,7 +24,8 @@ const updateCard = (cardId, status, tool = "mcp__planning-game-personal__update_
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-board-clear-"));
-  execSync("git init -q -b main && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
+  // user.email/name explicitos: el runner de CI no tiene config global de git.
+  execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
