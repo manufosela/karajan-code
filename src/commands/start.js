@@ -80,7 +80,11 @@ export async function startCommand({ task = "", config, logger, flags = {}, deps
   const spawn = deps.spawnKj || spawnKj;
   const makeWizard = deps.makeWizard || (() => createWizard());
 
-  const bundle = await sweep(config.projectDir, { declared: flags.maturity || null });
+  // KJC-BUG-0145 (campo, #1471): loadConfig never sets projectDir — passing
+  // config.projectDir straight through handed `undefined` to the sweep, every
+  // collector failed silently and the project read as "new, no source code".
+  const projectDir = config.projectDir || process.cwd();
+  const bundle = await sweep(projectDir, { declared: flags.maturity || null });
   const { text, summary } = assess(bundle);
   let result = await decide({ task, text, config, logger, makeDecider });
 
@@ -111,7 +115,7 @@ export async function startCommand({ task = "", config, logger, flags = {}, deps
   // Dispatch the chosen intent to its saved command, confirming first (it writes).
   const toArgs = DISPATCH[result.intent];
   if (interactive && toArgs && (await confirmApply(makeWizard))) {
-    await spawn(toArgs(goal), { cwd: config.projectDir });
+    await spawn(toArgs(goal), { cwd: projectDir });
   }
   return { ok: true, intent: result.intent };
 }

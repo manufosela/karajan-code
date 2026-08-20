@@ -112,6 +112,9 @@ function readRagStatus(projectDir) {
  *   declared = user-declared maturity; deps = injected collaborators (defaults = real collectors).
  */
 export async function runReadOnlySweep(projectDir, { declared = null, profile = "standard", deps = {} } = {}) {
+  // KJC-BUG-0145: a missing projectDir must fail LOUD — every collector is
+  // wrapped in safe(), so an undefined root used to read as an empty project.
+  if (!projectDir) throw new Error("runReadOnlySweep: projectDir is required (got " + String(projectDir) + ")");
   const d = {
     collectAll, detectTestFramework, checkHarden, compareHarden, sourceScan: deepSourceScan,
     detectQmd, ragStatus: readRagStatus, gitAgeDays: lastCommitAgeDays, ...deps,
