@@ -51,6 +51,23 @@ describe("board-sync gate", () => {
     expect(pending[0]).toMatchObject({ card: "KJC-TSK-0042", pr: 12 });
   });
 
+  it("bajo una tool call gh NO imprime el mensaje de exito: el estado del PR (gh pr view) es la señal autoritativa", () => {
+    // Hallado en vivo en el primer merge con el gate activo: salida vacia, pendiente sin registrar.
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin);
+    const fakeGh = (st) => fs.writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho '{"number":21,"state":"${st}"}'\n`, { mode: 0o755 });
+    const silentMerge = (pr) => spawnSync("node", [post], {
+      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `gh auth switch --user x && gh pr merge ${pr} --squash` }, tool_response: { stdout: "", stderr: "" } }),
+      encoding: "utf8", cwd: dir, env: { ...process.env, ...env, PATH: `${bin}:${process.env.PATH}` },
+    });
+    fakeGh("OPEN");
+    expect(silentMerge(21).status).toBe(0);
+    expect(fs.existsSync(statePath) ? (state().sessions?.s1?.pending_moves ?? []) : []).toHaveLength(0);
+    fakeGh("MERGED");
+    expect(silentMerge(21).status).toBe(0);
+    expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card: "KJC-TSK-0042", pr: 21 });
+  });
+
   it("con una card pendiente: commit, push, nuevo PR y cierre de turno se deniegan nombrando card+PR y el remedio", () => {
     merged(12);
     for (const cmd of ["git commit -m x", "git push origin feat/x", "gh pr create --title t", "gh pr merge 13"]) {
