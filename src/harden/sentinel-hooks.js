@@ -93,6 +93,7 @@ const POST_BODY = `#!/usr/bin/env node
 // Records deterministic method facts per session; never blocks, never fails
 // a tool call (PostToolUse, always exit 0).
 import { relative } from "node:path";
+import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
 const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD"];
 let raw = "";
@@ -122,12 +123,23 @@ process.stdin.on("end", () => {
       process.exit(0);
     }
     if (tool === "Bash") {
-      const merged = /merged pull request #(\\d+)/i.exec(text);
-      if (merged) {
+      const cmdText = String(input.command || "");
+      // gh prints "merged pull request #N" only on a TTY: under a tool call the
+      // success line is ABSENT (found live on the first dogfood merge). The
+      // authoritative signal is the PR state itself: one gh pr view per merge.
+      const mergeCmd = /\\bgh\\s+pr\\s+merge(\\s+(\\d+))?/.exec(cmdText);
+      const said = /merged pull request #(\\d+)/i.exec(text);
+      let mergedPr = said ? Number(said[1]) : null;
+      if (mergedPr === null && mergeCmd) {
+        const args = ["pr", "view", ...(mergeCmd[2] ? [mergeCmd[2]] : []), "--json", "number,state"];
+        const r = spawnSync("gh", args, { cwd: ROOT, encoding: "utf8" });
+        try { const v = JSON.parse(r.status === 0 ? r.stdout : "null"); if (v && v.state === "MERGED") mergedPr = Number(v.number); } catch { /* unknown = not confirmed */ }
+      }
+      if (mergedPr !== null) {
         const state = load();
         const s = session(state, sid);
         const ref = CARD.exec(branchOf() || "");
-        (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: Number(merged[1]), at: Date.now() });
+        (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: mergedPr, at: Date.now() });
         save(state);
       }
       const moved = /kj\\s+hu\\s+move\\s+([A-Za-z0-9-]+)\\s+([a-z&-]+)/i.exec(String(input.command || ""));
