@@ -65,7 +65,9 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.20.0 — la infra también es código (actual)
+### v4.20.0 — la infra también es código (actual, v4.20.1)
+
+Patch v4.20.1 el mismo día: `kj start` por fin ve el proyecto en el que está — el sweep recibía una raíz indefinida y leía CUALQUIER proyecto como vacío; ahora resuelve `cwd` y rechaza en alto una raíz ausente.
 
 Minor nacida de un proyecto real de campo (una demo de kubernetes con el código en `backend/`): el método era agnóstico del lenguaje sobre el papel, pero tres piezas concretas seguían asumiendo código de aplicación — ahora **el Sentinel cuenta los edits de terraform/k8s/shell/Docker como fuentes** (card-first, Stop gate y push gate disparan exactamente igual que con un `.js`), **la infra tiene suites de verdad** (`terraform validate`, `helm lint`, `kustomize build`, `ansible-lint`, con checkov encadenado como deep scan aditivo — una tool ausente se declara con su comando de instalación, jamás un verde falso), y **`kj audit --security` pasa checkov** por el mismo canal best-effort que semgrep, porque los misconfigs SON superficie de seguridad. Además, tres fixes reportados desde el campo y publicados en horas: `codex exec` perdió `--full-auto` upstream (ahora `--sandbox workspace-write` con retry legacy), `kj start` pasaba el `haiku` de Claude a agy (los modelos se filtran por FAMILIA de provider en el chokepoint), y la escotilla de escape del propio Sentinel solo existía en su mensaje de error — todo prefijo `KJ_ALLOW_X=1` funciona ya en comando simple, fail-closed en cadenas, probado la misma noche en que deadlockeó la release de su autor.
 

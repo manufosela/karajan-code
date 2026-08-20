@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.20.1] - 2026-08-20
+
+### Fixed
+
+- **`kj start` finally sees the project it is standing in** (KJC-BUG-0145, PR #1486, field report on issue #1471 after testing 4.19): `loadConfig` never sets `projectDir`, and `kj start` handed that `undefined` straight to the sweep — every collector is wrapped in `safe()`, so `readdir(undefined)` failed silently and ANY project read as "new — no source code found, 0 commits". The 4.19 deep-scan fix was correct and never executed; its tests injected collaborators and never walked the real CLI path. Two layers now: `kj start` resolves the directory from `cwd` like every other command, and the sweep REFUSES a missing root instead of returning an empty project. Locked by an on-disk integration test with the reporter's exact inventory, and verified through the real CLI: `legacy — code present but neglected`, harden advisory included.
+
 ## [4.20.0] - 2026-08-20
 
 ### Added
