@@ -66,8 +66,12 @@ export const foreignLane = (targetDir) => {
   const common = _git("rev-parse --path-format=absolute --git-common-dir", targetDir);
   return common && common === _home.common ? top : null;
 };
+// KJC-TSK-0765 board-sync: cards merged in this session but not yet moved in
+// the tracker. The method does not advance until the board is true.
+export const pendingMoves = (s) => (s && Array.isArray(s.pending_moves) ? s.pending_moves : []);
+export const pendingText = (p) => (p.card ? p.card : "card sin identificar") + " (PR #" + p.pr + ") mergeada sin mover en el tracker — muevela a To Validate / Fixed con sus commits (update_card del PG o kj hu move)";
 export const violations = (s, branch) => {
-  const v = [];
+  const v = pendingMoves(s).map(pendingText);
   if (!s || !(s.edited_sources || []).length) return v;
   if (BASE_BRANCHES.has(branch)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion");
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
@@ -89,13 +93,28 @@ const POST_BODY = `#!/usr/bin/env node
 // Records deterministic method facts per session; never blocks, never fails
 // a tool call (PostToolUse, always exit 0).
 import { relative } from "node:path";
-import { CODE, TESTS, ROOT, load, save, session } from "./sentinel-lib.mjs";
-const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY"];
+import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
+const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
-    const { session_id: sid = "default", tool_name: tool, tool_input: input = {} } = JSON.parse(raw);
+    const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, tool_response: response = {} } = JSON.parse(raw);
+    // KJC-TSK-0765 board-sync: a merge that gh CONFIRMS leaves its card pending
+    // in the tracker (the PreToolUse gate then refuses to advance until it is
+    // moved). Recorded here, after the fact, so a failed merge never blocks.
+    if (tool === "Bash") {
+      const text = typeof response === "string" ? response : [response.stdout, response.stderr, response.output].filter(Boolean).join(String.fromCharCode(10));
+      const merged = /merged pull request #(\\d+)/i.exec(text);
+      if (merged) {
+        const state = load();
+        const s = session(state, sid);
+        const ref = CARD.exec(branchOf() || "");
+        (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: Number(merged[1]), at: Date.now() });
+        save(state);
+      }
+      process.exit(0);
+    }
     const file = input.file_path || input.notebook_path;
     if (!["Write", "Edit", "MultiEdit", "NotebookEdit"].includes(tool) || !file) process.exit(0);
     const state = load();
@@ -198,7 +217,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
-import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, violations, recordEscape } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
 const PUSH = /\\bgit\\s+push\\b/;
@@ -578,6 +597,23 @@ process.stdin.on("end", () => {
     }
     if (tool === "Bash") {
       const cmd = String(input.command || "");
+      // KJC-TSK-0765 board-sync: a merge leaves its card PENDING in the tracker
+      // and nothing advances (commit, new PR, another merge; push and the end of
+      // the turn go through violations()) until the card is moved. The board is
+      // true at all times or the method stops — never a rule in the agent's memory.
+      const MERGE = /\\bgh\\s+pr\\s+merge(\\s+(\\d+))?/;
+      const ADVANCE = /\\bgit\\s+commit\\b|\\bgit\\s+push\\b|\\bgh\\s+pr\\s+create\\b/; // push also falls under violations() — explicit here too (review catch)
+      const mergeM = cmd.match(MERGE);
+      const pend = pendingMoves(load().sessions?.[sid]);
+      if (pend.length > 0 && (mergeM || ADVANCE.test(cmd))) {
+        if (escOn("KJ_ALLOW_BOARD")) { recordEscape(sid, "KJ_ALLOW_BOARD", tool); }
+        else {
+          console.error("kj sentinel: board-sync — el metodo no avanza con cards mergeadas sin mover:\\n" + pend.map((p) => "- " + pendingText(p)).join("\\n") + "\\n(KJ_ALLOW_BOARD=1 = excepcion consciente, queda registrada)");
+          process.exit(2);
+        }
+      }
+      // (the pending entry itself is recorded by the PostToolUse hook, only once
+      // gh confirms "merged pull request #N" — a failed merge never blocks)
       if (PUBLISH.test(cmd)) {
         if (escOn("KJ_ALLOW_RELEASE")) { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
         const res = spawnSync("kj", ["release", "check", "--json"], { cwd: ROOT, encoding: "utf8" });
