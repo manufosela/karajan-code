@@ -23,6 +23,7 @@ import { installSentinelHooks } from "../harden/sentinel-hooks.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { installWorkflows } from "../harden/workflow-engine.js";
 import { detectTestFramework } from "../utils/project-detect.js";
+import { ensureIdentity } from "../identity/bootstrap.js";
 
 const JS_TEST_CMD = {
   vitest: "npx vitest run",
@@ -191,5 +192,12 @@ export async function hardenCommand({
   for (const w of out.workflows) logger.info?.(`  • ${w.file}: ${w.action}`);
   for (const g of out.guidelines) logger.info?.(`  • ${g.file}: ${g.action}`);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
+  // IDN-A (KJC-TSK-0762): a hardened clone declares who works it. Captured
+  // only with a human confirming; headless runs get the pending command.
+  if (!dryRun) {
+    const id = await ensureIdentity({ projectDir, logger });
+    out.identity = id.declared ? id.identity : null;
+    if (id.pending) out.identityPending = id.pending;
+  }
   return out;
 }

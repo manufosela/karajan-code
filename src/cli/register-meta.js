@@ -4,6 +4,7 @@ import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { startCommand } from "../commands/start.js";
+import { identityCommand } from "../commands/identity.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
@@ -117,6 +118,30 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "onboard", flags, async ({ config, logger }) => {
         await onboardCommand({ config, logger, flags });
+      });
+    });
+
+  // IDN-A (KJC-TSK-0762, epic KJC-PCS-0079): identity lock per clone.
+  const identityCmd = program
+    .command("identity")
+    .description("Identity lock: which gh account and git email this clone is worked with (.karajan/identity.local.yml, never tracked)");
+  identityCmd
+    .command("show", { isDefault: true })
+    .description("Declared identity vs the active one (exit 2 on mismatch or when undeclared)")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "identity-show", flags, async ({ config }) => {
+        process.exitCode = await identityCommand({ action: "show", config, flags });
+      });
+    });
+  identityCmd
+    .command("set")
+    .description("Declare this clone's identity from the active gh session and git config (or --gh/--email)")
+    .option("--gh <user>", "gh account to bind")
+    .option("--email <email>", "git email to bind")
+    .option("--yes", "Do not ask for confirmation")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "identity-set", flags, async ({ config }) => {
+        process.exitCode = await identityCommand({ action: "set", config, flags });
       });
     });
 
