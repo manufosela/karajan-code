@@ -1,7 +1,7 @@
 # Karajan Console: consola web de administracion de una instancia de la familia (rag + watch)
 
-Status: proposed
-Date: 2026-08-21
+Status: accepted
+Date: 2026-08-21 (propuesto y aceptado el mismo dia, con las respuestas de la seccion Decisiones)
 
 ## Context
 
@@ -50,9 +50,16 @@ A. Paquete propio @karajan-family/console en packages/console, con estas decisio
 
 Un paquete nuevo en el monorepo con su propio ciclo (semver independiente), adaptadores GCP/GitHub desde la fase C1 (mas lento que un MVP de instancia, deliberadamente). Los gaps upstream hallados al desplegar (exclude en karajan.config.json, imagen con embedder y @huggingface/transformers, MCP sobre HTTP, Cloud SQL compartida y propiedad de google_project_service en deploy/gcp, ingest docs con fuentes propias, clasificacion de repos y sensitivityRules en el config de watch, Auth Proxy con WIF en los workflows) quedan cardeados en KJR y KJW y condicionan C2, C4 y C5. La instancia aporta: un console.config.json real, la lista de operaciones con sus workflows e inputs, los principales IAM, el sink de auditoria elegido, y pruebas de C1 contra sus Cloud Run.
 
-## Preguntas abiertas para decidir juntos
+## Decisiones (Manu, 2026-08-21, sobre las cuatro preguntas abiertas)
 
-1. Roles por email o por grupo de Google Workspace (groups API): empezar por email en el config y anadir grupos despues.
-2. Sink de auditoria por defecto en el despliegue de referencia: fichero JSONL en GCS (barato, append-only) o Firestore (consultable desde la UI).
-3. Si el playground (C5) embebe la UI del motor o la reimplementa en Astro: depende de la card KJR de MCP sobre HTTP.
-4. Nombre del paquete y del binario: @karajan-family/console y `karajan-console` (consistente con rag y watch).
+1. Roles por email ahora; los grupos de Google Workspace (group:equipo@dominio) llegan en una fase posterior.
+2. Sink de auditoria por defecto: gcs-jsonl (bucket con versionado y retencion, escritura append-only), verificable offline con la cadena de governance. Firestore, si hace falta consultar desde la UI, solo como espejo de lectura, nunca como fuente.
+3. Playground (C5): embeber la UI de `karajan-rag serve --http` con el ID token del usuario mientras el motor no exponga MCP sobre HTTP (card KJR); reimplementar en Astro solo si esa card se retrasa.
+4. Nombre: @karajan-family/console y binario `karajan-console`.
+
+## Aportado por la primera instancia (tribbu-atlas, PR #19 de su repo)
+
+- console.config.json real con la forma v1; docs/console-instance.md con operaciones, principales IAM y sink. Sus cards: epica ATL-PCS-0006, ATL-TSK-0010 (instanciar C1, bloqueada por KJC-TSK-0777), ATL-TSK-0011 (probar C1 y devolver feedback).
+- Modelo IAM que el producto asume como referencia: personas = roles/run.invoker sobre los servicios de corpora[] (grant/revoke desde C1); service account de la consola = roles/run.admin a nivel de SERVICIO (solo setIamPolicy sobre los corpus declarados, nunca a nivel de proyecto) + roles/storage.objectCreator sobre el bucket del sink (sin objectAdmin: append-only), creada por el terraform de la instancia; GitHub App instalada solo en el repo de despliegue con actions:write (C2), secrets:write (C3), contents:write + pull_requests:write (C4), installation tokens cortos. Los secrets de Secret Manager del modulo deploy/gcp quedan fuera del alcance de la consola.
+- Requisito: `console init --target firebase` genera el despliegue de referencia sobre el proyecto GCP EXISTENTE del RAG (instance.project en el config), nunca uno nuevo; el bucket del sink lo crea el despliegue de la consola, no el modulo del RAG.
+- Matices de operaciones: reindex-code queda PENDIENTE hasta KJW-TSK-0038 (Auth Proxy con WIF en los workflows) y KJR-TSK-0153 (exclude en el motor); observed-merge es un evento repository_dispatch, no una operacion: la consola solo muestra su historico (C4).
