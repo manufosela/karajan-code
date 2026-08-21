@@ -5,13 +5,19 @@
 // api() from utils/api.js, esc() from formatters.js.
 
 const GOV_DIR_KEY = 'kj.governance.dir';
+let govBusy = false;
 
 async function renderGovernance() {
   const app = document.getElementById('app');
+  // Server-push re-renders the current view on every event; never wipe a
+  // form the user is typing in or a proposal still being translated.
+  const typing = () => { const a = document.activeElement; return govBusy || Boolean(a && a.id && a.id.startsWith('gov-') && app.contains(a)); };
+  if (typing()) return;
   const dir = localStorage.getItem(GOV_DIR_KEY) || '';
   app.innerHTML = '<div class="loading"><div class="loading__spinner"></div><p>Loading governance...</p></div>';
   try {
     const data = await api('/api/governance' + (dir ? '?dir=' + encodeURIComponent(dir) : ''));
+    if (typing()) return; // the user started typing while we fetched: keep their form
     if (!data || data.ok === false) {
       app.innerHTML = govDirForm((data && data.dir) || dir) + `<div class="empty-state"><div class="empty-state__title">Governance unavailable</div><div class="empty-state__text">${esc((data && data.error) || 'governance unavailable')}</div><div class="empty-state__path">Type the absolute directory of a project that ran <code>kj harden</code> and press Load.</div></div>`;
       return;
@@ -38,6 +44,24 @@ async function govPost(path, body) {
 function govSay(text, warn) {
   const el = document.getElementById('gov-msg');
   if (el) { el.textContent = text; el.className = warn ? 'gov-note gov-note--warn' : 'gov-note'; }
+}
+
+// Spoken rule: propose shows the diff kj would write; apply asks first, then --yes.
+async function govRule(apply) {
+  const text = document.getElementById('gov-rule-text').value.trim();
+  const out = document.getElementById('gov-rule-out');
+  if (!text) return govSay('say the rule first', true);
+  if (apply && !(await showConfirm(`Write this rule into .karajan/policy.yml?\n\n${text}\n\nThe diff shown below is what lands.`, { title: 'Apply rule', okLabel: 'Apply' }))) return;
+  govRuleText = text;
+  govRuleOut = apply ? 'applying…' : 'translating…';
+  out.textContent = govRuleOut;
+  govBusy = true;
+  const r = await govPost('/api/governance/rule', { text, apply: apply === true }).finally(() => { govBusy = false; });
+  govRuleOut = r.output || r.error || '';
+  const pre = document.getElementById('gov-rule-out');
+  if (pre) pre.textContent = govRuleOut;
+  if (!r.ok) return govSay(r.error || 'rule refused', true);
+  if (apply) { govRuleText = ''; renderGovernance(); }
 }
 
 async function govAnchor() {
@@ -93,13 +117,19 @@ function govRules(policy, report) {
   const head = policy.declared
     ? (policy.error ? `<p class="gov-note gov-note--warn">policy.yml invalid: ${esc(policy.error)}</p>` : '')
     : '<p class="gov-note">No <code>.karajan/policy.yml</code> declared — only the consumer defaults apply. Speak a rule: <code>kj policy add "…"</code>.</p>';
-  if (rows.size === 0) return `<div class="section-header"><span class="section-header__title">Rules</span></div>${head}<p class="gov-note">No rule has warned or denied yet.</p>`;
+  if (rows.size === 0) return `<div class="section-header"><span class="section-header__title">Rules</span></div>${head}<p class="gov-note">No rule has warned or denied yet.</p>${govRuleBox()}`;
   const body = [...rows.values()].sort((a, b) => (b.denies + b.warns) - (a.denies + a.warns)).map((r) => `
     <tr><td><code>${esc(r.rule_id)}</code></td><td><span class="gov-badge gov-badge--${esc(r.enforcement || 'warn')}">${esc(r.enforcement || 'warn')}</span>${r.class === 'security' ? ' <span class="gov-badge gov-badge--security" title="non-exemptable: no escape, no arbitration, no grant">security</span>' : ''}</td>
     <td>${r.warns}</td><td class="${r.denies ? 'gov-red' : ''}">${r.denies}</td><td>${r.exempts}</td><td class="${r.open ? 'gov-red' : ''}">${r.open}</td></tr>`).join('');
   return `<div class="section-header"><span class="section-header__title">Rules by friction</span><span class="section-header__count">${rows.size}</span></div>${head}
-    <div class="gov-scroll"><table class="gov-table"><thead><tr><th>rule</th><th>enforcement</th><th>warn</th><th>deny</th><th>exempt</th><th>open</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    <div class="gov-scroll"><table class="gov-table"><thead><tr><th>rule</th><th>enforcement</th><th>warn</th><th>deny</th><th>exempt</th><th>open</th></tr></thead><tbody>${body}</tbody></table></div>${govRuleBox()}`;
 }
+
+// Typed text and the last proposal survive the server-push re-renders.
+let govRuleText = '';
+let govRuleOut = '';
+const govRuleBox = () => `<div class="gov-grant"><input id="gov-rule-text" class="gov-dir__input" value="${esc(govRuleText)}" oninput="govRuleText=this.value" placeholder="say a rule: the coder never writes .env files" aria-label="Spoken rule">
+  <button class="gov-btn" onclick="govRule(false)">Propose</button><button class="gov-btn" onclick="govRule(true)">Apply</button></div><pre id="gov-rule-out" class="gov-pre" aria-live="polite">${esc(govRuleOut)}</pre>`;
 
 function govGrants(g, policy) {
   const soon = new Set((g.soon || []).map((e) => e.ts || e.expiresAt + e.rule_id));
