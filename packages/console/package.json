@@ -1,0 +1,32 @@
+{
+  "name": "@karajan-family/console",
+  "version": "0.0.1",
+  "description": "Karajan Console — the admin web console of a family instance (karajan-rag + karajan-watch): access, health, operations, credentials, alerts and config, with Google-domain auth and a hash-chained audit trail. Operations + adapters; the instance brings console.config.json, credentials and hosting (ADR 0007).",
+  "type": "module",
+  "private": true,
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./config": "./src/config.js"
+  },
+  "files": [
+    "src/"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@karajan-family/governance": "*",
+    "valibot": "^1.4.1"
+  },
+  "keywords": [
+    "karajan",
+    "console",
+    "admin",
+    "governance",
+    "rag",
+    "watch"
+  ],
+  "author": "@manufosela",
+  "license": "MIT"
+}

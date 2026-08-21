@@ -38,7 +38,8 @@
     "packages/ai-trash",
     "packages/core",
     "packages/hu-board",
-    "packages/governance"
+    "packages/governance",
+    "packages/console"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
