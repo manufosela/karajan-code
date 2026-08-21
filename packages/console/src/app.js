@@ -8,7 +8,7 @@ import { createAuth, AuthError } from "./auth.js";
 import { createAudit, sinkFromConfig } from "./audit.js";
 import { createRegistry, memoryAdapter } from "./adapters/registry.js";
 
-export const CONSOLE_VERSION = "0.0.1";
+export const CONSOLE_VERSION = "0.1.0";
 
 export function createConsoleApp({ config, verify, sink, adapters = {} }) {
   const auth = createAuth({ config, verify });
