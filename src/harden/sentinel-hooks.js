@@ -124,9 +124,11 @@ process.stdin.on("end", () => {
     const clearPending = (cardId) => {
       const state = load();
       const s = session(state, sid);
-      const before = (s.pending_moves || []).length;
       s.pending_moves = (s.pending_moves || []).filter((p) => p.card !== null && p.card !== cardId);
-      if (s.pending_moves.length !== before) save(state);
+      // KJC-TSK-0774: a card closed this turn is what the Stop hook points the
+      // user at when the focus comes back (the board is where to look).
+      if (cardId && !(s.closed_cards ||= []).includes(cardId)) s.closed_cards.push(cardId);
+      save(state);
     };
     if (/__update_card$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
       // The MCP response reaches the hook as {content:[{text:"<json>"}]}: once
@@ -197,7 +199,19 @@ const STOP_BODY = `#!/usr/bin/env node
 // after 3 unresolved blocks — a sentinel bug never bricks the session — and
 // the fail-open is recorded in the state. \`--status\` prints, never blocks.
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { load, save, branchOf, violations, ROOT } from "./sentinel-lib.mjs";
+// KJC-TSK-0774: when the turn ends green with cards closed, remind the user
+// where to look — the board URL if it runs (pid file alive), else how to start it.
+const boardHint = () => {
+  const home = process.env.KARAJAN_HOME || process.env.KJ_HOME || join(homedir(), ".karajan");
+  try {
+    process.kill(Number(readFileSync(join(home, "hu-board.pid"), "utf8").trim()), 0);
+    return "http://localhost:" + (process.env.KJ_BOARD_PORT || "4000") + "/#governance";
+  } catch { return "no esta arrancado: kj board start (luego http://localhost:4000/#governance)"; }
+};
 if (process.argv.includes("--status")) {
   const st = load();
   const branch = branchOf();
@@ -241,9 +255,14 @@ process.stdin.on("end", () => {
     const v = violations(s, branchOf());
     if (!v.length) {
       s.blocks = 0;
+      const notes = [];
+      if ((s.escapes || []).length) notes.push("kj sentinel: esta sesion uso " + s.escapes.length + " escape(s): " + s.escapes.join(", ") + " — decision registrada; detalle en kj sentinel status.");
+      if ((s.closed_cards || []).length) {
+        notes.push("kj sentinel: card(s) cerrada(s) en este turno: " + s.closed_cards.join(", ") + " — el board las muestra: " + boardHint());
+        s.closed_cards = [];
+      }
       save(state);
-      if ((s.escapes || []).length)
-        console.log(JSON.stringify({ systemMessage: "kj sentinel: esta sesion uso " + s.escapes.length + " escape(s): " + s.escapes.join(", ") + " — decision registrada; detalle en kj sentinel status." }));
+      if (notes.length) console.log(JSON.stringify({ systemMessage: notes.join("\\n") }));
       process.exit(0);
     }
     s.blocks = (s.blocks || 0) + 1;
