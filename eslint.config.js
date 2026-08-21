@@ -320,7 +320,7 @@ export default [
            openCommandLogViewer openGenericLogPanel openLogViewer patchBoardIncremental pollServerVersion pollTimer
            populateProjectSelect preflightCache preflightStatusColor preflightStatusIcon projectInitialsCache
            projectIsSharedCache projectNameCache qualityBar refreshCurrentView refreshInterval refreshOnce refreshStandby
-           render renderBoard renderDashboard renderEmptyState renderGraph renderHits renderInstallCTA renderIterations
+           render renderBoard renderDashboard renderEmptyState renderGovernance renderGraph renderHits renderInstallCTA renderIterations
            renderKanbanColumn renderOutcomeChip renderPlanRollup renderPreflightPanel renderProjectPicker
            renderResultBadge renderRoleGrid renderSessionCard renderSessions renderSolomon renderStoryCard
            renderStoryEditForm renderSummary resolveBlockedBy resolveProjectInitials resolveProjectMeta runProject

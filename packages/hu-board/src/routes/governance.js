@@ -52,12 +52,25 @@ function identityState(dir) {
   return ok ? { declared: true, gh_user: String(data.gh_user), git_email: String(data.git_email) } : { declared: false };
 }
 
+/** The board may run from a package inside a monorepo: climb to the nearest .karajan/. */
+function nearestProject(start) {
+  let cur = resolve(start);
+  for (;;) {
+    if (existsSync(join(cur, ".karajan"))) return cur;
+    const up = resolve(cur, "..");
+    if (up === cur) return resolve(start);
+    cur = up;
+  }
+}
+
 router.get("/", async (req, res) => {
-  const raw = typeof req.query.dir === "string" ? req.query.dir.trim() : "";
-  if (!raw) return res.status(400).json({ ok: false, error: "dir is required (absolute project directory)" });
+  // GUI-B: without dir, the project the board was started for (same rule as
+  // the config editor: KJ_PROJECT_DIR || cwd) — the view remembers the rest.
+  const raw = (typeof req.query.dir === "string" && req.query.dir.trim()) || nearestProject(process.env.KJ_PROJECT_DIR || process.cwd());
   const dir = resolve(raw);
   if (!existsSync(join(dir, ".karajan")) || !statSync(join(dir, ".karajan")).isDirectory()) {
-    return res.status(404).json({ ok: false, error: "not a karajan project: no .karajan/ directory", dir });
+    // Data, not a server error: the view shows the attempted dir and lets the user fix it.
+    return res.json({ ok: false, error: "not a karajan project: no .karajan/ directory", dir });
   }
   let report;
   try {

@@ -192,6 +192,7 @@ function render() {
     case 'board': return renderBoard();
     case 'sessions': return renderSessions();
     case 'graph': return renderGraph();
+    case 'governance': return renderGovernance();
     default: return renderDashboard();
   }
 }
