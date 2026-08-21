@@ -5,6 +5,7 @@ import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { startCommand } from "../commands/start.js";
 import { identityCommand } from "../commands/identity.js";
+import { policyCommand } from "../commands/policy.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
@@ -320,7 +321,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--strict", "Exit 2 si deny")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-eval", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "eval", config, flags });
       });
     });
@@ -331,7 +331,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--reason <text>", "Justificación escrita en el momento")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-grant", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "grant", config, flags });
       });
     });
@@ -348,7 +347,6 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Verifica la cadena del decision log y sella su head-hash en .karajan/policy-anchor.json (trackeado) — anclaje temporal en la historia de git, GOV-C2")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-anchor", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "anchor", config, flags });
       });
     });
@@ -358,7 +356,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--json", "Machine-readable")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-report", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "report", config, flags });
       });
     });
@@ -370,7 +367,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--json", "Machine-readable")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-check", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "check", config, flags });
       });
     });

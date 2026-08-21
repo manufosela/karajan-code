@@ -107,7 +107,10 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // (printUpdateNotice in cli.js), but execa is only needed by the `kj update`
 // path — a static import would pull the heavy child-process dep into every
 // plain `kj` invocation. Same feature-gated pattern as the entries above.
-const DYNAMIC_IMPORT_BUDGET = 170;
+// 2026-08-21 (KJC-TSK-0767): ratchet 170 → 166. The five `kj policy`
+// subcommands each re-imported ../commands/policy.js dynamically; one static
+// import serves all of them (the module is light: no agents, no RAG).
+const DYNAMIC_IMPORT_BUDGET = 166;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
