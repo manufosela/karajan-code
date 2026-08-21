@@ -23,7 +23,35 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "hu-board-gov-"));
   fs.mkdirSync(path.join(dir, ".karajan"));
   app = express();
+  app.use(express.json());
   app.use("/api/governance", governanceRoutes);
+});
+
+describe("POST /api/governance/grant and /anchor (GUI-C)", () => {
+  const identity = () => write(".karajan/identity.local.yml", "gh_user: manufosela\ngit_email: m@example.invalid\n");
+
+  it("grant runs kj policy grant with rule, until and reason; kj's refusal (security, defaults) comes back as 409 with its message", async () => {
+    identity();
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "✓ excepción permanente registrada\n", stderr: "" });
+    const ok = await request(app).post("/api/governance/grant").send({ dir, rule: "roles.coder.shell.deny", until: "2099-01-01T00:00:00Z", reason: "hotfix" });
+    expect(ok.status).toBe(200);
+    expect(runCommand).toHaveBeenCalledWith("kj", ["policy", "grant", "--rule", "roles.coder.shell.deny", "--until", "2099-01-01T00:00:00Z", "--reason", "hotfix"], { cwd: dir });
+    runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "policy grant: \"defaults.supervisor.write\" es inexcepcionable" });
+    const refused = await request(app).post("/api/governance/grant").send({ dir, rule: "defaults.supervisor.write", until: "2099-01-01T00:00:00Z", reason: "x" });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/inexcepcionable/);
+  });
+
+  it("grant needs rule+until+reason (400) and a declared identity (409); anchor runs kj policy anchor", async () => {
+    expect((await request(app).post("/api/governance/grant").send({ dir, rule: "r" })).status).toBe(400);
+    expect((await request(app).post("/api/governance/grant").send({ dir, rule: "r", until: "2099-01-01T00:00:00Z", reason: "y" })).status).toBe(409);
+    expect(runCommand).not.toHaveBeenCalled();
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "✓ policy anchor: cadena íntegra\n", stderr: "" });
+    const res = await request(app).post("/api/governance/anchor").send({ dir });
+    expect(res.status).toBe(200);
+    expect(runCommand).toHaveBeenCalledWith("kj", ["policy", "anchor"], { cwd: dir });
+    expect((await request(app).post("/api/governance/anchor").send({ dir: os.tmpdir() })).status).toBe(404);
+  });
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
