@@ -88,11 +88,28 @@ describe("board-sync gate", () => {
     merged(12);
     expect(bash("KJ_ALLOW_BOARD=1 git commit -m x").status).toBe(0);
     expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_BOARD")).toBe(true);
+    // KJC-BUG-0147: el mismo escape abre el push — una card de varios PRs es un plan legitimo.
+    expect(bash("git push origin feat/x").status).toBe(2);
+    expect(bash("KJ_ALLOW_BOARD=1 git push origin feat/x").status).toBe(0);
     const st = state();
     st.sessions.s1.pending_moves = [];
     fs.writeFileSync(statePath, JSON.stringify(st));
     expect(bash("git commit -m x").status).toBe(0);
     expect(endTurn().status).toBe(0);
+  });
+
+  it("la card es la de la rama HEAD del PR mergeado, no la de la rama en la que esta el arbol (KJC-BUG-0148)", () => {
+    // Hallado en vivo: un merge lanzado desde el carril de otra card fijo la pendiente en la card equivocada.
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho '{"number":33,"state":"MERGED","headRefName":"feat/KJC-TSK-0099-other"}'\n`, { mode: 0o755 });
+    const r = spawnSync("node", [post], {
+      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: "gh pr merge 33 --merge" }, tool_response: { stdout: "", stderr: "" } }),
+      encoding: "utf8", cwd: dir, env: { ...process.env, ...env, PATH: `${bin}:${process.env.PATH}` },
+    });
+    expect(r.status).toBe(0);
+    expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card: "KJC-TSK-0099", pr: 33 });
+    expect(state().sessions.s1.pending_moves[0].head).toBeUndefined();
   });
 
   it("sin card en la rama, el merge registra el PR y el remedio pide identificar la card", () => {
