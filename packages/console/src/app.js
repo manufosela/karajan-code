@@ -54,6 +54,51 @@ export function createConsoleApp({ config, verify, sink, adapters = {} }) {
     res.json({ ok: true, chain: audit.verify(), entries: audit.entries().slice(-limit) });
   });
 
+  // C1 (KJC-TSK-0777): corpora health (reader) and access as the service's invoker binding (admin, audited).
+  const corpusOf = (req, res) => {
+    const c = config.corpora.find((x) => x.id === req.params.id);
+    if (!c) res.status(404).json({ ok: false, error: `no such corpus "${req.params.id}"` });
+    return c ?? null;
+  };
+  const adapterFor = (corpus, capability, res) => {
+    try { return registry.demand(corpus.adapter, capability); } catch (err) { res.status(503).json({ ok: false, error: err.message }); return null; }
+  };
+  const inDomain = (email) => config.instance.allowedDomains.some((d) => String(email).toLowerCase().endsWith(`@${d.toLowerCase()}`));
+  const act = async (req, res, action, target, fn) => {
+    try { res.json({ ok: true, ...(await audit.wrap({ who: req.identity, action, target }, fn)) }); }
+    catch (err) { res.status(502).json({ ok: false, error: String(err?.message || err) }); }
+  };
+
+  app.get("/api/corpora", guard("reader"), async (_req, res) => {
+    const corpora = await Promise.all(config.corpora.map(async (c) => {
+      const base = { id: c.id, name: c.name ?? c.id, adapter: c.adapter };
+      try { return { ...base, ...(await registry.demand(c.adapter, "health").health(c)) }; }
+      catch (err) { return { ...base, ok: false, error: String(err?.message || err) }; }
+    }));
+    res.json({ ok: true, corpora });
+  });
+  app.get("/api/corpora/:id/access", guard("admin"), async (req, res) => {
+    const c = corpusOf(req, res); if (!c) return;
+    const a = adapterFor(c, "listAccess", res); if (!a) return;
+    try { res.json({ ok: true, corpus: c.id, members: await a.listAccess(c) }); }
+    catch (err) { res.status(502).json({ ok: false, error: String(err?.message || err) }); }
+  });
+  app.post("/api/corpora/:id/access", guard("admin"), async (req, res) => {
+    const c = corpusOf(req, res); if (!c) return;
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email || !inDomain(email)) return res.status(400).json({ ok: false, error: `email must belong to ${config.instance.allowedDomains.join(", ")}` });
+    const a = adapterFor(c, "grant", res); if (!a) return;
+    await act(req, res, "access.grant", `corpus:${c.id}`, async () => ({ ...(await a.grant(c, email)), audit: { principal: email } }));
+  });
+  // Revoke deliberately skips the domain check: removing an OUTSIDER that somehow
+  // got onto the binding is exactly what an admin must be able to do. Only grant is gated.
+  app.delete("/api/corpora/:id/access/:email", guard("admin"), async (req, res) => {
+    const c = corpusOf(req, res); if (!c) return;
+    const email = String(req.params.email).toLowerCase();
+    const a = adapterFor(c, "revoke", res); if (!a) return;
+    await act(req, res, "access.revoke", `corpus:${c.id}`, async () => ({ ...(await a.revoke(c, email)), audit: { principal: email } }));
+  });
+
   app.use("/api", (_req, res) => res.status(404).json({ ok: false, error: "no such endpoint" }));
   app.use((err, _req, res, _next) => {
     if (err instanceof AuthError) return res.status(err.status).json({ ok: false, error: err.message, code: err.code });
