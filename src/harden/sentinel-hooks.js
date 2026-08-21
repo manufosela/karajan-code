@@ -133,16 +133,24 @@ process.stdin.on("end", () => {
       const mergeCmd = /\\bgh\\s+pr\\s+merge(\\s+(\\d+))?/.exec(cmdText);
       const said = /merged pull request #(\\d+)/i.exec(text);
       let mergedPr = said ? Number(said[1]) : null;
-      if (mergedPr === null && mergeCmd) {
-        const args = ["pr", "view", ...(mergeCmd[2] ? [mergeCmd[2]] : []), "--json", "number,state"];
+      // KJC-BUG-0148: the card belongs to the PR's HEAD branch, not to whatever
+      // branch the working tree happens to be on (found live: a merge issued
+      // from another card's lane pinned the pending move on the wrong card).
+      let headRef = null;
+      if (mergeCmd || said) {
+        const n = said ? said[1] : mergeCmd[2];
+        const args = ["pr", "view", ...(n ? [n] : []), "--json", "number,state,headRefName"];
         const r = spawnSync("gh", args, { cwd: ROOT, encoding: "utf8" });
-        try { const v = JSON.parse(r.status === 0 ? r.stdout : "null"); if (v && v.state === "MERGED") mergedPr = Number(v.number); } catch { /* unknown = not confirmed */ }
+        try {
+          const v = JSON.parse(r.status === 0 ? r.stdout : "null");
+          if (v && v.state === "MERGED") { mergedPr = Number(v.number); headRef = v.headRefName || null; }
+        } catch { /* unknown = not confirmed (or confirmed only by the printed line) */ }
       }
       if (mergedPr !== null) {
         const state = load();
         const s = session(state, sid);
-        const ref = CARD.exec(branchOf() || "");
-        (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: mergedPr, at: Date.now() });
+        const ref = CARD.exec(headRef || branchOf() || "");
+        (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: mergedPr, at: Date.now(), ...(headRef ? {} : { head: "unknown" }) });
         save(state);
       }
       const moved = /kj\\s+hu\\s+move\\s+([A-Za-z0-9-]+)\\s+([a-z&-]+)/i.exec(String(input.command || ""));
@@ -659,7 +667,15 @@ process.stdin.on("end", () => {
           process.exit(2);
         }
       } else if (PUSH.test(cmd)) {
-        const v = violations(load().sessions?.[sid], branchOf());
+        // KJC-BUG-0147: the board escape covers the push too — a pending move
+        // blocks the push like it blocks the commit, and the SAME conscious,
+        // recorded escape opens both (multi-PR cards are a legitimate plan).
+        const sess = load().sessions?.[sid];
+        let v = violations(sess, branchOf());
+        if (v.length && pendingMoves(sess).length && escOn("KJ_ALLOW_BOARD")) {
+          recordEscape(sid, "KJ_ALLOW_BOARD", tool);
+          v = violations({ ...sess, pending_moves: [] }, branchOf());
+        }
         if (v.length) {
           console.error("kj sentinel: git push con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve antes de empujar. Estado: kj sentinel status");
           process.exit(2);
