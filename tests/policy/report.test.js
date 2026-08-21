@@ -76,10 +76,10 @@ describe("buildPolicyReport — decisiones", () => {
 
 describe("buildPolicyReport — concesiones", () => {
   it("separa vivas, vencidas y próximas a vencer; las puntuales solo se cuentan", () => {
-    const recs = [perm("a", 30), perm("b", -1), perm("c", 3), { rule_id: "d", scopeKind: "puntual", diffHash: "h" }, { rule_id: "e" }];
+    const recs = [perm("a", 30), perm("b", -1), perm("c", 3), { rule_id: "d", scopeKind: "puntual", diffHash: "h" }, { rule_id: "e" }, perm("f", 0, { expiresAt: "no-es-fecha" })];
     const r = buildPolicyReport({ exceptionRecords: recs, now: NOW, soonDays: 7 });
     expect(r.grants.alive.map((g) => g.rule_id)).toEqual(["a", "c"]);
-    expect(r.grants.expired.map((g) => g.rule_id)).toEqual(["b"]);
+    expect(r.grants.expired.map((g) => g.rule_id)).toEqual(["b", "f"]);
     expect(r.grants.soon.map((g) => g.rule_id)).toEqual(["c"]);
     expect(r.grants.point).toBe(2);
   });

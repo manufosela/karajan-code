@@ -59,8 +59,10 @@ function tallyRules(records, policy, lastResolved) {
 
 function tallyGrants(exceptionRecords, now, soonDays) {
   const perm = exceptionRecords.filter((e) => e?.scopeKind === "permanente");
-  const alive = perm.filter((e) => Date.parse(e.expiresAt) > now.getTime());
-  const expired = perm.filter((e) => !(Date.parse(e.expiresAt) > now.getTime()));
+  // Una caducidad ilegible (NaN) NO está viva: la excepción falla cerrada.
+  const alive = [];
+  const expired = [];
+  for (const e of perm) (Date.parse(e.expiresAt) > now.getTime() ? alive : expired).push(e);
   const soon = alive.filter((e) => Date.parse(e.expiresAt) - now.getTime() <= soonDays * DAY_MS);
   const counts = Map.groupBy(perm, (e) => e.rule_id);
   const renewals = [...counts].filter(([, v]) => v.length >= 2).map(([rule_id, v]) => ({ rule_id, count: v.length }));
