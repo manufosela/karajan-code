@@ -1,0 +1,61 @@
+// C0 (KJC-TSK-0776, ADR 0007) — who is calling, verified ON THE SERVER. The
+// verifier is injected (Google in production, a stub in tests): the console
+// never trusts a claim it did not verify, and a Workspace identity is only
+// accepted when its `hd` claim is one of the instance's allowed domains.
+import { resolveRole } from "./config.js";
+
+export const ROLE_RANK = { reader: 1, operator: 2, admin: 3 };
+
+export class AuthError extends Error {
+  constructor(status, code, message) {
+    super(message);
+    this.name = "AuthError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/**
+ * @param {{config: object, verify: (token: string) => Promise<object>}} deps
+ *   verify resolves the ID token's payload ({email, email_verified, hd, aud, sub}) or throws.
+ */
+export function createAuth({ config, verify }) {
+  if (typeof verify !== "function") throw new TypeError("createAuth: verify(token) is required — the console never guesses who is calling");
+  const domains = new Set(config.instance.allowedDomains.map((d) => d.toLowerCase()));
+
+  async function authenticate(token) {
+    if (!token) throw new AuthError(401, "no_token", "sign in with a Google account of the instance's domain");
+    let p;
+    try { p = await verify(token); } catch (err) { throw new AuthError(401, "invalid_token", `token rejected: ${err?.message || err}`); }
+    if (!p || p.email_verified !== true) throw new AuthError(403, "unverified_email", "the Google account email is not verified");
+    if (config.auth.audience && p.aud !== config.auth.audience) throw new AuthError(401, "wrong_audience", "token issued for another application");
+    // `hd` is only present on Google Workspace accounts: no hd = no organisation = no entry.
+    const hd = String(p.hd || "").toLowerCase();
+    if (!hd || !domains.has(hd)) throw new AuthError(403, "domain", `account outside the allowed domains (${[...domains].join(", ")})`);
+    const email = String(p.email || "").toLowerCase();
+    if (!email.endsWith(`@${hd}`)) throw new AuthError(403, "domain", "email and hd claims disagree");
+    const role = resolveRole(config, email);
+    if (!role) throw new AuthError(403, "no_role", `${email} has no role in console.config.json`);
+    return { email, role, sub: p.sub ?? null, hd };
+  }
+
+  /** express middleware: Bearer token → req.identity, or the AuthError as JSON. */
+  const requireRole = (minimum = "reader") => {
+    // An unknown role name must fail CLOSED at wiring time, never open at request time (review catch).
+    if (!Object.hasOwn(ROLE_RANK, minimum)) throw new TypeError(`requireRole: unknown role "${minimum}" (reader | operator | admin)`);
+    return async (req, res, next) => {
+    const m = /^Bearer\s+(.+)$/i.exec(req.get?.("authorization") || "");
+    try {
+      const identity = await authenticate(m ? m[1].trim() : "");
+      if (ROLE_RANK[identity.role] < ROLE_RANK[minimum]) throw new AuthError(403, "forbidden", `${identity.role} cannot do what needs ${minimum}`);
+      req.identity = identity;
+      next();
+    } catch (err) {
+      if (!(err instanceof AuthError)) return next(err);
+      res.status(err.status).json({ ok: false, error: err.message, code: err.code });
+    }
+    };
+  };
+
+  return { authenticate, requireRole };
+}

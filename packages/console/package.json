@@ -7,7 +7,8 @@
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./config": "./src/config.js"
+    "./config": "./src/config.js",
+    "./google-verifier": "./src/google-verifier.js"
   },
   "files": [
     "src/"
@@ -17,6 +18,8 @@
   },
   "dependencies": {
     "@karajan-family/governance": "*",
+    "express": "^5.1.0",
+    "google-auth-library": "^10.1.0",
     "valibot": "^1.4.1"
   },
   "keywords": [
