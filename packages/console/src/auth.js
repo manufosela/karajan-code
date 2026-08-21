@@ -27,15 +27,17 @@ export function createAuth({ config, verify }) {
     if (!token) throw new AuthError(401, "no_token", "sign in with a Google account of the instance's domain");
     let p;
     try { p = await verify(token); } catch (err) { throw new AuthError(401, "invalid_token", `token rejected: ${err?.message || err}`); }
-    if (!p || p.email_verified !== true) throw new AuthError(403, "unverified_email", "the Google account email is not verified");
-    if (config.auth.audience && p.aud !== config.auth.audience) throw new AuthError(401, "wrong_audience", "token issued for another application");
+    // From here on the claimed email travels with every refusal: the audit trail records WHO was refused.
+    const email = String(p?.email || "").toLowerCase();
+    const deny = (status, code, message) => Object.assign(new AuthError(status, code, message), email ? { email } : {});
+    if (!p || p.email_verified !== true) throw deny(403, "unverified_email", "the Google account email is not verified");
+    if (config.auth.audience && p.aud !== config.auth.audience) throw deny(401, "wrong_audience", "token issued for another application");
     // `hd` is only present on Google Workspace accounts: no hd = no organisation = no entry.
     const hd = String(p.hd || "").toLowerCase();
-    if (!hd || !domains.has(hd)) throw new AuthError(403, "domain", `account outside the allowed domains (${[...domains].join(", ")})`);
-    const email = String(p.email || "").toLowerCase();
-    if (!email.endsWith(`@${hd}`)) throw new AuthError(403, "domain", "email and hd claims disagree");
+    if (!hd || !domains.has(hd)) throw deny(403, "domain", `account outside the allowed domains (${[...domains].join(", ")})`);
+    if (!email.endsWith(`@${hd}`)) throw deny(403, "domain", "email and hd claims disagree");
     const role = resolveRole(config, email);
-    if (!role) throw new AuthError(403, "no_role", `${email} has no role in console.config.json`);
+    if (!role) throw deny(403, "no_role", `${email} has no role in console.config.json`);
     return { email, role, sub: p.sub ?? null, hd };
   }
 
@@ -52,7 +54,7 @@ export function createAuth({ config, verify }) {
       next();
     } catch (err) {
       if (!(err instanceof AuthError)) return next(err);
-      res.status(err.status).json({ ok: false, error: err.message, code: err.code });
+      res.status(err.status).json({ ok: false, error: err.message, code: err.code, ...(err.email ? { email: err.email } : {}) });
     }
     };
   };
