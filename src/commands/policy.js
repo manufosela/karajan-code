@@ -12,7 +12,8 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
-import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
+import { loadExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
+import { buildPolicyReport } from "../policy/report.js";
 import { verifyDecisionChain } from "@karajan-family/governance";
 
 const execFileAsync = promisify(execFile);
@@ -121,6 +122,39 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
       logger.error?.(`policy grant: ${err.message}`);
       return 1;
     }
+  }
+
+  // PL-E (KJC-TSK-0767): el informe — evidencia de proceso determinista
+  // sobre los dos jsonl. Cadena rota = exit 1: un informe sobre un log
+  // manipulado no es un informe. Todo lo demás es informativo (exit 0).
+  if (action === "report") {
+    let decisionLines = [];
+    try {
+      decisionLines = readFileSync(join(projectDir, ".karajan", "policy-decisions.jsonl"), "utf8").split("\n").filter((l) => l.trim());
+    } catch { /* sin decisiones aún: el informe lo dice con ceros */ }
+    const exc = loadExceptionRecords(projectDir);
+    const soonDays = Number(flags.soon ?? 7);
+    const report = buildPolicyReport({ decisionLines, exceptionRecords: exc.records, policy, soonDays: Number.isFinite(soonDays) ? soonDays : 7 });
+    if (flags.json) {
+      logger.info?.(JSON.stringify({ ...report, exceptions_discarded: exc.discarded }));
+      return report.chain.ok ? 0 : 1;
+    }
+    const { chain, decisions: d, rules, grants: g } = report;
+    if (chain.ok) logger.info?.(`✓ decision log: cadena íntegra (${chain.length} decisiones)`);
+    else logger.error?.(`✗ decision log: cadena rota en la entrada ${chain.at} (${chain.reason}) — el log ha sido manipulado`);
+    if (d.discarded > 0 || exc.discarded > 0) logger.warn?.(`⚠ líneas corruptas descartadas: ${d.discarded} en decisiones, ${exc.discarded} en excepciones`);
+    const cps = Object.entries(d.chokepoints).map(([k, v]) => `${k} ${v}`).join(" · ") || "ninguno";
+    logger.info?.(`decisiones: allow ${d.allow} · deny ${d.deny} · exempt ${d.exempt} · abiertas ${d.open} (chokepoints: ${cps})`);
+    logger.info?.(rules.length > 0 ? "reglas (ordenadas por fricción):" : "reglas: ninguna ha avisado ni denegado todavía");
+    for (const r of rules) {
+      const meta = [r.enforcement && `enforcement=${r.enforcement}`, r.class && `class=${r.class}`].filter(Boolean).join(" ");
+      logger.info?.(`  [${r.rule_id}] ${meta} — warn ${r.warns} · deny ${r.denies} · exempt ${r.exempts} · abiertas ${r.open}`);
+    }
+    logger.info?.(`concesiones: vivas ${g.alive.length} (próximas a vencer ${g.soon.length}) · vencidas ${g.expired.length} · puntuales ${g.point}`);
+    for (const e of g.alive) logger.info?.(`  [${e.rule_id}] hasta ${e.expiresAt} — ${e.who?.git ?? "?"}: ${e.justification ?? "sin justificación"}`);
+    logger.info?.(report.signals.length > 0 ? "señales:" : "señales: ninguna");
+    for (const s of report.signals) logger.warn?.(`  ⚠ ${s}`);
+    return chain.ok ? 0 : 1;
   }
 
   if (action === "eval") {

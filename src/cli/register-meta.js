@@ -5,6 +5,7 @@ import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { startCommand } from "../commands/start.js";
 import { identityCommand } from "../commands/identity.js";
+import { policyCommand } from "../commands/policy.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
@@ -320,7 +321,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--strict", "Exit 2 si deny")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-eval", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "eval", config, flags });
       });
     });
@@ -331,7 +331,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--reason <text>", "Justificación escrita en el momento")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-grant", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "grant", config, flags });
       });
     });
@@ -348,8 +347,16 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Verifica la cadena del decision log y sella su head-hash en .karajan/policy-anchor.json (trackeado) — anclaje temporal en la historia de git, GOV-C2")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-anchor", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "anchor", config, flags });
+      });
+    });
+  policyCmd.command("report")
+    .description("Informe determinista del decision log y las concesiones: avisos/denegaciones/exenciones por regla, denegaciones abiertas, concesiones vivas/vencidas/renovadas y señales — cadena rota = exit 1 (PL-E)")
+    .option("--soon <days>", "Días para considerar una concesión 'próxima a vencer'", "7")
+    .option("--json", "Machine-readable")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "policy-report", flags, async ({ config }) => {
+        process.exitCode = await policyCommand({ action: "report", config, flags });
       });
     });
   policyCmd.command("check")
@@ -360,7 +367,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--json", "Machine-readable")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-check", flags, async ({ config }) => {
-        const { policyCommand } = await import("../commands/policy.js");
         process.exitCode = await policyCommand({ action: "check", config, flags });
       });
     });

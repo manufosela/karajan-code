@@ -24,13 +24,23 @@ function defaultIdentity(projectDir) {
  * @returns {{standing: object[], discarded: number}}
  */
 export function loadStandingExceptions(projectDir) {
+  const { records, discarded } = loadExceptionRecords(projectDir);
+  return { standing: records.filter((rec) => rec.scopeKind === "permanente"), discarded };
+}
+
+/**
+ * TODOS los registros del jsonl (permanentes y puntuales) con el mismo parse
+ * tolerante — el informe (PL-E) cuenta también las puntuales.
+ * @returns {{records: object[], discarded: number}}
+ */
+export function loadExceptionRecords(projectDir) {
   let raw;
   try {
     raw = readFileSync(join(projectDir, ".karajan", "policy-exceptions.jsonl"), "utf8");
   } catch {
-    return { standing: [], discarded: 0 };
+    return { records: [], discarded: 0 };
   }
-  const standing = [];
+  const records = [];
   let discarded = 0;
   for (const line of raw.split("\n")) {
     if (!line.trim()) continue;
@@ -39,12 +49,12 @@ export function loadStandingExceptions(projectDir) {
       // JSON válido pero no-objeto (null, número…) es tan corrupto como el
       // que no parsea: se descarta contando (catch de codex, explícito).
       if (typeof rec !== "object" || rec === null) discarded += 1;
-      else if (rec.scopeKind === "permanente") standing.push(rec);
+      else records.push(rec);
     } catch {
       discarded += 1;
     }
   }
-  return { standing, discarded };
+  return { records, discarded };
 }
 
 function defaultAppend(projectDir, line) {

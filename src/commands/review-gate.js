@@ -289,8 +289,10 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     console.log(res.ok
       ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
       : `✗ ${res.reason}`);
-    // GOV-C: el allow del chokepoint de COMMIT es evidencia — se sella.
-    if (res.ok) seal("allow");
+    // GOV-C: el allow del chokepoint de COMMIT es evidencia — se sella. PL-E
+    // (KJC-TSK-0767): con las reglas que AVISARON, para que "nace avisando y
+    // gana dientes" se decida con datos (kj policy report), no a ciegas.
+    if (res.ok) seal("allow", gate.warns.length > 0 ? { warn_rule_ids: gate.warns.map((w) => w.rule_id) } : {});
     process.exitCode = res.ok ? 0 : 1;
     return res;
   }

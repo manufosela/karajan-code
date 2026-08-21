@@ -46,18 +46,23 @@ function tallyRules(records, policy, lastResolved) {
     if (!rules.has(id)) rules.set(id, { rule_id: id, ...ruleMeta(policy, id), warns: 0, denies: 0, exempts: 0, open: 0 });
     return rules.get(id);
   };
+  // Un sello lleva un rule_id por FICHERO violador: se cuentan decisiones
+  // por regla, no ficheros — de ahí el Set por entrada.
+  const ids = (list) => new Set(list ?? []);
   records.forEach((rec, i) => {
-    for (const id of rec.warn_rule_ids ?? []) row(id).warns += 1;
-    if (rec.decision === "deny") for (const id of rec.rule_ids ?? []) { row(id).denies += 1; if (i > lastResolved) row(id).open += 1; }
-    if (rec.decision === "exempt") for (const id of rec.rule_ids ?? []) row(id).exempts += 1;
+    for (const id of ids(rec.warn_rule_ids)) row(id).warns += 1;
+    if (rec.decision === "deny") for (const id of ids(rec.rule_ids)) { row(id).denies += 1; if (i > lastResolved) row(id).open += 1; }
+    if (rec.decision === "exempt") for (const id of ids(rec.rule_ids)) row(id).exempts += 1;
   });
   return [...rules.values()].toSorted((a, b) => (b.denies + b.warns) - (a.denies + a.warns));
 }
 
 function tallyGrants(exceptionRecords, now, soonDays) {
   const perm = exceptionRecords.filter((e) => e?.scopeKind === "permanente");
-  const alive = perm.filter((e) => Date.parse(e.expiresAt) > now.getTime());
-  const expired = perm.filter((e) => !(Date.parse(e.expiresAt) > now.getTime()));
+  // Una caducidad ilegible (NaN) NO está viva: la excepción falla cerrada.
+  const alive = [];
+  const expired = [];
+  for (const e of perm) (Date.parse(e.expiresAt) > now.getTime() ? alive : expired).push(e);
   const soon = alive.filter((e) => Date.parse(e.expiresAt) - now.getTime() <= soonDays * DAY_MS);
   const counts = Map.groupBy(perm, (e) => e.rule_id);
   const renewals = [...counts].filter(([, v]) => v.length >= 2).map(([rule_id, v]) => ({ rule_id, count: v.length }));
