@@ -28,11 +28,20 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe("GET /api/governance", () => {
-  it("400 without dir; 404 when the directory is not a karajan project", async () => {
-    expect((await request(app).get("/api/governance")).status).toBe(400);
+  it("without dir the board's own project (KJ_PROJECT_DIR) is used; a non-karajan directory is ok:false with the dir (data, not 404)", async () => {
+    // Started from a package inside the project: climbs to the nearest .karajan/.
+    fs.mkdirSync(path.join(dir, "packages", "x"), { recursive: true });
+    process.env.KJ_PROJECT_DIR = path.join(dir, "packages", "x");
+    kjSays(REPORT);
+    const own = await request(app).get("/api/governance");
+    delete process.env.KJ_PROJECT_DIR;
+    expect(own.status).toBe(200);
+    expect(own.body.dir).toBe(dir);
     const res = await request(app).get("/api/governance").query({ dir: os.tmpdir() });
-    expect(res.status).toBe(404);
-    expect(runCommand).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: false, dir: os.tmpdir() });
+    expect(res.body.error).toMatch(/not a karajan project/);
+    expect(runCommand).toHaveBeenCalledTimes(1);
   });
 
   it("returns policy rules, the kj report, anchor state and declared identity", async () => {

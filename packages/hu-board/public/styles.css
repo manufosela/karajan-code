@@ -826,6 +826,24 @@ a:hover {
 }
 
 /* ---- Empty State ---- */
+/* GUI-B (KJC-TSK-0772) — governance view */
+.gov-dir { display: flex; gap: 0.5rem; align-items: center; }
+.gov-dir__input { min-width: 18rem; padding: 0.3rem 0.5rem; font-family: inherit; }
+.gov-btn { padding: 0.3rem 0.75rem; cursor: pointer; }
+.gov-note { margin: 0.5rem 0; opacity: 0.85; }
+.gov-note--warn { color: #d9a400; }
+.gov-red { color: #e5484d; }
+.gov-small { font-size: 1.1rem; line-height: 1.4; }
+.gov-scroll { overflow-x: auto; max-width: 100%; }
+.gov-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.gov-table th, .gov-table td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid rgba(128, 128, 128, 0.25); white-space: nowrap; }
+.gov-badge { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.75rem; border: 1px solid currentColor; }
+.gov-badge--deny { color: #e5484d; }
+.gov-badge--warn { color: #d9a400; }
+.gov-badge--security { color: #b44dff; }
+.gov-row--soon td { background: rgba(217, 164, 0, 0.12); }
+.gov-list { margin: 0.5rem 0 1rem 1.25rem; }
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
