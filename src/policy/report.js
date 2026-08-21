@@ -46,10 +46,13 @@ function tallyRules(records, policy, lastResolved) {
     if (!rules.has(id)) rules.set(id, { rule_id: id, ...ruleMeta(policy, id), warns: 0, denies: 0, exempts: 0, open: 0 });
     return rules.get(id);
   };
+  // Un sello lleva un rule_id por FICHERO violador: se cuentan decisiones
+  // por regla, no ficheros — de ahí el Set por entrada.
+  const ids = (list) => new Set(list ?? []);
   records.forEach((rec, i) => {
-    for (const id of rec.warn_rule_ids ?? []) row(id).warns += 1;
-    if (rec.decision === "deny") for (const id of rec.rule_ids ?? []) { row(id).denies += 1; if (i > lastResolved) row(id).open += 1; }
-    if (rec.decision === "exempt") for (const id of rec.rule_ids ?? []) row(id).exempts += 1;
+    for (const id of ids(rec.warn_rule_ids)) row(id).warns += 1;
+    if (rec.decision === "deny") for (const id of ids(rec.rule_ids)) { row(id).denies += 1; if (i > lastResolved) row(id).open += 1; }
+    if (rec.decision === "exempt") for (const id of ids(rec.rule_ids)) row(id).exempts += 1;
   });
   return [...rules.values()].toSorted((a, b) => (b.denies + b.warns) - (a.denies + a.warns));
 }

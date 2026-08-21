@@ -58,12 +58,12 @@ describe("buildPolicyReport — decisiones", () => {
     expect(by["roles.coder.write.deny"].open).toBe(0);
   });
 
-  it("denegaciones abiertas = denies posteriores al último allow/exempt (el log acaba en rechazo)", () => {
+  it("denegaciones abiertas = denies posteriores al último allow/exempt; un rule_id repetido en la misma entrada (un fichero por violación) cuenta UNA decisión", () => {
     const lines = chain([
       { decision: "deny", rule_ids: ["r1"] },
       { decision: "allow", chokepoint: "commit" },
       { decision: "deny", rule_ids: ["r1"] },
-      { decision: "deny", rule_ids: ["r1", "r2"] },
+      { decision: "deny", rule_ids: ["r1", "r1", "r2"] },
     ]);
     const r = buildPolicyReport({ decisionLines: lines, now: NOW });
     const by = Object.fromEntries(r.rules.map((x) => [x.rule_id, x]));
