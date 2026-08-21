@@ -333,11 +333,36 @@ process.stdin.on("end", () => {
         if (tok === name + "=1") found = true;
       }
       if (!found) return false;
-      for (const c of CMD_TEXT) {
-        if (c === ";" || c === "|" || c === "&" || c === ESC_NL || c === ESC_BT) return false;
-        if (c === "$" || c === "(" || c === ")") return false;
+      // KJC-BUG-0147: lo que va ENTRE COMILLAS no encadena comandos — un
+      // mensaje "fix(x): ... (KJC-TSK-1)" es un comando simple. Dentro de
+      // comillas dobles $ y backtick siguen expandiendo (se rechazan); en
+      // comillas simples todo es literal. Y si el escape esta pero se ignora,
+      // SE DICE: un escape ignorado en silencio era el bug.
+      const bad = escSimple();
+      if (bad === null) return true;
+      if (!escNoted.has(name)) {
+        escNoted.add(name);
+        console.error("kj sentinel: " + name + "=1 presente pero IGNORADO — el escape solo vale en un comando simple y este contiene " + JSON.stringify(bad) + " fuera de comillas simples (sin ; | & $ ( ) backtick ni salto de linea: parte el comando o usa -F fichero)");
       }
-      return true;
+      return false;
+    };
+    const escNoted = new Set();
+    const escSimple = () => {
+      let q = null;
+      for (let i = 0; i < CMD_TEXT.length; i += 1) {
+        const c = CMD_TEXT[i];
+        if (q === "'") { if (c === "'") q = null; continue; }
+        if (q === '"') {
+          if (c === '"') q = null;
+          else if (c === "$" || c === ESC_BT) return c;
+          else if (c === "\\\\") i += 1;
+          continue;
+        }
+        if (c === "\\\\") { i += 1; continue; }
+        if (c === "'" || c === '"') { q = c; continue; }
+        if (c === ";" || c === "|" || c === "&" || c === ESC_NL || c === ESC_BT || c === "$" || c === "(" || c === ")") return c;
+      }
+      return q === null ? null : "comilla sin cerrar";
     };
     // IDN-B (KJC-TSK-0763, ADR 0005): identity lock — gh and mutating git never
     // run under an account other than the one THIS CLONE declared (the incident:
