@@ -9,6 +9,37 @@ import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { runCommand } from "../utils/process.js";
 import { loadPrivacyList, scanPaths } from "../privacy/scan.js";
+import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
+
+// KJC-TSK-0769 — the effect boundary: what ships is re-evaluated against the
+// policy IN FORCE now, not the one each PR was merged under. Artifact rules
+// only: diff-threshold invariants are PR-scoped by definition — skipped, and
+// said — so no line metric is needed (without a tag, the whole tree counts).
+async function policyRangeCheck(projectDir) {
+  const { policy, errors } = loadPolicy({ projectDir });
+  if (errors.length > 0) return { name: "policy", ok: false, detail: `policy.yml invalid — ${errors[0]}` };
+  const described = await runCommand("git", ["-C", projectDir, "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"]);
+  const tag = described.exitCode === 0 ? described.stdout.trim() : null;
+  const scope = tag ? `${tag}..HEAD` : "whole history (no previous tag)";
+  const prScoped = new Set((policy.invariants ?? []).filter((i) => i.kind === "diff-threshold").map((i) => i.id));
+  try {
+    const listed = await runCommand("git", tag
+      ? ["-C", projectDir, "diff", `${tag}..HEAD`, "--name-only"]
+      : ["-C", projectDir, "ls-tree", "-r", "--name-only", "HEAD"]);
+    if (listed.exitCode !== 0) throw new Error((listed.stderr || "git failed").trim());
+    const files = listed.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
+    const violations = checkStagedDiff(policy, { role: "coder", files, netLinesAdded: null }).filter((v) => !prScoped.has(v.rule_id));
+    const hard = violations.filter((v) => v.enforcement === "deny");
+    const skipped = prScoped.size > 0 ? `; ${prScoped.size} diff-threshold invariant(s) skipped (PR-scoped)` : "";
+    if (hard.length > 0) {
+      const list = hard.map((v) => `[${v.rule_id}]${v.file ? ` ${v.file}` : ""}`).join(", ");
+      return { name: "policy", ok: false, detail: `${hard.length} deny violation(s) in ${scope} against the current policy: ${list}` };
+    }
+    return { name: "policy", ok: true, detail: `${scope} clean against the current policy (${violations.length} warning(s))${skipped}` };
+  } catch (err) {
+    return { name: "policy", ok: false, detail: `could not evaluate ${scope}: ${err.message}` };
+  }
+}
 
 const semverCmp = (a, b) => {
   const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
@@ -96,7 +127,6 @@ async function declaredItems(projectDir, config, version) {
 export async function runReleaseCheck({ projectDir = process.cwd(), config = {} } = {}) {
   const { checks, version, pkg } = await genericChecks(projectDir);
   const pack = await packPrivacyCheck(projectDir, pkg);
-  if (pack) checks.push(pack);
-  checks.push(...await declaredItems(projectDir, config, version));
+  checks.push(...(pack ? [pack] : []), await policyRangeCheck(projectDir), ...await declaredItems(projectDir, config, version));
   return { ok: checks.every((c) => c.ok), version, checks };
 }
