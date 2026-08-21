@@ -96,10 +96,13 @@ const projectOf = (req) => {
   return existsSync(join(dir, ".karajan")) ? dir : null;
 };
 
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+
 async function runKj(res, dir, args) {
   try {
     const r = await runCommand("kj", args, { cwd: dir });
-    const output = `${r.stdout || ""}${r.stderr || ""}`.trim();
+    // kj logs with colours; the board shows text (ESC built by code: no control char in a regex literal).
+    const output = `${r.stdout || ""}${r.stderr || ""}`.replaceAll(ANSI, "").trim();
     if (r.exitCode === 127) return res.status(503).json({ ok: false, error: "kj not installed", installable: true });
     if (r.exitCode !== 0) return res.status(409).json({ ok: false, error: output || `kj exited ${r.exitCode}`, exitCode: r.exitCode });
     return res.json({ ok: true, output });
@@ -116,6 +119,16 @@ router.post("/grant", async (req, res) => {
   if (!rule || !until || !String(reason || "").trim()) return res.status(400).json({ ok: false, error: "rule, until (ISO) and reason are required — an exception without who/why/until is a hole" });
   if (!identityState(dir).declared) return res.status(409).json({ ok: false, error: "identity not declared for this clone — run kj identity set first (the grant must be attributable)" });
   return runKj(res, dir, ["policy", "grant", "--rule", String(rule), "--until", String(until), "--reason", String(reason).trim()]);
+});
+
+// Spoken rule: `kj policy add <text>` proposes the diff; ONLY apply:true adds
+// --yes. The engine validates the vocabulary; the human confirms in the board.
+router.post("/rule", async (req, res) => {
+  const dir = projectOf(req);
+  if (!dir) return res.status(404).json({ ok: false, error: "not a karajan project" });
+  const text = String(req.body?.text || "").trim();
+  if (!text) return res.status(400).json({ ok: false, error: "text is required — say the rule" });
+  return runKj(res, dir, ["policy", "add", text, ...(req.body?.apply === true ? ["--yes"] : [])]);
 });
 
 router.post("/anchor", async (req, res) => {

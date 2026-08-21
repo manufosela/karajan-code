@@ -845,6 +845,8 @@ a:hover {
 .gov-list { margin: 0.5rem 0 1rem 1.25rem; }
 .gov-grant { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.75rem 0; }
 .gov-grant select, .gov-grant input { padding: 0.3rem 0.5rem; font-family: inherit; }
+.gov-pre { white-space: pre-wrap; font-size: 0.85rem; margin: 0 0 1rem; max-height: 18rem; overflow: auto; }
+.gov-pre:empty { display: none; }
 
 .empty-state {
   text-align: center;
