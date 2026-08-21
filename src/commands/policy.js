@@ -14,6 +14,8 @@ import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
 import { loadExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { buildPolicyReport } from "../policy/report.js";
+import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
+import { readIdentity } from "../identity/store.js";
 import { verifyDecisionChain } from "@karajan-family/governance";
 
 const execFileAsync = promisify(execFile);
@@ -126,7 +128,7 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
 
   // PL-E (KJC-TSK-0767): el informe — evidencia de proceso determinista
   // sobre los dos jsonl. Cadena rota = exit 1: un informe sobre un log
-  // manipulado no es un informe. Todo lo demás es informativo (exit 0).
+  // manipulado no es un informe. El resto es informativo (exit 0).
   if (action === "report") {
     let decisionLines = [];
     try {
@@ -165,9 +167,54 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
       logger.error?.("policy eval: --input debe ser JSON válido");
       return 1;
     }
-    const verdict = evalToolCall(policy, { role: flags.role || "coder", tool: flags.tool, input, root: projectDir });
+    const role = flags.role || "coder";
+    const verdict = evalToolCall(policy, { role, tool: flags.tool, input, root: projectDir });
+    const strictDeny = verdict.decision === "deny" && Boolean(flags.strict);
+    // GOV-F (KJC-TSK-0768): el deny de tool-time (contrato --strict del
+    // Sentinel) entra en la MISMA cadena que las decisiones de commit — con
+    // el hash del tool_input como artefacto. Un sello fallido se dice ANTES
+    // del veredicto (la última línea de stdout sigue siendo el JSON que el
+    // Sentinel parsea) y el deny se mantiene: jamás un allow por fallo de registro.
+    if (strictDeny) {
+      try {
+        recordGateDecision(projectDir, {
+          decision: "deny", chokepoint: "tool", rule_ids: [verdict.rule_id], role, tool: flags.tool ?? null,
+          ...(verdict.class ? { class: verdict.class } : {}),
+          // El hash es del payload CRUDO recibido (--input tal cual), no de su
+          // re-serialización: el mismo JSON con otro orden o espacios es otro
+          // artefacto para la auditoría (catch de codex).
+          policy_hash: policyFileHash(projectDir), artifact_hash: createHash("sha256").update(String(flags.input ?? ""), "utf8").digest("hex"),
+        });
+      } catch (err) {
+        logger.error?.(`policy eval: deny NO sellado en el decision log (${err.message}) — el deny se mantiene`);
+      }
+    }
     logger.info?.(JSON.stringify(verdict));
-    return verdict.decision === "deny" && flags.strict ? 2 : 0;
+    return strictDeny ? 2 : 0;
+  }
+
+  // GOV-F (KJC-TSK-0768): un escape KJ_ALLOW_* usado en tool-time es una
+  // excepción consciente — se sella como exempt chokepoint=tool con la
+  // identidad DECLARADA del clon (identity.local.yml), para que el informe
+  // y el anchor la vean. Lo llama el Sentinel; cualquiera puede auditarlo.
+  if (action === "seal") {
+    if (!flags.escape) {
+      logger.error?.("policy seal: --escape <KJ_ALLOW_X> es obligatorio — un escape sin nombre no es auditable");
+      return 1;
+    }
+    try {
+      const who = readIdentity(projectDir);
+      const rec = recordGateDecision(projectDir, {
+        decision: "exempt", chokepoint: "tool", escape: flags.escape, tool: flags.tool ?? null,
+        who: who ? { gh: who.gh_user ?? null, git: who.git_email ?? null, grade: "declarada" } : null,
+        policy_hash: policyFileHash(projectDir),
+      });
+      logger.info?.(`✓ escape ${rec.escape} sellado (chokepoint tool${rec.tool ? `, ${rec.tool}` : ""})`);
+      return 0;
+    } catch (err) {
+      logger.error?.(`policy seal: ${err.message}`);
+      return 1;
+    }
   }
 
   // check — staged por defecto, base...head con --range (CI). Warn salvo
