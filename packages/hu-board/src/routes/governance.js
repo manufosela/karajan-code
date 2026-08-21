@@ -87,4 +87,41 @@ router.get("/", async (req, res) => {
   res.json({ ok: true, dir, policy: policySummary(dir), report, anchor: anchorState(dir, report.chain?.length ?? 0), identity: identityState(dir) });
 });
 
+// GUI-C (KJC-TSK-0773): actions go through the SAME CLI commands the
+// terminal uses — the inexemptable (security, defaults.*) is refused by kj
+// itself and its message travels back verbatim; nothing is re-implemented.
+const projectOf = (req) => {
+  const raw = (typeof req.body?.dir === "string" && req.body.dir.trim()) || nearestProject(process.env.KJ_PROJECT_DIR || process.cwd());
+  const dir = resolve(raw);
+  return existsSync(join(dir, ".karajan")) ? dir : null;
+};
+
+async function runKj(res, dir, args) {
+  try {
+    const r = await runCommand("kj", args, { cwd: dir });
+    const output = `${r.stdout || ""}${r.stderr || ""}`.trim();
+    if (r.exitCode === 127) return res.status(503).json({ ok: false, error: "kj not installed", installable: true });
+    if (r.exitCode !== 0) return res.status(409).json({ ok: false, error: output || `kj exited ${r.exitCode}`, exitCode: r.exitCode });
+    return res.json({ ok: true, output });
+  } catch (err) {
+    if (err?.code === "ENOENT") return res.status(503).json({ ok: false, error: "kj not installed", installable: true });
+    return res.status(500).json({ ok: false, error: String(err.message || err) });
+  }
+}
+
+router.post("/grant", async (req, res) => {
+  const dir = projectOf(req);
+  if (!dir) return res.status(404).json({ ok: false, error: "not a karajan project" });
+  const { rule, until, reason } = req.body || {};
+  if (!rule || !until || !String(reason || "").trim()) return res.status(400).json({ ok: false, error: "rule, until (ISO) and reason are required — an exception without who/why/until is a hole" });
+  if (!identityState(dir).declared) return res.status(409).json({ ok: false, error: "identity not declared for this clone — run kj identity set first (the grant must be attributable)" });
+  return runKj(res, dir, ["policy", "grant", "--rule", String(rule), "--until", String(until), "--reason", String(reason).trim()]);
+});
+
+router.post("/anchor", async (req, res) => {
+  const dir = projectOf(req);
+  if (!dir) return res.status(404).json({ ok: false, error: "not a karajan project" });
+  return runKj(res, dir, ["policy", "anchor"]);
+});
+
 export default router;

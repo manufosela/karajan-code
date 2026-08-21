@@ -17,7 +17,7 @@ async function renderGovernance() {
       return;
     }
     localStorage.setItem(GOV_DIR_KEY, data.dir);
-    app.innerHTML = govDirForm(data.dir) + govIdentity(data.identity) + govChain(data.report, data.anchor) + govRules(data.policy, data.report) + govGrants(data.report.grants) + govSignals(data.report.signals);
+    app.innerHTML = govDirForm(data.dir) + govIdentity(data.identity) + govChain(data.report, data.anchor) + govRules(data.policy, data.report) + govGrants(data.report.grants, data.policy) + govSignals(data.report.signals);
   } catch (err) {
     app.innerHTML = govDirForm(dir) + `<div class="empty-state"><div class="empty-state__title">Governance unavailable</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
   }
@@ -25,6 +25,36 @@ async function renderGovernance() {
 
 function govSetDir() {
   localStorage.setItem(GOV_DIR_KEY, document.getElementById('gov-dir').value.trim());
+  renderGovernance();
+}
+
+// GUI-C (KJC-TSK-0773): actions call the same CLI commands through the board.
+async function govPost(path, body) {
+  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: localStorage.getItem(GOV_DIR_KEY) || '', ...body }) });
+  const data = await res.json().catch(() => ({ ok: false, error: `API error: ${res.status}` }));
+  return data;
+}
+
+function govSay(text, warn) {
+  const el = document.getElementById('gov-msg');
+  if (el) { el.textContent = text; el.className = warn ? 'gov-note gov-note--warn' : 'gov-note'; }
+}
+
+async function govAnchor() {
+  const r = await govPost('/api/governance/anchor', {});
+  if (!r.ok) return govSay(r.error || 'anchor failed', true);
+  renderGovernance();
+}
+
+async function govGrant() {
+  const rule = document.getElementById('gov-grant-rule').value.trim();
+  const until = document.getElementById('gov-grant-until').value;
+  const reason = document.getElementById('gov-grant-reason').value.trim();
+  if (!rule || !until || !reason) return govSay('rule, until and reason are required — an exception without who/why/until is a hole', true);
+  const iso = new Date(`${until}T23:59:59Z`).toISOString();
+  if (!(await showConfirm(`Grant a standing exception to ${rule} until ${iso}?\n\n${reason}\n\nIt is recorded with this clone's declared identity and expires on its own.`, { title: 'Grant exception', okLabel: 'Grant' }))) return;
+  const r = await govPost('/api/governance/grant', { rule, until: iso, reason });
+  if (!r.ok) return govSay(r.error || 'grant refused', true);
   renderGovernance();
 }
 
@@ -42,9 +72,10 @@ function govChain(report, anchor) {
   const chain = report.chain.ok
     ? `<div class="stat-card__value stat-card__value--green">intact</div><div class="stat-card__label">chain · ${report.chain.length} decisions</div>`
     : `<div class="stat-card__value gov-red">BROKEN</div><div class="stat-card__label">at entry ${esc(String(report.chain.at))} — ${esc(report.chain.reason || '')}</div>`;
+  const anchorBtn = report.chain.ok && (anchor.stale || !anchor.sealed) ? ' <button class="gov-btn" onclick="govAnchor()">Anchor now</button>' : '';
   const anch = !anchor.sealed
-    ? `<div class="stat-card__value stat-card__value--yellow">none</div><div class="stat-card__label">anchor · run kj policy anchor</div>`
-    : `<div class="stat-card__value ${anchor.stale ? 'stat-card__value--yellow' : 'stat-card__value--green'}">${anchor.length}/${anchor.current}</div><div class="stat-card__label">anchored · ${anchor.stale ? 're-seal pending' : 'up to date'}</div>`;
+    ? `<div class="stat-card__value stat-card__value--yellow">none</div><div class="stat-card__label">anchor${anchorBtn}</div>`
+    : `<div class="stat-card__value ${anchor.stale ? 'stat-card__value--yellow' : 'stat-card__value--green'}">${anchor.length}/${anchor.current}</div><div class="stat-card__label">anchored · ${anchor.stale ? 're-seal pending' : 'up to date'}${anchorBtn}</div>`;
   const cps = Object.entries(d.chokepoints || {}).map(([k, v]) => `${esc(k)} ${v}`).join(' · ') || 'none';
   return `<div class="stats-grid">
     <div class="stat-card">${chain}</div><div class="stat-card">${anch}</div>
@@ -70,14 +101,19 @@ function govRules(policy, report) {
     <div class="gov-scroll"><table class="gov-table"><thead><tr><th>rule</th><th>enforcement</th><th>warn</th><th>deny</th><th>exempt</th><th>open</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
-function govGrants(g) {
+function govGrants(g, policy) {
   const soon = new Set((g.soon || []).map((e) => e.ts || e.expiresAt + e.rule_id));
   const row = (e) => `<tr class="${soon.has(e.ts || e.expiresAt + e.rule_id) ? 'gov-row--soon' : ''}"><td><code>${esc(e.rule_id)}</code></td><td>${esc(e.expiresAt || '')}</td><td>${esc((e.who && e.who.git) || '?')}</td><td>${esc(e.justification || '')}</td></tr>`;
   const alive = (g.alive || []).length
     ? `<div class="gov-scroll"><table class="gov-table"><thead><tr><th>rule</th><th>until</th><th>granted by</th><th>why</th></tr></thead><tbody>${g.alive.map(row).join('')}</tbody></table></div>`
     : '<p class="gov-note">No standing exception alive.</p>';
   const renewals = (g.renewals || []).map((r) => `<li class="gov-red"><code>${esc(r.rule_id)}</code> granted ${r.count} times — a renewed exception is the policy asking to change</li>`).join('');
-  return `<div class="section-header"><span class="section-header__title">Standing exceptions</span><span class="section-header__count">${(g.alive || []).length} alive · ${(g.soon || []).length} expiring · ${(g.expired || []).length} expired · ${g.point || 0} one-off</span></div>${alive}${renewals ? `<ul class="gov-list">${renewals}</ul>` : ''}`;
+  // Only non-security rules can be granted: the inexemptable never gets a form.
+  const grantable = (policy.rules || []).filter((r) => r.class !== 'security').map((r) => `<option value="${esc(r.rule_id)}">${esc(r.rule_id)}</option>`).join('');
+  const form = grantable
+    ? `<div class="gov-grant"><select id="gov-grant-rule" aria-label="Rule">${grantable}</select><input id="gov-grant-until" type="date" aria-label="Until"><input id="gov-grant-reason" class="gov-dir__input" placeholder="why, written now" aria-label="Reason"><button class="gov-btn" onclick="govGrant()">Grant until</button></div>`
+    : '<p class="gov-note">Nothing grantable: no declared non-security rule.</p>';
+  return `<div class="section-header"><span class="section-header__title">Standing exceptions</span><span class="section-header__count">${(g.alive || []).length} alive · ${(g.soon || []).length} expiring · ${(g.expired || []).length} expired · ${g.point || 0} one-off</span></div>${alive}${renewals ? `<ul class="gov-list">${renewals}</ul>` : ''}${form}<p id="gov-msg" class="gov-note"></p>`;
 }
 
 const govSignals = (signals) => `<div class="section-header"><span class="section-header__title">Signals</span></div>${(signals || []).length ? `<ul class="gov-list">${signals.map((s) => `<li>⚠ ${esc(s)}</li>`).join('')}</ul>` : '<p class="gov-note">None.</p>'}`;
