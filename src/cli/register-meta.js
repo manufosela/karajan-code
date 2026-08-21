@@ -350,6 +350,15 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await policyCommand({ action: "anchor", config, flags });
       });
     });
+  policyCmd.command("seal")
+    .description("Sella en el decision log un escape KJ_ALLOW_* usado en tool-time (exempt, chokepoint=tool, identidad declarada del clon) — lo invoca el Sentinel, GOV-F")
+    .requiredOption("--escape <name>", "Escape usado (p.ej. KJ_ALLOW_BOARD)")
+    .option("--tool <tool>", "Tool que lo usó (Bash, Edit…)")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "policy-seal", flags, async ({ config }) => {
+        process.exitCode = await policyCommand({ action: "seal", config, flags });
+      });
+    });
   policyCmd.command("report")
     .description("Informe determinista del decision log y las concesiones: avisos/denegaciones/exenciones por regla, denegaciones abiertas, concesiones vivas/vencidas/renovadas y señales — cadena rota = exit 1 (PL-E)")
     .option("--soon <days>", "Días para considerar una concesión 'próxima a vencer'", "7")

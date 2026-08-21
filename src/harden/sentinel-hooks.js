@@ -29,7 +29,7 @@ const LIB_BODY = `// kj sentinel shared lib (KJC-TSK-0714) — managed by \`kj h
 // Single source for every sentinel script: state, branch, classification,
 // violations, and escape recording.
 import { readFileSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
@@ -85,6 +85,18 @@ export const recordEscape = (sid, escape, tool) => {
   if (!s.escapes.includes(escape)) s.escapes.push(escape);
   (state.escape_events ||= []).push({ escape, tool, sid, ts: Date.now() });
   save(state);
+  // GOV-F (KJC-TSK-0768): el escape es una excepcion consciente — entra en el
+  // decision log hash-encadenado (kj policy seal), no solo en este estado.
+  // Best-effort CON aviso: fail-closed aqui encerraria la sesion justo cuando
+  // kj no carga, que es cuando mas se usa el escape (restaurar con git).
+  try {
+    const args = ["policy", "seal", "--escape", escape];
+    if (tool) args.push("--tool", String(tool));
+    const r = spawnSync("kj", args, { cwd: ROOT, encoding: "utf8" });
+    if (r.error || r.status !== 0) console.error("kj sentinel: escape " + escape + " usado pero NO sellado en el decision log (kj policy seal " + (r.error ? r.error.message : "exit " + r.status) + ") — revisa kj; el escape queda solo en sentinel-state.json");
+  } catch (e) {
+    console.error("kj sentinel: escape " + escape + " usado pero NO sellado en el decision log: " + e.message);
+  }
 };
 `;
 
