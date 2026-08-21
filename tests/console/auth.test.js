@@ -37,7 +37,9 @@ describe("authenticate", () => {
     expect((await fail(tok({ email_verified: false }))).code).toBe("unverified_email");
     expect((await fail(tok({ hd: undefined }))).code).toBe("domain"); // gmail account, no organisation
     expect((await fail(tok({ hd: "other.org", email: "x@other.org" }))).code).toBe("domain");
-    expect((await fail(tok({ email: "x@other.org" }))).code).toBe("domain"); // claims disagree
+    const disagree = await fail(tok({ email: "x@other.org" })); // claims disagree
+    expect(disagree.code).toBe("domain");
+    expect(disagree.email).toBe("x@other.org"); // the refusal carries WHO was refused, for the audit trail
     const strict = createAuth({ config: parseConsoleConfig({ ...config, roles: { admins: ["admin@example.com"] } }), verify });
     await expect(strict.authenticate(tok())).rejects.toMatchObject({ status: 403, code: "no_role" });
   });
