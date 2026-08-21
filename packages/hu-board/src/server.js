@@ -10,6 +10,7 @@ import apiRoutes from './routes/api.js';
 import pipelineRoutes from './routes/pipeline.js';
 import ragRoutes from './routes/rag.js';
 import wikiRoutes from './routes/wiki.js';
+import governanceRoutes from './routes/governance.js';
 import { authMiddleware } from './auth.js';
 import { getOrCreateToken, getTokenPath } from './token-store.js';
 import { reapZombieSessions } from './zombie-reaper.js';
@@ -301,6 +302,7 @@ async function main() {
   app.use('/api/pipeline', authMiddleware(), pipelineRoutes);
   app.use('/api/rag', authMiddleware(), ragRoutes);
   app.use('/api/wiki', authMiddleware(), wikiRoutes);
+  app.use('/api/governance', authMiddleware(), governanceRoutes);
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {
