@@ -198,6 +198,32 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     // La via env de siempre sigue valiendo para cadenas.
     expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "npm publish && echo ok" } }, { ...env, KJ_ALLOW_RELEASE: "1" }).status).toBe(0);
   });
+
+  it("KJC-BUG-0147: lo entrecomillado no encadena — parentesis y pipes dentro de comillas son un comando simple; y un escape ignorado SE DICE", () => {
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\necho '{"ok":false,"checks":[{"ok":false,"name":"landing","detail":"x"}]}'\nexit 1\n`, { mode: 0o755 });
+    const env = { PATH: `${bin}:${process.env.PATH}` };
+    const pub = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
+    // Hallado en vivo: todo mensaje Conventional Commit lleva parentesis — el escape se ignoraba en silencio.
+    const quoted = pub('KJ_ALLOW_RELEASE=1 npm publish --tag "fix(x): y (KJC-TSK-1) | z"');
+    expect(quoted.stderr).not.toMatch(/IGNORADO/);
+    expect(quoted.status).toBe(0);
+    expect(pub("KJ_ALLOW_RELEASE=1 npm publish --tag 'a; b (c) | d'").status).toBe(0);
+    // Dentro de comillas DOBLES $ y backtick siguen expandiendo: no es simple.
+    const dq = pub('KJ_ALLOW_RELEASE=1 npm publish --tag "v$HOME"');
+    expect(dq.status).toBe(2);
+    expect(dq.stderr).toMatch(/KJ_ALLOW_RELEASE=1 presente pero IGNORADO/);
+    // Fuera de comillas, un pipe sigue sin ser simple — y ahora se dice por que.
+    const piped = pub("KJ_ALLOW_RELEASE=1 npm publish | tail -1");
+    expect(piped.status).toBe(2);
+    expect(piped.stderr).toMatch(/IGNORADO[^\n]*"\|"/);
+    // Separadores escapados con barra son literales (la plantilla genera UNA barra: catch de codex, probado aqui).
+    expect(pub("KJ_ALLOW_RELEASE=1 npm publish --tag a\\;b").status).toBe(0);
+    expect(pub('KJ_ALLOW_RELEASE=1 npm publish --tag "a\\$b"').status).toBe(0);
+    // Comilla sin cerrar = no verificable.
+    expect(pub('KJ_ALLOW_RELEASE=1 npm publish --tag "abc').status).toBe(2);
+  });
 });
 
 describe("self-protection + audited escapes (SEN-C)", () => {
