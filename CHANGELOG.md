@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`kj policy report` — the data behind "a rule is born warning and gains teeth" and "giving up leaves a trace"** (PL-E, KJC-TSK-0767, epic KJC-PCS-0074): two claims the policy layer made with nothing behind them — warns were never sealed and nobody counted denies, grants or renewals. Now the commit allow seals the rules that WARNED (`warn_rule_ids`), and a deterministic report (no I/O beyond the two jsonl, no LLM — evidence must be reproducible in CI) answers per rule: warns, denies, exempts and OPEN denials (denies after the last allow/exempt — the log ends in rejection; declared heuristic, the log carries no branch or author), with `enforcement`/`class` resolved from the loaded policy; grants alive / expired / expiring (`--soon <days>`), point exceptions, and renewals (≥2 permanents on one rule, expired included — that IS the sediment); and signals: a rule granted N times is the policy asking for change, a warn rule that warned ≥5 times and never blocked asks for a decision (promote or retire), open denials, grants about to expire. `--json` for CI or dashboards; a broken hash chain is exit 1 — a report over a tampered log is not a report.
+
 ## [4.21.0] - 2026-08-21
 
 ### Added

@@ -352,6 +352,16 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await policyCommand({ action: "anchor", config, flags });
       });
     });
+  policyCmd.command("report")
+    .description("Informe determinista del decision log y las concesiones: avisos/denegaciones/exenciones por regla, denegaciones abiertas, concesiones vivas/vencidas/renovadas y señales — cadena rota = exit 1 (PL-E)")
+    .option("--soon <days>", "Días para considerar una concesión 'próxima a vencer'", "7")
+    .option("--json", "Machine-readable")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "policy-report", flags, async ({ config }) => {
+        const { policyCommand } = await import("../commands/policy.js");
+        process.exitCode = await policyCommand({ action: "report", config, flags });
+      });
+    });
   policyCmd.command("check")
     .description("Comprueba el diff (staged, o base...head con --range) contra la policy — warn por defecto; --strict devuelve exit 2 si hay violación enforcement=deny (tier C, merge-blocking)")
     .option("--role <role>", "Rol del agente", "coder")

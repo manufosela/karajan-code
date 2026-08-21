@@ -19,6 +19,7 @@ vi.mock("../../src/review/card-first.js", async (orig) => ({
 }));
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { saveVerdict } from "../../src/review/verdict-store.js";
 
 let dir;
 const cwd0 = process.cwd();
@@ -92,6 +93,21 @@ describe("policy gate en kj review", () => {
     const r = await reviewGateCommand({ config: { projectDir: dir }, flags: { staged: true } });
     spy.mockRestore();
     expect(r).toMatchObject({ verdict: "rejected", reviewer: "policy" });
+  });
+
+  // PL-E (KJC-TSK-0767): los avisos se sellan en el allow del commit — son el
+  // dato con el que una regla warn gana dientes (kj policy report).
+  it("el allow de --check sella warn_rule_ids con las reglas que avisaron", async () => {
+    fs.writeFileSync(path.join(dir, ".karajan", "policy.yml"), "version: 1\nroles:\n  coder:\n    write: { deny: ['**/*.tmp'] }\n");
+    stage("scratch.tmp");
+    const staged = execFileSync("git", ["-C", dir, "diff", "--cached"], { encoding: "utf8" });
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [] });
+    const spy = silence();
+    const r = await reviewGateCommand({ config: { projectDir: dir }, flags: { check: true } });
+    spy.mockRestore();
+    expect(r.ok).toBe(true);
+    const last = fs.readFileSync(path.join(dir, ".karajan", "policy-decisions.jsonl"), "utf8").trim().split("\n").at(-1);
+    expect(JSON.parse(last)).toMatchObject({ decision: "allow", chokepoint: "commit", warn_rule_ids: ["roles.coder.write.deny"] });
   });
 
   it("policy invalida = gate cerrado, jamas un pase silencioso", async () => {

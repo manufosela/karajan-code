@@ -85,6 +85,8 @@ With a declared `.karajan/policy.yml`, the policy layer enforces at three tiers,
 
 Tier B is the guarantee floor — hosts without hooks lose A, never B; C re-verifies both. Security-class rules and consumer defaults are non-exemptable at every tier: no escape, no arbitration, no grant.
 
+Every chokepoint decision lands in a hash-chained log (`kj policy anchor` seals its head in git), and `kj policy report` turns that log into evidence of process: per rule, how often it warned, denied or was exempted, which denials are still open, which grants are alive, expired or renewed — so a rule "gains teeth" on data, not on a hunch, and a renewed exception is read for what it is: the policy asking to change.
+
 ## Headless mode
 
 The classic multiagent pipeline lives on for CI and automation: `kj run "<task>"` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. Agents and CI pass `--non-interactive` (or `KJ_NON_INTERACTIVE=1`): safe gates auto-answer, FAIL findings stop the run with a real exit code. `kj advanced` lists the full surface. [Headless mode docs](https://karajancode.com/docs/v4/headless/).
