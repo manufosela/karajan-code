@@ -42,6 +42,18 @@ describe("POST /api/governance/grant and /anchor (GUI-C)", () => {
     expect(refused.body.error).toMatch(/inexcepcionable/);
   });
 
+  it("spoken rule: propose runs kj policy add <text>; apply adds --yes; empty text is 400", async () => {
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "[2m22:22[0m [36m[info][0m diff:\n+    write: { deny: ['**/*.env'] }\n", stderr: "" });
+    const proposed = await request(app).post("/api/governance/rule").send({ dir, text: "the coder never writes .env files" });
+    expect(proposed.status).toBe(200);
+    expect(proposed.body.output).toContain("*.env");
+    expect(proposed.body.output).not.toContain(""); // kj's colours stripped
+    expect(runCommand).toHaveBeenCalledWith("kj", ["policy", "add", "the coder never writes .env files"], { cwd: dir });
+    await request(app).post("/api/governance/rule").send({ dir, text: "same", apply: true });
+    expect(runCommand).toHaveBeenLastCalledWith("kj", ["policy", "add", "same", "--yes"], { cwd: dir });
+    expect((await request(app).post("/api/governance/rule").send({ dir, text: "  " })).status).toBe(400);
+  });
+
   it("grant needs rule+until+reason (400) and a declared identity (409); anchor runs kj policy anchor", async () => {
     expect((await request(app).post("/api/governance/grant").send({ dir, rule: "r" })).status).toBe(400);
     expect((await request(app).post("/api/governance/grant").send({ dir, rule: "r", until: "2099-01-01T00:00:00Z", reason: "y" })).status).toBe(409);
