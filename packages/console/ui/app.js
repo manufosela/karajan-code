@@ -167,6 +167,87 @@ function memberRow(corpus, email, refresh) {
   return el("li", {}, el("span", {}, email), revoke, confirm);
 }
 
+// Operations: a Run button only when the person's role is one the operation names; the run's
+// status is polled until it settles. The audit trail (admins): the last entries and the chain verdict.
+const RANK = { reader: 1, operator: 2, admin: 3 };
+function renderOperations(cfg) {
+  if (!cfg.operations.length) return;
+  $("#operations-box").hidden = false;
+  $("#operations").replaceChildren(...cfg.operations.map((op) => operationRow(op)));
+}
+
+function operationRow(op) {
+  const status = el(
+    "span",
+    { className: "meta" },
+    op.available ? "" : "not available in this build"
+  );
+  const allowed = op.available && op.roles.some((r) => RANK[state.me.role] >= RANK[r]);
+  const run = el("button", { type: "button", className: "ghost", disabled: !allowed }, "Run");
+  run.addEventListener("click", async () => {
+    run.disabled = true;
+    status.textContent = "starting…";
+    try {
+      const out = await api(`/operations/${encodeURIComponent(op.id)}/dispatch`, {
+        method: "POST",
+        body: JSON.stringify({ inputs: {} }),
+      });
+      await followRun(out, status);
+    } catch (err) {
+      status.textContent = `refused: ${err.message}`;
+    } finally {
+      run.disabled = false;
+    }
+  });
+  return el(
+    "li",
+    {},
+    el("strong", {}, op.id),
+    el("span", { className: "meta" }, `needs ${op.roles.join(" or ")}`),
+    run,
+    status
+  );
+}
+
+async function followRun(out, status) {
+  const link = out.url
+    ? el("a", { href: out.url, target: "_blank", rel: "noopener" }, "open on GitHub")
+    : "";
+  const paint = (text) => status.replaceChildren(`${text} `, link);
+  paint(out.status ?? "dispatched");
+  const settled = (s) => s === "completed" || s === "pending";
+  let current = out;
+  for (let i = 0; i < 60 && !settled(current.status); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    current = await api(`/runs/${encodeURIComponent(out.runRef)}`);
+    paint(current.conclusion ? `${current.status} (${current.conclusion})` : current.status);
+  }
+}
+
+async function renderAudit() {
+  if (state.me.role !== "admin") return;
+  $("#audit-box").hidden = false;
+  const { chain, entries } = await api("/audit?limit=50");
+  $("#audit-chain").textContent = chain.ok
+    ? `Chain verified: ${chain.length} entries, nothing altered.`
+    : `CHAIN BROKEN at entry ${chain.at}: ${chain.reason}`;
+  $("#audit").replaceChildren(
+    ...entries
+      .toReversed()
+      .map((e) =>
+        el(
+          "tr",
+          { className: e.outcome === "ok" ? "" : "bad" },
+          el("td", {}, new Date(e.ts).toLocaleString()),
+          el("td", {}, e.who?.email ?? ""),
+          el("td", {}, e.action),
+          el("td", {}, e.target ?? ""),
+          el("td", {}, e.outcome)
+        )
+      )
+  );
+}
+
 async function signedIn() {
   try {
     const { identity } = await api("/me");
@@ -178,6 +259,10 @@ async function signedIn() {
     // A corpus that cannot be read is shown as such; it never signs the person out.
     await renderCorpora(cfg).catch((err) =>
       notice(`Corpora could not be read: ${err.message}`, "error")
+    );
+    renderOperations(cfg);
+    await renderAudit().catch((err) =>
+      notice(`Audit trail could not be read: ${err.message}`, "error")
     );
   } catch (err) {
     signOut(false);
