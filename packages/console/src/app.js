@@ -9,7 +9,7 @@ import { createAuth, AuthError, ROLE_RANK } from "./auth.js";
 import { createAudit, sinkFromConfig, looksSecret } from "./audit.js";
 import { createRegistry, memoryAdapter } from "./adapters/registry.js";
 
-export const CONSOLE_VERSION = "0.2.0";
+export const CONSOLE_VERSION = "0.3.0";
 
 const UI_DIR = fileURLToPath(new URL("../ui/", import.meta.url));
 

@@ -3,7 +3,7 @@
 // API-only deployment can switch the page off.
 import { describe, it, expect } from "vitest";
 import request from "supertest";
-import { parseConsoleConfig, createConsoleApp } from "@karajan-family/console";
+import { parseConsoleConfig, createConsoleApp, CONSOLE_VERSION } from "@karajan-family/console";
 
 const base = { instance: { name: "atlas", allowedDomains: ["example.com"] }, roles: { admins: ["admin@example.com"] }, audit: { sink: "memory" } };
 const verify = async () => { throw new Error("never called here"); };
@@ -20,6 +20,15 @@ describe("console ui (C1-UI)", () => {
     expect(page.text).toContain('src="/app.js"');
     expect((await request(app).get("/api/status")).body.auth).toEqual({ provider: "google", clientId: "123.apps.googleusercontent.com", domains: ["example.com"] });
     expect((await request(app).get("/api/nope")).status).toBe(404); // the page never shadows the API's 404
+  });
+
+  // C1-IAP (KJC-TSK-0798): the page decides whether to load Google Sign-In from this, so status
+  // must say WHICH provider is in use — not only the client id.
+  it("status announces the provider, so the page knows not to ask for a sign-in that IAP already did", async () => {
+    const iap = parseConsoleConfig({ ...base, auth: { provider: "iap", audience: "/projects/123/locations/europe-west1/services/atlas-console" } });
+    const res = await request(createConsoleApp({ config: iap, verify })).get("/api/status");
+    expect(res.body.auth).toEqual({ provider: "iap", clientId: "/projects/123/locations/europe-west1/services/atlas-console", domains: ["example.com"] });
+    expect(res.body.version).toBe(CONSOLE_VERSION);
   });
 
   it("without an audience the page is told so (clientId null); ui:false keeps the process API-only", async () => {
