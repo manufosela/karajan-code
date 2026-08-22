@@ -16,6 +16,8 @@ describe("console ui (C1-UI)", () => {
     expect(page.headers["content-type"]).toMatch(/text\/html/);
     expect(page.text).toContain("Karajan Console");
     expect((await request(app).get("/styles.css")).headers["content-type"]).toMatch(/text\/css/);
+    expect((await request(app).get("/app.js")).headers["content-type"]).toMatch(/javascript/);
+    expect(page.text).toContain('src="/app.js"');
     expect((await request(app).get("/api/status")).body.auth).toEqual({ provider: "google", clientId: "123.apps.googleusercontent.com", domains: ["example.com"] });
     expect((await request(app).get("/api/nope")).status).toBe(404); // the page never shadows the API's 404
   });
