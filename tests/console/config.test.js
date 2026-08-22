@@ -27,6 +27,9 @@ describe("console.config.json v1", () => {
     expect(c.operations[0]).toMatchObject({ ref: "main", roles: ["operator"] });
     expect(c.configRepo.base).toBe("main");
     expect(c.roles.operators).toEqual([]);
+    // C2: the GitHub App ids live here; its private key never does.
+    expect(parseConsoleConfig({ ...base(), github: { appId: 123, installationId: "456" } }).github).toEqual({ appId: 123, installationId: "456" });
+    expect(problemsOf({ ...base(), github: { appId: 123, privateKey: "-----BEGIN" } }).join("\n")).toMatch(/github/);
   });
 
   it("fails loud, listing EVERY problem: unknown adapter or sink, missing domains, no admin, bad repo", () => {

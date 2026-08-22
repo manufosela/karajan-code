@@ -33,6 +33,8 @@ export const ConsoleConfigSchema = v.object({
   operations: v.optional(v.array(Operation), []),
   secrets: v.optional(v.array(Secret), []),
   configRepo: v.optional(ConfigRepo),
+  // GitHub App of the console (C2+): ids here, the private key from the environment — never in git.
+  github: v.optional(v.object({ appId: v.union([NonEmpty, v.number()]), installationId: v.union([NonEmpty, v.number()]) })),
   audit: Audit,
 });
 
