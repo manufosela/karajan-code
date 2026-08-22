@@ -41,7 +41,30 @@
           </p>
           <div id="access-lists"></div>
         </section>
-        <p class="hint">Operations and the audit trail open here in the next part.</p>
+        <section id="operations-box" hidden>
+          <h2>Operations</h2>
+          <p class="hint">
+            Each run is a workflow in the deployment repo, fired as the console's GitHub App and
+            sealed with who asked for it.
+          </p>
+          <ul class="cards" id="operations"></ul>
+        </section>
+        <section id="audit-box" hidden>
+          <h2>Audit trail</h2>
+          <p class="hint" id="audit-chain"></p>
+          <table class="trail">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Who</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>Outcome</th>
+              </tr>
+            </thead>
+            <tbody id="audit"></tbody>
+          </table>
+        </section>
       </section>
     </main>
     <script type="module" src="/app.js"></script>
