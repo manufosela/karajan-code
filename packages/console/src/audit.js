@@ -31,7 +31,8 @@ export function sinkFromConfig(audit, { auth } = {}) {
   throw new Error(`audit sink "${audit.sink}" is not known`);
 }
 
-const looksSecret = (obj, path = "") => {
+/** Path of the first key that looks like a secret, or null — the gate every detail passes before it is sealed. */
+export const looksSecret = (obj, path = "") => {
   if (!obj || typeof obj !== "object") return null;
   for (const [k, v] of Object.entries(obj)) {
     if (SECRET_KEY.test(k)) return `${path}${k}`;
