@@ -14,7 +14,8 @@ import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveReviewProfile } from "./profiles.js";
 import { parseMaybeJsonString } from "./parser.js";
 import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js";
-import { saveVerdict } from "./verdict-store.js";
+import { saveVerdict, diffHash } from "./verdict-store.js";
+import { reportUnparseableVerdict } from "./unparseable-verdict.js";
 import { detectWorkspace } from "./workspace.js";
 import { isQuotaExhausted, candidateStatus, pickQuotaFallback, formatCandidateMenu } from "./reviewer-fallback.js";
 
@@ -105,7 +106,8 @@ export async function runOneShotReview({
 
   const parsed = parseMaybeJsonString(result.output);
   if (!parsed || typeof parsed.approved !== "boolean") {
-    throw new Error(`reviewer ${activeReviewer} returned no parseable verdict`);
+    // KJC-BUG-0146: keep the answer. Throwing it away is what left eight occurrences undiagnosed.
+    throw new Error(await reportUnparseableVerdict({ projectDir, reviewer: activeReviewer, output: result.output, hash: diffHash(diff) }));
   }
 
   return saveVerdict(projectDir, diff, {
