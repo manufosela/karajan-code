@@ -43,4 +43,10 @@ Google ID tokens verified on the server: `email_verified`, `hd` ∈ `allowedDoma
 
 ## API (C1)
 
-`GET /api/status` (public, minimal) · `GET /api/me` · `GET /api/config` · `GET /api/corpora` · `GET|POST|DELETE /api/corpora/:id/access[/:email]` (admin) · `GET /api/audit` (admin). Operations, credentials, watch config and the playground arrive with C2–C5.
+`GET /api/status` (public, minimal) · `GET /api/me` · `GET /api/config` · `GET /api/corpora` · `GET|POST|DELETE /api/corpora/:id/access[/:email]` (admin) · `GET /api/audit` (admin). Credentials, watch config and the playground arrive with C3–C5.
+
+## Operations (C2)
+
+An operation is a `workflow_dispatch` run in the deployment repo, fired by the console as a **GitHub App installation** (short-lived token minted from an RS256 JWT — never a PAT). The instance brings the App: `github: { appId, installationId }` in the config and the private key in the environment, `CONSOLE_GITHUB_APP_KEY` (PEM, `\n` escapes honoured) or `CONSOLE_GITHUB_APP_KEY_FILE` — a key in the config is a validation error, and operations without a key stop the start. The App needs `actions: write` on the deployment repo (and `contents: read`).
+
+`GET /api/operations` (reader) · `POST /api/operations/:id/dispatch` `{ "inputs": { "corpus": "docs" } }` — only the roles the operation names (admin always qualifies); inputs are strings and go into the audit trail, so an input that looks like a secret is refused before any adapter sees it · `GET /api/runs/:ref` and `GET /api/runs/:ref/log` (reader; the ref URL-encoded, e.g. `github%3Aorg%2Fatlas%3A777`). When GitHub has not shown the run yet the ref is `github:<repo>:pending:<instant>` and its status is `pending` — the workflow page is the place to look.

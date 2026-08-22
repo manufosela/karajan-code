@@ -4,11 +4,11 @@
 // the public view of the config, the audit trail (admin). Operations come
 // with C1+. Every refusal is JSON; denied auth attempts are sealed.
 import express from "express";
-import { createAuth, AuthError } from "./auth.js";
-import { createAudit, sinkFromConfig } from "./audit.js";
+import { createAuth, AuthError, ROLE_RANK } from "./auth.js";
+import { createAudit, sinkFromConfig, looksSecret } from "./audit.js";
 import { createRegistry, memoryAdapter } from "./adapters/registry.js";
 
-export const CONSOLE_VERSION = "0.1.1";
+export const CONSOLE_VERSION = "0.2.0";
 
 export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth = null }) {
   const auth = createAuth({ config, verify });
@@ -103,6 +103,38 @@ export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth 
     const email = String(req.params.email).toLowerCase();
     const a = adapterFor(c, "revoke", res); if (!a) return;
     await act(req, res, "access.revoke", `corpus:${c.id}`, async () => ({ ...(await a.revoke(c, email)), audit: { principal: email } }));
+  });
+
+  // C2 (KJC-TSK-0778): operations are workflow runs — listed for readers, dispatched only by the roles the
+  // operation names (admin qualifies by rank), every dispatch sealed with its inputs; runs read by their ref.
+  const adapterOfRef = (ref) => (ref.startsWith("github:") ? "github-workflow" : ref.startsWith("memory:") ? "memory" : null);
+  const runOf = async (req, res, capability) => {
+    const ref = String(req.params.ref);
+    const name = adapterOfRef(ref);
+    if (!name) { res.status(400).json({ ok: false, error: `not a run ref "${ref}"` }); return null; }
+    try { return { ref, adapter: registry.demand(name, capability) }; } catch (err) { res.status(503).json({ ok: false, error: err.message }); return null; }
+  };
+  app.get("/api/operations", guard("reader"), (_req, res) => res.json({ ok: true, operations: config.operations.map(({ id, adapter, repo, workflow, ref, roles }) => ({ id, adapter, repo, workflow, ref, roles, available: !missing.includes(adapter) })) }));
+  app.post("/api/operations/:id/dispatch", guard("operator"), async (req, res) => {
+    const op = config.operations.find((x) => x.id === req.params.id);
+    if (!op) return res.status(404).json({ ok: false, error: `no such operation "${req.params.id}"` });
+    if (!op.roles.some((r) => ROLE_RANK[req.identity.role] >= ROLE_RANK[r])) return res.status(403).json({ ok: false, error: `operation "${op.id}" needs ${op.roles.join(" or ")}`, code: "forbidden", email: req.identity.email });
+    const inputs = req.body?.inputs ?? {};
+    const malformed = typeof inputs !== "object" || Array.isArray(inputs) || Object.keys(inputs).length > 20 || Object.values(inputs).some((x) => typeof x !== "string" || x.length > 1000);
+    if (malformed) return res.status(400).json({ ok: false, error: "inputs must be an object of at most 20 string values (1000 chars each at most)" });
+    // Inputs go into the trail, so an input that looks like a secret is refused HERE — before any adapter sees it.
+    const leak = looksSecret(inputs);
+    if (leak) return res.status(400).json({ ok: false, error: `inputs.${leak} looks like a secret — secrets never travel through the console` });
+    const a = adapterFor(op, "dispatch", res); if (!a) return;
+    await act(req, res, "operation.dispatch", `operation:${op.id}`, async () => ({ ...(await a.dispatch(op, inputs)), audit: { inputs } }));
+  });
+  app.get("/api/runs/:ref", guard("reader"), async (req, res) => {
+    const run = await runOf(req, res, "runStatus"); if (!run) return;
+    try { res.json({ ok: true, ...(await run.adapter.runStatus(run.ref)) }); } catch (err) { res.status(502).json({ ok: false, error: String(err?.message || err) }); }
+  });
+  app.get("/api/runs/:ref/log", guard("reader"), async (req, res) => {
+    const run = await runOf(req, res, "runLog"); if (!run) return;
+    try { res.json({ ok: true, runRef: run.ref, log: await run.adapter.runLog(run.ref) }); } catch (err) { res.status(502).json({ ok: false, error: String(err?.message || err) }); }
   });
 
   app.use("/api", (_req, res) => res.status(404).json({ ok: false, error: "no such endpoint" }));

@@ -6,6 +6,10 @@
 import { CONSOLE_VERSION, createConsoleApp, loadConsoleConfig } from "../src/index.js";
 import { createGoogleVerifier } from "../src/google-verifier.js";
 import { createCloudRunAdapter, createGoogleCloudAuth } from "../src/adapters/gcp-cloud-run.js";
+import { createGithubWorkflowAdapter, githubKeyFromEnv } from "../src/adapters/github-workflow.js";
+import { readFileSync } from "node:fs";
+
+const die = (message) => { console.error(`karajan-console: ${message}`); process.exit(1); };
 
 const args = process.argv.slice(2);
 const opt = (flag, fallback) => {
@@ -25,10 +29,17 @@ const needsGcp = config.corpora.some((c) => c.adapter === "gcp-cloud-run") || co
 const gcpAuth = !dryRun && needsGcp ? await createGoogleCloudAuth() : null;
 const adapters = {};
 if (gcpAuth && config.corpora.some((c) => c.adapter === "gcp-cloud-run")) adapters["gcp-cloud-run"] = createCloudRunAdapter({ auth: gcpAuth });
+// C2: operations need the console's GitHub App — ids in the config, the private key ONLY from the environment.
+if (!dryRun && config.operations.some((o) => o.adapter === "github-workflow")) {
+  if (!config.github) die("operations use github-workflow but console.config.json has no `github` ({ appId, installationId })");
+  const privateKey = githubKeyFromEnv() ?? (process.env.CONSOLE_GITHUB_APP_KEY_FILE ? readFileSync(process.env.CONSOLE_GITHUB_APP_KEY_FILE, "utf8") : null);
+  if (!privateKey) die("set CONSOLE_GITHUB_APP_KEY (PEM, \\n escapes honoured) or CONSOLE_GITHUB_APP_KEY_FILE — the GitHub App key never lives in the config");
+  adapters["github-workflow"] = createGithubWorkflowAdapter({ github: { ...config.github, privateKey } });
+}
 const verify = dryRun ? async () => { throw new Error("no verifier in dry run"); } : createGoogleVerifier();
 const app = createConsoleApp({ config, verify, adapters, gcpAuth, ...(dryRun && config.audit.sink === "gcs-jsonl" ? { sink: (await import("../src/audit.js")).memorySink() } : {}) });
 const port = Number(opt("--port", process.env.PORT || 8080));
-const PHASE = { "github-workflow": "C2", "gcp-secret-manager": "C3", "github-secret": "C3", "config-repo": "C4" };
+const PHASE = { "gcp-secret-manager": "C3", "github-secret": "C3", "config-repo": "C4" };
 const server = app.listen(port, () => {
   const { missing } = app.console;
   console.log(`karajan-console ${CONSOLE_VERSION} · ${config.instance.name} · http://localhost:${server.address().port} · config ${configPath} · audit ${config.audit.sink}`);
