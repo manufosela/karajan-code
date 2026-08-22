@@ -6,3 +6,5 @@ export { createRegistry, memoryAdapter, CAPABILITIES } from "./adapters/registry
 export { createConsoleApp, CONSOLE_VERSION } from "./app.js";
 export { createCloudRunAdapter, createGoogleCloudAuth } from "./adapters/gcp-cloud-run.js";
 export { createGithubWorkflowAdapter, appJwt, githubKeyFromEnv } from "./adapters/github-workflow.js";
+// createIapVerifier lives in ./iap-verifier.js and is NOT re-exported here, like the Google one:
+// both pull google-auth-library, and the tests must be able to import this module without it.

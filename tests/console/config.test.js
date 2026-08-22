@@ -75,4 +75,20 @@ describe("console.config.json v1", () => {
     const strict = parseConsoleConfig({ ...base(), roles: { admins: ["admin@example.com"] } });
     expect(resolveRole(strict, "anyone@example.com")).toBeNull();
   });
+
+  // C1-IAP (KJC-TSK-0798): the provider is a choice, and with IAP the audience is what binds a
+  // token to THIS service — without it, any IAP token of the organisation would be accepted.
+  it("auth.provider defaults to google; with iap the audience is required and its shape is checked", () => {
+    expect(parseConsoleConfig(base()).auth.provider).toBe("google");
+    const { auth } = base();
+    expect(parseConsoleConfig({ ...base(), auth: { ...auth, audience: "123.apps.googleusercontent.com" } }).auth.provider).toBe("google");
+    expect(problemsOf({ ...base(), auth: { provider: "iap" } })).toEqual([expect.stringContaining("auth.audience is required")]);
+    expect(problemsOf({ ...base(), auth: { provider: "iap", audience: "atlas-console" } })).toEqual([expect.stringContaining("is not an IAP audience")]);
+    // The project NUMBER, not its id: a wrong audience turns every request into a 401 in silence.
+    expect(problemsOf({ ...base(), auth: { provider: "iap", audience: "/projects/karajan-rag-atlas/locations/europe-west1/services/atlas-console" } })).toEqual([expect.stringContaining("is not an IAP audience")]);
+    const iap = parseConsoleConfig({ ...base(), auth: { provider: "iap", audience: "/projects/123456789/locations/europe-west1/services/atlas-console" } });
+    expect(iap.auth).toEqual({ provider: "iap", audience: "/projects/123456789/locations/europe-west1/services/atlas-console" });
+    expect(parseConsoleConfig({ ...base(), auth: { provider: "iap", audience: "/projects/123/global/backendServices/456" } }).auth.provider).toBe("iap");
+    expect(problemsOf({ ...base(), auth: { provider: "oidc" } })).toEqual([expect.stringContaining("auth.provider")]);
+  });
 });

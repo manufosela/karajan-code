@@ -10,6 +10,7 @@ const DOMAIN = /^[a-z0-9.-]+\.[a-z]{2,}$/i;
 const Domain = v.pipe(v.string(), v.regex(DOMAIN, "not a domain"));
 const Principal = v.pipe(v.string(), v.regex(/^(@[a-z0-9.-]+\.[a-z]{2,}|[^@\s]+@[a-z0-9.-]+\.[a-z]{2,})$/i, "principal must be user@domain or @domain"));
 const Repo = v.pipe(v.string(), v.regex(/^[\w.-]+\/[\w.-]+$/, "repo must be owner/name"));
+const IAP_AUDIENCE = /^\/projects\/\d+\/(locations\/[a-z0-9-]+\/services\/[a-z0-9-]+|global\/backendServices\/\d+)$/;
 
 const Corpus = v.object({ id: NonEmpty, name: v.optional(v.string()), adapter: v.literal("gcp-cloud-run"), project: NonEmpty, region: NonEmpty, service: NonEmpty, healthPath: v.optional(v.string(), "/health") });
 const Operation = v.object({ id: NonEmpty, adapter: v.literal("github-workflow"), repo: Repo, workflow: NonEmpty, ref: v.optional(v.string(), "main"), roles: v.optional(v.array(v.picklist(["operator", "admin"])), ["operator"]) });
@@ -27,7 +28,9 @@ const Audit = v.variant("sink", [
 export const ConsoleConfigSchema = v.object({
   version: v.optional(v.literal(1), 1),
   instance: v.object({ name: NonEmpty, project: v.optional(NonEmpty), allowedDomains: v.pipe(v.array(Domain), v.minLength(1, "allowedDomains must name at least one domain")) }),
-  auth: v.object({ provider: v.literal("google"), audience: v.optional(v.string()) }),
+  // google = Google Sign-In in the page (an OAuth client, created by hand); iap = Identity-Aware
+  // Proxy in front of the service (provisioned by infrastructure). See the semantic checks below.
+  auth: v.object({ provider: v.optional(v.picklist(["google", "iap"]), "google"), audience: v.optional(v.string()) }),
   roles: v.object({ admins: v.pipe(v.array(Principal), v.minLength(1, "at least one admin")), operators: v.optional(v.array(Principal), []), readers: v.optional(v.array(Principal), []) }),
   corpora: v.optional(v.array(Corpus), []),
   operations: v.optional(v.array(Operation), []),
@@ -61,6 +64,13 @@ export function parseConsoleConfig(raw) {
   const problems = [];
   for (const [role, list] of Object.entries(c.roles)) {
     for (const p of list) if (!domains.has(domainOf(p))) problems.push(`roles.${role}: "${p}" is outside allowedDomains (${[...domains].join(", ")})`);
+  }
+  // With IAP the audience is what binds a token to THIS service: without it any IAP token of the
+  // organisation would be accepted, so it is required and its shape is checked (a wrong audience
+  // turns every request into a 401 and the mistake is invisible from the outside).
+  if (c.auth.provider === "iap") {
+    if (!c.auth.audience) problems.push('auth.audience is required with provider "iap": /projects/<project NUMBER>/locations/<region>/services/<service> (Cloud Run) or /projects/<number>/global/backendServices/<id> (load balancer)');
+    else if (!IAP_AUDIENCE.test(c.auth.audience)) problems.push(`auth.audience "${c.auth.audience}" is not an IAP audience — expected /projects/<project NUMBER>/locations/<region>/services/<service> or /projects/<number>/global/backendServices/<id> (the project NUMBER, not its id)`);
   }
   problems.push(...dup(c.corpora, "corpus"), ...dup(c.operations, "operation"), ...dup(c.secrets, "secret"));
   if (problems.length) throw new ConsoleConfigError(problems);
