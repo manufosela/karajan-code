@@ -5,3 +5,4 @@ export { gcsSink } from "./sinks/gcs.js";
 export { createRegistry, memoryAdapter, CAPABILITIES } from "./adapters/registry.js";
 export { createConsoleApp, CONSOLE_VERSION } from "./app.js";
 export { createCloudRunAdapter, createGoogleCloudAuth } from "./adapters/gcp-cloud-run.js";
+export { createGithubWorkflowAdapter, appJwt, githubKeyFromEnv } from "./adapters/github-workflow.js";
