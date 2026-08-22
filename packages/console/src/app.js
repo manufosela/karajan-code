@@ -8,17 +8,20 @@ import { createAuth, AuthError } from "./auth.js";
 import { createAudit, sinkFromConfig } from "./audit.js";
 import { createRegistry, memoryAdapter } from "./adapters/registry.js";
 
-export const CONSOLE_VERSION = "0.1.0";
+export const CONSOLE_VERSION = "0.1.1";
 
-export function createConsoleApp({ config, verify, sink, adapters = {} }) {
+export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth = null }) {
   const auth = createAuth({ config, verify });
-  const audit = createAudit({ sink: sink ?? sinkFromConfig(config.audit) });
+  const audit = createAudit({ sink: sink ?? sinkFromConfig(config.audit, { auth: gcpAuth }) });
   const registry = createRegistry({ memory: memoryAdapter(), ...adapters });
   const missing = registry.missingFor(config);
+  // An async sink (gcs-jsonl) loads its chain first: nothing is served before the trail is known.
+  const ready = audit.ready();
 
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "64kb" }));
+  app.use("/api", (_req, _res, next) => { ready.then(() => next(), next); });
 
   // Public and minimal: enough for a health check, nothing an outsider can use.
   app.get("/api/status", (_req, res) => res.json({ ok: true, instance: config.instance.name, version: CONSOLE_VERSION, adapters: { registered: registry.names(), missing } }));
@@ -30,7 +33,10 @@ export function createConsoleApp({ config, verify, sink, adapters = {} }) {
     const send = res.json.bind(res);
     res.json = (body) => {
       if (body?.ok === false && body.code && res.statusCode >= 401 && res.statusCode <= 403) {
-        audit.record({ who: { email: body.email || "anonymous", role: null }, action: "auth", target: req.path, outcome: "denied", detail: { code: body.code } });
+        // The refusal is already on its way; a seal that fails here is shouted, never swallowed.
+        Promise.resolve()
+          .then(() => audit.record({ who: { email: body.email || "anonymous", role: null }, action: "auth", target: req.path, outcome: "denied", detail: { code: body.code } }))
+          .catch((err) => console.error(`karajan-console: denied auth attempt NOT sealed in the audit trail: ${err.message}`));
       }
       return send(body);
     };

@@ -48,10 +48,11 @@ describe("audit trail", () => {
     expect(() => audit.record({ who: {}, action: "x", outcome: "ok" })).toThrow(/required/);
   });
 
-  it("sinkFromConfig: memory and file are available; gcs-jsonl says it lands with the GCP adapter", () => {
+  it("sinkFromConfig: memory and file are available; gcs-jsonl needs the console's Google auth", () => {
     expect(sinkFromConfig({ sink: "memory" }).kind).toBe("memory");
     expect(sinkFromConfig({ sink: "file", path: "/tmp/x.jsonl" }).kind).toBe("file");
-    expect(() => sinkFromConfig({ sink: "gcs-jsonl", bucket: "b" })).toThrow(/C1/);
+    expect(() => sinkFromConfig({ sink: "gcs-jsonl", bucket: "b" })).toThrow(/auth\.request/);
+    expect(sinkFromConfig({ sink: "gcs-jsonl", bucket: "b" }, { auth: { request: async () => ({ data: {} }) } }).kind).toBe("gcs-jsonl");
     expect(() => createAudit({ sink: {} })).toThrow(/sink/);
   });
 });
