@@ -37,6 +37,11 @@ describe("karajan-console serve", () => {
     expect(bad.status).not.toBe(0);
     expect(bad.stderr).toMatch(/allowedDomains/);
     expect(spawnSync(process.execPath, [BIN, "--help"], { encoding: "utf8" }).status).toBe(0);
+    // C1-IAP: an iap config without audience never boots — the verifier could not verify anything.
+    fs.writeFileSync(file, JSON.stringify({ ...config, auth: { provider: "iap" } }));
+    const noAudience = spawnSync(process.execPath, [BIN, "serve", "--config", file], { encoding: "utf8", env: { ...process.env, KARAJAN_CONSOLE_ADAPTERS: "memory" } });
+    expect(noAudience.status).not.toBe(0);
+    expect(noAudience.stderr).toMatch(/auth\.audience is required/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

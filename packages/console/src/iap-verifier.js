@@ -6,7 +6,7 @@
 // once — but a verification that cannot be completed is a refusal, never a pass.
 import { OAuth2Client } from "google-auth-library";
 
-export const IAP_HEADER = "x-goog-iap-jwt-assertion";
+export { IAP_HEADER } from "./auth.js"; // the header name belongs to the contract, not to Google's library
 const ISSUER = "https://cloud.google.com/iap";
 
 /**
