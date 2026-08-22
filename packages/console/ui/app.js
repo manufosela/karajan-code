@@ -6,7 +6,11 @@ const state = { token: sessionStorage.getItem(TOKEN_KEY), status: null, me: null
 const $ = (selector) => document.querySelector(selector);
 
 const el = (tag, attrs = {}, ...children) => {
-  const node = Object.assign(document.createElement(tag), attrs);
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key.includes("-")) node.setAttribute(key, value);
+    else node[key] = value;
+  }
   for (const child of children) node.append(child);
   return node;
 };
@@ -67,13 +71,114 @@ function renderHome(identity, cfg) {
   $("#facts").replaceChildren(...facts.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
 }
 
+// Corpora health for everyone; access lists for admins, with an inline confirmation before a revoke
+// (no native dialogs) and the server's answer shown as it came.
+async function renderCorpora(cfg) {
+  const { corpora } = await api("/corpora");
+  $("#corpora").replaceChildren(
+    ...corpora.map((c) =>
+      el(
+        "li",
+        { className: c.ok ? "ok" : "bad" },
+        el("strong", {}, c.name),
+        el(
+          "span",
+          { className: "meta" },
+          c.ok
+            ? `${c.files ?? "?"} files · ${c.chunks ?? "?"} chunks · ${c.fingerprint ?? ""}`
+            : `unavailable — ${c.error}`
+        )
+      )
+    )
+  );
+  if (state.me.role !== "admin") return;
+  $("#access").hidden = false;
+  const domain = cfg.instance.allowedDomains[0];
+  $("#access-lists").replaceChildren(
+    ...(await Promise.all(cfg.corpora.map((corpus) => renderAccess(corpus, domain))))
+  );
+}
+
+async function renderAccess(corpus, domain) {
+  const box = el("div", { className: "access" }, el("h3", {}, corpus.name));
+  const refresh = async () => {
+    try {
+      const { members } = await api(`/corpora/${encodeURIComponent(corpus.id)}/access`);
+      list.replaceChildren(...members.map((m) => memberRow(corpus, m, refresh)));
+      if (!members.length) list.append(el("li", { className: "hint" }, "nobody yet"));
+    } catch (err) {
+      list.replaceChildren(el("li", { className: "bad" }, `cannot read access: ${err.message}`));
+    }
+  };
+  const list = el("ul", { className: "members" });
+  const input = el("input", {
+    type: "email",
+    placeholder: `someone@${domain}`,
+    required: true,
+    "aria-label": `email to grant on ${corpus.name}`,
+  });
+  const form = el(
+    "form",
+    {},
+    input,
+    el("button", { type: "submit", className: "ghost" }, "Grant access")
+  );
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await api(`/corpora/${encodeURIComponent(corpus.id)}/access`, {
+        method: "POST",
+        body: JSON.stringify({ email: input.value }),
+      });
+      input.value = "";
+      notice(`Access granted on ${corpus.name}.`);
+      await refresh();
+    } catch (err) {
+      notice(`Grant refused: ${err.message}`, "error");
+    }
+  });
+  box.append(list, form);
+  await refresh();
+  return box;
+}
+
+function memberRow(corpus, email, refresh) {
+  const revoke = el("button", { type: "button", className: "ghost" }, "Remove");
+  const confirm = el(
+    "button",
+    { type: "button", className: "ghost danger", hidden: true },
+    `Confirm: remove ${email}`
+  );
+  revoke.addEventListener("click", () => {
+    confirm.hidden = false;
+    revoke.hidden = true;
+  });
+  confirm.addEventListener("click", async () => {
+    try {
+      await api(`/corpora/${encodeURIComponent(corpus.id)}/access/${encodeURIComponent(email)}`, {
+        method: "DELETE",
+      });
+      notice(`Access removed on ${corpus.name}.`);
+      await refresh();
+    } catch (err) {
+      notice(`Remove refused: ${err.message}`, "error");
+    }
+  });
+  return el("li", {}, el("span", {}, email), revoke, confirm);
+}
+
 async function signedIn() {
   try {
     const { identity } = await api("/me");
     state.me = identity;
-    renderHome(identity, await api("/config"));
+    const cfg = await api("/config");
+    renderHome(identity, cfg);
     notice("");
     show("home");
+    // A corpus that cannot be read is shown as such; it never signs the person out.
+    await renderCorpora(cfg).catch((err) =>
+      notice(`Corpora could not be read: ${err.message}`, "error")
+    );
   } catch (err) {
     signOut(false);
     notice(
