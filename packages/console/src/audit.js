@@ -53,16 +53,30 @@ export function createAudit({ sink }) {
    * With an async sink (gcs-jsonl) it resolves when the upload is done and
    * REJECTS if it is not — a refused upload is never a sealed entry.
    */
+  // KJC-BUG-0150: with an async sink the NEXT entry must not read the last line until the previous
+  // upload has landed, or concurrent records chain on the same prev and the chain verifies as broken.
+  // The queue follows what append() actually returns, not a flag: an entry seals in place when nothing
+  // is in flight (synchronous sinks never see a promise); when append() returned a promise, the next
+  // entries wait behind it. A refused upload drops its own entry only, the queue goes on.
+  let inFlight = null;
+  const seal = (entry) => {
+    let pending = null;
+    const rec = recordDecision({ entry, deps: { append: (line) => { pending = sink.append(line); }, lastLine: () => sink.lines().at(-1) ?? null } });
+    return typeof pending?.then === "function" ? pending.then(() => rec) : rec;
+  };
+  const track = (run) => {
+    const done = run.catch(() => undefined).then(() => { if (inFlight === done) inFlight = null; });
+    inFlight = done;
+    return run;
+  };
   function record({ who, action, target = null, outcome, detail }) {
     if (!who?.email || !action || !outcome) throw new TypeError("audit.record: who.email, action and outcome are required");
     const leak = looksSecret(detail);
     if (leak) throw new Error(`audit.record: detail.${leak} looks like a secret — the audit trail never stores secrets`);
-    let pending = null;
-    const rec = recordDecision({
-      entry: { who: { email: who.email, role: who.role ?? null }, action, target, outcome, ...(detail === undefined ? {} : { detail }) },
-      deps: { append: (line) => { pending = sink.append(line); }, lastLine: () => sink.lines().at(-1) ?? null },
-    });
-    return typeof pending?.then === "function" ? pending.then(() => rec) : rec;
+    const entry = { who: { email: who.email, role: who.role ?? null }, action, target, outcome, ...(detail === undefined ? {} : { detail }) };
+    if (inFlight) return track(inFlight.then(() => seal(entry)));
+    const out = seal(entry);
+    return typeof out?.then === "function" ? track(out) : out;
   }
 
   /** Runs fn and seals its outcome either way; the error is re-thrown after being recorded. */
