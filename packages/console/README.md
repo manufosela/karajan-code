@@ -31,6 +31,10 @@ Audit sink for Cloud Run / Functions (ephemeral filesystem): `"audit": { "sink":
 
 Validated fail-loud at start: every principal must belong to an allowed domain, ids must be unique, every problem is listed. Roles: `reader` (health, history) < `operator` (+ operations, + watch config via PR) < `admin` (+ access, + credentials). `@domain` grants the whole domain.
 
+## The page
+
+`karajan-console serve` also serves the console page at `/` (plain HTML + JS, no build; `createConsoleApp({ ui: false })` for an API-only process). Sign-in uses Google Identity Services with the OAuth client id in `auth.audience` — create a "Web application" OAuth client in the instance's Google Cloud project and add the console's origin (the Hosting domain, `http://localhost:8080` locally) to its authorised JavaScript origins. With Firebase Hosting, rewrite `/api/**` to the function and let Hosting serve the page from the same origin: no CORS to open.
+
 ## Auth
 
 Google ID tokens verified on the server: `email_verified`, `hd` ∈ `allowedDomains` (a personal Google account has no `hd`: no organisation, no entry), `aud` when declared, and a role from the config. Every refusal is JSON and is sealed in the audit trail with what the token claimed.

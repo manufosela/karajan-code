@@ -18,6 +18,7 @@
   "files": [
     "src/",
     "bin/",
+    "ui/",
     "README.md"
   ],
   "engines": {

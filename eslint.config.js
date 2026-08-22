@@ -348,6 +348,12 @@ export default [
     },
   },
   {
+    // The console page is BROWSER code as an ES module (no build): browser globals only.
+    files: ["packages/console/ui/**/*.js"],
+    languageOptions: { ecmaVersion: 2025, sourceType: "module", globals: { ...globals.browser } },
+    rules: { "no-undef": "error", "no-console": "error" },
+  },
+  {
     files: ["packages/*/tests/**/*.js", "packages/*/tests/**/*.mjs"],
     languageOptions: {
       ecmaVersion: 2024,
