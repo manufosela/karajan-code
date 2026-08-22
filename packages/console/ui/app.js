@@ -265,9 +265,11 @@ async function signedIn() {
       notice(`Audit trail could not be read: ${err.message}`, "error")
     );
   } catch (err) {
-    signOut(false);
+    // Behind IAP there is no session of ours to drop, and sending the person to sign in again
+    // would loop them through IAP straight back to the same refusal. The reason is what helps.
+    if (state.status?.auth?.provider !== "iap") signOut(false);
     notice(
-      err.status === 401
+      err.status === 401 && state.status?.auth?.provider !== "iap"
         ? "Your session is not valid any more — sign in again."
         : `Access refused: ${err.message}`,
       "error"
@@ -276,6 +278,11 @@ async function signedIn() {
 }
 
 function signOut(tell = true) {
+  // Behind IAP the session is IAP's cookie, not ours: only IAP can end it.
+  if (state.status?.auth?.provider === "iap") {
+    globalThis.location.assign("/?gcp-iap-mode=CLEAR_LOGIN_COOKIE");
+    return;
+  }
   state.token = null;
   state.me = null;
   sessionStorage.removeItem(TOKEN_KEY);
@@ -320,6 +327,9 @@ async function boot() {
   $("#version").textContent = `v${state.status.version}`;
   if (state.status.auth?.domains?.length)
     $("#domains").textContent = state.status.auth.domains.join(" or ");
+  // Behind IAP nobody signs in here: Google did it before the request reached the console, and the
+  // assertion travels on its own. Loading Google Sign-In would be asking twice for the same thing.
+  if (state.status.auth?.provider === "iap") return signedIn();
   if (!state.status.auth?.clientId)
     return notice(
       "auth.audience is not set in console.config.json — the page needs the OAuth client id to sign people in.",

@@ -39,7 +39,12 @@ Validated fail-loud at start: every principal must belong to an allowed domain, 
 
 ## Auth
 
-Google ID tokens verified on the server: `email_verified`, `hd` ∈ `allowedDomains` (a personal Google account has no `hd`: no organisation, no entry), `aud` when declared, and a role from the config. Every refusal is JSON and is sealed in the audit trail with what the token claimed.
+Two providers, chosen with `auth.provider`. Either way the console decides on the server: `hd` ∈ `allowedDomains` (a personal Google account has no `hd`: no organisation, no entry) and a role from `console.config.json`. Every refusal is JSON and is sealed in the audit trail with what the token claimed.
+
+- **`google`** (default): Google Sign-In in the page. Google ID tokens verified against Google's keys — `email_verified`, `aud` = `auth.audience` when declared. Needs an OAuth client "Web application" created by hand with the console's origin among its authorised JavaScript origins.
+- **`iap`**: Identity-Aware Proxy in front of the service, provisioned entirely by infrastructure — no OAuth client, no Firebase. The assertion in `x-goog-iap-jwt-assertion` is verified against Google's public keys, IAP as issuer, and `auth.audience` = `/projects/<project NUMBER>/locations/<region>/services/<service>` (or `/projects/<number>/global/backendServices/<id>` behind a load balancer). The audience is **required**: without it any IAP token of the organisation would be accepted, and if it is wrong every request is a silent 401. The page does not load Google Sign-In and signing out uses IAP's own logout.
+
+The console verifies the assertion **even behind IAP**: a header is not trusted for coming from a proxy, so reaching the service by another path grants nothing. And `allowedDomains` is never delegated — IAP letting someone through does not make them a user of this console.
 
 ## What the console's service account needs (C1)
 
