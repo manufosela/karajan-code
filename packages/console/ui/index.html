@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Karajan Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">◎</span>
+        <strong id="instance">Karajan Console</strong> <small id="version"></small>
+      </div>
+      <div id="who" class="who" hidden>
+        <span id="who-email"></span> <span id="who-role" class="role"></span>
+        <button id="signout" type="button" class="ghost">Sign out</button>
+      </div>
+    </header>
+    <p id="notice" class="notice" role="status" hidden></p>
+    <main>
+      <section data-view="signin" hidden>
+        <h1>Sign in</h1>
+        <p>
+          Use a Google account of <span id="domains">this organisation</span>. Personal accounts are
+          refused on the server: no organisation, no entry.
+        </p>
+        <div id="gsi"></div>
+      </section>
+      <section data-view="home" hidden>
+        <h1>Your access</h1>
+        <dl class="facts" id="facts"></dl>
+        <p class="hint">
+          Corpora, access, operations and the audit trail open here in the next releases of the
+          console.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

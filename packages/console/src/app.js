@@ -4,13 +4,16 @@
 // the public view of the config, the audit trail (admin). Operations come
 // with C1+. Every refusal is JSON; denied auth attempts are sealed.
 import express from "express";
+import { fileURLToPath } from "node:url";
 import { createAuth, AuthError } from "./auth.js";
 import { createAudit, sinkFromConfig } from "./audit.js";
 import { createRegistry, memoryAdapter } from "./adapters/registry.js";
 
 export const CONSOLE_VERSION = "0.1.1";
 
-export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth = null }) {
+const UI_DIR = fileURLToPath(new URL("../ui/", import.meta.url));
+
+export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth = null, ui = true }) {
   const auth = createAuth({ config, verify });
   const audit = createAudit({ sink: sink ?? sinkFromConfig(config.audit, { auth: gcpAuth }) });
   const registry = createRegistry({ memory: memoryAdapter(), ...adapters });
@@ -24,7 +27,8 @@ export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth 
   app.use("/api", (_req, _res, next) => { ready.then(() => next(), next); });
 
   // Public and minimal: enough for a health check, nothing an outsider can use.
-  app.get("/api/status", (_req, res) => res.json({ ok: true, instance: config.instance.name, version: CONSOLE_VERSION, adapters: { registered: registry.names(), missing } }));
+  // The OAuth client id is public by nature (it is in every sign-in page); the domains tell the page whom to invite.
+  app.get("/api/status", (_req, res) => res.json({ ok: true, instance: config.instance.name, version: CONSOLE_VERSION, adapters: { registered: registry.names(), missing }, auth: { provider: config.auth.provider, clientId: config.auth.audience ?? null, domains: config.instance.allowedDomains } }));
 
   // Auth refusals are audited with whatever the token claimed (or "anonymous").
   const guard = (role) => auth.requireRole(role);
@@ -106,6 +110,8 @@ export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth 
   });
 
   app.use("/api", (_req, res) => res.status(404).json({ ok: false, error: "no such endpoint" }));
+  // C1-UI (KJC-TSK-0785): the page itself — static files, no build; `ui: false` for API-only deployments.
+  if (ui) app.use(express.static(UI_DIR, { index: "index.html", fallthrough: true }));
   app.use((err, _req, res, _next) => {
     if (err instanceof AuthError) return res.status(err.status).json({ ok: false, error: err.message, code: err.code });
     res.status(500).json({ ok: false, error: "internal error" });
