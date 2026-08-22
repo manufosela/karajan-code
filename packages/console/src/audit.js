@@ -6,6 +6,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { recordDecision, verifyDecisionChain } from "@karajan-family/governance";
+import { gcsSink } from "./sinks/gcs.js";
 
 const SECRET_KEY = /secret|token|password|credential|private[_-]?key|^value$/i;
 
@@ -22,11 +23,12 @@ export function fileSink(path) {
   };
 }
 
-/** The sink declared in console.config.json. gcs-jsonl arrives with the GCP adapter (C1). */
-export function sinkFromConfig(audit) {
+/** The sink declared in console.config.json; gcs-jsonl needs the console's Google auth. */
+export function sinkFromConfig(audit, { auth } = {}) {
   if (audit.sink === "memory") return memorySink();
   if (audit.sink === "file") return fileSink(audit.path);
-  throw new Error(`audit sink "${audit.sink}" is not available in this build (gcs-jsonl lands with the GCP adapter, C1)`);
+  if (audit.sink === "gcs-jsonl") return gcsSink({ bucket: audit.bucket, auth });
+  throw new Error(`audit sink "${audit.sink}" is not known`);
 }
 
 const looksSecret = (obj, path = "") => {
@@ -45,30 +47,38 @@ const looksSecret = (obj, path = "") => {
 export function createAudit({ sink }) {
   if (!sink || typeof sink.append !== "function" || typeof sink.lines !== "function") throw new TypeError("createAudit: a sink with append() and lines() is required");
 
-  /** Seals one entry. who = {email, role}; outcome = ok | denied | error. */
+  /**
+   * Seals one entry. who = {email, role}; outcome = ok | denied | error.
+   * With an async sink (gcs-jsonl) it resolves when the upload is done and
+   * REJECTS if it is not — a refused upload is never a sealed entry.
+   */
   function record({ who, action, target = null, outcome, detail }) {
     if (!who?.email || !action || !outcome) throw new TypeError("audit.record: who.email, action and outcome are required");
     const leak = looksSecret(detail);
     if (leak) throw new Error(`audit.record: detail.${leak} looks like a secret — the audit trail never stores secrets`);
-    return recordDecision({
+    let pending = null;
+    const rec = recordDecision({
       entry: { who: { email: who.email, role: who.role ?? null }, action, target, outcome, ...(detail === undefined ? {} : { detail }) },
-      deps: { append: sink.append, lastLine: () => sink.lines().at(-1) ?? null },
+      deps: { append: (line) => { pending = sink.append(line); }, lastLine: () => sink.lines().at(-1) ?? null },
     });
+    return typeof pending?.then === "function" ? pending.then(() => rec) : rec;
   }
 
   /** Runs fn and seals its outcome either way; the error is re-thrown after being recorded. */
   async function wrap({ who, action, target }, fn) {
     try {
       const result = await fn();
-      record({ who, action, target, outcome: "ok", detail: result?.audit });
+      await record({ who, action, target, outcome: "ok", detail: result?.audit });
       return result;
     } catch (err) {
-      record({ who, action, target, outcome: err?.status === 403 ? "denied" : "error", detail: { message: String(err?.message || err) } });
+      await record({ who, action, target, outcome: err?.status === 403 ? "denied" : "error", detail: { message: String(err?.message || err) } });
       throw err;
     }
   }
 
+  /** Resolves when the sink has loaded its chain (async sinks); immediately otherwise. */
+  const ready = () => (sink.init ? sink.init().then(() => undefined) : Promise.resolve());
   const verify = () => verifyDecisionChain(sink.lines());
   const entries = () => sink.lines().map((l) => JSON.parse(l));
-  return { record, wrap, verify, entries, sink };
+  return { record, wrap, ready, verify, entries, sink };
 }

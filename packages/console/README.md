@@ -10,7 +10,9 @@ The admin web console of a Karajan family instance (karajan-rag + karajan-watch)
 npx karajan-console serve --config console.config.json --port 8080
 ```
 
-Environment: `CONSOLE_CONFIG`, `PORT`. The process authenticates to Google with Application Default Credentials (the console's own service account on Cloud Run; `gcloud auth application-default login` locally). `createConsoleApp()` is also exported as a plain express handler for Cloud Run or Firebase Functions.
+Environment: `CONSOLE_CONFIG`, `PORT`. The process authenticates to Google with Application Default Credentials (the console's own service account on Cloud Run; `gcloud auth application-default login` locally — with user ADC also set `GOOGLE_CLOUD_QUOTA_PROJECT=<project>`, or IAM calls answer 403). `createConsoleApp()` is also exported as a plain express handler for Cloud Run or Firebase Functions.
+
+Audit sink for Cloud Run / Functions (ephemeral filesystem): `"audit": { "sink": "gcs-jsonl", "bucket": "<bucket>" }` — one immutable object per entry, chain rebuilt from the bucket at start, a refused upload is a 502 and never a sealed entry. Run ONE console instance per bucket. `file` and `memory` are for a VM or tests.
 
 ## console.config.json (v1)
 
@@ -37,7 +39,7 @@ Google ID tokens verified on the server: `email_verified`, `hd` ∈ `allowedDoma
 
 - `roles/run.admin` on each corpus SERVICE (for `getIamPolicy` / `setIamPolicy` of `roles/run.invoker`), never at project level.
 - `roles/run.invoker` on the services (to call `/health` with its own ID token).
-- Write access to the audit sink only (`roles/storage.objectCreator` on the bucket, append-only).
+- On the audit bucket: `roles/storage.objectCreator` (append) and `roles/storage.objectViewer` (rebuild the chain at start) — never delete.
 
 ## API (C1)
 

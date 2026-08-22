@@ -20,18 +20,18 @@ if (args[0] !== "serve") {
 
 const configPath = opt("--config", process.env.CONSOLE_CONFIG || "console.config.json");
 const config = loadConsoleConfig(configPath); // throws ConsoleConfigError listing every problem
+const dryRun = process.env.KARAJAN_CONSOLE_ADAPTERS === "memory"; // no Google calls at all (bin smoke test)
+const needsGcp = config.corpora.some((c) => c.adapter === "gcp-cloud-run") || config.audit.sink === "gcs-jsonl";
+const gcpAuth = !dryRun && needsGcp ? await createGoogleCloudAuth() : null;
 const adapters = {};
-if (process.env.KARAJAN_CONSOLE_ADAPTERS === "memory") {
-  // Dry run: no Google calls at all (used by the bin smoke test).
-} else if (config.corpora.some((c) => c.adapter === "gcp-cloud-run")) {
-  adapters["gcp-cloud-run"] = createCloudRunAdapter({ auth: await createGoogleCloudAuth() });
-}
-const verify = process.env.KARAJAN_CONSOLE_ADAPTERS === "memory" ? async () => { throw new Error("no verifier in dry run"); } : createGoogleVerifier();
-const app = createConsoleApp({ config, verify, adapters });
+if (gcpAuth && config.corpora.some((c) => c.adapter === "gcp-cloud-run")) adapters["gcp-cloud-run"] = createCloudRunAdapter({ auth: gcpAuth });
+const verify = dryRun ? async () => { throw new Error("no verifier in dry run"); } : createGoogleVerifier();
+const app = createConsoleApp({ config, verify, adapters, gcpAuth, ...(dryRun && config.audit.sink === "gcs-jsonl" ? { sink: (await import("../src/audit.js")).memorySink() } : {}) });
 const port = Number(opt("--port", process.env.PORT || 8080));
+const PHASE = { "github-workflow": "C2", "gcp-secret-manager": "C3", "github-secret": "C3", "config-repo": "C4" };
 const server = app.listen(port, () => {
   const { missing } = app.console;
-  console.log(`karajan-console ${CONSOLE_VERSION} · ${config.instance.name} · http://localhost:${server.address().port} · config ${configPath}`);
-  console.log(`adapters: ${app.console.registry.names().join(", ")}${missing.length ? ` · MISSING for this config: ${missing.join(", ")}` : ""}`);
+  console.log(`karajan-console ${CONSOLE_VERSION} · ${config.instance.name} · http://localhost:${server.address().port} · config ${configPath} · audit ${config.audit.sink}`);
+  console.log(`adapters: ${app.console.registry.names().join(", ")}${missing.length ? ` · not in this build yet: ${missing.map((m) => `${m} (${PHASE[m] || "later"})`).join(", ")} — those operations stay unavailable until that phase ships; the config is fine` : ""}`);
 });
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => server.close(() => process.exit(0)));
