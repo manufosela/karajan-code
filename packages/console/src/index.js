@@ -1,5 +1,5 @@
 export { ConsoleConfigSchema, ConsoleConfigError, parseConsoleConfig, loadConsoleConfig, resolveRole } from "./config.js";
-export { createAuth, AuthError, ROLE_RANK } from "./auth.js";
+export { createAuth, AuthError, ROLE_RANK, IAP_HEADER } from "./auth.js";
 export { createAudit, memorySink, fileSink, sinkFromConfig } from "./audit.js";
 export { gcsSink } from "./sinks/gcs.js";
 export { createRegistry, memoryAdapter, CAPABILITIES } from "./adapters/registry.js";

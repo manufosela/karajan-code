@@ -5,6 +5,7 @@
 // the production pieces: Google verifier, ADC-backed adapters, the config.
 import { CONSOLE_VERSION, createConsoleApp, loadConsoleConfig } from "../src/index.js";
 import { createGoogleVerifier } from "../src/google-verifier.js";
+import { createIapVerifier } from "../src/iap-verifier.js";
 import { createCloudRunAdapter, createGoogleCloudAuth } from "../src/adapters/gcp-cloud-run.js";
 import { createGithubWorkflowAdapter, githubKeyFromEnv } from "../src/adapters/github-workflow.js";
 import { readFileSync } from "node:fs";
@@ -36,13 +37,15 @@ if (!dryRun && config.operations.some((o) => o.adapter === "github-workflow")) {
   if (!privateKey) die("set CONSOLE_GITHUB_APP_KEY (PEM, \\n escapes honoured) or CONSOLE_GITHUB_APP_KEY_FILE — the GitHub App key never lives in the config");
   adapters["github-workflow"] = createGithubWorkflowAdapter({ github: { ...config.github, privateKey } });
 }
-const verify = dryRun ? async () => { throw new Error("no verifier in dry run"); } : createGoogleVerifier();
+// Who verifies the caller depends on the provider: Google's ID tokens, or IAP's own assertion.
+const realVerifier = () => (config.auth.provider === "iap" ? createIapVerifier({ audience: config.auth.audience }) : createGoogleVerifier());
+const verify = dryRun ? async () => { throw new Error("no verifier in dry run"); } : realVerifier();
 const app = createConsoleApp({ config, verify, adapters, gcpAuth, ...(dryRun && config.audit.sink === "gcs-jsonl" ? { sink: (await import("../src/audit.js")).memorySink() } : {}) });
 const port = Number(opt("--port", process.env.PORT || 8080));
 const PHASE = { "gcp-secret-manager": "C3", "github-secret": "C3", "config-repo": "C4" };
 const server = app.listen(port, () => {
   const { missing } = app.console;
-  console.log(`karajan-console ${CONSOLE_VERSION} · ${config.instance.name} · http://localhost:${server.address().port} · config ${configPath} · audit ${config.audit.sink}`);
+  console.log(`karajan-console ${CONSOLE_VERSION} · ${config.instance.name} · http://localhost:${server.address().port} · config ${configPath} · auth ${config.auth.provider} · audit ${config.audit.sink}`);
   console.log(`adapters: ${app.console.registry.names().join(", ")}${missing.length ? ` · not in this build yet: ${missing.map((m) => `${m} (${PHASE[m] || "later"})`).join(", ")} — those operations stay unavailable until that phase ships; the config is fine` : ""}`);
 });
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => server.close(() => process.exit(0)));

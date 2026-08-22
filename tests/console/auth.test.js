@@ -3,7 +3,7 @@
 import { describe, it, expect } from "vitest";
 import express from "express";
 import request from "supertest";
-import { parseConsoleConfig, createAuth, AuthError } from "@karajan-family/console";
+import { parseConsoleConfig, createAuth, AuthError, IAP_HEADER } from "@karajan-family/console";
 
 const config = parseConsoleConfig({
   instance: { name: "atlas", allowedDomains: ["example.com"] },
@@ -67,5 +67,39 @@ describe("requireRole middleware", () => {
     expect((await request(app).get("/admin").set("Authorization", `Bearer ${tok()}`)).body.code).toBe("forbidden");
     expect((await request(app).get("/admin").set("Authorization", `Bearer ${tok({ email: "admin@example.com" })}`)).status).toBe(200);
     expect(() => auth.requireRole("superuser")).toThrow(/unknown role/);
+  });
+});
+
+// C1-IAP (KJC-TSK-0798): behind IAP the token travels in IAP's header, not as a Bearer, and IAP
+// does not emit email_verified — but the domain and the role are still decided HERE, not by IAP.
+describe("behind Identity-Aware Proxy", () => {
+  const iapConfig = parseConsoleConfig({
+    instance: { name: "atlas", allowedDomains: ["example.com"] },
+    auth: { provider: "iap", audience: "/projects/123/locations/europe-west1/services/atlas-console" },
+    roles: { admins: ["admin@example.com"], readers: ["@example.com"] },
+    audit: { sink: "memory" },
+  });
+  const iapAuth = createAuth({ config: iapConfig, verify });
+  const assertion = (over) => `tok:${JSON.stringify({ email: "anyone@example.com", hd: "example.com", sub: "1", ...over })}`;
+  const app = express();
+  app.get("/me", iapAuth.requireRole("reader"), (req, res) => res.json({ ok: true, identity: req.identity }));
+
+  it("takes the assertion from IAP's header and accepts it without email_verified", async () => {
+    const ok = await request(app).get("/me").set(IAP_HEADER, assertion());
+    expect(ok.status).toBe(200);
+    expect(ok.body.identity).toMatchObject({ email: "anyone@example.com", role: "reader", hd: "example.com" });
+  });
+
+  it("a Bearer is NOT accepted behind IAP, and no header at all is no_token", async () => {
+    expect((await request(app).get("/me").set("Authorization", `Bearer ${assertion()}`)).body.code).toBe("no_token");
+    expect((await request(app).get("/me")).body.code).toBe("no_token");
+  });
+
+  it("the domain is still checked here: IAP letting someone through does not grant entry", async () => {
+    expect((await request(app).get("/me").set(IAP_HEADER, assertion({ email: "someone@other.org", hd: "other.org" }))).body.code).toBe("domain");
+    expect((await request(app).get("/me").set(IAP_HEADER, assertion({ email: "nobody@example.com", hd: "example.com" }))).status).toBe(200);
+    const noRole = parseConsoleConfig({ ...JSON.parse(JSON.stringify(iapConfig)), roles: { admins: ["admin@example.com"] } });
+    const strict = createAuth({ config: noRole, verify });
+    await expect(strict.authenticate(assertion())).rejects.toMatchObject({ code: "no_role" });
   });
 });
