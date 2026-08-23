@@ -33,9 +33,18 @@ export function normalizeReviewPayload(payload) {
   if (isReviewPayload(payload)) return payload;
   if (Array.isArray(payload)) return findReviewInArray(payload);
 
+  // KJC-BUG-0146 — the verdict often arrives WRAPPED by the CLI that produced it:
+  // {"ok":true,"result":{approved,...}}. Only the string form was unwrapped, so a
+  // perfectly good approval from codex was thrown away as "no parseable verdict"
+  // eight times in three days. The evidence came from the raw answer this bug's
+  // first fix started saving.
   if (typeof payload.result === "string") {
     const parsedResult = parseMaybeJsonString(payload.result);
     if (parsedResult?.approved !== undefined) return parsedResult;
+  }
+  if (payload.result && typeof payload.result === "object") {
+    const inner = normalizeReviewPayload(payload.result);
+    if (inner) return inner;
   }
 
   return null;
