@@ -121,4 +121,28 @@ describe("normalizeReviewPayload", () => {
   it("returns null for object without approved field", () => {
     expect(normalizeReviewPayload({ foo: "bar" })).toBeNull();
   });
+
+  // KJC-BUG-0146 — the shape that produced eight "no parseable verdict" in three days,
+  // taken literally from the raw answer saved by this bug's first fix: codex wraps the
+  // verdict in {ok, result} with result as an OBJECT, and only the string form was unwrapped.
+  it("unwraps a verdict wrapped as {ok, result} with result as an object", () => {
+    const wrapped = {
+      ok: true,
+      result: { approved: true, blocking_issues: [], non_blocking_suggestions: ["use String.raw"], confidence: 0.84 },
+      summary: "Approved: no blocking issues",
+    };
+    const result = normalizeReviewPayload(wrapped);
+    expect(result).toMatchObject({ approved: true, confidence: 0.84 });
+    expect(result.non_blocking_suggestions).toHaveLength(1);
+  });
+
+  it("unwraps a rejection the same way: the wrapper must never turn a no into a lost verdict", () => {
+    const wrapped = { ok: true, result: { approved: false, blocking_issues: [{ id: "leak", severity: "high" }] } };
+    expect(normalizeReviewPayload(wrapped).approved).toBe(false);
+  });
+
+  it("a wrapper whose result is not a verdict is still null: unwrapping is not guessing", () => {
+    expect(normalizeReviewPayload({ ok: true, result: { status: "done" } })).toBeNull();
+    expect(normalizeReviewPayload({ ok: true, result: null })).toBeNull();
+  });
 });
