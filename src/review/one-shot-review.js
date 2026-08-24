@@ -12,7 +12,7 @@ import { createAgent } from "../agents/index.js";
 import { resolveRole } from "../config/role-resolver.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveReviewProfile } from "./profiles.js";
-import { parseMaybeJsonString } from "./parser.js";
+import { parseMaybeJsonString, normalizeReviewPayload } from "./parser.js";
 import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js";
 import { saveVerdict, diffHash } from "./verdict-store.js";
 import { reportUnparseableVerdict } from "./unparseable-verdict.js";
@@ -104,7 +104,11 @@ export async function runOneShotReview({
     throw new Error(`reviewer ${activeReviewer} failed: ${result?.error || "no output"}`);
   }
 
-  const parsed = parseMaybeJsonString(result.output);
+  // KJC-BUG-0146, second half: parseMaybeJsonString only PARSES — it returns whatever JSON came
+  // back, wrapper and all. Yesterday's fix taught normalizeReviewPayload to unwrap {ok, result},
+  // but this path never called it, so the bug survived with a green test on the wrong function.
+  // A test can only prove the code it actually exercises.
+  const parsed = normalizeReviewPayload(parseMaybeJsonString(result.output));
   if (!parsed || typeof parsed.approved !== "boolean") {
     // KJC-BUG-0146: keep the answer. Throwing it away is what left eight occurrences undiagnosed.
     throw new Error(await reportUnparseableVerdict({ projectDir, reviewer: activeReviewer, output: result.output, hash: diffHash(diff) }));
