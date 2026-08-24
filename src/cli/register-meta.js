@@ -623,9 +623,10 @@ export function registerMeta(program, { pkgVersion }) {
 
   program
     .command("board [action]")
-    .description("Manage HU Board (start|stop|status|open|cleanup)")
+    .description("Manage HU Board (start|stop|status|open|cleanup) — SIN acción arranca un servidor persistente en segundo plano (equivale a `start`)")
     .option("--port <number>", "Port (default: 4000)", "4000")
     .option("--bind <host>", "Bind host (default: 127.0.0.1; use 0.0.0.0 to expose on LAN — token auth auto-enforced)")
+    .option("--force", "Arranca aunque hu_board.enabled sea false en kj.config.yml")
     .action(async (action = "start", opts) => {
       await withConfig(pkgVersion, "board", opts, async ({ config, logger }) => {
         // KJC-TSK-0684 (issue #1287): an external board is the source of
@@ -634,6 +635,21 @@ export function registerMeta(program, { pkgVersion }) {
         if (config?.state_backend === "external" && action !== "stop") {
           const name = config?.board?.name || "an external board";
           console.log(`⚠ this project's board lives in ${name} (state_backend: external) — kj does not run a parallel HU Board here.`);
+          return;
+        }
+        // KJC-BUG-0152 (issue #1427): `kj board` with no action starts a persistent server.
+        // Doing that while hu_board.enabled is false contradicts kj doctor, which reports the
+        // board as skipped — two commands saying opposite things about the same config. The
+        // system works or fails loudly; it never does the opposite of what the config says.
+        // Only `start` is gated (the bare command defaults to it): stop, status, cleanup and open
+        // never bring a server up, and blocking them would take away the way to tidy up.
+        if (config?.hu_board?.enabled === false && !opts.force && action === "start") {
+          logger.error(
+            `hu_board.enabled es false en kj.config.yml — no arranco el HU Board (kj doctor ya lo reporta como omitido).\n` +
+            `  Para arrancarlo igualmente: kj board ${action} --force\n` +
+            `  Para dejarlo activado siempre: pon hu_board.enabled: true en kj.config.yml`
+          );
+          process.exitCode = 1;
           return;
         }
         const port = Number(opts.port) || config.hu_board?.port || 4000;
