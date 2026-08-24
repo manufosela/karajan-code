@@ -5,6 +5,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { tomlPath } from "./toml-value.js";
 
 const rl = readline.createInterface({ input, output });
 const REGISTRY_PATH = path.join(os.homedir(), ".karajan", "instances.json");
@@ -259,10 +260,10 @@ async function setupCodexMcp({ rootDir, kjHome }) {
   const block = [
     '[mcp_servers."karajan-mcp"]',
     'command = "node"',
-    `args = ["${path.join(rootDir, "src", "mcp", "server.js")}"]`,
-    `cwd = "${rootDir}"`,
+    `args = [${tomlPath(path.join(rootDir, "src", "mcp", "server.js"))}]`,
+    `cwd = ${tomlPath(rootDir)}`,
     '[mcp_servers."karajan-mcp".env]',
-    `KJ_HOME = "${kjHome}"`
+    `KJ_HOME = ${tomlPath(kjHome)}`
   ].join("\n");
 
   const updated = upsertCodexMcpBlock(toml, block);
