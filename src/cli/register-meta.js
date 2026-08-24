@@ -6,6 +6,7 @@ import { onboardCommand } from "../commands/onboard.js";
 import { startCommand } from "../commands/start.js";
 import { identityCommand } from "../commands/identity.js";
 import { policyCommand } from "../commands/policy.js";
+import { claimsCommand } from "../commands/claims.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
@@ -312,6 +313,14 @@ export function registerMeta(program, { pkgVersion }) {
     });
 
   // KJC-TSK-0733 PL-A — policy as code: motor determinista en modo warn.
+  // CLM-B (KJC-TSK-0802): the data the AI states, checked against what actually ran.
+  program.command("claims").description("Afirmaciones con fuente: comprueba los datos que la IA afirma en un turno contra las salidas de ese turno (ADR claims-with-evidence)")
+    .command("check")
+    .description("Cruza el mensaje final del turno con sus salidas — exit 2 solo si un dato está DESMENTIDO por su propia fuente; falla abierto si no puede leer el transcript")
+    .requiredOption("--transcript <path>", "Ruta del transcript de la sesión (la que pasa el hook)")
+    .option("--json", "Machine-readable")
+    .action(async (flags) => { process.exitCode = await claimsCommand({ flags }); });
+
   const policyCmd = program.command("policy").description("Policy as code (.karajan/policy.yml, vocabulario cerrado): eval/check deterministas, grant con caducidad, anchor del decision log — deny en commit y CI");
   policyCmd.command("eval")
     .description("Evalúa UNA tool call: imprime {decision, rule_id, reason}; --strict devuelve exit 2 en deny (contrato para adaptadores de hooks)")
