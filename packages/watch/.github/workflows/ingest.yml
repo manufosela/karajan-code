@@ -111,9 +111,16 @@ jobs:
       - name: Reindexar corpus (karajan-rag, embedder local en el runner)
         env:
           PG_URL: ${{ secrets.PG_URL }}
+          # KJW-BUG-0008: los inputs viajan por env y se usan como variables de shell. Interpolar
+          # ${{ inputs.* }} dentro de `run` los sustituye ANTES de que el shell vea la linea, asi
+          # que quien invoca este workflow reusable podria ejecutar lo que quisiera — con PG_URL
+          # en el entorno de este mismo paso. El paso anterior ya lo hacia bien.
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+          CORPUS: ${{ inputs.corpus }}
         run: |
           set -euo pipefail
           ./node_modules/.bin/karajan-watch ingest \
-            --config "${{ inputs.config-path }}" \
-            --workspace "${{ inputs.workspace-dir }}" \
-            --corpus "${{ inputs.corpus }}"
+            --config "$CONFIG" \
+            --workspace "$WS" \
+            --corpus "$CORPUS"
