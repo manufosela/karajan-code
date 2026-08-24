@@ -50,6 +50,12 @@ describe("kj board with hu_board.enabled: false", () => {
     expect(flat(runBoard("status"))).not.toMatch(/hu_board\.enabled es false/);
   }, 70_000);
 
+  // Caught by CI: gating everything-but-stop-and-status also blocked `cleanup`, which tidies up
+  // and starts nothing. Only the action that brings a server up is gated.
+  it("cleanup stays allowed too — it starts nothing", () => {
+    expect(flat(runBoard("cleanup"))).not.toMatch(/hu_board\.enabled es false/);
+  }, 70_000);
+
   it("--help says the bare command starts a server, which is what surprised the reporter", () => {
     expect(flat(run("board", "--help"))).toMatch(/SIN acción arranca un servidor persistente/i);
   }, 70_000);

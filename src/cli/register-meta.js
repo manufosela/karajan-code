@@ -641,8 +641,9 @@ export function registerMeta(program, { pkgVersion }) {
         // Doing that while hu_board.enabled is false contradicts kj doctor, which reports the
         // board as skipped — two commands saying opposite things about the same config. The
         // system works or fails loudly; it never does the opposite of what the config says.
-        // `stop` and `status` stay allowed: cleaning up or asking is never the surprise.
-        if (config?.hu_board?.enabled === false && !opts.force && !["stop", "status"].includes(action)) {
+        // Only `start` is gated (the bare command defaults to it): stop, status, cleanup and open
+        // never bring a server up, and blocking them would take away the way to tidy up.
+        if (config?.hu_board?.enabled === false && !opts.force && action === "start") {
           logger.error(
             `hu_board.enabled es false en kj.config.yml — no arranco el HU Board (kj doctor ya lo reporta como omitido).\n` +
             `  Para arrancarlo igualmente: kj board ${action} --force\n` +
