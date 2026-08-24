@@ -123,6 +123,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "smol-toml": "^1.7.0",
     "@vitest/coverage-v8": "^4.1.8",
     "esbuild": "^0.28.0",
     "eslint": "^10.4.1",

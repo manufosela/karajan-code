@@ -11,6 +11,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { tomlPath } from "./toml-value.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -92,10 +93,10 @@ async function setupCodexMcp(kjHome) {
   const block = [
     '[mcp_servers."karajan-mcp"]',
     'command = "node"',
-    `args = ["${path.join(ROOT_DIR, "src", "mcp", "server.js")}"]`,
-    `cwd = "${ROOT_DIR}"`,
+    `args = [${tomlPath(path.join(ROOT_DIR, "src", "mcp", "server.js"))}]`,
+    `cwd = ${tomlPath(ROOT_DIR)}`,
     '[mcp_servers."karajan-mcp".env]',
-    `KJ_HOME = "${kjHome}"`
+    `KJ_HOME = ${tomlPath(kjHome)}`
   ].join("\n");
 
   const updated = upsertCodexMcpBlock(toml, block);
