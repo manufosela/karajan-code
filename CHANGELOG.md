@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.22.0] - 2026-08-25
+
 ### Added
 
 - **Karajan Console is born: `packages/console` and the `console.config.json` v1 contract** (C0 part 1, KJC-TSK-0776, epic KJC-PCS-0080, ADR 0007): the admin web console of a family instance starts as a private workspace package (`@karajan-family/console`, published from C1). Its first piece is the ONE contract the instance brings: `console.config.json` validated fail-loud with valibot — instance and allowed domains, Google auth, roles by email or `@domain` (admins required), corpora (`gcp-cloud-run`), operations (`github-workflow`), write-only secrets (`gcp-secret-manager` / `github-secret`), the watch config repo with its pinned version, and the audit sink (`file` / `gcs-jsonl` / `memory`). Semantic checks on top of the schema: every principal inside an allowed domain, no duplicate ids; every problem is listed, never the first one only. `resolveRole` answers admin > operator > reader, or nothing for another domain. The fixture mirrors the first real instance (tribbu-atlas). Tests live in `tests/console/` so the root suite covers the package.
