@@ -142,4 +142,33 @@ describe('auth enabled, simulated non-loopback peer', () => {
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('Unauthorized');
   });
+
+  // The comparison is length-checked before timingSafeEqual, which throws on
+  // a length mismatch. These are the shapes that would surface that.
+  it('rejects a token that shares a prefix with the expected one', async () => {
+    process.env.HU_BOARD_TOKEN = TOKEN;
+    const app = await buildAppFromLan();
+    const res = await request(app)
+      .get('/api/dashboard')
+      .set('Authorization', `Bearer ${TOKEN.slice(0, -1)}X`);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a token shorter than the expected one', async () => {
+    process.env.HU_BOARD_TOKEN = TOKEN;
+    const app = await buildAppFromLan();
+    const res = await request(app)
+      .get('/api/dashboard')
+      .set('Authorization', `Bearer ${TOKEN.slice(0, 4)}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects an empty Bearer token', async () => {
+    process.env.HU_BOARD_TOKEN = TOKEN;
+    const app = await buildAppFromLan();
+    const res = await request(app)
+      .get('/api/dashboard')
+      .set('Authorization', 'Bearer ');
+    expect(res.status).toBe(401);
+  });
 });

@@ -20,6 +20,8 @@
  *     legacy callers keep working.
  */
 
+import { timingSafeEqual } from "node:crypto";
+
 /** Loopback addresses we trust without auth, regardless of token state. */
 const LOOPBACK_ADDRESSES = new Set([
   "127.0.0.1",
@@ -41,7 +43,7 @@ export function authMiddleware() {
     if (isLoopback(req)) return next();
 
     const token = extractToken(req);
-    if (token === expected) return next();
+    if (tokensMatch(token, expected)) return next();
 
     return res.status(401).json({
       error: "Unauthorized",
@@ -51,6 +53,32 @@ export function authMiddleware() {
         "?token=<token>, or the kj_board_token cookie.",
     });
   };
+}
+
+/**
+ * Constant-time comparison of a presented token against the expected one.
+ *
+ * `===` on strings stops at the first differing byte, so the time it takes to
+ * reject a token leaks how much of a correct prefix was supplied. Over the
+ * loopback interface that is noise — but this middleware exists precisely for
+ * the case the header above describes, where the board is bound beyond
+ * loopback and the peer is on the LAN. There the difference is measurable, and
+ * the token can be recovered a byte at a time.
+ *
+ * `timingSafeEqual` throws when the buffers differ in length, so the length is
+ * checked first. That is not a leak worth closing: the length of the expected
+ * token is fixed by whatever wrote `~/.karajan/hu-board/token`, and a token of
+ * the wrong length is wrong regardless of its contents.
+ *
+ * @param {string|undefined} presented
+ * @param {string} expected
+ * @returns {boolean}
+ */
+function tokensMatch(presented, expected) {
+  if (typeof presented !== "string") return false;
+  const left = Buffer.from(presented, "utf8");
+  const right = Buffer.from(expected, "utf8");
+  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 /**

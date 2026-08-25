@@ -50,6 +50,7 @@
 
 import js from "@eslint/js";
 import importX from "eslint-plugin-import-x";
+import nodeSecurity from "eslint-plugin-node-security";
 import security from "eslint-plugin-security";
 import globals from "globals";
 
@@ -78,6 +79,7 @@ export default [
       },
     },
     plugins: {
+      "node-security": nodeSecurity,
       "import-x": importX,
       security,
     },
@@ -110,6 +112,14 @@ export default [
       "security/detect-pseudoRandomBytes": "error",
       "security/detect-disable-mustache-escape": "error",
       "security/detect-non-literal-regexp": "warn",
+
+      // `detect-possible-timing-attacks` is one of the noisy members left out
+      // above — it matches on variable NAMES, so every `if (user.token === …)`
+      // in a test fixture reports. This rule asks the same question
+      // structurally: a comparison operator applied to a value that reaches a
+      // credential, which is why the whole repository passes it today and did
+      // not before `packages/hu-board/src/auth.js` was fixed in this PR.
+      "node-security/no-timing-unsafe-compare": "error",
 
       // --- Soft signals (warn, not error) ----------------------------
       // Audit rec #8: ratchet from "warn" to "error" after the
