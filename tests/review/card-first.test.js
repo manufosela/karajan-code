@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkCardFirst } from "../../src/review/card-first.js";
+import { checkCardFirst, CARD_REF_RE } from "../../src/review/card-first.js";
 import { savePlan } from "../../src/plan/plan-store.js";
 import { generatePlanId } from "../../src/plan/plan-id.js";
 
@@ -106,6 +106,18 @@ describe("checkCardFirst — external / planning-game (presence check, warns by 
       expect(r).toMatchObject({ ok: true, mode: "pass", level: "branch-ref" });
       expect(r.note).toMatch(/degraded/);
     });
+  });
+});
+
+describe("CARD_REF_RE — a version tail is not a card (KJC-BUG-0154)", () => {
+  // `chore/release-4.22.0` matched "release-4" at the dot's word boundary, and the
+  // board-sync gate then demanded moving a card that exists nowhere. Lived through it.
+  it("does not read release-4.22.0 as the card RELEASE-4, and still reads real cards", () => {
+    expect(CARD_REF_RE.test("chore/release-4.22.0")).toBe(false);
+    expect(CARD_REF_RE.test("release-10.0.1")).toBe(false);
+    expect("feat/KJC-TSK-0778-console-c2".match(CARD_REF_RE)[0]).toBe("KJC-TSK-0778");
+    expect("fix/bb-002-thing".match(CARD_REF_RE)[0]).toBe("bb-002");
+    expect("lin-123".match(CARD_REF_RE)[0]).toBe("lin-123");
   });
 });
 

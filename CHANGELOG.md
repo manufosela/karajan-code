@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A release branch no longer manufactures a phantom card the gate then demands you move** (KJC-BUG-0154, lived through while merging 4.22.0's own release PR): `CARD_REF_RE` matched "release-4" inside `chore/release-4.22.0` at the dot's word boundary, so the board-sync gate recorded a pending move for the card "RELEASE-4" — which exists on no tracker — and the Stop gate blocked the turn demanding the impossible. A negative lookahead keeps any version tail from reading as a card. And the second half is worse than the first: `kj hu move RELEASE-4 done` answered `HU "RELEASE-4" not found` and STILL cleared the pending, because the clear only rejected outputs containing error/fail — a move that moved nothing could discard a legitimate pending without touching the tracker. "not found" now counts as failure. Both halves proven red before the fix; an unmakeable violation is exactly what teaches escapes (KJC-PCS-0082).
+
 ## [4.22.0] - 2026-08-25
 
 ### Added
