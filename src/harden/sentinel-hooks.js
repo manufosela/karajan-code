@@ -168,7 +168,9 @@ process.stdin.on("end", () => {
         save(state);
       }
       const moved = /kj\\s+hu\\s+move\\s+([A-Za-z0-9-]+)\\s+([a-z&-]+)/i.exec(String(input.command || ""));
-      if (moved && CLOSING.includes(moved[2].toLowerCase()) && !/error|fail/i.test(text)) clearPending(moved[1].toUpperCase());
+      // "not found" counts as failure (KJC-BUG-0154): a move that moved nothing must not
+      // clear a pending — that would discard a LEGITIMATE one without touching the tracker.
+      if (moved && CLOSING.includes(moved[2].toLowerCase()) && !/error|fail|not found/i.test(text)) clearPending(moved[1].toUpperCase());
       process.exit(0);
     }
     const file = input.file_path || input.notebook_path;
