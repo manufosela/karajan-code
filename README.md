@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/karajan-code"><img src="https://img.shields.io/npm/v/karajan-code.svg" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/karajan-code"><img src="https://img.shields.io/npm/dw/karajan-code.svg" alt="npm downloads"></a>
+  <a href="https://www.npmjs.com/package/@karajan-family/code"><img src="https://img.shields.io/npm/v/%40karajan-family%2Fcode.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@karajan-family/code"><img src="https://img.shields.io/npm/dw/%40karajan-family%2Fcode.svg" alt="npm downloads"></a>
   <a href="https://github.com/manufosela/karajan-code/actions"><img src="https://github.com/manufosela/karajan-code/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg" alt="Node.js"></a>
@@ -58,7 +58,7 @@ kj init && kj env install && kj harden && kj review --install-gate
 git config core.hooksPath .karajan/hooks
 ```
 
-Requires git and at least one AI agent CLI — two enables cross-AI review; three enables arbitration. All install routes (npm, binaries, brew, Python wrapper) in the [install docs](https://karajancode.com/docs/v4/install/).
+Requires git and at least one AI agent CLI — two enables cross-AI review; three enables arbitration. The npm route is `npm install -g @karajan-family/code` (published as `karajan-code` before joining the scope; the legacy name still installs the same versions). All install routes (npm, binaries, brew, Python wrapper) in the [install docs](https://karajancode.com/docs/v4/install/).
 
 ## The daily loop
 

@@ -862,7 +862,7 @@ export async function initCommand({ logger, flags = {} }) {
       await installAiTrashHook(logger);
     } else {
       logger.warn("ai-trash kj-trash binary not found — destructive ops unprotected.");
-      logger.warn("  Install karajan-code globally (npm i -g karajan-code) so kj-trash is on PATH.");
+      logger.warn("  Install karajan-code globally (npm i -g @karajan-family/code) so kj-trash is on PATH.");
     }
   }
 

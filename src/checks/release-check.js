@@ -124,9 +124,39 @@ async function declaredItems(projectDir, config, version) {
   return checks;
 }
 
+/**
+ * MIG-B (KJC-TSK-0752, ADR 0004): while a package dual-publishes under two npm
+ * names, their `latest` dist-tags must move in LOCKSTEP. A torn dual-publish —
+ * one name released, the other not — is invisible from the repo (both installs
+ * "work") and every surface that teaches one name silently diverges from the
+ * other. The pair is read from scripts/dual-publish.mjs, which is the one
+ * place that knows it; no dual script, no check.
+ */
+export async function dualPublishCheck(projectDir, pkg, run = runCommand) {
+  const script = join(projectDir, "scripts", "dual-publish.mjs");
+  if (!pkg?.name || !existsSync(script)) return null;
+  const src = readFileSync(script, "utf8");
+  const legacy = (src.match(/LEGACY_NAME = "([^"]+)"/) || [])[1];
+  const scoped = (src.match(/SCOPED_NAME = "([^"]+)"/) || [])[1];
+  if (!legacy || !scoped || pkg.name !== legacy) return null;
+  const latest = async (name) => {
+    const out = await run("npm", ["view", name, "dist-tags.latest"], { cwd: projectDir });
+    if (out.exitCode !== 0) throw new Error(`npm view ${name} failed`);
+    return (out.stdout || "").trim();
+  };
+  try {
+    const [a, b] = await Promise.all([latest(legacy), latest(scoped)]);
+    const ok = Boolean(a) && a === b;
+    return { name: "dual-publish", ok, detail: ok ? `${legacy} and ${scoped} both at ${a}` : `dist-tags diverge: ${legacy}@${a || "?"} vs ${scoped}@${b || "?"} — a torn dual-publish; publish the missing name before releasing on top` };
+  } catch (err) {
+    return { name: "dual-publish", ok: false, detail: `could not read npm dist-tags (${err.message}) — the lockstep cannot be verified, and unverified is not ok` };
+  }
+}
+
 export async function runReleaseCheck({ projectDir = process.cwd(), config = {} } = {}) {
   const { checks, version, pkg } = await genericChecks(projectDir);
   const pack = await packPrivacyCheck(projectDir, pkg);
-  checks.push(...(pack ? [pack] : []), await policyRangeCheck(projectDir), ...await declaredItems(projectDir, config, version));
+  const dual = await dualPublishCheck(projectDir, pkg);
+  checks.push(...(pack ? [pack] : []), ...(dual ? [dual] : []), await policyRangeCheck(projectDir), ...await declaredItems(projectDir, config, version));
   return { ok: checks.every((c) => c.ok), version, checks };
 }

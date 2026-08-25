@@ -290,7 +290,7 @@ Use `kj-rag-mcp` when:
 
 ### Windsurf / Continue / Zed
 
-Any MCP client that accepts a stdio command works the same way — point it at `kj-rag-mcp` (installed by `npm install -g karajan-code`). The binary auto-detects the project from the current working directory; override with the `projectDir` argument on each call if the IDE launches the server from a different cwd.
+Any MCP client that accepts a stdio command works the same way — point it at `kj-rag-mcp` (installed by `npm install -g @karajan-family/code`). The binary auto-detects the project from the current working directory; override with the `projectDir` argument on each call if the IDE launches the server from a different cwd.
 
 ### What the agent gets
 

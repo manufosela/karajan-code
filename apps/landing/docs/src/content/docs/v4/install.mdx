@@ -7,7 +7,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Karajan v4 attaches to the AI agent you already work with (Claude Code, Codex, Gemini CLI, Cursor). You install it once per machine, activate it once per project, and from then on your agent follows the method and git enforces it.
 
-One installer, complete result: `curl -fsSL https://karajancode.com/install.sh | sh` installs the **full product** — it uses your Node (≥ 22.12) if present, and auto-provisions the official Node LTS into `~/.karajan/node` (checksum-verified, nothing system-wide) if not. `npm install -g karajan-code` works too if you prefer it explicit. A CLI-only single binary exists behind `--standalone` for machines where you deliberately want no Node. Requires git, and at least one AI agent CLI — two enables cross-AI review; three enables arbitration.
+One installer, complete result: `curl -fsSL https://karajancode.com/install.sh | sh` installs the **full product** — it uses your Node (≥ 22.12) if present, and auto-provisions the official Node LTS into `~/.karajan/node` (checksum-verified, nothing system-wide) if not. `npm install -g @karajan-family/code` works too if you prefer it explicit (published as `karajan-code` before joining the scope; the legacy name still installs the same versions). A CLI-only single binary exists behind `--standalone` for machines where you deliberately want no Node. Requires git, and at least one AI agent CLI — two enables cross-AI review; three enables arbitration.
 
 ## The one-liner (recommended)
 
@@ -43,7 +43,7 @@ kj doctor                                            # explains anything missing
 kj install-tools                                     # completes the stack; exit 3 = pending user action
 ```
 
-Full product always: uses your Node ≥ 22.12 or auto-provisions the official LTS (checksum-verified, in `~/.karajan/node`). Equivalent: `npm install -g karajan-code`.
+Full product always: uses your Node ≥ 22.12 or auto-provisions the official LTS (checksum-verified, in `~/.karajan/node`). Equivalent: `npm install -g @karajan-family/code`.
 
 </TabItem>
 </Tabs>

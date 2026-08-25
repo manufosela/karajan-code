@@ -23,7 +23,7 @@ function createAiTrashCheck() {
         ok: false,
         severity: "warn",
         detail: "kj-trash not found — destructive ops unprotected",
-        fix: "Install karajan-code globally (npm i -g karajan-code) so kj-trash is on PATH, then run `kj-trash install --claude-code`",
+        fix: "Install karajan-code globally (npm i -g @karajan-family/code) so kj-trash is on PATH, then run `kj-trash install --claude-code`",
       };
     },
   };

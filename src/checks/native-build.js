@@ -45,7 +45,7 @@ export function createNativeBuildCheck({ loadDb = defaultLoadDb, isPnpm = isPnpm
             ok: false,
             severity: "warn",
             detail: "better-sqlite3 native build was skipped — pnpm blocks dependency build scripts by default",
-            fix: "Approve the build then reinstall: `pnpm approve-builds better-sqlite3` — or install with npm: `npm i -g karajan-code`",
+            fix: "Approve the build then reinstall: `pnpm approve-builds better-sqlite3` — or install with npm: `npm i -g @karajan-family/code`",
           };
         }
         return {
@@ -55,7 +55,7 @@ export function createNativeBuildCheck({ loadDb = defaultLoadDb, isPnpm = isPnpm
           // modules by design — name the consequence (RAG/board/MCP need the
           // npm install) instead of implying the install is broken.
           detail: `better-sqlite3 failed to load: ${firstLine} — DB-backed features (RAG, board, MCP) unavailable; the standalone binary does not bundle native modules`,
-          fix: "Reinstall to rebuild native modules: `npm i -g karajan-code`",
+          fix: "Reinstall to rebuild native modules: `npm i -g @karajan-family/code`",
         };
       }
     },

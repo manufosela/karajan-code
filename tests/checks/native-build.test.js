@@ -32,7 +32,7 @@ describe("checks/native-build — KJC-BUG-0092", () => {
     });
     const r = await check.detect();
     expect(r).toMatchObject({ ok: false, severity: "warn" });
-    expect(r.fix).toMatch(/npm i -g karajan-code/);
+    expect(r.fix).toMatch(/npm i -g @karajan-family\/code/); // MIG-B: the scoped name is primary
     expect(r.fix).not.toMatch(/approve-builds/);
   });
 });
