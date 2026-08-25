@@ -60,8 +60,10 @@ curl -fsSL https://karajancode.com/install.sh | sh
 Install with npm on Intel macs or any platform where you'd rather run `kj` on Node:
 
 ```bash
-npm install -g karajan-code
+npm install -g @karajan-family/code
 ```
+
+> Published as `karajan-code` before joining the `@karajan-family` scope — the legacy name still installs the same versions. New installs should use the scoped name.
 
 ## Step 3: Run the setup wizard
 

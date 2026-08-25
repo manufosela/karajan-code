@@ -60,8 +60,10 @@ curl -fsSL https://karajancode.com/install.sh | sh
 Instala con npm en los Mac Intel o en cualquier plataforma donde prefieras ejecutar `kj` sobre Node:
 
 ```bash
-npm install -g karajan-code
+npm install -g @karajan-family/code
 ```
+
+> Publicado como `karajan-code` antes de entrar en el scope `@karajan-family` — el nombre antiguo instala las mismas versiones. Las instalaciones nuevas deben usar el nombre con scope.
 
 ## Paso 3: Ejecuta el wizard de configuración
 

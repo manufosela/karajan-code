@@ -24,7 +24,7 @@ Skip any of them per-run with the matching `--no-*` flag (`--no-sonar`, `--no-os
 
 ### One-command install with `kj install-tools` (v2.18+)
 
-You don't have to copy the commands above by hand. After `npm install -g karajan-code`:
+You don't have to copy the commands above by hand. After `npm install -g @karajan-family/code`:
 
 ```bash
 kj doctor                 # Shows what's missing and the install command for YOUR system
@@ -53,8 +53,10 @@ kj doctor              # confirm clean
 ## Install
 
 ```bash
-npm install -g karajan-code
+npm install -g @karajan-family/code
 ```
+
+> The package was published as `karajan-code` before joining the `@karajan-family` scope. The legacy name still installs the same versions and will keep working; new installs should use the scoped name.
 
 Verify:
 ```bash

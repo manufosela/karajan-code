@@ -109,7 +109,7 @@ export function createKarajanMcpCheck() {
         detail: result.ok
           ? result.detail
           : `karajan-mcp did not respond: ${result.detail} — OPTIONAL in v4: your agent runs kj directly; only shell-less hosts need MCP`,
-        fix: result.ok ? undefined : "Only if you need MCP: install via npm (`npm i -g karajan-code`) — the standalone binary does not bundle it",
+        fix: result.ok ? undefined : "Only if you need MCP: install via npm (`npm i -g @karajan-family/code`) — the standalone binary does not bundle it",
         extra: { binPath },
       };
     },

@@ -24,7 +24,7 @@ Saltar cualquiera por ejecución con el flag `--no-*` correspondiente (`--no-son
 
 ### Instalación en un comando con `kj install-tools` (v2.18+)
 
-No hace falta copiar los comandos de arriba a mano. Después de `npm install -g karajan-code`:
+No hace falta copiar los comandos de arriba a mano. Después de `npm install -g @karajan-family/code`:
 
 ```bash
 kj doctor                 # Muestra qué falta y el comando de instalación para TU sistema
@@ -53,8 +53,10 @@ kj doctor              # confirmar limpio
 ## Instalación
 
 ```bash
-npm install -g karajan-code
+npm install -g @karajan-family/code
 ```
+
+> El paquete se publicó como `karajan-code` antes de entrar en el scope `@karajan-family`. El nombre antiguo instala las mismas versiones y seguirá funcionando; las instalaciones nuevas deben usar el nombre con scope.
 
 Verifica:
 ```bash
