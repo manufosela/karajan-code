@@ -160,7 +160,13 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(blocked.status).toBe(2);
     expect(blocked.stderr).toMatch(/changelog/);
     expect(run(gate, publish, { PATH: `${bin}:${process.env.PATH}`, KJ_ALLOW_RELEASE: "1" }).status).toBe(0);
-    expect(run(gate, publish, { PATH: path.dirname(process.execPath) }).status).toBe(0);
+    // KJC-BUG-0155: dirname(process.execPath) is node's OWN bin — the same dir
+    // where `npm link` installs the real kj on a dev machine, so the fail-open
+    // leg found kj and blocked. A lonely bin holding ONLY node proves it.
+    const lonely = path.join(dir, "lonelybin");
+    fs.mkdirSync(lonely);
+    fs.symlinkSync(process.execPath, path.join(lonely, "node"));
+    expect(run(gate, publish, { PATH: lonely }).status).toBe(0);
     expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls -la" } }).status).toBe(0);
   });
 
