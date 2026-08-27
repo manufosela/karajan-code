@@ -320,7 +320,7 @@ let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
-    const { session_id: sid = "default", tool_name: tool, tool_input: input = {} } = JSON.parse(raw);
+    const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, transcript_path: transcript = null } = JSON.parse(raw);
     // Self-protection (KJC-TSK-0715) rules run BEFORE any escape, including
     // KJ_SENTINEL_OFF: the sentinel is not dismantled from inside a session —
     // only the human, editing outside it.
@@ -733,6 +733,19 @@ process.stdin.on("end", () => {
       }
       // (the pending entry itself is recorded by the PostToolUse hook, only once
       // gh confirms "merged pull request #N" — a failed merge never blocks)
+      // CLM-C (KJC-TSK-0803): a PR body outlives the turn — an invented figure
+      // there misleads every future reader. When the command writes one from a
+      // file, kj crosses ITS data against this turn's outputs; the hook carries
+      // no policy (kj reads method_gates.claims; off = this check does not exist).
+      const bodyFile = /\\bgh\\s+pr\\s+(?:create|edit)\\b/.test(cmd) ? /--body-file[= ]+("([^"]+)"|'([^']+)'|([^\\s"']+))/.exec(cmd) : null;
+      if (bodyFile && transcript) {
+        const body = bodyFile[2] || bodyFile[3] || bodyFile[4];
+        const g = spawnSync("kj", ["claims", "gate", "--transcript", transcript, "--file", body], { cwd: ROOT, encoding: "utf8" });
+        if (!g.error && g.status === 2) {
+          console.error("kj sentinel: claims — un dato del cuerpo de la PR esta DESMENTIDO por las salidas de este turno:\\n" + (g.stderr || "").trim() + "\\nVerificalo o marcalo como no comprobado antes de crear la PR. Detalle: kj claims check --transcript " + transcript + " --file " + body);
+          process.exit(2);
+        }
+      }
       if (PUBLISH.test(cmd)) {
         if (escOn("KJ_ALLOW_RELEASE")) { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
         const res = spawnSync("kj", ["release", "check", "--json"], { cwd: ROOT, encoding: "utf8" });

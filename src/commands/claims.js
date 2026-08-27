@@ -9,6 +9,7 @@
  * It fails OPEN. A verifier that cannot read the transcript says so and gets out
  * of the way: a broken check must never hold a session hostage.
  */
+import { readFileSync } from "node:fs";
 import { readTurn } from "../claims/turn.js";
 import { crossCheck, formatClaimReport } from "../claims/cross-check.js";
 
@@ -20,14 +21,18 @@ import { crossCheck, formatClaimReport } from "../claims/cross-check.js";
  * source — unbacked data is reported either way, per the accepted ADR:
  * inform always, block almost never.
  */
-export async function claimsGateCommand({ flags = {}, config = {}, logger = console, readTurnFn = readTurn } = {}) {
+export async function claimsGateCommand({ flags = {}, config = {}, logger = console, readTurnFn = readTurn, readFileFn = readFileSync } = {}) {
   const mode = config?.method_gates?.claims ?? "off";
   if (mode !== "warn" && mode !== "block") return 0;
   let turn;
   try {
     turn = readTurnFn(flags.transcript);
+    // CLM-C: with --file the ARTIFACT is what gets checked — a PR body, a card, a
+    // note — against the same turn's outputs. The final message is what outlives
+    // the turn least; the artifact is what outlives it most.
+    if (flags.file) turn = { ...turn, text: String(readFileFn(flags.file, "utf8")) };
   } catch {
-    return 0; // not observable: a gate that cannot read the transcript gets out of the way
+    return 0; // not observable: a gate that cannot read its inputs gets out of the way
   }
   const result = crossCheck(turn);
   if (result.denied.length && mode === "block") {
@@ -38,7 +43,7 @@ export async function claimsGateCommand({ flags = {}, config = {}, logger = cons
   return 0;
 }
 
-export async function claimsCommand({ flags = {}, logger = console, readTurnFn = readTurn } = {}) {
+export async function claimsCommand({ flags = {}, logger = console, readTurnFn = readTurn, readFileFn = readFileSync } = {}) {
   const path = flags.transcript;
   if (!path) {
     logger.error("kj claims check: --transcript <path> is required");
@@ -47,6 +52,7 @@ export async function claimsCommand({ flags = {}, logger = console, readTurnFn =
   let turn;
   try {
     turn = readTurnFn(path);
+    if (flags.file) turn = { ...turn, text: String(readFileFn(flags.file, "utf8")) };
   } catch (err) {
     // Not observable: the transcript could not be read. Never reported as clean.
     const note = `kj claims: transcript not readable (${err.message}) — nothing checked`;
