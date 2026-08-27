@@ -29,12 +29,37 @@ export function formatSonarFinding(issue) {
 }
 
 /**
+ * KJC-TSK-0795 AC3: the NEW line numbers each file gains in a unified diff
+ * (`git diff --unified=0`). Only what the diff ADDS can be the author's fault.
+ * @param {string} diffText @returns {Map<string, Set<number>>}
+ */
+export function addedLinesByFile(diffText) {
+  const map = new Map();
+  let current = null;
+  for (const raw of String(diffText || "").split("\n")) {
+    if (raw.startsWith("+++ ")) {
+      const p = raw.slice(4).trim();
+      current = p.startsWith("b/") ? p.slice(2) : p === "/dev/null" ? null : p;
+      continue;
+    }
+    const h = current ? /^@@ [^+]*\+(\d+)(?:,(\d+))? @@/.exec(raw) : null;
+    if (!h) continue;
+    const start = Number(h[1]);
+    const count = h[2] === undefined ? 1 : Number(h[2]);
+    if (count === 0) continue;
+    const set = map.get(current) ?? map.set(current, new Set()).get(current);
+    for (let i = 0; i < count; i++) set.add(start + i);
+  }
+  return map;
+}
+
+/**
  * Scan the project (single-flight via the tool governor) and return the
  * open issues that live on the staged files, split by blocking severity.
  * Every failure path degrades to {available:false, reason} — the pre-gate
  * never breaks the review, it only refuses to stay silent.
  */
-export async function runSonarPregate({ config, stagedFiles = [], logger = null }) {
+export async function runSonarPregate({ config, stagedFiles = [], touchedLines = null, logger = null }) {
   if (config?.review_gate?.sonar === false) {
     return { available: false, reason: "disabled in config (review_gate.sonar: false)" };
   }
@@ -45,13 +70,22 @@ export async function runSonarPregate({ config, stagedFiles = [], logger = null 
     if (!scan.ok) {
       return { available: false, reason: (scan.stderr || scan.stdout || "sonar scan failed").trim() };
     }
+    // The scan above ALWAYS runs before issues are read (single-flight): the
+    // verdict is about the code as it is now, never a stale server analysis
+    // (KJC-TSK-0795 AC2 — that failure mode has no route here, by design).
     const res = await getOpenIssues(config, scan.projectKey);
     const staged = new Set(stagedFiles);
     const onStaged = (res.issues || []).filter((i) => staged.has(issueFile(i)));
+    // KJC-TSK-0795 AC3: with the diff's line map, only issues on lines the PR
+    // ADDS can veto — a 3-line PR must not answer for 30 preexisting issues.
+    // No line, or an untouched line, is the file's TREND: reported, never a block.
+    const isTouched = (i) => !touchedLines || (i.line != null && touchedLines.get(issueFile(i))?.has(Number(i.line)));
+    const own = onStaged.filter(isTouched);
     return {
       available: true,
-      blocking: onStaged.filter((i) => BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
-      advisory: onStaged.filter((i) => !BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
+      blocking: own.filter((i) => BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
+      advisory: own.filter((i) => !BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
+      preexisting: touchedLines ? onStaged.filter((i) => !isTouched(i)) : [],
       totalProject: res.total ?? (res.issues || []).length,
     };
   } catch (err) {
