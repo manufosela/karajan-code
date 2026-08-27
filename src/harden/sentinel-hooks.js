@@ -75,8 +75,23 @@ export const violations = (s, branch) => {
   if (!s || !(s.edited_sources || []).length) return v;
   if (BASE_BRANCHES.has(branch)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion");
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
-  if (!(s.edited_tests || []).length) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
+  if (!(s.edited_tests || []).length && sessionAddsCode(s)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
   return v;
+};
+// KJC-TSK-0795 AC1: deleting code adds no behavior to test — a session whose
+// source edits only REMOVED lines owes no test. Unreadable git = conservative
+// (the violation stands): a gate must never stand down on a shrug.
+const sessionAddsCode = (s) => {
+  const files = s.edited_sources || [];
+  // _git builds a shell string: any path outside a strict charset stays out of
+  // it — and the gate stays ARMED for it (conservative, and injection-proof).
+  if (files.some((f) => !/^[A-Za-z0-9._/-]+$/.test(f))) return true;
+  const stat = _git("diff HEAD --numstat -- " + files.join(" "), ROOT);
+  if (!stat) return true;
+  return stat.split(String.fromCharCode(10)).some((l) => {
+    const a = l.trim().replaceAll(String.fromCharCode(9), " ").split(" ").filter(Boolean)[0];
+    return a === "-" || Number(a) > 0;
+  });
 };
 export const recordEscape = (sid, escape, tool) => {
   const state = load();
