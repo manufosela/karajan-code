@@ -16,6 +16,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { filterFalsePositives } from "./issue-filter.js";
@@ -25,6 +26,42 @@ const execFileAsync = promisify(execFile);
 const SCAN_TIMEOUT_MS = 120_000;
 const MAX_DEAD_EXPORTS_REPORTED = 100;
 const MAX_UNUSED_FILES_REPORTED = 50;
+
+// KJC-TSK-0794 AC7: a Firebase callable or a declared global-setup reported as
+// dead is the false positive that gets the inventory switched off. When the
+// project declares nothing itself, kj declares FOR it what it can read.
+const KNIP_OWN_CONFIGS = ["knip.json", "knip.jsonc", ".knip.json", "knip.js", "knip.ts", "knip.config.js", "knip.config.ts"];
+// knip's default root entry patterns, restated because an explicit `entry`
+// REPLACES them (package.json main/bin/exports always count on their own).
+const KNIP_DEFAULT_ENTRY = ["{index,cli,main}.{js,mjs,cjs,jsx,ts,mts,cts,tsx}", "src/{index,cli,main}.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+
+async function hasOwnKnipConfig(projectDir) {
+  for (const f of KNIP_OWN_CONFIGS) {
+    try { await fs.access(path.join(projectDir, f)); return true; } catch { /* keep looking */ }
+  }
+  try { return Boolean(JSON.parse(await fs.readFile(path.join(projectDir, "package.json"), "utf8")).knip); } catch { return false; }
+}
+
+/** Entrypoints kj can vouch for: config.audit.entrypoints (the user's word) and
+ * firebase.json's functions.source (the platform's word). Null when nothing. */
+async function resolveProjectEntrypoints(projectDir, config) {
+  const declared = (config?.audit?.entrypoints || []).filter((e) => typeof e === "string");
+  const firebase = [];
+  try {
+    const fb = JSON.parse(await fs.readFile(path.join(projectDir, "firebase.json"), "utf8"));
+    const fns = Array.isArray(fb.functions) ? fb.functions : fb.functions ? [fb.functions] : [];
+    for (const f of fns) if (typeof f?.source === "string") firebase.push(f.source);
+  } catch { /* no firebase.json — nothing to declare */ }
+  return declared.length || firebase.length ? { declared, firebase } : null;
+}
+
+function buildEphemeralKnipConfig({ declared, firebase }) {
+  const root = { entry: [...KNIP_DEFAULT_ENTRY, ...declared] };
+  if (!firebase.length) return root;
+  const workspaces = { ".": root };
+  for (const src of firebase) workspaces[src] = { entry: ["index.{js,ts}", "src/index.{js,ts}"] };
+  return { workspaces };
+}
 
 function hasJsTsStack(stack) {
   if (!stack) return false;
@@ -78,11 +115,24 @@ export async function collectDeadExports(projectDir, stack, config = {}, logger 
     return { available: false, reason: `knip binary not resolvable (${err?.message || err}). In the SEA binary install karajan-code via npm to enable.` };
   }
 
+  const args = [knipBin, "--reporter", "json", "--no-progress", "--no-exit-code"];
+  let declaredEntrypoints = null;
+  try {
+    const eps = await resolveProjectEntrypoints(projectDir, config);
+    // a project with its OWN knip config already decided — it is respected
+    if (eps && !(await hasOwnKnipConfig(projectDir))) {
+      const cfgPath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "kj-knip-")), "knip.json");
+      await fs.writeFile(cfgPath, JSON.stringify(buildEphemeralKnipConfig(eps)));
+      args.push("--config", cfgPath);
+      declaredEntrypoints = eps;
+    }
+  } catch { /* declaring is best-effort; the default scan still runs */ }
+
   let raw;
   try {
     const { stdout } = await execFileAsync(
       process.execPath,
-      [knipBin, "--reporter", "json", "--no-progress", "--no-exit-code"],
+      args,
       { cwd: projectDir, timeout: SCAN_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
     );
     raw = stdout;
@@ -163,6 +213,7 @@ export async function collectDeadExports(projectDir, stack, config = {}, logger 
     available: true,
     total: kept.length,
     suppressedCount: suppressed.length,
+    declaredEntrypoints,
     exports: keptExports,
     files: keptFiles,
     suppressed,
