@@ -162,16 +162,23 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     const numstat = await rawDiff(flags.range, ["--numstat"]);
     const added = numstat.split("\n").reduce((acc, l) => acc + (Number(l.split("\t")[0]) || 0), 0);
     if (added > sizeWarn) {
+      // KJC-TSK-0795 AC5: say how much of the weight is the module's OWN tests —
+      // partitioning is a decision, and it must never split code from its tests.
+      const testAdded = numstat.split("\n").reduce((acc, l) => {
+        const [a, , ...f] = l.split("\t");
+        return acc + (/\/tests?\/|__tests__\/|\.test\.|\.spec\./.test(`/${f.join("\t")}`) ? Number(a) || 0 : 0);
+      }, 0);
+      const split = testAdded > 0 ? ` (${added - testAdded} source + ${testAdded} accompanying tests — partition by feature, never code from its tests)` : "";
       const sizePolicy = config?.method_gates?.pr_size || "warn";
       if (process.env.KJ_ALLOW_LARGE_PR === "1") {
         console.log(`⚠ pr-size exempt: ${added} lines added — KJ_ALLOW_LARGE_PR=1 (explicit escape hatch)`);
       } else if (sizePolicy === "block") {
-        const reason = `${added} lines added exceeds the ${sizeWarn}-line budget (${sizeSource}; method_gates.pr_size: block) — partition the work, or get your user's explicit OK and re-run with KJ_ALLOW_LARGE_PR=1`;
+        const reason = `${added} lines added${split} exceeds the ${sizeWarn}-line budget (${sizeSource}; method_gates.pr_size: block) — partition the work, or get your user's explicit OK and re-run with KJ_ALLOW_LARGE_PR=1`;
         console.log(`✗ pr-size gate: ${reason}`);
         process.exitCode = 1;
         return { verdict: "rejected", reviewer: "pr-size", issues: [{ severity: "high", description: reason }] };
       } else {
-        console.log(`⚠ pr-size: ${added} lines added (guideline ~${sizeWarn}, source: ${sizeSource}) — an oversized warning is not an opinion: partition, or ask your user (method_gates.pr_size: block to harden)`);
+        console.log(`⚠ pr-size: ${added} lines added${split} (guideline ~${sizeWarn}, source: ${sizeSource}) — an oversized warning is not an opinion: partition, or ask your user (method_gates.pr_size: block to harden)`);
       }
     }
   }
