@@ -7,14 +7,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { stewardSweepCommand } from "../../src/commands/steward.js";
+import { stewardSweepCommand, sweepOnResume } from "../../src/commands/steward.js";
 
 let dir;
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), out: function () { return this.info.mock.calls.flat().join("\n"); } });
 const NOW = Date.parse("2026-08-27T12:00:00Z");
-const run = (over = {}) =>
+const run = ({ flags = {}, ...over } = {}) =>
   stewardSweepCommand({
-    flags: {}, config: { projectDir: dir }, logger: logger(),
+    flags, config: { projectDir: dir }, logger: logger(),
     probes: { runsFn: () => [{ workflow: "CI", conclusion: "success", createdAt: "2026-08-26T00:00:00Z" }], nowMs: NOW, ...over },
   });
 
@@ -104,6 +104,32 @@ describe("kj steward sweep", () => {
     const created = await hus();
     expect(created.some((h) => h.title.includes("vulnerable-deps") && h.status === "pending")).toBe(true);
   }, 30_000);
+
+  // STW-E (KJC-TSK-0793) — execution modes: on-demand, on-resume, or the Action.
+  it("--if-stale skips the sweep while the report is fresh, and sweeps when it is old", async () => {
+    await run();
+    const first = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "steward", "report.json"), "utf8"));
+    await run({ nowMs: NOW + 3_600_000, flags: { ifStale: 1 } }); // one hour later: fresh
+    const after = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "steward", "report.json"), "utf8"));
+    expect(after.sweptAt).toBe(first.sweptAt);
+    await run({ nowMs: NOW + 2 * 86_400_000, flags: { ifStale: 1 } }); // two days: stale
+    const later = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "steward", "report.json"), "utf8"));
+    expect(later.sweptAt).not.toBe(first.sweptAt);
+  });
+
+  it("sweepOnResume is a no-op for a project that never adopted the Steward — defaults impose nothing", async () => {
+    const sweepFn = vi.fn();
+    await sweepOnResume({ config: { projectDir: dir }, logger: logger(), sweepFn });
+    expect(sweepFn).not.toHaveBeenCalled();
+  });
+
+  it("sweepOnResume sweeps (if stale) once a report exists — resuming work sees fresh state", async () => {
+    await run();
+    const sweepFn = vi.fn();
+    await sweepOnResume({ config: { projectDir: dir }, logger: logger(), sweepFn });
+    expect(sweepFn).toHaveBeenCalledOnce();
+    expect(sweepFn.mock.calls[0][0].flags).toMatchObject({ ifStale: 1 });
+  });
 
   it("--json prints the machine document", async () => {
     const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);

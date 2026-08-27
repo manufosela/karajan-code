@@ -275,6 +275,40 @@ export function mutationWorkflowFor(language, pm = "npm") {
   return { file: "kj-mutation.yml", blockId: "wf-mutation", body };
 }
 
+// STW-E (KJC-TSK-0793): the scheduled Steward sweep — OPT-IN via
+// steward.action: true. Decay happens precisely on the days nobody looks, so
+// the watcher cannot live inside a session: the Action runs where the repo
+// lives, publishes the SAME report file every other mode writes (one source
+// of truth), and a broken invariant never stops the report from publishing.
+export function stewardWorkflowFor(kjVersion, pkgName = "karajan-code") {
+  return [
+    "name: Steward sweep",
+    "on:",
+    "  schedule:",
+    '    - cron: "17 6 * * 1"',
+    "  workflow_dispatch: {}",
+    "permissions:",
+    "  contents: write",
+    "jobs:",
+    "  sweep:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    `      - uses: ${PINNED_ACTIONS.checkout}`,
+    `      - uses: ${PINNED_ACTIONS.setupNode}`,
+    "        with:",
+    '          node-version: "22"',
+    `      - run: npm install -g ${pkgName}@${kjVersion}`,
+    "      - name: Sweep (a broken invariant must not stop the report)",
+    "        env:",
+    "          GH_TOKEN: ${{ github.token }}",
+    "        run: kj steward sweep || true",
+    "      - name: Publish the report and the proposed cards",
+    "        run: |",
+    "          git add .karajan/steward .karajan/plans 2>/dev/null || true",
+    '          git diff --cached --quiet || { git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(steward): sweep report [skip ci]" && git push; }',
+  ].join("\n");
+}
+
 /** Conditional workflows: shrink-budget on strict, pack-smoke when publishable. */
 export function extraWorkflowsFor({ profile = "standard", publishable = false, pm = "npm" } = {}) {
   const extras = [];

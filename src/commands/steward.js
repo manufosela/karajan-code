@@ -33,6 +33,16 @@ const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, "utf8
 export async function stewardSweepCommand({ flags = {}, config = {}, logger = console, probes = {} } = {}) {
   const projectDir = config.projectDir || process.cwd();
   const baseBranch = config.base_branch || "main";
+  // STW-E (KJC-TSK-0793): --if-stale <days> — resuming work with a fresh
+  // report does not re-sweep; the report in the repo stays the ONE source.
+  if (flags.ifStale !== undefined) {
+    const prev = readJson(path.join(stewardDir(projectDir), "report.json"));
+    const ageMs = prev?.sweptAt ? (probes.nowMs ?? Date.now()) - Date.parse(prev.sweptAt) : Infinity;
+    if (ageMs < Number(flags.ifStale) * 86_400_000) {
+      logger.info?.(`steward: report is fresh (swept ${prev.sweptAt}) — not re-sweeping`);
+      return 0;
+    }
+  }
   const freshness = resolveFreshness(config);
   const nowMs = probes.nowMs ?? Date.now();
   const runsFn = probes.runsFn ?? ghRuns(projectDir, baseBranch);
@@ -120,4 +130,17 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
   }
   process.exitCode = broken.length ? 1 : 0;
   return broken.length ? 1 : 0;
+}
+
+/**
+ * STW-E — the on-resume mode: when work resumes there is someone in front to
+ * review the report, which is the requirement. Only for projects that ADOPTED
+ * the Steward (a report exists, or method_gates.steward is declared): the
+ * default imposes nothing. Best-effort: a failed sweep never stops a resume.
+ */
+export async function sweepOnResume({ config = {}, logger = console, sweepFn = stewardSweepCommand } = {}) {
+  const projectDir = config.projectDir || process.cwd();
+  const adopted = fs.existsSync(path.join(stewardDir(projectDir), "report.json")) || Boolean(config.method_gates?.steward);
+  if (!adopted) return;
+  try { await sweepFn({ flags: { ifStale: 1 }, config, logger }); } catch (err) { logger.warn?.(`⚠ steward: on-resume sweep failed (${err.message}) — resuming anyway`); }
 }

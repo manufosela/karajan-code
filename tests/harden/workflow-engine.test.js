@@ -212,6 +212,20 @@ describe("pinned actions — no mutable tags in generated workflows (KJC-BUG-013
     }
   });
 
+  // STW-E (KJC-TSK-0793): the scheduled Action is OPT-IN (steward.action:
+  // true) and carries the same discipline as every generated workflow.
+  it("the steward workflow is pinned, scheduled, dispatchable, and publishes the report", async () => {
+    const t = await import("../../src/harden/workflow-templates.js");
+    const body = t.stewardWorkflowFor("4.22.0", "karajan-code");
+    expect(body).toMatch(/schedule:/);
+    expect(body).toMatch(/workflow_dispatch/);
+    expect(body).toMatch(/karajan-code@4\.22\.0/);
+    expect(body).toMatch(/kj steward sweep/);
+    for (const line of body.split("\n").filter((l) => l.includes("uses:"))) {
+      expect(line).toMatch(/@[0-9a-f]{40} # v/);
+    }
+  });
+
   // KJC-TSK-0795 AC4 (epic KJC-PCS-0082) — measured in GREBLA: a 414-line
   // budget warning that was almost all pnpm-lock.yaml. Generated weight
   // nobody wrote must not count against anyone's budget.
