@@ -93,7 +93,12 @@ export function createAudit({ sink }) {
 
   /** Resolves when the sink has loaded its chain (async sinks); immediately otherwise. */
   const ready = () => (sink.init ? sink.init().then(() => undefined) : Promise.resolve());
+  // KJC-TSK-0799 (tribbu-atlas): reading right after a burst must not LOOK
+  // incomplete — drained() resolves once nothing is in flight, re-checking
+  // because entries may have queued behind the one it waited for. A failed
+  // upload never hangs it: the queue already swallows its own rejections.
+  const drained = () => (inFlight ? inFlight.then(drained) : Promise.resolve());
   const verify = () => verifyDecisionChain(sink.lines());
   const entries = () => sink.lines().map((l) => JSON.parse(l));
-  return { record, wrap, ready, verify, entries, sink };
+  return { record, wrap, ready, drained, verify, entries, sink };
 }

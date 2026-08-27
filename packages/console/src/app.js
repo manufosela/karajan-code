@@ -59,8 +59,11 @@ export function createConsoleApp({ config, verify, sink, adapters = {}, gcpAuth 
     configRepo: config.configRepo ? { repo: config.configRepo.repo, path: config.configRepo.path, watchVersion: config.configRepo.watchVersion } : null,
     audit: { sink: config.audit.sink },
   }));
-  app.get("/api/audit", guard("admin"), (req, res) => {
+  app.get("/api/audit", guard("admin"), async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 100, 1000);
+    // KJC-TSK-0799: wait for the sealing queue to drain — an audit that looks
+    // incomplete is worse than a slow one. A failed upload never hangs this.
+    await audit.drained();
     res.json({ ok: true, chain: audit.verify(), entries: audit.entries().slice(-limit) });
   });
 
