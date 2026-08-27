@@ -318,11 +318,13 @@ export function registerMeta(program, { pkgVersion }) {
   claimsCmd.command("check")
     .description("Cruza el mensaje final del turno con sus salidas — exit 2 solo si un dato está DESMENTIDO por su propia fuente; falla abierto si no puede leer el transcript")
     .requiredOption("--transcript <path>", "Ruta del transcript de la sesión (la que pasa el hook)")
+    .option("--file <path>", "Cruza el contenido de este fichero (cuerpo de PR, card) en vez del mensaje final del turno")
     .option("--json", "Machine-readable")
     .action(async (flags) => { process.exitCode = await claimsCommand({ flags }); });
   claimsCmd.command("gate")
-    .description("El mismo cruce, gobernado por method_gates.claims del proyecto (off|warn|block) — lo invoca el Stop gate; off = silencio, block = exit 2 solo con un dato desmentido")
+    .description("El mismo cruce, gobernado por method_gates.claims del proyecto (off|warn|block) — lo invocan los hooks; off = silencio, block = exit 2 solo con un dato desmentido")
     .requiredOption("--transcript <path>", "Ruta del transcript de la sesión")
+    .option("--file <path>", "Cruza el contenido de este fichero (cuerpo de PR, card) en vez del mensaje final del turno")
     .action(async (flags) => {
       await withConfig(pkgVersion, "claims-gate", flags, async ({ config }) => {
         process.exitCode = await claimsGateCommand({ flags, config });
