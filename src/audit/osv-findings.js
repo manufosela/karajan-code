@@ -104,6 +104,7 @@ export function parseOsvOutput(raw) {
           aliases: vuln.aliases || [],
           severity: extractSeverity(vuln, groups),
           summary: vuln.summary || vuln.details?.split("\n")[0] || "",
+          publishedAt: vuln.published || null, // the ADVISORY's date — the Steward ages by it (KJC-TSK-0789 AC6)
           package: name,
           version,
           ecosystem,

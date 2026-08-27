@@ -77,6 +77,48 @@ export function evaluateMainCi({ projectDir, baseBranch = "main", freshness = DE
   }
   return { verdict: VERDICTS.OK, evidence: `red for ${plural(redDays)}, inside the ${freshness.main_ci_red_days}-day tolerance — a fresh failure is work, not decay`, remedy: null };
 }
+/** Where `kj audit` records its last run for the Steward to age. */
+export const securityAuditMarkerPath = (projectDir) => path.join(projectDir, ".karajan", "steward", "security-audit.json");
+/**
+ * AC5 — how long since `kj audit --security` last ran. "Never" is GREBLA's
+ * real case: 79 days with an open redirect and untouched dependencies.
+ * No record is BROKEN, not unknown: running the audit fixes both "never"
+ * and "before recording existed", so the remedy is the same either way.
+ */
+export function evaluateSecurityAudit({ projectDir, freshness = DEFAULT_FRESHNESS, nowMs = Date.now() }) {
+  let marker;
+  try { marker = JSON.parse(fs.readFileSync(securityAuditMarkerPath(projectDir), "utf8")); } catch { marker = null; }
+  if (!marker?.at) {
+    return { verdict: VERDICTS.BROKEN, evidence: "no security audit on record — never run, or run before recording existed", remedy: "run kj audit --security (zero tokens) and remediate what it finds" };
+  }
+  const age = days(nowMs - Date.parse(marker.at));
+  if (age > freshness.security_audit_days) {
+    return { verdict: VERDICTS.BROKEN, evidence: `last security audit ${plural(age)} ago (freshness ${freshness.security_audit_days})`, remedy: "run kj audit --security" };
+  }
+  return { verdict: VERDICTS.OK, evidence: `security audit ${plural(age)} ago (${marker.at})`, remedy: null };
+}
+/**
+ * AC6 — vulnerable dependencies age by the ADVISORY's published date, never
+ * the discovery's: the clock started when the world knew. A critical with no
+ * date counts as overdue — unknown age is not youth.
+ */
+export function evaluateVulnAging({ vulns, freshness = DEFAULT_FRESHNESS, nowMs = Date.now() }) {
+  if (!Array.isArray(vulns)) {
+    return { verdict: VERDICTS.UNKNOWN, evidence: "no vulnerability scan handed to the invariant", remedy: "refresh: run kj audit so osv-scanner reports the dependencies" };
+  }
+  const windowFor = (sev) => (sev === "CRITICAL" ? freshness.critical_vuln_days : sev === "HIGH" ? freshness.high_vuln_days : null);
+  const overdue = vulns.filter((v) => {
+    const win = windowFor(String(v.severity || "").toUpperCase());
+    if (win === null) return false;
+    if (!v.publishedAt) return true;
+    return days(nowMs - Date.parse(v.publishedAt)) > win;
+  });
+  if (overdue.length > 0) {
+    const items = overdue.map((v) => `${v.id} (${v.severity}, advisory ${v.publishedAt || "date unknown — unknown age is not youth"})`).join("; ");
+    return { verdict: VERDICTS.BROKEN, evidence: `${overdue.length} vulnerable dependencies past their advisory-age window: ${items}`, remedy: "update or replace the affected packages" };
+  }
+  return { verdict: VERDICTS.OK, evidence: `${vulns.length} known vulnerabilities, all inside their advisory-age windows`, remedy: null };
+}
 /**
  * Run a list of invariants. A child whose `dependsOn` parent came out
  * not-observable INHERITS it — an invariant built on an unobserved one must
