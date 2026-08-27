@@ -10,8 +10,12 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
-let dir, stop, home;
-const env = () => ({ ...process.env, KJ_ALLOW_IDENTITY: "1", KARAJAN_HOME: home });
+let dir, stop, home, bin;
+// The hook spawns `kj` from PATH and fails OPEN without it — correct for the
+// product, fatal for the test: CI has no global kj. A shim pointing at this
+// checkout's bin/kj.js makes the test self-contained on any machine.
+const KJ_BIN = path.resolve("bin/kj.js");
+const env = () => ({ ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, KJ_ALLOW_IDENTITY: "1", KARAJAN_HOME: home });
 const endTurn = (transcript) => spawnSync("node", [stop], {
   input: JSON.stringify({ session_id: "s1", ...(transcript ? { transcript_path: transcript } : {}) }),
   encoding: "utf8", cwd: dir, env: env(), timeout: 120_000,
@@ -37,6 +41,9 @@ const configure = (mode) => {
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-claims-gate-"));
   home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-home-"));
+  bin = path.join(home, "bin");
+  fs.mkdirSync(bin, { recursive: true });
+  fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\nexec node "${KJ_BIN}" "$@"\n`, { mode: 0o755 });
   fs.writeFileSync(path.join(home, "kj.config.yml"), "base_branch: main\n");
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
