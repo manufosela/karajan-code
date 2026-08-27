@@ -16,8 +16,11 @@ const plugins = (file) => [
 // (bump on any list change), never a hand-kept list in a run. v1 covers Lit;
 // other frameworks stay NOT OBSERVABLE until their contract is declared here.
 export const ENTRYPOINT_CATALOG = {
-  version: 1,
-  lit: ["constructor", "render", "connectedCallback", "disconnectedCallback", "attributeChangedCallback", "adoptedCallback", "firstUpdated", "updated", "willUpdate", "shouldUpdate", "performUpdate", "getUpdateComplete", "createRenderRoot", "properties", "styles", "observedAttributes"],
+  version: 2, // v2: each list says WHICH slot the framework touches — static and instance are different worlds
+  lit: {
+    instance: ["constructor", "render", "connectedCallback", "disconnectedCallback", "attributeChangedCallback", "adoptedCallback", "firstUpdated", "updated", "willUpdate", "shouldUpdate", "performUpdate", "getUpdateComplete", "createRenderRoot"],
+    static: ["properties", "styles", "observedAttributes"],
+  },
 };
 const BASES = new Map([["LitElement", "lit"]]);
 function walk(node, visit) {
@@ -34,22 +37,25 @@ const keyName = (m) => {
   if (!m.computed && m.key?.type === "Identifier") return m.key.name;
   return m.key?.type === "StringLiteral" || m.key?.type === "NumericLiteral" ? String(m.key.value) : null;
 };
-const kindOf = (m) => (m.kind === "get" ? "getter" : m.kind === "set" ? "setter" : /Method/.test(m.type) ? "method" : "field");
-/** `this.x` / `this['x']` / `this.#x` inside a node. Over-collecting through
- * functions that rebind `this` only makes members MORE alive — never dead. */
-const thisRefs = (node) => {
+const ACCESSOR_KINDS = new Map([["get", "getter"], ["set", "setter"]]);
+const kindOf = (m) => ACCESSOR_KINDS.get(m.kind) ?? (/Method/.test(m.type) ? "method" : "field");
+/** `this.x` / `this['x']` / `this.#x` inside a node, prefixed with the slot the
+ * context can actually reach ("static " inside static members, "" otherwise).
+ * Over-collecting through functions that rebind `this` only makes members MORE
+ * alive — never dead. */
+const thisRefs = (node, prefix = "") => {
   const refs = new Set();
   walk(node, (n) => {
     if (n.type !== "MemberExpression" || n.object?.type !== "ThisExpression") return;
-    if (n.property.type === "PrivateName") refs.add(`#${n.property.id.name}`);
-    else if (!n.computed && n.property.type === "Identifier") refs.add(n.property.name);
-    else if (n.property.type === "StringLiteral" || n.property.type === "NumericLiteral") refs.add(String(n.property.value));
+    if (n.property.type === "PrivateName") refs.add(`${prefix}#${n.property.id.name}`);
+    else if (!n.computed && n.property.type === "Identifier") refs.add(prefix + n.property.name);
+    else if (n.property.type === "StringLiteral" || n.property.type === "NumericLiteral") refs.add(prefix + String(n.property.value));
   });
   return refs;
 };
 const notObs = (name, line, reason) => ({ name, line, observable: false, reason, unreachable: [] });
 
-function analyzeClass(node) {
+function analyzeClass(node, { staticUses, thisPropCount }) {
   const name = node.id?.name ?? "(anonymous)";
   const line = node.loc.start.line;
   const sup = node.superClass;
@@ -58,24 +64,29 @@ function analyzeClass(node) {
   const framework = BASES.get(sup.name);
   if (!framework) return notObs(name, line, `unknown base class ${sup.name} — its contract is not in the entrypoint catalog (v${ENTRYPOINT_CATALOG.version})`);
 
-  const entries = new Set(ENTRYPOINT_CATALOG[framework]);
-  const members = new Map(); // name → { refs, spots, entry }
-  const roots = new Set(); // reached at class-definition time (static blocks)
+  const cat = ENTRYPOINT_CATALOG[framework];
+  const entries = new Set([...cat.instance, ...cat.static.map((s) => `static ${s}`)]);
+  const members = new Map(); // slot → { refs, spots, entry }
+  // reached at class-definition time (static blocks, static field initializers)
+  // or by ClassName.X anywhere in the file — a use is a use, wherever it sits
+  const roots = new Set([...(staticUses.get(name) ?? [])].map((s) => `static ${s}`));
+  const ctorFields = new Map(); // this._x = v in the constructor: no AST member exists
   for (const m of node.body.body) {
-    if (m.type === "StaticBlock") { thisRefs(m).forEach((r) => roots.add(r)); continue; }
+    if (m.type === "StaticBlock") { thisRefs(m, "static ").forEach((r) => roots.add(r)); continue; }
     if (m.type === "TSDeclareMethod" || m.type === "TSIndexSignature") continue;
-    // a static field INITIALIZER also runs at class-definition time
-    if (m.static && /Property/.test(m.type) && m.value) thisRefs(m.value).forEach((r) => roots.add(r));
+    if (m.static && /Property/.test(m.type) && m.value) thisRefs(m.value, "static ").forEach((r) => roots.add(r));
     const n = keyName(m);
     if (n === null) return notObs(name, line, `a member name is computed at line ${m.loc.start.line} — the inventory cannot name what it cannot see`);
-    const refs = thisRefs(m);
-    refs.delete(n); // recursion does not keep itself alive
-    const rec = members.get(n) ?? { refs: new Set(), spots: [], entry: false };
+    const slot = m.static ? `static ${n}` : n;
+    const refs = thisRefs(m, m.static ? "static " : "");
+    refs.delete(slot); // recursion does not keep itself alive
+    const rec = members.get(slot) ?? { refs: new Set(), spots: [], entry: false };
     refs.forEach((r) => rec.refs.add(r));
     rec.spots.push({ line: m.loc.start.line, endLine: m.loc.end.line, kind: kindOf(m) });
     // a decorated member is registered by the framework: it may call or expose it
-    if (entries.has(n) || (m.decorators?.length ?? 0) > 0) rec.entry = true;
-    members.set(n, rec);
+    if (entries.has(slot) || (m.decorators?.length ?? 0) > 0) rec.entry = true;
+    members.set(slot, rec);
+    if (n === "constructor" && !m.static) collectCtorAssignments(m, ctorFields);
   }
 
   const alive = new Set();
@@ -90,7 +101,22 @@ function analyzeClass(node) {
     .filter(([k]) => !alive.has(k))
     .flatMap(([k, rec]) => rec.spots.map((s) => ({ name: k, ...s })))
     .sort((a, b) => a.line - b.line);
-  return { name, line, observable: true, reason: null, framework, catalogVersion: ENTRYPOINT_CATALOG.version, total: members.size, unreachable };
+  // HEURISTIC, reported apart (AC5): a constructor field whose name appears in
+  // `this.X` form exactly ONCE in the whole file exists only to be initialized.
+  const constructorFields = [...ctorFields.entries()]
+    .filter(([n]) => !members.has(n) && thisPropCount.get(n) === 1)
+    .map(([n, l]) => ({ name: n, line: l, heuristic: "single this-appearance in file" }));
+  return { name, line, observable: true, reason: null, framework, catalogVersion: ENTRYPOINT_CATALOG.version, total: members.size, unreachable, constructorFields };
+}
+
+/** `this.x = …` statements inside the constructor body (first line wins). */
+function collectCtorAssignments(ctor, out) {
+  walk(ctor.body, (n) => {
+    if (n.type !== "AssignmentExpression" || n.left?.type !== "MemberExpression") return;
+    const l = n.left;
+    if (l.object?.type !== "ThisExpression" || l.computed || l.property.type !== "Identifier") return;
+    if (!out.has(l.property.name)) out.set(l.property.name, n.loc.start.line);
+  });
 }
 
 /**
@@ -109,15 +135,22 @@ export function analyzeMemberReachability(source, { file = "<source>" } = {}) {
   // on `this` that is not a literal makes the whole file not observable — a
   // list with garbage is worth less than an honest "I do not know".
   let dynamic = null;
+  const staticUses = new Map(); // ClassName → Set of properties used as ClassName.X
+  const thisPropCount = new Map(); // property → how many `this.X` appearances in the file
   walk(tree, (n) => {
-    if (dynamic !== null || n.type !== "MemberExpression" || !n.computed || n.object?.type !== "ThisExpression") return;
-    if (n.property.type !== "StringLiteral" && n.property.type !== "NumericLiteral") dynamic = n.loc.start.line;
+    if (n.type !== "MemberExpression") return;
+    if (n.object?.type === "Identifier" && !n.computed && n.property.type === "Identifier") {
+      (staticUses.get(n.object.name) ?? staticUses.set(n.object.name, new Set()).get(n.object.name)).add(n.property.name);
+    }
+    if (n.object?.type !== "ThisExpression") return;
+    if (n.computed && n.property.type !== "StringLiteral" && n.property.type !== "NumericLiteral") { dynamic ??= n.loc.start.line; return; }
+    if (!n.computed && n.property.type === "Identifier") thisPropCount.set(n.property.name, (thisPropCount.get(n.property.name) ?? 0) + 1);
   });
   if (dynamic !== null) return { file, observable: false, reason: `computed access on this at line ${dynamic} — string dispatch cannot be followed`, classes: [] };
 
   const classes = [];
   walk(tree, (node) => {
-    if (node.type === "ClassDeclaration" || node.type === "ClassExpression") classes.push(analyzeClass(node));
+    if (node.type === "ClassDeclaration" || node.type === "ClassExpression") classes.push(analyzeClass(node, { staticUses, thisPropCount }));
   });
   return { file, observable: true, reason: null, classes };
 }
