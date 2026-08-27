@@ -12,8 +12,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
+import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
+import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
 // La versión del kj que corre harden — es la que se pinea en el fallback
 // npx del workflow de policy (jamás @latest en CI). Lectura LAZY: en el
@@ -85,7 +86,12 @@ export function installWorkflows({
   const policy = existsSync(join(projectDir, ".karajan", "policy.yml"))
     ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") }
     : null;
-  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : [])];
+  // STW-E (KJC-TSK-0793): the scheduled sweep is OPT-IN — the project says
+  // steward.action: true in its config; nothing is imposed by default.
+  let stewardOn = false;
+  try { stewardOn = parseYaml(readFileSync(join(projectDir, ".karajan", "kj.config.yml"), "utf8"))?.steward?.action === true; } catch { /* no config — no action */ }
+  const steward = stewardOn ? { file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") } : null;
+  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
   const results = [];
   for (const wf of all) {
     const target = join(dir, wf.file);

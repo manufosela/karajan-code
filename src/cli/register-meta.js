@@ -318,6 +318,7 @@ export function registerMeta(program, { pkgVersion }) {
   const stewardCmd = program.command("steward").description("El Steward: gobierna el ESTADO del proyecto — invariantes con caducidad y cuatro veredictos (épica claims/steward)");
   stewardCmd.command("sweep")
     .description("Barrido read-only de los invariantes: deja el informe versionado en .karajan/steward/ (md + json) y sale con 1 solo si algo está ROTO — unknown y not-observable informan con su remedio")
+    .option("--if-stale <days>", "Solo barre si el informe tiene más de N días — retomar trabajo con informe fresco no re-barre")
     .option("--json", "Machine-readable")
     .action(async (flags) => {
       await withConfig(pkgVersion, "steward-sweep", flags, async ({ config }) => {
