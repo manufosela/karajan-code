@@ -186,7 +186,10 @@ export const SHRINK_BUDGET_WORKFLOW = [
   "        env:",
   "          BASE_REF: ${{ github.base_ref }}",
   "        run: |",
-  "          d=$(git diff --numstat \"origin/${BASE_REF}...HEAD\" -- . ':!**/*.md' ':!*.lock' ':!package-lock.json' || true)",
+  // KJC-TSK-0795 AC4 — measured in GREBLA: a 414-line warning that was almost
+  // all pnpm-lock.yaml. Generated files are weight nobody wrote: the generated
+  // gate applies the same exclusions kj's own repo applies.
+  "          d=$(git diff --numstat \"origin/${BASE_REF}...HEAD\" -- . ':!**/*.md' ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!npm-shrinkwrap.json' ':!dist/**' ':!build/**' ':!coverage/**' ':!**/*.snap' ':!**/__snapshots__/**' || true)",
   '          a=$(printf "%s\\n" "$d" | awk \'$1!="-"{s+=$1}END{print s+0}\')',
   '          r=$(printf "%s\\n" "$d" | awk \'$2!="-"{s+=$2}END{print s+0}\')',
   '          net=$((a - r)); echo "net=$net (limit=$LOC_LIMIT)"',

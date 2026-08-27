@@ -211,4 +211,14 @@ describe("pinned actions — no mutable tags in generated workflows (KJC-BUG-013
       expect(line).not.toMatch(/@v\d/);
     }
   });
+
+  // KJC-TSK-0795 AC4 (epic KJC-PCS-0082) — measured in GREBLA: a 414-line
+  // budget warning that was almost all pnpm-lock.yaml. Generated weight
+  // nobody wrote must not count against anyone's budget.
+  it("the generated shrink budget excludes lockfiles and generated output", async () => {
+    const t = await import("../../src/harden/workflow-templates.js");
+    for (const p of ["*.lock", "package-lock.json", "pnpm-lock.yaml", "npm-shrinkwrap.json", "dist/**", "build/**", "coverage/**", "**/*.snap", "**/__snapshots__/**"]) {
+      expect(t.SHRINK_BUDGET_WORKFLOW).toContain(`':!${p}'`);
+    }
+  });
 });
