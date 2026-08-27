@@ -7,6 +7,7 @@ import { startCommand } from "../commands/start.js";
 import { identityCommand } from "../commands/identity.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
+import { stewardSweepCommand } from "../commands/steward.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
@@ -314,6 +315,15 @@ export function registerMeta(program, { pkgVersion }) {
 
   // KJC-TSK-0733 PL-A — policy as code: motor determinista en modo warn.
   // CLM-B (KJC-TSK-0802): the data the AI states, checked against what actually ran.
+  const stewardCmd = program.command("steward").description("El Steward: gobierna el ESTADO del proyecto — invariantes con caducidad y cuatro veredictos (épica claims/steward)");
+  stewardCmd.command("sweep")
+    .description("Barrido read-only de los invariantes: deja el informe versionado en .karajan/steward/ (md + json) y sale con 1 solo si algo está ROTO — unknown y not-observable informan con su remedio")
+    .option("--json", "Machine-readable")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "steward-sweep", flags, async ({ config }) => {
+        process.exitCode = await stewardSweepCommand({ flags, config });
+      });
+    });
   const claimsCmd = program.command("claims").description("Afirmaciones con fuente: comprueba los datos que la IA afirma en un turno contra las salidas de ese turno (ADR claims-with-evidence)");
   claimsCmd.command("check")
     .description("Cruza el mensaje final del turno con sus salidas — exit 2 solo si un dato está DESMENTIDO por su propia fuente; falla abierto si no puede leer el transcript")
