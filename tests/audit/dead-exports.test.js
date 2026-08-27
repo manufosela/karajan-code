@@ -79,6 +79,48 @@ describe("collectDeadExports — actual scan", () => {
   }, 30_000);
 });
 
+// KJC-TSK-0794 AC7 (epic KJC-PCS-0082) — the scan must recognize the project's
+// REAL entrypoints: a Firebase callable or a declared global-setup reported as
+// dead is the false positive that gets the whole inventory switched off.
+describe("collectDeadExports — declared project entrypoints", () => {
+  let tmp;
+  beforeEach(() => { tmp = mkdtempSync(path.join(tmpdir(), "knip-entry-")); });
+  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
+
+  const fixture = () => {
+    writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ name: "fixture", version: "0.0.0", type: "module", main: "src/index.js" }));
+    mkdirSync(path.join(tmp, "src"), { recursive: true });
+    writeFileSync(path.join(tmp, "src/index.js"), `import { used } from "./lib.js";\nexport function main() { return used(); }\n`);
+    writeFileSync(path.join(tmp, "src/lib.js"), `export function used() { return 1; }\nexport function deadOne() { return 2; }\n`);
+    writeFileSync(path.join(tmp, "firebase.json"), JSON.stringify({ functions: { source: "functions" } }));
+    mkdirSync(path.join(tmp, "functions"), { recursive: true });
+    writeFileSync(path.join(tmp, "functions/package.json"), JSON.stringify({ name: "fns", version: "0.0.0", type: "module", main: "index.js" }));
+    writeFileSync(path.join(tmp, "functions/index.js"), `export const onUserCreate = () => 1;\n`);
+    mkdirSync(path.join(tmp, "e2e"), { recursive: true });
+    writeFileSync(path.join(tmp, "e2e/global-setup.js"), `export default function globalSetup() {}\n`);
+  };
+
+  it("firebase callables and declared entrypoints are not dead — and the scan did not shrink", async () => {
+    fixture();
+    const res = await collectDeadExports(tmp, { language: "javascript" }, { audit: { entrypoints: ["e2e/global-setup.js"] } });
+    expect(res.available).toBe(true);
+    const all = [...(res.exports || []), ...(res.files || [])];
+    const texts = all.map((i) => `${i.path} ${i.name || ""} ${i.message || ""}`);
+    expect(texts.some((t) => t.includes("onUserCreate") || t.includes("functions/index.js"))).toBe(false);
+    expect(texts.some((t) => t.includes("global-setup"))).toBe(false);
+    expect(texts.some((t) => t.includes("deadOne"))).toBe(true); // real dead code still reported
+    expect(res.declaredEntrypoints).toMatchObject({ declared: ["e2e/global-setup.js"], firebase: ["functions"] });
+  }, 60_000);
+
+  it("a project with its OWN knip config is respected: nothing ephemeral overrides it", async () => {
+    fixture();
+    writeFileSync(path.join(tmp, "knip.json"), JSON.stringify({ entry: ["src/index.js"] }));
+    const res = await collectDeadExports(tmp, { language: "javascript" }, { audit: { entrypoints: ["e2e/global-setup.js"] } });
+    expect(res.available).toBe(true);
+    expect(res.declaredEntrypoints ?? null).toBeNull();
+  }, 60_000);
+});
+
 describe("groupDeadExportsBySeverity", () => {
   it("buckets MAJOR (unused-files) and MINOR (unused-exports)", () => {
     const items = [

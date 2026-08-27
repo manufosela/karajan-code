@@ -195,6 +195,8 @@ function formatDeadExportsBlock(deadExports) {
     lines.push(`- Δ dead code: ${d >= 0 ? "+" : ""}${d} since ${prev.timestamp || "last audit"} (now ${reported})`);
   }
   lines.push(`- ${reported + suppressed} entered the scan, ${suppressed} filtered as declared false positives, ${reported} reported`);
+  const eps = deadExports.declaredEntrypoints;
+  if (eps) lines.push(`- Declared entrypoints honored: ${[...eps.declared, ...eps.firebase.map((s) => `${s} (firebase functions)`)].join(", ")}`);
   lines.push(`- Unused exports/types: ${exportsTotal}`);
   lines.push(`- Unused files: ${filesTotal}`);
   const allItems = [...(deadExports.exports || []), ...(deadExports.files || [])];
