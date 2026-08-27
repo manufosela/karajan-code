@@ -28,8 +28,9 @@ describe("member reachability — the validated perimeter", () => {
     expect(c.unreachable[0].endLine).toBeGreaterThanOrEqual(c.unreachable[0].line);
   });
   it("a static field initializer runs at class-definition time: what it touches is alive", () => {
-    // `registry` itself stays a candidate (nobody reads it) — but `_build` ran.
-    expect(deadOf(analyzeMemberReachability(lit(`static registry = this._build(); render() {} _build() {}`)))).toEqual(["registry"]);
+    // `registry` itself stays a candidate (nobody reads it) — but `_build` ran,
+    // in the STATIC slot: `this` in a static initializer is the class.
+    expect(deadOf(analyzeMemberReachability(lit(`static registry = this._build(); render() {} static _build() {}`)))).toEqual(["static registry"]);
   });
   it("recursion does not keep itself alive, and this['literal'] IS a followable reference", () => {
     const res = analyzeMemberReachability(lit(`render() { this["_a"](); } _a() {} _loop() { this._loop(); }`));
@@ -73,5 +74,43 @@ describe("member reachability — the validated perimeter", () => {
     const res = analyzeMemberReachability("class {{{");
     expect(res.observable).toBe(false);
     expect(res.reason).toMatch(/not read as clean/);
+  });
+});
+
+// PR-B1 — the refinement the PR-A arbitration queued: static and instance are
+// different slots (an instance `this.foo` cannot run a static `foo`), plus the
+// constructor fields the AST has no member for (AC5, the GREBLA gap).
+describe("member reachability — static slots and constructor fields", () => {
+  it("an instance this.X does not keep a static X alive: different slots, honest dead", () => {
+    const res = analyzeMemberReachability(lit(`render() { this.helper(); } static helper() {} helper() {}`));
+    expect(deadOf(res)).toEqual(["static helper"]);
+  });
+  it("a ClassName.X reference anywhere in the file is a static root", () => {
+    const res = analyzeMemberReachability(`
+      class P extends LitElement { render() {} static helper() {} }
+      P.helper();
+    `);
+    expect(deadOf(res)).toEqual([]);
+  });
+  it("the catalog knows which entrypoints are static: styles lives as static, not by name collision", () => {
+    const res = analyzeMemberReachability(lit(`static styles = this.base; static base = 1; render() {}`));
+    expect(deadOf(res)).toEqual([]);
+  });
+  it("#private members flow through the normal analysis — keyName knows PrivateName, no bailout", () => {
+    const res = analyzeMemberReachability(lit(`render() { this.#a(); } #a() {} #dead() {} static #sdead() {}`));
+    expect(res.classes[0].observable).toBe(true);
+    expect(deadOf(res)).toEqual(["#dead", "static #sdead"]);
+  });
+  it("a constructor field nobody reads is a write-only candidate, reported apart as the heuristic it is", () => {
+    const res = analyzeMemberReachability(lit(`constructor() { super(); this._cache = null; } render() {}`));
+    expect(res.classes[0].constructorFields).toEqual([expect.objectContaining({ name: "_cache" })]);
+  });
+  it("a constructor field that is read later is NOT a candidate", () => {
+    const res = analyzeMemberReachability(lit(`constructor() { super(); this._cache = null; } render() { return this._cache; }`));
+    expect(res.classes[0].constructorFields).toEqual([]);
+  });
+  it("a declared field assigned in the constructor is a member, not a constructor-field candidate", () => {
+    const res = analyzeMemberReachability(lit(`_cache = 1; constructor() { super(); this._cache = null; } render() {}`));
+    expect(res.classes[0].constructorFields).toEqual([]);
   });
 });
