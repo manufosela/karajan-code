@@ -55,4 +55,26 @@ describe("audit record() under concurrency (KJC-BUG-0150)", () => {
     expect(audit.entries().map((e) => e.target)).toEqual(["/1", "/3"]);
     expect(audit.verify()).toEqual({ ok: true, length: 2 });
   });
+
+  // KJC-TSK-0799 (tribbu-atlas, 22-aug): reading the audit right after a burst
+  // returned fewer entries while the queue drained — nothing lost, but an
+  // audit that LOOKS incomplete is worse than a slow one.
+  it("drained() resolves when the in-flight queue is empty, with every burst entry sealed", async () => {
+    const { sink } = fakeBucket();
+    const audit = createAudit({ sink });
+    await audit.ready();
+    for (let i = 0; i < 5; i++) void audit.record({ who, action: "auth", target: `/burst#${i}`, outcome: "denied" });
+    expect(audit.entries().length).toBeLessThan(5); // the race the field saw
+    await audit.drained();
+    expect(audit.entries()).toHaveLength(5);
+  });
+
+  it("a failing upload never hangs drained() — and the failed entry is not counted as sealed", async () => {
+    const { sink } = fakeBucket({ failOn: 2 });
+    const audit = createAudit({ sink });
+    await audit.ready();
+    for (let i = 1; i <= 3; i++) audit.record({ who, action: "auth", target: `/${i}`, outcome: "denied" }).catch(() => undefined);
+    await audit.drained();
+    expect(audit.entries().map((e) => e.target)).toEqual(["/1", "/3"]);
+  });
 });
