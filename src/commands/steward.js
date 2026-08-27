@@ -18,6 +18,7 @@ import {
 import { loadPreviousAudit } from "../audit/basal-cost.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { recordGateDecision } from "../policy/decisions.js";
+import { syncProposedWork } from "../steward/proposed-work.js";
 
 const stewardDir = (projectDir) => path.join(projectDir, ".karajan", "steward");
 
@@ -95,6 +96,15 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
     for (const r of results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
     recordGateDecision(projectDir, { kind: "steward-sweep", verdicts: { ok: counts[VERDICTS.OK] || 0, broken: broken.length, unknown: counts[VERDICTS.UNKNOWN] || 0, "not-observable": counts[VERDICTS.NOT_OBSERVABLE] || 0 }, broken_ids: broken.map((b) => b.id) });
   } catch (err) { logger.warn?.(`⚠ steward: the sweep could not be sealed in the decision chain (${err.message})`); }
+
+  // STW-D (KJC-TSK-0792): every break is PROPOSED work on the board the brain
+  // already consumes. AFTER the report and the seal: a board failure never
+  // costs either, and it is said loudly — never swallowed.
+  try {
+    const sync = await syncProposedWork({ projectDir, config, results, sweptAt: report.sweptAt });
+    if (!sync.synced) logger.warn?.(`⚠ steward: broken invariants not carded — ${sync.reason}`);
+    else if (sync.created || sync.updated || sync.resolved) logger.info?.(`steward board: ${sync.created} card(s) proposed, ${sync.updated} updated, ${sync.resolved} resolved`);
+  } catch (err) { logger.warn?.(`⚠ steward: carding the broken invariants failed (${err.message}) — the report and the seal stand`); }
 
   // A report nobody can see is not shared state — say it, do not fix their tree.
   try {

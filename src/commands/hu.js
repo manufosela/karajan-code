@@ -43,7 +43,9 @@ export function findTitleMatches(title, allHus) {
   return { identical, similar };
 }
 
-async function backlogPlan(projectDir) {
+// Exported for the Steward's proposed-work sync (KJC-TSK-0792): broken
+// invariants land in the same backlog the brain already consumes.
+export async function backlogPlan(projectDir) {
   const plans = await listPlans(projectDir);
   const existing = plans.find((p) => p.alias === BACKLOG_NAME || p.name === BACKLOG_NAME);
   if (existing) return loadPlan(projectDir, existing.planId);

@@ -92,6 +92,19 @@ describe("kj steward sweep", () => {
     expect(json.invariants.find((i) => i.id === "vulnerable-deps").verdict).toBe("broken");
   });
 
+  // STW-D — the sweep leaves the break as PROPOSED work on the hu-board.
+  it("a broken invariant lands on the hu-board as a proposal; the next green sweep resolves it", async () => {
+    await run({ osvFn: () => ({ available: true, vulnerabilities: [{ id: "GHSA-z", severity: "CRITICAL", publishedAt: "2026-08-01T00:00:00Z" }] }) });
+    const { listPlans, loadPlan } = await import("../../src/plan/plan-store.js");
+    const hus = async () => {
+      const out = [];
+      for (const p of await listPlans(dir)) out.push(...((await loadPlan(dir, p.planId)).hus || []));
+      return out;
+    };
+    const created = await hus();
+    expect(created.some((h) => h.title.includes("vulnerable-deps") && h.status === "pending")).toBe(true);
+  }, 30_000);
+
   it("--json prints the machine document", async () => {
     const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     await run({ flags: { json: true } });
