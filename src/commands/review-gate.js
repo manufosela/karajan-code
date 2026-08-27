@@ -12,7 +12,7 @@ import { checkVerdict, diffHash } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
-import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js";
+import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
@@ -308,14 +308,19 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // the cross-AI reviewer weighs them. Unavailable sonar degrades loudly.
   let task = flags.task;
   if (flags.sonar !== false) {
-    const pre = await runSonarPregate({ config, stagedFiles: changedFiles, logger });
+    // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
+    const touchedLines = addedLinesByFile(await rawDiff(flags.range, ["--unified=0"]));
+    const pre = await runSonarPregate({ config, stagedFiles: changedFiles, touchedLines, logger });
     if (!pre.available) {
       console.log(`⚠ sonar pre-gate skipped: ${pre.reason}`);
     } else {
       const found = [...pre.blocking, ...pre.advisory];
       if (found.length > 0) {
-        console.log(`Sonar on the changed files — ${pre.blocking.length} blocking, ${pre.advisory.length} advisory (project total: ${pre.totalProject}):`);
+        console.log(`Sonar on the changed lines — ${pre.blocking.length} blocking, ${pre.advisory.length} advisory (project total: ${pre.totalProject}):`);
         for (const f of found) console.log(`  - ${formatSonarFinding(f)}`);
+      }
+      if ((pre.preexisting || []).length > 0) {
+        console.log(`⚠ sonar trend: ${pre.preexisting.length} preexisting issue(s) on untouched lines of these files — not this PR's veto, but the debt is real`);
       }
       if (pre.blocking.length > 0) {
         console.log("✗ REJECTED by sonar (deterministic) — fix the blocking findings; the cross-AI reviewer was not invoked.");
