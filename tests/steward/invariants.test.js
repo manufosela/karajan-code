@@ -152,11 +152,15 @@ describe("coverage — AC7: an invariant of CONFIGURATION, not of value", () => 
     expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
   });
 });
-describe("phantom coverage — AC3 delegates honestly", () => {
-  it("until KJC-TSK-0800 ships its detectors, the invariant says NOT OBSERVABLE — never ok by absence", () => {
+describe("phantom coverage — the invariant consumes the detectors' output", () => {
+  it("without detector output it stays NOT OBSERVABLE — never ok by absence", () => {
     const r = evaluatePhantomCoverage();
     expect(r.verdict).toBe(VERDICTS.NOT_OBSERVABLE);
-    expect(r.remedy).toMatch(/0800/);
+    expect(r.remedy).toMatch(/detector/i);
+  });
+  it("with output: phantoms break, an empty list is ok", () => {
+    expect(evaluatePhantomCoverage({ phantoms: [{ literal: "Head al que reporta", file: "hierarchy.spec.js" }] }).verdict).toBe(VERDICTS.BROKEN);
+    expect(evaluatePhantomCoverage({ phantoms: [] }).verdict).toBe(VERDICTS.OK);
   });
 });
 describe("runInvariants — dependencies inherit NOT OBSERVABLE", () => {
