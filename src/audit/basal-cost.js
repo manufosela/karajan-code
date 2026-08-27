@@ -272,10 +272,14 @@ export async function saveAuditSnapshot(projectDir, metrics) {
 
 export function computeGrowthDelta(current, previous) {
   if (!previous) return null;
+  // AC8 (KJC-TSK-0794): "not measured before" must never read as "unchanged" —
+  // the derivative only exists when BOTH snapshots actually measured it.
+  const bothMeasured = Array.isArray(current.deadExports) && Array.isArray(previous.deadExports);
   return {
     lines: current.totalLines - previous.totalLines,
     files: current.totalFiles - previous.totalFiles,
     deps: current.dependencies.total - (previous.dependencies?.total ?? 0),
+    deadExports: bothMeasured ? current.deadExports.length - previous.deadExports.length : null,
     since: previous.timestamp || null
   };
 }

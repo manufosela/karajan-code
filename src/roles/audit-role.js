@@ -123,6 +123,12 @@ export class AuditRole extends AgentRole {
     if (!noKnip) {
       try {
         deadExports = await collectDeadExports(projectDir, stack, this.config, this.logger);
+        // AC8 (KJC-TSK-0794): the report leads with the derivative — hand the
+        // block its previous measurement, if one was ever recorded.
+        if (deadExports?.available) {
+          const prev = await loadPreviousAudit(projectDir);
+          deadExports.previous = prev?.knipDeadExports ? { ...prev.knipDeadExports, timestamp: prev.timestamp || null } : null;
+        }
       } catch { /* knip is best-effort */ }
     }
     if (!noInjectionScan) {
@@ -183,7 +189,10 @@ export class AuditRole extends AgentRole {
       if (!parsed) {
         return { ok: true, result: { raw: result.output, provider }, summary: "Audit complete (unstructured output)", usage };
       }
-      if (basalCost) { try { await saveAuditSnapshot(projectDir, basalCost); } catch { /* best-effort */ } }
+      if (basalCost) {
+        const knipDeadExports = deadExports?.available ? { exports: (deadExports.exports || []).length, files: (deadExports.files || []).length } : null;
+        try { await saveAuditSnapshot(projectDir, { ...basalCost, knipDeadExports }); } catch { /* best-effort */ }
+      }
 
       return {
         ok: true,

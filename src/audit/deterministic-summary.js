@@ -185,9 +185,18 @@ function formatDeadExportsBlock(deadExports) {
   const lines = ["### Dead Code (knip)"];
   const exportsTotal = (deadExports.exports || []).length;
   const filesTotal = (deadExports.files || []).length;
+  const reported = exportsTotal + filesTotal;
+  const suppressed = deadExports.suppressedCount || 0;
+  // AC8 (KJC-TSK-0794): derivative first; then how many ENTERED and how many
+  // were FILTERED — a shrinking number must never hide a shrinking scan.
+  const prev = deadExports.previous;
+  if (prev && typeof prev.exports === "number") {
+    const d = reported - (prev.exports + (prev.files || 0));
+    lines.push(`- Δ dead code: ${d >= 0 ? "+" : ""}${d} since ${prev.timestamp || "last audit"} (now ${reported})`);
+  }
+  lines.push(`- ${reported + suppressed} entered the scan, ${suppressed} filtered as declared false positives, ${reported} reported`);
   lines.push(`- Unused exports/types: ${exportsTotal}`);
   lines.push(`- Unused files: ${filesTotal}`);
-  if (deadExports.suppressedCount) lines.push(`- Suppressed (FP filter): ${deadExports.suppressedCount}`);
   const allItems = [...(deadExports.exports || []), ...(deadExports.files || [])];
   if (allItems.length > 0) {
     const groups = groupDeadExportsBySeverity(allItems);
@@ -234,8 +243,12 @@ function formatBasalCostBlock(basalCost, growthDelta) {
   }
 
   const dead = Array.isArray(basalCost.deadExports) ? basalCost.deadExports : [];
+  // AC8 (KJC-TSK-0794): the DERIVATIVE leads — "went from N to M" is what a
+  // reader acts on; the absolute is the secondary datum.
+  const dDelta = growthDelta?.deadExports;
+  const lead = typeof dDelta === "number" ? `${dDelta >= 0 ? "+" : ""}${dDelta} since last audit — ` : "";
   if (dead.length > 0) {
-    lines.push(`- Dead exports: ${dead.length}`);
+    lines.push(`- Dead exports: ${lead}${dead.length} total`);
     for (const de of dead.slice(0, MAX_SAMPLE_DEAD_EXPORTS)) {
       lines.push(`  - \`${de.name}\` in ${de.file}`);
     }
@@ -243,7 +256,7 @@ function formatBasalCostBlock(basalCost, growthDelta) {
       lines.push(`  - ... and ${dead.length - MAX_SAMPLE_DEAD_EXPORTS} more`);
     }
   } else {
-    lines.push("- Dead exports: 0");
+    lines.push(`- Dead exports: ${lead}0`);
   }
 
   if (growthDelta) {
