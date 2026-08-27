@@ -80,7 +80,12 @@ const DEFAULTS = {
     tests_with_code: "warn",
     // MG-C: informative nudge when the staged diff exceeds this many
     // added lines (0 disables). The project's CI owns any hard budget.
-    pr_size_warn: 150
+    pr_size_warn: 150,
+    // CLM-B (claims-with-evidence ADR): the Stop gate crosses the hard data of
+    // the turn's final message against that turn's tool outputs. "off" (adoption
+    // is explicit) | "warn" (report only) | "block" (a datum DENIED by its own
+    // source refuses to end the turn; unbacked data is still only reported).
+    claims: "off"
   },
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",

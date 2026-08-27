@@ -12,6 +12,32 @@
 import { readTurn } from "../claims/turn.js";
 import { crossCheck, formatClaimReport } from "../claims/cross-check.js";
 
+/**
+ * `kj claims gate` — the same check, run by the Stop hook with the PROJECT's
+ * say-so. The hook stays policy-free: kj reads `method_gates.claims` and
+ * decides. "off" (default: adoption is explicit) exits 0 in silence; "warn"
+ * reports and never blocks; "block" refuses only a datum DENIED by its own
+ * source — unbacked data is reported either way, per the accepted ADR:
+ * inform always, block almost never.
+ */
+export async function claimsGateCommand({ flags = {}, config = {}, logger = console, readTurnFn = readTurn } = {}) {
+  const mode = config?.method_gates?.claims ?? "off";
+  if (mode !== "warn" && mode !== "block") return 0;
+  let turn;
+  try {
+    turn = readTurnFn(flags.transcript);
+  } catch {
+    return 0; // not observable: a gate that cannot read the transcript gets out of the way
+  }
+  const result = crossCheck(turn);
+  if (result.denied.length && mode === "block") {
+    logger.error(formatClaimReport(result));
+    return 2;
+  }
+  if (result.denied.length || result.unbacked.length) logger.error(formatClaimReport(result));
+  return 0;
+}
+
 export async function claimsCommand({ flags = {}, logger = console, readTurnFn = readTurn } = {}) {
   const path = flags.transcript;
   if (!path) {

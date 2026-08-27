@@ -41,8 +41,13 @@ const SAYS_EMPTY = /(^|\W)(\[\]|\bnone\b|\bno results?\b|\bempty\b|\b0 (results?
  * @returns {{claims: Array<object>, denied: Array<object>, unbacked: Array<object>}}
  */
 export function crossCheck({ text, outputs = [], userSaid = "" }) {
-  const haystack = [...outputs.map(norm), norm(userSaid)];
-  const claims = extractClaims(text).map((claim) => ({ ...claim, status: verdictFor(claim, haystack) }));
+  // Backing can come from an output OR from the user (repeating their datum is not
+  // inventing). The DENIED analysis reads only the OUTPUTS: the user asking "how
+  // many cards are left?" mentions the noun without saying anything about emptiness,
+  // and must not veto a denial — found by the stop-gate wiring test.
+  const sources = outputs.map(norm);
+  const haystack = [...sources, norm(userSaid)];
+  const claims = extractClaims(text).map((claim) => ({ ...claim, status: verdictFor(claim, haystack, sources) }));
   return {
     claims,
     denied: claims.filter((c) => c.status === DENIED),
@@ -50,15 +55,15 @@ export function crossCheck({ text, outputs = [], userSaid = "" }) {
   };
 }
 
-function verdictFor(claim, haystack) {
+function verdictFor(claim, haystack, sources) {
   if (haystack.some((h) => appearsIn(h, claim))) return BACKED;
 
-  // A count stated as non-zero while every source that mentions the same noun says empty:
+  // A count stated as non-zero while every OUTPUT that mentions the same noun says empty:
   // that is the "four cards are waiting" case, and it is the one that blocks.
   if (claim.kind === "count" && Number(claim.value) > 0) {
     const noun = nounAfterCount(claim.sentence, claim.value);
     if (noun) {
-      const mentions = haystack.filter((h) => h.includes(norm(noun)));
+      const mentions = sources.filter((h) => h.includes(norm(noun)));
       if (mentions.length && mentions.every((h) => SAYS_EMPTY.test(h))) return DENIED;
     }
     // Small numbers are prose as often as data ("las dos capas", "3 reglas"): not worth accusing.
