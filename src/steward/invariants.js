@@ -120,6 +120,47 @@ export function evaluateVulnAging({ vulns, freshness = DEFAULT_FRESHNESS, nowMs 
   return { verdict: VERDICTS.OK, evidence: `${vulns.length} known vulnerabilities, all inside their advisory-age windows`, remedy: null };
 }
 /**
+ * AC4 — dead code informs by DERIVATIVE and carries NO security weight: in
+ * GREBLA the sensitive functions stayed in the bundle, but the backend rules
+ * kept protecting them — removing UI neither widened nor closed any surface.
+ * Growth is the decay signal; the absolute is somebody else's report.
+ */
+export function evaluateDeadCodeTrend({ current, previous }) {
+  if (!current || typeof current.deadExports !== "number") {
+    return { verdict: VERDICTS.UNKNOWN, evidence: "no dead-code measurement on record", remedy: "refresh: run kj audit so the inventory is measured" };
+  }
+  if (!previous || typeof previous.deadExports !== "number") {
+    return { verdict: VERDICTS.OK, evidence: `${current.deadExports} dead exports — first measurement, the trend starts here`, remedy: null };
+  }
+  const delta = current.deadExports - previous.deadExports;
+  if (delta > 0) {
+    return { verdict: VERDICTS.BROKEN, evidence: `dead code grew +${delta} since ${previous.timestamp || "the last audit"} (now ${current.deadExports}; no security weight — dead code is debt, not attack surface)`, remedy: "delete what the inventory names, or declare the false positives" };
+  }
+  return { verdict: VERDICTS.OK, evidence: `dead code ${delta === 0 ? "flat" : delta} since the last audit (now ${current.deadExports})`, remedy: null };
+}
+const COVERAGE_CONFIGS = ["vitest.config.js", "vitest.config.ts", "vitest.config.mjs", "jest.config.js", "jest.config.ts", "jest.config.json", "package.json"];
+/**
+ * AC7 — coverage is an invariant of CONFIGURATION, not of value: no 80% is
+ * demanded here. Either something measures the level (CI's job), or nothing
+ * does — and "nothing measures it" is the definition of not observable.
+ */
+export function evaluateCoverageConfig({ projectDir }) {
+  for (const name of COVERAGE_CONFIGS) {
+    let text;
+    try { text = fs.readFileSync(path.join(projectDir, name), "utf8"); } catch { continue; }
+    if (/coverage[\s\S]{0,400}?(thresholds?|lines|branches|functions|statements)\s*[:=]/.test(text)) {
+      return { verdict: VERDICTS.OK, evidence: `coverage thresholds configured in ${name} — the level itself is CI's job`, remedy: null };
+    }
+  }
+  return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "no coverage threshold configured anywhere — nothing measures the level", remedy: "instrument: configure a coverage threshold (any value the team stands behind — no 80% is demanded)" };
+}
+/** AC3 — phantom coverage (tests exercising unreachable code) has two
+ * deterministic detectors coming with KJC-TSK-0800. Until they exist, this
+ * says so — an invariant must never be ok by absence of its detector. */
+export function evaluatePhantomCoverage() {
+  return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "the phantom-coverage detectors are not built yet", remedy: "instrument: KJC-TSK-0800 ships the two detectors (unit call-graph; e2e literal crossing)" };
+}
+/**
  * Run a list of invariants. A child whose `dependsOn` parent came out
  * not-observable INHERITS it — an invariant built on an unobserved one must
  * never report ok. A probe that throws is unknown: never a green light.

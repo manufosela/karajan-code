@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { VERDICTS, resolveFreshness, evaluateMainCi, evaluateSecurityAudit, evaluateVulnAging, runInvariants } from "../../src/steward/invariants.js";
+import { VERDICTS, resolveFreshness, evaluateMainCi, evaluateSecurityAudit, evaluateVulnAging, evaluateDeadCodeTrend, evaluateCoverageConfig, evaluatePhantomCoverage, runInvariants } from "../../src/steward/invariants.js";
 const repoWith = (workflows) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-steward-"));
   if (workflows) {
@@ -118,6 +118,45 @@ describe("vulnerable dependencies age by ADVISORY date — AC6", () => {
   });
   it("empty list: ok", () => {
     expect(evaluateVulnAging({ vulns: [], nowMs: now }).verdict).toBe(VERDICTS.OK);
+  });
+});
+// STW-A PR-C — AC4, AC7 and the honest delegation of AC3.
+describe("dead-code trend — AC4: derivative, and NO security weight", () => {
+  it("no current measurement: UNKNOWN — refresh, never a clean bill", () => {
+    expect(evaluateDeadCodeTrend({ current: null }).verdict).toBe(VERDICTS.UNKNOWN);
+  });
+  it("first measurement: ok — the trend starts here, absence of baseline is not decay", () => {
+    const r = evaluateDeadCodeTrend({ current: { deadExports: 12 }, previous: null });
+    expect(r.verdict).toBe(VERDICTS.OK);
+    expect(r.evidence).toMatch(/first measurement/);
+  });
+  it("a growing count breaks BY DERIVATIVE, and says dead code carries no security weight", () => {
+    const r = evaluateDeadCodeTrend({ current: { deadExports: 20 }, previous: { deadExports: 12, timestamp: "T" } });
+    expect(r.verdict).toBe(VERDICTS.BROKEN);
+    expect(r.evidence).toMatch(/\+8/);
+    expect(r.evidence).toMatch(/no security weight/i);
+  });
+  it("shrinking or flat: ok with the delta", () => {
+    expect(evaluateDeadCodeTrend({ current: { deadExports: 10 }, previous: { deadExports: 12 } }).verdict).toBe(VERDICTS.OK);
+  });
+});
+describe("coverage — AC7: an invariant of CONFIGURATION, not of value", () => {
+  it("no threshold configured anywhere: NOT OBSERVABLE — nothing measures the level; no 80% is demanded", () => {
+    const r = evaluateCoverageConfig({ projectDir: repoWith(null) });
+    expect(r.verdict).toBe(VERDICTS.NOT_OBSERVABLE);
+    expect(r.remedy).toMatch(/threshold/);
+  });
+  it("a vitest config with thresholds: ok — the level itself is CI's job", () => {
+    const dir = repoWith(null);
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { coverage: { thresholds: { lines: 70 } } } };\n");
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
+  });
+});
+describe("phantom coverage — AC3 delegates honestly", () => {
+  it("until KJC-TSK-0800 ships its detectors, the invariant says NOT OBSERVABLE — never ok by absence", () => {
+    const r = evaluatePhantomCoverage();
+    expect(r.verdict).toBe(VERDICTS.NOT_OBSERVABLE);
+    expect(r.remedy).toMatch(/0800/);
   });
 });
 describe("runInvariants — dependencies inherit NOT OBSERVABLE", () => {
