@@ -28,9 +28,12 @@ export async function privacyScanCommand({ paths = [], flags = {}, logger = cons
   const warns = findings.filter((f) => f.severity === "warn");
   const ok = blocks.length === 0;
   process.exitCode = ok ? 0 : 1;
+  // KJC-TSK-0797 AC4: "nothing found" and "found but explained by context"
+  // are different truths — the report says which one it is.
+  const discarded = findings.discardedByContext || 0;
   // --json keeps stdout machine-clean: exactly one JSON document, no prose.
   if (flags.json) {
-    process.stdout.write(`${JSON.stringify({ ok, blocks: blocks.length, warns: warns.length, findings })}\n`);
+    process.stdout.write(`${JSON.stringify({ ok, blocks: blocks.length, warns: warns.length, discardedByContext: discarded, findings })}\n`);
     return { ok, findings };
   }
   for (const f of blocks) logger.error?.(`✗ BLOCK [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
@@ -38,8 +41,9 @@ export async function privacyScanCommand({ paths = [], flags = {}, logger = cons
   if (!list.present) {
     logger.info?.(`hint: no personal denylist found — create ${privacyConfigPath()} (personal: [...], allow: [...]) so YOUR data blocks, not just warns`);
   }
+  const context = discarded > 0 ? `; ${discarded} candidate(s) discarded by context — git SHAs / documentation domains` : "";
   logger.info?.(ok
-    ? `privacy scan: clean of denylist hits (${warns.length} generic warning(s))`
+    ? `privacy scan: clean of denylist hits (${warns.length} generic warning(s)${context})`
     : `privacy scan: ${blocks.length} personal-data hit(s) — this must not ship`);
   return { ok, findings };
 }

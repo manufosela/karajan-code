@@ -59,7 +59,47 @@ describe("privacy/scan", () => {
   it("allowlisted strings silence secret shapes too", () => {
     const fake = "AKIA" + "EXAMPLE234567890";
     writeFileSync(join(home, ".karajan", "privacy.yml"), `personal: []\nallow:\n  - "${fake}"\n`);
-    expect(scanText(`key: ${fake}\n`, { list: list() })).toEqual([]);
+    expect(scanText(`key: ${fake}\n`, { list: list() })).toHaveLength(0);
+  });
+
+  // KJC-TSK-0797 (epic KJC-PCS-0082) — context before generics. Measured twice:
+  // GREBLA's pinned Actions flagged as phone numbers, and this repo's own
+  // workflow pinning flagged twelve times. A detector that cries wolf teaches
+  // people to ignore the day a real phone ships.
+  it("a pinned-action git SHA is not a phone number — discarded by context, and counted", () => {
+    const f = scanText("      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v4\n", { list: list() });
+    expect(f).toHaveLength(0);
+    expect(f.discardedByContext).toBe(1);
+  });
+
+  it("a 64-hex digest is context too", () => {
+    const f = scanText(`sha256: ${"ab12".repeat(16)}\n`, { list: list() });
+    expect(f).toHaveLength(0);
+    expect(f.discardedByContext).toBe(1);
+  });
+
+  it("documentation-domain emails (RFC 2606) are fixtures, not people", () => {
+    const f = scanText("a: user@example.com\nb: dev@mail.example.org\nc: qa@foo.test\n", { list: list() });
+    expect(f).toHaveLength(0);
+    expect(f.discardedByContext).toBe(3);
+  });
+
+  it("a REAL email still warns — the discard opens no false negative", () => {
+    const f = scanText("contacto: persona.real@gmail.com\n", { list: list() });
+    expect(f.some((x) => x.type === "email" && x.severity === "warn")).toBe(true);
+  });
+
+  it("the personal denylist runs BEFORE context: the user's datum blocks even when it looks like a fixture", () => {
+    const f = scanText("author: secreto.real@example.com\n", { list: list() });
+    expect(f.some((x) => x.type === "denylist" && x.severity === "block")).toBe(true);
+  });
+
+  it("scanPaths carries the discarded-by-context count across files", () => {
+    writeFileSync(join(dir, "wf.yml"), "uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5\n");
+    writeFileSync(join(dir, "fx.js"), "const email = 'admin@example.org';\n");
+    const f = scanPaths([dir], { list: list() });
+    expect(f).toHaveLength(0);
+    expect(f.discardedByContext).toBe(2);
   });
 
   it("scanPaths walks dirs, skips node_modules, and reports file:line", () => {

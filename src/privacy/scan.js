@@ -52,12 +52,25 @@ const SECRET_HEURISTICS = [
   { type: "conn-string", re: /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:([^\s@/]+)@/gi },
 ];
 
+// KJC-TSK-0797 (epic KJC-PCS-0082) — context BEFORE generics, measured twice:
+// GREBLA's pinned Actions reported as phone numbers, and this repo's own
+// workflow pinning flagged twelve times in one PR. A git object id is not a
+// phone; an email on an RFC 2606 documentation domain is not a person. Both
+// are blanked before redactPII and COUNTED, so a clean result can say
+// "nothing found" or "found and discarded by context" — never the same thing.
+// The personal denylist runs before this: the user's own datum always blocks.
+const CONTEXT_DISCARDS = [
+  { type: "git-sha", re: /\b(?:[0-9a-f]{64}|[0-9a-f]{40})\b/g },
+  { type: "doc-domain-email", re: /\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*(?:example\.(?:com|org|net)|test|invalid|localhost|example)\b/g },
+];
+
 /**
  * Scan a text. Returns findings — denylist hits as `severity:"block"`
  * (masked value), generic PII as `severity:"warn"` (line already redacted).
  */
 export function scanText(text, { list = loadPrivacyList(), source = "<text>" } = {}) {
   const findings = [];
+  let discarded = 0;
   String(text).split("\n").forEach((line, i) => {
     let probe = line;
     for (const a of list.allow) probe = probe.split(a).join(" ");
@@ -86,6 +99,10 @@ export function scanText(text, { list = loadPrivacyList(), source = "<text>" } =
         re.lastIndex = m.index + m[0].length;
       }
     }
+    for (const { re } of CONTEXT_DISCARDS) {
+      re.lastIndex = 0;
+      probe = probe.replace(re, (m) => { discarded += 1; return " ".repeat(m.length); });
+    }
     const red = redactPII(probe);
     if (red.total > 0) {
       for (const [type, n] of Object.entries(red.counts)) {
@@ -93,12 +110,14 @@ export function scanText(text, { list = loadPrivacyList(), source = "<text>" } =
       }
     }
   });
+  findings.discardedByContext = discarded;
   return findings;
 }
 
 /** Scan files/dirs recursively (skips node_modules/.git, binaries, big files). */
 export function scanPaths(paths, { list = loadPrivacyList() } = {}) {
   const findings = [];
+  let discarded = 0;
   const visit = (p) => {
     if (!existsSync(p)) return;
     // Skip symlinks: an ancestor link recurses forever; an outside link ships nothing.
@@ -113,8 +132,11 @@ export function scanPaths(paths, { list = loadPrivacyList() } = {}) {
     if (BINARY_EXT.has(extname(p).toLowerCase()) || st.size > MAX_FILE_BYTES) return;
     const content = readFileSync(p);
     if (content.includes(0)) return; // binary sniff: NUL byte
-    findings.push(...scanText(content.toString("utf8"), { list, source: p }));
+    const fileFindings = scanText(content.toString("utf8"), { list, source: p });
+    discarded += fileFindings.discardedByContext || 0;
+    findings.push(...fileFindings);
   };
   for (const p of paths) visit(p);
+  findings.discardedByContext = discarded;
   return findings;
 }
