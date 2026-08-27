@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { VERDICTS, resolveFreshness, evaluateMainCi, runInvariants } from "../../src/steward/invariants.js";
+import { VERDICTS, resolveFreshness, evaluateMainCi, evaluateSecurityAudit, evaluateVulnAging, runInvariants } from "../../src/steward/invariants.js";
 const repoWith = (workflows) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-steward-"));
   if (workflows) {
@@ -74,6 +74,50 @@ describe("main-ci — invariant #1", () => {
     const dir = repoWith({ "ci.yml": "name: CI\non:\n  push: {}\njobs: {}\n" });
     const runs = [{ workflow: "CI", conclusion: "success", createdAt: new Date(now - 1 * DAY).toISOString() }];
     expect(evaluateMainCi({ projectDir: dir, baseBranch: "main", runsFn: () => runs, nowMs: now }).verdict).toBe(VERDICTS.OK);
+  });
+});
+// STW-A PR-B — audit freshness. AC5's "never" is GREBLA's real case: 79 days
+// with an open redirect and untouched dependencies, and no audit on record.
+describe("security-audit freshness — AC5", () => {
+  const marked = (daysAgo) => {
+    const dir = repoWith(null);
+    fs.mkdirSync(path.join(dir, ".karajan", "steward"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".karajan", "steward", "security-audit.json"), JSON.stringify({ at: new Date(now - daysAgo * DAY).toISOString(), mode: "security" }));
+    return dir;
+  };
+  it("no record at all is BROKEN with 'never' — running it fixes both never and unrecorded", () => {
+    const r = evaluateSecurityAudit({ projectDir: repoWith(null), nowMs: now });
+    expect(r.verdict).toBe(VERDICTS.BROKEN);
+    expect(r.evidence).toMatch(/never/i);
+    expect(r.remedy).toMatch(/kj audit --security/);
+  });
+  it("older than the freshness window: BROKEN with the counter", () => {
+    const r = evaluateSecurityAudit({ projectDir: marked(20), nowMs: now });
+    expect(r.verdict).toBe(VERDICTS.BROKEN);
+    expect(r.evidence).toMatch(/20 days/);
+  });
+  it("fresh: ok with the date", () => {
+    expect(evaluateSecurityAudit({ projectDir: marked(2), nowMs: now }).verdict).toBe(VERDICTS.OK);
+  });
+});
+describe("vulnerable dependencies age by ADVISORY date — AC6", () => {
+  const vuln = (severity, daysAgo) => ({ id: "GHSA-x", package: "p", severity, publishedAt: new Date(now - daysAgo * DAY).toISOString() });
+  it("no scan handed in: UNKNOWN — a missing scan is never a clean bill", () => {
+    expect(evaluateVulnAging({ vulns: null, nowMs: now }).verdict).toBe(VERDICTS.UNKNOWN);
+  });
+  it("a critical older than its window breaks, dated by the ADVISORY, not the discovery", () => {
+    const r = evaluateVulnAging({ vulns: [vuln("CRITICAL", 10)], nowMs: now });
+    expect(r.verdict).toBe(VERDICTS.BROKEN);
+    expect(r.evidence).toMatch(/advisory/i);
+  });
+  it("a high inside its 30-day window is ok — reported, not broken", () => {
+    expect(evaluateVulnAging({ vulns: [vuln("HIGH", 5)], nowMs: now }).verdict).toBe(VERDICTS.OK);
+  });
+  it("a critical with no advisory date counts as overdue — unknown age is not youth", () => {
+    expect(evaluateVulnAging({ vulns: [{ id: "GHSA-y", severity: "CRITICAL", publishedAt: null }], nowMs: now }).verdict).toBe(VERDICTS.BROKEN);
+  });
+  it("empty list: ok", () => {
+    expect(evaluateVulnAging({ vulns: [], nowMs: now }).verdict).toBe(VERDICTS.OK);
   });
 });
 describe("runInvariants — dependencies inherit NOT OBSERVABLE", () => {

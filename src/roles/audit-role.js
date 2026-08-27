@@ -1,4 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { AgentRole } from "./agent-role.js";
+import { securityAuditMarkerPath } from "../steward/invariants.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
 import { measureBasalCost, loadPreviousAudit, saveAuditSnapshot, computeGrowthDelta } from "../audit/basal-cost.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
@@ -151,6 +154,12 @@ export class AuditRole extends AgentRole {
         aiSlop = await collectAiSlop(projectDir);
       } catch { /* ai-slop scan is best-effort */ }
     }
+    // STW-A (KJC-TSK-0789 AC5): record that the security surface was looked
+    // at, so the Steward can age it — GREBLA went 79 days with "never".
+    try {
+      mkdirSync(dirname(securityAuditMarkerPath(projectDir)), { recursive: true });
+      writeFileSync(securityAuditMarkerPath(projectDir), JSON.stringify({ at: new Date().toISOString(), mode: securityOnly ? "security" : "full" }));
+    } catch { /* recording is best-effort — the audit itself already ran */ }
     return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, infraFindings, aiSlop };
   }
 
