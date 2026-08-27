@@ -16,6 +16,8 @@ import {
   evaluatePhantomCoverage, runInvariants,
 } from "../steward/invariants.js";
 import { loadPreviousAudit } from "../audit/basal-cost.js";
+import { collectOsvFindings } from "../audit/osv-findings.js";
+import { recordGateDecision } from "../policy/decisions.js";
 
 const stewardDir = (projectDir) => path.join(projectDir, ".karajan", "steward");
 
@@ -34,6 +36,16 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
   const nowMs = probes.nowMs ?? Date.now();
   const runsFn = probes.runsFn ?? ghRuns(projectDir, baseBranch);
 
+  // Live osv probe (best-effort): unavailable is null → the invariant answers
+  // unknown with its remedy, never a clean bill.
+  let vulns = probes.vulns ?? null;
+  if (vulns === null) {
+    try {
+      const osv = await (probes.osvFn ?? collectOsvFindings)(projectDir, logger);
+      if (osv?.available) vulns = (osv.vulnerabilities || []).map((v) => ({ id: v.id, severity: v.severity, publishedAt: v.publishedAt ?? null }));
+    } catch { /* stays null — unknown */ }
+  }
+
   // Dead-code baseline: the PREVIOUS report in the repo — shared memory.
   const prevReport = readJson(path.join(stewardDir(projectDir), "report.json"));
   const snapshot = await loadPreviousAudit(projectDir).catch(() => null);
@@ -44,7 +56,7 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
   const invariants = [
     { id: "main-ci", renew: "push to the base branch (or fix the red run)", evaluate: () => evaluateMainCi({ projectDir, baseBranch, freshness: freshness.values, runsFn, nowMs }) },
     { id: "security-audit", renew: "kj audit --security", evaluate: () => evaluateSecurityAudit({ projectDir, freshness: freshness.values, nowMs }) },
-    { id: "vulnerable-deps", renew: "kj audit (osv-scanner)", evaluate: () => evaluateVulnAging({ vulns: probes.vulns ?? null, freshness: freshness.values, nowMs }) },
+    { id: "vulnerable-deps", renew: "kj audit (osv-scanner)", evaluate: () => evaluateVulnAging({ vulns, freshness: freshness.values, nowMs }) },
     { id: "dead-code-trend", renew: "kj audit (knip inventory)", evaluate: () => evaluateDeadCodeTrend({ current: deadNow, previous: prevReport?.deadCodeBaseline ?? null }) },
     { id: "coverage-config", renew: "configure a coverage threshold", evaluate: () => evaluateCoverageConfig({ projectDir }) },
     { id: "phantom-coverage", renew: "KJC-TSK-0800 ships the detectors", evaluate: () => evaluatePhantomCoverage() },
@@ -75,6 +87,14 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
   fs.mkdirSync(stewardDir(projectDir), { recursive: true });
   fs.writeFileSync(path.join(stewardDir(projectDir), "report.md"), md);
   fs.writeFileSync(path.join(stewardDir(projectDir), "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+
+  // Every sweep is SEALED in the decision chain — the same criterion policy
+  // decisions already meet: recorded and verifiable, not just notified.
+  try {
+    const counts = {};
+    for (const r of results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
+    recordGateDecision(projectDir, { kind: "steward-sweep", verdicts: { ok: counts[VERDICTS.OK] || 0, broken: broken.length, unknown: counts[VERDICTS.UNKNOWN] || 0, "not-observable": counts[VERDICTS.NOT_OBSERVABLE] || 0 }, broken_ids: broken.map((b) => b.id) });
+  } catch (err) { logger.warn?.(`⚠ steward: the sweep could not be sealed in the decision chain (${err.message})`); }
 
   // A report nobody can see is not shared state — say it, do not fix their tree.
   try {

@@ -70,6 +70,28 @@ describe("kj steward sweep", () => {
     expect(`${log.warn.mock.calls.flat().join("\n")}`).toMatch(/gitignore/i);
   });
 
+  // STW-B PR-2 — every sweep is SEALED in the decision chain, verifiable with
+  // the kernel's own tool: the same criterion policy decisions already meet.
+  it("each sweep seals a steward-sweep decision and the chain verifies", async () => {
+    await run();
+    await run({ nowMs: NOW + 60_000 });
+    const lines = fs.readFileSync(path.join(dir, ".karajan", "policy-decisions.jsonl"), "utf8").split("\n").filter((l) => l.trim());
+    const sweeps = lines.map((l) => JSON.parse(l)).filter((d) => d.kind === "steward-sweep");
+    expect(sweeps).toHaveLength(2);
+    expect(sweeps[0].verdicts.broken).toBeGreaterThanOrEqual(1); // security-audit "never"
+    const { verifyDecisionChain } = await import("@karajan-family/governance");
+    expect(verifyDecisionChain(lines).ok).toBe(true);
+  });
+
+  it("a live osv probe feeds vulnerable-deps — an overdue critical breaks the sweep", async () => {
+    fs.mkdirSync(path.join(dir, ".karajan", "steward"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".karajan", "steward", "security-audit.json"), JSON.stringify({ at: "2026-08-26T00:00:00Z", mode: "security" }));
+    const code = await run({ osvFn: () => ({ available: true, vulnerabilities: [{ id: "GHSA-z", severity: "CRITICAL", publishedAt: "2026-08-01T00:00:00Z" }] }) });
+    expect(code).toBe(1);
+    const json = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "steward", "report.json"), "utf8"));
+    expect(json.invariants.find((i) => i.id === "vulnerable-deps").verdict).toBe("broken");
+  });
+
   it("--json prints the machine document", async () => {
     const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     await run({ flags: { json: true } });
