@@ -326,7 +326,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
-import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
 const PUSH = /\\bgit\\s+push\\b/;
@@ -715,6 +715,37 @@ process.stdin.on("end", () => {
       }
     }
     if (EDIT_TOOLS.includes(tool)) {
+      // STW-C (KJC-TSK-0791): the sweep's verdict has consequence where work
+      // STARTS. Inform ALWAYS, once per session and impossible to miss; BLOCK
+      // almost never — only security and persistent red main, and only when
+      // the project adopted it (method_gates.steward: block). Unknown is never
+      // treated as broken: nothing is asserted that is not known. No report =
+      // the project does not use the Steward yet — silence, adoption is explicit.
+      try {
+        const rep = JSON.parse(readFileSync(join(ROOT, ".karajan", "steward", "report.json"), "utf8"));
+        const bad = (rep.invariants || []).filter((r) => r.verdict === "broken");
+        const stale = (rep.invariants || []).filter((r) => r.verdict === "unknown");
+        if (bad.length || stale.length) {
+          const hard = bad.filter((r) => r.id === "vulnerable-deps" || r.id === "main-ci");
+          let blockOn = false;
+          try { blockOn = /steward:\\s*["']?block/.test(readFileSync(join(ROOT, ".karajan", "kj.config.yml"), "utf8")); } catch { /* no config — no block */ }
+          if (hard.length && blockOn) {
+            if (escOn("KJ_ALLOW_STEWARD")) { recordEscape(sid, "KJ_ALLOW_STEWARD", tool); }
+            else {
+              console.error("kj sentinel: steward — el estado del proyecto bloquea empezar (barrido " + rep.sweptAt + "):" + String.fromCharCode(10) + hard.map((r) => "- " + r.id + ": " + (r.evidence || "") + " -> " + (r.remedy || r.renew || "kj steward sweep")).join(String.fromCharCode(10)) + String.fromCharCode(10) + "(KJ_ALLOW_STEWARD=1 = excepcion consciente de esta sesion, queda registrada)");
+              process.exit(2);
+            }
+          }
+          const st = load();
+          const s = session(st, sid);
+          if (!s.steward_informed) {
+            s.steward_informed = true;
+            save(st);
+            const lines = [...bad.map((r) => "ROTO " + r.id + ": " + (r.remedy || r.evidence || "")), ...stale.map((r) => "desconocido " + r.id + " (no se afirma lo que no se sabe) — refresca: " + (r.renew || "kj steward sweep"))];
+            console.log(JSON.stringify({ systemMessage: "kj steward (barrido " + rep.sweptAt + "): " + lines.join(" | ") + " — detalle: .karajan/steward/report.md" }));
+          }
+        }
+      } catch { /* no report or unreadable — the Steward is not adopted here */ }
       const file = input.file_path || input.notebook_path;
       const rel = file ? relative(ROOT, String(file)).replaceAll("\\\\", "/") : "";
       if (rel && CODE.test(rel) && !TESTS.test(rel)) {
