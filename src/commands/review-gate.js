@@ -213,7 +213,12 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     }
   }
 
-  const tests = checkTestsWithCode({ config, stagedFiles: changedFiles });
+  // KJC-TSK-0795 AC1: hand the gate the numbers so a delete-only diff is
+  // exempt — deleting code adds no behavior to test.
+  const numstat = (await rawDiff(flags.range, ["--numstat"])).split("\n").map((l) => l.trim()).filter(Boolean)
+    .map((l) => { const [a, r, ...f] = l.split(/\s+/); return { file: f.join(" "), added: a === "-" ? 1 : Number(a) || 0, removed: r === "-" ? 0 : Number(r) || 0 }; });
+  const tests = checkTestsWithCode({ config, stagedFiles: changedFiles, numstat });
+  if (tests.mode === "delete-only") console.log(`⚠ tests-with-code: exempt — ${tests.reason}`);
   if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
   if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);
   if (!tests.ok) {

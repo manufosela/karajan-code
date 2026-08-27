@@ -32,6 +32,32 @@ describe("checkTestsWithCode", () => {
     expect(escaped).toMatchObject({ ok: true, mode: "exempt" });
   });
 
+  // KJC-TSK-0795 AC1 (epic KJC-PCS-0082) — measured in GREBLA: the gate fired
+  // on both cleanup PRs. Deleting code adds no behavior to test; asking for a
+  // test there is the false positive that teaches people to skip the gate.
+  it("a diff that only REMOVES source lines is exempt, even in block mode", () => {
+    const r = checkTestsWithCode({
+      config: { method_gates: { tests_with_code: "block" } },
+      stagedFiles: ["src/dead.js", "src/old.js"],
+      numstat: [{ file: "src/dead.js", added: 0, removed: 40 }, { file: "src/old.js", added: 0, removed: 7 }],
+      env: {},
+    });
+    expect(r).toMatchObject({ ok: true, mode: "delete-only" });
+  });
+
+  it("one added line in any source keeps the gate armed", () => {
+    const r = checkTestsWithCode({
+      config: {}, env: {},
+      stagedFiles: ["src/a.js", "src/b.js"],
+      numstat: [{ file: "src/a.js", added: 0, removed: 4 }, { file: "src/b.js", added: 1, removed: 0 }],
+    });
+    expect(r.mode).toBe("warn");
+  });
+
+  it("without numstat the behavior is unchanged — callers that only know names", () => {
+    expect(run(["src/a.js"]).mode).toBe("warn");
+  });
+
   it("respects the project's own patterns from development.*", () => {
     const cfg = { development: { test_file_patterns: ["/checks/"], source_file_extensions: [".go"] } };
     expect(run(["main.go", "checks/main_check.go"], cfg).mode).toBe("pass");
