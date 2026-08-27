@@ -53,6 +53,18 @@ describe("crossing what was said against what ran", () => {
     expect(result.claims).toEqual([]);
   });
 
+  // Found by the stop-gate wiring test: the user asking "how many cards are left?"
+  // mentions the noun without saying anything about emptiness — a question must
+  // never veto a denial. Only OUTPUTS take part in the denied analysis.
+  it("the user's question mentioning the noun does not save a denied datum", () => {
+    const result = crossCheck({
+      text: "Quedan 4 cards esperando validación.",
+      outputs: ["list_cards status=To Validate → []  (0 cards)"],
+      userSaid: "cuantas cards quedan?",
+    });
+    expect(statusOf(result, "4")).toBe(DENIED);
+  });
+
   it("does not cry wolf: tiny numbers in prose are NOT_CHECKABLE, not accusations", () => {
     const result = crossCheck({ text: "Son 2 capas y 3 reglas.", outputs: [] });
     expect(statusOf(result, "2")).toBe(NOT_CHECKABLE);

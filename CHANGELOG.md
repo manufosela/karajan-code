@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The Stop gate now checks the AI's final message against the turn's own outputs** (CLM-B wiring, KJC-TSK-0802, epic KJC-PCS-0083): the last piece of claims-with-evidence acts. The hook carries no policy — it spawns `kj claims gate`, and kj reads `method_gates.claims`: `off` (default: adoption is explicit), `warn` (report only), `block` (a datum **denied by its own source** refuses to end the turn, with the exact command to inspect it; unbacked data is still only reported). It runs even without a tracked session — a turn with no edits still ends with a final message — and fails open when kj is missing or the transcript unreadable: a broken verifier never holds a session hostage. The wiring test drove the generated hook with the real binary and caught a design bug the unit tests had blessed: the user *asking* "how many cards are left?" mentioned the noun and vetoed the denial — a question says nothing about emptiness, so only tool outputs take part in the denied analysis now.
+
 ## [4.22.0] - 2026-08-27
 
 ### Added

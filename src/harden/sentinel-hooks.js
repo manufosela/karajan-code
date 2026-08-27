@@ -230,7 +230,7 @@ process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
-    const { session_id: sid = "default" } = JSON.parse(raw);
+    const { session_id: sid = "default", transcript_path: transcript = null } = JSON.parse(raw);
     const state = load();
     // Tamper check runs regardless of session state: shell indirection leaves
     // no edit-tool record, but it cannot survive \`kj sentinel verify\`, whose
@@ -252,12 +252,31 @@ process.stdin.on("end", () => {
       process.exit(2);
     }
     state.tamper_blocks = 0;
+    // CLM-B (KJC-TSK-0802, claims-with-evidence ADR): the hard data of the turn's
+    // final message, crossed against that turn's outputs. It runs even without a
+    // tracked session — a turn with no edits still ends with a final message. The
+    // hook carries no policy: kj reads method_gates.claims and answers 0 (off,
+    // clean, or warn) or 2 (a datum DENIED by its own source, in block mode). A
+    // missing kj or an errored spawn fails open.
+    let claimsNote = "";
+    let claimsBlock = null;
+    if (transcript) {
+      const c = spawnSync("kj", ["claims", "gate", "--transcript", transcript], { cwd: ROOT, encoding: "utf8" });
+      if (!c.error && c.status === 2) claimsBlock = "claims: un dato del mensaje final esta DESMENTIDO por las salidas de este turno — verificalo o marcalo como no comprobado. Detalle: kj claims check --transcript " + transcript;
+      else if (!c.error && c.status === 0 && (c.stderr || "").trim()) claimsNote = "kj claims: " + c.stderr.trim().split(String.fromCharCode(10))[0] + " — datos sin respaldo en este turno (informa, no bloquea).";
+    }
     const s = state.sessions?.[sid];
-    if (!s) process.exit(0);
+    if (!s) {
+      if (claimsBlock) { console.error("kj sentinel: el turno NO puede terminar:" + String.fromCharCode(10) + "- " + claimsBlock); process.exit(2); }
+      if (claimsNote) console.log(JSON.stringify({ systemMessage: claimsNote }));
+      process.exit(0);
+    }
     const v = violations(s, branchOf());
+    if (claimsBlock) v.push(claimsBlock);
     if (!v.length) {
       s.blocks = 0;
       const notes = [];
+      if (claimsNote) notes.push(claimsNote);
       if ((s.escapes || []).length) notes.push("kj sentinel: esta sesion uso " + s.escapes.length + " escape(s): " + s.escapes.join(", ") + " — decision registrada; detalle en kj sentinel status.");
       if ((s.closed_cards || []).length) {
         notes.push("kj sentinel: card(s) cerrada(s) en este turno: " + s.closed_cards.join(", ") + " — el board las muestra: " + boardHint());
