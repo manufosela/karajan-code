@@ -154,11 +154,17 @@ export function evaluateCoverageConfig({ projectDir }) {
   }
   return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "no coverage threshold configured anywhere — nothing measures the level", remedy: "instrument: configure a coverage threshold (any value the team stands behind — no 80% is demanded)" };
 }
-/** AC3 — phantom coverage (tests exercising unreachable code) has two
- * deterministic detectors coming with KJC-TSK-0800. Until they exist, this
- * says so — an invariant must never be ok by absence of its detector. */
-export function evaluatePhantomCoverage() {
-  return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "the phantom-coverage detectors are not built yet", remedy: "instrument: KJC-TSK-0800 ships the two detectors (unit call-graph; e2e literal crossing)" };
+/** AC3 — phantom coverage: the two detectors exist (KJC-TSK-0800) but the
+ * sweep does not yet discover test↔source pairs, so their output is INJECTED.
+ * No output → not observable: never ok by absence of the detector's run. */
+export function evaluatePhantomCoverage({ phantoms } = {}) {
+  if (!Array.isArray(phantoms)) {
+    return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "the phantom detectors were not run", remedy: "instrument: run the detectors (steward/phantom-coverage) over the suite's test↔source pairs and feed their output" };
+  }
+  if (phantoms.length > 0) {
+    return { verdict: VERDICTS.BROKEN, evidence: `${phantoms.length} phantom test(s): ${phantoms.map((p) => p.literal || p.member).join(", ")} — they add to the count and cover nothing`, remedy: "rewrite each test against the live UI, or delete it with the dead code it exercised" };
+  }
+  return { verdict: VERDICTS.OK, evidence: "no phantom tests in the detectors' output", remedy: null };
 }
 /**
  * Run a list of invariants. A child whose `dependsOn` parent came out

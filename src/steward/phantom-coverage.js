@@ -110,3 +110,28 @@ export function detectPhantomE2E({ sourceText, sourceAnalysis, testSource, file 
     .map((v) => ({ literal: v, line: onlyInDead.get(v), file }));
   return { observable: true, phantoms };
 }
+
+/**
+ * The temporal signature — zero static analysis, and it would have been
+ * enough for GREBLA: a bug gets fixed or reverted; a phantom fails the SAME
+ * way indefinitely because it proves something that no longer exists.
+ * kj holds no per-test history, so the source is INJECTED and said:
+ * failures = [{test, reason, at}] from whoever owns the CI history.
+ */
+export function assessTemporalSignature({ failures, thresholdDays = 7 } = {}) {
+  if (!Array.isArray(failures)) {
+    return { observable: false, reason: "no per-test failure history handed in — kj holds none; inject it from the CI that owns it", suspects: [] };
+  }
+  const byTest = new Map();
+  for (const f of failures) (byTest.get(f.test) ?? byTest.set(f.test, []).get(f.test)).push(f);
+  const suspects = [];
+  for (const [test, rows] of byTest) {
+    const reasons = new Set(rows.map((r) => String(r.reason || "").trim().toLowerCase()));
+    if (reasons.size !== 1) continue; // changing reasons look like a bug being worked
+    const times = rows.map((r) => Date.parse(r.at)).filter(Number.isFinite);
+    if (times.length < 2) continue;
+    const days = Math.floor((Math.max(...times) - Math.min(...times)) / 86_400_000);
+    if (days >= thresholdDays) suspects.push({ test, reason: rows[0].reason, days, firstAt: new Date(Math.min(...times)).toISOString(), lastAt: new Date(Math.max(...times)).toISOString() });
+  }
+  return { observable: true, suspects };
+}

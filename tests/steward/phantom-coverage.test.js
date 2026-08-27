@@ -4,7 +4,7 @@
 // looked for an aria-label that only existed inside an unreachable one.
 import { describe, it, expect } from "vitest";
 import { analyzeMemberReachability } from "../../src/audit/member-reachability.js";
-import { detectPhantomUnit, detectPhantomE2E } from "../../src/steward/phantom-coverage.js";
+import { detectPhantomUnit, detectPhantomE2E, assessTemporalSignature } from "../../src/steward/phantom-coverage.js";
 
 // A component in GREBLA's shape: render() is live, _renderReportsTo() is not.
 const SOURCE = `class Panel extends LitElement {
@@ -60,5 +60,32 @@ describe("detectPhantomE2E — literal crossing (the case the call graph cannot 
     const na = analyzeMemberReachability(src, { file: "a.js" });
     const r = detectPhantomE2E({ sourceText: src, sourceAnalysis: na, testSource: `t("x", () => find("Etiqueta rara"));`, file: "t.js" });
     expect(r.observable).toBe(false);
+  });
+});
+
+// PR-2 — the temporal signature: zero static analysis, and it would have been
+// enough for GREBLA. A bug gets fixed or reverted; a phantom fails the same
+// way indefinitely because it proves something that no longer exists.
+describe("assessTemporalSignature", () => {
+  const DAY = 86_400_000;
+  const now = Date.parse("2026-08-27T12:00:00Z");
+  const fail = (test, reason, daysAgo) => ({ test, reason, at: new Date(now - daysAgo * DAY).toISOString() });
+  it("a test failing the SAME way for longer than the threshold is suspected phantom, not bug", () => {
+    const r = assessTemporalSignature({ failures: [fail("hierarchy.spec", "label not found", 21), fail("hierarchy.spec", "label not found", 10), fail("hierarchy.spec", "label not found", 1)], nowMs: now });
+    expect(r.observable).toBe(true);
+    expect(r.suspects).toEqual([expect.objectContaining({ test: "hierarchy.spec", days: 20 })]);
+  });
+  it("changing reasons look like a bug being worked, not a phantom", () => {
+    const r = assessTemporalSignature({ failures: [fail("a.spec", "timeout", 10), fail("a.spec", "assert 3 != 4", 1)], nowMs: now });
+    expect(r.suspects).toEqual([]);
+  });
+  it("a short streak is just a failure — below the threshold nothing is suspected", () => {
+    const r = assessTemporalSignature({ failures: [fail("a.spec", "x", 2), fail("a.spec", "x", 1)], nowMs: now });
+    expect(r.suspects).toEqual([]);
+  });
+  it("no history handed in: NOT OBSERVABLE — kj holds no per-test history, the source is injected and said", () => {
+    const r = assessTemporalSignature({ failures: null });
+    expect(r.observable).toBe(false);
+    expect(r.reason).toMatch(/history/i);
   });
 });
