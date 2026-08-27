@@ -106,7 +106,9 @@ function analyzeClass(node, { staticUses, thisPropCount }) {
   const constructorFields = [...ctorFields.entries()]
     .filter(([n]) => !members.has(n) && thisPropCount.get(n) === 1)
     .map(([n, l]) => ({ name: n, line: l, heuristic: "single this-appearance in file" }));
-  return { name, line, observable: true, reason: null, framework, catalogVersion: ENTRYPOINT_CATALOG.version, total: members.size, unreachable, constructorFields };
+  // memberNames: the class's member slots — phantom-coverage (KJC-TSK-0800)
+  // needs to tell "a call to a member of THIS class" from any other call.
+  return { name, line, observable: true, reason: null, framework, catalogVersion: ENTRYPOINT_CATALOG.version, total: members.size, memberNames: [...members.keys()], unreachable, constructorFields };
 }
 
 /** `this.x = …` statements inside the constructor body (first line wins). */
