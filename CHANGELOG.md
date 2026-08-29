@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.23.0] - 2026-08-29
+
 ### Security
 
 - **The HU Board token is compared in constant time** (PR #1551, external contribution by @ofri-peretz — thank you): `===` on strings stops at the first differing byte, so rejecting a token leaked how much of a correct prefix was supplied — measurable exactly in the deployment this middleware exists for, a board bound beyond loopback on a LAN, where the token could be recovered a byte at a time. Now `crypto.timingSafeEqual` (length checked first — a wrong-length token is wrong whatever it contains), plus the structural `node-security/no-timing-unsafe-compare` ESLint rule so the next unsafe compare goes red at lint time instead of shipping: it matches the code's shape, not variable names, which is why it can run repository-wide where the name-based rule could not.
