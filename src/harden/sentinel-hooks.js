@@ -151,7 +151,21 @@ process.stdin.on("end", () => {
       // the first real update_card did not clear its pending entry).
       const cid = /\\\\?"cardId\\\\?"\\s*:\\s*\\\\?"([A-Za-z0-9-]+)\\\\?"/.exec(text);
       const st = /\\\\?"status\\\\?"\\s*:\\s*\\\\?"([^"\\\\]+)\\\\?"/.exec(text);
-      if (cid && st && CLOSING.includes(st[1].toLowerCase())) clearPending(cid[1].toUpperCase());
+      if (cid && st && CLOSING.includes(st[1].toLowerCase())) {
+        clearPending(cid[1].toUpperCase());
+        // KJC-BUG-0157: a pending whose card-id NEVER existed (branch named
+        // before the tracker confirmed the create) could not be cleared by any
+        // verified route. The pending's TRUE identity is its PR: a CONFIRMED
+        // closing update whose request names that PR clears it too — still a
+        // real tracker call seen by this hook, never a promise in prose.
+        const prIn = Number(input?.updates?.pipelineStatus?.prCreated?.prNumber);
+        if (Number.isFinite(prIn) && prIn > 0) {
+          const state = load();
+          const s = session(state, sid);
+          s.pending_moves = (s.pending_moves || []).filter((p) => Number(p.pr) !== prIn);
+          save(state);
+        }
+      }
       process.exit(0);
     }
     if (tool === "Bash") {
