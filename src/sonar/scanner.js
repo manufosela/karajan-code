@@ -181,11 +181,27 @@ async function resolveSonarTokenWithFallback(config, apiHost) {
   return null;
 }
 
-async function ensureSonarProjectProperties(cwd = process.cwd()) {
+/**
+ * KJC-BUG-0156 (issue #1543): the repo's sonar-project.properties is the
+ * CANONICAL layout — kj's -D opts override it on the scanner CLI, so when the
+ * file exists kj's layout opts must stand down. The ignore rules stay: those
+ * are kj's own policy, not project layout.
+ */
+export function respectRepoProperties(scanner = {}, props = {}) {
+  if (!props.existed) return scanner;
+  const kept = { ...scanner };
+  for (const k of ["sources", "exclusions", "test_inclusions", "coverage_exclusions", "javascript_lcov_report_paths"]) delete kept[k];
+  return kept;
+}
+
+/** @returns {Promise<{existed: boolean, declaredKey: string|null}>} */
+export async function ensureSonarProjectProperties(cwd = process.cwd()) {
   const propsPath = path.join(cwd, "sonar-project.properties");
   try {
-    await fsPromises.access(propsPath);
-    return; // already exists
+    const raw = await fsPromises.readFile(propsPath, "utf8");
+    // the repo's declared key is what the server will know — kj must query THAT
+    const declaredKey = raw.split("\n").map((l) => /^\s*sonar\.projectKey\s*=\s*(.+)$/.exec(l)).find(Boolean)?.[1]?.trim() ?? null;
+    return { existed: true, declaredKey };
   } catch {
     // Auto-generate based on project structure
     let pkg = {};
@@ -205,6 +221,7 @@ async function ensureSonarProjectProperties(cwd = process.cwd()) {
       `sonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**`,
     ].join("\n");
     await fsPromises.writeFile(propsPath, props + "\n", "utf8");
+    return { existed: false, declaredKey: null };
   }
 }
 
@@ -241,7 +258,9 @@ export async function runSonarScan(config, projectKey = null) {
       exitCode: start.exitCode
     };
   }
-  await ensureSonarProjectProperties();
+  // KJC-BUG-0156: kj's -Dsonar.projectKey stays (scan and query must use the
+  // SAME key), but the repo's properties own the LAYOUT from here on.
+  const repoProps = await ensureSonarProjectProperties();
   const token = await resolveSonarTokenWithFallback(config, apiHost);
   if (!token) {
     return {
@@ -262,10 +281,16 @@ export async function runSonarScan(config, projectKey = null) {
       exitCode: coverage.exitCode || 1
     };
   }
-  const scannerConfig = normalizeScannerConfig({
-    ...sonarConfig.scanner,
-    ...coverage.scannerPatch
-  });
+  const scannerConfig = respectRepoProperties(
+    normalizeScannerConfig({
+      ...sonarConfig.scanner,
+      ...coverage.scannerPatch
+    }),
+    repoProps
+  );
+  const note = repoProps.existed && sonarConfig.scanner?.sources
+    ? "sonar: the repo's sonar-project.properties wins over sonarqube.scanner.sources — kj passed only its ignore rules"
+    : null;
 
   const pick = await pickSonarScanner(sonarConfig.scanner);
   const env = {
@@ -300,6 +325,7 @@ export async function runSonarScan(config, projectKey = null) {
     ok: result.exitCode === 0,
     projectKey: effectiveProjectKey,
     scanner: pick.type,
+    note,
     stdout: result.stdout,
     stderr: result.stderr,
     exitCode: result.exitCode

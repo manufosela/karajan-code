@@ -319,7 +319,13 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     const touchedLines = addedLinesByFile(await rawDiff(flags.range, ["--unified=0"]));
     const pre = await runSonarPregate({ config, stagedFiles: changedFiles, touchedLines, logger });
     if (!pre.available) {
-      console.log(`⚠ sonar pre-gate skipped: ${pre.reason}`);
+      // KJC-BUG-0156 (issue #1543): a scan that FAILED must not read like one
+      // more config warning — it hid a dead quality gate for 8 straight PRs.
+      // Still fail-open (a laptop without Docker still commits), but SAID.
+      const chosen = /disabled in config/.test(pre.reason || "");
+      console.log(chosen
+        ? `⚠ sonar pre-gate skipped: ${pre.reason}`
+        : `✗ sonar pre-gate UNAVAILABLE — the quality gate did NOT run on this diff: ${pre.reason}`);
     } else {
       const found = [...pre.blocking, ...pre.advisory];
       if (found.length > 0) {

@@ -67,6 +67,7 @@ export async function runSonarPregate({ config, stagedFiles = [], touchedLines =
   try {
     lock = await acquireToolLock("sonar-scanner", { timeoutMs: 300_000 });
     const scan = await runSonarScan(config);
+    if (scan.note) logger?.warn?.(scan.note); // KJC-BUG-0156: precedence is said, never silent
     if (!scan.ok) {
       return { available: false, reason: (scan.stderr || scan.stdout || "sonar scan failed").trim() };
     }
