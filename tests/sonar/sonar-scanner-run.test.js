@@ -1,4 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// KJC-BUG-0156: with a sonar-project.properties in cwd (this repo has one),
+// kj's layout opts stand down — these three tests pin the CONFIG-driven layout,
+// so they run in a repo WITHOUT the canonical file.
+async function inRepoWithoutProperties(fn, { withSrc = false } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "kj-sonar-run-"));
+  const prev = process.cwd();
+  try {
+    if (withSrc) mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "package.json"), "{}\n");
+    process.chdir(dir);
+    await fn();
+  } finally {
+    process.chdir(prev);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
@@ -196,14 +216,15 @@ describe("[opt-in: sonar] runSonarScan", () => {
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "ok", stderr: "" });
 
-    const result = await runSonarScan(config, "my-key");
-
-    expect(result.ok).toBe(true);
-    const scannerEnv = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
-    expect(scannerEnv).toContain("-Dsonar.sources=src");
-    expect(scannerEnv).not.toContain("public");
-    expect(scannerEnv).not.toContain("lib");
-    expect(scannerEnv).not.toContain("sonar.javascript.lcov.reportPaths");
+    await inRepoWithoutProperties(async () => {
+      const result = await runSonarScan(config, "my-key");
+      expect(result.ok).toBe(true);
+      const scannerEnv = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
+      expect(scannerEnv).toContain("-Dsonar.sources=src");
+      expect(scannerEnv).not.toContain("public");
+      expect(scannerEnv).not.toContain("lib");
+      expect(scannerEnv).not.toContain("sonar.javascript.lcov.reportPaths");
+    }, { withSrc: true });
   });
 
   it("runs configured coverage command and injects lcov path only when configured and existing", async () => {
@@ -226,15 +247,16 @@ describe("[opt-in: sonar] runSonarScan", () => {
       .mockResolvedValueOnce({ exitCode: 0, stdout: "coverage ok", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
-    const result = await runSonarScan(config, "my-key");
-
-    expect(result.ok).toBe(true);
-    expect(runCommand.mock.calls[0][0]).toBe("bash");
-    expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
-    expect(runCommand.mock.calls[0][2]).toEqual({ timeout: 12345 });
-    expect(runCommand.mock.calls[1][0]).toBe("docker");
-    const scannerEnv = runCommand.mock.calls[1][2].env.SONAR_SCANNER_OPTS;
-    expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
+    await inRepoWithoutProperties(async () => {
+      const result = await runSonarScan(config, "my-key");
+      expect(result.ok).toBe(true);
+      expect(runCommand.mock.calls[0][0]).toBe("bash");
+      expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
+      expect(runCommand.mock.calls[0][2]).toEqual({ timeout: 12345 });
+      expect(runCommand.mock.calls[1][0]).toBe("docker");
+      const scannerEnv = runCommand.mock.calls[1][2].env.SONAR_SCANNER_OPTS;
+      expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
+    }, { withSrc: true });
   });
 
   it("fails when coverage command fails and block_on_failure is true", async () => {
@@ -304,13 +326,14 @@ describe("[opt-in: sonar] runSonarScan", () => {
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
     runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
-    const result = await runSonarScan(config, "my-key");
-
-    expect(result.ok).toBe(true);
-    expect(runCommand).toHaveBeenCalledTimes(1);
-    expect(runCommand.mock.calls[0][0]).toBe("docker");
-    const scannerEnv = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
-    expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
+    await inRepoWithoutProperties(async () => {
+      const result = await runSonarScan(config, "my-key");
+      expect(result.ok).toBe(true);
+      expect(runCommand).toHaveBeenCalledTimes(1);
+      expect(runCommand.mock.calls[0][0]).toBe("docker");
+      const scannerEnv = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
+      expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
+    }, { withSrc: true });
   });
 
   it("uses configured Sonar network and scanner timeout", async () => {
