@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **The HU Board token is compared in constant time** (PR #1551, external contribution by @ofri-peretz — thank you): `===` on strings stops at the first differing byte, so rejecting a token leaked how much of a correct prefix was supplied — measurable exactly in the deployment this middleware exists for, a board bound beyond loopback on a LAN, where the token could be recovered a byte at a time. Now `crypto.timingSafeEqual` (length checked first — a wrong-length token is wrong whatever it contains), plus the structural `node-security/no-timing-unsafe-compare` ESLint rule so the next unsafe compare goes red at lint time instead of shipping: it matches the code's shape, not variable names, which is why it can run repository-wide where the name-based rule could not.
+
 ### Added
 
 - **Member reachability: the credible core of the dead-code inventory** (KJC-TSK-0794 part 1, epic KJC-PCS-0082): a new analysis says which class members no entrypoint can reach — but ONLY inside the perimeter validated with known truth (GREBLA's hand-checked 31/139 at dd5a91a and 0/108 on their cleaned main): one file, a recognized framework contract, no dynamic dispatch. Entrypoints are what the framework calls, declared per framework and VERSIONED (Lit and custom elements to start), never a hand-kept list; a decorated member counts as registered by the framework; static blocks run at definition time and keep what they touch alive; recursion does not keep itself alive; `#private` members are followed like any other. Everything outside the perimeter — a computed `this[expr]` anywhere in the file, an unknown or mixin base class, a computed member name, a file that will not parse — comes out **NOT OBSERVABLE with its reason**, never as clean: an inflated inventory gets switched off, and then nobody reads the dead code that is real. Wiring into `kj audit` and the derivative-first report arrive in the next parts of the card.
