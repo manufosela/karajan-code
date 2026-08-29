@@ -50,6 +50,40 @@ describe("board-sync — limpieza del pendiente", () => {
     expect(state().sessions.s1.pending_moves).toHaveLength(0);
   });
 
+  // KJC-BUG-0157 (caso real, 29-ago): el create_card hizo timeout, la rama se
+  // bautizó con el ID siguiente ASUMIDO, y el pending quedó anclado a una card
+  // que jamás existió — imposible de limpiar por cardId. La identidad VERDADERA
+  // de un pending es su PR: un cierre confirmado cuyo request nombra ese PR lo
+  // limpia — sigue siendo una llamada real al tracker, jamás prosa.
+  it("un pending huérfano (card inexistente) se limpia por su PR cuando un cierre confirmado lo nombra en pipelineStatus", () => {
+    seed("KJC-TSK-0805");
+    const st0 = state();
+    st0.sessions.s1.pending_moves[0].pr = 1577;
+    fs.writeFileSync(statePath, JSON.stringify(st0));
+    hook(post, {
+      tool_name: "mcp__planning-game-personal__update_card",
+      tool_input: { updates: { status: "To Validate", pipelineStatus: { prCreated: { prNumber: 1577 } } } },
+      tool_response: JSON.stringify({ message: "Card updated successfully", card: { cardId: "KJC-TSK-0806", status: "To Validate" } }),
+    });
+    expect(state().sessions.s1.pending_moves).toHaveLength(0);
+  });
+
+  it("el clear por PR no toca pendings de OTROS PRs, y sin prNumber en el request no limpia nada ajeno", () => {
+    seed("KJC-TSK-0805", "KJC-TSK-0099");
+    const st0 = state();
+    st0.sessions.s1.pending_moves[0].pr = 1577;
+    st0.sessions.s1.pending_moves[1].pr = 1600;
+    fs.writeFileSync(statePath, JSON.stringify(st0));
+    hook(post, {
+      tool_name: "mcp__planning-game-personal__update_card",
+      tool_input: { updates: { status: "Fixed", pipelineStatus: { prCreated: { prNumber: 1577 } } } },
+      tool_response: JSON.stringify({ message: "Card updated successfully", card: { cardId: "KJC-TSK-0777", status: "Fixed" } }),
+    });
+    expect(state().sessions.s1.pending_moves.map((p) => p.card)).toEqual(["KJC-TSK-0099"]);
+    updateCard("KJC-TSK-0123", "To Validate");
+    expect(state().sessions.s1.pending_moves.map((p) => p.card)).toEqual(["KJC-TSK-0099"]);
+  });
+
   it("un update_card que NO cierra (In Progress, sin estado) no limpia nada; otro proyecto/tool tampoco", () => {
     seed("KJC-TSK-0042");
     updateCard("KJC-TSK-0042", "In Progress");
