@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.23.0] - 2026-08-30
+
 ### Fixed
 
 - **A board-sync pending can now be cleared by its PR, not only by its card id** (KJC-BUG-0157, found live minutes after cutting 4.23.0): when the tracker's `create_card` timed out, the release branch was named with the ASSUMED next id, and the merged PR's pending got anchored to a card that never existed — uncleanable by any verified route, a deadlock only the human's kill-switch could break. The pending's TRUE identity is its PR: a CONFIRMED closing `update_card` whose request names that PR (`pipelineStatus.prCreated.prNumber`) clears it even when the card id differs — still a real tracker call seen by the hook, never a promise in prose; pendings of other PRs stay untouched.
-
-## [4.23.0] - 2026-08-29
 
 ### Security
 
