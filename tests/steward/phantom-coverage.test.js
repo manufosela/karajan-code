@@ -55,6 +55,42 @@ describe("detectPhantomE2E — literal crossing (the case the call graph cannot 
     });
     expect(r.phantoms).toEqual([]);
   });
+  // KJC-BUG-0158 (GREBLA's field validation, 31-aug): the phantom that
+  // MOTIVATED the detector was invisible to it — the code produces the label
+  // interpolated (aria-label="Head al que reporta ${name}") and the test looks
+  // for the RESOLVED string, so no exact literal matches. In Lit that is the
+  // usual case, not the exception. A test literal that STARTS with a static
+  // template chunk living only in unreachable code is a phantom.
+  it("an interpolated label in dead code is caught by its static prefix — GREBLA's real case", () => {
+    const src = "class Panel extends LitElement {\n  render() { return this._rows(); }\n  _rows() { return 1; }\n  _renderReportsTo(l) { return `<button aria-label=\"Head al que reporta ${l.displayName}\">x</button>`; }\n}";
+    const a = analyzeMemberReachability(src, { file: "panel.js" });
+    const r = detectPhantomE2E({
+      sourceText: src, sourceAnalysis: a,
+      testSource: `test("hierarchy", async ({ page }) => { await page.getByLabel("Head al que reporta Sin Head E2E").click(); });`,
+      file: "hierarchy.spec.js",
+    });
+    expect(r.observable).toBe(true);
+    expect(r.phantoms).toEqual([expect.objectContaining({ literal: "Head al que reporta Sin Head E2E" })]);
+    expect(r.phantoms[0].line).toBeGreaterThan(0);
+  });
+  it("the same interpolated chunk ALSO in live code reports nothing — covering interpolation must not accuse live UI (GREBLA's acceptance)", () => {
+    const src = "class Panel extends LitElement {\n  render() { return `<b aria-label=\"Head al que reporta ${this.x}\">y</b>`; }\n  _renderReportsTo(l) { return `<button aria-label=\"Head al que reporta ${l.displayName}\">x</button>`; }\n}";
+    const a = analyzeMemberReachability(src, { file: "panel.js" });
+    const r = detectPhantomE2E({ sourceText: src, sourceAnalysis: a, testSource: `t("x", () => page.getByLabel("Head al que reporta Sin Head E2E"));`, file: "s.spec.js" });
+    expect(r.phantoms).toEqual([]);
+  });
+  it("the exact literal living in REACHABLE code absolves the prefix pass too — that test points at something alive", () => {
+    const src = "class Panel extends LitElement {\n  render() { return `<b aria-label=\"Head al que reporta Sin Head E2E\">y</b>`; }\n  _renderReportsTo(l) { return `<button aria-label=\"Head al que reporta ${l.displayName}\">x</button>`; }\n}";
+    const a = analyzeMemberReachability(src, { file: "panel.js" });
+    const r = detectPhantomE2E({ sourceText: src, sourceAnalysis: a, testSource: `t("x", () => page.getByLabel("Head al que reporta Sin Head E2E"));`, file: "s.spec.js" });
+    expect(r.phantoms).toEqual([]);
+  });
+  it("a short static chunk never matches by prefix — the threshold contains false positives", () => {
+    const src = "class Panel extends LitElement {\n  render() {}\n  _dead() { return `<i title=\"Ver: ${this.x}\">z</i>`; }\n}";
+    const a = analyzeMemberReachability(src, { file: "panel.js" });
+    const r = detectPhantomE2E({ sourceText: src, sourceAnalysis: a, testSource: `t("x", () => page.getByTitle("Ver: algo concreto"));`, file: "s.spec.js" });
+    expect(r.phantoms).toEqual([]);
+  });
   it("inherits not-observable from the analysis", () => {
     const src = "class A extends Unknown { m() { return 'Etiqueta rara'; } }";
     const na = analyzeMemberReachability(src, { file: "a.js" });

@@ -75,10 +75,25 @@ export function detectPhantomUnit({ sourceAnalysis, testSource, file = "<test>" 
 const literalsOf = (tree, minLength) => {
   const out = [];
   walk(tree, (n) => {
-    if (n.type === "StringLiteral" && n.value.trim().length >= minLength) out.push({ value: n.value, line: n.loc.start.line });
-    if (n.type === "TemplateElement" && n.value.cooked && n.value.cooked.trim().length >= minLength) out.push({ value: n.value.cooked, line: n.loc.start.line });
+    if (n.type === "StringLiteral" && n.value.trim().length >= minLength) out.push({ value: n.value, line: n.loc.start.line, template: false });
+    if (n.type === "TemplateElement" && n.value.cooked && n.value.cooked.trim().length >= minLength) out.push({ value: n.value.cooked, line: n.loc.start.line, template: true });
   });
   return out;
+};
+
+// KJC-BUG-0158 (GREBLA's field validation): an interpolated label —
+// aria-label="Head al que reporta ${name}" — never matches the RESOLVED
+// string a test looks for, and in Lit that is the usual case, not the
+// exception. The static chunk carries markup before the label, so the right
+// crossing is: the longest SUFFIX of a template chunk that is a PREFIX of the
+// test's literal. Threshold contains false positives; a LIVE chunk producing
+// the same start absolves — covering interpolation must never accuse live UI.
+const PREFIX_MIN = 8;
+const overlap = (chunk, wanted) => {
+  for (let k = Math.min(chunk.length, wanted.length); k >= PREFIX_MIN; k--) {
+    if (chunk.endsWith(wanted.slice(0, k))) return k;
+  }
+  return 0;
 };
 
 /**
@@ -99,8 +114,9 @@ export function detectPhantomE2E({ sourceText, sourceAnalysis, testSource, file 
   }
   const deadSpans = observableClasses(sourceAnalysis).flatMap((c) => c.unreachable.map((u) => [u.line, u.endLine]));
   const inDead = (line) => deadSpans.some(([a, b]) => line >= a && line <= b);
+  const sourceLits = literalsOf(sourceTree, minLength);
   const onlyInDead = new Map(); // literal → line where it lives
-  for (const lit of literalsOf(sourceTree, minLength)) {
+  for (const lit of sourceLits) {
     if (inDead(lit.line)) { if (!onlyInDead.has(lit.value)) onlyInDead.set(lit.value, lit.line); }
     else onlyInDead.set(lit.value, -1); // seen reachable — poisoned, never reportable
   }
@@ -108,6 +124,23 @@ export function detectPhantomE2E({ sourceText, sourceAnalysis, testSource, file 
   const phantoms = [...wanted]
     .filter((v) => onlyInDead.get(v) !== undefined && onlyInDead.get(v) !== -1)
     .map((v) => ({ literal: v, line: onlyInDead.get(v), file }));
+  // KJC-BUG-0158: interpolated labels match by static-chunk prefix. Dead wins
+  // only when NO live chunk produces at least the same start.
+  const chunks = sourceLits.filter((l) => l.template);
+  for (const v of wanted) {
+    if (phantoms.some((p) => p.literal === v)) continue;
+    // the exact literal living in REACHABLE code absolves here too (codex's
+    // catch): that test does point at something alive.
+    if (onlyInDead.get(v) === -1) continue;
+    let kDead = 0, kLive = 0, deadLine = 0;
+    for (const c of chunks) {
+      // a chunk CONTAINING the whole literal is the strongest match either way
+      const k = c.value.includes(v) ? v.length : overlap(c.value, v);
+      if (inDead(c.line)) { if (k > kDead) { kDead = k; deadLine = c.line; } }
+      else if (k > kLive) kLive = k;
+    }
+    if (kDead >= PREFIX_MIN && kDead > kLive) phantoms.push({ literal: v, line: deadLine, file });
+  }
   return { observable: true, phantoms };
 }
 
