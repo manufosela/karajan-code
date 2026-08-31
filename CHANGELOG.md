@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The phantom-E2E detector now sees interpolated labels** (KJC-BUG-0158, from GREBLA's field validation of 4.23.0): the phantom that MOTIVATED the detector was invisible to it — the code produces the label interpolated (`aria-label="Head al que reporta ${name}"`) and the test looks for the RESOLVED string, so no exact literal matched; in Lit that is the usual case, not the exception. The crossing now also matches by static-chunk prefix: the longest SUFFIX of a template chunk that is a PREFIX of the test's literal (threshold 8 chars contains false positives), and a LIVE chunk producing at least the same start absolves — covering interpolation must never accuse a test that points at live UI, which is exactly GREBLA's acceptance criterion (their cleaned main must keep reporting zero). Their numbers on member-reachability, for the record: 31/31 exact at the known-truth commit, 0 on main.
+
 ## [4.23.0] - 2026-08-30
 
 ### Fixed
