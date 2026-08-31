@@ -45,7 +45,11 @@ describe("detectPhantomE2E — literal crossing (the case the call graph cannot 
     });
     expect(r.observable).toBe(true);
     expect(r.phantoms).toEqual([expect.objectContaining({ literal: "Head al que reporta" })]);
-    expect(r.phantoms[0].line).toBeGreaterThan(0);
+    // KJC-BUG-0159 (GREBLA's field catch): file+line point at the TEST — that
+    // is where the fix happens; the dead code's spot travels as sourceLine.
+    expect(r.phantoms[0].file).toBe("hierarchy.spec.js");
+    expect(r.phantoms[0].line).toBe(1); // the one-line spec
+    expect(r.phantoms[0].sourceLine).toBe(4); // _renderReportsTo in the panel
   });
   it("a literal that ALSO appears in reachable code is never reported — the test does cover something", () => {
     const r = detectPhantomE2E({
@@ -71,7 +75,8 @@ describe("detectPhantomE2E — literal crossing (the case the call graph cannot 
     });
     expect(r.observable).toBe(true);
     expect(r.phantoms).toEqual([expect.objectContaining({ literal: "Head al que reporta Sin Head E2E" })]);
-    expect(r.phantoms[0].line).toBeGreaterThan(0);
+    expect(r.phantoms[0].line).toBe(1); // the spec's line — where the fix happens (KJC-BUG-0159)
+    expect(r.phantoms[0].sourceLine).toBe(4); // the dead chunk in the panel
   });
   it("the same interpolated chunk ALSO in live code reports nothing — covering interpolation must not accuse live UI (GREBLA's acceptance)", () => {
     const src = "class Panel extends LitElement {\n  render() { return `<b aria-label=\"Head al que reporta ${this.x}\">y</b>`; }\n  _renderReportsTo(l) { return `<button aria-label=\"Head al que reporta ${l.displayName}\">x</button>`; }\n}";

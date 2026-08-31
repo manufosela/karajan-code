@@ -120,14 +120,18 @@ export function detectPhantomE2E({ sourceText, sourceAnalysis, testSource, file 
     if (inDead(lit.line)) { if (!onlyInDead.has(lit.value)) onlyInDead.set(lit.value, lit.line); }
     else onlyInDead.set(lit.value, -1); // seen reachable — poisoned, never reportable
   }
-  const wanted = new Set(literalsOf(testTree, minLength).map((l) => l.value));
-  const phantoms = [...wanted]
-    .filter((v) => onlyInDead.get(v) !== undefined && onlyInDead.get(v) !== -1)
-    .map((v) => ({ literal: v, line: onlyInDead.get(v), file }));
+  // KJC-BUG-0159 (GREBLA's field catch): file+line point at the TEST — that is
+  // where the fix happens; the dead code's spot travels as sourceLine. A
+  // finding at spec.js:2183 on a 32-line spec sends the reader nowhere.
+  const wanted = new Map(); // literal → its line IN THE TEST (first sighting)
+  for (const l of literalsOf(testTree, minLength)) if (!wanted.has(l.value)) wanted.set(l.value, l.line);
+  const phantoms = [...wanted.entries()]
+    .filter(([v]) => onlyInDead.get(v) !== undefined && onlyInDead.get(v) !== -1)
+    .map(([v, testLine]) => ({ literal: v, file, line: testLine, sourceLine: onlyInDead.get(v) }));
   // KJC-BUG-0158: interpolated labels match by static-chunk prefix. Dead wins
   // only when NO live chunk produces at least the same start.
   const chunks = sourceLits.filter((l) => l.template);
-  for (const v of wanted) {
+  for (const [v, testLine] of wanted) {
     if (phantoms.some((p) => p.literal === v)) continue;
     // the exact literal living in REACHABLE code absolves here too (codex's
     // catch): that test does point at something alive.
@@ -139,7 +143,7 @@ export function detectPhantomE2E({ sourceText, sourceAnalysis, testSource, file 
       if (inDead(c.line)) { if (k > kDead) { kDead = k; deadLine = c.line; } }
       else if (k > kLive) kLive = k;
     }
-    if (kDead >= PREFIX_MIN && kDead > kLive) phantoms.push({ literal: v, line: deadLine, file });
+    if (kDead >= PREFIX_MIN && kDead > kLive) phantoms.push({ literal: v, file, line: testLine, sourceLine: deadLine });
   }
   return { observable: true, phantoms };
 }
