@@ -25,8 +25,11 @@
 export async function runVertexAi(prompt, options = {}) {
   const project = options.project ?? process.env.GOOGLE_CLOUD_PROJECT;
   const location = options.location ?? 'us-central1';
-  const model = options.model ?? 'gemini-1.5-flash';
-  const maxTokens = options.maxTokens ?? 1024;
+  // gemini-1.5/2.0-flash están retirados (404 verificado en campo); los
+  // modelos 2.5 gastan tokens de razonamiento que cuentan como salida,
+  // así que 1024 dejaba la respuesta VACÍA (KJR-BUG-0011, issue #155).
+  const model = options.model ?? 'gemini-2.5-flash';
+  const maxTokens = options.maxTokens ?? 8192;
   if (!project) {
     throw new Error(
       'VertexAI: falta "project" (vía opts o env GOOGLE_CLOUD_PROJECT).',
@@ -45,6 +48,14 @@ export async function runVertexAi(prompt, options = {}) {
   const raw = response?.response ?? response;
   const candidates = raw?.candidates ?? [];
   const text = candidates[0]?.content?.parts?.[0]?.text ?? '';
+  // Respuesta vacía por presupuesto agotado: decirlo, no devolver un JSON
+  // vacío que hace culpar al parseo ("no devolvió ningún objeto JSON").
+  if (text === '' && candidates[0]?.finishReason === 'MAX_TOKENS') {
+    throw new Error(
+      `VertexAI: respuesta vacía con finishReason MAX_TOKENS — el modelo "${model}" agotó ` +
+        `maxTokens (${maxTokens}) pensando antes de emitir salida. Sube "maxTokens" en las opciones.`,
+    );
+  }
 
   return {
     provider: 'vertex-ai',

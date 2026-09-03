@@ -134,19 +134,42 @@ export class AdapterRegistry {
 }
 
 /**
- * Construye un AdapterRegistry con los 3 adapters CLI built-in de KJR:
- * claude, codex, gemini. Los adapters se importan dinámicamente para
- * permitir a los consumidores crear registries vacíos cuando quieran
- * testear con fakes.
+ * Construye un AdapterRegistry con TODOS los adapters built-in de KJR:
+ * los 3 CLI (claude, codex, gemini) y los providers de API que la
+ * política de sensibilidad por defecto puede autorizar (ollama,
+ * azure-openai, bedrock, vertex-ai, openai, anthropic). Un provider
+ * registrado sin configurar falla ALTO en la llamada con el error del
+ * propio adapter (falta project/endpoint/credenciales) — lo que no
+ * puede pasar es que la política autorice un provider y el registry
+ * responda "no registrado" (KJR-BUG-0011, issue #155).
+ *
+ * Los adapters se importan dinámicamente para permitir a los
+ * consumidores crear registries vacíos cuando quieran testear con fakes.
  *
  * @returns {Promise<AdapterRegistry>}
  */
 export async function createDefaultAdapterRegistry() {
   const registry = new AdapterRegistry();
-  const [{ runClaudeCli }, { runCodexCli }, { runGeminiCli }] = await Promise.all([
+  const [
+    { runClaudeCli },
+    { runCodexCli },
+    { runGeminiCli },
+    { runOllamaCli },
+    { runAzureOpenAi },
+    { runBedrock },
+    { runVertexAi },
+    { runOpenAi },
+    { runAnthropic },
+  ] = await Promise.all([
     import('./adapters/claude-cli-adapter.js'),
     import('./adapters/codex-cli-adapter.js'),
     import('./adapters/gemini-cli-adapter.js'),
+    import('./adapters/ollama-cli-adapter.js'),
+    import('./adapters/azure-openai-adapter.js'),
+    import('./adapters/bedrock-adapter.js'),
+    import('./adapters/vertex-ai-adapter.js'),
+    import('./adapters/openai-adapter.js'),
+    import('./adapters/anthropic-adapter.js'),
   ]);
   registry.register('claude', runClaudeCli, {
     bin: 'claude',
@@ -160,5 +183,14 @@ export async function createDefaultAdapterRegistry() {
     bin: 'gemini',
     installUrl: 'https://github.com/google-gemini/gemini-cli',
   });
+  registry.register('ollama', runOllamaCli, {
+    bin: 'ollama',
+    installUrl: 'https://ollama.com/download',
+  });
+  registry.register('azure-openai', runAzureOpenAi, { category: 'private-cloud' });
+  registry.register('bedrock', runBedrock, { category: 'private-cloud' });
+  registry.register('vertex-ai', runVertexAi, { category: 'private-cloud' });
+  registry.register('openai', runOpenAi, { category: 'public-api' });
+  registry.register('anthropic', runAnthropic, { category: 'public-api' });
   return registry;
 }
