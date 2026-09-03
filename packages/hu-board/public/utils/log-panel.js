@@ -79,13 +79,13 @@ function openGenericLogPanel({ id, label, tailUrl }) {
                    border-bottom:1px solid var(--border);
                    user-select:none;flex-shrink:0">
       <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
-        <strong style="color:var(--text)">${esc(label)}</strong>
+        <strong style="color:var(--text)" title="${esc(label)}">${esc(maggleText('log.label', label))}</strong>
         <span style="font-family:var(--font-mono, monospace);font-size:0.78rem;
                      color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;
                      white-space:nowrap">${esc(id)}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <span id="log-status" style="font-size:0.75rem;color:var(--text-muted);margin-right:8px">connecting…</span>
+        <span id="log-status" style="font-size:0.75rem;color:var(--text-muted);margin-right:8px">${maggleText('log.connecting', 'connecting…')}</span>
         <button id="log-min" type="button" title="Minimize (run keeps going)"
                 style="${winBtnStyle('#facc15')}">_</button>
         <button id="log-max" type="button" title="Maximize / Restore"
@@ -101,8 +101,8 @@ function openGenericLogPanel({ id, label, tailUrl }) {
                 white-space:pre-wrap;word-break:break-word"></pre>
     <footer style="padding:6px 12px;border-top:1px solid var(--border);
                    font-size:0.7rem;color:var(--text-muted);flex-shrink:0">
-      Closing this panel does NOT stop the run. It keeps going in the background;
-      reopen with the 📜 View log button on the board.
+      ${maggleText('log.footer', `Closing this panel does NOT stop the run. It keeps going in the background;
+      reopen with the 📜 View log button on the board.`)}
     </footer>
   `;
 

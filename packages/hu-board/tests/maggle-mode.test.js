@@ -72,4 +72,32 @@ describe('maggle mode (KJC-TSK-0810)', () => {
     expect(ctx.isMaggleMode()).toBe(false);
     expect(ctx.maggleText('column.done', 'Done')).toBe('Done');
   });
+
+  // PR-C2 (AC4): an error is never a stacktrace alone — plain headline,
+  // a next step, and the raw message demoted to collapsible detail.
+  it('maggleErrorParts wraps any raw message in headline + next step + detail', () => {
+    const raw = 'TypeError: cannot read properties of undefined\n  at tick (log-panel.js:120)';
+    const { ctx } = loadMaggle({ stored: '1' });
+    const parts = ctx.maggleErrorParts(raw);
+    expect(parts.headline).toBeTruthy();
+    expect(parts.headline).not.toMatch(/TypeError/);
+    expect(parts.next).toMatch(/agente|intentar/i);
+    expect(parts.detail).toBe(raw);
+  });
+
+  // PR-C2 (AC2/AC3): the launcher and the activity panel have plain labels
+  // distinct from the technical ones.
+  it('covers launcher and activity labels with plain text distinct from the jargon', () => {
+    const { ctx } = loadMaggle({ stored: '1' });
+    for (const [key, jargon] of [
+      ['launcher.title', '⚡ Run a Karajan command'],
+      ['launcher.submit', 'Run'],
+      ['launcher.cancel', 'Cancel'],
+      ['log.label', 'Run log'],
+    ]) {
+      const plain = ctx.maggleText(key, jargon);
+      expect(plain).toBeTruthy();
+      expect(plain).not.toBe(jargon);
+    }
+  });
 });

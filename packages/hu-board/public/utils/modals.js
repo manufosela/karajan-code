@@ -74,14 +74,23 @@ function ensureDialog() {
 function showError(message, opts = {}) {
   return new Promise((resolve) => {
     const dlg = ensureDialog();
-    const title = opts.title || 'Error';
+    // Maggle mode (KJC-TSK-0810 AC4): plain headline + next step, the raw
+    // message demoted to a collapsed technical detail — never alone.
+    const maggle = isMaggleMode() ? maggleErrorParts(message) : null;
+    const title = maggle ? maggle.headline : (opts.title || 'Error');
+    const body = maggle
+      ? `${esc(maggle.next)}
+         <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--text-muted)">Detalle técnico${opts.title ? ` — ${esc(opts.title)}` : ''}</summary>
+           <pre style="white-space:pre-wrap;font-size:0.8rem;color:var(--text-muted);margin:8px 0 0">${esc(maggle.detail)}</pre>
+         </details>`
+      : esc(message);
     dlg.innerHTML = `
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);
                   font-weight:600;color:var(--color-red,#ef4444)">
         ${esc(title)}
       </div>
       <div style="padding:16px 18px;font-size:0.9rem;line-height:1.5;
-                  white-space:pre-wrap">${esc(message)}</div>
+                  white-space:pre-wrap">${body}</div>
       <div style="padding:12px 18px;border-top:1px solid var(--border);
                   text-align:right">
         <button id="app-dialog-ok" class="control-btn"
