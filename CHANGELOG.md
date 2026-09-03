@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`kj go`: the muggle launcher** (MGL-A part 1, KJC-TSK-0808, epic KJC-PCS-0084): one command for a person with no computing background. It detects their installed agents (Claude Code, Codex — the same cheap local checks the reviewer registry uses, never a spawned process for auth), asks AT MOST one question (which agent, only when there are two; zero when there is one, none repeated once the project is prepared), prepares the project silently (`env install` only when the gate marker is missing), opens the HU Board alongside — respecting `hu_board.enabled: false`, and a board failure never stops the conversation — and launches the interactive session with a SHORT plain-language opening prompt: the full playbook already lives in the agent files, so the prompt sets the tone (plain words, say-before-doing, errors explained with a next step) instead of duplicating the method. What cannot be hidden is said honestly: no agent installed gets the exact install commands, no login gets the exact login command — the account is theirs, kj never touches credentials. CLI wiring lands in part 2.
+
 ### Fixed
 
 - **A phantom finding now points at the TEST** (KJC-BUG-0159, from GREBLA's re-measurement of the 0158 fix): the finding carried the dead code's line under the test's file — `hierarchy.spec.js:2183` on a 32-line spec sends the reader nowhere. `file`+`line` now name the spec and the literal's line in it (where the fix happens), and the dead chunk's spot travels apart as `sourceLine`. Their re-measurement, for the record: the motivating phantom is now caught (7ab330b^), their clean main still reports zero, and the one accusation under a synthetic cross-era pair was correctly classified by them as a known scope limit (single-file contract), not a false positive.
