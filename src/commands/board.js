@@ -87,8 +87,23 @@ async function findAvailablePort(desiredPort, maxTries = 10) {
  * @returns {string}
  */
 export function buildBoardUrl(port, projectSlug) {
-  const base = `http://localhost:${port}`;
-  return projectSlug ? `${base}/#board/${projectSlug}` : base;
+  return projectSlug ? boardUrl(port, `/#board/${projectSlug}`) : boardUrl(port);
+}
+
+/**
+ * Base board URL plus an optional absolute path (query and/or hash) —
+ * `kj go` opens `/?maggle=1` so the frontend renders in plain language
+ * (KJC-TSK-0810). A relative path is a caller bug, not something to fix
+ * up silently.
+ * @param {number} port
+ * @param {string} [path]
+ * @returns {string}
+ */
+export function boardUrl(port, path = "") {
+  if (path && !path.startsWith("/")) {
+    throw new Error(`board path must start with "/": ${path}`);
+  }
+  return `http://localhost:${port}${path}`;
 }
 
 /**
@@ -368,7 +383,7 @@ export function renderBoardBanner({ url, status, projectName }) {
   return ["", rule, ...content, rule, ""].join("\n");
 }
 
-export async function boardCommand({ action = "start", port = 4000, bind = "127.0.0.1", logger }) {
+export async function boardCommand({ action = "start", port = 4000, bind = "127.0.0.1", logger, path }) {
   switch (action) {
     case "start": {
       let result;
@@ -422,7 +437,7 @@ export async function boardCommand({ action = "start", port = 4000, bind = "127.
         logger.info("HU Board is not running. Starting it first...");
         await startBoard(port);
       }
-      const url = `http://localhost:${port}`;
+      const url = boardUrl(port, path);
       // eslint-disable-next-line import-x/no-unresolved -- optional peer; the .catch handles its absence
       const { default: open } = await import("open").catch(() => ({ default: null }));
       if (open) {

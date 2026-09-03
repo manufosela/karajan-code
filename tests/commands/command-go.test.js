@@ -6,7 +6,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { goCommand, detectMaggleAgents } from "../../src/commands/go.js";
+import { goCommand, detectMaggleAgents, defaultBoard } from "../../src/commands/go.js";
+import { boardUrl } from "../../src/commands/board.js";
 
 describe("detectMaggleAgents", () => {
   it("installed × authenticated from cheap local checks — no process is spawned for auth", async () => {
@@ -96,5 +97,18 @@ describe("kj go", () => {
     expect(code).toBe(0);
     expect(deps.launch).toHaveBeenCalledOnce();
     expect(log.all()).toMatch(/port busy/);
+  });
+  // MGL-C (KJC-TSK-0810): the board kj go opens speaks plain language —
+  // the open action carries /?maggle=1 so the frontend switches vocabulary.
+  it("the board opens in maggle mode: the open action carries /?maggle=1", async () => {
+    const calls = [];
+    await defaultBoard({ config: {}, logger: logger(), runBoard: async (opts) => { calls.push(opts); } });
+    const open = calls.find((c) => c.action === "open");
+    expect(open.path).toBe("/?maggle=1");
+  });
+  it("boardUrl appends the path and rejects one that does not start with /", () => {
+    expect(boardUrl(4000, "/?maggle=1")).toBe("http://localhost:4000/?maggle=1");
+    expect(boardUrl(4000)).toBe("http://localhost:4000");
+    expect(() => boardUrl(4000, "maggle=1")).toThrow(/must start/);
   });
 });

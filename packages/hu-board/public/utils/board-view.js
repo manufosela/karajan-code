@@ -87,48 +87,49 @@ async function renderBoard() {
 
     // KJC-TSK-0403: 3 canonical lanes. Failed eliminado — HUs con
     // result=fail aparecen en Pending con badge ✗.
+    // Maggle mode (KJC-TSK-0810): plain label first, jargon as tooltip.
     const visibleColumns = [
-      { title: 'Pending', cls: 'pending', rows: columns.pending },
-      { title: 'Running', cls: 'running', rows: columns.running },
-      { title: 'Done', cls: 'done', rows: columns.done },
+      { title: maggleText('column.pending', 'Pending'), cls: 'pending', rows: columns.pending },
+      { title: maggleText('column.running', 'Running'), cls: 'running', rows: columns.running },
+      { title: maggleText('column.done', 'Done'), cls: 'done', rows: columns.done },
     ];
 
     app.innerHTML = `
       <div class="section-header">
-        <span class="section-header__title" title="${selectedProject ? esc(selectedProject) : ''}">Story Board${selectedProject ? ` - ${esc(projectDisplayName)}` : ''}</span>
+        <span class="section-header__title" title="${selectedProject ? esc(selectedProject) : ''}">${maggleText('board.title', 'Story Board')}${selectedProject ? ` - ${esc(projectDisplayName)}` : ''}</span>
         ${selectedProject ? `
           <button class="control-btn project-rename-btn"
                   style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;padding:2px 6px;"
                   title="Renombrar este proyecto"
                   onclick="event.stopPropagation(); window.renameProjectModal('${esc(selectedProject)}', '${esc(projectDisplayName.replace(/'/g, '&#39;'))}');">✎</button>
         ` : ''}
-        <span class="section-header__count">${stories.length} stories</span>
+        <span class="section-header__count" title="stories">${stories.length} ${maggleText('board.stories', 'stories')}</span>
         ${costSummary ? `<span class="section-header__cost" title="${esc(costSummary.tooltip)}">💵 ${esc(costSummary.label)}</span>` : ''}
         ${cacheSummary ? `<span class="section-header__cache" title="${esc(cacheSummary.tooltip)}">${esc(cacheSummary.label)}</span>` : ''}
         ${isRunning ? `
           <button id="running-badge-btn" class="section-header__badge"
                 style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;border:none;cursor:pointer;"
                 title="Abrir el log de la HU en marcha">
-            ⚙ ${runningCount} running…
+            ⚙ ${runningCount} ${maggleText('board.running', 'running')}…
           </button>
           <button id="stop-run-btn" class="control-btn"
                 style="padding:4px 10px;font-size:0.8rem;background:var(--color-red,#ef4444);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;"
-                title="Abortar todos los kj run en marcha de este proyecto (SIGTERM con escalado a SIGKILL tras 5s)">
-            ⏹ Stop
+                title="${maggleText('board.stopTitle', 'Abortar todos los kj run en marcha de este proyecto (SIGTERM con escalado a SIGKILL tras 5s)')}">
+            ${maggleText('board.stop', '⏹ Stop')}
           </button>
         ` : ''}
         ${lastOpenedLog ? `
           <button class="control-btn" id="view-log-btn"
                   style="${isRunning ? '' : 'margin-left:auto;'}padding:6px 12px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;"
                   title="Re-open the log of the most recent run/command">
-            📜 View log
+            ${maggleText('board.viewLog', '📜 View log')}
           </button>
         ` : ''}
         ${canRun ? `
           <button class="control-btn" id="run-plan-btn"
                   style="margin-left:auto;padding:6px 14px;font-size:0.9rem;background:var(--color-green);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;"
-                  title="Launch kj run --plan over every plan in this project">
-            ▶ Run plan (${awaitingCount} HU${awaitingCount === 1 ? '' : 's'})
+                  title="${maggleText('board.runTitle', 'Launch kj run --plan over every plan in this project')}">
+            ${maggleText('board.run', '▶ Run plan')} (${awaitingCount} ${maggleText('board.story', 'HU')}${awaitingCount === 1 ? '' : 's'})
           </button>
         ` : ''}
       </div>
@@ -138,7 +139,7 @@ async function renderBoard() {
         </div>
       </div>
       <div id="rag-panel" class="rag-panel" style="margin:8px 0;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
-        <input id="rag-query" type="text" placeholder="🔍 RAG search: ask anything about this project's plans / onboarding / code…"
+        <input id="rag-query" type="text" placeholder="${maggleText('board.ragPlaceholder', "🔍 RAG search: ask anything about this project's plans / onboarding / code…")}"
                style="flex:1;min-width:260px;padding:6px 10px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);" />
         <select id="rag-scope" style="padding:6px 10px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);">
           <option value="all">All</option><option value="plans">Plans</option><option value="onboarding">Onboarding</option><option value="code">Code</option>
@@ -305,7 +306,7 @@ function renderKanbanColumn(title, cssClass, stories) {
   return `
     <div class="kanban__column kanban__column--${cssClass}" data-column="${cssClass}"${stories.length === 0 ? ' style="opacity:0.55"' : ''}>
       <div class="kanban__column-header">
-        <span class="kanban__column-title">${title}</span>
+        <span class="kanban__column-title" title="${cssClass}">${title}</span>
         <span class="kanban__column-count" data-column-count>${stories.length}</span>
       </div>
       ${stories.map(renderStoryCard).join('')}

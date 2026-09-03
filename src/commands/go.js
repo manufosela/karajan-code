@@ -46,10 +46,12 @@ export function buildGoPrompt() {
 async function defaultPrepare({ config, logger }) {
   await envInstallCommand({ config, logger, flags: { yes: true } });
 }
-async function defaultBoard({ config, logger }) {
+export async function defaultBoard({ config, logger, runBoard = boardCommand }) {
   const port = config.hu_board?.port || 4000;
-  await boardCommand({ action: "start", port, bind: "127.0.0.1", logger });
-  await boardCommand({ action: "open", port, bind: "127.0.0.1", logger });
+  await runBoard({ action: "start", port, bind: "127.0.0.1", logger });
+  // /?maggle=1 switches the frontend to plain language (KJC-TSK-0810) —
+  // the muggle's window opens already speaking their language.
+  await runBoard({ action: "open", port, bind: "127.0.0.1", path: "/?maggle=1", logger });
 }
 function defaultLaunch(agent, prompt) {
   // Interactive session: the muggle LIVES here. CLAUDECODE is stripped so a
