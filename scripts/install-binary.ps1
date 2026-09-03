@@ -62,7 +62,10 @@ try {
       Write-Host "kj-install: Node $(& node --version) found — installing via npm (full product)..."
       & npm install -g (Get-NpmPkg)
       if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)." }
-      Write-Host "kj-install: installed. Run 'kj doctor' next, then 'kj install-tools' to complete the whole stack."
+      Write-Host ""
+      Write-Host "  Listo. Ahora escribe:  kj go"
+      Write-Host ""
+      Write-Host "  (avanzado: 'kj doctor' revisa la instalacion, 'kj install-tools' completa el stack)"
       return
     }
 
@@ -137,7 +140,10 @@ try {
     Add-UserPath $installDir
     $installed = (& (Join-Path $installDir "kj.cmd") --version) 2>$null
     Write-Host "kj-install: installed kj $installed (full product) — kj at $(Join-Path $installDir 'kj.cmd')"
-    Write-Host "kj-install: next — run 'kj doctor', then 'kj install-tools' to complete the whole stack."
+    Write-Host ""
+    Write-Host "  Listo. Ahora escribe:  kj go"
+    Write-Host ""
+    Write-Host "  (avanzado: 'kj doctor' revisa la instalacion, 'kj install-tools' completa el stack)"
     return
   }
 
@@ -168,7 +174,10 @@ try {
   Add-UserPath $installDir
   $installed = (& $dest --version) 2>$null
   Write-Host "kj-install: installed standalone kj $installed to $dest"
-  Write-Host "kj-install: next — run 'kj doctor'. For the full product later: re-run without KJ_STANDALONE."
+  Write-Host ""
+  Write-Host "  Listo. Ahora escribe:  kj go"
+  Write-Host ""
+  Write-Host "  (avanzado: 'kj doctor' revisa la instalacion; para el producto completo, re-ejecuta sin KJ_STANDALONE)"
 } finally {
   Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
