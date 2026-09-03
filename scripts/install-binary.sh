@@ -71,7 +71,11 @@ if [ "$MODE" = "full" ]; then
   if node_ok; then
     echo "kj-install: Node $(node --version) found — installing via npm (full product)..."
     npm install -g "$(npm_pkg)" || die "npm install failed. If it was a permissions error, set a user prefix (npm config set prefix ~/.local) and re-run."
-    echo "kj-install: installed $(kj --version 2>/dev/null || echo karajan-code). Run 'kj doctor' next."
+    echo "kj-install: installed $(kj --version 2>/dev/null || echo karajan-code)."
+    echo ""
+    echo "  Listo. Ahora escribe:  kj go"
+    echo ""
+    echo "  (avanzado: 'kj doctor' revisa la instalacion, 'kj install-tools' completa el stack)"
     exit 0
   fi
 
@@ -125,7 +129,10 @@ if [ "$MODE" = "full" ]; then
   installed="$("${INSTALL_DIR}/kj" --version 2>/dev/null || echo '?')"
   echo "kj-install: installed kj ${installed} (full product) — kj at ${INSTALL_DIR}/kj"
   path_hint "$INSTALL_DIR"
-  echo "kj-install: next — run 'kj doctor', then 'kj install-tools' to complete the whole stack."
+  echo ""
+  echo "  Listo. Ahora escribe:  kj go"
+  echo ""
+  echo "  (avanzado: 'kj doctor' revisa la instalacion, 'kj install-tools' completa el stack)"
   exit 0
 fi
 
@@ -156,4 +163,7 @@ fi
 installed="$("${INSTALL_DIR}/kj" --version 2>/dev/null || echo '?')"
 echo "kj-install: installed standalone kj ${installed} to ${INSTALL_DIR}/kj"
 path_hint "$INSTALL_DIR"
-echo "kj-install: next — run 'kj doctor'. For the full product later: re-run this installer without --standalone."
+echo ""
+echo "  Listo. Ahora escribe:  kj go"
+echo ""
+echo "  (avanzado: 'kj doctor' revisa la instalacion; para el producto completo, re-ejecuta sin --standalone)"
