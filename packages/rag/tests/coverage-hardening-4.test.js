@@ -22,14 +22,24 @@ import { saveEasyConfig } from '../src/easy/config.js';
 
 const noopLogger = { info: () => {}, warn: () => {}, error: () => {} };
 
-test('createDefaultAdapterRegistry: registra los tres CLIs con metadata', async () => {
+test('createDefaultAdapterRegistry: registra CLIs con metadata y providers de API (KJR-BUG-0011)', async () => {
   const registry = await createDefaultAdapterRegistry();
-  for (const name of ['claude', 'codex', 'gemini']) {
+  for (const name of ['claude', 'codex', 'gemini', 'ollama']) {
     assert.equal(registry.has(name), true);
     assert.equal(typeof registry.get(name), 'function');
     assert.ok(registry.getMeta(name)?.bin, `meta.bin presente para ${name}`);
   }
-  assert.deepEqual(registry.list().sort(), ['claude', 'codex', 'gemini']);
+  assert.deepEqual(registry.list().sort(), [
+    'anthropic',
+    'azure-openai',
+    'bedrock',
+    'claude',
+    'codex',
+    'gemini',
+    'ollama',
+    'openai',
+    'vertex-ai',
+  ]);
 });
 
 test('createDefaultRoleRegistry: registra roles según las piezas disponibles', async () => {
