@@ -7,6 +7,7 @@
 
 /** The few commands a newcomer needs. Shown in `kj --help`. */
 export const CORE_COMMANDS = [
+  "go",
   "start",
   "init",
   "run",

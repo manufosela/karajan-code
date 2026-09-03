@@ -6,7 +6,21 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { goCommand } from "../../src/commands/go.js";
+import { goCommand, detectMaggleAgents } from "../../src/commands/go.js";
+
+describe("detectMaggleAgents", () => {
+  it("installed × authenticated from cheap local checks — no process is spawned for auth", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-go-home-"));
+    try {
+      fs.writeFileSync(path.join(home, ".claude.json"), "{}");
+      const out = await detectMaggleAgents({ home, checkBin: async (name) => ({ ok: name === "claude" }) });
+      const claude = out.find((a) => a.name === "claude");
+      const codex = out.find((a) => a.name === "codex");
+      expect(claude).toMatchObject({ installed: true, authenticated: true });
+      expect(codex).toMatchObject({ installed: false, authenticated: false });
+    } finally { fs.rmSync(home, { recursive: true, force: true }); }
+  });
+});
 
 let dir;
 const logger = () => ({

@@ -4,6 +4,7 @@ import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { startCommand } from "../commands/start.js";
+import { goCommand } from "../commands/go.js";
 import { identityCommand } from "../commands/identity.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
@@ -145,6 +146,17 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "identity-set", flags, async ({ config }) => {
         process.exitCode = await identityCommand({ action: "set", config, flags });
+      });
+    });
+
+  // MGL-A (KJC-TSK-0808): the muggle launcher — one command, at most one
+  // question, and the person lands inside a governed conversation.
+  program
+    .command("go")
+    .description("Arranca Karajan sin saber nada: detecta tu agente, prepara el proyecto, abre el tablero y te deja en la conversación")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "go", flags, async ({ config, logger }) => {
+        await goCommand({ config, logger, flags });
       });
     });
 
