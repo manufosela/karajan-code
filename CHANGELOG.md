@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.24.0] - 2026-09-03
+
 ### Added
 
 - **`kj go`: the muggle launcher** (MGL-A part 1, KJC-TSK-0808, epic KJC-PCS-0084): one command for a person with no computing background. It detects their installed agents (Claude Code, Codex — the same cheap local checks the reviewer registry uses, never a spawned process for auth), asks AT MOST one question (which agent, only when there are two; zero when there is one, none repeated once the project is prepared), prepares the project silently (`env install` only when the gate marker is missing), opens the HU Board alongside — respecting `hu_board.enabled: false`, and a board failure never stops the conversation — and launches the interactive session with a SHORT plain-language opening prompt: the full playbook already lives in the agent files, so the prompt sets the tone (plain words, say-before-doing, errors explained with a next step) instead of duplicating the method. What cannot be hidden is said honestly: no agent installed gets the exact install commands, no login gets the exact login command — the account is theirs, kj never touches credentials. Part 2 wires it into the CLI as a CORE command (`kj go` shows in plain `kj --help` — it is the muggle's front door, not an advanced niche) and the README's install section now ends with it: already installed? one command.
