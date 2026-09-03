@@ -327,7 +327,7 @@ export default [
            embedderCard ensureDialog esc escapeHtml fetchPreflight formatCacheRatio formatCost formatDuration formatHHMM
            formatProjectCostSummary formatSessionLabel handleRoute humaniseProjectName isTestIcon isTestTitle
            isMaggleMode lastLaunchedPlanId lastOpenedLog load loadSessions logPollTimer logViewerState maggleText
-           applyMaggleChrome MAGGLE_LABELS MAGGLE_STORE_KEY navigate nextIsTestValue
+           applyMaggleChrome maggleErrorParts MAGGLE_LABELS MAGGLE_STORE_KEY navigate nextIsTestValue
            openCommandLogViewer openGenericLogPanel openLogViewer patchBoardIncremental pollServerVersion pollTimer
            populateProjectSelect preflightCache preflightStatusColor preflightStatusIcon projectInitialsCache
            projectIsSharedCache projectNameCache qualityBar refreshCurrentView refreshInterval refreshOnce refreshStandby

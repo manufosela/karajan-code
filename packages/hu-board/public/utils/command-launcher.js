@@ -60,10 +60,25 @@ async function showCommandLauncher() {
     },
   };
 
+  // Maggle mode (KJC-TSK-0810 AC2): the frequent action leads in plain
+  // language — one textarea, clear promise of what will happen. The full
+  // technical launcher (file paths, architect, clean) stays one click
+  // away behind "Más opciones…".
+  const maggle = isMaggleMode();
+  let advancedVisible = !maggle;
+  if (maggle) {
+    SCHEMAS.plan.label = maggleText('launcher.planLabel', SCHEMAS.plan.label);
+    SCHEMAS.plan.help = maggleText('launcher.planHelp', SCHEMAS.plan.help);
+    SCHEMAS.plan.simpleFields = [
+      { name: 'task', label: maggleText('launcher.taskLabel', 'Task'), type: 'textarea', rows: 6 },
+    ];
+  }
+
   let active = 'plan';
   const renderForm = () => {
     const s = SCHEMAS[active];
-    const fields = s.fields.map((f) => {
+    const visibleFields = (!advancedVisible && s.simpleFields) ? s.simpleFields : s.fields;
+    const fields = visibleFields.map((f) => {
       const id = `cmd-field-${f.name}`;
       if (f.type === 'textarea') {
         return `
@@ -90,14 +105,14 @@ async function showCommandLauncher() {
 
     dlg.innerHTML = `
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <span>⚡ Run a Karajan command</span>
+        <span>${esc(maggleText('launcher.title', '⚡ Run a Karajan command'))}</span>
         <button id="cmd-close" type="button" class="control-btn"
                 style="padding:4px 10px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer">
           ✕
         </button>
       </div>
       <div style="padding:12px 18px;display:flex;gap:8px;border-bottom:1px solid var(--border)">
-        ${Object.entries(SCHEMAS).map(([key, s]) => `
+        ${Object.entries(SCHEMAS).filter(([key]) => advancedVisible || key === 'plan').map(([key, s]) => `
           <button type="button" data-cmd="${key}"
                   style="padding:6px 12px;border:1px solid var(--border);
                          background:${key === active ? 'var(--color-green)' : 'var(--bg-primary)'};
@@ -106,6 +121,13 @@ async function showCommandLauncher() {
             ${esc(s.label)}
           </button>
         `).join('')}
+        ${maggle && !advancedVisible ? `
+          <button type="button" id="cmd-more"
+                  style="margin-left:auto;padding:6px 12px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-muted);border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem"
+                  title="Comandos técnicos: kj plan con ficheros, kj architect, kj clean">
+            ${esc(maggleText('launcher.more', 'More…'))}
+          </button>
+        ` : ''}
       </div>
       <form id="cmd-form" onsubmit="return false"
             style="padding:14px 18px;display:flex;flex-direction:column;gap:12px;width:min(640px, 88vw);box-sizing:border-box">
@@ -114,11 +136,11 @@ async function showCommandLauncher() {
         <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border)">
           <button type="button" id="cmd-cancel" class="control-btn"
                   style="padding:6px 14px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer">
-            Cancel
+            ${esc(maggleText('launcher.cancel', 'Cancel'))}
           </button>
           <button type="button" id="cmd-submit" class="control-btn"
                   style="padding:6px 14px;border:none;background:var(--color-green);color:#fff;border-radius:var(--radius-sm);cursor:pointer;font-weight:600">
-            Run
+            ${esc(maggleText('launcher.submit', 'Run'))}
           </button>
         </div>
       </form>
@@ -127,6 +149,8 @@ async function showCommandLauncher() {
     dlg.querySelectorAll('[data-cmd]').forEach((btn) => {
       btn.addEventListener('click', () => { active = btn.dataset.cmd; renderForm(); });
     });
+    const moreBtn = dlg.querySelector('#cmd-more');
+    if (moreBtn) moreBtn.addEventListener('click', () => { advancedVisible = true; renderForm(); });
     dlg.querySelector('#cmd-close').addEventListener('click', () => dlg.close());
     dlg.querySelector('#cmd-cancel').addEventListener('click', () => dlg.close());
     dlg.querySelector('#cmd-submit').addEventListener('click', () => submitCommand(active));
@@ -146,8 +170,20 @@ async function showCommandLauncher() {
     }
     // plan / architect: at least one of taskFile or task is required.
     if ((command === 'plan' || command === 'architect') && !body.taskFile && !body.task) {
-      await showError('Provide either a SPEC file path or paste the task text.', { title: 'Missing input' });
+      await showError(
+        maggle ? 'Escribe primero qué quieres pedir — con tus palabras vale.' : 'Provide either a SPEC file path or paste the task text.',
+        { title: 'Missing input' }
+      );
       return;
+    }
+    // AC2: before launching, the maggle confirms knowing exactly what
+    // will happen — in their language, never a command name alone.
+    if (maggle && command === 'plan') {
+      const ok = await showConfirm(maggleText('launcher.confirm', ''), {
+        title: SCHEMAS.plan.label,
+        okLabel: maggleText('launcher.submit', 'Run'),
+      });
+      if (!ok) return;
     }
     if (command === 'clean' && body.nuke) {
       const ok = await showConfirm(

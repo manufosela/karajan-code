@@ -29,6 +29,19 @@ const MAGGLE_LABELS = {
   'nav.board': 'Tablero',
   'nav.dashboard': 'Proyectos',
   'nav.more': 'Más',
+  'picker.hint': 'Elige un proyecto para ver su tablero. Puedes cambiar de proyecto arriba a la derecha.',
+  'picker.project': 'proyecto',
+  'launcher.title': '📝 Pedir trabajo a Karajan',
+  'launcher.planLabel': '📝 Pedir trabajo nuevo',
+  'launcher.planHelp': 'Cuéntale a Karajan qué quieres construir o cambiar, con tus palabras. Lo convertirá en tareas que verás en el tablero — todavía no toca tu código.',
+  'launcher.taskLabel': 'Qué quieres pedir',
+  'launcher.submit': 'Pedir',
+  'launcher.cancel': 'Cancelar',
+  'launcher.more': 'Más opciones…',
+  'launcher.confirm': 'Voy a convertir tu petición en tareas del tablero. Tardará unos minutos y podrás seguir la actividad en esta ventana. ¿Sigo?',
+  'log.label': 'Actividad',
+  'log.connecting': 'conectando…',
+  'log.footer': 'Cerrar esta ventana NO detiene el trabajo: sigue en marcha. Vuelve a abrirla con el botón «📜 Ver actividad» del tablero.',
 };
 
 function isMaggleMode() {
@@ -48,14 +61,62 @@ function maggleText(key, technical) {
   return MAGGLE_LABELS[key] || technical;
 }
 
-// Minimal chrome for this step: mark the body (CSS hook) and put the
-// subtitle in plain language. Folding the advanced nav behind "Más" is
-// AC2 and ships with the launcher step (PR-C2 of KJC-TSK-0810).
+// AC4: an error shown to a maggle is never a stacktrace alone. Pure —
+// the caller (showError) decides by mode and renders the HTML.
+function maggleErrorParts(rawMessage) {
+  return {
+    headline: 'Algo no ha salido como se esperaba',
+    next: 'No has roto nada. Vuelve a intentarlo; si se repite, cuéntaselo a tu agente en la conversación — este detalle le sirve para arreglarlo.',
+    detail: rawMessage,
+  };
+}
+
+// AC2 (nav half): the header keeps Tablero + Proyectos in plain Spanish
+// and folds every advanced view behind one "Más" toggle, which also
+// reveals the way back to the expert UI.
 function applyMaggleChrome() {
   if (!isMaggleMode()) return;
   document.body.classList.add('maggle-mode');
   const subtitle = document.querySelector('.header__subtitle');
   if (subtitle) subtitle.textContent = MAGGLE_LABELS['header.subtitle'];
+  const nav = document.querySelector('.header__nav');
+  if (!nav) return;
+  const KEEP = { board: MAGGLE_LABELS['nav.board'], dashboard: MAGGLE_LABELS['nav.dashboard'] };
+  const advanced = [];
+  for (const btn of nav.querySelectorAll('.nav-btn')) {
+    const view = btn.dataset.view;
+    if (view && KEEP[view]) {
+      btn.title = `${btn.textContent.trim()} — ${btn.title}`;
+      btn.textContent = KEEP[view];
+    } else {
+      btn.style.display = 'none';
+      advanced.push(btn);
+    }
+  }
+  if (advanced.length === 0) return;
+  const more = document.createElement('button');
+  more.className = 'nav-btn';
+  more.textContent = `${MAGGLE_LABELS['nav.more']} ▾`;
+  more.title = 'Vistas avanzadas y volver al modo experto';
+  more.addEventListener('click', () => {
+    const hidden = advanced[0].style.display === 'none';
+    for (const btn of advanced) btn.style.display = hidden ? '' : 'none';
+    more.textContent = `${MAGGLE_LABELS['nav.more']} ${hidden ? '▴' : '▾'}`;
+    let expert = document.getElementById('maggle-expert-link');
+    if (hidden && !expert) {
+      expert = document.createElement('a');
+      expert.id = 'maggle-expert-link';
+      expert.className = 'nav-btn';
+      expert.href = '/?maggle=0';
+      expert.textContent = 'Modo experto';
+      expert.title = 'Vuelve a la interfaz técnica (Pending/Running/Done, comandos kj)';
+      more.after(expert);
+    } else if (!hidden && expert) {
+      expert.remove();
+    }
+  });
+  // After the LAST nav button, so the plain row reads Tablero | Proyectos | Más.
+  advanced.at(-1).after(more);
 }
 
 if (typeof document !== 'undefined' && document.addEventListener) {
