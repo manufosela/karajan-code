@@ -7,6 +7,34 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-09-04
+
+Primera release del rag desde el monorepo karajan-code y primera publicada
+en dual: `karajan-rag` y `@karajan-family/rag` — mismo commit, misma
+versión en ambos nombres.
+
+### Added
+
+- **El registry por defecto cubre todos los providers que autoriza la
+  política** (KJR-BUG-0011, [issue #155](https://github.com/manufosela/karajan-rag/issues/155),
+  reporte de campo al cablear el juez de impacto de karajan-watch): la
+  política de sensibilidad por defecto autoriza `ollama`, `azure-openai`,
+  `bedrock` y `vertex-ai` para `internal`/`confidential`, pero
+  `createDefaultAdapterRegistry()` solo registraba los 3 CLIs — un índice
+  con la sensibilidad por defecto no tenía NINGÚN adapter utilizable.
+  Los 9 adapters built-in quedan registrados; un provider sin configurar
+  falla ALTO en la llamada con su propio error. Un test de contrato
+  registry×política impide reincidir.
+
+### Fixed
+
+- **Vertex al día** (mismo reporte): modelo por defecto `gemini-2.5-flash`
+  (1.5/2.0 retirados: 404 verificado contra la API), `maxTokens` por
+  defecto 8192 (los modelos que razonan gastan tokens de pensamiento que
+  cuentan como salida — con 1024 la respuesta llegaba VACÍA y el error
+  culpaba al parseo JSON), y una respuesta vacía con `finishReason:
+  MAX_TOKENS` ahora lanza un error explícito que nombra causa y remedio.
+
 ## [1.5.0] — 2026-08-07
 
 ### Added
