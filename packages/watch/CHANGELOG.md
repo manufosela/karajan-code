@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.1 — 2026-09-04
+
+Primera release de watch desde el monorepo karajan-code y primera publicada
+en dual: `karajan-watch` y `@karajan-family/watch` — mismo commit, misma
+versión en ambos nombres. Cierra además el hueco de npm: 0.5.0 y 0.6.0
+quedaron tageadas sin publicar, así que esta 0.6.1 es la primera versión
+en el registry desde la 0.4.0.
+
+### Corregido
+
+- **Los inputs de la ingesta viajan por env, no por shell** (KJW-BUG-0008):
+  los valores que llegaban al paso de ingesta se interpolaban en la línea
+  de comando, donde un contenido hostil podía alcanzar el shell. Ahora se
+  pasan como variables de entorno y el comando queda estático.
+
 ## 0.6.0 — 2026-08-10
 
 ### Nuevo
