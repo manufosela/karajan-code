@@ -1,6 +1,7 @@
 import { watch } from 'chokidar';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
-import { dirname, join, basename } from 'node:path';
+import { dirname, join, basename, isAbsolute, resolve as resolvePath } from 'node:path';
 import { homedir } from 'node:os';
 import {
   getKjHome,
@@ -93,7 +94,7 @@ function deriveProjectName(data, fallbackId) {
  * @param {string} projectDir
  * @returns {string}
  */
-function deriveProjectIdFromDir(projectDir) {
+export function deriveProjectIdFromDir(projectDir) {
   if (!projectDir || typeof projectDir !== 'string') return 'unknown';
   // Same slug rule the plan-store uses, so identifiers match if we ever
   // cross-reference `~/.kj/plans/<slug>/` with this project_id.
@@ -102,6 +103,42 @@ function deriveProjectIdFromDir(projectDir) {
     .replace(/[/\\]/g, '_')
     .replace(/[^a-zA-Z0-9_.-]/g, '')
     .slice(0, 120);
+}
+
+/** git-common-dir del directorio, con el stderr silenciado (no-git = throw). */
+const defaultGitCommonDir = (dir) =>
+  execFileSync('git', ['-C', dir, 'rev-parse', '--git-common-dir'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+
+const canonicalDirCache = new Map();
+
+/**
+ * Resolve a projectDir to the REPO's identity (KJC-BUG-0160): a linked
+ * worktree (`.claude/worktrees/*`, kj lanes) used to register the same
+ * repo as a brand-new project — 13+ same-named entries in a real picker.
+ * `git rev-parse --git-common-dir` points every worktree at the main
+ * tree's `.git`; its parent is the canonical root. A non-git directory
+ * keeps its own path as identity, as always.
+ *
+ * @param {string} projectDir
+ * @param {(dir: string) => string} [gitCommonDir] Inyectable en tests.
+ * @returns {string}
+ */
+export function canonicalProjectDir(projectDir, gitCommonDir = defaultGitCommonDir) {
+  if (!projectDir || typeof projectDir !== 'string') return projectDir;
+  if (canonicalDirCache.has(projectDir)) return canonicalDirCache.get(projectDir);
+  let canonical = projectDir;
+  try {
+    const common = gitCommonDir(projectDir);
+    const absCommon = isAbsolute(common) ? common : resolvePath(projectDir, common);
+    canonical = dirname(absCommon);
+  } catch {
+    // Sin git no hay más identidad que la ruta — comportamiento de siempre.
+  }
+  canonicalDirCache.set(projectDir, canonical);
+  return canonical;
 }
 
 /**
@@ -379,9 +416,10 @@ export function syncPlanFile(filePath) {
     // under a single board entry. Legacy plans without `projectDir` still
     // fall back to `planId` (conservative — they at least continue to show
     // up, just each on its own card).
-    const projectId = data.projectDir
-      ? deriveProjectIdFromDir(data.projectDir)
-      : data.planId;
+    // KJC-BUG-0160: la identidad es el ROOT del repo — un plan creado desde
+    // un worktree/carril agrupa bajo el mismo proyecto que el árbol principal.
+    const canonicalDir = data.projectDir ? canonicalProjectDir(data.projectDir) : null;
+    const projectId = canonicalDir ? deriveProjectIdFromDir(canonicalDir) : data.planId;
 
     if (skipIfTombstoned('plan', data.planId, filePath)) return;
     // KJC-BUG-0055 (supersedes KJC-BUG-0050): gating por timestamp.
@@ -419,7 +457,7 @@ export function syncPlanFile(filePath) {
     //      misleadingly say "Hu Board" — that's why plan.name wins.
     //   3. slugToTitle of the task / projectId as a last resort.
     const projectName = data.name
-      || (data.projectDir ? titleCaseBasename(basename(data.projectDir)) : null)
+      || (canonicalDir ? titleCaseBasename(basename(canonicalDir)) : null)
       || slugToTitle(data.task || '')
       || projectId;
 
