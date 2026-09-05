@@ -22,15 +22,16 @@ test('todo provider que nombra la política por defecto está registrado en el r
   }
 });
 
-/** SDK falso de Vertex: captura el request y devuelve una respuesta dada. */
+/** SDK falso (Google Gen AI, KJR-TSK-0159): captura init y request. */
 function makeFakeVertexSdk(response, capture) {
   return {
-    VertexAI: class {
-      getGenerativeModel() {
-        return {
-          async generateContent(request) {
+    GoogleGenAI: class {
+      constructor(init) {
+        capture.init = init;
+        this.models = {
+          generateContent: async (request) => {
             capture.request = request;
-            return { response };
+            return response;
           },
         };
       }
@@ -55,7 +56,40 @@ test('vertex: maxTokens por defecto 8192 — 1024 deja sin salida a los modelos 
     capture,
   );
   await runVertexAi('hola', { project: 'p', sdk });
-  assert.equal(capture.request.generationConfig.maxOutputTokens, 8192);
+  assert.equal(capture.request.config.maxOutputTokens, 8192);
+});
+
+test('vertex: el Gen AI SDK arranca en modo vertexai con project y location', async () => {
+  const capture = {};
+  const sdk = makeFakeVertexSdk(
+    { candidates: [{ content: { parts: [{ text: 'ok' }] } }] },
+    capture,
+  );
+  await runVertexAi('hola', { project: 'p', location: 'europe-west1', sdk });
+  assert.equal(capture.init.vertexai, true);
+  assert.equal(capture.init.project, 'p');
+  assert.equal(capture.init.location, 'europe-west1');
+});
+
+test('vertex: VERTEX_MODEL y VERTEX_LOCATION del entorno como fallback — options gana, env después, default al final', async () => {
+  const capture = {};
+  const sdk = makeFakeVertexSdk(
+    { candidates: [{ content: { parts: [{ text: 'ok' }] } }] },
+    capture,
+  );
+  process.env.VERTEX_MODEL = 'gemini-2.5-pro';
+  process.env.VERTEX_LOCATION = 'europe-west4';
+  try {
+    const viaEnv = await runVertexAi('hola', { project: 'p', sdk });
+    assert.equal(viaEnv.providerMeta.model, 'gemini-2.5-pro');
+    assert.equal(viaEnv.providerMeta.location, 'europe-west4');
+    const viaOptions = await runVertexAi('hola', { project: 'p', model: 'otro', location: 'us-east1', sdk });
+    assert.equal(viaOptions.providerMeta.model, 'otro');
+    assert.equal(viaOptions.providerMeta.location, 'us-east1');
+  } finally {
+    delete process.env.VERTEX_MODEL;
+    delete process.env.VERTEX_LOCATION;
+  }
 });
 
 test('vertex: respuesta vacía con finishReason MAX_TOKENS falla con mensaje explícito, no con JSON vacío', async () => {
