@@ -34,7 +34,7 @@ const printUsage = () => {
       '     karajan-watch drift  --workspace <dir> --repo <name> --diff <fichero|-> ' +
       '[--config karajan-watch.config.json] [--judge] [--no-deliver] [--pr-number N]\n' +
       '     karajan-watch eval   --workspace <dir> --golden <fichero> ' +
-      '[--config karajan-watch.config.json]',
+      '[--config karajan-watch.config.json] [--corpus-indexed-at ISO]',
   );
 };
 
@@ -96,6 +96,7 @@ const main = async () => {
       'no-judge': { type: 'boolean', default: false },
       adapter: { type: 'string' },
       model: { type: 'string' },
+      'corpus-indexed-at': { type: 'string' },
       'no-deliver': { type: 'boolean', default: false },
       'pr-number': { type: 'string' },
     },
@@ -126,17 +127,28 @@ const main = async () => {
       golden: await loadGoldenSet(resolve(values.golden)),
       config,
       workspaceDir: resolve(values.workspace),
+      corpusIndexedAt: values['corpus-indexed-at'],
     });
     for (const evalCase of report.cases) {
       const { precision, recall, truePositives } = evalCase.metrics;
+      const repoPart = evalCase.repoMetrics
+        ? ` · repo: precision ${evalCase.repoMetrics.precision.toFixed(2)} recall ${evalCase.repoMetrics.recall.toFixed(2)}`
+        : '';
       console.log(
         `${evalCase.name}: precision ${precision.toFixed(2)} · recall ${recall.toFixed(2)} ` +
-          `· aciertos ${truePositives}`,
+          `· aciertos ${truePositives}${repoPart}`,
       );
     }
+    // KJW-TSK-0042: los avisos ANTES del agregado — un número medido contra
+    // un índice anterior al merge no debe leerse sin su contexto.
+    for (const warning of report.warnings) console.log(`AVISO: ${warning}`);
+    const repoAggregate =
+      report.aggregate.repoRecall !== undefined
+        ? ` · repo: precision ${report.aggregate.repoPrecision?.toFixed(2)} recall ${report.aggregate.repoRecall.toFixed(2)}`
+        : '';
     console.log(
       `agregado: precision ${report.aggregate.precision.toFixed(2)} · ` +
-        `recall ${report.aggregate.recall.toFixed(2)} → ${report.passed ? 'PASSED' : 'FAILED'}`,
+        `recall ${report.aggregate.recall.toFixed(2)}${repoAggregate} → ${report.passed ? 'PASSED' : 'FAILED'}`,
     );
     // Sin esto el número es engañoso: no significa lo mismo medido contra
     // otro store, y estos umbrales acaban copiados a otro despliegue.

@@ -35,6 +35,8 @@ export class GoldenSetError extends Error {
  * @property {string} repoName Repo origen del incidente.
  * @property {string} diff Diff unificado del cambio que causó el incidente.
  * @property {string[]} expectedImpacted Ficheros (`repo/path`) que realmente se vieron afectados.
+ * @property {string} [mergedAt] Fecha ISO del merge del caso (KJW-TSK-0042) — permite avisar cuando el índice es anterior al cambio.
+ * @property {string[]} [expectedRepos] Repos realmente afectados (KJW-TSK-0042) — la métrica que no castiga ficheros creados DESPUÉS de indexar.
  *
  * @typedef {Object} GoldenThresholds
  * @property {number} [precision] Mínimo agregado exigido, en [0, 1].
@@ -51,10 +53,11 @@ export class GoldenSetError extends Error {
  * @property {number} recall
  *
  * @typedef {Object} EvalReport
- * @property {{name: string, metrics: CaseMetrics}[]} cases
- * @property {{precision: number, recall: number}} aggregate Medias sobre los casos.
+ * @property {{name: string, metrics: CaseMetrics, repoMetrics?: CaseMetrics}[]} cases
+ * @property {{precision: number, recall: number, repoPrecision?: number, repoRecall?: number}} aggregate Medias sobre los casos (las de repo, solo sobre los casos que declaran expectedRepos).
  * @property {boolean} passed
- * @property {{store: string, embedder: string}} measuredWith Con qué se obtuvieron estos números: los scores NO son comparables entre backends, así que un umbral calibrado aquí no vale para otro store.
+ * @property {string[]} warnings Avisos de medición (KJW-TSK-0042): p.ej. índice anterior al merge de un caso — el número se da, pero jamás en silencio.
+ * @property {{store: string, embedder: string, corpusIndexedAt?: string}} measuredWith Con qué se obtuvieron estos números: los scores NO son comparables entre backends, así que un umbral calibrado aquí no vale para otro store.
  */
 
 /**
@@ -126,7 +129,7 @@ export const validateGoldenSet = (raw) => {
     const path = `$.cases[${i}]`;
     const goldenCase = requireObject(rawCase, path);
     for (const key of Object.keys(goldenCase)) {
-      if (!['name', 'repoName', 'diff', 'expectedImpacted'].includes(key)) {
+      if (!['name', 'repoName', 'diff', 'expectedImpacted', 'mergedAt', 'expectedRepos'].includes(key)) {
         throw new GoldenSetError(`${path}.${key}`, 'clave desconocida.');
       }
     }
@@ -143,7 +146,26 @@ export const validateGoldenSet = (raw) => {
         'se esperaba un array no vacío de paths `repo/…`.',
       );
     }
-    return { name, repoName, diff, expectedImpacted: goldenCase.expectedImpacted };
+    /** @type {GoldenCase} */
+    const result = { name, repoName, diff, expectedImpacted: goldenCase.expectedImpacted };
+    if (goldenCase.mergedAt !== undefined) {
+      const mergedAt = requireNonEmptyString(goldenCase.mergedAt, `${path}.mergedAt`);
+      if (Number.isNaN(Date.parse(mergedAt))) {
+        throw new GoldenSetError(`${path}.mergedAt`, 'se esperaba una fecha ISO parseable.');
+      }
+      result.mergedAt = mergedAt;
+    }
+    if (goldenCase.expectedRepos !== undefined) {
+      if (
+        !Array.isArray(goldenCase.expectedRepos) ||
+        goldenCase.expectedRepos.length === 0 ||
+        !goldenCase.expectedRepos.every((s) => typeof s === 'string' && s.length > 0)
+      ) {
+        throw new GoldenSetError(`${path}.expectedRepos`, 'se esperaba un array no vacío de repos.');
+      }
+      result.expectedRepos = goldenCase.expectedRepos;
+    }
+    return result;
   });
 
   return { thresholds, cases };
@@ -171,20 +193,45 @@ export const evaluateRanking = (ranking, expectedImpacted, k) => {
 };
 
 /**
+ * Métricas a nivel de REPO (KJW-TSK-0042): ¿acertó QUÉ repos se ven
+ * afectados? Es la métrica que refleja lo que el juicio sabe hacer cuando
+ * los ficheros correctos ni existían al indexar (caso real: repo 2/2 donde
+ * fichero daba 0 — un cero que no era de la herramienta).
+ *
+ * @param {{repo: string}[]} ranking
+ * @param {string[]} expectedRepos
+ * @param {number} k
+ * @returns {CaseMetrics}
+ */
+export const evaluateRepoRanking = (ranking, expectedRepos, k) => {
+  const returned = [...new Set(ranking.slice(0, k).map((entry) => entry.repo))];
+  const expected = new Set(expectedRepos);
+  const truePositives = returned.filter((repo) => expected.has(repo)).length;
+  return {
+    truePositives,
+    precision: returned.length === 0 ? 0 : truePositives / returned.length,
+    recall: truePositives / expected.size,
+  };
+};
+
+/**
  * Ejecuta la eval completa: pipeline por caso (señales puras) + gate.
  *
  * @param {Object} params
  * @param {GoldenSet} params.golden
  * @param {import('./config.js').WatchConfig} params.config
  * @param {string} params.workspaceDir
+ * @param {string} [params.corpusIndexedAt] Fecha ISO en que se indexó el corpus (KJW-TSK-0042): un caso cuyo merge es POSTERIOR se mide contra un mundo que no lo conocía — se avisa, nunca se puntúa en silencio.
  * @param {Record<string, string | undefined>} [params.env]
  * @param {import('./impact.js').ImpactDeps} [params.deps]
  * @returns {Promise<EvalReport>}
  */
-export const runGoldenEval = async ({ golden, config, workspaceDir, env, deps }) => {
+export const runGoldenEval = async ({ golden, config, workspaceDir, corpusIndexedAt, env, deps }) => {
   const k = golden.thresholds.k ?? 10;
   /** @type {EvalReport['cases']} */
   const cases = [];
+  /** @type {string[]} */
+  const warnings = [];
   for (const goldenCase of golden.cases) {
     const { ranking } = await runImpactPipeline({
       config,
@@ -196,18 +243,42 @@ export const runGoldenEval = async ({ golden, config, workspaceDir, env, deps })
       env,
       deps,
     });
-    cases.push({
+    /** @type {EvalReport['cases'][0]} */
+    const entry = {
       name: goldenCase.name,
       metrics: evaluateRanking(ranking, goldenCase.expectedImpacted, k),
-    });
+    };
+    if (goldenCase.expectedRepos) {
+      entry.repoMetrics = evaluateRepoRanking(ranking, goldenCase.expectedRepos, k);
+    }
+    if (
+      corpusIndexedAt &&
+      goldenCase.mergedAt &&
+      Date.parse(corpusIndexedAt) < Date.parse(goldenCase.mergedAt)
+    ) {
+      warnings.push(
+        `caso "${goldenCase.name}": el índice (${corpusIndexedAt}) es anterior al merge ` +
+          `(${goldenCase.mergedAt}) — la métrica de fichero castiga ficheros que no existían al indexar; ` +
+          'mira la métrica de repo.',
+      );
+    }
+    cases.push(entry);
   }
 
   const mean = (/** @type {(c: EvalReport['cases'][0]) => number} */ pick) =>
     cases.reduce((sum, c) => sum + pick(c), 0) / cases.length;
+  /** @type {EvalReport['aggregate']} */
   const aggregate = {
     precision: mean((c) => c.metrics.precision),
     recall: mean((c) => c.metrics.recall),
   };
+  const withRepos = cases.filter((c) => c.repoMetrics);
+  if (withRepos.length > 0) {
+    aggregate.repoPrecision =
+      withRepos.reduce((s, c) => s + (c.repoMetrics?.precision ?? 0), 0) / withRepos.length;
+    aggregate.repoRecall =
+      withRepos.reduce((s, c) => s + (c.repoMetrics?.recall ?? 0), 0) / withRepos.length;
+  }
 
   const { precision, recall } = golden.thresholds;
   const passed =
@@ -218,7 +289,10 @@ export const runGoldenEval = async ({ golden, config, workspaceDir, env, deps })
   // umbrales calibrados con un store y un embedder no significan lo mismo
   // con otros. El informe lo deja registrado en vez de dar un número suelto.
   const { store, embedder } = config.corpus.code;
-  return { cases, aggregate, passed, measuredWith: { store, embedder } };
+  /** @type {EvalReport['measuredWith']} */
+  const measuredWith = { store, embedder };
+  if (corpusIndexedAt) measuredWith.corpusIndexedAt = corpusIndexedAt;
+  return { cases, aggregate, passed, warnings, measuredWith };
 };
 
 /**
