@@ -67,16 +67,21 @@ export const extractAdapterText = (result) => {
  *
  * @returns {(adapterName: string, prompt: string) => Promise<string>}
  */
-export const createDefaultRunAdapter = ({ model, registryFactory = createDefaultAdapterRegistry } = {}) => {
+export const createDefaultRunAdapter = ({ model, location, registryFactory = createDefaultAdapterRegistry } = {}) => {
   /** @type {import('karajan-rag').AdapterRegistry | null} */
   let registry = null;
   return async (adapterName, prompt) => {
     registry ??= await registryFactory();
     const adapterFn = registry.get(adapterName);
-    // El modelo del juez es elegible desde el binario (KJW-TSK-0040): en
-    // campo, el default del adapter puede no respetar el formato del
-    // veredicto y no había vía para fijar otro sin script propio.
-    return extractAdapterText(await adapterFn(prompt, model ? { model } : {}));
+    // Modelo y región del juez son elegibles desde el binario (KJW-TSK-0040,
+    // KJW-BUG-0011): en campo, el modelo por defecto se saltaba el formato
+    // del veredicto y la región fija en us-central1 sacaba los datos de la
+    // UE — y no había vía para fijar ninguno sin script propio.
+    const options = {
+      ...(model ? { model } : {}),
+      ...(location ? { location } : {}),
+    };
+    return extractAdapterText(await adapterFn(prompt, options));
   };
 };
 
@@ -109,6 +114,7 @@ export const createDefaultRunAdapter = ({ model, registryFactory = createDefault
  * @param {boolean} [params.judge] Ejecutar el juicio LLM (default true). Con false el veredicto queda vacío y no se toca ningún adapter — señales puras (eval, despliegues sin LLM).
  * @param {string} [params.adapter] Adapter del juez (KJW-TSK-0040); debe estar permitido por la policy — no se degrada a otro.
  * @param {string} [params.model] Modelo del adapter del juez (KJW-TSK-0040); solo aplica al runAdapter por defecto.
+ * @param {string} [params.location] Región del adapter del juez (KJW-BUG-0011, p.ej. europe-west1); solo aplica al runAdapter por defecto.
  * @param {boolean} [params.deliver] Entregar a notify.targets (default true).
  * @param {{repoSlug: string, prNumber: number, token: string}} [params.prContext]
  * @param {Record<string, string | undefined>} [params.env]
@@ -125,6 +131,7 @@ export const runImpactPipeline = async ({
   judge = true,
   adapter,
   model,
+  location,
   deliver = true,
   prContext,
   env = process.env,
@@ -233,7 +240,7 @@ export const runImpactPipeline = async ({
         policy: config.policy ?? createDefaultSensitivityPolicy(),
         contracts,
         adapter,
-        runAdapter: deps.runAdapter ?? createDefaultRunAdapter({ model }),
+        runAdapter: deps.runAdapter ?? createDefaultRunAdapter({ model, location }),
       })
     : { verdict: { summary: '', affected: [] }, discardedEntries: 0 };
   const { verdict } = judgment;

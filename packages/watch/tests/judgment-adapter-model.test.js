@@ -55,7 +55,9 @@ test('el adapter elegido llega al juez a través del pipeline (--adapter)', asyn
   assert.equal(captured, 'vertex-ai');
 });
 
-test('createDefaultRunAdapter({model}) pasa el modelo como opción del adapter', async () => {
+test('createDefaultRunAdapter pasa modelo Y región como opciones del adapter', async () => {
+  // KJW-BUG-0011: sin location fijable, el juicio salía de us-central1 sí o
+  // sí — datos fuera de la UE para una instancia europea.
   let seen = null;
   const registryFactory = async () => ({
     get: () => async (prompt, options) => {
@@ -63,9 +65,12 @@ test('createDefaultRunAdapter({model}) pasa el modelo como opción del adapter',
       return { parsedOutput: { text: VERDICT } };
     },
   });
-  const run = createDefaultRunAdapter({ model: 'gemini-2.5-pro', registryFactory });
+  const run = createDefaultRunAdapter({ model: 'gemini-2.5-pro', location: 'europe-west1', registryFactory });
   await run('vertex-ai', 'hola');
-  assert.deepEqual(seen, { model: 'gemini-2.5-pro' });
+  assert.deepEqual(seen, { model: 'gemini-2.5-pro', location: 'europe-west1' });
+  seen = null;
+  await createDefaultRunAdapter({ registryFactory })('vertex-ai', 'hola');
+  assert.deepEqual(seen, {});
 });
 
 test('la guardia clasifica el descarte: formato saltado vs inventado', async () => {
