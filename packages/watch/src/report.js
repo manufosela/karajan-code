@@ -42,6 +42,8 @@ const SEVERITY_RANK = { high: 3, medium: 2, low: 1 };
  * @property {{count: number, lastDate: string} | null} coChange Señal de co-cambios para este path, si existe.
  * @property {{severity: 'low' | 'medium' | 'high', reason: string} | null} judged Juicio LLM, si lo hay.
  * @property {import('./contracts.js').ContractMatch | null} contract Contrato compartido con el diff, si lo hay.
+ * @property {'file' | 'repo'} [scope] `repo` cuando la fila es un veredicto de
+ *   alcance repositorio (KJW-BUG-0009) — `source` es entonces el nombre del repo.
  */
 
 /**
@@ -62,8 +64,12 @@ export const buildImpactRanking = ({
   contracts = [],
   thresholds = {},
 }) => {
+  // Los veredictos de alcance repo NO se cuelgan de un fichero (KJW-BUG-0009):
+  // entran al ranking como filas propias, más abajo.
+  const fileVerdicts = verdict.affected.filter((a) => a.scope !== 'repo');
+  const repoVerdicts = verdict.affected.filter((a) => a.scope === 'repo');
   const judgedBySource = new Map(
-    verdict.affected.map((a) => [a.source, { severity: a.severity, reason: a.reason }]),
+    fileVerdicts.map((a) => [a.source, { severity: a.severity, reason: a.reason }]),
   );
   /** @type {Map<string, {count: number, lastDate: string}>} */
   const coChangeBySource = new Map();
@@ -106,6 +112,19 @@ export const buildImpactRanking = ({
       coChange: coChangeBySource.get(match.source) ?? null,
       judged: judgedBySource.get(match.source) ?? null,
       contract: match,
+    });
+  }
+
+  for (const entry of repoVerdicts) {
+    entries.push({
+      source: entry.source,
+      repo: entry.source,
+      score: 0,
+      evidence: [],
+      coChange: null,
+      judged: { severity: entry.severity, reason: entry.reason },
+      contract: null,
+      scope: 'repo',
     });
   }
 
@@ -167,7 +186,10 @@ export const renderImpactMarkdown = ({ ranking, diffSummary, verdictSummary }) =
       if (entry.judged) {
         parts.push(`juicio: **${entry.judged.severity}** — ${entry.judged.reason}`);
       }
-      lines.push(`- \`${entry.source}\` · ${parts.join(' · ')}`);
+      // Un veredicto de alcance repo se presenta COMO repo — fingir la
+      // precisión de un fichero hace que el aviso se descarte por ruido.
+      const label = entry.scope === 'repo' ? `repo \`${entry.source}\`` : `\`${entry.source}\``;
+      lines.push(`- ${label} · ${parts.join(' · ')}`);
       for (const ev of entry.evidence) {
         lines.push(
           `  - visto desde \`${ev.fromChunk.path}@${ev.fromChunk.newStart}\`` +

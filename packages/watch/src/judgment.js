@@ -60,7 +60,11 @@ export const PROMPT_LIMITS = Object.freeze({
  * @typedef {import('./cochanges.js').CoChangeResult} CoChangeResult
  *
  * @typedef {Object} AffectedEntry
- * @property {string} source Fichero afectado (`repo/path`), uno de los candidatos.
+ * @property {string} source Fichero afectado (`repo/path`) con scope `file`;
+ *   nombre del repo con scope `repo`.
+ * @property {'file' | 'repo'} scope Alcance del aviso (KJW-BUG-0009): `file`
+ *   señala un fichero de las señales; `repo` un repositorio en conjunto —
+ *   colgar un aviso de repo de un fichero es precisión fingida.
  * @property {'low' | 'medium' | 'high'} severity
  * @property {string} reason
  *
@@ -142,8 +146,12 @@ export const buildJudgmentPrompt = ({ candidates, coChanges, diffSummary, contra
         ]
       : []),
     'Responde SOLO con un JSON válido con esta forma exacta:',
-    '{"summary": "<síntesis en una o dos frases>", "affected": [{"source": "<uno de los candidatos>", "severity": "low|medium|high", "reason": "<por qué>"}]}',
+    '{"summary": "<síntesis en una o dos frases>", "affected": [{"source": "<uno de los candidatos>", "scope": "file", "severity": "low|medium|high", "reason": "<por qué>"}]}',
     'Incluye en "affected" únicamente candidatos con impacto plausible; puede ser una lista vacía.',
+    'Si tu conclusión aplica a un REPOSITORIO en su conjunto (p.ej. «los clientes que',
+    'parsean esta respuesta deberán actualizarse») y no a un fichero concreto de las',
+    'señales, usa {"scope": "repo", "source": "<nombre del repo>"} — nunca cuelgues',
+    'un aviso de repo de un fichero que no lo justifica.',
   ].join('\n');
 };
 
@@ -190,7 +198,12 @@ export const parseVerdict = (rawText) => {
     if (typeof entry.reason !== 'string' || entry.reason.length === 0) {
       throw new JudgmentError(`veredicto inválido: affected[${i}].reason requerido.`);
     }
-    return { source: entry.source, severity: entry.severity, reason: entry.reason };
+    // Alcance opcional (KJW-BUG-0009): ausente = file, el contrato de siempre.
+    const scope = entry.scope ?? 'file';
+    if (scope !== 'file' && scope !== 'repo') {
+      throw new JudgmentError(`veredicto inválido: affected[${i}].scope debe ser file | repo.`);
+    }
+    return { source: entry.source, scope, severity: entry.severity, reason: entry.reason };
   });
   return { summary: parsed.summary, affected };
 };
@@ -300,10 +313,20 @@ export const judgeImpact = async ({
   // contador; las fundadas sobreviven. Abortar el juicio entero por una
   // entrada convertía un veredicto casi íntegro en ningún informe
   // (KJW-BUG-0010 — antes tiraba el merge completo).
+  // Una entrada de alcance repo se valida contra los REPOS de las señales
+  // (KJW-BUG-0009) — incluidos los que aparecen sin señal de co-cambios,
+  // que también estuvieron delante del juez.
+  const knownRepos = new Set([
+    ...candidates.map((c) => c.repo),
+    ...contracts.map((c) => c.repo),
+    ...coChanges.byRepo.map((r) => r.repo),
+    ...coChanges.noSignal.map((r) => r.repo),
+  ]);
   const backed = [];
   let discardedEntries = 0;
   for (const entry of verdict.affected) {
-    if (knownSources.has(entry.source)) backed.push(entry);
+    const known = entry.scope === 'repo' ? knownRepos : knownSources;
+    if (known.has(entry.source)) backed.push(entry);
     else discardedEntries += 1;
   }
 
