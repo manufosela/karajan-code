@@ -1,6 +1,6 @@
 {
   "name": "karajan-watch",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "El vigía de la orquesta Karajan: RAG compartido multi-repo siempre fresco, análisis de impacto cross-repo en cada merge y detección de documentación desactualizada. Motor: karajan-rag.",
   "type": "module",
   "main": "index.js",

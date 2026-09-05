@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.0 — 2026-09-05
+
+Minor porque el CONTRATO del juicio cambia (issue [#23](https://github.com/manufosela/karajan-watch/issues/23),
+medición de campo: 80 merges en 11 días):
+
+### Cambiado
+
+- **La guarda anti-alucinación puntúa a la ENTRADA, no al merge**
+  (KJW-BUG-0010): una entrada del veredicto con fuente sin respaldo ya NO
+  lanza `JudgmentError` ni tira el juicio entero — se descarta con
+  contador (`discardedEntries` en el resultado, logueado por el pipeline)
+  y las entradas fundadas sobreviven. Con todas descartadas: veredicto
+  vacío con contador, nunca error. En campo, 4/70 merges con retrieval
+  perdían su informe completo por una sola entrada.
+- **Con las tres señales vacías no se pide veredicto**: retrieval,
+  co-cambios y contratos vacíos = nada contra lo que validar, no una
+  alucinación que castigar. `judgeImpact` retorna temprano con
+  `insufficientSignal: true` y un summary «sin señal suficiente» — antes
+  el aborto era garantizado (8/8 en campo), y caía justo en los diffs
+  quirúrgicos (1–9 chunks) que más interesa vigilar.
+
+Migración: si tu tooling capturaba `JudgmentError` por fuente
+desconocida, ese camino ya no existe — lee `discardedEntries` e
+`insufficientSignal` del resultado.
+
 ## 0.6.1 — 2026-09-04
 
 Primera release de watch desde el monorepo karajan-code y primera publicada
