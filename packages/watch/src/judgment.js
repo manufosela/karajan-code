@@ -71,6 +71,10 @@ export const PROMPT_LIMITS = Object.freeze({
  * @typedef {Object} JudgmentResult
  * @property {string} adapter Adapter usado.
  * @property {Verdict} verdict Veredicto validado y con PII redactada.
+ * @property {number} discardedEntries Entradas del veredicto descartadas por
+ *   citar fuentes fuera de las señales (0 = veredicto íntegro).
+ * @property {boolean} [insufficientSignal] true cuando las tres señales
+ *   llegaron vacías y NO se pidió veredicto al adapter (KJW-BUG-0010).
  */
 
 /**
@@ -236,6 +240,33 @@ export const judgeImpact = async ({
   }
   const adapterName = adapter ?? allowed[0];
 
+  // El prompt muestra TRES señales, así que el veredicto puede apoyarse en
+  // cualquiera de ellas: validar solo contra el retrieval convertía en
+  // "alucinación" un juicio legítimo basado en co-cambios (KJW-BUG-0005).
+  const knownSources = new Set([
+    ...candidates.map((c) => c.source),
+    ...contracts.map((c) => c.source),
+    ...coChanges.byRepo.flatMap((r) => r.coChanges.map((c) => `${r.repo}/${c.path}`)),
+  ]);
+
+  // Tres señales vacías = nada contra lo que validar: pedir veredicto
+  // garantizaba el aborto (en campo, 8/8 merges sin retrieval — y eran los
+  // diffs quirúrgicos, KJW-BUG-0010). No se llama al adapter y el informe
+  // lo dice, en vez de castigar una recuperación vacía como alucinación.
+  if (knownSources.size === 0) {
+    return {
+      adapter: adapterName,
+      verdict: {
+        summary:
+          'sin señal suficiente para juzgar: retrieval, co-cambios y contratos ' +
+          'llegaron vacíos — no se pidió veredicto al adapter.',
+        affected: [],
+      },
+      discardedEntries: 0,
+      insufficientSignal: true,
+    };
+  }
+
   const prompt = buildJudgmentPrompt({ candidates, coChanges, diffSummary, contracts });
   let raw;
   /** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -265,31 +296,26 @@ export const judgeImpact = async ({
   }
 
   const verdict = parseVerdict(raw);
-  // El prompt muestra TRES señales, así que el veredicto puede apoyarse en
-  // cualquiera de ellas: validar solo contra el retrieval convertía en
-  // "alucinación" un juicio legítimo basado en co-cambios (KJW-BUG-0005).
-  const knownSources = new Set([
-    ...candidates.map((c) => c.source),
-    ...contracts.map((c) => c.source),
-    ...coChanges.byRepo.flatMap((r) => r.coChanges.map((c) => `${r.repo}/${c.path}`)),
-  ]);
+  // Una entrada que cita una fuente fuera de las señales se DESCARTA con
+  // contador; las fundadas sobreviven. Abortar el juicio entero por una
+  // entrada convertía un veredicto casi íntegro en ningún informe
+  // (KJW-BUG-0010 — antes tiraba el merge completo).
+  const backed = [];
+  let discardedEntries = 0;
   for (const entry of verdict.affected) {
-    if (!knownSources.has(entry.source)) {
-      throw new JudgmentError(
-        `el veredicto menciona "${entry.source}", que no aparece en ninguna señal ` +
-          '(retrieval, co-cambios ni contratos): alucinación del adapter.',
-      );
-    }
+    if (knownSources.has(entry.source)) backed.push(entry);
+    else discardedEntries += 1;
   }
 
   return {
     adapter: adapterName,
     verdict: {
       summary: redact(verdict.summary).text,
-      affected: verdict.affected.map((entry) => ({
+      affected: backed.map((entry) => ({
         ...entry,
         reason: redact(entry.reason).text,
       })),
     },
+    discardedEntries,
   };
 };

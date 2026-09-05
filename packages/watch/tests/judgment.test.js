@@ -109,15 +109,16 @@ test('parseVerdict: JSON inválido o esquema roto = JudgmentError', () => {
   );
 });
 
-test('source alucinado (no está entre los candidatos): JudgmentError', async () => {
+test('source alucinado (no está entre los candidatos): se descarta con contador, sin abortar', async () => {
+  // KJW-BUG-0010: antes esto lanzaba JudgmentError y tiraba el juicio
+  // entero del merge. La entrada sin respaldo se descarta y se cuenta.
   const hallucinated = JSON.stringify({
     summary: 'ok',
     affected: [{ source: 'repo-z/invento.js', severity: 'low', reason: 'x' }],
   });
-  await assert.rejects(
-    () => judgeImpact(baseParams({ runAdapter: async () => hallucinated })),
-    (err) => err instanceof JudgmentError && err.message.includes('repo-z/invento.js'),
-  );
+  const result = await judgeImpact(baseParams({ runAdapter: async () => hallucinated }));
+  assert.equal(result.verdict.affected.length, 0);
+  assert.equal(result.discardedEntries, 1);
 });
 
 test('redactPII aplicado a summary y reasons', async () => {

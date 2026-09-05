@@ -199,7 +199,7 @@ export const runImpactPipeline = async ({
 
   const diffSummary = `${repoName}: ${touchedPaths.join(', ')} (${chunks.length} chunks)`;
   if (judge) log('juicio: pidiendo veredicto al adapter…');
-  const { verdict } = judge
+  const judgment = judge
     ? await judgeImpact({
         candidates,
         coChanges,
@@ -209,7 +209,14 @@ export const runImpactPipeline = async ({
         contracts,
         runAdapter: deps.runAdapter ?? createDefaultRunAdapter(),
       })
-    : { verdict: { summary: '', affected: [] } };
+    : { verdict: { summary: '', affected: [] }, discardedEntries: 0 };
+  const { verdict } = judgment;
+  // KJW-BUG-0010: lo descartado y lo no-juzgado se DICE — es la diferencia
+  // entre medir la guarda y que sus efectos pasen en silencio.
+  if (judgment.insufficientSignal) log('juicio: sin señal suficiente — veredicto no pedido');
+  if (judgment.discardedEntries > 0) {
+    log(`juicio: ${judgment.discardedEntries} entrada(s) sin respaldo descartada(s)`);
+  }
 
   const ranking = buildImpactRanking({
     candidates,
