@@ -66,13 +66,16 @@ export const extractAdapterText = (result) => {
  *
  * @returns {(adapterName: string, prompt: string) => Promise<string>}
  */
-export const createDefaultRunAdapter = () => {
+export const createDefaultRunAdapter = ({ model, registryFactory = createDefaultAdapterRegistry } = {}) => {
   /** @type {import('karajan-rag').AdapterRegistry | null} */
   let registry = null;
   return async (adapterName, prompt) => {
-    registry ??= await createDefaultAdapterRegistry();
+    registry ??= await registryFactory();
     const adapterFn = registry.get(adapterName);
-    return extractAdapterText(await adapterFn(prompt));
+    // El modelo del juez es elegible desde el binario (KJW-TSK-0040): en
+    // campo, el default del adapter puede no respetar el formato del
+    // veredicto y no había vía para fijar otro sin script propio.
+    return extractAdapterText(await adapterFn(prompt, model ? { model } : {}));
   };
 };
 
@@ -103,6 +106,8 @@ export const createDefaultRunAdapter = () => {
  * @param {string} params.diffText Diff unificado del merge.
  * @param {'code' | 'docs'} [params.corpusName]
  * @param {boolean} [params.judge] Ejecutar el juicio LLM (default true). Con false el veredicto queda vacío y no se toca ningún adapter — señales puras (eval, despliegues sin LLM).
+ * @param {string} [params.adapter] Adapter del juez (KJW-TSK-0040); debe estar permitido por la policy — no se degrada a otro.
+ * @param {string} [params.model] Modelo del adapter del juez (KJW-TSK-0040); solo aplica al runAdapter por defecto.
  * @param {boolean} [params.deliver] Entregar a notify.targets (default true).
  * @param {{repoSlug: string, prNumber: number, token: string}} [params.prContext]
  * @param {Record<string, string | undefined>} [params.env]
@@ -117,6 +122,8 @@ export const runImpactPipeline = async ({
   diffText,
   corpusName = 'code',
   judge = true,
+  adapter,
+  model,
   deliver = true,
   prContext,
   env = process.env,
@@ -207,7 +214,8 @@ export const runImpactPipeline = async ({
         sensitivity: corpus.sensitivity,
         policy: config.policy ?? createDefaultSensitivityPolicy(),
         contracts,
-        runAdapter: deps.runAdapter ?? createDefaultRunAdapter(),
+        adapter,
+        runAdapter: deps.runAdapter ?? createDefaultRunAdapter({ model }),
       })
     : { verdict: { summary: '', affected: [] }, discardedEntries: 0 };
   const { verdict } = judgment;
@@ -216,6 +224,13 @@ export const runImpactPipeline = async ({
   if (judgment.insufficientSignal) log('juicio: sin señal suficiente — veredicto no pedido');
   if (judgment.discardedEntries > 0) {
     log(`juicio: ${judgment.discardedEntries} entrada(s) sin respaldo descartada(s)`);
+    for (const d of judgment.discarded ?? []) {
+      log(
+        d.kind === 'format'
+          ? `juicio: descartada por FORMATO (señal conocida escrita de otra forma): ${d.source}`
+          : `juicio: descartada por fuente DESCONOCIDA (posible invención): ${d.source}`,
+      );
+    }
   }
 
   const ranking = buildImpactRanking({

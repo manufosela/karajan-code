@@ -77,6 +77,10 @@ export const PROMPT_LIMITS = Object.freeze({
  * @property {Verdict} verdict Veredicto validado y con PII redactada.
  * @property {number} discardedEntries Entradas del veredicto descartadas por
  *   citar fuentes fuera de las señales (0 = veredicto íntegro).
+ * @property {Array<{source: string, kind: 'format' | 'unknown'}>} [discarded]
+ *   Detalle del descarte (KJW-TSK-0040): `format` = la fuente se corresponde
+ *   con una señal conocida escrita de otra forma (el adapter se saltó el
+ *   formato, no inventó); `unknown` = no aparece en ninguna señal.
  * @property {boolean} [insufficientSignal] true cuando las tres señales
  *   llegaron vacías y NO se pidió veredicto al adapter (KJW-BUG-0010).
  */
@@ -322,12 +326,24 @@ export const judgeImpact = async ({
     ...coChanges.byRepo.map((r) => r.repo),
     ...coChanges.noSignal.map((r) => r.repo),
   ]);
+  // «Formato saltado» ≠ «inventado» (KJW-TSK-0040): si la fuente devuelta se
+  // corresponde con una señal conocida escrita de otra forma («repo: ruta»,
+  // solo el prefijo), el adapter no alucinó — incumplió el formato. Ambos se
+  // descartan, pero decirlos distinto evita despistar sobre la causa.
+  const looksLikeKnown = (value) => {
+    const normalized = value.replace(/:\s*/g, '/');
+    for (const known of knownSources) {
+      if (known === normalized || known.startsWith(value) || value.startsWith(known)) return true;
+    }
+    return knownRepos.has(value.split(/[/:]/)[0]);
+  };
   const backed = [];
-  let discardedEntries = 0;
+  /** @type {Array<{source: string, kind: 'format' | 'unknown'}>} */
+  const discarded = [];
   for (const entry of verdict.affected) {
     const known = entry.scope === 'repo' ? knownRepos : knownSources;
     if (known.has(entry.source)) backed.push(entry);
-    else discardedEntries += 1;
+    else discarded.push({ source: entry.source, kind: looksLikeKnown(entry.source) ? 'format' : 'unknown' });
   }
 
   return {
@@ -339,6 +355,7 @@ export const judgeImpact = async ({
         reason: redact(entry.reason).text,
       })),
     },
-    discardedEntries,
+    discardedEntries: discarded.length,
+    discarded,
   };
 };
