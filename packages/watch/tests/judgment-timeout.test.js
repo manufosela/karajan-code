@@ -3,8 +3,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JudgmentError, JUDGMENT_TIMEOUT_MS, judgeImpact } from '../src/judgment.js';
 
+// Con las tres señales vacías judgeImpact ya NO llama al adapter
+// (KJW-BUG-0010), así que estos tests necesitan al menos un candidato
+// para seguir ejercitando el camino del timeout que dicen probar.
 const params = (runAdapter, extra = {}) => ({
-  candidates: [],
+  candidates: [
+    {
+      source: 'repo-b/src/consumer.js',
+      repo: 'repo-b',
+      score: 0.7,
+      evidence: [{ fromChunk: { path: 'src/api.js', newStart: 1 }, line: 2, score: 0.7 }],
+    },
+  ],
   coChanges: { byRepo: [], noSignal: [] },
   diffSummary: 'repo-a: src/api.js',
   sensitivity: 'public',
