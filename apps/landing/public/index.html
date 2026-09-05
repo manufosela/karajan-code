@@ -13,7 +13,7 @@
   <script defer src="https://analytics.manulitics.com/script.js" data-website-id="8871eadf-4414-4baf-b83a-9f3da27b97fe"></script>
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Karajan Code — Multiagent Coding Orchestrator">
+  <meta property="og:title" content="Karajan Code — The Governor of Coding Agents">
   <meta property="og:description" content="Code with several AIs, with guarantees. Your agent writes; Karajan governs: TDD-first, cross-AI review on every commit, git gates that make a false green impossible.">
   <meta property="og:image" content="https://karajancode.com/og.png">
   <meta property="og:url" content="https://karajancode.com">
@@ -243,6 +243,13 @@
 
     /* --- THE SCORE (signature) --- */
     .score-section { padding: 3rem 2rem 4rem; max-width: 760px; margin: 0 auto; }
+    /* The governed panel (KJL-TSK-0130): the nine agents, in their own type. */
+    .hero-agents {
+      font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim);
+      letter-spacing: 0.04em; margin: 0.7rem auto 0; max-width: 680px; line-height: 1.8;
+    }
+    .hero-agents span { color: var(--text); }
+    .hero-agents em { color: var(--gold-ink); font-style: normal; }
     /* Family section (KJL-TSK-0130): every member, one line of truth each. */
     .family-section { padding: 3rem 2rem 4rem; max-width: 900px; margin: 0 auto; }
     .family-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1.6rem; }
@@ -428,7 +435,8 @@
     </div>
     <h1>Karajan Code</h1>
     <p class="hero-tagline">Code with several AIs, <em class="guarantee">with guarantees</em>.</p>
-    <p class="hero-sub">Your agent writes. Karajan governs: TDD-first, cross-AI review on every commit, git gates. A false green is impossible.</p>
+    <p class="hero-sub">The governor of coding agents: your agent writes; Karajan enforces TDD-first, cross-AI review on every commit and git gates. A false green is impossible.</p>
+    <p class="hero-agents" aria-label="Supported coding agents">governs <span>claude-code</span> · <span>codex</span> · <span>copilot</span> · <span>antigravity</span> · <span>kimi</span> · <span>qwen</span> · <span>opencode</span> · <span>aider</span> · <span>gemini</span> — one writes, a <em>different</em> one reviews, a third arbitrates</p>
     <p class="hero-badge">
       <span class="v4-pill">v4 · the Karajan Environment</span>
       <a href="https://www.npmjs.com/package/karajan-code" aria-label="Current version on npm">
@@ -518,7 +526,8 @@
     <details>
       <summary>Want to know more?</summary>
       <ul class="more-list">
-        <li><strong>Any agent is the brain</strong> &mdash; Claude Code, Codex, Gemini CLI, Cursor. Your agent absorbs the roles (triage, planner, architect, tester, security, audit) via <code>kj brief</code>. <a href="/docs/v4/working-with-your-agent/">See the method &rarr;</a></li>
+        <li><strong>Nine agents under one government</strong> &mdash; Claude Code, Codex, GitHub Copilot, Antigravity, Kimi Code, Qwen, OpenCode, Aider, Gemini. Any of them is the brain and absorbs the roles (triage, planner, architect, tester, security, audit) via <code>kj brief</code>; when the reviewer runs out of quota, the panel fails over with a loud notice &mdash; never silence, never self-review. <a href="/docs/v4/working-with-your-agent/">See the method &rarr;</a></li>
+        <li><strong>How the government works: three tiers</strong> &mdash; at tool time the Sentinel denies the violation BEFORE the damage; at commit time no diff enters without a cross-AI verdict bound to its sha256 (the guarantee floor on any host); at merge time CI re-checks the same policy, so a tampered local hook changes nothing. Security findings are never overridable &mdash; not even by arbitration. <a href="/docs/v4/gates/">See the gates &rarr;</a></li>
         <li><strong>Cross-AI review on every commit</strong> &mdash; a different AI approves each diff; a third one arbitrates disputes; security findings nobody overrides. <a href="/docs/v4/gates/">See the gates &rarr;</a></li>
         <li><strong>Headless pipeline for CI</strong> &mdash; the classic multiagent loop, unattended, same gates. <a href="/docs/v4/headless/">See headless mode &rarr;</a></li>
         <li><strong>6,000+ tests. 90+ releases. Open source (AGPL-3.0).</strong> <a href="https://github.com/manufosela/karajan-code">See the repo &rarr;</a></li>
