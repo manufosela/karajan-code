@@ -121,6 +121,7 @@ const requireOneOf = (value, path, allowed) => {
  * @typedef {Object} ImpactThresholds
  * @property {number} [minSimilarity] Similitud mínima [0, 1] para considerar un candidato.
  * @property {number} [maxCandidates] Máximo de candidatos (entero >= 1).
+ * @property {number} [inactivityDays] Umbral de inactividad de repos observados (entero >= 1, default 90) — KJW-TSK-0043.
  *
  * @typedef {{type: 'pr-comment'} | {type: 'webhook', url: string}} NotifyTarget
  *
@@ -209,7 +210,7 @@ const validateImpact = (value, path) => {
   const impact = requireObject(value, path);
   rejectUnknownKeys(impact, path, ['thresholds']);
   const thresholds = requireObject(impact.thresholds, `${path}.thresholds`);
-  rejectUnknownKeys(thresholds, `${path}.thresholds`, ['minSimilarity', 'maxCandidates']);
+  rejectUnknownKeys(thresholds, `${path}.thresholds`, ['minSimilarity', 'maxCandidates', 'inactivityDays']);
   /** @type {ImpactThresholds} */
   const result = {};
   if (thresholds.minSimilarity !== undefined) {
@@ -225,6 +226,13 @@ const validateImpact = (value, path) => {
       throw new ConfigError(`${path}.thresholds.maxCandidates`, 'se esperaba un entero >= 1.');
     }
     result.maxCandidates = /** @type {number} */ (maxCandidates);
+  }
+  if (thresholds.inactivityDays !== undefined) {
+    const { inactivityDays } = thresholds;
+    if (!Number.isInteger(inactivityDays) || /** @type {number} */ (inactivityDays) < 1) {
+      throw new ConfigError(`${path}.thresholds.inactivityDays`, 'se esperaba un entero >= 1.');
+    }
+    result.inactivityDays = /** @type {number} */ (inactivityDays);
   }
   return { thresholds: result };
 };

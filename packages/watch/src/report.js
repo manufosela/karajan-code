@@ -154,9 +154,11 @@ export const buildImpactRanking = ({
  * @param {RankingEntry[]} params.ranking
  * @param {string} params.diffSummary
  * @param {string} [params.verdictSummary]
+ * @param {import('./inactivity.js').InactivityResult & {thresholdDays: number}} [params.inactivity]
+ *   Repos observados inactivos (KJW-TSK-0043) — aviso al pie, nunca gate.
  * @returns {string}
  */
-export const renderImpactMarkdown = ({ ranking, diffSummary, verdictSummary }) => {
+export const renderImpactMarkdown = ({ ranking, diffSummary, verdictSummary, inactivity }) => {
   const lines = [
     '## karajan-watch — posible impacto cross-repo',
     '',
@@ -196,6 +198,17 @@ export const renderImpactMarkdown = ({ ranking, diffSummary, verdictSummary }) =
             (ev.line == null ? '' : ` (línea ${ev.line})`),
         );
       }
+    }
+  }
+  // KJW-TSK-0043: la config también caduca. Aviso que propone, no que decide.
+  if (inactivity && (inactivity.inactive.length > 0 || inactivity.unreadable.length > 0)) {
+    lines.push('', `### Repos observados inactivos (umbral: ${inactivity.thresholdDays} días)`, '');
+    for (const r of inactivity.inactive) {
+      const since = r.lastActivity ? `último merge ${r.lastActivity} (${r.inactiveDays} días)` : 'sin actividad conocida';
+      lines.push(`- \`${r.repo}\` — ${since}: retira este repo de la config o confirma que sigue interesando.`);
+    }
+    for (const name of inactivity.unreadable) {
+      lines.push(`- \`${name}\` — historia ilegible: no observable (no se acusa de inactivo lo que no se puede mirar).`);
     }
   }
   return redactPII(lines.join('\n')).text;

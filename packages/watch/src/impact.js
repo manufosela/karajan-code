@@ -25,6 +25,7 @@ import { extractContractTokens, findContractMatches } from './contracts.js';
 import { buildImpactRanking, renderImpactMarkdown, deliverNotifications } from './report.js';
 import { announceDefaults } from './config.js';
 import { appendReport } from './history.js';
+import { findInactiveRepos } from './inactivity.js';
 
 /** Error de orquestación del pipeline de impacto. */
 export class ImpactError extends Error {
@@ -190,6 +191,8 @@ export const runImpactPipeline = async ({
   }
   /** @type {import('./cochanges.js').RepoHistory[]} */
   const targets = [];
+  /** @type {Set<string>} */
+  const unreadableRepos = new Set();
   for (const target of config.repos.filter((r) => r.name !== repoName)) {
     try {
       targets.push({
@@ -199,9 +202,24 @@ export const runImpactPipeline = async ({
     } catch (err) {
       if (!(err instanceof CoChangeError)) throw err;
       targets.push({ name: target.name, commits: [] });
+      unreadableRepos.add(target.name);
     }
   }
   const coChanges = correlateCoChanges({ origin, targets, touchedPaths });
+
+  // KJW-TSK-0043: la config también caduca — un repo observado sin merges en
+  // meses es ruido que nadie señala. El origen no entra: acaba de mergear.
+  const inactivity = {
+    thresholdDays: config.impact?.thresholds?.inactivityDays ?? 90,
+    ...findInactiveRepos({
+      repos: targets.map((t) => ({ ...t, readable: !unreadableRepos.has(t.name) })),
+      thresholdDays: config.impact?.thresholds?.inactivityDays ?? 90,
+      now: new Date().toISOString(),
+    }),
+  };
+  for (const r of inactivity.inactive) {
+    log(`config: repo observado inactivo: ${r.repo} (${r.inactiveDays ?? 'sin actividad conocida'} días) — retíralo o confírmalo`);
+  }
   log(`co-cambios: ${coChanges.byRepo.length} con señal, ${coChanges.noSignal.length} sin ella`);
 
   const diffSummary = `${repoName}: ${touchedPaths.join(', ')} (${chunks.length} chunks)`;
@@ -244,6 +262,7 @@ export const runImpactPipeline = async ({
     ranking,
     diffSummary,
     verdictSummary: verdict.summary,
+    inactivity,
   });
 
   let delivered = 0;
