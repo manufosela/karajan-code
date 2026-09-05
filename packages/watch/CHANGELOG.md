@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.7.0 — 2026-09-05
+
+Minor porque el CONTRATO del juicio cambia (issue [#23](https://github.com/manufosela/karajan-watch/issues/23),
+medición de campo: 80 merges en 11 días):
+
+### Cambiado
+
+- **La guarda anti-alucinación puntúa a la ENTRADA, no al merge**
+  (KJW-BUG-0010): una entrada del veredicto con fuente sin respaldo ya NO
+  lanza `JudgmentError` ni tira el juicio entero — se descarta con
+  contador (`discardedEntries` en el resultado, logueado por el pipeline)
+  y las entradas fundadas sobreviven. Con todas descartadas: veredicto
+  vacío con contador, nunca error. En campo, 4/70 merges con retrieval
+  perdían su informe completo por una sola entrada.
+- **Con las tres señales vacías no se pide veredicto**: retrieval,
+  co-cambios y contratos vacíos = nada contra lo que validar, no una
+  alucinación que castigar. `judgeImpact` retorna temprano con
+  `insufficientSignal: true` y un summary «sin señal suficiente» — antes
+  el aborto era garantizado (8/8 en campo), y caía justo en los diffs
+  quirúrgicos (1–9 chunks) que más interesa vigilar.
+
+Migración: si tu tooling capturaba `JudgmentError` por fuente
+desconocida, ese camino ya no existe — lee `discardedEntries` e
+`insufficientSignal` del resultado.
+
+### Nuevo
+
+- **El veredicto declara su alcance** (KJW-BUG-0009, patrón confirmado en
+  los dos casos con impacto real del golden de campo): el juez puede
+  responder `{scope: "repo", source: "<repo>"}` cuando su conclusión
+  aplica a un repositorio en conjunto — antes ese razonamiento se colgaba
+  del fichero que el retrieval hubiera traído de ese repo, y un aviso
+  correcto atribuido a un fichero sin relación se descarta por ruido. Las
+  entradas repo se validan contra los repos que el juez VIO, entran al
+  ranking como filas propias pesadas por severidad y el informe dice
+  «repo `X`» sin fingir precisión de fichero. `scope` ausente = `file`.
+- **`--adapter` y `--model` en el binario** (KJW-TSK-0040): el adapter
+  del juez es elegible (la policy lo valida — sin degradación silenciosa)
+  y el modelo viaja como opción del adapter — en campo, el modelo por
+  defecto se saltaba el formato del veredicto y no había vía para fijar
+  otro sin script propio. El log del descarte distingue además FORMATO
+  (señal conocida escrita de otra forma) de DESCONOCIDA (posible
+  invención).
+- **El eval es honesto con el tiempo** (KJW-TSK-0042): un caso del golden
+  declara `mergedAt` y `expectedRepos`, el eval AVISA cuando el índice es
+  anterior al merge en vez de puntuar en silencio (caso real: la métrica
+  de fichero daba 0 porque los ficheros correctos se crearon DESPUÉS de
+  indexar — la de repo daba 2/2), hay métrica a nivel repo por caso y
+  agregada, y `measuredWith` registra `corpusIndexedAt`. CLI:
+  `--corpus-indexed-at`.
+- **Aviso de repos observados inactivos** (KJW-TSK-0043): la config
+  también caduca — en una instancia real, 13 de 29 repos llevaban 3 meses
+  sin un merge y nada lo señalaba. El pipeline clasifica los repos por
+  frescura de historia (umbral `impact.thresholds.inactivityDays`,
+  default 90), loguea cada inactivo y los lista al pie del informe
+  proponiendo retirar o confirmar — nunca un gate. La historia ilegible
+  NO se acusa de inactiva: se dice aparte como no observable.
+
 ## 0.6.1 — 2026-09-04
 
 Primera release de watch desde el monorepo karajan-code y primera publicada
