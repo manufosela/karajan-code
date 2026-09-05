@@ -118,19 +118,19 @@ test('runBedrock: sin SDK instalado lanza con instrucción', async () => {
 });
 
 test('runVertexAi: usa SDK mock y extrae text de Gemini response', async () => {
+  // Contrato del Google Gen AI SDK (KJR-TSK-0159) — los asertos de
+  // comportamiento son los mismos que con el SDK anterior.
   const sdk = {
-    VertexAI: function VertexMock(cfg) {
+    GoogleGenAI: function GenAiMock(cfg) {
       this.cfg = cfg;
-      this.getGenerativeModel = () => ({
+      this.models = {
         async generateContent(_req) {
           return {
-            response: {
-              candidates: [{ content: { parts: [{ text: 'hola desde Vertex' }] } }],
-              usageMetadata: { totalTokenCount: 12 },
-            },
+            candidates: [{ content: { parts: [{ text: 'hola desde Vertex' }] } }],
+            usageMetadata: { totalTokenCount: 12 },
           };
         },
-      });
+      };
     },
   };
   const res = await runVertexAi('hola', {
