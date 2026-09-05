@@ -1,10 +1,7 @@
 // @ts-check
-// KJW-TSK-0042: el eval honesto con el tiempo. Caso real de campo: el juez
-// acertó a nivel repo (2/2, confirmado por merges posteriores) y la métrica
-// de fichero daba 0 — porque los ficheros correctos se crearon DESPUÉS de
-// indexar el corpus. Un número que castiga eso es engañoso: el caso declara
-// cuándo fue el merge, el eval avisa si el índice es anterior, y existe
-// métrica a nivel repo además de la de fichero.
+// KJW-TSK-0042: el eval honesto con el tiempo — el caso declara cuándo fue
+// su merge, el eval avisa si el índice es anterior (jamás puntúa en
+// silencio), y hay métrica a nivel repo además de la de fichero.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateGoldenSet, runGoldenEval, evaluateRepoRanking, GoldenSetError } from '../src/eval.js';
@@ -88,34 +85,22 @@ test('métrica de repo en el informe cuando el caso declara expectedRepos', asyn
   assert.equal(report.aggregate.repoRecall, 1);
 });
 
-test('índice anterior al merge = AVISO explícito, nunca un número en silencio', async () => {
-  const report = await runGoldenEval({
-    golden: validateGoldenSet(golden({ mergedAt: '2026-08-31T10:00:00Z' })),
-    config: config(),
-    workspaceDir: '/ws',
-    corpusIndexedAt: '2026-08-21T00:00:00Z',
-    deps: deps(),
-  });
-  assert.equal(report.warnings.length, 1);
-  assert.match(report.warnings[0], /invitaciones/);
-  assert.match(report.warnings[0], /anterior al merge/i);
-  assert.equal(report.measuredWith.corpusIndexedAt, '2026-08-21T00:00:00Z');
-});
-
-test('sin fechas o con índice fresco no hay aviso', async () => {
-  const fresh = await runGoldenEval({
-    golden: validateGoldenSet(golden({ mergedAt: '2026-08-01T10:00:00Z' })),
-    config: config(),
-    workspaceDir: '/ws',
-    corpusIndexedAt: '2026-08-21T00:00:00Z',
-    deps: deps(),
-  });
+test('índice anterior al merge = AVISO explícito; con índice fresco o sin fechas, ninguno', async () => {
+  const run = (caseOverrides, corpusIndexedAt) =>
+    runGoldenEval({
+      golden: validateGoldenSet(golden(caseOverrides)),
+      config: config(),
+      workspaceDir: '/ws',
+      corpusIndexedAt,
+      deps: deps(),
+    });
+  const stale = await run({ mergedAt: '2026-08-31T10:00:00Z' }, '2026-08-21T00:00:00Z');
+  assert.equal(stale.warnings.length, 1);
+  assert.match(stale.warnings[0], /invitaciones/);
+  assert.match(stale.warnings[0], /anterior al merge/i);
+  assert.equal(stale.measuredWith.corpusIndexedAt, '2026-08-21T00:00:00Z');
+  const fresh = await run({ mergedAt: '2026-08-01T10:00:00Z' }, '2026-08-21T00:00:00Z');
   assert.equal(fresh.warnings.length, 0);
-  const undated = await runGoldenEval({
-    golden: validateGoldenSet(golden()),
-    config: config(),
-    workspaceDir: '/ws',
-    deps: deps(),
-  });
+  const undated = await run({}, undefined);
   assert.equal(undated.warnings.length, 0);
 });
