@@ -13,7 +13,7 @@
   <script defer src="https://analytics.manulitics.com/script.js" data-website-id="8871eadf-4414-4baf-b83a-9f3da27b97fe"></script>
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Karajan Code — Multiagent Coding Orchestrator">
+  <meta property="og:title" content="Karajan Code — The Governor of Coding Agents">
   <meta property="og:description" content="Code with several AIs, with guarantees. Your agent writes; Karajan governs: TDD-first, cross-AI review on every commit, git gates that make a false green impossible.">
   <meta property="og:image" content="https://karajancode.com/og.png">
   <meta property="og:url" content="https://karajancode.com">
@@ -243,6 +243,27 @@
 
     /* --- THE SCORE (signature) --- */
     .score-section { padding: 3rem 2rem 4rem; max-width: 760px; margin: 0 auto; }
+    /* The governed panel (KJL-TSK-0130): the nine agents, in their own type. */
+    .hero-agents {
+      font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim);
+      letter-spacing: 0.04em; margin: 0.7rem auto 0; max-width: 680px; line-height: 1.8;
+    }
+    .hero-agents span { color: var(--text); }
+    .hero-agents em { color: var(--gold-ink); font-style: normal; }
+    /* Family section (KJL-TSK-0130): every member, one line of truth each. */
+    .family-section { padding: 3rem 2rem 4rem; max-width: 900px; margin: 0 auto; }
+    .family-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1.6rem; }
+    .family-card {
+      border: 1px solid var(--border, #2a3a4e); border-radius: 10px; padding: 1.1rem 1.2rem;
+      background: var(--bg-card, rgba(255,255,255,0.02)); text-align: left;
+    }
+    .family-card h3 { margin: 0 0 0.35rem; font-size: 1rem; display: flex; align-items: baseline; gap: 0.5rem; }
+    .family-card h3 .family-tag { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.18em; color: var(--gold-ink); text-transform: uppercase; }
+    .family-card p { margin: 0 0 0.6rem; font-size: 0.86rem; color: var(--text-dim); line-height: 1.5; }
+    .family-card .family-links { font-family: var(--mono); font-size: 0.74rem; display: flex; gap: 0.9rem; flex-wrap: wrap; }
+    .family-card .family-links a { color: var(--accent-teal, #6b8fa3); text-decoration: none; }
+    .family-card .family-links a:hover { text-decoration: underline; }
+    .family-card.family-brewing { opacity: 0.75; border-style: dashed; }
     .score-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
     .score-title { text-align: center; font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 2rem; }
     .score { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); padding: 1.3rem 0; }
@@ -414,7 +435,8 @@
     </div>
     <h1>Karajan Code</h1>
     <p class="hero-tagline">Code with several AIs, <em class="guarantee">with guarantees</em>.</p>
-    <p class="hero-sub">Your agent writes. Karajan governs: TDD-first, cross-AI review on every commit, git gates. A false green is impossible.</p>
+    <p class="hero-sub">The governor of coding agents: your agent writes; Karajan enforces TDD-first, cross-AI review on every commit and git gates. A false green is impossible.</p>
+    <p class="hero-agents" aria-label="Supported coding agents">governs <span>claude-code</span> · <span>codex</span> · <span>copilot</span> · <span>antigravity</span> · <span>kimi</span> · <span>qwen</span> · <span>opencode</span> · <span>aider</span> · <span>gemini</span> — one writes, a <em>different</em> one reviews, a third arbitrates</p>
     <p class="hero-badge">
       <span class="v4-pill">v4 · the Karajan Environment</span>
       <a href="https://www.npmjs.com/package/karajan-code" aria-label="Current version on npm">
@@ -456,12 +478,56 @@
     <button type="button" class="score-replay" onclick="playScore(true)">&#8634; replay</button>
   </section>
 
+  <!-- THE KARAJAN FAMILY (KJL-TSK-0130) -->
+  <section id="family" class="family-section fade-in" aria-label="The Karajan family">
+    <p class="score-eyebrow">The family</p>
+    <h2 class="score-title">One method, <em class="guarantee">one family</em> of tools</h2>
+    <div class="family-grid">
+      <div class="family-card">
+        <h3>Karajan Code <span class="family-tag">the conductor</span></h3>
+        <p>Governs AI-driven development: your agent writes, the git gates make a false green structurally impossible. This page.</p>
+        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/code">npm</a> <a href="/docs/">docs</a> <a href="https://github.com/manufosela/karajan-code">github</a></p>
+      </div>
+      <div class="family-card">
+        <h3>kaRAGan <span class="family-tag">the context engine</span></h3>
+        <p>RAG, CAG and hybrid answers over your code, docs and data — with a sensitivity policy deciding which model may see what.</p>
+        <p class="family-links"><a href="https://rag.karajancode.com">web</a> <a href="https://www.npmjs.com/package/@karajan-family/rag">npm</a></p>
+      </div>
+      <div class="family-card">
+        <h3>kaWATCHan <span class="family-tag">the watchman</span></h3>
+        <p>Multi-repo vigilance: a shared corpus kept fresh on every merge, cross-repo impact judgment and docs-drift alerts.</p>
+        <p class="family-links"><a href="https://watch.karajancode.com">web</a> <a href="https://www.npmjs.com/package/@karajan-family/watch">npm</a></p>
+      </div>
+      <div class="family-card">
+        <h3>Console <span class="family-tag">the admin</span></h3>
+        <p>The web console of a family instance: corpus health, people's access, operations as workflow runs — sealed in a hash-chained audit trail.</p>
+        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/console">npm</a></p>
+      </div>
+      <div class="family-card">
+        <h3>Governance <span class="family-tag">the kernel</span></h3>
+        <p>Policy, Decision and Exception as first-class objects — deterministic, local, domain-agnostic. karajan-code is its first consumer, not its owner.</p>
+        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/governance">npm</a></p>
+      </div>
+      <div class="family-card">
+        <h3>Core <span class="family-tag">the shared ground</span></h3>
+        <p>The internals the family stands on: model registry with pricing, shared paths and the pieces every member reuses.</p>
+        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/core">npm</a></p>
+      </div>
+      <div class="family-card family-brewing">
+        <h3>Radar <span class="family-tag">in the works</span></h3>
+        <p>Configurable research intelligence: watching the frontier so the family reacts to what changes. Brewing in the open, not released yet.</p>
+        <p class="family-links"><a href="https://github.com/manufosela/karajan-code/tree/main/packages/radar">github</a></p>
+      </div>
+    </div>
+  </section>
+
   <!-- WANT TO KNOW MORE? -->
   <section class="more-section fade-in">
     <details>
       <summary>Want to know more?</summary>
       <ul class="more-list">
-        <li><strong>Any agent is the brain</strong> &mdash; Claude Code, Codex, Gemini CLI, Cursor. Your agent absorbs the roles (triage, planner, architect, tester, security, audit) via <code>kj brief</code>. <a href="/docs/v4/working-with-your-agent/">See the method &rarr;</a></li>
+        <li><strong>Nine agents under one government</strong> &mdash; Claude Code, Codex, GitHub Copilot, Antigravity, Kimi Code, Qwen, OpenCode, Aider, Gemini. Any of them is the brain and absorbs the roles (triage, planner, architect, tester, security, audit) via <code>kj brief</code>; when the reviewer runs out of quota, the panel fails over with a loud notice &mdash; never silence, never self-review. <a href="/docs/v4/working-with-your-agent/">See the method &rarr;</a></li>
+        <li><strong>How the government works: three tiers</strong> &mdash; at tool time the Sentinel denies the violation BEFORE the damage; at commit time no diff enters without a cross-AI verdict bound to its sha256 (the guarantee floor on any host); at merge time CI re-checks the same policy, so a tampered local hook changes nothing. Security findings are never overridable &mdash; not even by arbitration. <a href="/docs/v4/gates/">See the gates &rarr;</a></li>
         <li><strong>Cross-AI review on every commit</strong> &mdash; a different AI approves each diff; a third one arbitrates disputes; security findings nobody overrides. <a href="/docs/v4/gates/">See the gates &rarr;</a></li>
         <li><strong>Headless pipeline for CI</strong> &mdash; the classic multiagent loop, unattended, same gates. <a href="/docs/v4/headless/">See headless mode &rarr;</a></li>
         <li><strong>6,000+ tests. 90+ releases. Open source (AGPL-3.0).</strong> <a href="https://github.com/manufosela/karajan-code">See the repo &rarr;</a></li>
@@ -481,7 +547,7 @@
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a>
     </nav>
     <p class="footer-version">Karajan Code</p>
-    <p class="footer-family">The Karajan family: <a href="https://rag.karajancode.com">kaRAGan</a> &mdash; the context engine (RAG, CAG and hybrid over your code, docs and data) &middot; <a href="https://watch.karajancode.com">kaWATCHan</a> &mdash; the multi-repo watchman: cross-repo impact and docs-drift alerts on every merge.</p>
+    <p class="footer-family">The Karajan family: <a href="/#family">Code</a> &middot; <a href="https://rag.karajancode.com">kaRAGan</a> &middot; <a href="https://watch.karajancode.com">kaWATCHan</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/console">Console</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/governance">Governance</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/core">Core</a> &middot; Radar (in the works) &mdash; all under <a href="https://www.npmjs.com/~karajan-family">@karajan-family</a>.</p>
     <p class="footer-author">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
