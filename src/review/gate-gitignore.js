@@ -25,7 +25,11 @@ export const CONTRACT_BLOCK = [
   "!.karajan/hooks/commit-msg",
   "!.karajan/hooks/pre-push",
   "!.karajan/hooks/post-merge",
+  "!.karajan/hooks/prepare-commit-msg",
   "!.karajan/adrs/",
+  // ADR 0009 (KJC-BUG-0161): la procedencia del supervisor VIAJA con el
+  // repo — es lo que CI verifica. Cazado en el primer harden --commit real.
+  "!.karajan/supervisor-provenance.json",
 ];
 
 /**

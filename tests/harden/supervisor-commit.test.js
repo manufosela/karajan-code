@@ -112,9 +112,14 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(prov.files.some((f) => f.file === ".karajan/hooks/pre-commit-new" && f.sha256)).toBe(true);
   });
 
-  it("without drift: commits nothing and says so", () => {
-    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
-    expect(res.committed).toBe(false);
-    expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
+  it("without drift AND full coverage: commits nothing; partial coverage RESEALS (estreno catch)", () => {
+    // Primer sello: sin drift pero sin provenance ⇒ resella (cobertura).
+    const first = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    expect(first.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files.length).toBe(1);
+    // Segundo: sin drift y cubierto ⇒ nada.
+    const second = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    expect(second.committed).toBe(false);
   });
 });

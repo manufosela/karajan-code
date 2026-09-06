@@ -7,7 +7,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { recordGateDecision } from "../policy/decisions.js";
@@ -102,16 +102,22 @@ export function commitSupervisorRegeneration({
     throw new Error(`harden --commit: confirmación humana fallida (esperaba "${nonce}") — ADR 0009`);
   }
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
-  const files = supervisorDrift({ projectDir, gitFn: run });
-  if (files.length === 0) {
-    logger.info?.("harden --commit: sin drift en el supervisor — nada que versionar");
+  const drift = supervisorDrift({ projectDir, gitFn: run });
+  // La provenance describe SIEMPRE el estado COMPLETO del supervisor (cazado
+  // en el primer estreno real: un sello parcial pisaba al anterior y dejaba
+  // ficheros sin respaldo). Borrados del drift ⇒ deleted (catch de codex).
+  const current = readdirSync(join(projectDir, HOOKS_PREFIX)).map((f) => HOOKS_PREFIX + f).sort();
+  const hashed = [
+    ...current.map((file) => ({ file, sha256: sha256(join(projectDir, file)) })),
+    ...drift.filter((f) => !existsSync(join(projectDir, f))).map((file) => ({ file, deleted: true })),
+  ];
+  let previous = null;
+  try { previous = JSON.parse(readFileSync(join(projectDir, PROVENANCE_FILE), "utf8")); } catch { /* primer sello */ }
+  const covered = JSON.stringify(previous?.files ?? null) === JSON.stringify(hashed);
+  if (drift.length === 0 && covered) {
+    logger.info?.("harden --commit: sin drift y provenance completa — nada que versionar");
     return { committed: false, reason: "sin drift" };
   }
-  // Borrados/renombrados también son drift (catch de codex): ausente ⇒ deleted.
-  const hashed = files.map((file) => {
-    const abs = join(projectDir, file);
-    return existsSync(abs) ? { file, sha256: sha256(abs) } : { file, deleted: true };
-  });
   const who = readIdentity(projectDir);
   const provenance = {
     kj_version: kjVersion,
@@ -142,6 +148,6 @@ export function commitSupervisorRegeneration({
     PROVENANCE_FILE,
     ".karajan/hooks",
   ]);
-  logger.info?.(`harden --commit: ${files.length} fichero(s) de supervisor versionados con procedencia sellada`);
+  logger.info?.(`harden --commit: ${hashed.length} fichero(s) de supervisor versionados con procedencia sellada`);
   return { committed: true, files: hashed };
 }
