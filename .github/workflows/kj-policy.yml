@@ -18,7 +18,7 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes karajan-code@4.17.0"; fi
+          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes karajan-code@4.25.0"; fi
           $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict
 
 # <<< kj:managed:wf-policy <<<
