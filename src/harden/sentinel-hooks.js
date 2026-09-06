@@ -371,6 +371,20 @@ process.stdin.on("end", () => {
       console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);
     }
+    // ADR 0009 (KJC-BUG-0161): kj harden --commit es un ACTO HUMANO — la
+    // sesion ni lo intenta. Sin escape (superficie de supervisor). includes()
+    // a proposito: cero ambiguedad de escapes en plantilla, y fail-closed
+    // (mencionarlo en un argumento tambien bloquea: preferible a un hueco).
+    // ANTES de KJ_SENTINEL_OFF a proposito, como el guard PROTECTED de
+    // arriba: un env var lo pone tambien un agente — el supervisor no se
+    // apaga con interruptores al alcance del supervisado.
+    {
+      const kjCmd = String(input.command || "");
+      if (tool === "Bash" && kjCmd.includes("harden") && kjCmd.includes("--commit")) {
+        console.error("karajan sentinel: kj harden --commit es un acto humano (ADR 0009) — pideselo a tu usuario; ninguna sesion de agente lo ejecuta." + doc("supervisor"));
+        process.exit(2);
+      }
+    }
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
     // KJC-BUG-0142: cada deny anuncia su escape como prefijo del comando
     // (KJ_ALLOW_X=1 cmd), pero el hook corre con el env del HOST — el

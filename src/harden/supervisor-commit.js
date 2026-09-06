@@ -18,6 +18,29 @@ const HOOKS_PREFIX = ".karajan/hooks/";
 
 const sha256 = (abs) => createHash("sha256").update(readFileSync(abs)).digest("hex");
 
+// Capa 3 del acto humano (test adversarial del 6-sep): un pty falso engaña a
+// isTTY y `env -u` borra CLAUDECODE, pero el kj que lanza un agente DESCIENDE
+// de su proceso — y eso está en /proc lo falsifique quien lo falsifique.
+const AGENT_PROC = /claude|codex|copilot|gemini|opencode|\bagy\b/i;
+export function agentAncestry({ pid = process.pid, readProc = null, maxDepth = 40 } = {}) {
+  const read = readProc || ((p) => {
+    const stat = readFileSync(`/proc/${p}/stat`, "utf8");
+    const ppid = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]);
+    let cmd = "";
+    try { cmd = readFileSync(`/proc/${p}/cmdline`).toString("utf8").replaceAll("\0", " "); } catch { /* gone */ }
+    return { ppid, cmd };
+  });
+  let cur = pid;
+  for (let i = 0; i < maxDepth && cur > 1; i += 1) {
+    let info;
+    try { info = read(cur); } catch { return { agent: false, unknown: true }; }
+    if (info?.cmd && AGENT_PROC.test(info.cmd)) return { agent: true, match: info.cmd.slice(0, 80) };
+    if (!Number.isFinite(info?.ppid) || info.ppid === cur) break;
+    cur = info.ppid;
+  }
+  return { agent: false };
+}
+
 /** Ficheros de supervisor TRACKEADOS con cambios (staged o no). */
 export function supervisorDrift({ projectDir, gitFn }) {
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
@@ -40,11 +63,18 @@ export function commitSupervisorRegeneration({
   gitFn = null,
   env = process.env,
   tty = process.stdout.isTTY,
+  deps = {},
 }) {
   // El cauce es humano por diseño (ADR 0009): una sesión de agente no lo usa.
   if (env.CLAUDECODE || env.KJ_NON_INTERACTIVE === "1" || !tty) {
     throw new Error(
       "harden --commit es un acto humano: córrelo desde TU terminal, fuera de una sesión de agente (ADR 0009)",
+    );
+  }
+  const anc = agentAncestry(deps.ancestry ?? {});
+  if (anc.agent) {
+    throw new Error(
+      `harden --commit es un acto humano y este proceso desciende de un agente (${anc.match}) — ni con pty falso ni con el entorno limpio (ADR 0009)`,
     );
   }
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));

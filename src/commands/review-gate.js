@@ -15,6 +15,7 @@ import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
+import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
@@ -262,6 +263,17 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     recordException: (entry) => recordPolicyException({ projectDir, entry }),
     standingExceptions: std.standing,
   });
+  // ADR 0009 (KJC-BUG-0161): la exención ESTRUCTURAL del supervisor — un
+  // diff de .karajan/hooks respaldado por la provenance sellada Y el render
+  // canónico no es una edición: es la regeneración de kj harden --commit.
+  {
+    const res = liftSealedSupervisorViolations({ projectDir, violations: gate.denials });
+    if (res.lifted > 0) {
+      console.log(`✓ policy: ${res.lifted} fichero(s) de supervisor verificados contra la provenance sellada (ADR 0009) — regeneración, no edición`);
+      gate.denials = res.violations;
+      gate.ok = gate.denials.length === 0 && !gate.invalid;
+    }
+  }
   const at = (v) => (v.file ? ` (${v.file})` : "");
   for (const w of gate.warns) console.log(`⚠ policy [${w.rule_id}] ${w.reason}${at(w)}`);
   for (const e of gate.exempted) console.log(formatExempted(e));

@@ -15,7 +15,11 @@ import { commitSupervisorRegeneration, PROVENANCE_FILE } from "../../src/harden/
 let repo;
 const git = (args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" });
 
-const HUMAN = { env: {}, tty: true };
+// Cadena de procesos HUMANA inyectada: bash ← sshd ← init. Sin inyectar, la
+// ascendencia REAL de la suite (que corre bajo un agente) rechazaría — que es
+// exactamente lo que la capa debe hacer.
+const humanChain = { 100: { ppid: 50, cmd: "bash" }, 50: { ppid: 1, cmd: "sshd: manu@pts/0" } };
+const HUMAN = { env: {}, tty: true, deps: { ancestry: { pid: 100, readProc: (p) => humanChain[p] ?? { ppid: 1, cmd: "init" } } } };
 const generation = { profile: "standard", cmds: { lint: "x" }, baseBranch: "main", globalHooksDir: "$HOME/.git-hooks" };
 
 beforeEach(() => {
@@ -47,6 +51,20 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
   });
 
+  it("a faked pty with a clean env still refuses: the process DESCENDS from an agent", () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    // script(1) + env -u: tty=true y env limpio — pero la cadena de procesos
+    // delata al agente: script ← sh ← node(claude).
+    const chain = { 200: { ppid: 150, cmd: "script -qec kj harden --commit" }, 150: { ppid: 120, cmd: "sh" }, 120: { ppid: 1, cmd: "node /usr/lib/claude-code/cli.js" } };
+    expect(() =>
+      commitSupervisorRegeneration({
+        projectDir: repo, kjVersion: "9.9.9", generation, env: {}, tty: true,
+        deps: { ancestry: { pid: 200, readProc: (p) => chain[p] ?? { ppid: 1, cmd: "init" } } },
+      }),
+    ).toThrow(/desciende de un agente/);
+    expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
+  });
+
   it("with drift: writes provenance, seals the acta, and commits ONLY supervisor+provenance", () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     writeFileSync(join(repo, "other.txt"), "dirty working tree survives\n");
@@ -66,8 +84,23 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(shown).not.toContain("other.txt");
   });
 
-  // Los casos de borrado y renombrado (catches de codex ya absorbidos en el
-  // código) viajan en la PR de la pieza 3 — presupuesto LOC de esta PR.
+  it("a DELETED hook is drift too — recorded as deleted, committed (codex catch)", () => {
+    rmSync(join(repo, ".karajan", "hooks", "pre-commit"));
+    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    expect(res.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".karajan/hooks/pre-commit", deleted: true });
+    expect(git(["show", "--name-status", "--format=", "HEAD"])).toContain("D\t.karajan/hooks/pre-commit");
+  });
+
+  it("a RENAMED hook yields both paths — old as deleted, new hashed (codex catch)", () => {
+    git(["mv", ".karajan/hooks/pre-commit", ".karajan/hooks/pre-commit-new"]);
+    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    expect(res.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".karajan/hooks/pre-commit", deleted: true });
+    expect(prov.files.some((f) => f.file === ".karajan/hooks/pre-commit-new" && f.sha256)).toBe(true);
+  });
 
   it("without drift: commits nothing and says so", () => {
     const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });

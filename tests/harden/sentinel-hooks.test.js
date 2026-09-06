@@ -115,6 +115,16 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   });
 
+  it("ADR 0009: kj harden --commit es acto humano — la sesion lo tiene denegado SIN escape", () => {
+    for (const command of ["kj harden --commit", "KJ_ALLOW_CROSS_LANE=1 kj harden --profile strict --commit"]) {
+      const blocked = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });
+      expect(blocked.status).toBe(2);
+      expect(blocked.stderr).toMatch(/acto humano/);
+    }
+    // harden a secas sigue permitido (la regeneracion local es legitima).
+    expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "kj harden --report" } }).status).toBe(0);
+  });
+
   it("INF-A: editar un .tf en rama sin card se deniega igual que un .js", () => {
     execSync("git checkout -q -b sin-card", { cwd: dir });
     const blocked = run(gate, editTool(path.join(dir, "main.tf")));
