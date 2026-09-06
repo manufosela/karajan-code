@@ -11,6 +11,10 @@ import path from "node:path";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 const DOC_URL = "https://karajancode.com/docs/guides/sentinel/#";
+const DOC_PAGE = new URL(
+  "../../apps/landing/docs/src/content/docs/guides/sentinel.md",
+  import.meta.url,
+);
 
 let dir, scripts;
 
@@ -48,7 +52,29 @@ describe("sentinel branding (KJC-TSK-0814)", () => {
     }
   });
 
-  // The doc-page side of the contract (each linked anchor exists as a literal
-  // heading; every KJ_ALLOW_* escape documented) ships with the page itself
-  // in the follow-up PR — same card, atomicity partition.
+  it("every linked anchor exists as a literal heading in the doc page", () => {
+    const page = fs.readFileSync(DOC_PAGE, "utf8");
+    const all = scripts.map((s) => s.body).join("\n");
+    const linked = new Set(
+      [...all.matchAll(/doc\("([a-z-]+)"\)/g)].map((m) => m[1]),
+    );
+    expect(linked.size).toBeGreaterThanOrEqual(12);
+    for (const anchor of linked) {
+      expect(page, `doc page misses heading for #${anchor}`).toMatch(
+        new RegExp(`^##\\s+${anchor}\\s*$`, "m"),
+      );
+    }
+  });
+
+  it("the doc page names every real escape", () => {
+    const page = fs.readFileSync(DOC_PAGE, "utf8");
+    const all = scripts.map((s) => s.body).join("\n");
+    const escapes = new Set([...all.matchAll(/KJ_ALLOW_[A-Z_]+/g)].map((m) => m[0]))
+      // KJ_ALLOW_X is the generic placeholder in the simple-command rule text.
+      .difference(new Set(["KJ_ALLOW_X"]));
+    expect(escapes.size).toBeGreaterThanOrEqual(8);
+    for (const esc of escapes) {
+      expect(page, `doc page misses ${esc}`).toContain(esc);
+    }
+  });
 });
