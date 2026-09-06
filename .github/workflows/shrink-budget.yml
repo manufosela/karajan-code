@@ -92,6 +92,7 @@ jobs:
             ":(exclude)**/*.min.js"
             ":(exclude)tests/_diet/**"
             ":(exclude)public/docs/**"
+            ":(exclude)apps/landing/public/docs/**"
             ":(exclude)docs/*.md"
             ":(exclude)docs/**/*.md"
             ":(exclude)docs/*.mdx"
