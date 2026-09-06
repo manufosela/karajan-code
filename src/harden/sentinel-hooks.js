@@ -43,6 +43,7 @@ export const CARD = new RegExp(${JSON.stringify(CARD_REF_RE.source)}, "i");
 export const BASE_BRANCHES = new Set(["main", "master"]);
 export const load = () => { try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return {}; } };
 export const save = (state) => writeFileSync(STATE, JSON.stringify(state, null, 2));
+export const doc = (a) => " — doc: https://karajancode.com/docs/guides/sentinel/#" + a;
 export const session = (state, sid) => {
   state.sessions ||= {};
   return (state.sessions[sid] ||= { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0 });
@@ -108,9 +109,9 @@ export const recordEscape = (sid, escape, tool) => {
     const args = ["policy", "seal", "--escape", escape];
     if (tool) args.push("--tool", String(tool));
     const r = spawnSync("kj", args, { cwd: ROOT, encoding: "utf8" });
-    if (r.error || r.status !== 0) console.error("kj sentinel: escape " + escape + " usado pero NO sellado en el decision log (kj policy seal " + (r.error ? r.error.message : "exit " + r.status) + ") — revisa kj; el escape queda solo en sentinel-state.json");
+    if (r.error || r.status !== 0) console.error("karajan sentinel: escape " + escape + " usado pero NO sellado en el decision log (kj policy seal " + (r.error ? r.error.message : "exit " + r.status) + ") — revisa kj; el escape queda solo en sentinel-state.json" + doc("escapes"));
   } catch (e) {
-    console.error("kj sentinel: escape " + escape + " usado pero NO sellado en el decision log: " + e.message);
+    console.error("karajan sentinel: escape " + escape + " usado pero NO sellado en el decision log: " + e.message + doc("escapes"));
   }
 };
 `;
@@ -121,7 +122,7 @@ const POST_BODY = `#!/usr/bin/env node
 // a tool call (PostToolUse, always exit 0).
 import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
 const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
@@ -233,7 +234,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { load, save, branchOf, violations, ROOT } from "./sentinel-lib.mjs";
+import { doc, load, save, branchOf, violations, ROOT } from "./sentinel-lib.mjs";
 // KJC-TSK-0774: when the turn ends green with cards closed, remind the user
 // where to look — the board URL if it runs (pid file alive), else how to start it.
 const boardHint = () => {
@@ -274,10 +275,10 @@ process.stdin.on("end", () => {
       state.tamper_blocks = (state.tamper_blocks || 0) + 1;
       save(state);
       if (state.tamper_blocks > 3) {
-        console.error("kj sentinel: fail-open tras 3 bloqueos por manipulacion sin restaurar — corre kj harden y avisa a tu usuario");
+        console.error("karajan sentinel: fail-open tras 3 bloqueos por manipulacion sin restaurar — corre kj harden y avisa a tu usuario" + doc("supervisor"));
         process.exit(0);
       }
-      console.error("kj sentinel: scripts del supervisor modificados fuera de kj harden (" + tampered.join(", ") + ") — restaura con kj harden antes de terminar; si lo cambiaste tu (humano), reinstalar lo deja en verde.");
+      console.error("karajan sentinel: scripts del supervisor modificados fuera de kj harden (" + tampered.join(", ") + ") — restaura con kj harden antes de terminar; si lo cambiaste tu (humano), reinstalar lo deja en verde." + doc("supervisor"));
       process.exit(2);
     }
     state.tamper_blocks = 0;
@@ -296,7 +297,7 @@ process.stdin.on("end", () => {
     }
     const s = state.sessions?.[sid];
     if (!s) {
-      if (claimsBlock) { console.error("kj sentinel: el turno NO puede terminar:" + String.fromCharCode(10) + "- " + claimsBlock); process.exit(2); }
+      if (claimsBlock) { console.error("karajan sentinel: el turno NO puede terminar:" + String.fromCharCode(10) + "- " + claimsBlock + doc("claims")); process.exit(2); }
       if (claimsNote) console.log(JSON.stringify({ systemMessage: claimsNote }));
       process.exit(0);
     }
@@ -306,9 +307,9 @@ process.stdin.on("end", () => {
       s.blocks = 0;
       const notes = [];
       if (claimsNote) notes.push(claimsNote);
-      if ((s.escapes || []).length) notes.push("kj sentinel: esta sesion uso " + s.escapes.length + " escape(s): " + s.escapes.join(", ") + " — decision registrada; detalle en kj sentinel status.");
+      if ((s.escapes || []).length) notes.push("karajan sentinel: esta sesion uso " + s.escapes.length + " escape(s): " + s.escapes.join(", ") + " — decision registrada; detalle en kj sentinel status.");
       if ((s.closed_cards || []).length) {
-        notes.push("kj sentinel: card(s) cerrada(s) en este turno: " + s.closed_cards.join(", ") + " — el board las muestra: " + boardHint());
+        notes.push("karajan sentinel: card(s) cerrada(s) en este turno: " + s.closed_cards.join(", ") + " — el board las muestra: " + boardHint());
         s.closed_cards = [];
       }
       save(state);
@@ -319,11 +320,11 @@ process.stdin.on("end", () => {
     if (s.blocks > 3) {
       (s.errors ||= []).push("fail-open: 3 bloqueos consecutivos sin resolver — el sentinel se aparta para no colgar la sesion");
       save(state);
-      console.error("kj sentinel: fail-open tras 3 bloqueos sin resolver — revisa kj sentinel status con tu usuario");
+      console.error("karajan sentinel: fail-open tras 3 bloqueos sin resolver — revisa kj sentinel status con tu usuario" + doc("stop-gate"));
       process.exit(0);
     }
     save(state);
-    console.error("kj sentinel: el turno NO puede terminar con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve las violaciones (o pide a tu usuario el escape) y termina de nuevo. Estado: kj sentinel status");
+    console.error("karajan sentinel: el turno NO puede terminar con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve las violaciones (o pide a tu usuario el escape) y termina de nuevo. Estado: kj sentinel status" + doc("stop-gate"));
     process.exit(2);
   } catch { /* fail open */ }
   process.exit(0);
@@ -340,7 +341,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
-import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
 const PUSH = /\\bgit\\s+push\\b/;
@@ -357,7 +358,7 @@ process.stdin.on("end", () => {
       const target = input.file_path || input.notebook_path;
       const relT = target ? relative(ROOT, String(target)).replaceAll("\\\\", "/") : "";
       if (relT && PROTECTED.test(relT)) {
-        console.error("kj sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion.");
+        console.error("karajan sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion." + doc("supervisor"));
         process.exit(2);
       }
     }
@@ -367,7 +368,7 @@ process.stdin.on("end", () => {
     // substitution) cannot be resolved from command text: that vector is
     // caught by the Stop gate's checksum verification, which blocks the turn.
     if (tool === "Bash" && PROTECTED.test(String(input.command || "").replaceAll("\\\\", "/"))) {
-      console.error("kj sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion.");
+      console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);
     }
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
@@ -411,7 +412,7 @@ process.stdin.on("end", () => {
       if (bad === null) return true;
       if (!escNoted.has(name)) {
         escNoted.add(name);
-        console.error("kj sentinel: " + name + "=1 presente pero IGNORADO — el escape solo vale en un comando simple y este contiene " + JSON.stringify(bad) + " fuera de comillas simples (sin ; | & $ ( ) backtick ni salto de linea: parte el comando o usa -F fichero)");
+        console.error("karajan sentinel: " + name + "=1 presente pero IGNORADO — el escape solo vale en un comando simple y este contiene " + JSON.stringify(bad) + " fuera de comillas simples (sin ; | & $ ( ) backtick ni salto de linea: parte el comando o usa -F fichero)" + doc("escapes"));
       }
       return false;
     };
@@ -530,7 +531,7 @@ process.stdin.on("end", () => {
       if (problems.length > 0) {
         if (escOn("KJ_ALLOW_IDENTITY")) { recordEscape(sid, "KJ_ALLOW_IDENTITY", tool); }
         else {
-          console.error("kj sentinel: identity lock (ADR 0005) —" + problems.map((p) => ESC_NL + "- " + p).join("") + ESC_NL + "(KJ_ALLOW_IDENTITY=1 = excepcion consciente, queda registrada)");
+          console.error("karajan sentinel: identity lock (ADR 0005) —" + problems.map((p) => ESC_NL + "- " + p).join("") + ESC_NL + "(KJ_ALLOW_IDENTITY=1 = excepcion consciente, queda registrada)" + doc("identity"));
           process.exit(2);
         }
       }
@@ -553,7 +554,7 @@ process.stdin.on("end", () => {
     };
     const laneDeny = (what, lane) => {
       if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); return false; }
-      console.error("kj sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0). Cruce deliberado: KJ_ALLOW_CROSS_LANE=1, queda registrado.");
+      console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0). Cruce deliberado: KJ_ALLOW_CROSS_LANE=1, queda registrado." + doc("cross-lane"));
       return true;
     };
     if (EDIT_TOOLS.includes(tool)) {
@@ -581,7 +582,7 @@ process.stdin.on("end", () => {
         if (/(^|[;&|(\\s])(cd|pushd)([ \\t]|$)/.test(cmd)) {
           if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
-            console.error("kj sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables por el guard de carriles (MONO-0); usa git -C / npm --prefix / rutas ABSOLUTAS sin cd (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            console.error("karajan sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables por el guard de carriles (MONO-0); usa git -C / npm --prefix / rutas ABSOLUTAS sin cd (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
             process.exit(2);
           }
         }
@@ -600,7 +601,7 @@ process.stdin.on("end", () => {
         if (/>{1,2}[ \\t]*["']?[\\$\`]/.test(cmd)) {
           if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
-            console.error("kj sentinel: redireccion con destino tras variable/sustitucion — el guard de carriles no puede verificarlo (MONO-0); usa una ruta LITERAL (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            console.error("karajan sentinel: redireccion con destino tras variable/sustitucion — el guard de carriles no puede verificarlo (MONO-0); usa una ruta LITERAL (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
             process.exit(2);
           }
         }
@@ -666,7 +667,7 @@ process.stdin.on("end", () => {
         if (/\\$\\(|\`/.test(cmd) || quotedPathWithSpaces(cmd)) {
           if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
-            console.error("kj sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
             process.exit(2);
           }
         }
@@ -675,7 +676,7 @@ process.stdin.on("end", () => {
         if (!segs.every((s) => !/[\\$]/.test(s) || SAFE_EXP_SEG.test(s))) {
           if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
-            console.error("kj sentinel: expansion de shell en una herramienta generica de fichero/interprete — el objetivo no es verificable por el guard de carriles (MONO-0); usa rutas LITERALES o un runner del toolchain (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            console.error("karajan sentinel: expansion de shell en una herramienta generica de fichero/interprete — el objetivo no es verificable por el guard de carriles (MONO-0); usa rutas LITERALES o un runner del toolchain (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
             process.exit(2);
           }
         }
@@ -708,7 +709,7 @@ process.stdin.on("end", () => {
       const actorRole = process.env.KJ_POLICY_ROLE || "coder";
       const pres = spawnSync("kj", ["policy", "eval", "--strict", "--role", actorRole, "--tool", tool, "--input", JSON.stringify(input)], { cwd: ROOT, encoding: "utf8" });
       if (pres.error || pres.status === null) {
-        console.error("kj sentinel: .karajan/policy.yml declara enforcement pero kj no es ejecutable — la policy no se puede evaluar; restaura kj en el PATH (npm i -g @karajan-family/code, o el nombre legacy karajan-code) o retira la policy conscientemente.");
+        console.error("karajan sentinel: .karajan/policy.yml declara enforcement pero kj no es ejecutable — la policy no se puede evaluar; restaura kj en el PATH (npm i -g @karajan-family/code, o el nombre legacy karajan-code) o retira la policy conscientemente." + doc("policy"));
         process.exit(2);
       }
       if (pres.status === 2) {
@@ -717,13 +718,13 @@ process.stdin.on("end", () => {
         const secure = !!(v && v.class === "security");
         if (!secure && escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
         else {
-          console.error("kj sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada; el commit exigira ademas KJ_POLICY_REASON)"));
+          console.error("karajan sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada; el commit exigira ademas KJ_POLICY_REASON)") + doc("policy"));
           process.exit(2);
         }
       } else if (pres.status !== 0) {
         if (escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
         else {
-          console.error("kj sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check y corrige .karajan/policy.yml fuera de la sesion (o KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada).");
+          console.error("karajan sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check y corrige .karajan/policy.yml fuera de la sesion (o KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada)." + doc("policy"));
           process.exit(2);
         }
       }
@@ -746,7 +747,7 @@ process.stdin.on("end", () => {
           if (hard.length && blockOn) {
             if (escOn("KJ_ALLOW_STEWARD")) { recordEscape(sid, "KJ_ALLOW_STEWARD", tool); }
             else {
-              console.error("kj sentinel: steward — el estado del proyecto bloquea empezar (barrido " + rep.sweptAt + "):" + String.fromCharCode(10) + hard.map((r) => "- " + r.id + ": " + (r.evidence || "") + " -> " + (r.remedy || r.renew || "kj steward sweep")).join(String.fromCharCode(10)) + String.fromCharCode(10) + "(KJ_ALLOW_STEWARD=1 = excepcion consciente de esta sesion, queda registrada)");
+              console.error("karajan sentinel: steward — el estado del proyecto bloquea empezar (barrido " + rep.sweptAt + "):" + String.fromCharCode(10) + hard.map((r) => "- " + r.id + ": " + (r.evidence || "") + " -> " + (r.remedy || r.renew || "kj steward sweep")).join(String.fromCharCode(10)) + String.fromCharCode(10) + "(KJ_ALLOW_STEWARD=1 = excepcion consciente de esta sesion, queda registrada)" + doc("steward"));
               process.exit(2);
             }
           }
@@ -768,8 +769,8 @@ process.stdin.on("end", () => {
         if (why) {
           if (escOn("KJ_ALLOW_NO_CARD")) { recordEscape(sid, "KJ_ALLOW_NO_CARD", tool); process.exit(0); }
           console.error(why === "base"
-            ? "kj sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)"
-            : "kj sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)");
+            ? "karajan sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)" + doc("card-first")
+            : "karajan sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)" + doc("card-first"));
           process.exit(2);
         }
       }
@@ -787,7 +788,7 @@ process.stdin.on("end", () => {
       if (pend.length > 0 && (mergeM || ADVANCE.test(cmd))) {
         if (escOn("KJ_ALLOW_BOARD")) { recordEscape(sid, "KJ_ALLOW_BOARD", tool); }
         else {
-          console.error("kj sentinel: board-sync — el metodo no avanza con cards mergeadas sin mover:\\n" + pend.map((p) => "- " + pendingText(p)).join("\\n") + "\\n(KJ_ALLOW_BOARD=1 = excepcion consciente, queda registrada)");
+          console.error("karajan sentinel: board-sync — el metodo no avanza con cards mergeadas sin mover:\\n" + pend.map((p) => "- " + pendingText(p)).join("\\n") + "\\n(KJ_ALLOW_BOARD=1 = excepcion consciente, queda registrada)" + doc("board-sync"));
           process.exit(2);
         }
       }
@@ -802,7 +803,7 @@ process.stdin.on("end", () => {
         const body = bodyFile[2] || bodyFile[3] || bodyFile[4];
         const g = spawnSync("kj", ["claims", "gate", "--transcript", transcript, "--file", body], { cwd: ROOT, encoding: "utf8" });
         if (!g.error && g.status === 2) {
-          console.error("kj sentinel: claims — un dato del cuerpo de la PR esta DESMENTIDO por las salidas de este turno:\\n" + (g.stderr || "").trim() + "\\nVerificalo o marcalo como no comprobado antes de crear la PR. Detalle: kj claims check --transcript " + transcript + " --file " + body);
+          console.error("karajan sentinel: claims — un dato del cuerpo de la PR esta DESMENTIDO por las salidas de este turno:\\n" + (g.stderr || "").trim() + "\\nVerificalo o marcalo como no comprobado antes de crear la PR. Detalle: kj claims check --transcript " + transcript + " --file " + body + doc("claims"));
           process.exit(2);
         }
       }
@@ -813,7 +814,7 @@ process.stdin.on("end", () => {
         if (res.status !== 0) {
           let items = "";
           try { items = (JSON.parse(res.stdout).checks || []).filter((c) => !c.ok).map((c) => "\\n- " + c.name + ": " + c.detail).join(""); } catch { /* raw output */ }
-          console.error("kj sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(KJ_ALLOW_RELEASE=1 = excepcion consciente, queda registrada)");
+          console.error("karajan sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(KJ_ALLOW_RELEASE=1 = excepcion consciente, queda registrada)" + doc("release"));
           process.exit(2);
         }
       } else if (PUSH.test(cmd)) {
@@ -827,7 +828,7 @@ process.stdin.on("end", () => {
           v = violations({ ...sess, pending_moves: [] }, branchOf());
         }
         if (v.length) {
-          console.error("kj sentinel: git push con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve antes de empujar. Estado: kj sentinel status");
+          console.error("karajan sentinel: git push con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve antes de empujar. Estado: kj sentinel status" + doc("push-gate"));
           process.exit(2);
         }
       }
