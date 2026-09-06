@@ -71,6 +71,10 @@ describe("phone-sign core (KJC-TSK-0822)", () => {
 const fakePhone = ({ key = privateKey, pub = rawPub, state = "signed", mangle = (s) => s } = {}) => {
   const seen = {};
   return async (url, opts = {}) => {
+    // La config del relé ya no viaja en el tarball: se sirve desde la landing.
+    if (String(url).endsWith("/sign/relay.json")) {
+      return { ok: true, json: async () => ({ projectId: "karajan-code", apiKey: "test-key", collection: "kjSupervisorSign" }) };
+    }
     if (opts.method === "POST") {
       seen.cid = new URL(url).searchParams.get("documentId");
       seen.nonce = JSON.parse(opts.body).fields.nonce.stringValue;
