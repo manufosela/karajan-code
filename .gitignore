@@ -20,6 +20,10 @@ dist/
 !.karajan/hooks/pre-commit
 !.karajan/hooks/commit-msg
 !.karajan/hooks/pre-push
+!.karajan/hooks/prepare-commit-msg
+!.karajan/hooks/post-merge
+# ADR 0009 (KJC-BUG-0161): la procedencia del supervisor viaja con el repo.
+!.karajan/supervisor-provenance.json
 .reviews/
 .kj/
 kj.config.yml

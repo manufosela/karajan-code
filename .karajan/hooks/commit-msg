@@ -10,10 +10,9 @@ if [ "${#header}" -gt 100 ]; then echo 'kj harden: commit header exceeds 100 cha
 if grep -qiE 'co-authored-by:.*(claude|gpt|copilot|gemini)|(generated|written) (by|with) .*(claude|gpt|copilot)' "$msg_file"; then
   echo 'kj harden: AI attribution is not allowed in commit messages'; exit 1
 fi
-# <<< kj:managed:hook:commit-msg <<<
-
-# Chain the developer's global commit-msg (AI-attribution / message policy) —
-# the repo-local hooksPath eclipses the global hooks dir (KJC-TSK-0641).
+# Chain the machine's previous global hook (kj harden keeps it active).
 if [ -x "$HOME/.git-hooks/commit-msg" ]; then
-  "$HOME/.git-hooks/commit-msg" "$@" || exit 1
+  "$HOME/.git-hooks/commit-msg" "$@"; rc=$?
+  [ "$rc" -eq 0 ] || exit "$rc"
 fi
+# <<< kj:managed:hook:commit-msg <<<
