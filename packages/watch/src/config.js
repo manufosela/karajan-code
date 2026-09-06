@@ -112,11 +112,16 @@ const requireOneOf = (value, path, allowed) => {
  * @property {string} name Nombre único del repo (namespace de sus paths en el corpus).
  * @property {string} branch Rama observada cuyos merges disparan la ingesta.
  * @property {Sensitivity} sensitivity Nivel de sensibilidad del repo.
+ * @property {string} [group] Grupo al que pertenece el repo (clasificación libre de la instancia).
+ * @property {{service: string, tier: string}} [dora] Clasificación DORA: servicio y tier del repo.
+ *
+ * @typedef {{prefix: string, level: Sensitivity}} SensitivityRule Sensibilidad por prefijo de ruta.
  *
  * @typedef {Object} CorpusConfig
  * @property {string} store Vector store de karajan-rag.
  * @property {string} embedder Embedder local de karajan-rag.
  * @property {Sensitivity} sensitivity Nivel de sensibilidad del corpus.
+ * @property {SensitivityRule[]} [sensitivityRules] Solo corpus docs: sensibilidad por prefijo de ruta.
  *
  * @typedef {Object} ImpactThresholds
  * @property {number} [minSimilarity] Similitud mínima [0, 1] para considerar un candidato.
@@ -159,7 +164,7 @@ export const announceDefaults = (config, log) => {
  */
 const validateRepo = (value, path, seenNames) => {
   const repo = requireObject(value, path);
-  rejectUnknownKeys(repo, path, ['name', 'branch', 'sensitivity']);
+  rejectUnknownKeys(repo, path, ['name', 'branch', 'sensitivity', 'group', 'dora']);
   const name = requireNonEmptyString(repo.name, `${path}.name`);
   if (seenNames.has(name)) {
     throw new ConfigError(`${path}.name`, `nombre de repo duplicado: "${name}".`);
@@ -171,7 +176,44 @@ const validateRepo = (value, path, seenNames) => {
     repo.sensitivity === undefined
       ? DEFAULT_SENSITIVITY
       : requireOneOf(repo.sensitivity, `${path}.sensitivity`, SENSITIVITY_LEVELS);
-  return { name, branch, sensitivity: /** @type {Sensitivity} */ (sensitivity) };
+  /** @type {RepoConfig} */
+  const result = { name, branch, sensitivity: /** @type {Sensitivity} */ (sensitivity) };
+  if (repo.group !== undefined) {
+    result.group = requireNonEmptyString(repo.group, `${path}.group`);
+  }
+  if (repo.dora !== undefined) {
+    const dora = requireObject(repo.dora, `${path}.dora`);
+    rejectUnknownKeys(dora, `${path}.dora`, ['service', 'tier']);
+    result.dora = {
+      service: requireNonEmptyString(dora.service, `${path}.dora.service`),
+      tier: requireNonEmptyString(dora.tier, `${path}.dora.tier`),
+    };
+  }
+  return result;
+};
+
+/**
+ * Sensibilidad por prefijo del corpus docs; `level` fuera del vocabulario = error de carga.
+ * @param {unknown} value
+ * @param {string} path
+ * @returns {SensitivityRule[]}
+ */
+const validateSensitivityRules = (value, path) => {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ConfigError(path, 'se esperaba un array no vacío de reglas {prefix, level}.');
+  }
+  const seenPrefixes = new Set();
+  return value.map((rule, i) => {
+    const entry = requireObject(rule, `${path}[${i}]`);
+    rejectUnknownKeys(entry, `${path}[${i}]`, ['prefix', 'level']);
+    const prefix = requireNonEmptyString(entry.prefix, `${path}[${i}].prefix`);
+    if (seenPrefixes.has(prefix)) {
+      throw new ConfigError(`${path}[${i}].prefix`, `prefijo duplicado: "${prefix}".`);
+    }
+    seenPrefixes.add(prefix);
+    const level = requireOneOf(entry.level, `${path}[${i}].level`, SENSITIVITY_LEVELS);
+    return { prefix, level: /** @type {Sensitivity} */ (level) };
+  });
 };
 
 /**
@@ -179,9 +221,12 @@ const validateRepo = (value, path, seenNames) => {
  * @param {string} path
  * @returns {CorpusConfig}
  */
-const validateCorpusEntry = (value, path, defaulted) => {
+const validateCorpusEntry = (value, path, defaulted, { allowSensitivityRules = false } = {}) => {
   const corpus = value === undefined ? {} : requireObject(value, path);
-  rejectUnknownKeys(corpus, path, ['store', 'embedder', 'sensitivity']);
+  const allowedKeys = allowSensitivityRules
+    ? ['store', 'embedder', 'sensitivity', 'sensitivityRules']
+    : ['store', 'embedder', 'sensitivity'];
+  rejectUnknownKeys(corpus, path, allowedKeys);
 
   // Un hueco se rellena; un valor equivocado sigue fallando con su path. La
   // diferencia entre "no lo has dicho" y "lo has dicho mal" es justo lo que
@@ -192,13 +237,22 @@ const validateCorpusEntry = (value, path, defaulted) => {
     return fallback;
   };
 
-  return {
+  /** @type {CorpusConfig} */
+  const result = {
     store: withDefault(corpus.store, 'store', VALID_STORES, DEFAULT_CORPUS.store),
     embedder: withDefault(corpus.embedder, 'embedder', VALID_EMBEDDERS, DEFAULT_CORPUS.embedder),
     sensitivity: /** @type {Sensitivity} */ (
       withDefault(corpus.sensitivity, 'sensitivity', SENSITIVITY_LEVELS, DEFAULT_SENSITIVITY)
     ),
   };
+  // Sin default: la ausencia de reglas no es un valor asumido — nada que anunciar en `defaulted`.
+  if (corpus.sensitivityRules !== undefined) {
+    result.sensitivityRules = validateSensitivityRules(
+      corpus.sensitivityRules,
+      `${path}.sensitivityRules`,
+    );
+  }
+  return result;
 };
 
 /**
@@ -292,7 +346,9 @@ export const validateConfig = (raw) => {
   rejectUnknownKeys(corpusRoot, '$.corpus', ['code', 'docs']);
   const corpus = {
     code: validateCorpusEntry(corpusRoot.code, '$.corpus.code', defaulted),
-    docs: validateCorpusEntry(corpusRoot.docs, '$.corpus.docs', defaulted),
+    docs: validateCorpusEntry(corpusRoot.docs, '$.corpus.docs', defaulted, {
+      allowSensitivityRules: true,
+    }),
   };
 
   /** @type {WatchConfig} */
