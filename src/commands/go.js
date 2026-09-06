@@ -99,9 +99,10 @@ export async function goCommand({ config = {}, logger = console, flags = {}, dep
   }
   const prompt = (deps.prompt ?? buildGoPrompt)();
   // --window (MGL-E, ADR 0008): la conversación vive DENTRO del board — el
-  // daemon hereda por env el cwd, el agente elegido y el prompt inicial, y
-  // el pty arranca el agente REAL (harness intacto). La fase 1 sigue siendo
-  // el default: sin el flag, nada cambia.
+  // daemon hereda por env (HU_BOARD_TERMINAL_CWD/AGENT/PROMPT) el cwd, el
+  // agente elegido y el prompt inicial, y el pty arranca el agente REAL
+  // (harness intacto). La fase 1 sigue siendo el default: sin el flag,
+  // nada cambia.
   const windowMode = Boolean(flags.window);
   if (windowMode) {
     process.env.HU_BOARD_TERMINAL_CWD = projectDir;
