@@ -7,7 +7,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { recordGateDecision } from "../policy/decisions.js";
@@ -39,6 +39,21 @@ export function agentAncestry({ pid = process.pid, readProc = null, maxDepth = 4
     cur = info.ppid;
   }
   return { agent: false };
+}
+
+// Lee la respuesta del nonce de la TTY REAL del proceso (no de stdin, que un
+// atacante alimenta por pipe): /dev/tty solo existe con terminal de control.
+function defaultConfirm(nonce) {
+  process.stdout.write(`harden --commit: teclea "${nonce}" para confirmar que eres humano: `);
+  try {
+    const buf = Buffer.alloc(64);
+    const fd = openSync("/dev/tty", "r");
+    const n = readSync(fd, buf, 0, 64);
+    closeSync(fd);
+    return buf.toString("utf8", 0, n).trim();
+  } catch {
+    return null;
+  }
 }
 
 /** Ficheros de supervisor TRACKEADOS con cambios (staged o no). */
@@ -76,6 +91,15 @@ export function commitSupervisorRegeneration({
     throw new Error(
       `harden --commit es un acto humano y este proceso desciende de un agente (${anc.match}) — ni con pty falso ni con el entorno limpio (ADR 0009)`,
     );
+  }
+  // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
+  // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
+  // Un alimentador ciego no conoce el código; automatizar su lectura exige
+  // un driver expect — premeditación inequívoca, no un descuido.
+  const nonce = createHash("sha256").update(String(Math.random())).digest("hex").slice(0, 6);
+  const answer = (deps.confirm ?? defaultConfirm)(nonce);
+  if (answer !== nonce) {
+    throw new Error(`harden --commit: confirmación humana fallida (esperaba "${nonce}") — ADR 0009`);
   }
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
   const files = supervisorDrift({ projectDir, gitFn: run });
