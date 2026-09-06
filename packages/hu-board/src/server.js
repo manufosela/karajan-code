@@ -13,6 +13,9 @@ import wikiRoutes from './routes/wiki.js';
 import governanceRoutes from './routes/governance.js';
 import { authMiddleware } from './auth.js';
 import { getOrCreateToken, getTokenPath } from './token-store.js';
+import { createRequire } from 'node:module';
+import { createTerminalManager } from './terminal.js';
+import { terminalRouter, attachTerminalWs } from './terminal-wire.js';
 import { reapZombieSessions } from './zombie-reaper.js';
 import { reapZombieHus } from './hu-zombie-reaper.js';
 import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
@@ -295,6 +298,8 @@ async function main() {
 
   // Create Express app
   const app = express();
+  // node-pty es CJS nativo y @xterm se localiza por resolve: require clásico.
+  const requireCjs = createRequire(import.meta.url);
   app.use(...buildSecurityMiddleware());
   app.use(express.json());
   app.use(express.static(PUBLIC_DIR, { setHeaders: noStoreHeaders, etag: false, lastModified: false }));
@@ -303,6 +308,20 @@ async function main() {
   app.use('/api/rag', authMiddleware(), ragRoutes);
   app.use('/api/wiki', authMiddleware(), wikiRoutes);
   app.use('/api/governance', authMiddleware(), governanceRoutes);
+
+  // Terminal embebida (KJC-TSK-0816, ADR 0008): la lógica vive en
+  // terminal.js; aquí solo el montaje. El agente arranca en el cwd del
+  // daemon (kj go arranca el board desde el proyecto) u override por env.
+  // xterm se sirve DESDE la dependencia — nada vendorizado al repo.
+  const terminalManager = createTerminalManager({
+    spawnPty: (...args) => requireCjs('node-pty').spawn(...args),
+    cwd: process.env.HU_BOARD_TERMINAL_CWD || process.cwd(),
+  });
+  app.use('/api/terminal', authMiddleware(), terminalRouter(terminalManager));
+  app.use(
+    '/vendor/xterm',
+    express.static(dirname(requireCjs.resolve('@xterm/xterm/package.json'))),
+  );
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {
@@ -318,6 +337,7 @@ async function main() {
   const isLoopback = LOOPBACK_ADDRESSES.has(bindHost);
 
   const server = app.listen(port, bindHost, () => {
+    attachTerminalWs(server, terminalManager);
     // Write the PID file so the CLI's `kj board status / stop` and
     // the next `kj plan`'s startBoard() check find this server. The
     // file used to be written only by `kj board start`'s launcher,
