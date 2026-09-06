@@ -113,6 +113,7 @@ export default defineConfig({
 									{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
 									{ label: 'HU Board', slug: 'guides/hu-board', translations: { es: 'HU Board' } },
 									{ label: 'Hardening Against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
+									{ label: 'The Sentinel', slug: 'guides/sentinel', translations: { es: 'El Sentinel' } },
 									{ label: 'Recommended Setup', slug: 'guides/recommended-setup', translations: { es: 'Configuración Recomendada' } },
 									{ label: 'Troubleshooting', slug: 'guides/troubleshooting', translations: { es: 'Resolución de problemas' } },
 								],
