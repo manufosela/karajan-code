@@ -8,6 +8,8 @@
  * is imposed on non-JS repos. See docs/specs/quality-harness.md §5.
  */
 
+import { homedir } from "node:os";
+
 const CONVENTIONAL_TYPES = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert";
 const AI_ATTRIBUTION = "co-authored-by:.*(claude|gpt|copilot|gemini)|(generated|written) (by|with) .*(claude|gpt|copilot)";
 
@@ -27,10 +29,18 @@ export const PROFILE_HOOKS = {
 // guarded, so machines without it are unaffected.
 function chainToGlobal(hook, globalHooksDir) {
   if (!globalHooksDir) return [];
+  // KJC-BUG-0161 (ADR 0009): a committed hook must not bake a machine's
+  // absolute home path — resolve through $HOME at runtime so the same
+  // generated content is valid on every machine and its provenance stays
+  // verifiable (and no local filesystem layout leaks into a public repo).
+  const home = homedir();
+  const dir = globalHooksDir === home || globalHooksDir.startsWith(`${home}/`)
+    ? `$HOME${globalHooksDir.slice(home.length)}`
+    : globalHooksDir;
   return [
     "# Chain the machine's previous global hook (kj harden keeps it active).",
-    `if [ -x "${globalHooksDir}/${hook}" ]; then`,
-    `  "${globalHooksDir}/${hook}" "$@"; rc=$?`,
+    `if [ -x "${dir}/${hook}" ]; then`,
+    `  "${dir}/${hook}" "$@"; rc=$?`,
     '  [ "$rc" -eq 0 ] || exit "$rc"',
     "fi",
   ];

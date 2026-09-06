@@ -1,7 +1,8 @@
 # El cauce sancionado del supervisor: como se versiona lo que kj harden regenera
 
-Status: proposed
+Status: accepted
 Date: 2026-09-06
+Accepted: 2026-09-06 (dev_001) — opcion A
 
 ## Context
 
@@ -25,5 +26,7 @@ C) Status quo documentado: aceptar el drift permanente y documentar que la copia
 A. La copia versionada tiene valor real (gates activos en cada clon desde el segundo cero — exactamente la promesa del harden) y la exencion estructural de A es deterministica y estrecha: no confia en nadie, recomputa. B queda como simplificacion futura si la familia decide que kj harden post-clone es contrato suficiente.
 
 ## Consequences
+
+Precision de implementacion (al aceptar): la recomputacion byte a byte solo es posible EN LA MAQUINA que corre kj harden — la generacion esta parametrizada (comandos nativos del stack, rama base, chaining del hook global). Por eso el contrato es: en local, kj harden --commit recomputa (trivial: lo que acaba de escribir ES lo canonico) y sella en el decision log la version de kj y el hash sha256 de cada fichero; los gates (review local y CI) verifican que cada fichero de supervisor tocado coincide con un hash sellado en el log Y que la cadena del log esta integra. La confianza se apoya en la raiz que ya existe (el acta hash-encadenada), no en poder regenerar en CI. Requisito previo: las plantillas no hornean rutas de maquina (chaining via $HOME — mismo contenido en todas partes).
 
 kj harden gana --commit (solo con TTY humano, jamas desde una sesion con CLAUDECODE/agente detectado); el decision log gana el sello de procedencia del supervisor; review-gate y kj-policy CI ganan la verificacion por recomputacion; KJC-BUG-0161 se implementa sobre esta decision. Los 3 ficheros hoy en drift serian el primer uso real del cauce.
