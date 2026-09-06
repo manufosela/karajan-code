@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
+import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { loadExceptionRecords, loadGlobalExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { buildPolicyReport } from "../policy/report.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
@@ -231,7 +232,14 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
   // --strict (PL-C): con --strict, una violación enforcement=deny devuelve
   // exit 2 nombrando la regla — el contrato merge-blocking del tier C.
   const facts = await stagedFacts(projectDir, deps.gitFn, flags.range || null);
-  const violations = checkStagedDiff(policy, { role: flags.role || "coder", ...facts });
+  let violations = checkStagedDiff(policy, { role: flags.role || "coder", ...facts });
+  // ADR 0009 (KJC-BUG-0161): en CI la misma exención estructural que en la
+  // review — supervisor respaldado por provenance sellada + render canónico.
+  const sup = liftSealedSupervisorViolations({ projectDir, violations });
+  if (sup.lifted > 0) {
+    logger.info?.(`✓ policy: ${sup.lifted} fichero(s) de supervisor verificados contra la provenance sellada (ADR 0009)`);
+    violations = sup.violations;
+  }
   const hard = flags.strict ? violations.filter((v) => v.enforcement === "deny") : [];
   if (flags.json) {
     logger.info?.(JSON.stringify({ mode: flags.strict ? "strict" : "warn", violations }));

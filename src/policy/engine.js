@@ -25,7 +25,9 @@ import {
 export const SUPERVISOR_DEFAULTS = [
   {
     id: "defaults.supervisor.write",
-    pattern: /\.claude\/settings\.json\b|\.karajan\/(hooks|harness)\//,
+    // ADR 0009: la provenance del supervisor es superficie de supervisor —
+    // un agente no la escribe; solo kj harden --commit (humano) la produce.
+    pattern: /\.claude\/settings\.json\b|\.karajan\/(hooks|harness)\/|\.karajan\/supervisor-provenance\.json\b/,
     message: "nombra ficheros del supervisor — solo el humano los modifica, fuera de la sesión",
   },
 ];
