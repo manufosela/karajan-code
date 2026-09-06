@@ -328,6 +328,7 @@ export default [
            formatProjectCostSummary formatSessionLabel handleRoute humaniseProjectName isTestIcon isTestTitle
            isMaggleMode lastLaunchedPlanId lastOpenedLog load loadSessions logPollTimer logViewerState maggleText
            applyMaggleChrome maggleErrorParts MAGGLE_LABELS MAGGLE_STORE_KEY navigate nextIsTestValue
+           Terminal conversationState openConversationPanel
            openCommandLogViewer openGenericLogPanel openLogViewer patchBoardIncremental pollServerVersion pollTimer
            populateProjectSelect preflightCache preflightStatusColor preflightStatusIcon projectInitialsCache
            projectIsSharedCache projectNameCache qualityBar refreshCurrentView refreshInterval refreshOnce refreshStandby
