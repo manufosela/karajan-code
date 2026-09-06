@@ -29,6 +29,10 @@ describe("installWorkflows", () => {
     const parsed = yaml.load(text);
     expect(parsed.name).toBe("Block AI attribution");
     expect(parsed.jobs.scan["runs-on"]).toBe("ubuntu-latest");
+    // Fail-loud (codex catch, KJC-TSK-0818): an unresolvable base range must
+    // FAIL the job — swallowing it would pass the scan on an empty corpus.
+    expect(text).not.toContain("|| true");
+    expect(text).toContain("cannot resolve origin/");
   });
 
   it("is idempotent", () => {
