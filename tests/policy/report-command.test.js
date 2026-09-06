@@ -9,10 +9,12 @@ import { recordGateDecision } from "../../src/policy/decisions.js";
 import { loadExceptionRecords, recordPolicyException } from "../../src/policy/exceptions.js";
 
 let dir;
+let home; // home temporal: el report también lee ~/.karajan (KJC-TSK-0813)
 const cwd0 = process.cwd();
 afterEach(() => { process.chdir(cwd0); });
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-polreport-"));
+  home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-polreport-home-"));
   fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
   fs.writeFileSync(path.join(dir, ".karajan", "policy.yml"), "version: 1\nroles:\n  coder:\n    write: { deny: ['**/*.tmp'] }\n");
   process.chdir(dir);
@@ -21,7 +23,7 @@ const logger = () => {
   const lines = [];
   return { lines, info: (m) => lines.push(m), warn: (m) => lines.push(m), error: (m) => lines.push(m) };
 };
-const run = (log, flags = {}) => policyCommand({ action: "report", config: { projectDir: dir }, flags, logger: log });
+const run = (log, flags = {}) => policyCommand({ action: "report", config: { projectDir: dir }, flags, logger: log, deps: { home } });
 const grant = (until) => recordPolicyException({
   projectDir: dir, entry: { rule_id: "roles.coder.write.deny", justification: "j", scopeKind: "permanente", expiresAt: until },
   deps: { identity: () => ({ git: "t <t@t>", os: "t", grade: "declarada" }) },
