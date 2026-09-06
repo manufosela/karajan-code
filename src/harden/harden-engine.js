@@ -23,6 +23,24 @@ export function isGitRepo(projectDir) {
 }
 
 /**
+ * KJC-BUG-0161 / ADR 0009: el contenido CANÓNICO de un hook para una
+ * generación dada — exactamente lo que installHooks escribiría partiendo
+ * de cero. La verificación estructural del supervisor recomputa esto y
+ * compara por hash: un fichero con una sola coma manual ya no coincide.
+ */
+export function renderCanonicalHook(hook, generation = {}) {
+  const { cmds = {}, baseBranch = null, globalHooksDir = null } = generation;
+  const { content } = upsertManagedBlock({
+    source: HOOK_PREAMBLE,
+    blockId: `hook:${hook}`,
+    version: BLOCK_VERSION,
+    body: hookBody(hook, cmds, { globalHooksDir, baseBranch }),
+    style: "hash",
+  });
+  return content;
+}
+
+/**
  * Install (or refresh) the profile's hooks under `.karajan/hooks/` and point
  * `core.hooksPath` there. Idempotent. `dryRun` computes actions without
  * touching disk or git config. `cmds` supplies stack-aware lint/format/test
