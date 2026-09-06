@@ -110,12 +110,16 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
       // regla re-concedida N veces es la política real pidiendo que la
       // cambien por su cauce. Se cuenta contra TODAS las permanentes previas
       // (vencidas incluidas: precisamente esas son la sedimentación).
-      const previous = loadStandingExceptions(projectDir).standing.filter((e) => e.rule_id === rule).length;
+      // KJC-TSK-0813: --global escribe en ~/.karajan (todos los proyectos de
+      // la máquina). El contador de renovaciones cuenta sobre la FUSIÓN.
+      const scope = flags.global ? "global" : "project";
+      const previous = loadStandingExceptions(projectDir, { home: deps.home }).standing.filter((e) => e.rule_id === rule).length;
       const rec = recordPolicyException({
-        projectDir,
+        projectDir, scope, deps: { home: deps.home },
         entry: { rule_id: rule, justification: reason.trim(), scopeKind: "permanente", expiresAt: until },
       });
-      logger.info?.(`✓ excepción permanente registrada: [${rec.rule_id}] hasta ${rec.expiresAt} — concedida por ${rec.who?.git ?? "?"} (${rec.who?.grade ?? "?"})`);
+      const ambit = scope === "global" ? " [ámbito global — todos tus proyectos de esta máquina]" : "";
+      logger.info?.(`✓ excepción permanente registrada${ambit}: [${rec.rule_id}] hasta ${rec.expiresAt} — concedida por ${rec.who?.git ?? "?"} (${rec.who?.grade ?? "?"})`);
       if (previous >= 1) {
         logger.warn?.(`⚠ ${previous + 1}ª concesión sobre esta regla — una excepción que se renueva ya no es una excepción: considera cambiar la política por su cauce (PR a .karajan/policy.yml)`);
       }

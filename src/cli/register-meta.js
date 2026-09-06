@@ -372,6 +372,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--rule <rule_id>", "Regla exacta (p.ej. roles.coder.write.deny)")
     .option("--until <iso>", "Caducidad ISO-8601 (p.ej. 2026-09-01T00:00:00Z)")
     .option("--reason <text>", "Justificación escrita en el momento")
+    .option("--global", "Ámbito global (~/.karajan): vale para todos tus proyectos de esta máquina — KJC-TSK-0813")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-grant", flags, async ({ config }) => {
         process.exitCode = await policyCommand({ action: "grant", config, flags });
