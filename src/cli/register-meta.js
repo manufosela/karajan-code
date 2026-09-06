@@ -783,10 +783,13 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--interactive", "Adopt the kj standard piece by piece (default keeps yours)")
     .option("--dry-run", "Show what would change without writing")
     .option("--json", "Emit machine-readable JSON")
+    .option("--commit", "Versiona la regeneración del supervisor con procedencia sellada (acto humano, ADR 0009)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "harden", flags, async ({ logger }) => {
         await hardenCommand({
           profile: flags.profile,
+          commitSupervisor: flags.commit === true,
+          kjVersion: pkgVersion,
           config: flags.config !== false,
           ci: flags.ci !== false,
           guidelines: flags.guidelines !== false,
