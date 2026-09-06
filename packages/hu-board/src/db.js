@@ -377,6 +377,19 @@ export function ensureDb() {
  * @param {{ id: string, name?: string, first_seen?: string, last_activity?: string, total_stories?: number }} project
  */
 export function upsertProject(project) {
+  // KJC-BUG-0163 — the iron rule: a project NAME is unique on the dashboard.
+  // Two projects with the same visible name are indistinguishable in the
+  // picker; registering the second fails LOUD instead of blending in.
+  if (project.name) {
+    const clash = getDb()
+      .prepare('SELECT id FROM projects WHERE name = ? AND id != ?')
+      .get(project.name, project.id);
+    if (clash) {
+      throw new Error(
+        `board: el nombre "${project.name}" ya pertenece al proyecto "${clash.id}" — dos proyectos no pueden llamarse igual (KJC-BUG-0163); renombra el plan o el directorio de "${project.id}"`,
+      );
+    }
+  }
   // is_shared (KJC-PRP-0002 PR3) is set by sync when a plan came from
   // `.karajan-shared/`. COALESCE with the existing column keeps the badge
   // once it's been promoted — a second non-shared plan won't unset it.
