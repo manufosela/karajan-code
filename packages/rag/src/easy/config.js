@@ -28,10 +28,12 @@ export const CONFIG_FILE = 'karajan.config.json';
  * @property {string} [adapter]
  * @property {Sensitivity} [sensitivity] Nivel del corpus completo (default seguro: internal).
  * @property {SensitivityRule[]} [sensitivityRules] Excepciones por prefijo; gana la primera que matchea.
+ * @property {string[]} [exclude] Globs de ficheros que NUNCA entran al corpus (KJR-TSK-0153).
  */
 
 const VALID_KEYS = Object.freeze([
   'store', 'embedder', 'dimensions', 'topK', 'adapter', 'sensitivity', 'sensitivityRules',
+  'exclude',
 ]);
 const VALID_STORES = Object.freeze(['lancedb', 'pgvector', 'in-memory']);
 const VALID_EMBEDDERS = Object.freeze(['hash', 'transformers']);
@@ -45,6 +47,26 @@ export const DEFAULT_EASY_CONFIG = Object.freeze({
   adapter: 'claude',
   sensitivity: DEFAULT_SENSITIVITY,
 });
+
+/**
+ * Valida una lista `exclude` de globs (KJR-TSK-0153): array de strings no
+ * vacíos; el error señala el path exacto del item inválido.
+ *
+ * @param {unknown} value
+ * @param {string} label
+ * @returns {string[]}
+ */
+export function validateExcludeGlobs(value, label) {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} debe ser un array de globs (strings).`);
+  }
+  value.forEach((glob, i) => {
+    if (typeof glob !== 'string' || glob.length === 0) {
+      throw new Error(`${label}[${i}] debe ser un glob (string no vacío).`);
+    }
+  });
+  return /** @type {string[]} */ (value);
+}
 
 /**
  * Valida la sección `easy` de una config deserializada.
@@ -91,6 +113,9 @@ export function validateEasyConfig(value) {
     throw new Error(
       `karajan.config.json: easy.sensitivity debe ser uno de ${SENSITIVITY_LEVELS.join(', ')}.`,
     );
+  }
+  if (config.exclude !== undefined) {
+    validateExcludeGlobs(config.exclude, `${CONFIG_FILE}: easy.exclude`);
   }
   if (config.sensitivityRules !== undefined) {
     if (!Array.isArray(config.sensitivityRules)) {
