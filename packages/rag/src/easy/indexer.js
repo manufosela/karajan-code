@@ -23,6 +23,7 @@ import {
 } from './manifest.js';
 import { ensureIndexFingerprint } from '../vector-store/fingerprint-guard.js';
 import { DEFAULT_SENSITIVITY } from '../domain/document.js';
+import { validateExcludeGlobs } from './config.js';
 
 /**
  * @typedef {import('./manifest.js').IndexManifest} IndexManifest
@@ -47,7 +48,7 @@ import { DEFAULT_SENSITIVITY } from '../domain/document.js';
  * @property {number} unchangedFiles Ficheros saltados por hash idéntico.
  * @property {number} chunksUpserted
  * @property {boolean} fullReindex true si el fingerprint cambió y se reconstruyó todo.
- * @property {{ path: string, reason: 'binary' | 'unknown' }[]} excluded
+ * @property {{ path: string, reason: 'binary' | 'unknown' | 'config' }[]} excluded
  */
 
 /** Directorios que nunca se indexan. */
@@ -56,12 +57,19 @@ const EXCLUDED_DIRS = new Set([
 ]);
 
 /**
- * Recorre el directorio y clasifica cada fichero por preset.
+ * Recorre el directorio y clasifica cada fichero por preset. KJR-TSK-0153:
+ * los globs de `exclude` se aplican sobre la ruta relativa ANTES de leer o
+ * chunkear nada — lo que casa jamás entra al corpus ni al manifest.
  *
  * @param {string} rootDir
- * @returns {Promise<{ groups: ReturnType<typeof classifySources>, relPaths: string[] }>}
+ * @param {{ exclude?: string[] }} [options]
+ * @returns {Promise<{ groups: ReturnType<typeof classifySources>, relPaths: string[], excludedByGlob: string[] }>}
  */
-export async function collectIndexableFiles(rootDir) {
+export async function collectIndexableFiles(rootDir, options = {}) {
+  const exclude =
+    options.exclude === undefined
+      ? []
+      : validateExcludeGlobs(options.exclude, 'collectIndexableFiles: "exclude"');
   let rootStat;
   try {
     rootStat = await stat(rootDir);
@@ -74,6 +82,8 @@ export async function collectIndexableFiles(rootDir) {
 
   /** @type {string[]} */
   const relPaths = [];
+  /** @type {string[]} */
+  const excludedByGlob = [];
 
   /** @param {string} current */
   async function walk(current) {
@@ -85,14 +95,20 @@ export async function collectIndexableFiles(rootDir) {
         continue;
       }
       if (entry.isFile() && !entry.name.startsWith('.')) {
-        relPaths.push(path.relative(rootDir, full));
+        const relPath = path.relative(rootDir, full);
+        if (exclude.some((glob) => path.matchesGlob(relPath, glob))) {
+          excludedByGlob.push(relPath);
+        } else {
+          relPaths.push(relPath);
+        }
       }
     }
   }
 
   await walk(rootDir);
   relPaths.sort();
-  return { groups: classifySources(relPaths), relPaths };
+  excludedByGlob.sort();
+  return { groups: classifySources(relPaths), relPaths, excludedByGlob };
 }
 
 /**
@@ -121,7 +137,7 @@ export const DEFAULT_INGEST_BATCH_SIZE = 64;
  * Indexa (o reindexa incrementalmente) un directorio.
  *
  * @param {string} rootDir
- * @param {{ store: EasyVectorStore, embedder: EasyEmbedder, onEvent?: (msg: string) => void, batchSize?: number, sensitivityFor?: (relPath: string) => import('../domain/document.js').Sensitivity }} deps
+ * @param {{ store: EasyVectorStore, embedder: EasyEmbedder, onEvent?: (msg: string) => void, batchSize?: number, sensitivityFor?: (relPath: string) => import('../domain/document.js').Sensitivity, exclude?: string[] }} deps
  * @returns {Promise<IndexResult>}
  */
 export async function indexDirectory(rootDir, deps) {
@@ -132,7 +148,9 @@ export async function indexDirectory(rootDir, deps) {
     throw new Error('indexDirectory: "batchSize" debe ser entero positivo.');
   }
 
-  const { groups } = await collectIndexableFiles(rootDir);
+  const { groups, excludedByGlob } = await collectIndexableFiles(rootDir, {
+    exclude: deps.exclude,
+  });
   const fingerprint = computeIndexFingerprint({
     embedderName: embedder.name ?? 'hash',
     dimensions: embedder.dimensions,
@@ -268,6 +286,9 @@ export async function indexDirectory(rootDir, deps) {
     unchangedFiles: unchanged.length,
     chunksUpserted,
     fullReindex,
-    excluded: groups.excluded,
+    excluded: [
+      ...groups.excluded,
+      ...excludedByGlob.map((relPath) => ({ path: relPath, reason: /** @type {const} */ ('config') })),
+    ],
   };
 }

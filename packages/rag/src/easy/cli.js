@@ -653,6 +653,8 @@ export async function runIndexCommand(argv, io = {}) {
     // KJR-BUG-0006: el nivel de sensibilidad declarado en la config se
     // estampa por documento; sin config aplica el default seguro.
     sensitivityFor: (relPath) => resolveDocumentSensitivity(relPath, config),
+    // KJR-TSK-0153: los globs de easy.exclude nunca entran al corpus.
+    exclude: config?.exclude,
   });
   log(
     `hecho: ${result.indexedFiles} indexados, ${result.unchangedFiles} sin cambios, ` +
@@ -660,7 +662,10 @@ export async function runIndexCommand(argv, io = {}) {
       (result.fullReindex ? ' (reindex completo por cambio de fingerprint)' : ''),
   );
   if (result.excluded.length > 0) {
-    log(`excluidos: ${result.excluded.map((e) => `${e.path} (${e.reason})`).join(', ')}`);
+    log(
+      `excluidos (${result.excluded.length}): ` +
+        `${result.excluded.map((e) => `${e.path} (${e.reason})`).join(', ')}`,
+    );
   }
   return result;
 }
