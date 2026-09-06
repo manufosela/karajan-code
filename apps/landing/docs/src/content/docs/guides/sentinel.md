@@ -51,6 +51,10 @@ The turn cannot end while the method is red: suite failing, unreviewed diffs, pe
 
 Same as the stop gate, at the moment of `git push`: nothing leaves the machine with the method red.
 
+## attribution
+
+AI attribution is forbidden by a deterministic project rule — everywhere, with no escape. Three layers enforce it: the commit-msg hook rejects it in commit messages; the pre-commit hook scans the staged diff's ADDED lines (changelog, docs, code comments — tool *mentions* stay legal, attribution does not); and the Sentinel scans every `gh` command that publishes text (PR/issue/release create, edit, comment, review), including the contents of `--body-file`/`--notes-file` — an unreadable file does not publish either. CI re-checks commits, PR body and title. Born from a real catch: 15 PR bodies shipped an attribution footer because only commit messages were scanned (KJC-BUG-0164).
+
 ## escapes
 
 Every escape, what it skips, and when it is legitimate. All of them: one simple command, one use, recorded in the session state and sealed into the decision log — `kj sentinel status` lists what this session used.

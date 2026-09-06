@@ -109,6 +109,14 @@ export function hookBody(hook, cmds = {}, { globalHooksDir = null, baseBranch = 
       if (cmds.format) lines.push(`${cmds.format} || { echo 'kj harden: format check failed'; exit 1; }`);
       if (!cmds.lint && !cmds.format) lines.push("# (no lint/format command detected for this stack)");
       lines.push(
+        "# KJC-BUG-0164: attribution is surface EVERYWHERE — the staged diff's",
+        "# ADDED lines (changelog, docs, code comments) are scanned too, with",
+        "# the same precise pattern (tool MENTIONS stay legal; attribution not).",
+        "# The guard's own definition files are excluded by literal path — they",
+        "# CONTAIN the pattern; excluding a path that does not exist is harmless.",
+        `if git diff --cached -- . ':(exclude).github/workflows/kj-no-ai-attribution.yml' ':(exclude)src/harden/hook-templates.js' ':(exclude)src/harden/workflow-templates.js' ':(exclude)src/harden/sentinel-hooks.js' ':(exclude)scripts/ai-attribution-guard.yml' ':(exclude)tests/harden/attribution-guard.test.js' ':(exclude)tests/harden/sentinel-hooks.test.js' | grep '^+' | grep -qiE '${AI_ATTRIBUTION}|generated with \\[?claude'; then`,
+        "  echo 'kj harden: AI attribution is not allowed in committed content'; exit 1",
+        "fi",
         "# v4 review gate (ENV-C1, opt-in via `kj review --install-gate`):",
         "# a staged diff only enters with a recorded cross-AI approved verdict.",
         "if [ -f .karajan/review-gate ]; then",

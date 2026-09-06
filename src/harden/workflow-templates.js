@@ -36,9 +36,14 @@ export const NO_AI_ATTRIBUTION_WORKFLOW = [
   `      - uses: ${PINNED_ACTIONS.checkout}`,
   "        with:",
   "          fetch-depth: 0",
-  "      - name: Scan commit messages for AI attribution",
+  "      - name: Scan commit messages and PR body for AI attribution",
   "        env:",
   "          BASE_REF: ${{ github.base_ref }}",
+  // KJC-BUG-0164: el cuerpo de la PR tambien es superficie — 15 PRs entraron
+  // con pie de atribucion porque solo se escaneaban commits. Via env, jamas
+  // interpolado en el script (el cuerpo es texto no confiable).
+  "          PR_BODY: ${{ github.event.pull_request.body }}",
+  "          PR_TITLE: ${{ github.event.pull_request.title }}",
   "        run: |",
   '          if ! msgs=$(git log --format=%B "origin/${BASE_REF}...HEAD"); then',
   '            echo "::error::cannot resolve origin/${BASE_REF}...HEAD — the scan did not run"; exit 1',
@@ -47,6 +52,9 @@ export const NO_AI_ATTRIBUTION_WORKFLOW = [
   "          pat=\"$pat|(generated|written|authored|assisted|powered) (by|with|using) .*(claude|anthropic|openai|copilot|gemini)\"",
   '          if printf "%s" "$msgs" | grep -qiE "$pat"; then',
   '            echo "::error::AI attribution detected in commit messages"; exit 1',
+  "          fi",
+  '          if printf "%s\\n%s" "$PR_BODY" "$PR_TITLE" | grep -qiE "$pat|generated with \\[?claude|🤖"; then',
+  '            echo "::error::AI attribution detected in the PR body or title"; exit 1',
   "          fi",
   '          echo "AI attribution scan: clean"',
 ].join("\n");
