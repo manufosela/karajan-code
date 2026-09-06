@@ -7,6 +7,30 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-09-06
+
+### Added
+
+- **`easy.exclude`: globs que mantienen secretos fuera del corpus**
+  (KJR-TSK-0153, [issue #156](https://github.com/manufosela/karajan-rag/issues/156)):
+  patrones glob en `karajan.config.json` que filtran ficheros durante el
+  walk — ANTES de leerlos o chunkearlos — con `path.matchesGlob` (cero
+  dependencias nuevas). El resultado del indexado registra qué se excluyó
+  y por qué.
+- **Fallbacks de entorno para Vertex** (KJR-TSK-0159): `VERTEX_MODEL` y
+  `VERTEX_LOCATION` (precedencia `options > env > default`) — una
+  instancia europea fija región y modelo sin tocar código. Validado en
+  campo contra la API real (200 con texto, `europe-west1` respetado).
+
+### Changed
+
+- **Vertex viaja sobre el Google Gen AI SDK** (KJR-TSK-0159): migrado
+  desde `@google-cloud/vertexai` (deprecado, con fecha de retirada ya
+  pasada y warning en cada carga) a `@google/genai`, manteniendo intactas
+  la firma del adapter y la forma del resultado. El hueco ciego del guard
+  de MAX_TOKENS que destapó la sonda de campo queda cardeado como
+  KJR-BUG-0012.
+
 ## [1.6.0] — 2026-09-04
 
 Primera release del rag desde el monorepo karajan-code y primera publicada

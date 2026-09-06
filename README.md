@@ -65,7 +65,7 @@ Already installed and just want to work — even with no computing background? O
 kj go
 ```
 
-It detects your agent (Claude Code or Codex; asks which one only if you have both), prepares the project silently the first time, opens the board in your browser, and drops you into a conversation that already follows the method. Your agent account and login stay yours — kj never touches credentials.
+It detects your agent (Claude Code or Codex; asks which one only if you have both), prepares the project silently the first time, opens the board in your browser, and drops you into a conversation that already follows the method. Your agent account and login stay yours — kj never touches credentials. Prefer everything in ONE browser window? `kj go --window` embeds the agent's real terminal inside the board (loopback-only, single-session token).
 
 Requires git and at least one AI agent CLI — two enables cross-AI review; three enables arbitration. The npm route is `npm install -g @karajan-family/code` (published as `karajan-code` before joining the scope; the legacy name still installs the same versions). All install routes (npm, binaries, brew, Python wrapper) in the [install docs](https://karajancode.com/docs/v4/install/).
 

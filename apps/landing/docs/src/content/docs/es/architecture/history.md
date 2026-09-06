@@ -1643,6 +1643,26 @@ Esta fase la escribió un apagón real: codex agotó su cuota semanal en mitad d
 
 La pregunta que responde esta fase: si varias IAs saben programar, ¿por qué la tarea se la lleva solo una? `kj tournament` reparte la MISMA tarea a N coders, cada uno en un carril worktree aislado dejando evidencia verificable por carril. Después el embudo se estrecha de forma determinista: `--score` construye un scoreboard con cero LLM — una suite roja elimina en el acto, y la regla lexicográfica de ranking se imprime con el resultado — `--judge` trae un juez cross-AI sin conflicto de interés (un participante nunca juzga su propia carrera; empate o desacuerdo escalan a solomon), y `--crown` corona al ganador por la puerta NORMAL: review cross-AI del diff staged exacto, veredicto ligado por sha256, commit por el gate pre-commit real. Un rechazo ABORTA la coronación — ganar da candidatura, no bypass. El ciclo completo se probó en vivo el primer día. La misma release recogió cuatro fixes de campo: GitHub Actions pineadas por SHA (#1374), configs y gate de lint generados solo con la herramienta presente (#1357), el clipping de diffs declarado como propio del pipeline (#1381), y los splits de fichero ya no se disfrazan de borrado de cobertura — las líneas movidas son señal determinista (#1364).
 
+## Fase 113: v4.16.0–v4.21.0 — Un techo, un kernel, y gates que sobreviven a la memoria
+
+El monorepo reúne a la familia bajo un techo (con la historia de cada origen fusionada, no re-escrita), el kernel de gobernanza se extrae como `@karajan-family/governance` y kj se vuelve su primer consumidor real, y dos reglas que vivían en la memoria del agente se convierten en gates: el candado de identidad (el Sentinel rechaza `gh`, push y commits bajo otra cuenta ANTES de ejecutar) y el board-sync (una card mergeada se mueve en el tracker o nada avanza). La infra cuenta como código: terraform, k8s, shell y Docker disparan los mismos gates que un `.js`.
+
+## Fase 114: v4.22.0 — Nada sin evidencia
+
+Nace la Karajan Console (la pieza más privilegiada de la familia: IAM real, auditoría hash-encadenada, dos proveedores de identidad) y las afirmaciones con fuente se vuelven ADR aceptado: `kj claims check` cruza cada dato duro que la IA afirma contra lo que de verdad se ejecutó — respaldado, sin respaldo, o desmentido por su propia fuente, que es una alucinación probada.
+
+## Fase 115: v4.23.0 — La confianza caduca
+
+Karajan aprende a gobernar el ESTADO del proyecto, no solo sus actos. El Steward sale entero: cada garantía declarada responde una de CUATRO cosas — ok, rota, desconocida (la evidencia caducó) y no observable (nunca hubo dónde mirar), las dos respuestas honestas cuya ausencia dejó degradarse a un proyecto real tras una fachada verde. La cobertura fantasma gana sus dos detectores y la épica de credibilidad elimina los falsos positivos medidos de los gates.
+
+## Fase 116: v4.24.0 — Bienvenidos los maggles
+
+Karajan abre la puerta a quien no ha usado una terminal en su vida. `kj go` es el viaje entero en un comando: detectar el agente, preparar en silencio, abrir el tablero, arrancar una conversación que ya sigue el método en llano. Los instaladores terminan con esa única instrucción y el tablero gana un modo maggle persistente. El futuro de ventana única es deliberadamente un ADR (0008, propuesto): decide el usuario, no la inercia.
+
+## Fase 117: v4.25.0 — Una sola ventana
+
+La ventana única sale el mismo día en que su ADR se acepta. `kj go --window` embebe la terminal REAL del agente dentro del tablero — un pty sobre un WebSocket solo-loopback, el token de sesión viajando como subprotocolo, agentes de un catálogo cerrado — porque la alternativa (un chat SDK que se parece al agente) habría cambiado el harness garantizado del Sentinel por estética. La identidad de proyecto del tablero pasa a ser el repo y no la ruta, terminando con el desfile de proyectos homónimos por worktree. Y la release es el primer acorde de familia: kaRAGan 1.7.0 (Gen AI SDK, fallbacks de entorno, globs de exclusión del corpus) y kaWATCHan 0.8.0 (clasificación en la config) salen a la vez, las dos guiadas por informes de campo de un despliegue europeo real — incluida una sonda en vivo contra la API real de Vertex ejecutada desde su lado de la valla, porque la frontera corporativo/personal también es parte del método.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
