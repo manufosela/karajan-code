@@ -19,7 +19,7 @@ const git = (args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" })
 // ascendencia REAL de la suite (que corre bajo un agente) rechazaría — que es
 // exactamente lo que la capa debe hacer.
 const humanChain = { 100: { ppid: 50, cmd: "bash" }, 50: { ppid: 1, cmd: "sshd: manu@pts/0" } };
-const HUMAN = { env: {}, tty: true, deps: { ancestry: { pid: 100, readProc: (p) => humanChain[p] ?? { ppid: 1, cmd: "init" } } } };
+const HUMAN = { env: {}, tty: true, deps: { confirm: (n) => n, ancestry: { pid: 100, readProc: (p) => humanChain[p] ?? { ppid: 1, cmd: "init" } } } };
 const generation = { profile: "standard", cmds: { lint: "x" }, baseBranch: "main", globalHooksDir: "$HOME/.git-hooks" };
 
 beforeEach(() => {
@@ -62,6 +62,16 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
         deps: { ancestry: { pid: 200, readProc: (p) => chain[p] ?? { ppid: 1, cmd: "init" } } },
       }),
     ).toThrow(/desciende de un agente/);
+    expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
+  });
+
+  it("a blind prompt-feeder fails the nonce: layer 4 refuses (adversarial catch, 6-sep)", () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    for (const confirm of [() => "\n", () => "yes", () => null]) {
+      expect(() =>
+        commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, confirm } }),
+      ).toThrow(/confirmación humana fallida/);
+    }
     expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
   });
 
