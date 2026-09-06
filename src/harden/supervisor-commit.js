@@ -1,14 +1,9 @@
 /**
- * KJC-BUG-0161 / ADR 0009 (opción A) — el cauce sancionado del supervisor.
- *
- * `kj harden --commit` es un ACTO HUMANO: versiona lo que kj harden acaba de
- * regenerar bajo .karajan/hooks con procedencia verificable. Tres piezas:
- * un fichero de provenance TRACKEADO (versión de kj, parámetros de
- * generación y sha256 por fichero — lo que CI necesita para recomputar y
- * comparar), el sello en el acta local hash-encadenada, y un commit que
- * contiene EXACTAMENTE supervisor + provenance (jamás arrastra el árbol).
- * El commit va con --no-verify a conciencia: el gate que se salta en local
- * es el mismo que CI re-verifica contra la provenance (pieza 3).
+ * KJC-BUG-0161 / ADR 0009 (opción A) — `kj harden --commit`, el cauce
+ * sancionado del supervisor: ACTO HUMANO que versiona la regeneración con
+ * provenance trackeada (versión, parámetros, sha256), sello en el acta y
+ * commit quirúrgico. El --no-verify es a conciencia: lo que salta en local
+ * lo re-verifica CI contra la provenance (pieza 3).
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -58,9 +53,7 @@ export function commitSupervisorRegeneration({
     logger.info?.("harden --commit: sin drift en el supervisor — nada que versionar");
     return { committed: false, reason: "sin drift" };
   }
-  // Un drift puede incluir borrados/renombrados (catch de codex): un fichero
-  // ausente se registra como deleted — la provenance dice la verdad del
-  // estado, y `git add` con la ruta versiona también la eliminación.
+  // Borrados/renombrados también son drift (catch de codex): ausente ⇒ deleted.
   const hashed = files.map((file) => {
     const abs = join(projectDir, file);
     return existsSync(abs) ? { file, sha256: sha256(abs) } : { file, deleted: true };

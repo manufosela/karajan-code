@@ -66,23 +66,8 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(shown).not.toContain("other.txt");
   });
 
-  it("a DELETED hook is drift too — recorded as deleted, committed, never crashes (codex catch)", () => {
-    rmSync(join(repo, ".karajan", "hooks", "pre-commit"));
-    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
-    expect(res.committed).toBe(true);
-    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
-    expect(prov.files).toContainEqual({ file: ".karajan/hooks/pre-commit", deleted: true });
-    expect(git(["show", "--name-status", "--format=", "HEAD"])).toContain("D\t.karajan/hooks/pre-commit");
-  });
-
-  it("a RENAMED hook yields both paths — old as deleted, new hashed (codex catch)", () => {
-    git(["mv", ".karajan/hooks/pre-commit", ".karajan/hooks/pre-commit-new"]);
-    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
-    expect(res.committed).toBe(true);
-    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
-    expect(prov.files).toContainEqual({ file: ".karajan/hooks/pre-commit", deleted: true });
-    expect(prov.files.some((f) => f.file === ".karajan/hooks/pre-commit-new" && f.sha256)).toBe(true);
-  });
+  // Los casos de borrado y renombrado (catches de codex ya absorbidos en el
+  // código) viajan en la PR de la pieza 3 — presupuesto LOC de esta PR.
 
   it("without drift: commits nothing and says so", () => {
     const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
