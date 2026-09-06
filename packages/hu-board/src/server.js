@@ -316,8 +316,13 @@ async function main() {
   const terminalManager = createTerminalManager({
     spawnPty: (...args) => requireCjs('node-pty').spawn(...args),
     cwd: process.env.HU_BOARD_TERMINAL_CWD || process.cwd(),
+    promptArg: process.env.HU_BOARD_TERMINAL_PROMPT,
   });
-  app.use('/api/terminal', authMiddleware(), terminalRouter(terminalManager));
+  app.use(
+    '/api/terminal',
+    authMiddleware(),
+    terminalRouter(terminalManager, { defaultAgent: process.env.HU_BOARD_TERMINAL_AGENT || 'claude' }),
+  );
   app.use(
     '/vendor/xterm',
     express.static(dirname(requireCjs.resolve('@xterm/xterm/package.json'))),

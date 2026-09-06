@@ -38,7 +38,7 @@ const run = (over = {}) => {
     launch: vi.fn(async () => 0),
     ...over.deps,
   };
-  return goCommand({ config: { projectDir: dir, ...over.config }, logger: over.logger ?? logger(), flags: {}, deps }).then((code) => ({ code, deps }));
+  return goCommand({ config: { projectDir: dir, ...over.config }, logger: over.logger ?? logger(), flags: over.flags ?? {}, deps }).then((code) => ({ code, deps }));
 };
 
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-go-")); });
@@ -110,5 +110,31 @@ describe("kj go", () => {
     expect(boardUrl(4000, "/?maggle=1")).toBe("http://localhost:4000/?maggle=1");
     expect(boardUrl(4000)).toBe("http://localhost:4000");
     expect(() => boardUrl(4000, "maggle=1")).toThrow(/must start/);
+  });
+  // MGL-E (KJC-TSK-0816, ADR 0008): --window = la conversación vive EN el
+  // board; la fase 1 (terminal + board) sigue siendo el default.
+  it("--window: no se lanza terminal, el board abre con window=1 y el pty hereda cwd, agente y prompt por env", async () => {
+    const calls = [];
+    const { deps } = await run({
+      flags: { window: true },
+      deps: {
+        detect: async () => [agent("claude")],
+        board: vi.fn(async ({ openPath }) => { calls.push(openPath); }),
+      },
+    });
+    expect(deps.launch).not.toHaveBeenCalled();
+    expect(calls[0]).toContain("window=1");
+    expect(process.env.HU_BOARD_TERMINAL_CWD).toBe(dir);
+    expect(process.env.HU_BOARD_TERMINAL_AGENT).toBe("claude");
+    expect(process.env.HU_BOARD_TERMINAL_PROMPT).toMatch(/llano/i);
+    delete process.env.HU_BOARD_TERMINAL_CWD;
+    delete process.env.HU_BOARD_TERMINAL_AGENT;
+    delete process.env.HU_BOARD_TERMINAL_PROMPT;
+  });
+  it("defaultBoard honra openPath", async () => {
+    const calls = [];
+    await defaultBoard({ config: {}, logger: logger(), runBoard: async (opts) => { calls.push(opts); }, openPath: "/?maggle=1&window=1" });
+    const open = calls.find((c) => c.action === "open");
+    expect(open.path).toBe("/?maggle=1&window=1");
   });
 });
