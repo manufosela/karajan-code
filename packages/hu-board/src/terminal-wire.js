@@ -16,11 +16,11 @@ const WS_PATH = '/api/terminal/ws';
  * Monta las rutas REST de la terminal sobre un Router de express.
  * @param {ReturnType<import('./terminal.js').createTerminalManager>} manager
  */
-export function terminalRouter(manager) {
+export function terminalRouter(manager, { defaultAgent = 'claude' } = {}) {
   const router = Router();
   router.post('/start', (req, res) => {
     try {
-      res.json(manager.start({ agent: req.body?.agent ?? 'claude' }));
+      res.json(manager.start({ agent: req.body?.agent ?? defaultAgent }));
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

@@ -154,6 +154,7 @@ export function registerMeta(program, { pkgVersion }) {
   program
     .command("go")
     .description("Arranca Karajan sin saber nada: detecta tu agente, prepara el proyecto, abre el tablero y te deja en la conversación")
+    .option("--window", "La ventana única (ADR 0008): la conversación vive DENTRO del tablero del navegador")
     .action(async (flags) => {
       await withConfig(pkgVersion, "go", flags, async ({ config, logger }) => {
         await goCommand({ config, logger, flags });

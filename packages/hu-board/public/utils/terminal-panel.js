@@ -26,7 +26,9 @@ async function openConversationPanel() {
     const res = await fetch('/api/terminal/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agent: 'claude' }),
+      // Sin agente en el body: decide el servidor (kj go --window fija el
+      // elegido por env; sin él, claude).
+      body: JSON.stringify({}),
     });
     started = await res.json();
     if (!res.ok) throw new Error(started.error || `HTTP ${res.status}`);

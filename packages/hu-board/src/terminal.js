@@ -28,8 +28,10 @@ const tokenMatches = (expected, given) => {
  *   Factoría del pty (node-pty.spawn en producción; fake en tests).
  * @param {string} deps.cwd Directorio del proyecto donde vive el agente.
  * @param {Record<string, string|undefined>} [deps.env]
+ * @param {string} [deps.promptArg] Prompt inicial del agente (kj go --window
+ *   lo pasa por env al daemon) — SIEMPRE del lado servidor, jamás de la red.
  */
-export function createTerminalManager({ spawnPty, cwd, env = process.env }) {
+export function createTerminalManager({ spawnPty, cwd, env = process.env, promptArg }) {
   /** @type {{termId: string, token: string, pty: object, subscribers: Set<Function>, buffer: string[]} | null} */
   let session = null;
 
@@ -58,7 +60,8 @@ export function createTerminalManager({ spawnPty, cwd, env = process.env }) {
       // CLAUDECODE fuera: un Claude anidado se niega a arrancar con ella
       // (la misma peculiaridad que ya maneja kj go).
       const { CLAUDECODE: _omit, ...cleanEnv } = env;
-      const pty = spawnPty(spec.command, spec.args, {
+      const args = promptArg ? [...spec.args, promptArg] : spec.args;
+      const pty = spawnPty(spec.command, args, {
         name: 'xterm-256color',
         cols: 120,
         rows: 32,
