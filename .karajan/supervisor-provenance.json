@@ -1,6 +1,6 @@
 {
   "kj_version": "4.27.0",
-  "generated_at": "2026-09-06T19:11:12.082Z",
+  "generated_at": "2026-09-06T19:13:31.422Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -17,24 +17,8 @@
   },
   "files": [
     {
-      "file": ".karajan/hooks/commit-msg",
-      "sha256": "0a7bb38fe060b64c46dae5baf6e6fd3893e9a58b007515d73520fe5c5bed2666"
-    },
-    {
-      "file": ".karajan/hooks/pre-commit",
-      "sha256": "59b3ea449cd172752bf030e9cfa2b57962925ace10b935a41619ade2a01aaa19"
-    },
-    {
       "file": ".karajan/hooks/pre-push",
-      "sha256": "98749ecf46f82e913460339b2ebff5efe5b6d6f2e25ff1bd10af072238426163"
-    },
-    {
-      "file": ".karajan/hooks/post-merge",
-      "sha256": "3debc2a7239bb758ecaad5db145ff2c139e4bd504abfeecd4405d7ebcc98ee58"
-    },
-    {
-      "file": ".karajan/hooks/prepare-commit-msg",
-      "sha256": "4850712b985d9c2470fbaf55f84019ff739370ad3fd0d941aaefcbdebe6537f9"
+      "sha256": "15cea3fa9360a361dfbbe3d74eb5289cef9f970163a882f4732e2a2bca66e021"
     }
   ]
 }
