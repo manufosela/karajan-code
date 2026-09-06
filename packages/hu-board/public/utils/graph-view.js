@@ -99,7 +99,7 @@ async function renderGraph() {
   if (!selectedProject) {
     app.innerHTML = renderEmptyState(
       'Pick a project first',
-      'The dependency graph is per-project. Choose one in the dropdown above and I will draw its HU DAG.'
+      'The dependency graph is per-project. Pick one on the Dashboard and I will draw its HU DAG.'
     );
     return;
   }

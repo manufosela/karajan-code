@@ -6,8 +6,7 @@
 // the boot block run.
 //
 // Globals consumed from earlier scripts / app.js:
-//   - navigate(), render(), handleRoute(),
-//     populateProjectSelect()         (app.js)
+//   - navigate(), render(), handleRoute() (app.js)
 //   - showCommandLauncher(),
 //     nextIsTestValue()               (utils/command-launcher.js)
 //   - showHelp(), showConfirm(),
@@ -32,13 +31,6 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => navigate(btn.dataset.view));
 });
 
-// Project selector
-document.getElementById('project-select').addEventListener('change', (e) => {
-  selectedProject = e.target.value;
-  window.location.hash = selectedProject ? `${currentView}/${selectedProject}` : currentView;
-  render();
-});
-
 // Sync button — re-scan disk for new batches
 document.getElementById('sync-btn').addEventListener('click', async () => {
   const btn = document.getElementById('sync-btn');
@@ -46,7 +38,6 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
   btn.textContent = '⏳';
   try {
     await fetch('/api/sync', { method: 'POST' });
-    await populateProjectSelect();
     render();
   } catch { /* ignore */ }
   btn.textContent = '🔄';
@@ -106,7 +97,6 @@ document.addEventListener('click', async (e) => {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     // Re-render the project list so the badge reflects the new value.
-    await populateProjectSelect();
     render();
   } catch (err) {
     await showError(err.message, { title: 'Failed to update is_test' });
@@ -130,7 +120,6 @@ document.addEventListener('click', async (e) => {
   try {
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    await populateProjectSelect();
     render();
   } catch (err) {
     await showError(err.message, { title: 'Failed to delete project' });
@@ -161,7 +150,6 @@ startStandbyPolling();
 
 // Initial load — sync disk data first so new batches are visible
 triggerSync().then(() => {
-  populateProjectSelect();
   handleRoute();
   subscribeToServerEvents();
 });
@@ -174,7 +162,6 @@ triggerSync().then(() => {
 refreshInterval = setInterval(async () => {
   if (document.getElementById('modal-backdrop').classList.contains('hidden')) {
     await triggerSync();
-    await populateProjectSelect();
     await smartRefresh(null);
   }
 }, 60_000);

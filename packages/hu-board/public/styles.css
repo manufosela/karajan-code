@@ -124,20 +124,36 @@ a:hover {
   border-color: var(--accent-purple);
 }
 
-.project-select {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  cursor: pointer;
+/* ---- Project sub-bar (KJC-TSK-0820) ----
+ * Second nav level, only visible while a project is loaded. Teal, not
+ * purple: project-scoped actions must read as a different tier from the
+ * generic header. */
+.project-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
 }
 
-.project-select:focus {
-  outline: none;
-  border-color: var(--accent-purple);
+.project-nav[hidden] {
+  display: none;
+}
+
+.project-nav__name {
+  color: var(--accent-teal);
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-right: 8px;
+}
+
+.nav-btn--project:hover,
+.nav-btn--project.active {
+  background: var(--accent-teal-dim);
+  color: var(--bg-primary);
+  border-color: var(--accent-teal-dim);
 }
 
 .header__controls {
@@ -955,13 +971,12 @@ a:hover {
 /* ---- Scoped-project mode (URL: /p/<slug>) ---- */
 /* Hide multi-project affordances when the board is scoped to a single
  * project — the page only makes sense as "this project's Kanban".
- * Multi-project UX (the All Projects selector, the Sessions tab, the
+ * Multi-project UX (the Dashboard picker, the Sessions tab, the
  * Pipeline page link) adds noise and broke the user's mental model
  * during dogfooding. */
-body.scoped-mode .project-select,
 body.scoped-mode .nav-btn[data-view="sessions"],
 body.scoped-mode .nav-btn[data-view="dashboard"],
-body.scoped-mode .header__nav a[href="/pipeline.html"] {
+body.scoped-mode a[href="/pipeline.html"] {
   display: none;
 }
 

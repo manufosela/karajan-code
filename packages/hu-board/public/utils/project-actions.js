@@ -11,8 +11,7 @@
 //   - formatDuration()            (utils/formatters.js)
 //   - projectNameCache            (mutable in app.js — assignment crosses
 //                                  scripts transparently)
-//   - populateProjectSelect()     (app.js)
-//   - renderBoard()               (app.js)
+//   - render()                    (app.js)
 
 /**
  * PR-G: rename a project from the header ✎ button. Opens a small
@@ -67,11 +66,11 @@ window.renameProjectModal = function renameProjectModal(projectId, currentName) 
         return;
       }
       // Update the cached display name + refresh the board so the
-      // header, dropdown and project picker all show the new value.
+      // header, project bar and project picker all show the new value.
       projectNameCache[projectId] = newName;
       try { dlg.close(); } catch { /* ignore */ }
-      await populateProjectSelect();
-      await renderBoard();
+      // render() (not renderBoard()) so the project bar name refreshes too.
+      await render();
     } catch (err) {
       errorEl.style.display = 'block';
       errorEl.textContent = err.message || String(err);
