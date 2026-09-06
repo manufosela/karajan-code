@@ -2,7 +2,7 @@
 
 ## 0.8.0 — 2026-09-06
 
-Minor porque la CONFIG crece (issue [#24](https://github.com/manufosela/karajan-watch/issues/24)):
+Minor porque la CONFIG crece:
 
 ### Nuevo
 
