@@ -207,7 +207,7 @@ export async function hardenCommand({
   // commitSupervisorRegeneration y rechaza sesiones de agente.
   if (commitSupervisor && !dryRun) {
     try {
-      out.supervisorCommit = commitSupervisorRegeneration({
+      out.supervisorCommit = await commitSupervisorRegeneration({
         projectDir,
         kjVersion: kjVersion ?? "unknown",
         generation: result.generation ?? { profile },

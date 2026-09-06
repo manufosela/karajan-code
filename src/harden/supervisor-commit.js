@@ -8,10 +8,11 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
+import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 
 export const PROVENANCE_FILE = ".karajan/supervisor-provenance.json";
 const HOOKS_PREFIX = ".karajan/hooks/";
@@ -68,9 +69,9 @@ export function supervisorDrift({ projectDir, gitFn }) {
 }
 
 /**
- * @returns {{committed: boolean, reason?: string, files?: object[]}}
+ * @returns {Promise<{committed: boolean, reason?: string, files?: object[]}>}
  */
-export function commitSupervisorRegeneration({
+export async function commitSupervisorRegeneration({
   projectDir,
   kjVersion,
   generation,
@@ -117,6 +118,21 @@ export function commitSupervisorRegeneration({
   if (drift.length === 0 && covered) {
     logger.info?.("harden --commit: sin drift y provenance completa — nada que versionar");
     return { committed: false, reason: "sin drift" };
+  }
+  // Capa 5 (KJC-TSK-0822 / PRP-0023): con móvil enrolado la firma asimétrica
+  // es OBLIGATORIA — jamás se degrada a solo-nonce. Firma los MISMOS
+  // files/hashes de la provenance (normalizados al par {file, sha256}).
+  const phone = deps.phone ?? { enrolled: isPhoneEnrolled, request: requestPhoneSignature };
+  if (phone.enrolled({})) {
+    const signed = await phone.request({
+      project: basename(projectDir),
+      files: hashed.map(({ file, sha256: hash }) => ({ file, sha256: hash ?? "" })),
+      kjVersion,
+      logger,
+    });
+    if (!signed.ok) {
+      throw new Error(`capa 5: firma del móvil rechazada (${signed.reason}) — con móvil enrolado el sello exige su firma (PRP-0023)`);
+    }
   }
   const who = readIdentity(projectDir);
   const provenance = {

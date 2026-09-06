@@ -19,7 +19,9 @@ const git = (args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" })
 // ascendencia REAL de la suite (que corre bajo un agente) rechazaría — que es
 // exactamente lo que la capa debe hacer.
 const humanChain = { 100: { ppid: 50, cmd: "bash" }, 50: { ppid: 1, cmd: "sshd: manu@pts/0" } };
-const HUMAN = { env: {}, tty: true, deps: { confirm: (n) => n, ancestry: { pid: 100, readProc: (p) => humanChain[p] ?? { ppid: 1, cmd: "init" } } } };
+// phone.enrolled=false por defecto: la capa 5 (KJC-TSK-0822) solo actúa con
+// móvil enrolado — y el default real miraría el $HOME de quien corre la suite.
+const HUMAN = { env: {}, tty: true, deps: { confirm: (n) => n, phone: { enrolled: () => false }, ancestry: { pid: 100, readProc: (p) => humanChain[p] ?? { ppid: 1, cmd: "init" } } } };
 const generation = { profile: "standard", cmds: { lint: "x" }, baseBranch: "main", globalHooksDir: "$HOME/.git-hooks" };
 
 beforeEach(() => {
@@ -37,48 +39,48 @@ beforeEach(() => {
 afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
 describe("kj harden --commit (KJC-BUG-0161)", () => {
-  it("refuses inside an agent session — the channel is human-only", () => {
+  it("refuses inside an agent session — the channel is human-only", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     for (const ctx of [
       { env: { CLAUDECODE: "1" }, tty: true },
       { env: { KJ_NON_INTERACTIVE: "1" }, tty: true },
       { env: {}, tty: false },
     ]) {
-      expect(() =>
+      await expect(
         commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...ctx }),
-      ).toThrow(/humano/);
+      ).rejects.toThrow(/humano/);
     }
     expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
   });
 
-  it("a faked pty with a clean env still refuses: the process DESCENDS from an agent", () => {
+  it("a faked pty with a clean env still refuses: the process DESCENDS from an agent", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     // script(1) + env -u: tty=true y env limpio — pero la cadena de procesos
     // delata al agente: script ← sh ← node(claude).
     const chain = { 200: { ppid: 150, cmd: "script -qec kj harden --commit" }, 150: { ppid: 120, cmd: "sh" }, 120: { ppid: 1, cmd: "node /usr/lib/claude-code/cli.js" } };
-    expect(() =>
+    await expect(
       commitSupervisorRegeneration({
         projectDir: repo, kjVersion: "9.9.9", generation, env: {}, tty: true,
         deps: { ancestry: { pid: 200, readProc: (p) => chain[p] ?? { ppid: 1, cmd: "init" } } },
       }),
-    ).toThrow(/desciende de un agente/);
+    ).rejects.toThrow(/desciende de un agente/);
     expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
   });
 
-  it("a blind prompt-feeder fails the nonce: layer 4 refuses (adversarial catch, 6-sep)", () => {
+  it("a blind prompt-feeder fails the nonce: layer 4 refuses (adversarial catch, 6-sep)", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     for (const confirm of [() => "\n", () => "yes", () => null]) {
-      expect(() =>
+      await expect(
         commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, confirm } }),
-      ).toThrow(/confirmación humana fallida/);
+      ).rejects.toThrow(/confirmación humana fallida/);
     }
     expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
   });
 
-  it("with drift: writes provenance, seals the acta, and commits ONLY supervisor+provenance", () => {
+  it("with drift: writes provenance, seals the acta, and commits ONLY supervisor+provenance", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     writeFileSync(join(repo, "other.txt"), "dirty working tree survives\n");
-    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
     expect(res.committed).toBe(true);
     const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
     expect(prov.kj_version).toBe("9.9.9");
@@ -94,32 +96,63 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(shown).not.toContain("other.txt");
   });
 
-  it("a DELETED hook is drift too — recorded as deleted, committed (codex catch)", () => {
+  it("a DELETED hook is drift too — recorded as deleted, committed (codex catch)", async () => {
     rmSync(join(repo, ".karajan", "hooks", "pre-commit"));
-    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
     expect(res.committed).toBe(true);
     const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
     expect(prov.files).toContainEqual({ file: ".karajan/hooks/pre-commit", deleted: true });
     expect(git(["show", "--name-status", "--format=", "HEAD"])).toContain("D\t.karajan/hooks/pre-commit");
   });
 
-  it("a RENAMED hook yields both paths — old as deleted, new hashed (codex catch)", () => {
+  it("a RENAMED hook yields both paths — old as deleted, new hashed (codex catch)", async () => {
     git(["mv", ".karajan/hooks/pre-commit", ".karajan/hooks/pre-commit-new"]);
-    const res = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
     expect(res.committed).toBe(true);
     const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
     expect(prov.files).toContainEqual({ file: ".karajan/hooks/pre-commit", deleted: true });
     expect(prov.files.some((f) => f.file === ".karajan/hooks/pre-commit-new" && f.sha256)).toBe(true);
   });
 
-  it("without drift AND full coverage: commits nothing; partial coverage RESEALS (estreno catch)", () => {
+  it("without drift AND full coverage: commits nothing; partial coverage RESEALS (estreno catch)", async () => {
     // Primer sello: sin drift pero sin provenance ⇒ resella (cobertura).
-    const first = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    const first = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
     expect(first.committed).toBe(true);
     const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
     expect(prov.files.length).toBe(1);
     // Segundo: sin drift y cubierto ⇒ nada.
-    const second = commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    const second = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
     expect(second.committed).toBe(false);
+  });
+
+  // Capa 5 (KJC-TSK-0822 / PRP-0023): con móvil enrolado, la firma asimétrica
+  // es OBLIGATORIA y firma los MISMOS files/hashes de la provenance.
+  it("enrolled phone + valid signature: commits, and the phone signed the provenance files", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    let asked;
+    const phone = { enrolled: () => true, request: async (req) => { asked = req; return { ok: true }; } };
+    const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } });
+    expect(res.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(asked.files).toEqual(prov.files.map(({ file, sha256 }) => ({ file, sha256: sha256 ?? "" })));
+    expect(asked.kjVersion).toBe("9.9.9");
+  });
+
+  it("enrolled phone + rejected/expired signature: throws and commits NOTHING — never nonce-only", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    for (const reason of ["firma ed25519 inválida para el payload canónico", "caducado"]) {
+      const phone = { enrolled: () => true, request: async () => ({ ok: false, reason }) };
+      await expect(
+        commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } }),
+      ).rejects.toThrow(reason);
+    }
+    expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
+  });
+
+  it("no phone enrolled: current flow intact — the phone is never asked", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    const phone = { enrolled: () => false, request: async () => { throw new Error("must not be called"); } };
+    const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } });
+    expect(res.committed).toBe(true);
   });
 });
