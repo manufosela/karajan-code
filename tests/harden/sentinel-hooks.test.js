@@ -115,6 +115,7 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   });
 
+  // (sha refrescado el 6-sep: Actions no entregó el evento del push original)
   it("KJC-TSK-0822 v1.1: enrolar la clave del movil es acto humano — comando y fichero denegados", () => {
     const bash = (command) => ({ session_id: "s1", tool_name: "Bash", tool_input: { command } });
     expect(run(gate, bash("kj identity enroll-phone QUJDRA==")).status).toBe(2);
