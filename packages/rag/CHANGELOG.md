@@ -12,7 +12,7 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **`easy.exclude`: globs que mantienen secretos fuera del corpus**
-  (KJR-TSK-0153, [issue #156](https://github.com/manufosela/karajan-rag/issues/156)):
+  (KJR-TSK-0153):
   patrones glob en `karajan.config.json` que filtran ficheros durante el
   walk — ANTES de leerlos o chunkearlos — con `path.matchesGlob` (cero
   dependencias nuevas). El resultado del indexado registra qué se excluyó
