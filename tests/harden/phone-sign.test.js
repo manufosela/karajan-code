@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  canonicalPayload, enrollPhone, isPhoneEnrolled, readEnrolledKey, verifyPhoneSignature,
+  canonicalPayload, enrollPhone, isPhoneEnrolled, readEnrolledKey, requestPhoneSignature, verifyPhoneSignature,
 } from "../../src/harden/phone-sign.js";
 
 const FILES = [
@@ -64,5 +64,64 @@ describe("phone-sign core (KJC-TSK-0822)", () => {
     const reordered = canonicalPayload({ cid: CID, nonce: "cafebabe", project: "karajan-code", files: FILES.toReversed() });
     expect(reordered).not.toBe(payload);
     expect(verifyPhoneSignature({ payload: reordered, signature: signPayload(payload), publicKey: rawPub })).toBe(false);
+  });
+});
+
+// Móvil falso: captura cid+nonce de la petición publicada y firma como la app.
+const fakePhone = ({ key = privateKey, pub = rawPub, state = "signed", mangle = (s) => s } = {}) => {
+  const seen = {};
+  return async (url, opts = {}) => {
+    if (opts.method === "POST") {
+      seen.cid = new URL(url).searchParams.get("documentId");
+      seen.nonce = JSON.parse(opts.body).fields.nonce.stringValue;
+      return { ok: true, json: async () => ({}) };
+    }
+    const payload = canonicalPayload({ cid: seen.cid, nonce: seen.nonce, project: "karajan-code", files: FILES });
+    const fields = state === "signed"
+      ? { state: { stringValue: "signed" }, signature: { stringValue: mangle(signPayload(payload, key)) }, publicKey: { stringValue: pub } }
+      : { state: { stringValue: state } };
+    return { ok: true, json: async () => ({ fields }) };
+  };
+};
+
+describe("requestPhoneSignature (KJC-TSK-0822)", () => {
+  let t;
+  beforeEach(() => { t = 0; });
+  const request = (fetchFn) => requestPhoneSignature({
+    project: "karajan-code", files: FILES, kjVersion: "9.9.9", logger: { info: () => {} },
+    deps: { fetch: fetchFn, home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {} },
+  });
+
+  it("accepts a REAL signature from the enrolled key over the published cid+nonce", async () => {
+    enrollPhone(rawPub, { home });
+    await expect(request(fakePhone())).resolves.toEqual({ ok: true });
+  });
+
+  it("rejects a tampered signature", async () => {
+    enrollPhone(rawPub, { home });
+    const mangle = (s) => { const b = Buffer.from(s, "base64"); b[0] ^= 1; return b.toString("base64"); };
+    const res = await request(fakePhone({ mangle }));
+    expect(res.ok).toBe(false);
+    expect(res.reason).toMatch(/firma/);
+  });
+
+  it("rejects a doc publicKey that is not the ENROLLED one — even with a valid signature", async () => {
+    enrollPhone(rawPub, { home });
+    const other = generateKeyPairSync("ed25519");
+    const otherPub = other.publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+    const res = await request(fakePhone({ key: other.privateKey, pub: otherPub }));
+    expect(res.ok).toBe(false);
+    expect(res.reason).toMatch(/enrolada/);
+  });
+
+  it("expires after 120s of pending state", async () => {
+    enrollPhone(rawPub, { home });
+    await expect(request(fakePhone({ state: "pending" }))).resolves.toEqual({ ok: false, reason: "caducado" });
+    expect(t).toBeGreaterThanOrEqual(120000);
+  });
+
+  it("a dead network fails loudly — no silent fallback", async () => {
+    enrollPhone(rawPub, { home });
+    await expect(request(async () => ({ ok: false, status: 503 }))).rejects.toThrow(/503/);
   });
 });
