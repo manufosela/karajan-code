@@ -74,7 +74,7 @@ async function renderProjectPicker() {
       <span class="section-header__count">${sorted.length} ${maggleText('picker.project', 'project')}${sorted.length === 1 ? '' : 's'}</span>
     </div>
     <p style="padding:8px 4px 16px;color:var(--text-muted);font-size:0.9rem">
-      ${maggleText('picker.hint', 'Pick a project to see its kanban. Use the project selector in the header to switch later.')}
+      ${maggleText('picker.hint', 'Pick a project to see its kanban. To switch later, go back to the Dashboard.')}
     </p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:14px">
       ${sorted.map((p) => {

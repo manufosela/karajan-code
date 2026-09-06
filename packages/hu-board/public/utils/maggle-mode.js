@@ -29,7 +29,7 @@ const MAGGLE_LABELS = {
   'nav.board': 'Tablero',
   'nav.dashboard': 'Proyectos',
   'nav.more': 'Más',
-  'picker.hint': 'Elige un proyecto para ver su tablero. Puedes cambiar de proyecto arriba a la derecha.',
+  'picker.hint': 'Elige un proyecto para ver su tablero. Para cambiar de proyecto, vuelve a «Proyectos».',
   'picker.project': 'proyecto',
   'launcher.title': '📝 Pedir trabajo a Karajan',
   'launcher.planLabel': '📝 Pedir trabajo nuevo',
@@ -86,7 +86,10 @@ function applyMaggleChrome() {
   if (!nav) return;
   const KEEP = { board: MAGGLE_LABELS['nav.board'], dashboard: MAGGLE_LABELS['nav.dashboard'] };
   const advanced = [];
-  for (const btn of nav.querySelectorAll('.nav-btn')) {
+  // KJC-TSK-0820: nav buttons live in TWO bars now — the generic header
+  // and the project sub-bar (#project-nav). Fold both; Tablero stays in
+  // the sub-bar so it only shows once a project is loaded.
+  for (const btn of document.querySelectorAll('.header__nav .nav-btn, .project-nav .nav-btn')) {
     const view = btn.dataset.view;
     if (view && KEEP[view]) {
       btn.title = `${btn.textContent.trim()} — ${btn.title}`;
@@ -118,8 +121,11 @@ function applyMaggleChrome() {
       expert.remove();
     }
   });
-  // After the LAST nav button, so the plain row reads Tablero | Proyectos | Más.
-  advanced.at(-1).after(more);
+  // In the GENERIC bar (before the control buttons), so the plain header
+  // reads Proyectos | Más and the sub-bar keeps only Tablero.
+  const controls = nav.querySelector('.header__controls');
+  if (controls) controls.before(more);
+  else nav.append(more);
 }
 
 if (typeof document !== 'undefined' && document.addEventListener) {

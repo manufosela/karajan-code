@@ -163,6 +163,9 @@ let lastOpenedLog = null;     // { id, label, tailUrl(offset) }
  */
 function navigate(view) {
   currentView = view;
+  // KJC-TSK-0820: going back to the Dashboard unloads the project — it is
+  // the only place where a (different) project gets picked.
+  if (view === 'dashboard' && !scopedProjectSlug) selectedProject = '';
   window.location.hash = selectedProject ? `${view}/${selectedProject}` : view;
 
   // Update active nav button
@@ -179,14 +182,43 @@ function navigate(view) {
  */
 function selectProject(projectId) {
   selectedProject = projectId;
-  document.getElementById('project-select').value = projectId;
   navigate('board');
+}
+
+/**
+ * KJC-TSK-0820 — two-level nav. Which nav bars are visible: the generic
+ * one always; the project sub-bar only while a project is loaded, and
+ * never on the Dashboard (that's where projects get picked). Pure.
+ * @param {string} view
+ * @param {string} projectId
+ * @returns {{ generic: boolean, project: boolean }}
+ */
+function projectNavVisibility(view, projectId) {
+  return { generic: true, project: Boolean(projectId) && view !== 'dashboard' };
+}
+
+/**
+ * Applies projectNavVisibility() to the DOM and stamps the loaded
+ * project's name on the sub-bar.
+ */
+function updateProjectNav() {
+  const bar = document.getElementById('project-nav');
+  if (!bar) return;
+  const visible = projectNavVisibility(currentView, selectedProject).project;
+  bar.hidden = !visible;
+  if (!visible) return;
+  const nameEl = document.getElementById('project-nav-name');
+  nameEl.textContent = projectNameCache[selectedProject] || humaniseProjectName(selectedProject);
+  resolveProjectMeta(selectedProject).then((meta) => {
+    if (meta.name) nameEl.textContent = meta.name;
+  });
 }
 
 /**
  * Renders the current view.
  */
 function render() {
+  updateProjectNav();
   switch (currentView) {
     case 'dashboard': return renderDashboard();
     case 'board': return renderBoard();
@@ -194,46 +226,6 @@ function render() {
     case 'graph': return renderGraph();
     case 'governance': return renderGovernance();
     default: return renderDashboard();
-  }
-}
-
-/**
- * Populates the project selector dropdown.
- */
-async function populateProjectSelect() {
-  try {
-    const projects = await api('/api/projects');
-    const select = document.getElementById('project-select');
-    // Which project should appear pre-selected? Order:
-    //   1. scopedProjectSlug (URL is /p/<slug>)  — locked, never changes
-    //   2. selectedProject (route state, ej. #board/<slug>)
-    //   3. ""                                    — "All Projects"
-    // PR-D: the previous version cleared innerHTML and never marked
-    // any option as selected, so the dropdown showed "All Projects"
-    // even when scoped to one. handleRoute() set .value separately
-    // BUT the value was lost in the race because the matching option
-    // didn't exist yet when handleRoute ran. Setting .selected on
-    // the option directly avoids the race.
-    const desired = scopedProjectSlug || selectedProject || '';
-    select.innerHTML = '';
-    const all = document.createElement('option');
-    all.value = '';
-    all.textContent = 'All Projects';
-    if (desired === '') all.selected = true;
-    select.appendChild(all);
-    for (const p of projects) {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.name || p.id;
-      if (p.id === desired) opt.selected = true;
-      select.appendChild(opt);
-    }
-    // Final guard: if `desired` did not match any rendered option
-    // (project not on the board yet), still set the value so
-    // handleRoute's expectation holds.
-    if (desired) select.value = desired;
-  } catch {
-    // Silently fail — project list will be empty
   }
 }
 
@@ -248,13 +240,15 @@ function handleRoute() {
   // In scoped mode the project is locked — the hash controls the view
   // only. `board/<slug>` becomes `board` and the slug stays fixed.
   currentView = parts[0] || 'board';
-  selectedProject = scopedProjectSlug || parts[1] || '';
+  // Dashboard never carries a loaded project (KJC-TSK-0820): it is the
+  // project picker, so a `#dashboard/<slug>` deep-link drops the slug.
+  selectedProject = scopedProjectSlug
+    || (currentView === 'dashboard' ? '' : parts[1] || '');
 
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.view === currentView);
   });
 
-  document.getElementById('project-select').value = selectedProject;
   render();
 }
 
