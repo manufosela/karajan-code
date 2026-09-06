@@ -1664,6 +1664,10 @@ Karajan opens the door to people with no computing background. `kj go` is the wh
 
 The single window ships the same day its ADR is accepted. `kj go --window` embeds the agent's REAL terminal inside the board — a pty over a loopback-only WebSocket, the session token riding as a subprotocol, agents from a closed catalog — because the alternative (an SDK chat that looks like the agent) would have traded the Sentinel's guaranteed harness for aesthetics. The board's project identity becomes the repo instead of the path, ending the parade of same-named worktree projects. And the release is the first cut as a family chord: kaRAGan 1.7.0 (Gen AI SDK, env fallbacks, corpus exclude globs) and kaWATCHan 0.8.0 (config classification) ship alongside, both steered by a real European deployment's field reports — including a live probe against the actual Vertex API run from their side of the fence, because the corporate/personal boundary is part of the method too.
 
+## Phase 118: v4.26.0 — Government you can read
+
+The same day the one-window release shipped, the government turned its gaze on itself. Exceptions gained a declared scope — project or machine-wide — with provenance stamped from the physical store each record was read from, unfakeable by editing text; the merge lives in the single loading point so the composition invariants of ADR 0006 will evaluate the full union for free. The Sentinel's every message now signs as karajan and links a gate-by-gate documentation page, born from the user's own words: «I don't understand the messages — a link would help». And the HU-Board absorbed two direct user orders the same afternoon they were given: unique repo-derived project names (a duplicate is a loud error, never a twin) and a two-level nav that stops disguising project views as global buttons. The sanctioned channel for versioning what `kj harden` regenerates — the one thing the security class rightly refuses to let even its author merge — is proposed as ADR 0009, for the user to decide.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

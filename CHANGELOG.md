@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.26.0] - 2026-09-06
+
+### Added
+
+- **Exceptions gain a declared scope — project or global — with PHYSICAL provenance** (KJC-TSK-0813, on accepted ADR 0006): `kj policy grant --global` records a grant valid for every project on the machine, stored in `~/.karajan/policy-exceptions.jsonl`, signed and with a MANDATORY expiry (a global one-shot makes no sense: puntual exceptions bind to one artifact's hash). Provenance is stamped from the store each record was physically read from — whatever a line claims about itself is ignored, so origin cannot be forged by editing text. The gate consults the MERGED set (a live global grant exempts like a local one; security stays inexemptable in EVERY scope), `kj policy report` marks each living grant's scope and splits the summary only when global grants exist, the review gate names the scope when it exempts, and the decision seal keeps the provenance. The merge lives in the single loading point, so the composition invariants of ADR 0006 will evaluate the project+global union for free when they land. Delivered by two parallel worktree lanes, TDD, cross-AI approved first pass on both.
+- **The Sentinel signs its messages and links its own documentation** (KJC-TSK-0814, from dev_001's field feedback: «no entiendo los mensajes… un enlace ayudaría»): every hook message now signs as `karajan sentinel:` (the bare old prefix is gone — the `kj sentinel status` COMMAND references were left intact), and each blocking gate ends with a stable doc link — `karajancode.com/docs/guides/sentinel/#<gate>` — to the new gate-by-gate page: what each of the 12 gates protects, and a table of the 11 real `KJ_ALLOW_*` escapes with verified semantics, the simple-command rule, and the fact that every use is recorded and sealed. Contract tests bind templates to page: a linked anchor without a literal heading breaks the suite. No added verbosity: the link replaces prose.
+- **The kj-managed CI workflows are versioned** (KJC-TSK-0818): kj-policy (bumped to this kj), kj-no-ai-attribution, kj-pack-smoke, kj-quality and the managed `.editorconfig` now live in the repo — with one real review catch absorbed at the TEMPLATE level: the attribution scan swallowed an unresolvable base range (`|| true`) and now fails LOUD, with its test. The supervisor's git hooks stay out deliberately: `defaults.supervisor.write` (security class, inexemptable) denies them in review AND in CI — the missing sanctioned channel is carded as KJC-BUG-0161, a design decision for the user.
+
+- **The board's nav splits into two honest levels** (KJC-TSK-0820, the user's direct order): the top bar keeps ONLY generic buttons; loading a project from the dashboard reveals a visually distinct project bar — the project's NAME plus its scoped views (board, graph, sessions, governance, pipeline, rag, wiki). The confusing project select is GONE with every reference: switching projects means going back to the dashboard, which also unloads the current one. Maggle mode keeps the same contract. Structural contract tests bind index.html to the rule.
+
+### Fixed
+
+- **Every board project was named «brain-backlog»** (KJC-BUG-0162): the default backlog plan's own name was winning over the repo-derived name, so real projects showed up indistinguishable in the picker. A DEFAULT is not a user choice: only a real, user-given plan name overrides the name derived from the repo directory. Existing rows self-correct on the next sync.
+- **A project name is UNIQUE on the dashboard — the iron rule** (KJC-BUG-0163, the user's direct order: «JAMÁS poderse llamar igual. Que dé error»): registering a project whose name already belongs to another id fails LOUD, naming both; the sync rejects the conflicting one and every other project keeps syncing. No silent auto-disambiguation: the error IS the signal that something needs a better name.
+- **The LOC gate counted the built landing docs** (KJC-TSK-0818): the `public/docs/**` exclusion was root-anchored — inherited from when the landing lived in its own repo — so `apps/landing/public/docs/**` (Starlight build output, weight nobody wrote) counted against the 200-line budget and failed a real PR. One line: the monorepo-path equivalent exclusion.
+
 ## [4.25.0] - 2026-09-06
 
 ### Added
