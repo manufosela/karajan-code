@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Karajan — firma del supervisor</title>
+<style>
+  :root { --bg: #0f1520; --panel: #1a2a35; --line: #2a3a4e; --text: #d0dbe3; --dim: #6b8fa3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; display: flex; justify-content: center; }
+  main { width: 100%; max-width: 34rem; padding: 2rem 1.25rem 3rem; }
+  h1 { font-size: 1.3rem; color: #fff; }
+  .hint { color: var(--dim); font-size: 0.9rem; }
+  code, pre { font-family: ui-monospace, monospace; }
+  pre#pubkey { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; font-size: 1.05rem; word-break: break-all; white-space: pre-wrap; }
+  ul#files { list-style: none; margin: 0 0 1.5rem; padding: 0; max-height: 40vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  ul#files li { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+  ul#files code { display: block; color: var(--dim); font-size: 0.72rem; word-break: break-all; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; }
+  dt { color: var(--dim); } dd { margin: 0; font-family: ui-monospace, monospace; }
+  button { width: 100%; padding: 0.9rem; border: 1px solid var(--dim); border-radius: 8px; background: var(--line); color: #fff; font-size: 1.05rem; cursor: pointer; }
+  button:disabled { opacity: 0.5; }
+</style>
+</head>
+<body>
+<main>
+  <section id="loading"><p>Cargando…</p></section>
+  <section id="enroll" hidden>
+    <h1>Tu clave de supervisor</h1>
+    <p>Esta es la clave pública de este teléfono. La privada no sale del navegador.</p>
+    <pre id="pubkey"></pre>
+    <button id="copy">Copiar la clave</button>
+    <p>En tu ordenador: <code>kj identity enroll-phone &lt;clave&gt;</code></p>
+    <p class="hint">Cuando la clave esté enrolada, abre el enlace de firma que te dé kj.</p>
+  </section>
+  <section id="approve" hidden>
+    <h1>Petición de firma</h1>
+    <dl><dt>Proyecto</dt><dd id="project"></dd><dt>kj</dt><dd id="version"></dd></dl>
+    <p class="hint">Ficheros que quedarán sellados:</p>
+    <ul id="files"></ul>
+    <button id="sign-btn">Firmar el sello</button>
+  </section>
+  <section id="done" hidden><h1>Firmado.</h1><p>Vuelve al ordenador.</p></section>
+  <section id="error" hidden><h1>No se puede continuar</h1><p id="error-text"></p></section>
+</main>
+<script>
+  const API_KEY = "AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8";
+  const BASE = "https://firestore.googleapis.com/v1/projects/karajan-code/databases/(default)/documents/kjSupervisorSign";
+  const $ = (id) => document.getElementById(id);
+  const show = (id) => { for (const s of document.querySelectorAll("section")) s.hidden = s.id !== id; };
+  const fail = (msg) => { $("error-text").textContent = msg; show("error"); };
+  const enc = (s) => new TextEncoder().encode(s);
+  const b64 = (buf) => new Uint8Array(buf).toBase64();
+  const idbOp = (mode, fn) => new Promise((res, rej) => {
+    const open = indexedDB.open("kj-sign", 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("keys");
+    open.onerror = () => rej(open.error);
+    open.onsuccess = () => {
+      const req = fn(open.result.transaction("keys", mode).objectStore("keys"));
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    };
+  });
+  const sha256hex = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", enc(s))).toHex();
+  const signMode = async (cid, keys) => {
+    let res;
+    try { res = await fetch(`${BASE}/${cid}?key=${API_KEY}`); } catch { return fail("Sin conexión. Revisa la red y recarga la página."); }
+    if (res.status === 404) return fail("Esta petición de firma no existe o ha caducado. Genera una nueva desde el ordenador con kj.");
+    if (!res.ok) return fail(`No se pudo leer la petición (error ${res.status}). Recarga la página; si sigue, genera otra desde kj.`);
+    const f = (await res.json()).fields ?? {};
+    if (f.state?.stringValue !== "pending") return fail("Esta petición ya está firmada o ya no admite firma. Si necesitas firmar, genera una nueva desde kj.");
+    const nonce = f.nonce?.stringValue ?? "";
+    const project = f.project?.stringValue ?? "";
+    const files = (f.files?.arrayValue?.values ?? []).map((v) => ({ file: v.mapValue.fields.file.stringValue, sha256: v.mapValue.fields.sha256.stringValue }));
+    $("project").textContent = project;
+    $("version").textContent = f.kj_version?.stringValue ?? "";
+    for (const it of files) {
+      const li = document.createElement("li");
+      li.textContent = it.file;
+      const sha = document.createElement("code");
+      sha.textContent = it.sha256;
+      li.append(sha);
+      $("files").append(li);
+    }
+    show("approve");
+    $("sign-btn").onclick = async () => {
+      $("sign-btn").disabled = true;
+      try {
+        const payload = `kj-supervisor-sign:v1:${cid}:${nonce}:${project}:${await sha256hex(JSON.stringify(files))}`;
+        const signature = b64(await crypto.subtle.sign("Ed25519", keys.privateKey, enc(payload)));
+        const publicKey = b64(await crypto.subtle.exportKey("raw", keys.publicKey));
+        const mask = ["state", "signature", "publicKey", "signedAt"].map((p) => `updateMask.fieldPaths=${p}`).join("&");
+        const body = JSON.stringify({ fields: {
+          state: { stringValue: "signed" }, signature: { stringValue: signature },
+          publicKey: { stringValue: publicKey }, signedAt: { timestampValue: new Date().toISOString() },
+        } });
+        const patch = await fetch(`${BASE}/${cid}?${mask}&key=${API_KEY}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
+        if (!patch.ok) return fail(`El servidor rechazó la firma (error ${patch.status}). La petición pudo caducar: genera una nueva desde kj.`);
+        show("done");
+      } catch { fail("No se pudo firmar. Recarga la página e inténtalo otra vez."); } finally { $("sign-btn").disabled = false; }
+    };
+  };
+  const main = async () => {
+    if (!crypto?.subtle || typeof Uint8Array.prototype.toBase64 !== "function") {
+      return fail("Este navegador no soporta la criptografía que necesita la firma. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día).");
+    }
+    let keys = await idbOp("readonly", (store) => store.get("v1")).catch(() => null);
+    const isNew = !keys;
+    if (isNew) {
+      try { keys = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]); }
+      catch { return fail("Este navegador no soporta claves Ed25519. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día)."); }
+      await idbOp("readwrite", (store) => store.put(keys, "v1"));
+    }
+    const cid = new URLSearchParams(location.search).get("c");
+    if (cid && !/^[0-9a-f]{32}$/.test(cid)) return fail("El enlace no es válido. Genera uno nuevo desde el ordenador con kj.");
+    if (cid && !isNew) return signMode(cid, keys);
+    $("pubkey").textContent = b64(await crypto.subtle.exportKey("raw", keys.publicKey));
+    $("copy").onclick = async () => { await navigator.clipboard.writeText($("pubkey").textContent); $("copy").textContent = "Copiada"; };
+    show("enroll");
+  };
+  main();
+</script>
+</body>
+</html>
