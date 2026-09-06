@@ -1,7 +1,8 @@
 # Composicion de autorizaciones: cuando dos excepciones legitimas juntas son una brecha
 
-Status: proposed
+Status: accepted
 Date: 2026-08-21
+Accepted: 2026-09-06 (dev_001)
 
 ## Context
 
