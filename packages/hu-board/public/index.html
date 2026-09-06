@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Karajan HU Board</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-family='sans-serif' font-weight='bold'>K</text></svg>">
 </head>
 <body>
@@ -35,6 +36,7 @@
         <button class="control-btn" id="help-btn" title="What does each view do? Quick reference for Board / Graph / Dashboard / Sessions / Pipeline.">?</button>
         <button class="control-btn" id="config-btn" title="Configurar Karajan (modelos, agentes, tope de iteraciones, …)">⚙</button>
         <button class="control-btn" id="commands-btn" title="Launch a Karajan CLI command (kj plan, kj architect, kj clean…)">⚡</button>
+        <button class="control-btn" id="conversation-btn" title="Conversación con tu agente — la terminal real, dentro del board (ADR 0008)" onclick="openConversationPanel()">💬</button>
         <button class="control-btn" id="restart-btn" title="Restart the HU Board server (preserves URL, the page reconnects automatically)">🔁</button>
         <button class="control-btn" id="sync-btn" title="Re-scan disk for new batches">🔄</button>
         <button class="control-btn" id="force-refresh-btn" title="Force a clean reload — wipes browser caches and reloads. Use when the UI looks stale and a normal refresh isn't fixing it." onclick="window.forceRefresh()">🧹</button>
@@ -67,6 +69,8 @@
   <script src="/utils/preflight-view.js"></script>
   <script src="/utils/plan-rollup-view.js"></script>
   <script src="/utils/log-panel.js"></script>
+  <script src="/vendor/xterm/lib/xterm.js"></script>
+  <script src="/utils/terminal-panel.js"></script>
   <script src="/utils/hu-actions.js"></script>
   <script src="/utils/project-actions.js"></script>
   <script src="/utils/story-edit-form.js"></script>
