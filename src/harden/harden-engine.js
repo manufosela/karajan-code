@@ -76,5 +76,7 @@ export async function installHooks({
     await runCommand("git", ["config", "core.hooksPath", HOOKS_DIR], { cwd: projectDir });
   }
 
-  return { profile, hooksPath: HOOKS_DIR, dryRun, hooks: results };
+  // KJC-BUG-0161: los parámetros con los que SE GENERÓ — lo que la
+  // provenance necesita registrar para que CI pueda recomputar y comparar.
+  return { profile, hooksPath: HOOKS_DIR, dryRun, hooks: results, generation: { profile, cmds, baseBranch, globalHooksDir } };
 }

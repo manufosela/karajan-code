@@ -14,6 +14,7 @@ import { resolveTestOnPush } from "../harden/test-on-push.js";
 import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { interactiveHarden } from "../harden/interactive.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
+import { commitSupervisorRegeneration } from "../harden/supervisor-commit.js";
 import { installConfigsForRoots } from "../harden/config-engine.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
@@ -88,6 +89,8 @@ export async function hardenCommand({
   interactive = false,
   only = [],
   exclude = [],
+  commitSupervisor = false,
+  kjVersion = null,
   logger = console,
 } = {}) {
   const repoCfg = readHardenConfig(projectDir);
@@ -198,6 +201,25 @@ export async function hardenCommand({
     const id = await ensureIdentity({ projectDir, logger });
     out.identity = id.declared ? id.identity : null;
     if (id.pending) out.identityPending = id.pending;
+  }
+  // KJC-BUG-0161 / ADR 0009 (opción A): --commit versiona la regeneración
+  // del supervisor con procedencia sellada. Acto humano — el guard vive en
+  // commitSupervisorRegeneration y rechaza sesiones de agente.
+  if (commitSupervisor && !dryRun) {
+    try {
+      out.supervisorCommit = commitSupervisorRegeneration({
+        projectDir,
+        kjVersion: kjVersion ?? "unknown",
+        generation: result.generation ?? { profile },
+        logger,
+      });
+    } catch (err) {
+      // Fallar ALTO (catch de codex): un --commit que no commitea no puede
+      // devolver ok — quien lo pidió debe verlo, no descubrirlo después.
+      logger.error?.(`kj harden: ${err.message}`);
+      out.supervisorCommit = { committed: false, reason: err.message };
+      out.ok = false;
+    }
   }
   return out;
 }
