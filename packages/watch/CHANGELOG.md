@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0 — 2026-09-06
+
+Minor porque la CONFIG crece (issue [#24](https://github.com/manufosela/karajan-watch/issues/24)):
+
+### Nuevo
+
+- **Clasificación en la config** (KJW-TSK-0037): `repos[].group`,
+  `repos[].dora {service, tier}` y `corpus.docs.sensitivityRules
+  [{prefix, level}]` — todo validado estricto con rutas JSON exactas,
+  niveles cerrados al vocabulario de karajan-rag y prefijos duplicados
+  rechazados. Nada de esto cambia el juicio todavía: es la base
+  declarativa sobre la que se agrupan métricas y se etiqueta
+  sensibilidad de docs.
+
 ## 0.7.0 — 2026-09-05
 
 Minor porque el CONTRATO del juicio cambia (issue [#23](https://github.com/manufosela/karajan-watch/issues/23),

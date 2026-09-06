@@ -1660,6 +1660,10 @@ Karajan learns to govern the project's STATE, not just its acts. The **Steward**
 
 Karajan opens the door to people with no computing background. `kj go` is the whole journey in one command: detect the agent, prepare silently, open the board, start a conversation that already follows the method in plain language. The installers end with that one instruction, and the board gains a persistent maggle mode — plain vocabulary with the jargon demoted to tooltips, a launcher that promises what will happen before it happens, activity without a terminal, and errors that always carry a next step. The expert UI is untouched. The single-window future is deliberately an ADR (0008, proposed): embedding the agent's REAL terminal via pty preserves the Sentinel's guaranteed hooks, while an SDK-based chat would trade the harness for aesthetics — so the user decides, not inertia. GREBLA's field campaign closes with interpolated-label phantom detection and findings that point at the test.
 
+## Phase 117: v4.25.0 — One window
+
+The single window ships the same day its ADR is accepted. `kj go --window` embeds the agent's REAL terminal inside the board — a pty over a loopback-only WebSocket, the session token riding as a subprotocol, agents from a closed catalog — because the alternative (an SDK chat that looks like the agent) would have traded the Sentinel's guaranteed harness for aesthetics. The board's project identity becomes the repo instead of the path, ending the parade of same-named worktree projects. And the release is the first cut as a family chord: kaRAGan 1.7.0 (Gen AI SDK, env fallbacks, corpus exclude globs) and kaWATCHan 0.8.0 (config classification) ship alongside, both steered by a real European deployment's field reports — including a live probe against the actual Vertex API run from their side of the fence, because the corporate/personal boundary is part of the method too.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

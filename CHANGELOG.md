@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.25.0] - 2026-09-06
+
+### Added
+
+- **The single window — the REAL agent terminal inside the board** (MGL-E, KJC-TSK-0816, ADR 0008 accepted by the user): `kj go --window` opens ONE browser window where the conversation and the board live together. The board embeds the agent's real terminal — a pty bridged over a loopback-only WebSocket, rendered with xterm — so the harness stays exactly what it was: the process IS the interactive agent, the Sentinel's synchronous hooks intact. This is why the SDK-chat alternative was rejected in the ADR: aesthetics never buys back a guaranteed harness. Security of the surface, by construction: agents come from a CLOSED catalog (what travels over the network is which agent, never a command — with `hasOwn` against prototype keys), a 128-bit single-session token is handed out only behind the board's auth and compared in constant time, it rides the WS as a SUBPROTOCOL (URLs end up in logs; subprotocols do not), and the initial prompt/agent/cwd reach the daemon by environment — server-side only. Closing the panel does NOT kill the session (reconnect with buffered replay); ending it does, cleanly. Phase 1 (terminal + board) remains the default: an addition, never a replacement. Six codex review catches absorbed across the four PRs — prototype-key indexing, a stale pty's late exit nulling a fresh session, the instance `ws.OPEN` that was always undefined, double-open racing, no reconnection path after close, and the stranded-muggle fallback when the board cannot open. `kj audit --security`: clean.
+- **The board's project identity is the repo, not the path** (KJC-BUG-0160): a linked worktree (`.claude/worktrees/*`, kj lanes) used to register the same repo as a brand-new project — 13+ same-named entries in a real picker. `git rev-parse --git-common-dir` (cached, injectable) resolves every worktree to its main tree's root; non-git directories keep their path as identity.
+- **watch: config classification and docs sensitivity rules** (KJW-TSK-0037, delivered by a parallel worktree lane): `repos[].group`, `repos[].dora {service, tier}` and `corpus.docs.sensitivityRules [{prefix, level}]` — all validated strictly with exact JSON paths, levels closed to karajan-rag's vocabulary, duplicate prefixes rejected.
+- **rag: `exclude` globs keep secrets out of the corpus** (KJR-TSK-0153, delivered by a parallel worktree lane): `easy.exclude` in `karajan.config.json` filters files during the walk — before reading or chunking — with `path.matchesGlob` (zero new dependencies) and the exclusion reason recorded in the index result.
+- **rag: Vertex rides the Google Gen AI SDK** (KJR-TSK-0159): migrated off `@google-cloud/vertexai` (deprecated, removal date already past, warning on every load) keeping the adapter signature and result shape intact, plus `VERTEX_MODEL`/`VERTEX_LOCATION` environment fallbacks (`options > env > default`) so an EU instance pins region and model without code. **Field-validated against the real API by the tribbu deployment**: 200 with text, region respected (`europe-west1`), env fallbacks confirmed — their probe also mapped a blind spot in the MAX_TOKENS guard, carded as KJR-BUG-0012.
+- **ADRs 0006 and 0008 accepted** by the user (2026-09-06): grant-composition invariants (unblocks scoped exceptions, KJC-TSK-0813) and the single window (shipped above).
+
 ## [4.24.0] - 2026-09-03
 
 ### Added
