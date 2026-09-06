@@ -148,6 +148,15 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await identityCommand({ action: "set", config, flags });
       });
     });
+  identityCmd
+    .command("enroll-phone")
+    .description("Enroll the phone's PUBLIC signing key (base64 of the raw 32-byte ed25519 key) for the supervisor seal")
+    .argument("<publicKeyBase64>", "raw ed25519 public key, base64 (shown by the phone app)")
+    .action(async (publicKeyBase64, flags) => {
+      await withConfig(pkgVersion, "identity-enroll-phone", flags, async ({ config }) => {
+        process.exitCode = await identityCommand({ action: "enroll-phone", config, flags: { ...flags, publicKeyBase64 } });
+      });
+    });
 
   // MGL-A (KJC-TSK-0808): the muggle launcher — one command, at most one
   // question, and the person lands inside a governed conversation.
