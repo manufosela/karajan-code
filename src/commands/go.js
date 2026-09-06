@@ -46,12 +46,13 @@ export function buildGoPrompt() {
 async function defaultPrepare({ config, logger }) {
   await envInstallCommand({ config, logger, flags: { yes: true } });
 }
-export async function defaultBoard({ config, logger, runBoard = boardCommand }) {
+export async function defaultBoard({ config, logger, runBoard = boardCommand, openPath = "/?maggle=1" }) {
   const port = config.hu_board?.port || 4000;
   await runBoard({ action: "start", port, bind: "127.0.0.1", logger });
   // /?maggle=1 switches the frontend to plain language (KJC-TSK-0810) —
-  // the muggle's window opens already speaking their language.
-  await runBoard({ action: "open", port, bind: "127.0.0.1", path: "/?maggle=1", logger });
+  // the muggle's window opens already speaking their language. With
+  // &window=1 (KJC-TSK-0816) the conversation itself lives IN the board.
+  await runBoard({ action: "open", port, bind: "127.0.0.1", path: openPath, logger });
 }
 function defaultLaunch(agent, prompt) {
   // Interactive session: the muggle LIVES here. CLAUDECODE is stripped so a
@@ -96,13 +97,40 @@ export async function goCommand({ config = {}, logger = console, flags = {}, dep
     logger.info?.("Preparando tu proyecto (solo la primera vez)…");
     await (deps.prepare ?? defaultPrepare)({ config, logger });
   }
+  const prompt = (deps.prompt ?? buildGoPrompt)();
+  // --window (MGL-E, ADR 0008): la conversación vive DENTRO del board — el
+  // daemon hereda por env el cwd, el agente elegido y el prompt inicial, y
+  // el pty arranca el agente REAL (harness intacto). La fase 1 sigue siendo
+  // el default: sin el flag, nada cambia.
+  const windowMode = Boolean(flags.window);
+  if (windowMode) {
+    process.env.HU_BOARD_TERMINAL_CWD = projectDir;
+    process.env.HU_BOARD_TERMINAL_AGENT = chosen.name;
+    process.env.HU_BOARD_TERMINAL_PROMPT = prompt;
+  }
   // The board is the muggle's window — unless the project turned it off
   // (hu_board.enabled false is respected: KJC-BUG-0152). A board failure is
   // said and never stops the conversation from starting.
+  let boardOpened = false;
   if (config.hu_board?.enabled !== false) {
-    try { await (deps.board ?? defaultBoard)({ config, logger }); } catch (err) { logger.warn?.(`El tablero no pudo abrirse (${err.message}) — la conversación arranca igual.`); }
+    const openPath = windowMode ? "/?maggle=1&window=1" : "/?maggle=1";
+    try {
+      await (deps.board ?? defaultBoard)({ config, logger, openPath });
+      boardOpened = true;
+    } catch (err) {
+      logger.warn?.(`El tablero no pudo abrirse (${err.message}) — la conversación arranca igual.`);
+    }
   }
-  const prompt = (deps.prompt ?? buildGoPrompt)();
+  if (windowMode && boardOpened) {
+    logger.info?.("Tu conversación vive en la ventana del navegador que se acaba de abrir. Si el tablero ya estaba arrancado de antes, reinícialo con kj board stop && kj go --window para que recoja este proyecto.");
+    process.exitCode = 0;
+    return 0;
+  }
+  if (windowMode) {
+    // Sin board no hay ventana: se dice y la conversación arranca en la
+    // terminal — el maggle nunca se queda sin sesión (catch de codex).
+    logger.warn?.("Sin tablero no hay ventana única: abro la conversación aquí mismo.");
+  }
   logger.info?.("Abriendo tu conversación… (escribe ahí lo que necesites, en tu idioma)");
   const code = await (deps.launch ?? defaultLaunch)(chosen, prompt);
   process.exitCode = code;
