@@ -2,12 +2,39 @@ rules_version = '2';
 
 // Karajan landing Firestore rules.
 //
-// The only collection we use is `telemetry`, and it is intentionally
-// write-only via the Admin SDK from the `telemetry` Cloud Function. No
-// browser, no MCP, no third-party client should ever read or write
-// directly. Deny everything by default.
+// `telemetry` is intentionally write-only via the Admin SDK from the
+// `telemetry` Cloud Function. No browser, no MCP, no third-party client
+// should ever read or write directly. Deny everything by default; the
+// only client-reachable collection is `kjSupervisorSign` below.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // kjSupervisorSign (KJC-TSK-0822, PRP-0023): relay for the phone
+    // signature of the supervisor seal. Capability + TTL model: the doc
+    // id is a 32-hex secret shared only through the signing link, so
+    // `get` is open but `list` is denied (ids cannot be enumerated) and
+    // `delete` is denied. A doc is only creatable as a fresh `pending`
+    // request (createdAt within +-2 min of server time) and only
+    // updatable once, pending -> signed, touching exactly the signature
+    // fields, within 3 min of creation. After the TTL the doc is inert.
+    match /kjSupervisorSign/{cid} {
+      allow get: if true;
+      allow list: if false;
+      allow delete: if false;
+      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state'])
+        && request.resource.data.keys().hasAll(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state'])
+        && request.resource.data.state == 'pending'
+        && request.resource.data.nonce is string
+        && request.resource.data.project is string
+        && request.resource.data.files is list
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt > request.time - duration.value(2, 'm')
+        && request.resource.data.createdAt < request.time + duration.value(2, 'm');
+      allow update: if resource.data.state == 'pending'
+        && request.resource.data.state == 'signed'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'signature', 'publicKey', 'signedAt'])
+        && request.time < resource.data.createdAt + duration.value(3, 'm');
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
