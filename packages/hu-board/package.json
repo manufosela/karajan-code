@@ -13,13 +13,16 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "karajan-core": "*",
+    "@xterm/xterm": "^6.0.0",
     "better-sqlite3": "^12.10.0",
     "chokidar": "^5.0.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
-    "js-yaml": "^4.2.0"
+    "js-yaml": "^4.2.0",
+    "karajan-core": "*",
+    "node-pty": "^1.1.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "supertest": "^7.1.0",
