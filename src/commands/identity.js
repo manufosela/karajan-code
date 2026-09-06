@@ -8,6 +8,7 @@
  *           no session and no flags → exit 1.
  */
 
+import { enrollPhone } from "../harden/phone-sign.js";
 import { readIdentity, writeIdentity } from "../identity/store.js";
 import { activeGhUser, effectiveGitEmail } from "../identity/detect.js";
 import { compareIdentity } from "../identity/compare.js";
@@ -22,6 +23,18 @@ export async function identityCommand({ action = "show", config, flags = {}, dep
     gh_user: activeGhUser(detectOpts.hostsPath ? { hostsPath: detectOpts.hostsPath } : {}),
     git_email: effectiveGitEmail(projectDir, detectOpts.gitFn ? { gitFn: detectOpts.gitFn } : {}),
   };
+
+  // KJC-TSK-0822: enrola la clave PÚBLICA del móvil (la privada nunca toca esta máquina).
+  if (action === "enroll-phone") {
+    try {
+      enrollPhone(flags.publicKeyBase64, { home: deps.home });
+    } catch (err) {
+      log(`kj identity enroll-phone: ${err.message}`);
+      return 1;
+    }
+    log("Móvil enrolado: la clave pública quedó en ~/.karajan/supervisor-phone.json. A partir de ahora, sellar el supervisor pedirá la firma de tu móvil.");
+    return 0;
+  }
 
   if (action === "set") {
     const candidate = { gh_user: flags.gh || effective.gh_user, git_email: flags.email || effective.git_email };

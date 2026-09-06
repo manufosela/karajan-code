@@ -50,6 +50,19 @@ describe("kj identity show|set", () => {
   });
   beforeEach(() => { lines = []; });
 
+  // KJC-TSK-0822: enroll-phone valida y confirma en llano; clave mala ⇒ exit 1.
+  it("enroll-phone guarda la clave del móvil y rechaza una que no sea 32 bytes", async () => {
+    const good = Buffer.alloc(32, 7).toString("base64");
+    const run = (publicKeyBase64) =>
+      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64 }, deps: { ...deps(), home: dir } });
+    expect(await run("corta")).toBe(1);
+    expect(lines.join("\n")).toMatch(/32 bytes/);
+    expect(await run(good)).toBe(0);
+    const saved = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "supervisor-phone.json"), "utf8"));
+    expect(saved.publicKey).toBe(good);
+    expect(lines.join("\n")).toMatch(/enrolado/i);
+  });
+
   it("set --yes ata lo efectivo AVISANDO y show lo marca ACTIVA", async () => {
     expect(await identityCommand({ action: "set", config: { projectDir: dir }, flags: { yes: true }, deps: deps() })).toBe(0);
     expect(readIdentity(dir)).toMatchObject({ gh_user: "manufosela", git_email: "a@b.c" });
