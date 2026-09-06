@@ -456,7 +456,12 @@ export function syncPlanFile(filePath) {
     //      with a SPEC about "Linux Assistant", the basename here would
     //      misleadingly say "Hu Board" — that's why plan.name wins.
     //   3. slugToTitle of the task / projectId as a last resort.
-    const projectName = data.name
+    // KJC-BUG-0162: the default backlog plan is named "brain-backlog" — a
+    // DEFAULT, not a user choice. Every project synced through it ended up
+    // named "brain-backlog", indistinguishable in the picker. Only a real,
+    // user-given plan name may override the repo-derived name.
+    const userGivenName = data.name && data.name !== 'brain-backlog' ? data.name : null;
+    const projectName = userGivenName
       || (canonicalDir ? titleCaseBasename(basename(canonicalDir)) : null)
       || slugToTitle(data.task || '')
       || projectId;
