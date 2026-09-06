@@ -52,6 +52,13 @@ async function rawDiff(range, extraArgs = []) {
   return res.stdout;
 }
 
+// KJC-TSK-0813 (AC3): la exención dice su PROCEDENCIA — un standing global
+// (concedido para toda la máquina) no pasa por uno del proyecto. El texto
+// de las de proyecto queda EXACTAMENTE como estaba.
+export const formatExempted = (e) => (e.standing
+  ? `⚠ policy standing [${e.rule_id}] — excepción permanente${e.standing.origin === "global" ? " GLOBAL" : ""} viva hasta ${e.standing.expiresAt} (${e.standing.justification || "sin justificación"})`
+  : `⚠ policy exempt [${e.rule_id}] — excepción registrada en .karajan/policy-exceptions.jsonl (${e.justification})`);
+
 function printVerdict(record) {
   if (record.verdict === "approved") {
     const ws = record.workspace ? ` [${record.workspace}]` : "";
@@ -257,11 +264,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   });
   const at = (v) => (v.file ? ` (${v.file})` : "");
   for (const w of gate.warns) console.log(`⚠ policy [${w.rule_id}] ${w.reason}${at(w)}`);
-  for (const e of gate.exempted) {
-    console.log(e.standing
-      ? `⚠ policy standing [${e.rule_id}] — excepción permanente viva hasta ${e.standing.expiresAt} (${e.standing.justification || "sin justificación"})`
-      : `⚠ policy exempt [${e.rule_id}] — excepción registrada en .karajan/policy-exceptions.jsonl (${e.justification})`);
-  }
+  for (const e of gate.exempted) console.log(formatExempted(e));
   // GOV-C (KJC-TSK-0747): las decisiones de chokepoint dejan rastro
   // hash-encadenado — cada deny, cada excepción, y el allow del commit.
   const chokepoint = flags.check ? "commit" : "review";

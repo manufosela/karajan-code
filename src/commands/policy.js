@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
-import { loadExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
+import { loadExceptionRecords, loadGlobalExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { buildPolicyReport } from "../policy/report.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
@@ -138,7 +138,11 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
     try {
       decisionLines = readFileSync(join(projectDir, ".karajan", "policy-decisions.jsonl"), "utf8").split("\n").filter((l) => l.trim());
     } catch { /* sin decisiones aún: el informe lo dice con ceros */ }
-    const exc = loadExceptionRecords(projectDir);
+    // KJC-TSK-0813 (AC3): el informe cubre TAMBIÉN el almacén global — cada
+    // registro llega con su origin FÍSICO estampado por la carga.
+    const proj = loadExceptionRecords(projectDir);
+    const glob = loadGlobalExceptionRecords({ home: deps.home });
+    const exc = { records: [...proj.records, ...glob.records], discarded: proj.discarded + glob.discarded };
     const soonDays = Number(flags.soon ?? 7);
     const report = buildPolicyReport({ decisionLines, exceptionRecords: exc.records, policy, soonDays: Number.isFinite(soonDays) ? soonDays : 7 });
     if (flags.json) {
@@ -156,8 +160,10 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
       const meta = [r.enforcement && `enforcement=${r.enforcement}`, r.class && `class=${r.class}`].filter(Boolean).join(" ");
       logger.info?.(`  [${r.rule_id}] ${meta} — warn ${r.warns} · deny ${r.denies} · exempt ${r.exempts} · abiertas ${r.open}`);
     }
-    logger.info?.(`concesiones: vivas ${g.alive.length} (próximas a vencer ${g.soon.length}) · vencidas ${g.expired.length} · puntuales ${g.point}`);
-    for (const e of g.alive) logger.info?.(`  [${e.rule_id}] hasta ${e.expiresAt} — ${e.who?.git ?? "?"}: ${e.justification ?? "sin justificación"}`);
+    // Con 0 globales el resumen queda EXACTAMENTE como siempre (hay consumidores de texto).
+    const globals = g.alive.filter((e) => e.origin === "global").length;
+    logger.info?.(`concesiones: vivas ${g.alive.length} (${globals > 0 ? `${globals} globales, ` : ""}próximas a vencer ${g.soon.length}) · vencidas ${g.expired.length} · puntuales ${g.point}`);
+    for (const e of g.alive) logger.info?.(`  [${e.rule_id}] hasta ${e.expiresAt}${e.origin === "global" ? " [global]" : ""} — ${e.who?.git ?? "?"}: ${e.justification ?? "sin justificación"}`);
     logger.info?.(report.signals.length > 0 ? "señales:" : "señales: ninguna");
     for (const s of report.signals) logger.warn?.(`  ⚠ ${s}`);
     return chain.ok ? 0 : 1;
