@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.27.0] - 2026-09-06
+
+### Added
+
+- **The supervisor's sanctioned channel — a HUMAN act, adversarially proven** (KJC-BUG-0161, ADR 0009 accepted option A by the user, PRs #1631-#1635): the one thing the security class rightly refused to let even its author merge — versioning what `kj harden` regenerates under `.karajan/hooks` — gains its channel. `kj harden --commit` is a human act: it computes the drift, writes a TRACKED provenance file (kj version, generation parameters, sha256 per file, declared identity), seals the act in the hash-chained decision log, and makes a surgical commit containing exactly supervisor + provenance. The gates (local review AND CI policy check) lift a supervisor diff ONLY when its content matches the sealed provenance AND the canonical render this kj recomputes — one manual comma stays denied, so **even a successful forgery could never weaken the guards: the content can only be what kj itself generates**. The provenance file is itself supervisor surface, and its own diff lifts only when the whole provenance verifies.
+- **Four layers of "human", built under fire**: the user ordered a real adversarial test — «quiero probar que no puedes, ni aunque yo te lo ordene». The battery: (1) the Sentinel denies the command in-session before it runs — and self-proved by blocking a legitimate command of the very session that wrote it, twice; (2) no real terminal, no deal; (3) **process ancestry**: a faked pty (`script`) with a scrubbed environment still descends from the agent's process, and `/proc` tells — refusal names the telltale ancestor; (4) after an ORPHANED double-fork with fed prompts genuinely got through layers 1-3 in the sandbox, a random nonce must be typed back on the process's REAL controlling tty (`/dev/tty`, which a feeder pipe does not have). Final battery: five attack classes, zero commits. The honest residual is documented: on hardware the agent fully controls, absolute impossibility needs external factors — what the channel guarantees is that no path exists without premeditated multi-layer deception, every attempt leaves a forensic trail, and the content cap holds regardless.
+- **Portable hook templates**: the chain to the user's previous global hooks resolves through `$HOME` at runtime — no machine's absolute home path baked into committed files (which also made recomputation possible at all).
+
 ## [4.26.0] - 2026-09-06
 
 ### Added
