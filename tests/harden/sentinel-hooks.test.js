@@ -115,6 +115,17 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   });
 
+  it("KJC-TSK-0822 v1.1: enrolar la clave del movil es acto humano — comando y fichero denegados", () => {
+    const bash = (command) => ({ session_id: "s1", tool_name: "Bash", tool_input: { command } });
+    expect(run(gate, bash("kj identity enroll-phone QUJDRA==")).status).toBe(2);
+    expect(run(gate, bash("cat /home/x/.karajan/supervisor-phone.json")).status).toBe(2);
+    const w = run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: "/home/x/.karajan/supervisor-phone.json", content: "{}" } });
+    expect(w.status).toBe(2);
+    expect(w.stderr).toMatch(/acto humano/);
+    // kj identity show sigue permitido
+    expect(run(gate, bash("kj identity show")).status).toBe(0);
+  });
+
   it("ADR 0009: kj harden --commit es acto humano — la sesion lo tiene denegado SIN escape", () => {
     for (const command of ["kj harden --commit", "KJ_ALLOW_CROSS_LANE=1 kj harden --profile strict --commit"]) {
       const blocked = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });

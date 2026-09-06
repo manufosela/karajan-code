@@ -371,6 +371,18 @@ process.stdin.on("end", () => {
       console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);
     }
+    // KJC-TSK-0822 v1.1: enrolar (o pisar) la clave del movil es acto humano
+    // — si un agente pudiera enrolar una clave SUYA, contestaria la capa 5 el
+    // solo. Ni el comando ni el fichero de enrolamiento desde la sesion.
+    {
+      const enrollCmd = String(input.command || "");
+      const namesEnroll = (enrollCmd.includes("identity") && enrollCmd.includes("enroll-phone")) || enrollCmd.includes("supervisor-phone.json");
+      const writesEnroll = EDIT_TOOLS.includes(tool) && String(input.file_path || "").includes("supervisor-phone.json");
+      if ((tool === "Bash" && namesEnroll) || writesEnroll) {
+        console.error("karajan sentinel: el enrolamiento del movil (capa 5) es un acto humano — pideselo a tu usuario; supervisor-phone.json no se toca desde la sesion." + doc("supervisor"));
+        process.exit(2);
+      }
+    }
     // ADR 0009 (KJC-BUG-0161): kj harden --commit es un ACTO HUMANO — la
     // sesion ni lo intenta. Sin escape (superficie de supervisor). includes()
     // a proposito: cero ambiguedad de escapes en plantilla, y fail-closed
