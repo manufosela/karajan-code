@@ -12,8 +12,24 @@ import { join } from "node:path";
 import qrcode from "qrcode-terminal";
 
 const SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
-const API_KEY = "AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8"; // clave de cliente Firestore: pública por diseño
-const COLLECTION_URL = "https://firestore.googleapis.com/v1/projects/karajan-code/databases/(default)/documents/kjSupervisorSign";
+// La config del relé (apiKey de cliente Firestore — pública por diseño, la
+// misma que la página firmante lleva incrustada) NO viaja en el tarball: el
+// escáner de privacidad del pack deniega claves google con razón general, y
+// servirla desde la landing la hace además rotable sin release.
+const RELAY_CONFIG_URL = "https://karajancode.com/sign/relay.json";
+let relayCache = null;
+async function relayConfig(fetchFn) {
+  if (relayCache) return relayCache;
+  const res = await fetchFn(RELAY_CONFIG_URL);
+  if (!res.ok) throw new Error(`phone-sign: no pude cargar la config del relé (${res.status}) — revisa la red`);
+  const cfg = await res.json();
+  if (!cfg?.apiKey || !cfg?.projectId || !cfg?.collection) throw new Error("phone-sign: config del relé incompleta");
+  relayCache = {
+    apiKey: cfg.apiKey,
+    url: `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/${cfg.collection}`,
+  };
+  return relayCache;
+}
 const SIGN_PAGE = "https://karajancode.com/sign";
 const POLL_INTERVAL_MS = 2000;
 const TTL_MS = 120000;
@@ -72,7 +88,8 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
       files: { arrayValue: { values: files.map((f) => ({ mapValue: { fields: { file: { stringValue: f.file }, sha256: { stringValue: f.sha256 ?? "" } } } })) } },
     },
   };
-  const created = await fetchFn(`${COLLECTION_URL}?documentId=${cid}&key=${API_KEY}`, {
+  const relay = await relayConfig(fetchFn);
+  const created = await fetchFn(`${relay.url}?documentId=${cid}&key=${relay.apiKey}`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
   });
   if (!created.ok) {
@@ -83,7 +100,7 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
   logger.info?.(`phone-sign: escanea el QR o abre ${signUrl} y firma en el móvil (caduca en ${TTL_MS / 1000}s)`);
   const deadline = now() + TTL_MS;
   while (now() < deadline) {
-    const res = await fetchFn(`${COLLECTION_URL}/${cid}?key=${API_KEY}`);
+    const res = await fetchFn(`${relay.url}/${cid}?key=${relay.apiKey}`);
     if (!res.ok) throw new Error(`phone-sign: fallo consultando la petición de firma (HTTP ${res.status})`);
     const fields = (await res.json()).fields ?? {};
     if (fields.state?.stringValue === "signed") {
