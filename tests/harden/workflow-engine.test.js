@@ -33,6 +33,10 @@ describe("installWorkflows", () => {
     // FAIL the job — swallowing it would pass the scan on an empty corpus.
     expect(text).not.toContain("|| true");
     expect(text).toContain("cannot resolve origin/");
+    // KJC-BUG-0164: the PR body is attribution surface too — via env (never
+    // interpolated into the script: untrusted text), scanned with the pattern.
+    expect(text).toContain("PR_BODY: ${{ github.event.pull_request.body }}");
+    expect(text).toContain("AI attribution detected in the PR body");
   });
 
   it("is idempotent", () => {

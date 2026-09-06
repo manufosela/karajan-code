@@ -115,6 +115,26 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   });
 
+  it("KJC-BUG-0164: gh que publica con atribucion a IA se deniega — inline, fichero, e ilegible", () => {
+    const bash = (command) => ({ session_id: "s1", tool_name: "Bash", tool_input: { command } });
+    // inline
+    const inline = run(gate, bash('gh pr create --title x --body "Generated with [Claude Code]"'));
+    expect(inline.status).toBe(2);
+    expect(inline.stderr).toMatch(/atribucion/);
+    // fichero sucio
+    const dirty = path.join(dir, "body.md");
+    fs.writeFileSync(dirty, "Todo bien.\n\nCo-Authored-By: Claude <x@y>\n");
+    expect(run(gate, bash(`gh pr create --title x --body-file ${dirty}`)).status).toBe(2);
+    // fichero ilegible: sin escaneo no se publica
+    expect(run(gate, bash("gh pr create --title x --body-file /no/existe.md")).status).toBe(2);
+    // limpio: pasa
+    const clean = path.join(dir, "clean.md");
+    fs.writeFileSync(clean, "Cuerpo normal usando codex como reviewer del metodo.\n");
+    expect(run(gate, bash(`gh pr create --title x --body-file ${clean}`)).status).toBe(0);
+    // gh de lectura: ni se mira
+    expect(run(gate, bash("gh pr view 12 --json state")).status).toBe(0);
+  });
+
   it("ADR 0009: kj harden --commit es acto humano — la sesion lo tiene denegado SIN escape", () => {
     for (const command of ["kj harden --commit", "KJ_ALLOW_CROSS_LANE=1 kj harden --profile strict --commit"]) {
       const blocked = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });

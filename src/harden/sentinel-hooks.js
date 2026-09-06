@@ -371,6 +371,32 @@ process.stdin.on("end", () => {
       console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);
     }
+    // KJC-BUG-0164: todo gh que PUBLICA texto (pr/issue/release, create/edit/
+    // comment/review) se escanea contra el patron de ATRIBUCION a IA antes de
+    // salir — comando inline Y ficheros --body-file/--notes-file. Regla
+    // determinista del proyecto: prohibido, sin escape. Un fichero ilegible
+    // tampoco publica (fail closed).
+    {
+      // Regex SIN backslashes a proposito (clases de caracteres, emoji
+      // literal): asi la plantilla y el fichero generado son identicos y no
+      // hay doble-escape que leer mal.
+      const ghCmd = String(input.command || "");
+      if (tool === "Bash" && /(^|[^a-zA-Z])gh([^a-zA-Z]|$)/.test(ghCmd) && /(^|[^a-z])(pr|issue|release)([^a-z]|$)/.test(ghCmd) && /(^|[^a-z])(create|edit|comment|review)([^a-z]|$)/.test(ghCmd)) {
+        const attrib = /co-authored-by:.{0,120}(claude|gpt|copilot|gemini)|(generated|written|created) (by|with).{0,120}(claude|gpt|copilot|gemini|codex)|generated with [[]?claude|🤖/is;
+        let corpus = ghCmd;
+        for (const m of ghCmd.matchAll(/--(?:body-file|notes-file|comment-file)[= ]+("([^"]+)"|'([^']+)'|([^ ]+))/g)) {
+          const bodyPath = m[2] || m[3] || m[4];
+          try { corpus += "\\n" + readFileSync(bodyPath, "utf8"); } catch {
+            console.error("karajan sentinel: no puedo leer " + bodyPath + " para el escaneo de atribucion — sin escaneo no se publica." + doc("attribution"));
+            process.exit(2);
+          }
+        }
+        if (attrib.test(corpus)) {
+          console.error("karajan sentinel: atribucion a IA detectada en contenido a PUBLICAR (PR/issue/release) — prohibida por regla determinista del proyecto: limpia el texto." + doc("attribution"));
+          process.exit(2);
+        }
+      }
+    }
     // ADR 0009 (KJC-BUG-0161): kj harden --commit es un ACTO HUMANO — la
     // sesion ni lo intenta. Sin escape (superficie de supervisor). includes()
     // a proposito: cero ambiguedad de escapes en plantilla, y fail-closed
