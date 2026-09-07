@@ -604,6 +604,15 @@ process.stdin.on("end", () => {
     }
     if (tool === "Bash") {
       const cmd = String(input.command || "");
+      // KJC-BUG-0166: una sesion intento EN BUCLE retirar el ARBOL PRINCIPAL
+      // con git worktree remove y KJ_ALLOW_CROSS_LANE puesto. Retirar un
+      // worktree es destruccion de la estructura del repo — jamas trabajo de
+      // una sesion, y el escape de cruce NO puede ampararlo. Deny sin escape
+      // (el cauce sancionado es kj worktree done, que corre dentro de kj).
+      if (/(^|[^a-z])git[^a-z]+worktree[^a-z]+(remove|prune)/.test(cmd)) {
+        console.error("karajan sentinel: git worktree remove/prune no se ejecuta desde una sesion — destruccion de estructura del repo, sin escape; usa kj worktree done." + doc("cross-lane"));
+        process.exit(2);
+      }
       // Deny-unless-known-read-only: un allowlist de verbos mutadores era
       // esquivable (dd, interpretes). Solo un comando SIMPLE de lectura (sin
       // encadenar ni redirigir) puede nombrar otro carril; leer carriles es
