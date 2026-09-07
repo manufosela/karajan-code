@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.28.0] - 2026-09-07
+
+### Added
+
+- **Layer 5: the supervisor seal is signed from your PHONE** (KJC-TSK-0822, implementing PRP-0023 — chosen by the user over TOTP, whose shared secret would live on the very machine the agent controls): enrollment happens ONCE on a static signer page (`karajancode.com/sign`) where your phone's browser generates an Ed25519 keypair with a NON-EXTRACTABLE private key — it never leaves the phone; you register the public half with `kj identity enroll-phone`. From then on, sealing the supervisor paints a QR-challenge in the terminal; your phone opens it, shows IN CLEAR what is being signed (project, kj version, every file with its sha256 — anti-phishing by design), and one tap signs the canonical payload. The signature travels back through a minimal relay (a Firestore capability-URL document: unguessable id, single pending→signed transition, 3-minute TTL, list/delete denied — rules proven against the deployed instance) and kj verifies it against the ENROLLED key, never the one the message claims. With a phone enrolled, the signature is MANDATORY — no downgrade to the nonce; enrolling (or overwriting) the key is itself a human act the session cannot perform, closing the loop the technical E2E deliberately walked through. The relay config ships from the landing, not the tarball (rotatable without a release; the pack privacy scanner stays clean). Delivered by two parallel worktree lanes plus orchestrator fixes; end-to-end verified against production: challenge → real page → browser signature → relay → verification, `ok:true`.
+- **AI attribution is forbidden by DETERMINISTIC rules on every surface** (KJC-BUG-0164, the user's direct order after catching 15 PR bodies with an attribution footer — added by the AI following a harness default the project rule overrides, through the one surface the guard did not cover): the pre-commit hook now scans the staged diff's ADDED lines (changelog, docs, code comments — tool mentions stay legal, attribution does not; the guard's own definition files excluded by literal path after it caught ITSELF twice during development); the Sentinel scans every `gh` command that publishes text — PR/issue/release × create/edit/comment/review — inline and `--body-file`/`--notes-file`, an unreadable file publishes nothing; CI re-checks commits plus PR body and title. All template-level: every hardened project inherits the guards.
+
+### Fixed
+
+- The attribution-scan false-positive fights are over by construction: the new Sentinel regexes carry ZERO backslashes (character classes, literal emoji) after an arbitration where Solomon sided with the reviewer — the escaping ambiguity a template reader could misjudge no longer exists.
+
 ## [4.27.0] - 2026-09-06
 
 ### Added
