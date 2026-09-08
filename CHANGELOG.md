@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.28.1] - 2026-09-08
+
+### Fixed
+
+- **The headless coder no longer derails into scaffolding** (KJC-BUG-0167): a field run (kaWATCHan's MATIAS) finished the real subtask correctly, then invented a rogue `.verify-main` worktree and a "set up go project structure" bootstrap (generic js+go `.gitignore`) that had nothing to do with the task. Two guards, both template-level so every hardened project inherits them: the Sentinel now denies raw `git worktree add` from a session (extending the KJC-BUG-0166 remove/prune deny — the sanctioned path is `kj worktree start|done`, which runs inside kj), and the coder prompt anchors scope hard — an EXISTING project, implement ONLY the current HU, never scaffold/bootstrap/initialize or add a generic multi-stack `.gitignore`.
+
 ## [4.28.0] - 2026-09-07
 
 ### Added
