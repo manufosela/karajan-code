@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.28.0 — la llave la tiene el móvil (actual)
+### v4.28.1 — sin andamiaje en un repo existente (actual)
+
+Patch: una ejecución del coder headless terminó su subtarea real y después descarriló inventándose un bootstrap de «montar la estructura del proyecto» (un worktree de verify rebelde, un `.gitignore` genérico multi-stack). Dos guards a nivel de plantilla lo cierran — el Sentinel deniega ya `git worktree add` crudo desde una sesión (el cauce es `kj worktree start|done`), y el prompt del coder ancla el alcance: proyecto existente, implementa solo la HU actual, nunca andamiaje ni bootstrap.
+
+### v4.28.0 — la llave la tiene el móvil
 
 Minor en la que la última capa del sello del supervisor pasa a ser una **firma desde tu móvil** (KJC-TSK-0822, la respuesta que elegiste a «prueba que no puedes, nunca»): una página firmante genera un par Ed25519 cuya mitad privada jamás sale del teléfono; `kj harden --commit` pinta un QR de desafío, el móvil muestra en claro qué se sella y un toque lo firma, y kj lo verifica contra la clave pública enrolada. Con el móvil enrolado la firma es obligatoria — la llave que aprueba un sello del supervisor sencillamente no vive en la máquina que el agente controla, verificado de punta a punta contra producción. Enrolar esa clave es a su vez un acto humano que la sesión no puede ejecutar. Junto a ello, **la atribución a IA queda prohibida por reglas deterministas en toda superficie** — contenido del commit, cuerpo y título de la PR, y todo `gh` que publica texto — tras un caso real en el que un default del harness coló pies de atribución por delante de un guard que solo miraba los mensajes de commit. Y dos guards de sesión nacidos de reportes de campo: el Sentinel deniega en seco `git worktree remove` del árbol principal del repo (una ejecución descarrilada lo intentó en bucle), y enrolar la clave del móvil es solo humano. El único residual honesto — verificar la firma en CI, server-side, para que nunca dependa de que kj corra sin parchear — queda planificado.
 
