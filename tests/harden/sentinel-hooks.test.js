@@ -135,15 +135,16 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(run(gate, bash("gh pr view 12 --json state")).status).toBe(0);
   });
 
-  it("KJC-BUG-0166: git worktree remove/prune desde sesion se deniega SIN escape (casi borra el arbol principal)", () => {
+  it("KJC-BUG-0166/0167: git worktree add/remove/prune desde sesion se deniega SIN escape", () => {
     const bash = (command, env = {}) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
-    for (const c of ["git worktree remove /home/manu/ws_tribbu/matias", "git  worktree  prune", "git\tworktree\tremove /x"]) {
+    for (const c of ["git worktree remove /home/manu/ws_tribbu/matias", "git  worktree  prune", "git\tworktree\tremove /x", "git worktree add .verify-main HEAD"]) {
       expect(bash(c).status).toBe(2);
       expect(bash(c).stderr).toMatch(/worktree/);
     }
     // ni con el escape de cruce puesto
-    expect(bash("git worktree remove /x", { KJ_ALLOW_CROSS_LANE: "1" }).status).toBe(2);
-    // el cauce sancionado (kj worktree done) no es este comando y no se toca
+    expect(bash("git worktree add /x main", { KJ_ALLOW_CROSS_LANE: "1" }).status).toBe(2);
+    // el cauce sancionado (kj worktree start|done) no es este comando y no se toca
+    expect(bash("kj worktree start mi-slug").status).toBe(0);
     expect(bash("kj worktree done mi-slug").status).toBe(0);
   });
 

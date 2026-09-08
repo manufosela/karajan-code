@@ -76,6 +76,13 @@ describe("productContext injection into prompts", () => {
     expect(result).not.toContain("## Product Context");
   });
 
+  it("buildCoderPrompt anchors scope against scaffolding derailment (KJC-BUG-0167)", async () => {
+    const result = await buildCoderPrompt({ task: "Add login" });
+    expect(result).toContain("EXISTING project");
+    expect(result).toMatch(/NEVER scaffold, bootstrap or initialize/);
+    expect(result).toMatch(/never create git worktrees/);
+  });
+
   it("buildCoderPrompt omits productContext by default", async () => {
     const result = await buildCoderPrompt({ task: "Add login" });
     expect(result).not.toContain("## Product Context");

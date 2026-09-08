@@ -246,6 +246,10 @@ export async function buildCoderPromptLayout({ task, reviewerFeedback = null, so
     section(langInstruction, STABLE),
     section("Implement directly in the repository.", STABLE),
     section("Keep changes minimal and production-ready.", STABLE),
+    // KJC-BUG-0167: a headless coder finished the real subtask, then derailed
+    // into inventing a "set up project structure" bootstrap (generic js+go
+    // .gitignore, a rogue verify worktree). Anchor the scope hard.
+    section("SCOPE: this is an EXISTING project. Implement ONLY the current HU against the code already here. NEVER scaffold, bootstrap or initialize project structure, never add a generic multi-stack .gitignore, and never create git worktrees (`git worktree add`) — your workspace is already prepared. If a step ever reads like 'set up the project', treat it as a misread of an existing repo: re-read the HU and make the real change.", STABLE),
     section("Follow SOLID principles. Write small, focused functions (< 30 lines).", STABLE),
     section("Make atomic commits: 1 logical change = 1 commit. Keep PRs small and reviewable.", STABLE),
     section("Security: validate all input, parameterize queries, never expose secrets. Use the auth pattern that matches the stack (e.g. httpOnly cookies for web sessions).", STABLE),
