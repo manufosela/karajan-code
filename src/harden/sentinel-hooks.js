@@ -616,13 +616,14 @@ process.stdin.on("end", () => {
     }
     if (tool === "Bash") {
       const cmd = String(input.command || "");
-      // KJC-BUG-0166: una sesion intento EN BUCLE retirar el ARBOL PRINCIPAL
-      // con git worktree remove y KJ_ALLOW_CROSS_LANE puesto. Retirar un
-      // worktree es destruccion de la estructura del repo — jamas trabajo de
-      // una sesion, y el escape de cruce NO puede ampararlo. Deny sin escape
-      // (el cauce sancionado es kj worktree done, que corre dentro de kj).
-      if (/(^|[^a-z])git[^a-z]+worktree[^a-z]+(remove|prune)/.test(cmd)) {
-        console.error("karajan sentinel: git worktree remove/prune no se ejecuta desde una sesion — destruccion de estructura del repo, sin escape; usa kj worktree done." + doc("cross-lane"));
+      // KJC-BUG-0166/0167: gestionar worktrees crudos (add/remove/prune) es
+      // estructura del repo, jamas trabajo de una sesion. 0166: una sesion
+      // intento EN BUCLE retirar el ARBOL PRINCIPAL con remove+CROSS_LANE.
+      // 0167: un coder descarrilado ANADIO un worktree .verify-main rebelde y
+      // de ahi se invento un bootstrap. Deny sin escape en los tres verbos;
+      // el cauce sancionado es kj worktree start|done (corre dentro de kj).
+      if (/(^|[^a-z])git[^a-z]+worktree[^a-z]+(add|remove|prune)/.test(cmd)) {
+        console.error("karajan sentinel: git worktree add/remove/prune no se ejecuta desde una sesion — estructura del repo, sin escape; usa kj worktree start|done." + doc("cross-lane"));
         process.exit(2);
       }
       // Deny-unless-known-read-only: un allowlist de verbos mutadores era
