@@ -12,11 +12,14 @@ import { hookBody, SHEBANG } from "../../src/harden/hook-templates.js";
 import { saveVerdict } from "../../src/review/verdict-store.js";
 
 describe("pre-commit template includes the opt-in review gate", () => {
-  it("guards on the .karajan/review-gate marker and calls kj review --check", () => {
+  it("guards on the COMMITTED .karajan/review-gate marker and calls kj review --check", () => {
     const body = hookBody("pre-commit", {});
     expect(body).toMatch(/\.karajan\/review-gate/);
     expect(body).toMatch(/kj review --check/);
     expect(body).toMatch(/kj review --staged/); // actionable message
+    // KJC-BUG-0165: the gate keys on the marker being COMMITTED (HEAD), not
+    // merely present — so the bootstrap commit that introduces it is exempt.
+    expect(body).toMatch(/cat-file -e HEAD:\.karajan\/review-gate/);
   });
 });
 
@@ -52,20 +55,42 @@ describe("review gate e2e (real sh + git)", () => {
     return spawnSync("git", ["commit", "-m", msg], { cwd: dir, encoding: "utf8", env });
   }
 
+  // Commit the marker the way the bootstrap does: it is exempt (not yet in
+  // HEAD), so this must pass with NO verdict — the KJC-BUG-0165 fix.
+  function commitMarker() {
+    fs.writeFileSync(path.join(dir, ".karajan", "review-gate"), "");
+    execFileSync("git", ["add", ".karajan/review-gate"], { cwd: dir });
+    return spawnSync("git", ["commit", "-m", "chore: install review gate"], { cwd: dir, encoding: "utf8", env });
+  }
+
   it("no marker → commit passes (opt-in only)", () => {
     const res = tryCommit("feat: no gate");
     expect(res.status).toBe(0);
   });
 
-  it("marker + no verdict → commit rejected with actionable message", () => {
-    fs.writeFileSync(path.join(dir, ".karajan", "review-gate"), "");
+  it("bootstrap: the commit that INTRODUCES the marker is exempt — no verdict needed (KJC-BUG-0165)", () => {
+    const res = commitMarker();
+    expect(`${res.stdout}${res.stderr}`).not.toMatch(/kj review --staged/);
+    expect(res.status).toBe(0);
+  });
+
+  it("marker COMMITTED + no verdict → next commit rejected with actionable message", () => {
+    expect(commitMarker().status).toBe(0);
     const res = tryCommit("feat: gated");
     expect(res.status).not.toBe(0);
     expect(`${res.stdout}${res.stderr}`).toMatch(/kj review --staged/);
   });
 
-  it("marker + approved verdict matching the staged diff → commit passes", async () => {
-    fs.writeFileSync(path.join(dir, ".karajan", "review-gate"), "");
+  it("marker COMMITTED + deleting the working-tree file does NOT bypass the gate", () => {
+    expect(commitMarker().status).toBe(0);
+    fs.rmSync(path.join(dir, ".karajan", "review-gate"));
+    const res = tryCommit("feat: try to bypass");
+    expect(res.status).not.toBe(0);
+    expect(`${res.stdout}${res.stderr}`).toMatch(/kj review --staged/);
+  });
+
+  it("marker COMMITTED + approved verdict matching the staged diff → commit passes", async () => {
+    expect(commitMarker().status).toBe(0);
     fs.writeFileSync(path.join(dir, "f.js"), "// approved change\n");
     execFileSync("git", ["add", "f.js"], { cwd: dir });
     const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
