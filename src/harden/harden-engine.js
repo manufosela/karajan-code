@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { runCommand } from "../utils/process.js";
-import { hookBody, PROFILE_HOOKS, SHEBANG } from "./hook-templates.js";
+import { hookBody, PROFILE_HOOKS, SHEBANG, toPortableHooksDir } from "./hook-templates.js";
 
 const BLOCK_VERSION = 1;
 const HOOKS_DIR = join(".karajan", "hooks");
@@ -67,7 +67,10 @@ export async function installHooks({
   const globalCfg = await runCommand("git", ["config", "--global", "core.hooksPath"], { cwd: projectDir });
   const rawGlobal = globalCfg.exitCode === 0 ? globalCfg.stdout.trim() : "";
   if (rawGlobal && rawGlobal !== HOOKS_DIR) {
-    globalHooksDir = rawGlobal.startsWith("~") ? `$HOME${rawGlobal.slice(1)}` : rawGlobal;
+    // KJC-BUG-0169: normalize to a machine-independent form HERE (generation,
+    // on the human's machine) so the provenance stores the portable dir and CI
+    // recomputes the SAME bytes — an absolute home path is not verifiable there.
+    globalHooksDir = toPortableHooksDir(rawGlobal);
   }
 
   const absHooksDir = join(projectDir, HOOKS_DIR);
