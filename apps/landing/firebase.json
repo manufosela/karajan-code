@@ -31,6 +31,11 @@
         "type": 302
       },
       {
+        "source": "/go.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/go.md",
+        "type": 302
+      },
+      {
         "source": "/install-machine.md",
         "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/install-machine.md",
         "type": 302
