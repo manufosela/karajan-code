@@ -32,7 +32,18 @@ async function relayConfig(fetchFn) {
 }
 const SIGN_PAGE = "https://karajancode.com/sign";
 const POLL_INTERVAL_MS = 2000;
-const TTL_MS = 120000;
+const TTL_MS = 60000;
+
+/** Spinner en su sitio (una línea, con \r) solo en TTY; no-op fuera de TTY o en tests. */
+function makeSpinner() {
+  if (!process.stdout?.isTTY) return { tick() {}, stop() {} };
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  let i = 0;
+  return {
+    tick() { process.stdout.write(`\r${frames[i++ % frames.length]} esperando la firma del móvil…`); },
+    stop() { process.stdout.write("\r\x1b[K"); },
+  };
+}
 
 const phoneKeyPath = (home) => join(home ?? homedir(), ".karajan", "supervisor-phone.json");
 
@@ -98,12 +109,15 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
   const signUrl = `${SIGN_PAGE}?c=${cid}`;
   drawQr(signUrl);
   logger.info?.(`phone-sign: escanea el QR o abre ${signUrl} y firma en el móvil (caduca en ${TTL_MS / 1000}s)`);
+  logger.info?.("phone-sign: esperando la firma del móvil…");
+  const spinner = deps.spinner ?? makeSpinner();
   const deadline = now() + TTL_MS;
   while (now() < deadline) {
     const res = await fetchFn(`${relay.url}/${cid}?key=${relay.apiKey}`);
-    if (!res.ok) throw new Error(`phone-sign: fallo consultando la petición de firma (HTTP ${res.status})`);
+    if (!res.ok) { spinner.stop(); throw new Error(`phone-sign: fallo consultando la petición de firma (HTTP ${res.status})`); }
     const fields = (await res.json()).fields ?? {};
     if (fields.state?.stringValue === "signed") {
+      spinner.stop();
       const enrolled = readEnrolledKey({ home: deps.home });
       if (fields.publicKey?.stringValue !== enrolled) {
         return { ok: false, reason: "la publicKey del doc no coincide con la enrolada — el doc es transporte, la verdad es la enrolada" };
@@ -112,8 +126,9 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
       const good = verifyPhoneSignature({ payload, signature: fields.signature?.stringValue ?? "", publicKey: enrolled });
       return good ? { ok: true } : { ok: false, reason: "firma ed25519 inválida para el payload canónico" };
     }
-    logger.info?.("phone-sign: esperando la firma del móvil…");
+    spinner.tick();
     await sleep(POLL_INTERVAL_MS);
   }
+  spinner.stop();
   return { ok: false, reason: "caducado" };
 }
