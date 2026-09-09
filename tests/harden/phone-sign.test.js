@@ -118,10 +118,21 @@ describe("requestPhoneSignature (KJC-TSK-0822)", () => {
     expect(res.reason).toMatch(/enrolada/);
   });
 
-  it("expires after 120s of pending state", async () => {
+  it("expires after 60s of pending state", async () => {
     enrollPhone(rawPub, { home });
     await expect(request(fakePhone({ state: "pending" }))).resolves.toEqual({ ok: false, reason: "caducado" });
-    expect(t).toBeGreaterThanOrEqual(120000);
+    expect(t).toBeGreaterThanOrEqual(60000);
+    expect(t).toBeLessThan(120000);
+  });
+
+  it("logs the waiting message once, not on every poll", async () => {
+    enrollPhone(rawPub, { home });
+    const infos = [];
+    await requestPhoneSignature({
+      project: "karajan-code", files: FILES, kjVersion: "9.9.9", logger: { info: (m) => infos.push(m) },
+      deps: { fetch: fakePhone({ state: "pending" }), home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {} },
+    });
+    expect(infos.filter((m) => /esperando/i.test(m))).toHaveLength(1);
   });
 
   it("a dead network fails loudly — no silent fallback", async () => {
