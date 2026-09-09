@@ -41,7 +41,29 @@ This repo runs under its own environment: every commit to karajan-code carries a
 
 ## Install
 
-Tell your agent — in the directory where you want to work:
+Two ways in — pick your comfort level.
+
+### Maggle mode — you never touch the terminal
+
+Not a developer, or you just want it running? Paste this into your AI assistant (Claude Code, Codex, Cursor, VS Code):
+
+```text
+Set up Karajan in this project and start it for me: read
+https://karajancode.com/go.md and do everything it says. I'm not a developer —
+don't ask me technical questions, just get it running and tell me when it's ready.
+```
+
+It installs Karajan, prepares the project, and opens a single window with the board and your agent inside — stopping only if a step truly needs you (sudo or an account). Already installed? One command:
+
+```sh
+kj go            # or: kj go --window  (the agent's terminal embedded in the board)
+```
+
+`kj go` detects your agent (asks which only if you have several), prepares the project silently the first time, and drops you into a conversation that already follows the method. Your agent account and login stay yours — kj never touches credentials.
+
+### Developer mode — you stay in control
+
+Want your agent to walk each step and stop at every permission? Paste:
 
 ```text
 I want to use Karajan in this project: read https://karajancode.com/start.md
@@ -58,14 +80,6 @@ kj doctor && kj install-tools                        # complete the stack
 kj init && kj env install && kj harden && kj review --install-gate
 git config core.hooksPath .karajan/hooks
 ```
-
-Already installed and just want to work — even with no computing background? One command:
-
-```sh
-kj go
-```
-
-It detects your agent (Claude Code or Codex; asks which one only if you have both), prepares the project silently the first time, opens the board in your browser, and drops you into a conversation that already follows the method. Your agent account and login stay yours — kj never touches credentials. Prefer everything in ONE browser window? `kj go --window` embeds the agent's real terminal inside the board (loopback-only, single-session token).
 
 Requires git and at least one AI agent CLI — two enables cross-AI review; three enables arbitration. The npm route is `npm install -g @karajan-family/code` (published as `karajan-code` before joining the scope; the legacy name still installs the same versions). All install routes (npm, binaries, brew, Python wrapper) in the [install docs](https://karajancode.com/docs/v4/install/).
 
