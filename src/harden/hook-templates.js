@@ -27,16 +27,24 @@ export const PROFILE_HOOKS = {
 // hooks dir, silently disabling personal guards. When a previous global dir
 // is known, every generated hook ends by chaining its namesake there —
 // guarded, so machines without it are unaffected.
+// KJC-BUG-0161 / 0169 (ADR 0009): a committed hook must not bake a machine's
+// absolute home path — a dir under the home resolves through $HOME so the same
+// generated content is valid on every machine and its provenance stays
+// verifiable IN CI (a different home), with no local filesystem layout leaking
+// into a public repo. Normalization happens ONCE, at generation, on the human's
+// machine; the stored/rendered value is already portable, so a render on any
+// other home (CI) reproduces identical bytes. `home` is injectable for tests.
+export function toPortableHooksDir(dir, home = homedir()) {
+  if (!dir) return dir;
+  if (dir.startsWith("$HOME")) return dir;
+  if (dir.startsWith("~")) return `$HOME${dir.slice(1)}`;
+  if (dir === home || dir.startsWith(`${home}/`)) return `$HOME${dir.slice(home.length)}`;
+  return dir;
+}
+
 function chainToGlobal(hook, globalHooksDir) {
   if (!globalHooksDir) return [];
-  // KJC-BUG-0161 (ADR 0009): a committed hook must not bake a machine's
-  // absolute home path — resolve through $HOME at runtime so the same
-  // generated content is valid on every machine and its provenance stays
-  // verifiable (and no local filesystem layout leaks into a public repo).
-  const home = homedir();
-  const dir = globalHooksDir === home || globalHooksDir.startsWith(`${home}/`)
-    ? `$HOME${globalHooksDir.slice(home.length)}`
-    : globalHooksDir;
+  const dir = toPortableHooksDir(globalHooksDir);
   return [
     "# Chain the machine's previous global hook (kj harden keeps it active).",
     `if [ -x "${dir}/${hook}" ]; then`,
