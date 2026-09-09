@@ -35,7 +35,21 @@ half-installed setup and never invent your own judgement about the product.
    asks which coding agent to use and one is already installed and logged in,
    pick that one.
 
-3. **When the window is open, tell the user in plain language:** Karajan is
+3. **Does this project have somewhere to push to?** Run `git remote -v`.
+   Karajan always works locally, but pull requests need a GitHub repo — and if
+   there is no remote, `kj doctor` will have warned that auto-PR is off. If
+   there is no remote, check `gh auth status`:
+   - **Logged in** → ASK the user, in plain words, whether to create the repo
+     on GitHub and connect it. Create it ONLY if they say yes, and ONLY with an
+     account they confirm — they may have several GitHub identities, so never
+     assume the active one; if there is more than one, ask which. Then, for
+     example: `gh auth switch --user <account> && gh repo create <name> --source . --private --push`
+     (that becomes `origin`). Never create a repo without an explicit yes.
+   - **Not logged in** → tell them, in plain words, the single command to log
+     in (`gh auth login`) and wait; or offer to keep going locally for now and
+     add the remote later. Do not decide this for them.
+
+4. **When the window is open, tell the user in plain language:** Karajan is
    ready, this is their board, and the one thing they can now say to start —
    for example: *"add a feature: …"* in their own words. From here on every
    change is written under test, reviewed by a second AI, and only then
