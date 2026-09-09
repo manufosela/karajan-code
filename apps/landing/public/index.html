@@ -234,17 +234,24 @@
     .hero-install.copied .copy-hint { opacity: 1; color: var(--accent-teal); }
 
     /* --- INSTALL TABS (KJL-TSK-0131): Maggle vs Developer --- */
-    .install-tabs { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
-    .install-tab {
-      font-family: var(--font); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.02em;
-      padding: 0.35rem 0.9rem; border-radius: 999px; cursor: pointer;
-      color: var(--text-muted); background: transparent; border: 1px solid var(--border);
-      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    /* Segmented mode selector, one piece, active filled (KJL-TSK-0132) */
+    .install-tabs {
+      display: inline-flex; gap: 3px; margin: 0 0 0.6rem;
+      padding: 3px; border: 1px solid var(--border); border-radius: 11px;
+      background: var(--bg-card);
     }
-    .install-tab:hover { color: var(--accent-teal); }
+    .install-tab {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.01em;
+      padding: 0.4rem 1.15rem; border: 0; border-radius: 8px; cursor: pointer;
+      color: var(--text-muted); background: transparent;
+      transition: color 0.2s, background 0.2s;
+    }
+    .install-tab:hover { color: var(--text); }
     .install-tab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-    .install-tab.is-active { color: var(--accent-teal); border-color: var(--accent-teal); background: rgba(107,143,163,0.10); }
+    .install-tab.is-active { color: var(--bg); background: var(--accent-teal); }
+    .install-panel { display: flex; flex-direction: column; align-items: center; }
     .install-panel[hidden] { display: none; }
+    .install-panel .hero-note { text-align: center; margin-top: 0.15rem; }
 
     .hero-links { display: flex; gap: 1.5rem; }
     .hero-links a {
