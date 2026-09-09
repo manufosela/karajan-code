@@ -233,6 +233,19 @@
     .hero-install:hover .copy-hint { opacity: 1; }
     .hero-install.copied .copy-hint { opacity: 1; color: var(--accent-teal); }
 
+    /* --- INSTALL TABS (KJL-TSK-0131): Maggle vs Developer --- */
+    .install-tabs { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
+    .install-tab {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.02em;
+      padding: 0.35rem 0.9rem; border-radius: 999px; cursor: pointer;
+      color: var(--text-muted); background: transparent; border: 1px solid var(--border);
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .install-tab:hover { color: var(--accent-teal); }
+    .install-tab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
+    .install-tab.is-active { color: var(--accent-teal); border-color: var(--accent-teal); background: rgba(107,143,163,0.10); }
+    .install-panel[hidden] { display: none; }
+
     .hero-links { display: flex; gap: 1.5rem; }
     .hero-links a {
       color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500;
@@ -443,14 +456,28 @@
         <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=6b8fa3&label=latest" alt="npm version" height="22">
       </a>
     </p>
-    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
-      <span class="prompt" aria-hidden="true">&gt;</span>
-      <span>I want to use Karajan in this project: read karajancode.com/start.md and do what it says.</span>
-      <span class="copy-hint" aria-live="polite">click to copy</span>
-    </button>
-    <p class="hero-note">Paste it into your AI agent (Claude Code, Codex, Cursor, VS Code). It checks your machine, installs what is missing, and <em>stops to wait for you</em> whenever a step needs your permission.</p>
+    <div class="install-tabs" role="tablist" aria-label="How to install Karajan">
+      <button type="button" role="tab" id="tab-maggle" aria-controls="panel-maggle" aria-selected="true" class="install-tab is-active" onclick="showInstall('maggle')">Maggle mode</button>
+      <button type="button" role="tab" id="tab-dev" aria-controls="panel-dev" aria-selected="false" tabindex="-1" class="install-tab" onclick="showInstall('dev')">Developer mode</button>
+    </div>
 
-    <p class="hero-note">Prefer the terminal? <code>curl -fsSL https://karajancode.com/install.sh | sh</code> on Linux and macOS.</p>
+    <div id="panel-maggle" role="tabpanel" aria-labelledby="tab-maggle" class="install-panel">
+      <button type="button" class="hero-install" data-copy="Set up Karajan in this project and start it for me: read karajancode.com/go.md and do everything it says. I'm not a developer — don't ask me technical questions, just get it running and tell me when it's ready." onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
+        <span class="prompt" aria-hidden="true">&gt;</span>
+        <span>Set up Karajan and start it for me: read karajancode.com/go.md and do everything it says.</span>
+        <span class="copy-hint" aria-live="polite">click to copy</span>
+      </button>
+      <p class="hero-note">Paste it into your AI assistant (Claude Code, Codex, Cursor, VS Code). It installs Karajan, prepares the project and opens a single window with the board and your agent inside — <em>you never touch the terminal</em>. It only stops if a step needs your permission.</p>
+    </div>
+
+    <div id="panel-dev" role="tabpanel" aria-labelledby="tab-dev" class="install-panel" hidden>
+      <button type="button" class="hero-install" data-copy="I want to use Karajan in this project: read karajancode.com/start.md and do what it says." onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
+        <span class="prompt" aria-hidden="true">&gt;</span>
+        <span>I want to use Karajan in this project: read karajancode.com/start.md and do what it says.</span>
+        <span class="copy-hint" aria-live="polite">click to copy</span>
+      </button>
+      <p class="hero-note">Paste it into your AI agent (Claude Code, Codex, Cursor, VS Code). It checks your machine, installs what is missing, and <em>stops to wait for you</em> whenever a step needs your permission — you stay in control.</p>
+    </div>
 
     <p class="hero-note hero-note-last">Want to see what gets installed, or set it up yourself first? <a href="/docs/v4/install/">Requirements and manual install</a>.</p>
     <nav class="hero-links" aria-label="Project links">
@@ -554,8 +581,32 @@
 
   <script>
     /* --- COPY PROMPT --- */
+    function showInstall(which) {
+      ['maggle', 'dev'].forEach(function(k) {
+        var tab = document.getElementById('tab-' + k);
+        var panel = document.getElementById(k === 'maggle' ? 'panel-maggle' : 'panel-dev');
+        var active = (k === which);
+        tab.classList.toggle('is-active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        tab.tabIndex = active ? 0 : -1;
+        panel.hidden = !active;
+      });
+    }
+    (function() {
+      var tablist = document.querySelector('.install-tabs');
+      if (!tablist) return;
+      tablist.addEventListener('keydown', function(e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        var toDev = document.getElementById('tab-maggle').getAttribute('aria-selected') === 'true';
+        var which = toDev ? 'dev' : 'maggle';
+        showInstall(which);
+        document.getElementById('tab-' + which).focus();
+        e.preventDefault();
+      });
+    })();
+
     function copyInstall(btn) {
-      var text = 'I want to use Karajan in this project: read https://karajancode.com/start.md and do what it says.';
+      var text = btn.getAttribute('data-copy') || '';
       navigator.clipboard.writeText(text).then(function() {
         btn.classList.add('copied');
         var hint = btn.querySelector('.copy-hint');
