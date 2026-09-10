@@ -138,6 +138,18 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(asked.kjVersion).toBe("9.9.9");
   });
 
+  // KJC-TSK-0823: cuando el móvil devuelve el desafío+firma, la provenance los
+  // GRABA (bloque signature) para que CI re-verifique server-side.
+  it("enrolled phone returning a challenge+signature: provenance records the signature block", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    const challenge = { cid: "cafe", nonce: "babe", project: "p", filesHash: "abc123" };
+    const phone = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUBKEY", signature: "SIG", challenge }) };
+    const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } });
+    expect(res.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.signature).toEqual({ ...challenge, signer: "PUBKEY", signature: "SIG" });
+  });
+
   it("enrolled phone + rejected/expired signature: throws and commits NOTHING — never nonce-only", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     for (const reason of ["firma ed25519 inválida para el payload canónico", "caducado"]) {

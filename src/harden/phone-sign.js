@@ -172,8 +172,13 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
         return { ok: false, reason: "la publicKey que firma no está en el padrón autorizado — el doc es transporte, la verdad es el padrón" };
       }
       const payload = canonicalPayload({ cid, nonce, project, files });
-      const good = verifyPhoneSignature({ payload, signature: fields.signature?.stringValue ?? "", publicKey: signerKey });
-      return good ? { ok: true, signer: signerKey } : { ok: false, reason: "firma ed25519 inválida para el payload canónico" };
+      const signature = fields.signature?.stringValue ?? "";
+      const good = verifyPhoneSignature({ payload, signature, publicKey: signerKey });
+      if (!good) return { ok: false, reason: "firma ed25519 inválida para el payload canónico" };
+      // KJC-TSK-0823: devuelve el desafío + firma para que el sello los GRABE en
+      // la provenance y CI pueda re-verificar server-side (clave del padrón).
+      const filesHash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
+      return { ok: true, signer: signerKey, signature, challenge: { cid, nonce, project, filesHash } };
     }
     spinner.tick();
     await sleep(POLL_INTERVAL_MS);

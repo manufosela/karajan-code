@@ -123,6 +123,7 @@ export async function commitSupervisorRegeneration({
   // es OBLIGATORIA — jamás se degrada a solo-nonce. Firma los MISMOS
   // files/hashes de la provenance (normalizados al par {file, sha256}).
   const phone = deps.phone ?? { enrolled: isPhoneEnrolled, request: requestPhoneSignature };
+  let signatureBlock = null;
   if (phone.enrolled({})) {
     const signed = await phone.request({
       project: basename(projectDir),
@@ -133,6 +134,11 @@ export async function commitSupervisorRegeneration({
     if (!signed.ok) {
       throw new Error(`capa 5: firma del móvil rechazada (${signed.reason}) — con móvil enrolado el sello exige su firma (PRP-0023)`);
     }
+    // KJC-TSK-0823: graba el desafío + firma en la provenance para que CI
+    // re-verifique server-side que un humano (clave del padrón) aprobó.
+    if (signed.challenge && signed.signature) {
+      signatureBlock = { ...signed.challenge, signer: signed.signer, signature: signed.signature };
+    }
   }
   const who = readIdentity(projectDir);
   const provenance = {
@@ -141,6 +147,7 @@ export async function commitSupervisorRegeneration({
     generation,
     who: who ? { gh: who.gh_user ?? null, git: who.git_email ?? null, grade: "declarada" } : null,
     files: hashed,
+    ...(signatureBlock ? { signature: signatureBlock } : {}),
   };
   writeFileSync(join(projectDir, PROVENANCE_FILE), `${JSON.stringify(provenance, null, 2)}\n`, "utf8");
   recordGateDecision(projectDir, {
