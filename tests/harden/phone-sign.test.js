@@ -10,7 +10,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  canonicalPayload, enrollPhone, isPhoneEnrolled, readEnrolledKey, requestPhoneSignature, verifyPhoneSignature,
+  addSigner, canonicalPayload, enrollPhone, isPhoneEnrolled, readEnrolledKey, readEnrolledKeys,
+  readSigners, requestPhoneSignature, validatePhonePublicKey, verifyPhoneSignature,
 } from "../../src/harden/phone-sign.js";
 
 const FILES = [
@@ -91,14 +92,14 @@ const fakePhone = ({ key = privateKey, pub = rawPub, state = "signed", mangle = 
 describe("requestPhoneSignature (KJC-TSK-0822)", () => {
   let t;
   beforeEach(() => { t = 0; });
-  const request = (fetchFn) => requestPhoneSignature({
+  const request = (fetchFn, extra = {}) => requestPhoneSignature({
     project: "karajan-code", files: FILES, kjVersion: "9.9.9", logger: { info: () => {} },
-    deps: { fetch: fetchFn, home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {} },
+    deps: { fetch: fetchFn, home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {}, ...extra },
   });
 
   it("accepts a REAL signature from the enrolled key over the published cid+nonce", async () => {
     enrollPhone(rawPub, { home });
-    await expect(request(fakePhone())).resolves.toEqual({ ok: true });
+    await expect(request(fakePhone())).resolves.toMatchObject({ ok: true, signer: rawPub });
   });
 
   it("rejects a tampered signature", async () => {
@@ -109,13 +110,23 @@ describe("requestPhoneSignature (KJC-TSK-0822)", () => {
     expect(res.reason).toMatch(/firma/);
   });
 
-  it("rejects a doc publicKey that is not the ENROLLED one — even with a valid signature", async () => {
+  it("rejects a signer NOT in the padrón — even with a valid signature", async () => {
     enrollPhone(rawPub, { home });
     const other = generateKeyPairSync("ed25519");
     const otherPub = other.publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
     const res = await request(fakePhone({ key: other.privateKey, pub: otherPub }));
     expect(res.ok).toBe(false);
-    expect(res.reason).toMatch(/enrolada/);
+    expect(res.reason).toMatch(/padr/);
+  });
+
+  it("accepts a signer from the REPO padrón (multi-signer) with no legacy home key (KJC-TSK-0831)", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "kj-signers-"));
+    const other = generateKeyPairSync("ed25519");
+    const otherPub = other.publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+    addSigner(otherPub, { projectDir, label: "alice" });
+    const res = await request(fakePhone({ key: other.privateKey, pub: otherPub }), { home: mkdtempSync(join(tmpdir(), "kj-nohome-")), projectDir });
+    expect(res).toMatchObject({ ok: true, signer: otherPub });
+    rmSync(projectDir, { recursive: true, force: true });
   });
 
   it("expires after 60s of pending state", async () => {
@@ -138,5 +149,40 @@ describe("requestPhoneSignature (KJC-TSK-0822)", () => {
   it("a dead network fails loudly — no silent fallback", async () => {
     enrollPhone(rawPub, { home });
     await expect(request(async () => ({ ok: false, status: 503 }))).rejects.toThrow(/503/);
+  });
+});
+
+describe("signer padrón (KJC-TSK-0831, ADR 0010)", () => {
+  let projectDir;
+  beforeEach(() => { projectDir = mkdtempSync(join(tmpdir(), "kj-padron-")); });
+  afterEach(() => rmSync(projectDir, { recursive: true, force: true }));
+
+  it("addSigner appends to the versioned repo padrón and dedups", () => {
+    expect(readSigners({ projectDir })).toEqual([]);
+    addSigner(rawPub, { projectDir, label: "a" });
+    const other = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+    addSigner(other, { projectDir });
+    addSigner(rawPub, { projectDir }); // dedup: no third entry
+    expect(readSigners({ projectDir }).sort()).toEqual([rawPub, other].sort());
+  });
+
+  it("addSigner rejects a non-canonical / wrong-length key", () => {
+    expect(() => addSigner("not-32-bytes", { projectDir })).toThrow(/32 bytes/);
+  });
+
+  it("readEnrolledKeys is the union of the repo padrón and the legacy home key", () => {
+    addSigner(rawPub, { projectDir });
+    const legacyHome = mkdtempSync(join(tmpdir(), "kj-legacy-"));
+    const legacy = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+    enrollPhone(legacy, { home: legacyHome });
+    const keys = readEnrolledKeys({ projectDir, home: legacyHome });
+    expect(keys.has(rawPub)).toBe(true);
+    expect(keys.has(legacy)).toBe(true);
+    rmSync(legacyHome, { recursive: true, force: true });
+  });
+
+  it("validatePhonePublicKey accepts a canonical 32-byte key and rejects otherwise", () => {
+    expect(validatePhonePublicKey(rawPub)).toBe(rawPub);
+    expect(() => validatePhonePublicKey("")).toThrow(/32 bytes/);
   });
 });
