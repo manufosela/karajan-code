@@ -24,6 +24,8 @@ dist/
 !.karajan/hooks/post-merge
 # ADR 0009 (KJC-BUG-0161): la procedencia del supervisor viaja con el repo.
 !.karajan/supervisor-provenance.json
+# ADR 0010 (KJC-TSK-0831): el padrón de firmantes autorizados es contrato de equipo.
+!.karajan/supervisor-signers.json
 .reviews/
 .kj/
 kj.config.yml
