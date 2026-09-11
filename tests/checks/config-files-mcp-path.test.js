@@ -4,7 +4,21 @@
 // install's server, or drop a dead entry when the standalone binary has none.
 import { describe, expect, it } from "vitest";
 
-import { karajanMcpServerPath, repairKarajanMcpPath } from "../../src/checks/config-files.js";
+import { getConfigFileChecks, karajanMcpServerPath, repairKarajanMcpPath } from "../../src/checks/config-files.js";
+import { STRATEGY } from "../../src/checks/types.js";
+
+describe("stale karajan-mcp path check (KJC-BUG-0172)", () => {
+  // The runner never remediates a WARN check whose strategy is PROMPT
+  // (runner.js: WARN && PROMPT => don't remediate), so the repair was inert
+  // under `kj doctor -y`. Re-pointing a dead entry to the current server is
+  // deterministic and reversible, so the check must be AUTO to actually heal.
+  it("is registered with strategy AUTO so kj doctor applies the repair", () => {
+    const check = getConfigFileChecks().find((c) => c.name === "agent-config:karajan-mcp-path");
+    expect(check).toBeDefined();
+    expect(check.strategy).toBe(STRATEGY.AUTO);
+    expect(typeof check.remediate).toBe("function");
+  });
+});
 
 describe("karajanMcpServerPath (KJC-BUG-0171)", () => {
   it("returns the registered mcp server path", () => {

@@ -173,7 +173,12 @@ function createStaleMcpPathCheck() {
   return {
     name: "agent-config:karajan-mcp-path",
     label: "MCP registration path (~/.claude.json)",
-    strategy: STRATEGY.PROMPT,
+    // KJC-BUG-0172: AUTO, not PROMPT — the runner never remediates a WARN
+    // check whose strategy is PROMPT, so the repair was inert under `kj doctor
+    // -y`. Re-pointing a dead entry to the current server (or dropping it) is
+    // deterministic and reversible on an already-broken entry; `--check-only`
+    // stays available to detect without touching the config.
+    strategy: STRATEGY.AUTO,
     describe: "Re-point karajan-mcp in ~/.claude.json to this install's server (or drop a dead entry)",
     async detect() {
       const claudeJsonPath = path.join(os.homedir(), ".claude.json");
