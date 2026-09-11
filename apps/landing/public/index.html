@@ -261,8 +261,8 @@
     .hero-links a:hover, .hero-links a:focus-visible { color: var(--accent-teal); }
     .hero-links a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
-    /* --- THE SCORE (signature) --- */
-    .score-section { padding: 3rem 2rem 4rem; max-width: 760px; margin: 0 auto; }
+    /* --- THE METHOD (signature) --- */
+    .method-section { padding: 3rem 2rem 4rem; max-width: 960px; margin: 0 auto; }
     /* The governed panel (KJL-TSK-0130): the nine agents, in their own type. */
     .hero-agents {
       font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim);
@@ -286,41 +286,19 @@
     .family-card.family-brewing { opacity: 0.75; border-style: dashed; }
     .score-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
     .score-title { text-align: center; font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 2rem; }
-    .score { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); padding: 1.3rem 0; }
-    .score-row {
-      display: grid; grid-template-columns: 96px 1fr; gap: 1.1rem; padding: 0.55rem 1.5rem;
-      opacity: 0.14; transform: translateX(-6px); border-left: 2px solid transparent;
-      transition: opacity 0.5s ease, transform 0.5s ease;
+    .method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.8rem; }
+    .method-piece {
+      display: block; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);
+      padding: 1.3rem 1.4rem; text-decoration: none; color: inherit; text-align: left;
+      transition: border-color 0.2s ease, transform 0.2s ease;
     }
-    .score-row.on { opacity: 1; transform: none; }
-    .score-player { font-family: var(--mono); font-size: 0.78rem; color: var(--brand-steel); text-align: right; padding-top: 0.12rem; }
-    .score-line { font-family: var(--mono); font-size: 0.84rem; color: var(--text-muted); line-height: 1.55; }
-    .score-row.reject { border-left-color: var(--reject-red); }
-    .score-row.reject .score-line { color: var(--reject-red); }
-    .score-row.verdict { border-left-color: var(--verdict-green); }
-    .score-row.verdict .score-line { color: var(--verdict-ink); font-weight: 600; }
-    .score-row.gate { border-left-color: var(--baton-gold); }
-    .score-row.gate .score-line { color: var(--gold-ink); }
-    .sha-chip {
-      font-size: 0.7rem; font-weight: 500; border: 1px solid var(--verdict-green-dim); border-radius: 5px;
-      padding: 0.05rem 0.45rem; margin-left: 0.55rem; color: var(--verdict-ink); white-space: nowrap;
-    }
-    .score-caption { text-align: center; margin-top: 1.1rem; font-size: 0.82rem; color: var(--text-dim); }
-    .score-caption strong { color: var(--verdict-ink); font-weight: 600; }
-    .score-replay {
-      display: block; margin: 0.9rem auto 0; background: none; border: 1px solid var(--border); border-radius: 6px;
-      color: var(--text-dim); font-family: var(--mono); font-size: 0.7rem; padding: 0.3rem 0.85rem; cursor: pointer;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .score-replay:hover { border-color: var(--baton-gold); color: var(--baton-gold); }
-    .score-replay:focus-visible { outline: 2px solid var(--baton-gold); outline-offset: 2px; }
-    @media (max-width: 640px) {
-      .score-row { grid-template-columns: 68px 1fr; gap: 0.7rem; padding: 0.55rem 1rem; }
-      .score-line { font-size: 0.75rem; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .score-row { opacity: 1 !important; transform: none; transition: none; }
-    }
+    .method-piece:hover { border-color: var(--baton-gold); transform: translateY(-2px); }
+    .method-piece:focus-visible { outline: 2px solid var(--baton-gold); outline-offset: 2px; }
+    .method-num { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.2em; color: var(--gold-ink); font-weight: 700; }
+    .method-piece h3 { margin: 0.5rem 0 0.4rem; font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+    .method-piece p { margin: 0; font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
+    .method-more { display: inline-block; margin-top: 0.8rem; font-family: var(--mono); font-size: 0.74rem; color: var(--accent-teal, #6b8fa3); }
+    .method-tagline { text-align: center; margin-top: 2.2rem; font-family: var(--serif); font-style: italic; font-size: 1.05rem; color: var(--text-muted); }
 
     /* --- MORE --- */
     .more-section { padding: 0 2rem 5rem; max-width: 720px; margin: 0 auto; }
@@ -392,7 +370,7 @@
       .fade-in { opacity: 1; transform: none; transition: none; }
     }
   </style>
-  <noscript><style>.fade-in { opacity: 1; transform: none; } .score-row { opacity: 1; transform: none; }</style></noscript>
+  <noscript><style>.fade-in { opacity: 1; transform: none; }</style></noscript>
   <script>
     (function() {
       var saved = localStorage.getItem('theme') || localStorage.getItem('starlight-theme');
@@ -489,27 +467,61 @@
     <p class="hero-note hero-note-last">Want to see what gets installed, or set it up yourself first? <a href="/docs/v4/install/">Requirements and manual install</a>.</p>
     <nav class="hero-links" aria-label="Project links">
       <a href="/docs/v4/install/">Get Started</a>
-      <a href="/docs/v4/working-with-your-agent/">The method</a>
+      <a href="#method">The method</a>
       <a href="https://github.com/manufosela/karajan-code">GitHub</a>
       <a href="/docs/">Docs</a>
     </nav>
   </section>
 
-  <!-- THE SCORE — the method, played by real CLIs (KJL-TSK-0084) -->
-  <section id="score" class="score-section fade-in" aria-label="How a commit earns its way in">
-    <p class="score-eyebrow">The score</p>
-    <h2 class="score-title">How a commit <em class="guarantee">earns</em> its way in</h2>
-    <div class="score" id="the-score">
-      <div class="score-row"><span class="score-player">you</span><span class="score-line">&ldquo;add magic-link login&rdquo;</span></div>
-      <div class="score-row"><span class="score-player">claude</span><span class="score-line">writes the failing test first, then the code</span></div>
-      <div class="score-row"><span class="score-player">kj</span><span class="score-line">review --staged &rarr; routes the exact diff to a different AI</span></div>
-      <div class="score-row reject"><span class="score-player">codex</span><span class="score-line">&#10007; REJECTED &mdash; the error path is untested</span></div>
-      <div class="score-row"><span class="score-player">claude</span><span class="score-line">adds the missing test, fixes the edge case</span></div>
-      <div class="score-row verdict"><span class="score-player">codex</span><span class="score-line">&#10003; APPROVED<span class="sha-chip">diff 82a5504</span></span></div>
-      <div class="score-row gate"><span class="score-player">gate</span><span class="score-line">commit enters &mdash; without a verdict, git refuses it</span></div>
+  <!-- THE KARAJAN METHOD — the seven pieces (KJL-TSK-0134) -->
+  <section id="method" class="method-section fade-in" aria-label="The Karajan method">
+    <p class="score-eyebrow">The method</p>
+    <h2 class="score-title">The Karajan method, in <em class="guarantee">seven pieces</em></h2>
+    <div class="method-grid">
+      <a class="method-piece" href="/docs/v4/gates/">
+        <span class="method-num">01</span>
+        <h3>Mandatory cross-review</h3>
+        <p>A different AI reviews every change. The verdict is bound to the exact diff hash &mdash; change a line, review again.</p>
+        <span class="method-more">read &rarr;</span>
+      </a>
+      <a class="method-piece" href="/docs/guides/hardening-against-ai/">
+        <span class="method-num">02</span>
+        <h3>Rules as mechanism</h3>
+        <p>Norms live in git guards and project policy, not the prompt. It passes or the commit is refused. Security is non-negotiable.</p>
+        <span class="method-more">read &rarr;</span>
+      </a>
+      <a class="method-piece" href="/docs/guides/sentinel/">
+        <span class="method-num">03</span>
+        <h3>The Sentinel</h3>
+        <p>A watchman inside the session blocks the forbidden action the moment it happens &mdash; and links you to the rule.</p>
+        <span class="method-more">read &rarr;</span>
+      </a>
+      <a class="method-piece" href="/docs/v4/working-with-your-agent/">
+        <span class="method-num">04</span>
+        <h3>Claims with a source</h3>
+        <p>Every fact the agent publishes is checked against what its own session ran. Disproven by its own terminal? Rejected.</p>
+        <span class="method-more">read &rarr;</span>
+      </a>
+      <a class="method-piece" href="/docs/guides/hu-board/">
+        <span class="method-num">05</span>
+        <h3>Hash-chained ledger</h3>
+        <p>Every command, verdict and exception is sealed, each entry carrying the fingerprint of the last. The past can't be rewritten unseen.</p>
+        <span class="method-more">read &rarr;</span>
+      </a>
+      <a class="method-piece" href="/docs/v4/working-with-your-agent/">
+        <span class="method-num">06</span>
+        <h3>Trust expires</h3>
+        <p>The Steward re-verifies the project's guarantees on a schedule; stale evidence stops counting. Projects rot when nobody looks.</p>
+        <span class="method-more">read &rarr;</span>
+      </a>
+      <a class="method-piece" href="/docs/guides/mcp-server/">
+        <span class="method-num">07</span>
+        <h3>Project memory (RAG)</h3>
+        <p>The agent queries the indexed code before it assumes &mdash; with a sensitivity policy, and secrets excluded from the index.</p>
+        <span class="method-more">read &rarr;</span>
+      </a>
     </div>
-    <p class="score-caption">Played by real CLIs on your machine. <strong>The only green on this page is the earned one.</strong></p>
-    <button type="button" class="score-replay" onclick="playScore(true)">&#8634; replay</button>
+    <p class="method-tagline">Mechanism where there was opinion. Evidence where there was a claim.</p>
   </section>
 
   <!-- THE KARAJAN FAMILY (KJL-TSK-0130) -->
@@ -650,32 +662,6 @@
         });
       }, { threshold: 0.15 });
       els.forEach(function(e){ io.observe(e); });
-    })();
-
-    /* --- THE SCORE --- */
-    var scoreTimers = [];
-    function playScore(force) {
-      var el = document.getElementById('the-score');
-      if (!el) return;
-      var rows = el.querySelectorAll('.score-row');
-      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      scoreTimers.forEach(clearTimeout); scoreTimers = [];
-      if (reduced && !force) { rows.forEach(function(r){ r.classList.add('on'); }); return; }
-      rows.forEach(function(r){ r.classList.remove('on'); });
-      rows.forEach(function(r, i) {
-        scoreTimers.push(setTimeout(function(){ r.classList.add('on'); }, 350 + i * 850));
-      });
-    }
-    (function() {
-      var el = document.getElementById('the-score');
-      if (!el) return;
-      if (!('IntersectionObserver' in window)) { playScore(); return; }
-      var played = false;
-      new IntersectionObserver(function(entries, obs) {
-        entries.forEach(function(e) {
-          if (e.isIntersecting && !played) { played = true; playScore(); obs.disconnect(); }
-        });
-      }, { threshold: 0.35 }).observe(el);
     })();
   </script>
 </body>
