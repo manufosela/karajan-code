@@ -33,8 +33,25 @@ const pkgName = pkg.name;
 
 // Subprocess env: strip CLAUDECODE (Claude Code blocks nested non-interactive
 // runs otherwise) and force a non-interactive, quiet npm.
+// KJC-BUG-0171: the tarball's postinstall registers karajan-mcp in
+// ~/.claude.json / ~/.codex / ~/.karajan pointing at THIS install's path. Every
+// verify install lives in a throwaway prefix, so those paths go stale the moment
+// the temp dir is cleaned — a CONNECTION_CLOSED MCP left in the real user config.
+// Redirect HOME so every global-config write lands in an isolated dir removed
+// with the rest; seed a git identity so any commit still works without ~/.gitconfig.
+const homeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verify-home-"));
 const { CLAUDECODE: _omit, ...cleanEnv } = process.env;
-const childEnv = { ...cleanEnv, npm_config_yes: "true", CI: "1" };
+const childEnv = {
+  ...cleanEnv,
+  npm_config_yes: "true",
+  CI: "1",
+  HOME: homeTmp,
+  USERPROFILE: homeTmp,
+  GIT_AUTHOR_NAME: "kj verify",
+  GIT_AUTHOR_EMAIL: "verify@kj.local",
+  GIT_COMMITTER_NAME: "kj verify",
+  GIT_COMMITTER_EMAIL: "verify@kj.local",
+};
 
 function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, {
@@ -271,6 +288,7 @@ try {
   console.log(`\n✓ verify-pack: ${pkgName}@${expectedVersion} installs clean and runs.`);
 } finally {
   if (tgzPath && fs.existsSync(tgzPath)) fs.rmSync(tgzPath, { force: true });
+  if (homeTmp && fs.existsSync(homeTmp)) fs.rmSync(homeTmp, { recursive: true, force: true });
   if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
   if (gTmp && fs.existsSync(gTmp)) fs.rmSync(gTmp, { recursive: true, force: true });
   if (pnpmTmp && fs.existsSync(pnpmTmp)) fs.rmSync(pnpmTmp, { recursive: true, force: true });
