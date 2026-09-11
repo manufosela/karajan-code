@@ -8,9 +8,11 @@
  *     ~/.karajan/kj.config.yml (strategy: manual — structural fixes needed)
  */
 
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { exists } from "../utils/fs.js";
 import { getConfigPath } from "../config.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
@@ -133,6 +135,84 @@ function createClaudeConfigCheck() {
 }
 
 /**
+ * KJC-BUG-0171: the karajan-mcp server path registered in ~/.claude.json.
+ * Returns the args entry that points at the MCP server (…/mcp/server.js), or
+ * null when karajan-mcp is not registered.
+ */
+export function karajanMcpServerPath(config) {
+  const server = config?.mcpServers?.["karajan-mcp"];
+  const args = Array.isArray(server?.args) ? server.args : [];
+  return args.find((a) => typeof a === "string" && /[\\/]mcp[\\/]server\.js$/.test(a)) ?? null;
+}
+
+/**
+ * Repair a stale karajan-mcp registration in place: re-point it to this
+ * install's server when that server exists, or drop the dead entry when this
+ * install has no bundled server (the standalone binary). `serverExists` is
+ * injectable for tests. Mutates `config`; returns "repointed" | "removed" | null.
+ */
+export function repairKarajanMcpPath(config, correctServerPath, serverExists) {
+  const server = config?.mcpServers?.["karajan-mcp"];
+  if (!server) return null;
+  if (correctServerPath && serverExists(correctServerPath)) {
+    server.args = [correctServerPath];
+    server.cwd = path.resolve(path.dirname(correctServerPath), "..", "..");
+    return "repointed";
+  }
+  delete config.mcpServers["karajan-mcp"];
+  return "removed";
+}
+
+/**
+ * karajan-mcp registration path validity (~/.claude.json) — KJC-BUG-0171.
+ * A verify/temp install used to register the MCP at a throwaway prefix; once
+ * cleaned, the path 404s and every session's MCP fails with CONNECTION_CLOSED,
+ * and the health check never caught it (it spawns its OWN bundled server).
+ */
+function createStaleMcpPathCheck() {
+  return {
+    name: "agent-config:karajan-mcp-path",
+    label: "MCP registration path (~/.claude.json)",
+    strategy: STRATEGY.PROMPT,
+    describe: "Re-point karajan-mcp in ~/.claude.json to this install's server (or drop a dead entry)",
+    async detect() {
+      const claudeJsonPath = path.join(os.homedir(), ".claude.json");
+      let config;
+      try {
+        config = JSON.parse(await fs.readFile(claudeJsonPath, "utf8"));
+      } catch {
+        return { ok: true, severity: "info", detail: "Not present or unparseable (skipped)" };
+      }
+      const registered = karajanMcpServerPath(config);
+      if (!registered) return { ok: true, severity: "info", detail: "karajan-mcp not registered (skipped)" };
+      if (await exists(registered)) return { ok: true, severity: "info", detail: "karajan-mcp path valid" };
+      const correct = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "mcp", "server.js");
+      return {
+        ok: false,
+        severity: "warn",
+        detail: `karajan-mcp points at a path that no longer exists: ${registered} — this is the CONNECTION_CLOSED cause`,
+        fix: `Re-point karajan-mcp to ${correct} (or remove the entry) in ~/.claude.json`,
+        extra: { claudeJsonPath, correct },
+      };
+    },
+    async remediate({ extra }) {
+      try {
+        const config = JSON.parse(await fs.readFile(extra.claudeJsonPath, "utf8"));
+        const action = repairKarajanMcpPath(config, extra.correct, existsSync);
+        if (!action) return { fixed: false, detail: "karajan-mcp entry vanished before repair" };
+        await fs.writeFile(extra.claudeJsonPath, `${JSON.stringify(config, null, 2)}\n`);
+        return {
+          fixed: true,
+          detail: action === "repointed" ? `Re-pointed karajan-mcp to ${extra.correct}` : "Removed the dead karajan-mcp entry",
+        };
+      } catch (err) {
+        return { fixed: false, detail: `Failed to repair ~/.claude.json: ${err.message}` };
+      }
+    },
+  };
+}
+
+/**
  * Codex config (~/.codex/config.toml) validity.
  */
 function createCodexConfigCheck() {
@@ -211,6 +291,7 @@ export function getConfigFileChecks() {
     createReviewRulesCheck(),
     createCoderRulesCheck(),
     createClaudeConfigCheck(),
+    createStaleMcpPathCheck(),
     createCodexConfigCheck(),
     createKjConfigYamlCheck(),
   ];
