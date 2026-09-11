@@ -154,6 +154,85 @@
           <a class="m-more" href="/docs/guides/sentinel/">Read: the Sentinel &rarr;</a>
         </div>
       </article>
+      <article class="m-row" id="claims">
+        <div class="m-art">
+          <svg viewBox="0 0 220 170" role="img" aria-label="A claim checked against its source: backed, or disproven by the session's own terminal">
+            <rect x="46" y="30" width="96" height="86" rx="8" fill="none" stroke="var(--steel-ink)" stroke-width="2"/>
+            <line x1="62" y1="52" x2="126" y2="52" stroke="var(--text-dim)" stroke-width="3"/>
+            <line x1="62" y1="68" x2="126" y2="68" stroke="var(--text-dim)" stroke-width="3"/>
+            <line x1="62" y1="84" x2="104" y2="84" stroke="var(--text-dim)" stroke-width="3"/>
+            <circle cx="150" cy="112" r="22" fill="var(--bg-card)" stroke="var(--verdict-ink)" stroke-width="2.5"/>
+            <path d="M139 112 l8 8 l14 -17" fill="none" stroke="var(--verdict-ink)" stroke-width="3"/>
+          </svg>
+        </div>
+        <div class="m-body">
+          <span class="m-num">04</span>
+          <h2>Claims with a source</h2>
+          <p>Every hard fact the agent is about to publish is cross-checked against what its own session actually executed: backed, unbacked, or disproven by its source. A fact its own terminal disproves is a proven hallucination — caught and rejected before it ships.</p>
+          <a class="m-more" href="/docs/v4/working-with-your-agent/">Read: working with your agent &rarr;</a>
+        </div>
+      </article>
+
+      <article class="m-row" id="ledger">
+        <div class="m-art">
+          <svg viewBox="0 0 220 170" role="img" aria-label="A hash-chained ledger: each sealed entry carries the fingerprint of the one before it">
+            <g fill="none" stroke="var(--steel-ink)" stroke-width="2">
+              <rect x="18" y="58" width="50" height="50" rx="7"/>
+              <rect x="85" y="58" width="50" height="50" rx="7"/>
+              <rect x="152" y="58" width="50" height="50" rx="7"/>
+            </g>
+            <line x1="68" y1="83" x2="85" y2="83" stroke="var(--gold-ink)" stroke-width="3"/>
+            <line x1="135" y1="83" x2="152" y2="83" stroke="var(--gold-ink)" stroke-width="3"/>
+            <g fill="var(--gold-ink)"><circle cx="43" cy="83" r="6"/><circle cx="110" cy="83" r="6"/><circle cx="177" cy="83" r="6"/></g>
+            <text x="110" y="138" font-family="var(--mono)" font-size="12" fill="var(--text-dim)" text-anchor="middle">each links the last</text>
+          </svg>
+        </div>
+        <div class="m-body">
+          <span class="m-num">05</span>
+          <h2>The hash-chained ledger</h2>
+          <p>Everything executed and decided — commands, verdicts, exceptions — is sealed in a ledger where each entry carries the cryptographic fingerprint of the previous one. Neither an agent nor a human can rewrite what was done or decided without breaking the chain, and a broken chain shows.</p>
+          <a class="m-more" href="/docs/guides/hu-board/">Read: the HU-Board &rarr;</a>
+        </div>
+      </article>
+
+      <article class="m-row" id="trust">
+        <div class="m-art">
+          <svg viewBox="0 0 220 170" role="img" aria-label="Trust expires: the Steward re-verifies the project's guarantees on a schedule">
+            <circle cx="104" cy="86" r="44" fill="none" stroke="var(--steel-ink)" stroke-width="2.5"/>
+            <path d="M104 86 V54" stroke="var(--gold-ink)" stroke-width="3" stroke-linecap="round"/>
+            <path d="M104 86 L128 98" stroke="var(--gold-ink)" stroke-width="3" stroke-linecap="round"/>
+            <path d="M150 44 a20 20 0 0 1 6 14" fill="none" stroke="var(--verdict-ink)" stroke-width="2.5" marker-end="url(#rr)"/>
+            <defs><marker id="rr" markerWidth="9" markerHeight="9" refX="4" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="var(--verdict-ink)"/></marker></defs>
+          </svg>
+        </div>
+        <div class="m-body">
+          <span class="m-num">06</span>
+          <h2>Trust expires</h2>
+          <p>The project declares its guarantees — the suite passes, there is a recent audit — and the Steward re-verifies them periodically, so stale evidence stops counting. Because projects don't rot when someone is watching; they rot exactly when nobody is.</p>
+          <a class="m-more" href="/docs/v4/working-with-your-agent/">Read: working with your agent &rarr;</a>
+        </div>
+      </article>
+
+      <article class="m-row" id="rag">
+        <div class="m-art">
+          <svg viewBox="0 0 220 170" role="img" aria-label="Project memory: the agent queries the indexed code, with secrets excluded from the index">
+            <rect x="44" y="42" width="78" height="58" rx="6" fill="none" stroke="var(--steel-ink)" stroke-width="2"/>
+            <rect x="56" y="54" width="78" height="58" rx="6" fill="var(--bg-card)" stroke="var(--steel-ink)" stroke-width="2"/>
+            <line x1="70" y1="74" x2="120" y2="74" stroke="var(--text-dim)" stroke-width="3"/>
+            <line x1="70" y1="90" x2="108" y2="90" stroke="var(--text-dim)" stroke-width="3"/>
+            <circle cx="146" cy="112" r="17" fill="none" stroke="var(--gold-ink)" stroke-width="2.5"/>
+            <line x1="158" y1="124" x2="174" y2="140" stroke="var(--gold-ink)" stroke-width="3" stroke-linecap="round"/>
+            <rect x="150" y="46" width="24" height="18" rx="3" fill="none" stroke="var(--verdict-ink)" stroke-width="2"/>
+            <path d="M155 46 v-5 a7 7 0 0 1 14 0 v5" fill="none" stroke="var(--verdict-ink)" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="m-body">
+          <span class="m-num">07</span>
+          <h2>Project memory (RAG)</h2>
+          <p>The agent queries the indexed code before it assumes — never guessing what the codebase does. A sensitivity policy decides which model may see what, and the secrets are excluded from the index, so the memory helps without leaking.</p>
+          <a class="m-more" href="/docs/guides/mcp-server/">Read: the MCP server &rarr;</a>
+        </div>
+      </article>
     </main>
 
     <footer class="foot">
