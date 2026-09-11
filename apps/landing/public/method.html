@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Karajan method — evidence where there was a claim</title>
+  <meta name="description" content="The seven pieces of the Karajan method, each explained: cross-review, rules as mechanism, the Sentinel, claims with a source, a hash-chained ledger, trust that expires, and project memory.">
+  <link rel="icon" href="/img/logo-120.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', monospace;
+      --serif: 'Instrument Serif', Georgia, serif;
+      --baton-gold: #e8b04b; --baton-gold-deep: #b7832a;
+      --verdict-green: #34d399; --reject-red: #f87171;
+      --brand-steel: #6b8fa3; --brand-steel-light: #8cb4c9;
+    }
+    :root, [data-theme="dark"] {
+      --bg: #0f1520; --bg-card: #1a2332; --border: #2a3a4e;
+      --text: #e2e8f0; --text-muted: #a4aeb6; --text-dim: #94a4ac;
+      --gold-ink: var(--baton-gold); --steel-ink: var(--brand-steel-light);
+      --verdict-ink: var(--verdict-green); --accent: var(--baton-gold); color-scheme: dark;
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f4f7f9; --bg-card: #ffffff; --border: #d0dbe3;
+        --text: #1a2a35; --text-muted: #424c52; --text-dim: #4b555b;
+        --gold-ink: var(--baton-gold-deep); --steel-ink: #4d6a79;
+        --verdict-ink: #059669; --accent: var(--baton-gold-deep); color-scheme: light;
+      }
+    }
+    [data-theme="light"] {
+      --bg: #f4f7f9; --bg-card: #ffffff; --border: #d0dbe3;
+      --text: #1a2a35; --text-muted: #424c52; --text-dim: #4b555b;
+      --gold-ink: var(--baton-gold-deep); --steel-ink: #4d6a79;
+      --verdict-ink: #059669; --accent: var(--baton-gold-deep); color-scheme: light;
+    }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    .wrap { max-width: 940px; margin: 0 auto; padding: 0 1.5rem; }
+    .top { display: flex; align-items: center; justify-content: space-between; padding: 1.4rem 0; }
+    .top a.home { font-family: var(--mono); font-size: 0.82rem; color: var(--text-dim); text-decoration: none; }
+    .top a.home:hover { color: var(--accent); }
+    .theme-toggle { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); width: 40px; height: 34px; cursor: pointer; font-size: 1rem; }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+    .head { text-align: center; padding: 2rem 0 1rem; }
+    .head .eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; }
+    .head h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; margin: 0.6rem 0; }
+    .head h1 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--gold-ink); }
+    .head p { color: var(--text-muted); max-width: 580px; margin: 0 auto; }
+    .m { padding: 2.5rem 0 4rem; display: flex; flex-direction: column; gap: 1.2rem; }
+    .m-row {
+      display: grid; grid-template-columns: 44% 1fr; gap: 2rem; align-items: center;
+      border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); padding: 2rem; scroll-margin-top: 1.5rem;
+    }
+    .m-row:nth-child(even) .m-art { order: 2; }
+    .m-art { display: flex; align-items: center; justify-content: center; }
+    .m-art svg { width: 100%; max-width: 260px; height: auto; }
+    .m-num { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.2em; color: var(--gold-ink); font-weight: 700; }
+    .m-body h2 { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.01em; margin: 0.4rem 0 0.7rem; }
+    .m-body p { color: var(--text-dim); margin: 0 0 1rem; font-size: 0.95rem; }
+    .m-more { font-family: var(--mono); font-size: 0.8rem; text-decoration: none; }
+    .m-more:hover { text-decoration: underline; }
+    .foot { text-align: center; padding: 1rem 0 3rem; color: var(--text-dim); font-size: 0.85rem; }
+    .foot a { color: var(--accent); text-decoration: none; }
+    .foot .tagline { font-family: var(--serif); font-style: italic; font-size: 1.1rem; color: var(--text-muted); margin-bottom: 1.2rem; }
+    @media (max-width: 760px) {
+      .m-row { grid-template-columns: 1fr; gap: 1.3rem; padding: 1.5rem; }
+      .m-row:nth-child(even) .m-art { order: 0; }
+      .m-art svg { max-width: 200px; }
+    }
+  </style>
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('theme') || localStorage.getItem('starlight-theme');
+        if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="home" href="/">&larr; karajancode.com</a>
+      <button type="button" class="theme-toggle" aria-label="Toggle light and dark theme" onclick="toggleTheme()">&#9789;</button>
+    </div>
+
+    <header class="head">
+      <p class="eyebrow">The method</p>
+      <h1>The Karajan method, in <em>seven pieces</em></h1>
+      <p>What a senior brings is judgment and discipline. Judgment no system can guarantee; discipline it can. Each piece below turns one habit of a good team into a mechanism you cannot skip.</p>
+    </header>
+
+    <main class="m">
+      <article class="m-row" id="cross-review">
+        <div class="m-art">
+          <svg viewBox="0 0 220 170" role="img" aria-label="Two different AIs, one writes and a different one reviews, the verdict bound to the diff hash">
+            <rect x="14" y="34" width="74" height="46" rx="9" fill="none" stroke="var(--steel-ink)" stroke-width="2"/>
+            <text x="51" y="62" font-family="var(--mono)" font-size="13" fill="var(--steel-ink)" text-anchor="middle">writes</text>
+            <rect x="132" y="34" width="74" height="46" rx="9" fill="none" stroke="var(--verdict-ink)" stroke-width="2"/>
+            <text x="169" y="62" font-family="var(--mono)" font-size="13" fill="var(--verdict-ink)" text-anchor="middle">reviews</text>
+            <path d="M92 57 H128" stroke="var(--text-dim)" stroke-width="2" marker-end="url(#a)"/>
+            <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="var(--text-dim)"/></marker></defs>
+            <rect x="60" y="108" width="100" height="30" rx="15" fill="none" stroke="var(--gold-ink)" stroke-width="2"/>
+            <text x="110" y="128" font-family="var(--mono)" font-size="12" fill="var(--gold-ink)" text-anchor="middle">diff 82a5504</text>
+          </svg>
+        </div>
+        <div class="m-body">
+          <span class="m-num">01</span>
+          <h2>Mandatory cross-review</h2>
+          <p>Every change is reviewed by an AI different from the one that wrote it. The verdict is bound to the sha256 of the exact diff: change a single line and the verdict is void — a new review is required. Nothing enters self-approved, and a green that was not earned cannot exist.</p>
+          <a class="m-more" href="/docs/v4/gates/">Read: the git gates &rarr;</a>
+        </div>
+      </article>
+
+      <article class="m-row" id="rules">
+        <div class="m-art">
+          <svg viewBox="0 0 220 170" role="img" aria-label="Rules living in a git gate: a commit only passes through the gate when the rule holds">
+            <line x1="40" y1="26" x2="40" y2="150" stroke="var(--steel-ink)" stroke-width="3"/>
+            <line x1="180" y1="26" x2="180" y2="150" stroke="var(--steel-ink)" stroke-width="3"/>
+            <rect x="40" y="30" width="140" height="16" rx="4" fill="var(--gold-ink)"/>
+            <rect x="94" y="70" width="32" height="26" rx="4" fill="none" stroke="var(--gold-ink)" stroke-width="2.5"/>
+            <path d="M100 70 v-8 a10 10 0 0 1 20 0 v8" fill="none" stroke="var(--gold-ink)" stroke-width="2.5"/>
+            <circle cx="110" cy="82" r="3.5" fill="var(--gold-ink)"/>
+            <text x="110" y="132" font-family="var(--mono)" font-size="12" fill="var(--text-dim)" text-anchor="middle">pass, or no commit</text>
+          </svg>
+        </div>
+        <div class="m-body">
+          <span class="m-num">02</span>
+          <h2>Rules as mechanism</h2>
+          <p>Norms don't live in the prompt, where they are forgotten. They live in git guards and in the project's policy: it passes, or the commit does not enter. And what is marked <strong>security</strong> is never overridable — not by arbitration, not even by the author of the system.</p>
+          <a class="m-more" href="/docs/guides/hardening-against-ai/">Read: hardening against AI &rarr;</a>
+        </div>
+      </article>
+
+      <article class="m-row" id="sentinel">
+        <div class="m-art">
+          <svg viewBox="0 0 220 170" role="img" aria-label="The Sentinel: a shield that watches inside the session and blocks the forbidden action">
+            <path d="M110 22 L172 44 V92 C172 122 144 142 110 152 C76 142 48 122 48 92 V44 Z" fill="none" stroke="var(--steel-ink)" stroke-width="2.5"/>
+            <circle cx="110" cy="86" r="26" fill="none" stroke="var(--gold-ink)" stroke-width="2.5"/>
+            <circle cx="110" cy="86" r="9" fill="var(--gold-ink)"/>
+            <line x1="88" y1="108" x2="132" y2="64" stroke="var(--reject-red)" stroke-width="3"/>
+          </svg>
+        </div>
+        <div class="m-body">
+          <span class="m-num">03</span>
+          <h2>The Sentinel</h2>
+          <p>A watchman inside the session checks every command before it runs and blocks the forbidden action in the moment — not at the end, when the damage is done. And it explains why, with a link to the exact rule, so the block teaches instead of just stopping.</p>
+          <a class="m-more" href="/docs/guides/sentinel/">Read: the Sentinel &rarr;</a>
+        </div>
+      </article>
+    </main>
+
+    <footer class="foot">
+      <p class="tagline">Mechanism where there was opinion. Evidence where there was a claim.</p>
+      <p>All published under <a href="https://www.npmjs.com/org/karajan-family">@karajan-family</a> on npm. &nbsp;·&nbsp; <a href="/">Back to karajancode.com</a></p>
+    </footer>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      var cur = document.documentElement.getAttribute('data-theme');
+      var next = cur === 'light' ? 'dark' : (cur === 'dark' ? 'light' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); localStorage.setItem('starlight-theme', next); } catch (e) {}
+    }
+  </script>
+</body>
+</html>
