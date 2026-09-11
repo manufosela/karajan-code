@@ -272,18 +272,17 @@
     .hero-agents em { color: var(--gold-ink); font-style: normal; }
     /* Family section (KJL-TSK-0130): every member, one line of truth each. */
     .family-section { padding: 3rem 2rem 4rem; max-width: 900px; margin: 0 auto; }
-    .family-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1.6rem; }
-    .family-card {
-      border: 1px solid var(--border, #2a3a4e); border-radius: 10px; padding: 1.1rem 1.2rem;
-      background: var(--bg-card, rgba(255,255,255,0.02)); text-align: left;
+    .family-intro { text-align: center; color: var(--text-muted); max-width: 620px; margin: 0 auto 1.6rem; font-size: 0.95rem; }
+    .family-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.55rem; margin-bottom: 1.9rem; }
+    .family-chip { font-family: var(--mono); font-size: 0.74rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.4rem 0.9rem; color: var(--text-dim); }
+    .family-cta-wrap { text-align: center; }
+    .family-cta {
+      display: inline-block; font-family: var(--mono); font-size: 0.82rem; text-decoration: none;
+      color: var(--bg); background: var(--baton-gold); border-radius: 8px; padding: 0.6rem 1.3rem;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .family-card h3 { margin: 0 0 0.35rem; font-size: 1rem; display: flex; align-items: baseline; gap: 0.5rem; }
-    .family-card h3 .family-tag { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.18em; color: var(--gold-ink); text-transform: uppercase; }
-    .family-card p { margin: 0 0 0.6rem; font-size: 0.86rem; color: var(--text-dim); line-height: 1.5; }
-    .family-card .family-links { font-family: var(--mono); font-size: 0.74rem; display: flex; gap: 0.9rem; flex-wrap: wrap; }
-    .family-card .family-links a { color: var(--accent-teal, #6b8fa3); text-decoration: none; }
-    .family-card .family-links a:hover { text-decoration: underline; }
-    .family-card.family-brewing { opacity: 0.75; border-style: dashed; }
+    .family-cta:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,176,75,0.25); }
+    .family-cta:focus-visible { outline: 2px solid var(--baton-gold); outline-offset: 3px; }
     .score-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
     .score-title { text-align: center; font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 2rem; }
     .method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.8rem; }
@@ -524,47 +523,21 @@
     <p class="method-tagline">Mechanism where there was opinion. Evidence where there was a claim.</p>
   </section>
 
-  <!-- THE KARAJAN FAMILY (KJL-TSK-0130) -->
+  <!-- THE KARAJAN FAMILY — teaser to the dedicated page (KJL-TSK-0134) -->
   <section id="family" class="family-section fade-in" aria-label="The Karajan family">
     <p class="score-eyebrow">The family</p>
     <h2 class="score-title">One method, <em class="guarantee">one family</em> of tools</h2>
-    <div class="family-grid">
-      <div class="family-card">
-        <h3>Karajan Code <span class="family-tag">the conductor</span></h3>
-        <p>Governs AI-driven development: your agent writes, the git gates make a false green structurally impossible. This page.</p>
-        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/code">npm</a> <a href="/docs/">docs</a> <a href="https://github.com/manufosela/karajan-code">github</a></p>
-      </div>
-      <div class="family-card">
-        <h3>kaRAGan <span class="family-tag">the context engine</span></h3>
-        <p>RAG, CAG and hybrid answers over your code, docs and data — with a sensitivity policy deciding which model may see what.</p>
-        <p class="family-links"><a href="https://rag.karajancode.com">web</a> <a href="https://www.npmjs.com/package/@karajan-family/rag">npm</a></p>
-      </div>
-      <div class="family-card">
-        <h3>kaWATCHan <span class="family-tag">the watchman</span></h3>
-        <p>Multi-repo vigilance: a shared corpus kept fresh on every merge, cross-repo impact judgment and docs-drift alerts.</p>
-        <p class="family-links"><a href="https://watch.karajancode.com">web</a> <a href="https://www.npmjs.com/package/@karajan-family/watch">npm</a></p>
-      </div>
-      <div class="family-card">
-        <h3>Console <span class="family-tag">the admin</span></h3>
-        <p>The web console of a family instance: corpus health, people's access, operations as workflow runs — sealed in a hash-chained audit trail.</p>
-        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/console">npm</a></p>
-      </div>
-      <div class="family-card">
-        <h3>Governance <span class="family-tag">the kernel</span></h3>
-        <p>Policy, Decision and Exception as first-class objects — deterministic, local, domain-agnostic. karajan-code is its first consumer, not its owner.</p>
-        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/governance">npm</a></p>
-      </div>
-      <div class="family-card">
-        <h3>Core <span class="family-tag">the shared ground</span></h3>
-        <p>The internals the family stands on: model registry with pricing, shared paths and the pieces every member reuses.</p>
-        <p class="family-links"><a href="https://www.npmjs.com/package/@karajan-family/core">npm</a></p>
-      </div>
-      <div class="family-card family-brewing">
-        <h3>Radar <span class="family-tag">in the works</span></h3>
-        <p>Configurable research intelligence: watching the frontier so the family reacts to what changes. Brewing in the open, not released yet.</p>
-        <p class="family-links"><a href="https://github.com/manufosela/karajan-code/tree/main/packages/radar">github</a></p>
-      </div>
+    <p class="family-intro">Around Karajan Code sits a family that shares the same method — context, vigilance, governance and the ground they all stand on.</p>
+    <div class="family-strip" aria-hidden="true">
+      <span class="family-chip">Karajan Code</span>
+      <span class="family-chip">kaRAGan</span>
+      <span class="family-chip">kaWATCHan</span>
+      <span class="family-chip">Console</span>
+      <span class="family-chip">Governance</span>
+      <span class="family-chip">Core</span>
+      <span class="family-chip">Radar</span>
     </div>
+    <p class="family-cta-wrap"><a class="family-cta" href="/family.html">Meet the whole family &rarr;</a></p>
   </section>
 
   <!-- WANT TO KNOW MORE? -->
