@@ -40,4 +40,13 @@ describe("pre-commit scans ADDED content for AI attribution (KJC-BUG-0164)", () 
     git(["add", "notes.md"]);
     expect(() => git(["commit", "-q", "-m", "docs: notes"])).not.toThrow();
   });
+
+  // KJC-BUG-0170: the generated supervisor hooks CONTAIN the attribution
+  // pattern by design (they are the guard). The bootstrap commit that
+  // versions .karajan/hooks must not self-detect — the guard excludes them
+  // by literal path, like it already excludes its own source in the kj repo.
+  it("committing the generated .karajan/hooks does not self-detect (KJC-BUG-0170)", () => {
+    git(["add", ".karajan/hooks/pre-commit", ".karajan/hooks/commit-msg"]);
+    expect(() => git(["commit", "-q", "-m", "chore: seal supervisor hooks"])).not.toThrow();
+  });
 });
