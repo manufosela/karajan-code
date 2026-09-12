@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Karajan Code — Programa con varias IAs, con garantías</title>
+  <title>Karajan Code, Programa con varias IAs, con garantías</title>
   <meta name="description" content="La capa que gobierna el desarrollo con IA: tu agente escribe, Karajan impone método TDD primero, revisión cruzada entre IAs en cada commit y guardas en git. Un falso verde es imposible.">
   <meta name="theme-color" content="#0f1520" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f4f7f9" media="(prefers-color-scheme: light)">
@@ -13,7 +13,7 @@
   <script defer src="https://analytics.manulitics.com/script.js" data-website-id="8871eadf-4414-4baf-b83a-9f3da27b97fe"></script>
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Karajan Code — El gobernador de los agentes de código">
+  <meta property="og:title" content="Karajan Code, El gobernador de los agentes de código">
   <meta property="og:description" content="Programa con varias IAs, con garantías. Tu agente escribe; Karajan gobierna: TDD primero, revisión cruzada entre IAs en cada commit, guardas en git que hacen imposible un falso verde.">
   <meta property="og:image" content="https://karajancode.com/og.png">
   <meta property="og:url" content="https://karajancode.com/es/">
@@ -36,7 +36,7 @@
       --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
       --serif: 'Instrument Serif', Georgia, serif;
-      /* Brand colors — the gold conducts; green is RESERVED for earned verdicts */
+      /* Brand colors, the gold conducts; green is RESERVED for earned verdicts */
       --baton-gold: #e8b04b;
       --baton-gold-deep: #b7832a;
       --verdict-green: #34d399;
@@ -162,7 +162,7 @@
     @keyframes orbit-spin { to { transform: rotate(360deg); } }
     @keyframes orbit-counter { to { transform: rotate(-360deg); } }
 
-    /* Family — smaller siblings standing beside the mascot, one per side
+    /* Family, smaller siblings standing beside the mascot, one per side
        (KJL-TSK-0103): kaRAGan on the right; karajan-watch takes the left
        when it ships. Same treatment as the parent, no frame, just smaller. */
     .family-child {
@@ -179,7 +179,7 @@
       transition: color 0.2s;
     }
     .family-child:hover .family-child-label { color: var(--gold-ink); }
-    .family-child:hover, .family-child:focus-visible { transform: scale(1.1); }
+    .family-child:hover.family-child:focus-visible { transform: scale(1.1); }
     .family-child:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 4px; }
     /* Fuera del radio de giro de la órbita (r=130 + logo del agente). */
     .family-child-right { right: -92px; }
@@ -223,7 +223,7 @@
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) .hero-install { box-shadow: none; }
     }
-    .hero-install:hover, .hero-install:focus-visible { border-color: var(--accent-teal); }
+    .hero-install:hover.hero-install:focus-visible { border-color: var(--accent-teal); }
     .hero-install:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
     .hero-install .prompt { color: var(--text-dim); user-select: none; }
     .hero-install .copy-hint {
@@ -258,7 +258,7 @@
       color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500;
       transition: color 0.2s;
     }
-    .hero-links a:hover, .hero-links a:focus-visible { color: var(--accent-teal); }
+    .hero-links a:hover.hero-links a:focus-visible { color: var(--accent-teal); }
     .hero-links a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
     /* --- THE METHOD (signature) --- */
@@ -354,6 +354,15 @@
       :root:not([data-theme="dark"]) .theme-toggle .icon-sun { display: block; }
       :root:not([data-theme="dark"]) .theme-toggle .icon-moon { display: none; }
     }
+    .lang-switch {
+      position: fixed; top: 1rem; right: 3.75rem; z-index: 50;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      height: 36px; padding: 0 0.6rem; display: flex; align-items: center;
+      font-family: var(--font-mono, monospace); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--text-muted); text-decoration: none; transition: border-color 0.2s, color 0.2s;
+    }
+    .lang-switch:hover { border-color: var(--accent-teal); color: var(--text); }
+    .lang-switch:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
     /* --- RESPONSIVE --- */
     @media (max-width: 640px) {
@@ -384,7 +393,8 @@
 <body>
   <a href="#main-content" class="skip-link">Skip to content</a>
 
-  <button type="button" class="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
+  <a class="lang-switch" href="/" hreflang="en" aria-label="View this page in English">EN</a>
+  <button type="button" class="theme-toggle" aria-label="Cambiar tema" onclick="toggleTheme()">
     <span class="icon-sun" aria-hidden="true">&#9728;</span>
     <span class="icon-moon" aria-hidden="true">&#9790;</span>
   </button>
@@ -401,7 +411,7 @@
         <source type="image/png"
           srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
           sizes="(max-width: 480px) 120px, (max-width: 768px) 160px, 200px">
-        <img src="/img/logo-240.png" alt="Karajan Code — robot mascot" class="hero-logo" width="200" height="200" fetchpriority="high">
+        <img src="/img/logo-240.png" alt="Karajan Code, robot mascot" class="hero-logo" width="200" height="200" fetchpriority="high">
       </picture>
       <div class="orbit-ring" aria-hidden="true">
         <!-- Claude -->
@@ -415,14 +425,14 @@
         <!-- OpenCode -->
         <span class="orbit-agent" title="OpenCode"><svg viewBox="0 0 16 16"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8zm4.292-0.708a.5.5 0 0 0 0 .708L13.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0"/></svg></span>
       </div>
-      <a class="family-child family-child-right" href="https://rag.karajancode.com" aria-label="kaRAGan — RAG over your code, docs and data" title="kaRAGan — RAG over your code, docs and data">
+      <a class="family-child family-child-right" href="https://rag.karajancode.com" aria-label="kaRAGan, RAG over your code, docs and data" title="kaRAGan, RAG over your code, docs and data">
         <picture>
           <source type="image/webp" srcset="/img/rag-logo-120.webp">
           <img src="/img/rag-logo-120.png" alt="kaRAGan" width="53" height="58" loading="lazy">
         </picture>
         <span class="family-child-label">RAG</span>
       </a>
-      <a class="family-child family-child-left" href="https://watch.karajancode.com" aria-label="kaWATCHan — cross-repo impact analysis on every merge" title="kaWATCHan — cross-repo impact analysis on every merge">
+      <a class="family-child family-child-left" href="https://watch.karajancode.com" aria-label="kaWATCHan, cross-repo impact analysis on every merge" title="kaWATCHan, cross-repo impact analysis on every merge">
         <picture>
           <source type="image/webp" srcset="/img/watch-logo-120.webp">
           <img src="/img/watch-logo-120.png" alt="kaWATCHan" width="53" height="58" loading="lazy">
@@ -433,7 +443,7 @@
     <h1>Karajan Code</h1>
     <p class="hero-tagline">Programa con varias IAs, <em class="guarantee">con garantías</em>.</p>
     <p class="hero-sub">El gobernador de los agentes de código: tu agente escribe; Karajan impone TDD primero, revisión cruzada entre IAs en cada commit y guardas en git. Un falso verde es imposible.</p>
-    <p class="hero-agents" aria-label="Agentes de código soportados">gobierna <span>claude-code</span> · <span>codex</span> · <span>copilot</span> · <span>antigravity</span> · <span>kimi</span> · <span>qwen</span> · <span>opencode</span> · <span>aider</span> · <span>gemini</span> — uno escribe, otro <em>distinto</em> revisa, un tercero arbitra</p>
+    <p class="hero-agents" aria-label="Agentes de código soportados">gobierna <span>claude-code</span> · <span>codex</span> · <span>copilot</span> · <span>antigravity</span> · <span>kimi</span> · <span>qwen</span> · <span>opencode</span> · <span>aider</span> · <span>gemini</span>, uno escribe, otro <em>distinto</em> revisa, un tercero arbitra</p>
     <p class="hero-badge">
       <span class="v4-pill">v4 · el Entorno Karajan</span>
       <a href="https://www.npmjs.com/package/karajan-code" aria-label="Current version on npm">
@@ -446,21 +456,21 @@
     </div>
 
     <div id="panel-maggle" role="tabpanel" aria-labelledby="tab-maggle" class="install-panel">
-      <button type="button" class="hero-install" data-copy="Configura Karajan en este proyecto y arráncalo por mí: lee karajancode.com/go.md y haz todo lo que diga. No soy programador — no me hagas preguntas técnicas, solo déjalo funcionando y avísame cuando esté listo." onclick="copyInstall(this)" aria-label="Prompt de instalación — pulsa para copiar">
+      <button type="button" class="hero-install" data-copy="Configura Karajan en este proyecto y arráncalo por mí: lee karajancode.com/go.md y haz todo lo que diga. No soy programador, no me hagas preguntas técnicas, solo déjalo funcionando y avísame cuando esté listo." onclick="copyInstall(this)" aria-label="Prompt de instalación, pulsa para copiar">
         <span class="prompt" aria-hidden="true">&gt;</span>
         <span>Configura Karajan y arráncalo por mí: lee karajancode.com/go.md y haz todo lo que diga.</span>
         <span class="copy-hint" aria-live="polite">pulsa para copiar</span>
       </button>
-      <p class="hero-note">Pégalo en tu asistente de IA (Claude Code, Codex, Cursor, VS Code). Instala Karajan, prepara el proyecto y abre una única ventana con el tablero y tu agente dentro — <em>tú nunca tocas la terminal</em>. Solo se detiene si un paso necesita tu permiso.</p>
+      <p class="hero-note">Pégalo en tu asistente de IA (Claude Code, Codex, Cursor, VS Code). Instala Karajan, prepara el proyecto y abre una única ventana con el tablero y tu agente dentro, <em>tú nunca tocas la terminal</em>. Solo se detiene si un paso necesita tu permiso.</p>
     </div>
 
     <div id="panel-dev" role="tabpanel" aria-labelledby="tab-dev" class="install-panel" hidden>
-      <button type="button" class="hero-install" data-copy="Quiero usar Karajan en este proyecto: lee karajancode.com/start.md y haz lo que diga." onclick="copyInstall(this)" aria-label="Prompt de instalación — pulsa para copiar">
+      <button type="button" class="hero-install" data-copy="Quiero usar Karajan en este proyecto: lee karajancode.com/start.md y haz lo que diga." onclick="copyInstall(this)" aria-label="Prompt de instalación, pulsa para copiar">
         <span class="prompt" aria-hidden="true">&gt;</span>
         <span>Quiero usar Karajan en este proyecto: lee karajancode.com/start.md y haz lo que diga.</span>
         <span class="copy-hint" aria-live="polite">pulsa para copiar</span>
       </button>
-      <p class="hero-note">Pégalo en tu agente de IA (Claude Code, Codex, Cursor, VS Code). Comprueba tu máquina, instala lo que falte y <em>se detiene a esperarte</em> cada vez que un paso necesita tu permiso — mantienes el control.</p>
+      <p class="hero-note">Pégalo en tu agente de IA (Claude Code, Codex, Cursor, VS Code). Comprueba tu máquina, instala lo que falte y <em>se detiene a esperarte</em> cada vez que un paso necesita tu permiso, mantienes el control.</p>
     </div>
 
     <p class="hero-note hero-note-last">¿Quieres ver qué se instala, o hacerlo tú mismo primero? <a href="/docs/es/v4/install/">Requisitos e instalación manual</a>.</p>
@@ -473,7 +483,7 @@
     </nav>
   </section>
 
-  <!-- THE KARAJAN METHOD — the seven pieces (KJL-TSK-0134) -->
+  <!-- THE KARAJAN METHOD, the seven pieces (KJL-TSK-0134) -->
   <section id="method" class="method-section fade-in" aria-label="The Karajan method">
     <p class="score-eyebrow">El método</p>
     <h2 class="score-title">El método Karajan, en <em class="guarantee">siete piezas</em></h2>
@@ -481,7 +491,7 @@
       <a class="method-piece" href="/es/method#cross-review">
         <span class="method-num">01</span>
         <h3>Revisión cruzada obligatoria</h3>
-        <p>Una IA distinta revisa cada cambio. El veredicto se ata al hash exacto del diff &mdash; cambias una línea, revisión nueva.</p>
+        <p>Una IA distinta revisa cada cambio, atado al hash exacto del diff. Cambias una línea y no la revisas: el sistema rechaza el commit, aunque el agente intente saltárselo.</p>
         <span class="method-more">leer &rarr;</span>
       </a>
       <a class="method-piece" href="/es/method#rules">
@@ -493,7 +503,7 @@
       <a class="method-piece" href="/es/method#sentinel">
         <span class="method-num">03</span>
         <h3>El Sentinel</h3>
-        <p>Un vigilante dentro de la sesión bloquea la acción prohibida en el momento &mdash; y te enlaza a la regla.</p>
+        <p>Un vigilante dentro de la sesión bloquea la acción prohibida en el momento, y te enlaza a la regla.</p>
         <span class="method-more">leer &rarr;</span>
       </a>
       <a class="method-piece" href="/es/method#claims">
@@ -517,18 +527,18 @@
       <a class="method-piece" href="/es/method#rag">
         <span class="method-num">07</span>
         <h3>Memoria del proyecto (RAG)</h3>
-        <p>El agente consulta el código indexado antes de suponer &mdash; con política de sensibilidad, y los secretos excluidos del índice.</p>
+        <p>El agente consulta el código indexado antes de suponer, con política de sensibilidad, y los secretos excluidos del índice.</p>
         <span class="method-more">leer &rarr;</span>
       </a>
     </div>
     <p class="method-tagline">Mecanismo donde había opinión. Evidencia donde había afirmación.</p>
   </section>
 
-  <!-- THE KARAJAN FAMILY — teaser to the dedicated page (KJL-TSK-0134) -->
+  <!-- THE KARAJAN FAMILY, teaser to the dedicated page (KJL-TSK-0134) -->
   <section id="family" class="family-section fade-in" aria-label="The Karajan family">
     <p class="score-eyebrow">La familia</p>
     <h2 class="score-title">Un método, <em class="guarantee">una familia</em> de herramientas</h2>
-    <p class="family-intro">Alrededor de Karajan Code hay una familia que comparte el mismo método — contexto, vigilancia, gobierno y el suelo sobre el que se apoyan todas.</p>
+    <p class="family-intro">Alrededor de Karajan Code hay una familia que comparte el mismo método, contexto, vigilancia, gobierno y el suelo sobre el que se apoyan todas.</p>
     <div class="family-strip" aria-hidden="true">
       <span class="family-chip">Karajan Code</span>
       <span class="family-chip">kaRAGan</span>
@@ -546,10 +556,10 @@
     <details>
       <summary>¿Quieres saber más?</summary>
       <ul class="more-list">
-        <li><strong>Nueve agentes bajo un mismo gobierno</strong> &mdash; Claude Code, Codex, GitHub Copilot, Antigravity, Kimi Code, Qwen, OpenCode, Aider, Gemini. Cualquiera es el cerebro y absorbe los roles (triaje, planner, arquitecto, tester, seguridad, auditoría) vía <code>kj brief</code>; cuando el reviewer se queda sin cuota, el panel conmuta con un aviso sonoro &mdash; nunca en silencio, nunca autorevisión. <a href="/docs/es/v4/working-with-your-agent/">Ver el método &rarr;</a></li>
-        <li><strong>Cómo funciona el gobierno: tres niveles</strong> &mdash; en tiempo de herramienta el Sentinel deniega la violación ANTES del daño; en tiempo de commit ningún diff entra sin un veredicto cruzado entre IAs atado a su sha256 (el suelo de la garantía en cualquier host); en tiempo de merge el CI re-comprueba la misma política, así que un hook local manipulado no cambia nada. Los hallazgos de seguridad no los salta nadie &mdash; ni el arbitraje. <a href="/docs/es/v4/gates/">Ver las guardas &rarr;</a></li>
-        <li><strong>Revisión cruzada entre IAs en cada commit</strong> &mdash; una IA distinta aprueba cada diff; una tercera arbitra las disputas; los hallazgos de seguridad no los salta nadie. <a href="/docs/es/v4/gates/">Ver las guardas &rarr;</a></li>
-        <li><strong>Pipeline headless para CI</strong> &mdash; el bucle multiagente clásico, desatendido, las mismas guardas. <a href="/docs/es/v4/headless/">Ver el modo headless &rarr;</a></li>
+        <li><strong>Nueve agentes bajo un mismo gobierno</strong>, Claude Code, Codex, GitHub Copilot, Antigravity, Kimi Code, Qwen, OpenCode, Aider, Gemini. Cualquiera es el cerebro y absorbe los roles (triaje, planner, arquitecto, tester, seguridad, auditoría) vía <code>kj brief</code>; cuando el reviewer se queda sin cuota, el panel conmuta con un aviso sonoro, nunca en silencio, nunca autorevisión. <a href="/docs/es/v4/working-with-your-agent/">Ver el método &rarr;</a></li>
+        <li><strong>Cómo funciona el gobierno: tres niveles</strong>, en tiempo de herramienta el Sentinel deniega la violación ANTES del daño; en tiempo de commit ningún diff entra sin un veredicto cruzado entre IAs atado a su sha256 (el suelo de la garantía en cualquier host); en tiempo de merge el CI re-comprueba la misma política, así que un hook local manipulado no cambia nada. Los hallazgos de seguridad no los salta nadie, ni el arbitraje. <a href="/docs/es/v4/gates/">Ver las guardas &rarr;</a></li>
+        <li><strong>Revisión cruzada entre IAs en cada commit</strong>, una IA distinta aprueba cada diff; una tercera arbitra las disputas; los hallazgos de seguridad no los salta nadie. <a href="/docs/es/v4/gates/">Ver las guardas &rarr;</a></li>
+        <li><strong>Pipeline headless para CI</strong>, el bucle multiagente clásico, desatendido, las mismas guardas. <a href="/docs/es/v4/headless/">Ver el modo headless &rarr;</a></li>
         <li><strong>6.000+ tests. 90+ releases. Código abierto (AGPL-3.0).</strong> <a href="https://github.com/manufosela/karajan-code">Ver el repo &rarr;</a></li>
       </ul>
     </details>
@@ -567,7 +577,7 @@
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a>
     </nav>
     <p class="footer-version">Karajan Code</p>
-    <p class="footer-family">La familia Karajan: <a href="/es/#family">Code</a> &middot; <a href="https://rag.karajancode.com">kaRAGan</a> &middot; <a href="https://watch.karajancode.com">kaWATCHan</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/console">Console</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/governance">Governance</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/core">Core</a> &middot; Radar (en preparación) &mdash; todo bajo <a href="https://www.npmjs.com/~karajan-family">@karajan-family</a>.</p>
+    <p class="footer-family">La familia Karajan: <a href="/es/#family">Code</a> &middot; <a href="https://rag.karajancode.com">kaRAGan</a> &middot; <a href="https://watch.karajancode.com">kaWATCHan</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/console">Console</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/governance">Governance</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/core">Core</a> &middot; Radar (en preparación), todo bajo <a href="https://www.npmjs.com/~karajan-family">@karajan-family</a>.</p>
     <p class="footer-author">Hecho por <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 

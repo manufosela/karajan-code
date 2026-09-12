@@ -354,6 +354,15 @@
       :root:not([data-theme="dark"]) .theme-toggle .icon-sun { display: block; }
       :root:not([data-theme="dark"]) .theme-toggle .icon-moon { display: none; }
     }
+    .lang-switch {
+      position: fixed; top: 1rem; right: 3.75rem; z-index: 50;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      height: 36px; padding: 0 0.6rem; display: flex; align-items: center;
+      font-family: var(--font-mono, monospace); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--text-muted); text-decoration: none; transition: border-color 0.2s, color 0.2s;
+    }
+    .lang-switch:hover { border-color: var(--accent-teal); color: var(--text); }
+    .lang-switch:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
     /* --- RESPONSIVE --- */
     @media (max-width: 640px) {
@@ -384,6 +393,7 @@
 <body>
   <a href="#main-content" class="skip-link">Skip to content</a>
 
+  <a class="lang-switch" href="/es/" hreflang="es" aria-label="Ver esta página en español">ES</a>
   <button type="button" class="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
     <span class="icon-sun" aria-hidden="true">&#9728;</span>
     <span class="icon-moon" aria-hidden="true">&#9790;</span>
@@ -481,7 +491,7 @@
       <a class="method-piece" href="/method#cross-review">
         <span class="method-num">01</span>
         <h3>Mandatory cross-review</h3>
-        <p>A different AI reviews every change. The verdict is bound to the exact diff hash &mdash; change a line, review again.</p>
+        <p>A different AI reviews every change, bound to the exact diff hash. Change a line and skip the review: the system rejects the commit, even if the agent tries to bypass it.</p>
         <span class="method-more">read &rarr;</span>
       </a>
       <a class="method-piece" href="/method#rules">

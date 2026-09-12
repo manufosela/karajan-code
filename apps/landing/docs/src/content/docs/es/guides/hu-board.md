@@ -7,11 +7,11 @@ description: Dashboard web para visualizar historias de usuario y sesiones de Ka
 
 Un dashboard web que visualiza todas las historias de usuario (HU) y sesiones del pipeline gestionadas por Karajan Code. Proporciona un tablero kanban, timeline de sesiones, puntuaciones de calidad y soporte multi-proyecto.
 
-## En la práctica — desde tu agente
+## En la práctica, desde tu agente
 
-Más allá del kanban, el board tiene una vista **Governance** — el acta encadenada por hash del proyecto, en vivo. Cada decisión que toma el entorno (un deny, una excepción con su caducidad y su ámbito, un veredicto de revisión, un resellado del supervisor) aterriza ahí sellada, y cada entrada lleva la huella criptográfica de la anterior. Así, mientras tu agente trabaja, puedes leer — en un navegador, sin terminal — exactamente qué se decidió y por quién, con la certeza de que nadie reescribió el registro de ayer sin que se note.
+Más allá del kanban, el board tiene una vista **Governance**, el acta encadenada por hash del proyecto, en vivo. Cada decisión que toma el entorno (un deny, una excepción con su caducidad y su ámbito, un veredicto de revisión, un resellado del supervisor) aterriza ahí sellada, y cada entrada lleva la huella criptográfica de la anterior. Así, mientras tu agente trabaja, puedes leer, en un navegador, sin terminal, exactamente qué se decidió y por quién, con la certeza de que nadie reescribió el registro de ayer sin que se note.
 
-## Bajo el capó — pruébalo tú mismo
+## Bajo el capó, pruébalo tú mismo
 
 El acta es un fichero plano de solo-añadido donde cada línea liga la anterior:
 
@@ -21,7 +21,7 @@ kj policy report                      # lo mismo, como informe legible (una cade
 kj policy anchor                      # re-verifica TODA la cadena y sella su head-hash en git
 ```
 
-Una vez commiteado el head-hash (`kj policy anchor` escribe `.karajan/policy-anchor.json`), reescribir el pasado obliga a reescribir también la historia del repo — y eso se nota.
+Una vez commiteado el head-hash (`kj policy anchor` escribe `.karajan/policy-anchor.json`), reescribir el pasado obliga a reescribir también la historia del repo, y eso se nota.
 
 ## Inicio Rápido
 
@@ -69,7 +69,7 @@ kj init  # Seleccionar "Enable HU Board" cuando se pregunte
 - **Multi-Proyecto**: Auto-descubre todos los proyectos desde ~/.karajan/
 - **Auto-Sincronización**: Vigila ficheros JSON para actualizaciones en tiempo real
 - **Tema Oscuro**: Coincide con el diseño de Karajan Code
-- **HUs Auto-Generadas**: Desde v1.38.0, el board muestra HUs generadas automáticamente a partir de tareas complejas — no solo las proporcionadas manualmente. Cuando el triage activa hu-reviewer para tareas medias/complejas, las HUs descompuestas aparecen en el board con su estado de sub-pipeline (pending/coding/reviewing/done/failed/blocked)
+- **HUs Auto-Generadas**: Desde v1.38.0, el board muestra HUs generadas automáticamente a partir de tareas complejas, no solo las proporcionadas manualmente. Cuando el triage activa hu-reviewer para tareas medias/complejas, las HUs descompuestas aparecen en el board con su estado de sub-pipeline (pending/coding/reviewing/done/failed/blocked)
 - **Sincronización con Planes (v2.5.0)**: Las HUs generadas con `kj plan` también se rastrean en el board. Al ejecutar `kj run --plan <planId>`, el board muestra el estado del sub-pipeline de cada HU en tiempo real, agrupadas por su plan de origen
 - **Tests de Aceptación (v2.4.0+)**: Cada tarjeta HU muestra sus tests de aceptación ejecutables y su estado pasa/falla tras cada iteración del coder
 - **Fallback de Puerto**: Arranca en el puerto 4000 por defecto; prueba automáticamente 4001–4009 si el puerto primario está ocupado
@@ -77,7 +77,7 @@ kj init  # Seleccionar "Enable HU Board" cuando se pregunte
 
 ## Cómo Funciona
 
-El board lee ficheros JSON desde `~/.karajan/hu-stories/` y `~/.karajan/sessions/`. SQLite se usa como índice para consultas rápidas — si se elimina, se reconstruye desde los ficheros JSON en el siguiente arranque.
+El board lee ficheros JSON desde `~/.karajan/hu-stories/` y `~/.karajan/sessions/`. SQLite se usa como índice para consultas rápidas, si se elimina, se reconstruye desde los ficheros JSON en el siguiente arranque.
 
 ## Herramienta MCP
 

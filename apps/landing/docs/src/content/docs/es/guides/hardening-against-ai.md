@@ -1,17 +1,17 @@
 ---
 title: Blindar tu entorno frente a la IA
-description: Protege tu entorno de desarrollo de las herramientas de IA — funciona uses Karajan o no.
+description: Protege tu entorno de desarrollo de las herramientas de IA, funciona uses Karajan o no.
 ---
 
-Cuando delegas trabajo en herramientas de IA (Claude Code, Codex, Aider, Cursor, Gemini CLI, etc.), se ejecutan con **todos tus permisos de usuario**. Pueden leer, escribir, borrar, hacer push, force-push y llamar a cualquier API externa que tu shell pueda alcanzar. Es así por diseño — quieres que hagan trabajo de verdad — pero implica que necesitas una estrategia de defensa que **no** dependa de que la IA se comporte bien.
+Cuando delegas trabajo en herramientas de IA (Claude Code, Codex, Aider, Cursor, Gemini CLI, etc.), se ejecutan con **todos tus permisos de usuario**. Pueden leer, escribir, borrar, hacer push, force-push y llamar a cualquier API externa que tu shell pueda alcanzar. Es así por diseño, quieres que hagan trabajo de verdad, pero implica que necesitas una estrategia de defensa que **no** dependa de que la IA se comporte bien.
 
 Esta guía es **agnóstica a la IA y a la herramienta**. Sirve uses Karajan, Claude Code a pelo, Codex, o cualquier otra cosa.
 
-## En la práctica — desde tu agente
+## En la práctica, desde tu agente
 
-Una vez que `kj harden` ha corrido, las reglas no viven en un prompt que tu agente pueda olvidar — viven en guardas de git y en la política del proyecto. Así que cuando tu agente (Claude Code, Codex, Antigravity, el asistente de VS Code) intenta commitear algo que rompe una regla — sin card, sin veredicto de revisión, con una atribución a IA en el pie, o tocando una regla de clase `security` — el commit simplemente no entra, y el motivo se imprime en la sesión. No vigilas tú a la IA; lo hace el mecanismo. La única categoría que no se salta nunca, ni siquiera tú, es `security`.
+Una vez que `kj harden` ha corrido, las reglas no viven en un prompt que tu agente pueda olvidar, viven en guardas de git y en la política del proyecto. Así que cuando tu agente (Claude Code, Codex, Antigravity, el asistente de VS Code) intenta commitear algo que rompe una regla, sin card, sin veredicto de revisión, con una atribución a IA en el pie, o tocando una regla de clase `security`, el commit simplemente no entra, y el motivo se imprime en la sesión. No vigilas tú a la IA; lo hace el mecanismo. La única categoría que no se salta nunca, ni siquiera tú, es `security`.
 
-## Bajo el capó — pruébalo tú mismo
+## Bajo el capó, pruébalo tú mismo
 
 Blinda un repo y lee lo que ahora impone:
 
@@ -21,7 +21,7 @@ cat .karajan/policy.yml       # qué puede hacer cada rol; qué reglas solo avis
 kj policy report              # las reglas vigentes, las excepciones concedidas y el acta sellada
 ```
 
-Una regla marcada como `class: security` cierra sin escape y sin arbitraje — un deny que no puedes rebatir es justamente el objetivo.
+Una regla marcada como `class: security` cierra sin escape y sin arbitraje, un deny que no puedes rebatir es justamente el objetivo.
 
 ## El modelo mental incorrecto
 
@@ -42,7 +42,7 @@ Tendrías que enumerar todos los comandos shell, todos los intérpretes, todas l
 
 **Defensa en profundidad, con capas que no dependen de enumerar comportamientos malos.** Las capas fuertes son a nivel kernel y server-side; lo demás es refuerzo.
 
-## Capa 1 — Recuperación: asume que algo se romperá
+## Capa 1, Recuperación: asume que algo se romperá
 
 Backups cifrados periódicos a un destino que tú controlas. El objetivo no es "evitar daño" sino "que recuperar sea barato y fiable".
 
@@ -67,7 +67,7 @@ borg prune user@nas:/path/to/borg-repo \
 
 Si una IA borra algo que necesitabas, recuperarlo es un `borg extract`.
 
-## Capa 2 — Prevención: usuario Linux restringido aparte
+## Capa 2, Prevención: usuario Linux restringido aparte
 
 Es la **capa más fuerte**. Crea un usuario dedicado (p. ej. `ia-user`) para ejecutar herramientas de IA. El kernel mismo aplica qué puede leer y escribir.
 
@@ -106,9 +106,9 @@ cd /home/$TU_USUARIO/projects/active-project
 claude   # o codex, gemini, aider...
 ```
 
-**Un único usuario restringido sirve para todas las CLIs de IA.** Claude Code, Codex, Aider, Gemini CLI, Cursor — todas se ejecutan bajo el mismo UID y heredan las mismas restricciones. Una configuración protege todo el ecosistema.
+**Un único usuario restringido sirve para todas las CLIs de IA.** Claude Code, Codex, Aider, Gemini CLI, Cursor, todas se ejecutan bajo el mismo UID y heredan las mismas restricciones. Una configuración protege todo el ecosistema.
 
-## Capa 3 — Inmutabilidad para archivos críticos
+## Capa 3, Inmutabilidad para archivos críticos
 
 Para archivos que nunca deben cambiar (claves SSH, configs de identidad):
 
@@ -120,7 +120,7 @@ sudo chattr +i ~/.ssh/config
 
 Una vez fijado, ni siquiera `sudo rm -rf` puede borrar el archivo. Para modificarlo legítimamente, primero `sudo chattr -i <archivo>`.
 
-## Capa 4 — Protección server-side en Git hosts
+## Capa 4, Protección server-side en Git hosts
 
 El remoto debe aplicar sus propias reglas, independiente de tu entorno local.
 
@@ -154,7 +154,7 @@ No incluyas `delete_repo` en el scope de tu token de GitHub. Sin ese scope, ning
 gh auth status   # verifica scopes; asegúrate de que delete_repo NO aparece
 ```
 
-## Capa 5 — Reglas deny específicas por herramienta
+## Capa 5, Reglas deny específicas por herramienta
 
 Es la **capa más débil** pero útil para cazar errores obvios.
 
@@ -177,7 +177,7 @@ Ejemplo para Claude Code (`~/.claude/settings.json`):
 }
 ```
 
-## Capa 6 — Pre-commit hooks contra atribución a IA
+## Capa 6, Pre-commit hooks contra atribución a IA
 
 Si tu política es "sin referencias a IA en commits/PRs":
 
@@ -190,26 +190,26 @@ Implementación de referencia: [`@geniova/git-hooks`](https://github.com/geniova
 
 | Capa | Esfuerzo | Eficacia |
 |---|---|---|
-| Backups (Borg) | Bajo | Alta — recuperación |
-| Usuario restringido | Medio | **Muy alta** — prevención por kernel |
+| Backups (Borg) | Bajo | Alta, recuperación |
+| Usuario restringido | Medio | **Muy alta**, prevención por kernel |
 | `chattr +i` en claves SSH | Trivial | Alta para esos archivos |
-| Branch protection | Trivial | Alta — server-side |
+| Branch protection | Trivial | Alta, server-side |
 | Token sin `delete_repo` | Trivial | Alta |
 
 ## Objeciones habituales
 
-**"Esto es demasiada fricción."** — Ejecuta la IA como `ia-user` solo cuando le delegues trabajo real. Para exploración y consultas, tu usuario normal está bien. La fricción es un `sudo -i -u ia-user` por sesión.
+**"Esto es demasiada fricción."**, Ejecuta la IA como `ia-user` solo cuando le delegues trabajo real. Para exploración y consultas, tu usuario normal está bien. La fricción es un `sudo -i -u ia-user` por sesión.
 
-**"Mi IA es de confianza."** — Hoy quizás. La defensa no depende de la IA actual. Te protege ante futuras actualizaciones del modelo, prompt injection desde input no auditado, MCP servers que no has revisado, y tus propios dedazos a las 2 de la madrugada.
+**"Mi IA es de confianza."**, Hoy quizás. La defensa no depende de la IA actual. Te protege ante futuras actualizaciones del modelo, prompt injection desde input no auditado, MCP servers que no has revisado, y tus propios dedazos a las 2 de la madrugada.
 
-**"Yo uso Docker."** — Es una buena alternativa para la Capa 2. El principio es idéntico: aislamiento por kernel, no policing por denylist.
+**"Yo uso Docker."**, Es una buena alternativa para la Capa 2. El principio es idéntico: aislamiento por kernel, no policing por denylist.
 
 ## Resumen
 
 > No puedes prohibir lo que no has imaginado. Pero puedes negar acceso a lo que no debe tocarse.
 
-Las capas fuertes (aislamiento por kernel + backups fiables) hacen el trabajo de verdad. Lo demás son ajustes finos. Esto aplica orquestes agentes con Karajan, ejecutes una IA suelta, o cualquier combinación — las defensas viven a nivel SO y de Git host, y por eso funcionan.
+Las capas fuertes (aislamiento por kernel + backups fiables) hacen el trabajo de verdad. Lo demás son ajustes finos. Esto aplica orquestes agentes con Karajan, ejecutes una IA suelta, o cualquier combinación, las defensas viven a nivel SO y de Git host, y por eso funcionan.
 
 ## Siguiente: los ficheros concretos para tu disco
 
-Esta página es el *por qué*. Para el *cómo* — config concreta de git hooks, permisos de agentes (Claude / Codex / Gemini) y SSH multi-cuenta — mira [Configuración Recomendada](/es/guides/recommended-setup/).
+Esta página es el *por qué*. Para el *cómo*, config concreta de git hooks, permisos de agentes (Claude / Codex / Gemini) y SSH multi-cuenta, mira [Configuración Recomendada](/es/guides/recommended-setup/).
