@@ -8,7 +8,7 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { runCommand } from "../utils/process.js";
-import { checkVerdict, diffHash } from "../review/verdict-store.js";
+import { checkVerdict, diffHash, pruneVerdicts } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
@@ -142,6 +142,21 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       console.log("⚠ no core.hooksPath configured — run `kj harden` so the pre-commit hook enforces the gate");
     }
     return { installed: true };
+  }
+
+  // KJC-BUG-0173: manual GC of the verdict store. Opportunistic pruning runs
+  // on every saved verdict; this lets a human sweep on demand, with --dry-run
+  // to see what would go without deleting.
+  if (flags.prune) {
+    const dryRun = Boolean(flags.dryRun || flags.checkOnly);
+    const days = Number(flags.pruneDays);
+    const res = await pruneVerdicts({ projectDir, dryRun, ...(Number.isFinite(days) && days > 0 ? { maxAgeDays: days } : {}) });
+    console.log(
+      dryRun
+        ? `kj review --prune (dry run): ${res.expired.length} of ${res.scanned} verdict(s) older than ${res.maxAgeDays}d would be removed`
+        : `kj review --prune: removed ${res.removed} verdict(s) older than ${res.maxAgeDays}d (${res.scanned - res.removed} kept)`,
+    );
+    return { pruned: res.removed, dryRun };
   }
 
   const diff = await rawDiff(flags.range);
