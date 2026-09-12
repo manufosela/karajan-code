@@ -76,10 +76,10 @@ class TestAwareTimestampsAreAccepted:
         await session.execute(delete(DailyDigest).where(DailyDigest.id == digest.id))
         await session.commit()
 
-    async def test_a_user_records_activity_without_a_timezone(self, session) -> None:
-        """`users` keeps naive columns for now (KRD-TSK-0014), so what has to
-        hold here is the opposite: the naive value the code writes is accepted.
-        An aware one would be rejected on every authenticated request."""
+    async def test_a_user_records_activity_with_an_aware_timestamp(self, session) -> None:
+        """`users` time columns are timestamptz now (KRD-TSK-0014), so the aware
+        UTC value the code writes is accepted and round-trips as aware. A naive
+        value was the only thing the column took before; now the reverse holds."""
         user = User(
             id=uuid.uuid4(),
             email=f"smoke-{uuid.uuid4().hex[:8]}@example.invalid",
@@ -87,10 +87,15 @@ class TestAwareTimestampsAreAccepted:
             name="Smoke",
             role="user",
             is_active=True,
-            last_active_at=datetime.now(UTC).replace(tzinfo=None),
+            last_active_at=datetime.now(UTC),
         )
         session.add(user)
         await session.commit()
+
+        stored = (await session.execute(select(User).where(User.id == user.id))).scalar_one()
+        assert stored.last_active_at is not None
+        assert stored.last_active_at.tzinfo is not None
+        assert stored.created_at.tzinfo is not None
 
         await session.execute(delete(User).where(User.id == user.id))
         await session.commit()
