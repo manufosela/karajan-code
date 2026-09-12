@@ -7,6 +7,18 @@ The chain in v4 is: **you → your agent → kj → git**. You describe outcomes
 
 You almost never type `kj` yourself. Your agent does — the playbook installed by `kj env install` orders it to.
 
+## Claims with a source
+
+**From your agent:** every hard fact your agent is about to publish — a number in a PR, a "tests pass" in a summary — is cross-checked against what its own session actually executed. Backed, unbacked, or *disproven by its own terminal* — and a fact its own terminal disproves is a proven hallucination, caught before it ships. You read the PR knowing its claims survived that check.
+
+**Under the hood:** `kj claims check` runs the cross-check over the session's transcript — the transcript is the register of sources, so "did this actually happen?" is answerable, not trusted.
+
+## Trust expires — the Steward
+
+**From your agent:** the project declares its guarantees ("the suite passes", "there is a recent audit"), and the **Steward** re-verifies them on a schedule. Stale evidence stops counting — an expired guarantee reads as *unknown*, never green — and every break lands on the board as PROPOSED work that nothing executes unreviewed. Projects rot exactly when nobody is looking; this looks.
+
+**Under the hood:** `kj steward sweep` runs the check on demand; it also runs on `kj resume` when the evidence is stale, or as an opt-in scheduled Action.
+
 ## What the playbook orders
 
 A task is DONE when its done-statement is literally true, the suite is green, and every commit carries a cross-AI verdict. The invariants:

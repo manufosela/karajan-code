@@ -7,6 +7,22 @@ When you delegate work to AI coding tools (Claude Code, Codex, Aider, Cursor, Ge
 
 This guide is **AI-agnostic and tool-agnostic**. It applies whether you use Karajan, raw Claude Code, raw Codex, or anything else.
 
+## In practice — from your agent
+
+Once `kj harden` has run, the rules don't live in a prompt your agent can forget — they live in git guards and the project's policy. So when your agent (Claude Code, Codex, Antigravity, the VS Code assistant) tries to commit something that breaks a rule — no card, no review verdict, an AI-attribution footer, a change to a `security`-class rule — the commit simply doesn't enter, and the reason is printed in the session. You don't police the AI; the mechanism does. The one category that is never overridable, not even by you, is `security`.
+
+## Under the hood — try it yourself
+
+Harden a repo and read what it now enforces:
+
+```sh
+kj harden                     # installs the git guards + the Sentinel for this project
+cat .karajan/policy.yml       # what each role may do; which rules only warn vs deny
+kj policy report              # the standing rules, granted exceptions, and the sealed decision log
+```
+
+A rule marked `class: security` closes without escape and without arbitration — a deny you cannot argue with is the point.
+
 ## The wrong mental model
 
 > "I'll add `rm -rf` to my deny list."

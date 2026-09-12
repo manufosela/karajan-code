@@ -7,6 +7,28 @@ The Sentinel is the set of synchronous hooks `kj harden` installs in your agent'
 
 Two rules apply to everything below. First: the Sentinel blocks *before* the action runs — nothing is undone, because nothing happened. Second: every escape is an environment variable you prefix to ONE simple command (`KJ_ALLOW_X=1 git …`); it is ignored on command chains (`;`, `|`, `&`, `$( )`, backticks — `2>&1` counts), and every use is recorded in the session state and sealed into the decision log. An escape is a conscious, auditable exception — never a setting.
 
+## In practice — from your agent
+
+You don't run the Sentinel; it watches your agent's session. When Claude Code (or Codex, Antigravity, the VS Code assistant) is about to do something the project forbids — commit straight to `main`, edit a supervisor file, run a mutating command that can't be checked — the action is stopped *in the moment*, and the reason appears in the session with a link to the exact rule below:
+
+```
+karajan sentinel: card-first — work needs a tracked card before it starts …
+  — doc: https://karajancode.com/docs/guides/sentinel/#card-first
+```
+
+Your agent reads that, does the sanctioned thing instead (branch first, ask you, use `kj worktree`), and moves on. You didn't configure anything — `kj harden` put the watchman there once, and it explains itself every time it acts.
+
+## Under the hood — try it yourself
+
+The Sentinel is a set of synchronous git/harness hooks. See where they live, and watch one fire:
+
+```sh
+cat .karajan/hooks/pre-commit          # the generated guards (do not hand-edit — kj harden owns them)
+git commit -m "wip" -- .               # on main, or without a card → blocked, with the rule link
+```
+
+Every block, and every `KJ_ALLOW_*` escape you consciously use, is sealed into the decision log — so "what did the Sentinel stop, and did anyone override it?" is a `kj policy report` away.
+
 ## card-first
 
 Work needs a tracked card before it starts. Editing sources on the base branch, or on a branch whose name references no card, is blocked. Create the card (`kj hu add`), move it to running, and work on a `feat/<CARD-ID>-description` branch. Escape: `KJ_ALLOW_NO_CARD=1`.
