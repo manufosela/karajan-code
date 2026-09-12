@@ -23,7 +23,7 @@ export default defineConfig({
 				},
 				{
 					tag: 'script',
-					content: `document.addEventListener('DOMContentLoaded',()=>{const a=document.querySelector('.site-title');if(a)a.href='/';var o=new MutationObserver(function(){var t=document.documentElement.dataset.theme;if(t){localStorage.setItem('theme',t);localStorage.setItem('starlight-theme',t);}});o.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});});`,
+					content: `document.addEventListener('DOMContentLoaded',()=>{const a=document.querySelector('.site-title');if(a)a.href='/';var o=new MutationObserver(function(){var t=document.documentElement.dataset.theme;if(t){try{localStorage.setItem('theme',t);localStorage.setItem('starlight-theme',t);}catch(e){}}});o.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});});`,
 				},
 				{
 					tag: 'script',
