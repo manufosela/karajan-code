@@ -7,6 +7,22 @@ description: Web dashboard for visualizing Karajan Code user stories and session
 
 A web dashboard that visualizes all HU stories and pipeline sessions managed by Karajan Code. It provides a kanban board, session timeline, quality scores, and multi-project support.
 
+## In practice — from your agent
+
+Beyond the kanban, the board has a **Governance** view — the project's hash-chained ledger, live. Every decision the environment makes (a deny, an exception with its expiry and scope, a review verdict, a supervisor reseal) lands there sealed, and each entry carries the cryptographic fingerprint of the one before it. So while your agent works, you can read — in a browser, no terminal — exactly what was decided and by whom, and be sure nobody rewrote yesterday's record without it showing.
+
+## Under the hood — try it yourself
+
+The ledger is a plain append-only file where every line links the last:
+
+```sh
+cat .karajan/policy-decisions.jsonl   # one JSON decision per line; each carries a "prev" hash
+kj policy report                      # the same, as a readable report (a broken chain exits 1)
+kj policy anchor                      # re-verify the WHOLE chain and seal its head-hash into git
+```
+
+Once the head-hash is committed (`kj policy anchor` writes `.karajan/policy-anchor.json`), rewriting the past means rewriting the repo's history too — and that shows.
+
 ## Quick Start
 
 ### Without Docker

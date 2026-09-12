@@ -5,6 +5,42 @@ description: Deterministic git gates make a false green structurally impossible.
 
 Everything else in Karajan is advice to an AI. The gates are not: they run in git, they are deterministic, and no model — however clever — can talk its way past them. This is the core lesson v4 is built on: a real-world demo once produced a run marked "approved" with zero reviewer passes. The fix was not a better prompt; it was moving the guarantee into git.
 
+## In practice — from your agent
+
+You never touch any of this. Ask Claude Code, Codex, Antigravity or the VS Code assistant to build something. Before its commit can land, a **different** AI reviews the exact change, and you see the verdict right in the session:
+
+```
+✓ APPROVED by codex (diff 82a5504)
+✗ REJECTED — the error path is untested
+```
+
+On a rejection your agent fixes it and reviews itself again; the commit only enters once a different AI signed off on **those exact bytes**. Open the [HU-Board](/docs/guides/hu-board/) and the same verdict is in the **Governance** view. You install nothing and type nothing — the guarantee just holds while you work.
+
+## Under the hood — try it yourself
+
+Want to see the mechanism? Every command runs on your machine, nothing leaves it:
+
+```sh
+kj review --install-gate      # commits the .karajan/review-gate marker; the team inherits it
+# …stage a change…
+kj review --staged            # a DIFFERENT AI reviews the exact diff and records the verdict
+ls .karajan/reviews/          # one <sha256>.json per reviewed diff — the verdict store itself
+kj review --check             # approved verdict for what's staged right now? (exit 0/1)
+git commit -m "feat: …"       # the pre-commit hook runs --check for you; no verdict, no commit
+```
+
+Open a verdict to see what was decided, and against which exact bytes:
+
+```sh
+cat .karajan/reviews/<hash>.json   # { verdict, reviewer, diffHash, summary, confidence }
+```
+
+Every decision — each deny, each exception, the commit's own allow — is sealed in the hash-chained ledger, where editing the past breaks the chain:
+
+```sh
+kj policy report              # a readable report; a tampered chain exits 1
+```
+
 ## The review gate (pre-commit)
 
 With `.karajan/review-gate` present (installed by `kj review --install-gate`, tracked in git so the whole team inherits it):
