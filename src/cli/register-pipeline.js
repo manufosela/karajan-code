@@ -234,12 +234,15 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--check", "Verify the recorded verdict matches the staged diff (exit 0/1, hook-friendly)")
     .option("--range <range>", "Review a git range (e.g. main..HEAD) instead of the staged diff")
     .option("--install-gate", "Enable the pre-commit review gate for this project (creates .karajan/review-gate)")
+    .option("--prune", "Garbage-collect verdicts in .karajan/reviews older than the TTL (they age out as diffs change)")
+    .option("--prune-days <n>", "TTL in days for --prune (default: 14)")
+    .option("--dry-run", "With --prune: report what would be removed without deleting")
     .option("--no-sonar", "Skip the deterministic Sonar pre-gate that runs before the cross-AI verdict")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
         // ENV-B1 (KJC-TSK-0637): the gate mode records a verdict tied to
         // the exact diff so the pre-commit hook can enforce cross-AI review.
-        if (flags.staged || flags.check || flags.range || flags.installGate) {
+        if (flags.staged || flags.check || flags.range || flags.installGate || flags.prune) {
           await reviewGateCommand({ config, logger, flags: { ...flags, task } });
           return;
         }

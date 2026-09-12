@@ -16,6 +16,11 @@ import { runCommand } from "../utils/process.js";
 
 const STORE_DIR = path.join(".karajan", "reviews");
 
+// KJC-BUG-0173: a verdict is keyed by one exact diff hash, so once that diff is
+// committed or changed its hash is never looked up again — anything older than
+// this TTL is dead weight and safe to shed. Nothing live stays staged for weeks.
+export const VERDICT_TTL_DAYS = 14;
+
 export function diffHash(diff) {
   // trimEnd: runners differ on the final newline (execa strips it, raw
   // git keeps it) — trailing whitespace must not void a verdict.
@@ -36,7 +41,42 @@ export async function saveVerdict(projectDir, diff, verdict) {
   const file = verdictPath(projectDir, hash);
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, `${JSON.stringify(record, null, 2)}\n`);
+  // KJC-BUG-0173: a review is the natural moment to shed dead verdicts.
+  // Best-effort — hygiene must never break a save.
+  try { await pruneVerdicts({ projectDir }); } catch { /* hygiene, not correctness */ }
   return record;
+}
+
+/**
+ * Opportunistic GC for the verdict store: removes verdict files whose mtime is
+ * older than `maxAgeDays`. A verdict only counts for a byte-identical diff, so
+ * an aged one can never be re-checked. `now`/`dryRun` injectable for tests.
+ * @returns {Promise<{scanned:number, removed:number, expired:string[], dryRun:boolean, maxAgeDays:number}>}
+ */
+export async function pruneVerdicts({ projectDir, maxAgeDays = VERDICT_TTL_DAYS, now = Date.now, dryRun = false } = {}) {
+  const dir = path.join(projectDir || process.cwd(), STORE_DIR);
+  const cutoff = now() - maxAgeDays * 86400000;
+  let names;
+  try {
+    names = await fs.readdir(dir);
+  } catch {
+    return { scanned: 0, removed: 0, expired: [], dryRun, maxAgeDays };
+  }
+  const jsons = names.filter((n) => n.endsWith(".json"));
+  const expired = [];
+  for (const name of jsons) {
+    try {
+      const st = await fs.stat(path.join(dir, name));
+      if (st.mtimeMs < cutoff) expired.push(name);
+    } catch { /* vanished mid-scan */ }
+  }
+  let removed = 0;
+  if (!dryRun) {
+    for (const name of expired) {
+      try { await fs.unlink(path.join(dir, name)); removed += 1; } catch { /* already gone */ }
+    }
+  }
+  return { scanned: jsons.length, removed, expired, dryRun, maxAgeDays };
 }
 
 export async function loadVerdict(projectDir, hash) {
