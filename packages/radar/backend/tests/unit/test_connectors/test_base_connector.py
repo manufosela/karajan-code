@@ -187,6 +187,9 @@ class TestRunOrchestration:
         assert result.started_at is not None
         assert result.completed_at is not None
         assert result.completed_at >= result.started_at
+        # Timestamps stay naive UTC (the columns are naive; see KRD-TSK-0012).
+        assert result.started_at.tzinfo is None
+        assert result.completed_at.tzinfo is None
 
     async def test_run_with_empty_results(self) -> None:
         """run() handles the case where fetch returns no items."""
