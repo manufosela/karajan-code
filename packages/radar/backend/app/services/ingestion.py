@@ -138,7 +138,7 @@ class IngestionOrchestrator:
 
         if isinstance(result, BaseException):
             run.status = "failed"
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(UTC).replace(tzinfo=None)
             run.items_fetched = 0
             run.items_new = 0
             run.items_duplicate = 0
@@ -146,7 +146,7 @@ class IngestionOrchestrator:
             run.errors = [{"message": str(result), "type": type(result).__name__}]
             return run
 
-        run.started_at = result.started_at or datetime.utcnow()
+        run.started_at = result.started_at or datetime.now(UTC).replace(tzinfo=None)
         run.items_fetched = result.total_fetched
         errors: list[dict[str, Any]] = list(result.errors)
         items_new = 0
@@ -173,7 +173,7 @@ class IngestionOrchestrator:
         run.items_processed = items_new + items_duplicate
         run.errors = errors if errors else []
         run.status = "completed"
-        run.completed_at = result.completed_at or datetime.utcnow()
+        run.completed_at = result.completed_at or datetime.now(UTC).replace(tzinfo=None)
         return run
 
     def _process_paper(
@@ -207,10 +207,9 @@ class IngestionOrchestrator:
         if verdict.verdict != "new":
             return None
 
-        # Naive UTC, matching the other timestamps on this model, but without
-        # the deprecated utcnow(). The rest of this file still uses it; that
-        # is existing debt and cleaning it up would change timestamps this
-        # change has no business touching.
+        # Naive UTC, matching the other timestamps on this model, without the
+        # deprecated utcnow(). Columns stay naive here; migrating them to
+        # timestamptz is a separate decision (KRD-TSK-0014).
         processed_at = datetime.now(UTC).replace(tzinfo=None)
 
         # Scan before the item exists, not after: this is the boundary where

@@ -279,6 +279,8 @@ class TestIngestionOrchestrator:
         runs = await orchestrator.run_all()
 
         assert runs[0].completed_at is not None
+        # completed_at stays naive UTC after the utcnow() removal (KRD-TSK-0012).
+        assert runs[0].completed_at.tzinfo is None
 
     async def test_connector_errors_propagated_to_run(self):
         """Errors reported by the connector itself are included in IngestionRun.errors."""

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import httpx
@@ -119,7 +119,7 @@ class BaseConnector(ABC):
         """Orchestrate the full connector pipeline: fetch -> parse -> normalize."""
         result = ConnectorResult(
             source_name=self.source_name,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(UTC).replace(tzinfo=None),
         )
 
         try:
@@ -141,7 +141,7 @@ class BaseConnector(ABC):
                         {
                             "message": f"Normalization error: {e}",
                             "item": str(item)[:500],
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
                         }
                     )
 
@@ -150,11 +150,11 @@ class BaseConnector(ABC):
             result.errors.append(
                 {
                     "message": f"Fetch error: {e}",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
                 }
             )
 
-        result.completed_at = datetime.utcnow()
+        result.completed_at = datetime.now(UTC).replace(tzinfo=None)
         logger.info(
             "Connector run completed",
             source=self.source_name,
