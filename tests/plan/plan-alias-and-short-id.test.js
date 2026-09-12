@@ -14,11 +14,19 @@ const projectDir = "/tmp/test-greta-app";
 
 beforeEach(() => {
   tmpHome = mkdtempSync(join(tmpdir(), "kj-alias-"));
-  process.env.KJ_HOME = tmpHome;
+  // KJC-BUG-0174: resolveHome PREFERS KARAJAN_HOME over KJ_HOME, so setting
+  // only KJ_HOME left this test hostage to a KARAJAN_HOME leaked by another
+  // suite in the same worker — the plan store then resolved to a SHARED dir and
+  // the tests cross-contaminated (flaky alias suffixes on CI: greta-app-3 vs
+  // greta-app). Pin the canonical var to this test's isolated home, and clear
+  // the deprecated one so nothing overrides the isolation.
+  process.env.KARAJAN_HOME = tmpHome;
+  delete process.env.KJ_HOME;
 });
 
 afterEach(() => {
   rmSync(tmpHome, { recursive: true, force: true });
+  delete process.env.KARAJAN_HOME;
   delete process.env.KJ_HOME;
 });
 
