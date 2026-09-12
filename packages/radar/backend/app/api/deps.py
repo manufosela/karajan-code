@@ -77,11 +77,10 @@ async def get_current_user(
             detail="User not found or inactive",
         )
 
-    # Track last activity. Naive UTC because every timestamp column on `users`
-    # is `timestamp without time zone`, and an aware value here is rejected by
-    # PostgreSQL on every authenticated request. Making the column timestamptz
-    # would be better, but it is the whole table's decision -- KRD-TSK-0014.
-    user.last_active_at = datetime.now(UTC).replace(tzinfo=None)
+    # Track last activity. The users time columns are timestamptz now
+    # (migration 0010, KRD-TSK-0014), so an aware UTC value is what the column
+    # expects -- no tzinfo stripping.
+    user.last_active_at = datetime.now(UTC)
     db.add(user)
 
     return user
