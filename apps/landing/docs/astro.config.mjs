@@ -23,7 +23,7 @@ export default defineConfig({
 				},
 				{
 					tag: 'script',
-					content: `document.addEventListener('DOMContentLoaded',()=>{const a=document.querySelector('.site-title');if(a)a.href='/';var o=new MutationObserver(function(){var t=document.documentElement.dataset.theme;if(t){try{localStorage.setItem('theme',t);localStorage.setItem('starlight-theme',t);}catch(e){}}});o.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});document.querySelectorAll('starlight-theme-select select').forEach(function(s){s.addEventListener('change',function(e){e.stopImmediatePropagation();var v=e.target.value;document.documentElement.dataset.theme=(v==='auto')?'':v;},true);});});`,
+					content: `document.addEventListener('DOMContentLoaded',()=>{const a=document.querySelector('.site-title');if(a)a.href='/';var o=new MutationObserver(function(){var t=document.documentElement.dataset.theme;if(t){try{localStorage.setItem('theme',t);localStorage.setItem('starlight-theme',t);}catch(e){}}});o.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});document.addEventListener('change',function(e){var t=e.target;if(t&&t.closest&&t.closest('starlight-theme-select')){e.stopImmediatePropagation();var v=t.value;document.documentElement.dataset.theme=(v==='auto')?'':v;}},true);});`,
 				},
 				{
 					tag: 'script',
