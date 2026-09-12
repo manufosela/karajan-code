@@ -7,6 +7,22 @@ description: Dashboard web para visualizar historias de usuario y sesiones de Ka
 
 Un dashboard web que visualiza todas las historias de usuario (HU) y sesiones del pipeline gestionadas por Karajan Code. Proporciona un tablero kanban, timeline de sesiones, puntuaciones de calidad y soporte multi-proyecto.
 
+## En la práctica — desde tu agente
+
+Más allá del kanban, el board tiene una vista **Governance** — el acta encadenada por hash del proyecto, en vivo. Cada decisión que toma el entorno (un deny, una excepción con su caducidad y su ámbito, un veredicto de revisión, un resellado del supervisor) aterriza ahí sellada, y cada entrada lleva la huella criptográfica de la anterior. Así, mientras tu agente trabaja, puedes leer — en un navegador, sin terminal — exactamente qué se decidió y por quién, con la certeza de que nadie reescribió el registro de ayer sin que se note.
+
+## Bajo el capó — pruébalo tú mismo
+
+El acta es un fichero plano de solo-añadido donde cada línea liga la anterior:
+
+```sh
+cat .karajan/policy-decisions.jsonl   # una decisión JSON por línea; cada una lleva un hash "prev"
+kj policy report                      # lo mismo, como informe legible (una cadena rota sale con exit 1)
+kj policy anchor                      # re-verifica TODA la cadena y sella su head-hash en git
+```
+
+Una vez commiteado el head-hash (`kj policy anchor` escribe `.karajan/policy-anchor.json`), reescribir el pasado obliga a reescribir también la historia del repo — y eso se nota.
+
 ## Inicio Rápido
 
 ### Sin Docker
