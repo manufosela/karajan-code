@@ -7,6 +7,21 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 La forma más potente de usar Karajan Code es como **servidor MCP** dentro de tu agente de IA. En lugar de alternar entre terminales y copiar/pegar outputs, tu agente envía tareas directamente a `kj_run` y recibe resultados estructurados — todo dentro de la conversación.
 
+## En la práctica — desde tu agente
+
+Una de esas herramientas MCP es la memoria del proyecto: `kj_rag_query`. Antes de suponer qué hace el código, tu agente puede preguntarle al índice — y obtener una respuesta anclada en tu código, tus documentos y tus planes reales, no una adivinanza. Una **política de sensibilidad** decide qué modelo puede ver qué, y los secretos quedan excluidos del índice, así que la memoria ayuda sin filtrar nada. Tú no ejecutas nada: la herramienta está ahí en la sesión, y un buen agente la usa en vez de hacer grep a ciegas.
+
+## Bajo el capó — pruébalo tú mismo
+
+Esa misma memoria es un CLI, así que puedes consultarla directamente:
+
+```sh
+kj rag index                       # construye (o refresca) el índice de este repo
+kj rag query "¿dónde se define la stage de pre-loop?"   # una respuesta anclada, con fuentes
+```
+
+Reindexa tras un cambio (`kj rag index --since <ref>`) y las respuestas siguen al código. Nada sensible se embebe — el índice se construye con la política de sensibilidad aplicada.
+
 ## Auto-registro
 
 Tras `npm install -g karajan-code`, el servidor MCP se **registra automáticamente** en Claude Code y Codex. No requiere configuración manual.

@@ -7,6 +7,18 @@ La cadena en v4 es: **tú → tu agente → kj → git**. Tú describes resultad
 
 Casi nunca tecleas `kj` tú. Lo hace tu agente — el playbook que instala `kj env install` se lo ordena.
 
+## Afirmaciones con fuente
+
+**Desde tu agente:** cada hecho firme que tu agente va a publicar — un número en un PR, un "los tests pasan" en un resumen — se contrasta con lo que su propia sesión ejecutó de verdad. Respaldado, sin respaldo, o *desmentido por su propio terminal* — y un hecho que su propio terminal desmiente es una alucinación probada, cazada antes de salir. Lees el PR sabiendo que sus afirmaciones sobrevivieron a esa comprobación.
+
+**Bajo el capó:** `kj claims check` corre el contraste sobre el transcript de la sesión — el transcript ES el registro de fuentes, así que "¿esto pasó de verdad?" es una pregunta con respuesta, no un acto de fe.
+
+## La confianza caduca — el Steward
+
+**Desde tu agente:** el proyecto declara sus garantías ("la suite pasa", "hay una auditoría reciente"), y el **Steward** las re-verifica de forma periódica. La evidencia vieja deja de contar — una garantía caducada se lee como *desconocida*, nunca como verde — y cada rotura aterriza en el board como trabajo PROPUESTO que nada ejecuta sin revisar. Los proyectos se pudren justo cuando nadie mira; esto mira.
+
+**Bajo el capó:** `kj steward sweep` corre la comprobación a demanda; también corre en `kj resume` cuando la evidencia está caducada, o como una Action programada opcional.
+
 ## Qué ordena el playbook
 
 Una tarea está HECHA cuando su enunciado-de-hecho es literalmente cierto, la suite está verde y cada commit lleva veredicto de IA cruzada. Los invariantes:

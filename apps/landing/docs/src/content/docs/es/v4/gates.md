@@ -5,6 +5,42 @@ description: Gates deterministas en git hacen el falso verde estructuralmente im
 
 Todo lo demás en Karajan son consejos a una IA. Los gates no: corren en git, son deterministas, y ningún modelo — por listo que sea — puede convencerlos. Esta es la lección sobre la que se construyó la v4: una demo real produjo una vez un run marcado "approved" con cero pasadas del reviewer. El arreglo no fue un prompt mejor; fue mover la garantía a git.
 
+## En la práctica — desde tu agente
+
+No tocas nada de esto. Le pides a Claude Code, Codex, Antigravity o el asistente de VS Code que construya algo. Antes de que su commit pueda entrar, una IA **distinta** revisa el cambio exacto, y ves el veredicto ahí mismo en la sesión:
+
+```
+✓ APPROVED by codex (diff 82a5504)
+✗ REJECTED — the error path is untested
+```
+
+Ante un rechazo, tu agente lo corrige y se vuelve a revisar; el commit solo entra cuando una IA distinta ha aprobado **esos bytes exactos**. Abre el [HU-Board](/docs/es/guides/hu-board/) y el mismo veredicto está en la vista **Governance**. No instalas nada ni escribes nada — la garantía simplemente se sostiene mientras trabajas.
+
+## Bajo el capó — pruébalo tú mismo
+
+¿Quieres ver el mecanismo? Cada comando corre en tu máquina, nada sale de ella:
+
+```sh
+kj review --install-gate      # commitea el marcador .karajan/review-gate; el equipo lo hereda
+# …prepara un cambio (stage)…
+kj review --staged            # una IA DISTINTA revisa el diff exacto y registra el veredicto
+ls .karajan/reviews/          # un <sha256>.json por diff revisado — el propio almacén de veredictos
+kj review --check             # ¿hay veredicto approved para lo que está staged ahora? (exit 0/1)
+git commit -m "feat: …"       # el hook pre-commit corre --check por ti; sin veredicto, no hay commit
+```
+
+Abre un veredicto para ver qué se decidió, y contra qué bytes exactos:
+
+```sh
+cat .karajan/reviews/<hash>.json   # { verdict, reviewer, diffHash, summary, confidence }
+```
+
+Cada decisión — cada deny, cada excepción, el propio allow del commit — se sella en el acta encadenada por hash, donde editar el pasado rompe la cadena:
+
+```sh
+kj policy report              # un informe legible; una cadena manipulada sale con exit 1
+```
+
 ## El gate de revisión (pre-commit)
 
 Con `.karajan/review-gate` presente (lo instala `kj review --install-gate`, trackeado en git para que todo el equipo lo herede):

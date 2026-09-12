@@ -7,6 +7,22 @@ Cuando delegas trabajo en herramientas de IA (Claude Code, Codex, Aider, Cursor,
 
 Esta guía es **agnóstica a la IA y a la herramienta**. Sirve uses Karajan, Claude Code a pelo, Codex, o cualquier otra cosa.
 
+## En la práctica — desde tu agente
+
+Una vez que `kj harden` ha corrido, las reglas no viven en un prompt que tu agente pueda olvidar — viven en guardas de git y en la política del proyecto. Así que cuando tu agente (Claude Code, Codex, Antigravity, el asistente de VS Code) intenta commitear algo que rompe una regla — sin card, sin veredicto de revisión, con una atribución a IA en el pie, o tocando una regla de clase `security` — el commit simplemente no entra, y el motivo se imprime en la sesión. No vigilas tú a la IA; lo hace el mecanismo. La única categoría que no se salta nunca, ni siquiera tú, es `security`.
+
+## Bajo el capó — pruébalo tú mismo
+
+Blinda un repo y lee lo que ahora impone:
+
+```sh
+kj harden                     # instala las guardas de git + el Sentinel para este proyecto
+cat .karajan/policy.yml       # qué puede hacer cada rol; qué reglas solo avisan vs deniegan
+kj policy report              # las reglas vigentes, las excepciones concedidas y el acta sellada
+```
+
+Una regla marcada como `class: security` cierra sin escape y sin arbitraje — un deny que no puedes rebatir es justamente el objetivo.
+
 ## El modelo mental incorrecto
 
 > "Voy a añadir `rm -rf` a mi denylist."
