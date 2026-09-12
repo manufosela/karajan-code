@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.28.1 — sin andamiaje en un repo existente (actual)
+### v4.28.2 — buena higiene (actual)
+
+Patch: el entorno deja de dejar rastro. El pre-commit que genera `kj harden` ya no se autodetecta como atribución IA en el commit de bootstrap que versiona los hooks del supervisor (contienen el patrón del guard por diseño; #1667). La verificación ya no ensucia `~/.claude.json` — el postinstall del tarball registraba `karajan-mcp` en una ruta de instalación temporal `/tmp`, un `CONNECTION_CLOSED` en cada sesión; verify corre ahora con un HOME aislado (#1666). `kj doctor` gana un check que detecta Y auto-repara una ruta muerta de `karajan-mcp`. Y el almacén de veredictos se limpia solo: `.karajan/reviews` se recolecta de forma oportunista en cada review, con `kj review --prune` para un barrido manual.
+
+### v4.28.1 — sin andamiaje en un repo existente
 
 Patch: una ejecución del coder headless terminó su subtarea real y después descarriló inventándose un bootstrap de «montar la estructura del proyecto» (un worktree de verify rebelde, un `.gitignore` genérico multi-stack). Dos guards a nivel de plantilla lo cierran — el Sentinel deniega ya `git worktree add` crudo desde una sesión (el cauce es `kj worktree start|done`), y el prompt del coder ancla el alcance: proyecto existente, implementa solo la HU actual, nunca andamiaje ni bootstrap.
 

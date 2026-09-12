@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.28.2] - 2026-09-12
+
+Good housekeeping: the environment stops leaving a mess behind — the adopter-friction bugs a consumer repo hit, plus the hygiene the v4 "resolve-until-pass" method quietly needed.
+
+### Fixed
+
+- **The hardened pre-commit no longer self-detects as AI attribution** (KJC-BUG-0170): the generated `.karajan/hooks/pre-commit` and `commit-msg` CONTAIN the attribution pattern by design (they ARE the guard), so a consumer's bootstrap commit that versioned them was refused. The guard now excludes those two generated hooks by literal path, exactly as it already excludes its own source in the kj repo. Reported adopting Karajan in a consumer repo (#1667).
+- **Verification no longer pollutes your global config** (KJC-BUG-0171): the tarball's postinstall registers `karajan-mcp` in `~/.claude.json` at its install path, and `verify-pack` installs into throwaway `/tmp` prefixes — so it left the real config pointing at a path that vanished, a `CONNECTION_CLOSED` MCP in every Claude Code session. verify now runs every install with an isolated HOME, so those global-config writes land in a throwaway that is removed with the rest (#1666).
+- **`kj doctor` now detects AND repairs a dead karajan-mcp path** (KJC-BUG-0171 / KJC-BUG-0172): a new check reads `~/.claude.json` and, if `karajan-mcp` points at a path that no longer exists, re-points it to this install's server or drops the dead entry — auto-remediated by `kj doctor` (with `--check-only` to detect without touching the config). The MCP health check never caught it because it spawns its own bundled server, not the one registered in the host.
+
+### Added
+
+- **The verdict store cleans itself** (KJC-BUG-0173): `.karajan/reviews` kept one verdict per reviewed diff and was never pruned (679 files here before this). A verdict is keyed by one exact diff hash, so an aged one can never be re-checked — `kj review` now opportunistically garbage-collects verdicts older than 14 days as a best-effort side effect, with `kj review --prune` (plus `--dry-run` and `--prune-days <n>`) for a manual sweep.
+
 ## [4.28.1] - 2026-09-08
 
 ### Fixed
