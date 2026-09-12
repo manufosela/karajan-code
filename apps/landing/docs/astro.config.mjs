@@ -49,12 +49,38 @@ export default defineConfig({
 						link: '/v4/install/',
 						icon: 'rocket',
 						items: [
-							{ label: 'Install', slug: 'v4/install', translations: { es: 'Instalación' } },
-							{ label: 'Work with your agent', slug: 'v4/working-with-your-agent', translations: { es: 'Trabaja con tu agente' } },
-							{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
-							{ label: 'Command reference', slug: 'v4/commands', translations: { es: 'Referencia de comandos' } },
-							{ label: 'Headless mode', slug: 'v4/headless', translations: { es: 'Modo headless' } },
-							{ label: 'Contributors', slug: 'contributors' },
+							{
+								label: 'Start here', translations: { es: 'Empieza aquí' },
+								items: [
+									{ label: 'Install', slug: 'v4/install', translations: { es: 'Instalación' } },
+									{ label: 'Work with your agent', slug: 'v4/working-with-your-agent', translations: { es: 'Trabaja con tu agente' } },
+								],
+							},
+							{
+								label: 'The method', translations: { es: 'El método' },
+								items: [
+									{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
+									{ label: 'The Sentinel', slug: 'guides/sentinel', translations: { es: 'El Sentinel' } },
+									{ label: 'Hardening against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
+									{ label: 'The HU-Board', slug: 'guides/hu-board', translations: { es: 'El HU-Board' } },
+								],
+							},
+							{
+								label: 'Try it', translations: { es: 'Pruébalo' },
+								items: [
+									{ label: 'Recommended setup', slug: 'guides/recommended-setup', translations: { es: 'Configuración recomendada' } },
+									{ label: 'Pipeline flows', slug: 'guides/flows', translations: { es: 'Flujos del pipeline' } },
+								],
+							},
+							{
+								label: 'Reference', translations: { es: 'Referencia' },
+								items: [
+									{ label: 'Command reference', slug: 'v4/commands', translations: { es: 'Referencia de comandos' } },
+									{ label: 'Headless mode', slug: 'v4/headless', translations: { es: 'Modo headless' } },
+									{ label: 'MCP server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
+									{ label: 'Contributors', slug: 'contributors' },
+								],
+							},
 						],
 					},
 					{
@@ -93,64 +119,28 @@ export default defineConfig({
 						badge: { text: 'V3', variant: 'caution' },
 						items: [
 							{
-								label: 'Getting Started',
-								translations: { es: 'Primeros Pasos' },
+								label: 'v3 archive', translations: { es: 'Archivo v3' },
+								collapsed: true,
 								items: [
 									{ label: 'Introduction', slug: 'getting-started/introduction', translations: { es: 'Introducción' } },
 									{ label: 'Installation', slug: 'getting-started/installation', translations: { es: 'Instalación' } },
 									{ label: 'Quick Start', slug: 'getting-started/quick-start', translations: { es: 'Inicio Rápido' } },
-								],
-							},
-							{
-								label: 'Guides',
-								translations: { es: 'Guías' },
-								items: [
 									{ label: 'Pipeline', slug: 'guides/pipeline' },
-									{ label: 'Pipeline Flows', slug: 'guides/flows', translations: { es: 'Flujos del Pipeline' } },
-									{ label: 'MCP Server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
 									{ label: 'Skills Mode', slug: 'guides/skills', translations: { es: 'Modo Skills' } },
 									{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
 									{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
-									{ label: 'HU Board', slug: 'guides/hu-board', translations: { es: 'HU Board' } },
-									{ label: 'Hardening Against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
-									{ label: 'The Sentinel', slug: 'guides/sentinel', translations: { es: 'El Sentinel' } },
-									{ label: 'Recommended Setup', slug: 'guides/recommended-setup', translations: { es: 'Configuración Recomendada' } },
 									{ label: 'Troubleshooting', slug: 'guides/troubleshooting', translations: { es: 'Resolución de problemas' } },
-								],
-							},
-							{
-								label: 'Reference',
-								translations: { es: 'Referencia' },
-								items: [
 									{ label: 'CLI Commands', slug: 'reference/cli', translations: { es: 'Comandos CLI' } },
-									{ label: 'Configuration', slug: 'reference/configuration', translations: { es: 'Configuración' } },
+									{ label: 'Reference: Configuration', slug: 'reference/configuration', translations: { es: 'Referencia: Configuración' } },
 									{ label: 'MCP Tools', slug: 'reference/mcp-tools', translations: { es: 'Herramientas MCP' } },
+									{ label: 'Architecture overview', slug: 'architecture/overview', translations: { es: 'Arquitectura: visión general' } },
+									{ label: 'Architecture history', slug: 'architecture/history', translations: { es: 'Historial de arquitectura' } },
+									{ label: 'v3 feature tour', slug: 'architecture/feature-tour', translations: { es: 'Recorrido de features v3' } },
+									{ label: 'FAQ', slug: 'faq' },
 								],
 							},
-							{
-								label: 'Handbook',
-								translations: { es: 'Manual' },
-								collapsed: true,
-								autogenerate: { directory: 'handbook' },
-							},
-							{
-								label: 'Architecture',
-								translations: { es: 'Arquitectura' },
-								items: [
-									{ label: 'Overview', slug: 'architecture/overview', translations: { es: 'Visión General' } },
-									{ label: 'History', slug: 'architecture/history', translations: { es: 'Historial' } },
-							{ label: 'v3 feature tour', slug: 'architecture/feature-tour', translations: { es: 'Recorrido de features v3' } },
-								],
-							},
-							{
-								label: 'Examples',
-								translations: { es: 'Ejemplos' },
-								autogenerate: { directory: 'examples' },
-							},
-							{
-								label: 'FAQ',
-								slug: 'faq',
-							},
+							{ label: 'Handbook', translations: { es: 'Manual' }, collapsed: true, autogenerate: { directory: 'handbook' } },
+							{ label: 'Examples', translations: { es: 'Ejemplos' }, collapsed: true, autogenerate: { directory: 'examples' } },
 						],
 					},
 				]),
