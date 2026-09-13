@@ -37,3 +37,13 @@ output "ingestion_job" {
   description = "Nombre del Cloud Run Job de ingesta que dispara Cloud Scheduler."
   value       = google_cloud_run_v2_job.ingestion.name
 }
+
+output "migrate_job" {
+  description = "Nombre del Cloud Run Job de migracion (ejecutar antes de servir en cada deploy)."
+  value       = google_cloud_run_v2_job.migrate.name
+}
+
+output "region" {
+  description = "Region de la instancia (para 'gcloud run jobs execute --region')."
+  value       = var.region
+}
