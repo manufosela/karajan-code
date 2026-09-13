@@ -13,11 +13,19 @@ export interface ProfileTerm {
   description: string;
 }
 
+/** A group the keyword panel organises its editable keywords in. No icon: the panel draws a generic one. */
+export interface ProfileKeywordGroup {
+  name: string;
+  label: string;
+  description: string;
+}
+
 export interface ProfileTaxonomy {
   themes: ProfileTerm[];
   strategic_buckets: ProfileTerm[];
   time_horizons: ProfileTerm[];
   keywords: string[];
+  keyword_groups: ProfileKeywordGroup[];
 }
 
 export interface ProfileVocabulary {
