@@ -10,15 +10,12 @@ descripción sirve para N instancias. Espeja `packages/rag/deploy/gcp`.
 | **Cloud Run v2 (API)** | El backend FastAPI. Secretos desde Secret Manager, Cloud SQL por conector. |
 | **Cloud Run v2 (frontend)** | El frontend Next.js. Su imagen es **por instancia** (hornea `NEXT_PUBLIC_*` en build). |
 | **Cloud Run Job (ingesta)** | `python -m app.cli ingest`, disparado por Cloud Scheduler. |
-| **Cloud Scheduler** | Ejecuta la ingesta en el cron de la instancia (`ingestion_schedule`). |
+| **Cloud Run Job (digest)** | `python -m app.cli digest`, disparado por Cloud Scheduler. |
+| **Cloud Scheduler** | Ejecuta ingesta y digest en sus crons (`ingestion_schedule`, `digest_schedule`). |
 | **Cloud SQL Postgres 16** | Base de datos gestionada (`karajan_radar`), conectada por socket Cloud SQL. |
 | **Secret Manager** | `APP_SECRET_KEY`, `DATABASE_URL` y secretos opcionales por instancia. |
 | **Artifact Registry** | Registry Docker para las imágenes de backend y frontend. |
 | **Service account** | Runtime con permiso mínimo: `cloudsql.client`, `secretAccessor`, `run.invoker`. |
-
-> **El job de digest no está aquí todavía.** La topología pide dos jobs
-> (ingesta y digest), pero el CLI del backend solo expone `ingest`: el comando
-> `digest` y su job/scheduler llegan con **KRD-TSK-0024**.
 
 ## Requisitos
 
@@ -91,6 +88,7 @@ curl -s "$(terraform output -raw api_url)/health" \
 | `db_tier` | `db-f1-micro` | Solo pruebas; sube a `db-custom-*` en serio. |
 | `allow_unauthenticated` | `false` | `true` deja API y frontend públicos: piénsalo dos veces. |
 | `ingestion_schedule` | `0 6 * * *` | Cron de la ingesta. |
+| `digest_schedule` | `0 8 * * 1` | Cron del digest. |
 | `scheduler_timezone` | `Europe/Madrid` | Zona de los cron. |
 | `db_deletion_protection` | `true` | Ver destroy. |
 | `llm_api_key` / `teams_webhook_url` / `digest_email_recipients` | `""` | Secretos opcionales; solo se crean si tienen valor. |
