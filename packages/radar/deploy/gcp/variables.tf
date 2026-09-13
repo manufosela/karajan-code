@@ -79,6 +79,12 @@ variable "ingestion_schedule" {
   default     = "0 6 * * *"
 }
 
+variable "digest_schedule" {
+  description = "Cron (zona del scheduler) para el digest."
+  type        = string
+  default     = "0 8 * * 1"
+}
+
 variable "scheduler_timezone" {
   description = "Zona horaria de los disparadores de Cloud Scheduler."
   type        = string
