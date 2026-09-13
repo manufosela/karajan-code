@@ -92,7 +92,18 @@ ya existe). Un pipeline de CD (fuera de alcance hoy) codificaría este orden.
 Nunca migres en el arranque del API: varias réplicas de Cloud Run lo harían en
 paralelo sobre la misma base (condición de carrera).
 
-### 4. Consultar
+### 4. Comprobar antes de darla por viva
+
+Comprobación de solo lectura: API responde, esquema en head y perfil activo el
+que esta instancia declara (equivocar `ACTIVE_PROFILE` no rompe nada visible).
+Sale con código != 0 y dice qué eslabón se rompió.
+
+```bash
+python -m app.cli verify --url "$(terraform output -raw api_url)" \
+  --profile software-engineering --token "$(gcloud auth print-identity-token)"
+```
+
+### 5. Consultar
 
 Con `allow_unauthenticated=false` (default) los servicios son privados:
 
