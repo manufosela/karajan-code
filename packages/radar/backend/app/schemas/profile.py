@@ -18,6 +18,18 @@ class TermResponse(BaseModel):
     description: str
 
 
+class KeywordGroupResponse(BaseModel):
+    """A group the keyword panel organises its editable keywords in.
+
+    No icon travels with it: the panel draws the same generic one for every
+    group, so a profile cannot smuggle presentation into the domain.
+    """
+
+    name: str
+    label: str
+    description: str
+
+
 class TaxonomyResponse(BaseModel):
     """The classification vocabulary of the active domain."""
 
@@ -25,6 +37,7 @@ class TaxonomyResponse(BaseModel):
     strategic_buckets: list[TermResponse]
     time_horizons: list[TermResponse]
     keywords: list[str]
+    keyword_groups: list[KeywordGroupResponse]
 
 
 class VocabularyResponse(BaseModel):
@@ -79,6 +92,10 @@ class ActiveProfileResponse(BaseModel):
                 strategic_buckets=_terms(profile.taxonomy.strategic_buckets),
                 time_horizons=_terms(profile.taxonomy.time_horizons),
                 keywords=list(profile.taxonomy.keywords),
+                keyword_groups=[
+                    KeywordGroupResponse(name=group.name, label=group.label, description=group.description)
+                    for group in profile.taxonomy.keyword_groups
+                ],
             ),
             vocabulary=VocabularyResponse(
                 impact_levels=_terms(profile.vocabulary.impact_levels),

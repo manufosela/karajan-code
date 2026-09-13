@@ -58,6 +58,25 @@ class TestGetActiveProfile:
         assert buckets == set(profile.taxonomy.bucket_ids)
         assert horizons == set(profile.taxonomy.time_horizon_ids)
 
+    async def test_exposes_keyword_groups_in_profile_order(self, client, auth_headers, profile) -> None:
+        """The keyword panel renders its groups from here, in the order the profile declares."""
+        body = (await client.get("/api/v1/configuration/profile", headers=auth_headers)).json()
+
+        groups = body["taxonomy"]["keyword_groups"]
+
+        assert [group["name"] for group in groups] == [g.name for g in profile.taxonomy.keyword_groups]
+        assert groups[0]["label"] == profile.taxonomy.keyword_groups[0].label
+        assert groups[0]["description"] == profile.taxonomy.keyword_groups[0].description
+
+    async def test_keyword_groups_carry_no_icon(self, client, auth_headers) -> None:
+        """Icons are a presentation choice; the profile never dictates one."""
+        body = (await client.get("/api/v1/configuration/profile", headers=auth_headers)).json()
+
+        assert body["taxonomy"]["keyword_groups"]
+        assert all(
+            set(group) == {"name", "label", "description"} for group in body["taxonomy"]["keyword_groups"]
+        )
+
     async def test_exposes_the_scoring_vocabulary(self, client, auth_headers, profile) -> None:
         body = (await client.get("/api/v1/configuration/profile", headers=auth_headers)).json()
 
