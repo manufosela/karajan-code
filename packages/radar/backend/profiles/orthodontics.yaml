@@ -114,6 +114,26 @@ taxonomy:
     - cephalometric
     - intraoral scan
 
+  keyword_groups:
+    - name: primary
+      label: Primary keywords
+      description: Core orthodontics and dental alignment terms.
+    - name: materials
+      label: Materials
+      description: Material science and biomaterials.
+    - name: digital_workflow
+      label: Digital workflow
+      description: CAD/CAM, 3D printing and digital processes.
+    - name: clinical
+      label: Clinical
+      description: Clinical studies and treatment evidence.
+    - name: manufacturing
+      label: Manufacturing
+      description: Production and manufacturing processes.
+    - name: emerging
+      label: Emerging
+      description: Cutting-edge and experimental technologies.
+
 vocabulary:
   impact_levels:
     - id: transformative

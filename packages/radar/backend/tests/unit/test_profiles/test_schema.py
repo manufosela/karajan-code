@@ -204,6 +204,51 @@ class TestTaxonomyValidation:
             RadarProfile.model_validate(profile_dict)
 
 
+class TestKeywordGroups:
+    """The groups the keyword panel shows come from the profile, never from the UI."""
+
+    def test_defaults_to_no_groups(self, profile_dict: dict[str, Any]) -> None:
+        profile = RadarProfile.model_validate(profile_dict)
+
+        assert profile.taxonomy.keyword_groups == []
+
+    def test_keeps_groups_in_declared_order(self, profile_dict: dict[str, Any]) -> None:
+        """The panel renders groups in profile order, so order is part of the contract."""
+        profile_dict["taxonomy"]["keyword_groups"] = [
+            {"name": "core", "label": "Core terms", "description": "What the domain is about."},
+            {"name": "adjacent", "label": "Adjacent", "description": "Neighbouring fields."},
+        ]
+
+        profile = RadarProfile.model_validate(profile_dict)
+
+        assert [group.name for group in profile.taxonomy.keyword_groups] == ["core", "adjacent"]
+        assert profile.taxonomy.keyword_groups[0].label == "Core terms"
+
+    def test_rejects_duplicate_group_names(self, profile_dict: dict[str, Any]) -> None:
+        profile_dict["taxonomy"]["keyword_groups"] = [
+            {"name": "core", "label": "Core", "description": "Once."},
+            {"name": "core", "label": "Core again", "description": "Twice."},
+        ]
+
+        with pytest.raises(ValidationError, match="duplicate keyword group name"):
+            RadarProfile.model_validate(profile_dict)
+
+    def test_rejects_a_group_without_a_label(self, profile_dict: dict[str, Any]) -> None:
+        profile_dict["taxonomy"]["keyword_groups"] = [{"name": "core", "label": " ", "description": "Core."}]
+
+        with pytest.raises(ValidationError):
+            RadarProfile.model_validate(profile_dict)
+
+    def test_a_group_declares_no_icon(self, profile_dict: dict[str, Any]) -> None:
+        """Icons are a presentation choice the frontend makes generically."""
+        profile_dict["taxonomy"]["keyword_groups"] = [
+            {"name": "core", "label": "Core", "description": "Core.", "icon": "star"}
+        ]
+
+        with pytest.raises(ValidationError):
+            RadarProfile.model_validate(profile_dict)
+
+
 # ---------------------------------------------------------------------------
 # Scoring weights validation
 # ---------------------------------------------------------------------------

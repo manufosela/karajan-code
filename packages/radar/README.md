@@ -48,6 +48,10 @@ taxonomy:
       description: Novel materials, coatings and composites.
   strategic_buckets: [...]
   time_horizons: [...]
+  keyword_groups:            # the groups the keyword panel is organised in
+    - name: primary
+      label: Primary keywords
+      description: Core terms of the domain.
 
 sources:
   - connector: pubmed

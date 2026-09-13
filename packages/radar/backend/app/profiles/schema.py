@@ -79,6 +79,19 @@ class TimeHorizonDefinition(TermDefinition):
     """A time horizon for when a finding could reach practice."""
 
 
+class KeywordGroupDefinition(_FrozenModel):
+    """A named group the keyword panel organises its editable keywords in.
+
+    Groups only structure the interface: which keyword sets are edited
+    together and under what heading. They carry no icon on purpose: an icon
+    is a presentation choice the frontend makes the same way for every domain.
+    """
+
+    name: NonBlankStr
+    label: NonBlankStr
+    description: NonBlankStr
+
+
 class Taxonomy(_FrozenModel):
     """The classification vocabulary of a domain."""
 
@@ -86,6 +99,7 @@ class Taxonomy(_FrozenModel):
     strategic_buckets: list[BucketDefinition] = Field(min_length=1)
     time_horizons: list[TimeHorizonDefinition] = Field(min_length=1)
     keywords: list[NonBlankStr] = Field(default_factory=list)
+    keyword_groups: list[KeywordGroupDefinition] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _reject_duplicate_ids(self) -> Taxonomy:
@@ -97,6 +111,9 @@ class Taxonomy(_FrozenModel):
             duplicates = _find_duplicates([entry.id for entry in entries])
             if duplicates:
                 raise ValueError(f"duplicate {label} id: {', '.join(duplicates)}")
+        duplicates = _find_duplicates([group.name for group in self.keyword_groups])
+        if duplicates:
+            raise ValueError(f"duplicate keyword group name: {', '.join(duplicates)}")
         return self
 
     @property
