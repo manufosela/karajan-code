@@ -248,7 +248,9 @@ describe("installer E2E: init → doctor", () => {
         reviewer: { provider: "codex" }
       },
       pipeline: {},
-      sonarqube: { enabled: false },
+      // KJC-TSK-0838: a config with Sonar switched off no longer passes doctor —
+      // Sonar is mandatory for code, so the config that passes is the enabled one.
+      sonarqube: { enabled: true },
       development: { methodology: "tdd", require_test_changes: true }
     };
     loadConfig.mockResolvedValue({ config: defaultConfig, exists: false });
