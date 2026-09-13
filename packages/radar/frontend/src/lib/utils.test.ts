@@ -110,15 +110,24 @@ describe("getStatusColor", () => {
 });
 
 describe("getBucketColor", () => {
-  it("returns a distinct palette per known bucket", () => {
-    expect(getBucketColor("adopt").dot).toBe("bg-bucket-adopt");
-    expect(getBucketColor("hold").dot).toBe("bg-bucket-hold");
+  it("is stable: the same bucket always maps to the same colour", () => {
+    expect(getBucketColor("core_aligner_tech")).toEqual(getBucketColor("core_aligner_tech"));
+    expect(getBucketColor("")).toEqual(getBucketColor(""));
   });
 
-  it("falls back to the monitor palette for an unknown bucket", () => {
-    // Buckets are defined by the active Radar Profile, so the frontend will
-    // meet ids it has no palette for until FRD-TSK-0048 serves them by API.
-    expect(getBucketColor("core_aligner_tech")).toEqual(getBucketColor("monitor"));
+  it("returns Tailwind classes without the domain-specific bucket palette", () => {
+    const colour = getBucketColor("anything");
+    expect(colour.bg).toMatch(/^bg-/);
+    expect(colour.text).toMatch(/^text-/);
+    expect(colour.dot).toMatch(/^bg-/);
+    // The old adopt/trial/assess/hold ids and their bg-bucket-* classes are gone.
+    expect(colour.dot).not.toContain("bucket-");
+  });
+
+  it("is distinguishable: different buckets do not all collapse to one colour", () => {
+    const buckets = ["core_aligner_tech", "materials", "digital", "clinical", "manufacturing", "emerging"];
+    const dots = new Set(buckets.map((b) => getBucketColor(b).dot));
+    expect(dots.size).toBeGreaterThan(1);
   });
 });
 
