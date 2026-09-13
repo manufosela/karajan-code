@@ -3,6 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -326,17 +327,43 @@ class TestRunNow:
         client: AsyncClient,
         auth_headers: dict[str, str],
     ) -> None:
-        """Run-now returns success and status running."""
-        response = await client.post(
-            "/api/v1/configuration/schedule/run-now",
-            headers=auth_headers,
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "running"
-        assert "triggered" in data["message"].lower()
+        """Run-now returns 200/running and the background task runs the real pipeline."""
+        with patch("app.api.v1.configuration.run_pipeline", new=AsyncMock()) as mock_pipeline:
+            response = await client.post(
+                "/api/v1/configuration/schedule/run-now",
+                headers=auth_headers,
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "running"
+            assert "triggered" in data["message"].lower()
+
+        # The background task is not a stub: it invokes the ingestion pipeline.
+        mock_pipeline.assert_awaited_once()
 
     async def test_run_now_requires_auth(self, client: AsyncClient) -> None:
         """Returns 401 without auth."""
         response = await client.post("/api/v1/configuration/schedule/run-now")
         assert response.status_code == 401
+
+
+class TestRunIngestionBackground:
+    """The run-now background task wires the real pipeline and swallows errors."""
+
+    async def test_calls_run_pipeline(self) -> None:
+        from app.api.v1.configuration import _run_ingestion_background
+
+        with patch("app.api.v1.configuration.run_pipeline", new=AsyncMock()) as mock_pipeline:
+            await _run_ingestion_background()
+
+        mock_pipeline.assert_awaited_once()
+
+    async def test_swallows_pipeline_errors(self) -> None:
+        from app.api.v1.configuration import _run_ingestion_background
+
+        failing = AsyncMock(side_effect=RuntimeError("pipeline boom"))
+        with patch("app.api.v1.configuration.run_pipeline", new=failing):
+            # Must not raise: there is no request left to return the error to.
+            await _run_ingestion_background()
+
+        failing.assert_awaited_once()
