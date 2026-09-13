@@ -185,15 +185,18 @@ describe("doctor", () => {
       expect(gitCheck.fix).toContain("git init");
     });
 
-    it("marks sonar as OK when disabled in config", async () => {
+    // KJC-TSK-0838: Sonar switched off is a defect — the commit gate rejects
+    // code without a sonar proof, so `kj doctor` says so instead of shrugging.
+    it("marks sonar as FAIL when disabled in config", async () => {
       const { isSonarReachable } = await import("../src/sonar/manager.js");
       isSonarReachable.mockResolvedValue(false);
 
       const config = { ...baseConfig, sonarqube: { ...baseConfig.sonarqube, enabled: false } };
       const checks = await runChecks({ config });
       const sonarCheck = checks.find((c) => c.name === "sonarqube");
-      expect(sonarCheck.ok).toBe(true);
+      expect(sonarCheck.ok).toBe(false);
       expect(sonarCheck.detail).toContain("Disabled");
+      expect(sonarCheck.detail).toMatch(/mandatory for code/);
     });
 
     it("marks sonar as MISS when not reachable", async () => {

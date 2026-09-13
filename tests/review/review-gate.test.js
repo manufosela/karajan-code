@@ -100,6 +100,21 @@ describe("kj review gate", () => {
     expect(res.ok).toBe(true);
   });
 
+  it("--check refuses a pipeline verdict without a sonar block or whose stage did not run, and lets one whose stage ran through", async () => {
+    const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", host: "kj-pipeline", issues: [] });
+    const noBlock = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+    expect(noBlock.ok).toBe(false);
+    expect(noBlock.reason).toMatch(/no sonar block/);
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", host: "kj-pipeline", issues: [], sonar: { ran: false, source: "pipeline", reason: "no git remote" } });
+    const refused = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+    expect(refused.ok).toBe(false);
+    expect(refused.reason).toMatch(/no git remote/);
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", host: "kj-pipeline", issues: [], sonar: { ran: true, source: "pipeline", projectKey: "k", gateStatus: "OK", covered: [], uncovered: [] } });
+    const passed = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+    expect(passed.ok).toBe(true);
+  });
+
   it("--check passes a pure merge commit (MERGE_HEAD present, empty staged diff)", async () => {
     execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base"], { cwd: dir });
     fs.writeFileSync(path.join(dir, ".git", "MERGE_HEAD"), "deadbeef\n");

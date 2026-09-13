@@ -96,7 +96,7 @@ export async function loadVerdict(projectDir, hash) {
  * (KJC-BUG-0115).
  * @returns {Promise<{stamped: boolean}>}
  */
-export async function stampStagedVerdict({ projectDir, reviewer, summary = "" }) {
+export async function stampStagedVerdict({ projectDir, reviewer, summary = "", sonar = null }) {
   const dir = projectDir || process.cwd();
   try {
     await fs.access(path.join(dir, ".karajan", "review-gate"));
@@ -107,8 +107,28 @@ export async function stampStagedVerdict({ projectDir, reviewer, summary = "" })
   if (res.exitCode !== 0 || !res.stdout?.trim()) return { stamped: false };
   await saveVerdict(dir, res.stdout, {
     verdict: "approved", reviewer, host: "kj-pipeline", issues: [], summary,
+    // KJC-TSK-0838: what the pipeline's sonar stage saw, so --check can tell
+    // a run whose gate ran from one that skipped it.
+    ...(sonar ? { sonar } : {}),
   });
   return { stamped: true };
+}
+
+/**
+ * KJC-TSK-0838: the pipeline sonar stage result as a verdict sonar block.
+ * SKIPPED (no remote, no key) or absent is `ran:false` WITH the reason — the
+ * pre-commit check then refuses code, as it would for any other diff.
+ * Coverage lists stay empty: the pipeline scans the whole project, and the
+ * per-file proof (verbose index) is not wired into SonarRole yet.
+ */
+export function pipelineSonarBlock(stageResult) {
+  if (!stageResult) return { ran: false, source: "pipeline", reason: "the pipeline recorded no sonar stage" };
+  if (!stageResult.gateStatus || stageResult.gateStatus === "SKIPPED") {
+    return { ran: false, source: "pipeline", reason: stageResult.reason || stageResult.error || "the sonar stage did not run" };
+  }
+  return {
+    ran: true, source: "pipeline", projectKey: stageResult.projectKey || null, gateStatus: stageResult.gateStatus, covered: [], uncovered: [],
+  };
 }
 
 /**

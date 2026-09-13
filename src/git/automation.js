@@ -4,7 +4,7 @@
  */
 
 import { addCheckpoint } from "../session/store.js";
-import { stampStagedVerdict } from "../review/verdict-store.js";
+import { pipelineSonarBlock, stampStagedVerdict } from "../review/verdict-store.js";
 import {
   ensureGitRepo,
   currentBranch,
@@ -277,6 +277,8 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
         projectDir: config?.projectDir || process.cwd(),
         reviewer: config?.reviewer || "pipeline-reviewer",
         summary: `kj run session ${session?.id || ""}: reviewer approved`.trim(),
+        // KJC-TSK-0838: the sonar stage result travels with the stamp.
+        sonar: pipelineSonarBlock(stageResults?.sonar),
       }),
     });
     committed = commitResult.committed;

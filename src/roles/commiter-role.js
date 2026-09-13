@@ -35,7 +35,9 @@ export class CommiterRole extends BaseRole {
   }
 
   async execute(input) {
-    const { task, commitMessage, push = false, createPr = false } = input || {};
+    // KJC-TSK-0838: the caller hands the sonar stage result (pipelineSonarBlock);
+    // without it the stamp carries no proof and the commit gate refuses code.
+    const { task, commitMessage, push = false, createPr = false, sonar = null } = input || {};
 
     const isRepo = await ensureGitRepo();
     if (!isRepo) {
@@ -65,6 +67,7 @@ export class CommiterRole extends BaseRole {
         projectDir: this.config?.projectDir || process.cwd(),
         reviewer: this.config?.reviewer || "pipeline-reviewer",
         summary: "kj pipeline (commiter role): review passed",
+        sonar,
       }),
     });
     const commitHash = await revParse("HEAD");
