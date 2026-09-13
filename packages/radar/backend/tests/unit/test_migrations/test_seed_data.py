@@ -19,7 +19,7 @@ def test_seed_data_inserts_sources(alembic_config):
 
 
 def test_seed_data_inserts_configuration(alembic_config):
-    """Seed data migration inserts 9 configuration entries."""
+    """Seed data inserts 9 configuration entries; 0011 retires one of them."""
     cfg, db_url = alembic_config
     command.upgrade(cfg, "head")
 
@@ -28,7 +28,7 @@ def test_seed_data_inserts_configuration(alembic_config):
         result = conn.execute(text("SELECT COUNT(*) FROM configuration"))
         count = result.scalar()
 
-    assert count == 9
+    assert count == 8
 
 
 def test_seed_data_source_names(alembic_config):
@@ -90,4 +90,4 @@ def test_full_upgrade_downgrade_cycle(alembic_config):
         config_count = conn.execute(text("SELECT COUNT(*) FROM configuration")).scalar()
 
     assert sources_count == 5
-    assert config_count == 9
+    assert config_count == 8

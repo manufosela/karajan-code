@@ -48,9 +48,12 @@ class ConfigUpdate(BaseModel):
 
 
 class TopicTaxonomyResponse(BaseModel):
-    """Schema for topic taxonomy response (thematic config)."""
+    """Schema for topic taxonomy response (thematic config).
 
-    orthodontics_keywords: dict[str, Any] | None = None
+    Keyword groups are not here: they come from the Radar Profile, served by
+    ``GET /configuration/profile``.
+    """
+
     strategic_buckets: dict[str, Any] | None = None
 
 
