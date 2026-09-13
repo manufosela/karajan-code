@@ -35,7 +35,8 @@ describe("kj review gate", () => {
 
   it("--check passes with exit 0 when an approved verdict matches the staged diff", async () => {
     const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
-    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [] });
+    // KJC-TSK-0838: a verdict for code carries the proof that sonar covered it.
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: true, covered: ["a.js"], uncovered: [] } });
     const res = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
     expect(res.ok).toBe(true);
     expect(process.exitCode).toBe(0);
@@ -77,6 +78,28 @@ describe("kj review gate", () => {
   // KJC-BUG-0132 (issue #1344): a PURE merge stages nothing of its own —
   // everything it brings reached the parent branches reviewed. Demanding a
   // verdict of an empty diff deadlocks the merge.
+  // KJC-TSK-0838: the pre-commit check reads the sonar block the verdict
+  // carries — a reviewed diff with code that Sonar never analysed does not enter.
+  it("--check refuses an approved verdict whose sonar block says the analysis did not run", async () => {
+    const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: false, reason: "disabled in config" } });
+    const res = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+    expect(res.ok).toBe(false);
+    expect(res.reason).toMatch(/Sonar is mandatory for code/);
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("--check lets that same verdict through only under a live human grant on the rule", async () => {
+    const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: false, reason: "disabled in config" } });
+    fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".karajan", "policy-exceptions.jsonl"), JSON.stringify({
+      rule_id: "method.sonar.code", scopeKind: "permanente", expiresAt: "2999-01-01T00:00:00Z", justification: "laptop sin docker", who: { git: "human" },
+    }) + "\n");
+    const res = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+    expect(res.ok).toBe(true);
+  });
+
   it("--check passes a pure merge commit (MERGE_HEAD present, empty staged diff)", async () => {
     execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base"], { cwd: dir });
     fs.writeFileSync(path.join(dir, ".git", "MERGE_HEAD"), "deadbeef\n");

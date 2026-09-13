@@ -336,7 +336,18 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
         return { ok: true, merge: true, reason: "pure merge commit (MERGE_HEAD, empty staged diff)" };
       }
     }
-    const res = await checkVerdict(projectDir, diff);
+    let res = await checkVerdict(projectDir, diff);
+    // KJC-TSK-0838: a reviewed diff with code enters only if the verdict's
+    // sonar block proves the analysis ran and covered every staged source.
+    // The headless pipeline stamps its verdict after its own sonar stage and
+    // carries no block yet (step 3 of the card) — said, never assumed silent.
+    if (res.ok && res.verdict.host === "kj-pipeline" && !res.verdict.sonar) {
+      console.log("⚠ pipeline verdict carries no sonar proof yet (KJC-TSK-0838 step 3) — trusting the pipeline's own sonar stage");
+    } else if (res.ok) {
+      const req = checkSonarRequirement({ config, stagedFiles: changedFiles, sonar: res.verdict.sonar, standingExceptions: std.standing });
+      if (!req.ok) res = { ok: false, verdict: res.verdict, reason: req.reason };
+      else if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
+    }
     console.log(res.ok
       ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
       : `✗ ${res.reason}`);
