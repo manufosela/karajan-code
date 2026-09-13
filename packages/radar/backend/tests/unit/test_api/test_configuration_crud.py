@@ -108,19 +108,13 @@ class TestGetConfigurationByCategory:
 class TestGetThematicTopics:
     """Tests for GET /api/v1/configuration/thematic/topics."""
 
-    async def test_get_topics_returns_taxonomy(
+    async def test_get_topics_returns_strategic_buckets(
         self,
         client: AsyncClient,
         test_session: AsyncSession,
         auth_headers: dict[str, str],
     ) -> None:
-        """GET /api/v1/configuration/thematic/topics returns topic taxonomy."""
-        await _create_config(
-            test_session,
-            category="thematic",
-            key="orthodontics_keywords",
-            value={"keywords": ["aligners", "brackets", "malocclusion"]},
-        )
+        """GET /api/v1/configuration/thematic/topics returns the strategic buckets row."""
         await _create_config(
             test_session,
             category="thematic",
@@ -131,21 +125,18 @@ class TestGetThematicTopics:
 
         response = await client.get("/api/v1/configuration/thematic/topics", headers=auth_headers)
         assert response.status_code == 200
-        data = response.json()
-        assert "orthodontics_keywords" in data
-        assert "strategic_buckets" in data
-        assert data["orthodontics_keywords"] == {"keywords": ["aligners", "brackets", "malocclusion"]}
-        assert data["strategic_buckets"] == {
-            "buckets": ["product_clinical", "market_intelligence", "regulatory"]
+        assert response.json() == {
+            "strategic_buckets": {"buckets": ["product_clinical", "market_intelligence", "regulatory"]}
         }
 
-    async def test_get_topics_partial_data(
+    async def test_a_domain_keyword_row_is_not_served(
         self,
         client: AsyncClient,
         test_session: AsyncSession,
         auth_headers: dict[str, str],
     ) -> None:
-        """Returns available topic data even if only one key exists."""
+        """The keyword panel takes its groups from the profile (KRD-TSK-0023);
+        a leftover domain row in the table is not a topic the API knows."""
         await _create_config(
             test_session,
             category="thematic",
@@ -155,10 +146,7 @@ class TestGetThematicTopics:
         await test_session.commit()
 
         response = await client.get("/api/v1/configuration/thematic/topics", headers=auth_headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert "orthodontics_keywords" in data
-        assert data["orthodontics_keywords"] == {"keywords": ["aligners"]}
+        assert response.status_code == 404
 
     async def test_get_topics_no_data_returns_404(
         self, client: AsyncClient, auth_headers: dict[str, str]
@@ -177,8 +165,8 @@ class TestGetThematicTopics:
         await _create_config(
             test_session,
             category="thematic",
-            key="orthodontics_keywords",
-            value={"keywords": ["aligners"]},
+            key="strategic_buckets",
+            value={"buckets": ["regulatory"]},
         )
         await test_session.commit()
 
@@ -187,7 +175,7 @@ class TestGetThematicTopics:
         assert response.status_code == 200
         data = response.json()
         # The topics endpoint returns a merged object, not a single ConfigResponse
-        assert "orthodontics_keywords" in data
+        assert "strategic_buckets" in data
 
 
 class TestUpdateScoringWeights:

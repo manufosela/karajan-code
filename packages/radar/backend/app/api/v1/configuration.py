@@ -107,11 +107,11 @@ async def get_thematic_topics(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> TopicTaxonomyResponse:
-    """Get topic taxonomy: orthodontics keywords and strategic buckets."""
+    """Get topic taxonomy: the strategic buckets row."""
     result = await db.execute(
         select(Configuration).where(
             Configuration.category == "thematic",
-            Configuration.key.in_(["orthodontics_keywords", "strategic_buckets"]),
+            Configuration.key == "strategic_buckets",
         )
     )
     configs = result.scalars().all()

@@ -388,52 +388,10 @@ INSERT INTO sources (name, source_type, category, priority, enabled, base_url, c
 );
 
 -- =============================================================================
--- SEED DATA: Default configuration - Thematic keywords
+-- SEED DATA: Default configuration - Thematic strategic buckets
+-- (keyword groups live in the Radar Profile, not in this table)
 -- =============================================================================
 INSERT INTO configuration (category, key, value, description) VALUES
-(
-    'thematic',
-    'orthodontics_keywords',
-    '{
-        "primary": [
-            "clear aligners", "invisible aligners", "orthodontic aligners",
-            "tooth movement", "orthodontic treatment", "malocclusion",
-            "dental alignment", "bite correction", "orthodontic biomechanics",
-            "aligner therapy", "sequential aligners", "thermoplastic aligners"
-        ],
-        "materials": [
-            "shape memory polymer", "thermoplastic polyurethane", "PETG",
-            "aligner material", "dental polymer", "biocompatible polymer",
-            "orthodontic wire", "NiTi", "nickel titanium",
-            "3D printed aligner", "direct printed aligner"
-        ],
-        "digital_workflow": [
-            "intraoral scanner", "digital impression", "CBCT",
-            "cephalometric analysis", "treatment planning software",
-            "digital orthodontics", "CAD/CAM dental", "STL dental",
-            "tooth segmentation", "dental AI", "orthodontic AI"
-        ],
-        "clinical": [
-            "root resorption", "attachment design", "aligner attachment",
-            "interproximal reduction", "IPR", "staging protocol",
-            "overcorrection", "refinement aligner", "retention",
-            "Class II correction", "Class III correction", "open bite",
-            "deep bite", "crossbite", "crowding", "spacing"
-        ],
-        "manufacturing": [
-            "thermoforming", "direct 3D printing", "additive manufacturing dental",
-            "dental 3D printing", "SLA dental", "DLP dental",
-            "aligner production", "mass customization dental"
-        ],
-        "emerging": [
-            "AI orthodontics", "machine learning dental", "deep learning dental",
-            "computer vision dental", "automated treatment planning",
-            "remote monitoring orthodontics", "dental telehealth",
-            "bioprinting dental", "smart aligner", "sensor aligner"
-        ]
-    }'::jsonb,
-    'Hierarchical keyword sets for orthodontics research classification'
-),
 (
     'thematic',
     'strategic_buckets',
