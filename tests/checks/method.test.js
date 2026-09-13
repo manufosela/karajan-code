@@ -37,6 +37,30 @@ describe("collectMethodStats", () => {
     expect(s.testless).toMatchObject({ sampled: 3, offenders: 1 }); // src/b.js alone
   });
 
+  // KJC-TSK-0838 (ADR 2026-09-13): the sonar block of every verdict is the
+  // method's evidence — proved, docs-only, human-granted, or UNPROVED. An
+  // approved verdict for code without proof turns the method check red.
+  it("classifies verdicts by their sonar proof and flags approved unproved ones", async () => {
+    const reviews = path.join(dir, ".karajan", "reviews");
+    fs.mkdirSync(reviews, { recursive: true });
+    const write = (name, rec) => fs.writeFileSync(path.join(reviews, name), JSON.stringify({ verdict: "approved", timestamp: "2026-09-14T10:00:00Z", ...rec }));
+    write("proved.json", { sonar: { ran: true, mode: "pass", covered: ["src/a.js"], uncovered: [] } });
+    write("docs.json", { sonar: { ran: false, mode: "docs-only", reason: "server down" } });
+    write("granted.json", { sonar: { ran: false, mode: "granted", reason: "server down" } });
+    write("pipeline-skipped.json", { host: "kj-pipeline", sonar: { ran: false, source: "pipeline", reason: "no git remote" } });
+    write("blind.json", { sonar: { ran: true, mode: "pass", covered: [], uncovered: ["packages/x/b.py"] } });
+    write("legacy.json", {}); // pre-ADR verdict: no block, not counted
+
+    const s = await collectMethodStats({ projectDir: dir, run: gitRuns({ subjects: [], blocks: "" }) });
+    expect(s.sonar).toEqual({ proved: 1, docsOnly: 1, granted: 1, unproved: 2 });
+
+    const [check] = getMethodChecks();
+    const r = await check.detect({ config: {}, projectDir: dir, run: gitRuns({ subjects: [], blocks: "" }) });
+    expect(r.ok).toBe(false);
+    expect(r.severity).toBe("fail");
+    expect(r.detail).toMatch(/2 approved verdict\(s\) without sonar proof/);
+  });
+
   it("degrades to zeros outside a repo or without verdicts", async () => {
     const run = vi.fn(async () => ({ exitCode: 128, stdout: "" }));
     const s = await collectMethodStats({ projectDir: dir, run });

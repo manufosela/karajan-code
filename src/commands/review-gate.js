@@ -430,6 +430,9 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     return { verdict: "rejected", reviewer: "sonar", issues: [{ severity: "high", file: undefined, description: sonarReq.reason }] };
   }
   if (sonarReq.mode === "granted") console.log(formatSonarGrant(sonarReq.grant));
+  // The verdict says on what grounds the requirement was met (proof, docs-only,
+  // human grant) — the method report reads it back.
+  sonarRecord.mode = sonarReq.mode;
 
   // MUT-A (KJC-TSK-0716): mutation pre-gate — opt-in (method_gates.mutation),
   // SOLO en --staged (jamás en pre-commit: cuesta minutos; y jamás en --range:
