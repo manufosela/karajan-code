@@ -60,6 +60,14 @@ class TestReadyEndpoint:
         assert "database" in data["checks"]
         assert isinstance(data["checks"]["database"], bool)
 
+    async def test_ready_checks_include_migrations(self, client: AsyncClient) -> None:
+        """Ready checks include a migrations entry (schema at code head)."""
+        response = await client.get("/ready")
+
+        data = response.json()
+        assert "migrations" in data["checks"]
+        assert isinstance(data["checks"]["migrations"], bool)
+
 
 class TestRequestIdMiddleware:
     """Tests for X-Request-ID middleware."""
