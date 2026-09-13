@@ -91,47 +91,38 @@ export function getStatusColor(status: ReviewStatus): {
 }
 
 /**
- * Return Tailwind color classes for a strategic bucket.
+ * A fixed, domain-neutral palette. Buckets are declared by the active Radar
+ * Profile, so the frontend cannot know their names ahead of time; it derives a
+ * stable colour from the bucket string instead of mapping specific ids.
+ */
+const BUCKET_PALETTE: ReadonlyArray<{ bg: string; text: string; dot: string }> = [
+  { bg: "bg-emerald-50 dark:bg-emerald-900/20", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
+  { bg: "bg-blue-50 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-400", dot: "bg-blue-500" },
+  { bg: "bg-amber-50 dark:bg-amber-900/20", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
+  { bg: "bg-violet-50 dark:bg-violet-900/20", text: "text-violet-700 dark:text-violet-400", dot: "bg-violet-500" },
+  { bg: "bg-pink-50 dark:bg-pink-900/20", text: "text-pink-700 dark:text-pink-400", dot: "bg-pink-500" },
+  { bg: "bg-teal-50 dark:bg-teal-900/20", text: "text-teal-700 dark:text-teal-400", dot: "bg-teal-500" },
+  { bg: "bg-orange-50 dark:bg-orange-900/20", text: "text-orange-700 dark:text-orange-400", dot: "bg-orange-500" },
+  { bg: "bg-slate-50 dark:bg-slate-900/20", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-500" },
+];
+
+/**
+ * Return stable, distinguishable Tailwind color classes for a strategic bucket.
+ *
+ * The colour is derived from the bucket name (a small string hash into a fixed
+ * palette), so the same bucket always looks the same and different buckets
+ * usually differ, without assuming any particular set of bucket ids.
  */
 export function getBucketColor(bucket: string): {
   bg: string;
   text: string;
   dot: string;
 } {
-  const colors: Record<string, { bg: string; text: string; dot: string }> = {
-    adopt: {
-      bg: "bg-emerald-50 dark:bg-emerald-900/20",
-      text: "text-emerald-700 dark:text-emerald-400",
-      dot: "bg-bucket-adopt",
-    },
-    trial: {
-      bg: "bg-blue-50 dark:bg-blue-900/20",
-      text: "text-blue-700 dark:text-blue-400",
-      dot: "bg-bucket-trial",
-    },
-    assess: {
-      bg: "bg-amber-50 dark:bg-amber-900/20",
-      text: "text-amber-700 dark:text-amber-400",
-      dot: "bg-bucket-assess",
-    },
-    hold: {
-      bg: "bg-gray-50 dark:bg-gray-900/20",
-      text: "text-gray-600 dark:text-gray-400",
-      dot: "bg-bucket-hold",
-    },
-    monitor: {
-      bg: "bg-violet-50 dark:bg-violet-900/20",
-      text: "text-violet-700 dark:text-violet-400",
-      dot: "bg-bucket-monitor",
-    },
-    innovate: {
-      bg: "bg-pink-50 dark:bg-pink-900/20",
-      text: "text-pink-700 dark:text-pink-400",
-      dot: "bg-bucket-innovate",
-    },
-  };
-
-  return colors[bucket] || colors.monitor;
+  let hash = 0;
+  for (const char of bucket) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 2147483647;
+  }
+  return BUCKET_PALETTE[hash % BUCKET_PALETTE.length];
 }
 
 /**
