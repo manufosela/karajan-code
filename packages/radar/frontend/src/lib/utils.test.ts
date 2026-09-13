@@ -115,6 +115,12 @@ describe("getBucketColor", () => {
     expect(getBucketColor("")).toEqual(getBucketColor(""));
   });
 
+  it("hashes characters outside the BMP by code point, not by surrogate", () => {
+    // U+1D538 and U+1D539 share the same high surrogate: hashing by UTF-16
+    // unit would give them the same colour.
+    expect(getBucketColor("\u{1D538}")).not.toEqual(getBucketColor("\u{1D539}"));
+  });
+
   it("returns Tailwind classes without the domain-specific bucket palette", () => {
     const colour = getBucketColor("anything");
     expect(colour.bg).toMatch(/^bg-/);

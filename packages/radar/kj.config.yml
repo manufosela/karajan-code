@@ -80,7 +80,8 @@ development:
     - .php
     - .cs
 sonarqube:
-  enabled: false
+  # Mandatory for code: only docs-only diffs are exempt. Never set to false.
+  enabled: true
   host: http://localhost:9000
   external: false
   container_name: karajan-sonarqube
