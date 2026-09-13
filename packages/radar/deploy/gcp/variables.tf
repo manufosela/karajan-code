@@ -79,6 +79,12 @@ variable "ingestion_schedule" {
   default     = "0 6 * * *"
 }
 
+variable "scheduler_timezone" {
+  description = "Zona horaria de los disparadores de Cloud Scheduler."
+  type        = string
+  default     = "Europe/Madrid"
+}
+
 variable "llm_api_key" {
   description = "Clave del proveedor LLM que declare el perfil. Vacía para perfiles con proveedor local (Ollama)."
   type        = string
