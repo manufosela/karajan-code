@@ -21,6 +21,7 @@ const PROFILE: ActiveProfile = {
     ],
     time_horizons: [{ id: "immediate", label: "Immediate", description: "0-6 months." }],
     keywords: ["orthodontics", "clear aligners"],
+    keyword_groups: [{ name: "primary", label: "Primary keywords", description: "Core terms." }],
   },
   vocabulary: {
     impact_levels: [{ id: "minimal", label: "Minimal", description: "Little relevance." }],
