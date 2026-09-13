@@ -50,7 +50,7 @@ describe("review gate × sonar pre-gate", () => {
   });
 
   it("advisory findings travel inside the reviewer task and pass staged files to the pre-gate", async () => {
-    pregateMock.mockResolvedValue({ available: true, blocking: [], advisory: [finding("MINOR")], totalProject: 1 });
+    pregateMock.mockResolvedValue({ available: true, blocking: [], advisory: [finding("MINOR")], totalProject: 1, covered: ["a.js"], uncovered: [] });
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true, task: "my intent" } });
     expect(r.verdict).toBe("approved");
     expect(pregateMock.mock.calls[0][0].stagedFiles).toEqual(["a.js"]);
@@ -58,11 +58,24 @@ describe("review gate × sonar pre-gate", () => {
     expect(reviewMock.mock.calls[0][0].task).toContain("boom");
   });
 
-  it("unavailable sonar warns and continues to the cross-AI review", async () => {
+  // KJC-TSK-0838: fail-CLOSED for code. Unavailable or disabled sonar used to
+  // warn and continue — that is how 4 code PRs reached main unanalysed.
+  it("unavailable sonar REJECTS a diff with code before any reviewer token is spent", async () => {
     pregateMock.mockResolvedValue({ available: false, reason: "server down" });
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true } });
-    expect(r.verdict).toBe("approved");
-    expect(reviewMock).toHaveBeenCalled();
+    expect(r.verdict).toBe("rejected");
+    expect(r.reviewer).toBe("sonar");
+    expect(r.issues[0].description).toMatch(/Sonar is mandatory for code/);
+    expect(reviewMock).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("a staged source the scan never indexed rejects too", async () => {
+    pregateMock.mockResolvedValue({ available: true, projectKey: "k", blocking: [], advisory: [], totalProject: 0, covered: [], uncovered: ["a.js"] });
+    const r = await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    expect(r.verdict).toBe("rejected");
+    expect(r.issues[0].description).toContain("a.js");
+    expect(reviewMock).not.toHaveBeenCalled();
   });
 
   // KJC-TSK-0838: what Sonar saw travels INSIDE the verdict, bound to the
@@ -78,15 +91,20 @@ describe("review gate × sonar pre-gate", () => {
     });
   });
 
-  it("records that sonar did NOT run, with the reason, when it is unavailable", async () => {
+  it("records that sonar did NOT run, with the reason, when the diff has no code", async () => {
+    fs.writeFileSync(path.join(dir, "README.md"), "docs\n");
+    execFileSync("git", ["-C", dir, "reset", "-q", "a.js"]);
+    execFileSync("git", ["-C", dir, "add", "README.md"]);
     pregateMock.mockResolvedValue({ available: false, reason: "server down" });
-    await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    const r = await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    expect(r.verdict).toBe("approved"); // docs-only: exempt
     expect(reviewMock.mock.calls[0][0].sonar).toEqual({ ran: false, reason: "server down" });
   });
 
-  it("--no-sonar skips the pre-gate entirely", async () => {
+  it("--no-sonar is not an escape for code: the diff is rejected without a scan", async () => {
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true, sonar: false } });
     expect(pregateMock).not.toHaveBeenCalled();
-    expect(r.verdict).toBe("approved");
+    expect(r.verdict).toBe("rejected");
+    expect(r.reviewer).toBe("sonar");
   });
 });
