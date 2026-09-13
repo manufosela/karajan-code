@@ -87,7 +87,7 @@ describe("review gate × sonar pre-gate", () => {
     });
     await reviewGateCommand({ config: cfg(), flags: { staged: true } });
     expect(reviewMock.mock.calls[0][0].sonar).toEqual({
-      ran: true, projectKey: "k", covered: ["a.js"], uncovered: [], blocking: 0, advisory: 0,
+      ran: true, projectKey: "k", covered: ["a.js"], uncovered: [], blocking: 0, advisory: 0, mode: "pass",
     });
   });
 
@@ -98,7 +98,7 @@ describe("review gate × sonar pre-gate", () => {
     pregateMock.mockResolvedValue({ available: false, reason: "server down" });
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true } });
     expect(r.verdict).toBe("approved"); // docs-only: exempt
-    expect(reviewMock.mock.calls[0][0].sonar).toEqual({ ran: false, reason: "server down" });
+    expect(reviewMock.mock.calls[0][0].sonar).toEqual({ ran: false, reason: "server down", mode: "docs-only" });
   });
 
   it("--no-sonar is not an escape for code: the diff is rejected without a scan", async () => {

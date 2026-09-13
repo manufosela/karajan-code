@@ -39,16 +39,44 @@ export async function collectMethodStats({ projectDir, run = runCommand, sample 
 
   const verdicts = recentVerdicts(projectDir, sample);
   const stamped = verdicts.filter((v) => v.workspace);
+  const sonar = { proved: 0, docsOnly: 0, granted: 0, unproved: 0 };
+  for (const v of verdicts) {
+    const kind = sonarProof(v);
+    if (kind) sonar[kind] += 1;
+  }
 
   return {
     commits: { total: subjects.length, withCard: subjects.filter((s) => CARD_REF_RE.test(s)).length },
     verdicts: { total: verdicts.length, stamped: stamped.length, root: stamped.filter((v) => v.workspace === "root").length },
     testless: { sampled: blocks.length, offenders },
+    sonar,
   };
 }
 
+/**
+ * KJC-TSK-0838 (ADR 2026-09-13): what a verdict's sonar block proves —
+ * "proved" (ran and covered every source), "docsOnly", "granted" (a human
+ * lifted the rule) or "unproved" (an approved verdict for code with no
+ * analysis, a skipped pipeline stage, or a source the scan never saw).
+ * A verdict without a block predates the ADR and counts as nothing.
+ */
+export function sonarProof(v) {
+  const s = v?.sonar;
+  if (!s || v.verdict !== "approved") return null;
+  // A pipeline stamp has no mode: the stage ran, or it did not.
+  if (s.source === "pipeline") return s.ran ? "proved" : "unproved";
+  // A block without a mode was written before the requirement existed
+  // (the block landed one PR before fail-closed): not retroactive either.
+  if (!s.mode) return null;
+  if (s.mode === "docs-only") return "docsOnly";
+  if (s.mode === "granted") return "granted";
+  if (s.ran && (s.uncovered || []).length === 0) return "proved";
+  return "unproved";
+}
+
 export function formatMethodStats(s) {
-  return `commits with card ref ${s.commits.withCard}/${s.commits.total} · verdict workspaces root ${s.verdicts.root}/${s.verdicts.stamped || 0} stamped (${s.verdicts.total} total) · source commits without tests ${s.testless.offenders}/${s.testless.sampled}`;
+  const sonar = s.sonar ? ` · sonar proof: ${s.sonar.proved} proved, ${s.sonar.docsOnly} docs-only, ${s.sonar.granted} granted, ${s.sonar.unproved} unproved` : "";
+  return `commits with card ref ${s.commits.withCard}/${s.commits.total} · verdict workspaces root ${s.verdicts.root}/${s.verdicts.stamped || 0} stamped (${s.verdicts.total} total) · source commits without tests ${s.testless.offenders}/${s.testless.sampled}${sonar}`;
 }
 
 function createMethodCheck() {
@@ -59,6 +87,11 @@ function createMethodCheck() {
     async detect({ config = {}, projectDir = process.cwd(), run = runCommand } = {}) {
       const stats = await collectMethodStats({ projectDir, run, sample: config.method_gates?.report_sample || 20 });
       const detail = formatMethodStats(stats);
+      // KJC-TSK-0838: an approved verdict for code without sonar proof is the
+      // method in red, not a trend — the gate should have refused it.
+      if (stats.sonar.unproved > 0) {
+        return { ok: false, severity: "fail", detail: `${stats.sonar.unproved} approved verdict(s) without sonar proof — ${detail}` };
+      }
       const drought = stats.commits.total >= 5 && stats.commits.withCard / stats.commits.total < 0.5;
       if (drought) {
         return { ok: false, severity: "warn", detail: `most recent commits carry no card reference — ${detail}` };
