@@ -118,6 +118,23 @@ taxonomy:
     - social tariff
     - low-emission zone
 
+  keyword_groups:
+    - name: primary
+      label: Primary keywords
+      description: Core shared mobility and energy affordability terms.
+    - name: regulation
+      label: Regulation
+      description: Legislation, subsidies and public policy.
+    - name: market
+      label: Market and competition
+      description: Competitors, platforms and business models.
+    - name: technology
+      label: Technology
+      description: Apps, platforms and enabling technologies.
+    - name: emerging
+      label: Emerging
+      description: Trends and experimental approaches.
+
 vocabulary:
   impact_levels:
     - id: transformative

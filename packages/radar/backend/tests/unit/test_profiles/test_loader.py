@@ -139,3 +139,10 @@ class TestBundledProfiles:
         for profile_id in ids:
             profile = load_profile_by_id(profile_id)
             assert profile.id == profile_id
+
+    def test_every_bundled_profile_declares_keyword_groups(self) -> None:
+        """The keyword panel renders its groups from here; without them it is empty."""
+        from app.profiles.loader import DEFAULT_PROFILES_DIR
+
+        for profile_id in available_profiles(DEFAULT_PROFILES_DIR):
+            assert load_profile_by_id(profile_id).taxonomy.keyword_groups, profile_id
