@@ -19,7 +19,8 @@ vi.mock("../../src/review/card-first.js", async (orig) => ({
   ...(await orig()), checkCardFirst: vi.fn().mockResolvedValue({ ok: true, mode: "pass" }),
 }));
 vi.mock("../../src/review/verdict-store.js", async (orig) => ({
-  ...(await orig()), checkVerdict: vi.fn().mockResolvedValue({ ok: true, verdict: { reviewer: "codex", diffHash: "abc123456789" } }),
+  // KJC-TSK-0838: a verdict for code carries the proof that sonar covered it.
+  ...(await orig()), checkVerdict: vi.fn().mockResolvedValue({ ok: true, verdict: { reviewer: "codex", diffHash: "abc123456789", sonar: { ran: true, covered: ["src-ok.js"], uncovered: [] } } }),
 }));
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
