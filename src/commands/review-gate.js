@@ -13,6 +13,7 @@ import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
+import { checkSonarRequirement, SONAR_RULE_ID } from "../review/sonar-requirement.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
@@ -52,6 +53,14 @@ async function rawDiff(range, extraArgs = []) {
   }
   return res.stdout;
 }
+
+// KJC-TSK-0838: a grant is the ONLY way past the sonar requirement, so it is
+// said with who gave it, its scope and until when.
+const formatSonarGrant = (g) => {
+  const scope = g.origin === "global" ? " GLOBAL" : "";
+  const who = g.who?.git ?? "?";
+  return `⚠ sonar requirement lifted by a HUMAN grant [${SONAR_RULE_ID}]${scope} until ${g.expiresAt} — ${who}: ${g.justification || "sin justificación"}`;
+};
 
 // KJC-TSK-0813 (AC3): la exención dice su PROCEDENCIA — un standing global
 // (concedido para toda la máquina) no pasa por uno del proyecto. El texto
@@ -347,7 +356,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // KJC-TSK-0838: what sonar saw travels INSIDE the verdict, bound to the
   // diff hash — a reviewed diff and a reviewed AND analysed diff must be
   // distinguishable by --check and by the method report.
-  let sonarRecord = null;
+  let sonarRecord = { ran: false, reason: "--no-sonar: the pre-gate was skipped by flag" };
   if (flags.sonar !== false) {
     // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
     const touchedLines = addedLinesByFile(await rawDiff(flags.range, ["--unified=0"]));
@@ -392,6 +401,17 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       }
     }
   }
+
+  // KJC-TSK-0838: fail-CLOSED for code. Sonar disabled, down, skipped by
+  // flag, or blind to a staged source — the diff does not reach the reviewer.
+  // Docs-only diffs pass; a live human grant on the rule is the only escape.
+  const sonarReq = checkSonarRequirement({ config, stagedFiles: changedFiles, sonar: sonarRecord, standingExceptions: std.standing });
+  if (!sonarReq.ok) {
+    console.log(`✗ ${sonarReq.reason}`);
+    process.exitCode = 1;
+    return { verdict: "rejected", reviewer: "sonar", issues: [{ severity: "high", file: undefined, description: sonarReq.reason }] };
+  }
+  if (sonarReq.mode === "granted") console.log(formatSonarGrant(sonarReq.grant));
 
   // MUT-A (KJC-TSK-0716): mutation pre-gate — opt-in (method_gates.mutation),
   // SOLO en --staged (jamás en pre-commit: cuesta minutos; y jamás en --range:

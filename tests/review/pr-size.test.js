@@ -11,7 +11,8 @@ import { execFileSync } from "node:child_process";
 const reviewMock = vi.fn();
 vi.mock("../../src/review/one-shot-review.js", () => ({ runOneShotReview: (...a) => reviewMock(...a) }));
 vi.mock("../../src/review/sonar-pregate.js", async (orig) => ({
-  ...(await orig()), runSonarPregate: vi.fn().mockResolvedValue({ available: false, reason: "test" }),
+  // KJC-TSK-0838: sonar is fail-closed for code — this suite is not about it, so it proves coverage.
+  ...(await orig()), runSonarPregate: vi.fn(async ({ stagedFiles }) => ({ available: true, projectKey: "t", blocking: [], advisory: [], covered: stagedFiles, uncovered: [] })),
 }));
 vi.mock("../../src/review/card-first.js", async (orig) => ({
   ...(await orig()), checkCardFirst: vi.fn().mockResolvedValue({ ok: true, mode: "pass" }),
