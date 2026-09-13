@@ -50,6 +50,7 @@ describe("collectMethodStats", () => {
     write("pipeline-skipped.json", { host: "kj-pipeline", sonar: { ran: false, source: "pipeline", reason: "no git remote" } });
     write("blind.json", { sonar: { ran: true, mode: "pass", covered: [], uncovered: ["packages/x/b.py"] } });
     write("legacy.json", {}); // pre-ADR verdict: no block, not counted
+    write("legacy-block.json", { sonar: { ran: false, reason: "HTTP 403" } }); // block but no mode: before fail-closed, not counted
 
     const s = await collectMethodStats({ projectDir: dir, run: gitRuns({ subjects: [], blocks: "" }) });
     expect(s.sonar).toEqual({ proved: 1, docsOnly: 1, granted: 1, unproved: 2 });

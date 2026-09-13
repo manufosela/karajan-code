@@ -63,6 +63,11 @@ export async function collectMethodStats({ projectDir, run = runCommand, sample 
 export function sonarProof(v) {
   const s = v?.sonar;
   if (!s || v.verdict !== "approved") return null;
+  // A pipeline stamp has no mode: the stage ran, or it did not.
+  if (s.source === "pipeline") return s.ran ? "proved" : "unproved";
+  // A block without a mode was written before the requirement existed
+  // (the block landed one PR before fail-closed): not retroactive either.
+  if (!s.mode) return null;
   if (s.mode === "docs-only") return "docsOnly";
   if (s.mode === "granted") return "granted";
   if (s.ran && (s.uncovered || []).length === 0) return "proved";
