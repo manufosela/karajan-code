@@ -37,8 +37,23 @@ export async function pickSonarScanner(scannerConfig = {}, deps = {}) {
   return { type: "docker" };
 }
 
+/**
+ * KJC-TSK-0838: the files the scanner ITSELF reports having indexed
+ * (`'<path>' indexed with language '<lang>'`, emitted with sonar.verbose).
+ * Paths are relative to the scanned base dir. This is the proof of coverage:
+ * what the engine saw, not what the config claims it should see.
+ * @param {string} scanOutput @returns {Set<string>}
+ */
+export function indexedFilesFrom(scanOutput) {
+  const files = new Set();
+  for (const m of String(scanOutput || "").matchAll(/'([^']+)' indexed with language '/g)) files.add(m[1]);
+  return files;
+}
+
 export function buildScannerOpts(projectKey, scanner = {}) {
   const opts = [`-Dsonar.projectKey=${projectKey}`];
+  // KJC-TSK-0838: verbose is what makes the scanner name every indexed file.
+  if (scanner.verbose) opts.push("-Dsonar.verbose=true");
   if (scanner.sources) opts.push(`-Dsonar.sources=${scanner.sources}`);
   if (scanner.exclusions) opts.push(`-Dsonar.exclusions=${scanner.exclusions}`);
   if (scanner.test_inclusions) opts.push(`-Dsonar.test.inclusions=${scanner.test_inclusions}`);
@@ -225,7 +240,7 @@ export async function ensureSonarProjectProperties(cwd = process.cwd()) {
   }
 }
 
-export async function runSonarScan(config, projectKey = null) {
+export async function runSonarScan(config, projectKey = null, { verbose = false } = {}) {
   let effectiveProjectKey;
   try {
     effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
@@ -284,7 +299,8 @@ export async function runSonarScan(config, projectKey = null) {
   const scannerConfig = respectRepoProperties(
     normalizeScannerConfig({
       ...sonarConfig.scanner,
-      ...coverage.scannerPatch
+      ...coverage.scannerPatch,
+      ...(verbose ? { verbose: true } : {})
     }),
     repoProps
   );

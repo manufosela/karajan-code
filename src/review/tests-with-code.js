@@ -11,17 +11,28 @@
 const DEFAULT_TEST_PATTERNS = ["/tests/", "/__tests__/", ".test.", ".spec."];
 const DEFAULT_SOURCE_EXTS = [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".rb", ".php", ".cs"];
 
-export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = null, env = process.env }) {
-  if (env.KJ_ALLOW_NO_TESTS === "1") {
-    return { ok: true, mode: "exempt", reason: "KJ_ALLOW_NO_TESTS=1 (explicit escape hatch)" };
-  }
+/**
+ * The staged files that are SOURCE by the project's own definition: source
+ * extension and not a test. Shared by every gate that must tell "code" from
+ * "docs" (tests-with-code, the sonar coverage proof of KJC-TSK-0838).
+ */
+export function sourceFilesOf(config = {}, files = []) {
   const patterns = config.development?.test_file_patterns || DEFAULT_TEST_PATTERNS;
   const exts = config.development?.source_file_extensions || DEFAULT_SOURCE_EXTS;
   // Staged paths are repo-relative (no leading slash) — normalize so the
   // "/tests/" style patterns also match the top-level tests directory.
   const isTest = (f) => patterns.some((p) => `/${f}`.includes(p));
-  const sources = stagedFiles.filter((f) => !isTest(f) && exts.some((e) => f.endsWith(e)));
-  const hasTests = stagedFiles.some(isTest);
+  return {
+    sources: files.filter((f) => !isTest(f) && exts.some((e) => f.endsWith(e))),
+    hasTests: files.some(isTest),
+  };
+}
+
+export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = null, env = process.env }) {
+  if (env.KJ_ALLOW_NO_TESTS === "1") {
+    return { ok: true, mode: "exempt", reason: "KJ_ALLOW_NO_TESTS=1 (explicit escape hatch)" };
+  }
+  const { sources, hasTests } = sourceFilesOf(config, stagedFiles);
 
   if (sources.length === 0 || hasTests) return { ok: true, mode: "pass" };
   // KJC-TSK-0795 AC1 (epic KJC-PCS-0082): deleting code adds no behavior to

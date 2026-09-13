@@ -43,6 +43,8 @@ export async function pickCrossReviewer({ config, hostAgent, detectAgents = dete
  */
 export async function runOneShotReview({
   diff, task, config, logger, projectDir,
+  // KJC-TSK-0838: what the sonar pre-gate saw, persisted with the verdict.
+  sonar = null,
   hostAgent = detectHostAgent(),
   createAgentFn = createAgent,
   detectAgents = detectAvailableAgents,
@@ -123,6 +125,7 @@ export async function runOneShotReview({
     issues: parsed.blocking_issues || [],
     suggestions: parsed.non_blocking_suggestions || [],
     summary: parsed.summary || parsed.raw_summary || "",
+    ...(sonar ? { sonar } : {}),
     confidence: parsed.confidence ?? null,
   });
 }

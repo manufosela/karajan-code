@@ -9,9 +9,10 @@
  * a laptop without Docker still commits.
  */
 
-import { runSonarScan } from "../sonar/scanner.js";
+import { indexedFilesFrom, runSonarScan } from "../sonar/scanner.js";
 import { getOpenIssues } from "../sonar/api.js";
 import { acquireToolLock } from "../utils/tool-governor.js";
+import { sourceFilesOf } from "./tests-with-code.js";
 
 const BLOCKING_SEVERITIES = new Set(["BLOCKER", "CRITICAL"]);
 
@@ -66,11 +67,22 @@ export async function runSonarPregate({ config, stagedFiles = [], touchedLines =
   let lock = null;
   try {
     lock = await acquireToolLock("sonar-scanner", { timeoutMs: 300_000 });
-    const scan = await runSonarScan(config);
+    // KJC-TSK-0838: verbose, so the scanner names every file it indexed.
+    const scan = await runSonarScan(config, null, { verbose: true });
     if (scan.note) logger?.warn?.(scan.note); // KJC-BUG-0156: precedence is said, never silent
     if (!scan.ok) {
       return { available: false, reason: (scan.stderr || scan.stdout || "sonar scan failed").trim() };
     }
+    // Coverage is PROVED by the scanner's own index, never inferred from
+    // config — a root-scoped properties file let 4 PRs under packages/radar
+    // pass as "0 issues on staged files". No index in the log = no proof.
+    const indexed = indexedFilesFrom(scan.stdout);
+    if (indexed.size === 0) {
+      return { available: false, reason: "the scanner log names no indexed file (sonar.verbose) — coverage cannot be proved" };
+    }
+    const { sources } = sourceFilesOf(config, stagedFiles);
+    const covered = sources.filter((f) => indexed.has(f));
+    const uncovered = sources.filter((f) => !indexed.has(f));
     // The scan above ALWAYS runs before issues are read (single-flight): the
     // verdict is about the code as it is now, never a stale server analysis
     // (KJC-TSK-0795 AC2 — that failure mode has no route here, by design).
@@ -84,6 +96,9 @@ export async function runSonarPregate({ config, stagedFiles = [], touchedLines =
     const own = onStaged.filter(isTouched);
     return {
       available: true,
+      projectKey: scan.projectKey,
+      covered,
+      uncovered,
       blocking: own.filter((i) => BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
       advisory: own.filter((i) => !BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
       preexisting: touchedLines ? onStaged.filter((i) => !isTouched(i)) : [],
