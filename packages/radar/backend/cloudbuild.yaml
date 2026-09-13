@@ -1,0 +1,31 @@
+# Build the backend image for Cloud Run.
+#
+# Every deployment-specific value is a substitution, so this file carries no
+# project id, region, hostname or credential. Supply them at build time:
+#
+#   gcloud builds submit \
+#     --substitutions=_PROJECT=my-gcp-project,_TAG=v1.0.0
+#
+# Unlike the frontend, nothing about a specific instance is baked into the
+# image: the backend reads its configuration at runtime (ACTIVE_PROFILE,
+# DATABASE_URL, ALLOWED_ORIGINS, APP_SECRET_KEY, ...), so one backend image
+# serves every instance. Tying it to an instance here would defeat the Radar
+# Profile design.
+
+substitutions:
+  _REGION: europe-southwest1
+  _PROJECT: ''
+  _REPOSITORY: karajan-radar
+  _IMAGE: karajan-radar-backend
+  _TAG: latest
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+      - '.'
+
+images:
+  - '${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPOSITORY}/${_IMAGE}:${_TAG}'
