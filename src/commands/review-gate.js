@@ -341,8 +341,15 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     // sonar block proves the analysis ran and covered every staged source.
     // The headless pipeline stamps its verdict after its own sonar stage and
     // carries no block yet (step 3 of the card) — said, never assumed silent.
-    if (res.ok && res.verdict.host === "kj-pipeline" && !res.verdict.sonar) {
-      console.log("⚠ pipeline verdict carries no sonar proof yet (KJC-TSK-0838 step 3) — trusting the pipeline's own sonar stage");
+    if (res.ok && res.verdict.host === "kj-pipeline") {
+      // The pipeline scans the whole project (no per-file proof yet), so its
+      // stamp must at least show the stage RAN; no block or a skipped stage
+      // is refused like any other unanalysed code.
+      const stage = res.verdict.sonar;
+      if (!stage?.ran) {
+        const why = stage ? `the pipeline's sonar stage did not run: ${stage.reason || "unknown reason"}` : "the pipeline verdict carries no sonar block";
+        res = { ok: false, verdict: res.verdict, reason: `Sonar is mandatory for code — ${why}` };
+      }
     } else if (res.ok) {
       const req = checkSonarRequirement({ config, stagedFiles: changedFiles, sonar: res.verdict.sonar, standingExceptions: std.standing });
       if (!req.ok) res = { ok: false, verdict: res.verdict, reason: req.reason };

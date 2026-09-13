@@ -11,11 +11,11 @@ import { isSonarReachable } from "../sonar/manager.js";
 import { STRATEGY } from "./types.js";
 import { withDocLink } from "../utils/doc-links.js";
 
-/**
- * Whether Sonar is enabled in the active config.
- */
-function sonarEnabled(config) {
-  return config.sonarqube?.enabled !== false;
+/** Which config switch turns Sonar off, or null when none does. */
+function disabledSwitch(config) {
+  if (config.sonarqube?.enabled === false) return "sonarqube.enabled: false";
+  if (config.review_gate?.sonar === false) return "review_gate.sonar: false";
+  return null;
 }
 
 function sonarHost(config) {
@@ -33,8 +33,17 @@ function createSonarStatusCheck() {
     strategy: STRATEGY.NONE,
     async detect({ config }) {
       const host = sonarHost(config);
-      if (!sonarEnabled(config)) {
-        return { ok: true, severity: "info", detail: "Disabled in config" };
+      // KJC-TSK-0838 (ADR 2026-09-13): Sonar switched off is a DEFECT, not a
+      // preference — the commit gate rejects code diffs without a sonar
+      // proof, so this config only hurts. Only docs-only diffs are exempt.
+      const off = disabledSwitch(config);
+      if (off) {
+        return {
+          ok: false,
+          severity: "fail",
+          detail: `Disabled in config (${off}) — Sonar is mandatory for code; the commit gate rejects code diffs without a sonar proof`,
+          fix: withDocLink(`Set sonarqube.enabled: true and drop review_gate.sonar: false; a laptop without Docker runs 'kj sonar start'. Only a human grant (kj policy grant --rule method.sonar.code) lifts the gate.`, "sonar_docker"),
+        };
       }
       let reachable;
       try {
