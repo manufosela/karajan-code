@@ -17,7 +17,23 @@ vi.mock("../../src/sonar/api.js", () => ({ getOpenIssues: (...a) => issuesMock(.
 const scanLog = (...files) => files.map((f) => `[DEBUG] ScannerEngine: '${f}' indexed with language 'js'`).join("\n");
 vi.mock("../../src/utils/tool-governor.js", () => ({ acquireToolLock: (...a) => lockMock(...a) }));
 
-import { runSonarPregate, addedLinesByFile } from "../../src/review/sonar-pregate.js";
+import { join } from "node:path";
+import { runSonarPregate, addedLinesByFile, groupByScanRoot, issueFile } from "../../src/review/sonar-pregate.js";
+
+// KJC-TSK-0838 step 3 — monorepo: a package with its own sonar-project.properties
+// is scanned from there; a root-scoped scan never indexes it (what let 4 PRs
+// under packages/radar through).
+const radarOwnsProperties = (p) => p.endsWith(join("packages", "radar", "sonar-project.properties"));
+
+describe("groupByScanRoot", () => {
+  it("maps each staged file to the nearest directory owning a sonar-project.properties, root by default", () => {
+    const g = groupByScanRoot(["src/a.js", "packages/radar/backend/x.py", "packages/radar/frontend/y.ts", "docs/z.md"], { root: "/repo", exists: radarOwnsProperties });
+    expect([...g.entries()]).toEqual([
+      ["", ["src/a.js", "docs/z.md"]],
+      ["packages/radar", ["packages/radar/backend/x.py", "packages/radar/frontend/y.ts"]],
+    ]);
+  });
+});
 
 describe("addedLinesByFile", () => {
   it("maps +++ b/ files to the NEW line numbers their hunks add; deletions map nothing", () => {
@@ -51,11 +67,29 @@ beforeEach(() => {
 describe("runSonarPregate coverage", () => {
   it("runs the scan verbose and lists which staged sources it indexed and which it never saw", async () => {
     issuesMock.mockResolvedValue({ total: 0, issues: [] });
-    const r = await runSonarPregate({ config: {}, stagedFiles: ["src/a.js", "packages/radar/app/x.py", "README.md"] });
+    // exists: () => false — a single root scan; the monorepo case has its own test.
+    const r = await runSonarPregate({ config: {}, stagedFiles: ["src/a.js", "packages/radar/app/x.py", "README.md"], exists: () => false });
     expect(scanMock).toHaveBeenCalledWith({}, null, { verbose: true });
     expect(r.projectKey).toBe("kj-test");
     expect(r.covered).toEqual(["src/a.js"]);
     expect(r.uncovered).toEqual(["packages/radar/app/x.py"]); // README is not a source: neither
+  });
+
+  it("scans each package from its own properties; paths and issues come back repo-relative", async () => {
+    scanMock.mockImplementation(async (_c, _k, opts) => (opts.cwd
+      ? { ok: true, projectKey: "radar", stdout: scanLog("backend/x.py") }
+      : { ok: true, projectKey: "kj-test", stdout: scanLog("src/a.js") }));
+    issuesMock.mockImplementation(async (_c, key) => (key === "radar"
+      ? { total: 1, issues: [issue("backend/x.py", "CRITICAL", { component: "radar:backend/x.py" })] }
+      : { total: 0, issues: [] }));
+    const staged = ["src/a.js", "packages/radar/backend/x.py", "packages/radar/backend/y.py"];
+    const r = await runSonarPregate({ config: {}, stagedFiles: staged, exists: radarOwnsProperties });
+    expect(scanMock).toHaveBeenCalledTimes(2);
+    expect(scanMock.mock.calls[1][2]).toEqual({ verbose: true, cwd: join(process.cwd(), "packages/radar") });
+    expect(r.projectKey).toBe("kj-test,radar");
+    expect(r.covered).toEqual(["src/a.js", "packages/radar/backend/x.py"]);
+    expect(r.uncovered).toEqual(["packages/radar/backend/y.py"]);
+    expect(r.blocking.map(issueFile)).toEqual(["packages/radar/backend/x.py"]);
   });
 
   it("a scan log that names no indexed file is an unavailable gate, not silent full coverage", async () => {
