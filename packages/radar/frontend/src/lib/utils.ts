@@ -120,7 +120,8 @@ export function getBucketColor(bucket: string): {
 } {
   let hash = 0;
   for (const char of bucket) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 2147483647;
+    // `for...of` yields whole code points, so the first one is the character.
+    hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 2147483647;
   }
   return BUCKET_PALETTE[hash % BUCKET_PALETTE.length];
 }
