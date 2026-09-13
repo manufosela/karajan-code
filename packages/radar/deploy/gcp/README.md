@@ -25,48 +25,74 @@ descripción sirve para N instancias. Espeja `packages/rag/deploy/gcp`.
 
 ## Despliegue
 
+El orden importa: las migraciones tienen que correr **antes** de que el API
+sirva la revisión nueva. Un `terraform apply` completo actualiza el API a la vez
+que todo lo demás, así que el deploy se hace **por fases**, no en un solo apply.
+
+Cada release usa un **tag inmutable** (por ejemplo el SHA de git), no `:latest`.
+Es lo que hace que Terraform vea un cambio en el template del job y del servicio,
+y que el job de migración ejecute la imagen recién publicada y no una anterior.
+
+### 1. Bootstrap: crear el Artifact Registry
+
+Antes de poder publicar imágenes hace falta que exista el registry. En una
+instancia nueva no hay estado todavía, así que se crea con un apply dirigido
+(no toca servicios ni jobs):
+
 ```bash
 cd packages/radar/deploy/gcp
 terraform init
-terraform apply -var project_id=MI_PROYECTO -var active_profile=software-engineering
+terraform apply -var project_id=MI_PROYECTO -var active_profile=software-engineering \
+  -target=google_artifact_registry_repository.images
 ```
 
-El primer `apply` crea la infraestructura. Después, los datos:
-
-### 1. Publicar las imágenes
+### 2. Publicar las imágenes
 
 El backend es compartible entre instancias; el frontend NO (hornea el branding).
 
 ```bash
 REPO=$(terraform output -raw artifact_repository)
 gcloud auth configure-docker "$(echo "$REPO" | cut -d/ -f1)"
+TAG=$(git rev-parse --short HEAD)   # tag inmutable de esta release
 
-# Backend (o usa packages/radar/backend/cloudbuild.yaml):
-docker build -t "$REPO/karajan-radar-backend:latest" ../../backend
-docker push "$REPO/karajan-radar-backend:latest"
+docker build -t "$REPO/karajan-radar-backend:$TAG" ../../backend
+docker push "$REPO/karajan-radar-backend:$TAG"
 
-# Frontend, con el branding de ESTA instancia en build args
-# (o usa packages/radar/frontend/cloudbuild.yaml):
-docker build -t "$REPO/karajan-radar-frontend:latest" \
-  --build-arg NEXT_PUBLIC_API_URL="$(terraform output -raw api_url)" \
-  ../../frontend
-docker push "$REPO/karajan-radar-frontend:latest"
+docker build -t "$REPO/karajan-radar-frontend:$TAG" \
+  --build-arg NEXT_PUBLIC_API_URL="https://<api-host-previsto>" ../../frontend
+docker push "$REPO/karajan-radar-frontend:$TAG"
 ```
 
-Vuelve a `terraform apply` para que los servicios tomen las imágenes recién
-publicadas (si dejaste `image_backend`/`image_frontend` en su default).
+### 3. Migrar y solo entonces servir
 
-### 2. Migrar la base de datos
-
-Las migraciones de despliegue son su propia card (**KRD-TSK-0019**). Mientras,
-a mano con un túnel:
+El orden importa: las migraciones corren **antes** de que el API sirva la
+revisión nueva. El deploy es por fases: primero se refresca y ejecuta el Cloud
+Run Job de migración (`alembic upgrade head`) con `--wait`; solo si termina bien
+(exit 0), el `apply` completo crea/actualiza los servicios y les da tráfico. La
+cadena con `&&` para el deploy en cuanto una fase falla, así que un fallo de
+migración no deja el API sirviendo contra un esquema que no le corresponde.
 
 ```bash
-cloud-sql-proxy "$(terraform output -raw sql_connection_name)" --port 5432 &
-# DATABASE_URL local desde el secreto; luego alembic upgrade head.
+terraform apply -var project_id=MI_PROYECTO -var active_profile=software-engineering \
+    -var image_backend="$REPO/karajan-radar-backend:$TAG" \
+    -target=google_cloud_run_v2_job.migrate \
+  && gcloud run jobs execute "$(terraform output -raw migrate_job)" \
+       --region "$(terraform output -raw region)" --wait \
+  && terraform apply -var project_id=MI_PROYECTO -var active_profile=software-engineering \
+    -var image_backend="$REPO/karajan-radar-backend:$TAG" \
+    -var image_frontend="$REPO/karajan-radar-frontend:$TAG"
 ```
 
-### 3. Consultar
+Si cambias `region`, pásala con `-var region=...` en los `apply`; el `gcloud`
+la toma del output, así que ambos quedan en la misma región.
+
+Repite los pasos 2 y 3 en cada deploy con imagen nueva (el registry del paso 1
+ya existe). Un pipeline de CD (fuera de alcance hoy) codificaría este orden.
+
+Nunca migres en el arranque del API: varias réplicas de Cloud Run lo harían en
+paralelo sobre la misma base (condición de carrera).
+
+### 4. Consultar
 
 Con `allow_unauthenticated=false` (default) los servicios son privados:
 
