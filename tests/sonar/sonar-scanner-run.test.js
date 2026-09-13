@@ -93,6 +93,25 @@ describe("[opt-in: sonar] runSonarScan", () => {
     expect(result.ok).toBe(true);
   });
 
+  // KJC-TSK-0838 step 3 — monorepo: a package is scanned from its own directory
+  // under the key its properties declare, so the proof of coverage is about it.
+  it("scans a nested package from its own directory with the key its properties declare", async () => {
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "ok", stderr: "" });
+    const dir = mkdtempSync(join(tmpdir(), "kj-sonar-pkg-"));
+    try {
+      writeFileSync(join(dir, "sonar-project.properties"), "sonar.projectKey=pkg-key\nsonar.sources=app\n");
+      const result = await runSonarScan(baseConfig, null, { cwd: dir });
+      const call = runCommand.mock.calls.find((c) => c[0] !== "git");
+      expect(result.projectKey).toBe("pkg-key");
+      expect(call[2].env.SONAR_SCANNER_OPTS).toContain("-Dsonar.projectKey=pkg-key");
+      if (call[0] === "docker") expect(call[1]).toContain(`${dir}:/usr/src`);
+      else expect(call[2].cwd).toBe(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("fails immediately when SonarQube service cannot be started", async () => {
     sonarUp.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "docker unavailable" });
 

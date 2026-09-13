@@ -240,18 +240,27 @@ export async function ensureSonarProjectProperties(cwd = process.cwd()) {
   }
 }
 
-export async function runSonarScan(config, projectKey = null, { verbose = false } = {}) {
+export async function runSonarScan(config, projectKey = null, { verbose = false, cwd = null } = {}) {
+  const scanCwd = cwd || process.cwd();
+  // KJC-TSK-0838 step 3 (monorepo): a nested package scans from its own
+  // directory under the key its properties declare — so the proof of
+  // coverage is about that package, not the root's `sonar.sources`.
+  const repoProps = await ensureSonarProjectProperties(scanCwd);
   let effectiveProjectKey;
-  try {
-    effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
-  } catch (error) {
-    return {
-      ok: false,
-      projectKey: null,
-      stdout: "",
-      stderr: error?.message || String(error),
-      exitCode: 1
-    };
+  if (cwd && !projectKey && repoProps.declaredKey) {
+    effectiveProjectKey = repoProps.declaredKey;
+  } else {
+    try {
+      effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
+    } catch (error) {
+      return {
+        ok: false,
+        projectKey: null,
+        stdout: "",
+        stderr: error?.message || String(error),
+        exitCode: 1
+      };
+    }
   }
   const sonarConfig = config?.sonarqube || {};
   const rawHost = sonarConfig.host || "http://localhost:9000";
@@ -275,7 +284,6 @@ export async function runSonarScan(config, projectKey = null, { verbose = false 
   }
   // KJC-BUG-0156: kj's -Dsonar.projectKey stays (scan and query must use the
   // SAME key), but the repo's properties own the LAYOUT from here on.
-  const repoProps = await ensureSonarProjectProperties();
   const token = await resolveSonarTokenWithFallback(config, apiHost);
   if (!token) {
     return {
@@ -326,7 +334,7 @@ export async function runSonarScan(config, projectKey = null, { verbose = false 
       "run",
       "--rm",
       "-v",
-      `${process.cwd()}:/usr/src`,
+      `${scanCwd}:/usr/src`,
       ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : []),
       ...(isLocalHost || isExternalSonar ? [] : ["--network", sonarNetwork]),
       "-e", "SONAR_HOST_URL",
@@ -336,10 +344,11 @@ export async function runSonarScan(config, projectKey = null, { verbose = false 
     ];
   }
 
-  const result = await runCommand(cmd, args, { timeout: scannerTimeout, env });
+  const result = await runCommand(cmd, args, { timeout: scannerTimeout, env, cwd: scanCwd });
   return {
     ok: result.exitCode === 0,
     projectKey: effectiveProjectKey,
+    cwd: scanCwd,
     scanner: pick.type,
     note,
     stdout: result.stdout,
