@@ -12,6 +12,7 @@ from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import configure_logging, get_logger
+from app.core.migrations import schema_at_head
 from app.schemas.common import ErrorDetail, ErrorResponse, HealthResponse, ReadyResponse
 
 logger = get_logger(__name__)
@@ -118,16 +119,22 @@ def create_app() -> FastAPI:
 
     @app.get("/ready", response_model=ReadyResponse, tags=["health"])
     async def readiness_check() -> ReadyResponse:
-        """Readiness check verifying all dependencies are available."""
+        """Readiness check verifying all dependencies are available.
+
+        Read-only. `migrations` is true only when the database schema is at the
+        code's head revision: a behind schema means the instance is not ready to
+        serve, and the post-deploy smoke check reads this same signal.
+        """
         checks: dict[str, bool] = {}
 
-        # Database check
         try:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
-            checks["database"] = True
+                checks["database"] = True
+                checks["migrations"] = await schema_at_head(conn)
         except Exception:
             checks["database"] = False
+            checks["migrations"] = False
 
         ready = all(checks.values())
         return ReadyResponse(ready=ready, checks=checks)
