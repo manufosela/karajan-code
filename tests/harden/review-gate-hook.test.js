@@ -94,7 +94,8 @@ describe("review gate e2e (real sh + git)", () => {
     fs.writeFileSync(path.join(dir, "f.js"), "// approved change\n");
     execFileSync("git", ["add", "f.js"], { cwd: dir });
     const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
-    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [] });
+    // KJC-TSK-0838: a verdict for code carries the proof that sonar covered it.
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: true, covered: ["f.js"], uncovered: [] } });
     const res = spawnSync("git", ["commit", "-m", "feat: approved change"], { cwd: dir, encoding: "utf8", env });
     expect(`${res.stdout}${res.stderr}`).not.toMatch(/kj review --staged/);
     expect(res.status).toBe(0);
