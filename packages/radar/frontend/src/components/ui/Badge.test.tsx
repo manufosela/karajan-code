@@ -30,7 +30,12 @@ describe("Badge", () => {
         </Badge>
       );
 
-      expect(container.querySelector(".bg-bucket-adopt")).not.toBeNull();
+      const dot = container.querySelector("span span");
+      expect(dot).not.toBeNull();
+      // A coloured dot, derived from the bucket name, without the old
+      // domain-specific bg-bucket-* palette (KRD-TSK-0022).
+      expect(dot?.className).toMatch(/\bbg-/);
+      expect(dot?.className).not.toContain("bg-bucket-");
     });
 
     it("falls back to the default variant when no bucket is supplied", () => {
