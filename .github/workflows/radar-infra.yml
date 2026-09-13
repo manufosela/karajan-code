@@ -1,0 +1,44 @@
+name: Radar infra
+
+# Terraform for a Radar instance lives at packages/radar/deploy/gcp. This
+# checks it stays formatted and valid. No credentials: fmt + init -backend=false
+# + validate are offline; the real plan/apply is the operator's, with their own
+# GCP variables (KRD-TSK-0018).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/radar/deploy/**"
+      - ".github/workflows/radar-infra.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/radar/deploy/**"
+      - ".github/workflows/radar-infra.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: packages/radar/deploy/gcp
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      - name: Initialize without a backend
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate -no-color
