@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, require_admin
 from app.core.config import settings
+from app.jobs.daily_ingestion import run_pipeline
 from app.models.configuration import Configuration
 from app.models.user import User
 from app.profiles.active import get_active_profile
@@ -327,16 +328,19 @@ async def update_schedule(
 
 
 async def _run_ingestion_background() -> None:
-    """Background task that runs the ingestion pipeline.
+    """Background task that runs the real ingestion pipeline.
 
-    This is a placeholder; the real implementation would import and call
-    the actual ingestion service.
+    Runs the same orchestration as the daily job (run_pipeline), but never
+    disposes the engine: this shares the API's engine. A failure is logged,
+    not raised, because there is no request left to return it to.
     """
     logger.info("Manual ingestion triggered via run-now endpoint")
-    # TODO: Import and call actual ingestion pipeline
-    # from app.jobs.ingestion import run_full_ingestion
-    # await run_full_ingestion()
-    logger.info("Manual ingestion background task completed")
+    try:
+        await run_pipeline()
+    except Exception:
+        logger.exception("Manual ingestion failed")
+    else:
+        logger.info("Manual ingestion background task completed")
 
 
 @router.post("/schedule/run-now", response_model=RunNowResponse)
