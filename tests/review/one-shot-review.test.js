@@ -56,6 +56,17 @@ describe("runOneShotReview", () => {
     expect(agent.reviewTask).toHaveBeenCalledOnce();
   });
 
+  // KJC-TSK-0838: the sonar block is persisted with the verdict, so the
+  // pre-commit check can refuse a diff that was reviewed but never analysed.
+  it("persists the sonar block it is handed, bound to the same diff hash", async () => {
+    const sonar = { ran: true, projectKey: "k", covered: ["x.js"], uncovered: [], blocking: 0, advisory: 0 };
+    const record = await runOneShotReview({
+      diff: DIFF, config, projectDir: dir, hostAgent: "claude", sonar,
+      createAgentFn: () => fakeAgent(reviewOutput(true)), detectAgents: agentsUp("claude", "codex"),
+    });
+    expect((await loadVerdict(dir, record.diffHash)).sonar).toEqual(sonar);
+  });
+
   it("stores a rejected verdict with the blocking issues", async () => {
     const record = await runOneShotReview({
       diff: DIFF, config, projectDir: dir, hostAgent: "claude",

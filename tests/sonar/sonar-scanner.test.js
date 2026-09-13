@@ -2,12 +2,31 @@ import { describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildScannerOpts, respectRepoProperties, ensureSonarProjectProperties } from "../../src/sonar/scanner.js";
+import { buildScannerOpts, indexedFilesFrom, respectRepoProperties, ensureSonarProjectProperties } from "../../src/sonar/scanner.js";
+
+// KJC-TSK-0838: the scanner's own index is the proof of what a scan covered.
+describe("[opt-in: sonar] indexedFilesFrom", () => {
+  it("collects every path the verbose scanner reports as indexed", () => {
+    const log = [
+      "[INFO]  ScannerEngine: Indexing files of module 'x'",
+      "[DEBUG] ScannerEngine: 'backend/app/schemas/profile.py' indexed with language 'py'",
+      "[DEBUG] ScannerEngine: 'frontend/src/lib/utils.ts' indexed with language 'ts'",
+      "[INFO]  ScannerEngine: 2 files indexed (done) | time=32ms",
+    ].join("\n");
+    expect([...indexedFilesFrom(log)]).toEqual(["backend/app/schemas/profile.py", "frontend/src/lib/utils.ts"]);
+    expect(indexedFilesFrom("").size).toBe(0);
+  });
+});
 
 describe("[opt-in: sonar] buildScannerOpts", () => {
   it("generates projectKey arg", () => {
     const result = buildScannerOpts("my-project");
     expect(result).toBe("-Dsonar.projectKey=my-project");
+  });
+
+  it("turns on sonar.verbose only when asked — that is what names the indexed files", () => {
+    expect(buildScannerOpts("p", { verbose: true })).toContain("-Dsonar.verbose=true");
+    expect(buildScannerOpts("p", {})).not.toContain("verbose");
   });
 
   it("generates all scanner properties", () => {

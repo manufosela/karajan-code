@@ -344,6 +344,10 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // without spending reviewer tokens; the rest travel with the task so
   // the cross-AI reviewer weighs them. Unavailable sonar degrades loudly.
   let task = flags.task;
+  // KJC-TSK-0838: what sonar saw travels INSIDE the verdict, bound to the
+  // diff hash — a reviewed diff and a reviewed AND analysed diff must be
+  // distinguishable by --check and by the method report.
+  let sonarRecord = null;
   if (flags.sonar !== false) {
     // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
     const touchedLines = addedLinesByFile(await rawDiff(flags.range, ["--unified=0"]));
@@ -356,7 +360,15 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       console.log(chosen
         ? `⚠ sonar pre-gate skipped: ${pre.reason}`
         : `✗ sonar pre-gate UNAVAILABLE — the quality gate did NOT run on this diff: ${pre.reason}`);
+      sonarRecord = { ran: false, reason: pre.reason };
     } else {
+      sonarRecord = {
+        ran: true, projectKey: pre.projectKey, covered: pre.covered ?? [], uncovered: pre.uncovered ?? [],
+        blocking: pre.blocking.length, advisory: pre.advisory.length,
+      };
+      if (sonarRecord.uncovered.length > 0) {
+        console.log(`⚠ sonar coverage: ${sonarRecord.uncovered.length} staged source(s) were NOT in the analysis (${sonarRecord.uncovered.slice(0, 5).join(", ")}${sonarRecord.uncovered.length > 5 ? "…" : ""}) — the scan did not see them`);
+      }
       const found = [...pre.blocking, ...pre.advisory];
       if (found.length > 0) {
         console.log(`Sonar on the changed lines — ${pre.blocking.length} blocking, ${pre.advisory.length} advisory (project total: ${pre.totalProject}):`);
@@ -403,7 +415,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     }
   }
 
-  const record = await runOneShotReview({ diff, task, config, logger, projectDir });
+  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonarRecord });
   printVerdict(record);
   process.exitCode = record.verdict === "approved" ? 0 : 1;
   return record;

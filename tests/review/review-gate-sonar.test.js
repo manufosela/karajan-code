@@ -65,6 +65,25 @@ describe("review gate × sonar pre-gate", () => {
     expect(reviewMock).toHaveBeenCalled();
   });
 
+  // KJC-TSK-0838: what Sonar saw travels INSIDE the verdict, bound to the
+  // diff hash like the reviewer's opinion — so --check and the method report
+  // can tell a reviewed diff from a reviewed AND analysed one.
+  it("hands the reviewer a sonar block with proved coverage for the verdict record", async () => {
+    pregateMock.mockResolvedValue({
+      available: true, projectKey: "k", blocking: [], advisory: [], totalProject: 0, covered: ["a.js"], uncovered: [],
+    });
+    await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    expect(reviewMock.mock.calls[0][0].sonar).toEqual({
+      ran: true, projectKey: "k", covered: ["a.js"], uncovered: [], blocking: 0, advisory: 0,
+    });
+  });
+
+  it("records that sonar did NOT run, with the reason, when it is unavailable", async () => {
+    pregateMock.mockResolvedValue({ available: false, reason: "server down" });
+    await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    expect(reviewMock.mock.calls[0][0].sonar).toEqual({ ran: false, reason: "server down" });
+  });
+
   it("--no-sonar skips the pre-gate entirely", async () => {
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true, sonar: false } });
     expect(pregateMock).not.toHaveBeenCalled();

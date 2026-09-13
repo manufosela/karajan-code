@@ -8,8 +8,13 @@ const scanMock = vi.fn();
 const issuesMock = vi.fn();
 const lockMock = vi.fn();
 
-vi.mock("../../src/sonar/scanner.js", () => ({ runSonarScan: (...a) => scanMock(...a) }));
+vi.mock("../../src/sonar/scanner.js", async (orig) => ({
+  ...(await orig()), runSonarScan: (...a) => scanMock(...a),
+}));
 vi.mock("../../src/sonar/api.js", () => ({ getOpenIssues: (...a) => issuesMock(...a) }));
+
+// What a verbose scanner prints for the files it indexed (paths relative to the base dir).
+const scanLog = (...files) => files.map((f) => `[DEBUG] ScannerEngine: '${f}' indexed with language 'js'`).join("\n");
 vi.mock("../../src/utils/tool-governor.js", () => ({ acquireToolLock: (...a) => lockMock(...a) }));
 
 import { runSonarPregate, addedLinesByFile } from "../../src/review/sonar-pregate.js";
@@ -37,7 +42,29 @@ const release = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   lockMock.mockResolvedValue({ release });
-  scanMock.mockResolvedValue({ ok: true, projectKey: "kj-test" });
+  scanMock.mockResolvedValue({ ok: true, projectKey: "kj-test", stdout: scanLog("src/a.js", "src/b.js") });
+});
+
+// KJC-TSK-0838 — coverage is PROVED by the scanner's own index, never
+// inferred from config: a staged source the scan never indexed is uncovered.
+// This is how 4 PRs under packages/radar passed a root-scoped scan as clean.
+describe("runSonarPregate coverage", () => {
+  it("runs the scan verbose and lists which staged sources it indexed and which it never saw", async () => {
+    issuesMock.mockResolvedValue({ total: 0, issues: [] });
+    const r = await runSonarPregate({ config: {}, stagedFiles: ["src/a.js", "packages/radar/app/x.py", "README.md"] });
+    expect(scanMock).toHaveBeenCalledWith({}, null, { verbose: true });
+    expect(r.projectKey).toBe("kj-test");
+    expect(r.covered).toEqual(["src/a.js"]);
+    expect(r.uncovered).toEqual(["packages/radar/app/x.py"]); // README is not a source: neither
+  });
+
+  it("a scan log that names no indexed file is an unavailable gate, not silent full coverage", async () => {
+    issuesMock.mockResolvedValue({ total: 0, issues: [] });
+    scanMock.mockResolvedValue({ ok: true, projectKey: "kj-test", stdout: "[INFO] ANALYSIS SUCCESSFUL" });
+    const r = await runSonarPregate({ config: {}, stagedFiles: ["src/a.js"] });
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/coverage cannot be proved/);
+  });
 });
 
 const issue = (file, severity, extra = {}) => ({
