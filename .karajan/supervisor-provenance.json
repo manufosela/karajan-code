@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.27.0",
-  "generated_at": "2026-09-06T19:18:15.067Z",
+  "kj_version": "4.28.1",
+  "generated_at": "2026-09-09T05:23:26.872Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -26,7 +26,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "59b3ea449cd172752bf030e9cfa2b57962925ace10b935a41619ade2a01aaa19"
+      "sha256": "ec249131411422f52ed02482dd4fb224e6628b0f51a69e288a36d48d5881a971"
     },
     {
       "file": ".karajan/hooks/pre-push",
