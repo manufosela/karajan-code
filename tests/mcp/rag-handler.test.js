@@ -60,6 +60,42 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
     expect(payload.scope).toBe("all");
   });
 
+  // KJC-BUG-0177 (#1713): the store is shared across projects; the MCP
+  // tool must scope to the caller's project like the CLI does.
+  describe("kj_rag_query project isolation", () => {
+    const indexPlan = async (slug) => {
+      const projectDir = join(root, slug);
+      mkdirSync(projectDir);
+      mkdirSync(join(process.env.KARAJAN_HOME, "plans", slug), { recursive: true });
+      writeFileSync(
+        join(process.env.KARAJAN_HOME, "plans", slug, "plan-001.json"),
+        JSON.stringify({ hus: [{ id: `${slug}-A`, title: `alpha ${slug}`, description: `do alpha in ${slug}` }] })
+      );
+      const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
+      await handleRagIndex({ projectDir }, {});
+      return projectDir;
+    };
+
+    it("defaults to the slug of projectDir, honours an explicit slug and 'all'", async () => {
+      const mine = await indexPlan("mine");
+      await indexPlan("other");
+      const { handleRagQuery } = await import("../../src/mcp/handlers/rag-handler.js");
+
+      const scoped = JSON.parse((await handleRagQuery({ text: "alpha", projectDir: mine }, {})).content[0].text);
+      expect(scoped.project).toBe("mine");
+      expect(scoped.hits.length).toBeGreaterThan(0);
+      expect(scoped.hits.every((h) => h.project_slug === "mine")).toBe(true);
+
+      const explicit = JSON.parse((await handleRagQuery({ text: "alpha", projectDir: mine, project: "other" }, {})).content[0].text);
+      expect(explicit.hits.length).toBeGreaterThan(0);
+      expect(explicit.hits.every((h) => h.project_slug === "other")).toBe(true);
+
+      const all = JSON.parse((await handleRagQuery({ text: "alpha", projectDir: mine, project: "all" }, {})).content[0].text);
+      expect(all.project).toBeNull();
+      expect(new Set(all.hits.map((h) => h.project_slug))).toEqual(new Set(["mine", "other"]));
+    });
+  });
+
   it("kj_rag_index returns totals from indexProject", async () => {
     const slug = "p2";
     const projectDir = join(root, slug);

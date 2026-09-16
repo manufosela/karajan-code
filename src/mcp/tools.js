@@ -413,6 +413,7 @@ export const tools = [
         text: { type: "string", description: "The natural-language query." },
         topK: { type: "number", description: "Max number of hits to return. Default: 5." },
         scope: { type: "string", description: "Filter by chunk kind: 'plans' | 'code' | 'onboarding' | 'all' (default)." },
+        project: { type: "string", description: "Project slug to search. Defaults to the basename of projectDir (same isolation as `kj rag query`); 'all' searches every indexed project." },
         projectDir: { type: "string", description: "Absolute path to the project directory" }
       },
       required: ["text"]
