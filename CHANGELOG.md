@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.29.1] - 2026-09-16
+
+### Fixed
+
+- **`kj update` no longer breaks the MCP registration** (KJC-BUG-0179, #1730 — reported minutes after 4.29.0 shipped): the postinstall rewrote the `karajan-mcp` entry in `~/.claude.json` and the block in `~/.codex/config.toml` with a home INSIDE the npm package (`<global node_modules>/karajan-code/.karajan`, wiped on every reinstall and never where `kj init` stores `kj.config.yml`), under the deprecated `KJ_HOME` name, and replaced the whole entry — so the user's `KARAJAN_HOME` and any other env key were lost and every MCP tool answered `BOOTSTRAP FAILED — config: Config file not found` after each update. The home now resolves as `KARAJAN_HOME` → `KJ_HOME` (deprecated input) → the home the existing entry already carried (unless it is that stale package-dir value) → the instances registry → `~/.karajan`, where the CLI defaults; the entry keeps every env key the user added, and both configs write `KARAJAN_HOME`. The Sonar pre-gate also caught that `scripts/` and `bin/` were outside every analysis: they are sources now.
+
 ## [4.29.0] - 2026-09-16
 
 No way around Sonar: static analysis becomes a git gate with the same teeth as the cross-AI verdict, plus three MCP fixes reported from the field the same week.
