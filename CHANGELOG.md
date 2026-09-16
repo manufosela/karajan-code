@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.29.0] - 2026-09-16
+
+No way around Sonar: static analysis becomes a git gate with the same teeth as the cross-AI verdict, plus three MCP fixes reported from the field the same week.
+
+### Added
+
+- **Sonar cannot be evaded** (KJC-TSK-0838, epic KJC-PCS-0082 — after KRD-TSK-0023 reached `main` in four PRs with `sonarqube.enabled: false` and nothing stopped it, #1714): the Sonar result now travels INSIDE the verdict record, bound to the exact diff hash like the verdict itself, and the pre-commit demands it. Coverage is PROVED against the scanner's own file index, never inferred from config: a staged source the scan did not see blocks. With source files staged, `kj review --staged` and `kj review --check` refuse when Sonar is disabled, down, or did not cover every file — docs-only diffs pass, and no env var lifts it; the only exception is a human `kj policy grant --rule method.sonar.code` with expiry and reason. Monorepos scan each staged file from its nearest `sonar-project.properties` with that project's key. `kj doctor` and `kj check` flag `sonarqube.enabled: false` / `review_gate.sonar: false` as a config DEFECT, the pipeline stamp records which stage ran, and the method report classifies recent verdicts as proved / docs-only / granted / unproved — unproved is red. Delivered in six PRs (#1716–#1721), each one passing the very gate it was building.
+- **`kj_rag_query` scopes the search to the project** (KJC-BUG-0177, #1713): the vector store is shared by every indexed project and the MCP tool searched it unfiltered — a query from one checkout came back with 8/8 chunks of another project. It now applies the CLI's rule: default filter = the project's slug, `project: "all"` searches everything, `project: <slug>` overrides; the response carries the project in effect.
+
+### Fixed
+
+- **Direct MCP handlers honour `taskFile`** (KJC-BUG-0175, #1723): the schemas of `kj_review`, `kj_code`, `kj_plan`, `kj_discover`, `kj_triage`, `kj_researcher` and `kj_architect` promised "either `task` or `taskFile`", but only `kj_run` read the file — every other tool answered `Missing required field: task`. They now resolve the file (relative to `projectDir`) with the same helper, and an unreadable file is reported as such.
+- **`kjHome` reaches the bootstrap gate and config loading** (KJC-BUG-0176, #1722): the argument only reached the env of spawned `kj` subprocesses; the direct handlers resolved the Karajan home from the MCP server's own process, so a valid home was answered with `Config file not found`. `karajan-core` 1.5.0 pins the home per async context (`withKarajanHome`, no env mutation — overlapping tool calls never see each other's home) and `handleToolCall` wraps every call that carries `kjHome`. The first attempt, scoping `process.env` around the call, was rejected by the cross-AI reviewer for exactly that leak.
+
 ## [4.28.2] - 2026-09-12
 
 Good housekeeping: the environment stops leaving a mess behind — the adopter-friction bugs a consumer repo hit, plus the hygiene the v4 "resolve-until-pass" method quietly needed.

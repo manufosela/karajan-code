@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.28.2 — good housekeeping (current)
+### v4.29.0 — no way around Sonar (current)
+
+Minor where static analysis stops being discipline and becomes a git gate with the same teeth as the cross-AI verdict (KJC-TSK-0838, after a real case: four PRs reached `main` with `sonarqube.enabled: false` and nothing stopped them). The Sonar result now travels inside the verdict record, bound to the exact diff hash, and the pre-commit demands it; coverage is proved against the scanner's own file index, so a staged source the scan did not see blocks. Sonar disabled, down or partial refuses any diff with code (docs-only passes), no env var lifts it, and the only exception is a human, expiring `kj policy grant`. Monorepos scan each file from its nearest `sonar-project.properties`; `kj doctor` flags `enabled: false` as a config defect; the method report says which verdicts are proved and which are not. Alongside it, three MCP fixes from the field the same week: the direct tools honour `taskFile` like `kj_run` (#1723), `kjHome` reaches the bootstrap gate and config loading on `karajan-core` 1.5.0 without touching the process env (#1722), and `kj_rag_query` scopes its search to the project instead of returning chunks of whatever else was indexed (#1713).
+
+### v4.28.2 — good housekeeping
 
 Patch: the environment stops leaving a mess behind. The pre-commit `kj harden` generates no longer self-detects as AI attribution on the bootstrap commit that versions the supervisor hooks (they CONTAIN the guard pattern by design; #1667). Verification no longer pollutes `~/.claude.json` — the tarball's postinstall was registering `karajan-mcp` at a throwaway `/tmp` install path, a `CONNECTION_CLOSED` MCP in every session; verify now runs with an isolated HOME (#1666). `kj doctor` gained a check that detects AND auto-repairs a dead `karajan-mcp` path. And the verdict store cleans itself: `.karajan/reviews` is garbage-collected opportunistically on every review, with `kj review --prune` for a manual sweep.
 
