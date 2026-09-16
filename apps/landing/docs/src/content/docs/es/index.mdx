@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.28.2 — buena higiene (actual)
+### v4.29.0 — Sonar no se esquiva (actual)
+
+Minor en la que el análisis estático deja de ser disciplina y pasa a ser un gate de git con los mismos dientes que el veredicto cross-AI (KJC-TSK-0838, tras un caso real: cuatro PRs llegaron a `main` con `sonarqube.enabled: false` y nada las paró). El resultado de Sonar viaja ahora dentro del registro del veredicto, atado al hash exacto del diff, y el pre-commit lo exige; la cobertura se prueba contra el índice de ficheros del propio scanner, así que una fuente staged que el análisis no vio bloquea. Sonar deshabilitado, caído o parcial rechaza cualquier diff con código (solo docs pasa), ninguna variable de entorno lo levanta, y la única excepción es un `kj policy grant` humano y con caducidad. Los monorepos escanean cada fichero desde su `sonar-project.properties` más cercano; `kj doctor` marca `enabled: false` como defecto de configuración; el informe del método dice qué veredictos están probados y cuáles no. Junto a ello, tres arreglos del MCP reportados desde el campo la misma semana: las herramientas directas aceptan `taskFile` igual que `kj_run` (#1723), `kjHome` llega al bootstrap gate y a la carga de config sobre `karajan-core` 1.5.0 sin tocar el entorno del proceso (#1722), y `kj_rag_query` acota la búsqueda al proyecto en vez de devolver chunks de cualquier otro indexado (#1713).
+
+### v4.28.2 — buena higiene
 
 Patch: el entorno deja de dejar rastro. El pre-commit que genera `kj harden` ya no se autodetecta como atribución IA en el commit de bootstrap que versiona los hooks del supervisor (contienen el patrón del guard por diseño; #1667). La verificación ya no ensucia `~/.claude.json` — el postinstall del tarball registraba `karajan-mcp` en una ruta de instalación temporal `/tmp`, un `CONNECTION_CLOSED` en cada sesión; verify corre ahora con un HOME aislado (#1666). `kj doctor` gana un check que detecta Y auto-repara una ruta muerta de `karajan-mcp`. Y el almacén de veredictos se limpia solo: `.karajan/reviews` se recolecta de forma oportunista en cada review, con `kj review --prune` para un barrido manual.
 
