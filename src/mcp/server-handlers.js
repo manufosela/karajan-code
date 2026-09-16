@@ -40,6 +40,7 @@ import {
 } from "./handlers/management-handlers.js";
 import { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
 import { handleRagQuery, handleRagIndex } from "./handlers/rag-handler.js";
+import { withKarajanHome } from "../utils/paths.js";
 
 export async function handleToolCall(name, args, server, extra) {
   const a = asObject(args);
@@ -73,7 +74,16 @@ export async function handleToolCall(name, args, server, extra) {
     kj_rag_index:   (a, server) => handleRagIndex(a, server),
   }[name];
   if (handler) {
-    return handler(a, server, extra);
+    // KJC-BUG-0176 (#1722): `kjHome` only reached the env of the `kj`
+    // subprocesses spawned by run-kj.js; the direct handlers resolve the
+    // home from THIS process (bootstrap gate, config load), so the
+    // argument was ignored and the gate failed with "Config file not
+    // found". Pin the home to this call's async context instead — no
+    // env mutation, so overlapping calls never see each other's home.
+    const kjHome = typeof a.kjHome === "string" && a.kjHome.trim() !== "" ? a.kjHome : null;
+    return kjHome
+      ? withKarajanHome(kjHome, () => handler(a, server, extra))
+      : handler(a, server, extra);
   }
   return failPayload(`Unknown tool: ${name}`);
 }

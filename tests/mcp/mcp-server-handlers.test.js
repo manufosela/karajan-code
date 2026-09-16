@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/mcp/run-kj.js", () => ({
@@ -507,6 +508,25 @@ describe("mcp/server-handlers", () => {
       const result = await handleToolCall("kj_nonexistent", {}, mockServer, {});
       expect(result.ok).toBe(false);
       expect(result.error).toContain("Unknown tool");
+    });
+
+    // --- kjHome (KJC-BUG-0176, #1722) ---
+
+    it("kj_review resolves the home from kjHome for the bootstrap gate, without touching the env", async () => {
+      const { ensureBootstrap } = await import("../../src/bootstrap.js");
+      const { getKarajanHome } = await import("../../src/utils/paths.js");
+      const seen = [];
+      vi.mocked(ensureBootstrap).mockImplementationOnce(async () => { seen.push(getKarajanHome()); });
+      const envBefore = process.env.KARAJAN_HOME;
+
+      const result = await handleToolCall(
+        "kj_review", { task: "Review auth", kjHome: "/tmp/other-home" }, mockServer, {}
+      );
+
+      expect(result.ok).toBe(true);
+      expect(seen).toEqual([path.resolve("/tmp/other-home")]);
+      expect(process.env.KARAJAN_HOME).toBe(envBefore);
+      expect(getKarajanHome()).not.toBe(path.resolve("/tmp/other-home"));
     });
 
     // --- Preflight gate ---
