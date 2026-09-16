@@ -1,6 +1,25 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+// KJC-BUG-0176 (#1722): a home pinned to ONE async context (an MCP tool
+// call that passed `kjHome`). Concurrent callers outside the context keep
+// the env-resolved home; nothing global is mutated, so two overlapping
+// tool calls with different homes never see each other's.
+const pinnedHome = new AsyncLocalStorage();
+
+/**
+ * Run `fn` with the Karajan home resolved to `home` for that async
+ * context only. Takes precedence over KARAJAN_HOME / KJ_HOME inside it.
+ * @param {string} home
+ * @param {() => Promise<T>|T} fn
+ * @returns {Promise<T>|T}
+ * @template T
+ */
+export function withKarajanHome(home, fn) {
+  return pinnedHome.run(path.resolve(home), fn);
+}
 
 // Per-process vitest root. We memoise the *root* (not the suffixed
 // `.karajan` / `.kj` path) so callers with different legacy defaults
@@ -51,6 +70,7 @@ function emitKjHomeDeprecationWarning() {
  * different defaults and VITEST handling.
  *
  * Precedence (highest first):
+ *   0. `withKarajanHome()`  — pinned to the current async context (MCP `kjHome`)
  *   1. KARAJAN_HOME env var — explicit, no warning
  *   2. KJ_HOME env var      — explicit, prints deprecation warning once
  *   3. VITEST tmp dir       — auto-isolation under `os.tmpdir()/karajan-vitest-<pid>-<rand>/<defaultSegment>`
@@ -65,6 +85,8 @@ function emitKjHomeDeprecationWarning() {
  * @returns {string} absolute path
  */
 export function resolveHome({ defaultSegment = ".karajan" } = {}) {
+  const pinned = pinnedHome.getStore();
+  if (pinned) return pinned;
   if (process.env.KARAJAN_HOME) {
     return path.resolve(process.env.KARAJAN_HOME);
   }
