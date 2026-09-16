@@ -73,11 +73,20 @@ class ScoringWeightsUpdate(BaseModel):
 
 
 class DeliverySettingsResponse(BaseModel):
-    """Schema for aggregated delivery settings response."""
+    """Aggregated delivery settings: the union of every ``delivery`` row's value.
 
-    digest_frequency: dict[str, Any] | None = None
-    channels: dict[str, Any] | None = None
-    recipients: dict[str, Any] | None = None
+    The seeded row is ``daily_digest_settings`` and, after migration 0009, it
+    holds what belongs to a deployment: when the digest runs and where it is
+    sent. Rows are merged by their contents, never keyed by row name, and any
+    field a row carries beyond these is kept rather than dropped (KRD-BUG-0002).
+    """
+
+    digest_schedule: str | None = None
+    digest_timezone: str | None = None
+    teams_webhook_env: str | None = None
+    email_recipients_env: str | None = None
+
+    model_config = {"extra": "allow"}
 
 
 # --- Schedule schemas ---
