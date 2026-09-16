@@ -39,6 +39,26 @@ async function runBootstrapGate(server, a) {
   await ensureBootstrap(projectDir, config);
 }
 
+/**
+ * KJC-BUG-0175 (#1723): the tool schemas promise "either `task` or
+ * `taskFile`", but only kj_run read the file — every direct handler
+ * answered "Missing required field: task" to a taskFile-only call. Same
+ * resolution as run-handler: read the file (relative to projectDir) into
+ * `a.task`, then require it.
+ * @returns {Promise<Object|null>} a failPayload when the task is missing or the file unreadable
+ */
+async function requireTask(a, server) {
+  try {
+    await ensureTaskFromFile(a, a.projectDir || (await resolveProjectDir(server, a.projectDir).catch(() => null)));
+  } catch (err) {
+    return failPayload(`taskFile read failed: ${err.message}`);
+  }
+  if (!a.task) {
+    return failPayload("Missing required field: task (or pass taskFile with a .md path)");
+  }
+  return null;
+}
+
 function applySessionOverrides(a, roleKeys) {
   const sessionOvr = getSessionOverrides();
   for (const key of roleKeys) {
@@ -389,9 +409,8 @@ export async function handleArchitectDirect(a, server, extra) {
 }
 
 export async function handleCode(a, server, extra) {
-  if (!a.task) {
-    return failPayload("Missing required field: task");
-  }
+  const missingTask = await requireTask(a, server);
+  if (missingTask) return missingTask;
   await runBootstrapGate(server, a);
   if (!isPreflightAcked()) {
     // Auto-acknowledge with defaults for autonomous operation
@@ -404,25 +423,22 @@ export async function handleCode(a, server, extra) {
 }
 
 export async function handleReview(a, server, extra) {
-  if (!a.task) {
-    return failPayload("Missing required field: task");
-  }
+  const missingTask = await requireTask(a, server);
+  if (missingTask) return missingTask;
   await runBootstrapGate(server, a);
   return handleReviewDirect(a, server, extra);
 }
 
 export async function handlePlan(a, server, extra) {
-  if (!a.task) {
-    return failPayload("Missing required field: task");
-  }
+  const missingTask = await requireTask(a, server);
+  if (missingTask) return missingTask;
   await runBootstrapGate(server, a);
   return handlePlanDirect(a, server, extra);
 }
 
 export async function handleDiscover(a, server, extra) {
-  if (!a.task) {
-    return failPayload("Missing required field: task");
-  }
+  const missingTask = await requireTask(a, server);
+  if (missingTask) return missingTask;
   const validModes = new Set(["gaps", "momtest", "wendel", "classify", "jtbd"]);
   if (a.mode && !validModes.has(a.mode)) {
     return failPayload(`Invalid mode "${a.mode}". Valid values: ${[...validModes].join(", ")}`);
@@ -432,25 +448,22 @@ export async function handleDiscover(a, server, extra) {
 }
 
 export async function handleTriage(a, server, extra) {
-  if (!a.task) {
-    return failPayload("Missing required field: task");
-  }
+  const missingTask = await requireTask(a, server);
+  if (missingTask) return missingTask;
   await runBootstrapGate(server, a);
   return handleTriageDirect(a, server, extra);
 }
 
 export async function handleResearcher(a, server, extra) {
-  if (!a.task) {
-    return failPayload("Missing required field: task");
-  }
+  const missingTask = await requireTask(a, server);
+  if (missingTask) return missingTask;
   await runBootstrapGate(server, a);
   return handleResearcherDirect(a, server, extra);
 }
 
 export async function handleArchitect(a, server, extra) {
-  if (!a.task) {
-    return failPayload("Missing required field: task");
-  }
+  const missingTask = await requireTask(a, server);
+  if (missingTask) return missingTask;
   await runBootstrapGate(server, a);
   return handleArchitectDirect(a, server, extra);
 }

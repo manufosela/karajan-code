@@ -96,6 +96,14 @@ vi.mock("node:fs/promises", () => ({
   default: { readFile: vi.fn(async () => "coder rules"), access: vi.fn(async () => { throw new Error("ENOENT"); }) }
 }));
 
+// KJC-BUG-0175 (#1723): direct handlers must honour `taskFile` like kj_run.
+vi.mock("../../src/utils/task-file.js", () => ({
+  readTaskFile: vi.fn(async (filePath) => {
+    if (filePath === "missing.md") throw new Error("Task file not found: missing.md");
+    return "task text from file";
+  })
+}));
+
 import { EventEmitter } from "node:events";
 
 // Mock resolveProjectDir and friends in shared-helpers
@@ -162,7 +170,7 @@ describe("direct-handlers — public handler wrappers", () => {
 
         expect(result).toEqual(expect.objectContaining({
           ok: false,
-          error: "Missing required field: task"
+          error: "Missing required field: task (or pass taskFile with a .md path)"
         }));
       }
     );
@@ -175,6 +183,29 @@ describe("direct-handlers — public handler wrappers", () => {
         ok: false,
         error: expect.stringContaining("Missing required field")
       }));
+    });
+
+    // KJC-BUG-0175 (#1723): the schema promises "either task or taskFile",
+    // but only kj_run read the file. Every direct handler must too.
+    it.each(handlersRequiringTask)(
+      "%s accepts taskFile alone and reads the task from it",
+      async (_name, handler) => {
+        const args = { taskFile: "task.md" };
+        const result = await handler(args, mockServer, mockExtra);
+
+        expect(result).not.toEqual(expect.objectContaining({
+          ok: false,
+          error: expect.stringContaining("Missing required field")
+        }));
+        expect(args.task).toBe("task text from file");
+      }
+    );
+
+    it("reports an unreadable taskFile instead of a missing task", async () => {
+      const result = await handleReview({ taskFile: "missing.md" }, mockServer, mockExtra);
+
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/taskFile read failed: Task file not found/);
     });
   });
 
