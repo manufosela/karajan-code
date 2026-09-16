@@ -1,7 +1,7 @@
 // KJC-PCS-0049 Step 7 — MCP handlers calling src/rag/* directly. Imports
 // from src/commands/* are forbidden by the layer-boundaries test
 // (MCP and CLI are peer layers); we hit the pure rag/* modules instead.
-import { countChunks, openVecStore } from "../../rag/vec-store.js";
+import { countChunks, openVecStore, projectSlug } from "../../rag/vec-store.js";
 import { makeGovernedEmbedder } from "../../rag/governed-embedder.js";
 import { indexProject } from "../../rag/indexer.js";
 import { query } from "../../rag/retriever.js";
@@ -22,11 +22,17 @@ export async function handleRagQuery(args, server) {
     const config = await buildConfig({ ...args, projectDir }, "rag-query");
     const topK = Number(args?.topK) || 5;
     const scope = args?.scope || "all";
+    // KJC-BUG-0177 (#1713): the store is shared by every indexed project,
+    // and the MCP tool searched it unfiltered while the CLI (KJC-TSK-0438)
+    // scoped to the project's slug. Same rule here: default = slug of
+    // projectDir, `project: "all"` disables the filter, `project: <slug>`
+    // overrides it.
+    const project = args?.project === "all" ? null : (args?.project || projectSlug(projectDir) || null);
     const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
     try {
-      if (countChunks(db) === 0) return responseText({ hits: [], empty: true, topK, scope });
-      const hits = await query(db, makeGovernedEmbedder(config), text, { topK, scope });
-      return responseText({ hits, empty: false, topK, scope });
+      if (countChunks(db) === 0) return responseText({ hits: [], empty: true, topK, scope, project });
+      const hits = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project });
+      return responseText({ hits, empty: false, topK, scope, project });
     } finally { db.close(); }
   } catch (err) {
     return failPayload(`kj_rag_query failed: ${err.message}`);
