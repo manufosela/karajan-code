@@ -4,6 +4,7 @@
 export {
   resolveHome,
   getKarajanHome,
+  withKarajanHome,
   __resetKjHomeWarningForTests,
   getSessionRoot,
   getSonarComposePath,
