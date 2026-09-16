@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   resolveHome,
   getKarajanHome,
+  withKarajanHome,
   getSessionRoot,
   getRunsDir,
   getPromptsDir,
@@ -35,6 +36,27 @@ describe("karajan-core/paths", () => {
   it("getKarajanHome defaults to .karajan segment", () => {
     process.env.KARAJAN_HOME = "/tmp/root";
     expect(getKarajanHome()).toBe(path.resolve("/tmp/root"));
+  });
+
+  // KJC-BUG-0176 (#1722): MCP `kjHome` pins the home per async context.
+  describe("withKarajanHome", () => {
+    const readAfter = (home, delayMs) => withKarajanHome(home, async () => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return getKarajanHome();
+    });
+
+    it("pins the home for the async context and beats the env, without touching it", async () => {
+      process.env.KARAJAN_HOME = "/tmp/env-home";
+      expect(await readAfter("/tmp/pinned", 1)).toBe(path.resolve("/tmp/pinned"));
+      expect(getKarajanHome()).toBe(path.resolve("/tmp/env-home"));
+      expect(process.env.KARAJAN_HOME).toBe("/tmp/env-home");
+    });
+
+    it("keeps overlapping contexts apart", async () => {
+      const [a, b] = await Promise.all([readAfter("/tmp/home-a", 5), readAfter("/tmp/home-b", 1)]);
+      expect(a).toBe(path.resolve("/tmp/home-a"));
+      expect(b).toBe(path.resolve("/tmp/home-b"));
+    });
   });
 
   it("derived dirs hang off getKarajanHome", () => {
