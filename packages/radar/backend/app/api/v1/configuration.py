@@ -130,15 +130,20 @@ async def get_delivery_settings(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> DeliverySettingsResponse:
-    """Get delivery settings: digest frequency, channels, and recipients."""
+    """Get delivery settings: when the digest runs and where it is sent.
+
+    The response is the union of every ``delivery`` row's value. Keying it by
+    row name dropped the one row that exists (``daily_digest_settings``) and
+    answered with nulls -- KRD-BUG-0002.
+    """
     result = await db.execute(select(Configuration).where(Configuration.category == "delivery"))
     configs = result.scalars().all()
     if not configs:
         raise HTTPException(status_code=404, detail="No delivery configuration found")
 
-    data: dict = {}
+    data: dict[str, Any] = {}
     for config in configs:
-        data[config.key] = config.value
+        data.update(ConfigResponse.model_validate(config).value)
 
     return DeliverySettingsResponse(**data)
 

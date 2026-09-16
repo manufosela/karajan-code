@@ -327,60 +327,65 @@ class TestUpdateConfigurationCategoryValidation:
 class TestGetDeliverySettings:
     """Tests for GET /api/v1/configuration/delivery."""
 
-    async def test_get_delivery_returns_settings(
+    async def test_get_delivery_returns_the_seeded_row_fields(
         self,
         client: AsyncClient,
         test_session: AsyncSession,
         auth_headers: dict[str, str],
     ) -> None:
-        """GET /api/v1/configuration/delivery returns aggregated delivery settings."""
+        """The seeded row is ``daily_digest_settings``; its fields are the response.
+
+        KRD-BUG-0002: the endpoint used to key the response by row name, so the
+        one row that exists in production was dropped and three nulls came back.
+        """
         await _create_config(
             test_session,
             category="delivery",
-            key="digest_frequency",
-            value={"frequency": "weekly", "day": "monday"},
-        )
-        await _create_config(
-            test_session,
-            category="delivery",
-            key="channels",
-            value={"email": True, "slack": True, "webhook": False},
-        )
-        await _create_config(
-            test_session,
-            category="delivery",
-            key="recipients",
-            value={"emails": ["team@example.com"], "slack_channels": ["#radar"]},
+            key="daily_digest_settings",
+            value={
+                "digest_schedule": "09:00",
+                "digest_timezone": "Europe/Madrid",
+                "teams_webhook_env": "TEAMS_WEBHOOK_URL",
+                "email_recipients_env": "DIGEST_EMAIL_RECIPIENTS",
+            },
         )
         await test_session.commit()
 
         response = await client.get("/api/v1/configuration/delivery", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
-        assert "digest_frequency" in data
-        assert "channels" in data
-        assert "recipients" in data
-        assert data["digest_frequency"] == {"frequency": "weekly", "day": "monday"}
+        assert data["digest_schedule"] == "09:00"
+        assert data["digest_timezone"] == "Europe/Madrid"
+        assert data["teams_webhook_env"] == "TEAMS_WEBHOOK_URL"
+        assert data["email_recipients_env"] == "DIGEST_EMAIL_RECIPIENTS"
 
-    async def test_get_delivery_partial_data(
+    async def test_get_delivery_merges_every_row_and_drops_nothing(
         self,
         client: AsyncClient,
         test_session: AsyncSession,
         auth_headers: dict[str, str],
     ) -> None:
-        """Returns available delivery data even if only some keys exist."""
+        """Every delivery row contributes its fields; unknown fields are kept."""
         await _create_config(
             test_session,
             category="delivery",
-            key="digest_frequency",
-            value={"frequency": "daily"},
+            key="daily_digest_settings",
+            value={"digest_schedule": "09:00"},
+        )
+        await _create_config(
+            test_session,
+            category="delivery",
+            key="extra_channel",
+            value={"slack_webhook_env": "SLACK_WEBHOOK_URL"},
         )
         await test_session.commit()
 
         response = await client.get("/api/v1/configuration/delivery", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
-        assert "digest_frequency" in data
+        assert data["digest_schedule"] == "09:00"
+        assert data["slack_webhook_env"] == "SLACK_WEBHOOK_URL"
+        assert data["digest_timezone"] is None
 
     async def test_get_delivery_no_data_returns_404(
         self, client: AsyncClient, auth_headers: dict[str, str]
@@ -399,8 +404,8 @@ class TestGetDeliverySettings:
         await _create_config(
             test_session,
             category="delivery",
-            key="channels",
-            value={"email": True},
+            key="daily_digest_settings",
+            value={"digest_schedule": "09:00"},
         )
         await test_session.commit()
 
@@ -410,4 +415,4 @@ class TestGetDeliverySettings:
         data = response.json()
         # The delivery endpoint returns an aggregated object, not a list of ConfigResponse
         assert isinstance(data, dict)
-        assert "channels" in data
+        assert data["digest_schedule"] == "09:00"
