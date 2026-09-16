@@ -27,12 +27,28 @@ async function writeJson(file, obj) {
   await fs.writeFile(file, `${JSON.stringify(obj, null, 2)}\n`, "utf8");
 }
 
-function resolveKjHome() {
-  if (process.env.KJ_HOME) return process.env.KJ_HOME;
-  return path.join(ROOT_DIR, ".karajan");
+const CLAUDE_JSON_PATH = path.join(os.homedir(), ".claude.json");
+
+// KJC-BUG-0179 (#1730): a home INSIDE the npm package is the old default
+// this script wrote itself — wiped on every reinstall, never where `kj init`
+// stores kj.config.yml. Such a value is stale, not a user choice.
+const isPackageDirHome = (home) => /node_modules[\\/]karajan-code[\\/]\.karajan[\\/]?$/.test(home);
+
+/** The home a previous registration carried, if the user (not this script) set it. */
+function homeFromExistingEntry(entry) {
+  const previous = entry?.env?.KARAJAN_HOME || entry?.env?.KJ_HOME;
+  return previous && !isPackageDirHome(previous) ? previous : null;
 }
 
-async function resolveKjHomeFromRegistry() {
+/**
+ * Precedence: KARAJAN_HOME → KJ_HOME (deprecated) → the existing entry's home
+ * → the instances registry → `~/.karajan` (where the CLI defaults, KJC-BUG-0179).
+ */
+async function resolveKjHome(existingEntry) {
+  if (process.env.KARAJAN_HOME) return process.env.KARAJAN_HOME;
+  if (process.env.KJ_HOME) return process.env.KJ_HOME;
+  const previous = homeFromExistingEntry(existingEntry);
+  if (previous) return previous;
   try {
     const registry = await readJson(REGISTRY_PATH);
     const names = Object.keys(registry.instances || {});
@@ -43,28 +59,31 @@ async function resolveKjHomeFromRegistry() {
   } catch {
     // No registry yet — use default
   }
-  return resolveKjHome();
+  return path.join(os.homedir(), ".karajan");
 }
 
-async function setupClaudeMcp(kjHome) {
-  const claudeJsonPath = path.join(os.homedir(), ".claude.json");
-  let config = {};
+async function readClaudeConfig() {
   try {
-    config = await readJson(claudeJsonPath);
+    return await readJson(CLAUDE_JSON_PATH);
   } catch {
-    config = {};
+    return {};
   }
+}
 
+async function setupClaudeMcp(config, kjHome) {
   config.mcpServers = config.mcpServers || {};
+  // Keep every env key the user added to the entry; only the home is ours,
+  // and it is written under the current name (KJ_HOME is deprecated).
+  const { KJ_HOME: _stale, ...userEnv } = config.mcpServers["karajan-mcp"]?.env || {};
   config.mcpServers["karajan-mcp"] = {
     type: "stdio",
     command: "node",
     args: [path.join(ROOT_DIR, "src", "mcp", "server.js")],
     cwd: ROOT_DIR,
-    env: { KJ_HOME: kjHome }
+    env: { ...userEnv, KARAJAN_HOME: kjHome }
   };
 
-  await writeJson(claudeJsonPath, config);
+  await writeJson(CLAUDE_JSON_PATH, config);
 }
 
 function upsertCodexMcpBlock(toml, block) {
@@ -96,7 +115,7 @@ async function setupCodexMcp(kjHome) {
     `args = [${tomlPath(path.join(ROOT_DIR, "src", "mcp", "server.js"))}]`,
     `cwd = ${tomlPath(ROOT_DIR)}`,
     '[mcp_servers."karajan-mcp".env]',
-    `KJ_HOME = ${tomlPath(kjHome)}`
+    `KARAJAN_HOME = ${tomlPath(kjHome)}`
   ].join("\n");
 
   const updated = upsertCodexMcpBlock(toml, block);
@@ -105,9 +124,10 @@ async function setupCodexMcp(kjHome) {
 }
 
 async function main() {
-  const kjHome = await resolveKjHomeFromRegistry();
+  const claudeConfig = await readClaudeConfig();
+  const kjHome = await resolveKjHome(claudeConfig.mcpServers?.["karajan-mcp"]);
 
-  await setupClaudeMcp(kjHome);
+  await setupClaudeMcp(claudeConfig, kjHome);
   await setupCodexMcp(kjHome);
 
   console.log("karajan-mcp registered in Claude Code and Codex.");
