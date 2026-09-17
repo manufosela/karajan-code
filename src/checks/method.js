@@ -12,6 +12,7 @@ import { runCommand } from "../utils/process.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { CARD_REF_RE } from "../review/card-first.js";
 import { STRATEGY } from "./types.js";
+import { createRagCoverageCheck } from "./rag-coverage.js";
 
 function recentVerdicts(projectDir, sample) {
   try {
@@ -102,5 +103,7 @@ function createMethodCheck() {
 }
 
 export function getMethodChecks() {
-  return [createMethodCheck()];
+  // KJC-TSK-0850 (ADR 0010): a source the RAG index cannot see is a defect
+  // of the method, not a preference — same family as sonar proof.
+  return [createMethodCheck(), createRagCoverageCheck()];
 }
