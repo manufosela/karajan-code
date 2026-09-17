@@ -1,0 +1,81 @@
+// KJC-TSK-0849 (ADR 0010, RAG-C): a diff with code enters the review only if
+// the session's RAG ledger shows the RAG answered about every staged source
+// (file or sibling); new files need one consultation; docs-only is exempt;
+// the only other way through is a human grant, never an env var.
+import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { checkRagRequirement, ragBlock, RAG_RULE_ID } from "../../src/review/rag-requirement.js";
+import { readRagLedger } from "../../src/review/rag-ledger.js";
+
+const ledger = (hits, queries = 1) => ({ available: true, sessionId: "s1", hits, queries: Array.from({ length: queries }, () => ({ text: "q", hits })) });
+const grant = (expiresAt) => ({ rule_id: RAG_RULE_ID, scopeKind: "permanente", expiresAt, who: { git: "human" } });
+
+describe("checkRagRequirement", () => {
+  it("a docs-only diff needs no consultation", () => {
+    expect(checkRagRequirement({ stagedFiles: ["README.md", "docs/x.md"], ledger: { available: false } })).toMatchObject({ ok: true, mode: "docs-only" });
+  });
+
+  it("passes when every staged source was returned, itself or through a sibling, and names the untouched twins", () => {
+    const r = checkRagRequirement({ stagedFiles: ["src/a.js", "src/b.js", "README.md"], ledger: ledger(["src/a.js", "scripts/postinstall.js"], 2) });
+    expect(r).toMatchObject({ ok: true, mode: "pass", queries: 2, covered: ["src/a.js", "src/b.js"], uncovered: [], twinsUntouched: ["scripts/postinstall.js"] });
+  });
+
+  it("blocks code without a ledger, naming the consultation and the only way through", () => {
+    const r = checkRagRequirement({ stagedFiles: ["src/a.js"], ledger: { available: false, reason: "the sentinel state holds no session" } });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/The RAG must have answered about code/);
+    expect(r.reason).toContain("the sentinel state holds no session");
+    expect(r.reason).toContain(`kj policy grant --rule ${RAG_RULE_ID}`);
+  });
+
+  it("blocks when no query returned a staged source, listing it", () => {
+    const r = checkRagRequirement({ stagedFiles: ["src/a.js", "packages/x/src/b.js"], ledger: ledger(["src/a.js"]) });
+    expect(r.ok).toBe(false);
+    expect(r.uncovered).toEqual(["packages/x/src/b.js"]);
+    expect(r.reason).toContain("packages/x/src/b.js");
+  });
+
+  it("a file NEW in the diff only needs the session to have consulted at all", () => {
+    expect(checkRagRequirement({ stagedFiles: ["lib/new.js"], newFiles: ["lib/new.js"], ledger: ledger(["src/a.js"]) }).ok).toBe(true);
+    expect(checkRagRequirement({ stagedFiles: ["lib/new.js"], newFiles: ["lib/new.js"], ledger: ledger([], 0) }).ok).toBe(false);
+  });
+
+  it("a live human grant lets code through; an expired one, another rule, or any env var do not", () => {
+    const now = new Date("2026-09-17T00:00:00Z");
+    const base = { stagedFiles: ["src/a.js"], ledger: { available: false, reason: "x" }, now };
+    expect(checkRagRequirement({ ...base, standingExceptions: [grant("2999-01-01T00:00:00Z")] })).toMatchObject({ ok: true, mode: "granted" });
+    expect(checkRagRequirement({ ...base, standingExceptions: [grant("2026-01-01T00:00:00Z")] }).ok).toBe(false);
+    expect(checkRagRequirement({ ...base, standingExceptions: [{ ...grant("2999-01-01T00:00:00Z"), rule_id: "method.sonar.code" }] }).ok).toBe(false);
+    const overridden = checkRagRequirement({ ...base, env: { KJ_ALLOW_NO_RAG: "1", KJ_ALLOW_POLICY: "1" } });
+    expect(overridden.ok).toBe(false);
+    expect(overridden.reason).toContain("KJ_ALLOW_NO_RAG, KJ_ALLOW_POLICY is not honoured here");
+  });
+
+  it("ragBlock carries the evidence and the session, bound later to the diff hash like sonar", () => {
+    const req = checkRagRequirement({ stagedFiles: ["src/a.js"], ledger: ledger(["src/a.js", "src/z.js"]) });
+    expect(ragBlock(req, ledger([]))).toEqual({ mode: "pass", sessionId: "s1", queries: 1, covered: ["src/a.js"], uncovered: [], twinsUntouched: ["src/z.js"] });
+  });
+});
+
+describe("readRagLedger", () => {
+  it("reads the most recently active session of the sentinel state, and says when there is none", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rag-ledger-"));
+    try {
+      expect(readRagLedger(dir)).toMatchObject({ available: false, hits: [], queries: [] });
+      const harness = path.join(dir, ".karajan", "harness");
+      fs.mkdirSync(harness, { recursive: true });
+      fs.writeFileSync(path.join(harness, "sentinel-state.json"), JSON.stringify({ sessions: {} }));
+      expect(readRagLedger(dir).available).toBe(false);
+      fs.writeFileSync(path.join(harness, "sentinel-state.json"), JSON.stringify({ sessions: {
+        old: { at: 1, rag_hits: ["src/old.js"], rag_queries: [{ text: "o", hits: ["src/old.js"] }] },
+        live: { at: 2, rag_hits: ["src/a.js"], rag_queries: [{ text: "a", hits: ["src/a.js"] }] },
+        mute: { at: 3 },
+      } }));
+      expect(readRagLedger(dir)).toEqual({ available: true, sessionId: "mute", queries: [], hits: [] });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
