@@ -1,7 +1,8 @@
 # El RAG como gate: la sesion no toca lo que no ha consultado
 
-Status: proposed
+Status: accepted
 Date: 2026-09-17
+Accepted: 2026-09-17 (dev_001) — opcion B + C, con RAG-D como precondicion
 
 ## Context
 
@@ -32,7 +33,7 @@ C) Evidencia en el veredicto (como si el codigo no existiera): la consulta al RA
 D) Status quo: la regla sigue en el playbook y en los briefs.
    - Descartable por la evidencia del 16-sep: ya estaba en el playbook cuando salieron los cinco bugs.
 
-## Decision (propuesta, pendiente del usuario)
+## Decision (aceptada por el usuario el 2026-09-17)
 
 B + C, sobre un ledger comun: el gate del Sentinel (B) para que el agente consulte ANTES de tocar, y la evidencia en el veredicto (C) para que el revisor vea los gemelos y el pre-commit no deje pasar codigo hecho a ciegas. A queda como fallback para ficheros nuevos dentro de B. Precondicion no negociable: cobertura del indice como defecto (RAG-D): `scripts/`, `bin/` y `packages/*/src` indexados por defecto, y `kj check` marca en rojo cualquier fuente del repo fuera del indice o mas vieja que su ultimo commit, con la misma semantica que la cobertura probada de Sonar. Un gate que no ve el fichero no protege nada.
 
