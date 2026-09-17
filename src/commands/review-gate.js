@@ -14,6 +14,8 @@ import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
 import { checkSonarRequirement, SONAR_RULE_ID } from "../review/sonar-requirement.js";
+import { checkRagRequirement, ragBlock, RAG_RULE_ID } from "../review/rag-requirement.js";
+import { readRagLedger } from "../review/rag-ledger.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
@@ -60,6 +62,13 @@ const formatSonarGrant = (g) => {
   const scope = g.origin === "global" ? " GLOBAL" : "";
   const who = g.who?.git ?? "?";
   return `⚠ sonar requirement lifted by a HUMAN grant [${SONAR_RULE_ID}]${scope} until ${g.expiresAt} — ${who}: ${g.justification || "sin justificación"}`;
+};
+
+// KJC-TSK-0849 (ADR 0010): same for the rag requirement.
+const formatRagGrant = (g) => {
+  const scope = g.origin === "global" ? " GLOBAL" : "";
+  const who = g.who?.git ?? "?";
+  return `⚠ rag requirement lifted by a HUMAN grant [${RAG_RULE_ID}]${scope} until ${g.expiresAt} — ${who}: ${g.justification || "sin justificación"}`;
 };
 
 // KJC-TSK-0813 (AC3): la exención dice su PROCEDENCIA — un standing global
@@ -355,6 +364,9 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       if (!req.ok) res = { ok: false, verdict: res.verdict, reason: req.reason };
       else if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
     }
+    // KJC-TSK-0849 (ADR 0010, RAG-C): the verdict's rag block is the evidence
+    // that the session consulted the RAG about every staged source. The
+    // headless pipeline keeps no session ledger yet — said, not assumed.
     console.log(res.ok
       ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
       : `✗ ${res.reason}`);
@@ -434,6 +446,29 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // human grant) — the method report reads it back.
   sonarRecord.mode = sonarReq.mode;
 
+  // KJC-TSK-0849 (ADR 0010, RAG-C): the session's RAG ledger must show the
+  // RAG answered about every staged source (file or sibling), and the TWINS
+  // it returned that the diff does not touch travel to the reviewer by name —
+  // the 16-sep bugs were exactly the twin nobody touched.
+  const ledger = readRagLedger(projectDir);
+  const newFiles = (await rawDiff(flags.range, ["--name-only", "--diff-filter=A"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  const ragReq = checkRagRequirement({ config, stagedFiles: changedFiles, newFiles, ledger, standingExceptions: std.standing });
+  if (!ragReq.ok) {
+    console.log(`✗ ${ragReq.reason}`);
+    process.exitCode = 1;
+    return { verdict: "rejected", reviewer: "rag-first", issues: [{ severity: "high", file: undefined, description: ragReq.reason }] };
+  }
+  if (ragReq.mode === "granted") console.log(formatRagGrant(ragReq.grant));
+  if (ragReq.mode === "no-harness") console.log("⚠ rag: no Sentinel harness in this tree — no session ledger to check (kj harden installs it)");
+  const ragRecord = ragBlock(ragReq, ledger);
+  if (ragRecord.twinsUntouched.length > 0) {
+    const twins = ragRecord.twinsUntouched;
+    console.log(`ℹ rag twins: this session's queries also returned ${twins.length} file(s) the diff does not touch — ${twins.slice(0, 5).join(", ")}${twins.length > 5 ? "…" : ""}`);
+    task = `${task || "Review the following diff for correctness, security and maintainability."}\n\n`
+      + "The session's RAG queries also returned these files, which the diff does NOT touch — the same concept may live there, so check the change is complete, not only correct:\n"
+      + twins.map((t) => `- ${t}`).join("\n");
+  }
+
   // MUT-A (KJC-TSK-0716): mutation pre-gate — opt-in (method_gates.mutation),
   // SOLO en --staged (jamás en pre-commit: cuesta minutos; y jamás en --range:
   // el scope es el ÍNDICE y anotaría trabajo ajeno — catch de codex). block
@@ -456,7 +491,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     }
   }
 
-  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonarRecord });
+  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonarRecord, rag: ragRecord });
   printVerdict(record);
   process.exitCode = record.verdict === "approved" ? 0 : 1;
   return record;

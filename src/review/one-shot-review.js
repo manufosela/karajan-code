@@ -45,6 +45,8 @@ export async function runOneShotReview({
   diff, task, config, logger, projectDir,
   // KJC-TSK-0838: what the sonar pre-gate saw, persisted with the verdict.
   sonar = null,
+  // KJC-TSK-0849 (ADR 0010): what the session's RAG ledger proved, same place.
+  rag = null,
   hostAgent = detectHostAgent(),
   createAgentFn = createAgent,
   detectAgents = detectAvailableAgents,
@@ -126,6 +128,7 @@ export async function runOneShotReview({
     suggestions: parsed.non_blocking_suggestions || [],
     summary: parsed.summary || parsed.raw_summary || "",
     ...(sonar ? { sonar } : {}),
+    ...(rag ? { rag } : {}),
     confidence: parsed.confidence ?? null,
   });
 }
