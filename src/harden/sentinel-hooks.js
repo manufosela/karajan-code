@@ -146,6 +146,39 @@ process.stdin.on("end", () => {
       if (cardId && !(s.closed_cards ||= []).includes(cardId)) s.closed_cards.push(cardId);
       save(state);
     };
+    // KJC-TSK-0847 (ADR 0010, RAG-A): the ledger of what the RAG answered in
+    // this session — every kj_rag_query (MCP) and kj rag query (CLI) with the
+    // repo-relative sources it returned. Neither the CLI nor the MCP know the
+    // host's session id: the harness records, they do not. Hits outside the
+    // repo (another indexed project) are not ours and are dropped.
+    const recordRag = (query, sources) => {
+      const state = load();
+      const s = session(state, sid);
+      s.at = Date.now();
+      const hits = [];
+      for (const src of sources) {
+        const rel = relative(ROOT, String(src)).split(String.fromCharCode(92)).join("/");
+        if (!rel || rel.startsWith("..") || rel.startsWith("/") || hits.includes(rel)) continue;
+        hits.push(rel);
+      }
+      (s.rag_queries ||= []).push({ ts: Date.now(), text: String(query || "").slice(0, 200), hits });
+      const all = (s.rag_hits ||= []);
+      for (const h of hits) if (!all.includes(h)) all.push(h);
+      save(state);
+    };
+    // Sources are read STRUCTURALLY, never through the stringified response:
+    // a JSON document (the MCP {content:[{text}]} parts, the CLI --json array)
+    // is parsed and its hits[].source / [].source collected.
+    const sourcesOf = (doc) => {
+      const list = Array.isArray(doc) ? doc : Array.isArray(doc?.hits) ? doc.hits : [];
+      return list.map((h) => h?.source).filter((x) => typeof x === "string");
+    };
+    const parseJson = (t) => { try { return JSON.parse(t); } catch { return null; } };
+    if (/__kj_rag_query$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
+      const parts = Array.isArray(response?.content) ? response.content : [];
+      recordRag(input.text, parts.flatMap((p) => sourcesOf(parseJson(String(p?.text || "")))));
+      process.exit(0);
+    }
     if (/__update_card$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
       // The MCP response reaches the hook as {content:[{text:"<json>"}]}: once
       // stringified, the inner quotes are ESCAPED — match both forms (found live:
@@ -171,6 +204,18 @@ process.stdin.on("end", () => {
     }
     if (tool === "Bash") {
       const cmdText = String(input.command || "");
+      // CLI form of the ledger: the human output lists one hit per line as
+      // "[kind · label · score=…] <path>"; --json prints an array with "source".
+      const ragCmd = /kj +rag +query/.exec(cmdText);
+      if (ragCmd) {
+        const out = typeof response === "string" ? response : String(response.stdout || "") + String(response.stderr || "");
+        const fromLines = out.split(String.fromCharCode(10))
+          .filter((l) => l.includes("score=") && l.includes("] "))
+          .map((l) => l.slice(l.lastIndexOf("] ") + 2).trim())
+          .filter(Boolean);
+        recordRag(cmdText.slice(ragCmd.index), fromLines.concat(sourcesOf(parseJson(out.trim()))));
+        process.exit(0);
+      }
       // gh prints "merged pull request #N" only on a TTY: under a tool call the
       // success line is ABSENT (found live on the first dogfood merge). The
       // authoritative signal is the PR state itself: one gh pr view per merge.
@@ -250,7 +295,7 @@ if (process.argv.includes("--status")) {
   const sessions = Object.entries(st.sessions || {});
   if (!sessions.length) console.log("sentinel: sin actividad registrada en esta sesion");
   for (const [sid, s] of sessions) {
-    console.log("session " + sid + ": sources=[" + (s.edited_sources || []).join(", ") + "] tests=[" + (s.edited_tests || []).join(", ") + "] escapes=[" + (s.escapes || []).join(", ") + "] blocks=" + (s.blocks || 0) + ((s.errors || []).length ? " errors=" + s.errors.length : ""));
+    console.log("session " + sid + ": sources=[" + (s.edited_sources || []).join(", ") + "] tests=[" + (s.edited_tests || []).join(", ") + "] escapes=[" + (s.escapes || []).join(", ") + "] blocks=" + (s.blocks || 0) + ((s.errors || []).length ? " errors=" + s.errors.length : "") + " rag=" + (s.rag_queries || []).length + " queries/" + (s.rag_hits || []).length + " sources");
     for (const x of violations(s, branch)) console.log("  ROJO: " + x);
   }
   process.exit(0);
