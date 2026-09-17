@@ -40,6 +40,10 @@ beforeEach(() => {
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");
   fs.writeFileSync(path.join(dir, ".karajan", "policy.yml"), "version: 1\n");
+  // The rag-first gate (its own suite) is satisfied by a ledger that already
+  // covers src/: an escape here would add a `kj policy seal` call and clobber
+  // the fake kj's captured arguments.
+  fs.writeFileSync(statePath, JSON.stringify({ sessions: { s1: { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0, rag_hits: ["src/a.js"], rag_queries: [{ ts: 0, text: "q", hits: ["src/a.js"] }] } } }));
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
