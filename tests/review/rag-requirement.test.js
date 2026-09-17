@@ -59,11 +59,23 @@ describe("checkRagRequirement", () => {
   });
 });
 
+describe("harness states", () => {
+  it("stands down without a harness, and fails closed when the harness does not match the installed kj", () => {
+    const staged = ["src/a.js", "src/b.js"];
+    expect(checkRagRequirement({ stagedFiles: staged, ledger: { harness: false, available: false } })).toMatchObject({ ok: true, mode: "no-harness" });
+    // An empty dir, an edited hook or one older than the ledger vouches for nothing.
+    const r = checkRagRequirement({ stagedFiles: staged, ledger: { harness: true, verified: false, mismatched: ["posttooluse.mjs"], available: true, hits: staged, queries: [{}] } });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/does not match the installed kj \(posttooluse\.mjs\)/);
+    expect(checkRagRequirement({ stagedFiles: staged, ledger: { harness: true, verified: false, mismatched: [], available: true, hits: staged, queries: [{}] } }).reason).toMatch(/scripts missing/);
+  });
+});
+
 describe("readRagLedger", () => {
   it("reads the most recently active session of the sentinel state, and says when there is none", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rag-ledger-"));
     try {
-      expect(readRagLedger(dir)).toMatchObject({ available: false, hits: [], queries: [] });
+      expect(readRagLedger(dir)).toMatchObject({ harness: false, available: false, hits: [], queries: [] });
       const harness = path.join(dir, ".karajan", "harness");
       fs.mkdirSync(harness, { recursive: true });
       fs.writeFileSync(path.join(harness, "sentinel-state.json"), JSON.stringify({ sessions: {} }));
@@ -73,7 +85,8 @@ describe("readRagLedger", () => {
         live: { at: 2, rag_hits: ["src/a.js"], rag_queries: [{ text: "a", hits: ["src/a.js"] }] },
         mute: { at: 3 },
       } }));
-      expect(readRagLedger(dir)).toEqual({ available: true, sessionId: "mute", queries: [], hits: [] });
+      // A hand-made harness dir is NOT verified (nothing here matches the installed kj).
+      expect(readRagLedger(dir)).toMatchObject({ harness: true, verified: false, available: true, sessionId: "mute", queries: [], hits: [] });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

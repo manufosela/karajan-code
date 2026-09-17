@@ -43,6 +43,15 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
   const ignored = Object.keys(env || {}).filter((k) => k.startsWith("KJ_ALLOW_") && env[k] === "1");
   const overrideNote = ignored.length > 0 ? ` (${ignored.join(", ")} is not honoured here)` : "";
   const head = `The RAG must have answered about code before it is reviewed (${sources.length} staged source${sources.length === 1 ? "" : "s"})${overrideNote}`;
+  // No Sentinel in this tree = no host session that could keep a ledger: the
+  // requirement does not apply here, and the verdict says so (mode).
+  if (ledger?.harness === false) return { ok: true, mode: "no-harness", sources };
+  // A harness that does not match the installed kj (edited, emptied, or older
+  // than the ledger) cannot vouch for anything: fail closed, like the tamper
+  // check does, until the human regenerates it.
+  if (ledger?.harness === true && ledger?.verified === false) {
+    return { ok: false, mode: "block", sources, reason: `${head} — the Sentinel harness does not match the installed kj (${(ledger.mismatched || []).join(", ") || "scripts missing"}): the human runs \`kj harden\` to regenerate it before code is reviewed. ${GRANT_HINT}` };
+  }
   if (!ledger?.available) {
     return { ok: false, mode: "block", sources, reason: `${head} — ${ledger?.reason || "no session ledger"}: consult the RAG about the change (kj_rag_query / kj rag query) and run \`kj review --staged\` again. ${GRANT_HINT}` };
   }
