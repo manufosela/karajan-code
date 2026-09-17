@@ -33,6 +33,10 @@ Every block, and every `KJ_ALLOW_*` escape you consciously use, is sealed into t
 
 Work needs a tracked card before it starts. Editing sources on the base branch, or on a branch whose name references no card, is blocked. Create the card (`kj hu add`), move it to running, and work on a `feat/<CARD-ID>-description` branch. Escape: `KJ_ALLOW_NO_CARD=1`.
 
+## rag-first
+
+The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Docs, config and tests stay out, like card-first. Escape: `KJ_ALLOW_NO_RAG=1`.
+
 ## cross-lane
 
 Since MONO-0, each session mutates only its own worktree lane; reading is free. The guard also refuses mutations it cannot verify: `cd` in a mutator chain, command substitution, shell expansion, or redirections whose target hides behind a variable — use `git -C`, `npm --prefix` and literal paths. Deliberate crossing: `KJ_ALLOW_CROSS_LANE=1` on a simple command.
@@ -87,6 +91,7 @@ Every escape, what it skips, and when it is legitimate. All of them: one simple 
 | `KJ_ALLOW_CROSS_LANE=1` | cross-lane / unverifiable-path guards | A deliberate, announced crossing (e.g. publishing from a tag worktree) |
 | `KJ_ALLOW_IDENTITY=1` | identity lock | Test suites exercising other gates; never for real pushes |
 | `KJ_ALLOW_BOARD=1` | board-sync | The tracker itself is down and the move is queued |
+| `KJ_ALLOW_NO_RAG=1` | rag-first | The RAG index is absent or broken on this machine and the fix is agreed; recorded once per session |
 | `KJ_ALLOW_POLICY=1` | non-security policy denies | The rule mis-fires and the fix is agreed; commit also needs `KJ_POLICY_REASON` |
 | `KJ_ALLOW_STEWARD=1` | steward hard block | The break is known, carded, and the user says work continues |
 | `KJ_ALLOW_RELEASE=1` | release check | The publish→landing ordering above |

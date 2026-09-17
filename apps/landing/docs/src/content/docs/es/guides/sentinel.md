@@ -33,6 +33,10 @@ Cada bloqueo, y cada escape `KJ_ALLOW_*` que uses conscientemente, queda sellado
 
 El trabajo necesita una card registrada antes de empezar. Editar fuentes en la rama base, o en una rama cuyo nombre no referencie ninguna card, queda bloqueado. Crea la card (`kj hu add`), muévela a running, y trabaja en una rama `feat/<CARD-ID>-descripcion`. Escape: `KJ_ALLOW_NO_CARD=1`.
 
+## rag-first
+
+El RAG tiene que haber respondido sobre una zona antes de que la sesión la toque (ADR 0010). Cada `kj_rag_query` / `kj rag query` de la sesión deja un registro de las fuentes que devolvió; editar una fuente que ninguna consulta devolvió (ni a ella ni a un hermano de su directorio) se bloquea indicando la consulta a hacer. Un fichero nuevo solo exige que la sesión haya consultado algo. Docs, config y tests quedan fuera, como en card-first. Escape: `KJ_ALLOW_NO_RAG=1`.
+
 ## cross-lane
 
 Desde MONO-0, cada sesión muta solo su propio carril (worktree); leer es libre. La guarda también rechaza mutaciones que no puede verificar: `cd` en una cadena mutadora, sustitución de comandos, expansión de shell, o redirecciones cuyo destino se esconde tras una variable, usa `git -C`, `npm --prefix` y rutas literales. Cruce deliberado: `KJ_ALLOW_CROSS_LANE=1` en un comando simple.
@@ -87,6 +91,7 @@ Cada escape, qué se salta, y cuándo es legítimo. Todos: un comando simple, un
 | `KJ_ALLOW_CROSS_LANE=1` | guardas de cross-lane / ruta no verificable | Un cruce deliberado y anunciado (p.ej. publicar desde el worktree de un tag) |
 | `KJ_ALLOW_IDENTITY=1` | bloqueo de identidad | Suites de test que ejercitan otras guardas; nunca para pushes reales |
 | `KJ_ALLOW_BOARD=1` | board-sync | El propio tracker está caído y el movimiento queda en cola |
+| `KJ_ALLOW_NO_RAG=1` | rag-first | El índice RAG no existe o está roto en esta máquina y el arreglo está acordado; se registra una vez por sesión |
 | `KJ_ALLOW_POLICY=1` | denies de policy no-seguridad | La regla se dispara mal y el fix está acordado; el commit además necesita `KJ_POLICY_REASON` |
 | `KJ_ALLOW_STEWARD=1` | bloqueo duro del steward | La rotura es conocida, cardeada, y el usuario dice que el trabajo continúa |
 | `KJ_ALLOW_RELEASE=1` | release check | El orden publicación→landing de arriba |

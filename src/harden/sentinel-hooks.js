@@ -123,7 +123,7 @@ const POST_BODY = `#!/usr/bin/env node
 import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { doc, CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
-const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD"];
+const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD", "KJ_ALLOW_NO_RAG"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -879,6 +879,26 @@ process.stdin.on("end", () => {
             ? "karajan sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)" + doc("card-first")
             : "karajan sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)" + doc("card-first"));
           process.exit(2);
+        }
+        // KJC-TSK-0848 (ADR 0010, RAG-B): the RAG must have answered about this
+        // zone before the session touches it. Covered = the session ledger
+        // (RAG-A) holds this file or a sibling of its directory; a NEW file only
+        // needs the session to have consulted at all. Same file set as card-first.
+        const rs = load().sessions?.[sid] || {};
+        const hits = rs.rag_hits || [];
+        const dirOf = (p) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
+        const fresh = !existsSync(String(file));
+        // A path outside this tree is another lane's business (the lane guard
+        // above rules on it) and the ledger only holds in-repo paths.
+        const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || (fresh && (rs.rag_queries || []).length > 0);
+        if (!covered) {
+          if (escOn("KJ_ALLOW_NO_RAG")) {
+            // Recorded ONCE per session: the escape is a conscious exception, not a per-edit tax.
+            if (!(rs.escapes || []).includes("KJ_ALLOW_NO_RAG")) recordEscape(sid, "KJ_ALLOW_NO_RAG", tool);
+          } else {
+            console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>. (KJ_ALLOW_NO_RAG=1 = excepcion consciente, queda registrada)" + doc("rag-first"));
+            process.exit(2);
+          }
         }
       }
     }

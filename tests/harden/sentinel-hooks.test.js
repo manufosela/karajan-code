@@ -17,7 +17,8 @@ const run = (script, payload, env = {}) =>
     encoding: "utf8",
     // IDN-B: these suites exercise the OTHER gates; the identity lock has its
     // own suite (sentinel-identity.test.js), so it is escaped here (env route).
-    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env },
+    // Same for the rag-first gate (sentinel-rag-gate.test.js).
+    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1", ...env },
   });
 const editTool = (file, session = "s1") => ({ session_id: session, tool_name: "Edit", tool_input: { file_path: file } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -450,7 +451,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     fs.writeFileSync(path.join(inTree, "src", "x.js"), "x");
     const spawn = (command) => spawnSync("node", [gate], {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
-      encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1" },
+      encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1" },
     });
     const bare = spawn("sed -i s/a/b/ .kj/worktrees/wt2/src/x.js");
     expect(bare.status).toBe(2);
@@ -537,7 +538,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${rel}` } }),
       encoding: "utf8",
       cwd: dir,
-      env: { ...process.env, KJ_ALLOW_IDENTITY: "1" },
+      env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1" },
     });
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("carril");
