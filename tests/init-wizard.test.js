@@ -171,6 +171,18 @@ describe("initCommand", () => {
     expect(hardenCommand).not.toHaveBeenCalled();
   });
 
+  it("never starts the SonarQube container with --no-sonar (KJC-BUG-0184)", async () => {
+    isTTY.mockReturnValue(true);
+    loadConfig.mockResolvedValue({
+      config: { coder: "claude", reviewer: "codex", roles: { coder: {}, reviewer: {} }, pipeline: {}, sonarqube: {}, development: { methodology: "tdd" } },
+      exists: false
+    });
+    const { sonarUp } = await import("../src/sonar/manager.js");
+    await initCommand({ logger, flags: { noInteractive: true, sonar: false, harden: false } });
+    expect(sonarUp).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("--no-sonar"));
+  });
+
   it("runs wizard when interactive and config does not exist", async () => {
     isTTY.mockReturnValue(true);
     const mockConfig = {

@@ -34,7 +34,7 @@ describe("mcpSmoke against the source tree", () => {
     const { CLAUDECODE: _omit, ...clean } = process.env;
     env = { ...clean, HOME: home, USERPROFILE: home, KARAJAN_HOME: path.join(home, ".karajan"), CI: "1", GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
     execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
-    const init = spawnSync(process.execPath, [KJ, "init", "--no-interactive", "--no-ollama", "--no-rtk", "--no-squeezr", "--no-qmd", "--no-harden"], { cwd: repo, env, encoding: "utf8", timeout: 180_000 });
+    const init = spawnSync(process.execPath, [KJ, "init", "--no-interactive", "--no-ollama", "--no-rtk", "--no-squeezr", "--no-qmd", "--no-sonar", "--no-harden"], { cwd: repo, env, encoding: "utf8", timeout: 180_000 });
     if (init.status !== 0) throw new Error(`kj init failed: ${(init.stderr || init.stdout || "").slice(-600)}`);
     execFileSync("git", ["checkout", "-q", "-b", "smoke/mcp"], { cwd: repo });
     fs.writeFileSync(path.join(repo, "task.md"), "Add a greeting helper\n");
