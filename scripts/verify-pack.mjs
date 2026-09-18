@@ -24,6 +24,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { mcpSmoke } from "./verify-pack-mcp.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"));
 const expectedVersion = pkg.version;
@@ -219,6 +221,33 @@ try {
     fail("`kj report` crashed on a project with no sessions", reportOut.slice(-400));
   }
   console.log("verify-pack: quickstart smoke (init + report, no-remote repo) ✓");
+
+  // 5.6 MCP smoke (KJC-TSK-0844) — the karajan-mcp server of the GLOBAL
+  // install, over stdio, against the quickstart repo and its home: kj_status,
+  // kj_config and kj_review with kjHome + taskFile, no LLM. The MCP surface
+  // shipped KJC-BUG-0175/0176 through tests that mocked every seam.
+  const gServer = path.join(
+    gTmp, ...(process.platform === "win32" ? ["node_modules"] : ["lib", "node_modules"]),
+    ...pkgName.split("/"), "src", "mcp", "server.js",
+  );
+  if (!fs.existsSync(gServer)) fail(`karajan-mcp server missing in the global install: ${gServer}`);
+  // A branch with a staged source and a task file: kj_review must READ the
+  // file and reach its gate (a refusal there is this agentless runner's answer).
+  run("git", ["checkout", "-q", "-b", "smoke/mcp"], { cwd: qsTmp });
+  fs.writeFileSync(path.join(qsTmp, "task.md"), "Add a greeting helper\n");
+  fs.writeFileSync(path.join(qsTmp, "hello.js"), "export const hi = () => 'hi';\n");
+  run("git", ["add", "hello.js"], { cwd: qsTmp });
+  console.log("verify-pack: MCP smoke (kj_status, kj_config, kj_review over stdio)…");
+  const mcp = await mcpSmoke({ serverPath: gServer, kjHome: qsEnv.KARAJAN_HOME, projectDir: qsTmp, taskFile: "task.md", env: qsEnv });
+  if (!mcp.ok) fail("the tarball's karajan-mcp server did not honour its own tool contract", mcp.findings.join("\n"));
+  for (const a of mcp.answers) if (a.gated) console.log(`verify-pack:   ${a.tool} reached its gate and refused (expected here): ${a.reason}`);
+  // KJC-BUG-0179: the tarball's postinstall registered the MCP in the temp
+  // HOME under the current name, never the deprecated KJ_HOME.
+  const registered = JSON.parse(fs.readFileSync(path.join(homeTmp, ".claude.json"), "utf8")).mcpServers?.["karajan-mcp"]?.env || {};
+  if (!registered.KARAJAN_HOME || registered.KJ_HOME) {
+    fail("postinstall registered karajan-mcp without KARAJAN_HOME (or with the deprecated KJ_HOME)", JSON.stringify(registered));
+  }
+  console.log("verify-pack: MCP smoke ✓");
 
   // 6. pnpm install smoke (KJC-TSK-0580). pnpm's layout differs from npm's
   // (a symlinked virtual store), so it can break resolution of the bundled
