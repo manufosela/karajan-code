@@ -16,6 +16,7 @@ vi.mock("../../src/review/sonar-pregate.js", async (orig) => ({
 vi.mock("../../src/review/one-shot-review.js", () => ({ runOneShotReview: (...a) => reviewMock(...a) }));
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { saveVerdict } from "../../src/review/verdict-store.js";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let dir;
@@ -43,6 +44,8 @@ const harness = (session) => {
   const h = path.join(dir, ".karajan", "harness");
   if (session) fs.writeFileSync(path.join(h, "sentinel-state.json"), JSON.stringify({ sessions: { s1: { at: 1, ...session } } }));
 };
+const staged = () => execFileSync("git", ["-C", dir, "diff", "--cached"], { encoding: "utf8" });
+
 describe("review gate × rag requirement", () => {
   it("rejects code the session never asked the RAG about, before any reviewer token", async () => {
     harness({ rag_hits: ["lib/other.js"], rag_queries: [{ text: "q", hits: ["lib/other.js"] }] });
@@ -73,4 +76,23 @@ describe("review gate × rag requirement", () => {
     expect(r.issues[0].description).toMatch(/does not match the installed kj/);
   });
 
+  it("--check demands the rag block of the verdict for code, and accepts a proved one", async () => {
+    harness({ rag_hits: ["a.js"], rag_queries: [{ text: "q", hits: ["a.js"] }] });
+    const sonar = { ran: true, projectKey: "k", covered: ["a.js"], uncovered: [], blocking: 0, advisory: 0, mode: "pass" };
+    await saveVerdict(dir, staged(), { verdict: "approved", reviewer: "codex", issues: [], sonar });
+    const blind = await reviewGateCommand({ config: cfg(), flags: { check: true } });
+    expect(blind.ok).toBe(false);
+    expect(blind.reason).toMatch(/no rag block/);
+    await saveVerdict(dir, staged(), { verdict: "approved", reviewer: "codex", issues: [], sonar, rag: { mode: "pass", covered: ["a.js"], uncovered: [], twinsUntouched: [] } });
+    expect((await reviewGateCommand({ config: cfg(), flags: { check: true } })).ok).toBe(true);
+  });
+
+  it("--check accepts a pipeline verdict without a ledger, but seals the rag rule as a WARN in the decision log", async () => {
+    harness({ rag_hits: [], rag_queries: [] });
+    const sonar = { ran: true, source: "pipeline", projectKey: "k", gateStatus: "OK", covered: [], uncovered: [] };
+    await saveVerdict(dir, staged(), { verdict: "approved", reviewer: "codex", host: "kj-pipeline", issues: [], sonar });
+    expect((await reviewGateCommand({ config: cfg(), flags: { check: true } })).ok).toBe(true);
+    const decisions = fs.readFileSync(path.join(dir, ".karajan", "policy-decisions.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(decisions.at(-1)).toMatchObject({ decision: "allow", chokepoint: "commit", warn_rule_ids: ["method.rag.code"] });
+  });
 });
