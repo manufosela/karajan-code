@@ -32,7 +32,11 @@ const CLAUDE_JSON_PATH = path.join(os.homedir(), ".claude.json");
 // KJC-BUG-0179 (#1730): a home INSIDE the npm package is the old default
 // this script wrote itself — wiped on every reinstall, never where `kj init`
 // stores kj.config.yml. Such a value is stale, not a user choice.
-const isPackageDirHome = (home) => /node_modules[\\/]karajan-code[\\/]\.karajan[\\/]?$/.test(home);
+// KJC-BUG-0181: in a linked install (npm link, source tree) the package does
+// not live under node_modules, so THIS package's own `.karajan` is the same
+// stale default under another path — compared as a path, not a pattern.
+const isPackageDirHome = (home) => /node_modules[\\/]karajan-code[\\/]\.karajan[\\/]?$/.test(home)
+  || path.resolve(home) === path.join(ROOT_DIR, ".karajan");
 
 /** The home a previous registration carried, if the user (not this script) set it. */
 function homeFromExistingEntry(entry) {

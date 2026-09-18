@@ -114,6 +114,23 @@ describe("postinstall", () => {
       const entry = JSON.parse(await fs.readFile(claudeJson, "utf8")).mcpServers["karajan-mcp"];
       expect(entry.env).toEqual({ KARAJAN_HOME: path.join(fakeHome, ".karajan") });
     });
+
+    // KJC-BUG-0181: a linked install (npm link / source tree) has no
+    // node_modules in its path — its own `.karajan` is the same stale default.
+    it("replaces a stale home inside a LINKED package dir too, keeping the other env keys", async () => {
+      await fs.writeFile(claudeJson, JSON.stringify({
+        mcpServers: {
+          "karajan-mcp": { command: "node", args: [path.join(ROOT_DIR, "src", "mcp", "server.js")],
+            env: { KJ_HOME: path.join(ROOT_DIR, ".karajan"), KJ_LOG_LEVEL: "debug" } }
+        }
+      }), "utf8");
+
+      const { code } = await runScript({ HOME: fakeHome });
+      expect(code).toBe(0);
+
+      const entry = JSON.parse(await fs.readFile(claudeJson, "utf8")).mcpServers["karajan-mcp"];
+      expect(entry.env).toEqual({ KJ_LOG_LEVEL: "debug", KARAJAN_HOME: path.join(fakeHome, ".karajan") });
+    });
   });
 
   it("preserves existing MCP servers in ~/.claude.json", async () => {
