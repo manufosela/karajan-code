@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.30.0] - 2026-09-18
+
+The RAG as a gate: the session cannot touch what it never asked about. Born from the bug pattern of 16-sep (the same concept living in two places, the change reaching only one), decided in ADR 0010 and delivered as epic KJC-PCS-0086 in eight PRs (#1737 to #1745), each one passing the gate it was building. Plus the arbitration fix that gate uncovered, two harness fixes and three reinforcements of the surfaces the field kept breaking: the MCP server, the tarball gate and the resolution of keys.
+
+### Added
+
+- **The RAG is a gate, not a habit** (ADR 0010, KJC-TSK-0846 to 0850; #1738, #1740, #1741, #1742, #1744, #1745): the Sentinel's PostToolUse keeps a per-session ledger of every RAG query and the sources it returned (CLI and MCP alike); the PreToolUse refuses an Edit or Write of a source file the session never asked about, itself or a sibling of its directory, with a new file needing one consultation (`KJ_ALLOW_NO_RAG=1` is a conscious, sealed exception, recorded once per session and never honoured by the review). `kj review --staged` refuses code the ledger does not cover before spending a reviewer token, hands the reviewer the twins the RAG returned that the diff does not touch, and stores a `rag` block in the verdict bound to the diff hash, like `sonar`. `kj review --check` demands that block: its mode is a claim, never an authorization, so a `granted` or `no-harness` it recorded only counts if it holds at commit time, a malformed block is refused, an unverified harness fails closed, and a pipeline verdict (no session ledger yet) passes with the rule sealed as a WARN in the decision log. The only other way through is a human `kj policy grant --rule method.rag.code`. The method report counts the rag proof of recent verdicts (proved, docs-only, granted, no-harness, unproved) and goes red on unproved code.
+- **Index coverage is a defect of the method** (KJC-TSK-0850, #1737, #1739): `kj check` and `kj doctor` list the sources the RAG index cannot see (missing or stale since the indexed commit) and fail on them, with the exact `kj rag index` command to run. A gate on the RAG is worthless over an index that does not cover the code.
+- **`kj audit` reports keys resolved with divergent rules** (KJC-TSK-0845, #1750, #1751): a deterministic collector reads every `process.env.X` and `config.a.b` with the fallback chain written next to it and reports the same key resolved with different rules in different modules (every site, every rule, operator included) and files that read a deprecated key (`KJ_HOME`) without ever reading its successor (`KARAJAN_HOME`). On kj's own tree it found two incomplete migrations in the HU board and a `development.methodology` that defaults to `tdd` in four modules and `standard` in a fifth.
+- **The tarball gate exercises the MCP server** (KJC-TSK-0844, #1749): `verify-pack` starts the karajan-mcp server of the GLOBAL install over stdio with the SDK client and calls `kj_status`, `kj_config` and `kj_review` with `kjHome` and `taskFile`, no LLM (a reviewer no machine has stops the call at the gate), then asserts the postinstall registered the MCP in the temp HOME under `KARAJAN_HOME`. KJC-BUG-0175, 0176 and 0179 all shipped through tests that mocked every seam.
+- **Schema and handler parity of the MCP is a test** (KJC-TSK-0843, #1748): every parameter a tool declares in its `inputSchema` must be read on the path that serves it (dispatcher, handler module, its `src/mcp` imports, or the orchestrator flags it forwards); an orphan fails by name.
+
+### Fixed
+
+- **Solomon's approval kept no evidence** (KJC-BUG-0183, #1743): the arbitration wrote a fresh verdict without the `sonar` and `rag` blocks, so since 4.29.0 `kj review --check` refused every arbitrated diff ("the verdict carries no sonar block") and re-running the review overwrote the ruling: arbitration was dead. The overriding verdict now carries the evidence bound to the same diff hash.
+- **Postinstall in a linked install** (KJC-BUG-0181, #1746): the stale self-inflicted home of an `npm link` / source-tree install (`<repo>/.karajan`, not under `node_modules`) was kept as if the user had chosen it; it is now compared as a path against this package's own `.karajan`, whatever the layout.
+- **`kj harden` writes what prettier prints** (KJC-BUG-0182, #1747): the regenerated `kj-*` workflows failed the project's own `format:check` (a blank line before the closing marker after a block scalar, a single-quoted cron). Every template now ends the way prettier formats it, and a test formats every workflow harden can write, with every extra on, and demands identity.
+
 ## [4.29.1] - 2026-09-16
 
 ### Fixed
