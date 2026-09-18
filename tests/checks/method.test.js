@@ -62,6 +62,36 @@ describe("collectMethodStats", () => {
     expect(r.detail).toMatch(/2 approved verdict\(s\) without sonar proof/);
   });
 
+  // KJC-TSK-0849 (ADR 0010, RAG-C): the rag block is the twin evidence — the
+  // session asked about every source, or the method is red. Pipeline verdicts
+  // (no block, warn sealed at commit) and pre-ADR verdicts are not counted.
+  it("classifies verdicts by their rag proof and flags approved unproved ones", async () => {
+    const reviews = path.join(dir, ".karajan", "reviews");
+    fs.mkdirSync(reviews, { recursive: true });
+    const sonar = { ran: true, mode: "pass", covered: ["src/a.js"], uncovered: [] };
+    const write = (name, rag) => fs.writeFileSync(path.join(reviews, name), JSON.stringify({ verdict: "approved", timestamp: "2026-09-18T10:00:00Z", sonar, ...(rag ? { rag } : {}) }));
+    write("proved.json", { mode: "pass", queries: 2, covered: ["src/a.js"], uncovered: [], twinsUntouched: ["src/z.js"] });
+    write("docs.json", { mode: "docs-only", covered: [], uncovered: [] });
+    write("granted.json", { mode: "granted", covered: [], uncovered: [] });
+    write("bare.json", { mode: "no-harness", covered: [], uncovered: [] });
+    write("blind.json", { mode: "pass", covered: [], uncovered: ["src/a.js"] });
+    write("tampered.json", { mode: "whatever", covered: ["src/a.js"], uncovered: [] });
+    write("hollow.json", { mode: "pass", covered: [], uncovered: [] }); // a pass that covers nothing proves nothing
+    write("shapeless.json", { mode: "pass", covered: ["src/a.js"], uncovered: null });
+    write("pipeline.json", null); // stamped by kj run: no ledger, warn sealed at commit — not counted
+    write("legacy-block.json", { covered: [], uncovered: [] }); // block without mode: before the requirement, not counted
+    fs.writeFileSync(path.join(reviews, "rejected.json"), JSON.stringify({ verdict: "rejected", timestamp: "2026-09-18T10:00:00Z", rag: { mode: "pass", covered: [], uncovered: ["src/b.js"] } }));
+
+    const s = await collectMethodStats({ projectDir: dir, run: gitRuns({ subjects: [], blocks: "" }) });
+    expect(s.rag).toEqual({ proved: 1, docsOnly: 1, granted: 1, noHarness: 1, unproved: 4 });
+
+    const [check] = getMethodChecks();
+    const r = await check.detect({ config: {}, projectDir: dir, run: gitRuns({ subjects: [], blocks: "" }) });
+    expect(r).toMatchObject({ ok: false, severity: "fail" });
+    expect(r.detail).toMatch(/4 approved verdict\(s\) without rag proof/);
+    expect(r.detail).toMatch(/rag proof: 1 proved, 1 docs-only, 1 granted, 1 no-harness, 4 unproved/);
+  });
+
   it("degrades to zeros outside a repo or without verdicts", async () => {
     const run = vi.fn(async () => ({ exitCode: 128, stdout: "" }));
     const s = await collectMethodStats({ projectDir: dir, run });
