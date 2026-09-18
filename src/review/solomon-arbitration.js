@@ -102,10 +102,15 @@ export async function runSolomonArbitration({
     position, ruling: parsed.ruling, reasoning: parsed.reasoning || "", solomon,
     originalVerdict: { reviewer: verdict.reviewer, issues: verdict.issues },
   };
+  // KJC-BUG-0183: the arbiter judges the reviewer's objections, not the
+  // evidence bound to the diff (sonar, rag blocks). That evidence was computed
+  // for this exact hash and travels with the overriding verdict — without it
+  // `kj review --check` refuses every arbitrated diff.
+  const evidence = { ...(verdict.sonar ? { sonar: verdict.sonar } : {}), ...(verdict.rag ? { rag: verdict.rag } : {}) };
   const record = parsed.ruling === "approve"
     ? await saveVerdict(projectDir, diff, {
       verdict: "approved", reviewer: `solomon:${solomon}`, host: hostAgent || null,
-      issues: [], summary: `Arbitration overrode ${verdict.reviewer}'s rejection: ${parsed.reasoning || ""}`.trim(), arbitration,
+      issues: [], summary: `Arbitration overrode ${verdict.reviewer}'s rejection: ${parsed.reasoning || ""}`.trim(), arbitration, ...evidence,
     })
     : await saveVerdict(projectDir, diff, { ...verdict, arbitration });
 

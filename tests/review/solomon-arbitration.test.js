@@ -54,6 +54,18 @@ describe("runSolomonArbitration", () => {
     expect(check.verdict.arbitration.position).toMatch(/style-only/);
   });
 
+  // KJC-BUG-0183: the overriding verdict keeps the evidence bound to the diff
+  // (sonar, rag) — otherwise --check refuses every arbitrated diff.
+  it("approve ruling carries the sonar and rag blocks of the rejected verdict it overrides", async () => {
+    const sonar = { ran: true, projectKey: "k", covered: ["x.js"], uncovered: [], blocking: 0, advisory: 0, mode: "pass" };
+    const rag = { mode: "pass", sessionId: "s1", queries: 2, covered: ["x.js"], uncovered: [], twinsUntouched: [] };
+    await saveVerdict(dir, DIFF, { verdict: "rejected", reviewer: "codex", issues: [{ id: "I1", severity: "high", description: "misread import" }], sonar, rag });
+    await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "false positive", createAgentFn: () => ruling("approve") });
+    const check = await checkVerdict(dir, DIFF);
+    expect(check.ok).toBe(true);
+    expect(check.verdict).toMatchObject({ reviewer: "solomon:gemini", sonar, rag });
+  });
+
   // KJC-BUG-0121 layer 3: a binary on PATH is not an operational arbiter
   // (dead tier, auth, trust). The failure must carry the way out.
   it("an arbiter that fails at runtime produces an actionable error naming alternatives", async () => {
