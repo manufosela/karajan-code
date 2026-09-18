@@ -100,6 +100,8 @@ The wizard asks:
 
 Writes `~/.karajan/kj.config.yml`. Override per-project with `.karajan/kj.config.yml`.
 
+`kj init` also starts the SonarQube container when Docker is available. Pass `--no-sonar` to skip it (CI, scripts, another agent bootstrapping the project) and run `kj sonar start` when you need it.
+
 ## Common commands
 
 ```bash
