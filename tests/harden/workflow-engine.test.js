@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import yaml from "js-yaml";
+import * as prettier from "prettier";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { installWorkflows } from "../../src/harden/workflow-engine.js";
@@ -43,6 +44,23 @@ describe("installWorkflows", () => {
     installWorkflows({ projectDir: dir });
     const res = installWorkflows({ projectDir: dir });
     expect(res.workflows[0].action).toBe("unchanged");
+  });
+
+  // KJC-BUG-0182: the pre-commit's format:check rejected the workflows harden
+  // had just written (prettier wants a blank line between a block scalar and
+  // the closing marker). Every workflow harden can write, with every extra on,
+  // must already be what prettier would print.
+  it("writes every workflow exactly as prettier formats it", async () => {
+    mkdirSync(join(dir, ".karajan"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "policy.yml"), "rules: []\n");
+    writeFileSync(join(dir, ".karajan", "kj.config.yml"), "steward:\n  action: true\n");
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", bin: { x: "cli.js" }, scripts: { lint: "eslint ." } }));
+    const res = installWorkflows({ projectDir: dir, language: "javascript", profile: "strict", mutation: true, kjVersion: "9.9.9" });
+    expect(res.workflows.length).toBeGreaterThanOrEqual(7);
+    for (const wf of res.workflows) {
+      const text = read(wf.file);
+      expect(await prettier.format(text, { parser: "yaml" }), wf.file).toBe(text);
+    }
   });
 
   it("never overwrites a user workflow without our marker", () => {
