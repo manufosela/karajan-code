@@ -89,7 +89,6 @@ export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "        run: |",
   `          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes ${kjName}@${kjVersion}"; fi`,
   '          $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict',
-  "", // línea en blanco pre-marcador: prettier la exige tras un block scalar
 ].join("\n");
 
 const header = (steps) =>
@@ -263,7 +262,7 @@ export function mutationWorkflowFor(language, pm = "npm") {
     "name: Mutation (nightly)",
     "on:",
     "  schedule:",
-    "    - cron: '0 4 * * 1'",
+    '    - cron: "0 4 * * 1"',
     "  workflow_dispatch:",
     "permissions:",
     "  contents: read",

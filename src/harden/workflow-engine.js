@@ -102,11 +102,16 @@ export function installWorkflows({
       results.push({ file: label, action: "skipped" });
       continue;
     }
+    // KJC-BUG-0182: prettier's YAML printer puts a blank line between the last
+    // line of a block scalar (`run: |`) and a comment at column 0 — which is
+    // exactly our closing marker. Every template ends with a blank line, so the
+    // file harden writes is the file prettier would write (the pre-commit's
+    // format:check must accept its own harness).
     const { content, action } = upsertManagedBlock({
       source,
       blockId: wf.blockId,
       version: BLOCK_VERSION,
-      body: wf.body,
+      body: wf.body.endsWith("\n") ? wf.body : `${wf.body}\n`,
       style: "hash",
     });
     if (!dryRun && action !== "unchanged") {
