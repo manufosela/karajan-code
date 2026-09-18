@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkRagRequirement, ragBlock, RAG_RULE_ID } from "../../src/review/rag-requirement.js";
+import { checkRagRequirement, checkRagVerdict, ragBlock, RAG_RULE_ID } from "../../src/review/rag-requirement.js";
 import { readRagLedger } from "../../src/review/rag-ledger.js";
 
 const ledger = (hits, queries = 1) => ({ available: true, sessionId: "s1", hits, queries: Array.from({ length: queries }, () => ({ text: "q", hits })) });
@@ -68,6 +68,29 @@ describe("harness states", () => {
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(/does not match the installed kj \(posttooluse\.mjs\)/);
     expect(checkRagRequirement({ stagedFiles: staged, ledger: { harness: true, verified: false, mismatched: [], available: true, hits: staged, queries: [{}] } }).reason).toMatch(/scripts missing/);
+  });
+});
+
+describe("checkRagVerdict (the --check side)", () => {
+  it("recomputes coverage from the block, demands a block for code, and honours the recorded modes", () => {
+    const staged = ["src/a.js", "src/b.js"];
+    expect(checkRagVerdict({ stagedFiles: ["README.md"], rag: null })).toMatchObject({ ok: true, mode: "docs-only" });
+    expect(checkRagVerdict({ stagedFiles: staged, rag: null }).reason).toMatch(/no rag block/);
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "pass", covered: ["src/a.js"] } }).reason).toContain("src/b.js");
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "pass", covered: staged } })).toMatchObject({ ok: true, mode: "pass" });
+    expect(checkRagVerdict({ stagedFiles: staged, rag: null, harness: false })).toMatchObject({ ok: true, mode: "no-harness" });
+    // Only a grant that holds NOW authorizes; a "granted" or "no-harness" the block recorded is a claim that lapsed.
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "granted" }, standingExceptions: [grant("2999-01-01T00:00:00Z")] })).toMatchObject({ ok: true, mode: "granted" });
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "granted" } }).reason).toMatch(/malformed \(mode "granted"/);
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "no-harness" } }).reason).toMatch(/malformed \(mode "no-harness"/);
+    // A block with a mode the review never writes is not evidence, however complete its covered list.
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "tampered", covered: staged } }).reason).toMatch(/malformed \(mode "tampered", covered list\)/);
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { covered: staged } }).reason).toMatch(/malformed \(mode null/);
+    expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "pass", covered: 7 } }).reason).toMatch(/malformed \(mode "pass", covered number\)/);
+    // A harness that does not match the installed kj vouches for nothing, whatever the block says.
+    const unverified = checkRagVerdict({ stagedFiles: staged, rag: { mode: "pass", covered: staged }, verified: false, mismatched: ["posttooluse.mjs"] });
+    expect(unverified.ok).toBe(false);
+    expect(unverified.reason).toMatch(/does not match the installed kj \(posttooluse\.mjs\)/);
   });
 });
 

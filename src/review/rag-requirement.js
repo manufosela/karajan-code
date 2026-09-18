@@ -71,6 +71,40 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
   return { ok: true, mode: "pass", sources, ...evidence };
 }
 
+/**
+ * The pre-commit side (`kj review --check`): the verdict's `rag` block is the
+ * evidence, recomputed against the CURRENT staged sources like the sonar
+ * block — the diff hash pins the file set, so a source missing from
+ * `covered` was never answered about, whatever the block claims.
+ */
+export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = true, verified = true, mismatched = [], standingExceptions = [], now = new Date() }) {
+  const { sources } = sourceFilesOf(config, stagedFiles);
+  if (sources.length === 0) return { ok: true, mode: "docs-only" };
+  const grant = liveGrant(standingExceptions, now);
+  if (grant) return { ok: true, mode: "granted", grant, sources };
+  if (!harness) return { ok: true, mode: "no-harness", sources };
+  const head = `The RAG must have answered about code before it is committed (${sources.length} staged source${sources.length === 1 ? "" : "s"})`;
+  if (!verified) {
+    return { ok: false, mode: "block", sources, reason: `${head} — the Sentinel harness does not match the installed kj (${mismatched.join(", ") || "scripts missing"}): the human runs \`kj harden\` to regenerate it. ${GRANT_HINT}` };
+  }
+  if (!rag) {
+    return { ok: false, mode: "block", sources, reason: `${head} — the verdict carries no rag block; run \`kj review --staged\` again. ${GRANT_HINT}` };
+  }
+  // The block's mode is a claim, never an authorization: a grant or a missing
+  // harness only count when they hold NOW (checked above). So the block can
+  // only prove coverage — a "granted" or "no-harness" it recorded has lapsed.
+  if (rag.mode !== "pass" || !Array.isArray(rag.covered)) {
+    return { ok: false, mode: "block", sources, reason: `${head} — the verdict's rag block is malformed (mode ${JSON.stringify(rag.mode ?? null)}, covered ${Array.isArray(rag.covered) ? "list" : typeof rag.covered}); run \`kj review --staged\` again. ${GRANT_HINT}` };
+  }
+  const coveredSet = new Set(rag.covered);
+  const uncovered = sources.filter((f) => !coveredSet.has(f));
+  if (uncovered.length > 0) {
+    const list = `${uncovered.slice(0, 5).join(", ")}${uncovered.length > 5 ? "…" : ""}`;
+    return { ok: false, mode: "block", sources, reason: `${head} — the session ledger never covered ${uncovered.length} of them (${list}); consult the RAG and run \`kj review --staged\` again. ${GRANT_HINT}` };
+  }
+  return { ok: true, mode: "pass", sources };
+}
+
 /** The `rag` block stored in the verdict, bound to the diff hash like `sonar`. */
 export function ragBlock(req, ledger) {
   return {

@@ -14,7 +14,7 @@ import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
 import { checkSonarRequirement, SONAR_RULE_ID } from "../review/sonar-requirement.js";
-import { checkRagRequirement, ragBlock, RAG_RULE_ID } from "../review/rag-requirement.js";
+import { checkRagRequirement, checkRagVerdict, ragBlock, RAG_RULE_ID } from "../review/rag-requirement.js";
 import { readRagLedger } from "../review/rag-ledger.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
@@ -365,15 +365,28 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       else if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
     }
     // KJC-TSK-0849 (ADR 0010, RAG-C): the verdict's rag block is the evidence
-    // that the session consulted the RAG about every staged source. The
-    // headless pipeline keeps no session ledger yet — said, not assumed.
+    // that the session consulted the RAG about every staged source. The one
+    // place the rule cannot be verified is a pipeline verdict: the headless
+    // pipeline keeps no session ledger yet. It WARNS and the allow seals the
+    // warn under the rule id, so the exception is auditable (kj policy report)
+    // and gains teeth with data — never accepted in silence.
+    const warnIds = gate.warns.map((w) => w.rule_id);
+    if (res.ok && res.verdict.host === "kj-pipeline") {
+      console.log(`⚠ rag [${RAG_RULE_ID}]: the pipeline verdict carries no session ledger — the headless pipeline does not consult the RAG yet; sealed as a warn`);
+      if (!warnIds.includes(RAG_RULE_ID)) warnIds.push(RAG_RULE_ID);
+    } else if (res.ok) {
+      const { harness, verified, mismatched } = readRagLedger(projectDir);
+      const rreq = checkRagVerdict({ config, stagedFiles: changedFiles, rag: res.verdict.rag, harness, verified, mismatched, standingExceptions: std.standing });
+      if (!rreq.ok) res = { ok: false, verdict: res.verdict, reason: rreq.reason };
+      else if (rreq.mode === "granted" && rreq.grant) console.log(formatRagGrant(rreq.grant));
+    }
     console.log(res.ok
       ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
       : `✗ ${res.reason}`);
     // GOV-C: el allow del chokepoint de COMMIT es evidencia — se sella. PL-E
     // (KJC-TSK-0767): con las reglas que AVISARON, para que "nace avisando y
     // gana dientes" se decida con datos (kj policy report), no a ciegas.
-    if (res.ok) seal("allow", gate.warns.length > 0 ? { warn_rule_ids: gate.warns.map((w) => w.rule_id) } : {});
+    if (res.ok) seal("allow", warnIds.length > 0 ? { warn_rule_ids: warnIds } : {});
     process.exitCode = res.ok ? 0 : 1;
     return res;
   }
