@@ -15,6 +15,7 @@ import { groupFindingsBySeverity as groupSemgrepBySeverity } from "./semgrep-fin
 import { groupCyclesBySeverity } from "./circular-deps.js";
 import { groupDeadExportsBySeverity } from "./dead-exports.js";
 import { groupInjectionBySeverity } from "./injection-findings.js";
+import { groupEnvKeyFindingsBySeverity } from "./env-key-findings.js";
 
 const MAX_SAMPLE_DEAD_EXPORTS = 10;
 const MAX_SAMPLE_SONAR_PER_SEVERITY = 5;
@@ -43,9 +44,31 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.deadExports) lines.push(...formatDeadExportsBlock(ctx.deadExports));
   if (ctx.injectionFindings) lines.push(...formatInjectionBlock(ctx.injectionFindings));
   if (ctx.aiSlop) lines.push(...formatAiSlopBlock(ctx.aiSlop));
+  if (ctx.envKeys) lines.push(...formatEnvKeysBlock(ctx.envKeys));
   if (ctx.webperf) lines.push(...formatWebperfBlock(ctx.webperf));
 
   return lines.join("\n");
+}
+
+const MAX_SAMPLE_ENV_KEYS = 8;
+
+// KJC-TSK-0845: the same key resolved with two rules in two modules, and a
+// deprecated key read where its successor never is — every site named.
+function formatEnvKeysBlock(envKeys) {
+  if (!envKeys.available) return ["### Env/config key resolution", `- Status: not available — ${envKeys.reason || "scan failed"}`, ""];
+  const { HIGH, MEDIUM } = groupEnvKeyFindingsBySeverity(envKeys);
+  const lines = ["### Env/config key resolution", `- Files scanned: ${envKeys.scanned ?? 0}`, `- Incomplete migrations: ${HIGH.length} · keys resolved with divergent rules: ${MEDIUM.length}`];
+  for (const i of HIGH.slice(0, MAX_SAMPLE_ENV_KEYS)) {
+    lines.push(`  - HIGH ${i.file}:${i.line} reads \`${i.key}\` and never \`${i.successor}\``);
+  }
+  for (const d of MEDIUM.slice(0, MAX_SAMPLE_ENV_KEYS)) {
+    lines.push(`  - MEDIUM [${d.kind}] \`${d.key}\` resolved ${d.rules.length} ways:`);
+    for (const r of d.rules) lines.push(`    - \`${r.rule}\` ← ${r.sites.join(", ")}`);
+  }
+  const more = HIGH.length + MEDIUM.length - Math.min(HIGH.length, MAX_SAMPLE_ENV_KEYS) - Math.min(MEDIUM.length, MAX_SAMPLE_ENV_KEYS);
+  if (more > 0) lines.push(`  - ... and ${more} more`);
+  lines.push("");
+  return lines;
 }
 
 function formatAiSlopBlock(slop) {
@@ -338,5 +361,6 @@ export function deterministicContextHasFindings(ctx) {
   if (ctx.deadExports?.available && (ctx.deadExports.total ?? 0) > 0) return true;
   if (ctx.growthDelta && (Math.abs(ctx.growthDelta.lines || 0) > 100 || Math.abs(ctx.growthDelta.deps || 0) > 0)) return true;
   if (ctx.aiSlop?.available && (ctx.aiSlop.total ?? 0) > 0) return true;
+  if (ctx.envKeys?.available && ((ctx.envKeys.divergent?.length ?? 0) + (ctx.envKeys.incomplete?.length ?? 0)) > 0) return true;
   return false;
 }

@@ -14,6 +14,7 @@ import { collectCircularDeps } from "../audit/circular-deps.js";
 import { collectDeadExports } from "../audit/dead-exports.js";
 import { collectInjectionFindings } from "../audit/injection-findings.js";
 import { collectAiSlop } from "../audit/ai-slop-findings.js";
+import { collectEnvKeyFindings } from "../audit/env-key-findings.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -77,6 +78,7 @@ export class AuditRole extends AgentRole {
     let injectionFindings = null;
     let infraFindings = null;
     let aiSlop = null;
+    let envKeys = null;
     if (!securityOnly) {
       try {
         basalCost = await measureBasalCost(projectDir);
@@ -154,13 +156,20 @@ export class AuditRole extends AgentRole {
         aiSlop = await collectAiSlop(projectDir);
       } catch { /* ai-slop scan is best-effort */ }
     }
+    // KJC-TSK-0845: one key, two resolution rules = a migration left half-way
+    // (KJ_HOME → KARAJAN_HOME). Deterministic, offline, best-effort.
+    if (!securityOnly) {
+      try {
+        envKeys = await collectEnvKeyFindings(projectDir);
+      } catch { /* env-key scan is best-effort */ }
+    }
     // STW-A (KJC-TSK-0789 AC5): record that the security surface was looked
     // at, so the Steward can age it — GREBLA went 79 days with "never".
     try {
       mkdirSync(dirname(securityAuditMarkerPath(projectDir)), { recursive: true });
       writeFileSync(securityAuditMarkerPath(projectDir), JSON.stringify({ at: new Date().toISOString(), mode: securityOnly ? "security" : "full" }));
     } catch { /* recording is best-effort — the audit itself already ran */ }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, infraFindings, aiSlop };
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, infraFindings, aiSlop, envKeys };
   }
 
   /**
@@ -176,7 +185,7 @@ export class AuditRole extends AgentRole {
     const context = typeof input === "object" ? input?.context || null : null;
     const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
 
-    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports } = deterministicCtx;
+    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, envKeys } = deterministicCtx;
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
@@ -217,6 +226,7 @@ export class AuditRole extends AgentRole {
           semgrepFindings: semgrepFindings?.available ? semgrepFindings : undefined,
           circularDeps: circularDeps?.available ? circularDeps : undefined,
           deadExports: deadExports?.available ? deadExports : undefined,
+          envKeys: envKeys?.available ? envKeys : undefined,
           provider
         },
         summary: buildSummary(parsed),
