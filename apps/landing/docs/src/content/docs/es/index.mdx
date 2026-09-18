@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.29.1 — kj update respeta tu home (actual)
+### v4.30.0 — el RAG como gate (actual)
+
+La sesión no toca lo que no ha consultado (ADR 0010, épica KJC-PCS-0086). El Sentinel lleva un registro por sesión de cada consulta al RAG y de las fuentes que devolvió, y rechaza editar una fuente sobre la que la sesión nunca preguntó; `kj review --staged` rechaza código que el registro no cubre antes de gastar un token del revisor, le entrega los gemelos que el RAG devolvió y el diff no toca, y guarda un bloque `rag` en el veredicto atado al hash del diff; `kj review --check` lo exige, tratando su modo como afirmación, nunca como autorización. `kj check` falla con fuentes que el índice no ve. El gate destapó que la aprobación de Solomon perdía la evidencia de Sonar y del RAG y rechazaba todo commit arbitrado desde 4.29.0: arreglado. Además: `kj audit` informa de claves env/config resueltas con reglas distintas en distintos módulos, `verify-pack` ejercita el servidor MCP del tarball por stdio, un test de paridad ata cada parámetro del schema MCP a un handler que lo lee, y dos arreglos del harness (home en instalaciones linkadas, workflows idénticos a prettier).
+
+### v4.29.1 — kj update respeta tu home
 
 Patch, reportado minutos después de publicar 4.29.0 (#1730): el postinstall volvía a registrar `karajan-mcp` con un home dentro del paquete npm (borrado en cada reinstalación, nunca donde `kj init` guarda `kj.config.yml`), bajo el nombre deprecado `KJ_HOME`, y sustituía la entrada entera, así que el `KARAJAN_HOME` del usuario se perdía y todas las tools MCP fallaban con `Config file not found` tras cada actualización. El home se resuelve ahora desde `KARAJAN_HOME`, luego lo que la entrada ya llevaba, luego el registro de instancias y por último `~/.karajan`; la entrada conserva todas las env keys del usuario, y las configs de Claude y Codex escriben `KARAJAN_HOME`.
 
