@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.31.0] - 2026-09-20
+
+The cold start stops asking you to force it. A field report on a brand new project (issue #1753) opened a map of the whole path from an empty directory: nine gates firing, several of them precisely because the repo had been raised by hand. The ADR of epic KJC-PCS-0088 makes the bootstrap a phase with rules of its own, defined by a verifiable fact (the repo has no commit) and ending at the first one. Eight fixes, eight PRs (#1754 to #1763).
+
+### Fixed
+
+- **The Stop gate was permanently red in a repo with no commits** (KJC-BUG-0185, #1756): `sessionAddsCode` asked `git diff HEAD`, impossible without a HEAD, and fell back to `true`, so with no tests written yet every turn ended demanding a test. With `violations()` never reading the session's escapes, the only ways out were an env var a session cannot set for itself, or three blocks until the fail-open. The bootstrap phase now returns only pending board moves, and the regime resumes at the first commit.
+- **The contract commit was blocked by the base-branch guard** (KJC-BUG-0186, #1757, refs #1645): KJC-BUG-0165 exempted the review gate from that commit, but the pre-commit guard read the branch with `symbolic-ref`, which works on an unborn branch, saw `main` and aborted. On a fresh repo there is nothing to branch from, so the guard now requires a HEAD.
+- **`kj init` left the project half installed and said it had finished** (KJC-BUG-0187, #1760): in a directory that was not a repo it wrote config, CI and sonar files, skipped the entire harness behind a buried info line, and still closed with "Karajan is set up". It creates the repository, as `kj run` already did, and when git cannot run it says the harness is missing.
+- **A headless `kj harden` left the clone with no identity** (KJC-BUG-0188, #1758): it must not bind one blindly (a `set --yes` once tied a clone to the account another session had switched to), but the pending step was a buried warn and the Sentinel then denied every `git` and `gh` call with nothing tying it back. `kj env install` stops with the exact `kj identity set` and exit 3.
+- **`kj hu add` produced a reference card-first rejects** (KJC-BUG-0189, #1759): the gate sends the agent to create a card, and without `--id` the HU only got the canonical plan id, which `CARD_REF_RE` cannot match, so the branch named after that card failed the same gate. HUs get a sequential `HU-####`.
+- **rag-first denied what no query could satisfy** (KJC-BUG-0190, #1763): with an empty index, `kj rag query` returns nothing, so the first write of a file passed and every later edit was denied for ever. When kj itself reports an empty index the gate stands down for that session; a query that merely found nothing on a live index still blocks.
+- **`kj go` could not start in an empty directory** (KJC-BUG-0191, #1761): the door for someone with no craft called `kj env install`, which exits 3 without a repo. It creates the repository, and a preparation that still needs the person's hands stops in plain language instead of launching over a half-prepared project.
+- **Not hardening was the way around the RAG gate** (KJC-BUG-0192, #1762): with no `.karajan/harness` the requirement returned `no-harness` and passed, on both `--staged` and `--check`. Nobody installed to record the session is a reason to install it, or to ask for a grant, never a silent exemption.
+- **`kj init --no-sonar`, and a harness that passes ESLint** (KJC-BUG-0184, #1754, #1755, issue #1753): init started the SonarQube container with no way to skip it in a non-interactive bootstrap (only the bootstrap is skipped; the review gate still requires Sonar), and the five scripts written into `.karajan/harness` used `process` and `console` as globals, giving 114 errors with a stock flat config. They import them from `node:process` and `node:console`.
+
 ## [4.30.0] - 2026-09-18
 
 The RAG as a gate: the session cannot touch what it never asked about. Born from the bug pattern of 16-sep (the same concept living in two places, the change reaching only one), decided in ADR 0010 and delivered as epic KJC-PCS-0086 in eight PRs (#1737 to #1745), each one passing the gate it was building. Plus the arbitration fix that gate uncovered, two harness fixes and three reinforcements of the surfaces the field kept breaking: the MCP server, the tarball gate and the resolution of keys.
