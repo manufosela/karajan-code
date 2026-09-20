@@ -121,6 +121,13 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
       console.warn(`⚠ possible duplicate${plural} — check before working it:\n${candidates}`);
     }
     const plan = await backlogPlan(projectDir);
+    /** Lowest free HU-#### in this plan — ids are permanent, never reused. */
+    const nextHuRef = (p) => {
+      const taken = new Set((p.hus || []).map((h) => h.short_id).filter(Boolean));
+      let n = 1;
+      while (taken.has(`HU-${String(n).padStart(4, "0")}`)) n += 1;
+      return `HU-${String(n).padStart(4, "0")}`;
+    };
     // KJC-TSK-0669 (absolute rule): cards are permanent. The delete-and-
     // recreate "fix" an agent improvises loses history and duplicates ids —
     // refuse it with the norm spelled out.
@@ -145,7 +152,12 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
       .flatMap((s) => String(s).split("\n")).map((s) => s.trim()).filter(Boolean);
     const hu = addHu(plan, {
       title,
-      short_id: flags.id || null,
+      // KJC-BUG-0189: the card-first gate demands a branch that references a
+      // card, and it is this command the gate sends the agent to. The
+      // canonical plan id (hu_plan-<stamp>-<rand>_001) does not match
+      // CARD_REF_RE, so without an explicit --id the card kj just created
+      // could not satisfy kj's own gate. Sequential HU-#### does.
+      short_id: flags.id || nextHuRef(plan),
       acceptance_criteria: [...splitLines(flags.ac), ...splitLines(flags.criteria)],
       acceptance_tests: splitLines(flags.tests),
       scope: flags.scope || null,
