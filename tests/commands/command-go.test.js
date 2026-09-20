@@ -78,6 +78,21 @@ describe("kj go", () => {
     const second = await run({ deps: { detect: async () => [agent("claude")] } });
     expect(second.deps.prepare).not.toHaveBeenCalled();
   });
+  // KJC-BUG-0191: kj go is the door for someone with no craft, and an empty
+  // directory is the natural way to start a project. It used to die there,
+  // because kj env install refuses to run without a repo.
+  it("creates the repository before preparing, so an empty directory is a valid start", async () => {
+    const out = await run({ deps: { detect: async () => [agent("claude")] } });
+    expect(fs.existsSync(path.join(dir, ".git"))).toBe(true);
+    expect(out.deps.prepare).toHaveBeenCalledOnce();
+  });
+
+  it("a preparation that needs the person's hands stops in plain language, and never launches", async () => {
+    const out = await run({ deps: { detect: async () => [agent("claude")], prepare: vi.fn(async () => ({ exitCode: 3 })) } });
+    expect(out.code).toBe(1);
+    expect(out.deps.launch).not.toHaveBeenCalled();
+  });
+
   it("the board opens alongside — unless the project turned it off (hu_board.enabled false is respected)", async () => {
     const on = await run({ deps: { detect: async () => [agent("claude")] } });
     expect(on.deps.board).toHaveBeenCalledOnce();
