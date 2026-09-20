@@ -60,9 +60,19 @@ describe("checkRagRequirement", () => {
 });
 
 describe("harness states", () => {
-  it("stands down without a harness, and fails closed when the harness does not match the installed kj", () => {
+  // KJC-BUG-0192: an absent harness used to PASS, so not hardening (or
+  // kj init --no-harden) was the comfortable way around the gate. Nobody
+  // installed to record the session is a reason to install it, or to ask for
+  // a grant — never a silent exemption.
+  it("blocks without a harness, and fails closed when the harness does not match the installed kj", () => {
     const staged = ["src/a.js", "src/b.js"];
-    expect(checkRagRequirement({ stagedFiles: staged, ledger: { harness: false, available: false } })).toMatchObject({ ok: true, mode: "no-harness" });
+    const noHarness = checkRagRequirement({ stagedFiles: staged, ledger: { harness: false, available: false } });
+    expect(noHarness.ok).toBe(false);
+    expect(noHarness.reason).toMatch(/kj harden/);
+    expect(noHarness.reason).toMatch(/policy grant/);
+    // A live grant is the declared way out, and it still works.
+    expect(checkRagRequirement({ stagedFiles: staged, ledger: { harness: false, available: false }, standingExceptions: [grant("2999-01-01T00:00:00Z")] }))
+      .toMatchObject({ ok: true, mode: "granted" });
     // An empty dir, an edited hook or one older than the ledger vouches for nothing.
     const r = checkRagRequirement({ stagedFiles: staged, ledger: { harness: true, verified: false, mismatched: ["posttooluse.mjs"], available: true, hits: staged, queries: [{}] } });
     expect(r.ok).toBe(false);
@@ -78,7 +88,7 @@ describe("checkRagVerdict (the --check side)", () => {
     expect(checkRagVerdict({ stagedFiles: staged, rag: null }).reason).toMatch(/no rag block/);
     expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "pass", covered: ["src/a.js"] } }).reason).toContain("src/b.js");
     expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "pass", covered: staged } })).toMatchObject({ ok: true, mode: "pass" });
-    expect(checkRagVerdict({ stagedFiles: staged, rag: null, harness: false })).toMatchObject({ ok: true, mode: "no-harness" });
+    expect(checkRagVerdict({ stagedFiles: staged, rag: null, harness: false }).ok).toBe(false);
     // Only a grant that holds NOW authorizes; a "granted" or "no-harness" the block recorded is a claim that lapsed.
     expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "granted" }, standingExceptions: [grant("2999-01-01T00:00:00Z")] })).toMatchObject({ ok: true, mode: "granted" });
     expect(checkRagVerdict({ stagedFiles: staged, rag: { mode: "granted" } }).reason).toMatch(/malformed \(mode "granted"/);

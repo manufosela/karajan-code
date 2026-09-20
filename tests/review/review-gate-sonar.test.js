@@ -17,6 +17,7 @@ vi.mock("../../src/review/sonar-pregate.js", async (orig) => ({
 vi.mock("../../src/review/one-shot-review.js", () => ({ runOneShotReview: (...a) => reviewMock(...a) }));
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { seedRagLedger } from "./_seed-rag-ledger.js";
 
 let dir;
 const cwd0 = process.cwd();
@@ -32,6 +33,8 @@ beforeEach(() => {
   git("add", "a.js"); git("commit", "-qm", "base");
   fs.writeFileSync(path.join(dir, "a.js"), "y\n");
   git("add", "a.js");
+  // KJC-BUG-0192: staging code now requires a harness that recorded the session.
+  seedRagLedger(dir, ["a.js"]);
   process.chdir(dir); // rawDiff runs git in the process cwd
   reviewMock.mockResolvedValue({ verdict: "approved", reviewer: "codex", diffHash: "abc123456789", summary: "" });
 });

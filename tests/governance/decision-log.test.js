@@ -20,10 +20,12 @@ vi.mock("../../src/review/card-first.js", async (orig) => ({
 }));
 vi.mock("../../src/review/verdict-store.js", async (orig) => ({
   // KJC-TSK-0838: a verdict for code carries the proof that sonar covered it.
-  ...(await orig()), checkVerdict: vi.fn().mockResolvedValue({ ok: true, verdict: { reviewer: "codex", diffHash: "abc123456789", sonar: { ran: true, covered: ["src-ok.js"], uncovered: [] } } }),
+  // KJC-BUG-0192: a verdict for code carries the rag proof as well as sonar's.
+  ...(await orig()), checkVerdict: vi.fn().mockResolvedValue({ ok: true, verdict: { reviewer: "codex", diffHash: "abc123456789", sonar: { ran: true, covered: ["src-ok.js"], uncovered: [] }, rag: { mode: "pass", covered: ["src-ok.js"], uncovered: [] } } }),
 }));
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { seedRagLedger } from "../review/_seed-rag-ledger.js";
 
 describe("kernel: recordDecision + verifyDecisionChain", () => {
   it("encadena por hash y la verificacion detecta manipulacion", () => {
@@ -67,6 +69,8 @@ describe("adaptador + chokepoints", () => {
   const stage = (name) => {
     fs.writeFileSync(path.join(dir, name), "x\n");
     execFileSync("git", ["-C", dir, "add", name]);
+    // KJC-BUG-0192: staging code now requires a harness that recorded the session.
+    seedRagLedger(dir, [name]);
   };
   const log = () => fs.readFileSync(path.join(dir, ".karajan", "policy-decisions.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   const silence = () => vi.spyOn(console, "log").mockImplementation(() => {});

@@ -43,9 +43,14 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
   const ignored = Object.keys(env || {}).filter((k) => k.startsWith("KJ_ALLOW_") && env[k] === "1");
   const overrideNote = ignored.length > 0 ? ` (${ignored.join(", ")} is not honoured here)` : "";
   const head = `The RAG must have answered about code before it is reviewed (${sources.length} staged source${sources.length === 1 ? "" : "s"})${overrideNote}`;
-  // No Sentinel in this tree = no host session that could keep a ledger: the
-  // requirement does not apply here, and the verdict says so (mode).
-  if (ledger?.harness === false) return { ok: true, mode: "no-harness", sources };
+  // KJC-BUG-0192: no Sentinel in this tree used to PASS, which made "do not
+  // harden" the comfortable way around the gate. Nobody recording the session
+  // is a reason to install the harness, or to ask for a grant, never a silent
+  // exemption: the proof of the method cannot depend on the project choosing
+  // to install whoever records it.
+  if (ledger?.harness === false) {
+    return { ok: false, mode: "block", sources, reason: `${head} — no Sentinel harness in this tree, so no session ledger can exist: install it with \`kj harden\`. ${GRANT_HINT}` };
+  }
   // A harness that does not match the installed kj (edited, emptied, or older
   // than the ledger) cannot vouch for anything: fail closed, like the tamper
   // check does, until the human regenerates it.
@@ -82,8 +87,12 @@ export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = 
   if (sources.length === 0) return { ok: true, mode: "docs-only" };
   const grant = liveGrant(standingExceptions, now);
   if (grant) return { ok: true, mode: "granted", grant, sources };
-  if (!harness) return { ok: true, mode: "no-harness", sources };
   const head = `The RAG must have answered about code before it is committed (${sources.length} staged source${sources.length === 1 ? "" : "s"})`;
+  // KJC-BUG-0192: same rule on the --check side, so the commit gate cannot be
+  // opened by removing the supervisor either.
+  if (!harness) {
+    return { ok: false, mode: "block", sources, reason: `${head} — no Sentinel harness in this tree, so no session ledger can exist: install it with \`kj harden\`. ${GRANT_HINT}` };
+  }
   if (!verified) {
     return { ok: false, mode: "block", sources, reason: `${head} — the Sentinel harness does not match the installed kj (${mismatched.join(", ") || "scripts missing"}): the human runs \`kj harden\` to regenerate it. ${GRANT_HINT}` };
   }
