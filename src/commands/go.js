@@ -13,6 +13,7 @@ import { spawn } from "node:child_process";
 import { checkBinary } from "../utils/agent-detect.js";
 import { createCliAskQuestion } from "../utils/cli-ask-question.js";
 import { envInstallCommand } from "./env.js";
+import { ensureGitRepo } from "./init.js";
 import { boardCommand } from "./board.js";
 // The interactive launchers a muggle can live inside (v1: the two the epic
 // names). Auth heuristics are the same cheap file checks reviewer-fallback
@@ -44,7 +45,7 @@ export function buildGoPrompt() {
   ].join("\n");
 }
 async function defaultPrepare({ config, logger }) {
-  await envInstallCommand({ config, logger, flags: { yes: true } });
+  return envInstallCommand({ config, logger, flags: { yes: true } });
 }
 export async function defaultBoard({ config, logger, runBoard = boardCommand, openPath = "/?maggle=1" }) {
   const port = config.hu_board?.port || 4000;
@@ -95,7 +96,21 @@ export async function goCommand({ config = {}, logger = console, flags = {}, dep
   // Prepare ONCE: decisions already taken are never re-asked.
   if (!existsSync(path.join(projectDir, ".karajan", "review-gate"))) {
     logger.info?.("Preparando tu proyecto (solo la primera vez)…");
-    await (deps.prepare ?? defaultPrepare)({ config, logger });
+    // KJC-BUG-0191: empezar en una carpeta vacía es lo natural, y kj env
+    // install se niega a correr sin repositorio. Lo creamos nosotros.
+    if (!ensureGitRepo({ projectDir, logger })) {
+      logger.error?.("No he podido preparar el control de versiones de tu proyecto (git). Instálalo y vuelve a escribir: kj go");
+      process.exitCode = 1;
+      return 1;
+    }
+    const prepared = await (deps.prepare ?? defaultPrepare)({ config, logger });
+    // Algo depende de tus manos (arriba tienes el detalle). Sin eso el
+    // proyecto quedaría a medias, así que paramos aquí en vez de seguir.
+    if (prepared?.exitCode) {
+      logger.error?.("Falta una cosa que solo puedes hacer tú, la tienes justo arriba. Cuando la hagas, vuelve a escribir: kj go");
+      process.exitCode = 1;
+      return 1;
+    }
   }
   const prompt = (deps.prompt ?? buildGoPrompt)();
   // --window (MGL-E, ADR 0008): la conversación vive DENTRO del board — el
