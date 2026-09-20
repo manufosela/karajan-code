@@ -71,9 +71,18 @@ export const foreignLane = (targetDir) => {
 // the tracker. The method does not advance until the board is true.
 export const pendingMoves = (s) => (s && Array.isArray(s.pending_moves) ? s.pending_moves : []);
 export const pendingText = (p) => (p.card ? p.card : "card sin identificar") + " (PR #" + p.pr + ") mergeada sin mover en el tracker — muevela a To Validate / Fixed con sus commits (update_card del PG o kj hu move)";
+// KJC-BUG-0185: bootstrap phase = the repo has no commit yet. There is no base
+// branch to protect and no coverage to demand over a tree that does not exist,
+// and \`git diff HEAD\` cannot even run. The phase is a verifiable FACT, never a
+// flag, and it ends at the first commit.
+export const bootstrapPhase = () => {
+  try { execSync("git rev-parse --verify HEAD", { cwd: ROOT, stdio: ["ignore", "ignore", "ignore"] }); return false; }
+  catch { return true; }
+};
 export const violations = (s, branch) => {
   const v = pendingMoves(s).map(pendingText);
   if (!s || !(s.edited_sources || []).length) return v;
+  if (bootstrapPhase()) return v;
   if (BASE_BRANCHES.has(branch)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion");
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
   if (!(s.edited_tests || []).length && sessionAddsCode(s)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
