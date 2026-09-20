@@ -888,7 +888,14 @@ export async function initCommand({ logger, flags = {} }) {
     }
   }
 
-  await setupSonarQube(config, logger, { interactive });
+  // KJC-BUG-0184: the container is a heavy side effect — opt-out: --no-sonar.
+  // Only the bootstrap is skipped; the review gate still demands Sonar.
+  const skipSonar = flags?.noSonar === true || flags?.sonar === false;
+  if (skipSonar) {
+    logger.info("SonarQube container not started (--no-sonar). Start it later with 'kj sonar start'.");
+  } else {
+    await setupSonarQube(config, logger, { interactive });
+  }
   await scaffoldCiGateway(config, flags, logger);
 
   // Install the quality harness (git hooks, lint/format/commit config, CI
@@ -925,7 +932,7 @@ export async function initCommand({ logger, flags = {} }) {
   if (flags.json) {
     console.log(JSON.stringify({
       ok: true, configPath, scope, interactive,
-      skipped: ["ollama", "rtk", "squeezr", "qmd", "harden"].filter((t) => flags[t] === false),
+      skipped: ["ollama", "rtk", "squeezr", "qmd", "sonar", "harden"].filter((t) => flags[t] === false),
     }));
     return;
   }
