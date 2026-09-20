@@ -162,10 +162,15 @@ process.stdin.on("end", () => {
     // repo-relative sources it returned. Neither the CLI nor the MCP know the
     // host's session id: the harness records, they do not. Hits outside the
     // repo (another indexed project) are not ours and are dropped.
-    const recordRag = (query, sources) => {
+    // KJC-BUG-0190: an index with nothing in it (a brand new project) answers
+    // every question with silence, so the gate would demand what no query can
+    // deliver. kj says so explicitly, in both its human and json forms.
+    const EMPTY_INDEX = /No chunks indexed yet|"empty"\\s*:\\s*true/;
+    const recordRag = (query, sources, answer = "") => {
       const state = load();
       const s = session(state, sid);
       s.at = Date.now();
+      if (EMPTY_INDEX.test(String(answer))) s.rag_index_empty = true;
       const hits = [];
       for (const src of sources) {
         const rel = relative(ROOT, String(src)).split(String.fromCharCode(92)).join("/");
@@ -187,7 +192,7 @@ process.stdin.on("end", () => {
     const parseJson = (t) => { try { return JSON.parse(t); } catch { return null; } };
     if (/__kj_rag_query$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
       const parts = Array.isArray(response?.content) ? response.content : [];
-      recordRag(input.text, parts.flatMap((p) => sourcesOf(parseJson(String(p?.text || "")))));
+      recordRag(input.text, parts.flatMap((p) => sourcesOf(parseJson(String(p?.text || "")))), parts.map((p) => String(p?.text || "")).join(String.fromCharCode(10)));
       process.exit(0);
     }
     if (/__update_card$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
@@ -224,7 +229,7 @@ process.stdin.on("end", () => {
           .filter((l) => l.includes("score=") && l.includes("] "))
           .map((l) => l.slice(l.lastIndexOf("] ") + 2).trim())
           .filter(Boolean);
-        recordRag(cmdText.slice(ragCmd.index), fromLines.concat(sourcesOf(parseJson(out.trim()))));
+        recordRag(cmdText.slice(ragCmd.index), fromLines.concat(sourcesOf(parseJson(out.trim()))), out);
         process.exit(0);
       }
       // gh prints "merged pull request #N" only on a TTY: under a tool call the
@@ -905,7 +910,9 @@ process.stdin.on("end", () => {
         const fresh = !existsSync(String(file));
         // A path outside this tree is another lane's business (the lane guard
         // above rules on it) and the ledger only holds in-repo paths.
-        const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || (fresh && (rs.rag_queries || []).length > 0);
+        // KJC-BUG-0190: with nothing indexed, no query can cover anything —
+        // the gate asks for kj rag index instead of denying the impossible.
+        const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || (fresh && (rs.rag_queries || []).length > 0) || rs.rag_index_empty === true;
         if (!covered) {
           if (escOn("KJ_ALLOW_NO_RAG")) {
             // Recorded ONCE per session: the escape is a conscious exception, not a per-edit tax.
