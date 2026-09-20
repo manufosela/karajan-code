@@ -44,7 +44,16 @@ describe("pre-commit base-branch guard (real sh + git)", () => {
     return spawnSync("git", ["commit", "-m", msg], { cwd: dir, encoding: "utf8", env: { ...process.env, ...env } });
   }
 
+  // KJC-BUG-0186: the bootstrap commit has no branch to move to — the repo has
+  // no commit to branch from. The guard starts at commit #2.
+  const seed = () => tryCommit("chore: bootstrap");
+
+  it("lets the first commit of the repo through (bootstrap, nothing to branch from)", () => {
+    expect(seed().status).toBe(0);
+  });
+
   it("rejects a commit on the base branch with an actionable message", () => {
+    seed();
     const res = tryCommit("feat: on main");
     expect(res.status).not.toBe(0);
     expect(`${res.stdout}${res.stderr}`).toMatch(/create a branch/i);

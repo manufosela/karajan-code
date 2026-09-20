@@ -60,8 +60,9 @@ function chainToGlobal(hook, globalHooksDir) {
 function baseBranchGuard(baseBranch) {
   if (!baseBranch) return [];
   return [
-    "# Branch-first guard — the base branch only moves via PR.",
-    'if [ "$KJ_ALLOW_BASE_COMMIT" != "1" ]; then',
+    "# Branch-first guard — the base branch only moves via PR. KJC-BUG-0186:",
+    "# the bootstrap commit is exempt, there is no commit to branch from yet.",
+    'if [ "$KJ_ALLOW_BASE_COMMIT" != "1" ] && git rev-parse --verify HEAD >/dev/null 2>&1; then',
     '  current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")',
     `  if [ "$current_branch" = "${baseBranch}" ]; then`,
     `    echo 'kj harden: direct commits on ${baseBranch} are not allowed — create a branch and open a PR (KJ_ALLOW_BASE_COMMIT=1 to override)'; exit 1`,
