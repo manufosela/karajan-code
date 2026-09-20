@@ -28,6 +28,7 @@ export function resolveSentinelRoot(dir = process.cwd()) {
 const LIB_BODY = `// kj sentinel shared lib (KJC-TSK-0714) — managed by \`kj harden\`.
 // Single source for every sentinel script: state, branch, classification,
 // violations, and escape recording.
+import console from "node:console";
 import { readFileSync, writeFileSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -120,9 +121,10 @@ const POST_BODY = `#!/usr/bin/env node
 // kj sentinel state writer (KJC-TSK-0713) — managed by \`kj harden\`.
 // Records deterministic method facts per session; never blocks, never fails
 // a tool call (PostToolUse, always exit 0).
+import process from "node:process";
 import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { doc, CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
 const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD", "KJ_ALLOW_NO_RAG"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
@@ -275,6 +277,8 @@ const STOP_BODY = `#!/usr/bin/env node
 // one with its remediation). Fails OPEN on corrupt state, git errors, or
 // after 3 unresolved blocks — a sentinel bug never bricks the session — and
 // the fail-open is recorded in the state. \`--status\` prints, never blocks.
+import console from "node:console";
+import process from "node:process";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -382,6 +386,8 @@ const PRETOOL_BODY = `#!/usr/bin/env node
 // before the damage, not in the post-mortem. Exit 2 blocks (stderr says the
 // remediation); read-only tools are never wired here; every honored escape
 // is recorded as an auditable event. Fails OPEN on anything unexpected.
+import console from "node:console";
+import process from "node:process";
 import { dirname, join, relative, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -705,7 +711,7 @@ process.stdin.on("end", () => {
         // LITERALES (tambien dentro de sustituciones) los escanea el bucle
         // de tokens de abajo; el residuo (expansion anidada en segmentos
         // runner) queda documentado como en la regla de ficheros PROTECTED.
-        if (/>{1,2}[ \\t]*["']?[\\$\`]/.test(cmd)) {
+        if (/>{1,2}[ \\t]*["']?[$\`]/.test(cmd)) {
           if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("karajan sentinel: redireccion con destino tras variable/sustitucion — el guard de carriles no puede verificarlo (MONO-0); usa una ruta LITERAL (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
@@ -780,7 +786,7 @@ process.stdin.on("end", () => {
         }
         const SAFE_EXP_SEG = /^([A-Za-z_][A-Za-z0-9_]*=[^ \\t]*[ \\t]*)*((npm|pnpm|yarn|vitest|jest|kj|gh|echo|printf|true|test)\\b|git[ \\t](?![^\\n]*(-C[ \\t]|--git-dir|--work-tree)))[^;|&\\n]*$|^[A-Za-z_][A-Za-z0-9_]*=[^;|&\\n]*$/;
         const segs = cmd.split(/&&|\\|\\||[;|\\n]/).map((s) => s.trim()).filter(Boolean);
-        if (!segs.every((s) => !/[\\$]/.test(s) || SAFE_EXP_SEG.test(s))) {
+        if (!segs.every((s) => !/[$]/.test(s) || SAFE_EXP_SEG.test(s))) {
           if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("karajan sentinel: expansion de shell en una herramienta generica de fichero/interprete — el objetivo no es verificable por el guard de carriles (MONO-0); usa rutas LITERALES o un runner del toolchain (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));

@@ -16,6 +16,8 @@ const SCRIPT_BODY = `#!/usr/bin/env node
 // kj tool gate (KJC-TSK-0710) — managed by \`kj harden\`. Exit 2 blocks the
 // tool call (stderr explains why); anything unexpected fails OPEN (exit 0)
 // so a gate bug never bricks the session.
+import console from "node:console";
+import process from "node:process";
 import { existsSync } from "node:fs";
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
