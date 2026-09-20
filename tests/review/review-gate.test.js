@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { seedRagLedger } from "./_seed-rag-ledger.js";
 import { saveVerdict } from "../../src/review/verdict-store.js";
 
 let dir, cwd0, exit0;
@@ -17,6 +18,8 @@ beforeEach(() => {
   execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
   fs.writeFileSync(path.join(dir, "a.js"), "const x = 1;\n");
   execFileSync("git", ["add", "a.js"], { cwd: dir });
+  // KJC-BUG-0192: staging code now requires a harness that recorded the session.
+  seedRagLedger(dir, ["a.js"]);
 });
 afterEach(() => {
   process.chdir(cwd0);
@@ -36,7 +39,8 @@ describe("kj review gate", () => {
   it("--check passes with exit 0 when an approved verdict matches the staged diff", async () => {
     const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
     // KJC-TSK-0838: a verdict for code carries the proof that sonar covered it.
-    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: true, covered: ["a.js"], uncovered: [] } });
+    // KJC-BUG-0192: with a harness installed, the verdict also carries the rag proof.
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: true, covered: ["a.js"], uncovered: [] }, rag: { mode: "pass", covered: ["a.js"], uncovered: [] } });
     const res = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
     expect(res.ok).toBe(true);
     expect(process.exitCode).toBe(0);
@@ -91,7 +95,7 @@ describe("kj review gate", () => {
 
   it("--check lets that same verdict through only under a live human grant on the rule", async () => {
     const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
-    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: false, reason: "disabled in config" } });
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: false, reason: "disabled in config" }, rag: { mode: "pass", covered: ["a.js"], uncovered: [] } });
     fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
     fs.writeFileSync(path.join(dir, ".karajan", "policy-exceptions.jsonl"), JSON.stringify({
       rule_id: "method.sonar.code", scopeKind: "permanente", expiresAt: "2999-01-01T00:00:00Z", justification: "laptop sin docker", who: { git: "human" },

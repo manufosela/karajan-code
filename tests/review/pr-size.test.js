@@ -19,6 +19,7 @@ vi.mock("../../src/review/card-first.js", async (orig) => ({
 }));
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { seedRagLedger } from "./_seed-rag-ledger.js";
 
 let dir;
 const cwd0 = process.cwd();
@@ -35,6 +36,8 @@ beforeEach(() => {
   fs.writeFileSync(path.join(dir, "a.js"), Array.from({ length: 300 }, (_, i) => `line ${i}`).join("\n"));
   fs.writeFileSync(path.join(dir, "tests.test.js"), "test\n");
   git("add", "-A");
+  // KJC-BUG-0192: staging code now requires a harness that recorded the session.
+  seedRagLedger(dir, ["a.js", "tests.test.js"]);
   process.chdir(dir);
   reviewMock.mockResolvedValue({ verdict: "approved", reviewer: "codex", diffHash: "abc123456789" });
 });

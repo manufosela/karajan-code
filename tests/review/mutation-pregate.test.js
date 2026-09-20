@@ -24,6 +24,7 @@ vi.mock("../../src/review/mutation-pregate.js", async (orig) => {
   return { ...real, runMutationPregate: vi.fn(real.runMutationPregate) };
 });
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { seedRagLedger } from "./_seed-rag-ledger.js";
 
 const outcome = (survived, extra = {}) => ({
   result: { score: 80, killed: 8, total: 10, survived, ...extra },
@@ -45,6 +46,8 @@ describe("wiring en review-gate: --range NUNCA consulta el indice (catch de code
     fs.writeFileSync(path.join(dir, "a.js"), "cambio\n");
     fs.writeFileSync(path.join(dir, "a.test.js"), "t\n");
     git("add", "-A"); git("commit", "-qm", "cambio");
+    // KJC-BUG-0192: staging code now requires a harness that recorded the session.
+    seedRagLedger(dir, ["a.js", "a.test.js"]);
     process.chdir(dir);
     reviewMock.mockResolvedValue({ verdict: "approved", reviewer: "codex", diffHash: "abc123456789" });
   });

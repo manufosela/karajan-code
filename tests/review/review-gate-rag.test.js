@@ -66,9 +66,14 @@ describe("review gate × rag requirement", () => {
     expect(call.task).toContain("- lib/twin.js");
   });
 
-  it("without a Sentinel harness the requirement stands down and says so; a harness that does not verify fails closed", async () => {
-    expect((await reviewGateCommand({ config: cfg(), flags: { staged: true } })).verdict).toBe("approved");
-    expect(reviewMock.mock.calls[0][0].rag.mode).toBe("no-harness");
+  // KJC-BUG-0192: an absent harness used to stand down, which made "do not
+  // harden" the way around the gate. Nobody to record the session is a reason
+  // to install it, not an exemption.
+  it("without a Sentinel harness the requirement blocks and names kj harden; a harness that does not verify fails closed", async () => {
+    const noHarness = await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    expect(noHarness).toMatchObject({ verdict: "rejected", reviewer: "rag-first" });
+    expect(noHarness.issues[0].description).toMatch(/kj harden/);
+    expect(reviewMock).not.toHaveBeenCalled();
     // An empty or hand-made harness dir is not the Sentinel: nothing it says counts.
     fs.mkdirSync(path.join(dir, ".karajan", "harness"), { recursive: true });
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true } });

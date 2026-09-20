@@ -10,6 +10,7 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { hookBody, SHEBANG } from "../../src/harden/hook-templates.js";
 import { saveVerdict } from "../../src/review/verdict-store.js";
+import { seedRagLedger } from "../review/_seed-rag-ledger.js";
 
 describe("pre-commit template includes the opt-in review gate", () => {
   it("guards on the COMMITTED .karajan/review-gate marker and calls kj review --check", () => {
@@ -95,7 +96,9 @@ describe("review gate e2e (real sh + git)", () => {
     execFileSync("git", ["add", "f.js"], { cwd: dir });
     const staged = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
     // KJC-TSK-0838: a verdict for code carries the proof that sonar covered it.
-    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: true, covered: ["f.js"], uncovered: [] } });
+    // KJC-BUG-0192: and, with a harness in the tree, the rag proof too.
+    seedRagLedger(dir, ["f.js"]);
+    await saveVerdict(dir, staged, { verdict: "approved", reviewer: "codex", issues: [], sonar: { ran: true, covered: ["f.js"], uncovered: [] }, rag: { mode: "pass", covered: ["f.js"], uncovered: [] } });
     const res = spawnSync("git", ["commit", "-m", "feat: approved change"], { cwd: dir, encoding: "utf8", env });
     expect(`${res.stdout}${res.stderr}`).not.toMatch(/kj review --staged/);
     expect(res.status).toBe(0);
