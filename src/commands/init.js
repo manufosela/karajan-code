@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -743,6 +744,25 @@ export async function resolveConfigScope({ flags, interactive }) {
   return { configPath: getConfigPath(), scope: "global" };
 }
 
+/**
+ * KJC-BUG-0187: the enforcement gates live in git hooks, so a project without
+ * a repo gets no harness at all. Init creates it, exactly like `kj run` does
+ * (src/orchestrator/config-init.js), and reports failure instead of carrying
+ * on half-installed. No seed commit: that is the bootstrap commit's job.
+ */
+export function ensureGitRepo({ projectDir, logger, gitFn = null }) {
+  if (isGitRepo(projectDir)) return true;
+  const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, stdio: "pipe" }));
+  try {
+    run(["init"]);
+    logger?.info?.("Initialized git repository (no seed commit) — the quality harness needs it");
+    return true;
+  } catch (err) {
+    logger?.warn?.(`git init failed: ${err.message}`);
+    return false;
+  }
+}
+
 export async function initCommand({ logger, flags = {} }) {
   // AB-B (KJC-TSK-0656): with --json, stdout is a machine contract — every
   // human log moves to stderr so the only stdout line is the summary object.
@@ -902,13 +922,15 @@ export async function initCommand({ logger, flags = {} }) {
   // quality gates, agent guidelines) through the SAME engine as `kj harden`,
   // so init and harden never drift. Opt-out: --no-harden. Needs a git repo.
   const skipHarden = flags?.noHarden === true || flags?.harden === false;
+  let hardened = false;
   if (skipHarden) {
     logger.info("Quality harness skipped (--no-harden).");
-  } else if (isGitRepo(process.cwd())) {
+  } else if (ensureGitRepo({ projectDir: process.cwd(), logger })) {
     logger.info("Installing quality harness (kj harden)...");
     await hardenCommand({ projectDir: process.cwd(), logger });
+    hardened = true;
   } else {
-    logger.info("Not a git repository — run `kj harden` after `git init` to add the quality harness.");
+    logger.warn("Quality harness NOT installed: this is not a git repository and `git init` failed — Karajan's guarantees live in git hooks. Fix git, then run `kj harden`.");
   }
 
   // Persist any changes setupSonarQube made (token, etc.) back to disk.
@@ -940,7 +962,11 @@ export async function initCommand({ logger, flags = {} }) {
   // Clear close so a first-time user knows setup finished and what to do next,
   // instead of being left at the end of a wall of detection logs (KJC-BUG-0088).
   logger.info("");
-  logger.info("✓ Karajan is set up in this project.");
+  // KJC-BUG-0187: never declare a setup that did not happen. Without the
+  // harness there are no gates, and saying otherwise is the worst outcome.
+  logger.info(hardened || skipHarden
+    ? "✓ Karajan is set up in this project."
+    : "⚠ Karajan is set up EXCEPT the quality harness — without it there are no gates.");
   logger.info('  Next:  kj run "describe what to build or fix"');
   logger.info("  More:  kj --help   ·   kj doctor (check your setup)");
 }
