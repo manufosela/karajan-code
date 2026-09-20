@@ -56,6 +56,17 @@ describe("env install — installing IS activating (KJC-BUG-0133)", () => {
     expect(hardenCommand).not.toHaveBeenCalled();
   });
 
+  // KJC-BUG-0188: a headless harden never binds an identity (it must not — a
+  // blind bind once tied a clone to another session's gh account). The pending
+  // step used to be a buried warn, and the Sentinel then denied every git and
+  // gh call with no visible link back to it. It blocks at install time instead.
+  it("an undeclared identity BLOCKS pending with the exact command", async () => {
+    hardenCommand.mockResolvedValueOnce({ ok: true, identityPending: "identity not declared for this clone (non-interactive run) — run: kj identity set --gh me --email me@example.com" });
+    const res = await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false } });
+    expect(res.exitCode).toBe(3);
+    expect(res.pendingBlock).toMatch(/kj identity set --gh me --email me@example\.com/);
+  });
+
   it("--no-enforce is the named escape and enforcement failure blocks pending", async () => {
     await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false, enforce: false } });
     expect(hardenCommand).not.toHaveBeenCalled();

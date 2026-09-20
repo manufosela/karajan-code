@@ -64,12 +64,15 @@ export function collectPending(results, { tty = Boolean(process.stdin.isTTY), ye
 }
 
 /** The PENDING USER ACTION block: exact commands for THIS OS, then wait. */
-export function renderPendingBlock(pending, { platform = process.platform, retry = "kj install-tools" } = {}) {
+export function renderPendingBlock(pending, { platform = process.platform, retry = "kj install-tools", why = null } = {}) {
   const lines = [
     "════ PENDING USER ACTION ════════════════════════════════════════",
-    "kj could not finish this install by itself (sudo or a platform",
-    "installer is required). Karajan needs a COMPLETE environment —",
-    "do not continue degraded.",
+    // `why` names the real cause when it is not an install (KJC-BUG-0188:
+    // an undeclared identity needs the human, not a package manager).
+    ...(why
+      ? [`kj could not finish by itself: ${why}.`]
+      : ["kj could not finish this install by itself (sudo or a platform", "installer is required)."]),
+    "Karajan needs a COMPLETE environment — do not continue degraded.",
     "",
     "Run in YOUR terminal:",
     "",

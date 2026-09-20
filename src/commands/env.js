@@ -115,6 +115,18 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     try {
       const h = await hardenCommand({ projectDir, logger: console });
       if (h?.ok === false) throw new Error(h.error || "kj harden failed");
+      // KJC-BUG-0188: a headless harden never binds an identity by itself, and
+      // it must not. Blocking here beats the Sentinel denying every git and gh
+      // call later, with nothing on screen tying that back to this install.
+      if (h?.identityPending) {
+        result.exitCode = PENDING_EXIT_CODE;
+        result.pendingBlock = renderPendingBlock(
+          [{ tool: "identity", action: "needs-user", reason: h.identityPending, command: h.identityCommand }],
+          { retry: "kj env install", why: "this clone has no declared identity, and kj never binds one on its own" },
+        );
+        console.log(result.pendingBlock);
+        return result;
+      }
       await reviewGateCommand({ config, flags: { installGate: true } });
       console.log("✓ enforcement active: git hooks + cross-AI verdict gate — a commit outside the method is rejected, not narrated");
     } catch (err) {

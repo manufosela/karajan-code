@@ -28,7 +28,7 @@ export async function ensureIdentity({ projectDir, logger = null, deps = {} }) {
     const why = !gh || !email ? "no active gh session or git email" : "non-interactive run";
     const pending = `identity not declared for this clone (${why}) — run: ${hint}`;
     logger?.warn?.(`kj identity: ${pending}`);
-    return { declared: false, identity: null, pending };
+    return { declared: false, identity: null, pending, command: hint };
   }
 
   const wizard = (deps.makeWizard || createWizard)();
@@ -37,7 +37,7 @@ export async function ensureIdentity({ projectDir, logger = null, deps = {} }) {
     if (!ok) {
       const pending = `identity not declared (declined) — run: ${hint}`;
       logger?.warn?.(`kj identity: ${pending}`);
-      return { declared: false, identity: null, pending };
+      return { declared: false, identity: null, pending, command: hint };
     }
   } finally {
     wizard.close();
