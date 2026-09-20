@@ -200,7 +200,10 @@ export async function hardenCommand({
   if (!dryRun) {
     const id = await ensureIdentity({ projectDir, logger });
     out.identity = id.declared ? id.identity : null;
-    if (id.pending) out.identityPending = id.pending;
+    if (id.pending) {
+      out.identityPending = id.pending;
+      out.identityCommand = id.command;
+    }
   }
   // KJC-BUG-0161 / ADR 0009 (opción A): --commit versiona la regeneración
   // del supervisor con procedencia sellada. Acto humano — el guard vive en
