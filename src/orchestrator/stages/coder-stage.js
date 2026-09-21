@@ -20,7 +20,7 @@ import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
 import { applyQuotaSimulation } from "../../utils/quota-simulator.js";
-import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage, verifyLeaksAgainstTranscript, detectTranscriptCdLeaks } from "../fs-leak-detector.js";
+import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage, splitLeakEvidence, detectTranscriptCdLeaks } from "../fs-leak-detector.js";
 
 export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
   logger.setContext({ iteration, stage: "coder" });
@@ -186,9 +186,14 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
   // detected entries against the coder's transcript: only flag those
   // the coder demonstrably referenced.
   const coderTranscript = coderExecResult.result?.output || "";
-  const layer1Leaks = verifyLeaksAgainstTranscript(candidateLeaks, coderTranscript);
+  // KJC-BUG-0180: only what the transcript ATTRIBUTES to the coder fails the
+  // run. Without a transcript there is no evidence it wrote anything, so the
+  // finding is reported and the work goes on — a concurrent host-side write
+  // under $HOME used to kill the whole flow.
+  const { attributed: layer1Leaks, unattributed } = splitLeakEvidence(candidateLeaks, coderTranscript);
   if (candidateLeaks.length > 0 && layer1Leaks.length === 0) {
-    logger.warn(`fs-leak-detector: ${candidateLeaks.length} new $HOME entr(y/ies) detected but none referenced in the coder transcript — likely a concurrent host-side write, not flagging (#546).`);
+    const why = unattributed.length > 0 ? "no coder transcript to attribute them" : "none referenced in the coder transcript";
+    logger.warn(`fs-leak-detector: ${candidateLeaks.length} new $HOME entr(y/ies) detected but ${why} — likely a concurrent host-side write, not flagging (#546).`);
   }
   // Layer 2 (BUG-0032): scan the transcript for `cd <abs-out-of-project> && <write-cmd>`
   // patterns the snapshot-diff misses (e.g. when target dir pre-existed).
