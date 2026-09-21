@@ -59,6 +59,17 @@ const SECRET_HEURISTICS = [
 // are blanked before redactPII and COUNTED, so a clean result can say
 // "nothing found" or "found and discarded by context" — never the same thing.
 // The personal denylist runs before this: the user's own datum always blocks.
+// KJC-BUG-0195 — a Google key inside a Firebase web config is public by
+// design: it names the project, and what protects the data are the Firestore
+// rules. It still BLOCKS (the shape alone cannot prove which key it is, and a
+// server key next to it would ride along), but the finding stops being a dead
+// end: it names the declared way out, the allowlist, and what actually
+// protects that key. A gate with no exit teaches people to skip the gate.
+// Markers kept unambiguous on purpose (codex caught projectId being generic
+// enough to appear next to a server key): only Firebase-specific ones count.
+const FIREBASE_WEB_MARKERS = /firebaseConfig|authDomain|firebasestorage|firestore\.googleapis\.com|firebaseapp\.com/;
+const FIREBASE_KEY_HINT = "si es la clave web de Firebase (publica por diseno): declarala en el allow de ~/.karajan/privacy.yml y restringela por dominio en la consola de Google";
+
 const CONTEXT_DISCARDS = [
   { type: "git-sha", re: /\b(?:[0-9a-f]{64}|[0-9a-f]{40})\b/g },
   { type: "doc-domain-email", re: /\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*(?:example\.(?:com|org|net)|test|invalid|localhost|example)\b/g },
@@ -71,6 +82,7 @@ const CONTEXT_DISCARDS = [
 export function scanText(text, { list = loadPrivacyList(), source = "<text>" } = {}) {
   const findings = [];
   let discarded = 0;
+  const firebaseWeb = FIREBASE_WEB_MARKERS.test(String(text));
   String(text).split("\n").forEach((line, i) => {
     let probe = line;
     for (const a of list.allow) probe = probe.split(a).join(" ");
@@ -85,7 +97,8 @@ export function scanText(text, { list = loadPrivacyList(), source = "<text>" } =
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(probe)) !== null) {
-        findings.push({ severity: "block", type, source, line: i + 1, masked: maskValue(m[0]) });
+        const hint = type === "google-key" && firebaseWeb ? ` — ${FIREBASE_KEY_HINT}` : "";
+        findings.push({ severity: "block", type, source, line: i + 1, masked: `${maskValue(m[0])}${hint}` });
         probe = probe.slice(0, m.index) + " ".repeat(m[0].length) + probe.slice(m.index + m[0].length);
         re.lastIndex = m.index + m[0].length;
       }

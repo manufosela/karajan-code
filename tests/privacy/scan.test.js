@@ -56,6 +56,26 @@ describe("privacy/scan", () => {
     expect(dump).not.toContain("s3cr3t");
   });
 
+  // KJC-BUG-0195 — the shape alone cannot tell a Firebase web key (public by
+  // design) from a server key, so it still blocks. What changes is that the
+  // finding names the declared way out instead of being a dead end.
+  it("a Google key in a Firebase web config still BLOCKS, but names the way out", () => {
+    const key = "AIza" + "B".repeat(35);
+    const text = `const firebaseConfig = {\n  authDomain: "demo-app.firebaseapp.com",\n  apiKey: "${key}",\n};\n`;
+    const hit = scanText(text, { list: list() }).find((x) => x.type === "google-key");
+    expect(hit).toMatchObject({ severity: "block" });
+    expect(hit.masked).toMatch(/privacy\.yml/);
+    expect(hit.masked).toMatch(/dominio/);
+    expect(JSON.stringify(hit)).not.toContain(key);
+  });
+
+  it("a generic projectId is NOT Firebase context: the finding stays plain", () => {
+    const key = "AIza" + "C".repeat(35);
+    const hit = scanText(`projectId: my-gcp-project\nGOOGLE_API_KEY=${key}\n`, { list: list() }).find((x) => x.type === "google-key");
+    expect(hit).toMatchObject({ severity: "block" });
+    expect(hit.masked).not.toMatch(/privacy\.yml/);
+  });
+
   it("allowlisted strings silence secret shapes too", () => {
     const fake = "AKIA" + "EXAMPLE234567890";
     writeFileSync(join(home, ".karajan", "privacy.yml"), `personal: []\nallow:\n  - "${fake}"\n`);
