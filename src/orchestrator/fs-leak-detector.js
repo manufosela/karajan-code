@@ -112,6 +112,24 @@ export function detectNewHomeEntries(before, projectDir) {
  * @param {string|null|undefined} transcript — coder's full output text
  * @returns {string[]} filtered leaks (the subset attributable to coder)
  */
+/**
+ * KJC-BUG-0180 — attribution is not severity. `verifyLeaksAgainstTranscript`
+ * stays strict on purpose: with no transcript it returns everything. But
+ * "the snapshot changed and there is NO evidence the coder did it" is a
+ * different fact from "the coder wrote there", and only the second one
+ * should kill the run. The flaky CI failure was exactly this: other test
+ * files writing under $HOME during the iteration window, an empty
+ * transcript from a mocked coder, and the whole flow failing and retrying.
+ *
+ * @returns {{attributed: string[], unattributed: string[]}} — `attributed`
+ *   fails the run; `unattributed` is reported and the work goes on.
+ */
+export function splitLeakEvidence(leaks, transcript) {
+  const hasTranscript = typeof transcript === "string" && transcript.length > 0;
+  const found = verifyLeaksAgainstTranscript(leaks, transcript);
+  return hasTranscript ? { attributed: found, unattributed: [] } : { attributed: [], unattributed: found };
+}
+
 export function verifyLeaksAgainstTranscript(leaks, transcript) {
   if (!Array.isArray(leaks) || leaks.length === 0) return [];
   if (!transcript || typeof transcript !== "string" || transcript.length === 0) {

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage,
-  verifyLeaksAgainstTranscript, detectTranscriptCdLeaks,
+  verifyLeaksAgainstTranscript, detectTranscriptCdLeaks, splitLeakEvidence,
 } from "../src/orchestrator/fs-leak-detector.js";
 
 // KJC-BUG-0032 (PR-I): the coder's Bash tool can `cd` anywhere and
@@ -149,6 +149,24 @@ describe("verifyLeaksAgainstTranscript (issue #546 — host-write false positive
     const leaks = ["/home/manu/assistant"];
     const transcript = "I'll create the assistant directory and put the skeleton there.";
     expect(verifyLeaksAgainstTranscript(leaks, transcript)).toEqual(["/home/manu/assistant"]);
+  });
+
+  // KJC-BUG-0180 — the strict return above is attribution, not severity.
+  // With no transcript there is no evidence the coder wrote anything, so the
+  // finding is reported and the run goes on; with evidence it still fails.
+  it("splitLeakEvidence: no transcript means reported, not attributed", () => {
+    const leaks = ["/home/x/foo"];
+    expect(splitLeakEvidence(leaks, "")).toEqual({ attributed: [], unattributed: leaks });
+    expect(splitLeakEvidence(leaks, null)).toEqual({ attributed: [], unattributed: leaks });
+  });
+
+  it("splitLeakEvidence: a leak the coder named is attributed and must fail the run", () => {
+    const leaks = ["/home/manu/assistant"];
+    expect(splitLeakEvidence(leaks, "cd /home/manu/assistant && pnpm init -y")).toEqual({ attributed: leaks, unattributed: [] });
+  });
+
+  it("splitLeakEvidence: a transcript that never mentions it attributes nothing", () => {
+    expect(splitLeakEvidence(["/home/manu/snapshot.md"], "I changed src/bar.js and ran the tests")).toEqual({ attributed: [], unattributed: [] });
   });
 
   it("returns all leaks unchanged when transcript is empty (back-compat — strict)", () => {
