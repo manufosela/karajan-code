@@ -10,6 +10,7 @@ import { isAbsolute, join } from "node:path";
 import { runCommand } from "../utils/process.js";
 import { loadPrivacyList, scanPaths } from "../privacy/scan.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
+import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 
 // KJC-TSK-0769 — the effect boundary: what ships is re-evaluated against the
 // policy IN FORCE now, not the one each PR was merged under. Artifact rules
@@ -28,7 +29,13 @@ async function policyRangeCheck(projectDir) {
       : ["-C", projectDir, "ls-tree", "-r", "--name-only", "HEAD"]);
     if (listed.exitCode !== 0) throw new Error((listed.stderr || "git failed").trim());
     const files = listed.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
-    const violations = checkStagedDiff(policy, { role: "coder", files, netLinesAdded: null }).filter((v) => !prScoped.has(v.rule_id));
+    const raw = checkStagedDiff(policy, { role: "coder", files, netLinesAdded: null }).filter((v) => !prScoped.has(v.rule_id));
+    // KJC-BUG-0178 (ADR 0009): the supervisor seal trips the very rule that
+    // protects the supervisor. `kj review` and `kj policy check` already lift
+    // what the sealed provenance backs; without this the release check blocked
+    // every version cut after a human `kj harden --commit`, by its own seal.
+    const sup = liftSealedSupervisorViolations({ projectDir, violations: raw });
+    const violations = sup.violations;
     const hard = violations.filter((v) => v.enforcement === "deny");
     const skipped = prScoped.size > 0 ? `; ${prScoped.size} diff-threshold invariant(s) skipped (PR-scoped)` : "";
     if (hard.length > 0) {
