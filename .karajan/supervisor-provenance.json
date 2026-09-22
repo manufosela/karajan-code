@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.27.0",
-  "generated_at": "2026-09-06T19:18:15.067Z",
+  "kj_version": "4.31.0",
+  "generated_at": "2026-09-22T05:14:44.390Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -8,7 +8,7 @@
       "format": "npm run -s format:check"
     },
     "baseBranch": "main",
-    "globalHooksDir": "/home/manu/.git-hooks"
+    "globalHooksDir": "$HOME/.git-hooks"
   },
   "who": {
     "gh": "manufosela",
@@ -26,7 +26,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "59b3ea449cd172752bf030e9cfa2b57962925ace10b935a41619ade2a01aaa19"
+      "sha256": "6796b753158fcff58c6485fc6fe991f937e33c3f5221ba6431522c4842a5013b"
     },
     {
       "file": ".karajan/hooks/pre-push",
@@ -36,5 +36,13 @@
       "file": ".karajan/hooks/prepare-commit-msg",
       "sha256": "4850712b985d9c2470fbaf55f84019ff739370ad3fd0d941aaefcbdebe6537f9"
     }
-  ]
+  ],
+  "signature": {
+    "cid": "43a23b3f26969baaff4b4cfe9afb956a",
+    "nonce": "0dd504675d4c8190b8b32c90f68306a8",
+    "project": "karajan-code",
+    "filesHash": "bc9537c8de63f2436d09746bd9a18e443c8d4409c6ce8dbacf7cc5a726f0456c",
+    "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
+    "signature": "KP195xXh6WmrFsMca4fdrdyjItWk4hUPxsDK5ahzRGo1QwiBSXxkHNPcyG/tj/JcZFQU90l6I28F8AmL+QCpAQ=="
+  }
 }
