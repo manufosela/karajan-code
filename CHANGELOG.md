@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.31.1] - 2026-09-22
+
+Two gates that were crying wolf, and a seal that had been stuck for two weeks.
+
+### Fixed
+
+- **A Firebase web key finding named no way out** (KJC-BUG-0195, #1766): `kj privacy scan`, mandatory before publishing anything, blocked on the key the phone-signing page carries in the browser. That key is public by design, so every landing deploy hit the same wall. It still blocks, because the shape alone cannot tell which Google key it is and a server key next to it would ride along on any downgrade, but with unambiguous Firebase markers around it the finding now names the declared exit, the `allow` list in `~/.karajan/privacy.yml`, and what actually protects that key: restricting it by domain.
+- **A leak nobody can attribute is reported, not fatal** (KJC-BUG-0180, #1767): the flaky `runflow-events` failure was never a timeout. With no coder transcript, the strict path flagged every new `$HOME` entry, so a concurrent write from another test killed the flow and retried it, adding three events to the sequence under test. Attribution is now separated from severity: what the transcript ties to the coder still fails loudly, a snapshot difference with nothing behind it is reported and the work goes on, and the `cd` outside the project still fails hard.
+- **The supervisor seal landed** (KJC-BUG-0178, #1768, supersedes #1656): the seal cut on 4.28.1 recorded a raw hooks-dir path in its provenance, so CI under a different `$HOME` never reproduced the sealed bytes. The path fix shipped as KJC-BUG-0169 and the template changed again in 4.28.2, so the old seal could not be rescued. Regenerated on 4.31.0 and merged with CI green.
+
 ## [4.31.0] - 2026-09-20
 
 The cold start stops asking you to force it. A field report on a brand new project (issue #1753) opened a map of the whole path from an empty directory: nine gates firing, several of them precisely because the repo had been raised by hand. The ADR of epic KJC-PCS-0088 makes the bootstrap a phase with rules of its own, defined by a verifiable fact (the repo has no commit) and ending at the first one. Eight fixes, eight PRs (#1754 to #1763).

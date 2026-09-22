@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.31.0 — el arranque en frío deja de exigir forzar (actual)
+### v4.31.1 — dos gates que gritaban en falso (actual)
+
+Patch. `kj privacy scan` bloqueaba cada despliegue de la landing por la clave web de Firebase que la página de firma lleva en el navegador, una clave pública por diseño: sigue bloqueando, porque la forma por sí sola no dice qué clave de Google es, pero ahora nombra la salida declarada y lo que de verdad la protege. El test inestable de `runflow-events` resultó no ser un timeout: sin transcripción del coder, el detector marcaba como fuga toda entrada nueva en `$HOME`, así que una escritura de otro test mataba la ejecución y la reintentaba. Atribución y severidad pasan a ser cosas distintas. Y el sello del supervisor, atascado desde la 4.28.1 porque su procedencia guardaba una ruta cruda que el CI no podía reproducir, se regeneró sobre la 4.31.0 y entró.
+
+### v4.31.0 — el arranque en frío deja de exigir forzar
 
 Empezar un proyecto en una carpeta vacía acababa con el usuario eligiendo entre forzar un gate y rendirse. Un aviso de campo (issue #1753) abrió el mapa del camino entero: nueve gates disparándose, varios precisamente porque el repositorio se había levantado a mano. La épica KJC-PCS-0088 convierte el arranque en una fase con reglas propias, definida por un hecho comprobable (el repo no tiene ningún commit) y terminada en el primero. El Stop gate deja de exigir cobertura sobre un árbol que no existe, el commit del contrato pasa porque no hay de dónde ramificar, `kj init` crea el repositorio en vez de saltarse el harness y darse por terminado, una identidad sin declarar bloquea la instalación en lugar de cada `git` posterior, `kj hu add` produce una referencia que el gate de cards acepta, rag-first se aparta mientras no hay nada indexado, y `kj go` arranca en una carpeta vacía. En sentido contrario, un agujero cerrado: un harness ausente ahora bloquea el gate del RAG en vez de abrirlo, así que no hardenar deja de ser la forma cómoda de esquivarlo.
 
