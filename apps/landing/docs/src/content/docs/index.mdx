@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.31.0 — the cold start stops asking you to force it (current)
+### v4.31.1 — two gates that cried wolf (current)
+
+Patch. `kj privacy scan` blocked every landing deploy over the Firebase web key the phone-signing page carries in the browser, a key that is public by design: it still blocks, because the shape alone cannot tell which Google key it is, but it now names the declared exit and what actually protects that key. The flaky `runflow-events` failure turned out not to be a timeout: with no coder transcript the leak detector flagged every new `$HOME` entry, so a write from another test killed the flow and retried it. Attribution and severity are now separate things. And the supervisor seal, stuck since 4.28.1 because its provenance recorded a raw path CI could not reproduce, was regenerated on 4.31.0 and landed.
+
+### v4.31.0 — the cold start stops asking you to force it
 
 Starting a project from an empty directory used to end with the user choosing between forcing a gate and giving up. A field report (issue #1753) opened the map of the whole path: nine gates firing, several of them precisely because the repo had been raised by hand. Epic KJC-PCS-0088 makes the bootstrap a phase with rules of its own, defined by a verifiable fact (the repo has no commit) and ending at the first one. The Stop gate no longer demands coverage over a tree that does not exist, the contract commit passes because there is nothing to branch from, `kj init` creates the repository instead of skipping the harness and calling it done, an undeclared identity blocks the install rather than every later `git` call, `kj hu add` produces a reference the card gate accepts, rag-first stands down while nothing is indexed, and `kj go` starts in an empty folder. In the other direction, one hole closed: an absent harness now blocks the RAG gate instead of opening it, so not hardening stops being the comfortable way around it.
 
