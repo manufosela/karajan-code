@@ -38,6 +38,32 @@ describe("release check — policy at the effect boundary", () => {
     expect(c.detail).toContain("prod.secret");
   });
 
+  // KJC-BUG-0178 — the supervisor seal is written BY the supervisor rule it
+  // trips: the provenance lift exists for exactly that (ADR 0009) and both
+  // `kj review` and `kj policy check` apply it. The release check did not, so
+  // every release after a human `kj harden --commit` was blocked by its own
+  // seal, which is what happened publishing 4.31.1.
+  it("a supervisor file backed by sealed provenance does NOT block the release", async () => {
+    write(".karajan/policy.yml", "version: 1\nroles:\n  coder:\n    write: { deny: ['**/*.secret'], enforcement: deny }\n");
+    git("add", "-A"); git("commit", "-qm", "policy");
+    commit(".karajan/hooks/pre-commit", "chore(harden): seal");
+    const blocked = await policy();
+    expect(blocked.ok).toBe(false);
+    expect(blocked.detail).toContain("defaults.supervisor.write");
+    // With provenance that verifies — the hook IS the canonical render, and
+    // its sha is the sealed one — the same commit is lifted.
+    const { renderCanonicalHook } = await import("../../src/harden/harden-engine.js");
+    const { createHash } = await import("node:crypto");
+    const generation = { profile: "standard", baseBranch: "main" };
+    const canonical = renderCanonicalHook("pre-commit", generation);
+    write(".karajan/hooks/pre-commit", canonical);
+    const sha = createHash("sha256").update(Buffer.from(canonical, "utf8")).digest("hex");
+    write(".karajan/supervisor-provenance.json", JSON.stringify({ version: 1, generation, files: [{ file: ".karajan/hooks/pre-commit", sha256: sha }] }));
+    git("add", "-A"); git("commit", "-qm", "chore(harden): provenance");
+    const lifted = await policy();
+    expect(lifted.detail).not.toContain(".karajan/hooks/pre-commit");
+  });
+
   it("green names the range; diff-threshold invariants are PR-scoped and SKIPPED, saying so", async () => {
     commit("src/big.js", "feature");
     const c = await policy();
