@@ -47,6 +47,8 @@ export async function runOneShotReview({
   sonar = null,
   // KJC-TSK-0849 (ADR 0010): what the session's RAG ledger proved, same place.
   rag = null,
+  // BOOT-D (KJC-TSK-0863): the walkthrough of what a person sees, same place.
+  ui = null,
   hostAgent = detectHostAgent(),
   createAgentFn = createAgent,
   detectAgents = detectAvailableAgents,
@@ -129,6 +131,9 @@ export async function runOneShotReview({
     summary: parsed.summary || parsed.raw_summary || "",
     ...(sonar ? { sonar } : {}),
     ...(rag ? { rag } : {}),
+    // BOOT-D (KJC-TSK-0863): the walkthrough of what a person sees travels with
+    // the verdict, bound to this diff, like the other two proofs.
+    ...(ui ? { ui } : {}),
     confidence: parsed.confidence ?? null,
   });
 }
