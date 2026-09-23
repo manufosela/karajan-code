@@ -12,8 +12,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { checkBinary } from "../utils/agent-detect.js";
 import { createCliAskQuestion } from "../utils/cli-ask-question.js";
-import { envInstallCommand } from "./env.js";
-import { ensureGitRepo } from "./init.js";
+import { bootstrapCommand } from "./bootstrap.js";
 import { boardCommand } from "./board.js";
 // The interactive launchers a muggle can live inside (v1: the two the epic
 // names). Auth heuristics are the same cheap file checks reviewer-fallback
@@ -43,9 +42,6 @@ export function buildGoPrompt() {
     "El tablero del proyecto está abierto en su navegador: cuando termines algo, recuérdale que puede verlo ahí.",
     "Empieza presentándote en dos frases y preguntando qué quiere construir o cambiar hoy.",
   ].join("\n");
-}
-async function defaultPrepare({ config, logger }) {
-  return envInstallCommand({ config, logger, flags: { yes: true } });
 }
 export async function defaultBoard({ config, logger, runBoard = boardCommand, openPath = "/?maggle=1" }) {
   const port = config.hu_board?.port || 4000;
@@ -96,14 +92,17 @@ export async function goCommand({ config = {}, logger = console, flags = {}, dep
   // Prepare ONCE: decisions already taken are never re-asked.
   if (!existsSync(path.join(projectDir, ".karajan", "review-gate"))) {
     logger.info?.("Preparando tu proyecto (solo la primera vez)…");
-    // KJC-BUG-0191: empezar en una carpeta vacía es lo natural, y kj env
-    // install se niega a correr sin repositorio. Lo creamos nosotros.
-    if (!ensureGitRepo({ projectDir, logger })) {
-      logger.error?.("No he podido preparar el control de versiones de tu proyecto (git). Instálalo y vuelve a escribir: kj go");
+    // BOOT-A paso 3 (KJC-TSK-0857): el orden vive en UN sitio, kj bootstrap.
+    // Antes esta puerta cableaba su propia secuencia (git init y env install),
+    // así que la puerta del maggle y la técnica podían separarse sin que nadie
+    // se diera cuenta. Ahora las dos hacen lo mismo.
+    const booted = await (deps.bootstrap ?? bootstrapCommand)({ config, logger, flags: {}, deps: {} });
+    if (!booted.ok) {
+      logger.error?.(`Falta una cosa que solo puedes hacer tú, la tienes justo arriba (${booted.pending}). Cuando la hagas, vuelve a escribir: kj go`);
       process.exitCode = 1;
       return 1;
     }
-    const prepared = await (deps.prepare ?? defaultPrepare)({ config, logger });
+    const prepared = deps.prepare ? await deps.prepare({ config, logger }) : null;
     // Algo depende de tus manos (arriba tienes el detalle). Sin eso el
     // proyecto quedaría a medias, así que paramos aquí en vez de seguir.
     if (prepared?.exitCode) {

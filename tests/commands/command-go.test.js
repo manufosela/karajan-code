@@ -33,7 +33,8 @@ const run = (over = {}) => {
   const deps = {
     detect: async () => [agent("claude"), agent("codex")],
     ask: vi.fn(async () => "claude"),
-    prepare: vi.fn(async () => {}),
+    // BOOT-A step 3: the door delegates the whole sequence to kj bootstrap.
+    bootstrap: vi.fn(async () => ({ ok: true, pending: null, steps: [] })),
     board: vi.fn(async () => {}),
     launch: vi.fn(async () => 0),
     ...over.deps,
@@ -72,19 +73,24 @@ describe("kj go", () => {
   });
   it("an unprepared project is prepared silently; a prepared one is NEVER re-asked", async () => {
     const first = await run({ deps: { detect: async () => [agent("claude")] } });
-    expect(first.deps.prepare).toHaveBeenCalledOnce();
+    expect(first.deps.bootstrap).toHaveBeenCalledOnce();
     fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
     fs.writeFileSync(path.join(dir, ".karajan", "review-gate"), "x");
     const second = await run({ deps: { detect: async () => [agent("claude")] } });
-    expect(second.deps.prepare).not.toHaveBeenCalled();
+    expect(second.deps.bootstrap).not.toHaveBeenCalled();
   });
-  // KJC-BUG-0191: kj go is the door for someone with no craft, and an empty
-  // directory is the natural way to start a project. It used to die there,
-  // because kj env install refuses to run without a repo.
-  it("creates the repository before preparing, so an empty directory is a valid start", async () => {
+  // KJC-BUG-0191 (an empty directory is a valid start) now lives where the
+  // repository is actually created: tests/commands/bootstrap.test.js asserts it
+  // against the real thing. Here what matters is that this door delegates.
+
+  // BOOT-A step 3 (KJC-TSK-0857): kj go no longer wires the sequence itself.
+  // The order lives in one place, kj bootstrap, so the muggle door and the
+  // technical door cannot drift apart.
+  it("delegates the preparation to kj bootstrap", async () => {
     const out = await run({ deps: { detect: async () => [agent("claude")] } });
-    expect(fs.existsSync(path.join(dir, ".git"))).toBe(true);
-    expect(out.deps.prepare).toHaveBeenCalledOnce();
+    expect(out.deps.bootstrap).toHaveBeenCalledOnce();
+    expect(out.deps.bootstrap.mock.calls[0][0].config.projectDir).toBe(dir);
+    expect(out.deps.launch).toHaveBeenCalledOnce();
   });
 
   it("a preparation that needs the person's hands stops in plain language, and never launches", async () => {
