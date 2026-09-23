@@ -5,6 +5,8 @@ import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { startCommand } from "../commands/start.js";
 import { goCommand } from "../commands/go.js";
+import { bootstrapCommand } from "../commands/bootstrap.js";
+import { PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { identityCommand } from "../commands/identity.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
@@ -155,6 +157,18 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (publicKeyBase64, flags) => {
       await withConfig(pkgVersion, "identity-enroll-phone", flags, async ({ config }) => {
         process.exitCode = await identityCommand({ action: "enroll-phone", config, flags: { ...flags, publicKeyBase64 } });
+      });
+    });
+
+  // BOOT-A (KJC-TSK-0857, cold-start ADR): the pieces existed, the ORDER did
+  // not. One command from an empty directory to a project under the method.
+  program
+    .command("bootstrap")
+    .description("Del directorio vacío al método listo: repositorio, configuración, harness, gate y RAG, en el orden que funciona")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "bootstrap", flags, async ({ config, logger }) => {
+        const res = await bootstrapCommand({ config, logger, flags });
+        if (!res.ok) process.exitCode = PENDING_EXIT_CODE;
       });
     });
 

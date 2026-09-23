@@ -9,6 +9,9 @@
 export const CORE_COMMANDS = [
   "go",
   "start",
+  // BOOT-A (KJC-TSK-0857): starting a project from nothing is as core as it
+  // gets — it is the first command a new project ever runs.
+  "bootstrap",
   "init",
   "run",
   "plan",
