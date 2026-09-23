@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { bootstrapCommand } from "../../src/commands/bootstrap.js";
 
 let dir;
@@ -30,8 +31,10 @@ describe("kj bootstrap", () => {
     expect(fs.existsSync(path.join(dir, ".git"))).toBe(true);
     expect(deps.init).toHaveBeenCalledOnce();
     expect(deps.env).toHaveBeenCalledOnce();
-    expect(result.steps.map((s) => s.name)).toEqual(["git", "config", "method"]);
-    expect(result.steps.every((s) => s.status === "done")).toBe(true);
+    expect(result.steps.map((s) => s.name)).toEqual(["git", "config", "method", "contract"]);
+    // The mocked installers generate nothing, so there is no contract to commit
+    // — the step says so instead of inventing an empty commit.
+    expect(result.steps.slice(0, 3).every((s) => s.status === "done")).toBe(true);
     expect(result.ok).toBe(true);
   });
 
@@ -40,10 +43,15 @@ describe("kj bootstrap", () => {
     fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
     fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), "coder: claude\n");
     fs.writeFileSync(path.join(dir, ".karajan", "review-gate"), "x");
+    // A project already bootstrapped has history: that is what makes the
+    // contract step report `already` instead of committing again.
+    execFileSync("git", ["-C", dir, "config", "user.email", "t@t"]);
+    execFileSync("git", ["-C", dir, "config", "user.name", "T"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "--allow-empty", "-m", "chore: first"]);
     const { result, deps } = await run();
     expect(deps.init).not.toHaveBeenCalled();
     expect(deps.env).not.toHaveBeenCalled();
-    expect(result.steps.map((s) => s.status)).toEqual(["already", "already", "already"]);
+    expect(result.steps.map((s) => s.status)).toEqual(["already", "already", "already", "already"]);
     expect(result.ok).toBe(true);
   });
 

@@ -15,6 +15,7 @@
  *    first and a git that cannot run is the end of the line, not a warning.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ensureGitRepo } from "./init.js";
@@ -25,6 +26,25 @@ const STEP_LABEL = {
   git: "repositorio",
   config: "configuración del proyecto",
   method: "método activo (harness, gate y RAG)",
+  contract: "commit del contrato",
+};
+
+/** What kj generates and the whole team must inherit by cloning. */
+const CONTRACT_PATHS = [
+  ".gitignore",
+  ".karajan/hooks",
+  ".karajan/review-gate",
+  ".karajan/adrs",
+  ".karajan/policy.yml",
+  ".claude",
+  "CLAUDE.md",
+  "AGENTS.md",
+  "GEMINI.md",
+];
+const CONTRACT_MESSAGE = "chore(bootstrap): el contrato del método, para que quien clone lo herede";
+
+const hasCommits = (projectDir, git) => {
+  try { git(["rev-parse", "--verify", "HEAD"]); return true; } catch { return false; }
 };
 
 /**
@@ -69,6 +89,31 @@ export async function bootstrapCommand({ config = {}, logger = console, flags = 
     const env = await (deps.env ?? envInstallCommand)({ config, logger, flags: { yes: true } });
     if (env?.exitCode) return stop("method", "queda algo que solo puedes hacer tú, lo tienes arriba");
     say("method", "done");
+  }
+
+  // 4. The contract commit. project-new.md asked the USER for it, and it was
+  //    the commit their own freshly installed gates rejected: the review gate
+  //    (KJC-BUG-0165) and the branch guard (KJC-BUG-0186) both exempt it now,
+  //    so kj can make it itself instead of leaving the person to fight it.
+  //    Only what kj generated, only while the repo has no commit, never the
+  //    person's own code. This is NOT the supervisor seal, which stays a human
+  //    act with its own four layers (ADR 0009).
+  const git = deps.gitRun ?? ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
+  if (hasCommits(projectDir, git)) say("contract", "already", "el repositorio ya tiene historia");
+  else {
+    const present = CONTRACT_PATHS.filter((p) => existsSync(join(projectDir, p)));
+    if (present.length === 0) say("contract", "already", "no hay contrato que commitear");
+    else {
+      try {
+        git(["add", "--", ...present]);
+        git(["commit", "-m", CONTRACT_MESSAGE]);
+      } catch (err) {
+        // Nunca explotar aquí: lo más probable es que falte la identidad del
+        // clon, y ese cauce ya lo pide el paso anterior (KJC-BUG-0188).
+        return stop("contract", `git no pudo commitear el contrato: ${String(err.message).split("\n")[0]}`);
+      }
+      say("contract", "done", `${present.length} ruta(s) del contrato`);
+    }
   }
 
   return { ok: true, pending: null, steps };
