@@ -15,6 +15,7 @@ import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
 import { checkSonarRequirement, SONAR_RULE_ID } from "../review/sonar-requirement.js";
 import { checkRagRequirement, checkRagVerdict, ragBlock, RAG_RULE_ID } from "../review/rag-requirement.js";
+import { checkUiEvidence, uiBlock } from "../review/ui-evidence.js";
 import { readRagLedger } from "../review/rag-ledger.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
@@ -482,6 +483,15 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       + twins.map((t) => `- ${t}`).join("\n");
   }
 
+  // BOOT-D (KJC-TSK-0863): green is not proof for what a person SEES. kj does
+  // not drive the browser (the host has it); it demands the walkthrough and
+  // records it in the verdict, bound to the diff like sonar and rag. It WARNS:
+  // the last proof, never the only one, and a gate that fires often teaches
+  // people to skip gates.
+  const uiReq = checkUiEvidence({ stagedFiles: changedFiles, evidence: config?.ui_evidence ?? null, standingExceptions: std.standing });
+  if (uiReq.warn) console.log(`⚠ ${uiReq.reason}`);
+  const uiRecord = uiBlock(uiReq);
+
   // MUT-A (KJC-TSK-0716): mutation pre-gate — opt-in (method_gates.mutation),
   // SOLO en --staged (jamás en pre-commit: cuesta minutos; y jamás en --range:
   // el scope es el ÍNDICE y anotaría trabajo ajeno — catch de codex). block
@@ -504,7 +514,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     }
   }
 
-  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonarRecord, rag: ragRecord });
+  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonarRecord, rag: ragRecord, ui: uiRecord });
   printVerdict(record);
   process.exitCode = record.verdict === "approved" ? 0 : 1;
   return record;
