@@ -31,7 +31,7 @@ describe("kj bootstrap", () => {
     expect(fs.existsSync(path.join(dir, ".git"))).toBe(true);
     expect(deps.init).toHaveBeenCalledOnce();
     expect(deps.env).toHaveBeenCalledOnce();
-    expect(result.steps.map((s) => s.name)).toEqual(["git", "config", "method", "contract"]);
+    expect(result.steps.map((s) => s.name)).toEqual(["git", "config", "method", "contract", "start"]);
     // The mocked installers generate nothing, so there is no contract to commit
     // — the step says so instead of inventing an empty commit.
     expect(result.steps.slice(0, 3).every((s) => s.status === "done")).toBe(true);
@@ -51,7 +51,8 @@ describe("kj bootstrap", () => {
     const { result, deps } = await run();
     expect(deps.init).not.toHaveBeenCalled();
     expect(deps.env).not.toHaveBeenCalled();
-    expect(result.steps.map((s) => s.status)).toEqual(["already", "already", "already", "already"]);
+    // The last one is the start script: absent in a fixture, reported, never invented.
+    expect(result.steps.map((s) => s.status)).toEqual(["already", "already", "already", "already", "already"]);
     expect(result.ok).toBe(true);
   });
 

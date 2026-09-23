@@ -21,12 +21,14 @@ import { join } from "node:path";
 import { ensureGitRepo } from "./init.js";
 import { initCommand } from "./init.js";
 import { envInstallCommand } from "./env.js";
+import { runStartScript, START_SCRIPT_CONTRACT } from "../start/project-script.js";
 
 const STEP_LABEL = {
   git: "repositorio",
   config: "configuración del proyecto",
   method: "método activo (harness, gate y RAG)",
   contract: "commit del contrato",
+  start: "arranque del proyecto",
 };
 
 /** What kj generates and the whole team must inherit by cloning. */
@@ -115,6 +117,15 @@ export async function bootstrapCommand({ config = {}, logger = console, flags = 
       say("contract", "done", `${present.length} ruta(s) del contrato`);
     }
   }
+
+  // 5. Does the project actually run? kj verified the method; nobody verified
+  //    the application (BOOT-C, KJC-TSK-0862). It REPORTS, never blocks: a
+  //    start script written badly must not stop work over something unrelated,
+  //    and a tree that was already broken has to be said BEFORE implementing.
+  const start = await (deps.start ?? runStartScript)({ projectDir, config });
+  if (start.status === "absent") say("start", "already", `sin guion de arranque — ${START_SCRIPT_CONTRACT}`);
+  else if (start.status === "ok") say("start", "done", "el proyecto arranca y su humo pasa");
+  else say("start", "already", `el árbol YA venía roto (${start.status}) — no lo ha causado este trabajo`);
 
   return { ok: true, pending: null, steps };
 }
