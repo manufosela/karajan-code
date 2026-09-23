@@ -23,6 +23,7 @@ import { runCommand } from "../utils/process.js";
 import { checkBinary } from "../utils/agent-detect.js";
 import { getInstallCommand } from "../utils/os-detect.js";
 import { STRATEGY } from "./types.js";
+import { createRepoStateCheck } from "./repo-state.js";
 
 /**
  * Detect signals del proyecto. Devuelve un set de tags con qué hay en el
@@ -241,5 +242,9 @@ export function getProjectChecks({ projectDir }) {
     createToolCheck({ signal: "terraform", tool: "terraform", label: "Terraform (project signal)", signals }),
     createEnvConsistencyCheck({ projectDir, signals }),
     createGhRemoteCheck({ projectDir }),
+    // BOOT-B (KJC-TSK-0858): the state of the repo itself, which no other
+    // check looks at — the order it was set up in, whether the contract
+    // travels, whether this clone declares who works it.
+    createRepoStateCheck({ projectDir }),
   ];
 }
