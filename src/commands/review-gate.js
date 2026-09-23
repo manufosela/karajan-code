@@ -488,7 +488,12 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // records it in the verdict, bound to the diff like sonar and rag. It WARNS:
   // the last proof, never the only one, and a gate that fires often teaches
   // people to skip gates.
-  const uiReq = checkUiEvidence({ stagedFiles: changedFiles, evidence: config?.ui_evidence ?? null, standingExceptions: std.standing });
+  const walked = Array.isArray(flags.walked) ? flags.walked : [];
+  const uiReq = checkUiEvidence({
+    stagedFiles: changedFiles,
+    evidence: walked.length > 0 ? { walked, tool: flags.walkedWith ?? null } : null,
+    standingExceptions: std.standing,
+  });
   if (uiReq.warn) console.log(`⚠ ${uiReq.reason}`);
   const uiRecord = uiBlock(uiReq);
 

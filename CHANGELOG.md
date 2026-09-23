@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.32.0] - 2026-09-23
+
+Starting a project stops being a fight. The cold-start ADR is delivered whole (epic KJC-PCS-0088), and with it the two pieces the Anthropic write-up on long-running agents showed were missing: nobody verified that the application runs, and nobody verified what a person actually sees.
+
+### Added
+
+- **`kj bootstrap`** (KJC-TSK-0857, #1775, #1776, #1777): one command from an empty directory to a project under the method, in the order that works — repository, configuration, harness with its gate and RAG index, the contract commit, and the start check. Idempotent: a second run reports what was already there. Fail loud, never half: a step that needs your hands stops the sequence and names it, with exit code 3. **The contract commit is made by kj**, not by the person fighting the gates they just installed: only what kj generated, only while the repo has no commit, never your own code. It is not the supervisor seal, which stays a human act with its four layers (ADR 0009). `kj go` delegates here too, so the muggle door and the technical one can no longer drift apart.
+- **The state of the repo is a check** (KJC-TSK-0858, #1778): `kj doctor` and `kj check` finally look at the repository itself, which none of the other 29 checks did. Three symptoms, each with the literal command that repairs it: no repository (distinguishing a harness already written that therefore governs nothing), a contract nobody would inherit by cloning (checked against HEAD, because a merely staged file is not inherited), and a clone with no declared identity, which is the wall the Sentinel would otherwise raise later with nothing tying it back. The bootstrap phase is not a defect: a repo with no commit yet is starting.
+- **The project says whether it runs, before anything is touched** (KJC-TSK-0862, #1779): kj declares the contract of a start script and checks it; the project writes it, because kj cannot know how a project it has never seen is launched. Green means the tree runs, red means it was ALREADY broken and this work did not cause it — said before implementing, not after. Its own process group, so a timeout kills the dev server it launched instead of leaving it holding a port, and bounded output so a verbose script cannot eat the CLI's memory.
+- **Green is not proof for what a person sees** (KJC-TSK-0863, #1780): a third proof next to sonar and rag. A diff touching what someone SEES warns when no walkthrough was recorded, naming the files, and the `ui` block travels inside the verdict bound to that exact diff with what was walked and with which tool. A live human grant on `method.ui.evidence` lifts it. kj does not drive the browser: the host already has it, so kj demands the evidence and keeps it. It warns and never blocks, because the browser misses native modals and a gate that fires often teaches people to skip gates.
+
 ## [4.31.1] - 2026-09-22
 
 Two gates that were crying wolf, and a seal that had been stuck for two weeks.
