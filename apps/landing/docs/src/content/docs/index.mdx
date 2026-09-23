@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.31.1 — two gates that cried wolf (current)
+### v4.32.0 — you start without forcing anything (current)
+
+`kj bootstrap` takes an empty directory to a project under the method in one command, in the order that works, and **makes the contract commit itself** instead of leaving you to fight the gates you just installed. `kj doctor` and `kj check` now look at the repository too, naming each symptom with the literal command that repairs it: a harness that governs nothing, a contract no clone would inherit, a clone with no declared identity. And the two proofs that were missing arrived: the project declares whether it actually runs, so a tree that was already broken is said BEFORE implementing rather than blamed on the next change, and what a person SEES stops being closed on a green suite — the walkthrough travels in the verdict next to the sonar and rag blocks, warning rather than blocking, because the browser misses native modals and a gate that fires often teaches people to skip gates.
+
+### v4.31.1 — two gates that cried wolf
 
 Patch. `kj privacy scan` blocked every landing deploy over the Firebase web key the phone-signing page carries in the browser, a key that is public by design: it still blocks, because the shape alone cannot tell which Google key it is, but it now names the declared exit and what actually protects that key. The flaky `runflow-events` failure turned out not to be a timeout: with no coder transcript the leak detector flagged every new `$HOME` entry, so a write from another test killed the flow and retried it. Attribution and severity are now separate things. And the supervisor seal, stuck since 4.28.1 because its provenance recorded a raw path CI could not reproduce, was regenerated on 4.31.0 and landed — which immediately exposed the last piece: the release check was the one call site that never applied the provenance lift, so the first version cut after a seal was denied by that seal.
 

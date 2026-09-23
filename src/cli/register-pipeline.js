@@ -239,6 +239,10 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--prune-days <n>", "TTL in days for --prune (default: 14)")
     .option("--dry-run", "With --prune: report what would be removed without deleting")
     .option("--no-sonar", "Skip the deterministic Sonar pre-gate that runs before the cross-AI verdict")
+    // BOOT-D (KJC-TSK-0863): how the walkthrough gets INTO the verdict. Without
+    // this the rule could only complain, which is the gate with no exit.
+    .option("--walked <route>", "Recorrido comprobado como lo haría una persona (repetible) — queda en el veredicto", (v, prev) => [...(prev || []), v], [])
+    .option("--walked-with <tool>", "Con qué se comprobó el recorrido (por ejemplo chrome-devtools)")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
         // ENV-B1 (KJC-TSK-0637): the gate mode records a verdict tied to
