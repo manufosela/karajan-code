@@ -37,23 +37,13 @@ export class OpenCodeAgent extends BaseAgent {
   async runTask(task) {
     const role = task.role || "coder";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model, false);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`OpenCode model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null, false);
-    }
-    return result;
+    return this._exec(task, model, false);
   }
 
   async reviewTask(task) {
     const role = task.role || "reviewer";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model, true);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`OpenCode model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null, true);
-    }
-    return result;
+    return this._exec(task, model, true);
   }
 
   async _exec(task, model, jsonFormat) {

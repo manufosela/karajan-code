@@ -45,23 +45,13 @@ export class AiderAgent extends BaseAgent {
   async runTask(task) {
     const role = task.role || "coder";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Aider model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null);
-    }
-    return result;
+    return this._exec(task, model);
   }
 
   async reviewTask(task) {
     const role = task.role || "reviewer";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Aider model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null);
-    }
-    return result;
+    return this._exec(task, model);
   }
 
   async _exec(task, model) {

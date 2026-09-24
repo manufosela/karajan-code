@@ -52,6 +52,11 @@ let repo;
 describe("commands/code", () => {
   let createAgent, assertAgentsAvailable, buildCoderPrompt;
 
+  const codeCommandWith = async (overrides) => {
+    const { codeCommand } = await import("../../src/commands/code.js");
+    return codeCommand({ task: "add feature", config: makeConfig(overrides), logger: noopLogger });
+  };
+
   beforeEach(async () => {
     vi.resetAllMocks();
     repo = mkdtempSync(join(tmpdir(), "kj-code-"));
@@ -151,6 +156,34 @@ describe("commands/code", () => {
     const said = noopLogger.info.mock.calls.map((c) => String(c[0])).join("\n");
     expect(said).toContain("kj review --staged");
     expect(said).toContain("different AI than codex");
+  });
+
+  // KJC-TSK-0859: los agentes ya no sustituyen un modelo muerto por su cuenta
+  // (lo hacian en silencio y por delante de lo declarado). kj code pasa ahora
+  // por el brain con la cadena del usuario, asi que no pierde la red.
+  it("un modelo muerto pasa al siguiente eslabon declarado en vez de parar el trabajo", async () => {
+    const dead = { runTask: vi.fn().mockResolvedValue({ ok: false, error: "model gpt-5.4 is not supported", exitCode: 1 }) };
+    const alive = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "done", exitCode: 0 }) };
+    createAgent.mockImplementation((_provider, config) => (config?.roles?.coder?.model === "gpt-5.4" ? dead : alive));
+
+    const res = await codeCommandWith({
+      projectDir: repo,
+      roles: { coder: { provider: "codex", model: "gpt-5.4", fallback: { provider: "codex", model: "gpt-5.6-terra" } } },
+    });
+
+    expect(res.ok).toBe(true);
+    expect(dead.runTask).toHaveBeenCalledTimes(1);
+    expect(alive.runTask).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin eslabon que tomar, para diciendo que se probo", async () => {
+    const dead = { runTask: vi.fn().mockResolvedValue({ ok: false, error: "model gpt-5.4 is not supported", exitCode: 1 }) };
+    createAgent.mockReturnValue(dead);
+
+    await expect(codeCommandWith({
+      projectDir: repo,
+      roles: { coder: { provider: "codex", model: "gpt-5.4" } },
+    })).rejects.toThrow(/not supported|MODEL_UNAVAILABLE/);
   });
 
   it("throws when coder fails", async () => {

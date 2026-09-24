@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { BaseAgent } from "../../src/agents/base-agent.js";
+import { isModelUnavailableText } from "../../src/agents/model-errors.js";
 
-const agent = new BaseAgent("test", {}, null);
-
-describe("BaseAgent.isModelNotSupportedError", () => {
+// KJC-TSK-0859: la tabla vivia en tests/agents/base-agent.test.js contra
+// BaseAgent.isModelNotSupportedError. El metodo desaparecio al retirar el
+// reintento privado de cada agente; la definicion (y sus casos) viven ahora
+// donde el agente y el clasificador del brain la leen.
+describe("isModelUnavailableText", () => {
   // merged-from: 7 for-loop-driven `it` calls + 2 stderr/output field tests
   // collapsed into a single positive-case it.each. Closures-in-loops were a
   // Sonar smell; the table form is the canonical vitest pattern.
@@ -17,8 +19,8 @@ describe("BaseAgent.isModelNotSupportedError", () => {
     ["error",  "error: model_not_found"],
     ["stderr", "model is not supported"],
     ["output", "unsupported model"]
-  ])("detects on %s field: %s", (field, msg) => {
-    expect(agent.isModelNotSupportedError({ [field]: msg })).toBe(true);
+  ])("detects: %s (%s)", (_field, msg) => {
+    expect(isModelUnavailableText(msg)).toBe(true);
   });
 
   // merged-from: 5 negative-pattern for-loop-driven its collapsed.
@@ -29,13 +31,13 @@ describe("BaseAgent.isModelNotSupportedError", () => {
     "permission denied",
     ""
   ])("ignores: %j", (msg) => {
-    expect(agent.isModelNotSupportedError({ error: msg })).toBe(false);
+    expect(isModelUnavailableText(msg)).toBe(false);
   });
 
   // merged-from: 3 null/undefined/empty-object guards collapsed (1 it, 3 asserts).
-  it("handles null/undefined/empty result gracefully", () => {
-    expect(agent.isModelNotSupportedError(null)).toBe(false);
-    expect(agent.isModelNotSupportedError(undefined)).toBe(false);
-    expect(agent.isModelNotSupportedError({})).toBe(false);
+  it("handles null/undefined/empty text gracefully", () => {
+    expect(isModelUnavailableText(null)).toBe(false);
+    expect(isModelUnavailableText(undefined)).toBe(false);
+    expect(isModelUnavailableText("")).toBe(false);
   });
 });

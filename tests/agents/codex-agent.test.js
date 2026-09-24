@@ -153,39 +153,27 @@ describe("CodexAgent", () => {
     expect(opts.timeout).toBe(60000);
   });
 
-  // merged-from: 4 model-not-supported fallback tests collapsed to the 4
-  // distinct branches: retry runTask, retry reviewTask, no retry on
-  // unrelated error, no retry without custom model.
-  describe("model-not-supported fallback", () => {
+  // KJC-TSK-0859: el agente ya NO sustituye el modelo por su cuenta. Lo hacia
+  // en silencio (devolvia el segundo intento como si nada) y por delante de la
+  // cadena que el usuario habia declarado, asi que su eleccion no se usaba
+  // nunca. Ahora devuelve el fallo y el brain aplica la cadena declarada.
+  describe("model-not-supported: el fallo se devuelve, no se disimula", () => {
     const NOT_SUPPORTED = "The 'X' model is not supported when using Codex with a ChatGPT account.";
 
-    it("retries runTask without --model when model is not supported", async () => {
-      const config = { ...baseConfig, roles: { coder: { model: "o4-mini" }, reviewer: {} } };
-      runCommand
-        .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: NOT_SUPPORTED.replace("X", "o4-mini") })
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "done", stderr: "" });
+    it.each([
+      ["runTask", "coder", { coder: { model: "o4-mini" }, reviewer: {} }, "o4-mini"],
+      ["reviewTask", "reviewer", { coder: {}, reviewer: { model: "o3" } }, "o3"],
+    ])("%s: un solo intento, con el modelo fijado y el error intacto", async (method, role, roles, model) => {
+      const config = { ...baseConfig, roles };
+      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: NOT_SUPPORTED.replace("X", model) });
 
-      const result = await new CodexAgent("codex", config, logger).runTask({ prompt: "t", role: "coder" });
+      const result = await new CodexAgent("codex", config, logger)[method]({ prompt: "t", role });
 
-      expect(result.ok).toBe(true);
-      expect(runCommand).toHaveBeenCalledTimes(2);
-      const retryArgs = runCommand.mock.calls[1][1];
-      expect(retryArgs).not.toContain("--model");
-      expect(retryArgs).not.toContain("o4-mini");
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("o4-mini"));
-    });
-
-    it("retries reviewTask without --model when model is not supported", async () => {
-      const config = { ...baseConfig, roles: { coder: {}, reviewer: { model: "o3" } } };
-      runCommand
-        .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: NOT_SUPPORTED.replace("X", "o3") })
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "review ok", stderr: "" });
-
-      const result = await new CodexAgent("codex", config, logger).reviewTask({ prompt: "r", role: "reviewer" });
-
-      expect(result.ok).toBe(true);
-      expect(runCommand).toHaveBeenCalledTimes(2);
-      expect(runCommand.mock.calls[1][1]).not.toContain("--model");
+      expect(result.ok).toBe(false);
+      expect(runCommand).toHaveBeenCalledTimes(1);
+      expect(runCommand.mock.calls[0][1]).toContain(model);
+      // El texto llega entero: es lo que el clasificador del brain lee.
+      expect(result.error).toContain("is not supported");
     });
 
     it.each([
