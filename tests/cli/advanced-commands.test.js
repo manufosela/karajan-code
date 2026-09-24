@@ -69,3 +69,20 @@ describe("advanced-commands registry (KJC-TSK-0582)", () => {
     expect(isAdvancedCommand("advanced")).toBe(false);
   });
 });
+
+// KJC-TSK-0864: when the host orchestrates, `kj code` IS how the declared
+// coder gets invoked, so the session's vocabulary (--agent) and the card the
+// work belongs to (--card) have to be on the command.
+describe("kj code carries the session's panel and card", () => {
+  const codeFlags = () => {
+    const cmd = buildProgram().commands.find((c) => c.name() === "code");
+    return cmd.options.map((o) => o.long);
+  };
+
+  it("offers --agent as the session's word for --coder, and --card", () => {
+    const flags = codeFlags();
+    expect(flags).toContain("--agent");
+    expect(flags).toContain("--coder");
+    expect(flags).toContain("--card");
+  });
+});
