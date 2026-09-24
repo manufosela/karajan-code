@@ -22,6 +22,7 @@ import { checkCardFirst } from "../review/card-first.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
+import { isGeneratedPath, splitAddedByFile } from "../privacy/diff-scope.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
 import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
@@ -230,17 +231,24 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // don't publish. In the SEA binary the privacy module is stubbed and
   // throws: the gate degrades with a note instead of crashing.
   try {
-    const added = diff.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++")).map((l) => l.slice(1)).join("\n");
-    const findings = scanText(added, { list: loadPrivacyList(), source: "<staged diff>" });
+    // KJC-BUG-0203: per file, so a finding can name where it lives and so
+    // build output is judged as what it is. Generic heuristics are silenced
+    // there (nobody typed a minified bundle); a denylist hit is not, because
+    // the incident behind this scanner was personal data inside a build.
+    const list = loadPrivacyList();
+    const findings = splitAddedByFile(diff).flatMap(({ file, added }) => {
+      const found = scanText(added, { list, source: file });
+      return isGeneratedPath(file) ? found.filter((f) => f.severity === "block") : found;
+    });
     const blocks = findings.filter((f) => f.severity === "block");
     const warns = findings.filter((f) => f.severity === "warn");
-    for (const f of warns) console.log(`⚠ privacy: [${f.type}] added line ${f.line} → ${f.masked} — personal data? move it out before it ships`);
+    for (const f of warns) console.log(`⚠ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked} — personal data? move it out before it ships`);
     const hardened = config?.privacy?.generic === "block" && warns.length > 0;
     if (blocks.length > 0 || hardened) {
       if (process.env.KJ_ALLOW_PII === "1") {
         console.log(`⚠ privacy exempt: ${blocks.length} denylist hit(s) — KJ_ALLOW_PII=1 (explicit escape hatch)`);
       } else {
-        for (const f of blocks) console.log(`✗ privacy: [${f.type}] on added line ${f.line} → ${f.masked}`);
+        for (const f of blocks) console.log(`✗ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
         const reason = `${blocks.length || warns.length} personal-data finding(s) in the staged diff — this must not reach the repo (KJ_ALLOW_PII=1 to override consciously)`;
         console.log(`✗ privacy gate: ${reason}`);
         process.exitCode = 1;
