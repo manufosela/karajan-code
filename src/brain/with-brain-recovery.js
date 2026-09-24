@@ -7,6 +7,7 @@
 // puede ignorarlo (fallback a long standby capped) hasta que llegue 0414.
 
 import { classifyAgentError, ERROR_CLASS } from "./agent-error-classifier.js";
+import { recordDeadModel } from "../agents/dead-models.js";
 import { persistStandby, markStandbyDone } from "./standby-store.js";
 
 const ONE_MIN = 60 * 1000;
@@ -129,7 +130,13 @@ export async function withBrainRecovery({
       exitCode: result?.exitCode ?? null,
     });
     const classPolicy = policy.classes[cls.class] || { mode: "abort", maxRetries: 0 };
-    noteAttempt(tried, { provider: effectiveProvider, model: modelOf(effectiveAgent), class: cls.class, message: cls.message });
+    const failedModel = modelOf(effectiveAgent);
+    noteAttempt(tried, { provider: effectiveProvider, model: failedModel, class: cls.class, message: cls.message });
+    // KJC-TSK-0827: remember the corpse, or the next run pays for it again.
+    // Recording is an optimisation: a read-only home just means kj forgets.
+    if (cls.class === ERROR_CLASS.MODEL_UNAVAILABLE && failedModel) {
+      recordDeadModel({ provider: effectiveProvider, model: failedModel, reason: cls.message });
+    }
     attemptsByClass[cls.class] = (attemptsByClass[cls.class] || 0) + 1;
     const attempt = attemptsByClass[cls.class];
 
