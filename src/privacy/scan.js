@@ -73,6 +73,24 @@ const FIREBASE_KEY_HINT = "si es la clave web de Firebase (publica por diseno): 
 const CONTEXT_DISCARDS = [
   { type: "git-sha", re: /\b(?:[0-9a-f]{64}|[0-9a-f]{40})\b/g },
   { type: "doc-domain-email", re: /\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*(?:example\.(?:com|org|net)|test|invalid|localhost|example)\b/g },
+  // KJC-BUG-0202: an HU Board id is `HU-<Date.now()>-<n>`, and Date.now() is
+  // 13 digits — exactly a card's length, so every project using the default
+  // board got a credit-card warning over its own card ids. The rule covers
+  // the family (an alphabetic prefix, a dash, a long digit run: HU-…, KJC-…,
+  // any tracker's) and NOTHING else.
+  //
+  // It deliberately does not go further, and it took three rejections to get
+  // this narrow:
+  //   1. discarding every card-shaped run that fails Luhn — wrong, a
+  //      truncated or mistyped card also fails Luhn and is still sensitive;
+  //   2. any alphabetic prefix — `card-4111111111111111` swallowed;
+  //   3. any uppercase prefix with any digits — `CARD-4111111111111111-1`
+  //      swallowed.
+  // So the middle segment must be an actual millisecond timestamp: exactly 13
+  // digits starting 16-19 (years 2022-2033). No card range begins with a 1
+  // (Visa 4, Mastercard 2/5, Amex 3, Discover 6), so a card number cannot
+  // occupy that slot at any length.
+  { type: "tracker-id", re: /\b[A-Z]{2,6}-1[6-9]\d{11}-\d{1,4}\b/g },
 ];
 
 /**
