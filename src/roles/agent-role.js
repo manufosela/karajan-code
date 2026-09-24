@@ -16,6 +16,7 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
 import { withBrainRecovery } from "../brain/with-brain-recovery.js";
+import { buildRoleFallbackChain } from "../brain/role-fallback-chain.js";
 
 /**
  * Silence timeout (ms) for an agent subprocess, from
@@ -154,10 +155,18 @@ export class AgentRole extends BaseRole {
     // reviewer usa reviewTask) también funcionan: el wrapper sólo necesita
     // un objeto con la firma `runTask(args) → { ok, output, error, exitCode }`.
     const result = await withBrainRecovery({
-      agent: { runTask: (args) => agent[this.agentMethod](args), provider },
+      agent: { runTask: (args) => agent[this.agentMethod](args), provider, model: this.config?.roles?.[this.name]?.model ?? null },
       taskArgs: runArgs,
       role: this.name,
       provider,
+      // KJC-TSK-0859: the chain the user declared under roles.<role>.fallback.
+      // The schema and the walker existed since KJC-TSK-0415; nobody built it,
+      // so every declared chain was dead config. This is the single point that
+      // covers every role inheriting from AgentRole.
+      fallback: buildRoleFallbackChain({
+        config: this.config, role: this.name, agentMethod: this.agentMethod,
+        createAgentFn: this._createAgent, logger: this.logger,
+      }),
       emitter: this.emitter,
       logger: this.logger,
       // KJC: sessionState lets withBrainRecovery persist a hibernating run
