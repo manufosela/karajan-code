@@ -171,7 +171,9 @@ export async function hardenCommand({
     ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, profile, mutation, dryRun })
     : null;
   const withGuidelines = guidelines && profile !== "minimal";
-  const gl = withGuidelines ? installGuidelines({ projectDir, dryRun }) : null;
+  // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
+  // the configs already use — a Python project must not be told to use `const`.
+  const gl = withGuidelines ? installGuidelines({ projectDir, language: roots[0]?.language ?? null, dryRun }) : null;
   const out = {
     ok: true,
     ...result,

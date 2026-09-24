@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { GUIDELINES_BODY } from "./guidelines-templates.js";
+import { guidelinesBody } from "./guidelines-templates.js";
 
 const BLOCK_VERSION = 1;
 const TARGETS = ["AGENTS.md", "CLAUDE.md"];
@@ -28,7 +28,11 @@ export function stripDevHooksBlock(source) {
   return { content: `${before}${joiner}${after}`, migrated: true };
 }
 
-export function installGuidelines({ projectDir = process.cwd(), dryRun = false } = {}) {
+export function installGuidelines({ projectDir = process.cwd(), dryRun = false, language = null } = {}) {
+  // KJC-BUG-0199 (issue #1773): the rules that enter the agent's context must
+  // be the rules of THIS project's language. kj harden already detects it for
+  // the configs; the guidelines just never asked.
+  const body = guidelinesBody(language);
   const results = [];
   for (const file of TARGETS) {
     const target = join(projectDir, file);
@@ -38,7 +42,7 @@ export function installGuidelines({ projectDir = process.cwd(), dryRun = false }
       source,
       blockId: "guidelines",
       version: BLOCK_VERSION,
-      body: GUIDELINES_BODY,
+      body,
       style: "html",
     });
     if (!dryRun && (migrated || action !== "unchanged")) writeFileSync(target, content);
