@@ -24,7 +24,6 @@ import { checkBinary } from "../utils/agent-detect.js";
 import { getInstallCommand } from "../utils/os-detect.js";
 import { STRATEGY } from "./types.js";
 import { createRepoStateCheck } from "./repo-state.js";
-import { createActionPinsCheck } from "./action-pins.js";
 
 /**
  * Detect signals del proyecto. Devuelve un set de tags con qué hay en el
@@ -247,10 +246,5 @@ export function getProjectChecks({ projectDir }) {
     // check looks at — the order it was set up in, whether the contract
     // travels, whether this clone declares who works it.
     createRepoStateCheck({ projectDir }),
-    // KJC-TSK-0870: pinning the actions by SHA (issue #1374) moved their
-    // maintenance onto kj. Doctor asks upstream whether a tag has moved on
-    // without its pin; `kj check` deliberately does not, because a gate that
-    // needs the network is a gate that fails on a plane.
-    createActionPinsCheck(),
   ];
 }
