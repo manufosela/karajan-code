@@ -13,6 +13,7 @@
 import { defaultEnvironment } from "../infrastructure/environment.js";
 import { buildAgentEnv } from "../utils/role-env.js";
 import { isModelCompatible } from "../config/role-resolver.js";
+import { deadModelRecord } from "./dead-models.js";
 
 
 export class BaseAgent {
@@ -98,6 +99,14 @@ export class BaseAgent {
     // nunca se le pasa un --model ajeno.
     if (roleModel && !isModelCompatible(this.name, roleModel)) {
       this.logger?.warn?.(`model "${roleModel}" belongs to another family — dropping it for ${this.name} (role ${role})`);
+      return null;
+    }
+    // KJC-TSK-0827: a model kj has watched this provider retire is not worth
+    // a call. The pin stays the user's to change, so the warning names the
+    // exact line instead of kj editing their config behind their back.
+    const dead = roleModel ? deadModelRecord(this.name, roleModel) : null;
+    if (dead) {
+      this.logger?.warn?.(`model "${roleModel}" was retired by ${this.name} (seen ${dead.at}) — using the provider default. Change it with roles.${role}.model in kj.config.yml`);
       return null;
     }
     return roleModel;
