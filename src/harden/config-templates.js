@@ -90,9 +90,14 @@ export const GOLANGCI_BODY = [
 ].join("\n");
 
 /** Language-agnostic configs (every stack gets these). */
+// KJC-BUG-0201 (issue #1774, reported from the field): commitlint used to live
+// here, so a Python repo needed a Node runtime just to validate commit
+// messages. The generated commit-msg hook ALREADY enforces that contract in
+// pure sh (Conventional Commits, the 100-char cap, the AI-attribution ban), so
+// nothing is lost by scoping the tool to the stack that already has Node. The
+// GUARANTEE is language-agnostic; the tool does not have to be.
 export const UNIVERSAL_CONFIGS = [
   { file: ".editorconfig", blockId: "editorconfig", style: "hash", body: EDITORCONFIG_BODY },
-  { file: "commitlint.config.js", blockId: "commitlint", style: "slash", body: COMMITLINT_BODY },
 ];
 
 /**
@@ -102,6 +107,7 @@ export const UNIVERSAL_CONFIGS = [
  * tool is decorative, and kj never generates a demand it didn't satisfy.
  */
 export const JS_CONFIGS = [
+  { file: "commitlint.config.js", blockId: "commitlint", style: "slash", body: COMMITLINT_BODY },
   { file: "eslint.config.js", blockId: "eslint", style: "slash", body: ESLINT_BODY, requires: "eslint" },
   { file: ".prettierrc.json", json: true, body: PRETTIER_BODY, requires: "prettier" },
 ];
