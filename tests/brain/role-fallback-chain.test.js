@@ -44,8 +44,9 @@ describe("buildRoleFallbackChain", () => {
 
     expect(chain).toMatchObject({ provider: "codex", model: "gpt-5.6-terra" });
     expect(chain.fallback).toMatchObject({ provider: "claude", model: "opus" });
-    expect(chain.fallback.fallback).toBeNull();
-    expect(createAgentFn.mock.calls.map((c) => c[0])).toEqual(["codex", "claude"]);
+    // …and the provider-default tail closes it (see the tail suite below).
+    expect(chain.fallback.fallback).toMatchObject({ provider: "codex", model: null });
+    expect(createAgentFn.mock.calls.map((c) => c[0])).toEqual(["codex", "claude", "codex"]);
     // Each link runs with ITS model, not with the primary's.
     expect(createAgentFn.mock.calls[0][1].roles.coder.model).toBe("gpt-5.6-terra");
   });
@@ -97,5 +98,45 @@ describe("buildRoleFallbackChain", () => {
     for (let node = chain; node; node = node.fallback) depth += 1;
     expect(depth).toBe(MAX_CHAIN_LINKS);
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("longer than"));
+  });
+});
+
+// KJC-TSK-0859 rodaja D: cada agente guardaba un reintento privado que tiraba
+// el modelo fijado y probaba con el default del proveedor. Ese paso pasa a ser
+// la COLA de la cadena: se ve, y va despues de lo que el usuario declaro.
+describe("buildRoleFallbackChain — la cola del default del proveedor", () => {
+  it("con modelo fijado y sin cadena declarada, la cola es el default del proveedor", () => {
+    const chain = buildRoleFallbackChain({
+      config: { roles: { coder: { provider: "codex", model: "gpt-5.4" } } },
+      role: "coder", createAgentFn: (p) => fakeAgent(p),
+    });
+    expect(chain).toMatchObject({ provider: "codex", model: null });
+    expect(chain.fallback).toBeNull();
+  });
+
+  it("la cola va DESPUES de lo declarado, nunca antes", () => {
+    const chain = buildRoleFallbackChain({
+      config: { roles: { coder: { provider: "codex", model: "gpt-5.4", fallback: { provider: "claude", model: "opus" } } } },
+      role: "coder", createAgentFn: (p) => fakeAgent(p),
+    });
+    expect(chain).toMatchObject({ provider: "claude", model: "opus" });
+    expect(chain.fallback).toMatchObject({ provider: "codex", model: null });
+    expect(chain.fallback.fallback).toBeNull();
+  });
+
+  it("sin modelo fijado no hay cola: el primario YA es el default del proveedor", () => {
+    expect(buildRoleFallbackChain({
+      config: { roles: { coder: { provider: "codex" } } },
+      role: "coder", createAgentFn: (p) => fakeAgent(p),
+    })).toBeNull();
+  });
+
+  it("si lo declarado ya incluye el default del proveedor, no se duplica", () => {
+    const chain = buildRoleFallbackChain({
+      config: { roles: { coder: { provider: "codex", model: "gpt-5.4", fallback: { provider: "codex" } } } },
+      role: "coder", createAgentFn: (p) => fakeAgent(p),
+    });
+    expect(chain).toMatchObject({ provider: "codex", model: null });
+    expect(chain.fallback).toBeNull();
   });
 });

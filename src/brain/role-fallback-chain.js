@@ -69,5 +69,32 @@ export function buildRoleFallbackChain({ config, role, agentMethod = "runTask", 
     };
   };
 
-  return build(config?.roles?.[role]?.fallback, 1);
+  const declared = build(config?.roles?.[role]?.fallback, 1);
+
+  // KJC-TSK-0859: the provider's own default model is the last resort, and it
+  // always was — every agent kept a private retry that dropped the pinned
+  // model and tried again. Making it the chain's tail puts that step where the
+  // user can see it, after the candidates they declared and never before.
+  if (!primary.model) return declared;
+  const tailKey = keyOf(primary.provider, null);
+  if (seen.has(tailKey)) return declared;
+  seen.add(tailKey);
+  let tailAgent;
+  try {
+    tailAgent = createAgentFn(primary.provider, withRoleModel(config, role, primary.provider, null), logger);
+  } catch {
+    return declared; // the primary provider is already in use; if it cannot be
+  }                   // built again, the declared chain is what we have.
+  const tail = {
+    agent: { runTask: (args) => tailAgent[agentMethod](args), provider: primary.provider, model: null },
+    provider: primary.provider,
+    model: null,
+    maxWaitHours: undefined,
+    fallback: null,
+  };
+  if (!declared) return tail;
+  let last = declared;
+  while (last.fallback) last = last.fallback;
+  last.fallback = tail;
+  return declared;
 }
