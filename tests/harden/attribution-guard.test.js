@@ -49,4 +49,16 @@ describe("pre-commit scans ADDED content for AI attribution (KJC-BUG-0164)", () 
     git(["add", ".karajan/hooks/pre-commit", ".karajan/hooks/commit-msg"]);
     expect(() => git(["commit", "-q", "-m", "chore: seal supervisor hooks"])).not.toThrow();
   });
+
+  // KJC-BUG-0200 (issue #1772, reported from the field): the harness scripts
+  // carry the pattern for the same reason the hooks do — they ARE the guard —
+  // but .karajan/harness was added to the product after this exclusion list,
+  // so the bootstrap commit that versions them was refused. With kj bootstrap
+  // now making the contract commit (4.32.0), this blocks the new path too.
+  it("committing the generated .karajan/harness does not self-detect either", async () => {
+    const { installSentinelHooks } = await import("../../src/harden/sentinel-hooks.js");
+    installSentinelHooks({ projectDir: repo, logger: { info() {}, warn() {} } });
+    git(["add", "--force", ".karajan/harness"]);
+    expect(() => git(["commit", "-q", "-m", "chore: bootstrap kj harden harness"])).not.toThrow();
+  });
 });
