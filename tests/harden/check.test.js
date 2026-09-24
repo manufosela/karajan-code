@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -68,6 +68,17 @@ describe("checkCommand", () => {
     await harden();
     expect(await checkCommand({ projectDir: repo, logger })).toBe(0);
     expect(logger.info).toHaveBeenCalledWith("Harness OK.");
+  });
+
+  // KJC-TSK-0865: who writes and who reviews is the user's choice, so check
+  // says it out loud. It informs: a project without a panel still returns 0.
+  it("says the panel out loud without turning it into a gate", async () => {
+    mkdirSync(join(repo, ".karajan"), { recursive: true });
+    writeFileSync(join(repo, ".karajan", "kj.config.yml"), "coder: codex\nreviewer: claude\n");
+    await harden();
+    expect(await checkCommand({ projectDir: repo, logger })).toBe(0);
+    const lines = logger.info.mock.calls.map((c) => c[0]);
+    expect(lines.some((l) => String(l).includes("panel: coder codex"))).toBe(true);
   });
 
   it("returns 1 on drift and emits JSON when asked", async () => {

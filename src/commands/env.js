@@ -71,6 +71,7 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     projectDir, target: flags.target || "all",
     stateBackend: config?.state_backend || "hu-board",
     boardName: config?.board?.name || null,
+    config, // KJC-TSK-0865: the panel travels with the method
   });
   console.log(`✓ Karajan playbook installed in: ${result.files.join(", ")}`);
 
@@ -213,7 +214,7 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     // CLAUDE.md, but the running session loaded its context BEFORE — nobody
     // re-reads it. Print the method so it enters THIS conversation now.
     console.log("\n— The Karajan method below is IN EFFECT from this very message. If your session started before this install, apply it from now on:\n");
-    console.log(renderPlaybook({ stateBackend: config?.state_backend || "hu-board", boardName: config?.board?.name || null }));
+    console.log(renderPlaybook({ stateBackend: config?.state_backend || "hu-board", boardName: config?.board?.name || null, config }));
   }
   return result;
 }
