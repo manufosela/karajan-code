@@ -7,14 +7,21 @@
  * bloat dilutes the signal. Distilled from the dev-toolkit guidelines.
  */
 
-export const GUIDELINES_BODY = [
+// KJC-BUG-0199 (issue #1773, reported from the field): this used to be ONE
+// fixed text, so a Python project was told to use `const`, target ES2025 and
+// prefer ES modules over require. These rules enter the agent's context on
+// EVERY run, so the noise is not harmless: it dilutes the signal and states
+// things that do not apply. The configs were already language-aware (ruff for
+// Python, golangci for Go); the guidelines had not caught up.
+//
+// Shape: a CORE that holds in any language, plus one block per language. A
+// language kj does not know gets the core ALONE, never another language's
+// rules, which is the failure this fixes.
+const CORE = [
   "# Project guidelines (kj harden)",
   "",
   "## Code",
-  "- SOLID, DRY, KISS, YAGNI. `const` by default; arrow callbacks; template literals.",
-  "- ES2025 target: never `var`, `document.write`, `alert`/`confirm`/`prompt`, `escape`/`unescape`, `substr`.",
-  "  Prefer modern APIs (`structuredClone`, `Object.groupBy`, `Array.at`/`findLast`/`toSorted`, optional chaining, `??`).",
-  "- ES modules (`import`/`export`), never `require` in new code. Names in English, descriptive.",
+  "- SOLID, DRY, KISS, YAGNI. Names in English, descriptive.",
   "- No silent fallbacks: the system works or fails loudly. Validate and sanitize all input.",
   "",
   "## Commits & PRs",
@@ -26,11 +33,54 @@ export const GUIDELINES_BODY = [
   "- Test-first. Run the tests after each meaningful change. Never skip tests.",
   "",
   "## Security",
-  "- Never commit secrets, keys or tokens. Parameterized queries; sanitize output against XSS.",
-  "",
-  "## UI/UX",
-  "- No native `alert`/`confirm`/`prompt` — use the app's modal system. Loading states; accessible; mobile-first.",
+  "- Never commit secrets, keys or tokens. Parameterized queries; sanitize output against injection.",
   "",
   "## Files",
   "- Edit existing files in place; never overwrite a whole file to make a small change.",
-].join("\n");
+];
+
+/** Per-language rules. A language absent from here gets the core alone. */
+export const LANGUAGE_GUIDELINES = {
+  javascript: [
+    "",
+    "## JavaScript / TypeScript",
+    "- `const` by default; arrow callbacks; template literals.",
+    "- ES2025 target: never `var`, `document.write`, `alert`/`confirm`/`prompt`, `escape`/`unescape`, `substr`.",
+    "  Prefer modern APIs (`structuredClone`, `Object.groupBy`, `Array.at`/`findLast`/`toSorted`, optional chaining, `??`).",
+    "- ES modules (`import`/`export`), never `require` in new code. Avoid `any` in TypeScript.",
+    "",
+    "## UI/UX",
+    "- No native `alert`/`confirm`/`prompt` — use the app's modal system. Loading states; accessible; mobile-first.",
+  ],
+  python: [
+    "",
+    "## Python",
+    "- PEP 8, and type hints on every public signature. Prefer `pathlib` over string paths.",
+    "- Never a bare `except:` — catch what you can handle and let the rest fail loudly.",
+    "- f-strings over concatenation or `%`. Comprehensions when they read better than a loop, not by default.",
+    "- Tooling and dependencies declared in `pyproject.toml`; no other language's runtime imposed on the project.",
+  ],
+  go: [
+    "",
+    "## Go",
+    "- `gofmt` is not negotiable. Errors are values: wrap with `%w` and handle them where the caller can decide.",
+    "- No naked returns in long functions; accept interfaces, return structs.",
+    "- Concurrency with a purpose: a goroutine with no way to stop it is a leak.",
+  ],
+  rust: [
+    "",
+    "## Rust",
+    "- `cargo fmt` and `cargo clippy` clean before a commit.",
+    "- No `unwrap()` outside tests: propagate with `?` and let the type say what can fail.",
+    "- `unsafe` needs a comment naming the invariant that makes it sound.",
+  ],
+};
+
+/** The guidelines body for a language (unknown or absent ⇒ the core alone). */
+export function guidelinesBody(language = null) {
+  const extra = LANGUAGE_GUIDELINES[String(language || "").toLowerCase()] ?? [];
+  return [...CORE, ...extra].join("\n");
+}
+
+/** Back-compat for callers that predate the language split. */
+export const GUIDELINES_BODY = guidelinesBody("javascript");

@@ -24,8 +24,49 @@ describe("installGuidelines", () => {
       const text = read(f);
       expect(text).toContain("<!-- >>> kj:managed:guidelines v1 >>>");
       expect(text).toContain("Conventional Commits");
-      expect(text).toContain("ES2025");
     }
+  });
+
+  // KJC-BUG-0199 (issue #1773, reported by a contributor): the guidelines went
+  // into every project as one fixed text, so a Python repo was told to use
+  // `const`, target ES2025 and prefer ES modules over require. These rules
+  // enter the agent's context on EVERY run, so the noise is not harmless.
+  describe("per language (KJC-BUG-0199)", () => {
+    const seed = (language) => {
+      installGuidelines({ projectDir: dir, language });
+      return read("CLAUDE.md");
+    };
+
+    it("a python project gets python rules and NOT javascript ones", () => {
+      const text = seed("python");
+      expect(text).not.toContain("ES2025");
+      expect(text).not.toContain("`const` by default");
+      expect(text).toMatch(/PEP 8|type hints/i);
+    });
+
+    it("a javascript project still gets what it had", () => {
+      const text = seed("javascript");
+      expect(text).toContain("ES2025");
+      expect(text).toContain("`const` by default");
+    });
+
+    it("the core travels in every language, and only once", () => {
+      for (const language of ["python", "javascript", "go", null]) {
+        rmSync(join(dir, "CLAUDE.md"), { force: true });
+        rmSync(join(dir, "AGENTS.md"), { force: true });
+        const text = seed(language);
+        expect(text).toContain("Conventional Commits");
+        expect(text).toContain("No silent fallbacks");
+        expect(text.match(/Conventional Commits/g)).toHaveLength(1);
+      }
+    });
+
+    it("an unknown language gets the core alone, never another language's rules", () => {
+      const text = seed("cobol");
+      expect(text).toContain("Conventional Commits");
+      expect(text).not.toContain("ES2025");
+      expect(text).not.toMatch(/PEP 8/);
+    });
   });
 
   it("preserves the user's own content outside the block", () => {
