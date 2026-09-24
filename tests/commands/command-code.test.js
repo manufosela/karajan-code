@@ -1,4 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
 vi.mock("../../src/agents/index.js", () => ({
@@ -36,12 +40,15 @@ function makeConfig(overrides = {}) {
 }
 
 const noopLogger = createNoopLoggerWithContext();
+// The run log writes inside projectDir, so a real directory it is.
+let repo;
 
 describe("commands/code", () => {
   let createAgent, assertAgentsAvailable, buildCoderPrompt;
 
   beforeEach(async () => {
     vi.resetAllMocks();
+    repo = mkdtempSync(join(tmpdir(), "kj-code-"));
 
     const agents = await import("../../src/agents/index.js");
     createAgent = agents.createAgent;
@@ -59,6 +66,10 @@ describe("commands/code", () => {
     createAgent.mockReturnValue({
       runTask: vi.fn().mockResolvedValue({ ok: true, output: "done", exitCode: 0 })
     });
+  });
+
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
   });
 
   it("asserts coder provider is available", async () => {
@@ -96,6 +107,44 @@ describe("commands/code", () => {
       prompt: "coder prompt",
       role: "coder"
     }));
+  });
+
+  // KJC-TSK-0864: the pipeline always passed the project boundary and the
+  // provider; the session did not, so the SAME agent got a weaker prompt from
+  // kj code than from kj run.
+  it("passes the project boundary and the provider, as the pipeline does", async () => {
+    const { codeCommand } = await import("../../src/commands/code.js");
+    await codeCommand({ task: "add feature", config: makeConfig({ projectDir: repo }), logger: noopLogger });
+
+    expect(buildCoderPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      projectDir: repo,
+      provider: "codex"
+    }));
+  });
+
+  it("a card reference reaches the coder as statement plus criteria", async () => {
+    const { codeCommand } = await import("../../src/commands/code.js");
+    const res = await codeCommand({
+      task: "add feature",
+      config: makeConfig({ projectDir: repo }),
+      logger: noopLogger,
+      flags: { card: "KJC-TSK-0864" },
+    });
+
+    const args = buildCoderPrompt.mock.calls.at(-1)[0];
+    expect(args.huId).toBe("KJC-TSK-0864");
+    expect(args.task).toContain("## Card KJC-TSK-0864");
+    expect(args.task).toContain("add feature");
+    expect(res.card).toBe("KJC-TSK-0864");
+  });
+
+  it("points at the review gate and names who must NOT run it", async () => {
+    const { codeCommand } = await import("../../src/commands/code.js");
+    await codeCommand({ task: "add feature", config: makeConfig(), logger: noopLogger });
+
+    const said = noopLogger.info.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(said).toContain("kj review --staged");
+    expect(said).toContain("different AI than codex");
   });
 
   it("throws when coder fails", async () => {
