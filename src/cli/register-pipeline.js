@@ -179,11 +179,21 @@ export function registerPipeline(program, { pkgVersion }) {
     .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--coder <name>")
+    // KJC-TSK-0864: --coder is the pipeline's word for it, --agent is the
+    // session's. Same knob, two vocabularies; naming both and disagreeing is
+    // an error, never a silent precedence.
+    .option("--agent <name>", "The agent that writes (alias of --coder)")
+    .option("--card <ref>", "Card/HU the work belongs to — its statement and criteria reach the coder")
     .option("--coder-model <name>")
     .action(async (task, flags) => {
+      if (flags.agent && flags.coder && flags.agent !== flags.coder) {
+        console.error(`kj code: --agent ${flags.agent} and --coder ${flags.coder} name different agents — pick one`);
+        process.exit(2);
+      }
+      if (flags.agent) flags.coder = flags.agent;
       await withConfig(pkgVersion, "code", flags, async ({ config, logger }) => {
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
-        await codeCommand({ task: resolvedTask, config, logger });
+        await codeCommand({ task: resolvedTask, config, logger, flags });
       });
     });
 
