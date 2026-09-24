@@ -31,6 +31,10 @@ export const DEFAULT_RECOVERY_POLICY = Object.freeze({
     [ERROR_CLASS.RATE_LIMIT_SHORT]: { mode: "standby", maxRetries: 3 },
     [ERROR_CLASS.QUOTA_EXHAUSTED_DAILY]: { mode: "hibernate", maxRetries: 1, fallbackEligible: true },
     [ERROR_CLASS.QUOTA_EXHAUSTED_MONTHLY]: { mode: "hibernate", maxRetries: 1, fallbackEligible: true },
+    // KJC-TSK-0859: a retired model has no cooldown to wait out, so it takes
+    // the next link straight away. Without a chain it aborts, because
+    // retrying the same dead model is how a run burns quota saying nothing.
+    [ERROR_CLASS.MODEL_UNAVAILABLE]: { mode: "abort", maxRetries: 0, fallbackEligible: true, fallbackImmediate: true },
     [ERROR_CLASS.API_DOWN]: { mode: "backoff", maxRetries: 3, baseMs: 5_000, factor: 3, jitterPct: 0.2 },
     [ERROR_CLASS.NETWORK_TIMEOUT]: { mode: "backoff", maxRetries: 3, baseMs: 5_000, factor: 3, jitterPct: 0.2 },
     [ERROR_CLASS.SILENCED]: { mode: "backoff", maxRetries: 2, baseMs: 30_000, factor: 2, jitterPct: 0.15 },
@@ -88,6 +92,9 @@ export async function withBrainRecovery({
   // > maxWaitHours (default 12h) y hay fallback, switch en vez de hibernar.
   fallback = null,
 }) {
+  // The substitution is only useful if it names WHICH model died and which
+  // one took over, and agents expose it under different keys.
+  const modelOf = (a) => a?.model || a?.config?.model || null;
   let effectiveAgent = agent;
   let effectiveProvider = provider || agent?.provider || "unknown";
   let effectiveFallback = fallback;
@@ -109,6 +116,22 @@ export async function withBrainRecovery({
 
     emit(emitter, "brain:agent-error", eventBase, { role, class: cls.class, attempt, message: cls.message, provider: effectiveProvider });
     logger?.warn?.(`[brain] ${role} (${effectiveProvider}) → ${cls.class} attempt ${attempt}/${classPolicy.maxRetries}: ${cls.message}`);
+
+    // KJC-TSK-0859: un modelo retirado se resuelve ANTES de abortar. No hay
+    // cooldown que esperar, así que la condición de la cadena por cuota
+    // (retryAfter > maxWait) no aplica: si hay eslabón siguiente, se toma.
+    if (classPolicy.fallbackImmediate && effectiveFallback?.agent) {
+      const from = `${effectiveProvider}${modelOf(effectiveAgent) ? ` (${modelOf(effectiveAgent)})` : ""}`;
+      const to = effectiveFallback.provider || effectiveFallback.agent.provider || "unknown";
+      const toModel = effectiveFallback.model || modelOf(effectiveFallback.agent);
+      emit(emitter, "brain:fallback-switched", eventBase, { role, from: effectiveProvider, to, class: cls.class, immediate: true });
+      logger?.warn?.(`[brain] ${role}: ${cls.message} — substituting ${from} with ${to}${toModel ? ` (${toModel})` : " (provider default)"}. Pin it in kj.config.yml under roles.${role} to stop the substitution.`);
+      effectiveAgent = effectiveFallback.agent;
+      effectiveProvider = to;
+      effectiveFallback = effectiveFallback.fallback || null;
+      for (const k of Object.keys(attemptsByClass)) attemptsByClass[k] = 0;
+      continue;
+    }
 
     // ABORT: no recuperable.
     if (classPolicy.mode === "abort" || attempt > classPolicy.maxRetries) {

@@ -193,3 +193,31 @@ describe("retired gemini CLI (KJC-BUG-0113)", () => {
     expect(r.recoverable).toBe(false);
   });
 });
+
+// KJC-TSK-0859: un modelo retirado por el proveedor lo detectaba cada agente
+// por su cuenta para reintentar con su default, pero el brain no se enteraba
+// y lo archivaba como UNKNOWN_FATAL, abortando el run.
+describe("classifyAgentError — MODEL_UNAVAILABLE", () => {
+  it.each([
+    ["codex", "model gpt-5.4-mini is not supported when using a ChatGPT account"],
+    ["claude", "error: model_not_found"],
+    ["gemini", "unsupported model: gemini-1.0-pro"],
+  ])("%s: el modelo muerto es recuperable y sin cooldown", (provider, stderr) => {
+    const r = classifyAgentError({ provider, stderr, exitCode: 1 });
+    expect(r.class).toBe(ERROR_CLASS.MODEL_UNAVAILABLE);
+    expect(r.recoverable).toBe(true);
+    // Esperar no lo resucita: sin cooldown no hay hibernación posible.
+    expect(r.retryAfter).toBeNull();
+    expect(r.retryUntil).toBeNull();
+  });
+
+  it("nombra el modelo que murió, no un mensaje genérico", () => {
+    const r = classifyAgentError({ provider: "codex", stderr: "boot\nmodel gpt-5.4-mini is not supported\nbye" });
+    expect(r.message).toContain("gpt-5.4-mini");
+  });
+
+  it("AUTH_FAILED sigue ganando: 401 con mención al modelo es un problema de cuenta", () => {
+    const r = classifyAgentError({ provider: "codex", stderr: "401 unauthorized — model gpt-5.4 is not supported" });
+    expect(r.class).toBe(ERROR_CLASS.AUTH_FAILED);
+  });
+});

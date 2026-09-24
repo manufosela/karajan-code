@@ -13,6 +13,7 @@
 //   - NETWORK_TIMEOUT por ECONN*/socket hang up sin cooldown.
 
 import { parseCooldown } from "../utils/rate-limit-detector.js";
+import { isModelUnavailableText, pickModelUnavailableMessage } from "../agents/model-errors.js";
 
 export const ERROR_CLASS = Object.freeze({
   RATE_LIMIT_SHORT: "RATE_LIMIT_SHORT",
@@ -21,6 +22,10 @@ export const ERROR_CLASS = Object.freeze({
   // 15-jun-2026. Cuando llegues al cap mensual, el reset es 1-mes —
   // muy distinto del daily de Claude Pro. Esta clase distingue ambos.
   QUOTA_EXHAUSTED_MONTHLY: "QUOTA_EXHAUSTED_MONTHLY",
+  // KJC-TSK-0859: un modelo que el proveedor retiró no es un error fatal ni
+  // un problema de cuota — es motivo para tomar el siguiente eslabón de la
+  // cadena declarada. No tiene cooldown: esperar no lo va a resucitar.
+  MODEL_UNAVAILABLE: "MODEL_UNAVAILABLE",
   API_DOWN: "API_DOWN",
   AUTH_FAILED: "AUTH_FAILED",
   NETWORK_TIMEOUT: "NETWORK_TIMEOUT",
@@ -80,7 +85,20 @@ export function classifyAgentError({ provider = "unknown", stdout = "", stderr =
     return { ...base, class: ERROR_CLASS.SILENCED, message: pickMessage(combined, SILENCED_PATTERNS) || "Agent silenciado por timeout", recoverable: true };
   }
 
-  // 3. RATE_LIMIT con cooldown. Thresholds:
+  // 3. MODEL_UNAVAILABLE: el modelo fijado ya no existe para esta cuenta.
+  //    Antes caía en UNKNOWN_FATAL y abortaba el run: el agente lo detectaba
+  //    por su cuenta y reintentaba con su default, pero el brain no se
+  //    enteraba. Va antes del rate limit porque no tiene cooldown alguno.
+  if (isModelUnavailableText(combined)) {
+    return {
+      ...base,
+      class: ERROR_CLASS.MODEL_UNAVAILABLE,
+      message: pickModelUnavailableMessage(combined) || "el modelo configurado ya no está disponible",
+      recoverable: true,
+    };
+  }
+
+  // 4. RATE_LIMIT con cooldown. Thresholds:
   //    cooldown > 7d  → MONTHLY (Anthropic Agent SDK $200/mes desde jun-2026)
   //    cooldown > 1h  → DAILY (Claude Pro daily, OpenAI rate-limit-by-day)
   //    cooldown <= 1h → SHORT (rate limit transitorio)
