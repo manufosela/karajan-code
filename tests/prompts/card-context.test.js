@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveCardContext, taskWithCard } from "../../src/prompts/card-context.js";
+import { resolveCardContext } from "../../src/prompts/card-context.js";
 
 const hu = {
   id: "HU-42-0",
@@ -48,13 +48,5 @@ describe("resolveCardContext", () => {
   it("a local id that does not exist fails loudly", async () => {
     const getHu = vi.fn(async () => { throw new Error("HU HU-9 not found"); });
     await expect(resolveCardContext({ projectDir: "/x", ref: "HU-9", deps: { getHu } })).rejects.toThrow(/not found/);
-  });
-});
-
-describe("taskWithCard", () => {
-  it("puts the card before the task, and leaves the task alone without one", () => {
-    const card = { section: "## Card HU-1 — x" };
-    expect(taskWithCard("do the thing", card)).toBe("## Card HU-1 — x\n\n## Task\n\ndo the thing");
-    expect(taskWithCard("do the thing", null)).toBe("do the thing");
   });
 });
