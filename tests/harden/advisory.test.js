@@ -24,14 +24,20 @@ afterEach(() => {
 });
 
 describe("compareHarden", () => {
+  // KJC-BUG-0201: commitlint joined the JS set, so like eslint it needs a JS
+  // root to be in scope. The universal set keeps only what costs nothing in any
+  // language (.editorconfig).
   it("reports MISSING for absent configs; JS configs need a package.json to be in scope", () => {
-    expect(find(run(), "commitlint")).toMatchObject({ status: "MISSING", recommendation: "install" });
+    expect(find(run(), "editorconfig")).toMatchObject({ status: "MISSING", recommendation: "install" });
     expect(find(run(), "eslint")).toBeUndefined();
+    expect(find(run(), "commitlint")).toBeUndefined();
     touch("package.json", "{}");
     expect(find(run(), "eslint").status).toBe("MISSING");
+    expect(find(run(), "commitlint").status).toBe("MISSING");
   });
 
   it("flags a kj:managed config as up to date, an old one for update", () => {
+    touch("package.json", "{}"); // KJC-BUG-0201: commitlint is JS-scoped now
     touch("commitlint.config.js", buildManagedBlock({ blockId: "commitlint", version: 1, body: "export default {};", style: "slash" }));
     expect(find(run(), "commitlint")).toMatchObject({ status: "KJ_MANAGED", managedVersion: 1, upToDate: true, recommendation: "keep" });
     touch("commitlint.config.js", buildManagedBlock({ blockId: "commitlint", version: 0, body: "export default {};", style: "slash" }));
@@ -39,6 +45,7 @@ describe("compareHarden", () => {
   });
 
   it("lists concrete improvements for a thin USER_OWNED config", () => {
+    touch("package.json", "{}");
     touch("commitlint.config.js", "export default { rules: {} };");
     const commitlint = find(run(), "commitlint");
     expect(commitlint).toMatchObject({ status: "USER_OWNED", recommendation: "review", mergeable: true });
@@ -46,6 +53,7 @@ describe("compareHarden", () => {
   });
 
   it("keeps a USER_OWNED config that already covers the kj standard", () => {
+    touch("package.json", "{}");
     touch("commitlint.config.js", 'rules: { "header-max-length": 1, "subject-case": 2 }');
     expect(find(run(), "commitlint")).toMatchObject({
       status: "USER_OWNED",
@@ -109,6 +117,7 @@ describe("compareHarden", () => {
 
 describe("formatAdvisoryReport", () => {
   it("renders a line per artifact, indented improvements, and a tally", () => {
+    touch("package.json", "{}");
     touch("commitlint.config.js", "export default { rules: {} };");
     const lines = formatAdvisoryReport(compareHarden({ projectDir: root }));
     const text = lines.join("\n");

@@ -26,7 +26,8 @@ describe("installConfigs is stack-aware", () => {
     expect(read("ruff.toml")).toContain(">>> kj:managed:ruff v1 >>>");
     expect(read("ruff.toml")).toContain('"UP"');
     expect(has(".editorconfig")).toBe(true);
-    expect(has("commitlint.config.js")).toBe(true);
+    // KJC-BUG-0201: commitlint needs Node, so it belongs to the JS set now.
+    expect(has("commitlint.config.js")).toBe(false);
     expect(has("eslint.config.js")).toBe(false);
     expect(has(".prettierrc.json")).toBe(false);
   });
@@ -45,7 +46,7 @@ describe("installConfigs is stack-aware", () => {
 
   it("an unknown language gets only the universal set (no tooling imposed)", () => {
     const res = installConfigs({ projectDir: dir, language: "ruby" });
-    expect(res.configs.map((c) => c.file).sort()).toEqual([".editorconfig", "commitlint.config.js"]);
+    expect(res.configs.map((c) => c.file).sort()).toEqual([".editorconfig"]);
     expect(has("ruff.toml")).toBe(false);
     expect(has("eslint.config.js")).toBe(false);
   });
