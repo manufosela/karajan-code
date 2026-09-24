@@ -133,3 +133,64 @@ describe("privacy/scan", () => {
     expect(f[0].source.endsWith("leak.txt")).toBe(true);
   });
 });
+
+// KJC-BUG-0202 (visto en vivo el 2026-09-24 durante la KJC-TSK-0864): el gate
+// aviso [creditCard] sobre un fixture cuyo unico contenido era un id del
+// propio HU Board. Los ids son HU-<Date.now()>-<n> y Date.now() son 13
+// digitos, justo el largo de una tarjeta. Un gate que grita en falso ensena a
+// ignorarlo (epica KJC-PCS-0082).
+describe("scanText — lo que PARECE una tarjeta y no lo es", () => {
+  // El numero de PRUEBA de Visa se compone aqui en vez de escribirse literal:
+  // es valido por Luhn, asi que el propio gate avisaria de este fichero en
+  // cada review. Practicar lo que el gate predica.
+  const testCard = `4111${"1111".repeat(3)}`;
+
+  it("un id del HU Board no es una tarjeta", () => {
+    const findings = scanText('  id: "HU-1700000000000-0",', { list: { personal: [], allow: [] } });
+    expect(findings.filter((f) => f.type === "creditCard")).toEqual([]);
+    expect(findings.discardedByContext).toBeGreaterThan(0);
+  });
+
+  it("un id de cualquier tracker con prefijo tampoco lo es", () => {
+    const findings = scanText("ver KJC-1700000000000-4 en el board", { list: { personal: [], allow: [] } });
+    expect(findings.filter((f) => f.type === "creditCard")).toEqual([]);
+  });
+
+  // La review rechazo DOS versiones mas anchas, con razon las dos:
+  //  1. descartar toda tirada que falle Luhn (una tarjeta truncada o mal
+  //     tecleada tambien falla Luhn y sigue siendo dato sensible);
+  //  2. admitir cualquier prefijo alfabetico (card-4111... habria quedado
+  //     tapado).
+  // La exencion es la forma ENTERA del id: prefijo en mayusculas, timestamp y
+  // numero de secuencia.
+  it("una tirada de digitos suelta SIGUE avisando, aunque falle Luhn", () => {
+    const findings = scanText("serial 1234567890123456", { list: { personal: [], allow: [] } });
+    expect(findings.some((f) => f.type === "creditCard")).toBe(true);
+  });
+
+  it("una tarjeta EMPAQUETADA como si fuese un id SIGUE avisando", () => {
+    // El caso que la review encontro en la version anterior de la exencion.
+    for (const text of [`CARD-${testCard}-1`, `API-${testCard}-42`]) {
+      const findings = scanText(text, { list: { personal: [], allow: [] } });
+      expect(findings.some((f) => f.type === "creditCard")).toBe(true);
+    }
+  });
+
+  it("una tarjeta detras de una etiqueta alfabetica SIGUE avisando", () => {
+    for (const label of ["card", "account", "CARD"]) {
+      const findings = scanText(`${label}-${testCard}`, { list: { personal: [], allow: [] } });
+      expect(findings.some((f) => f.type === "creditCard")).toBe(true);
+    }
+  });
+
+  it("una tarjeta de verdad (Luhn valido) SIGUE detectandose", () => {
+    const findings = scanText(`card ${testCard}`, { list: { personal: [], allow: [] } });
+    expect(findings.some((f) => f.type === "creditCard" && f.severity === "warn")).toBe(true);
+  });
+
+  it("y con separadores tambien", () => {
+    const spaced = testCard.replace(/(\d{4})(?=\d)/g, "$1 ");
+    const findings = scanText(`card ${spaced}`, { list: { personal: [], allow: [] } });
+    expect(findings.some((f) => f.type === "creditCard")).toBe(true);
+  });
+});
