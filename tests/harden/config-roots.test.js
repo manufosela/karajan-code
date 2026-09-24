@@ -30,9 +30,12 @@ describe("installConfigsForRoots (monorepo)", () => {
 
     // Universal at the repo root, once.
     expect(has(".editorconfig")).toBe(true);
-    expect(has("commitlint.config.js")).toBe(true);
 
     // JS tooling only in frontend/, Python tooling only in backend/.
+    // KJC-BUG-0201: commitlint is JS tooling too, so it lands in frontend/
+    // instead of a root that backend/ also has to live with.
+    expect(has(join("frontend", "commitlint.config.js"))).toBe(true);
+    expect(has("commitlint.config.js")).toBe(false);
     expect(has(join("frontend", "eslint.config.js"))).toBe(true);
     expect(has(join("frontend", ".prettierrc.json"))).toBe(true);
     expect(has(join("backend", "ruff.toml"))).toBe(true);
@@ -47,7 +50,7 @@ describe("installConfigsForRoots (monorepo)", () => {
 
   it("with no roots seeds only the universal set", () => {
     const res = installConfigsForRoots({ projectDir: root, roots: [] });
-    expect(res.configs.map((c) => c.file).sort()).toEqual([".editorconfig", "commitlint.config.js"]);
+    expect(res.configs.map((c) => c.file).sort()).toEqual([".editorconfig"]);
   });
 
   it("dry-run writes nothing", () => {

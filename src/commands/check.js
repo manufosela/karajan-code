@@ -9,6 +9,7 @@ import { collectMethodStats, formatMethodStats } from "../checks/method.js";
 import { createRagCoverageCheck } from "../checks/rag-coverage.js";
 import { checkAiSurface, formatAiSurface } from "../checks/ai-surface.js";
 import { detectObservedAgents } from "../utils/agent-detect.js";
+import { panelSummary } from "../environment/panel.js";
 import { loadConfig } from "../config.js";
 
 export async function checkCommand({ projectDir = process.cwd(), profile = "standard", json = false, logger = console } = {}) {
@@ -44,6 +45,10 @@ export async function checkCommand({ projectDir = process.cwd(), profile = "stan
   if (method) logger.info?.(`  method: ${formatMethodStats(method)}`);
   logger.info?.(`  ${ragCoverage.ok ? "✓" : "✗"} rag-coverage: ${ragCoverage.detail}`);
   if (aiSurface) logger.info?.(`  ${formatAiSurface(aiSurface)}`);
+  // KJC-TSK-0865: who writes and who reviews is the user's choice, so it is
+  // said out loud next to everything else that describes the project. Never
+  // a check: it has no ok/fail, it informs.
+  logger.info?.(`  ${panelSummary(config)}`);
   if (ok) logger.info?.("Harness OK.");
   else if (result.ok) logger.info?.("RAG index drift detected — a gate cannot protect what it cannot see.");
   else logger.info?.("Harness drift detected — run `kj harden` to repair.");
