@@ -28,6 +28,7 @@ describe("decideAction", () => {
 
 describe("interactiveHarden", () => {
   it("adds missing configs and adopts a thin user config when the user says yes", async () => {
+    writeFileSync(join(root, "package.json"), "{}"); // KJC-BUG-0201: commitlint is JS-scoped now
     writeFileSync(join(root, "commitlint.config.js"), "export default { rules: {} };"); // thin USER_OWNED
     const ask = vi.fn().mockResolvedValue(true);
     const res = await interactiveHarden({ projectDir: root, ask, logger });

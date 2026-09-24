@@ -38,6 +38,26 @@ describe("installConfigs", () => {
     expect(JSON.parse(read(".prettierrc.json"))).toMatchObject({ printWidth: 110 });
   });
 
+  // KJC-BUG-0201 (issue #1774, reported from the field): commitlint was seeded
+  // everywhere, so a Python repo needed a Node runtime just to validate commit
+  // messages — a validation the generated commit-msg hook ALREADY does in pure
+  // sh (Conventional Commits, the 100-char cap, the AI-attribution ban). The
+  // guarantee is language-agnostic; the tool does not have to be.
+  it("a python project gets editorconfig but NOT commitlint", () => {
+    rmSync(join(dir, "package.json"), { force: true });
+    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = 'demo'\n");
+    const res = installConfigs({ projectDir: dir, language: "python" });
+    expect(existsSync(join(dir, ".editorconfig"))).toBe(true);
+    expect(existsSync(join(dir, "commitlint.config.js"))).toBe(false);
+    expect(res.configs.some((c) => c.file === "commitlint.config.js")).toBe(false);
+  });
+
+  it("a javascript project still gets commitlint, where Node is already there", () => {
+    withTools({ devDependencies: { eslint: "^9", prettier: "^3", "@commitlint/cli": "^19" } });
+    installConfigs({ projectDir: dir, language: "javascript" });
+    expect(read("commitlint.config.js")).toContain("config-conventional");
+  });
+
   it("is idempotent on the markered files", () => {
     installConfigs({ projectDir: dir });
     const res = installConfigs({ projectDir: dir });
