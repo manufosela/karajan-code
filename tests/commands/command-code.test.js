@@ -24,6 +24,12 @@ vi.mock("../../src/prompts/coder.js", () => ({
   buildCoderPromptLayout: async () => ({ stable: "coder prompt", volatile: "" })
 }));
 
+// KJC-TSK-0864: the command asks the RAG on the coder's behalf — stubbed here
+// so these tests never touch the real index.
+vi.mock("../../src/commands/rag.js", () => ({
+  ragQueryCommand: vi.fn(async () => [])
+}));
+
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockResolvedValue("coder rules content")

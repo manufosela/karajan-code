@@ -2,7 +2,8 @@ import fs from "node:fs/promises";
 import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
-import { resolveCardContext, taskWithCard } from "../prompts/card-context.js";
+import { resolveCardContext } from "../prompts/card-context.js";
+import { composeTask, resolveRagContext } from "../prompts/session-context.js";
 import { resolveRole } from "../config.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
@@ -28,11 +29,15 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     const card = await resolveCardContext({ projectDir: config.projectDir, ref: flags.card || null });
     if (card?.external) logger.warn(`card ${card.huId} lives on a board kj cannot read — passing the reference, not its text`);
     else if (card) logger.info(`Card ${card.huId}: ${card.title}`);
+    // The method's first invariant is that the RAG answers before you assume.
+    // The session asks on the coder's behalf: a subprocess coder cannot run
+    // `kj rag query` itself, so it used to guess the codebase instead.
+    const rag = await resolveRagContext({ task, config, logger });
     // The pipeline always passed projectDir (it arms the directory-boundary
     // rule and the skills section) and the provider. `kj code` did not, so the
     // declared coder got a weaker prompt from the session than from `kj run`.
     const prompt = await buildCoderPrompt({
-      task: taskWithCard(task, card),
+      task: composeTask(task, [card?.section, rag?.section]),
       coderRules,
       methodology: config.development?.methodology || "tdd",
       projectDir: config.projectDir,
@@ -63,6 +68,6 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     // DIFFERENT AI runs it. Saying so here is what keeps the panel honest.
     logger.info(`The work is in the tree. Review it before committing: kj review --staged (a different AI than ${coderRole.provider}).`);
     runLog.logText(`[coder] finished (exit=${result.exitCode})`);
-    return { ok: true, provider: coderRole.provider, card: card?.huId ?? null };
+    return { ok: true, provider: coderRole.provider, card: card?.huId ?? null, ragSources: rag?.sources ?? [] };
   });
 }

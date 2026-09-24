@@ -55,8 +55,3 @@ export async function resolveCardContext({ projectDir, ref, deps = {} }) {
     external: false,
   };
 }
-
-/** The task the coder reads: its own statement, preceded by the card's. */
-export function taskWithCard(task, card) {
-  return card ? `${card.section}\n\n## Task\n\n${task}` : task;
-}
