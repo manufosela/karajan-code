@@ -13,15 +13,10 @@
 import { defaultEnvironment } from "../infrastructure/environment.js";
 import { buildAgentEnv } from "../utils/role-env.js";
 import { isModelCompatible } from "../config/role-resolver.js";
+// KJC-TSK-0859: the patterns moved out so the brain's classifier reads the
+// same definition — a dead model used to mean two different things.
+import { isModelUnavailableText } from "./model-errors.js";
 
-const MODEL_NOT_SUPPORTED_PATTERNS = [
-  /model.{0,30}is not supported/i,
-  /model.{0,30}not available/i,
-  /model.{0,30}does not exist/i,
-  /unsupported model/i,
-  /invalid model/i,
-  /model_not_found/i
-];
 
 export class BaseAgent {
   /**
@@ -129,6 +124,6 @@ export class BaseAgent {
   isModelNotSupportedError(result) {
     const text = [result?.error, result?.output, result?.stderr, result?.stdout]
       .filter(Boolean).join("\n");
-    return MODEL_NOT_SUPPORTED_PATTERNS.some(re => re.test(text));
+    return isModelUnavailableText(text);
   }
 }

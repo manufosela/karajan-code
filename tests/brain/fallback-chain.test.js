@@ -136,3 +136,56 @@ describe("withBrainRecovery — fallback switch", () => {
     expect(DEFAULT_RECOVERY_POLICY.fallbackWaitHoursDefault).toBe(12);
   });
 });
+
+// KJC-TSK-0859: un modelo retirado por el proveedor no tiene cooldown que
+// esperar, así que no pasa por la condición de cuota: si hay eslabón
+// siguiente se toma, y si no lo hay se aborta en vez de reintentar un modelo
+// muerto hasta agotar la cuota.
+const deadModelError = () => ({ ok: false, error: "model gpt-5.4-mini is not supported when using a ChatGPT account", exitCode: 1 });
+
+describe("withBrainRecovery — MODEL_UNAVAILABLE", () => {
+  it("toma el siguiente eslabón inmediatamente, sin esperar cuota alguna", async () => {
+    const primary = { provider: "codex", model: "gpt-5.4-mini", runTask: vi.fn().mockResolvedValue(deadModelError()) };
+    const next = { provider: "codex", model: "gpt-5.6-terra", runTask: vi.fn().mockResolvedValue({ ok: true, output: "ok" }) };
+    const emit = vi.fn();
+    const warn = vi.fn();
+    const r = await withBrainRecovery({
+      agent: primary, taskArgs: {}, role: "reviewer",
+      fallback: { agent: next, provider: "codex", model: "gpt-5.6-terra" },
+      emitter: { emit }, logger: { warn }, sleepFn: noSleep,
+    });
+    expect(r.ok).toBe(true);
+    expect(next.runTask).toHaveBeenCalledTimes(1);
+    const switched = emit.mock.calls.find(([_e, p]) => p?.type === "brain:fallback-switched");
+    expect(switched[1].detail.immediate).toBe(true);
+    // El aviso dice qué murió, qué lo sustituye y cómo fijarlo.
+    const said = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(said).toContain("gpt-5.4-mini");
+    expect(said).toContain("gpt-5.6-terra");
+    expect(said).toContain("roles.reviewer");
+  });
+
+  it("sin cadena declarada aborta: reintentar un modelo muerto no lo resucita", async () => {
+    const primary = { provider: "codex", runTask: vi.fn().mockResolvedValue(deadModelError()) };
+    const r = await withBrainRecovery({ agent: primary, taskArgs: {}, role: "coder", sleepFn: noSleep });
+    expect(r.ok).toBe(false);
+    expect(r.action).toBe("abort");
+    expect(r.recovery.class).toBe("MODEL_UNAVAILABLE");
+    expect(primary.runTask).toHaveBeenCalledTimes(1);
+  });
+
+  it("recorre la cadena entera: cada eslabón muerto pasa al siguiente", async () => {
+    const dead = (p, m) => ({ provider: p, model: m, runTask: vi.fn().mockResolvedValue(deadModelError()) });
+    const first = dead("codex", "gpt-5.4");
+    const second = dead("codex", "gpt-5.4-mini");
+    const third = { provider: "claude", model: "opus", runTask: vi.fn().mockResolvedValue({ ok: true, output: "ok" }) };
+    const r = await withBrainRecovery({
+      agent: first, taskArgs: {}, role: "coder",
+      fallback: { agent: second, provider: "codex", model: "gpt-5.4-mini", fallback: { agent: third, provider: "claude", model: "opus" } },
+      sleepFn: noSleep,
+    });
+    expect(r.ok).toBe(true);
+    expect(second.runTask).toHaveBeenCalledTimes(1);
+    expect(third.runTask).toHaveBeenCalledTimes(1);
+  });
+});
