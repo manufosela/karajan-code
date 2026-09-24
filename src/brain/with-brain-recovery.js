@@ -95,10 +95,28 @@ export async function withBrainRecovery({
   // The substitution is only useful if it names WHICH model died and which
   // one took over, and agents expose it under different keys.
   const modelOf = (a) => a?.model || a?.config?.model || null;
+  // Retrying the same agent is one entry with a count, not four lines: the
+  // order the user needs is the order of CANDIDATES, not of attempts.
+  const noteAttempt = (list, entry) => {
+    const last = list.at(-1);
+    if (last && last.provider === entry.provider && last.model === entry.model && last.class === entry.class) {
+      last.attempts += 1;
+      return;
+    }
+    list.push({ ...entry, attempts: 1 });
+  };
+  const formatTried = (list) =>
+    list
+      .map((t) => `${t.provider}${t.model ? ` (${t.model})` : ""} → ${t.class}${t.attempts > 1 ? ` x${t.attempts}` : ""}`)
+      .join("; ");
   let effectiveAgent = agent;
   let effectiveProvider = provider || agent?.provider || "unknown";
   let effectiveFallback = fallback;
   const attemptsByClass = {};
+  // KJC-TSK-0859: attemptsByClass counts, it does not remember. With a chain
+  // exhausted the user got "the work failed" and no idea what had been tried,
+  // so every failure also lands here, in order.
+  const tried = [];
 
   while (true) {
     const result = await effectiveAgent.runTask(taskArgs);
@@ -111,6 +129,7 @@ export async function withBrainRecovery({
       exitCode: result?.exitCode ?? null,
     });
     const classPolicy = policy.classes[cls.class] || { mode: "abort", maxRetries: 0 };
+    noteAttempt(tried, { provider: effectiveProvider, model: modelOf(effectiveAgent), class: cls.class, message: cls.message });
     attemptsByClass[cls.class] = (attemptsByClass[cls.class] || 0) + 1;
     const attempt = attemptsByClass[cls.class];
 
@@ -135,8 +154,15 @@ export async function withBrainRecovery({
 
     // ABORT: no recuperable.
     if (classPolicy.mode === "abort" || attempt > classPolicy.maxRetries) {
-      emit(emitter, "brain:fatal", eventBase, { role, class: cls.class, message: cls.message });
-      return { ok: false, action: "abort", recovery: cls, error: `Brain aborted: ${cls.class} — ${cls.message}` };
+      emit(emitter, "brain:fatal", eventBase, { role, class: cls.class, message: cls.message, tried });
+      return {
+        ok: false, action: "abort", recovery: cls, tried,
+        // With a chain behind us the LAST error explains nothing: the user
+        // needs the order, which is also what tells them where to look.
+        error: tried.length > 1
+          ? `Brain aborted for ${role} after trying, in order: ${formatTried(tried)} — last error: ${cls.message}`
+          : `Brain aborted: ${cls.class} — ${cls.message}`,
+      };
     }
 
     // KJC-TSK-0415: ¿switch a fallback antes de hibernar?
@@ -193,7 +219,7 @@ export async function withBrainRecovery({
       if (tooLongToWait) {
         logger?.info?.(`[brain] hibernated session ${sessionState?.sessionId ?? "(no id)"} → ${standbyFile} (resume at ${cls.retryUntil}; wait > ${Math.round(maxWaitMs/ONE_HOUR)}h, exiting)`);
         emit(emitter, "brain:hibernate-request", eventBase, { role, class: cls.class, retryUntil: cls.retryUntil, retryAfter: cls.retryAfter, standbyFile });
-        return { ok: false, action: "hibernate", recovery: cls, standbyFile };
+        return { ok: false, action: "hibernate", recovery: cls, standbyFile, tried };
       }
 
       // Standby-in-process: keep kj alive, sleep until the cooldown,

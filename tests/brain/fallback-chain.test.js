@@ -189,3 +189,50 @@ describe("withBrainRecovery — MODEL_UNAVAILABLE", () => {
     expect(third.runTask).toHaveBeenCalledTimes(1);
   });
 });
+
+// KJC-TSK-0859 (AC3): attemptsByClass contaba, no recordaba. Con la cadena
+// agotada el usuario recibia "el trabajo fallo" y ninguna pista de que se
+// habia intentado.
+describe("withBrainRecovery — cadena agotada", () => {
+  it("el error dice qué se probó y en qué orden, no un fallo genérico", async () => {
+    const dead = (p, m) => ({ provider: p, model: m, runTask: vi.fn().mockResolvedValue(deadModelError()) });
+    const first = dead("codex", "gpt-5.4");
+    const second = dead("codex", "gpt-5.4-mini");
+    const r = await withBrainRecovery({
+      agent: first, taskArgs: {}, role: "reviewer",
+      fallback: { agent: second, provider: "codex", model: "gpt-5.4-mini" },
+      sleepFn: noSleep,
+    });
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("in order");
+    expect(r.error).toContain("codex (gpt-5.4) → MODEL_UNAVAILABLE");
+    expect(r.error).toContain("codex (gpt-5.4-mini) → MODEL_UNAVAILABLE");
+    // Y en forma de dato, no solo de prosa, para quien lo consuma.
+    expect(r.tried).toHaveLength(2);
+    expect(r.tried[0]).toMatchObject({ provider: "codex", model: "gpt-5.4", class: "MODEL_UNAVAILABLE" });
+  });
+
+  it("los reintentos del mismo agente se colapsan con contador, y la causa se conserva", async () => {
+    const limited = () => ({ ok: false, error: "rate limited, try again", exitCode: 1 });
+    const primary = { provider: "claude", model: "opus", runTask: vi.fn().mockResolvedValue(limited()) };
+    const next = { provider: "codex", model: "gpt-5.6-terra", runTask: vi.fn().mockResolvedValue(limited()) };
+    const r = await withBrainRecovery({
+      agent: primary, taskArgs: {}, role: "coder",
+      fallback: { agent: next, provider: "codex", model: "gpt-5.6-terra" },
+      sleepFn: noSleep,
+    });
+    expect(r.ok).toBe(false);
+    // Un candidato, una entrada, con el numero de intentos.
+    expect(r.tried).toHaveLength(1);
+    expect(r.tried[0].attempts).toBeGreaterThan(1);
+    expect(r.error).toContain("rate limited");
+  });
+
+  it("un unico intento conserva el mensaje directo: la orden no aporta nada", async () => {
+    const only = { provider: "codex", runTask: vi.fn().mockResolvedValue(deadModelError()) };
+    const r = await withBrainRecovery({ agent: only, taskArgs: {}, role: "coder", sleepFn: noSleep });
+    expect(r.error).toContain("Brain aborted: MODEL_UNAVAILABLE");
+    expect(r.error).not.toContain("in order");
+    expect(r.tried).toHaveLength(1);
+  });
+});
