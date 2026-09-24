@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.32.0 — se empieza sin forzar nada (actual)
+### v4.33.0 — tu panel manda (actual)
+
+Tú eliges quién escribe y quién revisa, y hasta ahora esa elección solo valía dentro de `kj run`. El panel viaja ya con el playbook que todo anfitrión lee al empezar, y `kj code` invoca a TU coder con la card, sus criterios, la frontera del proyecto y lo que el RAG responde sobre la tarea. Debajo, la cadena declarada de modelos queda por fin conectada: su esquema llevaba en la config desde febrero y nadie construyó jamás la pieza intermedia, mientras cinco agentes resolvían un modelo retirado en silencio y **por delante** de lo que tú hubieras declarado. Ahora los agentes devuelven el fallo, decide tu cadena, el default del proveedor es su cola y no un primer paso escondido, y una cadena agotada dice qué se probó y en qué orden. kj además recuerda un modelo retirado para que la siguiente ejecución no vuelva a pagarlo, sin tocarte el pin. Y tres informes de campo cerraron la otra mitad: lo que kj escribe en un proyecto habla ya el lenguaje de ese proyecto, en vez de pedirle `const` a un repo de Python.
+
+### v4.32.0 — se empieza sin forzar nada
 
 `kj bootstrap` lleva de una carpeta vacía a un proyecto bajo el método con un solo mando, en el orden que funciona, y **hace él el commit del contrato** en vez de dejarte pelear con los gates que acabas de instalar. `kj doctor` y `kj check` ya miran también el repositorio, y nombran cada síntoma con el mando literal que lo repara: un harness que no gobierna nada, un contrato que ningún clon heredaría, un clon sin identidad declarada. Y llegaron las dos pruebas que faltaban: el proyecto declara si de verdad arranca, así que un árbol que ya venía roto se dice ANTES de implementar en vez de achacárselo al cambio siguiente, y lo que una persona VE deja de darse por bueno con la suite verde: el recorrido viaja en el veredicto junto a los bloques de sonar y de RAG, avisando y sin bloquear, porque el navegador no captura los modales nativos y un gate que salta a menudo enseña a saltárselo.
 

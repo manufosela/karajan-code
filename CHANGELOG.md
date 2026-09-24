@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.33.0] - 2026-09-24
+
+Your panel rules. You choose who writes and who reviews, and until now that choice only held inside `kj run`: with the host agent orchestrating, nothing carried it into the session, and a model your provider had retired silently got replaced by whatever the agent felt like. Three field reports from a contributor close the other half: what kj writes into a project now speaks that project's language.
+
+### Added
+
+- **The panel travels with the method** (KJC-TSK-0865, #1785): who writes, who reviews and who arbitrates is announced in the playbook every host reads at session start, and in `kj check` for you. It announces and never blocks: the host may still write the code, and then it says so instead of staying quiet. A project that declares no panel gets no line at all, because attention spent to say nothing is attention wasted.
+- **`kj code` invokes YOUR coder, with the context the pipeline always had** (KJC-TSK-0864, #1786, #1787, #1788): when the host orchestrates, this is how your declared coder gets invoked, and it used to hand the agent a bare sentence. It now carries the card (a local story read from the board, a reference from an external board passed through and flagged), its acceptance criteria as the contract, the project boundary, and what the RAG answers about the task, because a coder launched as a subprocess cannot query the index itself and was guessing the codebase instead. `--agent` is the session's word for `--coder`, `--card` names the work, and it closes by saying the work is in the tree for a **different** AI to review.
+- **A declared chain of models, finally connected** (KJC-TSK-0859, #1789 to #1793): `roles.<role>.fallback` has been in the schema since February, recursive and carrying a model, and the recovery wrapper always knew how to walk it. Nobody ever built the piece in between, so every chain anyone declared was dead config. A retired model is now its own error class (not a fatal one, and not a quota problem, because waiting will never bring it back), and it takes the next declared candidate at once, naming which model died, which took over and how to pin it. When the chain runs out, the error says what was tried and in what order instead of reporting the last failure as if it were the only one.
+- **kj remembers the models a provider retires** (KJC-TSK-0827, #1794): the chain makes a dead model recoverable but does not stop the next run paying for the same corpse, because the dead model is still what your config pins. kj now remembers, per account, and stops asking for a model it watched die, naming the exact line to change. It never edits that line itself: the pin is yours. Entries expire after a month so a wrong verdict heals by itself.
+
+### Changed
+
+- **The declared chain decides, not a hidden retry** (KJC-TSK-0859, #1793): five agents each kept a private retry that dropped a pinned model and ran again with the provider default, returning that second attempt as if nothing had happened. It ran BEFORE anything you declared, so your chain was never reached for a dead model: the agent had already chosen for you. The agents now return the failure, the brain applies your chain, and the provider default is its **tail** rather than a hidden first step. `kj code` goes through the same path with a one-shot policy: a quota wall takes the next candidate at once instead of sleeping for hours inside a CLI command.
+- **What kj writes speaks the project's language** (KJC-BUG-0199, #1783, reported by @aitormartinez-tribbu): the guidelines kj installs in `CLAUDE.md` and `AGENTS.md` were one fixed JavaScript text seeded everywhere, telling a Python project to prefer `const` and avoid `document.write`. They are now a language-agnostic core plus one block per language, picked with the same detection `kj harden` already used for the configs. A language kj does not know gets the core alone, never another language's rules.
+- **commitlint no longer imposes Node on every stack** (KJC-BUG-0201, #1784, reported by @aitormartinez-tribbu): a Python or Go repo was getting a config that is useless without `@commitlint/cli`, which means a Node runtime in a project that decided not to have one. The generated `commit-msg` hook already enforces the whole contract in pure POSIX sh, so the guarantee stays language-agnostic while the tool moves to the stack that already has Node.
+
+### Fixed
+
+- **The harness commit no longer trips its own attribution guard** (KJC-BUG-0200, #1782): the generated harness files contain the word "Claude" as part of their own logic, so the commit that installs the harness was rejected by the guard the harness itself enforces. The guarantee is unchanged for human-authored files; only kj's own generated harness is out of scope.
+- **A tracker id is not a credit card** (KJC-BUG-0202, #1795): an HU Board id is `HU-<timestamp>-<n>`, and a millisecond timestamp is 13 digits, exactly a card's length, so every project on the default board got a credit-card warning over its own card ids. The exemption is the whole id shape, tied to a real timestamp: no card range begins with a 1, so a card number cannot occupy that slot at any length. A gate that cries wolf teaches people to skip the gate.
+
 ## [4.32.0] - 2026-09-23
 
 Starting a project stops being a fight. The cold-start ADR is delivered whole (epic KJC-PCS-0088), and with it the two pieces the Anthropic write-up on long-running agents showed were missing: nobody verified that the application runs, and nobody verified what a person actually sees.
