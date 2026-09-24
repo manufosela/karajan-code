@@ -44,23 +44,13 @@ export class GeminiAgent extends BaseAgent {
   async runTask(task) {
     const role = task.role || "coder";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model, "run");
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`${this.cliBin} model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null, "run");
-    }
-    return result;
+    return this._exec(task, model, "run");
   }
 
   async reviewTask(task) {
     const role = task.role || "reviewer";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model, "review");
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`${this.cliBin} model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null, "review");
-    }
-    return result;
+    return this._exec(task, model, "review");
   }
 
   async _exec(task, model, mode) {

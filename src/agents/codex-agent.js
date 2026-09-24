@@ -57,23 +57,13 @@ export class CodexAgent extends BaseAgent {
   async runTask(task) {
     const role = task.role || "coder";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model, role);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Codex model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null, role);
-    }
-    return result;
+    return this._exec(task, model, role);
   }
 
   async reviewTask(task) {
     const role = task.role || "reviewer";
     const model = this.getRoleModel(role);
-    const result = await this._exec(task, model, role);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Codex model "${model}" not supported — retrying with agent default`);
-      return this._exec(task, null, role);
-    }
-    return result;
+    return this._exec(task, model, role);
   }
 
   async _exec(task, model, role) {

@@ -13,9 +13,6 @@
 import { defaultEnvironment } from "../infrastructure/environment.js";
 import { buildAgentEnv } from "../utils/role-env.js";
 import { isModelCompatible } from "../config/role-resolver.js";
-// KJC-TSK-0859: the patterns moved out so the brain's classifier reads the
-// same definition — a dead model used to mean two different things.
-import { isModelUnavailableText } from "./model-errors.js";
 
 
 export class BaseAgent {
@@ -113,17 +110,5 @@ export class BaseAgent {
   isAutoApproveEnabled(role) {
     if (role === "reviewer") return false;
     return Boolean(this.config?.coder_options?.auto_approve);
-  }
-
-  /**
-   * Heuristic: does the agent's error look like "model not supported"?
-   * Used by the retry/fallback path.
-   * @param {Partial<AgentResult>} result
-   * @returns {boolean}
-   */
-  isModelNotSupportedError(result) {
-    const text = [result?.error, result?.output, result?.stderr, result?.stdout]
-      .filter(Boolean).join("\n");
-    return isModelUnavailableText(text);
   }
 }

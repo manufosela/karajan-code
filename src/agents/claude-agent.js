@@ -343,23 +343,13 @@ export class ClaudeAgent extends BaseAgent {
   async runTask(task) {
     const role = task.role || "coder";
     const model = this.getRoleModel(role);
-    const result = await this._runTaskExec(task, model, role);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Claude model "${model}" not supported — retrying with agent default`);
-      return this._runTaskExec(task, null, role);
-    }
-    return result;
+    return this._runTaskExec(task, model, role);
   }
 
   async reviewTask(task) {
     const role = task.role || "reviewer";
     const model = this.getRoleModel(role);
-    const result = await this._reviewTaskExec(task, model);
-    if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Claude model "${model}" not supported — retrying with agent default`);
-      return this._reviewTaskExec(task, null);
-    }
-    return result;
+    return this._reviewTaskExec(task, model);
   }
 
   async _runTaskExec(task, model, _role) {
