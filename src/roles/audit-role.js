@@ -1,6 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { AgentRole } from "./agent-role.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
+import { buildRoleFallbackChain } from "../brain/role-fallback-chain.js";
+import { ONE_SHOT_POLICY } from "../brain/one-shot-policy.js";
 import { securityAuditMarkerPath } from "../steward/invariants.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
 import { measureBasalCost, loadPreviousAudit, saveAuditSnapshot, computeGrowthDelta } from "../audit/basal-cost.js";
@@ -193,13 +196,36 @@ export class AuditRole extends AgentRole {
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const startedAt = Date.now();
-    const result = await agent.runTask(runArgs);
+    // KJC-BUG-0194: this used to call agent.runTask() directly, which made
+    // audit the ONE role that bypassed the brain. No classification (so an MCP
+    // caller saw a quota wall as category "unknown") and no declared chain
+    // (so roles.audit.fallback was ignored even after KJC-TSK-0859 wired it,
+    // because the wiring lives in AgentRole.execute and audit overrides it).
+    // The one-shot policy matters here: `kj audit` must take the next
+    // candidate at once rather than hibernate for hours inside a command.
+    const result = await withBrainRecovery({
+      agent: { runTask: (args) => agent.runTask(args), provider, model: this.config?.roles?.audit?.model ?? null },
+      taskArgs: runArgs,
+      role: "audit",
+      provider,
+      logger: this.logger,
+      emitter: this.emitter,
+      policy: ONE_SHOT_POLICY,
+      fallback: buildRoleFallbackChain({ config: this.config, role: "audit", createAgentFn: this._createAgent, logger: this.logger }),
+    });
     const durationMs = Date.now() - startedAt;
 
     const usage = extractUsage(result, { provider, durationMs });
 
     if (!result.ok) {
-      return { ok: false, result: { error: result.error || result.output || "Audit failed", provider }, summary: `Audit failed: ${result.error || "unknown error"}`, usage };
+      // The classification and the itinerary travel with the failure, so a
+      // caller (CLI or MCP) can say WHY it stopped and what was tried.
+      return {
+        ok: false,
+        result: { error: result.error || result.output || "Audit failed", provider, recovery: result.recovery || null, tried: result.tried || null },
+        summary: `Audit failed: ${result.recovery?.class ? `${result.recovery.class} — ` : ""}${result.error || "unknown error"}`,
+        usage,
+      };
     }
 
     try {

@@ -5,23 +5,12 @@ import { buildCoderPrompt } from "../prompts/coder.js";
 import { resolveCardContext } from "../prompts/card-context.js";
 import { composeTask, resolveRagContext } from "../prompts/session-context.js";
 import { resolveRole } from "../config.js";
-import { withBrainRecovery, DEFAULT_RECOVERY_POLICY } from "../brain/with-brain-recovery.js";
-import { buildRoleFallbackChain } from "../brain/role-fallback-chain.js";
-import { ERROR_CLASS } from "../brain/agent-error-classifier.js";
-
 // KJC-TSK-0859: the agents no longer substitute a dead model behind your back,
-// so the command needs the declared chain. A one-shot CLI must not inherit the
-// pipeline's standby either: sleeping five hours inside `kj code` would be
-// worse than the failure. A quota wall takes the next candidate at once, and
-// with none left it stops and says what it tried.
-const ONE_SHOT_POLICY = Object.freeze({
-  ...DEFAULT_RECOVERY_POLICY,
-  classes: {
-    ...DEFAULT_RECOVERY_POLICY.classes,
-    [ERROR_CLASS.QUOTA_EXHAUSTED_DAILY]: { mode: "abort", maxRetries: 0, fallbackEligible: true, fallbackImmediate: true },
-    [ERROR_CLASS.QUOTA_EXHAUSTED_MONTHLY]: { mode: "abort", maxRetries: 0, fallbackEligible: true, fallbackImmediate: true },
-  },
-});
+// so the command needs the declared chain, with the one-shot policy a command
+// deserves (KJC-BUG-0194 moved it to its own module: audit needs the same).
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
+import { buildRoleFallbackChain } from "../brain/role-fallback-chain.js";
+import { ONE_SHOT_POLICY } from "../brain/one-shot-policy.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 
