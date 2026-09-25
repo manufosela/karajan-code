@@ -13,6 +13,16 @@ Because there's no loop, there's no convergence behaviour: you get one attempt. 
 
 It's the same coder agent and the same prompt scaffolding `kj run` uses for its coder step — the difference is purely the absence of everything around it.
 
+## What the coder is given
+
+Since 4.33.0 the coder gets from `kj code` the same context the pipeline always handed it, which is what makes "the same prompt scaffolding" actually true:
+
+- **The card**, with `--card`: its statement and its acceptance criteria, which travel as the contract rather than as prose. A card on a board kj cannot read (an external tracker lives in your host's own tools) is passed through as the reference it is, and kj says so instead of handing over an empty context.
+- **What the RAG answers about the task**. A coder launched as a subprocess cannot run `kj rag query` itself, so it used to guess the codebase; the session now asks the index on its behalf and passes the top excerpts with their sources. An empty or unreachable index warns out loud and the coder works without project context: kj does not block a repo that simply has no index yet.
+- **The project boundary and your guidelines**, which arm the rule that every write stays inside the project root.
+
+It closes by naming who must **not** review the result: the work sits in your tree, and `kj review --staged` will use a different AI than the one that just wrote it.
+
 ## When to use
 
 - **Mechanical, low-risk changes** — `kj code "rename getUser to fetchUser everywhere"`.
@@ -34,7 +44,9 @@ It's the same coder agent and the same prompt scaffolding `kj run` uses for its 
 | --- | --- | --- | --- |
 | `[task]` (arg) | — | The change to make, inline. Required unless `--task-file`. | — |
 | `--task-file <path>` | none | The task is long or lives in a `.md`. | Supersedes the inline `[task]`. |
-| `--coder <name>` | config (`roles.coder.provider`) | Use a different agent for this run: `--coder codex`. | — |
+| `--coder <name>` | config (`roles.coder.provider`) | Use a different agent for this run: `--coder codex`. | Same knob as `--agent`. |
+| `--agent <name>` | config (`roles.coder.provider`) | The session's word for `--coder`. Use whichever reads better. | Naming both with **different** agents exits 2 rather than picking one silently. |
+| `--card <ref>` | none | The work belongs to a card: its statement and its acceptance criteria reach the coder. | A local story is read from the board; a reference from an external board travels as the reference, with a warning. |
 | `--coder-model <name>` | tier-driven | Pin a specific model. Bypasses the tier picker. | — |
 
 `kj code` is intentionally minimal — it has no `--enable-X`, no iteration flags. Everything that would add a flag here is the reason to use `kj run` instead.

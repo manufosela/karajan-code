@@ -13,6 +13,16 @@ Como no hay loop, no hay comportamiento de convergencia: tienes un intento. Si e
 
 Es el mismo agente coder y el mismo scaffolding de prompt que `kj run` usa para su paso coder — la diferencia es puramente la ausencia de todo lo demás.
 
+## Qué recibe el coder
+
+Desde la 4.33.0 el coder recibe de `kj code` el mismo contexto que el pipeline le pasó siempre, que es lo que hace verdad eso de "el mismo scaffolding de prompt":
+
+- **La card**, con `--card`: su enunciado y sus criterios de aceptación, que viajan como contrato y no como prosa. Una card en un board que kj no puede leer (un tracker externo vive en las herramientas de tu anfitrión) se pasa como la referencia que es, y kj lo dice en vez de entregar un contexto vacío.
+- **Lo que el RAG responde sobre la tarea**. Un coder lanzado como subproceso no puede ejecutar `kj rag query` por su cuenta, así que antes suponía lo que hacía el código; ahora la sesión pregunta al índice en su nombre y le pasa los extractos con sus fuentes. Un índice vacío o inalcanzable avisa en voz alta y el coder trabaja sin contexto del proyecto: kj no bloquea un repo que simplemente todavía no tiene índice.
+- **La frontera del proyecto y tus guidelines**, que arman la regla de que toda escritura se queda dentro de la raíz del proyecto.
+
+Y cierra nombrando a quien **no** debe revisar el resultado: el trabajo se queda en tu árbol, y `kj review --staged` usará una IA distinta de la que acaba de escribirlo.
+
 ## Cuándo usarlo
 
 - **Cambios mecánicos de bajo riesgo** — `kj code "renombra getUser a fetchUser en todos lados"`.
@@ -34,7 +44,9 @@ Es el mismo agente coder y el mismo scaffolding de prompt que `kj run` usa para 
 | --- | --- | --- | --- |
 | `[task]` (arg) | — | El cambio a hacer, inline. Requerido salvo `--task-file`. | — |
 | `--task-file <path>` | none | La task es larga o vive en un `.md`. | Sobrescribe el `[task]` inline. |
-| `--coder <name>` | config (`roles.coder.provider`) | Usar otro agente para este run: `--coder codex`. | — |
+| `--coder <name>` | config (`roles.coder.provider`) | Usar otro agente para este run: `--coder codex`. | El mismo mando que `--agent`. |
+| `--agent <name>` | config (`roles.coder.provider`) | La palabra de la sesión para `--coder`. Usa la que te suene mejor. | Nombrar las dos con agentes **distintos** sale con código 2, en vez de elegir una en silencio. |
+| `--card <ref>` | ninguna | El trabajo pertenece a una card: su enunciado y sus criterios de aceptación llegan al coder. | Una historia local se lee del board; una referencia de un board externo viaja como referencia, avisando. |
 | `--coder-model <name>` | tier-driven | Pinea un modelo concreto. Salta el tier picker. | — |
 
 `kj code` es deliberadamente mínimo — sin `--enable-X`, sin flags de iteración. Todo lo que añadiría un flag aquí es la razón para usar `kj run` en su lugar.
