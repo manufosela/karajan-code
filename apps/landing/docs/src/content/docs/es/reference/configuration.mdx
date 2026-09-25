@@ -115,6 +115,42 @@ roles:
 | `impeccable` | Auditoría automatizada de diseño UI/UX |
 | `commiter` | Automatización git |
 
+### fallback: la cadena que corre cuando la primera opción no puede
+
+Cualquier rol acepta un `fallback`, y un fallback acepta el suyo, así que la cadena es tan larga como necesites (cinco eslabones; a partir de ahí kj avisa e ignora el resto):
+
+```yaml
+roles:
+  reviewer:
+    provider: codex
+    model: gpt-5.6-terra
+    fallback:
+      provider: codex          # el mismo proveedor, otro modelo
+      model: gpt-5.6
+      max_wait_hours: 12
+      fallback:
+        provider: claude       # o directamente otro proveedor
+        model: null            # null = el default de ese proveedor
+```
+
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `provider` | string | — | El agente de este eslabón. Obligatorio. |
+| `model` | string \| null | `null` | El modelo de este eslabón. `null` pide el default del proveedor. |
+| `max_wait_hours` | number | `12` | Ante un muro de **cuota**, esperar en vez de cambiar cuando el enfriamiento sea menor que esto. Un modelo retirado no espera nunca: no hay nada que lo devuelva. |
+| `fallback` | object | ninguno | El eslabón siguiente. La misma forma, recursiva. |
+
+Dos cosas que conviene saber porque no se ven:
+
+- **La cadena se recorre en el orden que escribiste**, y el modelo por defecto del proveedor se añade como **último** eslabón cuando (y solo cuando) fijaste un modelo. Ese paso ocurría antes en silencio dentro de cada agente, y por delante de lo que hubieras declarado; desde la 4.33.0 es la cola de tu cadena, donde se ve.
+- **Un eslabón que repite al primario se salta**, y también uno cuyo proveedor no existe, avisando de cuál. Reintentar el mismo proveedor y el mismo modelo no es avanzar, solo lo parece.
+
+Agotada la cadena, el error dice qué se probó y en qué orden, y kj recuerda un modelo que vio retirar a un proveedor para que la siguiente ejecución no vuelva a pagar esa llamada muerta. Nunca te toca el pin: te nombra la línea para que la cambies tú.
+
+:::note
+`coder_options.fallback_coder` y `reviewer_options.fallback_reviewer` son la forma antigua: un solo paso y solo de proveedor. Siguen funcionando. `roles.<role>.fallback` es la que cubre todos los roles y puede cambiar el modelo.
+:::
+
 ---
 
 ## pipeline

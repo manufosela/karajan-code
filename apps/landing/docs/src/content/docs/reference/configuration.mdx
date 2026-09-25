@@ -115,6 +115,42 @@ roles:
 | `impeccable` | Automated UI/UX design audit |
 | `commiter` | Git automation |
 
+### fallback: the chain that runs when the first choice cannot
+
+Any role accepts a `fallback`, and a fallback accepts its own, so the chain is as long as you need it (five links, then kj warns and ignores the rest):
+
+```yaml
+roles:
+  reviewer:
+    provider: codex
+    model: gpt-5.6-terra
+    fallback:
+      provider: codex          # same provider, another model
+      model: gpt-5.6
+      max_wait_hours: 12
+      fallback:
+        provider: claude       # or another provider entirely
+        model: null            # null = that provider's default
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `provider` | string | — | The agent this link uses. Required. |
+| `model` | string \| null | `null` | The model for this link. `null` asks for the provider's own default. |
+| `max_wait_hours` | number | `12` | On a **quota** wall, wait rather than switch when the cooldown is shorter than this. A retired model never waits: nothing will bring it back. |
+| `fallback` | object | none | The next link. Same shape, recursively. |
+
+Two things worth knowing, because they are not obvious:
+
+- **The chain is taken in the order you wrote it**, and the provider's default model is appended as the **last** link when (and only when) you pinned a model. That step used to happen silently inside each agent, ahead of anything you had declared; since 4.33.0 it is the tail of your chain, where you can see it.
+- **A link that repeats the primary is skipped**, and so is one whose provider does not exist, with a warning naming it. Retrying the same provider and model is not progress, it only looks like it.
+
+When the whole chain is exhausted, the error says what was tried and in what order, and kj remembers a model it watched a provider retire so the next run does not pay for the same dead call. It never edits your pin: it names the line for you to change.
+
+:::note
+`coder_options.fallback_coder` and `reviewer_options.fallback_reviewer` are the older, single-step, provider-only form. They still work. `roles.<role>.fallback` is the one that covers every role and can change the model.
+:::
+
 ---
 
 ## pipeline
