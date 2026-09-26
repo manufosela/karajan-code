@@ -570,6 +570,36 @@ Esto es independiente de `session.fail_fast_repeats` — `failFast` aplica a la 
 
 ---
 
+## release_check
+
+Lo que `kj release check` comprueba además de los genéricos (manifest contra CHANGELOG contra tags, escaneo de privacidad de los ficheros publicables, la policy vigente). Cada item lo pone el proyecto.
+
+```yaml
+release_check:
+  items:
+    - name: la landing desplegada muestra la versión como current
+      command: curl -sf https://example.com/docs/ | grep -q 'v{version}'
+      remedied_by: firebase deploy
+    - name: el pie lleva la versión
+      file_contains:
+        path: public/footer.html
+        pattern: v{version}
+```
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `name` | string | Con qué nombre se informa del item |
+| `command` | string | Se pasa a `sh -c`; exit 0 es pasar. `{version}` se sustituye por la versión del manifest |
+| `file_contains.path` | string | Fichero a leer, relativo al proyecto |
+| `file_contains.pattern` | string | Texto que tiene que aparecer; `{version}` se sustituye también |
+| `remedied_by` | string | El comando que REPARA este item, si lo hay |
+
+`remedied_by` existe porque un item en rojo no puede bloquear justo la acción que lo pondría en verde. El caso es la landing: el check quiere el sitio desplegado con la versión nueva, y el despliegue que lo consigue estaba bloqueado por ese mismo check. Las palabras tienen que aparecer en el comando en orden, así que `firebase deploy` cubre `firebase --account a@b --project p deploy --only hosting:main`.
+
+El item levantado sigue en rojo en el informe, porque el hecho no ha cambiado, y el gate dice cuál ha levantado. Lo demás sigue bloqueando, y publicar el paquete no se exime nunca: `npm publish` y `gh release create` son irreversibles, diga lo que diga un item.
+
+---
+
 ## Variables de entorno
 
 | Variable | Propósito | Default |
