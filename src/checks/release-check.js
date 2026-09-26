@@ -106,6 +106,42 @@ async function packPrivacyCheck(projectDir, pkg) {
   }
 }
 
+/**
+ * KJC-BUG-0204 — an item may declare WHICH command repairs it (`remedied_by`),
+ * so the gate stops blocking the one action that would turn it green. It was
+ * the landing: the check demanded a deployed site and the guard blocked the
+ * deploy, leaving `KJ_ALLOW_RELEASE=1` — switching the gate off entirely — as
+ * the only way to reach the publish that came next.
+ */
+const remedy = (item) => (typeof item?.remedied_by === "string" && item.remedied_by.trim() ? { remediedBy: item.remedied_by.trim() } : {});
+
+/**
+ * The words of a verb must appear in the command IN ORDER, as whole words:
+ * `firebase deploy` covers `firebase --account a@b --project p deploy --only x`,
+ * and `deploy firebase` is a different command. Separators (`;`, `|`, `&`,
+ * parentheses) split words, so `(npm publish)` is still a publication.
+ * A word is read by its basename, so `/usr/bin/npm publish` is the same
+ * publication as `npm publish` (review catch: an absolute path hid one).
+ */
+const wordsOf = (text) => String(text).split(/[^A-Za-z0-9_.@:/-]+/).filter(Boolean).map((w) => w.slice(w.lastIndexOf("/") + 1)).filter(Boolean);
+
+export function remediesCommand(remediedBy, command) {
+  const want = wordsOf(remediedBy);
+  if (want.length === 0) return false;
+  let i = 0;
+  for (const word of wordsOf(command)) if (word === want[i] && ++i === want.length) return true;
+  return false;
+}
+
+/**
+ * A publication is irreversible: no declared item may excuse one. Detected with
+ * the SAME tolerance as a remedy (review catch): matching only adjacent words
+ * left `npm --registry https://r.example publish` undetected, so an item could
+ * have lifted a red check while the publication went ahead.
+ */
+const PUBLICATION_VERBS = ["npm publish", "gh release create"];
+const isPublication = (command) => PUBLICATION_VERBS.some((verb) => remediesCommand(verb, command));
+
 async function declaredItems(projectDir, config, version) {
   const items = config?.release_check?.items;
   if (!Array.isArray(items)) return [];
@@ -116,13 +152,16 @@ async function declaredItems(projectDir, config, version) {
       const p = isAbsolute(item.file_contains.path) ? item.file_contains.path : join(projectDir, item.file_contains.path);
       const needle = String(item.file_contains.pattern).replaceAll("{version}", version ?? "");
       const ok = existsSync(p) && readFileSync(p, "utf8").includes(needle);
-      checks.push({ name, ok, detail: ok ? `"${needle}" found in ${item.file_contains.path}` : `"${needle}" NOT found in ${item.file_contains.path}` });
+      checks.push({ name, ok, ...remedy(item), detail: ok ? `"${needle}" found in ${item.file_contains.path}` : `"${needle}" NOT found in ${item.file_contains.path}` });
     } else if (item?.command) {
       try {
         const res = await runCommand("sh", ["-c", String(item.command).replaceAll("{version}", version ?? "")], { cwd: projectDir });
-        checks.push({ name, ok: res.exitCode === 0, detail: res.exitCode === 0 ? "command exited 0" : `command exited ${res.exitCode}` });
+        checks.push({ name, ok: res.exitCode === 0, ...remedy(item), detail: res.exitCode === 0 ? "command exited 0" : `command exited ${res.exitCode}` });
       } catch (err) {
-        checks.push({ name, ok: false, detail: `command failed to run: ${err.message}` });
+        // El remedio viaja tambien cuando el item no se pudo ni ejecutar
+        // (catch de la review): si no, el comando que lo repara queda
+        // bloqueado justo cuando el check no ha podido comprobar nada.
+        checks.push({ name, ok: false, ...remedy(item), detail: `command failed to run: ${err.message}` });
       }
     } else {
       checks.push({ name, ok: false, detail: "unknown item shape — use file_contains {path, pattern} or command" });
@@ -160,10 +199,17 @@ export async function dualPublishCheck(projectDir, pkg, run = runCommand) {
   }
 }
 
-export async function runReleaseCheck({ projectDir = process.cwd(), config = {} } = {}) {
+export async function runReleaseCheck({ projectDir = process.cwd(), config = {}, forCommand = null } = {}) {
   const { checks, version, pkg } = await genericChecks(projectDir);
   const pack = await packPrivacyCheck(projectDir, pkg);
   const dual = await dualPublishCheck(projectDir, pkg);
   checks.push(...(pack ? [pack] : []), ...(dual ? [dual] : []), await policyRangeCheck(projectDir), ...await declaredItems(projectDir, config, version));
-  return { ok: checks.every((c) => c.ok), version, checks };
+  if (forCommand === null) return { ok: checks.every((c) => c.ok), version, checks };
+  // A lifted check stays RED in the report: the fact is not falsified, it just
+  // stops blocking the command that exists to repair it. The mark travels ON
+  // the check (review catch): two items may share a name, and a name-keyed
+  // list would have exempted a red check nothing remedies.
+  const liftable = !isPublication(forCommand);
+  const marked = checks.map((c) => (liftable && !c.ok && c.remediedBy && remediesCommand(c.remediedBy, forCommand) ? { ...c, lifted: true } : c));
+  return { ok: marked.every((c) => c.ok || c.lifted === true), version, checks: marked, lifted: marked.filter((c) => c.lifted).map((c) => c.name) };
 }

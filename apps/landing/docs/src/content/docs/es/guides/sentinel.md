@@ -63,7 +63,19 @@ Un dato firme en el cuerpo de un PR o en el mensaje final que quede DESMENTIDO p
 
 ## release
 
-`kj release check` debe estar en verde antes de que se publique o despliegue nada. El único huevo-y-gallina legítimo: la landing muestra la versión nueva solo *después* de la publicación, ese paso corre bajo `KJ_ALLOW_RELEASE=1`, registrado como cualquier otro escape.
+`kj release check` debe estar en verde antes de que se publique o despliegue nada, y el guard reconoce el verbo donde quiera que caigan los flags (`firebase --project p deploy --only hosting` es un despliegue).
+
+Un check en rojo nunca bloquea el comando que lo **repara**. El huevo-y-gallina era la landing: el check pedía el sitio desplegado con la versión nueva, el guard bloqueaba el despliegue, y la única salida era apagar el gate entero. Ahora el item declara su propio remedio:
+
+```yaml
+release_check:
+  items:
+    - name: la landing desplegada muestra la versión como current
+      command: curl -sf https://example.com/docs/ | grep -q 'v{version}'
+      remedied_by: firebase deploy
+```
+
+El check levantado sigue en rojo en el informe, porque el hecho no ha cambiado; solo deja de bloquear su propio arreglo, y el gate dice qué item ha levantado en lugar de hacerlo en silencio. Cualquier otro rojo sigue bloqueando. Publicar el paquete no se exime nunca: `npm publish` y `gh release create` son irreversibles, así que ningún remedio declarado los cubre, y `KJ_ALLOW_RELEASE=1` sigue siendo el único escape consciente.
 
 ## supervisor
 
@@ -94,7 +106,7 @@ Cada escape, qué se salta, y cuándo es legítimo. Todos: un comando simple, un
 | `KJ_ALLOW_NO_RAG=1` | rag-first | El índice RAG no existe o está roto en esta máquina y el arreglo está acordado; se registra una vez por sesión |
 | `KJ_ALLOW_POLICY=1` | denies de policy no-seguridad | La regla se dispara mal y el fix está acordado; el commit además necesita `KJ_POLICY_REASON` |
 | `KJ_ALLOW_STEWARD=1` | bloqueo duro del steward | La rotura es conocida, cardeada, y el usuario dice que el trabajo continúa |
-| `KJ_ALLOW_RELEASE=1` | release check | El orden publicación→landing de arriba |
+| `KJ_ALLOW_RELEASE=1` | release check | Un rojo que ahora mismo nadie puede arreglar, acordado con el humano (el caso de la landing lo cubre `remedied_by`) |
 | `KJ_ALLOW_NO_TESTS=1` | gate de tests-con-código (código staged sin cambios de test) | El diff genuinamente no debe test y está acordado |
 | `KJ_ALLOW_PII=1` | bloqueo de la denylist de privacidad en el commit | Un falso positivo confirmado, revisado por el humano |
 | `KJ_ALLOW_REWRITE=1` | la guarda contra reserializar ficheros JSON enteros desde Bash | Reescribir el fichero entero ES el cambio acordado |

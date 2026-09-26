@@ -337,12 +337,16 @@ export function registerMeta(program, { pkgVersion }) {
   release.command("check")
     .description("Verify the release checklist deterministically (manifest vs CHANGELOG vs tags, privacy scan of publishable files, plus the project's release_check.items); exit 1 lists exactly what is missing")
     .option("--json", "Machine-readable result")
+    // KJC-BUG-0204: el guard pregunta POR un comando. Un item que declara
+    // remedied_by no bloquea el comando que lo repara; publicar nunca se exime.
+    .option("--for-command <cmd>", "Evaluate the checklist for this command: red items whose remedied_by is this command do not block it")
     .action(async (flags) => {
       await withConfig(pkgVersion, "release-check", flags, async ({ config }) => {
-        const res = await runReleaseCheck({ projectDir: config?.projectDir || process.cwd(), config });
+        const res = await runReleaseCheck({ projectDir: config?.projectDir || process.cwd(), config, forCommand: flags.forCommand ?? null });
         if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
         else {
           for (const c of res.checks) console.log(`  ${c.ok ? "✓" : "✗"} ${c.name}: ${c.detail}`);
+          if (res.lifted?.length) console.log(`  ℓ no bloquean este comando porque es su remedio: ${res.lifted.join(", ")}`);
           console.log(res.ok ? `release check: ready to release ${res.version ?? ""}`.trim() : "release check: NOT ready — fix the red items first");
         }
         process.exitCode = res.ok ? 0 : 1;

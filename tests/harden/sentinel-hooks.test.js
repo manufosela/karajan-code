@@ -224,6 +224,32 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls -la" } }).status).toBe(0);
   });
 
+  it("KJC-BUG-0204: un check en rojo no bloquea el comando que lo repara, y publicar sigue exigiendo todo verde", () => {
+    const bin = path.join(dir, "remedybin");
+    fs.mkdirSync(bin);
+    // kj de verdad decide: el fake solo reproduce SU contrato (--for-command),
+    // que es lo unico que el guard puede observar.
+    fs.writeFileSync(
+      path.join(bin, "kj"),
+      [
+        "#!/bin/sh",
+        'for a in "$@"; do case "$a" in *firebase*deploy*) echo \'{"ok":true,"lifted":["landing desplegada"],"checks":[{"ok":false,"name":"landing desplegada","detail":"not current"}]}\'; exit 0;; esac; done',
+        "echo '{\"ok\":false,\"lifted\":[],\"checks\":[{\"ok\":false,\"name\":\"landing desplegada\",\"detail\":\"not current\"}]}'",
+        "exit 1",
+      ].join("\n") + "\n",
+      { mode: 0o755 },
+    );
+    const env = { PATH: `${bin}:${process.env.PATH}` };
+    const ask = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
+    const deploy = ask("firebase --account a@b --project p deploy --only hosting:main");
+    expect(deploy.status).toBe(0);
+    // Dicho en voz alta: el paso se explica, no se aplica en silencio.
+    expect(deploy.stderr).toMatch(/landing desplegada/);
+    const publish = ask("npm publish --otp=123456");
+    expect(publish.status).toBe(2);
+    expect(publish.stderr).toMatch(/landing desplegada/);
+  });
+
   it("KJC-BUG-0142: el escape como PREFIJO del comando funciona — el hook corre con el env del host y el prefijo jamas llegaba a process.env (deadlock real: landing solo verde tras deploy, deploy bloqueado)", () => {
     const bin = path.join(dir, "fakebin");
     fs.mkdirSync(bin);
