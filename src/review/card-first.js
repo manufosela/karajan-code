@@ -93,6 +93,18 @@ export async function checkCardFirst({ config = {}, projectDir = process.cwd(), 
         ? { ok: false, mode: "block", reason, level: v.level }
         : { ok: true, mode: "warn", reason, level: v.level };
     }
+    // KJC-TSK-0878 (issue #1371): "no he podido verificar" y "he verificado y
+    // esta mal" no son lo mismo, y ambas pueden merecer una parada. El proyecto
+    // decide si la primera para, y el mensaje dice cual de las dos es: un gate
+    // que aprueba lo que no ha comprobado da una confianza que no ha ganado.
+    // Sin adaptador declarado no hay nada que bloquear: la opcion no castiga a
+    // quien aun no tiene verify_cmd.
+    if (v.verified === null && config.board?.unverifiable === "block" && config.board?.verify_cmd) {
+      return {
+        ok: false, mode: "block", level: v.level,
+        reason: `branch references ${ref} but the card could not be verified against ${boardName} — ${v.note} (board.unverifiable: block refuses to approve a check kj did not make)`,
+      };
+    }
     return { ok: true, mode: "pass", ref, level: v.level, ...(v.note ? { note: v.note } : {}) };
   }
   const reason = `no card reference in branch "${branch}" — card-first on ${boardName}: create the card there and name the branch after it (e.g. feat/ABC-123-summary)`;
