@@ -28,6 +28,8 @@ export function stripDevHooksBlock(source) {
   return { content: `${before}${joiner}${after}`, migrated: true };
 }
 
+const countLines = (text) => String(text || "").split("\n").filter((l) => l.trim()).length;
+
 export function installGuidelines({ projectDir = process.cwd(), dryRun = false, language = null } = {}) {
   // KJC-BUG-0199 (issue #1773): the rules that enter the agent's context must
   // be the rules of THIS project's language. kj harden already detects it for
@@ -45,8 +47,12 @@ export function installGuidelines({ projectDir = process.cwd(), dryRun = false, 
       body,
       style: "html",
     });
+    // KJC-BUG-0206: harden removing rules is a fact worth saying. It silently
+    // dropped six lines from this repo's own files because the detected language
+    // had no block, and "updated" read like an improvement.
+    const shrank = countLines(content) < countLines(raw);
     if (!dryRun && (migrated || action !== "unchanged")) writeFileSync(target, content);
-    results.push({ file, action: migrated ? "migrated" : action });
+    results.push({ file, action: migrated ? "migrated" : action, ...(shrank ? { shrank: true } : {}) });
   }
   return { dryRun, guidelines: results };
 }

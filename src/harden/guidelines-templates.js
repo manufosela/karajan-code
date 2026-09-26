@@ -76,9 +76,18 @@ export const LANGUAGE_GUIDELINES = {
   ],
 };
 
+/**
+ * Languages that share another's block (KJC-BUG-0206). TypeScript is the same
+ * ecosystem as JavaScript, and the block already says so in its heading; but the
+ * stack detector reports `typescript` for a repo with a tsconfig, so the lookup
+ * missed and harden ERASED the rules a project already had.
+ */
+const ALIASES = { typescript: "javascript" };
+
 /** The guidelines body for a language (unknown or absent ⇒ the core alone). */
 export function guidelinesBody(language = null) {
-  const extra = LANGUAGE_GUIDELINES[String(language || "").toLowerCase()] ?? [];
+  const key = String(language || "").toLowerCase();
+  const extra = LANGUAGE_GUIDELINES[ALIASES[key] ?? key] ?? [];
   return [...CORE, ...extra].join("\n");
 }
 

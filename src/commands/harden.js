@@ -195,7 +195,11 @@ export async function hardenCommand({
     logger.info?.(`  • ${c.file}: ${c.action}${note}`);
   }
   for (const w of out.workflows) logger.info?.(`  • ${w.file}: ${w.action}`);
-  for (const g of out.guidelines) logger.info?.(`  • ${g.file}: ${g.action}`);
+  for (const g of out.guidelines) {
+    logger.info?.(`  • ${g.file}: ${g.action}`);
+    // KJC-BUG-0206: quitar reglas no puede leerse como "updated" y nada más.
+    if (g.shrank) logger.warn?.(`    ⚠ ${g.file} queda con MENOS reglas que antes — revisa si el lenguaje detectado es el que crees (kj check lo dice)`);
+  }
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
   // IDN-A (KJC-TSK-0762): a hardened clone declares who works it. Captured
   // only with a human confirming; headless runs get the pending command.

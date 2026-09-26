@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { installGuidelines, stripDevHooksBlock } from "../../src/harden/guidelines-engine.js";
+import { guidelinesBody } from "../../src/harden/guidelines-templates.js";
 
 let dir;
 const read = (f) => readFileSync(join(dir, f), "utf8");
@@ -104,5 +105,32 @@ describe("installGuidelines", () => {
 
   it("stripDevHooksBlock is a no-op without a dev-hooks block", () => {
     expect(stripDevHooksBlock("plain\n")).toEqual({ content: "plain\n", migrated: false });
+  });
+});
+
+// KJC-BUG-0206 — un proyecto TypeScript se quedaba sin reglas de lenguaje: el
+// mapa solo tenia `javascript`, la deteccion decia `typescript`, y harden
+// BORRABA las reglas que ya estaban escritas.
+describe("guidelinesBody — TypeScript (KJC-BUG-0206)", () => {
+  it("gives a typescript project the same rules as a javascript one", () => {
+    expect(guidelinesBody("typescript")).toBe(guidelinesBody("javascript"));
+    expect(guidelinesBody("TypeScript")).toBe(guidelinesBody("javascript"));
+  });
+
+  it("still gives an unknown language the core alone, and the core is never empty", () => {
+    const core = guidelinesBody("cobol");
+    expect(core).toBe(guidelinesBody(null));
+    expect(core).not.toContain("ES2025");
+    expect(core.length).toBeGreaterThan(0);
+  });
+
+  it("says out loud when the block it is about to write is poorer than the one installed", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kj-guide-shrink-"));
+    writeFileSync(join(dir, "AGENTS.md"), guidelinesBody("javascript").split("\n").map((l) => l).join("\n"));
+    // Instalamos el bloque rico y luego pedimos el pobre: el aviso es el punto.
+    installGuidelines({ projectDir: dir, language: "javascript" });
+    const res = installGuidelines({ projectDir: dir, language: "cobol" });
+    expect(res.guidelines.some((g) => g.shrank)).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
   });
 });
