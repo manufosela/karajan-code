@@ -12,7 +12,7 @@ const DESTRUCTIVE_PATTERNS = [
 const CREDENTIAL_PATTERNS = [
   { id: "aws-key", pattern: /AKIA[0-9A-Z]{16}/, severity: "critical", message: "AWS access key exposed" },
   { id: "private-key", pattern: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/, severity: "critical", message: "Private key exposed" },
-  { id: "generic-secret", pattern: /(password|secret|token|api_key|apikey)\s*[:=]\s*["'][^"']{8,}["']/i, severity: "critical", message: "Hardcoded secret detected. Use .env file + process.env instead" },
+  { id: "generic-secret", pattern: /(password|secret|token|api_key|apikey)\s*[:=]\s*["'][^"']{8,}["']/i, severity: "critical", message: "Hardcoded secret detected. Move it to the environment or a secrets manager" },
   { id: "github-token", pattern: /gh[pousr]_[A-Za-z0-9_]{36,}/, severity: "critical", message: "GitHub token exposed" },
   { id: "npm-token", pattern: /npm_[A-Za-z0-9]{36,}/, severity: "critical", message: "npm token exposed" },
   { id: "openai-key", pattern: /sk-[A-Za-z0-9]{20,}/, severity: "critical", message: "OpenAI API key exposed" },
@@ -24,7 +24,7 @@ const CREDENTIAL_PATTERNS = [
   { id: "slack-token", pattern: /xox[bpors]-[A-Za-z0-9-]{10,}/, severity: "critical", message: "Slack token exposed" },
   { id: "jwt-secret", pattern: /jwt[_-]?secret\s*[:=]\s*["'][^"']{8,}["']/i, severity: "critical", message: "JWT secret hardcoded. Use .env file" },
   { id: "database-url", pattern: /(mongodb|postgres|mysql|redis):\/\/[^"'\s]+:[^"'\s]+@/i, severity: "critical", message: "Database URL with credentials exposed. Use .env file" },
-  { id: "hardcoded-key-assignment", pattern: /(?:const|let|var)\s+\w*(?:key|secret|token|password)\w*\s*=\s*["'][A-Za-z0-9_-]{16,}["']/i, severity: "critical", message: "Hardcoded key in variable. Use process.env or .env file" },
+  { id: "hardcoded-key-assignment", pattern: /(?:const|let|var)\s+\w*(?:key|secret|token|password)\w*\s*=\s*["'][A-Za-z0-9_-]{16,}["']/i, severity: "critical", message: "Hardcoded key in an assignment. Move it to the environment or a secrets manager" },
 ];
 
 // Default protected files (block if these appear in added/modified lines)
@@ -116,6 +116,49 @@ export function checkProtectedFiles(diff, protectedFiles) {
 }
 
 /**
+ * KJC-BUG-0215 (issue #1733): estas dos reglas acusan por el NOMBRE del
+ * identificador, no por la forma del valor, asi que un prefijo de cache llamado
+ * EXPERIMENTS_HANDOFF_TOKENS_NAMESPACE bloqueo una ejecucion entera con
+ * severidad critica y sin salida. Las demas reglas miran el valor (AKIA…,
+ * sk_live_…) y esas aciertan.
+ *
+ * El arreglo NO es adivinar: la review tumbo tres heuristicas seguidas y con
+ * razon, porque `const dbPassword = "db-password"` tambien tiene pinta inocente
+ * y es una credencial. Lo que faltaba era CAUCE: que el proyecto pueda declarar
+ * la excepcion en su configuracion versionada, donde se revisa en la PR como
+ * cualquier otra linea, y que el guard diga como hacerlo cuando bloquea.
+ */
+const NAME_BASED_RULES = new Set(["hardcoded-key-assignment", "generic-secret"]);
+
+const HOW_TO_DECLARE = "If it is not a secret, declare it in guards.output.non_secret_assignments as NAME or path/to/file:NAME";
+
+/** El identificador al que se asigna, cuando la linea deja leerlo. */
+const assignedName = (content) => /([A-Za-z_$][\w$]*)\s*[:=]\s*["']/.exec(content)?.[1] ?? null;
+
+/** Una entrada declarada se lee como `NAME` o `path/to/file:NAME`. */
+const splitEntry = (entry) => {
+  const cut = entry.lastIndexOf(":");
+  return cut === -1 ? { path: null, name: entry } : { path: entry.slice(0, cut), name: entry.slice(cut + 1) };
+};
+
+/**
+ * Excepcion DECLARADA, no inferida: el proyecto afirma por escrito que esta
+ * asignacion no guarda un secreto. Sin `file` la declaracion vale para todo el
+ * repositorio; con el, solo para ese fichero, que es lo estrecho y preferible.
+ */
+export function declaredNonSecret(configGuards, file, content) {
+  const declared = configGuards?.output?.non_secret_assignments;
+  if (!Array.isArray(declared) || declared.length === 0) return false;
+  const name = assignedName(content);
+  if (!name) return false;
+  return declared.some(entry => {
+    if (typeof entry !== "string") return false;
+    const target = splitEntry(entry.trim());
+    return target.name === name && (target.path === null || target.path === file);
+  });
+}
+
+/**
  * Scan a diff for pattern violations.
  * Returns { pass: boolean, violations: Array<{id, severity, file, line, message, matchedContent}> }
  */
@@ -133,8 +176,17 @@ export function scanDiff(diff, config = {}) {
   // Check patterns against added lines
   for (const { file, line, content } of addedLines) {
     for (const { id, pattern, severity, message } of patterns) {
-      if (pattern.test(content)) {
-        violations.push({ id, severity, file, line, message, matchedContent: content.trim().slice(0, 200) });
+      if (!pattern.test(content)) continue;
+      const matchedContent = content.trim().slice(0, 200);
+      // KJC-BUG-0215: una regla que acusa por el nombre necesita un cauce
+      // declarado para el falso positivo, y decirlo cuando bloquea.
+      if (!NAME_BASED_RULES.has(id)) {
+        violations.push({ id, severity, file, line, message, matchedContent });
+      } else if (declaredNonSecret(configGuards, file, content)) {
+        violations.push({ id, severity: "warning", file, line, matchedContent,
+          message: `${message}. Declared as non-secret in guards.output.non_secret_assignments` });
+      } else {
+        violations.push({ id, severity, file, line, matchedContent, message: `${message}. ${HOW_TO_DECLARE}` });
       }
     }
   }

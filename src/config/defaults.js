@@ -256,6 +256,10 @@ const DEFAULTS = {
       enabled: true,
       patterns: [],
       protected_files: [],
+      // KJC-BUG-0215: cauce declarado para el falso positivo de las reglas que
+      // acusan por el NOMBRE del identificador. Entradas `NAME` (todo el repo)
+      // o `path/to/file:NAME` (solo ese fichero, que es lo preferible).
+      non_secret_assignments: [],
       on_violation: "block"
     },
     perf: {
