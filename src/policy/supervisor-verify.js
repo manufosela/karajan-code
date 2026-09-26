@@ -36,6 +36,7 @@ export function verifiedSupervisorFiles({ projectDir }) {
     return { files: new Set(), reason: "globalHooksDir no verificable en la provenance" };
   }
   const ok = new Set();
+  const unjudgeable = new Set();
   const entries = Array.isArray(prov?.files) ? prov.files : [];
   // KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre tambien los guardias del
   // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
@@ -55,6 +56,18 @@ export function verifiedSupervisorFiles({ projectDir }) {
       if (st === null) ok.add(entry.file);
       continue;
     }
+    // KJC-BUG-0212: los guardias estan en .gitignore, viven solo en la maquina
+    // que ejecuta kj harden. Que no esten AQUI no es que no verifiquen: es que
+    // este checkout (CI, otro clon) no puede juzgarlos. Un hook ausente si
+    // significa algo, porque los hooks si viajan con el repo.
+    // Pero "no esta aqui" no vale como cheque en blanco: el hash declarado
+    // tiene que ser el de un guardia que kj CONOCE, o una procedencia forjada
+    // colaria entradas ausentes con cualquier hash (catch de la review).
+    if (prefix === HARNESS_PREFIX && st === null) {
+      const body = canonicalHarnessBody(entry.file.slice(prefix.length));
+      if (body != null && typeof entry.sha256 === "string" && sha256(Buffer.from(body, "utf8")) === entry.sha256) unjudgeable.add(entry.file);
+      continue;
+    }
     if (typeof entry.sha256 !== "string" || !st?.isFile()) continue;
     if (sha256(readFileSync(abs)) !== entry.sha256) continue;
     // No se confia en el hash sellado: se recomputa lo que kj escribiria.
@@ -67,13 +80,19 @@ export function verifiedSupervisorFiles({ projectDir }) {
     }
     if (canonical != null && sha256(Buffer.from(canonical, "utf8")) === entry.sha256) ok.add(entry.file);
   }
-  // `complete` = CADA entrada verificó: solo entonces la provenance se
-  // describe con honestidad y su propio diff puede alzarse.
-  const complete = entries.length > 0 && entries.every((e) => typeof e?.file === "string" && ok.has(e.file));
-  return { files: ok, complete };
+  // `complete` = ninguna entrada FALLO y alguna verifico. Exigir que todas
+  // verifiquen hacia imposible sellar desde cualquier sitio que no fuera la
+  // maquina que sello, porque los guardias no viajan con el repo (0212).
+  const judged = (e) => ok.has(e.file) || unjudgeable.has(e.file);
+  const complete = ok.size > 0 && entries.every((e) => typeof e?.file === "string" && judged(e));
+  return { files: ok, complete, unjudgeable };
 }
 
-/** Filtra violaciones de supervisor respaldadas — {violations, lifted}. */
+/**
+ * Filtra violaciones de supervisor respaldadas — {violations, lifted, note?}.
+ * `note` dice lo que este sitio NO ha podido juzgar, para que un levantamiento
+ * mas laxo de lo que parece no pase por silencio (KJC-BUG-0212).
+ */
 export function liftSealedSupervisorViolations({ projectDir, violations }) {
   const RULE = "defaults.supervisor.write";
   if (!violations.some((v) => v.rule_id === RULE && v.file)) return { violations, lifted: 0 };
@@ -85,5 +104,10 @@ export function liftSealedSupervisorViolations({ projectDir, violations }) {
     && v.file
     && (sealed.files.has(v.file) || (v.file === PROVENANCE_FILE && sealed.complete === true));
   const kept = violations.filter((v) => !liftable(v));
-  return { violations: kept, lifted: violations.length - kept.length };
+  const unjudged = sealed.unjudgeable?.size ?? 0;
+  return {
+    violations: kept,
+    lifted: violations.length - kept.length,
+    ...(unjudged > 0 ? { note: `${unjudged} guardia(s) del sello no existen en este checkout y no se han podido comprobar aquí` } : {}),
+  };
 }
