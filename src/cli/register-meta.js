@@ -40,6 +40,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { verifySentinelScripts, resolveSentinelRoot } from "../harden/sentinel-hooks.js";
+import { boardGate } from "../review/board-pending.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -476,6 +477,18 @@ export function registerMeta(program, { pkgVersion }) {
       else if (res.drift?.length && res.ok) console.log(`sentinel verify: scripts sellados, con desfase (${res.drift.join(", ")}) — ${res.reason}`);
       else console.log(res.ok ? "sentinel verify: scripts intactos" : `sentinel verify: modificados fuera de kj harden: ${res.mismatched.join(", ")} — restaura con kj harden`);
       process.exitCode = res.ok ? 0 : 1;
+    });
+  // KJC-BUG-0198: el guard pregunta, kj decide con un hecho comprobable (otra
+  // PR abierta de la card), y exit 2 = bloquea.
+  sentinel.command("board-gate")
+    .description("Decide which pending board moves actually block: a card still being delivered in another open PR is carried, everything else blocks; exit 2 = blocked")
+    .requiredOption("--session <id>", "Host session id whose pending moves are evaluated")
+    .option("--json", "Machine-readable result")
+    .action((flags) => {
+      const res = boardGate({ projectDir: resolveSentinelRoot(), sessionId: flags.session });
+      if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
+      else for (const c of res.carried) console.log(`ℓ board-sync: ${c.card} ${c.why} — se moverá al cerrarla`);
+      process.exitCode = res.blocking.length > 0 ? 2 : 0;
     });
 
   // KJC-TSK-0704 — the outbound privacy boundary: audit before anything ships.

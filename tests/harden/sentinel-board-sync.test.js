@@ -118,4 +118,39 @@ describe("board-sync gate", () => {
     expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card: null, pr: 7 });
     expect(bash("git commit -m x").stderr).toMatch(/PR #7/);
   });
+
+  // KJC-BUG-0198: una card partida en varias PRs no puede quedar bloqueada por
+  // su primera mitad. El hecho lo comprueba kj preguntando a gh (su logica tiene
+  // tests propios en tests/review/board-pending.test.js); aqui se prueba lo que
+  // el guard OBSERVA, que es el contrato de kj sentinel board-gate.
+  it("una card que kj declara arrastrada deja avanzar; sin respuesta de kj sigue bloqueando", () => {
+    merged(12);
+    expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card: "KJC-TSK-0042", pr: 12 });
+    // Sin poder preguntar (kj o gh no responden en este repo de prueba) se bloquea.
+    expect(bash("git commit -m x").status).toBe(2);
+    const bin = path.join(dir, "openbin");
+    fs.mkdirSync(bin);
+    const carried = '{"blocking":[],"carried":[{"card":"KJC-TSK-0042","why":"sigue entregandose en una PR abierta"}]}';
+    fs.writeFileSync(path.join(bin, "kj"), "#!/bin/sh\necho '" + carried + "'\nexit 0\n", { mode: 0o755 });
+    const allowed = bash("git commit -m x", { PATH: bin + ":" + process.env.PATH });
+    expect(allowed.status).toBe(0);
+    expect(allowed.stderr).toMatch(/arrastra KJC-TSK-0042/);
+    // La pendiente NO se borra: el tablero sigue debiendo el movimiento, y el
+    // Stop gate sigue impidiendo terminar el turno.
+    expect(state().sessions.s1.pending_moves).toHaveLength(1);
+    expect(endTurn().status).toBe(2);
+  });
+
+  it("kj que declara la pendiente BLOQUEANTE bloquea, aunque responda exit 0", () => {
+    merged(12);
+    const bin = path.join(dir, "blockbin");
+    fs.mkdirSync(bin);
+    const blocking = '{"blocking":[{"card":"KJC-TSK-0042","pr":12}],"carried":[]}';
+    // exit 0 a proposito: lo que bloquea es la RESPUESTA, no el codigo de salida
+    // (catch de la review: con exit 2 el test pasaba por el fallo del comando).
+    fs.writeFileSync(path.join(bin, "kj"), "#!/bin/sh\necho '" + blocking + "'\nexit 0\n", { mode: 0o755 });
+    const res = bash("git commit -m x", { PATH: bin + ":" + process.env.PATH });
+    expect(res.status).toBe(2);
+    expect(res.stderr).toMatch(/KJC-TSK-0042/);
+  });
 });
