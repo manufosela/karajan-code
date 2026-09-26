@@ -431,6 +431,7 @@ export function registerMeta(program, { pkgVersion }) {
     // KJC-TSK-0868: el panel se sella igual, con su propio chokepoint.
     .option("--panel <coder>", "Coder declarado cuando el anfitrión escribió el código")
     .option("--host <agent>", "Anfitrión que escribió, para el asiento del panel")
+    .option("--honoured", "El panel se CUMPLIÓ: escribió el coder declarado (KJC-TSK-0873)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-seal", flags, async ({ config }) => {
         process.exitCode = await policyCommand({ action: "seal", config, flags });

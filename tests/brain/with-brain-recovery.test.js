@@ -26,6 +26,21 @@ describe("withBrainRecovery — happy path", () => {
     expect(r.ok).toBe(true);
     expect(agent.runTask).toHaveBeenCalledTimes(1);
   });
+
+  // KJC-TSK-0873: quien HA CORRIDO viaja con el resultado. Sin esto, tras caer
+  // al fallback el llamante creia que habia escrito el provider declarado.
+  it("el resultado nombra al provider que acabo corriendo, tambien tras el fallback", async () => {
+    const direct = await withBrainRecovery({ agent: makeAgent([{ ok: true, output: "done" }]), taskArgs: {}, role: "coder", sleepFn: noSleep });
+    expect(direct.provider).toBe("claude");
+    const at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const dead = makeAgent([{ ok: false, exitCode: 1, error: `monthly usage limit, resets at ${at}` }]);
+    const rescued = await withBrainRecovery({
+      agent: dead, taskArgs: {}, role: "coder", sleepFn: noSleep,
+      fallback: { agent: makeAgent([{ ok: true, output: "done" }]), provider: "codex", maxWaitHours: 2 },
+    });
+    expect(rescued.ok).toBe(true);
+    expect(rescued.provider).toBe("codex");
+  });
 });
 
 describe("withBrainRecovery — RATE_LIMIT_SHORT → standby + retry", () => {

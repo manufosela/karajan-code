@@ -121,7 +121,10 @@ export async function withBrainRecovery({
 
   while (true) {
     const result = await effectiveAgent.runTask(taskArgs);
-    if (result?.ok) return result;
+    // KJC-TSK-0873: quien HA CORRIDO viaja con el resultado. Tras una caída al
+    // fallback, el llamante creía que había escrito el provider declarado, y
+    // con eso el recuento del panel contaba trabajo ajeno como propio.
+    if (result?.ok) return { ...result, provider: effectiveProvider };
 
     const cls = classifyAgentError({
       provider: effectiveProvider,

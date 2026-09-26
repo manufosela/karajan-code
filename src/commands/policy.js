@@ -16,6 +16,7 @@ import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { loadExceptionRecords, loadGlobalExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { buildPolicyReport } from "../policy/report.js";
 import { budgetedNet } from "../review/loc-budget.js";
+import { sealPanel } from "../environment/panel.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
 import { verifyDecisionChain } from "@karajan-family/governance";
@@ -216,13 +217,13 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
     }
     try {
       const who = readIdentity(projectDir);
-      const rec = recordGateDecision(projectDir, {
-        decision: "exempt", chokepoint: flags.panel ? "panel" : "tool",
-        escape: flags.escape ?? null, tool: flags.tool ?? null,
-        ...(flags.panel ? { coder: flags.panel, host: flags.host ?? null } : {}),
-        who: who ? { gh: who.gh_user ?? null, git: who.git_email ?? null, grade: "declarada" } : null,
-        policy_hash: policyFileHash(projectDir),
-      });
+      const rec = flags.panel
+        ? sealPanel({ projectDir, coder: flags.panel, host: flags.host ?? null, honoured: Boolean(flags.honoured) })
+        : recordGateDecision(projectDir, {
+          decision: "exempt", chokepoint: "tool", escape: flags.escape, tool: flags.tool ?? null,
+          who: who ? { gh: who.gh_user ?? null, git: who.git_email ?? null, grade: "declarada" } : null,
+          policy_hash: policyFileHash(projectDir),
+        });
       if (rec.chokepoint === "panel") logger.info?.(`✓ panel sellado: el coder declarado es ${rec.coder} y escribió ${rec.host ?? "el anfitrión"}`);
       else logger.info?.(`✓ escape ${rec.escape} sellado (chokepoint tool${rec.tool ? `, ${rec.tool}` : ""})`);
       return 0;

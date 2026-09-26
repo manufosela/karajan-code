@@ -348,6 +348,23 @@ describe("self-protection + audited escapes (SEN-C)", () => {
     expect(text).toMatch(/2026-08-04T12/);
   });
 
+  // KJC-TSK-0873: una cifra sola no dice nada. Un proyecto donde el panel se
+  // cumple casi siempre y otro donde casi nunca se ven igual hasta que se
+  // cuentan las dos caras.
+  it("kj report cuenta las dos caras del panel, y calla cuando no hay ninguna", async () => {
+    const { formatPanelTally } = await import("../../src/commands/report.js");
+    expect(formatPanelTally([])).toBeNull();
+    expect(formatPanelTally(['{"chokepoint":"tool","escape":"KJ_ALLOW_PII"}', "no es json"])).toBeNull();
+    const text = formatPanelTally([
+      '{"chokepoint":"panel","decision":"ok","coder":"codex"}',
+      '{"chokepoint":"panel","decision":"ok","coder":"codex"}',
+      '{"chokepoint":"panel","decision":"exempt","coder":"codex","host":"claude"}',
+      '{"chokepoint":"tool","decision":"exempt","escape":"KJ_ALLOW_BOARD"}',
+    ]);
+    expect(text).toMatch(/declared coder 2/);
+    expect(text).toMatch(/host 1/);
+  });
+
   it("stop BLOCKS the turn on tampered scripts (root of trust: the installed kj, never the project tree)", async () => {
     const { verifySentinelScripts } = await import("../../src/harden/sentinel-hooks.js");
     fs.appendFileSync(postScript, "// tampered via indirection\n");

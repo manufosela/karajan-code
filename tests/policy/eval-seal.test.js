@@ -62,6 +62,12 @@ describe("kj policy seal — el escape de tool-time deja rastro encadenado", () 
     expect(log().at(-1)).toMatchObject({ decision: "exempt", escape: "KJ_ALLOW_BOARD", tool: null, who: null });
   });
 
+  // KJC-TSK-0873: la otra cara, el panel CUMPLIDO, en la misma cadena.
+  it("sella el cumplimiento del panel como ok, con el coder declarado a los dos lados", async () => {
+    expect(await run("seal", { panel: "codex", honoured: true })).toBe(0);
+    expect(log().at(-1)).toMatchObject({ decision: "ok", chokepoint: "panel", coder: "codex", host: "codex" });
+  });
+
   // KJC-TSK-0868: el panel entra en la MISMA cadena, con su chokepoint.
   it("sella el panel con su propio chokepoint, sin escape, y la cadena sigue verificando", async () => {
     expect(await run("seal", { panel: "codex", host: "claude" })).toBe(0);

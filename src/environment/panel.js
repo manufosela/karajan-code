@@ -11,6 +11,8 @@
  * code, and then it says so instead of staying quiet.
  */
 import { resolveRole } from "../config/role-resolver.js";
+import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
+import { readIdentity } from "../identity/store.js";
 
 /** Roles worth announcing: who writes, who reviews, who arbitrates. */
 export const PANEL_ROLES = ["coder", "reviewer", "solomon"];
@@ -55,6 +57,22 @@ export function panelDeviation(config, host) {
   const { coder } = resolvePanel(config);
   if (!coder || !host || coder === host) return null;
   return { coder, host };
+}
+
+/**
+ * KJC-TSK-0873: the log holds both sides. A deviation alone cannot say whether
+ * the panel is honoured almost always or almost never, and those are different
+ * situations. The compliance seat is written where the declared coder is
+ * actually invoked (`kj code`); the deviation one when the turn ends.
+ */
+export function sealPanel({ projectDir, coder, host = null, honoured = false }) {
+  const who = readIdentity(projectDir);
+  return recordGateDecision(projectDir, {
+    decision: honoured ? "ok" : "exempt", chokepoint: "panel", escape: null, tool: null,
+    coder, host: honoured ? coder : host,
+    who: who ? { gh: who.gh_user ?? null, git: who.git_email ?? null, grade: "declarada" } : null,
+    policy_hash: policyFileHash(projectDir),
+  });
 }
 
 /** Human-facing one-liner for `kj check` and friends. */
