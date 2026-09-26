@@ -92,8 +92,14 @@ export async function runChecks(checks, ctx, options = {}) {
     entries.map(async (entry) => {
       if (entry.status === STATUS.SKIPPED) return;
       const start = Date.now();
+      // Per-check override: checks that spawn slow tools (e.g. `npx <pkg>` cold
+      // start) declare detectTimeoutMs so the blanket pipeline timeout doesn't
+      // kill them. Falls back to the pipeline-wide timeoutMs.
+      const detectTimeoutMs = Number.isFinite(entry.check.detectTimeoutMs)
+        ? entry.check.detectTimeoutMs
+        : timeoutMs;
       try {
-        const result = await withTimeout(entry.check.detect({ config, signal }), timeoutMs, entry.check.name);
+        const result = await withTimeout(entry.check.detect({ config, signal }), detectTimeoutMs, entry.check.name);
         entry.detectResult = result;
         entry.runMs = Date.now() - start;
         entry.status = resolveStatusFromDetect(entry.check, result);
@@ -112,9 +118,21 @@ export async function runChecks(checks, ctx, options = {}) {
       } catch (err) {
         entry.runMs = Date.now() - start;
         if (err instanceof TimeoutError) {
-          entry.detectResult = { ok: false, severity: "warn", detail: `Timeout after ${timeoutMs}ms` };
-          entry.status = STATUS.TIMEOUT;
-          entry.detail = entry.detectResult.detail;
+          entry.detectResult = { ok: false, severity: "warn", detail: `Timeout after ${detectTimeoutMs}ms` };
+          // A timeout on a degradable (optional) check must not block the
+          // pipeline: degrade to WARN and disable its feature flags, same as
+          // a regular failure (KJC-BUG-0049 semantics).
+          if (entry.check.degradable) {
+            for (const dotPath of entry.check.degradable.disables || []) {
+              setDotPath(overrides, dotPath, false);
+            }
+            entry.status = STATUS.WARN;
+            entry.detail = `${entry.detectResult.detail} → ${entry.check.degradable.warn}`;
+            entry.degraded = true;
+          } else {
+            entry.status = STATUS.TIMEOUT;
+            entry.detail = entry.detectResult.detail;
+          }
         } else {
           entry.detectResult = { ok: false, severity: "fail", detail: `Detection error: ${err.message}` };
           entry.status = STATUS.FAIL;
@@ -172,7 +190,11 @@ export async function runChecks(checks, ctx, options = {}) {
       entries.filter((e) => e.remediated).map(async (entry) => {
         const start = Date.now();
         try {
-          const result = await withTimeout(entry.check.detect({ config: verifyConfig, signal }), timeoutMs, `${entry.check.name}:reverify`);
+          const result = await withTimeout(
+            entry.check.detect({ config: verifyConfig, signal }),
+            Number.isFinite(entry.check.detectTimeoutMs) ? entry.check.detectTimeoutMs : timeoutMs,
+            `${entry.check.name}:reverify`
+          );
           entry.runMs += Date.now() - start;
           if (!result.ok) {
             entry.status = STATUS.FAIL;
