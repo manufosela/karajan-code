@@ -945,10 +945,23 @@ process.stdin.on("end", () => {
       const mergeM = cmd.match(MERGE);
       const pend = pendingMoves(load().sessions?.[sid]);
       if (pend.length > 0 && (mergeM || ADVANCE.test(cmd))) {
-        if (escOn("KJ_ALLOW_BOARD")) { recordEscape(sid, "KJ_ALLOW_BOARD", tool); }
-        else {
-          console.error("karajan sentinel: board-sync — el metodo no avanza con cards mergeadas sin mover:\\n" + pend.map((p) => "- " + pendingText(p)).join("\\n") + "\\n(KJ_ALLOW_BOARD=1 = excepcion consciente, queda registrada)" + doc("board-sync"));
-          process.exit(2);
+        // KJC-BUG-0198: una card se PARTE en varias PRs cuando no cabe en 150
+        // lineas, asi que su primera mitad mergeada no puede bloquear la
+        // segunda. kj decide con hechos comprobables (otra PR abierta de la
+        // card, o la rama actual); si kj no responde, se bloquea como siempre.
+        const bg = spawnSync("kj", ["sentinel", "board-gate", "--session", sid, "--json"], { cwd: ROOT, encoding: "utf8" });
+        let blocking = pend;
+        let carried = [];
+        if (!bg.error && (bg.status === 0 || bg.status === 2)) {
+          try { const d = JSON.parse(bg.stdout); blocking = d.blocking || []; carried = d.carried || []; } catch { /* sin respuesta legible: como siempre */ }
+        }
+        for (const c of carried) console.error("karajan sentinel: board-sync arrastra " + c.card + " — " + c.why + ", se movera al cerrarla");
+        if (blocking.length > 0) {
+          if (escOn("KJ_ALLOW_BOARD")) { recordEscape(sid, "KJ_ALLOW_BOARD", tool); }
+          else {
+            console.error("karajan sentinel: board-sync — el metodo no avanza con cards mergeadas sin mover:\\n" + blocking.map((p) => "- " + pendingText(p)).join("\\n") + "\\n(KJ_ALLOW_BOARD=1 = excepcion consciente, queda registrada)" + doc("board-sync"));
+            process.exit(2);
+          }
         }
       }
       // (the pending entry itself is recorded by the PostToolUse hook, only once

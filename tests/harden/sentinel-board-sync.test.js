@@ -118,4 +118,24 @@ describe("board-sync gate", () => {
     expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card: null, pr: 7 });
     expect(bash("git commit -m x").stderr).toMatch(/PR #7/);
   });
+
+  // KJC-BUG-0198: una card partida en varias PRs no puede quedar bloqueada por
+  // su primera mitad. El hecho lo comprueba kj preguntando a gh, no la prosa.
+  it("una card con otra PR ABIERTA se arrastra y deja avanzar; sin ella sigue bloqueando", () => {
+    merged(12);
+    expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card: "KJC-TSK-0042", pr: 12 });
+    // Sin poder preguntar (gh no responde en este repo de prueba) se bloquea.
+    expect(bash("git commit -m x").status).toBe(2);
+    const bin = path.join(dir, "openbin");
+    fs.mkdirSync(bin);
+    const listing = '[{"number":13,"headRefName":"feat/KJC-TSK-0042-part-two"}]';
+    fs.writeFileSync(path.join(bin, "gh"), "#!/bin/sh\necho '" + listing + "'\n", { mode: 0o755 });
+    const allowed = bash("git commit -m x", { PATH: bin + ":" + process.env.PATH });
+    expect(allowed.status).toBe(0);
+    expect(allowed.stderr).toMatch(/arrastra KJC-TSK-0042/);
+    // La pendiente NO se borra: el tablero sigue debiendo el movimiento, y el
+    // Stop gate sigue impidiendo terminar el turno.
+    expect(state().sessions.s1.pending_moves).toHaveLength(1);
+    expect(endTurn().status).toBe(2);
+  });
 });
