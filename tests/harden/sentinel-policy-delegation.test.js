@@ -94,6 +94,39 @@ describe("pretooluse delega en kj policy eval --strict (PL-B)", () => {
     expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_POLICY")).toBe(true);
   });
 
+  // KJC-BUG-0207: con kj linkado al arbol, un error de sintaxis transitorio en
+  // src/ hacia que policy eval fallara, el gate denegaba por defecto y la sesion
+  // se quedaba sin Edit, sin Write y sin Bash, o sea sin con que arreglarlo. Un
+  // kj que no arranca no es una violacion de policy.
+  it("kj que NO ARRANCA: solo se permite editar el fichero que lo rompe", () => {
+    const brokenFile = path.join(dir, "src", "roto.js");
+    const env = fakeKj("echo '" + brokenFile + ":124' >&2; echo 'SyntaxError: Unexpected token *' >&2; exit 1");
+    const repair = run(gate, editTool(brokenFile), env);
+    expect(repair.status).toBe(0);
+    expect(repair.stderr).toMatch(/kj no arranca/);
+    expect(repair.stderr).toMatch(/solo se permite arreglar ESE fichero/);
+    // Y NO gasta el escape humano: no hay nada que eximir.
+    expect(fs.existsSync(statePath) ? (state().escape_events ?? []) : []).toHaveLength(0);
+  });
+
+  it("localiza el fichero tambien cuando Node lo nombra como file:/// (catch de la review)", () => {
+    const brokenFile = path.join(dir, "src", "roto.mjs");
+    const env = fakeKj("echo 'file://" + brokenFile + ":124' >&2; echo 'SyntaxError: Unexpected token *' >&2; exit 1");
+    expect(run(gate, editTool(brokenFile), env).status).toBe(0);
+    expect(run(gate, editTool(path.join(dir, "src", "a.js")), env).status).toBe(2);
+  });
+
+  it("kj roto NO abre el gate para lo demas: seria un bypass a la carta (catch de la review)", () => {
+    const brokenFile = path.join(dir, "src", "roto.js");
+    const env = fakeKj("echo '" + brokenFile + ":124' >&2; echo 'SyntaxError: Unexpected token *' >&2; exit 1");
+    const other = run(gate, editTool(path.join(dir, "src", "a.js")), env);
+    expect(other.status).toBe(2);
+    expect(other.stderr).toMatch(/NADA MAS pasa/);
+    expect(other.stderr).toMatch(/roto\.js/);
+    // Un Bash tampoco: un comando no se puede acotar a un fichero.
+    expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "touch x.js" } }, env).status).toBe(2);
+  });
+
   it("el rol que actua viaja: KJ_POLICY_ROLE=reviewer llega como --role reviewer (PL-C)", () => {
     const argsFile = path.join(dir, "kj-args.txt");
     const env = fakeKj(`echo "$@" > ${argsFile}; exit 0`);
