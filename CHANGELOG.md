@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.35.0] - 2026-09-27
+
+Fourteen issues had been sitting open, some of them for months, and working
+through them one by one said the same thing about all of them: a gate that cries
+wolf teaches you to disable gates. A PHP cache prefix flagged as a hardcoded key.
+A `.astro` file the index can never hold, under a rule demanding the RAG had
+answered about it. A `.gitignore` rewritten without asking. A provider CLI that
+rejects the flags kj hands it. Every one of them had the same workaround, an
+escape variable that switches the whole protection off, pasted on every command
+until nobody reads what it silenced. So the shape of these fixes repeats too:
+where kj cannot know, the project declares it, in a file that gets reviewed like
+any other line.
+
+### Added
+
+- **The provider's invocation flags are declarable** (KJC-BUG-0217, #1409): kj launched every provider CLI with a fixed set of flags, and some versions reject the combination outright, so `kj agent run kimi` answered "Cannot combine --prompt with --yolo" and there was no way out but patching kj. `agents.<name>.task_args` / `review_args` now state what that version accepts, a malformed declaration is ignored rather than breaking the invocation, and the CLI's own rejection arrives translated: the raw message says what went wrong, kj's says how to get out of it.
+- **A non-secret assignment can be declared as such** (KJC-BUG-0215, #1733): two credential rules accuse by the NAME of the identifier, so a Laravel cache prefix called `EXPERIMENTS_HANDOFF_TOKENS_NAMESPACE` brought a whole run down as a critical finding with no way through. `guards.output.non_secret_assignments` takes `NAME` or `path/to/file:NAME`; declared, it reports as a warning, and undeclared it still blocks, but the message now says how to declare it. Three attempts to tell a secret from its value were rejected in review, rightly: a passphrase with spaces is a secret, and `const dbPassword = 'db-password'` looks just as innocent as a cache prefix.
+- **`kj rag covers <file>`** (KJC-BUG-0216, #1807): whether the RAG can answer about a file, and when it cannot, which of four reasons it is — no language adapter covers the extension, the path is one the indexer always skips, the index is empty, or it lags behind. Each has a different remedy, and the indexer's own matchers decide, so no second list of extensions exists to drift.
+- **The project decides if an unverifiable card blocks** (KJC-TSK-0878, #1371): card-first can ask the team's own adapter whether a card is alive in their real tracker, and when the adapter could not answer, the check degraded to branch-ref level and passed. `board.unverifiable: block` refuses that degradation, naming what the adapter said, because a gate that approves what it did not check hands out confidence it has not earned. Default `warn` keeps today's behaviour.
+
+### Changed
+
+- **rag-first stops asking for the impossible** (KJC-BUG-0216, #1807): a `.astro`, a `.php` or any file whose language has no adapter cannot be in the index, so demanding the RAG had answered about it was a rule nobody could satisfy, and the way out was `KJ_ALLOW_NO_RAG` pasted on every command, which erases the difference between "I could not ask" and "I would not ask". The exemption is exactly that one case: an empty or lagging index has a remedy and keeps blocking, and kj missing, broken or answering something unparseable blocks too.
+
+### Fixed
+
+- **The project's `.gitignore` belongs to the team** (KJC-BUG-0213, #1734): kj rewrote a tracked file nobody asked it to touch, adding universal ignores and guessing the stack from loose words in the prompt. kj's own local artifacts (`.reviews/`, `.kj/`, `.kj-ready.json`) go to `.git/info/exclude` now, which is private to the clone and never travels in a commit.
+- **The guards judge what this run did, not the whole branch** (KJC-BUG-0214, #1733): the iteration guards diffed against the base branch, so everything accumulated on the branch was on trial and a finding from someone else's commit took the run down. The diff starts at the run's own HEAD, and when there is no such marker it says it is judging the whole branch instead of keeping quiet.
+- **Six high advisories the nightly bot kept reporting** (KJC-BUG-0219, #994): `brace-expansion`, `fast-uri`, `ip-address`, `js-yaml`, `nanoid` and `smol-toml`, all transitive and mostly one family — lax parsing that lets an attacker confuse a host or reach an internal one. Each had a patched release inside the range its parent already allows, so nothing forces a major onto somebody else's dependency.
+
+### Closed without a change
+
+- **A file split read as deleted coverage** (#1364) was already fixed in **v4.15.0**, and the issue had stayed open: `src/prompts/split-signal.js` correlates significant lines removed from one file with the same lines added to another in the same diff, and tells the reviewer before it reads a relocation as a deletion.
+
 ## [4.34.0] - 2026-09-26
 
 A gate that blocks the one action that would turn it green is not a gate, it is a
