@@ -96,10 +96,7 @@ never run `kj update` on your own.
 # Project guidelines (kj harden)
 
 ## Code
-- SOLID, DRY, KISS, YAGNI. `const` by default; arrow callbacks; template literals.
-- ES2025 target: never `var`, `document.write`, `alert`/`confirm`/`prompt`, `escape`/`unescape`, `substr`.
-  Prefer modern APIs (`structuredClone`, `Object.groupBy`, `Array.at`/`findLast`/`toSorted`, optional chaining, `??`).
-- ES modules (`import`/`export`), never `require` in new code. Names in English, descriptive.
+- SOLID, DRY, KISS, YAGNI. Names in English, descriptive.
 - No silent fallbacks: the system works or fails loudly. Validate and sanitize all input.
 
 ## Commits & PRs
@@ -111,11 +108,17 @@ never run `kj update` on your own.
 - Test-first. Run the tests after each meaningful change. Never skip tests.
 
 ## Security
-- Never commit secrets, keys or tokens. Parameterized queries; sanitize output against XSS.
-
-## UI/UX
-- No native `alert`/`confirm`/`prompt` — use the app's modal system. Loading states; accessible; mobile-first.
+- Never commit secrets, keys or tokens. Parameterized queries; sanitize output against injection.
 
 ## Files
 - Edit existing files in place; never overwrite a whole file to make a small change.
+
+## JavaScript / TypeScript
+- `const` by default; arrow callbacks; template literals.
+- ES2025 target: never `var`, `document.write`, `alert`/`confirm`/`prompt`, `escape`/`unescape`, `substr`.
+  Prefer modern APIs (`structuredClone`, `Object.groupBy`, `Array.at`/`findLast`/`toSorted`, optional chaining, `??`).
+- ES modules (`import`/`export`), never `require` in new code. Avoid `any` in TypeScript.
+
+## UI/UX
+- No native `alert`/`confirm`/`prompt` — use the app's modal system. Loading states; accessible; mobile-first.
 <!-- <<< kj:managed:guidelines <<< -->
