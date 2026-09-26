@@ -97,6 +97,16 @@ jobs:
             ":(exclude)docs/**/*.md"
             ":(exclude)docs/*.mdx"
             ":(exclude)docs/**/*.mdx"
+            # KJC-BUG-0205: desde MONO-3 el SOURCE de la documentacion vive en
+            # apps/landing/docs/src/**, y las reglas de arriba, ancladas en la
+            # raiz, dejaron de cazarlo: documentar empezo a costar presupuesto,
+            # que es como una release acaba entregando lo que nadie encuentra
+            # (KJC-TSK-0871). Los ficheros de reglas para la IA (CLAUDE.md,
+            # AGENTS.md, templates/**) siguen contando a proposito.
+            ":(exclude)**/docs/**/*.md"
+            ":(exclude)**/docs/**/*.mdx"
+            ":(exclude)**/docs/**/*.txt"
+            ":(exclude)**/docs/**/*.rst"
             ":(exclude)docs/*.txt"
             ":(exclude)docs/**/*.txt"
             ":(exclude)docs/*.rst"
