@@ -16,6 +16,13 @@ import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 
 export const PROVENANCE_FILE = ".karajan/supervisor-provenance.json";
 const HOOKS_PREFIX = ".karajan/hooks/";
+// KJC-BUG-0197: la procedencia del supervisor no cubría los guardias del
+// supervisor. Sellaba los hooks de git y ningún .mjs del harness, que son
+// justo los que vigilan la sesión, así que nada externo podía decir si un
+// guardia instalado era auténtico. Los ficheros siguen fuera de git (los
+// veredictos son locales por diseño); lo que viaja y se firma es su HUELLA,
+// dentro de una procedencia que sí está trackeada.
+const HARNESS_PREFIX = ".karajan/harness/";
 
 const sha256 = (abs) => createHash("sha256").update(readFileSync(abs)).digest("hex");
 
@@ -58,6 +65,23 @@ function defaultConfirm(nonce) {
 }
 
 /** Ficheros de supervisor TRACKEADOS con cambios (staged o no). */
+/**
+ * KJC-BUG-0197: los guardias del Sentinel que el sello debe cubrir. No salen de
+ * `git status` (están gitignorados), así que se leen del disco. Un proyecto sin
+ * harness (perfil minimal) sella los hooks y nada más.
+ * @returns {string[]} rutas relativas, ordenadas
+ */
+export function harnessGuards(projectDir) {
+  try {
+    return readdirSync(join(projectDir, HARNESS_PREFIX))
+      .filter((f) => f.endsWith(".mjs"))
+      .map((f) => HARNESS_PREFIX + f)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
 export function supervisorDrift({ projectDir, gitFn }) {
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
   // Un rename sale como "R  old -> new" (catch de codex): ambas rutas son
@@ -107,10 +131,26 @@ export async function commitSupervisorRegeneration({
   // La provenance describe SIEMPRE el estado COMPLETO del supervisor (cazado
   // en el primer estreno real: un sello parcial pisaba al anterior y dejaba
   // ficheros sin respaldo). Borrados del drift ⇒ deleted (catch de codex).
-  const current = readdirSync(join(projectDir, HOOKS_PREFIX)).map((f) => HOOKS_PREFIX + f).sort();
+  const current = [
+    ...readdirSync(join(projectDir, HOOKS_PREFIX)).map((f) => HOOKS_PREFIX + f),
+    ...harnessGuards(projectDir),
+  ].sort();
+  // KJC-BUG-0197: un guardia BORRADO se anota como borrado, igual que un hook.
+  // No hacía falta para desencadenar el re-sello (la lista encoge, así que la
+  // cobertura ya falla), pero registrar la ausencia dice más que omitirla:
+  // quien lea la procedencia ve que ese guardia se fue, no que nunca estuvo.
+  const previousGuards = (() => {
+    try {
+      return JSON.parse(readFileSync(join(projectDir, PROVENANCE_FILE), "utf8"))?.files ?? [];
+    } catch { return []; }
+  })();
+  const goneGuards = previousGuards
+    .map((f) => f?.file)
+    .filter((f) => typeof f === "string" && f.startsWith(HARNESS_PREFIX) && !existsSync(join(projectDir, f)));
   const hashed = [
     ...current.map((file) => ({ file, sha256: sha256(join(projectDir, file)) })),
     ...drift.filter((f) => !existsSync(join(projectDir, f))).map((file) => ({ file, deleted: true })),
+    ...goneGuards.map((file) => ({ file, deleted: true })),
   ];
   let previous = null;
   try { previous = JSON.parse(readFileSync(join(projectDir, PROVENANCE_FILE), "utf8")); } catch { /* primer sello */ }

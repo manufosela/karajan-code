@@ -10,7 +10,9 @@ import { join } from "node:path";
 
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 
-import { commitSupervisorRegeneration, PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
+import { createHash } from "node:crypto";
+
+import { commitSupervisorRegeneration, harnessGuards, PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
 
 let repo;
 const git = (args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" });
@@ -166,5 +168,90 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     const phone = { enrolled: () => false, request: async () => { throw new Error("must not be called"); } };
     const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } });
     expect(res.committed).toBe(true);
+  });
+});
+
+// KJC-BUG-0197: la "procedencia del supervisor" no cubria los guardias del
+// supervisor. Sellaba .karajan/hooks/* y ningun .mjs de .karajan/harness/, que
+// son los que vigilan la sesion, asi que nada externo podia decir si un guardia
+// instalado era autentico. Siguen gitignorados a proposito: lo que viaja y se
+// firma es su HUELLA, dentro de una procedencia que si esta trackeada.
+describe("el sello cubre los guardias del Sentinel (KJC-BUG-0197)", () => {
+  const writeGuard = (name, body) => {
+    mkdirSync(join(repo, ".karajan", "harness"), { recursive: true });
+    writeFileSync(join(repo, ".karajan", "harness", name), body);
+  };
+
+  it("harnessGuards lee los .mjs del harness y nada mas", () => {
+    writeGuard("stop.mjs", "// guardia\n");
+    writeGuard("sentinel-state.json", "{}");
+    expect(harnessGuards(repo)).toEqual([".karajan/harness/stop.mjs"]);
+  });
+
+  it("sin harness (perfil minimal) devuelve vacio, no revienta", () => {
+    expect(harnessGuards(repo)).toEqual([]);
+  });
+
+  it("la procedencia incluye el hash de cada guardia", async () => {
+    writeGuard("stop.mjs", "// el guardia que vigila el turno\n");
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+
+    const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+
+    expect(res.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    const guard = prov.files.find((f) => f.file === ".karajan/harness/stop.mjs");
+    expect(guard).toBeDefined();
+    expect(guard.sha256).toMatch(/^[0-9a-f]{64}$/);
+    // Y sigue fuera de git: lo que se commitea son los hooks y la procedencia.
+    const shown = git(["show", "--name-only", "--format=", "HEAD"]).split("\n").filter(Boolean);
+    expect(shown).not.toContain(".karajan/harness/stop.mjs");
+    expect(shown).toContain(PROVENANCE_FILE);
+  });
+
+  it("un guardia que cambia deja la procedencia incompleta: hay que re-sellar", async () => {
+    writeGuard("stop.mjs", "// version 1\n");
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+
+    // Sin drift en los hooks, pero el guardia cambio: NO es "nada que versionar".
+    writeGuard("stop.mjs", "// version 2, regenerada por un harden posterior\n");
+    const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+
+    expect(res.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    const guard = prov.files.find((f) => f.file === ".karajan/harness/stop.mjs");
+    expect(guard.sha256).toBe(createHash("sha256").update("// version 2, regenerada por un harden posterior\n").digest("hex"));
+  });
+
+  it("un guardia BORRADO se anota como borrado, no se omite", async () => {
+    writeGuard("stop.mjs", "// guardia\n");
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+
+    rmSync(join(repo, ".karajan", "harness", "stop.mjs"));
+    const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+
+    expect(res.committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toEqual(expect.arrayContaining([{ file: ".karajan/harness/stop.mjs", deleted: true }]));
+  });
+
+  it("el movil firma tambien los guardias, no solo los hooks", async () => {
+    writeGuard("stop.mjs", "// guardia\n");
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    let signedFiles = null;
+    await commitSupervisorRegeneration({
+      projectDir: repo, kjVersion: "9.9.9", generation,
+      ...HUMAN,
+      deps: {
+        ...HUMAN.deps,
+        phone: {
+          enrolled: () => true,
+          request: async ({ files }) => { signedFiles = files; return { ok: true, signer: "s" }; },
+        },
+      },
+    });
+    expect(signedFiles.map((f) => f.file)).toContain(".karajan/harness/stop.mjs");
   });
 });
