@@ -1,6 +1,9 @@
 import { BaseAgent } from "./base-agent.js";
 import { resolveBin } from "./resolve-bin.js";
 
+/** El rechazo de kimi-code 0.27.0 a `-p` junto con `-y`, en su forma literal. */
+const REJECTS_COMBINATION = /cannot combine .* with /i;
+
 /**
  * Kimi Code (Moonshot, binary `kimi`) — KJC-TSK-0729 fase 2: the eighth
  * built-in agent and the free-tier reserve of the reviewer/solomon panel.
@@ -17,7 +20,7 @@ import { resolveBin } from "./resolve-bin.js";
 export class KimiAgent extends BaseAgent {
   async runTask(task) {
     // Coder mode IS an agentic run: file edits and shell need approval.
-    return this._exec(task, this.getRoleModel(task.role || "coder"), ["-y"]);
+    return this._exec(task, this.getRoleModel(task.role || "coder"), this.declaredArgs("task", ["-y"]));
   }
 
   async reviewTask(task) {
@@ -27,7 +30,7 @@ export class KimiAgent extends BaseAgent {
     return this._exec(
       { ...task, prompt: `Do NOT use any tools. Answer directly from this prompt only.\n\n${task.prompt}` },
       this.getRoleModel(task.role || "reviewer"),
-      [],
+      this.declaredArgs("review", []),
     );
   }
 
@@ -40,6 +43,12 @@ export class KimiAgent extends BaseAgent {
       timeout: task.timeoutMs,
       cwd: task.cwd,
     });
-    return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
+    // KJC-BUG-0217 (issue #1409): el CLI puede rechazar la COMBINACION de flags
+    // (kimi-code 0.27.0: "Cannot combine --prompt with --yolo"). Ese error crudo
+    // no dice que hacer; el de kj si.
+    const error = REJECTS_COMBINATION.test(String(res.stderr || ""))
+      ? `${res.stderr}\n\nkimi rechaza la combinacion de flags con la que kj lo invoca. Declara los que acepta esta version: agents.kimi.task_args (una lista vacia deja el prompt solo, sin auto-aprobado).`
+      : res.stderr;
+    return { ok: res.exitCode === 0, output: res.stdout, error, exitCode: res.exitCode };
   }
 }

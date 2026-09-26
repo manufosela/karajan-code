@@ -91,6 +91,11 @@ const DEFAULTS = {
   coder_rules: "./.karajan/coder-rules.md",
   base_branch: "main",
   coder_options: { model: null, auto_approve: true, fallback_coder: null },
+  // KJC-BUG-0217: los flags con los que kj invoca el CLI de cada provider son
+  // los que su version acepta, y eso cambia con el CLI. Aqui se declaran por
+  // agente cuando los de serie no valen: { kimi: { task_args: [] } } deja el
+  // prompt solo, sin auto-aprobado, para una version que rechaza la combinacion.
+  agents: {},
   reviewer_options: {
     output_format: "json",
     require_schema: true,

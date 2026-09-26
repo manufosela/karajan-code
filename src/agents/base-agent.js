@@ -35,6 +35,28 @@ export class BaseAgent {
   }
 
   /**
+   * KJC-BUG-0217 (issue #1409) — los flags con los que kj invoca el CLI de un
+   * provider eran una constante del codigo, y hay versiones que rechazan la
+   * combinacion: kimi-code 0.27.0 responde "Cannot combine --prompt with
+   * --yolo" y dejaba `kj agent run` inutilizable, sin mas salida que parchear
+   * kj. Ahora el proyecto puede declararlos:
+   *
+   *   agents: { kimi: { task_args: [], review_args: [] } }
+   *
+   * Sin declaracion valen los de siempre. Una declaracion que no sea una lista
+   * de cadenas se ignora: la config no puede romper la invocacion.
+   *
+   * @param {"task"|"review"} kind
+   * @param {string[]} fallback
+   * @returns {string[]}
+   */
+  declaredArgs(kind, fallback) {
+    const declared = this.config?.agents?.[this.name]?.[`${kind}_args`];
+    if (!Array.isArray(declared) || declared.some((a) => typeof a !== "string")) return fallback;
+    return declared;
+  }
+
+  /**
    * Run a shell command through the injected CommandRunner. Subclasses should
    * call this instead of importing runCommand directly so tests can swap in
    * MockCommandRunner.
