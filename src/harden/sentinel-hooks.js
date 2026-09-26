@@ -407,6 +407,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 // KJC-BUG-0204: el comando real lleva flags EN MEDIO del verbo
@@ -859,7 +860,30 @@ process.stdin.on("end", () => {
           process.exit(2);
         }
       } else if (pres.status !== 0) {
-        if (escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
+        // KJC-BUG-0207: un kj que NO ARRANCA no es una violacion de policy. Con
+        // kj linkado al arbol, un error de sintaxis transitorio en src/ dejaba
+        // la sesion sin Edit, sin Write y sin Bash, o sea sin las herramientas
+        // para arreglar el fichero, y el remedio que sugeria (kj policy check)
+        // tampoco arrancaba. Se avisa fuerte y se deja pasar: el resto de este
+        // guard sigue vigente, que es lo que protege el metodo.
+        const broken = /SyntaxError|ReferenceError|Cannot find module|ERR_MODULE_NOT_FOUND|ERR_REQUIRE_ESM/.exec(String(pres.stderr || ""));
+        // Abrir el gate entero seria un bypass a la carta (romper un modulo y
+        // seguir sin policy), catch de la review. Se permite EXACTAMENTE una
+        // cosa: editar el fichero que rompe kj. Lo demas sigue denegado.
+        const at = broken ? (String(pres.stderr || "").split("\\n").map((l) => l.trim()).find((l) => /^[^ ]+\\.(m?js|cjs|ts):\\d+$/.test(l)) || "") : "";
+        // Node localiza los errores de un modulo ESM como file:///ruta.js:124,
+        // y esa forma no es una ruta de fichero (catch de la review).
+        const asPath = (p) => (p.startsWith("file:") ? fileURLToPath(p) : p);
+        const brokenFile = at ? asPath(at.slice(0, at.lastIndexOf(":"))) : "";
+        if (broken) {
+          const target = input.file_path || input.notebook_path || "";
+          const repairing = EDIT_TOOLS.includes(tool) && brokenFile && target && resolve(String(target)) === resolve(brokenFile);
+          if (repairing) console.error("karajan sentinel: kj no arranca (" + broken[0] + " en " + at + ") — la policy no se puede evaluar, asi que solo se permite arreglar ESE fichero. Arreglalo y vuelve." + doc("policy"));
+          else {
+            console.error("karajan sentinel: kj no arranca (" + broken[0] + (at ? " en " + at : "") + "), asi que la policy no se puede evaluar y NADA MAS pasa: edita " + (brokenFile || "el fichero que rompe kj") + " para arreglarlo. No es un deny de policy, es kj roto." + doc("policy"));
+            process.exit(2);
+          }
+        } else if (escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
         else {
           console.error("karajan sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check y corrige .karajan/policy.yml fuera de la sesion (o KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada)." + doc("policy"));
           process.exit(2);
