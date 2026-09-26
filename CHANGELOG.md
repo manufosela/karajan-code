@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The release gate stops blocking the one action that would turn it green** (KJC-BUG-0204): the checklist demanded a landing deployed with the new version, and the guard treated the deploy as a publication, so the only way out was `KJ_ALLOW_RELEASE=1`, which switches off the protection over the publish that comes right after. An item in `release_check.items` can now declare `remedied_by`, and a red check never blocks the command that repairs it. The lifted check stays red in the report, because the fact has not changed, and the gate says which item it lifted instead of exempting it in silence. Any other red still blocks, and a package publication is never excused. On the way out it also fixed a hole in the same guard: it matched the verb only when the words were adjacent, so the real command (`firebase --account a@b --project p deploy --only hosting:main`) was never intercepted at all.
+
 ## [4.33.0] - 2026-09-24
 
 Your panel rules. You choose who writes and who reviews, and until now that choice only held inside `kj run`: with the host agent orchestrating, nothing carried it into the session, and a model your provider had retired silently got replaced by whatever the agent felt like. Three field reports from a contributor close the other half: what kj writes into a project now speaks that project's language.

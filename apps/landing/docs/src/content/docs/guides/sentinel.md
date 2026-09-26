@@ -63,7 +63,19 @@ A hard datum in a PR body or final message that is DENIED by this turn's own out
 
 ## release
 
-`kj release check` must be green before anything publishes or deploys. The one legitimate chicken-and-egg: the landing shows the new version only *after* the publish — that step runs under `KJ_ALLOW_RELEASE=1`, recorded like every other escape.
+`kj release check` must be green before anything publishes or deploys, and the guard recognizes the verb wherever the flags sit (`firebase --project p deploy --only hosting` is a deploy).
+
+A red check never blocks the command that **repairs** it. The chicken-and-egg used to be the landing: the check wanted the site deployed with the new version, the guard blocked the deploy, and the only way out was switching the whole gate off. Now the item declares its own remedy:
+
+```yaml
+release_check:
+  items:
+    - name: the deployed landing shows the version as current
+      command: curl -sf https://example.com/docs/ | grep -q 'v{version}'
+      remedied_by: firebase deploy
+```
+
+The lifted check stays red in the report, because the fact has not changed; it just stops blocking its own fix, and the gate says which item it lifted rather than doing it in silence. Any other red check still blocks. A package publication is never excused: `npm publish` and `gh release create` are irreversible, so no declared remedy covers them, and `KJ_ALLOW_RELEASE=1` remains the one conscious escape.
 
 ## supervisor
 
@@ -94,7 +106,7 @@ Every escape, what it skips, and when it is legitimate. All of them: one simple 
 | `KJ_ALLOW_NO_RAG=1` | rag-first | The RAG index is absent or broken on this machine and the fix is agreed; recorded once per session |
 | `KJ_ALLOW_POLICY=1` | non-security policy denies | The rule mis-fires and the fix is agreed; commit also needs `KJ_POLICY_REASON` |
 | `KJ_ALLOW_STEWARD=1` | steward hard block | The break is known, carded, and the user says work continues |
-| `KJ_ALLOW_RELEASE=1` | release check | The publish→landing ordering above |
+| `KJ_ALLOW_RELEASE=1` | release check | A red item nobody can repair right now, agreed with the human (the landing case is covered by `remedied_by`) |
 | `KJ_ALLOW_NO_TESTS=1` | tests-with-code gate (staged code with no test changes) | The diff genuinely owes no test and it is agreed |
 | `KJ_ALLOW_PII=1` | privacy denylist block at commit time | A confirmed false positive, reviewed by the human |
 | `KJ_ALLOW_REWRITE=1` | the guard against reserializing whole JSON files from Bash | A full-file rewrite IS the agreed change |

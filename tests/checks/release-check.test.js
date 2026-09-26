@@ -71,3 +71,81 @@ describe("runReleaseCheck — declared items", () => {
     expect(res.ok).toBe(false);
   });
 });
+
+// KJC-BUG-0204 — un check en rojo no puede bloquear el comando que lo repara.
+describe("runReleaseCheck — remedios (KJC-BUG-0204)", () => {
+  const landing = (extra = {}) => ({ release_check: { items: [
+    { name: "landing desplegada", command: "false", remedied_by: "firebase deploy", ...extra },
+  ] } });
+
+  it("lifts the red check whose remedy IS the command, and says which", async () => {
+    const res = await runReleaseCheck({ projectDir: dir, config: landing(), forCommand: "firebase --account a@b --project p deploy --only hosting:main" });
+    expect(res.ok).toBe(true);
+    expect(res.lifted).toEqual(["landing desplegada"]);
+    expect(byName(res, "landing desplegada").ok).toBe(false); // el hecho no se falsea: sigue en rojo
+  });
+
+  it("keeps blocking when a red check is NOT remedied by the command", async () => {
+    const config = landing();
+    config.release_check.items.push({ name: "otra cosa", command: "false" });
+    const res = await runReleaseCheck({ projectDir: dir, config, forCommand: "firebase deploy --only hosting" });
+    expect(res.ok).toBe(false);
+    expect(res.lifted).toEqual(["landing desplegada"]);
+  });
+
+  it("never lifts for a package publication, whatever the item declares", async () => {
+    const res = await runReleaseCheck({ projectDir: dir, config: landing({ remedied_by: "npm publish" }), forCommand: "npm publish --otp=123456" });
+    expect(res.ok).toBe(false);
+    expect(res.lifted).toEqual([]);
+  });
+
+  it("detects a publication with flags in the middle, and separators do not hide one", async () => {
+    // Catch de la review: la deteccion de publicacion era por adyacencia
+    // mientras el remedio toleraba flags, asi que publicar podia quedar exento.
+    for (const cmd of ["npm --registry https://r.example publish", "gh --repo o/r release create v1", "(npm publish)", "npm publish;", "/usr/bin/npm publish", "./node_modules/.bin/gh release create v1"]) {
+      const res = await runReleaseCheck({ projectDir: dir, config: landing({ remedied_by: "npm publish" }), forCommand: cmd });
+      expect(res.lifted, cmd).toEqual([]);
+      expect(res.ok, cmd).toBe(false);
+    }
+  });
+
+  it("keeps the remedy when the item could not even run", async () => {
+    // Catch de la review: en la rama de error el remedio se perdia, asi que el
+    // comando que lo repara quedaba bloqueado justo cuando nada se comprobo.
+    const explodes = { toString() { throw new Error("boom"); } };
+    const config = { release_check: { items: [{ name: "landing", command: explodes, remedied_by: "firebase deploy" }] } };
+    const res = await runReleaseCheck({ projectDir: dir, config, forCommand: "firebase deploy --only hosting" });
+    expect(byName(res, "landing").detail).toMatch(/boom/);
+    expect(res.lifted).toEqual(["landing"]);
+    expect(res.ok).toBe(true);
+  });
+
+  it("a remedy lifts its OWN item, never another red item that shares its name", async () => {
+    // Catch de la review: el levantamiento viajaba por nombre.
+    const config = { release_check: { items: [
+      { name: "landing", command: "false", remedied_by: "firebase deploy" },
+      { name: "landing", command: "false" },
+    ] } };
+    const res = await runReleaseCheck({ projectDir: dir, config, forCommand: "firebase deploy --only hosting" });
+    expect(res.ok).toBe(false);
+    expect(res.checks.filter((c) => c.name === "landing").map((c) => c.lifted === true)).toEqual([true, false]);
+  });
+
+  it("requires the remedy tokens in order, and ignores an item without remedied_by", async () => {
+    const plain = { release_check: { items: [{ name: "landing desplegada", command: "false" }] } };
+    expect((await runReleaseCheck({ projectDir: dir, config: plain, forCommand: "firebase deploy" })).ok).toBe(false);
+    // "deploy firebase" no es "firebase deploy": el orden es parte del remedio.
+    expect((await runReleaseCheck({ projectDir: dir, config: landing(), forCommand: "deploy firebase now" })).ok).toBe(false);
+    // Sin forCommand el comportamiento es el de siempre.
+    const res = await runReleaseCheck({ projectDir: dir, config: landing() });
+    expect(res.ok).toBe(false);
+    expect(res.lifted).toBeUndefined();
+  });
+
+  it("does not lift a GENERIC check: a remedy only covers what its item declares", async () => {
+    write("package.json", JSON.stringify({ name: "demo", version: "9.9.9", private: true }));
+    const res = await runReleaseCheck({ projectDir: dir, config: landing(), forCommand: "firebase deploy" });
+    expect(res.ok).toBe(false); // changelog-current en rojo y nadie lo repara
+    expect(res.lifted).toEqual(["landing desplegada"]);
+  });
+});

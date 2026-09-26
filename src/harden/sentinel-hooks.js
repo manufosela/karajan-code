@@ -409,7 +409,16 @@ import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
-const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
+// KJC-BUG-0204: el comando real lleva flags EN MEDIO del verbo
+// (firebase --account a@b --project p deploy --only hosting:main), asi que la
+// adyacencia dejaba pasar sin mirar justo el despliegue que el gate vigila.
+// Las palabras del verbo tienen que aparecer en orden, no pegadas.
+const PUBLISH_VERBS = [["npm", "publish"], ["firebase", "deploy"], ["gh", "release", "create"]];
+// Cada palabra se lee por su basename: /usr/bin/npm publish es la misma
+// publicacion que npm publish (catch de la review).
+const wordsOf = (text) => String(text).split(/[^A-Za-z0-9_.@:/-]+/).filter(Boolean).map((w) => w.slice(w.lastIndexOf("/") + 1)).filter(Boolean);
+const inOrder = (want, got) => { let i = 0; for (const w of got) if (w === want[i] && ++i === want.length) return true; return false; };
+const isPublish = (cmd) => { const got = wordsOf(cmd); return PUBLISH_VERBS.some((verb) => inOrder(verb, got)); };
 const PUSH = /\\bgit\\s+push\\b/;
 const PROTECTED = /\\.claude\\/settings\\.json\\b|\\.karajan\\/(hooks|harness)\\//;
 let raw = "";
@@ -957,13 +966,24 @@ process.stdin.on("end", () => {
           process.exit(2);
         }
       }
-      if (PUBLISH.test(cmd)) {
+      if (isPublish(cmd)) {
         if (escOn("KJ_ALLOW_RELEASE")) { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
-        const res = spawnSync("kj", ["release", "check", "--json"], { cwd: ROOT, encoding: "utf8" });
+        // KJC-BUG-0204: el check se evalua PARA este comando. Un item que
+        // declara remedied_by no bloquea el comando que lo repara (desplegar
+        // la landing era justo lo que el check pedia); publicar no se exime.
+        const res = spawnSync("kj", ["release", "check", "--json", "--for-command", cmd], { cwd: ROOT, encoding: "utf8" });
         if (res.error || res.status === null) process.exit(0);
+        let parsed = null;
+        try { parsed = JSON.parse(res.stdout); } catch { /* raw output */ }
+        const lifted = (parsed && parsed.lifted) || [];
+        if (res.status === 0 && lifted.length > 0) {
+          // En voz alta: una exencion que nadie ve no se distingue de un gate que no mira.
+          console.error("karajan sentinel: release check en rojo SOLO por lo que este comando repara (" + lifted.join(", ") + ") — pasa, y el resto sigue en verde" + doc("release"));
+          process.exit(0);
+        }
         if (res.status !== 0) {
           let items = "";
-          try { items = (JSON.parse(res.stdout).checks || []).filter((c) => !c.ok).map((c) => "\\n- " + c.name + ": " + c.detail).join(""); } catch { /* raw output */ }
+          try { items = (parsed.checks || []).filter((c) => !c.ok && c.lifted !== true).map((c) => "\\n- " + c.name + ": " + c.detail).join(""); } catch { /* raw output */ }
           console.error("karajan sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(KJ_ALLOW_RELEASE=1 = excepcion consciente, queda registrada)" + doc("release"));
           process.exit(2);
         }
