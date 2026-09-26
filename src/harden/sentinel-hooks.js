@@ -941,12 +941,19 @@ process.stdin.on("end", () => {
         const rs = load().sessions?.[sid] || {};
         const hits = rs.rag_hits || [];
         const dirOf = (p) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
-        const fresh = !existsSync(String(file));
+        // KJC-BUG-0210: nuevo no es "no existe en disco". En cuanto la sesion
+        // lo crea, la siguiente edicion exigia una respuesta del RAG sobre un
+        // fichero que el indice NO puede tener. El hecho comprobable: un
+        // fichero que git no conoce no ha podido indexarse.
+        // Solo se pregunta a git en el camino lento, cuando el gate iba a
+        // denegar: exit 1 = git responde que no lo conoce; cualquier otro
+        // resultado se comporta como hasta ahora y bloquea.
+        const fresh = () => !existsSync(String(file)) || spawnSync("git", ["-C", ROOT, "ls-files", "--error-unmatch", "--", rel], { encoding: "utf8" }).status === 1;
         // A path outside this tree is another lane's business (the lane guard
         // above rules on it) and the ledger only holds in-repo paths.
         // KJC-BUG-0190: with nothing indexed, no query can cover anything —
         // the gate asks for kj rag index instead of denying the impossible.
-        const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || (fresh && (rs.rag_queries || []).length > 0) || rs.rag_index_empty === true;
+        const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || ((rs.rag_queries || []).length > 0 && fresh()) || rs.rag_index_empty === true;
         if (!covered) {
           if (escOn("KJ_ALLOW_NO_RAG")) {
             // Recorded ONCE per session: the escape is a conscious exception, not a per-edit tax.

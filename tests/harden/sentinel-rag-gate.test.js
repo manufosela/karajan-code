@@ -54,6 +54,30 @@ describe("rag-first gate", () => {
     expect(edit("lib/new.js").status).toBe(0);
   });
 
+  // KJC-BUG-0210: "nuevo" era "no existe en disco", asi que en cuanto lo creabas
+  // la siguiente edicion exigia una respuesta del RAG sobre un fichero que el
+  // indice no puede tener. Un fichero que git no conoce no puede estar indexado.
+  it("un fichero creado en la sesion sigue siendo nuevo: git no lo conoce, el indice tampoco", () => {
+    ledger(["src/a.js"]);
+    const nuevo = path.join(dir, "lib", "nuevo.js");
+    expect(edit("lib/nuevo.js").status).toBe(0); // todavia no existe
+    fs.writeFileSync(nuevo, "creado en esta sesion\n");
+    expect(edit("lib/nuevo.js").status).toBe(0); // existe, pero git no lo conoce
+    execSync("git add lib/nuevo.js && git -c user.email=a@b.c -c user.name=t commit -q -m add", { cwd: dir });
+    expect(edit("lib/nuevo.js").status).toBe(2); // ya es trackeado: el RAG puede responder
+  });
+
+  it("sin haber consultado nada, un fichero que git no conoce tampoco pasa", () => {
+    fs.writeFileSync(path.join(dir, "lib", "otro.js"), "x\n");
+    expect(edit("lib/otro.js").status).toBe(2);
+  });
+
+  it("un nombre que parece una opcion de git sigue siendo un fichero (catch de la review)", () => {
+    ledger(["src/a.js"]);
+    fs.writeFileSync(path.join(dir, "lib", "--version"), "x\n");
+    expect(edit("lib/--version").status).toBe(0);
+  });
+
   it("leaves docs and tests alone", () => {
     expect(edit("README.md").status).toBe(0);
     expect(edit("tests/a.test.js").status).toBe(0);
