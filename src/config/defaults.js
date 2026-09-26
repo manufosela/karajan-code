@@ -68,7 +68,10 @@ const DEFAULTS = {
   state_backend: "hu-board",
   // verify_cmd (KJC-TSK-0732): user adapter that checks a card ref against
   // the real tracker — prints {exists, live, status} JSON; {ref} substituted.
-  board: { name: null, verify_cmd: null },
+  // unverifiable (KJC-TSK-0878): que hacer cuando el adaptador no puede
+  // responder (sin red, sin credenciales, JSON invalido). "warn" degrada a
+  // branch-ref diciendolo; "block" se niega a aprobar lo que no ha comprobado.
+  board: { name: null, verify_cmd: null, unverifiable: "warn" },
   // Method gates (KJC-PCS-0068): rules climb from playbook text to
   // deterministic enforcement. card_first: "auto" = block with hu-board
   // (fully verifiable), warn with planning-game/external (presence only);

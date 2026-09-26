@@ -98,6 +98,40 @@ describe("checkCardFirst — external / planning-game (presence check, warns by 
       expect(b).toMatchObject({ ok: false, mode: "block" });
     });
 
+    // KJC-TSK-0878 (issue #1371): "no he podido verificar" y "he verificado y
+    // esta mal" no son lo mismo, y quien lleva su gestion en el tracker quiere
+    // que la primera tambien pare. Declarable, porque el default no cambia el
+    // comportamiento de nadie al actualizar.
+    it("board.unverifiable: block para la degradacion, diciendo que NO pudo comprobar", async () => {
+      const degraded = verify({ level: "branch-ref", verified: null, note: "tracker verification degraded to branch-ref (ETIMEDOUT)" });
+      const r = await checkCardFirst({
+        config: { ...cfg, board: { ...cfg.board, unverifiable: "block" } },
+        projectDir: dir, branch: "jorge/lin-123-fix", env: {}, deps: degraded,
+      });
+      expect(r).toMatchObject({ ok: false, mode: "block", level: "branch-ref" });
+      expect(r.reason).toMatch(/could not be verified/i);
+      expect(r.reason).toMatch(/ETIMEDOUT/);
+    });
+
+    it("con block declarado, una card viva sigue pasando", async () => {
+      const r = await checkCardFirst({
+        config: { ...cfg, board: { ...cfg.board, unverifiable: "block" } },
+        projectDir: dir, branch: "jorge/lin-123-fix", env: {},
+        deps: verify({ level: "tracker", verified: true, status: "In Progress" }),
+      });
+      expect(r).toMatchObject({ ok: true, mode: "pass", level: "tracker" });
+    });
+
+    it("sin verify_cmd, declarar block no convierte 'no hay adaptador' en un fallo", async () => {
+      // Nadie queda bloqueado por no haber declarado todavia su adaptador.
+      const r = await checkCardFirst({
+        config: { ...ext, board: { name: "Linear", unverifiable: "block" } },
+        projectDir: dir, branch: "jorge/lin-123-fix", env: {},
+        deps: verify({ level: "branch-ref", verified: null, note: "card-first checked the branch reference only — set board.verify_cmd to verify the card against your tracker" }),
+      });
+      expect(r).toMatchObject({ ok: true, mode: "pass", level: "branch-ref" });
+    });
+
     it("unverifiable passes at branch-ref level WITH the degradation note", async () => {
       const r = await checkCardFirst({
         config: cfg, projectDir: dir, branch: "jorge/lin-123-fix", env: {},
