@@ -971,8 +971,22 @@ process.stdin.on("end", () => {
             // Recorded ONCE per session: the escape is a conscious exception, not a per-edit tax.
             if (!(rs.escapes || []).includes("KJ_ALLOW_NO_RAG")) recordEscape(sid, "KJ_ALLOW_NO_RAG", tool);
           } else {
-            console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>. (KJ_ALLOW_NO_RAG=1 = excepcion consciente, queda registrada)" + doc("rag-first"));
-            process.exit(2);
+            // KJC-BUG-0216 (issue #1807): un .astro, un .php o cualquier fichero
+            // sin adapter NO puede estar en el indice, asi que exigir una
+            // respuesta del RAG sobre el es pedir lo imposible, y empujaba a
+            // dejar KJ_ALLOW_NO_RAG puesta para siempre. La exencion es SOLO
+            // esa: un indice vacio o por detras si tiene arreglo (kj rag index)
+            // y sigue bloqueando, porque si no el gate desapareceria en
+            // cualquier proyecto sin indexar. Nada legible = se bloquea.
+            const cov = spawnSync("kj", ["rag", "covers", rel, "--json"], { cwd: ROOT, encoding: "utf8" });
+            let blind = null;
+            try { const c = JSON.parse(String(cov.stdout || "")); if (c.state === "not-indexable") blind = c.reason; } catch { blind = null; }
+            if (blind) {
+              console.error("karajan sentinel: rag-first — " + blind + " — no se te exige consultar lo que el indice no puede tener; el gate lo anota y sigue" + doc("rag-first"));
+            } else {
+              console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>. (KJ_ALLOW_NO_RAG=1 = excepcion consciente, queda registrada)" + doc("rag-first"));
+              process.exit(2);
+            }
           }
         }
       }
