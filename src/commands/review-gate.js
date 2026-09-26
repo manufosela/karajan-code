@@ -23,6 +23,7 @@ import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { isGeneratedPath, splitAddedByFile } from "../privacy/diff-scope.js";
+import { budgetedAdded } from "../review/loc-budget.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
 import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
@@ -203,14 +204,17 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   const sizeSource = locInv ? `policy [${locInv.id}]` : "method_gates";
   if (sizeWarn > 0) {
     const numstat = await rawDiff(flags.range, ["--numstat"]);
-    const added = numstat.split("\n").reduce((acc, l) => acc + (Number(l.split("\t")[0]) || 0), 0);
+    // KJC-BUG-0205: the budget caps CODE growth, so generated output and human
+    // documentation are exempt — the same rule CI applies. Counting everything
+    // here warned 234 lines on a doc-only PR that CI counted at 104, and two
+    // implementations of one rule that disagree teach people to trust neither.
+    const { added, exempt, testAdded } = budgetedAdded(numstat);
+    // Said out loud: an exemption nobody sees is indistinguishable from a gate
+    // that is not looking.
+    if (exempt > 0) console.log(`ℓ pr-size: ${exempt} line(s) exempt from the budget (generated output and human docs; AI-rule files always count)`);
     if (added > sizeWarn) {
       // KJC-TSK-0795 AC5: say how much of the weight is the module's OWN tests —
       // partitioning is a decision, and it must never split code from its tests.
-      const testAdded = numstat.split("\n").reduce((acc, l) => {
-        const [a, , ...f] = l.split("\t");
-        return acc + (/\/tests?\/|__tests__\/|\.test\.|\.spec\./.test(`/${f.join("\t")}`) ? Number(a) || 0 : 0);
-      }, 0);
       const split = testAdded > 0 ? ` (${added - testAdded} source + ${testAdded} accompanying tests — partition by feature, never code from its tests)` : "";
       const sizePolicy = config?.method_gates?.pr_size || "warn";
       if (process.env.KJ_ALLOW_LARGE_PR === "1") {
