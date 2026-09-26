@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { CARD_REF_RE } from "../review/card-first.js";
-import { mergeClaudeHooks, writeHarnessScript } from "./harness-hooks.js";
+import { HARNESS_BODIES, mergeClaudeHooks, writeHarnessScript } from "./harness-hooks.js";
 
 /** The harness lives at the PROJECT root — resolve it even from a subdir. */
 export function resolveSentinelRoot(dir = process.cwd()) {
@@ -1104,6 +1104,14 @@ const SCRIPT_BODIES = {
  * because nothing under .karajan can vouch for itself.
  */
 const PROVENANCE_PATH = ".karajan/supervisor-provenance.json";
+
+/**
+ * KJC-BUG-0211: el cuerpo que kj escribiria para ese guardia, venga de las
+ * plantillas del Sentinel o de las del harness. Quien verifica un sello
+ * recomputa con esto; sin el, un sello que cubre los guardias (KJC-BUG-0197)
+ * no se puede ni commitear, porque nadie sabe comprobarlos.
+ */
+export const canonicalHarnessBody = (name) => SCRIPT_BODIES[name] ?? HARNESS_BODIES[name] ?? null;
 
 /**
  * KJC-BUG-0197: what did a human actually seal, per guard?
