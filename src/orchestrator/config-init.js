@@ -5,7 +5,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { computeBaseRef, setSnapshot } from "../review/diff-generator.js";
-import { ensureContractBlockPresent } from "../review/gate-gitignore.js";
+import { ensureContractBlockPresent, excludeLocalArtifacts } from "../review/gate-gitignore.js";
 import { revParse } from "../utils/git.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
@@ -55,26 +55,18 @@ export async function autoInit(projectDir, logger) {
     }
   }
 
-  // Ensure .gitignore exists with universal entries only (stack-specific added after planner)
-  // KJC-BUG-0123: `.karajan/` is NOT in this list on purpose — a bare
-  // dir-exclude breaks the gate contract (git cannot re-include children);
-  // the canonical block is appended below from its single source.
-  const gitignorePath = path.join(projectDir, ".gitignore");
-  const universalIgnores = [".env", "*.log", ".DS_Store", ".reviews/"];
+  // KJC-BUG-0213 (issue #1734): el .gitignore es del equipo y viaja con el repo.
+  // Ahi solo entra el contrato v4, que el equipo entero hereda; los artefactos
+  // de una ejecucion son nuestros y locales, asi que van a .git/info/exclude.
+  // Lo que kj metia antes (.env, *.log, .DS_Store) era opinion sobre un
+  // proyecto ajeno, y aparecia en el diff de otra persona sin haberlo pedido.
   try {
-    let content = "";
-    if (await exists(gitignorePath)) {
-      content = await fs.readFile(gitignorePath, "utf8");
-    }
-    const missing = universalIgnores.filter(entry => !content.includes(entry));
-    if (missing.length > 0) {
-      const append = (content && !content.endsWith("\n") ? "\n" : "") + missing.join("\n") + "\n";
-      await fs.appendFile(gitignorePath, append, "utf8");
-      logger.info(`Created .gitignore with universal entries`);
-    }
-    await ensureContractBlockPresent(projectDir);
+    const contract = await ensureContractBlockPresent(projectDir);
+    if (contract.changed) logger.info("El contrato v4 se ha anadido a .gitignore (lo hereda quien clone)");
+    const local = await excludeLocalArtifacts(projectDir);
+    if (local.changed) logger.info(`Artefactos de kj excluidos en .git/info/exclude: ${local.added.join(", ")}`);
   } catch (err) {
-    logger.warn(`Failed to create .gitignore: ${err.message}`);
+    logger.warn(`Failed to prepare .gitignore: ${err.message}`);
   }
 
   const karajanDir = path.join(projectDir, ".karajan");
@@ -125,89 +117,11 @@ export async function autoInit(projectDir, logger) {
   }
 }
 
-// Stack-specific .gitignore patterns keyed by language/framework
-const STACK_GITIGNORE = {
-  javascript: ["node_modules/", "dist/", "build/", "coverage/", ".cache/", "*.tsbuildinfo"],
-  typescript: ["node_modules/", "dist/", "build/", "coverage/", ".cache/", "*.tsbuildinfo"],
-  python: ["__pycache__/", "*.pyc", ".venv/", "venv/", "*.egg-info/", ".pytest_cache/", "htmlcov/", ".mypy_cache/"],
-  java: ["target/", "*.class", "*.jar", "*.war", ".gradle/", "build/", ".settings/", ".classpath", ".project"],
-  kotlin: ["target/", "*.class", "build/", ".gradle/", ".kotlin/"],
-  go: ["bin/", "*.exe", "vendor/"],
-  rust: ["target/", "Cargo.lock"],
-  ruby: ["vendor/bundle/", ".bundle/", "coverage/", "tmp/"],
-  php: ["vendor/", ".phpunit.result.cache", "storage/logs/"],
-  csharp: ["bin/", "obj/", "*.suo", "*.user", "packages/", ".vs/"],
-  swift: [".build/", "Packages/", "*.xcodeproj/", "DerivedData/"],
-  dart: [".dart_tool/", "build/", ".packages"],
-};
-
-/**
- * Update .gitignore with stack-specific entries after planner/architect decides the stack.
- * Detects stack from: triage taskType, architect output, planner output, or task keywords.
- */
-export async function updateGitignoreForStack(projectDir, { stageResults, task, logger }) {
-  const gitignorePath = path.join(projectDir, ".gitignore");
-  const detected = new Set();
-
-  // From architect — if it chose layers/patterns, it may hint at the language
-  const arch = stageResults?.architect?.architecture;
-  if (arch) {
-    const archText = JSON.stringify(arch).toLowerCase();
-    for (const lang of Object.keys(STACK_GITIGNORE)) {
-      if (archText.includes(lang)) detected.add(lang);
-    }
-  }
-
-  // From planner — scan plan text for language keywords
-  const planText = (stageResults?.planner?.plan || "").toLowerCase();
-  // From task description
-  const taskText = (task || "").toLowerCase();
-  const combined = `${planText} ${taskText}`;
-
-  const langKeywords = {
-    javascript: ["node", "npm", "express", "react", "vue", "next", "vite", "vitest", "jest", "pnpm", "yarn", "javascript", "js"],
-    typescript: ["typescript", "tsx", "tsc"],
-    python: ["python", "django", "flask", "fastapi", "pip", "pytest", "poetry"],
-    java: ["java", "spring", "maven", "gradle", "junit"],
-    kotlin: ["kotlin", "ktor"],
-    go: ["golang", "go mod", "gin", "fiber"],
-    rust: ["rust", "cargo", "tokio"],
-    ruby: ["ruby", "rails", "gem", "bundler", "rspec"],
-    php: ["php", "laravel", "composer", "symfony"],
-    csharp: ["c#", "csharp", "dotnet", ".net", "aspnet"],
-    swift: ["swift", "swiftui", "vapor"],
-    dart: ["dart", "flutter"],
-  };
-
-  for (const [lang, keywords] of Object.entries(langKeywords)) {
-    if (keywords.some(kw => combined.includes(kw))) detected.add(lang);
-  }
-
-  if (detected.size === 0) return;
-
-  // Collect all entries for detected stacks
-  const entries = [];
-  for (const lang of detected) {
-    entries.push(...(STACK_GITIGNORE[lang] || []));
-  }
-  const unique = [...new Set(entries)];
-
-  try {
-    let content = "";
-    if (await exists(gitignorePath)) {
-      content = await fs.readFile(gitignorePath, "utf8");
-    }
-    const missing = unique.filter(entry => !content.includes(entry));
-    if (missing.length > 0) {
-      const header = `\n# ${[...detected].join(" + ")} project\n`;
-      const append = header + missing.join("\n") + "\n";
-      await fs.appendFile(gitignorePath, append, "utf8");
-      logger.info(`Updated .gitignore for ${[...detected].join(" + ")}: ${missing.join(", ")}`);
-    }
-  } catch (err) {
-    logger.warn(`Failed to update .gitignore for stack: ${err.message}`);
-  }
-}
+// KJC-BUG-0213 (issue #1734): aqui vivia updateGitignoreForStack, que deducia
+// el stack buscando palabras como "ts" o "js" en el texto del plan y de la
+// tarea. Cualquier frase las contiene, asi que un proyecto Laravel acabo con
+// reglas de TypeScript en SU .gitignore. Un acierto por casualidad no vale para
+// escribir en un fichero que no es nuestro: la funcion se retira entera.
 
 /**
  * Load product context from well-known file locations.
