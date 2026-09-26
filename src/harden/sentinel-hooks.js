@@ -1098,11 +1098,39 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
   };
 }
 
-/** Write the sentinel scripts (shared lib + state writer + gates) and wire them. */
-export function installSentinelHooks({ projectDir = process.cwd(), logger = console } = {}) {
-  const [lib, post, stop, pre] = Object.entries(SCRIPT_BODIES).map(([name, body]) =>
-    writeHarnessScript(projectDir, name, body),
-  );
+/**
+ * Write the sentinel scripts (shared lib + state writer + gates) and wire them.
+ *
+ * KJC-BUG-0193: a guard holding exactly what a human sealed is LEFT ALONE. This
+ * is the command a session reaches for when it has edited the templates, and
+ * rewriting the guards here un-sealed the ones actually running, so the very act
+ * of unblocking destroyed the seal that made unblocking unnecessary. Advancing
+ * them is a human act: `kj harden --commit` moves guards and seal together.
+ * Anything nobody sealed is rewritten as before, because restoring a tampered
+ * guard is still the right move.
+ */
+export function installSentinelHooks({ projectDir = process.cwd(), logger = console, human = false, gitShowFn = null } = {}) {
+  const sealed = human ? new Map() : sealedByPath(projectDir, gitShowFn);
+  const deferred = [];
+  const keepsItsSeal = (name) => {
+    const sealedHash = sealed.get(`.karajan/harness/${name}`);
+    if (!sealedHash) return false;
+    try {
+      return sealedHash === createHash("sha256").update(readFileSync(join(projectDir, ".karajan", "harness", name), "utf8")).digest("hex");
+    } catch {
+      return false; // no hay contenido que un sello pueda cubrir
+    }
+  };
+  const [lib, post, stop, pre] = Object.entries(SCRIPT_BODIES).map(([name, body]) => {
+    if (keepsItsSeal(name)) {
+      deferred.push(name);
+      return join(projectDir, ".karajan", "harness", name);
+    }
+    return writeHarnessScript(projectDir, name, body);
+  });
+  if (deferred.length > 0) {
+    logger?.info?.(`kj harden: ${deferred.join(", ")} se queda como está — es lo que un humano selló, y avanzarlo es suyo: kj harden --commit`);
+  }
   const { wired } = mergeClaudeHooks({
     projectDir,
     logger,
@@ -1118,5 +1146,5 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
       { event: "Stop", script: "stop.mjs" },
     ],
   });
-  return { scripts: [lib, post, stop, pre], wired };
+  return { scripts: [lib, post, stop, pre], wired, deferred };
 }

@@ -153,7 +153,10 @@ export async function hardenCommand({
       result.harnessHooks = hh.wired ? "wired" : "script-only";
       // KJC-TSK-0713 — the Sentinel: method state + Stop gate (turn cannot
       // end red). Same Claude-only harness surface as the tool gate.
-      const sh = installSentinelHooks({ projectDir, logger });
+      // KJC-BUG-0193: solo un humano avanza lo que un humano selló. Sin
+      // --commit, un guardia sellado se queda como está en lugar de quedarse
+      // sin sello, que es como una sesión se dejaba sin herramientas.
+      const sh = installSentinelHooks({ projectDir, logger, human: commitSupervisor });
       result.sentinelHooks = sh.wired ? "wired" : "script-only";
     }
   } catch (err) {
