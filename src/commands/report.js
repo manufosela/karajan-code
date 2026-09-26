@@ -226,6 +226,26 @@ export function formatSentinelEscapes(state) {
   return `Sentinel escapes used (${events.length}):\n${lines.join("\n")}`;
 }
 
+/**
+ * KJC-TSK-0873 — the panel tally. The user chose who writes; this says how
+ * often it happened. One number alone would not: a project where the panel is
+ * honoured almost always and one where it almost never is look identical until
+ * both sides are counted.
+ */
+export function formatPanelTally(lines) {
+  let honoured = 0;
+  let host = 0;
+  for (const line of lines) {
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; }
+    if (rec?.chokepoint !== "panel") continue;
+    if (rec.decision === "ok") honoured += 1;
+    else host += 1;
+  }
+  if (honoured + host === 0) return null;
+  return `Panel (who wrote): declared coder ${honoured}, host ${host}`;
+}
+
 // The sentinel state is a PROJECT artifact (<project>/.karajan/harness), not
 // a session artifact: the `dir` the report handlers receive is the GLOBAL
 // sessions root (~/.karajan/sessions) and never contains it. `kj report` is
@@ -241,6 +261,14 @@ async function printSentinelEscapes({ projectDir = process.cwd(), format } = {})
       console.log(text);
     }
   } catch { /* no sentinel state in this project — nothing to report */ }
+  try {
+    const log = await fs.readFile(path.join(projectDir, ".karajan", "policy-decisions.jsonl"), "utf8");
+    const tally = formatPanelTally(log.split("\n").filter((l) => l.trim()));
+    if (tally) {
+      console.log("");
+      console.log(tally);
+    }
+  } catch { /* no decision log — no panel to tally */ }
 }
 
 function formatDuration(ms) {

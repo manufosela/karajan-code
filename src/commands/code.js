@@ -11,6 +11,7 @@ import { resolveRole } from "../config.js";
 import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 import { buildRoleFallbackChain } from "../brain/role-fallback-chain.js";
 import { ONE_SHOT_POLICY } from "../brain/one-shot-policy.js";
+import { sealPanel } from "../environment/panel.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 
@@ -78,6 +79,18 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
       logger.warn(result.error);
     }
     logger.info(`Coder completed (exit ${result.exitCode})`);
+    // KJC-TSK-0873: aqui es donde el panel SE CUMPLE — el coder declarado ha
+    // escrito. Queda asentado junto a las desviaciones para que el recuento de
+    // kj report signifique algo: casi siempre y casi nunca no se ven igual.
+    // Solo cuenta como cumplido si el coder declarado TERMINO bien: ni una
+    // salida distinta de cero ni una caida al fallback son "escribio el coder
+    // que elegiste" (dos catches de la review). Si escribio otro, se asienta
+    // como desviacion nombrandolo.
+    const ranBy = result.provider || coderRole.provider;
+    if (result.exitCode === 0) {
+      try { sealPanel({ projectDir: config.projectDir, coder: coderRole.provider, host: ranBy, honoured: ranBy === coderRole.provider }); }
+      catch (err) { logger.warn(`panel: no se pudo sellar quién escribió (${err.message}) — el trabajo del coder no se toca`); }
+    }
     // The work is in the tree, not committed: the gate is the next step and a
     // DIFFERENT AI runs it. Saying so here is what keeps the panel honest.
     logger.info(`The work is in the tree. Review it before committing: kj review --staged (a different AI than ${coderRole.provider}).`);
