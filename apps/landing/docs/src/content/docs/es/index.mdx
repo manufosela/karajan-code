@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.33.0 — tu panel manda (actual)
+### v4.34.0 — un gate que bloquea su propio arreglo (actual)
+
+Seis gates bloqueaban justo la acción que los habría puesto en verde. El release check quería la landing desplegada y el guard trataba ese despliegue como una publicación, así que la única salida era apagar el gate entero. board-sync se negaba a dejar pasar la segunda mitad de una card después de haber aceptado que las cards se parten. El supervisor leía su propio desarrollo como manipulación, y el comando con el que se desbloquea destruía el sello que lo hacía innecesario. Un `*/` suelto se llevó al evaluador de policy y el guard denegó Edit, Write y Bash a la vez, que es exactamente lo que hacía falta para arreglar el fichero. Ahora un gate distingue un comando que consume su estado en rojo de uno que lo repara, siempre sobre un hecho comprobable: un item que declara `remedied_by`, otra PR abierta de la card, un hash que un humano selló, el fichero que nombra un diagnóstico. Donde falta el hecho sigue bloqueando, cada levantamiento se dice en voz alta, y el Stop gate queda intacto.
+
+### v4.33.0 — tu panel manda
 
 Tú eliges quién escribe y quién revisa, y hasta ahora esa elección solo valía dentro de `kj run`. El panel viaja ya con el playbook que todo anfitrión lee al empezar, y `kj code` invoca a TU coder con la card, sus criterios, la frontera del proyecto y lo que el RAG responde sobre la tarea. Debajo, la cadena declarada de modelos queda por fin conectada: su esquema llevaba en la config desde febrero y nadie construyó jamás la pieza intermedia, mientras cinco agentes resolvían un modelo retirado en silencio y **por delante** de lo que tú hubieras declarado. Ahora los agentes devuelven el fallo, decide tu cadena, el default del proveedor es su cola y no un primer paso escondido, y una cadena agotada dice qué se probó y en qué orden. kj además recuerda un modelo retirado para que la siguiente ejecución no vuelva a pagarlo, sin tocarte el pin. Y tres informes de campo cerraron la otra mitad: lo que kj escribe en un proyecto habla ya el lenguaje de ese proyecto, en vez de pedirle `const` a un repo de Python.
 

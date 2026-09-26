@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.33.0 — your panel rules (current)
+### v4.34.0 — a gate that blocks its own repair (current)
+
+Six gates blocked the one action that would have turned them green. The release check wanted the landing deployed and the guard treated that deploy as a publication, so the only way through was switching the whole gate off. board-sync refused the second half of a card after accepting that cards get split. The supervisor read its own development as tampering, and the command used to unblock it destroyed the seal that made unblocking unnecessary. A stray `*/` took the policy evaluator down and the guard denied Edit, Write and Bash at once, which is exactly what repairing the file needed. Now a gate distinguishes a command that consumes its red state from one that repairs it, always on a verifiable fact: an item declaring `remedied_by`, another open pull request for the card, a hash a human sealed, the file a diagnostic names. Where the fact is missing it still blocks, every lift is printed, and the Stop gate is untouched.
+
+### v4.33.0 — your panel rules
 
 You choose who writes and who reviews, and until now that choice only held inside `kj run`. The panel now travels with the playbook every host reads at session start, and `kj code` invokes YOUR coder with the card, its criteria, the project boundary and what the RAG answers about the task. Underneath, the declared chain of models is finally connected: its schema had been in the config since February and nobody ever built the piece in between, while five agents each resolved a retired model silently and **before** anything you had declared. Now the agents return the failure, your chain decides, the provider default is its tail rather than a hidden first step, and an exhausted chain says what was tried and in what order. kj also remembers a retired model so the next run does not pay for it again, without editing your pin. And three field reports closed the other half: what kj writes into a project now speaks that project's language, instead of telling a Python repo to prefer `const`.
 

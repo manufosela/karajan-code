@@ -570,6 +570,36 @@ This is separate from `session.fail_fast_repeats` — `failFast` applies to the 
 
 ---
 
+## release_check
+
+What `kj release check` verifies on top of the generic checks (manifest against CHANGELOG against tags, a privacy scan of the publishable files, the policy in force). Every item is the project's own.
+
+```yaml
+release_check:
+  items:
+    - name: the deployed landing shows the version as current
+      command: curl -sf https://example.com/docs/ | grep -q 'v{version}'
+      remedied_by: firebase deploy
+    - name: the footer carries the version
+      file_contains:
+        path: public/footer.html
+        pattern: v{version}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | How the item is reported |
+| `command` | string | Passed to `sh -c`; exit 0 is a pass. `{version}` is replaced by the manifest version |
+| `file_contains.path` | string | File to read, relative to the project |
+| `file_contains.pattern` | string | Substring that must be present; `{version}` is replaced too |
+| `remedied_by` | string | The command that REPAIRS this item, if any |
+
+`remedied_by` exists because a red item must not block the one action that would turn it green. The landing check is the example: it wants the site deployed with the new version, and the deploy that does it was blocked by that very check. The words must appear in the command in order, so `firebase deploy` covers `firebase --account a@b --project p deploy --only hosting:main`.
+
+The lifted item stays red in the report, because the fact has not changed, and the gate prints which one it lifted. Everything else still blocks, and a package publication is never excused: `npm publish` and `gh release create` are irreversible, whatever an item declares.
+
+---
+
 ## Environment variables
 
 | Variable | Purpose | Default |
