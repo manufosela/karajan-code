@@ -8,7 +8,7 @@
  * matchers are the single truth, here and in the indexer.
  */
 import { execa } from "execa";
-import { isAbsolute, relative } from "node:path";
+import { extname, isAbsolute, normalize, relative } from "node:path";
 import { detectAdaptersForProject, buildMatchers } from "../lang/registry.js";
 import { getLastIndexedCommit, projectSlug } from "./vec-store.js";
 
@@ -45,4 +45,35 @@ export async function ragIndexCoverage(projectDir, { db }) {
   }
 
   return { project, total: sources.length, indexed: sources.length - missing.length, missing, stale, lastIndexedCommit, absent: indexed.size === 0 };
+}
+
+/**
+ * KJC-BUG-0216 (issue #1807) — POR QUE el RAG no puede responder sobre un
+ * fichero. El gate rag-first exigia una respuesta sobre cualquier fichero
+ * tocado, y para un .astro (o .php, o cualquier lenguaje sin adapter) eso es
+ * imposible: el indexador nunca lo toma. La unica salida era KJ_ALLOW_NO_RAG
+ * puesta por costumbre en todos los comandos, y con ella puesta el gate deja de
+ * informar y borra la diferencia entre "no pude consultar" y "no quise".
+ *
+ * `canAnswer` es la respuesta que el gate necesita: solo cuando es true tiene
+ * sentido exigir que el RAG haya hablado de ese fichero.
+ *
+ * @returns {{state: "indexed"|"stale"|"not-indexable"|"index-empty", rel: string, canAnswer: boolean, reason: string}}
+ */
+export function fileIndexState(projectDir, file, { db }) {
+  const project = projectSlug(projectDir);
+  // `./src/a.js` y `src/a.js` son el mismo fichero: sin normalizar, el segundo
+  // salia "stale" estando indexado (catch de la review).
+  const rel = normalize(isAbsolute(file) ? relative(projectDir, file) : file);
+  const matchers = buildMatchers(detectAdaptersForProject(projectDir));
+  const rows = db.prepare("SELECT DISTINCT source FROM chunks WHERE project_slug = ?").all(project);
+  const indexed = new Set(rows.map((r) => normalize(isAbsolute(r.source) ? relative(projectDir, r.source) : r.source)));
+
+  if (indexed.has(rel)) return { state: "indexed", rel, canAnswer: true, reason: `the index holds chunks for ${rel}` };
+  if (indexed.size === 0) return { state: "index-empty", rel, canAnswer: false, reason: `nothing of this project is indexed yet: kj rag index` };
+  if (matchers.shouldSkip(rel)) return { state: "not-indexable", rel, canAnswer: false, reason: `${rel} lives under a path the indexer always skips` };
+  if (!matchers.isCodeFile(rel) && extname(rel).toLowerCase() !== ".md") {
+    return { state: "not-indexable", rel, canAnswer: false, reason: `no language adapter covers ${extname(rel) || "a file with no extension"}, so the indexer never takes ${rel}` };
+  }
+  return { state: "stale", rel, canAnswer: false, reason: `${rel} is indexable but absent from the index: kj rag index --since auto` };
 }

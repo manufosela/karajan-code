@@ -5,6 +5,7 @@
 import { openVecStore, countChunks, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "../rag/vec-store.js";
 import { makeGovernedEmbedder } from "../rag/governed-embedder.js";
 import { indexProject, indexProjectDelta } from "../rag/indexer.js";
+import { fileIndexState } from "../rag/coverage.js";
 import { query } from "../rag/retriever.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
@@ -167,6 +168,26 @@ export async function ragEvalCommand({ config, logger, flags = {} }) {
       process.exitCode = 1;
     }
     return report;
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * KJC-BUG-0216 (issue #1807) — el hecho comprobable que el gate rag-first
+ * necesita antes de exigir una consulta: PUEDE el RAG responder sobre este
+ * fichero. Exit 0 = si; exit 1 = no, y la razon (sin adapter, segmento
+ * excluido, indice vacio o por detras) va en la salida.
+ */
+export async function ragCoversCommand({ file, config, flags = {} }) {
+  const projectDir = config?.projectDir || process.cwd();
+  const db = openDb(config);
+  try {
+    const state = fileIndexState(projectDir, file, { db });
+    if (flags.json) process.stdout.write(`${JSON.stringify(state)}\n`);
+    else process.stdout.write(`${state.state}: ${state.reason}\n`);
+    if (!state.canAnswer) process.exitCode = 1;
+    return state;
   } finally {
     db.close();
   }

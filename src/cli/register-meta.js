@@ -11,7 +11,7 @@ import { identityCommand } from "../commands/identity.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
 import { stewardSweepCommand } from "../commands/steward.js";
-import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
+import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand, ragCoversCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
@@ -530,6 +530,16 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "rag-index", flags, async ({ config, logger }) => {
         await ragIndexCommand({ config, logger, flags });
+      });
+    });
+  // KJC-BUG-0216: el gate rag-first no puede pedir lo imposible. Esto responde
+  // si el RAG PUEDE hablar de un fichero, y si no, por que.
+  rag.command("covers <file>")
+    .description("Whether the RAG can answer about a file: exit 0 when indexed, 1 with the reason it cannot (no adapter, skipped path, empty or stale index)")
+    .option("--json", "Emit the state as JSON")
+    .action(async (file, flags) => {
+      await withConfig(pkgVersion, "rag-covers", flags, async ({ config, logger }) => {
+        await ragCoversCommand({ file, config, logger, flags });
       });
     });
   rag.command("install-hooks")

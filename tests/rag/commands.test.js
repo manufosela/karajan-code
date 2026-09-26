@@ -50,6 +50,29 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
     expect(totals.indexed).toBeGreaterThan(0);
   });
 
+  // KJC-BUG-0216 (issue #1807): el gate rag-first necesita distinguir "el RAG no
+  // puede hablar de este fichero" de "no lo consultaste". Con el indice vacio no
+  // hay culpa que repartir, y el exit code lo dice sin parsear prosa.
+  it("ragCoversCommand: empty index is not the file's fault, and exit code says so", async () => {
+    const { ragCoversCommand } = await import("../../src/commands/rag.js");
+    const projectDir = join(root, "myp");
+    mkdirSync(projectDir);
+    const prevExit = process.exitCode;
+    const chunks = [];
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (str) => { chunks.push(String(str)); return true; };
+    let state;
+    try {
+      state = await ragCoversCommand({ file: "src/Page.astro", config: { projectDir, rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: { json: true } });
+    } finally {
+      process.stdout.write = origWrite;
+    }
+    expect(state).toMatchObject({ state: "index-empty", canAnswer: false });
+    expect(JSON.parse(chunks.join("").trim())).toMatchObject({ rel: "src/Page.astro" });
+    expect(process.exitCode).toBe(1);
+    process.exitCode = prevExit;
+  });
+
   it("ragQueryCommand on an empty store warns and returns []", async () => {
     const { ragQueryCommand } = await import("../../src/commands/rag.js");
     const hits = await ragQueryCommand({ text: "anything", config: { rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: {} });
