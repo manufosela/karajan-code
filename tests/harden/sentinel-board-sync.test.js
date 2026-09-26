@@ -112,6 +112,27 @@ describe("board-sync gate", () => {
     expect(state().sessions.s1.pending_moves[0].head).toBeUndefined();
   });
 
+  // KJC-TSK-0868: el anfitrion escribiendo con otro coder declarado se REGISTRA
+  // al cerrar el turno, una vez por sesion y sin bloquear. El guard solo
+  // pregunta: quien sabe quien es el coder declarado es kj (fake aqui, porque
+  // en CI no hay kj en el PATH).
+  it("el panel se sella una vez por sesion al terminar, y nunca bloquea", () => {
+    const st = { sessions: { s1: { edited_sources: ["src/a.js"], edited_tests: ["tests/a.test.js"], escapes: [], errors: [], blocks: 0 } } };
+    fs.writeFileSync(statePath, JSON.stringify(st));
+    const bin = path.join(dir, "panelbin");
+    fs.mkdirSync(bin);
+    const calls = path.join(dir, "panel-calls.txt");
+    fs.writeFileSync(path.join(bin, "kj"), "#!/bin/sh\ncase \"$*\" in *panel-check*) echo panel-check >> " + calls + "; echo 'l panel: el coder declarado es codex y ha escrito claude';; esac\nexit 0\n", { mode: 0o755 });
+    const env2 = { ...env, PATH: bin + ":" + process.env.PATH };
+    const first = spawnSync("node", [stop], { input: JSON.stringify({ session_id: "s1" }), encoding: "utf8", cwd: dir, env: { ...process.env, ...env2 } });
+    expect(first.status).toBe(0);
+    expect(first.stderr).toMatch(/el coder declarado es codex/);
+    expect(state().sessions.s1.panel_sealed).toBe(true);
+    // Segunda vuelta: ya sellado, no se vuelve a preguntar.
+    spawnSync("node", [stop], { input: JSON.stringify({ session_id: "s1" }), encoding: "utf8", cwd: dir, env: { ...process.env, ...env2 } });
+    expect(fs.readFileSync(calls, "utf8").trim().split("\n")).toHaveLength(1);
+  });
+
   it("sin card en la rama, el merge registra el PR y el remedio pide identificar la card", () => {
     execSync("git checkout -q -b sin-card", { cwd: dir });
     merged(7);

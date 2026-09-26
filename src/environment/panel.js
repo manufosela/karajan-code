@@ -42,6 +42,21 @@ export function panelLine(config) {
   ].join("\n");
 }
 
+/**
+ * KJC-TSK-0868: the host writing the code while another coder is declared is
+ * not an offence to block, it is a fact to record. Announcing at session start
+ * is not enough: the user chose who writes and finds out it did not happen by
+ * accident, one turn at a time.
+ *
+ * @returns {{coder: string, host: string}|null} null when there is nothing to
+ *   record: no coder declared, no host detected, or the host IS the coder.
+ */
+export function panelDeviation(config, host) {
+  const { coder } = resolvePanel(config);
+  if (!coder || !host || coder === host) return null;
+  return { coder, host };
+}
+
 /** Human-facing one-liner for `kj check` and friends. */
 export function panelSummary(config) {
   const { coder, reviewer, solomon } = resolvePanel(config);

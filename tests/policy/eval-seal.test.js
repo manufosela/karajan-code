@@ -56,9 +56,16 @@ describe("kj policy seal — el escape de tool-time deja rastro encadenado", () 
     expect(verifyDecisionChain(fs.readFileSync(path.join(dir, ".karajan", "policy-decisions.jsonl"), "utf8").trim().split("\n"))).toMatchObject({ ok: true, length: 2 });
   });
 
-  it("sin --escape es exit 1; sin identidad declarada sella con who=null (se dice lo que hay, no se inventa)", async () => {
+  it("sin --escape ni --panel es exit 1; sin identidad declarada sella con who=null (se dice lo que hay, no se inventa)", async () => {
     expect(await run("seal", { tool: "Bash" })).toBe(1);
     expect(await run("seal", { escape: "KJ_ALLOW_BOARD" })).toBe(0);
     expect(log().at(-1)).toMatchObject({ decision: "exempt", escape: "KJ_ALLOW_BOARD", tool: null, who: null });
+  });
+
+  // KJC-TSK-0868: el panel entra en la MISMA cadena, con su chokepoint.
+  it("sella el panel con su propio chokepoint, sin escape, y la cadena sigue verificando", async () => {
+    expect(await run("seal", { panel: "codex", host: "claude" })).toBe(0);
+    expect(log().at(-1)).toMatchObject({ decision: "exempt", chokepoint: "panel", coder: "codex", host: "claude", escape: null });
+    expect(verifyDecisionChain(fs.readFileSync(path.join(dir, ".karajan", "policy-decisions.jsonl"), "utf8").trim().split("\n"))).toMatchObject({ ok: true });
   });
 });
