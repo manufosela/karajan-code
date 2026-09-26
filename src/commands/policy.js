@@ -15,6 +15,7 @@ import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { loadExceptionRecords, loadGlobalExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { buildPolicyReport } from "../policy/report.js";
+import { budgetedNet } from "../review/loc-budget.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
 import { verifyDecisionChain } from "@karajan-family/governance";
@@ -32,12 +33,10 @@ async function stagedFacts(projectDir, gitFn, range = null) {
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
-  let net = 0;
-  for (const line of (await run([...base, "--numstat"])).split("\n")) {
-    const [a, r] = line.trim().split(/\s+/);
-    if (a && a !== "-") net += Number(a) || 0;
-    if (r && r !== "-") net -= Number(r) || 0;
-  }
+  // KJC-BUG-0208: el presupuesto lo decide un solo modulo. Este sitio sumaba el
+  // numstat entero, asi que el job policy-check de CI contaba la documentacion
+  // y el gate bloqueante no: la misma regla con dos respuestas.
+  const { net } = budgetedNet(await run([...base, "--numstat"]));
   return { files, netLinesAdded: net };
 }
 

@@ -14,7 +14,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { budgetedAdded, countsTowardBudget } from "../../src/review/loc-budget.js";
+import { budgetedAdded, budgetedNet, countsTowardBudget } from "../../src/review/loc-budget.js";
 
 describe("countsTowardBudget", () => {
   it.each([
@@ -99,5 +99,29 @@ describe("budgetedAdded", () => {
       "150\t40\tapps/landing/public/docs/index.html",
     ].join("\n");
     expect(budgetedAdded(docsOnly).added).toBe(0);
+  });
+});
+
+// KJC-BUG-0208 — el invariante `net_lines_added` de la policy sumaba el numstat
+// entero, asi que el mismo diff daba 174 en el presupuesto y 202 en la policy.
+describe("budgetedNet (KJC-BUG-0208)", () => {
+  const numstat = [
+    "40\t10\tsrc/thing.js",
+    "30\t0\ttests/thing.test.js",
+    "500\t20\tapps/landing/docs/src/content/docs/guides/thing.md",
+    "900\t0\tdist/bundle.js",
+    "12\t3\tCLAUDE.md",
+  ].join("\n");
+
+  it("nets added minus removed over the files that count, and reports the rest as exempt", () => {
+    expect(budgetedNet(numstat)).toEqual({ net: 40 - 10 + 30 + 12 - 3, exempt: 500 + 900 });
+  });
+
+  it("agrees with budgetedAdded on what is exempt, so both surfaces say one thing", () => {
+    expect(budgetedNet(numstat).exempt).toBe(budgetedAdded(numstat).exempt);
+  });
+
+  it("ignores binary files and blank lines instead of counting them as zero-line text", () => {
+    expect(budgetedNet("-\t-\tlogo.png\n\n7\t2\tsrc/a.js")).toEqual({ net: 5, exempt: 0 });
   });
 });

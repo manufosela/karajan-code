@@ -52,6 +52,30 @@ export function countsTowardBudget(file) {
 }
 
 /**
+ * KJC-BUG-0208 — the policy invariant `net_lines_added` summed the whole
+ * numstat, so the same diff printed 174 in the size gate and 202 in the policy,
+ * two lines apart. One rule, one number: the metric is netted over the files
+ * that count, and what does not count is still said out loud.
+ *
+ * @param {string} numstat output of `git diff --numstat`
+ * @returns {{net: number, exempt: number}}
+ */
+export function budgetedNet(numstat) {
+  let net = 0;
+  let exempt = 0;
+  for (const line of String(numstat || "").split("\n")) {
+    if (!line.trim()) continue;
+    const [a, r, ...rest] = line.split("\t");
+    const added = Number(a);
+    const removed = Number(r);
+    if (!Number.isFinite(added) || !Number.isFinite(removed)) continue; // binary
+    if (!countsTowardBudget(rest.join("\t"))) { exempt += added; continue; }
+    net += added - removed;
+  }
+  return { net, exempt };
+}
+
+/**
  * @param {string} numstat output of `git diff --numstat`
  * @returns {{added: number, exempt: number, testAdded: number}}
  */

@@ -23,7 +23,7 @@ import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { isGeneratedPath, splitAddedByFile } from "../privacy/diff-scope.js";
-import { budgetedAdded } from "../review/loc-budget.js";
+import { budgetedAdded, budgetedNet } from "../review/loc-budget.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
 import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
@@ -293,12 +293,10 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // hooks. enforcement=warn avisa; deny cierra salvo excepción probatoria
   // (KJ_ALLOW_POLICY=1 + KJ_POLICY_REASON, registrada con identidad y hash
   // del diff); class=security cierra sin escape y sin arbitraje.
-  let net = 0;
-  for (const l of (await rawDiff(flags.range, ["--numstat"])).split("\n")) {
-    const [a, r] = l.trim().split(/\s+/);
-    if (a && a !== "-") net += Number(a) || 0;
-    if (r && r !== "-") net -= Number(r) || 0;
-  }
+  // KJC-BUG-0208: el mismo modulo que decide el presupuesto decide el metrico
+  // del invariante. Sumar aqui el numstat entero daba dos cifras para la misma
+  // regla en dos lineas seguidas del mismo comando.
+  const { net } = budgetedNet(await rawDiff(flags.range, ["--numstat"]));
   // GOV-B (KJC-TSK-0746): las permanentes concedidas (kj policy grant)
   // eximen su regla mientras viven; el descarte de líneas corruptas se dice.
   const std = loadStandingExceptions(projectDir);
