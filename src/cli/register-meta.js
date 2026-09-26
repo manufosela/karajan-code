@@ -466,6 +466,10 @@ export function registerMeta(program, { pkgVersion }) {
     .action((flags) => {
       const res = verifySentinelScripts();
       if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
+      // KJC-BUG-0197: manipulación y desfase son hechos distintos y se leen
+      // distinto. Un desfase no es un defecto: los guardias que corren están
+      // sellados, solo son más viejos que las plantillas de este árbol.
+      else if (res.drift?.length && res.ok) console.log(`sentinel verify: scripts sellados, con desfase (${res.drift.join(", ")}) — ${res.reason}`);
       else console.log(res.ok ? "sentinel verify: scripts intactos" : `sentinel verify: modificados fuera de kj harden: ${res.mismatched.join(", ")} — restaura con kj harden`);
       process.exitCode = res.ok ? 0 : 1;
     });

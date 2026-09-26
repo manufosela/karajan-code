@@ -10,6 +10,7 @@
 
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { CARD_REF_RE } from "../review/card-first.js";
 import { mergeClaudeHooks, writeHarnessScript } from "./harness-hooks.js";
@@ -1000,17 +1001,81 @@ const SCRIPT_BODIES = {
  * package — outside the project tree, beyond the session's tool reach —
  * because nothing under .karajan can vouch for itself.
  */
-export function verifySentinelScripts({ projectDir } = {}) {
-  const dir = join(projectDir || resolveSentinelRoot(), ".karajan", "harness");
+const PROVENANCE_PATH = ".karajan/supervisor-provenance.json";
+
+/**
+ * KJC-BUG-0197: what did a human actually seal, per guard?
+ *
+ * Read from **git**, never from the working tree. The provenance is tracked and
+ * written only by `kj harden --commit` (a human act with four layers, ADR 0009),
+ * so the committed copy is the external reference; the copy on disk is as
+ * forgeable as the guard it would vouch for, and the review caught exactly that.
+ * No git, no commit, no seal: then nothing is forgiven and the check fails
+ * closed, which is the safe direction.
+ *
+ * The map is keyed BY PATH: a hash sealed for one file never vouches for
+ * another (also the review's catch).
+ *
+ * @returns {Map<string, string>} relative path → sealed sha256
+ */
+function sealedByPath(projectDir, gitShowFn) {
+  try {
+    const raw = gitShowFn
+      ? gitShowFn(projectDir, PROVENANCE_PATH)
+      : execFileSync("git", ["-C", projectDir, "show", `HEAD:${PROVENANCE_PATH}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const files = JSON.parse(raw)?.files;
+    const out = new Map();
+    for (const entry of Array.isArray(files) ? files : []) {
+      if (typeof entry?.file === "string" && typeof entry?.sha256 === "string") out.set(entry.file, entry.sha256);
+    }
+    return out;
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * @returns {{ok: boolean, mismatched: string[], drift?: string[], reason?: string}}
+ *   `mismatched` is TAMPERING: a guard holds content nobody sealed, and that is
+ *   what the hooks block on. `drift` is a sealed guard whose templates have
+ *   moved on, which `kj harden` applies and which is not a defect.
+ */
+export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, gitShowFn = null } = {}) {
+  const root = projectDir || resolveSentinelRoot();
+  const dir = join(root, ".karajan", "harness");
+  const installed = new Map();
   const mismatched = [];
   for (const [name, body] of Object.entries(SCRIPT_BODIES)) {
     try {
-      if (readFileSync(join(dir, name), "utf8") !== body) mismatched.push(name);
+      const text = readFileFn(join(dir, name), "utf8");
+      installed.set(name, text);
+      if (text !== body) mismatched.push(name);
     } catch {
-      mismatched.push(name);
+      mismatched.push(name); // missing: there is no content for a seal to cover
     }
   }
-  return { ok: mismatched.length === 0, mismatched };
+  if (mismatched.length === 0) return { ok: true, mismatched: [] };
+
+  // A mismatch is only forgiven when what sits there is something a human
+  // sealed. Editing a guard produces content no seal covers, so the forgiveness
+  // cannot be borrowed by also editing a template: that was the hole in the
+  // first attempt at this fix, and the review was right to reject it.
+  const sealed = sealedByPath(root, gitShowFn);
+  const drift = [];
+  const tampered = [];
+  for (const name of mismatched) {
+    const text = installed.get(name);
+    const sealedHash = sealed.get(`.karajan/harness/${name}`);
+    if (text !== undefined && sealedHash && sealedHash === createHash("sha256").update(text).digest("hex")) drift.push(name);
+    else tampered.push(name);
+  }
+  if (tampered.length > 0) return { ok: false, mismatched: tampered, ...(drift.length ? { drift } : {}) };
+  return {
+    ok: true,
+    mismatched: [],
+    drift,
+    reason: "el harness instalado está sellado y las plantillas de este árbol van por delante (kj harden lo pone al día) — no es manipulación",
+  };
 }
 
 /** Write the sentinel scripts (shared lib + state writer + gates) and wire them. */
