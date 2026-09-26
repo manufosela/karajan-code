@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.31.0",
-  "generated_at": "2026-09-22T05:14:44.390Z",
+  "kj_version": "4.34.0",
+  "generated_at": "2026-09-26T18:09:42.912Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -17,6 +17,26 @@
   },
   "files": [
     {
+      "file": ".karajan/harness/posttooluse.mjs",
+      "sha256": "25b47144d16f11728807710e142269adc8313c395793e177792716560c1c1148"
+    },
+    {
+      "file": ".karajan/harness/pretooluse-sentinel.mjs",
+      "sha256": "d23998eaea21ef8c1055d6f173711c779cbc5fda82efe46bb1122751c9e3995f"
+    },
+    {
+      "file": ".karajan/harness/pretooluse.mjs",
+      "sha256": "bd2e8588ba7418352bd614bfad214f2547c17c46982fcafd53eabc118ec9a0de"
+    },
+    {
+      "file": ".karajan/harness/sentinel-lib.mjs",
+      "sha256": "ce205cb9e390024345621a0f1b3e63a479e3210221810269175feff17bde97de"
+    },
+    {
+      "file": ".karajan/harness/stop.mjs",
+      "sha256": "d7985b8c29fb5bbb44f5aa59c4682579a8502a8eea2a923c168acf1c94fbfe7d"
+    },
+    {
       "file": ".karajan/hooks/commit-msg",
       "sha256": "0a7bb38fe060b64c46dae5baf6e6fd3893e9a58b007515d73520fe5c5bed2666"
     },
@@ -26,7 +46,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "6796b753158fcff58c6485fc6fe991f937e33c3f5221ba6431522c4842a5013b"
+      "sha256": "5e2d0b89e2c15dfcfe9ab1927aa7caf8346102c06f24231d287bafe8649434e9"
     },
     {
       "file": ".karajan/hooks/pre-push",
@@ -38,11 +58,11 @@
     }
   ],
   "signature": {
-    "cid": "43a23b3f26969baaff4b4cfe9afb956a",
-    "nonce": "0dd504675d4c8190b8b32c90f68306a8",
+    "cid": "8b2383c323762250185be2c5fe57c63c",
+    "nonce": "47289b2d1acfde9319c1755e9f53b0b9",
     "project": "karajan-code",
-    "filesHash": "bc9537c8de63f2436d09746bd9a18e443c8d4409c6ce8dbacf7cc5a726f0456c",
+    "filesHash": "535092e2d9c1b8f6da3cd5e9be6fd07de9f1f5466d2282d26d9dca063a2bd291",
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "KP195xXh6WmrFsMca4fdrdyjItWk4hUPxsDK5ahzRGo1QwiBSXxkHNPcyG/tj/JcZFQU90l6I28F8AmL+QCpAQ=="
+    "signature": "XF0Hd66PR3hDTy2udx92YtMt8l8vmBPvahjsZipLEpT9xxC6WNk4EbCWtMnNPhvD04P6hQ+8zJe7dvP/qhhlAw=="
   }
 }
