@@ -365,6 +365,18 @@ process.stdin.on("end", () => {
       if (claimsNote) console.log(JSON.stringify({ systemMessage: claimsNote }));
       process.exit(0);
     }
+    // KJC-TSK-0868: si el anfitrion ha escrito codigo teniendo otro coder
+    // declarado, eso no se bloquea, se REGISTRA: el usuario eligio quien
+    // escribe y merece enterarse por el decision log, no por casualidad. Una
+    // vez por sesion, y si kj no responde se reintenta en el turno siguiente.
+    if (!s.panel_sealed && (s.edited_sources || []).length > 0) {
+      const p = spawnSync("kj", ["sentinel", "panel-check", "--session", sid], { cwd: ROOT, encoding: "utf8" });
+      if (!p.error && p.status === 0) {
+        s.panel_sealed = true;
+        save(state);
+        if ((p.stdout || "").trim()) console.error(p.stdout.trim());
+      }
+    }
     const v = violations(s, branchOf());
     if (claimsBlock) v.push(claimsBlock);
     if (!v.length) {

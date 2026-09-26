@@ -208,18 +208,23 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
   // identidad DECLARADA del clon (identity.local.yml), para que el informe
   // y el anchor la vean. Lo llama el Sentinel; cualquiera puede auditarlo.
   if (action === "seal") {
-    if (!flags.escape) {
-      logger.error?.("policy seal: --escape <KJ_ALLOW_X> es obligatorio — un escape sin nombre no es auditable");
+    // KJC-TSK-0868: el mismo asiento sirve para el panel — el anfitrión escribió
+    // teniendo otro coder declarado. Mismo log encadenado, otro chokepoint.
+    if (!flags.escape && !flags.panel) {
+      logger.error?.("policy seal: --escape <KJ_ALLOW_X> o --panel <coder> es obligatorio — un asiento sin nombre no es auditable");
       return 1;
     }
     try {
       const who = readIdentity(projectDir);
       const rec = recordGateDecision(projectDir, {
-        decision: "exempt", chokepoint: "tool", escape: flags.escape, tool: flags.tool ?? null,
+        decision: "exempt", chokepoint: flags.panel ? "panel" : "tool",
+        escape: flags.escape ?? null, tool: flags.tool ?? null,
+        ...(flags.panel ? { coder: flags.panel, host: flags.host ?? null } : {}),
         who: who ? { gh: who.gh_user ?? null, git: who.git_email ?? null, grade: "declarada" } : null,
         policy_hash: policyFileHash(projectDir),
       });
-      logger.info?.(`✓ escape ${rec.escape} sellado (chokepoint tool${rec.tool ? `, ${rec.tool}` : ""})`);
+      if (rec.chokepoint === "panel") logger.info?.(`✓ panel sellado: el coder declarado es ${rec.coder} y escribió ${rec.host ?? "el anfitrión"}`);
+      else logger.info?.(`✓ escape ${rec.escape} sellado (chokepoint tool${rec.tool ? `, ${rec.tool}` : ""})`);
       return 0;
     } catch (err) {
       logger.error?.(`policy seal: ${err.message}`);

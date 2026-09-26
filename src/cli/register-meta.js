@@ -41,6 +41,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { verifySentinelScripts, resolveSentinelRoot } from "../harden/sentinel-hooks.js";
 import { boardGate } from "../review/board-pending.js";
+import { panelDeviation } from "../environment/panel.js";
+import { detectHostAgent } from "../utils/agent-detect.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -424,8 +426,11 @@ export function registerMeta(program, { pkgVersion }) {
     });
   policyCmd.command("seal")
     .description("Sella en el decision log un escape KJ_ALLOW_* usado en tool-time (exempt, chokepoint=tool, identidad declarada del clon) — lo invoca el Sentinel, GOV-F")
-    .requiredOption("--escape <name>", "Escape usado (p.ej. KJ_ALLOW_BOARD)")
+    .option("--escape <name>", "Escape usado (p.ej. KJ_ALLOW_BOARD)")
     .option("--tool <tool>", "Tool que lo usó (Bash, Edit…)")
+    // KJC-TSK-0868: el panel se sella igual, con su propio chokepoint.
+    .option("--panel <coder>", "Coder declarado cuando el anfitrión escribió el código")
+    .option("--host <agent>", "Anfitrión que escribió, para el asiento del panel")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-seal", flags, async ({ config }) => {
         process.exitCode = await policyCommand({ action: "seal", config, flags });
@@ -477,6 +482,19 @@ export function registerMeta(program, { pkgVersion }) {
       else if (res.drift?.length && res.ok) console.log(`sentinel verify: scripts sellados, con desfase (${res.drift.join(", ")}) — ${res.reason}`);
       else console.log(res.ok ? "sentinel verify: scripts intactos" : `sentinel verify: modificados fuera de kj harden: ${res.mismatched.join(", ")} — restaura con kj harden`);
       process.exitCode = res.ok ? 0 : 1;
+    });
+  // KJC-TSK-0868: el anfitrión escribiendo con otro coder declarado no se
+  // bloquea, se registra. El Stop gate pregunta una vez por sesión.
+  sentinel.command("panel-check")
+    .description("Record in the decision log that the host wrote code while another coder is declared (chokepoint panel); prints nothing and records nothing when the panel was honoured")
+    .requiredOption("--session <id>", "Host session id, for the record")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "sentinel-panel-check", flags, async ({ config }) => {
+        const dev = panelDeviation(config, detectHostAgent());
+        if (!dev) return;
+        process.exitCode = await policyCommand({ action: "seal", config, flags: { panel: dev.coder, host: dev.host }, logger: { info: () => {}, error: console.error } });
+        if (process.exitCode === 0) console.log(`ℓ panel: el coder declarado es ${dev.coder} y ha escrito ${dev.host} — registrado como excepción consciente (kj report lo cuenta)`);
+      });
     });
   // KJC-BUG-0198: el guard pregunta, kj decide con un hecho comprobable (otra
   // PR abierta de la card), y exit 2 = bloquea.

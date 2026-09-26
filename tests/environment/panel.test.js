@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { panelLine, panelSummary, resolvePanel } from "../../src/environment/panel.js";
+import { panelDeviation, panelLine, panelSummary, resolvePanel } from "../../src/environment/panel.js";
 import { renderPlaybook } from "../../src/environment/playbook.js";
 
 describe("resolvePanel", () => {
@@ -69,5 +69,20 @@ describe("the playbook carries the panel", () => {
 
   it("no panel, no invariant — the playbook is unchanged", () => {
     expect(renderPlaybook({})).not.toMatch(/The panel is your user/);
+  });
+});
+
+// KJC-TSK-0868: anunciar el panel al empezar no basta. Si el anfitrion escribe
+// teniendo otro coder declarado, el usuario se entera por el decision log y no
+// por casualidad. Es un registro, nunca un bloqueo.
+describe("panelDeviation", () => {
+  it("names the declared coder and the host that wrote instead", () => {
+    expect(panelDeviation({ coder: "codex" }, "claude")).toEqual({ coder: "codex", host: "claude" });
+  });
+
+  it("records nothing when there is nothing to record", () => {
+    expect(panelDeviation({ coder: "claude" }, "claude")).toBeNull(); // el anfitrion ES el coder
+    expect(panelDeviation({ reviewer: "codex" }, "claude")).toBeNull(); // nadie declaro coder
+    expect(panelDeviation({ coder: "codex" }, null)).toBeNull(); // no se sabe quien es el anfitrion
   });
 });
