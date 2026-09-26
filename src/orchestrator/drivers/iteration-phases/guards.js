@@ -24,10 +24,17 @@ export async function runGuardStages({ config, logger, emitter, eventBase, sessi
 
   if (!outputEnabled && !perfEnabled) return { action: "ok" };
 
+  // KJC-BUG-0214 (issue #1733): los guards juzgan LO QUE HA HECHO ESTE RUN, no
+  // la rama entera. Con el merge-base contra la base, cualquier linea anadida
+  // en cualquier momento de la rama contaba como recien escrita, y una
+  // ejecucion se bloqueo por codigo preexistente que el coder no toco. La
+  // sesion ya guarda HEAD al arrancar precisamente para esto.
   const baseBranch = config.base_branch || "main";
+  const runStart = session?.head_at_start || session?.session_start_sha || null;
   let diff;
   try {
-    const baseRef = await computeBaseRef({ baseBranch });
+    const baseRef = runStart || await computeBaseRef({ baseBranch });
+    if (!runStart) logger.warn("Guards: sin punto de arranque del run, se juzga la rama entera contra la base");
     diff = await generateDiff({ baseRef, projectDir: config?.projectDir || null });
   } catch {
     logger.warn("Guards: could not generate diff, skipping");
