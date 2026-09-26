@@ -224,6 +224,45 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls -la" } }).status).toBe(0);
   });
 
+  // ENF-B (KJC-TSK-0854): el review es obligatorio, no una sugerencia. Una
+  // bandera no puede apagar el gate de commit ni mover los hooks de sitio.
+  it("deniega saltarse el hook de commit y mover core.hooksPath, con su escape sellado", () => {
+    const bash = (command, env = {}) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
+    for (const cmd of [
+      "git commit --no-verify -m x",
+      "git commit -n -m x",
+      "git commit -nm x",
+      // git acepta abreviaturas no ambiguas de las opciones largas (catch de la review).
+      "git commit --no-ver -m x",
+      "git commit --no-v -m x",
+      "git -c core.hooksPath=/dev/null commit -m x",
+      "git config core.hooksPath /dev/null",
+      "git config --unset core.hooksPath",
+      // git no distingue mayusculas en las llaves de config (catch de la review).
+      "git config core.hookspath /dev/null",
+      "git -c CORE.HOOKSPATH=/dev/null commit -m x",
+      // Y tiene mas de una puerta para la misma llave (segundo catch).
+      "KJ_TMP=/tmp/sin-hooks git --config-env=core.hooksPath=KJ_TMP commit -m x",
+      "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/sin-hooks git commit -m x",
+      // Exceptuar las lecturas invitaba a colar una detras del cambio (catch de
+      // la review), asi que nombrar la llave basta para denegar.
+      "git config core.hooksPath /tmp/sin-hooks; cat /dev/null",
+      "git config --get core.hooksPath",
+      "GIT_CONFIG_PARAMETERS=\"'core.hooksPath=/dev/null'\" git commit -m x",
+    ]) {
+      const r = bash(cmd);
+      expect(r.status, cmd).toBe(2);
+      expect(r.stderr, cmd).toMatch(/no se apaga con una bandera/);
+    }
+    // Lo que NO es saltarse el gate sigue pasando.
+    for (const cmd of ["git commit -m x", "git commit -am x", "git commit --no-edit"]) {
+      expect(bash(cmd).status, cmd).toBe(0);
+    }
+    // El escape consciente pasa y queda registrado.
+    expect(bash("KJ_ALLOW_NO_VERIFY=1 git commit --no-verify -m x").status).toBe(0);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_NO_VERIFY")).toBe(true);
+  });
+
   it("KJC-BUG-0204: un check en rojo no bloquea el comando que lo repara, y publicar sigue exigiendo todo verde", () => {
     const bin = path.join(dir, "remedybin");
     fs.mkdirSync(bin);

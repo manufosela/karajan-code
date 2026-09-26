@@ -77,6 +77,12 @@ release_check:
 
 The lifted check stays red in the report, because the fact has not changed; it just stops blocking its own fix, and the gate says which item it lifted rather than doing it in silence. Any other red check still blocks. A package publication is never excused: `npm publish` and `gh release create` are irreversible, so no declared remedy covers them, and `KJ_ALLOW_RELEASE=1` remains the one conscious escape.
 
+## commit-gate
+
+The review runs in the commit hook, so a flag that skips the hook skips the verdict, the policy and the privacy scan with it. `git commit --no-verify` is denied, and so is any abbreviation git would accept (`--no-ver`, `-n`, a short-flag cluster carrying it). Naming `core.hooksPath` is denied too, in any of git's doors to it (`-c`, `config`, `--config-env`, `GIT_CONFIG_KEY_n`, `GIT_CONFIG_PARAMETERS`), because moving that key switches off every hook at once. Even reading it: exempting reads invited slipping one in behind the change, and reading it again costs you one escape while losing the gate costs the verdict.
+
+If the hook is broken, fixing it is the answer. If the commit really has to go in without it, that is your user's call: `KJ_ALLOW_NO_VERIFY=1`, recorded in the decision log like every other escape. The `--no-verify` that `kj harden --commit` uses internally is not affected, because it never goes through a tool call.
+
 ## supervisor
 
 The Sentinel's own files (`.karajan/harness`, hooks) are read-only from inside a session — a supervisor a session can edit is no supervisor. Only the human dismantles or regenerates it (`kj harden`), outside the session. Tampering is detected against what the installed kj itself would write.
@@ -110,6 +116,7 @@ Every escape, what it skips, and when it is legitimate. All of them: one simple 
 | `KJ_ALLOW_NO_TESTS=1` | tests-with-code gate (staged code with no test changes) | The diff genuinely owes no test and it is agreed |
 | `KJ_ALLOW_PII=1` | privacy denylist block at commit time | A confirmed false positive, reviewed by the human |
 | `KJ_ALLOW_REWRITE=1` | the guard against reserializing whole JSON files from Bash | A full-file rewrite IS the agreed change |
+| `KJ_ALLOW_NO_VERIFY=1` | the deny on `git commit --no-verify` and on moving `core.hooksPath` | The hook itself is broken and the human says the commit goes in anyway |
 | `KJ_ALLOW_WRITE=1` | the Write-over-existing-file block (use Edit) | A full regeneration is exactly what was asked |
 
 There is no `KJ_ALLOW_*` for security findings. That is the point.

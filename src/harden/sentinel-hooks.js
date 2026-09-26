@@ -135,7 +135,7 @@ import process from "node:process";
 import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
-const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD", "KJ_ALLOW_NO_RAG"];
+const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD", "KJ_ALLOW_NO_RAG", "KJ_ALLOW_NO_VERIFY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -983,6 +983,34 @@ process.stdin.on("end", () => {
       // and nothing advances (commit, new PR, another merge; push and the end of
       // the turn go through violations()) until the card is moved. The board is
       // true at all times or the method stops — never a rule in the agent's memory.
+      // ENF-B (KJC-TSK-0854): el review es obligatorio, no una sugerencia. Una
+      // bandera no puede apagar el gate de commit, y mover core.hooksPath lo
+      // apaga entero. El --no-verify que kj harden --commit usa por dentro no
+      // pasa por aqui: no es una tool call. Escape humano, sellado como el resto.
+      const words = wordsOf(cmd);
+      // git acepta abreviaturas no ambiguas de las opciones largas, asi que
+      // --no-ver salta el hook igual que --no-verify (catch de la review).
+      const shortWithN = (w) => w.length > 1 && w[0] === "-" && w[1] !== "-" && w.includes("n");
+      const skipsVerify = (w) => shortWithN(w) || (w.length >= 5 && "--no-verify".startsWith(w));
+      // Mover core.hooksPath apaga TODOS los hooks. git tiene varias puertas
+      // para lo mismo (config, -c, --config-env, GIT_CONFIG_KEY_n) y no
+      // distingue mayusculas en la llave, asi que lo que se vigila es la LLAVE
+      // en cualquier posicion (dos catches de la review). Leerla no hace nada.
+      // Nombrar la llave basta para denegar: exceptuar las lecturas invitaba a
+      // colar una detras del cambio (git config core.hooksPath /x; cat algo),
+      // catch de la review. Leerla tiene remedio barato, perderla no.
+      // Se busca la llave DENTRO del token y no solo al principio: las formas
+      // de inyeccion la empotran (GIT_CONFIG_KEY_0=core.hooksPath,
+      // --config-env=core.hooksPath=VAR) y una propiedad de seguridad no puede
+      // depender de como parta las palabras el separador (catch de la review).
+      const movesHooks = cmd.toLowerCase().includes("core.hookspath");
+      if ((inOrder(["git", "commit"], words) && words.some(skipsVerify)) || movesHooks) {
+        if (escOn("KJ_ALLOW_NO_VERIFY")) { recordEscape(sid, "KJ_ALLOW_NO_VERIFY", tool); }
+        else {
+          console.error("karajan sentinel: el gate de commit no se apaga con una bandera — el review cruzado y la policy corren en el hook, y saltarselos deja el diff sin veredicto. Si el hook esta roto, arreglalo; si de verdad hace falta, es una decision de tu usuario. (KJ_ALLOW_NO_VERIFY=1 = excepcion consciente, queda registrada)" + doc("escapes"));
+          process.exit(2);
+        }
+      }
       const MERGE = /\\bgh\\s+pr\\s+merge(\\s+(\\d+))?/;
       const ADVANCE = /\\bgit\\s+commit\\b|\\bgit\\s+push\\b|\\bgh\\s+pr\\s+create\\b/; // push also falls under violations() — explicit here too (review catch)
       const mergeM = cmd.match(MERGE);
