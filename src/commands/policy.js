@@ -243,6 +243,8 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
   const sup = liftSealedSupervisorViolations({ projectDir, violations });
   if (sup.lifted > 0) {
     logger.info?.(`✓ policy: ${sup.lifted} fichero(s) de supervisor verificados contra la provenance sellada (ADR 0009)`);
+    // KJC-BUG-0212: lo que este sitio no ha podido juzgar se dice, no se calla.
+    if (sup.note) logger.info?.(`ℓ policy: ${sup.note}`);
     violations = sup.violations;
   }
   const hard = flags.strict ? violations.filter((v) => v.enforcement === "deny") : [];

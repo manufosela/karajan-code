@@ -147,3 +147,69 @@ describe("los guardias del harness tambien verifican (KJC-BUG-0211)", () => {
     expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toEqual([]);
   });
 });
+
+// KJC-BUG-0212: los guardias estan en .gitignore, asi que en CI (o en cualquier
+// clon que no sea la maquina que sello) NO existen. Exigir que todos verifiquen
+// hacia imposible commitear el sello en ningun sitio menos uno.
+describe("lo que aqui no se puede comprobar no es un fallo (KJC-BUG-0212)", () => {
+  const guard = "pretooluse-sentinel.mjs";
+  const path = `.karajan/harness/${guard}`;
+
+  const sealWith = (guardOnDisk) => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    const canonical = canonicalHarnessBody(guard);
+    if (guardOnDisk !== null) writeFileSync(join(repo, ".karajan", "harness", guard), guardOnDisk);
+    writeProvenance([
+      { file: ".karajan/hooks/pre-commit", sha256: sha(hook) },
+      { file: path, sha256: sha(canonical) },
+    ]);
+  };
+
+  it("el caso de CI: sin guardias en el checkout, el sello sigue siendo commiteable", () => {
+    sealWith(null);
+    const res = verifiedSupervisorFiles({ projectDir: repo });
+    expect(res.complete).toBe(true);
+    expect(res.files.has(path)).toBe(false); // no se ha verificado: no estaba
+    expect(res.unjudgeable.has(path)).toBe(true);
+    const lift = liftSealedSupervisorViolations({
+      projectDir: repo,
+      violations: [{ rule_id: "defaults.supervisor.write", file: PROVENANCE_FILE }],
+    });
+    expect(lift.violations).toEqual([]);
+    expect(lift.note).toMatch(/no se han podido comprobar/);
+  });
+
+  it("un guardia PRESENTE y editado a mano sigue denegando: ahi es donde importa", () => {
+    sealWith(`${canonicalHarnessBody(guard)}// una linea mia\n`);
+    const res = verifiedSupervisorFiles({ projectDir: repo });
+    expect(res.complete).toBe(false);
+    expect(res.unjudgeable.size).toBe(0); // estaba, se juzgo, fallo
+  });
+
+  it("un hook ausente si rompe: los hooks viajan con el repo", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeProvenance([{ file: ".karajan/hooks/pre-commit", sha256: sha(hook) }]);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).complete).toBe(false);
+  });
+
+  it("ausente NO es cheque en blanco: el hash tiene que ser el de un guardia que kj conoce", () => {
+    // Catch de la review: si no, una provenance forjada cuela entradas
+    // ausentes con cualquier hash y se alza a si misma con una sola valida.
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    for (const forjada of [
+      { file: path, sha256: sha("lo que me convenga") },
+      { file: ".karajan/harness/inventado.mjs", sha256: sha("x") },
+      { file: path },
+    ]) {
+      writeProvenance([{ file: ".karajan/hooks/pre-commit", sha256: sha(hook) }, forjada]);
+      expect(verifiedSupervisorFiles({ projectDir: repo }).complete, JSON.stringify(forjada)).toBe(false);
+    }
+  });
+
+  it("una provenance sin NADA verificado no se alza a si misma", () => {
+    writeProvenance([{ file: path, sha256: sha("x") }]);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).complete).toBe(false);
+  });
+});
