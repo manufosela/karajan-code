@@ -945,13 +945,11 @@ process.stdin.on("end", () => {
       const mergeM = cmd.match(MERGE);
       const pend = pendingMoves(load().sessions?.[sid]);
       if (pend.length > 0 && (mergeM || ADVANCE.test(cmd))) {
-        // KJC-BUG-0198: una card se PARTE en varias PRs cuando no cabe en 150
-        // lineas, asi que su primera mitad mergeada no puede bloquear la
-        // segunda. kj decide con hechos comprobables (otra PR abierta de la
-        // card, o la rama actual); si kj no responde, se bloquea como siempre.
+        // KJC-BUG-0198: una card partida en varias PRs no puede quedar bloqueada
+        // por su primera mitad. kj decide con un hecho comprobable (otra PR
+        // abierta de la card); si kj no responde, se bloquea como siempre.
         const bg = spawnSync("kj", ["sentinel", "board-gate", "--session", sid, "--json"], { cwd: ROOT, encoding: "utf8" });
-        let blocking = pend;
-        let carried = [];
+        let blocking = pend, carried = [];
         if (!bg.error && (bg.status === 0 || bg.status === 2)) {
           try { const d = JSON.parse(bg.stdout); blocking = d.blocking || []; carried = d.carried || []; } catch { /* sin respuesta legible: como siempre */ }
         }

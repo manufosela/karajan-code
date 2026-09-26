@@ -1,14 +1,12 @@
 /**
  * Which pending board moves actually block (KJC-BUG-0198).
  *
- * board-sync records one pending move per merged PR and blocks every advance
- * until the card reaches a closing state, which assumes one PR per card. The
- * project's rule says the opposite: a card that does not fit in ~150 lines is
- * SPLIT. With KJC-BUG-0197 (#1802 and #1803), merging the first demanded a move
- * that would have been a lie, and the only way out was `KJ_ALLOW_BOARD=1`, which
- * switches the whole gate off. A card still being delivered is not a lying
- * board; a TURN ending with work nobody recorded is, and that stays the Stop
- * gate's job.
+ * board-sync blocked every advance until a merged PR's card reached a closing
+ * state, which assumes one PR per card while the project's rule splits any card
+ * over ~150 lines. With KJC-BUG-0197 (#1802 and #1803) that demanded a move that
+ * would have been a lie, and the way out was `KJ_ALLOW_BOARD=1`, which switches
+ * the whole gate off. A card still being delivered is not a lying board; a TURN
+ * ending with work nobody recorded is, and that stays the Stop gate's job.
  *
  * One verifiable fact carries a pending, never a promise in prose: the same card
  * has another OPEN pull request. A branch named after the card is not enough,
@@ -35,9 +33,7 @@ const cardOf = (text) => {
  */
 export function blockingMoves({ pendings = [], openPrHeads = null, openPrNumbers = [] }) {
   if (pendings.length === 0) return { blocking: [], carried: [] };
-  if (openPrHeads === null) {
-    return { blocking: [...pendings], carried: [], reason: "no se pudo comprobar si la card sigue viva en otra PR abierta (gh no respondió) — se bloquea" };
-  }
+  if (openPrHeads === null) return { blocking: [...pendings], carried: [], reason: "no se pudo comprobar si la card sigue viva en otra PR abierta (gh no respondió) — se bloquea" };
   const openCards = new Set();
   for (const [i, head] of openPrHeads.entries()) {
     // A pending must never forgive itself: the PR it came from is merged, and if
@@ -46,8 +42,7 @@ export function blockingMoves({ pendings = [], openPrHeads = null, openPrNumbers
     const card = cardOf(head);
     if (card) openCards.add(card);
   }
-  const blocking = [];
-  const carried = [];
+  const blocking = [], carried = [];
   for (const p of pendings) {
     const card = p.card ? String(p.card).toUpperCase() : null;
     if (!card) { blocking.push(p); continue; } // nothing to check against

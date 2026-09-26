@@ -478,11 +478,10 @@ export function registerMeta(program, { pkgVersion }) {
       else console.log(res.ok ? "sentinel verify: scripts intactos" : `sentinel verify: modificados fuera de kj harden: ${res.mismatched.join(", ")} — restaura con kj harden`);
       process.exitCode = res.ok ? 0 : 1;
     });
-  // KJC-BUG-0198: una card partida en varias PRs no puede quedar bloqueada por
-  // su primera mitad. El guard pregunta, kj decide con hechos comprobables
-  // (otra PR abierta de la card, o la rama actual), y exit 2 = bloquea.
+  // KJC-BUG-0198: el guard pregunta, kj decide con un hecho comprobable (otra
+  // PR abierta de la card), y exit 2 = bloquea.
   sentinel.command("board-gate")
-    .description("Decide which pending board moves actually block: a card still being delivered (another open PR, or the current branch) is carried, everything else blocks; exit 2 = blocked")
+    .description("Decide which pending board moves actually block: a card still being delivered in another open PR is carried, everything else blocks; exit 2 = blocked")
     .requiredOption("--session <id>", "Host session id whose pending moves are evaluated")
     .option("--json", "Machine-readable result")
     .action((flags) => {

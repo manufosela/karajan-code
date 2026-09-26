@@ -1,12 +1,7 @@
-/**
- * KJC-BUG-0198: board-sync registraba un pendiente por PR mergeada y bloqueaba
- * todo avance hasta moverla, asumiendo una PR por card. La regla del repo dice
- * lo contrario: una card que no cabe en 150 lineas se PARTE. Medido con
- * KJC-BUG-0197 (#1802 y #1803): mergear la primera exigia mover la card, y
- * moverla a Fixed habria sido mentira. Tres KJ_ALLOW_BOARD=1, y ese escape
- * apaga el gate ENTERO. Que el TURNO no acabe con trabajo sin registrar sigue
- * siendo del Stop gate, que aqui no se toca.
- */
+// KJC-BUG-0198: board-sync asumia una PR por card y la regla del repo dice lo
+// contrario. Con KJC-BUG-0197 (#1802 y #1803) mergear la primera exigia mover
+// la card, lo que habria sido mentira: tres KJ_ALLOW_BOARD=1, y ese escape apaga
+// el gate ENTERO. El TURNO sigue sin poder acabar con trabajo sin registrar.
 import { describe, expect, it } from "vitest";
 
 import { blockingMoves, boardGate } from "../../src/review/board-pending.js";
