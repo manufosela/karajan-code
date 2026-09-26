@@ -57,7 +57,7 @@ import { maybeGenerateAutoHuBatch } from "./pre-loop-phases/auto-hu-batch.js";
 
 import {
   applyTriageOverrides, applyAutoSimplify, applyFlagOverrides,
-  resolvePipelinePolicies, updateGitignoreForStack,
+  resolvePipelinePolicies,
 } from "../config-init.js";
 import { tryCiComment } from "../ci-integration.js";
 import { getIntegration } from "../integrations.js";
@@ -350,7 +350,6 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
 
   // --- Update .gitignore with stack-specific entries based on planner/architect output ---
   const projectDir = updatedConfig.projectDir || process.cwd();
-  await updateGitignoreForStack(projectDir, { stageResults, task, logger });
 
   // --- Auto-HU: when triage recommended decomposition and no manual huFile, generate HU batch ---
   await maybeGenerateAutoHuBatch({

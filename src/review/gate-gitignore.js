@@ -12,6 +12,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { runCommand } from "../utils/process.js";
+
 // KJC-BUG-0123 (issue #1268): exported as the SINGLE source of truth — kj
 // init and the orchestrator's autoInit write this same block instead of a
 // bare `.karajan/` exclude (which git cannot re-include children of).
@@ -46,6 +48,37 @@ export async function ensureContractBlockPresent(projectDir) {
   const sep = text && !text.endsWith("\n") ? "\n" : "";
   await fs.writeFile(file, `${text}${sep}# Karajan environment (verdicts stay local; the contract is tracked)\n${CONTRACT_BLOCK.join("\n")}\n`);
   return { changed: true };
+}
+
+/**
+ * KJC-BUG-0213 (issue #1734): lo que kj deja en el repo durante una ejecucion
+ * es suyo y es local, asi que se excluye donde no molesta a nadie:
+ * `.git/info/exclude` no viaja con el repo ni aparece en el diff de otro.
+ * La ruta se pregunta a git para que funcione tambien en un worktree, donde
+ * `.git` es un fichero y no un directorio.
+ */
+const LOCAL_ARTIFACTS = [".reviews/", ".kj/", ".kj-ready.json"];
+
+export async function excludeLocalArtifacts(projectDir, run = runCommand) {
+  let file = path.join(projectDir, ".git", "info", "exclude");
+  try {
+    const res = await run("git", ["-C", projectDir, "rev-parse", "--git-path", "info/exclude"]);
+    const out = res?.stdout?.trim();
+    if (res?.exitCode === 0 && out) file = path.isAbsolute(out) ? out : path.join(projectDir, out);
+  } catch { /* sin git utilizable: se intenta la ruta por defecto */ }
+  let text = "";
+  try { text = (await fs.readFile(file, "utf8")) || ""; } catch { /* aun no existe */ }
+  const lines = new Set(text.split("\n").map((l) => l.trim()));
+  const missing = LOCAL_ARTIFACTS.filter((a) => !lines.has(a));
+  if (missing.length === 0) return { changed: false, added: [] };
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const sep = text && !text.endsWith("\n") ? "\n" : "";
+    await fs.appendFile(file, `${sep}# Karajan run artifacts (local only, never shared)\n${missing.join("\n")}\n`, "utf8");
+    return { changed: true, added: missing };
+  } catch {
+    return { changed: false, added: [] };
+  }
 }
 
 export async function ensureGateTrackable(projectDir) {
