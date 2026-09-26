@@ -8,6 +8,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 
 import { renderCanonicalHook } from "../../src/harden/harden-engine.js";
 import { PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
+import { canonicalHarnessBody } from "../../src/harden/sentinel-hooks.js";
 import { liftSealedSupervisorViolations, verifiedSupervisorFiles } from "../../src/policy/supervisor-verify.js";
 
 let repo;
@@ -20,6 +21,7 @@ const writeProvenance = (files, gen = generation) =>
 beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), "kj-supverify-"));
   mkdirSync(join(repo, ".karajan", "hooks"), { recursive: true });
+  mkdirSync(join(repo, ".karajan", "harness"), { recursive: true });
 });
 afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
@@ -98,5 +100,50 @@ describe("liftSealedSupervisorViolations", () => {
       { file: ".karajan/hooks/pre-push", sha256: sha("otra cosa") },
     ]);
     expect(liftSealedSupervisorViolations({ projectDir: repo, violations: [provViolation] }).lifted).toBe(0);
+  });
+});
+
+// KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre los guardias del supervisor,
+// pero el levantamiento solo sabia verificar los hooks. Como `complete` exige
+// que TODAS las entradas verifiquen, el primer sello de verdad no se pudo ni
+// commitear: CI denegaba el diff de la propia provenance.
+describe("los guardias del harness tambien verifican (KJC-BUG-0211)", () => {
+  const guard = "pretooluse-sentinel.mjs";
+  const path = `.karajan/harness/${guard}`;
+  const writeGuard = (body) => writeFileSync(join(repo, ".karajan", "harness", guard), body);
+
+  it("un guardia regenerado verifica: fichero == provenance == plantilla de kj", () => {
+    const canonical = canonicalHarnessBody(guard);
+    writeGuard(canonical);
+    writeProvenance([{ file: path, sha256: sha(canonical) }]);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(path)).toBe(true);
+  });
+
+  it("un guardia editado a mano NO verifica, aunque la provenance lleve su hash", () => {
+    const edited = `${canonicalHarnessBody(guard)}// una linea mia\n`;
+    writeGuard(edited);
+    writeProvenance([{ file: path, sha256: sha(edited) }]);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.size).toBe(0);
+  });
+
+  it("un guardia que kj no conoce no verifica, y una entrada borrada si cuando no existe", () => {
+    writeProvenance([{ file: ".karajan/harness/inventado.mjs", sha256: sha("x") }]);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.size).toBe(0);
+    writeProvenance([{ file: ".karajan/harness/se-borro.mjs", deleted: true }]);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(".karajan/harness/se-borro.mjs")).toBe(true);
+  });
+
+  it("con hooks y guardias verificados, la provenance se describe entera y su propio diff se alza", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    const canonical = canonicalHarnessBody(guard);
+    writeGuard(canonical);
+    writeProvenance([
+      { file: ".karajan/hooks/pre-commit", sha256: sha(hook) },
+      { file: path, sha256: sha(canonical) },
+    ]);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).complete).toBe(true);
+    const violations = [{ rule_id: "defaults.supervisor.write", file: PROVENANCE_FILE }];
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toEqual([]);
   });
 });
