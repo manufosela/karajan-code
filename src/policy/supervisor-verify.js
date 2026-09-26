@@ -9,9 +9,11 @@ import { lstatSync, readFileSync } from "node:fs";
 import { resolve, sep } from "node:path";
 
 import { renderCanonicalHook } from "../harden/harden-engine.js";
+import { canonicalHarnessBody } from "../harden/sentinel-hooks.js";
 import { PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 
 const HOOKS_PREFIX = ".karajan/hooks/";
+const HARNESS_PREFIX = ".karajan/harness/";
 // globalHooksDir es el único texto libre que se interpola en el render:
 // vocabulario cerrado de ruta o la provenance no verifica NADA.
 const SAFE_DIR = /^(\$HOME)?(\/[\w.@%+~-]+)+$/;
@@ -35,12 +37,18 @@ export function verifiedSupervisorFiles({ projectDir }) {
   }
   const ok = new Set();
   const entries = Array.isArray(prov?.files) ? prov.files : [];
-  const hooksRoot = resolve(projectDir, HOOKS_PREFIX);
+  // KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre tambien los guardias del
+  // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
+  // exige que TODAS las entradas verifiquen, el sello no se podia ni commitear.
+  const ROOTS = [HOOKS_PREFIX, HARNESS_PREFIX].map((p) => [p, resolve(projectDir, p)]);
   for (const entry of entries) {
-    if (typeof entry?.file !== "string" || !entry.file.startsWith(HOOKS_PREFIX)) continue;
+    if (typeof entry?.file !== "string") continue;
+    const kind = ROOTS.find(([prefix]) => entry.file.startsWith(prefix));
+    if (!kind) continue;
+    const [prefix, root] = kind;
     // Contención por resolución, no por prefijo textual (catch de codex).
     const abs = resolve(projectDir, entry.file);
-    if (!abs.startsWith(hooksRoot + sep)) continue;
+    if (!abs.startsWith(root + sep)) continue;
     let st = null;
     try { st = lstatSync(abs); } catch { /* no hay objeto en la ruta */ }
     if (entry.deleted === true) {
@@ -49,13 +57,15 @@ export function verifiedSupervisorFiles({ projectDir }) {
     }
     if (typeof entry.sha256 !== "string" || !st?.isFile()) continue;
     if (sha256(readFileSync(abs)) !== entry.sha256) continue;
+    // No se confia en el hash sellado: se recomputa lo que kj escribiria.
     let canonical;
     try {
-      canonical = renderCanonicalHook(entry.file.slice(HOOKS_PREFIX.length), gen);
+      const name = entry.file.slice(prefix.length);
+      canonical = prefix === HOOKS_PREFIX ? renderCanonicalHook(name, gen) : canonicalHarnessBody(name);
     } catch {
       continue;
     }
-    if (sha256(Buffer.from(canonical, "utf8")) === entry.sha256) ok.add(entry.file);
+    if (canonical != null && sha256(Buffer.from(canonical, "utf8")) === entry.sha256) ok.add(entry.file);
   }
   // `complete` = CADA entrada verificó: solo entonces la provenance se
   // describe con honestidad y su propio diff puede alzarse.

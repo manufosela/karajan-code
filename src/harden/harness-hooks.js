@@ -44,6 +44,12 @@ process.stdin.on("end", () => {
 `;
 
 /** Write a managed hook script under .karajan/harness/ and return its path. */
+/**
+ * KJC-BUG-0211: el cuerpo canonico de los guardias que instala ESTE modulo,
+ * para que quien verifica un sello pueda RECOMPUTAR en vez de fiarse del hash.
+ */
+export const HARNESS_BODIES = { "pretooluse.mjs": SCRIPT_BODY };
+
 export function writeHarnessScript(projectDir, name, body) {
   const dir = join(projectDir, ".karajan", "harness");
   mkdirSync(dir, { recursive: true });
