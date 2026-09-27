@@ -131,6 +131,7 @@ const POST_BODY = `#!/usr/bin/env node
 // kj sentinel state writer (KJC-TSK-0713) — managed by \`kj harden\`.
 // Records deterministic method facts per session; never blocks, never fails
 // a tool call (PostToolUse, always exit 0).
+import console from "node:console";
 import process from "node:process";
 import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -256,7 +257,16 @@ process.stdin.on("end", () => {
         const state = load();
         const s = session(state, sid);
         const ref = CARD.exec(headRef || branchOf() || "");
-        (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: mergedPr, at: Date.now(), ...(headRef ? {} : { head: "unknown" }) });
+        // KJC-BUG-0230: una EPICA (…-PCS-…) no tiene estado que mover: el PG
+        // la deja en To Do por mas status que reciba y kj hu move no la
+        // conoce. Registrarla como pendiente era un bloqueo sin cauce. Se dice
+        // en el momento, para que no parezca que el board dejo de mirar.
+        const epic = ref && /-PCS-/i.test(ref[0]);
+        if (epic) {
+          console.error("karajan sentinel: board-sync — la PR #" + mergedPr + " pertenece a la epica " + ref[0].toUpperCase() + ", que no tiene estado que mover: no queda pendiente (su cierre va en la descripcion de la epica)");
+        } else {
+          (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: mergedPr, at: Date.now(), ...(headRef ? {} : { head: "unknown" }) });
+        }
         save(state);
       }
       const moved = /kj\\s+hu\\s+move\\s+([A-Za-z0-9-]+)\\s+([a-z&-]+)/i.exec(String(input.command || ""));
