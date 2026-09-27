@@ -13,6 +13,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { runCommand } from "../utils/process.js";
+import { kjStamp, stampDiffers, stampLabel } from "./kj-provenance.js";
 
 const STORE_DIR = path.join(".karajan", "reviews");
 
@@ -35,6 +36,7 @@ export async function saveVerdict(projectDir, diff, verdict) {
   const hash = diffHash(diff);
   const record = {
     ...verdict,
+    kj: kjStamp(), // KJC-TSK-0886: que kj lo emitio; nunca lo dicta quien llama
     diffHash: hash,
     timestamp: new Date().toISOString(),
   };
@@ -143,5 +145,8 @@ export async function checkVerdict(projectDir, diff) {
   if (verdict.verdict !== "approved") {
     return { ok: false, verdict, reason: `review was rejected by ${verdict.reviewer} — fix the issues and run \`kj review\` again` };
   }
-  return { ok: true, verdict };
+  // KJC-TSK-0886: otro kj comprobando no bloquea, pero deja rastro.
+  const now = kjStamp();
+  if (!stampDiffers(verdict.kj, now)) return { ok: true, verdict };
+  return { ok: true, verdict, note: `verdict from ${stampLabel(verdict.kj)}, checked by ${stampLabel(now)}` };
 }

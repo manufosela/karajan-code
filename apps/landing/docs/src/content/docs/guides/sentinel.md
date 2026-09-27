@@ -87,6 +87,8 @@ If the hook is broken, fixing it is the answer. If the commit really has to go i
 
 The Sentinel's own files (`.karajan/harness`, hooks) are read-only from inside a session — a supervisor a session can edit is no supervisor. Only the human dismantles or regenerates it (`kj harden`), outside the session. Tampering is detected against what the installed kj itself would write.
 
+When they differ, kj tells three cases apart. If the file is exactly what `kj harden` wrote (it records a sha256 per file in `.karajan/harness/installed.json`) and no human sealed it, kj has simply moved on: it regenerates the file itself and says so in one line. If a human sealed it, it is left alone and you are told that advancing it is theirs. Anything else was changed after installation, and that blocks. Forging the record gains nothing: the only thing it enables is restoring the file from the installed kj.
+
 ## stop-gate
 
 The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations or ask your user for the applicable escape. State: `kj sentinel status`.
