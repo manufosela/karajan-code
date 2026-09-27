@@ -174,4 +174,18 @@ describe("board-sync gate", () => {
     expect(res.status).toBe(2);
     expect(res.stderr).toMatch(/KJC-TSK-0042/);
   });
+
+  // KJC-BUG-0230: una EPICA (…-PCS-…) no tiene estado que mover. Registrarla
+  // como pendiente creaba un bloqueo sin cauce: update_card la deja en To Do,
+  // kj hu move no la conoce, y el Stop gate no cierra nunca. Vivido con el ADR
+  // 0011, cuya rama nombraba la epica porque el trabajo era de la epica.
+  it("un merge cuya rama nombra una EPICA no deja pendiente, y lo dice", () => {
+    execSync("git checkout -q -b feat/KJC-PCS-0089-adr", { cwd: dir });
+    const res = merged(47);
+    expect(res.status).toBe(0);
+    expect(res.stderr).toMatch(/KJC-PCS-0089/);
+    expect(res.stderr).toMatch(/epica|épica/i);
+    expect(fs.existsSync(statePath) ? (state().sessions?.s1?.pending_moves ?? []) : []).toHaveLength(0);
+    expect(endTurn().status).toBe(0);
+  });
 });
