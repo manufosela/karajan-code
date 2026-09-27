@@ -344,7 +344,8 @@ async function runWizard(config, logger) {
     config.sonarqube.enabled = enableSonar;
     logger.info(`  -> SonarQube: ${enableSonar ? "enabled" : "disabled"}`);
 
-    const enableHuBoard = await wizard.confirm("Enable the HU Board — a local web UI to track user stories (HUs)?", false);
+    // KJC-TSK-0884: on by default, like Sonar; answering no is a declared opt-out.
+    const enableHuBoard = await wizard.confirm("Enable the HU Board — a local web UI to track user stories (HUs)?", true);
     config.hu_board = config.hu_board || {};
     config.hu_board.enabled = enableHuBoard;
     if (enableHuBoard) {

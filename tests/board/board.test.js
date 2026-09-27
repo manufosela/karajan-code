@@ -58,11 +58,13 @@ describe("config defaults include hu_board", () => {
     fs.writeFileSync(path.join(tmpDir, "kj.config.yml"), "");
     try {
       const { loadConfig } = await import("../../src/config.js");
-      const { config } = await loadConfig();
+      // The tmp dir as project: this repo's own kj.config.yml declares false.
+      const { config } = await loadConfig(tmpDir);
       expect(config.hu_board).toBeDefined();
-      expect(config.hu_board.enabled).toBe(false);
+      // KJC-TSK-0884: on by default, like Sonar.
+      expect(config.hu_board.enabled).toBe(true);
       expect(config.hu_board.port).toBe(4000);
-      expect(config.hu_board.auto_start).toBe(false);
+      expect(config.hu_board.auto_start).toBe(true);
     } finally {
       if (prevKjHome === undefined) {
         delete process.env.KJ_HOME;

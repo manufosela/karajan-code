@@ -334,19 +334,21 @@ export async function handleMaxIterationsReached({ session, budgetSummary, emitt
   return { approved: false, sessionId: session.id, reason: "max_iterations" };
 }
 
+/**
+ * KJC-TSK-0884 (ADR 0011): the board starts by itself, like Sonar. Only a
+ * declared false on either switch opts out; nothing declared means on.
+ */
+export const boardAutoStartWanted = (config) => config?.hu_board?.auto_start !== false && config?.hu_board?.enabled !== false;
+
 export async function tryAutoStartBoard(config, logger, emitter, eventBase) {
-  // TSK-0273: gate on hu_board.auto_start alone. The previous double-gate
-  // (enabled && auto_start) was confusing because `enabled` was never the
-  // user-facing switch — only auto_start was. This matches the AC: "kj run
-  // auto-inicia el board server si hu_board.auto_start es true".
-  if (!config.hu_board?.auto_start) return;
+  if (!boardAutoStartWanted(config)) return;
   // Never auto-start during vitest: races the PID file and starts a detached
   // process that outlives the test run.
   if (process.env.VITEST || process.env.NODE_ENV === "test") return;
 
   try {
     const { startBoard, renderBoardBanner } = await import("../../commands/board.js");
-    const boardPort = config.hu_board.port || 4000;
+    const boardPort = config.hu_board?.port || 4000;
     // Scope the board URL to the current run's project (`#board/<slug>`)
     // so the user lands on a filtered view, not the global dashboard.
     const slug = config.projectDir ? slugFor(config.projectDir) : null;
