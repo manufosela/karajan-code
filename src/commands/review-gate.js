@@ -365,6 +365,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       }
     }
     let res = await checkVerdict(projectDir, diff);
+    if (res.note) console.log(`ℹ ${res.note}`);
     // KJC-TSK-0838: a reviewed diff with code enters only if the verdict's
     // sonar block proves the analysis ran and covered every staged source.
     // The headless pipeline stamps its verdict after its own sonar stage and
