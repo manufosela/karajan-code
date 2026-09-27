@@ -30,7 +30,10 @@ export function readRagLedger(projectDir) {
   const harnessDir = path.join(root, ".karajan", "harness");
   const harness = existsSync(harnessDir);
   const check = harness ? verifySentinelScripts({ projectDir: root }) : { ok: false, mismatched: [] };
-  const base = { root, harness, verified: harness && check.ok === true, mismatched: check.mismatched || [], queries: [], hits: [] };
+  // KJC-BUG-0222: `drift` viaja hasta el mensaje. Un guard sellado que se ha
+  // quedado atras NO lo arregla `kj harden` (lo deja en paz a proposito), asi
+  // que mandar ese comando para ese fichero es un bucle.
+  const base = { root, harness, verified: harness && check.ok === true, mismatched: check.mismatched || [], drift: check.drift || [], queries: [], hits: [] };
   let state;
   try {
     state = JSON.parse(readFileSync(path.join(harnessDir, "sentinel-state.json"), "utf8"));

@@ -1198,7 +1198,11 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
     ok: true,
     mismatched: [],
     drift,
-    reason: "el harness instalado está sellado y las plantillas de este árbol van por delante (kj harden lo pone al día) — no es manipulación",
+    // KJC-BUG-0222: `kj harden` NO pone al dia un guard sellado, lo deja en paz
+    // a proposito (KJC-BUG-0193), asi que mandarlo era un bucle: ejecutas,
+    // sale "unchanged" y el gate repite lo mismo. El que resuelve ESTE estado
+    // es `kj harden --commit`, y es acto del humano.
+    reason: "el harness instalado está sellado y las plantillas de este árbol van por delante — no es manipulación, y `kj harden` lo deja como está a propósito: quien lo avanza es el humano con `kj harden --commit`",
   };
 }
 
