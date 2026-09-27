@@ -637,10 +637,10 @@ export function registerMeta(program, { pkgVersion }) {
     await withConfig(pkgVersion, "watch:start", flags, async ({ config, logger }) => watchStartCommand({ config, logger, flags }));
   });
   watch.command("stop").description("Stop the watcher daemon").action(async () => {
-    await withConfig(pkgVersion, "watch:stop", {}, async ({ logger }) => watchStopCommand({ logger }));
+    await withConfig(pkgVersion, "watch:stop", {}, async ({ config, logger }) => watchStopCommand({ config, logger }));
   });
   watch.command("status").description("Report watcher daemon state").action(async () => {
-    await withConfig(pkgVersion, "watch:status", {}, async ({ logger }) => watchStatusCommand({ logger }));
+    await withConfig(pkgVersion, "watch:status", {}, async ({ config, logger }) => watchStatusCommand({ config, logger }));
   });
 
   program

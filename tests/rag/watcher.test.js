@@ -12,14 +12,15 @@ describe("rag/watcher — PID file (KJC-TSK-0441)", () => {
   afterEach(() => { rmSync(process.env.KARAJAN_HOME, { recursive: true, force: true }); if (prev === undefined) delete process.env.KARAJAN_HOME; else process.env.KARAJAN_HOME = prev; });
 
   it("write/read/clear round-trip + malformed → null", () => {
-    expect(readPidFile()).toBeNull();
-    writePidFile(12345);
-    expect(readPidFile()).toBe(12345);
-    expect(existsSync(join(process.env.KARAJAN_HOME, "watcher.pid"))).toBe(true);
-    clearPidFile();
-    expect(readPidFile()).toBeNull();
-    writePidFile("not-a-pid");
-    expect(readPidFile()).toBeNull();
+    const proj = "/w/proj"; // KJC-TSK-0883: un PID por proyecto
+    expect(readPidFile(proj)).toBeNull();
+    writePidFile(proj, 12345);
+    expect(readPidFile(proj)).toBe(12345);
+    expect(existsSync(join(process.env.KARAJAN_HOME, "watchers", "proj.pid"))).toBe(true);
+    clearPidFile(proj);
+    expect(readPidFile(proj)).toBeNull();
+    writePidFile(proj, "not-a-pid");
+    expect(readPidFile(proj)).toBeNull();
   });
 
   it("isPidAlive returns true for current pid, false for 0/null/999999", () => {

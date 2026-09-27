@@ -1,16 +1,25 @@
 // KJC-TSK-0441 (RAG v2.28.0 PR1) — chokidar watcher. Live re-index of plans
 // + onboarding + (opt) sources, debounced. PID file arbitrates a single daemon.
 // KJC-TSK-0482 — source matcher derivado del registry (multi-lang: JS/Py/Rust/Go/Java).
-import { writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
-import { extname, join } from "node:path";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { dirname, extname, join } from "node:path";
 import chokidar from "chokidar";
-import { openVecStore, deleteChunksBySource, projectSlug } from "./vec-store.js";
+import { deleteChunksBySource, projectSlug } from "./vec-store.js";
+import { openProjectStore } from "./project-store.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { indexFile } from "./indexer.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { getAllCodeExtensions } from "../lang/registry.js";
 
-const PIDFILE = () => join(getKarajanHome(), "watcher.pid");
+// KJC-TSK-0883 (ADR 0011): un watcher por proyecto, cada uno con su PID.
+export const pidFilePath = (projectDir = process.cwd()) => join(getKarajanHome(), "watchers", `${projectSlug(projectDir)}.pid`);
+
+/** Solo lo de ESTE proyecto: sus planes, su onboarding y (opt) sus fuentes. */
+export function watchedPaths(projectDir, { withSources = false } = {}) {
+  const slug = projectSlug(projectDir);
+  const paths = [join(getKarajanHome(), "onboarding", `${slug}.md`), join(getKarajanHome(), "plans", slug)];
+  return withSources ? [...paths, projectDir] : paths;
+}
 const DEFAULT_DEBOUNCE_MS = 1000;
 const SKIP_SEGMENTS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", ".kj", "_diet", ".claude"]);
 const SOURCE_EXTS = new Set(getAllCodeExtensions().map((e) => e.toLowerCase()));
@@ -26,11 +35,9 @@ export function startWatcher({ projectDir, config, logger = console, debounceMs 
   if (!projectDir) throw new Error("startWatcher: projectDir is required");
   const slug = projectSlug(projectDir);
   const dim = config?.rag?.embedder?.dim || 768;
-  const db = openVecStore({ dim });
+  const db = openProjectStore({ projectDir, dim });
   const embedder = makeGovernedEmbedder(config);
-  const paths = [join(getKarajanHome(), "onboarding"), join(getKarajanHome(), "plans")];
-  if (withSources) paths.push(projectDir);
-  const watcher = chokidar.watch(paths, { ignoreInitial: true, persistent: true });
+  const watcher = chokidar.watch(watchedPaths(projectDir, { withSources }), { ignoreInitial: true, persistent: true });
   const pending = new Map();
   const flush = async (p) => {
     pending.delete(p);
@@ -49,11 +56,15 @@ export function startWatcher({ projectDir, config, logger = console, debounceMs 
   };
 }
 
-export function writePidFile(pid = process.pid) { writeFileSync(PIDFILE(), String(pid), "utf8"); }
-export function clearPidFile() { if (existsSync(PIDFILE())) unlinkSync(PIDFILE()); }
-export function readPidFile() {
-  if (!existsSync(PIDFILE())) return null;
-  const pid = Number(readFileSync(PIDFILE(), "utf8").trim());
+export function writePidFile(projectDir, pid = process.pid) {
+  const file = pidFilePath(projectDir);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, String(pid), "utf8");
+}
+export function clearPidFile(projectDir) { if (existsSync(pidFilePath(projectDir))) unlinkSync(pidFilePath(projectDir)); }
+export function readPidFile(projectDir) {
+  if (!existsSync(pidFilePath(projectDir))) return null;
+  const pid = Number(readFileSync(pidFilePath(projectDir), "utf8").trim());
   return Number.isInteger(pid) && pid > 0 ? pid : null;
 }
 export function isPidAlive(pid) {
