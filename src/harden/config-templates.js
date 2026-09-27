@@ -118,6 +118,17 @@ export const GO_CONFIGS = [{ file: ".golangci.yml", blockId: "golangci", style: 
 export const PHPSTAN_BODY = ["parameters:", "  level: 6", "  paths:", "    - src", "    - tests"].join("\n");
 export const PHP_CONFIGS = [{ file: "phpstan.neon", blockId: "phpstan", style: "hash", body: PHPSTAN_BODY }];
 
+
+/**
+ * KJC-BUG-0221 — los nombres que kj ESCRIBE en el proyecto. Lo consume la
+ * cobertura del RAG para no denunciar como drift un fichero que kj acaba de
+ * generar. Se deriva de las tablas de arriba: anadir un config aqui no obliga
+ * a acordarse de una segunda lista en otro modulo.
+ */
+export const GENERATED_CONFIG_FILES = new Set(
+  [...UNIVERSAL_CONFIGS, ...JS_CONFIGS, ...PY_CONFIGS, ...GO_CONFIGS, ...PHP_CONFIGS].map((c) => c.file),
+);
+
 /** Lint/format configs by detected language. Unknown ⇒ universal only. */
 export const CONFIGS_BY_LANGUAGE = {
   javascript: JS_CONFIGS,
