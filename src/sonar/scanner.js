@@ -50,8 +50,38 @@ export function indexedFilesFrom(scanOutput) {
   return files;
 }
 
-export function buildScannerOpts(projectKey, scanner = {}) {
+/**
+ * KJC-BUG-0225 — `.git` es un fichero (no un directorio) en un worktree
+ * enlazado y en un submodulo: exactamente los dos casos que JGit no sabe abrir.
+ * Sin proceso y sin depender de que git responda.
+ */
+export function isLinkedWorktree(dir) {
+  try {
+    return fs.statSync(path.join(dir, ".git")).isFile();
+  } catch {
+    return false; // sin .git no hay SCM que desactivar
+  }
+}
+
+/**
+ * KJC-BUG-0225 (issue #1839) — dentro de un carril de `kj worktree start`, el
+ * plugin SCM del scanner (JGit) no sabe abrir un worktree enlazado (`.git` es
+ * un fichero que apunta a `.git/worktrees/<carril>`) y revienta el analisis
+ * entero. El pre-gate lo reportaba como "UNAVAILABLE" y la ejecucion seguia:
+ * todo cambio hecho como el metodo manda, un carril por tarea, se quedaba sin
+ * quality gate y sin un rojo que lo dijera.
+ *
+ * Se desactiva SOLO el SCM, que en un carril no aporta nada (alimenta blame y
+ * asignacion de autoria); las reglas, la cobertura y el resto del analisis se
+ * quedan exactamente igual.
+ *
+ * @param {string} projectKey
+ * @param {object} scanner  config del scanner (scm_disabled lo fuerza siempre)
+ * @param {{linkedWorktree?: boolean}} [where]
+ */
+export function buildScannerOpts(projectKey, scanner = {}, where = {}) {
   const opts = [`-Dsonar.projectKey=${projectKey}`];
+  if (scanner.scm_disabled || where.linkedWorktree) opts.push("-Dsonar.scm.disabled=true");
   // KJC-TSK-0838: verbose is what makes the scanner name every indexed file.
   if (scanner.verbose) opts.push("-Dsonar.verbose=true");
   if (scanner.sources) opts.push(`-Dsonar.sources=${scanner.sources}`);
@@ -317,11 +347,16 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
     : null;
 
   const pick = await pickSonarScanner(sonarConfig.scanner);
+  // KJC-BUG-0225: en un carril, el plugin SCM del scanner (JGit) no sabe abrir
+  // el worktree enlazado y tumba el analisis entero. La senal es la causa
+  // literal del error y no necesita proceso: en un worktree enlazado (y en un
+  // submodulo, que JGit trata igual) `.git` es un FICHERO, no un directorio.
+  const linkedWorktree = isLinkedWorktree(scanCwd);
   const env = {
     ...process.env,
     SONAR_HOST_URL: pick.type === "native" ? rawHost : host,
     SONAR_TOKEN: token || "",
-    SONAR_SCANNER_OPTS: buildScannerOpts(effectiveProjectKey, scannerConfig)
+    SONAR_SCANNER_OPTS: buildScannerOpts(effectiveProjectKey, scannerConfig, { linkedWorktree })
   };
 
   let cmd, args;
