@@ -14,7 +14,8 @@ import { RUST_ADAPTER } from "./rust.js";
 // Segmentos siempre excluidos del walk, independientes de stack: VCS,
 // outputs de build, scratch de Karajan, sandbox del audit. Lo que viva
 // aquí jamás se indexa.
-const COMMON_SKIP_SEGMENTS = [".git", "dist", "build", "coverage", ".karajan", ".kj", "_diet"];
+// KJC-BUG-0231: `.claude` guarda worktrees de subagentes, copias enteras del repo.
+const COMMON_SKIP_SEGMENTS = [".git", "dist", "build", "coverage", ".karajan", ".kj", "_diet", ".claude"];
 
 const REGISTRY = [JS_ADAPTER, PYTHON_ADAPTER, RUST_ADAPTER, GO_ADAPTER, JAVA_ADAPTER];
 
