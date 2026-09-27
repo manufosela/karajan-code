@@ -11,6 +11,7 @@
  * Saltarse un gate ritualmente es peor que no tenerlo, porque parece que se
  * cumple.
  */
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,4 +40,29 @@ export function kjProvenance(moduleDir = here) {
     ? `${v} LINKED from ${root} (a development tree: its templates move with every edit there, in every project on this machine)`
     : `${v} (${root})`;
   return { version, root, linked, label };
+}
+
+const gitIn = (root) => (args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+
+/**
+ * KJC-TSK-0886: el sello de que kj emite un veredicto. En un arbol enlazado la
+ * version no basta (el mismo package.json vale para dos estados del disco), asi
+ * que lleva rama y commit del working tree. Nunca lanza: adorna, no decide.
+ */
+export function kjStamp({ provenance = kjProvenance(), git = gitIn(provenance.root) } = {}) {
+  const stamp = { version: provenance.version, linked: provenance.linked };
+  if (!provenance.linked) return stamp;
+  try {
+    return { ...stamp, branch: git(["rev-parse", "--abbrev-ref", "HEAD"]).trim(), commit: git(["rev-parse", "HEAD"]).trim() };
+  } catch {
+    return stamp;
+  }
+}
+
+const STAMP_KEYS = ["version", "linked", "branch", "commit"];
+export const stampDiffers = (a, b) => Boolean(a && b) && STAMP_KEYS.some((k) => a[k] !== b[k]);
+
+export function stampLabel(s) {
+  const where = s.branch ? ` (${s.branch}@${(s.commit || "").slice(0, 7)})` : "";
+  return `kj ${s.version ?? "unknown"}${where}`;
 }
