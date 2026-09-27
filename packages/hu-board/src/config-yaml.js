@@ -52,9 +52,11 @@ function getProjectDir() {
   return process.env.KJ_PROJECT_DIR || process.cwd();
 }
 
-function configPath(scope = 'global') {
+// KJC-TSK-0885: a scoped view passes its project's dir; only without one does
+// the daemon's KJ_PROJECT_DIR || cwd stand in (dashboard, old clients).
+function configPath(scope = 'global', projectDir = null) {
   if (scope === 'project') {
-    return join(getProjectDir(), '.karajan', 'kj.config.yml');
+    return join(projectDir || getProjectDir(), '.karajan', 'kj.config.yml');
   }
   // Same path the parent uses (src/utils/paths.js::getKarajanHome).
   // KJC-TSK-0420: delegate to db.js::getKjHome — gives us KARAJAN_HOME
@@ -63,7 +65,7 @@ function configPath(scope = 'global') {
   return join(getKjHome(), 'kj.config.yml');
 }
 
-function backupPath(scope = 'global') { return `${configPath(scope)}.bak`; }
+function backupPath(scope = 'global', projectDir = null) { return `${configPath(scope, projectDir)}.bak`; }
 
 /**
  * v2.30.0 — Categorías para agrupar los campos en el modal. El backend
@@ -433,13 +435,13 @@ function applyModelMode(parsed, mode) {
  *
  * Returns sane defaults when the file doesn't exist yet.
  */
-export function readConfig({ scope = 'global' } = {}) {
+export function readConfig({ scope = 'global', projectDir = null } = {}) {
   // PR4 — accept scope. Default 'global' preserves the previous behavior;
   // 'project' reads <projectDir>/.karajan/kj.config.yml.
   if (!SCOPES.includes(scope)) {
     throw new Error(`Scope inválido: ${scope}. Permitidos: ${SCOPES.join(', ')}`);
   }
-  const p = configPath(scope);
+  const p = configPath(scope, projectDir);
   let parsed = {};
   let exists = false;
   if (existsSync(p)) {
@@ -471,16 +473,16 @@ export function readConfig({ scope = 'global' } = {}) {
  *
  * @returns {{ path: string, written: boolean, applied: object[], errors: string[] }}
  */
-export function writeConfigPatch(patch, { scope = 'global' } = {}) {
+export function writeConfigPatch(patch, { scope = 'global', projectDir = null } = {}) {
   // PR4 — same shape as readConfig: scope decides target file.
   if (!SCOPES.includes(scope)) {
     return { path: '', scope, written: false, applied: [], errors: [`Scope inválido: ${scope}. Permitidos: ${SCOPES.join(', ')}`] };
   }
   if (!patch || typeof patch !== 'object') {
-    return { path: configPath(scope), scope, written: false, applied: [], errors: ['patch debe ser un objeto'] };
+    return { path: configPath(scope, projectDir), scope, written: false, applied: [], errors: ['patch debe ser un objeto'] };
   }
   // Read current state (or empty if file doesn't exist yet).
-  const p = configPath(scope);
+  const p = configPath(scope, projectDir);
   let parsed = {};
   if (existsSync(p)) {
     try { parsed = yaml.load(readFileSync(p, 'utf8'), { json: true }) || {}; }
@@ -517,7 +519,7 @@ export function writeConfigPatch(patch, { scope = 'global' } = {}) {
   // existing file first so the user can recover.
   const dir = dirname(p);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  if (existsSync(p)) { try { copyFileSync(p, backupPath(scope)); } catch { /* best-effort */ } }
+  if (existsSync(p)) { try { copyFileSync(p, backupPath(scope, projectDir)); } catch { /* best-effort */ } }
   const dump = yaml.dump(parsed, { lineWidth: 120 });
   // mkstemp would be nicer but we want to stay in the same dir for
   // a guaranteed-atomic rename across the same filesystem.

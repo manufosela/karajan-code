@@ -49,6 +49,7 @@ import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
 import { readConfig, writeConfigPatch } from '../config-yaml.js';
+import { requestProjectDir } from '../project-dir.js';
 import { BOOT_TIME, PKG_VERSION } from '../boot-info.js';
 import { addTombstone, getDb, isTombstoned as isTombstonedFn, removeTombstone, listTombstones } from '../db.js';
 import { publish as publishEvent } from '../event-bus.js';
@@ -1095,7 +1096,8 @@ router.post('/projects/:id/run', (req, res) => {
 router.get('/config', (req, res) => {
   try {
     const scope = req.query?.scope || 'global';
-    const data = readConfig({ scope });
+    // KJC-TSK-0885: a scoped view names its project; the daemon's cwd is not it.
+    const data = readConfig({ scope, projectDir: requestProjectDir(req.query?.project) });
     res.json(data);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1116,7 +1118,9 @@ router.put('/config', (req, res) => {
   try {
     const patch = req.body?.patch;
     const scope = req.body?.scope || 'global';
-    const result = writeConfigPatch(patch, { scope });
+    let projectDir;
+    try { projectDir = requestProjectDir(req.body?.project); } catch (err) { return res.status(400).json({ error: err.message }); }
+    const result = writeConfigPatch(patch, { scope, projectDir });
     if (!result.written) {
       return res.status(400).json({ error: 'No se pudo guardar la configuración', details: result });
     }

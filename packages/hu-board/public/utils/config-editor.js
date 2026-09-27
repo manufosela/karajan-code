@@ -27,7 +27,10 @@ async function showConfigEditor(scope = 'global') {
   // resuelve <projectDir> desde KJ_PROJECT_DIR || cwd.
   let cfg;
   try {
-    const r = await fetch(`/api/config?scope=${encodeURIComponent(scope)}`);
+    // KJC-TSK-0885: a scoped view (/p/<slug>, app.js) names its project, so
+    // 'project' is THAT project's file, not the daemon's cwd.
+    const project = scopedProjectSlug ? `&project=${encodeURIComponent(scopedProjectSlug)}` : '';
+    const r = await fetch(`/api/config?scope=${encodeURIComponent(scope)}${project}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     cfg = await r.json();
   } catch (err) {
@@ -163,7 +166,7 @@ async function showConfigEditor(scope = 'global') {
       const r = await fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patch, scope }),
+        body: JSON.stringify({ patch, scope, ...(scopedProjectSlug ? { project: scopedProjectSlug } : {}) }),
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
