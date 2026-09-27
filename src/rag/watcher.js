@@ -12,7 +12,7 @@ import { getAllCodeExtensions } from "../lang/registry.js";
 
 const PIDFILE = () => join(getKarajanHome(), "watcher.pid");
 const DEFAULT_DEBOUNCE_MS = 1000;
-const SKIP_SEGMENTS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", ".kj", "_diet"]);
+const SKIP_SEGMENTS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", ".kj", "_diet", ".claude"]);
 const SOURCE_EXTS = new Set(getAllCodeExtensions().map((e) => e.toLowerCase()));
 
 export function isWatchable(path) {

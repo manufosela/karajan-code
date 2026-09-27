@@ -149,7 +149,15 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
     // tests/_diet/ sandbox used by the test-diet audit harness — never user
     // code. Both viven en COMMON_SKIP_SEGMENTS dentro del registry.
     const matchers = buildMatchers(detectAdaptersForProject(projectDir));
-    const sources = await listFiles(projectDir, (p) => matchers.isCodeFile(p) && !matchers.shouldSkip(p));
+    // KJC-BUG-0231: las exclusiones se juzgan DENTRO del proyecto. Sobre la ruta
+    // absoluta, un proyecto bajo un directorio "build" no indexaba nada.
+    const skipped = (p) => matchers.shouldSkip(relative(projectDir, p));
+    const sources = await listFiles(projectDir, (p) => matchers.isCodeFile(p) && !skipped(p));
+    // Lo que un indice anterior guardo de rutas que hoy se excluyen, fuera.
+    const prefix = `${projectDir}/`;
+    for (const { source } of db.prepare("SELECT DISTINCT source FROM chunks WHERE project_slug = ?").all(slug)) {
+      if (source.startsWith(prefix) && skipped(source)) deleteChunksBySource(db, source);
+    }
     for (const s of sources) {
       const r = await indexFile(s, { db, embedder, logger, project: slug });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
