@@ -3,7 +3,7 @@ import { join } from "node:path";
 //   kj rag index [--project <slug>] [--with-sources]
 //   kj rag query <text>   [--scope plans|code|onboarding|all] [--top-k N] [--json]
 // Closes the v2.22.0 RAG MVP end-to-end from the terminal.
-import { openVecStore, countChunks, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "../rag/vec-store.js";
+import { countChunks, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "../rag/vec-store.js";
 import { makeGovernedEmbedder } from "../rag/governed-embedder.js";
 import { indexProject, indexProjectDelta } from "../rag/indexer.js";
 import { fileIndexState } from "../rag/coverage.js";
@@ -12,11 +12,12 @@ import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
-import { migrateProjectIndex } from "../rag/migrate.js";
-import { projectDbPath } from "../rag/project-store.js";
+import { countProjectChunks, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
+import { openProjectStore, projectDbPath } from "../rag/project-store.js";
 
+// KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
 function openDb(config) {
-  return openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
+  return openProjectStore({ projectDir: config?.projectDir || process.cwd(), dim: config?.rag?.embedder?.dim || 768 });
 }
 
 export async function ragIndexCommand({ config, logger, flags = {} }) {
@@ -110,9 +111,11 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // deterministic recovery signal. The CLI was emitting just `[]`, which
     // is indistinguishable from "query returned zero hits over a populated
     // store" and forced consumers to parse stderr.
-    if (countChunks(db) === 0) {
-      logger.warn("[rag] No chunks indexed yet. Run 'kj rag index' first.");
-      if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope })}\n`);
+    // KJC-TSK-0882: cuenta lo de ESTE proyecto; chunks ajenos no son respuesta.
+    if (countChunks(db) === 0 || (project && countProjectChunks(db, project) === 0)) {
+      const remedy = emptyIndexRemedy({ slug: project, legacyPath: join(getKarajanHome(), "rag.db"), dim: config?.rag?.embedder?.dim || 768 });
+      logger.warn(`[rag] this project's index holds no chunks of ${project || "any project"}: this is not an answer, run ${remedy}`);
+      if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope, remedy })}\n`);
       return [];
     }
     const mode = flags.mode || "hybrid";

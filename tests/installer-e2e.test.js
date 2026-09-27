@@ -1,4 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * E2E integration test: kj init → produces valid config → kj doctor reports all OK.
@@ -404,8 +407,17 @@ describe("installer E2E: init → doctor", () => {
     const { loadFirstExisting } = await import("../src/roles/base-role.js");
     loadFirstExisting.mockResolvedValue("# Rules");
 
+    // KJC-TSK-0882: el indice es del proyecto; sin esto el test juzgaria el
+    // indice real del repo en esta maquina. Una base vacia = "aun sin indice".
+    const prevDb = process.env.KJ_RAG_DB;
+    process.env.KJ_RAG_DB = join(mkdtempSync(join(tmpdir(), "kj-e2e-rag-")), "rag.db");
     const { runChecks } = await import("../src/commands/doctor.js");
-    const checks = await runChecks({ config });
+    let checks;
+    try {
+      checks = await runChecks({ config });
+    } finally {
+      if (prevDb === undefined) delete process.env.KJ_RAG_DB; else process.env.KJ_RAG_DB = prevDb;
+    }
 
     const allOk = checks.every((c) => c.ok);
     expect(allOk).toBe(true);
