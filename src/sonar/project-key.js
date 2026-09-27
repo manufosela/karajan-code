@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+
 import { runCommand } from "../utils/process.js";
 
 function slug(value) {
@@ -55,12 +58,42 @@ function canonicalRepoId(remoteUrl) {
   return `${host}/${segments.join("/")}`;
 }
 
+/**
+ * KJC-BUG-0226 (issue #1838) — la clave que el REPO declara en su
+ * sonar-project.properties es la que el servidor conoce, porque es con la que
+ * el scanner sube el analisis. Sin leerla aqui, kj escaneaba un proyecto y
+ * preguntaba por otro (una clave derivada del remote), y el audit acababa
+ * listando issues de repos ajenos del mismo SonarQube.
+ *
+ * Sincrono y tolerante: sin fichero, ilegible o sin la clave, se sigue por
+ * donde se iba.
+ */
+function declaredProjectKey(cwd) {
+  try {
+    const raw = fs.readFileSync(path.join(cwd, "sonar-project.properties"), "utf8");
+    for (const line of raw.split("\n")) {
+      const m = /^\s*sonar\.projectKey\s*=\s*(.+?)\s*$/.exec(line);
+      if (m) return m[1];
+    }
+  } catch { /* sin properties legible: se deriva como siempre */ }
+  return null;
+}
+
 export async function resolveSonarProjectKey(config, options = {}) {
   const explicit = String(
     options.projectKey || process.env.KJ_SONAR_PROJECT_KEY || config?.sonarqube?.project_key || ""
   ).trim();
   if (explicit) {
     return normalizeProjectKey(explicit);
+  }
+
+  // KJC-BUG-0226: lo que el repo declara manda sobre lo que kj derivaria, que
+  // es justo lo que el scanner ya hace al subir el analisis. Solo con un `cwd`
+  // explicito: quien no dice que directorio le importa se queda como estaba, y
+  // asi esto no cambia el comportamiento de nadie mas que el de la consulta.
+  if (options.cwd) {
+    const declared = declaredProjectKey(options.cwd);
+    if (declared) return normalizeProjectKey(declared);
   }
 
   const remote = await runCommand("git", ["config", "--get", "remote.origin.url"]);
