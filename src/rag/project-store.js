@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 import { openVecStore } from "./vec-store.js";
+import { getKarajanHome } from "../utils/paths.js";
 
 function projectRoot(dir) {
   try {
@@ -33,6 +34,15 @@ export function projectDbPath(projectDir = process.cwd()) {
 }
 
 /** Abre el indice del proyecto. El caller es dueno del close(). */
+/** KJC-TSK-0883: the machine canon has its own store, never a project's. */
+export function libraryDbPath() {
+  return process.env.KJ_LIBRARY_DB || path.join(getKarajanHome(), "library.db");
+}
+
+export function openLibraryStore({ dim = 768 } = {}) {
+  return openVecStore({ dim, path: libraryDbPath() });
+}
+
 export function openProjectStore({ projectDir = process.cwd(), dim = 768 } = {}) {
   return openVecStore({ dim, path: projectDbPath(projectDir) });
 }
