@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.35.0 — where kj cannot know, you say so (current)
+### v4.35.1 — a gate that names what it compares against (current)
+
+Nine fixes in a day, most reported by a sibling project on the same machine. The quality gate runs inside a lane again: the scanner's SCM plugin could not open a linked worktree, so every change made the way the method prescribes went through with no gate and no red to say so. The harness integrity warning now names the kj it is judging, its version and whether it is a linked development tree, because a session had built a ritual of running `kj harden` twenty times a day without ever learning why. And the JSON rewrite guard stops policing files outside the repository, after eight review rounds each found a real way through a pattern-based reading of shell text.
+
+### v4.35.0 — where kj cannot know, you say so
 
 Fourteen issues had been sitting open, some of them for months, and they all said the same thing: a gate that cries wolf teaches you to disable gates. A PHP cache prefix called `EXPERIMENTS_HANDOFF_TOKENS_NAMESPACE` was a critical hardcoded-key finding, because two credential rules accuse by the NAME of the identifier and never look at the value. A `.astro` file can never be in the RAG index, yet rag-first demanded the RAG had answered about that exact file. A tracked `.gitignore` was rewritten without asking. A provider CLI rejected the flag combination kj hands it, and those flags were a constant in the source. Every one had the same workaround: an escape variable that switches the whole protection off, then gets pasted on every command until nobody remembers what it silenced. So now, where kj cannot know, **you declare it** in your versioned config, where it gets reviewed like any other line: `guards.output.non_secret_assignments`, `agents.<name>.task_args`, `board.unverifiable`. And where kj can know, it computes the fact: `kj rag covers <file>` answers whether the index can hold that file at all, with a different remedy for each of four reasons.
 

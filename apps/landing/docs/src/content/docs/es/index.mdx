@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.35.0 — donde kj no puede saber, lo dices tú (actual)
+### v4.35.1 — un gate que dice contra qué compara (actual)
+
+Nueve arreglos en un día, casi todos reportados por un proyecto hermano de la misma máquina. El quality gate vuelve a correr dentro de un carril: el plugin SCM del scanner no sabía abrir un worktree enlazado, así que todo cambio hecho como el método manda pasaba sin gate y sin un rojo que lo dijera. El aviso de integridad del harness nombra ahora el kj que juzga, su versión y si es un árbol de desarrollo enlazado, porque una sesión se había montado el ritual de ejecutar `kj harden` veinte veces al día sin llegar a saber por qué. Y el guard de reescritura de JSON deja de vigilar ficheros fuera del repositorio, tras ocho rondas de review en las que cada una encontró una forma real de colar un comando.
+
+### v4.35.0 — donde kj no puede saber, lo dices tú
 
 Catorce issues llevaban abiertas, algunas meses, y todas decían lo mismo: un gate que grita en falso enseña a saltarse los gates. Un prefijo de caché de PHP llamado `EXPERIMENTS_HANDOFF_TOKENS_NAMESPACE` era un hallazgo crítico de clave en duro, porque dos reglas de credenciales acusan por el NOMBRE del identificador y no miran el valor. Un fichero `.astro` no puede estar en el índice del RAG, y aun así rag-first exigía que el RAG hubiera respondido sobre ese fichero exacto. Un `.gitignore` versionado se reescribía sin preguntar. El CLI de un provider rechazaba la combinación de flags que kj le pasa, y esos flags eran una constante del código. En todos el apaño era el mismo: una variable de escape que apaga la protección entera y acaba pegada en todos los comandos hasta que nadie recuerda qué silenció. Así que ahora, donde kj no puede saber, **lo declaras tú** en tu configuración versionada, donde se revisa como cualquier otra línea: `guards.output.non_secret_assignments`, `agents.<nombre>.task_args`, `board.unverifiable`. Y donde kj sí puede saber, computa el hecho: `kj rag covers <fichero>` responde si el índice puede contener ese fichero, con un remedio distinto para cada una de cuatro razones.
 

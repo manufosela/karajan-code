@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.35.1] - 2026-09-27
+
+Nine fixes in one day, most of them reported by a sibling project running kj on
+the same machine, and they share a diagnosis with the release before them: a
+gate that fires for reasons it does not name teaches you to make the warning
+disappear instead of reading it. The worst version of that this time was an
+integrity check: the harness gate said "does not match the installed kj" and
+stopped there, so a session built a ritual of running `kj harden` before every
+review and every commit, twenty times in a day, without ever asking why. The
+cause was in the word it left out.
+
+### Fixed
+
+- **The quality gate runs inside a lane** (KJC-BUG-0225, #1839): inside a lane from `kj worktree start`, the scanner's SCM plugin cannot open a linked worktree (`.git` is a file pointing at `.git/worktrees/<lane>`) and took the whole analysis down. The pre-gate reported "UNAVAILABLE" and the run carried on, so every change made the way the method prescribes, one lane per task, went through with no quality gate and no red to say so. Only the SCM is switched off, and only there: it feeds blame and author attribution, which a lane has no use for. The signal is the literal cause of the error and needs no process: in a linked worktree `.git` is a file, not a directory.
+- **The harness gate says what it compares against** (KJC-BUG-0222): the warning names the kj that is judging, its version, where it came from, and whether it is an installed package or a working tree linked with `npm link`, because a linked kj moves the templates under every project on the machine and the symptom is identical to tampering. The remedy matches the state too: a sealed guard that fell behind names `kj harden --commit`, the human's act, since `kj harden` leaves it untouched on purpose and printing that command for it was a closed loop.
+- **One answer to where the project root is** (KJC-BUG-0223): the session ledger looked in the current directory while the tamper check resolved the git toplevel, so from a subdirectory the gate never found the harness and blocked every time, and `kj harden` from that same place wrote a second `.karajan/harness` there, which made the next command pass and filled the tree with orphan harnesses that govern nothing. Both installers now write to the project root and say so when they redirect.
+- **What kj leaves in `.karajan/` stops being untracked forever** (KJC-BUG-0220): the harness, the decision and exception logs, the per-clone identity and the local databases sat in no man's land, neither tracked nor ignored, showing as `??` in every `git status`. They are excluded in `.git/info/exclude` now, enumerated rather than ignoring `.karajan/` wholesale, because `kj.config.yml` and the agent rule files are the team's to decide on. A test pins that no exclusion may shadow a path the contract block promises to track.
+- **What kj generates is not the team's drift** (KJC-BUG-0221): `kj harden` installs `commitlint.config.js` and `eslint.config.js`, and then `kj check` reported those same files as sources missing from the RAG index. A closed loop: the tool creating a file and complaining about it. Generated configs are exempt from required coverage, the list comes from harden's own template table, and the exemption is printed rather than silent.
+- **The audit asks about the project it scanned** (KJC-BUG-0226, #1838): the SonarQube section listed open issues from unrelated projects on the same server. The query filtered by project; the KEY was wrong: the scanner uploads under the `sonar.projectKey` the repo declares in `sonar-project.properties`, and the resolution never read that file. The query now says which directory it asks about, and reads the declared key from there. An explicit key still wins.
+- **The JSON rewrite guard stops policing outside the repo** (KJC-BUG-0227, #1841): it fired on any Bash command containing `json.dump`, even for a scratch file outside the tree, and only read its escape from the environment. Now only targets that cannot be established as external are guarded (absolute, resolved through their real path, actually outside), and the escape is honoured when it prefixes a simple command, said out loud when present but inapplicable. Eight review rounds found eight real ways through a pattern-based reading of shell text, from `VAR=1 true && cmd` to `$PWD/cfg.json` to a symlinked file; every one is now a test.
+- **The harness scorecard is opt-in, and says so** (KJC-BUG-0228, #1840): the step shipped enabled against a third-party image that no longer exists in the public registry, so every `kj audit` tried the pull, failed and skipped. kj cannot depend by default on something somebody else can delete. It is `audit.harness.enabled: true` now, with a custom image in `audit.harness.image`, and the report names both keys when it does not run.
+- **The preflight survives a cold OpenSkills detect** (KJC-BUG-0209, by @robotic-wings): `npx openskills --version` on a cold cache takes ~8s and the blanket 3s timeout killed a healthy detect. Each check can declare its own `detectTimeoutMs`, and a timeout on a degradable check now degrades to WARN like a failure does, instead of blocking the whole preflight.
+
 ## [4.35.0] - 2026-09-27
 
 Fourteen issues had been sitting open, some of them for months, and working
