@@ -1214,6 +1214,13 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
  * guard is still the right move.
  */
 export function installSentinelHooks({ projectDir = process.cwd(), logger = console, human = false, gitShowFn = null } = {}) {
+  // KJC-BUG-0223: instalado desde un subdirectorio, esto sembraba un segundo
+  // `.karajan/harness` ahi, y el gate (que mira otro sitio) pasaba a verlo. El
+  // ritual quedaba "arreglado" y el arbol se llenaba de arneses huerfanos que
+  // no gobiernan nada. El harness es del proyecto: va a su raiz.
+  const root = resolveSentinelRoot(projectDir);
+  if (root !== projectDir) logger?.info?.(`kj harden: el harness es del proyecto, se instala en su raíz (${root})`);
+  projectDir = root;
   const sealed = human ? new Map() : sealedByPath(projectDir, gitShowFn);
   const deferred = [];
   const keepsItsSeal = (name) => {
