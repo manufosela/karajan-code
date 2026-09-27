@@ -13,7 +13,7 @@ import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { countProjectChunks, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
-import { openProjectStore, projectDbPath } from "../rag/project-store.js";
+import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
 
 // KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
 function openDb(config) {
@@ -55,8 +55,11 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
     // KJC-TSK-0697 — the library corpus refreshes on every index run.
     // Best-effort and cheap: a handful of cards, content-hash dedup.
+    // KJC-TSK-0883: el canon de la maquina a su base; las fichas del proyecto, a la suya.
     try {
-      await indexLibrary({ db, embedder, logger, projectDir });
+      const lib = openLibraryStore({ dim: config?.rag?.embedder?.dim || 768 });
+      try { await indexLibrary({ db: lib, embedder, logger, scope: "machine" }); } finally { lib.close(); }
+      await indexLibrary({ db, embedder, logger, projectDir, scope: "project", project: slug });
     } catch (err) {
       logger.warn?.(`[rag] library index failed: ${err.message}`);
     }
@@ -91,7 +94,8 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
   // (--no-rag-update / config.rag.autoUpdate); failures degrade to a warn
   // inside maybeAutoUpdate and the query proceeds with the current index.
   await maybeAutoUpdate({ projectDir: config?.projectDir || process.cwd(), config, logger, flags });
-  const db = openDb(config);
+  // KJC-TSK-0883: --library abre la base del canon, no la del proyecto.
+  const db = flags.library ? openLibraryStore({ dim: config?.rag?.embedder?.dim || 768 }) : openDb(config);
   try {
     const topK = Math.max(1, Number(flags.topK) || 5);
     const scope = flags.scope || "all";
@@ -113,8 +117,9 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // store" and forced consumers to parse stderr.
     // KJC-TSK-0882: cuenta lo de ESTE proyecto; chunks ajenos no son respuesta.
     if (countChunks(db) === 0 || (project && countProjectChunks(db, project) === 0)) {
-      const remedy = emptyIndexRemedy({ slug: project, legacyPath: join(getKarajanHome(), "rag.db"), dim: config?.rag?.embedder?.dim || 768 });
-      logger.warn(`[rag] this project's index holds no chunks of ${project || "any project"}: this is not an answer, run ${remedy}`);
+      // La library se rellena en cada `kj rag index`; migrar la llevaria al proyecto.
+      const remedy = library ? "kj rag index" : emptyIndexRemedy({ slug: project, legacyPath: join(getKarajanHome(), "rag.db"), dim: config?.rag?.embedder?.dim || 768 });
+      logger.warn(`[rag] ${library ? "the library index" : "this project's index"} holds no chunks of ${project || "any project"}: this is not an answer, run ${remedy}`);
       if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope, remedy })}\n`);
       return [];
     }
