@@ -386,8 +386,8 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       console.log(`⚠ rag [${RAG_RULE_ID}]: the pipeline verdict carries no session ledger — the headless pipeline does not consult the RAG yet; sealed as a warn`);
       if (!warnIds.includes(RAG_RULE_ID)) warnIds.push(RAG_RULE_ID);
     } else if (res.ok) {
-      const { harness, verified, mismatched } = readRagLedger(projectDir);
-      const rreq = checkRagVerdict({ config, stagedFiles: changedFiles, rag: res.verdict.rag, harness, verified, mismatched, standingExceptions: std.standing });
+      const { harness, verified, mismatched, drift } = readRagLedger(projectDir);
+      const rreq = checkRagVerdict({ config, stagedFiles: changedFiles, rag: res.verdict.rag, harness, verified, mismatched, drift, standingExceptions: std.standing });
       if (!rreq.ok) res = { ok: false, verdict: res.verdict, reason: rreq.reason };
       else if (rreq.mode === "granted" && rreq.grant) console.log(formatRagGrant(rreq.grant));
     }

@@ -76,7 +76,8 @@ describe("harness states", () => {
     // An empty dir, an edited hook or one older than the ledger vouches for nothing.
     const r = checkRagRequirement({ stagedFiles: staged, ledger: { harness: true, verified: false, mismatched: ["posttooluse.mjs"], available: true, hits: staged, queries: [{}] } });
     expect(r.ok).toBe(false);
-    expect(r.reason).toMatch(/does not match the installed kj \(posttooluse\.mjs\)/);
+    // KJC-BUG-0222: el aviso dice CONTRA QUE compara, no solo que no coincide.
+    expect(r.reason).toMatch(/does not match the templates of kj \d+\.\d+\.\d+.*\(posttooluse\.mjs\)/);
     expect(checkRagRequirement({ stagedFiles: staged, ledger: { harness: true, verified: false, mismatched: [], available: true, hits: staged, queries: [{}] } }).reason).toMatch(/scripts missing/);
   });
 });
@@ -100,7 +101,7 @@ describe("checkRagVerdict (the --check side)", () => {
     // A harness that does not match the installed kj vouches for nothing, whatever the block says.
     const unverified = checkRagVerdict({ stagedFiles: staged, rag: { mode: "pass", covered: staged }, verified: false, mismatched: ["posttooluse.mjs"] });
     expect(unverified.ok).toBe(false);
-    expect(unverified.reason).toMatch(/does not match the installed kj \(posttooluse\.mjs\)/);
+    expect(unverified.reason).toMatch(/does not match the templates of kj \d+\.\d+\.\d+.*\(posttooluse\.mjs\)/);
   });
 });
 

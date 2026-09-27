@@ -12,6 +12,7 @@
  * concepts that are not in the diff. That list travels to the reviewer,
  * because the bugs of 2026-09-16 were exactly the twin nobody touched.
  */
+import { kjProvenance } from "./kj-provenance.js";
 import { sourceFilesOf } from "./tests-with-code.js";
 
 export const RAG_RULE_ID = "method.rag.code";
@@ -30,6 +31,17 @@ function liveGrant(standingExceptions, now) {
  * @param {{available: boolean, reason?: string, queries: object[], hits: string[]}} [args.ledger]
  * @returns {{ok: boolean, mode: "docs-only"|"pass"|"granted"|"block", reason?: string, grant?: object, sources?: string[], queries?: number, covered?: string[], uncovered?: string[], twinsUntouched?: string[]}}
  */
+/**
+ * KJC-BUG-0222 — el comando que resuelve ESTE estado. `kj harden` repone lo que
+ * nadie sello; un guard sellado que se ha quedado atras lo deja en paz a
+ * proposito (KJC-BUG-0193), y avanzarlo es acto humano.
+ */
+function harnessRemedy(drift = []) {
+  return drift.length > 0
+    ? `the human runs \`kj harden\` to restore them, and \`kj harden --commit\` for the sealed ones (${drift.join(", ")}), which \`kj harden\` leaves untouched on purpose`
+    : "the human runs `kj harden` to regenerate it";
+}
+
 export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = [], ledger, standingExceptions = [], now = new Date(), env = {} }) {
   const { sources } = sourceFilesOf(config, stagedFiles);
   if (sources.length === 0) return { ok: true, mode: "docs-only" };
@@ -55,7 +67,9 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
   // than the ledger) cannot vouch for anything: fail closed, like the tamper
   // check does, until the human regenerates it.
   if (ledger?.harness === true && ledger?.verified === false) {
-    return { ok: false, mode: "block", sources, reason: `${head} — the Sentinel harness does not match the installed kj (${(ledger.mismatched || []).join(", ") || "scripts missing"}): the human runs \`kj harden\` to regenerate it before code is reviewed. ${GRANT_HINT}` };
+    // KJC-BUG-0222: decir CONTRA QUE no coincide. Sin ese dato el aviso se lee
+    // como "kj se desincroniza solo" y se automatiza el sintoma.
+    return { ok: false, mode: "block", sources, reason: `${head} — the installed Sentinel harness does not match the templates of ${kjProvenance().label} (${(ledger.mismatched || []).join(", ") || "scripts missing"}): ${harnessRemedy(ledger.drift)} before code is reviewed. ${GRANT_HINT}` };
   }
   if (!ledger?.available) {
     return { ok: false, mode: "block", sources, reason: `${head} — ${ledger?.reason || "no session ledger"}: consult the RAG about the change (kj_rag_query / kj rag query) and run \`kj review --staged\` again. ${GRANT_HINT}` };
@@ -82,7 +96,7 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
  * block — the diff hash pins the file set, so a source missing from
  * `covered` was never answered about, whatever the block claims.
  */
-export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = true, verified = true, mismatched = [], standingExceptions = [], now = new Date() }) {
+export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = true, verified = true, mismatched = [], drift = [], standingExceptions = [], now = new Date() }) {
   const { sources } = sourceFilesOf(config, stagedFiles);
   if (sources.length === 0) return { ok: true, mode: "docs-only" };
   const grant = liveGrant(standingExceptions, now);
@@ -94,7 +108,7 @@ export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = 
     return { ok: false, mode: "block", sources, reason: `${head} — no Sentinel harness in this tree, so no session ledger can exist: install it with \`kj harden\`. ${GRANT_HINT}` };
   }
   if (!verified) {
-    return { ok: false, mode: "block", sources, reason: `${head} — the Sentinel harness does not match the installed kj (${mismatched.join(", ") || "scripts missing"}): the human runs \`kj harden\` to regenerate it. ${GRANT_HINT}` };
+    return { ok: false, mode: "block", sources, reason: `${head} — the installed Sentinel harness does not match the templates of ${kjProvenance().label} (${mismatched.join(", ") || "scripts missing"}): ${harnessRemedy(drift)}. ${GRANT_HINT}` };
   }
   if (!rag) {
     return { ok: false, mode: "block", sources, reason: `${head} — the verdict carries no rag block; run \`kj review --staged\` again. ${GRANT_HINT}` };
