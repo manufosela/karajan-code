@@ -10,6 +10,24 @@ import { existsSync } from "node:fs";
 
 import { openVecStore, insertChunk, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 
+export const countProjectChunks = (db, slug) => db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE project_slug = ?").get(slug).n;
+
+/**
+ * KJC-TSK-0882: que decir cuando el indice del proyecto no tiene nada suyo.
+ * Si la base global tiene sus chunks, migrar (segundos); si no, indexar.
+ */
+export function emptyIndexRemedy({ slug, legacyPath, dim = 768 }) {
+  if (slug && existsSync(legacyPath)) {
+    const legacy = openVecStore({ dim, path: legacyPath });
+    try {
+      if (countProjectChunks(legacy, slug) > 0) return "kj rag migrate";
+    } finally {
+      legacy.close();
+    }
+  }
+  return "kj rag index --with-sources";
+}
+
 /**
  * @returns {{state: "migrated"|"already"|"nothing", migrated: number, reason: string}}
  */
@@ -22,7 +40,7 @@ export function migrateProjectIndex({ slug, legacyPath, targetPath, dim = 768 })
     // Se cuentan los de ESTE proyecto, no el total: un rag.db viejo en
     // .karajan/ puede traer chunks de otro (visto en esta maquina: 42 de otro
     // repo), y contar el total diria "ya migrado" sin haber copiado nada.
-    const mine = target.prepare("SELECT COUNT(*) AS n FROM chunks WHERE project_slug = ?").get(slug).n;
+    const mine = countProjectChunks(target, slug);
     if (mine > 0) {
       return { state: "already", migrated: 0, reason: `the project index already holds ${mine} chunks of ${slug}: nothing to migrate` };
     }
@@ -42,7 +60,7 @@ export function migrateProjectIndex({ slug, legacyPath, targetPath, dim = 768 })
       copy();
       const stamp = getLastIndexedCommit(legacy, slug);
       if (stamp) setLastIndexedCommit(target, slug, stamp);
-      const migrated = target.prepare("SELECT COUNT(*) AS n FROM chunks WHERE project_slug = ?").get(slug).n;
+      const migrated = countProjectChunks(target, slug);
       const parts = [`${migrated} chunks of ${slug} copied with their embeddings`];
       if (stamp) parts.push(`indexed at ${stamp.slice(0, 9)}`);
       return { state: "migrated", migrated, reason: parts.join(", ") };

@@ -12,7 +12,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { parseDocument } from "yaml";
 import { getProjectConfigPath } from "../config/loader.js";
-import { dbPath } from "./vec-store.js";
+import { projectDbPath } from "./project-store.js";
 
 const ONNX_EMBEDDER = { provider: "onnx", dim: 384 };
 
@@ -24,8 +24,10 @@ const ONNX_EMBEDDER = { provider: "onnx", dim: 384 };
  * that already HAS chunks is never touched — switching dims there would
  * destroy other projects' indexes.
  */
-export function resetEmptyStore() {
-  const storePath = dbPath();
+// KJC-TSK-0882 (ADR 0011): el store es DEL PROYECTO, asi que el fallback a ONNX
+// decide mirando el indice de este proyecto y nunca el de otro.
+export function resetEmptyStore(projectDir = process.cwd()) {
+  const storePath = projectDbPath(projectDir);
   if (!existsSync(storePath)) return true;
   // Read-only, schema-agnostic inspection: no DDL, no vec extension, no
   // dimension assumptions — the store is only ever OPENED to be counted.

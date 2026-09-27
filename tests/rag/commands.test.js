@@ -77,7 +77,26 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
     const { ragQueryCommand } = await import("../../src/commands/rag.js");
     const hits = await ragQueryCommand({ text: "anything", config: { rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: {} });
     expect(hits).toEqual([]);
-    expect(noopLogger.warn).toHaveBeenCalledWith(expect.stringMatching(/No chunks indexed/));
+    expect(noopLogger.warn).toHaveBeenCalledWith(expect.stringMatching(/holds no chunks of .*kj rag index --with-sources/));
+  });
+
+  // KJC-TSK-0882 (feedback de grebla): "0 chunks de este proyecto" y "nada se
+  // parece" se veian igual desde fuera. Chunks de OTRO proyecto no cuentan, y
+  // si la base global tiene los de este, el remedio es migrar, no reindexar.
+  it("ragQueryCommand: chunks of another project do not make the index non-empty, and the remedy is migrate when the global holds ours", async () => {
+    const { ragQueryCommand } = await import("../../src/commands/rag.js");
+    const { openVecStore, insertChunk, projectSlug } = await import("../../src/rag/vec-store.js");
+    const projectDir = join(root, "myp");
+    mkdirSync(projectDir);
+    const v = new Float32Array(8); v[0] = 1;
+    for (const [path, project] of [[process.env.KJ_RAG_DB, "otro"], [join(process.env.KARAJAN_HOME, "rag.db"), projectSlug(projectDir)]]) {
+      const db = openVecStore({ dim: 8, path });
+      insertChunk(db, { source: "/x.js", kind: "code", text: "t", embedding: v, project });
+      db.close();
+    }
+    const hits = await ragQueryCommand({ text: "t", config: { projectDir, rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: {} });
+    expect(hits).toEqual([]);
+    expect(noopLogger.warn).toHaveBeenCalledWith(expect.stringMatching(/holds no chunks of myp.*kj rag migrate/));
   });
 
   // KJC-BUG-0061 follow-up: CLI `--json` on empty store must emit the
@@ -96,7 +115,7 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
       process.stdout.write = origWrite;
     }
     const out = JSON.parse(chunks.join("").trim());
-    expect(out).toEqual({ hits: [], empty: true, topK: 7, scope: "plans" });
+    expect(out).toEqual({ hits: [], empty: true, topK: 7, scope: "plans", remedy: "kj rag index --with-sources" });
   });
 
   it("ragQueryCommand returns hits after indexing", async () => {

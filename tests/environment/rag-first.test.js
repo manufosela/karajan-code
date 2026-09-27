@@ -13,6 +13,12 @@ vi.mock("../../src/rag/vec-store.js", () => ({
   // at a path that exists so tests still exercise getLastIndexedCommit.
   dbPath: vi.fn(() => process.cwd()),
 }));
+// KJC-TSK-0882 (ADR 0011): el indice es del proyecto; la sonda de existencia
+// mira projectDbPath. Se apunta a una ruta que existe, igual que hacia dbPath.
+vi.mock("../../src/rag/project-store.js", () => ({
+  projectDbPath: vi.fn(() => process.cwd()),
+  openProjectStore: vi.fn(() => ({ close: vi.fn() })),
+}));
 vi.mock("../../src/commands/rag.js", () => ({
   ragIndexCommand: vi.fn().mockResolvedValue({ ok: true }),
 }));
@@ -111,8 +117,8 @@ describe("env install is RAG-first", () => {
   // KJC-BUG-0128: probing for an index must never CREATE the store — a vec
   // table born at 768 breaks the 384 ONNX fallback afterwards.
   it("the index probe does not open (create) the store when no db file exists", async () => {
-    const { dbPath, openVecStore } = await import("../../src/rag/vec-store.js");
-    dbPath.mockReturnValueOnce("/definitely/not/a/real/path.db");
+    const { projectDbPath, openProjectStore: openVecStore } = await import("../../src/rag/project-store.js");
+    projectDbPath.mockReturnValueOnce("/definitely/not/a/real/path.db");
     getLastIndexedCommit.mockReturnValue("abc123"); // would say "present" if consulted
     ragIndexCommand.mockResolvedValueOnce({ indexed: 10, files: 10, failed: 0 });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
