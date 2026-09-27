@@ -17,7 +17,10 @@ describe("audit/harness-scorecard — KJC-TSK-0470", () => {
   beforeEach(() => runCommand.mockReset());
 
   it("normalizeHarnessConfig fills defaults + honours overrides", () => {
-    expect(normalizeHarnessConfig({})).toMatchObject({ enabled: true, image: IMG, pullTimeoutMs: 300000, assessTimeoutMs: 180000 });
+    // KJC-BUG-0228: el paso es OPT-IN — su imagen por defecto es de un tercero
+    // y desaparecio del registro publico, asi que activarlo solo es del usuario.
+    expect(normalizeHarnessConfig({})).toMatchObject({ enabled: false, image: IMG, pullTimeoutMs: 300000, assessTimeoutMs: 180000 });
+    expect(normalizeHarnessConfig({ enabled: true })).toMatchObject({ enabled: true, image: IMG });
     expect(normalizeHarnessConfig({ enabled: false, image: "x:y", pull_timeout_ms: 1000 }))
       .toMatchObject({ enabled: false, image: "x:y", pullTimeoutMs: 1000 });
   });
