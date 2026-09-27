@@ -59,7 +59,11 @@
  * @property {DegradableSpec} [degradable]       - KJC-BUG-0049: si está definido y el check falla, en lugar de abortar
  *                                                  el preflight, se desactivan los flags listados en `disables` y se emite
  *                                                  WARN con `warn`. Útil para features opcionales (auto_pr, auto_push,
- *                                                  sonar advisory, etc.) que no son blockers absolutos.
+ *                                                  sonar advisory, etc.) que no son blockers absolutos. También aplica
+ *                                                  cuando el detect agota su timeout (timeout → WARN, no TIMEOUT).
+ * @property {number} [detectTimeoutMs]          - per-check detect timeout override. Use for checks that spawn slow
+ *                                                  tools (e.g. `npx <pkg>` cold start) where the pipeline-wide
+ *                                                  timeoutMs would kill an otherwise healthy detect.
  */
 
 /**

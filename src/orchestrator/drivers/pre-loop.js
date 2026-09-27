@@ -322,7 +322,7 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
   // Hard fail if blocking checks failed (SonarQube enabled but not available)
   if (!preflightResult.ok) {
     const errorLines = (preflightResult.errors || [])
-      .map(e => `  - ${e.message}\n    Fix: ${e.fix}`)
+      .map(e => `  - ${e.message}${e.fix ? `\n    Fix: ${e.fix}` : ""}`)
       .join("\n");
     throw new Error(
       `Preflight FAILED — environment changed during session. Fix the issues and retry:\n${errorLines}`

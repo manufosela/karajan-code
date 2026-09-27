@@ -138,6 +138,47 @@ describe("checks/runner", () => {
       expect(report.checks[0].status).toBe(STATUS.FAIL);
       expect(report.summary.fail).toBe(1);
     });
+
+    it("degrades TIMEOUT → WARN and disables feature flag when check is degradable", async () => {
+      const c = makeCheck({
+        detect: () => new Promise(() => {}),
+        degradable: {
+          disables: ["skills.enabled"],
+          warn: "skill auto-install disabled for this run",
+        },
+      });
+      const report = await runChecks([c], { config: {} }, { timeoutMs: 25 });
+      expect(report.checks[0].status).toBe(STATUS.WARN);
+      expect(report.checks[0].detail).toContain("Timeout after 25ms");
+      expect(report.checks[0].detail).toContain("skill auto-install disabled for this run");
+      expect(report.overrides.skills.enabled).toBe(false);
+      expect(report.summary.timeout).toBe(0);
+      expect(report.summary.warn).toBe(1);
+    });
+  });
+
+  describe("per-check detect timeout (detectTimeoutMs)", () => {
+    it("honours detectTimeoutMs over the pipeline-wide timeoutMs", async () => {
+      const c = makeCheck({
+        detectTimeoutMs: 200,
+        detect: async () => {
+          await new Promise((r) => setTimeout(r, 60));
+          return { ok: true, severity: "info", detail: "slow but fine" };
+        },
+      });
+      const report = await runChecks([c], { config: {} }, { timeoutMs: 25 });
+      expect(report.checks[0].status).toBe(STATUS.OK);
+    });
+
+    it("still times out when detect exceeds its own detectTimeoutMs", async () => {
+      const c = makeCheck({
+        detectTimeoutMs: 25,
+        detect: () => new Promise(() => {}),
+      });
+      const report = await runChecks([c], { config: {} }, { timeoutMs: 60000 });
+      expect(report.checks[0].status).toBe(STATUS.TIMEOUT);
+      expect(report.checks[0].detail).toBe("Timeout after 25ms");
+    });
   });
 
   describe("remediate phase", () => {

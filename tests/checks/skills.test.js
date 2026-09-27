@@ -56,4 +56,15 @@ describe("checks/skills", () => {
     expect(check.applies({ skills: { enabled: false } })).toBe(false);
     expect(check.applies({ skills: { enabled: true } })).toBe(true);
   });
+
+  it("declares a detect timeout above the pipeline blanket timeout (npx cold start)", () => {
+    const check = mod.createOpenSkillsCheck();
+    expect(check.detectTimeoutMs).toBeGreaterThan(3000);
+  });
+
+  it("is degradable: a detect timeout must not block the preflight", () => {
+    const check = mod.createOpenSkillsCheck();
+    expect(check.degradable).toBeDefined();
+    expect(check.degradable.disables).toContain("skills.enabled");
+  });
 });

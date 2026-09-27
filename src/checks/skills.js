@@ -23,6 +23,16 @@ export function createOpenSkillsCheck() {
     strategy: STRATEGY.PROMPT,
     applies: skillsEnabled,
     describe: "Install OpenSkills globally: npm install -g openskills",
+    // Detection shells out to `npx openskills --version`; a cold npx cache
+    // downloads the package first (~8s observed), well above the pipeline's
+    // 3s blanket timeout. Must exceed openskills-client's internal 15s timeout.
+    detectTimeoutMs: 20_000,
+    // Optional feature: even if detection times out, degrade instead of
+    // blocking the whole preflight (skill injection is skipped for the run).
+    degradable: {
+      disables: ["skills.enabled"],
+      warn: "skill auto-install disabled for this run",
+    },
     async detect() {
       const available = await isOpenSkillsAvailable();
       if (available) {
