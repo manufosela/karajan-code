@@ -2,8 +2,9 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import net from "node:net";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { getKarajanHome } from "../utils/paths.js";
+import { projectSlug as slugOfDir } from "../plan/plan-store.js";
 import { getPortOccupant } from "../utils/port-occupant.js";
 
 const BOARD_DIR = path.resolve(import.meta.dirname, "../../packages/hu-board");
@@ -76,18 +77,29 @@ async function findAvailablePort(desiredPort, maxTries = 10) {
 }
 
 /**
- * Build the board URL. When `projectSlug` is provided, the URL points at
- * the per-project view via the SPA hash route (`#board/<slug>`) so the
- * caller's project shows up pre-filtered instead of "All projects". The
- * frontend router is hash-based (see public/utils/init-listeners.js); a
- * real `/p/<slug>` path is not a route and silently falls back to the
- * global dashboard. KJC-BUG-0093.
+ * Build the board URL. KJC-TSK-0884 (ADR 0011, board scoped): with a project,
+ * the scoped view `/p/<slug>`, one project with the multi-project affordances
+ * hidden (app.js scoped-mode, served by the SPA fallback; checked in a browser).
+ * It replaces KJC-BUG-0093's `#board/<slug>`, which kept the global dashboard.
  * @param {number} port
  * @param {string|null} [projectSlug]
  * @returns {string}
  */
 export function buildBoardUrl(port, projectSlug) {
-  return projectSlug ? boardUrl(port, `/#board/${projectSlug}`) : boardUrl(port);
+  return projectSlug ? boardUrl(port, `/p/${encodeURIComponent(projectSlug)}`) : boardUrl(port);
+}
+
+/**
+ * KJC-TSK-0884: the board slug of a project is its PARENT repo's, even from a
+ * `kj worktree` lane, or the lane opens an empty view.
+ */
+export function boardSlug(projectDir) {
+  let dir = projectDir;
+  try {
+    const common = execFileSync("git", ["-C", projectDir, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    if (path.basename(common) === ".git") dir = path.dirname(common);
+  } catch { /* not a git repo: the dir is the project */ }
+  return slugOfDir(dir);
 }
 
 /**
