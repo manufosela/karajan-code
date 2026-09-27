@@ -11,7 +11,7 @@ import { identityCommand } from "../commands/identity.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
 import { stewardSweepCommand } from "../commands/steward.js";
-import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand, ragCoversCommand } from "../commands/rag.js";
+import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand, ragCoversCommand, ragMigrateCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
@@ -534,6 +534,15 @@ export function registerMeta(program, { pkgVersion }) {
     });
   // KJC-BUG-0216: el gate rag-first no puede pedir lo imposible. Esto responde
   // si el RAG PUEDE hablar de un fichero, y si no, por que.
+  // KJC-TSK-0888 (ADR 0011): el paso al indice por proyecto, sin reindexar.
+  rag.command("migrate")
+    .description("Copy this project's chunks from the machine-wide index into its own .karajan/rag.db, embeddings included (no re-embedding); the global index is left untouched")
+    .option("--json", "Emit the result as JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rag-migrate", flags, async ({ config }) => {
+        await ragMigrateCommand({ config, flags });
+      });
+    });
   rag.command("covers <file>")
     .description("Whether the RAG can answer about a file: exit 0 when indexed, 1 with the reason it cannot (no adapter, skipped path, empty or stale index)")
     .option("--json", "Emit the state as JSON")

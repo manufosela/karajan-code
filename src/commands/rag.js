@@ -1,3 +1,4 @@
+import { join } from "node:path";
 // KJC-PCS-0049 Step 6 — `kj rag` command group. Two subcommands:
 //   kj rag index [--project <slug>] [--with-sources]
 //   kj rag query <text>   [--scope plans|code|onboarding|all] [--top-k N] [--json]
@@ -11,6 +12,8 @@ import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
+import { migrateProjectIndex } from "../rag/migrate.js";
+import { projectDbPath } from "../rag/project-store.js";
 
 function openDb(config) {
   return openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
@@ -191,4 +194,22 @@ export async function ragCoversCommand({ file, config, flags = {} }) {
   } finally {
     db.close();
   }
+}
+
+/**
+ * KJC-TSK-0888 (RAG-P1a, ADR 0011) — `kj rag migrate`: copia los chunks de este
+ * proyecto desde la base global a su propio indice, con sus embeddings, sin
+ * volver a embeber. La base global no se toca.
+ */
+export async function ragMigrateCommand({ config, flags = {} }) {
+  const projectDir = config?.projectDir || process.cwd();
+  const res = migrateProjectIndex({
+    slug: projectSlug(projectDir),
+    legacyPath: join(getKarajanHome(), "rag.db"),
+    targetPath: projectDbPath(projectDir),
+    dim: config?.rag?.embedder?.dim || 768,
+  });
+  if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
+  else process.stdout.write(`rag migrate: ${res.state} — ${res.reason}\n`);
+  return res;
 }
