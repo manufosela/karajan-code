@@ -40,9 +40,16 @@ export function hintForReason(reason, image) {
   }
 }
 
+/**
+ * KJC-BUG-0228 (issue #1840) — OPT-IN. La imagen por defecto es de un tercero y
+ * dejo de existir en el registro publico, asi que el paso venia activo, fallaba
+ * con "pull access denied" y se saltaba en cada `kj audit`. kj no puede depender
+ * por defecto de algo que otro puede borrar: quien quiera el scorecard lo pide,
+ * y quien tenga su propia imagen la declara en `audit.harness.image`.
+ */
 export function normalizeHarnessConfig(h = {}) {
   return {
-    enabled: h.enabled !== false,
+    enabled: h?.enabled === true,
     image: h.image || D.image,
     pullTimeoutMs: pos(h.pull_timeout_ms, D.pullTimeoutMs),
     assessTimeoutMs: pos(h.assess_timeout_ms, D.assessTimeoutMs),

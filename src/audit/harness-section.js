@@ -20,7 +20,12 @@ const ts = () => new Date().toISOString().replaceAll(/[:.]/g, "-");
 
 export async function runHarnessSection({ projectDir, harnessConfig = null, runAssess = runHarnessAssess } = {}) {
   const cfg = normalizeHarnessConfig(harnessConfig || {});
-  if (!cfg.enabled) return { ok: true, skipped: true, reason: "disabled" };
+  // KJC-BUG-0228: desactivado por defecto, y DICHO. Un paso que desaparece en
+  // silencio del informe se lee como un paso aprobado.
+  if (!cfg.enabled) {
+    const asked = harnessConfig?.enabled === false;
+    return { ok: true, skipped: true, reason: asked ? "disabled" : "opt-in" };
+  }
   const res = await runAssess(projectDir, cfg);
   if (!res.ok) return { ok: false, error: res.error, reason: res.reason, hint: res.hint, image: cfg.image };
   const outDir = path.join(projectDir, ".karajan", "audit-runs", ts());
@@ -38,7 +43,13 @@ export async function runHarnessSection({ projectDir, harnessConfig = null, runA
 }
 
 export function formatHarnessSection(summary) {
-  if (!summary || summary.skipped) return "";
+  if (!summary) return "";
+  // KJC-BUG-0228: cuando no corre porque nadie lo pidio, se dice como pedirlo.
+  // Callarlo dejaba un informe que parecia completo sin serlo.
+  if (summary.reason === "opt-in") {
+    return "## Harness Scorecard\n\n_not run: it is opt-in (`audit.harness.enabled: true`), and it needs a scorecard image you can pull — declare yours in `audit.harness.image`._\n";
+  }
+  if (summary.skipped) return "";
   if (!summary.ok) {
     const reason = summary.reason ? ` (${summary.reason})` : "";
     const hint = summary.hint ? `\n\n${summary.hint}\n` : "";
