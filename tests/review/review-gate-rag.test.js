@@ -78,7 +78,8 @@ describe("review gate × rag requirement", () => {
     fs.mkdirSync(path.join(dir, ".karajan", "harness"), { recursive: true });
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true } });
     expect(r).toMatchObject({ verdict: "rejected", reviewer: "rag-first" });
-    expect(r.issues[0].description).toMatch(/does not match the installed kj/);
+    // KJC-BUG-0222: el aviso nombra las plantillas CONTRA LAS QUE compara.
+    expect(r.issues[0].description).toMatch(/does not match the templates of kj \d+\.\d+\.\d+/);
   });
 
   it("--check demands the rag block of the verdict for code, and accepts a proved one", async () => {
