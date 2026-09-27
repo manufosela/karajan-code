@@ -57,7 +57,29 @@ export async function ensureContractBlockPresent(projectDir) {
  * La ruta se pregunta a git para que funcione tambien en un worktree, donde
  * `.git` es un fichero y no un directorio.
  */
-const LOCAL_ARTIFACTS = [".reviews/", ".kj/", ".kj-ready.json"];
+const LOCAL_ARTIFACTS = [
+  ".reviews/", ".kj/", ".kj-ready.json",
+  // KJC-BUG-0220: lo que kj escribe DENTRO de .karajan/ y NO viaja. Sin esto
+  // se quedaba en tierra de nadie (ni versionado ni ignorado) y salia como `??`
+  // en cada git status del equipo. Se enumera en vez de ignorar .karajan/
+  // entero a proposito: kj.config.yml y las reglas del agente son del equipo, y
+  // esconderselas seria decidir por ellos. Los ficheros del supervisor viajan
+  // por su cauce sellado (ADR 0009) y tampoco entran aqui.
+  ".karajan/harness/",            // el arnes del anfitrion: cada maquina lo regenera
+  ".karajan/policy-decisions.jsonl",
+  ".karajan/policy-exceptions.jsonl",
+  ".karajan/identity.local.yml",  // identidad por clon (ADR 0005)
+  ".karajan/sentinel-state.json",
+  ".karajan/rag.db",
+  ".karajan/audit-history.db",
+  ".karajan/update-check.json",
+  ".karajan/karajan.env",
+  ".karajan/agent-skills/",
+  ".karajan/audits/",
+  ".karajan/reviews/",
+  ".karajan/steward/",
+  ".karajan/plans/",
+];
 
 export async function excludeLocalArtifacts(projectDir, run = runCommand) {
   let file = path.join(projectDir, ".git", "info", "exclude");
