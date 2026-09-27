@@ -8,13 +8,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 export async function watchStartCommand({ config, logger, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
-  const existing = readPidFile();
+  const existing = readPidFile(projectDir);
   if (existing && isPidAlive(existing)) { logger.info(`Watcher already running (pid ${existing}).`); return { pid: existing, started: false }; }
-  if (existing) clearPidFile();
+  if (existing) clearPidFile(projectDir);
   if (flags.foreground) {
-    writePidFile();
+    writePidFile(projectDir);
     const stop = startWatcher({ projectDir, config, logger, withSources: !!flags.withSources });
-    const shutdown = async () => { await stop(); clearPidFile(); process.exit(0); };
+    const shutdown = async () => { await stop(); clearPidFile(projectDir); process.exit(0); };
     process.on("SIGINT", shutdown).on("SIGTERM", shutdown);
     logger.info(`Watcher started in foreground (pid ${process.pid}). Ctrl+C to stop.`);
     return { pid: process.pid, started: true };
@@ -26,18 +26,21 @@ export async function watchStartCommand({ config, logger, flags = {} }) {
   return { pid: child.pid, started: true };
 }
 
-export async function watchStopCommand({ logger }) {
-  const pid = readPidFile();
+// KJC-TSK-0883: stop/status son del watcher de ESTE proyecto, resuelto como en start.
+export async function watchStopCommand({ config, logger }) {
+  const projectDir = config?.projectDir || process.cwd();
+  const pid = readPidFile(projectDir);
   if (!pid) { logger.info("No watcher running."); return { stopped: false }; }
-  if (!isPidAlive(pid)) { clearPidFile(); logger.info(`Stale PID file removed (process ${pid} was not alive).`); return { stopped: false, stale: true }; }
+  if (!isPidAlive(pid)) { clearPidFile(projectDir); logger.info(`Stale PID file removed (process ${pid} was not alive).`); return { stopped: false, stale: true }; }
   try { process.kill(pid, "SIGTERM"); } catch (err) { logger.warn(`Could not signal pid ${pid}: ${err.message}`); }
-  clearPidFile();
+  clearPidFile(projectDir);
   logger.info(`Watcher (pid ${pid}) stopped.`);
   return { stopped: true, pid };
 }
 
-export async function watchStatusCommand({ logger }) {
-  const pid = readPidFile();
+export async function watchStatusCommand({ config, logger }) {
+  const projectDir = config?.projectDir || process.cwd();
+  const pid = readPidFile(projectDir);
   const alive = pid && isPidAlive(pid);
   if (alive) logger.info(`Watcher running (pid ${pid}).`);
   else if (pid) logger.warn(`Stale PID file (process ${pid} not alive). Run \`kj watch stop\` to clean up.`);

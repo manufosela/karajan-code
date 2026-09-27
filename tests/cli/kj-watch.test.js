@@ -34,4 +34,14 @@ describe("kj watch — KJC-TSK-0441", () => {
     expect(r.stale).toBe(true);
     expect(clearPidFile).toHaveBeenCalled();
   });
+
+  // KJC-TSK-0883: un PID por proyecto; stop/status buscan el del MISMO
+  // proyecto que start, aunque el shell este en otro directorio.
+  it("stop and status look up the configured project's PID", async () => {
+    const config = { projectDir: "/w/proj" };
+    readPidFile.mockReturnValue(null);
+    await watchStatusCommand({ config, logger });
+    await watchStopCommand({ config, logger });
+    expect(readPidFile.mock.calls.map((c) => c[0])).toEqual(["/w/proj", "/w/proj"]);
+  });
 });
