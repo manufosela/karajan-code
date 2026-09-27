@@ -202,6 +202,12 @@ export async function hardenCommand({
     logger.info?.(`  • ${g.file}: ${g.action}`);
     // KJC-BUG-0206: quitar reglas no puede leerse como "updated" y nada más.
     if (g.shrank) logger.warn?.(`    ⚠ ${g.file} queda con MENOS reglas que antes — revisa si el lenguaje detectado es el que crees (kj check lo dice)`);
+    // KJC-BUG-0232: cuales. Si una es tuya, vivia dentro del bloque: va fuera.
+    if (g.removed?.length) {
+      for (const line of g.removed.slice(0, 10)) logger.warn?.(`      - ${line.length > 120 ? `${line.slice(0, 117)}...` : line}`);
+      if (g.removed.length > 10) logger.warn?.(`      (+${g.removed.length - 10} más)`);
+      logger.warn?.("      Si alguna es vuestra, estaba dentro del bloque gestionado: recuperadla de git y ponedla fuera de él.");
+    }
   }
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
   // IDN-A (KJC-TSK-0762): a hardened clone declares who works it. Captured
