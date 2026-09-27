@@ -175,7 +175,12 @@ describe("[opt-in: sonar] sonar/api", () => {
       });
 
       await getOpenIssues(baseConfig, "custom-key");
-      expect(resolveSonarProjectKey).toHaveBeenCalledWith(baseConfig, { projectKey: "custom-key" });
+      // KJC-BUG-0226: la consulta dice ademas QUE directorio le importa, para
+      // resolver la misma clave con la que el scanner subio el analisis.
+      expect(resolveSonarProjectKey).toHaveBeenCalledWith(
+        baseConfig,
+        expect.objectContaining({ projectKey: "custom-key", cwd: expect.any(String) }),
+      );
     });
   });
 });

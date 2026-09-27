@@ -82,8 +82,17 @@ async function sonarFetch(config, urlPath) {
   );
 }
 
+/**
+ * KJC-BUG-0226 (issue #1838) — de donde sale la clave que se CONSULTA. El
+ * scanner sube el analisis con la que el repo declara en su
+ * sonar-project.properties; preguntando por otra (la derivada del remote), el
+ * audit acababa listando issues de repos ajenos del mismo SonarQube. Pasando
+ * el directorio, la resolucion lee esa misma clave declarada.
+ */
+const queryCwd = (config) => config?.projectDir || process.cwd();
+
 export async function getQualityGateStatus(config, projectKey = null) {
-  const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
+  const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey, cwd: queryCwd(config) });
   const body = await sonarFetch(config, `/api/qualitygates/project_status?projectKey=${effectiveProjectKey}`);
 
   try {
@@ -95,7 +104,7 @@ export async function getQualityGateStatus(config, projectKey = null) {
 }
 
 export async function getOpenIssues(config, projectKey = null) {
-  const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
+  const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey, cwd: queryCwd(config) });
   const body = await sonarFetch(config, `/api/issues/search?projectKeys=${effectiveProjectKey}&statuses=OPEN`);
 
   let parsedIssues = [];
