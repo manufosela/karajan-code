@@ -111,4 +111,25 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
     expect(payload.files).toBeGreaterThan(0);
     expect(payload.indexed).toBeGreaterThan(0);
   });
+
+  // KJC-TSK-0883 (ADR 0011): el MCP lee el indice del PROYECTO, como la CLI
+  // desde 0882; si no, dos clientes del mismo repo veian indices distintos.
+  it("kj_rag_index and kj_rag_query use <projectDir>/.karajan/rag.db, and an empty one names its remedy", async () => {
+    delete process.env.KJ_RAG_DB;
+    const a = join(root, "a");
+    const b = join(root, "b");
+    mkdirSync(join(process.env.KARAJAN_HOME, "plans", "a"), { recursive: true });
+    writeFileSync(join(process.env.KARAJAN_HOME, "plans", "a", "plan-001.json"), JSON.stringify({ hus: [{ id: "A", title: "alpha", description: "do A" }] }));
+    mkdirSync(a); mkdirSync(b);
+    const { handleRagIndex, handleRagQuery } = await import("../../src/mcp/handlers/rag-handler.js");
+    await handleRagIndex({ projectDir: a }, {});
+    const { openVecStore, countChunks } = await import("../../src/rag/vec-store.js");
+    const db = openVecStore({ dim: 8, path: join(a, ".karajan", "rag.db") });
+    try { expect(countChunks(db)).toBeGreaterThan(0); } finally { db.close(); }
+
+    const hitsA = JSON.parse((await handleRagQuery({ text: "alpha", projectDir: a }, {})).content[0].text);
+    expect(hitsA.hits.length).toBeGreaterThan(0);
+    const emptyB = JSON.parse((await handleRagQuery({ text: "alpha", projectDir: b }, {})).content[0].text);
+    expect(emptyB).toMatchObject({ empty: true, hits: [], remedy: "kj rag index --with-sources" });
+  });
 });
