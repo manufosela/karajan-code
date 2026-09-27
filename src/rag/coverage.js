@@ -10,7 +10,26 @@
 import { execa } from "execa";
 import { extname, isAbsolute, normalize, relative } from "node:path";
 import { detectAdaptersForProject, buildMatchers } from "../lang/registry.js";
+import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
 import { getLastIndexedCommit, projectSlug } from "./vec-store.js";
+
+
+/**
+ * KJC-BUG-0221 — `kj harden` instala commitlint.config.js y eslint.config.js, y
+ * la cobertura los exigia indexados, asi que `kj check` denunciaba como drift
+ * dos ficheros que kj mismo acababa de escribir: la herramienta creando el
+ * fichero y quejandose de el. El criterio es el que ya usa el presupuesto de
+ * LOC (src/review/loc-budget.js): lo generado no cuenta, porque nadie lo
+ * escribio, y el RAG existe para responder sobre el codigo del equipo.
+ *
+ * La lista sale de la propia tabla de plantillas de harden, para que anadir un
+ * config no obligue a acordarse de esta otra lista.
+ */
+export function isGeneratedByHarden(rel) {
+  if (!rel) return false;
+  const base = rel.split("/").pop();
+  return GENERATED_CONFIG_FILES.has(base);
+}
 
 /**
  * @param {string} projectDir
@@ -21,7 +40,10 @@ export async function ragIndexCoverage(projectDir, { db }) {
   const project = projectSlug(projectDir);
   const matchers = buildMatchers(detectAdaptersForProject(projectDir));
   const { stdout } = await execa("git", ["-C", projectDir, "ls-files", "-z"]);
-  const sources = stdout.split("\0").filter((p) => p && matchers.isCodeFile(p) && !matchers.shouldSkip(p));
+  const all = stdout.split("\0").filter((p) => p && matchers.isCodeFile(p) && !matchers.shouldSkip(p));
+  // Lo que kj genera se informa aparte: ni se exige indexado ni se esconde.
+  const generated = all.filter(isGeneratedByHarden);
+  const sources = all.filter((p) => !isGeneratedByHarden(p));
 
   const rows = db.prepare("SELECT DISTINCT source FROM chunks WHERE kind = 'code' AND project_slug = ?").all(project);
   const indexed = new Set(rows.map((r) => (isAbsolute(r.source) ? relative(projectDir, r.source) : r.source)));
@@ -44,7 +66,7 @@ export async function ragIndexCoverage(projectDir, { db }) {
     stale = sources.filter((p) => indexed.has(p) && changed.has(p));
   }
 
-  return { project, total: sources.length, indexed: sources.length - missing.length, missing, stale, lastIndexedCommit, absent: indexed.size === 0 };
+  return { project, total: sources.length, indexed: sources.length - missing.length, missing, stale, generated, lastIndexedCommit, absent: indexed.size === 0 };
 }
 
 /**
