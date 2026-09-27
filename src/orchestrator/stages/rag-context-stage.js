@@ -5,9 +5,10 @@
 // Failures degrade gracefully (warn + continue); the rest of the pipeline
 // never sees an exception from this stage.
 import { emitProgress, makeEvent } from "../../utils/events.js";
-import { openVecStore, countChunks } from "../../rag/vec-store.js";
+import { countChunks } from "../../rag/vec-store.js";
 import { makeGovernedEmbedder } from "../../rag/governed-embedder.js";
 import { query } from "../../rag/retriever.js";
+import { openProjectStore } from "../../rag/project-store.js";
 
 const DEFAULT_TOP_K = 5;
 const DEFAULT_SCOPE = "all";
@@ -44,7 +45,9 @@ export async function runRagContextStage({ config, logger, emitter, eventBase, t
   if (typeof task !== "string" || task.length === 0) return { skipped: true, reason: "no-task" };
   try {
     const dim = config?.rag?.embedder?.dim || 768;
-    const db = openVecStore({ dim });
+    // KJC-TSK-0882: el preload que entra en el prompt del coder solo puede traer
+    // codigo de ESTE proyecto: antes abria el indice de la maquina sin filtrar.
+    const db = openProjectStore({ projectDir: config?.projectDir || process.cwd(), dim });
     try {
       if (countChunks(db) === 0) {
         logger?.info?.("[rag-preload] corpus is empty, skipping (run `kj rag index` to seed)");

@@ -4,17 +4,17 @@
  * Red only when an index EXISTS and is incomplete or stale: a machine with
  * no index yet (CI, a fresh clone) gets the command, not a failure.
  */
-import { openVecStore } from "../rag/vec-store.js";
+import { openProjectStore } from "../rag/project-store.js";
 import { ragIndexCoverage } from "../rag/coverage.js";
 import { STRATEGY } from "./types.js";
 
-export function createRagCoverageCheck({ openStore = (dim) => openVecStore({ dim }) } = {}) {
+export function createRagCoverageCheck({ openStore = (dim, projectDir) => openProjectStore({ projectDir, dim }) } = {}) {
   return {
     name: "rag-coverage",
     label: "RAG index coverage (ADR 0010)",
     strategy: STRATEGY.NONE,
     async detect({ config = {}, projectDir = process.cwd() } = {}) {
-      const db = openStore(config?.rag?.embedder?.dim || 768);
+      const db = openStore(config?.rag?.embedder?.dim || 768, projectDir);
       try {
         let c;
         try {

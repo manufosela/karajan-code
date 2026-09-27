@@ -17,9 +17,10 @@ import { compareHarden } from "../harden/advisory.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { detectQmd } from "../utils/qmd-detect.js";
 import {
-  dbPath, openVecStore, projectSlug, countChunks, getLastIndexedCommit,
+  projectSlug, countChunks, getLastIndexedCommit,
 } from "../rag/vec-store.js";
 import { classifyMaturity } from "./maturity.js";
+import { openProjectStore, projectDbPath } from "../rag/project-store.js";
 
 const CODE_EXT = new Set([
   ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".go",
@@ -96,8 +97,8 @@ function lastCommitAgeDays(projectDir) {
 /** Read-only RAG index status; null when no index file exists yet. */
 function readRagStatus(projectDir) {
   try {
-    if (!existsSync(dbPath())) return { indexed: false, chunks: 0, lastIndexedCommit: null };
-    const db = openVecStore();
+    if (!existsSync(projectDbPath(projectDir))) return { indexed: false, chunks: 0, lastIndexedCommit: null };
+    const db = openProjectStore({ projectDir });
     return {
       indexed: true,
       chunks: countChunks(db, { kind: "code" }),

@@ -7,7 +7,7 @@
 import { installPlaybook, renderPlaybook } from "../environment/playbook.js";
 import { renderBrief, listBriefs } from "../environment/briefs.js";
 import { existsSync } from "node:fs";
-import { openVecStore, projectSlug, getLastIndexedCommit, dbPath } from "../rag/vec-store.js";
+import { projectSlug, getLastIndexedCommit } from "../rag/vec-store.js";
 import { ragIndexCommand } from "./rag.js";
 import { renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fallback.js";
@@ -19,13 +19,14 @@ import { createWizard } from "../utils/wizard.js";
 import { hardenCommand } from "./harden.js";
 import { reviewGateCommand } from "./review-gate.js";
 import { join } from "node:path";
+import { openProjectStore, projectDbPath } from "../rag/project-store.js";
 
 function hasRagIndex(config, projectDir) {
   // KJC-BUG-0128: probing must never CREATE the store — openVecStore runs
   // the DDL, and a table born at the default dim (768) breaks the ONNX
   // fallback (384) later. No file → no index, without side effects.
-  if (!existsSync(dbPath())) return false;
-  const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
+  if (!existsSync(projectDbPath(projectDir))) return false;
+  const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
   try { return Boolean(getLastIndexedCommit(db, projectSlug(projectDir))); }
   finally { db.close(); }
 }
@@ -169,7 +170,7 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
         // KJC-BUG-0128: an empty store may carry a vec table at the wrong
         // dim (the old probe created it at 768) — reset it so ONNX (384)
         // can index. A store with data is never touched.
-        if (!resetEmptyStore()) {
+        if (!resetEmptyStore(projectDir)) {
           console.log("  the vector store already has data at another dimension — not switching automatically");
           return false;
         }

@@ -6,9 +6,10 @@ import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 
-import { openVecStore, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
+import { projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 import { indexProjectDelta } from "./indexer.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
+import { openProjectStore } from "./project-store.js";
 
 const HOOK_SRC = resolve(fileURLToPath(import.meta.url), "../../../scripts/git-hooks/post-merge");
 
@@ -20,7 +21,7 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   try { const r = await execa("git", ["-C", projectDir, "rev-parse", "HEAD"]); head = r.stdout.trim(); }
   catch { return { skipped: true }; }
   const slug = projectSlug(projectDir);
-  const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
+  const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
   try {
     const since = getLastIndexedCommit(db, slug);
     if (!since || since === head) return { skipped: true, head };
