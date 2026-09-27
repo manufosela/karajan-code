@@ -8,7 +8,7 @@
  * hooks, which is why the guaranteed level requires Claude as host (ADR).
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -1169,7 +1169,33 @@ function sealedByPath(projectDir, gitShowFn) {
 }
 
 /**
- * @returns {{ok: boolean, mismatched: string[], drift?: string[], reason?: string}}
+ * KJC-BUG-0224: la procedencia PROPIA del harness, lo que `kj harden` escribio
+ * (sha256 por guardia). Distinto del sello humano: no concede nada, solo dice
+ * "esto lo puso kj", y lo unico que habilita es regenerar desde el kj
+ * instalado. Forjarlo, por tanto, solo consigue que el guardia se restaure.
+ */
+const INSTALLED_RECORD = "installed.json";
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+
+function readInstalledRecord(dir) {
+  try {
+    const files = JSON.parse(readFileSync(join(dir, INSTALLED_RECORD), "utf8"))?.files;
+    return files && typeof files === "object" ? files : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeInstalledRecord(dir) {
+  const files = {};
+  for (const name of Object.keys(SCRIPT_BODIES)) {
+    try { files[name] = sha256(readFileSync(join(dir, name), "utf8")); } catch { /* sin fichero no hay nada que registrar */ }
+  }
+  writeFileSync(join(dir, INSTALLED_RECORD), `${JSON.stringify({ files }, null, 2)}\n`);
+}
+
+/**
+ * @returns {{ok: boolean, mismatched: string[], drift?: string[], regenerated?: string[], reason?: string}}
  *   `mismatched` is TAMPERING: a guard holds content nobody sealed, and that is
  *   what the hooks block on. `drift` is a sealed guard whose templates have
  *   moved on, which `kj harden` applies and which is not a defect.
@@ -1195,16 +1221,30 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
   // cannot be borrowed by also editing a template: that was the hole in the
   // first attempt at this fix, and the review was right to reject it.
   const sealed = sealedByPath(root, gitShowFn);
+  const ownRecord = readInstalledRecord(dir);
   const drift = [];
   const tampered = [];
+  const regenerated = [];
   for (const name of mismatched) {
     const text = installed.get(name);
-    const sealedHash = sealed.get(`.karajan/harness/${name}`);
-    if (text !== undefined && sealedHash && sealedHash === createHash("sha256").update(text).digest("hex")) drift.push(name);
+    const hash = text === undefined ? null : sha256(text);
+    if (hash && sealed.get(`.karajan/harness/${name}`) === hash) drift.push(name);
+    else if (hash && ownRecord[name] === hash) regenerated.push(name);
     else tampered.push(name);
   }
-  if (tampered.length > 0) return { ok: false, mismatched: tampered, ...(drift.length ? { drift } : {}) };
+  // KJC-BUG-0224 caso 1: lo que kj escribio y nadie sello ni toco se pone al
+  // dia solo. Es lo que hacia el ritual de `kj harden`, hecho por la maquina.
+  if (regenerated.length > 0) {
+    for (const name of regenerated) writeHarnessScript(root, name, SCRIPT_BODIES[name]);
+    writeInstalledRecord(dir);
+  }
+  const done = regenerated.length ? { regenerated } : {};
+  if (tampered.length > 0) return { ok: false, mismatched: tampered, ...(drift.length ? { drift } : {}), ...done };
+  if (drift.length === 0) {
+    return { ok: true, mismatched: [], ...done, reason: `kj avanzó y estos guardias eran los que kj escribió: regenerados (${regenerated.join(", ")})` };
+  }
   return {
+    ...done,
     ok: true,
     mismatched: [],
     drift,
@@ -1253,6 +1293,7 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
     }
     return writeHarnessScript(projectDir, name, body);
   });
+  writeInstalledRecord(join(projectDir, ".karajan", "harness"));
   if (deferred.length > 0) {
     logger?.info?.(`kj harden: ${deferred.join(", ")} se queda como está — es lo que un humano selló, y avanzarlo es suyo: kj harden --commit`);
   }

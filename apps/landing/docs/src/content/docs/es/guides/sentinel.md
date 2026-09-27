@@ -87,6 +87,8 @@ Si el hook está roto, lo que toca es arreglarlo. Si el commit tiene que entrar 
 
 Los propios ficheros del Sentinel (`.karajan/harness`, hooks) son de solo lectura desde dentro de una sesión, un supervisor que una sesión puede editar no es un supervisor. Solo el humano lo desmonta o lo regenera (`kj harden`), fuera de la sesión. La manipulación se detecta contra lo que el propio kj instalado escribiría.
 
+Cuando no coinciden, kj distingue tres casos. Si el fichero es exactamente lo que escribió `kj harden` (guarda un sha256 por fichero en `.karajan/harness/installed.json`) y ningún humano lo selló, kj simplemente ha avanzado: lo regenera solo y lo dice en una línea. Si un humano lo selló, se deja como está y se avisa de que avanzarlo es cosa suya. Cualquier otra cosa se cambió después de instalarlo, y eso bloquea. Forjar el registro no sirve de nada: lo único que habilita es restaurar el fichero desde el kj instalado.
+
 ## stop-gate
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas o pide a tu usuario el escape aplicable. Estado: `kj sentinel status`.
