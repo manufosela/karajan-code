@@ -24,7 +24,7 @@
 import { generateDiff } from "../../review/diff-generator.js";
 import { finalizeGitAutomation } from "../../git/automation.js";
 import { listCommitsBetween, listFilesChangedSince } from "../../utils/git.js";
-import { loadPlan, projectSlug as slugFor } from "../../plan/plan-store.js";
+import { loadPlan } from "../../plan/plan-store.js";
 import { computePlanAdherenceScore } from "../../audit/plan-adherence.js";
 import { saveSession, markSessionStatus } from "../../session/store.js";
 import {
@@ -347,11 +347,11 @@ export async function tryAutoStartBoard(config, logger, emitter, eventBase) {
   if (process.env.VITEST || process.env.NODE_ENV === "test") return;
 
   try {
-    const { startBoard, renderBoardBanner } = await import("../../commands/board.js");
+    const { startBoard, renderBoardBanner, boardSlug } = await import("../../commands/board.js");
     const boardPort = config.hu_board?.port || 4000;
-    // Scope the board URL to the current run's project (`#board/<slug>`)
-    // so the user lands on a filtered view, not the global dashboard.
-    const slug = config.projectDir ? slugFor(config.projectDir) : null;
+    // KJC-TSK-0884: the project's scoped view (/p/<slug>), the parent repo's
+    // even from a worktree lane.
+    const slug = config.projectDir ? boardSlug(config.projectDir) : null;
     const boardResult = await startBoard(boardPort, { projectSlug: slug });
     const status = boardResult.alreadyRunning ? "already running" : "started";
     // Highlighted URL box — visible regardless of log level (matches the
