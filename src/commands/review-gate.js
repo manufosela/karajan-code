@@ -188,6 +188,14 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // KJC-TSK-0687 (MG-B): the verifiable half of TDD — sources without a
   // single test change warn (block via method_gates.tests_with_code).
   const changedFiles = (await rawDiff(flags.range, ["--name-only"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  // KJC-BUG-0229: un fichero BORRADO no es una fuente que el scan pueda indexar
+  // ni sobre la que el RAG pueda responder, asi que exigirlo era pedir lo
+  // imposible: una PR que retiraba 45 ficheros se paro dos veces y acumulo tres
+  // excepciones por la misma causa mecanica. Los requisitos de Sonar y de RAG
+  // se evaluan sobre lo que sigue VIVO tras el cambio (A, C, M, R); policy, LOC
+  // y tests-with-code siguen viendo el diff entero, porque ahi un borrado si
+  // cuenta. El borrado danino lo cubre la review cruzada, que lee todo el diff.
+  const liveFiles = (await rawDiff(flags.range, ["--name-only", "--diff-filter=ACMR"])).split("\n").map((f) => f.trim()).filter(Boolean);
 
   // KJC-TSK-0688 (MG-C) + KJC-TSK-0691 (MG-E): oversized-diff policy.
   // Field case: a 522-line PR sailed past the warning with a
@@ -371,7 +379,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
         res = { ok: false, verdict: res.verdict, reason: `Sonar is mandatory for code — ${why}` };
       }
     } else if (res.ok) {
-      const req = checkSonarRequirement({ config, stagedFiles: changedFiles, sonar: res.verdict.sonar, standingExceptions: std.standing });
+      const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: res.verdict.sonar, standingExceptions: std.standing });
       if (!req.ok) res = { ok: false, verdict: res.verdict, reason: req.reason };
       else if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
     }
@@ -387,7 +395,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       if (!warnIds.includes(RAG_RULE_ID)) warnIds.push(RAG_RULE_ID);
     } else if (res.ok) {
       const { harness, verified, mismatched, drift } = readRagLedger(projectDir);
-      const rreq = checkRagVerdict({ config, stagedFiles: changedFiles, rag: res.verdict.rag, harness, verified, mismatched, drift, standingExceptions: std.standing });
+      const rreq = checkRagVerdict({ config, stagedFiles: liveFiles, rag: res.verdict.rag, harness, verified, mismatched, drift, standingExceptions: std.standing });
       if (!rreq.ok) res = { ok: false, verdict: res.verdict, reason: rreq.reason };
       else if (rreq.mode === "granted" && rreq.grant) console.log(formatRagGrant(rreq.grant));
     }
@@ -414,7 +422,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   if (flags.sonar !== false) {
     // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
     const touchedLines = addedLinesByFile(await rawDiff(flags.range, ["--unified=0"]));
-    const pre = await runSonarPregate({ config, stagedFiles: changedFiles, touchedLines, logger });
+    const pre = await runSonarPregate({ config, stagedFiles: liveFiles, touchedLines, logger });
     if (!pre.available) {
       // KJC-BUG-0156 (issue #1543): a scan that FAILED must not read like one
       // more config warning — it hid a dead quality gate for 8 straight PRs.
@@ -459,7 +467,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // KJC-TSK-0838: fail-CLOSED for code. Sonar disabled, down, skipped by
   // flag, or blind to a staged source — the diff does not reach the reviewer.
   // Docs-only diffs pass; a live human grant on the rule is the only escape.
-  const sonarReq = checkSonarRequirement({ config, stagedFiles: changedFiles, sonar: sonarRecord, standingExceptions: std.standing });
+  const sonarReq = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: sonarRecord, standingExceptions: std.standing });
   if (!sonarReq.ok) {
     console.log(`✗ ${sonarReq.reason}`);
     process.exitCode = 1;
@@ -476,7 +484,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // the 16-sep bugs were exactly the twin nobody touched.
   const ledger = readRagLedger(projectDir);
   const newFiles = (await rawDiff(flags.range, ["--name-only", "--diff-filter=A"])).split("\n").map((f) => f.trim()).filter(Boolean);
-  const ragReq = checkRagRequirement({ config, stagedFiles: changedFiles, newFiles, ledger, standingExceptions: std.standing });
+  const ragReq = checkRagRequirement({ config, stagedFiles: liveFiles, newFiles, ledger, standingExceptions: std.standing });
   if (!ragReq.ok) {
     console.log(`✗ ${ragReq.reason}`);
     process.exitCode = 1;
