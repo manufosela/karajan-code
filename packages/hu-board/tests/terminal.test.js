@@ -79,3 +79,21 @@ describe('terminal embebida (KJC-TSK-0816)', () => {
     expect(() => m.write({ termId, token, data: 'x' })).toThrow(/sesión|session/i);
   });
 });
+
+// KJC-TSK-0885 (BRD-P2, ADR 0011): la vista /p/<slug> abre la terminal en SU
+// proyecto; el cwd del daemon no es el proyecto de nadie.
+describe('terminal por proyecto (KJC-TSK-0885)', () => {
+  it('arranca en el cwd que pide la vista', () => {
+    const spawnPty = vi.fn(() => fakePty());
+    const m = createTerminalManager({ spawnPty, cwd: '/daemon' });
+    m.start({ agent: 'claude', cwd: '/proyecto-b' });
+    expect(spawnPty.mock.calls[0][2].cwd).toBe('/proyecto-b');
+  });
+
+  it('con una sesion viva en OTRO proyecto no la reutiliza en silencio: lo dice', () => {
+    const m = createTerminalManager({ spawnPty: vi.fn(() => fakePty()), cwd: '/daemon' });
+    m.start({ agent: 'claude', cwd: '/proyecto-a' });
+    expect(() => m.start({ agent: 'claude', cwd: '/proyecto-b' })).toThrow(/proyecto-a/);
+    expect(m.start({ agent: 'claude', cwd: '/proyecto-a' }).reused).toBe(true);
+  });
+});

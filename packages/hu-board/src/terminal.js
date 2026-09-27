@@ -47,8 +47,12 @@ export function createTerminalManager({ spawnPty, cwd, env = process.env, prompt
 
   return {
     /** Arranca (o devuelve) LA sesión — reutilizar la viva evita que cada
-     *  recarga multiplique agentes. @param {{agent: string}} params */
-    start({ agent }) {
+     *  recarga multiplique agentes. KJC-TSK-0885: `cwd` es el proyecto de la
+     *  vista; sin él, el del daemon. @param {{agent: string, cwd?: string}} params */
+    start({ agent, cwd: wanted = cwd }) {
+      if (session && session.cwd !== wanted) {
+        throw new Error(`terminal: ya hay una sesión viva en ${session.cwd}; termínala antes de abrir otra en ${wanted}.`);
+      }
       if (session) return { termId: session.termId, token: session.token, reused: true };
       // hasOwn: sin él, "constructor"/"__proto__" indexarían el prototipo.
       const spec = Object.hasOwn(TERMINAL_AGENTS, agent) ? TERMINAL_AGENTS[agent] : null;
@@ -65,10 +69,11 @@ export function createTerminalManager({ spawnPty, cwd, env = process.env, prompt
         name: 'xterm-256color',
         cols: 120,
         rows: 32,
-        cwd,
+        cwd: wanted,
         env: cleanEnv,
       });
       const current = {
+        cwd: wanted,
         termId: `term-${randomBytes(8).toString('hex')}`,
         token: randomBytes(16).toString('hex'),
         pty,
