@@ -9,6 +9,7 @@
  * supports tool hooks.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -100,8 +101,27 @@ export function mergeClaudeHooks({ projectDir, logger = console, entries }) {
   return { wired: true };
 }
 
+/**
+ * La raiz del proyecto: el toplevel de git, o el directorio dado si no hay git.
+ * Vive aqui y no se importa de sentinel-hooks porque ese modulo importa de
+ * este: el ciclo rompe la carga.
+ */
+function resolveProjectRoot(dir) {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || dir;
+  } catch {
+    return dir;
+  }
+}
+
 /** Write the script and merge the PreToolUse entries into .claude/settings.json. */
 export function installHarnessHooks({ projectDir = process.cwd(), logger = console } = {}) {
+  // KJC-BUG-0223: el harness es del proyecto y vive en su raiz. Instalado desde
+  // un subdirectorio sembraba ahi un segundo `.karajan/harness` que no gobierna
+  // nada, y el gate seguia mirando otro sitio.
+  const root = resolveProjectRoot(projectDir);
+  if (root !== projectDir) logger?.info?.(`kj harden: el harness es del proyecto, se instala en su raíz (${root})`);
+  projectDir = root;
   const scriptAbs = writeHarnessScript(projectDir, "pretooluse.mjs", SCRIPT_BODY);
   const { wired } = mergeClaudeHooks({
     projectDir,

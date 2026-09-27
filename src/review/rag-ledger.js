@@ -9,7 +9,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { verifySentinelScripts } from "../harden/sentinel-hooks.js";
+import { resolveSentinelRoot, verifySentinelScripts } from "../harden/sentinel-hooks.js";
 
 /**
  * @param {string} projectDir
@@ -22,13 +22,18 @@ import { verifySentinelScripts } from "../harden/sentinel-hooks.js";
  *   the requirement fails closed until the human re-runs `kj harden`.
  */
 export function readRagLedger(projectDir) {
-  const harnessDir = path.join(projectDir, ".karajan", "harness");
+  // KJC-BUG-0223: el harness vive en la RAIZ del proyecto. Este modulo miraba
+  // el directorio recibido (en la practica, process.cwd()) mientras el
+  // verificador resolvia el toplevel de git, asi que desde un subdirectorio los
+  // dos juzgaban sobre arboles distintos y el gate bloqueaba siempre.
+  const root = resolveSentinelRoot(projectDir);
+  const harnessDir = path.join(root, ".karajan", "harness");
   const harness = existsSync(harnessDir);
-  const check = harness ? verifySentinelScripts({ projectDir }) : { ok: false, mismatched: [] };
+  const check = harness ? verifySentinelScripts({ projectDir: root }) : { ok: false, mismatched: [] };
   // KJC-BUG-0222: `drift` viaja hasta el mensaje. Un guard sellado que se ha
   // quedado atras NO lo arregla `kj harden` (lo deja en paz a proposito), asi
   // que mandar ese comando para ese fichero es un bucle.
-  const base = { harness, verified: harness && check.ok === true, mismatched: check.mismatched || [], drift: check.drift || [], queries: [], hits: [] };
+  const base = { root, harness, verified: harness && check.ok === true, mismatched: check.mismatched || [], drift: check.drift || [], queries: [], hits: [] };
   let state;
   try {
     state = JSON.parse(readFileSync(path.join(harnessDir, "sentinel-state.json"), "utf8"));
