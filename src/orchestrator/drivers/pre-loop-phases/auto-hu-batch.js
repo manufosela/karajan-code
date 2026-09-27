@@ -122,9 +122,10 @@ export async function maybeGenerateAutoHuBatch({
   // node process around after the suite (TSK-0273).
   if (process.env.VITEST || process.env.NODE_ENV === "test") return;
   try {
-    const { startBoard, renderBoardBanner } = await import("../../../commands/board.js");
+    const { startBoard, renderBoardBanner, boardSlug } = await import("../../../commands/board.js");
     const desiredPort = session.config_snapshot?.hu_board?.port ?? 4000;
-    const boardResult = await startBoard(desiredPort);
+    // KJC-TSK-0884: its project's scoped view, not the global dashboard.
+    const boardResult = await startBoard(desiredPort, { projectSlug: projectDir ? boardSlug(projectDir) : null });
     const url = boardResult.url;
     const status = boardResult.alreadyRunning ? "already running" : "started";
     const projectName = batch.projectName || "Auto-generated HUs";

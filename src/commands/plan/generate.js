@@ -512,13 +512,11 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   // vitest / test mode, and never when `--json` is active.
   if (plan.hus.length > 0 && !process.env.VITEST && process.env.NODE_ENV !== "test") {
     try {
-      const { startBoard, renderBoardBanner } = await import("../board.js");
-      const { projectSlug: slugFor } = await import("../../plan/plan-store.js");
+      const { startBoard, renderBoardBanner, boardSlug } = await import("../board.js");
       const boardPort = config?.hu_board?.port ?? 4000;
-      // `projectSlug` scopes the board URL to this project's view
-      // (`#board/<slug>`) instead of the global "All projects" dashboard.
-      // The hash route opens the board pre-filtered to that project.
-      const boardResult = await startBoard(boardPort, { projectSlug: slugFor(projectDir) });
+      // KJC-TSK-0884: this project's scoped view (/p/<slug>), the parent
+      // repo's even from a worktree lane, never the global dashboard.
+      const boardResult = await startBoard(boardPort, { projectSlug: boardSlug(projectDir) });
       const status = boardResult.alreadyRunning ? "already running" : "started";
       console.log(renderBoardBanner({ url: boardResult.url, status, projectName: plan.name }));
     } catch (err) {
