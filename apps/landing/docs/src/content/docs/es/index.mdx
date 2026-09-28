@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.35.1 — un gate que dice contra qué compara (actual)
+### v4.36.0 — un índice y un board por proyecto (actual)
+
+Todos los proyectos de una máquina compartían un solo almacén del RAG y una sola vista del board, así que una consulta desde un repo podía devolver código de otro, y el buscador del propio board hacía justo eso. Ahora cada proyecto guarda su índice en su propio `.karajan/rag.db`, y `kj rag migrate` lo mueve ahí desde el almacén compartido sin volver a calcular nada. El board arranca solo, como Sonar, y kj lo abre en la vista de ese proyecto y nada más, `/p/<slug>`, donde la configuración, la terminal integrada y el buscador actúan sobre ese proyecto y ningún otro. El canon que trae kj sigue siendo común, en su propio almacén, con `kj rag query --library`. El índice deja además de depender de una lista de lenguajes: entra cualquier fichero de texto que tu proyecto versione, y lo que se queda fuera (binarios, generados, secretos) se dice con su motivo. Y en un repo gestionado con Rulesync, kj escribe sus reglas en `.rulesync/rules/karajan.md`, así que `rulesync generate` las reparte en vez de borrarlas.
+
+### v4.35.1 — un gate que dice contra qué compara
 
 Nueve arreglos en un día, casi todos reportados por un proyecto hermano de la misma máquina. El quality gate vuelve a correr dentro de un carril: el plugin SCM del scanner no sabía abrir un worktree enlazado, así que todo cambio hecho como el método manda pasaba sin gate y sin un rojo que lo dijera. El aviso de integridad del harness nombra ahora el kj que juzga, su versión y si es un árbol de desarrollo enlazado, porque una sesión se había montado el ritual de ejecutar `kj harden` veinte veces al día sin llegar a saber por qué. Y el guard de reescritura de JSON deja de vigilar ficheros fuera del repositorio, tras ocho rondas de review en las que cada una encontró una forma real de colar un comando.
 
