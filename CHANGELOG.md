@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.36.0] - 2026-09-28
+
+One index and one board per project (ADR 0011). Until now every project on a
+machine shared one RAG store and one board view: a query from one repo could
+bring back another repo's code, the board's search did exactly that with no
+filter at all, and its "project" settings edited whatever directory the daemon
+happened to start in. The user's words were that they did not want to see every
+project and every RAG at once in one place. Each project now has its own index
+in its own `.karajan/`, and kj opens the board on that project's view alone.
+
+### Added
+
+- **Each project has its own RAG index** (KJC-TSK-0882, 0883, 0888): the index lives in `<project root>/.karajan/rag.db` (`KJ_RAG_DB` still wins). `kj rag migrate` copies a project's chunks from the old machine-wide store with their embeddings, no re-embedding (23,109 chunks in 4 s here), and leaves the old store alone. The MCP tools and the watcher follow the project too, with one watcher and one PID per project. The shared canon kj ships lives in `~/.karajan/library.db`, reached with `kj rag query --library`; a project's own library cards go to its index.
+- **The board opens the project's scoped view** (KJC-TSK-0884): kj prints and opens `/p/<slug>`, one project with the multi-project affordances hidden, instead of the dashboard filtered to it. From a `kj worktree` lane the view is the parent repo's, so it is not empty.
+- **The board starts by itself, like Sonar** (KJC-TSK-0889): on by default; `hu_board.auto_start: false` or `hu_board.enabled: false` opt out, and `kj init` proposes yes.
+- **A scoped board view acts on its own project** (KJC-TSK-0885): its settings, its embedded terminal and its RAG search resolve the project's directory from the slug, through the `projectDir` the project's plans record, never from a path the browser sends.
+- **Each review verdict records which kj issued it** (KJC-TSK-0886): version, and for a linked development tree its branch and commit; `kj review --check` says in one line when a different kj checks it.
+
+### Changed
+
+- **An empty index is not an answer**: `kj rag query` (CLI and MCP) counts this project's chunks, and with none says so and names the remedy, `kj rag migrate` or `kj rag index --with-sources`, instead of returning zero hits that read like a result.
+
+### Fixed
+
+- **The harness knows what kj wrote** (KJC-BUG-0224): the integrity check could not tell "kj moved on" from "someone touched it" and fired every time a linked kj's templates changed. `kj harden` records a sha256 per guard; a guard that is exactly what kj wrote and no human sealed is regenerated and said in one line, a sealed one is left alone, and anything else still blocks.
+- **The index skips `.claude` worktrees and judges skips inside the project** (KJC-BUG-0231): queries returned whole copies of the repo that Claude Code creates for its subagents, and a project living under a directory named `build` indexed nothing.
+- **`kj harden` names the rules a shrinking guidelines block drops** (KJC-BUG-0232): the warning said "fewer rules" without saying which, and the block header now says that anything written inside it is lost.
+- **The board's settings stopped editing `packages/hu-board`**, and its search stopped returning other repos' chunks (KJC-TSK-0885).
+- Review gate and Sentinel follow-ups (KJC-BUG-0229, 0230): deleted files are no longer asked for Sonar or RAG evidence, and an epic reference leaves no pending board move.
+
+### Infrastructure
+
+- Sonar analyses the monorepo packages (`packages/*`), which it never did.
+
 ## [4.35.1] - 2026-09-27
 
 Nine fixes in one day, most of them reported by a sibling project running kj on

@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.35.1 — a gate that names what it compares against (current)
+### v4.36.0 — one index and one board per project (current)
+
+Every project on a machine shared one RAG store and one board view, so a query from one repo could bring back another repo's code, and the board's own search did exactly that. Now each project keeps its index in its own `.karajan/rag.db`, and `kj rag migrate` moves it there from the old shared store without re-embedding anything. The board starts by itself, like Sonar, and kj opens it on that project's view alone, `/p/<slug>`, where the settings, the embedded terminal and the search act on that project and no other. The canon kj ships stays shared in its own store, reached with `kj rag query --library`.
+
+### v4.35.1 — a gate that names what it compares against
 
 Nine fixes in a day, most reported by a sibling project on the same machine. The quality gate runs inside a lane again: the scanner's SCM plugin could not open a linked worktree, so every change made the way the method prescribes went through with no gate and no red to say so. The harness integrity warning now names the kj it is judging, its version and whether it is a linked development tree, because a session had built a ritual of running `kj harden` twenty times a day without ever learning why. And the JSON rewrite guard stops policing files outside the repository, after eight review rounds each found a real way through a pattern-based reading of shell text.
 
