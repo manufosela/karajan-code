@@ -42,6 +42,8 @@ const CONTRACT_PATHS = [
   "CLAUDE.md",
   "AGENTS.md",
   "GEMINI.md",
+  // KJC-TSK-0879: in a Rulesync repo kj's rules live in .rulesync/rules/karajan.md.
+  ".rulesync",
 ];
 const CONTRACT_MESSAGE = "chore(bootstrap): el contrato del método, para que quien clone lo herede";
 
