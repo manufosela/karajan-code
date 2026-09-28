@@ -28,7 +28,8 @@ async function openConversationPanel() {
       headers: { 'Content-Type': 'application/json' },
       // Sin agente en el body: decide el servidor (kj go --window fija el
       // elegido por env; sin él, claude).
-      body: JSON.stringify({}),
+      // KJC-TSK-0885: la vista scoped (/p/<slug>) abre la terminal en SU proyecto.
+      body: JSON.stringify(scopedProjectSlug ? { project: scopedProjectSlug } : {}),
     });
     started = await res.json();
     if (!res.ok) throw new Error(started.error || `HTTP ${res.status}`);

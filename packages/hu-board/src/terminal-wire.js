@@ -9,6 +9,8 @@
 import { Router } from 'express';
 import { WebSocket, WebSocketServer } from 'ws';
 
+import { requestProjectDir } from './project-dir.js';
+
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const WS_PATH = '/api/terminal/ws';
 
@@ -20,7 +22,9 @@ export function terminalRouter(manager, { defaultAgent = 'claude' } = {}) {
   const router = Router();
   router.post('/start', (req, res) => {
     try {
-      res.json(manager.start({ agent: req.body?.agent ?? defaultAgent }));
+      // KJC-TSK-0885: la vista scoped nombra su proyecto; el servidor resuelve el dir.
+      const projectDir = requestProjectDir(req.body?.project);
+      res.json(manager.start({ agent: req.body?.agent ?? defaultAgent, ...(projectDir ? { cwd: projectDir } : {}) }));
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
