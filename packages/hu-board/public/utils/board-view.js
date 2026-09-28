@@ -267,7 +267,8 @@ async function renderBoard() {
       try {
         const res = await fetch('/api/rag/query', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, topK: 5, scope: ragScope?.value || 'all' }),
+          // KJC-TSK-0885: the scoped view searches its own project's index.
+          body: JSON.stringify({ text, topK: 5, scope: ragScope?.value || 'all', ...(scopedProjectSlug ? { project: scopedProjectSlug } : {}) }),
         });
         const body = await res.json();
         if (!res.ok) { ragResults.innerHTML = `<span style="color:var(--color-red);">Error: ${esc(body.error || res.status)}</span>`; return; }
