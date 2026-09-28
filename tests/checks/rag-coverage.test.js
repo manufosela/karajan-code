@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { openVecStore, setLastIndexedCommit } from "../../src/rag/vec-store.js";
 import { createRagCoverageCheck } from "../../src/checks/rag-coverage.js";
-import { makeCoverageRepo } from "../rag/coverage-fixture.js";
+import { FIXTURE_SOURCES, makeCoverageRepo } from "../rag/coverage-fixture.js";
 
 let f;
 beforeEach(() => { f = makeCoverageRepo(); });
@@ -21,13 +21,13 @@ describe("rag-coverage check", () => {
     setLastIndexedCommit(f.db, f.slug, f.head());
     const r = await detect();
     expect(r).toMatchObject({ ok: false, severity: "fail" });
-    expect(r.detail).toMatch(/2 source\(s\) outside the RAG index/);
-    expect(r.detail).toMatch(/scripts\/b\.js/);
+    expect(r.detail).toMatch(/5 source\(s\) outside the RAG index/); // KJC-TSK-0891: any versioned text
+    expect(r.detail).toMatch(/bin\/tool/); // names what is missing (first three, sorted)
     expect(r.detail).toMatch(/--with-sources/); // a missing source needs the full walk, not --since
   });
 
   it("points at --since when everything is indexed but some of it is stale", async () => {
-    for (const [i, rel] of ["src/a.js", "scripts/b.js", "packages/x/src/c.js"].entries()) f.index(rel, i);
+    for (const [i, rel] of FIXTURE_SOURCES.entries()) f.index(rel, i);
     setLastIndexedCommit(f.db, f.slug, f.head());
     fs.writeFileSync(path.join(f.repo, "src/a.js"), "export const x = 2;\n");
     f.git("commit", "-q", "-am", "change a");

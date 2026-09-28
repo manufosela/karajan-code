@@ -12,7 +12,7 @@ import { closeSync, lstatSync, openSync, readSync } from "node:fs";
 
 import { matchesAny } from "@karajan-family/governance";
 
-import { buildMatchers, getAdapters } from "../lang/registry.js";
+import { buildMatchers, detectAdaptersForProject } from "../lang/registry.js";
 
 const MAX_BYTES = 512 * 1024;
 const SNIFF_BYTES = 8192;
@@ -24,7 +24,21 @@ const GENERATED = [
   /\.snap$/,
 ];
 
-const alwaysSkips = buildMatchers(getAdapters()).shouldSkip;
+// May hold secrets: never sent to an embedder, which can be a remote service.
+const SENSITIVE = [
+  /(^|\/)\.env(\.[^/]*)?$/,
+  /\.(pem|key|p12|pfx|jks|keystore)$/i,
+  /(^|\/)id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$/,
+];
+
+// The skipped paths are the ones of THIS project's languages: Java's `bin/`
+// is build output, a JS project's `bin/` is source. Cached per project.
+const skipCache = new Map();
+const skipsFor = (projectDir) => {
+  const key = projectDir ?? "";
+  if (!skipCache.has(key)) skipCache.set(key, buildMatchers(detectAdaptersForProject(projectDir ?? process.cwd())).shouldSkip);
+  return skipCache.get(key);
+};
 
 /** What the project keeps out of its index: `rag.exclude`, repo-relative globs. */
 export const ragExclude = (config) => (Array.isArray(config?.rag?.exclude) ? config.rag.exclude : []);
@@ -46,9 +60,10 @@ function looksBinary(abs) {
  * @param {{exclude?: string[], skip?: (rel: string) => boolean}} [opts]
  * @returns {string|null} why it stays out of the index, or null if it goes in
  */
-export function indexableReason(rel, abs, { exclude = [], skip = alwaysSkips } = {}) {
+export function indexableReason(rel, abs, { exclude = [], projectDir = null, skip = skipsFor(projectDir) } = {}) {
   if (skip(rel)) return `${rel} lives under a path the indexer always skips`;
   if (matchesAny(rel, exclude)) return `${rel} is excluded by the project's rag.exclude`;
+  if (SENSITIVE.some((re) => re.test(rel))) return `${rel} may hold secrets, and the embedder can be a remote service`;
   if (GENERATED.some((re) => re.test(rel))) return `${rel} is a generated file (lockfile, minified, sourcemap or snapshot)`;
   let st;
   try { st = lstatSync(abs); } catch { return `${rel} does not exist`; }

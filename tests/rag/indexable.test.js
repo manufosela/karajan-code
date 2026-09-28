@@ -55,6 +55,13 @@ describe("indexableReason", () => {
     }
   });
 
+  it("lo que puede guardar secretos no va nunca al embedder", () => {
+    for (const f of [".env", ".env.production", "certs/server.key", "tls.pem", ".ssh/id_ed25519"]) {
+      put(f, "x\n");
+      expect(reason(f), f).toMatch(/may hold secrets/);
+    }
+  });
+
   it("el proyecto excluye con rag.exclude, y las rutas que el indexador siempre salta siguen fuera", () => {
     put("public/docs/index.html", "<p>x</p>\n");
     expect(reason("public/docs/index.html", { exclude: ["public/docs/**"] })).toMatch(/rag\.exclude/);

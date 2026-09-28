@@ -10,6 +10,9 @@ import { openVecStore, insertChunk, projectSlug } from "../../src/rag/vec-store.
 const GIT_ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
 const oneHot = (i) => { const v = new Float32Array(8); v[i] = 1; return v; };
 
+// KJC-TSK-0891: every versioned text file is a source (node_modules/ is ignored).
+export const FIXTURE_SOURCES = ["src/a.js", "scripts/b.js", "packages/x/src/c.js", "bin/tool", "README.md", ".gitignore"];
+
 export function makeCoverageRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rag-cov-"));
   const repo = path.join(root, "myproj");

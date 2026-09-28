@@ -216,7 +216,7 @@ export async function ragCoversCommand({ file, config, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   const db = openDb(config);
   try {
-    const state = fileIndexState(projectDir, file, { db });
+    const state = fileIndexState(projectDir, file, { db, exclude: ragExclude(config) });
     if (flags.json) process.stdout.write(`${JSON.stringify(state)}\n`);
     else process.stdout.write(`${state.state}: ${state.reason}\n`);
     if (!state.canAnswer) process.exitCode = 1;

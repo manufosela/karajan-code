@@ -6,6 +6,7 @@
  */
 import { openProjectStore } from "../rag/project-store.js";
 import { ragIndexCoverage } from "../rag/coverage.js";
+import { ragExclude } from "../rag/indexable.js";
 import { STRATEGY } from "./types.js";
 
 export function createRagCoverageCheck({ openStore = (dim, projectDir) => openProjectStore({ projectDir, dim }) } = {}) {
@@ -18,7 +19,7 @@ export function createRagCoverageCheck({ openStore = (dim, projectDir) => openPr
       try {
         let c;
         try {
-          c = await ragIndexCoverage(projectDir, { db });
+          c = await ragIndexCoverage(projectDir, { db, exclude: ragExclude(config) });
         } catch (err) {
           // Corrupt store, unreachable stamp, git failure: a failing check,
           // never a silent pass. The only tolerated non-red state is "no index".
