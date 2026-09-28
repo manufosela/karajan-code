@@ -24,6 +24,7 @@ in its own `.karajan/`, and kj opens the board on that project's view alone.
 - **The board starts by itself, like Sonar** (KJC-TSK-0889): on by default; `hu_board.auto_start: false` or `hu_board.enabled: false` opt out, and `kj init` proposes yes.
 - **A scoped board view acts on its own project** (KJC-TSK-0885): its settings, its embedded terminal and its RAG search resolve the project's directory from the slug, through the `projectDir` the project's plans record, never from a path the browser sends.
 - **Each review verdict records which kj issued it** (KJC-TSK-0886): version, and for a linked development tree its branch and commit; `kj review --check` says in one line when a different kj checks it.
+- **Rulesync compatibility** (KJC-TSK-0879, #1310): in a repo with `.rulesync/` or `rulesync.jsonc`, `kj harden` and `kj env install` write their managed blocks into `.rulesync/rules/karajan.md`, Rulesync's source of truth, instead of CLAUDE.md and AGENTS.md, which the next `rulesync generate` would overwrite. With `rulesync.generate: true` declared, kj runs the compiler afterwards, using the project's own binary or `npx --no-install`, never a package fetched on the fly. `kj bootstrap` commits `.rulesync` as part of the contract.
 
 ### Changed
 
@@ -35,6 +36,7 @@ in its own `.karajan/`, and kj opens the board on that project's view alone.
 - **The index skips `.claude` worktrees and judges skips inside the project** (KJC-BUG-0231): queries returned whole copies of the repo that Claude Code creates for its subagents, and a project living under a directory named `build` indexed nothing.
 - **`kj harden` names the rules a shrinking guidelines block drops** (KJC-BUG-0232): the warning said "fewer rules" without saying which, and the block header now says that anything written inside it is lost.
 - **The board's settings stopped editing `packages/hu-board`**, and its search stopped returning other repos' chunks (KJC-TSK-0885).
+- **The base-branch guard protects the branch the project declares** (KJC-BUG-0233): `kj harden` read `base_branch` from the wrong object and always guarded `main`.
 - Review gate and Sentinel follow-ups (KJC-BUG-0229, 0230): deleted files are no longer asked for Sonar or RAG evidence, and an epic reference leaves no pending board move.
 
 ### Infrastructure

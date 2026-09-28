@@ -67,7 +67,7 @@ The most recent releases, newest first. Older versions live in [Architecture ›
 
 ### v4.36.0 — one index and one board per project (current)
 
-Every project on a machine shared one RAG store and one board view, so a query from one repo could bring back another repo's code, and the board's own search did exactly that. Now each project keeps its index in its own `.karajan/rag.db`, and `kj rag migrate` moves it there from the old shared store without re-embedding anything. The board starts by itself, like Sonar, and kj opens it on that project's view alone, `/p/<slug>`, where the settings, the embedded terminal and the search act on that project and no other. The canon kj ships stays shared in its own store, reached with `kj rag query --library`.
+Every project on a machine shared one RAG store and one board view, so a query from one repo could bring back another repo's code, and the board's own search did exactly that. Now each project keeps its index in its own `.karajan/rag.db`, and `kj rag migrate` moves it there from the old shared store without re-embedding anything. The board starts by itself, like Sonar, and kj opens it on that project's view alone, `/p/<slug>`, where the settings, the embedded terminal and the search act on that project and no other. The canon kj ships stays shared in its own store, reached with `kj rag query --library`. And in a repo managed with Rulesync, kj writes its rules into `.rulesync/rules/karajan.md`, so `rulesync generate` spreads them instead of erasing them.
 
 ### v4.35.1 — a gate that names what it compares against
 
