@@ -70,6 +70,28 @@ describe("indexableReason", () => {
   });
 });
 
+// KJC-TSK-0900: el equipo declara lo que no entra, versionado y con la sintaxis
+// de .gitignore, aunque kj.config.yml no se versione en su repo.
+describe(".ragignore", () => {
+  const opts = () => ({ projectDir: dir });
+  it("carpetas, extensiones, rutas ancladas y comentarios, y lo dice con su nombre", () => {
+    put(".ragignore", "# datos generados\nexports/\n*.csv\n/data\nfixtures/big.json\n\n");
+    for (const f of ["exports/a.js", "pkg/exports/b.js", "report.csv", "sub/x.csv", "data/set.txt", "fixtures/big.json"]) {
+      put(f, "x\n");
+      expect(reason(f, opts()), f).toMatch(/\.ragignore/);
+    }
+    for (const f of ["src/data/keep.txt", "fixtures/small.json", "src/a.js"]) {
+      put(f, "x\n");
+      expect(reason(f, opts()), f).toBeNull();
+    }
+  });
+
+  it("sin .ragignore nada cambia", () => {
+    put("report.csv", "x\n");
+    expect(reason("report.csv", opts())).toBeNull();
+  });
+});
+
 describe("listProjectFiles", () => {
   it("lo que git versiona o ve sin ignorar, nunca lo ignorado", () => {
     execFileSync("git", ["init", "-q"], { cwd: dir });

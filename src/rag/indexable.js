@@ -8,7 +8,8 @@
  * text windows (chunkSource already does).
  */
 import { execFileSync } from "node:child_process";
-import { closeSync, lstatSync, openSync, readSync } from "node:fs";
+import { closeSync, lstatSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 import { matchesAny } from "@karajan-family/governance";
 
@@ -40,6 +41,35 @@ const skipsFor = (projectDir) => {
   return skipCache.get(key);
 };
 
+/**
+ * KJC-TSK-0900: `.ragignore` at the project root, gitignore syntax, versioned so
+ * the whole team inherits it. `dir/` is a folder anywhere, `*.csv` an extension
+ * anywhere, `/data` anchored to the root, a path with a slash is from the root.
+ * `!` negation is not supported (said in the docs). Re-read when it changes.
+ */
+const ragignoreCache = new Map();
+export function ragignoreGlobs(projectDir) {
+  if (!projectDir) return [];
+  const file = join(projectDir, ".ragignore");
+  let mtime;
+  try { mtime = statSync(file).mtimeMs; } catch { return []; }
+  const hit = ragignoreCache.get(file);
+  if (hit?.mtime === mtime) return hit.globs;
+  const globs = [];
+  for (const raw of readFileSync(file, "utf8").split("\n")) {
+    let p = raw.trim();
+    if (!p || p.startsWith("#") || p.startsWith("!")) continue;
+    const dirOnly = p.endsWith("/");
+    p = p.replace(/^\/+|\/+$/g, "");
+    if (!p) continue;
+    const base = raw.trim().startsWith("/") || p.includes("/") ? p : `**/${p}`;
+    globs.push(`${base}/**`);
+    if (!dirOnly) globs.push(base);
+  }
+  ragignoreCache.set(file, { mtime, globs });
+  return globs;
+}
+
 /** What the project keeps out of its index: `rag.exclude`, repo-relative globs. */
 export const ragExclude = (config) => (Array.isArray(config?.rag?.exclude) ? config.rag.exclude : []);
 
@@ -63,6 +93,7 @@ function looksBinary(abs) {
 export function indexableReason(rel, abs, { exclude = [], projectDir = null, skip = skipsFor(projectDir) } = {}) {
   if (skip(rel)) return `${rel} lives under a path the indexer always skips`;
   if (matchesAny(rel, exclude)) return `${rel} is excluded by the project's rag.exclude`;
+  if (matchesAny(rel, ragignoreGlobs(projectDir))) return `${rel} is excluded by the project's .ragignore`;
   if (SENSITIVE.some((re) => re.test(rel))) return `${rel} may hold secrets, and the embedder can be a remote service`;
   if (GENERATED.some((re) => re.test(rel))) return `${rel} is a generated file (lockfile, minified, sourcemap or snapshot)`;
   let st;
