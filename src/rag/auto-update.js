@@ -8,6 +8,7 @@ import { execa } from "execa";
 
 import { projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 import { indexProjectDelta } from "./indexer.js";
+import { ragExclude } from "./indexable.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { openProjectStore } from "./project-store.js";
 
@@ -26,7 +27,7 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
     const since = getLastIndexedCommit(db, slug);
     if (!since || since === head) return { skipped: true, head };
     logger.info?.(`[rag] drift detected (${since.slice(0, 7)} → ${head.slice(0, 7)}); running delta update`);
-    const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger });
+    const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger, exclude: ragExclude(config) });
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
     return { ran: true, totals };
   } catch (err) {
