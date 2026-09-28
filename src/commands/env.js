@@ -20,6 +20,7 @@ import { hardenCommand } from "./harden.js";
 import { reviewGateCommand } from "./review-gate.js";
 import { join } from "node:path";
 import { openProjectStore, projectDbPath } from "../rag/project-store.js";
+import { maybeRulesyncGenerate } from "../utils/rulesync.js";
 
 function hasRagIndex(config, projectDir) {
   // KJC-BUG-0128: probing must never CREATE the store — openVecStore runs
@@ -75,6 +76,8 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     config, // KJC-TSK-0865: the panel travels with the method
   });
   console.log(`✓ Karajan playbook installed in: ${result.files.join(", ")}`);
+  // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
+  maybeRulesyncGenerate({ projectDir, config, logger: console });
 
   // KJC-TSK-0711 — RAG as a native tool: agents use what is in their
   // toolbox, so the official path must be cheaper than the grep shortcut.

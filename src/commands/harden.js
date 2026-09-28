@@ -17,6 +17,7 @@ import { createWizard, isTTY } from "../utils/wizard.js";
 import { commitSupervisorRegeneration } from "../harden/supervisor-commit.js";
 import { installConfigsForRoots } from "../harden/config-engine.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
+import { maybeRulesyncGenerate } from "../utils/rulesync.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
@@ -177,6 +178,12 @@ export async function hardenCommand({
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
   // the configs already use — a Python project must not be told to use `const`.
   const gl = withGuidelines ? installGuidelines({ projectDir, language: roots[0]?.language ?? null, dryRun }) : null;
+  // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
+  if (withGuidelines && !dryRun) {
+    let kjConfig = null;
+    try { kjConfig = (await loadConfig(projectDir))?.config; } catch { /* no kj config: not opted in */ }
+    maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
+  }
   const out = {
     ok: true,
     ...result,
