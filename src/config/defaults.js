@@ -179,10 +179,11 @@ const DEFAULTS = {
       test_inclusions: "**/*.test.js,**/*.spec.js,**/tests/**,**/__tests__/**"
     }
   },
+  // KJC-TSK-0884 (ADR 0011): on by default, like Sonar; a declared false opts out.
   hu_board: {
-    enabled: false,
+    enabled: true,
     port: 4000,
-    auto_start: false
+    auto_start: true
   },
   language: "en",
   hu_language: "en",
