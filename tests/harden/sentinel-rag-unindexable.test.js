@@ -69,6 +69,16 @@ describe("rag-first × un fichero que el indice NO puede tener", () => {
     }
   });
 
+  // KJC-TSK-0891: consultar no puede devolver un fichero que el indice no tiene;
+  // el gate nombra el remedio que lo arregla, no una consulta imposible.
+  it("un fichero ausente del indice bloquea nombrando kj rag index --file, no una consulta", () => {
+    fakeKj(`echo '{"state":"stale","canAnswer":false,"reason":"src/Page.astro is indexable but absent from the index: kj rag index --file src/Page.astro"}'; exit 1`);
+    const res = edit("src/Page.astro");
+    expect(res.status).toBe(2);
+    expect(res.stderr).toMatch(/kj rag index --file src\/Page\.astro/);
+    expect(res.stderr).not.toMatch(/consulta antes de tocarlo/);
+  });
+
   it("sin kj alcanzable tampoco se abre la mano", () => {
     // PATH SOLO con el bin del test (git enlazado dentro): el kj instalado en la
     // maquina no puede decidir el resultado de una prueba.
