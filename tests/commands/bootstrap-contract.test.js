@@ -50,6 +50,13 @@ describe("kj bootstrap × the contract commit", () => {
     expect(git("status", "--porcelain", "--", "src/app.js")).toMatch(/src\/app\.js/);
   });
 
+  // KJC-TSK-0879: in a Rulesync repo kj's rules live in .rulesync/rules/karajan.md.
+  it("a Rulesync repo's karajan.md is part of the contract", async () => {
+    write(".rulesync/rules/karajan.md", "---\nroot: false\n---\n");
+    await run();
+    expect(git("show", "--name-only", "--format=", "HEAD")).toContain(".rulesync/rules/karajan.md");
+  });
+
   it("the message says what it is, so nobody has to guess later", async () => {
     await run();
     expect(git("log", "-1", "--format=%s").trim()).toMatch(/^chore\(bootstrap\):/);
