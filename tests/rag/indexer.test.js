@@ -80,6 +80,20 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
   // .py via el language adapter registry, y NO recoge node_modules (que en un
   // repo Python no debería existir, pero el matcher cumple igual). Cero
   // regresión en repos JS: el test JS-only de arriba sigue verde sin tocar.
+  // KJC-TSK-0891: contar ficheros no basta; hay que ver chunks REALES. Un tipo
+  // que el esquema no admite dejaba cada chunk en "embed failed".
+  it("indexProject --with-sources stores real chunks for a .astro, a .php and a README.md", async () => {
+    const projectDir = join(root, "any-text");
+    mkdirSync(join(projectDir, "src"), { recursive: true });
+    writeFileSync(join(projectDir, "src", "Page.astro"), "---\nconst t = 1;\n---\n<h1>{t}</h1>\n");
+    writeFileSync(join(projectDir, "src", "User.php"), "<?php\nclass User { public $name; }\n");
+    writeFileSync(join(projectDir, "README.md"), "# Demo\n\nWhat this project does.\n");
+    const totals = await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: join(root, "missing-any"), logger: noopLogger, withSources: true });
+    expect(totals.failed).toBe(0);
+    const sources = db.prepare("SELECT DISTINCT source FROM chunks WHERE kind = 'code'").all().map((r) => r.source.slice(projectDir.length + 1)).sort();
+    expect(sources).toEqual(["README.md", "src/Page.astro", "src/User.php"]);
+  });
+
   it("indexProject --with-sources indexes .py files in a Python project (manifest detected)", async () => {
     const projectDir = join(root, "py-proj");
     mkdirSync(join(projectDir, "src"), { recursive: true });
@@ -88,7 +102,9 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     writeFileSync(join(projectDir, "src", "app.py"), "def alpha():\n    return 1\n");
     writeFileSync(join(projectDir, "__pycache__", "app.cpython-311.pyc"), "x");
     const totals = await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: join(root, "missing-py"), logger: noopLogger, withSources: true });
-    expect(totals.files).toBe(1); // only src/app.py — __pycache__ skipped
+    // KJC-TSK-0891: any versioned text enters (src/app.py + pyproject.toml);
+    // __pycache__ is still a path the indexer always skips.
+    expect(totals.files).toBe(2);
     expect(countChunks(db, { kind: "code" })).toBeGreaterThan(0);
   });
 

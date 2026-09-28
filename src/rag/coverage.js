@@ -8,8 +8,8 @@
  * matchers are the single truth, here and in the indexer.
  */
 import { execa } from "execa";
-import { extname, isAbsolute, normalize, relative } from "node:path";
-import { detectAdaptersForProject, buildMatchers } from "../lang/registry.js";
+import { isAbsolute, join, normalize, relative } from "node:path";
+import { indexableReason } from "./indexable.js";
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
 import { getLastIndexedCommit, projectSlug } from "./vec-store.js";
 
@@ -36,11 +36,11 @@ export function isGeneratedByHarden(rel) {
  * @param {{db: object}} deps - an open vec store
  * @returns {Promise<{project: string, total: number, indexed: number, missing: string[], stale: string[], lastIndexedCommit: string|null, absent: boolean}>}
  */
-export async function ragIndexCoverage(projectDir, { db }) {
+export async function ragIndexCoverage(projectDir, { db, exclude = [] }) {
   const project = projectSlug(projectDir);
-  const matchers = buildMatchers(detectAdaptersForProject(projectDir));
   const { stdout } = await execa("git", ["-C", projectDir, "ls-files", "-z"]);
-  const all = stdout.split("\0").filter((p) => p && matchers.isCodeFile(p) && !matchers.shouldSkip(p));
+  // KJC-TSK-0891: the indexer's own criterion, not a list of extensions.
+  const all = stdout.split("\0").filter((p) => p && indexableReason(p, join(projectDir, p), { exclude, projectDir }) === null);
   // Lo que kj genera se informa aparte: ni se exige indexado ni se esconde.
   const generated = all.filter(isGeneratedByHarden);
   const sources = all.filter((p) => !isGeneratedByHarden(p));
@@ -82,20 +82,21 @@ export async function ragIndexCoverage(projectDir, { db }) {
  *
  * @returns {{state: "indexed"|"stale"|"not-indexable"|"index-empty", rel: string, canAnswer: boolean, reason: string}}
  */
-export function fileIndexState(projectDir, file, { db }) {
+export function fileIndexState(projectDir, file, { db, exclude = [] }) {
   const project = projectSlug(projectDir);
   // `./src/a.js` y `src/a.js` son el mismo fichero: sin normalizar, el segundo
   // salia "stale" estando indexado (catch de la review).
   const rel = normalize(isAbsolute(file) ? relative(projectDir, file) : file);
-  const matchers = buildMatchers(detectAdaptersForProject(projectDir));
   const rows = db.prepare("SELECT DISTINCT source FROM chunks WHERE project_slug = ?").all(project);
   const indexed = new Set(rows.map((r) => normalize(isAbsolute(r.source) ? relative(projectDir, r.source) : r.source)));
 
   if (indexed.has(rel)) return { state: "indexed", rel, canAnswer: true, reason: `the index holds chunks for ${rel}` };
   if (indexed.size === 0) return { state: "index-empty", rel, canAnswer: false, reason: `nothing of this project is indexed yet: kj rag index` };
-  if (matchers.shouldSkip(rel)) return { state: "not-indexable", rel, canAnswer: false, reason: `${rel} lives under a path the indexer always skips` };
-  if (!matchers.isCodeFile(rel) && extname(rel).toLowerCase() !== ".md") {
-    return { state: "not-indexable", rel, canAnswer: false, reason: `no language adapter covers ${extname(rel) || "a file with no extension"}, so the indexer never takes ${rel}` };
-  }
-  return { state: "stale", rel, canAnswer: false, reason: `${rel} is indexable but absent from the index: kj rag index --since auto` };
+  // KJC-TSK-0891: not-indexable only for the file's NATURE (binary, generated,
+  // huge, excluded, skipped path), never for its language.
+  const out = indexableReason(rel, join(projectDir, rel), { exclude, projectDir });
+  if (out) return { state: "not-indexable", rel, canAnswer: false, reason: out };
+  // KJC-TSK-0891: `--since auto` only reaches what changed, so it cannot fix an
+  // unchanged file the index never held; indexing THIS file does.
+  return { state: "stale", rel, canAnswer: false, reason: `${rel} is indexable but absent from the index: kj rag index --file ${rel}` };
 }

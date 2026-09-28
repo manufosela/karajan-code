@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { setLastIndexedCommit } from "../../src/rag/vec-store.js";
 import { ragIndexCoverage } from "../../src/rag/coverage.js";
-import { makeCoverageRepo } from "./coverage-fixture.js";
+import { FIXTURE_SOURCES, makeCoverageRepo } from "./coverage-fixture.js";
 
 let f;
 beforeEach(() => { f = makeCoverageRepo(); });
@@ -20,12 +20,13 @@ describe("ragIndexCoverage", () => {
     setLastIndexedCommit(f.db, f.slug, f.head());
 
     const c = await ragIndexCoverage(f.repo, { db: f.db });
-    // bin/tool (no extension), node_modules/ and README.md are not sources for the matchers.
-    expect(c).toMatchObject({ project: "myproj", total: 3, indexed: 2, absent: false, missing: ["scripts/b.js"], stale: [] });
+    // KJC-TSK-0891: any versioned text counts (bin/tool, README.md, .gitignore
+    // too); node_modules/ is ignored by git and skipped by the indexer.
+    expect(c).toMatchObject({ project: "myproj", total: 6, indexed: 2, absent: false, missing: [".gitignore", "README.md", "bin/tool", "scripts/b.js"], stale: [] });
   });
 
   it("flags sources changed since the stamped commit as stale", async () => {
-    for (const [i, rel] of ["src/a.js", "scripts/b.js", "packages/x/src/c.js"].entries()) f.index(rel, i);
+    for (const [i, rel] of FIXTURE_SOURCES.entries()) f.index(rel, i);
     setLastIndexedCommit(f.db, f.slug, f.head());
     fs.writeFileSync(path.join(f.repo, "src/a.js"), "export const x = 2;\n");
     f.git("commit", "-q", "-am", "change a");
@@ -43,6 +44,6 @@ describe("ragIndexCoverage", () => {
 
   it("says the index is absent when the project has no code chunks at all", async () => {
     const c = await ragIndexCoverage(f.repo, { db: f.db });
-    expect(c).toMatchObject({ absent: true, total: 3, indexed: 0, lastIndexedCommit: null });
+    expect(c).toMatchObject({ absent: true, total: 6, indexed: 0, lastIndexedCommit: null });
   });
 });

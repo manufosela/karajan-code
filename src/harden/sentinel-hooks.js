@@ -990,9 +990,19 @@ process.stdin.on("end", () => {
             // cualquier proyecto sin indexar. Nada legible = se bloquea.
             const cov = spawnSync("kj", ["rag", "covers", rel, "--json"], { cwd: ROOT, encoding: "utf8" });
             let blind = null;
-            try { const c = JSON.parse(String(cov.stdout || "")); if (c.state === "not-indexable") blind = c.reason; } catch { blind = null; }
+            let absent = null;
+            try {
+              const c = JSON.parse(String(cov.stdout || ""));
+              if (c.state === "not-indexable") blind = c.reason;
+              // KJC-TSK-0891: si el indice no tiene el fichero, consultar no puede
+              // devolverlo; el remedio es indexarlo, y se nombra.
+              if (c.state === "stale" || c.state === "index-empty") absent = c.reason;
+            } catch { blind = null; }
             if (blind) {
               console.error("karajan sentinel: rag-first — " + blind + " — no se te exige consultar lo que el indice no puede tener; el gate lo anota y sigue" + doc("rag-first"));
+            } else if (absent) {
+              console.error("karajan sentinel: rag-first — el indice aun no tiene " + rel + " (" + absent + "); indexalo y consulta despues: kj_rag_query / kj rag query <que hace " + rel + ">" + doc("rag-first"));
+              process.exit(2);
             } else {
               console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>. (KJ_ALLOW_NO_RAG=1 = excepcion consciente, queda registrada)" + doc("rag-first"));
               process.exit(2);

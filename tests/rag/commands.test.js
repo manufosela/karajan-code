@@ -132,4 +132,27 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
     const hits = await ragQueryCommand({ text: "auth", config: { projectDir, rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: { topK: 3 } });
     expect(hits.length).toBeGreaterThan(0);
   });
+
+  // KJC-TSK-0891: el remedio que nombra rag-first tiene que arreglarlo de verdad.
+  // `--since auto` solo reindexa lo cambiado; un fichero sin cambios que falta
+  // en el indice necesita que se indexe ESE fichero.
+  it("ragIndexCommand --file indexes exactly those files, and a vanished one leaves the index", async () => {
+    const { ragIndexCommand } = await import("../../src/commands/rag.js");
+    const { openVecStore } = await import("../../src/rag/vec-store.js");
+    const projectDir = join(root, "p3");
+    mkdirSync(join(projectDir, "src"), { recursive: true });
+    writeFileSync(join(projectDir, "src", "a.js"), "export const a = 1;\n");
+    writeFileSync(join(projectDir, "src", "b.js"), "export const b = 2;\n");
+    const config = { projectDir, rag: { embedder: { dim: 8 } } };
+    const totals = await ragIndexCommand({ config, logger: noopLogger, flags: { file: ["src/a.js"] } });
+    expect(totals).toMatchObject({ files: 1 });
+    const sources = () => {
+      const db = openVecStore({ dim: 8, path: process.env.KJ_RAG_DB });
+      try { return db.prepare("SELECT DISTINCT source FROM chunks").all().map((r) => r.source); } finally { db.close(); }
+    };
+    expect(sources()).toEqual([join(projectDir, "src", "a.js")]);
+    rmSync(join(projectDir, "src", "a.js"));
+    await ragIndexCommand({ config, logger: noopLogger, flags: { file: ["src/a.js"] } });
+    expect(sources()).toEqual([]);
+  });
 });
