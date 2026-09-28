@@ -17,6 +17,7 @@ import { createWizard, isTTY } from "../utils/wizard.js";
 import { commitSupervisorRegeneration } from "../harden/supervisor-commit.js";
 import { installConfigsForRoots } from "../harden/config-engine.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
+import { maybeRulesyncGenerate } from "../utils/rulesync.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
@@ -74,6 +75,18 @@ export async function resolveCmds(projectDir, language) {
     if (framework && JS_TEST_CMD[framework]) cmds.test = JS_TEST_CMD[framework];
   }
   return cmds;
+}
+
+/**
+ * KJC-BUG-0233: loadConfig returns `{ config, ... }`; reading `base_branch` off
+ * the result was always undefined, so the guard always protected "main".
+ */
+export async function resolveBaseBranch(projectDir, load = loadConfig) {
+  try {
+    return (await load(projectDir))?.config?.base_branch || "main";
+  } catch {
+    return "main"; // no kj config: the default stands
+  }
 }
 
 export async function hardenCommand({
@@ -139,10 +152,7 @@ export async function hardenCommand({
   // KJC-TSK-0648: branch-first guard — the base branch only moves via PR.
   // Resolved from the project's kj config (default "main"); best-effort so
   // harden keeps working on repos that never ran kj init.
-  let baseBranch = "main";
-  try {
-    baseBranch = (await loadConfig(projectDir))?.base_branch || "main";
-  } catch { /* no kj config — default stands */ }
+  const baseBranch = await resolveBaseBranch(projectDir);
   let result;
   try {
     result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch });
@@ -177,6 +187,12 @@ export async function hardenCommand({
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
   // the configs already use — a Python project must not be told to use `const`.
   const gl = withGuidelines ? installGuidelines({ projectDir, language: roots[0]?.language ?? null, dryRun }) : null;
+  // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
+  if (withGuidelines && !dryRun) {
+    let kjConfig = null;
+    try { kjConfig = (await loadConfig(projectDir))?.config; } catch { /* no kj config: not opted in */ }
+    maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
+  }
   const out = {
     ok: true,
     ...result,
