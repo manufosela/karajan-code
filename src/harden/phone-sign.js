@@ -17,18 +17,22 @@ const SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 // escáner de privacidad del pack deniega claves google con razón general, y
 // servirla desde la landing la hace además rotable sin release.
 const RELAY_CONFIG_URL = "https://karajancode.com/sign/relay.json";
-let relayCache = null;
+// Cacheada por fetch: en produccion es siempre la misma; en tests, cada relé falso es otro.
+const relayCache = new WeakMap();
 async function relayConfig(fetchFn) {
-  if (relayCache) return relayCache;
+  if (relayCache.has(fetchFn)) return relayCache.get(fetchFn);
   const res = await fetchFn(RELAY_CONFIG_URL);
   if (!res.ok) throw new Error(`phone-sign: no pude cargar la config del relé (${res.status}) — revisa la red`);
   const cfg = await res.json();
   if (!cfg?.apiKey || !cfg?.projectId || !cfg?.collection) throw new Error("phone-sign: config del relé incompleta");
-  relayCache = {
+  const relay = {
     apiKey: cfg.apiKey,
     url: `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/${cfg.collection}`,
+    // KJC-TSK-0901: v2 solo cuando la landing (pagina + reglas) ya lo entiende.
+    payloadVersion: cfg.payloadVersion === 2 ? 2 : 1,
   };
-  return relayCache;
+  relayCache.set(fetchFn, relay);
+  return relay;
 }
 const SIGN_PAGE = "https://karajancode.com/sign";
 const POLL_INTERVAL_MS = 2000;
@@ -109,9 +113,15 @@ export function enrollPhone(publicKeyBase64, { home } = {}) {
   writeFileSync(phoneKeyPath(home), `${JSON.stringify(record, null, 2)}\n`, "utf8");
 }
 
-/** Payload canónico firmado: files EXACTAMENTE como se enviaron, JSON sin espacios. */
-export function canonicalPayload({ cid, nonce, project, files }) {
+/**
+ * Payload canónico firmado: files EXACTAMENTE como se enviaron, JSON sin espacios.
+ * KJC-TSK-0901/0902: v2 firma también lo demás que el móvil enseña (versión de
+ * kj) y la propia vigencia (emisión y caducidad, en ms), para que nada mostrado
+ * quede sin firmar y la caducidad sea de lo que el humano aprobó.
+ */
+export function canonicalPayload({ cid, nonce, project, files, v = 1, kjVersion, issuedMs, expiresMs }) {
   const filesHash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
+  if (v === 2) return `kj-supervisor-sign:v2:${cid}:${nonce}:${project}:${kjVersion}:${issuedMs}:${expiresMs}:${filesHash}`;
   return `kj-supervisor-sign:v1:${cid}:${nonce}:${project}:${filesHash}`;
 }
 
@@ -135,17 +145,21 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
   const drawQr = deps.qr ?? ((url) => qrcode.generate(url, { small: true }));
   const cid = randomBytes(16).toString("hex");
   const nonce = randomBytes(16).toString("hex");
+  const relay = await relayConfig(fetchFn);
+  const v = relay.payloadVersion;
+  const issuedMs = now();
+  const expiresMs = issuedMs + TTL_MS;
   const body = {
     fields: {
       nonce: { stringValue: nonce },
       project: { stringValue: project },
       kj_version: { stringValue: kjVersion },
       state: { stringValue: "pending" },
-      createdAt: { timestampValue: new Date().toISOString() },
+      createdAt: { timestampValue: new Date(issuedMs).toISOString() },
       files: { arrayValue: { values: files.map((f) => ({ mapValue: { fields: { file: { stringValue: f.file }, sha256: { stringValue: f.sha256 ?? "" } } } })) } },
+      ...(v === 2 ? { v: { integerValue: "2" }, expires_at: { timestampValue: new Date(expiresMs).toISOString() } } : {}),
     },
   };
-  const relay = await relayConfig(fetchFn);
   const created = await fetchFn(`${relay.url}?documentId=${cid}&key=${relay.apiKey}`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
   });
@@ -157,7 +171,7 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
   logger.info?.(`phone-sign: escanea el QR o abre ${signUrl} y firma en el móvil (caduca en ${TTL_MS / 1000}s)`);
   logger.info?.("phone-sign: esperando la firma del móvil…");
   const spinner = deps.spinner ?? makeSpinner();
-  const deadline = now() + TTL_MS;
+  const deadline = expiresMs;
   while (now() < deadline) {
     const res = await fetchFn(`${relay.url}/${cid}?key=${relay.apiKey}`);
     if (!res.ok) { spinner.stop(); throw new Error(`phone-sign: fallo consultando la petición de firma (HTTP ${res.status})`); }
@@ -171,14 +185,17 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
       if (!signerKey || !authorized.has(signerKey)) {
         return { ok: false, reason: "la publicKey que firma no está en el padrón autorizado — el doc es transporte, la verdad es el padrón" };
       }
-      const payload = canonicalPayload({ cid, nonce, project, files });
+      const signed2 = v === 2 ? { v, kjVersion, issuedMs, expiresMs } : {};
+      const payload = canonicalPayload({ cid, nonce, project, files, ...signed2 });
       const signature = fields.signature?.stringValue ?? "";
       const good = verifyPhoneSignature({ payload, signature, publicKey: signerKey });
       if (!good) return { ok: false, reason: "firma ed25519 inválida para el payload canónico" };
+      // KJC-TSK-0901: una firma válida fuera de la vigencia que ella misma firma no vale.
+      if (v === 2 && now() > expiresMs) return { ok: false, reason: "la firma llegó fuera de su vigencia firmada" };
       // KJC-TSK-0823: devuelve el desafío + firma para que el sello los GRABE en
       // la provenance y CI pueda re-verificar server-side (clave del padrón).
       const filesHash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
-      return { ok: true, signer: signerKey, signature, challenge: { cid, nonce, project, filesHash } };
+      return { ok: true, signer: signerKey, signature, challenge: { cid, nonce, project, filesHash, ...signed2 } };
     }
     spinner.tick();
     await sleep(POLL_INTERVAL_MS);

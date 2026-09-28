@@ -20,7 +20,13 @@ service cloud.firestore {
       allow get: if true;
       allow list: if false;
       allow delete: if false;
-      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state'])
+      // KJC-TSK-0901: v2 adds `v` (== 2) and `expires_at`, signed by the phone
+      // too; both optional so a v1 kj keeps working.
+      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at'])
+        && (!('v' in request.resource.data) || (request.resource.data.v == 2
+          && request.resource.data.expires_at is timestamp
+          && request.resource.data.expires_at > request.resource.data.createdAt
+          && request.resource.data.expires_at <= request.resource.data.createdAt + duration.value(3, 'm')))
         && request.resource.data.keys().hasAll(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state'])
         && request.resource.data.state == 'pending'
         && request.resource.data.nonce is string
