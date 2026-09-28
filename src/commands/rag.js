@@ -7,6 +7,7 @@ import { isAbsolute, join } from "node:path";
 import { countChunks, deleteChunksBySource, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "../rag/vec-store.js";
 import { makeGovernedEmbedder } from "../rag/governed-embedder.js";
 import { indexFile, indexProject, indexProjectDelta } from "../rag/indexer.js";
+import { ragExclude } from "../rag/indexable.js";
 import { fileIndexState } from "../rag/coverage.js";
 import { query } from "../rag/retriever.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
@@ -59,7 +60,7 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
     let totals;
     if (since) {
       try {
-        totals = await indexProjectDelta(projectDir, { db, embedder, since, logger });
+        totals = await indexProjectDelta(projectDir, { db, embedder, since, logger, exclude: ragExclude(config) });
       } catch (err) {
         logger.warn?.(`[rag] delta index failed (${err.message}); falling back to full index`);
         totals = null;
@@ -70,6 +71,7 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
         db, embedder,
         karajanHome: getKarajanHome(), logger,
         withSources: Boolean(flags.withSources),
+        exclude: ragExclude(config),
       });
     }
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);

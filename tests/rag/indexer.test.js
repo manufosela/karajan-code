@@ -88,7 +88,9 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     writeFileSync(join(projectDir, "src", "app.py"), "def alpha():\n    return 1\n");
     writeFileSync(join(projectDir, "__pycache__", "app.cpython-311.pyc"), "x");
     const totals = await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: join(root, "missing-py"), logger: noopLogger, withSources: true });
-    expect(totals.files).toBe(1); // only src/app.py — __pycache__ skipped
+    // KJC-TSK-0891: any versioned text enters (src/app.py + pyproject.toml);
+    // __pycache__ is still a path the indexer always skips.
+    expect(totals.files).toBe(2);
     expect(countChunks(db, { kind: "code" })).toBeGreaterThan(0);
   });
 

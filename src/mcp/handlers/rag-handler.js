@@ -7,6 +7,7 @@ import { openProjectStore } from "../../rag/project-store.js";
 import { countProjectChunks, emptyIndexRemedy } from "../../rag/migrate.js";
 import { makeGovernedEmbedder } from "../../rag/governed-embedder.js";
 import { indexProject } from "../../rag/indexer.js";
+import { ragExclude } from "../../rag/indexable.js";
 import { query } from "../../rag/retriever.js";
 import { getKarajanHome } from "../../utils/paths.js";
 import { resolveProjectDir, buildConfig, responseText, failPayload } from "../shared-helpers.js";
@@ -57,6 +58,7 @@ export async function handleRagIndex(args, server) {
         db, embedder: makeGovernedEmbedder(config),
         karajanHome: getKarajanHome(), logger: silentLogger,
         withSources: Boolean(args?.withSources),
+        exclude: ragExclude(config), // KJC-TSK-0891
       });
       return responseText(totals);
     } finally { db.close(); }

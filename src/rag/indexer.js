@@ -12,7 +12,8 @@ import { execa } from "execa";
 
 import { chunkMarkdown, chunkPlan, chunkSource } from "./chunker.js";
 import { insertChunk, deleteChunksBySource, findChunkByHash } from "./vec-store.js";
-import { detectAdaptersForProject, buildMatchers, getAllCodeExtensions } from "../lang/registry.js";
+import { detectAdaptersForProject, getAllCodeExtensions } from "../lang/registry.js";
+import { indexableReason, listProjectFiles } from "./indexable.js";
 
 // KJC-PCS-0052 PR-A — antes vivían dos consts hard-coded para JS aquí
 // (CODE_EXT_RE + SKIP_SEGMENTS). Ahora vienen del registry de adapters,
@@ -40,8 +41,15 @@ function chunksFor(path, kind) {
     return chunkMarkdown(text, { path, kind });
   }
   if (kind === "code") return chunkSource(text, { path });
+  if (kind === "doc") return chunkMarkdown(text, { path, kind });
   return [];
 }
+
+/**
+ * KJC-TSK-0891: a project source is code or prose. Code with an adapter splits
+ * by symbol; any other text falls back to overlapping windows in chunkSource.
+ */
+export const sourceKind = (path) => (/\.mdx?$/i.test(path) ? "doc" : "code");
 
 /**
  * Index a single file. Returns `{ indexed, failed }`. Idempotent —
@@ -49,9 +57,9 @@ function chunksFor(path, kind) {
  * fresh batch is written, so a second call against the same file
  * leaves the store with exactly the latest chunks (no duplicates).
  */
-export async function indexFile(path, { db, embedder, logger = console, project = null } = {}) {
+export async function indexFile(path, { db, embedder, logger = console, project = null, kind: declaredKind = null } = {}) {
   if (!existsSync(path)) { logger.warn?.(`[rag-indexer] file not found: ${path}`); return { indexed: 0, failed: 0 }; }
-  const kind = detectKind(path);
+  const kind = declaredKind ?? detectKind(path);
   if (!kind) { logger.warn?.(`[rag-indexer] unknown kind: ${path}`); return { indexed: 0, failed: 0 }; }
   const chunks = chunksFor(path, kind);
   if (!chunks.length) return { indexed: 0, failed: 0, skipped: 0 };
@@ -118,7 +126,7 @@ async function listFiles(dir, predicate) {
  * indexing tens of thousands of files is expensive — the CLI exposes
  * it as `--with-sources`.
  */
-export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false } = {}) {
+export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false, exclude = [] } = {}) {
   // KJC-TSK-0640: a full index must stamp HEAD too — without it,
   // last_indexed_commit stayed null after the FIRST index, so the drift
   // delta-update (maybeAutoUpdate) never engaged until a manual --since.
@@ -148,18 +156,20 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
     // duplicate every chunk and contaminate retrieval scores. `_diet` is the
     // tests/_diet/ sandbox used by the test-diet audit harness — never user
     // code. Both viven en COMMON_SKIP_SEGMENTS dentro del registry.
-    const matchers = buildMatchers(detectAdaptersForProject(projectDir));
-    // KJC-BUG-0231: las exclusiones se juzgan DENTRO del proyecto. Sobre la ruta
-    // absoluta, un proyecto bajo un directorio "build" no indexaba nada.
-    const skipped = (p) => matchers.shouldSkip(relative(projectDir, p));
-    const sources = await listFiles(projectDir, (p) => matchers.isCodeFile(p) && !skipped(p));
-    // Lo que un indice anterior guardo de rutas que hoy se excluyen, fuera.
+    // KJC-BUG-0231: las exclusiones se juzgan DENTRO del proyecto (ruta relativa).
+    // KJC-TSK-0891: sin lista de extensiones: cualquier texto que el proyecto
+    // versiona, fuera lo binario, generado, enorme o excluido (indexable.js).
+    const outOf = (abs) => indexableReason(relative(projectDir, abs), abs, { exclude });
+    const listed = listProjectFiles(projectDir);
+    const candidates = listed ? listed.map((rel) => join(projectDir, rel)) : await listFiles(projectDir, () => true);
+    const sources = candidates.filter((abs) => outOf(abs) === null);
+    // Lo que un indice anterior guardo y hoy ya no entra (excluido o borrado), fuera.
     const prefix = `${projectDir}/`;
     for (const { source } of db.prepare("SELECT DISTINCT source FROM chunks WHERE project_slug = ?").all(slug)) {
-      if (source.startsWith(prefix) && skipped(source)) deleteChunksBySource(db, source);
+      if (source.startsWith(prefix) && outOf(source) !== null) deleteChunksBySource(db, source);
     }
     for (const s of sources) {
-      const r = await indexFile(s, { db, embedder, logger, project: slug });
+      const r = await indexFile(s, { db, embedder, logger, project: slug, kind: sourceKind(s) });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }
@@ -173,7 +183,7 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
  * `head` lets callers persist via setLastIndexedCommit. Throws on diff failure
  * (shallow clone, unknown ref) so the CLI can fall back to a full reindex.
  */
-export async function indexProjectDelta(projectDir, { db, embedder, since, logger = console } = {}) {
+export async function indexProjectDelta(projectDir, { db, embedder, since, logger = console, exclude = [] } = {}) {
   const totals = { indexed: 0, failed: 0, files: 0, deleted: 0, head: null };
   const slug = projectDir.split("/").pop()?.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase() || "project";
   const { stdout: head } = await execa("git", ["-C", projectDir, "rev-parse", "HEAD"]);
@@ -190,16 +200,14 @@ export async function indexProjectDelta(projectDir, { db, embedder, since, logge
   }
   const adapters = detectAdaptersForProject(projectDir);
   await prepareAdapters(adapters, { logger });
-  const matchers = buildMatchers(adapters);
   for (const { kind, p } of ops) {
-    if (matchers.shouldSkip(p)) continue;
-    if (!matchers.isCodeFile(p)) continue;
     const abs = isAbsolute(p) ? p : join(projectDir, p);
     if (kind === "del") {
       totals.deleted += deleteChunksBySource(db, abs);
       logger.info?.(`[rag-indexer] delta delete ${relative(process.cwd(), abs)}`);
-    } else if (existsSync(abs)) {
-      const r = await indexFile(abs, { db, embedder, logger, project: slug });
+    } else if (indexableReason(relative(projectDir, abs), abs, { exclude }) === null) {
+      // KJC-TSK-0891: the same criterion as the full walk, not a list of extensions.
+      const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind(abs) });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }
