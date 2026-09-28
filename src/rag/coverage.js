@@ -45,7 +45,7 @@ export async function ragIndexCoverage(projectDir, { db, exclude = [] }) {
   const generated = all.filter(isGeneratedByHarden);
   const sources = all.filter((p) => !isGeneratedByHarden(p));
 
-  const rows = db.prepare("SELECT DISTINCT source FROM chunks WHERE kind IN ('code', 'doc') AND project_slug = ?").all(project);
+  const rows = db.prepare("SELECT DISTINCT source FROM chunks WHERE kind = 'code' AND project_slug = ?").all(project);
   const indexed = new Set(rows.map((r) => (isAbsolute(r.source) ? relative(projectDir, r.source) : r.source)));
   const missing = sources.filter((p) => !indexed.has(p));
 

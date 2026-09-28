@@ -89,7 +89,7 @@ describe("indexProjectDelta — KJC-TSK-0455", () => {
     const t = await indexProjectDelta(projectDir, { db, embedder, since: base, logger: noopLogger });
     expect(t.indexed).toBeGreaterThan(0); // added.js + new.js
     expect(t.deleted).toBeGreaterThan(0); // doomed.js + old.js
-    // KJC-TSK-0891: README.md is text, so it enters now (as a doc);
+    // KJC-TSK-0891: README.md is text, so it enters now;
     // dist/bundle.js is under an excluded segment and must NOT be counted.
     expect(t.files).toBe(3); // added.js + new.js + README.md
   });

@@ -1,13 +1,13 @@
 import { existsSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 // KJC-PCS-0049 Step 6 — `kj rag` command group. Two subcommands:
 //   kj rag index [--project <slug>] [--with-sources]
 //   kj rag query <text>   [--scope plans|code|onboarding|all] [--top-k N] [--json]
 // Closes the v2.22.0 RAG MVP end-to-end from the terminal.
 import { countChunks, deleteChunksBySource, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "../rag/vec-store.js";
 import { makeGovernedEmbedder } from "../rag/governed-embedder.js";
-import { indexFile, indexProject, indexProjectDelta } from "../rag/indexer.js";
-import { ragExclude } from "../rag/indexable.js";
+import { indexFile, indexProject, indexProjectDelta, sourceKind } from "../rag/indexer.js";
+import { indexableReason, ragExclude } from "../rag/indexable.js";
 import { fileIndexState } from "../rag/coverage.js";
 import { query } from "../rag/retriever.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
@@ -22,7 +22,7 @@ function openDb(config) {
   return openProjectStore({ projectDir: config?.projectDir || process.cwd(), dim: config?.rag?.embedder?.dim || 768 });
 }
 
-async function indexFiles({ files, projectDir, db, embedder, slug, logger, json }) {
+async function indexFiles({ files, projectDir, db, embedder, slug, logger, json, exclude }) {
   const totals = { indexed: 0, failed: 0, files: 0, deleted: 0 };
   for (const file of files) {
     const abs = isAbsolute(file) ? file : join(projectDir, file);
@@ -30,11 +30,19 @@ async function indexFiles({ files, projectDir, db, embedder, slug, logger, json 
       totals.deleted += deleteChunksBySource(db, abs); // gone from disk: gone from the index
       continue;
     }
-    const r = await indexFile(abs, { db, embedder, logger, project: slug });
+    // KJC-TSK-0891: the same criterion and kind as the full walk, or the
+    // remedy rag-first names would index nothing for a .mdx or a .astro.
+    const out = indexableReason(relative(projectDir, abs), abs, { exclude, projectDir });
+    if (out) {
+      logger.warn?.(`[rag] ${out}: not indexed`);
+      continue;
+    }
+    const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind(abs) });
     totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
   }
+  const deleted = totals.deleted ? `, ${totals.deleted} chunks deleted` : "";
   if (json) process.stdout.write(`${JSON.stringify(totals)}\n`);
-  else logger.info(`[rag] indexed ${totals.indexed} chunk(s) across ${totals.files} file(s) (${totals.failed} failed${totals.deleted ? `, ${totals.deleted} chunks deleted` : ""})`);
+  else logger.info(`[rag] indexed ${totals.indexed} chunk(s) across ${totals.files} file(s) (${totals.failed} failed${deleted})`);
   return totals;
 }
 
@@ -46,7 +54,7 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
     const embedder = makeGovernedEmbedder(config);
     // KJC-TSK-0891: exactly these files. The remedy rag-first names for a file
     // missing from the index: `--since auto` only reaches what changed.
-    if (flags.file?.length) return await indexFiles({ files: flags.file, projectDir, db, embedder, slug, logger, json: flags.json });
+    if (flags.file?.length) return await indexFiles({ files: flags.file, projectDir, db, embedder, slug, logger, json: flags.json, exclude: ragExclude(config) });
     const sinceFlag = flags.since;
     // KJC-TSK-0455 — `--since auto` resolves to the last commit we indexed;
     // an explicit ref is honoured as-is. Without a baseline (first-time
