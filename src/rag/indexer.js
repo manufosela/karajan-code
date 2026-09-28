@@ -40,16 +40,18 @@ function chunksFor(path, kind) {
   if (kind === "plan" || kind === "onboarding") {
     return chunkMarkdown(text, { path, kind });
   }
+  // KJC-TSK-0891: a project's own prose is still a project source ("code":
+  // the store's schema allows no other kind), split by headings.
+  if (kind === "code" && /\.mdx?$/i.test(path)) return chunkMarkdown(text, { path, kind });
   if (kind === "code") return chunkSource(text, { path });
-  if (kind === "doc") return chunkMarkdown(text, { path, kind });
   return [];
 }
 
 /**
- * KJC-TSK-0891: a project source is code or prose. Code with an adapter splits
- * by symbol; any other text falls back to overlapping windows in chunkSource.
+ * KJC-TSK-0891: every project source is indexed as "code". Where an adapter
+ * exists it splits by symbol; any other text falls back to overlapping windows.
  */
-export const sourceKind = (path) => (/\.mdx?$/i.test(path) ? "doc" : "code");
+export const sourceKind = () => "code";
 
 /**
  * Index a single file. Returns `{ indexed, failed }`. Idempotent —
