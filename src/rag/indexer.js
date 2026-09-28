@@ -159,7 +159,7 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
     // KJC-BUG-0231: las exclusiones se juzgan DENTRO del proyecto (ruta relativa).
     // KJC-TSK-0891: sin lista de extensiones: cualquier texto que el proyecto
     // versiona, fuera lo binario, generado, enorme o excluido (indexable.js).
-    const outOf = (abs) => indexableReason(relative(projectDir, abs), abs, { exclude });
+    const outOf = (abs) => indexableReason(relative(projectDir, abs), abs, { exclude, projectDir });
     const listed = listProjectFiles(projectDir);
     const candidates = listed ? listed.map((rel) => join(projectDir, rel)) : await listFiles(projectDir, () => true);
     const sources = candidates.filter((abs) => outOf(abs) === null);
@@ -205,7 +205,7 @@ export async function indexProjectDelta(projectDir, { db, embedder, since, logge
     if (kind === "del") {
       totals.deleted += deleteChunksBySource(db, abs);
       logger.info?.(`[rag-indexer] delta delete ${relative(process.cwd(), abs)}`);
-    } else if (indexableReason(relative(projectDir, abs), abs, { exclude }) === null) {
+    } else if (indexableReason(relative(projectDir, abs), abs, { exclude, projectDir }) === null) {
       // KJC-TSK-0891: the same criterion as the full walk, not a list of extensions.
       const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind(abs) });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;

@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { ragIndexCoverage, isGeneratedByHarden } from "../../src/rag/coverage.js";
-import { makeCoverageRepo } from "./coverage-fixture.js";
+import { FIXTURE_SOURCES, makeCoverageRepo } from "./coverage-fixture.js";
 
 let f;
 beforeEach(() => { f = makeCoverageRepo(); });
@@ -34,9 +34,7 @@ describe("ragIndexCoverage — lo que genera kj no es deuda del equipo", () => {
     fs.writeFileSync(path.join(f.repo, "eslint.config.js"), "export default [];\n");
     f.git("add", "-A");
     f.git("commit", "-q", "-m", "harden configs");
-    f.index("src/a.js", 0);
-    f.index("scripts/b.js", 1);
-    f.index("packages/x/src/c.js", 2);
+    for (const [i, rel] of FIXTURE_SOURCES.entries()) f.index(rel, i);
 
     const c = await ragIndexCoverage(f.repo, { db: f.db });
     expect(c.missing).toEqual([]);
