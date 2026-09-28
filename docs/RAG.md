@@ -160,6 +160,28 @@ rag:
 
 Skipped runs persist `ragPreload: { skipped: true, reason: 'auto:low-value' }` so `kj resume` and `kj audit` can see why retrieval was skipped.
 
+### What goes into the index
+
+Any text file the project versions (`git ls-files`, plus new files git does not ignore), whatever its language. There is no list of extensions. A file stays out only for its nature, and `kj rag covers <file>` says which reason applies: binary, generated (lockfiles, minified files, sourcemaps, snapshots), larger than 512 KB, a symlink, anything that may hold secrets (`.env*`, keys), a path the indexer always skips (`node_modules`, `dist`, `build`, `.git`, `.claude`...), or excluded by the project.
+
+The project excludes in two places, and both apply:
+
+- **`.ragignore`** at the project root, with `.gitignore` syntax, versioned so the whole team inherits it:
+
+  ```gitignore
+  # generated data
+  exports/          # a folder, at any depth
+  *.csv             # an extension, anywhere
+  /data             # anchored to the project root
+  fixtures/big.json # a path with a slash is from the root
+  ```
+
+  Negation (`!`) is not supported.
+
+- **`rag.exclude`** in `.karajan/kj.config.yml`, a list of repo-relative globs, for when the exclusion belongs to one machine rather than to the team.
+
+A file the index does not have yet is indexed on the spot with `kj rag index --file <path>`, which is the remedy rag-first names for it.
+
 ## Internals — the six questions
 
 ### 1. Chunking
