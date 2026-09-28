@@ -1357,13 +1357,17 @@ router.post('/rag/query', async (req, res) => {
   if (typeof text !== 'string' || text.length === 0) {
     return res.status(400).json({ error: "'text' is required (non-empty string)" });
   }
+  // KJC-TSK-0885 (ADR 0011): a scoped view searches ITS project's index; the
+  // machine-wide store (no filter) returned chunks of any repo.
+  let projectDir;
+  try { projectDir = requestProjectDir(req.body?.project); } catch (err) { return res.status(400).json({ error: err.message }); }
   try {
     const { openVecStore, countChunks } = await import('karajan-core/vec-store');
     // KJC-TSK-0632: resolved from karajan-core — the board carries zero
     // relative imports into the CLI src tree (see no-cli-imports test).
     const { makeEmbedder } = await import('karajan-core/rag/embedders/factory');
     const { query } = await import('karajan-core/rag/retriever');
-    const db = openVecStore({ dim: 768 });
+    const db = openVecStore({ dim: 768, ...(projectDir ? { path: path.join(projectDir, '.karajan', 'rag.db') } : {}) });
     try {
       if (countChunks(db) === 0) return res.json({ hits: [], empty: true, topK, scope });
       const embedder = makeEmbedder({});

@@ -77,3 +77,28 @@ describe('GET/PUT /api/config?scope=project with a project', () => {
     expect(got.body.error).toMatch(/nope/);
   });
 });
+
+// KJC-TSK-0885 paso 3: el buscador RAG de la vista abre el indice de SU
+// proyecto; antes abria la base global sin filtro y traia chunks de cualquiera.
+describe('POST /api/rag/query with a project', () => {
+  it("searches that project's index, never the machine-wide one", async () => {
+    const { openVecStore, insertChunk } = await import('karajan-core/vec-store');
+    process.env.KJ_RAG_DB = join(tmp, 'global.db');
+    const g = openVecStore({ dim: 768, path: process.env.KJ_RAG_DB });
+    insertChunk(g, { source: '/other/x.js', kind: 'code', text: 'ajeno', embedding: new Float32Array(768).fill(0.1), project: 'other' });
+    g.close();
+    try {
+      const { default: apiRoutes } = await import('../src/routes/api.js');
+      const app = express();
+      app.use(express.json());
+      app.use('/api', apiRoutes);
+      const res = await request(app).post('/api/rag/query').send({ text: 'x', project: slug });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ empty: true, hits: [] });
+      const bad = await request(app).post('/api/rag/query').send({ text: 'x', project: 'nope' });
+      expect(bad.status).toBe(400);
+    } finally {
+      delete process.env.KJ_RAG_DB;
+    }
+  });
+});
