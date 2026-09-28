@@ -97,5 +97,7 @@ export function fileIndexState(projectDir, file, { db }) {
   if (!matchers.isCodeFile(rel) && extname(rel).toLowerCase() !== ".md") {
     return { state: "not-indexable", rel, canAnswer: false, reason: `no language adapter covers ${extname(rel) || "a file with no extension"}, so the indexer never takes ${rel}` };
   }
-  return { state: "stale", rel, canAnswer: false, reason: `${rel} is indexable but absent from the index: kj rag index --since auto` };
+  // KJC-TSK-0891: `--since auto` only reaches what changed, so it cannot fix an
+  // unchanged file the index never held; indexing THIS file does.
+  return { state: "stale", rel, canAnswer: false, reason: `${rel} is indexable but absent from the index: kj rag index --file ${rel}` };
 }
