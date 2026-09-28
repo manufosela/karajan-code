@@ -76,6 +76,18 @@ export async function resolveCmds(projectDir, language) {
   return cmds;
 }
 
+/**
+ * KJC-BUG-0233: loadConfig returns `{ config, ... }`; reading `base_branch` off
+ * the result was always undefined, so the guard always protected "main".
+ */
+export async function resolveBaseBranch(projectDir, load = loadConfig) {
+  try {
+    return (await load(projectDir))?.config?.base_branch || "main";
+  } catch {
+    return "main"; // no kj config: the default stands
+  }
+}
+
 export async function hardenCommand({
   projectDir = process.cwd(),
   profile = "standard",
@@ -139,10 +151,7 @@ export async function hardenCommand({
   // KJC-TSK-0648: branch-first guard — the base branch only moves via PR.
   // Resolved from the project's kj config (default "main"); best-effort so
   // harden keeps working on repos that never ran kj init.
-  let baseBranch = "main";
-  try {
-    baseBranch = (await loadConfig(projectDir))?.base_branch || "main";
-  } catch { /* no kj config — default stands */ }
+  const baseBranch = await resolveBaseBranch(projectDir);
   let result;
   try {
     result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch });
