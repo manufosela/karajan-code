@@ -54,6 +54,26 @@ describe("checkTestsWithCode", () => {
     expect(r.mode).toBe("warn");
   });
 
+  // KJC-BUG-0235 (grebla #948/#952): the 20 added lines of two cleanups were
+  // all comments corrected after the deletion. Only when the caller proved it.
+  it("a cleanup whose only added lines are comments is exempt, even in block mode", () => {
+    const r = checkTestsWithCode({
+      config: { method_gates: { tests_with_code: "block" } }, env: {},
+      stagedFiles: ["functions/index.js", "src/app.js"],
+      numstat: [{ file: "functions/index.js", added: 4, removed: 827, commentOnly: true }, { file: "src/app.js", added: 0, removed: 140 }],
+    });
+    expect(r).toMatchObject({ ok: true, mode: "delete-only" });
+    expect(r.reason).toMatch(/comments/);
+  });
+
+  it("added lines not proven to be comments keep the gate armed", () => {
+    const r = checkTestsWithCode({
+      config: {}, env: {}, stagedFiles: ["src/a.js"],
+      numstat: [{ file: "src/a.js", added: 4, removed: 800, commentOnly: false }],
+    });
+    expect(r.mode).toBe("warn");
+  });
+
   it("without numstat the behavior is unchanged — callers that only know names", () => {
     expect(run(["src/a.js"]).mode).toBe("warn");
   });
