@@ -42,8 +42,11 @@ export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = nu
   // cleanup PRs). Callers that only know names keep the old behavior.
   if (Array.isArray(numstat)) {
     const bySource = numstat.filter((n) => sources.includes(n.file));
-    if (bySource.length === sources.length && bySource.every((n) => (n.added || 0) === 0)) {
-      return { ok: true, mode: "delete-only", sources, reason: "every touched source only removes lines — deleting is not new behavior" };
+    // KJC-BUG-0235: a cleanup also corrects the comments the deletion left
+    // lying; lines the caller PROVED to be comments carry no behavior either.
+    const cleanup = (n) => (n.added || 0) === 0 || n.commentOnly === true;
+    if (bySource.length === sources.length && bySource.every(cleanup)) {
+      return { ok: true, mode: "delete-only", sources, reason: "every touched source only removes lines or corrects comments — deleting is not new behavior" };
     }
   }
 

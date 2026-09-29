@@ -5,7 +5,7 @@
  * verdict tied to the exact diff (verdict-store), so the pre-commit hook
  * (ENV-C) can verify it. Exit code 0 = approved, 1 = rejected/stale.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { runCommand } from "../utils/process.js";
 import { checkVerdict, diffHash, pruneVerdicts } from "../review/verdict-store.js";
@@ -13,6 +13,7 @@ import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
+import { addedAreCommentsOnly } from "../review/comment-only.js";
 import { checkSonarRequirement, SONAR_RULE_ID } from "../review/sonar-requirement.js";
 import { checkRagRequirement, checkRagVerdict, ragBlock, RAG_RULE_ID } from "../review/rag-requirement.js";
 import { checkUiEvidence, uiBlock } from "../review/ui-evidence.js";
@@ -57,6 +58,36 @@ async function rawDiff(range, extraArgs = []) {
     throw new Error(res.stderr?.trim() || `git ${args.join(" ")} failed`);
   }
   return res.stdout;
+}
+
+/** The file as the reviewed diff leaves it. */
+async function resultingContent(range, file, projectDir) {
+  const show = async (spec) => {
+    const res = await runCommand("git", ["show", spec]);
+    return res.exitCode === 0 ? res.stdout : null;
+  };
+  // Staged review: the INDEX, never the working tree (unstaged edits are not reviewed).
+  if (!range) return show(`:${file}`);
+  // `a..b` / `a...b`: the right side (HEAD when omitted).
+  if (/\.\./.test(range)) return show(`${range.split(/\.\.\.?/)[1] || "HEAD"}:${file}`);
+  // `git diff <ref>` compares the ref with the working tree, so that is the result.
+  try { return readFileSync(join(projectDir, file), "utf8"); } catch { return null; }
+}
+
+/**
+ * KJC-BUG-0235: mark the files whose added lines are all comments, so a
+ * cleanup that corrects the comments it left lying is not taken for new code.
+ * Anything unreadable or of unknown syntax stays unmarked (counts as code).
+ */
+export async function markCommentOnlyAdditions(numstat, { range, projectDir }) {
+  const touched = numstat.filter((n) => n.added > 0);
+  if (touched.length === 0) return;
+  const added = addedLinesByFile(await rawDiff(range, ["--unified=0"]));
+  for (const n of touched) {
+    const lines = added.get(n.file);
+    const content = lines ? await resultingContent(range, n.file, projectDir) : null;
+    n.commentOnly = content !== null && addedAreCommentsOnly(content, lines, n.file);
+  }
 }
 
 // KJC-TSK-0838: a grant is the ONLY way past the sonar requirement, so it is
@@ -286,6 +317,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // exempt — deleting code adds no behavior to test.
   const numstat = (await rawDiff(flags.range, ["--numstat"])).split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const [a, r, ...f] = l.split(/\s+/); return { file: f.join(" "), added: a === "-" ? 1 : Number(a) || 0, removed: r === "-" ? 0 : Number(r) || 0 }; });
+  await markCommentOnlyAdditions(numstat, { range: flags.range, projectDir });
   const tests = checkTestsWithCode({ config, stagedFiles: changedFiles, numstat });
   if (tests.mode === "delete-only") console.log(`⚠ tests-with-code: exempt — ${tests.reason}`);
   if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
