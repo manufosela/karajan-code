@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.36.0 — one index and one board per project (current)
+### v4.37.0 — caught earlier (current)
+
+The phone now signs everything it shows, the kj version and its own expiry included, so an approval cannot outlive what the human saw. A cleanup that deletes code and corrects the comments it left behind is no longer taken for new code that needs tests. A versioned `.ragignore` says what stays out of the RAG. And the two limits that kept being found only when a gate blocked, the size of a PR and the format of a commit message, are now said while the work is being written: `kj pr-size` measures the branch with the CI's own budget, and the commit hook rejects what CI would.
+
+### v4.36.0 — one index and one board per project
 
 Every project on a machine shared one RAG store and one board view, so a query from one repo could bring back another repo's code, and the board's own search did exactly that. Now each project keeps its index in its own `.karajan/rag.db`, and `kj rag migrate` moves it there from the old shared store without re-embedding anything. The board starts by itself, like Sonar, and kj opens it on that project's view alone, `/p/<slug>`, where the settings, the embedded terminal and the search act on that project and no other. The canon kj ships stays shared in its own store, reached with `kj rag query --library`. The index also stops depending on a list of languages: any text file your project versions goes in, and what stays out (binaries, generated files, secrets) is said with its reason. And in a repo managed with Rulesync, kj writes its rules into `.rulesync/rules/karajan.md`, so `rulesync generate` spreads them instead of erasing them.
 

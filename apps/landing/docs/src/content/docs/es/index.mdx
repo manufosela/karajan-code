@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.36.0 — un índice y un board por proyecto (actual)
+### v4.37.0 — antes, no en el gate (actual)
+
+El móvil firma ahora todo lo que enseña, incluida la versión de kj y su propia caducidad, así que una aprobación no puede durar más de lo que la persona vio. Una limpieza que borra código y corrige los comentarios que dejaba mintiendo ya no se toma por código nuevo que pide tests. Un `.ragignore` versionado dice qué se queda fuera del RAG. Y los dos límites que solo aparecían cuando un gate bloqueaba, el tamaño de una PR y el formato del mensaje de commit, se dicen ahora mientras se escribe: `kj pr-size` mide la rama con el mismo cálculo que el CI, y el hook de commit rechaza lo que el CI rechazaría.
+
+### v4.36.0 — un índice y un board por proyecto
 
 Todos los proyectos de una máquina compartían un solo almacén del RAG y una sola vista del board, así que una consulta desde un repo podía devolver código de otro, y el buscador del propio board hacía justo eso. Ahora cada proyecto guarda su índice en su propio `.karajan/rag.db`, y `kj rag migrate` lo mueve ahí desde el almacén compartido sin volver a calcular nada. El board arranca solo, como Sonar, y kj lo abre en la vista de ese proyecto y nada más, `/p/<slug>`, donde la configuración, la terminal integrada y el buscador actúan sobre ese proyecto y ningún otro. El canon que trae kj sigue siendo común, en su propio almacén, con `kj rag query --library`. El índice deja además de depender de una lista de lenguajes: entra cualquier fichero de texto que tu proyecto versione, y lo que se queda fuera (binarios, generados, secretos) se dice con su motivo. Y en un repo gestionado con Rulesync, kj escribe sus reglas en `.rulesync/rules/karajan.md`, así que `rulesync generate` las reparte en vez de borrarlas.
 
