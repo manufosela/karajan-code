@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.37.0] - 2026-09-29
+
+Two days of catching things earlier. The phone now signs everything it shows,
+its own validity included. A cleanup that only corrects the comments it left
+behind stops being taken for new code. And the two limits that kept being
+found at the gate, the PR size and the commit message format, are now said
+while the work is being written, not after.
+
+### Added
+
+- **`.ragignore`** (KJC-TSK-0900): the team declares, versioned and with `.gitignore` syntax, which folders or extensions stay out of the RAG index (`exports/`, `*.csv`, `/data`), next to `rag.exclude` in `kj.config.yml`, which many repos do not version. It applies to the full index, the delta, `kj rag index --file`, the coverage check and rag-first, and `kj rag covers` names it as the reason.
+- **`kj pr-size`** (KJC-TSK-0910): what the branch adds against its base, with the same budget the CI gate applies, counting committed and uncommitted changes and new files not yet added. After each code or test edit the Sentinel says it once past 150 lines and once past 200, as context for the agent, never as a block.
+
+### Changed
+
+- **The phone signs what it shows, validity included** (KJC-TSK-0901, 0902): the signature payload v2 adds the kj version the phone displays and the issue and expiry times, so nothing shown goes unsigned and the expiry is part of what the human approved; kj refuses a signature that arrives after it. v1 keeps working, and a contract test fails if the signer page shows a field it does not sign. Activated in this release: the Firestore rules and the signer page are deployed together.
+
+### Fixed
+
+- **A cleanup that corrects its comments is not new code** (KJC-BUG-0235, from grebla-app): the delete-only exemption of tests-with-code demanded zero added lines, and a good cleanup also corrects the comments the deletion left lying. A source now counts as cleanup if every added line is a comment or blank, read from the file as the diff leaves it (the index for a staged review) and with two checks that must agree. One added line of code and the gate asks for tests as before. JSX, TSX, PHP, shell and Ruby are not judged.
+- **The commit-msg hook rejects what CI's commitlint rejects** (KJC-TSK-0909): body lines over 100 characters are caught locally, and when commitlint is installed in the project the hook runs it with the project's own config, without downloading anything.
+
 ## [4.36.0] - 2026-09-28
 
 One index and one board per project (ADR 0011). Until now every project on a
