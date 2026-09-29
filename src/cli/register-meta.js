@@ -522,6 +522,17 @@ export function registerMeta(program, { pkgVersion }) {
       await privacyScanCommand({ paths, flags });
     });
 
+  // KJC-TSK-0910: the branch's size while it is written, same budget as CI.
+  program.command("pr-size")
+    .description("Lines this branch adds against its base, with the CI budget (committed, uncommitted and new files)")
+    .option("--json", "Machine-readable result")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "pr-size", flags, async ({ config, logger }) => {
+        const { prSizeCommand } = await import("../commands/pr-size.js");
+        await prSizeCommand({ config, logger, flags });
+      });
+    });
+
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
   rag.command("index")
     .description("Index plans + onboarding (and optionally project sources) into the local vector store")

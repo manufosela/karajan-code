@@ -288,9 +288,23 @@ process.stdin.on("end", () => {
         s.escapes.push(e);
         (state.escape_events ||= []).push({ escape: e, tool, sid, ts: Date.now() });
       }
+    // KJC-TSK-0910: the branch size while it is written, with the CI budget
+    // (kj pr-size), said once per threshold crossed. Context, never a block.
+    let sizeNote = null;
+    if (bucket) {
+      const ps = spawnSync("kj", ["pr-size", "--json"], { cwd: ROOT, encoding: "utf8", timeout: 5000 });
+      let size = null;
+      try { size = JSON.parse(String(ps.stdout || "").trim().split(String.fromCharCode(10)).pop()); } catch { size = null; }
+      const crossed = size ? [200, 150].find((t) => size.added > t) : undefined;
+      if (crossed && (s.size_warned || 0) < crossed) {
+        s.size_warned = crossed;
+        sizeNote = "karajan sentinel: la rama ya suma " + size.added + " lineas contables (" + size.testAdded + " de tests); " + (crossed >= 200 ? "pasa el limite de 200 del CI: parte antes de seguir" : "pasa de 150: planea la particion ahora, no en el stage");
+      }
+    }
     const ids = Object.keys(state.sessions);
     if (ids.length > 5) delete state.sessions[ids.sort((a, b) => (state.sessions[a].at || 0) - (state.sessions[b].at || 0))[0]];
     save(state);
+    if (sizeNote) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: sizeNote } }));
   } catch { /* fail open — the sentinel never breaks a tool call */ }
   process.exit(0);
 });
