@@ -1333,6 +1333,9 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
       // edit matchers wired, the board-sync recorder never ran in production.
       { event: "PostToolUse", matcher: "Bash", script: "posttooluse.mjs" },
       { event: "PostToolUse", matcher: "mcp__.*__update_card", script: "posttooluse.mjs" },
+      // KJC-BUG-0236 (#1886): the rag-first ledger records MCP answers here;
+      // unwired, the official tool never satisfied the gate.
+      { event: "PostToolUse", matcher: "mcp__.*__kj_rag_query", script: "posttooluse.mjs" },
       { event: "Stop", script: "stop.mjs" },
     ],
   });
