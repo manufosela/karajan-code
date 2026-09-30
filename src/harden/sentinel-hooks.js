@@ -473,6 +473,22 @@ process.stdin.on("end", () => {
         console.error("karajan sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion." + doc("supervisor"));
         process.exit(2);
       }
+      // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
+      // sesion toca un fichero se anota si estaba limpio: solo entonces un
+      // descarte posterior pierde nada mas que lo de la sesion. Antes de
+      // cualquier escape; git que falla cuenta como sucio (fail-closed).
+      if (relT && !relT.startsWith("..") && !relT.startsWith("/")) {
+        const st = load();
+        const touch = (session(st, sid).first_touch ||= {});
+        // hasOwn + defineProperty: a file named __proto__ or toString is a path, not a prototype key.
+        if (!Object.hasOwn(touch, relT)) {
+          // --ignored: a user's ignored .env is theirs too (git clean -x deletes it).
+          const gs = spawnSync("git", ["-C", ROOT, "status", "--porcelain", "--ignored", "--", relT], { encoding: "utf8" });
+          const value = gs.status === 0 && String(gs.stdout).trim() === "" ? "clean" : "dirty";
+          Object.defineProperty(touch, relT, { value, enumerable: true, writable: true, configurable: true });
+          save(st);
+        }
+      }
     }
     // Any Bash that NAMES the supervisor's files is denied — a write-verb
     // blocklist is bypassable (cp, dd, one-liners), and reading them is what
