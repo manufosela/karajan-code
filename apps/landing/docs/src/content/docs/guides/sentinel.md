@@ -89,6 +89,12 @@ The Sentinel's own files (`.karajan/harness`, hooks) are read-only from inside a
 
 When they differ, kj tells three cases apart. If the file is exactly what `kj harden` wrote (it records a sha256 per file in `.karajan/harness/installed.json`) and no human sealed it, kj has simply moved on: it regenerates the file itself and says so in one line. If a human sealed it, it is left alone and you are told that advancing it is theirs. Anything else was changed after installation, and that blocks. Forging the record gains nothing: the only thing it enables is restoring the file from the installed kj.
 
+## discard
+
+A session does not discard changes it did not make. `git checkout -- <path>`, `git checkout <path>`, `git checkout .`, `git checkout -f`, `git restore` (of the working tree), `git reset --hard` and `git switch --discard-changes` are denied when what they would throw away includes a file the session did not own. A file is the session's own when it was clean, or did not exist, the first time the session touched it. An edit on top of your uncommitted work leaves the file yours, not the session's. `git stash drop` and `git stash clear` are always denied: saved work may not be the session's. A git discard nested in `$( )`, backticks, `eval`, `xargs` or `sh -c` cannot be read, so it is denied too: run it as a simple command.
+
+There is no escape, because it is data loss. The remedy never loses anything: `git stash push -- <files>` puts the change aside, recoverable, and the session tells you. Born from a real loss: a coder decided a `.gitignore` line "was probably made by the system" and ran `git checkout .gitignore` over the user's change (issue #1886).
+
 ## stop-gate
 
 The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations or ask your user for the applicable escape. State: `kj sentinel status`.

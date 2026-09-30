@@ -458,6 +458,92 @@ const inOrder = (want, got) => { let i = 0; for (const w of got) if (w === want[
 const isPublish = (cmd) => { const got = wordsOf(cmd); return PUBLISH_VERBS.some((verb) => inOrder(verb, got)); };
 const PUSH = /\\bgit\\s+push\\b/;
 const PROTECTED = /\\.claude\\/settings\\.json\\b|\\.karajan\\/(hooks|harness)\\//;
+// KJC-BUG-0238 (#1886): what a git command would discard, per simple segment.
+// null = discards nothing (or is not git); {stash} = drops saved
+// work; {unknown} = cannot be read with certainty; {paths} = working-tree
+// changes (":/" = the whole tree, whatever the cwd).
+const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch"];
+const discardOf = (words) => {
+  let i = 0;
+  // Skip VAR=val and the wrappers that run git itself; /usr/bin/git is git.
+  while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || ["command", "exec", "sudo", "doas", "nice", "nohup", "time"].includes(words[i]))) i++;
+  // A $variable in command position beside a discard verb ($g checkout) cannot be read.
+  if (words[i]?.startsWith("$") && words.some((w) => DISCARD_VERBS.includes(w))) return { unknown: true };
+  if (words[i]?.split("/").at(-1) !== "git") return null;
+  let cwd = ROOT;
+  for (i++; i < words.length && words[i].startsWith("-"); i++) {
+    if (words[i] === "-C") cwd = resolve(cwd, words[++i] || ".");
+    else if (words[i] === "-c") i++;
+    else if (!["--no-pager", "-P", "--paginate", "-p", "--no-optional-locks"].includes(words[i])) return words.some((w) => DISCARD_VERBS.includes(w)) ? { unknown: true } : null;
+  }
+  const sub = words[i];
+  const args = [];
+  for (let j = i + 1; j < words.length; j++) {
+    if (["-s", "--source"].includes(words[j])) j++;
+    else args.push(words[j]);
+  }
+  const has = (...f) => f.some((x) => args.includes(x));
+  const dd = args.indexOf("--");
+  const pos = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-"));
+  const after = dd < 0 ? [] : args.slice(dd + 1);
+  const ALL = { cwd, paths: [":/"] };
+  if (sub === "stash") return has("drop", "clear") ? { cwd, stash: true } : null;
+  if (sub === "reset") return has("--hard") ? ALL : null;
+  if (sub === "switch") return has("--discard-changes", "-f", "--force") ? ALL : null;
+  if (sub === "restore") return has("--staged", "-S") && !has("--worktree", "-W") ? null : { cwd, paths: [...pos, ...after] };
+  if (sub !== "checkout") return null;
+  if (has("-f", "--force")) return ALL;
+  if (has("-b", "-B", "--orphan") || !(pos.length || after.length)) return null;
+  if (after.length) return { cwd, paths: after };
+  const isRef = spawnSync("git", ["-C", cwd, "rev-parse", "--verify", "--quiet", pos[0] + "^{commit}"]).status === 0;
+  if (!isRef) return { cwd, paths: pos };
+  return pos.length > 1 ? { cwd, paths: pos.slice(1) } : null;
+};
+// Simple commands as word lists, quote-aware: an operator or blank inside
+// quotes belongs to the word ('user;work.txt' is one path).
+const shellSegments = (cmd) => {
+  const segs = [[]];
+  let word = null;
+  let quote = null;
+  let escaped = false;
+  const BS = String.fromCharCode(92);
+  const end = () => { if (word !== null) segs.at(-1).push(word); word = null; };
+  for (const ch of String(cmd)) {
+    // A backslash keeps the next char literal (an escaped blank joins the word),
+    // except inside single quotes. Any misread path fails the ls-files check below.
+    if (escaped) { word += ch; escaped = false; continue; }
+    if (ch === BS && quote !== "'") { escaped = true; word ??= ""; continue; }
+    if (quote) { if (ch === quote) quote = null; else word += ch; continue; }
+    if (ch === "'" || ch === '"') { quote = ch; word ??= ""; continue; }
+    if (";&|".includes(ch) || ch === String.fromCharCode(10)) { end(); segs.push([]); continue; }
+    if (ch.trim() === "") { end(); continue; }
+    word = (word ?? "") + ch;
+  }
+  end();
+  return segs.filter((s) => s.length);
+};
+// Files the discard would lose that the session did not own: dirty now and
+// not clean at first touch. Anything unreadable, or another repo, is foreign.
+const foreignLost = (d, touch) => {
+  if (d.stash) return ["git stash"];
+  if (d.unknown) return ["(comando no verificable: ejecutalo como git simple)"];
+  const top = spawnSync("git", ["-C", d.cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
+  const sameRepo = top.status === 0 && resolve(String(top.stdout).trim()) === resolve(ROOT);
+  const own = (f) => sameRepo && Object.hasOwn(touch, f) && touch[f] === "clean";
+  // Fail-closed: a path git does not know (misparsed, $VAR, substitution) cannot
+  // be proven safe; git would refuse to check it out anyway.
+  if (spawnSync("git", ["-C", d.cwd, "ls-files", "--error-unmatch", "--", ...d.paths]).status !== 0) return ["(ruta no resoluble: " + d.paths.join(" ") + ")"];
+  const r = spawnSync("git", ["-C", d.cwd, "status", "--porcelain", "-z", "--untracked-files=no", "--", ...d.paths], { encoding: "utf8" });
+  if (r.status !== 0) return ["(git status fallo)"];
+  const files = [];
+  const parts = String(r.stdout).split(String.fromCharCode(0));
+  for (let k = 0; k < parts.length; k++) {
+    if (parts[k].length < 4) continue;
+    files.push(parts[k].slice(3));
+    if ("RC".includes(parts[k][0])) k++;
+  }
+  return files.filter((f) => !own(f));
+};
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -548,6 +634,28 @@ process.stdin.on("end", () => {
       const kjCmd = String(input.command || "");
       if (tool === "Bash" && kjCmd.includes("harden") && kjCmd.includes("--commit")) {
         console.error("karajan sentinel: kj harden --commit es un acto humano (ADR 0009) — pideselo a tu usuario; ninguna sesion de agente lo ejecuta." + doc("supervisor"));
+        process.exit(2);
+      }
+    }
+    // KJC-BUG-0238 (#1886): un agente no descarta cambios que no hizo. Sin
+    // escape y antes de KJ_SENTINEL_OFF: es perdida de datos del usuario, y
+    // guardarlo (git stash push) nunca pierde nada.
+    if (tool === "Bash") {
+      const cmdD = String(input.command || "");
+      // A git discard nested in $( ), <( ), backticks, eval, xargs or sh -c cannot be read: fail-closed.
+      const nested = ["$(", "<(", ">(", String.fromCharCode(96)].some((n) => cmdD.includes(n)) || /(^|[ ;&|])(eval|xargs|bash|sh|zsh|env)( |$)/.test(cmdD);
+      if (nested && /(^|[^a-z])git([^a-z]|$)/.test(cmdD) && /checkout|restore|reset|stash|switch/.test(cmdD)) {
+        console.error("karajan sentinel: un descarte git dentro de $( ), backticks, eval, xargs o sh -c no es verificable — ejecutalo como comando simple." + doc("discard"));
+        process.exit(2);
+      }
+      const touch = load().sessions?.[sid]?.first_touch || {};
+      for (const words of shellSegments(cmdD)) {
+        const d = discardOf(words);
+        const lost = d ? foreignLost(d, touch) : [];
+        if (lost.length === 0) continue;
+        console.error(d.stash
+          ? "karajan sentinel: git stash drop/clear borra trabajo guardado que puede no ser de esta sesion — pideselo a tu usuario." + doc("discard")
+          : "karajan sentinel: ese comando descarta cambios que esta sesion no hizo (" + lost.slice(0, 5).join(", ") + (lost.length > 5 ? ", +" + (lost.length - 5) : "") + ") — pueden ser trabajo sin commitear de tu usuario. Si estorban, guardalos recuperables (git stash push -- <ficheros>) y avisale; si el cambio es tuyo sobre su trabajo, deshazlo con Edit. Sin escape: es perdida de datos." + doc("discard"));
         process.exit(2);
       }
     }
