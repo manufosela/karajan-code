@@ -89,6 +89,12 @@ Los propios ficheros del Sentinel (`.karajan/harness`, hooks) son de solo lectur
 
 Cuando no coinciden, kj distingue tres casos. Si el fichero es exactamente lo que escribió `kj harden` (guarda un sha256 por fichero en `.karajan/harness/installed.json`) y ningún humano lo selló, kj simplemente ha avanzado: lo regenera solo y lo dice en una línea. Si un humano lo selló, se deja como está y se avisa de que avanzarlo es cosa suya. Cualquier otra cosa se cambió después de instalarlo, y eso bloquea. Forjar el registro no sirve de nada: lo único que habilita es restaurar el fichero desde el kj instalado.
 
+## discard
+
+Una sesión no descarta cambios que no hizo. `git checkout -- <ruta>`, `git checkout <ruta>`, `git checkout .`, `git checkout -f`, `git restore` (del árbol de trabajo), `git reset --hard` y `git switch --discard-changes` se deniegan cuando lo que tirarían incluye un fichero que no era de la sesión. Un fichero es de la sesión si estaba limpio, o no existía, la primera vez que la sesión lo tocó. Una edición encima de tu trabajo sin commitear no lo convierte en suyo: sigue siendo tuyo. `git stash drop` y `git stash clear` se deniegan siempre, porque lo guardado puede no ser de la sesión. Un descarte git metido en `$( )`, backticks, `eval`, `xargs` o `sh -c` no se puede leer, así que también se deniega: ejecútalo como comando simple.
+
+No hay escape, porque es pérdida de datos. El remedio nunca pierde nada: `git stash push -- <ficheros>` aparta el cambio, recuperable, y la sesión te avisa. Nace de una pérdida real: un coder decidió que una línea de `.gitignore` "la habría puesto el sistema" y ejecutó `git checkout .gitignore` sobre el cambio del usuario (issue #1886).
+
 ## stop-gate
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas o pide a tu usuario el escape aplicable. Estado: `kj sentinel status`.
