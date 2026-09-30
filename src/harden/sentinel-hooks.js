@@ -462,7 +462,9 @@ const PROTECTED = /\\.claude\\/settings\\.json\\b|\\.karajan\\/(hooks|harness)\\
 // null = discards nothing (or is not git); {stash} = drops saved
 // work; {unknown} = cannot be read with certainty; {paths} = working-tree
 // changes (":/" = the whole tree, whatever the cwd).
-const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch"];
+const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch", "clean"];
+// Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n).
+const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
 const discardOf = (words) => {
   let i = 0;
   // Skip VAR=val and the wrappers that run git itself; /usr/bin/git is git.
@@ -479,7 +481,9 @@ const discardOf = (words) => {
   const sub = words[i];
   const args = [];
   for (let j = i + 1; j < words.length; j++) {
-    if (["-s", "--source"].includes(words[j])) j++;
+    // Options that take a value: the value is not a flag (-e -n excludes "-n"). Dropping
+    // clean's excludes only makes its probe list MORE files.
+    if (["-s", "--source", "-e", "--exclude"].includes(words[j]) || (sub === "clean" && /^-[a-zA-Z]*e$/.test(words[j]))) j++;
     else args.push(words[j]);
   }
   const has = (...f) => f.some((x) => args.includes(x));
@@ -489,6 +493,11 @@ const discardOf = (words) => {
   const ALL = { cwd, paths: [":/"] };
   if (sub === "stash") return has("drop", "clear") ? { cwd, stash: true } : null;
   if (sub === "reset") return has("--hard") ? ALL : null;
+  // Every clean but a dry run (-n in a short cluster BEFORE "--"): clean.requireForce=false deletes without -f.
+  const opts = dd < 0 ? args : args.slice(0, dd);
+  // Interactive clean decides at the prompt: nothing to probe, fail-closed.
+  if (sub === "clean" && opts.some((a) => a === "--interactive" || shortOpts(a).includes("i"))) return { unknown: true };
+  if (sub === "clean") return opts.some((a) => a === "--dry-run" || shortOpts(a).includes("n")) ? null : { cwd, clean: [opts, args.slice(opts.length)] };
   if (sub === "switch") return has("--discard-changes", "-f", "--force") ? ALL : null;
   if (sub === "restore") return has("--staged", "-S") && !has("--worktree", "-W") ? null : { cwd, paths: [...pos, ...after] };
   if (sub !== "checkout") return null;
@@ -530,6 +539,16 @@ const foreignLost = (d, touch) => {
   const top = spawnSync("git", ["-C", d.cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
   const sameRepo = top.status === 0 && resolve(String(top.stdout).trim()) === resolve(ROOT);
   const own = (f) => sameRepo && Object.hasOwn(touch, f) && touch[f] === "clean";
+  if (d.clean) {
+    // Ask git what it would remove: -n wins over -f, so the same flags (-ff included) are kept,
+    // minus -q (it silences the listing) and every exclude (dropping one only lists MORE).
+    // -n FIRST: after "--" it is a pathspec. LC_ALL=C: lines are parsed.
+    const [opts, rest] = d.clean;
+    const loud = opts.map((a) => (a.startsWith("--") ? a : "-" + shortOpts(a).replaceAll("q", ""))).filter((a) => a !== "-" && a !== "--quiet" && !a.startsWith("--exclude"));
+    const r = spawnSync("git", ["-C", d.cwd, "clean", "-n", ...loud, ...rest], { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } });
+    if (r.status !== 0) return ["(git clean -n fallo)"];
+    return String(r.stdout).split(String.fromCharCode(10)).filter((l) => l.startsWith("Would remove ")).map((l) => relative(ROOT, resolve(d.cwd, l.slice(13)))).filter((f) => !own(f));
+  }
   // Fail-closed: a path git does not know (misparsed, $VAR, substitution) cannot
   // be proven safe; git would refuse to check it out anyway.
   if (spawnSync("git", ["-C", d.cwd, "ls-files", "--error-unmatch", "--", ...d.paths]).status !== 0) return ["(ruta no resoluble: " + d.paths.join(" ") + ")"];
@@ -644,7 +663,7 @@ process.stdin.on("end", () => {
       const cmdD = String(input.command || "");
       // A git discard nested in $( ), <( ), backticks, eval, xargs or sh -c cannot be read: fail-closed.
       const nested = ["$(", "<(", ">(", String.fromCharCode(96)].some((n) => cmdD.includes(n)) || /(^|[ ;&|])(eval|xargs|bash|sh|zsh|env)( |$)/.test(cmdD);
-      if (nested && /(^|[^a-z])git([^a-z]|$)/.test(cmdD) && /checkout|restore|reset|stash|switch/.test(cmdD)) {
+      if (nested && /(^|[^a-z])git([^a-z]|$)/.test(cmdD) && DISCARD_VERBS.some((v) => cmdD.includes(v))) {
         console.error("karajan sentinel: un descarte git dentro de $( ), backticks, eval, xargs o sh -c no es verificable — ejecutalo como comando simple." + doc("discard"));
         process.exit(2);
       }
