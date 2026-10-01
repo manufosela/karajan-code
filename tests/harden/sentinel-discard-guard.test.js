@@ -57,6 +57,37 @@ describe("discard guard (PreToolUse Bash, no escape)", () => {
     }
   });
 
+  it("git clean -f removes untracked user files: denied; a file the session created is its own", () => {
+    sessionEdits("new.js", "session\n");
+    expect(bash("git clean -fd").status).toBe(0);
+    userEdits("draft.md", "user\n");
+    for (const cmd of ["git clean -f", "git clean -fd", "git clean -df", "git clean -xdf", "git clean --force", "git -c clean.requireForce=false clean -d", "git clean -fq", "git clean -f --quiet", "git clean -i", "git clean -fdi", "git clean -f -e -n", "git clean -fen", "git clean -fe -n", "sh -c 'git clean -f'", "echo $(git clean -f)", "$g clean -f"]) {
+      expect(bash(cmd).status, cmd).toBe(2);
+    }
+    expect(bash("git clean -n").status).toBe(0);
+  });
+
+  it("git clean -ffd also removes a nested repository: its files count", () => {
+    fs.mkdirSync(path.join(dir, "vendor"));
+    execSync("git init -q", { cwd: path.join(dir, "vendor") });
+    fs.writeFileSync(path.join(dir, "vendor", "user.txt"), "user\n");
+    expect(bash("git clean -fd").status).toBe(0);
+    expect(bash("git clean -ffd").status).toBe(2);
+  });
+
+  it("an exclude value never hides a foreign file from the probe (-efq excludes 'fq', not 'f')", () => {
+    sessionEdits("new.js", "session\n");
+    userEdits("f", "user\n");
+    expect(bash("git clean -efq").status).toBe(2);
+    expect(bash("git clean -f --exclude=f").status).toBe(2);
+  });
+
+  it("the dry-run probe never deletes, even with a pathspec named -n", () => {
+    userEdits("-n", "user\n");
+    expect(bash("git clean -f -- -n").status).toBe(2);
+    expect(fs.existsSync(path.join(dir, "-n"))).toBe(true);
+  });
+
   it("reads quoted paths whole: operators and blanks inside quotes are part of the name", () => {
     for (const name of ["user;work.txt", "my notes.md"]) {
       userEdits(name, "committed\n");
