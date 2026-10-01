@@ -51,7 +51,7 @@ describe("discard guard (PreToolUse Bash, no escape)", () => {
   it("covers the whole-tree forms and fails closed on nested commands", () => {
     userEdits("a.js", "user\n");
     for (const cmd of ["git checkout .", "git restore .", "git -C . checkout -- .", "git reset --hard", "git checkout -f main", "git switch --discard-changes main",
-      "command git checkout -- a.js", "/usr/bin/git reset --hard", "sudo git switch --discard-changes main", "echo $(git checkout -- a.js)",
+      "command git checkout -- a.js", "/usr/bin/git reset --hard", "sudo git switch --discard-changes main", "sudo -u root git reset --hard", "echo $(git checkout -- a.js)",
       "git --git-dir .git checkout -- a.js", "g=git; $g checkout -- a.js", "git stash --quiet drop", "sh -c 'git checkout -- a.js'", "eval git reset --hard", "echo a.js | xargs git checkout --"]) {
       expect(bash(cmd).status, cmd).toBe(2);
     }

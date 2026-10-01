@@ -538,7 +538,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     const bare = spawn("sed -i s/a/b/ .kj/worktrees/wt2/src/x.js");
     expect(bare.status).toBe(2);
     expect(bare.stderr).toContain("carril");
-    const sedOnly = spawn("sed -i s/a/b/ notas.txt");
+    const sedOnly = spawn("sed -i s/a/b/ /tmp/notas.txt"); // outside the repo: KJC-BUG-0237 keeps repo writes on Edit/Write
     expect(sedOnly.status).toBe(0);
     // cd/pushd en comando mutador: deny conservador SIEMPRE — bare, con $,
     // o relativas post-cd, todas las variantes de la carrera de bypasses.
@@ -580,7 +580,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     // comilla escapada moveria el cierre y esconderia el espacio.
     const escaped = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: 'cp "dir\\" with spaces/file" dest' } });
     expect(escaped.status).toBe(2);
-    const sedFree = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "sed -i s/a\\.b/c/ notas.txt" } });
+    const sedFree = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "sed -i s/a\\.b/c/ /tmp/notas.txt" } });
     expect(sedFree.status).toBe(0);
     // Comilla sin cerrar en mutador = no verificable.
     const unclosed = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: 'git commit -m "a medias' } });
