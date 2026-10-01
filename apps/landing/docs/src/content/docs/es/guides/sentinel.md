@@ -95,6 +95,10 @@ Una sesión no descarta cambios que no hizo. `git checkout -- <ruta>`, `git chec
 
 No hay escape, porque es pérdida de datos. El remedio nunca pierde nada: `git stash push -- <ficheros>` aparta el cambio, recuperable, y la sesión te avisa. Nace de una pérdida real: un coder decidió que una línea de `.gitignore` "la habría puesto el sistema" y ejecutó `git checkout .gitignore` sobre el cambio del usuario (issue #1886).
 
+## bash-write
+
+Dentro del repo, los ficheros se escriben solo con las tools Edit y Write, porque es el camino que guardan todos los demás gates (card-first, rag-first, no sobrescribir un fichero entero). Un comando Bash que escribe un fichero del repo se deniega: redirecciones (`>`, `>>`, `>|`, `2>`), `tee`, `sed -i`, `perl -i`, `cp`, `mv`, `install`, `ln`, `dd of=`, `truncate` y `touch`, también detrás de `env`, `sudo` o `command`. Un destino que el Sentinel no puede leer (`$VAR`, backticks) también se deniega. Un script en línea (`node -e`, `python -c`...) que nombra una API de escritura también se deniega. Fuera del repo (`/tmp`, un scratchpad, `/dev/null`) Bash sigue libre, y `git mv` renombra dentro. El límite, dicho claro: un programa que ejecutas puede escribir ficheros (un script, un build), y un hook que lee comandos no puede impedirlo; solo un sandbox puede. Este gate cierra las vías propias del shell para escribir, que es por donde un agente rodea Edit/Write. Nace de un rodeo real: bloqueado por rag-first, un coder escribió el mismo cambio con heredocs `cat >`, incluida la sobrescritura de un fichero entero (issue #1886).
+
 ## stop-gate
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas o pide a tu usuario el escape aplicable. Estado: `kj sentinel status`.

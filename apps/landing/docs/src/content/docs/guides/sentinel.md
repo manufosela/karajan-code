@@ -95,6 +95,10 @@ A session does not discard changes it did not make. `git checkout -- <path>`, `g
 
 There is no escape, because it is data loss. The remedy never loses anything: `git stash push -- <files>` puts the change aside, recoverable, and the session tells you. Born from a real loss: a coder decided a `.gitignore` line "was probably made by the system" and ran `git checkout .gitignore` over the user's change (issue #1886).
 
+## bash-write
+
+Inside the repo, files are written through the Edit and Write tools only, because that is the path every other gate guards (card-first, rag-first, no whole-file overwrite). A Bash command that writes a repo file is denied: redirections (`>`, `>>`, `>|`, `2>`), `tee`, `sed -i`, `perl -i`, `cp`, `mv`, `install`, `ln`, `dd of=`, `truncate` and `touch`, also behind `env`, `sudo` or `command`. A target the Sentinel cannot read (`$VAR`, backticks) is denied too. An inline script (`node -e`, `python -c`...) that names a write API is denied as well. Outside the repo (`/tmp`, a scratchpad, `/dev/null`) Bash stays free, and `git mv` renames inside it. The limit, said plainly: a program you run can write files (a script, a build), and a hook that reads commands cannot stop that; only a sandbox can. This gate closes the shell's own ways of writing, which is where an agent routes around Edit/Write. Born from a real bypass: blocked by rag-first, a coder wrote the same change with `cat >` heredocs, including a whole-file overwrite (issue #1886).
+
 ## stop-gate
 
 The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations or ask your user for the applicable escape. State: `kj sentinel status`.

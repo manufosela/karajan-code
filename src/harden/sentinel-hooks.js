@@ -463,12 +463,21 @@ const PROTECTED = /\\.claude\\/settings\\.json\\b|\\.karajan\\/(hooks|harness)\\
 // work; {unknown} = cannot be read with certainty; {paths} = working-tree
 // changes (":/" = the whole tree, whatever the cwd).
 const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch", "clean"];
+// Index of the command word. Skips NAME=value assignments AND wrappers (env, sudo,
+// command...) in any interleaving: env MODE=prod tee -> tee. A wrapper with options
+// (sudo -u root, env -i FOO=1): the command is the first of "heads" after them.
+const WRAPPERS = ["command", "exec", "sudo", "doas", "nice", "nohup", "time", "env"];
+const headIndex = (words, heads) => {
+  let i = 0;
+  while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || WRAPPERS.includes(words[i].split("/").at(-1)))) i++;
+  if (!words[i]?.startsWith("-")) return i;
+  const k = words.slice(i).findIndex((x) => heads.includes(x.split("/").at(-1)));
+  return k < 0 ? words.length : i + k;
+};
 // Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n).
 const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
 const discardOf = (words) => {
-  let i = 0;
-  // Skip VAR=val and the wrappers that run git itself; /usr/bin/git is git.
-  while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || ["command", "exec", "sudo", "doas", "nice", "nohup", "time"].includes(words[i]))) i++;
+  let i = headIndex(words, ["git"]); // /usr/bin/git is git
   // A $variable in command position beside a discard verb ($g checkout) cannot be read.
   if (words[i]?.startsWith("$") && words.some((w) => DISCARD_VERBS.includes(w))) return { unknown: true };
   if (words[i]?.split("/").at(-1) !== "git") return null;
@@ -524,12 +533,85 @@ const shellSegments = (cmd) => {
     if (ch === BS && quote !== "'") { escaped = true; word ??= ""; continue; }
     if (quote) { if (ch === quote) quote = null; else word += ch; continue; }
     if (ch === "'" || ch === '"') { quote = ch; word ??= ""; continue; }
-    if (";&|".includes(ch) || ch === String.fromCharCode(10)) { end(); segs.push([]); continue; }
+    if ((ch === "|" || ch === "&") && word?.endsWith(">")) { word += ch; continue; } // >| and >& are redirections, not a pipe or a fork
+    // x>file: end "x" and start the redirection word ">" (the target follows in it).
+    if (ch === ">" && word !== null && !/^[0-9]*>?$/.test(word)) { end(); word = ">"; continue; }
+    // ( ) { } and backticks also cut: what runs inside $( ), a subshell or a group is a command of its own.
+    // A backtick leaves "$" in the word it interrupts, as $( does: that word is no longer readable.
+    if (ch === String.fromCharCode(96)) word = (word ?? "") + "$";
+    if (";&|(){}".includes(ch) || ch === String.fromCharCode(10) || ch === String.fromCharCode(96)) { end(); segs.push([]); continue; }
     if (ch.trim() === "") { end(); continue; }
     word = (word ?? "") + ch;
   }
   end();
   return segs.filter((s) => s.length);
+};
+// KJC-BUG-0237 (#1886): the files a simple command writes from the shell.
+// Redirections anywhere; tee, sed/perl -i, cp/mv/install/ln, dd of=, truncate by head.
+const shellWrites = (words) => {
+  const out = [];
+  words.forEach((w, k) => {
+    const m = /^[0-9]*(>>|>[|]|>)(.*)$/.exec(w);
+    // >&N and >&- duplicate or close a descriptor; >& FILE and >&FILE write FILE.
+    const dup = m?.[2].startsWith("&") ? m[2].slice(1) : null;
+    if (m && dup === null) out.push(m[2] || words[k + 1]);
+    else if (m && !/^[0-9]*-?$/.test(dup)) out.push(dup);
+    else if (m && dup === "") out.push(words[k + 1]);
+  });
+  const WRITES = ["tee", "touch", "truncate", "cp", "mv", "install", "ln", "sed", "perl", "dd", "sh", "bash", "zsh", "dash", "eval"];
+  const i = headIndex(words, [...WRITES, "xargs", "find", "node", "python3", "python", "ruby", "php", "deno", "bun"]);
+  // xargs / find -exec run a writer on targets that arrive at run time: unknowable, fail-closed.
+  if (["xargs", "find"].includes(words[i]?.split("/").at(-1)) && words.slice(i + 1).some((w) => WRITES.includes(w.split("/").at(-1)))) out.push("$(" + words[i] + ")");
+  const head = (words[i] || "").split("/").at(-1);
+  // Arguments without redirections (< << <<< > >> and a detached operand): those are not command operands.
+  const rest = [];
+  for (let k = i + 1; k < words.length; k++) {
+    if (!/^[0-9]*[<>]/.test(words[k])) rest.push(words[k]);
+    else if (/^[0-9]*(<{1,3}|>>?|>[|&])$/.test(words[k])) k++;
+  }
+  // Operands: words that are not options, and EVERY word after "--" (touch -- -file).
+  const cut = rest.includes("--") ? rest.indexOf("--") : rest.length;
+  const plain = [...rest.slice(0, cut).filter((w) => !w.startsWith("-")), ...rest.slice(cut + 1)];
+  if (head === "tee") out.push(...plain);
+  if (head === "dd") out.push(...rest.filter((w) => w.startsWith("of=")).map((w) => w.slice(3)));
+  // touch/truncate -s SIZE, -r REF, -d DATE, -t STAMP: the option's value is not a file it writes.
+  // By position, not value (touch -d today today writes "today"); after "--" everything is an operand.
+  const VALUED = ["-s", "--size", "-r", "--reference", "-d", "--date", "-t"];
+  if (head === "touch" || head === "truncate") out.push(...rest.filter((w, k) => k > cut || (k < cut && !w.startsWith("-") && !VALUED.includes(rest[k - 1]))));
+  // sh -c / eval run a script of their own: its writes are this command's writes.
+  if (["sh", "bash", "zsh", "dash"].includes(head) && rest.includes("-c")) for (const seg of shellSegments(rest[rest.indexOf("-c") + 1] || "")) out.push(...shellWrites(seg));
+  if (head === "eval") for (const seg of shellSegments(rest.join(" "))) out.push(...shellWrites(seg));
+  // An inline script (node -e, python -c...) that names a write API: unknowable target, fail-closed.
+  const inline = rest[rest.findIndex((w) => ["-e", "-c", "--eval", "-p", "-r"].includes(w)) + 1] || "";
+  if (/^(node|deno|bun|python[0-9.]*|ruby|perl|php)$/.test(head) && /write|append|open|copy|rename|truncate|unlink|mkdir|symlink/i.test(inline)) out.push("$(" + head + ")");
+  if (["cp", "mv", "install", "ln"].includes(head)) {
+    // -t DIR / --target-directory[=]DIR names the destination; otherwise it is the last plain word.
+    const t = rest.findIndex((w) => w === "-t" || w === "--target-directory");
+    const tEq = rest.find((w) => w.startsWith("--target-directory="));
+    if (t >= 0 || tEq) out.push(t >= 0 ? rest[t + 1] : tEq.slice(19));
+    else if (plain.length >= 2) out.push(plain.at(-1));
+  }
+  if ((head === "sed" || head === "perl") && rest.some((w) => w.startsWith("--in-place") || /^-[a-zA-Z0-9]*i/.test(w))) {
+    // The script is the word after -e/-f, or else the first plain word: every other plain word is a file.
+    const script = rest.findIndex((w) => ["-e", "-f", "--expression"].includes(w));
+    // A lone plain word is the file (the script was glued to -i): fail-closed.
+    out.push(...(script >= 0 ? plain.filter((w) => w !== rest[script + 1]) : plain.length === 1 ? plain : plain.slice(1)));
+  }
+  return out.filter(Boolean);
+};
+// Inside the repo, or unknowable ($VAR, backtick): both are denied. /dev/* and ~ are outside.
+const writesRepo = (t) => {
+  if (t.includes("$") || t.includes(String.fromCharCode(96))) return true;
+  // &1, &- : descriptor duplication/closure, not a file. ~/ is the home (the repo may live there); ~user is unknowable.
+  if (t.startsWith("&") || t.startsWith("/dev/")) return false;
+  if (t.startsWith("~") && t !== "~" && !t.startsWith("~/")) return true;
+  // Real paths: a link outside (/tmp/link -> repo) points in. The nearest existing ancestor is resolved.
+  let a = resolve(ROOT, t.startsWith("~") ? homedir() + t.slice(1) : t);
+  let tail = "";
+  while (!existsSync(a) && dirname(a) !== a) { tail = join(a.slice(dirname(a).length + 1), tail); a = dirname(a); }
+  let rel;
+  try { rel = relative(realpathSync(ROOT), join(realpathSync(a), tail)); } catch { return true; }
+  return !rel.startsWith("..") && !rel.startsWith("/");
 };
 // Files the discard would lose that the session did not own: dirty now and
 // not clean at first touch. Anything unreadable, or another repo, is foreign.
@@ -1009,6 +1091,21 @@ process.stdin.on("end", () => {
           const lane = laneOf(abs);
           if (lane && laneDeny(m[1], lane)) process.exit(2);
         }
+      }
+    }
+    // KJC-BUG-0237 (#1886): the repo is written through Edit/Write only, the path every gate
+    // guards. After the lane guard, whose message is the precise one for another lane.
+    if (tool === "Bash") {
+      let moved = false; // after cd/pushd/popd, a relative target cannot be placed: fail-closed
+      // $( ) and backticks run even inside double quotes: their bodies, read from the raw text, are commands too.
+      const raw = String(input.command || "");
+      const subs = [...[...raw.matchAll(/[$][(]([^()]*)[)]/g)].map((m) => m[1]), ...raw.split(String.fromCharCode(96)).filter((_, k) => k % 2 === 1)];
+      for (const words of [...shellSegments(raw), ...subs.flatMap((s) => shellSegments(s))]) {
+        if (["cd", "pushd", "popd"].includes(words[0])) moved = true;
+        const inRepo = shellWrites(words).filter((t) => writesRepo(t) || (moved && !t.startsWith("/")));
+        if (inRepo.length === 0) continue;
+        console.error("karajan sentinel: escribir ficheros del repo desde Bash (" + inRepo.slice(0, 3).join(", ") + ") se salta los gates de Edit/Write — usa la tool Edit/Write; para renombrar, git mv; fuera del repo (/tmp, scratchpad) Bash es libre." + doc("bash-write"));
+        process.exit(2);
       }
     }
     // KJC-TSK-0734 (PL-B): con .karajan/policy.yml presente, la evaluacion
