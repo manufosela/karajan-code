@@ -183,4 +183,19 @@ describe("[opt-in: sonar] sonar/api", () => {
       );
     });
   });
+
+  // KJC-BUG-0263
+  describe("waitForAnalysis", () => {
+    it("polls until a final status, and gives up when the time runs out", async () => {
+      const { waitForAnalysis } = await import("../../src/sonar/api.js");
+      const sleep = vi.fn().mockResolvedValue();
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '{"task":{"status":"PENDING"}}\n200', stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '{"task":{"status":"SUCCESS"}}\n200', stderr: "" });
+      expect(await waitForAnalysis(baseConfig, "T1", { sleep })).toEqual({ ok: true, status: "SUCCESS" });
+      expect(sleep).toHaveBeenCalledTimes(1);
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: '{"task":{"status":"IN_PROGRESS"}}\n200', stderr: "" });
+      expect(await waitForAnalysis(baseConfig, "T2", { timeoutMs: 0, sleep })).toMatchObject({ ok: false, timedOut: true });
+    });
+  });
 });

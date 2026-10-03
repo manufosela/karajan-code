@@ -110,9 +110,9 @@ export async function runSonarPregate({ config, stagedFiles = [], touchedLines =
       }
       for (const f of own) indexed.add(`${prefix}${f}`);
       keys.push(scan.projectKey);
-      // The scan above ALWAYS runs before issues are read (single-flight): the
-      // verdict is about the code as it is now, never a stale server analysis
-      // (KJC-TSK-0795 AC2 — that failure mode has no route here, by design).
+      // The scan above ALWAYS runs before issues are read (single-flight), and
+      // it returns once the server has processed it (KJC-BUG-0263: before, the
+      // upload returned first and the issues read were the previous analysis).
       const res = await getOpenIssues(config, scan.projectKey);
       totalProject += res.total ?? (res.issues || []).length;
       // Issue components are package-relative: made repo-relative here.

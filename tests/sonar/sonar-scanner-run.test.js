@@ -73,6 +73,33 @@ describe("[opt-in: sonar] runSonarScan", () => {
     expect(result.ok).toBe(true);
   });
 
+  // KJC-BUG-0263: the upload returns before the server processes it.
+  it("returns once the server has processed the analysis the scanner uploaded", async () => {
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "INFO More about the report processing at http://localhost:9000/api/ce/task?id=AZ-task_1", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: '{"task":{"status":"IN_PROGRESS"}}\n200', stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: '{"task":{"status":"SUCCESS"}}\n200', stderr: "" });
+    const result = await runSonarScan(baseConfig, "my-key");
+    expect(result.ok).toBe(true);
+    expect(runCommand).toHaveBeenCalledTimes(3);
+    expect(runCommand.mock.calls[2][1].at(-1)).toContain("/api/ce/task?id=AZ-task_1");
+  });
+
+  it("an analysis the server failed is a failed scan, said as such; no task in the log is said too", async () => {
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "api/ce/task?id=AZ2", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: '{"task":{"status":"FAILED"}}\n200', stderr: "" });
+    const failed = await runSonarScan(baseConfig, "my-key");
+    expect(failed.ok).toBe(false);
+    expect(failed.stderr).toMatch(/did not finish analysis AZ2 \(FAILED\)/);
+    runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "ok", stderr: "" });
+    const blind = await runSonarScan(baseConfig, "my-key");
+    expect(blind.ok).toBe(true);
+    expect(blind.note).toMatch(/names no analysis task/);
+  });
+
   it("derives project key from git remote.origin.url when not provided explicitly", async () => {
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
     runCommand
