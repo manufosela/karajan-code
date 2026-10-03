@@ -429,7 +429,7 @@ import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
-import { DISCARD_VERBS, discardOf, foreignLost } from "./sentinel-discard.mjs";
+import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 // KJC-BUG-0204: el comando real lleva flags EN MEDIO del verbo
@@ -453,6 +453,21 @@ process.stdin.on("end", () => {
     process.on("exit", (code) => {
       if (code === 2) console.error("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
     });
+    // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
+    // sesion toca un fichero se anota si estaba limpio: solo entonces un
+    // descarte posterior pierde nada mas que lo de la sesion. Antes de
+    // cualquier escape; git que falla cuenta como sucio (fail-closed).
+    const noteFirstTouch = (relT) => {
+      const st = load();
+      const touch = (session(st, sid).first_touch ||= {});
+      // hasOwn + defineProperty: a file named __proto__ or toString is a path, not a prototype key.
+      if (Object.hasOwn(touch, relT)) return;
+      // --ignored: a user's ignored .env is theirs too (git clean -x deletes it).
+      const gs = spawnSync("git", ["-C", ROOT, "status", "--porcelain", "--ignored", "--", relT], { encoding: "utf8" });
+      const value = gs.status === 0 && String(gs.stdout).trim() === "" ? "clean" : "dirty";
+      Object.defineProperty(touch, relT, { value, enumerable: true, writable: true, configurable: true });
+      save(st);
+    };
     // Self-protection (KJC-TSK-0715) rules run BEFORE any escape, including
     // KJ_SENTINEL_OFF: the sentinel is not dismantled from inside a session —
     // only the human, editing outside it.
@@ -469,23 +484,10 @@ process.stdin.on("end", () => {
         console.error("karajan sentinel: " + relT + " es configuracion de gobierno (politicas, gates, exclusiones): la cambia tu usuario, no la sesion. Si un gate te parece injusto, proponselo a tu usuario o usa kj report-issue." + doc("governance"));
         process.exit(2);
       }
-      // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
-      // sesion toca un fichero se anota si estaba limpio: solo entonces un
-      // descarte posterior pierde nada mas que lo de la sesion. Antes de
-      // cualquier escape; git que falla cuenta como sucio (fail-closed).
-      if (relT && !relT.startsWith("..") && !relT.startsWith("/")) {
-        const st = load();
-        const touch = (session(st, sid).first_touch ||= {});
-        // hasOwn + defineProperty: a file named __proto__ or toString is a path, not a prototype key.
-        if (!Object.hasOwn(touch, relT)) {
-          // --ignored: a user's ignored .env is theirs too (git clean -x deletes it).
-          const gs = spawnSync("git", ["-C", ROOT, "status", "--porcelain", "--ignored", "--", relT], { encoding: "utf8" });
-          const value = gs.status === 0 && String(gs.stdout).trim() === "" ? "clean" : "dirty";
-          Object.defineProperty(touch, relT, { value, enumerable: true, writable: true, configurable: true });
-          save(st);
-        }
-      }
+      if (relT && !relT.startsWith("..") && !relT.startsWith("/")) noteFirstTouch(relT);
     }
+    // KJC-BUG-0261: rm / git rm is the session touching those files, noted before they go.
+    if (tool === "Bash") for (const words of shellSegments(String(input.command || ""))) for (const f of removedFiles(words, ROOT)) noteFirstTouch(f);
     // Any Bash that NAMES the supervisor's files is denied — a write-verb
     // blocklist is bypassable (cp, dd, one-liners), and reading them is what
     // the Read/Grep tools are for. Shell indirection (variables, globs,
