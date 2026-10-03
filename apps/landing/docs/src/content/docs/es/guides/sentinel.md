@@ -99,6 +99,17 @@ No hay escape, porque es pérdida de datos. El remedio nunca pierde nada: `git s
 
 Dentro del repo, los ficheros se escriben solo con las tools Edit y Write, porque es el camino que guardan todos los demás gates (card-first, rag-first, no sobrescribir un fichero entero). Un comando Bash que escribe un fichero del repo se deniega: redirecciones (`>`, `>>`, `>|`, `2>`), `tee`, `sed -i`, `perl -i`, `cp`, `mv`, `install`, `ln`, `dd of=`, `truncate` y `touch`, también detrás de `env`, `sudo` o `command`. Un destino que el Sentinel no puede leer (`$VAR`, backticks) también se deniega. Un script en línea (`node -e`, `python -c`...) que nombra una API de escritura también se deniega. Fuera del repo (`/tmp`, un scratchpad, `/dev/null`) Bash sigue libre, y `git mv` renombra dentro. El límite, dicho claro: un programa que ejecutas puede escribir ficheros (un script, un build), y un hook que lee comandos no puede impedirlo; solo un sandbox puede. Este gate cierra las vías propias del shell para escribir, que es por donde un agente rodea Edit/Write. Nace de un rodeo real: bloqueado por rag-first, un coder escribió el mismo cambio con heredocs `cat >`, incluida la sobrescritura de un fichero entero (issue #1886).
 
+## reminders
+
+Un agente lee sus reglas al empezar y las pierde cuando el contexto se compacta. Un hook no olvida. Tras ciertas acciones, el Sentinel añade al contexto del agente la regla que toca a continuación. Nunca bloquea. Cada recordatorio sale como mucho una vez cada 25 acciones:
+
+- tras `git add`, los límites del mensaje de commit (100 caracteres, sujeto en minúscula, sin atribución) y `commitlint`;
+- tras un `gh` sin cambio de cuenta, nombrar la cuenta en el mismo comando;
+- tras `gh pr create`, partir la card si no está terminada antes de mergear;
+- tras sincronizar `main`, crear ya la rama siguiente.
+
+Cada uno llega después de la acción que precede a la de la regla, no antes, porque un recordatorio antes de una herramienta tendría que aprobarla y saltarse tu pregunta de permiso.
+
 ## stop-gate
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas o pide a tu usuario el escape aplicable. Estado: `kj sentinel status`.
