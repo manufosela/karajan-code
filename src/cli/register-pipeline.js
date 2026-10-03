@@ -201,7 +201,8 @@ export function registerPipeline(program, { pkgVersion }) {
   program
     .command("solomon")
     .description("Ask a third AI to arbitrate a rejected review verdict (brain ≠ reviewer ≠ solomon)")
-    .requiredOption("--position <text>", "Why the brain disagrees with the reviewer")
+    .option("--position <text>", "Why the brain disagrees with the reviewer")
+    .option("--position-file <path>", "Read the position from a file (no quoting to get right)")
     .option("--range <range>", "Arbitrate a git range instead of the staged diff")
     .action(async (flags) => {
       await withConfig(pkgVersion, "solomon", flags, async ({ config, logger }) => {

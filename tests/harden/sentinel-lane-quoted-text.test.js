@@ -39,7 +39,8 @@ describe("the lane guard with quoted text (PreToolUse Bash)", () => {
   it("lets text through", () => {
     const body = path.join(dir, "body.md");
     fs.writeFileSync(body, "plain\n");
-    for (const cmd of [`gh pr create --title "repo files through edit/write only" --body-file ${body}`, `grep -n -F -e "command(" -e "a|b" src`, `git commit -m 'docs: the a/b guide'`]) {
+    // KJC-BUG-0260: the position given to solomon is prose too.
+    for (const cmd of [`gh pr create --title "repo files through edit/write only" --body-file ${body}`, `grep -n -F -e "command(" -e "a|b" src`, `git commit -m 'docs: the a/b guide'`, `kj solomon --position "the reviewer misreads src/a.js and the test"`]) {
       const r = bash(cmd);
       expect(r.stderr, cmd).not.toContain("entrecomillada");
     }
