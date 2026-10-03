@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { shellSegments, headIndex, shortOpts } from "../../src/harden/sentinel/shell.mjs";
+import { shellSegments, headIndex, shortOpts } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks, canonicalHarnessBody, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
 
 describe("shellSegments", () => {
@@ -56,7 +56,7 @@ describe("installed into the harness", () => {
   it("writes sentinel-shell.mjs byte for byte, records it, and the PreToolUse imports it", () => {
     installSentinelHooks({ projectDir: dir });
     const harness = path.join(dir, ".karajan", "harness");
-    const source = fs.readFileSync(new URL("../../src/harden/sentinel/shell.mjs", import.meta.url), "utf8");
+    const source = fs.readFileSync(new URL("../../src/harden/sentinel/sentinel-shell.mjs", import.meta.url), "utf8");
     expect(fs.readFileSync(path.join(harness, "sentinel-shell.mjs"), "utf8")).toBe(source);
     expect(canonicalHarnessBody("sentinel-shell.mjs")).toBe(source);
     expect(Object.keys(JSON.parse(fs.readFileSync(path.join(harness, "installed.json"), "utf8")).files)).toContain("sentinel-shell.mjs");

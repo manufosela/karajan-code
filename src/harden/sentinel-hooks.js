@@ -1343,9 +1343,10 @@ const SCRIPT_BODIES = {
   "posttooluse.mjs": POST_BODY,
   "stop.mjs": STOP_BODY,
   "pretooluse-sentinel.mjs": PRETOOL_BODY,
-  // KJC-TSK-0915 (ADR 0014): real modules, copied byte for byte. Being here, the
-  // installed record, the tamper check and the human seal cover them as well.
-  "sentinel-shell.mjs": readFileSync(new URL("./sentinel/shell.mjs", import.meta.url), "utf8"),
+  // KJC-TSK-0915 (ADR 0014): real modules, copied byte for byte under the SAME name
+  // (so they can import each other in both places). Being here, the installed
+  // record, the tamper check and the human seal cover them as well.
+  "sentinel-shell.mjs": readFileSync(new URL("./sentinel/sentinel-shell.mjs", import.meta.url), "utf8"),
 };
 
 /**
