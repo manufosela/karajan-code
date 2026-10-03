@@ -86,10 +86,11 @@ export const stripInertQuotes = (cmd) => {
 };
 
 // Options whose value is prose, never a path (gh, git, kj).
-const TEXT_OPTION = /(^|\s)(--title|--body|--message|-m|--notes|--description|--ac|--criteria|--reason|--decision|--context|--consequences)(=|\s+)("[^"$`\\]*"|'[^']*')/g;
+const TEXT_OPTIONS = new Set(["--title", "--body", "--message", "-m", "--notes", "--description", "--ac", "--criteria", "--reason", "--decision", "--context", "--consequences", "--position"]);
+const QUOTED_OPTION_VALUE = /(^|\s)(--?[a-z]+)(=|\s+)("[^"$`\\]*"|'[^']*')/g;
 
 /** KJC-BUG-0243: blank the inert quoted value of a text option (--title "a/b c"): prose, not a path. */
-export const stripTextOptionValues = (cmd) => cmd.replace(TEXT_OPTION, (_m, pre, opt, sep, val) => `${pre}${opt}${sep}${val[0]}${val[0]}`);
+export const stripTextOptionValues = (cmd) => cmd.replace(QUOTED_OPTION_VALUE, (m, pre, opt, sep, val) => (TEXT_OPTIONS.has(opt) ? `${pre}${opt}${sep}${val[0]}${val[0]}` : m));
 
 /**
  * KJC-BUG-0245: the values of the named options, read by the shell reader, so a

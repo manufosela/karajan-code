@@ -138,6 +138,14 @@ function printVerdict(record) {
  */
 export async function solomonCommand({ config, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
+  // KJC-BUG-0260: a position is prose with blanks and slashes; from a file it
+  // needs no quoting the lane guard has to tell apart from a path.
+  const position = flags.positionFile ? readFileSync(flags.positionFile, "utf8").trim() : flags.position;
+  if (!position) {
+    console.log("✗ kj solomon: give the brain's position with --position <text> or --position-file <path>");
+    process.exitCode = 1;
+    return { ruling: "reject", reasoning: "no position given" };
+  }
   const diff = await rawDiff(flags.range);
   // KJC-TSK-0734 (PL-B): un hallazgo de policy de clase seguridad no es
   // arbitrable — solomon se niega antes de gastar un token. Y una policy
@@ -161,7 +169,7 @@ export async function solomonCommand({ config, logger = null, flags = {} }) {
     process.exitCode = 1;
     return { ruling: "reject", reasoning: "security-class policy denial — not arbitrable" };
   }
-  const res = await runSolomonArbitration({ diff, position: flags.position, config, logger, projectDir });
+  const res = await runSolomonArbitration({ diff, position, config, logger, projectDir });
   if (res.ruling === "approve") {
     console.log(`⚖ Solomon (${res.solomon}) rules for the brain — verdict recorded, the gate is open.`);
   } else {
