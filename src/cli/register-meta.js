@@ -30,7 +30,7 @@ import { envInstallCommand, briefCommand } from "../commands/env.js";
 import { runReleaseCheck } from "../checks/release-check.js";
 import { agentRunCommand } from "../commands/agent-run.js";
 import { reportIssueCommand } from "../commands/report-issue.js";
-import { huCommand } from "../commands/hu.js";
+import { huCommand, HU_STATUSES } from "../commands/hu.js";
 import { worktreeCommand } from "../commands/worktree.js";
 import { addAdr, listAdrs } from "../environment/adr.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
@@ -271,6 +271,8 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
   hu.command("move <id> <status>")
+    // KJC-BUG-0257: the valid states, said before the call fails.
+    .description(`Move a card; <status> is one of: ${HU_STATUSES.join(", ")}`)
     .option("--json", "Machine-readable output")
     .action(async (id, status, flags) => {
       await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
