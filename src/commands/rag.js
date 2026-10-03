@@ -235,17 +235,32 @@ export async function ragCoversCommand({ file, config, flags = {} }) {
 }
 
 /**
+ * KJC-BUG-0255: what `kj rag migrate` keeps. The project's own files pass the
+ * indexer's criterion of today; sources outside the tree (plans, onboarding)
+ * are kept as they are.
+ */
+export function migrateKeep(projectDir, config) {
+  const exclude = ragExclude(config);
+  return (source) => {
+    const rel = relative(projectDir, source);
+    return rel.startsWith("..") || isAbsolute(rel) || indexableReason(rel, source, { exclude, projectDir }) === null;
+  };
+}
+
+/**
  * KJC-TSK-0888 (RAG-P1a, ADR 0011) — `kj rag migrate`: copia los chunks de este
  * proyecto desde la base global a su propio indice, con sus embeddings, sin
  * volver a embeber. La base global no se toca.
  */
 export async function ragMigrateCommand({ config, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
+  const keep = migrateKeep(projectDir, config);
   const res = migrateProjectIndex({
     slug: projectSlug(projectDir),
     legacyPath: join(getKarajanHome(), "rag.db"),
     targetPath: projectDbPath(projectDir),
     dim: config?.rag?.embedder?.dim || 768,
+    keep,
   });
   if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
   else process.stdout.write(`rag migrate: ${res.state} — ${res.reason}\n`);

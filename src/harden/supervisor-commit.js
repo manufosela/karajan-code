@@ -117,6 +117,16 @@ export async function commitSupervisorRegeneration({
       `harden --commit es un acto humano y este proceso desciende de un agente (${anc.match}) — ni con pty falso ni con el entorno limpio (ADR 0009)`,
     );
   }
+  const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
+  // KJC-BUG-0244 (grebla #958): el commit sellado solo lleva el supervisor, pero
+  // un stage ajeno se quedaba en esta rama y el siguiente commit caía aquí con la
+  // card equivocada. Se para ANTES de pedir nada al humano y se nombra.
+  const foreign = run(["diff", "--cached", "--name-only"]).split("\n").filter((f) => f && !f.startsWith(HOOKS_PREFIX) && f !== PROVENANCE_FILE);
+  if (foreign.length > 0) {
+    throw new Error(
+      `harden --commit: hay cambios en el stage que no son del supervisor (${foreign.slice(0, 5).join(", ")}${foreign.length > 5 ? ", …" : ""}): commitéalos en su rama o sácalos del stage (git restore --staged <ficheros>) antes de sellar`,
+    );
+  }
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   // Un alimentador ciego no conoce el código; automatizar su lectura exige
@@ -126,7 +136,6 @@ export async function commitSupervisorRegeneration({
   if (answer !== nonce) {
     throw new Error(`harden --commit: confirmación humana fallida (esperaba "${nonce}") — ADR 0009`);
   }
-  const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
   const drift = supervisorDrift({ projectDir, gitFn: run });
   // La provenance describe SIEMPRE el estado COMPLETO del supervisor (cazado
   // en el primer estreno real: un sello parcial pisaba al anterior y dejaba

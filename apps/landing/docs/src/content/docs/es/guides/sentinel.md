@@ -112,6 +112,10 @@ Cada uno llega después de la acción que precede a la de la regla, no antes, po
 
 Tras una compactación o al reanudar, el Sentinel le devuelve al agente las reglas críticas del proyecto, cortas, con el estado de su sesión: rama, card y cards mergeadas que aún no se han movido. La primera regla es que Karajan gobierna: un agente no cambia políticas, configuración de gates ni exclusiones para pasar un gate. Una sesión nueva no recibe nada extra, porque CLAUDE.md ya trae las reglas.
 
+## governance
+
+Karajan gobierna y se le obedece. Una sesión no cambia las reglas que la gobiernan: `.karajan/policy.yml`, `.karajan/kj.config.yml` y cualquier `.ragignore` son del humano, como los ficheros del propio supervisor, y Edit o Write sobre ellos se deniega antes de cualquier escape. Si un gate parece equivocado, el remedio es proponer el cambio al usuario o reportarlo con `kj report-issue`, nunca relajar la regla. Toda denegación del PreToolUse termina con la misma línea que lo dice.
+
 ## stop-gate
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas o pide a tu usuario el escape aplicable. Estado: `kj sentinel status`.

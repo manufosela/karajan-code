@@ -42,6 +42,33 @@ describe("migrateProjectIndex", () => {
     } finally { db.close(); }
   });
 
+  it("KJC-BUG-0255: copia solo lo que el indexador aceptaría hoy y dice cuánto deja fuera", () => {
+    const db = openVecStore({ dim: 8, path: legacy });
+    insertChunk(db, { source: "/p/vendor/tf.min.js", kind: "code", text: "ruido minificado", embedding: vec(3), project: "mio" });
+    db.close();
+    const keep = (source) => !source.endsWith(".min.js");
+    const res = migrateProjectIndex({ slug: "mio", legacyPath: legacy, targetPath: target, dim: 8, keep });
+    expect(res).toMatchObject({ state: "migrated", migrated: 2, skipped: 1 });
+    expect(res.reason).toContain("1");
+    const out = openVecStore({ dim: 8, path: target });
+    try {
+      expect(out.prepare("SELECT COUNT(*) AS n FROM chunks WHERE source LIKE '%min.js'").get().n).toBe(0);
+    } finally { out.close(); }
+  });
+
+  it("KJC-BUG-0255: el criterio del comando es el del indexador; lo de fuera del proyecto se conserva", async () => {
+    const { migrateKeep } = await import("../../src/commands/rag.js");
+    const proj = path.join(root, "web");
+    fs.mkdirSync(path.join(proj, "vendor"), { recursive: true });
+    fs.writeFileSync(path.join(proj, "precam.js"), "export const x = 1;\n");
+    fs.writeFileSync(path.join(proj, "vendor", "tf.min.js"), "minified\n");
+    const keep = migrateKeep(proj, {});
+    expect(keep(path.join(proj, "precam.js"))).toBe(true);
+    expect(keep(path.join(proj, "vendor", "tf.min.js"))).toBe(false);
+    expect(keep(path.join(proj, "gone.js"))).toBe(false);
+    expect(keep(path.join(root, "plans", "plan-1.json"))).toBe(true);
+  });
+
   it("no toca la base global", () => {
     migrateProjectIndex({ slug: "mio", legacyPath: legacy, targetPath: target, dim: 8 });
     const db = openVecStore({ dim: 8, path: legacy });

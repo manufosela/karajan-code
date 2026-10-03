@@ -29,9 +29,12 @@ export function emptyIndexRemedy({ slug, legacyPath, dim = 768 }) {
 }
 
 /**
- * @returns {{state: "migrated"|"already"|"nothing", migrated: number, reason: string}}
+ * KJC-BUG-0255: `keep(source)` is the indexer's criterion today (generated,
+ * excluded, .ragignore, sensitive, gone). The global index was filled before
+ * those rules, so copying it blind brought vendor/*.min.js along as noise.
+ * @returns {{state: "migrated"|"already"|"nothing", migrated: number, skipped?: number, reason: string}}
  */
-export function migrateProjectIndex({ slug, legacyPath, targetPath, dim = 768 }) {
+export function migrateProjectIndex({ slug, legacyPath, targetPath, dim = 768, keep = () => true }) {
   const nothing = { state: "nothing", migrated: 0, reason: `the global index holds nothing for ${slug}: kj rag index --with-sources` };
   if (!existsSync(legacyPath)) return nothing;
 
@@ -49,8 +52,10 @@ export function migrateProjectIndex({ slug, legacyPath, targetPath, dim = 768 })
       const rows = legacy.prepare("SELECT id, source, kind, text, metadata, content_hash FROM chunks WHERE project_slug = ?").all(slug);
       if (rows.length === 0) return nothing;
       const vecOf = legacy.prepare("SELECT embedding FROM vec_chunks WHERE rowid = ?");
+      let skipped = 0;
       const copy = target.transaction(() => {
         for (const r of rows) {
+          if (!keep(r.source)) { skipped++; continue; }
           const raw = vecOf.get(BigInt(r.id))?.embedding;
           if (!raw) continue; // un chunk sin vector no se puede buscar: no se inventa
           const embedding = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
@@ -63,7 +68,8 @@ export function migrateProjectIndex({ slug, legacyPath, targetPath, dim = 768 })
       const migrated = countProjectChunks(target, slug);
       const parts = [`${migrated} chunks of ${slug} copied with their embeddings`];
       if (stamp) parts.push(`indexed at ${stamp.slice(0, 9)}`);
-      return { state: "migrated", migrated, reason: parts.join(", ") };
+      if (skipped) parts.push(`${skipped} left out (the indexer would not take them today: generated, excluded or gone)`);
+      return { state: "migrated", migrated, skipped, reason: parts.join(", ") };
     } finally {
       legacy.close();
     }
