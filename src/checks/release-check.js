@@ -34,7 +34,9 @@ async function policyRangeCheck(projectDir) {
     // protects the supervisor. `kj review` and `kj policy check` already lift
     // what the sealed provenance backs; without this the release check blocked
     // every version cut after a human `kj harden --commit`, by its own seal.
-    const sup = liftSealedSupervisorViolations({ projectDir, violations: raw });
+    // KJC-BUG-0259: the history is judged on what is versioned (hooks, provenance);
+    // the machine-local guards were verified when the seal was reviewed.
+    const sup = liftSealedSupervisorViolations({ projectDir, violations: raw, trackedOnly: true });
     const violations = sup.violations;
     const hard = violations.filter((v) => v.enforcement === "deny");
     const skipped = prScoped.size > 0 ? `; ${prScoped.size} diff-threshold invariant(s) skipped (PR-scoped)` : "";

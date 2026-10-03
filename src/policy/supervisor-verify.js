@@ -24,7 +24,7 @@ const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
  * @returns {{files: Set<string>, reason?: string}} rutas repo-relativas de
  * supervisor cuyo estado actual está respaldado por la provenance sellada.
  */
-export function verifiedSupervisorFiles({ projectDir }) {
+export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
   let prov;
   try {
     prov = JSON.parse(readFileSync(resolve(projectDir, PROVENANCE_FILE), "utf8"));
@@ -37,7 +37,11 @@ export function verifiedSupervisorFiles({ projectDir }) {
   }
   const ok = new Set();
   const unjudgeable = new Set();
-  const entries = Array.isArray(prov?.files) ? prov.files : [];
+  // KJC-BUG-0259 (user's decision, option A): history is judged with the kj of
+  // when it was committed. The harness guards are machine-local and never in the
+  // repo; the review and each PR's CI verify them when the seal is made. A check
+  // over the repo's history (release check) judges only what is versioned.
+  const entries = (Array.isArray(prov?.files) ? prov.files : []).filter((e) => !trackedOnly || !String(e?.file).startsWith(HARNESS_PREFIX));
   // KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre tambien los guardias del
   // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
   // exige que TODAS las entradas verifiquen, el sello no se podia ni commitear.
@@ -93,10 +97,10 @@ export function verifiedSupervisorFiles({ projectDir }) {
  * `note` dice lo que este sitio NO ha podido juzgar, para que un levantamiento
  * mas laxo de lo que parece no pase por silencio (KJC-BUG-0212).
  */
-export function liftSealedSupervisorViolations({ projectDir, violations }) {
+export function liftSealedSupervisorViolations({ projectDir, violations, trackedOnly = false }) {
   const RULE = "defaults.supervisor.write";
   if (!violations.some((v) => v.rule_id === RULE && v.file)) return { violations, lifted: 0 };
-  const sealed = verifiedSupervisorFiles({ projectDir });
+  const sealed = verifiedSupervisorFiles({ projectDir, trackedOnly });
   // La violación sobre la PROPIA provenance solo se alza si la provenance
   // entera verificó — a medias no describe la verdad y sigue denegada.
   const liftable = (v) =>
