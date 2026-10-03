@@ -1,5 +1,5 @@
 // PreToolUse hook handler tests (KJC-TSK-0390 commit 2).
-import { mkdtemp, readFile, writeFile, lstat, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile, lstat, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -118,6 +118,41 @@ describe("PreToolUse hook — destructive snapshotting", () => {
     expect(info.size).toBeGreaterThan(0);
     const log = await readLog(root);
     expect(log.some((e) => e.event === "snapshot.git-bundle")).toBe(true);
+  });
+
+  // KJC-BUG-0240 (#1886): the bundle keeps commits; the uncommitted change is kept as a file.
+  it("keeps the uncommitted change a checkout of that file would drop", async () => {
+    const root = await makeRoot();
+    const repo = await makeGitRepo();
+    await writeFile(join(repo, "README"), "uncommitted work");
+    const res = await handleHookPayload(payload("git checkout README", { cwd: repo }), { root });
+    expect(res.hookSpecificOutput.permissionDecision).toBe("allow");
+    const m = await loadManifest(root);
+    expect(m.entries.map((e) => e.type ?? "file")).toEqual(["file"]);
+    expect(await readFile(m.entries[0].snapshotPath, "utf8")).toBe("uncommitted work");
+  });
+
+  it("before reset --hard keeps the dirty files next to the bundle", async () => {
+    const root = await makeRoot();
+    const repo = await makeGitRepo();
+    await writeFile(join(repo, "README"), "dirty");
+    await handleHookPayload(payload("git reset --hard", { cwd: repo }), { root });
+    const m = await loadManifest(root);
+    expect(m.entries.map((e) => e.type ?? "file").toSorted()).toEqual(["file", "git-bundle"]);
+  });
+
+  it("before git clean -fdx keeps the ignored files too, one by one", async () => {
+    const root = await makeRoot();
+    const repo = await makeGitRepo();
+    await writeFile(join(repo, ".gitignore"), "build/\n");
+    git(["add", ".gitignore"], repo);
+    git(["commit", "-q", "-m", "ignore"], repo);
+    await mkdir(join(repo, "build"));
+    await writeFile(join(repo, "build", "out.txt"), "generated");
+    await writeFile(join(repo, "notes.txt"), "untracked");
+    await handleHookPayload(payload("git clean -fdx", { cwd: repo }), { root });
+    const kept = (await loadManifest(root)).entries.filter((e) => !e.type).map((e) => e.sourcePath.slice(repo.length + 1)).toSorted();
+    expect(kept).toEqual(["build/out.txt", "notes.txt"]);
   });
 
   it("skips non-existent paths without failing the hook", async () => {
