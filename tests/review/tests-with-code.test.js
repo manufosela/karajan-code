@@ -25,11 +25,12 @@ describe("checkTestsWithCode", () => {
     expect(run(["README.md", "kj.config.yml", "docs/guide.md"]).mode).toBe("pass");
   });
 
-  it("block via method_gates.tests_with_code; KJ_ALLOW_NO_TESTS=1 is the escape", () => {
+  it("block via method_gates.tests_with_code; KJ_ALLOW_NO_TESTS no longer opens it (ADR 0015)", () => {
     const blocked = run(["src/foo.py"], { method_gates: { tests_with_code: "block" } });
     expect(blocked).toMatchObject({ ok: false, mode: "block" });
+    expect(blocked.reason).not.toContain("KJ_ALLOW");
     const escaped = run(["src/foo.py"], { method_gates: { tests_with_code: "block" } }, { KJ_ALLOW_NO_TESTS: "1" });
-    expect(escaped).toMatchObject({ ok: true, mode: "exempt" });
+    expect(escaped).toMatchObject({ ok: false, mode: "block" });
   });
 
   // KJC-TSK-0795 AC1 (epic KJC-PCS-0082) — measured in GREBLA: the gate fired

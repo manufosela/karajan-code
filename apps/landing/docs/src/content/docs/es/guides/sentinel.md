@@ -31,11 +31,11 @@ Cada bloqueo, y cada escape `KJ_ALLOW_*` que uses conscientemente, queda sellado
 
 ## card-first
 
-El trabajo necesita una card registrada antes de empezar. Editar fuentes en la rama base, o en una rama cuyo nombre no referencie ninguna card, queda bloqueado. Crea la card (`kj hu add`), muévela a running, y trabaja en una rama `feat/<CARD-ID>-descripcion`. Escape: `KJ_ALLOW_NO_CARD=1`.
+El trabajo necesita una card registrada antes de empezar. Editar fuentes en la rama base, o en una rama cuyo nombre no referencie ninguna card, queda bloqueado. Crea la card (`kj hu add`), muévela a running, y trabaja en una rama `feat/<CARD-ID>-descripcion`. Sin escape (ADR 0015).
 
 ## rag-first
 
-El RAG tiene que haber respondido sobre una zona antes de que la sesión la toque (ADR 0010). Cada `kj_rag_query` / `kj rag query` de la sesión deja un registro de las fuentes que devolvió; editar una fuente que ninguna consulta devolvió (ni a ella ni a un hermano de su directorio) se bloquea indicando la consulta a hacer. Un fichero nuevo solo exige que la sesión haya consultado algo. Docs, config y tests quedan fuera, como en card-first. Escape: `KJ_ALLOW_NO_RAG=1`.
+El RAG tiene que haber respondido sobre una zona antes de que la sesión la toque (ADR 0010). Cada `kj_rag_query` / `kj rag query` de la sesión deja un registro de las fuentes que devolvió; editar una fuente que ninguna consulta devolvió (ni a ella ni a un hermano de su directorio) se bloquea indicando la consulta a hacer. Un fichero nuevo solo exige que la sesión haya consultado algo. Docs, config y tests quedan fuera, como en card-first. Un fichero que el índice no puede tener, o un índice vacío, los decide el propio gate. Sin escape (ADR 0015).
 
 ## cross-lane
 
@@ -47,7 +47,7 @@ El bloqueo de identidad (ADR 0005): `gh`, `git push` y los comandos que firman c
 
 ## board-sync
 
-Una card mergeada debe moverse en el tracker antes de que avance nada más, commit, push, nuevo PR, otro merge, o terminar el turno. Límpialo con la llamada real al tracker (`update_card` vía MCP, o `kj hu move`). Escape: `KJ_ALLOW_BOARD=1`.
+Una card mergeada debe moverse en el tracker antes de que avance nada más, commit, push, nuevo PR, otro merge, o terminar el turno. Límpialo con la llamada real al tracker (`update_card` vía MCP, o `kj hu move`). Una épica y una card partida en varias PRs las decide el gate. Sin escape (ADR 0015).
 
 ## policy
 
@@ -130,19 +130,15 @@ La atribución a IA está prohibida por una regla determinista del proyecto, en 
 
 ## escapes
 
-Cada escape, qué se salta, y cuándo es legítimo. Todos: un comando simple, un uso, registrado en el estado de la sesión y sellado en el acta de decisiones, `kj sentinel status` lista lo que esta sesión usó.
+El ADR 0015 retira los escapes: un gate que necesita uno es un gate a corregir, y ningún escape lo puede activar el agente. Card-first, rag-first, board-sync y tests-con-código ya no tienen. Los demás, mientras sigan: un comando simple, un uso, registrado en el estado de la sesión y sellado en el acta de decisiones (`kj sentinel status` lista lo que esta sesión usó).
 
 | Escape | Se salta | Legítimo cuando |
 | --- | --- | --- |
-| `KJ_ALLOW_NO_CARD=1` | card-first | Fix de emergencia acordado con tu usuario antes de que exista la card |
 | `KJ_ALLOW_CROSS_LANE=1` | guardas de cross-lane / ruta no verificable | Un cruce deliberado y anunciado (p.ej. publicar desde el worktree de un tag) |
 | `KJ_ALLOW_IDENTITY=1` | bloqueo de identidad | Suites de test que ejercitan otras guardas; nunca para pushes reales |
-| `KJ_ALLOW_BOARD=1` | board-sync | El propio tracker está caído y el movimiento queda en cola |
-| `KJ_ALLOW_NO_RAG=1` | rag-first | El índice RAG no existe o está roto en esta máquina y el arreglo está acordado; se registra una vez por sesión |
 | `KJ_ALLOW_POLICY=1` | denies de policy no-seguridad | La regla se dispara mal y el fix está acordado; el commit además necesita `KJ_POLICY_REASON` |
 | `KJ_ALLOW_STEWARD=1` | bloqueo duro del steward | La rotura es conocida, cardeada, y el usuario dice que el trabajo continúa |
 | `KJ_ALLOW_RELEASE=1` | release check | Un rojo que ahora mismo nadie puede arreglar, acordado con el humano (el caso de la landing lo cubre `remedied_by`) |
-| `KJ_ALLOW_NO_TESTS=1` | gate de tests-con-código (código staged sin cambios de test) | El diff genuinamente no debe test y está acordado |
 | `KJ_ALLOW_PII=1` | bloqueo de la denylist de privacidad en el commit | Un falso positivo confirmado, revisado por el humano |
 | `KJ_ALLOW_REWRITE=1` | la guarda contra reserializar ficheros JSON enteros desde Bash | Reescribir el fichero entero ES el cambio acordado |
 | `KJ_ALLOW_NO_VERIFY=1` | la denegación de `git commit --no-verify` y de mover `core.hooksPath` | El hook está roto de verdad y el humano dice que el commit entra igual |

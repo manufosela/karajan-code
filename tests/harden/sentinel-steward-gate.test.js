@@ -13,7 +13,7 @@ let dir, pre;
 const runEdit = (env = {}) =>
   spawnSync("node", [pre], {
     input: JSON.stringify({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, "src", "a.js") } }),
-    encoding: "utf8", env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1", ...env }, // other gates have their own suites
+    encoding: "utf8", env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env }, // other gates have their own suites
   });
 const report = (invariants) => {
   fs.mkdirSync(path.join(dir, ".karajan", "steward"), { recursive: true });
@@ -27,6 +27,8 @@ beforeEach(() => {
   execSync("git init -q -b main && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0001-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
+  // rag-first has its own suite: an empty index is the state where it stands down (no escape, ADR 0015).
+  fs.writeFileSync(path.join(dir, ".karajan", "harness", "sentinel-state.json"), JSON.stringify({ sessions: { s1: { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0, rag_index_empty: true } } }));
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 

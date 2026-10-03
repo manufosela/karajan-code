@@ -36,7 +36,7 @@ export async function collectMethodStats({ projectDir, run = runCommand, sample 
   const blocks = blocksRes.exitCode === 0
     ? blocksRes.stdout.split(/^@.*$/m).map((b) => b.split("\n").map((l) => l.trim()).filter(Boolean)).filter((b) => b.length > 0)
     : [];
-  const offenders = blocks.filter((files) => checkTestsWithCode({ config: {}, stagedFiles: files, env: {} }).mode !== "pass").length;
+  const offenders = blocks.filter((files) => checkTestsWithCode({ config: {}, stagedFiles: files }).mode !== "pass").length;
 
   const verdicts = recentVerdicts(projectDir, sample);
   const stamped = verdicts.filter((v) => v.workspace);

@@ -84,13 +84,11 @@ describe("board-sync gate", () => {
     expect(bash("git status").status).toBe(0);
   });
 
-  it("KJ_ALLOW_BOARD=1 es el escape auditado; y al desaparecer el pendiente todo vuelve a pasar", () => {
+  it("KJ_ALLOW_BOARD ya no abre nada (ADR 0015); al mover la card todo vuelve a pasar", () => {
     merged(12);
-    expect(bash("KJ_ALLOW_BOARD=1 git commit -m x").status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_BOARD")).toBe(true);
-    // KJC-BUG-0147: el mismo escape abre el push — una card de varios PRs es un plan legitimo.
+    expect(bash("KJ_ALLOW_BOARD=1 git commit -m x").status).toBe(2);
     expect(bash("git push origin feat/x").status).toBe(2);
-    expect(bash("KJ_ALLOW_BOARD=1 git push origin feat/x").status).toBe(0);
+    expect(bash("KJ_ALLOW_BOARD=1 git push origin feat/x").status).toBe(2);
     const st = state();
     st.sessions.s1.pending_moves = [];
     fs.writeFileSync(statePath, JSON.stringify(st));
