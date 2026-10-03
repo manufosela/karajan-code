@@ -1,13 +1,14 @@
 # El método se impone en puntos de control, no leyendo shell
 
-Status: proposed
+Status: accepted
 Date: 2026-10-03
+Accepted: 2026-10-03 (dev_001)
 
 ## Context
 
 La auditoría `docs/audit/2026-10-gates-and-escapes.md` cuenta 53 arreglos de gates desde el 1 de septiembre (en agosto, 47 arreglos en total) y 15 escapes `KJ_ALLOW_*`. Dos tercios de los arreglos son gates que deciden con información incompleta, y la parte que lee comandos de shell no tiene fondo: unos 25 rodeos en dos guards en un día. Cada escape es un gate que no supo distinguir, y el agente puede activarlo él mismo. Donde el método se impone en un punto de control que el agente no toca (hooks de git, CI, protección de rama, veredicto atado al diff), casi no falla.
 
-## Decision (propuesta)
+## Decision
 
 1. **Imponer en puntos de control externos.** Card, tests, review cruzada, tamaño y formato se exigen en pre-commit, pre-push y CI con checks obligatorios y protección de rama. Allí el agente no llega.
 2. **Sentinel pequeño.** Dentro de la sesión quedan los recordatorios y unos pocos guards con señales estructurales (la ruta de Edit/Write, el estado de git), nunca la interpretación del texto de un comando. Los guards que leen shell (escrituras por Bash, descartes por texto) se sustituyen por el sandbox del anfitrión, que limita la escritura a nivel de sistema.
