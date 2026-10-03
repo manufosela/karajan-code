@@ -2,7 +2,7 @@
 // ADR 0014). An agent does not discard changes it did not make. Copied byte for
 // byte into .karajan/harness; `root` is the project root, injected.
 import { spawnSync } from "node:child_process";
-import { relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import process from "node:process";
 import { headIndex, shortOpts } from "./sentinel-shell.mjs";
 
@@ -59,6 +59,30 @@ export const discardOf = (words, root) => {
 };
 
 /**
+ * KJC-BUG-0261: the tracked files an `rm` or `git rm` removes, relative to root.
+ * Removing a file is the session touching it, so its state is noted before it
+ * goes and restoring it later is not taken for someone else's change.
+ * @param {string[]} words
+ * @param {string} root
+ * @param {string} cwd where relative paths resolve (the session's cwd)
+ * @returns {string[]}
+ */
+export const removedFiles = (words, root, cwd = process.cwd()) => {
+  const i = headIndex(words, ["rm", "git"]);
+  const head = words[i]?.split("/").at(-1);
+  const isGitRm = head === "git" && words[i + 1] === "rm";
+  if (head !== "rm" && !isGitRm) return [];
+  const args = words.slice(i + (isGitRm ? 2 : 1));
+  const dd = args.indexOf("--");
+  const named = dd < 0 ? args.filter((a) => !a.startsWith("-")) : [...args.slice(0, dd).filter((a) => !a.startsWith("-")), ...args.slice(dd + 1)];
+  const rels = named.map((p) => relative(root, resolve(cwd, p))).filter((r) => r && !r.startsWith("..") && !isAbsolute(r));
+  if (rels.length === 0) return [];
+  // ls-files expands a directory (rm -r dir) into the tracked files it holds.
+  const r = spawnSync("git", ["-C", root, "ls-files", "-z", "--", ...rels], { encoding: "utf8" });
+  return r.status === 0 ? String(r.stdout).split("\0").filter(Boolean) : [];
+};
+
+/**
  * Files the discard would lose that the session did not own: dirty now and not
  * clean at first touch. Anything unreadable, or another repo, is foreign.
  * @param {object} d what discardOf returned
@@ -84,7 +108,10 @@ export const foreignLost = (d, touch, root) => {
   }
   // Fail-closed: a path git does not know (misparsed, $VAR, substitution) cannot
   // be proven safe; git would refuse to check it out anyway.
-  if (spawnSync("git", ["-C", d.cwd, "ls-files", "--error-unmatch", "--", ...d.paths]).status !== 0) return [`(ruta no resoluble: ${d.paths.join(" ")})`];
+  if (spawnSync("git", ["-C", d.cwd, "ls-files", "--error-unmatch", "--", ...d.paths]).status !== 0) {
+    // KJC-BUG-0261: what the session removed with git rm left the index, and it is still its own.
+    return d.paths.map((p) => relative(root, resolve(d.cwd, p))).every(own) ? [] : [`(ruta no resoluble: ${d.paths.join(" ")})`];
+  }
   const r = spawnSync("git", ["-C", d.cwd, "status", "--porcelain", "-z", "--untracked-files=no", "--", ...d.paths], { encoding: "utf8" });
   if (r.status !== 0) return ["(git status fallo)"];
   const files = [];

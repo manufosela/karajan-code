@@ -36,6 +36,22 @@ describe("discard guard (PreToolUse Bash, no escape)", () => {
     expect(r.stderr).toContain("git stash push");
   });
 
+  it("KJC-BUG-0261: a file the session removed (rm, git rm, rm -r dir) can be restored; one the user had changed cannot", () => {
+    fs.mkdirSync(path.join(dir, "lib"));
+    fs.writeFileSync(path.join(dir, "lib", "b.js"), "b\n");
+    execSync("git add -A && git commit -q -m lib", { cwd: dir, env: { ...process.env, ...gitEnv } });
+    expect(bash("rm a.js").status).toBe(0);
+    fs.rmSync(path.join(dir, "a.js"));
+    expect(bash("git checkout -- a.js").status).toBe(0);
+    expect(bash("git rm -r -q lib").status).toBe(0);
+    execSync("git rm -r -q lib", { cwd: dir });
+    expect(bash("git restore --staged --worktree lib/b.js").status).toBe(0);
+    userEdits(".gitignore", "node_modules\nmine\n");
+    expect(bash("rm .gitignore").status).toBe(0);
+    fs.rmSync(path.join(dir, ".gitignore"));
+    expect(bash("git checkout -- .gitignore").status).toBe(2);
+  });
+
   it("lets the session discard its own change on a file that was clean", () => {
     sessionEdits("a.js", "session\n");
     expect(bash("git checkout -- a.js").status).toBe(0);
