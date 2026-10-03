@@ -456,7 +456,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { shellSegments, headIndex, shortOpts } from "./sentinel-shell.mjs";
+import { shellSegments, headIndex, shortOpts, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 // KJC-BUG-0204: el comando real lleva flags EN MEDIO del verbo
 // (firebase --account a@b --project p deploy --only hosting:main), asi que la
@@ -942,7 +942,8 @@ process.stdin.on("end", () => {
       // (find fuera: -delete/-exec mutan — reviewer catch; sus tokens de
       // carril los caza el escaner de abajo.)
       const READONLY = /^[ \\t]*(grep|rg|cat|head|tail|less|ls|wc|diff|stat|file|du|tree|git (log|show|diff|status|blame))\\b[^;|&<>$\`(){}\\n\\r]*$/;
-      if (!READONLY.test(cmd)) {
+      // KJC-BUG-0243: operators inside inert quotes (grep -e "a|b") do not chain anything.
+      if (!READONLY.test(stripInertQuotes(cmd))) {
         // cd/pushd invalida TODO razonamiento textual de rutas posteriores
         // (carrera de bypasses confirmada en review: destino bare, con $,
         // relativas post-cd...): en un comando NO-read-only, cambiar de
@@ -1033,7 +1034,9 @@ process.stdin.on("end", () => {
           if (q !== null) return true; // comilla sin cerrar: no verificable
           return flush();
         };
-        if (/\\$\\(|\`/.test(cmd) || quotedPathWithSpaces(cmd)) {
+        // KJC-BUG-0243: inert quoted text is not a substitution, and the prose value
+        // of a text option (--title, -m...) is not a path.
+        if (/\\$\\(|\`/.test(stripInertQuotes(cmd)) || quotedPathWithSpaces(stripTextOptionValues(cmd))) {
           if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
           else {
             console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));

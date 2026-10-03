@@ -64,5 +64,32 @@ export const headIndex = (words, heads) => {
   return k < 0 ? words.length : i + k;
 };
 
+/**
+ * KJC-BUG-0243: blank the quoted text that cannot run: single-quoted spans, and
+ * double-quoted spans with no $ or backtick. What remains is what the shell can
+ * still expand or execute, so operator and substitution checks read only that.
+ * @param {string} cmd
+ */
+export const stripInertQuotes = (cmd) => {
+  let out = "";
+  for (let i = 0; i < cmd.length; i++) {
+    const q = cmd[i];
+    if (q !== "'" && q !== '"') { out += q; continue; }
+    let j = i + 1;
+    while (j < cmd.length && cmd[j] !== q) j += q === '"' && cmd[j] === "\\" ? 2 : 1;
+    if (j >= cmd.length) return out + cmd.slice(i); // unclosed: left as is, for the caller to deny
+    const body = cmd.slice(i + 1, j);
+    out += q === "'" || !/[$`]/.test(body) ? q + q : q + body + q;
+    i = j;
+  }
+  return out;
+};
+
+// Options whose value is prose, never a path (gh, git, kj).
+const TEXT_OPTION = /(^|\s)(--title|--body|--message|-m|--notes|--description|--ac|--criteria|--reason|--decision|--context|--consequences)(=|\s+)("[^"$`\\]*"|'[^']*')/g;
+
+/** KJC-BUG-0243: blank the inert quoted value of a text option (--title "a/b c"): prose, not a path. */
+export const stripTextOptionValues = (cmd) => cmd.replace(TEXT_OPTION, (_m, pre, opt, sep, val) => `${pre}${opt}${sep}${val[0]}${val[0]}`);
+
 /** Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n). */
 export const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
