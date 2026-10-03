@@ -60,8 +60,8 @@ describe("posttooluse script (state writer)", () => {
   });
 
   it("records used KJ_ALLOW_* escapes and never crashes on garbage input", () => {
-    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_WRITE: "1" });
-    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_WRITE");
+    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_PII: "1" });
+    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_PII");
     expect(run(postScript, "not-json").status).toBe(0);
   });
 });
@@ -259,9 +259,8 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     for (const cmd of ["git commit -m x", "git commit -am x", "git commit --no-edit"]) {
       expect(bash(cmd).status, cmd).toBe(0);
     }
-    // El escape consciente pasa y queda registrado.
-    expect(bash("KJ_ALLOW_NO_VERIFY=1 git commit --no-verify -m x").status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_NO_VERIFY")).toBe(true);
+    // ADR 0015: ya no hay escape; saltarse el hook es del usuario, en su terminal.
+    expect(bash("KJ_ALLOW_NO_VERIFY=1 git commit --no-verify -m x").status).toBe(2);
   });
 
   it("KJC-BUG-0204: un check en rojo no bloquea el comando que lo repara, y publicar sigue exigiendo todo verde", () => {
@@ -425,13 +424,13 @@ describe("self-protection + audited escapes (SEN-C)", () => {
   });
 
   it("stop emits a user-visible summary of used escapes when the turn ends green", () => {
-    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_WRITE: "1" });
+    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_PII: "1" });
     run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
     const res = run(stopScript, { session_id: "s1" });
     expect(res.status).toBe(0);
     expect(res.stdout).toMatch(/systemMessage/);
-    expect(res.stdout).toMatch(/KJ_ALLOW_WRITE/);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_WRITE")).toBe(true);
+    expect(res.stdout).toMatch(/KJ_ALLOW_PII/);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_PII")).toBe(true);
   });
 });
 

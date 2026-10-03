@@ -72,7 +72,7 @@ describe("sentinel branding (KJC-TSK-0814)", () => {
     const escapes = new Set([...all.matchAll(/KJ_ALLOW_[A-Z_]+/g)].map((m) => m[0]))
       // KJ_ALLOW_X is the generic placeholder in the simple-command rule text.
       .difference(new Set(["KJ_ALLOW_X"]));
-    expect(escapes.size).toBeGreaterThanOrEqual(8);
+    // ADR 0015 is retiring escapes, so there is no floor: whatever remains must be documented.
     for (const esc of escapes) {
       expect(page, `doc page misses ${esc}`).toContain(esc);
     }
