@@ -1227,6 +1227,7 @@ const SCRIPT_BODIES = {
   "sentinel-discard.mjs": readFileSync(new URL("./sentinel/sentinel-discard.mjs", import.meta.url), "utf8"),
   "sentinel-bash-write.mjs": readFileSync(new URL("./sentinel/sentinel-bash-write.mjs", import.meta.url), "utf8"),
   "sentinel-reminders.mjs": readFileSync(new URL("./sentinel/sentinel-reminders.mjs", import.meta.url), "utf8"),
+  "sessionstart.mjs": readFileSync(new URL("./sentinel/sessionstart.mjs", import.meta.url), "utf8"),
 };
 
 /**
@@ -1426,6 +1427,9 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
       // unwired, the official tool never satisfied the gate.
       { event: "PostToolUse", matcher: "mcp__.*__kj_rag_query", script: "posttooluse.mjs" },
       { event: "Stop", script: "stop.mjs" },
+      // KJC-TSK-0918 (ADR 0014): the critical rules back after a compaction or a resume.
+      { event: "SessionStart", matcher: "compact", script: "sessionstart.mjs" },
+      { event: "SessionStart", matcher: "resume", script: "sessionstart.mjs" },
     ],
   });
   return { scripts: [lib, post, stop, pre], wired, deferred };
