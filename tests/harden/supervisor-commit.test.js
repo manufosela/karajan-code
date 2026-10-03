@@ -98,6 +98,18 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(shown).not.toContain("other.txt");
   });
 
+  it("KJC-BUG-0244: refuses while something else is staged, naming it, before asking the human", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    writeFileSync(join(repo, "other.txt"), "another card's work\n");
+    git(["add", "other.txt"]);
+    let asked = false;
+    const deps = { ...HUMAN.deps, confirm: (n) => { asked = true; return n; } };
+    await expect(commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps })).rejects.toThrow(/other\.txt/);
+    expect(asked).toBe(false);
+    expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
+    expect(git(["diff", "--cached", "--name-only"])).toContain("other.txt");
+  });
+
   it("a DELETED hook is drift too — recorded as deleted, committed (codex catch)", async () => {
     rmSync(join(repo, ".karajan", "hooks", "pre-commit"));
     const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });

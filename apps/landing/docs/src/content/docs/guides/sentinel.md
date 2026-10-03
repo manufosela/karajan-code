@@ -99,6 +99,21 @@ There is no escape, because it is data loss. The remedy never loses anything: `g
 
 Inside the repo, files are written through the Edit and Write tools only, because that is the path every other gate guards (card-first, rag-first, no whole-file overwrite). A Bash command that writes a repo file is denied: redirections (`>`, `>>`, `>|`, `2>`), `tee`, `sed -i`, `perl -i`, `cp`, `mv`, `install`, `ln`, `dd of=`, `truncate` and `touch`, also behind `env`, `sudo` or `command`. A target the Sentinel cannot read (`$VAR`, backticks) is denied too. An inline script (`node -e`, `python -c`...) that names a write API is denied as well. Outside the repo (`/tmp`, a scratchpad, `/dev/null`) Bash stays free, and `git mv` renames inside it. The limit, said plainly: a program you run can write files (a script, a build), and a hook that reads commands cannot stop that; only a sandbox can. This gate closes the shell's own ways of writing, which is where an agent routes around Edit/Write. Born from a real bypass: blocked by rag-first, a coder wrote the same change with `cat >` heredocs, including a whole-file overwrite (issue #1886).
 
+## reminders
+
+An agent reads its rules when it starts and loses them when the context is compacted. A hook does not forget. After certain actions the Sentinel adds the rule that comes next to the agent's context. It never blocks. Each reminder is given at most once every 25 actions:
+
+- after `git add`, the commit message limits (100 characters, lowercase subject, no attribution) and `commitlint`;
+- after a `gh` without an account switch, to name the account in the same command;
+- after `gh pr create`, to split an unfinished card before merging;
+- after syncing `main`, to create the next branch now.
+
+Each one comes after the action that precedes the rule's action, not before it, because a reminder before a tool call would have to approve that call and skip your permission prompt.
+
+## governance
+
+Karajan governs, and it is obeyed. A session does not change the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml` and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied before any escape. If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
+
 ## stop-gate
 
 The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations or ask your user for the applicable escape. State: `kj sentinel status`.

@@ -8,7 +8,7 @@
  * hooks, which is why the guaranteed level requires Claude as host (ADR).
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -136,6 +136,7 @@ import process from "node:process";
 import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
+import { remindersFor } from "./sentinel-reminders.mjs";
 const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD", "KJ_ALLOW_NO_RAG", "KJ_ALLOW_NO_VERIFY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
@@ -273,6 +274,15 @@ process.stdin.on("end", () => {
       // "not found" counts as failure (KJC-BUG-0154): a move that moved nothing must not
       // clear a pending — that would discard a LEGITIMATE one without touching the tracker.
       if (moved && CLOSING.includes(moved[2].toLowerCase()) && !/error|fail|not found/i.test(text)) clearPending(moved[1].toUpperCase());
+      // KJC-TSK-0917 (ADR 0014): the method's reminders, after the action that precedes
+      // the one each rule is about; at most once every 25 Bash actions each. Never a block.
+      const st = load();
+      const ss = session(st, sid);
+      ss.step = (ss.step || 0) + 1;
+      const due = remindersFor(cmdText, { seen: ss.reminded || {}, step: ss.step });
+      for (const r of due) (ss.reminded ||= {})[r.id] = ss.step;
+      save(st);
+      if (due.length) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: due.map((r) => r.say).join(" ") } }));
       process.exit(0);
     }
     const file = input.file_path || input.notebook_path;
@@ -467,6 +477,10 @@ process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, transcript_path: transcript = null } = JSON.parse(raw);
+    // KJC-TSK-0920 (SNT-E): every deny ends with the same line, whatever gate it was.
+    process.on("exit", (code) => {
+      if (code === 2) console.error("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
+    });
     // Self-protection (KJC-TSK-0715) rules run BEFORE any escape, including
     // KJ_SENTINEL_OFF: the sentinel is not dismantled from inside a session —
     // only the human, editing outside it.
@@ -475,6 +489,12 @@ process.stdin.on("end", () => {
       const relT = target ? relative(ROOT, String(target)).replaceAll("\\\\", "/") : "";
       if (relT && PROTECTED.test(relT)) {
         console.error("karajan sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion." + doc("supervisor"));
+        process.exit(2);
+      }
+      // KJC-TSK-0920 (SNT-E): policies, gate settings and exclusions are the human's,
+      // like the supervisor: a session does not loosen the rules that govern it.
+      if ([".karajan/policy.yml", ".karajan/kj.config.yml", ".ragignore"].includes(relT) || relT.endsWith("/.ragignore")) {
+        console.error("karajan sentinel: " + relT + " es configuracion de gobierno (politicas, gates, exclusiones): la cambia tu usuario, no la sesion. Si un gate te parece injusto, proponselo a tu usuario o usa kj report-issue." + doc("governance"));
         process.exit(2);
       }
       // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
@@ -1206,6 +1226,7 @@ const SCRIPT_BODIES = {
   "sentinel-shell.mjs": readFileSync(new URL("./sentinel/sentinel-shell.mjs", import.meta.url), "utf8"),
   "sentinel-discard.mjs": readFileSync(new URL("./sentinel/sentinel-discard.mjs", import.meta.url), "utf8"),
   "sentinel-bash-write.mjs": readFileSync(new URL("./sentinel/sentinel-bash-write.mjs", import.meta.url), "utf8"),
+  "sentinel-reminders.mjs": readFileSync(new URL("./sentinel/sentinel-reminders.mjs", import.meta.url), "utf8"),
 };
 
 /**
@@ -1309,6 +1330,7 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
   // first attempt at this fix, and the review was right to reject it.
   const sealed = sealedByPath(root, gitShowFn);
   const ownRecord = readInstalledRecord(dir);
+  const hasRecord = existsSync(join(dir, INSTALLED_RECORD));
   const drift = [];
   const tampered = [];
   const regenerated = [];
@@ -1317,9 +1339,10 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
     const hash = text === undefined ? null : sha256(text);
     if (hash && sealed.get(`.karajan/harness/${name}`) === hash) drift.push(name);
     else if (hash && ownRecord[name] === hash) regenerated.push(name);
-    // KJC-TSK-0915: absent, never recorded by kj and never sealed = a guard newer
-    // than this install (kj moved on), not a deleted one. Writing it only adds.
-    else if (!hash && !Object.hasOwn(ownRecord, name) && !sealed.has(`.karajan/harness/${name}`)) regenerated.push(name);
+    // KJC-TSK-0915: absent from an install kj RECORDED (installed.json exists), never
+    // recorded and never sealed = a guard newer than this install, not a deleted
+    // one. Writing it only adds. A dir with no record is not a kj install at all.
+    else if (!hash && hasRecord && !Object.hasOwn(ownRecord, name) && !sealed.has(`.karajan/harness/${name}`)) regenerated.push(name);
     else tampered.push(name);
   }
   // KJC-BUG-0224 caso 1: lo que kj escribio y nadie sello ni toco se pone al
