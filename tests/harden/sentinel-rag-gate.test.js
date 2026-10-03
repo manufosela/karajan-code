@@ -10,7 +10,7 @@ import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let dir, gate, statePath;
-const env = { KJ_ALLOW_IDENTITY: "1" };
+const env = {};
 const edit = (rel, extra = {}) => spawnSync("node", [gate], {
   input: JSON.stringify({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, rel) } }),
   encoding: "utf8", cwd: dir, env: { ...process.env, ...env, ...extra },

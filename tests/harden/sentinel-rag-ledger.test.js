@@ -10,7 +10,7 @@ import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let dir, post, stop, statePath;
-const env = { KJ_ALLOW_IDENTITY: "1" };
+const env = {};
 const run = (payload) => spawnSync("node", [post], { input: JSON.stringify({ session_id: "s1", ...payload }), encoding: "utf8", cwd: dir, env: { ...process.env, ...env } });
 const mcpQuery = (text, hits) => run({
   tool_name: "mcp__karajan-mcp__kj_rag_query", tool_input: { text, projectDir: dir },

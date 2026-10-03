@@ -16,7 +16,7 @@ const run = (script, payload, env = {}) =>
   spawnSync("node", [script], {
     input: JSON.stringify(payload),
     encoding: "utf8",
-    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env },
+    env: { ...process.env, ...env },
   });
 const editTool = (file) => ({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: file } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -55,11 +55,12 @@ describe("pretooluse delega en kj policy eval --strict (PL-B)", () => {
     expect(res.stderr).toMatch(/roles\.coder\.write\.deny/);
   });
 
-  it("KJ_ALLOW_POLICY=1 exime un deny NO-security y queda registrado", () => {
+  it("ADR 0015: KJ_ALLOW_POLICY=1 ya no exime un deny NO-security; el mensaje nombra el cauce", () => {
     const env = fakeKj(`echo '${DENY}'; exit 2`);
     const res = run(gate, editTool(path.join(dir, "src", "a.js")), { ...env, KJ_ALLOW_POLICY: "1" });
-    expect(res.status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_POLICY")).toBe(true);
+    expect(res.status).toBe(2);
+    expect(res.stderr).toMatch(/policy\.yml por PR/);
+    expect(res.stderr).not.toContain("KJ_ALLOW");
   });
 
   it("class=security NO tiene escape — ni con KJ_ALLOW_POLICY", () => {
@@ -84,14 +85,13 @@ describe("pretooluse delega en kj policy eval --strict (PL-B)", () => {
     expect(res.stderr).toMatch(/kj no es ejecutable/);
   });
 
-  it("exit 1 (evaluacion fallida) = fail CLOSED con remedio — solo la excepcion humana abre", () => {
+  it("exit 1 (evaluacion fallida) = fail CLOSED con remedio y sin escape (ADR 0015)", () => {
     const env = fakeKj(`echo 'policy.yml invalida'; exit 1`);
     const res = run(gate, editTool(path.join(dir, "src", "a.js")), env);
     expect(res.status).toBe(2);
-    expect(res.stderr).toMatch(/kj policy check|KJ_ALLOW_POLICY/);
-    const escaped = run(gate, editTool(path.join(dir, "src", "a.js")), { ...env, KJ_ALLOW_POLICY: "1" });
-    expect(escaped.status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_POLICY")).toBe(true);
+    expect(res.stderr).toMatch(/kj policy check/);
+    expect(res.stderr).not.toContain("KJ_ALLOW");
+    expect(run(gate, editTool(path.join(dir, "src", "a.js")), { ...env, KJ_ALLOW_POLICY: "1" }).status).toBe(2);
   });
 
   // KJC-BUG-0207: con kj linkado al arbol, un error de sintaxis transitorio en

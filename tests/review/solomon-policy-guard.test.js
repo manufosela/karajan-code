@@ -36,6 +36,29 @@ const stage = (name) => {
 };
 const silence = () => vi.spyOn(console, "log").mockImplementation(() => {});
 
+describe("solomon: la posicion (KJC-BUG-0260)", () => {
+  it("se lee de --position-file, entera, y llega al arbitraje", async () => {
+    stage("src/normal.js");
+    const file = path.join(dir, "position.md");
+    fs.writeFileSync(file, "El reviewer lee mal src/a.js: el test cubre el caso.\n");
+    solomonMock.mockResolvedValue({ ruling: "approve", solomon: "agy" });
+    const spy = silence();
+    await solomonCommand({ config: { projectDir: dir }, flags: { positionFile: file } });
+    spy.mockRestore();
+    expect(solomonMock.mock.calls[0][0].position).toBe("El reviewer lee mal src/a.js: el test cubre el caso.");
+  });
+
+  it("sin posicion no arbitra y lo dice", async () => {
+    stage("src/normal.js");
+    const spy = silence();
+    const r = await solomonCommand({ config: { projectDir: dir }, flags: {} });
+    spy.mockRestore();
+    expect(r.ruling).toBe("reject");
+    expect(solomonMock).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
+});
+
 describe("solomon y la clase seguridad", () => {
   it("se niega a arbitrar cuando el diff toca ficheros del supervisor (security)", async () => {
     stage(".karajan/hooks/evil");

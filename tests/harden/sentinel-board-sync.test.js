@@ -9,9 +9,10 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { TEST_GH_USER, declareTestIdentity } from "./_test-identity.js";
 
 let dir, gate, stop, post, statePath;
-const env = { KJ_ALLOW_IDENTITY: "1" }; // el identity lock tiene su propia suite
+let env = {};
 const bash = (command, extra = {}) =>
   spawnSync("node", [gate], {
     input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
@@ -33,6 +34,7 @@ beforeEach(() => {
     { cwd: dir },
   );
   installSentinelHooks({ projectDir: dir });
+  env = declareTestIdentity(dir);
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   stop = path.join(dir, ".karajan", "harness", "stop.mjs");
   post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
@@ -42,7 +44,7 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe("board-sync gate", () => {
   it("un merge CONFIRMADO por gh registra la card de la rama como pendiente de mover; un merge fallido no", () => {
-    expect(bash("gh auth switch --user x && gh pr merge 12 --squash").status).toBe(0); // el gate deja pasar el merge
+    expect(bash(`gh auth switch --user ${TEST_GH_USER} && gh pr merge 12 --squash`).status).toBe(0); // el gate deja pasar el merge
     expect(merged(12, false).status).toBe(0);
     expect(fs.existsSync(statePath) ? (state().sessions?.s1?.pending_moves ?? []) : []).toHaveLength(0);
     expect(merged(12).status).toBe(0);
@@ -57,7 +59,7 @@ describe("board-sync gate", () => {
     fs.mkdirSync(bin);
     const fakeGh = (st) => fs.writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho '{"number":21,"state":"${st}"}'\n`, { mode: 0o755 });
     const silentMerge = (pr) => spawnSync("node", [post], {
-      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `gh auth switch --user x && gh pr merge ${pr} --squash` }, tool_response: { stdout: "", stderr: "" } }),
+      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `gh auth switch --user ${TEST_GH_USER} && gh pr merge ${pr} --squash` }, tool_response: { stdout: "", stderr: "" } }),
       encoding: "utf8", cwd: dir, env: { ...process.env, ...env, PATH: `${bin}:${process.env.PATH}` },
     });
     fakeGh("OPEN");

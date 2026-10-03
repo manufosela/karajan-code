@@ -9,17 +9,17 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { declareTestIdentity } from "./_test-identity.js";
 
-let dir, postScript, stopScript, statePath;
+let dir, postScript, stopScript, statePath, idEnv;
 const run = (script, payload, env = {}) =>
   spawnSync("node", [script], {
     input: typeof payload === "string" ? payload : JSON.stringify(payload),
     encoding: "utf8",
-    // IDN-B: these suites exercise the OTHER gates; the identity lock has its
-    // own suite (sentinel-identity.test.js), so it is escaped here (env route).
+    // The clone declares the identity the session runs as (no escape, ADR 0015).
     // rag-first has its own suite (sentinel-rag-gate.test.js): here the state
-    // is an empty index, where that gate stands down (no escape, ADR 0015).
-    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env },
+    // is an empty index, where that gate stands down.
+    env: { ...process.env, ...idEnv, ...env },
   });
 const editTool = (file, session = "s1") => ({ session_id: session, tool_name: "Edit", tool_input: { file_path: file } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -31,6 +31,7 @@ beforeEach(() => {
     { cwd: dir },
   );
   installSentinelHooks({ projectDir: dir });
+  idEnv = declareTestIdentity(dir);
   postScript = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   stopScript = path.join(dir, ".karajan", "harness", "stop.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");
@@ -59,9 +60,7 @@ describe("posttooluse script (state writer)", () => {
     expect(s.edited_tests).toEqual(["modules/vpc_test.go"]);
   });
 
-  it("records used KJ_ALLOW_* escapes and never crashes on garbage input", () => {
-    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_PII: "1" });
-    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_PII");
+  it("never crashes on garbage input", () => {
     expect(run(postScript, "not-json").status).toBe(0);
   });
 });
@@ -134,6 +133,9 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     const clean = path.join(dir, "clean.md");
     fs.writeFileSync(clean, "Cuerpo normal usando codex como reviewer del metodo.\n");
     expect(run(gate, bash(`gh pr create --title x --body-file ${clean}`)).status).toBe(0);
+    // KJC-BUG-0245: un ; o && pegado a la ruta no forma parte de ella.
+    expect(run(gate, bash(`gh pr create --title "a b" --body-file ${clean}&& echo ok`)).status).toBe(0);
+    expect(run(gate, bash(`gh pr create --title x --body-file ${dirty}; echo ok`)).status).toBe(2);
     // gh de lectura: ni se mira
     expect(run(gate, bash("gh pr view 12 --json state")).status).toBe(0);
   });
@@ -202,7 +204,7 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(run(gate, push).status).toBe(0);
   });
 
-  it("blocks npm publish when the release check is red, honors the escape, and fails open without kj", () => {
+  it("blocks npm publish when the release check is red, with no escape, and fails open without kj", () => {
     const bin = path.join(dir, "fakebin");
     fs.mkdirSync(bin);
     fs.writeFileSync(
@@ -214,7 +216,8 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     const blocked = run(gate, publish, { PATH: `${bin}:${process.env.PATH}` });
     expect(blocked.status).toBe(2);
     expect(blocked.stderr).toMatch(/changelog/);
-    expect(run(gate, publish, { PATH: `${bin}:${process.env.PATH}`, KJ_ALLOW_RELEASE: "1" }).status).toBe(0);
+    expect(blocked.stderr).not.toContain("KJ_ALLOW");
+    expect(run(gate, publish, { PATH: `${bin}:${process.env.PATH}`, KJ_ALLOW_RELEASE: "1" }).status).toBe(2);
     // KJC-BUG-0155: dirname(process.execPath) is node's OWN bin — the same dir
     // where `npm link` installs the real kj on a dev machine, so the fail-open
     // leg found kj and blocked. A lonely bin holding ONLY node proves it.
@@ -253,7 +256,9 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     ]) {
       const r = bash(cmd);
       expect(r.status, cmd).toBe(2);
-      expect(r.stderr, cmd).toMatch(/no se apaga con una bandera/);
+      // A malformed GIT_CONFIG_PARAMETERS leaves git without an identity, so the
+      // identity lock, which runs first, denies it before this gate does.
+      expect(r.stderr, cmd).toMatch(cmd.startsWith("GIT_CONFIG_PARAMETERS") ? /no se apaga con una bandera|identity lock/ : /no se apaga con una bandera/);
     }
     // Lo que NO es saltarse el gate sigue pasando.
     for (const cmd of ["git commit -m x", "git commit -am x", "git commit --no-edit"]) {
@@ -289,65 +294,16 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(publish.stderr).toMatch(/landing desplegada/);
   });
 
-  it("KJC-BUG-0142: el escape como PREFIJO del comando funciona — el hook corre con el env del host y el prefijo jamas llegaba a process.env (deadlock real: landing solo verde tras deploy, deploy bloqueado)", () => {
-    const bin = path.join(dir, "fakebin");
-    fs.mkdirSync(bin);
-    fs.writeFileSync(
-      path.join(bin, "kj"),
-      `#!/bin/sh\necho '{"ok":false,"checks":[{"ok":false,"name":"landing","detail":"not current"}]}'\nexit 1\n`,
-      { mode: 0o755 },
-    );
-    const env = { PATH: `${bin}:${process.env.PATH}` };
-    const pub = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
-    // El prefijo de asignacion literal al INICIO escapa y queda registrado.
-    expect(pub("KJ_ALLOW_RELEASE=1 npm publish --ignore-scripts --otp=123456").status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_RELEASE")).toBe(true);
-    // Varias asignaciones encadenadas al inicio tambien cuentan.
-    expect(pub("FOO=bar KJ_ALLOW_RELEASE=1 firebase deploy --only hosting").status).toBe(0);
-    // Una MENCION a mitad de comando o tras el verbo NO escapa.
-    expect(pub("echo KJ_ALLOW_RELEASE=1 && npm publish").status).toBe(2);
-    expect(pub("npm publish # KJ_ALLOW_RELEASE=1").status).toBe(2);
-    // El valor tiene que ser exactamente 1.
-    expect(pub("KJ_ALLOW_RELEASE=0 npm publish").status).toBe(2);
-    // Catch de codex: en una CADENA el prefijo shell no alcanza a los
-    // comandos posteriores — el escape por texto solo vale para un comando
-    // SIMPLE (sin ; | & $ backtick ni salto de linea, tampoco escondidos
-    // en el valor de una asignacion).
-    expect(pub("KJ_ALLOW_RELEASE=1 true && npm publish").status).toBe(2);
-    expect(pub("KJ_ALLOW_RELEASE=1 true; npm publish").status).toBe(2);
-    expect(pub("KJ_ALLOW_RELEASE=1 npm publish | tee log.txt").status).toBe(2);
-    expect(pub("KJ_ALLOW_RELEASE=1 X=$(id) npm publish").status).toBe(2);
-    // Catch de codex (2a ronda): subshells y process substitution.
-    expect(pub("KJ_ALLOW_RELEASE=1 npm publish <(id)").status).toBe(2);
-    expect(pub("KJ_ALLOW_RELEASE=1 (npm publish)").status).toBe(2);
-    // La via env de siempre sigue valiendo para cadenas.
-    expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "npm publish && echo ok" } }, { ...env, KJ_ALLOW_RELEASE: "1" }).status).toBe(0);
-  });
-
-  it("KJC-BUG-0147: lo entrecomillado no encadena — parentesis y pipes dentro de comillas son un comando simple; y un escape ignorado SE DICE", () => {
+  it("ADR 0015: KJ_ALLOW_RELEASE no longer opens a red release check, as a command prefix or in the env", () => {
     const bin = path.join(dir, "fakebin");
     fs.mkdirSync(bin);
     fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\necho '{"ok":false,"checks":[{"ok":false,"name":"landing","detail":"x"}]}'\nexit 1\n`, { mode: 0o755 });
     const env = { PATH: `${bin}:${process.env.PATH}` };
-    const pub = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
-    // Hallado en vivo: todo mensaje Conventional Commit lleva parentesis — el escape se ignoraba en silencio.
-    const quoted = pub('KJ_ALLOW_RELEASE=1 npm publish --tag "fix(x): y (KJC-TSK-1) | z"');
-    expect(quoted.stderr).not.toMatch(/IGNORADO/);
-    expect(quoted.status).toBe(0);
-    expect(pub("KJ_ALLOW_RELEASE=1 npm publish --tag 'a; b (c) | d'").status).toBe(0);
-    // Dentro de comillas DOBLES $ y backtick siguen expandiendo: no es simple.
-    const dq = pub('KJ_ALLOW_RELEASE=1 npm publish --tag "v$HOME"');
-    expect(dq.status).toBe(2);
-    expect(dq.stderr).toMatch(/KJ_ALLOW_RELEASE=1 presente pero IGNORADO/);
-    // Fuera de comillas, un pipe sigue sin ser simple — y ahora se dice por que.
-    const piped = pub("KJ_ALLOW_RELEASE=1 npm publish | tail -1");
-    expect(piped.status).toBe(2);
-    expect(piped.stderr).toMatch(/IGNORADO[^\n]*"\|"/);
-    // Separadores escapados con barra son literales (la plantilla genera UNA barra: catch de codex, probado aqui).
-    expect(pub("KJ_ALLOW_RELEASE=1 npm publish --tag a\\;b").status).toBe(0);
-    expect(pub('KJ_ALLOW_RELEASE=1 npm publish --tag "a\\$b"').status).toBe(0);
-    // Comilla sin cerrar = no verificable.
-    expect(pub('KJ_ALLOW_RELEASE=1 npm publish --tag "abc').status).toBe(2);
+    const pub = (command, extra = {}) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, { ...env, ...extra });
+    expect(pub("KJ_ALLOW_RELEASE=1 npm publish --ignore-scripts --otp=123456").status).toBe(2);
+    expect(pub("KJ_ALLOW_RELEASE=1 firebase deploy --only hosting").status).toBe(2);
+    expect(pub("npm publish && echo ok", { KJ_ALLOW_RELEASE: "1" }).status).toBe(2);
+    expect(state().escape_events?.some((e) => e.escape === "KJ_ALLOW_RELEASE")).toBeFalsy();
   });
 });
 
@@ -423,14 +379,14 @@ describe("self-protection + audited escapes (SEN-C)", () => {
     expect(run(stopScript, { session_id: "empty" }, { PATH: path.dirname(process.execPath) }).status).toBe(0);
   });
 
-  it("stop emits a user-visible summary of used escapes when the turn ends green", () => {
-    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_PII: "1" });
+  it("ADR 0015: no escape is recorded any more, so a green turn reports none", () => {
+    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_IDENTITY: "1" });
     run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
     const res = run(stopScript, { session_id: "s1" });
     expect(res.status).toBe(0);
-    expect(res.stdout).toMatch(/systemMessage/);
-    expect(res.stdout).toMatch(/KJ_ALLOW_PII/);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_PII")).toBe(true);
+    expect(res.stdout).not.toMatch(/escape/);
+    expect(state().escape_events ?? []).toHaveLength(0);
+    expect(state().sessions.s1.escapes).toEqual([]);
   });
 });
 
@@ -444,14 +400,6 @@ describe("sentinel-lib (shared single source)", () => {
     const mod = await import(`file://${lib}`);
     expect(mod.violations({ edited_sources: ["src/a.js"], edited_tests: [] }, "main").length).toBe(2);
     expect(mod.violations({ edited_sources: ["src/a.js"], edited_tests: ["tests/a.test.js"] }, "feat/KJC-TSK-0001-x")).toEqual([]);
-  });
-
-  it("recordEscape appends an auditable escape event to the state", async () => {
-    const mod = await import(`file://${path.join(dir, ".karajan", "harness", "sentinel-lib.mjs")}`);
-    mod.recordEscape("s1", "KJ_ALLOW_NO_CARD", "Edit");
-    expect(state().escape_events).toHaveLength(1);
-    expect(state().escape_events[0]).toMatchObject({ escape: "KJ_ALLOW_NO_CARD", tool: "Edit", sid: "s1" });
-    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_NO_CARD");
   });
 });
 
@@ -528,7 +476,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     fs.writeFileSync(path.join(inTree, "src", "x.js"), "x");
     const spawn = (command) => spawnSync("node", [gate], {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
-      encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1" },
+      encoding: "utf8", cwd: dir, env: { ...process.env },
     });
     const bare = spawn("sed -i s/a/b/ .kj/worktrees/wt2/src/x.js");
     expect(bare.status).toBe(2);
@@ -615,7 +563,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${rel}` } }),
       encoding: "utf8",
       cwd: dir,
-      env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1" },
+      env: { ...process.env },
     });
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("carril");

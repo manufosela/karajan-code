@@ -9,12 +9,13 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { declareTestIdentity } from "./_test-identity.js";
 
-let dir, pre, home, bin;
+let dir, pre, home, bin, idEnv;
 // Same shim as the Stop-gate suite: the hook spawns `kj` from PATH and fails
 // OPEN without it; CI has no global kj, so point a shim at this checkout.
 const KJ_BIN = path.resolve("bin/kj.js");
-const env = () => ({ ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, KJ_ALLOW_IDENTITY: "1", KARAJAN_HOME: home });
+const env = () => ({ ...process.env, ...idEnv, PATH: `${bin}${path.delimiter}${process.env.PATH}`, KARAJAN_HOME: home });
 const runPre = (command, transcript) => spawnSync("node", [pre], {
   input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command }, ...(transcript ? { transcript_path: transcript } : {}) }),
   encoding: "utf8", cwd: dir, env: env(), timeout: 120_000,
@@ -51,6 +52,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(home, "kj.config.yml"), "base_branch: main\n");
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  idEnv = declareTestIdentity(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
 });
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(home, { recursive: true, force: true }); });

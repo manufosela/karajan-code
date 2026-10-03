@@ -1,11 +1,11 @@
 ---
 title: El Sentinel, gate a gate
-description: Cada mensaje que imprime el Sentinel de Karajan, qué protege y qué significa cada escape KJ_ALLOW_*.
+description: Cada mensaje que imprime el Sentinel de Karajan, qué protege y a dónde va cada decisión del proyecto ahora que no hay escapes.
 ---
 
 El Sentinel es el conjunto de hooks síncronos que `kj harden` instala en el harness de tu agente. Cada mensaje que imprime empieza por `karajan sentinel:` y termina con un enlace a su sección en esta página. El harness anfitrión puede envolverlo con sus propias palabras (Claude Code dice "stop says", "PreToolUse hook error"), el cuerpo es de Karajan.
 
-Dos reglas aplican a todo lo de abajo. Primera: el Sentinel bloquea *antes* de que la acción se ejecute, no hay nada que deshacer, porque no ha pasado nada. Segunda: cada escape es una variable de entorno que antepones a UN comando simple (`KJ_ALLOW_X=1 git …`); se ignora en cadenas de comandos (`;`, `|`, `&`, `$( )`, backticks, `2>&1` cuenta), y cada uso queda registrado en el estado de la sesión y sellado en el acta de decisiones. Un escape es una excepción consciente y auditable, nunca un ajuste.
+Dos reglas aplican a todo lo de abajo. Primera: el Sentinel bloquea *antes* de que la acción se ejecute, no hay nada que deshacer, porque no ha pasado nada. Segunda: no hay escapes (ADR 0015). Cada mensaje nombra el remedio, y una decisión que es del proyecto tiene su cauce fuera de la sesión (ver [escapes](#escapes)).
 
 ## En la práctica, desde tu agente
 
@@ -27,7 +27,7 @@ cat .karajan/hooks/pre-commit          # las guardas generadas (no las edites a 
 git commit -m "wip" -- .               # en main, o sin card → bloqueado, con el enlace a la regla
 ```
 
-Cada bloqueo, y cada escape `KJ_ALLOW_*` que uses conscientemente, queda sellado en el acta de decisiones, así que "¿qué detuvo el Sentinel, y lo anuló alguien?" está a un `kj policy report` de distancia.
+Cada bloqueo queda sellado en el acta de decisiones, así que "¿qué detuvo el Sentinel?" está a un `kj policy report` de distancia.
 
 ## card-first
 
@@ -51,7 +51,7 @@ Una card mergeada debe moverse en el tracker antes de que avance nada más, comm
 
 ## policy
 
-`.karajan/policy.yml` se evalúa en cada llamada a herramienta. Un deny nombra su regla y su motivo. Las reglas etiquetadas como seguridad NO tienen escape NI arbitraje. Para el resto: `KJ_ALLOW_POLICY=1` (el commit además exigirá `KJ_POLICY_REASON`).
+`.karajan/policy.yml` se evalúa en cada llamada a herramienta. Un deny nombra su regla y su motivo. Las reglas etiquetadas como seguridad NO tienen escape NI arbitraje. El resto tampoco tiene escape (ADR 0015): una regla que se dispara mal la corrige tu usuario en `.karajan/policy.yml`, por PR.
 
 ## steward
 
@@ -75,7 +75,7 @@ release_check:
       remedied_by: firebase deploy
 ```
 
-El check levantado sigue en rojo en el informe, porque el hecho no ha cambiado; solo deja de bloquear su propio arreglo, y el gate dice qué item ha levantado en lugar de hacerlo en silencio. Cualquier otro rojo sigue bloqueando. Publicar el paquete no se exime nunca: `npm publish` y `gh release create` son irreversibles, así que ningún remedio declarado los cubre, y `KJ_ALLOW_RELEASE=1` sigue siendo el único escape consciente.
+El check levantado sigue en rojo en el informe, porque el hecho no ha cambiado; solo deja de bloquear su propio arreglo, y el gate dice qué item ha levantado en lugar de hacerlo en silencio. Cualquier otro rojo sigue bloqueando. Publicar el paquete no se exime nunca: `npm publish` y `gh release create` son irreversibles, así que ningún remedio declarado los cubre, y no hay escape (ADR 0015): primero se repara lo que el check nombra.
 
 ## commit-gate
 
@@ -118,7 +118,7 @@ Karajan gobierna y se le obedece. Una sesión no cambia las reglas que la gobier
 
 ## stop-gate
 
-El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas o pide a tu usuario el escape aplicable. Estado: `kj sentinel status`.
+El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas. Estado: `kj sentinel status`.
 
 ## push-gate
 
@@ -130,13 +130,12 @@ La atribución a IA está prohibida por una regla determinista del proyecto, en 
 
 ## escapes
 
-El ADR 0015 retira los escapes: un gate que necesita uno es un gate a corregir, y ningún escape lo puede activar el agente. Card-first, rag-first, board-sync y tests-con-código ya no tienen. Los demás, mientras sigan: un comando simple, un uso, registrado en el estado de la sesión y sellado en el acta de decisiones (`kj sentinel status` lista lo que esta sesión usó).
+No hay ninguno (ADR 0015). Un gate que necesita un escape es un gate a corregir, y una excepción que el agente pudiera concederse a sí mismo no sería una excepción. Cada decisión que de verdad es del proyecto tiene su cauce, fuera de la sesión:
 
-| Escape | Se salta | Legítimo cuando |
-| --- | --- | --- |
-| `KJ_ALLOW_IDENTITY=1` | bloqueo de identidad | Suites de test que ejercitan otras guardas; nunca para pushes reales |
-| `KJ_ALLOW_POLICY=1` | denies de policy no-seguridad | La regla se dispara mal y el fix está acordado; el commit además necesita `KJ_POLICY_REASON` |
-| `KJ_ALLOW_RELEASE=1` | release check | Un rojo que ahora mismo nadie puede arreglar, acordado con el humano (el caso de la landing lo cubre `remedied_by`) |
-| `KJ_ALLOW_PII=1` | bloqueo de la denylist de privacidad en el commit | Un falso positivo confirmado, revisado por el humano |
-
-No hay ningún `KJ_ALLOW_*` para los hallazgos de seguridad. Ese es el objetivo.
+| Caso | Cauce |
+| --- | --- |
+| Una regla que se dispara mal | tu usuario corrige `.karajan/policy.yml` por PR |
+| El bloqueo del Steward no debe parar el trabajo | tu usuario pone `method_gates.steward` en `inform` |
+| Una PR grande está justificada | la etiqueta `large-pr-justified` de tu usuario, que juzga la CI |
+| Un falso positivo de privacidad | la lista `allow` de `~/.karajan/privacy.yml` |
+| Un cruce entre carriles, o saltarse un hook | tu usuario, en su propia terminal |

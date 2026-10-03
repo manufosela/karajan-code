@@ -15,7 +15,7 @@ let dir, stop, home, bin;
 // product, fatal for the test: CI has no global kj. A shim pointing at this
 // checkout's bin/kj.js makes the test self-contained on any machine.
 const KJ_BIN = path.resolve("bin/kj.js");
-const env = () => ({ ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, KJ_ALLOW_IDENTITY: "1", KARAJAN_HOME: home });
+const env = () => ({ ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, KARAJAN_HOME: home });
 const endTurn = (transcript) => spawnSync("node", [stop], {
   input: JSON.stringify({ session_id: "s1", ...(transcript ? { transcript_path: transcript } : {}) }),
   encoding: "utf8", cwd: dir, env: env(), timeout: 120_000,

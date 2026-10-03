@@ -28,10 +28,9 @@ export function resolveSentinelRoot(dir = process.cwd()) {
 
 const LIB_BODY = `// kj sentinel shared lib (KJC-TSK-0714) — managed by \`kj harden\`.
 // Single source for every sentinel script: state, branch, classification,
-// violations, and escape recording.
-import console from "node:console";
+// and violations.
 import { readFileSync, writeFileSync } from "node:fs";
-import { execSync, spawnSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
@@ -105,26 +104,6 @@ const sessionAddsCode = (s) => {
     return a === "-" || Number(a) > 0;
   });
 };
-export const recordEscape = (sid, escape, tool) => {
-  const state = load();
-  const s = session(state, sid);
-  s.at = Date.now();
-  if (!s.escapes.includes(escape)) s.escapes.push(escape);
-  (state.escape_events ||= []).push({ escape, tool, sid, ts: Date.now() });
-  save(state);
-  // GOV-F (KJC-TSK-0768): el escape es una excepcion consciente — entra en el
-  // decision log hash-encadenado (kj policy seal), no solo en este estado.
-  // Best-effort CON aviso: fail-closed aqui encerraria la sesion justo cuando
-  // kj no carga, que es cuando mas se usa el escape (restaurar con git).
-  try {
-    const args = ["policy", "seal", "--escape", escape];
-    if (tool) args.push("--tool", String(tool));
-    const r = spawnSync("kj", args, { cwd: ROOT, encoding: "utf8" });
-    if (r.error || r.status !== 0) console.error("karajan sentinel: escape " + escape + " usado pero NO sellado en el decision log (kj policy seal " + (r.error ? r.error.message : "exit " + r.status) + ") — revisa kj; el escape queda solo en sentinel-state.json" + doc("escapes"));
-  } catch (e) {
-    console.error("karajan sentinel: escape " + escape + " usado pero NO sellado en el decision log: " + e.message + doc("escapes"));
-  }
-};
 `;
 
 const POST_BODY = `#!/usr/bin/env node
@@ -137,9 +116,6 @@ import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
-// ADR 0015 (KJC-TSK-0925, 0926): NO_CARD, NO_TESTS, BOARD, NO_RAG, WRITE, REWRITE
-// and NO_VERIFY no longer exist.
-const ESCAPES = ["KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -295,11 +271,6 @@ process.stdin.on("end", () => {
     const rel = relative(ROOT, file).replaceAll("\\\\", "/");
     const bucket = TESTS.test(rel) ? s.edited_tests : CODE.test(rel) ? s.edited_sources : null;
     if (bucket && !bucket.includes(rel)) bucket.push(rel);
-    for (const e of ESCAPES)
-      if (process.env[e] === "1" && !s.escapes.includes(e)) {
-        s.escapes.push(e);
-        (state.escape_events ||= []).push({ escape: e, tool, sid, ts: Date.now() });
-      }
     // KJC-TSK-0910: the branch size while it is written, with the CI budget
     // (kj pr-size), said once per threshold crossed. Context, never a block.
     let sizeNote = null;
@@ -419,7 +390,6 @@ process.stdin.on("end", () => {
       s.blocks = 0;
       const notes = [];
       if (claimsNote) notes.push(claimsNote);
-      if ((s.escapes || []).length) notes.push("karajan sentinel: esta sesion uso " + s.escapes.length + " escape(s): " + s.escapes.join(", ") + " — decision registrada; detalle en kj sentinel status.");
       if ((s.closed_cards || []).length) {
         notes.push("karajan sentinel: card(s) cerrada(s) en este turno: " + s.closed_cards.join(", ") + " — el board las muestra: " + boardHint());
         s.closed_cards = [];
@@ -456,9 +426,9 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
+import { optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
@@ -540,8 +510,8 @@ process.stdin.on("end", () => {
       if (tool === "Bash" && /(^|[^a-zA-Z])gh([^a-zA-Z]|$)/.test(ghCmd) && /(^|[^a-z])(pr|issue|release)([^a-z]|$)/.test(ghCmd) && /(^|[^a-z])(create|edit|comment|review)([^a-z]|$)/.test(ghCmd)) {
         const attrib = /co-authored-by:.{0,120}(claude|gpt|copilot|gemini)|(generated|written|created) (by|with).{0,120}(claude|gpt|copilot|gemini|codex)|generated with [[]?claude|🤖/is;
         let corpus = ghCmd;
-        for (const m of ghCmd.matchAll(/--(?:body-file|notes-file|comment-file)[= ]+("([^"]+)"|'([^']+)'|([^ ]+))/g)) {
-          const bodyPath = m[2] || m[3] || m[4];
+        // KJC-BUG-0245: the shell reader ends the path at ; && | (a regex took "pr.md;").
+        for (const bodyPath of optionValues(ghCmd, ["--body-file", "--notes-file", "--comment-file"])) {
           try { corpus += "\\n" + readFileSync(bodyPath, "utf8"); } catch {
             console.error("karajan sentinel: no puedo leer " + bodyPath + " para el escaneo de atribucion — sin escaneo no se publica." + doc("attribution"));
             process.exit(2);
@@ -602,68 +572,11 @@ process.stdin.on("end", () => {
       }
     }
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
-    // KJC-BUG-0142: cada deny anuncia su escape como prefijo del comando
-    // (KJ_ALLOW_X=1 cmd), pero el hook corre con el env del HOST — el
-    // prefijo jamas llegaba a process.env y el escape era inalcanzable
-    // (deadlock real del gate de release: la landing solo se pone verde
-    // tras el deploy y el deploy estaba bloqueado por el mismo gate). Un
-    // escape es una excepcion CONSCIENTE y auditada, no un boundary de
-    // seguridad (security sigue sin escape y la autoprotecion corre antes),
-    // asi que el TEXTO del comando es fuente valida: solo asignaciones
-    // LITERALES al inicio (tokens VAR=VAL antes del primer verbo) y solo
-    // sobre un comando SIMPLE — con ;|& $() backtick o salto de linea el
-    // prefijo shell no alcanzaria a los comandos posteriores (catch de
-    // codex: "X=1 true && npm publish" escaparia sin serlo), asi que el
-    // escape por texto se rechaza y queda la via env de siempre.
+    // ADR 0015 (KJC-TSK-0927): no gate has an escape any more, so the command
+    // text is read only by the identity lock below.
     const CMD_TEXT = tool === "Bash" ? String(input.command || "") : "";
     const ESC_TAB = String.fromCharCode(9);
     const ESC_NL = String.fromCharCode(10);
-    const ESC_BT = String.fromCharCode(96);
-    const escOn = (name) => {
-      if (process.env[name] === "1") return true;
-      let found = false;
-      let i = 0;
-      while (i < CMD_TEXT.length) {
-        while (i < CMD_TEXT.length && (CMD_TEXT[i] === " " || CMD_TEXT[i] === ESC_TAB)) i += 1;
-        const start = i;
-        while (i < CMD_TEXT.length && CMD_TEXT[i] !== " " && CMD_TEXT[i] !== ESC_TAB && CMD_TEXT[i] !== ESC_NL) i += 1;
-        const tok = CMD_TEXT.slice(start, i);
-        const eq = tok.indexOf("=");
-        if (eq <= 0 || !/^[A-Z][A-Z0-9_]*$/.test(tok.slice(0, eq))) break;
-        if (tok === name + "=1") found = true;
-      }
-      if (!found) return false;
-      // KJC-BUG-0147: lo que va ENTRE COMILLAS no encadena comandos — un
-      // mensaje "fix(x): ... (KJC-TSK-1)" es un comando simple. Dentro de
-      // comillas dobles $ y backtick siguen expandiendo (se rechazan); en
-      // comillas simples todo es literal. Y si el escape esta pero se ignora,
-      // SE DICE: un escape ignorado en silencio era el bug.
-      const bad = escSimple();
-      if (bad === null) return true;
-      if (!escNoted.has(name)) {
-        escNoted.add(name);
-        console.error("karajan sentinel: " + name + "=1 presente pero IGNORADO — el escape solo vale en un comando simple y este contiene " + JSON.stringify(bad) + " fuera de comillas simples (sin ; | & $ ( ) backtick ni salto de linea: parte el comando o usa -F fichero)" + doc("escapes"));
-      }
-      return false;
-    };
-    const escNoted = new Set();
-    const escSimple = () => {
-      let q = null;
-      for (let i = 0; i < CMD_TEXT.length; i += 1) {
-        const c = CMD_TEXT[i];
-        if (q === "'") { if (c === "'") q = null; continue; }
-        if (q === '"') {
-          if (c === '"') q = null;
-          else if (c === "$" || c === ESC_BT) return c;
-          else if (c === "\\\\") i += 1;
-          continue;
-        }
-        if (c === "\\\\") { i += 1; continue; }
-        if (c === "'" || c === '"') { q = c; continue; }
-        if (c === ";" || c === "|" || c === "&" || c === ESC_NL || c === ESC_BT || c === "$" || c === "(" || c === ")") return c;
-      }
-      return q === null ? null : "comilla sin cerrar";
-    };
     // IDN-B (KJC-TSK-0763, ADR 0005): identity lock — gh and mutating git never
     // run under an account other than the one THIS CLONE declared (the incident:
     // a gh comment without switch went out as the client account). Deny BEFORE
@@ -759,11 +672,8 @@ process.stdin.on("end", () => {
       };
       scan(CMD_TEXT, 0);
       if (problems.length > 0) {
-        if (escOn("KJ_ALLOW_IDENTITY")) { recordEscape(sid, "KJ_ALLOW_IDENTITY", tool); }
-        else {
-          console.error("karajan sentinel: identity lock (ADR 0005) —" + problems.map((p) => ESC_NL + "- " + p).join("") + ESC_NL + "(KJ_ALLOW_IDENTITY=1 = excepcion consciente, queda registrada)" + doc("identity"));
-          process.exit(2);
-        }
+        console.error("karajan sentinel: identity lock (ADR 0005) —" + problems.map((p) => ESC_NL + "- " + p).join("") + ESC_NL + "(sin escape, ADR 0015: pon la cuenta en el comando)" + doc("identity"));
+        process.exit(2);
       }
     }
     // MONO-0 (KJC-TSK-0737, ADR 0002): cada sesion muta solo SU worktree;
@@ -946,8 +856,8 @@ process.stdin.on("end", () => {
     // Fail CLOSED por defecto (catches de codex; doctrina KJC-BUG-0095: un
     // gate no se cae en silencio): solo exit 0 permite. kj inejecutable =
     // deny duro (el remedio es restaurar kj); cualquier otro fallo de
-    // evaluacion = deny con escape humano registrable — la sesion no queda
-    // presa de un typo de YAML, pero abrirla es decision del usuario.
+    // evaluacion = deny sin escape (ADR 0015): un typo de YAML lo corrige el
+    // usuario fuera de la sesion.
     if ((EDIT_TOOLS.includes(tool) || tool === "Bash") && existsSync(resolve(ROOT, ".karajan", "policy.yml"))) {
       // PL-C: el rol que ACTÚA (KJ_POLICY_ROLE, sembrado por los runners de
       // kj run en los subprocesos) — el anfitrión-brain evalúa como coder.
@@ -961,11 +871,9 @@ process.stdin.on("end", () => {
         let v = null;
         try { v = JSON.parse(String(pres.stdout || "").trim().split("\\n").pop()); } catch { /* mensaje generico */ }
         const secure = !!(v && v.class === "security");
-        if (!secure && escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
-        else {
-          console.error("karajan sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada; el commit exigira ademas KJ_POLICY_REASON)") + doc("policy"));
-          process.exit(2);
-        }
+        // ADR 0015 (KJC-TSK-0932): no escape; a rule that misfires is fixed by PR.
+        console.error("karajan sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (sin escape: si la regla falla, tu usuario corrige .karajan/policy.yml por PR)") + doc("policy"));
+        process.exit(2);
       } else if (pres.status !== 0) {
         // KJC-BUG-0207: un kj que NO ARRANCA no es una violacion de policy. Con
         // kj linkado al arbol, un error de sintaxis transitorio en src/ dejaba
@@ -990,9 +898,8 @@ process.stdin.on("end", () => {
             console.error("karajan sentinel: kj no arranca (" + broken[0] + (at ? " en " + at : "") + "), asi que la policy no se puede evaluar y NADA MAS pasa: edita " + (brokenFile || "el fichero que rompe kj") + " para arreglarlo. No es un deny de policy, es kj roto." + doc("policy"));
             process.exit(2);
           }
-        } else if (escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
-        else {
-          console.error("karajan sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check y corrige .karajan/policy.yml fuera de la sesion (o KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada)." + doc("policy"));
+        } else {
+          console.error("karajan sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check; .karajan/policy.yml lo corrige tu usuario fuera de la sesion." + doc("policy"));
           process.exit(2);
         }
       }
@@ -1152,9 +1059,9 @@ process.stdin.on("end", () => {
       // there misleads every future reader. When the command writes one from a
       // file, kj crosses ITS data against this turn's outputs; the hook carries
       // no policy (kj reads method_gates.claims; off = this check does not exist).
-      const bodyFile = /\\bgh\\s+pr\\s+(?:create|edit)\\b/.test(cmd) ? /--body-file[= ]+("([^"]+)"|'([^']+)'|([^\\s"']+))/.exec(cmd) : null;
-      if (bodyFile && transcript) {
-        const body = bodyFile[2] || bodyFile[3] || bodyFile[4];
+      // KJC-BUG-0245: the path is read by the shell reader, so "pr.md;" is "pr.md".
+      const body = /\\bgh\\s+pr\\s+(?:create|edit)\\b/.test(cmd) ? optionValues(cmd, ["--body-file"])[0] : undefined;
+      if (body && transcript) {
         const g = spawnSync("kj", ["claims", "gate", "--transcript", transcript, "--file", body], { cwd: ROOT, encoding: "utf8" });
         if (!g.error && g.status === 2) {
           console.error("karajan sentinel: claims — un dato del cuerpo de la PR esta DESMENTIDO por las salidas de este turno:\\n" + (g.stderr || "").trim() + "\\nVerificalo o marcalo como no comprobado antes de crear la PR. Detalle: kj claims check --transcript " + transcript + " --file " + body + doc("claims"));
@@ -1162,7 +1069,8 @@ process.stdin.on("end", () => {
         }
       }
       if (isPublish(cmd)) {
-        if (escOn("KJ_ALLOW_RELEASE")) { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
+        // ADR 0015 (KJC-TSK-0932): no escape — KJC-BUG-0204 and 0259 keep the
+        // check from blocking its own fix.
         // KJC-BUG-0204: el check se evalua PARA este comando. Un item que
         // declara remedied_by no bloquea el comando que lo repara (desplegar
         // la landing era justo lo que el check pedia); publicar no se exime.
@@ -1179,7 +1087,7 @@ process.stdin.on("end", () => {
         if (res.status !== 0) {
           let items = "";
           try { items = (parsed.checks || []).filter((c) => !c.ok && c.lifted !== true).map((c) => "\\n- " + c.name + ": " + c.detail).join(""); } catch { /* raw output */ }
-          console.error("karajan sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(KJ_ALLOW_RELEASE=1 = excepcion consciente, queda registrada)" + doc("release"));
+          console.error("karajan sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(sin escape: se repara lo que el check nombra)" + doc("release"));
           process.exit(2);
         }
       } else if (PUSH.test(cmd)) {

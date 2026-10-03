@@ -18,7 +18,7 @@ let dir, gate, bin;
 const hook = (script, payload, env = {}) => spawnSync("node", [script], {
   input: JSON.stringify({ session_id: "s1", ...payload }),
   encoding: "utf8", cwd: dir,
-  env: { ...process.env, KJ_ALLOW_IDENTITY: "1", PATH: `${bin}${path.delimiter}${process.env.PATH}`, ...env },
+  env: { ...process.env, PATH:`${bin}${path.delimiter}${process.env.PATH}`, ...env },
 });
 const edit = (rel) => hook(gate, { tool_name: "Edit", tool_input: { file_path: path.join(dir, rel) } });
 /** Un `kj` de mentira cuyo `rag covers` decide por la extension. */
@@ -87,7 +87,7 @@ describe("rag-first × un fichero que el indice NO puede tener", () => {
     const res = spawnSync(process.execPath, [gate], {
       input: JSON.stringify({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, "src", "Page.astro") } }),
       encoding: "utf8", cwd: dir,
-      env: { ...process.env, KJ_ALLOW_IDENTITY: "1", PATH: bin },
+      env: { ...process.env, PATH: bin },
     });
     expect(res.status).toBe(2);
   });

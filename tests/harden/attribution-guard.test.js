@@ -14,7 +14,7 @@ import { installHooks } from "../../src/harden/harden-engine.js";
 
 let repo;
 const git = (args, env = {}) =>
-  execFileSync("git", args, { cwd: repo, encoding: "utf8", env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env } });
+  execFileSync("git", args, { cwd: repo, encoding: "utf8", env: { ...process.env, ...env } });
 
 beforeEach(async () => {
   repo = mkdtempSync(join(tmpdir(), "kj-attrib-"));

@@ -11,7 +11,7 @@ import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let dir, gate, post;
-const env = { KJ_ALLOW_IDENTITY: "1" };
+const env = {};
 const hook = (script, payload) => spawnSync("node", [script], {
   input: JSON.stringify({ session_id: "s1", ...payload }),
   encoding: "utf8", cwd: dir, env: { ...process.env, ...env },

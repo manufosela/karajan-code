@@ -73,23 +73,19 @@ describe("policy gate en kj review", () => {
     expect(r).toMatchObject({ verdict: "rejected", reviewer: "policy" });
   });
 
-  it("la excepcion probatoria exime Y queda registrada en el jsonl", async () => {
+  it("ADR 0015: KJ_ALLOW_POLICY + KJ_POLICY_REASON ya no eximen ni registran excepcion", async () => {
     stage("prod.secret");
     process.env.KJ_ALLOW_POLICY = "1";
     process.env.KJ_POLICY_REASON = "hotfix aprobado";
     const spy = silence();
     const r = await reviewGateCommand({ config: { projectDir: dir }, flags: { staged: true } });
     spy.mockRestore();
-    expect(r.verdict).toBe("approved");
-    const jsonl = fs.readFileSync(path.join(dir, ".karajan", "policy-exceptions.jsonl"), "utf8").trim();
-    expect(JSON.parse(jsonl)).toMatchObject({ justification: "hotfix aprobado", scope: "este diff exacto" });
-    expect(JSON.parse(jsonl).who.git).toContain("t@t");
+    expect(r).toMatchObject({ verdict: "rejected", reviewer: "policy" });
+    expect(fs.existsSync(path.join(dir, ".karajan", "policy-exceptions.jsonl"))).toBe(false);
   });
 
-  it("los defaults del supervisor (class=security) no tienen escape", async () => {
+  it("los defaults del supervisor (class=security) cierran", async () => {
     stage(".karajan/harness/evil.mjs");
-    process.env.KJ_ALLOW_POLICY = "1";
-    process.env.KJ_POLICY_REASON = "da igual";
     const spy = silence();
     const r = await reviewGateCommand({ config: { projectDir: dir }, flags: { staged: true } });
     spy.mockRestore();

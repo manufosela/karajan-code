@@ -86,10 +86,25 @@ export const stripInertQuotes = (cmd) => {
 };
 
 // Options whose value is prose, never a path (gh, git, kj).
-const TEXT_OPTION = /(^|\s)(--title|--body|--message|-m|--notes|--description|--ac|--criteria|--reason|--decision|--context|--consequences)(=|\s+)("[^"$`\\]*"|'[^']*')/g;
+const TEXT_OPTIONS = new Set(["--title", "--body", "--message", "-m", "--notes", "--description", "--ac", "--criteria", "--reason", "--decision", "--context", "--consequences", "--position"]);
+const QUOTED_OPTION_VALUE = /(^|\s)(--?[a-z]+)(=|\s+)("[^"$`\\]*"|'[^']*')/g;
 
 /** KJC-BUG-0243: blank the inert quoted value of a text option (--title "a/b c"): prose, not a path. */
-export const stripTextOptionValues = (cmd) => cmd.replace(TEXT_OPTION, (_m, pre, opt, sep, val) => `${pre}${opt}${sep}${val[0]}${val[0]}`);
+export const stripTextOptionValues = (cmd) => cmd.replace(QUOTED_OPTION_VALUE, (m, pre, opt, sep, val) => (TEXT_OPTIONS.has(opt) ? `${pre}${opt}${sep}${val[0]}${val[0]}` : m));
+
+/**
+ * KJC-BUG-0245: the values of the named options, read by the shell reader, so a
+ * `;`, `&&` or `|` right after a path ends the word instead of joining it.
+ * Covers `--opt value` and `--opt=value`.
+ * @param {string} cmd
+ * @param {string[]} names
+ * @returns {string[]}
+ */
+export const optionValues = (cmd, names) => shellSegments(cmd).flatMap((words) => words.flatMap((w, i) => {
+  if (names.includes(w) && i + 1 < words.length) return [words[i + 1]];
+  const eq = w.indexOf("=");
+  return eq > 0 && names.includes(w.slice(0, eq)) ? [w.slice(eq + 1)] : [];
+}));
 
 /** Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n). */
 export const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
