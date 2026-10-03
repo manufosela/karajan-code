@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.37.0 — antes, no en el gate (actual)
+### v4.38.0: Karajan gobierna (actual)
+
+Un coder bloqueado por rag-first escribió el mismo cambio con heredocs de shell y descartó con `git checkout` una línea sin commitear del usuario. Ahora el repo se escribe solo con Edit y Write, y una sesión no puede tirar trabajo que no hizo. Los guards del Sentinel salen de las plantillas a módulos reales con tests unitarios. Las reglas del método le llegan al agente en el momento de la acción y vuelven tras cada compactación. Y una sesión ya no cambia las políticas que la gobiernan: Karajan gobierna, y cada denegación lo dice.
+
+### v4.37.0 — antes, no en el gate
 
 El móvil firma ahora todo lo que enseña, incluida la versión de kj y su propia caducidad, así que una aprobación no puede durar más de lo que la persona vio. Una limpieza que borra código y corrige los comentarios que dejaba mintiendo ya no se toma por código nuevo que pide tests. Un `.ragignore` versionado dice qué se queda fuera del RAG. Y los dos límites que solo aparecían cuando un gate bloqueaba, el tamaño de una PR y el formato del mensaje de commit, se dicen ahora mientras se escribe: `kj pr-size` mide la rama con el mismo cálculo que el CI, y el hook de commit rechaza lo que el CI rechazaría.
 

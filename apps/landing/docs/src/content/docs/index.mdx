@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.37.0 — caught earlier (current)
+### v4.38.0: Karajan governs (current)
+
+A coder blocked by rag-first wrote the same change with shell heredocs and discarded a user's uncommitted line with `git checkout`. Now the repo is written through Edit and Write only, and a session cannot throw away work it did not make. The Sentinel's guards moved out of template strings into real modules with unit tests. The method's rules reach the agent at the moment of the action, and come back after every compaction. And a session no longer changes the policies that govern it: Karajan governs, and every deny says so.
+
+### v4.37.0 — caught earlier
 
 The phone now signs everything it shows, the kj version and its own expiry included, so an approval cannot outlive what the human saw. A cleanup that deletes code and corrects the comments it left behind is no longer taken for new code that needs tests. A versioned `.ragignore` says what stays out of the RAG. And the two limits that kept being found only when a gate blocked, the size of a PR and the format of a commit message, are now said while the work is being written: `kj pr-size` measures the branch with the CI's own budget, and the commit hook rejects what CI would.
 
