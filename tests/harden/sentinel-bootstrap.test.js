@@ -13,7 +13,7 @@ let dir, postScript, stopScript;
 const run = (script, payload) =>
   spawnSync("node", [script], {
     input: JSON.stringify(payload), encoding: "utf8",
-    env: { ...process.env, KJ_ALLOW_IDENTITY: "1" },
+    env: { ...process.env },
   });
 const edit = (file) => ({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: file } });
 const stop = () => run(stopScript, { session_id: "s1" });

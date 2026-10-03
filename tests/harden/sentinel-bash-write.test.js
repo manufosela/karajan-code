@@ -7,11 +7,12 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { declareTestIdentity } from "./_test-identity.js";
 
-let dir, pre;
+let dir, pre, idEnv;
 const gitEnv = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
 const bash = (command) => spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
-  encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1" } });
+  encoding: "utf8", cwd: dir, env: { ...process.env, ...idEnv } });
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-bash-write-"));
@@ -20,6 +21,7 @@ beforeEach(() => {
   execSync("git init -q -b main && git add -A && git commit -q -m init", { cwd: dir, env: { ...process.env, ...gitEnv } });
   fs.appendFileSync(path.join(dir, ".git", "info", "exclude"), ".karajan/harness/\n.claude/\n");
   installSentinelHooks({ projectDir: dir });
+  idEnv = declareTestIdentity(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -48,7 +50,7 @@ describe("bash-write guard (PreToolUse Bash)", () => {
     // ~/ expands to the home: a repo under it is still the repo.
     const fakeHome = path.dirname(dir);
     const viaHome = spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `echo x > ~/${path.basename(dir)}/src/a.py` } }),
-      encoding: "utf8", cwd: dir, env: { ...process.env, HOME: fakeHome, KJ_ALLOW_IDENTITY: "1" } });
+      encoding: "utf8", cwd: dir, env: { ...process.env, ...idEnv, HOME: fakeHome } });
     expect(viaHome.status).toBe(2);
     // Unknowable targets, cd before a write and nested scripts: denied (the lane guard says it first).
     for (const cmd of ["echo x > \"$OUT\"", "echo $(touch src/a.py)", "touch `echo .`/file", "touch $(echo .)/file", "echo \"$(printf x > src/a.py)\"", "echo \"`printf x > src/a.py`\"", "cd src && echo x > ../a.py",

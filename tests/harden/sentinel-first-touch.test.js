@@ -13,7 +13,7 @@ let dir, pre, statePath;
 const gitEnv = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
 const edit = (rel) => spawnSync("node", [pre], {
   input: JSON.stringify({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, rel) } }),
-  encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_SENTINEL_OFF: "1" },
+  encoding: "utf8", cwd: dir, env: { ...process.env, KJ_SENTINEL_OFF: "1" },
 });
 const touched = () => JSON.parse(fs.readFileSync(statePath, "utf8")).sessions.s1.first_touch;
 
@@ -69,7 +69,7 @@ describe("first-touch ledger (PreToolUse, before any escape)", () => {
     edit("clean.md");
     spawnSync("node", [pre], {
       input: JSON.stringify({ session_id: "s1", tool_name: "Write", tool_input: { file_path: path.join(os.tmpdir(), "elsewhere.md") } }),
-      encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_SENTINEL_OFF: "1" },
+      encoding: "utf8", cwd: dir, env: { ...process.env, KJ_SENTINEL_OFF: "1" },
     });
     expect(Object.keys(touched())).toEqual(["clean.md"]);
   });

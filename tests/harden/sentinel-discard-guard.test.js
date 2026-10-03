@@ -10,7 +10,7 @@ import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 let dir, pre;
 const gitEnv = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
 const hook = (tool_name, tool_input) => spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name, tool_input }),
-  encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_SENTINEL_OFF: "1" } });
+  encoding: "utf8", cwd: dir, env: { ...process.env, KJ_SENTINEL_OFF: "1" } });
 const bash = (command) => hook("Bash", { command });
 const sessionEdits = (rel, content) => { hook("Edit", { file_path: path.join(dir, rel) }); fs.writeFileSync(path.join(dir, rel), content); };
 const userEdits = (rel, content) => fs.writeFileSync(path.join(dir, rel), content);

@@ -27,7 +27,7 @@ describe("stripInertQuotes / stripTextOptionValues", () => {
 
 describe("the lane guard with quoted text (PreToolUse Bash)", () => {
   let dir, pre;
-  const bash = (command) => spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }), encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1" } });
+  const bash = (command) => spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }), encoding: "utf8", cwd: dir, env: { ...process.env } });
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-lane-text-"));
     execSync("git init -q -b feat/KJC-TSK-0001-x", { cwd: dir });
