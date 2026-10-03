@@ -36,7 +36,7 @@ describe("generated harness is lint-clean", () => {
     });
     const results = await eslint.lintFiles([".karajan/harness/*.mjs"]);
     expect(results.map((r) => path.basename(r.filePath)).sort()).toEqual(
-      ["posttooluse.mjs", "pretooluse-sentinel.mjs", "pretooluse.mjs", "sentinel-discard.mjs", "sentinel-lib.mjs", "sentinel-shell.mjs", "stop.mjs"],
+      ["posttooluse.mjs", "pretooluse-sentinel.mjs", "pretooluse.mjs", "sentinel-discard.mjs", "sentinel-lib.mjs", "sentinel-reminders.mjs", "sentinel-shell.mjs", "stop.mjs"],
     );
     const problems = results.flatMap((r) =>
       r.messages.map((m) => `${path.basename(r.filePath)}:${m.line} ${m.ruleId} ${m.message}`),
