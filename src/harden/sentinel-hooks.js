@@ -543,6 +543,10 @@ process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, transcript_path: transcript = null } = JSON.parse(raw);
+    // KJC-TSK-0920 (SNT-E): every deny ends with the same line, whatever gate it was.
+    process.on("exit", (code) => {
+      if (code === 2) console.error("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
+    });
     // Self-protection (KJC-TSK-0715) rules run BEFORE any escape, including
     // KJ_SENTINEL_OFF: the sentinel is not dismantled from inside a session —
     // only the human, editing outside it.
@@ -551,6 +555,12 @@ process.stdin.on("end", () => {
       const relT = target ? relative(ROOT, String(target)).replaceAll("\\\\", "/") : "";
       if (relT && PROTECTED.test(relT)) {
         console.error("karajan sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion." + doc("supervisor"));
+        process.exit(2);
+      }
+      // KJC-TSK-0920 (SNT-E): policies, gate settings and exclusions are the human's,
+      // like the supervisor: a session does not loosen the rules that govern it.
+      if ([".karajan/policy.yml", ".karajan/kj.config.yml", ".ragignore"].includes(relT) || relT.endsWith("/.ragignore")) {
+        console.error("karajan sentinel: " + relT + " es configuracion de gobierno (politicas, gates, exclusiones): la cambia tu usuario, no la sesion. Si un gate te parece injusto, proponselo a tu usuario o usa kj report-issue." + doc("governance"));
         process.exit(2);
       }
       // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
