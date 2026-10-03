@@ -8,7 +8,7 @@
  * hooks, which is why the guaranteed level requires Claude as host (ADR).
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -445,6 +445,8 @@ import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+// KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
+import { shellSegments, headIndex, shortOpts } from "./sentinel-shell.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 // KJC-BUG-0204: el comando real lleva flags EN MEDIO del verbo
 // (firebase --account a@b --project p deploy --only hosting:main), asi que la
@@ -463,19 +465,6 @@ const PROTECTED = /\\.claude\\/settings\\.json\\b|\\.karajan\\/(hooks|harness)\\
 // work; {unknown} = cannot be read with certainty; {paths} = working-tree
 // changes (":/" = the whole tree, whatever the cwd).
 const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch", "clean"];
-// Index of the command word. Skips NAME=value assignments AND wrappers (env, sudo,
-// command...) in any interleaving: env MODE=prod tee -> tee. A wrapper with options
-// (sudo -u root, env -i FOO=1): the command is the first of "heads" after them.
-const WRAPPERS = ["command", "exec", "sudo", "doas", "nice", "nohup", "time", "env"];
-const headIndex = (words, heads) => {
-  let i = 0;
-  while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || WRAPPERS.includes(words[i].split("/").at(-1)))) i++;
-  if (!words[i]?.startsWith("-")) return i;
-  const k = words.slice(i).findIndex((x) => heads.includes(x.split("/").at(-1)));
-  return k < 0 ? words.length : i + k;
-};
-// Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n).
-const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
 const discardOf = (words) => {
   let i = headIndex(words, ["git"]); // /usr/bin/git is git
   // A $variable in command position beside a discard verb ($g checkout) cannot be read.
@@ -516,35 +505,6 @@ const discardOf = (words) => {
   const isRef = spawnSync("git", ["-C", cwd, "rev-parse", "--verify", "--quiet", pos[0] + "^{commit}"]).status === 0;
   if (!isRef) return { cwd, paths: pos };
   return pos.length > 1 ? { cwd, paths: pos.slice(1) } : null;
-};
-// Simple commands as word lists, quote-aware: an operator or blank inside
-// quotes belongs to the word ('user;work.txt' is one path).
-const shellSegments = (cmd) => {
-  const segs = [[]];
-  let word = null;
-  let quote = null;
-  let escaped = false;
-  const BS = String.fromCharCode(92);
-  const end = () => { if (word !== null) segs.at(-1).push(word); word = null; };
-  for (const ch of String(cmd)) {
-    // A backslash keeps the next char literal (an escaped blank joins the word),
-    // except inside single quotes. Any misread path fails the ls-files check below.
-    if (escaped) { word += ch; escaped = false; continue; }
-    if (ch === BS && quote !== "'") { escaped = true; word ??= ""; continue; }
-    if (quote) { if (ch === quote) quote = null; else word += ch; continue; }
-    if (ch === "'" || ch === '"') { quote = ch; word ??= ""; continue; }
-    if ((ch === "|" || ch === "&") && word?.endsWith(">")) { word += ch; continue; } // >| and >& are redirections, not a pipe or a fork
-    // x>file: end "x" and start the redirection word ">" (the target follows in it).
-    if (ch === ">" && word !== null && !/^[0-9]*>?$/.test(word)) { end(); word = ">"; continue; }
-    // ( ) { } and backticks also cut: what runs inside $( ), a subshell or a group is a command of its own.
-    // A backtick leaves "$" in the word it interrupts, as $( does: that word is no longer readable.
-    if (ch === String.fromCharCode(96)) word = (word ?? "") + "$";
-    if (";&|(){}".includes(ch) || ch === String.fromCharCode(10) || ch === String.fromCharCode(96)) { end(); segs.push([]); continue; }
-    if (ch.trim() === "") { end(); continue; }
-    word = (word ?? "") + ch;
-  }
-  end();
-  return segs.filter((s) => s.length);
 };
 // KJC-BUG-0237 (#1886): the files a simple command writes from the shell.
 // Redirections anywhere; tee, sed/perl -i, cp/mv/install/ln, dd of=, truncate by head.
@@ -1383,6 +1343,10 @@ const SCRIPT_BODIES = {
   "posttooluse.mjs": POST_BODY,
   "stop.mjs": STOP_BODY,
   "pretooluse-sentinel.mjs": PRETOOL_BODY,
+  // KJC-TSK-0915 (ADR 0014): real modules, copied byte for byte under the SAME name
+  // (so they can import each other in both places). Being here, the installed
+  // record, the tamper check and the human seal cover them as well.
+  "sentinel-shell.mjs": readFileSync(new URL("./sentinel/sentinel-shell.mjs", import.meta.url), "utf8"),
 };
 
 /**
@@ -1486,6 +1450,7 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
   // first attempt at this fix, and the review was right to reject it.
   const sealed = sealedByPath(root, gitShowFn);
   const ownRecord = readInstalledRecord(dir);
+  const hasRecord = existsSync(join(dir, INSTALLED_RECORD));
   const drift = [];
   const tampered = [];
   const regenerated = [];
@@ -1494,6 +1459,10 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
     const hash = text === undefined ? null : sha256(text);
     if (hash && sealed.get(`.karajan/harness/${name}`) === hash) drift.push(name);
     else if (hash && ownRecord[name] === hash) regenerated.push(name);
+    // KJC-TSK-0915: absent from an install kj RECORDED (installed.json exists), never
+    // recorded and never sealed = a guard newer than this install, not a deleted
+    // one. Writing it only adds. A dir with no record is not a kj install at all.
+    else if (!hash && hasRecord && !Object.hasOwn(ownRecord, name) && !sealed.has(`.karajan/harness/${name}`)) regenerated.push(name);
     else tampered.push(name);
   }
   // KJC-BUG-0224 caso 1: lo que kj escribio y nadie sello ni toco se pone al
