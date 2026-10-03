@@ -213,3 +213,29 @@ describe("lo que aqui no se puede comprobar no es un fallo (KJC-BUG-0212)", () =
     expect(verifiedSupervisorFiles({ projectDir: repo }).complete).toBe(false);
   });
 });
+
+describe("el release check juzga lo versionado (KJC-BUG-0259, decision del usuario: opcion A)", () => {
+  const guard = "pretooluse-sentinel.mjs";
+  const path = `.karajan/harness/${guard}`;
+
+  it("kj avanzo tras el sello: la review (completo) falla, la historia (trackedOnly) se alza", () => {
+    // Sellado esta manana con unas plantillas que kj ya no escribe.
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    const older = "// the guard as kj wrote it this morning\n";
+    writeFileSync(join(repo, ".karajan", "harness", guard), older);
+    writeProvenance([{ file: ".karajan/hooks/pre-commit", sha256: sha(hook) }, { file: path, sha256: sha(older) }]);
+    const violations = [{ rule_id: "defaults.supervisor.write", file: PROVENANCE_FILE }];
+    expect(verifiedSupervisorFiles({ projectDir: repo }).complete).toBe(false);
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toHaveLength(1);
+    expect(verifiedSupervisorFiles({ projectDir: repo, trackedOnly: true }).complete).toBe(true);
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations, trackedOnly: true }).violations).toEqual([]);
+  });
+
+  it("lo versionado sigue mandando: un hook editado a mano no se alza ni juzgando solo lo versionado", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), `${hook}# mio\n`);
+    writeProvenance([{ file: ".karajan/hooks/pre-commit", sha256: sha(`${hook}# mio\n`) }]);
+    expect(verifiedSupervisorFiles({ projectDir: repo, trackedOnly: true }).complete).toBe(false);
+  });
+});
