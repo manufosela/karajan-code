@@ -83,10 +83,9 @@ describe("rag-first gate", () => {
     expect(edit("tests/a.test.js").status).toBe(0);
   });
 
-  it("KJ_ALLOW_NO_RAG opens the gate and is recorded once for the session", () => {
-    expect(edit("src/a.js", { KJ_ALLOW_NO_RAG: "1" }).status).toBe(0);
-    expect(edit("src/b.js", { KJ_ALLOW_NO_RAG: "1" }).status).toBe(0);
-    const s = JSON.parse(fs.readFileSync(statePath, "utf8")).sessions.s1;
-    expect(s.escapes).toEqual(["KJ_ALLOW_NO_RAG"]);
+  it("KJ_ALLOW_NO_RAG no longer opens the gate, and the deny names no escape (ADR 0015)", () => {
+    const r = edit("src/a.js", { KJ_ALLOW_NO_RAG: "1" });
+    expect(r.status).toBe(2);
+    expect(r.stderr).not.toContain("KJ_ALLOW_NO_RAG=1");
   });
 });

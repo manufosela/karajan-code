@@ -31,11 +31,11 @@ Every block, and every `KJ_ALLOW_*` escape you consciously use, is sealed into t
 
 ## card-first
 
-Work needs a tracked card before it starts. Editing sources on the base branch, or on a branch whose name references no card, is blocked. Create the card (`kj hu add`), move it to running, and work on a `feat/<CARD-ID>-description` branch. Escape: `KJ_ALLOW_NO_CARD=1`.
+Work needs a tracked card before it starts. Editing sources on the base branch, or on a branch whose name references no card, is blocked. Create the card (`kj hu add`), move it to running, and work on a `feat/<CARD-ID>-description` branch. No escape (ADR 0015).
 
 ## rag-first
 
-The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Docs, config and tests stay out, like card-first. Escape: `KJ_ALLOW_NO_RAG=1`.
+The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Docs, config and tests stay out, like card-first. A file the index cannot hold, or an empty index, is decided by the gate itself. No escape (ADR 0015).
 
 ## cross-lane
 
@@ -47,7 +47,7 @@ The identity lock (ADR 0005): `gh`, `git push` and commit-authoring commands mus
 
 ## board-sync
 
-A merged card must be moved in the tracker before anything else advances — commit, push, new PR, another merge, or ending the turn. Clear it with the real tracker call (`update_card` via MCP, or `kj hu move`). Escape: `KJ_ALLOW_BOARD=1`.
+A merged card must be moved in the tracker before anything else advances — commit, push, new PR, another merge, or ending the turn. Clear it with the real tracker call (`update_card` via MCP, or `kj hu move`). An epic and a card split across PRs are decided by the gate. No escape (ADR 0015).
 
 ## policy
 
@@ -130,19 +130,15 @@ AI attribution is forbidden by a deterministic project rule — everywhere, with
 
 ## escapes
 
-Every escape, what it skips, and when it is legitimate. All of them: one simple command, one use, recorded in the session state and sealed into the decision log — `kj sentinel status` lists what this session used.
+ADR 0015 is retiring escapes: a gate that needs one is a gate to fix, and no escape is something an agent can raise. Card-first, rag-first, board-sync and tests-with-code no longer have one. The rest, while they remain: one simple command, one use, recorded in the session state and sealed into the decision log (`kj sentinel status` lists what this session used).
 
 | Escape | Skips | Legitimate when |
 | --- | --- | --- |
-| `KJ_ALLOW_NO_CARD=1` | card-first | Emergency fix agreed with your user before the card exists |
 | `KJ_ALLOW_CROSS_LANE=1` | cross-lane / unverifiable-path guards | A deliberate, announced crossing (e.g. publishing from a tag worktree) |
 | `KJ_ALLOW_IDENTITY=1` | identity lock | Test suites exercising other gates; never for real pushes |
-| `KJ_ALLOW_BOARD=1` | board-sync | The tracker itself is down and the move is queued |
-| `KJ_ALLOW_NO_RAG=1` | rag-first | The RAG index is absent or broken on this machine and the fix is agreed; recorded once per session |
 | `KJ_ALLOW_POLICY=1` | non-security policy denies | The rule mis-fires and the fix is agreed; commit also needs `KJ_POLICY_REASON` |
 | `KJ_ALLOW_STEWARD=1` | steward hard block | The break is known, carded, and the user says work continues |
 | `KJ_ALLOW_RELEASE=1` | release check | A red item nobody can repair right now, agreed with the human (the landing case is covered by `remedied_by`) |
-| `KJ_ALLOW_NO_TESTS=1` | tests-with-code gate (staged code with no test changes) | The diff genuinely owes no test and it is agreed |
 | `KJ_ALLOW_PII=1` | privacy denylist block at commit time | A confirmed false positive, reviewed by the human |
 | `KJ_ALLOW_REWRITE=1` | the guard against reserializing whole JSON files from Bash | A full-file rewrite IS the agreed change |
 | `KJ_ALLOW_NO_VERIFY=1` | the deny on `git commit --no-verify` and on moving `core.hooksPath` | The hook itself is broken and the human says the commit goes in anyway |

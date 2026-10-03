@@ -156,11 +156,11 @@ describe("CARD_REF_RE — a version tail is not a card (KJC-BUG-0154)", () => {
 });
 
 describe("checkCardFirst — exemptions", () => {
-  it("release branches and the base branch are exempt; KJ_ALLOW_NO_CARD=1 is the escape hatch", async () => {
+  it("release branches and the base branch are exempt; KJ_ALLOW_NO_CARD no longer opens anything (ADR 0015)", async () => {
     for (const branch of ["chore/release-v4.6.0", "main", "master"]) {
       expect(await hu(branch)).toMatchObject({ ok: true, mode: "exempt" });
     }
     const r = await checkCardFirst({ config: {}, projectDir: dir, branch: "feat/sin-card", env: { KJ_ALLOW_NO_CARD: "1" } });
-    expect(r).toMatchObject({ ok: true, mode: "exempt" });
+    expect(r).toMatchObject({ ok: false, mode: "block" });
   });
 });

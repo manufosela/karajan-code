@@ -17,8 +17,9 @@ const run = (script, payload, env = {}) =>
     encoding: "utf8",
     // IDN-B: these suites exercise the OTHER gates; the identity lock has its
     // own suite (sentinel-identity.test.js), so it is escaped here (env route).
-    // Same for the rag-first gate (sentinel-rag-gate.test.js).
-    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1", ...env },
+    // rag-first has its own suite (sentinel-rag-gate.test.js): here the state
+    // is an empty index, where that gate stands down (no escape, ADR 0015).
+    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env },
   });
 const editTool = (file, session = "s1") => ({ session_id: session, tool_name: "Edit", tool_input: { file_path: file } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -33,6 +34,7 @@ beforeEach(() => {
   postScript = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   stopScript = path.join(dir, ".karajan", "harness", "stop.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");
+  fs.writeFileSync(statePath, JSON.stringify({ sessions: { s1: { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0, rag_index_empty: true } } }));
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
@@ -58,8 +60,8 @@ describe("posttooluse script (state writer)", () => {
   });
 
   it("records used KJ_ALLOW_* escapes and never crashes on garbage input", () => {
-    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_NO_CARD: "1" });
-    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_NO_CARD");
+    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_WRITE: "1" });
+    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_WRITE");
     expect(run(postScript, "not-json").status).toBe(0);
   });
 });
@@ -176,14 +178,13 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(blocked.stderr).toMatch(/card/i);
   });
 
-  it("blocks editing a source on a branch without card ref, with remediation and named escape recorded", () => {
+  it("blocks editing a source on a branch without card ref, with remediation and no escape (ADR 0015)", () => {
     execSync("git checkout -q -b sin-card", { cwd: dir });
     const blocked = run(gate, editTool(path.join(dir, "src", "a.js")));
     expect(blocked.status).toBe(2);
     expect(blocked.stderr).toMatch(/kj hu add|card/i);
-    const escaped = run(gate, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_NO_CARD: "1" });
-    expect(escaped.status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_NO_CARD")).toBe(true);
+    expect(blocked.stderr).not.toContain("KJ_ALLOW_NO_CARD");
+    expect(run(gate, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_NO_CARD: "1" }).status).toBe(2);
   });
 
   it("allows source edits on a card branch, test edits anywhere, and blocks on the base branch", () => {
@@ -424,13 +425,13 @@ describe("self-protection + audited escapes (SEN-C)", () => {
   });
 
   it("stop emits a user-visible summary of used escapes when the turn ends green", () => {
-    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_NO_CARD: "1" });
+    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_WRITE: "1" });
     run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
     const res = run(stopScript, { session_id: "s1" });
     expect(res.status).toBe(0);
     expect(res.stdout).toMatch(/systemMessage/);
-    expect(res.stdout).toMatch(/KJ_ALLOW_NO_CARD/);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_NO_CARD")).toBe(true);
+    expect(res.stdout).toMatch(/KJ_ALLOW_WRITE/);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_WRITE")).toBe(true);
   });
 });
 

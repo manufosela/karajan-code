@@ -4,7 +4,8 @@
  * hu-board → the branch must reference a LIVE card (block by default);
  * planning-game/external → card-shaped reference required (warn default,
  * block via method_gates.card_first). Exemptions explicit and visible:
- * base branch, configured prefixes (releases), KJ_ALLOW_NO_CARD=1.
+ * base branch and configured prefixes (releases). No escape (ADR 0015): a
+ * gate an agent can switch off is a suggestion.
  */
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { escapeRegExp } from "../utils/escape-regexp.js";
@@ -48,10 +49,7 @@ async function findLiveCardInBranch(projectDir, branch) {
   return closedHit;
 }
 
-export async function checkCardFirst({ config = {}, projectDir = process.cwd(), branch, env = process.env, deps = {} }) {
-  if (env.KJ_ALLOW_NO_CARD === "1") {
-    return { ok: true, mode: "exempt", reason: "KJ_ALLOW_NO_CARD=1 (explicit escape hatch)" };
-  }
+export async function checkCardFirst({ config = {}, projectDir = process.cwd(), branch, deps = {} }) {
   const exempt = config.method_gates?.card_first_exempt_branches || DEFAULT_EXEMPT_PREFIXES;
   if (exempt.some((p) => branch.startsWith(p))) {
     return { ok: true, mode: "exempt", reason: `branch prefix exempt (${branch.split("/")[0]}/…)` };

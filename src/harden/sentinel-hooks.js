@@ -137,7 +137,8 @@ import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
-const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD", "KJ_ALLOW_NO_RAG", "KJ_ALLOW_NO_VERIFY"];
+// ADR 0015 (KJC-TSK-0925): NO_CARD, NO_TESTS, BOARD and NO_RAG no longer exist.
+const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_NO_VERIFY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -1043,11 +1044,11 @@ process.stdin.on("end", () => {
       if (rel && CODE.test(rel) && !TESTS.test(rel)) {
         const branch = branchOf();
         const why = !branch ? null : BASE_BRANCHES.has(branch) ? "base" : !CARD.test(branch) ? "nocard" : null;
+        // ADR 0015 (KJC-TSK-0925): no escape. Without a card there is no work.
         if (why) {
-          if (escOn("KJ_ALLOW_NO_CARD")) { recordEscape(sid, "KJ_ALLOW_NO_CARD", tool); process.exit(0); }
           console.error(why === "base"
-            ? "karajan sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)" + doc("card-first")
-            : "karajan sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)" + doc("card-first"));
+            ? "karajan sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion." + doc("card-first")
+            : "karajan sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion." + doc("card-first"));
           process.exit(2);
         }
         // KJC-TSK-0848 (ADR 0010, RAG-B): the RAG must have answered about this
@@ -1070,15 +1071,14 @@ process.stdin.on("end", () => {
         // KJC-BUG-0190: with nothing indexed, no query can cover anything —
         // the gate asks for kj rag index instead of denying the impossible.
         const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || ((rs.rag_queries || []).length > 0 && fresh()) || rs.rag_index_empty === true;
+        // ADR 0015 (KJC-TSK-0925): no escape. The cases it covered (new file, empty
+        // index, not indexable) are decided by the gate itself.
         if (!covered) {
-          if (escOn("KJ_ALLOW_NO_RAG")) {
-            // Recorded ONCE per session: the escape is a conscious exception, not a per-edit tax.
-            if (!(rs.escapes || []).includes("KJ_ALLOW_NO_RAG")) recordEscape(sid, "KJ_ALLOW_NO_RAG", tool);
-          } else {
+          {
             // KJC-BUG-0216 (issue #1807): un .astro, un .php o cualquier fichero
             // sin adapter NO puede estar en el indice, asi que exigir una
             // respuesta del RAG sobre el es pedir lo imposible, y empujaba a
-            // dejar KJ_ALLOW_NO_RAG puesta para siempre. La exencion es SOLO
+            // dejar el escape puesto para siempre. La exencion es SOLO
             // esa: un indice vacio o por detras si tiene arreglo (kj rag index)
             // y sigue bloqueando, porque si no el gate desapareceria en
             // cualquier proyecto sin indexar. Nada legible = se bloquea.
@@ -1098,7 +1098,7 @@ process.stdin.on("end", () => {
               console.error("karajan sentinel: rag-first — el indice aun no tiene " + rel + " (" + absent + "); indexalo y consulta despues: kj_rag_query / kj rag query <que hace " + rel + ">" + doc("rag-first"));
               process.exit(2);
             } else {
-              console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>. (KJ_ALLOW_NO_RAG=1 = excepcion consciente, queda registrada)" + doc("rag-first"));
+              console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>." + doc("rag-first"));
               process.exit(2);
             }
           }
@@ -1153,12 +1153,11 @@ process.stdin.on("end", () => {
           try { const d = JSON.parse(bg.stdout); blocking = d.blocking || []; carried = d.carried || []; } catch { /* sin respuesta legible: como siempre */ }
         }
         for (const c of carried) console.error("karajan sentinel: board-sync arrastra " + c.card + " — " + c.why + ", se movera al cerrarla");
+        // ADR 0015 (KJC-TSK-0925): no escape; an epic and a card split across PRs
+        // are already decided above (KJC-BUG-0230, 0198).
         if (blocking.length > 0) {
-          if (escOn("KJ_ALLOW_BOARD")) { recordEscape(sid, "KJ_ALLOW_BOARD", tool); }
-          else {
-            console.error("karajan sentinel: board-sync — el metodo no avanza con cards mergeadas sin mover:\\n" + blocking.map((p) => "- " + pendingText(p)).join("\\n") + "\\n(KJ_ALLOW_BOARD=1 = excepcion consciente, queda registrada)" + doc("board-sync"));
-            process.exit(2);
-          }
+          console.error("karajan sentinel: board-sync — el metodo no avanza con cards mergeadas sin mover:\\n" + blocking.map((p) => "- " + pendingText(p)).join("\\n") + doc("board-sync"));
+          process.exit(2);
         }
       }
       // (the pending entry itself is recorded by the PostToolUse hook, only once
@@ -1198,15 +1197,10 @@ process.stdin.on("end", () => {
           process.exit(2);
         }
       } else if (PUSH.test(cmd)) {
-        // KJC-BUG-0147: the board escape covers the push too — a pending move
-        // blocks the push like it blocks the commit, and the SAME conscious,
-        // recorded escape opens both (multi-PR cards are a legitimate plan).
+        // KJC-BUG-0147: a pending move blocks the push like it blocks the commit.
+        // ADR 0015 (KJC-TSK-0925): with no escape.
         const sess = load().sessions?.[sid];
-        let v = violations(sess, branchOf());
-        if (v.length && pendingMoves(sess).length && escOn("KJ_ALLOW_BOARD")) {
-          recordEscape(sid, "KJ_ALLOW_BOARD", tool);
-          v = violations({ ...sess, pending_moves: [] }, branchOf());
-        }
+        const v = violations(sess, branchOf());
         if (v.length) {
           console.error("karajan sentinel: git push con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve antes de empujar. Estado: kj sentinel status" + doc("push-gate"));
           process.exit(2);

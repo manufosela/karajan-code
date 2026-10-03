@@ -5,7 +5,7 @@
  * `method_gates.tests_with_code`. Test-FIRST remains the reviewer's
  * judgment; test-PRESENT belongs to the gate. Patterns come from the
  * project's own `development.*` config (same ones headless enforces).
- * KJ_ALLOW_NO_TESTS=1 is the explicit escape hatch.
+ * No escape (ADR 0015): deletions and comment-only cleanups already pass.
  */
 
 const DEFAULT_TEST_PATTERNS = ["/tests/", "/__tests__/", ".test.", ".spec."];
@@ -28,10 +28,7 @@ export function sourceFilesOf(config = {}, files = []) {
   };
 }
 
-export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = null, env = process.env }) {
-  if (env.KJ_ALLOW_NO_TESTS === "1") {
-    return { ok: true, mode: "exempt", reason: "KJ_ALLOW_NO_TESTS=1 (explicit escape hatch)" };
-  }
+export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = null }) {
   const { sources, hasTests } = sourceFilesOf(config, stagedFiles);
 
   if (sources.length === 0 || hasTests) return { ok: true, mode: "pass" };
@@ -51,7 +48,7 @@ export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = nu
   }
 
   const policy = config.method_gates?.tests_with_code || "warn";
-  const reason = `source changes without any test change (${sources.slice(0, 5).join(", ")}${sources.length > 5 ? "…" : ""}) — the failing test comes first; add one or KJ_ALLOW_NO_TESTS=1 for a deliberate exception`;
+  const reason = `source changes without any test change (${sources.slice(0, 5).join(", ")}${sources.length > 5 ? "…" : ""}) — the failing test comes first: add one`;
   return policy === "block"
     ? { ok: false, mode: "block", sources, reason }
     : { ok: true, mode: "warn", sources, reason };
