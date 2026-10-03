@@ -63,6 +63,25 @@ describe("classifyCommand — git destructive corners", () => {
   it("flags git checkout -- file (discard local edits)", () => {
     expect(classifyCommand("git checkout -- src/a.js").kind).toBe("git-checkout-discard");
   });
+  // KJC-BUG-0240 (#1886): uncommitted work, not just commits.
+  it("names the files checkout and restore discard, and marks the whole tree when they cover it", () => {
+    expect(classifyCommand("git checkout -- src/a.js")).toMatchObject({ kind: "git-checkout-discard", paths: ["src/a.js"] });
+    expect(classifyCommand("git checkout .gitignore")).toMatchObject({ destructive: true, paths: [".gitignore"] });
+    expect(classifyCommand("git restore --source HEAD~1 src/b.js")).toMatchObject({ kind: "git-restore-discard", paths: ["src/b.js"] });
+    expect(classifyCommand("git checkout -- .")).toMatchObject({ worktree: "tracked" });
+    expect(classifyCommand("git checkout -f main")).toMatchObject({ worktree: "tracked" });
+    expect(classifyCommand("git switch --discard-changes main")).toMatchObject({ destructive: true, worktree: "tracked" });
+    expect(classifyCommand("git reset --hard")).toMatchObject({ bundle: true, worktree: "tracked" });
+    expect(classifyCommand("git clean -fd")).toMatchObject({ kind: "git-clean", worktree: "untracked" });
+    expect(classifyCommand("git clean -fdx")).toMatchObject({ kind: "git-clean", worktree: "untracked+ignored" });
+    expect(classifyCommand("git clean -fX")).toMatchObject({ worktree: "untracked+ignored" });
+    expect(classifyCommand("git checkout -B main origin/main")).toMatchObject({ destructive: true, bundle: true });
+  });
+  it("leaves alone what discards nothing: checkout -b, restore --staged, a branch switch keeps no bundle", () => {
+    expect(classifyCommand("git checkout -b feat/x").destructive).toBe(false);
+    expect(classifyCommand("git restore --staged src/a.js").destructive).toBe(false);
+    expect(classifyCommand("git checkout main").bundle).toBeFalsy();
+  });
   it("does NOT flag git status / log / fetch", () => {
     expect(classifyCommand("git status").destructive).toBe(false);
     expect(classifyCommand("git log -n 5").destructive).toBe(false);
