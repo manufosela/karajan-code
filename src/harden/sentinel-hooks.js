@@ -456,7 +456,9 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { shellSegments, headIndex, shortOpts, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
+import { shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
+import { DISCARD_VERBS, discardOf, foreignLost } from "./sentinel-discard.mjs";
+import { shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 // KJC-BUG-0204: el comando real lleva flags EN MEDIO del verbo
 // (firebase --account a@b --project p deploy --only hosting:main), asi que la
@@ -470,156 +472,15 @@ const inOrder = (want, got) => { let i = 0; for (const w of got) if (w === want[
 const isPublish = (cmd) => { const got = wordsOf(cmd); return PUBLISH_VERBS.some((verb) => inOrder(verb, got)); };
 const PUSH = /\\bgit\\s+push\\b/;
 const PROTECTED = /\\.claude\\/settings\\.json\\b|\\.karajan\\/(hooks|harness)\\//;
-// KJC-BUG-0238 (#1886): what a git command would discard, per simple segment.
-// null = discards nothing (or is not git); {stash} = drops saved
-// work; {unknown} = cannot be read with certainty; {paths} = working-tree
-// changes (":/" = the whole tree, whatever the cwd).
-const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch", "clean"];
-const discardOf = (words) => {
-  let i = headIndex(words, ["git"]); // /usr/bin/git is git
-  // A $variable in command position beside a discard verb ($g checkout) cannot be read.
-  if (words[i]?.startsWith("$") && words.some((w) => DISCARD_VERBS.includes(w))) return { unknown: true };
-  if (words[i]?.split("/").at(-1) !== "git") return null;
-  let cwd = ROOT;
-  for (i++; i < words.length && words[i].startsWith("-"); i++) {
-    if (words[i] === "-C") cwd = resolve(cwd, words[++i] || ".");
-    else if (words[i] === "-c") i++;
-    else if (!["--no-pager", "-P", "--paginate", "-p", "--no-optional-locks"].includes(words[i])) return words.some((w) => DISCARD_VERBS.includes(w)) ? { unknown: true } : null;
-  }
-  const sub = words[i];
-  const args = [];
-  for (let j = i + 1; j < words.length; j++) {
-    // Options that take a value: the value is not a flag (-e -n excludes "-n"). Dropping
-    // clean's excludes only makes its probe list MORE files.
-    if (["-s", "--source", "-e", "--exclude"].includes(words[j]) || (sub === "clean" && /^-[a-zA-Z]*e$/.test(words[j]))) j++;
-    else args.push(words[j]);
-  }
-  const has = (...f) => f.some((x) => args.includes(x));
-  const dd = args.indexOf("--");
-  const pos = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-"));
-  const after = dd < 0 ? [] : args.slice(dd + 1);
-  const ALL = { cwd, paths: [":/"] };
-  if (sub === "stash") return has("drop", "clear") ? { cwd, stash: true } : null;
-  if (sub === "reset") return has("--hard") ? ALL : null;
-  // Every clean but a dry run (-n in a short cluster BEFORE "--"): clean.requireForce=false deletes without -f.
-  const opts = dd < 0 ? args : args.slice(0, dd);
-  // Interactive clean decides at the prompt: nothing to probe, fail-closed.
-  if (sub === "clean" && opts.some((a) => a === "--interactive" || shortOpts(a).includes("i"))) return { unknown: true };
-  if (sub === "clean") return opts.some((a) => a === "--dry-run" || shortOpts(a).includes("n")) ? null : { cwd, clean: [opts, args.slice(opts.length)] };
-  if (sub === "switch") return has("--discard-changes", "-f", "--force") ? ALL : null;
-  if (sub === "restore") return has("--staged", "-S") && !has("--worktree", "-W") ? null : { cwd, paths: [...pos, ...after] };
-  if (sub !== "checkout") return null;
-  if (has("-f", "--force")) return ALL;
-  if (has("-b", "-B", "--orphan") || !(pos.length || after.length)) return null;
-  if (after.length) return { cwd, paths: after };
-  const isRef = spawnSync("git", ["-C", cwd, "rev-parse", "--verify", "--quiet", pos[0] + "^{commit}"]).status === 0;
-  if (!isRef) return { cwd, paths: pos };
-  return pos.length > 1 ? { cwd, paths: pos.slice(1) } : null;
-};
-// KJC-BUG-0237 (#1886): the files a simple command writes from the shell.
-// Redirections anywhere; tee, sed/perl -i, cp/mv/install/ln, dd of=, truncate by head.
-const shellWrites = (words) => {
-  const out = [];
-  words.forEach((w, k) => {
-    const m = /^[0-9]*(>>|>[|]|>)(.*)$/.exec(w);
-    // >&N and >&- duplicate or close a descriptor; >& FILE and >&FILE write FILE.
-    const dup = m?.[2].startsWith("&") ? m[2].slice(1) : null;
-    if (m && dup === null) out.push(m[2] || words[k + 1]);
-    else if (m && !/^[0-9]*-?$/.test(dup)) out.push(dup);
-    else if (m && dup === "") out.push(words[k + 1]);
-  });
-  const WRITES = ["tee", "touch", "truncate", "cp", "mv", "install", "ln", "sed", "perl", "dd", "sh", "bash", "zsh", "dash", "eval"];
-  const i = headIndex(words, [...WRITES, "xargs", "find", "node", "python3", "python", "ruby", "php", "deno", "bun"]);
-  // xargs / find -exec run a writer on targets that arrive at run time: unknowable, fail-closed.
-  if (["xargs", "find"].includes(words[i]?.split("/").at(-1)) && words.slice(i + 1).some((w) => WRITES.includes(w.split("/").at(-1)))) out.push("$(" + words[i] + ")");
-  const head = (words[i] || "").split("/").at(-1);
-  // Arguments without redirections (< << <<< > >> and a detached operand): those are not command operands.
-  const rest = [];
-  for (let k = i + 1; k < words.length; k++) {
-    if (!/^[0-9]*[<>]/.test(words[k])) rest.push(words[k]);
-    else if (/^[0-9]*(<{1,3}|>>?|>[|&])$/.test(words[k])) k++;
-  }
-  // Operands: words that are not options, and EVERY word after "--" (touch -- -file).
-  const cut = rest.includes("--") ? rest.indexOf("--") : rest.length;
-  const plain = [...rest.slice(0, cut).filter((w) => !w.startsWith("-")), ...rest.slice(cut + 1)];
-  if (head === "tee") out.push(...plain);
-  if (head === "dd") out.push(...rest.filter((w) => w.startsWith("of=")).map((w) => w.slice(3)));
-  // touch/truncate -s SIZE, -r REF, -d DATE, -t STAMP: the option's value is not a file it writes.
-  // By position, not value (touch -d today today writes "today"); after "--" everything is an operand.
-  const VALUED = ["-s", "--size", "-r", "--reference", "-d", "--date", "-t"];
-  if (head === "touch" || head === "truncate") out.push(...rest.filter((w, k) => k > cut || (k < cut && !w.startsWith("-") && !VALUED.includes(rest[k - 1]))));
-  // sh -c / eval run a script of their own: its writes are this command's writes.
-  if (["sh", "bash", "zsh", "dash"].includes(head) && rest.includes("-c")) for (const seg of shellSegments(rest[rest.indexOf("-c") + 1] || "")) out.push(...shellWrites(seg));
-  if (head === "eval") for (const seg of shellSegments(rest.join(" "))) out.push(...shellWrites(seg));
-  // An inline script (node -e, python -c...) that names a write API: unknowable target, fail-closed.
-  const inline = rest[rest.findIndex((w) => ["-e", "-c", "--eval", "-p", "-r"].includes(w)) + 1] || "";
-  if (/^(node|deno|bun|python[0-9.]*|ruby|perl|php)$/.test(head) && /write|append|open|copy|rename|truncate|unlink|mkdir|symlink/i.test(inline)) out.push("$(" + head + ")");
-  if (["cp", "mv", "install", "ln"].includes(head)) {
-    // -t DIR / --target-directory[=]DIR names the destination; otherwise it is the last plain word.
-    const t = rest.findIndex((w) => w === "-t" || w === "--target-directory");
-    const tEq = rest.find((w) => w.startsWith("--target-directory="));
-    if (t >= 0 || tEq) out.push(t >= 0 ? rest[t + 1] : tEq.slice(19));
-    else if (plain.length >= 2) out.push(plain.at(-1));
-  }
-  if ((head === "sed" || head === "perl") && rest.some((w) => w.startsWith("--in-place") || /^-[a-zA-Z0-9]*i/.test(w))) {
-    // The script is the word after -e/-f, or else the first plain word: every other plain word is a file.
-    const script = rest.findIndex((w) => ["-e", "-f", "--expression"].includes(w));
-    // A lone plain word is the file (the script was glued to -i): fail-closed.
-    out.push(...(script >= 0 ? plain.filter((w) => w !== rest[script + 1]) : plain.length === 1 ? plain : plain.slice(1)));
-  }
-  return out.filter(Boolean);
-};
-// Inside the repo, or unknowable ($VAR, backtick): both are denied. /dev/* and ~ are outside.
-const writesRepo = (t) => {
-  if (t.includes("$") || t.includes(String.fromCharCode(96))) return true;
-  // &1, &- : descriptor duplication/closure, not a file. ~/ is the home (the repo may live there); ~user is unknowable.
-  if (t.startsWith("&") || t.startsWith("/dev/")) return false;
-  if (t.startsWith("~") && t !== "~" && !t.startsWith("~/")) return true;
-  // Real paths: a link outside (/tmp/link -> repo) points in. The nearest existing ancestor is resolved.
-  let a = resolve(ROOT, t.startsWith("~") ? homedir() + t.slice(1) : t);
-  let tail = "";
-  while (!existsSync(a) && dirname(a) !== a) { tail = join(a.slice(dirname(a).length + 1), tail); a = dirname(a); }
-  let rel;
-  try { rel = relative(realpathSync(ROOT), join(realpathSync(a), tail)); } catch { return true; }
-  return !rel.startsWith("..") && !rel.startsWith("/");
-};
-// Files the discard would lose that the session did not own: dirty now and
-// not clean at first touch. Anything unreadable, or another repo, is foreign.
-const foreignLost = (d, touch) => {
-  if (d.stash) return ["git stash"];
-  if (d.unknown) return ["(comando no verificable: ejecutalo como git simple)"];
-  const top = spawnSync("git", ["-C", d.cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
-  const sameRepo = top.status === 0 && resolve(String(top.stdout).trim()) === resolve(ROOT);
-  const own = (f) => sameRepo && Object.hasOwn(touch, f) && touch[f] === "clean";
-  if (d.clean) {
-    // Ask git what it would remove: -n wins over -f, so the same flags (-ff included) are kept,
-    // minus -q (it silences the listing) and every exclude (dropping one only lists MORE).
-    // -n FIRST: after "--" it is a pathspec. LC_ALL=C: lines are parsed.
-    const [opts, rest] = d.clean;
-    const loud = opts.map((a) => (a.startsWith("--") ? a : "-" + shortOpts(a).replaceAll("q", ""))).filter((a) => a !== "-" && a !== "--quiet" && !a.startsWith("--exclude"));
-    const r = spawnSync("git", ["-C", d.cwd, "clean", "-n", ...loud, ...rest], { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } });
-    if (r.status !== 0) return ["(git clean -n fallo)"];
-    return String(r.stdout).split(String.fromCharCode(10)).filter((l) => l.startsWith("Would remove ")).map((l) => relative(ROOT, resolve(d.cwd, l.slice(13)))).filter((f) => !own(f));
-  }
-  // Fail-closed: a path git does not know (misparsed, $VAR, substitution) cannot
-  // be proven safe; git would refuse to check it out anyway.
-  if (spawnSync("git", ["-C", d.cwd, "ls-files", "--error-unmatch", "--", ...d.paths]).status !== 0) return ["(ruta no resoluble: " + d.paths.join(" ") + ")"];
-  const r = spawnSync("git", ["-C", d.cwd, "status", "--porcelain", "-z", "--untracked-files=no", "--", ...d.paths], { encoding: "utf8" });
-  if (r.status !== 0) return ["(git status fallo)"];
-  const files = [];
-  const parts = String(r.stdout).split(String.fromCharCode(0));
-  for (let k = 0; k < parts.length; k++) {
-    if (parts[k].length < 4) continue;
-    files.push(parts[k].slice(3));
-    if ("RC".includes(parts[k][0])) k++;
-  }
-  return files.filter((f) => !own(f));
-};
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, transcript_path: transcript = null } = JSON.parse(raw);
+    // KJC-TSK-0920 (SNT-E): every deny ends with the same line, whatever gate it was.
+    process.on("exit", (code) => {
+      if (code === 2) console.error("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
+    });
     // Self-protection (KJC-TSK-0715) rules run BEFORE any escape, including
     // KJ_SENTINEL_OFF: the sentinel is not dismantled from inside a session —
     // only the human, editing outside it.
@@ -628,6 +489,12 @@ process.stdin.on("end", () => {
       const relT = target ? relative(ROOT, String(target)).replaceAll("\\\\", "/") : "";
       if (relT && PROTECTED.test(relT)) {
         console.error("karajan sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion." + doc("supervisor"));
+        process.exit(2);
+      }
+      // KJC-TSK-0920 (SNT-E): policies, gate settings and exclusions are the human's,
+      // like the supervisor: a session does not loosen the rules that govern it.
+      if ([".karajan/policy.yml", ".karajan/kj.config.yml", ".ragignore"].includes(relT) || relT.endsWith("/.ragignore")) {
+        console.error("karajan sentinel: " + relT + " es configuracion de gobierno (politicas, gates, exclusiones): la cambia tu usuario, no la sesion. Si un gate te parece injusto, proponselo a tu usuario o usa kj report-issue." + doc("governance"));
         process.exit(2);
       }
       // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
@@ -721,8 +588,8 @@ process.stdin.on("end", () => {
       }
       const touch = load().sessions?.[sid]?.first_touch || {};
       for (const words of shellSegments(cmdD)) {
-        const d = discardOf(words);
-        const lost = d ? foreignLost(d, touch) : [];
+        const d = discardOf(words, ROOT);
+        const lost = d ? foreignLost(d, touch, ROOT) : [];
         if (lost.length === 0) continue;
         console.error(d.stash
           ? "karajan sentinel: git stash drop/clear borra trabajo guardado que puede no ser de esta sesion — pideselo a tu usuario." + doc("discard")
@@ -1075,7 +942,7 @@ process.stdin.on("end", () => {
       const subs = [...[...raw.matchAll(/[$][(]([^()]*)[)]/g)].map((m) => m[1]), ...raw.split(String.fromCharCode(96)).filter((_, k) => k % 2 === 1)];
       for (const words of [...shellSegments(raw), ...subs.flatMap((s) => shellSegments(s))]) {
         if (["cd", "pushd", "popd"].includes(words[0])) moved = true;
-        const inRepo = shellWrites(words).filter((t) => writesRepo(t) || (moved && !t.startsWith("/")));
+        const inRepo = shellWrites(words).filter((t) => writesRepo(t, ROOT) || (moved && !t.startsWith("/")));
         if (inRepo.length === 0) continue;
         console.error("karajan sentinel: escribir ficheros del repo desde Bash (" + inRepo.slice(0, 3).join(", ") + ") se salta los gates de Edit/Write — usa la tool Edit/Write; para renombrar, git mv; fuera del repo (/tmp, scratchpad) Bash es libre." + doc("bash-write"));
         process.exit(2);
@@ -1360,6 +1227,8 @@ const SCRIPT_BODIES = {
   // (so they can import each other in both places). Being here, the installed
   // record, the tamper check and the human seal cover them as well.
   "sentinel-shell.mjs": readFileSync(new URL("./sentinel/sentinel-shell.mjs", import.meta.url), "utf8"),
+  "sentinel-discard.mjs": readFileSync(new URL("./sentinel/sentinel-discard.mjs", import.meta.url), "utf8"),
+  "sentinel-bash-write.mjs": readFileSync(new URL("./sentinel/sentinel-bash-write.mjs", import.meta.url), "utf8"),
   "sentinel-reminders.mjs": readFileSync(new URL("./sentinel/sentinel-reminders.mjs", import.meta.url), "utf8"),
 };
 
