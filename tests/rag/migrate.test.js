@@ -69,6 +69,18 @@ describe("migrateProjectIndex", () => {
     expect(keep(path.join(root, "plans", "plan-1.json"))).toBe(true);
   });
 
+  it("KJC-BUG-0258: cuenta solo los ficheros del propio proyecto, no sus planes", async () => {
+    const { countProjectSources } = await import("../../src/rag/migrate.js");
+    const db = openVecStore({ dim: 8, path: legacy });
+    try {
+      insertChunk(db, { source: "/home/u/.karajan/plans/mio/plan-1.json", kind: "plan", text: "plan", embedding: vec(4), project: "mio" });
+      expect(countProjectSources(db, "mio", "/p")).toBe(2);
+      expect(countProjectSources(db, "mio", "/p/")).toBe(2);
+      expect(countProjectSources(db, "mio", "/q")).toBe(0);
+      expect(countProjectSources(db, "mio", "/p/src/a")).toBe(0);
+    } finally { db.close(); }
+  });
+
   it("no toca la base global", () => {
     migrateProjectIndex({ slug: "mio", legacyPath: legacy, targetPath: target, dim: 8 });
     const db = openVecStore({ dim: 8, path: legacy });

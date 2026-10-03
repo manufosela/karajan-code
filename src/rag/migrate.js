@@ -7,10 +7,21 @@
  * toca: borrarla es decision del usuario, no efecto de una migracion.
  */
 import { existsSync } from "node:fs";
+import { sep } from "node:path";
 
 import { openVecStore, insertChunk, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 
 export const countProjectChunks = (db, slug) => db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE project_slug = ?").get(slug).n;
+
+/**
+ * KJC-BUG-0258: chunks of the project's OWN files (sources under projectDir), as
+ * opposed to its plans and briefs. A prefix compare, not LIKE: paths may hold % or _.
+ */
+export const countProjectSources = (db, slug, projectDir) => {
+  // path.sep: sources are stored as native paths (backslashes on Windows).
+  const prefix = projectDir.replace(/[\\/]+$/, "") + sep;
+  return db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE project_slug = ? AND substr(source, 1, ?) = ?").get(slug, prefix.length, prefix).n;
+};
 
 /**
  * KJC-TSK-0882: que decir cuando el indice del proyecto no tiene nada suyo.

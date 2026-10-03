@@ -14,7 +14,7 @@ import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
-import { countProjectChunks, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
+import { countProjectChunks, countProjectSources, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
 import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
 
 // KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
@@ -152,6 +152,11 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
       logger.warn(`[rag] ${library ? "the library index" : "this project's index"} holds no chunks of ${project || "any project"}: this is not an answer, run ${remedy}`);
       if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope, remedy })}\n`);
       return [];
+    }
+    // KJC-BUG-0258: chunks of plans and briefs but none of the project's own files
+    // answer nothing about the code; said now, not when kj review --staged blocks.
+    if (!library && project && countProjectSources(db, project, config?.projectDir || process.cwd()) === 0) {
+      logger.warn("[rag] this project's index holds none of its own files (only plans or briefs): run kj rag index --with-sources");
     }
     const mode = flags.mode || "hybrid";
     const alpha = Math.max(0, Math.min(1, Number(flags.alpha) || 0.6));
