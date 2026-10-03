@@ -52,14 +52,15 @@ describe("pretool gate × steward consequence", () => {
     expect(runEdit().status).toBe(0);
   });
 
-  it("security or persistent red main DO block when the project adopted block — with remedy and a recorded escape", () => {
+  it("security or persistent red main DO block when the project adopted block — with remedy and no escape", () => {
     report([{ id: "vulnerable-deps", verdict: "broken", evidence: "GHSA-z past its window", remedy: "update the package" }]);
     adoptBlock();
     const r = runEdit();
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/vulnerable-deps/);
-    expect(r.stderr).toMatch(/KJ_ALLOW_STEWARD/);
-    expect(runEdit({ KJ_ALLOW_STEWARD: "1" }).status).toBe(0);
+    expect(r.stderr).toMatch(/method_gates\.steward/);
+    expect(r.stderr).not.toMatch(/KJ_ALLOW/);
+    expect(runEdit({ KJ_ALLOW_STEWARD: "1" }).status).toBe(2);
   });
 
   it("without adoption the same broken security invariant informs but does not block", () => {

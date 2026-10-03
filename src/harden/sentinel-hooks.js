@@ -781,8 +781,7 @@ process.stdin.on("end", () => {
       return d ? foreignLane(d) : null;
     };
     const laneDeny = (what, lane) => {
-      if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); return false; }
-      console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0). Cruce deliberado: KJ_ALLOW_CROSS_LANE=1, queda registrado." + doc("cross-lane"));
+      console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0). Sin escape (ADR 0015): un cruce deliberado lo hace tu usuario en su terminal." + doc("cross-lane"));
       return true;
     };
     if (EDIT_TOOLS.includes(tool)) {
@@ -819,11 +818,8 @@ process.stdin.on("end", () => {
         // directorio se deniega conservadoramente — el remedio es no
         // necesitarlo (git -C, npm --prefix, rutas absolutas).
         if (/(^|[;&|(\\s])(cd|pushd)([ \\t]|$)/.test(cmd)) {
-          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
-          else {
-            console.error("karajan sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables por el guard de carriles (MONO-0); usa git -C / npm --prefix / rutas ABSOLUTAS sin cd (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
-            process.exit(2);
-          }
+          console.error("karajan sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables por el guard de carriles (MONO-0); usa git -C / npm --prefix / rutas ABSOLUTAS sin cd." + doc("cross-lane"));
+          process.exit(2);
         }
         // Absolute AND dot-relative tokens (../lane escapaba al primer scan —
         // reviewer catch); relative se resuelve contra el cwd de la sesion.
@@ -838,11 +834,8 @@ process.stdin.on("end", () => {
         // de tokens de abajo; el residuo (expansion anidada en segmentos
         // runner) queda documentado como en la regla de ficheros PROTECTED.
         if (/>{1,2}[ \\t]*["']?[$\`]/.test(cmd)) {
-          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
-          else {
-            console.error("karajan sentinel: redireccion con destino tras variable/sustitucion — el guard de carriles no puede verificarlo (MONO-0); usa una ruta LITERAL (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
-            process.exit(2);
-          }
+          console.error("karajan sentinel: redireccion con destino tras variable/sustitucion — el guard de carriles no puede verificarlo (MONO-0); usa una ruta LITERAL." + doc("cross-lane"));
+          process.exit(2);
         }
         // Sustitucion de comandos ($(...) o backticks) EJECUTA su contenido
         // en cualquier posicion, y una ruta entrecomillada con espacios es
@@ -906,20 +899,14 @@ process.stdin.on("end", () => {
         // KJC-BUG-0243: inert quoted text is not a substitution, and the prose value
         // of a text option (--title, -m...) is not a path.
         if (/\\$\\(|\`/.test(stripInertQuotes(cmd)) || quotedPathWithSpaces(stripTextOptionValues(cmd))) {
-          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
-          else {
-            console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
-            process.exit(2);
-          }
+          console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion." + doc("cross-lane"));
+          process.exit(2);
         }
         const SAFE_EXP_SEG = /^([A-Za-z_][A-Za-z0-9_]*=[^ \\t]*[ \\t]*)*((npm|pnpm|yarn|vitest|jest|kj|gh|echo|printf|true|test)\\b|git[ \\t](?![^\\n]*(-C[ \\t]|--git-dir|--work-tree)))[^;|&\\n]*$|^[A-Za-z_][A-Za-z0-9_]*=[^;|&\\n]*$/;
         const segs = cmd.split(/&&|\\|\\||[;|\\n]/).map((s) => s.trim()).filter(Boolean);
         if (!segs.every((s) => !/[$]/.test(s) || SAFE_EXP_SEG.test(s))) {
-          if (escOn("KJ_ALLOW_CROSS_LANE")) { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
-          else {
-            console.error("karajan sentinel: expansion de shell en una herramienta generica de fichero/interprete — el objetivo no es verificable por el guard de carriles (MONO-0); usa rutas LITERALES o un runner del toolchain (o KJ_ALLOW_CROSS_LANE=1, queda registrado)." + doc("cross-lane"));
-            process.exit(2);
-          }
+          console.error("karajan sentinel: expansion de shell en una herramienta generica de fichero/interprete — el objetivo no es verificable por el guard de carriles (MONO-0); usa rutas LITERALES o un runner del toolchain." + doc("cross-lane"));
+          process.exit(2);
         }
         // ...incluidas relativas A PELO (los carriles kj viven en
         // .kj/worktrees/). Un falso token (s/a/b/) resuelve al arbol propio
@@ -1024,11 +1011,8 @@ process.stdin.on("end", () => {
           let blockOn = false;
           try { blockOn = /steward:\\s*["']?block/.test(readFileSync(join(ROOT, ".karajan", "kj.config.yml"), "utf8")); } catch { /* no config — no block */ }
           if (hard.length && blockOn) {
-            if (escOn("KJ_ALLOW_STEWARD")) { recordEscape(sid, "KJ_ALLOW_STEWARD", tool); }
-            else {
-              console.error("karajan sentinel: steward — el estado del proyecto bloquea empezar (barrido " + rep.sweptAt + "):" + String.fromCharCode(10) + hard.map((r) => "- " + r.id + ": " + (r.evidence || "") + " -> " + (r.remedy || r.renew || "kj steward sweep")).join(String.fromCharCode(10)) + String.fromCharCode(10) + "(KJ_ALLOW_STEWARD=1 = excepcion consciente de esta sesion, queda registrada)" + doc("steward"));
-              process.exit(2);
-            }
+            console.error("karajan sentinel: steward — el estado del proyecto bloquea empezar (barrido " + rep.sweptAt + "):" + String.fromCharCode(10) + hard.map((r) => "- " + r.id + ": " + (r.evidence || "") + " -> " + (r.remedy || r.renew || "kj steward sweep")).join(String.fromCharCode(10)) + String.fromCharCode(10) + "(sin escape, ADR 0015: si el trabajo sigue, tu usuario cambia method_gates.steward a inform)" + doc("steward"));
+            process.exit(2);
           }
           const st = load();
           const s = session(st, sid);

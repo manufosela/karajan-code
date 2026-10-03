@@ -255,10 +255,9 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       // partitioning is a decision, and it must never split code from its tests.
       const split = testAdded > 0 ? ` (${added - testAdded} source + ${testAdded} accompanying tests — partition by feature, never code from its tests)` : "";
       const sizePolicy = config?.method_gates?.pr_size || "warn";
-      if (process.env.KJ_ALLOW_LARGE_PR === "1") {
-        console.log(`⚠ pr-size exempt: ${added} lines added — KJ_ALLOW_LARGE_PR=1 (explicit escape hatch)`);
-      } else if (sizePolicy === "block") {
-        const reason = `${added} lines added${split} exceeds the ${sizeWarn}-line budget (${sizeSource}; method_gates.pr_size: block) — partition the work, or get your user's explicit OK and re-run with KJ_ALLOW_LARGE_PR=1`;
+      // ADR 0015: no env escape — an exception is the user's label on the PR, judged in CI.
+      if (sizePolicy === "block") {
+        const reason = `${added} lines added${split} exceeds the ${sizeWarn}-line budget (${sizeSource}; method_gates.pr_size: block) — partition the work; an exception is your user's large-pr-justified label on the PR`;
         console.log(`✗ pr-size gate: ${reason}`);
         process.exitCode = 1;
         return { verdict: "rejected", reviewer: "pr-size", issues: [{ severity: "high", description: reason }] };

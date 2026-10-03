@@ -39,7 +39,7 @@ The RAG must have answered about a zone before the session touches it (ADR 0010)
 
 ## cross-lane
 
-Since MONO-0, each session mutates only its own worktree lane; reading is free. The guard also refuses mutations it cannot verify: `cd` in a mutator chain, command substitution, shell expansion, or redirections whose target hides behind a variable — use `git -C`, `npm --prefix` and literal paths. Deliberate crossing: `KJ_ALLOW_CROSS_LANE=1` on a simple command.
+Since MONO-0, each session mutates only its own worktree lane; reading is free. The guard also refuses mutations it cannot verify: `cd` in a mutator chain, command substitution, shell expansion, or redirections whose target hides behind a variable — use `git -C`, `npm --prefix` and literal paths. There is no escape (ADR 0015): a deliberate crossing is your user's, in their own terminal.
 
 ## identity
 
@@ -55,7 +55,7 @@ A merged card must be moved in the tracker before anything else advances — com
 
 ## steward
 
-The Steward's sweep can declare the project state bad enough that starting new work is blocked (security invariants, persistently red main — only where the project opted in). Remedy what the report names, or escape for this session: `KJ_ALLOW_STEWARD=1`.
+The Steward's sweep can declare the project state bad enough that starting new work is blocked (security invariants, persistently red main — only where the project opted in). Remedy what the report names. There is no escape (ADR 0015): if work must go on, your user sets `method_gates.steward` back to `inform`.
 
 ## claims
 
@@ -134,10 +134,8 @@ ADR 0015 is retiring escapes: a gate that needs one is a gate to fix, and no esc
 
 | Escape | Skips | Legitimate when |
 | --- | --- | --- |
-| `KJ_ALLOW_CROSS_LANE=1` | cross-lane / unverifiable-path guards | A deliberate, announced crossing (e.g. publishing from a tag worktree) |
 | `KJ_ALLOW_IDENTITY=1` | identity lock | Test suites exercising other gates; never for real pushes |
 | `KJ_ALLOW_POLICY=1` | non-security policy denies | The rule mis-fires and the fix is agreed; commit also needs `KJ_POLICY_REASON` |
-| `KJ_ALLOW_STEWARD=1` | steward hard block | The break is known, carded, and the user says work continues |
 | `KJ_ALLOW_RELEASE=1` | release check | A red item nobody can repair right now, agreed with the human (the landing case is covered by `remedied_by`) |
 | `KJ_ALLOW_PII=1` | privacy denylist block at commit time | A confirmed false positive, reviewed by the human |
 
