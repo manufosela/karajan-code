@@ -1358,6 +1358,7 @@ const SCRIPT_BODIES = {
   // record, the tamper check and the human seal cover them as well.
   "sentinel-shell.mjs": readFileSync(new URL("./sentinel/sentinel-shell.mjs", import.meta.url), "utf8"),
   "sentinel-reminders.mjs": readFileSync(new URL("./sentinel/sentinel-reminders.mjs", import.meta.url), "utf8"),
+  "sessionstart.mjs": readFileSync(new URL("./sentinel/sessionstart.mjs", import.meta.url), "utf8"),
 };
 
 /**
@@ -1557,6 +1558,9 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
       // unwired, the official tool never satisfied the gate.
       { event: "PostToolUse", matcher: "mcp__.*__kj_rag_query", script: "posttooluse.mjs" },
       { event: "Stop", script: "stop.mjs" },
+      // KJC-TSK-0918 (ADR 0014): the critical rules back after a compaction or a resume.
+      { event: "SessionStart", matcher: "compact", script: "sessionstart.mjs" },
+      { event: "SessionStart", matcher: "resume", script: "sessionstart.mjs" },
     ],
   });
   return { scripts: [lib, post, stop, pre], wired, deferred };

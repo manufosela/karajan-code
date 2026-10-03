@@ -110,6 +110,8 @@ Un agente lee sus reglas al empezar y las pierde cuando el contexto se compacta.
 
 Cada uno llega después de la acción que precede a la de la regla, no antes, porque un recordatorio antes de una herramienta tendría que aprobarla y saltarse tu pregunta de permiso.
 
+Tras una compactación o al reanudar, el Sentinel le devuelve al agente las reglas críticas del proyecto, cortas, con el estado de su sesión: rama, card y cards mergeadas que aún no se han movido. La primera regla es que Karajan gobierna: un agente no cambia políticas, configuración de gates ni exclusiones para pasar un gate. Una sesión nueva no recibe nada extra, porque CLAUDE.md ya trae las reglas.
+
 ## stop-gate
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas o pide a tu usuario el escape aplicable. Estado: `kj sentinel status`.

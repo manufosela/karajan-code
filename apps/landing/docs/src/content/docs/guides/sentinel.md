@@ -110,6 +110,8 @@ An agent reads its rules when it starts and loses them when the context is compa
 
 Each one comes after the action that precedes the rule's action, not before it, because a reminder before a tool call would have to approve that call and skip your permission prompt.
 
+After a compaction or a resume, the Sentinel gives the agent back the project's critical rules, short, with the state of its session: branch, card, and cards merged but not yet moved. The first rule is that Karajan governs: an agent does not change policies, gate settings or exclusions to get past a gate. A new session gets nothing extra, since CLAUDE.md already brings the rules.
+
 ## stop-gate
 
 The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations or ask your user for the applicable escape. State: `kj sentinel status`.
