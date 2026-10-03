@@ -479,19 +479,14 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(res.stderr).toContain(lane);
   });
 
-  it("KJC-BUG-0142: el prefijo KJ_ALLOW_CROSS_LANE=1 en el TEXTO del comando Bash escapa el guard de carriles", () => {
+  it("ADR 0015: KJ_ALLOW_CROSS_LANE=1 no longer opens the lane guard, as a command prefix or in the env", () => {
     const target = path.join(lane, "src", "x.js");
-    const denied = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${target}` } });
-    expect(denied.status).toBe(2);
-    const escaped = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `KJ_ALLOW_CROSS_LANE=1 sed -i s/a/b/ ${target}` } });
-    expect(escaped.status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_CROSS_LANE")).toBe(true);
-  });
-
-  it("KJ_ALLOW_CROSS_LANE=1 passes AND records the auditable escape", () => {
+    const prefixed = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `KJ_ALLOW_CROSS_LANE=1 sed -i s/a/b/ ${target}` } });
+    expect(prefixed.status).toBe(2);
     const res = run(gate, laneEdit(), { KJ_ALLOW_CROSS_LANE: "1" });
-    expect(res.status).toBe(0);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_CROSS_LANE")).toBe(true);
+    expect(res.status).toBe(2);
+    expect(res.stderr).toMatch(/tu usuario/);
+    expect(res.stderr).not.toContain("KJ_ALLOW");
   });
 
   it("denies Bash that mutates a sibling-lane path; read-only Bash passes", () => {
@@ -509,7 +504,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(bash("rm -rf $LANE").status).toBe(2);
     expect(bash("echo hi > $OUT").status).toBe(2);
     expect(bash("tee `cat target`").status).toBe(2);
-    expect(bash("rm -rf $LANE", { KJ_ALLOW_CROSS_LANE: "1" }).status).toBe(0);
+    expect(bash("rm -rf $LANE", { KJ_ALLOW_CROSS_LANE: "1" }).status).toBe(2);
     // Multilinea nunca es "lectura simple" (reviewer catch): la 2a linea muta.
     expect(bash(`git status\nsed -i s/a/b/ ${path.join(lane, "src", "x.js")}`).status).toBe(2);
     // Expansion en herramienta generica (chmod/touch/interprete): deny.

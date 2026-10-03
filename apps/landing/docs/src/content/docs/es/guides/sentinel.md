@@ -39,7 +39,7 @@ El RAG tiene que haber respondido sobre una zona antes de que la sesión la toqu
 
 ## cross-lane
 
-Desde MONO-0, cada sesión muta solo su propio carril (worktree); leer es libre. La guarda también rechaza mutaciones que no puede verificar: `cd` en una cadena mutadora, sustitución de comandos, expansión de shell, o redirecciones cuyo destino se esconde tras una variable, usa `git -C`, `npm --prefix` y rutas literales. Cruce deliberado: `KJ_ALLOW_CROSS_LANE=1` en un comando simple.
+Desde MONO-0, cada sesión muta solo su propio carril (worktree); leer es libre. La guarda también rechaza mutaciones que no puede verificar: `cd` en una cadena mutadora, sustitución de comandos, expansión de shell, o redirecciones cuyo destino se esconde tras una variable, usa `git -C`, `npm --prefix` y rutas literales. No hay escape (ADR 0015): un cruce deliberado lo hace tu usuario en su propia terminal.
 
 ## identity
 
@@ -55,7 +55,7 @@ Una card mergeada debe moverse en el tracker antes de que avance nada más, comm
 
 ## steward
 
-El barrido del Steward puede declarar el estado del proyecto lo bastante malo como para bloquear el inicio de trabajo nuevo (invariantes de seguridad, main persistentemente en rojo, solo donde el proyecto lo activó). Remedia lo que nombre el informe, o escapa por esta sesión: `KJ_ALLOW_STEWARD=1`.
+El barrido del Steward puede declarar el estado del proyecto lo bastante malo como para bloquear el inicio de trabajo nuevo (invariantes de seguridad, main persistentemente en rojo, solo donde el proyecto lo activó). Remedia lo que nombre el informe. No hay escape (ADR 0015): si el trabajo tiene que seguir, tu usuario vuelve `method_gates.steward` a `inform`.
 
 ## claims
 
@@ -134,10 +134,8 @@ El ADR 0015 retira los escapes: un gate que necesita uno es un gate a corregir, 
 
 | Escape | Se salta | Legítimo cuando |
 | --- | --- | --- |
-| `KJ_ALLOW_CROSS_LANE=1` | guardas de cross-lane / ruta no verificable | Un cruce deliberado y anunciado (p.ej. publicar desde el worktree de un tag) |
 | `KJ_ALLOW_IDENTITY=1` | bloqueo de identidad | Suites de test que ejercitan otras guardas; nunca para pushes reales |
 | `KJ_ALLOW_POLICY=1` | denies de policy no-seguridad | La regla se dispara mal y el fix está acordado; el commit además necesita `KJ_POLICY_REASON` |
-| `KJ_ALLOW_STEWARD=1` | bloqueo duro del steward | La rotura es conocida, cardeada, y el usuario dice que el trabajo continúa |
 | `KJ_ALLOW_RELEASE=1` | release check | Un rojo que ahora mismo nadie puede arreglar, acordado con el humano (el caso de la landing lo cubre `remedied_by`) |
 | `KJ_ALLOW_PII=1` | bloqueo de la denylist de privacidad en el commit | Un falso positivo confirmado, revisado por el humano |
 

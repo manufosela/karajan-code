@@ -45,7 +45,7 @@ beforeEach(() => {
 const cfg = (pr_size) => ({ projectDir: dir, method_gates: { pr_size, pr_size_warn: 150 } });
 
 describe("pr-size policy", () => {
-  it("block rejects an oversized diff WITHOUT invoking the reviewer, naming the escape", async () => {
+  it("block rejects an oversized diff WITHOUT invoking the reviewer, naming the user's label", async () => {
     const logs = [];
     const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
     const r = await reviewGateCommand({ config: cfg("block"), flags: { staged: true } });
@@ -53,17 +53,16 @@ describe("pr-size policy", () => {
     expect(r).toMatchObject({ verdict: "rejected", reviewer: "pr-size" });
     expect(reviewMock).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
-    expect(logs.join("\n")).toMatch(/KJ_ALLOW_LARGE_PR/);
+    expect(logs.join("\n")).toMatch(/large-pr-justified/);
+    expect(logs.join("\n")).not.toMatch(/KJ_ALLOW/);
   });
 
-  it("KJ_ALLOW_LARGE_PR=1 is the explicit, visible escape", async () => {
+  it("KJ_ALLOW_LARGE_PR=1 no longer opens the gate (ADR 0015)", async () => {
     process.env.KJ_ALLOW_LARGE_PR = "1";
-    const logs = [];
-    const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     const r = await reviewGateCommand({ config: cfg("block"), flags: { staged: true } });
     spy.mockRestore();
-    expect(r.verdict).toBe("approved");
-    expect(logs.join("\n")).toMatch(/pr-size exempt/i);
+    expect(r.verdict).toBe("rejected");
   });
 
   it("default policy stays warn — review proceeds", async () => {
