@@ -10,7 +10,7 @@ import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let dir, pre;
 const hook = (tool_name, tool_input, env = {}) => spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name, tool_input }),
-  encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env } });
+  encoding: "utf8", cwd: dir, env: { ...process.env, ...env } });
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-governs-"));

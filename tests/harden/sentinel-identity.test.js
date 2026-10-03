@@ -53,16 +53,15 @@ describe("identity lock — gh", () => {
     expect(run("gh pr list --limit 3").status).toBe(0);
   });
 
-  it("sin identidad declarada: fail-closed para gh y git mutador, pidiendo kj identity set; escape KJ_ALLOW_IDENTITY=1 por prefijo", () => {
+  it("sin identidad declarada: fail-closed para gh y git mutador, pidiendo kj identity set; sin escape (ADR 0015)", () => {
     activeGh("manufosela");
     const gh = run("gh issue list");
     expect(gh.status).toBe(2);
     expect(gh.stderr).toContain("kj identity set");
+    expect(gh.stderr).not.toContain("KJ_ALLOW");
     expect(run("git push origin x").status).toBe(2);
     expect(run("git status").status).toBe(0);
-    expect(run("KJ_ALLOW_IDENTITY=1 gh issue list").status).toBe(0);
-    const st = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "harness", "sentinel-state.json"), "utf8"));
-    expect(st.escape_events.some((e) => e.escape === "KJ_ALLOW_IDENTITY")).toBe(true);
+    expect(run("KJ_ALLOW_IDENTITY=1 gh issue list").status).toBe(2);
     // Sin sesion gh (hosts.yml ausente) tampoco se adivina: deny.
     declare("manufosela", "a@b.c");
     fs.rmSync(path.join(ghDir, "hosts.yml"));

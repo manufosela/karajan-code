@@ -9,7 +9,7 @@ import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let dir, post, stop, statePath, home;
-const env = () => ({ ...process.env, KJ_ALLOW_IDENTITY: "1", KARAJAN_HOME: home });
+const env = () => ({ ...process.env, KARAJAN_HOME: home });
 const closeCard = (cardId) => spawnSync("node", [post], {
   input: JSON.stringify({ session_id: "s1", tool_name: "mcp__planning-game__update_card", tool_input: {}, tool_response: { content: [{ text: JSON.stringify({ card: { cardId, status: "To Validate" } }) }] } }),
   encoding: "utf8", cwd: dir, env: env(),

@@ -9,17 +9,17 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { declareTestIdentity } from "./_test-identity.js";
 
-let dir, postScript, stopScript, statePath;
+let dir, postScript, stopScript, statePath, idEnv;
 const run = (script, payload, env = {}) =>
   spawnSync("node", [script], {
     input: typeof payload === "string" ? payload : JSON.stringify(payload),
     encoding: "utf8",
-    // IDN-B: these suites exercise the OTHER gates; the identity lock has its
-    // own suite (sentinel-identity.test.js), so it is escaped here (env route).
+    // The clone declares the identity the session runs as (no escape, ADR 0015).
     // rag-first has its own suite (sentinel-rag-gate.test.js): here the state
-    // is an empty index, where that gate stands down (no escape, ADR 0015).
-    env: { ...process.env, KJ_ALLOW_IDENTITY: "1", ...env },
+    // is an empty index, where that gate stands down.
+    env: { ...process.env, ...idEnv, ...env },
   });
 const editTool = (file, session = "s1") => ({ session_id: session, tool_name: "Edit", tool_input: { file_path: file } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -31,6 +31,7 @@ beforeEach(() => {
     { cwd: dir },
   );
   installSentinelHooks({ projectDir: dir });
+  idEnv = declareTestIdentity(dir);
   postScript = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   stopScript = path.join(dir, ".karajan", "harness", "stop.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");
@@ -59,10 +60,7 @@ describe("posttooluse script (state writer)", () => {
     expect(s.edited_tests).toEqual(["modules/vpc_test.go"]);
   });
 
-  it("records used KJ_ALLOW_* escapes and never crashes on garbage input", () => {
-    // KJ_ALLOW_IDENTITY is the last escape left (ADR 0015; 0927 retires it).
-    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_IDENTITY: "1" });
-    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_IDENTITY");
+  it("never crashes on garbage input", () => {
     expect(run(postScript, "not-json").status).toBe(0);
   });
 });
@@ -255,7 +253,9 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     ]) {
       const r = bash(cmd);
       expect(r.status, cmd).toBe(2);
-      expect(r.stderr, cmd).toMatch(/no se apaga con una bandera/);
+      // A malformed GIT_CONFIG_PARAMETERS leaves git without an identity, so the
+      // identity lock, which runs first, denies it before this gate does.
+      expect(r.stderr, cmd).toMatch(cmd.startsWith("GIT_CONFIG_PARAMETERS") ? /no se apaga con una bandera|identity lock/ : /no se apaga con una bandera/);
     }
     // Lo que NO es saltarse el gate sigue pasando.
     for (const cmd of ["git commit -m x", "git commit -am x", "git commit --no-edit"]) {
@@ -376,14 +376,14 @@ describe("self-protection + audited escapes (SEN-C)", () => {
     expect(run(stopScript, { session_id: "empty" }, { PATH: path.dirname(process.execPath) }).status).toBe(0);
   });
 
-  it("stop emits a user-visible summary of used escapes when the turn ends green", () => {
+  it("ADR 0015: no escape is recorded any more, so a green turn reports none", () => {
     run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_IDENTITY: "1" });
     run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
     const res = run(stopScript, { session_id: "s1" });
     expect(res.status).toBe(0);
-    expect(res.stdout).toMatch(/systemMessage/);
-    expect(res.stdout).toMatch(/KJ_ALLOW_IDENTITY/);
-    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_IDENTITY")).toBe(true);
+    expect(res.stdout).not.toMatch(/escape/);
+    expect(state().escape_events ?? []).toHaveLength(0);
+    expect(state().sessions.s1.escapes).toEqual([]);
   });
 });
 
@@ -397,14 +397,6 @@ describe("sentinel-lib (shared single source)", () => {
     const mod = await import(`file://${lib}`);
     expect(mod.violations({ edited_sources: ["src/a.js"], edited_tests: [] }, "main").length).toBe(2);
     expect(mod.violations({ edited_sources: ["src/a.js"], edited_tests: ["tests/a.test.js"] }, "feat/KJC-TSK-0001-x")).toEqual([]);
-  });
-
-  it("recordEscape appends an auditable escape event to the state", async () => {
-    const mod = await import(`file://${path.join(dir, ".karajan", "harness", "sentinel-lib.mjs")}`);
-    mod.recordEscape("s1", "KJ_ALLOW_NO_CARD", "Edit");
-    expect(state().escape_events).toHaveLength(1);
-    expect(state().escape_events[0]).toMatchObject({ escape: "KJ_ALLOW_NO_CARD", tool: "Edit", sid: "s1" });
-    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_NO_CARD");
   });
 });
 
@@ -481,7 +473,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     fs.writeFileSync(path.join(inTree, "src", "x.js"), "x");
     const spawn = (command) => spawnSync("node", [gate], {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
-      encoding: "utf8", cwd: dir, env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1" },
+      encoding: "utf8", cwd: dir, env: { ...process.env },
     });
     const bare = spawn("sed -i s/a/b/ .kj/worktrees/wt2/src/x.js");
     expect(bare.status).toBe(2);
@@ -568,7 +560,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${rel}` } }),
       encoding: "utf8",
       cwd: dir,
-      env: { ...process.env, KJ_ALLOW_IDENTITY: "1", KJ_ALLOW_NO_RAG: "1" },
+      env: { ...process.env },
     });
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("carril");

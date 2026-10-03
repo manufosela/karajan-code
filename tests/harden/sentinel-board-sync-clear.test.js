@@ -9,9 +9,10 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { declareTestIdentity } from "./_test-identity.js";
 
 let dir, gate, post, statePath;
-const env = { KJ_ALLOW_IDENTITY: "1" };
+let env = {};
 const hook = (script, payload) => spawnSync("node", [script], { input: JSON.stringify({ session_id: "s1", ...payload }), encoding: "utf8", cwd: dir, env: { ...process.env, ...env } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
 const seed = (...cards) => {
@@ -27,6 +28,7 @@ beforeEach(() => {
   // user.email/name explicitos: el runner de CI no tiene config global de git.
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  env = declareTestIdentity(dir);
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");

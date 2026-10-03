@@ -1,11 +1,11 @@
 ---
 title: The Sentinel, gate by gate
-description: Every message the Karajan Sentinel prints, what it protects, and what each KJ_ALLOW_* escape means.
+description: Every message the Karajan Sentinel prints, what it protects, and where each project decision goes now that there are no escapes.
 ---
 
 The Sentinel is the set of synchronous hooks `kj harden` installs in your agent's harness. Every message it prints starts with `karajan sentinel:` and ends with a link to its section on this page. The host harness may wrap it in its own words (Claude Code says "stop says", "PreToolUse hook error") — the body is Karajan's.
 
-Two rules apply to everything below. First: the Sentinel blocks *before* the action runs — nothing is undone, because nothing happened. Second: every escape is an environment variable you prefix to ONE simple command (`KJ_ALLOW_X=1 git …`); it is ignored on command chains (`;`, `|`, `&`, `$( )`, backticks — `2>&1` counts), and every use is recorded in the session state and sealed into the decision log. An escape is a conscious, auditable exception — never a setting.
+Two rules apply to everything below. First: the Sentinel blocks *before* the action runs — nothing is undone, because nothing happened. Second: there is no escape (ADR 0015). Each message names the remedy, and a decision that belongs to the project has its own channel outside the session (see [escapes](#escapes)).
 
 ## In practice — from your agent
 
@@ -27,7 +27,7 @@ cat .karajan/hooks/pre-commit          # the generated guards (do not hand-edit 
 git commit -m "wip" -- .               # on main, or without a card → blocked, with the rule link
 ```
 
-Every block, and every `KJ_ALLOW_*` escape you consciously use, is sealed into the decision log — so "what did the Sentinel stop, and did anyone override it?" is a `kj policy report` away.
+Every block is sealed into the decision log, so "what did the Sentinel stop?" is a `kj policy report` away.
 
 ## card-first
 
@@ -118,7 +118,7 @@ Karajan governs, and it is obeyed. A session does not change the rules that gove
 
 ## stop-gate
 
-The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations or ask your user for the applicable escape. State: `kj sentinel status`.
+The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations. State: `kj sentinel status`.
 
 ## push-gate
 
@@ -130,10 +130,12 @@ AI attribution is forbidden by a deterministic project rule — everywhere, with
 
 ## escapes
 
-ADR 0015 is retiring escapes: a gate that needs one is a gate to fix, and no escape is something an agent can raise. Only the identity lock still has one, and it is next. A privacy false positive goes in the `allow` list of `~/.karajan/privacy.yml`. While it remains: one simple command, one use, recorded in the session state and sealed into the decision log (`kj sentinel status` lists what this session used).
+There are none (ADR 0015). A gate that needs an escape is a gate to fix, and an exception the agent could raise for itself would not be an exception. Each decision that really is the project's has its own channel, outside the session:
 
-| Escape | Skips | Legitimate when |
-| --- | --- | --- |
-| `KJ_ALLOW_IDENTITY=1` | identity lock | Test suites exercising other gates; never for real pushes |
-
-There is no `KJ_ALLOW_*` for security findings. That is the point.
+| Case | Channel |
+| --- | --- |
+| A rule that misfires | your user fixes `.karajan/policy.yml` by PR |
+| The Steward block must not stop work | your user sets `method_gates.steward` to `inform` |
+| A large PR is justified | your user's `large-pr-justified` label, judged in CI |
+| A privacy false positive | the `allow` list of `~/.karajan/privacy.yml` |
+| A crossing between lanes, or a skipped hook | your user, in their own terminal |
