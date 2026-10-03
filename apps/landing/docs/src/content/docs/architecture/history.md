@@ -1730,6 +1730,12 @@ An issue from a contributor showed the gates being routed around, not broken. Bl
 
 That run of bugs had one source: security logic written inside template strings, double-escaped and tested only by running the hook. ADR 0014 moved the guards into real modules with unit tests, which `kj harden` copies byte for byte into the harness, and the existing provenance covers them. The same ADR answered a question the user asked about the agent itself: it does not forget its rules, it forgets to apply them when the context is compacted. A hook does not forget. So the method's rules now arrive as reminders right after the action that precedes theirs (never before a tool call, which would mean approving it past the user's permission prompt), and come back in nine lines after every compaction. The first of them was the user's own: Karajan governs and is obeyed, and a session does not loosen the policies, gate settings or exclusions that govern it.
 
+## Phase 131: v4.39.0, no escapes
+
+The user asked a blunt question: why are there escapes at all, are the rules bad and meant to be skipped? An audit answered with numbers. Since September, 53 fixes had gone to the gates, against 47 fixes of every kind in August, and there were 15 `KJ_ALLOW_*` escapes. Two thirds of the fixes were gates deciding on incomplete state, and every escape was a gate that could not tell a case apart, raised by the very agent it was meant to govern, since a prefix on a command was enough. Where the method was imposed at a checkpoint the agent does not reach (git hooks, CI, a verdict bound to the diff) it almost never failed.
+
+ADR 0015 took that as the direction. The method is imposed at external checkpoints, the Sentinel stays small and reads structural signals rather than shell text, and no escape exists: a gate that needs one is a gate to fix. The decisions that really are the project's got their own channels outside the session, a PR to `policy.yml`, the Steward set to `inform`, the `large-pr-justified` label judged in CI, the privacy allow list, and the user's own terminal. Fifteen escapes went in five PRs, and the tests that leaned on the identity escape now declare an identity, so they exercise the real gate instead of its back door.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

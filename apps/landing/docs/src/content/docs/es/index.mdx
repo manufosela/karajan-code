@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.38.0: Karajan gobierna (actual)
+### v4.39.0: sin escapes (actual)
+
+Una auditoría contó quince escapes `KJ_ALLOW_*`, y el agente podía activarlos todos anteponiéndolos a un comando. El ADR 0015 los retira, del Sentinel, de `kj review` y de los hooks de git: un gate que necesita un escape es un gate a corregir. Cada decisión que de verdad es del proyecto tiene su cauce fuera de la sesión, desde una PR a `policy.yml` hasta la etiqueta `large-pr-justified`. Además: la ruta de un body-file seguida de `;`, la posición de solomon desde un fichero, restaurar un fichero que la propia sesión borró, ai-trash guardando el trabajo sin commitear y un pregate de Sonar que leía el análisis anterior.
+
+### v4.38.0: Karajan gobierna
 
 Un coder bloqueado por rag-first escribió el mismo cambio con heredocs de shell y descartó con `git checkout` una línea sin commitear del usuario. Ahora el repo se escribe solo con Edit y Write, y una sesión no puede tirar trabajo que no hizo. Los guards del Sentinel salen de las plantillas a módulos reales con tests unitarios. Las reglas del método le llegan al agente en el momento de la acción y vuelven tras cada compactación. Y una sesión ya no cambia las políticas que la gobiernan: Karajan gobierna, y cada denegación lo dice.
 

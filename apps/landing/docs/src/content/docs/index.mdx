@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.38.0: Karajan governs (current)
+### v4.39.0: no escapes (current)
+
+An audit counted fifteen `KJ_ALLOW_*` escapes, and the agent could raise every one of them by prefixing a command. ADR 0015 removes them all, in the Sentinel, in `kj review` and in the git hooks: a gate that needs an escape is a gate to fix. Each decision that really belongs to the project has its own channel outside the session, from a PR to `policy.yml` to the `large-pr-justified` label. Also fixed: a body-file path followed by `;`, solomon's position from a file, restoring a file the session removed, ai-trash keeping uncommitted work, and a Sonar pregate that read the previous analysis.
+
+### v4.38.0: Karajan governs
 
 A coder blocked by rag-first wrote the same change with shell heredocs and discarded a user's uncommitted line with `git checkout`. Now the repo is written through Edit and Write only, and a session cannot throw away work it did not make. The Sentinel's guards moved out of template strings into real modules with unit tests. The method's rules reach the agent at the moment of the action, and come back after every compaction. And a session no longer changes the policies that govern it: Karajan governs, and every deny says so.
 
