@@ -59,9 +59,11 @@ describe("pre-commit base-branch guard (real sh + git)", () => {
     expect(`${res.stdout}${res.stderr}`).toMatch(/create a branch/i);
   });
 
-  it("KJ_ALLOW_BASE_COMMIT=1 lets the commit through (explicit escape hatch)", () => {
+  it("KJ_ALLOW_BASE_COMMIT=1 no longer lets the commit through (ADR 0015)", () => {
+    seed();
     const res = tryCommit("feat: release on main", { KJ_ALLOW_BASE_COMMIT: "1" });
-    expect(res.status).toBe(0);
+    expect(res.status).not.toBe(0);
+    expect(`${res.stdout}${res.stderr}`).not.toContain("KJ_ALLOW");
   });
 
   it("does not act on a feature branch", () => {
@@ -71,6 +73,6 @@ describe("pre-commit base-branch guard (real sh + git)", () => {
   });
 
   it("no baseBranch option → no guard block generated", () => {
-    expect(hookBody("pre-commit", {})).not.toMatch(/KJ_ALLOW_BASE_COMMIT/);
+    expect(hookBody("pre-commit", {})).not.toMatch(/Branch-first guard/);
   });
 });

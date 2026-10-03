@@ -62,10 +62,11 @@ function baseBranchGuard(baseBranch) {
   return [
     "# Branch-first guard — the base branch only moves via PR. KJC-BUG-0186:",
     "# the bootstrap commit is exempt, there is no commit to branch from yet.",
-    'if [ "$KJ_ALLOW_BASE_COMMIT" != "1" ] && git rev-parse --verify HEAD >/dev/null 2>&1; then',
+    "# No escape (ADR 0015): an env prefix on git commit was one the agent could raise.",
+    "if git rev-parse --verify HEAD >/dev/null 2>&1; then",
     '  current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")',
     `  if [ "$current_branch" = "${baseBranch}" ]; then`,
-    `    echo 'kj harden: direct commits on ${baseBranch} are not allowed — create a branch and open a PR (KJ_ALLOW_BASE_COMMIT=1 to override)'; exit 1`,
+    `    echo 'kj harden: direct commits on ${baseBranch} are not allowed — create a branch and open a PR'; exit 1`,
     "  fi",
     "fi",
   ];
@@ -78,7 +79,7 @@ function baseBranchGuard(baseBranch) {
 function identityGuard(hook) {
   const head = [
     "# Identity lock (IDN-C, ADR 0005) — this clone's declared identity governs.",
-    'if [ "$KJ_ALLOW_IDENTITY" != "1" ] && [ -f .karajan/identity.local.yml ]; then',
+    "if [ -f .karajan/identity.local.yml ]; then",
   ];
   const tail = [
     "elif [ ! -f .karajan/identity.local.yml ]; then",
@@ -92,7 +93,7 @@ function identityGuard(hook) {
       "  kj_author=$(git var GIT_AUTHOR_IDENT | sed 's/.*<\\(.*\\)>.*/\\1/')",
       "  kj_committer=$(git var GIT_COMMITTER_IDENT | sed 's/.*<\\(.*\\)>.*/\\1/')",
       '  if [ -n "$kj_declared_email" ] && { [ "$kj_author" != "$kj_declared_email" ] || [ "$kj_committer" != "$kj_declared_email" ]; }; then',
-      '    echo "kj harden: identity lock — committing as $kj_author / $kj_committer but this clone is declared as $kj_declared_email (kj identity show; KJ_ALLOW_IDENTITY=1 to override)"; exit 1',
+      '    echo "kj harden: identity lock — committing as $kj_author / $kj_committer but this clone is declared as $kj_declared_email (kj identity show)"; exit 1',
       "  fi",
       ...tail,
     ];
@@ -103,7 +104,7 @@ function identityGuard(hook) {
     '  kj_hosts="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}/hosts.yml"',
     "  kj_active_gh=$(awk '/^github.com:/{f=1;next} f&&/^[^[:space:]]/{f=0} f&&/^[[:space:]]*user:/{sub(/^[[:space:]]*user:[[:space:]]*/,\"\");print;exit}' \"$kj_hosts\" 2>/dev/null)",
     '  if [ -n "$kj_declared_gh" ] && [ "$kj_active_gh" != "$kj_declared_gh" ]; then',
-    '    echo "kj harden: identity lock — gh session is ${kj_active_gh:-none} but this clone is declared as $kj_declared_gh — run: gh auth switch --user $kj_declared_gh (KJ_ALLOW_IDENTITY=1 to override)"; exit 1',
+    '    echo "kj harden: identity lock — gh session is ${kj_active_gh:-none} but this clone is declared as $kj_declared_gh — run: gh auth switch --user $kj_declared_gh"; exit 1',
     "  fi",
     ...tail,
   ];
