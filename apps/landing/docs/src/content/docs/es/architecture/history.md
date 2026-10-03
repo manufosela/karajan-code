@@ -1729,6 +1729,12 @@ Una issue de un colaborador enseñó que los gates se estaban rodeando, no rompi
 
 Esa racha de bugs tenía un solo origen: lógica de seguridad escrita dentro de plantillas-string, con escapes dobles y probada solo ejecutando el hook. El ADR 0014 movió los guards a módulos reales con tests unitarios, que `kj harden` copia tal cual al harness, y la procedencia existente los cubre. El mismo ADR respondió a una pregunta del usuario sobre el propio agente: no olvida sus reglas, olvida aplicarlas cuando el contexto se compacta. Un hook no olvida. Así que las reglas del método llegan ahora como recordatorios justo después de la acción que precede a la suya (nunca antes de una herramienta, porque eso sería aprobarla saltándose la pregunta de permiso del usuario) y vuelven en nueve líneas tras cada compactación. La primera la puso el usuario: Karajan gobierna y se le obedece, y una sesión no relaja las políticas, la configuración de gates ni las exclusiones que la gobiernan.
 
+## Fase 131: v4.39.0, sin escapes
+
+El usuario hizo una pregunta directa: ¿por qué hay escapes, es que las reglas son malas y hay que saltárselas? Una auditoría respondió con números. Desde septiembre, 53 arreglos habían ido a los gates, frente a 47 arreglos de todo tipo en agosto, y había 15 escapes `KJ_ALLOW_*`. Dos tercios de los arreglos eran gates que decidían con información incompleta, y cada escape era un gate que no sabía distinguir un caso, activable por el mismo agente al que debía gobernar, porque bastaba anteponerlo a un comando. Donde el método se imponía en un punto de control que el agente no toca (hooks de git, CI, un veredicto atado al diff) casi no fallaba.
+
+El ADR 0015 tomó eso como rumbo. El método se impone en puntos de control externos, el Sentinel se queda pequeño y lee señales estructurales en vez de texto de shell, y no existe ningún escape: un gate que necesita uno es un gate a corregir. Las decisiones que de verdad son del proyecto tienen su cauce fuera de la sesión: una PR a `policy.yml`, el Steward en `inform`, la etiqueta `large-pr-justified` que juzga la CI, la lista de privacidad y la terminal del propio usuario. Quince escapes salieron en cinco PRs, y los tests que se apoyaban en el escape de identidad ahora declaran una identidad, así que prueban el gate real y no su puerta trasera.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

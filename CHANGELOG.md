@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.39.0] - 2026-10-04
+
+No escapes. An audit of the gates counted 53 fixes since September and 15
+`KJ_ALLOW_*` escapes, and every escape was one the agent itself could raise
+by prefixing a command. ADR 0015 decides the direction: the method is imposed
+at checkpoints the agent does not reach, the Sentinel stays small, and no
+escape exists. A gate that needs one is a gate to fix, and each decision
+that really is the project's has its own channel outside the session.
+
+### Changed
+
+- **No gate has an escape any more** (KJC-TSK-0925, 0926, 0931, 0932, 0927, 0933, ADR 0015): `NO_CARD`, `NO_RAG`, `NO_TESTS`, `BOARD`, `WRITE`, `REWRITE`, `NO_VERIFY`, `CROSS_LANE`, `STEWARD`, `LARGE_PR`, `POLICY` with `KJ_POLICY_REASON`, `RELEASE`, `PII`, `IDENTITY` and `BASE_COMMIT` are gone, in the Sentinel, in `kj review` and in the git hooks. Every deny names the remedy. A misfiring rule is fixed in `policy.yml` by the user, the Steward block is turned off in config, a large PR carries the user's `large-pr-justified` label, a privacy false positive goes in the allow list, and a lane crossing or a skipped hook is the user's, in their own terminal. The JSON reserialization guard goes too: shell writes belong to the bash-write guard.
+- **The installed git hooks need a re-seal** (KJC-TSK-0933): run `kj harden --commit` so `.karajan/hooks` loses the two escapes.
+
+### Fixed
+
+- **A body-file path ends where the shell ends it** (KJC-BUG-0245): `--body-file pr.md; ...` no longer reads `pr.md;` and denies the PR.
+- **`kj solomon --position-file`** (KJC-BUG-0260): the position can come from a file, and `--position` is prose to the lane guard.
+- **A file the session removed is its own to restore** (KJC-BUG-0261): `rm` and `git rm` record the files' state before they go.
+- **ai-trash keeps uncommitted work** (KJC-BUG-0240, #1886): `checkout <file>`, `restore` and `switch -f` are classified, the named files and every dirty file of a whole-tree discard are kept as files, and `checkout -B` bundles.
+- **The push gate carries a split card like the commit gate** (KJC-BUG-0262).
+- **A Sonar scan returns once the server has processed it** (KJC-BUG-0263): the review pregate no longer reads the previous analysis' issues.
+- **The release history check judges a seal on what is versioned** (KJC-BUG-0259).
+
 ## [4.38.0] - 2026-10-03
 
 Karajan governs, and a hook does not forget. A coder blocked by rag-first had
