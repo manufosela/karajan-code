@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.38.0] - 2026-10-03
+
+Karajan governs, and a hook does not forget. A coder blocked by rag-first had
+written the same change with shell heredocs and discarded a user's
+uncommitted line with git checkout (issue #1886, from @aitormf). The shell
+can no longer route around the gates, and an agent cannot throw away work it
+did not make. The Sentinel's guards leave their template strings for real
+modules with unit tests. The method's rules reach the agent at the moment
+of the action and come back after every compaction. And a session no longer
+changes the policies that govern it.
+
+### Added
+
+- **Reminders at the moment of the action** (KJC-TSK-0917, ADR 0014): after `git add`, a `gh` without an account switch, `gh pr create` and a sync of `main`, the Sentinel adds the rule that comes next to the agent's context, once every 25 actions at most, and never blocks.
+- **The critical rules come back after a compaction** (KJC-TSK-0918): a SessionStart hook for `compact` and `resume` gives the agent back nine short rules and the state of its session (branch, card, merged cards not yet moved).
+- **Karajan governs** (KJC-TSK-0920): `.karajan/policy.yml`, `.karajan/kj.config.yml` and any `.ragignore` belong to the human, like the supervisor's files. Every deny of the PreToolUse gate ends saying so.
+- **A session does not discard what it did not make** (KJC-BUG-0238, 0241, 0242): `git checkout`/`restore` of paths, `checkout .`/`-f`, `reset --hard`, `switch --discard-changes` and any non-dry-run `git clean` are denied, with no escape, when a file they would throw away was not clean the first time the session touched it. `stash drop`/`clear` are always denied. The remedy is `git stash push`.
+
+### Changed
+
+- **Repo files are written through Edit/Write only** (KJC-BUG-0237): Bash writes into the repo are denied, whether by redirection, `tee`, `sed -i`, `cp`/`mv`, `dd`, `truncate` or `touch`, through wrappers, substitutions, `sh -c`, `xargs` or inline scripts that name a write API. Outside the repo Bash stays free. The stated limit: a program you run can still write; only a sandbox stops that.
+- **The Sentinel's guards are real modules** (KJC-TSK-0915, 0916, 0919, ADR 0014): the shell reader, the discard guard and the bash-write guard live in `src/harden/sentinel/*.mjs` with unit tests, and `kj harden` copies them byte for byte into the harness, covered by the install record, the tamper check and the seal.
+
+### Fixed
+
+- **`kj_rag_query` over MCP satisfies rag-first** (KJC-BUG-0236, #1886): the hook that records RAG answers was never wired to the MCP tool.
+- **The lane guard reads quoted text as text** (KJC-BUG-0243): PR titles with a slash, grep patterns such as `"a|b"` and commit messages with a slash are no longer taken for paths or substitutions.
+- **The sealed supervisor commit refuses a foreign stage** (KJC-BUG-0244, from grebla-app): it names what is staged that is not the supervisor's before asking the human anything.
+- **`kj rag migrate` keeps only what the indexer would take today** (KJC-BUG-0255): no more `vendor/*.min.js` copied from the global index. And `kj rag query` warns when the index holds none of the project's own files (KJC-BUG-0258).
+- **`kj hu move --help` lists the valid states** (KJC-BUG-0257).
+
 ## [4.37.0] - 2026-09-29
 
 Two days of catching things earlier. The phone now signs everything it shows,
