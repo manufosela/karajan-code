@@ -37,12 +37,13 @@ const commit = (env = {}) => {
 const push = (env = {}) => spawnSync("sh", [path.join(dir, ".karajan", "hooks", "pre-push")], { cwd: dir, encoding: "utf8", env: { ...process.env, GH_CONFIG_DIR: ghDir, ...env } });
 
 describe("pre-commit identity lock", () => {
-  it("email distinto del declarado: rechaza nombrando ambos; igual: pasa; escape KJ_ALLOW_IDENTITY=1", () => {
+  it("email distinto del declarado: rechaza nombrando ambos; igual: pasa; sin escape (ADR 0015)", () => {
     declare("manufosela", "a@b.c");
     const denied = commit();
     expect(denied.status).not.toBe(0);
     expect(`${denied.stdout}${denied.stderr}`).toMatch(/identity lock.*t@t.*a@b\.c/);
-    expect(commit({ KJ_ALLOW_IDENTITY: "1" }).status).toBe(0);
+    expect(`${denied.stdout}${denied.stderr}`).not.toContain("KJ_ALLOW");
+    expect(commit({ KJ_ALLOW_IDENTITY: "1" }).status).not.toBe(0);
     execFileSync("git", ["config", "user.email", "a@b.c"], { cwd: dir });
     expect(commit().status).toBe(0);
     expect(commit({ GIT_AUTHOR_EMAIL: "zzz@x.y" }).status).not.toBe(0);
@@ -66,6 +67,6 @@ describe("pre-push identity lock", () => {
     expect(push().status).toBe(0);
     fs.rmSync(path.join(ghDir, "hosts.yml"));
     expect(push().status).not.toBe(0);
-    expect(push({ KJ_ALLOW_IDENTITY: "1" }).status).toBe(0);
+    expect(push({ KJ_ALLOW_IDENTITY: "1" }).status).not.toBe(0);
   });
 });
