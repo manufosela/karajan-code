@@ -81,7 +81,7 @@ El check levantado sigue en rojo en el informe, porque el hecho no ha cambiado; 
 
 El review corre en el hook de commit, así que una bandera que se salta el hook se salta también el veredicto, la policy y el escaneo de privacidad. `git commit --no-verify` se deniega, y con él cualquier abreviatura que git aceptaría (`--no-ver`, `-n`, un grupo de flags cortos que lo lleve). Nombrar `core.hooksPath` también se deniega, por cualquiera de las puertas que git tiene para esa llave (`-c`, `config`, `--config-env`, `GIT_CONFIG_KEY_n`, `GIT_CONFIG_PARAMETERS`), porque moverla apaga todos los hooks de golpe. Leerla incluida: exceptuar las lecturas invitaba a colar una detrás del cambio, y volver a leerla te cuesta un escape mientras que perder el gate cuesta el veredicto.
 
-Si el hook está roto, lo que toca es arreglarlo. Si el commit tiene que entrar igual, eso lo decide tu usuario: `KJ_ALLOW_NO_VERIFY=1`, registrado en el decision log como cualquier otro escape. El `--no-verify` que `kj harden --commit` usa por dentro no se ve afectado, porque no pasa por una tool call.
+Si el hook está roto, lo que toca es arreglarlo. No hay escape (ADR 0015): si el commit tiene que entrar igual, lo lanza tu usuario en su propia terminal. El `--no-verify` que `kj harden --commit` usa por dentro no se ve afectado, porque no pasa por una tool call.
 
 ## supervisor
 
@@ -140,8 +140,5 @@ El ADR 0015 retira los escapes: un gate que necesita uno es un gate a corregir, 
 | `KJ_ALLOW_STEWARD=1` | bloqueo duro del steward | La rotura es conocida, cardeada, y el usuario dice que el trabajo continúa |
 | `KJ_ALLOW_RELEASE=1` | release check | Un rojo que ahora mismo nadie puede arreglar, acordado con el humano (el caso de la landing lo cubre `remedied_by`) |
 | `KJ_ALLOW_PII=1` | bloqueo de la denylist de privacidad en el commit | Un falso positivo confirmado, revisado por el humano |
-| `KJ_ALLOW_REWRITE=1` | la guarda contra reserializar ficheros JSON enteros desde Bash | Reescribir el fichero entero ES el cambio acordado |
-| `KJ_ALLOW_NO_VERIFY=1` | la denegación de `git commit --no-verify` y de mover `core.hooksPath` | El hook está roto de verdad y el humano dice que el commit entra igual |
-| `KJ_ALLOW_WRITE=1` | el bloqueo de Write sobre fichero existente (usa Edit) | Una regeneración completa es justo lo que se pidió |
 
 No hay ningún `KJ_ALLOW_*` para los hallazgos de seguridad. Ese es el objetivo.

@@ -137,8 +137,9 @@ import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
-// ADR 0015 (KJC-TSK-0925): NO_CARD, NO_TESTS, BOARD and NO_RAG no longer exist.
-const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_NO_VERIFY"];
+// ADR 0015 (KJC-TSK-0925, 0926): NO_CARD, NO_TESTS, BOARD, NO_RAG, WRITE, REWRITE
+// and NO_VERIFY no longer exist.
+const ESCAPES = ["KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -1133,11 +1134,10 @@ process.stdin.on("end", () => {
       // depender de como parta las palabras el separador (catch de la review).
       const movesHooks = cmd.toLowerCase().includes("core.hookspath");
       if ((inOrder(["git", "commit"], words) && words.some(skipsVerify)) || movesHooks) {
-        if (escOn("KJ_ALLOW_NO_VERIFY")) { recordEscape(sid, "KJ_ALLOW_NO_VERIFY", tool); }
-        else {
-          console.error("karajan sentinel: el gate de commit no se apaga con una bandera — el review cruzado y la policy corren en el hook, y saltarselos deja el diff sin veredicto. Si el hook esta roto, arreglalo; si de verdad hace falta, es una decision de tu usuario. (KJ_ALLOW_NO_VERIFY=1 = excepcion consciente, queda registrada)" + doc("escapes"));
-          process.exit(2);
-        }
+        // ADR 0015 (KJC-TSK-0926): no escape. A broken hook is fixed; skipping it,
+        // if it ever must happen, is the user's act in their own terminal.
+        console.error("karajan sentinel: el gate de commit no se apaga con una bandera — el review cruzado y la policy corren en el hook, y saltarselos deja el diff sin veredicto. Si el hook esta roto, arreglalo; si de verdad hace falta saltarlo, lo hace tu usuario en su terminal." + doc("escapes"));
+        process.exit(2);
       }
       const MERGE = /\\bgh\\s+pr\\s+merge(\\s+(\\d+))?/;
       const ADVANCE = /\\bgit\\s+commit\\b|\\bgit\\s+push\\b|\\bgh\\s+pr\\s+create\\b/; // push also falls under violations() — explicit here too (review catch)
