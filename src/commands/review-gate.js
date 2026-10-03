@@ -267,7 +267,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     }
   }
   // KJC-TSK-0705 (PV-B): the outbound privacy boundary at commit time.
-  // Denylist data rejects (KJ_ALLOW_PII=1 is the named escape); generic PII
+  // Denylist data rejects with no escape (ADR 0015: false positives go in the allow list); generic PII
   // warns (privacy.generic: "block" hardens). Added lines only — deletions
   // don't publish. In the SEA binary the privacy module is stubbed and
   // throws: the gate degrades with a note instead of crashing.
@@ -286,25 +286,19 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     for (const f of warns) console.log(`⚠ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked} — personal data? move it out before it ships`);
     const hardened = config?.privacy?.generic === "block" && warns.length > 0;
     if (blocks.length > 0 || hardened) {
-      if (process.env.KJ_ALLOW_PII === "1") {
-        console.log(`⚠ privacy exempt: ${blocks.length} denylist hit(s) — KJ_ALLOW_PII=1 (explicit escape hatch)`);
-      } else {
-        for (const f of blocks) console.log(`✗ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
-        const reason = `${blocks.length || warns.length} personal-data finding(s) in the staged diff — this must not reach the repo (KJ_ALLOW_PII=1 to override consciously)`;
-        console.log(`✗ privacy gate: ${reason}`);
-        process.exitCode = 1;
-        return { verdict: "rejected", reviewer: "privacy", issues: [{ severity: "high", description: reason }] };
-      }
+      for (const f of blocks) console.log(`✗ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
+      const reason = `${blocks.length || warns.length} personal-data finding(s) in the staged diff — this must not reach the repo (a confirmed false positive goes in the allow list of ~/.karajan/privacy.yml)`;
+      console.log(`✗ privacy gate: ${reason}`);
+      process.exitCode = 1;
+      return { verdict: "rejected", reviewer: "privacy", issues: [{ severity: "high", description: reason }] };
     }
   } catch (err) {
     // Known degradation: the SEA stub throws its install-from-npm message.
     // Anything else fails CLOSED — a silent skip would defeat the guarantee.
     if (/standalone binary/i.test(err?.message || "")) {
       console.log("⚠ privacy gate unavailable in this build — skipping");
-    } else if (process.env.KJ_ALLOW_PII === "1") {
-      console.log(`⚠ privacy gate errored (${err.message}) — KJ_ALLOW_PII=1 (explicit escape hatch)`);
     } else {
-      const reason = `privacy gate error: ${err.message} — refusing to pass the boundary unchecked (KJ_ALLOW_PII=1 to override consciously)`;
+      const reason = `privacy gate error: ${err.message} — refusing to pass the boundary unchecked`;
       console.log(`✗ ${reason}`);
       process.exitCode = 1;
       return { verdict: "rejected", reviewer: "privacy", issues: [{ severity: "high", description: reason }] };
@@ -328,9 +322,8 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
 
   // KJC-TSK-0734 (PL-B): la policy declarativa como gate determinista, en
   // --staged Y en --check — el pre-commit hereda los dientes sin regenerar
-  // hooks. enforcement=warn avisa; deny cierra salvo excepción probatoria
-  // (KJ_ALLOW_POLICY=1 + KJ_POLICY_REASON, registrada con identidad y hash
-  // del diff); class=security cierra sin escape y sin arbitraje.
+  // hooks. enforcement=warn avisa; deny cierra sin excepción por diff (ADR
+  // 0015); class=security cierra además sin arbitraje.
   // KJC-BUG-0208: el mismo modulo que decide el presupuesto decide el metrico
   // del invariante. Sumar aqui el numstat entero daba dos cifras para la misma
   // regla en dos lineas seguidas del mismo comando.
