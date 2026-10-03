@@ -8,7 +8,7 @@
  * hooks, which is why the guaranteed level requires Claude as host (ADR).
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -1450,6 +1450,7 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
   // first attempt at this fix, and the review was right to reject it.
   const sealed = sealedByPath(root, gitShowFn);
   const ownRecord = readInstalledRecord(dir);
+  const hasRecord = existsSync(join(dir, INSTALLED_RECORD));
   const drift = [];
   const tampered = [];
   const regenerated = [];
@@ -1458,9 +1459,10 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
     const hash = text === undefined ? null : sha256(text);
     if (hash && sealed.get(`.karajan/harness/${name}`) === hash) drift.push(name);
     else if (hash && ownRecord[name] === hash) regenerated.push(name);
-    // KJC-TSK-0915: absent, never recorded by kj and never sealed = a guard newer
-    // than this install (kj moved on), not a deleted one. Writing it only adds.
-    else if (!hash && !Object.hasOwn(ownRecord, name) && !sealed.has(`.karajan/harness/${name}`)) regenerated.push(name);
+    // KJC-TSK-0915: absent from an install kj RECORDED (installed.json exists), never
+    // recorded and never sealed = a guard newer than this install, not a deleted
+    // one. Writing it only adds. A dir with no record is not a kj install at all.
+    else if (!hash && hasRecord && !Object.hasOwn(ownRecord, name) && !sealed.has(`.karajan/harness/${name}`)) regenerated.push(name);
     else tampered.push(name);
   }
   // KJC-BUG-0224 caso 1: lo que kj escribio y nadie sello ni toco se pone al

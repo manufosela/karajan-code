@@ -26,6 +26,15 @@ const seaTransformPlugin = {
       let contents = await fs.readFile(args.path, "utf8");
       let modified = false;
 
+      // KJC-TSK-0915 (ADR 0014): the Sentinel's guard modules are read as TEXT at
+      // load time, to be copied into a project's harness. A single-file bundle has
+      // no sibling files, so the text is inlined here, before import.meta.url goes.
+      const SENTINEL_READ = /readFileSync\(new URL\("(\.\/sentinel\/[\w-]+\.mjs)", import\.meta\.url\), "utf8"\)/g;
+      if (SENTINEL_READ.test(contents)) {
+        contents = contents.replace(SENTINEL_READ, (_m, rel) => JSON.stringify(readFileSync(path.resolve(path.dirname(args.path), rel), "utf8")));
+        modified = true;
+      }
+
       // Replace import.meta.dirname with __dirname
       if (contents.includes("import.meta.dirname")) {
         contents = contents.replaceAll("import.meta.dirname", "__dirname");
