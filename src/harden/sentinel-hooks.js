@@ -30,7 +30,7 @@ const LIB_BODY = `// kj sentinel shared lib (KJC-TSK-0714) — managed by \`kj h
 // Single source for every sentinel script: state, branch, classification,
 // and violations.
 import { readFileSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
@@ -80,8 +80,20 @@ export const bootstrapPhase = () => {
   try { execSync("git rev-parse --verify HEAD", { cwd: ROOT, stdio: ["ignore", "ignore", "ignore"] }); return false; }
   catch { return true; }
 };
-export const violations = (s, branch) => {
-  const v = pendingMoves(s).map(pendingText);
+// KJC-BUG-0198/0262: a card split across PRs is carried while another PR of it is
+// open. kj decides with that checkable fact, the same answer for commit and push
+// (the Stop gate still holds the turn: the board owes the move); when kj does not
+// answer, every pending move blocks.
+export const boardGate = (sid, pend) => {
+  if (!pend.length) return { blocking: [], carried: [] };
+  const bg = spawnSync("kj", ["sentinel", "board-gate", "--session", sid, "--json"], { cwd: ROOT, encoding: "utf8" });
+  if (!bg.error && (bg.status === 0 || bg.status === 2)) {
+    try { const d = JSON.parse(bg.stdout); return { blocking: d.blocking || [], carried: d.carried || [] }; } catch { /* unreadable: as always */ }
+  }
+  return { blocking: pend, carried: [] };
+};
+export const violations = (s, branch, pending = pendingMoves(s)) => {
+  const v = pending.map(pendingText);
   if (!s || !(s.edited_sources || []).length) return v;
   if (bootstrapPhase()) return v;
   if (BASE_BRANCHES.has(branch)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion");
@@ -426,7 +438,7 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost } from "./sentinel-discard.mjs";
@@ -1036,13 +1048,8 @@ process.stdin.on("end", () => {
       const pend = pendingMoves(load().sessions?.[sid]);
       if (pend.length > 0 && (mergeM || ADVANCE.test(cmd))) {
         // KJC-BUG-0198: una card partida en varias PRs no puede quedar bloqueada
-        // por su primera mitad. kj decide con un hecho comprobable (otra PR
-        // abierta de la card); si kj no responde, se bloquea como siempre.
-        const bg = spawnSync("kj", ["sentinel", "board-gate", "--session", sid, "--json"], { cwd: ROOT, encoding: "utf8" });
-        let blocking = pend, carried = [];
-        if (!bg.error && (bg.status === 0 || bg.status === 2)) {
-          try { const d = JSON.parse(bg.stdout); blocking = d.blocking || []; carried = d.carried || []; } catch { /* sin respuesta legible: como siempre */ }
-        }
+        // por su primera mitad (boardGate, en la lib).
+        const { blocking, carried } = boardGate(sid, pend);
         for (const c of carried) console.error("karajan sentinel: board-sync arrastra " + c.card + " — " + c.why + ", se movera al cerrarla");
         // ADR 0015 (KJC-TSK-0925): no escape; an epic and a card split across PRs
         // are already decided above (KJC-BUG-0230, 0198).
@@ -1091,8 +1098,9 @@ process.stdin.on("end", () => {
       } else if (PUSH.test(cmd)) {
         // KJC-BUG-0147: a pending move blocks the push like it blocks the commit.
         // ADR 0015 (KJC-TSK-0925): with no escape.
+        // KJC-BUG-0262: a carried card does not block the push the commit let through.
         const sess = load().sessions?.[sid];
-        const v = violations(sess, branchOf());
+        const v = violations(sess, branchOf(), boardGate(sid, pendingMoves(sess)).blocking);
         if (v.length) {
           console.error("karajan sentinel: git push con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve antes de empujar. Estado: kj sentinel status" + doc("push-gate"));
           process.exit(2);

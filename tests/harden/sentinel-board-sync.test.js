@@ -156,6 +156,9 @@ describe("board-sync gate", () => {
     const allowed = bash("git commit -m x", { PATH: bin + ":" + process.env.PATH });
     expect(allowed.status).toBe(0);
     expect(allowed.stderr).toMatch(/arrastra KJC-TSK-0042/);
+    // KJC-BUG-0262: y el push de esa misma PR tambien, como el commit.
+    expect(bash("git push -u origin feat/KJC-TSK-0042-x", { PATH: bin + ":" + process.env.PATH }).status).toBe(0);
+    expect(bash("git push -u origin feat/KJC-TSK-0042-x").status).toBe(2);
     // La pendiente NO se borra: el tablero sigue debiendo el movimiento, y el
     // Stop gate sigue impidiendo terminar el turno.
     expect(state().sessions.s1.pending_moves).toHaveLength(1);
