@@ -82,6 +82,27 @@ async function sonarFetch(config, urlPath) {
   );
 }
 
+const CE_FINAL = new Set(["SUCCESS", "FAILED", "CANCELED"]);
+const sleepMs = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/**
+ * KJC-BUG-0263 — the scanner uploads the analysis and returns; the server
+ * processes it in the background, and issues read before that task ends are
+ * the PREVIOUS analysis. Polls /api/ce/task until it reaches a final status.
+ * @returns {Promise<{ok: boolean, status: string, timedOut?: boolean}>}
+ */
+export async function waitForAnalysis(config, taskId, { timeoutMs = 120_000, intervalMs = 1000, sleep = sleepMs } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let status = "UNKNOWN";
+  while (Date.now() < deadline) {
+    const body = await sonarFetch(config, `/api/ce/task?id=${encodeURIComponent(taskId)}`);
+    try { status = JSON.parse(body).task?.status || "UNKNOWN"; } catch { status = "UNKNOWN"; }
+    if (CE_FINAL.has(status)) return { ok: status === "SUCCESS", status };
+    await sleep(intervalMs);
+  }
+  return { ok: false, status, timedOut: true };
+}
+
 /**
  * KJC-BUG-0226 (issue #1838) — de donde sale la clave que se CONSULTA. El
  * scanner sube el analisis con la que el repo declara en su

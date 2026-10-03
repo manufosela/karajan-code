@@ -4,6 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { runCommand } from "../utils/process.js";
 import { sonarUp } from "./manager.js";
+import { waitForAnalysis } from "./api.js";
 import { resolveSonarProjectKey } from "./project-key.js";
 import {
   resolveSonarHost,
@@ -380,14 +381,32 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
   }
 
   const result = await runCommand(cmd, args, { timeout: scannerTimeout, env, cwd: scanCwd });
+  // KJC-BUG-0263: the scan is done when the server has processed it; whoever reads
+  // the issues next would otherwise get the previous analysis. Said out loud when
+  // the log names no task to wait for.
+  let ok = result.exitCode === 0;
+  let analysisNote = null;
+  if (ok) {
+    const taskId = /api\/ce\/task\?id=([\w-]+)/.exec(String(result.stdout || ""))?.[1];
+    if (taskId) {
+      const done = await waitForAnalysis({ ...config, sonarqube: { ...sonarConfig, host: apiHost } }, taskId);
+      if (!done.ok) {
+        ok = false;
+        analysisNote = `sonar: the server did not finish analysis ${taskId} (${done.status}${done.timedOut ? ", timed out" : ""}) — its issues would be the previous analysis`;
+      }
+    } else {
+      analysisNote = "sonar: the scanner log names no analysis task, so kj could not wait for the server — issues may belong to the previous analysis";
+    }
+  }
   return {
-    ok: result.exitCode === 0,
+    ok,
     projectKey: effectiveProjectKey,
     cwd: scanCwd,
     scanner: pick.type,
-    note,
+    note: [note, analysisNote].filter(Boolean).join("; ") || null,
     stdout: result.stdout,
-    stderr: result.stderr,
+    // A scan that failed on the server's side says so, not with the scanner's own log.
+    stderr: !ok && result.exitCode === 0 ? analysisNote : result.stderr,
     exitCode: result.exitCode
   };
 }
