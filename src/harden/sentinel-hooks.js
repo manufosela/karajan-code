@@ -136,6 +136,7 @@ import process from "node:process";
 import { relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
+import { remindersFor } from "./sentinel-reminders.mjs";
 const ESCAPES = ["KJ_ALLOW_WRITE", "KJ_ALLOW_REWRITE", "KJ_ALLOW_NO_CARD", "KJ_ALLOW_NO_TESTS", "KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY", "KJ_ALLOW_BOARD", "KJ_ALLOW_NO_RAG", "KJ_ALLOW_NO_VERIFY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
@@ -273,6 +274,15 @@ process.stdin.on("end", () => {
       // "not found" counts as failure (KJC-BUG-0154): a move that moved nothing must not
       // clear a pending — that would discard a LEGITIMATE one without touching the tracker.
       if (moved && CLOSING.includes(moved[2].toLowerCase()) && !/error|fail|not found/i.test(text)) clearPending(moved[1].toUpperCase());
+      // KJC-TSK-0917 (ADR 0014): the method's reminders, after the action that precedes
+      // the one each rule is about; at most once every 25 Bash actions each. Never a block.
+      const st = load();
+      const ss = session(st, sid);
+      ss.step = (ss.step || 0) + 1;
+      const due = remindersFor(cmdText, { seen: ss.reminded || {}, step: ss.step });
+      for (const r of due) (ss.reminded ||= {})[r.id] = ss.step;
+      save(st);
+      if (due.length) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: due.map((r) => r.say).join(" ") } }));
       process.exit(0);
     }
     const file = input.file_path || input.notebook_path;
@@ -1347,6 +1357,7 @@ const SCRIPT_BODIES = {
   // (so they can import each other in both places). Being here, the installed
   // record, the tamper check and the human seal cover them as well.
   "sentinel-shell.mjs": readFileSync(new URL("./sentinel/sentinel-shell.mjs", import.meta.url), "utf8"),
+  "sentinel-reminders.mjs": readFileSync(new URL("./sentinel/sentinel-reminders.mjs", import.meta.url), "utf8"),
 };
 
 /**
