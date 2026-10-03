@@ -5,8 +5,19 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { shellSegments, headIndex, shortOpts } from "../../src/harden/sentinel/sentinel-shell.mjs";
+import { shellSegments, headIndex, shortOpts, optionValues } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks, canonicalHarnessBody, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
+
+describe("optionValues (KJC-BUG-0245)", () => {
+  it("ends a path at ; && | and reads both --opt value and --opt=value", () => {
+    const names = ["--body-file", "--notes-file"];
+    expect(optionValues('gh pr create --title "a b; c" --body-file /tmp/x/pr.md; npm view kj', names)).toEqual(["/tmp/x/pr.md"]);
+    expect(optionValues("gh pr create --body-file /tmp/pr.md&&echo ok", names)).toEqual(["/tmp/pr.md"]);
+    expect(optionValues("gh release create v1 --notes-file=/tmp/n.md|tail -1", names)).toEqual(["/tmp/n.md"]);
+    expect(optionValues("gh pr create --body-file 'my dir/pr.md'", names)).toEqual(["my dir/pr.md"]);
+    expect(optionValues("gh pr create --title x", names)).toEqual([]);
+  });
+});
 
 describe("shellSegments", () => {
   it("cuts simple commands at operators, newlines, groups and substitutions", () => {

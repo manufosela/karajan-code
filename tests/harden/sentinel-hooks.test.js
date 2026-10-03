@@ -134,6 +134,9 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     const clean = path.join(dir, "clean.md");
     fs.writeFileSync(clean, "Cuerpo normal usando codex como reviewer del metodo.\n");
     expect(run(gate, bash(`gh pr create --title x --body-file ${clean}`)).status).toBe(0);
+    // KJC-BUG-0245: un ; o && pegado a la ruta no forma parte de ella.
+    expect(run(gate, bash(`gh pr create --title "a b" --body-file ${clean}&& echo ok`)).status).toBe(0);
+    expect(run(gate, bash(`gh pr create --title x --body-file ${dirty}; echo ok`)).status).toBe(2);
     // gh de lectura: ni se mira
     expect(run(gate, bash("gh pr view 12 --json state")).status).toBe(0);
   });

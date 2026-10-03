@@ -458,7 +458,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, recordEscape, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
+import { optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost } from "./sentinel-discard.mjs";
 import { shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
@@ -538,8 +538,8 @@ process.stdin.on("end", () => {
       if (tool === "Bash" && /(^|[^a-zA-Z])gh([^a-zA-Z]|$)/.test(ghCmd) && /(^|[^a-z])(pr|issue|release)([^a-z]|$)/.test(ghCmd) && /(^|[^a-z])(create|edit|comment|review)([^a-z]|$)/.test(ghCmd)) {
         const attrib = /co-authored-by:.{0,120}(claude|gpt|copilot|gemini)|(generated|written|created) (by|with).{0,120}(claude|gpt|copilot|gemini|codex)|generated with [[]?claude|🤖/is;
         let corpus = ghCmd;
-        for (const m of ghCmd.matchAll(/--(?:body-file|notes-file|comment-file)[= ]+("([^"]+)"|'([^']+)'|([^ ]+))/g)) {
-          const bodyPath = m[2] || m[3] || m[4];
+        // KJC-BUG-0245: the shell reader ends the path at ; && | (a regex took "pr.md;").
+        for (const bodyPath of optionValues(ghCmd, ["--body-file", "--notes-file", "--comment-file"])) {
           try { corpus += "\\n" + readFileSync(bodyPath, "utf8"); } catch {
             console.error("karajan sentinel: no puedo leer " + bodyPath + " para el escaneo de atribucion — sin escaneo no se publica." + doc("attribution"));
             process.exit(2);
@@ -1166,9 +1166,9 @@ process.stdin.on("end", () => {
       // there misleads every future reader. When the command writes one from a
       // file, kj crosses ITS data against this turn's outputs; the hook carries
       // no policy (kj reads method_gates.claims; off = this check does not exist).
-      const bodyFile = /\\bgh\\s+pr\\s+(?:create|edit)\\b/.test(cmd) ? /--body-file[= ]+("([^"]+)"|'([^']+)'|([^\\s"']+))/.exec(cmd) : null;
-      if (bodyFile && transcript) {
-        const body = bodyFile[2] || bodyFile[3] || bodyFile[4];
+      // KJC-BUG-0245: the path is read by the shell reader, so "pr.md;" is "pr.md".
+      const body = /\\bgh\\s+pr\\s+(?:create|edit)\\b/.test(cmd) ? optionValues(cmd, ["--body-file"])[0] : undefined;
+      if (body && transcript) {
         const g = spawnSync("kj", ["claims", "gate", "--transcript", transcript, "--file", body], { cwd: ROOT, encoding: "utf8" });
         if (!g.error && g.status === 2) {
           console.error("karajan sentinel: claims — un dato del cuerpo de la PR esta DESMENTIDO por las salidas de este turno:\\n" + (g.stderr || "").trim() + "\\nVerificalo o marcalo como no comprobado antes de crear la PR. Detalle: kj claims check --transcript " + transcript + " --file " + body + doc("claims"));
