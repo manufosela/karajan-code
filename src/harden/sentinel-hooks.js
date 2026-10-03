@@ -139,7 +139,7 @@ import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentin
 import { remindersFor } from "./sentinel-reminders.mjs";
 // ADR 0015 (KJC-TSK-0925, 0926): NO_CARD, NO_TESTS, BOARD, NO_RAG, WRITE, REWRITE
 // and NO_VERIFY no longer exist.
-const ESCAPES = ["KJ_ALLOW_PII", "KJ_ALLOW_POLICY", "KJ_ALLOW_IDENTITY"];
+const ESCAPES = ["KJ_ALLOW_IDENTITY"];
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -944,8 +944,8 @@ process.stdin.on("end", () => {
     // Fail CLOSED por defecto (catches de codex; doctrina KJC-BUG-0095: un
     // gate no se cae en silencio): solo exit 0 permite. kj inejecutable =
     // deny duro (el remedio es restaurar kj); cualquier otro fallo de
-    // evaluacion = deny con escape humano registrable — la sesion no queda
-    // presa de un typo de YAML, pero abrirla es decision del usuario.
+    // evaluacion = deny sin escape (ADR 0015): un typo de YAML lo corrige el
+    // usuario fuera de la sesion.
     if ((EDIT_TOOLS.includes(tool) || tool === "Bash") && existsSync(resolve(ROOT, ".karajan", "policy.yml"))) {
       // PL-C: el rol que ACTÚA (KJ_POLICY_ROLE, sembrado por los runners de
       // kj run en los subprocesos) — el anfitrión-brain evalúa como coder.
@@ -959,11 +959,9 @@ process.stdin.on("end", () => {
         let v = null;
         try { v = JSON.parse(String(pres.stdout || "").trim().split("\\n").pop()); } catch { /* mensaje generico */ }
         const secure = !!(v && v.class === "security");
-        if (!secure && escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
-        else {
-          console.error("karajan sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada; el commit exigira ademas KJ_POLICY_REASON)") + doc("policy"));
-          process.exit(2);
-        }
+        // ADR 0015 (KJC-TSK-0932): no escape; a rule that misfires is fixed by PR.
+        console.error("karajan sentinel: policy deny [" + ((v && v.rule_id) || "policy") + "] " + ((v && v.reason) || "la tool call viola la policy del proyecto") + (secure ? " [security — sin escape ni arbitraje]" : " (sin escape: si la regla falla, tu usuario corrige .karajan/policy.yml por PR)") + doc("policy"));
+        process.exit(2);
       } else if (pres.status !== 0) {
         // KJC-BUG-0207: un kj que NO ARRANCA no es una violacion de policy. Con
         // kj linkado al arbol, un error de sintaxis transitorio en src/ dejaba
@@ -988,9 +986,8 @@ process.stdin.on("end", () => {
             console.error("karajan sentinel: kj no arranca (" + broken[0] + (at ? " en " + at : "") + "), asi que la policy no se puede evaluar y NADA MAS pasa: edita " + (brokenFile || "el fichero que rompe kj") + " para arreglarlo. No es un deny de policy, es kj roto." + doc("policy"));
             process.exit(2);
           }
-        } else if (escOn("KJ_ALLOW_POLICY")) { recordEscape(sid, "KJ_ALLOW_POLICY", tool); }
-        else {
-          console.error("karajan sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check y corrige .karajan/policy.yml fuera de la sesion (o KJ_ALLOW_POLICY=1 = excepcion consciente, queda registrada)." + doc("policy"));
+        } else {
+          console.error("karajan sentinel: kj policy eval fallo (exit " + pres.status + ") — la policy declarada no se pudo evaluar, deny por defecto; diagnostica con kj policy check; .karajan/policy.yml lo corrige tu usuario fuera de la sesion." + doc("policy"));
           process.exit(2);
         }
       }
@@ -1160,7 +1157,8 @@ process.stdin.on("end", () => {
         }
       }
       if (isPublish(cmd)) {
-        if (escOn("KJ_ALLOW_RELEASE")) { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
+        // ADR 0015 (KJC-TSK-0932): no escape — KJC-BUG-0204 and 0259 keep the
+        // check from blocking its own fix.
         // KJC-BUG-0204: el check se evalua PARA este comando. Un item que
         // declara remedied_by no bloquea el comando que lo repara (desplegar
         // la landing era justo lo que el check pedia); publicar no se exime.
@@ -1177,7 +1175,7 @@ process.stdin.on("end", () => {
         if (res.status !== 0) {
           let items = "";
           try { items = (parsed.checks || []).filter((c) => !c.ok && c.lifted !== true).map((c) => "\\n- " + c.name + ": " + c.detail).join(""); } catch { /* raw output */ }
-          console.error("karajan sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(KJ_ALLOW_RELEASE=1 = excepcion consciente, queda registrada)" + doc("release"));
+          console.error("karajan sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(sin escape: se repara lo que el check nombra)" + doc("release"));
           process.exit(2);
         }
       } else if (PUSH.test(cmd)) {

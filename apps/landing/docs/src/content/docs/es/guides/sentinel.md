@@ -51,7 +51,7 @@ Una card mergeada debe moverse en el tracker antes de que avance nada más, comm
 
 ## policy
 
-`.karajan/policy.yml` se evalúa en cada llamada a herramienta. Un deny nombra su regla y su motivo. Las reglas etiquetadas como seguridad NO tienen escape NI arbitraje. Para el resto: `KJ_ALLOW_POLICY=1` (el commit además exigirá `KJ_POLICY_REASON`).
+`.karajan/policy.yml` se evalúa en cada llamada a herramienta. Un deny nombra su regla y su motivo. Las reglas etiquetadas como seguridad NO tienen escape NI arbitraje. El resto tampoco tiene escape (ADR 0015): una regla que se dispara mal la corrige tu usuario en `.karajan/policy.yml`, por PR.
 
 ## steward
 
@@ -75,7 +75,7 @@ release_check:
       remedied_by: firebase deploy
 ```
 
-El check levantado sigue en rojo en el informe, porque el hecho no ha cambiado; solo deja de bloquear su propio arreglo, y el gate dice qué item ha levantado en lugar de hacerlo en silencio. Cualquier otro rojo sigue bloqueando. Publicar el paquete no se exime nunca: `npm publish` y `gh release create` son irreversibles, así que ningún remedio declarado los cubre, y `KJ_ALLOW_RELEASE=1` sigue siendo el único escape consciente.
+El check levantado sigue en rojo en el informe, porque el hecho no ha cambiado; solo deja de bloquear su propio arreglo, y el gate dice qué item ha levantado en lugar de hacerlo en silencio. Cualquier otro rojo sigue bloqueando. Publicar el paquete no se exime nunca: `npm publish` y `gh release create` son irreversibles, así que ningún remedio declarado los cubre, y no hay escape (ADR 0015): primero se repara lo que el check nombra.
 
 ## commit-gate
 
@@ -130,13 +130,10 @@ La atribución a IA está prohibida por una regla determinista del proyecto, en 
 
 ## escapes
 
-El ADR 0015 retira los escapes: un gate que necesita uno es un gate a corregir, y ningún escape lo puede activar el agente. Card-first, rag-first, board-sync y tests-con-código ya no tienen. Los demás, mientras sigan: un comando simple, un uso, registrado en el estado de la sesión y sellado en el acta de decisiones (`kj sentinel status` lista lo que esta sesión usó).
+El ADR 0015 retira los escapes: un gate que necesita uno es un gate a corregir, y ningún escape lo puede activar el agente. Solo le queda uno al bloqueo de identidad, y es el siguiente. Un falso positivo de privacidad va a la lista `allow` de `~/.karajan/privacy.yml`. Mientras siga: un comando simple, un uso, registrado en el estado de la sesión y sellado en el acta de decisiones (`kj sentinel status` lista lo que esta sesión usó).
 
 | Escape | Se salta | Legítimo cuando |
 | --- | --- | --- |
 | `KJ_ALLOW_IDENTITY=1` | bloqueo de identidad | Suites de test que ejercitan otras guardas; nunca para pushes reales |
-| `KJ_ALLOW_POLICY=1` | denies de policy no-seguridad | La regla se dispara mal y el fix está acordado; el commit además necesita `KJ_POLICY_REASON` |
-| `KJ_ALLOW_RELEASE=1` | release check | Un rojo que ahora mismo nadie puede arreglar, acordado con el humano (el caso de la landing lo cubre `remedied_by`) |
-| `KJ_ALLOW_PII=1` | bloqueo de la denylist de privacidad en el commit | Un falso positivo confirmado, revisado por el humano |
 
 No hay ningún `KJ_ALLOW_*` para los hallazgos de seguridad. Ese es el objetivo.

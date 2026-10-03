@@ -1,8 +1,6 @@
 // KJC-TSK-0734 PL-B — el gate determinista de policy en el flujo de review:
-// deny rechaza, warn avisa, y la excepción sigue el modelo probatorio:
-// quién (identidad) + regla exacta + justificación escrita EN el momento +
-// alcance ligado al hash del diff (caducidad implícita). class=security no
-// tiene escape.
+// deny rechaza y warn avisa. Sin excepción por diff desde el ADR 0015
+// (KJC-TSK-0932): una regla que falla se corrige por PR.
 
 import { describe, it, expect, vi } from "vitest";
 import { evaluatePolicyGate } from "../../src/review/policy-gate.js";
@@ -20,11 +18,11 @@ invariants:
   - { id: loc, kind: diff-threshold, metric: net_lines_added, max: 100, enforcement: warn }
 `;
 
-const run = ({ yaml = DENY_POLICY, files = [], net = 1, env = {}, record = vi.fn() } = {}) => {
+const run = ({ yaml = DENY_POLICY, files = [], net = 1, record = vi.fn() } = {}) => {
   const { policy, errors } = load(yaml);
   return {
     record,
-    res: evaluatePolicyGate({ policy, errors, files, netLinesAdded: net, diffHashValue: "abc123", env, recordException: record }),
+    res: evaluatePolicyGate({ policy, errors, files, netLinesAdded: net, diffHashValue: "abc123", recordException: record }),
   };
 };
 
@@ -52,29 +50,22 @@ describe("evaluatePolicyGate", () => {
     expect(res.denials[0].rule_id).toBe("roles.coder.write.deny");
   });
 
-  it("KJ_ALLOW_POLICY sin justificacion NO exime — la excepcion exige el porque escrito en el momento", () => {
-    const { res, record } = run({ files: ["prod.env"], env: { KJ_ALLOW_POLICY: "1" } });
-    expect(res.ok).toBe(false);
-    expect(res.denials[0].reason).toMatch(/KJ_POLICY_REASON/);
-    expect(record).not.toHaveBeenCalled();
+  it("ADR 0015: sin excepcion por diff — KJ_ALLOW_POLICY + KJ_POLICY_REASON ya no eximen", () => {
+    process.env.KJ_ALLOW_POLICY = "1";
+    process.env.KJ_POLICY_REASON = "hotfix aprobado";
+    try {
+      const { res, record } = run({ files: ["prod.env"] });
+      expect(res.ok).toBe(false);
+      expect(res.exempted).toHaveLength(0);
+      expect(record).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.KJ_ALLOW_POLICY;
+      delete process.env.KJ_POLICY_REASON;
+    }
   });
 
-  it("KJ_ALLOW_POLICY + KJ_POLICY_REASON exime Y registra la excepcion completa", () => {
-    const { res, record } = run({ files: ["prod.env"], env: { KJ_ALLOW_POLICY: "1", KJ_POLICY_REASON: "hotfix aprobado por manu" } });
-    expect(res.ok).toBe(true);
-    expect(res.exempted).toHaveLength(1);
-    expect(record).toHaveBeenCalledWith(expect.objectContaining({
-      rule_id: "roles.coder.write.deny",
-      justification: "hotfix aprobado por manu",
-      diffHash: "abc123",
-    }));
-  });
-
-  it("class=security NO tiene escape — ni con justificacion", () => {
-    const { res, record } = run({
-      files: [".karajan/hooks/pre-commit"],
-      env: { KJ_ALLOW_POLICY: "1", KJ_POLICY_REASON: "da igual" },
-    });
+  it("class=security cierra", () => {
+    const { res, record } = run({ files: [".karajan/hooks/pre-commit"] });
     expect(res.ok).toBe(false);
     expect(res.denials[0].class).toBe("security");
     expect(record).not.toHaveBeenCalled();

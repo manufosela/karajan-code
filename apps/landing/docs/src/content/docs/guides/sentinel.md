@@ -51,7 +51,7 @@ A merged card must be moved in the tracker before anything else advances — com
 
 ## policy
 
-`.karajan/policy.yml` is evaluated on every tool call. A deny names its rule and reason. Security-tagged rules have NO escape and NO arbitration. For the rest: `KJ_ALLOW_POLICY=1` (the commit will also require `KJ_POLICY_REASON`).
+`.karajan/policy.yml` is evaluated on every tool call. A deny names its rule and reason. Security-tagged rules have NO escape and NO arbitration. The rest have no escape either (ADR 0015): a rule that misfires is fixed in `.karajan/policy.yml` by your user, through a PR.
 
 ## steward
 
@@ -75,7 +75,7 @@ release_check:
       remedied_by: firebase deploy
 ```
 
-The lifted check stays red in the report, because the fact has not changed; it just stops blocking its own fix, and the gate says which item it lifted rather than doing it in silence. Any other red check still blocks. A package publication is never excused: `npm publish` and `gh release create` are irreversible, so no declared remedy covers them, and `KJ_ALLOW_RELEASE=1` remains the one conscious escape.
+The lifted check stays red in the report, because the fact has not changed; it just stops blocking its own fix, and the gate says which item it lifted rather than doing it in silence. Any other red check still blocks. A package publication is never excused: `npm publish` and `gh release create` are irreversible, so no declared remedy covers them, and there is no escape (ADR 0015): what the check names is repaired first.
 
 ## commit-gate
 
@@ -130,13 +130,10 @@ AI attribution is forbidden by a deterministic project rule — everywhere, with
 
 ## escapes
 
-ADR 0015 is retiring escapes: a gate that needs one is a gate to fix, and no escape is something an agent can raise. Card-first, rag-first, board-sync and tests-with-code no longer have one. The rest, while they remain: one simple command, one use, recorded in the session state and sealed into the decision log (`kj sentinel status` lists what this session used).
+ADR 0015 is retiring escapes: a gate that needs one is a gate to fix, and no escape is something an agent can raise. Only the identity lock still has one, and it is next. A privacy false positive goes in the `allow` list of `~/.karajan/privacy.yml`. While it remains: one simple command, one use, recorded in the session state and sealed into the decision log (`kj sentinel status` lists what this session used).
 
 | Escape | Skips | Legitimate when |
 | --- | --- | --- |
 | `KJ_ALLOW_IDENTITY=1` | identity lock | Test suites exercising other gates; never for real pushes |
-| `KJ_ALLOW_POLICY=1` | non-security policy denies | The rule mis-fires and the fix is agreed; commit also needs `KJ_POLICY_REASON` |
-| `KJ_ALLOW_RELEASE=1` | release check | A red item nobody can repair right now, agreed with the human (the landing case is covered by `remedied_by`) |
-| `KJ_ALLOW_PII=1` | privacy denylist block at commit time | A confirmed false positive, reviewed by the human |
 
 There is no `KJ_ALLOW_*` for security findings. That is the point.

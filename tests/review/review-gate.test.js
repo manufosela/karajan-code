@@ -67,10 +67,13 @@ describe("kj review gate", () => {
       expect(process.exitCode).toBe(1);
     });
 
-    it("KJ_ALLOW_PII=1 is the named escape; generic PII alone only warns", async () => {
+    it("KJ_ALLOW_PII=1 no longer opens the gate (ADR 0015); generic PII alone only warns", async () => {
+      fs.writeFileSync(path.join(dir, "a.js"), "const mail = 'secreto.real@example.com';\n");
+      execFileSync("git", ["add", "a.js"], { cwd: dir });
       process.env.KJ_ALLOW_PII = "1";
       const res = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
-      expect(res.reviewer).not.toBe("privacy"); // falls through to the verdict check
+      expect(res.reviewer).toBe("privacy");
+      expect(res.issues[0].description).toMatch(/privacy\.yml/);
       delete process.env.KJ_ALLOW_PII;
       fs.writeFileSync(path.join(dir, "a.js"), "const mail = 'generico@dominio.com';\n");
       execFileSync("git", ["add", "a.js"], { cwd: dir });
