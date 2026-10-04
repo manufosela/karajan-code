@@ -91,6 +91,13 @@ const CONTEXT_DISCARDS = [
   // (Visa 4, Mastercard 2/5, Amex 3, Discover 6), so a card number cannot
   // occupy that slot at any length.
   { type: "tracker-id", re: /\b[A-Z]{2,6}-1[6-9]\d{11}-\d{1,4}\b/g },
+  // KJC-BUG-0270: a rule id of the inventory (ADR 0016) is `R-` and 10 hex chars
+  // of a hash, and .karajan/rules.yml is versioned: an id with a long run of
+  // digits warned as a phone on every commit. Only the WHOLE shape is discarded:
+  // exactly ten lowercase hex chars with at least one letter. An all-digit id
+  // (about 1 in 100) still warns, because nothing tells it apart from a phone
+  // written after "R-"; the allow list is the way out for that one.
+  { type: "rule-id", re: /\bR-(?=\d*[a-f])[0-9a-f]{10}\b/g },
 ];
 
 /**

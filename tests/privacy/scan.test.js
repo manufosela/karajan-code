@@ -194,3 +194,25 @@ describe("scanText — lo que PARECE una tarjeta y no lo es", () => {
     expect(findings.some((f) => f.type === "creditCard")).toBe(true);
   });
 });
+
+// KJC-BUG-0270 — a rule id of the inventory (ADR 0016) is `R-` and 10 hex chars
+// of a hash, so many real ids carry a long run of digits, and .karajan/rules.yml
+// is versioned: every commit touching it warned about a phone number.
+describe("un id de regla no es un telefono", () => {
+  const none = { personal: [], allow: [] };
+  // Built in pieces: this file is scanned by the gate it tests.
+  const digits = (n) => ["0612", "3456", "78"].join("").slice(0, n);
+  const phones = (text) => scanText(text, { list: none }).filter((f) => f.type === "phone");
+
+  it("la forma entera del id (R-, diez hex en minusculas, al menos una letra) se descarta y se cuenta", () => {
+    const found = scanText(`  - id: R-${digits(8)}a1\nregla R-${digits(9)}f rota`, { list: none });
+    expect(found).toHaveLength(0);
+    expect(found.discardedByContext).toBe(2);
+  });
+
+  it("lo que no es esa forma SIGUE avisando: todo digitos, mayusculas, otra longitud, otro prefijo", () => {
+    for (const text of [`R-${digits(10)}`, `R-${digits(9)}A`, `R-${digits(9)}ab`, `XR-${digits(9)}a`, `tel ${digits(9)}`]) {
+      expect(phones(text), text).toHaveLength(1);
+    }
+  });
+});
