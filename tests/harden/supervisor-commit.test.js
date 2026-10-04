@@ -98,6 +98,20 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(shown).not.toContain("other.txt");
   });
 
+  it("KJC-BUG-0264: an older .karajan block in .gitignore is completed, so the provenance is committed", async () => {
+    const old = ".karajan/*\n!.karajan/review-gate\n!.karajan/hooks/\n.karajan/hooks/*\n!.karajan/hooks/pre-commit\n!.karajan/adrs/\n";
+    writeFileSync(join(repo, ".gitignore"), old);
+    git(["add", ".gitignore"]);
+    git(["commit", "-qm", "old block", "--no-verify"]);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    expect(res.committed).toBe(true);
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(PROVENANCE_FILE);
+    // The .gitignore change stays in the tree for a normal PR, outside the sealed commit.
+    expect(readFileSync(join(repo, ".gitignore"), "utf8")).toContain("!.karajan/supervisor-provenance.json");
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).not.toContain(".gitignore");
+  });
+
   it("KJC-BUG-0244: refuses while something else is staged, naming it, before asking the human", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     writeFileSync(join(repo, "other.txt"), "another card's work\n");
