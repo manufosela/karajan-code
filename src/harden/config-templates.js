@@ -42,6 +42,9 @@ export const COMMITLINT_BODY = [
 // project has no eslint config of its own.
 export const ESLINT_BODY = [
   "export default [",
+  // KJC-BUG-0254 (#1902): third-party and generated code is not the project's to
+  // lint (a vendored tf.min.js gave 6607 false no-var errors).
+  '  { ignores: ["vendor/**", "dist/**", "build/**", "coverage/**", ".scannerwork/**", "**/*.min.{js,mjs,cjs}"] },',
   "  {",
   '    files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],',
   '    languageOptions: { ecmaVersion: 2025, sourceType: "module" },',

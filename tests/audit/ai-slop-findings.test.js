@@ -73,6 +73,18 @@ describe("collectAiSlop — integration over tmp dir", () => {
     expect(r.worst[0]).toHaveProperty("category");
   });
 
+  it("KJC-BUG-0254: skips vendor/ and minified bundles", async () => {
+    mkdirSync(join(tmp, "vendor"), { recursive: true });
+    mkdirSync(join(tmp, "lib"), { recursive: true });
+    const slop = "// ==========\n// returns the value\nfunction value() { return x ?? null; }\n";
+    writeFileSync(join(tmp, "vendor/tf.js"), slop);
+    writeFileSync(join(tmp, "lib/bundle.min.js"), slop);
+    writeFileSync(join(tmp, "app.js"), "export function add(a, b) { return a + b; }");
+    const r = await collectAiSlop(tmp);
+    expect(r.filesScanned).toBe(1);
+    expect(r.total).toBe(0);
+  });
+
   it("scores 100 on a clean repo with no tells", async () => {
     mkdirSync(join(tmp, "src"));
     writeFileSync(join(tmp, "src/clean.js"), "export function add(a, b) { return a + b; }\nexport function mul(a, b) { return a * b; }");

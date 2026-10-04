@@ -31,6 +31,16 @@ describe("seeded eslint.config.js (ES2025 deprecated-API blacklist)", () => {
     expect(readFileSync(join(dir, "eslint.config.js"), "utf8")).toContain(">>> kj:managed:eslint v1 >>>");
   });
 
+  // KJC-BUG-0254 (#1902): a vendored minified bundle is not linted.
+  it("ignores vendor/, build output and minified files, and still lints the project's own code", async () => {
+    installConfigs({ projectDir: dir });
+    const eslint = new ESLint({ overrideConfigFile: join(dir, "eslint.config.js"), cwd: dir });
+    for (const file of ["vendor/tf.min.js", "dist/app.js", "lib/x.min.js", "lib/y.min.mjs", "lib/z.min.cjs", "build/out.js"]) {
+      expect(await eslint.isPathIgnored(join(dir, file)), file).toBe(true);
+    }
+    expect(await eslint.isPathIgnored(join(dir, "src/app.js"))).toBe(false);
+  });
+
   it("flags document.write, escape, substr and var", async () => {
     const result = await lint("document.write('x'); var y = escape('z'); 'a'.substr(1);");
     const rules = result.messages.map((m) => m.ruleId);
