@@ -44,7 +44,7 @@ import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
-import { rulesEval, rulesTest } from "../commands/rules.js";
+import { readToolInput, rulesEval, rulesTest } from "../commands/rules.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -328,10 +328,10 @@ export function registerMeta(program, { pkgVersion }) {
   rules.command("eval")
     .description("Evaluate ONE tool call against .karajan/rules.yml: prints the verdict as JSON; exit 2 on deny, 1 if it cannot be evaluated")
     .option("--tool <tool>", "Tool name (Bash, Edit, mcp__server__tool…)")
-    .option("--input <json>", "tool_input as JSON", "{}")
+    .option("--input <json>", "tool_input as JSON, or - to read it from stdin", "{}")
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-eval", flags, async ({ config }) => {
-        const res = rulesEval({ projectDir: config?.projectDir || process.cwd(), tool: flags.tool, input: flags.input });
+        const res = rulesEval({ projectDir: config?.projectDir || process.cwd(), tool: flags.tool, input: await readToolInput(flags.input) });
         console.log(JSON.stringify(res.output));
         process.exitCode = res.code;
       });

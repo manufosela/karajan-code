@@ -53,6 +53,12 @@ A merged card must be moved in the tracker before anything else advances — com
 
 `.karajan/policy.yml` is evaluated on every tool call. A deny names its rule and reason. Security-tagged rules have NO escape and NO arbitration. The rest have no escape either (ADR 0015): a rule that misfires is fixed in `.karajan/policy.yml` by your user, through a PR.
 
+## rules
+
+The rules you wrote in your MD files (CLAUDE.md, AGENTS.md, your feedback memories), compiled into `.karajan/rules.yml`, are checked before every tool call, MCP tools included (ADR 0016). A rule is a condition over the call: which tool, with which arguments. "Sprints last one day" stops being something the agent has to remember: a call that creates a week-long sprint is denied before it runs, and the message names the rule, the MD it comes from and what it says. `kj rules list` shows every rule found in your MD files, `kj rules eval` evaluates one call, and `kj rules test` runs each rule's own examples.
+
+There is no escape. If a rule is compiled wrong, your user fixes `.karajan/rules.yml`, which a session cannot edit. A `rules.yml` that cannot be evaluated denies every call until it is fixed, because rules silently off would be every call allowed. With no `rules.yml`, this gate does not exist.
+
 ## steward
 
 The Steward's sweep can declare the project state bad enough that starting new work is blocked (security invariants, persistently red main — only where the project opted in). Remedy what the report names. There is no escape (ADR 0015): if work must go on, your user sets `method_gates.steward` back to `inform`.

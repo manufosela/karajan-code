@@ -53,6 +53,12 @@ Una card mergeada debe moverse en el tracker antes de que avance nada más, comm
 
 `.karajan/policy.yml` se evalúa en cada llamada a herramienta. Un deny nombra su regla y su motivo. Las reglas etiquetadas como seguridad NO tienen escape NI arbitraje. El resto tampoco tiene escape (ADR 0015): una regla que se dispara mal la corrige tu usuario en `.karajan/policy.yml`, por PR.
 
+## rules
+
+Las reglas que escribiste en tus MD (CLAUDE.md, AGENTS.md, tus memorias de feedback), compiladas en `.karajan/rules.yml`, se comprueban antes de cada llamada a herramienta, también las de servidores MCP (ADR 0016). Una regla es una condición sobre la llamada: qué herramienta y con qué argumentos. "Los sprints duran un día" deja de ser algo que el agente tenga que recordar: una llamada que crea un sprint de una semana se deniega antes de ejecutarse, y el mensaje nombra la regla, el MD del que sale y lo que dice. `kj rules list` enseña cada regla encontrada en tus MD, `kj rules eval` evalúa una llamada y `kj rules test` ejecuta los ejemplos de cada regla.
+
+No hay escape. Si una regla está mal compilada, tu usuario corrige `.karajan/rules.yml`, que una sesión no puede editar. Un `rules.yml` que no se puede evaluar deniega todas las llamadas hasta que se corrige, porque unas reglas apagadas en silencio serían todas las llamadas permitidas. Sin `rules.yml`, este gate no existe.
+
 ## steward
 
 El barrido del Steward puede declarar el estado del proyecto lo bastante malo como para bloquear el inicio de trabajo nuevo (invariantes de seguridad, main persistentemente en rojo, solo donde el proyecto lo activó). Remedia lo que nombre el informe. No hay escape (ADR 0015): si el trabajo tiene que seguir, tu usuario vuelve `method_gates.steward` a `inform`.

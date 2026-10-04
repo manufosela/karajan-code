@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { loadRules, rulesEval } from "../../src/commands/rules.js";
+import { loadRules, readToolInput, rulesEval } from "../../src/commands/rules.js";
 
 const SPRINT_TOOL = "mcp__planning-game-personal__create_sprint";
 const rulesYml = (examples) => `
@@ -71,5 +71,11 @@ describe("kj rules eval", () => {
 
   it("with no rules.yml every call is allowed", () => {
     expect(rulesEval({ projectDir: dir, tool: SPRINT_TOOL, input: '{"allowLongSprint":true}' }).code).toBe(0);
+  });
+
+  it("KJC-TSK-0946: --input - reads the tool input from stdin, in as many chunks as it comes", async () => {
+    const stdin = (async function* chunks() { yield '{"allowLong'; yield 'Sprint":true}'; })();
+    expect(await readToolInput("-", stdin)).toBe('{"allowLongSprint":true}');
+    expect(await readToolInput('{"a":1}', stdin)).toBe('{"a":1}');
   });
 });
