@@ -43,6 +43,7 @@ import { verifySentinelScripts, resolveSentinelRoot } from "../harden/sentinel-h
 import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
+import { listRules } from "../rules/inventory.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -316,7 +317,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--json", "Machine-readable output")
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules", flags, async ({ config }) => {
-        const { listRules } = await import("../rules/inventory.js");
         const found = listRules(config?.projectDir || process.cwd());
         if (flags.json) { console.log(JSON.stringify(found)); return; }
         for (const r of found) console.log(`${r.id}  ${r.file}:${r.line}  ${r.text}`);
