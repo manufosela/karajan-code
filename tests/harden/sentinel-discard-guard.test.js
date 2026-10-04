@@ -36,6 +36,13 @@ describe("discard guard (PreToolUse Bash, no escape)", () => {
     expect(r.stderr).toContain("git stash push");
   });
 
+  it("KJC-BUG-0268: a branch switch with a redirection is a branch switch; the user's change stays protected", () => {
+    expect(bash("git checkout main 2>&1").status).toBe(0);
+    expect(bash("git checkout main > /dev/null 2>&1 && git status").status).toBe(0);
+    userEdits(".gitignore", "node_modules\nmine\n");
+    expect(bash("git checkout -- .gitignore 2>&1").status).toBe(2);
+  });
+
   it("KJC-BUG-0261: a file the session removed (rm, git rm, rm -r dir) can be restored; one the user had changed cannot", () => {
     fs.mkdirSync(path.join(dir, "lib"));
     fs.writeFileSync(path.join(dir, "lib", "b.js"), "b\n");

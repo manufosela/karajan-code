@@ -26,6 +26,12 @@ describe("discardOf", () => {
     expect(discardOf(w("git clean -fd"), root)).toMatchObject({ clean: [["-fd"], []] });
   });
 
+  it("KJC-BUG-0268: a redirection is not a path", () => {
+    for (const cmd of ["git checkout main 2>&1", "git checkout main > /tmp/log 2>&1", "git checkout main >/dev/null"]) expect(discardOf(w(cmd), root), cmd).toBeNull();
+    expect(discardOf(w("git checkout -- a.js > /tmp/log 2>&1"), root)).toEqual({ cwd: root, paths: ["a.js"] });
+    expect(discardOf(w("git reset --hard 2>&1"), root)).toEqual({ cwd: root, paths: [":/"] });
+  });
+
   it("returns null for what discards nothing, and unknown for what it cannot read", () => {
     for (const cmd of ["git checkout main", "git checkout -b x", "git restore --staged a.js", "git clean -n", "echo git checkout"]) expect(discardOf(w(cmd), root), cmd).toBeNull();
     for (const cmd of ["git --git-dir .git checkout -- a.js", "$g checkout -- a.js", "git clean -i"]) expect(discardOf(w(cmd), root), cmd).toEqual({ unknown: true });

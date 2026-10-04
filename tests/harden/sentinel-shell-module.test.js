@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { shellSegments, headIndex, shortOpts, optionValues } from "../../src/harden/sentinel/sentinel-shell.mjs";
+import { shellSegments, headIndex, shortOpts, optionValues, withoutRedirections } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks, canonicalHarnessBody, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
 
 describe("optionValues (KJC-BUG-0245)", () => {
@@ -45,6 +45,16 @@ describe("headIndex", () => {
     expect(headIndex(["/usr/bin/env", "tee"], [])).toBe(1);
     expect(headIndex(["sudo", "-u", "root", "git", "reset"], ["git"])).toBe(3);
     expect(headIndex(["sudo", "-u", "root"], ["git"])).toBe(3);
+  });
+});
+
+describe("withoutRedirections (KJC-BUG-0268)", () => {
+  it("drops redirections and the operand of a detached operator, keeps the arguments", () => {
+    const rest = (cmd) => withoutRedirections(shellSegments(cmd)[0]);
+    expect(rest("git checkout main 2>&1")).toEqual(["git", "checkout", "main"]);
+    expect(rest("git checkout -- a.js > /tmp/log 2>> err.log")).toEqual(["git", "checkout", "--", "a.js"]);
+    expect(rest("sort < in.txt >out.txt -r")).toEqual(["sort", "-r"]);
+    expect(rest("echo a>b c")).toEqual(["echo", "a", "c"]);
   });
 });
 

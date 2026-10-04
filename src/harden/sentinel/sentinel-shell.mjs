@@ -106,5 +106,22 @@ export const optionValues = (cmd, names) => shellSegments(cmd).flatMap((words) =
   return eq > 0 && names.includes(w.slice(0, eq)) ? [w.slice(eq + 1)] : [];
 }));
 
+/**
+ * KJC-BUG-0268: the words of a simple command without its redirections (2>&1,
+ * >file, < file, >> log...) and the operand a detached operator takes. A
+ * redirection is where output goes, never an argument of the command.
+ * @param {string[]} words
+ */
+export const withoutRedirections = (words) => {
+  const rest = [];
+  let operand = false; // the previous word was a bare operator: this one is its target
+  for (const word of words) {
+    if (operand) operand = false;
+    else if (!/^\d*[<>]/.test(word)) rest.push(word);
+    else operand = /^\d*(<{1,3}|>>?|>[|&])$/.test(word);
+  }
+  return rest;
+};
+
 /** Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n). */
 export const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
