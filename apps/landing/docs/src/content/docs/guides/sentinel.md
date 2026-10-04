@@ -114,7 +114,7 @@ After a compaction or a resume, the Sentinel gives the agent back the project's 
 
 ## governance
 
-Karajan governs, and it is obeyed. A session does not change the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml` and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied before any escape. If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
+Karajan governs, and it is obeyed. A session does not change the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` (the rules of the MD files compiled into gates, ADR 0016) and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied before any escape. If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
 
 ## stop-gate
 

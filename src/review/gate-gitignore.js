@@ -32,6 +32,9 @@ export const CONTRACT_BLOCK = [
   // ADR 0009 (KJC-BUG-0161): la procedencia del supervisor VIAJA con el
   // repo — es lo que CI verifica. Cazado en el primer harden --commit real.
   "!.karajan/supervisor-provenance.json",
+  // ADR 0016 (KJC-TSK-0947): the rules of the MD files compiled into gates are
+  // governance the whole team inherits, like the hooks.
+  "!.karajan/rules.yml",
 ];
 
 /**
