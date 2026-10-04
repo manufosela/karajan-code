@@ -44,7 +44,7 @@ import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
-import { rulesEval } from "../commands/rules.js";
+import { rulesEval, rulesTest } from "../commands/rules.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -333,6 +333,16 @@ export function registerMeta(program, { pkgVersion }) {
       await withConfig(pkgVersion, "rules-eval", flags, async ({ config }) => {
         const res = rulesEval({ projectDir: config?.projectDir || process.cwd(), tool: flags.tool, input: flags.input });
         console.log(JSON.stringify(res.output));
+        process.exitCode = res.code;
+      });
+    });
+  // MDR-B3 (KJC-TSK-0945): a compiled rule proves its compilation with its own examples.
+  rules.command("test")
+    .description("Run every compiled rule's deny/allow examples against the rule itself; exit 1 on any failure")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules-test", flags, async ({ config }) => {
+        const res = rulesTest({ projectDir: config?.projectDir || process.cwd() });
+        for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });
     });
