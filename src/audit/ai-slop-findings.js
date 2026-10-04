@@ -8,9 +8,11 @@ import path from "node:path";
 
 const FILE_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx"]);
 const IGNORE_DIRS = new Set([
-  "node_modules", "dist", "build", "coverage",
+  "node_modules", "dist", "build", "coverage", "vendor",
   ".git", ".karajan", "public", ".next", ".nuxt", ".vercel", ".cache",
 ]);
+// KJC-BUG-0254 (#1902): a minified bundle is third-party output, not the project's prose.
+const isMinified = (name) => /\.min\.[cm]?js$/.test(name);
 const VERB = "(?:returns?|gets?|sets?|fetches?|loads?|saves?|creates?|builds?|makes?|computes?|handles?|checks?|validates?)";
 const LINE_PATTERNS = {
   "banner-separators": /\/[/*]\s*[=*\-_#~]{5,}/,
@@ -70,7 +72,7 @@ function listSourceFiles(root) {
       if (e.isDirectory()) {
         if (IGNORE_DIRS.has(e.name) || e.name.startsWith(".")) continue;
         stack.push(full);
-      } else if (FILE_EXTS.has(path.extname(e.name))) out.push(full);
+      } else if (FILE_EXTS.has(path.extname(e.name)) && !isMinified(e.name)) out.push(full);
     }
   }
   return out;
