@@ -92,11 +92,22 @@ export const boardGate = (sid, pend) => {
   }
   return { blocking: pend, carried: [] };
 };
+// KJC-BUG-0265: on the base branch what counts is work still there (the session's
+// files dirty, or local commits the remote does not have), not the ledger: after a
+// merged PR and a sync of main the ledger stays full while the base holds nothing.
+// Anything git cannot answer (no upstream, odd path) counts as work: fail closed.
+const baseHoldsWork = (files) => {
+  if (files.some((f) => !/^[A-Za-z0-9._/-]+$/.test(f))) return true;
+  try {
+    if (execSync("git status --porcelain -- " + files.join(" "), { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim()) return true;
+    return execSync("git rev-list @{u}..HEAD", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== "";
+  } catch { return true; }
+};
 export const violations = (s, branch, pending = pendingMoves(s)) => {
   const v = pending.map(pendingText);
   if (!s || !(s.edited_sources || []).length) return v;
   if (bootstrapPhase()) return v;
-  if (BASE_BRANCHES.has(branch)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion");
+  if (BASE_BRANCHES.has(branch)) { if (baseHoldsWork(s.edited_sources)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion"); }
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
   if (!(s.edited_tests || []).length && sessionAddsCode(s)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
   return v;
