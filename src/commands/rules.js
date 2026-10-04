@@ -41,3 +41,33 @@ export function rulesEval({ projectDir, tool, input = "{}" }) {
   const output = evalRules(rules, { tool, input: args });
   return { code: output.decision === "deny" ? 2 : 0, output };
 }
+
+const isCall = (c) => isObject(c) && typeof c.tool === "string" && c.tool !== "" && (c.input === undefined || isObject(c.input));
+const isCallList = (list) => Array.isArray(list) && list.length > 0 && list.every(isCall);
+
+/** What a rule's examples say against the rule itself, alone. */
+function exampleFailures(rule) {
+  const { deny, allow } = isObject(rule.examples) ? rule.examples : {};
+  if (!isCallList(deny) || !isCallList(allow)) return [`${rule.id}: needs examples.deny and examples.allow, each a list of { tool, input } calls`];
+  const verdict = (call) => evalRules([rule], call).decision;
+  return [
+    ...deny.flatMap((call, i) => (verdict(call) === "deny" ? [] : [`${rule.id}: deny example #${i + 1} was allowed`])),
+    ...allow.flatMap((call, i) => (verdict(call) === "deny" ? [`${rule.id}: allow example #${i + 1} was denied`] : [])),
+  ];
+}
+
+/**
+ * kj rules test (KJC-TSK-0945, MDR-B3): every deterministic rule against its own
+ * deny/allow examples. A rule with no examples is untested, and that fails too.
+ * @returns {{code: 0|1, lines: string[]}}
+ */
+export function rulesTest({ projectDir }) {
+  const { present, rules, errors } = loadRules(projectDir);
+  if (errors.length) return { code: 1, lines: errors.map((e) => `✗ ${e}`) };
+  if (!present) return { code: 0, lines: [`no ${RULES_FILE}: nothing to test`] };
+  const tested = rules.filter((rule) => rule.kind === "deterministic");
+  const failures = tested.flatMap(exampleFailures);
+  if (failures.length) return { code: 1, lines: failures.map((f) => `✗ ${f}`) };
+  const examples = tested.reduce((n, rule) => n + rule.examples.deny.length + rule.examples.allow.length, 0);
+  return { code: 0, lines: [`✓ ${tested.length} rule(s), ${examples} example(s)`] };
+}
