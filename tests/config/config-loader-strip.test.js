@@ -111,6 +111,20 @@ describe("writeConfig — strip runtime-only keys (KJC-BUG-0036)", () => {
     expect(existsSync(nestedPath)).toBe(true);
   });
 
+  it("KJC-BUG-0253: keeps the Sonar credentials out of a project config, and says which", async () => {
+    const projectConfig = join(tmp, "repo", ".karajan", "kj.config.yml");
+    const config = { coder: "claude", sonarqube: { host: "http://localhost:9000", token: "squ_secret", admin_password: "pw" } };
+    const res = await writeConfig(projectConfig, config);
+    const onDisk = yaml.load(readFileSync(projectConfig, "utf8"));
+    expect(onDisk.sonarqube).toEqual({ host: "http://localhost:9000" });
+    expect(readFileSync(projectConfig, "utf8")).not.toContain("squ_secret");
+    expect(res.strippedSecrets).toEqual(["sonarqube.token", "sonarqube.admin_password"]);
+    expect(config.sonarqube.token).toBe("squ_secret"); // the caller's object is untouched
+    // Any other file (the global config included) keeps them.
+    expect((await writeConfig(configPath, config)).strippedSecrets).toEqual([]);
+    expect(yaml.load(readFileSync(configPath, "utf8")).sonarqube.token).toBe("squ_secret");
+  });
+
   it("survives a config without a sonarqube block at all", async () => {
     await writeConfig(configPath, {
       coder: "claude",
