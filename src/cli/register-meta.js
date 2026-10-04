@@ -44,6 +44,7 @@ import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
+import { rulesEval } from "../commands/rules.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -321,6 +322,18 @@ export function registerMeta(program, { pkgVersion }) {
         if (flags.json) { console.log(JSON.stringify(found)); return; }
         for (const r of found) console.log(`${r.id}  ${r.file}:${r.line}  ${r.text}`);
         console.log(`${found.length} rule(s)`);
+      });
+    });
+  // MDR-B2 (KJC-TSK-0943): the compiled rules (.karajan/rules.yml) against one tool call.
+  rules.command("eval")
+    .description("Evaluate ONE tool call against .karajan/rules.yml: prints the verdict as JSON; exit 2 on deny, 1 if it cannot be evaluated")
+    .option("--tool <tool>", "Tool name (Bash, Edit, mcp__server__tool…)")
+    .option("--input <json>", "tool_input as JSON", "{}")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules-eval", flags, async ({ config }) => {
+        const res = rulesEval({ projectDir: config?.projectDir || process.cwd(), tool: flags.tool, input: flags.input });
+        console.log(JSON.stringify(res.output));
+        process.exitCode = res.code;
       });
     });
 
