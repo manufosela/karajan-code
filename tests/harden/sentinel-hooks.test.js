@@ -88,6 +88,22 @@ describe("stop script (turn cannot end red)", () => {
     expect(noCard.stderr).toMatch(/card/i);
   });
 
+  it("KJC-BUG-0265: on the base branch it judges the work still there, not the session's ledger", () => {
+    // main tracks an origin/main at the same commit (an upstream with nothing pushed or pending).
+    execSync("git remote add origin https://example.invalid/r.git && git update-ref refs/remotes/origin/main main && git checkout -q main && git branch -q --set-upstream-to=origin/main", { cwd: dir });
+    run(postScript, editTool(path.join(dir, "src", "a.js")));
+    run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
+    // Merged and synced: a clean tree level with origin/main holds nothing of the session.
+    const synced = run(stopScript, { session_id: "s1" });
+    expect(synced.status).toBe(0);
+    expect(synced.stderr).not.toMatch(/rama base|ninguna card/);
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "src", "a.js"), "x\n");
+    expect(run(stopScript, { session_id: "s1" }).stderr).toMatch(/rama base/);
+    execSync("git add src/a.js && git -c user.email=t@t -c user.name=t commit -q --no-verify -m local", { cwd: dir });
+    expect(run(stopScript, { session_id: "s1" }).stderr).toMatch(/rama base/);
+  });
+
   it("ends the turn normally when nothing was edited, on escape, and on garbage input", () => {
     expect(run(stopScript, { session_id: "empty" }).status).toBe(0);
     run(postScript, editTool(path.join(dir, "src", "a.js")));
