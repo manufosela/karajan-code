@@ -8,7 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { isObject, parseRules } from "../rules/compiled.js";
+import { coverage, NO_GATE } from "../rules/coverage.js";
 import { evalRules } from "../rules/evaluate.js";
+import { listRules } from "../rules/inventory.js";
 
 export const RULES_FILE = path.join(".karajan", "rules.yml");
 
@@ -82,4 +84,25 @@ export function rulesTest({ projectDir }) {
   if (failures.length) return { code: 1, lines: failures.map((f) => `✗ ${f}`) };
   const examples = tested.reduce((n, rule) => n + rule.examples.deny.length + rule.examples.allow.length, 0);
   return { code: 0, lines: [`✓ ${tested.length} rule(s), ${examples} example(s)`] };
+}
+
+/**
+ * kj rules coverage (KJC-TSK-0941, MDR-E): every rule of the governing MD files
+ * against rules.yml. `strict` fails while a rule has no gate or a compiled rule
+ * is stale, so a rule nobody decided about cannot go unseen.
+ * @returns {{code: 0|1, lines: string[], output?: object}}
+ */
+export function rulesCoverage({ projectDir, strict = false, home }) {
+  const { rules, errors } = loadRules(projectDir);
+  if (errors.length) return { code: 1, lines: errors.map((e) => `✗ ${e}`) };
+  const { rows, stale } = coverage(listRules(projectDir, home ? { home } : {}), rules);
+  const count = (status) => rows.filter((row) => row.status === status).length;
+  const counts = { deterministic: count("deterministic"), judgment: count("judgment"), "out-of-scope": count("out-of-scope"), [NO_GATE]: count(NO_GATE), stale: stale.length };
+  const ungated = rows.filter((row) => row.status === NO_GATE);
+  const lines = [
+    ...ungated.map((r) => `✗ no gate  ${r.id}  ${r.file}:${r.line}  ${r.text}`),
+    ...stale.map((r) => `✗ stale    ${r.id}  ${r.source ?? "?"}  ${r.text ?? ""} (its text is in no MD any more: compile it again)`),
+    `${rows.length} rule(s): ${counts.deterministic} deterministic, ${counts.judgment} judgment, ${counts["out-of-scope"]} out of scope, ${ungated.length} with no gate; ${stale.length} stale`,
+  ];
+  return { code: strict && ungated.length + stale.length > 0 ? 1 : 0, lines, output: { counts, rows, stale } };
 }
