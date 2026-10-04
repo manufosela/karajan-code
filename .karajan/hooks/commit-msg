@@ -7,6 +7,13 @@ if ! printf '%s' "$header" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|
   echo 'kj harden: commit header must follow Conventional Commits (type: subject)'; exit 1
 fi
 if [ "${#header}" -gt 100 ]; then echo 'kj harden: commit header exceeds 100 chars'; exit 1; fi
+# KJC-TSK-0909: the rest of what CI's commitlint rejects, caught here.
+if ! awk 'NR > 2 && !/^#/ && length($0) > 100 { exit 1 }' "$msg_file"; then
+  echo 'kj harden: a commit body line exceeds 100 chars (CI commitlint rejects it)'; exit 1
+fi
+if [ -x node_modules/.bin/commitlint ]; then
+  node_modules/.bin/commitlint --edit "$msg_file" || exit 1
+fi
 if grep -qiE 'co-authored-by:.*(claude|gpt|copilot|gemini)|(generated|written) (by|with) .*(claude|gpt|copilot)' "$msg_file"; then
   echo 'kj harden: AI attribution is not allowed in commit messages'; exit 1
 fi
