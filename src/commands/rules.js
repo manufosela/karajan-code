@@ -30,6 +30,18 @@ export function loadRules(projectDir) {
 
 const failed = (...errors) => ({ code: 1, output: { errors } });
 
+/**
+ * KJC-TSK-0946: `--input -` reads the tool input from stdin. The hook passes it
+ * that way, because a large Write does not fit in one argument. Read as a
+ * stream: a synchronous read of a pipe fails (EAGAIN) once the input is large.
+ */
+export async function readToolInput(flag, stdin = process.stdin) {
+  if (flag !== "-") return flag;
+  let text = "";
+  for await (const chunk of stdin) text += chunk;
+  return text;
+}
+
 /** @returns {{code: 0|1|2, output: object}} */
 export function rulesEval({ projectDir, tool, input = "{}" }) {
   if (typeof tool !== "string" || !tool) return failed("--tool is required");

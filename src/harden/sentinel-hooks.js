@@ -1139,6 +1139,9 @@ const SCRIPT_BODIES = {
   "sentinel-bash-write.mjs": readFileSync(new URL("./sentinel/sentinel-bash-write.mjs", import.meta.url), "utf8"),
   "sentinel-reminders.mjs": readFileSync(new URL("./sentinel/sentinel-reminders.mjs", import.meta.url), "utf8"),
   "sessionstart.mjs": readFileSync(new URL("./sentinel/sessionstart.mjs", import.meta.url), "utf8"),
+  // KJC-TSK-0946 (ADR 0016): the rules gate and its hook, for every tool call.
+  "sentinel-rules.mjs": readFileSync(new URL("./sentinel/sentinel-rules.mjs", import.meta.url), "utf8"),
+  "pretooluse-rules.mjs": readFileSync(new URL("./sentinel/pretooluse-rules.mjs", import.meta.url), "utf8"),
 };
 
 /**
@@ -1328,6 +1331,9 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
     entries: [
       { event: "PreToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "pretooluse-sentinel.mjs" },
       { event: "PreToolUse", matcher: "Bash", script: "pretooluse-sentinel.mjs" },
+      // KJC-TSK-0946 (ADR 0016): no matcher. The rules of the MD files are checked
+      // before EVERY tool call, MCP ones included.
+      { event: "PreToolUse", script: "pretooluse-rules.mjs" },
       { event: "PostToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "posttooluse.mjs" },
       // KJC-TSK-0765 board-sync: the merge (Bash) and the tracker move (MCP
       // update_card) are observed AFTER the fact — found live: with only the
