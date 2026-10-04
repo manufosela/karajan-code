@@ -44,7 +44,7 @@ import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
-import { readToolInput, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
+import { PROPOSAL_FILE, readToolInput, rulesCheck, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -342,6 +342,17 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-test", flags, async ({ config }) => {
         const res = rulesTest({ projectDir: config?.projectDir || process.cwd() });
+        for (const line of res.lines) console.log(line);
+        process.exitCode = res.code;
+      });
+    });
+  // MDR-D1 (KJC-TSK-0950): a proposal proves itself before a human reads it.
+  rules.command("check")
+    .description("Check a proposal of compiled rules: every rule is one of the MD files, cites its literal text and passes its own examples; exit 1 otherwise")
+    .option("--file <path>", "The proposal", PROPOSAL_FILE)
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules-check", flags, async ({ config }) => {
+        const res = rulesCheck({ projectDir: config?.projectDir || process.cwd(), file: flags.file });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });

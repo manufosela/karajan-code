@@ -19,13 +19,13 @@ export const RULES_FILE = path.join(".karajan", "rules.yml");
  * file that exists and cannot be read is an error (rules silently off would be
  * every call allowed).
  */
-export function loadRules(projectDir) {
+export function loadRules(projectDir, file = RULES_FILE) {
   let text;
   try {
-    text = fs.readFileSync(path.join(projectDir, RULES_FILE), "utf8");
+    text = fs.readFileSync(path.resolve(projectDir, file), "utf8");
   } catch (err) {
     if (err.code === "ENOENT") return { present: false, rules: [], errors: [] };
-    return { present: true, rules: [], errors: [`cannot read ${RULES_FILE}: ${err.code || err.message}`] };
+    return { present: true, rules: [], errors: [`cannot read ${file}: ${err.code || err.message}`] };
   }
   return { present: true, ...parseRules(text) };
 }
@@ -84,6 +84,35 @@ export function rulesTest({ projectDir }) {
   if (failures.length) return { code: 1, lines: failures.map((f) => `✗ ${f}`) };
   const examples = tested.reduce((n, rule) => n + rule.examples.deny.length + rule.examples.allow.length, 0);
   return { code: 0, lines: [`✓ ${tested.length} rule(s), ${examples} example(s)`] };
+}
+
+export const PROPOSAL_FILE = path.join(".karajan", "rules.proposed.yml");
+
+/** What a proposed rule says against the MD files: it is one of their rules, word for word. */
+function inventoryFailures(rule, inventory) {
+  const written = inventory.get(rule.id);
+  if (!written) return [`${rule.id}: no rule of the MD files has this id (kj rules list)`];
+  return rule.text === written.text ? [] : [`${rule.id}: text is not what the MD says (${written.file}:${written.line}): ${written.text}`];
+}
+
+/**
+ * kj rules check (KJC-TSK-0950, MDR-D1): a proposal of compiled rules proves
+ * itself before a human reads it. Every rule is one of the MD files and cites
+ * its literal text; every deterministic one passes its own examples.
+ * @returns {{code: 0|1, lines: string[]}}
+ */
+export function rulesCheck({ projectDir, file = PROPOSAL_FILE, home }) {
+  const { present, rules, errors } = loadRules(projectDir, file);
+  if (!present) return { code: 1, lines: [`✗ no ${file}: nothing to check`] };
+  if (errors.length) return { code: 1, lines: errors.map((e) => `✗ ${e}`) };
+  const inventory = new Map(listRules(projectDir, home ? { home } : {}).map((rule) => [rule.id, rule]));
+  const failures = rules.flatMap((rule) => [
+    ...inventoryFailures(rule, inventory),
+    ...(rule.kind === "deterministic" ? exampleFailures(rule) : []),
+  ]);
+  if (failures.length) return { code: 1, lines: failures.map((f) => `✗ ${f}`) };
+  const count = (kind) => rules.filter((rule) => rule.kind === kind).length;
+  return { code: 0, lines: [`✓ ${rules.length} rule(s) hold: ${count("deterministic")} deterministic, ${count("judgment")} judgment, ${count("out-of-scope")} out of scope`] };
 }
 
 /**
