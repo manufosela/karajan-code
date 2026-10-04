@@ -4,7 +4,7 @@
 import { spawnSync } from "node:child_process";
 import { isAbsolute, relative, resolve } from "node:path";
 import process from "node:process";
-import { headIndex, shortOpts } from "./sentinel-shell.mjs";
+import { headIndex, shortOpts, withoutRedirections } from "./sentinel-shell.mjs";
 
 export const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch", "clean"];
 
@@ -16,7 +16,9 @@ export const DISCARD_VERBS = ["checkout", "restore", "reset", "stash", "switch",
  * @param {string[]} words
  * @param {string} root
  */
-export const discardOf = (words, root) => {
+export const discardOf = (command, root) => {
+  // KJC-BUG-0268: `git checkout main 2>&1` names a branch, not a branch and a path.
+  const words = withoutRedirections(command);
   let i = headIndex(words, ["git"]); // /usr/bin/git is git
   // A $variable in command position beside a discard verb ($g checkout) cannot be read.
   if (words[i]?.startsWith("$") && words.some((w) => DISCARD_VERBS.includes(w))) return { unknown: true };

@@ -5,7 +5,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
-import { headIndex, shellSegments } from "./sentinel-shell.mjs";
+import { headIndex, shellSegments, withoutRedirections } from "./sentinel-shell.mjs";
 
 const WRITES = ["tee", "touch", "truncate", "cp", "mv", "install", "ln", "sed", "perl", "dd", "sh", "bash", "zsh", "dash", "eval"];
 const RUNNERS = ["xargs", "find", "node", "python3", "python", "ruby", "php", "deno", "bun"];
@@ -56,11 +56,7 @@ export const shellWrites = (words) => {
   // xargs / find -exec run a writer on targets that arrive at run time.
   if (["xargs", "find"].includes(head) && words.slice(i + 1).some((w) => WRITES.includes(w.split("/").at(-1)))) out.push(`$(${head})`);
   // Arguments without redirections (< << <<< > >> and a detached operand).
-  const rest = [];
-  for (let k = i + 1; k < words.length; k++) {
-    if (!/^\d*[<>]/.test(words[k])) rest.push(words[k]);
-    else if (/^\d*(<{1,3}|>>?|>[|&])$/.test(words[k])) k++;
-  }
+  const rest = withoutRedirections(words.slice(i + 1));
   // Operands: words that are not options, and EVERY word after "--" (touch -- -file).
   const cut = rest.includes("--") ? rest.indexOf("--") : rest.length;
   const plain = [...rest.slice(0, cut).filter((w) => !w.startsWith("-")), ...rest.slice(cut + 1)];
