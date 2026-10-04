@@ -7,6 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { isPidAlive } from "../utils/run-log.js";
 
 /** Parameters that the host AI is allowed to pass through without restriction. */
 const ALLOWED_PARAMS = new Set([
@@ -31,33 +32,33 @@ const ALLOWED_PARAMS = new Set([
 
 const MIN_ITERATIONS = 1;
 const MAX_ITERATIONS = 10;
-const ACTIVE_SESSION_THRESHOLD_MS = 60_000;
+
 
 /**
  * Check if a pipeline is already running for this project.
- * Looks at .kj/run.log modification time.
+ * KJC-BUG-0250 (#1897, #1892): the fact is the run lock (.kj/run.lock) held by
+ * a live process. The old signal, a recent write to run.log, also fired after
+ * a run that failed in preflight or any short command, blocking the next run.
  *
  * @param {string} projectDir - Project root directory
  * @returns {{ active: boolean, message?: string }}
  */
 export function checkActiveSession(projectDir) {
   if (!projectDir) return { active: false };
-  const logPath = path.join(projectDir, ".kj", "run.log");
+  let holder;
   try {
-    const stat = fs.statSync(logPath);
-    const ageMs = Date.now() - stat.mtimeMs;
-    if (ageMs < ACTIVE_SESSION_THRESHOLD_MS) {
-      return {
-        active: true,
-        message:
-          "A pipeline is already running for this project. " +
-          "Wait for it to complete or use kj_status to check progress.",
-      };
-    }
+    holder = JSON.parse(fs.readFileSync(path.join(projectDir, ".kj", "run.lock"), "utf8"));
   } catch {
-    // File doesn't exist or can't be read — no active session
+    return { active: false }; // no lock, or unreadable: nothing holds the project
   }
-  return { active: false };
+  if (!isPidAlive(holder?.pid)) return { active: false }; // stale: its process is gone
+  const since = holder.startedAt ? ", since " + holder.startedAt : "";
+  return {
+    active: true,
+    message:
+      `A pipeline is already running for this project (pid ${holder.pid}${since}). ` +
+      "Wait for it to complete or use kj_status to check progress.",
+  };
 }
 
 /**

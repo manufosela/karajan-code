@@ -132,6 +132,11 @@ export async function handleRunDirect(a, server, extra) {
 
   const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
+  // KJC-BUG-0250: two starts racing past the session check, only one takes the lock.
+  if (!runLog.owned) {
+    runLog.close();
+    return failPayload("A pipeline is already running for this project. Wait for it to complete or use kj_status to check progress.");
+  }
   runLog.logText(`[kj_run] started — task="${a.task.slice(0, 80)}..."`);
 
   const emitter = new EventEmitter();

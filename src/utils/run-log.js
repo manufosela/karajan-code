@@ -8,10 +8,12 @@
  * Log location: <projectDir>/.kj/run.log  (overwritten each run)
  */
 
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 const LOG_FILENAME = "run.log";
+const LOCK_FILENAME = "run.lock";
 
 function resolveLogDir(baseDir) {
   return path.join(baseDir || process.cwd(), ".kj");
@@ -54,8 +56,15 @@ export function createRunLog(projectDir) {
   const logDir = resolveLogDir(projectDir);
   ensureDir(logDir);
 
-  // Truncate/create the log file
-  fs.writeFileSync(logPath, `--- Karajan run started at ${new Date().toISOString()} ---\n`);
+  // KJC-BUG-0250: the run lock, taken atomically and owned by this run's token.
+  // close() releases it only while it is still ours (every caller closes in a
+  // finally); a lock whose process is gone is stale and taken over.
+  const startedAt = new Date().toISOString();
+  const lockPath = path.join(logDir, LOCK_FILENAME);
+  const token = randomUUID();
+  const owned = acquireLock(lockPath, { pid: process.pid, startedAt, token });
+  // Truncate/create the log file, unless another live run owns it.
+  if (owned) fs.writeFileSync(logPath, `--- Karajan run started at ${startedAt} ---\n`);
 
   // Audit recommendation (perf-LOW): suggested createWriteStream + queue.
   // Tried it; broke the contract. `readRunLog` (used by `kj_status`,
@@ -102,14 +111,77 @@ export function createRunLog(projectDir) {
         fd = null;
       }
     } catch { /* best-effort */ }
+    if (owned && readLock(lockPath)?.token === token) {
+      try { fs.rmSync(lockPath, { force: true }); } catch { /* best-effort */ }
+    }
   }
 
   return {
     logEvent,
     logText,
     close,
+    /** false when another live run already held the project */
+    owned,
     get path() { return logPath; }
   };
+}
+
+const readLock = (lockPath) => {
+  try { return JSON.parse(fs.readFileSync(lockPath, "utf8")); } catch { return null; }
+};
+
+export const isPidAlive = (pid) => {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (err) { return err.code === "EPERM"; }
+};
+
+const createExclusive = (file, body) => {
+  try { fs.writeFileSync(file, body, { flag: "wx" }); return true; } catch { return false; }
+};
+
+// The lock appears with its whole content or not at all: written to a private
+// file first, then hard-linked into place (link fails if the path exists), so
+// nobody can read a half-written lock and take it for stale.
+function linkLock(lockPath, body, token) {
+  const tmp = `${lockPath}.${token}.tmp`;
+  try {
+    fs.writeFileSync(tmp, body);
+    fs.linkSync(tmp, lockPath);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    try { fs.rmSync(tmp, { force: true }); } catch { /* leftover, harmless */ }
+  }
+}
+
+function acquireLock(lockPath, holder) {
+  const body = JSON.stringify(holder);
+  if (linkLock(lockPath, body, holder.token)) return true;
+  if (isPidAlive(readLock(lockPath)?.pid)) return false;
+  // Stale (its process is gone, or unreadable). Only one racer at a time may take
+  // it over: the takeover mutex is itself an exclusive create. Inside it the lock
+  // is read again and replaced only if it is still stale; nobody else removes it,
+  // and the exclusive create that follows loses to anyone who got there first.
+  const mutex = `${lockPath}.takeover`;
+  clearStaleMutex(mutex);
+  if (!createExclusive(mutex, holder.token)) return false;
+  try {
+    if (isPidAlive(readLock(lockPath)?.pid)) return false;
+    try { fs.rmSync(lockPath, { force: true }); } catch { return false; }
+    return linkLock(lockPath, body, holder.token);
+  } finally {
+    try { fs.rmSync(mutex, { force: true }); } catch { /* leftover, cleared when stale */ }
+  }
+}
+
+// A takeover takes milliseconds; a mutex older than this was left by a process
+// that died inside one.
+const TAKEOVER_STALE_MS = 10_000;
+function clearStaleMutex(mutex) {
+  try {
+    if (Date.now() - fs.statSync(mutex).mtimeMs > TAKEOVER_STALE_MS) fs.rmSync(mutex, { force: true });
+  } catch { /* none */ }
 }
 
 const KJ_TOOLS = ["kj_run", "kj_code", "kj_plan"];
