@@ -59,6 +59,8 @@ The rules you wrote in your MD files (CLAUDE.md, AGENTS.md, your feedback memori
 
 `kj rules coverage` crosses every rule of your MD files with `rules.yml` and says what each one became: a deterministic gate, a judgment one, out of scope (a rule about how the agent thinks or answers, declared with its reason, has no tool call to gate) or nothing yet. A rule with no gate is listed by name, and so is a stale one: when you reword a rule in its MD, what was compiled for the old wording no longer matches any text. `--strict` exits 1 while either remains.
 
+Nobody writes `rules.yml` by hand, and the agent does not write it at all. A proposal goes to `.karajan/rules.proposed.yml`; `kj rules check` proves it (every rule is one of your MD files, cites its literal text and passes its own examples), and `kj rules approve` shows you each rule next to what it was compiled to, and which rules leave, before it installs anything. Approving is a human act with the same layers as the supervisor's seal: no agent session runs it, and what lands is exactly what you were shown.
+
 There is no escape. If a rule is compiled wrong, your user fixes `.karajan/rules.yml`, which a session cannot edit. A `rules.yml` that cannot be evaluated denies every call until it is fixed, because rules silently off would be every call allowed. With no `rules.yml`, this gate does not exist.
 
 ## steward
