@@ -76,6 +76,13 @@ describe("ensureGateTrackable", () => {
     const text = fs.readFileSync(path.join(dir, ".gitignore"), "utf8");
     expect(text.match(/!\.karajan\/review-gate/g)).toHaveLength(1);
   });
+
+  it("KJC-TSK-0947: the compiled rules travel with the repo, like the hooks", async () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/\n");
+    await ensureGateTrackable(dir);
+    expect(ignored(".karajan/rules.yml")).toBe(false);
+    expect(ignored(".karajan/rag.db")).toBe(true);
+  });
 });
 
 // KJC-BUG-0123 (issue #1268, Jorge via kj report-issue): kj init wrote no

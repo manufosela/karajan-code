@@ -22,7 +22,8 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe("Karajan governs", () => {
   it("the governance files are the human's: Edit/Write on them is denied, even with the Sentinel switched off", () => {
-    for (const rel of [".karajan/policy.yml", ".karajan/kj.config.yml", ".ragignore", "sub/.ragignore"]) {
+    // .karajan/rules.yml (KJC-TSK-0947, ADR 0016): the compiled rules are the user's to approve.
+    for (const rel of [".karajan/policy.yml", ".karajan/kj.config.yml", ".karajan/rules.yml", ".ragignore", "sub/.ragignore"]) {
       for (const tool of ["Edit", "Write"]) {
         const r = hook(tool, { file_path: path.join(dir, rel) }, { KJ_SENTINEL_OFF: "1" });
         expect(r.status, `${tool} ${rel}`).toBe(2);

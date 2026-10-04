@@ -114,7 +114,7 @@ Tras una compactación o al reanudar, el Sentinel le devuelve al agente las regl
 
 ## governance
 
-Karajan gobierna y se le obedece. Una sesión no cambia las reglas que la gobiernan: `.karajan/policy.yml`, `.karajan/kj.config.yml` y cualquier `.ragignore` son del humano, como los ficheros del propio supervisor, y Edit o Write sobre ellos se deniega antes de cualquier escape. Si un gate parece equivocado, el remedio es proponer el cambio al usuario o reportarlo con `kj report-issue`, nunca relajar la regla. Toda denegación del PreToolUse termina con la misma línea que lo dice.
+Karajan gobierna y se le obedece. Una sesión no cambia las reglas que la gobiernan: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` (las reglas de los MD compiladas en gates, ADR 0016) y cualquier `.ragignore` son del humano, como los ficheros del propio supervisor, y Edit o Write sobre ellos se deniega antes de cualquier escape. Si un gate parece equivocado, el remedio es proponer el cambio al usuario o reportarlo con `kj report-issue`, nunca relajar la regla. Toda denegación del PreToolUse termina con la misma línea que lo dice.
 
 ## stop-gate
 
