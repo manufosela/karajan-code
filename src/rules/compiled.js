@@ -101,5 +101,8 @@ export function parseRules(text) {
   if (unknown.length) return { rules: [], errors: [`unknown key ${unknown.join(", ")}`] };
   if (!Array.isArray(doc.rules)) return { rules: [], errors: ["rules must be a list"] };
   const errors = doc.rules.flatMap((rule, i) => ruleErrors(rule).map((e) => `rules[${i}] (${rule?.id ?? "no id"}): ${e}`));
+  // One rule, one entry: with two, which one a reader sees is an accident of order.
+  const ids = doc.rules.map((rule) => rule?.id).filter((id) => typeof id === "string");
+  errors.push(...new Set(ids.filter((id, i) => ids.indexOf(id) !== i).map((id) => `${id}: repeated, a rule is compiled once`)));
   return { rules: errors.length ? [] : doc.rules, errors };
 }
