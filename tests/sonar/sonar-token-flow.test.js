@@ -90,10 +90,32 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
     expect(result.ok).toBe(false);
     const authError = result.errors.find(e => e.check === "sonar-auth");
     expect(authError).toBeDefined();
-    expect(authError.message).toContain("no authentication token is configured");
+    expect(authError.message).toContain("no authentication token was found");
+    // KJC-BUG-0266: it names where it looked, the token file of the active home included.
+    expect(authError.message).toMatch(/sonar\.token/);
     expect(authError.fix).toContain("kj init");
     expect(authError.fix).toContain("KJ_SONAR_TOKEN");
     expect(authError.fix).toContain("kj.config.yml");
+  });
+
+  it("KJC-BUG-0266: reads the token the bootstrap saved to <karajan home>/sonar.token", async () => {
+    const fs = await import("node:fs");
+    const { sonarTokenFilePath } = await import("../../src/sonar/config-resolver.js");
+    const file = sonarTokenFilePath();
+    // Never the real ~/.karajan: the suite isolates KARAJAN_HOME to a tmp dir.
+    expect(file.startsWith((await import("node:os")).tmpdir())).toBe(true);
+    fs.mkdirSync((await import("node:path")).dirname(file), { recursive: true });
+    fs.writeFileSync(file, "squ_from_file\n");
+    try {
+      loadSonarCredentials.mockResolvedValue(null);
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "200", stderr: "" });
+      const config = makeConfig({ sonarqube: { enabled: true, project_key: "kj-test" } });
+      const result = await runPreflightChecks({ config, logger, emitter, eventBase, resolvedPolicies: { sonar: true }, securityEnabled: false });
+      expect(result.errors.find((e) => e.check === "sonar-auth")).toBeUndefined();
+      expect(runCommand.mock.calls.some((c) => c[1].includes("Authorization: Bearer squ_from_file"))).toBe(true);
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
   });
 
   it("passes when sonar token is set in config", async () => {

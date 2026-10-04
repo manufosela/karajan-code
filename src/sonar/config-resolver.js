@@ -5,7 +5,14 @@
  * Consumers: scanner.js, preflight-checks.js, api.js.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { loadSonarCredentials } from "./credentials.js";
+import { getKarajanHome } from "../utils/paths.js";
+
+/** KJC-BUG-0266: the places a token is looked for, named in every "no token" message. */
+export const sonarTokenSources = () =>
+  `KJ_SONAR_TOKEN, sonarqube.token in kj.config.yml, SONAR_TOKEN, ${path.join(getKarajanHome(), "sonar-credentials.json")} or ${sonarTokenFilePath()}`;
 
 const DEFAULT_HOST = "http://localhost:9000";
 
@@ -54,7 +61,18 @@ export async function resolveSonarTokenAsync(config = {}) {
 
   // Check credentials file for persisted token
   const fileCreds = (await loadSonarCredentials()) || {};
-  return fileCreds.token || null;
+  return fileCreds.token || readSonarTokenFile() || null;
+}
+
+/** Where the token bootstrap saves the token (mode 0600), in the active Karajan home. */
+export const sonarTokenFilePath = () => path.join(getKarajanHome(), "sonar.token");
+
+/**
+ * KJC-BUG-0266: the token bootstrap persisted the token to <karajan home>/sonar.token
+ * and no resolver read it back, so a home with only that file looked tokenless.
+ */
+export function readSonarTokenFile() {
+  try { return fs.readFileSync(sonarTokenFilePath(), "utf8").trim() || null; } catch { return null; }
 }
 
 /**
