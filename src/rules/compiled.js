@@ -3,13 +3,15 @@
  * files, compiled into a condition over a tool call: which tool, which arguments.
  * The operators are a closed set, so a rule is auditable and runs with no model.
  * `judgment` rules carry no condition to evaluate: the judge reads them.
+ * `out-of-scope` rules are no gate at all: a decision, with its reason.
  *
  * An invalid file yields no rules (a rule that lies is worse than none).
  */
 import yaml from "js-yaml";
 
 const ID = /^R-[0-9a-f]{10}$/;
-const KINDS = ["deterministic", "judgment"];
+const OUT_OF_SCOPE = "out-of-scope";
+const KINDS = ["deterministic", "judgment", OUT_OF_SCOPE];
 const OPERATORS = ["equals", "in", "matches", "exists", "gt", "lt"];
 
 export const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -18,7 +20,8 @@ export const toolsOf = (when) => [when?.tool].flat().filter((t) => typeof t === 
 
 // The format is closed at every level: a key nobody reads would be a condition
 // the author believes in and the evaluator ignores.
-const RULE_KEYS = ["id", "source", "text", "kind", "when", "message", "examples"];
+const RULE_KEYS = ["id", "source", "text", "kind", "when", "message", "examples", "reason"];
+const GATE_KEYS = ["when", "message", "examples"];
 const WHEN_KEYS = ["tool", "all", "any"];
 const CONDITION_KEYS = ["arg", "days_from", ...OPERATORS];
 const unknownKeys = (obj, known) => (isObject(obj) ? Object.keys(obj).filter((k) => !known.includes(k)) : []);
@@ -54,6 +57,18 @@ function conditionErrors(cond) {
   return [];
 }
 
+/**
+ * KJC-TSK-0948: a rule about how the agent thinks or answers has no tool call to
+ * gate. It is declared with the reason, and carries nothing to evaluate.
+ */
+function outOfScopeErrors(rule) {
+  const errors = [];
+  if (typeof rule.reason !== "string" || !rule.reason.trim()) errors.push(`an ${OUT_OF_SCOPE} rule needs a reason (text)`);
+  const gate = GATE_KEYS.filter((k) => k in rule);
+  if (gate.length) errors.push(`an ${OUT_OF_SCOPE} rule takes no ${gate.join(", ")}: there is no tool call to gate`);
+  return errors;
+}
+
 function ruleErrors(rule) {
   if (!isObject(rule)) return ["a rule is a mapping"];
   const errors = [];
@@ -63,6 +78,8 @@ function ruleErrors(rule) {
   if (!KINDS.includes(rule.kind)) errors.push(`kind must be one of ${KINDS.join(", ")}`);
   const notText = ["source", "text", "message"].filter((k) => k in rule && typeof rule[k] !== "string");
   if (notText.length) errors.push(`${notText.join(", ")} must be text`);
+  if (rule.kind === OUT_OF_SCOPE) return [...errors, ...outOfScopeErrors(rule)];
+  if ("reason" in rule) errors.push(`reason belongs to ${OUT_OF_SCOPE} rules only`);
   // `examples` are tool calls: the command that runs them checks their shape (kj rules test).
   const tools = [rule.when?.tool].flat();
   if (tools.length === 0 || tools.some((t) => typeof t !== "string" || !t)) errors.push("when.tool names the tool: a glob, or a list where every item is one");

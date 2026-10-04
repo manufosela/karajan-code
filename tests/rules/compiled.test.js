@@ -62,6 +62,24 @@ describe("parseRules", () => {
     expect(load("version: 1\nmode: strict\nrules: []").errors[0]).toMatch(/unknown key mode/);
   });
 
+  // KJC-TSK-0948 (MDR-E1): a rule about how the agent thinks or answers has no
+  // tool call to gate. Saying so, with the reason, is a decision; silence is not.
+  it("an out-of-scope rule carries its reason and nothing to evaluate", () => {
+    const rule = (rest) => load(`version: 1\nrules:\n  - { id: R-a1b2c3d4e5, kind: out-of-scope${rest} }`);
+    expect(rule(", source: CLAUDE.md, text: Habla claro., reason: no es una acción")).toMatchObject({ errors: [], rules: [{ kind: "out-of-scope" }] });
+    expect(rule("").errors.join()).toMatch(/R-a1b2c3d4e5.*reason/);
+    expect(rule(", reason: ''").errors.join()).toMatch(/reason/);
+    expect(rule(", reason: [a]").errors.join()).toMatch(/reason/);
+    for (const key of ["when: { tool: Bash }", "message: no", "examples: {}"]) {
+      expect(rule(`, reason: no es una acción, ${key}`).errors.join()).toMatch(/out-of-scope rule takes no/);
+    }
+  });
+
+  it("a reason belongs to out-of-scope rules only", () => {
+    const { errors } = load("version: 1\nrules:\n  - { id: R-a1b2c3d4e5, kind: deterministic, when: { tool: Bash }, reason: porque sí }");
+    expect(errors.join()).toMatch(/reason/);
+  });
+
   it("any error leaves no rules: an invalid file evaluates nothing", () => {
     const text = `${SPRINT_RULE}  - { id: bad, kind: deterministic, when: { tool: Bash } }\n`;
     expect(load(text).rules).toEqual([]);
