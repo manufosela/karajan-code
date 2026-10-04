@@ -310,6 +310,20 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // MDR-A2 (KJC-TSK-0942, ADR 0016): the rules of the governing MD files, each with an id.
+  const rules = program.command("rules").description("Rules written in the MD files that govern a session (ADR 0016)");
+  rules.command("list")
+    .option("--json", "Machine-readable output")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules", flags, async ({ config }) => {
+        const { listRules } = await import("../rules/inventory.js");
+        const found = listRules(config?.projectDir || process.cwd());
+        if (flags.json) { console.log(JSON.stringify(found)); return; }
+        for (const r of found) console.log(`${r.id}  ${r.file}:${r.line}  ${r.text}`);
+        console.log(`${found.length} rule(s)`);
+      });
+    });
+
   // AB-F (KJC-TSK-0655): self-healing — the brain files kj frictions upstream.
   program
     .command("report-issue")

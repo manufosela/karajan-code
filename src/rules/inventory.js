@@ -7,6 +7,9 @@
  * hashes the normalized text, so a rule keeps its id when it moves to another line.
  */
 import { createHash } from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 const NORMATIVE = /\b(nunca|siempre|prohibido|obligatorio|jam[aá]s|never|always|must|forbidden|required|do not|don't)\b/i;
 
@@ -58,4 +61,30 @@ export function extractRules(markdown, file) {
     if (text && NORMATIVE.test(text)) rules.push({ id: ruleId(text), text, file, line: i + 1 });
   });
   return rules;
+}
+
+/**
+ * The MD files that govern a session in projectDir (KJC-TSK-0942): its CLAUDE.md
+ * and AGENTS.md, the global ~/.claude/CLAUDE.md and the project's feedback memories.
+ * @param {string} projectDir
+ * @param {{home?: string}} [opts]
+ */
+export function ruleSources(projectDir, { home = os.homedir() } = {}) {
+  // Claude Code names a project's folder after its path, every non-alphanumeric char as "-".
+  const memory = path.join(home, ".claude", "projects", path.resolve(projectDir).replaceAll(/[^A-Za-z0-9]/g, "-"), "memory");
+  let feedback = [];
+  try {
+    feedback = fs.readdirSync(memory).filter((f) => /^feedback_.*\.md$/.test(f)).sort().map((f) => path.join(memory, f));
+  } catch { /* no memories for this project */ }
+  return [
+    path.join(projectDir, "CLAUDE.md"),
+    path.join(projectDir, "AGENTS.md"),
+    path.join(home, ".claude", "CLAUDE.md"),
+    ...feedback,
+  ].filter((f) => fs.existsSync(f));
+}
+
+/** Every rule of every governing MD file, in source order. */
+export function listRules(projectDir, opts = {}) {
+  return ruleSources(projectDir, opts).flatMap((file) => extractRules(fs.readFileSync(file, "utf8"), file));
 }
