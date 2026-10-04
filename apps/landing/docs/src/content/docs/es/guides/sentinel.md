@@ -59,6 +59,8 @@ Las reglas que escribiste en tus MD (CLAUDE.md, AGENTS.md, tus memorias de feedb
 
 `kj rules coverage` cruza cada regla de tus MD con `rules.yml` y dice en qué quedó cada una: un gate determinista, uno de criterio, fuera de alcance (una regla sobre cómo piensa o responde el agente, declarada con su motivo, no tiene llamada que vigilar) o nada todavía. Una regla sin gate sale con su nombre, y también una desfasada: cuando reescribes una regla en su MD, lo que se compiló para la redacción antigua ya no corresponde a ningún texto. `--strict` sale con 1 mientras quede alguna de las dos.
 
+Nadie escribe `rules.yml` a mano, y el agente no lo escribe en absoluto. Una propuesta va a `.karajan/rules.proposed.yml`; `kj rules check` la comprueba (cada regla es de tus MD, cita su texto literal y pasa sus propios ejemplos), y `kj rules approve` te enseña cada regla junto a aquello en lo que se compiló, y las reglas que salen, antes de instalar nada. Aprobar es un acto humano con las mismas capas que el sello del supervisor: ninguna sesión de agente lo ejecuta, y lo que queda instalado es exactamente lo que se te enseñó.
+
 No hay escape. Si una regla está mal compilada, tu usuario corrige `.karajan/rules.yml`, que una sesión no puede editar. Un `rules.yml` que no se puede evaluar deniega todas las llamadas hasta que se corrige, porque unas reglas apagadas en silencio serían todas las llamadas permitidas. Sin `rules.yml`, este gate no existe.
 
 ## steward

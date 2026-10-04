@@ -45,6 +45,7 @@ import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
 import { PROPOSAL_FILE, readToolInput, rulesCheck, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
+import { rulesApprove } from "../commands/rules-approve.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -353,6 +354,17 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-check", flags, async ({ config }) => {
         const res = rulesCheck({ projectDir: config?.projectDir || process.cwd(), file: flags.file });
+        for (const line of res.lines) console.log(line);
+        process.exitCode = res.code;
+      });
+    });
+  // MDR-D3 (KJC-TSK-0952): the proposal becomes rules.yml by a human act only.
+  rules.command("approve")
+    .description("HUMAN act: show a checked proposal and install it as .karajan/rules.yml; no agent session runs it (ADR 0009)")
+    .option("--file <path>", "The proposal", PROPOSAL_FILE)
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules-approve", flags, async ({ config }) => {
+        const res = rulesApprove({ projectDir: config?.projectDir || process.cwd(), file: flags.file });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });

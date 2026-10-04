@@ -99,10 +99,12 @@ function inventoryFailures(rule, inventory) {
  * kj rules check (KJC-TSK-0950, MDR-D1): a proposal of compiled rules proves
  * itself before a human reads it. Every rule is one of the MD files and cites
  * its literal text; every deterministic one passes its own examples.
- * @returns {{code: 0|1, lines: string[]}}
+ * With `text`, that content is checked and the file is not read again: whoever
+ * installs a proposal installs the bytes that were checked.
+ * @returns {{code: 0|1, lines: string[], rules?: object[]}}
  */
-export function rulesCheck({ projectDir, file = PROPOSAL_FILE, home }) {
-  const { present, rules, errors } = loadRules(projectDir, file);
+export function rulesCheck({ projectDir, file = PROPOSAL_FILE, home, text }) {
+  const { present, rules, errors } = text === undefined ? loadRules(projectDir, file) : { present: true, ...parseRules(text) };
   if (!present) return { code: 1, lines: [`✗ no ${file}: nothing to check`] };
   if (errors.length) return { code: 1, lines: errors.map((e) => `✗ ${e}`) };
   const inventory = new Map(listRules(projectDir, home ? { home } : {}).map((rule) => [rule.id, rule]));
@@ -112,7 +114,7 @@ export function rulesCheck({ projectDir, file = PROPOSAL_FILE, home }) {
   ]);
   if (failures.length) return { code: 1, lines: failures.map((f) => `✗ ${f}`) };
   const count = (kind) => rules.filter((rule) => rule.kind === kind).length;
-  return { code: 0, lines: [`✓ ${rules.length} rule(s) hold: ${count("deterministic")} deterministic, ${count("judgment")} judgment, ${count("out-of-scope")} out of scope`] };
+  return { code: 0, rules, lines: [`✓ ${rules.length} rule(s) hold: ${count("deterministic")} deterministic, ${count("judgment")} judgment, ${count("out-of-scope")} out of scope`] };
 }
 
 /**
