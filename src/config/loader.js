@@ -194,10 +194,32 @@ function stripRuntimeOnlyKeys(config) {
   return out;
 }
 
+// KJC-BUG-0253: a project's .karajan/kj.config.yml is versioned with the repo,
+// so the SonarQube credentials never go there; they live in the global config
+// (~/.karajan), where the token bootstrap already saves them.
+const SECRET_KEYS = ["token", "admin_password"];
+const isProjectConfig = (configPath) =>
+  path.basename(configPath) === "kj.config.yml"
+  && path.basename(path.dirname(configPath)) === ".karajan"
+  && path.resolve(configPath) !== path.resolve(getConfigPath());
+
+function stripSecrets(config) {
+  if (!config?.sonarqube || typeof config.sonarqube !== "object") return { out: config, stripped: [] };
+  const stripped = SECRET_KEYS.filter((k) => config.sonarqube[k] != null);
+  if (!stripped.length) return { out: config, stripped };
+  const sonarqube = { ...config.sonarqube };
+  for (const k of stripped) delete sonarqube[k];
+  return { out: { ...config, sonarqube }, stripped: stripped.map((k) => `sonarqube.${k}`) };
+}
+
+/** @returns {Promise<{strippedSecrets: string[]}>} the secret keys kept out of a project config */
 export async function writeConfig(configPath, config) {
   await ensureDir(path.dirname(configPath));
-  const sanitized = stripRuntimeOnlyKeys(config);
+  let sanitized = stripRuntimeOnlyKeys(config);
+  let strippedSecrets = [];
+  if (isProjectConfig(configPath)) ({ out: sanitized, stripped: strippedSecrets } = stripSecrets(sanitized));
   await fs.writeFile(configPath, yaml.dump(sanitized, { lineWidth: 120 }), "utf8");
+  return { strippedSecrets };
 }
 
 // Declarative mappings for applyRunOverrides to reduce cognitive complexity.

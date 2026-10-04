@@ -414,7 +414,7 @@ async function runWizard(config, logger) {
  * @param {object} config
  */
 export async function writeInitConfig(configPath, config) {
-  await writeConfig(configPath, config);
+  return writeConfig(configPath, config);
 }
 
 async function handleConfigSetup({ config, configExists, interactive, configPath, logger }) {
@@ -938,7 +938,11 @@ export async function initCommand({ logger, flags = {} }) {
   // Use writeInitConfig so the deprecated `sonarqube.enabled` key —
   // which setupSonarQube still mutates as an in-memory hint — never
   // reaches the YAML file.
-  await writeInitConfig(configPath, config);
+  const written = await writeInitConfig(configPath, config);
+  // KJC-BUG-0253: said out loud, so nobody looks for the token where it was not written.
+  if (written?.strippedSecrets?.length) {
+    logger.info(`Kept ${written.strippedSecrets.join(", ")} out of ${configPath} (versioned with the repo); it lives in ~/.karajan/kj.config.yml`);
+  }
 
   // Telemetry: anonymous install event (non-blocking)
   const { readFileSync } = await import("node:fs");
