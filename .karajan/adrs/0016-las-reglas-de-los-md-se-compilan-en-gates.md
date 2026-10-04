@@ -1,7 +1,8 @@
 # Las reglas de los MD se compilan en gates
 
-Status: proposed
+Status: accepted
 Date: 2026-10-04
+Accepted: 2026-10-04 (dev_001)
 
 ## Context
 
