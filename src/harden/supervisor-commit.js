@@ -12,6 +12,7 @@ import { basename, join } from "node:path";
 
 import { recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
+import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 
 export const PROVENANCE_FILE = ".karajan/supervisor-provenance.json";
@@ -207,6 +208,12 @@ export async function commitSupervisorRegeneration({
     files: hashed,
     who: provenance.who,
   });
+  // KJC-BUG-0264: un bloque .karajan antiguo en .gitignore dejaba la procedencia
+  // fuera de git y el add fallaba. Se completa antes el bloque canónico (la misma
+  // migración que kj review --install-gate); el cambio queda para una PR normal.
+  if ((await ensureGateTrackable(projectDir)).changed) {
+    logger.info?.("harden --commit: .gitignore completado con el bloque canónico de .karajan (la procedencia viaja con el repo); súbelo en una PR");
+  }
   // Por DIRECTORIO, no por fichero: un rename ya staged deja la ruta vieja
   // sin existir y `git add -- <vieja>` falla; `-A` sobre el dir del
   // supervisor versiona altas, cambios, borrados y renombrados por igual.
