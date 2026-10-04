@@ -43,6 +43,7 @@ import { verifySentinelScripts, resolveSentinelRoot } from "../harden/sentinel-h
 import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
+import { listRules } from "../rules/inventory.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -307,6 +308,19 @@ export function registerMeta(program, { pkgVersion }) {
         if (flags.json) { console.log(JSON.stringify(adrs)); return; }
         for (const a of adrs) console.log(`${String(a.number).padStart(4, "0")}  ${a.status.padEnd(10)} ${a.title}`);
         if (adrs.length === 0) console.log("no ADRs yet — create one with: kj adr add \"<title>\" --decision \"...\"");
+      });
+    });
+
+  // MDR-A2 (KJC-TSK-0942, ADR 0016): the rules of the governing MD files, each with an id.
+  const rules = program.command("rules").description("Rules written in the MD files that govern a session (ADR 0016)");
+  rules.command("list")
+    .option("--json", "Machine-readable output")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules", flags, async ({ config }) => {
+        const found = listRules(config?.projectDir || process.cwd());
+        if (flags.json) { console.log(JSON.stringify(found)); return; }
+        for (const r of found) console.log(`${r.id}  ${r.file}:${r.line}  ${r.text}`);
+        console.log(`${found.length} rule(s)`);
       });
     });
 
