@@ -44,7 +44,7 @@ import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
-import { readToolInput, rulesEval, rulesTest } from "../commands/rules.js";
+import { readToolInput, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -343,6 +343,19 @@ export function registerMeta(program, { pkgVersion }) {
       await withConfig(pkgVersion, "rules-test", flags, async ({ config }) => {
         const res = rulesTest({ projectDir: config?.projectDir || process.cwd() });
         for (const line of res.lines) console.log(line);
+        process.exitCode = res.code;
+      });
+    });
+  // MDR-E (KJC-TSK-0941): which rules of the MD files have a gate, and which do not.
+  rules.command("coverage")
+    .description("Every rule of the MD files against .karajan/rules.yml: deterministic, judgment, out of scope, with no gate; and the stale compiled ones")
+    .option("--strict", "Exit 1 while a rule has no gate or a compiled rule is stale")
+    .option("--json", "Machine-readable output")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules-coverage", flags, async ({ config }) => {
+        const res = rulesCoverage({ projectDir: config?.projectDir || process.cwd(), strict: flags.strict });
+        if (flags.json && res.output) console.log(JSON.stringify(res.output));
+        else for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });
     });

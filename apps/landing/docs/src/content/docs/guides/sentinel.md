@@ -57,6 +57,8 @@ A merged card must be moved in the tracker before anything else advances — com
 
 The rules you wrote in your MD files (CLAUDE.md, AGENTS.md, your feedback memories), compiled into `.karajan/rules.yml`, are checked before every tool call, MCP tools included (ADR 0016). A rule is a condition over the call: which tool, with which arguments. "Sprints last one day" stops being something the agent has to remember: a call that creates a week-long sprint is denied before it runs, and the message names the rule, the MD it comes from and what it says. `kj rules list` shows every rule found in your MD files, `kj rules eval` evaluates one call, and `kj rules test` runs each rule's own examples.
 
+`kj rules coverage` crosses every rule of your MD files with `rules.yml` and says what each one became: a deterministic gate, a judgment one, out of scope (a rule about how the agent thinks or answers, declared with its reason, has no tool call to gate) or nothing yet. A rule with no gate is listed by name, and so is a stale one: when you reword a rule in its MD, what was compiled for the old wording no longer matches any text. `--strict` exits 1 while either remains.
+
 There is no escape. If a rule is compiled wrong, your user fixes `.karajan/rules.yml`, which a session cannot edit. A `rules.yml` that cannot be evaluated denies every call until it is fixed, because rules silently off would be every call allowed. With no `rules.yml`, this gate does not exist.
 
 ## steward

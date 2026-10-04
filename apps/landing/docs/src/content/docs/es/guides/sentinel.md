@@ -57,6 +57,8 @@ Una card mergeada debe moverse en el tracker antes de que avance nada más, comm
 
 Las reglas que escribiste en tus MD (CLAUDE.md, AGENTS.md, tus memorias de feedback), compiladas en `.karajan/rules.yml`, se comprueban antes de cada llamada a herramienta, también las de servidores MCP (ADR 0016). Una regla es una condición sobre la llamada: qué herramienta y con qué argumentos. "Los sprints duran un día" deja de ser algo que el agente tenga que recordar: una llamada que crea un sprint de una semana se deniega antes de ejecutarse, y el mensaje nombra la regla, el MD del que sale y lo que dice. `kj rules list` enseña cada regla encontrada en tus MD, `kj rules eval` evalúa una llamada y `kj rules test` ejecuta los ejemplos de cada regla.
 
+`kj rules coverage` cruza cada regla de tus MD con `rules.yml` y dice en qué quedó cada una: un gate determinista, uno de criterio, fuera de alcance (una regla sobre cómo piensa o responde el agente, declarada con su motivo, no tiene llamada que vigilar) o nada todavía. Una regla sin gate sale con su nombre, y también una desfasada: cuando reescribes una regla en su MD, lo que se compiló para la redacción antigua ya no corresponde a ningún texto. `--strict` sale con 1 mientras quede alguna de las dos.
+
 No hay escape. Si una regla está mal compilada, tu usuario corrige `.karajan/rules.yml`, que una sesión no puede editar. Un `rules.yml` que no se puede evaluar deniega todas las llamadas hasta que se corrige, porque unas reglas apagadas en silencio serían todas las llamadas permitidas. Sin `rules.yml`, este gate no existe.
 
 ## steward
