@@ -19,6 +19,7 @@ import {
   resolveSonarHost,
   resolveSonarTokenAsync,
   resolveSonarCredentials,
+  sonarTokenSources,
 } from "../sonar/config-resolver.js";
 import { saveSonarToken } from "../sonar/credentials.js";
 import { withDocLink } from "../utils/doc-links.js";
@@ -106,7 +107,7 @@ async function checkSonarAuth(config) {
   const { user: adminUser, passwords } = await resolveSonarCredentials(config);
 
   if (!adminUser || passwords.length === 0) {
-    return { name: "sonar-auth", ok: false, detail: "No Sonar token or admin credentials configured. Set KJ_SONAR_TOKEN, configure sonarqube.token in kj.config.yml, or save credentials in ~/.karajan/sonar-credentials.json." };
+    return { name: "sonar-auth", ok: false, detail: `No Sonar token or admin credentials found. Looked in: ${sonarTokenSources()}. With a custom KARAJAN_HOME/KJ_HOME, the token must be there (or pass kjHome).` };
   }
 
   for (const password of passwords) {
@@ -327,8 +328,8 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
       result.ok = false;
       result.errors.push({
         check: "sonar-auth",
-        message: "SonarQube is running but no authentication token is configured.",
-        fix: withDocLink("Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to ~/.karajan/kj.config.yml.", "sonar_token")
+        message: `SonarQube is running but no authentication token was found. Looked in: ${sonarTokenSources()}.`,
+        fix: withDocLink("Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to the kj.config.yml of the active Karajan home.", "sonar_token")
       });
       logger.error("Preflight: Sonar auth failed");
     }
