@@ -29,8 +29,13 @@ const TASK = [
   "name, a comment) is a defect too: do not ask for one, and do not ask for more than the text forbids.",
   "A deterministic rule that enforces every part of its text a condition CAN see is not weak for leaving out the part no",
   "condition can see: block it only if the visible part is compiled narrower than it could be.",
-  "Report as a BLOCKING issue every rule that is weaker than its text, naming its id (R-...) and saying what would enforce it.",
-  "Approve only when no rule is weaker than its text.",
+  "What blocks is MATERIAL weakness: a form of the forbidden call an agent would plausibly write in ordinary work is let",
+  "through, or a call an agent would plausibly make in honest work is denied. A pattern over shell text is never complete,",
+  "and these gates exist for a rule forgotten or bent in passing; an agent contorting a command to dodge them is stopped at",
+  "the checkpoints it does not reach (git hooks, CI), not here. So an exotic form (a command inside a control structure, a",
+  "rare global option, unusual casing) is a non-blocking suggestion, not a blocking issue.",
+  "Report as a BLOCKING issue every rule materially weaker than its text, naming its id (R-...) and saying what would",
+  "enforce it. Approve when none is.",
 ].join("\n");
 
 /**
