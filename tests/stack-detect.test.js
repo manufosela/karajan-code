@@ -18,6 +18,22 @@ describe("detectProjectStack", () => {
     fs.readdir.mockResolvedValue([]);
   });
 
+  // KJC-BUG-0267: a static site (an index.html, no framework) has a frontend.
+  // With no marker it came out with neither tier and the audit called it backend-only.
+  it("a static site is a frontend: an index.html at the root, in public/ or in src/", async () => {
+    for (const where of ["index.html", "public/index.html", "src/index.html"]) {
+      fs.access.mockImplementation(async (p) => { if (!String(p).endsWith(`/project/${where}`)) throw new Error("not found"); });
+      const result = await detectProjectStack("/project");
+      expect(result, where).toMatchObject({ isFrontend: true, isBackend: false, isFullstack: false, frameworks: [] });
+    }
+  });
+
+  it("an API that also serves a static page is fullstack", async () => {
+    fs.readFile.mockResolvedValue(JSON.stringify({ dependencies: { express: "^5.0.0" } }));
+    fs.access.mockImplementation(async (p) => { if (!String(p).endsWith("/project/public/index.html")) throw new Error("not found"); });
+    expect(await detectProjectStack("/project")).toMatchObject({ isFrontend: true, isBackend: true, isFullstack: true });
+  });
+
   it("detects React from package.json → frameworks includes 'react', isFrontend true", async () => {
     fs.readFile.mockResolvedValue(
       JSON.stringify({ dependencies: { react: "^18.0.0", "react-dom": "^18.0.0" } })

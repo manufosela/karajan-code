@@ -77,11 +77,20 @@ describe("collectCircularDeps — actual scan", () => {
     expect(res.cycles[0].cycle.length).toBe(4);
   });
 
-  it("returns available:false if entrypoint (src/) missing", async () => {
-    // tmp has no src/ folder
+  // KJC-BUG-0267: a static site keeps its scripts in js/ or at the root. With no
+  // src/ the scan gave up ("entrypoint src not found"); now it reads the project.
+  it("with no src/ it scans the project itself, and reports paths from its root", async () => {
+    mkdirSync(path.join(tmp, "js"), { recursive: true });
+    writeFileSync(path.join(tmp, "js/a.js"), `import { b } from "./b.js";\nexport const a = () => b();\n`);
+    writeFileSync(path.join(tmp, "js/b.js"), `import { a } from "./a.js";\nexport const b = () => a();\n`);
+    mkdirSync(path.join(tmp, "node_modules/dep"), { recursive: true });
+    writeFileSync(path.join(tmp, "node_modules/dep/x.js"), `import "./y.js";\n`);
+    writeFileSync(path.join(tmp, "node_modules/dep/y.js"), `import "./x.js";\n`);
+
     const res = await collectCircularDeps(tmp, { language: "javascript" });
-    expect(res.available).toBe(false);
-    expect(res.reason).toMatch(/src.*not found/i);
+    expect(res.available).toBe(true);
+    expect(res.total).toBe(1);
+    expect(res.cycles[0].cycle.every((p) => p.startsWith("js/"))).toBe(true);
   });
 
   it("respects config.audit.false_positives to suppress known cycles", async () => {

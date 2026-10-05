@@ -27,6 +27,14 @@ describe("collectWebPerfInput (KJC-TSK-0360)", () => {
     expect(r.reason).toMatch(/backend-only/);
   });
 
+  // KJC-BUG-0267: with no tier detected the project is not "backend-only".
+  it("a project with no tier detected is not called backend-only", () => {
+    const r = collectWebPerfInput({ isFrontend: false, isBackend: false, isFullstack: false }, {});
+    expect(r.available).toBe(false);
+    expect(r.reason).not.toMatch(/backend-only/);
+    expect(r.reason).toMatch(/no frontend/);
+  });
+
   it("surfaces a CWV verdict from config.webperf.lastResult when present", () => {
     const r = collectWebPerfInput(
       { isFrontend: true, isBackend: false, isFullstack: false },
