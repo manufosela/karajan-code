@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.39.0: no escapes (current)
+### v4.40.0: your rules become gates (current)
+
+The rules you write in your MD files stop depending on the agent remembering them. kj reads them, compiles each into a condition over a tool call, and checks every call before it runs, MCP tools included; a deny names the rule and the MD it comes from. You approve the compilation from your own terminal, after a different AI has reviewed it rule by rule, and what you read is ordered by what can hurt. Rules that come from your private files are kept out of git. Also: CI now verifies the phone's signature of a seal against the versioned roster, a new ADR is born proposed, and `kj audit` treats a static site as the frontend it is.
+
+### v4.39.0: no escapes
 
 An audit counted fifteen `KJ_ALLOW_*` escapes, and the agent could raise every one of them by prefixing a command. ADR 0015 removes them all, in the Sentinel, in `kj review` and in the git hooks: a gate that needs an escape is a gate to fix. Each decision that really belongs to the project has its own channel outside the session, from a PR to `policy.yml` to the `large-pr-justified` label. Also fixed: a body-file path followed by `;`, solomon's position from a file, restoring a file the session removed, ai-trash keeping uncommitted work, and a Sonar pregate that read the previous analysis.
 

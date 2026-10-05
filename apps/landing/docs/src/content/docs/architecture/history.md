@@ -1736,6 +1736,14 @@ The user asked a blunt question: why are there escapes at all, are the rules bad
 
 ADR 0015 took that as the direction. The method is imposed at external checkpoints, the Sentinel stays small and reads structural signals rather than shell text, and no escape exists: a gate that needs one is a gate to fix. The decisions that really are the project's got their own channels outside the session, a PR to `policy.yml`, the Steward set to `inform`, the `large-pr-justified` label judged in CI, the privacy allow list, and the user's own terminal. Fifteen escapes went in five PRs, and the tests that leaned on the identity escape now declare an identity, so they exercise the real gate instead of its back door.
 
+## Phase 132: v4.40.0, your rules become gates
+
+A session created week-long sprints although the user's own MD file said sprints last one day. The tool allowed it with one parameter, so the agent used the parameter and forgot the rule. The user's question was not about sprints: the rules written in the MD files are ignored, and there had to be a way to turn each one into a gate. ADR 0016 is that way. kj reads the rules out of the MD files that govern a session and gives each a stable id, the hash of its text. A rule is compiled into a condition over a tool call (which tool, which arguments) with a closed set of operators, so it runs with no model, and a hook with no matcher checks every tool call before it runs, MCP tools included. A deny names the rule, the MD it comes from and what it says.
+
+Running it on this very repository changed the design three times. The inventory cut rules that spanned several lines, so the unit became the markdown block. Of 120 rules, 103 came from the user's private files, and the compiled rules are versioned: approving them would have published private words in a public repo. ADR 0017 split them in two files, decided by where a rule is written and never by the proposal. And since the agent that writes the proposal is the one the rules will watch, three defenses stand before the human's approval: a different AI reviews the compilation rule by rule, the rules that lose force are shown first, and the ones with no effective gate come before the gates. That review rejected two of the author's own compilations on its first real run.
+
+The same conversation raised an older question: when an agent asks the human to run something kj forbids it, how does the human know it is not being fooled, and how does kj know the human is the human? ADR 0018 answers with a request channel through kj, a closed catalog of dangerous commands and the phone's signature as the default for all of them. Looking at the code for it showed that the signature was only ever checked on the machine that sealed. This release makes CI verify it against the versioned roster; the rest of that ADR is ahead.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

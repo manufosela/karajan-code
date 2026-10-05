@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.40.0] - 2026-10-05
+
+Your rules become gates. A session created week-long sprints although the
+user's MD file said one day: the tool allowed it, and the rule was forgotten.
+ADR 0016 turns each rule written in the MD files into a gate that is checked
+before every tool call. ADR 0017 keeps the rules that come from private files
+out of git and puts three defenses before the human's approval, because the
+agent that compiles the rules is the one they will watch.
+
+### Added
+
+- **The rules of your MD files, compiled into gates** (ADR 0016, KJC-TSK-0937 to 0953): `kj rules list` reads the rules of the files that govern a session (`CLAUDE.md`, `AGENTS.md`, your global `CLAUDE.md`, your feedback memories) and gives each a stable id. A rule compiles into a condition over a tool call, with a closed set of operators and its own deny and allow examples, so it runs with no model. A Sentinel hook with no matcher asks `kj rules eval` before every tool call, MCP tools included, and a deny names the rule, its MD and what it says. There is no escape: a rule compiled wrong is fixed by the user.
+- **Compile, check, review, approve** (KJC-TSK-0940, 0950, 0952, 0953, 0963, 0969): `kj rules compile` writes the proposal's skeleton with every literal text and hands the agent the format, with no model called by kj. `kj rules decide` gives many rules their kind at once. `kj rules check` proves that each rule is one of your MD files, cites its text word for word and passes its examples. `kj rules review` has a different AI judge, rule by rule, whether the compilation is as strong as its text. `kj rules approve` installs it, as a human act no agent session can run.
+- **Rules from private files stay out of git** (ADR 0017, KJC-TSK-0954, 0961): a rule written in a file of the project goes to `.karajan/rules.yml`, versioned; one written only in your private files goes to `.karajan/rules.local.yml`, which git ignores. The inventory decides where, never the proposal. Both govern as one rule set and a session can write neither.
+- **A weak compilation cannot be approved unseen** (ADR 0017, KJC-TSK-0962, 0963): before the nonce, `kj rules approve` shows first the rules that lose or change force against what is approved, then the ones with no effective gate, then the gates. Without an approved cross-AI review of the proposal's exact content, it offers nothing.
+- **`kj rules coverage`** (KJC-TSK-0941, 0948, 0949): which rules have a gate, which do not, and which compiled ones went stale because you reworded the MD. `--strict` exits 1 while any remain, and every session start names the count.
+- **CI verifies the phone's signature of a seal** (ADR 0018, KJC-TSK-0964): with signers in the versioned roster, a provenance backs nothing unless one of them signed the very files it declares. The signature used to be checked only on the machine that sealed.
+
+### Changed
+
+- **A new ADR is born proposed** (KJC-BUG-0272): `kj adr add` wrote `Status: accepted`. Whoever records a decision proposes it; accepting it is the user's.
+- **The harness changed and needs a re-seal**: run `kj harden` and `kj harden --commit` to install the rules hook and the session-start notice.
+
+### Fixed
+
+- **`kj audit` on a static site** (KJC-BUG-0267): an `index.html` marks a frontend, a project with no tier detected is no longer called backend-only, and with no `src/` the circular-import scan reads the project.
+- **The canonical `.karajan` block keeps the policy in git** (KJC-BUG-0269): `policy.yml`, its anchor and the signers roster were left ignored in a new project.
+- **On the base branch the stop gate judges the work still there** (KJC-BUG-0265), and **the sealed commit completes an older `.karajan` gitignore block** (KJC-BUG-0264).
+- **A pipeline is running while its lock is held** (KJC-BUG-0250), not while `run.log` is fresh.
+- **Sonar credentials** (KJC-BUG-0253, 0266): a project config never holds them, and the token the bootstrap saved is read back.
+- **Vendored and minified bundles stay out of eslint and ai-slop** (KJC-BUG-0254).
+- **A redirection is not a path to the discard guard** (KJC-BUG-0268), and **a rule id is not a phone number** to the privacy scanner (KJC-BUG-0270).
+
 ## [4.39.0] - 2026-10-04
 
 No escapes. An audit of the gates counted 53 fixes since September and 15
