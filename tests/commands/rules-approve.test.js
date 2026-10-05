@@ -8,6 +8,7 @@ import path from "node:path";
 import yaml from "js-yaml";
 import { rulesApprove } from "../../src/commands/rules-approve.js";
 import { listRules } from "../../src/rules/inventory.js";
+import { saveVerdict } from "../../src/review/verdict-store.js";
 
 const human = { ppid: 1, cmd: "bash" };
 const HUMAN = { env: {}, tty: true, deps: { confirm: (n) => n, ancestry: { pid: 100, readProc: () => human } } };
@@ -21,6 +22,11 @@ const write = (name, entries) => {
   fs.writeFileSync(file(name), `version: 1\nrules:\n${entries.join("")}`);
 };
 const approve = (over = {}) => rulesApprove({ projectDir: dir, home, log: (line) => shown.push(line), ...HUMAN, ...over });
+/** A proposal a different AI already approved, as `kj rules review` leaves it. */
+const propose = async (entries, verdict = "approved") => {
+  write("rules.proposed.yml", entries);
+  await saveVerdict(dir, fs.readFileSync(file("rules.proposed.yml"), "utf8"), { verdict, reviewer: "codex", issues: [{ description: "R-x: demasiado estrecha" }], summary: "fiel" });
+};
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rules-approve-"));
   home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rules-approve-home-"));
@@ -31,32 +37,49 @@ beforeEach(() => {
 afterEach(() => { for (const d of [dir, home]) fs.rmSync(d, { recursive: true, force: true }); });
 
 describe("kj rules approve", () => {
-  it("an agent session cannot approve: nothing is installed", () => {
-    write("rules.proposed.yml", [entry(rules[0])]);
-    expect(() => approve({ env: { CLAUDECODE: "1" } })).toThrow(/kj rules approve es un acto humano/);
-    expect(() => approve({ deps: { ...HUMAN.deps, confirm: () => "yes" } })).toThrow(/confirmación humana fallida/);
+  it("an agent session cannot approve: nothing is installed", async () => {
+    await propose([entry(rules[0])]);
+    await expect(approve({ env: { CLAUDECODE: "1" } })).rejects.toThrow(/kj rules approve es un acto humano/);
+    await expect(approve({ deps: { ...HUMAN.deps, confirm: () => "yes" } })).rejects.toThrow(/confirmación humana fallida/);
     expect(fs.existsSync(file("rules.yml"))).toBe(false);
   });
 
-  it("a proposal that does not hold is not offered for approval", () => {
-    write("rules.proposed.yml", [`  - { id: ${rules[0].id}, text: "Otra cosa.", kind: judgment, when: { tool: Bash } }\n`]);
+  it("a proposal that does not hold is not offered for approval", async () => {
+    await propose([`  - { id: ${rules[0].id}, text: "Otra cosa.", kind: judgment, when: { tool: Bash } }\n`]);
     let asked = false;
-    const res = approve({ deps: { ...HUMAN.deps, confirm: (n) => { asked = true; return n; } } });
+    const res = await approve({ deps: { ...HUMAN.deps, confirm: (n) => { asked = true; return n; } } });
     expect(res.code).toBe(1);
     expect(res.lines.join()).toMatch(/text is not what the MD says/);
     expect(asked).toBe(false);
     expect(fs.existsSync(file("rules.yml"))).toBe(false);
   });
 
-  it("shows every rule, and the ones that leave, before it asks; then installs the proposal as read", () => {
+  // KJC-TSK-0963 (ADR 0017): whoever wrote the proposal does not call it good.
+  it("with no approved review of these exact bytes by a different AI, it is not offered", async () => {
+    let asked = false;
+    const deps = { ...HUMAN.deps, confirm: (n) => { asked = true; return n; } };
+    write("rules.proposed.yml", [entry(rules[0])]); // never reviewed
+    expect(await approve({ deps })).toMatchObject({ code: 1, lines: [expect.stringMatching(/no approved cross-AI review.*none recorded.*kj rules review/)] });
+    await propose([entry(rules[0])], "rejected");
+    const rejected = await approve({ deps });
+    expect(rejected.lines.join("\n")).toMatch(/rejected by codex[\s\S]*demasiado estrecha/);
+    await propose([entry(rules[0])]);
+    fs.appendFileSync(file("rules.proposed.yml"), entry(rules[1])); // touched after the review
+    expect((await approve({ deps })).code).toBe(1);
+    expect(asked).toBe(false);
+    expect(fs.existsSync(file("rules.yml"))).toBe(false);
+  });
+
+  it("shows every rule, and the ones that leave, before it asks; then installs the proposal as read", async () => {
     write("rules.yml", [entry(rules[0]), entry(rules[1])]);
-    write("rules.proposed.yml", [entry(rules[0], "kind: out-of-scope, reason: no es una acción")]);
+    await propose([entry(rules[0], "kind: out-of-scope, reason: no es una acción")]);
     const confirm = (nonce) => { // the proposal changes while the human reads: what was shown is what lands
       fs.writeFileSync(file("rules.proposed.yml"), "version: 1\nrules: []\n");
       return nonce;
     };
-    const res = approve({ deps: { ...HUMAN.deps, confirm } });
+    const res = await approve({ deps: { ...HUMAN.deps, confirm } });
     expect(res.code).toBe(0);
+    expect(shown[0]).toMatch(/Reviewed by codex, a different AI/);
     const seen = shown.join("\n");
     expect(seen).toMatch(new RegExp(`${rules[0].id}.*out-of-scope.*Nunca despliegues sin permiso.*no es una acción`, "s"));
     expect(seen).toMatch(new RegExp(`1 rule\\(s\\) LEAVE:\\n${rules[1].id}`));
@@ -67,19 +90,19 @@ describe("kj rules approve", () => {
   });
 
   // KJC-TSK-0961 (ADR 0017): what comes from the user's private MD files is not versioned.
-  it("installs each rule by where it is written: the project's versioned, the private ones local", () => {
+  it("installs each rule by where it is written: the project's versioned, the private ones local", async () => {
     fs.mkdirSync(path.join(home, ".claude"), { recursive: true });
     fs.writeFileSync(path.join(home, ".claude", "CLAUDE.md"), "- Nunca toques otro repo.\n");
     const foreign = listRules(dir, { home }).at(-1);
-    write("rules.proposed.yml", [entry(rules[0]), entry(foreign, undefined, "~/.claude/CLAUDE.md")]);
-    expect(approve().code).toBe(0);
+    await propose([entry(rules[0]), entry(foreign, undefined, "~/.claude/CLAUDE.md")]);
+    expect((await approve()).code).toBe(0);
     expect(installed("rules.yml")).toEqual([rules[0].id]);
     expect(installed("rules.local.yml")).toEqual([foreign.id]);
     expect(shown.join("\n")).toMatch(new RegExp(`${foreign.id}.*not versioned`));
     expect(fs.readFileSync(file("rules.yml"), "utf8")).not.toContain("otro repo");
     // a later proposal with no private rule leaves no stale local file behind
-    write("rules.proposed.yml", [entry(rules[0])]);
-    expect(approve().code).toBe(0);
+    await propose([entry(rules[0])]);
+    expect((await approve()).code).toBe(0);
     expect(fs.existsSync(file("rules.local.yml"))).toBe(false);
   });
 });

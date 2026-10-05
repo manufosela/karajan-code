@@ -46,6 +46,7 @@ import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
 import { PROPOSAL_FILE, readToolInput, rulesCheck, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
 import { rulesApprove } from "../commands/rules-approve.js";
+import { rulesReview } from "../commands/rules-review.js";
 import { rulesCompileBrief } from "../commands/rules-compile.js";
 
 /**
@@ -369,13 +370,24 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = res.code;
       });
     });
+  // MDR-F4 (KJC-TSK-0963): whoever proposes the compilation does not call it good.
+  rules.command("review")
+    .description("A DIFFERENT AI reviews a checked proposal, rule by rule: is each compilation as strong as its text? The verdict is tied to the proposal's exact content")
+    .option("--file <path>", "The proposal", PROPOSAL_FILE)
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules-review", flags, async ({ config, logger }) => {
+        const res = await rulesReview({ projectDir: config?.projectDir || process.cwd(), file: flags.file, config, logger });
+        for (const line of res.lines) console.log(line);
+        process.exitCode = res.code;
+      });
+    });
   // MDR-D3 (KJC-TSK-0952): the proposal becomes rules.yml by a human act only.
   rules.command("approve")
-    .description("HUMAN act: show a checked proposal and install it as .karajan/rules.yml; no agent session runs it (ADR 0009)")
+    .description("HUMAN act: show a checked and cross-reviewed proposal and install it as the project's rules; no agent session runs it (ADR 0009)")
     .option("--file <path>", "The proposal", PROPOSAL_FILE)
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-approve", flags, async ({ config }) => {
-        const res = rulesApprove({ projectDir: config?.projectDir || process.cwd(), file: flags.file });
+        const res = await rulesApprove({ projectDir: config?.projectDir || process.cwd(), file: flags.file });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });

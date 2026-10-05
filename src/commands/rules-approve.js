@@ -13,6 +13,7 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { confirmHuman, refuseAgentSession } from "../harden/human-act.js";
+import { checkVerdict } from "../review/verdict-store.js";
 import { approvalView } from "../rules/approval-view.js";
 import { loadRules, LOCAL_RULES_FILE, PROPOSAL_FILE, RULES_FILE, rulesCheck } from "./rules.js";
 
@@ -21,15 +22,24 @@ const ACT = "kj rules approve";
 /**
  * @param {{projectDir: string, file?: string, home?: string, env?: object, tty?: boolean,
  *   deps?: {confirm?: Function, ancestry?: object}, log?: (line: string) => void}} opts
- * @returns {{code: 0|1, lines: string[]}}
+ * @returns {Promise<{code: 0|1, lines: string[]}>}
  */
-export function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env, tty, deps = {}, log = console.log }) {
+export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env, tty, deps = {}, log = console.log }) {
   refuseAgentSession(ACT, { env, tty, ancestry: deps.ancestry ?? {} });
   const proposal = path.resolve(projectDir, file);
   let text;
   try { text = fs.readFileSync(proposal, "utf8"); } catch { return { code: 1, lines: [`✗ no ${file}: nothing to approve`] }; }
   const checked = rulesCheck({ projectDir, home, text });
   if (checked.code !== 0) return { code: 1, lines: checked.lines };
+  // KJC-TSK-0963: whoever wrote the proposal does not call it good. A different
+  // AI must have approved these exact bytes; a touched proposal is reviewed again.
+  const reviewed = await checkVerdict(projectDir, text);
+  if (!reviewed.ok) {
+    const found = (reviewed.verdict?.issues ?? []).map((issue) => `  - ${issue.description ?? issue.message ?? JSON.stringify(issue)}`);
+    const why = reviewed.verdict ? "rejected by " + reviewed.verdict.reviewer : "none recorded for its exact content";
+    return { code: 1, lines: [`✗ this proposal has no approved cross-AI review (${why}): run \`kj rules review\``, ...found] };
+  }
+  log(`Reviewed by ${reviewed.verdict.reviewer}, a different AI from the one that wrote it: ${reviewed.verdict.summary || "approved"}`);
   const { rules, local } = checked;
   // KJC-TSK-0962: read in the order of what can hurt, weakened rules first.
   const view = approvalView(rules, loadRules(projectDir).rules, local, { versioned: RULES_FILE, unversioned: LOCAL_RULES_FILE });
