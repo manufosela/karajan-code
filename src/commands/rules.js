@@ -13,13 +13,15 @@ import { evalRules } from "../rules/evaluate.js";
 import { listRules } from "../rules/inventory.js";
 
 export const RULES_FILE = path.join(".karajan", "rules.yml");
+/** ADR 0017: rules whose source is outside the project. Never versioned. */
+export const LOCAL_RULES_FILE = path.join(".karajan", "rules.local.yml");
 
 /**
  * The compiled rules of a project. A file that does not exist is no rules; a
  * file that exists and cannot be read is an error (rules silently off would be
  * every call allowed).
  */
-export function loadRules(projectDir, file = RULES_FILE) {
+function loadRulesFile(projectDir, file) {
   let text;
   try {
     text = fs.readFileSync(path.resolve(projectDir, file), "utf8");
@@ -28,6 +30,21 @@ export function loadRules(projectDir, file = RULES_FILE) {
     return { present: true, rules: [], errors: [`cannot read ${file}: ${err.code || err.message}`] };
   }
   return { present: true, ...parseRules(text) };
+}
+
+/**
+ * With a `file`, that file alone (a proposal). Without one, what governs the
+ * project (KJC-TSK-0954, ADR 0017): the versioned rules and the local ones, as
+ * one rule set. An error in either leaves no rules; a rule lives in one file.
+ */
+export function loadRules(projectDir, file) {
+  if (file) return loadRulesFile(projectDir, file);
+  const loaded = [RULES_FILE, LOCAL_RULES_FILE].map((name) => ({ name, ...loadRulesFile(projectDir, name) }));
+  const errors = loaded.flatMap(({ name, errors: found }) => found.map((e) => `${name}: ${e}`));
+  const rules = loaded.flatMap((part) => part.rules);
+  const ids = rules.map((rule) => rule.id);
+  errors.push(...new Set(ids.filter((id, i) => ids.indexOf(id) !== i).map((id) => `${id}: in both ${RULES_FILE} and ${LOCAL_RULES_FILE}, a rule lives in one file`)));
+  return { present: loaded.some((part) => part.present), rules: errors.length ? [] : rules, errors };
 }
 
 const failed = (...errors) => ({ code: 1, output: { errors } });

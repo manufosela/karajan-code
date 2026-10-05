@@ -41,6 +41,13 @@ describe("rulesGate", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  // KJC-TSK-0954 (ADR 0017): a project whose only rules are the local ones is gated too.
+  it("with only .karajan/rules.local.yml the gate exists, and the drift notice too", () => {
+    const onlyLocal = (p) => String(p).endsWith("rules.local.yml");
+    expect(gate(kj(2, '{"rule_id":"R-a1b2c3d4e5"}'), { exists: onlyLocal }).deny).toBe(true);
+    expect(rulesDriftNotice({ root: ROOT, run: kj(0, '{"counts":{"none":1,"stale":0}}'), exists: onlyLocal })).toMatch(/1 sin gate/);
+  });
+
   it("asks kj rules eval with the tool, and the input on stdin (a large Write does not fit in an argument)", () => {
     const run = kj(0, '{"decision":"allow"}');
     expect(gate(run)).toEqual({ deny: false });

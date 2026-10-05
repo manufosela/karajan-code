@@ -46,6 +46,41 @@ describe("loadRules", () => {
     expect(loadRules(dir).errors[0]).toMatch(/cannot read/);
     expect(rulesEval({ projectDir: dir, tool: "Bash", input: "{}" }).code).toBe(1);
   });
+
+  // KJC-TSK-0954 (ADR 0017): rules that come from the user's private MD files
+  // live in rules.local.yml, out of git. Both files govern, as one rule set.
+  const LOCAL = `version: 1\nrules:\n  - { id: R-a1b2c3d4e5, kind: deterministic, source: "~/.claude/CLAUDE.md", text: "Nunca add -A.", when: { tool: Bash, all: [{ arg: command, matches: "git add -A" }] } }\n`;
+  const writeLocal = (text) => {
+    fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".karajan", "rules.local.yml"), text);
+  };
+
+  it("the versioned rules and the local ones are one rule set", () => {
+    write(rulesYml(GOOD));
+    writeLocal(LOCAL);
+    expect(loadRules(dir).rules.map((r) => r.id)).toEqual(["R-0000000001", "R-0000000002", "R-a1b2c3d4e5"]);
+    expect(rulesEval({ projectDir: dir, tool: "Bash", input: '{"command":"git add -A"}' }).output).toMatchObject({ decision: "deny", rule_id: "R-a1b2c3d4e5" });
+    expect(rulesEval({ projectDir: dir, tool: SPRINT_TOOL, input: '{"allowLongSprint":true}' }).code).toBe(2);
+  });
+
+  it("the local file alone is rules too", () => {
+    writeLocal(LOCAL);
+    expect(loadRules(dir)).toMatchObject({ present: true, errors: [] });
+    expect(rulesEval({ projectDir: dir, tool: "Bash", input: '{"command":"git add -A"}' }).code).toBe(2);
+  });
+
+  it("an error in either file leaves no rules, and says which file", () => {
+    write(rulesYml(GOOD));
+    writeLocal("version: 2\nrules: []\n");
+    expect(loadRules(dir)).toMatchObject({ rules: [], errors: [expect.stringMatching(/rules\.local\.yml: version must be 1/)] });
+    expect(rulesEval({ projectDir: dir, tool: "Read" }).code).toBe(1);
+  });
+
+  it("one rule lives in one file: the same id in both is an error", () => {
+    write(rulesYml(GOOD));
+    writeLocal(LOCAL.replace("R-a1b2c3d4e5", "R-0000000001"));
+    expect(loadRules(dir)).toMatchObject({ rules: [], errors: [expect.stringMatching(/R-0000000001.*both/)] });
+  });
 });
 
 describe("kj rules eval", () => {
