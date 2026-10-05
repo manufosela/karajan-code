@@ -194,6 +194,15 @@ describe("kj adr", () => {
     expect(fs.readFileSync(path.join(dir, a.file), "utf8")).toMatch(/## Decision/);
   });
 
+  // KJC-BUG-0272: the method says "record it as a proposed ADR and ask". Born
+  // accepted, the ADR an agent writes is a decision nobody took.
+  it("a new ADR is born proposed: accepting it is the user's", async () => {
+    const a = await addAdr(dir, { title: "Split the rules file", decision: "two files" });
+    expect(a.status).toBe("proposed");
+    expect(fs.readFileSync(path.join(dir, a.file), "utf8")).toMatch(/^Status: proposed$/m);
+    expect((await listAdrs(dir))[0].status).toBe("proposed");
+  });
+
   it("add without decision throws", async () => {
     await expect(addAdr(dir, { title: "X" })).rejects.toThrow(/--decision/);
   });

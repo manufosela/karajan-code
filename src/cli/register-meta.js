@@ -300,7 +300,7 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (title, flags) => {
       await withConfig(pkgVersion, "adr", flags, async ({ config }) => {
         const res = await addAdr(config?.projectDir || process.cwd(), { title, ...flags });
-        console.log(flags.json ? JSON.stringify(res) : `✓ ADR ${res.number} created: ${res.file} — commit it`);
+        console.log(flags.json ? JSON.stringify(res) : `✓ ADR ${res.number} created as ${res.status}: ${res.file} — commit it and ask your user; accepting it is theirs (Status: accepted)`);
       });
     });
   adr.command("list")
