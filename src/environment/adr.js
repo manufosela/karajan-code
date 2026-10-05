@@ -8,6 +8,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const ADR_DIR = path.join(".karajan", "adrs");
+// KJC-BUG-0272: whoever records a decision proposes it. Accepting is the user's:
+// they set `Status: accepted` in the file. Born accepted, nobody had decided.
+const NEW_STATUS = "proposed";
 
 const slugify = (t) => t.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-|-$/g, "").slice(0, 60);
 
@@ -34,12 +37,12 @@ export async function addAdr(projectDir, { title, decision, context = "", conseq
   const file = path.join(ADR_DIR, `${String(number).padStart(4, "0")}-${slugify(title)}.md`);
   const body = [
     `# ${title}`, "",
-    `Status: accepted`, `Date: ${new Date().toISOString().slice(0, 10)}`, "",
+    `Status: ${NEW_STATUS}`, `Date: ${new Date().toISOString().slice(0, 10)}`, "",
     ...(context ? ["## Context", "", context, ""] : []),
     "## Decision", "", decision, "",
     ...(consequences ? ["## Consequences", "", consequences, ""] : []),
   ].join("\n");
   await fs.mkdir(path.join(projectDir, ADR_DIR), { recursive: true });
   await fs.writeFile(path.join(projectDir, file), body);
-  return { number, file, title };
+  return { number, file, title, status: NEW_STATUS };
 }
