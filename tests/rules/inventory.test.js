@@ -9,7 +9,9 @@ describe("extractRules", () => {
       "# Reglas",
       "",
       "- **NUNCA** commitear credenciales.",
+      "",
       "Texto descriptivo sin norma.",
+      "",
       "- Sprints: uno por día, SIEMPRE con startDate.",
       "```sh",
       "# never run this in prod",
@@ -25,6 +27,35 @@ describe("extractRules", () => {
     ]);
     expect(rules[0]).toMatchObject({ file: "CLAUDE.md", line: 3 });
     expect(rules[0].id).toMatch(/^R-[0-9a-f]{10}$/);
+  });
+
+  // KJC-BUG-0271: a rule is a markdown block, not a physical line. Cut at the
+  // line break, the literal text a compiled rule must cite was a fragment.
+  it("a rule wrapped over several lines is one rule, whole, at its first line", () => {
+    const md = [
+      "- The project RAG answers before you assume: `kj rag query`,",
+      "  never guess what the codebase does.",
+      "- Otra cosa sin norma.",
+      "",
+      "Un párrafo que empieza sin marcador",
+      "y que **nunca** se parte por su salto de línea.",
+      "",
+      "Párrafo descriptivo.",
+    ].join("\n");
+    expect(extractRules(md, "a.md").map((r) => [r.line, r.text])).toEqual([
+      [1, "The project RAG answers before you assume: kj rag query, never guess what the codebase does."],
+      [5, "Un párrafo que empieza sin marcador y que nunca se parte por su salto de línea."],
+    ]);
+  });
+
+  it("each list item is its own rule; a header, a table or a fence ends the block before it", () => {
+    const md = ["- Never A.", "- Always B,", "  with its continuation.", "## Título que nunca es regla", "Never C.", "```", "never code", "```", "| never | table |"].join("\n");
+    expect(extractRules(md, "a.md").map((r) => r.text)).toEqual(["Never A.", "Always B, with its continuation.", "Never C."]);
+  });
+
+  it("an HTML comment is not a rule, on one line or on several", () => {
+    const md = ["<!-- >>> kj:managed v1 >>> (do not edit: regenerated) -->", "<!--", "never read this", "-->", "- Never D."].join("\n");
+    expect(extractRules(md, "a.md").map((r) => r.text)).toEqual(["Never D."]);
   });
 
   it("skips code fenced with tildes or longer backtick runs, closed only by a matching fence", () => {
