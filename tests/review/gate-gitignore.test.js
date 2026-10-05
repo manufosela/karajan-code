@@ -86,8 +86,9 @@ describe("ensureGateTrackable", () => {
     for (const file of ["policy.yml", "policy-anchor.json", "supervisor-signers.json", "supervisor-provenance.json"]) {
       expect(ignored(`.karajan/${file}`), file).toBe(false);
     }
-    // what is local stays local: decisions, exceptions and the phone's own key
-    for (const file of ["policy-decisions.jsonl", "policy-exceptions.jsonl", "supervisor-phone.json"]) {
+    // what is local stays local: decisions, exceptions, the phone's own key, and the
+    // rules compiled from the user's private MD files (ADR 0017)
+    for (const file of ["policy-decisions.jsonl", "policy-exceptions.jsonl", "supervisor-phone.json", "rules.local.yml"]) {
       expect(ignored(`.karajan/${file}`), file).toBe(true);
     }
   });

@@ -11,6 +11,10 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RULES_FILE = join(".karajan", "rules.yml");
+// KJC-TSK-0954 (ADR 0017): the rules from the user's private sources, out of git.
+// Either file is rules: a project with only local ones is gated just the same.
+const LOCAL_RULES_FILE = join(".karajan", "rules.local.yml");
+const hasRules = (root, exists) => exists(join(root, RULES_FILE)) || exists(join(root, LOCAL_RULES_FILE));
 const EDIT_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 const KJ_DOES_NOT_START = /SyntaxError|ReferenceError|Cannot find module|ERR_MODULE_NOT_FOUND|ERR_REQUIRE_ESM/;
 
@@ -42,7 +46,7 @@ const deny = (message) => ({ deny: true, message });
  * @returns {string}
  */
 export function rulesDriftNotice({ root, run, exists = existsSync }) {
-  if (!exists(join(root, RULES_FILE))) return "";
+  if (!hasRules(root, exists)) return "";
   const res = run("kj", ["rules", "coverage", "--json"], { cwd: root, encoding: "utf8" });
   const counts = res.error || res.status !== 0 ? null : lastJson(res.stdout)?.counts;
   const none = Number(counts?.none) || 0;
@@ -58,7 +62,7 @@ export function rulesDriftNotice({ root, run, exists = existsSync }) {
  * @returns {{deny: boolean, message?: string}}
  */
 export function rulesGate({ root, tool, input, run, exists = existsSync }) {
-  if (!exists(join(root, RULES_FILE))) return { deny: false };
+  if (!hasRules(root, exists)) return { deny: false };
   // The input goes on stdin: a large Write does not fit in an argument.
   const res = run("kj", ["rules", "eval", "--tool", String(tool), "--input", "-"], { cwd: root, encoding: "utf8", input: JSON.stringify(input ?? {}) });
   if (res.error || res.status === null) {

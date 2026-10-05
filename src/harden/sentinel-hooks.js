@@ -504,7 +504,8 @@ process.stdin.on("end", () => {
       // KJC-TSK-0920 (SNT-E): policies, gate settings and exclusions are the human's,
       // like the supervisor: a session does not loosen the rules that govern it.
       // .karajan/rules.yml (KJC-TSK-0947, ADR 0016): the compiled rules are the user's to approve.
-      if ([".karajan/policy.yml", ".karajan/kj.config.yml", ".karajan/rules.yml", ".ragignore"].includes(relT) || relT.endsWith("/.ragignore")) {
+      // .karajan/rules.local.yml (KJC-TSK-0954, ADR 0017): the same rules, the ones from private sources.
+      if ([".karajan/policy.yml", ".karajan/kj.config.yml", ".karajan/rules.yml", ".karajan/rules.local.yml", ".ragignore"].includes(relT) || relT.endsWith("/.ragignore")) {
         console.error("karajan sentinel: " + relT + " es configuracion de gobierno (politicas, gates, exclusiones): la cambia tu usuario, no la sesion. Si un gate te parece injusto, proponselo a tu usuario o usa kj report-issue." + doc("governance"));
         process.exit(2);
       }

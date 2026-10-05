@@ -62,7 +62,7 @@ describe("kj rules test", () => {
 
   it("an invalid file fails with its errors; no file has nothing to test", () => {
     write("version: 2");
-    expect(rulesTest({ projectDir: dir })).toEqual({ code: 1, lines: ["✗ version must be 1"] });
+    expect(rulesTest({ projectDir: dir })).toEqual({ code: 1, lines: ["✗ .karajan/rules.yml: version must be 1"] });
     fs.rmSync(path.join(dir, ".karajan", "rules.yml"));
     expect(rulesTest({ projectDir: dir }).code).toBe(0);
   });
