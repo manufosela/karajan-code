@@ -5,10 +5,13 @@
  * condition has to name. It proposes; `kj rules check` proves the proposal and
  * the user approves it (`kj rules approve`, a human act).
  */
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { PROPOSAL_FILE, RULES_FILE, rulesCoverage } from "./rules.js";
+import yaml from "js-yaml";
+
+import { loadRules, PROPOSAL_FILE, RULES_FILE, rulesCoverage } from "./rules.js";
 
 const FORMAT = `\`\`\`yaml
 version: 1
@@ -51,6 +54,37 @@ const shownSource = (file, projectDir, home) => {
   return fromHome.startsWith("..") || path.isAbsolute(fromHome) ? file : path.join("~", fromHome);
 };
 
+/**
+ * KJC-TSK-0953: kj writes the skeleton of the proposal, so nobody retypes the
+ * literal texts. It starts from what rules.yml holds minus the stale, lays the
+ * proposal already there over it (what is filled in stays), and adds one entry
+ * per pending rule that is missing, with no kind yet.
+ * @returns {number|null} the entries with no kind, or null when the proposal there is not YAML
+ */
+function writeSkeleton({ projectDir, home, pending, kept, gone }) {
+  const file = path.join(projectDir, PROPOSAL_FILE);
+  let proposed = [];
+  if (fs.existsSync(file)) {
+    try { proposed = yaml.load(fs.readFileSync(file, "utf8"))?.rules; } catch { return null; }
+    if (!Array.isArray(proposed)) return null;
+  }
+  // The approved rules are the base: a proposal that forgot one would remove its
+  // gate on approval. What the proposal says about a rule wins; the stale leave.
+  const byId = new Map(kept.map((rule) => [rule.id, rule]));
+  const loose = []; // entries with no usable id: kept, for kj rules check to name
+  for (const entry of proposed) {
+    if (typeof entry?.id !== "string") loose.push(entry);
+    else if (!gone.has(entry.id)) byId.set(entry.id, entry);
+  }
+  for (const rule of pending) {
+    if (!byId.has(rule.id)) byId.set(rule.id, { id: rule.id, source: shownSource(rule.file, projectDir, home), text: rule.text });
+  }
+  const rules = [...byId.values(), ...loose];
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, yaml.dump({ version: 1, rules }, { lineWidth: -1 }));
+  return rules.filter((entry) => !entry?.kind).length;
+}
+
 /** @returns {{code: 0|1, lines: string[]}} */
 export function rulesCompileBrief({ projectDir, home = os.homedir() }) {
   const covered = rulesCoverage({ projectDir, home });
@@ -58,21 +92,23 @@ export function rulesCompileBrief({ projectDir, home = os.homedir() }) {
   const pending = covered.output.rows.filter((row) => row.status === "none");
   const { stale } = covered.output;
   if (pending.length + stale.length === 0) return { code: 0, lines: ["✓ every rule of the MD files is decided: nothing to compile"] };
+  const gone = new Set(stale.map((rule) => rule.id));
+  const kept = loadRules(projectDir).rules.filter((rule) => !gone.has(rule.id));
+  const undecided = writeSkeleton({ projectDir, home, pending, kept, gone });
+  if (undecided === null) return { code: 1, lines: [`✗ ${PROPOSAL_FILE} is not valid YAML with a rules list: fix it or delete it`] };
   return {
     code: 0,
     lines: [
-      `# Compile ${pending.length} rule(s) of the MD files into gates (ADR 0016)`,
+      "# Compile the rules of the MD files into gates (ADR 0016)",
       "",
-      `Write the whole new rule set to ${PROPOSAL_FILE}. You propose; you cannot write ${RULES_FILE}.`,
-      `Start from the entries ${RULES_FILE} already has, as they are, and add one entry per rule listed below.`,
-      ...(stale.length ? [`Their text is in no MD any more, drop them: ${stale.map((rule) => rule.id).join(", ")}`] : []),
+      `${PROPOSAL_FILE} is written: what ${RULES_FILE} holds today, as it is, and one entry per rule with no gate,`,
+      `with its id, source and literal text. ${undecided} entr${undecided === 1 ? "y has" : "ies have"} no kind yet: edit each one, give it its kind and`,
+      `what that kind takes. Leave id, source and text as they are. You propose; you cannot write ${RULES_FILE}.`,
+      ...(stale.length ? [`Left out, their text is in no MD any more: ${stale.map((rule) => rule.id).join(", ")}`] : []),
       "",
       FORMAT,
       "",
       ...HOW,
-      "",
-      "## Rules with no gate",
-      ...pending.flatMap((rule) => [`${rule.id}  ${shownSource(rule.file, projectDir, home)}:${rule.line}`, `    ${rule.text}`]),
       "",
       "## Then",
       "Run `kj rules check` and fix the proposal until it holds. Then ask your user to read it and run",
