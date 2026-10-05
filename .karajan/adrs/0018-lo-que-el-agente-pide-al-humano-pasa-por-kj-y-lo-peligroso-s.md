@@ -1,6 +1,6 @@
 # Lo que el agente pide al humano pasa por kj y lo peligroso se firma
 
-Status: proposed
+Status: accepted
 Date: 2026-10-05
 
 ## Context
@@ -17,7 +17,7 @@ Principio del usuario: no fiarse ni de su padre. Todo comprobado y contrastado.
 
 ## Decision
 
-PROPUESTA, pendiente del usuario. Tres piezas.
+Aceptada por el usuario el 2026-10-05. Cinco piezas.
 
 ### 1. El encargo al humano pasa por kj
 
@@ -44,6 +44,29 @@ El par de claves del móvil hoy se crea con un comando aparte y opcional (`kj id
 
 Cada petición de firma dice, en el terminal y en la pantalla del móvil, qué se va a hacer, por qué se pide la firma y qué pasaría si la hiciera otro en su nombre. La fricción es mayor, pero estos actos son raros: sellar el supervisor tras cambiar el arnés, aprobar reglas, ejecutar un encargo. No son parte del trabajo de cada día.
 
+### 4. La garantía vive fuera de la máquina
+
+Pregunta del usuario: si borro todo rastro de Karajan del proyecto, o lo reinstalo, ¿desaparece la restricción? En la máquina, sí: quien puede borrar ficheros puede borrar al guardián, y eso vale igual para un agente externo. Ninguna comprobación local resiste a quien controla el disco.
+
+Por eso lo que cuenta es lo que se verifica fuera: el padrón de firmantes (`.karajan/supervisor-signers.json`) viaja con el repo y CI comprueba contra él. Borrar o reinstalar Karajan en local no cambia lo que CI exige para aceptar un cambio en `main`.
+
+Estado real a 2026-10-05, comprobado en el código: la firma del móvil se verifica solo en la máquina, al firmar. CI comprueba los hashes de la procedencia, pero no la firma contra el padrón. Hasta que eso exista, la firma no añade nada que un borrado local no deshaga. Es parte de esta decisión:
+
+- CI verifica la firma de cada acto del catálogo contra el padrón versionado.
+- Un cambio en el padrón (alta, baja, sustitución de una clave) solo lo acepta CI si viene firmado por un firmante ya presente o respaldado por el código de recuperación.
+- Un proyecto sin CI tiene solo la garantía local, y kj lo dice: protege de descuidos, no de quien controla la máquina.
+
+### 5. Recuperación con código, no con reinstalación
+
+Perder el móvil no puede resolverse reinstalando, porque entonces reinstalar sería también el camino del atacante. La recuperación es un código:
+
+- Se genera al enrolar el móvil, en el terminal del usuario, fuera de toda sesión de agente, y el alta se firma con el móvil.
+- Se enseña una sola vez. El usuario lo guarda fuera de la máquina. En el padrón queda solo su huella, nunca el código.
+- Sirve para una cosa: enrolar un móvil nuevo. CI acepta ese cambio del padrón porque la huella coincide.
+- Es de un solo uso: al usarlo se genera otro.
+
+Sin móvil y sin código no hay recuperación dentro del sistema: el dueño del repositorio tendría que rehacer el padrón por fuera de CI, a la vista de todos en el historial. Es deliberado: un camino de recuperación que no exige nada es una puerta.
+
 ### Lo rutinario no necesita encargo
 
 Para lo que se repite, kj ofrece verbos seguros propios (por ejemplo, limpiar stashes enseñando qué borra y guardando copia antes). Menos peticiones al humano son menos ocasiones de engaño.
@@ -53,7 +76,8 @@ Para lo que se repite, kj ofrece verbos seguros propios (por ejemplo, limpiar st
 - Más fricción en cada acto peligroso: sacar el móvil. Es el precio de que la prueba no dependa de la máquina donde corre el agente.
 - La opinión de la segunda IA cuesta tokens y reduce el riesgo, no lo elimina. Lo que lo acota de verdad no depende de ningún modelo: el porqué escrito por kj, los datos de lo que se toca y la ejecución por identificador.
 - Quien no enrole el móvil no ejecuta lo peligroso hasta que lo haga o baje el nivel a conciencia. Arrancar es más áspero; a cambio, nadie trabaja con una garantía menor sin haberlo elegido.
-- Perder el móvil deja al usuario sin poder firmar. Hace falta un camino de recuperación (un segundo firmante en el padrón) antes de que la máxima sea el defecto. Pendiente de diseñar.
+- Perder el móvil y el código de recuperación a la vez deja al usuario fuera. Guardar el código es responsabilidad suya, y kj se lo dice al dárselo.
+- La seguridad máxima no puede ser el defecto hasta que CI verifique la firma y exista el código de recuperación: antes sería fricción sin garantía.
 - `kj rules approve` (ADR 0016) pasa a exigir la firma, como el sello.
 
 Alternativas descartadas:
