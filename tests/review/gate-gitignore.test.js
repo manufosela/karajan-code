@@ -77,6 +77,21 @@ describe("ensureGateTrackable", () => {
     expect(text.match(/!\.karajan\/review-gate/g)).toHaveLength(1);
   });
 
+  // KJC-BUG-0269: the policy is what CI evaluates, and its anchor and the signers
+  // roll are what CI verifies. Left out of the block, a new project kept them
+  // out of git without a word, and every clone ran with no policy at all.
+  it("the policy, its anchor and the signers roll travel with the repo too", async () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/\n");
+    await ensureGateTrackable(dir);
+    for (const file of ["policy.yml", "policy-anchor.json", "supervisor-signers.json", "supervisor-provenance.json"]) {
+      expect(ignored(`.karajan/${file}`), file).toBe(false);
+    }
+    // what is local stays local: decisions, exceptions and the phone's own key
+    for (const file of ["policy-decisions.jsonl", "policy-exceptions.jsonl", "supervisor-phone.json"]) {
+      expect(ignored(`.karajan/${file}`), file).toBe(true);
+    }
+  });
+
   it("KJC-TSK-0947: the compiled rules travel with the repo, like the hooks", async () => {
     fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/\n");
     await ensureGateTrackable(dir);
