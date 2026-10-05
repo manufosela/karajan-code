@@ -5,12 +5,13 @@
  * rules.yml, unreadable input).
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { isObject, parseRules } from "../rules/compiled.js";
 import { coverage, NO_GATE } from "../rules/coverage.js";
 import { evalRules } from "../rules/evaluate.js";
-import { listRules } from "../rules/inventory.js";
+import { inProject, listRules, shownSource } from "../rules/inventory.js";
 
 export const RULES_FILE = path.join(".karajan", "rules.yml");
 /** ADR 0017: rules whose source is outside the project. Never versioned. */
@@ -105,11 +106,20 @@ export function rulesTest({ projectDir }) {
 
 export const PROPOSAL_FILE = path.join(".karajan", "rules.proposed.yml");
 
-/** What a proposed rule says against the MD files: it is one of their rules, word for word. */
-function inventoryFailures(rule, inventory) {
-  const written = inventory.get(rule.id);
+/**
+ * What a proposed rule says against the MD files: it is one of their rules, word
+ * for word, and its source is where they write it (KJC-TSK-0961: the source
+ * decides whether a rule is versioned, so the proposal does not get to choose it).
+ * @param {object} rule
+ * @param {object[]|undefined} written every place the inventory found this rule
+ * @param {(file: string) => string} shown
+ */
+function inventoryFailures(rule, written, shown) {
   if (!written) return [`${rule.id}: no rule of the MD files has this id (kj rules list)`];
-  return rule.text === written.text ? [] : [`${rule.id}: text is not what the MD says (${written.file}:${written.line}): ${written.text}`];
+  const [first] = written;
+  if (rule.text !== first.text) return [`${rule.id}: text is not what the MD says (${first.file}:${first.line}): ${first.text}`];
+  const sources = written.map((found) => shown(found.file));
+  return sources.includes(rule.source) ? [] : [`${rule.id}: source is not where the MD files write it (${sources.join(", ")})`];
 }
 
 /**
@@ -118,20 +128,23 @@ function inventoryFailures(rule, inventory) {
  * its literal text; every deterministic one passes its own examples.
  * With `text`, that content is checked and the file is not read again: whoever
  * installs a proposal installs the bytes that were checked.
- * @returns {{code: 0|1, lines: string[], rules?: object[]}}
+ * `local` holds the ids written in no file of the project: those are not versioned.
+ * @returns {{code: 0|1, lines: string[], rules?: object[], local?: Set<string>}}
  */
-export function rulesCheck({ projectDir, file = PROPOSAL_FILE, home, text }) {
+export function rulesCheck({ projectDir, file = PROPOSAL_FILE, home = os.homedir(), text }) {
   const { present, rules, errors } = text === undefined ? loadRules(projectDir, file) : { present: true, ...parseRules(text) };
   if (!present) return { code: 1, lines: [`✗ no ${file}: nothing to check`] };
   if (errors.length) return { code: 1, lines: errors.map((e) => `✗ ${e}`) };
-  const inventory = new Map(listRules(projectDir, home ? { home } : {}).map((rule) => [rule.id, rule]));
+  const inventory = Map.groupBy(listRules(projectDir, { home }), (rule) => rule.id);
+  const shown = (found) => shownSource(found, projectDir, home);
   const failures = rules.flatMap((rule) => [
-    ...inventoryFailures(rule, inventory),
+    ...inventoryFailures(rule, inventory.get(rule.id), shown),
     ...(rule.kind === "deterministic" ? exampleFailures(rule) : []),
   ]);
   if (failures.length) return { code: 1, lines: failures.map((f) => `✗ ${f}`) };
   const count = (kind) => rules.filter((rule) => rule.kind === kind).length;
-  return { code: 0, rules, lines: [`✓ ${rules.length} rule(s) hold: ${count("deterministic")} deterministic, ${count("judgment")} judgment, ${count("out-of-scope")} out of scope`] };
+  const local = new Set(rules.filter((rule) => !inventory.get(rule.id).some((found) => inProject(found.file, projectDir))).map((rule) => rule.id));
+  return { code: 0, rules, local, lines: [`✓ ${rules.length} rule(s) hold: ${count("deterministic")} deterministic, ${count("judgment")} judgment, ${count("out-of-scope")} out of scope`] };
 }
 
 /**

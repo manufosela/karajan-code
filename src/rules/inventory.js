@@ -100,6 +100,18 @@ export function ruleSources(projectDir, { home = os.homedir() } = {}) {
   ].filter((f) => fs.existsSync(f));
 }
 
+/** Whether an MD file is part of the project, and so as public as the repo is. */
+export const inProject = (file, projectDir) => {
+  const rel = path.relative(projectDir, file);
+  return !rel.startsWith("..") && !path.isAbsolute(rel);
+};
+
+/** A source as a rules file can carry it: from the project's root, or from `~`. */
+export const shownSource = (file, projectDir, home = os.homedir()) => {
+  if (inProject(file, projectDir)) return path.relative(projectDir, file);
+  return inProject(file, home) ? path.join("~", path.relative(home, file)) : file;
+};
+
 /** Every rule of every governing MD file, in source order. */
 export function listRules(projectDir, opts = {}) {
   return ruleSources(projectDir, opts).flatMap((file) => extractRules(fs.readFileSync(file, "utf8"), file));

@@ -5,20 +5,23 @@
  * they are compiled; it does not decide.
  *
  * The proposal is read ONCE: what is checked, what is shown and what is
- * installed are the same bytes, whatever happens to the file meanwhile.
+ * installed are the same rules, whatever happens to the file meanwhile.
  */
 import fs from "node:fs";
 import path from "node:path";
 
+import yaml from "js-yaml";
+
 import { confirmHuman, refuseAgentSession } from "../harden/human-act.js";
-import { loadRules, PROPOSAL_FILE, RULES_FILE, rulesCheck } from "./rules.js";
+import { loadRules, LOCAL_RULES_FILE, PROPOSAL_FILE, RULES_FILE, rulesCheck } from "./rules.js";
 
 const ACT = "kj rules approve";
 
 /** One rule as the human reads it: what the MD says, and what it was compiled to. */
-function shownRule(rule) {
+function shownRule(rule, isLocal) {
   const compiled = rule.kind === "out-of-scope" ? `reason: ${rule.reason}` : `when: ${JSON.stringify(rule.when)}`;
-  return `${rule.id}  ${rule.kind}\n    ${rule.text}\n    ${compiled}`;
+  const where = isLocal ? `${LOCAL_RULES_FILE}, not versioned` : RULES_FILE;
+  return `${rule.id}  ${rule.kind}  → ${where}\n    ${rule.text}\n    ${compiled}`;
 }
 
 /**
@@ -33,12 +36,21 @@ export function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env, tty,
   try { text = fs.readFileSync(proposal, "utf8"); } catch { return { code: 1, lines: [`✗ no ${file}: nothing to approve`] }; }
   const checked = rulesCheck({ projectDir, home, text });
   if (checked.code !== 0) return { code: 1, lines: checked.lines };
-  const proposed = new Set(checked.rules.map((rule) => rule.id));
+  const { rules, local } = checked;
+  const proposed = new Set(rules.map((rule) => rule.id));
   const leaving = loadRules(projectDir).rules.filter((rule) => !proposed.has(rule.id));
-  for (const rule of checked.rules) log(shownRule(rule));
-  for (const rule of leaving) log(`leaves ${RULES_FILE}: ${rule.id}  ${rule.text ?? ""}`);
+  for (const rule of rules) log(shownRule(rule, local.has(rule.id)));
+  for (const rule of leaving) log(`leaves the rules: ${rule.id}  ${rule.text ?? ""}`);
   confirmHuman(ACT, deps.confirm);
-  fs.writeFileSync(path.join(projectDir, RULES_FILE), text);
+  // KJC-TSK-0961 (ADR 0017): a rule written only in the user's private MD files
+  // is not versioned. Where it goes is the inventory's word, not the proposal's.
+  const parts = [[RULES_FILE, rules.filter((rule) => !local.has(rule.id))], [LOCAL_RULES_FILE, rules.filter((rule) => local.has(rule.id))]];
+  for (const [name, part] of parts) {
+    const target = path.join(projectDir, name);
+    if (part.length) fs.writeFileSync(target, yaml.dump({ version: 1, rules: part }, { lineWidth: -1 }));
+    else fs.rmSync(target, { force: true }); // no rule left for this file: none stays behind
+  }
   fs.rmSync(proposal, { force: true });
-  return { code: 0, lines: [`✓ ${checked.rules.length} rule(s) approved into ${RULES_FILE}: commit it, it travels with the repo`] };
+  const [[, versioned], [, kept]] = parts;
+  return { code: 0, lines: [`✓ ${versioned.length} rule(s) approved into ${RULES_FILE} (commit it, it travels with the repo) and ${kept.length} into ${LOCAL_RULES_FILE} (not versioned, yours alone)`] };
 }
