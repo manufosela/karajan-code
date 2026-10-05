@@ -35,6 +35,24 @@ const lastJson = (stdout) => {
 const deny = (message) => ({ deny: true, message });
 
 /**
+ * KJC-TSK-0949 (MDR-E2): an MD changed and what was compiled no longer covers
+ * it. One line for the session's start, or "" when every rule is decided, there
+ * is no rules.yml, or kj cannot tell (a notice never fails a session).
+ * @param {{root: string, run: Function, exists?: Function}} opts
+ * @returns {string}
+ */
+export function rulesDriftNotice({ root, run, exists = existsSync }) {
+  if (!exists(join(root, RULES_FILE))) return "";
+  const res = run("kj", ["rules", "coverage", "--json"], { cwd: root, encoding: "utf8" });
+  const counts = res.error || res.status !== 0 ? null : lastJson(res.stdout)?.counts;
+  const none = Number(counts?.none) || 0;
+  const stale = Number(counts?.stale) || 0;
+  if (none + stale === 0) return "";
+  return none + " sin gate y " + stale + " desfasada(s) entre las reglas de tus MD (" + RULES_FILE + "). Ejecuta kj rules compile, "
+    + "escribe la propuesta y pide a tu usuario que la apruebe (kj rules approve); kj rules coverage las nombra.";
+}
+
+/**
  * @param {{root: string, tool: string, input?: object, run: Function, exists?: Function}} call
  *   `run` is spawnSync (injected so the gate is testable without a process).
  * @returns {{deny: boolean, message?: string}}

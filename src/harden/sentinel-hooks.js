@@ -1347,6 +1347,8 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
       // KJC-TSK-0918 (ADR 0014): the critical rules back after a compaction or a resume.
       { event: "SessionStart", matcher: "compact", script: "sessionstart.mjs" },
       { event: "SessionStart", matcher: "resume", script: "sessionstart.mjs" },
+      // KJC-TSK-0949: a new session hears of MD rules with no gate, and nothing else.
+      { event: "SessionStart", matcher: "startup", script: "sessionstart.mjs" },
     ],
   });
   return { scripts: [lib, post, stop, pre], wired, deferred };

@@ -39,9 +39,25 @@ describe("SessionStart hook", () => {
     expect(run("startup").stdout).toBe("");
   });
 
-  it("is wired in the host settings for compact and resume", () => {
+  // KJC-TSK-0949 (MDR-E2): a fake kj at the front of the PATH answers the coverage.
+  it("with rules.yml, every session start names the rules with no gate; a new session gets only that", () => {
+    const bin = path.join(dir, "bin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\necho '{"counts":{"none":3,"stale":0}}'\n`, { mode: 0o755 });
+    fs.writeFileSync(path.join(dir, ".karajan", "rules.yml"), "version: 1\nrules: []\n");
+    const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` };
+    const context = (source) => {
+      const r = spawnSync("node", [hook], { input: JSON.stringify({ session_id: "s1", source }), encoding: "utf8", cwd: dir, env });
+      return JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+    };
+    expect(context("startup")).toMatch(/^Karajan: 3 sin gate/);
+    expect(context("startup")).not.toMatch(/Karajan gobierna/);
+    expect(context("compact")).toMatch(/Karajan gobierna[\s\S]*3 sin gate/);
+  });
+
+  it("is wired in the host settings for startup, compact and resume", () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "settings.json"), "utf8"));
     const matchers = (cfg.hooks.SessionStart || []).filter((e) => JSON.stringify(e).includes("sessionstart.mjs")).map((e) => e.matcher);
-    expect(matchers.sort()).toEqual(["compact", "resume"]);
+    expect(matchers.sort()).toEqual(["compact", "resume", "startup"]);
   });
 });

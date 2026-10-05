@@ -1,11 +1,37 @@
 // KJC-TSK-0939 (MDR-C, ADR 0016): the Sentinel's rules gate as a real module,
 // tested by unit. It asks `kj rules eval`; what cannot be evaluated is denied.
 import { describe, it, expect, vi } from "vitest";
-import { rulesGate, brokenKjFile } from "../../src/harden/sentinel/sentinel-rules.mjs";
+import { rulesGate, rulesDriftNotice, brokenKjFile } from "../../src/harden/sentinel/sentinel-rules.mjs";
 
 const ROOT = "/repo";
 const withRules = () => true;
 const kj = (status, stdout = "", stderr = "") => vi.fn(() => ({ status, stdout, stderr }));
+
+// KJC-TSK-0949 (MDR-E2): an MD changed and what was compiled no longer covers it.
+describe("rulesDriftNotice", () => {
+  const counts = (none, stale) => JSON.stringify({ counts: { deterministic: 3, judgment: 0, "out-of-scope": 1, none, stale } });
+  const notice = (run, exists = withRules) => rulesDriftNotice({ root: ROOT, run, exists });
+
+  it("names how many rules have no gate and how many compiled ones are stale, and what to do", () => {
+    const run = kj(0, counts(2, 1));
+    const text = notice(run);
+    expect(text).toMatch(/2 sin gate/);
+    expect(text).toMatch(/1 desfasada/);
+    expect(text).toMatch(/kj rules compile/);
+    expect(text).toMatch(/kj rules approve/);
+    expect(run).toHaveBeenCalledWith("kj", ["rules", "coverage", "--json"], { cwd: ROOT, encoding: "utf8" });
+  });
+
+  it("says nothing when every rule is decided, with no rules.yml, or when kj cannot tell", () => {
+    expect(notice(kj(0, counts(0, 0)))).toBe("");
+    const run = kj(0, counts(5, 5));
+    expect(notice(run, () => false)).toBe("");
+    expect(run).not.toHaveBeenCalled();
+    expect(notice(kj(1, '{"errors":["x"]}'))).toBe("");
+    expect(notice(kj(0, "not json"))).toBe("");
+    expect(notice(vi.fn(() => ({ error: new Error("ENOENT"), status: null })))).toBe("");
+  });
+});
 const gate = (run, over = {}) => rulesGate({ root: ROOT, tool: "mcp__pg__create_sprint", input: { allowLongSprint: true }, run, exists: withRules, ...over });
 
 describe("rulesGate", () => {
