@@ -104,8 +104,9 @@ export function rulesCompileBrief({ projectDir, home = os.homedir() }) {
       ...HOW,
       "",
       "## Then",
-      "Run `kj rules check` and fix the proposal until it holds. Then ask your user to read it and run",
-      "`kj rules approve` from their own terminal: no agent session can.",
+      "Run `kj rules check` and fix the proposal until it holds. Then run `kj rules review`: a different AI judges",
+      "whether each compilation is as strong as its text, and a rule you weakened comes back to you. Only then ask your",
+      "user to read it and run `kj rules approve` from their own terminal: no agent session can.",
     ],
   };
 }

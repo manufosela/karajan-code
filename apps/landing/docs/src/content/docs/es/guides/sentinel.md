@@ -63,6 +63,8 @@ Nadie escribe `rules.yml` a mano, y el agente no lo escribe en absoluto. `kj rul
 
 Las reglas aprobadas viven en dos ficheros, y adónde va cada una lo decide dónde está escrita, no la propuesta. Una regla escrita en un fichero del proyecto (`CLAUDE.md`, `AGENTS.md`) va a `.karajan/rules.yml`, que viaja con el repo: el equipo la hereda. Una regla escrita solo en tus ficheros privados (tu `CLAUDE.md` global, tus memorias de feedback) va a `.karajan/rules.local.yml`, que git ignora, de modo que aprobar tus propias reglas nunca publica tus propias palabras. Los dos gobiernan como un solo conjunto, y una sesión no puede escribir ninguno.
 
+El agente que escribe la propuesta es el mismo al que las reglas van a vigilar, así que no es quien da su trabajo por bueno. Tres cosas se interponen entre una compilación floja y tu aprobación. `kj rules review` hace que una IA distinta lea la propuesta regla a regla y pregunte si cada compilación es tan fuerte como su texto; su veredicto va atado al contenido exacto de la propuesta, y sin él `kj rules approve` ni siquiera te la ofrece. Después, lo que lees va ordenado por lo que puede hacer daño: primero las reglas que pierden o cambian fuerza respecto a lo que tenías aprobado, luego las que quedan sin gate efectivo (las de criterio y las de fuera de alcance no bloquean nada), y por último los gates.
+
 No hay escape. Si una regla está mal compilada, tu usuario corrige `.karajan/rules.yml`, que una sesión no puede editar. Un `rules.yml` que no se puede evaluar deniega todas las llamadas hasta que se corrige, porque unas reglas apagadas en silencio serían todas las llamadas permitidas. Sin `rules.yml`, este gate no existe.
 
 ## steward
