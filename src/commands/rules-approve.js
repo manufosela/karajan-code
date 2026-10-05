@@ -13,16 +13,10 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { confirmHuman, refuseAgentSession } from "../harden/human-act.js";
+import { approvalView } from "../rules/approval-view.js";
 import { loadRules, LOCAL_RULES_FILE, PROPOSAL_FILE, RULES_FILE, rulesCheck } from "./rules.js";
 
 const ACT = "kj rules approve";
-
-/** One rule as the human reads it: what the MD says, and what it was compiled to. */
-function shownRule(rule, isLocal) {
-  const compiled = rule.kind === "out-of-scope" ? `reason: ${rule.reason}` : `when: ${JSON.stringify(rule.when)}`;
-  const where = isLocal ? `${LOCAL_RULES_FILE}, not versioned` : RULES_FILE;
-  return `${rule.id}  ${rule.kind}  → ${where}\n    ${rule.text}\n    ${compiled}`;
-}
 
 /**
  * @param {{projectDir: string, file?: string, home?: string, env?: object, tty?: boolean,
@@ -37,10 +31,9 @@ export function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env, tty,
   const checked = rulesCheck({ projectDir, home, text });
   if (checked.code !== 0) return { code: 1, lines: checked.lines };
   const { rules, local } = checked;
-  const proposed = new Set(rules.map((rule) => rule.id));
-  const leaving = loadRules(projectDir).rules.filter((rule) => !proposed.has(rule.id));
-  for (const rule of rules) log(shownRule(rule, local.has(rule.id)));
-  for (const rule of leaving) log(`leaves the rules: ${rule.id}  ${rule.text ?? ""}`);
+  // KJC-TSK-0962: read in the order of what can hurt, weakened rules first.
+  const view = approvalView(rules, loadRules(projectDir).rules, local, { versioned: RULES_FILE, unversioned: LOCAL_RULES_FILE });
+  for (const line of view) log(line);
   confirmHuman(ACT, deps.confirm);
   // KJC-TSK-0961 (ADR 0017): a rule written only in the user's private MD files
   // is not versioned. Where it goes is the inventory's word, not the proposal's.
