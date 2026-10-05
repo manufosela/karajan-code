@@ -46,6 +46,7 @@ import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
 import { PROPOSAL_FILE, readToolInput, rulesCheck, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
 import { rulesApprove } from "../commands/rules-approve.js";
+import { rulesDecide } from "../commands/rules-decide.js";
 import { rulesReview } from "../commands/rules-review.js";
 import { rulesCompileBrief } from "../commands/rules-compile.js";
 
@@ -366,6 +367,20 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-compile", flags, async ({ config }) => {
         const res = rulesCompileBrief({ projectDir: config?.projectDir || process.cwd() });
+        for (const line of res.lines) console.log(line);
+        process.exitCode = res.code;
+      });
+    });
+  // MDR-G (KJC-TSK-0969): most rules take no condition; their kind is decided in one go.
+  rules.command("decide <ids...>")
+    .description("Give several rules of the proposal their kind at once: judgment (with --tool) or out-of-scope (with --reason). Deterministic rules are written by hand")
+    .requiredOption("--kind <kind>", "judgment | out-of-scope")
+    .option("--tool <glob...>", "judgment: the tool(s) the rule shows on (Bash, Edit, mcp__server__tool…)")
+    .option("--reason <text>", "out-of-scope: why no tool call breaks the rule")
+    .option("--file <path>", "The proposal", PROPOSAL_FILE)
+    .action(async (ids, flags) => {
+      await withConfig(pkgVersion, "rules-decide", flags, async ({ config }) => {
+        const res = rulesDecide({ projectDir: config?.projectDir || process.cwd(), file: flags.file, ids, kind: flags.kind, tools: flags.tool, reason: flags.reason });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });
