@@ -133,6 +133,32 @@ export function verifyPhoneSignature({ payload, signature, publicKey }) {
 }
 
 /**
+ * KJC-TSK-0964 (HUM-A, ADR 0018): the seal's signature, checked where the
+ * machine that made it has no say. With signers in the versioned roster, a
+ * provenance must be signed by one of them over the very files it declares.
+ * With no roster nothing is required: the guarantee is local only.
+ * @returns {{required: boolean, ok: boolean, reason?: string}}
+ */
+export function provenanceSignature({ projectDir, provenance }) {
+  const roster = readSigners({ projectDir });
+  if (roster.length === 0) return { required: false, ok: true };
+  const fail = (reason) => ({ required: true, ok: false, reason });
+  const sig = provenance?.signature;
+  if (typeof sig?.signature !== "string" || typeof sig?.signer !== "string") return fail("el padrón tiene firmantes y la procedencia no lleva firma");
+  if (!roster.includes(sig.signer)) return fail("la clave que firma la procedencia no está en el padrón");
+  // The files as the phone signed them: {file, sha256}, a deletion with no hash.
+  // A provenance is read from the project: a malformed one is rejected, it does not crash.
+  const entries = Array.isArray(provenance.files) ? provenance.files : [];
+  if (entries.some((entry) => typeof entry?.file !== "string")) return fail("la procedencia declara ficheros mal formados");
+  const files = entries.map(({ file, sha256 }) => ({ file, sha256: sha256 ?? "" }));
+  let good = false;
+  try {
+    good = verifyPhoneSignature({ payload: canonicalPayload({ ...sig, files }), signature: sig.signature, publicKey: sig.signer });
+  } catch { /* a malformed key or signature is a signature that does not verify */ }
+  return good ? { required: true, ok: true } : fail("la firma no corresponde a los ficheros que la procedencia declara");
+}
+
+/**
  * Publica la petición en Firestore, enseña QR + URL, pollea el doc y verifica
  * la firma. Sin fallbacks silenciosos: red caída o HTTP no-ok ⇒ throw. Firma
  * mala / clave ajena / TTL vencido ⇒ {ok:false, reason}.

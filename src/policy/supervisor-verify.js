@@ -9,6 +9,7 @@ import { lstatSync, readFileSync } from "node:fs";
 import { resolve, sep } from "node:path";
 
 import { renderCanonicalHook } from "../harden/harden-engine.js";
+import { provenanceSignature } from "../harden/phone-sign.js";
 import { canonicalHarnessBody } from "../harden/sentinel-hooks.js";
 import { PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 
@@ -35,6 +36,9 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
   if (gen.globalHooksDir != null && !SAFE_DIR.test(gen.globalHooksDir)) {
     return { files: new Set(), reason: "globalHooksDir no verificable en la provenance" };
   }
+  // KJC-TSK-0964 (ADR 0018): with a roster, an unsigned or mis-signed seal backs nothing.
+  const signed = provenanceSignature({ projectDir, provenance: prov });
+  if (!signed.ok) return { files: new Set(), reason: signed.reason };
   const ok = new Set();
   const unjudgeable = new Set();
   // KJC-BUG-0259 (user's decision, option A): history is judged with the kj of
@@ -89,7 +93,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
   // maquina que sello, porque los guardias no viajan con el repo (0212).
   const judged = (e) => ok.has(e.file) || unjudgeable.has(e.file);
   const complete = ok.size > 0 && entries.every((e) => typeof e?.file === "string" && judged(e));
-  return { files: ok, complete, unjudgeable };
+  return { files: ok, complete, unjudgeable, signed: signed.required };
 }
 
 /**
@@ -109,9 +113,15 @@ export function liftSealedSupervisorViolations({ projectDir, violations, tracked
     && (sealed.files.has(v.file) || (v.file === PROVENANCE_FILE && sealed.complete === true));
   const kept = violations.filter((v) => !liftable(v));
   const unjudged = sealed.unjudgeable?.size ?? 0;
+  const notes = [
+    ...(unjudged > 0 ? [`${unjudged} guardia(s) del sello no existen en este checkout y no se han podido comprobar aquí`] : []),
+    // KJC-TSK-0964: what the signature did or did not prove is said, never assumed.
+    ...(sealed.signed === false ? ["proyecto sin padrón de firmantes: el sello no lleva firma verificable y su garantía es solo local"] : []),
+    ...(kept.length === violations.length && sealed.reason ? [sealed.reason] : []),
+  ];
   return {
     violations: kept,
     lifted: violations.length - kept.length,
-    ...(unjudged > 0 ? { note: `${unjudged} guardia(s) del sello no existen en este checkout y no se han podido comprobar aquí` } : {}),
+    ...(notes.length > 0 ? { note: notes.join("; ") } : {}),
   };
 }
