@@ -11,6 +11,7 @@ import path from "node:path";
 
 import yaml from "js-yaml";
 
+import { shownSource } from "../rules/inventory.js";
 import { loadRules, PROPOSAL_FILE, RULES_FILE, rulesCoverage } from "./rules.js";
 
 const FORMAT = `\`\`\`yaml
@@ -45,14 +46,6 @@ const HOW = [
   "- out-of-scope: it is about how you think or answer, and no tool call breaks it. Give the `reason`.",
   "Do not stretch a rule into a condition it does not state, and do not leave a rule out: every rule gets a kind.",
 ];
-
-/** A source as it can be written in a versioned file: inside the project, or from `~`. */
-const shownSource = (file, projectDir, home) => {
-  const inProject = path.relative(projectDir, file);
-  if (!inProject.startsWith("..") && !path.isAbsolute(inProject)) return inProject;
-  const fromHome = path.relative(home, file);
-  return fromHome.startsWith("..") || path.isAbsolute(fromHome) ? file : path.join("~", fromHome);
-};
 
 /**
  * KJC-TSK-0953: kj writes the skeleton of the proposal, so nobody retypes the

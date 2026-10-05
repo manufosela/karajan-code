@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import yaml from "js-yaml";
 import { rulesApprove } from "../../src/commands/rules-approve.js";
 import { listRules } from "../../src/rules/inventory.js";
 
@@ -13,7 +14,8 @@ const HUMAN = { env: {}, tty: true, deps: { confirm: (n) => n, ancestry: { pid: 
 
 let dir, home, rules, shown;
 const file = (name) => path.join(dir, ".karajan", name);
-const entry = (rule, rest = "kind: judgment, when: { tool: Bash }") => `  - { id: ${rule.id}, text: "${rule.text}", ${rest} }\n`;
+const entry = (rule, rest = "kind: judgment, when: { tool: Bash }", source = "CLAUDE.md") => `  - { id: ${rule.id}, source: "${source}", text: "${rule.text}", ${rest} }\n`;
+const installed = (name) => yaml.load(fs.readFileSync(file(name), "utf8")).rules.map((rule) => rule.id);
 const write = (name, entries) => {
   fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
   fs.writeFileSync(file(name), `version: 1\nrules:\n${entries.join("")}`);
@@ -49,7 +51,6 @@ describe("kj rules approve", () => {
   it("shows every rule, and the ones that leave, before it asks; then installs the proposal as read", () => {
     write("rules.yml", [entry(rules[0]), entry(rules[1])]);
     write("rules.proposed.yml", [entry(rules[0], "kind: out-of-scope, reason: no es una acción")]);
-    const proposed = fs.readFileSync(file("rules.proposed.yml"), "utf8");
     const confirm = (nonce) => { // the proposal changes while the human reads: what was shown is what lands
       fs.writeFileSync(file("rules.proposed.yml"), "version: 1\nrules: []\n");
       return nonce;
@@ -59,7 +60,26 @@ describe("kj rules approve", () => {
     const seen = shown.join("\n");
     expect(seen).toMatch(new RegExp(`${rules[0].id}.*out-of-scope.*Nunca despliegues sin permiso.*no es una acción`, "s"));
     expect(seen).toMatch(new RegExp(`leaves.*${rules[1].id}`));
-    expect(fs.readFileSync(file("rules.yml"), "utf8")).toBe(proposed);
+    expect(yaml.load(fs.readFileSync(file("rules.yml"), "utf8")).rules).toEqual([
+      { id: rules[0].id, source: "CLAUDE.md", text: rules[0].text, kind: "out-of-scope", reason: "no es una acción" },
+    ]);
     expect(fs.existsSync(file("rules.proposed.yml"))).toBe(false);
+  });
+
+  // KJC-TSK-0961 (ADR 0017): what comes from the user's private MD files is not versioned.
+  it("installs each rule by where it is written: the project's versioned, the private ones local", () => {
+    fs.mkdirSync(path.join(home, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(home, ".claude", "CLAUDE.md"), "- Nunca toques otro repo.\n");
+    const foreign = listRules(dir, { home }).at(-1);
+    write("rules.proposed.yml", [entry(rules[0]), entry(foreign, undefined, "~/.claude/CLAUDE.md")]);
+    expect(approve().code).toBe(0);
+    expect(installed("rules.yml")).toEqual([rules[0].id]);
+    expect(installed("rules.local.yml")).toEqual([foreign.id]);
+    expect(shown.join("\n")).toMatch(new RegExp(`${foreign.id}.*not versioned`));
+    expect(fs.readFileSync(file("rules.yml"), "utf8")).not.toContain("otro repo");
+    // a later proposal with no private rule leaves no stale local file behind
+    write("rules.proposed.yml", [entry(rules[0])]);
+    expect(approve().code).toBe(0);
+    expect(fs.existsSync(file("rules.local.yml"))).toBe(false);
   });
 });

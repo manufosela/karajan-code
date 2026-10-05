@@ -61,6 +61,8 @@ The rules you wrote in your MD files (CLAUDE.md, AGENTS.md, your feedback memori
 
 Nobody writes `rules.yml` by hand, and the agent does not write it at all. `kj rules compile` writes the proposal's skeleton to `.karajan/rules.proposed.yml` (what is already approved, plus one entry per rule with no gate, with its id and its literal text) and hands your agent the format, with no model called by kj: the agent knows its own tools, so it is the one that can name them. It gives each entry its kind and its condition; `kj rules check` proves the result (every rule is one of your MD files, cites its literal text and passes its own examples), and `kj rules approve` shows you each rule next to what it was compiled to, and which rules leave, before it installs anything. Approving is a human act with the same layers as the supervisor's seal: no agent session runs it, and what lands is exactly what you were shown.
 
+The approved rules live in two files, and where a rule goes is decided by where it is written, not by the proposal. A rule written in a file of the project (`CLAUDE.md`, `AGENTS.md`) goes to `.karajan/rules.yml`, which travels with the repo: the team inherits it. A rule written only in your private files (your global `CLAUDE.md`, your feedback memories) goes to `.karajan/rules.local.yml`, which git ignores, so approving your own rules never publishes your own words. Both govern as one rule set, and a session can write neither.
+
 There is no escape. If a rule is compiled wrong, your user fixes `.karajan/rules.yml`, which a session cannot edit. A `rules.yml` that cannot be evaluated denies every call until it is fixed, because rules silently off would be every call allowed. With no `rules.yml`, this gate does not exist.
 
 ## steward
