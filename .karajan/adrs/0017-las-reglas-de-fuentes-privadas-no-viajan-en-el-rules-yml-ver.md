@@ -1,6 +1,6 @@
 # Las reglas de fuentes privadas no viajan en el rules.yml versionado
 
-Status: proposed
+Status: accepted
 Date: 2026-10-05
 
 ## Context
@@ -9,7 +9,7 @@ ADR 0016 compila las reglas de los MD en `.karajan/rules.yml`, que se versiona c
 
 ## Decision
 
-PROPUESTA, pendiente del usuario. Dos ficheros: `rules.yml`, versionado, solo con reglas cuya fuente está dentro del proyecto; y `rules.local.yml`, fuera de git, con las reglas de fuentes externas al proyecto. El gate evalúa los dos. `kj rules approve` reparte cada regla por su fuente. Los dos quedan protegidos de la sesión por gobernanza.
+Aceptada por el usuario el 2026-10-05, con las tres defensas de más abajo. Dos ficheros: `rules.yml`, versionado, solo con reglas cuya fuente está dentro del proyecto; y `rules.local.yml`, fuera de git, con las reglas de fuentes externas al proyecto. El gate evalúa los dos. `kj rules approve` reparte cada regla por su fuente. Los dos quedan protegidos de la sesión por gobernanza.
 
 ### Una compilación floja no se aprueba sin verse
 
