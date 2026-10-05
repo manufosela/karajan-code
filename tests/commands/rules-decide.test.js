@@ -40,6 +40,14 @@ describe("kj rules decide", () => {
     expect(entries()[1]).toMatchObject({ kind: "out-of-scope", reason: "trata de cómo respondo" });
   });
 
+  // KJC-TSK-0973: why a rule takes no condition is said, for the reviewer and the human.
+  it("a judgment rule keeps the reason it is given, and none when there is none", () => {
+    decide({ ids: ["R-aaaaaaaaa1"], kind: "judgment", tools: ["Bash"], reason: " lo que la rompe está en el fichero del mensaje " });
+    expect(entries()[0]).toMatchObject({ kind: "judgment", when: { tool: "Bash" }, reason: "lo que la rompe está en el fichero del mensaje" });
+    decide({ ids: ["R-aaaaaaaaa1"], kind: "judgment", tools: ["Bash"] });
+    expect(entries()[0]).not.toHaveProperty("reason");
+  });
+
   it("writes nothing when an id is not in the proposal or the kind lacks what it takes", () => {
     const before = fs.readFileSync(file, "utf8");
     const bad = [

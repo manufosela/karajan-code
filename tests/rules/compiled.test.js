@@ -75,9 +75,15 @@ describe("parseRules", () => {
     }
   });
 
-  it("a reason belongs to out-of-scope rules only", () => {
-    const { errors } = load("version: 1\nrules:\n  - { id: R-a1b2c3d4e5, kind: deterministic, when: { tool: Bash }, reason: porque sí }");
-    expect(errors.join()).toMatch(/reason/);
+  // KJC-TSK-0973: a judgment rule may say why it takes no condition; the reviewer
+  // and the human read it. A condition needs no excuse.
+  it("a judgment rule may carry its reason; a deterministic one may not", () => {
+    const rule = (rest) => load(`version: 1\nrules:\n  - { id: R-a1b2c3d4e5, ${rest} }`).errors.join();
+    expect(rule("kind: judgment, when: { tool: Bash }, reason: lo que la rompe está en un fichero")).toBe("");
+    expect(rule("kind: judgment, when: { tool: Bash }")).toBe("");
+    expect(rule("kind: judgment, when: { tool: Bash }, reason: ''")).toMatch(/reason is text/);
+    expect(rule("kind: judgment, when: { tool: Bash }, reason: [a]")).toMatch(/reason is text/);
+    expect(rule("kind: deterministic, when: { tool: Bash }, reason: porque sí")).toMatch(/a condition needs no excuse/);
   });
 
   it("any error leaves no rules: an invalid file evaluates nothing", () => {

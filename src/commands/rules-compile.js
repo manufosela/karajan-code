@@ -42,7 +42,8 @@ const HOW = [
   "Choose the kind of each rule:",
   "- deterministic: ONE tool call breaks it and the tool name and its arguments are enough to tell. Name the tools",
   "  as you see them (MCP tools included). Deny only what the rule forbids: a gate that denies honest calls gets removed.",
-  "- judgment: a tool call breaks it, but telling takes reading what the call says. Give `when.tool` only.",
+  "- judgment: a tool call breaks it, but telling takes reading what the call says. Give `when.tool`, and a `reason`",
+  "  when a condition looks possible and is not (a reviewer will ask): say what it cannot see or what it would deny.",
   "- out-of-scope: it is about how you think or answer, and no tool call breaks it. Give the `reason`.",
   "Do not stretch a rule into a condition it does not state, and do not leave a rule out: every rule gets a kind.",
 ];

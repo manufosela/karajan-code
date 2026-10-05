@@ -20,7 +20,12 @@ const TASK = [
   "- kind deterministic: `when` must deny the tool calls the text forbids. Too narrow a condition (it would rarely fire), or",
   "  examples picked so that a weak condition passes, is a defect. So is a condition so wide that it denies honest calls.",
   "- kind judgment or out-of-scope: nothing is blocked on these. If a condition over a tool name and its arguments could",
-  "  have enforced the text, the rule has been weakened.",
+  "  have enforced the text, the rule has been weakened. A judgment rule may give its `reason`: weigh it, do not take it on trust.",
+  "Know what a condition can see before you ask for one (KJC-TSK-0973): the tool name and the arguments of ONE call, with",
+  "the operators equals, in, matches, exists, gt, lt. It cannot read a file a command names (a commit message passed with -F,",
+  "a body file), earlier calls, or the state of the repo. A rule whose breach is only visible there cannot be deterministic,",
+  "and judgment is its honest kind. A condition that would deny honest calls (a word that is also ordinary text, a method",
+  "name, a comment) is a defect too: do not ask for one, and do not ask for more than the text forbids.",
   "Report as a BLOCKING issue every rule that is weaker than its text, naming its id (R-...) and saying what would enforce it.",
   "Approve only when no rule is weaker than its text.",
 ].join("\n");

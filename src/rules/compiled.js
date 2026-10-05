@@ -79,7 +79,11 @@ function ruleErrors(rule) {
   const notText = ["source", "text", "message"].filter((k) => k in rule && typeof rule[k] !== "string");
   if (notText.length) errors.push(`${notText.join(", ")} must be text`);
   if (rule.kind === OUT_OF_SCOPE) return [...errors, ...outOfScopeErrors(rule)];
-  if ("reason" in rule) errors.push(`reason belongs to ${OUT_OF_SCOPE} rules only`);
+  // KJC-TSK-0973: a judgment rule may say why it takes no condition (what breaks it
+  // is not in the arguments of one call). A condition needs no excuse.
+  if ("reason" in rule && (rule.kind !== "judgment" || typeof rule.reason !== "string" || !rule.reason.trim())) {
+    errors.push(`reason is text and belongs to judgment and ${OUT_OF_SCOPE} rules: a condition needs no excuse`);
+  }
   // `examples` are tool calls: the command that runs them checks their shape (kj rules test).
   const tools = [rule.when?.tool].flat();
   if (tools.length === 0 || tools.some((t) => typeof t !== "string" || !t)) errors.push("when.tool names the tool: a glob, or a list where every item is one");

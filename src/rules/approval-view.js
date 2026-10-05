@@ -10,7 +10,12 @@
  */
 const GATE = "deterministic";
 
-const compiled = (rule) => (rule.kind === "out-of-scope" ? `reason: ${rule.reason}` : `when: ${JSON.stringify(rule.when)}`);
+const compiled = (rule) => {
+  if (rule.kind === "out-of-scope") return `reason: ${rule.reason}`;
+  // KJC-TSK-0973: why a judgment rule takes no condition is read next to it.
+  const why = rule.reason ? "  (" + rule.reason + ")" : "";
+  return `when: ${JSON.stringify(rule.when)}${why}`;
+};
 
 /** How a proposed rule weakens or changes the approved one, or "" when it does not. */
 function weakening(rule, approved) {
