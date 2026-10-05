@@ -8,24 +8,21 @@ dist/
 # environment contract below CAN be re-included — git cannot re-include
 # children of an excluded directory).
 .karajan/*
-# …the v4 contract the whole team inherits (KJC-TSK-0641):
-!.karajan/adrs/
+# …except the v4 environment contract, which the whole team inherits:
 !.karajan/review-gate
-# GOV-C2: el sello del decision log SE COMMITEA — es el anclaje temporal.
-!.karajan/policy-anchor.json
-# PL-A/PL-C: la policy declarativa es contrato de equipo — se commitea.
-!.karajan/policy.yml
 !.karajan/hooks/
 .karajan/hooks/*
 !.karajan/hooks/pre-commit
 !.karajan/hooks/commit-msg
 !.karajan/hooks/pre-push
-!.karajan/hooks/prepare-commit-msg
 !.karajan/hooks/post-merge
-# ADR 0009 (KJC-BUG-0161): la procedencia del supervisor viaja con el repo.
+!.karajan/hooks/prepare-commit-msg
+!.karajan/adrs/
 !.karajan/supervisor-provenance.json
-# ADR 0010 (KJC-TSK-0831): el padrón de firmantes autorizados es contrato de equipo.
+!.karajan/policy.yml
+!.karajan/policy-anchor.json
 !.karajan/supervisor-signers.json
+!.karajan/rules.yml
 .reviews/
 .kj/
 kj.config.yml

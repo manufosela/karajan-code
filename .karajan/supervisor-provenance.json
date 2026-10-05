@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.39.0",
-  "generated_at": "2026-10-04T10:05:25.350Z",
+  "kj_version": "4.40.0",
+  "generated_at": "2026-10-05T20:50:41.515Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -21,8 +21,12 @@
       "sha256": "65a8fe4c749ddcdfb92e02085d4523392c0f2441c6aed9a519f3fa2ce4f7849a"
     },
     {
+      "file": ".karajan/harness/pretooluse-rules.mjs",
+      "sha256": "f1948a95ed80f94c58d709b589a8b1e1ae60d1f1eb35d75ca7d83839250cd9b8"
+    },
+    {
       "file": ".karajan/harness/pretooluse-sentinel.mjs",
-      "sha256": "a21358e725c569cd27e478e485c7400abe2894efeb7d50a02ffa3215662f2026"
+      "sha256": "bcfde4bd7e6885385682d810919075982d5ad546f9f7e5c7cc1045ce23b8414d"
     },
     {
       "file": ".karajan/harness/pretooluse.mjs",
@@ -30,27 +34,31 @@
     },
     {
       "file": ".karajan/harness/sentinel-bash-write.mjs",
-      "sha256": "8bcc44048f581b0da39873658452cfb3222b2e6c9ad328c25a46ea4428237f0f"
+      "sha256": "5a5d4beb3bf4e36d1bf0fe79b525c906990695e5be4c65b095a2d0e94602b342"
     },
     {
       "file": ".karajan/harness/sentinel-discard.mjs",
-      "sha256": "fdd8c8ce5e8914b67637abb06a920c6605b21342e9461e18e3ca3bcbc47a2763"
+      "sha256": "d27cacf0900c9fc6e7990e456bea2caff6b4e553083ce8844f0dcf71758f9d9f"
     },
     {
       "file": ".karajan/harness/sentinel-lib.mjs",
-      "sha256": "d5a763b011cd99b3b0498805c667631b979672da149020eaf0ff4fc08e822be4"
+      "sha256": "0b0f1e98e4114543148aba7cb4be19a7abe41b408fa937bc6ff4e0697ca12c9e"
     },
     {
       "file": ".karajan/harness/sentinel-reminders.mjs",
       "sha256": "8ff651803d925b0f73fda7103d27416b07bd067e91c2db6e7274a689d422e8ea"
     },
     {
+      "file": ".karajan/harness/sentinel-rules.mjs",
+      "sha256": "82d324f20ead19883a45a96f9dc0da08b1b1a969735afabb164235df39951d79"
+    },
+    {
       "file": ".karajan/harness/sentinel-shell.mjs",
-      "sha256": "c61eb8da978ed4adb66cdeb8a5159e230a89e052070c1aa19e6fde85837245f9"
+      "sha256": "07e67a5c08d3ea55420d0c38fca062bc95ecb8d1ca73ddb17814a90774a59eb5"
     },
     {
       "file": ".karajan/harness/sessionstart.mjs",
-      "sha256": "8a21539bf901e79b1bd99acf0c93b03d9a32f988d8aee865af55b818cdacc539"
+      "sha256": "7fe36b8626a6dc61bb9575cee3d9eecf221fd140cead996196a6962a1deb72ab"
     },
     {
       "file": ".karajan/harness/stop.mjs",
@@ -78,15 +86,15 @@
     }
   ],
   "signature": {
-    "cid": "96742aae6fc1fb04362772442fbbe8d2",
-    "nonce": "564a382186571c1ecac985fbde839ec7",
+    "cid": "fabd57d2866e5c5793e5e9e4d95ac2a3",
+    "nonce": "05fc719b29e8f0dec54f5b71b4ae71cc",
     "project": "karajan-code",
-    "filesHash": "53aed3082b54d7f26eb7375a383733f4ca72e03a47a68d86a011c8807cc9ba17",
+    "filesHash": "53b03a1ba10f91f0f9e2217bdde5b57eb24253ff1db6f82c2fce3883353c8cd3",
     "v": 2,
-    "kjVersion": "4.39.0",
-    "issuedMs": 1791108315588,
-    "expiresMs": 1791108375588,
+    "kjVersion": "4.40.0",
+    "issuedMs": 1791233393385,
+    "expiresMs": 1791233453385,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "7M396NC0fLZcN+6GdIPXZYM/bDR5p+ONqpircQwPEw5jUDvvdnHEtA4zsUjiaMemwoddlRx4brjKZRVYa/jPDQ=="
+    "signature": "YbkeqT0vaYmTVa/u9D+GhYDZekL2SXnmFU0I2hKNCe2mqaN4YGJPBVSwtsqUtfAYWixDN2kVZpX3n7lPmB2jAw=="
   }
 }
