@@ -59,7 +59,7 @@ describe("kj rules approve", () => {
     expect(res.code).toBe(0);
     const seen = shown.join("\n");
     expect(seen).toMatch(new RegExp(`${rules[0].id}.*out-of-scope.*Nunca despliegues sin permiso.*no es una acción`, "s"));
-    expect(seen).toMatch(new RegExp(`leaves.*${rules[1].id}`));
+    expect(seen).toMatch(new RegExp(`1 rule\\(s\\) LEAVE:\\n${rules[1].id}`));
     expect(yaml.load(fs.readFileSync(file("rules.yml"), "utf8")).rules).toEqual([
       { id: rules[0].id, source: "CLAUDE.md", text: rules[0].text, kind: "out-of-scope", reason: "no es una acción" },
     ]);
