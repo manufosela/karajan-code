@@ -2,10 +2,12 @@
 // kj sentinel SessionStart hook (KJC-TSK-0918, ADR 0014), managed by `kj harden`.
 // A compaction takes exactly what the agent needs most: the rules it read at the
 // start. After a compaction or a resume, this gives them back, short, with the
-// state of the session. A new session gets nothing: CLAUDE.md already brings them.
+// state of the session. A new session gets no rules: CLAUDE.md already brings them.
 // Copied byte for byte into .karajan/harness; never fails a session (exit 0).
 import process from "node:process";
-import { CARD, branchOf, load, pendingMoves } from "./sentinel-lib.mjs";
+import { spawnSync } from "node:child_process";
+import { CARD, ROOT, branchOf, load, pendingMoves } from "./sentinel-lib.mjs";
+import { rulesDriftNotice } from "./sentinel-rules.mjs";
 
 const RULES = [
   "1. Karajan gobierna y se le obedece: no cambies políticas, configuración de gates ni exclusiones para pasar un gate. Si uno parece injusto, díselo a tu usuario o usa kj report-issue.",
@@ -24,13 +26,20 @@ process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", source } = JSON.parse(raw || "{}");
-    if (source !== "compact" && source !== "resume") process.exit(0);
-    const branch = branchOf() || "?";
-    const card = CARD.exec(branch)?.[0]?.toUpperCase() ?? "ninguna en la rama";
-    const pending = pendingMoves(load().sessions?.[sid]).map((p) => `${p.card ?? "?"} (PR #${p.pr})`);
-    const state = `Estado: rama ${branch}, card ${card}${pending.length ? `; cards mergeadas sin mover: ${pending.join(", ")}` : ""}.`;
-    const context = ["Karajan (reglas que la compactación se lleva):", ...RULES, state].join("\n");
-    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } }));
+    // KJC-TSK-0949: an MD changed and its compiled rules fell behind. Said at
+    // every start, a new session included: that one gets this line and nothing else.
+    const drift = rulesDriftNotice({ root: ROOT, run: spawnSync });
+    const lines = [];
+    if (source === "compact" || source === "resume") {
+      const branch = branchOf() || "?";
+      const card = CARD.exec(branch)?.[0]?.toUpperCase() ?? "ninguna en la rama";
+      const pending = pendingMoves(load().sessions?.[sid]).map((p) => `${p.card ?? "?"} (PR #${p.pr})`);
+      const unmoved = pending.length ? "; cards mergeadas sin mover: " + pending.join(", ") : "";
+      lines.push("Karajan (reglas que la compactación se lleva):", ...RULES, `Estado: rama ${branch}, card ${card}${unmoved}.`);
+    }
+    if (drift) lines.push(`Karajan: ${drift}`);
+    if (lines.length === 0) process.exit(0);
+    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: lines.join("\n") } }));
   } catch { /* never fails a session */ }
   process.exit(0);
 });
