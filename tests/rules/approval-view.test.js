@@ -41,4 +41,10 @@ describe("approvalView", () => {
     expect(text).toMatch(/R-b {2}deterministic {2}→ \.karajan\/rules\.local\.yml, not versioned/);
     expect(text).toMatch(/1 rule\(s\) LEAVE[\s\S]*R-z {2}Regla R-z\./);
   });
+
+  it("KJC-TSK-0973: a judgment rule is read with the reason it takes no condition", () => {
+    const text = view([{ ...judged("R-a"), reason: "lo que la rompe está en un fichero" }, judged("R-b")]);
+    expect(text).toMatch(/when: \{"tool":"Bash"\} {2}\(lo que la rompe está en un fichero\)/);
+    expect(text).toMatch(/Regla R-b\.\n {4}when: \{"tool":"Bash"\}\n/);
+  });
 });

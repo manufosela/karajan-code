@@ -21,8 +21,21 @@ const TASK = [
   "  examples picked so that a weak condition passes, is a defect. So is a condition so wide that it denies honest calls.",
   "- kind judgment or out-of-scope: nothing is blocked on these. If a condition over a tool name and its arguments could",
   "  have enforced the text, the rule has been weakened.",
-  "Report as a BLOCKING issue every rule that is weaker than its text, naming its id (R-...) and saying what would enforce it.",
-  "Approve only when no rule is weaker than its text.",
+  "Any rule may give a `reason` for how it is compiled: weigh it, do not take it on trust.",
+  "Know what a condition can see before you ask for one (KJC-TSK-0973): the tool name and the arguments of ONE call, with",
+  "the operators equals, in, matches, exists, gt, lt. It cannot read a file a command names (a commit message passed with -F,",
+  "a body file), earlier calls, or the state of the repo. A rule whose breach is only visible there cannot be deterministic,",
+  "and judgment is its honest kind. A condition that would deny honest calls (a word that is also ordinary text, a method",
+  "name, a comment) is a defect too: do not ask for one, and do not ask for more than the text forbids.",
+  "A deterministic rule that enforces every part of its text a condition CAN see is not weak for leaving out the part no",
+  "condition can see: block it only if the visible part is compiled narrower than it could be.",
+  "What blocks is MATERIAL weakness: a form of the forbidden call an agent would plausibly write in ordinary work is let",
+  "through, or a call an agent would plausibly make in honest work is denied. A pattern over shell text is never complete,",
+  "and these gates exist for a rule forgotten or bent in passing; an agent contorting a command to dodge them is stopped at",
+  "the checkpoints it does not reach (git hooks, CI), not here. So an exotic form (a command inside a control structure, a",
+  "rare global option, unusual casing) is a non-blocking suggestion, not a blocking issue.",
+  "Report as a BLOCKING issue every rule materially weaker than its text, naming its id (R-...) and saying what would",
+  "enforce it. Approve when none is.",
 ].join("\n");
 
 /**

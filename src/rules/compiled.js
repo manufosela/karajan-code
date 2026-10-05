@@ -79,7 +79,10 @@ function ruleErrors(rule) {
   const notText = ["source", "text", "message"].filter((k) => k in rule && typeof rule[k] !== "string");
   if (notText.length) errors.push(`${notText.join(", ")} must be text`);
   if (rule.kind === OUT_OF_SCOPE) return [...errors, ...outOfScopeErrors(rule)];
-  if ("reason" in rule) errors.push(`reason belongs to ${OUT_OF_SCOPE} rules only`);
+  // KJC-TSK-0973: any rule may say why it is compiled as it is. A judgment rule,
+  // why it takes no condition; a deterministic one, where its condition stops
+  // (what breaks the rest is not in the arguments of one call).
+  if ("reason" in rule && (typeof rule.reason !== "string" || !rule.reason.trim())) errors.push("reason is text");
   // `examples` are tool calls: the command that runs them checks their shape (kj rules test).
   const tools = [rule.when?.tool].flat();
   if (tools.length === 0 || tools.some((t) => typeof t !== "string" || !t)) errors.push("when.tool names the tool: a glob, or a list where every item is one");

@@ -18,7 +18,8 @@ const failed = (line) => ({ code: 1, lines: [`✗ ${line}`] });
 function decision({ kind, tools = [], reason = "" }) {
   if (kind === "judgment") {
     if (tools.length === 0) return { error: "a judgment rule names the tool it shows on: --tool <glob> (repeatable)" };
-    return { fields: { kind, when: { tool: tools.length === 1 ? tools[0] : tools } } };
+    // KJC-TSK-0973: why it takes no condition, when there is something to say.
+    return { fields: { kind, when: { tool: tools.length === 1 ? tools[0] : tools }, ...(reason.trim() ? { reason: reason.trim() } : {}) } };
   }
   if (kind === "out-of-scope") {
     if (!reason.trim()) return { error: "an out-of-scope rule says why no tool call breaks it: --reason <text>" };
