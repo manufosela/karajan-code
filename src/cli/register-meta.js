@@ -46,6 +46,7 @@ import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
 import { PROPOSAL_FILE, readToolInput, rulesCheck, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
 import { rulesApprove } from "../commands/rules-approve.js";
+import { rulesCompileBrief } from "../commands/rules-compile.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -354,6 +355,16 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-check", flags, async ({ config }) => {
         const res = rulesCheck({ projectDir: config?.projectDir || process.cwd(), file: flags.file });
+        for (const line of res.lines) console.log(line);
+        process.exitCode = res.code;
+      });
+    });
+  // MDR-D (KJC-TSK-0940): the brief for whoever compiles the rules with no gate.
+  rules.command("compile")
+    .description("Print the brief to compile the rules with no gate into a proposal (.karajan/rules.proposed.yml); kj calls no model")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rules-compile", flags, async ({ config }) => {
+        const res = rulesCompileBrief({ projectDir: config?.projectDir || process.cwd() });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });
