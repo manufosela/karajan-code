@@ -75,15 +75,16 @@ describe("parseRules", () => {
     }
   });
 
-  // KJC-TSK-0973: a judgment rule may say why it takes no condition; the reviewer
-  // and the human read it. A condition needs no excuse.
-  it("a judgment rule may carry its reason; a deterministic one may not", () => {
+  // KJC-TSK-0973: any rule may say why it is compiled as it is; the reviewer and
+  // the human read it. A judgment rule, why it takes no condition; a
+  // deterministic one, where its condition stops.
+  it("a rule of any kind may carry its reason, as text", () => {
     const rule = (rest) => load(`version: 1\nrules:\n  - { id: R-a1b2c3d4e5, ${rest} }`).errors.join();
     expect(rule("kind: judgment, when: { tool: Bash }, reason: lo que la rompe está en un fichero")).toBe("");
     expect(rule("kind: judgment, when: { tool: Bash }")).toBe("");
+    expect(rule("kind: deterministic, when: { tool: Bash }, reason: el mensaje pasado con -F no se ve")).toBe("");
     expect(rule("kind: judgment, when: { tool: Bash }, reason: ''")).toMatch(/reason is text/);
-    expect(rule("kind: judgment, when: { tool: Bash }, reason: [a]")).toMatch(/reason is text/);
-    expect(rule("kind: deterministic, when: { tool: Bash }, reason: porque sí")).toMatch(/a condition needs no excuse/);
+    expect(rule("kind: deterministic, when: { tool: Bash }, reason: [a]")).toMatch(/reason is text/);
   });
 
   it("any error leaves no rules: an invalid file evaluates nothing", () => {
