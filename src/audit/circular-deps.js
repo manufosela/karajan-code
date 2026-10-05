@@ -44,11 +44,12 @@ async function findTsConfig(projectDir) {
   return undefined;
 }
 
-function pickEntrypoint(projectDir) {
-  // madge needs an entrypoint. We prefer common conventions; if none
-  // exists we fall back to scanning `src/` which covers ~95% of JS/TS
-  // projects we've seen.
-  return path.join(projectDir, "src");
+async function pickEntrypoint(projectDir) {
+  // madge needs an entrypoint: `src/` covers most JS/TS projects. KJC-BUG-0267:
+  // a project with no src/ (a static site with its scripts in js/ or at the
+  // root) is scanned whole; excludeRegExp keeps node_modules and build output out.
+  const src = path.join(projectDir, "src");
+  try { await fs.access(src); return src; } catch { return projectDir; }
 }
 
 /**
@@ -65,9 +66,9 @@ export async function collectCircularDeps(projectDir, stack, config = {}, logger
     return { available: false, reason: "no JS/TS sources detected — circular-dep scan skipped" };
   }
 
-  const entry = pickEntrypoint(projectDir);
+  const entry = await pickEntrypoint(projectDir);
   try { await fs.access(entry); } catch {
-    return { available: false, reason: `entrypoint ${path.relative(projectDir, entry)} not found` };
+    return { available: false, reason: `project directory ${entry} not found` };
   }
 
   let madge;

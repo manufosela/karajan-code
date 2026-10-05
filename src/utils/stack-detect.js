@@ -46,6 +46,9 @@ const LANGUAGE_FILE_MARKERS = [
   { file: "Package.swift", language: "swift", type: "backend" },
 ];
 
+/** A page served as it is: where a static site (or the static half of an app) keeps it. */
+const STATIC_SITE_MARKERS = ["index.html", path.join("public", "index.html"), path.join("src", "index.html")];
+
 /**
  * Maps framework names to skill names for auto-install suggestions.
  */
@@ -106,6 +109,15 @@ export async function detectProjectStack(projectDir) {
       }
       if (marker.type === "frontend") hasFrontend = true;
       if (marker.type === "backend") hasBackend = true;
+    } catch { /* file not found */ }
+  }
+
+  // 3. KJC-BUG-0267: a static site has a frontend with no framework to show for it.
+  for (const page of STATIC_SITE_MARKERS) {
+    try {
+      await fs.access(path.join(projectDir, page));
+      hasFrontend = true;
+      break;
     } catch { /* file not found */ }
   }
 

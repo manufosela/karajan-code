@@ -93,7 +93,9 @@ export function collectWebPerfInput(stack, config = {}) {
   // a frontend layer to audit. Backend-only projects get nothing.
   const isFrontendish = !stack || stack.isFrontend === true || stack.isFullstack === true;
   if (!isFrontendish) {
-    return { available: false, reason: "project is backend-only — no frontend-perf hints to give" };
+    // KJC-BUG-0267: no tier detected is not "backend-only"; say what was (not) seen.
+    const why = stack.isBackend ? "project is backend-only" : "no frontend layer detected (no frontend framework and no index.html)";
+    return { available: false, reason: `${why} — no frontend-perf hints to give` };
   }
 
   return { available: true, mode: "static-hints" };
