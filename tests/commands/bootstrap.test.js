@@ -43,11 +43,12 @@ describe("kj bootstrap", () => {
     fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
     fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), "coder: claude\n");
     fs.writeFileSync(path.join(dir, ".karajan", "review-gate"), "x");
-    // A project already bootstrapped has history: that is what makes the
-    // contract step report `already` instead of committing again.
+    // A project already bootstrapped has its contract committed: that is what
+    // makes the contract step report `already` instead of committing again.
     execFileSync("git", ["-C", dir, "config", "user.email", "t@t"]);
     execFileSync("git", ["-C", dir, "config", "user.name", "T"]);
-    execFileSync("git", ["-C", dir, "commit", "-q", "--allow-empty", "-m", "chore: first"]);
+    execFileSync("git", ["-C", dir, "add", ".karajan/review-gate"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "chore: first"]);
     const { result, deps } = await run();
     expect(deps.init).not.toHaveBeenCalled();
     expect(deps.env).not.toHaveBeenCalled();
