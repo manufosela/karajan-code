@@ -49,6 +49,33 @@ describe("env install — installing IS activating (KJC-BUG-0133)", () => {
     expect(res.exitCode).toBeUndefined();
   });
 
+  // KJC-BUG-0273: in a repo with history kj left 28 generated files to the agent,
+  // whose PR-size rules forbid that commit. What kj generates, kj commits.
+  it("commits the contract it generated, on a branch, and leaves the person's edits alone", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
+    fs.rmSync(path.join(dir, ".git"), { recursive: true, force: true });
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "T");
+    fs.writeFileSync(path.join(dir, "README.md"), "hi\n");
+    git("add", "README.md");
+    git("commit", "-qm", "chore: first");
+    git("checkout", "-qb", "chore/kj-contract");
+    fs.writeFileSync(path.join(dir, "src.js"), "// mine, uncommitted\n");
+    const { installPlaybook } = await import("../../src/environment/playbook.js");
+    installPlaybook.mockImplementationOnce(async () => {
+      fs.mkdirSync(path.join(dir, ".claude", "skills", "kj-run"), { recursive: true });
+      fs.writeFileSync(path.join(dir, ".claude", "skills", "kj-run", "SKILL.md"), "# skill\n");
+      fs.writeFileSync(path.join(dir, "CLAUDE.md"), "# method\n");
+      return { files: ["CLAUDE.md"], target: "claude" };
+    });
+    await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false } });
+    expect(git("log", "-1", "--format=%s").trim()).toMatch(/^chore\(kj\):/);
+    expect(git("show", "--name-only", "--format=", "HEAD").trim().split("\n").sort()).toEqual([".claude/skills/kj-run/SKILL.md", "CLAUDE.md"]);
+    expect(git("status", "--porcelain")).toMatch(/src\.js/);
+  });
+
   it("without git the install BLOCKS pending — the guarantees do not exist without git", async () => {
     fs.rmSync(path.join(dir, ".git"), { recursive: true, force: true });
     const res = await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false } });

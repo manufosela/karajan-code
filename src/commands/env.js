@@ -21,6 +21,7 @@ import { reviewGateCommand } from "./review-gate.js";
 import { join } from "node:path";
 import { openProjectStore, projectDbPath } from "../rag/project-store.js";
 import { maybeRulesyncGenerate } from "../utils/rulesync.js";
+import { commitContract, contractChanges } from "../environment/contract-commit.js";
 
 function hasRagIndex(config, projectDir) {
   // KJC-BUG-0128: probing must never CREATE the store — openVecStore runs
@@ -52,6 +53,8 @@ export function briefCommand({ config = null, flags = {}, role = null }) {
 
 export async function envInstallCommand({ config = null, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
+  // KJC-BUG-0273: what is dirty NOW is the person's; kj commits only what it generates below.
+  const dirtyBefore = contractChanges(projectDir);
 
   // KJC-TSK-0709 — the board is chosen BEFORE the playbook renders (its
   // tracking line depends on the backend): interactive installs ask when
@@ -214,6 +217,11 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
       wizard?.close();
     } catch { /* privacy onboarding is best-effort */ }
     console.log("  The host agent now follows the method: RAG first, TDD, cross-AI review before commit.");
+    // KJC-BUG-0273: the contract is kj's to commit. Left to the agent, its own
+    // PR-size rules forbid a 1200-line commit of generated files and it stops.
+    const contract = commitContract({ projectDir, before: dirtyBefore, baseBranch: config?.base_branch || "main" });
+    if (contract.committed) console.log(`✓ contract committed by kj: ${contract.files.length} generated file(s), nothing for the agent to commit`);
+    else if (!contract.reason.startsWith("nothing")) console.log(`⚠ the contract kj generated is NOT committed (${contract.reason}): run \`kj env install\` again once that is fixed`);
     // KJC-BUG-0133 (part 2): a mid-session install lands the playbook in
     // CLAUDE.md, but the running session loaded its context BEFORE — nobody
     // re-reads it. Print the method so it enters THIS conversation now.
