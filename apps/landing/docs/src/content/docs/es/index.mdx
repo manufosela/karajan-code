@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.40.0: tus reglas se convierten en gates (actual)
+### v4.41.0: kj commitea su propio contrato (actual)
+
+En un repositorio con historia, kj generó 28 ficheros de contrato y se los dejó al agente, cuyas propias reglas de tamaño de PR prohíben ese commit. Ahora `kj env install` y `kj bootstrap` commitean lo que acaban de generar: solo esos ficheros, nunca lo que tenías sucio o staged, y nunca en la rama base, donde kj nombra los ficheros y cómo commitearlos en una rama. Además: una regla compilada puede decir por qué está compilada así, el revisor de una propuesta bloquea solo por debilidad material, y un rechazo del revisor ya no veta tu aprobación: sus objeciones van primero, y decides tú.
+
+### v4.40.0: tus reglas se convierten en gates
 
 Las reglas que escribes en tus MD dejan de depender de que el agente las recuerde. kj las lee, compila cada una en una condición sobre una llamada a herramienta y comprueba cada llamada antes de ejecutarse, también las de servidores MCP; un deny nombra la regla y el MD del que sale. La compilación la apruebas tú desde tu terminal, después de que una IA distinta la haya revisado regla a regla, y lo que lees va ordenado por lo que puede hacer daño. Las reglas que salen de tus ficheros privados quedan fuera de git. Además: CI verifica la firma del móvil de un sello contra el padrón versionado, un ADR nuevo nace como propuesto, y `kj audit` trata una web estática como el frontend que es.
 

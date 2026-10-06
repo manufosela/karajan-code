@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.41.0] - 2026-10-06
+
+kj commits its own contract. A session reported that kj had generated 28 files
+and 1193 lines of contract in a repository with history and left them to the
+agent, whose own PR-size rules forbid such a commit. The agent was right to
+stop; kj was generating at once what its own rules do not let through, and gave
+no way out. Also: the cross-AI reviewer of a rules proposal no longer holds a
+veto, because on the first real proposal it never converged.
+
+### Added
+
+- **kj commits the contract it generates, in repositories with history too** (KJC-BUG-0273, KJC-TSK-0975): `kj env install` and `kj bootstrap` commit what they just generated through one path, `src/environment/contract-commit.js`. Only those files: what was dirty before stays out, what the person had staged stays staged (`git commit --only`). Never on the base branch: there kj stops, names the generated files and says how to commit them on a branch. If git rejects the commit, kj says so instead of leaving it half done. Regenerating the contract with the review gate already in HEAD still needs a verdict (KJC-TSK-0976).
+- **A rule says why it is compiled the way it is** (KJC-TSK-0973): any compiled rule may carry a `reason`, a deterministic one may say where its condition stops, and `kj rules approve` shows it. The reviewer is told what a condition can see (a call's tool and arguments, never a file's content or what happened before) and blocks only on material weakness: a form an agent would write in normal work, or an honest call denied.
+
+### Changed
+
+- **A rejected review does not decide** (KJC-TSK-0974, ADR 0017 adjusted): on this repository's real proposal the reviewer found one more shell form on each of twelve passes; a regular expression over shell text is never complete, and with the rejection as a veto the human could approve nothing. `kj rules approve` now offers a rejected proposal with the reviewer's objections printed before anything else, and the human decides. With no review of the exact content, or a proposal changed after it, it still offers nothing.
+
 ## [4.40.0] - 2026-10-05
 
 Your rules become gates. A session created week-long sprints although the

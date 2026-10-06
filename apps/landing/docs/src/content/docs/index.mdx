@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.40.0: your rules become gates (current)
+### v4.41.0: kj commits its own contract (current)
+
+In a repository with history, kj generated 28 files of contract and left them to the agent, whose own PR-size rules forbid such a commit. Now `kj env install` and `kj bootstrap` commit what they just generated: only those files, never what you had dirty or staged, and never on the base branch, where kj names the files and how to commit them on a branch. Also: a compiled rule can say why it is compiled the way it is, the reviewer of a proposal blocks only on material weakness, and a rejected review no longer vetoes your approval: its objections come first, and you decide.
+
+### v4.40.0: your rules become gates
 
 The rules you write in your MD files stop depending on the agent remembering them. kj reads them, compiles each into a condition over a tool call, and checks every call before it runs, MCP tools included; a deny names the rule and the MD it comes from. You approve the compilation from your own terminal, after a different AI has reviewed it rule by rule, and what you read is ordered by what can hurt. Rules that come from your private files are kept out of git. Also: CI now verifies the phone's signature of a seal against the versioned roster, a new ADR is born proposed, and `kj audit` treats a static site as the frontend it is.
 

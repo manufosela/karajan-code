@@ -1744,6 +1744,12 @@ Running it on this very repository changed the design three times. The inventory
 
 The same conversation raised an older question: when an agent asks the human to run something kj forbids it, how does the human know it is not being fooled, and how does kj know the human is the human? ADR 0018 answers with a request channel through kj, a closed catalog of dangerous commands and the phone's signature as the default for all of them. Looking at the code for it showed that the signature was only ever checked on the machine that sealed. This release makes CI verify it against the versioned roster; the rest of that ADR is ahead.
 
+## Phase 133: v4.41.0, kj commits its own contract
+
+A session reported, the day after 4.40.0, that kj had generated 28 files and 1193 lines of contract in a repository with history and left them to the agent, whose own PR-size rules forbid such a commit. The agent was right to stop. The fault was kj's: `kj bootstrap` committed the contract itself only while the repository had no commit, and with history `kj env install` generated the same files and said nothing. The contract commit moved to one module that both use: only the files kj just generated (what was dirty before stays out, what the person had staged stays staged), never on the base branch, and when git rejects it kj says so. Regenerating a contract once the review gate is in HEAD still needs a verdict for a diff nobody wrote; that is the next piece.
+
+The first real rules proposal of this repository also taught something about the cross-AI review. Twelve passes, one more shell form each time: a regular expression over shell text is never complete, and a reviewer whose criterion is "a case is missing" is always right. Three things changed. A rule can say why it is compiled the way it is, and the human reads it at approval. The reviewer is told what a condition can see and blocks only on material weakness. And a rejection no longer vetoes: the proposal is offered with the objections first, and the human decides, which is what the defense in ADR 0017 asked for all along.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

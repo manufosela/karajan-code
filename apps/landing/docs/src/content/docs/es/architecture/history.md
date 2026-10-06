@@ -1743,6 +1743,12 @@ Usarlo sobre este mismo repositorio cambió el diseño tres veces. El inventario
 
 La misma conversación sacó una pregunta más antigua: cuando un agente le pide al humano que ejecute algo que kj le prohíbe, ¿cómo sabe el humano que no le están engañando, y cómo sabe kj que el humano es el humano? El ADR 0018 responde con un canal de encargos a través de kj, un catálogo cerrado de comandos peligrosos y la firma del móvil como nivel por defecto para todos ellos. Al mirar el código salió que la firma solo se comprobaba en la máquina que sellaba. Esta versión hace que CI la verifique contra el padrón versionado; el resto de ese ADR está por delante.
 
+## Fase 133: v4.41.0, kj commitea su propio contrato
+
+Una sesión reportó, al día siguiente de la 4.40.0, que kj había generado 28 ficheros y 1193 líneas de contrato en un repositorio con historia y se los había dejado al agente, cuyas propias reglas de tamaño de PR prohíben ese commit. El agente hizo bien en pararse. El fallo era de kj: `kj bootstrap` commiteaba el contrato él mismo solo mientras el repositorio no tenía ningún commit, y con historia `kj env install` generaba los mismos ficheros y no decía nada. El commit del contrato pasó a un módulo que usan los dos: solo los ficheros que kj acaba de generar (lo que estaba sucio antes queda fuera, lo que la persona tenía staged sigue staged), nunca en la rama base, y cuando git lo rechaza kj lo dice. Regenerar un contrato cuando el gate de review ya está en HEAD sigue necesitando un veredicto para un diff que nadie escribió; esa es la pieza siguiente.
+
+La primera propuesta real de reglas de este repositorio también enseñó algo sobre la revisión cruzada. Doce pasadas, una forma más de shell en cada una: una expresión regular sobre texto de shell nunca está completa, y un revisor cuyo criterio es «falta un caso» siempre tiene razón. Cambiaron tres cosas. Una regla puede decir por qué está compilada así, y el humano lo lee al aprobar. Al revisor se le dice qué ve una condición y bloquea solo por debilidad material. Y un rechazo ya no veta: la propuesta se ofrece con las objeciones primero, y decide el humano, que es lo que la defensa del ADR 0017 pedía desde el principio.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
