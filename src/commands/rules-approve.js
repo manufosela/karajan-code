@@ -32,14 +32,18 @@ export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env
   const checked = rulesCheck({ projectDir, home, text });
   if (checked.code !== 0) return { code: 1, lines: checked.lines };
   // KJC-TSK-0963: whoever wrote the proposal does not call it good. A different
-  // AI must have approved these exact bytes; a touched proposal is reviewed again.
-  const reviewed = await checkVerdict(projectDir, text);
-  if (!reviewed.ok) {
-    const found = (reviewed.verdict?.issues ?? []).map((issue) => `  - ${issue.description ?? issue.message ?? JSON.stringify(issue)}`);
-    const why = reviewed.verdict ? "rejected by " + reviewed.verdict.reviewer : "none recorded for its exact content";
-    return { code: 1, lines: [`✗ this proposal has no approved cross-AI review (${why}): run \`kj rules review\``, ...found] };
+  // AI must have read these exact bytes; a touched proposal is reviewed again.
+  const { ok, verdict } = await checkVerdict(projectDir, text);
+  if (!verdict) return { code: 1, lines: ["✗ this proposal has no cross-AI review of its exact content (none recorded, or it changed since): run `kj rules review`"] };
+  if (ok) {
+    log(`Reviewed by ${verdict.reviewer}, a different AI from the one that wrote it: ${verdict.summary || "approved"}`);
+  } else {
+    // KJC-TSK-0974 (ADR 0017): a rejection does not decide, the human does. What
+    // the defense asks is that nothing weak is approved UNSEEN: objections first.
+    log(`REJECTED by ${verdict.reviewer}, a different AI from the one that wrote it: ${verdict.summary || "see its objections"}`);
+    log("Its objections, before anything else. Approving installs the proposal as it is, objections included:");
+    for (const issue of verdict.issues ?? []) log(`  - ${issue.description ?? issue.message ?? JSON.stringify(issue)}`);
   }
-  log(`Reviewed by ${reviewed.verdict.reviewer}, a different AI from the one that wrote it: ${reviewed.verdict.summary || "approved"}`);
   const { rules, local } = checked;
   // KJC-TSK-0962: read in the order of what can hurt, weakened rules first.
   const view = approvalView(rules, loadRules(projectDir).rules, local, { versioned: RULES_FILE, unversioned: LOCAL_RULES_FILE });

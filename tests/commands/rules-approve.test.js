@@ -55,19 +55,31 @@ describe("kj rules approve", () => {
   });
 
   // KJC-TSK-0963 (ADR 0017): whoever wrote the proposal does not call it good.
-  it("with no approved review of these exact bytes by a different AI, it is not offered", async () => {
+  it("with no review of these exact bytes by a different AI, it is not offered", async () => {
     let asked = false;
     const deps = { ...HUMAN.deps, confirm: (n) => { asked = true; return n; } };
     write("rules.proposed.yml", [entry(rules[0])]); // never reviewed
-    expect(await approve({ deps })).toMatchObject({ code: 1, lines: [expect.stringMatching(/no approved cross-AI review.*none recorded.*kj rules review/)] });
-    await propose([entry(rules[0])], "rejected");
-    const rejected = await approve({ deps });
-    expect(rejected.lines.join("\n")).toMatch(/rejected by codex[\s\S]*demasiado estrecha/);
+    expect(await approve({ deps })).toMatchObject({ code: 1, lines: [expect.stringMatching(/no cross-AI review of its exact content.*kj rules review/)] });
     await propose([entry(rules[0])]);
     fs.appendFileSync(file("rules.proposed.yml"), entry(rules[1])); // touched after the review
     expect((await approve({ deps })).code).toBe(1);
     expect(asked).toBe(false);
     expect(fs.existsSync(file("rules.yml"))).toBe(false);
+  });
+
+  // KJC-TSK-0974 (ADR 0017, adjusted 2026-10-06): a rejection does not decide. The
+  // reviewer never converged on shell text (twelve passes, one more case each);
+  // the defense is that nothing is approved unseen, so the objections come first.
+  it("a rejected review is offered, its objections before anything else, and the human decides", async () => {
+    await propose([entry(rules[0])], "rejected");
+    const res = await approve();
+    expect(res.code).toBe(0);
+    expect(shown[0]).toMatch(/REJECTED by codex, a different AI/);
+    const objection = shown.findIndex((line) => line.includes("demasiado estrecha"));
+    const rule = shown.findIndex((line) => line.includes(rules[0].id));
+    expect(objection).toBeGreaterThan(0);
+    expect(objection).toBeLessThan(rule);
+    expect(installed("rules.yml")).toEqual([rules[0].id]);
   });
 
   it("shows every rule, and the ones that leave, before it asks; then installs the proposal as read", async () => {
