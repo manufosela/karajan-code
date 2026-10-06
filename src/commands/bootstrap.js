@@ -15,12 +15,12 @@
  *    first and a git that cannot run is the end of the line, not a warning.
  */
 
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ensureGitRepo } from "./init.js";
 import { initCommand } from "./init.js";
 import { envInstallCommand } from "./env.js";
+import { commitContract, contractChanges } from "../environment/contract-commit.js";
 import { runStartScript, START_SCRIPT_CONTRACT } from "../start/project-script.js";
 
 const STEP_LABEL = {
@@ -31,25 +31,6 @@ const STEP_LABEL = {
   start: "arranque del proyecto",
 };
 
-/** What kj generates and the whole team must inherit by cloning. */
-const CONTRACT_PATHS = [
-  ".gitignore",
-  ".karajan/hooks",
-  ".karajan/review-gate",
-  ".karajan/adrs",
-  ".karajan/policy.yml",
-  ".claude",
-  "CLAUDE.md",
-  "AGENTS.md",
-  "GEMINI.md",
-  // KJC-TSK-0879: in a Rulesync repo kj's rules live in .rulesync/rules/karajan.md.
-  ".rulesync",
-];
-const CONTRACT_MESSAGE = "chore(bootstrap): el contrato del método, para que quien clone lo herede";
-
-const hasCommits = (projectDir, git) => {
-  try { git(["rev-parse", "--verify", "HEAD"]); return true; } catch { return false; }
-};
 
 /**
  * @returns {Promise<{ok: boolean, pending: string|null, steps: Array<{name: string, status: "done"|"already"|"pending"}>}>}
@@ -75,6 +56,8 @@ export async function bootstrapCommand({ config = {}, logger = console, flags = 
     return stop("git", "git no está disponible y las garantías de Karajan viven en sus hooks");
   }
   say("git", hadRepo ? "already" : "done", hadRepo ? "ya existía" : "creado, sin commit todavía");
+  // What is dirty NOW is the person's: kj commits only what it generates below.
+  const before = contractChanges(projectDir);
 
   // 2. The project's own configuration.
   const hasConfig = existsSync(join(projectDir, ".karajan", "kj.config.yml"));
@@ -98,27 +81,15 @@ export async function bootstrapCommand({ config = {}, logger = console, flags = 
   // 4. The contract commit. project-new.md asked the USER for it, and it was
   //    the commit their own freshly installed gates rejected: the review gate
   //    (KJC-BUG-0165) and the branch guard (KJC-BUG-0186) both exempt it now,
-  //    so kj can make it itself instead of leaving the person to fight it.
-  //    Only what kj generated, only while the repo has no commit, never the
-  //    person's own code. This is NOT the supervisor seal, which stays a human
-  //    act with its own four layers (ADR 0009).
-  const git = deps.gitRun ?? ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
-  if (hasCommits(projectDir, git)) say("contract", "already", "el repositorio ya tiene historia");
-  else {
-    const present = CONTRACT_PATHS.filter((p) => existsSync(join(projectDir, p)));
-    if (present.length === 0) say("contract", "already", "no hay contrato que commitear");
-    else {
-      try {
-        git(["add", "--", ...present]);
-        git(["commit", "-m", CONTRACT_MESSAGE]);
-      } catch (err) {
-        // Nunca explotar aquí: lo más probable es que falte la identidad del
-        // clon, y ese cauce ya lo pide el paso anterior (KJC-BUG-0188).
-        return stop("contract", `git no pudo commitear el contrato: ${String(err.message).split("\n")[0]}`);
-      }
-      say("contract", "done", `${present.length} ruta(s) del contrato`);
-    }
-  }
+  //    so kj makes it itself (src/environment/contract-commit.js). Only what
+  //    kj generated, never the person's own code, never on the base branch
+  //    once there is history (KJC-BUG-0273). This is NOT the supervisor seal,
+  //    which stays a human act with its own four layers (ADR 0009).
+  const contract = commitContract({ projectDir, before, baseBranch: config.base_branch || "main" });
+  if (contract.committed) say("contract", "done", `${contract.files.length} ruta(s) del contrato`);
+  else if (contract.reason.startsWith("nothing")) say("contract", "already", "no hay contrato que commitear");
+  // Lo más probable: la identidad del clon (KJC-BUG-0188) o la rama base.
+  else return stop("contract", contract.reason);
 
   // 5. Does the project actually run? kj verified the method; nobody verified
   //    the application (BOOT-C, KJC-TSK-0862). It REPORTS, never blocks: a

@@ -52,8 +52,7 @@ describe("kj bootstrap × the contract commit", () => {
 
   // KJC-TSK-0879: in a Rulesync repo kj's rules live in .rulesync/rules/karajan.md.
   it("a Rulesync repo's karajan.md is part of the contract", async () => {
-    write(".rulesync/rules/karajan.md", "---\nroot: false\n---\n");
-    await run();
+    await run({ deps: { init: vi.fn(async () => { contract(); write(".rulesync/rules/karajan.md", "---\nroot: false\n---\n"); return {}; }) } });
     expect(git("show", "--name-only", "--format=", "HEAD")).toContain(".rulesync/rules/karajan.md");
   });
 
@@ -62,12 +61,25 @@ describe("kj bootstrap × the contract commit", () => {
     expect(git("log", "-1", "--format=%s").trim()).toMatch(/^chore\(bootstrap\):/);
   });
 
-  it("a repo that already has commits is left alone: this is the bootstrap phase only", async () => {
+  // KJC-BUG-0273: with history, kj still commits what it generated, on a branch.
+  it("a repo with history gets the contract committed on a branch", async () => {
     write("README.md", "hi\n");
     git("add", "README.md");
     git("commit", "-qm", "chore: first");
+    git("checkout", "-qb", "chore/kj-contract");
     const result = await run();
-    expect(result.steps.find((s) => s.name === "contract").status).toBe("already");
+    expect(result.steps.find((s) => s.name === "contract").status).toBe("done");
+    expect(git("log", "-1", "--format=%s").trim()).toMatch(/^chore\(kj\):/);
+  });
+
+  it("on the base branch it stops, names the generated files and how to commit them: kj never commits there", async () => {
+    write("README.md", "hi\n");
+    git("add", "README.md");
+    git("commit", "-qm", "chore: first");
+    const log = quiet();
+    const result = await run({ logger: log });
+    expect(result.pending).toBe("contract");
+    expect(log.error.mock.calls.join("\n")).toMatch(/main.*git checkout -b .*git add -- .*CLAUDE\.md/);
     expect(git("log", "--format=%s").trim().split("\n")).toEqual(["chore: first"]);
   });
 });
