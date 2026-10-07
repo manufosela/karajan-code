@@ -31,6 +31,32 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe("commitContract", () => {
+  // KJC-BUG-0289 (#1984): the lint/format/commit configs kj harden generates (at
+  // the root or under a stack root) and the governance files are contract too.
+  it("takes the generated configs, wherever harden put them, and the governance files", () => {
+    write(".editorconfig", "root = true\n");
+    write("commitlint.config.js", "export default {};\n");
+    write("packages/api/ruff.toml", "line-length = 100\n");
+    write(".karajan/rules.yml", "rules: []\n");
+    write(".karajan/supervisor-signers.json", "[]\n");
+    write("packages/api/pyproject.toml", "[project]\n"); // the person's, not kj's
+    const res = commitContract({ projectDir: dir });
+    expect(res.committed).toBe(true);
+    expect(committed()).toEqual([".editorconfig", ".karajan/rules.yml", ".karajan/supervisor-signers.json", "commitlint.config.js", "packages/api/ruff.toml"]);
+  });
+
+  // kj init captures the baseline BEFORE ensureGitRepo: outside a repository git
+  // cannot answer, and the baseline is empty (everything generated later is kj's).
+  it("contractChanges is empty, not an error, in a directory that is not a repository", () => {
+    const plain = fs.mkdtempSync(path.join(os.tmpdir(), "kj-plain-"));
+    try {
+      fs.writeFileSync(path.join(plain, "CLAUDE.md"), "# mine\n");
+      expect(contractChanges(plain)).toEqual(new Set());
+    } finally {
+      fs.rmSync(plain, { recursive: true, force: true });
+    }
+  });
+
   it("in a fresh repo it commits the contract, and nothing the person wrote, staged or not", () => {
     generate();
     write("src/app.js", "// mine\n");

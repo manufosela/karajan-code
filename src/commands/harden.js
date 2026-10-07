@@ -26,6 +26,7 @@ import { detectStackRoots } from "../harden/stack-roots.js";
 import { installWorkflows } from "../harden/workflow-engine.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { ensureIdentity } from "../identity/bootstrap.js";
+import { commitContract, contractChanges } from "../environment/contract-commit.js";
 
 const JS_TEST_CMD = {
   vitest: "npx vitest run",
@@ -104,8 +105,12 @@ export async function hardenCommand({
   exclude = [],
   commitSupervisor = false,
   kjVersion = null,
+  // KJC-BUG-0289: the contract files already dirty before anything was generated
+  // (kj init captures them before writing its own). What is dirty NOW is the person's.
+  contractBefore = null,
   logger = console,
 } = {}) {
+  const dirtyBefore = contractBefore ?? contractChanges(projectDir);
   const repoCfg = readHardenConfig(projectDir);
   const onlyDirs = [...(repoCfg.only ?? []), ...only];
   const excludeDirs = [...(repoCfg.exclude ?? []), ...exclude];
@@ -200,6 +205,15 @@ export async function hardenCommand({
     workflows: wf?.workflows ?? [],
     guidelines: gl?.guidelines ?? [],
   };
+  // KJC-BUG-0289 (#1984): what kj harden generates, kj commits (KJC-BUG-0273's
+  // path): only that, never on the base branch. Left to the agent, 3.2k generated
+  // lines exceeded its own PR size and stayed untracked. The seal (--commit, ADR
+  // 0009) stays a human act over the supervisor alone.
+  if (!dryRun) {
+    out.contract = commitContract({ projectDir, before: dirtyBefore, baseBranch });
+    if (out.contract.committed) logger.info?.(`kj harden: contract committed by kj, ${out.contract.files.length} generated file(s)`);
+    else if (!out.contract.reason.startsWith("nothing")) logger.warn?.(`kj harden: the contract kj generated is NOT committed (${out.contract.reason})`);
+  }
 
   if (json) {
     logger.info?.(JSON.stringify(out));

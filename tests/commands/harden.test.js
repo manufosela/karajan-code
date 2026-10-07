@@ -39,6 +39,42 @@ describe("resolveCmds", () => {
 });
 
 describe("hardenCommand", () => {
+  // KJC-BUG-0289 (#1984): what kj harden generates, kj commits (KJC-BUG-0273's
+  // path), never what was dirty before and never on the base branch. Left to the
+  // agent, 3.2k generated lines exceeded its own PR size and stayed untracked.
+  const git = (...args) => execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  const withHistory = () => {
+    git("config", "user.email", "t@t");
+    git("config", "user.name", "T");
+    writeFileSync(join(repo, "README.md"), "hi\n");
+    git("add", "README.md");
+    git("commit", "-qm", "chore: first");
+  };
+
+  it("commits the contract it generated on a branch, leaving what was dirty before (KJC-BUG-0289)", async () => {
+    withHistory();
+    git("checkout", "-qb", "chore/kj");
+    writeFileSync(join(repo, "CLAUDE.md"), "# mine, edited before kj ran\n");
+    const res = await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
+    expect(res.ok).toBe(true);
+    expect(res.contract.committed).toBe(true);
+    expect(git("log", "-1", "--format=%s")).toMatch(/^chore\(kj\)/);
+    const files = git("show", "--name-only", "--format=", "HEAD").trim().split("\n");
+    expect(files).toContain(".karajan/hooks/pre-commit");
+    expect(files).toContain(".editorconfig");
+    expect(files).not.toContain("CLAUDE.md");
+    expect(git("status", "--porcelain", "--", "CLAUDE.md").trim()).toBe("?? CLAUDE.md");
+  });
+
+  it("on the base branch it commits nothing and says where the commit belongs", async () => {
+    withHistory();
+    const res = await hardenCommand({ projectDir: repo, profile: "minimal", logger });
+    expect(res.ok).toBe(true);
+    expect(res.contract.committed).toBe(false);
+    expect(res.contract.reason).toMatch(/base branch/);
+    expect(git("log", "-1", "--format=%s")).toBe("chore: first\n");
+  });
+
   it("installs hooks and reports ok", async () => {
     const res = await hardenCommand({ projectDir: repo, profile: "standard", logger });
     expect(res.ok).toBe(true);
