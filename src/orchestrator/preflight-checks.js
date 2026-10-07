@@ -409,8 +409,8 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
 /**
  * Run the doctor-style complementary checks and merge their outcomes into
  * the existing preflight result shape. Runs with yes:true (non-interactive)
- * and auto-remediation enabled. FAIL/TIMEOUT are appended to errors (blocking),
- * WARN are appended to warnings (non-blocking), FIXED status is recorded as a
+ * and auto-remediation enabled. FAIL is appended to errors (blocking), WARN and
+ * TIMEOUT to warnings (non-blocking: a timeout is "not checked"), FIXED status is recorded as a
  * remediation, and runtime overrides from auto-fixes are merged into
  * configOverrides.
  */
@@ -437,11 +437,12 @@ async function runExtendedPreflight({ config, result, emitter, eventBase, logger
 
   for (const c of report.checks) {
     result.checks.push({ name: c.name, ok: c.status === STATUS.OK || c.status === STATUS.FIXED || c.status === STATUS.SKIPPED, detail: c.detail });
-    const eventStatus = c.status === STATUS.FAIL || c.status === STATUS.TIMEOUT
-      ? "fail"
-      : c.status === STATUS.WARN
-        ? "warn"
-        : "ok";
+    // KJC-BUG-0287 (#1982): a timeout is "not checked", never "broken". GitHub
+    // unreachable for the SHA-pinned actions blocked a docs-only run that needed
+    // no network at all; the runner itself calls TIMEOUT warn-level.
+    let eventStatus = "ok";
+    if (c.status === STATUS.FAIL) eventStatus = "fail";
+    else if (c.status === STATUS.WARN || c.status === STATUS.TIMEOUT) eventStatus = "warn";
     emitProgress(emitter, makeEvent("preflight:check", { ...eventBase, stage: "preflight" }, {
       status: eventStatus,
       message: `${c.label}: ${c.detail}`,
@@ -449,9 +450,11 @@ async function runExtendedPreflight({ config, result, emitter, eventBase, logger
     }));
     if (c.status === STATUS.FIXED) {
       result.remediations.push(`${c.label}: ${c.detail}`);
-    } else if (c.status === STATUS.FAIL || c.status === STATUS.TIMEOUT) {
+    } else if (c.status === STATUS.FAIL) {
       result.ok = false;
       result.errors.push({ check: c.name, message: `${c.label}: ${c.detail}`, fix: c.fix });
+    } else if (c.status === STATUS.TIMEOUT) {
+      result.warnings.push(`${c.label}: not checked, it did not answer in time (${c.detail}); the run goes on`);
     } else if (c.status === STATUS.WARN) {
       result.warnings.push(`${c.label}: ${c.detail}`);
     }

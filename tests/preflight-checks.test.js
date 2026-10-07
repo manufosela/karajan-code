@@ -166,6 +166,27 @@ describe("preflight-checks", () => {
     };
   }
 
+  // KJC-BUG-0287 (#1982): a check that cannot answer in time (GitHub unreachable
+  // for the SHA-pinned actions) was a blocking error, and a docs-only run never
+  // started. A timeout is "not checked", said as a warning; the run goes on.
+  it("a check that times out is a warning, not a failed preflight", async () => {
+    const { getProjectChecks } = await import("../src/checks/project-checks.js");
+    getProjectChecks.mockReturnValueOnce([{
+      name: "slow-network-check", label: "actions fijadas por SHA", strategy: "manual",
+      describe: "never answers", detect: () => new Promise(() => {}),
+    }]);
+    const result = await runPreflightChecks({
+      config: makeConfig({ sonarqube: { enabled: false } }), logger, emitter, eventBase,
+      resolvedPolicies: { sonar: false },
+      securityEnabled: false,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings.some((w) => /actions fijadas por SHA/.test(w) && /not checked/.test(w))).toBe(true);
+    const event = emittedEvents.find((e) => e.type === "preflight:check" && e.detail?.name === "slow-network-check");
+    expect(event?.status).toBe("warn");
+  }, 10_000);
+
   it("runs only extended (doctor-style) checks when sonar and security are both disabled", async () => {
     const config = makeConfig({ sonarqube: { enabled: false } });
     const result = await runPreflightChecks({
