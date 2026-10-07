@@ -46,7 +46,7 @@ function buildCtx() {
   return {
     config: {
       projectDir: "/proj", max_iterations: 5, hu_max_iterations: 3,
-      development: { methodology: "tdd", require_test_changes: true },
+      development: { methodology: "tdd", require_test_changes: true, require_green_suite: false },
       sonarqube: { enabled: true }, policies: {}, git: { auto_commit: true }
     },
     pipelineFlags: { reviewerEnabled: true, testerEnabled: true },

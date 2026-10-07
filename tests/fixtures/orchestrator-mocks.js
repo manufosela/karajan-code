@@ -50,7 +50,9 @@ export function makeConfig(overrides = {}) {
     },
     coder_options: { auto_approve: true },
     reviewer_options: { retries: 0, fallback_reviewer: null },
-    development: { methodology: "tdd", require_test_changes: true },
+    // KJC-BUG-0298: the suite-green gate would run the REAL `npm test` of this
+    // repo inside a flow test; it has its own unit tests (suite-green-stage.test.js).
+    development: { methodology: "tdd", require_test_changes: true, require_green_suite: false },
     sonarqube: {
       enabled: true,
       host: "http://localhost:9000",

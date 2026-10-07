@@ -115,6 +115,9 @@ const DEFAULTS = {
     // tests actually fail without the implementation. Off by default to
     // preserve current iteration latency.
     require_red_then_green: false,
+    // KJC-BUG-0298: with TDD the project's test suite runs every iteration and a
+    // red suite goes back to the coder, never to the reviewer.
+    require_green_suite: true,
     test_file_patterns: ["/tests/", "/__tests__/", ".test.", ".spec."],
     source_file_extensions: [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".rb", ".php", ".cs"]
   },

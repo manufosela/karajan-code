@@ -74,7 +74,7 @@ describe("config quiet/verbose flags", () => {
     reviewer: "codex",
     review_mode: "standard",
     max_iterations: 5,
-    development: { methodology: "tdd", require_test_changes: true },
+    development: { methodology: "tdd", require_test_changes: true, require_green_suite: false },
     output: { report_dir: "./.reviews", log_level: "info", quiet: true },
     roles: {},
     pipeline: {},
