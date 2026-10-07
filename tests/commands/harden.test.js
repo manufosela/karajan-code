@@ -49,6 +49,7 @@ describe("hardenCommand", () => {
     writeFileSync(join(repo, "README.md"), "hi\n");
     git("add", "README.md");
     git("commit", "-qm", "chore: first");
+    git("branch", "-M", "main"); // CI's init.defaultBranch may differ; the base branch kj resolves is main
   };
 
   it("commits the contract it generated on a branch, leaving what was dirty before (KJC-BUG-0289)", async () => {
