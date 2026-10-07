@@ -62,14 +62,31 @@ describe("run-log", () => {
   });
 
   describe("parseRunStatus (via readRunLog)", () => {
-    it("detects running state from kj_run started", () => {
+    it("detects running state from kj_run started while the run's process holds the lock", () => {
+      const log = createRunLog(tmpDir);
+      log.logText('[kj_run] started — task="Fix bug"');
+
+      const result = readRunLog(tmpDir);
+      log.close();
+      expect(result.status.isRunning).toBe(true);
+      expect(result.status.currentStage).toBe("kj_run");
+    });
+
+    // KJC-BUG-0288 (#1982): a run that died with its host session never logs
+    // "finished"; the lock names its process, and a dead process is not a run.
+    it("a run whose process is gone is not running, and says so", () => {
       const log = createRunLog(tmpDir);
       log.logText('[kj_run] started — task="Fix bug"');
       log.close();
+      fs.writeFileSync(path.join(tmpDir, ".kj", "run.lock"), JSON.stringify({ pid: 2_147_483_000, startedAt: "x", token: "t" }));
 
       const result = readRunLog(tmpDir);
-      expect(result.status.isRunning).toBe(true);
-      expect(result.status.currentStage).toBe("kj_run");
+      expect(result.status.isRunning).toBe(false);
+      expect(result.status.died).toBe(true);
+      expect(result.status.note).toMatch(/process is gone/);
+      // No lock at all: nobody holds the run either.
+      fs.rmSync(path.join(tmpDir, ".kj", "run.lock"));
+      expect(readRunLog(tmpDir).status.isRunning).toBe(false);
     });
 
     it("detects finished state", () => {
@@ -136,9 +153,9 @@ describe("run-log", () => {
     it("detects kj_code started", () => {
       const log = createRunLog(tmpDir);
       log.logText("[kj_code] started — provider=claude");
-      log.close();
 
       const result = readRunLog(tmpDir);
+      log.close();
       expect(result.status.isRunning).toBe(true);
       expect(result.status.currentStage).toBe("kj_code");
     });
@@ -146,9 +163,9 @@ describe("run-log", () => {
     it("detects kj_plan started", () => {
       const log = createRunLog(tmpDir);
       log.logText("[kj_plan] started — provider=codex");
-      log.close();
 
       const result = readRunLog(tmpDir);
+      log.close();
       expect(result.status.isRunning).toBe(true);
       expect(result.status.currentStage).toBe("kj_plan");
     });
