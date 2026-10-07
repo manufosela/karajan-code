@@ -64,10 +64,14 @@ export const headIndex = (words, heads) => {
   return k < 0 ? words.length : i + k;
 };
 
+// KJC-BUG-0286: a $ expands only when something expandable follows it ($x, ${x},
+// $(cmd), $1, $@...). A lone "$ " in a grep pattern is a literal dollar sign.
+const LIVE_EXPANSION = /\$(?=[A-Za-z0-9_{(@*#?$!-])|`/;
+
 /**
  * KJC-BUG-0243: blank the quoted text that cannot run: single-quoted spans, and
- * double-quoted spans with no $ or backtick. What remains is what the shell can
- * still expand or execute, so operator and substitution checks read only that.
+ * double-quoted spans with no live $ or backtick. What remains is what the shell
+ * can still expand or execute, so operator and substitution checks read only that.
  * @param {string} cmd
  */
 export const stripInertQuotes = (cmd) => {
@@ -79,7 +83,7 @@ export const stripInertQuotes = (cmd) => {
     while (j < cmd.length && cmd[j] !== q) j += q === '"' && cmd[j] === "\\" ? 2 : 1;
     if (j >= cmd.length) return out + cmd.slice(i); // unclosed: left as is, for the caller to deny
     const body = cmd.slice(i + 1, j);
-    out += q === "'" || !/[$`]/.test(body) ? q + q : q + body + q;
+    out += q === "'" || !LIVE_EXPANSION.test(body) ? q + q : q + body + q;
     i = j;
   }
   return out;

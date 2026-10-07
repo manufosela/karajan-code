@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { shellSegments, headIndex, shortOpts, optionValues, withoutRedirections } from "../../src/harden/sentinel/sentinel-shell.mjs";
+import { shellSegments, headIndex, shortOpts, optionValues, stripInertQuotes, withoutRedirections } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks, canonicalHarnessBody, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
 
 describe("optionValues (KJC-BUG-0245)", () => {
@@ -16,6 +16,16 @@ describe("optionValues (KJC-BUG-0245)", () => {
     expect(optionValues("gh release create v1 --notes-file=/tmp/n.md|tail -1", names)).toEqual(["/tmp/n.md"]);
     expect(optionValues("gh pr create --body-file 'my dir/pr.md'", names)).toEqual(["my dir/pr.md"]);
     expect(optionValues("gh pr create --title x", names)).toEqual([]);
+  });
+});
+
+// KJC-BUG-0286 (#1982): a lone "$ " in a quoted grep pattern is a literal dollar.
+describe("stripInertQuotes", () => {
+  it("blanks a double-quoted span whose $ expands nothing, keeps one that does", () => {
+    expect(stripInertQuotes('grep -F "[coder] Bash $ git" log')).toBe('grep -F "" log');
+    expect(stripInertQuotes('echo "costs 5$" x')).toBe('echo "" x');
+    expect(stripInertQuotes('echo "$HOME" "${X}" "$(id)"')).toBe('echo "$HOME" "${X}" "$(id)"');
+    expect(stripInertQuotes("echo '$HOME'")).toBe("echo ''");
   });
 });
 

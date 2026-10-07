@@ -749,8 +749,15 @@ process.stdin.on("end", () => {
       // (find fuera: -delete/-exec mutan — reviewer catch; sus tokens de
       // carril los caza el escaner de abajo.)
       const READONLY = /^[ \\t]*(grep|rg|cat|head|tail|less|ls|wc|diff|stat|file|du|tree|git (log|show|diff|status|blame))\\b[^;|&<>$\`(){}\\n\\r]*$/;
+      // KJC-BUG-0286 (#1982): a command whose EVERY segment only reads mutates
+      // nothing, however it is chained (grep | grep, git show | grep, cd && git
+      // status). A cd with a literal target is one such segment: the paths after
+      // it need no verifying when nothing after it writes. One mutating segment
+      // and the whole command is judged below, as before.
+      const CD_LITERAL = /^[ \\t]*(cd|pushd)([ \\t]+[^ \\t;|&<>$\`(){}\\n\\r]*)?[ \\t]*$/;
+      const readsOnly = (s) => s.split(/&&|\\|\\||[;|]/).every((seg) => READONLY.test(seg) || CD_LITERAL.test(seg));
       // KJC-BUG-0243: operators inside inert quotes (grep -e "a|b") do not chain anything.
-      if (!READONLY.test(stripInertQuotes(cmd))) {
+      if (!readsOnly(stripInertQuotes(cmd))) {
         // cd/pushd invalida TODO razonamiento textual de rutas posteriores
         // (carrera de bypasses confirmada en review: destino bare, con $,
         // relativas post-cd...): en un comando NO-read-only, cambiar de
@@ -1037,7 +1044,10 @@ process.stdin.on("end", () => {
       // bandera no puede apagar el gate de commit, y mover core.hooksPath lo
       // apaga entero. El --no-verify que kj harden --commit usa por dentro no
       // pasa por aqui: no es una tool call. Escape humano, sellado como el resto.
-      const words = wordsOf(cmd);
+      // KJC-BUG-0286 (#1982): judged on the git commit SEGMENT alone, read by the
+      // shell reader: a "commit" inside a grep pattern piped after git show, or
+      // the -n of a grep in the same pipeline, is not a skipped hook.
+      const commitSegments = shellSegments(cmd).map((ws) => ws.map((w) => w.slice(w.lastIndexOf("/") + 1))).filter((ws) => inOrder(["git", "commit"], ws));
       // git acepta abreviaturas no ambiguas de las opciones largas, asi que
       // --no-ver salta el hook igual que --no-verify (catch de la review).
       const shortWithN = (w) => w.length > 1 && w[0] === "-" && w[1] !== "-" && w.includes("n");
@@ -1054,7 +1064,7 @@ process.stdin.on("end", () => {
       // --config-env=core.hooksPath=VAR) y una propiedad de seguridad no puede
       // depender de como parta las palabras el separador (catch de la review).
       const movesHooks = cmd.toLowerCase().includes("core.hookspath");
-      if ((inOrder(["git", "commit"], words) && words.some(skipsVerify)) || movesHooks) {
+      if (commitSegments.some((ws) => ws.some(skipsVerify)) || movesHooks) {
         // ADR 0015 (KJC-TSK-0926): no escape. A broken hook is fixed; skipping it,
         // if it ever must happen, is the user's act in their own terminal.
         console.error("karajan sentinel: el gate de commit no se apaga con una bandera — el review cruzado y la policy corren en el hook, y saltarselos deja el diff sin veredicto. Si el hook esta roto, arreglalo; si de verdad hace falta saltarlo, lo hace tu usuario en su terminal." + doc("escapes"));

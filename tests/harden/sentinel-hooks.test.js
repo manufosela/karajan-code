@@ -568,6 +568,29 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(own.status).toBe(0);
   });
 
+  // KJC-BUG-0286 (#1982): a command whose EVERY segment only reads mutates
+  // nothing, however it is chained; a literal $ in a quoted pattern, a
+  // "commit" inside a grep pattern or a cd before git status are not writes.
+  it("KJC-BUG-0286: pipelines of read-only commands pass, whatever their quoted patterns say", () => {
+    const bash = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });
+    for (const cmd of [
+      "grep -rn foo src | grep -i commit",
+      'grep -n -F "[coder] Bash $ git" .kj/run.log',
+      "git show --stat --format=%s HEAD | grep -nE \"x|commit|git\"",
+      "git log -n 3 --oneline | head -2",
+      "cd /tmp && git status",
+      `cat ${path.join(lane, "src", "x.js")} | wc -l`,
+    ]) {
+      const r = bash(cmd);
+      expect(r.status, cmd + "\n" + r.stderr).toBe(0);
+    }
+    // One mutating segment and the whole command is judged as before.
+    expect(bash(`grep foo src | tee ${path.join(lane, "src", "x.js")}`).status).toBe(2);
+    expect(bash("cd /tmp && git status && rm -rf x").status).toBe(2);
+    expect(bash("git show HEAD | grep $(rm -rf x)").status).toBe(2);
+    expect(bash("git commit -n -m x | cat").status).toBe(2);
+  });
+
   it("a write under a NOT-yet-existing lane subdir is denied — walks up to an existing ancestor (reviewer catch)", () => {
     const res = run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: path.join(lane, "newdir", "deep", "file.js") } });
     expect(res.status).toBe(2);
