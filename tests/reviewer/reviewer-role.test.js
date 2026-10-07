@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ReviewerRole } from "../../src/roles/reviewer-role.js";
 import { ROLE_EVENTS } from "../../src/roles/base-role.js";
 
@@ -76,19 +79,66 @@ describe("ReviewerRole", () => {
     expect(output.result.error).toContain("Agent crashed");
   });
 
-  it("returns ok=false when agent output is not valid JSON", async () => {
-    const fakeAgent = {
-      reviewTask: vi.fn().mockResolvedValue({ ok: true, output: "This is not JSON at all" })
-    };
-    const createAgent = vi.fn().mockReturnValue(fakeAgent);
+  // KJC-BUG-0284 (#1982): an answer the parser cannot read is an infrastructure
+  // failure (ok=false, so the retry and the fallback reviewer engage), never a
+  // rejection handed to the coder as a defect of its code.
+  it("returns ok=false when agent output is not valid JSON, and saves the raw answer", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "kj-reviewer-"));
+    try {
+      const fakeAgent = {
+        reviewTask: vi.fn().mockResolvedValue({ ok: true, output: "This is not JSON at all" })
+      };
+      const createAgent = vi.fn().mockReturnValue(fakeAgent);
 
-    const role = new ReviewerRole({ config: {}, logger, createAgentFn: createAgent });
+      const role = new ReviewerRole({ config: { projectDir }, logger, createAgentFn: createAgent });
+      await role.init({ task: "Task" });
+      const output = await role.run({ task: "Task", diff: "diff" });
+
+      expect(output.ok).toBe(false);
+      expect(output.result.error).toMatch(/no parseable verdict/);
+      expect(output.result.blocking_issues).toBeUndefined();
+      const saved = readdirSync(join(projectDir, ".karajan", "reviews"));
+      expect(saved).toHaveLength(1);
+      expect(readFileSync(join(projectDir, ".karajan", "reviews", saved[0]), "utf8")).toContain("This is not JSON at all");
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it("unwraps a verdict the reviewer wrapped in an {ok, result, summary} envelope inside a json fence", async () => {
+    const envelope = {
+      ok: true,
+      result: { approved: true, blocking_issues: [], non_blocking_suggestions: ["docs/cli.md:247 — tighten"], confidence: 0.95 },
+      summary: "Approved: docs-only change"
+    };
+    const fakeAgent = {
+      reviewTask: vi.fn().mockResolvedValue({ ok: true, output: "Here is my verdict:\n```json\n" + JSON.stringify(envelope, null, 2) + "\n```\n" })
+    };
+    const role = new ReviewerRole({ config: {}, logger, createAgentFn: vi.fn().mockReturnValue(fakeAgent) });
     await role.init({ task: "Task" });
     const output = await role.run({ task: "Task", diff: "diff" });
 
     expect(output.ok).toBe(true);
-    expect(output.result.approved).toBe(false);
-    expect(output.result.blocking_issues[0].id).toBe("PARSE_ERROR");
+    expect(output.result.approved).toBe(true);
+    expect(output.result.non_blocking_suggestions).toHaveLength(1);
+    expect(output.result.raw_summary).toBe("Approved: docs-only change");
+  });
+
+  it("a JSON object without a boolean approved is not a verdict", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "kj-reviewer-"));
+    try {
+      const fakeAgent = {
+        reviewTask: vi.fn().mockResolvedValue({ ok: true, output: JSON.stringify({ findings: [], summary: "looks fine" }) })
+      };
+      const role = new ReviewerRole({ config: { projectDir }, logger, createAgentFn: vi.fn().mockReturnValue(fakeAgent) });
+      await role.init({ task: "Task" });
+      const output = await role.run({ task: "Task", diff: "diff" });
+
+      expect(output.ok).toBe(false);
+      expect(output.result.error).toMatch(/approved/);
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
   });
 
   it("includes review rules and instructions in prompt", async () => {

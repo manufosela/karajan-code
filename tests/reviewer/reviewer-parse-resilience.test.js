@@ -208,7 +208,9 @@ describe("reviewer parse resilience", () => {
     expect(reviewerEndEvents.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("includes PARSE_ERROR blocking issue when reviewer output is garbage", async () => {
+  // KJC-BUG-0284 (#1982): garbage from the reviewer is retried, never handed to
+  // the coder as a PARSE_ERROR defect of its code (that sent one run in circles).
+  it("retries the reviewer on garbage output and never sends PARSE_ERROR to the coder", async () => {
     const { createAgent } = await import("../../src/agents/index.js");
     let reviewerCallCount = 0;
     createAgent.mockReturnValue({
@@ -236,11 +238,12 @@ describe("reviewer parse resilience", () => {
     const config = makeConfig({ max_iterations: 3 });
     await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
 
-    // The first reviewer:end should contain the parse error info
-    const firstReviewerEnd = events.find(
+    expect(reviewerCallCount).toBeGreaterThanOrEqual(2);
+    const parseErrorToCoder = events.find(
       (e) => e.type === "reviewer:end" && e.detail?.issues?.some((i) => i.includes("PARSE_ERROR"))
     );
-    expect(firstReviewerEnd).toBeTruthy();
+    expect(parseErrorToCoder).toBeUndefined();
+    expect(events.some((e) => e.type === "reviewer:end" && e.status === "ok")).toBe(true);
   });
 
   it("does not crash when validateReviewResult throws", async () => {
