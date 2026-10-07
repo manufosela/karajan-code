@@ -38,6 +38,38 @@ describe("rag ledger (PostToolUse)", () => {
     expect(s.rag_hits).toEqual(["src/paths.js", "scripts/postinstall.js"]);
   });
 
+  // KJC-BUG-0293 (#1996, #1995): the index names its sources through whatever
+  // spelling of the project directory indexed them (a symlinked workspace, an
+  // alias); compared as text against the harness root, every hit fell outside
+  // the tree and was dropped in silence, so nothing ever satisfied rag-first.
+  it("records hits named through another spelling of the same directory (symlink), by real path", () => {
+    const alias = path.join(path.dirname(dir), `${path.basename(dir)}-alias`);
+    fs.symlinkSync(dir, alias);
+    try {
+      expect(mcpQuery("q", [`${alias}/src/paths.js`]).status).toBe(0);
+      expect(session().rag_hits).toEqual(["src/paths.js"]);
+    } finally {
+      fs.unlinkSync(alias);
+    }
+  });
+
+  it("reads the MCP answer whether the host hands the parts in {content}, as a bare array or as a string", () => {
+    const body = JSON.stringify({ hits: [{ source: `${dir}/src/a.js`, kind: "code" }], empty: false });
+    expect(run({ tool_name: "mcp__karajan-mcp__kj_rag_query", tool_input: { text: "q" }, tool_response: [{ type: "text", text: body }] }).status).toBe(0);
+    expect(run({ tool_name: "mcp__karajan-mcp__kj_rag_query", tool_input: { text: "q" }, tool_response: body }).status).toBe(0);
+    expect(session().rag_queries.map((q) => q.hits)).toEqual([["src/a.js"], ["src/a.js"]]);
+  });
+
+  it("when every hit falls outside the tree, the ledger says so instead of recording nothing", () => {
+    expect(mcpQuery("q", ["/elsewhere/other/src/x.js", "/elsewhere/other/src/y.js"]).status).toBe(0);
+    const s = session();
+    expect(s.rag_hits).toEqual([]);
+    expect(s.rag_dropped).toMatchObject({ count: 2, sample: ["/elsewhere/other/src/x.js", "/elsewhere/other/src/y.js"] });
+    // An answer inside the tree ends the diagnosis.
+    expect(mcpQuery("q", [`${dir}/src/a.js`]).status).toBe(0);
+    expect(session().rag_dropped).toBeUndefined();
+  });
+
   it("records a CLI kj rag query from its human output and its --json output, without duplicates", () => {
     const human = `[code · resolveHome · score=0.1234] ${dir}/src/paths.js\nexport function resolveHome…\n\n[code · main · score=0.2] /elsewhere/x.js\n[code · x · score=0.3] ${dir}/src/my file.js\n`;
     expect(cliQuery("kj rag query --scope code 'karajan home'", human).status).toBe(0);
