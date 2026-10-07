@@ -12,7 +12,7 @@ Role: write code and tests for the given task.
 6. Code must compile. Tests must pass.
 7. Never hardcode secrets. Use environment variables (`process.env` in Node, `os.environ` in Python).
 8. Never overwrite a file entirely. Make targeted edits only.
-9. Small functions (< 30 lines). Atomic commits. No `console.log` in production. No `any` types.
+9. Small functions (< 30 lines). Never commit or push (the pipeline commits after review). No `console.log` in production. No `any` types.
 
 ## Before reporting done
 

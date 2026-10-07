@@ -92,6 +92,12 @@ vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
   invokeSolomon: vi.fn(async () => ({ action: "continue" }))
 }));
 
+// KJC-BUG-0285: the stage reads HEAD before the coder and undoes its own commits.
+vi.mock("../src/git/coder-commit-guard.js", () => ({
+  headSha: vi.fn(() => "aaa"),
+  undoCommitsSince: vi.fn(() => ({ undone: 0 })),
+}));
+
 vi.mock("../src/utils/rate-limit-detector.js", () => ({
   detectRateLimit: vi.fn(() => ({ isRateLimit: false }))
 }));
@@ -193,6 +199,24 @@ describe("iteration-stages: runCoderStage", () => {
     expect(executeMock).toHaveBeenCalled();
     expect(result).toBeUndefined(); // success returns void
     expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({ role: "coder" }));
+  });
+
+  // KJC-BUG-0285 (#1982): a commit the coder made on its own is undone softly and said.
+  it("undoes the commits the coder made on its own and says so", async () => {
+    const { headSha, undoCommitsSince } = await import("../src/git/coder-commit-guard.js");
+    undoCommitsSince.mockReturnValueOnce({ undone: 1 });
+    const coderRoleInstance = { execute: vi.fn(async () => ({ ok: true, result: { output: "done" }, summary: "ok" })) };
+    const { emitProgress } = await import("../src/utils/events.js");
+
+    await runCoderStage({
+      coderRoleInstance, coderRole, config: makeConfig(), logger, emitter, eventBase,
+      session: makeSession(), plannedTask: "do X", trackBudget, iteration: 1
+    });
+
+    expect(headSha).toHaveBeenCalledWith(expect.any(String));
+    expect(undoCommitsSince).toHaveBeenCalledWith("aaa", expect.any(String));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/committed on its own/));
+    expect(emitProgress.mock.calls.some((c) => c[1]?.type === "coder:commit-undone")).toBe(true);
   });
 
   it("throws when coder fails (non-rate-limit)", async () => {

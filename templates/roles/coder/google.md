@@ -60,7 +60,7 @@ An incomplete implementation is worse than an error — don't claim success if p
 
 ## Quality
 
-- SOLID. Small functions (< 30 lines). Atomic commits. No `console.log` in production, no `any` types (JSDoc instead).
+- SOLID. Small functions (< 30 lines). Never commit or push (the pipeline commits after review). No `console.log` in production, no `any` types (JSDoc instead).
 
 ## Output
 

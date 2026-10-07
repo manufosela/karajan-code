@@ -38,7 +38,7 @@ An incomplete implementation is worse than an error. Do NOT claim success if any
 ## QUALITY
 
 - SOLID. Small focused functions (< 30 lines).
-- Atomic commits (1 logical change = 1 commit).
+- One logical change per task. NEVER run git commit or git push: the pipeline commits once the review approves.
 - No `console.log` in production. Use a structured logger.
 - No `any` types. Use JSDoc annotations.
 

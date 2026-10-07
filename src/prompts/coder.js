@@ -251,7 +251,9 @@ export async function buildCoderPromptLayout({ task, reviewerFeedback = null, so
     // .gitignore, a rogue verify worktree). Anchor the scope hard.
     section("SCOPE: this is an EXISTING project. Implement ONLY the current HU against the code already here. NEVER scaffold, bootstrap or initialize project structure, never add a generic multi-stack .gitignore, and never create git worktrees (`git worktree add`) — your workspace is already prepared. If a step ever reads like 'set up the project', treat it as a misread of an existing repo: re-read the HU and make the real change.", STABLE),
     section("Follow SOLID principles. Write small, focused functions (< 30 lines).", STABLE),
-    section("Make atomic commits: 1 logical change = 1 commit. Keep PRs small and reviewable.", STABLE),
+    // KJC-BUG-0285 (#1982): "atomic commits" read as "commit": the coder committed
+    // before the review and the rejected commit stayed on the branch.
+    section("One logical change per task; keep it small and reviewable. NEVER run git commit, git push or open a PR: the pipeline commits once the cross-AI review approves.", STABLE),
     section("Security: validate all input, parameterize queries, never expose secrets. Use the auth pattern that matches the stack (e.g. httpOnly cookies for web sessions).", STABLE),
     section("Use the project's standard logger and type system (no console.log when a structured logger exists; use the project's type idiom — TS types, JSDoc, Python type hints, Go interfaces…).", STABLE),
     section(SUBPROCESS_CONSTRAINTS, STABLE),
