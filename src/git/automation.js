@@ -253,8 +253,16 @@ export async function incrementalPush({ gitCtx, task, logger, session }) {
   return { commits };
 }
 
-export async function finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults = null }) {
+export async function finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults = null, review = null }) {
   if (!gitCtx?.enabled) return { git: "disabled", commits: [] };
+  // KJC-BUG-0297 (#1993): the pipeline commits only what a reviewer approved. An
+  // approval that reviewed nothing (reviewer disabled) stamps no verdict and
+  // commits nothing: the changes stay in the tree, and the log says why.
+  if (review && review.reviewed === false) {
+    logger.warn("No review, no commit: the reviewer was disabled, so the pipeline commits nothing; the changes stay in the tree for a review (kj review --staged)");
+    await addCheckpoint(session, { stage: "git-commit", committed: false, skipped: "unreviewed" });
+    return { committed: false, branch: gitCtx.branch, prUrl: null, pr: null, commits: [], unreviewed: true };
+  }
 
   // Take a snapshot of pending paths BEFORE staging so we can decide
   // whether what's about to be committed is just Karajan scaffolding

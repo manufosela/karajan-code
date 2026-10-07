@@ -107,7 +107,7 @@ export async function handlePostLoopStages({ config, session, emitter, eventBase
 }
 
 export async function finalizeApprovedSession({ config, gitCtx, task, logger, session, stageResults, emitter, eventBase, budgetSummary, pgCard, pgProject, review, i, rtkTracker }) {
-  const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults });
+  const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults, review });
 
   // Accumulate final commits for PG card lifecycle tracking
   if (gitResult?.commits?.length) {
