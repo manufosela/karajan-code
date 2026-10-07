@@ -40,7 +40,7 @@ After writing code, verify ALL of these before reporting done:
 
 - NEVER overwrite existing files entirely — make targeted edits
 - After each edit, verify with `git diff` that ONLY intended lines changed
-- If unintended changes detected, revert immediately with `git checkout -- <file>`
+- If unintended changes are detected, undo ONLY those hunks with a targeted edit. Never revert the whole file: it may hold edits you did not make, and an agent never discards changes that are not its own
 
 ## Completeness check
 

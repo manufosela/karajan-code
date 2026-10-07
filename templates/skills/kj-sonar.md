@@ -13,14 +13,15 @@ $ARGUMENTS
    ```bash
    npx @sonar/scan -Dsonar.host.url=http://localhost:9000 -Dsonar.projectKey=<project-key>
    ```
-3. Check quality gate status:
+3. Check quality gate status (the token comes from `KJ_SONAR_TOKEN`, set by `kj init`; a token authenticates as `token:` with an empty password):
    ```bash
-   curl -s -u admin:admin "http://localhost:9000/api/qualitygates/project_status?projectKey=<project-key>"
+   curl -s -u "$KJ_SONAR_TOKEN:" "http://localhost:9000/api/qualitygates/project_status?projectKey=<project-key>"
    ```
 4. List issues:
    ```bash
-   curl -s -u admin:admin "http://localhost:9000/api/issues/search?projectKeys=<project-key>&statuses=OPEN&ps=50"
+   curl -s -u "$KJ_SONAR_TOKEN:" "http://localhost:9000/api/issues/search?projectKeys=<project-key>&statuses=OPEN&ps=50"
    ```
+   Never authenticate with the default `admin` account: if the server still accepts its default password, tell the user to change it.
 
 ## If SonarQube is not available
 

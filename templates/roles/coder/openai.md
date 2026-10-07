@@ -32,7 +32,7 @@ An incomplete implementation is worse than an error. Do NOT claim success if any
 
 - NEVER overwrite a file wholesale. Make targeted edits.
 - Verify after each edit with `git diff` that ONLY intended lines changed.
-- If unintended changes appear, revert with `git checkout -- <file>`.
+- If unintended changes appear, undo ONLY those hunks with a targeted edit. Never revert the whole file: it may hold edits that are not yours.
 - CSS/HTML/config files are high-risk for destructive rewrites.
 
 ## QUALITY

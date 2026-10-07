@@ -8,7 +8,7 @@ Review the changes in the current branch: $ARGUMENTS
 
 ## Steps
 
-1. Run `git diff main...HEAD` (or appropriate base branch) to see all changes
+1. See ALL the work: `git diff --cached` (staged), `git diff` (unstaged) and `git diff main...HEAD` (or the appropriate base branch) for what is already committed
 2. Review each changed file against the priorities below
 3. Report findings clearly
 

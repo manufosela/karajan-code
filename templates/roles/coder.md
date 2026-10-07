@@ -119,7 +119,7 @@ When modifying an existing project:
 - NEVER overwrite existing files entirely. Always make targeted, minimal edits.
 - When adding new code to an existing file, insert only the new lines at the correct location.
 - After each edit, verify with `git diff` that ONLY the intended lines changed.
-- If unintended changes are detected, revert immediately with `git checkout -- <file>`.
+- If unintended changes are detected, undo ONLY those hunks with a targeted edit. Never revert the whole file: it may hold edits that are not yours.
 - Pay special attention to CSS, HTML, and config files where full rewrites destroy prior work.
 
 ## Code Quality Rules
