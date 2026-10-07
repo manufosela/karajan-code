@@ -75,6 +75,20 @@ describe("stop script (turn cannot end red)", () => {
     expect(run(stopScript, { session_id: "s1" }).status).toBe(0);
   });
 
+  // KJC-BUG-0279 (#1981): the method governs the repo. A script the agent writes
+  // in its scratch directory, outside the root, is not one of the project's sources.
+  it("a file written outside the repository is not a source: not recorded, not judged", () => {
+    const outside = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "kj-scratch-")), "probe.mjs");
+    expect(run(postScript, editTool(outside)).status).toBe(0);
+    run(postScript, editTool(path.join(dir, "..generated.js"))); // two leading dots are a name, not a climb
+    expect(state().sessions.s1.edited_sources).toEqual(["..generated.js"]);
+    fs.writeFileSync(statePath, JSON.stringify({ sessions: { s1: { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0, rag_index_empty: true } } }));
+    execSync("git checkout -q main", { cwd: dir });
+    const gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
+    expect(run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: outside, content: "export const x = 1;\n" } }).status).toBe(0);
+    expect(run(stopScript, { session_id: "s1" }).status).toBe(0);
+  });
+
   it("blocks on the base branch and on a branch without a card ref, with remediation in the message", () => {
     execSync("git checkout -q main", { cwd: dir });
     run(postScript, editTool(path.join(dir, "src", "a.js")));
