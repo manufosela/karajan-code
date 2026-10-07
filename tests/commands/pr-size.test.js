@@ -36,6 +36,15 @@ describe("branchSize", () => {
     expect(s).toMatchObject({ added: 17, testAdded: 4, exempt: 0 });
   });
 
+  // KJC-BUG-0299: what will not be part of the pipeline's commit is not the branch's size.
+  it("excluded paths, tracked or untracked, do not count", async () => {
+    writeFileSync(join(dir, "a.js"), lines(8)); // +3, pending before the run
+    writeFileSync(join(dir, "CLAUDE.md"), lines(30)); // untracked before the run (AI-rule file: counts)
+    writeFileSync(join(dir, "b.js"), lines(10)); // the run's own
+    const s = await branchSize({ projectDir: dir, base: "main", exclude: ["a.js", "CLAUDE.md"] });
+    expect(s).toMatchObject({ added: 10 });
+  });
+
   it("an empty new file adds no lines, as git counts it", async () => {
     writeFileSync(join(dir, "empty.js"), "");
     expect((await branchSize({ projectDir: dir, base: "main" })).added).toBe(0);

@@ -5,6 +5,7 @@
 
 import { addCheckpoint } from "../session/store.js";
 import { pipelineSonarBlock, stampStagedVerdict } from "../review/verdict-store.js";
+import { branchSize } from "../commands/pr-size.js";
 import {
   ensureGitRepo,
   currentBranch,
@@ -253,7 +254,9 @@ export async function incrementalPush({ gitCtx, task, logger, session }) {
   return { commits };
 }
 
-export async function finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults = null, review = null }) {
+const DEFAULT_PR_SIZE_LIMIT = 200;
+
+export async function finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults = null, review = null, measureSize = branchSize }) {
   if (!gitCtx?.enabled) return { git: "disabled", commits: [] };
   // KJC-BUG-0297 (#1993): the pipeline commits only what a reviewer approved. An
   // approval that reviewed nothing (reviewer disabled) stamps no verdict and
@@ -283,7 +286,23 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
 
   let committed = false;
   const commits = [];
+  // KJC-BUG-0299 (#1993): the PR budget is applied BEFORE the commit, with the
+  // CI gate's own count (kj pr-size), over what this commit will contain. A
+  // step planned at 150 lines once committed 960. Where the branch cannot be
+  // measured (a fresh repo with no base yet) kj says so and goes on.
   if (config.git.auto_commit) {
+    const limit = Number(config.git.pr_size_limit) > 0 ? Number(config.git.pr_size_limit) : DEFAULT_PR_SIZE_LIMIT;
+    let size = null;
+    try {
+      size = await measureSize({ projectDir: config.projectDir || process.cwd(), base: gitCtx.baseBranch, exclude: gitCtx.preexisting || [] });
+    } catch (err) {
+      logger.warn(`pr-size: the branch could not be measured (${err.message}); the budget is not checked for this commit`);
+    }
+    if (size && size.added > limit) {
+      logger.warn(`pr-size: ${size.added} line(s) added against ${gitCtx.baseBranch}, over the budget of ${limit}: nothing committed. Split the step (several commits, several HUs); the changes stay in the tree`);
+      await addCheckpoint(session, { stage: "git-commit", committed: false, skipped: "over-budget", added: size.added, limit });
+      return { committed: false, branch: gitCtx.branch, prUrl: null, pr: null, commits: [], overBudget: { added: size.added, limit } };
+    }
     // ENV-F1: this path only runs after the pipeline's reviewer approved,
     // so stamp that verdict for the staged diff — the v4 pre-commit gate
     // (when the repo opted in) accepts the pipeline's own commit.

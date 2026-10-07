@@ -200,7 +200,8 @@ const DEFAULTS = {
     }
   },
   ci: { enabled: false, review_event: "kj-review", comment_event: "kj-comment", comment_prefix: true },
-  git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
+  // KJC-BUG-0299: pr_size_limit = lines added (CI budget count) over which the pipeline commits nothing.
+  git: { pr_size_limit: 200, auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info", quiet: true },
   budget: {
     warn_threshold_pct: 80,
