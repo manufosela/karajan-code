@@ -267,6 +267,14 @@ export function readRunLog(projectDir, maxLines = 50) {
     const total = lines.length;
     const shown = lines.slice(-maxLines);
     const status = parseRunStatus(lines);
+    // KJC-BUG-0288 (#1982): a run that died with its host session never logs
+    // "finished", so the log said "running" forever. The lock names the run's
+    // process (KJC-BUG-0250): no live holder, no run.
+    if (status.isRunning && !isPidAlive(readLock(path.join(resolveLogDir(projectDir), LOCK_FILENAME))?.pid)) {
+      status.isRunning = false;
+      status.died = true;
+      status.note = "the run's process is gone (it died with its host session, or was killed): kj resume continues it";
+    }
     const MAX_LINE_CHARS = 2000;
     const truncated = shown.map(l => l.length > MAX_LINE_CHARS ? l.slice(0, MAX_LINE_CHARS) + "… [truncated]" : l);
     return {

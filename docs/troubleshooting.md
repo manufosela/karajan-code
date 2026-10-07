@@ -284,6 +284,14 @@ ps aux | grep "karajan-code/src/mcp/server.js" | grep -v grep
 kill <pid1> <pid2> ...
 ```
 
+### `kj_run` (or another kj tool) is not available in the host
+
+**Symptom**: the server lists `kj_run`, but the host says the tool does not exist, or only a few `kj_*` tools show up.
+
+**Cause**: hosts that defer MCP tools (Claude Code 2.x does) load a tool's schema on demand. The tool exists; it has not been loaded into the conversation yet.
+
+**Fix**: ask the host to load it before calling it. In Claude Code: `ToolSearch` with `select:mcp__karajan-mcp__kj_run`. The CLI (`kj run`) is always an alternative.
+
 ### MCP server not responding
 
 **Cause**: The server crashed or the stdio pipe is broken.
