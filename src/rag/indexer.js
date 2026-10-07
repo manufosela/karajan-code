@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { execa } from "execa";
 
 import { chunkMarkdown, chunkPlan, chunkSource } from "./chunker.js";
-import { insertChunk, deleteChunksBySource, findChunkByHash } from "./vec-store.js";
+import { insertChunk, deleteChunksBySource, findChunkByHash, getEmbeddingsByIds } from "./vec-store.js";
 import { detectAdaptersForProject, getAllCodeExtensions } from "../lang/registry.js";
 import { indexableReason, listProjectFiles } from "./indexable.js";
 
@@ -71,15 +71,17 @@ export async function indexFile(path, { db, embedder, logger = console, project 
   let skipped = 0;
   for (const ch of chunks) {
     // KJC-TSK-0484 — Skip re-embedding identical bodies for the same project.
-    // The chunks row is still rewritten under the new source so deletions of
-    // an alias don't orphan a row whose owner was the dedup target.
+    // KJC-BUG-0281 (#1980): the row is STILL written under the new source, with
+    // the stored vector: a file whose every chunk duplicates another (CLAUDE.md
+    // next to the AGENTS.md kj harden writes) was left with no rows at all, and
+    // the coverage check reported it missing after every reindex.
     const contentHash = createHash("sha256").update(ch.text).digest("hex");
     try {
       const dup = findChunkByHash(db, contentHash, project);
-      if (dup) { skipped += 1; continue; }
-      const embedding = await embedder.embed(ch.text);
+      const stored = dup ? getEmbeddingsByIds(db, [dup.id]).get(Number(dup.id)) : null;
+      const embedding = stored ?? await embedder.embed(ch.text);
       insertChunk(db, { source: path, kind: ch.metadata.kind || kind, text: ch.text, metadata: ch.metadata, embedding, project, contentHash });
-      indexed += 1;
+      if (stored) skipped += 1; else indexed += 1;
     } catch (err) {
       failed += 1;
       logger.warn?.(`[rag-indexer] embed failed for ${path} (${chunkLabel(ch)}): ${err.message}`);

@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { openVecStore, findChunkByHash, insertChunk } from "../../src/rag/vec-store.js";
+import { openVecStore, findChunkByHash, getEmbeddingsByIds, insertChunk } from "../../src/rag/vec-store.js";
 import { indexFile } from "../../src/rag/indexer.js";
 
 function makeEmbedder() {
@@ -59,6 +59,25 @@ describe("rag/indexer — content-hash dedup (KJC-TSK-0484)", () => {
     expect(r2.skipped).toBe(r1.indexed);
     expect(r2.indexed).toBe(0);
     expect(counter.calls).toBe(callsAfter1);
+  });
+
+  // KJC-BUG-0281 (#1980): a dedup'd chunk still belongs to its new source. A
+  // CLAUDE.md identical to the AGENTS.md kj harden writes ended with ZERO rows,
+  // so the coverage check reported it missing after every reindex, forever.
+  it("writes the rows of a fully duplicated file under its own source, reusing the stored embedding", async () => {
+    const { embedder } = makeEmbedder();
+    const a = join(tmp, "AGENTS.md");
+    const b = join(tmp, "CLAUDE.md");
+    const body = "# Karajan method\n\nYou are the orchestrator; Karajan governs.\n";
+    writeFileSync(a, body);
+    writeFileSync(b, body);
+    const r1 = await indexFile(a, { db, embedder, project: "proj1" });
+    await indexFile(b, { db, embedder, project: "proj1" });
+    const bySource = (s) => db.prepare("SELECT id FROM chunks WHERE source = ? AND project_slug = 'proj1'").all(s);
+    expect(bySource(b)).toHaveLength(r1.indexed);
+    const [idA] = bySource(a).map((r) => r.id), [idB] = bySource(b).map((r) => r.id);
+    const vectors = getEmbeddingsByIds(db, [idA, idB]);
+    expect(Array.from(vectors.get(idB))).toEqual(Array.from(vectors.get(idA)));
   });
 
   it("does NOT dedup across different projects (isolation wins)", async () => {
