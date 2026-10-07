@@ -1,0 +1,133 @@
+version: 1
+rules:
+  - id: R-f270ab6f8b
+    source: CLAUDE.md
+    text: If a task clearly needs >150 LOC, partition it upfront (multiple PRs, multiple HUs, multiple commits). Don't ship a single 500-LOC PR — the gate rejects it, the work gets redone, tokens burn twice.
+    kind: judgment
+    when: &ref_0
+      tool: Bash
+    reason: 'depende de lo que pasó antes de la llamada o del estado del repo, que una condición no ve: lo imponen los hooks de git y la CI'
+  - id: R-06ecf6cdfb
+    source: CLAUDE.md
+    text: 'Interactive wizards: The coder runs without stdin. Tasks requiring pnpm create astro, npm init, etc. must use --yes/--no-input flags or report that they cannot complete.'
+    kind: judgment
+    when:
+      tool: Bash
+    reason: 'qué asistente es interactivo y qué flag lo silencia depende de cada paquete, no de la línea de comando: el --yes de npx no calla al create-* que lanza'
+  - id: R-33cd0d5a33
+    kind: judgment
+    when:
+      tool:
+        - Edit
+        - Write
+    source: CLAUDE.md
+    text: 'The project RAG answers before you assume: kj rag query — never guess what the codebase does. In MCP hosts the same index is the native kj_rag_query tool: reach for it before grepping by hand.'
+  - id: R-acaedb5bb0
+    source: CLAUDE.md
+    text: 'Tests prove behavior: the failing test exists first (TDD), and the suite is never left red. Green is not proof: with method_gates.mutation declared, run kj mutate --since <base> after green and BEFORE the review — a surviving mutant is a weak assert; kill it first.'
+    kind: judgment
+    when: *ref_0
+    reason: 'depende de lo que pasó antes de la llamada o del estado del repo, que una condición no ve: lo imponen los hooks de git y la CI'
+  - id: R-2b59ea59f8
+    source: CLAUDE.md
+    text: 'Every diff is reviewed by a DIFFERENT AI before it is committed (kj review --staged): verdicts bind to the exact diff — change the code and it must be reviewed again. Disagree with a rejection? kj solomon.'
+    kind: judgment
+    when: *ref_0
+    reason: 'depende de lo que pasó antes de la llamada o del estado del repo, que una condición no ve: lo imponen los hooks de git y la CI'
+  - id: R-ad957b435f
+    kind: judgment
+    when:
+      tool: Bash
+    source: CLAUDE.md
+    text: 'Security findings are never overridable — not even by arbitration. You absorb the security role: kj brief security states what must be true. Task touches auth, user input, secrets, network or deps? Run kj audit --security (zero tokens) and remediate BEFORE the review.'
+  - id: R-3f9b4ba300
+    kind: judgment
+    when:
+      tool: Bash
+    source: CLAUDE.md
+    text: 'A design decision the card''s AC don''t cover belongs to the USER: record it as a proposed ADR (kj adr add) and ask — never bury it in a PR bullet. An oversized-diff warning is not an opinion either: partition, or get an explicit OK.'
+  - id: R-2583211f73
+    kind: judgment
+    when:
+      tool: mcp__planning-game*__update_card
+    source: CLAUDE.md
+    text: A non-trivial plan names at least two approaches — one as if the codebase didn't exist — and says why the winner won. Following the legacy line is a choice, never a default.
+  - id: R-c3cd43155e
+    source: CLAUDE.md
+    text: 'Branch first: never commit on the base branch — every change reaches it through an atomic PR (~150 net lines, Conventional Commits). More than one task, or the base tree must stay untouched? kj worktree start <slug> (one lane per task; kj worktree done <slug> after merge). Never CLAIM isolation without proof: in a lane, git rev-parse --git-dir differs from --git-common-dir.'
+    kind: judgment
+    when: *ref_0
+    reason: 'depende de lo que pasó antes de la llamada o del estado del repo, que una condición no ve: lo imponen los hooks de git y la CI'
+  - id: R-855f097e19
+    source: CLAUDE.md
+    text: Hit a kj bug or friction? Diagnose it and file it upstream with kj report-issue (sanitized; ask your user before --publish). kj announces a newer version? Tell your user what it brings and ask — never run kj update on your own.
+    kind: judgment
+    when:
+      tool: Bash
+    reason: la regla prohíbe hacerlo por cuenta propia, y si el usuario lo pidió no está en los argumentos de la llamada
+  - id: R-501de9df44
+    reason: 'un mensaje pasado con -F o con --body-file está en un fichero que la condición no puede leer: esa parte la vigilan el hook commit-msg y la CI'
+    kind: deterministic
+    when:
+      tool: Bash
+      all:
+        - arg: command
+          matches: (^|&&|\|\||;|\||\()\s*((sudo|command|time|env|nohup|exec)\s+|[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*(git\s+(-[cC]\s+\S+\s+|--[\w-]+(=\S+)?\s+)*commit\b|gh\s+(-{1,2}[\w-]+(=\S+|\s+[^-\s]\S*)?\s+)*pr\s+(create|edit)\b)(?:(?!\s(&&|\|\||;)\s)[\s\S])*([Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]|\b[Gg]enerated\s+([Ww]ith|[Bb]y)\s+\[?(Claude|ChatGPT|GPT|OpenAI|Anthropic|(GitHub\s+)?Copilot|Codex|Gemini|Cursor|an?\s+(AI|LLM|assistant|model|agent)\b|AI\b|LLM\b))
+    message: 'Los commits y las PRs no llevan atribución a IA: quita Co-Authored-By y el generated by.'
+    examples:
+      deny:
+        - tool: Bash
+          input:
+            command: 'git commit -m ''fix: x'' -m ''Co-Authored-By: Some AI <ai@example.com>'''
+        - tool: Bash
+          input:
+            command: gh pr create --title x --body 'Generated with an assistant'
+      allow:
+        - tool: Bash
+          input:
+            command: git -c user.name=dev commit -F msg
+        - tool: Bash
+          input:
+            command: gh pr create --title x --body-file pr.md
+    source: CLAUDE.md
+    text: Never attribute commits or PRs to AI (no Co-Authored-By, no "generated by").
+  - id: R-6065f9fad1
+    source: CLAUDE.md
+    text: Test-first. Run the tests after each meaningful change. Never skip tests.
+    kind: judgment
+    when: *ref_0
+    reason: 'depende de lo que pasó antes de la llamada o del estado del repo, que una condición no ve: lo imponen los hooks de git y la CI'
+  - id: R-208825b183
+    kind: judgment
+    when:
+      tool: Bash
+    source: CLAUDE.md
+    text: Never commit secrets, keys or tokens. Parameterized queries; sanitize output against injection.
+  - id: R-963c097258
+    source: CLAUDE.md
+    text: Edit existing files in place; never overwrite a whole file to make a small change.
+    kind: judgment
+    when:
+      tool: Write
+    reason: que el fichero ya exista no está en los argumentos de la llamada
+  - id: R-c73ee958e8
+    source: CLAUDE.md
+    text: 'ES2025 target: never var, document.write, alert/confirm/prompt, escape/unescape, substr. Prefer modern APIs (structuredClone, Object.groupBy, Array.at/findLast/toSorted, optional chaining, ??).'
+    kind: judgment
+    when: &ref_1
+      tool:
+        - Edit
+        - Write
+    reason: 'las palabras prohibidas también son texto corriente, nombres de método o comentarios, y una condición denegaría ediciones honestas: lo vigila ESLint'
+  - id: R-059b4ba0fb
+    source: CLAUDE.md
+    text: ES modules (import/export), never require in new code. Avoid any in TypeScript.
+    kind: judgment
+    when: *ref_1
+    reason: 'las palabras prohibidas también son texto corriente, nombres de método o comentarios, y una condición denegaría ediciones honestas: lo vigila ESLint'
+  - id: R-d7ee67f716
+    source: AGENTS.md
+    text: If a task clearly needs >150 LOC, partition it upfront (multiple PRs, multiple HUs, multiple commits). Don't ship a single 500-LOC PR — the gate rejects it, work gets redone, tokens burn twice.
+    kind: judgment
+    when: *ref_0
+    reason: 'depende de lo que pasó antes de la llamada o del estado del repo, que una condición no ve: lo imponen los hooks de git y la CI'
