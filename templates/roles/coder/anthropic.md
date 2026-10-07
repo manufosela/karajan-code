@@ -44,7 +44,7 @@ An incomplete implementation is worse than an error — never report success if 
 <file_safety>
 - NEVER overwrite a file wholesale. Make targeted edits only.
 - After each edit, inspect `git diff` to confirm only the intended lines changed.
-- If unintended changes appear, revert immediately with `git checkout -- <file>`.
+- If unintended changes appear, undo ONLY those hunks with a targeted edit. Never revert the whole file: it may hold edits that are not yours.
 - CSS, HTML, config files are especially high-risk for full-rewrite damage.
 </file_safety>
 

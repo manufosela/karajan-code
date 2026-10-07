@@ -56,7 +56,7 @@ An incomplete implementation is worse than an error — don't claim success if p
 ## File safety
 
 - NEVER overwrite a file entirely. Targeted edits only.
-- Verify each edit with `git diff`. Unintended lines → revert with `git checkout -- <file>`.
+- Verify each edit with `git diff`. Unintended lines → undo only those hunks, never the whole file (it may hold edits that are not yours).
 
 ## Quality
 
