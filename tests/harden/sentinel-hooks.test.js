@@ -298,6 +298,25 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(bash("KJ_ALLOW_NO_VERIFY=1 git commit --no-verify -m x").status).toBe(2);
   });
 
+  // KJC-BUG-0296 (#1989): the staged set is reviewed by name, and the agent's
+  // runtime files are never staged. A blanket add put a scheduler lock into main.
+  it("denies a blanket git add and staging runtime files; by-name staging passes", () => {
+    const bash = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });
+    for (const cmd of ["git add -A", "git add .", "git add -u", "git -C /tmp add --all", "git add -A && git commit -m x", "git add -- .", "git add -A -- ./"]) {
+      const r = bash(cmd);
+      expect(r.status, cmd).toBe(2);
+      expect(r.stderr, cmd).toMatch(/stagea por nombre/);
+    }
+    for (const cmd of ["git add .claude/scheduled_tasks.lock", "git add .kj/run.log src/a.js", "git add .karajan/identity.local.yml", "git add .kj", "git add -f .claude", "git add --force -- .karajan/"]) {
+      const r = bash(cmd);
+      expect(r.status, cmd).toBe(2);
+      expect(r.stderr, cmd).toMatch(/runtime del agente/);
+    }
+    for (const cmd of ["git add -- src/a.js", "git add src/a.js tests/a.test.js", "git add -p src/a.js", "git add -A -- src", "git add CLAUDE.md", "git add .claude/commands/kj-run.md", "git add .karajan/rules.yml"]) {
+      expect(bash(cmd).status, cmd).toBe(0);
+    }
+  });
+
   it("KJC-BUG-0204: un check en rojo no bloquea el comando que lo repara, y publicar sigue exigiendo todo verde", () => {
     const bin = path.join(dir, "remedybin");
     fs.mkdirSync(bin);

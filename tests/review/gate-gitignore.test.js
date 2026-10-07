@@ -104,6 +104,16 @@ describe("ensureGateTrackable", () => {
 // KJC-BUG-0123 (issue #1268, Jorge via kj report-issue): kj init wrote no
 // .karajan entries at all; autoInit wrote a bare `.karajan/` dir-exclude
 // that breaks gate trackability. Both now share this single source.
+// KJC-BUG-0296 (#1989): the host agent's runtime locks never travel; its settings do.
+describe("agent runtime locks in the contract block", () => {
+  it("ignores .claude/*.lock and keeps .claude/settings.json trackable", async () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/\n");
+    await ensureGateTrackable(dir);
+    expect(ignored(".claude/scheduled_tasks.lock")).toBe(true);
+    expect(ignored(".claude/settings.json")).toBe(false);
+  });
+});
+
 describe("ensureContractBlockPresent", () => {
   it("appends the canonical block to a gitignore with no .karajan mention", async () => {
     const { ensureContractBlockPresent } = await import("../../src/review/gate-gitignore.js");

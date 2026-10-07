@@ -1096,6 +1096,39 @@ process.stdin.on("end", () => {
         console.error("karajan sentinel: el gate de commit no se apaga con una bandera — el review cruzado y la policy corren en el hook, y saltarselos deja el diff sin veredicto. Si el hook esta roto, arreglalo; si de verdad hace falta saltarlo, lo hace tu usuario en su terminal." + doc("escapes"));
         process.exit(2);
       }
+      // KJC-BUG-0296 (#1989): the staged set is reviewed by name. A blanket
+      // git add -A / git add . / git add -u put a Claude scheduler lock into
+      // main; and the agent's runtime files (.claude/*.lock, .kj/, the local
+      // identity, the Sentinel state, the harness) are never staged at all.
+      // (No backticks in this template: they would end the string.)
+      const RUNTIME = /^(\\.\\/)?(\\.claude\\/[^/]*\\.lock|\\.kj\\/|\\.karajan\\/identity\\.local\\.yml|\\.karajan\\/harness\\/sentinel-state\\.json)/;
+      for (const ws of shellSegments(cmd)) {
+        const gi = ws.findIndex((x) => x.slice(x.lastIndexOf("/") + 1) === "git");
+        if (gi < 0) continue;
+        // git's own options come before the verb: -C <dir>, -c k=v, --git-dir=…
+        let vi = gi + 1;
+        while (vi < ws.length && ws[vi].startsWith("-")) vi += ws[vi] === "-C" || ws[vi] === "-c" ? 2 : 1;
+        if (ws[vi] !== "add") continue;
+        const args = ws.slice(vi + 1);
+        // The pathspec: after "--" if present, else every non-option word. "." is
+        // the whole tree whichever way it is written; -A/-u with no pathspec too.
+        const dash = args.indexOf("--");
+        const spec = dash >= 0 ? args.slice(dash + 1) : args.filter((a) => !a.startsWith("-"));
+        const whole = spec.some((a) => a === "." || a === "./");
+        const blanket = whole || (args.some((a) => a === "-A" || a === "--all" || a === "-u" || a === "--update") && spec.length === 0);
+        if (blanket) {
+          console.error("karajan sentinel: git add -A / . / -u stagea lo que no has revisado — stagea por nombre (git add -- <ruta>...) y mira git diff --cached --stat antes de commitear." + doc("commit-gate"));
+          process.exit(2);
+        }
+        // Directories too: .kj is runtime whole; .claude and .karajan hold the
+        // contract, so only a forced add (-f, past the ignore) reaches their locks.
+        const force = args.some((a) => a === "-f" || a === "--force");
+        const runtime = spec.find((a) => RUNTIME.test(a) || /^(\\.\\/)?\\.kj\\/?$/.test(a) || (force && /^(\\.\\/)?(\\.claude|\\.karajan)\\/?$/.test(a)));
+        if (runtime) {
+          console.error("karajan sentinel: " + runtime + " es runtime del agente (locks de .claude, .kj/, identidad local, estado del Sentinel) y no se commitea — fuera del stage." + doc("commit-gate"));
+          process.exit(2);
+        }
+      }
       const MERGE = /\\bgh\\s+pr\\s+merge(\\s+(\\d+))?/;
       const ADVANCE = /\\bgit\\s+commit\\b|\\bgit\\s+push\\b|\\bgh\\s+pr\\s+create\\b/; // push also falls under violations() — explicit here too (review catch)
       const mergeM = cmd.match(MERGE);

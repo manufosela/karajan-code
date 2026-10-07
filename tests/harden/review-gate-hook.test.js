@@ -22,6 +22,15 @@ describe("pre-commit template includes the opt-in review gate", () => {
     // merely present — so the bootstrap commit that introduces it is exempt.
     expect(body).toMatch(/cat-file -e HEAD:\.karajan\/review-gate/);
   });
+
+  // KJC-BUG-0296 (#1989): the agent's runtime files never enter a commit, however staged.
+  it("refuses a commit whose staged list holds agent runtime files, and names them", () => {
+    const body = hookBody("pre-commit", {});
+    expect(body).toContain("git diff --cached --name-only | grep -qE");
+    expect(body).toContain("scheduled_tasks");
+    expect(body).toMatch(/agent runtime files are staged/);
+    expect(body).toMatch(/git restore --staged/);
+  });
 });
 
 describe("review gate e2e (real sh + git)", () => {
