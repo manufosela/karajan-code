@@ -135,7 +135,8 @@ const POST_BODY = `#!/usr/bin/env node
 // a tool call (PostToolUse, always exit 0).
 import console from "node:console";
 import process from "node:process";
-import { relative } from "node:path";
+import { realpathSync } from "node:fs";
+import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
@@ -170,20 +171,37 @@ process.stdin.on("end", () => {
     // every question with silence, so the gate would demand what no query can
     // deliver. kj says so explicitly, in both its human and json forms.
     const EMPTY_INDEX = /No chunks indexed yet|"empty"\\s*:\\s*true/;
+    // KJC-BUG-0293 (#1996, #1995): the index names its sources through whatever
+    // spelling of the project directory indexed them (a symlinked workspace, an
+    // alias). Compared as TEXT against the harness root, every hit fell outside
+    // the tree and was dropped in silence: rag_hits stayed empty and only new
+    // files passed. Both sides are compared by REAL path, and what still falls
+    // outside is written down for the gate to name.
+    // A path whose file is gone (or not yet there) resolves through its deepest
+    // existing ancestor, so an alias of the directory still lands in the tree.
+    const realOf = (p) => {
+      try { return realpathSync(p); } catch { /* resolve the parent instead */ }
+      const d = dirname(p);
+      return !d || d === p ? p : join(realOf(d), basename(p));
+    };
+    const ROOT_REAL = realOf(ROOT);
     const recordRag = (query, sources, answer = "") => {
       const state = load();
       const s = session(state, sid);
       s.at = Date.now();
       if (EMPTY_INDEX.test(String(answer))) s.rag_index_empty = true;
       const hits = [];
+      const dropped = [];
       for (const src of sources) {
-        const rel = relative(ROOT, String(src)).split(String.fromCharCode(92)).join("/");
-        if (!rel || rel.startsWith("..") || rel.startsWith("/") || hits.includes(rel)) continue;
-        hits.push(rel);
+        const rel = relative(ROOT_REAL, realOf(String(src))).split(String.fromCharCode(92)).join("/");
+        if (!rel || rel === ".." || rel.startsWith("../") || rel.startsWith("/")) { dropped.push(String(src)); continue; }
+        if (!hits.includes(rel)) hits.push(rel);
       }
       (s.rag_queries ||= []).push({ ts: Date.now(), text: String(query || "").slice(0, 200), hits });
       const all = (s.rag_hits ||= []);
       for (const h of hits) if (!all.includes(h)) all.push(h);
+      if (hits.length === 0 && dropped.length > 0) s.rag_dropped = { root: ROOT_REAL, count: dropped.length, sample: dropped.slice(0, 3) };
+      else if (hits.length > 0) delete s.rag_dropped; // an answer inside the tree ends the diagnosis
       save(state);
     };
     // Sources are read STRUCTURALLY, never through the stringified response:
@@ -195,7 +213,9 @@ process.stdin.on("end", () => {
     };
     const parseJson = (t) => { try { return JSON.parse(t); } catch { return null; } };
     if (/__kj_rag_query$/.test(String(tool)) && /^mcp__/.test(String(tool))) {
-      const parts = Array.isArray(response?.content) ? response.content : [];
+      // KJC-BUG-0293: the host may hand the answer as {content:[parts]}, as the
+      // bare array of parts, or as the text itself; all three are the same answer.
+      const parts = Array.isArray(response?.content) ? response.content : Array.isArray(response) ? response : [{ text: typeof response === "string" ? response : "" }];
       recordRag(input.text, parts.flatMap((p) => sourcesOf(parseJson(String(p?.text || "")))), parts.map((p) => String(p?.text || "")).join(String.fromCharCode(10)));
       process.exit(0);
     }
@@ -1027,7 +1047,13 @@ process.stdin.on("end", () => {
               console.error("karajan sentinel: rag-first — el indice aun no tiene " + rel + " (" + absent + "); indexalo y consulta despues: kj_rag_query / kj rag query <que hace " + rel + ">" + doc("rag-first"));
               process.exit(2);
             } else {
-              console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>." + doc("rag-first"));
+              // KJC-BUG-0293 (#1996): hits that fell outside the tree are named, so the
+              // person learns the index was built from another path instead of querying again.
+              const dropped = rs.rag_dropped;
+              const outside = dropped?.count
+                ? " La ultima consulta devolvio " + dropped.count + " hit(s) fuera de este arbol (" + dropped.root + "): " + (dropped.sample || []).join(", ") + " — el indice se construyo desde otra ruta; reindexa desde esta: kj rag index --with-sources."
+                : "";
+              console.error("karajan sentinel: rag-first — el RAG no ha respondido sobre " + rel + " en esta sesion; consulta antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + " y donde mas vive ese concepto>." + outside + doc("rag-first"));
               process.exit(2);
             }
           }

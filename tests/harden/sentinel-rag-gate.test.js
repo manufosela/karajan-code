@@ -48,6 +48,25 @@ describe("rag-first gate", () => {
     expect(edit("lib/c.js").status).toBe(2);
   });
 
+  // KJC-BUG-0293 (#1996): the deny names the hits that fell outside the tree, so
+  // the person learns the index was built from another path instead of
+  // querying again and again.
+  it("names the hits dropped as outside the tree, and the root they were compared against", () => {
+    fs.writeFileSync(statePath, JSON.stringify({
+      sessions: { s1: { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0, rag_hits: [], rag_queries: [{ ts: 1, text: "q", hits: [] }], rag_dropped: { root: dir, count: 3, sample: ["/elsewhere/proj/src/a.js"] } } },
+    }));
+    // The index HAS the file (a fake kj answers `rag covers` so the suite never
+    // depends on the linked kj): the gate reaches its "never asked" verdict.
+    const fakeBin = path.join(dir, "fakebin");
+    fs.mkdirSync(fakeBin);
+    fs.writeFileSync(path.join(fakeBin, "kj"), '#!/bin/sh\necho \'{"state":"indexed","rel":"src/a.js","canAnswer":true}\'\n', { mode: 0o755 });
+    const r = edit("src/a.js", { PATH: `${fakeBin}:${process.env.PATH}` });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/3 hit\(s\) fuera de este arbol/);
+    expect(r.stderr).toContain("/elsewhere/proj/src/a.js");
+    expect(r.stderr).toMatch(/kj rag index --with-sources/);
+  });
+
   it("a new file only needs the session to have consulted at all", () => {
     expect(edit("lib/new.js").status).toBe(2); // no query at all
     ledger(["src/a.js"]);
