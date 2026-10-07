@@ -292,7 +292,9 @@ process.stdin.on("end", () => {
     const s = session(state, sid);
     s.at = Date.now();
     const rel = relative(ROOT, file).replaceAll("\\\\", "/");
-    const bucket = TESTS.test(rel) ? s.edited_tests : CODE.test(rel) ? s.edited_sources : null;
+    // KJC-BUG-0279 (#1981): a file outside the repository is not one of its sources.
+    const inside = rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
+    const bucket = !inside ? null : TESTS.test(rel) ? s.edited_tests : CODE.test(rel) ? s.edited_sources : null;
     if (bucket && !bucket.includes(rel)) bucket.push(rel);
     // KJC-TSK-0910: the branch size while it is written, with the CI budget
     // (kj pr-size), said once per threshold crossed. Context, never a block.
@@ -960,7 +962,8 @@ process.stdin.on("end", () => {
       } catch { /* no report or unreadable — the Steward is not adopted here */ }
       const file = input.file_path || input.notebook_path;
       const rel = file ? relative(ROOT, String(file)).replaceAll("\\\\", "/") : "";
-      if (rel && CODE.test(rel) && !TESTS.test(rel)) {
+      // KJC-BUG-0279 (#1981): outside the repository there is no source to govern.
+      if (rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/") && CODE.test(rel) && !TESTS.test(rel)) {
         const branch = branchOf();
         const why = !branch ? null : BASE_BRANCHES.has(branch) ? "base" : !CARD.test(branch) ? "nocard" : null;
         // ADR 0015 (KJC-TSK-0925): no escape. Without a card there is no work.
