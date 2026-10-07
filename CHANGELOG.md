@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.42.0] - 2026-10-07
+
+Ten field reports, ten fixes. Sessions on the same machine, working on other
+projects, reported in one day what the method got wrong for them: an approved
+review read as a rejection, a RAG ledger that dropped every hit, a scratch
+file counted as a source, a Sonar scan that aborted on a repo without `src/`,
+a contract kj generated and left untracked. Every one is fixed here; none of
+them needed an escape, and three needed only to say what was happening.
+
+### Fixed
+
+- **An approved review is not a rejection** (KJC-BUG-0284, #1982): the reviewer wrapped its verdict in the role envelope inside a json fence; kj read no boolean `approved` and handed the coder a `PARSE_ERROR` as if its code were wrong, and one run circled for twenty minutes. The envelope is unwrapped; what still cannot be read is the reviewer's failure (retry, fallback reviewer, raw answer saved to `.karajan/reviews/`), never the coder's.
+- **The coder never commits** (KJC-BUG-0285, #1982): the coder prompts asked for "atomic commits" and the coder committed before the review; the rejected commit stayed on the branch. The prompts now say who commits (the pipeline, once the review approves) and the coder stage undoes softly what the coder committed on its own, keeping the changes in the tree.
+- **The RAG ledger compares real paths** (KJC-BUG-0293, #1996, #1995): an index built through another spelling of the project directory (a symlinked workspace) dropped every hit in silence, and rag-first denied every Edit on existing code however many times the RAG answered. Real paths on both sides, every shape of the MCP answer read, and the deny names the hits it dropped and the root they were compared against.
+- **A dedup'd chunk keeps its row** (KJC-BUG-0281, #1980): a `CLAUDE.md` identical to the `AGENTS.md` kj writes ended with zero rows, and the coverage check flagged it after every reindex.
+- **A file written outside the repository is not a source** (KJC-BUG-0279, #1981): scratch scripts under the temp folder were recorded as edited sources and the Stop gate never cleared.
+- **Sonar on a repo without `src/`** (KJC-BUG-0280, #1979): the generated properties declare only the folders that exist; with nothing to analyse the scan is skipped in one line before SonarQube starts; writing the file is said.
+- **The skills kj init installs pass the gate kj enforces** (KJC-BUG-0282, #1978): the token instead of `admin:admin`, staged and unstaged work reviewed, and no whole-file revert, in the skills and in the coder and refactorer role prompts.
+- **Read-only pipelines are not mutating commands** (KJC-BUG-0286, #1982): grep piped into grep, a literal `$` in a quoted pattern, "commit" inside a grep pattern or `cd` before `git status` no longer trip the Sentinel; the commit gate judges the `git commit` segment alone.
+- **A preflight check that times out is a warning** (KJC-BUG-0287, #1982), not a failed run: GitHub unreachable blocked a docs-only run that needed no network.
+- **`kj status` sees a dead run** (KJC-BUG-0288, #1982): the run lock names its process; no live holder, no run. The docs say why a host may not list `kj_run` (deferred MCP tools) and how to load it.
+- **`kj harden` and `kj init` commit the contract they generate** (KJC-BUG-0289, #1984): the same path `kj env install` took in 4.41.0, only generated files, never on the base branch; the generated configs and the governance files are contract too. The seal stays a human act over the supervisor.
+
+### Changed
+
+- **The harness changed and needs a re-seal**: run `kj harden` and `kj harden --commit` to install the Sentinel fixes (rag ledger, read-only pipelines, files outside the repo).
+
 ## [4.41.0] - 2026-10-06
 
 kj commits its own contract. A session reported that kj had generated 28 files
