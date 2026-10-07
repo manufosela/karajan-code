@@ -20,13 +20,19 @@ function mergeBase(projectDir, base) {
   throw new Error(`pr-size: no merge base with ${base} (nor origin/${base})`);
 }
 
-/** @returns {Promise<{added: number, exempt: number, testAdded: number, base: string}>} */
-export async function branchSize({ projectDir = process.cwd(), base = "main" } = {}) {
+/**
+ * @param {{projectDir?: string, base?: string, exclude?: string[]}} opts
+ *   `exclude` (KJC-BUG-0299): paths that will not be part of the commit (what
+ *   was pending before a pipeline run) are not the branch's size either.
+ * @returns {Promise<{added: number, exempt: number, testAdded: number, base: string}>}
+ */
+export async function branchSize({ projectDir = process.cwd(), base = "main", exclude = [] } = {}) {
   const from = mergeBase(projectDir, base);
+  const skip = new Set(exclude);
   // Working tree against the merge base: committed and uncommitted together.
-  let numstat = git(projectDir, ["diff", "--numstat", from]);
+  let numstat = git(projectDir, ["diff", "--numstat", from]).split("\n").filter((l) => l && !skip.has(l.split("\t").slice(2).join("\t"))).map((l) => `${l}\n`).join("");
   // New files not yet added are where a branch grows while it is written.
-  for (const file of git(projectDir, ["ls-files", "--others", "--exclude-standard"]).split("\n").filter(Boolean)) {
+  for (const file of git(projectDir, ["ls-files", "--others", "--exclude-standard"]).split("\n").filter((f) => f && !skip.has(f))) {
     let text;
     try { text = readFileSync(join(projectDir, file), "utf8"); } catch { continue; }
     if (text.includes("\0")) continue; // binary

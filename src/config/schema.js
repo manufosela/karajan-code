@@ -124,6 +124,8 @@ const Development = v.optional(v.looseObject({
 
 const Git = v.optional(v.looseObject({
   auto_commit: v.optional(v.boolean()),
+  // KJC-BUG-0299: lines added (CI budget count) over which the pipeline commits nothing.
+  pr_size_limit: v.optional(v.number()),
   auto_push: v.optional(v.boolean()),
   auto_pr: v.optional(v.boolean()),
   auto_rebase: v.optional(v.boolean()),

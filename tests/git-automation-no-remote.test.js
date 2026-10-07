@@ -41,6 +41,39 @@ describe("finalizeGitAutomation without a remote (KJC-BUG-0112)", () => {
   });
 });
 
+// KJC-BUG-0299 (#1993): the PR budget is applied before the commit, with the CI
+// gate's count over what the commit will contain; over it, nothing is committed.
+describe("finalizeGitAutomation over the PR budget (KJC-BUG-0299)", () => {
+  const run = (measureSize, logger, git = {}) => finalizeGitAutomation({
+    config: { git: { auto_commit: true, auto_push: false, auto_pr: false, ...git } },
+    gitCtx: { enabled: true, branch: "feat/x", baseBranch: "main", autoRebase: true, preexisting: ["CLAUDE.md"] },
+    task: "add a flag", logger, session: {}, measureSize,
+  });
+
+  it("over the budget: nothing committed, the number and the remedy said", async () => {
+    const calls = [];
+    setRunner(vi.fn(async (_cmd, args) => { calls.push(args.join(" ")); return { exitCode: 0, stdout: "", stderr: "" }; }));
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const measureSize = vi.fn(async () => ({ added: 960, testAdded: 0, exempt: 0, base: "main" }));
+    const result = await run(measureSize, logger);
+    expect(result).toMatchObject({ committed: false, commits: [], overBudget: { added: 960, limit: 200 } });
+    expect(measureSize).toHaveBeenCalledWith(expect.objectContaining({ base: "main", exclude: ["CLAUDE.md"] }));
+    expect(calls.some((c) => c.startsWith("add") || c.startsWith("commit"))).toBe(false);
+    expect(logger.warn.mock.calls.flat().join(" ")).toMatch(/960 line\(s\) added against main, over the budget of 200/);
+  });
+
+  it("the limit comes from git.pr_size_limit; a branch that cannot be measured is said and committed", async () => {
+    const calls = [];
+    setRunner(vi.fn(async (_cmd, args) => { calls.push(args.join(" ")); return { exitCode: 0, stdout: args[0] === "status" ? " M src/a.js\0" : "", stderr: "" }; }));
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const within = await run(async () => ({ added: 300 }), logger, { pr_size_limit: 400 });
+    expect(within.committed).toBe(true);
+    const unmeasured = await run(async () => { throw new Error("no merge base with main"); }, logger);
+    expect(unmeasured.committed).toBe(true);
+    expect(logger.warn.mock.calls.flat().join(" ")).toMatch(/could not be measured/);
+  });
+});
+
 // KJC-BUG-0297 (#1993): the pipeline commits only what a reviewer approved. With
 // the reviewer disabled, the gate's stub carries reviewed:false, and nothing is
 // stamped or committed: the changes stay in the tree, and the log says why.
