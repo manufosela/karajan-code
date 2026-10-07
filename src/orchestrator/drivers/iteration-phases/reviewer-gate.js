@@ -29,9 +29,11 @@ export async function runReviewerGateStage({ pipelineFlags, reviewerRole, config
   };
   const reviewerResult = await runStage(stageRegistry.get("reviewer"), reviewerCtx);
   if (reviewerResult === null) {
+    // KJC-BUG-0297 (#1993): `reviewed: false` so the pipeline never stamps a
+    // verdict nobody gave nor commits on it (finalizeGitAutomation).
     return {
       action: "ok",
-      review: { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: "Reviewer disabled by pipeline", confidence: 1 }
+      review: { approved: true, reviewed: false, blocking_issues: [], non_blocking_suggestions: [], summary: "Reviewer disabled by pipeline: nothing was reviewed", confidence: 0 }
     };
   }
   if (reviewerResult.action === "pause") return { action: "return", result: reviewerResult.result };

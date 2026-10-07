@@ -70,6 +70,23 @@ const { runTriageStage } = await import("../src/orchestrator/pre-loop-stages.js"
 // We test the auto-simplify logic through the exported applyAutoSimplify behavior
 // by checking the pipelineFlags mutation pattern used in orchestrator.js
 
+// KJC-BUG-0297 (#1993): a simple task still gets its cross-AI review. Disabling
+// the reviewer let the pipeline stamp a verdict nobody gave and commit it.
+describe("applyAutoSimplify keeps the reviewer (KJC-BUG-0297)", () => {
+  it("disables the tester only; the reviewer stays on", async () => {
+    const { applyAutoSimplify } = await import("../src/orchestrator/config-init.js");
+    const pipelineFlags = { reviewerEnabled: true, testerEnabled: true };
+    const logger = { info: vi.fn() };
+    const simplified = applyAutoSimplify({
+      pipelineFlags, triageLevel: "simple", config: { pipeline: { auto_simplify: true } }, flags: {},
+      logger, emitter: new EventEmitter(), eventBase: { sessionId: "s1", iteration: 0, stage: null, startedAt: Date.now() },
+    });
+    expect(simplified).toBe(true);
+    expect(pipelineFlags).toEqual({ reviewerEnabled: true, testerEnabled: false });
+    expect(logger.info.mock.calls.flat().join(" ")).toContain("disabled: tester");
+  });
+});
+
 describe("auto-simplify pipeline for simple tasks", () => {
   const logger = {
     debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),

@@ -360,10 +360,12 @@ export function applyAutoSimplify({ pipelineFlags, triageLevel, config, flags, l
   if (flags.mode) return false;
   if (flags.enableReviewer !== undefined || flags.enableTester !== undefined) return false;
 
-  pipelineFlags.reviewerEnabled = false;
+  // KJC-BUG-0297 (#1993): a simple task still gets its cross-AI review. With
+  // the reviewer off, the gate's stub read as an approval and the pipeline
+  // stamped a verdict nobody gave and committed it. Only the tester is lighter.
   pipelineFlags.testerEnabled = false;
 
-  const disabledRoles = ["reviewer", "tester"];
+  const disabledRoles = ["tester"];
   logger.info(`Simple task (${triageLevel}) — lightweight pipeline (disabled: ${disabledRoles.join(", ")})`);
   emitProgress(
     emitter,

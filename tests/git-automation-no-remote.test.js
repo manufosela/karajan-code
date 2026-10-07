@@ -40,3 +40,27 @@ describe("finalizeGitAutomation without a remote (KJC-BUG-0112)", () => {
     expect(logger.info.mock.calls.flat().join(" ")).toContain("No remote configured");
   });
 });
+
+// KJC-BUG-0297 (#1993): the pipeline commits only what a reviewer approved. With
+// the reviewer disabled, the gate's stub carries reviewed:false, and nothing is
+// stamped or committed: the changes stay in the tree, and the log says why.
+describe("finalizeGitAutomation with an unreviewed approval (KJC-BUG-0297)", () => {
+  it("does not stage, commit, push or open a PR, and says so", async () => {
+    const calls = [];
+    setRunner(vi.fn(async (_cmd, args) => { calls.push(args.join(" ")); return { exitCode: 0, stdout: "", stderr: "" }; }));
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    const result = await finalizeGitAutomation({
+      config: { git: { auto_commit: true, auto_push: true, auto_pr: true } },
+      gitCtx: { enabled: true, branch: "feat/x", baseBranch: "main", autoRebase: true, preexisting: [] },
+      task: "add a flag",
+      logger,
+      session: {},
+      review: { approved: true, reviewed: false, summary: "Reviewer disabled by pipeline: nothing was reviewed" },
+    });
+
+    expect(result).toMatchObject({ committed: false, commits: [], unreviewed: true, prUrl: null });
+    expect(calls.some((c) => c.startsWith("add") || c.startsWith("commit") || c.startsWith("push"))).toBe(false);
+    expect(logger.warn.mock.calls.flat().join(" ")).toMatch(/no review, no commit/i);
+  });
+});
