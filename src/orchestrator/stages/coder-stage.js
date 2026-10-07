@@ -17,6 +17,7 @@ import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js"
 import { runCoderWithFallback } from "../agent-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
+import { headSha, undoCommitsSince } from "../../git/coder-commit-guard.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
 import { applyQuotaSimulation } from "../../utils/quota-simulator.js";
@@ -54,6 +55,10 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
   // Claude run `cd /home/manu/assistant && pnpm init …` and 36 MB
   // of code landed outside projectDir, outside any git repo.
   const homeSnapshotBeforeCoder = snapshotHomeTopLevel();
+  // KJC-BUG-0285 (#1982): where HEAD stands before the coder runs. The coder
+  // commits nothing; the pipeline does, once the review approves.
+  const stageDir = config?.projectDir || process.cwd();
+  const headBefore = headSha(stageDir);
   let coderExecResult;
   try {
     coderExecResult = await coderRoleInstance.execute({
@@ -84,6 +89,17 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
   }
   trackBudget({ role: "coder", provider: coderRole.provider, model: coderRole.model, result: coderExecResult.result, duration_ms: Date.now() - coderStart });
   applyQuotaSimulation(coderExecResult, { iteration, agent: coderRole.provider });
+  // KJC-BUG-0285 (#1982): a commit the coder made on its own carried the error the
+  // reviewer then rejected, and stayed on the branch. Undone softly: the changes
+  // stay in the tree for the review; the pipeline commits what it approves.
+  if (headBefore) {
+    const undone = undoCommitsSince(headBefore, stageDir);
+    if (undone.undone > 0) {
+      const message = `Coder committed on its own (${undone.undone} commit(s)); undone softly, the changes stay in the tree: the pipeline commits once the review approves`;
+      logger.warn(message);
+      emitProgress(emitter, makeEvent("coder:commit-undone", { ...eventBase, stage: "coder" }, { message, detail: { commits: undone.undone, headBefore } }));
+    }
+  }
 
   if (!coderExecResult.ok) {
     const details = coderExecResult.result?.error || coderExecResult.summary || "unknown error";

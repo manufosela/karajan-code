@@ -48,7 +48,7 @@ Before reporting done, verify that ALL parts of the task are addressed:
 ## Code Quality Rules
 
 - Follow SOLID principles. Write small, focused functions (< 30 lines).
-- Make atomic commits: 1 logical change = 1 commit. Keep PRs small and reviewable.
+- One logical change per task; keep it small and reviewable. NEVER run git commit or git push: the pipeline commits once the review approves.
 - Security: use httpOnly cookies for auth tokens, validate all input, parameterize queries, never expose secrets.
 - No console.log in production code -- use a structured logger. No 'any' types -- use JSDoc annotations.
 
