@@ -26,6 +26,7 @@ import { installQmd } from "../utils/qmd-install.js";
 import { registerQmdCollections } from "../utils/qmd-collection.js";
 import { isGitRepo } from "../harden/harden-engine.js";
 import { hardenCommand } from "./harden.js";
+import { contractChanges } from "../environment/contract-commit.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { bootstrapSonarToken } from "../sonar/token-bootstrap.js";
 
@@ -771,6 +772,11 @@ export async function initCommand({ logger, flags = {} }) {
     const toStderr = (...args) => console.error(...args);
     logger = { ...logger, info: toStderr, warn: toStderr, error: toStderr };
   }
+  // KJC-BUG-0289: what is dirty NOW is the person's; kj harden commits only what
+  // init and harden generate below (skills, settings, hooks, configs, guidelines).
+  // Outside a repository (ensureGitRepo runs later) git cannot answer and the
+  // baseline is empty: everything generated afterwards is kj's.
+  const contractBefore = contractChanges(process.cwd());
   const karajanHome = getKarajanHome();
   await ensureDir(karajanHome);
   logger.info(`Ensured ${karajanHome} exists`);
@@ -928,7 +934,7 @@ export async function initCommand({ logger, flags = {} }) {
     logger.info("Quality harness skipped (--no-harden).");
   } else if (ensureGitRepo({ projectDir: process.cwd(), logger })) {
     logger.info("Installing quality harness (kj harden)...");
-    await hardenCommand({ projectDir: process.cwd(), logger });
+    await hardenCommand({ projectDir: process.cwd(), logger, contractBefore });
     hardened = true;
   } else {
     logger.warn("Quality harness NOT installed: this is not a git repository and `git init` failed — Karajan's guarantees live in git hooks. Fix git, then run `kj harden`.");

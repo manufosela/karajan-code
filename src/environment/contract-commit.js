@@ -8,6 +8,9 @@
  * seal (ADR 0009), which stays a human act.
  */
 import { execFileSync } from "node:child_process";
+import { basename } from "node:path";
+
+import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
 
 /** What kj generates and the whole team must inherit by cloning (prefixes). */
 export const CONTRACT_PATHS = [
@@ -23,13 +26,20 @@ export const CONTRACT_PATHS = [
   "GEMINI.md",
   // KJC-TSK-0879: in a Rulesync repo kj's rules live in .rulesync/rules/karajan.md.
   ".rulesync/",
+  // KJC-BUG-0289 (#1984): the governance the whole team inherits (ADR 0016, KJC-BUG-0269).
+  ".karajan/rules.yml",
+  ".karajan/policy-anchor.json",
+  ".karajan/supervisor-signers.json",
 ];
 
 const FRESH_MESSAGE = "chore(bootstrap): el contrato del método, para que quien clone lo herede";
 const REGEN_MESSAGE = "chore(kj): el contrato del método, generado por kj";
 
 const runner = (projectDir, env) => (args) => execFileSync("git", ["-C", projectDir, ...args], { encoding: "utf8", env, stdio: ["ignore", "pipe", "pipe"] });
-const isContract = (file) => CONTRACT_PATHS.some((p) => (p.endsWith("/") || p.endsWith("-") ? file.startsWith(p) : file === p));
+// KJC-BUG-0289: the lint/format/commit configs harden generates sit at the root
+// or under a stack root (a fullstack monorepo is hardened on every side).
+const isContract = (file) =>
+  CONTRACT_PATHS.some((p) => (p.endsWith("/") || p.endsWith("-") ? file.startsWith(p) : file === p)) || GENERATED_CONFIG_FILES.has(basename(file));
 
 /** The contract files git sees as changed, with their porcelain code (`??` untracked). */
 function contractStatus(git) {
