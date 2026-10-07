@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildScannerOpts, indexedFilesFrom, respectRepoProperties, ensureSonarProjectProperties } from "../../src/sonar/scanner.js";
@@ -122,9 +122,35 @@ describe("[opt-in: sonar] ensureSonarProjectProperties (KJC-BUG-0156)", () => {
   it("generates the file and reports existed=false when the repo has none", async () => {
     const dir = mkdtempSync(join(tmpdir(), "kj-sonar-props-"));
     try {
+      mkdirSync(join(dir, "src"));
+      mkdirSync(join(dir, "tests"));
       const r = await ensureSonarProjectProperties(dir);
-      expect(r.existed).toBe(false);
-      expect(readFileSync(join(dir, "sonar-project.properties"), "utf8")).toContain("sonar.sources=src");
+      expect(r).toMatchObject({ existed: false, written: true });
+      const props = readFileSync(join(dir, "sonar-project.properties"), "utf8");
+      expect(props).toContain("sonar.sources=src\n");
+      expect(props).toContain("sonar.tests=tests\n");
+      expect(r.note).toMatch(/wrote sonar-project\.properties/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  // KJC-BUG-0280 (#1979): the scanner aborts, with a stack trace, on a declared
+  // folder that does not exist. Only what exists is declared.
+  it("declares only the folders that exist", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kj-sonar-props-"));
+    try {
+      mkdirSync(join(dir, "lib"));
+      await ensureSonarProjectProperties(dir);
+      const props = readFileSync(join(dir, "sonar-project.properties"), "utf8");
+      expect(props).toContain("sonar.sources=lib\n");
+      expect(props).not.toContain("sonar.tests=");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it("writes nothing and says why when there is no folder to analyse", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kj-sonar-props-"));
+    try {
+      const r = await ensureSonarProjectProperties(dir);
+      expect(r).toMatchObject({ existed: false, written: false });
+      expect(r.nothingToScan).toMatch(/no src\//);
+      expect(existsSync(join(dir, "sonar-project.properties"))).toBe(false);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

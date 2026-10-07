@@ -251,6 +251,19 @@ describe("[opt-in: sonar] runSonarScan", () => {
     expect(scanOpts.env.SONAR_TOKEN).toBe("from-file");
   });
 
+  // KJC-BUG-0280 (#1979): a docs-only repo has nothing to analyse; the scan is
+  // skipped with one line BEFORE SonarQube is started, and nothing is written.
+  it("skips the scan with one line when the repo has no folder to analyse", async () => {
+    await inRepoWithoutProperties(async () => {
+      const result = await runSonarScan(baseConfig, "my-key");
+      expect(result).toMatchObject({ ok: false, skipped: true });
+      expect(result.stderr).toMatch(/^sonar: no src\/.*folder to analyse/);
+      expect(result.stderr).not.toContain("\n");
+      expect(sonarUp).not.toHaveBeenCalled();
+      expect(runCommand).not.toHaveBeenCalled();
+    });
+  });
+
   it("filters non-existing scanner source folders to avoid Sonar scan failure", async () => {
     const config = {
       sonarqube: {

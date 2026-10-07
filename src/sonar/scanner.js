@@ -240,7 +240,12 @@ export function respectRepoProperties(scanner = {}, props = {}) {
   return kept;
 }
 
-/** @returns {Promise<{existed: boolean, declaredKey: string|null}>} */
+// KJC-BUG-0280 (#1979): the scanner aborts, with a stack trace, on a declared
+// folder that does not exist. Only the folders the repo HAS are declared.
+const SOURCE_DIRS = ["src", "lib", "app"];
+const TEST_DIRS = ["tests", "test"];
+
+/** @returns {Promise<{existed: boolean, declaredKey: string|null, written?: boolean, note?: string, nothingToScan?: string}>} */
 export async function ensureSonarProjectProperties(cwd = process.cwd()) {
   const propsPath = path.join(cwd, "sonar-project.properties");
   try {
@@ -257,17 +262,26 @@ export async function ensureSonarProjectProperties(cwd = process.cwd()) {
     } catch {
       // no package.json or invalid JSON — use defaults
     }
+    const existing = (dirs) => dirs.filter((d) => fs.existsSync(path.join(cwd, d)));
+    const sources = existing(SOURCE_DIRS);
+    const tests = existing(TEST_DIRS);
+    if (sources.length === 0) {
+      const wanted = SOURCE_DIRS.map((d) => `${d}/`).join(", ");
+      return { existed: false, declaredKey: null, written: false, nothingToScan: `no ${wanted} folder to analyse: write a sonar-project.properties declaring sonar.sources when the code arrives` };
+    }
     const projectKey = (pkg.name || path.basename(cwd)).replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
+    const layout = [`sonar.sources=${sources.join(",")}`, ...(tests.length ? [`sonar.tests=${tests.join(",")}`] : [])];
     const props = [
       `sonar.projectKey=${projectKey}`,
       `sonar.projectName=${pkg.name || path.basename(cwd)}`,
-      `sonar.sources=src`,
-      `sonar.tests=tests`,
+      ...layout,
       `sonar.javascript.lcov.reportPaths=coverage/lcov.info`,
       `sonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**`,
     ].join("\n");
     await fsPromises.writeFile(propsPath, props + "\n", "utf8");
-    return { existed: false, declaredKey: null };
+    // Said out loud: the file is new in the working tree and the team should see it.
+    const note = `sonar: wrote sonar-project.properties (${layout.join(", ")}): review it and commit it`;
+    return { existed: false, declaredKey: null, written: true, note };
   }
 }
 
@@ -277,6 +291,9 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
   // directory under the key its properties declare — so the proof of
   // coverage is about that package, not the root's `sonar.sources`.
   const repoProps = await ensureSonarProjectProperties(scanCwd);
+  if (repoProps.nothingToScan) {
+    return { ok: false, skipped: true, projectKey: null, stdout: "", stderr: `sonar: ${repoProps.nothingToScan}`, exitCode: 0 };
+  }
   let effectiveProjectKey;
   if (cwd && !projectKey && repoProps.declaredKey) {
     effectiveProjectKey = repoProps.declaredKey;
@@ -403,7 +420,7 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
     projectKey: effectiveProjectKey,
     cwd: scanCwd,
     scanner: pick.type,
-    note: [note, analysisNote].filter(Boolean).join("; ") || null,
+    note: [repoProps.note, note, analysisNote].filter(Boolean).join("; ") || null,
     stdout: result.stdout,
     // A scan that failed on the server's side says so, not with the scanner's own log.
     stderr: !ok && result.exitCode === 0 ? analysisNote : result.stderr,
