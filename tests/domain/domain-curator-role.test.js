@@ -72,20 +72,24 @@ describe("DomainCuratorRole", () => {
     expect(result.result.source).toBe("none");
   });
 
-  it("asks user when no domains found and interactive", async () => {
+  // KJC-BUG-0295 (#1992): the "do you have domain documents?" question changed
+  // nothing and confused the user. It is not asked; what kj uses instead is said.
+  it("does not ask when no domains are found, even interactive: it says what the context is", async () => {
     readdir.mockRejectedValue(new Error("ENOENT"));
     readFile.mockRejectedValue(new Error("ENOENT"));
 
     const askQuestion = createAskQuestion({ interactive: true, answers: [false] });
-    const curator = new DomainCuratorRole({ config: {}, logger: createLogger() });
+    const logger = createLogger();
+    const curator = new DomainCuratorRole({ config: {}, logger });
     const result = await curator.execute({
       task: "Build dental workflow",
       domainHints: ["dental"],
       askQuestion
     });
 
-    expect(askQuestion).toHaveBeenCalledTimes(1);
+    expect(askQuestion).not.toHaveBeenCalled();
     expect(result.result.domainContext).toBeNull();
+    expect(logger.info.mock.calls.flat().join(" ")).toMatch(/card's acceptance criteria and the repo/);
   });
 
   it("loads and synthesizes domains from filesystem", async () => {
