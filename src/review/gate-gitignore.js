@@ -18,6 +18,8 @@ import { runCommand } from "../utils/process.js";
 // init and the orchestrator's autoInit write this same block instead of a
 // bare `.karajan/` exclude (which git cannot re-include children of).
 export const CONTRACT_BLOCK = [
+  // KJC-BUG-0296 (#1989): the host agent's runtime locks never travel.
+  ".claude/*.lock",
   ".karajan/*",
   "# …except the v4 environment contract, which the whole team inherits:",
   "!.karajan/review-gate",
