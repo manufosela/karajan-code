@@ -488,14 +488,16 @@ describe("iteration-stages: runReviewerStage", () => {
       throw new Error("invalid format: missing required field");
     });
 
-    const result = await runReviewerStage({
+    // KJC-BUG-0284 (#1982): a verdict kj cannot read is the reviewer's failure,
+    // said out loud; it never reaches the coder as a PARSE_ERROR defect.
+    const { markSessionStatus } = await import("../src/session/store.js");
+    const session = makeSession();
+    await expect(runReviewerStage({
       reviewerRole, config: makeConfig(), logger, emitter, eventBase,
-      session: makeSession(), trackBudget, iteration: 1,
+      session, trackBudget, iteration: 1,
       reviewRules: "rules", task: "do X", repeatDetector, budgetSummary, askQuestion: null
-    });
-
-    expect(result.review.approved).toBe(false);
-    expect(result.review.blocking_issues[0].id).toBe("PARSE_ERROR");
+    })).rejects.toThrow(/Reviewer failed: .*could not be read/);
+    expect(markSessionStatus).toHaveBeenCalledWith(session, "failed");
   });
 
   it("blocks review when injection is detected in diff", async () => {

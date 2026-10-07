@@ -335,18 +335,20 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
       confidence: reviewResult.confidence ?? 0
     });
   } catch (error_) {
+    // KJC-BUG-0284 (#1982): a verdict kj cannot read is the reviewer's failure,
+    // never a PARSE_ERROR defect handed to the coder (it sent one run in circles).
+    const details = `the verdict could not be read: ${error_.message}`;
     logger.warn(`Reviewer output validation failed: ${error_.message}`);
-    review = {
-      approved: false,
-      blocking_issues: [{
-        id: "PARSE_ERROR",
-        severity: "high",
-        description: `Reviewer output could not be parsed: ${error_.message}`
-      }],
-      non_blocking_suggestions: [],
-      summary: `Parse error: ${error_.message}`,
-      confidence: 0
-    };
+    await markSessionStatus(session, "failed");
+    emitProgress(
+      emitter,
+      makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
+        status: "fail",
+        message: `Reviewer failed: ${details}`,
+        detail: { provider: reviewerRole.provider, executorType: "agent" }
+      })
+    );
+    throw new Error(`Reviewer failed: ${details}`, { cause: error_ });
   }
   // --- Scope filter: auto-defer out-of-scope blocking issues ---
   const { review: filteredReview, demoted, deferred, allDemoted } = filterReviewScope(review, diff);
