@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.41.0: kj commits its own contract (current)
+### v4.42.0: ten field reports, ten fixes (current)
+
+Sessions working on other projects reported in one day what the method got wrong for them, and every one is fixed. An approved review was read as a rejection because the reviewer wrapped its verdict in an envelope: now what kj cannot read is the reviewer's failure, retried and saved, never a defect handed to the coder. The RAG ledger compared paths as text, so an index built through a symlinked workspace dropped every hit and rag-first denied every edit: now it compares real paths and names what it drops. The coder no longer commits before the review, a scratch file outside the repo is not a source, Sonar skips a repo without `src/` in one line, read-only pipelines no longer trip the Sentinel, a preflight timeout is a warning, `kj status` sees a dead run, and `kj harden` commits the contract it generates.
+
+### v4.41.0: kj commits its own contract
 
 In a repository with history, kj generated 28 files of contract and left them to the agent, whose own PR-size rules forbid such a commit. Now `kj env install` and `kj bootstrap` commit what they just generated: only those files, never what you had dirty or staged, and never on the base branch, where kj names the files and how to commit them on a branch. Also: a compiled rule can say why it is compiled the way it is, the reviewer of a proposal blocks only on material weakness, and a rejected review no longer vetoes your approval: its objections come first, and you decide.
 
