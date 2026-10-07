@@ -42,20 +42,13 @@ export class DomainCuratorRole {
     // 3. Deduplicate (file domains take precedence over registry entries)
     const allDomains = deduplicateDomains(fileDomains, registryDomains);
 
-    // 4. No domains found
+    // 4. No domains found. KJC-BUG-0295 (#1992): this used to ASK the user
+    // ("do you have domain documents?") and then do nothing with the answer:
+    // a cryptic, English-only question with no consequence, raised even when
+    // the card already carried the acceptance criteria. A question that changes
+    // nothing is not asked; what kj uses instead is said.
     if (allDomains.length === 0) {
-      if (askQuestion?.interactive) {
-        const answer = await askQuestion({
-          message: "No domain knowledge found for this task.\nDo you have domain documents to provide, or should the pipeline continue without domain context?",
-          type: "confirm"
-        });
-        // For now, just log. Future: support document ingestion.
-        if (answer === true) {
-          this.logger.info("Domain Curator: user indicated domain documents available — future feature");
-        }
-      } else {
-        this.logger.warn("Domain Curator: no domain knowledge found, continuing without domain context");
-      }
+      this.logger.info("Domain Curator: no domain documents in .karajan/domains/ nor the registry; the task's own text, the card's acceptance criteria and the repo are the context");
 
       return {
         ok: true,
