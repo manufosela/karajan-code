@@ -18,6 +18,17 @@ describe("commitMessageFromTask", () => {
     expect(msg).toBe(`feat: ${"A".repeat(72)}`);
   });
 
+  // KJC-BUG-0294 (#1993): a title is cut on a word, never mid-word.
+  it("cuts a long title on a word boundary", () => {
+    const task = "Implement the pure function that normalises user handles and its vitest test file for the CLI";
+    const msg = commitMessageFromTask(task);
+    const title = msg.slice("feat: ".length);
+    expect(title.length).toBeLessThanOrEqual(72);
+    expect(task.startsWith(title)).toBe(true);
+    expect(task[title.length]).toBe(" "); // the cut falls between two words
+    expect(title.endsWith("vitest")).toBe(true);
+  });
+
   it("collapses whitespace", () => {
     const msg = commitMessageFromTask("Fix   the\n  bug\t here");
     expect(msg).toBe("feat: Fix the bug here");

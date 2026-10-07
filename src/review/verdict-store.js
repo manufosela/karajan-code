@@ -98,14 +98,16 @@ export async function loadVerdict(projectDir, hash) {
  * (KJC-BUG-0115).
  * @returns {Promise<{stamped: boolean}>}
  */
-export async function stampStagedVerdict({ projectDir, reviewer, summary = "", sonar = null }) {
+export async function stampStagedVerdict({ projectDir, reviewer, summary = "", sonar = null, paths = null }) {
   const dir = projectDir || process.cwd();
   try {
     await fs.access(path.join(dir, ".karajan", "review-gate"));
   } catch {
     return { stamped: false };
   }
-  const res = await runCommand("git", ["diff", "--cached"], { cwd: dir });
+  // KJC-BUG-0294: the pipeline commits by path (`--only`); the verdict must bind
+  // to that diff, not to other files the person had staged.
+  const res = await runCommand("git", ["diff", "--cached", ...(paths?.length ? ["--", ...paths] : [])], { cwd: dir });
   if (res.exitCode !== 0 || !res.stdout?.trim()) return { stamped: false };
   await saveVerdict(dir, res.stdout, {
     verdict: "approved", reviewer, host: "kj-pipeline", issues: [], summary,

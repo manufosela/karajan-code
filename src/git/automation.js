@@ -79,7 +79,9 @@ export function commitMessageFromTask(task, taskType = null) {
     .replaceAll(/\s+/g, " ")
     .trim();
   const prefix = prefixForTaskType(taskType);
-  return `${prefix}: ${clean.slice(0, 72) || "karajan update"}`;
+  // KJC-BUG-0294 (#1993): cut on a word, never mid-word (a title with no blank keeps the hard cut).
+  const cut = clean.length > 72 ? clean.slice(0, 72).replace(/\s+\S*$/, "") : clean;
+  return `${prefix}: ${cut || "karajan update"}`;
 }
 
 /**
@@ -111,6 +113,11 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
 
   const baseBranch = config.base_branch;
   const autoRebase = config.git.auto_rebase !== false;
+  // KJC-BUG-0294 (#1993): what is dirty or untracked NOW is not the run's; the
+  // pipeline commits only what it changes. Both names of a pending rename are
+  // kept. Fails closed: with no answer from git the run stops here rather than
+  // commit the person's pending changes later.
+  const preexisting = await listPendingPaths();
   const repoHasCommits = await hasCommits();
 
   // New repo without commits: create branch directly (no fetch/sync possible)
@@ -120,7 +127,7 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
     await createBranch(created);
     logger.info(`New repo — created working branch: ${created}`);
     await addCheckpoint(session, { stage: "git-prep", branch: created, created: true, newRepo: true });
-    return { enabled: true, branch: created, baseBranch, autoRebase };
+    return { enabled: true, branch: created, baseBranch, autoRebase, preexisting };
   }
 
   await fetchBase(baseBranch).catch(() => {
@@ -153,7 +160,7 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
     await addCheckpoint(session, { stage: "git-prep", branch, created: false });
   }
 
-  return { enabled: true, branch, baseBranch, autoRebase };
+  return { enabled: true, branch, baseBranch, autoRebase, preexisting };
 }
 
 export function buildPrBody({ task: _task, stageResults }) {
@@ -194,7 +201,7 @@ export async function earlyPrCreation({ gitCtx, task, logger, session, stageResu
   if (!gitCtx?.enabled) return null;
 
   const commitMsg = commitMessageFromTask(task);
-  const commitResult = await commitAll(commitMsg);
+  const commitResult = await commitAll(commitMsg, null, { exclude: gitCtx.preexisting || [] });
   if (!commitResult.committed) {
     logger.info("earlyPrCreation: no changes to commit");
     return null;
@@ -230,7 +237,7 @@ export async function incrementalPush({ gitCtx, task, logger, session }) {
   if (!gitCtx?.enabled) return null;
 
   const commitMsg = commitMessageFromTask(task);
-  const commitResult = await commitAll(commitMsg);
+  const commitResult = await commitAll(commitMsg, null, { exclude: gitCtx.preexisting || [] });
   if (!commitResult.committed) {
     logger.info("incrementalPush: no changes to commit");
     return null;
@@ -273,8 +280,10 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     // so stamp that verdict for the staged diff — the v4 pre-commit gate
     // (when the repo opted in) accepts the pipeline's own commit.
     const commitResult = await commitAll(commitMsg, null, {
-      beforeCommit: () => stampStagedVerdict({
+      exclude: gitCtx.preexisting || [],
+      beforeCommit: ({ paths } = {}) => stampStagedVerdict({
         projectDir: config?.projectDir || process.cwd(),
+        paths,
         reviewer: config?.reviewer || "pipeline-reviewer",
         summary: `kj run session ${session?.id || ""}: reviewer approved`.trim(),
         // KJC-TSK-0838: the sonar stage result travels with the stamp.
@@ -285,7 +294,12 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     if (commitResult.commit) {
       commits.push(commitResult.commit);
     }
-    await addCheckpoint(session, { stage: "git-commit", committed });
+    // KJC-BUG-0294: what was pending before the run stays out of the commit and is named;
+    // if the run also touched one of those files, its edit is in the tree, not in the commit.
+    if (commitResult.leftOut?.length) {
+      logger.warn(`Left out of the commit, pending before the run (review and commit them yourself): ${commitResult.leftOut.join(", ")}`);
+    }
+    await addCheckpoint(session, { stage: "git-commit", committed, leftOut: commitResult.leftOut || [] });
     logger.info(committed ? "Committed changes" : "No changes to commit");
   }
 
