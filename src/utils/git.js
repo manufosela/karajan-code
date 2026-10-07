@@ -189,23 +189,30 @@ export async function hasChanges(cwd = null) {
  * is structural here — without it the slice(3) below would crop one
  * character off the first path.
  */
-export async function listPendingPaths() {
-  const res = await run("git", ["status", "--porcelain"]);
+/**
+ * KJC-BUG-0294: the pending entries as `git status --porcelain -z` reports them,
+ * NUL-separated so a path with blanks or quotes arrives whole. A rename is one
+ * entry "R  new\0old": `path` is the new name, `oldPath` the one that goes away.
+ * @returns {Promise<{path: string, oldPath?: string}[]>}
+ */
+export async function listPendingEntries(cwd = null) {
+  const res = await run("git", ["status", "--porcelain", "-z"], cwd ? { cwd } : {});
   if (res.exitCode !== 0) {
     throw new Error(`git status --porcelain failed: ${res.stderr || res.stdout}`);
   }
-  const stdout = res.stdout;
-  if (!stdout) return [];
-  const lines = stdout.split("\n").map((l) => l.replace(/\r$/, "")).filter(Boolean);
+  const tokens = String(res.stdout || "").split("\0").filter(Boolean);
   const out = [];
-  for (const line of lines) {
-    // Each line is "XY <path>" (XY = 2-char status, space, path).
-    // Renames look like "R  old -> new"; we want the new path.
-    const after = line.slice(3);
-    const arrow = after.indexOf(" -> ");
-    out.push(arrow !== -1 ? after.slice(arrow + 4) : after);
+  for (let i = 0; i < tokens.length; i += 1) {
+    const entry = { path: tokens[i].slice(3) };
+    if (/^[RC]/.test(tokens[i]) || /^.[RC]/.test(tokens[i])) entry.oldPath = tokens[++i];
+    out.push(entry);
   }
   return out;
+}
+
+/** The pending paths; a rename contributes both its names (the old one is a pending deletion). */
+export async function listPendingPaths(cwd = null) {
+  return (await listPendingEntries(cwd)).flatMap((e) => (e.oldPath ? [e.oldPath, e.path] : [e.path]));
 }
 
 // Locale-tolerant detection of "git commit refused because the working
@@ -229,17 +236,36 @@ function isNothingToCommit(message) {
   return NOTHING_TO_COMMIT_PATTERNS.some((re) => re.test(m));
 }
 
-export async function commitAll(message, cwd = null, { beforeCommit = null } = {}) {
+/**
+ * KJC-BUG-0294 (#1993): the pipeline commits what the run changed, never what
+ * was already dirty or untracked before it (`exclude`: the paths pending when
+ * the run started, the harness kj generates among them). `git add -A` staged
+ * 22 untracked files and 960 lines of contract into one step's commit.
+ */
+export async function commitAll(message, cwd = null, { beforeCommit = null, exclude = [] } = {}) {
   const opts = cwd ? { cwd } : {};
-  await runGit(["add", "-A"], opts);
-  const changed = await hasChanges(cwd);
-  if (!changed) return { committed: false };
+  const skip = new Set(exclude);
+  const pending = await listPendingEntries(cwd);
+  const names = (e) => (e.oldPath ? [e.oldPath, e.path] : [e.path]);
+  // A rename of a file that was dirty before the run is that file under a new name.
+  const theirs = (e) => names(e).some((p) => skip.has(p));
+  // A rename stages its old name too (the deletion), or git keeps the old file.
+  const paths = pending.filter((e) => !theirs(e)).flatMap(names);
+  // A path dirty before the run may hold the run's edits too; they cannot be told
+  // apart, so the path stays out and is NAMED (`leftOut`) for the person to commit.
+  const leftOut = pending.filter(theirs).flatMap(names);
+  const said = leftOut.length > 0 ? { leftOut } : {};
+  if (paths.length === 0) return { committed: false, ...said };
+  await runGit(["add", "--", ...paths], opts);
   // ENV-F1 (KJC-TSK-0643): runs between staging and committing — the only
   // window where the staged diff is exactly what the commit will contain
   // (used to stamp the pipeline's review verdict for the v4 gate).
-  if (beforeCommit) await beforeCommit();
+  // The callback learns the exact paths, so a verdict stamped there binds to the
+  // diff this commit will contain and not to whatever else the index holds.
+  if (beforeCommit) await beforeCommit({ paths });
   try {
-    await runGit(["commit", "-m", message], opts);
+    // --only: these paths and nothing else; what the person had staged stays staged.
+    await runGit(["commit", "-m", message, "--only", "--", ...paths], opts);
   } catch (err) {
     // `git status --porcelain` and `git commit` disagreed about whether
     // there was anything to commit. Don't escalate — the only outcome
@@ -252,7 +278,7 @@ export async function commitAll(message, cwd = null, { beforeCommit = null } = {
   }
   const raw = await runGit(["log", "-1", "--pretty=format:%H%x1f%s"], opts);
   const [hash, commitMessage] = raw.split("\x1f");
-  return { committed: true, commit: { hash, message: commitMessage } };
+  return { committed: true, commit: { hash, message: commitMessage }, ...said };
 }
 
 /**

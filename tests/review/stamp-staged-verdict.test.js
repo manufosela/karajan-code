@@ -55,6 +55,21 @@ describe("stampStagedVerdict", () => {
     expect((await checkVerdict(dir, staged)).verdict.sonar).toEqual(sonar);
   });
 
+  // KJC-BUG-0294: the pipeline commits by path; the verdict binds to that diff,
+  // not to other files the person had staged.
+  it("with paths, the verdict binds to the diff of those paths alone", async () => {
+    fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".karajan", "review-gate"), "");
+    fs.writeFileSync(path.join(dir, "theirs.js"), "// staged by the person before the run\n");
+    execFileSync("git", ["add", "theirs.js"], { cwd: dir });
+    const res = await stampStagedVerdict({ projectDir: dir, reviewer: "codex", paths: ["a.js"] });
+    expect(res.stamped).toBe(true);
+    const own = execFileSync("git", ["diff", "--cached", "--", "a.js"], { cwd: dir, encoding: "utf8" });
+    const whole = execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" });
+    expect((await checkVerdict(dir, own)).ok).toBe(true);
+    expect((await checkVerdict(dir, whole)).ok).toBe(false);
+  });
+
   it("gate marker but empty staged diff → does not stamp", async () => {
     execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-qm", "seed"], { cwd: dir });
     fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });

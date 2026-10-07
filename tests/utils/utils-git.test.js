@@ -106,8 +106,8 @@ describe("utils/git", () => {
   describe("commitAll — race tolerance", () => {
     it("returns committed: false when git commit refuses with English 'nothing to commit'", async () => {
       runCommand
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })            // git add -A
-        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\n", stderr: "" }) // git status --porcelain → has changes
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\0", stderr: "" }) // git status --porcelain -z → has changes
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })            // git add -- file.js
         .mockResolvedValueOnce({ exitCode: 1, stdout: "nothing to commit, working tree clean\n", stderr: "" }); // git commit fails
 
       const result = await git.commitAll("test commit");
@@ -116,8 +116,8 @@ describe("utils/git", () => {
 
     it("returns committed: false on Spanish 'nada para hacer commit'", async () => {
       runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\0", stderr: "" })
         .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\n", stderr: "" })
         .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "nada para hacer commit, el árbol de trabajo está limpio\n" });
 
       const result = await git.commitAll("test commit");
@@ -126,28 +126,68 @@ describe("utils/git", () => {
 
     it("re-throws on a real git error (not a 'nothing to commit' false alarm)", async () => {
       runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\0", stderr: "" })
         .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\n", stderr: "" })
         .mockResolvedValueOnce({ exitCode: 128, stdout: "", stderr: "fatal: unable to write index\n" });
 
       await expect(git.commitAll("test commit")).rejects.toThrow(/unable to write index/);
     });
   });
 
+  // KJC-BUG-0294 (#1993): the pipeline commits what the run changed, never what
+  // was pending before it. `git add -A` once staged 22 untracked harness files.
+  describe("commitAll — only the run's paths", () => {
+    it("stages and commits the pending paths minus the pre-existing ones, with --only", async () => {
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M src/a.js\0?? CLAUDE.md\0?? .claude/settings.json\0R  src/new.js\0src/old.js\0", stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "abc\x1ffeat: x", stderr: "" });
+      const result = await git.commitAll("feat: x", null, { exclude: ["CLAUDE.md", ".claude/settings.json"] });
+      expect(result).toEqual({ committed: true, commit: { hash: "abc", message: "feat: x" }, leftOut: ["CLAUDE.md", ".claude/settings.json"] });
+      // The rename stages both names, or the old file would stay behind.
+      expect(runCommand).toHaveBeenNthCalledWith(2, "git", ["add", "--", "src/a.js", "src/old.js", "src/new.js"], {});
+      expect(runCommand).toHaveBeenNthCalledWith(3, "git", ["commit", "-m", "feat: x", "--only", "--", "src/a.js", "src/old.js", "src/new.js"], {});
+    });
+
+    it("a rename of a file that was dirty before the run stays out, under both names", async () => {
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "R  src/renamed.js\0src/theirs.js\0", stderr: "" });
+      expect(await git.commitAll("x", null, { exclude: ["src/theirs.js"] })).toEqual({ committed: false, leftOut: ["src/theirs.js", "src/renamed.js"] });
+      expect(runCommand).toHaveBeenCalledTimes(1);
+    });
+
+    it("hands the exact paths to beforeCommit, so a stamped verdict binds to this commit's diff", async () => {
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M src/a.js\0M  theirs.js\0", stderr: "" })
+        .mockResolvedValue({ exitCode: 0, stdout: "abc\x1fx", stderr: "" });
+      const beforeCommit = vi.fn();
+      await git.commitAll("x", null, { beforeCommit, exclude: ["theirs.js"] });
+      expect(beforeCommit).toHaveBeenCalledWith({ paths: ["src/a.js"] });
+    });
+
+    it("commits nothing when every pending path was there before the run", async () => {
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "?? CLAUDE.md\0", stderr: "" });
+      // Named, so a run edit inside a pre-dirty file is never lost in silence.
+      expect(await git.commitAll("feat: x", null, { exclude: ["CLAUDE.md"] })).toEqual({ committed: false, leftOut: ["CLAUDE.md"] });
+      expect(runCommand).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("commitAll", () => {
     it("stages and commits when there are changes", async () => {
       runCommand
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // git add -A
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "M file.js", stderr: "" })  // git status --porcelain
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // git commit
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\0", stderr: "" })  // git status --porcelain -z
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // git add -- file.js
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // git commit --only -- file.js
         .mockResolvedValueOnce({ exitCode: 0, stdout: "abc123\x1ffeat: test commit", stderr: "" });  // git log -1
 
       const result = await git.commitAll("test commit");
 
       expect(result.committed).toBe(true);
       expect(result.commit).toEqual({ hash: "abc123", message: "feat: test commit" });
-      expect(runCommand).toHaveBeenCalledWith("git", ["add", "-A"], expect.anything());
-      expect(runCommand).toHaveBeenCalledWith("git", ["commit", "-m", "test commit"], expect.anything());
+      // KJC-BUG-0294: by path, never `add -A`.
+      expect(runCommand).toHaveBeenCalledWith("git", ["add", "--", "file.js"], expect.anything());
+      expect(runCommand).toHaveBeenCalledWith("git", ["commit", "-m", "test commit", "--only", "--", "file.js"], expect.anything());
     });
 
     it("skips commit when no changes after staging", async () => {
@@ -233,24 +273,26 @@ describe("utils/git", () => {
       expect(paths).toEqual([]);
     });
 
-    it("parses simple modified/added paths", async () => {
+    // KJC-BUG-0294: read with -z (NUL-separated), so a path with blanks arrives whole.
+    it("parses simple modified/added paths, blanks included", async () => {
       runCommand.mockResolvedValue({
         exitCode: 0,
-        stdout: " M src/foo.js\n?? new-file.txt\nA  staged.js\n",
+        stdout: " M src/foo.js\0?? new file.txt\0A  staged.js\0",
         stderr: "",
       });
       const paths = await git.listPendingPaths();
-      expect(paths).toEqual(["src/foo.js", "new-file.txt", "staged.js"]);
+      expect(paths).toEqual(["src/foo.js", "new file.txt", "staged.js"]);
+      expect(runCommand).toHaveBeenCalledWith("git", ["status", "--porcelain", "-z"], {});
     });
 
-    it("returns the post-rename path when git reports a rename", async () => {
+    it("returns both names of a rename (the old one is a pending deletion), and oldPath in the entries", async () => {
       runCommand.mockResolvedValue({
         exitCode: 0,
-        stdout: "R  old/path.js -> new/path.js\n",
+        stdout: "R  new/path.js\0old/path.js\0 M other.js\0",
         stderr: "",
       });
-      const paths = await git.listPendingPaths();
-      expect(paths).toEqual(["new/path.js"]);
+      expect(await git.listPendingPaths()).toEqual(["old/path.js", "new/path.js", "other.js"]);
+      expect(await git.listPendingEntries()).toEqual([{ path: "new/path.js", oldPath: "old/path.js" }, { path: "other.js" }]);
     });
 
     it("includes the .gitignore + .karajan/ scaffold when triage extends them", async () => {
@@ -258,7 +300,7 @@ describe("utils/git", () => {
       // the duplicate `feat: ...` commit reported in N3-1.
       runCommand.mockResolvedValue({
         exitCode: 0,
-        stdout: " M .gitignore\n?? .karajan/coder-rules.md\n?? .reviews/s_xx/summary.md\n",
+        stdout: " M .gitignore\0?? .karajan/coder-rules.md\0?? .reviews/s_xx/summary.md\0",
         stderr: "",
       });
       const paths = await git.listPendingPaths();
