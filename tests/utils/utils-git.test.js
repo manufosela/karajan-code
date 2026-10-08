@@ -80,6 +80,11 @@ describe("utils/git", () => {
 
       expect(slug.length).toBeLessThanOrEqual(40);
     });
+
+    // KJC-BUG-0249 (#1896): a card names the branch, with no stamp.
+    it("with a Planning Game card, feat/<CARD-ID>-<slug>", () => {
+      expect(git.buildBranchName("feat/", "Add login feature", "CUL-TSK-0001")).toBe("feat/CUL-TSK-0001-add-login-feature");
+    });
   });
 
   describe("hasChanges", () => {

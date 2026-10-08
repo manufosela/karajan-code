@@ -142,7 +142,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
         branchName = `kj-hu-${story.id}`;
         huBranches.set(story.id, branchName);
       } else {
-        branchName = await prepareHuBranch({ story, huBranches, config: laneConfig, logger });
+        branchName = await prepareHuBranch({ story, huBranches, config: laneConfig, logger, cardId: ctx.session?.pg_task_id || null });
       }
 
       // KJC-TSK-0408 step 2: snapshot del workspace ANTES de invocar al

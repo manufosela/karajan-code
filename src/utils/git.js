@@ -162,9 +162,20 @@ export async function createBranch(branchName) {
   await runGit(["checkout", "-b", branchName]);
 }
 
-export function buildBranchName(prefix, task) {
+export async function checkoutBranch(branchName) {
+  await runGit(["checkout", branchName]);
+}
+
+/**
+ * KJC-BUG-0249 (#1896): with a Planning Game card the branch carries its id,
+ * `feat/<CARD-ID>-<slug>`, the name the card-first gate reads; the stamp is
+ * for a run with no card, where nothing else makes the name unique.
+ */
+export function buildBranchName(prefix, task, cardId = null) {
+  const slug = slugifyTask(task) || "task";
+  if (cardId) return `${prefix}${cardId}-${slug}`;
   const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-").slice(0, 16);
-  return `${prefix}${slugifyTask(task) || "task"}-${stamp}`;
+  return `${prefix}${slug}-${stamp}`;
 }
 
 export async function hasChanges(cwd = null) {
