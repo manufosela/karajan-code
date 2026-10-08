@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.45.0] - 2026-10-08
+
+Approved means the card's criteria are in the diff. The same session that
+reported the six field bugs of 4.44 had a run end approved with none of the
+card's three acceptance criteria implemented; with the card read, the run now
+has a judge that reads each criterion against the diff before it says
+approved. With it, two things the day's releases left behind: `kj harden`
+after a version bump no longer blocks itself against the seal, and `kj update`
+never downgrades a kj that runs from a linked source tree.
+
+### Added
+
+- **The card's criteria are judged against the diff before approval** (KJC-TSK-0987, KJC-TSK-0990, #1894): a different AI than the coder (the reviewer's provider) reads each acceptance criterion of the Planning Game card against the diff and answers one by one: covered, with the evidence, or not. On the single-branch path an uncovered criterion goes back to the coder as feedback; on the HU path, once every HU approved itself against its own story, the card's criteria are read against the diff of the whole run and uncovered ones make the result `approved:false` with `reason: acceptance_criteria_uncovered` and the list. A judge with no readable verdict stops the approval (`acceptance_coverage_unavailable`), never grants it. No card or no criteria: the stage does not run and costs nothing. Assigning each criterion to an HU at decomposition time is KJC-TSK-0989.
+
+### Fixed
+
+- **`kj harden` after a version bump no longer blocks itself against the seal** (KJC-BUG-0302): the contract commit took the regenerated hooks too, the gate refused that commit, and the seal then refused the stage for holding the regenerated policy workflow. A tracked supervisor file that changed is the seal's (ADR 0009) and never rides in the contract commit; a first install still does; a commit git refuses names the files, quoted, and the way to commit them on a branch.
+- **`kj update` never downgrades, and never replaces a linked source tree** (KJC-BUG-0301): a kj newer than the registry's latest has nothing to update, and a kj whose own path does not pass through `node_modules` (npm link) is never replaced; the message says how to update that tree or unlink it.
+
 ## [4.44.1] - 2026-10-08
 
 The same content as 4.44.0, republished: the 4.44.0 publish was left in the

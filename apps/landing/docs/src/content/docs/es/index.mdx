@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.44.1: el run dice lo que no pudo hacer (actual)
+### v4.45.0: aprobado significa que los criterios de la card están en el diff (actual)
+
+Un run terminó aprobado sin implementar ninguno de los tres criterios de aceptación de la card. Con card leída, una IA distinta del coder lee ahora cada criterio contra el diff antes de que el run diga aprobado y contesta uno a uno: cubierto, con la evidencia, o no. Un criterio sin cubrir vuelve al coder; en el camino de HUs el resultado dice `approved:false` con la lista; un juez sin veredicto legible nunca concede una aprobación. Además: `kj harden` tras subir de versión ya no se bloquea contra el sello, y `kj update` nunca degrada un kj enlazado desde su árbol fuente.
+
+### v4.44.1: el run dice lo que no pudo hacer
 
 Seis reportes de campo de un mismo día sobre un proyecto recién creado: un run aprobado sin push y sin PR y sin decirlo, cinco commits con dos identidades, ramas con nombre de HUs inventadas, una card que no se pudo leer y un pipeline que siguió sin ella, y un agente con kj instalado y nunca endurecido rodeando cada gate a mano. Ahora el push o la PR que falla viaja en el resultado del run con su remedio (el rechazo por el scope `workflow` nombra el arreglo exacto); la identidad git se resuelve una vez y cada commit del run la lleva; con card la rama es `feat/<CARD-ID>-<slug>` en los dos caminos; una card que no se puede leer para el run antes de empezar; un host Claude sin el harness del Sentinel también lo para, y una issue para karajan-code sale por `kj report-issue`. La primera sesión de cada versión invita a enrolar el móvil (ADR 0018).
 
