@@ -7,6 +7,8 @@ import { addCheckpoint } from "../session/store.js";
 import { pipelineSonarBlock, stampStagedVerdict } from "../review/verdict-store.js";
 import { branchSize } from "../commands/pr-size.js";
 import { pushRemedy } from "./hu-automation.js";
+import { resolveRunIdentity } from "./run-identity.js";
+import { getRunContext } from "../utils/run-context.js";
 import {
   ensureGitRepo,
   currentBranch,
@@ -111,6 +113,20 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
 
   if (!(await ensureGitRepo())) {
     throw new Error("Git automation requested but current directory is not a git repository");
+  }
+
+  // KJC-BUG-0246 (#1893): one identity for every commit of the run, resolved
+  // once: the clone's declaration, else the repository's config, else the
+  // global one. From the global config it is said, because another session
+  // may switch it mid-run. Nothing resolvable: git refuses the commit loudly.
+  const identity = resolveRunIdentity({ projectDir: config.projectDir || process.cwd() });
+  const runContext = getRunContext();
+  if (identity && runContext) runContext.gitIdentity = identity;
+  if (identity) {
+    logger.info(`Git identity for this run: ${identity.name} <${identity.email}> (${identity.source})`);
+    if (identity.source === "global") logger.warn("The identity comes from the global git config, which another session may switch mid-run: declare this clone's with kj identity set, or set user.email in this repository");
+  } else {
+    logger.warn("No git identity resolvable (kj identity set, or git config user.name and user.email): the first commit will fail");
   }
 
   const baseBranch = config.base_branch;

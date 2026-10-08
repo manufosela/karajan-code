@@ -1,5 +1,6 @@
 import { runCommand } from "./process.js";
 import { getRunContext } from "./run-context.js";
+import { identityEnv } from "../git/run-identity.js";
 
 /**
  * Module-scoped runner — legacy back-compat for callers outside a
@@ -263,9 +264,13 @@ export async function commitAll(message, cwd = null, { beforeCommit = null, excl
   // The callback learns the exact paths, so a verdict stamped there binds to the
   // diff this commit will contain and not to whatever else the index holds.
   if (beforeCommit) await beforeCommit({ paths });
+  // KJC-BUG-0246 (#1893): every commit of a run carries the identity the run
+  // resolved once (prepareGitAutomation), never what git resolves at that moment.
+  const identity = getRunContext()?.gitIdentity;
+  const commitOpts = identity ? { ...opts, env: { ...process.env, ...identityEnv(identity) } } : opts;
   try {
     // --only: these paths and nothing else; what the person had staged stays staged.
-    await runGit(["commit", "-m", message, "--only", "--", ...paths], opts);
+    await runGit(["commit", "-m", message, "--only", "--", ...paths], commitOpts);
   } catch (err) {
     // `git status --porcelain` and `git commit` disagreed about whether
     // there was anything to commit. Don't escalate — the only outcome
