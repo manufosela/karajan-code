@@ -69,3 +69,9 @@ globalThis.__KJ_DEFAULT_ADDYOSMANI_ENABLED = false;
 // exercise the sonar stage opt in by setting __KJ_DISABLE_SONAR_STAGE = false
 // in their own setup, or mock runSonarStage directly.
 globalThis.__KJ_DISABLE_SONAR_STAGE = true;
+
+// KJC-BUG-0298: the suite-green gate runs the project's real test command every
+// iteration under TDD. Under Vitest that command is THIS repo's own suite, run
+// from inside a test (minutes, and a timeout). Off by default here; the gate has
+// its own unit tests (tests/orchestrator/suite-green-stage.test.js).
+globalThis.__KJ_DISABLE_SUITE_GREEN_STAGE = true;

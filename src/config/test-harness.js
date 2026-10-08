@@ -29,6 +29,7 @@
  * | config.testHarness key         | globalThis key                  | prod default |
  * |--------------------------------|----------------------------------|--------------|
  * | disableSonarStage              | __KJ_DISABLE_SONAR_STAGE        | false        |
+ * | disableSuiteGreenStage         | __KJ_DISABLE_SUITE_GREEN_STAGE  | false        |
  * | defaultSkillsMode              | __KJ_DEFAULT_SKILLS_MODE        | "auto"       |
  * | defaultPreflightExtended       | __KJ_DEFAULT_PREFLIGHT_EXTENDED | true         |
  * | defaultBrainDecisor            | __KJ_DEFAULT_BRAIN_DECISOR      | true         |
@@ -37,6 +38,9 @@
 
 const GLOBAL_KEYS = {
   disableSonarStage:        "__KJ_DISABLE_SONAR_STAGE",
+  // KJC-BUG-0298: the suite-green gate runs the project's REAL test command;
+  // under Vitest that is this repo's own suite inside a test. Off in tests/setup.js.
+  disableSuiteGreenStage:   "__KJ_DISABLE_SUITE_GREEN_STAGE",
   defaultSkillsMode:        "__KJ_DEFAULT_SKILLS_MODE",
   defaultPreflightExtended: "__KJ_DEFAULT_PREFLIGHT_EXTENDED",
   defaultBrainDecisor:      "__KJ_DEFAULT_BRAIN_DECISOR",
@@ -45,6 +49,7 @@ const GLOBAL_KEYS = {
 
 const PROD_DEFAULTS = Object.freeze({
   disableSonarStage:        false,
+  disableSuiteGreenStage:   false,
   defaultSkillsMode:        "auto",
   defaultPreflightExtended: true,
   defaultBrainDecisor:      true,

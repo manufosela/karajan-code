@@ -31,7 +31,7 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
   if (tddResult.action === "continue") return { action: "continue" };
 
   // KJC-BUG-0298 (#1993): with TDD, a red suite never reaches the reviewer.
-  if (config.development?.methodology === "tdd" && config.development?.require_green_suite !== false) {
+  if (config.development?.methodology === "tdd" && config.development?.require_green_suite !== false && config?.testHarness?.disableSuiteGreenStage !== true) {
     const green = await runSuiteGreenStage({ config, logger, emitter, eventBase, session, iteration: i });
     if (green.action === "continue") return { action: "continue" };
   }
