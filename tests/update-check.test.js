@@ -4,6 +4,8 @@ import {
   updateInstruction,
   parseChangelogHighlight,
   performSelfUpdate,
+  isSourceTree,
+  isNewerVersion,
   INSTALL_SH_URL,
   INSTALL_PS1_URL,
 } from "../src/utils/update-check.js";
@@ -164,6 +166,20 @@ describe("updateInstruction", () => {
   });
 });
 
+// KJC-BUG-0301: the two facts that keep kj update from a downgrade or a link.
+describe("isSourceTree / isNewerVersion", () => {
+  it("a module under node_modules is an install; anywhere else is a source tree", () => {
+    expect(isSourceTree("/usr/lib/node_modules/karajan-code/src/utils/update-check.js")).toBe(false);
+    expect(isSourceTree("/home/me/ws/karajan-code/src/utils/update-check.js")).toBe(true);
+  });
+  it("compares major.minor.patch numerically", () => {
+    expect(isNewerVersion("4.44.0", "4.43.0")).toBe(true);
+    expect(isNewerVersion("4.44.0", "4.44.1")).toBe(false);
+    expect(isNewerVersion("4.10.0", "4.9.9")).toBe(true);
+    expect(isNewerVersion("4.44.0", "4.44.0")).toBe(false);
+  });
+});
+
 describe("performSelfUpdate", () => {
   const makeLogger = () => ({ log: vi.fn(), error: vi.fn() });
   const logged = (logger) => logger.log.mock.calls.map((c) => c.join(" ")).join("\n");
@@ -182,13 +198,37 @@ describe("performSelfUpdate", () => {
     expect(logged(logger)).toMatch(/Already on the latest/);
   });
 
+  // KJC-BUG-0301: a linked 4.44.0 was "updated" to the registry's 4.43.0 and the
+  // development link replaced by a global install.
+  it("a kj newer than the registry is never downgraded", async () => {
+    const exec = vi.fn();
+    const logger = makeLogger();
+    const result = await performSelfUpdate({
+      currentVersion: "4.44.0", exec, logger, channel: "npm", fetchFn: registry("4.43.0"), sourceTree: false,
+    });
+    expect(result).toEqual({ ok: true, newerThanRegistry: true, latest: "4.43.0" });
+    expect(exec).not.toHaveBeenCalled();
+    expect(logged(logger)).toMatch(/newer than the registry/);
+  });
+
+  it("a kj running from a source tree (npm link) is never replaced by an install", async () => {
+    const exec = vi.fn();
+    const logger = makeLogger();
+    const result = await performSelfUpdate({
+      currentVersion: "4.43.0", exec, logger, channel: "npm", fetchFn: registry("4.44.0"), sourceTree: true,
+    });
+    expect(result).toEqual({ ok: true, latest: "4.44.0", manual: true });
+    expect(exec).not.toHaveBeenCalled();
+    expect(logged(logger)).toMatch(/source tree.*npm unlink -g karajan-code/);
+  });
+
   it("installs the latest, hides npm's noise, and verifies the kj on PATH", async () => {
     const noisy = "npm warn deprecated prebuild-install@7\nnpm warn allow-scripts\n100 packages are looking for funding";
     const exec = vi.fn(async (cmd) =>
       cmd === "kj" ? { stdout: "3.12.0", stderr: "" } : { stdout: noisy, stderr: noisy });
     const logger = makeLogger();
     const result = await performSelfUpdate({
-      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.0"),
+      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.0"), sourceTree: false,
     });
     expect(result).toEqual({ ok: true, latest: "3.12.0" });
     expect(exec).toHaveBeenCalledWith("npm", ["install", "-g", "karajan-code@latest"]);
@@ -206,7 +246,7 @@ describe("performSelfUpdate", () => {
       cmd === "kj" ? { stdout: "3.10.2", stderr: "" } : { stdout: "", stderr: "" });
     const logger = makeLogger();
     const result = await performSelfUpdate({
-      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.2"),
+      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.2"), sourceTree: false,
     });
     expect(result).toEqual({ ok: false });
     const out = errored(logger);
@@ -239,7 +279,7 @@ describe("performSelfUpdate", () => {
     const exec = vi.fn(async () => { throw err; });
     const logger = makeLogger();
     const result = await performSelfUpdate({
-      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.0"),
+      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.0"), sourceTree: false,
     });
     expect(result).toEqual({ ok: false });
     const out = errored(logger);
