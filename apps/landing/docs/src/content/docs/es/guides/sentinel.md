@@ -142,6 +142,10 @@ Igual que el stop gate, en el momento del `git push`: nada sale de la máquina c
 
 La atribución a IA está prohibida por una regla determinista del proyecto, en todas partes, sin escape. Tres capas la imponen: el hook commit-msg la rechaza en los mensajes de commit; el hook pre-commit escanea las líneas AÑADIDAS del diff staged (changelog, docs, comentarios de código, *mencionar* una herramienta sigue siendo legal, atribuir no); y el Sentinel escanea cada comando `gh` que publica texto (crear/editar/comentar/revisar PR/issue/release), incluido el contenido de `--body-file`/`--notes-file`, un fichero ilegible tampoco publica. El CI re-comprueba commits, cuerpo y título del PR. Nació de una pillada real: 15 cuerpos de PR llevaron un pie de atribución porque solo se escaneaban los mensajes de commit (KJC-BUG-0164).
 
+## report-issue
+
+Una issue para karajan-code sale por `kj report-issue`, nunca por `gh issue create` a mano: el comando sanitiza el informe (sin código del proyecto, rutas ni datos personales) y lo contrasta con las issues ya abiertas, para que el mismo bug no se abra seis veces. El Sentinel deniega un `gh issue create` cuyo `--repo`/`-R` nombre karajan-code y dice el comando que toca; cualquier otro repositorio pasa. Nació de una sesión real que abrió seis issues a mano con kj instalado y nunca endurecido (KJC-BUG-0252).
+
 ## escapes
 
 No hay ninguno (ADR 0015). Un gate que necesita un escape es un gate a corregir, y una excepción que el agente pudiera concederse a sí mismo no sería una excepción. Cada decisión que de verdad es del proyecto tiene su cauce, fuera de la sesión:

@@ -75,3 +75,9 @@ globalThis.__KJ_DISABLE_SONAR_STAGE = true;
 // from inside a test (minutes, and a timeout). Off by default here; the gate has
 // its own unit tests (tests/orchestrator/suite-green-stage.test.js).
 globalThis.__KJ_DISABLE_SUITE_GREEN_STAGE = true;
+
+// KJC-BUG-0252: on a Claude host without the Sentinel harness the preflight
+// stops the run. The suite is not a Claude host, however it was launched; the
+// tests that need one set CLAUDECODE themselves.
+delete process.env.CLAUDECODE;
+delete process.env.CLAUDE_CODE;

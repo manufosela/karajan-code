@@ -1,8 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { enableSonarStageForSuite } from "./_fixtures/sonar-stage.js";
 
 vi.mock("../src/utils/agent-detect.js", () => ({
-  checkBinary: vi.fn()
+  checkBinary: vi.fn(),
+  detectHostAgent: vi.fn(() => null)
 }));
 
 vi.mock("../src/sonar/manager.js", () => ({
@@ -398,5 +402,36 @@ describe("preflight-checks", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.errors).toContainEqual(expect.objectContaining({ check: "sonar-reachable" }));
+  });
+
+  // KJC-BUG-0252 (#1899): a Claude host without the Sentinel harness has
+  // nothing governing the host's own actions; the run stops, with the remedy.
+  describe("Sentinel harness on a Claude host", () => {
+    let dir;
+    beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-preflight-harness-")); });
+    afterEach(() => rmSync(dir, { recursive: true, force: true }));
+    const run = () => runPreflightChecks({
+      config: { ...makeConfig(), projectDir: dir }, logger, emitter, eventBase,
+      resolvedPolicies: { sonar: false }, securityEnabled: false,
+    });
+
+    it("stops the run when the harness is not installed", async () => {
+      const { detectHostAgent } = await import("../src/utils/agent-detect.js");
+      detectHostAgent.mockReturnValue("claude");
+      const result = await run();
+      expect(result.ok).toBe(false);
+      expect(result.errors).toEqual([expect.objectContaining({ check: "sentinel-harness", fix: expect.stringMatching(/kj harden/) })]);
+    });
+
+    it("passes with the harness installed, and on a host that is not Claude", async () => {
+      const { detectHostAgent } = await import("../src/utils/agent-detect.js");
+      detectHostAgent.mockReturnValue("claude");
+      mkdirSync(join(dir, ".karajan", "harness"), { recursive: true });
+      writeFileSync(join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs"), "");
+      expect((await run()).errors).toEqual([]);
+      rmSync(join(dir, ".karajan"), { recursive: true, force: true });
+      detectHostAgent.mockReturnValue("codex");
+      expect((await run()).errors).toEqual([]);
+    });
   });
 });

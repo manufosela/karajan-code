@@ -112,6 +112,7 @@ vi.mock("../src/utils/rtk-detect.js", () => ({
 
 vi.mock("../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn().mockResolvedValue({ ok: true, version: "1.0.0" }),
+  detectHostAgent: vi.fn().mockReturnValue(null),
   isHostAgent: vi.fn().mockReturnValue(false)
 }));
 

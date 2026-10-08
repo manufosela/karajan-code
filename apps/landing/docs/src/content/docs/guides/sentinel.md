@@ -142,6 +142,10 @@ Same as the stop gate, at the moment of `git push`: nothing leaves the machine w
 
 AI attribution is forbidden by a deterministic project rule — everywhere, with no escape. Three layers enforce it: the commit-msg hook rejects it in commit messages; the pre-commit hook scans the staged diff's ADDED lines (changelog, docs, code comments — tool *mentions* stay legal, attribution does not); and the Sentinel scans every `gh` command that publishes text (PR/issue/release create, edit, comment, review), including the contents of `--body-file`/`--notes-file` — an unreadable file does not publish either. CI re-checks commits, PR body and title. Born from a real catch: 15 PR bodies shipped an attribution footer because only commit messages were scanned (KJC-BUG-0164).
 
+## report-issue
+
+An issue for karajan-code goes through `kj report-issue`, never through `gh issue create` by hand: the command sanitizes the report (no project code, paths or personal data) and checks it against the issues already open, so the same bug is not filed six times. The Sentinel denies a `gh issue create` whose `--repo`/`-R` names karajan-code and says the command to use; any other repository passes. Born from a real session that opened six issues by hand with kj installed and never hardened (KJC-BUG-0252).
+
 ## escapes
 
 There are none (ADR 0015). A gate that needs an escape is a gate to fix, and an exception the agent could raise for itself would not be an exception. Each decision that really is the project's has its own channel, outside the session:
