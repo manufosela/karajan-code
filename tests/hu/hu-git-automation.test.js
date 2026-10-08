@@ -10,8 +10,9 @@ vi.mock("../../src/utils/git.js", () => ({
   hasChanges: vi.fn(),
 }));
 
-const { buildHuBranchName, resolveHuBase, prepareHuBranch } = await import("../../src/git/hu-automation.js");
+const { buildHuBranchName, resolveHuBase, prepareHuBranch, finalizeHuCommit, collectGitWarnings } = await import("../../src/git/hu-automation.js");
 const { runCommand } = await import("../../src/utils/process.js");
+const { hasChanges, commitAll, pushBranch, createPullRequest } = await import("../../src/utils/git.js");
 
 describe("buildHuBranchName", () => {
   it("builds branch name with prefix, id and slug", () => {
@@ -153,5 +154,46 @@ describe("prepareHuBranch — base-branch fallback (N6 dogfooding)", () => {
     const branch = await prepareHuBranch({ story: { id: "HU-01" }, huBranches: new Map(), config, logger });
     expect(branch).toBeNull();
     expect(runCommand).not.toHaveBeenCalled();
+  });
+});
+
+// KJC-BUG-0248 (#1895): with auto_push and auto_pr on, a push or a PR that
+// failed was one warn line; the run then said approved with no push and no
+// PR. The failure travels in the result, with its remedy.
+describe("finalizeHuCommit says what failed (KJC-BUG-0248)", () => {
+  const config = { git: { auto_commit: true, auto_push: true, auto_pr: true }, base_branch: "main" };
+  const story = { id: "HU-01", title: "scaffold" };
+  const logger = { info: vi.fn(), warn: vi.fn() };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hasChanges.mockResolvedValue(true);
+    commitAll.mockResolvedValue({ hash: "abc1234" });
+  });
+
+  it("a push refused for the workflow scope names the scope and its remedy, and no PR is tried", async () => {
+    pushBranch.mockRejectedValue(new Error("git push failed: ! [remote rejected] (refusing to allow an OAuth App to create or update workflow `.github/workflows/ci.yml` without `workflow` scope)"));
+    const r = await finalizeHuCommit({ story, branchName: "feat/HU-01-scaffold", config, logger });
+    expect(r).toMatchObject({ committed: true, pushed: false, prUrl: null, branch: "feat/HU-01-scaffold" });
+    expect(r.errors).toEqual([expect.objectContaining({ step: "push", message: expect.stringMatching(/workflow/) })]);
+    expect(r.errors[0].remedy).toMatch(/gh auth refresh -h github.com -s workflow/);
+    expect(createPullRequest).not.toHaveBeenCalled();
+  });
+
+  it("a PR that fails after the push travels too", async () => {
+    pushBranch.mockResolvedValue(undefined);
+    createPullRequest.mockRejectedValue(new Error("gh pr create failed: no commits between main and feat/HU-01-scaffold"));
+    const r = await finalizeHuCommit({ story, branchName: "feat/HU-01-scaffold", config, logger });
+    expect(r.pushed).toBe(true);
+    expect(r.errors).toEqual([expect.objectContaining({ step: "pr", message: expect.stringMatching(/no commits between/) })]);
+    expect(r.errors[0].remedy).toMatch(/gh pr create --base main --head feat\/HU-01-scaffold/);
+  });
+
+  it("collectGitWarnings names the HU, the step, the message and the remedy", () => {
+    const results = [
+      { huId: "HU-01", result: { git: { errors: [{ step: "push", message: "refused", remedy: "push it yourself" }] } } },
+      { huId: "HU-02", result: { git: { errors: [] } } },
+      { huId: "HU-03", result: {} },
+    ];
+    expect(collectGitWarnings(results)).toEqual(["HU-01: push failed: refused. push it yourself"]);
   });
 });

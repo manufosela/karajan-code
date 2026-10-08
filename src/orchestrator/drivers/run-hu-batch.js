@@ -57,7 +57,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
   // Per-HU pipeline: focused max_iterations, fresh Brain state, own git branch.
   const huMaxIterations = ctx.config.hu_max_iterations ?? 3;
   const huBranches = new Map();
-  const { prepareHuBranch, finalizeHuCommit } = await import("../../git/hu-automation.js");
+  const { prepareHuBranch, finalizeHuCommit, collectGitWarnings } = await import("../../git/hu-automation.js");
 
   // PR F (v2.7.5): the per-HU loop needs three pieces of plan context:
   //   • ADRs (loaded once from disk, applies to every HU on this plan)
@@ -257,8 +257,8 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             );
             if (pendingGherkinTests.length === 0) {
               logger.info(`HU ${story.id}: all shell acceptance tests PASSED, no Gherkin to translate — approved`);
-              await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
-              return { approved: true, sessionId: laneSession.id, reason: "acceptance_tests_passed" };
+              const git = await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
+              return { approved: true, sessionId: laneSession.id, reason: "acceptance_tests_passed", git };
             }
 
             // Shell tests passed; Gherkin needs translation. Invoke the
@@ -276,8 +276,8 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             const testerStage = testerOutcome?.stageResult;
             if (testerOutcome?.action !== "continue" && testerStage?.verdict === "pass") {
               logger.info(`HU ${story.id}: tester translated Gherkin and verdict=pass — approved`);
-              await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
-              return { approved: true, sessionId: laneSession.id, reason: "acceptance_tests_passed" };
+              const git = await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
+              return { approved: true, sessionId: laneSession.id, reason: "acceptance_tests_passed", git };
             }
 
             // Tester rejected (translated tests failed or coverage
@@ -375,7 +375,10 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
       const laneCtx = { ...ctx, config: laneConfig, pipelineFlags: laneFlags, session: laneSession, brainCtx: laneBrain, plannedTask: lanePlannedTask };
       const result = await runIterationLoop(laneCtx, { task: huTask, askQuestion, emitter, logger });
       if (result?.approved) {
-        await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
+        // KJC-BUG-0248: what the HU's push or PR said joins what the loop recorded.
+        const git = await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
+        const prev = result.git ?? {};
+        return { ...result, git: { ...prev, prUrl: prev.prUrl ?? git.prUrl, errors: [...(prev.errors ?? []), ...git.errors] } };
       }
       return result;
     },
@@ -415,12 +418,17 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
     }
   }
 
+  // KJC-BUG-0248 (#1895): a push or a PR that failed is said in the result
+  // the host reads, not only in a warn line of the log.
+  const warnings = collectGitWarnings(subPipelineResult.results);
+  for (const w of warnings) logger.warn(`git automation: ${w}`);
   const finalResult = {
     approved: subPipelineResult.approved,
     sessionId: ctx.session.id,
     huResults: subPipelineResult.results,
     blockedIds: subPipelineResult.blockedIds,
-    planId: ctx.session._planRef?.planId || null
+    planId: ctx.session._planRef?.planId || null,
+    ...(warnings.length > 0 ? { warnings } : {})
   };
   await writeHistoryRecord({ sessionId: ctx.session.id, task, result: finalResult, logger });
   return { handled: true, result: finalResult };

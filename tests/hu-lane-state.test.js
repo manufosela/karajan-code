@@ -28,7 +28,8 @@ vi.mock("../src/orchestrator/drivers/post-loop.js", () => ({ writeHistoryRecord:
 vi.mock("../src/git/hu-snapshot.js", () => ({ createHuSnapshot: vi.fn(async () => ({ ok: false, error: "skip" })) }));
 vi.mock("../src/git/hu-automation.js", () => ({
   prepareHuBranch: (...args) => prepareHuBranchMock(...args),
-  finalizeHuCommit: (...args) => finalizeHuCommitMock(...args)
+  finalizeHuCommit: (...args) => finalizeHuCommitMock(...args),
+  collectGitWarnings: () => []
 }));
 vi.mock("../src/guards/policy-resolver.js", () => ({
   effectiveTaskType: () => "sw",

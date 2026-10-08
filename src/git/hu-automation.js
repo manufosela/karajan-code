@@ -104,17 +104,36 @@ export async function prepareHuBranch({ story, huBranches, config, logger }) {
 }
 
 /**
+ * KJC-BUG-0248 (#1895): the remedy for a push git refused, read from its
+ * message. GitHub refuses a push that adds or changes a workflow file when
+ * the token lacks the `workflow` scope; that one has an exact fix.
+ */
+export function pushRemedy(message, branch) {
+  if (/workflow/i.test(message) && /scope/i.test(message)) {
+    return `the token lacks the workflow scope: run gh auth refresh -h github.com -s workflow, then git push -u origin ${branch}`;
+  }
+  return `push the branch yourself: git push -u origin ${branch}`;
+}
+
+/** The warnings a run reports when the push or the PR of any HU failed. */
+export function collectGitWarnings(results) {
+  return results.flatMap((r) => (r.result?.git?.errors ?? []).map((e) => `${r.huId}: ${e.step} failed: ${e.message}. ${e.remedy}`));
+}
+
+/**
  * After an HU is approved, commit its changes and optionally push + create PR.
+ * A push or PR that fails is not only a warn line: it travels in `errors`
+ * with its remedy, so the run's result says it (KJC-BUG-0248).
  *
  * @param {object} params
  * @param {object} params.story
  * @param {string} params.branchName
  * @param {object} params.config
  * @param {object} params.logger
- * @returns {Promise<{committed: boolean, pushed: boolean, prUrl: string|null}>}
+ * @returns {Promise<{committed: boolean, pushed: boolean, prUrl: string|null, branch: string|null, errors: Array<{step: string, message: string, remedy: string}>}>}
  */
 export async function finalizeHuCommit({ story, branchName, config, logger, cwd = null }) {
-  const result = { committed: false, pushed: false, prUrl: null };
+  const result = { committed: false, pushed: false, prUrl: null, branch: branchName || null, errors: [] };
   if (!branchName) return result;
 
   const changed = await hasChanges(cwd);
@@ -139,7 +158,9 @@ export async function finalizeHuCommit({ story, branchName, config, logger, cwd 
       result.pushed = true;
       logger.info(`HU ${story.id}: pushed '${branchName}'`);
     } catch (err) {
-      logger.warn(`HU ${story.id}: push failed: ${err.message}`);
+      const remedy = pushRemedy(err.message, branchName);
+      result.errors.push({ step: "push", message: err.message, remedy });
+      logger.warn(`HU ${story.id}: push failed: ${err.message} (${remedy})`);
     }
   }
 
@@ -163,7 +184,9 @@ export async function finalizeHuCommit({ story, branchName, config, logger, cwd 
       result.prUrl = url;
       logger.info(`HU ${story.id}: PR created ${url}`);
     } catch (err) {
-      logger.warn(`HU ${story.id}: PR creation failed: ${err.message}`);
+      const remedy = `open the PR yourself: gh pr create --base ${config.base_branch || "main"} --head ${branchName}`;
+      result.errors.push({ step: "pr", message: err.message, remedy });
+      logger.warn(`HU ${story.id}: PR creation failed: ${err.message} (${remedy})`);
     }
   }
 
