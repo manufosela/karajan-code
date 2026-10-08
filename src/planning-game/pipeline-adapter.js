@@ -195,10 +195,19 @@ export function accumulateCommit(session, commitInfo) {
 // --- Internal helpers ---
 
 async function markPgCardInProgress({ pgTaskId, pgProject, config, logger }) {
+  const { fetchCard, updateCard } = await import("./client.js");
+  // KJC-BUG-0247 (#1894): a card that cannot be read was one warn line and
+  // null, and the run went on without the card's acceptance criteria, invented
+  // its own HUs and said approved. With a card named, no card is a loud stop.
+  let pgCard;
   try {
-    const { fetchCard, updateCard } = await import("./client.js");
-    const pgCard = await fetchCard({ projectId: pgProject, cardId: pgTaskId });
-    if (pgCard && pgCard.status !== "In Progress") {
+    pgCard = await fetchCard({ projectId: pgProject, cardId: pgTaskId });
+  } catch (err) {
+    throw new Error(`Planning Game: card ${pgTaskId} could not be read (${err.message}): the run would implement without the card's acceptance criteria. Check PG_API_URL, or run without pgTask.`, { cause: err });
+  }
+  if (!pgCard) throw new Error(`Planning Game: card ${pgTaskId} not found in project ${pgProject}: the run would implement without the card's acceptance criteria. Check the id, or run without pgTask.`);
+  try {
+    if (pgCard.status !== "In Progress") {
       await updateCard({
         projectId: pgProject,
         cardId: pgTaskId,
@@ -212,11 +221,11 @@ async function markPgCardInProgress({ pgTaskId, pgProject, config, logger }) {
       });
       logger.info(`Planning Game: ${pgTaskId} → In Progress`);
     }
-    return pgCard;
   } catch (err) {
+    // The card was read: its criteria govern the run; the status move is best-effort.
     logger.warn(`Planning Game: could not update ${pgTaskId}: ${err.message}`);
-    return null;
   }
+  return pgCard;
 }
 
 /**

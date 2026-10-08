@@ -93,20 +93,25 @@ describe("PG card lifecycle auto-tracking", () => {
       expect(mockUpdateCard).not.toHaveBeenCalled();
     });
 
-    it("does not block pipeline on PG error (best-effort)", async () => {
-      mockFetchCard.mockRejectedValue(new Error("PG API down"));
-
+    // KJC-BUG-0247 (#1894): with a card named, a card that cannot be read used
+    // to be one warn line, and the run implemented without its acceptance
+    // criteria and said approved. It stops here instead, saying why.
+    it("stops the run when the named card cannot be read, or does not exist", async () => {
       const logger = makeLogger();
-      const result = await initPgAdapter({
-        session: { id: "sess-1" },
-        config: makeConfig(),
-        logger,
-        pgTaskId: "KJC-TSK-0210",
-        pgProject: "karajan-code"
-      });
+      const start = () => initPgAdapter({ session: { id: "sess-1" }, config: makeConfig(), logger, pgTaskId: "KJC-TSK-0210", pgProject: "karajan-code" });
+      mockFetchCard.mockRejectedValue(new Error("PG API down"));
+      await expect(start()).rejects.toThrow(/KJC-TSK-0210 could not be read \(PG API down\).*acceptance criteria/);
+      mockFetchCard.mockResolvedValue(null);
+      await expect(start()).rejects.toThrow(/KJC-TSK-0210 not found/);
+    });
 
-      expect(result.pgCard).toBeNull();
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("PG API down"));
+    it("a card that was read governs the run even when its status move fails", async () => {
+      mockFetchCard.mockResolvedValue({ cardId: "KJC-TSK-0210", firebaseId: "fb1", status: "To Do", acceptanceCriteria: "Given x" });
+      mockUpdateCard.mockRejectedValue(new Error("PATCH refused"));
+      const logger = makeLogger();
+      const result = await initPgAdapter({ session: { id: "sess-1" }, config: makeConfig(), logger, pgTaskId: "KJC-TSK-0210", pgProject: "karajan-code" });
+      expect(result.pgCard.acceptanceCriteria).toBe("Given x");
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("PATCH refused"));
     });
   });
 
