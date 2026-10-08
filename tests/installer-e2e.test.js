@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -161,6 +161,7 @@ describe("installer E2E: init → doctor", () => {
   };
 
   const savedEnv = { ...process.env };
+  let e2eHome;
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -170,6 +171,13 @@ describe("installer E2E: init → doctor", () => {
     // The test uses providers claude (anthropic) and codex (openai).
     process.env.ANTHROPIC_API_KEY = "sk-test-installer";
     process.env.OPENAI_API_KEY = "sk-test-installer";
+    // KJC-TSK-0986: doctor warns while no phone is enrolled. The suite judges the
+    // generated config, not this machine's home: a temp home with a phone enrolled.
+    // HOME comes back with the rest of the env in afterEach, which also removes the dir.
+    e2eHome = mkdtempSync(join(tmpdir(), "kj-e2e-home-"));
+    process.env.HOME = e2eHome;
+    mkdirSync(join(e2eHome, ".karajan"));
+    writeFileSync(join(e2eHome, ".karajan", "supervisor-phone.json"), JSON.stringify({ publicKey: "x" }));
 
     // Re-setup mocks cleared by resetAllMocks
     const { exists, ensureDir } = await import("../src/utils/fs.js");
@@ -234,6 +242,7 @@ describe("installer E2E: init → doctor", () => {
   afterEach(() => {
     for (const k of Object.keys(process.env)) delete process.env[k];
     for (const [k, v] of Object.entries(savedEnv)) process.env[k] = v;
+    rmSync(e2eHome, { recursive: true, force: true });
   });
 
   it("init creates config that passes doctor checks", async () => {
