@@ -136,6 +136,32 @@ describe("utils/git", () => {
 
   // KJC-BUG-0294 (#1993): the pipeline commits what the run changed, never what
   // was pending before it. `git add -A` once staged 22 untracked harness files.
+  // KJC-BUG-0246 (#1893): the identity the run resolved once pins author and
+  // committer of every commit; outside a run, git decides as before.
+  describe("commitAll — the run's identity", () => {
+    const fourCalls = () => runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: " M a.js\0", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "abc\x1fx", stderr: "" });
+
+    it("pins author and committer to the run's identity", async () => {
+      fourCalls();
+      const { withRunContext } = await import("../../src/utils/run-context.js");
+      await withRunContext({ gitIdentity: { name: "Me", email: "me@run.test" } }, () => git.commitAll("x"));
+      const [, args, opts] = runCommand.mock.calls[2];
+      expect(args[0]).toBe("commit");
+      expect(opts.env).toMatchObject({ GIT_AUTHOR_NAME: "Me", GIT_AUTHOR_EMAIL: "me@run.test", GIT_COMMITTER_NAME: "Me", GIT_COMMITTER_EMAIL: "me@run.test" });
+      expect(runCommand.mock.calls[1][2]).toEqual({}); // the add is not affected
+    });
+
+    it("without a run identity the commit goes as before", async () => {
+      fourCalls();
+      await git.commitAll("x");
+      expect(runCommand.mock.calls[2][2]).toEqual({});
+    });
+  });
+
   describe("commitAll — only the run's paths", () => {
     it("stages and commits the pending paths minus the pre-existing ones, with --only", async () => {
       runCommand
