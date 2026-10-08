@@ -112,4 +112,38 @@ describe("commitContract", () => {
     expect(res.committed).toBe(false);
     expect(res.reason).toMatch(/git could not commit/);
   });
+
+  // KJC-BUG-0302: after a version bump kj harden regenerates the contract AND the
+  // supervisor's hooks; committed together, the gate refused the contract commit
+  // and the seal refused the stage, and the person had to unstage the hook by hand.
+  it("a sealed supervisor that was regenerated is left to the seal, unstaged; a first install still rides", () => {
+    write(".karajan/hooks/pre-commit", "#!/bin/sh\nexit 0\n");
+    write(".karajan/supervisor-provenance.json", "{}\n");
+    git("add", ".");
+    git("commit", "-q", "-m", "chore: sealed supervisor");
+    git("checkout", "-q", "-b", "chore/kj");
+    generate();
+    write(".karajan/hooks/pre-commit", "#!/bin/sh\n# regenerated\nexit 0\n");
+    write(".karajan/supervisor-provenance.json", "{\"v\":2}\n");
+    write(".karajan/hooks/pre-push", "#!/bin/sh\nexit 0\n"); // a new hook: first install, not a reseal
+    const res = commitContract({ projectDir: dir });
+    expect(res.committed).toBe(true);
+    expect(committed()).toEqual([".claude/skills/kj-run/SKILL.md", ".github/workflows/kj-policy.yml", ".karajan/hooks/pre-push", ".karajan/review-gate", "CLAUDE.md"]);
+    expect(git("diff", "--cached", "--name-only").trim()).toBe("");
+    expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .karajan/hooks/pre-commit", " M .karajan/supervisor-provenance.json"]);
+  });
+
+  it("a commit git refuses names the files and the way to commit them", () => {
+    write("README.md", "# app\n");
+    git("add", "README.md");
+    git("commit", "-q", "-m", "chore: init");
+    git("checkout", "-q", "-b", "chore/kj");
+    write("hooks/pre-commit", "#!/bin/sh\necho no verdict >&2\nexit 1\n");
+    fs.chmodSync(path.join(dir, "hooks", "pre-commit"), 0o755);
+    git("config", "core.hooksPath", "hooks");
+    generate();
+    const res = commitContract({ projectDir: dir });
+    expect(res.committed).toBe(false);
+    expect(res.reason).toMatch(/no verdict.*git add -- '\.claude\/skills\/kj-run\/SKILL\.md'.*kj review --staged/s);
+  });
 });
