@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.44.1] - 2026-10-08
+
+The same content as 4.44.0, republished: the 4.44.0 publish was left in the
+registry's staging and never became available, and the version number stayed
+reserved. Nothing else changes.
+
 ## [4.44.0] - 2026-10-08
 
 The run says what it could not do. Six field reports from one session on a
