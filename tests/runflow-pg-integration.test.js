@@ -243,20 +243,18 @@ describe("Planning Game integration in runFlow", () => {
     expect(mockFetchCard).not.toHaveBeenCalled();
   });
 
-  it("handles PG errors gracefully without failing the run", async () => {
+  // KJC-BUG-0247 (#1894): a card that cannot be read used to be a warn line and
+  // a run without the card's criteria that still said approved. It stops now.
+  it("a named card that cannot be read stops the run before it starts", async () => {
     mockFetchCard.mockRejectedValue(new Error("PG unavailable"));
 
-    const result = await runFlow({
+    await expect(runFlow({
       task: "Fix bug",
       config: makeConfig(),
       logger,
       pgTaskId: "KJC-TSK-0099",
       pgProject: "Karajan Code"
-    });
-
-    expect(result.approved).toBe(true);
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("PG unavailable")
-    );
+    })).rejects.toThrow(/KJC-TSK-0099 could not be read \(PG unavailable\)/);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("acceptance criteria"));
   });
 });
