@@ -32,6 +32,8 @@ import {
 } from "../../session/mutators.js";
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { runTesterStage, runSecurityStage, runFinalAuditStage } from "../post-loop-stages.js";
+import { runAcceptanceCoverageStage } from "../stages/acceptance-coverage-stage.js";
+import { criteriaOfCard } from "../../roles/acceptance-coverage-role.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { tryCiComment } from "../ci-integration.js";
 import { getIntegration } from "../integrations.js";
@@ -101,6 +103,23 @@ export async function handlePostLoopStages({ config, session, emitter, eventBase
     setReviewerFeedback(session, auditResult.feedback);
     await saveSession(session);
     return { action: "continue" };
+  }
+
+  // KJC-TSK-0987 (#1894): with a card, each acceptance criterion is read against
+  // the diff by a different AI before the run is approved. An uncovered one goes
+  // back to the coder; a judge with no verdict stops the approval, never grants it.
+  const coverage = await runAcceptanceCoverageStage({
+    config, logger, emitter, eventBase, trackBudget, iteration: i, task,
+    criteria: criteriaOfCard(session.pg_card), diff: postLoopDiff,
+  });
+  if (coverage.stageResult) stageResults.acceptanceCoverage = coverage.stageResult;
+  if (coverage.action === "retry") {
+    setReviewerFeedback(session, coverage.feedback);
+    await saveSession(session);
+    return { action: "continue" };
+  }
+  if (coverage.action === "fail") {
+    return { action: "return", result: { approved: false, sessionId: session.id, reason: "acceptance_coverage_unavailable", error: coverage.stageResult.summary } };
   }
 
   return { action: "proceed" };
