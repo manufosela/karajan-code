@@ -33,6 +33,7 @@ import { getMcpHealthChecks } from "../checks/mcp-health.js";
 import { getSkillsChecks } from "../checks/skills.js";
 import { getProjectChecks } from "../checks/project-checks.js";
 import { resolveTestHarness } from "../config/test-harness.js";
+import { collectGuaranteeFacts } from "../checks/guarantee-level.js";
 
 function parseJsonSafe(text) {
   try {
@@ -230,6 +231,26 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
     warnings: [],
     errors: [],
   };
+
+  // KJC-BUG-0252 (#1899): on a Claude host without the Sentinel harness nothing
+  // governs the host's own actions (issues by hand, commits, pushes, merges);
+  // a run reported Tier A OFF and the agent routed around every gate. kj never
+  // fakes that supervision: the run stops here, with the remedy.
+  const guarantee = collectGuaranteeFacts({ projectDir: config.projectDir || process.cwd() });
+  if (guarantee.host === "claude" && !guarantee.tierA.active) {
+    result.ok = false;
+    result.checks.push({ name: "sentinel-harness", ok: false, detail: guarantee.tierA.reason });
+    result.errors.push({
+      check: "sentinel-harness",
+      message: "Tier A tool-time is OFF: a Claude host without the Sentinel harness, so nothing governs the host's own actions outside this run.",
+      fix: "Run kj harden (kj init installs it) and seal it with kj harden --commit; then run again.",
+    });
+    logger.error("Preflight: Sentinel harness not installed on a Claude host — run kj harden");
+    emitProgress(emitter, makeEvent("preflight:end", { ...eventBase, stage: "preflight" }, {
+      status: "fail", message: "Preflight FAILED — Sentinel harness not installed", detail: result
+    }));
+    return result;
+  }
 
   // Resolve extended preflight opt-in early so the short-circuit below can see it.
   // Post-v2.7.5 this no longer reads globalThis directly — config.testHarness

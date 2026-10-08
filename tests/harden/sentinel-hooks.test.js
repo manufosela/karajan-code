@@ -193,6 +193,27 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(run(gate, bash("kj identity show")).status).toBe(0);
   });
 
+  // KJC-BUG-0252 (#1899): an issue for karajan-code goes through kj report-issue.
+  it("gh issue create aimed at karajan-code is denied and sent to kj report-issue; any other repo passes", () => {
+    const bash = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });
+    for (const c of ["gh issue create --repo manufosela/karajan-code --title x --body y", "gh issue create -R manufosela/karajan-code --title x", "gh issue create --repo=manufosela/karajan-code --title x"]) {
+      expect(bash(c).status).toBe(2);
+      expect(bash(c).stderr).toMatch(/kj report-issue/);
+    }
+    expect(bash("gh issue create --repo manufosela/other-app --title x --body y").status).toBe(0);
+    expect(bash("gh issue list --repo manufosela/karajan-code").status).toBe(0);
+    // GH_REPO, inline or inherited, names the target as well as --repo does.
+    expect(bash("GH_REPO=manufosela/karajan-code gh issue create --title x").status).toBe(2);
+    expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "gh issue create --title x" } }, { GH_REPO: "manufosela/karajan-code" }).status).toBe(2);
+    // --repo wins over GH_REPO, as it does for gh.
+    expect(bash("GH_REPO=manufosela/karajan-code gh issue create --repo manufosela/other-app --title x").status).toBe(0);
+    // Without --repo or GH_REPO, gh takes the checkout's origin: the same rule applies.
+    execSync("git remote add origin git@github.com:manufosela/karajan-code.git", { cwd: dir });
+    expect(bash("gh issue create --title x --body y").status).toBe(2);
+    execSync("git remote set-url origin git@github.com:manufosela/other-app.git", { cwd: dir });
+    expect(bash("gh issue create --title x --body y").status).toBe(0);
+  });
+
   it("ADR 0009: kj harden --commit es acto humano — la sesion lo tiene denegado SIN escape", () => {
     for (const command of ["kj harden --commit", "KJ_ALLOW_CROSS_LANE=1 kj harden --profile strict --commit"]) {
       const blocked = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });

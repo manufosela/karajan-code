@@ -570,6 +570,25 @@ process.stdin.on("end", () => {
         }
       }
     }
+    // KJC-BUG-0252 (#1899): una issue para karajan-code sale por kj report-issue
+    // (sanitiza y busca duplicados), nunca por gh issue create a mano.
+    {
+      const ghIssue = String(input.command || "");
+      if (tool === "Bash" && /(^|[^a-zA-Z])gh([^a-zA-Z]|$)/.test(ghIssue) && /(^|[^a-z])issue([^a-z]|$)/.test(ghIssue) && /(^|[^a-z])create([^a-z]|$)/.test(ghIssue)) {
+        // The target: --repo/-R, an inline or inherited GH_REPO, else the
+        // checkout's own origin, which is what gh takes (review catches).
+        const inlineRepo = /(^|[^A-Z_])GH_REPO=([^ ]+)/.exec(ghIssue);
+        let target = optionValues(ghIssue, ["--repo", "-R"]).at(-1) || (inlineRepo ? inlineRepo[2] : "") || String(process.env.GH_REPO || "");
+        if (!target) {
+          const origin = spawnSync("git", ["config", "--get", "remote.origin.url"], { cwd: ROOT, encoding: "utf8" });
+          target = String(origin.stdout || "").trim();
+        }
+        if (/karajan-code([^a-z0-9]|$)/i.test(target)) {
+          console.error("karajan sentinel: las issues para karajan-code salen por kj report-issue (sanitiza y busca issues parecidas), no por gh issue create." + doc("report-issue"));
+          process.exit(2);
+        }
+      }
+    }
     // KJC-TSK-0822 v1.1: enrolar (o pisar) la clave del movil es acto humano
     // — si un agente pudiera enrolar una clave SUYA, contestaria la capa 5 el
     // solo. Ni el comando ni el fichero de enrolamiento desde la sesion.

@@ -4,7 +4,8 @@ import { enableSonarStageForSuite } from "../_fixtures/sonar-stage.js";
 // --- Mocks for preflight-checks ---
 
 vi.mock("../../src/utils/agent-detect.js", () => ({
-  checkBinary: vi.fn()
+  checkBinary: vi.fn(),
+  detectHostAgent: vi.fn(() => null)
 }));
 
 vi.mock("../../src/sonar/manager.js", () => ({
