@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.42.0: diez reportes de campo, diez arreglos (actual)
+### v4.43.0: el pipeline commitea solo lo suyo (actual)
+
+Un run aprobó un paso con el reviewer desactivado, sin implementación y con un test en rojo, stageó 22 ficheros del harness en el commit y commiteó 960 líneas donde el plan permitía 150. Ahora una tarea simple conserva su review cruzada, y sin review el pipeline no sella veredicto ni commitea; con TDD la suite de tests del proyecto corre en cada iteración y una suite en rojo vuelve al coder; el presupuesto de la PR se aplica antes del commit, con el cálculo de `kj pr-size`; y el commit lleva solo lo que el run cambió, por rutas, con el veredicto atado a ese diff exacto. El Sentinel deniega además `git add -A` y stagear ficheros de runtime del agente, el hook pre-commit los rechaza lleguen como lleguen, y una pregunta que no cambiaba nada (documentos de dominio) ya no se hace.
+
+### v4.42.0: diez reportes de campo, diez arreglos
 
 Sesiones que trabajaban en otros proyectos reportaron en un día lo que el método les hacía mal, y todo está arreglado. Una revisión aprobada se leía como rechazo porque el revisor envolvía su veredicto en un sobre: ahora lo que kj no puede leer es un fallo del revisor, que se reintenta y se guarda, nunca un defecto que se le cuelga al coder. El ledger del RAG comparaba rutas como texto, así que un índice construido a través de un workspace con symlink descartaba todos los hits y rag-first denegaba cada edición: ahora compara rutas reales y nombra lo que descarta. El coder ya no commitea antes de la review, un fichero temporal fuera del repo no es una fuente, Sonar salta en una línea un repo sin `src/`, los pipelines de lectura ya no disparan el Sentinel, un timeout del preflight es un aviso, `kj status` ve un run muerto y `kj harden` commitea el contrato que genera.
 

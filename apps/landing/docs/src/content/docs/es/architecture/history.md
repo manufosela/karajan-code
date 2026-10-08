@@ -1755,6 +1755,12 @@ Al día siguiente de la 4.41.0, cinco sesiones de la misma máquina, cada una tr
 
 Todo está arreglado, y el patrón de los arreglos es el mismo: decir el hecho, comparar el hecho. Un veredicto ilegible es un fallo del revisor, que se reintenta y se guarda, nunca del coder. Las rutas se comparan por ruta real, y lo que aun así cae fuera se nombra con la raíz contra la que se comparó. Un comando cuyos segmentos solo leen no muta nada, se encadene como se encadene. Un timeout es «no comprobado», un aviso. Un run cuyo proceso se fue no está en marcha. Y `kj harden` commitea el contrato que genera por la vía que abrió la 4.41.0, para que el sello siga siendo el acto humano quirúrgico que el ADR 0009 hizo de él. Una lección también para el autor: una edición a medias en el árbol enlazado paró kj para todos los proyectos de la máquina, así que un módulo se crea ahora antes de importarlo.
 
+## Fase 135: v4.43.0, el pipeline commitea solo lo suyo
+
+La misma noche de la 4.42.0, un reporte más enseñó un `kj_run` sobre un plan validado terminando de la peor manera en que puede terminar un pipeline: aprobado. El paso pedía una función pura y su test; el run añadió el test, ninguna implementación, y la suite estaba en rojo. El reviewer estaba desactivado porque `auto_simplify` había llamado simple a la tarea, así que el stub del gate se leyó como aprobación y el pipeline selló un veredicto que nadie había dado. El commit se llevó después todo lo untracked del repositorio, 22 ficheros y 960 líneas de harness que el propio kj había generado, bajo un título cortado a mitad de palabra, donde el plan permitía 150 líneas.
+
+Faltaban cuatro gates y los cuatro están ya en el método. Una tarea simple conserva su review cruzada; sin review no hay veredicto ni commit. Con TDD la suite de tests del proyecto corre en cada iteración, y una suite en rojo vuelve al coder en vez de seguir hacia el reviewer. El presupuesto de la PR se aplica antes de que el pipeline commitee, con el mismo cálculo que usan `kj pr-size` y el gate del CI. Y el commit lleva solo lo que el run cambió, por rutas, nunca lo que estaba pendiente antes, con el veredicto atado a ese diff exacto. Dos cosas menores viajaron con ellos: el Sentinel y el hook pre-commit dejan los ficheros de runtime del agente fuera de cualquier commit, y una pregunta que el curator hacía sin usar nunca la respuesta ha desaparecido.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

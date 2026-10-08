@@ -1756,6 +1756,12 @@ The day after 4.41.0 five sessions on the same machine, each working on another 
 
 Every one is fixed, and the pattern of the fixes is the same: say the fact, compare the fact. An unreadable verdict is the reviewer's failure, retried and saved, never the coder's. Paths are compared by real path, and what still falls outside is named with the root it was compared against. A command whose every segment only reads mutates nothing, however it is chained. A timeout is "not checked", a warning. A run whose process is gone is not running. And `kj harden` commits the contract it generates through the path 4.41.0 opened, so the seal can stay the surgical human act ADR 0009 made it. One lesson for the author too: a half-done edit in the linked tree stopped kj for every project on the machine, so a module is now created before it is imported.
 
+## Phase 135: v4.43.0, the pipeline commits only its own work
+
+The same night as 4.42.0, one more report showed a `kj_run` on a validated plan ending in the worst way a pipeline can end: approved. The step asked for a pure function and its test; the run added the test, no implementation, and the suite was red. The reviewer had been disabled because `auto_simplify` called the task simple, so the gate's stub read as an approval and the pipeline stamped a verdict nobody gave. The commit then took everything untracked in the repository, 22 files and 960 lines of harness that kj itself had generated, under a title cut mid-word, where the plan allowed 150 lines.
+
+Four gates were missing and each is now in the method. A simple task keeps its cross-AI review; with no review there is no verdict and no commit. Under TDD the project's own test suite runs every iteration, and a red suite goes back to the coder instead of forward to the reviewer. The PR budget is applied before the pipeline commits, with the same count `kj pr-size` and the CI gate use. And the commit holds only what the run changed, by path, never what was pending before it, with the verdict bound to that exact diff. Two smaller things travelled with them: the Sentinel and the pre-commit hook keep the agent's runtime files out of any commit, and a question the curator asked without ever using the answer is gone.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
