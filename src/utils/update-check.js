@@ -3,7 +3,21 @@ import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { isSea } from "node:sea";
+import { fileURLToPath } from "node:url";
 import { getKarajanHome } from "./paths.js";
+
+// KJC-BUG-0301: `kj update` on a kj linked from a source tree (npm link) said
+// "Updating 4.44.0 → 4.43.0", installed the registry's older version globally
+// and replaced the development link. Two facts decide now, before any install.
+/** Whether this kj runs from a source tree (npm link), not from a node_modules install. */
+export const isSourceTree = (selfPath = fileURLToPath(import.meta.url)) => !selfPath.split(path.sep).includes("node_modules");
+const numeric = (v) => String(v).split(/[.-]/, 3).map((n) => Number.parseInt(n, 10) || 0);
+/** Whether version `a` is strictly newer than `b` (major.minor.patch; a prerelease tag is ignored). */
+export const isNewerVersion = (a, b) => {
+  const [x, y] = [numeric(a), numeric(b)];
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
+  return false;
+};
 
 const CACHE_FILE = "update-check.json";
 // KJC-TSK-0690: 6h — kj can ship several releases a day; a session should
@@ -183,7 +197,7 @@ export async function printUpdateNotice(currentVersion) {
  * @param {typeof fetch} [opts.fetchFn] - injectable fetch (registry lookup + installer download)
  * @returns {Promise<{ ok: boolean, alreadyLatest?: boolean, latest?: string, manual?: boolean }>}
  */
-export async function performSelfUpdate({ currentVersion, exec, logger = console, channel, fetchFn = fetch } = {}) {
+export async function performSelfUpdate({ currentVersion, exec, logger = console, channel, fetchFn = fetch, sourceTree = isSourceTree() } = {}) {
   const run = exec || (async (cmd, args) => (await import("execa")).execa(cmd, args));
   const ch = channel || detectInstallChannel();
   logger.log(`Current version: ${currentVersion}`);
@@ -206,6 +220,15 @@ export async function performSelfUpdate({ currentVersion, exec, logger = console
   if (latest === currentVersion) {
     logger.log(`Already on the latest version (${currentVersion}).`);
     return { ok: true, alreadyLatest: true, latest };
+  }
+  // KJC-BUG-0301: never a downgrade, and never over a development link.
+  if (isNewerVersion(currentVersion, latest)) {
+    logger.log(`This kj (${currentVersion}) is newer than the registry's latest (${latest}): nothing to update.`);
+    return { ok: true, newerThanRegistry: true, latest };
+  }
+  if (ch === "npm" && sourceTree) {
+    logger.log(`Update available: ${currentVersion} → ${latest}, but this kj runs from a source tree (npm link) and kj update will not replace it. Pull or rebuild that tree, or unlink it first: npm unlink -g ${packageName()}`);
+    return { ok: true, latest, manual: true };
   }
 
   if (ch === "sea" && process.platform === "win32") {
