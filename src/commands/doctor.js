@@ -21,6 +21,7 @@ import { getBinaryChecks } from "../checks/binaries.js";
 import { getSonarChecks } from "../checks/sonar.js";
 import { getOllamaChecks } from "../checks/ollama.js";
 import { getHarnessScorecardChecks } from "../checks/harness-scorecard.js";
+import { getPhoneChecks } from "../harden/phone-invite.js";
 import { getCiChecks } from "../checks/ci.js";
 import { getRtkChecks } from "../checks/rtk.js";
 import { getSqueezrChecks } from "../checks/squeezr.js";
@@ -67,6 +68,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getSonarChecks(),
     ...getOllamaChecks(),
     ...getHarnessScorecardChecks(),
+    ...getPhoneChecks(),
     ...getPortChecks(),
     ...getTokenChecks(config),
     ...getMcpHealthChecks(),

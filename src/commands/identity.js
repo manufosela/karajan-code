@@ -9,6 +9,7 @@
  */
 
 import { addSigner, enrollPhone } from "../harden/phone-sign.js";
+import { phoneInvite } from "../harden/phone-invite.js";
 import { readIdentity, writeIdentity } from "../identity/store.js";
 import { activeGhUser, effectiveGitEmail } from "../identity/detect.js";
 import { compareIdentity } from "../identity/compare.js";
@@ -36,6 +37,14 @@ export async function identityCommand({ action = "show", config, flags = {}, dep
       return 1;
     }
     log("Móvil enrolado: la clave pública se añadió al padrón .karajan/supervisor-signers.json (commítealo) y a ~/.karajan/supervisor-phone.json. Sellar el supervisor pedirá la firma de un móvil del padrón.");
+    return 0;
+  }
+
+  // KJC-TSK-0986 (HUM-F): the once-per-version invitation to enroll the phone,
+  // printed for the SessionStart hook (which cannot import kj) and for scripts.
+  if (action === "phone-invite") {
+    const text = phoneInvite({ home: deps.home, version: flags.version });
+    if (text) log(text);
     return 0;
   }
 

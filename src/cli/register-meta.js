@@ -169,6 +169,16 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // KJC-TSK-0986 (HUM-F): the invitation to enroll the phone, once per version.
+  identityCmd
+    .command("phone-invite")
+    .description("Print, once per kj version, the invitation to enroll the phone when none is enrolled (nothing otherwise)")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "identity-phone-invite", flags, async ({ config }) => {
+        process.exitCode = await identityCommand({ action: "phone-invite", config, flags: { ...flags, version: pkgVersion } });
+      });
+    });
+
   // BOOT-A (KJC-TSK-0857, cold-start ADR): the pieces existed, the ORDER did
   // not. One command from an empty directory to a project under the method.
   program
