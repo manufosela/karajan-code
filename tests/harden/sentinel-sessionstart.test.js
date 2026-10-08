@@ -8,11 +8,16 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
-let dir, hook;
-const run = (source) => spawnSync("node", [hook], { input: JSON.stringify({ session_id: "s1", hook_event_name: "SessionStart", source }), encoding: "utf8", cwd: dir });
+let dir, hook, fakeBin;
+// A fake kj at the front of PATH: the hook relays what kj says and the suite
+// never depends on the linked kj (KJ_FAKE_INVITE: a file whose text is the invitation).
+const run = (source, env = {}) => spawnSync("node", [hook], { input: JSON.stringify({ session_id: "s1", hook_event_name: "SessionStart", source }), encoding: "utf8", cwd: dir, env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, ...env } });
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-sessionstart-"));
+  fakeBin = path.join(dir, "fakebin");
+  fs.mkdirSync(fakeBin);
+  fs.writeFileSync(path.join(fakeBin, "kj"), '#!/bin/sh\nif [ "$1" = identity ] && [ -n "$KJ_FAKE_INVITE" ]; then cat "$KJ_FAKE_INVITE"; fi\n', { mode: 0o755 });
   execSync("git init -q -b feat/KJC-TSK-0001-x && git commit -q --allow-empty -m init", { cwd: dir, env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" } });
   installSentinelHooks({ projectDir: dir });
   hook = path.join(dir, ".karajan", "harness", "sessionstart.mjs");
@@ -37,6 +42,16 @@ describe("SessionStart hook", () => {
 
   it("a new session says nothing: CLAUDE.md already brings the rules", () => {
     expect(run("startup").stdout).toBe("");
+  });
+
+  // KJC-TSK-0986 (HUM-F): the once-per-version invitation to enroll the phone,
+  // decided and remembered by kj; the hook only relays it.
+  it("a new session relays kj's invitation to enroll the phone, when kj says so", () => {
+    const invite = path.join(dir, "invite.txt");
+    fs.writeFileSync(invite, "El móvil no está enrolado: enrólalo con kj identity enroll-phone.\n");
+    const r = run("startup", { KJ_FAKE_INVITE: invite });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).hookSpecificOutput.additionalContext).toBe("Karajan: El móvil no está enrolado: enrólalo con kj identity enroll-phone.");
   });
 
   // KJC-TSK-0949 (MDR-E2): a fake kj at the front of the PATH answers the coverage.
