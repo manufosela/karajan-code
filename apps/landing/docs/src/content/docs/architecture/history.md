@@ -1768,6 +1768,12 @@ Six reports from one session on a fresh Astro project, all from the same day, dr
 
 Every one is in the method now. The push or PR that fails travels in the result with its remedy, and the scope refusal says the scope and the exact command. The identity is resolved once, in a fixed order, and every commit of the run carries it. With a card, the branch is the card's, on both paths. A card that cannot be read stops the run before it starts. A Claude host without the harness stops the run too, and an issue for karajan-code goes through `kj report-issue`. The empty-repository start the last report asked for already existed as `kj bootstrap`, and the issue says so. With them ships the first piece of ADR 0018 the user sees: the first session of each version invites to enroll the phone, saying what the signature protects and how one proceeds today without it.
 
+## Phase 137: v4.45.0, approved means the card's criteria are in the diff
+
+The same session that reported the six field bugs of 4.44 had one more: a run that ended approved with none of the card's three acceptance criteria implemented. The card could not be read, and 4.44 made that a loud stop; but a card that is read still had no gate of its own, because the reviewer judges the diff it is given, not whether the card is complete, and the HUs the run invents approve themselves against their own stories. The run needed a judge for the card.
+
+It has one. With a card read, a different AI than the coder reads each acceptance criterion against the diff before the run says approved and answers one by one: covered, with the evidence, or not. An uncovered criterion goes back to the coder; on the HU path, once every HU approved itself, the card's criteria are read against the diff of the whole run and the result says `approved:false` with the list. A judge with no readable verdict stops the approval and never grants it, and with no card or no criteria the stage does not run. Two smaller things travel with it, both found the same evening: `kj harden` after a version bump regenerated the contract and the sealed hooks together and the two gates blocked each other, so a regenerated sealed supervisor is now the seal's alone; and `kj update` on a kj linked from its source tree said "4.44.0 → 4.43.0" and replaced the link, so it never downgrades and never touches a source tree.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

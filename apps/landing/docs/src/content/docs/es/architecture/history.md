@@ -1767,6 +1767,12 @@ Seis reportes de una misma sesión sobre un proyecto Astro recién creado, todos
 
 Todo eso está ya en el método. El push o la PR que falla viaja en el resultado con su remedio, y el rechazo por scope dice el scope y el comando exacto. La identidad se resuelve una vez, en orden fijo, y cada commit del run la lleva. Con card, la rama es la de la card, en los dos caminos. Una card que no se puede leer para el run antes de empezar. Un host Claude sin el harness también lo para, y una issue para karajan-code sale por `kj report-issue`. El arranque de repositorio vacío que pedía el último reporte ya existía como `kj bootstrap`, y la issue lo cuenta. Con ellos viaja la primera pieza del ADR 0018 que el usuario ve: la primera sesión de cada versión invita a enrolar el móvil, diciendo qué protege la firma y cómo se procede hoy sin ella.
 
+## Fase 137: v4.45.0, aprobado significa que los criterios de la card están en el diff
+
+La misma sesión que reportó los seis bugs de campo de la 4.44 tenía uno más: un run que terminó aprobado sin implementar ninguno de los tres criterios de aceptación de la card. La card no se había podido leer, y la 4.44 convirtió eso en una parada en alto; pero una card leída seguía sin un gate propio, porque el reviewer juzga el diff que le dan, no si la card está completa, y las HUs que el run se inventa se aprueban contra sus propias historias. Al run le faltaba un juez para la card.
+
+Ya lo tiene. Con card leída, una IA distinta del coder lee cada criterio de aceptación contra el diff antes de que el run diga aprobado y contesta uno a uno: cubierto, con la evidencia, o no. Un criterio sin cubrir vuelve al coder; en el camino de HUs, cuando todas se han aprobado, los criterios de la card se leen contra el diff de todo el run y el resultado dice `approved:false` con la lista. Un juez sin veredicto legible para la aprobación y nunca la concede, y sin card o sin criterios la etapa no corre. Dos cosas menores viajan con ella, las dos encontradas la misma tarde: `kj harden` tras subir de versión regeneraba el contrato y los hooks sellados a la vez y los dos gates se bloqueaban entre sí, así que un supervisor sellado y regenerado es ahora solo del sello; y `kj update` sobre un kj enlazado desde su árbol fuente dijo "4.44.0 → 4.43.0" y pisó el link, así que nunca degrada ni toca un árbol fuente.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
