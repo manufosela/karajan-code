@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.43.0: el pipeline commitea solo lo suyo (actual)
+### v4.44.0: el run dice lo que no pudo hacer (actual)
+
+Seis reportes de campo de un mismo día sobre un proyecto recién creado: un run aprobado sin push y sin PR y sin decirlo, cinco commits con dos identidades, ramas con nombre de HUs inventadas, una card que no se pudo leer y un pipeline que siguió sin ella, y un agente con kj instalado y nunca endurecido rodeando cada gate a mano. Ahora el push o la PR que falla viaja en el resultado del run con su remedio (el rechazo por el scope `workflow` nombra el arreglo exacto); la identidad git se resuelve una vez y cada commit del run la lleva; con card la rama es `feat/<CARD-ID>-<slug>` en los dos caminos; una card que no se puede leer para el run antes de empezar; un host Claude sin el harness del Sentinel también lo para, y una issue para karajan-code sale por `kj report-issue`. La primera sesión de cada versión invita a enrolar el móvil (ADR 0018).
+
+### v4.43.0: el pipeline commitea solo lo suyo
 
 Un run aprobó un paso con el reviewer desactivado, sin implementación y con un test en rojo, stageó 22 ficheros del harness en el commit y commiteó 960 líneas donde el plan permitía 150. Ahora una tarea simple conserva su review cruzada, y sin review el pipeline no sella veredicto ni commitea; con TDD la suite de tests del proyecto corre en cada iteración y una suite en rojo vuelve al coder; el presupuesto de la PR se aplica antes del commit, con el cálculo de `kj pr-size`; y el commit lleva solo lo que el run cambió, por rutas, con el veredicto atado a ese diff exacto. El Sentinel deniega además `git add -A` y stagear ficheros de runtime del agente, el hook pre-commit los rechaza lleguen como lleguen, y una pregunta que no cambiaba nada (documentos de dominio) ya no se hace.
 

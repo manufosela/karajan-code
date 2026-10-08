@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.44.0] - 2026-10-08
+
+The run says what it could not do. Six field reports from one session on a
+fresh project, all from the same day: a run that ended approved with no push
+and no PR and no word about it, five commits under two identities, branches
+named after invented HUs while the card's own branch sat there, a card that
+could not be read and a pipeline that went on without it, and an agent with
+kj installed and never hardened that routed around every gate by hand.
+Every one is fixed here, and the first session with this version is invited
+to enroll the phone.
+
+### Added
+
+- **A push or a PR that fails is said in the run's result** (KJC-BUG-0248, #1895): the per-HU git outcome travels in the result (`branch`, `pushed`, `prUrl`, `errors`), the board shows it as a blocker, and the run's result carries `warnings` naming the HU, the step, the message and the remedy. A push GitHub refuses for the `workflow` scope says the scope and the exact fix (`gh auth refresh -h github.com -s workflow`). On the single-branch path a refused push stops the run with the same remedy.
+- **One git identity for the whole run** (KJC-BUG-0246, #1893): resolved once, in a fixed order (the clone's declaration from `kj identity set`, else the repository's config, else the global one), said in the log, with a warning when it is the global config that another session may switch mid-run; every commit of the run, HU lanes included, carries it. Nothing resolvable is said, never guessed.
+- **A Claude host without the Sentinel harness stops the run** (KJC-BUG-0252, #1899): the preflight check `sentinel-harness` names the remedy (`kj harden`, which `kj init` installs, and the seal); kj never fakes a supervision it cannot apply. The Sentinel also denies a `gh issue create` aimed at karajan-code, by `--repo`, `GH_REPO` or the checkout's origin, and sends it to `kj report-issue`.
+- **The first session of each version invites to enroll the phone** (KJC-TSK-0986, HUM-F, ADR 0018): one text says what the signature protects, how to enroll (`kj identity enroll-phone`) and how one proceeds today without it; `kj identity phone-invite` prints it once per version, the SessionStart hook relays it, and `kj doctor` carries it as a WARN while no phone is enrolled.
+
+### Changed
+
+- **The harness changed and needs a re-seal**: run `kj harden` and `kj harden --commit` to install the report-issue guard and the phone invitation.
+
+### Fixed
+
+- **With a Planning Game card the run's branch is named after it** (KJC-BUG-0249, #1896): `feat/<CARD-ID>-<slug>` on both paths; a second run of the card takes the branch already there; with HUs, the run stays on the current branch when it references the card, else creates that branch once and every HU shares it. HU ids name branches only when there is no card.
+- **A named card that cannot be read stops the run** (KJC-BUG-0247, #1894): the adapter wrote one warn line and the pipeline went on without the card's criteria, decomposed on its own and said approved. A card that cannot be read or does not exist stops the run before it starts, saying why; a card that was read governs the run even when its move to In Progress fails. The final gate that checks each criterion against the diff is KJC-TSK-0987.
+- **An empty repository starts with CI** (KJC-BUG-0251, #1898): covered by `kj bootstrap`, whose contract commit on main carries `kj-quality.yml`; said on the issue, with the scope remedy above.
+
 ## [4.43.0] - 2026-10-08
 
 The pipeline commits only its own work, with a review, with the suite green and

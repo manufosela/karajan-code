@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.43.0: the pipeline commits only its own work (current)
+### v4.44.0: the run says what it could not do (current)
+
+Six field reports from one day on a fresh project: a run approved with no push and no PR and no word about it, five commits under two identities, branches named after invented HUs, a card that could not be read and a pipeline that went on without it, and an agent with kj installed and never hardened routing around every gate by hand. Now a push or PR that fails travels in the run's result with its remedy (the `workflow` scope refusal names the exact fix); one git identity is resolved once and every commit of the run carries it; with a card the branch is `feat/<CARD-ID>-<slug>` on both paths; a card that cannot be read stops the run before it starts; a Claude host without the Sentinel harness stops it too, and an issue for karajan-code goes through `kj report-issue`. The first session of each version invites to enroll the phone (ADR 0018).
+
+### v4.43.0: the pipeline commits only its own work
 
 One run approved a step with the reviewer disabled, no implementation and a failing test, staged 22 untracked harness files into the commit and committed 960 lines where the plan allowed 150. Now a simple task keeps its cross-AI review, and with no review the pipeline stamps no verdict and commits nothing; under TDD the project's own test suite runs every iteration and a red suite goes back to the coder; the PR budget is applied before the commit, with `kj pr-size`'s count; and the commit holds only what the run changed, by path, with the verdict bound to that exact diff. The Sentinel also denies `git add -A` and any staging of the agent's runtime files, the pre-commit hook refuses them however they got there, and a question that changed nothing (domain documents) is no longer asked.
 
