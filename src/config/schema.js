@@ -118,6 +118,9 @@ const Development = v.optional(v.looseObject({
   require_test_changes: v.optional(v.boolean()),
   // KJC-TSK-0398: opt-in flag; module lands in PR1, integration in PR3.
   require_red_then_green: v.optional(v.boolean()),
+  // KJC-BUG-0298: run the suite every iteration under TDD (default true).
+  require_green_suite: v.optional(v.boolean()),
+  test_timeout_ms: v.optional(v.number()),
   test_file_patterns: v.optional(v.array(v.string())),
   source_file_extensions: v.optional(v.array(v.string())),
 }));

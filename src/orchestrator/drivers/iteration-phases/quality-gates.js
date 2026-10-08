@@ -21,6 +21,7 @@ import {
 import { runImpeccableStage } from "../../post-loop-stages.js";
 import { runPerfStage } from "../../stages/perf-stage.js";
 import { runTddDisciplineStage } from "../../stages/tdd-discipline-stage.js";
+import { runSuiteGreenStage } from "../../stages/suite-green-stage.js";
 import { runToolJudgeStage } from "../../stages/tool-judge-stage.js";
 import { tryCiComment } from "../../ci-integration.js";
 
@@ -28,6 +29,12 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
   const tddResult = await runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration: i, askQuestion, task, brainCtx });
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };
+
+  // KJC-BUG-0298 (#1993): with TDD, a red suite never reaches the reviewer.
+  if (config.development?.methodology === "tdd" && config.development?.require_green_suite !== false && config?.testHarness?.disableSuiteGreenStage !== true) {
+    const green = await runSuiteGreenStage({ config, logger, emitter, eventBase, session, iteration: i });
+    if (green.action === "continue") return { action: "continue" };
+  }
 
   // KJC-TSK-0398 PR3: opt-in red-then-green check.
   if (config.development?.require_red_then_green) {
