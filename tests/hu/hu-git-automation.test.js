@@ -10,7 +10,7 @@ vi.mock("../../src/utils/git.js", () => ({
   hasChanges: vi.fn(),
 }));
 
-const { buildHuBranchName, resolveHuBase, prepareHuBranch, finalizeHuCommit, collectGitWarnings } = await import("../../src/git/hu-automation.js");
+const { buildHuBranchName, resolveHuBase, prepareHuBranch, finalizeHuCommit, collectGitWarnings, branchReferencesCard } = await import("../../src/git/hu-automation.js");
 const { runCommand } = await import("../../src/utils/process.js");
 const { hasChanges, commitAll, pushBranch, createPullRequest } = await import("../../src/utils/git.js");
 
@@ -154,6 +154,53 @@ describe("prepareHuBranch — base-branch fallback (N6 dogfooding)", () => {
     const branch = await prepareHuBranch({ story: { id: "HU-01" }, huBranches: new Map(), config, logger });
     expect(branch).toBeNull();
     expect(runCommand).not.toHaveBeenCalled();
+  });
+});
+
+// KJC-BUG-0249 (#1896): with a Planning Game card, five HUs got five branches
+// named feat/HU-0x while the work already sat on feat/CUL-TSK-0001-scaffold.
+describe("prepareHuBranch with a Planning Game card (KJC-BUG-0249)", () => {
+  const logger = { info: vi.fn(), warn: vi.fn() };
+  const config = { git: { auto_commit: true, branch_prefix: "feat/" }, base_branch: "main" };
+  beforeEach(() => vi.clearAllMocks());
+
+  it("stays on the current branch when it already references the card", async () => {
+    runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "feat/cul-tsk-0001-scaffold\n", stderr: "" });
+    const huBranches = new Map();
+    const branch = await prepareHuBranch({ story: { id: "HU-01", title: "Setup" }, huBranches, config, logger, cardId: "CUL-TSK-0001" });
+    expect(branch).toBe("feat/cul-tsk-0001-scaffold");
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    expect(huBranches.get("HU-01")).toBe("feat/cul-tsk-0001-scaffold");
+  });
+
+  it("from the base branch, creates feat/<CARD-ID>-<slug> once and every HU shares it", async () => {
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "main\n", stderr: "" })      // HEAD
+      .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "" })            // the card branch does not exist
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "abc\n", stderr: "" })       // main exists
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });           // checkout -b
+    const huBranches = new Map();
+    const first = await prepareHuBranch({ story: { id: "HU-01", title: "Setup" }, huBranches, config, logger, cardId: "CUL-TSK-0001" });
+    expect(first).toBe("feat/CUL-TSK-0001-setup");
+    expect(runCommand).toHaveBeenNthCalledWith(4, "git", ["checkout", "-b", "feat/CUL-TSK-0001-setup", "main"], {});
+    const second = await prepareHuBranch({ story: { id: "HU-02", title: "Auth", blocked_by: ["HU-01"] }, huBranches, config, logger, cardId: "CUL-TSK-0001" });
+    expect(second).toBe("feat/CUL-TSK-0001-setup");
+    expect(runCommand).toHaveBeenCalledTimes(4);
+  });
+
+  it("a card branch left by an earlier run is taken, never reset", async () => {
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "main\n", stderr: "" })      // HEAD
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "def\n", stderr: "" })       // the card branch exists
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });           // checkout
+    const branch = await prepareHuBranch({ story: { id: "HU-01", title: "Setup" }, huBranches: new Map(), config, logger, cardId: "CUL-TSK-0001" });
+    expect(branch).toBe("feat/CUL-TSK-0001-setup");
+    expect(runCommand).toHaveBeenNthCalledWith(3, "git", ["checkout", "feat/CUL-TSK-0001-setup"], {});
+  });
+
+  it("a card id is matched as a whole token", () => {
+    expect(branchReferencesCard("feat/BB-0022-x", "BB-002")).toBe(false);
+    expect(branchReferencesCard("fix/bb-002-x", "BB-002")).toBe(true);
   });
 });
 

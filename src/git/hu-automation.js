@@ -69,6 +69,33 @@ async function resolveExistingBranchRef(preferred) {
   return preferred; // give up; caller will surface the original error
 }
 
+/** Whether a branch name references the card, as a whole token (BB-002 is not BB-0022). */
+export function branchReferencesCard(branch, cardId) {
+  const id = String(cardId).replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+  return new RegExp(`(^|[^a-z0-9])${id}([^a-z0-9]|$)`, "i").test(String(branch || ""));
+}
+
+async function cardBranch({ cardId, story, config, logger }) {
+  const head = await runCommand("git", ["rev-parse", "--abbrev-ref", "HEAD"], {});
+  const current = head.exitCode === 0 ? head.stdout.trim() : "";
+  if (branchReferencesCard(current, cardId)) {
+    logger.info(`HU ${story.id}: on '${current}', the branch of card ${cardId}`);
+    return current;
+  }
+  const branchName = buildHuBranchName(config.git?.branch_prefix || "feat/", { id: cardId, title: story.title });
+  // A card branch left by an earlier run keeps its commits: taken, never reset.
+  const exists = await runCommand("git", ["rev-parse", "--verify", "--quiet", branchName], {});
+  const base = exists.exitCode === 0 ? null : await resolveExistingBranchRef(config.base_branch || "main");
+  const how = base ? `created from '${base}'` : "taken";
+  const res = await runCommand("git", base ? ["checkout", "-b", branchName, base] : ["checkout", branchName], {});
+  if (res.exitCode !== 0) {
+    logger.warn(`HU git: branch ${branchName} could not be ${how}: ${res.stderr}`);
+    return null;
+  }
+  logger.info(`HU ${story.id}: branch '${branchName}' ${how} for card ${cardId}`);
+  return branchName;
+}
+
 /**
  * Create a branch for an HU starting from its resolved base.
  * Returns the branch name created (or null if git automation is disabled).
@@ -80,9 +107,21 @@ async function resolveExistingBranchRef(preferred) {
  * @param {object} params.logger
  * @returns {Promise<string|null>}
  */
-export async function prepareHuBranch({ story, huBranches, config, logger }) {
+export async function prepareHuBranch({ story, huBranches, config, logger, cardId = null }) {
   if (!config.git?.auto_commit && !config.git?.auto_push && !config.git?.auto_pr) {
     return null;
+  }
+  // KJC-BUG-0249 (#1896): with a Planning Game card the run is that card's
+  // work and lives on ONE branch named after it: the current one when it
+  // already references the card, else feat/<CARD-ID>-<slug>, created once
+  // and shared by every HU. HU ids name branches only when there is no card.
+  if (cardId) {
+    const known = huBranches.get(cardId);
+    const branch = known ?? (await cardBranch({ cardId, story, config, logger }));
+    if (!branch) return null;
+    huBranches.set(cardId, branch);
+    huBranches.set(story.id, branch);
+    return branch;
   }
   const baseBranch = resolveHuBase(story, huBranches, config.base_branch || "main");
   const effectiveBase = await resolveExistingBranchRef(baseBranch);

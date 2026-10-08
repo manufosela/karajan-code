@@ -17,6 +17,7 @@ import {
   syncBaseBranch,
   ensureBranchUpToDateWithBase,
   createBranch,
+  checkoutBranch,
   buildBranchName,
   commitAll,
   pushBranch,
@@ -107,6 +108,17 @@ export function buildFinalizeCommitMessage({ task, taskType, pendingPaths }) {
   return commitMessageFromTask(task, taskType);
 }
 
+// KJC-BUG-0249 (#1896): a branch named after the card is the same on a second
+// run of that card, so one already there is taken, not recreated.
+async function checkoutRunBranch(created) {
+  try {
+    await createBranch(created);
+  } catch (err) {
+    if (!/already exists/i.test(err.message)) throw err;
+    await checkoutBranch(created);
+  }
+}
+
 export async function prepareGitAutomation({ config, task, logger, session }) {
   const enabled = config.git.auto_commit || config.git.auto_push || config.git.auto_pr;
   if (!enabled) return { enabled: false };
@@ -140,7 +152,7 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
 
   // New repo without commits: create branch directly (no fetch/sync possible)
   if (!repoHasCommits) {
-    const created = buildBranchName(config.git.branch_prefix || "feat/", task);
+    const created = buildBranchName(config.git.branch_prefix || "feat/", task, session?.pg_task_id || null);
     // git checkout -b works even without commits (creates orphan-like branch on first commit)
     await createBranch(created);
     logger.info(`New repo — created working branch: ${created}`);
@@ -165,8 +177,8 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
     await syncBaseBranch({ baseBranch, autoRebase }).catch(() => {
       // No remote tracking — skip sync for new projects
     });
-    const created = buildBranchName(config.git.branch_prefix || "feat/", task);
-    await createBranch(created);
+    const created = buildBranchName(config.git.branch_prefix || "feat/", task, session?.pg_task_id || null);
+    await checkoutRunBranch(created);
     branch = created;
     logger.info(`Created working branch: ${branch}`);
     await addCheckpoint(session, { stage: "git-prep", branch, created: true });
