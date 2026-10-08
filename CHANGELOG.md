@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.43.0] - 2026-10-08
+
+The pipeline commits only its own work, with a review, with the suite green and
+within the budget. One `kj_run` on a validated plan approved a step with the
+reviewer disabled, no implementation and a failing test, staged 22 untracked
+harness files into the commit, cut the title mid-word and committed 960 lines
+where the plan allowed 150. Four gates were missing and one question had no
+answer; all of it is here.
+
+### Added
+
+- **A red suite never reaches the reviewer** (KJC-BUG-0298, #1993): under TDD a new stage runs the project's own test command (the one `kj harden` resolves: `npm test`, the detected framework, `pytest`, `go test`) every iteration; a red suite goes back to the coder with the command, the exit code and the tail of the output, and no test command is said, never faked. `development.require_green_suite` (default true) and `development.test_timeout_ms`.
+- **The PR budget is applied before the pipeline commits** (KJC-BUG-0299, #1993): what the commit will contain is measured with `kj pr-size`'s own count against `git.pr_size_limit` (200 by default); over it nothing is committed, and the number and the remedy are said.
+- **Agent runtime files never enter a commit** (KJC-BUG-0296, #1989): the Sentinel denies `git add -A`, `.` and `-u` without a pathspec and any add of `.claude/*.lock`, `.kj/`, the local identity or the Sentinel state; the pre-commit hook refuses a staged list that holds them, however they got there; `.claude/*.lock` joins the gitignore block kj writes.
+
+### Changed
+
+- **A simple task keeps its cross-AI review** (KJC-BUG-0297, #1993): `pipeline.auto_simplify` no longer disables the reviewer, only the tester. With the reviewer disabled by flag or policy, the gate's stub says it reviewed nothing and the pipeline stamps no verdict and commits nothing: the changes stay in the tree.
+- **The coder never commits** (prompts, KJC-BUG-0285 follow-up): the coder and refactorer role prompts say who commits.
+- **No question without an answer** (KJC-BUG-0295, #1992): with no domain documents the curator used to ask whether you had some and did nothing with the reply; it says what the context is instead (the task, the card's acceptance criteria, the repo).
+- **The harness changed and needs a re-seal**: run `kj harden` and `kj harden --commit` to install the staged-set guard and the pre-commit check.
+
+### Fixed
+
+- **The pipeline commits only what the run changed, by path** (KJC-BUG-0294, #1993): what was pending before the run stays out and is named; a rename stages both names; the stamped verdict binds to the diff of those exact paths; a long title is cut on a word.
+
 ## [4.42.0] - 2026-10-07
 
 Ten field reports, ten fixes. Sessions on the same machine, working on other
