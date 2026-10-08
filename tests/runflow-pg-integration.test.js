@@ -71,6 +71,12 @@ vi.mock("../src/orchestrator/post-loop-stages.js", () => ({
   runFinalAuditStage: vi.fn().mockResolvedValue({ action: "ok", stageResult: { ok: true, summary: "Audit: CERTIFIED" } })
 }));
 
+// KJC-TSK-0987: the acceptance-coverage judge is a stage of its own; here it
+// answers what each test needs, and skips by default (the card has no criteria).
+vi.mock("../src/orchestrator/stages/acceptance-coverage-stage.js", () => ({
+  runAcceptanceCoverageStage: vi.fn(async () => ({ action: "skip" }))
+}));
+
 const mockFetchCard = vi.fn();
 const mockUpdateCard = vi.fn();
 
@@ -81,6 +87,8 @@ vi.mock("../src/planning-game/client.js", () => ({
 
 const { runFlow } = await import("../src/orchestrator.js");
 const { runCoderStage, runTddCheckStage, runReviewerStage } = await import("../src/orchestrator/iteration-stages.js");
+const { runAcceptanceCoverageStage } = await import("../src/orchestrator/stages/acceptance-coverage-stage.js");
+const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
 
 function makeConfig(overrides = {}) {
   return {
@@ -241,6 +249,42 @@ describe("Planning Game integration in runFlow", () => {
     });
 
     expect(mockFetchCard).not.toHaveBeenCalled();
+  });
+
+  // KJC-TSK-0987 (#1894): with a card that has criteria, the judge reads them
+  // against the diff before the run is approved.
+  describe("acceptance coverage of the card's criteria", () => {
+    const cardWithCriteria = () => mockFetchCard.mockResolvedValue({
+      cardId: "KJC-TSK-0099", firebaseId: "-Oabc123", title: "Login", status: "In Progress",
+      acceptanceCriteriaStructured: [{ given: "a visitor", when: "they log in", then: "only the corporate domain is accepted" }],
+    });
+    const flow = () => runFlow({ task: "Login", config: makeConfig(), logger, pgTaskId: "KJC-TSK-0099", pgProject: "Karajan Code" });
+
+    it("the judge gets the card's criteria and the run's diff; all covered keeps the approval", async () => {
+      cardWithCriteria();
+      runAcceptanceCoverageStage.mockResolvedValueOnce({ action: "ok", stageResult: { ok: true, uncovered: [] } });
+      const result = await flow();
+      expect(result.approved).toBe(true);
+      expect(runAcceptanceCoverageStage).toHaveBeenCalledWith(expect.objectContaining({
+        criteria: ["Given a visitor, when they log in, then only the corporate domain is accepted"], diff: "diff content",
+      }));
+    });
+
+    it("an uncovered criterion is not an approval: it goes back to the coder, and the run ends unapproved when iterations run out", async () => {
+      cardWithCriteria();
+      runAcceptanceCoverageStage.mockResolvedValue({ action: "retry", stageResult: { ok: false, uncovered: [{ index: 1, text: "c1" }] }, feedback: "Acceptance criteria NOT covered" });
+      invokeSolomon.mockResolvedValue({ action: "fail", reason: "max_iterations" }); // the loop ran out: Solomon does not rescue it
+      const result = await flow();
+      expect(result.approved).toBe(false);
+      expect(mockUpdateCard.mock.calls.find((call) => call[0]?.updates?.status === "To Validate")).toBeUndefined();
+    });
+
+    it("a judge with no verdict stops the approval, never grants it", async () => {
+      cardWithCriteria();
+      runAcceptanceCoverageStage.mockResolvedValueOnce({ action: "fail", stageResult: { ok: false, summary: "no verdict" } });
+      const result = await flow();
+      expect(result).toMatchObject({ approved: false, reason: "acceptance_coverage_unavailable" });
+    });
   });
 
   // KJC-BUG-0247 (#1894): a card that cannot be read used to be a warn line and

@@ -32,6 +32,9 @@ import { runRepair } from "../repair/repair-runner.js";
 import { writeHistoryRecord } from "./post-loop.js";
 import { setReviewerFeedback } from "../../session/mutators.js";
 import { createHuSnapshot } from "../../git/hu-snapshot.js";
+import { generateDiff } from "../../review/diff-generator.js";
+import { runAcceptanceCoverageStage } from "../stages/acceptance-coverage-stage.js";
+import { criteriaOfCard } from "../../roles/acceptance-coverage-role.js";
 
 /**
  * @param {object} args
@@ -422,12 +425,28 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
   // the host reads, not only in a warn line of the log.
   const warnings = collectGitWarnings(subPipelineResult.results);
   for (const w of warnings) logger.warn(`git automation: ${w}`);
+  // KJC-TSK-0987 (#1894): the HUs approved themselves against their own stories;
+  // the card's criteria are read against the diff of the whole run before the
+  // run says approved. Uncovered: approved:false with the list, for the host.
+  let coverage = { action: "skip" };
+  if (subPipelineResult.approved) {
+    const diff = await generateDiff({ baseRef: ctx.session.head_at_start || ctx.session.session_start_sha });
+    coverage = await runAcceptanceCoverageStage({
+      config: ctx.config, logger, emitter, eventBase: ctx.eventBase, trackBudget: ctx.trackBudget,
+      iteration: 0, task, criteria: criteriaOfCard(ctx.session.pg_card), diff,
+    });
+    if (coverage.stageResult) ctx.stageResults.acceptanceCoverage = coverage.stageResult;
+  }
+  const uncovered = coverage.action === "retry" ? { reason: "acceptance_criteria_uncovered", uncovered: coverage.stageResult.uncovered } : {};
+  const unavailable = coverage.action === "fail" ? { reason: "acceptance_coverage_unavailable", error: coverage.stageResult.summary } : {};
   const finalResult = {
-    approved: subPipelineResult.approved,
+    approved: subPipelineResult.approved && coverage.action !== "retry" && coverage.action !== "fail",
     sessionId: ctx.session.id,
     huResults: subPipelineResult.results,
     blockedIds: subPipelineResult.blockedIds,
     planId: ctx.session._planRef?.planId || null,
+    ...uncovered,
+    ...unavailable,
     ...(warnings.length > 0 ? { warnings } : {})
   };
   await writeHistoryRecord({ sessionId: ctx.session.id, task, result: finalResult, logger });
