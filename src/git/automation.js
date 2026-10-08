@@ -6,6 +6,7 @@
 import { addCheckpoint } from "../session/store.js";
 import { pipelineSonarBlock, stampStagedVerdict } from "../review/verdict-store.js";
 import { branchSize } from "../commands/pr-size.js";
+import { pushRemedy } from "./hu-automation.js";
 import {
   ensureGitRepo,
   currentBranch,
@@ -353,7 +354,12 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
   }
 
   if (remoteAvailable && (config.git.auto_push || config.git.auto_pr)) {
-    await pushBranch(gitCtx.branch);
+    // KJC-BUG-0248 (#1895): a refused push stops the run loudly, with its remedy.
+    try {
+      await pushBranch(gitCtx.branch);
+    } catch (err) {
+      throw new Error(`push of ${gitCtx.branch} failed: ${err.message}. ${pushRemedy(err.message, gitCtx.branch)}`, { cause: err });
+    }
     await addCheckpoint(session, { stage: "git-push", branch: gitCtx.branch });
     logger.info(`Pushed branch: ${gitCtx.branch}`);
   }

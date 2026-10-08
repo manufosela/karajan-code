@@ -172,6 +172,8 @@ function buildHuOutcome({ story: _story, iterResult, status, startedAt, huBudget
   if (Array.isArray(r.deferredIssues)) {
     for (const d of r.deferredIssues) blockers.push(typeof d === "string" ? d : d.message || JSON.stringify(d));
   }
+  // KJC-BUG-0248: a push or PR that failed is a blocker the board shows.
+  for (const e of git.errors ?? []) blockers.push(`${e.step} failed: ${e.message}. ${e.remedy}`);
   // Plain-Spanish, one-or-two sentences.
   let summary;
   if (r.review?.summary) summary = String(r.review.summary);
