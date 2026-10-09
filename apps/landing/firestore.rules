@@ -22,7 +22,14 @@ service cloud.firestore {
       allow delete: if false;
       // KJC-TSK-0901: v2 adds `v` (== 2) and `expires_at`, signed by the phone
       // too; both optional so a v1 kj keeps working.
-      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at'])
+      // KJC-BUG-0303: since kj 4.46 the request also carries what the page shows
+      // beside the hashes (KJC-TSK-0992 changes/branch/origin, KJC-TSK-0996 why),
+      // outside the signed payload; a hasOnly without them rejected every seal (403).
+      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at', 'changes', 'branch', 'origin', 'why'])
+        && (!('changes' in request.resource.data) || request.resource.data.changes is list)
+        && (!('branch' in request.resource.data) || request.resource.data.branch is string)
+        && (!('origin' in request.resource.data) || request.resource.data.origin is string)
+        && (!('why' in request.resource.data) || request.resource.data.why is string)
         && (!('v' in request.resource.data) || (request.resource.data.v == 2
           && request.resource.data.expires_at is timestamp
           && request.resource.data.expires_at > request.resource.data.createdAt
