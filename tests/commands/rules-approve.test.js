@@ -10,6 +10,7 @@ import yaml from "js-yaml";
 import { rulesApprove } from "../../src/commands/rules-approve.js";
 import { listRules } from "../../src/rules/inventory.js";
 import { saveVerdict } from "../../src/review/verdict-store.js";
+import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 const human = { ppid: 1, cmd: "bash" };
 const HUMAN = { env: {}, tty: true, deps: { confirm: (n) => n, ancestry: { pid: 100, readProc: () => human } } };
@@ -32,6 +33,7 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rules-approve-"));
   home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rules-approve-home-"));
   fs.writeFileSync(path.join(dir, "CLAUDE.md"), "- Nunca despliegues sin permiso.\n- Siempre responde claro.\n");
+  setNormalLevel(dir); // KJC-TSK-0997: max is the default; these tests prove the four layers
   rules = listRules(dir, { home });
   shown = [];
 });

@@ -25,6 +25,7 @@ import { detectQmd } from "../utils/qmd-detect.js";
 import { installQmd } from "../utils/qmd-install.js";
 import { registerQmdCollections } from "../utils/qmd-collection.js";
 import { isGitRepo } from "../harden/harden-engine.js";
+import { isPhoneEnrolled } from "../harden/phone-sign.js";
 import { hardenCommand } from "./harden.js";
 import { contractChanges } from "../environment/contract-commit.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
@@ -282,6 +283,27 @@ async function askBoardSecurity(wizard, config, logger) {
 }
 
 /**
+ * KJC-TSK-0997 (HUM-D4, ADR 0018): the level is max by default, so the dangerous
+ * acts are signed from the phone and refused without one. Enrolling is a human
+ * act of the catalog, never done from a wizard: init says what the phone
+ * protects, how to enroll it and how one goes on without it.
+ */
+export function tellPhoneStep(logger, { enrolled = isPhoneEnrolled() } = {}) {
+  logger.info("Security: the phone");
+  if (enrolled) {
+    logger.info("  A phone is enrolled on this machine. The level is max by default: sealing the supervisor, approving rules, enrolling");
+    logger.info("  another phone and lowering the level are signed from it. `kj security show` tells the level of this project.");
+    return;
+  }
+  logger.info("  No phone is enrolled. The level is max by default: sealing the supervisor (kj harden --commit), approving rules");
+  logger.info("  and enrolling another phone are signed from your phone over the exact bytes, and refused until one is enrolled.");
+  logger.info("  1. Open https://karajancode.com/sign on the phone: it creates a key pair and shows the PUBLIC key (the private one never leaves it).");
+  logger.info("  2. From YOUR terminal, never from an agent session: kj identity enroll-phone <public key> --label <name>");
+  logger.info("  3. Keep the recovery code it prints, off this machine: it replaces a lost phone (--recovery <code>).");
+  logger.info("  Prefer the four layers alone? kj security normal lowers the level, signed from the phone too (ADR 0018).");
+}
+
+/**
  * Explicit, opt-in telemetry consent. We do NOT inherit a "Karajan-installed
  * users want to help" assumption — silence and missing config keys both mean
  * "no". The prompt is English to match the rest of the wizard (KJC-BUG-0088).
@@ -394,6 +416,8 @@ async function runWizard(config, logger) {
     logger.info("Privacy:");
     await askTelemetry(wizard, config, logger);
 
+    logger.info("");
+    tellPhoneStep(logger);
     logger.info("");
   } finally {
     wizard.close();

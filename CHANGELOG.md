@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Security level max by default** (ADR 0018, KJC-TSK-0997): every act of the catalog
+  (sealing the supervisor, approving rules, enrolling another phone, lowering the level) is
+  signed from the phone over the exact bytes, and refused without a phone enrolled; no typed
+  code instead. `kj security show` tells the level; `kj security normal` lowers it, signed from
+  the phone (the first enrollment is the only act without a signature). `kj init` explains the
+  phone and how to enroll it.
+
 ## [4.46.0] - 2026-10-09
 
 What the phone signs, said. The user put it plainly: on the phone they saw a
