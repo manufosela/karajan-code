@@ -13,6 +13,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { createHash } from "node:crypto";
 
 import { commitSupervisorRegeneration, harnessGuards, PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
+import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 let repo;
 const git = (args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" });
@@ -34,6 +35,7 @@ beforeEach(() => {
   mkdirSync(join(repo, ".karajan", "hooks"), { recursive: true });
   writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nold\n");
   writeFileSync(join(repo, "other.txt"), "untouched\n");
+  setNormalLevel(repo); // KJC-TSK-0997: max is the default; these tests prove the four layers
   git(["add", "-A"]);
   git(["commit", "-qm", "seed", "--no-verify"]);
 });

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { explainAct, signAct } from "../../src/harden/act-sign.js";
 import { SECURITY_LEVEL_FILE } from "../../src/harden/security-level.js";
+import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 const FILES = [{ file: ".karajan/rules.yml", sha256: "ab".repeat(32) }];
 const CHALLENGE = { cid: "c", nonce: "n", project: "p", v: 2, kjVersion: "9.9.9", issuedMs: 1, expiresMs: 2 };
@@ -52,6 +53,7 @@ describe("signAct", () => {
   });
 
   it("at normal: the act says the guarantee is lesser; with a phone it still signs, without one it goes on", async () => {
+    setNormalLevel(repo);
     expect((await sign("rules-approve", { deps: { phone: phone() } })).signature).not.toBeNull();
     expect(warned[0]).toMatch(/seguridad normal, la garantía es menor.*kj security max/);
     expect((await sign("rules-approve", { deps: { phone: phone({ enrolled: false }) } })).signature).toBeNull();

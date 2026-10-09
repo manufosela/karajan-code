@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { securityCommand } from "../../src/commands/security.js";
 import { SECURITY_LEVEL_FILE } from "../../src/harden/security-level.js";
+import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 let repo, home, lines;
 beforeEach(() => {
@@ -22,7 +23,7 @@ const run = (action, deps = {}) => securityCommand({ action, config: { projectDi
 describe("kj security", () => {
   it("show: the level, where it comes from and the phone; exit 2 on a record that cannot be trusted", async () => {
     expect(await run("show")).toBe(0);
-    expect(lines.join("\n")).toMatch(/nivel {3}normal.*\norigen {2}por defecto.*\nmóvil {3}no enrolado \(kj identity enroll-phone/);
+    expect(lines.join("\n")).toMatch(/nivel {3}máxima.*\norigen {2}por defecto.*\nmóvil {3}no enrolado \(kj identity enroll-phone/);
     writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "normal", since: "2026-10-09" }));
     lines = [];
     expect(await run("show")).toBe(2);
@@ -30,6 +31,7 @@ describe("kj security", () => {
   });
 
   it("max: free, says it is registered and to commit it; then show reads the file", async () => {
+    setNormalLevel(repo); // KJC-TSK-0997: max is the default, so the raise starts from normal
     expect(await run("max")).toBe(0);
     expect(lines[0]).toMatch(/nivel máxima registrado en \.karajan\/security-level\.json \(commítealo/);
     expect(await run("max")).toBe(0);

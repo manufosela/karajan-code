@@ -16,9 +16,10 @@ import { PHONE_INVITE } from "./phone-invite.js";
 import { isPhoneEnrolled, readEnrolledKeys, requestPhoneSignature, verifySignedFiles } from "./phone-sign.js";
 
 export const SECURITY_LEVEL_FILE = ".karajan/security-level.json";
-// ADR 0018: `max` becomes the default once CI verifies the signature (HUM-A, shipped)
-// AND the recovery code exists (HUM-B, KJC-TSK-0965); until then, what kj did before.
-export const DEFAULT_LEVEL = "normal";
+// ADR 0018 (KJC-TSK-0997): `max` is the default now that CI verifies the signature
+// (HUM-A) and the recovery code exists (HUM-B). The level that protects whoever
+// does not know the risk exists; `kj security normal` lowers it, signed.
+export const DEFAULT_LEVEL = "max";
 
 const levelPath = (projectDir) => join(projectDir, SECURITY_LEVEL_FILE);
 const recordBytes = (record) => `${JSON.stringify(record, null, 2)}\n`;
