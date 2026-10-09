@@ -136,7 +136,7 @@ export function normalizeAcceptanceCriteria(criteria) {
  * @param {string} task - The complex task description to decompose.
  * @returns {string} The assembled decomposition prompt.
  */
-export function buildDecompositionPrompt(task) {
+export function buildDecompositionPrompt(task, { criteria = [] } = {}) {
   const sections = [SUBAGENT_PREAMBLE];
 
   sections.push("## Task Decomposition");
@@ -147,18 +147,39 @@ export function buildDecompositionPrompt(task) {
 
   sections.push(`## Task to Decompose\n${task}`);
 
+  // KJC-TSK-0989 (#1894): the card's criteria are the contract; each one must
+  // land in an HU, by number, or the run implements stories of its own invention.
+  if (criteria.length > 0) {
+    const numbered = criteria.map((c, i) => `${i + 1}. ${c}`).join("\n");
+    sections.push(`## Acceptance criteria of the card (the contract)\n${numbered}`);
+  }
+
   sections.push(
     "Return a single valid JSON object and nothing else.",
-    `JSON schema: {"stories":[{"id":string,"title":string,"role":string,"goal":string,"benefit":string,"acceptanceCriteria":[string],"dependsOn":[string]}]}`,
+    `JSON schema: {"stories":[{"id":string,"title":string,"role":string,"goal":string,"benefit":string,"acceptanceCriteria":[string],"dependsOn":[string],"covers":[number]}]}`,
     "Rules:",
     "- Generate between 2 and 5 HUs",
     "- Each id must be unique, formatted as HU-DECOMP-NNN (e.g. HU-DECOMP-001)",
     "- dependsOn is an array of other HU ids from this decomposition that must be completed first (empty array if no dependencies)",
     "- acceptanceCriteria should be concrete, testable statements",
-    "- Order stories so that dependencies are respected (a story should only depend on stories with lower ids)"
+    "- Order stories so that dependencies are respected (a story should only depend on stories with lower ids)",
+    ...(criteria.length > 0 ? [
+      "- covers lists the numbers of the card's acceptance criteria this HU implements; EVERY card criterion must appear in the covers of at least one HU, and an HU's acceptanceCriteria must include each criterion it covers, verbatim",
+    ] : ["- covers is an empty array"])
   );
 
   return sections.join("\n\n");
+}
+
+/**
+ * KJC-TSK-0989: the card's criteria no HU covers, by number and text.
+ * @param {Array<{covers?: number[]}>} stories
+ * @param {string[]} criteria
+ * @returns {Array<{index: number, text: string}>}
+ */
+export function uncoveredCriteria(stories, criteria) {
+  const covered = new Set(stories.flatMap((s) => s.covers ?? []));
+  return criteria.map((text, i) => ({ index: i + 1, text })).filter((c) => !covered.has(c.index));
 }
 
 /**
@@ -179,7 +200,8 @@ export function parseDecompositionOutput(raw) {
       goal: s.goal || s.title,
       benefit: s.benefit || "",
       acceptanceCriteria: Array.isArray(s.acceptanceCriteria) ? s.acceptanceCriteria : [],
-      dependsOn: Array.isArray(s.dependsOn) ? s.dependsOn : []
+      dependsOn: Array.isArray(s.dependsOn) ? s.dependsOn : [],
+      covers: Array.isArray(s.covers) ? s.covers.map(Number).filter(Number.isInteger) : []
     }));
 
   return stories.length > 0 ? stories : null;
