@@ -8,7 +8,8 @@ import { HuReviewerRole } from "../../roles/hu-reviewer-role.js";
 import { createAgent } from "../../agents/index.js";
 import { addCheckpoint } from "../../session/store.js";
 import { emitProgress, makeEvent } from "../../utils/events.js";
-import { buildDecompositionPrompt, parseDecompositionOutput } from "../../prompts/hu-reviewer.js";
+import { buildDecompositionPrompt, parseDecompositionOutput, uncoveredCriteria } from "../../prompts/hu-reviewer.js";
+import { criteriaOfCard } from "../../roles/acceptance-coverage-role.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 import { createHuBatch, loadHuBatch, saveHuBatch, updateStoryStatus, updateStoryQuality, updateStoryCertified, addContextRequest, answerContextRequest } from "../../hu/store.js";
 import { topologicalSort } from "../../hu/graph.js";
@@ -20,7 +21,10 @@ import { detectAndApplySplits } from "./hu-reviewer-phases/detect-and-apply-spli
  */
 async function decomposeTaskIntoHUs({ config, logger, emitter, eventBase, session, coderRole, trackBudget }) {
   const provider = config?.roles?.hu_reviewer?.provider || coderRole.provider;
-  const prompt = buildDecompositionPrompt(session.task);
+  // KJC-TSK-0989 (#1894): the card's criteria go into the decomposition, numbered,
+  // so each one lands in an HU; the ones no HU covers are said and kept, never lost.
+  const criteria = criteriaOfCard(session.pg_card);
+  const prompt = buildDecompositionPrompt(session.task, { criteria });
 
   emitProgress(
     emitter,
@@ -69,6 +73,19 @@ async function decomposeTaskIntoHUs({ config, logger, emitter, eventBase, sessio
   if (!stories || stories.length < 2) {
     logger.info("HU decomposition returned < 2 stories, falling back to single auto-story");
     return null;
+  }
+  const uncovered = uncoveredCriteria(stories, criteria);
+  if (uncovered.length > 0) {
+    const last = stories.at(-1);
+    const tags = uncovered.map((c) => `[AC-${c.index}]`);
+    last.acceptanceCriteria.push(...uncovered.map((c, i) => `${tags[i]} ${c.text}`));
+    last.covers.push(...uncovered.map((c) => c.index));
+    logger.warn(`HU decomposition left ${uncovered.length} card criteria with no HU; added to ${last.id}: ${tags.join(" ")}`);
+    emitProgress(emitter, makeEvent("hu-reviewer:criteria-uncovered", { ...eventBase, stage: "hu-reviewer" }, {
+      status: "warn",
+      message: `${uncovered.length} card criteria had no HU and were added to ${last.id}`,
+      detail: { uncovered, addedTo: last.id }
+    }));
   }
 
   emitProgress(

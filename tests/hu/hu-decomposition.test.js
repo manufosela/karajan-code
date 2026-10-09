@@ -63,7 +63,7 @@ vi.mock("../../src/agents/index.js", () => ({
 }));
 
 const { runHuReviewerStage } = await import("../../src/orchestrator/pre-loop-stages.js");
-const { buildDecompositionPrompt, parseDecompositionOutput } = await import("../../src/prompts/hu-reviewer.js");
+const { buildDecompositionPrompt, parseDecompositionOutput, uncoveredCriteria } = await import("../../src/prompts/hu-reviewer.js");
 const { topologicalSort } = await import("../../src/hu/graph.js");
 
 describe("hu-decomposition", () => {
@@ -113,6 +113,31 @@ describe("hu-decomposition", () => {
       expect(prompt).toContain("benefit");
       expect(prompt).toContain("acceptanceCriteria");
       expect(prompt).toContain("dependsOn");
+    });
+  });
+
+  // KJC-TSK-0989 (#1894): the card's criteria are the contract of the decomposition.
+  describe("the card's criteria in the decomposition (KJC-TSK-0989)", () => {
+    const criteria = ["Given a visitor, when they log in, then only the corporate domain is accepted", "Given a user, when they open the home, then their name is shown"];
+
+    it("the prompt numbers the card's criteria and asks each HU to say which ones it covers", () => {
+      const prompt = buildDecompositionPrompt("Login", { criteria });
+      expect(prompt).toContain("1. Given a visitor");
+      expect(prompt).toContain("2. Given a user");
+      expect(prompt).toMatch(/EVERY card criterion must appear in the covers/);
+      expect(prompt).toContain('"covers":[number]');
+      expect(buildDecompositionPrompt("Login")).toMatch(/covers is an empty array/);
+    });
+
+    it("parse keeps covers as integers and uncoveredCriteria names what no HU took", () => {
+      const stories = parseDecompositionOutput(JSON.stringify({ stories: [
+        { id: "HU-DECOMP-001", title: "a", covers: [1, "x"] },
+        { id: "HU-DECOMP-002", title: "b" },
+      ] }));
+      expect(stories[0].covers).toEqual([1]);
+      expect(stories[1].covers).toEqual([]);
+      expect(uncoveredCriteria(stories, criteria)).toEqual([{ index: 2, text: criteria[1] }]);
+      expect(uncoveredCriteria([{ covers: [1, 2] }], criteria)).toEqual([]);
     });
   });
 
