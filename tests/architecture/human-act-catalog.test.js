@@ -21,7 +21,7 @@ const listJs = (dir, out = []) => {
 };
 
 // What only a human act may write. Readers and verifiers are not writers.
-const GOVERNANCE_FILES = ["supervisor-provenance.json", "supervisor-signers.json", "supervisor-phone.json", "rules.yml", "rules.local.yml"];
+const GOVERNANCE_FILES = ["supervisor-provenance.json", "supervisor-signers.json", "supervisor-phone.json", "rules.yml", "rules.local.yml", "security-level.json"];
 const WRITES = /\b(writeFileSync|writeFile|appendFileSync|appendFile|renameSync|rename)\s*\(/;
 // Libraries that write on behalf of a catalog act (the act calls them).
 const LIBRARIES_OF = { "src/harden/phone-sign.js": ["phone-enroll", "supervisor-seal"] };
