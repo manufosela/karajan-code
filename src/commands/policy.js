@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
+import { rosterViolation } from "../policy/roster-check.js";
 import { loadExceptionRecords, loadGlobalExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { buildPolicyReport } from "../policy/report.js";
 import { budgetedNet } from "../review/loc-budget.js";
@@ -23,10 +24,11 @@ import { verifyDecisionChain } from "@karajan-family/governance";
 
 const execFileAsync = promisify(execFile);
 
+const gitRunner = (projectDir, gitFn) =>
+  gitFn || (async (args) => (await execFileAsync("git", args, { cwd: projectDir, maxBuffer: 16 * 1024 * 1024 })).stdout);
+
 async function stagedFacts(projectDir, gitFn, range = null) {
-  const run =
-    gitFn ||
-    (async (args) => (await execFileAsync("git", args, { cwd: projectDir, maxBuffer: 16 * 1024 * 1024 })).stdout);
+  const run = gitRunner(projectDir, gitFn);
   // PL-C (KJC-TSK-0735): en CI no hay staged — con --range se evalúa
   // base...head, el MISMO motor sobre el diff del PR (tier C del ADR 0001).
   const base = range ? ["diff", range] : ["diff", "--cached"];
@@ -247,6 +249,10 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
     if (sup.note) logger.info?.(`ℓ policy: ${sup.note}`);
     violations = sup.violations;
   }
+  // KJC-TSK-1000 (HUM-B3, ADR 0018): a change of the roster of phones is judged
+  // against the base's roster: admitted by a present phone or by the recovery code.
+  const roster = await rosterViolation({ projectDir, files: facts.files, range: flags.range || null, run: gitRunner(projectDir, deps.gitFn) });
+  if (roster) violations = [...violations, roster];
   const hard = flags.strict ? violations.filter((v) => v.enforcement === "deny") : [];
   if (flags.json) {
     logger.info?.(JSON.stringify({ mode: flags.strict ? "strict" : "warn", violations }));
