@@ -195,6 +195,16 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } });
     expect(res.committed).toBe(true);
   });
+
+  // KJC-TSK-0996 (HUM-D, ADR 0018): at max the seal needs the phone; no typed code instead.
+  it("security level max and no phone enrolled: the seal is refused, told how to enroll, and commits NOTHING", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    writeFileSync(join(repo, ".karajan", "security-level.json"), JSON.stringify({ level: "max", since: "2026-10-09" }));
+    const phone = { enrolled: () => false, request: async () => { throw new Error("must not be called"); } };
+    await expect(commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } }))
+      .rejects.toThrow(/harden --commit: con seguridad máxima este acto se firma con el móvil y no hay ninguno enrolado/);
+    expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(1);
+  });
 });
 
 // KJC-BUG-0197: la "procedencia del supervisor" no cubria los guardias del
