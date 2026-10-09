@@ -39,10 +39,11 @@ describe("commitContract", () => {
     write("packages/api/ruff.toml", "line-length = 100\n");
     write(".karajan/rules.yml", "rules: []\n");
     write(".karajan/supervisor-signers.json", "[]\n");
+    write(".karajan/security-level.json", "{}\n");
     write("packages/api/pyproject.toml", "[project]\n"); // the person's, not kj's
     const res = commitContract({ projectDir: dir });
     expect(res.committed).toBe(true);
-    expect(committed()).toEqual([".editorconfig", ".karajan/rules.yml", ".karajan/supervisor-signers.json", "commitlint.config.js", "packages/api/ruff.toml"]);
+    expect(committed()).toEqual([".editorconfig", ".karajan/rules.yml", ".karajan/security-level.json", ".karajan/supervisor-signers.json", "commitlint.config.js", "packages/api/ruff.toml"]);
   });
 
   // kj init captures the baseline BEFORE ensureGitRepo: outside a repository git

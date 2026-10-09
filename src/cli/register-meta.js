@@ -8,6 +8,7 @@ import { goCommand } from "../commands/go.js";
 import { bootstrapCommand } from "../commands/bootstrap.js";
 import { PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { identityCommand } from "../commands/identity.js";
+import { securityCommand } from "../commands/security.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
 import { stewardSweepCommand } from "../commands/steward.js";
@@ -168,6 +169,26 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await identityCommand({ action: "enroll-phone", config, flags: { ...flags, publicKeyBase64 } });
       });
     });
+
+  // KJC-TSK-0995 (HUM-D, ADR 0018): the project's security level; going down is a signed act.
+  const securityCmd = program
+    .command("security")
+    .description("Security level of this project: max (every catalog act signed by the phone) or normal (four layers, lesser guarantee)");
+  const SECURITY_ACTIONS = {
+    show: "The level in force, where it comes from and whether a phone is enrolled (exit 2 on a record that cannot be trusted)",
+    max: "Raise to max: no signature needed",
+    normal: "Lower to normal: a human act signed by the enrolled phone (refused without one)",
+  };
+  for (const [action, description] of Object.entries(SECURITY_ACTIONS)) {
+    securityCmd
+      .command(action, action === "show" ? { isDefault: true } : {})
+      .description(description)
+      .action(async (flags) => {
+        await withConfig(pkgVersion, `security-${action}`, flags, async ({ config }) => {
+          process.exitCode = await securityCommand({ action, config, kjVersion: pkgVersion, flags });
+        });
+      });
+  }
 
   // KJC-TSK-0986 (HUM-F): the invitation to enroll the phone, once per version.
   identityCmd

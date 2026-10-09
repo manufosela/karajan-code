@@ -42,6 +42,8 @@ export const CONTRACT_BLOCK = [
   // ADR 0016 (KJC-TSK-0947): the rules of the MD files compiled into gates are
   // governance the whole team inherits, like the hooks.
   "!.karajan/rules.yml",
+  // KJC-TSK-0995 (HUM-D, ADR 0018): the security level, signed when lowered, is the team's.
+  "!.karajan/security-level.json",
 ];
 
 /**

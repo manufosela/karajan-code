@@ -47,6 +47,15 @@ export function readSecurityLevel({ projectDir, home } = {}) {
   return { level: "normal", source: "file", since: record.since, signer: record.signature.signer };
 }
 
+/** Up to `max`: no act, no signature; it also replaces a record that cannot be trusted. */
+export function raiseSecurityLevel({ projectDir, home } = {}) {
+  const current = readSecurityLevel({ projectDir, home });
+  if (current.level === "max" && current.source !== "invalid") return { changed: false, level: current };
+  mkdirSync(dirname(levelPath(projectDir)), { recursive: true });
+  writeFileSync(levelPath(projectDir), recordBytes({ level: "max", since: new Date().toISOString() }), "utf8");
+  return { changed: true, level: readSecurityLevel({ projectDir, home }) };
+}
+
 const explain = (status) => ({
   file: SECURITY_LEVEL_FILE, status, added: 3, removed: status === "modified" ? 3 : 0, truncated: false,
   summary: "El nivel de seguridad de este proyecto baja de máxima a normal.",

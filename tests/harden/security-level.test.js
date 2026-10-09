@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { canonicalPayload, enrollPhone } from "../../src/harden/phone-sign.js";
-import { DEFAULT_LEVEL, lowerSecurityLevel, readSecurityLevel, SECURITY_LEVEL_FILE, signedFilesOf } from "../../src/harden/security-level.js";
+import { DEFAULT_LEVEL, lowerSecurityLevel, raiseSecurityLevel, readSecurityLevel, SECURITY_LEVEL_FILE, signedFilesOf } from "../../src/harden/security-level.js";
 
 const keyPair = () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -87,5 +87,14 @@ describe("lowerSecurityLevel (the catalog act security-level-down), from max", (
     let confirmed = false;
     await expect(lower({ deps: { confirm: () => { confirmed = true; return "x"; }, phone: never } })).rejects.toThrow(/no hay ninguno enrolado.*kj identity enroll-phone/);
     expect(confirmed).toBe(false);
+  });
+
+  it("raiseSecurityLevel: up is free and idempotent; it also replaces a record that cannot be trusted", async () => {
+    const raise = () => raiseSecurityLevel({ projectDir: repo, home });
+    await lower();
+    expect(raise()).toMatchObject({ changed: true, level: { level: "max", source: "file" } });
+    expect(raise().changed).toBe(false);
+    writeFileSync(join(repo, SECURITY_LEVEL_FILE), "{broken");
+    expect(raise()).toMatchObject({ changed: true, level: { level: "max", source: "file" } });
   });
 });
