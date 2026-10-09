@@ -11,7 +11,8 @@
 import { createHash } from "node:crypto";
 
 import { signAct } from "../harden/act-sign.js";
-import { addSigner, enrollPhone, readEnrolledKeys, validatePhonePublicKey } from "../harden/phone-sign.js";
+import { enrollPhone, isPhoneEnrolled, readEnrolledKey, readEnrolledKeys, validatePhonePublicKey } from "../harden/phone-sign.js";
+import { admitSigner, redeemRecoveryCode } from "../harden/roster.js";
 import { phoneInvite } from "../harden/phone-invite.js";
 import { humanAct } from "../harden/human-act.js";
 import { readIdentity, writeIdentity } from "../identity/store.js";
@@ -31,6 +32,7 @@ export async function identityCommand({ action = "show", config, kjVersion = "un
 
   // KJC-TSK-0822: enrola la clave PÚBLICA del móvil (la privada nunca toca esta máquina).
   if (action === "enroll-phone") {
+    let recoveryCode;
     try {
       // KJC-TSK-0966 (HUM-C, ADR 0018): enrolar es un acto del catálogo; hasta hoy
       // solo lo frenaba el Sentinel, y un kj fuera de Claude no tiene Sentinel.
@@ -39,21 +41,34 @@ export async function identityCommand({ action = "show", config, kjVersion = "un
       // enters; the FIRST one has nobody to sign it (bootstrap) and runs on the four layers.
       const key = validatePhonePublicKey(flags.publicKeyBase64);
       const signers = ".karajan/supervisor-signers.json";
-      await signAct("phone-enroll", {
-        projectDir, home: deps.home, kjVersion, deps, logger: { warn: log, info: log },
-        bootstrap: readEnrolledKeys({ projectDir, home: deps.home }).size === 0,
+      // KJC-TSK-0999 (HUM-B2, ADR 0018): a lost phone is replaced with the recovery
+      // code, never by reinstalling: its proof is the admission and the lost phone
+      // is not asked to sign. The code is checked BEFORE anything else happens.
+      const recovered = flags.recovery ? redeemRecoveryCode(flags.recovery, { projectDir }) : null;
+      // The lost phone is REVOKED by the same code: the one named with --replaces, or the one this machine had enrolled.
+      const lost = recovered ? (flags.replaces ?? (isPhoneEnrolled({ home: deps.home }) ? readEnrolledKey({ home: deps.home }) : null)) : null;
+      if (recovered && !lost) throw new Error("di qué móvil se pierde: --replaces <su clave pública> (esta máquina no tiene ninguno enrolado)");
+      if (recovered) log(`recuperación con el código: el móvil perdido (${lost.slice(0, 8)}…) queda revocado y no firma; el código gastado es la admisión del nuevo`);
+      const { signature } = await signAct("phone-enroll", {
+        projectDir, home: deps.home, kjVersion, logger: { warn: log, info: log },
+        deps: recovered ? { ...deps, phone: { enrolled: () => false } } : deps,
+        bootstrap: recovered !== null || readEnrolledKeys({ projectDir, home: deps.home }).size === 0,
         files: [{ file: signers, sha256: createHash("sha256").update(key).digest("hex") }],
         changes: [{ file: signers, status: "modified", added: 1, removed: 0, summary: `Entra la clave ${flags.label ?? "(sin etiqueta)"}`, diff: `+ ${key}`, truncated: false }],
       });
-      // KJC-TSK-0831 (ADR 0010): añade al PADRÓN versionado del repo (compartible,
-      // base para la verificación en CI) y mantiene la clave legacy en ~/.karajan.
-      addSigner(flags.publicKeyBase64, { projectDir, label: flags.label });
-      enrollPhone(flags.publicKeyBase64, { home: deps.home });
+      // KJC-TSK-0831 (ADR 0010): the versioned roster, now with the admission CI
+      // verifies (HUM-B); the legacy key in ~/.karajan stays.
+      recoveryCode = admitSigner({ projectDir, publicKey: key, label: flags.label ?? null, admission: recovered ?? signature, replaces: lost }).recoveryCode;
+      enrollPhone(key, { home: deps.home });
     } catch (err) {
       log(`kj identity enroll-phone: ${err.message}`);
       return 1;
     }
     log("Móvil enrolado: la clave pública se añadió al padrón .karajan/supervisor-signers.json (commítealo) y a ~/.karajan/supervisor-phone.json. Sellar el supervisor pedirá la firma de un móvil del padrón.");
+    if (recoveryCode) {
+      log(`\nCÓDIGO DE RECUPERACIÓN, se enseña UNA sola vez. Guárdalo fuera de esta máquina:\n\n    ${recoveryCode}\n`);
+      log("Sirve para enrolar un móvil nuevo si pierdes este: kj identity enroll-phone <clave nueva> --recovery <código>. Es de un solo uso: al usarlo se emite otro. Sin móvil y sin código no hay recuperación: el padrón se rehace por fuera de CI, a la vista de todos (ADR 0018).");
+    }
     return 0;
   }
 

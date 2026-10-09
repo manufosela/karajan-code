@@ -74,7 +74,8 @@ export const readEnrolledKey = ({ home } = {}) =>
 export function readSigners({ projectDir } = {}) {
   try {
     const doc = JSON.parse(readFileSync(signersPath(projectDir), "utf8"));
-    return Array.isArray(doc?.signers) ? doc.signers.map((s) => s.publicKey).filter(Boolean) : [];
+    // KJC-TSK-0999 (HUM-B2): a phone replaced with the recovery code is revoked and signs no more.
+    return Array.isArray(doc?.signers) ? doc.signers.filter((s) => !s?.revoked).map((s) => s.publicKey).filter(Boolean) : [];
   } catch {
     return [];
   }

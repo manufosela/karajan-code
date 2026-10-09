@@ -164,6 +164,9 @@ export function registerMeta(program, { pkgVersion }) {
     .command("enroll-phone")
     .description("Enroll the phone's PUBLIC signing key (base64 of the raw 32-byte ed25519 key) for the supervisor seal")
     .argument("<publicKeyBase64>", "raw ed25519 public key, base64 (shown by the phone app)")
+    .option("--label <name>", "A name for this phone in the roster")
+    .option("--recovery <code>", "Replace a lost phone with the recovery code shown at enrollment (spent on use, a new one is issued)")
+    .option("--replaces <publicKeyBase64>", "With --recovery: the lost phone to revoke (default: the one enrolled on this machine)")
     .action(async (publicKeyBase64, flags) => {
       await withConfig(pkgVersion, "identity-enroll-phone", flags, async ({ config }) => {
         process.exitCode = await identityCommand({ action: "enroll-phone", config, kjVersion: pkgVersion, flags: { ...flags, publicKeyBase64 } });
