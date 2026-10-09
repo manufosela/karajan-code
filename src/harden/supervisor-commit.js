@@ -15,6 +15,7 @@ import { readIdentity } from "../identity/store.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { confirmHuman, refuseAgentSession } from "./human-act.js";
 import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
+import { describeSupervisorChanges } from "./sign-changes.js";
 
 export const PROVENANCE_FILE = ".karajan/supervisor-provenance.json";
 const HOOKS_PREFIX = ".karajan/hooks/";
@@ -125,10 +126,16 @@ export async function commitSupervisorRegeneration({
   const phone = deps.phone ?? { enrolled: isPhoneEnrolled, request: requestPhoneSignature };
   let signatureBlock = null;
   if (phone.enrolled({})) {
+    // KJC-TSK-0992 (HUM-G): the page says what is signed, file by file.
+    let branch = null;
+    try { branch = run(["rev-parse", "--abbrev-ref", "HEAD"]).trim(); } catch { /* unborn HEAD */ }
     const signed = await phone.request({
       project: basename(projectDir),
       files: hashed.map(({ file, sha256: hash }) => ({ file, sha256: hash ?? "" })),
       kjVersion,
+      changes: (deps.describeChanges ?? describeSupervisorChanges)({ projectDir, files: hashed }),
+      branch,
+      origin: `kj harden ${kjVersion}`,
       logger,
     });
     if (!signed.ok) {

@@ -164,7 +164,14 @@ export function provenanceSignature({ projectDir, provenance }) {
  * mala / clave ajena / TTL vencido ⇒ {ok:false, reason}.
  * @returns {Promise<{ok: boolean, reason?: string}>}
  */
-export async function requestPhoneSignature({ project, files, kjVersion, logger = console, deps = {} }) {
+// KJC-TSK-0992 (HUM-G): what the page shows beside the sha256, as Firestore values.
+const str = (s) => ({ stringValue: String(s ?? "") });
+const changesValue = (changes) => ({ arrayValue: { values: changes.map((c) => ({ mapValue: { fields: {
+  file: str(c.file), status: str(c.status), added: { integerValue: String(c.added ?? 0) }, removed: { integerValue: String(c.removed ?? 0) },
+  summary: str(c.summary), diff: str(c.diff), truncated: { booleanValue: Boolean(c.truncated) },
+} } })) } });
+
+export async function requestPhoneSignature({ project, files, kjVersion, changes = null, branch = null, origin = null, logger = console, deps = {} }) {
   const fetchFn = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -184,6 +191,10 @@ export async function requestPhoneSignature({ project, files, kjVersion, logger 
       createdAt: { timestampValue: new Date(issuedMs).toISOString() },
       files: { arrayValue: { values: files.map((f) => ({ mapValue: { fields: { file: { stringValue: f.file }, sha256: { stringValue: f.sha256 ?? "" } } } })) } },
       ...(v === 2 ? { v: { integerValue: "2" }, expires_at: { timestampValue: new Date(expiresMs).toISOString() } } : {}),
+      // KJC-TSK-0992: informative, outside the signed payload; the page says so.
+      ...(Array.isArray(changes) ? { changes: changesValue(changes) } : {}),
+      ...(branch ? { branch: str(branch) } : {}),
+      ...(origin ? { origin: str(origin) } : {}),
     },
   };
   const created = await fetchFn(`${relay.url}?documentId=${cid}&key=${relay.apiKey}`, {
