@@ -10,6 +10,7 @@
 
 import { addSigner, enrollPhone } from "../harden/phone-sign.js";
 import { phoneInvite } from "../harden/phone-invite.js";
+import { humanAct } from "../harden/human-act.js";
 import { readIdentity, writeIdentity } from "../identity/store.js";
 import { activeGhUser, effectiveGitEmail } from "../identity/detect.js";
 import { compareIdentity } from "../identity/compare.js";
@@ -28,6 +29,9 @@ export async function identityCommand({ action = "show", config, flags = {}, dep
   // KJC-TSK-0822: enrola la clave PÚBLICA del móvil (la privada nunca toca esta máquina).
   if (action === "enroll-phone") {
     try {
+      // KJC-TSK-0966 (HUM-C, ADR 0018): enrolar es un acto del catálogo; hasta hoy
+      // solo lo frenaba el Sentinel, y un kj fuera de Claude no tiene Sentinel.
+      humanAct("phone-enroll", { env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
       // KJC-TSK-0831 (ADR 0010): añade al PADRÓN versionado del repo (compartible,
       // base para la verificación en CI) y mantiene la clave legacy en ~/.karajan.
       addSigner(flags.publicKeyBase64, { projectDir, label: flags.label });

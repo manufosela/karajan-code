@@ -68,3 +68,41 @@ export function confirmHuman(what, confirm = null) {
   const answer = confirm ? confirm(nonce) : readTty(what, nonce);
   if (answer !== nonce) throw new Error(`${what}: confirmación humana fallida (esperaba "${nonce}") — ADR 0009`);
 }
+
+/**
+ * KJC-TSK-0966 (HUM-C, ADR 0018): the CLOSED catalog of human acts. Every
+ * command that changes who governs, or that destroys work, is listed here and
+ * runs through this module; an architecture test fails on a module of the
+ * catalog that skips it and on a writer of governance files that is not here.
+ * `module` names the file that implements the act; `pending` names the card
+ * that will, for acts the ADR declares and kj does not have yet.
+ */
+export const HUMAN_ACTS = Object.freeze({
+  "supervisor-seal": { label: "harden --commit", module: "src/harden/supervisor-commit.js" },
+  "rules-approve": { label: "kj rules approve", module: "src/commands/rules-approve.js" },
+  "phone-enroll": { label: "kj identity enroll-phone", module: "src/commands/identity.js" },
+  "handoff-run": { label: "kj handoff run", module: null, pending: "KJC-TSK-0968" },
+  "security-level-down": { label: "kj security normal", module: null, pending: "KJC-TSK-0967" },
+});
+
+/**
+ * The one mechanism, by catalog id: `refuse` (layers 1 to 3) and `confirm`
+ * (layer 4), apart because an act may check things in between (the seal looks
+ * at the stage before asking for the nonce). `humanAct` runs both.
+ * @param {keyof typeof HUMAN_ACTS} id
+ */
+export function humanActOf(id) {
+  const act = HUMAN_ACTS[id];
+  if (!act) throw new Error(`"${id}" is not in the catalog of human acts (src/harden/human-act.js, ADR 0018)`);
+  return {
+    label: act.label,
+    refuse: (opts = {}) => refuseAgentSession(act.label, opts),
+    confirm: (confirm = null) => confirmHuman(act.label, confirm),
+  };
+}
+
+export function humanAct(id, { env, tty, ancestry, confirm } = {}) {
+  const act = humanActOf(id);
+  act.refuse({ env, tty, ancestry });
+  act.confirm(confirm);
+}

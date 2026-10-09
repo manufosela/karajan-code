@@ -53,8 +53,12 @@ describe("kj identity show|set", () => {
   // KJC-TSK-0822: enroll-phone valida y confirma en llano; clave mala ⇒ exit 1.
   it("enroll-phone guarda la clave del móvil y rechaza una que no sea 32 bytes", async () => {
     const good = Buffer.alloc(32, 7).toString("base64");
-    const run = (publicKeyBase64) =>
-      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64 }, deps: { ...deps(), home: dir } });
+    // KJC-TSK-0966: enrolar es un acto humano del catálogo; aquí las cuatro capas pasan.
+    const human = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
+    const run = (publicKeyBase64, extra = human) =>
+      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64 }, deps: { ...deps(), home: dir, ...extra } });
+    expect(await run(good, { ...human, env: { CLAUDECODE: "1" } })).toBe(1);
+    expect(lines.join("\n")).toMatch(/acto humano/);
     expect(await run("corta")).toBe(1);
     expect(lines.join("\n")).toMatch(/32 bytes/);
     expect(await run(good)).toBe(0);

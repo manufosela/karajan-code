@@ -12,12 +12,11 @@ import path from "node:path";
 
 import yaml from "js-yaml";
 
-import { confirmHuman, refuseAgentSession } from "../harden/human-act.js";
+import { humanActOf } from "../harden/human-act.js";
 import { checkVerdict } from "../review/verdict-store.js";
 import { approvalView } from "../rules/approval-view.js";
 import { loadRules, LOCAL_RULES_FILE, PROPOSAL_FILE, RULES_FILE, rulesCheck } from "./rules.js";
 
-const ACT = "kj rules approve";
 
 /**
  * @param {{projectDir: string, file?: string, home?: string, env?: object, tty?: boolean,
@@ -25,7 +24,8 @@ const ACT = "kj rules approve";
  * @returns {Promise<{code: 0|1, lines: string[]}>}
  */
 export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env, tty, deps = {}, log = console.log }) {
-  refuseAgentSession(ACT, { env, tty, ancestry: deps.ancestry ?? {} });
+  const act = humanActOf("rules-approve");
+  act.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
   const proposal = path.resolve(projectDir, file);
   let text;
   try { text = fs.readFileSync(proposal, "utf8"); } catch { return { code: 1, lines: [`✗ no ${file}: nothing to approve`] }; }
@@ -48,7 +48,7 @@ export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env
   // KJC-TSK-0962: read in the order of what can hurt, weakened rules first.
   const view = approvalView(rules, loadRules(projectDir).rules, local, { versioned: RULES_FILE, unversioned: LOCAL_RULES_FILE });
   for (const line of view) log(line);
-  confirmHuman(ACT, deps.confirm);
+  act.confirm(deps.confirm);
   // KJC-TSK-0961 (ADR 0017): a rule written only in the user's private MD files
   // is not versioned. Where it goes is the inventory's word, not the proposal's.
   const parts = [[RULES_FILE, rules.filter((rule) => !local.has(rule.id))], [LOCAL_RULES_FILE, rules.filter((rule) => local.has(rule.id))]];

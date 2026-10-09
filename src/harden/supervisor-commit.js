@@ -13,7 +13,7 @@ import { basename, join } from "node:path";
 import { recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
-import { confirmHuman, refuseAgentSession } from "./human-act.js";
+import { humanActOf } from "./human-act.js";
 import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 import { describeSupervisorChanges } from "./sign-changes.js";
 
@@ -29,7 +29,6 @@ const HARNESS_PREFIX = ".karajan/harness/";
 
 const sha256 = (abs) => createHash("sha256").update(readFileSync(abs)).digest("hex");
 
-const ACT = "harden --commit";
 
 /** Ficheros de supervisor TRACKEADOS con cambios (staged o no). */
 /**
@@ -74,7 +73,8 @@ export async function commitSupervisorRegeneration({
 }) {
   // El cauce es humano por diseño (ADR 0009): una sesión de agente no lo usa.
   // Capas 1 a 3 (entorno, tty y ascendencia de procesos): src/harden/human-act.js.
-  refuseAgentSession(ACT, { env, tty, ancestry: deps.ancestry ?? {} });
+  const seal = humanActOf("supervisor-seal");
+  seal.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
   // KJC-BUG-0244 (grebla #958): el commit sellado solo lleva el supervisor, pero
   // un stage ajeno se quedaba en esta rama y el siguiente commit caía aquí con la
@@ -87,7 +87,7 @@ export async function commitSupervisorRegeneration({
   }
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
-  confirmHuman(ACT, deps.confirm);
+  seal.confirm(deps.confirm);
   const drift = supervisorDrift({ projectDir, gitFn: run });
   // La provenance describe SIEMPRE el estado COMPLETO del supervisor (cazado
   // en el primer estreno real: un sello parcial pisaba al anterior y dejaba
