@@ -142,20 +142,29 @@ export function verifyPhoneSignature({ payload, signature, publicKey }) {
 export function provenanceSignature({ projectDir, provenance }) {
   const roster = readSigners({ projectDir });
   if (roster.length === 0) return { required: false, ok: true };
-  const fail = (reason) => ({ required: true, ok: false, reason });
-  const sig = provenance?.signature;
-  if (typeof sig?.signature !== "string" || typeof sig?.signer !== "string") return fail("el padrón tiene firmantes y la procedencia no lleva firma");
-  if (!roster.includes(sig.signer)) return fail("la clave que firma la procedencia no está en el padrón");
   // The files as the phone signed them: {file, sha256}, a deletion with no hash.
   // A provenance is read from the project: a malformed one is rejected, it does not crash.
-  const entries = Array.isArray(provenance.files) ? provenance.files : [];
-  if (entries.some((entry) => typeof entry?.file !== "string")) return fail("la procedencia declara ficheros mal formados");
+  const entries = Array.isArray(provenance?.files) ? provenance.files : [];
+  if (entries.some((entry) => typeof entry?.file !== "string")) return { required: true, ok: false, reason: "la procedencia declara ficheros mal formados" };
   const files = entries.map(({ file, sha256 }) => ({ file, sha256: sha256 ?? "" }));
+  const check = verifySignedFiles({ sig: provenance?.signature, files, keys: new Set(roster) });
+  return check.ok ? { required: true, ok: true } : { required: true, ok: false, reason: `el padrón tiene firmantes y la procedencia ${check.reason}` };
+}
+
+/**
+ * KJC-TSK-0967 (HUM-D): a signature block (challenge + signer + signature, as
+ * the seal and the security level record it) over `files`, against `keys`.
+ * The reason reads after a subject: "la procedencia no lleva firma".
+ * @returns {{ok: boolean, reason?: string}}
+ */
+export function verifySignedFiles({ sig, files, keys }) {
+  if (typeof sig?.signature !== "string" || typeof sig?.signer !== "string") return { ok: false, reason: "no lleva firma" };
+  if (!keys.has(sig.signer)) return { ok: false, reason: "está firmada por una clave que no está en el padrón" };
   let good = false;
   try {
     good = verifyPhoneSignature({ payload: canonicalPayload({ ...sig, files }), signature: sig.signature, publicKey: sig.signer });
   } catch { /* a malformed key or signature is a signature that does not verify */ }
-  return good ? { required: true, ok: true } : fail("la firma no corresponde a los ficheros que la procedencia declara");
+  return good ? { ok: true } : { ok: false, reason: "lleva una firma que no corresponde a los ficheros que declara" };
 }
 
 /**

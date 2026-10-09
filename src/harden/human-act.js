@@ -82,7 +82,7 @@ export const HUMAN_ACTS = Object.freeze({
   "rules-approve": { label: "kj rules approve", module: "src/commands/rules-approve.js" },
   "phone-enroll": { label: "kj identity enroll-phone", module: "src/commands/identity.js" },
   "handoff-run": { label: "kj handoff run", module: null, pending: "KJC-TSK-0968" },
-  "security-level-down": { label: "kj security normal", module: null, pending: "KJC-TSK-0967" },
+  "security-level-down": { label: "kj security normal", module: "src/harden/security-level.js" },
 });
 
 /**
