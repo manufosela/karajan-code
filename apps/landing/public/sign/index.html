@@ -45,6 +45,7 @@
     <dl>
       <dt data-i18n="project">Proyecto</dt><dd id="project"></dd>
       <dt data-i18n="branch">Rama</dt><dd id="branch"></dd>
+      <dt>kj</dt><dd id="version"></dd>
       <dt data-i18n="origin">Generado por</dt><dd id="origin"></dd>
       <dt data-i18n="expires">Caduca</dt><dd id="expires"></dd>
     </dl>
@@ -161,6 +162,7 @@
     const expiresMs = Date.parse(f.expires_at?.timestampValue ?? "");
     if (v2 && (!Number.isFinite(issuedMs) || !Number.isFinite(expiresMs))) return fail(TEXT.noExpiry);
     $("project").textContent = project;
+    $("version").textContent = kjVersion;
     $("branch").textContent = str(f.branch) || TEXT.unknown;
     $("origin").textContent = str(f.origin) || (kjVersion ? `kj ${kjVersion}` : TEXT.unknown);
     $("expires").textContent = v2 ? new Date(expiresMs).toLocaleTimeString(LANG) : TEXT.soon;
