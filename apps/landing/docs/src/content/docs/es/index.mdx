@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.46.0: lo que firma el móvil, dicho (actual)
+### v4.47.0: el nivel que protege a quien no sabe que existe el riesgo (actual)
+
+Seguridad máxima por defecto: todo acto del catálogo (sellar el supervisor, aprobar reglas, enrolar otro móvil, bajar el nivel) se firma desde el móvil sobre los bytes exactos y sin móvil se niega; `kj security show|normal|max` lee y cambia el nivel, y bajarlo es un acto firmado que dice qué se hace y por qué. Un móvil perdido se sustituye con el código de recuperación de un solo uso que se enseña al primer enrolamiento, nunca reinstalando: el código se gasta al usarlo, se emite otro y el móvil perdido queda revocado. CI juzga cada cambio del padrón de móviles. Y las reglas del relé, que desde 4.46 rechazaban todos los sellos con 403, admiten lo que la página de firma enseña.
+
+### v4.46.0: lo que firma el móvil, dicho
 
 "Veo 'sentinel', pero ¿qué estoy firmando? me puedes estar engañando". La petición de firma lleva ahora qué cambia, fichero a fichero: nuevo, modificado o borrado, líneas añadidas y quitadas, un resumen de una línea, el diff (recortado y pasado por el escaneo de privacidad), la rama y qué la generó. La página habla el idioma del navegador, español o inglés, pliega el diff bajo cada fichero y dice que los sha256 que muestra son lo que la firma garantiza. Además: un catálogo cerrado de actos humanos con un solo mecanismo y un test de arquitectura que lo vigila (enrolar el móvil ejecuta las cuatro capas por sí mismo), y los criterios de la card llegan a las HUs al descomponer, para que ninguno se quede sin HU.
 

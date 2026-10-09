@@ -7,14 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.47.0] - 2026-10-10
+
+The level that protects whoever does not know the risk exists. ADR 0018 made
+two things conditions of each other: the maximum security level could not be
+the default until CI verified the phone's signature and a recovery code
+existed, because without them it would be friction without guarantee. Both are
+here, so the default flips: every act of the catalog is signed from the phone
+over the exact bytes, and refused without one. Lowering the level is itself a
+signed act, a lost phone is replaced with a one-time code and never by
+reinstalling, and CI judges every change of the roster of phones.
+
+### Added
+
+- **The security level, versioned and signed** (KJC-TSK-0967, KJC-TSK-0995, HUM-D, ADR 0018): `.karajan/security-level.json` holds the project's level and travels with the contract. A `normal` record is worth nothing without the signature of an enrolled phone over its exact bytes: tampered, unsigned or unknown, it reads as max and says why. `kj security show` tells the level in force, where it comes from and whether a phone is enrolled; `kj security max` is free; `kj security normal` is the catalog act `security-level-down`: four layers, then the phone's signature, with what is done, why the signature is asked and what would happen if another lowered it; with no phone it refuses and says how to enroll one.
+- **The level applied to every catalog act in one place** (KJC-TSK-0996, KJC-TSK-0998): `signAct(id)` reads the level and, with a phone enrolled, asks its signature over the exact bytes of what the act does; the request carries `why` (what is done, why the signature is asked, what if another did it) and the signing page shows it before the files. The supervisor seal, `kj rules approve` (the sha256 of the YAML that lands) and enrolling a phone (the key that enters) go through it; an architecture test requires it of every module of the catalog.
+- **A one-time recovery code, and a roster CI judges** (KJC-TSK-0965, KJC-TSK-0999, KJC-TSK-1000, HUM-B, ADR 0018): a phone enters the roster with an admission, the signature of a present phone over the sha256 of its key or the recovery code, spent. `kj identity enroll-phone` shows the code once at the first enrollment (keep it off the machine; the roster keeps sha256(sha256(code)) only) and, with `--recovery <code>`, replaces a lost phone without its signature: the code is checked first, spent on use (its proof, sha256(code), is the admission), a new one is issued, and the lost phone is revoked by the same code and signs no more. `kj policy check` judges every change of the roster against the base's: a key without a valid admission, a removal, a revocation without the code or a fingerprint that rotates without a spent code is a deny violation, so reinstalling kj on a machine never changes what CI demands.
+
 ### Changed
 
-- **Security level max by default** (ADR 0018, KJC-TSK-0997): every act of the catalog
-  (sealing the supervisor, approving rules, enrolling another phone, lowering the level) is
-  signed from the phone over the exact bytes, and refused without a phone enrolled; no typed
-  code instead. `kj security show` tells the level; `kj security normal` lowers it, signed from
-  the phone (the first enrollment is the only act without a signature). `kj init` explains the
-  phone and how to enroll it.
+- **Security level max by default** (KJC-TSK-0997, ADR 0018): every act of the catalog (sealing the supervisor, approving rules, enrolling another phone, lowering the level) is signed from the phone and refused without a phone enrolled; no typed code instead. The first enrollment is the only act without a signature. `kj init` explains the phone: what it protects, the page that creates the key pair, the command from the user's terminal, the recovery code to keep, and how to lower the level.
+
+### Fixed
+
+- **`kj harden --commit` got 403 from the relay since 4.46** (KJC-BUG-0303, #2035): the relay's Firestore rules limited the signing request to the pre-4.46 keys and rejected the whole document once it carried `changes`, `branch` and `origin`. The rules admit them (and `why`), typed, and were deployed on their own; a test publishes a full v2 request and checks every field it sends against the rule's list.
 
 ## [4.46.0] - 2026-10-09
 
