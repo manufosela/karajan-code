@@ -2,7 +2,26 @@
 // tests (supervisor-commit.test.js) keep proving them through `harden --commit`;
 // these prove the module any other human-only command builds on.
 import { describe, it, expect } from "vitest";
-import { agentAncestry, confirmHuman, refuseAgentSession } from "../../src/harden/human-act.js";
+import { HUMAN_ACTS, agentAncestry, confirmHuman, humanAct, humanActOf, refuseAgentSession } from "../../src/harden/human-act.js";
+
+// KJC-TSK-0966 (HUM-C, ADR 0018): one closed catalog, one mechanism.
+describe("the catalog of human acts", () => {
+  const human = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) } };
+
+  it("an id outside the catalog is refused by name", () => {
+    expect(() => humanActOf("delete-everything")).toThrow(/not in the catalog of human acts/);
+  });
+
+  it("humanAct runs the four layers for a catalog id, with the act's own label", () => {
+    expect(() => humanAct("rules-approve", { ...human, confirm: (nonce) => nonce })).not.toThrow();
+    expect(() => humanAct("rules-approve", { ...human, env: { CLAUDECODE: "1" }, confirm: (nonce) => nonce })).toThrow(/kj rules approve es un acto humano/);
+    expect(() => humanAct("supervisor-seal", { ...human, confirm: () => "wrong" })).toThrow(/harden --commit: confirmación humana fallida/);
+  });
+
+  it("every act names a module or the card that will bring it", () => {
+    for (const act of Object.values(HUMAN_ACTS)) expect(Boolean(act.module) || /^KJC-TSK-\d{4}$/.test(act.pending)).toBe(true);
+  });
+});
 
 const chain = (cmds) => (pid) => cmds[pid] ?? { ppid: 1, cmd: "init" };
 const HUMAN = { env: {}, tty: true, ancestry: { pid: 100, readProc: chain({ 100: { ppid: 50, cmd: "node kj" }, 50: { ppid: 1, cmd: "bash" } }) } };
