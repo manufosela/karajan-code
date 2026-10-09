@@ -83,7 +83,7 @@ describe("ensureGateTrackable", () => {
   it("the policy, its anchor and the signers roll travel with the repo too", async () => {
     fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/\n");
     await ensureGateTrackable(dir);
-    for (const file of ["policy.yml", "policy-anchor.json", "supervisor-signers.json", "supervisor-provenance.json"]) {
+    for (const file of ["policy.yml", "policy-anchor.json", "supervisor-signers.json", "supervisor-provenance.json", "security-level.json"]) {
       expect(ignored(`.karajan/${file}`), file).toBe(false);
     }
     // what is local stays local: decisions, exceptions, the phone's own key, and the

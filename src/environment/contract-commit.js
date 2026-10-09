@@ -30,6 +30,8 @@ export const CONTRACT_PATHS = [
   ".karajan/rules.yml",
   ".karajan/policy-anchor.json",
   ".karajan/supervisor-signers.json",
+  // KJC-TSK-0995 (HUM-D, ADR 0018): the security level the whole team inherits.
+  ".karajan/security-level.json",
 ];
 
 const FRESH_MESSAGE = "chore(bootstrap): el contrato del método, para que quien clone lo herede";
