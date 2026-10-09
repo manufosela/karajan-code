@@ -48,6 +48,29 @@ const request = (fetchFn) => requestPhoneSignature({
   deps: { fetch: fetchFn, home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {} },
 });
 
+// KJC-TSK-0992 (HUM-G): what the page shows beside the sha256 travels in the
+// request, outside the signed payload: the signature is unchanged.
+describe("the request says what changes", () => {
+  it("publishes changes, branch and origin as Firestore values, and the v2 signature still verifies", async () => {
+    let posted = null;
+    const fake = phone();
+    const spy = async (url, opts = {}) => { if (opts.method === "POST") posted = JSON.parse(opts.body).fields; return fake(url, opts); };
+    const changes = [{ file: FILES[0].file, status: "modified", added: 2, removed: 1, summary: "KJC-BUG-0302: left to the seal", diff: "diff --git a b\n+# x\n", truncated: false }];
+    const res = await requestPhoneSignature({
+      project: "karajan-code", files: FILES, kjVersion: "4.46.0", changes, branch: "feat/x", origin: "kj harden 4.46.0", logger: { info: () => {} },
+      deps: { fetch: spy, home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {} },
+    });
+    expect(res.ok).toBe(true);
+    expect(posted.branch).toEqual({ stringValue: "feat/x" });
+    expect(posted.origin).toEqual({ stringValue: "kj harden 4.46.0" });
+    const c = posted.changes.arrayValue.values[0].mapValue.fields;
+    expect(c.status).toEqual({ stringValue: "modified" });
+    expect(c.added).toEqual({ integerValue: "2" });
+    expect(c.summary.stringValue).toBe("KJC-BUG-0302: left to the seal");
+    expect(c.truncated).toEqual({ booleanValue: false });
+  });
+});
+
 describe("phone signature v2", () => {
   it("covers version, issue and expiry: a v2 payload differs if any of them changes", () => {
     const base = { v: 2, cid: "c", nonce: "n", project: "p", files: FILES, kjVersion: "4.36.0", issuedMs: 1, expiresMs: 2 };
