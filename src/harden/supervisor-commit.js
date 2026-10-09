@@ -8,13 +8,13 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 
 import { recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
+import { signAct } from "./act-sign.js";
 import { humanActOf } from "./human-act.js";
-import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 import { describeSupervisorChanges } from "./sign-changes.js";
 
 export const PROVENANCE_FILE = ".karajan/supervisor-provenance.json";
@@ -120,33 +120,18 @@ export async function commitSupervisorRegeneration({
     logger.info?.("harden --commit: sin drift y provenance completa — nada que versionar");
     return { committed: false, reason: "sin drift" };
   }
-  // Capa 5 (KJC-TSK-0822 / PRP-0023): con móvil enrolado la firma asimétrica
-  // es OBLIGATORIA — jamás se degrada a solo-nonce. Firma los MISMOS
-  // files/hashes de la provenance (normalizados al par {file, sha256}).
-  const phone = deps.phone ?? { enrolled: isPhoneEnrolled, request: requestPhoneSignature };
-  let signatureBlock = null;
-  if (phone.enrolled({})) {
-    // KJC-TSK-0992 (HUM-G): the page says what is signed, file by file.
-    let branch = null;
-    try { branch = run(["rev-parse", "--abbrev-ref", "HEAD"]).trim(); } catch { /* unborn HEAD */ }
-    const signed = await phone.request({
-      project: basename(projectDir),
-      files: hashed.map(({ file, sha256: hash }) => ({ file, sha256: hash ?? "" })),
-      kjVersion,
-      changes: (deps.describeChanges ?? describeSupervisorChanges)({ projectDir, files: hashed }),
-      branch,
-      origin: `kj harden ${kjVersion}`,
-      logger,
-    });
-    if (!signed.ok) {
-      throw new Error(`capa 5: firma del móvil rechazada (${signed.reason}) — con móvil enrolado el sello exige su firma (PRP-0023)`);
-    }
-    // KJC-TSK-0823: graba el desafío + firma en la provenance para que CI
-    // re-verifique server-side que un humano (clave del padrón) aprobó.
-    if (signed.challenge && signed.signature) {
-      signatureBlock = { ...signed.challenge, signer: signed.signer, signature: signed.signature };
-    }
-  }
+  // Capa 5 (KJC-TSK-0822 / PRP-0023, KJC-TSK-0996 / ADR 0018): the level applied
+  // by the catalog's mechanism. With a phone enrolled its signature over the SAME
+  // files/hashes of the provenance is mandatory, never nonce-only; at max with no
+  // phone the seal is refused. KJC-TSK-0992: the page says what is signed, file by
+  // file; KJC-TSK-0823: the block is recorded so CI re-verifies server-side.
+  let branch = null;
+  try { branch = run(["rev-parse", "--abbrev-ref", "HEAD"]).trim(); } catch { /* unborn HEAD */ }
+  const { signature: signatureBlock } = await signAct("supervisor-seal", {
+    projectDir, kjVersion, branch, logger, deps,
+    files: hashed.map(({ file, sha256: hash }) => ({ file, sha256: hash ?? "" })),
+    changes: (deps.describeChanges ?? describeSupervisorChanges)({ projectDir, files: hashed }),
+  });
   const who = readIdentity(projectDir);
   const provenance = {
     kj_version: kjVersion,

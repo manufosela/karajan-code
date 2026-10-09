@@ -180,7 +180,7 @@ const changesValue = (changes) => ({ arrayValue: { values: changes.map((c) => ({
   summary: str(c.summary), diff: str(c.diff), truncated: { booleanValue: Boolean(c.truncated) },
 } } })) } });
 
-export async function requestPhoneSignature({ project, files, kjVersion, changes = null, branch = null, origin = null, logger = console, deps = {} }) {
+export async function requestPhoneSignature({ project, files, kjVersion, changes = null, branch = null, origin = null, why = null, logger = console, deps = {} }) {
   const fetchFn = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -204,6 +204,8 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
       ...(Array.isArray(changes) ? { changes: changesValue(changes) } : {}),
       ...(branch ? { branch: str(branch) } : {}),
       ...(origin ? { origin: str(origin) } : {}),
+      // KJC-TSK-0996 (HUM-D): what is done, why the signature is asked, what if another did it.
+      ...(why ? { why: str(why) } : {}),
     },
   };
   const created = await fetchFn(`${relay.url}?documentId=${cid}&key=${relay.apiKey}`, {
