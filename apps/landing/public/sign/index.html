@@ -12,9 +12,17 @@
   .hint { color: var(--dim); font-size: 0.9rem; }
   code, pre { font-family: ui-monospace, monospace; }
   pre#pubkey { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; font-size: 1.05rem; word-break: break-all; white-space: pre-wrap; }
-  ul#files { list-style: none; margin: 0 0 1.5rem; padding: 0; max-height: 40vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  ul#files { list-style: none; margin: 0 0 1.5rem; padding: 0; max-height: 55vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
   ul#files li { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
   ul#files code { display: block; color: var(--dim); font-size: 0.72rem; word-break: break-all; }
+  /* KJC-TSK-0992 (HUM-G): what changes, file by file, with the detail folded. */
+  .badge { display: inline-block; padding: 0 0.45rem; margin-right: 0.4rem; border-radius: 4px; font-size: 0.72rem; text-transform: uppercase; background: var(--line); color: #fff; }
+  .badge.new { background: #1f6f4a; } .badge.deleted { background: #7a2e2e; }
+  .counts { color: var(--dim); font-size: 0.78rem; margin-left: 0.3rem; }
+  .summary { display: block; margin: 0.25rem 0; }
+  details { margin-top: 0.35rem; } details summary { cursor: pointer; color: var(--dim); font-size: 0.8rem; }
+  pre.diff { margin: 0.4rem 0 0; padding: 0.6rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 0.72rem; white-space: pre-wrap; word-break: break-all; max-height: 50vh; overflow: auto; }
+  .warn { border-left: 3px solid #b8862b; padding-left: 0.6rem; }
   dl { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; }
   dt { color: var(--dim); } dd { margin: 0; font-family: ui-monospace, monospace; }
   button { width: 100%; padding: 0.9rem; border: 1px solid var(--dim); border-radius: 8px; background: var(--line); color: #fff; font-size: 1.05rem; cursor: pointer; }
@@ -23,31 +31,107 @@
 </head>
 <body>
 <main>
-  <section id="loading"><p>Cargando…</p></section>
+  <section id="loading"><p data-i18n="loading">Cargando…</p></section>
   <section id="enroll" hidden>
-    <h1>Tu clave de supervisor</h1>
-    <p>Esta es la clave pública de este teléfono. La privada no sale del navegador.</p>
+    <h1 data-i18n="enrollTitle">Tu clave de supervisor</h1>
+    <p data-i18n="enrollIntro">Esta es la clave pública de este teléfono. La privada no sale del navegador.</p>
     <pre id="pubkey"></pre>
-    <button id="copy">Copiar la clave</button>
-    <p>En tu ordenador: <code>kj identity enroll-phone &lt;clave&gt;</code></p>
-    <p class="hint">Cuando la clave esté enrolada, abre el enlace de firma que te dé kj.</p>
+    <button id="copy" data-i18n="copy">Copiar la clave</button>
+    <p><span data-i18n="onYourComputer">En tu ordenador:</span> <code>kj identity enroll-phone &lt;clave&gt;</code></p>
+    <p class="hint" data-i18n="enrollHint">Cuando la clave esté enrolada, abre el enlace de firma que te dé kj.</p>
   </section>
   <section id="approve" hidden>
-    <h1>Petición de firma</h1>
-    <dl><dt>Proyecto</dt><dd id="project"></dd><dt>kj</dt><dd id="version"></dd><dt>Caduca</dt><dd id="expires"></dd></dl>
-    <p class="hint">Ficheros que quedarán sellados:</p>
+    <h1 data-i18n="approveTitle">Petición de firma</h1>
+    <dl>
+      <dt data-i18n="project">Proyecto</dt><dd id="project"></dd>
+      <dt data-i18n="branch">Rama</dt><dd id="branch"></dd>
+      <dt>kj</dt><dd id="version"></dd>
+      <dt data-i18n="origin">Generado por</dt><dd id="origin"></dd>
+      <dt data-i18n="expires">Caduca</dt><dd id="expires"></dd>
+    </dl>
+    <p class="hint" id="what-you-sign"></p>
+    <p class="hint warn" id="no-detail" hidden></p>
     <ul id="files"></ul>
-    <button id="sign-btn">Firmar el sello</button>
+    <button id="sign-btn" data-i18n="sign">Firmar el sello</button>
   </section>
-  <section id="done" hidden><h1>Firmado.</h1><p>Vuelve al ordenador.</p></section>
-  <section id="error" hidden><h1>No se puede continuar</h1><p id="error-text"></p></section>
+  <section id="done" hidden><h1 data-i18n="doneTitle">Firmado.</h1><p data-i18n="doneBody">Vuelve al ordenador.</p></section>
+  <section id="error" hidden><h1 data-i18n="errorTitle">No se puede continuar</h1><p id="error-text"></p></section>
 </main>
 <script>
   const API_KEY = "AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8";
   const BASE = "https://firestore.googleapis.com/v1/projects/karajan-code/databases/(default)/documents/kjSupervisorSign";
+  // KJC-TSK-0992 (HUM-G): the page speaks the browser's language, Spanish or
+  // English, and says what is signed: file by file, what changes and why.
+  const LANG = String(navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
+  const TEXT = {
+    es: {
+      loading: "Cargando…", enrollTitle: "Tu clave de supervisor", enrollIntro: "Esta es la clave pública de este teléfono. La privada no sale del navegador.",
+      copy: "Copiar la clave", copied: "Copiada", onYourComputer: "En tu ordenador:", enrollHint: "Cuando la clave esté enrolada, abre el enlace de firma que te dé kj.",
+      approveTitle: "Petición de firma", project: "Proyecto", branch: "Rama", origin: "Generado por", expires: "Caduca", soon: "en unos minutos", unknown: "(no indicado)",
+      whatYouSign: "Firmas el sha256 de cada fichero tal como se muestra abajo: eso es lo que el sello garantiza. El detalle de qué cambia lo cuenta kj para que sepas qué firmas; despliega cada fichero para ver el diff.",
+      noDetail: "Esta petición no trae el detalle de los cambios (kj anterior a 4.46): firmarías estos sha256 sin ver qué cambia. Actualiza kj y genera otra petición si quieres verlo antes de firmar.",
+      status: { new: "nuevo", modified: "modificado", deleted: "borrado" }, lines: (a, r) => `+${a} −${r} líneas`, showDiff: "Ver el diff", cutNote: "(diff recortado por tamaño)",
+      sign: "Firmar el sello", doneTitle: "Firmado.", doneBody: "Vuelve al ordenador.", errorTitle: "No se puede continuar",
+      offline: "Sin conexión. Revisa la red y recarga la página.", gone: "Esta petición de firma no existe o ha caducado. Genera una nueva desde el ordenador con kj.",
+      readFail: (s) => `No se pudo leer la petición (error ${s}). Recarga la página; si sigue, genera otra desde kj.`, notPending: "Esta petición ya está firmada o ya no admite firma. Si necesitas firmar, genera una nueva desde kj.",
+      noExpiry: "La petición no trae una vigencia legible. Genera una nueva desde kj.", rejected: (s) => `El servidor rechazó la firma (error ${s}). La petición pudo caducar: genera una nueva desde kj.`,
+      signFail: "No se pudo firmar. Recarga la página e inténtalo otra vez.", noCrypto: "Este navegador no soporta la criptografía que necesita la firma. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día).",
+      noEd25519: "Este navegador no soporta claves Ed25519. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día).", badLink: "El enlace no es válido. Genera uno nuevo desde el ordenador con kj.",
+    },
+    en: {
+      loading: "Loading…", enrollTitle: "Your supervisor key", enrollIntro: "This is this phone's public key. The private one never leaves the browser.",
+      copy: "Copy the key", copied: "Copied", onYourComputer: "On your computer:", enrollHint: "Once the key is enrolled, open the signing link kj gives you.",
+      approveTitle: "Signing request", project: "Project", branch: "Branch", origin: "Generated by", expires: "Expires", soon: "in a few minutes", unknown: "(not given)",
+      whatYouSign: "You sign the sha256 of each file exactly as shown below: that is what the seal guarantees. kj tells what changes so you know what you sign; unfold each file to see the diff.",
+      noDetail: "This request carries no detail of the changes (kj before 4.46): you would sign these sha256 without seeing what changes. Update kj and make a new request if you want to see it before signing.",
+      status: { new: "new", modified: "modified", deleted: "deleted" }, lines: (a, r) => `+${a} −${r} lines`, showDiff: "Show the diff", cutNote: "(diff cut for size)",
+      sign: "Sign the seal", doneTitle: "Signed.", doneBody: "Go back to the computer.", errorTitle: "Cannot continue",
+      offline: "No connection. Check the network and reload the page.", gone: "This signing request does not exist or has expired. Make a new one from the computer with kj.",
+      readFail: (s) => `The request could not be read (error ${s}). Reload the page; if it persists, make another one from kj.`, notPending: "This request is already signed or no longer accepts a signature. If you need to sign, make a new one from kj.",
+      noExpiry: "The request carries no readable validity. Make a new one from kj.", rejected: (s) => `The server refused the signature (error ${s}). The request may have expired: make a new one from kj.`,
+      signFail: "Could not sign. Reload the page and try again.", noCrypto: "This browser lacks the cryptography the signature needs. Open this page in a current browser (Chrome, Firefox or Safari, up to date).",
+      noEd25519: "This browser does not support Ed25519 keys. Open this page in a current browser (Chrome, Firefox or Safari, up to date).", badLink: "The link is not valid. Make a new one from the computer with kj.",
+    },
+  }[LANG];
+  document.documentElement.lang = LANG;
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = TEXT[el.dataset.i18n];
   const $ = (id) => document.getElementById(id);
   const show = (id) => { for (const s of document.querySelectorAll("section")) s.hidden = s.id !== id; };
   const fail = (msg) => { $("error-text").textContent = msg; show("error"); };
+  const str = (v) => v?.stringValue ?? "";
+  const changesOf = (f) => (f.changes?.arrayValue?.values ?? []).map((v) => {
+    const c = v.mapValue?.fields ?? {};
+    return { file: str(c.file), status: str(c.status), added: Number(c.added?.integerValue ?? 0), removed: Number(c.removed?.integerValue ?? 0), summary: str(c.summary), diff: str(c.diff), truncated: Boolean(c.truncated?.booleanValue) };
+  });
+  const renderFile = (it, change) => {
+    const li = document.createElement("li");
+    if (change) {
+      const badge = document.createElement("span");
+      badge.className = `badge ${change.status}`;
+      badge.textContent = TEXT.status[change.status] ?? change.status;
+      const counts = document.createElement("span");
+      counts.className = "counts";
+      counts.textContent = TEXT.lines(change.added, change.removed);
+      li.append(badge, document.createTextNode(it.file), counts);
+      if (change.summary) { const s = document.createElement("span"); s.className = "summary"; s.textContent = change.summary; li.append(s); }
+    } else {
+      li.append(document.createTextNode(it.file));
+    }
+    const sha = document.createElement("code");
+    sha.textContent = it.sha256;
+    li.append(sha);
+    if (change?.diff) {
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = TEXT.showDiff + (change.truncated ? ` ${TEXT.cutNote}` : "");
+      const pre = document.createElement("pre");
+      pre.className = "diff";
+      pre.textContent = change.diff;
+      details.append(summary, pre);
+      li.append(details);
+    }
+    return li;
+  };
   const enc = (s) => new TextEncoder().encode(s);
   const b64 = (buf) => new Uint8Array(buf).toBase64();
   const idbOp = (mode, fn) => new Promise((res, rej) => {
@@ -63,11 +147,11 @@
   const sha256hex = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", enc(s))).toHex();
   const signMode = async (cid, keys) => {
     let res;
-    try { res = await fetch(`${BASE}/${cid}?key=${API_KEY}`); } catch { return fail("Sin conexión. Revisa la red y recarga la página."); }
-    if (res.status === 404) return fail("Esta petición de firma no existe o ha caducado. Genera una nueva desde el ordenador con kj.");
-    if (!res.ok) return fail(`No se pudo leer la petición (error ${res.status}). Recarga la página; si sigue, genera otra desde kj.`);
+    try { res = await fetch(`${BASE}/${cid}?key=${API_KEY}`); } catch { return fail(TEXT.offline); }
+    if (res.status === 404) return fail(TEXT.gone);
+    if (!res.ok) return fail(TEXT.readFail(res.status));
     const f = (await res.json()).fields ?? {};
-    if (f.state?.stringValue !== "pending") return fail("Esta petición ya está firmada o ya no admite firma. Si necesitas firmar, genera una nueva desde kj.");
+    if (f.state?.stringValue !== "pending") return fail(TEXT.notPending);
     const nonce = f.nonce?.stringValue ?? "";
     const project = f.project?.stringValue ?? "";
     const files = (f.files?.arrayValue?.values ?? []).map((v) => ({ file: v.mapValue.fields.file.stringValue, sha256: v.mapValue.fields.sha256.stringValue }));
@@ -76,18 +160,18 @@
     const kjVersion = f.kj_version?.stringValue ?? "";
     const issuedMs = Date.parse(f.createdAt?.timestampValue ?? "");
     const expiresMs = Date.parse(f.expires_at?.timestampValue ?? "");
-    if (v2 && (!Number.isFinite(issuedMs) || !Number.isFinite(expiresMs))) return fail("La petición no trae una vigencia legible. Genera una nueva desde kj.");
+    if (v2 && (!Number.isFinite(issuedMs) || !Number.isFinite(expiresMs))) return fail(TEXT.noExpiry);
     $("project").textContent = project;
     $("version").textContent = kjVersion;
-    $("expires").textContent = v2 ? new Date(expiresMs).toLocaleTimeString() : "en unos minutos";
-    for (const it of files) {
-      const li = document.createElement("li");
-      li.textContent = it.file;
-      const sha = document.createElement("code");
-      sha.textContent = it.sha256;
-      li.append(sha);
-      $("files").append(li);
-    }
+    $("branch").textContent = str(f.branch) || TEXT.unknown;
+    $("origin").textContent = str(f.origin) || (kjVersion ? `kj ${kjVersion}` : TEXT.unknown);
+    $("expires").textContent = v2 ? new Date(expiresMs).toLocaleTimeString(LANG) : TEXT.soon;
+    $("what-you-sign").textContent = TEXT.whatYouSign;
+    const changes = changesOf(f);
+    const hasDetail = changes.length > 0;
+    $("no-detail").hidden = hasDetail;
+    if (!hasDetail) $("no-detail").textContent = TEXT.noDetail;
+    for (const it of files) $("files").append(renderFile(it, changes.find((c) => c.file === it.file) ?? null));
     show("approve");
     $("sign-btn").onclick = async () => {
       $("sign-btn").disabled = true;
@@ -104,27 +188,27 @@
           publicKey: { stringValue: publicKey }, signedAt: { timestampValue: new Date().toISOString() },
         } });
         const patch = await fetch(`${BASE}/${cid}?${mask}&key=${API_KEY}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
-        if (!patch.ok) return fail(`El servidor rechazó la firma (error ${patch.status}). La petición pudo caducar: genera una nueva desde kj.`);
+        if (!patch.ok) return fail(TEXT.rejected(patch.status));
         show("done");
-      } catch { fail("No se pudo firmar. Recarga la página e inténtalo otra vez."); } finally { $("sign-btn").disabled = false; }
+      } catch { fail(TEXT.signFail); } finally { $("sign-btn").disabled = false; }
     };
   };
   const main = async () => {
     if (!crypto?.subtle || typeof Uint8Array.prototype.toBase64 !== "function") {
-      return fail("Este navegador no soporta la criptografía que necesita la firma. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día).");
+      return fail(TEXT.noCrypto);
     }
     let keys = await idbOp("readonly", (store) => store.get("v1")).catch(() => null);
     const isNew = !keys;
     if (isNew) {
       try { keys = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]); }
-      catch { return fail("Este navegador no soporta claves Ed25519. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día)."); }
+      catch { return fail(TEXT.noEd25519); }
       await idbOp("readwrite", (store) => store.put(keys, "v1"));
     }
     const cid = new URLSearchParams(location.search).get("c");
-    if (cid && !/^[0-9a-f]{32}$/.test(cid)) return fail("El enlace no es válido. Genera uno nuevo desde el ordenador con kj.");
+    if (cid && !/^[0-9a-f]{32}$/.test(cid)) return fail(TEXT.badLink);
     if (cid && !isNew) return signMode(cid, keys);
     $("pubkey").textContent = b64(await crypto.subtle.exportKey("raw", keys.publicKey));
-    $("copy").onclick = async () => { await navigator.clipboard.writeText($("pubkey").textContent); $("copy").textContent = "Copiada"; };
+    $("copy").onclick = async () => { await navigator.clipboard.writeText($("pubkey").textContent); $("copy").textContent = TEXT.copied; };
     show("enroll");
   };
   main();
