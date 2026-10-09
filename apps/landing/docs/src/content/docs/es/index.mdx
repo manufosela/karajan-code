@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.45.0: aprobado significa que los criterios de la card están en el diff (actual)
+### v4.46.0: lo que firma el móvil, dicho (actual)
+
+"Veo 'sentinel', pero ¿qué estoy firmando? me puedes estar engañando". La petición de firma lleva ahora qué cambia, fichero a fichero: nuevo, modificado o borrado, líneas añadidas y quitadas, un resumen de una línea, el diff (recortado y pasado por el escaneo de privacidad), la rama y qué la generó. La página habla el idioma del navegador, español o inglés, pliega el diff bajo cada fichero y dice que los sha256 que muestra son lo que la firma garantiza. Además: un catálogo cerrado de actos humanos con un solo mecanismo y un test de arquitectura que lo vigila (enrolar el móvil ejecuta las cuatro capas por sí mismo), y los criterios de la card llegan a las HUs al descomponer, para que ninguno se quede sin HU.
+
+### v4.45.0: aprobado significa que los criterios de la card están en el diff
 
 Un run terminó aprobado sin implementar ninguno de los tres criterios de aceptación de la card. Con card leída, una IA distinta del coder lee ahora cada criterio contra el diff antes de que el run diga aprobado y contesta uno a uno: cubierto, con la evidencia, o no. Un criterio sin cubrir vuelve al coder; en el camino de HUs el resultado dice `approved:false` con la lista; un juez sin veredicto legible nunca concede una aprobación. Además: `kj harden` tras subir de versión ya no se bloquea contra el sello, y `kj update` nunca degrada un kj enlazado desde su árbol fuente.
 

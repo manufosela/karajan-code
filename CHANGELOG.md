@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.46.0] - 2026-10-09
+
+What the phone signs, said. The user put it plainly: on the phone they saw a
+project name and a list of sha256, "but what am I signing? you could be
+deceiving me". The signing request now carries what changes, file by file,
+and the page shows it in the browser's language. With it, the catalog of
+human acts is closed and watched, and a card's criteria reach the HUs at
+decomposition time, not only at the final gate.
+
+### Added
+
+- **The signing request says what changes** (KJC-TSK-0992, HUM-G, ADR 0018): for each supervisor file kj regenerated, its status (new, modified, deleted), lines added and removed, the first comment kj added as a one-line summary and the unified diff, cut to a size the request carries and scanned for personal data before it leaves; with the branch and what generated it (`kj harden` and its version). The signed payload does not change: the sha256 are what the signature guarantees.
+- **The signing page speaks the browser's language and shows the detail** (KJC-TSK-0993): Spanish when the browser starts with `es`, English otherwise, never mixed; per file a badge, the counts, the summary, the sha256 and the diff folded under a details element; a plain note that the sha256 shown are what is signed; and, for a request from an older kj, a warning that it carries no detail instead of pretending nothing changes.
+- **A closed catalog of human acts, one mechanism and a test that watches it** (KJC-TSK-0966, HUM-C, ADR 0018): `HUMAN_ACTS` lists every act that changes who governs (sealing the supervisor, approving rules, enrolling the phone; the handoff and the security level named for their cards), `humanActOf(id)` is the one mechanism, and an architecture test fails on a catalog module that skips it or on a module that writes a governance file without being in the catalog. `kj identity enroll-phone` now runs the four layers itself: in an agent session it refuses, in a terminal it asks for the nonce.
+- **The decomposition takes the card's criteria; none is left without an HU** (KJC-TSK-0989, #1894): the card's acceptance criteria go numbered into the decomposition prompt, each HU says which ones it covers, and what no HU covers is said (a warn and an event) and added to the last HU before any coding starts.
+
 ## [4.45.0] - 2026-10-08
 
 Approved means the card's criteria are in the diff. The same session that
