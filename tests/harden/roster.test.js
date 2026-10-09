@@ -54,6 +54,12 @@ describe("the recovery code", () => {
     expect(second.recoveryCode).not.toBe(first.recoveryCode);
     expect(readFileSync(join(dir, SIGNERS_FILE), "utf8")).not.toContain(first.recoveryCode);
     expect(readRoster({ projectDir: dir })).toMatchObject({ signers: [{ publicKey: a.pub }, { publicKey: b.pub, admission: { recoveryProof: sha(first.recoveryCode) } }], recovery: { fingerprint: sha(sha(second.recoveryCode)) } });
+    // KJC-TSK-0999: replacing revokes the lost phone with the same code; only with the code, only a present phone
+    expect(() => admit({ publicKey: keyPair().pub, admission: signedBy(a, b.pub), replaces: a.pub })).toThrow(/se hace con el código/);
+    const third = keyPair();
+    expect(() => admit({ publicKey: third.pub, admission: redeemRecoveryCode(second.recoveryCode, { projectDir: dir }), replaces: keyPair().pub })).toThrow(/no está en el padrón/);
+    admit({ publicKey: third.pub, admission: redeemRecoveryCode(second.recoveryCode, { projectDir: dir }), replaces: b.pub });
+    expect(readRoster({ projectDir: dir }).signers[1]).toMatchObject({ publicKey: b.pub, revoked: { recoveryProof: sha(second.recoveryCode) } });
     // a roster from before the code (no recovery) gets one when a signed phone enters
     writeFileSync(join(dir, SIGNERS_FILE), JSON.stringify({ signers: readRoster({ projectDir: dir }).signers }));
     expect(() => redeemRecoveryCode(second.recoveryCode, { projectDir: dir })).toThrow(/no tiene código de recuperación/);
@@ -74,6 +80,13 @@ describe("verifyRosterChange (CI)", () => {
     expect(verifyRosterChange({ before: one, after: signed })).toEqual({ ok: true, added: 1, spent: false });
     const redeemed = { signers: [...one.signers, { publicKey: b.pub, admission: { recoveryProof: proof } }], recovery: { fingerprint: issueRecoveryCode().fingerprint } };
     expect(verifyRosterChange({ before: one, after: redeemed })).toEqual({ ok: true, added: 1, spent: true });
+    // KJC-TSK-0999: the lost phone is revoked by the same spent code; a revoked phone admits nobody afterwards
+    const replaced = { ...redeemed, signers: [{ publicKey: a.pub, revoked: { recoveryProof: proof } }, redeemed.signers[1]] };
+    expect(verifyRosterChange({ before: one, after: replaced })).toEqual({ ok: true, added: 1, spent: true });
+    const c = keyPair();
+    expect(verifyRosterChange({ before: replaced, after: { ...replaced, signers: [...replaced.signers, { publicKey: c.pub, admission: signedBy(a, c.pub) }] } })).toMatchObject({ ok: false, reason: /no está en el padrón/ });
+    expect(verifyRosterChange({ before: replaced, after: { ...replaced, signers: [...replaced.signers, { publicKey: c.pub, admission: signedBy(b, c.pub) }] } })).toEqual({ ok: true, added: 1, spent: false });
+    expect(verifyRosterChange({ before: replaced, after: { ...replaced, signers: [{ publicKey: a.pub }, replaced.signers[1]] } })).toMatchObject({ ok: false, reason: /estaba revocada y una revocación no se deshace/ });
     expect(verifyRosterChange({ before: one, after: one })).toEqual({ ok: true, added: 0, spent: false });
   });
 
@@ -90,6 +103,8 @@ describe("verifyRosterChange (CI)", () => {
       [{ signers: [...one.signers, { publicKey: b.pub, admission: { recoveryProof: proof } }, { publicKey: stranger.pub, admission: { recoveryProof: proof } }], recovery: { fingerprint: "y" } }, /admite UNA clave/],
       [{ signers: [], recovery: one.recovery }, /pierde la clave .*: una baja no tiene mecanismo/],
       [{ ...one, recovery: { fingerprint: "z" } }, /cambia sin que se haya gastado/],
+      [{ ...one, signers: [{ publicKey: a.pub, revoked: { recoveryProof: "stolen" } }] }, /se revoca sin el código de recuperación/],
+      [{ signers: [{ publicKey: a.pub, revoked: { recoveryProof: proof } }, { publicKey: b.pub, revoked: { recoveryProof: proof } }], recovery: { fingerprint: "w" } }, /revoca UN móvil/],
       [{ ...one, signers: [...one.signers, { publicKey: "not-a-key", admission: signedBy(a, "not-a-key") }] }, /no es una clave ed25519 válida/],
     ];
     expect(verifyRosterChange({ before: { signers: one.signers }, after: { signers: [...one.signers, { publicKey: b.pub, admission: signedBy(a, b.pub) }] } })).toMatchObject({ ok: false, reason: /falta cuando entra un móvil/ });

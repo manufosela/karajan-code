@@ -47,14 +47,19 @@ export function redeemRecoveryCode(code, { projectDir }) {
  * Adds a signer with its admission and writes the roster. The first signer, a spent
  * code and a roster with no code yet issue a NEW code, returned once and never stored.
  */
-export function admitSigner({ projectDir, publicKey, label = null, admission = null, random }) {
+export function admitSigner({ projectDir, publicKey, label = null, admission = null, replaces = null, random }) {
   validatePhonePublicKey(publicKey);
   const roster = readRoster({ projectDir });
   if (roster.signers.some((s) => s.publicKey === publicKey)) return { roster, recoveryCode: null };
   const first = roster.signers.length === 0;
   if (!first && !admission) throw new Error("un móvil nuevo entra firmado por uno del padrón o con el código de recuperación (ADR 0018)");
   const enrolledAt = new Date().toISOString();
-  const next = { signers: [...roster.signers, { publicKey, label, enrolledAt, ...(admission ? { admission } : {}) }], recovery: roster.recovery };
+  // KJC-TSK-0999 (HUM-B2): the lost phone the code replaces is REVOKED by the same
+  // spent code; its entry stays, marked, so CI can see the revocation is backed.
+  if (replaces && !admission?.recoveryProof) throw new Error("sustituir un móvil se hace con el código de recuperación");
+  if (replaces && !roster.signers.some((s) => s.publicKey === replaces && !s.revoked)) throw new Error(`el móvil a sustituir (${short(replaces)}) no está en el padrón`);
+  const kept = roster.signers.map((s) => (s.publicKey === replaces ? { ...s, revoked: { at: enrolledAt, recoveryProof: admission.recoveryProof } } : s));
+  const next = { signers: [...kept, { publicKey, label, enrolledAt, ...(admission ? { admission } : {}) }], recovery: roster.recovery };
   let recoveryCode = null;
   if (first || admission?.recoveryProof || !roster.recovery) {
     const issued = issueRecoveryCode(random);
@@ -76,19 +81,29 @@ export function verifyRosterChange({ before, after }) {
   const fail = (reason) => ({ ok: false, reason });
   const prev = normalize(before);
   const next = normalize(after);
-  const present = new Set(prev.signers.map((s) => s.publicKey));
+  // `known`: every key the previous roster had, revoked or not (a revoked one is not new);
+  // `present`: the ones still allowed to sign, the only ones that can admit a key.
+  const known = new Set(prev.signers.map((s) => s.publicKey));
+  const present = new Set(prev.signers.filter((s) => !s.revoked).map((s) => s.publicKey));
   const fresh = /^[0-9a-f]{64}$/.test(next.recovery?.fingerprint ?? "") ? next.recovery.fingerprint : null;
   const gone = prev.signers.find((s) => !next.signers.some((n) => n.publicKey === s.publicKey));
   if (gone) return fail(`el padrón pierde la clave ${short(gone.publicKey)}: una baja no tiene mecanismo en kj y solo se hace por fuera de CI, a la vista`);
-  if (present.size === 0) return next.signers.length === 1 && fresh && validKey(next.signers[0].publicKey) ? { ok: true, bootstrap: true } : fail("el primer padrón lleva UN móvil (clave ed25519 válida) y la huella de su código de recuperación; los demás entran admitidos");
-  const added = next.signers.filter((n) => !present.has(n.publicKey));
+  const back = prev.signers.find((s) => s.revoked && !next.signers.find((n) => n.publicKey === s.publicKey)?.revoked);
+  if (back) return fail(`la clave ${short(back.publicKey)} estaba revocada y una revocación no se deshace`);
+  // KJC-TSK-0999: a key is revoked only by the recovery code spent in this same change.
+  const backed = (proof) => sha256(String(proof ?? "")) === prev.recovery?.fingerprint;
+  const revoked = next.signers.filter((n) => n.revoked && !prev.signers.find((s) => s.publicKey === n.publicKey)?.revoked);
+  if (revoked.length > 1) return fail("un código de recuperación revoca UN móvil, y este cambio revoca varios");
+  if (revoked.length === 1 && !backed(revoked[0].revoked.recoveryProof)) return fail(`la clave ${short(revoked[0].publicKey)} se revoca sin el código de recuperación de este padrón`);
+  if (known.size === 0) return next.signers.length === 1 && fresh && validKey(next.signers[0].publicKey) ? { ok: true, bootstrap: true } : fail("el primer padrón lleva UN móvil (clave ed25519 válida) y la huella de su código de recuperación; los demás entran admitidos");
+  const added = next.signers.filter((n) => !known.has(n.publicKey));
   let spent = false;
   for (const entry of added) {
     if (!validKey(entry.publicKey)) return fail(`la clave ${short(entry.publicKey)} no es una clave ed25519 válida (base64 de 32 bytes)`);
     const admission = entry.admission ?? null;
     if (admission?.recoveryProof) {
       if (spent) return fail("un código de recuperación admite UNA clave, y este cambio mete dos con él");
-      if (sha256(String(admission.recoveryProof)) !== prev.recovery?.fingerprint) return fail(`la clave ${short(entry.publicKey)} entra con un código de recuperación que no es el del padrón anterior`);
+      if (!backed(admission.recoveryProof)) return fail(`la clave ${short(entry.publicKey)} entra con un código de recuperación que no es el del padrón anterior`);
       spent = true;
       continue;
     }

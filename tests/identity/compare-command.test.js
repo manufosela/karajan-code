@@ -11,6 +11,7 @@ import path from "node:path";
 import { readIdentity } from "../../src/identity/store.js";
 import { compareIdentity } from "../../src/identity/compare.js";
 import { identityCommand } from "../../src/commands/identity.js";
+import { readSigners } from "../../src/harden/phone-sign.js";
 
 let dir;
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-identity-cmd-")); });
@@ -75,6 +76,43 @@ describe("kj identity show|set", () => {
     expect(asked.files).toEqual([{ file: ".karajan/supervisor-signers.json", sha256: createHash("sha256").update(other).digest("hex") }]);
     expect(lines.at(-1)).toMatch(/firma del móvil rechazada \(caducado\)/);
     expect(JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "supervisor-signers.json"), "utf8")).signers.map((s) => s.publicKey)).toEqual([good]);
+  });
+
+  // KJC-TSK-0999 (HUM-B2, ADR 0018): the recovery code is shown once; a lost phone is replaced with it, not by reinstalling.
+  it("enroll-phone shows the recovery code once, records a present phone's admission, and --recovery replaces a lost phone", async () => {
+    const sha = (text) => createHash("sha256").update(text).digest("hex");
+    const human = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
+    const run = (publicKeyBase64, extra = {}, flags = {}) =>
+      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64, ...flags }, deps: { ...deps(), home: dir, ...human, ...extra } });
+    const roster = () => JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "supervisor-signers.json"), "utf8"));
+    const codes = () => lines.join("\n").match(/kjrc(-[a-z2-7]{5}){4}/g) ?? [];
+    const [first, second, third] = [7, 9, 3].map((n) => Buffer.alloc(32, n).toString("base64"));
+    expect(await run(first, {}, { label: "mine" })).toBe(0);
+    const code = codes()[0];
+    expect(lines.join("\n")).toMatch(/UNA sola vez. Guárdalo fuera de esta máquina/);
+    expect(JSON.stringify(roster())).not.toContain(code);
+    expect(roster()).toMatchObject({ signers: [{ publicKey: first, label: "mine" }], recovery: { fingerprint: sha(sha(code)) } });
+    // a present phone admits the next one: its signature block is the admission
+    const block = { cid: "c", nonce: "n", project: "p", signer: "PUB", signature: "SIG" };
+    const phone = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUB", signature: "SIG", challenge: { cid: "c", nonce: "n", project: "p" } }) };
+    expect(await run(second, { phone })).toBe(0);
+    expect(roster().signers[1]).toMatchObject({ publicKey: second, admission: block });
+    expect(codes().length).toBe(1); // no new code: none was spent
+    // the lost phone is not asked; the code is checked first, spent on use, and another is issued
+    const lost = { enrolled: () => true, request: async () => { throw new Error("the lost phone must not be asked"); } };
+    expect(await run(third, { phone: lost }, { recovery: "kjrc-nope" })).toBe(1);
+    expect(lines.at(-1)).toMatch(/formato kjrc-/);
+    expect(await run(third, { phone: lost }, { recovery: code })).toBe(0);
+    expect(roster().signers[2]).toMatchObject({ publicKey: third, admission: { recoveryProof: sha(code) } });
+    // the lost phone (the one this machine had enrolled: `second`) is revoked by the same code and signs no more
+    expect(roster().signers[1].revoked).toMatchObject({ recoveryProof: sha(code) });
+    expect(readSigners({ projectDir: dir })).toEqual([first, third]);
+    expect(lines.join("\n")).toMatch(/queda revocado y no firma/);
+    const next = codes().at(-1);
+    expect(next).not.toBe(code);
+    expect(roster().recovery.fingerprint).toBe(sha(sha(next)));
+    expect(await run(Buffer.alloc(32, 5).toString("base64"), { phone: lost }, { recovery: code })).toBe(1);
+    expect(lines.at(-1)).toMatch(/no es el de este padrón/);
   });
 
   it("set --yes ata lo efectivo AVISANDO y show lo marca ACTIVA", async () => {
