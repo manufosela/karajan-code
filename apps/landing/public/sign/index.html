@@ -10,6 +10,8 @@
   main { width: 100%; max-width: 34rem; padding: 2rem 1.25rem 3rem; }
   h1 { font-size: 1.3rem; color: #fff; }
   .hint { color: var(--dim); font-size: 0.9rem; }
+  /* KJC-TSK-0998: what is done, why the signature is asked, what if another did it (kj's words). */
+  .why { white-space: pre-line; margin: 0.75rem 0; padding: 0.5rem 0.75rem; border-left: 3px solid var(--dim); }
   code, pre { font-family: ui-monospace, monospace; }
   pre#pubkey { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; font-size: 1.05rem; word-break: break-all; white-space: pre-wrap; }
   ul#files { list-style: none; margin: 0 0 1.5rem; padding: 0; max-height: 55vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
@@ -49,6 +51,7 @@
       <dt data-i18n="origin">Generado por</dt><dd id="origin"></dd>
       <dt data-i18n="expires">Caduca</dt><dd id="expires"></dd>
     </dl>
+    <p class="why" id="why" hidden></p>
     <p class="hint" id="what-you-sign"></p>
     <p class="hint warn" id="no-detail" hidden></p>
     <ul id="files"></ul>
@@ -166,6 +169,8 @@
     $("branch").textContent = str(f.branch) || TEXT.unknown;
     $("origin").textContent = str(f.origin) || (kjVersion ? `kj ${kjVersion}` : TEXT.unknown);
     $("expires").textContent = v2 ? new Date(expiresMs).toLocaleTimeString(LANG) : TEXT.soon;
+    $("why").hidden = !str(f.why);
+    $("why").textContent = str(f.why);
     $("what-you-sign").textContent = TEXT.whatYouSign;
     const changes = changesOf(f);
     const hasDetail = changes.length > 0;

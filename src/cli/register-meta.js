@@ -165,7 +165,7 @@ export function registerMeta(program, { pkgVersion }) {
     .argument("<publicKeyBase64>", "raw ed25519 public key, base64 (shown by the phone app)")
     .action(async (publicKeyBase64, flags) => {
       await withConfig(pkgVersion, "identity-enroll-phone", flags, async ({ config }) => {
-        process.exitCode = await identityCommand({ action: "enroll-phone", config, flags: { ...flags, publicKeyBase64 } });
+        process.exitCode = await identityCommand({ action: "enroll-phone", config, kjVersion: pkgVersion, flags: { ...flags, publicKeyBase64 } });
       });
     });
 
@@ -412,7 +412,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--file <path>", "The proposal", PROPOSAL_FILE)
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-approve", flags, async ({ config }) => {
-        const res = await rulesApprove({ projectDir: config?.projectDir || process.cwd(), file: flags.file });
+        const res = await rulesApprove({ projectDir: config?.projectDir || process.cwd(), file: flags.file, kjVersion: pkgVersion });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });

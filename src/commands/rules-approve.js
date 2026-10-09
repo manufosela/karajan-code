@@ -7,11 +7,13 @@
  * The proposal is read ONCE: what is checked, what is shown and what is
  * installed are the same rules, whatever happens to the file meanwhile.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 import yaml from "js-yaml";
 
+import { signAct } from "../harden/act-sign.js";
 import { humanActOf } from "../harden/human-act.js";
 import { checkVerdict } from "../review/verdict-store.js";
 import { approvalView } from "../rules/approval-view.js";
@@ -23,7 +25,10 @@ import { loadRules, LOCAL_RULES_FILE, PROPOSAL_FILE, RULES_FILE, rulesCheck } fr
  *   deps?: {confirm?: Function, ancestry?: object}, log?: (line: string) => void}} opts
  * @returns {Promise<{code: 0|1, lines: string[]}>}
  */
-export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env, tty, deps = {}, log = console.log }) {
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+const lines = (text) => (text ? text.split("\n").length - 1 : 0);
+
+export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, kjVersion = "unknown", env, tty, deps = {}, log = console.log }) {
   const act = humanActOf("rules-approve");
   act.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
   const proposal = path.resolve(projectDir, file);
@@ -52,9 +57,21 @@ export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, env
   // KJC-TSK-0961 (ADR 0017): a rule written only in the user's private MD files
   // is not versioned. Where it goes is the inventory's word, not the proposal's.
   const parts = [[RULES_FILE, rules.filter((rule) => !local.has(rule.id))], [LOCAL_RULES_FILE, rules.filter((rule) => local.has(rule.id))]];
-  for (const [name, part] of parts) {
+  const dumps = parts.map(([name, part]) => [name, part.length ? yaml.dump({ version: 1, rules: part }, { lineWidth: -1 }) : null]);
+  // KJC-TSK-0998 (HUM-D, ADR 0018): the phone signs the exact YAML that lands, and
+  // sees the rules as the approval view showed them. At max with no phone: no approval.
+  const before = (name) => { try { return fs.readFileSync(path.join(projectDir, name), "utf8"); } catch { return null; } };
+  await signAct("rules-approve", {
+    projectDir, home, kjVersion, deps, logger: { warn: log, info: log },
+    files: dumps.map(([name, text]) => ({ file: name, sha256: text ? sha256(text) : "" })),
+    changes: dumps.map(([name, text]) => ({
+      file: name, status: text ? (before(name) ? "modified" : "new") : "deleted", added: lines(text), removed: lines(before(name)),
+      summary: `${parts.find(([n]) => n === name)[1].length} rule(s)`, diff: view.join("\n"), truncated: false,
+    })),
+  });
+  for (const [name, text] of dumps) {
     const target = path.join(projectDir, name);
-    if (part.length) fs.writeFileSync(target, yaml.dump({ version: 1, rules: part }, { lineWidth: -1 }));
+    if (text) fs.writeFileSync(target, text);
     else fs.rmSync(target, { force: true }); // no rule left for this file: none stays behind
   }
   fs.rmSync(proposal, { force: true });

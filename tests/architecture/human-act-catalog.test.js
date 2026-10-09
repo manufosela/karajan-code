@@ -45,6 +45,13 @@ describe("architecture/human-act-catalog (ADR 0018)", () => {
     }
   });
 
+  // KJC-TSK-0998 (HUM-D): the level is applied by signAct; lowering it signs the level record itself.
+  it("every act with a module signs through signAct with its own id", () => {
+    for (const [id, act] of live.filter(([, a]) => a.module !== "src/harden/security-level.js")) {
+      expect(read(act.module), `${act.module} must call signAct("${id}", …)`).toMatch(new RegExp(`signAct\\(\\s*["']${id}["']`));
+    }
+  });
+
   it("an act the ADR declares and kj does not have yet names its card", () => {
     for (const [id, act] of Object.entries(HUMAN_ACTS)) {
       if (!act.module) expect(act.pending, `${id} has no module and no pending card`).toMatch(/^KJC-TSK-\d{4}$/);
