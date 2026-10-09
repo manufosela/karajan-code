@@ -9,6 +9,7 @@ import { bootstrapCommand } from "../commands/bootstrap.js";
 import { PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { identityCommand } from "../commands/identity.js";
 import { securityCommand } from "../commands/security.js";
+import { handoffCommand } from "../commands/handoff.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
 import { stewardSweepCommand } from "../commands/steward.js";
@@ -192,6 +193,16 @@ export function registerMeta(program, { pkgVersion }) {
         });
       });
   }
+
+  // KJC-TSK-0968 (HUM-E, ADR 0018): the agent's handoff to the human goes through kj.
+  const handoffCmd = program.command("handoff").description("Handoffs: what a gate denied the agent, registered with the gate's why, for the human to read and run by id");
+  const handoff = (action, flags) => withConfig(pkgVersion, `handoff-${action}`, flags, async ({ config }) => { process.exitCode = await handoffCommand({ action, config, flags }); });
+  handoffCmd.command("add").description("Register the EXACT command a gate denied (the why comes from the Sentinel's record, not from you)")
+    .argument("<command...>", "the denied command, as it was run").option("--cwd <dir>", "Directory the command runs in (default: the project)")
+    .action((parts, flags) => handoff("add", { ...flags, command: parts.join(" ") }));
+  handoffCmd.command("list", { isDefault: true }).description("The handoffs registered in this project").action((flags) => handoff("list", flags));
+  handoffCmd.command("show").description("A handoff: the exact command, its sha256 and why the gate denied it")
+    .argument("<id>", "handoff id (8 hex)").option("--json", "Output the record as JSON").action((id, flags) => handoff("show", { ...flags, id }));
 
   // KJC-TSK-0986 (HUM-F): the invitation to enroll the phone, once per version.
   identityCmd
