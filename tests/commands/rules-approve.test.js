@@ -2,6 +2,7 @@
 // .karajan/rules.yml only by a human act: the agent the rules will watch does
 // not decide how they are compiled.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -42,6 +43,21 @@ describe("kj rules approve", () => {
     await expect(approve({ env: { CLAUDECODE: "1" } })).rejects.toThrow(/kj rules approve es un acto humano/);
     await expect(approve({ deps: { ...HUMAN.deps, confirm: () => "yes" } })).rejects.toThrow(/confirmación humana fallida/);
     expect(fs.existsSync(file("rules.yml"))).toBe(false);
+  });
+
+  // KJC-TSK-0998 (HUM-D, ADR 0018): the phone signs the exact YAML that lands; at max with no phone, no approval.
+  it("at max the phone signs the sha256 of the rules.yml that lands, and sees the rules; with no phone nothing is installed", async () => {
+    await propose([entry(rules[0])]);
+    fs.writeFileSync(file("security-level.json"), JSON.stringify({ level: "max", since: "2026-10-09" }));
+    await expect(approve({ deps: { ...HUMAN.deps, phone: { enrolled: () => false } } })).rejects.toThrow(/kj rules approve: con seguridad máxima.*kj identity enroll-phone/);
+    expect(fs.existsSync(file("rules.yml"))).toBe(false);
+    let asked;
+    const phone = { enrolled: () => true, request: async (req) => { asked = req; return { ok: true }; } };
+    expect((await approve({ deps: { ...HUMAN.deps, phone } })).code).toBe(0);
+    const sha = (text) => createHash("sha256").update(text).digest("hex");
+    expect(asked.files).toEqual([{ file: ".karajan/rules.yml", sha256: sha(fs.readFileSync(file("rules.yml"), "utf8")) }, { file: ".karajan/rules.local.yml", sha256: "" }]);
+    expect(asked.changes[0]).toMatchObject({ file: ".karajan/rules.yml", status: "new", summary: "1 rule(s)", diff: expect.stringContaining(rules[0].id) });
+    expect(asked.why).toMatch(/^Qué se va a hacer: Se instalan las reglas/);
   });
 
   it("a proposal that does not hold is not offered for approval", async () => {

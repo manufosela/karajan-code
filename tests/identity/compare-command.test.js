@@ -4,6 +4,7 @@
 // cuenta equivocada — por eso atar sin confirmar nunca es silencioso.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -65,6 +66,15 @@ describe("kj identity show|set", () => {
     const saved = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "supervisor-phone.json"), "utf8"));
     expect(saved.publicKey).toBe(good);
     expect(lines.join("\n")).toMatch(/enrolado/i);
+    // KJC-TSK-0998 (HUM-D, ADR 0018): the first phone had nobody to sign it; the next one is signed by one of the roster.
+    expect(lines.join("\n")).toMatch(/sin móvil enrolado solo valen las cuatro capas/);
+    let asked;
+    const other = Buffer.alloc(32, 9).toString("base64");
+    const phone = { enrolled: () => true, request: async (req) => { asked = req; return { ok: false, reason: "caducado" }; } };
+    expect(await run(other, { ...human, phone })).toBe(1);
+    expect(asked.files).toEqual([{ file: ".karajan/supervisor-signers.json", sha256: createHash("sha256").update(other).digest("hex") }]);
+    expect(lines.at(-1)).toMatch(/firma del móvil rechazada \(caducado\)/);
+    expect(JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "supervisor-signers.json"), "utf8")).signers.map((s) => s.publicKey)).toEqual([good]);
   });
 
   it("set --yes ata lo efectivo AVISANDO y show lo marca ACTIVA", async () => {

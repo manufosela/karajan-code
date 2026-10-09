@@ -12,6 +12,12 @@ describe("landing sign page", () => {
     expect(html).toContain('id="approve"');
   });
 
+  // KJC-TSK-0998 (HUM-D): kj's why (what, why the signature, what if another did it) is shown before the files.
+  it("shows the request's why before the files, hidden when the request carries none", () => {
+    expect(html.indexOf('id="why"')).toBeLessThan(html.indexOf('id="files"'));
+    expect(html).toMatch(/\$\("why"\)\.hidden = !str\(f\.why\)/);
+  });
+
   it("loads no external scripts, styles or resources", () => {
     expect(html).not.toMatch(/<script[^>]*\ssrc\s*=/i);
     expect(html).not.toMatch(/<link\s/i);

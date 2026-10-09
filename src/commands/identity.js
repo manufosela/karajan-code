@@ -8,7 +8,10 @@
  *           no session and no flags → exit 1.
  */
 
-import { addSigner, enrollPhone } from "../harden/phone-sign.js";
+import { createHash } from "node:crypto";
+
+import { signAct } from "../harden/act-sign.js";
+import { addSigner, enrollPhone, readEnrolledKeys, validatePhonePublicKey } from "../harden/phone-sign.js";
 import { phoneInvite } from "../harden/phone-invite.js";
 import { humanAct } from "../harden/human-act.js";
 import { readIdentity, writeIdentity } from "../identity/store.js";
@@ -16,7 +19,7 @@ import { activeGhUser, effectiveGitEmail } from "../identity/detect.js";
 import { compareIdentity } from "../identity/compare.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
 
-export async function identityCommand({ action = "show", config, flags = {}, deps = {} }) {
+export async function identityCommand({ action = "show", config, kjVersion = "unknown", flags = {}, deps = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   const log = deps.log || console.log;
   const tty = deps.isTTY || isTTY;
@@ -32,6 +35,16 @@ export async function identityCommand({ action = "show", config, flags = {}, dep
       // KJC-TSK-0966 (HUM-C, ADR 0018): enrolar es un acto del catálogo; hasta hoy
       // solo lo frenaba el Sentinel, y un kj fuera de Claude no tiene Sentinel.
       humanAct("phone-enroll", { env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
+      // KJC-TSK-0998 (HUM-D, ADR 0018): a phone of the roster signs the key that
+      // enters; the FIRST one has nobody to sign it (bootstrap) and runs on the four layers.
+      const key = validatePhonePublicKey(flags.publicKeyBase64);
+      const signers = ".karajan/supervisor-signers.json";
+      await signAct("phone-enroll", {
+        projectDir, home: deps.home, kjVersion, deps, logger: { warn: log, info: log },
+        bootstrap: readEnrolledKeys({ projectDir, home: deps.home }).size === 0,
+        files: [{ file: signers, sha256: createHash("sha256").update(key).digest("hex") }],
+        changes: [{ file: signers, status: "modified", added: 1, removed: 0, summary: `Entra la clave ${flags.label ?? "(sin etiqueta)"}`, diff: `+ ${key}`, truncated: false }],
+      });
       // KJC-TSK-0831 (ADR 0010): añade al PADRÓN versionado del repo (compartible,
       // base para la verificación en CI) y mantiene la clave legacy en ~/.karajan.
       addSigner(flags.publicKeyBase64, { projectDir, label: flags.label });
