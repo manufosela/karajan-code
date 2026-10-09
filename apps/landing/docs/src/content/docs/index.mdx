@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.46.0: what the phone signs, said (current)
+### v4.47.0: the level that protects whoever does not know the risk exists (current)
+
+Security level max by default: every act of the catalog (sealing the supervisor, approving rules, enrolling another phone, lowering the level) is signed from the phone over the exact bytes and refused without one; `kj security show|normal|max` reads and changes the level, and lowering it is itself a signed act that says what is done and why. A lost phone is replaced with the one-time recovery code shown at the first enrollment, never by reinstalling: the code is spent on use, a new one is issued and the lost phone is revoked. CI judges every change of the roster of phones. And the relay's rules, which rejected every seal since 4.46 with a 403, admit what the signing page shows.
+
+### v4.46.0: what the phone signs, said
 
 "I see 'sentinel', but what am I signing? you could be deceiving me." The signing request now carries what changes, file by file: new, modified or deleted, lines added and removed, a one-line summary, the diff (cut and privacy-scanned), the branch and what generated it. The page speaks the browser's language, Spanish or English, folds the diff under each file and says that the sha256 shown are what the signature guarantees. Also: a closed catalog of human acts with one mechanism and an architecture test that watches it (enrolling the phone runs the four layers itself), and a card's criteria reach the HUs at decomposition time, so none is left without an HU.
 
