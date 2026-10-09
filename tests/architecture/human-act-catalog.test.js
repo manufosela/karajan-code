@@ -24,7 +24,7 @@ const listJs = (dir, out = []) => {
 const GOVERNANCE_FILES = ["supervisor-provenance.json", "supervisor-signers.json", "supervisor-phone.json", "rules.yml", "rules.local.yml", "security-level.json"];
 const WRITES = /\b(writeFileSync|writeFile|appendFileSync|appendFile|renameSync|rename)\s*\(/;
 // Libraries that write on behalf of a catalog act (the act calls them).
-const LIBRARIES_OF = { "src/harden/phone-sign.js": ["phone-enroll", "supervisor-seal"] };
+const LIBRARIES_OF = { "src/harden/phone-sign.js": ["phone-enroll", "supervisor-seal"], "src/harden/roster.js": ["phone-enroll"] };
 // Modules that NAME a governance file and write something else: each one with
 // the file it really writes. A new one is added here only with that reason.
 const KNOWN_READERS = {
