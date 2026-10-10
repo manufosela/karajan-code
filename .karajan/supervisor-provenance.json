@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.47.0",
-  "generated_at": "2026-10-10T12:06:59.668Z",
+  "kj_version": "4.48.0",
+  "generated_at": "2026-10-10T14:30:17.827Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -26,7 +26,7 @@
     },
     {
       "file": ".karajan/harness/pretooluse-sentinel.mjs",
-      "sha256": "76d64ad9222ce50c7421f101a44789edca1560fce5b1ad0da4d3e2bcb2e94852"
+      "sha256": "889928c7ccd34ccdaeeb5738e6020391ff264c7e2b6618ef01c7322a07417246"
     },
     {
       "file": ".karajan/harness/pretooluse.mjs",
@@ -54,7 +54,7 @@
     },
     {
       "file": ".karajan/harness/sentinel-shell.mjs",
-      "sha256": "5c84390fa3adab05ded396032d6bca65df388410cef7de78a6dab266be644ceb"
+      "sha256": "3fe9c7f3856e0e6403a47f2f7bb5f4614d4693dcb5938530929eeb7857c222c9"
     },
     {
       "file": ".karajan/harness/sessionstart.mjs",
@@ -74,7 +74,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "cbd9c3cdcb8cfa656700d9cadd335c12a8cfa1c1174f40209510b422a57e01c0"
+      "sha256": "3d7851643daf1a384a8291f9eb252c74d8d88826dfcbfcba8b22b3c91be4852d"
     },
     {
       "file": ".karajan/hooks/pre-push",
@@ -86,15 +86,15 @@
     }
   ],
   "signature": {
-    "cid": "c0344e760166f1cc09be080de2debdbe",
-    "nonce": "fa4907e26db12653a8e410e31b28ec5e",
+    "cid": "258ede9691a2f297e2eeed0054f9c42e",
+    "nonce": "89e244da792d90e1716a1f416c9ef26b",
     "project": "karajan-code",
-    "filesHash": "af0a2c41d02781edbfb66adc9ebb41c4d7e2b1d1422268c897d3d603aba94050",
+    "filesHash": "1f456e24af8872db3a93831f6a0a924e8c79bf828fd2a74878f0c1ddc96fd842",
     "v": 2,
-    "kjVersion": "4.47.0",
-    "issuedMs": 1791634011098,
-    "expiresMs": 1791634071098,
+    "kjVersion": "4.48.0",
+    "issuedMs": 1791642595689,
+    "expiresMs": 1791642655689,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "jJXZzb5TRn/PevOYdCDB62AYsrB8tBptKTvuHEGGgTQ1cos5Sclx4xatTlvgIEAA3NI7MVqN6y9heIDkkVuRBA=="
+    "signature": "MQgm9QZchU8JeHjF4f9jVbIXZru8BySMnyU8wELNqKjfm5UF40UOjm2ID/vFBdBEPPrXrEXu6tDya9mFMVTLBg=="
   }
 }
