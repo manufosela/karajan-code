@@ -473,7 +473,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, foreignLane, load, save, session, violations, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
+import { isGhIssueCreate, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
@@ -583,7 +583,9 @@ process.stdin.on("end", () => {
     // (sanitiza y busca duplicados), nunca por gh issue create a mano.
     {
       const ghIssue = String(input.command || "");
-      if (tool === "Bash" && /(^|[^a-zA-Z])gh([^a-zA-Z]|$)/.test(ghIssue) && /(^|[^a-z])issue([^a-z]|$)/.test(ghIssue) && /(^|[^a-z])create([^a-z]|$)/.test(ghIssue)) {
+      // KJC-BUG-0306: the subcommand itself (gh, its flags, issue create), not three words
+      // anywhere: "gh pr create --title 'kj report-issue ...'" is not an issue.
+      if (tool === "Bash" && isGhIssueCreate(ghIssue)) {
         // The target: --repo/-R, an inline or inherited GH_REPO, else the
         // checkout's own origin, which is what gh takes (review catches).
         const inlineRepo = /(^|[^A-Z_])GH_REPO=([^ ]+)/.exec(ghIssue);
@@ -893,7 +895,7 @@ process.stdin.on("end", () => {
         // KJC-BUG-0243: inert quoted text is not a substitution, and the prose value
         // of a text option (--title, -m...) is not a path.
         if (/\\$\\(|\`/.test(stripInertQuotes(cmd)) || quotedPathWithSpaces(stripTextOptionValues(cmd))) {
-          console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion." + doc("cross-lane"));
+          console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion. Si es texto (titulo, descripcion, error) con comillas de codigo o dolar, ponlo entre comillas SIMPLES: entre dobles la shell lo ejecuta." + doc("cross-lane"));
           process.exit(2);
         }
         const SAFE_EXP_SEG = /^([A-Za-z_][A-Za-z0-9_]*=[^ \\t]*[ \\t]*)*((npm|pnpm|yarn|vitest|jest|kj|gh|echo|printf|true|test)\\b|git[ \\t](?![^\\n]*(-C[ \\t]|--git-dir|--work-tree)))[^;|&\\n]*$|^[A-Za-z_][A-Za-z0-9_]*=[^;|&\\n]*$/;

@@ -64,6 +64,28 @@ export const headIndex = (words, heads) => {
   return k < 0 ? words.length : i + k;
 };
 
+/**
+ * KJC-BUG-0306: a simple command that runs `gh ... issue create`, read by words
+ * (quotes, escapes and newlines as the shell reads them), not by words anywhere.
+ * @param {string} cmd
+ */
+export const isGhIssueCreate = (cmd) => shellSegments(cmd).some((words) => {
+  const i = headIndex(words, ["gh"]);
+  if (words[i]?.split("/").at(-1) !== "gh") return false;
+  // The subcommand words, with every flag skipped together with a value that may
+  // follow it (--repo x, --hostname y): what is left is "issue", then "create".
+  const subcommand = [];
+  let afterFlag = false;
+  for (const w of words.slice(i + 1)) {
+    if (w.startsWith("-")) { afterFlag = !w.includes("="); continue; }
+    if (afterFlag && !["issue", "create"].includes(w)) { afterFlag = false; continue; }
+    afterFlag = false;
+    subcommand.push(w);
+    if (subcommand.length === 2) break;
+  }
+  return subcommand[0] === "issue" && subcommand[1] === "create";
+});
+
 // KJC-BUG-0286: a $ expands only when something expandable follows it ($x, ${x},
 // $(cmd), $1, $@...). A lone "$ " in a grep pattern is a literal dollar sign.
 const LIVE_EXPANSION = /\$(?=[A-Za-z0-9_{(@*#?$!-])|`/;
@@ -90,11 +112,16 @@ export const stripInertQuotes = (cmd) => {
 };
 
 // Options whose value is prose, never a path (gh, git, kj).
-const TEXT_OPTIONS = new Set(["--title", "--body", "--message", "-m", "--notes", "--description", "--ac", "--criteria", "--reason", "--decision", "--context", "--consequences", "--position"]);
+// KJC-BUG-0306: --error and --command of kj report-issue, --scope and --tests of kj hu add.
+const TEXT_OPTIONS = new Set(["--title", "--body", "--message", "-m", "--notes", "--description", "--ac", "--criteria", "--reason", "--decision", "--context", "--consequences", "--position", "--error", "--command", "--scope", "--tests"]);
 const QUOTED_OPTION_VALUE = /(^|\s)(--?[a-z]+)(=|\s+)("[^"$`\\]*"|'[^']*')/g;
+// KJC-BUG-0306: the title kj hu add and kj adr add take as their first argument, at the start of a segment.
+const KJ_TITLE = /(^|[;&|]\s*)(kj\s+(?:hu|adr)\s+add\s+)("[^"$`\\]*"|'[^']*')/g;
 
 /** KJC-BUG-0243: blank the inert quoted value of a text option (--title "a/b c"): prose, not a path. */
-export const stripTextOptionValues = (cmd) => cmd.replace(QUOTED_OPTION_VALUE, (m, pre, opt, sep, val) => (TEXT_OPTIONS.has(opt) ? `${pre}${opt}${sep}${val[0]}${val[0]}` : m));
+export const stripTextOptionValues = (cmd) => cmd
+  .replace(KJ_TITLE, (m, pre, head, val) => `${pre}${head}${val[0]}${val[0]}`)
+  .replace(QUOTED_OPTION_VALUE, (m, pre, opt, sep, val) => (TEXT_OPTIONS.has(opt) ? `${pre}${opt}${sep}${val[0]}${val[0]}` : m));
 
 /**
  * KJC-BUG-0245: the values of the named options, read by the shell reader, so a

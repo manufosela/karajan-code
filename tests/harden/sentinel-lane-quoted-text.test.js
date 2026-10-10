@@ -23,6 +23,15 @@ describe("stripInertQuotes / stripTextOptionValues", () => {
     expect(stripTextOptionValues(`cp "/other lane/x.js" y`)).toBe(`cp "/other lane/x.js" y`);
     expect(stripTextOptionValues(`git commit -m "$(cat /tmp/m)"`)).toBe(`git commit -m "$(cat /tmp/m)"`);
   });
+
+  // KJC-BUG-0306 (#2042): the Sentinel sends the agent to kj report-issue; its text must get through.
+  it("blanks the text of kj report-issue and hu add options, and the title of kj hu add / adr add", () => {
+    expect(stripTextOptionValues(`kj report-issue --title 'a/b c' --error 'ENOENT: /x y/z' --command 'kj rag query "x y"'`)).toBe(`kj report-issue --title '' --error '' --command ''`);
+    expect(stripTextOptionValues(`kj hu add "the a/b flow" --scope 'src/a b' --tests 'tests/x y'`)).toBe(`kj hu add "" --scope '' --tests ''`);
+    expect(stripTextOptionValues(`kj adr add 'reads src/a.js and b'`)).toBe(`kj adr add ''`);
+    expect(stripTextOptionValues(`cp "/other lane/x.js" "kj hu add"`)).toBe(`cp "/other lane/x.js" "kj hu add"`);
+    expect(stripTextOptionValues(`kj hu add "$(cat /x y)"`)).toBe(`kj hu add "$(cat /x y)"`);
+  });
 });
 
 describe("the lane guard with quoted text (PreToolUse Bash)", () => {
@@ -48,5 +57,13 @@ describe("the lane guard with quoted text (PreToolUse Bash)", () => {
 
   it("still denies real quoted paths, substitutions and unclosed quotes", () => {
     for (const cmd of [`cp "/otro carril/x.js" y.js`, `git commit -m "$(cat /tmp/m)"`, `git commit -m "a medias`]) expect(bash(cmd).status, cmd).toBe(2);
+    // KJC-BUG-0306: and says how text with code quotes gets through
+    expect(bash(`cp "/otro carril/x.js" y.js`).stderr).toMatch(/comillas SIMPLES: entre dobles la shell lo ejecuta/);
+  });
+
+  it("lets the text of kj report-issue and kj hu add through (KJC-BUG-0306)", () => {
+    for (const cmd of [`kj report-issue --title 'Sentinel blocks src/a b' --description 'it denies kj hu add' --error 'ENOENT /x y/z'`, `kj hu add 'the a/b flow' --scope 'src/a b'`]) {
+      expect(bash(cmd).stderr, cmd).not.toContain("entrecomillada");
+    }
   });
 });
