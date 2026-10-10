@@ -64,6 +64,28 @@ export const headIndex = (words, heads) => {
   return k < 0 ? words.length : i + k;
 };
 
+/**
+ * KJC-BUG-0306: a simple command that runs `gh ... issue create`, read by words
+ * (quotes, escapes and newlines as the shell reads them), not by words anywhere.
+ * @param {string} cmd
+ */
+export const isGhIssueCreate = (cmd) => shellSegments(cmd).some((words) => {
+  const i = headIndex(words, ["gh"]);
+  if (words[i]?.split("/").at(-1) !== "gh") return false;
+  // The subcommand words, with every flag skipped together with a value that may
+  // follow it (--repo x, --hostname y): what is left is "issue", then "create".
+  const subcommand = [];
+  let afterFlag = false;
+  for (const w of words.slice(i + 1)) {
+    if (w.startsWith("-")) { afterFlag = !w.includes("="); continue; }
+    if (afterFlag && !["issue", "create"].includes(w)) { afterFlag = false; continue; }
+    afterFlag = false;
+    subcommand.push(w);
+    if (subcommand.length === 2) break;
+  }
+  return subcommand[0] === "issue" && subcommand[1] === "create";
+});
+
 // KJC-BUG-0286: a $ expands only when something expandable follows it ($x, ${x},
 // $(cmd), $1, $@...). A lone "$ " in a grep pattern is a literal dollar sign.
 const LIVE_EXPANSION = /\$(?=[A-Za-z0-9_{(@*#?$!-])|`/;

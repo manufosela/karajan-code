@@ -473,7 +473,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, foreignLane, load, save, session, violations, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
+import { isGhIssueCreate, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
@@ -583,7 +583,9 @@ process.stdin.on("end", () => {
     // (sanitiza y busca duplicados), nunca por gh issue create a mano.
     {
       const ghIssue = String(input.command || "");
-      if (tool === "Bash" && /(^|[^a-zA-Z])gh([^a-zA-Z]|$)/.test(ghIssue) && /(^|[^a-z])issue([^a-z]|$)/.test(ghIssue) && /(^|[^a-z])create([^a-z]|$)/.test(ghIssue)) {
+      // KJC-BUG-0306: the subcommand itself (gh, its flags, issue create), not three words
+      // anywhere: "gh pr create --title 'kj report-issue ...'" is not an issue.
+      if (tool === "Bash" && isGhIssueCreate(ghIssue)) {
         // The target: --repo/-R, an inline or inherited GH_REPO, else the
         // checkout's own origin, which is what gh takes (review catches).
         const inlineRepo = /(^|[^A-Z_])GH_REPO=([^ ]+)/.exec(ghIssue);

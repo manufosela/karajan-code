@@ -202,6 +202,10 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     }
     expect(bash("gh issue create --repo manufosela/other-app --title x --body y").status).toBe(0);
     expect(bash("gh issue list --repo manufosela/karajan-code").status).toBe(0);
+    // KJC-BUG-0306: the subcommand, not three words anywhere in the command.
+    expect(bash("gh auth switch --user u && gh issue create -R manufosela/karajan-code --title x").status).toBe(2);
+    for (const c of ["echo ok\ngh issue create -R manufosela/karajan-code --title x", `"gh" issue create -R manufosela/karajan-code --title x`, "gh -R manufosela/karajan-code issue create --title x", "gh --hostname github.com --repo manufosela/karajan-code issue create --title x", "gh issue -R manufosela/karajan-code create --title x"]) expect(bash(c).status, c).toBe(2);
+    for (const c of ["gh pr create --repo manufosela/karajan-code --title 'kj report-issue: create an issue'", "grep -rn 'gh issue create' --repo manufosela/karajan-code tests"]) expect(bash(c).status, c).toBe(0);
     // GH_REPO, inline or inherited, names the target as well as --repo does.
     expect(bash("GH_REPO=manufosela/karajan-code gh issue create --title x").status).toBe(2);
     expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "gh issue create --title x" } }, { GH_REPO: "manufosela/karajan-code" }).status).toBe(2);
