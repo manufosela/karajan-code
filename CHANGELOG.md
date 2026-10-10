@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.48.1] - 2026-10-10
+
+### Fixed
+
+- **The Quality workflow runs in the language root** (KJC-BUG-0309, #2023): in a repo whose JS app lives in a subdirectory with no `package.json` at the root, `kj-quality.yml` ran `npm ci` and `npm test` at the root and every PR failed; a hand fix was undone by the next harden, which then left the file staged and the seal refused it. harden passes the language root it already detects: the job runs there, with that root's package manager and lint script.
+- **`kj rag query` no longer reindexes the repo before answering** (KJC-BUG-0304): the refresh before a query had no bound, so an index weeks old meant hundreds of files reindexed one by one while the rag-first gate stayed shut. Past `rag.autoUpdate.maxFiles` (25) the query answers from the index as it is and says how to bring it up to date.
+- **The rag-first gate lets a barrel be edited** (KJC-BUG-0308): `index.ts`, `__init__.py` or `mod.rs` only re-export their folder, so the RAG never returns them; a hit in the barrel's own subtree now covers it.
+
 ## [4.48.0] - 2026-10-10
 
 What a gate denied, on record. The agent no longer asks the human by chat

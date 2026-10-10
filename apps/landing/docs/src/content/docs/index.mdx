@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.48.0: what a gate denied, on record (current)
+### v4.48.1: three fixes from the field (current)
+
+The Quality workflow runs in the language root when the app lives in a subdirectory, `kj rag query` no longer reindexes the whole repo before answering when the index is old, and the rag-first gate lets a barrel (`index.ts`, `__init__.py`, `mod.rs`) be edited once the RAG answered about its folder.
+
+### v4.48.0: what a gate denied, on record
 
 The agent no longer asks the human by chat for what kj refused it. Every deny of the Sentinel leaves a record with the gate's own words, and `kj handoff add` registers a handoff only against that record, so the why is the gate's, never the agent's; `kj handoff list|show` read it by id. Also fixed: untracking an inherited runtime file no longer needs `--no-verify`, and the agent can report through `kj report-issue`, the very command the Sentinel sends it to.
 

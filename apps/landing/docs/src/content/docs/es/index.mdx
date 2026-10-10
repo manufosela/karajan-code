@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.48.0: lo que un gate negó, registrado (actual)
+### v4.48.1: tres arreglos de campo (actual)
+
+El workflow de calidad corre en la raíz del lenguaje cuando la app vive en un subdirectorio, `kj rag query` ya no reindexa el repo entero antes de responder cuando el índice es antiguo, y el rag-first deja editar un barrel (`index.ts`, `__init__.py`, `mod.rs`) en cuanto el RAG ha respondido sobre su carpeta.
+
+### v4.48.0: lo que un gate negó, registrado
 
 El agente ya no pide al humano por el chat lo que kj le negó. Cada deny del Sentinel deja un registro con las palabras del propio gate, y `kj handoff add` registra un encargo solo contra ese registro, así que el porqué es del gate, nunca del agente; `kj handoff list|show` lo leen por identificador. Además: sacar del índice un fichero de runtime heredado ya no exige `--no-verify`, y el agente puede reportar con `kj report-issue`, justo el comando al que lo manda el Sentinel.
 
