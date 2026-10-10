@@ -166,13 +166,21 @@ const QUALITY_BY_LANGUAGE = {
  * `lint:false` drops the JS lint step entirely (project has no lint script,
  * KJC-BUG-0137) — mirroring the local hook, which also omits it.
  */
-export function qualityWorkflowFor(language, pm = "npm", lint = true) {
+export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".") {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
   const body =
     language === "javascript" || language === "typescript"
       ? header([...nodeSetupSteps(pm), ...(lint ? [`      - run: ${c.lint}`] : []), `      - run: ${c.test}`])
       : QUALITY_BY_LANGUAGE[language];
-  return body ? { file: "kj-quality.yml", blockId: "wf-quality", body } : null;
+  return body ? { file: "kj-quality.yml", blockId: "wf-quality", body: inRoot(body, root) } : null;
+}
+
+// KJC-BUG-0309 (#2023): a repo whose app lives in a subdirectory runs every step
+// there. The root goes into YAML, so it is a plain relative path or nothing.
+function inRoot(body, root) {
+  if (root === "." || root === "") return body;
+  if (!/^[\w.-]+(\/[\w.-]+)*$/.test(root) || root.split("/").includes("..")) throw new Error(`kj harden: "${root}" is not a safe directory for the Quality workflow`);
+  return body.replace("    runs-on: ubuntu-latest\n", `    runs-on: ubuntu-latest\n    defaults:\n      run:\n        working-directory: ${root}\n`);
 }
 
 // Caps the net LOC delta of a PR (strict profile only — it is opinionated).

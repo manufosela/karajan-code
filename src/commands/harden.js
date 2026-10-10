@@ -186,7 +186,7 @@ export async function hardenCommand({
   const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
   const withCi = ci && profile !== "minimal";
   const wf = withCi
-    ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, profile, mutation, dryRun })
+    ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, root: roots[0]?.dir ?? ".", profile, mutation, dryRun })
     : null;
   const withGuidelines = guidelines && profile !== "minimal";
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
