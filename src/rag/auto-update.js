@@ -12,6 +12,8 @@ import { ragExclude } from "./indexable.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { openProjectStore } from "./project-store.js";
 
+// The pre-query refresh reindexes at most this many changed files (config.rag.autoUpdate.maxFiles).
+export const DEFAULT_MAX_DRIFT_FILES = 25;
 const HOOK_SRC = resolve(fileURLToPath(import.meta.url), "../../../scripts/git-hooks/post-merge");
 
 export async function maybeAutoUpdate({ projectDir, config, logger = console, flags = {} } = {}) {
@@ -26,6 +28,16 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   try {
     const since = getLastIndexedCommit(db, slug);
     if (!since || since === head) return { skipped: true, head };
+    // KJC-BUG-0304: a drift of hundreds of files (an index weeks old) reindexed the
+    // repo for half an hour before the query answered. Past the bound the query
+    // answers from the index as it is, and says how to bring it up to date.
+    const maxFiles = config?.rag?.autoUpdate?.maxFiles ?? DEFAULT_MAX_DRIFT_FILES;
+    const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-only", since, "HEAD"]);
+    const changed = stdout.split("\n").filter(Boolean).length;
+    if (changed > maxFiles) {
+      logger.warn?.(`[rag] ${changed} file(s) changed since the last index (more than ${maxFiles}): answering from the index as it is; bring it up to date with kj rag index --since auto`);
+      return { skipped: true, reason: "drift-too-large", changed, head };
+    }
     logger.info?.(`[rag] drift detected (${since.slice(0, 7)} → ${head.slice(0, 7)}); running delta update`);
     const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger, exclude: ragExclude(config) });
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
