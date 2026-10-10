@@ -26,10 +26,32 @@ describe("pre-commit template includes the opt-in review gate", () => {
   // KJC-BUG-0296 (#1989): the agent's runtime files never enter a commit, however staged.
   it("refuses a commit whose staged list holds agent runtime files, and names them", () => {
     const body = hookBody("pre-commit", {});
-    expect(body).toContain("git diff --cached --name-only | grep -qE");
+    expect(body).toContain("git diff --cached --name-only --diff-filter=d | grep -qE");
     expect(body).toContain("scheduled_tasks");
     expect(body).toMatch(/agent runtime files are staged/);
     expect(body).toMatch(/git restore --staged/);
+  });
+
+  // KJC-BUG-0307: untracking a runtime file is what the rule wants, not what it refuses.
+  it("lets a commit that DELETES a tracked runtime file through, and still refuses one that adds it (real sh + git)", () => {
+    const lines = hookBody("pre-commit", {}).split("\n");
+    const start = lines.findIndex((l) => l.includes("git diff --cached --name-only") && l.includes(".kj/"));
+    const block = lines.slice(start, start + 3).join("\n");
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "kj-runtime-del-"));
+    const git = (...a) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...a], { cwd: repo });
+    const check = () => spawnSync("sh", ["-c", block], { cwd: repo, encoding: "utf8" });
+    try {
+      git("init", "-q", "-b", "main");
+      fs.mkdirSync(path.join(repo, ".kj"));
+      fs.writeFileSync(path.join(repo, ".kj", "run.log"), "v3\n");
+      git("add", ".kj/run.log");
+      expect(check().status).toBe(1); // adding it is refused
+      git("commit", "-q", "--no-verify", "-m", "legacy");
+      git("rm", "-q", "--cached", ".kj/run.log");
+      expect(check().status).toBe(0); // untracking it goes through
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
   });
 });
 
