@@ -90,11 +90,16 @@ export const stripInertQuotes = (cmd) => {
 };
 
 // Options whose value is prose, never a path (gh, git, kj).
-const TEXT_OPTIONS = new Set(["--title", "--body", "--message", "-m", "--notes", "--description", "--ac", "--criteria", "--reason", "--decision", "--context", "--consequences", "--position"]);
+// KJC-BUG-0306: --error and --command of kj report-issue, --scope and --tests of kj hu add.
+const TEXT_OPTIONS = new Set(["--title", "--body", "--message", "-m", "--notes", "--description", "--ac", "--criteria", "--reason", "--decision", "--context", "--consequences", "--position", "--error", "--command", "--scope", "--tests"]);
 const QUOTED_OPTION_VALUE = /(^|\s)(--?[a-z]+)(=|\s+)("[^"$`\\]*"|'[^']*')/g;
+// KJC-BUG-0306: the title kj hu add and kj adr add take as their first argument, at the start of a segment.
+const KJ_TITLE = /(^|[;&|]\s*)(kj\s+(?:hu|adr)\s+add\s+)("[^"$`\\]*"|'[^']*')/g;
 
 /** KJC-BUG-0243: blank the inert quoted value of a text option (--title "a/b c"): prose, not a path. */
-export const stripTextOptionValues = (cmd) => cmd.replace(QUOTED_OPTION_VALUE, (m, pre, opt, sep, val) => (TEXT_OPTIONS.has(opt) ? `${pre}${opt}${sep}${val[0]}${val[0]}` : m));
+export const stripTextOptionValues = (cmd) => cmd
+  .replace(KJ_TITLE, (m, pre, head, val) => `${pre}${head}${val[0]}${val[0]}`)
+  .replace(QUOTED_OPTION_VALUE, (m, pre, opt, sep, val) => (TEXT_OPTIONS.has(opt) ? `${pre}${opt}${sep}${val[0]}${val[0]}` : m));
 
 /**
  * KJC-BUG-0245: the values of the named options, read by the shell reader, so a

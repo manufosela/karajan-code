@@ -893,7 +893,7 @@ process.stdin.on("end", () => {
         // KJC-BUG-0243: inert quoted text is not a substitution, and the prose value
         // of a text option (--title, -m...) is not a path.
         if (/\\$\\(|\`/.test(stripInertQuotes(cmd)) || quotedPathWithSpaces(stripTextOptionValues(cmd))) {
-          console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion." + doc("cross-lane"));
+          console.error("karajan sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion. Si es texto (titulo, descripcion, error) con comillas de codigo o dolar, ponlo entre comillas SIMPLES: entre dobles la shell lo ejecuta." + doc("cross-lane"));
           process.exit(2);
         }
         const SAFE_EXP_SEG = /^([A-Za-z_][A-Za-z0-9_]*=[^ \\t]*[ \\t]*)*((npm|pnpm|yarn|vitest|jest|kj|gh|echo|printf|true|test)\\b|git[ \\t](?![^\\n]*(-C[ \\t]|--git-dir|--work-tree)))[^;|&\\n]*$|^[A-Za-z_][A-Za-z0-9_]*=[^;|&\\n]*$/;
