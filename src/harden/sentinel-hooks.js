@@ -467,11 +467,11 @@ const PRETOOL_BODY = `#!/usr/bin/env node
 import console from "node:console";
 import process from "node:process";
 import { dirname, join, relative, resolve } from "node:path";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, save, session, violations, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, foreignLane, load, save, session, violations, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { optionValues, shellSegments, stripInertQuotes, stripTextOptionValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
@@ -495,8 +495,17 @@ process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, transcript_path: transcript = null } = JSON.parse(raw);
     // KJC-TSK-0920 (SNT-E): every deny ends with the same line, whatever gate it was.
+    // KJC-TSK-0968 (HUM-E, ADR 0018): and leaves a record next to the state, with the
+    // gate's own words: kj handoff takes the why from here, never from the agent.
+    const said = [];
+    const errOrig = console.error.bind(console);
+    console.error = (m) => { said.push(String(m)); errOrig(m); };
     process.on("exit", (code) => {
-      if (code === 2) console.error("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
+      if (code !== 2) return;
+      errOrig("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
+      // Only what a handoff needs: the exact Bash command, or the path an edit aimed at; never file contents.
+      const what = tool === "Bash" ? { command: input.command } : { file_path: input.file_path || input.notebook_path || null };
+      try { appendFileSync(join(dirname(STATE), "denials.jsonl"), JSON.stringify({ at: new Date().toISOString(), sid, tool, input: what, why: said.join("\\n") }) + "\\n"); } catch { /* the deny stands without its record */ }
     });
     // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
     // sesion toca un fichero se anota si estaba limpio: solo entonces un
