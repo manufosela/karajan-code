@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.40.0",
-  "generated_at": "2026-10-05T20:50:41.515Z",
+  "kj_version": "4.47.0",
+  "generated_at": "2026-10-10T12:06:59.668Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -18,7 +18,7 @@
   "files": [
     {
       "file": ".karajan/harness/posttooluse.mjs",
-      "sha256": "65a8fe4c749ddcdfb92e02085d4523392c0f2441c6aed9a519f3fa2ce4f7849a"
+      "sha256": "732a2b07ade700ba347f2ff703f0ff45a863be6befbe3e003dc30c890bf6f9ac"
     },
     {
       "file": ".karajan/harness/pretooluse-rules.mjs",
@@ -26,7 +26,7 @@
     },
     {
       "file": ".karajan/harness/pretooluse-sentinel.mjs",
-      "sha256": "bcfde4bd7e6885385682d810919075982d5ad546f9f7e5c7cc1045ce23b8414d"
+      "sha256": "76d64ad9222ce50c7421f101a44789edca1560fce5b1ad0da4d3e2bcb2e94852"
     },
     {
       "file": ".karajan/harness/pretooluse.mjs",
@@ -54,11 +54,11 @@
     },
     {
       "file": ".karajan/harness/sentinel-shell.mjs",
-      "sha256": "07e67a5c08d3ea55420d0c38fca062bc95ecb8d1ca73ddb17814a90774a59eb5"
+      "sha256": "5c84390fa3adab05ded396032d6bca65df388410cef7de78a6dab266be644ceb"
     },
     {
       "file": ".karajan/harness/sessionstart.mjs",
-      "sha256": "7fe36b8626a6dc61bb9575cee3d9eecf221fd140cead996196a6962a1deb72ab"
+      "sha256": "2d119cac5c9b4432badf7d7c905371d351acccb9899b51a8aadb5c5c83a83472"
     },
     {
       "file": ".karajan/harness/stop.mjs",
@@ -74,7 +74,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "7f0bdc3ef467c9ebdb01f8b8c83b181f634e4ffb710e016c57d22ebd999a360b"
+      "sha256": "cbd9c3cdcb8cfa656700d9cadd335c12a8cfa1c1174f40209510b422a57e01c0"
     },
     {
       "file": ".karajan/hooks/pre-push",
@@ -86,15 +86,15 @@
     }
   ],
   "signature": {
-    "cid": "fabd57d2866e5c5793e5e9e4d95ac2a3",
-    "nonce": "05fc719b29e8f0dec54f5b71b4ae71cc",
+    "cid": "c0344e760166f1cc09be080de2debdbe",
+    "nonce": "fa4907e26db12653a8e410e31b28ec5e",
     "project": "karajan-code",
-    "filesHash": "53b03a1ba10f91f0f9e2217bdde5b57eb24253ff1db6f82c2fce3883353c8cd3",
+    "filesHash": "af0a2c41d02781edbfb66adc9ebb41c4d7e2b1d1422268c897d3d603aba94050",
     "v": 2,
-    "kjVersion": "4.40.0",
-    "issuedMs": 1791233393385,
-    "expiresMs": 1791233453385,
+    "kjVersion": "4.47.0",
+    "issuedMs": 1791634011098,
+    "expiresMs": 1791634071098,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "YbkeqT0vaYmTVa/u9D+GhYDZekL2SXnmFU0I2hKNCe2mqaN4YGJPBVSwtsqUtfAYWixDN2kVZpX3n7lPmB2jAw=="
+    "signature": "jJXZzb5TRn/PevOYdCDB62AYsrB8tBptKTvuHEGGgTQ1cos5Sclx4xatTlvgIEAA3NI7MVqN6y9heIDkkVuRBA=="
   }
 }
