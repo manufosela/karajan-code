@@ -48,6 +48,20 @@ describe("rag-first gate", () => {
     expect(edit("lib/c.js").status).toBe(2);
   });
 
+  // KJC-BUG-0308: a barrel (index.ts, __init__.py, mod.rs) only re-exports its folder:
+  // the RAG answers with what it re-exports, never with the barrel itself.
+  it("a barrel is covered by a hit in its own subtree; any other file still needs its own zone", () => {
+    for (const f of ["src/ui/index.ts", "src/ui/button/button.ts", "src/ui/helpers.ts", "pkg/__init__.py"]) {
+      fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true });
+      fs.writeFileSync(path.join(dir, f), "x\n");
+    }
+    execSync("git add -A && git commit -q -m more", { cwd: dir });
+    ledger(["src/ui/button/button.ts"]);
+    expect(edit("src/ui/index.ts").status).toBe(0);
+    expect(edit("src/ui/helpers.ts").status).toBe(2); // not a barrel: the subtree does not cover it
+    expect(edit("pkg/__init__.py").status).toBe(2); // a barrel, but nothing under pkg/ answered
+  });
+
   // KJC-BUG-0293 (#1996): the deny names the hits that fell outside the tree, so
   // the person learns the index was built from another path instead of
   // querying again and again.

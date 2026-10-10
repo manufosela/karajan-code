@@ -1049,7 +1049,11 @@ process.stdin.on("end", () => {
         // above rules on it) and the ledger only holds in-repo paths.
         // KJC-BUG-0190: with nothing indexed, no query can cover anything —
         // the gate asks for kj rag index instead of denying the impossible.
-        const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || ((rs.rag_queries || []).length > 0 && fresh()) || rs.rag_index_empty === true;
+        // KJC-BUG-0308: a barrel only re-exports its folder, so the RAG answers with
+        // what it re-exports and never with the barrel: a hit in its own subtree covers it.
+        const BARRELS = ["index.js", "index.ts", "index.mjs", "index.cjs", "index.jsx", "index.tsx", "__init__.py", "mod.rs"];
+        const barrelCovered = dirOf(rel) !== "" && BARRELS.includes(rel.slice(rel.lastIndexOf("/") + 1)) && hits.some((h) => h.startsWith(dirOf(rel) + "/"));
+        const covered = rel.startsWith("..") || hits.includes(rel) || hits.some((h) => dirOf(h) === dirOf(rel)) || barrelCovered || ((rs.rag_queries || []).length > 0 && fresh()) || rs.rag_index_empty === true;
         // ADR 0015 (KJC-TSK-0925): no escape. The cases it covered (new file, empty
         // index, not indexable) are decided by the gate itself.
         if (!covered) {
