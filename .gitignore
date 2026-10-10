@@ -7,6 +7,7 @@ dist/
 # Karajan local files (`.karajan/*` instead of `.karajan/` so the v4
 # environment contract below CAN be re-included — git cannot re-include
 # children of an excluded directory).
+.claude/*.lock
 .karajan/*
 # …except the v4 environment contract, which the whole team inherits:
 !.karajan/review-gate
@@ -23,6 +24,7 @@ dist/
 !.karajan/policy-anchor.json
 !.karajan/supervisor-signers.json
 !.karajan/rules.yml
+!.karajan/security-level.json
 .reviews/
 .kj/
 kj.config.yml
