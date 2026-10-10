@@ -1785,6 +1785,12 @@ El ADR 0018 ataba dos cosas: la seguridad máxima no podía ser el defecto hasta
 
 Perder el móvil no se resuelve reinstalando, porque entonces reinstalar sería también el camino del atacante. El primer enrolamiento enseña una sola vez un código de recuperación, para guardarlo fuera de la máquina; el padrón guarda un doble sha256 de él. Con él se sustituye un móvil perdido sin su firma: el código se gasta al usarlo, la prueba que deja es la admisión de la clave nueva, se emite otro código y el móvil perdido queda revocado por el mismo código. Cualquier otro móvil entra firmado por uno presente, y CI juzga cada cambio del padrón contra el de la base: ninguna clave entra sin admisión válida, ninguna sale, una revocación necesita el código y la huella del código rota exactamente cuando se gasta uno. La release arregla además el relé: desde 4.46 la petición de firma llevaba el detalle que la página enseña, y las reglas del relé, que solo conocían las claves anteriores, rechazaban todos los sellos con 403; las reglas se desplegaron por su cuenta y un test impide que cliente y relé vuelvan a separarse.
 
+## Phase 140: v4.48.0, lo que un gate negó, registrado
+
+El ADR 0018 dice que el agente no pide al humano por el chat lo que kj le negó: la petición pasa por kj, y su porqué lo escribe kj, no el interesado. 4.48 pone la primera pieza. Cada deny del gate PreToolUse del Sentinel deja ahora un registro junto a su estado, con las palabras del propio gate y solo lo que un encargo necesita (el comando Bash exacto, o la ruta a la que apuntaba una edición, nunca el contenido de un fichero). `kj handoff add` registra un encargo solo para un comando que ese registro conoce byte a byte, así que el agente no puede inventarse el motivo, y el humano lo lee por su identificador; un encargo cuyos bytes cambiaron no se lee. Leerlo con hechos y la opinión de otra IA, y ejecutarlo por identificador como acto firmado, vienen después.
+
+Dos arreglos viajan con ella, los dos encontrados por otras sesiones el mismo día. La regla del pre-commit que deja fuera de los commits los ficheros de runtime del agente contaba los borrados, así que sacar del índice un `.kj/` heredado exigía `--no-verify`. Y el Sentinel mandaba al agente a `kj report-issue` y luego le negaba el texto como si fuera una ruta entrecomillada; el propio gate de issues leía tres palabras en cualquier sitio del comando en vez del subcomando de gh.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

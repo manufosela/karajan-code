@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.48.0] - 2026-10-10
+
+What a gate denied, on record. The agent no longer asks the human by chat
+for what kj refused it: every deny of the Sentinel leaves a record with the
+gate's own words, and a handoff is registered only against that record. With
+it, two fixes that left sessions stuck: an inherited runtime file could not
+be untracked without --no-verify, and the agent could not report through the
+very command the Sentinel sent it to.
+
+### Added
+
+- **kj handoff: what a gate denied, registered with the gate's why** (KJC-TSK-0968, HUM-E, ADR 0018): every deny of the Sentinel's PreToolUse gate appends a line next to its state (tool, the exact Bash command or the path an edit aimed at, never file contents, and the gate's own words). `kj handoff add -- <command>` registers a handoff only for a command that record knows byte for byte, with the gate's why, never a text of the agent; `kj handoff list` and `kj handoff show <id>` read it, and a handoff whose bytes no longer match its sha256 is not read. Reading it with facts and a cross-AI risk opinion, and running it by id as a catalog act, come next.
+
+### Fixed
+
+- **Untracking a runtime file is no longer refused by the pre-commit** (KJC-BUG-0307): the rule that keeps agent runtime files out of commits read deletions too, so a repo that dragged a tracked `.kj/run.log` could not commit its `git rm --cached`. Deletions are left out; adding a runtime file is still refused.
+- **The agent can report through kj report-issue** (KJC-BUG-0306, #2042): the lane guard read as quoted paths the `--error`, `--command`, `--scope` and `--tests` values and the title of `kj hu add` and `kj adr add`; they are prose now, and the deny says that text with code quotes or a dollar goes in single quotes. The gate that sends issues for karajan-code to kj report-issue reads the gh subcommand by words instead of the words gh, issue and create anywhere.
+
 ## [4.47.0] - 2026-10-10
 
 The level that protects whoever does not know the risk exists. ADR 0018 made

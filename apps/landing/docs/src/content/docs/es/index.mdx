@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.47.0: el nivel que protege a quien no sabe que existe el riesgo (actual)
+### v4.48.0: lo que un gate negó, registrado (actual)
+
+El agente ya no pide al humano por el chat lo que kj le negó. Cada deny del Sentinel deja un registro con las palabras del propio gate, y `kj handoff add` registra un encargo solo contra ese registro, así que el porqué es del gate, nunca del agente; `kj handoff list|show` lo leen por identificador. Además: sacar del índice un fichero de runtime heredado ya no exige `--no-verify`, y el agente puede reportar con `kj report-issue`, justo el comando al que lo manda el Sentinel.
+
+### v4.47.0: el nivel que protege a quien no sabe que existe el riesgo
 
 Seguridad máxima por defecto: todo acto del catálogo (sellar el supervisor, aprobar reglas, enrolar otro móvil, bajar el nivel) se firma desde el móvil sobre los bytes exactos y sin móvil se niega; `kj security show|normal|max` lee y cambia el nivel, y bajarlo es un acto firmado que dice qué se hace y por qué. Un móvil perdido se sustituye con el código de recuperación de un solo uso que se enseña al primer enrolamiento, nunca reinstalando: el código se gasta al usarlo, se emite otro y el móvil perdido queda revocado. CI juzga cada cambio del padrón de móviles. Y las reglas del relé, que desde 4.46 rechazaban todos los sellos con 403, admiten lo que la página de firma enseña.
 

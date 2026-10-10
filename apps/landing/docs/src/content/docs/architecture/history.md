@@ -1786,6 +1786,12 @@ ADR 0018 tied two things together: the maximum security level could not be the d
 
 Losing the phone is not solved by reinstalling, because then reinstalling would be the attacker's path too. The first enrollment shows a recovery code once, to be kept off the machine; the roster keeps a double sha256 of it. With it a lost phone is replaced without its signature: the code is spent on use, the proof it leaves is the admission of the new key, a new code is issued and the lost phone is revoked by the same code. Every other phone enters signed by a present one, and CI judges every change of the roster against the base's: no key enters without a valid admission, none leaves, a revocation needs the code, and the code's fingerprint rotates exactly when one is spent. The release also fixes the relay: since 4.46 the signing request carried the detail the page shows, and the relay's rules, which only knew the previous keys, rejected every seal with 403; the rules were deployed on their own and a test keeps the client and the relay from drifting apart again.
 
+## Phase 140: v4.48.0, what a gate denied, on record
+
+ADR 0018 says the agent does not ask the human by chat for what kj refused it: the request goes through kj, and its why is written by kj, not by the interested party. 4.48 lays the first piece. Every deny of the Sentinel's PreToolUse gate now leaves a record next to its state, with the gate's own words and only what a handoff needs (the exact Bash command, or the path an edit aimed at, never file contents). `kj handoff add` registers a handoff only for a command that record knows byte for byte, so the agent cannot invent the reason, and the human reads it by id; a handoff whose bytes changed is not read. Reading it with facts and a second AI's opinion, and running it by id as a signed act, come next.
+
+Two fixes ride along, both found by other sessions the same day. The pre-commit rule that keeps agent runtime files out of commits counted deletions, so untracking an inherited `.kj/` file needed `--no-verify`. And the Sentinel sent the agent to `kj report-issue` and then denied its text as if it were a quoted path; the issue gate itself read three words anywhere in a command instead of the gh subcommand.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
