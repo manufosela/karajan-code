@@ -102,6 +102,24 @@ describe("installWorkflows", () => {
     expect(read(join(".github", "workflows", "kj-quality.yml"))).toContain("npm test");
   });
 
+  // KJC-BUG-0309 (#2023): the app lives in a subdirectory and the root has no package.json.
+  it("runs the Quality workflow in the language root, with that root's package manager and lint", async () => {
+    mkdirSync(join(dir, "app"));
+    writeFileSync(join(dir, "app", "package.json"), JSON.stringify({ name: "x", private: true, scripts: { lint: "eslint ." } }));
+    writeFileSync(join(dir, "app", "pnpm-lock.yaml"), "");
+    installWorkflows({ projectDir: dir, language: "javascript", root: "app" });
+    const text = read(join(".github", "workflows", "kj-quality.yml"));
+    const job = yaml.load(text).jobs.quality;
+    expect(job.defaults).toEqual({ run: { "working-directory": "app" } });
+    expect(text).toContain("pnpm install --frozen-lockfile");
+    expect(text).toContain("pnpm run -s lint");
+    expect(await prettier.format(text, { parser: "yaml" })).toBe(text);
+    // the root of the repo needs no defaults; an unsafe root is refused, not written
+    installWorkflows({ projectDir: dir, language: "go", root: "." });
+    expect(yaml.load(read(join(".github", "workflows", "kj-quality.yml"))).jobs.quality.defaults).toBeUndefined();
+    expect(() => installWorkflows({ projectDir: dir, language: "go", root: "a: b\n" })).toThrow(/not a safe directory/);
+  });
+
   it("omits the Quality workflow for an unknown language", () => {
     const res = installWorkflows({ projectDir: dir, language: "ruby" });
     expect(res.workflows.map((w) => w.file)).not.toContain(join(".github", "workflows", "kj-quality.yml"));

@@ -73,10 +73,14 @@ export function installWorkflows({
   mutation = false,
   dryRun = false,
   kjVersion = null,
+  root = ".",
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const pm = detectPackageManager(projectDir);
-  const quality = qualityWorkflowFor(language, pm, hasLintScript(projectDir));
+  // KJC-BUG-0309: the Quality workflow reads the package manager and the lint
+  // script where the language root is, and runs its steps there.
+  const appDir = join(projectDir, root);
+  const quality = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root);
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
