@@ -65,6 +65,16 @@ describe("install", () => {
     expect(() => install(src, o())).toThrow(/refs-link.md: a skill may not hold symlinks/);
     expect(existsSync(at())).toBe(false);
   });
+  // KJC-TSK-1129 (review of #2311): cpSync keeps a symlink source as a link, so the source itself may not be one.
+  it("refuses a symlink as the artifact file or the skill folder and leaves the store untouched", () => {
+    const cmd = artifact("src/review.md", "command", "review");
+    symlinkSync(cmd, join(dir, "review-link.md"));
+    const folder = dirname(artifact("src/tdd/SKILL.md", "skill", "tdd"));
+    symlinkSync(folder, join(dir, "tdd-link"));
+    expect(() => install(join(dir, "review-link.md"), o())).toThrow(/review-link.md: an artifact may not be a symlink/);
+    expect(() => install(join(dir, "tdd-link"), o())).toThrow(/tdd-link: an artifact may not be a symlink/);
+    expect(existsSync(at())).toBe(false);
+  });
 });
 
 describe("remove", () => {

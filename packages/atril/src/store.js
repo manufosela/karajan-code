@@ -5,7 +5,7 @@
  * existing artifact is never overwritten: the same content is a no-op,
  * different content fails naming it.
  */
-import { cpSync, existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { KINDS, SLUG, parseArtifact } from "./model.js";
 import { LAYOUT, resolveRoot } from "./scan.js";
@@ -34,6 +34,8 @@ const sameContent = (a, b) => {
 export function install(ref, opts = {}) {
   const source = resolve(opts.projectDir ?? process.cwd(), ref);
   if (!existsSync(source)) throw new Error(`${source} does not exist`);
+  // cpSync keeps a symlink source as a link: the stored artifact would follow its target.
+  if (lstatSync(source).isSymbolicLink()) throw new Error(`${source}: an artifact may not be a symlink`);
   const isFolder = statSync(source).isDirectory();
   const file = isFolder ? join(source, "SKILL.md") : source;
   if (isFolder && !existsSync(file)) throw new Error(`${source}: a skill folder needs a SKILL.md`);
