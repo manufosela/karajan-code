@@ -8,8 +8,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import yaml from "js-yaml";
-import { FRONTMATTER } from "./model.js";
-import { resolveRoot, scanStore } from "./scan.js";
+import { FRONTMATTER, KINDS } from "./model.js";
+import { keyOf, resolveRoot, scanStore } from "./scan.js";
 
 const MAX_KEYWORDS = 20;
 const STOPWORDS = new Set(
@@ -25,6 +25,53 @@ export function extractKeywords(description, body) {
   const words = [description, ...headings].join(" ").toLowerCase().match(WORD) ?? [];
   const keywords = new Set(words.filter((word) => word.length > 1 && !STOPWORDS.has(word)));
   return [...keywords].toSorted().slice(0, MAX_KEYWORDS);
+}
+
+// How a body names another artifact: a pattern with a `name` group and maybe a
+// `kind` group (used when it is a kind: `plugin:name` matches every kind), the
+// kind it implies, and whether it launches a subagent.
+const mention = (source, kind, launch = false, flags = "g") => [
+  new RegExp(source.replace("NAME", "(?<name>[a-z0-9][a-z0-9._-]*)"), flags), kind, launch,
+];
+const MENTIONS = [
+  mention(String.raw`(?:^|[\s(\x60"'])/NAME(?![\w/])`, "command", false, "gm"),
+  mention(String.raw`\b(?<kind>[a-z0-9][a-z0-9_-]*):NAME`),
+  mention(String.raw`subagent_type["']?\s*[:=]\s*["']?NAME`, "agent", true),
+  mention(String.raw`(?:^|[^\w.@])@NAME`, "agent", true, "gm"),
+  mention(String.raw`\bskills/NAME/SKILL\.md`, "skill"),
+  mention(String.raw`\bcommands/NAME\.md`, "command"),
+  mention(String.raw`\bagents/NAME\.md`, "agent"),
+  mention(String.raw`\buse the NAME (?<kind>skill|command|agent)\b`, null, false, "gi"),
+];
+
+/**
+ * Relations the body proposes to other artifacts of the scan: a skill named by a
+ * command or agent is `uses`, a launched agent `delegates`, anything else
+ * `related`. The author's relations win: a target they already declare is
+ * never proposed again.
+ * @returns {{ uses?: string[], delegates?: string[], related?: string[] }} sorted, empty lists left out
+ */
+export function discoverRelations(artifact, artifacts) {
+  const known = new Set(artifacts.map(keyOf));
+  const taken = new Set([keyOf(artifact), ...artifact.uses, ...artifact.delegates, ...artifact.related]);
+  const found = { uses: new Set(), delegates: new Set(), related: new Set() };
+  for (const [pattern, kind, launch] of MENTIONS) {
+    for (const { groups } of artifact.body.matchAll(pattern)) {
+      const named = groups.kind?.toLowerCase();
+      const kinds = kind ? [kind] : KINDS.includes(named) ? [named] : KINDS;
+      // A trailing dot ends the sentence; it is not part of the slug.
+      const name = groups.name.toLowerCase().replace(/\.+$/, "");
+      for (const target of kinds.map((k) => `${k}:${name}`)) {
+        if (!known.has(target) || taken.has(target)) continue;
+        const uses = artifact.kind !== "skill" && target.startsWith("skill:");
+        found[uses ? "uses" : launch ? "delegates" : "related"].add(target);
+      }
+    }
+  }
+  for (const target of found.delegates) found.related.delete(target);
+  return Object.fromEntries(
+    Object.entries(found).filter(([, targets]) => targets.size).map(([relation, targets]) => [relation, [...targets].toSorted()]),
+  );
 }
 
 // The author's frontmatter lines minus the top-level `atril:` key and its lines.
@@ -73,8 +120,11 @@ function rewrite(path, atril) {
  */
 export function enrich({ projectDir = process.cwd(), root, env = process.env, check = false } = {}) {
   const stale = [];
-  for (const artifact of scanStore(resolve(projectDir, resolveRoot({ root, env })))) {
-    const atril = { ...artifact.atril, keywords: extractKeywords(artifact.description, artifact.body), hash: artifact.hash };
+  const artifacts = scanStore(resolve(projectDir, resolveRoot({ root, env })));
+  for (const artifact of artifacts) {
+    const { uses: _u, delegates: _d, related: _r, ...kept } = artifact.atril;
+    const relations = discoverRelations(artifact, artifacts);
+    const atril = { ...kept, ...relations, keywords: extractKeywords(artifact.description, artifact.body), hash: artifact.hash };
     if (isDeepStrictEqual(atril, artifact.atril)) continue;
     stale.push({ path: artifact.path, state: artifact.atril.hash ? "out of date" : "not enriched" });
     if (!check) rewrite(artifact.path, atril);
