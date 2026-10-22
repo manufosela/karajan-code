@@ -12,10 +12,11 @@ import { VERSION } from "../src/index.js";
 
 const PKG_DIR = fileURLToPath(new URL("..", import.meta.url));
 const ROOT = join(PKG_DIR, "..", "..");
+const eslint = new ESLint({ cwd: ROOT });
+const RULES = new Set(["no-restricted-imports", "no-restricted-syntax", "import-x/no-relative-packages"]);
 const lint = async (code) => {
-  const [res] = await new ESLint({ cwd: ROOT }).lintText(code, { filePath: join(PKG_DIR, "src", "fixture.js") });
-  const rules = ["no-restricted-imports", "no-restricted-syntax", "import-x/no-relative-packages"];
-  return res.messages.filter((m) => rules.includes(m.ruleId)).map((m) => m.message);
+  const [res] = await eslint.lintText(code, { filePath: join(PKG_DIR, "src", "fixture.js") });
+  return res.messages.filter((m) => RULES.has(m.ruleId)).map((m) => m.message);
 };
 
 describe("atril imports nothing outside its package", () => {
