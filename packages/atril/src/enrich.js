@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import yaml from "js-yaml";
 import { FRONTMATTER, KINDS } from "./model.js";
-import { resolveRoot, scanStore } from "./scan.js";
+import { keyOf, resolveRoot, scanStore } from "./scan.js";
 
 const MAX_KEYWORDS = 20;
 const STOPWORDS = new Set(
@@ -52,8 +52,8 @@ const MENTIONS = [
  * @returns {{ uses?: string[], delegates?: string[], related?: string[] }} sorted, empty lists left out
  */
 export function discoverRelations(artifact, artifacts) {
-  const known = new Set(artifacts.map((other) => `${other.kind}:${other.name}`));
-  const taken = new Set([`${artifact.kind}:${artifact.name}`, ...artifact.uses, ...artifact.delegates, ...artifact.related]);
+  const known = new Set(artifacts.map(keyOf));
+  const taken = new Set([keyOf(artifact), ...artifact.uses, ...artifact.delegates, ...artifact.related]);
   const found = { uses: new Set(), delegates: new Set(), related: new Set() };
   for (const [pattern, kind, launch] of MENTIONS) {
     for (const { groups } of artifact.body.matchAll(pattern)) {
