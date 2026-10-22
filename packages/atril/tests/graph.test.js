@@ -28,6 +28,10 @@ describe("graphErrors", () => {
     ];
     expect(graphErrors(store)).toEqual(["cycle in uses/delegates: command:a -> agent:b -> command:a"]);
   });
+
+  it("reports a self-loop", () => {
+    expect(graphErrors([artifact("skill", "a", { uses: ["skill:a"] })])).toEqual(["cycle in uses/delegates: skill:a -> skill:a"]);
+  });
 });
 
 describe("atril graph and enrich --check", () => {
@@ -77,5 +81,25 @@ describe("atril graph and enrich --check", () => {
       expect(res.status).toBe(1);
       expect(res.stderr).toMatch("skill:tdd uses skill:ghost, which does not exist");
     }
+  });
+
+  it("graph and enrich --check accept a relation to the user store", () => {
+    write("skills/tdd/SKILL.md", "name: tdd\nkind: skill\nuses: [skill:shared]");
+    write("../none/skills/shared/SKILL.md", "name: shared\nkind: skill");
+    for (const args of [["graph"], ["enrich", "--check"]]) {
+      expect(cli(...args).stderr).not.toMatch("does not exist");
+    }
+  });
+
+  it("prints the node of an artifact with no edges", () => {
+    rmSync(join(dir, ".atril", "agents"), { recursive: true });
+    rmSync(join(dir, ".atril", "commands"), { recursive: true });
+    expect(cli("graph", "skill:tdd").stdout).toBe("skill:tdd\n");
+  });
+
+  it("rejects more than one artifact", () => {
+    const res = cli("graph", "agent:tester", "skill:tdd");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/Usage/);
   });
 });

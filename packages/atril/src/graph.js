@@ -18,7 +18,7 @@ export function graphErrors(artifacts) {
   const known = new Set(artifacts.map(keyOf));
   const edges = artifacts.flatMap(edgesOf);
   const errors = edges.filter(({ to }) => !known.has(to)).map((e) => `${e.from} ${e.relation} ${e.to}, which does not exist`);
-  const loads = Map.groupBy(edges.filter((e) => e.relation !== "related" && known.has(e.to)), (e) => e.from);
+  const loads = Map.groupBy(edges.filter((e) => ["uses", "delegates"].includes(e.relation) && known.has(e.to)), (e) => e.from);
   const done = new Set();
   const path = [];
   const visit = (node) => {

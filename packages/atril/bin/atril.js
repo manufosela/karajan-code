@@ -28,8 +28,10 @@ function runEnrich(args) {
 
 function runGraph(args) {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" }, json: { type: "boolean" } } });
+  if (positionals.length > 1) throw new Error(USAGE);
   const result = graph({ root: values.root, artifact: positionals[0] });
   if (values.json) console.log(JSON.stringify(result, null, 2));
+  else if (result.edges.length === 0) for (const { kind, name } of result.nodes) console.log(`${kind}:${name}`);
   else for (const { from, relation, to } of result.edges) console.log(`${from}\t${relation}\t${to}`);
 }
 
