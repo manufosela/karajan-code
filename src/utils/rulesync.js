@@ -27,8 +27,14 @@ const FRONTMATTER = [
   "",
 ].join("\n");
 
-/** The project uses Rulesync when it has `.rulesync/` or `rulesync.jsonc`. */
+// HU-0011: kj init writes this before adopting rulesync and removes it after the
+// last import. While it exists the adoption is half done, so nothing in kj treats
+// the project as a rulesync one. Local state: never commit it.
+export const ADOPTION_PENDING = join(".rulesync", ".kj-adoption-pending");
+
+/** The project uses Rulesync when it has `.rulesync/` or `rulesync.jsonc`, and no adoption is half done. */
 export function detectRulesync(projectDir) {
+  if (existsSync(join(projectDir, ADOPTION_PENDING))) return false;
   return existsSync(join(projectDir, ".rulesync")) || existsSync(join(projectDir, "rulesync.jsonc"));
 }
 

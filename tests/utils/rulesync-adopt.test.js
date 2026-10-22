@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installGuidelines } from "../../src/harden/guidelines-engine.js";
 import { offerRulesyncAdoption } from "../../src/utils/rulesync-adopt.js";
+import { RULESYNC_RULE, writeRulesyncBlock } from "../../src/utils/rulesync.js";
 
 const block = (id) => [`<!-- >>> kj:managed:${id} v1 >>> (note) -->`, `kj ${id} body`, `<!-- <<< kj:managed:${id} <<< -->`].join("\n");
 const AGENT_FILE = ["# My project", "", "Team rule: be kind.", "", block("playbook"), block("guidelines"), ""].join("\n");
@@ -18,8 +19,9 @@ const installLocalBin = () => {
   writeFileSync(join(dir, "node_modules", ".bin", "rulesync"), "");
 };
 // A stand-in for rulesync: `init` makes its source dir, as the real one does.
-const fakeRulesync = (onImport = () => {}) => vi.fn((cmd, args) => {
+const fakeRulesync = (onImport = () => {}, onInit = () => {}) => vi.fn((cmd, args) => {
   if (args[0] === "init") mkdirSync(join(dir, ".rulesync"), { recursive: true });
+  if (args[0] === "init") onInit();
   if (args[0] === "import") onImport();
 });
 beforeEach(() => {
@@ -100,11 +102,34 @@ describe("offerRulesyncAdoption", () => {
     expect(await offerRulesyncAdoption({ projectDir: dir, interactive: true, confirm })).toMatchObject({ adopted: false, reason: "already" });
     expect(confirm).not.toHaveBeenCalled();
   });
-  it("when import fails, stops naming the step and the command to run by hand", async () => {
+  const boom = () => { throw new Error("boom"); };
+  // A directory where karajan.md should be: moving kj's blocks into it fails.
+  const blockRule = () => mkdirSync(join(dir, ".rulesync", "rules", "karajan.md"), { recursive: true });
+  it.each([
+    ["import", [boom], /import --targets claudecode[\s\S]*Run by hand: \S*rulesync import --targets claudecode/],
+    ["init", [undefined, boom], /"rulesync init"[\s\S]*Run by hand: \S*rulesync init, then kj init/],
+    ["the block move", [undefined, blockRule], /move kj's blocks[\s\S]*Run by hand: .*karajan\.md/],
+  ])("when %s fails, stops naming the step and the command to run by hand", async (_, hooks, message) => {
     installLocalBin();
-    const run = fakeRulesync(() => { throw new Error("boom"); });
-    const adopt = offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run });
-    await expect(adopt).rejects.toThrow(/import --targets claudecode[\s\S]*Run by hand: \S*rulesync import --targets claudecode/);
+    const adopt = offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run: fakeRulesync(...hooks) });
+    await expect(adopt).rejects.toThrow(message);
+  });
+  it("a half-done adoption is not rulesync for harden: --no-rulesync keeps CLAUDE.md", async () => {
+    installLocalBin();
+    await expect(offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run: fakeRulesync(boom) })).rejects.toThrow();
+    writeFileSync(join(dir, "CLAUDE.md"), "# My project\n");
+    expect(await offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: false }, interactive: false })).toMatchObject({ reason: "declined" });
+    installGuidelines({ projectDir: dir });
+    expect(readFileSync(join(dir, "CLAUDE.md"), "utf8")).toContain("kj:managed:guidelines");
+  });
+  it("finishing an adoption never duplicates a block karajan.md already holds", async () => {
+    installLocalBin();
+    await expect(offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run: fakeRulesync(undefined, boom) })).rejects.toThrow();
+    // A run that stopped after writing karajan.md but before trimming CLAUDE.md.
+    writeRulesyncBlock({ projectDir: dir, blockId: "playbook", render: () => ({ content: `---\n---\n${block("playbook")}\n` }) });
+    const rule = join(dir, RULESYNC_RULE);
+    await offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run: fakeRulesync() });
+    expect(readFileSync(rule, "utf8").split("kj:managed:playbook v1").length - 1).toBe(1);
   });
   it("offers to finish a half-done adoption instead of treating it as adopted", async () => {
     installLocalBin();

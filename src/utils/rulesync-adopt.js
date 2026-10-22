@@ -3,15 +3,12 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { findManagedBlock } from "./managed-markers.js";
-import { defaultRun, detectRulesync, RULESYNC_RULE, rulesyncCommand, rulesyncRuleSeed, writeRulesyncBlock } from "./rulesync.js";
+import { ADOPTION_PENDING, defaultRun, detectRulesync, RULESYNC_RULE, rulesyncCommand, rulesyncRuleSeed, writeRulesyncBlock } from "./rulesync.js";
 
 // Each agent file kj writes into, with the rulesync target that imports it.
 const AGENT_FILES = [["CLAUDE.md", "claudecode"], ["AGENTS.md", "agentsmd"]];
 const KJ_BLOCKS = ["playbook", "guidelines"];
 const INSTALL = "npm install --save-dev rulesync";
-// HU-0011: written before `rulesync init`, removed after the last import. Its
-// presence means a previous kj init stopped halfway: offered again, never adopted.
-const PENDING = join(".rulesync", ".kj-adoption-pending");
 /** Run one adoption step; on failure, stop naming it and what to run by hand. */
 const step = (name, byHand, action) => {
   try {
@@ -46,7 +43,8 @@ function moveKjBlocks(projectDir) {
     if (moved === null) continue;
     writeRulesyncBlock({
       projectDir, blockId,
-      render: (previous) => ({ content: `${(previous ?? rulesyncRuleSeed()).replace(/\n*$/, "\n")}${moved}\n` }),
+      // A resumed adoption may find the block already here: replace it, never repeat it.
+      render: (previous) => ({ content: `${takeBlock(previous ?? rulesyncRuleSeed(), blockId).rest.replace(/\n*$/, "\n")}${moved}\n` }),
     });
   }
   for (const [path, text] of texts) writeFileSync(path, text);
@@ -66,13 +64,13 @@ function adoptRulesync({ projectDir, logger, run }) {
     step(`rulesync ${args.join(" ")}`, `${[cmd, ...fullArgs].join(" ")}, then kj init to finish it`, () => run(cmd, fullArgs, projectDir));
   };
   mkdirSync(join(projectDir, ".rulesync"), { recursive: true });
-  writeFileSync(join(projectDir, PENDING), "kj init: rulesync adoption in progress\n");
+  writeFileSync(join(projectDir, ADOPTION_PENDING), "kj init: rulesync adoption in progress\n");
   execStep(["init"]);
-  step(`move kj's blocks into ${RULESYNC_RULE}`, "kj init, once the error above is fixed", () => moveKjBlocks(projectDir));
+  step(`move kj's blocks into ${RULESYNC_RULE}`, `fix ${RULESYNC_RULE} or kj's blocks in CLAUDE.md/AGENTS.md, then kj init`, () => moveKjBlocks(projectDir));
   for (const [file, target] of AGENT_FILES) {
     if (existsSync(join(projectDir, file))) execStep(["import", "--targets", target]);
   }
-  rmSync(join(projectDir, PENDING));
+  rmSync(join(projectDir, ADOPTION_PENDING));
   logger.info(`kj: rulesync adopted; kj's rules now live in ${RULESYNC_RULE}`);
   return { adopted: true };
 }
@@ -82,8 +80,8 @@ function adoptRulesync({ projectDir, logger, run }) {
  * answers without asking; with no TTY and no flag, nothing is adopted.
  */
 export async function offerRulesyncAdoption({ projectDir, flags = {}, interactive, confirm, logger = console, run = defaultRun }) {
-  const halfDone = existsSync(join(projectDir, PENDING));
-  if (detectRulesync(projectDir) && !halfDone) return { adopted: false, reason: "already" };
+  if (detectRulesync(projectDir)) return { adopted: false, reason: "already" };
+  const halfDone = existsSync(join(projectDir, ADOPTION_PENDING));
   const verb = halfDone ? "finish the half-done adoption" : "adopt it";
   if (flags.rulesync === undefined && !interactive) {
     logger.info(`kj: rulesync not adopted (nobody to ask); pass --rulesync to ${verb}, or --no-rulesync to keep the agent files`);
