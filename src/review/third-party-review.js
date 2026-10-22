@@ -14,6 +14,7 @@ import { isGenerated } from "./loc-budget.js";
 import { prSecurityChecks } from "./pr-security.js";
 import { sonarCheck } from "./pr-sonar.js";
 import { batchDiff, splitByFile } from "./diff-batches.js";
+import { lensTask } from "./review-lens.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 
 // KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
@@ -91,7 +92,9 @@ export async function thirdPartyReviewCommand({ flags, config, out = process.std
   const log = (msg) => err.write(`${msg}\n`);
   const logger = { info: log, warn: log, error: log, debug: () => {} };
   try {
-    print(await review({ range: flags.range, config, projectDir: config.projectDir || process.cwd(), logger, task: flags.task ?? null }));
+    // KJC-TSK-1117: a lens (qa) puts its rubric before the task.
+    const task = await lensTask(flags.lens ?? null, flags.task ?? null);
+    print(await review({ range: flags.range, config, projectDir: config.projectDir || process.cwd(), logger, task }));
     return 0;
   } catch (e) {
     print({ error: e.message });

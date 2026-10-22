@@ -119,6 +119,17 @@ describe("thirdPartyReviewCommand", () => {
     expect(JSON.parse(out.text())).toMatchObject({ verdict: { approved: false } });
   });
 
+  // KJC-TSK-1117: --lens qa hands the reviewer the QA rubric before the task; an unknown lens is a JSON error.
+  it("passes the QA rubric as the task with --lens qa", async () => {
+    let seen = null;
+    const review = async ({ task }) => { seen = task; return { verdict: { approved: true } }; };
+    expect(await thirdPartyReviewCommand({ flags: { range: "main...pr", lens: "qa", task: "checkout tests" }, config: {}, out: sink(), err: sink(), review })).toBe(0);
+    expect(seen).toMatch(/Review lens: QA[\s\S]*checkout tests$/);
+    const out = sink();
+    expect(await thirdPartyReviewCommand({ flags: { range: "main...pr", lens: "ux" }, config: {}, out, err: sink(), review })).toBe(1);
+    expect(JSON.parse(out.text()).error).toMatch(/unknown review lens/);
+  });
+
   it("needs --range, and a kj failure is a JSON error with a non-zero code", async () => {
     const out = sink();
     expect(await thirdPartyReviewCommand({ flags: { json: true }, config: {}, out, err: sink() })).toBe(1);

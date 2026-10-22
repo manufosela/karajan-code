@@ -262,6 +262,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--verify-pr <n>", "CI check: every commit of the PR is listed, with its diff hash, in the kj review a member published")
     .option("--third-party", "Review someone else's PR (--range base...head): reviewer only, no own-work gates, no verdict stored")
     .option("--json", "With --third-party: print the review as one JSON document on stdout")
+    .option("--lens <lens>", "With --third-party: what the reviewer looks at; qa = test coverage, weak assertions, flakiness, test data")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
         // KJC-TSK-1075 (#2227): a third-party PR, for reviewer agents; own work keeps every gate.
