@@ -8,8 +8,10 @@
  * source instead, with the same managed markers.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
+import { findManagedBlock } from "./managed-markers.js";
+import { hashContent, verifyEntry, withLedger } from "./rulesync-ledger.js";
 
 export const RULESYNC_RULE = join(".rulesync", "rules", "karajan.md");
 
@@ -58,4 +60,34 @@ export function maybeRulesyncGenerate({ projectDir, config, logger = console, ru
     logger.warn?.(`kj: rulesync generate failed (${err.message}); kj's rules are in ${RULESYNC_RULE}, run it yourself`);
     return { ran: false, reason: "failed" };
   }
+}
+
+// HU-0002 (ADR 0022, decision 3): kj owns its managed blocks of karajan.md,
+// not the file — the team's own rules outside them stay free.
+const blockText = (text, blockId) => {
+  const block = findManagedBlock(text, blockId);
+  return block.found ? text.split("\n").slice(block.startLine, block.endLine + 1).join("\n") : null;
+};
+
+/**
+ * Write one of kj's blocks of a rulesync rule through the ownership ledger.
+ * A block kj wrote before the ledger existed is claimed once, and said; a
+ * block edited by hand stops the write — nothing is overwritten.
+ */
+export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, previous, next, logger = console }) {
+  const key = `${relative(".rulesync", file)}#${blockId}`;
+  withLedger(projectDir, "kj", (ledger) => {
+    const current = previous === null ? null : blockText(previous, blockId);
+    const state = current === null ? "absent" : verifyEntry(ledger, key, current);
+    if (state === "edited") {
+      throw new Error(`${file}: kj's ${blockId} block was edited by hand; kj will not overwrite it. `
+        + `Keep it as kj's with kj rulesync adopt ${key}, or hand it to you with kj rulesync release ${key}`);
+    }
+    if (state === "unowned") logger.info?.(`kj: claimed ${key}, written by kj before the ownership ledger existed`);
+    if (next !== previous) {
+      mkdirSync(dirname(join(projectDir, file)), { recursive: true });
+      writeFileSync(join(projectDir, file), next);
+    }
+    ledger.entries[key] = { owner: "kj", hash: hashContent(blockText(next, blockId)) };
+  });
 }

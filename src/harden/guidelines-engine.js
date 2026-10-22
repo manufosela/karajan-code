@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { detectRulesync, RULESYNC_RULE, rulesyncRuleSeed } from "../utils/rulesync.js";
+import { detectRulesync, RULESYNC_RULE, rulesyncRuleSeed, writeRulesyncBlock } from "../utils/rulesync.js";
 import { guidelinesBody } from "./guidelines-templates.js";
 
 const BLOCK_VERSION = 1;
@@ -65,7 +65,9 @@ export function installGuidelines({ projectDir = process.cwd(), dryRun = false, 
     // KJC-BUG-0232: decir CUALES se van, o el aviso obliga a salir a git diff.
     const kept = new Set(nonEmpty(content));
     const removed = shrank ? nonEmpty(raw).filter((l) => !kept.has(l) && !l.includes("kj:managed:")) : [];
-    if (!dryRun && (migrated || action !== "unchanged")) {
+    if (!dryRun && rulesync) {
+      writeRulesyncBlock({ projectDir, blockId: "guidelines", previous: existsSync(target) ? raw : null, next: content });
+    } else if (!dryRun && (migrated || action !== "unchanged")) {
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, content);
     }
