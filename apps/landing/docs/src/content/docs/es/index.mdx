@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.59.0: una review con ojos de QA (actual)
+### v4.59.1: la review de terceros en cualquier idioma (actual)
+
+`kj review --third-party` ya no falla en un repo sin `.karajan/privacy.yml` cuando git contesta en un idioma que no es el inglés.
+
+### v4.59.0: una review con ojos de QA
 
 `kj review --third-party --lens qa` juzga una PR como lo haría alguien de QA: comportamiento nuevo sin test, tests que no pueden fallar, esperas inestables, selectores frágiles, escenarios que faltan. Y los datos reservados para pruebas (los teléfonos 555-01xx, los rangos de ficción de Ofcom, las tarjetas de prueba de las pasarelas) ya no hacen saltar el escáner de privacidad, mientras que lo que parece real sigue avisando.
 
