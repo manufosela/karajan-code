@@ -22,7 +22,7 @@ const LAYOUT = [
   { kind: "agent", dir: "agents", file: (entry) => entry, name: (entry) => entry.replace(/\.md$/, "") },
 ];
 
-const keyOf = (artifact) => `${artifact.kind}:${artifact.name}`;
+export const keyOf = (artifact) => `${artifact.kind}:${artifact.name}`;
 
 function scanStore(root, source) {
   const found = [];

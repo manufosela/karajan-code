@@ -5,7 +5,7 @@
  * and the body least; ties break on kind, then name.
  */
 import { KINDS } from "./model.js";
-import { scan } from "./scan.js";
+import { keyOf, scan } from "./scan.js";
 
 const WEIGHTS = { name: 8, keywords: 4, description: 2, body: 1 };
 const tokenize = (text) => new Set(String(text).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
@@ -25,7 +25,6 @@ function fieldsOf(artifact) {
 
 const scoreOf = (fields, terms) =>
   Object.entries(WEIGHTS).reduce((sum, [field, weight]) => sum + weight * terms.filter((term) => fields[field].has(term)).length, 0);
-const keyOf = ({ kind, name }) => `${kind}:${name}`;
 
 /**
  * @param {string} query
