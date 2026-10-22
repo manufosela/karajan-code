@@ -12,6 +12,7 @@ import { getKarajanHome } from "../utils/paths.js";
 import { getTemplatesRoot } from "../utils/templates-root.js";
 import { detectAvailableAgents } from "../utils/agent-detect.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
+import { offerRulesyncAdoption } from "../utils/rulesync-adopt.js";
 import { runCommand } from "../utils/process.js";
 import { getInstallCommand } from "../utils/os-detect.js";
 import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
@@ -822,6 +823,12 @@ export function ensureGitRepo({ projectDir, logger, gitFn = null }) {
   }
 }
 
+/** One yes/no question through a wizard of its own, closed after the answer. */
+const askOnce = (question) => {
+  const wizard = createWizard();
+  return wizard.confirm(question, false).finally(() => wizard.close());
+};
+
 export async function initCommand({ logger, flags = {} }) {
   // AB-B (KJC-TSK-0656): with --json, stdout is a machine contract — every
   // human log moves to stderr so the only stdout line is the summary object.
@@ -981,6 +988,10 @@ export async function initCommand({ logger, flags = {} }) {
     await setupSonarQube(config, logger, { interactive });
   }
   await scaffoldCiGateway(config, flags, logger);
+
+  // HU-0004 (ADR 0022): before the harness writes kj's rules, so they land in
+  // rulesync's source when the project adopts it.
+  await offerRulesyncAdoption({ projectDir: process.cwd(), flags, interactive, logger, confirm: askOnce });
 
   // Install the quality harness (git hooks, lint/format/commit config, CI
   // quality gates, agent guidelines) through the SAME engine as `kj harden`,

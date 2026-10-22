@@ -42,7 +42,7 @@ export function rulesyncCommand(projectDir, args) {
 }
 
 const GENERATE_ARGS = ["generate", "--targets", "*", "--features", "*"];
-const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+export const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
 
 /**
  * Compile kj's rules out to every agent, only when the project declared
