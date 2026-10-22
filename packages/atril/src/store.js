@@ -38,6 +38,8 @@ export function install(ref, opts = {}) {
   const isFolder = statSync(source).isDirectory();
   const file = isFolder ? join(source, "SKILL.md") : source;
   if (isFolder && !existsSync(file)) throw new Error(`${source}: a skill folder needs a SKILL.md`);
+  const link = isFolder && readdirSync(source, { recursive: true, withFileTypes: true }).find((e) => e.isSymbolicLink());
+  if (link) throw new Error(`${join(link.parentPath, link.name)}: a skill may not hold symlinks`);
   const { kind, name } = parseArtifact(file);
   if (isFolder !== (kind === "skill")) throw new Error(`${source}: a ${kind} must be a ${kind === "skill" ? "folder" : "file"}`);
   if (opts.kind && opts.kind !== kind) throw new Error(`${file}: declares kind ${kind}, not ${opts.kind}`);

@@ -1,7 +1,7 @@
 // HU-0021 (ADR 0021, decision 5 and plan step 7): install and remove put
 // artifacts in the store and take them out, never silently overwriting.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,11 +59,19 @@ describe("install", () => {
     write("src/tdd/extra.md", "new");
     expect(() => install(src, o())).toThrow(/skill:tdd already exists/);
   });
+  it("refuses a skill holding a symlink and leaves the store untouched", () => {
+    const src = dirname(artifact("src/tdd/SKILL.md", "skill", "tdd"));
+    symlinkSync(write("outside.md", "outside"), join(src, "refs-link.md"));
+    expect(() => install(src, o())).toThrow(/refs-link.md: a skill may not hold symlinks/);
+    expect(existsSync(at())).toBe(false);
+  });
 });
 
 describe("remove", () => {
-  it("deletes an installed skill and command", () => {
+  it("deletes an installed skill, command and agent", () => {
     install(dirname(artifact("src/tdd/SKILL.md", "skill", "tdd")), o());
+    install(artifact("src/tester.md", "agent", "tester"), o());
+    expect(remove("tester", { ...o(), kind: "agent" }).path).toBe(at("agents", "tester.md"));
     install(artifact("src/review.md", "command", "review"), o());
     expect(remove("tdd", { ...o(), kind: "skill" })).toMatchObject({ kind: "skill", name: "tdd" });
     remove("review", { ...o(), kind: "command" });
@@ -83,6 +91,9 @@ describe("atril install / remove CLI", () => {
     const installed = run("install", "src/review.md", "--root", "store");
     expect(installed.status).toBe(0);
     expect(installed.stdout).toMatch(/installed\tcommand:review/);
+    expect(run("install", "src/review.md", "--root", "store", "--kind", "agent").stderr).toMatch(/not agent/);
+    artifact("src/review.md", "command", "review", "changed");
+    expect(run("install", "src/review.md", "--root", "store").status).toBe(1);
     expect(run("remove", "command:review", "--root", "store").status).toBe(0);
     expect(existsSync(at("commands", "review.md"))).toBe(false);
   });

@@ -8,16 +8,16 @@ import { install, remove } from "../src/store.js";
 const USAGE = [
   "Usage: atril --version",
   "       atril scan [--root <dir>] [--json]",
-  "       atril install <path> [--root <dir>]",
+  "       atril install <path> [--kind <kind>] [--root <dir>]",
   "       atril remove <kind:name> [--root <dir>]",
 ].join("\n");
 
 function runStore(command, args) {
-  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" } }, allowPositionals: true });
+  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" } }, allowPositionals: true });
   if (positionals.length !== 1) throw new Error(`${command} takes exactly one argument\n${USAGE}`);
   const [ref] = positionals;
   if (command === "install") {
-    const { status, kind, name, path } = install(ref, { root: values.root });
+    const { status, kind, name, path } = install(ref, { root: values.root, kind: values.kind });
     console.log(`${status}\t${kind}:${name}\t${path}`);
     return;
   }
