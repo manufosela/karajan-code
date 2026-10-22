@@ -15,7 +15,7 @@ const RELATIONS = ["uses", "delegates", "related"];
 const LISTS = ["roles", "servers", ...RELATIONS];
 const SLUG = /^[a-z0-9][a-z0-9._-]*$/;
 const RELATION = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
-const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/;
+export const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/;
 
 const isMapping = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 // Locale-independent order, so the hash is the same on every machine.

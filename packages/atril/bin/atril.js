@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
 import { VERSION } from "../src/index.js";
+import { relative } from "node:path";
+import { enrich } from "../src/enrich.js";
 import { scan } from "../src/scan.js";
 
-const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]";
+const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n       atril enrich [--root <dir>] [--check]";
 
 function runScan(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
@@ -16,10 +18,18 @@ function runScan(args) {
   for (const shadow of result.shadowed) console.log(`shadowed\t${shadow.kind}:${shadow.name}\t${shadow.path}`);
 }
 
+function runEnrich(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" }, check: { type: "boolean" } } });
+  const stale = enrich({ root: values.root, check: values.check });
+  for (const { path, state } of stale) console.log(`${values.check ? state : "enriched"}\t${relative(process.cwd(), path)}`);
+  if (values.check && stale.length > 0) process.exitCode = 1;
+}
+
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "--version" || command === "-v") console.log(VERSION);
   else if (command === "scan") runScan(rest);
+  else if (command === "enrich") runEnrich(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
