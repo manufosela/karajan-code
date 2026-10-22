@@ -14,7 +14,8 @@ const write = (store, path, front) => {
   writeFileSync(file, `---\n${front}\ndescription: d\n---\n${path} body\n`);
   return file;
 };
-const resolve = (ref) => resolveBlock(ref, { projectDir: dir, root: "proj", userRoot: "user" });
+const resolve = (ref, budget) => resolveBlock(ref, { projectDir: dir, root: "proj", userRoot: "user" }, budget);
+const names = (list) => list.map((a) => a.name);
 
 describe("resolveBlock", () => {
   beforeEach(() => {
@@ -88,7 +89,7 @@ describe("resolveBlock", () => {
     const { block, suggested } = resolve("command:ship");
     expect(block.some((a) => a.name === "review")).toBe(false);
     expect(suggested).toEqual([{ name: "review", kind: "command", path: join(dir, "proj", "commands", "review.md") }]);
-    expect(resolve("skill:base")).toEqual({ block: [expect.objectContaining({ name: "base", as: "inline" })], suggested: [] });
+    expect(resolve("skill:base")).toEqual({ block: [expect.objectContaining({ name: "base", as: "inline" })], suggested: [], left: [] });
   });
 
   it("suggests only from the caller's own context, never from a subagent's", () => {
@@ -98,5 +99,41 @@ describe("resolveBlock", () => {
   });
   it("fails loudly on an unknown ref, naming it", () => {
     expect(() => resolve("skill:nope")).toThrow("skill:nope does not exist");
+  });
+
+  // HU-0019 (ADR 0021, decision 9): the budget bounds the block.
+  describe("budget", () => {
+    const pathOf = (rel) => join(dir, "proj", rel);
+    const cut = () => [
+      { name: "base", path: pathOf("skills/base/SKILL.md") },
+      { name: "tdd", path: pathOf("skills/tdd/SKILL.md") },
+    ];
+
+    it("cuts the deepest dependencies first when over maxArtifacts, naming them in left", () => {
+      const { block, left } = resolve("command:ship", { maxArtifacts: 3 });
+      expect(names(block)).toEqual(["style", "tester", "ship"]);
+      expect(left).toEqual(cut());
+    });
+
+    it("estimates tokens as ceil(chars / 4) and cuts deepest first when over maxTokens", () => {
+      // style 7 + base 7 + tdd 7 + tester 6 + ship 6 = 33 tokens.
+      expect(resolve("command:ship", { maxTokens: 20 }).left).toEqual(cut());
+      expect(resolve("command:ship", { maxTokens: 33 }).left).toEqual([]);
+    });
+
+    it("fails naming the applied artifact when it alone exceeds the budget", () => {
+      expect(() => resolve("command:ship", { maxTokens: 5 })).toThrow("command:ship alone exceeds the budget");
+    });
+
+    it("keeps the whole block and an empty left within budget", () => {
+      const { block, left } = resolve("command:ship", { maxArtifacts: 5, maxTokens: 1000 });
+      expect(block).toHaveLength(5);
+      expect(left).toEqual([]);
+    });
+
+    it("rejects a budget limit that is not a positive integer", () => {
+      expect(() => resolve("command:ship", { maxArtifacts: 0 })).toThrow("maxArtifacts must be a positive integer");
+      expect(() => resolve("command:ship", { maxTokens: "9" })).toThrow("maxTokens must be a positive integer");
+    });
   });
 });
