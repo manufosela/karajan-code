@@ -7,7 +7,7 @@
  * serialized canonically (JSON, keys sorted) by every writer.
  */
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeJsonAtomicSync } from "./atomic-write.js";
 
@@ -29,9 +29,11 @@ function validate(file, ledger) {
   if (ledger?.version !== LEDGER_VERSION) {
     throw new Error(`${file}: version ${ledger?.version} is not supported (expected ${LEDGER_VERSION})`);
   }
-  if (typeof ledger.entries !== "object" || ledger.entries === null || Array.isArray(ledger.entries)) throw new Error(`${file}: entries must be an object of key → { owner, hash }`);
+  if (typeof ledger.entries !== "object" || ledger.entries === null || Array.isArray(ledger.entries)) {
+    throw new Error(`${file}: entries must be an object of key → { owner, hash }`);
+  }
   for (const [key, entry] of Object.entries(ledger.entries)) {
-    if (typeof entry?.owner !== "string" || !entry.owner || !HASH_RE.test(entry?.hash)) {
+    if (typeof entry?.owner !== "string" || !entry.owner || !HASH_RE.test(entry.hash)) {
       throw new Error(`${file}: entry "${key}" needs a non-empty owner and a sha256:<hex> hash`);
     }
   }
@@ -53,12 +55,7 @@ export function readLedger(projectDir) {
 
 function takeLock(lock, owner) {
   try {
-    const fd = openSync(lock, "wx");
-    try {
-      writeSync(fd, `${owner} ${process.pid}`);
-    } finally {
-      closeSync(fd);
-    }
+    writeFileSync(lock, `${owner} ${process.pid}`, { flag: "wx" });
   } catch (err) {
     if (err.code !== "EEXIST") throw err;
     let holder = "unknown";

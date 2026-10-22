@@ -64,9 +64,7 @@ describe("withLedger", () => {
     expect(existsSync(join(dir, LOCK_FILE))).toBe(false);
     expect(existsSync(ledgerPath())).toBe(false);
   });
-});
 
-describe("withLedger owner", () => {
   it("records who holds the lock and its pid while the change runs", () => {
     withLedger(dir, "kj", () => {
       expect(readFileSync(join(dir, LOCK_FILE), "utf8")).toBe(`kj ${process.pid}`);
