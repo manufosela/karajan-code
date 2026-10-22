@@ -35,7 +35,7 @@ function validate(file, ledger) {
     throw new Error(`${file}: entries must be an object of key → { owner, hash }`);
   }
   for (const [key, entry] of Object.entries(ledger.entries)) {
-    if (typeof entry?.owner !== "string" || !entry.owner || !HASH_RE.test(entry.hash)) {
+    if (typeof entry?.owner !== "string" || !entry.owner || typeof entry.hash !== "string" || !HASH_RE.test(entry.hash)) {
       throw new Error(`${file}: entry "${key}" needs a non-empty owner and a sha256:<hex> hash`);
     }
   }
