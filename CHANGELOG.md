@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.59.0] - 2026-10-22
+
+Minor. **`kj review --third-party` reviews with a QA engineer's eyes, and test data reserved for testing stops warning** (feedback from a QA team: kj reviewed like a developer, and test fixtures full of phones and cards kept tripping the privacy scan).
+
+### Added
+
+- **`--lens qa`** (KJC-TSK-1117): the reviewer receives a QA rubric before the task. Blocking: new behavior with no test, tests that cannot fail, flakiness by construction (fixed sleeps, order dependence, uncontrolled clock, randomness or network), real personal data. Suggestions: missing scenarios, weak assertions, fragile selectors, data not reserved for testing, structure. A lens changes what is looked at; `review_mode` keeps meaning how strict.
+
+### Changed
+
+- **The privacy scan discards data reserved for testing** (KJC-TSK-1118): NANP `555-01xx` numbers, Ofcom's drama ranges (`07700 900xxx`, `020 7946 0xxx`, `01632 960xxx`) and the test card numbers Stripe, Braintree, Adyen and PayPal publish. Only those exact forms; a number one digit away still warns. Emails on documentation domains were already discarded.
+
 ## [4.58.0] - 2026-10-22
 
 Minor. **CI proves every commit had its cross-AI review, a reviewed repo declares its own privacy false positives, and the Sentinel's shell-reading guards step aside where the host sandbox already protects.**

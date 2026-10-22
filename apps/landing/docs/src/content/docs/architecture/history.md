@@ -1832,6 +1832,12 @@ The pre-commit hook asked for a cross-AI verdict, but `--no-verify` skipped the 
 
 The same release began retiring the Sentinel's shell-reading guards as ADR 0014 planned, without making the sandbox a precondition. Where the host sandbox is on, cannot be bypassed and denies the paths a guard watches, the guard steps aside; anywhere else it denies as before. And `kj review --third-party` learned to accept a reviewed repo's own privacy false positives, read at the base of the range so a PR cannot write its own exemption.
 
+## Phase 147: v4.59.0, a review for the people who write tests
+
+A QA engineer put it plainly: kj reviews like a developer. On a PR of test automation the reviewer asked about code style while the questions that matter were elsewhere: would these tests catch the bug, can they fail at all, will they flake. The answer was not a new strictness but a new lens. `--lens qa` hands the reviewer a QA rubric before the task, so what it blocks on is new behavior with no test, assertions that cannot fail and waits that make a suite flaky, and what it suggests is the scenarios that were skipped.
+
+The same feedback named the other friction: test fixtures carry phones, emails and cards, and the privacy scan warned on every one. Using values reserved for testing is the good practice, so the scan now knows them, the fictional phone ranges and the test cards payment providers publish, and only them: a number one digit away is still treated as possibly real.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
