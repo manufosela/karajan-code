@@ -24,7 +24,7 @@ const LAYOUT = [
 
 export const keyOf = (artifact) => `${artifact.kind}:${artifact.name}`;
 
-export function scanStore(root) {
+export function scanStore(root, source = "project") {
   const found = [];
   for (const { kind, dir, file, name } of LAYOUT) {
     const base = join(root, dir);
@@ -42,7 +42,7 @@ export function scanStore(root) {
       const artifact = parseArtifact(path);
       if (artifact.kind !== kind) throw new Error(`${path}: declares kind ${artifact.kind} but lives in ${dir}/`);
       if (artifact.name !== name(entry)) throw new Error(`${path}: declares name "${artifact.name}" but is named "${name(entry)}"`);
-      found.push(artifact);
+      found.push({ ...artifact, source });
     }
   }
   return found;
@@ -60,7 +60,7 @@ export function scan({ projectDir = process.cwd(), root, userRoot, env = process
   const shadowed = [];
   if (userStore !== projectRoot) {
     const taken = new Set(artifacts.map(keyOf));
-    for (const artifact of scanStore(userStore)) {
+    for (const artifact of scanStore(userStore, "user")) {
       if (taken.has(keyOf(artifact))) {
         shadowed.push({ kind: artifact.kind, name: artifact.name, path: artifact.path });
       } else {
