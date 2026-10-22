@@ -4,10 +4,8 @@
  * kj compiles its rules through rulesync (src/utils/rulesync.js), so a
  * version it never ran against is said, never assumed to work.
  */
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { runCommand } from "../utils/process.js";
-import { detectRulesync } from "../utils/rulesync.js";
+import { detectRulesync, rulesyncCommand } from "../utils/rulesync.js";
 import { STRATEGY } from "./types.js";
 
 /** Tested with rulesync 16.14.0; any later 16.x release is accepted, 17 is not. */
@@ -33,11 +31,8 @@ export function inTestedRange(version) {
   return differing === -1 || v.parts[differing] > MIN[differing];
 }
 
-// The project's own binary, or npx without installing: the same rule as
-// maybeRulesyncGenerate — kj never runs a package fetched on the fly.
 async function readVersion(projectDir, run) {
-  const local = join(projectDir, "node_modules", ".bin", "rulesync");
-  const [cmd, args] = existsSync(local) ? [local, ["--version"]] : ["npx", ["--no-install", "rulesync", "--version"]];
+  const [cmd, args] = rulesyncCommand(projectDir, ["--version"]);
   try {
     const res = await run(cmd, args, { cwd: projectDir, timeout: VERSION_TIMEOUT_MS });
     if (res.exitCode !== 0) return { error: res.stderr?.trim() || `exit code ${res.exitCode}` };

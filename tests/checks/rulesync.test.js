@@ -100,15 +100,10 @@ describe("rulesync doctor check", () => {
 
   it("gives a cold npx time: its own detect timeout and a bounded subprocess", async () => {
     withRulesync();
-    const [check] = getRulesyncChecks({ projectDir: dir, run: reporting("16.14.0") });
+    const run = reporting("16.14.0");
+    const [check] = getRulesyncChecks({ projectDir: dir, run });
     expect(check.detectTimeoutMs).toBeGreaterThan(5000);
     await check.detect();
-  });
-
-  it("passes a timeout to the subprocess", async () => {
-    withRulesync();
-    const run = reporting("16.14.0");
-    await detect(run);
     expect(run.mock.calls[0][2]).toMatchObject({ cwd: dir, timeout: expect.any(Number) });
   });
 });
