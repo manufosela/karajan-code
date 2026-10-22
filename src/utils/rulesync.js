@@ -8,7 +8,7 @@
  * source instead, with the same managed markers.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { findManagedBlock } from "./managed-markers.js";
 import { hashContent, verifyEntry, withLedger } from "./rulesync-ledger.js";
@@ -88,19 +88,27 @@ export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, 
     const owned = Object.hasOwn(ledger.entries, key);
     if (current === null ? owned : verifyEntry(ledger, key, current) === "edited") {
       throw new Error(`${file}: kj's ${blockId} block was edited by hand; kj will not overwrite it. `
-        + `Keep it as kj's with kj rulesync adopt ${key}, or hand it to you with kj rulesync release ${key}`);
+        + `Restore kj's block as it was, or remove the "${key}" entry from .rulesync/.owners.json `
+        + "so kj claims the block again on its next run (kj rulesync adopt|release will automate this)");
     }
     const claimed = current !== null && !owned;
     if (claimed) logger.info(`kj: claimed ${key}, written by kj before the ownership ledger existed`);
     result = { ...render(previous), ...(claimed ? { claimed } : {}) };
+    const written = blockText(result.content, blockId);
+    if (written === null) throw new Error(`${file}: rendering kj's ${blockId} block left it out; nothing written`);
     if (result.content !== previous) {
       // Rule first, ledger second (withLedger writes it on return): a crash in
       // between reads as "edited" next time — loud, never a silent overwrite.
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(`${target}.tmp`, result.content);
-      renameSync(`${target}.tmp`, target);
+      try {
+        renameSync(`${target}.tmp`, target);
+      } catch (err) {
+        rmSync(`${target}.tmp`, { force: true });
+        throw err;
+      }
     }
-    ledger.entries[key] = { owner: "kj", hash: hashContent(blockText(result.content, blockId)) };
+    ledger.entries[key] = { owner: "kj", hash: hashContent(written) };
   });
   return result;
 }

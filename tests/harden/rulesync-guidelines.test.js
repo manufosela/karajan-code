@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { installGuidelines } from "../../src/harden/guidelines-engine.js";
 import { installPlaybook } from "../../src/environment/playbook.js";
-import { detectRulesync, RULESYNC_RULE } from "../../src/utils/rulesync.js";
+import { detectRulesync, RULESYNC_RULE, writeRulesyncBlock } from "../../src/utils/rulesync.js";
 import { LEDGER_FILE, readLedger } from "../../src/utils/rulesync-ledger.js";
 
 let dir;
@@ -84,13 +84,28 @@ describe("kj's karajan.md blocks through the ownership ledger", () => {
     info.mockRestore();
   });
 
-  it("a hand edit inside its block stops kj, names adopt/release, and leaves the file as it was", () => {
+  it("a hand edit inside its block stops kj, gives a remedy that works today, and leaves the file as it was", () => {
     withRulesync();
     installGuidelines({ projectDir: dir, language: "javascript" });
     const edited = readFileSync(rule(), "utf8").replace(/(>>> kj:managed:guidelines v\d+ >>>[^\n]*\n)/, "$1- my own line inside\n");
     writeFileSync(rule(), edited);
-    expect(() => installGuidelines({ projectDir: dir, language: "javascript" })).toThrow(/edited by hand.*kj rulesync adopt.*release/);
+    expect(() => installGuidelines({ projectDir: dir, language: "javascript" })).toThrow(/edited by hand.*restore kj's block.*remove the "rules\/karajan\.md#guidelines" entry from \.rulesync\/\.owners\.json/i);
     expect(readFileSync(rule(), "utf8")).toBe(edited);
+  });
+
+  it("rewrites its own block when its body changes, and records the new hash", () => {
+    withRulesync();
+    installGuidelines({ projectDir: dir, language: "javascript" });
+    const before = readLedger(dir).entries[key].hash;
+    expect(() => installGuidelines({ projectDir: dir, language: "python" })).not.toThrow();
+    expect(readFileSync(rule(), "utf8")).toMatch(/python/i);
+    expect(readLedger(dir).entries[key].hash).not.toBe(before);
+  });
+
+  it("a render that drops the block fails naming the file and the block", () => {
+    withRulesync();
+    expect(() => writeRulesyncBlock({ projectDir: dir, blockId: "guidelines", render: () => ({ content: "x\n" }) }))
+      .toThrow(/karajan\.md.*guidelines/);
   });
 
   it.each([
