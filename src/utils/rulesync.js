@@ -44,12 +44,6 @@ export function rulesyncCommand(projectDir, args) {
 const GENERATE_ARGS = ["generate", "--targets", "*", "--features", "*"];
 export const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
 
-/** rulesync with `args`: the project's local binary, else `npx --no-install` — never a package fetched on the fly. */
-export function rulesyncCommand(projectDir, args) {
-  const local = join(projectDir, "node_modules", ".bin", "rulesync");
-  return existsSync(local) ? [local, args] : ["npx", ["--no-install", "rulesync", ...args]];
-}
-
 /**
  * Compile kj's rules out to every agent, only when the project declared
  * `rulesync.generate: true`: kj does not run someone else's compiler on its
