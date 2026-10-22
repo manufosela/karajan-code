@@ -24,7 +24,7 @@ const LAYOUT = [
 
 const keyOf = (artifact) => `${artifact.kind}:${artifact.name}`;
 
-function scanStore(root) {
+export function scanStore(root) {
   const found = [];
   for (const { kind, dir, file, name } of LAYOUT) {
     const base = join(root, dir);
