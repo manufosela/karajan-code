@@ -86,8 +86,13 @@ describe("atril graph and enrich --check", () => {
   it("graph and enrich --check accept a relation to the user store", () => {
     write("skills/tdd/SKILL.md", "name: tdd\nkind: skill\nuses: [skill:shared]");
     write("../none/skills/shared/SKILL.md", "name: shared\nkind: skill");
+    // KJC-TSK-1129 (review of #2309): the commands must succeed, not only stay silent about the
+    // relation; --check also needs the artifacts enriched first.
+    expect(cli("enrich").status).toBe(0);
     for (const args of [["graph"], ["enrich", "--check"]]) {
-      expect(cli(...args).stderr).not.toMatch("does not exist");
+      const res = cli(...args);
+      expect(res.stderr).not.toMatch("does not exist");
+      expect(res.status, `${args.join(" ")}: ${res.stderr}`).toBe(0);
     }
   });
 
