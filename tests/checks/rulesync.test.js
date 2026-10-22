@@ -24,8 +24,9 @@ describe("inTestedRange", () => {
     expect(inTestedRange("15.99.0")).toBe(false);
     expect(inTestedRange(`${RULESYNC_TESTED_RANGE.nextMajor}.0.0`)).toBe(false);
   });
-  it("rejects what is not a version", () => {
+  it("rejects what is not a version, and an untested prerelease", () => {
     expect(inTestedRange("garbage")).toBe(false);
+    expect(inTestedRange("16.15.0-rc.1")).toBe(false);
   });
 });
 
@@ -70,10 +71,44 @@ describe("rulesync doctor check", () => {
     expect(run).toHaveBeenCalledWith("npx", ["--no-install", "rulesync", "--version"], expect.anything());
   });
 
-  it("rulesync declared but not runnable warns with the install to run", async () => {
+  it("rulesync declared but not runnable warns with the cause and the install to run", async () => {
     withRulesync();
-    const res = await detect(vi.fn(async () => { throw new Error("not found"); }));
+    const res = await detect(vi.fn(async () => { throw new Error("spawn npx ENOENT"); }));
     expect(res).toMatchObject({ ok: false, severity: "warn" });
-    expect(res.fix).toMatch(/npm i -D rulesync@/);
+    expect(res.detail).toMatch(/spawn npx ENOENT/);
+    expect(res.fix).toMatch(/install rulesync@/);
+  });
+
+  it("a failing binary warns with its stderr", async () => {
+    withRulesync();
+    const res = await detect(vi.fn(async () => ({ exitCode: 1, stdout: "", stderr: "npm ERR! missing rulesync" })));
+    expect(res).toMatchObject({ ok: false, severity: "warn" });
+    expect(res.detail).toMatch(/npm ERR! missing rulesync/);
+  });
+
+  it("output that is not a version warns, quoting it", async () => {
+    withRulesync();
+    const res = await detect(reporting("hello"));
+    expect(res).toMatchObject({ ok: false, severity: "warn" });
+    expect(res.detail).toMatch(/hello/);
+  });
+
+  it("the next major warns through the check too", async () => {
+    withRulesync();
+    expect(await detect(reporting(`${RULESYNC_TESTED_RANGE.nextMajor}.0.0`))).toMatchObject({ ok: false, severity: "warn" });
+  });
+
+  it("gives a cold npx time: its own detect timeout and a bounded subprocess", async () => {
+    withRulesync();
+    const [check] = getRulesyncChecks({ projectDir: dir, run: reporting("16.14.0") });
+    expect(check.detectTimeoutMs).toBeGreaterThan(5000);
+    await check.detect();
+  });
+
+  it("passes a timeout to the subprocess", async () => {
+    withRulesync();
+    const run = reporting("16.14.0");
+    await detect(run);
+    expect(run.mock.calls[0][2]).toMatchObject({ cwd: dir, timeout: expect.any(Number) });
   });
 });

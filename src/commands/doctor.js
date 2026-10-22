@@ -56,7 +56,7 @@ import { getMethodChecks } from "../checks/method.js";
 function buildChecks(config, { projectOnly = false } = {}) {
   const projectDir = config?.projectDir || process.cwd();
   if (projectOnly) {
-    return getProjectChecks({ projectDir });
+    return [...getProjectChecks({ projectDir }), ...getRulesyncChecks({ projectDir })];
   }
   return [
     ...getSystemChecks(),
