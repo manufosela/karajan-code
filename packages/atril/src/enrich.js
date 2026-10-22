@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import yaml from "js-yaml";
+import { graphErrors } from "./graph.js";
 import { FRONTMATTER, KINDS } from "./model.js";
 import { keyOf, resolveRoot, scanStore } from "./scan.js";
 
@@ -114,13 +115,16 @@ function rewrite(path, atril) {
 }
 
 /**
- * Enrich the project store's artifacts, or with `check` only report them.
+ * Enrich the project store's artifacts, or with `check` only report them
+ * (and fail on a graph error).
  * @param {{ projectDir?: string, root?: string, env?: object, check?: boolean }} [opts]
  * @returns {{ path: string, state: "not enriched" | "out of date" }[]} what was (or would be) rewritten
  */
 export function enrich({ projectDir = process.cwd(), root, env = process.env, check = false } = {}) {
   const stale = [];
   const artifacts = scanStore(resolve(projectDir, resolveRoot({ root, env })));
+  const errors = check ? graphErrors(artifacts) : [];
+  if (errors.length > 0) throw new Error(errors.join("\n"));
   for (const artifact of artifacts) {
     const { uses: _u, delegates: _d, related: _r, ...kept } = artifact.atril;
     const relations = discoverRelations(artifact, artifacts);
