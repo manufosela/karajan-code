@@ -85,20 +85,19 @@ describe("scan", () => {
 });
 
 describe("atril scan", () => {
+  const atril = (args = [], env = {}) => spawnSync(process.execPath, [BIN, "scan", "--root", "proj", ...args], {
+    cwd: dir, encoding: "utf8", env: { ...process.env, ATRIL_USER_ROOT: join(dir, "none"), ...env },
+  });
   it("--root and --json list the store", () => {
     store("proj");
-    const res = spawnSync(process.execPath, [BIN, "scan", "--root", "proj", "--json"], {
-      cwd: dir, encoding: "utf8", env: { ...process.env, ATRIL_ROOT: "other", ATRIL_USER_ROOT: join(dir, "none") },
-    });
+    const res = atril(["--json"], { ATRIL_ROOT: "other" });
     expect(res.status).toBe(0);
     expect(names(JSON.parse(res.stdout))).toEqual(["agent:tester", "command:review", "skill:tdd"]);
   });
 
   it("an invalid store fails with a one-line message, no stack trace", () => {
     put("proj", "commands/odd.md", "skill");
-    const res = spawnSync(process.execPath, [BIN, "scan", "--root", "proj"], {
-      cwd: dir, encoding: "utf8", env: { ...process.env, ATRIL_USER_ROOT: join(dir, "none") },
-    });
+    const res = atril();
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/^atril: .*odd\.md/);
     expect(res.stderr).not.toMatch(/\n\s+at /);
