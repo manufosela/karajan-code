@@ -87,3 +87,15 @@ describe("atril enrich", () => {
     expect(cli("--check").status).toBe(0);
   });
 });
+
+describe("enrich relations", () => {
+  it("writes discovered relations under atril: and leaves the author's untouched", () => {
+    const command = join(dir, ".atril", "commands", "ship.md");
+    mkdirSync(dirname(command), { recursive: true });
+    writeFileSync(command, "---\nname: ship\ndescription: Ship it\nkind: command\n---\nUse the tdd skill.\n");
+    run();
+    expect(parseArtifact(command).atril.uses).toEqual(["skill:tdd"]);
+    expect(parseArtifact(command).uses).toEqual([]);
+    expect(run(true)).toEqual([]);
+  });
+});
