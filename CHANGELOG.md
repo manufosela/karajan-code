@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.59.1] - 2026-10-22
+
+Patch. **`kj review --third-party` works with git in any language.**
+
+### Fixed
+
+- **A reviewed repo without `.karajan/privacy.yml` failed the whole review when git answered in another language** (KJC-BUG-0387): the missing file was recognized by git's English message. The base and the file are now checked by exit code (`rev-parse --verify`, `cat-file -e`).
+
 ## [4.59.0] - 2026-10-22
 
 Minor. **`kj review --third-party` reviews with a QA engineer's eyes, and test data reserved for testing stops warning** (feedback from a QA team: kj reviewed like a developer, and test fixtures full of phones and cards kept tripping the privacy scan).
