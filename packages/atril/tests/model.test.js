@@ -53,9 +53,24 @@ describe("parseArtifact", () => {
     expect(() => parseArtifact(file)).toThrow(/bad\.md.*kind "rule".*skill, command, agent/);
   });
 
-  it("a relation that is not a list fails loudly", () => {
-    const file = write("bad.md", doc("name: n\ndescription: d\nkind: skill\nuses: skill:x"));
-    expect(() => parseArtifact(file)).toThrow(/bad\.md.*uses/);
+  const base = "description: d\nkind: skill";
+  it.each([
+    ["a relation that is not a list", `name: n\n${base}\nuses: skill:x`, /uses must be a list/],
+    ["a list item that is not a string", `name: n\n${base}\nroles: [1]`, /roles/],
+    ["a relation that is not kind:name", `name: n\n${base}\nuses: [tdd]`, /uses.*"tdd".*kind:name/],
+    ["a relation to an unknown kind", `name: n\n${base}\ndelegates: [rule:x]`, /delegates.*"rule:x"/],
+    ["an atril: block that is not a mapping", `name: n\n${base}\natril: hello`, /atril must be a mapping/],
+    ["a name that is not a slug", `name: ../evil\n${base}`, /name.*slug/],
+  ])("%s fails loudly", (_label, front, why) => {
+    expect(() => parseArtifact(write("bad.md", doc(front)))).toThrow(why);
+  });
+
+  it("frontmatter that is not a mapping fails loudly", () => {
+    expect(() => parseArtifact(write("bad.md", doc("- a\n- b")))).toThrow(/bad\.md.*mapping/);
+  });
+
+  it("the closing --- must be a line of its own", () => {
+    expect(() => parseArtifact(write("bad.md", "---\nname: n\ndescription: d\nkind: skill\n---oops\nbody\n"))).toThrow(/frontmatter/);
   });
 
   it("a file without frontmatter fails loudly", () => {
@@ -68,6 +83,8 @@ describe("parseArtifact", () => {
     const base = parseArtifact(write("a.md", doc(front))).hash;
     expect(parseArtifact(write("b.md", doc(`${front}\natril:\n  keywords: [x]`))).hash).toBe(base);
     expect(parseArtifact(write("c.md", doc(front, "Something else.\n"))).hash).not.toBe(base);
+    expect(parseArtifact(write("d.md", doc("name: n\ndescription: other\nkind: skill"))).hash).not.toBe(base);
+    expect(parseArtifact(write("e.md", doc("kind: skill\nname: n\ndescription: d"))).hash).toBe(base);
     expect(base).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 });
