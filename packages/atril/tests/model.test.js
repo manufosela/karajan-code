@@ -79,12 +79,12 @@ describe("parseArtifact", () => {
   });
 
   it("editing only the atril: block leaves the hash unchanged; editing the body changes it", () => {
-    const front = "name: n\ndescription: d\nkind: skill";
-    const base = parseArtifact(write("a.md", doc(front))).hash;
-    expect(parseArtifact(write("b.md", doc(`${front}\natril:\n  keywords: [x]`))).hash).toBe(base);
-    expect(parseArtifact(write("c.md", doc(front, "Something else.\n"))).hash).not.toBe(base);
-    expect(parseArtifact(write("d.md", doc("name: n\ndescription: other\nkind: skill"))).hash).not.toBe(base);
-    expect(parseArtifact(write("e.md", doc("kind: skill\nname: n\ndescription: d"))).hash).toBe(base);
-    expect(base).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const front = `name: n\n${base}`;
+    const original = parseArtifact(write("a.md", doc(front))).hash;
+    expect(parseArtifact(write("b.md", doc(`${front}\natril:\n  keywords: [x]`))).hash).toBe(original);
+    expect(parseArtifact(write("c.md", doc(front, "Something else.\n"))).hash).not.toBe(original);
+    expect(parseArtifact(write("d.md", doc("name: n\ndescription: other\nkind: skill"))).hash).not.toBe(original);
+    expect(parseArtifact(write("e.md", doc("kind: skill\nname: n\ndescription: d"))).hash).toBe(original);
+    expect(original).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 });
