@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { VERSION } from "../src/index.js";
 import { scan } from "../src/scan.js";
 
+import { readConfig } from "../src/config.js";
 import { install, remove } from "../src/store.js";
 
 const USAGE = [
@@ -10,6 +11,7 @@ const USAGE = [
   "       atril scan [--root <dir>] [--json]",
   "       atril install <path> [--kind <kind>] [--root <dir>]",
   "       atril remove <kind:name> [--root <dir>]",
+  "       atril config [--root <dir>] [--json]",
 ].join("\n");
 
 function runStore(command, args) {
@@ -37,10 +39,24 @@ function runScan(args) {
   for (const shadow of result.shadowed) console.log(`shadowed\t${shadow.kind}:${shadow.name}\t${shadow.path}`);
 }
 
+function runConfig(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
+  const config = readConfig({ root: values.root });
+  if (values.json) {
+    console.log(JSON.stringify(config, null, 2));
+    return;
+  }
+  console.log(`targets\t${config.targets.join(",")}`);
+  for (const [kind, names] of Object.entries(config.expose)) console.log(`expose.${kind}\t${names.join(",")}`);
+  console.log(`catalogs\t${config.catalogs.join(",")}`);
+  console.log(`rulesync.generate\t${config.rulesync.generate}`);
+}
+
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "--version" || command === "-v") console.log(VERSION);
   else if (command === "scan") runScan(rest);
+  else if (command === "config") runConfig(rest);
   else if (command === "install" || command === "remove") runStore(command, rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
