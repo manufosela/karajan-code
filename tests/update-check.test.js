@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkForUpdate,
+  printUpdateNotice,
   updateInstruction,
   parseChangelogHighlight,
   performSelfUpdate,
@@ -139,6 +140,25 @@ describe("update-check", () => {
     const written = JSON.parse(fs.writeFile.mock.calls[0][1]);
     expect(written.latest).toBe("1.39.0");
     expect(written.checkedAt).toBeGreaterThan(0);
+  });
+
+  // KJC-BUG-0389: the notice prints after the command's output; on stdout it trailed every
+  // --json document and the rules hook's verdict, which then stopped parsing.
+  it("prints the update notice on stderr, never stdout", async () => {
+    fs.readFile.mockResolvedValue(JSON.stringify({ latest: "1.40.0", checkedAt: Date.now() }));
+    const out = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await printUpdateNotice("1.38.2");
+      expect(out).not.toHaveBeenCalled();
+      expect(log).not.toHaveBeenCalled();
+      expect(err.mock.calls.map((c) => c[0]).join("")).toMatch(/Update available: v1\.38\.2 → v1\.40\.0/);
+    } finally {
+      out.mockRestore();
+      err.mockRestore();
+      log.mockRestore();
+    }
   });
 });
 
