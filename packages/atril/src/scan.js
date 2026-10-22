@@ -24,7 +24,8 @@ const LAYOUT = [
 
 export const keyOf = (artifact) => `${artifact.kind}:${artifact.name}`;
 
-export function scanStore(root, source) {
+/** `source` is the store scanned ("project" | "user"), not an install origin. */
+export function scanStore(root, source = "project") {
   const found = [];
   for (const { kind, dir, file, name } of LAYOUT) {
     const base = join(root, dir);
