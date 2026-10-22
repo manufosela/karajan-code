@@ -32,17 +32,21 @@ function validate(path, front) {
   }
   if (!SLUG.test(front.name)) fail(`name "${front.name}" is not a slug (lowercase letters, digits, . _ -)`);
   if (!KINDS.includes(front.kind)) fail(`kind ${JSON.stringify(front.kind)} is not one of ${KINDS.join(", ")}`);
-  for (const field of LISTS) {
-    if (front[field] === undefined) continue;
-    if (!Array.isArray(front[field])) fail(`${field} must be a list`);
-    for (const item of front[field]) {
-      if (typeof item !== "string" || !item.trim()) fail(`${field} items must be non-empty strings`);
-      if (RELATIONS.includes(field) && !RELATION.test(item)) {
-        fail(`${field} item "${item}" must be kind:name with kind one of ${KINDS.join(", ")}`);
-      }
+  const checkList = (label, value, isRelation) => {
+    if (!Array.isArray(value)) fail(`${label} must be a list`);
+    for (const item of value) {
+      if (typeof item !== "string" || !item.trim()) fail(`${label} items must be non-empty strings`);
+      if (isRelation && !RELATION.test(item)) fail(`${label} item "${item}" must be kind:name with kind one of ${KINDS.join(", ")}`);
     }
+  };
+  for (const field of LISTS) {
+    if (front[field] !== undefined) checkList(field, front[field], RELATIONS.includes(field));
   }
   if (front.atril !== undefined && !isMapping(front.atril)) fail("atril must be a mapping");
+  // KJC-TSK-1129: what atril discovered is a relation too, so the graph never meets a malformed one.
+  for (const field of RELATIONS) {
+    if (front.atril?.[field] !== undefined) checkList(`atril.${field}`, front.atril[field], true);
+  }
 }
 
 /**

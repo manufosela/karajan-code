@@ -65,6 +65,9 @@ describe("parseArtifact", () => {
     ["a relation that is not kind:name", `name: n\n${base}\nuses: [tdd]`, /uses.*"tdd".*kind:name/],
     ["a relation to an unknown kind", `name: n\n${base}\ndelegates: [rule:x]`, /delegates.*"rule:x"/],
     ["an atril: block that is not a mapping", `name: n\n${base}\natril: hello`, /atril must be a mapping/],
+    // KJC-TSK-1129 (review of #2312): atril's relations are lists of kind:name, like the author's.
+    ["an atril relation that is a mapping", `name: n\n${base}\natril:\n  uses: { target: skill:x }`, /atril\.uses must be a list/],
+    ["an atril relation item that is not kind:name", `name: n\n${base}\natril:\n  related: [tdd]`, /atril\.related.*"tdd".*kind:name/],
     ["a name that is not a slug", `name: ../evil\n${base}`, /name.*slug/],
   ])("%s fails loudly", (_label, front, why) => {
     expect(() => parseArtifact(write("bad.md", doc(front)))).toThrow(why);
