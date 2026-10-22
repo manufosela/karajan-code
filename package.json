@@ -39,7 +39,8 @@
     "packages/core",
     "packages/hu-board",
     "packages/governance",
-    "packages/console"
+    "packages/console",
+    "packages/atril"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
