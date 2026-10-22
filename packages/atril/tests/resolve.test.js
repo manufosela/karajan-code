@@ -1,6 +1,6 @@
 // HU-0018 (ADR 0021, decisions 5 and 9): applying one artifact loads its
-// block, the closure of uses and delegates in dependency order; related
-// artifacts are only suggested.
+// block, the closure of uses in dependency order; a delegated agent is one
+// subagent item carrying its own block; related artifacts are suggested.
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -28,9 +28,11 @@ describe("resolveBlock", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it("loads the closure of uses and delegates, each piece after what it depends on", () => {
+  const refs = (block) => block.map((a) => `${a.kind}:${a.name}`);
+
+  it("loads the closure of uses in dependency order, the applied artifact last", () => {
     const { block } = resolve("command:ship");
-    expect(block.map((a) => `${a.kind}:${a.name}`)).toEqual(["skill:style", "skill:base", "skill:tdd", "agent:tester", "command:ship"]);
+    expect(refs(block)).toEqual(["skill:style", "agent:tester", "command:ship"]);
     expect(block[0]).toEqual({
       name: "style", kind: "skill", source: "user", path: join(dir, "user", "skills", "style", "SKILL.md"),
       content: "skills/style/SKILL.md body\n", as: "inline",
@@ -42,11 +44,35 @@ describe("resolveBlock", () => {
     write("proj", "skills/x/SKILL.md", "name: x\nkind: skill\nuses: [skill:a]\natril:\n  uses: [skill:b]");
     write("proj", "skills/a/SKILL.md", "name: a\nkind: skill");
     write("proj", "skills/b/SKILL.md", "name: b\nkind: skill");
-    expect(resolve("skill:x").block.map((a) => `${a.kind}:${a.name}`)).toEqual(["skill:a", "skill:b", "skill:x"]);
+    expect(refs(resolve("skill:x").block)).toEqual(["skill:a", "skill:b", "skill:x"]);
   });
 
-  it("marks the delegated agent as a subagent and the rest as inline", () => {
-    expect(resolve("command:ship").block.map((a) => a.as)).toEqual(["inline", "inline", "inline", "subagent", "inline"]);
+  it("gives a delegated agent its own block and keeps its dependencies out of the caller's", () => {
+    const { block } = resolve("command:ship");
+    expect(block.map((a) => a.as)).toEqual(["inline", "subagent", "inline"]);
+    const tester = block[1];
+    expect(tester.content).toBe("agents/tester.md body\n");
+    expect(refs(tester.block)).toEqual(["skill:base", "skill:tdd"]);
+    expect(tester.block.every((a) => a.as === "inline" && !("block" in a))).toBe(true);
+    expect("block" in block[0]).toBe(false);
+  });
+
+  it("puts a skill used by both caller and subagent in both blocks", () => {
+    write("proj", "commands/ship.md", "name: ship\nkind: command\nuses: [skill:tdd]\ndelegates: [agent:tester]");
+    const { block } = resolve("command:ship");
+    expect(refs(block)).toEqual(["skill:base", "skill:tdd", "agent:tester", "command:ship"]);
+    expect(refs(block[2].block)).toEqual(["skill:base", "skill:tdd"]);
+  });
+
+  it("nests a subagent of a subagent inside its caller's block", () => {
+    write("proj", "agents/tester.md", "name: tester\nkind: agent\nuses: [skill:tdd]\ndelegates: [agent:fixer]");
+    write("proj", "agents/fixer.md", "name: fixer\nkind: agent\nuses: [skill:style]");
+    const { block } = resolve("command:ship");
+    expect(refs(block)).toEqual(["skill:style", "agent:tester", "command:ship"]);
+    const fixer = block[1].block.at(-1);
+    expect(refs(block[1].block)).toEqual(["skill:base", "skill:tdd", "agent:fixer"]);
+    expect(fixer.as).toBe("subagent");
+    expect(refs(fixer.block)).toEqual(["skill:style"]);
   });
 
   it("lists related artifacts outside the block only as suggested", () => {
