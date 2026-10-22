@@ -27,6 +27,9 @@ const LIMITS = ["maxArtifacts", "maxTokens"];
 export const estimateTokens = (content) => Math.ceil(content.length / 4);
 
 function checkBudget(budget) {
+  if (typeof budget !== "object" || budget === null || Array.isArray(budget)) throw new Error("budget must be an object");
+  const unknown = Object.keys(budget).find((key) => !LIMITS.includes(key));
+  if (unknown) throw new Error(`unknown budget limit ${unknown}`);
   for (const limit of LIMITS) {
     const value = budget[limit];
     if (value !== undefined && !(Number.isInteger(value) && value > 0)) throw new Error(`${limit} must be a positive integer`);

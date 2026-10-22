@@ -135,5 +135,10 @@ describe("resolveBlock", () => {
       expect(() => resolve("command:ship", { maxArtifacts: 0 })).toThrow("maxArtifacts must be a positive integer");
       expect(() => resolve("command:ship", { maxTokens: "9" })).toThrow("maxTokens must be a positive integer");
     });
+
+    it("rejects a budget that is not an object or has an unknown limit", () => {
+      expect(() => resolve("command:ship", null)).toThrow("budget must be an object");
+      expect(() => resolve("command:ship", { maxToken: 10 })).toThrow("unknown budget limit maxToken");
+    });
   });
 });
