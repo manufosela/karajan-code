@@ -36,7 +36,13 @@ export function detectRulesync(projectDir) {
 export const rulesyncRuleSeed = () => FRONTMATTER;
 
 const GENERATE_ARGS = ["generate", "--targets", "*", "--features", "*"];
-const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+export const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+
+/** rulesync with `args`: the project's local binary, else `npx --no-install` — never a package fetched on the fly. */
+export function rulesyncCommand(projectDir, args) {
+  const local = join(projectDir, "node_modules", ".bin", "rulesync");
+  return existsSync(local) ? [local, args] : ["npx", ["--no-install", "rulesync", ...args]];
+}
 
 /**
  * Compile kj's rules out to every agent, only when the project declared
@@ -50,8 +56,7 @@ export function maybeRulesyncGenerate({ projectDir, config, logger = console, ru
     logger.info?.(`kj: its rules are in ${RULESYNC_RULE}; run rulesync generate to reach your agents, or declare rulesync.generate: true`);
     return { ran: false, reason: "not-opted-in" };
   }
-  const local = join(projectDir, "node_modules", ".bin", "rulesync");
-  const [cmd, args] = existsSync(local) ? [local, GENERATE_ARGS] : ["npx", ["--no-install", "rulesync", ...GENERATE_ARGS]];
+  const [cmd, args] = rulesyncCommand(projectDir, GENERATE_ARGS);
   try {
     run(cmd, args, projectDir);
     logger.info?.("kj: rulesync generate spread kj's rules to every agent");
