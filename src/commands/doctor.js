@@ -28,6 +28,7 @@ import { getSqueezrChecks } from "../checks/squeezr.js";
 import { getAiTrashChecks } from "../checks/ai-trash.js";
 import { getQmdChecks } from "../checks/qmd.js";
 import { getRagHooksChecks } from "../checks/rag-hooks.js";
+import { getRulesyncChecks } from "../checks/rulesync.js";
 import { getNodeChecks } from "../checks/node.js";
 import { getNativeBuildChecks } from "../checks/native-build.js";
 import { getPortChecks } from "../checks/ports.js";
@@ -55,7 +56,7 @@ import { getMethodChecks } from "../checks/method.js";
 function buildChecks(config, { projectOnly = false } = {}) {
   const projectDir = config?.projectDir || process.cwd();
   if (projectOnly) {
-    return getProjectChecks({ projectDir });
+    return [...getProjectChecks({ projectDir }), ...getRulesyncChecks({ projectDir })];
   }
   return [
     ...getSystemChecks(),
@@ -81,6 +82,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getMethodChecks(),
     ...getQmdChecks(),
     ...getRagHooksChecks({ projectDir }),
+    ...getRulesyncChecks({ projectDir }),
     ...getProjectChecks({ projectDir }),
   ];
 }

@@ -54,6 +54,12 @@ import nodeSecurity from "eslint-plugin-node-security";
 import security from "eslint-plugin-security";
 import globals from "globals";
 
+// HU-0006 (ADR 0021): what atril may not import, shared by both isolation rules.
+// Absolute paths, file: URLs and drive letters reach outside the package too (KJC-TSK-1129).
+const ATRIL_FOREIGN = "^(karajan-|@karajan(-family)?/|#|/|[Ff][Ii][Ll][Ee]:|[A-Za-z]:)";
+const ATRIL_ISOLATION = "atril imports nothing outside its package (ADR 0021).";
+const NO_CREATE_REQUIRE = { importNames: ["createRequire"], message: ATRIL_ISOLATION };
+
 export default [
   // packages/radar llegó del monorepo familiar (MONO-1, KJC-TSK-0738) con su
   // propio toolchain (frontend TS/React + backend Python): lo linta su
@@ -302,6 +308,37 @@ export default [
       "no-useless-assignment": "error",
       "no-useless-escape": "error",
       "preserve-caught-error": "error",
+    },
+  },
+  // HU-0006 (ADR 0021, decision 7): atril is fully isolated — it imports
+  // nothing outside its own package, by relative path or by name, static or
+  // dynamic. Subpath (#) aliases are banned too: the root's point into src/.
+  {
+    files: ["packages/atril/src/**/*.js", "packages/atril/bin/**/*.js"],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-relative-packages": "error",
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "node:module", ...NO_CREATE_REQUIRE },
+            { name: "module", ...NO_CREATE_REQUIRE },
+          ],
+          patterns: [{ regex: ATRIL_FOREIGN, message: ATRIL_ISOLATION }],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: `ImportExpression[source.value=/${ATRIL_FOREIGN.replaceAll("/", "\\/")}/]`,
+          message: ATRIL_ISOLATION,
+        },
+        {
+          selector: "ImportExpression[source.type!='Literal']",
+          message: "atril imports only literal paths, so isolation can be checked (ADR 0021).",
+        },
+      ],
     },
   },
   {

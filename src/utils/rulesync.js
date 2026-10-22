@@ -35,6 +35,12 @@ export function detectRulesync(projectDir) {
 /** What a brand-new karajan.md starts with, before kj's managed blocks. */
 export const rulesyncRuleSeed = () => FRONTMATTER;
 
+/** The project's own rulesync binary, or npx without installing: kj never runs a package fetched on the fly. */
+export function rulesyncCommand(projectDir, args) {
+  const local = join(projectDir, "node_modules", ".bin", "rulesync");
+  return existsSync(local) ? [local, args] : ["npx", ["--no-install", "rulesync", ...args]];
+}
+
 const GENERATE_ARGS = ["generate", "--targets", "*", "--features", "*"];
 export const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
 

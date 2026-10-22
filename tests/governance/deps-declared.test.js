@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const PACKAGES = ["packages/governance", "packages/console"];
+const PACKAGES = ["packages/governance", "packages/console", "packages/atril"];
 const walk = (dir, out = []) => {
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);

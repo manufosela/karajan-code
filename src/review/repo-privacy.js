@@ -18,11 +18,14 @@ const baseOf = (range) => {
 /** The repo's allow list at the base of the range; empty when the base has no such file. */
 export async function repoPrivacyAllow({ projectDir, range, run = runCommand }) {
   const base = baseOf(range);
-  const res = await run("git", ["-C", projectDir, "show", `${base}:${REPO_PRIVACY}`]);
-  if (res.exitCode !== 0) {
-    if (/does not exist|exists on disk, but not in/.test(res.stderr ?? "")) return [];
-    throw new Error(`git show ${base}:${REPO_PRIVACY} failed: ${(res.stderr || "").trim()}`);
+  // KJC-BUG-0387: exit codes, never git's messages, which follow the user's language.
+  const git = (...args) => run("git", ["-C", projectDir, ...args]);
+  if ((await git("rev-parse", "--verify", "--quiet", `${base}^{commit}`)).exitCode !== 0) {
+    throw new Error(`cannot read the privacy allow list: the base ${base} is not a commit here`);
   }
+  if ((await git("cat-file", "-e", `${base}:${REPO_PRIVACY}`)).exitCode !== 0) return [];
+  const res = await git("show", `${base}:${REPO_PRIVACY}`);
+  if (res.exitCode !== 0) throw new Error(`git show ${base}:${REPO_PRIVACY} failed: ${(res.stderr || "").trim()}`);
   let raw;
   try {
     raw = parseYaml(res.stdout) || {};

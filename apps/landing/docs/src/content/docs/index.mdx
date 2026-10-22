@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.59.0: a review with QA eyes (current)
+### v4.59.1: third-party review in any language (current)
+
+`kj review --third-party` no longer fails on a repo without `.karajan/privacy.yml` when git answers in a language other than English.
+
+### v4.59.0: a review with QA eyes
 
 `kj review --third-party --lens qa` judges a PR the way a QA engineer would: new behavior with no test, tests that cannot fail, flaky waits, fragile selectors, missing scenarios. And test data reserved for testing (the 555-01xx phones, Ofcom's drama ranges, the providers' test cards) no longer trips the privacy scan, while anything that looks real still warns.
 

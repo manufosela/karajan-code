@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.57.1",
-  "generated_at": "2026-10-20T04:23:43.393Z",
+  "kj_version": "4.59.1",
+  "generated_at": "2026-10-22T20:10:40.030Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -26,7 +26,7 @@
     },
     {
       "file": ".karajan/harness/pretooluse-sentinel.mjs",
-      "sha256": "b724601605d4c3d70ce3084fe36ce44fc629d2d98e85726ea31e556c8a1f6918"
+      "sha256": "7173cf063c13f84b86df985bb21edb6267c0a942b4634701aa6c38ddbf928343"
     },
     {
       "file": ".karajan/harness/pretooluse.mjs",
@@ -34,7 +34,7 @@
     },
     {
       "file": ".karajan/harness/sentinel-bash-write.mjs",
-      "sha256": "5a5d4beb3bf4e36d1bf0fe79b525c906990695e5be4c65b095a2d0e94602b342"
+      "sha256": "a987922880f6bbf495a60a1637b2d822cb034176eded86d4a48c68a947125787"
     },
     {
       "file": ".karajan/harness/sentinel-discard.mjs",
@@ -90,19 +90,19 @@
     },
     {
       "file": ".karajan/rules.yml",
-      "sha256": "c4b181970bbee99660c2e99ea03dba98ab7ffdc569a91e425f16f7d3dc6bd556"
+      "sha256": "ff0bfb7309d5f1c195f97e0bcddf48aad41567a3d99bbbb959016cf1e480dadb"
     }
   ],
   "signature": {
-    "cid": "18467b13c394f2bccf9d4e3c7d87af4d",
-    "nonce": "58436b3571eff0fe0bd75555db13d519",
+    "cid": "eb820c2b852ebee622ba3cf325b6b3a3",
+    "nonce": "be6a86c603d202ee4110e74e3f340c4e",
     "project": "karajan-code",
-    "filesHash": "dc0801b7a5e82fd99dac3fef338c94b8a310c93dbe78dd543feea4c2053aa2f8",
+    "filesHash": "ac1f62adf9cdcd07f5ad954110162305d565adcdff9e5431aff439c3be119894",
     "v": 2,
-    "kjVersion": "4.57.1",
-    "issuedMs": 1792470212169,
-    "expiresMs": 1792470272169,
+    "kjVersion": "4.59.1",
+    "issuedMs": 1792699828676,
+    "expiresMs": 1792699888676,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "PuvDcPiXAC6cee4W/423MewKNGvLj9yd4hII0E5IdPSZW39fRVR+ytMAuwtIHvNBeH9AZSrzuxTYOrarF0tzCg=="
+    "signature": "LVl5ly7B4kph51mRsMjA+6O4A07nKRdkL0eMeptb/K8teDQd+XqGUgTrId3RNs4PdfN5WWT+nJE1OuV54zShAQ=="
   }
 }
