@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 
 export const KINDS = ["skill", "command", "agent"];
-const RELATIONS = ["uses", "delegates", "related"];
+export const RELATIONS = ["uses", "delegates", "related"];
 const LISTS = ["roles", "servers", ...RELATIONS];
 const SLUG = /^[a-z0-9][a-z0-9._-]*$/;
 const RELATION = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
