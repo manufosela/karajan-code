@@ -1,6 +1,6 @@
 {
   "kj_version": "4.59.1",
-  "generated_at": "2026-10-22T19:48:58.594Z",
+  "generated_at": "2026-10-22T20:10:40.030Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -90,19 +90,19 @@
     },
     {
       "file": ".karajan/rules.yml",
-      "sha256": "c4b181970bbee99660c2e99ea03dba98ab7ffdc569a91e425f16f7d3dc6bd556"
+      "sha256": "ff0bfb7309d5f1c195f97e0bcddf48aad41567a3d99bbbb959016cf1e480dadb"
     }
   ],
   "signature": {
-    "cid": "40b5dd274c1229df8d31725e34ee3b4c",
-    "nonce": "3b9ac8f56ddd0308e421ea2aa1e19adc",
+    "cid": "eb820c2b852ebee622ba3cf325b6b3a3",
+    "nonce": "be6a86c603d202ee4110e74e3f340c4e",
     "project": "karajan-code",
-    "filesHash": "df35c970239f2368b787852c6ebde3d99aadb62725404bf1fb2efd4669c11c00",
+    "filesHash": "ac1f62adf9cdcd07f5ad954110162305d565adcdff9e5431aff439c3be119894",
     "v": 2,
     "kjVersion": "4.59.1",
-    "issuedMs": 1792698528660,
-    "expiresMs": 1792698588660,
+    "issuedMs": 1792699828676,
+    "expiresMs": 1792699888676,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "g6rOsze/x860qbxDSxlt0YjI3GsJKipk0stHdCa6afc82wdHLJRdRDY1xuQGV6k9jZOgzdSd/Of4/jWA8UoCAw=="
+    "signature": "LVl5ly7B4kph51mRsMjA+6O4A07nKRdkL0eMeptb/K8teDQd+XqGUgTrId3RNs4PdfN5WWT+nJE1OuV54zShAQ=="
   }
 }
