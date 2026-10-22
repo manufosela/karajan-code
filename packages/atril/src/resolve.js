@@ -26,7 +26,7 @@ import { keyOf, scan } from "./scan.js";
 const LOADS = ["uses", "delegates"];
 const LIMITS = ["maxArtifacts", "maxTokens"];
 
-export const estimateTokens = (content) => Math.ceil(content.length / 4);
+const estimateTokens = (content) => Math.ceil(content.length / 4);
 
 function checkBudget(budget) {
   if (typeof budget !== "object" || budget === null || Array.isArray(budget)) throw new Error("budget must be an object");
@@ -50,7 +50,7 @@ const itemOf = ({ name, kind, source, path, body }, as) => ({ name, kind, source
  * @param {Parameters<typeof scan>[0]} [scanOpts]
  * @param {{ maxArtifacts?: number, maxTokens?: number }} [budget] unbounded when a limit is absent
  * @returns {{ block: BlockItem[], suggested: { name: string, kind: string, path: string }[],
- *   left: { name: string, path: string, for: string }[] }}
+ *   left: { name: string, kind: string, path: string, for: string }[] }}
  */
 export function resolveBlock(ref, scanOpts = {}, budget = {}) {
   checkBudget(budget);
@@ -97,9 +97,10 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
     const byDepth = items.toSorted((a, b) => depthOf.get(b) - depthOf.get(a));
     while (overBudget(kept, budget)) {
       const piece = byDepth.shift();
+      // Only the caller's context can hit this: a caller cuts any subagent over budget alone.
       if (!piece) throw new Error(`${applied.kind}:${applied.name} alone exceeds the budget`);
       kept.splice(kept.indexOf(piece), 1);
-      left.push({ name: piece.name, path: piece.path, for: owner });
+      left.push({ name: piece.name, kind: piece.kind, path: piece.path, for: owner });
     }
     for (const sub of kept.slice(0, -1).filter((item) => item.block)) {
       sub.block = fit(sub.block, sub, `${sub.kind}:${sub.name}`).slice(0, -1);

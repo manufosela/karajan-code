@@ -103,13 +103,13 @@ describe("resolveBlock", () => {
 
   // HU-0019 (ADR 0021, decision 9): the budget bounds each context on its own.
   describe("budget", () => {
-    const leftOf = (name, owner) => ({ name, path: join(dir, "proj", "skills", name, "SKILL.md"), for: owner });
+    const leftOf = (name, owner, store = "proj") => ({ name, kind: "skill", path: join(dir, store, "skills", name, "SKILL.md"), for: owner });
 
     it("cuts the deepest dependencies of each context first, naming them in left", () => {
       const { block, left } = resolve("command:ship", { maxArtifacts: 2 });
       expect(names(block)).toEqual(["tester", "ship"]);
       expect(names(block[0].block)).toEqual(["tdd"]);
-      expect(left).toEqual([{ ...leftOf("style", "caller"), path: join(dir, "user", "skills", "style", "SKILL.md") }, leftOf("base", "agent:tester")]);
+      expect(left).toEqual([leftOf("style", "caller", "user"), leftOf("base", "agent:tester")]);
     });
 
     it("estimates tokens as ceil(chars / 4) per context", () => {
@@ -124,6 +124,36 @@ describe("resolveBlock", () => {
       expect(names(block)).toEqual(["style", "tester", "ship"]);
       expect(names(block[1].block)).toEqual(["base"]);
       expect(left).toEqual([leftOf("tdd", "agent:tester")]);
+    });
+
+    it("cuts by depth, not block order", () => {
+      write("proj", "commands/ship.md", "name: ship\nkind: command\nuses: [skill:c, skill:a]");
+      write("proj", "skills/a/SKILL.md", "name: a\nkind: skill\nuses: [skill:b]");
+      for (const name of ["b", "c"]) write("proj", `skills/${name}/SKILL.md`, `name: ${name}\nkind: skill`);
+      const { block, left } = resolve("command:ship", { maxArtifacts: 3 });
+      expect(names(block)).toEqual(["c", "a", "ship"]);
+      expect(left).toEqual([leftOf("b", "caller")]);
+    });
+
+    it("fits each level of nested subagents on its own", () => {
+      write("proj", "agents/tester.md", "name: tester\nkind: agent\nuses: [skill:tdd]\ndelegates: [agent:fixer]");
+      write("proj", "agents/fixer.md", "name: fixer\nkind: agent\nuses: [skill:style, skill:base]");
+      const { block, left } = resolve("command:ship", { maxArtifacts: 2 });
+      expect(names(block)).toEqual(["tester", "ship"]);
+      expect(names(block[0].block)).toEqual(["fixer"]);
+      expect(names(block[0].block[0].block)).toEqual(["base"]);
+      expect(left).toEqual([
+        leftOf("style", "caller", "user"), leftOf("base", "agent:tester"), leftOf("tdd", "agent:tester"),
+        leftOf("style", "agent:fixer", "user"),
+      ]);
+    });
+
+    it("keeps or cuts a dependency shared by caller and subagent separately in each context", () => {
+      write("proj", "commands/ship.md", "name: ship\nkind: command\nuses: [skill:tdd]\ndelegates: [agent:tester]");
+      const { block, left } = resolve("command:ship", { maxArtifacts: 3 });
+      expect(names(block)).toEqual(["tdd", "tester", "ship"]);
+      expect(names(block[1].block)).toEqual(["base", "tdd"]);
+      expect(left).toEqual([leftOf("base", "caller")]);
     });
 
     it("fails naming the applied artifact when it alone exceeds the budget", () => {
