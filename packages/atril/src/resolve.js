@@ -1,15 +1,16 @@
 /**
  * Block load (ADR 0021, decisions 5 and 9). Applying one artifact loads it
  * plus the transitive closure of its uses (author's relations first, then
- * those discovered under `atril:`), each piece after what it depends on, the
- * applied artifact last. A subagent's dependencies travel with it: a
+ * those discovered under `atril:`), plus any agent delegated along the way,
+ * each piece after what it depends on, the applied artifact last. A subagent's dependencies travel with it: a
  * delegated agent is ONE item, `as: "subagent"`, carrying its content and its
  * own `block` (its uses and delegates resolved the same way, recursively);
  * none of it enters the caller's block unless the caller uses it too. E.g.
  * ship (uses style, delegates tester; tester uses tdd) resolves to
- * [style, tester { as: "subagent", block: [tdd] }, ship]. Related artifacts
+ * [style, tester { as: "subagent", block: [base, tdd] }, ship]. Related artifacts
  * are only suggested, never loaded. Cycles never reach here: assertGraph
  * rejects them. Within one artifact, uses edges come before delegates edges.
+ * An agent both used and delegated in one context appears once as each.
  */
 import { assertGraph, edgesOf } from "./graph.js";
 import { keyOf, scan } from "./scan.js";
@@ -30,16 +31,20 @@ export function resolveBlock(ref, scanOpts = {}) {
   assertGraph(artifacts);
   const byKey = new Map(artifacts.map((a) => [keyOf(a), a]));
   if (!byKey.has(ref)) throw new Error(`${ref} does not exist`);
-  // The context of one artifact: its dependencies, deduplicated and ordered.
+  const blocks = new Map();
+  const blockOf = (key) => blocks.get(key) ?? blocks.set(key, contextOf(key).items).get(key);
+  // The context of one artifact: its dependencies, deduplicated per (relation, key) and ordered.
   const contextOf = (root) => {
     const seen = new Set([root]);
+    const loaded = new Set();
     const items = [];
     const visit = (key) => {
       for (const { relation, to } of edgesOf(byKey.get(key)).filter((e) => LOADS.includes(e.relation))) {
-        if (seen.has(to)) continue;
+        if (loaded.has(`${relation} ${to}`)) continue;
+        loaded.add(`${relation} ${to}`);
         seen.add(to);
         if (relation === "delegates") {
-          items.push({ ...itemOf(byKey.get(to), "subagent"), block: contextOf(to).items });
+          items.push({ ...itemOf(byKey.get(to), "subagent"), block: blockOf(to) });
           continue;
         }
         visit(to);

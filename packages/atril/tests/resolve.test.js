@@ -64,6 +64,15 @@ describe("resolveBlock", () => {
     expect(refs(block[2].block)).toEqual(["skill:base", "skill:tdd"]);
   });
 
+  it("loads an agent inline too when the caller both uses and reaches it as a delegate", () => {
+    write("proj", "commands/ship.md", "name: ship\nkind: command\nuses: [skill:runner, agent:tester]");
+    write("proj", "skills/runner/SKILL.md", "name: runner\nkind: skill\ndelegates: [agent:tester]");
+    const { block } = resolve("command:ship");
+    expect(block.map((a) => `${a.kind}:${a.name}:${a.as}`)).toEqual([
+      "agent:tester:subagent", "skill:runner:inline", "skill:base:inline", "skill:tdd:inline", "agent:tester:inline", "command:ship:inline",
+    ]);
+  });
+
   it("nests a subagent of a subagent inside its caller's block", () => {
     write("proj", "agents/tester.md", "name: tester\nkind: agent\nuses: [skill:tdd]\ndelegates: [agent:fixer]");
     write("proj", "agents/fixer.md", "name: fixer\nkind: agent\nuses: [skill:style]");
