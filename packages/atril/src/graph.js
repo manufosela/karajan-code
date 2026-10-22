@@ -35,6 +35,12 @@ export function graphErrors(artifacts) {
   return errors;
 }
 
+/** Throw every graph error at once, if there is any. */
+export function assertGraph(artifacts) {
+  const errors = graphErrors(artifacts);
+  if (errors.length > 0) throw new Error(errors.join("\n"));
+}
+
 /**
  * The validated graph of the scanned stores, or one artifact's neighbourhood.
  * @param {{ artifact?: string } & Parameters<typeof scan>[0]} [opts] artifact as kind:name
@@ -42,8 +48,7 @@ export function graphErrors(artifacts) {
  */
 export function graph({ artifact, ...scanOpts } = {}) {
   const { artifacts } = scan(scanOpts);
-  const errors = graphErrors(artifacts);
-  if (errors.length > 0) throw new Error(errors.join("\n"));
+  assertGraph(artifacts);
   if (artifact && !artifacts.some((a) => keyOf(a) === artifact)) throw new Error(`${artifact} does not exist`);
   const edges = artifacts.flatMap(edgesOf).filter((e) => !artifact || e.from === artifact || e.to === artifact);
   const shown = new Set(edges.flatMap((e) => [e.from, e.to]).concat(artifact ?? []));
