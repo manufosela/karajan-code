@@ -304,6 +304,21 @@ export default [
       "preserve-caught-error": "error",
     },
   },
+  // HU-0006 (ADR 0021, decision 7): atril is fully isolated — it imports
+  // nothing outside its own package, neither by relative path nor by name.
+  {
+    files: ["packages/atril/src/**/*.js", "packages/atril/bin/**/*.js"],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-relative-packages": "error",
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          regex: "^(karajan-|@karajan(-family)?/|#)",
+          message: "atril imports nothing outside its package (ADR 0021).",
+        }],
+      }],
+    },
+  },
   {
     // The hu-board dashboard is BROWSER code in CLASSIC scripts: index.html
     // loads 21 <script> tags and the files share one deliberate global API

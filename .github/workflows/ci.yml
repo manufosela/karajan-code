@@ -166,6 +166,11 @@ jobs:
         run: npx vitest run --reporter=default --reporter=github-actions
         working-directory: packages/core
 
+      # HU-0006: atril's suite (isolation lint and pack smoke included).
+      - name: Run atril package tests
+        run: npx vitest run --reporter=default --reporter=github-actions
+        working-directory: packages/atril
+
   # Coverage report — generates v8 coverage (text + html + lcov) and uploads
   # the lcov + html as an artifact for download. Added in KJC-TSK-0465 (2026-05-27)
   # to close the ai-harness-scorecard "Code Coverage" FAIL (0/4 → 4/4). Thresholds
