@@ -29,7 +29,7 @@ function moveKjBlocks(projectDir) {
     let moved = null;
     for (const [path, text] of texts) {
       const { block, rest } = takeBlock(text, blockId);
-      moved ??= block;
+      moved ??= block; // first copy wins: harden re-renders the block anyway
       texts.set(path, rest);
     }
     if (moved === null) continue;
