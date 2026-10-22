@@ -63,6 +63,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
   const blockOf = (key) => blocks.get(key) ?? blocks.set(key, contextOf(key).items).get(key);
   const depthOf = new Map();
   const left = [];
+  const fitted = new Map();
   // The context of one artifact: its dependencies, deduplicated per (relation, key) and ordered.
   const contextOf = (root) => {
     const loaded = new Set();
@@ -102,8 +103,11 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
       kept.splice(kept.indexOf(piece), 1);
       left.push({ name: piece.name, kind: piece.kind, path: piece.path, for: owner });
     }
+    // A subagent delegated from several contexts is fitted, and its cuts listed, once.
     for (const sub of kept.slice(0, -1).filter((item) => item.block)) {
-      sub.block = fit(sub.block, sub, `${sub.kind}:${sub.name}`).slice(0, -1);
+      const key = keyOf(sub);
+      if (!fitted.has(key)) fitted.set(key, fit(sub.block, sub, key).slice(0, -1));
+      sub.block = fitted.get(key);
     }
     return kept;
   };

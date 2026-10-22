@@ -156,6 +156,13 @@ describe("resolveBlock", () => {
       expect(left).toEqual([leftOf("base", "caller")]);
     });
 
+    it("lists each cut once when one agent is delegated from two contexts", () => {
+      write("proj", "commands/ship.md", "name: ship\nkind: command\ndelegates: [agent:tester, agent:fixer]");
+      write("proj", "agents/fixer.md", "name: fixer\nkind: agent\ndelegates: [agent:tester]");
+      write("proj", "skills/tdd/SKILL.md", "name: tdd\nkind: skill", "x".repeat(400));
+      expect(resolve("command:ship", { maxTokens: 30 }).left).toEqual([leftOf("tdd", "agent:tester")]);
+    });
+
     it("fails naming the applied artifact when it alone exceeds the budget", () => {
       expect(() => resolve("command:ship", { maxTokens: 5 })).toThrow("command:ship alone exceeds the budget");
     });
