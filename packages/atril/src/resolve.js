@@ -32,17 +32,15 @@ export function resolveBlock(ref, scanOpts = {}) {
   const byKey = new Map(artifacts.map((a) => [keyOf(a), a]));
   if (!byKey.has(ref)) throw new Error(`${ref} does not exist`);
   const blocks = new Map();
-  const blockOf = (key) => blocks.get(key) ?? blocks.set(key, contextOf(key).items).get(key);
+  const blockOf = (key) => blocks.get(key) ?? blocks.set(key, contextOf(key)).get(key);
   // The context of one artifact: its dependencies, deduplicated per (relation, key) and ordered.
   const contextOf = (root) => {
-    const seen = new Set([root]);
     const loaded = new Set();
     const items = [];
     const visit = (key) => {
       for (const { relation, to } of edgesOf(byKey.get(key)).filter((e) => LOADS.includes(e.relation))) {
         if (loaded.has(`${relation} ${to}`)) continue;
         loaded.add(`${relation} ${to}`);
-        seen.add(to);
         if (relation === "delegates") {
           items.push({ ...itemOf(byKey.get(to), "subagent"), block: blockOf(to) });
           continue;
@@ -52,15 +50,16 @@ export function resolveBlock(ref, scanOpts = {}) {
       }
     };
     visit(root);
-    return { items, seen };
+    return items;
   };
-  const { items, seen } = contextOf(ref);
+  const block = [...contextOf(ref), itemOf(byKey.get(ref), "inline")];
+  const inBlock = new Set(block.map(keyOf));
   // Suggestions come from the caller's own context only (ADR 0021, decision 9).
-  const own = [ref, ...items.filter((i) => i.as === "inline").map(keyOf)];
+  const own = block.filter((i) => i.as === "inline").map(keyOf);
   const related = own.flatMap((key) => edgesOf(byKey.get(key)).filter((e) => e.relation === "related").map((e) => e.to));
-  const suggested = [...new Set(related)].filter((key) => !seen.has(key)).map((key) => {
+  const suggested = [...new Set(related)].filter((key) => !inBlock.has(key)).map((key) => {
     const { name, kind, path } = byKey.get(key);
     return { name, kind, path };
   });
-  return { block: [...items, itemOf(byKey.get(ref), "inline")], suggested };
+  return { block, suggested };
 }
