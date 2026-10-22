@@ -8,10 +8,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resolveBlock } from "../src/index.js";
 
 let dir;
-const write = (store, path, front) => {
+const write = (store, path, front, body = `${path} body`) => {
   const file = join(dir, store, path);
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `---\n${front}\ndescription: d\n---\n${path} body\n`);
+  writeFileSync(file, `---\n${front}\ndescription: d\n---\n${body}\n`);
   return file;
 };
 const resolve = (ref, budget) => resolveBlock(ref, { projectDir: dir, root: "proj", userRoot: "user" }, budget);
@@ -101,33 +101,39 @@ describe("resolveBlock", () => {
     expect(() => resolve("skill:nope")).toThrow("skill:nope does not exist");
   });
 
-  // HU-0019 (ADR 0021, decision 9): the budget bounds the block.
+  // HU-0019 (ADR 0021, decision 9): the budget bounds each context on its own.
   describe("budget", () => {
-    const pathOf = (rel) => join(dir, "proj", rel);
-    const cut = () => [
-      { name: "base", path: pathOf("skills/base/SKILL.md") },
-      { name: "tdd", path: pathOf("skills/tdd/SKILL.md") },
-    ];
+    const leftOf = (name, owner) => ({ name, path: join(dir, "proj", "skills", name, "SKILL.md"), for: owner });
 
-    it("cuts the deepest dependencies first when over maxArtifacts, naming them in left", () => {
-      const { block, left } = resolve("command:ship", { maxArtifacts: 3 });
-      expect(names(block)).toEqual(["style", "tester", "ship"]);
-      expect(left).toEqual(cut());
+    it("cuts the deepest dependencies of each context first, naming them in left", () => {
+      const { block, left } = resolve("command:ship", { maxArtifacts: 2 });
+      expect(names(block)).toEqual(["tester", "ship"]);
+      expect(names(block[0].block)).toEqual(["tdd"]);
+      expect(left).toEqual([{ ...leftOf("style", "caller"), path: join(dir, "user", "skills", "style", "SKILL.md") }, leftOf("base", "agent:tester")]);
     });
 
-    it("estimates tokens as ceil(chars / 4) and cuts deepest first when over maxTokens", () => {
-      // style 7 + base 7 + tdd 7 + tester 6 + ship 6 = 33 tokens.
-      expect(resolve("command:ship", { maxTokens: 20 }).left).toEqual(cut());
-      expect(resolve("command:ship", { maxTokens: 33 }).left).toEqual([]);
+    it("estimates tokens as ceil(chars / 4) per context", () => {
+      // Caller: style 7 + tester 6 + ship 6 = 19. Tester: base 7 + tdd 7 + tester 6 = 20.
+      expect(resolve("command:ship", { maxTokens: 20 }).left).toEqual([]);
+      expect(resolve("command:ship", { maxTokens: 19 }).left).toEqual([leftOf("base", "agent:tester")]);
+    });
+
+    it("cuts a subagent's heavy dependency inside its own block, the caller's unaffected", () => {
+      write("proj", "skills/tdd/SKILL.md", "name: tdd\nkind: skill", "x".repeat(400));
+      const { block, left } = resolve("command:ship", { maxTokens: 30 });
+      expect(names(block)).toEqual(["style", "tester", "ship"]);
+      expect(names(block[1].block)).toEqual(["base"]);
+      expect(left).toEqual([leftOf("tdd", "agent:tester")]);
     });
 
     it("fails naming the applied artifact when it alone exceeds the budget", () => {
       expect(() => resolve("command:ship", { maxTokens: 5 })).toThrow("command:ship alone exceeds the budget");
     });
 
-    it("keeps the whole block and an empty left within budget", () => {
-      const { block, left } = resolve("command:ship", { maxArtifacts: 5, maxTokens: 1000 });
-      expect(block).toHaveLength(5);
+    it("keeps every block whole and an empty left within budget", () => {
+      const { block, left } = resolve("command:ship", { maxArtifacts: 3, maxTokens: 1000 });
+      expect(names(block)).toEqual(["style", "tester", "ship"]);
+      expect(names(block[1].block)).toEqual(["base", "tdd"]);
       expect(left).toEqual([]);
     });
 

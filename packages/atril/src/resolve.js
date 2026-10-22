@@ -12,11 +12,13 @@
  * rejects them. Within one artifact, uses edges come before delegates edges.
  * An agent both used and delegated in one context appears once as each.
  *
- * A budget { maxArtifacts, maxTokens } bounds the block (decision 9). Tokens
- * are estimated deterministically as ceil(content length / 4). The applied
- * artifact always fits or resolve fails naming it; dependencies are cut from
- * the deepest (longest path from the applied one) up, ties in block order,
- * and every cut piece is named in `left`.
+ * A budget { maxArtifacts, maxTokens } bounds EACH context on its own: the
+ * caller's block and every subagent's (decision 9). Tokens are estimated
+ * deterministically as ceil(content length / 4). The applied artifact of a
+ * context (the subagent itself in its own) always fits or resolve fails
+ * naming it; dependencies are cut from the deepest (longest path from the
+ * applied one) up, ties in block order, and every cut piece is named in
+ * `left`, `for` the caller or the subagent (kind:name) whose context lost it.
  */
 import { assertGraph, edgesOf } from "./graph.js";
 import { keyOf, scan } from "./scan.js";
@@ -39,20 +41,6 @@ function checkBudget(budget) {
 const overBudget = (pieces, { maxArtifacts = Infinity, maxTokens = Infinity }) =>
   pieces.length > maxArtifacts || pieces.reduce((sum, p) => sum + estimateTokens(p.content), 0) > maxTokens;
 
-// The applied artifact is last in the block (postorder), so it is never cut.
-function fitBudget(block, depthOf, ref, budget) {
-  const kept = [...block];
-  const byDepth = block.slice(0, -1).toSorted((a, b) => depthOf.get(b) - depthOf.get(a));
-  const left = [];
-  while (overBudget(kept, budget)) {
-    const piece = byDepth.shift();
-    if (!piece) throw new Error(`${ref} alone exceeds the budget`);
-    kept.splice(kept.indexOf(piece), 1);
-    left.push({ name: piece.name, path: piece.path });
-  }
-  return { block: kept, left };
-}
-
 const itemOf = ({ name, kind, source, path, body }, as) => ({ name, kind, source, path, content: body, as });
 
 /**
@@ -62,7 +50,7 @@ const itemOf = ({ name, kind, source, path, body }, as) => ({ name, kind, source
  * @param {Parameters<typeof scan>[0]} [scanOpts]
  * @param {{ maxArtifacts?: number, maxTokens?: number }} [budget] unbounded when a limit is absent
  * @returns {{ block: BlockItem[], suggested: { name: string, kind: string, path: string }[],
- *   left: { name: string, path: string }[] }}
+ *   left: { name: string, path: string, for: string }[] }}
  */
 export function resolveBlock(ref, scanOpts = {}, budget = {}) {
   checkBudget(budget);
@@ -73,6 +61,8 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
   const loadsOf = (key) => edgesOf(byKey.get(key)).filter((e) => LOADS.includes(e.relation));
   const blocks = new Map();
   const blockOf = (key) => blocks.get(key) ?? blocks.set(key, contextOf(key).items).get(key);
+  const depthOf = new Map();
+  const left = [];
   // The context of one artifact: its dependencies, deduplicated per (relation, key) and ordered.
   const contextOf = (root) => {
     const loaded = new Set();
@@ -97,9 +87,26 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
       if (item?.as === "subagent") continue;
       for (const { to } of loadsOf(key)) depth.set(to, Math.max(depth.get(to) ?? 0, depth.get(key) + 1));
     }
-    return { items: entries.map(([, item]) => item), depthOf: new Map(entries.map(([key, item]) => [item, depth.get(key)])) };
+    for (const [key, item] of entries) depthOf.set(item, depth.get(key));
+    return { items: entries.map(([, item]) => item) };
   };
-  const { items, depthOf } = contextOf(ref);
+  // Fit one context, its applied artifact last and never cut, then the
+  // contexts of the subagents it keeps.
+  const fit = (items, applied, owner) => {
+    const kept = [...items, applied];
+    const byDepth = items.toSorted((a, b) => depthOf.get(b) - depthOf.get(a));
+    while (overBudget(kept, budget)) {
+      const piece = byDepth.shift();
+      if (!piece) throw new Error(`${applied.kind}:${applied.name} alone exceeds the budget`);
+      kept.splice(kept.indexOf(piece), 1);
+      left.push({ name: piece.name, path: piece.path, for: owner });
+    }
+    for (const sub of kept.slice(0, -1).filter((item) => item.block)) {
+      sub.block = fit(sub.block, sub, `${sub.kind}:${sub.name}`).slice(0, -1);
+    }
+    return kept;
+  };
+  const { items } = contextOf(ref);
   const block = [...items, itemOf(byKey.get(ref), "inline")];
   const inBlock = new Set(block.map(keyOf));
   // Suggestions come from the caller's own context only (ADR 0021, decision 9).
@@ -109,5 +116,5 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
     const { name, kind, path } = byKey.get(key);
     return { name, kind, path };
   });
-  return { ...fitBudget(block, depthOf, ref, budget), suggested };
+  return { block: fit(items, block.at(-1), "caller"), suggested, left };
 }
