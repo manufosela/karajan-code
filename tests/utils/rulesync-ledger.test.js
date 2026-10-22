@@ -1,7 +1,5 @@
-// HU-0001 (ADR 0022, decision 3): the ownership ledger lets several writers
-// (the user, kj, atril) share one .rulesync/ source without overwriting each
-// other. It is versioned, written atomically under a lock, and the single
-// source of hashes.
+// HU-0001 (ADR 0022, decision 3): the ownership ledger lets several writers (the user, kj,
+// atril) share one .rulesync/ without overwriting each other: versioned, atomic, locked.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -59,16 +57,23 @@ describe("withLedger", () => {
     expect(JSON.parse(readFileSync(ledgerPath(), "utf8")).entries).toHaveProperty("mcp:a");
   });
 
-  it("releases the lock and writes nothing when the change throws", () => {
-    expect(() => withLedger(dir, "kj", () => { throw new Error("boom"); })).toThrow("boom");
+  it.each([
+    ["throws", () => { throw new Error("boom"); }, /boom/],
+    ["leaves an entry without hash", (l) => { l.entries.k = { owner: "kj" }; }, /"k"/],
+    ["sets a wrong version", (l) => { l.version = 2; }, /version 2/],
+  ])("releases the lock and writes nothing when the change %s", (_label, change, why) => {
+    expect(() => withLedger(dir, "kj", change)).toThrow(why);
     expect(existsSync(join(dir, LOCK_FILE))).toBe(false);
     expect(existsSync(ledgerPath())).toBe(false);
   });
 
+  it("a missing .rulesync/ fails saying to run rulesync init", () => {
+    rmSync(join(dir, ".rulesync"), { recursive: true });
+    expect(() => withLedger(dir, "kj", () => {})).toThrow(/\.rulesync\/ is missing.*run rulesync init/);
+  });
+
   it("records who holds the lock and its pid while the change runs", () => {
-    withLedger(dir, "kj", () => {
-      expect(readFileSync(join(dir, LOCK_FILE), "utf8")).toBe(`kj ${process.pid}`);
-    });
+    withLedger(dir, "kj", () => expect(readFileSync(join(dir, LOCK_FILE), "utf8")).toBe(`kj ${process.pid}`));
   });
 
   it("an empty owner fails before taking the lock", () => {

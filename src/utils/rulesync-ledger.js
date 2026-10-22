@@ -1,14 +1,16 @@
 /**
  * HU-0001 (ADR 0022, decision 3) — the ownership ledger of `.rulesync/`. The
  * user, kj and atril share one rulesync source; each owns what it wrote (a
- * per-file feature by path, an entry of hooks/mcp/permissions by key), and the
- * ledger is the single source of their hashes. No owner means the user's. The
+ * per-file feature keyed by its path relative to `.rulesync/`, e.g.
+ * `rules/karajan.md`, or `rules/karajan.md#<block>` for a writer's managed
+ * block; an entry of hooks/mcp/permissions by key), and the ledger is the
+ * single source of their hashes. No owner means the user's. The
  * format is a contract atril implements in its own package: hashed entries are
  * serialized canonically (JSON, keys sorted) by every writer.
  */
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { writeJsonAtomicSync } from "./atomic-write.js";
 
 export const LEDGER_FILE = join(".rulesync", ".owners.json");
@@ -44,9 +46,7 @@ export function readLedger(projectDir) {
   const file = join(projectDir, LEDGER_FILE);
   if (!existsSync(file)) return { version: LEDGER_VERSION, entries: {} };
   let ledger;
-  try {
-    ledger = JSON.parse(readFileSync(file, "utf8"));
-  } catch (err) {
+  try { ledger = JSON.parse(readFileSync(file, "utf8")); } catch (err) {
     throw new Error(`${file}: not valid JSON (${err.message})`, { cause: err });
   }
   validate(file, ledger);
@@ -57,6 +57,7 @@ function takeLock(lock, owner) {
   try {
     writeFileSync(lock, `${owner} ${process.pid}`, { flag: "wx" });
   } catch (err) {
+    if (err.code === "ENOENT") throw new Error(`${dirname(lock)}: .rulesync/ is missing (run rulesync init)`, { cause: err });
     if (err.code !== "EEXIST") throw err;
     let holder = "unknown";
     try { holder = readFileSync(lock, "utf8").trim() || holder; } catch { /* released meanwhile */ }
@@ -80,6 +81,7 @@ export function withLedger(projectDir, owner, change) {
   try {
     const ledger = readLedger(projectDir);
     change(ledger);
+    validate(join(projectDir, LEDGER_FILE), ledger);
     writeJsonAtomicSync(join(projectDir, LEDGER_FILE), ledger);
     return ledger;
   } finally {
