@@ -22,6 +22,8 @@ const LAYOUT = [
   { kind: "agent", dir: "agents", file: (entry) => entry, name: (entry) => entry.replace(/\.md$/, "") },
 ];
 
+const keyOf = (artifact) => `${artifact.kind}:${artifact.name}`;
+
 function scanStore(root) {
   const found = [];
   for (const { kind, dir, file, name } of LAYOUT) {
@@ -51,9 +53,9 @@ export function scan({ projectDir = process.cwd(), root, userRoot, env = process
   const artifacts = scanStore(projectRoot);
   const shadowed = [];
   if (userStore !== projectRoot) {
-    const taken = new Set(artifacts.map((artifact) => `${artifact.kind}:${artifact.name}`));
+    const taken = new Set(artifacts.map(keyOf));
     for (const artifact of scanStore(userStore)) {
-      if (taken.has(`${artifact.kind}:${artifact.name}`)) {
+      if (taken.has(keyOf(artifact))) {
         shadowed.push({ kind: artifact.kind, name: artifact.name, path: artifact.path });
       } else {
         artifacts.push(artifact);

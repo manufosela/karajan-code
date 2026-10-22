@@ -27,23 +27,25 @@ const store = (root) => {
 const names = (res) => res.artifacts.map((a) => `${a.kind}:${a.name}`).toSorted();
 
 describe("resolveRoot", () => {
-  it("the option wins, then ATRIL_ROOT, then .atril/", () => {
+  it("the option wins, then a non-empty ATRIL_ROOT, then .atril/", () => {
     expect(resolveRoot({ root: "x", env: { ATRIL_ROOT: "y" } })).toBe("x");
     expect(resolveRoot({ env: { ATRIL_ROOT: "y" } })).toBe("y");
     expect(resolveRoot({ env: {} })).toBe(".atril");
+    expect(resolveRoot({ env: { ATRIL_ROOT: "" } })).toBe(".atril");
   });
 });
 
 describe("scan", () => {
+  const scanProj = () => scan({ projectDir: dir, root: "proj", userRoot: join(dir, "none") });
   it("finds the three kinds in the store", () => {
     store("proj");
-    const res = scan({ projectDir: dir, root: "proj", userRoot: join(dir, "none") });
+    const res = scanProj();
     expect(names(res)).toEqual(["agent:tester", "command:review", "skill:tdd"]);
     expect(res.shadowed).toEqual([]);
   });
 
   it("a missing store is empty, not an error", () => {
-    expect(scan({ projectDir: dir, root: "nope", userRoot: join(dir, "none") }).artifacts).toEqual([]);
+    expect(scanProj().artifacts).toEqual([]);
   });
 
   it("scans the user store too; the project wins a clash and the shadowing is reported", () => {
@@ -56,7 +58,6 @@ describe("scan", () => {
     expect(res.shadowed).toEqual([{ kind: "command", name: "review", path: join(dir, "user", "commands", "review.md") }]);
   });
 
-  const scanProj = () => scan({ projectDir: dir, root: "proj", userRoot: join(dir, "none") });
 
   it.each([
     ["its kind contradicts its directory", () => put("proj", "commands/odd.md", "skill"), /odd\.md.*kind skill.*commands/],
@@ -73,14 +74,11 @@ describe("scan", () => {
     expect(names(scan({ projectDir: dir, root: "proj", userRoot: "user" }))).toEqual(["agent:helper"]);
   });
 
-  it("an empty ATRIL_ROOT counts as unset", () => {
-    expect(resolveRoot({ env: { ATRIL_ROOT: "" } })).toBe(".atril");
-  });
 
   it("never writes", () => {
     store("proj");
     const before = statSync(join(dir, "proj", "commands")).mtimeMs;
-    scan({ projectDir: dir, root: "proj", userRoot: join(dir, "none") });
+    scanProj();
     expect(statSync(join(dir, "proj", "commands")).mtimeMs).toBe(before);
   });
 });
