@@ -1831,6 +1831,12 @@ El hook de pre-commit pedía el veredicto de otra IA, pero `--no-verify` se salt
 
 La misma versión empezó a retirar las guardas del Sentinel que leen la shell, como planeaba el ADR 0014, sin convertir el sandbox en requisito. Donde el sandbox del host está activo, no se puede esquivar y deniega las rutas que vigila una guarda, la guarda se aparta; en cualquier otro sitio deniega como antes. Y `kj review --third-party` aprendió a aceptar los falsos positivos de privacidad del propio repo revisado, leídos en la base del rango para que una PR no pueda escribirse su propia exención.
 
+## Phase 147: v4.59.0, una review para quien escribe tests
+
+Alguien de QA lo dijo sin rodeos: kj revisa como un desarrollador. En una PR de automatización de tests, el revisor preguntaba por el estilo del código mientras las preguntas importantes estaban en otro sitio: ¿cazarían estos tests el bug?, ¿pueden fallar siquiera?, ¿van a ser inestables? La respuesta no era más rigor sino otro enfoque. `--lens qa` le da al revisor una rúbrica de QA antes de la tarea, así que bloquea por comportamiento nuevo sin test, aserciones que no pueden fallar y esperas que vuelven inestable una batería, y sugiere los escenarios que se quedaron fuera.
+
+El mismo comentario señaló la otra fricción: los datos de prueba llevan teléfonos, emails y tarjetas, y el escáner de privacidad avisaba de cada uno. Usar valores reservados para pruebas es la buena práctica, así que el escáner los conoce ya, los rangos de teléfonos de ficción y las tarjetas de prueba que publican las pasarelas de pago, y solo ellos: un número con un dígito distinto se sigue tratando como posiblemente real.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
