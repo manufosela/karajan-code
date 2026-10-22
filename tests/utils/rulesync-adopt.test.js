@@ -19,7 +19,7 @@ const installLocalBin = () => {
 };
 // A stand-in for rulesync: `init` makes its source dir, as the real one does.
 const fakeRulesync = (onImport = () => {}) => vi.fn((cmd, args) => {
-  if (args[0] === "init") mkdirSync(join(dir, ".rulesync"));
+  if (args[0] === "init") mkdirSync(join(dir, ".rulesync"), { recursive: true });
   if (args[0] === "import") onImport();
 });
 beforeEach(() => {
@@ -99,5 +99,21 @@ describe("offerRulesyncAdoption", () => {
     const confirm = vi.fn();
     expect(await offerRulesyncAdoption({ projectDir: dir, interactive: true, confirm })).toMatchObject({ adopted: false, reason: "already" });
     expect(confirm).not.toHaveBeenCalled();
+  });
+  it("when import fails, stops naming the step and the command to run by hand", async () => {
+    installLocalBin();
+    const run = fakeRulesync(() => { throw new Error("boom"); });
+    const adopt = offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run });
+    await expect(adopt).rejects.toThrow(/import --targets claudecode[\s\S]*Run by hand: \S*rulesync import --targets claudecode/);
+  });
+  it("offers to finish a half-done adoption instead of treating it as adopted", async () => {
+    installLocalBin();
+    const failing = fakeRulesync(() => { throw new Error("boom"); });
+    await expect(offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run: failing })).rejects.toThrow();
+    const confirm = vi.fn(async () => true);
+    const res = await offerRulesyncAdoption({ projectDir: dir, interactive: true, confirm, logger: logger(), run: fakeRulesync() });
+    expect(confirm.mock.calls[0][0]).toMatch(/^Finish/);
+    expect(res.adopted).toBe(true);
+    expect(await offerRulesyncAdoption({ projectDir: dir, interactive: true, confirm })).toMatchObject({ reason: "already" });
   });
 });
