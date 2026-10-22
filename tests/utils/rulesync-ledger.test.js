@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  hashContent, hookKey, LEDGER_FILE, LOCK_FILE, mcpKey, permissionKey,
+  hashContent, hookKey, LEDGER_FILE, LEDGER_VERSION, LOCK_FILE, mcpKey, permissionKey,
   readLedger, verifyEntry, withLedger,
 } from "../../src/utils/rulesync-ledger.js";
 
@@ -21,22 +21,25 @@ describe("keys", () => {
     expect(mcpKey("github")).toBe("mcp:github");
     expect(permissionKey("Bash(git status)")).toBe("permissions:Bash(git status)");
     expect(hookKey("preToolUse", "atril/p/h1")).toBe("hooks:preToolUse:atril/p/h1");
+    expect(() => hookKey("pre:tool", "x")).toThrow(/event/);
   });
 });
 
 describe("readLedger", () => {
   it("an absent ledger is empty, version 1", () => {
-    expect(readLedger(dir)).toEqual({ version: 1, entries: {} });
+    expect(readLedger(dir)).toEqual({ version: LEDGER_VERSION, entries: {} });
   });
 
-  it("an unknown version fails loudly naming the file", () => {
-    writeFileSync(ledgerPath(), JSON.stringify({ version: 2, entries: {} }));
-    expect(() => readLedger(dir)).toThrow(/\.owners\.json.*version 2/);
-  });
-
-  it("garbage fails loudly naming the file", () => {
-    writeFileSync(ledgerPath(), "{nope");
-    expect(() => readLedger(dir)).toThrow(/\.owners\.json/);
+  it.each([
+    ["an unknown version", { version: 2, entries: {} }, /\.owners\.json.*version 2/],
+    ["entries is a list", { version: 1, entries: [] }, /entries/],
+    ["entries is missing", { version: 1 }, /entries/],
+    ["an entry has no owner", { version: 1, entries: { k: { hash: `sha256:${"0".repeat(64)}` } } }, /"k"/],
+    ["an entry hash is not sha256", { version: 1, entries: { k: { owner: "kj", hash: "md5:x" } } }, /"k"/],
+    ["garbage", "{nope", /\.owners\.json.*not valid JSON/],
+  ])("a malformed ledger fails naming what is wrong: %s", (_label, ledger, why) => {
+    writeFileSync(ledgerPath(), typeof ledger === "string" ? ledger : JSON.stringify(ledger));
+    expect(() => readLedger(dir)).toThrow(why);
   });
 });
 
@@ -51,7 +54,8 @@ describe("withLedger", () => {
   it("a held lock fails naming who holds it, and leaves the ledger valid", () => {
     withLedger(dir, "kj", (l) => { l.entries[mcpKey("a")] = { owner: "kj", hash: hashContent("a") }; });
     writeFileSync(join(dir, LOCK_FILE), "atril");
-    expect(() => withLedger(dir, "kj", () => {})).toThrow(/held by atril/);
+    expect(() => withLedger(dir, "kj", () => {})).toThrow(/held by atril.*if no writer is running, delete/);
+    expect(existsSync(join(dir, LOCK_FILE))).toBe(true);
     expect(JSON.parse(readFileSync(ledgerPath(), "utf8")).entries).toHaveProperty("mcp:a");
   });
 
@@ -59,6 +63,19 @@ describe("withLedger", () => {
     expect(() => withLedger(dir, "kj", () => { throw new Error("boom"); })).toThrow("boom");
     expect(existsSync(join(dir, LOCK_FILE))).toBe(false);
     expect(existsSync(ledgerPath())).toBe(false);
+  });
+});
+
+describe("withLedger owner", () => {
+  it("records who holds the lock and its pid while the change runs", () => {
+    withLedger(dir, "kj", () => {
+      expect(readFileSync(join(dir, LOCK_FILE), "utf8")).toBe(`kj ${process.pid}`);
+    });
+  });
+
+  it("an empty owner fails before taking the lock", () => {
+    expect(() => withLedger(dir, "", () => {})).toThrow(/owner/);
+    expect(existsSync(join(dir, LOCK_FILE))).toBe(false);
   });
 });
 
@@ -75,5 +92,6 @@ describe("verifyEntry", () => {
 
   it("unowned when no writer recorded it: it is the user's", () => {
     expect(verifyEntry(ledger, "mcp:b", "anything")).toBe("unowned");
+    expect(verifyEntry(ledger, "constructor", "anything")).toBe("unowned");
   });
 });
