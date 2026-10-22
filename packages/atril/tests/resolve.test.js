@@ -38,6 +38,13 @@ describe("resolveBlock", () => {
     expect(block[2].source).toBe("project");
   });
 
+  it("loads the author's relations before the discovered ones when independent", () => {
+    write("proj", "skills/x/SKILL.md", "name: x\nkind: skill\nuses: [skill:a]\natril:\n  uses: [skill:b]");
+    write("proj", "skills/a/SKILL.md", "name: a\nkind: skill");
+    write("proj", "skills/b/SKILL.md", "name: b\nkind: skill");
+    expect(resolve("skill:x").block.map((a) => `${a.kind}:${a.name}`)).toEqual(["skill:a", "skill:b", "skill:x"]);
+  });
+
   it("marks the delegated agent as a subagent and the rest as inline", () => {
     expect(resolve("command:ship").block.map((a) => a.as)).toEqual(["inline", "inline", "inline", "subagent", "inline"]);
   });
