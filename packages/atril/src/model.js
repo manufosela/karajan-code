@@ -11,9 +11,10 @@ import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 
 export const KINDS = ["skill", "command", "agent"];
-const LISTS = ["roles", "servers", "uses", "delegates", "related"];
-const RELATIONS = new Set(["uses", "delegates", "related"]);
+const RELATIONS = ["uses", "delegates", "related"];
+const LISTS = ["roles", "servers", ...RELATIONS];
 const SLUG = /^[a-z0-9][a-z0-9._-]*$/;
+const RELATION = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/;
 
 const isMapping = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -26,7 +27,8 @@ function validate(path, front) {
   const fail = (why) => { throw new Error(`${path}: ${why}`); };
   if (!isMapping(front)) fail("frontmatter must be a mapping");
   for (const field of ["name", "description", "kind"]) {
-    if (typeof front[field] !== "string" || !front[field].trim()) fail(`missing ${field}`);
+    if (front[field] === undefined) fail(`missing ${field}`);
+    if (typeof front[field] !== "string" || !front[field].trim()) fail(`${field} must be a non-empty string`);
   }
   if (!SLUG.test(front.name)) fail(`name "${front.name}" is not a slug (lowercase letters, digits, . _ -)`);
   if (!KINDS.includes(front.kind)) fail(`kind ${JSON.stringify(front.kind)} is not one of ${KINDS.join(", ")}`);
@@ -34,8 +36,8 @@ function validate(path, front) {
     if (front[field] === undefined) continue;
     if (!Array.isArray(front[field])) fail(`${field} must be a list`);
     for (const item of front[field]) {
-      if (typeof item !== "string" || !item) fail(`${field} items must be non-empty strings`);
-      if (RELATIONS.has(field) && !KINDS.includes(item.split(":")[0])) {
+      if (typeof item !== "string" || !item.trim()) fail(`${field} items must be non-empty strings`);
+      if (RELATIONS.includes(field) && !RELATION.test(item)) {
         fail(`${field} item "${item}" must be kind:name with kind one of ${KINDS.join(", ")}`);
       }
     }
@@ -49,7 +51,7 @@ function validate(path, front) {
  * @param {string} path
  */
 export function parseArtifact(path) {
-  const match = FRONTMATTER.exec(readFileSync(path, "utf8"));
+  const match = FRONTMATTER.exec(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
   if (!match) throw new Error(`${path}: no frontmatter (--- … --- lines at the top)`);
   let front;
   try {

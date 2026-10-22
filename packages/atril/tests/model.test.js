@@ -56,7 +56,12 @@ describe("parseArtifact", () => {
   const base = "description: d\nkind: skill";
   it.each([
     ["a relation that is not a list", `name: n\n${base}\nuses: skill:x`, /uses must be a list/],
-    ["a list item that is not a string", `name: n\n${base}\nroles: [1]`, /roles/],
+    ["a list item that is not a string", `name: n\n${base}\nroles: [1]`, /roles items must be non-empty strings/],
+    ["a list item that is only spaces", `name: n\n${base}\nroles: ["  "]`, /roles items must be non-empty strings/],
+    ["a relation with an empty name", `name: n\n${base}\nuses: ["skill:"]`, /uses.*"skill:".*kind:name/],
+    ["a relation whose name is a path", `name: n\n${base}\nuses: ["skill:../x"]`, /uses.*"skill:\.\.\/x"/],
+    ["a relation with two colons", `name: n\n${base}\nuses: ["skill:a:b"]`, /uses.*"skill:a:b"/],
+    ["a required field of the wrong type", `name: 2024-01-01\n${base}`, /name must be a non-empty string/],
     ["a relation that is not kind:name", `name: n\n${base}\nuses: [tdd]`, /uses.*"tdd".*kind:name/],
     ["a relation to an unknown kind", `name: n\n${base}\ndelegates: [rule:x]`, /delegates.*"rule:x"/],
     ["an atril: block that is not a mapping", `name: n\n${base}\natril: hello`, /atril must be a mapping/],
@@ -71,6 +76,10 @@ describe("parseArtifact", () => {
 
   it("the closing --- must be a line of its own", () => {
     expect(() => parseArtifact(write("bad.md", "---\nname: n\ndescription: d\nkind: skill\n---oops\nbody\n"))).toThrow(/frontmatter/);
+  });
+
+  it("a leading UTF-8 BOM is ignored", () => {
+    expect(parseArtifact(write("bom.md", `\uFEFF${doc(`name: n\n${base}`)}`)).name).toBe("n");
   });
 
   it("a file without frontmatter fails loudly", () => {
