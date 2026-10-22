@@ -6,6 +6,7 @@
  */
 import { runCommand } from "../utils/process.js";
 import { detectRulesync, rulesyncCommand } from "../utils/rulesync.js";
+import { isNewerVersion } from "../utils/update-check.js";
 import { STRATEGY } from "./types.js";
 
 /** Tested with rulesync 16.14.0; any later 16.x release is accepted, 17 is not. */
@@ -21,14 +22,12 @@ const parse = (text) => {
   const m = VERSION_RE.exec(String(text));
   return m ? { parts: m.slice(1, 4).map(Number), prerelease: Boolean(m[4]), text: m[0] } : null;
 };
-const MIN = parse(RULESYNC_TESTED_RANGE.min).parts;
 
 /** True for a release at least the tested minimum and below the next major; prereleases are untested. */
 export function inTestedRange(version) {
   const v = parse(version);
   if (!v || v.prerelease || v.parts[0] >= RULESYNC_TESTED_RANGE.nextMajor) return false;
-  const differing = v.parts.findIndex((part, i) => part !== MIN[i]);
-  return differing === -1 || v.parts[differing] > MIN[differing];
+  return !isNewerVersion(RULESYNC_TESTED_RANGE.min, v.text);
 }
 
 async function readVersion(projectDir, run) {
