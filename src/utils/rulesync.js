@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { findManagedBlock } from "./managed-markers.js";
-import { hashContent, verifyEntry, withLedger } from "./rulesync-ledger.js";
+import { hashContent, USER_OWNER, verifyEntry, withLedger } from "./rulesync-ledger.js";
 
 export const RULESYNC_RULE = join(".rulesync", "rules", "karajan.md");
 
@@ -91,10 +91,15 @@ export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, 
     const previous = existsSync(target) ? readFileSync(target, "utf8") : null;
     const current = previous === null ? null : blockText(previous, blockId);
     const owned = Object.hasOwn(ledger.entries, key);
+    const owner = ledger.entries[key]?.owner;
+    if (owned && owner !== "kj") {
+      throw new Error(`${file}: "${key}" belongs to ${owner}; kj will not touch it`
+        + (owner === USER_OWNER ? ` (kj rulesync adopt ${key} gives it back to kj)` : ""));
+    }
     if (current === null ? owned : verifyEntry(ledger, key, current) === "edited") {
       throw new Error(`${file}: kj's ${blockId} block was edited by hand; kj will not overwrite it. `
-        + `Restore kj's block as it was, or remove the "${key}" entry from .rulesync/.owners.json `
-        + "so kj claims the block again on its next run (kj rulesync adopt|release will automate this)");
+        + `Restore kj's block as it was, run kj rulesync adopt ${key} to keep the edit as kj's, `
+        + `or kj rulesync release ${key} to make the block yours`);
     }
     const claimed = current !== null && !owned;
     if (claimed) logger.info(`kj: claimed ${key}, written by kj before the ownership ledger existed`);
@@ -116,4 +121,39 @@ export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, 
     ledger.entries[key] = { owner: "kj", hash: hashContent(written) };
   });
   return result;
+}
+
+// The current content of a rules file (`rules/x.md`) or of a managed block
+// in one (`rules/x.md#<block>`), as its ledger entry hashes it.
+function entryContent(projectDir, key) {
+  if (/^(mcp|permissions|hooks):/.test(key)) throw new Error(`"${key}": kj only adopts rules files and their blocks`);
+  const [path, blockId, ...rest] = key.split("#");
+  if (rest.length || path.startsWith("/") || path.split("/").includes("..")) throw new Error(`"${key}": not a key inside .rulesync/`);
+  const file = join(projectDir, ".rulesync", ...path.split("/"));
+  if (!existsSync(file)) throw new Error(`${file}: missing, nothing to adopt for "${key}"`);
+  const text = readFileSync(file, "utf8");
+  const content = blockId === undefined ? text : blockText(text, blockId);
+  if (content === null) throw new Error(`${file}: no complete ${blockId} block, nothing to adopt for "${key}"`);
+  return content;
+}
+
+/**
+ * HU-0003: settle a ledger entry. `adopt` records its current content as
+ * kj's (also taking back one released to the user); `release` hands kj's
+ * entry to the user, who then owns it: kj never claims it again.
+ * @param {{ projectDir: string, key: string, action: "adopt"|"release" }} args
+ * @returns {{ key: string, owner: string, hash: string }}
+ */
+export function settleRulesyncEntry({ projectDir, key, action }) {
+  const from = { adopt: ["kj", USER_OWNER], release: ["kj"] }[action];
+  if (!from) throw new Error(`rulesync: unknown action "${action}" (adopt | release)`);
+  const { entries } = withLedger(projectDir, "kj", (ledger) => {
+    const owner = ledger.entries[key]?.owner;
+    if (!owner) throw new Error(`"${key}" is not in .rulesync/.owners.json: it has no owner to ${action} from`);
+    if (!from.includes(owner)) throw new Error(`"${key}" is owned by ${owner}; kj cannot ${action} it`);
+    ledger.entries[key] = action === "adopt"
+      ? { owner: "kj", hash: hashContent(entryContent(projectDir, key)) }
+      : { ...ledger.entries[key], owner: USER_OWNER };
+  });
+  return { key, ...entries[key] };
 }
