@@ -2,12 +2,13 @@
 // rule forbids any import from outside the package, and the packed tarball
 // installs and runs in an empty directory.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { VERSION } from "../src/index.js";
 
 const PKG_DIR = fileURLToPath(new URL("..", import.meta.url));
 const ROOT = join(PKG_DIR, "..", "..");
@@ -45,6 +46,6 @@ describe("pack smoke", () => {
     execFileSync("npm", ["install", "--offline", "--no-audit", "--no-fund", join(dir, tgz)], { cwd: dir, stdio: "ignore" });
     const installed = join(dir, "node_modules", "@karajan-family", "atril");
     const out = execFileSync(process.execPath, [join(installed, "bin", "atril.js"), "--version"], { encoding: "utf8" });
-    expect(out.trim()).toBe(JSON.parse(readFileSync(join(PKG_DIR, "package.json"), "utf8")).version);
+    expect(out.trim()).toBe(VERSION);
   }, 120000);
 });
