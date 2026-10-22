@@ -312,12 +312,27 @@ export default [
     plugins: { "import-x": importX },
     rules: {
       "import-x/no-relative-packages": "error",
-      "no-restricted-imports": ["error", {
-        patterns: [{ regex: "^(karajan-|@karajan(-family)?/|#)", message: "atril imports nothing outside its package (ADR 0021)." }],
-      }],
-      "no-restricted-syntax": ["error",
-        { selector: "ImportExpression[source.value=/^(karajan-|@karajan(-family)?\\/|#)/]", message: "atril imports nothing outside its package (ADR 0021)." },
-        { selector: "ImportExpression[source.type!='Literal']", message: "atril imports only literal paths, so isolation can be checked (ADR 0021)." },
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(karajan-|@karajan(-family)?/|#)",
+              message: "atril imports nothing outside its package (ADR 0021).",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportExpression[source.value=/^(karajan-|@karajan(-family)?\\/|#)/]",
+          message: "atril imports nothing outside its package (ADR 0021).",
+        },
+        {
+          selector: "ImportExpression[source.type!='Literal']",
+          message: "atril imports only literal paths, so isolation can be checked (ADR 0021).",
+        },
       ],
     },
   },
