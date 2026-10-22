@@ -305,18 +305,20 @@ export default [
     },
   },
   // HU-0006 (ADR 0021, decision 7): atril is fully isolated — it imports
-  // nothing outside its own package, neither by relative path nor by name.
+  // nothing outside its own package, by relative path or by name, static or
+  // dynamic. Subpath (#) aliases are banned too: the root's point into src/.
   {
     files: ["packages/atril/src/**/*.js", "packages/atril/bin/**/*.js"],
     plugins: { "import-x": importX },
     rules: {
       "import-x/no-relative-packages": "error",
       "no-restricted-imports": ["error", {
-        patterns: [{
-          regex: "^(karajan-|@karajan(-family)?/|#)",
-          message: "atril imports nothing outside its package (ADR 0021).",
-        }],
+        patterns: [{ regex: "^(karajan-|@karajan(-family)?/|#)", message: "atril imports nothing outside its package (ADR 0021)." }],
       }],
+      "no-restricted-syntax": ["error",
+        { selector: "ImportExpression[source.value=/^(karajan-|@karajan(-family)?\\/|#)/]", message: "atril imports nothing outside its package (ADR 0021)." },
+        { selector: "ImportExpression[source.type!='Literal']", message: "atril imports only literal paths, so isolation can be checked (ADR 0021)." },
+      ],
     },
   },
   {
