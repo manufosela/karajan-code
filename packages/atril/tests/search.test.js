@@ -105,4 +105,13 @@ describe("atril search", () => {
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/^atril: search needs a non-empty query/);
   });
+  it("an unknown --kind fails loudly", () => {
+    const res = run("tdd", "--kind", "bogus");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/kind "bogus" is not one of/);
+  });
+  it("text output keeps one hit per line for multi-line descriptions", () => {
+    put("proj", "commands/plan.md", "name: plan\ndescription: |\n  Plans\n  \tthe work\nkind: command");
+    expect(run("plan").stdout).toMatch(/^\d+\tcommand\tplan\tproject\tPlans the work\n$/);
+  });
 });

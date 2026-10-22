@@ -31,7 +31,7 @@ function runSearch(args) {
   }
   console.error(`atril: search mode ${SEARCH_MODE}`);
   if (hits.length === 0) console.log(`no results for ${JSON.stringify(query)}`);
-  for (const hit of hits) console.log(`${hit.score}\t${hit.kind}\t${hit.name}\t${hit.source}\t${hit.description}`);
+  for (const hit of hits) console.log(`${hit.score}\t${hit.kind}\t${hit.name}\t${hit.source}\t${hit.description.replace(/\s+/g, " ").trim()}`);
 }
 
 const [command, ...rest] = process.argv.slice(2);
