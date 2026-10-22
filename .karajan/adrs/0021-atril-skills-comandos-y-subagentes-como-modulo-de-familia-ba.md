@@ -1,7 +1,8 @@
 # atril — skills, commands and agents as a Karajan family module
 
-Status: proposed
+Status: accepted
 Date: 2026-10-22
+Accepted: 2026-10-22, by the maintainer
 Related: ADR 0003 (governance kernel, the family-package precedent), ADR 0022 (persistent
 agent configuration through rulesync)
 

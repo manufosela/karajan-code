@@ -1,7 +1,8 @@
 # Persistent agent configuration goes through rulesync
 
-Status: proposed
+Status: accepted
 Date: 2026-10-22
+Accepted: 2026-10-22, by the maintainer
 Related: ADR 0021 (atril)
 
 ## Context
