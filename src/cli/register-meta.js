@@ -35,6 +35,7 @@ import { reportIssueCommand } from "../commands/report-issue.js";
 import { huCommand, HU_STATUSES } from "../commands/hu.js";
 import { worktreeCommand } from "../commands/worktree.js";
 import { addAdr, listAdrs } from "../environment/adr.js";
+import { settleRulesyncEntry } from "../utils/rulesync.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { policyAddCommand } from "../policy/add.js";
 import { withConfig } from "./_shared.js";
@@ -375,6 +376,19 @@ export function registerMeta(program, { pkgVersion }) {
         if (adrs.length === 0) console.log("no ADRs yet — create one with: kj adr add \"<title>\" --decision \"...\"");
       });
     });
+
+  // HU-0003 (ADR 0022): settle a .rulesync/ ledger entry edited by hand.
+  const rulesyncCmd = program.command("rulesync").description("The .rulesync/ ownership ledger (ADR 0022)");
+  for (const [action, what] of [["adopt", "Take the entry's current content as kj's"], ["release", "Hand kj's entry to you: kj stops writing it"]]) {
+    rulesyncCmd.command(`${action} <key>`).description(`${what} (key as in .rulesync/.owners.json)`)
+      .option("--json", "Machine-readable output")
+      .action(async (key, flags) => {
+        await withConfig(pkgVersion, "rulesync", flags, async ({ config }) => {
+          const res = settleRulesyncEntry({ projectDir: config?.projectDir || process.cwd(), key, action });
+          console.log(flags.json ? JSON.stringify(res) : `✓ ${key} is now ${res.owner === "kj" ? "kj's" : "yours"}`);
+        });
+      });
+  }
 
   // MDR-A2 (KJC-TSK-0942, ADR 0016): the rules of the governing MD files, each with an id.
   const rules = program.command("rules").description("Rules written in the MD files that govern a session (ADR 0016)");
