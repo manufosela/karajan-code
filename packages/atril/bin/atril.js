@@ -4,20 +4,21 @@ import { VERSION } from "../src/index.js";
 import { scan } from "../src/scan.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]";
-const [command, ...rest] = process.argv.slice(2);
 
-if (command === "--version" || command === "-v") {
-  console.log(VERSION);
-} else if (command === "scan") {
-  const { values } = parseArgs({ args: rest, options: { root: { type: "string" }, json: { type: "boolean" } } });
+function runScan(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
   const result = scan({ root: values.root });
-  if (values.json) {
-    console.log(JSON.stringify(result, null, 2));
-  } else {
-    for (const a of result.artifacts) console.log(`${a.kind}\t${a.name}\t${a.path}`);
-    for (const s of result.shadowed) console.log(`shadowed\t${s.kind}:${s.name}\t${s.path}`);
-  }
-} else {
-  console.error(command ? `atril: unknown command "${command}"\n${USAGE}` : USAGE);
+  if (values.json) return console.log(JSON.stringify(result, null, 2));
+  for (const artifact of result.artifacts) console.log(`${artifact.kind}\t${artifact.name}\t${artifact.path}`);
+  for (const shadow of result.shadowed) console.log(`shadowed\t${shadow.kind}:${shadow.name}\t${shadow.path}`);
+}
+
+const [command, ...rest] = process.argv.slice(2);
+try {
+  if (command === "--version" || command === "-v") console.log(VERSION);
+  else if (command === "scan") runScan(rest);
+  else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
+} catch (err) {
+  console.error(`atril: ${err.message}`);
   process.exitCode = 1;
 }

@@ -56,9 +56,25 @@ describe("scan", () => {
     expect(res.shadowed).toEqual([{ kind: "command", name: "review", path: join(dir, "user", "commands", "review.md") }]);
   });
 
-  it("an artifact whose kind contradicts its directory fails loudly", () => {
-    put("proj", "commands/odd.md", "skill");
-    expect(() => scan({ projectDir: dir, root: "proj", userRoot: join(dir, "none") })).toThrow(/odd\.md.*kind skill.*commands/);
+  const scanProj = () => scan({ projectDir: dir, root: "proj", userRoot: join(dir, "none") });
+
+  it.each([
+    ["its kind contradicts its directory", () => put("proj", "commands/odd.md", "skill"), /odd\.md.*kind skill.*commands/],
+    ["a skill folder has no SKILL.md", () => mkdirSync(join(dir, "proj", "skills", "typo"), { recursive: true }), /typo.*SKILL\.md/],
+    ["a command file is not Markdown", () => put("proj", "commands/x.txt", "command", "x"), /x\.txt.*\.md/],
+    ["its name differs from its file", () => put("proj", "commands/a.md", "command", "b"), /a\.md.*name "b"/],
+  ])("fails loudly when %s", (_label, arrange, why) => {
+    arrange();
+    expect(scanProj).toThrow(why);
+  });
+
+  it("a relative user store resolves against the project, not the process cwd", () => {
+    put("user", "agents/helper.md", "agent");
+    expect(names(scan({ projectDir: dir, root: "proj", userRoot: "user" }))).toEqual(["agent:helper"]);
+  });
+
+  it("an empty ATRIL_ROOT counts as unset", () => {
+    expect(resolveRoot({ env: { ATRIL_ROOT: "" } })).toBe(".atril");
   });
 
   it("never writes", () => {
@@ -77,5 +93,13 @@ describe("atril scan", () => {
     });
     expect(res.status).toBe(0);
     expect(names(JSON.parse(res.stdout))).toEqual(["agent:tester", "command:review", "skill:tdd"]);
+  });
+
+  it("an invalid store fails with a one-line message, no stack trace", () => {
+    put("proj", "commands/odd.md", "skill");
+    const res = spawnSync(process.execPath, [BIN, "scan", "--root", "proj"], { cwd: dir, encoding: "utf8" });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/^atril: .*odd\.md/);
+    expect(res.stderr).not.toMatch(/\n\s+at /);
   });
 });
