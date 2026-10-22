@@ -1,0 +1,38 @@
+{
+  "name": "@karajan-family/atril",
+  "version": "0.0.1",
+  "description": "Skills, commands and subagents for every AI CLI, on demand: search, install and resolve the Markdown each task needs without loading it into the initial context.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "atril": "bin/atril.js"
+  },
+  "files": [
+    "src/",
+    "bin/"
+  ],
+  "dependencies": {
+    "js-yaml": "^4.2.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-code.git",
+    "directory": "packages/atril"
+  },
+  "keywords": [
+    "skills",
+    "agents",
+    "commands",
+    "claude-code",
+    "codex",
+    "karajan"
+  ],
+  "author": "@manufosela",
+  "license": "MIT"
+}

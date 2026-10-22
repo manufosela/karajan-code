@@ -34,6 +34,7 @@ describe("readLedger", () => {
     ["entries is missing", { version: 1 }, /entries/],
     ["an entry has no owner", { version: 1, entries: { k: { hash: `sha256:${"0".repeat(64)}` } } }, /"k"/],
     ["an entry hash is not sha256", { version: 1, entries: { k: { owner: "kj", hash: "md5:x" } } }, /"k"/],
+    ["an entry hash is not a string", { version: 1, entries: { k: { owner: "kj", hash: [`sha256:${"0".repeat(64)}`] } } }, /"k"/],
     ["garbage", "{nope", /\.owners\.json.*not valid JSON/],
   ])("a malformed ledger fails naming what is wrong: %s", (_label, ledger, why) => {
     writeFileSync(ledgerPath(), typeof ledger === "string" ? ledger : JSON.stringify(ledger));

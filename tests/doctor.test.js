@@ -170,6 +170,7 @@ describe("doctor", () => {
       expect(names).toContain("agent:aider");
       expect(names).toContain("review-rules");
       expect(names).toContain("coder-rules");
+      expect(names).toContain("rulesync");
     });
 
     it("marks config as OK when file exists", async () => {

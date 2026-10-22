@@ -4,7 +4,9 @@
  * per-file feature keyed by its path relative to `.rulesync/`, e.g.
  * `rules/karajan.md`, or `rules/karajan.md#<block>` for a writer's managed
  * block; an entry of hooks/mcp/permissions by key), and the ledger is the
- * single source of their hashes. No owner means the user's. The
+ * single source of their hashes. No entry means the user's, unless a writer
+ * finds its marker there (it claims it, once); an entry released to the user
+ * (HU-0003) is owned by "user", so no writer claims it again. The
  * format is a contract atril implements in its own package: hashed entries are
  * serialized canonically (JSON, keys sorted) by every writer.
  */
@@ -16,6 +18,7 @@ import { writeJsonAtomicSync } from "./atomic-write.js";
 export const LEDGER_FILE = join(".rulesync", ".owners.json");
 export const LOCK_FILE = join(".rulesync", ".owners.lock");
 export const LEDGER_VERSION = 1;
+export const USER_OWNER = "user";
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;
 
 export const mcpKey = (server) => `mcp:${server}`;
@@ -35,7 +38,7 @@ function validate(file, ledger) {
     throw new Error(`${file}: entries must be an object of key → { owner, hash }`);
   }
   for (const [key, entry] of Object.entries(ledger.entries)) {
-    if (typeof entry?.owner !== "string" || !entry.owner || !HASH_RE.test(entry.hash)) {
+    if (typeof entry?.owner !== "string" || !entry.owner || typeof entry.hash !== "string" || !HASH_RE.test(entry.hash)) {
       throw new Error(`${file}: entry "${key}" needs a non-empty owner and a sha256:<hex> hash`);
     }
   }

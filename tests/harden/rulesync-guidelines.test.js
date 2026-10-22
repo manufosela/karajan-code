@@ -89,7 +89,7 @@ describe("kj's karajan.md blocks through the ownership ledger", () => {
     installGuidelines({ projectDir: dir, language: "javascript" });
     const edited = readFileSync(rule(), "utf8").replace(/(>>> kj:managed:guidelines v\d+ >>>[^\n]*\n)/, "$1- my own line inside\n");
     writeFileSync(rule(), edited);
-    expect(() => installGuidelines({ projectDir: dir, language: "javascript" })).toThrow(/edited by hand.*restore kj's block.*remove the "rules\/karajan\.md#guidelines" entry from \.rulesync\/\.owners\.json/i);
+    expect(() => installGuidelines({ projectDir: dir, language: "javascript" })).toThrow(/edited by hand.*restore kj's block.*kj rulesync adopt rules\/karajan\.md#guidelines/i);
     expect(readFileSync(rule(), "utf8")).toBe(edited);
   });
 
