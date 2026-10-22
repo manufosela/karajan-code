@@ -8,8 +8,8 @@
  * source instead, with the same managed markers.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import { findManagedBlock } from "./managed-markers.js";
 import { hashContent, verifyEntry, withLedger } from "./rulesync-ledger.js";
 
@@ -71,23 +71,36 @@ const blockText = (text, blockId) => {
 
 /**
  * Write one of kj's blocks of a rulesync rule through the ownership ledger.
- * A block kj wrote before the ledger existed is claimed once, and said; a
- * block edited by hand stops the write — nothing is overwritten.
+ * The file is read, checked and written under the ledger's lock: `render`
+ * gets its current text (null when absent) and returns `{ content, ... }`.
+ * A block kj wrote before the ledger existed is claimed once, and said; an
+ * owned block edited, broken or deleted by hand stops the write.
+ * @returns {object} what `render` returned, plus `claimed` when it was claimed.
  */
-export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, previous, next, logger = console }) {
-  const key = `${relative(".rulesync", file)}#${blockId}`;
+export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, render, logger = console }) {
+  // Ledger keys are a contract with atril: always posix.
+  const key = `${relative(".rulesync", file).split(sep).join("/")}#${blockId}`;
+  const target = join(projectDir, file);
+  let result;
   withLedger(projectDir, "kj", (ledger) => {
+    const previous = existsSync(target) ? readFileSync(target, "utf8") : null;
     const current = previous === null ? null : blockText(previous, blockId);
-    const state = current === null ? "absent" : verifyEntry(ledger, key, current);
-    if (state === "edited") {
+    const owned = Object.hasOwn(ledger.entries, key);
+    if (current === null ? owned : verifyEntry(ledger, key, current) === "edited") {
       throw new Error(`${file}: kj's ${blockId} block was edited by hand; kj will not overwrite it. `
         + `Keep it as kj's with kj rulesync adopt ${key}, or hand it to you with kj rulesync release ${key}`);
     }
-    if (state === "unowned") logger.info?.(`kj: claimed ${key}, written by kj before the ownership ledger existed`);
-    if (next !== previous) {
-      mkdirSync(dirname(join(projectDir, file)), { recursive: true });
-      writeFileSync(join(projectDir, file), next);
+    const claimed = current !== null && !owned;
+    if (claimed) logger.info(`kj: claimed ${key}, written by kj before the ownership ledger existed`);
+    result = { ...render(previous), ...(claimed ? { claimed } : {}) };
+    if (result.content !== previous) {
+      // Rule first, ledger second (withLedger writes it on return): a crash in
+      // between reads as "edited" next time — loud, never a silent overwrite.
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(`${target}.tmp`, result.content);
+      renameSync(`${target}.tmp`, target);
     }
-    ledger.entries[key] = { owner: "kj", hash: hashContent(blockText(next, blockId)) };
+    ledger.entries[key] = { owner: "kj", hash: hashContent(blockText(result.content, blockId)) };
   });
+  return result;
 }

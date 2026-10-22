@@ -74,9 +74,13 @@ describe("kj's karajan.md blocks through the ownership ledger", () => {
     installGuidelines({ projectDir: dir, language: "javascript" });
     rmSync(join(dir, LEDGER_FILE));
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    installGuidelines({ projectDir: dir, language: "javascript" });
+    const res = installGuidelines({ projectDir: dir, language: "javascript" });
+    expect(res.guidelines[0].claimed).toBe(true);
     expect(info.mock.calls.join(" ")).toMatch(/claimed .*rules\/karajan\.md#guidelines/);
     expect(readLedger(dir).entries[key].owner).toBe("kj");
+    info.mockClear();
+    installGuidelines({ projectDir: dir, language: "javascript" });
+    expect(info).not.toHaveBeenCalled();
     info.mockRestore();
   });
 
@@ -86,6 +90,18 @@ describe("kj's karajan.md blocks through the ownership ledger", () => {
     const edited = readFileSync(rule(), "utf8").replace(/(>>> kj:managed:guidelines v\d+ >>>[^\n]*\n)/, "$1- my own line inside\n");
     writeFileSync(rule(), edited);
     expect(() => installGuidelines({ projectDir: dir, language: "javascript" })).toThrow(/edited by hand.*kj rulesync adopt.*release/);
+    expect(readFileSync(rule(), "utf8")).toBe(edited);
+  });
+
+  it.each([
+    ["deleted", (text) => text.replace(/<!-- >>> kj:managed:guidelines[\s\S]*?<<< kj:managed:guidelines <<< -->\n?/, "")],
+    ["left without its closing marker", (text) => text.replace(/<!-- <<< kj:managed:guidelines <<< -->/, "")],
+  ])("an owned block %s by hand stops kj too", (_label, edit) => {
+    withRulesync();
+    installGuidelines({ projectDir: dir, language: "javascript" });
+    const edited = edit(readFileSync(rule(), "utf8"));
+    writeFileSync(rule(), edited);
+    expect(() => installGuidelines({ projectDir: dir, language: "javascript" })).toThrow(/edited by hand/);
     expect(readFileSync(rule(), "utf8")).toBe(edited);
   });
 
