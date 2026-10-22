@@ -3,7 +3,28 @@ import { parseArgs } from "node:util";
 import { VERSION } from "../src/index.js";
 import { scan } from "../src/scan.js";
 
-const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]";
+import { install, remove } from "../src/store.js";
+
+const USAGE = [
+  "Usage: atril --version",
+  "       atril scan [--root <dir>] [--json]",
+  "       atril install <path> [--root <dir>]",
+  "       atril remove <kind:name> [--root <dir>]",
+].join("\n");
+
+function runStore(command, args) {
+  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" } }, allowPositionals: true });
+  if (positionals.length !== 1) throw new Error(`${command} takes exactly one argument\n${USAGE}`);
+  const [ref] = positionals;
+  if (command === "install") {
+    const { status, kind, name, path } = install(ref, { root: values.root });
+    console.log(`${status}\t${kind}:${name}\t${path}`);
+    return;
+  }
+  const [kind, name, ...extra] = ref.split(":");
+  if (!name || extra.length) throw new Error(`remove takes kind:name, got "${ref}"`);
+  console.log(`removed\t${kind}:${name}\t${remove(name, { kind, root: values.root }).path}`);
+}
 
 function runScan(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
@@ -20,6 +41,7 @@ const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "--version" || command === "-v") console.log(VERSION);
   else if (command === "scan") runScan(rest);
+  else if (command === "install" || command === "remove") runStore(command, rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);

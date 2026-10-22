@@ -1,0 +1,95 @@
+// HU-0021 (ADR 0021, decision 5 and plan step 7): install and remove put
+// artifacts in the store and take them out, never silently overwriting.
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { install, remove } from "../src/store.js";
+const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
+let dir;
+beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-store-")); });
+afterEach(() => rmSync(dir, { recursive: true, force: true }));
+const write = (rel, text) => {
+  const file = join(dir, rel);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, text);
+  return file;
+};
+const artifact = (rel, kind, name, body = "body") =>
+  write(rel, `---\nname: ${name}\ndescription: d\nkind: ${kind}\n---\n${body}\n`);
+const o = () => ({ projectDir: dir, root: "store" });
+const at = (...parts) => join(dir, "store", ...parts);
+const run = (...args) => spawnSync(process.execPath, [BIN, ...args], { cwd: dir, encoding: "utf8" });
+
+describe("install", () => {
+  it("copies a skill folder with its files into skills/<name>/", () => {
+    const src = dirname(artifact("src/tdd/SKILL.md", "skill", "tdd"));
+    write("src/tdd/refs/notes.md", "notes");
+    expect(install(src, o())).toMatchObject({ kind: "skill", name: "tdd", status: "installed", path: at("skills", "tdd") });
+    expect(readFileSync(at("skills", "tdd", "refs", "notes.md"), "utf8")).toBe("notes");
+    expect(existsSync(at("skills", "tdd", "SKILL.md"))).toBe(true);
+  });
+  it("copies a command and an agent file into commands/ and agents/", () => {
+    install(artifact("src/review.md", "command", "review"), o());
+    install(artifact("src/tester.md", "agent", "tester"), { ...o(), kind: "agent" });
+    expect(readdirSync(at("commands"))).toEqual(["review.md"]);
+    expect(readdirSync(at("agents"))).toEqual(["tester.md"]);
+  });
+  it("refuses an invalid artifact or a kind mismatch and leaves the store untouched", () => {
+    expect(() => install(write("src/bad.md", "no frontmatter"), o())).toThrow(/no frontmatter/);
+    expect(() => install(artifact("src/x.md", "command", "x"), { ...o(), kind: "agent" })).toThrow(/declares kind command, not agent/);
+    expect(() => install(artifact("src/s.md", "skill", "s"), o())).toThrow(/a skill must be a folder/);
+    expect(() => install(join(dir, "src"), o())).toThrow(/needs a SKILL.md/);
+    expect(() => install(join(dir, "missing.md"), o())).toThrow(/does not exist/);
+    expect(existsSync(at())).toBe(false);
+  });
+  it("refuses different content over an existing artifact; the same content is a no-op", () => {
+    const src = artifact("src/review.md", "command", "review");
+    install(src, o());
+    expect(install(src, o()).status).toBe("unchanged");
+    const other = artifact("other/review.md", "command", "review", "changed");
+    expect(() => install(other, o())).toThrow(/command:review already exists .* different content/);
+    expect(readFileSync(at("commands", "review.md"), "utf8")).toMatch(/\nbody\n/);
+  });
+  it("compares every file of a skill folder", () => {
+    const src = dirname(artifact("src/tdd/SKILL.md", "skill", "tdd"));
+    install(src, o());
+    write("src/tdd/extra.md", "new");
+    expect(() => install(src, o())).toThrow(/skill:tdd already exists/);
+  });
+});
+
+describe("remove", () => {
+  it("deletes an installed skill and command", () => {
+    install(dirname(artifact("src/tdd/SKILL.md", "skill", "tdd")), o());
+    install(artifact("src/review.md", "command", "review"), o());
+    expect(remove("tdd", { ...o(), kind: "skill" })).toMatchObject({ kind: "skill", name: "tdd" });
+    remove("review", { ...o(), kind: "command" });
+    expect(existsSync(at("skills", "tdd"))).toBe(false);
+    expect(existsSync(at("commands", "review.md"))).toBe(false);
+  });
+  it("fails loudly on an unknown artifact, kind or name", () => {
+    expect(() => remove("ghost", { ...o(), kind: "agent" })).toThrow(/agent:ghost is not installed/);
+    expect(() => remove("x", { ...o(), kind: "plugin" })).toThrow(/kind "plugin"/);
+    expect(() => remove("../x", { ...o(), kind: "agent" })).toThrow(/not a slug/);
+  });
+});
+
+describe("atril install / remove CLI", () => {
+  it("installs a path and removes kind:name", () => {
+    artifact("src/review.md", "command", "review");
+    const installed = run("install", "src/review.md", "--root", "store");
+    expect(installed.status).toBe(0);
+    expect(installed.stdout).toMatch(/installed\tcommand:review/);
+    expect(run("remove", "command:review", "--root", "store").status).toBe(0);
+    expect(existsSync(at("commands", "review.md"))).toBe(false);
+  });
+  it("an unknown remove or a malformed ref fails with exit 1", () => {
+    const unknown = run("remove", "agent:ghost", "--root", "store");
+    expect(unknown.status).toBe(1);
+    expect(unknown.stderr).toMatch(/agent:ghost is not installed/);
+    expect(run("remove", "ghost", "--root", "store").stderr).toMatch(/kind:name/);
+  });
+});
