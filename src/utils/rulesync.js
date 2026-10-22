@@ -142,15 +142,13 @@ function entryContent(projectDir, key) {
 export function settleRulesyncEntry({ projectDir, key, action }) {
   const from = { adopt: ["kj", USER_OWNER], release: ["kj"] }[action];
   if (!from) throw new Error(`rulesync: unknown action "${action}" (adopt | release)`);
-  let entry;
-  withLedger(projectDir, "kj", (ledger) => {
+  const { entries } = withLedger(projectDir, "kj", (ledger) => {
     const owner = ledger.entries[key]?.owner;
     if (!owner) throw new Error(`"${key}" is not in .rulesync/.owners.json: it has no owner to ${action} from`);
     if (!from.includes(owner)) throw new Error(`"${key}" is owned by ${owner}; kj cannot ${action} it`);
-    entry = action === "adopt"
+    ledger.entries[key] = action === "adopt"
       ? { owner: "kj", hash: hashContent(entryContent(projectDir, key)) }
       : { ...ledger.entries[key], owner: USER_OWNER };
-    ledger.entries[key] = entry;
   });
-  return { key, ...entry };
+  return { key, ...entries[key] };
 }
