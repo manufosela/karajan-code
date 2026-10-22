@@ -17,11 +17,12 @@ export const SLUG = /^[a-z0-9][a-z0-9._-]*$/;
 const RELATION = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/;
 
-const isMapping = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+export const isMapping = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 // Locale-independent order, so the hash is the same on every machine.
 const byKey = ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0);
-const canonical = (value) =>
-  JSON.stringify(value, (_key, v) => (isMapping(v) ? Object.fromEntries(Object.entries(v).sort(byKey)) : v));
+/** JSON.stringify replacer that writes every mapping's keys in sorted order. */
+export const sortKeys = (_key, v) => (isMapping(v) ? Object.fromEntries(Object.entries(v).sort(byKey)) : v);
+const canonical = (value) => JSON.stringify(value, sortKeys);
 
 function validate(path, front) {
   const fail = (why) => { throw new Error(`${path}: ${why}`); };

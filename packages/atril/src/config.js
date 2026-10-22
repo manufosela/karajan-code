@@ -6,7 +6,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { KINDS, SLUG } from "./model.js";
+import { isMapping, KINDS, SLUG, sortKeys } from "./model.js";
 import { resolveRoot } from "./scan.js";
 
 export const DEFAULT_CONFIG = Object.freeze({
@@ -15,7 +15,6 @@ export const DEFAULT_CONFIG = Object.freeze({
   catalogs: [],
   rulesync: { generate: false },
 });
-const isMapping = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 const configPath = ({ root, projectDir = process.cwd(), env = process.env } = {}) =>
   join(resolve(projectDir, resolveRoot({ root, env })), "atril.json");
 
@@ -73,13 +72,11 @@ export function readConfig(opts) {
   return normalize(raw, path);
 }
 
-const sorted = (_key, value) =>
-  isMapping(value) ? Object.fromEntries(Object.keys(value).toSorted().map((key) => [key, value[key]])) : value;
 
 /** Validate, then write through a temp file and a rename, so a reader never sees half a file. */
 export function writeConfig(config, opts) {
   const path = configPath(opts);
-  const text = `${JSON.stringify(normalize(config, path), sorted, 2)}\n`;
+  const text = `${JSON.stringify(normalize(config, path), sortKeys, 2)}\n`;
   mkdirSync(dirname(path), { recursive: true });
   const temp = `${path}.${process.pid}.tmp`;
   try {
