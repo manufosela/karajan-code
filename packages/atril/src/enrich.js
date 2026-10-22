@@ -27,27 +27,43 @@ export function extractKeywords(description, body) {
   return [...keywords].toSorted().slice(0, MAX_KEYWORDS);
 }
 
-// The author's frontmatter lines with the top-level `atril:` key and its indented lines removed.
+// The author's frontmatter lines minus the top-level `atril:` key and its lines.
+// Blank and comment lines inside the block go with it; those right before the
+// next top-level key belong to that key and stay.
 function withoutAtrilBlock(front) {
+  const kept = [];
+  let pending = [];
   let inBlock = false;
-  return front
-    .split("\n")
-    .filter((line) => {
-      if (/^atril[ \t]*:/.test(line)) inBlock = true;
-      else if (!/^[ \t]/.test(line)) inBlock = false;
-      return !inBlock;
-    })
-    .join("\n");
+  for (const line of front.split("\n")) {
+    if (/^atril[ \t]*:/.test(line)) inBlock = true;
+    else if (inBlock && /^[ \t]*(#.*)?\r?$/.test(line)) pending.push(line);
+    else if (inBlock && /^[ \t]/.test(line)) pending = [];
+    else {
+      kept.push(...pending, line);
+      pending = [];
+      inBlock = false;
+    }
+  }
+  return [...kept, ...pending].join("\n");
 }
+
+const withoutAtril = ({ atril: _atril, ...author }) => author;
 
 function rewrite(path, atril) {
   const raw = readFileSync(path, "utf8");
-  const bom = raw.startsWith("﻿") ? "﻿" : "";
+  const bom = raw.startsWith("\uFEFF") ? "\uFEFF" : "";
   const text = raw.slice(bom.length);
-  const front = FRONTMATTER.exec(text)[1];
+  const match = FRONTMATTER.exec(text);
+  if (!match) throw new Error(`${path}: no frontmatter (--- … --- lines at the top)`);
+  const front = match[1];
+  const eol = front.includes("\r\n") ? "\r\n" : "\n";
+  const block = yaml.dump({ atril }, { flowLevel: 2, lineWidth: -1 }).trimEnd().replaceAll("\n", eol);
+  const newFront = `${withoutAtrilBlock(front)}${eol}${block}`;
+  if (!isDeepStrictEqual(withoutAtril(yaml.load(newFront)), withoutAtril(yaml.load(front)))) {
+    throw new Error(`${path}: rewriting atril: would change the author's frontmatter; edit it by hand`);
+  }
   const start = text.indexOf("\n") + 1;
-  const block = yaml.dump({ atril }, { flowLevel: 2, lineWidth: -1 }).trimEnd();
-  writeFileSync(path, `${bom}${text.slice(0, start)}${withoutAtrilBlock(front)}\n${block}${text.slice(start + front.length)}`);
+  writeFileSync(path, `${bom}${text.slice(0, start)}${newFront}${text.slice(start + front.length)}`);
 }
 
 /**

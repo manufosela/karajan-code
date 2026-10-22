@@ -11,6 +11,7 @@ import { parseArtifact } from "../src/model.js";
 
 const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 const AUTHOR = "---\nname: tdd # the slug\ndescription: Write the failing test first\nkind: skill\nroles: [coder]\n---\n";
+const AUTHOR_FRONT = AUTHOR.replace(/---\n$/, "");
 const BODY = "# Red, green\n\nThe body stays.\n\n```sh\n# not a heading\n```\n## Refactor the code\n";
 let dir;
 let file;
@@ -37,7 +38,7 @@ describe("enrich", () => {
   it("writes keywords and the hash under atril:, keeping the author's text and body byte for byte", () => {
     expect(run()).toEqual([{ path: file, state: "not enriched" }]);
     const text = readFileSync(file, "utf8");
-    expect(text.startsWith(AUTHOR.slice(0, -4))).toBe(true);
+    expect(text.startsWith(AUTHOR_FRONT)).toBe(true);
     expect(text.endsWith(`\n---\n${BODY}`)).toBe(true);
     const artifact = parseArtifact(file);
     expect(artifact.atril).toEqual({ keywords: extractKeywords(artifact.description, BODY), hash: artifact.hash });
@@ -51,6 +52,20 @@ describe("enrich", () => {
     expect(text).toContain("roles: [coder]\natril:\n  bundle: kj\n  hash: sha256:");
     expect(text.match(/^atril:/gm)).toHaveLength(1);
     expect(run()).toEqual([]);
+  });
+
+  it("removes a whole atril: block holding blank and comment lines, keeping the author's comment", () => {
+    writeFileSync(file, AUTHOR.replace("roles", "atril:\n  bundle: kj\n\n# old\n  hash: old\n\n# roles\nroles") + BODY);
+    run();
+    const text = readFileSync(file, "utf8");
+    expect(text).toContain("kind: skill\n\n# roles\nroles: [coder]\natril:\n  bundle: kj\n  hash: sha256:");
+    expect(run(true)).toEqual([]);
+  });
+
+  it("keeps CRLF line endings in the new block", () => {
+    writeFileSync(file, (AUTHOR + BODY).replaceAll("\n", "\r\n"));
+    run();
+    expect(readFileSync(file, "utf8")).not.toMatch(/[^\r]\n/);
   });
 
   it("--check reports an edited body as out of date and writes nothing", () => {
