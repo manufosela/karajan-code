@@ -122,7 +122,8 @@ export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, 
 // in one (`rules/x.md#<block>`), as its ledger entry hashes it.
 function entryContent(projectDir, key) {
   if (/^(mcp|permissions|hooks):/.test(key)) throw new Error(`"${key}": kj only adopts rules files and their blocks`);
-  const [path, blockId] = key.split("#");
+  const [path, blockId, ...rest] = key.split("#");
+  if (rest.length || path.startsWith("/") || path.split("/").includes("..")) throw new Error(`"${key}": not a key inside .rulesync/`);
   const file = join(projectDir, ".rulesync", ...path.split("/"));
   if (!existsSync(file)) throw new Error(`${file}: missing, nothing to adopt for "${key}"`);
   const text = readFileSync(file, "utf8");

@@ -379,7 +379,7 @@ export function registerMeta(program, { pkgVersion }) {
 
   // HU-0003 (ADR 0022): settle a .rulesync/ ledger entry edited by hand.
   const rulesyncCmd = program.command("rulesync").description("The .rulesync/ ownership ledger (ADR 0022)");
-  for (const [action, what] of [["adopt", "Take the entry's current content as kj's"], ["release", "Hand kj's entry to you: kj stops writing it"]]) {
+  for (const [action, what] of [["adopt", "Take the entry's current content as kj's"], ["release", "Hand kj's entry to you: kj stops writing it, and later installs stop on it until you adopt it"]]) {
     rulesyncCmd.command(`${action} <key>`).description(`${what} (key as in .rulesync/.owners.json)`)
       .option("--json", "Machine-readable output")
       .action(async (key, flags) => {

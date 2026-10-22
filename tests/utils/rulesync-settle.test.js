@@ -56,6 +56,10 @@ describe("kj rulesync adopt|release", () => {
     expect(() => settleRulesyncEntry({ projectDir: dir, key: "rules/nope.md", action })).toThrow(/rules\/nope\.md.*no owner/);
   });
 
+  it.each(["../x.md", "/etc/x.md", "rules/karajan.md#a#b"])("adopt rejects the malformed key %s", (bad) => {
+    withLedger(dir, "kj", (l) => { l.entries[bad] = { owner: "kj", hash: `sha256:${"0".repeat(64)}` }; });
+    expect(() => settleRulesyncEntry({ projectDir: dir, key: bad, action: "adopt" })).toThrow(/not a key inside \.rulesync/);
+  });
   it("release of an entry already the user's fails naming the owner", () => {
     settleRulesyncEntry({ projectDir: dir, key, action: "release" });
     expect(() => settleRulesyncEntry({ projectDir: dir, key, action: "release" })).toThrow(/owned by user/);
