@@ -105,7 +105,7 @@ Karajan will load it when relevant.
 ## OpenSkills integration
 
 Karajan auto-injects domain-specific skills into role prompts so each AI agent
-has the right context for the task at hand. This page documents how detection
+has the right context for the task at hand. This section documents how detection
 works, how skills are routed to roles, how the cache behaves, and how to
 customize the behavior.
 
