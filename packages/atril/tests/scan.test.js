@@ -37,8 +37,9 @@ describe("resolveRoot", () => {
 
 describe("scan", () => {
   const scanProj = () => scan({ projectDir: dir, root: "proj", userRoot: join(dir, "none") });
-  it("finds the three kinds in the store", () => {
+  it("finds the three kinds in the store and skips dotfiles like .DS_Store", () => {
     store("proj");
+    for (const kindDir of ["skills", "commands", "agents"]) writeFileSync(join(dir, "proj", kindDir, ".DS_Store"), "");
     const res = scanProj();
     expect(names(res)).toEqual(["agent:tester", "command:review", "skill:tdd"]);
     expect(res.shadowed).toEqual([]);
@@ -58,12 +59,13 @@ describe("scan", () => {
     expect(res.shadowed).toEqual([{ kind: "command", name: "review", path: join(dir, "user", "commands", "review.md") }]);
   });
 
-
   it.each([
     ["its kind contradicts its directory", () => put("proj", "commands/odd.md", "skill"), /odd\.md.*kind skill.*commands/],
     ["a skill folder has no SKILL.md", () => mkdirSync(join(dir, "proj", "skills", "typo"), { recursive: true }), /typo.*SKILL\.md/],
     ["a command file is not Markdown", () => put("proj", "commands/x.txt", "command", "x"), /x\.txt.*\.md/],
     ["its name differs from its file", () => put("proj", "commands/a.md", "command", "b"), /a\.md.*name "b"/],
+    ["a command is a folder", () => mkdirSync(join(dir, "proj", "commands", "foo.md"), { recursive: true }), /foo\.md: a command must be a file/],
+    ["a skill is a file", () => put("proj", "skills/x.md", "skill", "x"), /x\.md: a skill must be a folder/],
   ])("fails loudly when %s", (_label, arrange, why) => {
     arrange();
     expect(scanProj).toThrow(why);
@@ -73,7 +75,6 @@ describe("scan", () => {
     put("user", "agents/helper.md", "agent");
     expect(names(scan({ projectDir: dir, root: "proj", userRoot: "user" }))).toEqual(["agent:helper"]);
   });
-
 
   it("never writes", () => {
     store("proj");
@@ -95,7 +96,9 @@ describe("atril scan", () => {
 
   it("an invalid store fails with a one-line message, no stack trace", () => {
     put("proj", "commands/odd.md", "skill");
-    const res = spawnSync(process.execPath, [BIN, "scan", "--root", "proj"], { cwd: dir, encoding: "utf8" });
+    const res = spawnSync(process.execPath, [BIN, "scan", "--root", "proj"], {
+      cwd: dir, encoding: "utf8", env: { ...process.env, ATRIL_USER_ROOT: join(dir, "none") },
+    });
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/^atril: .*odd\.md/);
     expect(res.stderr).not.toMatch(/\n\s+at /);

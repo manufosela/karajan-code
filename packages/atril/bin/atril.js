@@ -8,7 +8,10 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
 function runScan(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
   const result = scan({ root: values.root });
-  if (values.json) return console.log(JSON.stringify(result, null, 2));
+  if (values.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
   for (const artifact of result.artifacts) console.log(`${artifact.kind}\t${artifact.name}\t${artifact.path}`);
   for (const shadow of result.shadowed) console.log(`shadowed\t${shadow.kind}:${shadow.name}\t${shadow.path}`);
 }

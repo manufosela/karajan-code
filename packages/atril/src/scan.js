@@ -5,7 +5,7 @@
  * and the project's artifact wins a clash. Anything in a kind directory that
  * is not a valid artifact fails loudly, and a scan never writes.
  */
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArtifact } from "./model.js";
@@ -29,10 +29,16 @@ function scanStore(root) {
   for (const { kind, dir, file, name } of LAYOUT) {
     const base = join(root, dir);
     if (!existsSync(base)) continue;
-    for (const entry of readdirSync(base).toSorted()) {
+    // Dotfiles (.DS_Store and friends) are OS noise, not artifacts.
+    const visible = readdirSync(base, { withFileTypes: true }).filter((dirent) => !dirent.name.startsWith("."));
+    for (const dirent of visible.toSorted((a, b) => (a.name < b.name ? -1 : 1))) {
+      const entry = dirent.name;
+      const at = join(base, entry);
+      const isFolder = dirent.isSymbolicLink() ? statSync(at).isDirectory() : dirent.isDirectory();
+      if (isFolder !== (kind === "skill")) throw new Error(`${at}: a ${kind} must be a ${kind === "skill" ? "folder" : "file"}`);
       const path = join(base, file(entry));
       if (kind !== "skill" && !entry.endsWith(".md")) throw new Error(`${path}: a ${kind} must be a .md file`);
-      if (!existsSync(path)) throw new Error(`${join(base, entry)}: a skill folder needs a SKILL.md`);
+      if (!existsSync(path)) throw new Error(`${at}: a skill folder needs a SKILL.md`);
       const artifact = parseArtifact(path);
       if (artifact.kind !== kind) throw new Error(`${path}: declares kind ${artifact.kind} but lives in ${dir}/`);
       if (artifact.name !== name(entry)) throw new Error(`${path}: declares name "${artifact.name}" but is named "${name(entry)}"`);
