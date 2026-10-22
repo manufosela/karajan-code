@@ -8,11 +8,13 @@ import { KINDS } from "./model.js";
 import { scan } from "./scan.js";
 
 const WEIGHTS = { name: 8, keywords: 4, description: 2, body: 1 };
-const tokenize = (text) => new Set(String(text).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+const tokenize = (text) => new Set(String(text).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
 
 function fieldsOf(artifact) {
   const { keywords = [] } = artifact.atril;
-  if (!Array.isArray(keywords)) throw new Error(`${artifact.path}: atril.keywords must be a list`);
+  if (!Array.isArray(keywords) || !keywords.every((k) => typeof k === "string")) {
+    throw new Error(`${artifact.path}: atril.keywords must be a list of strings`);
+  }
   return {
     name: tokenize(artifact.name),
     keywords: tokenize(keywords.join(" ")),

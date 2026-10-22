@@ -55,5 +55,13 @@ describe("search", () => {
   it("keywords that are not a list fail loudly, naming the file", () => {
     put("proj", "agents/bad.md", "name: bad\ndescription: d\nkind: agent\natril:\n  keywords: tdd");
     expect(() => find("tdd")).toThrow(/bad\.md: atril\.keywords must be a list/);
+    put("proj", "agents/bad.md", "name: bad\ndescription: d\nkind: agent\natril:\n  keywords: [{ a: 1 }]");
+    expect(() => find("tdd")).toThrow(/bad\.md: atril\.keywords must be a list of strings/);
+  });
+  it("matches accented and non-Latin terms whole", () => {
+    put("proj", "skills/es/SKILL.md", "name: es\ndescription: Búsqueda テスト\nkind: skill");
+    expect(find("búsqueda").map((hit) => hit.name)).toEqual(["es"]);
+    expect(find("テスト").map((hit) => hit.name)).toEqual(["es"]);
+    expect(find("squeda")).toEqual([]);
   });
 });
