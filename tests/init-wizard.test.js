@@ -79,6 +79,9 @@ vi.mock("../src/commands/harden.js", () => ({
   hardenCommand: vi.fn().mockResolvedValue({ ok: true })
 }));
 
+// HU-0011: a rulesync that is never there, so init cannot touch this repo.
+vi.mock("../src/utils/rulesync.js", async (importOriginal) => ({ ...(await importOriginal()), defaultRun: vi.fn() }));
+
 describe("initCommand", () => {
   let initCommand;
   let loadConfig, writeConfig;
@@ -183,6 +186,25 @@ describe("initCommand", () => {
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("--no-sonar"));
   });
 
+  describe("rulesync adoption offer (HU-0011)", () => {
+    const config = { coder: "claude", reviewer: "codex", roles: { coder: {}, reviewer: {} }, pipeline: {}, sonarqube: { enabled: false }, development: { methodology: "tdd" } };
+    const notInstalled = () => { throw new Error("rulesync: not found"); };
+    const said = (fn) => fn.mock.calls.flat().join("\n");
+    it.each([
+      [{}, "info", /pass --rulesync to adopt it/, false],
+      [{ rulesync: false }, "info", /^(?![\s\S]*rulesync)/, false],
+      [{ rulesync: true }, "warn", /npm install --save-dev rulesync/, true],
+    ])("with no TTY and flags %o, says what it did", async (flags, level, message, ran) => {
+      isTTY.mockReturnValue(false);
+      loadConfig.mockResolvedValue({ config: structuredClone(config), exists: false });
+      const { defaultRun } = await import("../src/utils/rulesync.js");
+      defaultRun.mockImplementation(notInstalled);
+      await initCommand({ logger, flags: { noInteractive: true, harden: false, sonar: false, ...flags } });
+      expect(said(logger[level])).toMatch(message);
+      expect(defaultRun.mock.calls.length > 0).toBe(ran);
+    });
+  });
+
   it("runs wizard when interactive and config does not exist", async () => {
     isTTY.mockReturnValue(true);
     const mockConfig = {
@@ -222,6 +244,7 @@ describe("initCommand", () => {
     // KJC-BUG-0087 + KJC-TSK-0571: no scope question, no per-role questions by
     // default. 2 (agents) + 3 (methodology/pipelineLang/huLang) = 5
     expect(mockWizard.select).toHaveBeenCalledTimes(5);
+    expect(mockWizard.confirm).toHaveBeenCalledWith(expect.stringMatching(/^Adopt rulesync\?/), false);
     // per-role providers stay null (inherit) when advanced routing is declined
     expect(writeConfig.mock.calls[0][1].roles.tester.provider).toBeNull();
     expect(writeConfig).toHaveBeenCalled();
