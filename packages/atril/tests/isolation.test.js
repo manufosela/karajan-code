@@ -29,6 +29,13 @@ describe("atril imports nothing outside its package", () => {
     ["const name = 'karajan-core'; const m = await import(name);"],
     ['import { createRequire } from "node:module";'],
     ['import { createRequire } from "module";'],
+    // KJC-TSK-1129 (review of #2293): absolute paths and file: URLs reach outside the package too.
+    ['import { x } from "/repo/src/utils/rulesync.js";'],
+    ['import { x } from "file:///repo/src/utils/rulesync.js";'],
+    ['const m = await import("/repo/src/paths.js");'],
+    ['const m = await import("file:///repo/src/paths.js");'],
+    ['import { x } from "FILE:///repo/src/paths.js";'],
+    ['import { x } from "C:/repo/src/paths.js";'],
   ])("lint rejects %s", async (code) => {
     expect(await lint(code)).not.toEqual([]);
   });

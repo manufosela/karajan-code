@@ -3,12 +3,17 @@
 import { describe, it, expect } from "vitest";
 import { repoPrivacyAllow, withRepoAllow } from "../../src/review/repo-privacy.js";
 
+// A git that answers in Spanish, as a user's git may (KJC-BUG-0387): only exit codes are portable.
+const BASES = new Set(["main", "abc123"]);
 const gitShowing = (files) => {
   const calls = [];
   const run = async (cmd, args) => {
     calls.push([cmd, ...args]);
+    const sub = args[2];
     const spec = args.at(-1);
-    return spec in files ? { exitCode: 0, stdout: files[spec] } : { exitCode: 128, stderr: `fatal: path '${spec}' does not exist` };
+    if (sub === "rev-parse") return BASES.has(spec.replace("^{commit}", "")) ? { exitCode: 0, stdout: "f00d" } : { exitCode: 128, stderr: "fatal: se necesitaba una sola revisión" };
+    if (spec in files) return { exitCode: 0, stdout: sub === "show" ? files[spec] : "" };
+    return { exitCode: 128, stderr: `fatal: ruta '.karajan/privacy.yml' no existe en '${spec.split(":")[0]}'` };
   };
   return { run, calls };
 };
@@ -17,7 +22,7 @@ describe("repoPrivacyAllow", () => {
   it("reads the allow list of .karajan/privacy.yml at the base of the range", async () => {
     const { run, calls } = gitShowing({ "main:.karajan/privacy.yml": "allow:\n  - qa-bot@example.org\n  - ' known-value '\n" });
     expect(await repoPrivacyAllow({ projectDir: "/r", range: "main...feature", run })).toEqual(["qa-bot@example.org", "known-value"]);
-    expect(calls[0]).toEqual(["git", "-C", "/r", "show", "main:.karajan/privacy.yml"]);
+    expect(calls).toContainEqual(["git", "-C", "/r", "show", "main:.karajan/privacy.yml"]);
   });
 
   it("takes the base of a two-dot range too", async () => {
@@ -31,8 +36,8 @@ describe("repoPrivacyAllow", () => {
   });
 
   it("fails loudly when git cannot read the base", async () => {
-    const run = async () => ({ exitCode: 128, stderr: "fatal: invalid object name 'nope'." });
-    await expect(repoPrivacyAllow({ projectDir: "/r", range: "nope...feature", run })).rejects.toThrow(/invalid object name/);
+    const { run } = gitShowing({});
+    await expect(repoPrivacyAllow({ projectDir: "/r", range: "nope...feature", run })).rejects.toThrow(/base nope/);
   });
 
   it("never takes a personal list from a repo", async () => {

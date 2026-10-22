@@ -55,7 +55,8 @@ import security from "eslint-plugin-security";
 import globals from "globals";
 
 // HU-0006 (ADR 0021): what atril may not import, shared by both isolation rules.
-const ATRIL_FOREIGN = "^(karajan-|@karajan(-family)?/|#)";
+// Absolute paths, file: URLs and drive letters reach outside the package too (KJC-TSK-1129).
+const ATRIL_FOREIGN = "^(karajan-|@karajan(-family)?/|#|/|[Ff][Ii][Ll][Ee]:|[A-Za-z]:)";
 const ATRIL_ISOLATION = "atril imports nothing outside its package (ADR 0021).";
 const NO_CREATE_REQUIRE = { importNames: ["createRequire"], message: ATRIL_ISOLATION };
 

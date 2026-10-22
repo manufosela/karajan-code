@@ -8,8 +8,10 @@
  * source instead, with the same managed markers.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
+import { findManagedBlock } from "./managed-markers.js";
+import { hashContent, USER_OWNER, verifyEntry, withLedger } from "./rulesync-ledger.js";
 
 export const RULESYNC_RULE = join(".rulesync", "rules", "karajan.md");
 
@@ -25,16 +27,28 @@ const FRONTMATTER = [
   "",
 ].join("\n");
 
-/** The project uses Rulesync when it has `.rulesync/` or `rulesync.jsonc`. */
+// HU-0011: kj init writes this before adopting rulesync and removes it after the
+// last import. While it exists the adoption is half done, so nothing in kj treats
+// the project as a rulesync one. Local state: never commit it.
+export const ADOPTION_PENDING = join(".rulesync", ".kj-adoption-pending");
+
+/** The project uses Rulesync when it has `.rulesync/` or `rulesync.jsonc`, and no adoption is half done. */
 export function detectRulesync(projectDir) {
+  if (existsSync(join(projectDir, ADOPTION_PENDING))) return false;
   return existsSync(join(projectDir, ".rulesync")) || existsSync(join(projectDir, "rulesync.jsonc"));
 }
 
 /** What a brand-new karajan.md starts with, before kj's managed blocks. */
 export const rulesyncRuleSeed = () => FRONTMATTER;
 
+/** The project's own rulesync binary, or npx without installing: kj never runs a package fetched on the fly. */
+export function rulesyncCommand(projectDir, args) {
+  const local = join(projectDir, "node_modules", ".bin", "rulesync");
+  return existsSync(local) ? [local, args] : ["npx", ["--no-install", "rulesync", ...args]];
+}
+
 const GENERATE_ARGS = ["generate", "--targets", "*", "--features", "*"];
-const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+export const defaultRun = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
 
 /**
  * Compile kj's rules out to every agent, only when the project declared
@@ -48,8 +62,7 @@ export function maybeRulesyncGenerate({ projectDir, config, logger = console, ru
     logger.info?.(`kj: its rules are in ${RULESYNC_RULE}; run rulesync generate to reach your agents, or declare rulesync.generate: true`);
     return { ran: false, reason: "not-opted-in" };
   }
-  const local = join(projectDir, "node_modules", ".bin", "rulesync");
-  const [cmd, args] = existsSync(local) ? [local, GENERATE_ARGS] : ["npx", ["--no-install", "rulesync", ...GENERATE_ARGS]];
+  const [cmd, args] = rulesyncCommand(projectDir, GENERATE_ARGS);
   try {
     run(cmd, args, projectDir);
     logger.info?.("kj: rulesync generate spread kj's rules to every agent");
@@ -58,4 +71,95 @@ export function maybeRulesyncGenerate({ projectDir, config, logger = console, ru
     logger.warn?.(`kj: rulesync generate failed (${err.message}); kj's rules are in ${RULESYNC_RULE}, run it yourself`);
     return { ran: false, reason: "failed" };
   }
+}
+
+// HU-0002 (ADR 0022, decision 3): kj owns its managed blocks of karajan.md,
+// not the file — the team's own rules outside them stay free.
+const blockText = (text, blockId) => {
+  const block = findManagedBlock(text, blockId);
+  return block.found ? text.split("\n").slice(block.startLine, block.endLine + 1).join("\n") : null;
+};
+
+/**
+ * Write one of kj's blocks of a rulesync rule through the ownership ledger.
+ * The file is read, checked and written under the ledger's lock: `render`
+ * gets its current text (null when absent) and returns `{ content, ... }`.
+ * A block kj wrote before the ledger existed is claimed once, and said; an
+ * owned block edited, broken or deleted by hand stops the write.
+ * @returns {object} what `render` returned, plus `claimed` when it was claimed.
+ */
+export function writeRulesyncBlock({ projectDir, file = RULESYNC_RULE, blockId, render, logger = console }) {
+  // Ledger keys are a contract with atril: always posix.
+  const key = `${relative(".rulesync", file).split(sep).join("/")}#${blockId}`;
+  const target = join(projectDir, file);
+  let result;
+  withLedger(projectDir, "kj", (ledger) => {
+    const previous = existsSync(target) ? readFileSync(target, "utf8") : null;
+    const current = previous === null ? null : blockText(previous, blockId);
+    const owned = Object.hasOwn(ledger.entries, key);
+    const owner = ledger.entries[key]?.owner;
+    if (owned && owner !== "kj") {
+      throw new Error(`${file}: "${key}" belongs to ${owner}; kj will not touch it`
+        + (owner === USER_OWNER ? ` (kj rulesync adopt ${key} gives it back to kj)` : ""));
+    }
+    if (current === null ? owned : verifyEntry(ledger, key, current) === "edited") {
+      throw new Error(`${file}: kj's ${blockId} block was edited by hand; kj will not overwrite it. `
+        + `Restore kj's block as it was, run kj rulesync adopt ${key} to keep the edit as kj's, `
+        + `or kj rulesync release ${key} to make the block yours`);
+    }
+    const claimed = current !== null && !owned;
+    if (claimed) logger.info(`kj: claimed ${key}, written by kj before the ownership ledger existed`);
+    result = { ...render(previous), ...(claimed ? { claimed } : {}) };
+    const written = blockText(result.content, blockId);
+    if (written === null) throw new Error(`${file}: rendering kj's ${blockId} block left it out; nothing written`);
+    if (result.content !== previous) {
+      // Rule first, ledger second (withLedger writes it on return): a crash in
+      // between reads as "edited" next time — loud, never a silent overwrite.
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(`${target}.tmp`, result.content);
+      try {
+        renameSync(`${target}.tmp`, target);
+      } catch (err) {
+        rmSync(`${target}.tmp`, { force: true });
+        throw err;
+      }
+    }
+    ledger.entries[key] = { owner: "kj", hash: hashContent(written) };
+  });
+  return result;
+}
+
+// The current content of a rules file (`rules/x.md`) or of a managed block
+// in one (`rules/x.md#<block>`), as its ledger entry hashes it.
+function entryContent(projectDir, key) {
+  if (/^(mcp|permissions|hooks):/.test(key)) throw new Error(`"${key}": kj only adopts rules files and their blocks`);
+  const [path, blockId, ...rest] = key.split("#");
+  if (rest.length || path.startsWith("/") || path.split("/").includes("..")) throw new Error(`"${key}": not a key inside .rulesync/`);
+  const file = join(projectDir, ".rulesync", ...path.split("/"));
+  if (!existsSync(file)) throw new Error(`${file}: missing, nothing to adopt for "${key}"`);
+  const text = readFileSync(file, "utf8");
+  const content = blockId === undefined ? text : blockText(text, blockId);
+  if (content === null) throw new Error(`${file}: no complete ${blockId} block, nothing to adopt for "${key}"`);
+  return content;
+}
+
+/**
+ * HU-0003: settle a ledger entry. `adopt` records its current content as
+ * kj's (also taking back one released to the user); `release` hands kj's
+ * entry to the user, who then owns it: kj never claims it again.
+ * @param {{ projectDir: string, key: string, action: "adopt"|"release" }} args
+ * @returns {{ key: string, owner: string, hash: string }}
+ */
+export function settleRulesyncEntry({ projectDir, key, action }) {
+  const from = { adopt: ["kj", USER_OWNER], release: ["kj"] }[action];
+  if (!from) throw new Error(`rulesync: unknown action "${action}" (adopt | release)`);
+  const { entries } = withLedger(projectDir, "kj", (ledger) => {
+    const owner = ledger.entries[key]?.owner;
+    if (!owner) throw new Error(`"${key}" is not in .rulesync/.owners.json: it has no owner to ${action} from`);
+    if (!from.includes(owner)) throw new Error(`"${key}" is owned by ${owner}; kj cannot ${action} it`);
+    ledger.entries[key] = action === "adopt"
+      ? { owner: "kj", hash: hashContent(entryContent(projectDir, key)) }
+      : { ...ledger.entries[key], owner: USER_OWNER };
+  });
+  return { key, ...entries[key] };
 }

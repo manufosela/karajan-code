@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { detectRulesync, RULESYNC_RULE, rulesyncRuleSeed } from "../utils/rulesync.js";
+import { detectRulesync, RULESYNC_RULE, rulesyncRuleSeed, writeRulesyncBlock } from "../utils/rulesync.js";
 import { guidelinesBody } from "./guidelines-templates.js";
 
 const BLOCK_VERSION = 1;
@@ -45,10 +45,7 @@ export function installGuidelines({ projectDir = process.cwd(), dryRun = false, 
   // KJC-TSK-0879: with Rulesync, its source is the file of truth; writing into
   // CLAUDE.md/AGENTS.md would be erased by the next `rulesync generate`.
   const rulesync = detectRulesync(projectDir);
-  for (const file of rulesync ? [RULESYNC_RULE] : TARGETS) {
-    const target = join(projectDir, file);
-    const seed = rulesync ? rulesyncRuleSeed() : "";
-    const raw = existsSync(target) ? readFileSync(target, "utf8") : seed;
+  const render = (raw) => {
     const { content: source, migrated } = stripDevHooksBlock(raw);
     const { content, action } = upsertManagedBlock({
       source,
@@ -65,11 +62,24 @@ export function installGuidelines({ projectDir = process.cwd(), dryRun = false, 
     // KJC-BUG-0232: decir CUALES se van, o el aviso obliga a salir a git diff.
     const kept = new Set(nonEmpty(content));
     const removed = shrank ? nonEmpty(raw).filter((l) => !kept.has(l) && !l.includes("kj:managed:")) : [];
-    if (!dryRun && (migrated || action !== "unchanged")) {
-      mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, content);
+    return { content, action: migrated ? "migrated" : action, ...(shrank ? { shrank: true, removed } : {}) };
+  };
+  for (const file of rulesync ? [RULESYNC_RULE] : TARGETS) {
+    const target = join(projectDir, file);
+    const seed = rulesync ? rulesyncRuleSeed() : "";
+    let res;
+    if (rulesync && !dryRun) {
+      // HU-0002: read, checked and written under the ownership ledger's lock.
+      res = writeRulesyncBlock({ projectDir, blockId: "guidelines", render: (previous) => render(previous ?? seed) });
+    } else {
+      res = render(existsSync(target) ? readFileSync(target, "utf8") : seed);
+      if (!dryRun && res.action !== "unchanged") {
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, res.content);
+      }
     }
-    results.push({ file, action: migrated ? "migrated" : action, ...(shrank ? { shrank: true, removed } : {}) });
+    const { content: _content, ...summary } = res;
+    results.push({ file, ...summary });
   }
   return { dryRun, guidelines: results };
 }

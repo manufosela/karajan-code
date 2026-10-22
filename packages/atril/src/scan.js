@@ -24,7 +24,7 @@ const LAYOUT = [
 
 export const keyOf = (artifact) => `${artifact.kind}:${artifact.name}`;
 
-export function scanStore(root) {
+export function scanStore(root, source) {
   const found = [];
   for (const { kind, dir, file, name } of LAYOUT) {
     const base = join(root, dir);
@@ -42,7 +42,7 @@ export function scanStore(root) {
       const artifact = parseArtifact(path);
       if (artifact.kind !== kind) throw new Error(`${path}: declares kind ${artifact.kind} but lives in ${dir}/`);
       if (artifact.name !== name(entry)) throw new Error(`${path}: declares name "${artifact.name}" but is named "${name(entry)}"`);
-      found.push(artifact);
+      found.push({ ...artifact, source });
     }
   }
   return found;
@@ -51,16 +51,17 @@ export function scanStore(root) {
 /**
  * @param {{ projectDir?: string, root?: string, userRoot?: string, env?: object }} [opts]
  *   userRoot defaults to ATRIL_USER_ROOT, then ~/.atril; relative roots resolve against projectDir.
+ *   Each artifact carries `source`: the store it came from, "project" or "user".
  * @returns {{ artifacts: object[], shadowed: { kind: string, name: string, path: string }[] }}
  */
 export function scan({ projectDir = process.cwd(), root, userRoot, env = process.env } = {}) {
   const projectRoot = resolve(projectDir, resolveRoot({ root, env }));
   const userStore = resolve(projectDir, userRoot || env.ATRIL_USER_ROOT || join(homedir(), DEFAULT_ROOT));
-  const artifacts = scanStore(projectRoot);
+  const artifacts = scanStore(projectRoot, "project");
   const shadowed = [];
   if (userStore !== projectRoot) {
     const taken = new Set(artifacts.map(keyOf));
-    for (const artifact of scanStore(userStore)) {
+    for (const artifact of scanStore(userStore, "user")) {
       if (taken.has(keyOf(artifact))) {
         shadowed.push({ kind: artifact.kind, name: artifact.name, path: artifact.path });
       } else {

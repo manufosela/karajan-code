@@ -161,15 +161,22 @@ export async function checkForUpdate(currentVersion) {
 
 /**
  * Print update notice if available. Call at CLI startup, non-blocking.
+ * KJC-BUG-0389: on stderr. It prints after the command's output, and on stdout it
+ * trailed every --json document and the verdict the rules hook parses.
  */
 export async function printUpdateNotice(currentVersion) {
   const result = await checkForUpdate(currentVersion);
   if (result?.updateAvailable) {
     const channel = detectInstallChannel();
-    console.log(`\n  Update available: v${result.current} → v${result.latest}`);
-    if (result.highlight) console.log(`  What it brings: ${result.highlight}`);
-    console.log(`  ${updateInstruction({ channel })}`);
-    console.log("  Agent: tell your user and ask before updating — never update on your own.\n");
+    const lines = [
+      "",
+      `  Update available: v${result.current} → v${result.latest}`,
+      ...(result.highlight ? [`  What it brings: ${result.highlight}`] : []),
+      `  ${updateInstruction({ channel })}`,
+      "  Agent: tell your user and ask before updating — never update on your own.",
+      "",
+    ];
+    process.stderr.write(`${lines.join("\n")}\n`);
   }
 }
 
