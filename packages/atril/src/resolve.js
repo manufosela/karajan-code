@@ -60,7 +60,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
   if (!byKey.has(ref)) throw new Error(`${ref} does not exist`);
   const loadsOf = (key) => edgesOf(byKey.get(key)).filter((e) => LOADS.includes(e.relation));
   const blocks = new Map();
-  const blockOf = (key) => blocks.get(key) ?? blocks.set(key, contextOf(key).items).get(key);
+  const blockOf = (key) => blocks.get(key) ?? blocks.set(key, contextOf(key)).get(key);
   const depthOf = new Map();
   const left = [];
   const fitted = new Map();
@@ -89,7 +89,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
       for (const { to } of loadsOf(key)) depth.set(to, Math.max(depth.get(to) ?? 0, depth.get(key) + 1));
     }
     for (const [key, item] of entries) depthOf.set(item, depth.get(key));
-    return { items: entries.map(([, item]) => item) };
+    return entries.map(([, item]) => item);
   };
   // Fit one context, its applied artifact last and never cut, then the
   // contexts of the subagents it keeps.
@@ -111,7 +111,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
     }
     return kept;
   };
-  const { items } = contextOf(ref);
+  const items = contextOf(ref);
   const block = [...items, itemOf(byKey.get(ref), "inline")];
   const inBlock = new Set(block.map(keyOf));
   // Suggestions come from the caller's own context only (ADR 0021, decision 9).
