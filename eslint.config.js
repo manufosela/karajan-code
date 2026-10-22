@@ -54,6 +54,11 @@ import nodeSecurity from "eslint-plugin-node-security";
 import security from "eslint-plugin-security";
 import globals from "globals";
 
+// HU-0006 (ADR 0021): what atril may not import, shared by both isolation rules.
+const ATRIL_FOREIGN = "^(karajan-|@karajan(-family)?/|#)";
+const ATRIL_ISOLATION = "atril imports nothing outside its package (ADR 0021).";
+const NO_CREATE_REQUIRE = { importNames: ["createRequire"], message: ATRIL_ISOLATION };
+
 export default [
   // packages/radar llegó del monorepo familiar (MONO-1, KJC-TSK-0738) con su
   // propio toolchain (frontend TS/React + backend Python): lo linta su
@@ -315,19 +320,18 @@ export default [
       "no-restricted-imports": [
         "error",
         {
-          patterns: [
-            {
-              regex: "^(karajan-|@karajan(-family)?/|#)",
-              message: "atril imports nothing outside its package (ADR 0021).",
-            },
+          paths: [
+            { name: "node:module", ...NO_CREATE_REQUIRE },
+            { name: "module", ...NO_CREATE_REQUIRE },
           ],
+          patterns: [{ regex: ATRIL_FOREIGN, message: ATRIL_ISOLATION }],
         },
       ],
       "no-restricted-syntax": [
         "error",
         {
-          selector: "ImportExpression[source.value=/^(karajan-|@karajan(-family)?\\/|#)/]",
-          message: "atril imports nothing outside its package (ADR 0021).",
+          selector: `ImportExpression[source.value=/${ATRIL_FOREIGN.replaceAll("/", "\\/")}/]`,
+          message: ATRIL_ISOLATION,
         },
         {
           selector: "ImportExpression[source.type!='Literal']",

@@ -26,6 +26,8 @@ describe("atril imports nothing outside its package", () => {
     ['const m = await import("../../core/src/paths.js");'],
     ['const m = await import("karajan-core/process");'],
     ["const name = 'karajan-core'; const m = await import(name);"],
+    ['import { createRequire } from "node:module";'],
+    ['import { createRequire } from "module";'],
   ])("lint rejects %s", async (code) => {
     expect(await lint(code)).not.toEqual([]);
   });
