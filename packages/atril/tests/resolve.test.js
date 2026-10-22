@@ -91,6 +91,11 @@ describe("resolveBlock", () => {
     expect(resolve("skill:base")).toEqual({ block: [expect.objectContaining({ name: "base", as: "inline" })], suggested: [] });
   });
 
+  it("suggests only from the caller's own context, never from a subagent's", () => {
+    write("proj", "agents/tester.md", "name: tester\nkind: agent\nuses: [skill:tdd]\nrelated: [command:audit]");
+    write("proj", "commands/audit.md", "name: audit\nkind: command");
+    expect(resolve("command:ship").suggested.map((a) => a.name)).toEqual(["review"]);
+  });
   it("fails loudly on an unknown ref, naming it", () => {
     expect(() => resolve("skill:nope")).toThrow("skill:nope does not exist");
   });

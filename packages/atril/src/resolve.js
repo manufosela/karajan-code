@@ -55,7 +55,9 @@ export function resolveBlock(ref, scanOpts = {}) {
     return { items, seen };
   };
   const { items, seen } = contextOf(ref);
-  const related = [...seen].flatMap((key) => edgesOf(byKey.get(key)).filter((e) => e.relation === "related").map((e) => e.to));
+  // Suggestions come from the caller's own context only (ADR 0021, decision 9).
+  const own = [ref, ...items.filter((i) => i.as === "inline").map(keyOf)];
+  const related = own.flatMap((key) => edgesOf(byKey.get(key)).filter((e) => e.relation === "related").map((e) => e.to));
   const suggested = [...new Set(related)].filter((key) => !seen.has(key)).map((key) => {
     const { name, kind, path } = byKey.get(key);
     return { name, kind, path };
