@@ -1,6 +1,6 @@
 // HU-0022 (ADR 0021, decisions 10-12): <root>/atril.json holds the store's config.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,6 +65,16 @@ describe("writeConfig", () => {
     put({ targets: ["a"] });
     expect(() => writeConfig({ targets: 1 }, storeOpts())).toThrow(/targets must be a list/);
     expect(JSON.parse(readFileSync(file(), "utf8"))).toEqual({ targets: ["a"] });
+  });
+  // KJC-TSK-1129 (review of #2313): a temp name someone can predict is a symlink waiting to be followed.
+  it("never writes through a symlink planted at a predictable temp name", () => {
+    const victim = join(dir, "victim.txt");
+    writeFileSync(victim, "untouched");
+    mkdirSync(join(dir, "store"), { recursive: true });
+    symlinkSync(victim, `${file()}.${process.pid}.tmp`);
+    writeConfig({ targets: ["claudecode"] }, storeOpts());
+    expect(readFileSync(victim, "utf8")).toBe("untouched");
+    expect(readConfig(storeOpts()).targets).toEqual(["claudecode"]);
   });
 });
 describe("atril config", () => {
