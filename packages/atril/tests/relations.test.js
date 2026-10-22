@@ -26,6 +26,14 @@ describe("discoverRelations", () => {
     expect(discover(body)).toEqual(expected);
   });
 
+  it("files an agent both pointed at and launched only under delegates", () => {
+    expect(discover("See agents/tester.md, then @tester")).toEqual({ delegates: ["agent:tester"] });
+  });
+
+  it("relates, not uses, a skill named by another skill", () => {
+    expect(discoverRelations(artifact("skill", "tdd", "Pair it with skill:review"), STORE)).toEqual({ related: ["skill:review"] });
+  });
+
   it("keeps the author's relations and adds no discovered duplicate", () => {
     expect(discover("Use the tdd skill, then /deploy", { uses: ["skill:tdd"] })).toEqual({ related: ["command:deploy"] });
   });

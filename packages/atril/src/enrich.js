@@ -45,9 +45,10 @@ const MENTIONS = [
 ];
 
 /**
- * Relations the body proposes to other artifacts of the scan: a named skill is
- * `uses`, a launched agent `delegates`, anything else `related`. The author's
- * relations win: a target they already declare is never proposed again.
+ * Relations the body proposes to other artifacts of the scan: a skill named by a
+ * command or agent is `uses`, a launched agent `delegates`, anything else
+ * `related`. The author's relations win: a target they already declare is
+ * never proposed again.
  * @returns {{ uses?: string[], delegates?: string[], related?: string[] }} sorted, empty lists left out
  */
 export function discoverRelations(artifact, artifacts) {
@@ -62,7 +63,8 @@ export function discoverRelations(artifact, artifacts) {
       const name = groups.name.toLowerCase().replace(/\.+$/, "");
       for (const target of kinds.map((k) => `${k}:${name}`)) {
         if (!known.has(target) || taken.has(target)) continue;
-        found[target.startsWith("skill:") ? "uses" : launch ? "delegates" : "related"].add(target);
+        const uses = artifact.kind !== "skill" && target.startsWith("skill:");
+        found[uses ? "uses" : launch ? "delegates" : "related"].add(target);
       }
     }
   }
