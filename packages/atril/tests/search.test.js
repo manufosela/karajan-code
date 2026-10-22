@@ -1,8 +1,10 @@
 // HU-0015 (ADR 0021, decision 5): search ranks the store lexically over
 // name, description, atril.keywords and body.
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { search } from "../src/search.js";
 import * as atril from "../src/index.js";
@@ -12,6 +14,7 @@ it("the package entry point exports search", () => {
   expect(atril.search).toBe(search);
 });
 
+const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-search-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -69,5 +72,59 @@ describe("search", () => {
     expect(find("búsqueda").map((hit) => hit.name)).toEqual(["es"]);
     expect(find("テスト").map((hit) => hit.name)).toEqual(["es"]);
     expect(find("squeda")).toEqual([]);
+  });
+});
+
+describe("atril search", () => {
+  const run = (...args) => spawnSync(process.execPath, [BIN, "search", ...args, "--root", "proj"], {
+    cwd: dir, encoding: "utf8", env: { ...process.env, ATRIL_USER_ROOT: join(dir, "user") },
+  });
+  beforeEach(() => {
+    put("proj", "skills/tdd/SKILL.md", "name: tdd\ndescription: Red green refactor\nkind: skill");
+    put("user", "agents/tester.md", "name: tester\ndescription: Writes tests\nkind: agent", "tdd\n");
+  });
+
+  it("--json prints the mode and the ranked hits", () => {
+    const res = run("tdd", "--json");
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout);
+    expect(out.mode).toBe("lexical");
+    expect(out.hits.map((hit) => hit.name)).toEqual(["tdd", "tester"]);
+  });
+
+  it("--kind filters, and the text output reports the mode on stderr", () => {
+    const res = run("tdd", "--kind", "agent");
+    expect(res.status).toBe(0);
+    expect(res.stderr).toBe("atril: search mode lexical\n");
+    expect(res.stdout).toMatch(/^\d+\tagent\ttester\tuser\tWrites tests\n$/);
+  });
+
+  it("no hits exits 0 with an explicit no results message", () => {
+    const res = run("nothing-matches");
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe('no results for "nothing-matches"\n');
+    expect(JSON.parse(run("nothing-matches", "--json").stdout)).toEqual({ mode: "lexical", hits: [] });
+  });
+
+  it("a missing query fails loudly", () => {
+    const res = run();
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/^atril: search needs a non-empty query/);
+  });
+  it("an unknown --kind fails loudly", () => {
+    const res = run("tdd", "--kind", "bogus");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/kind "bogus" is not one of/);
+  });
+  // KJC-TSK-1139 (review): a description is the artifact author's text; it may not drive the terminal.
+  it("text output strips control characters from descriptions", () => {
+    put("proj", "commands/red.md", 'name: red\ndescription: "Turns \\e[31mred\\e[0m now"\nkind: command');
+    const out = run("red").stdout;
+    expect(out).not.toContain(String.fromCodePoint(27));
+    expect(out).toMatch(/^\d+\tcommand\tred\tproject\tTurns \[31mred \[0m now$/m);
+  });
+  it("text output keeps one hit per line for multi-line descriptions", () => {
+    put("proj", "commands/plan.md", "name: plan\ndescription: |\n  Plans\n  \tthe work\nkind: command");
+    expect(run("plan").stdout).toMatch(/^\d+\tcommand\tplan\tproject\tPlans the work\n$/);
   });
 });
