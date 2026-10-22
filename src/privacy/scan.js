@@ -82,6 +82,16 @@ const SEMVER_JOIN = String.raw`\s*(?:(?:\|\||-)\s*${SEMVER_OP}?|${SEMVER_OP})\s*
 const SEMVER_VALUE = new RegExp(String.raw`^\s*${SEMVER_OP}?\s*${SEMVER_TOKEN}(?:${SEMVER_JOIN}${SEMVER_TOKEN})*\s*$`);
 
 /** KJC-BUG-0380: a pair is discarded only when it is a real latitude, longitude. */
+// KJC-TSK-1118: the test card numbers payment providers publish (Stripe, Braintree,
+// Adyen, PayPal docs). Only these exact numbers; a card one digit away still warns.
+const TEST_CARDS = new Set([
+  "4242424242424242", "4000056655665556", "4111111111111111", "4012888888881881", "4000000000000002",
+  "5555555555554444", "5105105105105100", "2223003122003222", "5200828282828210",
+  "378282246310005", "371449635398431", "6011111111111117", "6011000990139424",
+  "3056930009020004", "36227206271667", "3530111333300000", "3566002020360505",
+]);
+const isTestCard = (match) => TEST_CARDS.has(match.replaceAll(/[\s-]/g, ""));
+
 function inGpsRange(_match, lat, lng) {
   return Math.abs(Number(lat)) <= 90 && Math.abs(Number(lng)) <= 180;
 }
@@ -124,6 +134,14 @@ const CONTEXT_DISCARDS = [
   // range (latitude up to 90, longitude up to 180), joined by a comma. A lone
   // number or a pair out of range still warns.
   { type: "gps-pair", re: /(?<![\d.])(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})(?![\d.])/g, keep: inGpsRange },
+  // KJC-TSK-1118: numbers reserved for fiction and tests, the good practice for test data.
+  // NANP 555-0100..0199 (with an optional +1 and area code); Ofcom's drama ranges:
+  // 07700 900xxx, 020 7946 0xxx and 01632 960xxx (0 or +44). Nothing around them.
+  { type: "fictional-phone", re: /(?<![\d+])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?555[\s.-]?01\d{2}(?!\d)/g },
+  { type: "fictional-phone-uk", re: /(?<![\d+])(?:\+44\s?|0)7700\s?900\d{3}(?!\d)/g },
+  { type: "fictional-phone-uk", re: /(?<![\d+])(?:\+44\s?|0)20\s?7946\s?0\d{3}(?!\d)/g },
+  { type: "fictional-phone-uk", re: /(?<![\d+])(?:\+44\s?|0)1632\s?960\d{3}(?!\d)/g },
+  { type: "test-card", re: /(?<!\d)\d(?:[\s-]?\d){13,18}(?!\d)/g, keep: isTestCard },
   { type: "plan-id", re:/(?<![A-Za-z0-9])plan-20\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?:[01]\d|2[0-3])[0-5]\d[0-5]\d-[a-z0-9]{4}(?![A-Za-z0-9])/g },
 ];
 

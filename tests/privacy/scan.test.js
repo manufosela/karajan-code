@@ -140,10 +140,10 @@ describe("privacy/scan", () => {
 // digitos, justo el largo de una tarjeta. Un gate que grita en falso ensena a
 // ignorarlo (epica KJC-PCS-0082).
 describe("scanText — lo que PARECE una tarjeta y no lo es", () => {
-  // El numero de PRUEBA de Visa se compone aqui en vez de escribirse literal:
-  // es valido por Luhn, asi que el propio gate avisaria de este fichero en
-  // cada review. Practicar lo que el gate predica.
-  const testCard = `4111${"1111".repeat(3)}`;
+  // Un numero valido por Luhn que NO es una tarjeta de prueba publicada (esas se
+  // descartan desde KJC-TSK-1118), compuesto aqui en vez de escribirse literal:
+  // el propio gate avisaria de este fichero en cada review.
+  const testCard = ["4539", "1488", "0343", "6467"].join("");
 
   it("un id del HU Board no es una tarjeta", () => {
     const findings = scanText('  id: "HU-1700000000000-0",', { list: { personal: [], allow: [] } });
