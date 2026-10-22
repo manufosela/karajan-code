@@ -16,7 +16,7 @@ export const DEFAULT_ROOT = ".atril";
 export const resolveRoot = ({ root, env = process.env } = {}) => root || env.ATRIL_ROOT || DEFAULT_ROOT;
 
 // Each kind: its directory, and how an entry maps to its file and its name.
-const LAYOUT = [
+export const LAYOUT = [
   { kind: "skill", dir: "skills", file: (entry) => join(entry, "SKILL.md"), name: (entry) => entry },
   { kind: "command", dir: "commands", file: (entry) => entry, name: (entry) => entry.replace(/\.md$/, "") },
   { kind: "agent", dir: "agents", file: (entry) => entry, name: (entry) => entry.replace(/\.md$/, "") },
