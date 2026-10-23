@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.62.1] - 2026-10-23
+
+Patch. **Two fixes found on the first real day of the shared HU Board.**
+
+### Fixed
+
+- **`kj hu add` works in a repo with no kj labels yet** (KJC-BUG-0393): `gh label list --json` prints nothing at all, not `[]`, when no label matches, and kj failed with "Unexpected end of JSON input". An empty listing is now an empty list.
+- **A local HU from before the shared board stays local** (KJC-BUG-0392): with the shared board on, `kj hu move HU-0104` took the old local id as issue #104. Zero-padded ids now stay on the local board until the migration, and kj only reads or edits issues labelled `kj:hu`.
+
 ## [4.62.0] - 2026-10-23
 
 Minor. **Karajan works as a team: the HU Board can be shared through GitHub Issues** (ADR 0025).
