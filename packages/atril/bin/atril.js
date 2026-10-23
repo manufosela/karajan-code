@@ -6,10 +6,26 @@ import { enrich } from "../src/enrich.js";
 import { graph } from "../src/graph.js";
 import { scan } from "../src/scan.js";
 import { SEARCH_MODE, search } from "../src/search.js";
+import { install, remove } from "../src/store.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
-  + "       atril search <query> [--kind <kind>] [--root <dir>] [--json]";
+  + "       atril search <query> [--kind <kind>] [--root <dir>] [--json]\n"
+  + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]";
+
+function runStore(command, args) {
+  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" } }, allowPositionals: true });
+  if (positionals.length !== 1) throw new Error(`${command} takes exactly one argument\n${USAGE}`);
+  const [ref] = positionals;
+  if (command === "install") {
+    const { status, kind, name, path } = install(ref, { root: values.root, kind: values.kind });
+    console.log(`${status}\t${kind}:${name}\t${path}`);
+    return;
+  }
+  const [kind, name, ...extra] = ref.split(":");
+  if (!name || extra.length) throw new Error(`remove takes kind:name, got "${ref}"`);
+  console.log(`removed\t${kind}:${name}\t${remove(name, { kind, root: values.root }).path}`);
+}
 
 function runScan(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
@@ -67,6 +83,7 @@ try {
   else if (command === "enrich") runEnrich(rest);
   else if (command === "graph") runGraph(rest);
   else if (command === "search") runSearch(rest);
+  else if (command === "install" || command === "remove") runStore(command, rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
