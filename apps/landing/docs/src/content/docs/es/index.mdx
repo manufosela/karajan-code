@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.61.1: el check de veredictos aguanta «Update branch» (actual)
+### v4.62.0: Karajan en equipo (actual)
+
+Dos personas pueden trabajar a la vez con kj en el mismo repo. `kj hu backend github` activa una vez el HU Board compartido, en un fichero que el equipo hereda con un pull: cada HU pasa a ser una issue de GitHub cuyo número es su id, así que los ids nunca chocan, y el asignado es la reserva, así que nadie coge sin decirlo una HU que otra persona tiene en marcha. Sin activarlo, kj sigue con el board local.
+
+### v4.61.1: el check de veredictos aguanta «Update branch»
 
 El check `cross-ai-verdict` ya no se pone en rojo al actualizar una PR con su base: un merge limpio no trae trabajo de la PR y no necesita veredicto, y un merge que resolvió conflictos a mano sigue necesitándolo. atril suma `atril route`, que convierte una tarea y un rol en los ficheros que hay que leer.
 

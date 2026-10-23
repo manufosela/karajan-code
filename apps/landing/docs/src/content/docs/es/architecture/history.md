@@ -1849,6 +1849,12 @@ Un agente que revisa las PRs de TRIBBU pasaba al reviewer el título y la descri
 
 La misma revisión de una suite de QA en Java dejó el otro hueco: sus fixtures usan teléfonos de aspecto normal, fuera de los rangos reservados, y la única salida era copiar cada literal a la lista de permitidos. El repo revisado declara ahora sus carpetas de test, y ahí se descarta lo genérico contándolo, mientras la denylist personal y los secretos siguen bloqueando. Y kj etiqueta con `Karajan` las PRs que abre él mismo, para que un equipo pueda medir cuánto pasa por el gobernador, que no es lo mismo que cuánto escribe una máquina.
 
+## Phase 150: v4.62.0, Karajan en equipo
+
+Karajan estaba hecho para una persona. `kj hu add` tomaba el primer `HU-NNNN` libre del plan local, así que el mantenedor y Jorge del Casar, trabajando a la vez en karajan-code, creaban los mismos ids y no veían lo que el otro tenía entre manos. La reserva ya existía (quién empezaba una card), pero vivía en cada clon. El ADR 0025 lleva el board a donde los dos ya están: cada HU es una issue de GitHub, su número es su id, el asignado es la reserva y el estado una etiqueta. gh autentica a cada persona y GitHub resuelve las escrituras a la vez, sin un servidor propio de kj.
+
+La review cruzada se ganó el sueldo: cazó dos reservas a la vez que habrían salido bien las dos, dos cambios de estado que habrían dejado dos etiquetas, una toma de una HU que se saltaba la reserva cuando no estaba en marcha, y una forma de `.gitignore` en la que git no deja re-incluir nada. Activar el board compartido es un fichero versionado que se sube en una PR, así el equipo entero lo hereda y un repo personal nunca se llena de issues que no pidió.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

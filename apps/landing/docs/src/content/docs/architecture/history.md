@@ -1850,6 +1850,12 @@ An agent reviewing TRIBBU's pull requests passed each PR's title and description
 
 The same review of a Java QA suite left the other gap: its fixtures use ordinary-looking phones outside the reserved ranges, and the only way out was copying each literal into the allow list. The reviewed repo now names its test folders, where generic findings are discarded and counted while the personal denylist and secrets still block. And kj labels the PRs it opens itself with `Karajan`, so a team can measure how much goes through the governor, which is not the same as how much a machine writes.
 
+## Phase 150: v4.62.0, Karajan as a team
+
+Karajan had been built for one person. `kj hu add` took the first free `HU-NNNN` of the local plan, so the maintainer and Jorge del Casar, working on karajan-code at the same time, minted the same ids and could not see what the other had in hand. A reservation already existed (who started a card), but it lived in each clone. ADR 0025 moves the board where both already are: each HU is a GitHub issue, its number is its id, its assignee the reservation and its state a label. gh authenticates each person and GitHub settles concurrent writes, with no server of kj's own.
+
+The cross-AI review earned its keep here: it caught two claims at once that would both have succeeded, two status moves that would have left two labels, a takeover that bypassed the reservation when the target was not running, and a `.gitignore` shape git cannot re-include into. Turning the shared board on is a versioned file committed in a PR, so the whole team inherits it and a personal repo never fills with issues it did not ask for.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
