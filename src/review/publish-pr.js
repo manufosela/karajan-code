@@ -6,6 +6,7 @@
  */
 import { runCommand } from "../utils/process.js";
 import { diffHash, loadVerdict } from "./verdict-store.js";
+import { isCleanMerge } from "./clean-merge.js";
 
 export const MARKER = (head) => `<!-- kj-review head=${head} -->`;
 
@@ -30,6 +31,8 @@ export async function publishPrReview({ projectDir, pr, run = runCommand }) {
   const rows = [];
   const uncovered = [];
   for (const c of info.commits ?? []) {
+    // KJC-BUG-0391: a clean merge of the base brings no work of the PR and holds no verdict.
+    if (await isCleanMerge(projectDir, c.oid, run)) continue;
     const v = await verdictOf(projectDir, c.oid, run);
     if (v?.verdict === "approved") rows.push({ ...c, v });
     else uncovered.push(`${c.oid.slice(0, 7)} (${c.messageHeadline})`);
