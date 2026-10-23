@@ -15,11 +15,19 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 const DIFFS = { aaa1111: "diff --git a/a.js b/a.js\n+const a = 1;\n", bbb2222: "diff --git a/b.js b/b.js\n+const b = 2;\n" };
 const PR = { headRefOid: "bbb2222", commits: [{ oid: "aaa1111", messageHeadline: "feat: a" }, { oid: "bbb2222", messageHeadline: "fix: b" }] };
 
-function fakeRun({ reviews = [], posted = [], ghDirs = [] } = {}) {
+// KJC-BUG-0391: mmm3333 is a clean merge of main (its tree is what git merge-tree gives).
+const MERGE = { rev: "mmm3333 bbb2222 main000", tree: "t1" };
+const gitOf = (args) => {
+  if (args[2] === "rev-list") return args.at(-1) === "mmm3333" ? MERGE.rev : `${args.at(-1)} p0`;
+  if (args[2] === "merge-tree" || args[2] === "rev-parse") return MERGE.tree;
+  return DIFFS[args.at(-1)] ?? "";
+};
+
+function fakeRun({ reviews = [], posted = [], ghDirs = [], pr = PR } = {}) {
   return async (cmd, args, opts) => {
     if (cmd === "gh") ghDirs.push(opts?.cwd);
-    if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(PR) };
-    if (cmd === "git") return { exitCode: 0, stdout: DIFFS[args.at(-1)] ?? "" };
+    if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(pr) };
+    if (cmd === "git") return { exitCode: 0, stdout: gitOf(args) };
     if (cmd === "gh" && args.includes("POST")) { posted.push(args); return { exitCode: 0, stdout: "{}" }; }
     if (cmd === "gh" && args[0] === "api") return { exitCode: 0, stdout: JSON.stringify(reviews) };
     throw new Error(`unexpected ${cmd} ${args.join(" ")}`);
@@ -49,6 +57,14 @@ describe("publishPrReview", () => {
     const posted = [];
     await expect(publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted }) })).rejects.toThrow(/bbb2222 \(fix: b\)/);
     expect(posted).toHaveLength(0);
+  });
+
+  it("a clean merge of main on top needs no verdict and is not listed", async () => {
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    const posted = [];
+    const pr = { headRefOid: "mmm3333", commits: [...PR.commits, { oid: "mmm3333", messageHeadline: "Merge branch 'main'" }] };
+    expect(await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, pr }) })).toMatchObject({ published: true, commits: 2 });
+    expect(posted[0].join(" ")).not.toMatch(/`mmm3333`/);
   });
 
   it("already published for that head: it does not duplicate the review", async () => {

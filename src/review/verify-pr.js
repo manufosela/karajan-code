@@ -8,8 +8,11 @@
 import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
 import { MARKER } from "./publish-pr.js";
+import { isCleanMerge } from "./clean-merge.js";
 
 const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+// The marker of a kj review for any head: what MARKER writes up to the head itself.
+const MARKER_PREFIX = MARKER("\0").split("\0")[0];
 // One line per commit, as publish-pr writes it: - `<sha7>` headline: approved by X (diff <hash12>)...
 const LISTED = /^- `([0-9a-f]{7})` .*?\(diff ([0-9a-f]{12})\)/gm;
 
@@ -45,13 +48,17 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand }) {
   const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/pulls/${pr}/reviews`, "--jq", ".[] | {body, author_association}"], { cwd: projectDir });
   if (res.exitCode !== 0) throw new Error(`gh api reviews failed: ${(res.stderr || res.stdout || "").trim()}`);
   const reviews = (res.stdout || "").split("\n").filter(Boolean).map((line) => JSON.parse(line));
-  const review = reviews.findLast((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER(info.headRefOid)));
-  if (!review) {
-    return { ok: false, commits: commits.length, problems: [`no kj review published by a member for head ${info.headRefOid.slice(0, 7)}: run kj review --publish-pr ${pr}`] };
+  // KJC-BUG-0391: any kj review a member published on the PR counts, not only the one for
+  // today's head: the diff hash of each commit is what proves it, and a commit pushed after
+  // the review is simply not listed. "Update branch" no longer leaves the check red.
+  const kjReviews = reviews.filter((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER_PREFIX));
+  if (kjReviews.length === 0) {
+    return { ok: false, commits: commits.length, problems: [`no kj review published by a member: run kj review --publish-pr ${pr}`] };
   }
-  const listed = new Map([...review.body.matchAll(LISTED)].map((m) => [m[1], m[2]]));
+  const listed = new Map(kjReviews.flatMap((r) => [...r.body.matchAll(LISTED)].map((m) => [m[1], m[2]])));
   const problems = [];
   for (const c of commits) {
+    if (await isCleanMerge(projectDir, c.oid, run)) continue;
     const hash = listed.get(c.oid.slice(0, 7));
     if (!hash || !(await hashesOf(projectDir, c.oid, run)).has(hash)) problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): no approved verdict for the diff it brings`);
   }

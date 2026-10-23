@@ -16,10 +16,19 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 const DIFFS = { aaa1111: "diff --git a/a.js b/a.js\n+const a = 1;\n", bbb2222: "diff --git a/b.js b/b.js\n+const b = 2;\n" };
 const PR = { headRefOid: "bbb2222", commits: [{ oid: "aaa1111", messageHeadline: "feat: a" }, { oid: "bbb2222", messageHeadline: "fix: b" }] };
 
-function fakeRun({ reviews = [], posted = [], diffs = DIFFS } = {}) {
+// KJC-BUG-0391: merges, as {sha: {parents, tree, merged}}; merged is what git merge-tree gives.
+function fakeGit(args, diffs, merges) {
+  const sub = args[2];
+  if (sub === "rev-list") return { exitCode: 0, stdout: [args.at(-1), ...(merges[args.at(-1)]?.parents ?? ["p0"])].join(" ") };
+  if (sub === "rev-parse") return { exitCode: 0, stdout: merges[args.at(-1).replace("^{tree}", "")]?.tree ?? "" };
+  if (sub === "merge-tree") return Object.values(merges).find((m) => m.parents.join() === args.slice(-2).join())?.merged ?? { exitCode: 1, stdout: "" };
+  return { exitCode: 0, stdout: diffs[args.at(-1)] ?? "" };
+}
+
+function fakeRun({ reviews = [], posted = [], diffs = DIFFS, pr = PR, merges = {} } = {}) {
   return async (cmd, args) => {
-    if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(PR) };
-    if (cmd === "git") return { exitCode: 0, stdout: diffs[args.at(-1)] ?? "" };
+    if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(pr) };
+    if (cmd === "git") return fakeGit(args, diffs, merges);
     if (cmd === "gh" && args.includes("POST")) { posted.push(args); return { exitCode: 0, stdout: "{}" }; }
     if (cmd === "gh" && args.includes("--jq")) return { exitCode: 0, stdout: reviews.map((r) => JSON.stringify(r)).join("\n") };
     if (cmd === "gh" && args[0] === "api") return { exitCode: 0, stdout: "[]" };
@@ -63,10 +72,27 @@ describe("verifyPrReview", () => {
     expect(await verifyPrReview({ projectDir: dir, pr: 7, run })).toEqual({ ok: true, commits: 2, problems: [] });
   });
 
-  it("fails when no kj review was published for the current head", async () => {
-    const body = (await publishedBody()).replace("head=bbb2222", "head=old0000");
-    const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [{ body, author_association: "OWNER" }] }) });
-    expect(r).toMatchObject({ ok: false, problems: [expect.stringMatching(/no kj review.*bbb2222/)] });
+  it("fails when no kj review was published on the PR", async () => {
+    const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [] }) });
+    expect(r).toMatchObject({ ok: false, problems: [expect.stringMatching(/no kj review published by a member/)] });
+  });
+
+  // KJC-BUG-0391: "Update branch" puts a merge of main on top. A clean merge brings no work of
+  // the PR, so it needs no verdict, and the review published for the earlier head still proves
+  // every commit (the diff hashes do); a merge that resolved conflicts by hand still needs one.
+  const MERGED = { ...PR, headRefOid: "mmm3333", commits: [...PR.commits, { oid: "mmm3333", messageHeadline: "Merge branch 'main'" }] };
+  it("passes over a clean merge of main with the review published for the earlier head", async () => {
+    const body = await publishedBody();
+    const merges = { mmm3333: { parents: ["bbb2222", "main000"], tree: "t1", merged: { exitCode: 0, stdout: "t1\n" } } };
+    const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [{ body, author_association: "OWNER" }], pr: MERGED, merges }) });
+    expect(r).toEqual({ ok: true, commits: 3, problems: [] });
+  });
+
+  it("still asks a verdict of a merge whose tree is not the clean merge of its parents", async () => {
+    const body = await publishedBody();
+    const merges = { mmm3333: { parents: ["bbb2222", "main000"], tree: "t2", merged: { exitCode: 0, stdout: "t1\n" } } };
+    const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [{ body, author_association: "OWNER" }], pr: MERGED, merges }) });
+    expect(r.problems).toEqual([expect.stringMatching(/mmm3333/)]);
   });
 
   it("ignores a kj review written by someone who is not a member of the repo", async () => {
