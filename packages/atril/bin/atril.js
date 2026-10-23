@@ -99,7 +99,7 @@ const pathsOf = (block) => block.map(({ name, kind, path, as, block: own }) => (
 }));
 const printBlock = (block, indent = "") => {
   for (const item of block) {
-    console.log(`${indent}${item.as}\t${item.path}`);
+    console.log(`${indent}${item.as}\t${printable(item.path)}`);
     if (item.block) printBlock(item.block, `${indent}  `);
   }
 };
