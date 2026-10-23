@@ -97,6 +97,16 @@ describe("setStatus", () => {
   });
 });
 
+// KJC-BUG-0392: HU-0104 (a local id) once resolved to issue #104, which is no HU at all.
+describe("an issue that is not a kj HU", () => {
+  it("is never moved or claimed", async () => {
+    const plain = fakeGh({ "issue view": { exitCode: 0, stdout: JSON.stringify({ state: "OPEN", labels: [{ name: "bug" }], assignees: [] }) } });
+    await expect(setStatus({ repo: REPO, number: 104, status: "done", run: plain.run })).rejects.toThrow(/issue #104 is not a kj HU/);
+    await expect(claim({ repo: REPO, number: 104, who: "manufosela", run: plain.run })).rejects.toThrow(/not a kj HU/);
+    expect(plain.calls.some((a) => a[1] === "edit")).toBe(false);
+  });
+});
+
 describe("assertNotHeld", () => {
   it("refuses only a running HU someone else holds", async () => {
     const held = fakeGh({ "issue view": viewing({ status: "running", assignees: ["jorgecasar"] }) });

@@ -63,6 +63,8 @@ function statusOf(issue) {
 
 async function view(repo, number, run) {
   const issue = JSON.parse(await gh(run, ["issue", "view", String(number), "-R", repo, "--json", "state,labels,assignees"]));
+  // KJC-BUG-0392: only issues kj created as HUs are its to move; any other issue is left alone.
+  if (!issue.labels.some((l) => l.name === HU_LABEL)) throw new BoardRejectedError(`issue #${number} is not a kj HU (no ${HU_LABEL} label): kj does not touch it`);
   return { ...issue, number, status: statusOf({ ...issue, number }), holders: issue.assignees.map((a) => a.login) };
 }
 

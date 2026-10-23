@@ -133,7 +133,9 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
     return rows;
   }
-  if (board.backend === "github" && action === "move") return moveOnTeamBoard({ repo: board.repo, args, flags, deps, emit, who: deps.who === undefined ? workerOf(projectDir) : deps.who });
+  // KJC-BUG-0392: a zero-padded id (HU-0104) is a local HU from before the shared board: it stays local.
+  const legacyLocal = /^HU-0\d+$/i.test(String(args[0] ?? ""));
+  if (board.backend === "github" && action === "move" && !legacyLocal) return moveOnTeamBoard({ repo: board.repo, args, flags, deps, emit, who: deps.who === undefined ? workerOf(projectDir) : deps.who });
 
   if (action === "list") {
     const plans = await listPlans(projectDir);
