@@ -125,7 +125,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
   return { block: fit(items, block.at(-1), "caller"), suggested, left };
 }
 
-// An artifact that declares no roles (author's or discovered) serves every role.
+// An artifact with no `roles` nor `atril.roles` serves every role.
 function servesRole(artifact, role) {
   const { roles = [] } = artifact.atril;
   if (!Array.isArray(roles) || !roles.every((r) => typeof r === "string")) {
@@ -139,9 +139,10 @@ function servesRole(artifact, role) {
  * Resolve a task (ADR 0021, decision 5): the best search hit the role may
  * use, loaded as its block. No match is an empty block with its `reason`.
  * @param {{ task: string, role?: string, budget?: Parameters<typeof resolveBlock>[2] }
- *   & Parameters<typeof scan>[0]} opts the rest goes to scan()
+ *   & Parameters<typeof scan>[0]} opts
  */
-export function resolve({ task, role, budget = {}, ...scanOpts }) {
+export function resolve({ task, role, budget = {}, projectDir, root, userRoot, env }) {
+  const scanOpts = { projectDir, root, userRoot, env };
   if (typeof task !== "string" || !task.trim()) throw new Error("resolve needs a non-empty task");
   if (role !== undefined && (typeof role !== "string" || !role.trim())) throw new Error("role must be a non-empty string");
   const byKey = new Map(scan(scanOpts).artifacts.map((a) => [keyOf(a), a]));

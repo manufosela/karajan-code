@@ -93,7 +93,10 @@ function runSearch(args) {
 }
 
 // The files to read, not their content: a subagent carries its own block.
-const pathsOf = (block) => block.map(({ name, kind, path, as, block: own }) => ({ name, kind, path, as, ...(own && { block: pathsOf(own) }) }));
+const pathsOf = (block) => block.map(({ name, kind, path, as, block: own }) => ({
+  name, kind, path, as,
+  ...(own && { block: pathsOf(own) }),
+}));
 const printBlock = (block, indent = "") => {
   for (const item of block) {
     console.log(`${indent}${item.as}\t${item.path}`);

@@ -42,6 +42,7 @@ describe("resolve", () => {
   it("excludes an artifact declared for another role, author's or discovered", () => {
     expect(refs(run("test", "security").block).at(-1)).toBe("skill:audit");
     expect(refs(run("failing test", "tester").block)).toEqual([]);
+    expect(refs(run("failing test").block)).toContain("skill:tdd");
   });
 
   it("returns an empty block and says why when nothing matches", () => {
