@@ -33,6 +33,17 @@ describe("createHu", () => {
     expect(body).toMatch(/- redirects[\s\S]*- e2e login[\s\S]*KJC-TSK-9/);
   });
 
+  // KJC-BUG-0393: gh prints NOTHING (not "[]") when a --json listing matches nothing.
+  it("works in a repo with no kj labels yet, where gh label list prints nothing", async () => {
+    const { run, calls } = fakeGh({
+      "label list": { exitCode: 0, stdout: "" },
+      "issue create": { exitCode: 0, stdout: "https://github.com/acme/app/issues/3\n" },
+    });
+    expect(await createHu({ repo: REPO, title: "First", run })).toMatchObject({ short_id: "HU-3" });
+    expect(calls.filter((a) => a[1] === "create" && a[0] === "label")).toHaveLength(6);
+    expect(await listHus({ repo: REPO, run: fakeGh({ "issue list": { exitCode: 0, stdout: "" } }).run })).toEqual([]);
+  });
+
   it("tells no network apart from GitHub saying no, and never invents an id", async () => {
     const offline = fakeGh({ "label list": { exitCode: 1, stderr: "error connecting to api.github.com: dial tcp: lookup api.github.com: no such host" } });
     await expect(createHu({ repo: REPO, title: "x", run: offline.run })).rejects.toBeInstanceOf(BoardOfflineError);
