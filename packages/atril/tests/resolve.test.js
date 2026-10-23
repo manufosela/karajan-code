@@ -8,13 +8,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resolveBlock } from "../src/index.js";
 
 let dir;
-const write = (store, path, front) => {
+const write = (store, path, front, body = `${path} body`) => {
   const file = join(dir, store, path);
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `---\n${front}\ndescription: d\n---\n${path} body\n`);
+  writeFileSync(file, `---\n${front}\ndescription: d\n---\n${body}\n`);
   return file;
 };
-const resolve = (ref) => resolveBlock(ref, { projectDir: dir, root: "proj", userRoot: "user" });
+const resolve = (ref, budget) => resolveBlock(ref, { projectDir: dir, root: "proj", userRoot: "user" }, budget);
+const names = (list) => list.map((a) => a.name);
 
 describe("resolveBlock", () => {
   beforeEach(() => {
@@ -88,7 +89,7 @@ describe("resolveBlock", () => {
     const { block, suggested } = resolve("command:ship");
     expect(block.some((a) => a.name === "review")).toBe(false);
     expect(suggested).toEqual([{ name: "review", kind: "command", path: join(dir, "proj", "commands", "review.md") }]);
-    expect(resolve("skill:base")).toEqual({ block: [expect.objectContaining({ name: "base", as: "inline" })], suggested: [] });
+    expect(resolve("skill:base")).toEqual({ block: [expect.objectContaining({ name: "base", as: "inline" })], suggested: [], left: [] });
   });
 
   it("suggests only from the caller's own context, never from a subagent's", () => {
@@ -98,5 +99,89 @@ describe("resolveBlock", () => {
   });
   it("fails loudly on an unknown ref, naming it", () => {
     expect(() => resolve("skill:nope")).toThrow("skill:nope does not exist");
+  });
+
+  // HU-0019 (ADR 0021, decision 9): the budget bounds each context on its own.
+  describe("budget", () => {
+    const leftOf = (name, owner, store = "proj") => ({ name, kind: "skill", path: join(dir, store, "skills", name, "SKILL.md"), for: owner });
+
+    it("cuts the deepest dependencies of each context first, naming them in left", () => {
+      const { block, left } = resolve("command:ship", { maxArtifacts: 2 });
+      expect(names(block)).toEqual(["tester", "ship"]);
+      expect(names(block[0].block)).toEqual(["tdd"]);
+      expect(left).toEqual([leftOf("style", "caller", "user"), leftOf("base", "agent:tester")]);
+    });
+
+    it("estimates tokens as ceil(chars / 4) per context", () => {
+      // Caller: style 7 + tester 6 + ship 6 = 19. Tester: base 7 + tdd 7 + tester 6 = 20.
+      expect(resolve("command:ship", { maxTokens: 20 }).left).toEqual([]);
+      expect(resolve("command:ship", { maxTokens: 19 }).left).toEqual([leftOf("base", "agent:tester")]);
+    });
+
+    it("cuts a subagent's heavy dependency inside its own block, the caller's unaffected", () => {
+      write("proj", "skills/tdd/SKILL.md", "name: tdd\nkind: skill", "x".repeat(400));
+      const { block, left } = resolve("command:ship", { maxTokens: 30 });
+      expect(names(block)).toEqual(["style", "tester", "ship"]);
+      expect(names(block[1].block)).toEqual(["base"]);
+      expect(left).toEqual([leftOf("tdd", "agent:tester")]);
+    });
+
+    it("cuts by depth, not block order", () => {
+      write("proj", "commands/ship.md", "name: ship\nkind: command\nuses: [skill:c, skill:a]");
+      write("proj", "skills/a/SKILL.md", "name: a\nkind: skill\nuses: [skill:b]");
+      for (const name of ["b", "c"]) write("proj", `skills/${name}/SKILL.md`, `name: ${name}\nkind: skill`);
+      const { block, left } = resolve("command:ship", { maxArtifacts: 3 });
+      expect(names(block)).toEqual(["c", "a", "ship"]);
+      expect(left).toEqual([leftOf("b", "caller")]);
+    });
+
+    it("fits each level of nested subagents on its own", () => {
+      write("proj", "agents/tester.md", "name: tester\nkind: agent\nuses: [skill:tdd]\ndelegates: [agent:fixer]");
+      write("proj", "agents/fixer.md", "name: fixer\nkind: agent\nuses: [skill:style, skill:base]");
+      const { block, left } = resolve("command:ship", { maxArtifacts: 2 });
+      expect(names(block)).toEqual(["tester", "ship"]);
+      expect(names(block[0].block)).toEqual(["fixer"]);
+      expect(names(block[0].block[0].block)).toEqual(["base"]);
+      expect(left).toEqual([
+        leftOf("style", "caller", "user"), leftOf("base", "agent:tester"), leftOf("tdd", "agent:tester"),
+        leftOf("style", "agent:fixer", "user"),
+      ]);
+    });
+
+    it("keeps or cuts a dependency shared by caller and subagent separately in each context", () => {
+      write("proj", "commands/ship.md", "name: ship\nkind: command\nuses: [skill:tdd]\ndelegates: [agent:tester]");
+      const { block, left } = resolve("command:ship", { maxArtifacts: 3 });
+      expect(names(block)).toEqual(["tdd", "tester", "ship"]);
+      expect(names(block[1].block)).toEqual(["base", "tdd"]);
+      expect(left).toEqual([leftOf("base", "caller")]);
+    });
+
+    it("lists each cut once when one agent is delegated from two contexts", () => {
+      write("proj", "commands/ship.md", "name: ship\nkind: command\ndelegates: [agent:tester, agent:fixer]");
+      write("proj", "agents/fixer.md", "name: fixer\nkind: agent\ndelegates: [agent:tester]");
+      write("proj", "skills/tdd/SKILL.md", "name: tdd\nkind: skill", "x".repeat(400));
+      expect(resolve("command:ship", { maxTokens: 30 }).left).toEqual([leftOf("tdd", "agent:tester")]);
+    });
+
+    it("fails naming the applied artifact when it alone exceeds the budget", () => {
+      expect(() => resolve("command:ship", { maxTokens: 5 })).toThrow("command:ship alone exceeds the budget");
+    });
+
+    it("keeps every block whole and an empty left within budget", () => {
+      const { block, left } = resolve("command:ship", { maxArtifacts: 3, maxTokens: 1000 });
+      expect(names(block)).toEqual(["style", "tester", "ship"]);
+      expect(names(block[1].block)).toEqual(["base", "tdd"]);
+      expect(left).toEqual([]);
+    });
+
+    it("rejects a budget limit that is not a positive integer", () => {
+      expect(() => resolve("command:ship", { maxArtifacts: 0 })).toThrow("maxArtifacts must be a positive integer");
+      expect(() => resolve("command:ship", { maxTokens: "9" })).toThrow("maxTokens must be a positive integer");
+    });
+
+    it("rejects a budget that is not an object or has an unknown limit", () => {
+      expect(() => resolve("command:ship", null)).toThrow("budget must be an object");
+      expect(() => resolve("command:ship", { maxToken: 10 })).toThrow("unknown budget limit maxToken");
+    });
   });
 });
