@@ -15,6 +15,8 @@ const statusLabel = (s) => `kj:${s}`;
 export class BoardOfflineError extends Error {}
 /** GitHub answered and said no (permissions, missing repo...). */
 export class BoardRejectedError extends Error {}
+/** The HU is running and someone else holds it: taking it over is explicit (release). */
+export class HuClaimedError extends Error {}
 
 // gh is not localized: these are the network failures it prints.
 const OFFLINE = /dial tcp|no such host|could not resolve host|connection refused|i\/o timeout|network is unreachable|error connecting to/i;
@@ -49,9 +51,60 @@ export async function createHu({ repo, title, acceptanceCriteria = [], tests = [
 /** Every HU of the repo, with its status and who holds it. */
 export async function listHus({ repo, run = runCommand }) {
   const issues = JSON.parse(await gh(run, ["issue", "list", "-R", repo, "--label", HU_LABEL, "--state", "all", "--limit", "1000", "--json", "number,title,state,labels,assignees"]));
-  return issues.map((i) => {
-    const found = i.labels.map((l) => l.name).filter((n) => STATUSES.some((s) => statusLabel(s) === n));
-    if (found.length !== 1) throw new BoardRejectedError(`HU-${i.number} has ${found.length} status labels (${found.join(", ") || "none"}): fix it to exactly one kj:<status>`);
-    return { short_id: `HU-${i.number}`, number: i.number, title: i.title, status: found[0].slice(3), claimed_by: i.assignees[0]?.login ?? null };
-  });
+  return issues.map((i) => ({ short_id: `HU-${i.number}`, number: i.number, title: i.title, status: statusOf(i), claimed_by: i.assignees[0]?.login ?? null }));
+}
+
+/** The one kj:<status> of an issue; none or several is a board someone broke by hand. */
+function statusOf(issue) {
+  const found = issue.labels.map((l) => l.name).filter((n) => STATUSES.some((s) => statusLabel(s) === n));
+  if (found.length !== 1) throw new BoardRejectedError(`HU-${issue.number} has ${found.length} status labels (${found.join(", ") || "none"}): fix it to exactly one kj:<status>`);
+  return found[0].slice(3);
+}
+
+async function view(repo, number, run) {
+  const issue = JSON.parse(await gh(run, ["issue", "view", String(number), "-R", repo, "--json", "state,labels,assignees"]));
+  return { ...issue, number, status: statusOf({ ...issue, number }), holders: issue.assignees.map((a) => a.login) };
+}
+
+/** Move the HU to `status`; done and skipped close the issue, anything else keeps it open. */
+export async function setStatus({ repo, number, status, run = runCommand }) {
+  if (!STATUSES.includes(status)) throw new Error(`invalid status "${status}": use ${STATUSES.join(", ")}`);
+  const issue = await view(repo, number, run);
+  // Every other status label goes, not only the one read: a concurrent move must not leave two.
+  const others = STATUSES.filter((s) => s !== status).flatMap((s) => ["--remove-label", statusLabel(s)]);
+  await gh(run, ["issue", "edit", String(number), "-R", repo, "--add-label", statusLabel(status), ...others]);
+  const after = await view(repo, number, run);
+  if (after.status !== status) throw new BoardRejectedError(`HU-${number} was moved to ${after.status} at the same time: check it before moving it again`);
+  const closes = status === "done" || status === "skipped";
+  if (closes && issue.state === "OPEN") await gh(run, ["issue", "close", String(number), "-R", repo]);
+  if (!closes && issue.state === "CLOSED") await gh(run, ["issue", "reopen", String(number), "-R", repo]);
+}
+
+/** Reserve the HU for `who` (the assignee is the reservation); a running HU held by another needs release. */
+export async function claim({ repo, number, who, release = false, run = runCommand }) {
+  const issue = await view(repo, number, run);
+  const others = issue.holders.filter((h) => h !== who);
+  if (others.length > 0 && issue.status === "running" && !release) {
+    throw new HuClaimedError(`HU-${number} is held by ${others.join(", ")}: taking it over is explicit (release)`);
+  }
+  const drop = others.flatMap((h) => ["--remove-assignee", h]);
+  await gh(run, ["issue", "edit", String(number), "-R", repo, "--add-assignee", who, ...drop]);
+  // Two people may claim at once and both see it free: read it back, and the same rule
+  // on both sides (the first login in order keeps it; a release always keeps it) leaves one.
+  const after = (await view(repo, number, run)).holders;
+  const rivals = after.filter((h) => h !== who);
+  if (rivals.length > 0) {
+    if (!release && [who, ...rivals].sort()[0] !== who) {
+      await gh(run, ["issue", "edit", String(number), "-R", repo, "--remove-assignee", who]);
+      throw new HuClaimedError(`HU-${number} was claimed at the same time by ${rivals.join(", ")}, who keeps it`);
+    }
+    // The one who keeps it does not rely on the others backing off: it removes them.
+    await gh(run, ["issue", "edit", String(number), "-R", repo, ...rivals.flatMap((h) => ["--remove-assignee", h])]);
+  }
+  // Every claim, release or not, ends with who as the only holder, or says it did not.
+  const final = rivals.length > 0 ? (await view(repo, number, run)).holders : after;
+  if (final.length !== 1 || final[0] !== who) {
+    throw new HuClaimedError(`HU-${number} is held by ${final.join(", ") || "nobody"} after a concurrent claim: check it before working it`);
+  }
+  return { claimed_by: who };
 }
