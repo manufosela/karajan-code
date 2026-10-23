@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.59.1: la review de terceros en cualquier idioma (actual)
+### v4.60.0: atril entra en la familia (actual)
+
+atril es el módulo de la familia para skills, comandos y subagentes: los guarda en un almacén fuera de lo que cada CLI de IA carga al arrancar y resuelve solo lo que pide cada tarea, para todas las CLIs. Esta versión trae sus siete primeros pasos (validar, escanear, enriquecer, grafo, buscar, resolver con presupuesto, instalar). La configuración persistente de kj pasa ahora por rulesync con un registro de propiedad, `kj init` ofrece adoptar rulesync y `kj doctor` comprueba su versión. Una contribución de Jorge del Casar.
+
+### v4.59.1: la review de terceros en cualquier idioma
 
 `kj review --third-party` ya no falla en un repo sin `.karajan/privacy.yml` cuando git contesta en un idioma que no es el inglés.
 

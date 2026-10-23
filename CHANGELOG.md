@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.60.0] - 2026-10-23
+
+Minor. **atril arrives in the family, and kj's persistent agent configuration goes through rulesync** (a contribution by Jorge del Casar: ADR 0021 and ADR 0022, accepted, and 20 PRs).
+
+### Added
+
+- **atril** (`packages/atril`, `@karajan-family/atril` 1.0.0, ADR 0021): skills, commands and subagents for every AI CLI, loaded on demand from a store outside the directories CLIs auto-load. Fully isolated (a lint rule forbids importing anything outside the package; a pack smoke test installs the tarball in an empty directory). This release ships steps 1 to 7 of the plan: parse and validate an artifact's frontmatter, scan the project and user stores, `atril enrich [--check]` with typed relations and their discovery, `atril graph` with validation of missing targets and cycles, lexical `atril search`, `resolveBlock` with the closure of `uses` and `delegates` bounded by a budget, `atril install` / `atril remove`, and the store's `atril.json` (`atril config`). Not yet published on its own to npm.
+- **The rulesync ownership ledger** (ADR 0022): `.rulesync/.owners.json` records who wrote each file and entry, written atomically under a lock; kj writes its `karajan.md` blocks through it and stops on a hand-edited one; `kj rulesync adopt|release <key>` settles it.
+- **`kj init` offers to adopt rulesync** in a project without it (asked, never assumed); a failed adoption names its step and can be finished.
+- **`kj doctor` checks the rulesync version** against the range kj was tested with.
+
+### Fixed
+
+- **The update notice prints on stderr** (KJC-BUG-0389): on stdout it trailed every `--json` document and the verdict the Sentinel's rules hook parses whenever npm had a newer version.
+
+### Changed
+
+- The review of each atril and rulesync PR applied its findings: isolation also rejects absolute and `file:` imports, the ledger rejects a non-string hash, `install` refuses a symlink source, atril's discovered relations are validated like the author's, `atril.json` is written through an exclusive random temp file, `DEFAULT_CONFIG` is frozen all the way down, and search output strips control characters. The rules compiled from the maintainer's MD files are sealed in `.karajan/rules.yml` (no rule left without a gate).
+
 ## [4.59.1] - 2026-10-22
 
 Patch. **`kj review --third-party` works with git in any language.**

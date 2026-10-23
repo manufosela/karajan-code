@@ -1838,6 +1838,12 @@ A QA engineer put it plainly: kj reviews like a developer. On a PR of test autom
 
 The same feedback named the other friction: test fixtures carry phones, emails and cards, and the privacy scan warned on every one. Using values reserved for testing is the good practice, so the scan now knows them, the fictional phone ranges and the test cards payment providers publish, and only them: a number one digit away is still treated as possibly real.
 
+## Phase 148: v4.60.0, atril joins the family
+
+The core had been carrying a concern that was not orchestration: detecting, installing and injecting skills, tied to one installer and one CLI's layout. Jorge del Casar proposed taking it out as a family module, atril, the stand that holds the score each musician reads, and wrote the plan as two decisions. ADR 0021 makes atril a fully isolated package that keeps skills, commands and subagents in a store no CLI loads up front and resolves only what a task asks for, for every CLI. ADR 0022 puts what every session must carry through rulesync, with an ownership ledger so kj and atril can write to the same source without overwriting each other.
+
+The maintainer accepted both, and the first seven steps of atril arrived in one night together with the rulesync ledger, its adoption in `kj init` and its version check in `kj doctor`. Every one of Jorge's pull requests went through the cross-AI review he could not run himself, and the findings were applied on his branches; where a branch had fallen behind the steps merged before it, the change was re-applied on main, and where a review fix pushed a change over 200 lines, it was split in two. The next steps, from the bridge to the core switch, are the ones that will change what kj does today.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

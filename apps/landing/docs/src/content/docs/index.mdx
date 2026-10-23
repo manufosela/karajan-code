@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.59.1: third-party review in any language (current)
+### v4.60.0: atril joins the family (current)
+
+atril is the family's module for skills, commands and subagents: it keeps them in a store outside what each AI CLI loads up front and resolves only what a task needs, for every CLI. This release ships its first seven steps (validate, scan, enrich, graph, search, resolve within a budget, install). kj's own persistent configuration now goes through rulesync with an ownership ledger, `kj init` offers to adopt rulesync, and `kj doctor` checks its version. A contribution by Jorge del Casar.
+
+### v4.59.1: third-party review in any language
 
 `kj review --third-party` no longer fails on a repo without `.karajan/privacy.yml` when git answers in a language other than English.
 

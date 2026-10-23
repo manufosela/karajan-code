@@ -1837,6 +1837,12 @@ Alguien de QA lo dijo sin rodeos: kj revisa como un desarrollador. En una PR de 
 
 El mismo comentario señaló la otra fricción: los datos de prueba llevan teléfonos, emails y tarjetas, y el escáner de privacidad avisaba de cada uno. Usar valores reservados para pruebas es la buena práctica, así que el escáner los conoce ya, los rangos de teléfonos de ficción y las tarjetas de prueba que publican las pasarelas de pago, y solo ellos: un número con un dígito distinto se sigue tratando como posiblemente real.
 
+## Phase 148: v4.60.0, atril entra en la familia
+
+El núcleo cargaba con algo que no era orquestar: detectar, instalar e inyectar skills, atado a un instalador y a la estructura de una sola CLI. Jorge del Casar propuso sacarlo como módulo de la familia, atril, el atril que sostiene la partitura que lee cada músico, y escribió el plan en dos decisiones. El ADR 0021 hace de atril un paquete totalmente aislado que guarda skills, comandos y subagentes en un almacén que ninguna CLI carga al arrancar y resuelve solo lo que pide cada tarea, para todas las CLIs. El ADR 0022 lleva por rulesync lo que toda sesión debe tener, con un registro de propiedad para que kj y atril escriban en la misma fuente sin pisarse.
+
+El mantenedor aceptó los dos, y en una noche llegaron los siete primeros pasos de atril junto al registro de rulesync, su adopción en `kj init` y la comprobación de su versión en `kj doctor`. Cada pull request de Jorge pasó por la review cruzada que él no podía ejecutar, y los hallazgos se aplicaron en sus ramas; donde una rama se había quedado atrás de los pasos mergeados antes, el cambio se rehízo sobre main, y donde un arreglo de review pasaba de 200 líneas, se partió en dos. Los pasos siguientes, del puente al cambio del núcleo, son los que cambiarán lo que kj hace hoy.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
