@@ -79,9 +79,16 @@ describe("kj hu list and move on the shared board", () => {
     expect(calls).toEqual([["claim", true], ["status"]]);
   });
 
+  // KJC-BUG-0392: a zero-padded id is a local HU from before the shared board; it stays local.
+  it("moves a legacy local HU (HU-0NNN) on the local board, never as an issue", async () => {
+    const touched = [];
+    const deps = { ...team().deps, who: "manufosela", setTeamStatus: async () => touched.push("issue"), assertNotHeld: async () => touched.push("issue") };
+    await expect(hu("move", ["HU-0090", "done"], {}, deps)).rejects.toThrow(/HU "HU-0090" not found/);
+    expect(touched).toHaveLength(0);
+  });
+
   it("refuses a local id and a clone with no GitHub login", async () => {
     const deps = { ...team().deps, who: "manufosela", setTeamStatus: async () => {}, assertNotHeld: async () => {} };
-    await expect(hu("move", ["HU-0090", "done"], {}, { ...deps })).resolves.toMatchObject({ id: "HU-90" });
     await expect(hu("move", ["T-1", "done"], {}, deps)).rejects.toThrow(/HU-<issue number>/);
     await expect(hu("move", ["HU-7", "running"], {}, { ...deps, who: "a@b.c" })).rejects.toThrow(/GitHub login/);
   });
