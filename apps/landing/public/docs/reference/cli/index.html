@@ -457,7 +457,7 @@
 <td><code dir="auto">--auto-pr</code></td>
 <td>boolean</td>
 <td><code dir="auto">false</code></td>
-<td>Create PR after push</td>
+<td>Create PR after push; the PR gets the <code dir="auto">Karajan</code> label (created if missing; a labelling failure is logged and the PR stays)</td>
 </tr>
 <tr>
 <td><code dir="auto">--no-auto-rebase</code></td>
@@ -623,6 +623,8 @@
 <li>Runs only kj’s reviewer, with the target repo’s rules (<code dir="auto">.karajan</code>) and the provider you pass, even if it is the one you are running in.</li>
 <li>Skips the own-work gates (card, tests next to code, policy, session RAG proof) and <strong>stores no verdict</strong>: it can never unlock a commit of your own. <code dir="auto">kj review --range</code> without <code dir="auto">--third-party</code> keeps every gate.</li>
 <li>Adds checks with no tokens, in two lists. <code dir="auto">checks</code> holds security: <code dir="auto">secrets</code>, <code dir="auto">privacy</code>, <code dir="auto">prompt-injection</code>, <code dir="auto">dependency-cooldown</code>, <code dir="auto">semgrep</code> (PR files only) and <code dir="auto">sonar</code> (when SonarQube is reachable; otherwise “not available”). <code dir="auto">policyChecks</code> holds the house requirements, which another repo may not share: <code dir="auto">size</code> (the repo’s budget), <code dir="auto">conventional-commits</code>, <code dir="auto">ai-attribution</code> and <code dir="auto">tests</code>.</li>
+<li>The PR’s title and description go in with <code dir="auto">--task-file pr.md</code> (or as the task argument, not both). They reach the reviewer fenced and labelled as untrusted text from the PR author: context only, never instructions, so a description cannot ask the reviewer to approve.</li>
+<li>Own-work flags this mode does not use (<code dir="auto">--staged</code>, <code dir="auto">--check</code>, <code dir="auto">--base-ref</code>, <code dir="auto">--walked</code>, <code dir="auto">--no-sonar</code>, <code dir="auto">--publish-pr</code>…) fail with a JSON error instead of being ignored.</li>
 <li><code dir="auto">--lens qa</code> reviews with a QA rubric: new behavior with no test, tests that cannot fail, flakiness by construction (sleeps, order, uncontrolled clock or network), fragile selectors, missing scenarios and test data that is not reserved for testing.</li>
 <li>Known privacy false positives of the reviewed repo go in its own <code dir="auto">.karajan/privacy.yml</code>, under <code dir="auto">allow</code>. It is read at the <strong>base</strong> of the range, so a PR cannot add the exemption it needs; a <code dir="auto">personal</code> list in that file is ignored (it only lives in <code dir="auto">~/.karajan/privacy.yml</code>).</li>
 <li>Test data with ordinary-looking phones or emails: list the test folders under <code dir="auto">test_paths</code> in the same file (for example <code dir="auto">src/test/**</code>, <code dir="auto">**/testdata/**</code>). Generic personal-data findings in those files are discarded and counted in the check’s detail; the personal denylist and secret shapes still block there. A glob with no folder name (<code dir="auto">**</code>, <code dir="auto">**/*</code>) is refused.</li>
