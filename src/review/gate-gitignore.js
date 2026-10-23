@@ -44,6 +44,8 @@ export const CONTRACT_BLOCK = [
   "!.karajan/rules.yml",
   // KJC-TSK-0995 (HUM-D, ADR 0018): the security level, signed when lowered, is the team's.
   "!.karajan/security-level.json",
+  // KJC-TSK-1163 (ADR 0025): which HU Board the repo uses; the team shares it.
+  "!.karajan/board.yml",
 ];
 
 /**
