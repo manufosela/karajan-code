@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.61.0] - 2026-10-23
+
+Minor. **Reviewing someone else's PR takes the PR's own words safely, and test folders stop flooding the privacy check; the PRs kj opens carry the `Karajan` label.**
+
+### Added
+
+- **`kj review --third-party --task-file`** (#2330): the PR's title and description reach the reviewer as untrusted context from the PR author, between markers the text cannot forge and under a label that says it is data, never instructions. The positional task works the same; passing both is an error.
+- **`test_paths` in the reviewed repo's `.karajan/privacy.yml`** (#2329): globs such as `src/test/**` where generic personal-data findings are discarded and counted in the check's detail. The personal denylist and secret shapes still block there, the file is still read at the base of the range so a PR cannot exempt itself, and a glob with no folder name (`**`, `**/*`) is refused.
+- **The `Karajan` label on the PRs kj opens** (#2315): created when the repo lacks it, idempotent, and a failure to label is logged without losing the PR. It means "went through Karajan", not "written by an AI". PRs the host agent opens itself are the subject of the proposed ADR 0023.
+
+### Fixed
+
+- **`kj review --third-party` fails loudly on the own-work flags it used to ignore** (`--staged`, `--base-ref`, `--walked`, `--no-sonar`...), instead of accepting them in silence.
+
 ## [4.60.0] - 2026-10-23
 
 Minor. **atril arrives in the family, and kj's persistent agent configuration goes through rulesync** (a contribution by Jorge del Casar: ADR 0021 and ADR 0022, accepted, and 20 PRs).
