@@ -1,6 +1,7 @@
 import { runCommand } from "./process.js";
 import { getRunContext } from "./run-context.js";
 import { identityEnv } from "../git/run-identity.js";
+import { labelKarajanPr } from "../git/karajan-label.js";
 
 /**
  * Module-scoped runner — legacy back-compat for callers outside a
@@ -319,5 +320,8 @@ export async function createPullRequest({ baseBranch, branch, title, body, cwd =
   if (res.exitCode !== 0) {
     throw new Error(`gh ${args.join(" ")} failed: ${res.stderr || res.stdout}`);
   }
-  return res.stdout.trim();
+  const url = res.stdout.trim();
+  // KJC-TSK-1123: the PR Karajan opens carries its label; a failure is logged, the PR stays.
+  await labelKarajanPr({ url, cwd });
+  return url;
 }
