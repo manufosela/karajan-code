@@ -1,10 +1,13 @@
 // HU-0021 (ADR 0021, decision 5 and plan step 7): install and remove put
 // artifacts in the store and take them out, never silently overwriting.
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { install, remove } from "../src/store.js";
+const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-store-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -18,6 +21,7 @@ const artifact = (rel, kind, name, body = "body") =>
   write(rel, `---\nname: ${name}\ndescription: d\nkind: ${kind}\n---\n${body}\n`);
 const o = () => ({ projectDir: dir, root: "store" });
 const at = (...parts) => join(dir, "store", ...parts);
+const run = (...args) => spawnSync(process.execPath, [BIN, ...args], { cwd: dir, encoding: "utf8" });
 
 describe("install", () => {
   it("copies a skill folder with its files into skills/<name>/", () => {
@@ -88,5 +92,25 @@ describe("remove", () => {
     expect(() => remove("ghost", { ...o(), kind: "agent" })).toThrow(/agent:ghost is not installed/);
     expect(() => remove("x", { ...o(), kind: "plugin" })).toThrow(/kind "plugin"/);
     expect(() => remove("../x", { ...o(), kind: "agent" })).toThrow(/not a slug/);
+  });
+});
+
+describe("atril install / remove CLI", () => {
+  it("installs a path and removes kind:name", () => {
+    artifact("src/review.md", "command", "review");
+    const installed = run("install", "src/review.md", "--root", "store");
+    expect(installed.status).toBe(0);
+    expect(installed.stdout).toMatch(/installed\tcommand:review/);
+    expect(run("install", "src/review.md", "--root", "store", "--kind", "agent").stderr).toMatch(/not agent/);
+    artifact("src/review.md", "command", "review", "changed");
+    expect(run("install", "src/review.md", "--root", "store").status).toBe(1);
+    expect(run("remove", "command:review", "--root", "store").status).toBe(0);
+    expect(existsSync(at("commands", "review.md"))).toBe(false);
+  });
+  it("an unknown remove or a malformed ref fails with exit 1", () => {
+    const unknown = run("remove", "agent:ghost", "--root", "store");
+    expect(unknown.status).toBe(1);
+    expect(unknown.stderr).toMatch(/agent:ghost is not installed/);
+    expect(run("remove", "ghost", "--root", "store").stderr).toMatch(/kind:name/);
   });
 });
