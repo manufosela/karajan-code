@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.62.0: Karajan en equipo (actual)
+### v4.62.1: el board compartido, en su primer día real (actual)
+
+`kj hu add` funciona en un repo que aún no tiene etiquetas de kj, y una HU local de antes del board compartido (`HU-0104`) sigue en el board local en vez de tomarse por una issue; kj solo toca issues con la etiqueta `kj:hu`.
+
+### v4.62.0: Karajan en equipo
 
 Dos personas pueden trabajar a la vez con kj en el mismo repo. `kj hu backend github` activa una vez el HU Board compartido, en un fichero que el equipo hereda con un pull: cada HU pasa a ser una issue de GitHub cuyo número es su id, así que los ids nunca chocan, y el asignado es la reserva, así que nadie coge sin decirlo una HU que otra persona tiene en marcha. Sin activarlo, kj sigue con el board local.
 

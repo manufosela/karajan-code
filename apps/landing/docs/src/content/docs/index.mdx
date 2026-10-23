@@ -65,7 +65,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.62.0: Karajan as a team (current)
+### v4.62.1: the shared board, on its first real day (current)
+
+`kj hu add` works in a repo that has no kj labels yet, and a local HU from before the shared board (`HU-0104`) stays on the local board instead of being taken for an issue; kj only touches issues labelled `kj:hu`.
+
+### v4.62.0: Karajan as a team
 
 Two people can work on the same repo with kj at once. `kj hu backend github` turns the shared HU Board on once, in a file the team inherits with a pull: each HU becomes a GitHub issue whose number is its id, so ids never collide, and the assignee is the reservation, so nobody takes a HU someone else is running without saying so. Without it, kj keeps the local board.
 
