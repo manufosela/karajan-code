@@ -353,6 +353,15 @@ export function registerMeta(program, { pkgVersion }) {
         await huCommand({ config, action: "list", flags });
       });
     });
+  // KJC-TSK-1163 (ADR 0025): the team board, turned on once per repo.
+  hu.command("backend <backend>")
+    .description("Turn the repo's HU Board on: github (shared, in GitHub Issues) or local; writes .karajan/board.yml for a PR")
+    .option("--json", "Machine-readable output")
+    .action(async (backend, flags) => {
+      await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
+        await huCommand({ config, action: "backend", args: [backend], flags });
+      });
+    });
 
   const adr = program.command("adr").description("Architecture decision records in .karajan/adrs/ (git-tracked)");
   adr.command("add <title>")

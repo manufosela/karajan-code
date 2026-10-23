@@ -12,7 +12,7 @@ import { detectHostAgent } from "../utils/agent-detect.js";
 import { readIdentity } from "../identity/store.js";
 import { effectiveGitEmail } from "../identity/detect.js";
 import { roleSkills } from "../skills/role-skills.js";
-import { readBoardConfig } from "../hu/board-config.js";
+import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
 import { createHu, listHus, claim, setStatus, assertNotHeld } from "../hu/github-board.js";
 
 // KJC-TSK-0661 (Jorge's friction): every HU records WHO created it — the
@@ -114,6 +114,14 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   const externalBoard = config?.state_backend === "external" ? (config?.board?.name || "the external board") : null;
 
   // KJC-TSK-1163/1164 (ADR 0025): the repo's board; with the shared one on, add/list/move go to GitHub.
+  // The repo turns its board on once; the file travels in a PR. Before reading it: it may be what is fixed.
+  if (action === "backend") {
+    if (!args[0]) throw new Error("usage: kj hu backend <github | local>");
+    const r = await (deps.setBackend ?? setBoardBackend)({ projectDir, backend: args[0] });
+    const where = r.backend === "github" ? `GitHub Issues of ${r.repo}` : "the local board";
+    const files = r.gitignoreChanged ? `${r.file} and .gitignore` : r.file;
+    return emit(r, `✓ HU Board: ${where} — commit ${files} in a PR so the whole team inherits it`);
+  }
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
   if (board.backend === "github" && action === "list") {
     const rows = (await (deps.listTeamHus ?? listHus)({ repo: board.repo })).map((h) => ({ ...h, id: h.short_id, plan: "github" }));
@@ -305,5 +313,5 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     return emit({ id: hu.id, status, claimed_by: hu.claimed_by ?? null }, `✓ ${label} → ${status}`);
   }
 
-  throw new Error(`unknown action "${action}" — use: add | move | list`);
+  throw new Error(`unknown action "${action}" — use: add | move | list | backend`);
 }
