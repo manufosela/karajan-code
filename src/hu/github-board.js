@@ -29,8 +29,11 @@ async function gh(run, args) {
   throw new Kind(`gh ${args.slice(0, 2).join(" ")} failed: ${why}`);
 }
 
+// KJC-BUG-0393: a --json listing that matches nothing prints nothing at all, not "[]".
+const listOf = (stdout) => (stdout.trim() === "" ? [] : JSON.parse(stdout));
+
 async function ensureLabels(repo, run) {
-  const existing = new Set(JSON.parse(await gh(run, ["label", "list", "-R", repo, "--search", "kj:", "--json", "name", "--limit", "100"])).map((l) => l.name));
+  const existing = new Set(listOf(await gh(run, ["label", "list", "-R", repo, "--search", "kj:", "--json", "name", "--limit", "100"])).map((l) => l.name));
   for (const name of [HU_LABEL, ...STATUSES.map(statusLabel)].filter((n) => !existing.has(n))) {
     await gh(run, ["label", "create", name, "-R", repo, "--color", "1f6feb", "--description", "Karajan HU Board"]);
   }
@@ -50,7 +53,7 @@ export async function createHu({ repo, title, acceptanceCriteria = [], tests = [
 
 /** Every HU of the repo, with its status and who holds it. */
 export async function listHus({ repo, run = runCommand }) {
-  const issues = JSON.parse(await gh(run, ["issue", "list", "-R", repo, "--label", HU_LABEL, "--state", "all", "--limit", "1000", "--json", "number,title,state,labels,assignees"]));
+  const issues = listOf(await gh(run, ["issue", "list", "-R", repo, "--label", HU_LABEL, "--state", "all", "--limit", "1000", "--json", "number,title,state,labels,assignees"]));
   return issues.map((i) => ({ short_id: `HU-${i.number}`, number: i.number, title: i.title, status: statusOf(i), claimed_by: i.assignees[0]?.login ?? null }));
 }
 
