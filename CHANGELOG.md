@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.61.1] - 2026-10-23
+
+Patch. **`cross-ai-verdict` no longer goes red after "Update branch".**
+
+### Fixed
+
+- **`kj review --verify-pr` passes over a clean merge of the base** (KJC-BUG-0391): after "Update branch" the PR's head is a merge with no published review, and the check asked a verdict of that merge, whose diff is the base's code. A clean merge (its tree is exactly what `git merge-tree` gives for its parents) needs no verdict; a merge that resolved conflicts by hand still does. Any kj review a member published on the PR counts, since each commit's diff hash is the proof. `kj review --publish-pr` skips the same merges.
+
+### Added
+
+- **`atril route`** (`packages/atril`, ADR 0021 step 6c, by Jorge del Casar): resolve a task and a role to the best artifact and the files to read within the budget; `--json` gives paths only.
+
 ## [4.61.0] - 2026-10-23
 
 Minor. **Reviewing someone else's PR takes the PR's own words safely, and test folders stop flooding the privacy check; the PRs kj opens carry the `Karajan` label.**

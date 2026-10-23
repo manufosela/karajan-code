@@ -65,7 +65,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.61.0: las palabras de la PR, como datos (actual)
+### v4.61.1: el check de veredictos aguanta «Update branch» (actual)
+
+El check `cross-ai-verdict` ya no se pone en rojo al actualizar una PR con su base: un merge limpio no trae trabajo de la PR y no necesita veredicto, y un merge que resolvió conflictos a mano sigue necesitándolo. atril suma `atril route`, que convierte una tarea y un rol en los ficheros que hay que leer.
+
+### v4.61.0: las palabras de la PR, como datos
 
 `kj review --third-party --task-file` entrega al reviewer el título y la descripción de la PR acotados y marcados como texto no fiable de su autor, así que una descripción no puede dirigir la review. El repo revisado puede declarar sus carpetas de test en `test_paths` de `.karajan/privacy.yml`: ahí los hallazgos genéricos de datos personales se descartan y se cuentan, y la denylist y los secretos siguen bloqueando. Y las PRs que abre kj llevan la etiqueta `Karajan`: ha pasado por Karajan, no lo ha escrito una IA.
 
