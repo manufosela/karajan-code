@@ -25,6 +25,7 @@ dist/
 !.karajan/supervisor-signers.json
 !.karajan/rules.yml
 !.karajan/security-level.json
+!.karajan/board.yml
 .reviews/
 .kj/
 kj.config.yml
