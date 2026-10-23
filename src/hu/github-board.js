@@ -80,6 +80,15 @@ export async function setStatus({ repo, number, status, run = runCommand }) {
   if (!closes && issue.state === "CLOSED") await gh(run, ["issue", "reopen", String(number), "-R", repo]);
 }
 
+/** A running HU held by someone else is theirs: any move of it by `who` needs release. */
+export async function assertNotHeld({ repo, number, who, run = runCommand }) {
+  const issue = await view(repo, number, run);
+  const others = issue.holders.filter((h) => h !== who);
+  if (issue.status === "running" && others.length > 0) {
+    throw new HuClaimedError(`HU-${number} is held by ${others.join(", ")}: taking it over is explicit (release)`);
+  }
+}
+
 /** Reserve the HU for `who` (the assignee is the reservation); a running HU held by another needs release. */
 export async function claim({ repo, number, who, release = false, run = runCommand }) {
   const issue = await view(repo, number, run);

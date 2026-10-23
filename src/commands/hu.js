@@ -12,6 +12,8 @@ import { detectHostAgent } from "../utils/agent-detect.js";
 import { readIdentity } from "../identity/store.js";
 import { effectiveGitEmail } from "../identity/detect.js";
 import { roleSkills } from "../skills/role-skills.js";
+import { readBoardConfig } from "../hu/board-config.js";
+import { createHu, listHus, claim, setStatus, assertNotHeld } from "../hu/github-board.js";
 
 // KJC-TSK-0661 (Jorge's friction): every HU records WHO created it — the
 // board must never show work nobody can trace. Host agent env → that agent;
@@ -46,6 +48,45 @@ export function findTitleMatches(title, allHus) {
   return { identical, similar };
 }
 
+/** A repeatable flag as lines: one value or many, each split per line, blanks dropped. */
+function linesOf(v) {
+  const values = Array.isArray(v) ? v : [v];
+  return values.filter((s) => s != null && s !== "").flatMap((s) => String(s).split("\n")).map((s) => s.trim()).filter(Boolean);
+}
+
+/** KJC-TSK-1163: kj hu add on the shared board; the same no-duplicates rule, checked against the issues. */
+async function addToTeamBoard({ repo, title, flags, deps, emit }) {
+  if (flags.id) throw new Error(`--id is not used with the shared board: GitHub gives each HU its id (the issue number)`);
+  const { identical, similar } = findTitleMatches(title, await (deps.listTeamHus ?? listHus)({ repo }));
+  if (identical.length > 0) {
+    throw new Error(`An HU with this title already exists: ${identical[0].short_id} (status: ${identical[0].status}). Work that card or move it with: kj hu move ${identical[0].short_id} <status>`);
+  }
+  if (similar.length > 0) {
+    const candidates = similar.map((h) => `  · ${h.short_id} (${h.status}) "${h.title}"`).join("\n");
+    console.warn("⚠ possible duplicate — check before working it:\n" + candidates);
+  }
+  const hu = await (deps.createTeamHu ?? createHu)({
+    repo, title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref: flags.ref ? String(flags.ref).trim() : null,
+  });
+  return emit({ ...hu, board: "github", repo }, `✓ HU created: ${hu.short_id} (pending) in the shared board, issue #${hu.number} of ${repo}`);
+}
+
+/** KJC-TSK-1164: kj hu move on the shared board; starting it claims it (the assignee) first. */
+async function moveOnTeamBoard({ repo, args, flags, deps, emit, who }) {
+  const [ref, status] = args;
+  if (!ref || !status) throw new Error("usage: kj hu move <id> <status>");
+  if (!HU_STATUSES.includes(status)) throw new Error(`invalid status "${status}" — valid: ${HU_STATUSES.join(", ")}`);
+  const number = Number(/^(?:HU-|#)(\d+)$/i.exec(ref)?.[1]);
+  if (!Number.isInteger(number)) throw new Error(`"${ref}" is not a shared-board HU: use HU-<issue number>`);
+  // GitHub assigns by login: kj identity must name the GitHub user of this clone.
+  if (!who || who.includes("@")) throw new Error("the shared board reserves by GitHub login: declare it with kj identity set");
+  // Starting it, or releasing it, claims it; any other move of a HU someone else runs is refused.
+  if (status === "running" || flags.release) await (deps.claimTeamHu ?? claim)({ repo, number, who, release: Boolean(flags.release) });
+  else await (deps.assertNotHeld ?? assertNotHeld)({ repo, number, who });
+  await (deps.setTeamStatus ?? setStatus)({ repo, number, status });
+  return emit({ id: `HU-${number}`, status, claimed_by: status === "running" ? who : null }, `✓ HU-${number} → ${status}`);
+}
+
 // Exported for the Steward's proposed-work sync (KJC-TSK-0792): broken
 // invariants land in the same backlog the brain already consumes.
 export async function backlogPlan(projectDir) {
@@ -71,6 +112,20 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   // KJC-BUG-0305 (issue #2042): the HU Board is always kj's board. An external
   // tracker coexists with it: each HU points at its replica there (--ref).
   const externalBoard = config?.state_backend === "external" ? (config?.board?.name || "the external board") : null;
+
+  // KJC-TSK-1163/1164 (ADR 0025): the repo's board; with the shared one on, add/list/move go to GitHub.
+  const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
+  if (board.backend === "github" && action === "list") {
+    const rows = (await (deps.listTeamHus ?? listHus)({ repo: board.repo })).map((h) => ({ ...h, id: h.short_id, plan: "github" }));
+    if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
+    for (const r of rows) {
+      const held = r.claimed_by ? " · held by " + r.claimed_by : "";
+      console.log(`${r.short_id.padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${board.repo}${held}]`);
+    }
+    if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
+    return rows;
+  }
+  if (board.backend === "github" && action === "move") return moveOnTeamBoard({ repo: board.repo, args, flags, deps, emit, who: deps.who === undefined ? workerOf(projectDir) : deps.who });
 
   if (action === "list") {
     const plans = await listPlans(projectDir);
@@ -104,6 +159,8 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   if (action === "add") {
     const title = args[0];
     if (!title || !title.trim()) throw new Error("kj hu add requires a title: kj hu add \"<story>\"");
+    // KJC-TSK-1163 (ADR 0025): with the shared board on, the HU is an issue and GitHub gives its id.
+    if (board.backend === "github") return addToTeamBoard({ repo: board.repo, title, flags, deps, emit });
     // Cross-plan title dedup (KJC-TSK-0675) — check BEFORE creating anything.
     const allHus = [];
     for (const meta of await listPlans(projectDir)) {
@@ -152,8 +209,7 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     if (flags.taskType && !TASK_TYPES.includes(flags.taskType)) {
       throw new Error(`invalid --task-type "${flags.taskType}" — valid: ${TASK_TYPES.join(", ")}`);
     }
-    const splitLines = (v) => (Array.isArray(v) ? v : v ? [v] : [])
-      .flatMap((s) => String(s).split("\n")).map((s) => s.trim()).filter(Boolean);
+    const splitLines = linesOf;
     const hu = addHu(plan, {
       title,
       // KJC-BUG-0189: the card-first gate demands a branch that references a
