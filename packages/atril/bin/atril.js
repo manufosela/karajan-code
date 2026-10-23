@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
-import { VERSION } from "../src/index.js";
+import { VERSION, resolve } from "../src/index.js";
 import { relative } from "node:path";
 import { enrich } from "../src/enrich.js";
 import { graph } from "../src/graph.js";
@@ -12,6 +12,7 @@ import { readConfig } from "../src/config.js";
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
   + "       atril search <query> [--kind <kind>] [--root <dir>] [--json]\n"
+  + "       atril route <task> [--role <role>] [--root <dir>] [--json]\n"
   + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
   + "       atril config [--root <dir>] [--json]";
 
@@ -91,6 +92,29 @@ function runSearch(args) {
   for (const hit of hits) console.log(`${hit.score}\t${hit.kind}\t${printable(hit.name)}\t${hit.source}\t${printable(hit.description)}`);
 }
 
+// The files to read, not their content: a subagent carries its own block.
+const pathsOf = (block) => block.map(({ name, kind, path, as, block: own }) => ({
+  name, kind, path, as,
+  ...(own && { block: pathsOf(own) }),
+}));
+const printBlock = (block, indent = "") => {
+  for (const item of block) {
+    console.log(`${indent}${item.as}\t${printable(item.path)}`);
+    if (item.block) printBlock(item.block, `${indent}  `);
+  }
+};
+
+function runRoute(args) {
+  const { values, positionals } = parseArgs({
+    args, allowPositionals: true,
+    options: { role: { type: "string" }, root: { type: "string" }, json: { type: "boolean" } },
+  });
+  const { block, suggested, left, reason } = resolve({ task: positionals.join(" "), role: values.role, root: values.root });
+  if (values.json) console.log(JSON.stringify({ block: pathsOf(block), suggested, left, ...(reason && { reason }) }, null, 2));
+  else if (reason) console.log(reason);
+  else printBlock(block);
+}
+
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "--version" || command === "-v") console.log(VERSION);
@@ -98,6 +122,7 @@ try {
   else if (command === "enrich") runEnrich(rest);
   else if (command === "graph") runGraph(rest);
   else if (command === "search") runSearch(rest);
+  else if (command === "route") runRoute(rest);
   else if (command === "install" || command === "remove") runStore(command, rest);
   else if (command === "config") runConfig(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
