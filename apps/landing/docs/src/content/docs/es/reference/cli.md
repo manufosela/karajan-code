@@ -132,7 +132,7 @@ El argumento `<task>` acepta:
 | `--base-ref <ref>` | string | — | Ref git explícita (ej: HEAD~3) |
 | `--auto-commit` | boolean | `false` | Auto-commit tras aprobación |
 | `--auto-push` | boolean | `false` | Auto-push tras commit |
-| `--auto-pr` | boolean | `false` | Crear PR tras push |
+| `--auto-pr` | boolean | `false` | Crear PR tras push; la PR lleva la etiqueta `Karajan` (se crea si no existe; si no se puede etiquetar, queda en el log y la PR sigue) |
 | `--no-auto-rebase` | boolean | `false` | Desactivar auto-rebase antes de push |
 | `--branch-prefix <prefix>` | string | `feat/` | Prefijo de nombre de rama |
 
@@ -238,6 +238,8 @@ kj review --range main...rama-de-la-pr --third-party --json --reviewer claude
 - Corre solo el reviewer de kj, con las reglas del repo destino (`.karajan`) y el proveedor que indiques, aunque sea en el que estás trabajando.
 - Se salta las gates del trabajo propio (card, tests junto al código, policy, prueba de RAG de la sesión) y **no guarda veredicto**: nunca puede desbloquear un commit tuyo. `kj review --range` sin `--third-party` mantiene todas las gates.
 - Añade checks sin tokens, en dos listas. `checks` lleva la seguridad: `secrets`, `privacy`, `prompt-injection`, `dependency-cooldown`, `semgrep` (solo los ficheros de la PR) y `sonar` (si hay SonarQube accesible; si no, "not available"). `policyChecks` lleva los requisitos de la casa, que otro repo puede no compartir: `size` (el presupuesto del repo), `conventional-commits`, `ai-attribution` y `tests`.
+- El título y la descripción de la PR entran con `--task-file pr.md` (o como argumento de tarea, no los dos). Llegan al reviewer acotados y marcados como texto no fiable del autor de la PR: solo contexto, nunca instrucciones, así que una descripción no puede pedirle al reviewer que apruebe.
+- Los flags del trabajo propio que este modo no usa (`--staged`, `--check`, `--base-ref`, `--walked`, `--no-sonar`, `--publish-pr`...) fallan con un error JSON en vez de ignorarse.
 - `--lens qa` revisa con una rúbrica de QA: comportamiento nuevo sin test, tests que no pueden fallar, inestabilidad de serie (esperas fijas, orden, reloj o red sin controlar), selectores frágiles, escenarios que faltan y datos de prueba que no son reservados para pruebas.
 - Los falsos positivos de privacidad conocidos del repo revisado van en su propio `.karajan/privacy.yml`, bajo `allow`. Se lee en la **base** del rango, así que una PR no puede añadirse la exención que necesita; una lista `personal` en ese fichero se ignora (solo vive en `~/.karajan/privacy.yml`).
 - Datos de prueba con teléfonos o correos de aspecto normal: declara las carpetas de test en `test_paths`, en el mismo fichero (por ejemplo `src/test/**`, `**/testdata/**`). En esos ficheros los hallazgos genéricos de datos personales se descartan y se cuentan en el detalle del check; la denylist personal y las formas de secreto siguen bloqueando. Un glob sin nombre de carpeta (`**`, `**/*`) se rechaza.

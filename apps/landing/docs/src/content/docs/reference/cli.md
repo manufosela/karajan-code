@@ -132,7 +132,7 @@ The `<task>` argument accepts:
 | `--base-ref <ref>` | string | — | Explicit git ref (e.g., HEAD~3) |
 | `--auto-commit` | boolean | `false` | Auto-commit after approval |
 | `--auto-push` | boolean | `false` | Auto-push after commit |
-| `--auto-pr` | boolean | `false` | Create PR after push |
+| `--auto-pr` | boolean | `false` | Create PR after push; the PR gets the `Karajan` label (created if missing; a labelling failure is logged and the PR stays) |
 | `--no-auto-rebase` | boolean | `false` | Disable auto-rebase before push |
 | `--branch-prefix <prefix>` | string | `feat/` | Branch naming prefix |
 
@@ -238,6 +238,8 @@ kj review --range main...pr-branch --third-party --json --reviewer claude
 - Runs only kj's reviewer, with the target repo's rules (`.karajan`) and the provider you pass, even if it is the one you are running in.
 - Skips the own-work gates (card, tests next to code, policy, session RAG proof) and **stores no verdict**: it can never unlock a commit of your own. `kj review --range` without `--third-party` keeps every gate.
 - Adds checks with no tokens, in two lists. `checks` holds security: `secrets`, `privacy`, `prompt-injection`, `dependency-cooldown`, `semgrep` (PR files only) and `sonar` (when SonarQube is reachable; otherwise "not available"). `policyChecks` holds the house requirements, which another repo may not share: `size` (the repo's budget), `conventional-commits`, `ai-attribution` and `tests`.
+- The PR's title and description go in with `--task-file pr.md` (or as the task argument, not both). They reach the reviewer fenced and labelled as untrusted text from the PR author: context only, never instructions, so a description cannot ask the reviewer to approve.
+- Own-work flags this mode does not use (`--staged`, `--check`, `--base-ref`, `--walked`, `--no-sonar`, `--publish-pr`...) fail with a JSON error instead of being ignored.
 - `--lens qa` reviews with a QA rubric: new behavior with no test, tests that cannot fail, flakiness by construction (sleeps, order, uncontrolled clock or network), fragile selectors, missing scenarios and test data that is not reserved for testing.
 - Known privacy false positives of the reviewed repo go in its own `.karajan/privacy.yml`, under `allow`. It is read at the **base** of the range, so a PR cannot add the exemption it needs; a `personal` list in that file is ignored (it only lives in `~/.karajan/privacy.yml`).
 - Test data with ordinary-looking phones or emails: list the test folders under `test_paths` in the same file (for example `src/test/**`, `**/testdata/**`). Generic personal-data findings in those files are discarded and counted in the check's detail; the personal denylist and secret shapes still block there. A glob with no folder name (`**`, `**/*`) is refused.
