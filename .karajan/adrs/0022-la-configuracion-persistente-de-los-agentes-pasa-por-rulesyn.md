@@ -50,6 +50,11 @@ in one source need rules to live together.
      permission by its rule (`permissions:<rule>`), and a hook, which sits in an array under
      its event, by an `id` field the writer sets on it (`hooks:<event>:<id>`, e.g.
      `hooks:preToolUse:atril/<plugin>/<hook-id>`).
+   - **Released entries.** A writer hands an entry to the user by recording it with
+     `owner: "user"` (`kj rulesync release <key>`), not by deleting it: a deleted entry whose
+     block still carries the writer's marker would be claimed again on the next run. A writer
+     never touches a `"user"` entry and stops on it until it is adopted back
+     (`kj rulesync adopt <key>`). Every writer, atril included, reads `"user"` this way.
    - **The ledger**, `.rulesync/.owners.json`, records every owned file and entry:
      `{ "version": 1, "entries": { "<feature>:<key>": { "owner": "atril", "hash": "…" } } }`.
      It is the single source of hashes; a file's marker only names its writer. It is
