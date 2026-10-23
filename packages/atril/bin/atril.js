@@ -7,11 +7,26 @@ import { graph } from "../src/graph.js";
 import { scan } from "../src/scan.js";
 import { SEARCH_MODE, search } from "../src/search.js";
 import { install, remove } from "../src/store.js";
+import { readConfig } from "../src/config.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
   + "       atril search <query> [--kind <kind>] [--root <dir>] [--json]\n"
-  + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]";
+  + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
+  + "       atril config [--root <dir>] [--json]";
+
+function runConfig(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
+  const config = readConfig({ root: values.root });
+  if (values.json) {
+    console.log(JSON.stringify(config, null, 2));
+    return;
+  }
+  console.log(`targets\t${config.targets.join(",")}`);
+  for (const [kind, names] of Object.entries(config.expose)) console.log(`expose.${kind}\t${names.join(",")}`);
+  console.log(`catalogs\t${config.catalogs.join(",")}`);
+  console.log(`rulesync.generate\t${config.rulesync.generate}`);
+}
 
 function runStore(command, args) {
   const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" } }, allowPositionals: true });
@@ -84,6 +99,7 @@ try {
   else if (command === "graph") runGraph(rest);
   else if (command === "search") runSearch(rest);
   else if (command === "install" || command === "remove") runStore(command, rest);
+  else if (command === "config") runConfig(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);

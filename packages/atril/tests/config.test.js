@@ -1,9 +1,12 @@
 // HU-0022 (ADR 0021, decisions 10-12): <root>/atril.json holds the store's config.
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG, readConfig, writeConfig } from "../src/config.js";
+const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-config-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -78,5 +81,21 @@ describe("writeConfig", () => {
     writeConfig({ targets: ["claudecode"] }, storeOpts());
     expect(readFileSync(victim, "utf8")).toBe("untouched");
     expect(readConfig(storeOpts()).targets).toEqual(["claudecode"]);
+  });
+});
+describe("atril config", () => {
+  const run = (...args) => spawnSync(process.execPath, [BIN, "config", ...args], { cwd: dir, encoding: "utf8" });
+  it("--json prints the effective config", () => {
+    put({ targets: ["claudecode"] });
+    const res = run("--root", "store", "--json");
+    expect(res.status).toBe(0);
+    expect(JSON.parse(res.stdout)).toEqual({ ...DEFAULT_CONFIG, targets: ["claudecode"] });
+  });
+  it("prints one line per field without --json, and fails loudly on a bad file", () => {
+    expect(run("--root", "store").stdout).toMatch(/^targets\t\nexpose\.skill\t\n/);
+    put({ targets: 3 });
+    const res = run("--root", "store");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/targets must be a list/);
   });
 });
