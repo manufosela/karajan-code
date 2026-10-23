@@ -15,6 +15,8 @@ import { prSecurityChecks } from "./pr-security.js";
 import { sonarCheck } from "./pr-sonar.js";
 import { batchDiff, splitByFile } from "./diff-batches.js";
 import { lensTask } from "./review-lens.js";
+import { thirdPartyTask } from "./untrusted-context.js";
+import { readTaskFile } from "../utils/task-file.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 
 // KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
@@ -78,12 +80,23 @@ function verdictOf(records, coverage) {
   return { status, approved: status === "approved", summary };
 }
 
+// KJC-TSK-1153: flags of the own-work review that this mode would otherwise ignore in silence.
+const OWN_WORK_FLAGS = { staged: "--staged", check: "--check", installGate: "--install-gate", prune: "--prune", dryRun: "--dry-run", publishPr: "--publish-pr", verifyPr: "--verify-pr", baseRef: "--base-ref", walkedWith: "--walked-with" };
+
+function assertThirdPartyFlags(flags) {
+  const used = Object.keys(OWN_WORK_FLAGS).filter((k) => flags[k]).map((k) => OWN_WORK_FLAGS[k]);
+  if (flags.walked?.length) used.push("--walked");
+  if (flags.sonar === false) used.push("--no-sonar");
+  if (used.length) throw new Error(`${used.join(", ")} not used with --third-party; drop ${used.length > 1 ? "them" : "it"}`);
+  if (flags.task && flags.taskFile) throw new Error("pass the PR context either as the task argument or with --task-file, not both");
+}
+
 /**
  * The CLI side: stdout carries exactly one JSON document, logs go to stderr.
  * Exit 0 whatever the PR's verdict (the agent decides what to post); non-zero
  * only when kj itself fails.
  */
-export async function thirdPartyReviewCommand({ flags, config, out = process.stdout, err = process.stderr, review = thirdPartyReview }) {
+export async function thirdPartyReviewCommand({ flags, config, out = process.stdout, err = process.stderr, review = thirdPartyReview, readTask = readTaskFile }) {
   const print = (doc) => out.write(`${JSON.stringify(doc)}\n`);
   if (!flags.range) {
     print({ error: "--third-party reviews a range: pass --range <base>...<head>" });
@@ -91,10 +104,13 @@ export async function thirdPartyReviewCommand({ flags, config, out = process.std
   }
   const log = (msg) => err.write(`${msg}\n`);
   const logger = { info: log, warn: log, error: log, debug: () => {} };
+  const projectDir = config.projectDir || process.cwd();
   try {
-    // KJC-TSK-1117: a lens (qa) puts its rubric before the task.
-    const task = await lensTask(flags.lens ?? null, flags.task ?? null);
-    print(await review({ range: flags.range, config, projectDir: config.projectDir || process.cwd(), logger, task }));
+    assertThirdPartyFlags(flags);
+    // KJC-TSK-1153: the PR author's text, fenced as untrusted; KJC-TSK-1117: a lens puts its rubric first.
+    const context = flags.taskFile ? await readTask(flags.taskFile, { projectDir }) : flags.task;
+    const task = await lensTask(flags.lens ?? null, thirdPartyTask(context ?? null));
+    print(await review({ range: flags.range, config, projectDir, logger, task }));
     return 0;
   } catch (e) {
     print({ error: e.message });
