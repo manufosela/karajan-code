@@ -1843,6 +1843,12 @@ El núcleo cargaba con algo que no era orquestar: detectar, instalar e inyectar 
 
 El mantenedor aceptó los dos, y en una noche llegaron los siete primeros pasos de atril junto al registro de rulesync, su adopción en `kj init` y la comprobación de su versión en `kj doctor`. Cada pull request de Jorge pasó por la review cruzada que él no podía ejecutar, y los hallazgos se aplicaron en sus ramas; donde una rama se había quedado atrás de los pasos mergeados antes, el cambio se rehízo sobre main, y donde un arreglo de review pasaba de 200 líneas, se partió en dos. Los pasos siguientes, del puente al cambio del núcleo, son los que cambiarán lo que kj hace hoy.
 
+## Phase 149: v4.61.0, las palabras de la PR, como datos
+
+Un agente que revisa las PRs de TRIBBU pasaba al reviewer el título y la descripción de cada PR, y `--task-file` se ignoraba en silencio en ese modo. Peor que el fallo silencioso era lo que no se veía: esa descripción la escribe el autor de la PR, y podría pedirle al reviewer que aprobase. Ahora el texto llega acotado entre marcas que el autor no puede falsificar, bajo una etiqueta que dice que son datos y nunca instrucciones, igual que el propio diff; y los flags del trabajo propio que este modo ignoraba fallan en voz alta.
+
+La misma revisión de una suite de QA en Java dejó el otro hueco: sus fixtures usan teléfonos de aspecto normal, fuera de los rangos reservados, y la única salida era copiar cada literal a la lista de permitidos. El repo revisado declara ahora sus carpetas de test, y ahí se descarta lo genérico contándolo, mientras la denylist personal y los secretos siguen bloqueando. Y kj etiqueta con `Karajan` las PRs que abre él mismo, para que un equipo pueda medir cuánto pasa por el gobernador, que no es lo mismo que cuánto escribe una máquina.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

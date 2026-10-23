@@ -1844,6 +1844,12 @@ The core had been carrying a concern that was not orchestration: detecting, inst
 
 The maintainer accepted both, and the first seven steps of atril arrived in one night together with the rulesync ledger, its adoption in `kj init` and its version check in `kj doctor`. Every one of Jorge's pull requests went through the cross-AI review he could not run himself, and the findings were applied on his branches; where a branch had fallen behind the steps merged before it, the change was re-applied on main, and where a review fix pushed a change over 200 lines, it was split in two. The next steps, from the bridge to the core switch, are the ones that will change what kj does today.
 
+## Phase 149: v4.61.0, the PR's words, as data
+
+An agent reviewing TRIBBU's pull requests passed each PR's title and description to the reviewer, and `--task-file` was ignored in silence in that mode. Worse than the silent fallback was what it hid: that description is written by the PR's author, and it could ask the reviewer to approve. The text now arrives fenced between markers the author cannot forge, under a label that says it is data and never instructions, like the diff itself; and the own-work flags this mode used to ignore fail loudly.
+
+The same review of a Java QA suite left the other gap: its fixtures use ordinary-looking phones outside the reserved ranges, and the only way out was copying each literal into the allow list. The reviewed repo now names its test folders, where generic findings are discarded and counted while the personal denylist and secrets still block. And kj labels the PRs it opens itself with `Karajan`, so a team can measure how much goes through the governor, which is not the same as how much a machine writes.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
