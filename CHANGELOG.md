@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.62.0] - 2026-10-23
+
+Minor. **Karajan works as a team: the HU Board can be shared through GitHub Issues** (ADR 0025).
+
+### Added
+
+- **`kj hu backend github`** turns the shared HU Board on for a repo, once: it writes `.karajan/board.yml` (re-included in `.gitignore` when needed) for a PR, so every clone inherits it. Without that file kj keeps the local board, unchanged.
+- **On the shared board, each HU is a GitHub issue**: `kj hu add` creates it and its id is `HU-<issue number>`, so two people never mint the same one; the same no-duplicate-titles rule is checked against the issues, and `--id` is refused. `kj hu list` reads the issues with who holds each.
+- **The assignee is the reservation**: `kj hu move HU-<n> running` claims the HU; moving a running HU someone else holds, to any state, needs `--release`. Two claims at the same time leave exactly one holder, and two status moves at the same time are reported instead of leaving two status labels. Each clone declares its GitHub login with `kj identity set`.
+
+### Changed
+
+- `.karajan/board.yml` joins the canonical `.gitignore` contract block.
+
 ## [4.61.1] - 2026-10-23
 
 Patch. **`cross-ai-verdict` no longer goes red after "Update branch".**
