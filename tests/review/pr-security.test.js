@@ -24,6 +24,19 @@ describe("privacyCheck", () => {
     expect(res.detail).not.toContain(email);
     expect(privacyCheck(diffAdding("README.md", "plain text"), { list: { personal: [], allow: [] } }).ok).toBe(true);
   });
+
+  // KJC-TSK-1152 (#2329): in the repo's test paths generic PII is discarded and counted;
+  // the personal denylist still blocks there.
+  it("discards generic findings in test paths and counts them, but the denylist still blocks", () => {
+    const email = ["persona.prueba", "correo-ficticio.es"].join("@");
+    const testPaths = ["src/test/**"];
+    const inTest = privacyCheck(diffAdding("src/test/java/UserIT.java", `String mail = "${email}";`), { list: { personal: [], allow: [] }, testPaths });
+    expect(inTest).toMatchObject({ ok: true, detail: expect.stringMatching(/1 generic finding\(s\) discarded in test paths/) });
+    const outside = privacyCheck(diffAdding("src/main/java/User.java", `String mail = "${email}";`), { list: { personal: [], allow: [] }, testPaths });
+    expect(outside.ok).toBe(false);
+    const personal = privacyCheck(diffAdding("src/test/java/UserIT.java", "owner = Fulanito Realname"), { list: { personal: ["Fulanito Realname"], allow: [] }, testPaths });
+    expect(personal).toMatchObject({ ok: false, detail: expect.stringMatching(/denylist/) });
+  });
 });
 
 describe("injectionCheck", () => {
