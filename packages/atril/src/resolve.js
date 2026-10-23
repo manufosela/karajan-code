@@ -22,6 +22,7 @@
  */
 import { assertGraph, edgesOf } from "./graph.js";
 import { keyOf, scan } from "./scan.js";
+import { search } from "./search.js";
 
 const LOADS = new Set(["uses", "delegates"]);
 const LIMITS = ["maxArtifacts", "maxTokens"];
@@ -122,4 +123,33 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
     return { name, kind, path };
   });
   return { block: fit(items, block.at(-1), "caller"), suggested, left };
+}
+
+// An artifact with no `roles` nor `atril.roles` serves every role.
+function servesRole(artifact, role) {
+  const { roles = [] } = artifact.atril;
+  if (!Array.isArray(roles) || !roles.every((r) => typeof r === "string")) {
+    throw new Error(`${artifact.path}: atril.roles must be a list of strings`);
+  }
+  const all = [...artifact.roles, ...roles];
+  return role === undefined || all.length === 0 || all.includes(role);
+}
+
+/**
+ * Resolve a task (ADR 0021, decision 5): the best search hit the role may
+ * use, loaded as its block. No match is an empty block with its `reason`.
+ * @param {{ task: string, role?: string, budget?: Parameters<typeof resolveBlock>[2] }
+ *   & Parameters<typeof scan>[0]} opts
+ */
+export function resolve({ task, role, budget = {}, projectDir, root, userRoot, env }) {
+  const scanOpts = { projectDir, root, userRoot, env };
+  if (typeof task !== "string" || !task.trim()) throw new Error("resolve needs a non-empty task");
+  if (role !== undefined && (typeof role !== "string" || !role.trim())) throw new Error("role must be a non-empty string");
+  const byKey = new Map(scan(scanOpts).artifacts.map((a) => [keyOf(a), a]));
+  const best = search(task, scanOpts).find((hit) => servesRole(byKey.get(keyOf(hit)), role));
+  if (!best) {
+    const reason = `no artifact matches ${JSON.stringify(task)}${role === undefined ? "" : ` for role ${role}`}`;
+    return { block: [], suggested: [], left: [], reason };
+  }
+  return resolveBlock(keyOf(best), scanOpts, budget);
 }
