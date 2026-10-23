@@ -13,7 +13,7 @@ import yaml from "js-yaml";
 export const KINDS = ["skill", "command", "agent"];
 export const RELATIONS = ["uses", "delegates", "related"];
 const LISTS = ["roles", "servers", ...RELATIONS];
-const SLUG = /^[a-z0-9][a-z0-9._-]*$/;
+export const SLUG = /^[a-z0-9][a-z0-9._-]*$/;
 const RELATION = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
 export const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/;
 
