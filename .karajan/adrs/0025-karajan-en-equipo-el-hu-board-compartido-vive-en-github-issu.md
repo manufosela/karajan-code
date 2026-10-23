@@ -1,7 +1,8 @@
 # Karajan en equipo: el HU Board compartido vive en GitHub Issues
 
-Status: proposed
+Status: accepted
 Date: 2026-10-23
+Accepted: 2026-10-23, by the maintainer
 
 ## Context
 
