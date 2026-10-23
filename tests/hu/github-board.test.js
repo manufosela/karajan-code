@@ -1,7 +1,7 @@
 // KJC-TSK-1162 (TEAM-GH-A, ADR 0025): the shared HU Board lives in GitHub Issues. Each HU is
 // an issue (its number is the id), its state a kj:<status> label; gh is faked here.
 import { describe, it, expect } from "vitest";
-import { createHu, listHus, setStatus, claim, BoardOfflineError, BoardRejectedError, HuClaimedError } from "../../src/hu/github-board.js";
+import { createHu, listHus, setStatus, claim, assertNotHeld, BoardOfflineError, BoardRejectedError, HuClaimedError } from "../../src/hu/github-board.js";
 
 const REPO = "acme/app";
 
@@ -94,6 +94,16 @@ describe("setStatus", () => {
 
   it("refuses a status that is not one of kj's", async () => {
     await expect(setStatus({ repo: REPO, number: 7, status: "doing", run: fakeGh({}).run })).rejects.toThrow(/invalid status "doing"/);
+  });
+});
+
+describe("assertNotHeld", () => {
+  it("refuses only a running HU someone else holds", async () => {
+    const held = fakeGh({ "issue view": viewing({ status: "running", assignees: ["jorgecasar"] }) });
+    await expect(assertNotHeld({ repo: REPO, number: 7, who: "manufosela", run: held.run })).rejects.toBeInstanceOf(HuClaimedError);
+    await expect(assertNotHeld({ repo: REPO, number: 7, who: "jorgecasar", run: held.run })).resolves.toBeUndefined();
+    const done = fakeGh({ "issue view": viewing({ status: "done", assignees: ["jorgecasar"] }) });
+    await expect(assertNotHeld({ repo: REPO, number: 7, who: "manufosela", run: done.run })).resolves.toBeUndefined();
   });
 });
 
