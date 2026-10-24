@@ -6,7 +6,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { loadGoldenQueries, scoreQuery, aggregate, runEval } from "../../src/rag/eval.js";
+import { loadGoldenQueries, scoreQuery, aggregate, runEval, compareToBaseline } from "../../src/rag/eval.js";
 
 function hit({ source, symbol }) {
   return { source, metadata: symbol ? { symbol } : null };
@@ -65,6 +65,40 @@ describe("aggregate / runEval — KJC-TSK-0483", () => {
     expect(results[1].recall["@5"]).toBe(0);
     expect(agg.recall["@5"]).toBe(0.5);
     expect(agg.mrr).toBeCloseTo(0.5, 5);
+  });
+});
+
+// KJC-TSK-1170 (RAG-E): latency travels with the metrics, and a frozen baseline says
+// whether a change to the retriever made things worse.
+describe("latency and baseline — KJC-TSK-1170", () => {
+  const ticks = (...ms) => { let i = 0; const t = [0, ...ms]; return () => t[Math.min(i++, t.length - 1)]; };
+
+  it("runEval measures each query and aggregate reports mean and p95 latency", async () => {
+    const stub = async () => [hit({ source: "a.js" })];
+    const queries = Array.from({ length: 4 }, (_, i) => ({ query: `q${i}`, expected_sources: ["a.js"] }));
+    // now() is read before and after each query: 10, 20, 30, 100 ms.
+    const now = ticks(10, 10, 30, 30, 60, 60, 160, 160);
+    const { results, aggregate: agg } = await runEval(queries, stub, { topK: 5, ks: [5], now });
+    expect(results.map((r) => r.ms)).toEqual([10, 20, 30, 100]);
+    expect(agg.latency).toEqual({ meanMs: 40, p95Ms: 100 });
+  });
+
+  it("compareToBaseline passes when nothing got worse and names what did", () => {
+    const base = { recall: { "@5": 0.8, "@10": 0.9 }, mrr: 0.6, latency: { meanMs: 50, p95Ms: 120 } };
+    expect(compareToBaseline({ recall: { "@5": 0.8, "@10": 0.95 }, mrr: 0.61, latency: { meanMs: 60, p95Ms: 200 } }, base)).toEqual({ ok: true, problems: [] });
+    const worse = compareToBaseline({ recall: { "@5": 0.7, "@10": 0.9 }, mrr: 0.5, latency: { meanMs: 50, p95Ms: 300 } }, base);
+    expect(worse.ok).toBe(false);
+    expect(worse.problems).toEqual([
+      expect.stringMatching(/recall@5 0\.700 < 0\.800/),
+      expect.stringMatching(/MRR 0\.500 < 0\.600/),
+      expect.stringMatching(/p95 300 ms > 240 ms \(2x/),
+    ]);
+  });
+
+  it("compareToBaseline skips latency when the baseline has none, and honours the margins given", () => {
+    const base = { recall: { "@5": 0.8 }, mrr: 0.6 };
+    expect(compareToBaseline({ recall: { "@5": 0.79 }, mrr: 0.59, latency: { meanMs: 1, p95Ms: 1 } }, base, { tolerance: 0.02 }).ok).toBe(true);
+    expect(compareToBaseline({ recall: { "@5": 0.8 }, mrr: 0.6, latency: { meanMs: 1, p95Ms: 130 } }, { ...base, latency: { meanMs: 1, p95Ms: 100 } }, { latencyFactor: 1.2 }).ok).toBe(false);
   });
 });
 

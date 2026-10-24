@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 // KJC-PCS-0049 Step 6 — `kj rag` command group. Two subcommands:
 //   kj rag index [--project <slug>] [--with-sources]
@@ -13,7 +13,7 @@ import { query } from "../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../rag/path-hits.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
-import { loadGoldenQueries, runEval } from "../rag/eval.js";
+import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { countProjectChunks, countProjectSources, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
 import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
@@ -201,19 +201,37 @@ export async function ragEvalCommand({ config, logger, flags = {} }) {
     const embedder = makeGovernedEmbedder(config);
     const runQuery = async (text, k) => query(db, embedder, text, { topK: k, scope: "all", project });
     const report = await runEval(queries, runQuery, { topK, ks: [5, 10] });
+    const { aggregate: agg } = report;
     if (flags.json) {
       process.stdout.write(`${JSON.stringify(report)}\n`);
     } else {
-      logger.info(`[rag-eval] ${report.aggregate.n} queries · recall@5=${report.aggregate.recall["@5"].toFixed(3)} · recall@10=${report.aggregate.recall["@10"].toFixed(3)} · MRR=${report.aggregate.mrr.toFixed(3)}`);
+      const lat = agg.latency ? ` · latency mean=${agg.latency.meanMs}ms p95=${agg.latency.p95Ms}ms` : "";
+      logger.info(`[rag-eval] ${agg.n} queries · recall@5=${agg.recall["@5"].toFixed(3)} · recall@10=${agg.recall["@10"].toFixed(3)} · MRR=${agg.mrr.toFixed(3)}${lat}`);
       for (const r of report.results) {
         const rank = r.firstRank == null ? "—" : `#${r.firstRank}`;
         logger.info(`  [${rank}] ${r.query}`);
       }
     }
     const minRecall = Number(flags.minRecall);
-    if (Number.isFinite(minRecall) && report.aggregate.recall["@5"] < minRecall) {
-      logger.error?.(`[rag-eval] recall@5=${report.aggregate.recall["@5"].toFixed(3)} below --min-recall=${minRecall}`);
+    if (Number.isFinite(minRecall) && agg.recall["@5"] < minRecall) {
+      logger.error?.(`[rag-eval] recall@5=${agg.recall["@5"].toFixed(3)} below --min-recall=${minRecall}`);
       process.exitCode = 1;
+    }
+    // KJC-TSK-1170 (RAG-E): freeze the numbers, or fail when they got worse than the frozen ones.
+    if (flags.saveBaseline) {
+      const doc = { measuredAt: new Date().toISOString(), golden: goldenPath, topK, embedder: config?.rag?.embedder ?? null, search: config?.rag?.search ?? null, aggregate: agg };
+      writeFileSync(flags.saveBaseline, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+      logger.info(`[rag-eval] baseline saved to ${flags.saveBaseline}`);
+    }
+    if (flags.baseline) {
+      const base = JSON.parse(readFileSync(flags.baseline, "utf8"));
+      const check = compareToBaseline(agg, base.aggregate ?? base);
+      if (!check.ok) {
+        logger.error?.(`[rag-eval] worse than the baseline ${flags.baseline}:\n  - ${check.problems.join("\n  - ")}`);
+        process.exitCode = 1;
+      } else {
+        logger.info(`[rag-eval] not worse than the baseline ${flags.baseline}`);
+      }
     }
     return report;
   } finally {

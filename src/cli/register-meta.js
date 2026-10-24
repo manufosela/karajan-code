@@ -807,6 +807,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--golden <path>", "Path to golden queries JSON (default: tests/rag/golden-queries.json)")
     .option("--top-k <n>", "Number of hits to retrieve per query (default: 10)", "10")
     .option("--min-recall <n>", "Fail (exit 1) if aggregated recall@5 falls below this threshold")
+    .option("--save-baseline <path>", "Write recall@k, MRR and latency to this file as the frozen baseline")
+    .option("--baseline <path>", "Fail (exit 1) if recall@k, MRR or p95 latency got worse than that baseline")
     .option("--project <slug>", "Filter by project slug. Pass 'all' to query across every indexed project.")
     .option("--json", "Emit the full report as JSON")
     .action(async (flags) => {
