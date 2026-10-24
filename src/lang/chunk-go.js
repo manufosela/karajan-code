@@ -8,6 +8,7 @@
 // `type_declaration` contiene type_spec(s); usamos el primero como symbol.
 
 import { getLoaded, loadLanguage } from "./tree-sitter-loader.js";
+import { spanChunks } from "./chunk-span.js";
 
 const DEFAULT_LIMIT = 800;
 const DEFAULT_OVERLAP = 100;
@@ -21,16 +22,6 @@ export async function prepareGo() {
   return loadLanguage("go");
 }
 
-function windowText(text, limit, overlap) {
-  if (text.length <= limit) return [text];
-  const step = Math.max(1, limit - overlap);
-  const out = [];
-  for (let i = 0; i < text.length; i += step) {
-    out.push(text.slice(i, i + limit));
-    if (i + limit >= text.length) break;
-  }
-  return out;
-}
 
 function symbolForType(node) {
   for (const spec of node.namedChildren) {
@@ -74,21 +65,5 @@ function marksViaRegex(text) {
 }
 
 export function chunkGo(text, { path = "<src>", limit = DEFAULT_LIMIT, overlap = DEFAULT_OVERLAP } = {}) {
-  const marks = marksViaAST(text) ?? marksViaRegex(text);
-  if (marks.length === 0) {
-    return windowText(text, limit, overlap).map((piece) => ({
-      text: piece,
-      metadata: { source: path, kind: "code", symbol: null, language: "go" },
-    }));
-  }
-  const out = [];
-  for (let i = 0; i < marks.length; i += 1) {
-    const start = marks[i].idx;
-    const end = i + 1 < marks.length ? marks[i + 1].idx : text.length;
-    const body = text.slice(start, end);
-    for (const piece of windowText(body, limit, overlap)) {
-      out.push({ text: piece, metadata: { source: path, kind: "code", symbol: marks[i].symbol, language: "go" } });
-    }
-  }
-  return out;
+  return spanChunks(text, marksViaAST(text) ?? marksViaRegex(text), { path, language: "go", limit, overlap });
 }

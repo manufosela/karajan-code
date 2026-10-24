@@ -9,6 +9,7 @@
 // file (errorRecovery: true catches most cases; a hard syntax error
 // returns null so the caller can fall back).
 import { parse } from "@babel/parser";
+import { pieceSpans } from "../lang/chunk-span.js";
 
 const PLUGINS = ["typescript", "jsx", "decorators-legacy", "classProperties", "topLevelAwait"];
 
@@ -24,8 +25,10 @@ export function chunkSourceAST(text, { path = "<src>", limit = 800, overlap = 10
     const start = leadingCommentsStart(node);
     const slice = text.slice(start, node.end ?? start);
     if (!slice.trim()) continue;
-    if (slice.length <= limit) out.push({ text: slice, metadata: { source: path, kind: "code", symbol: sym } });
-    else for (const piece of windowText(slice, limit, overlap)) out.push({ text: piece, metadata: { source: path, kind: "code", symbol: sym } });
+    // KJC-TSK-1171: each piece carries its line range; top-level declarations have no parent.
+    for (const { text: piece, start_line, end_line } of pieceSpans(text, start, slice, { limit, overlap })) {
+      out.push({ text: piece, metadata: { source: path, kind: "code", symbol: sym, parent: null, start_line, end_line } });
+    }
   }
   return out.length === 0 ? null : out;
 }
@@ -44,13 +47,3 @@ function leadingCommentsStart(node) {
   return node.start ?? 0;
 }
 
-function windowText(text, limit, overlap) {
-  if (text.length <= limit) return [text];
-  const step = Math.max(1, limit - overlap);
-  const out = [];
-  for (let i = 0; i < text.length; i += step) {
-    out.push(text.slice(i, i + limit));
-    if (i + limit >= text.length) break;
-  }
-  return out;
-}

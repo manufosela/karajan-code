@@ -93,6 +93,7 @@ export function chunkPlan(plan, { path = "<plan>", limit = DEFAULT_CHUNK_LIMIT }
 
 import { chunkSourceAST } from "./chunker-ast.js";
 import { adapterForPath } from "../lang/registry.js";
+import { spanChunks } from "../lang/chunk-span.js";
 
 const EXPORT_RE = /^export\s+(?:async\s+)?(?:function|class|const|let)\s+(\w+)/gm;
 
@@ -113,20 +114,7 @@ function chunkSourceRegex(text, { path = "<src>", limit = DEFAULT_CHUNK_LIMIT, o
   EXPORT_RE.lastIndex = 0;
   let m;
   while ((m = EXPORT_RE.exec(text)) !== null) marks.push({ idx: m.index, symbol: m[1] });
-  if (marks.length === 0) {
-    return windowText(text, { limit, overlap })
-      .map((piece) => ({ text: piece, metadata: { source: path, kind: "code", symbol: null } }));
-  }
-  const out = [];
-  for (let i = 0; i < marks.length; i += 1) {
-    const start = marks[i].idx;
-    const end = i + 1 < marks.length ? marks[i + 1].idx : text.length;
-    const body = text.slice(start, end);
-    for (const piece of windowText(body, { limit, overlap })) {
-      out.push({ text: piece, metadata: { source: path, kind: "code", symbol: marks[i].symbol } });
-    }
-  }
-  return out;
+  return spanChunks(text, marks, { path, limit, overlap });
 }
 
 export { chunkSourceRegex };
