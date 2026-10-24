@@ -1,7 +1,8 @@
 # El RAG del repo fusiona por RRF, antepone metadatos al texto embebido y reordena de serie con un cross-encoder local
 
-Status: proposed
+Status: accepted
 Date: 2026-10-24
+Accepted: 2026-10-24, by the maintainer; the reranker model is chosen by the RAG-E baseline numbers (MRR and p95 latency), MiniLM as the floor
 
 ## Context
 
