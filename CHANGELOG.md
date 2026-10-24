@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.64.0] - 2026-10-24
+
+Long documents are read by index, the reranker is a measured switch, and the shared board
+refuses to write as an account the clone did not declare.
+
+### Added
+
+- **`kj doc index <file>` and `kj doc section <file> <heading>`** (KJC-TSK-1183, issue #2407): a
+  markdown document is read by its headings first; one section comes whole, exactly as the file
+  has it, up to the next heading of the same or a higher level. Exact title or case-insensitive,
+  duplicates named by line; an unknown heading lists the ones available; a heading inside a code
+  block is text. `--json` on both.
+- **Roles read long documents by index** (KJC-TSK-1183): over `docs.indexFirstBytes` (12000 by
+  default), a task file read with `--task-file` and an ADR in the coder prompt reach the roles as
+  their preamble plus headings and the `kj doc section` command, not whole.
+- **The reranker is a config switch** (KJC-TSK-1181, RAG-D2): `rag.search.rerank.{enabled, top_n,
+  model}` besides `--rerank`; `kj rag eval --rerank` measures with it; without the library the
+  install is said once per process. Measured on the frozen corpus: same MRR (0.925), p95 43 → 64
+  ms, so it stays off by default (ADR 0026, confirmed by the maintainer).
+- **`kj hu` on the shared board refuses a gh account the clone did not declare** (KJC-TSK-1186):
+  with `gh_user` in `.karajan/identity.local.yml`, a different active account stops the command
+  before any gh call, naming the exact `gh auth switch`. Three opaque GraphQL failures in one day.
+
+### Fixed
+
+- **The bootstrap grace test leaves a second of slack to the marker mtime** (KJC-BUG-0396): on
+  GitHub runners the mtime sat a fraction of a millisecond ahead of `Date.now()`.
+
 ## [4.63.0] - 2026-10-24
 
 The RAG keeps itself: it indexes a project on first contact, follows what the session is

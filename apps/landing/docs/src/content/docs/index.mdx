@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.63.0: the RAG keeps itself (current)
+### v4.64.0: documents read by index (current)
+
+`kj doc index <file>` lists the headings of a markdown document and `kj doc section <file> "<heading>"` prints one section whole, exactly as the file has it; over `docs.indexFirstBytes` a task file or an ADR reaches the roles as its index, so the prompt carries only what the task needs. The cross-encoder reranker is a config switch, measured and off by default (same MRR, double the latency on the frozen corpus). And `kj hu` on the shared board refuses to write as a gh account the clone did not declare, naming the exact `gh auth switch`.
+
+### v4.63.0: the RAG keeps itself
 
 A project with no index gets one in the background the first time kj needs it, and the pre-query refresh follows what the session is writing before it is committed, reconciling what gets reverted. Hybrid retrieval fuses the semantic and the keyword lists by reciprocal rank instead of a hand-tuned weight (recall@5 0.958 → 1.0 on the frozen corpus), `--where source~=src/billing` keeps a query inside a folder, and the cross-encoder, when enabled, re-scores the top 40 instead of the top K. The built docs leave git: the firebase predeploy builds them. karajan-core 1.6.0 and karajan-rag 1.8.0 (`init --claude`) ship alongside.
 

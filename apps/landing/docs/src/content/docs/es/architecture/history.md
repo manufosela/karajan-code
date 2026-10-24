@@ -1861,6 +1861,12 @@ Al RAG había que pedírselo: `kj rag index` a mano, un refresco que solo veía 
 
 La review volvió a ganarse el sueldo: pidió la reconciliación de ficheros revertidos, rutas separadas por NUL, los estados de renombrado y copia, una reserva atómica antes de lanzar el indexador, una cuarentena para un cerrojo caducado, una confianza acotada en un pid y un lockfile regenerado. La doc construida salió de git el mismo día, 361 ficheros que competían con las fuentes en cada respuesta, y ahora la construye el predeploy de firebase.
 
+## Phase 152: v4.64.0, documentos leídos por índice
+
+Los roles leían documentos enteros: el fichero de tarea, los ADRs, una spec de cualquier formato, aunque la tarea necesitara una sección. Revisar un spec kit externo que añadía `show <capability> [requirement]` justo para eso dio a la idea su forma general: los títulos ya son el índice, no hay nada más que mantener sincronizado. `kj doc index` los lista, `kj doc section` devuelve una sección entera y exactamente como está en el fichero, y por encima de `docs.indexFirstBytes` el fichero de tarea y los ADRs llegan al coder como su índice más ese comando. La review pidió los bloques de código de CommonMark (un delimitador largo no se cierra con uno corto), los títulos indentados y el registro de comandos del que se construye la ayuda.
+
+La misma tarde cerró la épica del RAG con un número en vez de una intuición: el cross-encoder, medido en el corpus fijo, mantuvo el MRR y dobló la p95, así que queda como un interruptor que enciende el usuario. Y un día con tres cuentas de GitHub en una máquina enseñó a `kj hu` a negarse a escribir el board compartido con una cuenta que el clon no declaró.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
