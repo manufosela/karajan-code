@@ -79,7 +79,7 @@ export async function runEval(queries, runQuery, { topK = 10, ks = DEFAULT_KS, n
  * and is skipped when the baseline recorded none. Pure: the caller reads the files.
  * @returns {{ok: boolean, problems: string[]}}
  */
-export function compareToBaseline(current, baseline, { tolerance = 0, latencyFactor = 2 } = {}) {
+export function compareToBaseline(current, baseline, { tolerance = 0, latencyFactor = 2, latencyFloorMs = 50 } = {}) {
   const problems = [];
   for (const k of Object.keys(baseline.recall ?? {})) {
     const now = current.recall?.[k] ?? 0;
@@ -88,8 +88,10 @@ export function compareToBaseline(current, baseline, { tolerance = 0, latencyFac
   if ((current.mrr ?? 0) < (baseline.mrr ?? 0) - tolerance) problems.push(`MRR ${(current.mrr ?? 0).toFixed(3)} < ${baseline.mrr.toFixed(3)}`);
   const baseP95 = baseline.latency?.p95Ms;
   if (Number.isFinite(baseP95) && Number.isFinite(current.latency?.p95Ms)) {
-    const limit = Math.round(baseP95 * latencyFactor);
-    if (current.latency.p95Ms > limit) problems.push(`p95 ${current.latency.p95Ms} ms > ${limit} ms (${latencyFactor}x the baseline's ${baseP95} ms)`);
+    // KJC-BUG-0394: the factor alone turns a 2 ms baseline into a 4 ms limit, which machine
+    // noise crosses; the floor keeps a tiny baseline from failing on nothing.
+    const limit = Math.max(Math.round(baseP95 * latencyFactor), baseP95 + latencyFloorMs);
+    if (current.latency.p95Ms > limit) problems.push(`p95 ${current.latency.p95Ms} ms > ${limit} ms (${latencyFactor}x the baseline's ${baseP95} ms, or ${latencyFloorMs} ms over it)`);
   }
   return { ok: problems.length === 0, problems };
 }

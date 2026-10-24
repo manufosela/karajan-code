@@ -44,6 +44,51 @@ describe("kj hu add on the shared board", () => {
   });
 });
 
+// KJC-TSK-1165 (TEAM-GH-D): without network, list serves the local copy, a move is queued and
+// applied later, and add is refused: an id is only ever minted by GitHub.
+describe("kj hu without network on the shared board", () => {
+  const hu = (action, args, flags, deps) => huCommand({ config: { projectDir: dir }, action, args, flags: { json: true, ...flags }, deps });
+  const offline = async () => { const e = new Error("dial tcp: no such host"); e.name = "BoardOfflineError"; throw e; };
+  const base = () => ({ ...team().deps, who: "manufosela", listTeamHus: offline, claimTeamHu: offline, setTeamStatus: offline, assertNotHeld: offline, createTeamHu: offline });
+
+  it("add is refused, a move is queued and said so, and list serves the copy once there is one", async () => {
+    await expect(hu("add", ["New work"], {}, base())).rejects.toThrow(/needs the network/);
+    const r = await hu("move", ["HU-7", "running"], {}, base());
+    expect(r).toMatchObject({ id: "HU-7", status: "running", queued: true });
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/queued.*applied when GitHub answers/));
+    await expect(hu("list", [], {}, base())).rejects.toThrow(/no such host/);
+  });
+
+  it("when GitHub answers again, the queue is applied first and a conflict is reported", async () => {
+    await hu("move", ["HU-7", "running"], {}, base());
+    await hu("move", ["HU-8", "done"], {}, base());
+    const applied = [];
+    const deps = {
+      ...team().deps, who: "manufosela",
+      claimTeamHu: async ({ number }) => { if (number === 7) { const e = new Error("HU-7 is held by jorgecasar"); e.name = "HuClaimedError"; throw e; } },
+      assertNotHeld: async () => {},
+      setTeamStatus: async ({ number, status }) => applied.push(`${number}:${status}`),
+    };
+    const rows = await hu("list", [], {}, deps);
+    expect(applied).toEqual(["8:done"]);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/HU-7 → running.*held by jorgecasar/));
+    expect(rows).toEqual([]);
+    // Served from GitHub, so the copy is fresh and nothing is left queued.
+    expect(JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "board-cache.json"), "utf8")).queue).toEqual([]);
+  });
+
+  it("a HU that someone else moved while offline is a conflict: the queued move never overwrites it", async () => {
+    const online = (status) => ({ ...team([{ short_id: "HU-7", number: 7, title: "A", status, claimed_by: null }]).deps, who: "manufosela" });
+    await hu("list", [], {}, online("pending")); // the copy knows HU-7 as pending
+    await hu("move", ["HU-7", "done"], {}, base()); // offline: queued, expecting pending
+    const applied = [];
+    const deps = { ...online("failed"), assertNotHeld: async () => {}, setTeamStatus: async (a) => applied.push(a) };
+    await hu("list", [], {}, deps);
+    expect(applied).toEqual([]);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/HU-7 is failed now and was pending/));
+  });
+});
+
 // KJC-TSK-1164 (TEAM-GH-C): list and move on the same board, so a HU created there can be worked.
 describe("kj hu list and move on the shared board", () => {
   const hu = (action, args, flags, deps) => huCommand({ config: { projectDir: dir }, action, args, flags: { json: true, ...flags }, deps });

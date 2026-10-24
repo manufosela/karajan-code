@@ -95,10 +95,19 @@ describe("latency and baseline — KJC-TSK-1170", () => {
     ]);
   });
 
+  // KJC-BUG-0394: a baseline of a few milliseconds must not turn machine noise into a regression.
+  it("compareToBaseline allows an absolute floor over a tiny baseline latency", () => {
+    const base = { recall: { "@5": 1 }, mrr: 1, latency: { meanMs: 1, p95Ms: 2 } };
+    expect(compareToBaseline({ recall: { "@5": 1 }, mrr: 1, latency: { meanMs: 20, p95Ms: 40 } }, base).ok).toBe(true);
+    const far = compareToBaseline({ recall: { "@5": 1 }, mrr: 1, latency: { meanMs: 20, p95Ms: 60 } }, base);
+    expect(far.problems).toEqual([expect.stringMatching(/p95 60 ms > 52 ms/)]);
+    expect(compareToBaseline({ recall: { "@5": 1 }, mrr: 1, latency: { meanMs: 1, p95Ms: 9 } }, base, { latencyFloorMs: 5 }).ok).toBe(false);
+  });
+
   it("compareToBaseline skips latency when the baseline has none, and honours the margins given", () => {
     const base = { recall: { "@5": 0.8 }, mrr: 0.6 };
     expect(compareToBaseline({ recall: { "@5": 0.79 }, mrr: 0.59, latency: { meanMs: 1, p95Ms: 1 } }, base, { tolerance: 0.02 }).ok).toBe(true);
-    expect(compareToBaseline({ recall: { "@5": 0.8 }, mrr: 0.6, latency: { meanMs: 1, p95Ms: 130 } }, { ...base, latency: { meanMs: 1, p95Ms: 100 } }, { latencyFactor: 1.2 }).ok).toBe(false);
+    expect(compareToBaseline({ recall: { "@5": 0.8 }, mrr: 0.6, latency: { meanMs: 1, p95Ms: 130 } }, { ...base, latency: { meanMs: 1, p95Ms: 100 } }, { latencyFactor: 1.2, latencyFloorMs: 0 }).ok).toBe(false);
   });
 });
 
