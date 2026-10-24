@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22-slim
 
 # Clean environment: only node and npm, nothing else
 RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
