@@ -79,6 +79,49 @@ async function addToTeamBoard({ repo, title, flags, deps, emit }) {
   return emit({ ...hu, board: "github", repo }, `✓ HU created: ${hu.short_id} (pending) in the shared board, issue #${hu.number} of ${repo}`);
 }
 
+/**
+ * KJC-TSK-1166: every live local HU (pending or running) becomes an issue with its criteria,
+ * tests and old id; a running one is claimed and moved by whoever migrates. The local card is
+ * marked skipped and points at its issue, so a second run has nothing left to move.
+ */
+async function migrateToTeamBoard({ projectDir, repo, who, dryRun, deps, emit }) {
+  const migrated = [];
+  const skipped = [];
+  for (const meta of await listPlans(projectDir)) {
+    const plan = await loadPlan(projectDir, meta.planId);
+    for (const h of plan.hus || []) {
+      const label = h.short_id || h.id;
+      const unfinished = h.migrated_to && h.migration_pending; // the issue exists, its running state does not yet
+      if (!unfinished && (h.migrated_to || !["pending", "running"].includes(h.status))) { skipped.push(label); continue; }
+      if (dryRun) { migrated.push({ from: label, to: h.migrated_to ?? null, status: h.migration_pending ?? h.status }); continue; }
+      const status = h.migration_pending ?? h.status;
+      if (!h.migrated_to) {
+        const was = `was ${label}`;
+        const issue = await (deps.createTeamHu ?? createHu)({ repo, title: h.title, acceptanceCriteria: h.acceptance_criteria ?? [], tests: h.acceptance_tests ?? [], ref: h.external_ref ? `${h.external_ref} · ${was}` : was });
+        // Persisted the moment the issue exists: a retry after a failure further on never
+        // creates it twice; what is still owed to it (its running state) is remembered.
+        h.migrated_to = issue.short_id;
+        h.external_ref = [h.external_ref, issue.short_id].filter(Boolean).join(" · ");
+        if (status === "running") h.migration_pending = "running";
+        await savePlan(projectDir, plan);
+      }
+      if (h.migration_pending === "running") {
+        const number = Number(h.migrated_to.slice(3));
+        await (deps.claimTeamHu ?? claim)({ repo, number, who, release: false });
+        await (deps.setTeamStatus ?? setStatus)({ repo, number, status: "running" });
+        delete h.migration_pending;
+      }
+      updateHuStatus(plan, h.id, "skipped");
+      await savePlan(projectDir, plan);
+      migrated.push({ from: label, to: h.migrated_to, status });
+    }
+  }
+  const verb = dryRun ? "would move" : "moved";
+  const lines = migrated.map((m) => `  ${m.from} → ${m.to ?? "(new issue)"} [${m.status}]`).join("\n");
+  const detail = lines ? "\n" + lines : "";
+  return emit({ migrated, skipped, dryRun }, `✓ ${verb} ${migrated.length} HU(s) to the shared board of ${repo}${detail}\n  skipped ${skipped.length} (finished, discarded or already moved)`);
+}
+
 /** KJC-TSK-1165: apply the moves queued offline; conflicts are said, never forced; still offline is silent. */
 async function applyQueuedMoves({ projectDir, repo, deps }) {
   let now = null; // status of every HU as GitHub has it, read once, kept up to date as moves apply
@@ -153,6 +196,12 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   }
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
   const who = deps.who === undefined ? workerOf(projectDir) : deps.who;
+  // KJC-TSK-1166 (TEAM-GH-E): the HUs created before the shared board, moved to it once.
+  if (action === "migrate") {
+    if (flags.to !== "github") throw new Error("usage: kj hu migrate --to github [--dry-run]");
+    if (board.backend !== "github") throw new Error("the shared board is off in this repo: turn it on first with kj hu backend github");
+    return migrateToTeamBoard({ projectDir, repo: board.repo, who, dryRun: Boolean(flags.dryRun), deps, emit });
+  }
   // KJC-TSK-1165 (TEAM-GH-D): moves made without network go first, once GitHub answers.
   if (board.backend === "github") await applyQueuedMoves({ projectDir, repo: board.repo, deps });
   if (board.backend === "github" && action === "list") {
