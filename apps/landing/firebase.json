@@ -2,6 +2,10 @@
   "hosting": [{
     "target": "main",
     "public": "public",
+    "predeploy": [
+      "npm --prefix docs run build",
+      "rsync -a --delete docs/dist/ public/docs/"
+    ],
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [
       {
