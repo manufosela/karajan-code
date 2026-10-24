@@ -37,12 +37,20 @@ async function loadTransformers() {
  * call reuses the same pipeline instance.
  */
 let _pipelinePromise = null;
-function getPipeline(modelName) {
+function getPipeline(modelName, transformersFn = loadTransformers) {
   if (!_pipelinePromise) _pipelinePromise = (async () => {
-    const t = await loadTransformers();
-    // text-classification pipeline returns the cross-encoder relevance score
-    // for a `[query, passage]` text pair when applied to a CE model.
-    return t.pipeline("text-classification", modelName);
+    try {
+      const t = await transformersFn();
+      // text-classification pipeline returns the cross-encoder relevance score
+      // for a `[query, passage]` text pair when applied to a CE model.
+      return await t.pipeline("text-classification", modelName);
+    } catch (err) {
+      // KJC-TSK-1173: a model that cannot be loaded (wrong name, no download) is "unavailable" too,
+      // so callers degrade the same way; the failed load is not kept, the next call tries again.
+      _pipelinePromise = null;
+      if (err instanceof RerankError) throw err;
+      throw new RerankError(`rerank: the model ${modelName} could not be loaded (${err.message})`, { cause: err });
+    }
   })();
   return _pipelinePromise;
 }
@@ -61,11 +69,11 @@ export function _resetPipeline() { _pipelinePromise = null; }
  *
  * If `pipelineFn` is injected (tests), it bypasses model loading.
  */
-export async function rerank(queryText, hits, { model = process.env.KJ_RERANK_MODEL || DEFAULT_MODEL, maxChars = 2000, pipelineFn = null } = {}) {
+export async function rerank(queryText, hits, { model = process.env.KJ_RERANK_MODEL || DEFAULT_MODEL, maxChars = 2000, pipelineFn = null, transformersFn = loadTransformers } = {}) {
   if (!queryText || typeof queryText !== "string") throw new RerankError("rerank: queryText must be a non-empty string");
   if (!Array.isArray(hits)) throw new RerankError("rerank: hits must be an array");
   if (hits.length === 0) return hits;
-  const pipe = pipelineFn || await getPipeline(model);
+  const pipe = pipelineFn || await getPipeline(model, transformersFn);
   const pairs = hits.map((h) => ({ text: queryText, text_pair: String(h.text || "").slice(0, maxChars) }));
   const results = await pipe(pairs);
   return hits
