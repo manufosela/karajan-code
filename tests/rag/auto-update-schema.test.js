@@ -11,6 +11,8 @@ const state = { schema: 1, sources: 3, since: null };
 vi.mock("../../src/rag/project-store.js", () => ({
   openProjectStore: vi.fn(() => ({ close: vi.fn(), prepare: () => ({ get: () => ({ n: state.sources }) }) })),
 }));
+// KJC-TSK-1174: the tree is clean here and nothing carries over between tests; the working tree is tested apart.
+vi.mock("../../src/rag/worktree-files.js", () => ({ untrackedFiles: vi.fn(async () => []), readRefreshedPaths: vi.fn(() => []), writeRefreshedPaths: vi.fn() }));
 vi.mock("../../src/rag/vec-store.js", () => ({ projectSlug: vi.fn(() => "p"), getLastIndexedCommit: vi.fn(() => state.since), setLastIndexedCommit: vi.fn() }));
 vi.mock("../../src/rag/indexer.js", () => ({
   indexProject: vi.fn(async () => ({ indexed: 9, files: 3, head: "h" })),

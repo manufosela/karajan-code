@@ -16,6 +16,7 @@ import { detectAdaptersForProject, getAllCodeExtensions } from "../lang/registry
 import { indexableReason, listProjectFiles } from "./indexable.js";
 import { EMBED_SCHEMA, embedText } from "./embed-header.js";
 import { writeEmbedSchema } from "./embed-schema.js";
+import { untrackedFiles } from "./worktree-files.js";
 
 // KJC-PCS-0052 PR-A — antes vivían dos consts hard-coded para JS aquí
 // (CODE_EXT_RE + SKIP_SEGMENTS). Ahora vienen del registry de adapters,
@@ -199,21 +200,30 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
  * `head` lets callers persist via setLastIndexedCommit. Throws on diff failure
  * (shallow clone, unknown ref) so the CLI can fall back to a full reindex.
  */
-export async function indexProjectDelta(projectDir, { db, embedder, since, logger = console, exclude = [] } = {}) {
+export async function indexProjectDelta(projectDir, { db, embedder, since, logger = console, exclude = [], worktree = false, reconcile = [] } = {}) {
   const totals = { indexed: 0, failed: 0, files: 0, deleted: 0, head: null };
   const slug = projectDir.split("/").pop()?.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase() || "project";
   const { stdout: head } = await execa("git", ["-C", projectDir, "rev-parse", "HEAD"]);
   totals.head = head.trim();
-  if (totals.head === since) return totals;
-  const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-status", "-z", since, "HEAD"]);
+  if (totals.head === since && !worktree) return totals;
+  // KJC-TSK-1174 (RAG-A1): with `worktree`, the diff ends at the files on disk instead of HEAD,
+  // and untracked files join it, so what is being written is retrievable before it is committed.
+  const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-status", "-z", since, ...(worktree ? [] : ["HEAD"])]);
   const parts = stdout.split("\0").filter(Boolean);
   const ops = []; // { kind: 'del'|'idx', p }
-  for (let i = 0; i < parts.length; i += 1) {
+  let i = 0;
+  while (i < parts.length) {
     const s = parts[i];
-    if (s.startsWith("R")) { ops.push({ kind: "del", p: parts[++i] }, { kind: "idx", p: parts[++i] }); }
-    else if (s === "D") { ops.push({ kind: "del", p: parts[++i] }); }
-    else { ops.push({ kind: "idx", p: parts[++i] }); }
+    if (s.startsWith("R")) { ops.push({ kind: "del", p: parts[i + 1] }, { kind: "idx", p: parts[i + 2] }); i += 3; }
+    else if (s.startsWith("C")) { ops.push({ kind: "idx", p: parts[i + 2] }); i += 3; } // a copy keeps its source
+    else if (s === "D") { ops.push({ kind: "del", p: parts[i + 1] }); i += 2; }
+    else { ops.push({ kind: "idx", p: parts[i + 1] }); i += 2; }
   }
+  if (worktree) for (const p of await untrackedFiles(projectDir)) ops.push({ kind: "idx", p });
+  // Paths a previous refresh took from a dirty tree: on disk they are reindexed as they are now
+  // (reverted or still dirty), gone they are dropped. Each path is handled once.
+  const seen = new Set(ops.map((o) => o.p));
+  for (const p of reconcile) if (!seen.has(p)) ops.push({ kind: existsSync(join(projectDir, p)) ? "idx" : "del", p });
   const adapters = detectAdaptersForProject(projectDir);
   await prepareAdapters(adapters, { logger });
   for (const { kind, p } of ops) {
