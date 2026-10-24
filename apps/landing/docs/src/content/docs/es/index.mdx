@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.62.1: el board compartido, en su primer día real (actual)
+### v4.63.0: el RAG se cuida solo (actual)
+
+Un proyecto sin índice lo consigue en segundo plano la primera vez que kj lo necesita, y el refresco previo a la consulta sigue lo que la sesión está escribiendo antes de commitearlo, reconciliando lo que se revierte. La recuperación híbrida fusiona la lista semántica y la léxica por rango recíproco en vez de un peso ajustado a mano (recall@5 0,958 → 1,0 en el corpus fijo), `--where source~=src/billing` mantiene la consulta dentro de una carpeta, y el cross-encoder, cuando se activa, reordena el top 40 en vez del top K. La doc construida sale de git: la construye el predeploy de firebase. karajan-core 1.6.0 y karajan-rag 1.8.0 (`init --claude`) salen a la vez.
+
+### v4.62.1: el board compartido, en su primer día real
 
 `kj hu add` funciona en un repo que aún no tiene etiquetas de kj, y una HU local de antes del board compartido (`HU-0104`) sigue en el board local en vez de tomarse por una issue; kj solo toca issues con la etiqueta `kj:hu`.
 

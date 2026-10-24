@@ -1856,6 +1856,12 @@ Karajan had been built for one person. `kj hu add` took the first free `HU-NNNN`
 
 The cross-AI review earned its keep here: it caught two claims at once that would both have succeeded, two status moves that would have left two labels, a takeover that bypassed the reservation when the target was not running, and a `.gitignore` shape git cannot re-include into. Turning the shared board on is a versioned file committed in a PR, so the whole team inherits it and a personal repo never fills with issues it did not ask for.
 
+## Phase 151: v4.63.0, the RAG keeps itself
+
+The RAG had to be asked for: `kj rag index` by hand, a refresh that only saw commits, a fusion weight nobody tuned. ADR 0026 set the direction and the eval baseline of v4.62 made it measurable. The pre-query refresh now measures the drift up to the files on disk, untracked ones included, notes which dirty paths it indexed and reconciles them when the tree is clean again, so a revert leaves no stale chunks; a project with no index starts its own indexer, detached, behind an atomic lock, and does not start a second one. In core, Reciprocal Rank Fusion replaced the min-max sum weighted by `alpha` (recall@5 0.958 → 1.0, MRR 0.896 → 0.925 on the frozen corpus), `source~=` filters by prefix under the project root, and the cross-encoder sees the top N after the boosts and degrades on demand.
+
+The review earned its keep again: it asked for the reconciliation of reverted files, NUL-delimited paths, rename and copy statuses, an atomic claim before spawning the indexer, a quarantine rename for a stale lock, a bounded trust in a pid, and a regenerated lockfile. The built docs left git the same day, 361 files that competed with the sources in every answer, and the firebase predeploy builds them now.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

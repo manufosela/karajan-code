@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.63.0] - 2026-10-24
+
+The RAG keeps itself: it indexes a project on first contact, follows what the session is
+writing before it is committed, fuses by rank instead of a hand-tuned weight, and can stay
+inside a folder. The docs leave git. karajan-core 1.6.0.
+
+### Added
+
+- **The pre-query refresh covers uncommitted changes** (KJC-TSK-1174, RAG-A1): the drift is
+  measured up to the files on disk, untracked ones included, under the same `maxFiles` bound.
+  The dirty paths of a refresh are noted next to the store and reconciled on the next one, so a
+  reverted or deleted file leaves no stale chunks. A refresh that fails (Ollama down) is said
+  once per process, never on every query.
+- **A project with no index gets one in the background, once** (KJC-TSK-1174, RAG-A2): the
+  first `kj run` or `kj rag query` over an unindexed project starts `kj rag index --with-sources`
+  detached and goes on; later commands reuse it; an attempt that died is not retried for ten
+  minutes, and the user is told once how to index by hand. One claimant at a time.
+- **`kj rag query --where source~=src/billing`** (KJC-TSK-1179, KJC-TSK-1180, RAG-B3): a prefix
+  clause next to `key=value`; a relative `source` prefix is placed under the project root.
+- **Hybrid retrieval fuses by Reciprocal Rank Fusion** (KJC-TSK-1172, RAG-C): `1/(k + rank)` per
+  list, `k = 60` by default and `rag.search.rrf_k` in `kj.config.yml`. On the frozen corpus:
+  recall@5 0.958 → 1.0, MRR 0.896 → 0.925, p95 36 → 37 ms. `alpha` no longer applies; one
+  still around, as a flag or in the config, is warned about.
+- **The cross-encoder reranks the top N candidates** (KJC-TSK-1173, RAG-D, core): with
+  `rerankOpts`, the retriever re-scores the top N after the boosts (40 by default, never fewer
+  than top K) and degrades on demand when the model is missing. The kj-side switch and the
+  measured default follow in KJC-TSK-1181.
+- **The family page shows atril, the Libretto and who stands on whom** (KJL-TSK-0145).
+
+### Fixed
+
+- **`kj hu add` puts the labels back when GitHub created the issue bare** (KJC-BUG-0395):
+  HU-2408 came out of `gh issue create --label …` with no labels and the next move refused it;
+  the create now checks the labels, restores them once and fails loud otherwise.
+
+### Changed
+
+- **The built docs leave git** (KJL-TSK-0133): `apps/landing/public/docs` is gitignored and the
+  firebase predeploy builds the Starlight docs itself. The RAG indexes only what git lists, so
+  the built html no longer competes with the sources in the answers.
+- **karajan-core 1.6.0** (KJC-TSK-1182): the three retriever changes above, published. kj
+  depends on `^1.6.0`.
+
 ## [4.62.1] - 2026-10-23
 
 Patch. **Two fixes found on the first real day of the shared HU Board.**
