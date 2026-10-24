@@ -53,6 +53,18 @@ export async function createHu({ repo, title, acceptanceCriteria = [], tests = [
   const url = (await gh(run, ["issue", "create", "-R", repo, "--title", title, "--body", body, "--label", HU_LABEL, "--label", statusLabel("pending")])).trim();
   const number = Number(/\/issues\/(\d+)$/.exec(url)?.[1]);
   if (!Number.isInteger(number)) throw new BoardRejectedError(`gh issue create returned no issue URL: ${url}`);
+  // KJC-BUG-0395 (HU-2408): GitHub answered the create and left the issue without its labels, so
+  // the next move refused it as "not a kj HU". An HU the board does not recognise is not announced:
+  // the labels are checked, put back once, and a second absence is said loud.
+  const wanted = [HU_LABEL, statusLabel("pending")];
+  const labelsOf = async () => new Set(JSON.parse(await gh(run, ["issue", "view", String(number), "-R", repo, "--json", "labels"])).labels.map((l) => l.name));
+  let have = await labelsOf();
+  if (wanted.some((l) => !have.has(l))) {
+    await gh(run, ["issue", "edit", String(number), "-R", repo, ...wanted.filter((l) => !have.has(l)).flatMap((l) => ["--add-label", l])]);
+    have = await labelsOf();
+    const missing = wanted.filter((l) => !have.has(l));
+    if (missing.length) throw new BoardRejectedError(`issue #${number} was created without ${missing.join(", ")} and gh could not add them: the board does not recognise it, add the labels by hand`);
+  }
   return { short_id: `HU-${number}`, number, status: "pending", title };
 }
 
