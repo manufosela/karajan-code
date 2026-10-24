@@ -16,14 +16,37 @@ function fakeGh(responses) {
   return { run, calls };
 }
 
+const LABELLED = { exitCode: 0, stdout: JSON.stringify({ labels: [{ name: "kj:hu" }, { name: "kj:pending" }] }) };
+
 describe("createHu", () => {
+  // KJC-BUG-0395 (HU-2408): gh issue create answered with the URL and the issue had no labels.
+  it("puts the labels back when GitHub created the issue without them, and refuses to announce an HU it cannot label", async () => {
+    let edited = false;
+    const { run, calls } = fakeGh({
+      "label list": { exitCode: 0, stdout: JSON.stringify([{ name: "kj:hu" }, { name: "kj:pending" }]) },
+      "issue create": { exitCode: 0, stdout: "https://github.com/acme/app/issues/7\n" },
+      "issue view": () => (edited ? LABELLED : { exitCode: 0, stdout: JSON.stringify({ labels: [] }) }),
+      "issue edit": () => { edited = true; return { exitCode: 0, stdout: "" }; },
+    });
+    expect(await createHu({ repo: REPO, title: "t", run })).toMatchObject({ short_id: "HU-7" });
+    const edit = calls.find((a) => a[0] === "issue" && a[1] === "edit");
+    expect(edit).toEqual(expect.arrayContaining(["7", "--add-label", "kj:hu", "--add-label", "kj:pending"]));
+    const stubborn = fakeGh({
+      "issue create": { exitCode: 0, stdout: "https://github.com/acme/app/issues/8\n" },
+      "issue view": { exitCode: 0, stdout: JSON.stringify({ labels: [{ name: "kj:hu" }] }) },
+    });
+    await expect(createHu({ repo: REPO, title: "t", run: stubborn.run })).rejects.toThrow(/issue #8 was created without kj:pending/);
+  });
+
   it("creates the missing kj labels, then the issue, and names the HU after its number", async () => {
     const { run, calls } = fakeGh({
       "label list": { exitCode: 0, stdout: JSON.stringify([{ name: "kj:hu" }]) },
       "issue create": { exitCode: 0, stdout: "https://github.com/acme/app/issues/42\n" },
+      "issue view": LABELLED,
     });
     const hu = await createHu({ repo: REPO, title: "Login with SSO", acceptanceCriteria: ["redirects"], tests: ["e2e login"], ref: "KJC-TSK-9", run });
     expect(hu).toEqual({ short_id: "HU-42", number: 42, status: "pending", title: "Login with SSO" });
+    expect(calls.some((a) => a[0] === "issue" && a[1] === "edit")).toBe(false); // labelled at birth: nothing to put back
     const created = calls.filter((a) => a[0] === "label" && a[1] === "create").map((a) => a[2]);
     expect(created).toContain("kj:pending");
     expect(created).not.toContain("kj:hu");
@@ -37,6 +60,7 @@ describe("createHu", () => {
   it("works in a repo with no kj labels yet, where gh label list prints nothing", async () => {
     const { run, calls } = fakeGh({
       "label list": { exitCode: 0, stdout: "" },
+      "issue view": LABELLED,
       "issue create": { exitCode: 0, stdout: "https://github.com/acme/app/issues/3\n" },
     });
     expect(await createHu({ repo: REPO, title: "First", run })).toMatchObject({ short_id: "HU-3" });

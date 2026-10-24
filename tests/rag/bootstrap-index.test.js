@@ -59,7 +59,9 @@ describe("startBootstrap", () => {
     expect(readBootstrap(root)).toMatchObject({ running: true });
     expect(startBootstrap(root, { spawnFn })).toEqual({ started: false, pid: null });
     expect(spawnFn).not.toHaveBeenCalled();
-    expect(startBootstrap(root, { spawnFn, now: Date.now() + GRACE_MS })).toEqual({ started: true, pid: process.pid });
+    // KJC-BUG-0396: a second of slack, the marker's mtime (nanoseconds) can sit a fraction of a
+    // millisecond ahead of Date.now() on CI runners, which kept the grace open by exactly that.
+    expect(startBootstrap(root, { spawnFn, now: Date.now() + GRACE_MS + 1000 })).toEqual({ started: true, pid: process.pid });
   });
 
   it("a lock held by another command yields; a lock left by a crashed one is taken over", () => {
