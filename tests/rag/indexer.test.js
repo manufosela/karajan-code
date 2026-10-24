@@ -36,6 +36,19 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     expect(countChunks(db)).toBe(after); // idempotent: same total, not double
   });
 
+  // KJC-TSK-1171 (RAG-B): the embedder reads path, symbol and lines before the body; the stored body is clean.
+  it("indexFile embeds a metadata header before the body and stores the body as it is", async () => {
+    const src = join(root, "src", "tax.js");
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(src, "export function vatRateFor(c) {\n  return 0.21;\n}\n");
+    const e = fakeEmbedder();
+    await indexFile(src, { db, embedder: e, logger: noopLogger, kind: "code", root });
+    // The AST chunk ends at the closing brace: the file's final newline is not part of the symbol.
+    expect(e.embed).toHaveBeenCalledWith("src/tax.js · javascript · vatRateFor · L1-3\n\nexport function vatRateFor(c) {\n  return 0.21;\n}");
+    const rows = db.prepare("SELECT text FROM chunks WHERE source = ?").all(src);
+    expect(rows.map((r) => r.text)).toEqual(["export function vatRateFor(c) {\n  return 0.21;\n}"]);
+  });
+
   it("indexFile detects onboarding kind for ~/.karajan/onboarding/*.md", async () => {
     mkdirSync(join(root, "onboarding"), { recursive: true });
     const briefPath = join(root, "onboarding", "myproj.md");
