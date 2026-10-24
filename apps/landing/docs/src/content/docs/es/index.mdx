@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.63.0: el RAG se cuida solo (actual)
+### v4.64.0: documentos leídos por índice (actual)
+
+`kj doc index <fichero>` lista los títulos de un documento markdown y `kj doc section <fichero> "<título>"` imprime una sección entera, exactamente como está en el fichero; por encima de `docs.indexFirstBytes`, un fichero de tarea o un ADR llega a los roles como su índice, así que el prompt lleva solo lo que la tarea necesita. El re-ranker con cross-encoder es un interruptor de configuración, medido y desactivado de serie (mismo MRR, doble latencia en el corpus fijo). Y `kj hu` sobre el board compartido se niega a escribir con una cuenta de gh que el clon no declaró, nombrando el `gh auth switch` exacto.
+
+### v4.63.0: el RAG se cuida solo
 
 Un proyecto sin índice lo consigue en segundo plano la primera vez que kj lo necesita, y el refresco previo a la consulta sigue lo que la sesión está escribiendo antes de commitearlo, reconciliando lo que se revierte. La recuperación híbrida fusiona la lista semántica y la léxica por rango recíproco en vez de un peso ajustado a mano (recall@5 0,958 → 1,0 en el corpus fijo), `--where source~=src/billing` mantiene la consulta dentro de una carpeta, y el cross-encoder, cuando se activa, reordena el top 40 en vez del top K. La doc construida sale de git: la construye el predeploy de firebase. karajan-core 1.6.0 y karajan-rag 1.8.0 (`init --claude`) salen a la vez.
 

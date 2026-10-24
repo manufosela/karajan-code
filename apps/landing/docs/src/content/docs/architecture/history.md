@@ -1862,6 +1862,12 @@ The RAG had to be asked for: `kj rag index` by hand, a refresh that only saw com
 
 The review earned its keep again: it asked for the reconciliation of reverted files, NUL-delimited paths, rename and copy statuses, an atomic claim before spawning the indexer, a quarantine rename for a stale lock, a bounded trust in a pid, and a regenerated lockfile. The built docs left git the same day, 361 files that competed with the sources in every answer, and the firebase predeploy builds them now.
 
+## Phase 152: v4.64.0, documents read by index
+
+Roles read whole documents: the task file, the ADRs, a spec of any format, even when the task needed one section. Reviewing an external spec kit that added `show <capability> [requirement]` for that very reason gave the idea its general form: the headings already are the index, nothing extra to keep in sync. `kj doc index` lists them, `kj doc section` returns one section whole and exactly as the file has it, and over `docs.indexFirstBytes` the task file and the ADRs reach the coder as their index plus that command. The review asked for CommonMark fences (a longer run is not closed by a shorter one), indented headings and the registry of commands the help is built from.
+
+The same afternoon closed the RAG epic with a number instead of a hunch: the cross-encoder, measured on the frozen corpus, kept the MRR and doubled the p95, so it stays a switch the user turns on. And a day with three GitHub accounts on one machine taught `kj hu` to refuse writing the shared board as an account the clone did not declare.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
