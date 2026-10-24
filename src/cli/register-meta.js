@@ -29,6 +29,7 @@ import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { envInstallCommand, briefCommand } from "../commands/env.js";
+import { docCommand } from "../commands/doc.js";
 import { runReleaseCheck } from "../checks/release-check.js";
 import { agentRunCommand } from "../commands/agent-run.js";
 import { reportIssueCommand } from "../commands/report-issue.js";
@@ -539,6 +540,29 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (role, flags) => {
       await withConfig(pkgVersion, "brief", flags, async ({ config }) => {
         briefCommand({ config, flags, role });
+      });
+    });
+
+  // KJC-TSK-1183 — a long markdown document is read by index: the headings first, then only the
+  // sections a task needs, each one whole and exactly as the file has it.
+  const doc = program.command("doc").description("Read a markdown document by index: headings first, whole sections on demand");
+  doc.command("index")
+    .description("List the headings of a markdown file with their level and line (a heading inside a code block is text)")
+    .argument("<file>", "Markdown file")
+    .option("--json", "Machine-readable output")
+    .action(async (file, flags) => {
+      await withConfig(pkgVersion, "doc-index", flags, async () => {
+        docCommand({ action: "index", file, flags });
+      });
+    });
+  doc.command("section")
+    .description("Print one section whole, as the file has it, up to the next heading of the same or a higher level; an unknown heading lists the available ones")
+    .argument("<file>", "Markdown file")
+    .argument("<heading>", "Heading title, exact or case-insensitive")
+    .option("--json", "Machine-readable output")
+    .action(async (file, heading, flags) => {
+      await withConfig(pkgVersion, "doc-section", flags, async () => {
+        docCommand({ action: "section", file, heading, flags });
       });
     });
 
