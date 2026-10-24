@@ -208,6 +208,8 @@ const DEFAULTS = {
   planning_game: { enabled: false, project_id: null, codeveloper: null },
   skills: {
     mode: "auto",
+    // KJC-TSK-1188 (ADR 0021, step 15): the budget of a role's block when atril resolves it.
+    max_per_role: 3,
     sources: ["addyosmani", "openskills", "local"],
     addyosmani: {
       enabled: true,

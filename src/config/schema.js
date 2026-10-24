@@ -195,6 +195,8 @@ const SkillsAddyosmani = v.looseObject({
  */
 const Skills = v.optional(v.looseObject({
   mode: v.optional(v.picklist(["auto", "regex", "semantic", "none"], "skills.mode must be one of: auto | regex | semantic | none")),
+  // KJC-TSK-1188: the budget of a role's block when atril resolves it (ADR 0021, step 15).
+  max_per_role: v.optional(v.pipe(v.number(), v.integer("skills.max_per_role must be an integer"), v.minValue(1, "skills.max_per_role must be >= 1"))),
   sources: v.optional(v.array(v.string())),
   addyosmani: v.optional(SkillsAddyosmani),
 }));
