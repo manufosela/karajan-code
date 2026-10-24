@@ -11,8 +11,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const state = { since: null };
 vi.mock("../../src/rag/project-store.js", () => ({ openProjectStore: vi.fn(() => ({ close: vi.fn() })) }));
 vi.mock("../../src/rag/vec-store.js", () => ({ projectSlug: vi.fn(() => "p"), getLastIndexedCommit: vi.fn(() => state.since), setLastIndexedCommit: vi.fn() }));
-vi.mock("../../src/rag/indexer.js", () => ({ indexProjectDelta: vi.fn(async () => ({ indexed: 1, files: 1, head: "h" })) }));
+vi.mock("../../src/rag/indexer.js", () => ({ indexProject: vi.fn(), indexProjectDelta: vi.fn(async () => ({ indexed: 1, files: 1, head: "h" })) }));
 vi.mock("../../src/rag/governed-embedder.js", () => ({ makeGovernedEmbedder: vi.fn(() => ({})) }));
+// KJC-TSK-1171: the index here is on the current embed schema; the schema check is tested apart.
+vi.mock("../../src/rag/embed-schema.js", async () => {
+  const { EMBED_SCHEMA } = await import("../../src/rag/embed-header.js");
+  return { readEmbedSchema: vi.fn(() => EMBED_SCHEMA) };
+});
 
 const { maybeAutoUpdate } = await import("../../src/rag/auto-update.js");
 const { indexProjectDelta } = await import("../../src/rag/indexer.js");
