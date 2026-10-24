@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { runInitCommand, parseInitArgs, parseIndexArgs, parseQueryArgs } from '../src/easy/cli.js';
 import { loadEasyConfig, validateEasyConfig, DEFAULT_EASY_CONFIG } from '../src/easy/config.js';
+import { serverNameFor } from '../src/easy/agent-setup.js';
 
 test('parseInitArgs: defaults y flags', () => {
   const opts = parseInitArgs([]);
@@ -15,6 +16,32 @@ test('parseInitArgs: defaults y flags', () => {
   const full = parseInitArgs(['./proyecto', '--yes', '--force']);
   assert.equal(full.yes, true);
   assert.equal(full.force, true);
+  assert.equal(full.claude, false);
+  assert.equal(parseInitArgs(['--claude']).claude, true);
+});
+
+// KJR-TSK-0162: --claude goes from folder to agent in one command.
+test('runInitCommand --yes --claude: indexes, registers the MCP and writes CLAUDE.md', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-init-'));
+  /** @type {string[]} */
+  const logs = [];
+  /** @type {string[][]} */
+  const indexed = [];
+  /** @type {string[][]} */
+  const ran = [];
+  try {
+    await runInitCommand([root, '--yes', '--claude'], {
+      log: (m) => logs.push(m),
+      index: async (/** @type {string[]} */ argv) => { indexed.push(argv); },
+      run: async (/** @type {string} */ bin, /** @type {string[]} */ args) => { ran.push([bin, ...args]); return {}; },
+    });
+    assert.deepEqual(indexed, [[root]]);
+    assert.deepEqual(ran, [['claude', 'mcp', 'add', serverNameFor(root), '--', 'karajan-rag', 'serve', root]]);
+    assert.ok((await readFile(path.join(root, 'CLAUDE.md'), 'utf8')).includes('rag_query'));
+    assert.ok(logs.at(-1)?.includes('abre Claude Code'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('runInitCommand --yes: genera config con defaults y gitignora .karajan/', async () => {

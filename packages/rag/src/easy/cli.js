@@ -22,6 +22,7 @@ import {
 } from './rag-service.js';
 import { startRagHttpServer } from './http-server.js';
 import { startRagMcpServer } from './mcp-server.js';
+import { setupClaude } from './agent-setup.js';
 import { indexDirectory, DEFAULT_INGEST_BATCH_SIZE } from './indexer.js';
 import { queryIndex } from './query.js';
 import {
@@ -123,12 +124,15 @@ export function parseInitArgs(argv) {
     options: {
       yes: { type: 'boolean', default: false },
       force: { type: 'boolean', default: false },
+      // KJR-TSK-0162: also index, register the MCP in Claude Code and write the rule in CLAUDE.md.
+      claude: { type: 'boolean', default: false },
     },
   });
   return {
     rootDir: path.resolve(positionals[0] ?? '.'),
     yes: values.yes === true,
     force: values.force === true,
+    claude: values.claude === true,
   };
 }
 
@@ -184,7 +188,7 @@ async function ensureKarajanGitignored(rootDir) {
 export async function runInitCommand(argv, io = {}) {
   const log = io.log ?? ((msg) => console.error(`[init] ${msg}`));
   const ask = io.ask ?? askInTerminal;
-  const { rootDir, yes, force } = parseInitArgs(argv);
+  const { rootDir, yes, force, claude } = parseInitArgs(argv);
 
   const configPath = path.join(rootDir, CONFIG_FILE);
   const exists = await stat(configPath).then(
@@ -225,7 +229,14 @@ export async function runInitCommand(argv, io = {}) {
   if (await ensureKarajanGitignored(rootDir)) {
     log(`añadido ${MANIFEST_DIR}/ a .gitignore`);
   }
-  log(`siguiente paso: karajan-rag index ${rootDir}`);
+  if (!claude) {
+    log(`siguiente paso: karajan-rag index ${rootDir}`);
+    return easy;
+  }
+  // KJR-TSK-0162: one command from folder to agent: index, register the MCP, write the rule.
+  await (io.index ?? runIndexCommand)([rootDir], io);
+  await setupClaude({ rootDir, log, run: io.run });
+  log(`siguiente paso: abre Claude Code en ${rootDir} y pregunta; el agente consulta el índice antes de asumir`);
   return easy;
 }
 

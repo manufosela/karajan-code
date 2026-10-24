@@ -132,7 +132,14 @@ capa de despliegue (IAM/invoker en GCP).
 ```bash
 karajan-rag init ./mi-proyecto        # wizard → karajan.config.json
 karajan-rag init ./mi-proyecto --yes  # no interactivo (CI)
+karajan-rag init ./mi-proyecto --claude  # y además: indexa, registra el MCP y escribe la regla
 ```
+
+Con `--claude` el mismo comando deja la carpeta lista para un agente: indexa,
+registra el servidor en Claude Code (`claude mcp add rag-<carpeta> -- karajan-rag serve <ruta>`)
+y añade a `CLAUDE.md` un bloque entre marcadores (`<!-- karajan-rag:start -->`) con la regla
+de consultar `rag_query` antes de asumir; repetirlo sustituye el bloque, nunca lo duplica. Sin
+`claude` en el PATH lo dice y deja el comando para pegar.
 
 La config actúa como defaults del proyecto (store, embedder, dimensions,
 topK, adapter, sensitivity); los flags de CLI siempre ganan. Config

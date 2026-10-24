@@ -163,7 +163,8 @@ function printUsage() {
   console.error('Comandos:');
   console.error('  run <config>   Ejecuta el pipeline declarado en el JSON.');
   console.error('  init [ruta]    Genera karajan.config.json con defaults (--yes no interactivo,');
-  console.error('                 --force para regenerar) y gitignora .karajan/.');
+  console.error('                 --force para regenerar) y gitignora .karajan/. Con --claude además');
+  console.error('                 indexa, registra el MCP en Claude Code y escribe la regla en CLAUDE.md.');
   console.error('  index <ruta>   Indexa un directorio (código/docs/datos) en .karajan/.');
   console.error('                 Flags: --store lancedb|pgvector|in-memory (default lancedb),');
   console.error('                        --embedder hash|transformers (default hash), --dimensions N.');
