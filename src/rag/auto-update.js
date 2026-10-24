@@ -9,6 +9,7 @@ import { execa } from "execa";
 import { projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 import { indexProject, indexProjectDelta } from "./indexer.js";
 import { readRefreshedPaths, untrackedFiles, writeRefreshedPaths } from "./worktree-files.js";
+import { startBootstrap } from "./bootstrap-index.js";
 import { ragExclude } from "./indexable.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { openProjectStore } from "./project-store.js";
@@ -41,7 +42,17 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
   try {
     const since = getLastIndexedCommit(db, slug);
-    if (!since) return { skipped: true, head };
+    if (!since) {
+      // KJC-TSK-1174 (RAG-A2): no index yet. It is built in the background, once; the session
+      // does not wait. A recent attempt that died (no Ollama) is not retried blindly.
+      const boot = startBootstrap(projectDir);
+      if (boot.recent) {
+        warnOnce(logger, `bootstrap:${projectDir}`, `[rag] ${slug} has no index and the background indexing did not finish: run kj rag index --with-sources`);
+        return { skipped: true, reason: "bootstrap-failed", head };
+      }
+      warnOnce(logger, `bootstrap:${projectDir}`, `[rag] ${slug} has no index yet: indexing it in the background (pid ${boot.pid}); queries answer from it once it is done`);
+      return { skipped: true, reason: "bootstrapping", pid: boot.pid, head };
+    }
     // KJC-BUG-0304: a drift of hundreds of files (an index weeks old) reindexed the
     // repo for half an hour before the query answered. Past the bound the query
     // answers from the index as it is, and says how to bring it up to date.
