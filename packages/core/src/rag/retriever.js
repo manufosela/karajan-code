@@ -80,7 +80,7 @@ export function mmrRerank(candidates, embeddings, { topK, lambda = 0.7 }) {
   return picked;
 }
 
-export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", alpha = 0.6, where = null, rerankOpts = null, diversify = false, mmrLambda = 0.7 } = {}) {
+export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", alpha = 0.6, where = null, whereRoot = null, rerankOpts = null, diversify = false, mmrLambda = 0.7 } = {}) {
   if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
   const fetchK = Math.min(50, topK * 2);
   const scopeKind = scope === "plans" ? "plan" : scope === "code" ? "code" : scope === "onboarding" ? "onboarding" : null;
@@ -89,7 +89,8 @@ export async function query(db, embedder, text, { topK = 5, scope = "all", kindB
   // semantic and keyword searches.
   const parsed = parseWhere(where);
   if (!parsed.ok) throw new Error(`query: ${parsed.error}`);
-  const { sql: whereSql, params: whereParams } = buildWhereSql(parsed.clauses);
+  // KJC-TSK-1179: a relative `source~=` prefix is placed under the project root the caller names.
+  const { sql: whereSql, params: whereParams } = buildWhereSql(parsed.clauses, { root: whereRoot });
   const opts = { kind: scopeKind, project, whereSql, whereParams };
   const wantSemantic = mode !== "keyword";
   const wantKeyword = mode !== "semantic";

@@ -25,6 +25,14 @@ describe("parseWhere", () => {
     expect(r.clauses).toEqual([["headingPath", "Architecture Decision Records"]]);
   });
 
+  // KJC-TSK-1179 (RAG-B3): `key~=value` narrows to a prefix, so a query can stay inside a folder or module.
+  it("parses key~=value as a prefix clause, next to the equality ones", () => {
+    const r = parseWhere("source~=src/billing AND kind=code");
+    expect(r.ok).toBe(true);
+    expect(r.clauses).toEqual([["source", "src/billing", "prefix"], ["kind", "code"]]);
+    expect(parseWhere("source~=").ok).toBe(false);
+  });
+
   it("rejects malformed input", () => {
     expect(parseWhere("no equals sign here").ok).toBe(false);
     expect(parseWhere("=missing-key").ok).toBe(false);
@@ -58,5 +66,16 @@ describe("buildWhereSql", () => {
     const r = buildWhereSql([["kind", "plan"], ["hu_id", "HU-003"]]);
     expect(r.sql).toBe(" AND c.kind = ? AND json_extract(c.metadata, '$.hu_id') = ?");
     expect(r.params).toEqual(["plan", "HU-003"]);
+  });
+
+  // KJC-TSK-1179: a prefix is a parameterised substr compare, never LIKE over the user's text;
+  // a relative source prefix is resolved against the project root, where sources are absolute.
+  it("a prefix clause compares the first characters, with a relative source under the root", () => {
+    const r = buildWhereSql([["source", "src/billing", "prefix"]], { root: "/repo/" });
+    expect(r.sql).toBe(" AND substr(json_extract(c.metadata, '$.source'), 1, ?) = ?");
+    expect(r.params).toEqual([17, "/repo/src/billing"]);
+    expect(buildWhereSql([["source", "/abs/x", "prefix"]], { root: "/repo" }).params).toEqual([6, "/abs/x"]);
+    expect(buildWhereSql([["symbol", "load", "prefix"]]).params).toEqual([4, "load"]);
+    expect(buildWhereSql([["source", "src/%_x", "prefix"]], { root: "/r" }).params).toEqual([10, "/r/src/%_x"]);
   });
 });

@@ -28,12 +28,14 @@ export function parseWhere(input) {
   for (const p of parts) {
     const eq = p.indexOf("=");
     if (eq <= 0) return { ok: false, error: `where: bad pair "${p}" — expected key=value` };
-    const key = p.slice(0, eq).trim().replace(/^"|"$/g, "");
+    // KJC-TSK-1179: `key~=value` is a prefix (a folder, a module), `key=value` an equality.
+    const prefix = p[eq - 1] === "~";
+    const key = p.slice(0, prefix ? eq - 1 : eq).trim().replaceAll(/(?:^")|(?:"$)/g, "");
     let val = p.slice(eq + 1).trim();
     if (!IDENT_RE.test(key)) return { ok: false, error: `where: invalid key "${key}"` };
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
     if (val.length === 0) return { ok: false, error: `where: empty value for key "${key}"` };
-    clauses.push([key, val]);
+    clauses.push(prefix ? [key, val, "prefix"] : [key, val]);
   }
   return { ok: true, clauses };
 }
@@ -42,13 +44,20 @@ export function parseWhere(input) {
  * Build a `(sqlFragment, params)` pair to append to a chunks-table query.
  * `kind` filters the column directly; everything else goes through json_extract.
  */
-export function buildWhereSql(clauses) {
+export function buildWhereSql(clauses, { root = null } = {}) {
   if (!clauses?.length) return { sql: "", params: [] };
   const fragments = [];
   const params = [];
-  for (const [k, v] of clauses) {
-    if (k === "kind") { fragments.push("c.kind = ?"); params.push(v); }
-    else { fragments.push(`json_extract(c.metadata, '$.${k}') = ?`); params.push(v); }
+  for (const [k, v, op] of clauses) {
+    const column = k === "kind" ? "c.kind" : `json_extract(c.metadata, '$.${k}')`;
+    if (op === "prefix") {
+      // KJC-TSK-1179: sources are stored absolute, so a relative source prefix is placed under
+      // the project root. A substr compare, never LIKE: % and _ in a path mean themselves.
+      const value = k === "source" && root && !v.startsWith("/") ? `${root.replace(/\/+$/, "")}/${v}` : v;
+      fragments.push(`substr(${column}, 1, ?) = ?`); params.push(value.length, value);
+    } else {
+      fragments.push(`${column} = ?`); params.push(v);
+    }
   }
   return { sql: ` AND ${fragments.join(" AND ")}`, params };
 }
