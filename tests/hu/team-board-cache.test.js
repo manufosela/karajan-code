@@ -32,9 +32,12 @@ describe("listWithCache", () => {
 
 describe("queueMove and flushQueue", () => {
   it("queues a move offline and applies it in order when the network is back", async () => {
+    await listWithCache({ projectDir: dir, repo: "acme/app", list: async () => HUS });
     queueMove({ projectDir: dir, number: 7, status: "running", who: "manufosela", release: false });
     queueMove({ projectDir: dir, number: 7, status: "done", who: "manufosela", release: false });
-    expect(readCache(dir).queue).toHaveLength(2);
+    // Each move expects the status the copy showed; the copy takes the move, so the second expects the first.
+    expect(readCache(dir).queue.map((o) => o.expected)).toEqual(["pending", "running"]);
+    expect(readCache(dir).hus[0].status).toBe("done");
     const applied = [];
     const r = await flushQueue({ projectDir: dir, apply: async (op) => applied.push(`${op.number}:${op.status}`) });
     expect(applied).toEqual(["7:running", "7:done"]);
