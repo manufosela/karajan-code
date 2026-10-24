@@ -64,6 +64,11 @@ them instead of resolving what each task needs.
    ("delegated instructions") rather than dropping them; interactive CLIs run them as
    subagents. Interactive CLIs get the same answer through `atril route "<task>"`, which a
    short rule tells them to call before each task. Both come from one index.
+   - `resolve` loads the **single best match** for the task (after the role filter); other
+     matching artifacts come in only through its relations or as suggestions, so the context
+     carries what the task needs and no more.
+   - The role filter reads the author's `roles` and `atril.roles`; an artifact that declares
+     **no roles is offered to every role**, so third-party skills without roles still work.
 6. Existing sources — local templates, addyosmani/agent-skills, OpenSkills — become atril
    sources (see 12). `src/skills/` is deleted once nothing in the core imports it.
 7. **atril is fully isolated.** Karajan delegates to it; atril knows nothing about Karajan.
