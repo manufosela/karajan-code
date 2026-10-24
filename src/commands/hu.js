@@ -13,7 +13,8 @@ import { readIdentity } from "../identity/store.js";
 import { effectiveGitEmail } from "../identity/detect.js";
 import { roleSkills } from "../skills/role-skills.js";
 import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
-import { createHu, listHus, claim, setStatus, assertNotHeld } from "../hu/github-board.js";
+import { createHu, listHus, claim, setStatus, assertNotHeld, isOffline } from "../hu/github-board.js";
+import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
 
 // KJC-TSK-0661 (Jorge's friction): every HU records WHO created it — the
 // board must never show work nobody can trace. Host agent env → that agent;
@@ -57,18 +58,46 @@ function linesOf(v) {
 /** KJC-TSK-1163: kj hu add on the shared board; the same no-duplicates rule, checked against the issues. */
 async function addToTeamBoard({ repo, title, flags, deps, emit }) {
   if (flags.id) throw new Error(`--id is not used with the shared board: GitHub gives each HU its id (the issue number)`);
-  const { identical, similar } = findTitleMatches(title, await (deps.listTeamHus ?? listHus)({ repo }));
-  if (identical.length > 0) {
-    throw new Error(`An HU with this title already exists: ${identical[0].short_id} (status: ${identical[0].status}). Work that card or move it with: kj hu move ${identical[0].short_id} <status>`);
+  let hu;
+  try {
+    const { identical, similar } = findTitleMatches(title, await (deps.listTeamHus ?? listHus)({ repo }));
+    if (identical.length > 0) {
+      throw new Error(`An HU with this title already exists: ${identical[0].short_id} (status: ${identical[0].status}). Work that card or move it with: kj hu move ${identical[0].short_id} <status>`);
+    }
+    if (similar.length > 0) {
+      const candidates = similar.map((h) => `  · ${h.short_id} (${h.status}) "${h.title}"`).join("\n");
+      console.warn("⚠ possible duplicate — check before working it:\n" + candidates);
+    }
+    hu = await (deps.createTeamHu ?? createHu)({
+      repo, title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref: flags.ref ? String(flags.ref).trim() : null,
+    });
+  } catch (err) {
+    // KJC-TSK-1165: an id is only ever minted by GitHub; nothing is created offline.
+    if (isOffline(err)) throw new Error(`creating a HU needs the network: GitHub gives it its id and no local one is made up (${err.message})`, { cause: err });
+    throw err;
   }
-  if (similar.length > 0) {
-    const candidates = similar.map((h) => `  · ${h.short_id} (${h.status}) "${h.title}"`).join("\n");
-    console.warn("⚠ possible duplicate — check before working it:\n" + candidates);
-  }
-  const hu = await (deps.createTeamHu ?? createHu)({
-    repo, title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref: flags.ref ? String(flags.ref).trim() : null,
-  });
   return emit({ ...hu, board: "github", repo }, `✓ HU created: ${hu.short_id} (pending) in the shared board, issue #${hu.number} of ${repo}`);
+}
+
+/** KJC-TSK-1165: apply the moves queued offline; conflicts are said, never forced; still offline is silent. */
+async function applyQueuedMoves({ projectDir, repo, deps }) {
+  let now = null; // status of every HU as GitHub has it, read once, kept up to date as moves apply
+  const apply = async (op) => {
+    now ??= new Map((await (deps.listTeamHus ?? listHus)({ repo })).map((h) => [h.number, h.status]));
+    // The HU moved while this clone was offline: the newer state wins, the queued move is a conflict.
+    if (op.expected && now.get(op.number) !== op.expected) {
+      const err = new Error(`HU-${op.number} is ${now.get(op.number) ?? "gone"} now and was ${op.expected} when the move was queued`);
+      err.name = "BoardRejectedError";
+      throw err;
+    }
+    if (op.status === "running" || op.release) await (deps.claimTeamHu ?? claim)({ repo, number: op.number, who: op.who, release: op.release });
+    else await (deps.assertNotHeld ?? assertNotHeld)({ repo, number: op.number, who: op.who });
+    await (deps.setTeamStatus ?? setStatus)({ repo, number: op.number, status: op.status });
+    now.set(op.number, op.status);
+  };
+  const r = await flushQueue({ projectDir, apply });
+  if (r.applied) console.warn(`✓ ${r.applied} queued move(s) applied to the shared board`);
+  for (const c of r.conflicts) console.warn(`⚠ ${c}`);
 }
 
 /** KJC-TSK-1164: kj hu move on the shared board; starting it claims it (the assignee) first. */
@@ -123,8 +152,13 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     return emit(r, `✓ HU Board: ${where} — commit ${files} in a PR so the whole team inherits it`);
   }
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
+  const who = deps.who === undefined ? workerOf(projectDir) : deps.who;
+  // KJC-TSK-1165 (TEAM-GH-D): moves made without network go first, once GitHub answers.
+  if (board.backend === "github") await applyQueuedMoves({ projectDir, repo: board.repo, deps });
   if (board.backend === "github" && action === "list") {
-    const rows = (await (deps.listTeamHus ?? listHus)({ repo: board.repo })).map((h) => ({ ...h, id: h.short_id, plan: "github" }));
+    const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, repo: board.repo, list: deps.listTeamHus ?? listHus });
+    if (source === "cache") console.warn(`⚠ GitHub did not answer: this is the local copy of the board from ${updatedAt}`);
+    const rows = hus.map((h) => ({ ...h, id: h.short_id, plan: "github" }));
     if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
     for (const r of rows) {
       const held = r.claimed_by ? " · held by " + r.claimed_by : "";
@@ -135,7 +169,18 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   }
   // KJC-BUG-0392: a zero-padded id (HU-0104) is a local HU from before the shared board: it stays local.
   const legacyLocal = /^HU-0\d+$/i.test(String(args[0] ?? ""));
-  if (board.backend === "github" && action === "move" && !legacyLocal) return moveOnTeamBoard({ repo: board.repo, args, flags, deps, emit, who: deps.who === undefined ? workerOf(projectDir) : deps.who });
+  if (board.backend === "github" && action === "move" && !legacyLocal) {
+    try {
+      return await moveOnTeamBoard({ repo: board.repo, args, flags, deps, emit, who });
+    } catch (err) {
+      // Offline: the move waits in the queue; GitHub still decides when it is applied.
+      if (!isOffline(err)) throw err;
+      const number = Number(/^(?:HU-|#)(\d+)$/i.exec(args[0])[1]);
+      queueMove({ projectDir, number, status: args[1], who, release: Boolean(flags.release) });
+      console.warn(`⚠ GitHub did not answer: HU-${number} → ${args[1]} queued, applied when GitHub answers again`);
+      return emit({ id: `HU-${number}`, status: args[1], queued: true }, `⏳ HU-${number} → ${args[1]} (queued)`);
+    }
+  }
 
   if (action === "list") {
     const plans = await listPlans(projectDir);

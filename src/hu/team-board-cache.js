@@ -42,10 +42,17 @@ export async function listWithCache({ projectDir, repo, list }) {
   }
 }
 
-/** Remember a move to apply when the network is back. */
+/**
+ * Remember a move to apply when the network is back. `expected` is the status the local
+ * copy shows now (null when the copy does not know the HU): when it is applied, a HU that
+ * moved meanwhile is a conflict, not something to overwrite. The copy takes the move so a
+ * second queued move on the same HU expects the first one's result.
+ */
 export function queueMove({ projectDir, number, status, who, release }) {
   const cache = readCache(projectDir);
-  cache.queue.push({ number, status, who, release: Boolean(release), queuedAt: new Date().toISOString() });
+  const row = cache.hus?.find((h) => h.number === number) ?? null;
+  cache.queue.push({ number, status, who, release: Boolean(release), expected: row?.status ?? null, queuedAt: new Date().toISOString() });
+  if (row) row.status = status;
   writeCache(projectDir, cache);
   return cache.queue.length;
 }
