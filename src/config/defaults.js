@@ -274,6 +274,9 @@ const DEFAULTS = {
     // safe default blocks them (local ollama/onnx always allowed).
     sensitivity: "internal"
   },
+  // KJC-TSK-1183 — a document over this size (task file, ADR) reaches the roles as its headings
+  // index; they fetch a section whole with `kj doc section` when the task needs it.
+  docs: { indexFirstBytes: 12000 },
   // Opt-in. Set by the `kj init` wizard (explicit consent prompt in the OS
   // locale). When the key is absent or false, no events are sent. See
   // src/utils/telemetry.js and the Privacy & Telemetry section of README.md.

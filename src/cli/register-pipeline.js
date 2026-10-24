@@ -153,7 +153,7 @@ export function registerPipeline(program, { pkgVersion }) {
             effectiveTask = plan.task;
           }
         }
-        const resolvedTask = await resolveTaskInput({ task: effectiveTask, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        const resolvedTask = await resolveTaskInput({ task: effectiveTask, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
         const res = await runCommandHandler({ task: resolvedTask, config, logger, flags });
         // KJC-TSK-0674 (issue #1289): an aborted run (spec-review cancel,
         // unanswerable non-interactive gate) must be observable by CI.
