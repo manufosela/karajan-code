@@ -174,7 +174,7 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // composed clause cannot leak past the kind filter; it fails loudly.
     let where = flags.where || null;
     if (library) where = flags.where ? `kind=library AND ${flags.where}` : "kind=library";
-    const rerankOpts = flags.rerank ? { model: flags.rerankModel } : null;
+    const rerankOpts = rerankOptionsFor({ config, flags, logger });
     const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, rrfK, where, whereRoot, rerankOpts });
     const hits = library ? ranked : withPathNamedHits(pathNamedHits(db, text, { project, projectDir: config?.projectDir || process.cwd() }), ranked, topK);
     if (flags.json) {
@@ -193,6 +193,28 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
   }
 }
 
+// KJC-TSK-1181 (RAG-D2): the cross-encoder, from the flag or from rag.search.rerank in the config
+// (enabled, top_n, model). Without the library or the model the retrieval answers alone and the
+// install is said once per process, never on every query, never in silence.
+const rerankWarned = new Set();
+export function rerankOptionsFor({ config, flags = {}, logger }) {
+  const cfg = config?.rag?.search?.rerank ?? {};
+  const enabled = flags.rerank === true || (flags.rerank !== false && cfg.enabled === true);
+  if (!enabled) return null;
+  const topN = flags.rerankTopN ?? cfg.top_n;
+  if (topN !== undefined && !(Number.isInteger(Number(topN)) && Number(topN) > 0)) throw new Error(`rag.search.rerank.top_n must be a positive integer, got ${JSON.stringify(topN)}`);
+  const key = config?.projectDir || "rerank";
+  return {
+    model: flags.rerankModel || cfg.model || undefined,
+    ...(topN === undefined ? {} : { topN: Number(topN) }),
+    onUnavailable: (err) => {
+      if (rerankWarned.has(key)) return;
+      rerankWarned.add(key);
+      logger.warn(`[rag] rerank skipped: ${err.message}. Install it with npm install @huggingface/transformers; the retrieval answered without it`);
+    },
+  };
+}
+
 // KJC-TSK-0483 — `kj rag eval`. Runs the retriever against a golden query
 // set and reports recall@5, recall@10 and MRR per query and aggregated.
 // Exit code != 0 when `--min-recall` is set and the aggregated recall@5
@@ -207,7 +229,9 @@ export async function ragEvalCommand({ config, logger, flags = {} }) {
     const detected = projectSlug(config?.projectDir || process.cwd());
     const project = flags.project === "all" ? null : (flags.project || detected || null);
     const embedder = makeGovernedEmbedder(config);
-    const runQuery = async (text, k) => query(db, embedder, text, { topK: k, scope: "all", project });
+    // KJC-TSK-1181: measured with the cross-encoder too, so its default is a number, not a hunch.
+    const rerankOpts = rerankOptionsFor({ config, flags, logger });
+    const runQuery = async (text, k) => query(db, embedder, text, { topK: k, scope: "all", project, rerankOpts });
     const report = await runEval(queries, runQuery, { topK, ks: [5, 10] });
     const { aggregate: agg } = report;
     if (flags.json) {

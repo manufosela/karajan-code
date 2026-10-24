@@ -21,7 +21,7 @@ kj rag query "¿dónde se define la stage de pre-loop?"   # una respuesta anclad
 kj rag query "¿cómo se calcula la facturación?" --where source~=src/billing   # sin salir de una carpeta o módulo
 ```
 
-`--where` admite pares `clave=valor` unidos por `AND` (`symbol=loadConfig`, `hu_id=HU-003 AND kind=plan`) y, desde 4.63, `clave~=prefijo`: `source~=src/billing` mantiene la respuesta dentro de esa carpeta, relativa al proyecto. La recuperación híbrida fusiona la lista semántica y la léxica por rango recíproco (`rag.search.rrf_k`, 60 por defecto); el antiguo peso `alpha` ya no aplica.
+`--where` admite pares `clave=valor` unidos por `AND` (`symbol=loadConfig`, `hu_id=HU-003 AND kind=plan`) y, desde 4.63, `clave~=prefijo`: `source~=src/billing` mantiene la respuesta dentro de esa carpeta, relativa al proyecto. La recuperación híbrida fusiona la lista semántica y la léxica por rango recíproco (`rag.search.rrf_k`, 60 por defecto); el antiguo peso `alpha` ya no aplica. Un cross-encoder puede reordenar el top 40 antes de cortar el top K (`--rerank`, o `rag.search.rerank.enabled: true` en `kj.config.yml`; requiere `@huggingface/transformers`): desactivado por defecto, porque en el corpus fijo mantuvo el mismo MRR y dobló la latencia p95.
 
 Reindexa tras un cambio (`kj rag index --since <ref>`) y las respuestas siguen al código. Nada sensible se embebe, el índice se construye con la política de sensibilidad aplicada.
 

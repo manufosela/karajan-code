@@ -21,7 +21,7 @@ kj rag query "where is the pre-loop stage defined?"   # a grounded answer, with 
 kj rag query "how is billing computed?" --where source~=src/billing   # stay inside a folder or module
 ```
 
-`--where` takes `key=value` pairs joined by `AND` (`symbol=loadConfig`, `hu_id=HU-003 AND kind=plan`) and, since 4.63, `key~=prefix`: `source~=src/billing` keeps the answer inside that folder, relative to the project. Hybrid retrieval fuses the semantic and the keyword lists by reciprocal rank (`rag.search.rrf_k`, 60 by default); the old `alpha` weight no longer applies.
+`--where` takes `key=value` pairs joined by `AND` (`symbol=loadConfig`, `hu_id=HU-003 AND kind=plan`) and, since 4.63, `key~=prefix`: `source~=src/billing` keeps the answer inside that folder, relative to the project. Hybrid retrieval fuses the semantic and the keyword lists by reciprocal rank (`rag.search.rrf_k`, 60 by default); the old `alpha` weight no longer applies. A cross-encoder can re-score the top 40 before the top-K is cut (`--rerank`, or `rag.search.rerank.enabled: true` in `kj.config.yml`; needs `@huggingface/transformers`): off by default, since on the frozen corpus it kept the same MRR and doubled the p95 latency.
 
 Re-index after a change (`kj rag index --since <ref>`) and the answers track the code. Nothing sensitive is embedded — the index is built with the sensitivity policy applied.
 
