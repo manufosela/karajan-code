@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The Karajan family — one method, one family of tools</title>
-  <meta name="description" content="The @karajan-family of tools: Karajan Code, kaRAGan, kaWATCHan, Console, Governance, Core and Radar — each explained on its own.">
+  <meta name="description" content="The @karajan-family of tools: Karajan Code, kaRAGan, kaWATCHan, atril, Libretto, Console, Governance, Core and Radar: each explained on its own, and who stands on whom.">
   <link rel="icon" href="/img/logo-120.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,6 +68,11 @@
     .fam-links a { text-decoration: none; }
     .fam-links a:hover { text-decoration: underline; }
     .brewing { opacity: 0.82; border-style: dashed; }
+    .fits { border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); padding: 2rem; }
+    .fits h2 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; }
+    .fits p { color: var(--text-dim); margin: 0.7rem 0 1rem; font-size: 0.95rem; }
+    .fits ul { list-style: none; display: grid; gap: 0.5rem; font-size: 0.95rem; color: var(--text-muted); }
+    .fits li strong { color: var(--text); font-weight: 600; }
     .foot { text-align: center; padding: 2rem 0 3rem; color: var(--text-dim); font-size: 0.85rem; }
     .foot a { color: var(--accent); text-decoration: none; }
     @media (max-width: 760px) {
@@ -95,7 +100,7 @@
     <header class="head">
       <p class="eyebrow">The family</p>
       <h1>One method, <em>one family</em> of tools</h1>
-      <p>Karajan governs AI-driven development. Around it, a family of tools shares the same method — context, vigilance, governance and the ground they all stand on. Here is each one, on its own.</p>
+      <p>Karajan governs AI-driven development. Around it, a family of tools shares the same method, told with the orchestra in mind: the conductor, the memory, the watchman, the music stand with the scores, the libretto. Here is each one, on its own, and who stands on whom.</p>
     </header>
 
     <main class="fam">
@@ -127,6 +132,24 @@
       </article>
 
       <article class="fam-row">
+        <div class="fam-media"><span class="monogram">atril</span></div>
+        <div class="fam-body">
+          <h2>atril <span class="role">the music stand</span></h2>
+          <p>Skills, commands and subagents for every AI CLI, kept in a store no CLI loads up front and resolved only when a task asks for them: search, resolve within a budget, install, route. Fully isolated: it depends on nothing else in the family. A contribution by Jorge del Casar.</p>
+          <p class="fam-links"><a href="https://github.com/manufosela/karajan-code/tree/main/packages/atril">github</a></p>
+        </div>
+      </article>
+
+      <article class="fam-row">
+        <div class="fam-media"><span class="monogram">libretto</span></div>
+        <div class="fam-body">
+          <h2>Libretto <span class="role">the stories</span></h2>
+          <p>The HU Board: the user stories the orchestra plays, who holds each one and what has been played. Shared through GitHub Issues, so two people can work the same repo without minting the same card, with a local copy for when the network is out.</p>
+          <p class="fam-links"><a href="/docs/guides/hu-board/">docs</a></p>
+        </div>
+      </article>
+
+      <article class="fam-row">
         <div class="fam-media"><span class="monogram">console</span></div>
         <div class="fam-body">
           <h2>Console <span class="role">the admin</span></h2>
@@ -148,7 +171,7 @@
         <div class="fam-media"><span class="monogram">core</span></div>
         <div class="fam-body">
           <h2>Core <span class="role">the shared ground</span></h2>
-          <p>The internals the family stands on: a model registry with pricing, shared paths and the small pieces every member reuses — so the family speaks one language instead of seven dialects.</p>
+          <p>The internals Karajan Code and Libretto stand on: the vector store and retriever, a model registry with pricing, shared paths. Not every member uses it, on purpose: kaRAGan, atril and Governance depend on nothing, so each can be used alone.</p>
           <p class="fam-links"><a href="https://www.npmjs.com/package/@karajan-family/core">npm</a></p>
         </div>
       </article>
@@ -162,6 +185,18 @@
         </div>
       </article>
     </main>
+
+    <section class="fits">
+      <h2>Who stands on whom</h2>
+      <p>Read from the package manifests, not from a diagram drawn first. Three pieces stand alone and the others combine them.</p>
+      <ul>
+        <li><strong>Stand alone:</strong> kaRAGan, atril, Governance. Install any of them without the rest.</li>
+        <li><strong>Karajan Code</strong> combines Core, kaRAGan and Governance.</li>
+        <li><strong>Libretto</strong> stands on Core.</li>
+        <li><strong>kaWATCHan</strong> stands on kaRAGan.</li>
+        <li><strong>Console</strong> stands on Governance.</li>
+      </ul>
+    </section>
 
     <footer class="foot">
       <p>All published under <a href="https://www.npmjs.com/org/karajan-family">@karajan-family</a> on npm. &nbsp;·&nbsp; <a href="/">Back to karajancode.com</a></p>
