@@ -55,3 +55,16 @@ Con un CLI de IA instalado (claude/codex/gemini/ollama…), añade generación:
 ```bash
 karajan-rag query "¿cómo se calcula la facturación?" ./mi-proyecto --answer --adapter ollama
 ```
+
+## 3. Úsalo desde tu agente
+
+Un solo comando lleva la carpeta a Claude Code:
+
+```bash
+karajan-rag init ./mi-proyecto --claude
+```
+
+Indexa, registra el servidor MCP (`claude mcp add rag-mi-proyecto -- karajan-rag serve …`)
+y escribe en `CLAUDE.md`, entre marcadores, la regla de preguntar a `rag_query` antes de
+asumir. Repetirlo sustituye el bloque, nunca lo duplica. Sin `claude` en el PATH lo dice y
+deja el comando para pegar.
