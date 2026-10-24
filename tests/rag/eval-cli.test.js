@@ -2,7 +2,7 @@
 // with a fake embedder + a tiny indexed corpus + an inline golden file,
 // and pins the public contract: structured logging, --json output shape,
 // and the --min-recall exit-code gate.
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -95,6 +95,28 @@ describe("kj rag eval CLI — KJC-TSK-0483", () => {
     });
     expect(process.exitCode).toBe(1);
     expect(noopLogger.error).toHaveBeenCalledWith(expect.stringMatching(/below --min-recall/));
+  });
+
+  // KJC-TSK-1170 (RAG-E): --save-baseline freezes the numbers; --baseline fails on a regression.
+  it("--save-baseline writes the aggregate with latency, and --baseline fails when recall dropped", async () => {
+    const projectDir = await indexFixture("ev4");
+    const golden = writeGolden([{ query: "auth", expected_sources: ["plan-001.json"] }]);
+    const { ragEvalCommand } = await import("../../src/commands/rag.js");
+    const baseline = join(root, "baseline.json");
+    const config = { projectDir, rag: { embedder: { dim: 8 } } };
+    await ragEvalCommand({ config, logger: noopLogger, flags: { golden, topK: 5, project: "all", saveBaseline: baseline } });
+    const saved = JSON.parse(readFileSync(baseline, "utf8"));
+    expect(saved.aggregate.recall["@5"]).toBe(1);
+    expect(saved.aggregate.latency.p95Ms).toBeGreaterThanOrEqual(0);
+    expect(saved.measuredAt).toMatch(/^\d{4}-/);
+    process.exitCode = 0;
+    await ragEvalCommand({ config, logger: noopLogger, flags: { golden, topK: 5, project: "all", baseline } });
+    expect(process.exitCode).toBe(0);
+    // A golden set the index cannot satisfy, against the same baseline: a regression.
+    const worse = writeGolden([{ query: "totally-unrelated-term", expected_sources: ["does-not-exist.js"] }]);
+    await ragEvalCommand({ config, logger: noopLogger, flags: { golden: worse, topK: 5, project: "all", baseline } });
+    expect(process.exitCode).toBe(1);
+    expect(noopLogger.error).toHaveBeenCalledWith(expect.stringMatching(/worse than the baseline.*recall@5/s));
   });
 
   it("does not flip exitCode when --min-recall is satisfied", async () => {
