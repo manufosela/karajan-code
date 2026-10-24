@@ -45,24 +45,33 @@ describe("rag/bm25 — KJC-TSK-0443", () => {
 describe("retriever/fuseHits — KJC-TSK-0443", () => {
   it("mode=semantic returns only semantic hits unchanged", () => {
     const sem = [{ id: 1, distance: 0.1 }, { id: 2, distance: 0.2 }];
-    expect(fuseHits(sem, [], 0.6, "semantic")).toEqual(sem);
+    expect(fuseHits(sem, [], "semantic")).toEqual(sem);
   });
 
   it("mode=keyword surfaces bm25 as distance", () => {
     const kw = [{ id: 1, bm25: -3.5 }, { id: 2, bm25: -1.2 }];
-    const out = fuseHits([], kw, 0.6, "keyword");
+    const out = fuseHits([], kw, "keyword");
     expect(out[0].distance).toBe(-3.5);
   });
 
-  it("mode=hybrid normalises + linear-combines both scores", () => {
+  // KJC-TSK-1172 (RAG-C): hybrid fusion is Reciprocal Rank Fusion. Each list is best-first; a
+  // candidate scores 1/(k + rank) per list, k = 60 by default. `distance` stays lower-is-better.
+  it("mode=hybrid fuses by reciprocal rank: present in both lists beats present in one", () => {
+    const sem = [{ id: 1, distance: 0.1 }, { id: 2, distance: 0.5 }, { id: 3, distance: 0.9 }];
+    const kw = [{ id: 2, bm25: -3 }, { id: 4, bm25: -2 }];
+    const out = fuseHits(sem, kw, "hybrid").toSorted((a, b) => a.distance - b.distance);
+    expect(out.map((h) => h.id)).toEqual([2, 1, 4, 3]); // 2: rank 2 + rank 1; 1: rank 1 alone; 4: rank 2 alone; 3: rank 3 alone
+    const rrf = (ranks) => ranks.reduce((s, r) => s + 1 / (60 + r), 0);
+    expect(out[0].distance).toBeCloseTo(1 - rrf([2, 1]) / rrf([1, 1]), 12); // scaled to [0, 1): both firsts would be 0
+    expect(out[1].distance).toBeCloseTo(1 - rrf([1]) / rrf([1, 1]), 12);
+    expect(out.find((h) => h.id === 4)).toMatchObject({ bm25: -2 });
+  });
+
+  it("k is configurable and a smaller k sharpens the gap between ranks", () => {
     const sem = [{ id: 1, distance: 0.1 }, { id: 2, distance: 0.5 }];
-    const kw = [{ id: 1, bm25: -1 }, { id: 2, bm25: -3 }];
-    const out = fuseHits(sem, kw, 0.5, "hybrid");
-    // id=1 has best semantic (dist=0.1) but worst keyword (bm25=-1, less negative = less relevant)
-    // id=2 has worst semantic (dist=0.5) but best keyword (bm25=-3, more negative = more relevant)
-    // With alpha=0.5 the tie should resolve cleanly to a finite distance per id
-    expect(out.length).toBe(2);
-    out.forEach((h) => expect(Number.isFinite(h.distance)).toBe(true));
+    const gap = (rrfK) => { const o = fuseHits(sem, [], "hybrid", { rrfK }); return o[1].distance - o[0].distance; };
+    expect(gap(1)).toBeGreaterThan(gap(60));
+    expect(fuseHits([], [], "hybrid")).toEqual([]);
   });
 
   it("query mode=keyword skips embedder (no API call)", async () => {

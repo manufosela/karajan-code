@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-24T03:43:19.394Z",
+  "measuredAt": "2026-10-24T06:35:18.623Z",
   "golden": "tests/rag/fixtures/eval-golden.json",
   "topK": 10,
   "embedder": {
@@ -11,13 +11,13 @@
   "aggregate": {
     "n": 24,
     "recall": {
-      "@5": 0.9583333333333334,
-      "@10": 0.9583333333333334
+      "@5": 1,
+      "@10": 1
     },
-    "mrr": 0.8958333333333334,
+    "mrr": 0.9249999999999999,
     "latency": {
-      "meanMs": 29,
-      "p95Ms": 36
+      "meanMs": 31,
+      "p95Ms": 37
     }
   }
 }
