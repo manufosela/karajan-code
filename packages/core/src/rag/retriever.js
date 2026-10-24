@@ -13,32 +13,26 @@ const TEST_PATH_RE = /[\\/](tests?|specs?|__tests__)[\\/]|\.test\.[jt]sx?$|\.spe
 function shouldBoostSources(queryText) { return !TEST_TERMS_RE.test(queryText); }
 function isTestPath(source) { return TEST_PATH_RE.test(source || ""); }
 
-// KJC-TSK-0443 — fuse semantic + keyword hits into a unified candidate set.
-// For 'semantic'/'keyword' modes we surface that side. For 'hybrid' (default)
-// we min-max normalise both scores to [0,1] (lower=better) and linear-combine
-// via alpha * semantic + (1-alpha) * keyword. Result written back to
-// `distance` so the kind+source boost pipeline keeps working unchanged.
-function fuseHits(semantic, keyword, alpha, mode) {
+// KJC-TSK-1172 (RAG-C, ADR 0026) — fuse semantic + keyword hits by Reciprocal Rank Fusion.
+// For 'semantic'/'keyword' modes we surface that side. For 'hybrid' (default) each list is
+// best-first and a candidate scores 1/(k + rank) per list it appears in: no scale of either
+// backend to normalise, no alpha to tune by hand. The sum is scaled to [0, 1) lower-is-better
+// (0 = first in both lists) and written to `distance`, so the kind+source boosts, sized for a
+// unit scale, keep working unchanged.
+export const DEFAULT_RRF_K = 60;
+function fuseHits(semantic, keyword, mode, { rrfK = DEFAULT_RRF_K } = {}) {
   if (mode === "semantic") return semantic;
   if (mode === "keyword") return keyword.map((h) => ({ ...h, distance: h.bm25 }));
   const byId = new Map();
-  for (const h of semantic) byId.set(h.id, { ...h, _sem: h.distance });
-  for (const h of keyword) {
-    const prev = byId.get(h.id);
-    if (prev) prev._kw = h.bm25;
-    else byId.set(h.id, { ...h, _kw: h.bm25, distance: h.bm25 });
-  }
-  const list = [...byId.values()];
-  const norm = (vals) => {
-    const xs = vals.filter((v) => Number.isFinite(v));
-    if (xs.length === 0) return () => 0.5;
-    const min = Math.min(...xs); const max = Math.max(...xs); const span = max - min || 1;
-    return (v) => Number.isFinite(v) ? (v - min) / span : 1;
-  };
-  const nSem = norm(list.map((h) => h._sem));
-  const nKw = norm(list.map((h) => h._kw));
-  for (const h of list) h.distance = alpha * nSem(h._sem) + (1 - alpha) * nKw(h._kw);
-  return list;
+  const add = (list) => list.forEach((h, i) => {
+    const prev = byId.get(h.id) ?? { ...h, _rrf: 0 };
+    prev._rrf += 1 / (rrfK + i + 1);
+    byId.set(h.id, prev);
+  });
+  add(semantic);
+  add(keyword);
+  const best = 2 / (rrfK + 1);
+  return [...byId.values()].map(({ _rrf, ...h }) => ({ ...h, distance: 1 - _rrf / best }));
 }
 
 // KJC-TSK-0484 PR-B — Maximal Marginal Relevance. Given an ordered list of
@@ -80,7 +74,7 @@ export function mmrRerank(candidates, embeddings, { topK, lambda = 0.7 }) {
   return picked;
 }
 
-export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", alpha = 0.6, where = null, whereRoot = null, rerankOpts = null, diversify = false, mmrLambda = 0.7 } = {}) {
+export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", rrfK = DEFAULT_RRF_K, where = null, whereRoot = null, rerankOpts = null, diversify = false, mmrLambda = 0.7 } = {}) {
   if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
   const fetchK = Math.min(50, topK * 2);
   const scopeKind = scope === "plans" ? "plan" : scope === "code" ? "code" : scope === "onboarding" ? "onboarding" : null;
@@ -96,7 +90,7 @@ export async function query(db, embedder, text, { topK = 5, scope = "all", kindB
   const wantKeyword = mode !== "semantic";
   const semanticHits = wantSemantic ? searchSimilar(db, await embedder.embed(text), fetchK, opts) : [];
   const keywordHits = wantKeyword ? searchBM25(db, text, fetchK, opts) : [];
-  const raw = fuseHits(semanticHits, keywordHits, alpha, mode);
+  const raw = fuseHits(semanticHits, keywordHits, mode, { rrfK });
   if (raw.length === 0) return [];
   const boostSources = shouldBoostSources(text);
   const scored = raw.map((r) => {
