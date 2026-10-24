@@ -4,6 +4,8 @@ import { parseWhere, buildWhereSql } from "./where-parser.js";
 import { rerank } from "./rerank.js";
 
 const DEFAULT_KIND_BOOST = { plan: 0.05, onboarding: 0.03, code: 0 };
+// KJC-TSK-1173: how many boosted candidates the cross-encoder re-scores before the top K is cut.
+export const DEFAULT_RERANK_TOP_N = 40;
 
 // KJC-TSK-0440 — asymmetric source/test boost.
 const SOURCE_BOOST_NON_TEST = 0.05;
@@ -76,7 +78,8 @@ export function mmrRerank(candidates, embeddings, { topK, lambda = 0.7 }) {
 
 export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", rrfK = DEFAULT_RRF_K, where = null, whereRoot = null, rerankOpts = null, diversify = false, mmrLambda = 0.7 } = {}) {
   if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
-  const fetchK = Math.min(50, topK * 2);
+  const rerankTopN = rerankOpts ? Math.max(topK, rerankOpts.topN ?? DEFAULT_RERANK_TOP_N) : 0; // never fewer than asked
+  const fetchK = Math.min(50, Math.max(topK * 2, rerankTopN)); // the rerank pool must be retrievable
   const scopeKind = scope === "plans" ? "plan" : scope === "code" ? "code" : scope === "onboarding" ? "onboarding" : null;
   // KJC-TSK-0448 — metadata filter. `where` is a string like "symbol=Foo AND
   // hu_id=HU-003"; we parse once and reuse the SQL fragment across both
@@ -111,12 +114,19 @@ export async function query(db, embedder, text, { topK = 5, scope = "all", kindB
   } else {
     reranked = scored.slice(0, topK);
   }
-  // KJC-TSK-0449 — optional cross-encoder rerank. When `rerankOpts` is set,
-  // we re-score the topK survivors with a (query, passage) cross-encoder;
-  // the kind+source boost has already been applied, so the rerank acts as
-  // a finer-grained quality lever on top.
-  if (rerankOpts) return await rerank(text, reranked, rerankOpts);
-  return reranked;
+  // KJC-TSK-0449 — optional cross-encoder rerank. KJC-TSK-1173 (RAG-D, ADR 0026): the cross-encoder
+  // sees the top N after the boosts (`rerankOpts.topN`, 40 by default; with `diversify`, what MMR
+  // chose) and the caller gets the top K of its order. Without the library or the model, a caller
+  // that gave `onUnavailable` is told and gets the top K as retrieved; otherwise the error is its.
+  if (!rerankOpts) return reranked;
+  const pool = diversify ? reranked : scored.slice(0, Math.min(scored.length, rerankTopN));
+  try {
+    return (await rerank(text, pool, rerankOpts)).slice(0, topK);
+  } catch (err) {
+    if (err?.name !== "RerankError" || !rerankOpts.onUnavailable) throw err;
+    rerankOpts.onUnavailable(err);
+    return reranked;
+  }
 }
 
 export { fuseHits, cosineSim };

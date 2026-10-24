@@ -73,4 +73,45 @@ describe("retriever query() with rerankOpts", () => {
     rmSync(tmp, { recursive: true, force: true });
     delete process.env.KJ_RAG_DB;
   });
+
+  // KJC-TSK-1173 (RAG-D): the cross-encoder sees the top N after the boosts and the caller gets
+  // the top K of its order; without the model the caller is told and gets the top K as retrieved.
+  const seedSix = () => { for (const l of ["c", "d", "e", "f"]) insertChunk(db, { source: `${l}.js`, kind: "code", text: `stub ${l}`, embedding: [0.3, 0.3, 0.3, 0.3], project: "x" }); };
+  const done = () => { db.close(); rmSync(tmp, { recursive: true, force: true }); delete process.env.KJ_RAG_DB; };
+
+  it("reranks the top N candidates, not only the top K, and returns the top K of the new order", async () => {
+    seedSix();
+    const seen = [];
+    const pipelineFn = vi.fn(async (pairs) => { seen.push(...pairs.map((p) => p.text_pair)); return pairs.map((p) => ({ score: p.text_pair === "stub e" ? 0.9 : 0.1 })); });
+    const hits = await query(db, stubEmbedder, "anything", { topK: 2, project: "x", rerankOpts: { pipelineFn, topN: 5 } });
+    expect(seen).toHaveLength(5);
+    expect(hits).toHaveLength(2);
+    expect(hits[0].text).toBe("stub e");
+    expect(await query(db, stubEmbedder, "anything", { topK: 3, project: "x", rerankOpts: { pipelineFn, topN: 1 } })).toHaveLength(3);
+    done();
+  });
+
+  it("a model that cannot be loaded is unavailable too: the caller is told and nothing is cached", async () => {
+    seedSix();
+    const onUnavailable = vi.fn();
+    const transformersFn = vi.fn(async () => ({ pipeline: async () => { throw new Error("404 no such model"); } }));
+    const hits = await query(db, stubEmbedder, "anything", { topK: 2, project: "x", rerankOpts: { transformersFn, onUnavailable } });
+    expect(hits).toHaveLength(2);
+    expect(onUnavailable.mock.calls[0][0]).toMatchObject({ name: "RerankError", cause: { message: "404 no such model" } });
+    await query(db, stubEmbedder, "anything", { topK: 2, project: "x", rerankOpts: { transformersFn, onUnavailable } });
+    expect(transformersFn).toHaveBeenCalledTimes(2); // the failed load was not kept
+    done();
+  });
+
+  it("without the model the caller is told once and gets the top K as retrieved", async () => {
+    seedSix();
+    const onUnavailable = vi.fn();
+    const pipelineFn = vi.fn(async () => { throw Object.assign(new Error("no model"), { name: "RerankError" }); });
+    const hits = await query(db, stubEmbedder, "anything", { topK: 3, project: "x", rerankOpts: { pipelineFn, onUnavailable } });
+    expect(hits).toHaveLength(3);
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+    expect(onUnavailable.mock.calls[0][0].message).toBe("no model");
+    await expect(query(db, stubEmbedder, "anything", { topK: 3, project: "x", rerankOpts: { pipelineFn } })).rejects.toThrow("no model");
+    done();
+  });
 });
