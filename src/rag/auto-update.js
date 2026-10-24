@@ -8,6 +8,7 @@ import { execa } from "execa";
 
 import { projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 import { indexProject, indexProjectDelta } from "./indexer.js";
+import { readRefreshedPaths, untrackedFiles, writeRefreshedPaths } from "./worktree-files.js";
 import { ragExclude } from "./indexable.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { openProjectStore } from "./project-store.js";
@@ -40,7 +41,7 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
   try {
     const since = getLastIndexedCommit(db, slug);
-    if (!since || since === head) return { skipped: true, head };
+    if (!since) return { skipped: true, head };
     // KJC-BUG-0304: a drift of hundreds of files (an index weeks old) reindexed the
     // repo for half an hour before the query answered. Past the bound the query
     // answers from the index as it is, and says how to bring it up to date.
@@ -60,18 +61,26 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
       if (totals.head) setLastIndexedCommit(db, slug, totals.head);
       return { ran: true, rebuilt: true, totals };
     }
-    const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-only", since, "HEAD"]);
-    const changed = stdout.split("\n").filter(Boolean).length;
+    // KJC-TSK-1174 (RAG-A1): the drift is measured up to the files on disk, untracked ones
+    // included, so a query sees what the session is writing before it is committed.
+    // The dirty paths of the last refresh count too: reverted or deleted since, they hold stale chunks.
+    const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-only", "-z", since]);
+    const dirty = [...stdout.split("\0").filter(Boolean), ...(await untrackedFiles(projectDir))];
+    const reconcile = readRefreshedPaths(projectDir).filter((p) => !dirty.includes(p));
+    const changed = dirty.length + reconcile.length;
+    if (changed === 0) return { skipped: true, head };
     if (changed > maxFiles) {
       logger.warn?.(`[rag] ${changed} file(s) changed since the last index (more than ${maxFiles}): answering from the index as it is; bring it up to date with kj rag index --since auto`);
       return { skipped: true, reason: "drift-too-large", changed, head };
     }
-    logger.info?.(`[rag] drift detected (${since.slice(0, 7)} → ${head.slice(0, 7)}); running delta update`);
-    const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger, exclude: ragExclude(config) });
+    logger.info?.(`[rag] drift detected (${since.slice(0, 7)} → ${head.slice(0, 7)}, ${changed} file(s)); running delta update`);
+    const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger, exclude: ragExclude(config), worktree: true, reconcile });
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
+    writeRefreshedPaths(projectDir, dirty);
     return { ran: true, totals };
   } catch (err) {
-    logger.warn?.(`[rag] auto-update failed (${err.message}); continuing without refresh`);
+    // Said once per process: an embedder that is down would repeat it on every query otherwise.
+    warnOnce(logger, `failed:${projectDir}`, `[rag] auto-update failed (${err.message}); continuing without refresh`);
     return { failed: true, error: err.message };
   } finally { db.close(); }
 }

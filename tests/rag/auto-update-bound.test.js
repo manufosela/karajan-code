@@ -10,6 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = { since: null };
 vi.mock("../../src/rag/project-store.js", () => ({ openProjectStore: vi.fn(() => ({ close: vi.fn() })) }));
+// KJC-TSK-1174: the tree is clean here and nothing carries over between tests; the working tree is tested apart.
+vi.mock("../../src/rag/worktree-files.js", () => ({ untrackedFiles: vi.fn(async () => []), readRefreshedPaths: vi.fn(() => []), writeRefreshedPaths: vi.fn() }));
 vi.mock("../../src/rag/vec-store.js", () => ({ projectSlug: vi.fn(() => "p"), getLastIndexedCommit: vi.fn(() => state.since), setLastIndexedCommit: vi.fn() }));
 vi.mock("../../src/rag/indexer.js", () => ({ indexProject: vi.fn(), indexProjectDelta: vi.fn(async () => ({ indexed: 1, files: 1, head: "h" })) }));
 vi.mock("../../src/rag/governed-embedder.js", () => ({ makeGovernedEmbedder: vi.fn(() => ({})) }));
