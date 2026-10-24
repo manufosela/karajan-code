@@ -7,6 +7,18 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-10-24
+
+### Added
+
+- **`karajan-rag init <ruta> --claude`: de la carpeta al agente en un comando**
+  (KJR-TSK-0162): además de generar la config, indexa, registra el servidor
+  MCP en Claude Code (`claude mcp add rag-<carpeta>-<hash> -- karajan-rag serve <ruta>`)
+  y escribe en `CLAUDE.md`, entre marcadores, la regla de consultar
+  `rag_query` antes de asumir. Repetirlo sustituye el bloque, nunca lo
+  duplica; sin `claude` en el PATH lo dice y deja el comando para pegar.
+  Un servidor por carpeta: dos carpetas con el mismo nombre no se pisan.
+
 ## [1.7.0] — 2026-09-06
 
 ### Added
