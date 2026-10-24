@@ -18,7 +18,10 @@ The same memory is a CLI, so you can query it directly:
 ```sh
 kj rag index                       # build (or refresh) the index of this repo
 kj rag query "where is the pre-loop stage defined?"   # a grounded answer, with sources
+kj rag query "how is billing computed?" --where source~=src/billing   # stay inside a folder or module
 ```
+
+`--where` takes `key=value` pairs joined by `AND` (`symbol=loadConfig`, `hu_id=HU-003 AND kind=plan`) and, since 4.63, `key~=prefix`: `source~=src/billing` keeps the answer inside that folder, relative to the project. Hybrid retrieval fuses the semantic and the keyword lists by reciprocal rank (`rag.search.rrf_k`, 60 by default); the old `alpha` weight no longer applies.
 
 Re-index after a change (`kj rag index --since <ref>`) and the answers track the code. Nothing sensitive is embedded — the index is built with the sensitivity policy applied.
 
