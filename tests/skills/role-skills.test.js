@@ -27,7 +27,7 @@ describe("roleSkills", () => {
 
   it("no catalog on this machine: only the project's skills, nothing invented", async () => {
     const r = await roleSkills({ role: "coder", task: "frontend", projectDir: "/p", deps: { ...deps(), listCatalog: async () => [] } });
-    expect(r).toEqual({ skills: [], dropped: [] });
+    expect(r).toEqual({ skills: [], dropped: [], limit: 3, source: "legacy" });
   });
 });
 
