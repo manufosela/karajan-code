@@ -49,7 +49,7 @@ export async function loadActiveAdrs(projectDir, planId) {
     mdFiles.map(async (file) => {
       try {
         const md = await readFile(join(dir, file), "utf-8");
-        return { id: file.replace(/\.md$/, ""), markdown: md };
+        return { id: file.replace(/\.md$/, ""), markdown: md, path: join(dir, file) };
       } catch { return null; /* skip unreadable file */ }
     })
   );

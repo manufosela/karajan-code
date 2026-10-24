@@ -73,6 +73,8 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       // the plan, the rest are scoped to this HU. All four pass through
       // untouched when the caller omits them (legacy single-task runs).
       adrs, specSection, reviewerFindings, huId,
+      // KJC-TSK-1183: a long ADR reaches the coder as its index, sections on demand.
+      indexFirstBytes: config?.docs?.indexFirstBytes ?? null,
       // PAR-E2 (KJC-TSK-0629): the stage's config wins over the role's own —
       // worktree lanes pass a laneConfig whose projectDir is the worktree.
       projectDir: config?.projectDir || null,

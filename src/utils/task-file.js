@@ -25,6 +25,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { indexFirstView } from "../docs/index-first.js";
 
 export const DEFAULT_TASK_FILE_MAX_BYTES = 256 * 1024;
 
@@ -41,7 +42,7 @@ export async function readTaskFile(filePath, opts = {}) {
   if (!filePath || typeof filePath !== "string") {
     throw new Error("readTaskFile: path must be a non-empty string");
   }
-  const { projectDir, maxBytes = DEFAULT_TASK_FILE_MAX_BYTES } = opts;
+  const { projectDir, maxBytes = DEFAULT_TASK_FILE_MAX_BYTES, indexFirstBytes = null, logger = null } = opts;
   const base = projectDir || process.cwd();
   const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(base, filePath);
 
@@ -68,6 +69,12 @@ export async function readTaskFile(filePath, opts = {}) {
   if (!trimmed) {
     throw new Error(`Task file is empty (or whitespace-only): ${resolved}`);
   }
+  // KJC-TSK-1183: over the limit the roles get the index and fetch sections on demand.
+  const view = indexFirstBytes ? indexFirstView({ path: resolved, text: trimmed, limit: indexFirstBytes }) : null;
+  if (view) {
+    logger?.info?.(`[docs] ${resolved} read by index (${trimmed.length} chars > ${indexFirstBytes}): sections on demand with kj doc section`);
+    return view;
+  }
   return trimmed;
 }
 
@@ -89,7 +96,7 @@ export async function readTaskFile(filePath, opts = {}) {
  * @param {Object} [args.logger]             - optional; uses `logger.warn(msg)` only
  * @returns {Promise<string>}
  */
-export async function resolveTaskInput({ task, taskFile, projectDir, logger } = {}) {
+export async function resolveTaskInput({ task, taskFile, projectDir, logger, indexFirstBytes = null } = {}) {
   const hasTask = typeof task === "string" && task.trim().length > 0;
   const hasFile = typeof taskFile === "string" && taskFile.trim().length > 0;
 
@@ -103,7 +110,7 @@ export async function resolveTaskInput({ task, taskFile, projectDir, logger } = 
     return task.trim();
   }
   if (hasFile) {
-    return readTaskFile(taskFile, { projectDir });
+    return readTaskFile(taskFile, { projectDir, indexFirstBytes, logger });
   }
   return task.trim();
 }

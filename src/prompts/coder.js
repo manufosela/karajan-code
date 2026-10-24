@@ -2,6 +2,7 @@ import { buildRtkInstructions } from "./rtk-snippet.js";
 import { roleSkills, buildRoleSkillSection } from "../skills/role-skills.js";
 import { getLanguageInstruction } from "../utils/locale.js";
 import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "./prompt-layout.js";
+import { indexFirstView } from "../docs/index-first.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -95,9 +96,11 @@ function renderAcceptanceTestsSection(tests) {
  * 8 ADRs (the planner shouldn't realistically emit more for one
  * plan, but bound it just in case).
  */
-function renderAdrSection(adrs) {
+function renderAdrSection(adrs, indexFirstBytes = null) {
   if (!Array.isArray(adrs) || adrs.length === 0) return "";
   const capped = adrs.slice(0, 8);
+  // KJC-TSK-1183: a long ADR travels as its index; the coder fetches a section when it needs it.
+  const bodyOf = (adr) => (indexFirstBytes && adr.path ? indexFirstView({ path: adr.path, text: adr.markdown, limit: indexFirstBytes }) : null) ?? adr.markdown;
   const lines = [
     "## Architecture Decision Records (active)",
     "",
@@ -105,7 +108,7 @@ function renderAdrSection(adrs) {
     "",
   ];
   for (const adr of capped) {
-    lines.push(adr.markdown.trim(), "", "---", "");
+    lines.push(bodyOf(adr).trim(), "", "---", "");
   }
   if (adrs.length > capped.length) {
     lines.push(`_(…${adrs.length - capped.length} more ADRs not shown — see ~/.kj/plans/<slug>/<planId>/adrs/.)_`, "");
@@ -189,7 +192,7 @@ function buildStackSection({ stack, testFramework }) {
  * volatile: per-HU/iteration content, rendered LAST preserving the relative
  * order the legacy prompt used (ADRs → SPEC → findings → tests → … → feedback).
  */
-export async function buildCoderPromptLayout({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null, stack = null, testFramework = null }) {
+export async function buildCoderPromptLayout({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null, stack = null, testFramework = null, indexFirstBytes = null }) {
   const langInstruction = getLanguageInstruction(language);
   // KJC-BUG-0032 (PR-I): hard rule about file paths. Real bug: a HU
   // titled "Initialize project skeleton: create assistant/ directory…"
@@ -278,7 +281,7 @@ export async function buildCoderPromptLayout({ task, reviewerFeedback = null, so
     section(skillSection, STABLE),
     section(`Task:\n${task}`, VOLATILE),
     section(plan ? `## Implementation Plan (from planner)\nFollow these steps:\n${plan}` : null, VOLATILE),
-    section(renderAdrSection(adrs) || null, VOLATILE),
+    section(renderAdrSection(adrs, indexFirstBytes) || null, VOLATILE),
     section(renderSpecSectionLine(specSection) || null, VOLATILE),
     section(renderReviewerFindingsSection(reviewerFindings, huId) || null, VOLATILE),
     section(renderAcceptanceTestsSection(acceptanceTests) || null, VOLATILE),

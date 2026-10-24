@@ -52,7 +52,7 @@ export function registerPlan(program, { pkgVersion }) {
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "plan", flags, async ({ config, logger }) => {
         const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
 
         // REASONS Canvas auto-detection: a SPEC that contains
         // `## REASONS:Section` headings is treated as a structured

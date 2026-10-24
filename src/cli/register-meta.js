@@ -76,7 +76,7 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "discover", flags, async ({ config, logger }) => {
         const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
         await discoverCommand({ task: resolvedTask, config, logger, mode: flags.mode, json: flags.json });
       });
     });
@@ -92,7 +92,7 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "triage", flags, async ({ config, logger }) => {
         const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
         await triageCommand({ task: resolvedTask, config, logger, json: flags.json });
       });
     });
@@ -107,7 +107,7 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "researcher", flags, async ({ config, logger }) => {
         const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
         await researcherCommand({ task: resolvedTask, config, logger });
       });
     });
@@ -124,7 +124,7 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "architect", flags, async ({ config, logger }) => {
         const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
         await architectCommand({ task: resolvedTask, config, logger, context: flags.context, json: flags.json });
       });
     });
