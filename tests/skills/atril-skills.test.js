@@ -29,32 +29,32 @@ const withStore = async (fn) => {
 };
 
 describe("atrilRoleSkills", () => {
-  it("resolves the task for the role from .karajan and names each artifact with its path", () => withStore((projectDir, userRoot) => {
-    const r = atrilRoleSkills({ role: "coder", task: "build the frontend login form", projectDir, max: 3, userRoot });
+  it("resolves the task for the role from .karajan and names each artifact with its path", () => withStore(async (projectDir, userRoot) => {
+    const r = await atrilRoleSkills({ role: "coder", task: "build the frontend login form", projectDir, max: 3, userRoot });
     expect(r.skills.map((s) => s.name)).toEqual(["a11y", "frontend-forms"]);
     expect(r.skills[0]).toMatchObject({ catalog: true, path: join(projectDir, ATRIL_ROOT, "skills", "a11y", "SKILL.md") });
     expect(r.dropped).toEqual([]);
   }));
 
-  it("the budget cuts the block and names what was left out", () => withStore((projectDir, userRoot) => {
-    const r = atrilRoleSkills({ role: "coder", task: "build the frontend login form", projectDir, max: 1, userRoot });
+  it("the budget cuts the block and names what was left out", () => withStore(async (projectDir, userRoot) => {
+    const r = await atrilRoleSkills({ role: "coder", task: "build the frontend login form", projectDir, max: 1, userRoot });
     expect(r.skills.map((s) => s.name)).toEqual(["frontend-forms"]);
     expect(r.dropped).toEqual(["a11y"]);
   }));
 
-  it("a role no artifact serves gets an empty block with the reason, never an invented skill", () => withStore((projectDir, userRoot) => {
-    const r = atrilRoleSkills({ role: "tester", task: "frontend login form", projectDir, max: 3, userRoot });
+  it("a role no artifact serves gets an empty block with the reason, never an invented skill", () => withStore(async (projectDir, userRoot) => {
+    const r = await atrilRoleSkills({ role: "tester", task: "frontend login form", projectDir, max: 3, userRoot });
     expect(r.skills).toEqual([]);
     expect(r.reason).toMatch(/for role tester/);
   }));
 
-  it("a command or an agent in the block is never passed off as a skill: it comes back apart", () => {
+  it("a command or an agent in the block is never passed off as a skill: it comes back apart", async () => {
     const block = [
       { name: "a11y", kind: "skill", path: "/s/a11y/SKILL.md", content: "c", as: "inline" },
       { name: "ship", kind: "command", path: "/c/ship.md", content: "c", as: "inline" },
       { name: "qa", kind: "agent", path: "/a/qa.md", content: "c", as: "subagent", block: [] },
     ];
-    const r = atrilRoleSkills({ role: "coder", task: "ship", projectDir: "/p", max: 3, resolveFn: () => ({ block, left: [] }) });
+    const r = await atrilRoleSkills({ role: "coder", task: "ship", projectDir: "/p", max: 3, resolveFn: () => ({ block, left: [] }) });
     expect(r.skills.map((s) => s.name)).toEqual(["a11y"]);
     expect(r.others).toEqual([{ name: "ship", kind: "command", path: "/c/ship.md" }, { name: "qa", kind: "agent", path: "/a/qa.md" }]);
   });

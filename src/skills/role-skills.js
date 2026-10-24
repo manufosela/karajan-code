@@ -37,7 +37,7 @@ export async function roleSkills({ role, task, projectDir, max, deps = defaultDe
   if (deps.hasAtril?.(projectDir)) {
     const limit = max ?? (await deps.maxPerRole?.(projectDir)) ?? MAX_SKILLS;
     noteOnce(logger, projectDir, `[skills] resolved from the atril store under ${projectDir}/.karajan (up to ${limit} per role)`);
-    return { ...deps.atril({ role, task, projectDir, max: limit }), limit, source: "atril" };
+    return { ...(await deps.atril({ role, task, projectDir, max: limit })), limit, source: "atril" };
   }
   const limit = max ?? MAX_SKILLS;
   return { ...(await legacyRoleSkills({ role, task, projectDir, max: limit, deps })), limit, source: "legacy" };
