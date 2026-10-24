@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.64.1] - 2026-10-24
+
+Patch. **Security: no artifact of the family runs on an unpatched Node.** The release workflow rebuilds the SEA binaries on Node 22.23.4 or later; the policy workflow pins the published 4.64.0 for checkouts without `bin/kj.js` (KJC-TSK-1187).
+
 ### Security
 
-- **Node.js security releases of 2026-10-21** (CVE-2026-111497, an out-of-bounds write in the Brotli decoder reachable through any `fetch` that receives `Content-Encoding: br`; CVE-2026-106074, the entropy caches of `randomUUID` and `randomInt` frozen inside a single-executable binary, so every process repeats the same values). kj calls no Brotli API itself, but it fetches from the registry, GitHub and the Planning Game, and its SEA binaries embed the Node they were built with. The next release rebuilds the binaries with Node 22.23.4 or later; until then, prefer `npm install -g @karajan-family/code` on a patched Node (22.23.4, 24.22.1 or 26.12.1). Nothing in the family targets an unsupported line any more: the Docker images move from `node:20` to `node:22`, `karajan-watch` and `karajan-rag` require a patched Node (`>=22.23.4 <24 || >=24.22.1 <26 || >=26.12.1`), and the radar frontend builds on Node 22 (KJC-TSK-1190).
+- **Node.js security releases of 2026-10-21** (CVE-2026-111497, an out-of-bounds write in the Brotli decoder reachable through any `fetch` that receives `Content-Encoding: br`; CVE-2026-106074, the entropy caches of `randomUUID` and `randomInt` frozen inside a single-executable binary, so every process repeats the same values). kj calls no Brotli API itself, but it fetches from the registry, GitHub and the Planning Game, and its SEA binaries embed the Node they were built with. This release rebuilds the binaries with Node 22.23.4 or later; binaries of 4.64.0 and earlier should be replaced, or kj installed with `npm install -g @karajan-family/code` on a patched Node (22.23.4, 24.22.1 or 26.12.1). Nothing in the family targets an unsupported line any more: the Docker images move from `node:20` to `node:22`, `karajan-watch` and `karajan-rag` require a patched Node (`>=22.23.4 <24 || >=24.22.1 <26 || >=26.12.1`), and the radar frontend builds on Node 22 (KJC-TSK-1190).
 
 ## [4.64.0] - 2026-10-24
 

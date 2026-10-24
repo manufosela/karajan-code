@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.64.0: documentos leídos por índice (actual)
+### v4.64.1: seguridad, ningún Node sin parche (actual)
+
+Los avisos de seguridad de Node del 21-oct-2026 corrigen una escritura fuera de límites en el decodificador Brotli (CVE-2026-111497, alcanzable por cualquier `fetch` que reciba `Content-Encoding: br`) y las cachés de entropía congeladas dentro de los binarios de un solo fichero (CVE-2026-106074). Este parche reconstruye los binarios SEA sobre Node 22.23.4 o superior, pasa las imágenes Docker de `node:20` a `node:22` y hace que `karajan-watch` y `karajan-rag` exijan un Node parcheado. Sustituye los binarios de la 4.64.0 y anteriores, o instala desde npm sobre un Node parcheado.
+
+### v4.64.0: documentos leídos por índice
 
 `kj doc index <fichero>` lista los títulos de un documento markdown y `kj doc section <fichero> "<título>"` imprime una sección entera, exactamente como está en el fichero; por encima de `docs.indexFirstBytes`, un fichero de tarea o un ADR llega a los roles como su índice, así que el prompt lleva solo lo que la tarea necesita. El re-ranker con cross-encoder es un interruptor de configuración, medido y desactivado de serie (mismo MRR, doble latencia en el corpus fijo). Y `kj hu` sobre el board compartido se niega a escribir con una cuenta de gh que el clon no declaró, nombrando el `gh auth switch` exacto.
 

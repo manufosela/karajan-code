@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.64.0: documents read by index (current)
+### v4.64.1: security, no unpatched Node (current)
+
+Node's security releases of 2026-10-21 fix an out-of-bounds write in the Brotli decoder (CVE-2026-111497, reachable through any `fetch` that receives `Content-Encoding: br`) and entropy caches frozen inside single-executable binaries (CVE-2026-106074). This patch rebuilds the SEA binaries on Node 22.23.4 or later, moves the Docker images from `node:20` to `node:22`, and makes `karajan-watch` and `karajan-rag` require a patched Node. Replace binaries of 4.64.0 and earlier, or install from npm on a patched Node.
+
+### v4.64.0: documents read by index
 
 `kj doc index <file>` lists the headings of a markdown document and `kj doc section <file> "<heading>"` prints one section whole, exactly as the file has it; over `docs.indexFirstBytes` a task file or an ADR reaches the roles as its index, so the prompt carries only what the task needs. The cross-encoder reranker is a config switch, measured and off by default (same MRR, double the latency on the frozen corpus). And `kj hu` on the shared board refuses to write as a gh account the clone did not declare, naming the exact `gh auth switch`.
 
