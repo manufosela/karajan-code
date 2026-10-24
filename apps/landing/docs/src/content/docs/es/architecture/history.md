@@ -1855,6 +1855,12 @@ Karajan estaba hecho para una persona. `kj hu add` tomaba el primer `HU-NNNN` li
 
 La review cruzada se ganó el sueldo: cazó dos reservas a la vez que habrían salido bien las dos, dos cambios de estado que habrían dejado dos etiquetas, una toma de una HU que se saltaba la reserva cuando no estaba en marcha, y una forma de `.gitignore` en la que git no deja re-incluir nada. Activar el board compartido es un fichero versionado que se sube en una PR, así el equipo entero lo hereda y un repo personal nunca se llena de issues que no pidió.
 
+## Phase 151: v4.63.0, el RAG se cuida solo
+
+Al RAG había que pedírselo: `kj rag index` a mano, un refresco que solo veía commits, un peso de fusión que nadie ajustaba. El ADR 0026 fijó la dirección y la línea base de evaluación de la v4.62 la hizo medible. El refresco previo a la consulta mide ahora la deriva hasta los ficheros en disco, los sin seguimiento incluidos, anota qué rutas sucias indexó y las reconcilia cuando el árbol vuelve a estar limpio, así que un revert no deja chunks obsoletos; un proyecto sin índice arranca su propio indexador, desacoplado, tras un cerrojo atómico, y no arranca un segundo. En core, la fusión por rango recíproco sustituyó a la suma min-max ponderada por `alpha` (recall@5 0,958 → 1,0, MRR 0,896 → 0,925 en el corpus fijo), `source~=` filtra por prefijo bajo la raíz del proyecto, y el cross-encoder ve el top N tras los boosts y degrada avisando.
+
+La review volvió a ganarse el sueldo: pidió la reconciliación de ficheros revertidos, rutas separadas por NUL, los estados de renombrado y copia, una reserva atómica antes de lanzar el indexador, una cuarentena para un cerrojo caducado, una confianza acotada en un pid y un lockfile regenerado. La doc construida salió de git el mismo día, 361 ficheros que competían con las fuentes en cada respuesta, y ahora la construye el predeploy de firebase.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
