@@ -1,0 +1,23 @@
+{
+  "measuredAt": "2026-10-24T03:43:19.394Z",
+  "golden": "tests/rag/fixtures/eval-golden.json",
+  "topK": 10,
+  "embedder": {
+    "provider": "ollama",
+    "model": "nomic-embed-text",
+    "dim": 768
+  },
+  "search": null,
+  "aggregate": {
+    "n": 24,
+    "recall": {
+      "@5": 0.9583333333333334,
+      "@10": 0.9583333333333334
+    },
+    "mrr": 0.8958333333333334,
+    "latency": {
+      "meanMs": 29,
+      "p95Ms": 36
+    }
+  }
+}
