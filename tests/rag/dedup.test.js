@@ -1,6 +1,7 @@
-// KJC-TSK-0484 — Content-hash dedup. Identical chunk bodies must skip the
-// embedder call when re-encountered for the same project; different projects
-// stay isolated (no cross-project dedup).
+// KJC-TSK-0484 — Content-hash dedup. A chunk the embedder already read (same body under
+// the same header: path, symbol, lines) skips the embedder call for the same project;
+// different projects stay isolated (no cross-project dedup). KJC-TSK-1171 (RAG-B): the
+// header is part of what is embedded, so the same body in another file is another vector.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -45,7 +46,7 @@ describe("rag/indexer — content-hash dedup (KJC-TSK-0484)", () => {
     expect(hit).toMatchObject({ source: "/x.md" });
   });
 
-  it("skips the embedder when an identical chunk exists for the same project", async () => {
+  it("the same body in another file is embedded again: its header names another path", async () => {
     const { embedder, counter } = makeEmbedder();
     const a = join(tmp, "a.md");
     const b = join(tmp, "b.md");
@@ -56,15 +57,14 @@ describe("rag/indexer — content-hash dedup (KJC-TSK-0484)", () => {
     const callsAfter1 = counter.calls;
     const r2 = await indexFile(b, { db, embedder, project: "proj1" });
     expect(r1.indexed).toBeGreaterThan(0);
-    expect(r2.skipped).toBe(r1.indexed);
-    expect(r2.indexed).toBe(0);
-    expect(counter.calls).toBe(callsAfter1);
+    expect(r2).toMatchObject({ indexed: r1.indexed, skipped: 0 });
+    expect(counter.calls).toBe(callsAfter1 * 2);
   });
 
   // KJC-BUG-0281 (#1980): a dedup'd chunk still belongs to its new source. A
   // CLAUDE.md identical to the AGENTS.md kj harden writes ended with ZERO rows,
   // so the coverage check reported it missing after every reindex, forever.
-  it("writes the rows of a fully duplicated file under its own source, reusing the stored embedding", async () => {
+  it("writes the rows of a fully duplicated file under its own source, with a vector of its own", async () => {
     const { embedder } = makeEmbedder();
     const a = join(tmp, "AGENTS.md");
     const b = join(tmp, "CLAUDE.md");
@@ -77,7 +77,8 @@ describe("rag/indexer — content-hash dedup (KJC-TSK-0484)", () => {
     expect(bySource(b)).toHaveLength(r1.indexed);
     const [idA] = bySource(a).map((r) => r.id), [idB] = bySource(b).map((r) => r.id);
     const vectors = getEmbeddingsByIds(db, [idA, idB]);
-    expect(Array.from(vectors.get(idB))).toEqual(Array.from(vectors.get(idA)));
+    expect(vectors.get(idB)).toBeDefined();
+    expect(vectors.get(idA)).toBeDefined();
   });
 
   it("does NOT dedup across different projects (isolation wins)", async () => {

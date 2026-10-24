@@ -38,7 +38,7 @@ async function indexFiles({ files, projectDir, db, embedder, slug, logger, json,
       logger.warn?.(`[rag] ${out}: not indexed`);
       continue;
     }
-    const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind() });
+    const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind(), root: projectDir });
     totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
   }
   const deleted = totals.deleted ? `, ${totals.deleted} chunks deleted` : "";

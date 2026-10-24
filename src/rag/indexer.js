@@ -14,6 +14,7 @@ import { chunkMarkdown, chunkPlan, chunkSource } from "./chunker.js";
 import { insertChunk, deleteChunksBySource, findChunkByHash, getEmbeddingsByIds } from "./vec-store.js";
 import { detectAdaptersForProject, getAllCodeExtensions } from "../lang/registry.js";
 import { indexableReason, listProjectFiles } from "./indexable.js";
+import { EMBED_SCHEMA, embedText } from "./embed-header.js";
 
 // KJC-PCS-0052 PR-A — antes vivían dos consts hard-coded para JS aquí
 // (CODE_EXT_RE + SKIP_SEGMENTS). Ahora vienen del registry de adapters,
@@ -59,7 +60,7 @@ export const sourceKind = () => "code";
  * fresh batch is written, so a second call against the same file
  * leaves the store with exactly the latest chunks (no duplicates).
  */
-export async function indexFile(path, { db, embedder, logger = console, project = null, kind: declaredKind = null } = {}) {
+export async function indexFile(path, { db, embedder, logger = console, project = null, kind: declaredKind = null, root = process.cwd() } = {}) {
   if (!existsSync(path)) { logger.warn?.(`[rag-indexer] file not found: ${path}`); return { indexed: 0, failed: 0 }; }
   const kind = declaredKind ?? detectKind(path);
   if (!kind) { logger.warn?.(`[rag-indexer] unknown kind: ${path}`); return { indexed: 0, failed: 0 }; }
@@ -75,11 +76,17 @@ export async function indexFile(path, { db, embedder, logger = console, project 
     // the stored vector: a file whose every chunk duplicates another (CLAUDE.md
     // next to the AGENTS.md kj harden writes) was left with no rows at all, and
     // the coverage check reported it missing after every reindex.
-    const contentHash = createHash("sha256").update(ch.text).digest("hex");
+    // KJC-TSK-1171 (RAG-B): the embedder reads the metadata header before the body, so a
+    // query by file, module or symbol name lands; the stored text stays the body alone.
+    // The dedup key is what the embedder read, header included, under the current schema: a
+    // vector is reused only when the same body sits under the same path, symbol and lines,
+    // never one embedded under another header or an older schema.
+    const embeddable = embedText(ch, { root });
+    const contentHash = createHash("sha256").update(`${EMBED_SCHEMA}\n${embeddable}`).digest("hex");
     try {
       const dup = findChunkByHash(db, contentHash, project);
       const stored = dup ? getEmbeddingsByIds(db, [dup.id]).get(Number(dup.id)) : null;
-      const embedding = stored ?? await embedder.embed(ch.text);
+      const embedding = stored ?? await embedder.embed(embeddable);
       insertChunk(db, { source: path, kind: ch.metadata.kind || kind, text: ch.text, metadata: ch.metadata, embedding, project, contentHash });
       if (stored) skipped += 1; else indexed += 1;
     } catch (err) {
@@ -145,13 +152,13 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
   if (existsSync(planRoot)) {
     const plans = await listFiles(planRoot, (p) => /plan-.*\.json$/.test(p));
     for (const p of plans) {
-      const r = await indexFile(p, { db, embedder, logger, project: slug });
+      const r = await indexFile(p, { db, embedder, logger, project: slug, root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }
   const onboarding = join(karajanHome, ONBOARDING_DIR, `${slug}.md`);
   if (existsSync(onboarding)) {
-    const r = await indexFile(onboarding, { db, embedder, logger, project: slug });
+    const r = await indexFile(onboarding, { db, embedder, logger, project: slug, root: projectDir });
     totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
   }
   if (withSources) {
@@ -173,7 +180,7 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
       if (source.startsWith(prefix) && outOf(source) !== null) deleteChunksBySource(db, source);
     }
     for (const s of sources) {
-      const r = await indexFile(s, { db, embedder, logger, project: slug, kind: sourceKind() });
+      const r = await indexFile(s, { db, embedder, logger, project: slug, kind: sourceKind(), root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }
@@ -211,7 +218,7 @@ export async function indexProjectDelta(projectDir, { db, embedder, since, logge
       logger.info?.(`[rag-indexer] delta delete ${relative(process.cwd(), abs)}`);
     } else if (indexableReason(relative(projectDir, abs), abs, { exclude, projectDir }) === null) {
       // KJC-TSK-0891: the same criterion as the full walk, not a list of extensions.
-      const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind() });
+      const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind(), root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }
