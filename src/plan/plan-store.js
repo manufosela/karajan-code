@@ -63,8 +63,11 @@ export function projectSlug(projectDir) {
     .slice(0, 120);
 }
 
+// KJC-TSK-1166: the board honours KJ_PLANS_DIR as its plans root; what kj writes must land
+// in the same root, or the board shows none of it.
 export function plansDir(projectDir) {
-  return path.join(getKjHome(), "plans", projectSlug(projectDir));
+  const root = process.env.KJ_PLANS_DIR || path.join(getKjHome(), "plans");
+  return path.join(root, projectSlug(projectDir));
 }
 
 /**

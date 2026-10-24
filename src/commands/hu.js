@@ -15,6 +15,7 @@ import { roleSkills } from "../skills/role-skills.js";
 import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
 import { createHu, listHus, claim, setStatus, assertNotHeld, isOffline } from "../hu/github-board.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
+import { writeTeamMirror } from "../hu/team-board-mirror.js";
 
 // KJC-TSK-0661 (Jorge's friction): every HU records WHO created it — the
 // board must never show work nobody can trace. Host agent env → that agent;
@@ -207,6 +208,8 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   if (board.backend === "github" && action === "list") {
     const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, repo: board.repo, list: deps.listTeamHus ?? listHus });
     if (source === "cache") console.warn(`⚠ GitHub did not answer: this is the local copy of the board from ${updatedAt}`);
+    // KJC-TSK-1166: what GitHub answered is what kj board shows, as a read-only plan.
+    else await writeTeamMirror(projectDir, hus, { repo: board.repo });
     const rows = hus.map((h) => ({ ...h, id: h.short_id, plan: "github" }));
     if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
     for (const r of rows) {

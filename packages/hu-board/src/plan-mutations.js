@@ -86,6 +86,13 @@ function readPlan(filePath) {
   return JSON.parse(raw);
 }
 
+// KJC-TSK-1166 (ADR 0025): a plan that mirrors the shared board is a view. The truth is
+// in the issues; the board shows it and refuses to edit it, so the two never diverge.
+function mirrorGuard(plan) {
+  if (!plan?.readonly) return null;
+  return { ok: false, error: `this plan mirrors the shared board (${plan.readonly}) and is read-only here: change it with kj hu move` };
+}
+
 function writePlan(filePath, plan) {
   writeJsonAtomicSync(filePath, plan);
 }
@@ -110,6 +117,8 @@ export function setHuStatus({ planId, huId, status, projectId }) {
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
 
   const plan = readPlan(filePath);
+  const mirrored = mirrorGuard(plan);
+  if (mirrored) return mirrored;
   if (!Array.isArray(plan.hus)) return { ok: false, error: 'plan has no hus[]' };
 
   const existed = updateHuStatus(plan, huId, status);
@@ -153,6 +162,8 @@ export function setHuFields({ planId, huId, patch, projectId }) {
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
 
   const plan = readPlan(filePath);
+  const mirrored = mirrorGuard(plan);
+  if (mirrored) return mirrored;
   if (!Array.isArray(plan.hus)) return { ok: false, error: 'plan has no hus[]' };
 
   // KJC-TSK-0401: si el patch toca blocked_by, validar antes de
@@ -188,6 +199,8 @@ export function setHuFailResult({ planId, huId, blocker, projectId }) {
   const filePath = findPlanFilePath(planId, projectId);
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
   const plan = readPlan(filePath);
+  const mirrored = mirrorGuard(plan);
+  if (mirrored) return mirrored;
   if (!Array.isArray(plan.hus)) return { ok: false, error: 'plan has no hus[]' };
   const hu = plan.hus.find(h => h.id === huId);
   if (!hu) return { ok: false, error: `hu not found: ${huId}` };
@@ -220,6 +233,8 @@ export async function revertHuFromSnapshot({ planId, huId, projectId }) {
   const filePath = findPlanFilePath(planId, projectId);
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
   const plan = readPlan(filePath);
+  const mirrored = mirrorGuard(plan);
+  if (mirrored) return mirrored;
   const hu = plan.hus?.find(h => h.id === huId);
   if (!hu) return { ok: false, error: `hu not found: ${huId}` };
   const snapshotSha = hu.outcome?.snapshot_sha;
@@ -287,6 +302,8 @@ export function renameProject({ projectId, name }) {
         const filePath = join(projDir, f);
         try {
           const plan = readPlan(filePath);
+          // A mirror of the shared board keeps its own name; the rename goes on with the rest.
+          if (plan.readonly) continue;
           plan.name = trimmed;
           plan.updatedAt = new Date().toISOString();
           writePlan(filePath, plan);
@@ -316,6 +333,8 @@ export function markPlanReady({ planId, projectId }) {
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
 
   const plan = readPlan(filePath);
+  const mirrored = mirrorGuard(plan);
+  if (mirrored) return mirrored;
   if (!Array.isArray(plan.hus) || plan.hus.length === 0) {
     return { ok: false, error: 'plan has no hus[]' };
   }
@@ -354,6 +373,8 @@ export function runPlan({ planId, projectId, taskOverride, huIds = null } = {}) 
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
 
   const plan = readPlan(filePath);
+  const mirrored = mirrorGuard(plan);
+  if (mirrored) return mirrored;
   if (!Array.isArray(plan.hus) || plan.hus.length === 0) {
     return { ok: false, error: 'plan has no hus[]' };
   }
