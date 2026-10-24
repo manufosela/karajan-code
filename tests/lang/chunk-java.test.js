@@ -20,6 +20,17 @@ describe("chunkJava — KJC-PCS-0052 PR-B.2.5", () => {
     }
   });
 
+  // KJC-TSK-1171 (RAG-B): a method chunk names its class and its lines.
+  it("stamps each chunk with its line range, and a method with its class as parent (AST)", async () => {
+    await prepareJava();
+    const text = "public class Alpha {\n  void run() {}\n}\n";
+    const chunks = chunkJava(text, { path: "a.java" });
+    expect(chunks.map((c) => [c.metadata.symbol, c.metadata.parent, c.metadata.start_line, c.metadata.end_line])).toEqual([
+      ["Alpha", null, 1, 1],
+      ["run", "Alpha", 2, 3],
+    ]);
+  });
+
   it("captures record top-level (Java 14+) via regex", () => {
     const text = "public record Point(int x, int y) {}\n";
     const chunks = chunkJava(text, { path: "p.java" });

@@ -12,6 +12,8 @@ describe("rag/chunker-ast (KJC-TSK-0444)", () => {
     expect(chunks[0].metadata.symbol).toBe("login");
     expect(chunks[0].text).toContain("Login flow.");
     expect(chunks[0].text).toContain("return jwt(u);");
+    // KJC-TSK-1171: the chunk says where it lives, from the JSDoc to the closing brace.
+    expect(chunks[0].metadata).toMatchObject({ parent: null, start_line: 1, end_line: 8 });
   });
 
   it("yields one chunk per top-level export", () => {
