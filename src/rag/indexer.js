@@ -15,6 +15,7 @@ import { insertChunk, deleteChunksBySource, findChunkByHash, getEmbeddingsByIds 
 import { detectAdaptersForProject, getAllCodeExtensions } from "../lang/registry.js";
 import { indexableReason, listProjectFiles } from "./indexable.js";
 import { EMBED_SCHEMA, embedText } from "./embed-header.js";
+import { writeEmbedSchema } from "./embed-schema.js";
 
 // KJC-PCS-0052 PR-A — antes vivían dos consts hard-coded para JS aquí
 // (CODE_EXT_RE + SKIP_SEGMENTS). Ahora vienen del registry de adapters,
@@ -183,6 +184,10 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
       const r = await indexFile(s, { db, embedder, logger, project: slug, kind: sourceKind(), root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
+    // KJC-TSK-1171: only a COMPLETE index of the sources carries the embed schema; a file the
+    // embedder failed on leaves the marker as it was, so the rebuild is asked for again.
+    if (totals.failed === 0) writeEmbedSchema(projectDir);
+    else logger.warn?.(`[rag-indexer] ${totals.failed} chunk(s) failed: the embed schema is not recorded, the index will be rebuilt again`);
   }
   return totals;
 }

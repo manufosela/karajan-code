@@ -49,6 +49,19 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     expect(rows.map((r) => r.text)).toEqual(["export function vatRateFor(c) {\n  return 0.21;\n}"]);
   });
 
+  // KJC-TSK-1171: the embed schema is recorded by a complete index of the sources, never a partial one.
+  it("indexProject records the embed schema only when every chunk was embedded", async () => {
+    const { readEmbedSchema } = await import("../../src/rag/embed-schema.js");
+    const { EMBED_SCHEMA } = await import("../../src/rag/embed-header.js");
+    const projectDir = join(root, "proj");
+    mkdirSync(join(projectDir, "src"), { recursive: true });
+    writeFileSync(join(projectDir, "src", "a.js"), "export const a = 1;\n");
+    await indexProject(projectDir, { db, embedder: fakeEmbedder({ fail: true }), karajanHome: root, logger: noopLogger, withSources: true });
+    expect(readEmbedSchema(projectDir)).toBe(1);
+    await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: root, logger: noopLogger, withSources: true });
+    expect(readEmbedSchema(projectDir)).toBe(EMBED_SCHEMA);
+  });
+
   it("indexFile detects onboarding kind for ~/.karajan/onboarding/*.md", async () => {
     mkdirSync(join(root, "onboarding"), { recursive: true });
     const briefPath = join(root, "onboarding", "myproj.md");

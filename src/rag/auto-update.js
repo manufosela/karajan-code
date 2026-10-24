@@ -7,10 +7,23 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 
 import { projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
-import { indexProjectDelta } from "./indexer.js";
+import { indexProject, indexProjectDelta } from "./indexer.js";
 import { ragExclude } from "./indexable.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { openProjectStore } from "./project-store.js";
+import { readEmbedSchema } from "./embed-schema.js";
+import { EMBED_SCHEMA } from "./embed-header.js";
+import { getKarajanHome } from "../utils/paths.js";
+
+// Said once per process and project: every query of a session would repeat it otherwise.
+const warnedFor = new Set();
+const warnOnce = (logger, key, msg) => { if (!warnedFor.has(key)) { warnedFor.add(key); logger.warn?.(msg); } };
+
+/** How many project files the index holds (a prefix compare: paths may hold % or _). */
+const countSources = (db, slug, projectDir) => {
+  const prefix = `${projectDir.replace(/[\\/]+$/, "")}/`;
+  return db.prepare("SELECT COUNT(DISTINCT source) AS n FROM chunks WHERE project_slug = ? AND substr(source, 1, ?) = ?").get(slug, prefix.length, prefix).n;
+};
 
 // The pre-query refresh reindexes at most this many changed files (config.rag.autoUpdate.maxFiles).
 export const DEFAULT_MAX_DRIFT_FILES = 25;
@@ -32,6 +45,21 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
     // repo for half an hour before the query answered. Past the bound the query
     // answers from the index as it is, and says how to bring it up to date.
     const maxFiles = config?.rag?.autoUpdate?.maxFiles ?? DEFAULT_MAX_DRIFT_FILES;
+    // KJC-TSK-1171 (RAG-B): an index built before the embedded header holds vectors a
+    // query by file or symbol name cannot reach. Small, it is rebuilt here; large, the
+    // query answers from it and says once how to rebuild.
+    const schema = readEmbedSchema(projectDir);
+    if (schema < EMBED_SCHEMA) {
+      const sources = countSources(db, slug, projectDir);
+      if (sources > maxFiles) {
+        warnOnce(logger, projectDir, `[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}): answering from it as it is; rebuild it with kj rag index --with-sources`);
+        return { skipped: true, reason: "embed-schema-old", sources, head };
+      }
+      logger.info?.(`[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}); rebuilding ${sources} source(s)`);
+      const totals = await indexProject(projectDir, { db, embedder: makeGovernedEmbedder(config), karajanHome: getKarajanHome(), logger, withSources: true, exclude: ragExclude(config) });
+      if (totals.head) setLastIndexedCommit(db, slug, totals.head);
+      return { ran: true, rebuilt: true, totals };
+    }
     const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-only", since, "HEAD"]);
     const changed = stdout.split("\n").filter(Boolean).length;
     if (changed > maxFiles) {
