@@ -14,6 +14,7 @@ import { effectiveGitEmail } from "../identity/detect.js";
 import { roleSkills } from "../skills/role-skills.js";
 import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
 import { createHu, listHus, claim, setStatus, assertNotHeld, isOffline } from "../hu/github-board.js";
+import { assertGhIdentity } from "../hu/gh-identity.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
 import { writeTeamMirror } from "../hu/team-board-mirror.js";
 
@@ -196,6 +197,9 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     return emit(r, `✓ HU Board: ${where} — commit ${files} in a PR so the whole team inherits it`);
   }
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
+  // KJC-TSK-1186: the shared board is written as the active gh account; with an identity declared
+  // it must be that one, said with the remedy before any gh call instead of a GraphQL permission error.
+  if (board.backend === "github") (deps.assertGhIdentity ?? assertGhIdentity)({ projectDir });
   const who = deps.who === undefined ? workerOf(projectDir) : deps.who;
   // KJC-TSK-1166 (TEAM-GH-E): the HUs created before the shared board, moved to it once.
   if (action === "migrate") {
