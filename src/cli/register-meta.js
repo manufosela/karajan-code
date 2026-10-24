@@ -353,6 +353,17 @@ export function registerMeta(program, { pkgVersion }) {
         await huCommand({ config, action: "list", flags });
       });
     });
+  // KJC-TSK-1166 (ADR 0025): the HUs created before the shared board, moved to it once.
+  hu.command("migrate")
+    .description("Move every live local HU (pending or running) to the shared board, once: an issue each, status and old id kept")
+    .requiredOption("--to <backend>", "github")
+    .option("--dry-run", "Say what would move, touching nothing")
+    .option("--json", "Machine-readable output")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
+        await huCommand({ config, action: "migrate", flags });
+      });
+    });
   // KJC-TSK-1163 (ADR 0025): the team board, turned on once per repo.
   hu.command("backend <backend>")
     .description("Turn the repo's HU Board on: github (shared, in GitHub Issues) or local; writes .karajan/board.yml for a PR")
