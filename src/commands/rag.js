@@ -160,14 +160,22 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
       logger.warn("[rag] this project's index holds none of its own files (only plans or briefs): run kj rag index --with-sources");
     }
     const mode = flags.mode || "hybrid";
-    const alpha = Math.max(0, Math.min(1, Number(flags.alpha) || 0.6));
+    // KJC-TSK-1180 (RAG-C, core 1.6.0): hybrid fusion is reciprocal rank; `alpha` weighs nothing
+    // any more, so a value that is still around is said once, never silently ignored.
+    if ((flags.alpha !== undefined && flags.alpha !== "0.6") || config?.rag?.search?.alpha !== undefined) {
+      logger.warn("[rag] alpha no longer applies: hybrid fusion is reciprocal rank (RRF); tune rag.search.rrf_k instead and drop alpha from the config");
+    }
+    const rrfK = config?.rag?.search?.rrf_k;
+    if (rrfK !== undefined && !(Number.isInteger(rrfK) && rrfK > 0)) throw new Error(`rag.search.rrf_k must be a positive integer, got ${JSON.stringify(rrfK)}`);
+    // KJC-TSK-1180 (RAG-B3): a relative `source~=` prefix is placed under this project's root.
+    const whereRoot = config?.projectDir || process.cwd();
     // Safe by grammar: parseWhere (core where-parser.js) accepts ONLY
     // AND-joined key=value pairs — an OR or parens never parses, so the
     // composed clause cannot leak past the kind filter; it fails loudly.
     let where = flags.where || null;
     if (library) where = flags.where ? `kind=library AND ${flags.where}` : "kind=library";
     const rerankOpts = flags.rerank ? { model: flags.rerankModel } : null;
-    const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, alpha, where, rerankOpts });
+    const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, rrfK, where, whereRoot, rerankOpts });
     const hits = library ? ranked : withPathNamedHits(pathNamedHits(db, text, { project, projectDir: config?.projectDir || process.cwd() }), ranked, topK);
     if (flags.json) {
       process.stdout.write(`${JSON.stringify(hits)}\n`);

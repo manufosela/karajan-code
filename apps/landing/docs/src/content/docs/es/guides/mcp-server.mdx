@@ -18,7 +18,10 @@ Esa misma memoria es un CLI, así que puedes consultarla directamente:
 ```sh
 kj rag index                       # construye (o refresca) el índice de este repo
 kj rag query "¿dónde se define la stage de pre-loop?"   # una respuesta anclada, con fuentes
+kj rag query "¿cómo se calcula la facturación?" --where source~=src/billing   # sin salir de una carpeta o módulo
 ```
+
+`--where` admite pares `clave=valor` unidos por `AND` (`symbol=loadConfig`, `hu_id=HU-003 AND kind=plan`) y, desde 4.63, `clave~=prefijo`: `source~=src/billing` mantiene la respuesta dentro de esa carpeta, relativa al proyecto. La recuperación híbrida fusiona la lista semántica y la léxica por rango recíproco (`rag.search.rrf_k`, 60 por defecto); el antiguo peso `alpha` ya no aplica.
 
 Reindexa tras un cambio (`kj rag index --since <ref>`) y las respuestas siguen al código. Nada sensible se embebe, el índice se construye con la política de sensibilidad aplicada.
 

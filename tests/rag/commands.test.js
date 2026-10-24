@@ -16,6 +16,12 @@ vi.mock("karajan-core/rag/embedder", () => {
   }
   return { OllamaEmbedder: FakeEmbedder, OllamaEmbedderError: class extends Error {} };
 });
+// KJC-TSK-1180: the options the command hands to the retriever are what the test reads.
+const seen = { query: [] };
+vi.mock("../../src/rag/retriever.js", async () => {
+  const real = await vi.importActual("../../src/rag/retriever.js");
+  return { ...real, query: (db, embedder, text, opts) => { seen.query.push(opts); return real.query(db, embedder, text, opts); } };
+});
 
 describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
   let root, prevHome, prevDb;
@@ -131,6 +137,13 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
     await ragIndexCommand({ config: { projectDir, rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: {} });
     const hits = await ragQueryCommand({ text: "auth", config: { projectDir, rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: { topK: 3 } });
     expect(hits.length).toBeGreaterThan(0);
+    // KJC-TSK-1180: the project root travels with the where clause; rrf_k from the config; alpha is said to be over.
+    expect(seen.query.at(-1)).toMatchObject({ whereRoot: projectDir, rrfK: undefined });
+    expect(noopLogger.warn.mock.calls.some(([m]) => /alpha no longer applies/.test(m))).toBe(false);
+    await ragQueryCommand({ text: "auth", config: { projectDir, rag: { embedder: { dim: 8 }, search: { rrf_k: 10 } } }, logger: noopLogger, flags: { topK: 3, alpha: "0.9" } });
+    expect(seen.query.at(-1)).toMatchObject({ rrfK: 10 });
+    expect(noopLogger.warn.mock.calls.some(([m]) => /alpha no longer applies/.test(m))).toBe(true);
+    await expect(ragQueryCommand({ text: "auth", config: { projectDir, rag: { embedder: { dim: 8 }, search: { rrf_k: "many" } } }, logger: noopLogger, flags: {} })).rejects.toThrow(/rrf_k must be a positive integer/);
   });
 
   // KJC-TSK-0891: el remedio que nombra rag-first tiene que arreglarlo de verdad.

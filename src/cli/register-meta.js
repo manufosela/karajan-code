@@ -795,8 +795,8 @@ export function registerMeta(program, { pkgVersion }) {
     // first call). Internally we rebind to `flags.mode` so the handler
     // in src/commands/rag.js stays untouched.
     .option("--rag-mode <mode>", "hybrid (default) | semantic (cosine only) | keyword (BM25 only)", "hybrid")
-    .option("--alpha <n>", "Hybrid weight for semantic component (0..1). Default 0.6", "0.6")
-    .option("--where <clause>", "Metadata filter, e.g. 'symbol=loadConfig' or 'hu_id=HU-003 AND kind=plan'")
+    .option("--alpha <n>", "Deprecated: hybrid fusion is reciprocal rank since 4.63; tune rag.search.rrf_k (default 60) in kj.config.yml", "0.6")
+    .option("--where <clause>", "Metadata filter: 'symbol=loadConfig', 'hu_id=HU-003 AND kind=plan', or a prefix with ~= such as 'source~=src/billing' (relative to the project)")
     .option("--library", "Query the distilled engineering canon (pattern cards shipped with kj + ~/.karajan/library, in ~/.karajan/library.db) instead of the project corpus; a project's own .karajan/library cards live in its index and answer normal queries. Cards carry problem signatures, when-NOT-to-apply and canonical citations (KJC-TSK-0697).")
     .option("--rerank", "Apply cross-encoder rerank to top-K (needs @huggingface/transformers, slower but more precise)")
     .option("--rerank-model <name>", "Cross-encoder model id. Default: Xenova/ms-marco-MiniLM-L-6-v2")
