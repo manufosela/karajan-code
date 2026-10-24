@@ -146,6 +146,25 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
     await expect(ragQueryCommand({ text: "auth", config: { projectDir, rag: { embedder: { dim: 8 }, search: { rrf_k: "many" } } }, logger: noopLogger, flags: {} })).rejects.toThrow(/rrf_k must be a positive integer/);
   });
 
+  // KJC-TSK-1181 (RAG-D2): the cross-encoder from the flag or the config, said once when it is missing.
+  it("rerankOptionsFor: off by default, on by flag or config, top_n validated, the install said once", async () => {
+    const { rerankOptionsFor } = await import("../../src/commands/rag.js");
+    const warn = vi.fn();
+    const logger = { ...noopLogger, warn };
+    expect(rerankOptionsFor({ config: {}, flags: {}, logger })).toBeNull();
+    expect(rerankOptionsFor({ config: { rag: { search: { rerank: { enabled: true } } } }, flags: { rerank: false }, logger })).toBeNull();
+    const byFlag = rerankOptionsFor({ config: { projectDir: "/p" }, flags: { rerank: true, rerankTopN: "20", rerankModel: "m" }, logger });
+    expect(byFlag).toMatchObject({ model: "m", topN: 20 });
+    const byConfig = rerankOptionsFor({ config: { projectDir: "/q", rag: { search: { rerank: { enabled: true, top_n: 30 } } } }, flags: {}, logger });
+    expect(byConfig).toMatchObject({ topN: 30 });
+    expect(byConfig.model).toBeUndefined();
+    expect(() => rerankOptionsFor({ config: { rag: { search: { rerank: { enabled: true, top_n: "many" } } } }, flags: {}, logger })).toThrow(/top_n must be a positive integer/);
+    byConfig.onUnavailable(new Error("no model"));
+    byConfig.onUnavailable(new Error("no model"));
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/npm install @huggingface\/transformers/);
+  });
+
   // KJC-TSK-0891: el remedio que nombra rag-first tiene que arreglarlo de verdad.
   // `--since auto` solo reindexa lo cambiado; un fichero sin cambios que falta
   // en el indice necesita que se indexe ESE fichero.

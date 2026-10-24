@@ -798,7 +798,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--alpha <n>", "Deprecated: hybrid fusion is reciprocal rank since 4.63; tune rag.search.rrf_k (default 60) in kj.config.yml", "0.6")
     .option("--where <clause>", "Metadata filter: 'symbol=loadConfig', 'hu_id=HU-003 AND kind=plan', or a prefix with ~= such as 'source~=src/billing' (relative to the project)")
     .option("--library", "Query the distilled engineering canon (pattern cards shipped with kj + ~/.karajan/library, in ~/.karajan/library.db) instead of the project corpus; a project's own .karajan/library cards live in its index and answer normal queries. Cards carry problem signatures, when-NOT-to-apply and canonical citations (KJC-TSK-0697).")
-    .option("--rerank", "Apply cross-encoder rerank to top-K (needs @huggingface/transformers, slower but more precise)")
+    .option("--rerank", "Re-score the top-N candidates with a cross-encoder (needs @huggingface/transformers; or rag.search.rerank.enabled in kj.config.yml)")
+    .option("--rerank-top-n <n>", "Candidates the cross-encoder re-scores before the top-K is cut (default 40, or rag.search.rerank.top_n)")
     .option("--rerank-model <name>", "Cross-encoder model id. Default: Xenova/ms-marco-MiniLM-L-6-v2")
     .option("--json", "Output the hits as JSON")
     .action(async (text, flags) => {
@@ -821,6 +822,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--save-baseline <path>", "Write recall@k, MRR and latency to this file as the frozen baseline")
     .option("--baseline <path>", "Fail (exit 1) if recall@k, MRR or p95 latency got worse than that baseline")
     .option("--project <slug>", "Filter by project slug. Pass 'all' to query across every indexed project.")
+    .option("--rerank", "Measure with the cross-encoder rerank on (needs @huggingface/transformers)")
+    .option("--rerank-top-n <n>", "Candidates the cross-encoder re-scores before the top-K is cut (default 40)")
     .option("--json", "Emit the full report as JSON")
     .action(async (flags) => {
       await withConfig(pkgVersion, "rag-eval", flags, async ({ config, logger }) => {
