@@ -64,6 +64,22 @@ describe("installWorkflows", () => {
     }
   });
 
+  // KJC-BUG-0399: the PR's own code must never judge the PR. The policy check ran
+  // `node bin/kj.js` from the PR checkout, so a PR could rewrite the judge and pass.
+  it("the policy check runs the base branch's kj on the PR as data, never the PR's own kj", () => {
+    mkdirSync(join(dir, ".karajan"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "policy.yml"), "rules: []\n");
+    installWorkflows({ projectDir: dir, kjVersion: "9.9.9" });
+    const text = read(".github/workflows/kj-policy.yml");
+    expect(text).not.toMatch(/node bin\/kj\.js/);
+    // The base ref is fetched explicitly: a missing ref must not fall back to npx in silence.
+    expect(text.indexOf('git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"')).toBeLessThan(text.indexOf("git cat-file"));
+    expect(text).toContain('git worktree add --detach "$JUDGE" "origin/${BASE_REF}"');
+    expect(text).toContain('KJ="node $JUDGE/bin/kj.js"');
+    expect(text).toContain('KJ="npx --yes karajan-code@9.9.9"');
+    expect(text).toContain('$KJ policy check --range "origin/${BASE_REF}...HEAD" --strict');
+  });
+
   it("never overwrites a user workflow without our marker", () => {
     const abs = join(dir, ".github", "workflows");
     mkdirSync(abs, { recursive: true });

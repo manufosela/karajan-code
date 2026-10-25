@@ -26,9 +26,16 @@ jobs:
         with:
           node-version: 22.x
           cache: npm
-      - run: npm ci --ignore-scripts
+      # KJC-BUG-0399: the judge is the base branch's kj, checked out apart; the PR is only data.
+      - name: The base branch's kj, apart from the PR
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          git worktree add --detach "$RUNNER_TEMP/kj-judge" "origin/${BASE_REF}"
+          cd "$RUNNER_TEMP/kj-judge" && npm ci --ignore-scripts
       - name: Every commit has its published cross-AI verdict
-        run: node bin/kj.js review --verify-pr "$PR"
+        run: node "$RUNNER_TEMP/kj-judge/bin/kj.js" review --verify-pr "$PR"
         env:
           PR: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}

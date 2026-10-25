@@ -67,6 +67,8 @@ export const WORKFLOWS = [
 // PL-C (KJC-TSK-0735) — tier C del ADR 0001: re-check merge-blocking en CI
 // (cubre el hook local manipulado). Solo se siembra con policy declarada;
 // npx PINEADO a la versión del kj que corrió harden — jamás @latest en CI.
+// KJC-BUG-0399: the judge is never the PR's code. A repo that ships kj itself
+// judges with the kj of the BASE branch, checked out apart; the PR is only data.
 export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "name: Policy",
   "on:",
@@ -87,7 +89,15 @@ export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "        env:",
   "          BASE_REF: ${{ github.base_ref }}",
   "        run: |",
-  `          if [ -f bin/kj.js ]; then npm ci --ignore-scripts && KJ="node bin/kj.js"; else KJ="npx --yes ${kjName}@${kjVersion}"; fi`,
+  '          JUDGE="$RUNNER_TEMP/kj-judge"',
+  '          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"',
+  '          if git cat-file -e "origin/${BASE_REF}:bin/kj.js" 2>/dev/null; then',
+  '            git worktree add --detach "$JUDGE" "origin/${BASE_REF}"',
+  '            (cd "$JUDGE" && npm ci --ignore-scripts)',
+  '            KJ="node $JUDGE/bin/kj.js"',
+  "          else",
+  `            KJ="npx --yes ${kjName}@${kjVersion}"`,
+  "          fi",
   '          $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict',
 ].join("\n");
 
