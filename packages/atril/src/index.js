@@ -8,3 +8,4 @@ import { readFileSync } from "node:fs";
 export const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 export { search } from "./search.js";
 export { resolve, resolveBlock } from "./resolve.js";
+export { MARKER, expose, persistentPieces, unexpose } from "./bridge.js";
