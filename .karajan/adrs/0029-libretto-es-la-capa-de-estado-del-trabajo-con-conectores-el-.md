@@ -1,7 +1,8 @@
 # Libretto es la capa de estado del trabajo, con conectores; el HU Board es una vista
 
-Status: proposed
+Status: accepted
 Date: 2026-10-25
+Accepted: 2026-10-25, por el mantenedor, tal como se debatió.
 
 ## Context
 
