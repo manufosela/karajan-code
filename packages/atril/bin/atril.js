@@ -10,6 +10,8 @@ import { install, remove } from "../src/store.js";
 import { readConfig } from "../src/config.js";
 import { expose, unexpose } from "../src/bridge.js";
 import { sync } from "../src/sync.js";
+import { blockPaths } from "../src/resolve.js";
+import { serve } from "../src/mcp.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -18,7 +20,12 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
-  + "       atril sync [--root <dir>]";
+  + "       atril sync [--root <dir>]\n       atril mcp [--root <dir>]";
+
+async function runMcp(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" } } });
+  await serve({ root: values.root });
+}
 
 function runSync(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" } } });
@@ -110,11 +117,6 @@ function runSearch(args) {
   for (const hit of hits) console.log(`${hit.score}\t${hit.kind}\t${printable(hit.name)}\t${hit.source}\t${printable(hit.description)}`);
 }
 
-// The files to read, not their content: a subagent carries its own block.
-const pathsOf = (block) => block.map(({ name, kind, path, as, block: own }) => ({
-  name, kind, path, as,
-  ...(own && { block: pathsOf(own) }),
-}));
 const printBlock = (block, indent = "") => {
   for (const item of block) {
     console.log(`${indent}${item.as}\t${printable(item.path)}`);
@@ -128,7 +130,7 @@ function runRoute(args) {
     options: { role: { type: "string" }, root: { type: "string" }, json: { type: "boolean" } },
   });
   const { block, suggested, left, reason } = resolve({ task: positionals.join(" "), role: values.role, root: values.root });
-  if (values.json) console.log(JSON.stringify({ block: pathsOf(block), suggested, left, ...(reason && { reason }) }, null, 2));
+  if (values.json) console.log(JSON.stringify({ block: blockPaths(block), suggested, left, ...(reason && { reason }) }, null, 2));
   else if (reason) console.log(reason);
   else printBlock(block);
 }
@@ -145,6 +147,7 @@ try {
   else if (command === "config") runConfig(rest);
   else if (command === "expose" || command === "unexpose") runExpose(command, rest);
   else if (command === "sync") runSync(rest);
+  else if (command === "mcp") await runMcp(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
