@@ -8,13 +8,22 @@ import { scan } from "../src/scan.js";
 import { SEARCH_MODE, search } from "../src/search.js";
 import { install, remove } from "../src/store.js";
 import { readConfig } from "../src/config.js";
+import { expose, unexpose } from "../src/bridge.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
   + "       atril search <query> [--kind <kind>] [--root <dir>] [--json]\n"
   + "       atril route <task> [--role <role>] [--root <dir>] [--json]\n"
   + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
-  + "       atril config [--root <dir>] [--json]";
+  + "       atril config [--root <dir>] [--json]\n"
+  + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]";
+
+function runExpose(command, args) {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" } } });
+  if (positionals.length === 0) throw new Error(`${command} takes at least one kind:name\n${USAGE}`);
+  const done = (command === "expose" ? expose : unexpose)(positionals, { root: values.root });
+  for (const ref of done) console.log(`${command}d\t${ref}`);
+}
 
 function runConfig(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
@@ -125,6 +134,7 @@ try {
   else if (command === "route") runRoute(rest);
   else if (command === "install" || command === "remove") runStore(command, rest);
   else if (command === "config") runConfig(rest);
+  else if (command === "expose" || command === "unexpose") runExpose(command, rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
