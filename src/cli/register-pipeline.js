@@ -265,8 +265,15 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--third-party", "Review someone else's PR (--range base...head): reviewer only, no own-work gates, no verdict stored")
     .option("--json", "With --third-party: print the review as one JSON document on stdout")
     .option("--lens <lens>", "With --third-party: what the reviewer looks at; qa = test coverage, weak assertions, flakiness, test data")
+    .option("--verifier <provider>", "With --third-party: an AI of another family confirms, downgrades or rejects each finding (#2369)")
+    .option("--verifier-model <model>", "With --verifier: the verifier's model")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
+        if ((flags.verifier || flags.verifierModel) && !flags.thirdParty) {
+          logger.error("--verifier and --verifier-model work with --third-party only");
+          process.exitCode = 1;
+          return;
+        }
         // KJC-TSK-1075 (#2227): a third-party PR, for reviewer agents; own work keeps every gate.
         if (flags.thirdParty) {
           process.exitCode = await thirdPartyReviewCommand({ flags: { ...flags, task: task ?? null }, config });

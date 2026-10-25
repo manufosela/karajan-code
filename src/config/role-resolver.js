@@ -39,13 +39,16 @@ const AGENT_MODEL_SIGNATURES = {
 // they route to arbitrary models, so any model name is allowed there.
 const AGENT_FAMILY = { claude: "claude", codex: "codex", gemini: "gemini", agy: "gemini" };
 
-function modelFamily(model) {
+export function modelFamily(model) {
   const lower = model.toLowerCase();
   for (const [family, signatures] of Object.entries(AGENT_MODEL_SIGNATURES)) {
     if (signatures.some(s => lower.includes(s))) return family;
   }
   return null;
 }
+
+/** KJC-TSK-1195: the vendor family of a single-family CLI; null for multi-model hosts. */
+export const agentFamily = (agent) => AGENT_FAMILY[agent] ?? null;
 
 export function isModelCompatible(agent, model) {
   if (!model || !agent) return true;

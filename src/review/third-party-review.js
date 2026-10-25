@@ -18,6 +18,7 @@ import { lensTask } from "./review-lens.js";
 import { thirdPartyTask } from "./untrusted-context.js";
 import { readTaskFile } from "../utils/task-file.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
+import { assertCrossFamily, verifyFindings } from "./run-verifier.js";
 
 // KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
 const MAX_REVIEW_BATCHES = 10;
@@ -28,13 +29,17 @@ const gitDiffOf = async (projectDir, range) => {
   return res.stdout;
 };
 
+// KJC-TSK-1195: the category travels too, so a security finding stays out of the verifier's reach.
 const finding = (i) => ({
-  file: i.file ?? null, line: i.line ?? null, severity: i.severity ?? null,
+  file: i.file ?? null, line: i.line ?? null, severity: i.severity ?? null, category: i.category ?? null,
   description: i.description ?? "", suggested_fix: i.suggested_fix ?? null,
 });
 
 /** The review as data: verdict, findings, suggestions, security checks and, apart, the house requirements. */
-export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null }) {
+export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings }) {
+  // KJC-TSK-1195: a verifier of the reviewer's own family is refused before any token is spent.
+  const reviewerRole = resolveRole(config, "reviewer");
+  if (verifier) assertCrossFamily({ reviewer: reviewerRole.provider, reviewerModel: reviewerRole.model, verifier, verifierModel, logger });
   const diff = await gitDiff(projectDir, range);
   // KJC-TSK-1076/1077: the PR's requirements and its security, with no tokens; they never stop the review.
   // KJC-BUG-0379 (#2263): the house requirements (size, commits, attribution, tests) travel apart:
@@ -43,20 +48,24 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
   const checks = [...await security({ diff, projectDir, config, range }), await sonar({ diff, config, projectDir })];
   // KJC-BUG-0378 (#2263): the whole diff, in batches of whole files that fit the reviewer's
   // prompt; what does not fit is named in the coverage and the verdict cannot be approved.
-  const provider = resolveRole(config, "reviewer").provider || null;
+  const provider = reviewerRole.provider || null;
   const { batches, coverage } = batchDiff(diff, { limit, maxBatches });
   if (coverage.files.total === 0) throw new Error(`nothing to review — ${range} has no file changes`);
   const records = [];
   for (const batch of batches) {
     records.push(await run({ diff: batch.text, task, config, logger, projectDir, reviewerOverride: provider, persist: false }));
   }
+  const findings = records.flatMap((r) => (r.issues ?? []).map(finding));
+  // KJC-TSK-1195 (#2369): with a verifier, the findings are the verified ones and the block says what changed.
+  const verified = verifier ? await verify({ findings, diff, verifier, model: verifierModel, config, logger }) : null;
   return {
     mode: "third-party",
     range,
     reviewer: records[0]?.reviewer ?? provider,
     verdict: verdictOf(records, coverage),
     coverage,
-    findings: records.flatMap((r) => (r.issues ?? []).map(finding)),
+    findings: verified ? verified.findings : findings,
+    ...(verified && { verification: verified.verification }),
     suggestions: records.flatMap((r) => r.suggestions ?? []),
     checks,
     policyChecks,
@@ -110,7 +119,8 @@ export async function thirdPartyReviewCommand({ flags, config, out = process.std
     // KJC-TSK-1153: the PR author's text, fenced as untrusted; KJC-TSK-1117: a lens puts its rubric first.
     const context = flags.taskFile ? await readTask(flags.taskFile, { projectDir }) : flags.task;
     const task = await lensTask(flags.lens ?? null, thirdPartyTask(context ?? null));
-    print(await review({ range: flags.range, config, projectDir, logger, task }));
+    if (flags.verifierModel && !flags.verifier) throw new Error("--verifier-model needs --verifier <provider>");
+    print(await review({ range: flags.range, config, projectDir, logger, task, verifier: flags.verifier ?? null, verifierModel: flags.verifierModel ?? null }));
     return 0;
   } catch (e) {
     print({ error: e.message });
