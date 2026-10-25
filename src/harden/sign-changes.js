@@ -61,7 +61,10 @@ const cut = (text, limit) => {
  */
 export function describeSupervisorChanges({ projectDir, files, gitFn = defaultGit(projectDir), scan = scanText }) {
   let budget = DIFF_LIMIT_TOTAL;
-  return files.map(({ file, deleted }) => {
+  return files.map(({ file, deleted, local }) => {
+    // KJC-TSK-1207: a machine-local file (ignored host settings) is sealed by its hash
+    // alone; its content never leaves the machine, whatever the scan would say of it.
+    if (local === true) return { file, status: "local", added: 0, removed: 0, summary: "machine-local, sealed by its hash", diff: "[content not sent: machine-local file, sealed by its hash only]", truncated: false };
     const tracked = inHead(gitFn, file);
     const present = !deleted && existsSync(join(projectDir, file));
     let status = "modified";

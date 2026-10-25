@@ -187,6 +187,37 @@ describe("lo que aqui no se puede comprobar no es un fallo (KJC-BUG-0212)", () =
     expect(res.unjudgeable.size).toBe(0); // estaba, se juzgo, fallo
   });
 
+  // KJC-TSK-1207 (ADR 0030): the host settings, sealed by hash, are machine-local
+  // where the project ignores .claude/: absent here is not judged, present must match.
+  it("host settings sealed as local and absent here are not judged; present and changed they deny", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    writeProvenance([
+      { file: ".karajan/hooks/pre-commit", sha256: sha(hook) },
+      { file: ".claude/settings.json", sha256: sha('{"hooks":{}}'), local: true },
+    ]);
+    const absent = verifiedSupervisorFiles({ projectDir: repo });
+    expect(absent.complete).toBe(true);
+    expect(absent.unjudgeable.has(".claude/settings.json")).toBe(true);
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(join(repo, ".claude", "settings.json"), '{"hooks":{"Stop":[]}}');
+    expect(verifiedSupervisorFiles({ projectDir: repo }).complete).toBe(false);
+    writeFileSync(join(repo, ".claude", "settings.json"), '{"hooks":{}}');
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(".claude/settings.json")).toBe(true);
+  });
+
+  it("versioned host settings travel with the repo: sealed and then absent, the seal is not complete", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    writeProvenance([
+      { file: ".karajan/hooks/pre-commit", sha256: sha(hook) },
+      { file: ".claude/settings.json", sha256: sha('{"hooks":{}}') },
+    ]);
+    const res = verifiedSupervisorFiles({ projectDir: repo });
+    expect(res.complete).toBe(false);
+    expect(res.unjudgeable.has(".claude/settings.json")).toBe(false);
+  });
+
   it("un hook ausente si rompe: los hooks viajan con el repo", () => {
     const hook = renderCanonicalHook("pre-commit", generation);
     writeProvenance([{ file: ".karajan/hooks/pre-commit", sha256: sha(hook) }]);

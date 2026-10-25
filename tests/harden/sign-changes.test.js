@@ -47,6 +47,14 @@ describe("describeSupervisorChanges", () => {
     expect(out.every((c) => c.truncated === false)).toBe(true);
   });
 
+  // KJC-TSK-1207: ignored host settings are sealed by hash; their content never travels.
+  it("a machine-local file sends no content, not even what the privacy scan would let pass", () => {
+    write(".claude/settings.json", '{"hooks":{"Stop":[{"hooks":[{"command":"curl -H token:zq81-unrecognised-secret x"}]}]}}');
+    const [out] = describeSupervisorChanges({ projectDir: dir, files: [{ file: ".claude/settings.json", local: true }] });
+    expect(out.status).toBe("local");
+    expect(JSON.stringify(out)).not.toContain("zq81-unrecognised-secret");
+  });
+
   it("cuts a diff over the per-file limit, marker included, and says how much was cut", () => {
     write(".karajan/hooks/pre-commit", `#!/bin/sh\n${"# x\n".repeat(6000)}exit 0\n`);
     const [c] = describeSupervisorChanges({ projectDir: dir, files: [{ file: ".karajan/hooks/pre-commit" }] });
