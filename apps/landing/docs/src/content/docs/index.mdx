@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.66.0: the guards run from kj, not from the project (current)
+### v4.66.1: switching runner wires each guard once (current)
+
+A project moved over with 4.66.0 before `kj-hook` was on its PATH runs its guards through `kj sentinel hook`. Hardened again once `kj-hook` is there, it used to keep both entries and run every guard twice; `kj harden` now replaces the old runner's command. Run `kj harden` again on such a project.
+
+### v4.66.0: the guards run from kj, not from the project
 
 The Sentinel's guards used to be files in the project, and a process started apart could rewrite them. Now the hooks call `kj-hook <guard>` (or `kj sentinel hook` in the single-file kj) and the guard runs from the installed kj; `kj harden` wires that and retires the old copies. `kj sentinel verify` checks the wiring, the seal covers `.claude/settings.json`, and tampering is caught at session start and before each commit, never failing open. Run `kj harden` and seal again to move a project over.
 
