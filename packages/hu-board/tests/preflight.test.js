@@ -72,6 +72,22 @@ describe('runPreflight', () => {
     expect(gitRemote?.detail).toContain('github.com');
   });
 
+  // KJC-BUG-0398: the first remote alphabetically was shown (a dead /tmp import), not origin.
+  it('shows origin among several remotes and warns of remotes whose local path no longer exists', async () => {
+    execSync(`git -C "${tmpProject}" init -q`, { stdio: 'ignore' });
+    execSync(`git -C "${tmpProject}" remote add aaa-import /tmp/kj-preflight-gone-${Date.now()}`, { stdio: 'ignore' });
+    execSync(`git -C "${tmpProject}" remote add origin git@github.com:test/repo.git`, { stdio: 'ignore' });
+    execSync(`git -C "${tmpProject}" remote add mirror ${tmpProject}`, { stdio: 'ignore' });
+    execSync(`git -C "${tmpProject}" remote add rel ../kj-preflight-gone-relative`, { stdio: 'ignore' });
+    const result = await runPreflight({ projectId: 'fake', projectDir: tmpProject });
+    const gitRemote = result.checks.find(c => c.id === 'git_remote');
+    expect(gitRemote?.detail).toBe('git@github.com:test/repo.git');
+    expect(gitRemote?.status).toBe('warn');
+    expect(gitRemote?.blocking).toBe(false);
+    expect(gitRemote?.consequence).toContain("git remote remove -- 'aaa-import' && git remote remove -- 'rel'");
+    expect(gitRemote?.consequence).not.toContain('mirror');
+  });
+
   it('flags a missing projectDir as a blocker (run cannot proceed)', async () => {
     const result = await runPreflight({ projectId: 'no-plans-yet', projectDir: null });
     const projectDir = result.checks.find(c => c.id === 'project_dir');

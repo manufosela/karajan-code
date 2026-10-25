@@ -95,6 +95,30 @@ describe("repo-state check", () => {
     expect(r.fix).toMatch(/kj identity set/);
   });
 
+  // KJC-BUG-0398: four remotes pointing at /tmp folders lived for two months, unnoticed.
+  it("a remote whose local path no longer exists is named, with its removal", async () => {
+    seedRepo();
+    seedMethod();
+    git("add", "-A");
+    git("commit", "-qm", "chore: contract");
+    git("remote", "add", "rag-import", path.join(os.tmpdir(), `kj-gone-${Date.now()}`));
+    git("remote", "add", "x$(touch_pwned)", path.join(os.tmpdir(), `kj-gone2-${Date.now()}`));
+    git("remote", "add", "origin", "git@github.com:acme/app.git");
+    git("remote", "add", "sibling", dir);
+    // A live folder with a space in its path is not garbage.
+    const spaced = path.join(dir, "my repo");
+    fs.mkdirSync(spaced);
+    git("remote", "add", "spaced", spaced);
+    git("remote", "add", "rel", "../kj-gone-relative");
+    git("remote", "add", "fileurl", `file://${path.join(os.tmpdir(), `kj-gone3-${Date.now()}`)}`);
+    git("remote", "add", "hosted", "file://otherhost/srv/repo"); // not a local path: never crashes, never judged
+    const r = await detect();
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatch(/rag-import/);
+    // The name is quoted: a crafted remote cannot run anything when the fix is pasted.
+    expect(r.fix).toBe("git remote remove -- 'fileurl' && git remote remove -- 'rag-import' && git remote remove -- 'rel' && git remote remove -- 'x$(touch_pwned)'");
+  });
+
   it("a healthy project reports nothing", async () => {
     seedRepo();
     seedMethod();
