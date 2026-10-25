@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.66.0] - 2026-10-25
+
+Minor. **The Sentinel's guards run from the installed kj, not from files in the project** (ADR 0030, KJC-BUG-0402). A process the agent started apart could rewrite the guards in `.karajan/harness`; editing the project no longer changes what guards it. Run `kj harden` to move a project over, then seal with `kj harden --commit`.
+
+### Added
+
+- **`kj-hook <guard>`**, a minimal bin that loads only the named guard from the package (about 30 ms, against 260 ms for the CLI), and **`kj sentinel hook <guard>`**, the same closed list through the CLI for the single-file kj (KJC-TSK-1203, KJC-TSK-1204). A name outside the list exits 2.
+
+### Changed
+
+- **`kj harden` wires `.claude/settings.json` to the installed kj's guards**: `kj-hook` where it is on the PATH, `kj sentinel hook` otherwise. If the runner is missing, the hook before a tool blocks naming the remedy and the others warn (the maintainer's decision). It writes no guard into the project any more and retires the copies an older kj left, keeping the session state and the denial log (KJC-TSK-1204, KJC-TSK-1208).
+- **`kj sentinel verify` checks the wiring**: every hook the Sentinel needs must call its guard. A rewired, narrowed, emptied or unreadable entry fails, naming event and guard. A project still wired to its own copies is verified by those files, as before (KJC-TSK-1206).
+- **The seal covers `.claude/settings.json`**: committed where the project versions it, sealed by its hash alone where git ignores it. A local file's content never reaches the phone's signing page (KJC-TSK-1207).
+- **Tampering never fails open**: the Stop gate keeps blocking however many turns it takes, SessionStart says a tampered supervisor first, and the generated pre-commit refuses a commit while `kj sentinel verify` fails (KJC-TSK-1205).
+- The guards find their project by `CLAUDE_PROJECT_DIR` or the working directory when they run from the package, and the four guards that were template strings are modules of the package (KJC-TSK-1202, KJC-BUG-0402).
+
 ## [4.65.1] - 2026-10-25
 
 Patch. **Security: the governance seal cannot be skipped from a pull request.** An audit of the seal (`supervisor-provenance.json` plus the phone signature) found three ways a PR could get around it; this release closes them in kj's code. Projects hardened with an earlier kj get the fixes by running `kj harden` again and sealing with `kj harden --commit`.

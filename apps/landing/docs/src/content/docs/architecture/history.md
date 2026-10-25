@@ -1874,6 +1874,12 @@ The 5.0.0 is the core switch to atril (ADR 0021), and this release is its first 
 
 The same day closed a request from the field: a third-party review can ask an AI of another family to confirm, downgrade or reject each finding, reading only its hunk. The review earned its keep twice on security: the finding's text and the hunk now travel fenced between markers they cannot forge, and a security or critical finding is out of the verifier's reach.
 
+## Phase 154: v4.66.0, the guards run from kj
+
+An audit of the governance seal asked, for each claim, for the line that proves it. Three gaps came out in a pull request's reach and were closed in 4.65.1; the fourth was local. The Sentinel's guards were files in the project, run by the host's settings, so a process the agent started apart could rewrite them, and the check that would notice ran only when the turn ended and gave up after three blocks. The maintainer chose to move the guards out of the project (ADR 0030): the hooks call `kj-hook`, a bin that loads one guard from the installed kj in about 30 ms, because the full CLI took 260. Then verify had to check the wiring instead of the files, the seal had to cover the settings (machine-local where git ignores them, so only their hash travels), and tampering stopped being a failure the Sentinel forgives.
+
+The method showed its value along the way. Codex rejected the first cut as a security gap: it added the runner but still ran the project's copies. Solomon upheld that, since security findings are not arbitrable. Codex then caught, one by one, an emptied settings file falling back to dead copies; versioned settings passing as unjudgeable; untracked settings taken for ignored ones; and a local file's content on its way to the phone.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

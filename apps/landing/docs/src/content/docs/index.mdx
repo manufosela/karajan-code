@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.65.1: security, the seal holds against a PR (current)
+### v4.66.0: the guards run from kj, not from the project (current)
+
+The Sentinel's guards used to be files in the project, and a process started apart could rewrite them. Now the hooks call `kj-hook <guard>` (or `kj sentinel hook` in the single-file kj) and the guard runs from the installed kj; `kj harden` wires that and retires the old copies. `kj sentinel verify` checks the wiring, the seal covers `.claude/settings.json`, and tampering is caught at session start and before each commit, never failing open. Run `kj harden` and seal again to move a project over.
+
+### v4.65.1: security, the seal holds against a PR
 
 An audit of the governance seal found three ways a pull request could get around it, all closed here. The CI judges a PR with the kj of the base branch, never the PR's own; CI workflows join the sealed files, so changing one needs the person's seal; and `kj harden` asks branch protection to bind administrators, reading it as the declared gh account. Also: `kj board` shows the shared board again, and dead local remotes are named with the command that removes them. Run `kj harden` and seal again to bring a hardened project up to date.
 
