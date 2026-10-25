@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.59.1",
-  "generated_at": "2026-10-22T20:10:40.030Z",
+  "kj_version": "4.65.1",
+  "generated_at": "2026-10-25T12:59:16.714Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -16,6 +16,74 @@
     "grade": "declarada"
   },
   "files": [
+    {
+      "file": ".github/workflows/ci.yml",
+      "sha256": "049da4b1516707415405f72f95153ce90a4b03dda4e5d95a8cde0e4614174585"
+    },
+    {
+      "file": ".github/workflows/cross-ai-verdict.yml",
+      "sha256": "7d6b351ba53e49b586c22a6aa611ff519ec7bda02cf2097c079b55ba87b74f1b"
+    },
+    {
+      "file": ".github/workflows/e2e.yml",
+      "sha256": "33c277a1dbb23155cdd443ad8923b03ed52d484f30173aa338b4b5beec8031fa"
+    },
+    {
+      "file": ".github/workflows/injection-guard.yml",
+      "sha256": "53f8fcd18785a94918204cfe87f37155cc0518374f0f2eb71db9d26574e6421d"
+    },
+    {
+      "file": ".github/workflows/kj-no-ai-attribution.yml",
+      "sha256": "e01c40dbd0f4a98432a205bacdd54711096572db31ccf28422ac167144121445"
+    },
+    {
+      "file": ".github/workflows/kj-pack-smoke.yml",
+      "sha256": "6974af9424e2a1da7579600b6b67f365a2285056e9cb8dfc8c3618b1265f3407"
+    },
+    {
+      "file": ".github/workflows/kj-policy.yml",
+      "sha256": "21ecef3789992b6f41c4a8a2374dd294e110628c7395ae923e8384fad10c931a"
+    },
+    {
+      "file": ".github/workflows/kj-quality.yml",
+      "sha256": "460f42904770c486ffc93edba56cc0c142e18235dbd563bf53225caa3193c82d"
+    },
+    {
+      "file": ".github/workflows/nightly.yml",
+      "sha256": "4278a17882916641781f36c5be0eff8b0d28e976be27e9233b714997017ca969"
+    },
+    {
+      "file": ".github/workflows/osv.yml",
+      "sha256": "8d4a7bc292a55976d605cd0d8146f57552cf9c11f490737ef9885e169a20ce2c"
+    },
+    {
+      "file": ".github/workflows/pack-smoke.yml",
+      "sha256": "3f9022449c2ff089922a4b0e7d948a0e997671579a36f91d5eb5c19a19753320"
+    },
+    {
+      "file": ".github/workflows/radar-backend.yml",
+      "sha256": "0e3c4c5ac786c66a78c32e6fe1eacad20de1350b041668414e650834fb13e65b"
+    },
+    {
+      "file": ".github/workflows/radar-frontend.yml",
+      "sha256": "8a40ed3fa1dc45857f2b736d62b647ce9a1a31e1097e859536271f256e9aca5f"
+    },
+    {
+      "file": ".github/workflows/radar-infra.yml",
+      "sha256": "b240e2fd2d0f217946fc6002653af9383e775b5c704a245c26b8d83c48d685a4"
+    },
+    {
+      "file": ".github/workflows/release-binaries.yml",
+      "sha256": "bc3f915bab8492b0d19a786c3cb5716ed3145e8715244486e22812f4c0c495bf"
+    },
+    {
+      "file": ".github/workflows/sea-smoke.yml",
+      "sha256": "211da567b9005bebc3f4ed6902f061ed8e0fe24d0b7e700dc79093e1adbb3cd5"
+    },
+    {
+      "file": ".github/workflows/shrink-budget.yml",
+      "sha256": "4914209140ffe4cf8c40840098b11fb286e074d34db11b7cc5497985c8bdb8c8"
+    },
     {
       "file": ".karajan/harness/posttooluse.mjs",
       "sha256": "12bb6e25311cea11e1ad67066165291cd42ac37f7a107f723c86583d4f636c58"
@@ -94,15 +162,15 @@
     }
   ],
   "signature": {
-    "cid": "eb820c2b852ebee622ba3cf325b6b3a3",
-    "nonce": "be6a86c603d202ee4110e74e3f340c4e",
+    "cid": "5770d17bf402091c916d1f08f299b96e",
+    "nonce": "24ed81b38cda06734e0ef0c6bfb421ed",
     "project": "karajan-code",
-    "filesHash": "ac1f62adf9cdcd07f5ad954110162305d565adcdff9e5431aff439c3be119894",
+    "filesHash": "0468c293dcbe34f8d7b6e0fa66bf6428bc64ad0bdc0e50972f8b43f183ea3c04",
     "v": 2,
-    "kjVersion": "4.59.1",
-    "issuedMs": 1792699828676,
-    "expiresMs": 1792699888676,
+    "kjVersion": "4.65.1",
+    "issuedMs": 1792933147854,
+    "expiresMs": 1792933207854,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "LVl5ly7B4kph51mRsMjA+6O4A07nKRdkL0eMeptb/K8teDQd+XqGUgTrId3RNs4PdfN5WWT+nJE1OuV54zShAQ=="
+    "signature": "5oTnRSsLPPF1qkqSSN/bQfrhHlMDDGIowNrNapsJqP3+94LjgGDI+5ARTOvwtKz9uLAAce3N+BcXTw5wSrMlDA=="
   }
 }
