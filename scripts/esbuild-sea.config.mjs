@@ -29,9 +29,13 @@ const seaTransformPlugin = {
       // KJC-TSK-0915 (ADR 0014): the Sentinel's guard modules are read as TEXT at
       // load time, to be copied into a project's harness. A single-file bundle has
       // no sibling files, so the text is inlined here, before import.meta.url goes.
+      // KJC-BUG-0402: a guard's own import.meta.url is text here; spelled with an
+      // escaped dot it stays the same string at run time and out of the rewrite below.
       const SENTINEL_READ = /readFileSync\(new URL\("(\.\/sentinel\/[\w-]+\.mjs)", import\.meta\.url\), "utf8"\)/g;
       if (SENTINEL_READ.test(contents)) {
-        contents = contents.replace(SENTINEL_READ, (_m, rel) => JSON.stringify(readFileSync(path.resolve(path.dirname(args.path), rel), "utf8")));
+        const escapedDot = `${String.fromCodePoint(92)}u002e`;
+        const asText = (rel) => JSON.stringify(readFileSync(path.resolve(path.dirname(args.path), rel), "utf8")).replaceAll("import.meta.url", `import.meta${escapedDot}url`);
+        contents = contents.replace(SENTINEL_READ, (_m, rel) => asText(rel));
         modified = true;
       }
 
