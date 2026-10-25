@@ -34,6 +34,18 @@ describe("adviseBranchProtection", () => {
     expect(calls.some((c) => c.includes("-X PUT"))).toBe(false);
   });
 
+  // KJC-BUG-0401: with another account active, gh answered 404 and kj said "not protected".
+  it("with a gh account other than the declared one, it says so instead of reading the protection", async () => {
+    const out = [];
+    const calls = [];
+    const run = async (cmd, args) => { calls.push(cmd); return remote("git@github.com:acme/app.git")(cmd, args); };
+    const identity = () => { throw new Error("the active gh account is other and this clone declares acme-dev: run gh auth switch --user acme-dev and retry"); };
+    const a = await adviseBranchProtection({ projectDir: dir, branch: "main", logger: { warn: (l) => out.push(l) }, run, identity });
+    expect(a.status).toBe("unverified");
+    expect(out.join("\n")).toMatch(/gh auth switch --user acme-dev/);
+    expect(calls).not.toContain("gh");
+  });
+
   it("not a GitHub remote, or no kj workflow: nothing to say", async () => {
     expect(await adviseBranchProtection({ projectDir: dir, branch: "main", logger: {}, run: remote("https://gitlab.com/acme/app.git") })).toBeNull();
     expect(await adviseBranchProtection({ projectDir: dir, branch: "main", logger: {}, run: remote("git@github.com:acme/app;rm -rf ~.git") })).toBeNull();
@@ -55,6 +67,23 @@ describe("protectionAdvice", () => {
     expect(a.command).toMatch(/gh api -X PUT repos\/acme\/app\/branches\/main\/protection/);
     expect(a.command).toMatch(/required_status_checks\[contexts\]\[\]=policy-check/);
     expect(a.command).toMatch(/allow_force_pushes=false/);
+    // KJC-BUG-0401: an agent working with an admin's token must be bound too.
+    expect(a.command).toMatch(/enforce_admins=true/);
+  });
+
+  it("KJC-BUG-0401: required checks that admins can skip get the command that binds admins too", async () => {
+    const run = gh({ exitCode: 0, stdout: JSON.stringify({ required_status_checks: { contexts: ["policy-check"] }, enforce_admins: { enabled: false } }) });
+    const a = await protectionAdvice({ ...repo, checks: ["policy-check"], run });
+    expect(a).toMatchObject({ status: "admins-exempt", command: "gh api -X POST repos/acme/app/branches/main/protection/enforce_admins" });
+    const bound = gh({ exitCode: 0, stdout: JSON.stringify({ required_status_checks: { contexts: ["policy-check"] }, enforce_admins: { enabled: true } }) });
+    expect((await protectionAdvice({ ...repo, checks: ["policy-check"], run: bound })).status).toBe("ok");
+  });
+
+  it("KJC-BUG-0401: missing checks with admins exempt get both commands, never only the checks", async () => {
+    const run = gh({ exitCode: 0, stdout: JSON.stringify({ required_status_checks: { contexts: [] }, enforce_admins: { enabled: false } }) });
+    const a = await protectionAdvice({ ...repo, checks: ["quality"], run });
+    expect(a).toMatchObject({ status: "missing", missing: ["quality"] });
+    expect(a.command).toBe("gh api -X POST repos/acme/app/branches/main/protection/required_status_checks/contexts -f 'contexts[]=quality' && gh api -X POST repos/acme/app/branches/main/protection/enforce_admins");
   });
 
   const protection = (statusChecks) => gh({ exitCode: 0, stdout: JSON.stringify({ required_pull_request_reviews: { required_approving_review_count: 1 }, ...(statusChecks ? { required_status_checks: statusChecks } : {}) }) });

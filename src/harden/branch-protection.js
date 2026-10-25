@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { runCommand } from "../utils/process.js";
+import { assertGhIdentity } from "../hu/gh-identity.js";
 
 // Scheduled or advisory kj workflows: they never block a PR, so they are never required.
 const NOT_REQUIRED = new Set(["kj-mutation.yml", "kj-steward.yml"]);
@@ -34,7 +35,8 @@ const protectionPath = ({ owner, repo, branch }) => `repos/${owner}/${repo}/bran
 
 function protectCommand({ checks, ...target }) {
   const contexts = checks.map((c) => `-f ${shellQuote(`required_status_checks[contexts][]=${c}`)}`).join(" ");
-  return `gh api -X PUT ${protectionPath(target)} -F 'required_status_checks[strict]=false' ${contexts} -F enforce_admins=false -F required_pull_request_reviews=null -F restrictions=null -F allow_force_pushes=false`;
+  // KJC-BUG-0401: enforce_admins=true; an agent working with an admin's token would skip every check otherwise.
+  return `gh api -X PUT ${protectionPath(target)} -F 'required_status_checks[strict]=false' ${contexts} -F enforce_admins=true -F required_pull_request_reviews=null -F restrictions=null -F allow_force_pushes=false`;
 }
 
 const addCommand = ({ missing, ...target }) =>
@@ -62,24 +64,37 @@ export async function protectionAdvice({ owner, repo, branch, checks, run = runC
     if (/404|not protected/i.test(`${res.stderr}${res.stdout}`)) return { status: "unprotected", command: protectCommand({ ...target, checks }) };
     return { status: "unverified", reason: (res.stderr || res.stdout || "gh failed").trim(), settings: settingsUrl(target), missing: checks };
   }
-  const statusChecks = JSON.parse(res.stdout || "{}").required_status_checks;
+  const protection = JSON.parse(res.stdout || "{}");
+  const statusChecks = protection.required_status_checks;
   if (!statusChecks) return { status: "no-checks", settings: settingsUrl(target), missing: checks };
   const existing = new Set(statusChecks.contexts ?? []);
   const missing = checks.filter((c) => !existing.has(c));
-  return missing.length === 0 ? { status: "ok" } : { status: "missing", missing, command: addCommand({ ...target, missing }) };
+  // KJC-BUG-0401: required checks an admin skips are not required for an agent holding an admin's token.
+  const bindAdmins = protection.enforce_admins?.enabled === false ? `gh api -X POST ${protectionPath(target)}/enforce_admins` : null;
+  if (missing.length > 0) return { status: "missing", missing, command: [addCommand({ ...target, missing }), bindAdmins].filter(Boolean).join(" && ") };
+  if (bindAdmins) return { status: "admins-exempt", command: bindAdmins };
+  return { status: "ok" };
 }
 
 // Owner and repo go into a command an admin copies: only the characters GitHub allows in them.
 const GITHUB_REMOTE = /github\.com[^:/]*[:/]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/;
 
 /** kj harden's last step: on a GitHub remote, what the base branch needs and who runs it. */
-export async function adviseBranchProtection({ projectDir, branch, logger, run = runCommand }) {
+export async function adviseBranchProtection({ projectDir, branch, logger, run = runCommand, identity = assertGhIdentity }) {
   const checks = requiredChecksFrom(projectDir);
   if (checks.length === 0) return null;
   const remote = await run("git", ["-C", projectDir, "remote", "get-url", "origin"]).catch(() => null);
   const match = remote?.exitCode === 0 ? GITHUB_REMOTE.exec(remote.stdout.trim()) : null;
   if (!match) return null;
-  const advice = await protectionAdvice({ owner: match[1], repo: match[2], branch, checks, run });
+  // KJC-BUG-0401: read the protection as the account the clone declares; another one gets a 404
+  // and kj said "not protected" about a protected branch.
+  let advice;
+  try {
+    identity({ projectDir });
+    advice = await protectionAdvice({ owner: match[1], repo: match[2], branch, checks, run });
+  } catch (err) {
+    advice = { status: "unverified", reason: err.message, settings: settingsUrl({ owner: match[1], repo: match[2] }), missing: checks };
+  }
   if (advice.status === "ok") {
     logger.info?.(`  • branch protection: ${branch} requires the ${checks.length} kj check(s)`);
     return advice;
@@ -90,6 +105,7 @@ export async function adviseBranchProtection({ projectDir, branch, logger, run =
     missing: `${branch} does not require ${advice.missing?.length} kj check(s) (${list}). An admin runs (kj never does):`,
     "no-checks": `${branch} is protected but requires no status checks. An admin enables "Require status checks" and adds ${list} in:`,
     unverified: `could not read the protection of ${branch} (${advice.reason}). An admin checks that ${list} are required in:`,
+    "admins-exempt": `${branch} requires the kj checks, but admins can merge without them, and an agent working with an admin's token would. An admin runs (kj never does):`,
   }[advice.status];
   logger.warn?.(`  ⚠ branch protection: ${why}`);
   logger.warn?.(`      ${advice.command ?? advice.settings}`);
