@@ -16,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const KJ_BIN = path.resolve(HERE, "..", "..", "..", "bin", "kj.js");
+const KJ_HOOK_BIN = path.resolve(HERE, "..", "..", "..", "bin", "kj-hook.js");
 const FAKE_AGENT = path.resolve(HERE, "..", "..", "e2e", "fixtures", "fake-coder.js");
 const OFFLINE_RUN = path.join(HERE, "offline-run.js");
 
@@ -56,10 +57,10 @@ export function makeScenarioProject({ prefix = "kj-scn-" } = {}) {
     },
   });
 
-  /** Run a Sentinel hook script as Claude Code would. */
+  /** Run a Sentinel guard as Claude Code would: this tree's kj-hook, the project named by the host (ADR 0030). */
   const hook = (name, payload) => {
-    const res = spawnSync(process.execPath, [path.join(dir, ".karajan", "harness", name)], {
-      cwd: dir, env, encoding: "utf8", input: JSON.stringify({ session_id: "scn", cwd: dir, ...payload }), timeout: 120_000,
+    const res = spawnSync(process.execPath, [KJ_HOOK_BIN, name.replace(/\.mjs$/, "")], {
+      cwd: dir, env: { ...env, CLAUDE_PROJECT_DIR: dir }, encoding: "utf8", input: JSON.stringify({ session_id: "scn", cwd: dir, ...payload }), timeout: 120_000,
     });
     return { status: res.status, stderr: res.stderr || "", stdout: res.stdout || "" };
   };
