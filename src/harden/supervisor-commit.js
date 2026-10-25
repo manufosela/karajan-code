@@ -30,6 +30,11 @@ const HARNESS_PREFIX = ".karajan/harness/";
 // with the repo is sealed with the supervisor, so a policy change enters only
 // with the human's signed act. kj.config.yml is machine-local: CI never sees it.
 export const GOVERNANCE_FILES = [".karajan/policy.yml", ".karajan/rules.yml"];
+// KJC-BUG-0400: the CI workflows are sealed the same way, by hash: a PR could
+// otherwise rewrite the check that judges it and pass with a forged seal.
+const WORKFLOW_FILE = /^\.github\/workflows\/[^/]+\.ya?ml$/;
+/** A file the seal covers by its hash alone: the governance config and every CI workflow. */
+export const isSealedConfig = (file) => GOVERNANCE_FILES.includes(file) || WORKFLOW_FILE.test(file);
 
 const sha256 = (abs) => createHash("sha256").update(readFileSync(abs)).digest("hex");
 
@@ -83,7 +88,7 @@ export async function commitSupervisorRegeneration({
   // KJC-BUG-0244 (grebla #958): el commit sellado solo lleva el supervisor, pero
   // un stage ajeno se quedaba en esta rama y el siguiente commit caía aquí con la
   // card equivocada. Se para ANTES de pedir nada al humano y se nombra.
-  const foreign = run(["diff", "--cached", "--name-only"]).split("\n").filter((f) => f && !f.startsWith(HOOKS_PREFIX) && f !== PROVENANCE_FILE && !GOVERNANCE_FILES.includes(f));
+  const foreign = run(["diff", "--cached", "--name-only"]).split("\n").filter((f) => f && !f.startsWith(HOOKS_PREFIX) && f !== PROVENANCE_FILE && !isSealedConfig(f));
   if (foreign.length > 0) {
     throw new Error(
       `harden --commit: hay cambios en el stage que no son del supervisor (${foreign.slice(0, 5).join(", ")}${foreign.length > 5 ? ", …" : ""}): commitéalos en su rama o sácalos del stage (git restore --staged <ficheros>) antes de sellar`,
@@ -92,8 +97,10 @@ export async function commitSupervisorRegeneration({
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   seal.confirm(deps.confirm);
-  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES]).split("\n").filter(Boolean));
-  const governance = GOVERNANCE_FILES.filter((f) => existsSync(join(projectDir, f)) || tracked.has(f));
+  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, ".github/workflows"]).split("\n").filter(Boolean));
+  const onDisk = (() => { try { return readdirSync(join(projectDir, ".github", "workflows")).map((f) => `.github/workflows/${f}`); } catch { return []; } })();
+  const candidates = [...new Set([...GOVERNANCE_FILES, ...onDisk, ...tracked])].filter(isSealedConfig).sort();
+  const governance = candidates.filter((f) => existsSync(join(projectDir, f)) || tracked.has(f));
   const governanceDrift = governance.length === 0 ? [] : run(["status", "--porcelain", "--", ...governance]).split("\n").map((l) => l.slice(3).trim()).filter(Boolean);
   const drift = [...supervisorDrift({ projectDir, gitFn: run }), ...governanceDrift];
   // La provenance describe SIEMPRE el estado COMPLETO del supervisor (cazado

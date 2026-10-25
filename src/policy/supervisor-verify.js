@@ -11,7 +11,7 @@ import { resolve, sep } from "node:path";
 import { renderCanonicalHook } from "../harden/harden-engine.js";
 import { provenanceSignature } from "../harden/phone-sign.js";
 import { canonicalHarnessBody } from "../harden/sentinel-hooks.js";
-import { GOVERNANCE_FILES, PROVENANCE_FILE } from "../harden/supervisor-commit.js";
+import { isSealedConfig, PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 
 const HOOKS_PREFIX = ".karajan/hooks/";
 const HARNESS_PREFIX = ".karajan/harness/";
@@ -69,7 +69,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
     if (typeof entry?.file !== "string") continue;
     // KJC-TSK-1032: the governance config has no canonical render; the sealed
     // hash, signed by the roster where there is one, is the proof.
-    if (GOVERNANCE_FILES.includes(entry.file)) {
+    if (isSealedConfig(entry.file)) {
       const abs = resolve(projectDir, entry.file);
       let st = null;
       try { st = lstatSync(abs); } catch { /* absent */ }
