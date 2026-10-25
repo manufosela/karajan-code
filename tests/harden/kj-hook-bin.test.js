@@ -38,6 +38,20 @@ describe("kj-hook", () => {
     expect(run([], { cwd: repo }).status).toBe(2);
   });
 
+  it("runs the tool gate too: Write over an existing file blocks", () => {
+    fs.writeFileSync(path.join(repo, "a.txt"), "x");
+    const r = run(["pretooluse"], { cwd: repo, input: JSON.stringify({ tool_name: "Write", tool_input: { file_path: path.join(repo, "a.txt") } }) });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/use Edit/);
+  });
+
+  it("kj sentinel hook refuses an unknown guard the same way (the single-file wiring)", () => {
+    const KJ = fileURLToPath(new URL("../../bin/kj.js", import.meta.url));
+    const r = spawnSync(process.execPath, [KJ, "sentinel", "hook", "nope"], { cwd: repo, input: "{}", encoding: "utf8" });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/not a Sentinel guard/);
+  });
+
   it("runs a known guard against the project it is given, with its state there", () => {
     const r = run(["posttooluse"], { cwd: repo, input: JSON.stringify({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(repo, "src", "a.js") } }) });
     expect(r.status).toBe(0);

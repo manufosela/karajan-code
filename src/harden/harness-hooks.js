@@ -10,30 +10,14 @@
  * supports tool hooks.
  */
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { isSea } from "node:sea";
 
-const SCRIPT_BODY = `#!/usr/bin/env node
-// kj tool gate (KJC-TSK-0710) — managed by \`kj harden\`. Exit 2 blocks the
-// tool call (stderr explains why); anything unexpected fails OPEN (exit 0)
-// so a gate bug never bricks the session.
-import console from "node:console";
-import process from "node:process";
-import { existsSync } from "node:fs";
-let raw = "";
-process.stdin.on("data", (d) => { raw += d; });
-process.stdin.on("end", () => {
-  try {
-    const { tool_name: tool, tool_input: input = {} } = JSON.parse(raw);
-    if (tool === "Write" && input.file_path && existsSync(input.file_path)) {
-      console.error("kj tool gate: Write over an EXISTING file destroys unseen changes — use Edit for targeted changes.");
-      process.exit(2);
-    }
-  } catch { /* fail open */ }
-  process.exit(0);
-});
-`;
+// KJC-TSK-1204 (ADR 0030): the tool gate is a module of the package, like the
+// Sentinel's guards, so kj-hook can run it from there.
+const SCRIPT_BODY = readFileSync(new URL("./sentinel/pretooluse.mjs", import.meta.url), "utf8");
 
 /** Write a managed hook script under .karajan/harness/ and return its path. */
 /**
@@ -49,6 +33,32 @@ export function writeHarnessScript(projectDir, name, body) {
   writeFileSync(abs, body, { mode: 0o755 });
   return abs;
 }
+
+/**
+ * KJC-TSK-1204 (ADR 0030): the hook runs the guard from the installed kj, never
+ * a copy in the project. npm installs have kj-hook; the single-file kj, or an
+ * install whose kj-hook is not on the PATH yet (a linked kj predating it), runs
+ * it through `kj sentinel hook`, which exists wherever kj harden ran. Without
+ * the runner, a hook before a tool blocks (no kj, no governance: the
+ * maintainer's decision) and any other one warns.
+ */
+export const kjHookOnPath = () => spawnSync("sh", ["-c", "command -v kj-hook"], { stdio: "ignore" }).status === 0;
+
+export function guardCommand(guard, { blocking = false, viaKj = isSea() || !kjHookOnPath() } = {}) {
+  const [bin, run] = viaKj ? ["kj", `kj sentinel hook ${guard}`] : ["kj-hook", `kj-hook ${guard}`];
+  const missing = `echo "karajan: ${bin} no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión" >&2`;
+  return `if command -v ${bin} >/dev/null 2>&1; then ${run}; else ${missing}${blocking ? "; exit 2" : ""}; fi`;
+}
+
+/** The wiring kj harden wrote before ADR 0030: node running the project's copy. */
+const withoutLegacy = (list, script) => {
+  const legacy = `node ${join(".karajan", "harness", script)}`;
+  return list.flatMap((e) => {
+    if (!Array.isArray(e?.hooks) || !e.hooks.some((h) => h?.command === legacy)) return [e];
+    const hooks = e.hooks.filter((h) => h?.command !== legacy);
+    return hooks.length ? [{ ...e, hooks }] : [];
+  });
+};
 
 /**
  * Merge hook entries into .claude/settings.json. Preserve, never clobber:
@@ -76,13 +86,15 @@ export function mergeClaudeHooks({ projectDir, logger = console, entries }) {
       return { wired: false };
     }
   }
+  const viaKj = isSea() || !kjHookOnPath();
   for (const { event, matcher, script } of entries) {
-    const list = Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [];
+    const list = withoutLegacy(Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [], script);
+    const command = guardCommand(script.replace(/\.mjs$/, ""), { blocking: event === "PreToolUse", viaKj });
     const present = list.some(
-      (e) => JSON.stringify(e).includes(script) && (matcher === undefined || e?.matcher === matcher),
+      (e) => (e?.hooks || []).some((h) => h?.command === command) && (matcher === undefined || e?.matcher === matcher),
     );
     if (!present) {
-      const cmd = { type: "command", command: `node ${join(".karajan", "harness", script)}` };
+      const cmd = { type: "command", command };
       list.push(matcher === undefined ? { hooks: [cmd] } : { matcher, hooks: [cmd] });
     }
     settings.hooks[event] = list;
