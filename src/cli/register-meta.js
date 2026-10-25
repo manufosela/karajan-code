@@ -44,6 +44,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { verifySentinelScripts, resolveSentinelRoot } from "../harden/sentinel-hooks.js";
+import { runGuard } from "../harden/sentinel-guards.js";
 import { boardGate } from "../review/board-pending.js";
 import { panelDeviation } from "../environment/panel.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
@@ -719,6 +720,13 @@ export function registerMeta(program, { pkgVersion }) {
       else if (res.drift?.length && res.ok) console.log(`sentinel verify: scripts sellados, con desfase (${res.drift.join(", ")}) — ${res.reason}`);
       else console.log(res.ok ? "sentinel verify: scripts intactos" : `sentinel verify: modificados fuera de kj harden: ${res.mismatched.join(", ")} — restaura con kj harden`);
       process.exitCode = res.ok ? 0 : 1;
+    });
+  // KJC-TSK-1204 (ADR 0030): the single-file binary has no kj-hook, so its
+  // wiring runs the guards through here, from the same closed list.
+  sentinel.command("hook <guard>")
+    .description("Run one Sentinel guard from this kj install, reading the hook's input from stdin (the wiring of a single-file kj; npm installs use kj-hook)")
+    .action(async (guard) => {
+      await runGuard(guard);
     });
   // KJC-TSK-0868: el anfitrión escribiendo con otro coder declarado no se
   // bloquea, se registra. El Stop gate pregunta una vez por sesión.

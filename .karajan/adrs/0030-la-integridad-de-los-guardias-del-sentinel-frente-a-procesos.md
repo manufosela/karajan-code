@@ -26,6 +26,11 @@ C) Como si el código no existiera: el Sentinel no defiende frente a procesos de
 
 A, con el arranque medido al aceptarla: `kj --version` tarda 0,6 s y `node` solo 0,03 s, y cada llamada a una herramienta pasa por dos o tres hooks. Por eso el cableado no llama al CLI completo (`kj sentinel hook <nombre>`) sino a un ejecutable mínimo del paquete, `kj-hook <nombre>`, que importa solo el guardia pedido de una lista cerrada. Más dos cambios pequeños: la comprobación de integridad también al arrancar la sesión (SessionStart) y antes de cada commit (pre-commit), y la manipulación detectada deja de fallar abierta: bloquea con el remedio (`kj harden`), porque una manipulación no es un fallo del Sentinel. Se mantiene el fallo abierto para los errores propios del Sentinel (estado corrupto, git caído). La documentación dice el límite del mismo usuario y enlaza la guía de endurecimiento.
 
+Dos decisiones del mantenedor al implementarla (25-oct-2026, KJC-TSK-1204):
+
+- **Sin `kj-hook`** (kj desinstalado o roto), el hook de antes de cada herramienta sale con 2 y nombra el remedio (instalar kj); los demás avisan y dejan pasar. Es lo que ya hacía la policy cuando faltaba kj: sin kj no hay gobierno, así que no se trabaja sin él.
+- **El binario único** (SEA) no trae `kj-hook`: para él, y para un kj enlazado cuyo `kj-hook` aún no está en el PATH, `kj harden` cablea `kj sentinel hook <nombre>`, más lento (unos 0,3 s por hook) pero con la misma lista cerrada de guardias. Se descartó un segundo binario mínimo por duplicar la build y la firma.
+
 ## Consequences
 
 La lógica de los guardias deja de poder cambiarse editando el proyecto; lo que se puede tocar fuera de la sesión es el cableado de `.claude/settings.json`, que una PR no puede cambiar sin que la policy lo deniegue y que el SessionStart comprueba. Cada hook arranca `kj-hook`, no el CLI: el coste por hook se queda cerca del de hoy (`node` más el guardia). Migración: `kj harden` reescribe el cableado y retira los `.mjs`; es un cambio del supervisor, así que entra con el sello de la persona.
