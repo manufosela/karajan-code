@@ -29,23 +29,21 @@ export function resolveSentinelRoot(dir = process.cwd()) {
 // copied byte for byte under the SAME name (so they can import each other in both
 // places). Being here, the installed record, the tamper check and the human seal
 // cover them; being files, they can also run from the installed package.
-const SENTINEL_MODULES = [
-  "sentinel-lib.mjs",
-  "posttooluse.mjs",
-  "stop.mjs",
-  "pretooluse-sentinel.mjs",
-  "sentinel-shell.mjs",
-  "sentinel-discard.mjs",
-  "sentinel-bash-write.mjs",
-  "sentinel-reminders.mjs",
-  "sessionstart.mjs",
+// Each read stays a literal: the single-file build inlines exactly that form.
+const SCRIPT_BODIES = {
+  "sentinel-lib.mjs": readFileSync(new URL("./sentinel/sentinel-lib.mjs", import.meta.url), "utf8"),
+  "posttooluse.mjs": readFileSync(new URL("./sentinel/posttooluse.mjs", import.meta.url), "utf8"),
+  "stop.mjs": readFileSync(new URL("./sentinel/stop.mjs", import.meta.url), "utf8"),
+  "pretooluse-sentinel.mjs": readFileSync(new URL("./sentinel/pretooluse-sentinel.mjs", import.meta.url), "utf8"),
+  "sentinel-shell.mjs": readFileSync(new URL("./sentinel/sentinel-shell.mjs", import.meta.url), "utf8"),
+  "sentinel-discard.mjs": readFileSync(new URL("./sentinel/sentinel-discard.mjs", import.meta.url), "utf8"),
+  "sentinel-bash-write.mjs": readFileSync(new URL("./sentinel/sentinel-bash-write.mjs", import.meta.url), "utf8"),
+  "sentinel-reminders.mjs": readFileSync(new URL("./sentinel/sentinel-reminders.mjs", import.meta.url), "utf8"),
+  "sessionstart.mjs": readFileSync(new URL("./sentinel/sessionstart.mjs", import.meta.url), "utf8"),
   // KJC-TSK-0946 (ADR 0016): the rules gate and its hook, for every tool call.
-  "sentinel-rules.mjs",
-  "pretooluse-rules.mjs",
-];
-const SCRIPT_BODIES = Object.fromEntries(
-  SENTINEL_MODULES.map((name) => [name, readFileSync(new URL(`./sentinel/${name}`, import.meta.url), "utf8")]),
-);
+  "sentinel-rules.mjs": readFileSync(new URL("./sentinel/sentinel-rules.mjs", import.meta.url), "utf8"),
+  "pretooluse-rules.mjs": readFileSync(new URL("./sentinel/pretooluse-rules.mjs", import.meta.url), "utf8"),
+};
 
 /**
  * Tamper detection (KJC-TSK-0715): compare the on-disk harness scripts with

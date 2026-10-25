@@ -31,7 +31,8 @@ const KNOWN_READERS = {
   "src/commands/rules-compile.js": "writes the rules PROPOSAL, which only kj rules approve installs",
   "src/harden/phone-invite.js": "writes the once-per-version invitation marker, reads whether the phone is enrolled",
   "src/harden/sandbox.js": "writes .claude/settings.local.json; names the phone key to deny the sandbox writing it",
-  "src/harden/sentinel-hooks.js": "writes the Sentinel's own state; names the supervisor files to protect them",
+  "src/harden/sentinel-hooks.js": "writes the Sentinel's guards and their record; names the provenance to read the human seal",
+  "src/harden/sentinel/pretooluse-sentinel.mjs": "appends the Sentinel's denial log; names the supervisor and governance files to deny writing them",
   "src/review/gate-gitignore.js": "writes .gitignore; names the governance files to keep them versioned",
 };
 

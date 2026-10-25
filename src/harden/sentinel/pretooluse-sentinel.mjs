@@ -635,7 +635,7 @@ process.stdin.on("end", () => {
       }
       // KJC-BUG-0296 (#1989): the staged set is reviewed by name. A blanket
       // git add -A / git add . / git add -u put a Claude scheduler lock into
-      // main; and the agent's runtime files (.claude/*.lock, .kj/, the local
+      // main; and the agent's runtime files (the .claude locks, .kj/, the local
       // identity, the Sentinel state, the harness) are never staged at all.
       // (No backticks in this template: they would end the string.)
       const RUNTIME = /^(\.\/)?(\.claude\/[^/]*\.lock|\.kj\/|\.karajan\/identity\.local\.yml|\.karajan\/harness\/sentinel-state\.json)/;
