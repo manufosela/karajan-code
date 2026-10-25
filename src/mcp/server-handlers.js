@@ -23,7 +23,7 @@ export {
 export { handleRunDirect, handleResumeDirect, validateResumeAnswer, handleRun, handleResume } from "./handlers/run-handler.js";
 export { handlePlanDirect, handleCodeDirect, handleReviewDirect, handleDiscoverDirect, handleTriageDirect, handleResearcherDirect, handleAuditDirect, handleArchitectDirect, handleCode, handleReview, handlePlan, handleDiscover, handleTriage, handleResearcher, handleArchitect, handleAudit } from "./handlers/direct-handlers.js";
 export { handleStatus, handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleUndo, handleClean, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
-export { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
+export { handleHu, handleSuggest } from "./handlers/hu-handlers.js";
 
 // ── Handler dispatch ─────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ import {
   handleReport, handleInit, handleDoctor, handleConfig,
   handleScan, handleBoard, handleUndo, handleClean
 } from "./handlers/management-handlers.js";
-import { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
+import { handleHu, handleSuggest } from "./handlers/hu-handlers.js";
 import { handleRagQuery, handleRagIndex } from "./handlers/rag-handler.js";
 import { withKarajanHome } from "../utils/paths.js";
 
@@ -67,7 +67,6 @@ export async function handleToolCall(name, args, server, extra) {
     kj_board:       (a) => handleBoard(a),
     kj_hu:          (a, server) => handleHu(a, server),
     kj_suggest:     (a) => handleSuggest(a),
-    kj_skills:      (a) => handleSkills(a),
     kj_undo:        (a, server) => handleUndo(a, server),
     kj_clean:       (a) => handleClean(a),
     kj_rag_query:   (a, server) => handleRagQuery(a, server),

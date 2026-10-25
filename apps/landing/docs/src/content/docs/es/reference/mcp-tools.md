@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 27 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 26 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run
@@ -402,27 +402,9 @@ Enviar una observación a Solomon sin interrumpir el pipeline. Útil para propor
 
 ---
 
-## kj_skills
+## Skills: `atril mcp`
 
-Listar, instalar o eliminar skills específicos de dominio para los roles del pipeline. Los skills extienden los prompts de coder, reviewer y architect con conocimiento de dominio.
-
-| Parámetro | Tipo | Requerido | Default | Descripción |
-|-----------|------|-----------|---------|-------------|
-| `action` | string | No | `list` | Acción: `list` \| `install` \| `remove` |
-| `skill` | string | No | `null` | Identificador del skill (requerido para `install` y `remove`) |
-| `projectDir` | string | No | cwd | Directorio del proyecto |
-
-**Ejemplo:**
-
-```json
-{
-  "tool": "kj_skills",
-  "params": {
-    "action": "install",
-    "skill": "react-patterns"
-  }
-}
-```
+Desde la 5.0 el servidor `kj` no tiene tool de skills. Las skills, los comandos y los subagentes son de atril, que los sirve como su propio servidor MCP: añade `atril mcp` (de `@karajan-family/atril`) junto a `kj`. Sus tools son `search`, `resolve`, `install` y `remove`.
 
 ---
 
