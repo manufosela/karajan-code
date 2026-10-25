@@ -38,13 +38,23 @@ process.stdin.on("end", () => {
       lines.push("Karajan (reglas que la compactación se lleva):", ...RULES, `Estado: rama ${branch}, card ${card}${unmoved}.`);
     }
     if (drift) lines.push(`Karajan: ${drift}`);
+    // KJC-TSK-1205 (ADR 0030): integrity is checked when the session starts, not only
+    // when a turn ends. Said first, to the agent and to the person; kj missing says nothing.
+    const ver = spawnSync("kj", ["sentinel", "verify", "--json"], { cwd: ROOT, encoding: "utf8", timeout: 15000 });
+    let alarm = null;
+    if (!ver.error && ver.status !== 0 && ver.status !== null) {
+      let what = ["?"];
+      try { what = JSON.parse(ver.stdout).mismatched || what; } catch { /* unreadable: still tampered */ }
+      alarm = `el supervisor está manipulado (${what.join(", ")}): restaura con kj harden y avisa a tu usuario antes de seguir.`;
+      lines.unshift(`Karajan: ${alarm}`);
+    }
     // KJC-TSK-0986 (HUM-F, ADR 0018): once per kj version, the invitation to
     // enroll the phone when none is; kj decides and remembers, the hook relays.
     const invite = spawnSync("kj", ["identity", "phone-invite"], { encoding: "utf8", timeout: 8000 });
     const inviteText = invite.status === 0 ? String(invite.stdout || "").trim() : "";
     if (inviteText) lines.push(`Karajan: ${inviteText}`);
     if (lines.length === 0) process.exit(0);
-    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: lines.join("\n") } }));
+    process.stdout.write(JSON.stringify({ ...(alarm ? { systemMessage: `Karajan: ${alarm}` } : {}), hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: lines.join("\n") } }));
   } catch { /* never fails a session */ }
   process.exit(0);
 });
