@@ -9,3 +9,4 @@ export const VERSION = JSON.parse(readFileSync(new URL("../package.json", import
 export { search } from "./search.js";
 export { resolve, resolveBlock } from "./resolve.js";
 export { MARKER, expose, persistentPieces, unexpose } from "./bridge.js";
+export { sync } from "./sync.js";
