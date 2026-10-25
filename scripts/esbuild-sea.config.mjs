@@ -42,6 +42,15 @@ const seaTransformPlugin = {
         modified = true;
       }
 
+      // KJC-TSK-1188: a family package that reads its own version next to its module
+      // (atril's src/index.js) gets that version inlined from the real file, before
+      // import.meta.url goes: in the bundle ../package.json would point at /tmp.
+      const OWN_VERSION_READ = /JSON\.parse\(readFileSync\(new URL\("(\.\.\/package\.json)", import\.meta\.url\), "utf8"\)\)\.version/g;
+      if (OWN_VERSION_READ.test(contents)) {
+        contents = contents.replaceAll(OWN_VERSION_READ, (_m, rel) => JSON.stringify(JSON.parse(readFileSync(path.resolve(path.dirname(args.path), rel), "utf8")).version));
+        modified = true;
+      }
+
       // Replace import.meta.dirname with __dirname
       if (contents.includes("import.meta.dirname")) {
         contents = contents.replaceAll("import.meta.dirname", "__dirname");
