@@ -25,7 +25,7 @@ jobs:
             (cd "$JUDGE" && npm ci --ignore-scripts)
             KJ="node $JUDGE/bin/kj.js"
           else
-            KJ="npx --yes karajan-code@4.66.0"
+            KJ="npx --yes karajan-code@4.66.1"
           fi
           $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict
 
