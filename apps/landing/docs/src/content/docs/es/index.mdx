@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.65.0: kj se apoya en atril (actual)
+### v4.65.1: seguridad, el sello aguanta frente a una PR (actual)
+
+Una auditoría del sello de gobierno encontró tres formas de que una pull request lo rodeara, cerradas aquí. El CI juzga una PR con el kj de la rama base, nunca con el de la propia PR; los workflows del CI pasan a ser ficheros sellados, así que cambiar uno exige el sello de la persona; y `kj harden` pide que la protección de rama obligue también a los administradores, leyéndola con la cuenta de gh declarada. Además: `kj board` vuelve a mostrar el board compartido, y los remotos locales muertos se nombran con el comando que los quita. Ejecuta `kj harden` y vuelve a sellar para poner al día un proyecto endurecido.
+
+### v4.65.0: kj se apoya en atril
 
 Un proyecto con un almacén de atril en `.karajan/` da a cada rol el bloque que atril resuelve para la tarea, acotado por `skills.max_per_role`, y `kj skills search|route|scan|install|remove|graph|enrich|config` ejecutan el propio atril sobre ese almacén: los primeros pasos del cambio del núcleo que completa la 5.0.0. `kj review --third-party --verifier <proveedor>` pide a una IA de otra familia que confirme, rebaje o descarte cada hallazgo, leyendo solo su hunk; los descartados quedan aparte, y un hallazgo de seguridad o crítico nunca se toca. `@karajan-family` es ahora una organización de npm.
 

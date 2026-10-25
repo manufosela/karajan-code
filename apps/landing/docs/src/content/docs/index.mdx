@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.65.0: kj stands on atril (current)
+### v4.65.1: security, the seal holds against a PR (current)
+
+An audit of the governance seal found three ways a pull request could get around it, all closed here. The CI judges a PR with the kj of the base branch, never the PR's own; CI workflows join the sealed files, so changing one needs the person's seal; and `kj harden` asks branch protection to bind administrators, reading it as the declared gh account. Also: `kj board` shows the shared board again, and dead local remotes are named with the command that removes them. Run `kj harden` and seal again to bring a hardened project up to date.
+
+### v4.65.0: kj stands on atril
 
 A project with an atril store under `.karajan/` gives each role the block atril resolves for the task, bounded by `skills.max_per_role`, and `kj skills search|route|scan|install|remove|graph|enrich|config` run atril itself on that store: the first steps of the core switch that 5.0.0 completes. `kj review --third-party --verifier <provider>` asks an AI of another family to confirm, downgrade or reject each finding, reading only its hunk; rejected findings are listed apart, and a security or critical finding is never touched. `@karajan-family` is now an npm organization.
 
