@@ -9,6 +9,7 @@ import { SEARCH_MODE, search } from "../src/search.js";
 import { install, remove } from "../src/store.js";
 import { readConfig } from "../src/config.js";
 import { expose, unexpose } from "../src/bridge.js";
+import { sync } from "../src/sync.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -16,7 +17,15 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril route <task> [--role <role>] [--root <dir>] [--json]\n"
   + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
   + "       atril config [--root <dir>] [--json]\n"
-  + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]";
+  + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
+  + "       atril sync [--root <dir>]";
+
+function runSync(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" } } });
+  const changed = sync({ root: values.root }).filter(({ action }) => action !== "unchanged");
+  if (changed.length === 0) console.log("up to date");
+  for (const { action, path } of changed) console.log(`${action}\t${path}`);
+}
 
 function runExpose(command, args) {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" } } });
@@ -135,6 +144,7 @@ try {
   else if (command === "install" || command === "remove") runStore(command, rest);
   else if (command === "config") runConfig(rest);
   else if (command === "expose" || command === "unexpose") runExpose(command, rest);
+  else if (command === "sync") runSync(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
