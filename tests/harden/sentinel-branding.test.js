@@ -9,6 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 const DOC_URL = "https://karajancode.com/docs/guides/sentinel/#";
 const DOC_PAGE = new URL(
@@ -21,6 +22,7 @@ let dir, scripts;
 beforeAll(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-branding-"));
   installSentinelHooks({ projectDir: dir, logger: { info() {}, warn() {} } });
+  placeGuardCopies(dir); // KJC-TSK-1208: the guards' exact bodies, as an older kj left them
   const harness = path.join(dir, ".karajan", "harness");
   scripts = fs.readdirSync(harness).map((f) => ({
     name: f,

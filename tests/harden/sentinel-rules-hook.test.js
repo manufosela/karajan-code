@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 // The hook spawns `kj` from PATH; CI has no global kj, so a shim points at this checkout.
 const KJ_BIN = path.resolve("bin/kj.js");
@@ -42,6 +43,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(home, "kj.config.yml"), "base_branch: main\n");
   execSync("git init -q -b main", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   hook = path.join(dir, ".karajan", "harness", "pretooluse-rules.mjs");
 });
 afterEach(() => {

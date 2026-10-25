@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, pre;
 const runEdit = (env = {}) =>
@@ -26,6 +27,7 @@ beforeEach(() => {
   fs.mkdirSync(path.join(dir, "src"), { recursive: true });
   execSync("git init -q -b main && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0001-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   // rag-first has its own suite: an empty index is the state where it stands down (no escape, ADR 0015).
   fs.writeFileSync(path.join(dir, ".karajan", "harness", "sentinel-state.json"), JSON.stringify({ sessions: { s1: { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0, rag_index_empty: true } } }));

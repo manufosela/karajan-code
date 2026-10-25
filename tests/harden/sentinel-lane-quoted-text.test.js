@@ -9,6 +9,7 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { stripInertQuotes, stripTextOptionValues } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 describe("stripInertQuotes / stripTextOptionValues", () => {
   it("blanks quoted text that does not run, keeps what does", () => {
@@ -41,6 +42,7 @@ describe("the lane guard with quoted text (PreToolUse Bash)", () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-lane-text-"));
     execSync("git init -q -b feat/KJC-TSK-0001-x", { cwd: dir });
     installSentinelHooks({ projectDir: dir });
+    placeGuardCopies(dir);
     pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));

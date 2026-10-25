@@ -426,10 +426,19 @@ describe("preflight-checks", () => {
     it("passes with the harness installed, and on a host that is not Claude", async () => {
       const { detectHostAgent } = await import("../src/utils/agent-detect.js");
       detectHostAgent.mockReturnValue("claude");
-      mkdirSync(join(dir, ".karajan", "harness"), { recursive: true });
-      writeFileSync(join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs"), "");
+      // KJC-TSK-1208 (ADR 0030): installed = the hooks wired to the installed kj's guards.
+      const { SENTINEL_WIRING } = await import("../src/harden/sentinel-hooks.js");
+      const { guardCommand } = await import("../src/harden/harness-hooks.js");
+      const hooks = {};
+      for (const { event, matcher, script } of SENTINEL_WIRING) {
+        const command = guardCommand(script.replace(".mjs", ""), { blocking: event === "PreToolUse", viaKj: true });
+        (hooks[event] ||= []).push({ ...(matcher ? { matcher } : {}), hooks: [{ type: "command", command }] });
+      }
+      mkdirSync(join(dir, ".claude"), { recursive: true });
+      writeFileSync(join(dir, ".claude", "settings.json"), JSON.stringify({ hooks }));
       expect((await run()).errors).toEqual([]);
       rmSync(join(dir, ".karajan"), { recursive: true, force: true });
+      rmSync(join(dir, ".claude"), { recursive: true, force: true });
       detectHostAgent.mockReturnValue("codex");
       expect((await run()).errors).toEqual([]);
     });

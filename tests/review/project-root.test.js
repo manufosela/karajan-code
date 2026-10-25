@@ -15,6 +15,7 @@ import { readRagLedger } from "../../src/review/rag-ledger.js";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 import { installHarnessHooks } from "../../src/harden/harness-hooks.js";
 import { wireLegacy } from "../harden/_legacy-wiring.js";
+import { placeGuardCopies } from "../harden/_guard-copies.js";
 
 let repo, sub;
 const quiet = { info() {}, warn() {} };
@@ -42,6 +43,7 @@ describe("una sola respuesta a cual es la raiz del proyecto", () => {
 
   it("el veredicto sobre el harness no cambia por el directorio desde el que se mire", () => {
     // Un guard manipulado se ve manipulado desde los dos sitios, no solo desde uno.
+    placeGuardCopies(repo);
     wireLegacy(repo); // KJC-TSK-1206: the guard files are judged where they are what runs
     fs.writeFileSync(path.join(repo, ".karajan", "harness", "stop.mjs"), "// tocado a mano\n");
     expect(readRagLedger(repo).verified).toBe(false);
@@ -63,13 +65,14 @@ describe("harden no siembra arneses huerfanos", () => {
   it("instalar desde un subdirectorio escribe en la raiz del repo, no en el subdirectorio", () => {
     installSentinelHooks({ projectDir: sub, logger: quiet });
     expect(fs.existsSync(path.join(sub, ".karajan", "harness"))).toBe(false);
-    expect(fs.existsSync(path.join(repo, ".karajan", "harness", "stop.mjs"))).toBe(true);
+    expect(fs.existsSync(path.join(sub, ".claude"))).toBe(false);
+    expect(fs.existsSync(path.join(repo, ".claude", "settings.json"))).toBe(true);
   });
 
   it("el gate de tool tampoco: los dos instaladores responden lo mismo", () => {
     installHarnessHooks({ projectDir: sub, logger: quiet });
-    expect(fs.existsSync(path.join(sub, ".karajan", "harness"))).toBe(false);
-    expect(fs.existsSync(path.join(repo, ".karajan", "harness", "pretooluse.mjs"))).toBe(true);
+    expect(fs.existsSync(path.join(sub, ".claude"))).toBe(false);
+    expect(fs.existsSync(path.join(repo, ".claude", "settings.json"))).toBe(true);
   });
 
   it("lo dice cuando lo redirige, en vez de instalar en otro sitio en silencio", () => {

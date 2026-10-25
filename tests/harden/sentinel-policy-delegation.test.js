@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, gate, statePath;
 const run = (script, payload, env = {}) =>
@@ -37,6 +38,7 @@ beforeEach(() => {
     { cwd: dir },
   );
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");
   fs.writeFileSync(path.join(dir, ".karajan", "policy.yml"), "version: 1\n");

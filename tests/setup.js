@@ -81,6 +81,9 @@ globalThis.__KJ_DISABLE_SUITE_GREEN_STAGE = true;
 // tests that need one set CLAUDECODE themselves.
 delete process.env.CLAUDECODE;
 delete process.env.CLAUDE_CODE;
+// KJC-TSK-1208 (ADR 0030): a guard run from the package takes the project from this
+// variable; the suite's guards must find their temp project by their working directory.
+delete process.env.CLAUDE_PROJECT_DIR;
 
 // KJC-BUG-0234: every git the suite launches inherits this, so a commit in a
 // temp repo never leaves a background gc or maintenance writing into

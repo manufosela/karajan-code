@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, pre, statePath;
 const gitEnv = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
@@ -23,6 +24,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(dir, ".gitignore"), "node_modules\n");
   execSync("git init -q -b main && git add -A && git commit -q -m init", { cwd: dir, env: { ...process.env, ...gitEnv } });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");
 });

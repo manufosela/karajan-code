@@ -10,6 +10,7 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { remindersFor } from "../../src/harden/sentinel/sentinel-reminders.mjs";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 const ids = (cmd, opts) => remindersFor(cmd, opts).map((r) => r.id);
 
@@ -51,6 +52,7 @@ describe("delivered by the PostToolUse hook", () => {
     try {
       execSync("git init -q -b main", { cwd: dir });
       installSentinelHooks({ projectDir: dir });
+      placeGuardCopies(dir);
       const post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
       const run = () => spawnSync("node", [post], { input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: "git add a.js" }, tool_response: { stdout: "" } }), encoding: "utf8", cwd: dir });
       const first = run();

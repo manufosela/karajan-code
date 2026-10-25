@@ -13,6 +13,8 @@ import { join } from "node:path";
 
 import { findManagedBlock } from "../utils/managed-markers.js";
 import { findAlternative } from "./alternatives.js";
+import { wiringState } from "./harness-hooks.js";
+import { SENTINEL_WIRING } from "./sentinel-hooks.js";
 import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 import { detectStackRoots } from "./stack-roots.js";
 
@@ -169,14 +171,15 @@ export function classifyArtifact(searchDir, artifact, altDirs = [searchDir]) {
 // KJC-BUG-0335 (#2094): the method's own pieces, not only the configs. Without
 // them the report said "0 missing" while the review gate demanded the Sentinel.
 const METHOD_PIECES = [
+  // KJC-TSK-1208 (ADR 0030): the Sentinel is its wiring to the installed kj, not files.
   { id: "sentinel", what: "the Sentinel (it records the session, the RAG queries the review gate needs among them)",
-    files: [".karajan/harness/pretooluse-sentinel.mjs", ".karajan/harness/posttooluse.mjs", ".karajan/harness/stop.mjs"] },
+    files: [".claude/settings.json"], missingOf: (projectDir) => wiringState({ projectDir, entries: SENTINEL_WIRING }).missing },
   { id: "git-hooks", what: "the git hooks", files: [".karajan/hooks/pre-commit", ".karajan/hooks/commit-msg", ".karajan/hooks/pre-push"] },
 ];
 
-function methodPiece(projectDir, { id, what, files }) {
+function methodPiece(projectDir, { id, what, files, missingOf }) {
   const head = { dir: ".", id, file: files[0], currentVersion: null, managedVersion: null, upToDate: null, improvements: [], mergeable: false };
-  const missing = files.filter((f) => !existsSync(join(projectDir, f)));
+  const missing = missingOf ? missingOf(projectDir) : files.filter((f) => !existsSync(join(projectDir, f)));
   return missing.length === 0
     ? { ...head, status: "KJ_MANAGED", foundAt: files[0], recommendation: "keep", rationale: `${what}: installed` }
     : { ...head, status: "MISSING", foundAt: null, missing, recommendation: "install", rationale: `kj harden (without --report) installs ${what}; missing: ${missing.join(", ")}` };

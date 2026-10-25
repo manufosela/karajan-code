@@ -11,7 +11,7 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isSea } from "node:sea";
 
@@ -153,7 +153,11 @@ export const HARNESS_WIRING = [
   { event: "PreToolUse", matcher: "Bash", script: "pretooluse.mjs" },
 ];
 
-/** Write the script and merge the PreToolUse entries into .claude/settings.json. */
+/**
+ * Merge the tool gate's PreToolUse entries into .claude/settings.json. KJC-TSK-1208
+ * (ADR 0030): the gate runs from the installed kj, so the copy an older kj wrote
+ * into the project is retired once the hooks call the package's.
+ */
 export function installHarnessHooks({ projectDir = process.cwd(), logger = console } = {}) {
   // KJC-BUG-0223: el harness es del proyecto y vive en su raiz. Instalado desde
   // un subdirectorio sembraba ahi un segundo `.karajan/harness` que no gobierna
@@ -161,7 +165,8 @@ export function installHarnessHooks({ projectDir = process.cwd(), logger = conso
   const root = resolveProjectRoot(projectDir);
   if (root !== projectDir) logger?.info?.(`kj harden: el harness es del proyecto, se instala en su raíz (${root})`);
   projectDir = root;
-  const scriptAbs = writeHarnessScript(projectDir, "pretooluse.mjs", SCRIPT_BODY);
   const { wired } = mergeClaudeHooks({ projectDir, logger, entries: HARNESS_WIRING });
-  return { script: scriptAbs, wired };
+  const copy = join(projectDir, ".karajan", "harness", "pretooluse.mjs");
+  if (wired && existsSync(copy)) rmSync(copy);
+  return { wired };
 }

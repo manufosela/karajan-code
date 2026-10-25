@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, post, stop, statePath, home;
 const env = () => ({ ...process.env, KARAJAN_HOME: home });
@@ -22,6 +23,7 @@ beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-home-"));
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   stop = path.join(dir, ".karajan", "harness", "stop.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");

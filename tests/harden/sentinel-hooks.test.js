@@ -11,6 +11,7 @@ import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 import { declareTestIdentity } from "./_test-identity.js";
 import { wireLegacy } from "./_legacy-wiring.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, postScript, stopScript, statePath, idEnv;
 const run = (script, payload, env = {}) =>
@@ -32,6 +33,7 @@ beforeEach(() => {
     { cwd: dir },
   );
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   idEnv = declareTestIdentity(dir);
   postScript = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   stopScript = path.join(dir, ".karajan", "harness", "stop.mjs");
@@ -463,9 +465,12 @@ describe("self-protection + audited escapes (SEN-C)", () => {
     const blocked = run(stopScript, { session_id: "empty" }, { PATH: `${bin}:${process.env.PATH}` });
     expect(blocked.status).toBe(2);
     expect(blocked.stderr).toMatch(/kj harden/);
+    // KJC-TSK-1208: kj harden is the remedy: it wires the installed kj's guards and
+    // retires the tampered copy, so nothing in the project decides any more.
     installSentinelHooks({ projectDir: dir });
-    expect(verifySentinelScripts({ projectDir: dir }).ok).toBe(true);
-    expect(run(stopScript, { session_id: "empty" }, { PATH: path.dirname(process.execPath) }).status).toBe(0);
+    expect(verifySentinelScripts({ projectDir: dir })).toMatchObject({ ok: true, wiring: true });
+    expect(fs.existsSync(postScript)).toBe(false);
+    expect(fs.existsSync(statePath)).toBe(true);
   });
 
   // KJC-TSK-1205 (ADR 0030): tampering is not a Sentinel failure, so it never fails open.

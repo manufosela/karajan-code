@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { buildManagedBlock } from "../../src/utils/managed-markers.js";
 import { compareHarden, formatAdvisoryReport } from "../../src/harden/advisory.js";
+import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let root;
 const touch = (rel, content = "") => {
@@ -28,9 +29,11 @@ afterEach(() => {
 // the method's own pieces too.
 describe("compareHarden — the method's own pieces", () => {
   it("names the Sentinel and the git hooks as missing, and as kept once installed", () => {
-    expect(find(run(), "sentinel")).toMatchObject({ status: "MISSING", recommendation: "install", file: ".karajan/harness/pretooluse-sentinel.mjs" });
+    // KJC-TSK-1208 (ADR 0030): the Sentinel is its wiring to the installed kj's guards.
+    expect(find(run(), "sentinel")).toMatchObject({ status: "MISSING", recommendation: "install", file: ".claude/settings.json" });
     expect(find(run(), "git-hooks")).toMatchObject({ status: "MISSING", recommendation: "install", file: ".karajan/hooks/pre-commit" });
-    for (const f of ["harness/pretooluse-sentinel.mjs", "harness/posttooluse.mjs", "harness/stop.mjs", "hooks/pre-commit", "hooks/commit-msg"]) touch(`.karajan/${f}`, "x");
+    installSentinelHooks({ projectDir: root, logger: { info() {}, warn() {} } });
+    for (const f of ["hooks/pre-commit", "hooks/commit-msg"]) touch(`.karajan/${f}`, "x");
     expect(find(run(), "sentinel")).toMatchObject({ recommendation: "keep" });
     // A partial set is not installed: it names what is missing.
     expect(find(run(), "git-hooks")).toMatchObject({ recommendation: "install", missing: [".karajan/hooks/pre-push"] });

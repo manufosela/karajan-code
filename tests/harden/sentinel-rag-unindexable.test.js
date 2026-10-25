@@ -13,6 +13,7 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, gate, bin;
 const hook = (script, payload, env = {}) => spawnSync("node", [script], {
@@ -37,6 +38,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(dir, "src", "Page.astro"), "<h1>x</h1>\n");
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git add -A && git commit -q -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   // `rag covers`: exit 1 (no puede responder) para lo que no es .js.
   fakeKj('case "$*" in *covers*.js*) echo \'{"state":"indexed","canAnswer":true}\'; exit 0 ;; *covers*) echo \'{"state":"not-indexable","canAnswer":false,"reason":"no language adapter covers .astro"}\'; exit 1 ;; *) exit 0 ;; esac');

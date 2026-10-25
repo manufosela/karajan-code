@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, gate, ghDir;
 const run = (command, env = {}) =>
@@ -28,6 +29,7 @@ beforeEach(() => {
     { cwd: dir },
   );
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
 });
 afterEach(() => {

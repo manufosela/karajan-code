@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, hook, fakeBin;
 // A fake kj at the front of PATH: the hook relays what kj says and the suite
@@ -20,6 +21,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(fakeBin, "kj"), '#!/bin/sh\nif [ "$1" = identity ] && [ -n "$KJ_FAKE_INVITE" ]; then cat "$KJ_FAKE_INVITE"; fi\n', { mode: 0o755 });
   execSync("git init -q -b feat/KJC-TSK-0001-x && git commit -q --allow-empty -m init", { cwd: dir, env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" } });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   hook = path.join(dir, ".karajan", "harness", "sessionstart.mjs");
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));

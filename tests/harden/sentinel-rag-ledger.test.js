@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, post, stop, statePath;
 const env = {};
@@ -23,6 +24,7 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-rag-ledger-"));
   execSync("git init -q -b main && git commit -q --allow-empty -m init", { cwd: dir, env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" } });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   stop = path.join(dir, ".karajan", "harness", "stop.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");

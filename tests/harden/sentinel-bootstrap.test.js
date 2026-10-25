@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, postScript, stopScript;
 const run = (script, payload) =>
@@ -24,6 +25,7 @@ beforeEach(() => {
   fs.mkdirSync(path.join(dir, "src"));
   execSync("git init -q -b main", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   postScript = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
   stopScript = path.join(dir, ".karajan", "harness", "stop.mjs");
 });
