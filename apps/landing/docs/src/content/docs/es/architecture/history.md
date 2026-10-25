@@ -1867,6 +1867,12 @@ Los roles leían documentos enteros: el fichero de tarea, los ADRs, una spec de 
 
 La misma tarde cerró la épica del RAG con un número en vez de una intuición: el cross-encoder, medido en el corpus fijo, mantuvo el MRR y dobló la p95, así que queda como un interruptor que enciende el usuario. Y un día con tres cuentas de GitHub en una máquina enseñó a `kj hu` a negarse a escribir el board compartido con una cuenta que el clon no declaró.
 
+## Phase 153: v4.65.0, kj se apoya en atril
+
+La 5.0.0 es el paso del núcleo a atril (ADR 0021), y esta versión da sus dos primeros pasos. Un proyecto con un almacén de atril en `.karajan/` da a cada rol el bloque que atril resuelve para la tarea, acotado por `skills.max_per_role`; `kj skills` pasa las órdenes de atril al propio atril. El resto del cambio espera al bridge, el sync, el catálogo y el servidor MCP de atril, que construye Jorge del Casar. Publicar atril costó un día entero: dos accesos con código de recuperación dejaron la cuenta del scope en la retención de 72 horas de npm, y la salida fue la que npm diseñó para una familia de paquetes, convertir `@karajan-family` en organización (ADR 0028), para que cualquier propietario publique con su propia cuenta.
+
+El mismo día cerró una petición del campo: una review de terceros puede pedir a una IA de otra familia que confirme, rebaje o descarte cada hallazgo, leyendo solo su hunk. La review se ganó el sueldo dos veces en seguridad: el texto del hallazgo y el hunk viajan ahora entre marcadores que no pueden falsificar, y un hallazgo de seguridad o crítico queda fuera del alcance del verificador.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

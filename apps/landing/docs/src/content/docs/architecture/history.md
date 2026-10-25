@@ -1868,6 +1868,12 @@ Roles read whole documents: the task file, the ADRs, a spec of any format, even 
 
 The same afternoon closed the RAG epic with a number instead of a hunch: the cross-encoder, measured on the frozen corpus, kept the MRR and doubled the p95, so it stays a switch the user turns on. And a day with three GitHub accounts on one machine taught `kj hu` to refuse writing the shared board as an account the clone did not declare.
 
+## Phase 153: v4.65.0, kj stands on atril
+
+The 5.0.0 is the core switch to atril (ADR 0021), and this release is its first two steps. A project with an atril store under `.karajan/` gives each role the block atril resolves for the task, bounded by `skills.max_per_role`; `kj skills` hands atril's commands to atril itself. The rest of the switch waits for atril's bridge, sync, catalog and MCP server, which Jorge del Casar builds. Publishing atril took a day of its own: two recovery-code sign-ins put the scope's account on npm's 72-hour hold, and the way out was the one npm designed for a family of packages, turning `@karajan-family` into an organization (ADR 0028), so any owner publishes with their own account.
+
+The same day closed a request from the field: a third-party review can ask an AI of another family to confirm, downgrade or reject each finding, reading only its hunk. The review earned its keep twice on security: the finding's text and the hunk now travel fenced between markers they cannot forge, and a security or critical finding is out of the verifier's reach.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

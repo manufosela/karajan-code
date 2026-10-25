@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.65.0] - 2026-10-25
+
+Minor. **kj starts standing on atril, and a third-party review can have its findings verified.**
+
+### Added
+
+- **The roles get their skills from atril** (ADR 0021, step 15a, KJC-TSK-1188): a project with an atril store under `.karajan/` (`skills/`, `commands/`, `agents/`) gets each role's block from atril's `resolve()`, bounded by the new `skills.max_per_role` (default 3), each skill named with the path to read; a command or an agent in the block never passes as a skill. Without a store, the project's skills and the addyosmani catalog answer as before. kj now depends on `@karajan-family/atril`, published as 1.0.0 the same day.
+- **`kj skills` hands atril's commands to atril** (ADR 0021, step 15e, KJC-TSK-1193): `kj skills search|route|scan|install|remove|graph|enrich|config` run atril's own CLI on the `.karajan` store (or the `--root` you name), with atril's output and exit code. The cache actions (`list`, `clear-cache`, `sync-addyosmani`, `list-addyosmani`) stay until step 16.
+- **`kj review --third-party --verifier <provider> [--verifier-model <model>]`** (#2369, KJC-TSK-1194, KJC-TSK-1195): an AI of another provider family reads each finding with only its hunk and answers confirmed, downgraded or rejected. Rejected findings leave `findings` and are listed in `verification.rejected` with their reason; a downgrade can only lower the severity; a security or critical finding is never rejected nor downgraded; anything not answered clearly stays as it was, counted unverified. The reviewer's own family is refused, a failing verifier leaves every finding as it was with `verification.error`, and findings now carry their `category`.
+
+### Changed
+
+- The single-file binary inlines atril's own version at build time, so it starts with atril inside.
+
 ## [4.64.1] - 2026-10-24
 
 Patch. **Security: no artifact of the family runs on an unpatched Node.** The release workflow rebuilds the SEA binaries on Node 22.23.4 or later; the policy workflow pins the published 4.64.0 for checkouts without `bin/kj.js` (KJC-TSK-1187).
