@@ -262,6 +262,44 @@ describe("the seal covers the governance config (KJC-TSK-1032)", () => {
     expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(".github/workflows/kj-policy.yml");
   });
 
+  // KJC-TSK-1207 (ADR 0030): the host settings decide which guard runs.
+  const settings = () => join(repo, ".claude", "settings.json");
+  const hashOf = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
+
+  it("versioned host settings are sealed and committed with the seal", async () => {
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(settings(), "{}\n");
+    git(["add", "-A"]);
+    git(["commit", "-qm", "settings", "--no-verify"]);
+    writeFileSync(settings(), '{"hooks":{}}\n');
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".claude/settings.json", sha256: hashOf(settings()) });
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(".claude/settings.json");
+  });
+
+  it("host settings that are untracked but not ignored are committed with the seal, never taken for local", async () => {
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(settings(), '{"hooks":{}}\n');
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".claude/settings.json", sha256: hashOf(settings()) });
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(".claude/settings.json");
+  });
+
+  it("ignored host settings are sealed by their hash alone, and git is never asked to add them", async () => {
+    writeFileSync(join(repo, ".gitignore"), ".claude/\n");
+    git(["add", ".gitignore"]);
+    git(["commit", "-qm", "ignore", "--no-verify"]);
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(settings(), '{"hooks":{}}\n');
+    writeFileSync(policy(), "version: 1\ninvariants: []\n# v3\n");
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".claude/settings.json", sha256: hashOf(settings()), local: true });
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).not.toContain(".claude/settings.json");
+  });
+
   it("a deleted policy.yml is recorded as deleted and committed", async () => {
     rmSync(policy());
     expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);

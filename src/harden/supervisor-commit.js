@@ -33,8 +33,12 @@ export const GOVERNANCE_FILES = [".karajan/policy.yml", ".karajan/rules.yml"];
 // KJC-BUG-0400: the CI workflows are sealed the same way, by hash: a PR could
 // otherwise rewrite the check that judges it and pass with a forged seal.
 const WORKFLOW_FILE = /^\.github\/workflows\/[^/]+\.ya?ml$/;
-/** A file the seal covers by its hash alone: the governance config and every CI workflow. */
-export const isSealedConfig = (file) => GOVERNANCE_FILES.includes(file) || WORKFLOW_FILE.test(file);
+// KJC-TSK-1207 (ADR 0030): with the guards run from the installed kj, the host
+// settings decide which guard runs. Committed where the project versions them;
+// where it ignores .claude/ (machine-local, like the guards) only their hash travels.
+export const HOST_SETTINGS = ".claude/settings.json";
+/** A file the seal covers by its hash alone: the governance config, every CI workflow and the host settings. */
+export const isSealedConfig = (file) => GOVERNANCE_FILES.includes(file) || WORKFLOW_FILE.test(file) || file === HOST_SETTINGS;
 
 const sha256 = (abs) => createHash("sha256").update(readFileSync(abs)).digest("hex");
 
@@ -97,9 +101,14 @@ export async function commitSupervisorRegeneration({
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   seal.confirm(deps.confirm);
-  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, ".github/workflows"]).split("\n").filter(Boolean));
+  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, HOST_SETTINGS, ".github/workflows"]).split("\n").filter(Boolean));
+  // Local only when git ignores it; untracked but not ignored, it is committed with the seal.
+  const gitIgnores = (file) => { try { run(["check-ignore", "-q", "--", file]); return true; } catch { return false; } };
+  const settingsHere = !tracked.has(HOST_SETTINGS) && existsSync(join(projectDir, HOST_SETTINGS));
+  const localSettings = settingsHere && gitIgnores(HOST_SETTINGS) ? [HOST_SETTINGS] : [];
+  const newSettings = settingsHere && localSettings.length === 0 ? [HOST_SETTINGS] : [];
   const onDisk = (() => { try { return readdirSync(join(projectDir, ".github", "workflows")).map((f) => `.github/workflows/${f}`); } catch { return []; } })();
-  const candidates = [...new Set([...GOVERNANCE_FILES, ...onDisk, ...tracked])].filter(isSealedConfig).sort();
+  const candidates = [...new Set([...GOVERNANCE_FILES, ...onDisk, ...tracked, ...newSettings])].filter(isSealedConfig).sort();
   const governance = candidates.filter((f) => existsSync(join(projectDir, f)) || tracked.has(f));
   const governanceDrift = governance.length === 0 ? [] : run(["status", "--porcelain", "--", ...governance]).split("\n").map((l) => l.slice(3).trim()).filter(Boolean);
   const drift = [...supervisorDrift({ projectDir, gitFn: run }), ...governanceDrift];
@@ -110,6 +119,7 @@ export async function commitSupervisorRegeneration({
     ...readdirSync(join(projectDir, HOOKS_PREFIX)).map((f) => HOOKS_PREFIX + f),
     ...harnessGuards(projectDir),
     ...governance.filter((f) => existsSync(join(projectDir, f))),
+    ...localSettings,
   ].sort();
   // KJC-BUG-0197: un guardia BORRADO se anota como borrado, igual que un hook.
   // No hacía falta para desencadenar el re-sello (la lista encoge, así que la
@@ -124,7 +134,7 @@ export async function commitSupervisorRegeneration({
     .map((f) => f?.file)
     .filter((f) => typeof f === "string" && f.startsWith(HARNESS_PREFIX) && !existsSync(join(projectDir, f)));
   const hashed = [
-    ...current.map((file) => ({ file, sha256: sha256(join(projectDir, file)) })),
+    ...current.map((file) => ({ file, sha256: sha256(join(projectDir, file)), ...(localSettings.includes(file) ? { local: true } : {}) })),
     ...drift.filter((f) => !existsSync(join(projectDir, f))).map((file) => ({ file, deleted: true })),
     ...goneGuards.map((file) => ({ file, deleted: true })),
   ];
