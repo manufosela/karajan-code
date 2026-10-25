@@ -1,7 +1,8 @@
 # El HU Board se llama Libretto: las historias de usuario son lo que la orquesta cuenta
 
-Status: proposed
+Status: accepted
 Date: 2026-10-24
+Accepted: 2026-10-25, por el mantenedor, junto con el ADR 0029.
 
 ## Context
 
