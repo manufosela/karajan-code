@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.64.1: security, no unpatched Node (current)
+### v4.65.0: kj stands on atril (current)
+
+A project with an atril store under `.karajan/` gives each role the block atril resolves for the task, bounded by `skills.max_per_role`, and `kj skills search|route|scan|install|remove|graph|enrich|config` run atril itself on that store: the first steps of the core switch that 5.0.0 completes. `kj review --third-party --verifier <provider>` asks an AI of another family to confirm, downgrade or reject each finding, reading only its hunk; rejected findings are listed apart, and a security or critical finding is never touched. `@karajan-family` is now an npm organization.
+
+### v4.64.1: security, no unpatched Node
 
 Node's security releases of 2026-10-21 fix an out-of-bounds write in the Brotli decoder (CVE-2026-111497, reachable through any `fetch` that receives `Content-Encoding: br`) and entropy caches frozen inside single-executable binaries (CVE-2026-106074). This patch rebuilds the SEA binaries on Node 22.23.4 or later, moves the Docker images from `node:20` to `node:22`, and makes `karajan-watch` and `karajan-rag` require a patched Node. Replace binaries of 4.64.0 and earlier, or install from npm on a patched Node.
 
