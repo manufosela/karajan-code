@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { guardCommand, installHarnessHooks } from "../../src/harden/harness-hooks.js";
+import { guardCommand, installHarnessHooks, mergeClaudeHooks } from "../../src/harden/harness-hooks.js";
 
 let dir, script;
 const runHook = (payload, env = {}) =>
@@ -67,6 +67,20 @@ describe("installHarnessHooks settings merge", () => {
     const all = JSON.stringify(JSON.parse(fs.readFileSync(settings, "utf8")).hooks.PreToolUse);
     expect(all).not.toContain("node .karajan");
     expect(all).toMatch(/(kj-hook|kj sentinel hook) pretooluse;/);
+  });
+});
+
+// KJC-BUG-0403: a project wired through kj sentinel hook, hardened again once kj-hook is on
+// the PATH, must end with one hook per guard, not both runners.
+describe("switching runner", () => {
+  it("replaces the other runner's command for the same guard instead of adding a second hook", () => {
+    const settings = path.join(dir, ".claude", "settings.json");
+    const viaKj = { type: "command", command: guardCommand("pretooluse", { blocking: true, viaKj: true }) };
+    fs.writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Write", hooks: [viaKj] }, { matcher: "Bash", hooks: [viaKj] }] } }));
+    mergeClaudeHooks({ projectDir: dir, logger: { info() {}, warn() {} }, entries: [{ event: "PreToolUse", matcher: "Write", script: "pretooluse.mjs" }, { event: "PreToolUse", matcher: "Bash", script: "pretooluse.mjs" }], viaKj: false });
+    const all = JSON.stringify(JSON.parse(fs.readFileSync(settings, "utf8")).hooks.PreToolUse);
+    expect(all).not.toContain("kj sentinel hook pretooluse;");
+    expect((all.match(/then kj-hook pretooluse;/g) || []).length).toBe(2);
   });
 });
 

@@ -50,15 +50,16 @@ export function guardCommand(guard, { blocking = false, viaKj = isSea() || !kjHo
   return `if command -v ${bin} >/dev/null 2>&1; then ${run}; else ${missing}${blocking ? "; exit 2" : ""}; fi`;
 }
 
-/** The wiring kj harden wrote before ADR 0030: node running the project's copy. */
-const withoutLegacy = (list, script) => {
-  const legacy = `node ${join(".karajan", "harness", script)}`;
-  return list.flatMap((e) => {
-    if (!Array.isArray(e?.hooks) || !e.hooks.some((h) => h?.command === legacy)) return [e];
-    const hooks = e.hooks.filter((h) => h?.command !== legacy);
-    return hooks.length ? [{ ...e, hooks }] : [];
-  });
-};
+/**
+ * Drop the commands that ran this guard some other way: node on the project's copy
+ * (before ADR 0030) or the other runner (KJC-BUG-0403: switching runner must not
+ * leave the guard wired twice).
+ */
+const withoutStale = (list, stale) => list.flatMap((e) => {
+  if (!Array.isArray(e?.hooks) || !e.hooks.some((h) => stale.includes(h?.command))) return [e];
+  const hooks = e.hooks.filter((h) => !stale.includes(h?.command));
+  return hooks.length ? [{ ...e, hooks }] : [];
+});
 
 /**
  * KJC-TSK-1206 (ADR 0030): the wiring is what decides which guard runs, so it is
@@ -98,7 +99,7 @@ export function wiringState({ projectDir, entries }) {
  * basename; an entry is present when that script already appears under the
  * same event (and matcher, when given).
  */
-export function mergeClaudeHooks({ projectDir, logger = console, entries }) {
+export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj = isSea() || !kjHookOnPath() }) {
   const settingsPath = join(projectDir, ".claude", "settings.json");
   let settings = {};
   if (existsSync(settingsPath)) {
@@ -116,10 +117,12 @@ export function mergeClaudeHooks({ projectDir, logger = console, entries }) {
       return { wired: false };
     }
   }
-  const viaKj = isSea() || !kjHookOnPath();
   for (const { event, matcher, script } of entries) {
-    const list = withoutLegacy(Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [], script);
-    const command = guardCommand(script.replace(/\.mjs$/, ""), { blocking: event === "PreToolUse", viaKj });
+    const guard = script.replace(/\.mjs$/, "");
+    const blocking = event === "PreToolUse";
+    const stale = [`node ${join(".karajan", "harness", script)}`, guardCommand(guard, { blocking, viaKj: !viaKj })];
+    const list = withoutStale(Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [], stale);
+    const command = guardCommand(guard, { blocking, viaKj });
     const present = list.some(
       (e) => (e?.hooks || []).some((h) => h?.command === command) && (matcher === undefined || e?.matcher === matcher),
     );
