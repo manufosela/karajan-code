@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.65.1] - 2026-10-25
+
+Patch. **Security: the governance seal cannot be skipped from a pull request.** An audit of the seal (`supervisor-provenance.json` plus the phone signature) found three ways a PR could get around it; this release closes them in kj's code. Projects hardened with an earlier kj get the fixes by running `kj harden` again and sealing with `kj harden --commit`.
+
+### Security
+
+- **The CI judges a PR with the base branch's kj, never the PR's own** (KJC-BUG-0399): the policy workflow and the cross-AI verdicts workflow used to run the `bin/kj.js` of the PR's checkout, so a PR could change the judge that judged it. Both now fetch the base branch, install kj from it in a separate worktree and run that kj on the PR as data; the base ref is read from the event, so it also works on `pull_request_review`.
+- **CI workflows enter only sealed** (KJC-BUG-0400): `.github/workflows/*.yml` joins the governance files. Changing a workflow is denied by the policy unless the person seals it, and `kj harden --commit` records each workflow's hash in the provenance.
+- **Branch protection binds administrators** (KJC-BUG-0401): `kj harden` asks for `enforce_admins`, reports a protection that exempts admins with the command that fixes it, and reads the protection as the declared gh account, saying "unverified" instead of a false "not protected" when the active account is another.
+
+### Fixed
+
+- **`kj board` shows the shared board** (KJC-BUG-0397): its mirror is a `plan-*.json` of the project, so the board reads it; the misnamed legacy file is removed.
+- **Dead local remotes** (KJC-BUG-0398): `kj doctor` and the board's preflight name a remote that points to a missing local path, with the exact command to remove it, and the board shows `origin`.
+
 ## [4.65.0] - 2026-10-25
 
 Minor. **kj starts standing on atril, and a third-party review can have its findings verified.**
