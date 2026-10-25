@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.66.1] - 2026-10-25
+
+Patch.
+
+### Fixed
+
+- **Switching runner no longer wires a guard twice** (KJC-BUG-0403): a project wired through `kj sentinel hook` (with `kj-hook` not on the PATH yet) and hardened again once `kj-hook` is there kept the old entries next to the new ones, so every guard ran twice. `kj harden` now replaces the other runner's command for each guard. Run `kj harden` again if a project was moved over with 4.66.0 before `kj-hook` was on its PATH.
+
 ## [4.66.0] - 2026-10-25
 
 Minor. **The Sentinel's guards run from the installed kj, not from files in the project** (ADR 0030, KJC-BUG-0402). A process the agent started apart could rewrite the guards in `.karajan/harness`; editing the project no longer changes what guards it. Run `kj harden` to move a project over, then seal with `kj harden --commit`.
