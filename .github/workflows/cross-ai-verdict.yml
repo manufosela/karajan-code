@@ -29,7 +29,8 @@ jobs:
       # KJC-BUG-0399: the judge is the base branch's kj, checked out apart; the PR is only data.
       - name: The base branch's kj, apart from the PR
         env:
-          BASE_REF: ${{ github.base_ref }}
+          # Set on pull_request and pull_request_review alike (github.base_ref is empty on a review).
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
           git worktree add --detach "$RUNNER_TEMP/kj-judge" "origin/${BASE_REF}"

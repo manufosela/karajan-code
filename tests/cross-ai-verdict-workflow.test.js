@@ -19,8 +19,16 @@ describe("cross-ai-verdict workflow", () => {
     expect(wf.permissions).toEqual({ contents: "read", "pull-requests": "read" });
     expect(job.steps[0].with["fetch-depth"]).toBe(0);
     const verify = job.steps.find((s) => String(s.run ?? "").includes("--verify-pr"));
-    expect(verify.run).toContain("node bin/kj.js review --verify-pr");
+    // KJC-BUG-0399: the judge is the base branch's kj, never the PR's own.
+    expect(verify.run).toContain('node "$RUNNER_TEMP/kj-judge/bin/kj.js" review --verify-pr');
     expect(verify.env.GH_TOKEN).toContain("github.token");
+  });
+
+  it("checks out the base branch's kj apart, from a base ref every trigger carries", () => {
+    const judge = job.steps.find((s) => String(s.run ?? "").includes("git worktree add"));
+    expect(judge.env.BASE_REF).toBe("${{ github.event.pull_request.base.ref }}");
+    expect(judge.run).toContain('git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"');
+    expect(judge.run).toContain('git worktree add --detach "$RUNNER_TEMP/kj-judge" "origin/${BASE_REF}"');
   });
 
   it("pins every action to a commit sha", () => {
