@@ -1,7 +1,8 @@
 # La integridad de los guardias del Sentinel frente a procesos fuera de la sesion
 
-Status: proposed
+Status: accepted
 Date: 2026-10-25
+Accepted: 2026-10-25, opción A, por el mantenedor.
 
 ## Context
 
@@ -21,10 +22,10 @@ B) Comprobar la integridad en cada PreToolUse, contra el kj instalado, y no fall
 
 C) Como si el código no existiera: el Sentinel no defiende frente a procesos del mismo usuario y lo dice; la integridad la dan el usuario separado del sistema para el agente y el CI. Es lo honesto, pero deja sin red al usuario que no separa usuarios.
 
-## Decision (propuesta)
+## Decision
 
-A, más dos cambios pequeños: la comprobación de integridad también al arrancar la sesión (SessionStart) y antes de cada commit (pre-commit), y la manipulación detectada deja de fallar abierta: bloquea con el remedio (`kj harden`), porque una manipulación no es un fallo del Sentinel. Se mantiene el fallo abierto para los errores propios del Sentinel (estado corrupto, git caído). La documentación dice el límite del mismo usuario y enlaza la guía de endurecimiento.
+A, con el arranque medido al aceptarla: `kj --version` tarda 0,6 s y `node` solo 0,03 s, y cada llamada a una herramienta pasa por dos o tres hooks. Por eso el cableado no llama al CLI completo (`kj sentinel hook <nombre>`) sino a un ejecutable mínimo del paquete, `kj-hook <nombre>`, que importa solo el guardia pedido de una lista cerrada. Más dos cambios pequeños: la comprobación de integridad también al arrancar la sesión (SessionStart) y antes de cada commit (pre-commit), y la manipulación detectada deja de fallar abierta: bloquea con el remedio (`kj harden`), porque una manipulación no es un fallo del Sentinel. Se mantiene el fallo abierto para los errores propios del Sentinel (estado corrupto, git caído). La documentación dice el límite del mismo usuario y enlaza la guía de endurecimiento.
 
 ## Consequences
 
-La lógica de los guardias deja de poder cambiarse editando el proyecto; lo que se puede tocar fuera de la sesión es el cableado de `.claude/settings.json`, que una PR no puede cambiar sin que la policy lo deniegue y que el SessionStart comprueba. Cada hook arranca kj: se mide la latencia y, si pasa de un umbral, se agrupan los hooks en un solo arranque. Migración: `kj harden` reescribe el cableado y retira los `.mjs`; es un cambio del supervisor, así que entra con el sello de la persona.
+La lógica de los guardias deja de poder cambiarse editando el proyecto; lo que se puede tocar fuera de la sesión es el cableado de `.claude/settings.json`, que una PR no puede cambiar sin que la policy lo deniegue y que el SessionStart comprueba. Cada hook arranca `kj-hook`, no el CLI: el coste por hook se queda cerca del de hoy (`node` más el guardia). Migración: `kj harden` reescribe el cableado y retira los `.mjs`; es un cambio del supervisor, así que entra con el sello de la persona.
