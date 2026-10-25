@@ -153,3 +153,9 @@ export function resolve({ task, role, budget = {}, projectDir, root, userRoot, e
   }
   return resolveBlock(keyOf(best), scanOpts, budget);
 }
+
+/** A block as the files to read, not their content: a subagent carries its own block. */
+export const blockPaths = (block) => block.map(({ name, kind, path, as, block: own }) => ({
+  name, kind, path, as,
+  ...(own && { block: blockPaths(own) }),
+}));
