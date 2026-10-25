@@ -67,6 +67,7 @@
   ],
   "bin": {
     "kj": "bin/kj.js",
+    "kj-hook": "bin/kj-hook.js",
     "kj-tail": "bin/kj-tail",
     "kj-trash": "packages/ai-trash/bin/kj-trash.js",
     "karajan-mcp": "bin/karajan-mcp.js",
