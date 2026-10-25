@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { canonicalHarnessBody, installSentinelHooks, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
+import { wireLegacy } from "./_legacy-wiring.js";
 
 let repo;
 const guard = (name) => join(repo, ".karajan", "harness", name);
@@ -34,6 +35,7 @@ beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), "kj-own-prov-"));
   mkdirSync(join(repo, ".claude"), { recursive: true });
   installSentinelHooks({ projectDir: repo, logger: { info: () => {}, warn: () => {} } });
+  wireLegacy(repo); // KJC-TSK-1206: the guard files are judged where they are what runs
 });
 afterEach(() => rmSync(repo, { recursive: true, force: true }));
 

@@ -7,6 +7,7 @@ import path from "node:path";
 import { execSync } from "node:child_process";
 import { shellSegments, headIndex, shortOpts, optionValues, stripInertQuotes, withoutRedirections, isPublishCommand } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks, canonicalHarnessBody, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
+import { wireLegacy } from "./_legacy-wiring.js";
 
 // KJC-BUG-0333 (#2093): the release gate fired on a read-only chain because a quoted
 // argument of another command (a kj rag query text) said "npm ... publish". A publish
@@ -132,6 +133,7 @@ describe("installed into the harness", () => {
 
   it("a guard kj never installed is new, not tampering: it is written; one kj installed and is gone still blocks", () => {
     installSentinelHooks({ projectDir: dir });
+    wireLegacy(dir); // KJC-TSK-1206: the guard files are judged where they are what runs
     const harness = path.join(dir, ".karajan", "harness");
     const recordPath = path.join(harness, "installed.json");
     const record = JSON.parse(fs.readFileSync(recordPath, "utf8"));
