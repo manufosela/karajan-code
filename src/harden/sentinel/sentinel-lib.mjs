@@ -1,13 +1,23 @@
 // kj sentinel shared lib (KJC-TSK-0714) — managed by `kj harden`.
 // Single source for every sentinel script: state, branch, classification,
 // and violations.
-import { readFileSync, writeFileSync } from "node:fs";
+import process from "node:process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
-export const STATE = join(here, "sentinel-state.json");
-export const ROOT = join(here, "..", "..");
+// KJC-TSK-1202 (ADR 0030): installed in a project the guard sits in .karajan/harness,
+// two levels below its root; run from the kj package, the project is the one the
+// host names (CLAUDE_PROJECT_DIR) or the working directory, at its git root.
+const installed = basename(here) === "harness" && basename(dirname(here)) === ".karajan";
+const projectRoot = () => {
+  const start = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  try { return execSync("git rev-parse --show-toplevel", { cwd: start, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() || start; }
+  catch { return start; }
+};
+export const ROOT = installed ? join(here, "..", "..") : projectRoot();
+export const STATE = join(ROOT, ".karajan", "harness", "sentinel-state.json");
 // INF-A (KJC-TSK-0758): infra IS source — terraform/k8s/shell/Docker edits
 // engage the method like app code; *_test.* files (terratest) are tests.
 export const TESTS = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z]+$|_test\.[a-z]+$/;
@@ -15,7 +25,10 @@ export const CODE = /\.(m?[jt]sx?|c[jt]s|py|go|rs|java|rb|php|cs|swift|kt|astro|
 export const CARD = new RegExp("\\b[a-z][a-z0-9]{1,9}(?:-[a-z][a-z0-9]{1,9})*-\\d{1,6}\\b(?!\\.\\d)", "i");
 export const BASE_BRANCHES = new Set(["main", "master"]);
 export const load = () => { try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return {}; } };
-export const save = (state) => writeFileSync(STATE, JSON.stringify(state, null, 2));
+export const save = (state) => {
+  mkdirSync(dirname(STATE), { recursive: true });
+  writeFileSync(STATE, JSON.stringify(state, null, 2));
+};
 export const doc = (a) => " — doc: https://karajancode.com/docs/guides/sentinel/#" + a;
 export const session = (state, sid) => {
   state.sessions ||= {};
