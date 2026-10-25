@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { HARNESS_BODIES, mergeClaudeHooks, writeHarnessScript } from "./harness-hooks.js";
+import { HARNESS_BODIES, mergeClaudeHooks, wiringState, writeHarnessScript } from "./harness-hooks.js";
 
 /** The harness lives at the PROJECT root — resolve it even from a subdir. */
 export function resolveSentinelRoot(dir = process.cwd()) {
@@ -126,6 +126,14 @@ function writeInstalledRecord(dir) {
  */
 export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, gitShowFn = null } = {}) {
   const root = projectDir || resolveSentinelRoot();
+  // KJC-TSK-1206 (ADR 0030): wired to the package runner, the guard that runs is
+  // the installed kj's, so the wiring is what can be tampered with and is checked.
+  // The governing guards; the tool gate (Write over an existing file) is a convenience.
+  const wiring = wiringState({ projectDir: root, entries: SENTINEL_WIRING });
+  if (wiring.missing.length > 0) {
+    return { ok: false, mismatched: wiring.missing, wiring: true, reason: "hooks de .claude/settings.json que ya no llaman a su guardia — restaura con kj harden" };
+  }
+  if (wiring.mode === "wiring") return { ok: true, mismatched: [], wiring: true };
   const dir = join(root, ".karajan", "harness");
   const installed = new Map();
   const mismatched = [];
@@ -229,31 +237,30 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
   if (deferred.length > 0) {
     logger?.info?.(`kj harden: ${deferred.join(", ")} se queda como está — es lo que un humano selló, y avanzarlo es suyo: kj harden --commit`);
   }
-  const { wired } = mergeClaudeHooks({
-    projectDir,
-    logger,
-    entries: [
-      { event: "PreToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "pretooluse-sentinel.mjs" },
-      { event: "PreToolUse", matcher: "Bash", script: "pretooluse-sentinel.mjs" },
-      // KJC-TSK-0946 (ADR 0016): no matcher. The rules of the MD files are checked
-      // before EVERY tool call, MCP ones included.
-      { event: "PreToolUse", script: "pretooluse-rules.mjs" },
-      { event: "PostToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "posttooluse.mjs" },
-      // KJC-TSK-0765 board-sync: the merge (Bash) and the tracker move (MCP
-      // update_card) are observed AFTER the fact — found live: with only the
-      // edit matchers wired, the board-sync recorder never ran in production.
-      { event: "PostToolUse", matcher: "Bash", script: "posttooluse.mjs" },
-      { event: "PostToolUse", matcher: "mcp__.*__update_card", script: "posttooluse.mjs" },
-      // KJC-BUG-0236 (#1886): the rag-first ledger records MCP answers here;
-      // unwired, the official tool never satisfied the gate.
-      { event: "PostToolUse", matcher: "mcp__.*__kj_rag_query", script: "posttooluse.mjs" },
-      { event: "Stop", script: "stop.mjs" },
-      // KJC-TSK-0918 (ADR 0014): the critical rules back after a compaction or a resume.
-      { event: "SessionStart", matcher: "compact", script: "sessionstart.mjs" },
-      { event: "SessionStart", matcher: "resume", script: "sessionstart.mjs" },
-      // KJC-TSK-0949: a new session hears of MD rules with no gate, and nothing else.
-      { event: "SessionStart", matcher: "startup", script: "sessionstart.mjs" },
-    ],
-  });
+  const { wired } = mergeClaudeHooks({ projectDir, logger, entries: SENTINEL_WIRING });
   return { scripts: [lib, post, stop, pre], wired, deferred };
 }
+
+/** The Sentinel's place in the host settings: which guard each event runs. */
+export const SENTINEL_WIRING = [
+  { event: "PreToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "pretooluse-sentinel.mjs" },
+  { event: "PreToolUse", matcher: "Bash", script: "pretooluse-sentinel.mjs" },
+  // KJC-TSK-0946 (ADR 0016): no matcher. The rules of the MD files are checked
+  // before EVERY tool call, MCP ones included.
+  { event: "PreToolUse", script: "pretooluse-rules.mjs" },
+  { event: "PostToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "posttooluse.mjs" },
+  // KJC-TSK-0765 board-sync: the merge (Bash) and the tracker move (MCP
+  // update_card) are observed AFTER the fact — found live: with only the
+  // edit matchers wired, the board-sync recorder never ran in production.
+  { event: "PostToolUse", matcher: "Bash", script: "posttooluse.mjs" },
+  { event: "PostToolUse", matcher: "mcp__.*__update_card", script: "posttooluse.mjs" },
+  // KJC-BUG-0236 (#1886): the rag-first ledger records MCP answers here;
+  // unwired, the official tool never satisfied the gate.
+  { event: "PostToolUse", matcher: "mcp__.*__kj_rag_query", script: "posttooluse.mjs" },
+  { event: "Stop", script: "stop.mjs" },
+  // KJC-TSK-0918 (ADR 0014): the critical rules back after a compaction or a resume.
+  { event: "SessionStart", matcher: "compact", script: "sessionstart.mjs" },
+  { event: "SessionStart", matcher: "resume", script: "sessionstart.mjs" },
+  // KJC-TSK-0949: a new session hears of MD rules with no gate, and nothing else.
+  { event: "SessionStart", matcher: "startup", script: "sessionstart.mjs" },
+];

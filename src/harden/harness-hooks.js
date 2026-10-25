@@ -61,6 +61,36 @@ const withoutLegacy = (list, script) => {
 };
 
 /**
+ * KJC-TSK-1206 (ADR 0030): the wiring is what decides which guard runs, so it is
+ * what gets verified. Every expected entry must call its guard, by the package
+ * runner or by the old `node .karajan/harness/<script>`; `missing` names each
+ * one that does not, and an unreadable settings file is missing everything.
+ * "files" = some entry still runs the project's copies, so those copies are live
+ * and verified as before; "wiring" = every entry runs the installed kj.
+ */
+export function wiringState({ projectDir, entries }) {
+  let hooks;
+  try {
+    hooks = JSON.parse(readFileSync(join(projectDir, ".claude", "settings.json"), "utf8"))?.hooks;
+  } catch {
+    hooks = null;
+  }
+  if (!hooks || typeof hooks !== "object") return { mode: "wiring", missing: [".claude/settings.json (sin hooks legibles)"] };
+  const missing = [];
+  let legacy = false;
+  for (const { event, matcher, script } of entries) {
+    const guard = script.replace(/\.mjs$/, "");
+    const runner = [true, false].map((viaKj) => guardCommand(guard, { blocking: event === "PreToolUse", viaKj }));
+    const old = `node ${join(".karajan", "harness", script)}`;
+    const here = (Array.isArray(hooks[event]) ? hooks[event] : []).filter((e) => e?.matcher === matcher).flatMap((e) => (Array.isArray(e?.hooks) ? e.hooks : []));
+    if (here.some((h) => runner.includes(h?.command))) continue;
+    if (here.some((h) => h?.command === old)) legacy = true;
+    else missing.push(`${event} → ${guard}`);
+  }
+  return { mode: legacy ? "files" : "wiring", missing: [...new Set(missing)] };
+}
+
+/**
  * Merge hook entries into .claude/settings.json. Preserve, never clobber:
  * invalid JSON or a hook event with an unexpected (non-array) shape is the
  * user's business — the file is left alone and the caller wires manually.
@@ -117,6 +147,12 @@ function resolveProjectRoot(dir) {
   }
 }
 
+/** The tool gate's place in the host settings. */
+export const HARNESS_WIRING = [
+  { event: "PreToolUse", matcher: "Write", script: "pretooluse.mjs" },
+  { event: "PreToolUse", matcher: "Bash", script: "pretooluse.mjs" },
+];
+
 /** Write the script and merge the PreToolUse entries into .claude/settings.json. */
 export function installHarnessHooks({ projectDir = process.cwd(), logger = console } = {}) {
   // KJC-BUG-0223: el harness es del proyecto y vive en su raiz. Instalado desde
@@ -126,13 +162,6 @@ export function installHarnessHooks({ projectDir = process.cwd(), logger = conso
   if (root !== projectDir) logger?.info?.(`kj harden: el harness es del proyecto, se instala en su raíz (${root})`);
   projectDir = root;
   const scriptAbs = writeHarnessScript(projectDir, "pretooluse.mjs", SCRIPT_BODY);
-  const { wired } = mergeClaudeHooks({
-    projectDir,
-    logger,
-    entries: [
-      { event: "PreToolUse", matcher: "Write", script: "pretooluse.mjs" },
-      { event: "PreToolUse", matcher: "Bash", script: "pretooluse.mjs" },
-    ],
-  });
+  const { wired } = mergeClaudeHooks({ projectDir, logger, entries: HARNESS_WIRING });
   return { script: scriptAbs, wired };
 }

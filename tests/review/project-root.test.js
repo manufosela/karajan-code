@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { readRagLedger } from "../../src/review/rag-ledger.js";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 import { installHarnessHooks } from "../../src/harden/harness-hooks.js";
+import { wireLegacy } from "../harden/_legacy-wiring.js";
 
 let repo, sub;
 const quiet = { info() {}, warn() {} };
@@ -41,6 +42,7 @@ describe("una sola respuesta a cual es la raiz del proyecto", () => {
 
   it("el veredicto sobre el harness no cambia por el directorio desde el que se mire", () => {
     // Un guard manipulado se ve manipulado desde los dos sitios, no solo desde uno.
+    wireLegacy(repo); // KJC-TSK-1206: the guard files are judged where they are what runs
     fs.writeFileSync(path.join(repo, ".karajan", "harness", "stop.mjs"), "// tocado a mano\n");
     expect(readRagLedger(repo).verified).toBe(false);
     expect(readRagLedger(sub).verified).toBe(false);

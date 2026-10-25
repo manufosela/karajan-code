@@ -10,6 +10,7 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 import { declareTestIdentity } from "./_test-identity.js";
+import { wireLegacy } from "./_legacy-wiring.js";
 
 let dir, postScript, stopScript, statePath, idEnv;
 const run = (script, payload, env = {}) =>
@@ -449,6 +450,7 @@ describe("self-protection + audited escapes (SEN-C)", () => {
 
   it("stop BLOCKS the turn on tampered scripts (root of trust: the installed kj, never the project tree)", async () => {
     const { verifySentinelScripts } = await import("../../src/harden/sentinel-hooks.js");
+    wireLegacy(dir); // KJC-TSK-1206: the guard files are judged where they are what runs
     fs.appendFileSync(postScript, "// tampered via indirection\n");
     expect(verifySentinelScripts({ projectDir: dir }).mismatched).toEqual(["posttooluse.mjs"]);
     const bin = path.join(dir, "verifybin");
