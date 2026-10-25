@@ -48,12 +48,10 @@ process.stdin.on("end", () => {
       try { tampered = JSON.parse(ver.stdout).mismatched || ["unknown"]; } catch { tampered = ["unknown"]; }
     }
     if (tampered.length) {
+      // KJC-TSK-1205 (ADR 0030): tampering is not a Sentinel failure, so it never
+      // fails open; the count stays as a record of how long it went unrestored.
       state.tamper_blocks = (state.tamper_blocks || 0) + 1;
       save(state);
-      if (state.tamper_blocks > 3) {
-        console.error("karajan sentinel: fail-open tras 3 bloqueos por manipulacion sin restaurar — corre kj harden y avisa a tu usuario" + doc("supervisor"));
-        process.exit(0);
-      }
       console.error("karajan sentinel: scripts del supervisor modificados fuera de kj harden (" + tampered.join(", ") + ") — restaura con kj harden antes de terminar; si lo cambiaste tu (humano), reinstalar lo deja en verde." + doc("supervisor"));
       process.exit(2);
     }

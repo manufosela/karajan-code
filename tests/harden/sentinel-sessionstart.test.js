@@ -70,6 +70,14 @@ describe("SessionStart hook", () => {
     expect(context("compact")).toMatch(/Karajan gobierna[\s\S]*3 sin gate/);
   });
 
+  // KJC-TSK-1205 (ADR 0030): integrity at the start of every session, not only at Stop.
+  it("a tampered supervisor is said at the very start, to the agent and to the person", () => {
+    fs.writeFileSync(path.join(fakeBin, "kj"), `#!/bin/sh\nif [ "$1" = sentinel ]; then echo '{"ok":false,"mismatched":["Stop → stop"]}'; exit 1; fi\n`, { mode: 0o755 });
+    const out = JSON.parse(run("startup").stdout);
+    expect(out.hookSpecificOutput.additionalContext).toMatch(/^Karajan: el supervisor está manipulado \(Stop → stop\)/);
+    expect(out.systemMessage).toMatch(/kj harden/);
+  });
+
   it("is wired in the host settings for startup, compact and resume", () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "settings.json"), "utf8"));
     const matchers = (cfg.hooks.SessionStart || []).filter((e) => /(kj-hook|kj sentinel hook) sessionstart;/.test(JSON.stringify(e))).map((e) => e.matcher);

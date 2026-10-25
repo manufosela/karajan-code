@@ -468,6 +468,16 @@ describe("self-protection + audited escapes (SEN-C)", () => {
     expect(run(stopScript, { session_id: "empty" }, { PATH: path.dirname(process.execPath) }).status).toBe(0);
   });
 
+  // KJC-TSK-1205 (ADR 0030): tampering is not a Sentinel failure, so it never fails open.
+  it("stop keeps blocking a tampered supervisor however many turns it takes", () => {
+    const bin = path.join(dir, "verifybin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\necho '{"ok":false,"mismatched":["Stop → stop"]}'\nexit 1\n`, { mode: 0o755 });
+    for (let turn = 1; turn <= 5; turn += 1) {
+      expect(run(stopScript, { session_id: "empty" }, { PATH: `${bin}:${process.env.PATH}` }).status, `turn ${turn}`).toBe(2);
+    }
+  });
+
   it("ADR 0015: no escape is recorded any more, so a green turn reports none", () => {
     run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_IDENTITY: "1" });
     run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
