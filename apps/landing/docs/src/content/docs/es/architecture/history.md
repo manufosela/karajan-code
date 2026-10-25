@@ -1873,6 +1873,12 @@ La 5.0.0 es el paso del núcleo a atril (ADR 0021), y esta versión da sus dos p
 
 El mismo día cerró una petición del campo: una review de terceros puede pedir a una IA de otra familia que confirme, rebaje o descarte cada hallazgo, leyendo solo su hunk. La review se ganó el sueldo dos veces en seguridad: el texto del hallazgo y el hunk viajan ahora entre marcadores que no pueden falsificar, y un hallazgo de seguridad o crítico queda fuera del alcance del verificador.
 
+## Phase 154: v4.66.0, los guardias corren desde kj
+
+Una auditoría del sello de gobierno pidió, para cada afirmación, la línea que la prueba. Salieron tres huecos al alcance de una pull request, cerrados en la 4.65.1; el cuarto era local. Los guardias del Sentinel eran ficheros del proyecto que ejecutaba la configuración del anfitrión, así que un proceso que el agente lanzara aparte podía reescribirlos, y la comprobación que lo notaría solo corría al cerrar el turno y se rendía tras tres bloqueos. El mantenedor eligió sacar los guardias del proyecto (ADR 0030): los hooks llaman a `kj-hook`, un ejecutable que carga un guardia del kj instalado en unos 30 ms, porque el CLI completo tardaba 260. Después, verify tuvo que comprobar el cableado en vez de los ficheros, el sello tuvo que cubrir la configuración (local donde git la ignora, así que solo viaja su hash), y la manipulación dejó de ser un fallo que el Sentinel perdona.
+
+El método demostró su valor por el camino. Codex rechazó el primer corte como un hueco de seguridad: añadía el runner pero seguía ejecutando las copias del proyecto. Solomon lo confirmó, porque los hallazgos de seguridad no se arbitran. Después Codex cazó, uno a uno, un fichero de configuración vaciado que volvía a las copias muertas, una configuración versionada que pasaba por no juzgable, una sin versionar tomada por ignorada y el contenido de un fichero local camino del móvil.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
