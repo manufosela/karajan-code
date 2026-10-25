@@ -4,9 +4,9 @@
  * and the rulesync opt-in. An absent file is DEFAULT_CONFIG; a bad field
  * fails loudly, naming it. Writes are atomic and deterministic.
  */
-import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { writeAtomic } from "./atomic.js";
 import { isMapping, KINDS, SLUG, sortKeys } from "./model.js";
 import { resolveRoot } from "./scan.js";
 
@@ -85,16 +85,6 @@ export function writeConfig(config, opts) {
   const path = configPath(opts);
   const text = `${JSON.stringify(normalize(config, path), sortKeys, 2)}\n`;
   mkdirSync(dirname(path), { recursive: true });
-  // A random name created exclusively: "wx" fails on anything already there, a symlink included.
-  const temp = `${path}.${randomUUID()}.tmp`;
-  let created = false;
-  try {
-    writeFileSync(temp, text, { flag: "wx" });
-    created = true;
-    renameSync(temp, path);
-  } catch (err) {
-    if (created) rmSync(temp, { force: true });
-    throw err;
-  }
+  writeAtomic(path, text);
   return path;
 }
