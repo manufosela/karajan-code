@@ -15,6 +15,7 @@
     "bin/"
   ],
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "js-yaml": "^4.2.0"
   },
   "engines": {
