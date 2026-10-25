@@ -6,10 +6,13 @@
  *   - clear-cache           : delete all cached metadata (forces re-install on next session).
  *   - sync-addyosmani       : force a git pull of addyosmani/agent-skills.
  *   - list-addyosmani       : enumerate slugs available in the cached catalog.
+ *   - search|route|scan|install|remove|graph|enrich|config : atril's commands,
+ *     run by atril itself on the .karajan store (ADR 0021, step 15e).
  */
 
 import { listCached, clearCache, getCacheRoot, DEFAULT_TTL_MS } from "../skills/skills-cache.js";
 import { refreshIfStale, listAvailableSlugs, getCatalogRoot, loadSkillBySlug } from "../skills/addyosmani-catalog.js";
+import { ATRIL_COMMANDS, runAtril } from "../skills/atril-cli.js";
 
 function humanAge(cachedAt) {
   const ms = Date.now() - Date.parse(cachedAt);
@@ -19,7 +22,9 @@ function humanAge(cachedAt) {
   return `${days.toFixed(1)}d ago`;
 }
 
-export async function skillsCommand({ action = "list" } = {}) {
+export async function skillsCommand({ action = "list", args = [], deps = { atril: runAtril } } = {}) {
+  // KJC-TSK-1193: atril's own commands go to atril, on the .karajan store.
+  if (ATRIL_COMMANDS.includes(action)) return deps.atril({ action, args });
   switch (action) {
     case "list":
       return listAction();
@@ -30,7 +35,7 @@ export async function skillsCommand({ action = "list" } = {}) {
     case "list-addyosmani":
       return listAddyosmaniAction();
     default:
-      console.error(`Unknown action: ${action}. Use: list | clear-cache | sync-addyosmani | list-addyosmani`);
+      console.error(`Unknown action: ${action}. Use: list | clear-cache | sync-addyosmani | list-addyosmani | ${ATRIL_COMMANDS.join(" | ")}`);
       return 1;
   }
 }

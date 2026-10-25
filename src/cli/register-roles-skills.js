@@ -9,11 +9,13 @@ import { withConfig } from "./_shared.js";
  */
 export function registerRolesSkills(program, { pkgVersion }) {
   program
-    .command("skills [action]")
-    .description("Manage the skill cache (actions: list | clear-cache | sync-addyosmani | list-addyosmani)")
-    .action(async (action) => {
+    .command("skills [action] [args...]")
+    .description("Manage the skill cache (list | clear-cache | sync-addyosmani | list-addyosmani) and, through atril, the .karajan store (search | route | scan | install | remove | graph | enrich | config)")
+    // KJC-TSK-1193: atril's options (--json, --kind, --role, --root) travel to atril untouched.
+    .allowUnknownOption()
+    .action(async (action, args) => {
       const { skillsCommand } = await import("../commands/skills.js");
-      const exitCode = await skillsCommand({ action: action || "list" });
+      const exitCode = await skillsCommand({ action: action || "list", args: args ?? [] });
       if (Number.isInteger(exitCode)) process.exit(exitCode);
     });
 
