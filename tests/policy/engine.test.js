@@ -164,8 +164,9 @@ describe("checkStagedDiff — el gate del resultado", () => {
   const { policy } = load(POLICY);
 
   it("flagea ficheros write-deny del diff y el presupuesto de líneas", () => {
-    const v = checkStagedDiff(policy, { role: "coder", files: ["src/ok.js", ".github/workflows/x.yml"], netLinesAdded: 250 });
-    expect(v.some((x) => x.rule_id === "roles.coder.write.deny" && x.file === ".github/workflows/x.yml")).toBe(true);
+    // A workflow now falls to the security default first (KJC-BUG-0400); the role rule is shown with an env file.
+    const v = checkStagedDiff(policy, { role: "coder", files: ["src/ok.js", "config/prod.env"], netLinesAdded: 250 });
+    expect(v.some((x) => x.rule_id === "roles.coder.write.deny" && x.file === "config/prod.env")).toBe(true);
     expect(v.some((x) => x.rule_id === "loc-budget" && x.reason.includes("250"))).toBe(true);
   });
 
@@ -213,6 +214,15 @@ describe("governance config in a diff (KJC-TSK-1033)", () => {
       expect(v, file).toMatchObject({ rule_id: "defaults.governance.write", file, enforcement: "deny", class: "security" });
       expect(v.reason).toMatch(/kj harden --commit/);
     }
+  });
+
+  // KJC-BUG-0400: a PR could rewrite the CI that judges it; the workflows enter sealed too.
+  it("a diff touching a CI workflow is the same security deny", () => {
+    for (const file of [".github/workflows/kj-policy.yml", ".github/workflows/fake-policy-check.yaml"]) {
+      const [v] = checkStagedDiff(policy, { role: "coder", files: [file], netLinesAdded: 1 });
+      expect(v, file).toMatchObject({ rule_id: "defaults.governance.write", file, enforcement: "deny", class: "security" });
+    }
+    expect(checkStagedDiff(policy, { role: "coder", files: [".github/CODEOWNERS", "docs/workflows/x.yml"], netLinesAdded: 1 })).toEqual([]);
   });
 
   it("other config files are not governance", () => {

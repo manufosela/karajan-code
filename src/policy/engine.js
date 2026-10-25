@@ -35,7 +35,8 @@ export const SUPERVISOR_DEFAULTS = [
     // KJC-TSK-1033 (owner's decision, 13-oct): a policy change is authorized where
     // it is USED (commit, CI, release), whatever wrote it: only the human's seal lifts it.
     id: "defaults.governance.write",
-    pattern: /(^|\/)\.karajan\/(policy|rules)\.yml\b/,
+    // KJC-BUG-0400: the CI workflows too; a PR could rewrite the check that judges it.
+    pattern: /(^|\/)\.karajan\/(policy|rules)\.yml\b|(^|\/)\.github\/workflows\/[^/\s]+\.ya?ml\b/,
     message: "es configuración de gobierno: solo entra sellada por la persona (kj harden --commit, firmado desde su móvil)",
   },
 ];

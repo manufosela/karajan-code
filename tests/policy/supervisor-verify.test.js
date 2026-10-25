@@ -270,6 +270,18 @@ describe("the governance config verifies by its sealed hash (KJC-TSK-1032)", () 
     expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toEqual(violations);
   });
 
+  // KJC-BUG-0400: a CI workflow verifies like the governance config, by its sealed hash.
+  it("a sealed workflow lifts its violation; one changed after the seal keeps it", () => {
+    const wf = ".github/workflows/kj-policy.yml";
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    writeFileSync(join(repo, wf), "name: Policy\n");
+    const violations = [{ rule_id: "defaults.governance.write", file: wf }];
+    writeProvenance([{ file: wf, sha256: sha("name: Policy\n") }]);
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toEqual([]);
+    writeFileSync(join(repo, wf), "name: Policy\n# always green\n");
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toEqual(violations);
+  });
+
   it("a sealed deletion verifies only while policy.yml stays gone", () => {
     writeProvenance([{ file: policy, deleted: true }]);
     expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(policy)).toBe(true);

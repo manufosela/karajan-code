@@ -247,6 +247,21 @@ describe("the seal covers the governance config (KJC-TSK-1032)", () => {
     expect(prov.files.map((f) => f.file)).not.toContain(".karajan/rules.yml");
   });
 
+  // KJC-BUG-0400: the CI workflows are sealed with the governance config.
+  it("a changed CI workflow is sealed, and a staged one is part of the seal, not foreign work", async () => {
+    const wf = join(repo, ".github", "workflows", "kj-policy.yml");
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    writeFileSync(wf, "name: Policy\n");
+    git(["add", "-A"]);
+    git(["commit", "-qm", "wf", "--no-verify"]);
+    writeFileSync(wf, "name: Policy\n# pinned to a new kj\n");
+    git(["add", ".github/workflows/kj-policy.yml"]);
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".github/workflows/kj-policy.yml", sha256: createHash("sha256").update(readFileSync(wf)).digest("hex") });
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(".github/workflows/kj-policy.yml");
+  });
+
   it("a deleted policy.yml is recorded as deleted and committed", async () => {
     rmSync(policy());
     expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
