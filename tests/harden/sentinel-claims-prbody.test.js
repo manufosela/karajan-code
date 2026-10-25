@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 import { declareTestIdentity } from "./_test-identity.js";
 
 let dir, pre, home, bin, idEnv;
@@ -52,6 +53,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(home, "kj.config.yml"), "base_branch: main\n");
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   idEnv = declareTestIdentity(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
 });

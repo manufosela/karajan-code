@@ -8,7 +8,7 @@
  * hooks, which is why the guaranteed level requires Claude as host (ADR).
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -194,17 +194,14 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
 }
 
 /**
- * Write the sentinel scripts (shared lib + state writer + gates) and wire them.
+ * Wire the Sentinel's hooks to the guards of the installed kj (ADR 0030).
  *
- * KJC-BUG-0193: a guard holding exactly what a human sealed is LEFT ALONE. This
- * is the command a session reaches for when it has edited the templates, and
- * rewriting the guards here un-sealed the ones actually running, so the very act
- * of unblocking destroyed the seal that made unblocking unnecessary. Advancing
- * them is a human act: `kj harden --commit` moves guards and seal together.
- * Anything nobody sealed is rewritten as before, because restoring a tampered
- * guard is still the right move.
+ * KJC-TSK-1208: no guard is copied into the project any more; what runs is the
+ * package's. Once the hooks call it, the copies an older kj wrote are dead code
+ * and are retired; the session state and the denial log stay. The next seal
+ * records them as deleted. Not wired (unreadable settings), nothing is removed.
  */
-export function installSentinelHooks({ projectDir = process.cwd(), logger = console, human = false, gitShowFn = null } = {}) {
+export function installSentinelHooks({ projectDir = process.cwd(), logger = console } = {}) {
   // KJC-BUG-0223: instalado desde un subdirectorio, esto sembraba un segundo
   // `.karajan/harness` ahi, y el gate (que mira otro sitio) pasaba a verlo. El
   // ritual quedaba "arreglado" y el arbol se llenaba de arneses huerfanos que
@@ -212,33 +209,21 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
   const root = resolveSentinelRoot(projectDir);
   if (root !== projectDir) logger?.info?.(`kj harden: el harness es del proyecto, se instala en su raíz (${root})`);
   projectDir = root;
-  const sealed = human ? new Map() : sealedByPath(projectDir, gitShowFn);
-  const deferred = [];
-  const keepsItsSeal = (name) => {
-    const sealedHash = sealed.get(`.karajan/harness/${name}`);
-    if (!sealedHash) return false;
-    try {
-      return sealedHash === createHash("sha256").update(readFileSync(join(projectDir, ".karajan", "harness", name), "utf8")).digest("hex");
-    } catch {
-      return false; // no hay contenido que un sello pueda cubrir
-    }
-  };
-  const [lib, post, stop, pre] = Object.entries(SCRIPT_BODIES).map(([name, body]) => {
-    if (keepsItsSeal(name)) {
-      const abs = join(projectDir, ".karajan", "harness", name);
-      // KJC-BUG-0325: only a sealed guard the current template would change is
-      // waiting for the human; one identical to it has nothing to advance.
-      if (readFileSync(abs, "utf8") !== body) deferred.push(name);
-      return abs;
-    }
-    return writeHarnessScript(projectDir, name, body);
-  });
-  writeInstalledRecord(join(projectDir, ".karajan", "harness"));
-  if (deferred.length > 0) {
-    logger?.info?.(`kj harden: ${deferred.join(", ")} se queda como está — es lo que un humano selló, y avanzarlo es suyo: kj harden --commit`);
-  }
+  mkdirSync(join(projectDir, ".karajan", "harness"), { recursive: true });
   const { wired } = mergeClaudeHooks({ projectDir, logger, entries: SENTINEL_WIRING });
-  return { scripts: [lib, post, stop, pre], wired, deferred };
+  const retired = wired ? retireGuardCopies(projectDir, [...Object.keys(SCRIPT_BODIES), INSTALLED_RECORD]) : [];
+  if (retired.length > 0) logger?.info?.(`kj harden: los guardias corren desde el kj instalado; retiradas las copias del proyecto (${retired.join(", ")})`);
+  return { wired, retired };
+}
+
+/** KJC-TSK-1208: remove the named files from .karajan/harness, returning those that were there. */
+export function retireGuardCopies(projectDir, names) {
+  const dir = join(projectDir, ".karajan", "harness");
+  return names.filter((name) => {
+    if (!existsSync(join(dir, name))) return false;
+    rmSync(join(dir, name));
+    return true;
+  });
 }
 
 /** The Sentinel's place in the host settings: which guard each event runs. */

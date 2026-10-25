@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 import { declareTestIdentity } from "./_test-identity.js";
 
 let dir, pre, idEnv;
@@ -21,6 +22,7 @@ beforeEach(() => {
   execSync("git init -q -b main && git add -A && git commit -q -m init", { cwd: dir, env: { ...process.env, ...gitEnv } });
   fs.appendFileSync(path.join(dir, ".git", "info", "exclude"), ".karajan/harness/\n.claude/\n");
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   idEnv = declareTestIdentity(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
 });

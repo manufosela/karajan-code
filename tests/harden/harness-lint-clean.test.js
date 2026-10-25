@@ -9,17 +9,15 @@ import { ESLint } from "eslint";
 import js from "@eslint/js";
 import globals from "globals";
 
-import { installHarnessHooks } from "../../src/harden/harness-hooks.js";
-import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
-const quiet = { info() {}, warn() {}, error() {} };
-
+// KJC-TSK-1208 (ADR 0030): kj harden copies no guard into the project any more; the
+// guards run from the package. Their exact bodies are linted where a project kept them.
 describe("generated harness is lint-clean", () => {
   let tmp;
   beforeAll(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-harness-lint-"));
-    installHarnessHooks({ projectDir: tmp, logger: quiet });
-    installSentinelHooks({ projectDir: tmp, logger: quiet });
+    placeGuardCopies(tmp);
   });
   afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 

@@ -42,7 +42,6 @@ import { policyAddCommand } from "../policy/add.js";
 import { withConfig } from "./_shared.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { verifySentinelScripts, resolveSentinelRoot } from "../harden/sentinel-hooks.js";
 import { runGuard } from "../harden/sentinel-guards.js";
 import { boardGate } from "../review/board-pending.js";
@@ -698,14 +697,15 @@ export function registerMeta(program, { pkgVersion }) {
   const sentinel = program.command("sentinel").description("Deterministic method supervisor wired into the harness hooks (Claude Code)");
   sentinel.command("status")
     .description("Print the per-session method facts (sources/tests edited, escapes used) and any open violation the Stop gate would block on")
-    .action(() => {
-      const script = join(resolveSentinelRoot(), ".karajan", "harness", "stop.mjs");
-      if (!existsSync(script)) {
+    .action(async () => {
+      if (!existsSync(join(resolveSentinelRoot(), ".karajan", "harness"))) {
         console.log("sentinel: not installed in this project — run `kj harden` (standard profile or higher)");
         process.exitCode = 1;
         return;
       }
-      process.exitCode = spawnSync("node", [script, "--status"], { stdio: "inherit" }).status ?? 0;
+      // KJC-TSK-1208 (ADR 0030): the Stop guard of this kj, in its report mode.
+      process.argv.push("--status");
+      await runGuard("stop");
     });
   sentinel.command("verify")
     .description("Verify the harness scripts match this kj install — the root of trust is the installed package, not the project tree; exit 1 lists what was modified")

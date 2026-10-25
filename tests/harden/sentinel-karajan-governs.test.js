@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, pre;
 const hook = (tool_name, tool_input, env = {}) => spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name, tool_input }),
@@ -16,6 +17,7 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-governs-"));
   execSync("git init -q -b main", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));

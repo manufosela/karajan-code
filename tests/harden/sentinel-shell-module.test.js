@@ -8,6 +8,7 @@ import { execSync } from "node:child_process";
 import { shellSegments, headIndex, shortOpts, optionValues, stripInertQuotes, withoutRedirections, isPublishCommand } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks, canonicalHarnessBody, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
 import { wireLegacy } from "./_legacy-wiring.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 // KJC-BUG-0333 (#2093): the release gate fired on a read-only chain because a quoted
 // argument of another command (a kj rag query text) said "npm ... publish". A publish
@@ -121,18 +122,16 @@ describe("installed into the harness", () => {
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-  it("writes sentinel-shell.mjs byte for byte, records it, and the PreToolUse imports it", () => {
-    installSentinelHooks({ projectDir: dir });
-    const harness = path.join(dir, ".karajan", "harness");
+  // KJC-TSK-1208 (ADR 0030): the module runs from the package; the pretooluse guard imports it there.
+  it("is the package's module, byte for byte what verify compares, and the PreToolUse imports it", () => {
     const source = fs.readFileSync(new URL("../../src/harden/sentinel/sentinel-shell.mjs", import.meta.url), "utf8");
-    expect(fs.readFileSync(path.join(harness, "sentinel-shell.mjs"), "utf8")).toBe(source);
     expect(canonicalHarnessBody("sentinel-shell.mjs")).toBe(source);
-    expect(Object.keys(JSON.parse(fs.readFileSync(path.join(harness, "installed.json"), "utf8")).files)).toContain("sentinel-shell.mjs");
-    expect(fs.readFileSync(path.join(harness, "pretooluse-sentinel.mjs"), "utf8")).toContain('from "./sentinel-shell.mjs"');
+    expect(canonicalHarnessBody("pretooluse-sentinel.mjs")).toContain('from "./sentinel-shell.mjs"');
   });
 
   it("a guard kj never installed is new, not tampering: it is written; one kj installed and is gone still blocks", () => {
     installSentinelHooks({ projectDir: dir });
+    placeGuardCopies(dir);
     wireLegacy(dir); // KJC-TSK-1206: the guard files are judged where they are what runs
     const harness = path.join(dir, ".karajan", "harness");
     const recordPath = path.join(harness, "installed.json");

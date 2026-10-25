@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 import { declareTestIdentity } from "./_test-identity.js";
 
 let dir, gate, post, statePath;
@@ -28,6 +29,7 @@ beforeEach(() => {
   // user.email/name explicitos: el runner de CI no tiene config global de git.
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   env = declareTestIdentity(dir);
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");

@@ -8,6 +8,7 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { stripTextOnlyCommandValues, stripTextOptionValues } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 const HC = ["kj", "harden", "--commit"].join(" ");
 
@@ -27,6 +28,7 @@ describe("kj handoff add under the PreToolUse Bash hook", () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-handoff-text-"));
     execSync("git init -q -b fix/KJC-BUG-0001-x", { cwd: dir });
     installSentinelHooks({ projectDir: dir });
+    placeGuardCopies(dir);
     pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));

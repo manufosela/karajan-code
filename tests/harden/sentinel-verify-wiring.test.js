@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { installHarnessHooks } from "../../src/harden/harness-hooks.js";
 import { installSentinelHooks, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
 import { wireLegacy } from "./_legacy-wiring.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 const quiet = { info: () => {}, warn: () => {} };
 
@@ -49,6 +50,7 @@ describe("sentinel verify over the wiring", () => {
   });
 
   it("a project still wired to node and its own copies is verified by those files, as before", () => {
+    placeGuardCopies(dir);
     wireLegacy(dir);
     const res = verifySentinelScripts({ projectDir: dir, gitShowFn: () => "{}" });
     expect(res.ok).toBe(true);

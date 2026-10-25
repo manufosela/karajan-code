@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, stop, home, bin;
 // The hook spawns `kj` from PATH and fails OPEN without it — correct for the
@@ -47,6 +48,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(home, "kj.config.yml"), "base_branch: main\n");
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   stop = path.join(dir, ".karajan", "harness", "stop.mjs");
 });
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(home, { recursive: true, force: true }); });

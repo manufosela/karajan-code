@@ -58,6 +58,9 @@ describe("pre-commit scans ADDED content for AI attribution (KJC-BUG-0164)", () 
   it("committing the generated .karajan/harness does not self-detect either", async () => {
     const { installSentinelHooks } = await import("../../src/harden/sentinel-hooks.js");
     installSentinelHooks({ projectDir: repo, logger: { info() {}, warn() {} } });
+    // KJC-TSK-1208: kj harden copies no guard any more; a project may still hold an older kj's.
+    const { placeGuardCopies } = await import("./_guard-copies.js");
+    placeGuardCopies(repo);
     git(["add", "--force", ".karajan/harness"]);
     expect(() => git(["commit", "-q", "-m", "chore: bootstrap kj harden harness"])).not.toThrow();
   });

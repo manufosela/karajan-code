@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 import { TEST_GH_USER, declareTestIdentity } from "./_test-identity.js";
 
 let dir, gate, stop, post, statePath;
@@ -34,6 +35,7 @@ beforeEach(() => {
     { cwd: dir },
   );
   installSentinelHooks({ projectDir: dir });
+  placeGuardCopies(dir);
   env = declareTestIdentity(dir);
   gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
   stop = path.join(dir, ".karajan", "harness", "stop.mjs");

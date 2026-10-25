@@ -8,6 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { guardCommand, installHarnessHooks } from "../../src/harden/harness-hooks.js";
 
 let dir, script;
@@ -17,7 +18,8 @@ const runHook = (payload, env = {}) =>
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-toolgate-"));
   installHarnessHooks({ projectDir: dir });
-  script = path.join(dir, ".karajan", "harness", "pretooluse.mjs");
+  // KJC-TSK-1208 (ADR 0030): the gate runs from the package; it needs no project.
+  script = fileURLToPath(new URL("../../src/harden/sentinel/pretooluse.mjs", import.meta.url));
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 

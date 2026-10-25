@@ -12,12 +12,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { handoffCommand } from "../../src/commands/handoff.js";
 import { addHandoff, listHandoffs, markHandoffDone, watchHandoffs } from "../../src/harden/handoff.js";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir;
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-handoff-watch-"));
   execSync("git init -q -b main && git checkout -q -b feat/KJC-TSK-0001-x", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
+    placeGuardCopies(dir);
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 

@@ -9,6 +9,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, bin, post;
 const fakeSize = (added) => {
@@ -30,6 +31,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(dir, "src", "a.js"), "x\n");
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git add -A && git commit -q -m init", { cwd: dir });
   installSentinelHooks({ projectDir: dir, logger: { info() {} } });
+  placeGuardCopies(dir);
   post = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
