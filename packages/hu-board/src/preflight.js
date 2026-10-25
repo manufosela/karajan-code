@@ -29,7 +29,8 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getHuBoardPlansDirs } from './db.js';
 
 function runQuiet(cmd, opts = {}) {
@@ -71,10 +72,24 @@ function checkGitRemote(projectDir) {
       blocking: false
     };
   }
-  // Capture first remote URL for display.
-  const firstLine = r.out.split('\n')[0] || '';
-  const remoteUrl = firstLine.split(/\s+/)[1] || '(unknown)';
-  return { id: 'git_remote', label: 'Repositorio remoto', status: 'ok', detail: remoteUrl, blocking: false };
+  // KJC-BUG-0398: origin is the remote that matters, not the first alphabetically; a remote
+  // whose URL is a local path that no longer exists is garbage, named with its removal.
+  // `git remote -v` is "<name>\t<url> (fetch|push)": a URL may hold spaces, and fetch and push may differ.
+  const entries = r.out.split('\n').map((line) => /^(\S+)\t(.+) \((?:fetch|push)\)$/.exec(line)).filter(Boolean).map(([, name, url]) => ({ name, url }));
+  const shown = (entries.find((e) => e.name === 'origin') ?? entries[0])?.url ?? '(unknown)';
+  // A local remote is an absolute or ./ ../ path (resolved from the project) or a file:// URL.
+  const localPath = (url) => {
+    if (url.startsWith('file://')) {
+      try { return fileURLToPath(url); } catch { return null; } // host-qualified or malformed: not judged
+    }
+    return /^(\/|\.\.?\/)/.test(url) ? resolve(projectDir, url) : null;
+  };
+  const dead = [...new Set(entries.filter(({ url }) => localPath(url) && !existsSync(localPath(url))).map((e) => e.name))];
+  if (dead.length === 0) return { id: 'git_remote', label: 'Repositorio remoto', status: 'ok', detail: shown, blocking: false };
+  return {
+    id: 'git_remote', label: 'Repositorio remoto', status: 'warn', detail: shown, blocking: false,
+    consequence: `Remotos que apuntan a carpetas que ya no existen: ${dead.join(', ')}. No sirven y confunden; bórralos con: ${dead.map((n) => `git remote remove -- '${n.replaceAll("'", "'\\''")}'`).join(' && ')}`,
+  };
 }
 
 function checkGitBranch(projectDir) {

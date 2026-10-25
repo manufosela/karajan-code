@@ -19,10 +19,13 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const STRATEGY_MANUAL = "manual";
 
+// KJC-BUG-0398: a remote's name is free text; quoted, it can never be read as a command.
+const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
 const git = (projectDir, args) => execFileSync("git", ["-C", projectDir, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
 const gitOk = (projectDir, args) => { try { git(projectDir, args); return true; } catch { return false; } };
 
@@ -74,6 +77,26 @@ export function createRepoStateCheck({ projectDir }) {
         symptoms.push({
           detail: "este clon no declara identidad, y el Sentinel denegará cada git y cada gh hasta que la declares",
           fix: "kj identity set --gh <usuario> --email <correo>",
+        });
+      }
+
+      // KJC-BUG-0398: a remote whose URL is a local folder that no longer exists is garbage
+      // (four /tmp imports lived two months here unnoticed, and the board showed one as the remote).
+      // `git remote -v` is "<name>\t<url> (fetch|push)": a URL may hold spaces, and fetch and push may differ.
+      // A local remote is an absolute or ./ ../ path (resolved from the project) or a file:// URL.
+      const localPath = (url) => {
+        if (url.startsWith("file://")) {
+          try { return fileURLToPath(url); } catch { return null; } // host-qualified or malformed: not judged
+        }
+        return /^(\/|\.\.?\/)/.test(url) ? resolve(dir, url) : null;
+      };
+      const dead = git(dir, ["remote", "-v"]).split("\n").map((l) => /^(\S+)\t(.+) \((?:fetch|push)\)$/.exec(l))
+        .filter((m) => m && localPath(m[2]) && !existsSync(localPath(m[2]))).map((m) => m[1]);
+      const deadRemotes = [...new Set(dead)];
+      if (deadRemotes.length) {
+        symptoms.push({
+          detail: `remotos que apuntan a carpetas que ya no existen: ${deadRemotes.join(", ")}`,
+          fix: deadRemotes.map((n) => `git remote remove -- ${shellQuote(n)}`).join(" && "),
         });
       }
 
