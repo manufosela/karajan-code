@@ -137,14 +137,6 @@ vi.mock("../src/hu/store.js", () => ({
   updateHuStatus: vi.fn(async (dir, id, status) => ({ id, status }))
 }));
 
-vi.mock("../src/skills/openskills-client.js", () => ({
-  isOpenSkillsAvailable: vi.fn(async () => true),
-  installSkill: vi.fn(async () => ({ ok: true })),
-  removeSkill: vi.fn(async () => ({ ok: true })),
-  listSkills: vi.fn(async () => ({ ok: true, skills: [] })),
-  readSkill: vi.fn(async () => ({ ok: true, content: "" }))
-}));
-
 vi.mock("node:fs/promises", () => ({
   default: {
     access: vi.fn(async () => {}),
@@ -318,53 +310,12 @@ describe("server-handlers: handleToolCall", () => {
     });
   });
 
-  // --- handleSkills ---
-
-  describe("handleSkills (kj_skills)", () => {
-    it("returns error when action is missing", async () => {
-      const result = await handleToolCall("kj_skills", {}, mockServer());
-      expect(result.ok).toBe(false);
-      expect(result.error).toMatch(/action/i);
-    });
-
-    it("dispatches install correctly", async () => {
-      const { installSkill } = await import("../src/skills/openskills-client.js");
-      const result = await handleToolCall("kj_skills", { action: "install", source: "my-skill" }, mockServer());
-      expect(result.ok).toBe(true);
-      expect(installSkill).toHaveBeenCalled();
-    });
-
-    it("returns error for install without source", async () => {
-      const result = await handleToolCall("kj_skills", { action: "install" }, mockServer());
-      expect(result.ok).toBe(false);
-      expect(result.error).toMatch(/source/i);
-    });
-
-    it("dispatches remove correctly", async () => {
-      const { removeSkill } = await import("../src/skills/openskills-client.js");
-      const result = await handleToolCall("kj_skills", { action: "remove", name: "my-skill" }, mockServer());
-      expect(result.ok).toBe(true);
-      expect(removeSkill).toHaveBeenCalled();
-    });
-
-    it("dispatches list correctly", async () => {
-      const { listSkills } = await import("../src/skills/openskills-client.js");
+  describe("kj_skills, retired (ADR 0021: atril mcp serves skills)", () => {
+    it("is neither listed nor dispatched", async () => {
+      const { tools } = await import("../src/mcp/tools.js");
+      expect(tools.map((tool) => tool.name)).not.toContain("kj_skills");
       const result = await handleToolCall("kj_skills", { action: "list" }, mockServer());
-      expect(result.ok).toBe(true);
-      expect(listSkills).toHaveBeenCalled();
-    });
-
-    it("dispatches read correctly", async () => {
-      const { readSkill } = await import("../src/skills/openskills-client.js");
-      const result = await handleToolCall("kj_skills", { action: "read", name: "my-skill" }, mockServer());
-      expect(result.ok).toBe(true);
-      expect(readSkill).toHaveBeenCalled();
-    });
-
-    it("returns error for unknown action", async () => {
-      const result = await handleToolCall("kj_skills", { action: "purge" }, mockServer());
-      expect(result.ok).toBe(false);
-      expect(result.error).toMatch(/unknown/i);
+      expect(result).toMatchObject({ ok: false, error: "Unknown tool: kj_skills" });
     });
   });
 

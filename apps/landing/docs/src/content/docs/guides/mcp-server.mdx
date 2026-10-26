@@ -100,7 +100,7 @@ node /path/to/karajan-code/src/mcp/server.js
 
 ## Available tools
 
-Karajan Code exposes **27 MCP tools**:
+Karajan Code exposes **26 MCP tools**:
 
 | Tool | Required params | Description |
 |------|----------------|-------------|
@@ -125,10 +125,11 @@ Karajan Code exposes **27 MCP tools**:
 | `kj_board` | `action` | Start/stop/status HU Board dashboard |
 | `kj_hu` | `action` | Manage user stories (create, update, list, get) in the local HU Board |
 | `kj_suggest` | `observation` | Send an observation to Solomon without interrupting the pipeline |
-| `kj_skills` | — | List, install, or remove domain-specific skills for pipeline roles |
 | `kj_undo` | — | Revert last pipeline run (soft reset or hard) |
 
 See the [MCP Tools Reference](/docs/reference/mcp-tools/) for complete parameter documentation.
+
+Skills, commands and subagents are served by atril, not by the `kj` server (since 5.0, `kj_skills` is gone). To search, resolve, install or remove them over MCP, add `atril mcp` as a second server.
 
 ## Using kj_run
 

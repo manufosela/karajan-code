@@ -1,5 +1,5 @@
 /**
- * HU, Skills, and Suggest handler logic.
+ * HU and Suggest handler logic (skills moved to `atril mcp`, ADR 0021).
  * Extracted from server-handlers.js for maintainability.
  */
 
@@ -44,40 +44,6 @@ export async function handleHu(a, server) {
     }
     default:
       return failPayload(`Unknown hu action: ${action}`);
-  }
-}
-
-export async function handleSkills(a) {
-  const action = a.action;
-  if (!action) return failPayload("Missing required field: action");
-
-  const { isOpenSkillsAvailable, installSkill, removeSkill, listSkills, readSkill } =
-    await import("../../skills/openskills-client.js");
-
-  const opts = { projectDir: a.projectDir || null };
-
-  switch (action) {
-    case "install": {
-      if (!a.source) return failPayload("Missing required field: source (required for install)");
-      const available = await isOpenSkillsAvailable();
-      if (!available) {
-        return failPayload("OpenSkills CLI is not available. Install it with: npm install -g openskills");
-      }
-      return installSkill(a.source, { ...opts, global: a.global || false });
-    }
-    case "remove": {
-      if (!a.name) return failPayload("Missing required field: name (required for remove)");
-      return removeSkill(a.name, opts);
-    }
-    case "list": {
-      return listSkills(opts);
-    }
-    case "read": {
-      if (!a.name) return failPayload("Missing required field: name (required for read)");
-      return readSkill(a.name, opts);
-    }
-    default:
-      return failPayload(`Unknown skills action: ${action}`);
   }
 }
 
