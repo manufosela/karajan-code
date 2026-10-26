@@ -14,3 +14,9 @@ Proposed: (1) Common state travels with the project in git, under .karajan/ re-i
 ## Consequences
 
 A teammate cloning the project gets the same config, team rules, plans, ADRs, catalogs and board, and a wiki with the same sources; nobody shares secrets, identities or caches. Personal config needs the split between kj.config.yml and kj.config.local.yml, and existing projects need a migration (plans out of the global symlink, other projects data out of .karajan). Committed plans and config show in diffs and reviews like any other change.
+
+## Amendments
+
+**2026-10-26, shared plans (the maintainer's decision while implementing it).** A team zone already existed: `<project>/.karajan-shared/` (KJC-PRP-0002). Plans are private in `~/.karajan/plans/` until `kj plan share <id>` copies one to `.karajan-shared/plans/`, which travels in git and which the HU Board reads and badges. Points (1) and (4) change accordingly: shared plans travel in `.karajan-shared/plans/`, not in `.karajan/plans/`, which stays local. The wiki sources are `docs/` and `.karajan-shared/plans/`. A plan is personal until shared, so a draft never reaches the team by accident.
+
+**2026-10-26, kj.config.yml.** Its schema allows `sonarqube.token`, `sonarqube.admin_password` and `sonarcloud.token`. It joins the shared state only once a check refuses to commit it while it holds a secret; meanwhile `kj.config.local.yml` exists for a member's own preferences.
