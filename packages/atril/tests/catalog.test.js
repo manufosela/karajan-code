@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { catalogs } from "../src/catalog.js";
+import { RECOMMENDED, catalogs } from "../src/catalog.js";
 import { writeConfig } from "../src/config.js";
 import { resolve } from "../src/resolve.js";
 import { search } from "../src/search.js";
@@ -29,6 +29,7 @@ describe("catalogs", () => {
     put("pins.json", JSON.stringify({ sources: [{ source: "acme/skills/tools", commit: COMMIT, note: "acme's tools" }] }));
     writeConfig({ catalogs: ["kit", "pins.json"] }, o());
     expect(catalogs(o())).toEqual([
+      { ref: "atril:recommended", type: "store", dir: RECOMMENDED },
       { ref: "kit", type: "store", dir: join(dir, "kit") },
       { ref: "pins.json", type: "sources", sources: [{ source: "acme/skills/tools", commit: COMMIT, note: "acme's tools" }] },
     ]);

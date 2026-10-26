@@ -88,6 +88,16 @@ atril install skill:lint        # install one, from its pinned commit
 
 The fetch runs no hooks, lands symlinks as plain files and verifies the commit. Skills installed by OpenSkills into `.claude/skills` or `.agent/skills` move into the store with `atril import --from openskills`.
 
+### The recommended set
+
+atril ships a set of artifacts it recommends, bundled in the package. It is always the first catalog, before the ones in `atril.json`, so it works offline and versions with atril. Nothing in it is installed on its own:
+
+```sh
+atril recommended               # each entry: available, on-demand, persistent or changed
+```
+
+`changed` means the installed artifact differs from the one this version of atril ships. `ATRIL_RECOMMENDED` points atril at another set.
+
 ## Persistent pieces through rulesync
 
 CLIs only accept slash commands they know. atril registers **one** in each CLI, the bridge `/atril <name or task>`, plus a router rule that tells the agent to ask atril before a task. Everything else stays on demand, unless you choose to expose it permanently:
@@ -116,7 +126,7 @@ import { search, resolve, install, sync, catalogSync } from "@karajan-family/atr
 const { block, available } = resolve({ task: "fix the flaky login test", role: "coder", root: ".atril" });
 ```
 
-The entry exports `search`, `resolve`, `resolveBlock`, `install`, `remove`, `expose`, `unexpose`, `persistentPieces`, `sync`, `generate`, `catalogSync`, `installFromCatalog`, `importSkills`, `MARKER` and `VERSION`.
+The entry exports `search`, `resolve`, `resolveBlock`, `install`, `remove`, `expose`, `unexpose`, `persistentPieces`, `sync`, `generate`, `catalogSync`, `installFromCatalog`, `importSkills`, `recommended`, `MARKER` and `VERSION`.
 
 ## License
 

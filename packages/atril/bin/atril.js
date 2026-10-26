@@ -17,6 +17,7 @@ import { catalogSync } from "../src/fetch.js";
 import { applyCatalogUpdate, catalogUpdates } from "../src/update.js";
 import { installFromCatalog, isCatalogRef } from "../src/catalog-install.js";
 import { importSkills } from "../src/import.js";
+import { recommended } from "../src/recommended.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -27,7 +28,7 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
   + "       atril catalog sync [--root <dir>]\n       atril catalog update [--apply] [--root <dir>]\n"
-  + "       atril import --from openskills [--root <dir>]";
+  + "       atril import --from openskills [--root <dir>]\n       atril recommended [--root <dir>] [--json]";
 
 function runImport(args) {
   const { values } = parseArgs({ args, options: { from: { type: "string" }, root: { type: "string" } } });
@@ -83,6 +84,14 @@ function runExpose(command, args) {
   if (positionals.length === 0) throw new Error(`${command} takes at least one kind:name\n${USAGE}`);
   const done = (command === "expose" ? expose : unexpose)(positionals, { root: values.root });
   for (const ref of done) console.log(`${command}d\t${ref}`);
+}
+
+function runRecommended(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
+  const entries = recommended({ root: values.root });
+  if (values.json) console.log(JSON.stringify(entries, null, 2));
+  else if (entries.length === 0) console.log("this version of atril recommends nothing");
+  else for (const { state, kind, name, description } of entries) console.log(`${state}\t${kind}:${name}\t${printable(description)}`);
 }
 
 function runConfig(args) {
@@ -207,6 +216,7 @@ try {
   else if (command === "mcp") await runMcp(rest);
   else if (command === "catalog") runCatalog(rest);
   else if (command === "import") runImport(rest);
+  else if (command === "recommended") runRecommended(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
