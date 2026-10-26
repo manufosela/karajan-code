@@ -7,6 +7,7 @@
  * - Idempotent: safe to run many times.
  * - Never fails hard (exits 0 even on error) so `npm install` is not blocked.
  */
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -38,10 +39,22 @@ const CLAUDE_JSON_PATH = path.join(os.homedir(), ".claude.json");
 const isPackageDirHome = (home) => /node_modules[\\/]karajan-code[\\/]\.karajan[\\/]?$/.test(home)
   || path.resolve(home) === path.join(ROOT_DIR, ".karajan");
 
+// KJC-BUG-0404: the .karajan of a git working tree is a project's own state (ADR 0032). Taken as
+// the home, every project's home data (audits, stories, board) landed in that repo.
+function isProjectKarajanDir(home) {
+  const dir = path.resolve(home);
+  if (path.basename(dir) !== ".karajan" || path.dirname(dir) === os.homedir()) return false;
+  if (!existsSync(path.join(path.dirname(dir), ".git"))) return false;
+  process.stderr.write(`karajan-mcp: ${dir} is a project's .karajan, not a Karajan home; ignoring it\n`);
+  return true;
+}
+
+const usableHome = (home) => Boolean(home) && !isPackageDirHome(home) && !isProjectKarajanDir(home);
+
 /** The home a previous registration carried, if the user (not this script) set it. */
 function homeFromExistingEntry(entry) {
   const previous = entry?.env?.KARAJAN_HOME || entry?.env?.KJ_HOME;
-  return previous && !isPackageDirHome(previous) ? previous : null;
+  return usableHome(previous) ? previous : null;
 }
 
 /**
@@ -58,7 +71,7 @@ async function resolveKjHome(existingEntry) {
     const names = Object.keys(registry.instances || {});
     if (names.length > 0) {
       const first = registry.instances[names.includes("default") ? "default" : names[0]];
-      if (first?.kjHome) return first.kjHome;
+      if (usableHome(first?.kjHome)) return first.kjHome;
     }
   } catch {
     // No registry yet — use default
