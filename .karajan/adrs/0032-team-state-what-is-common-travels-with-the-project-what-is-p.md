@@ -1,6 +1,6 @@
 # Team state: what is common travels with the project, what is personal stays local
 
-Status: proposed
+Status: accepted
 Date: 2026-10-26
 
 ## Context
