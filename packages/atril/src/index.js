@@ -10,3 +10,4 @@ export { search } from "./search.js";
 export { resolve, resolveBlock } from "./resolve.js";
 export { MARKER, expose, persistentPieces, unexpose } from "./bridge.js";
 export { sync } from "./sync.js";
+export { generate } from "./generate.js";

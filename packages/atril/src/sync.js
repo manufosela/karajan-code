@@ -8,7 +8,7 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmdirSync,
 import { dirname, join } from "node:path";
 import { writeAtomic } from "./atomic.js";
 import { MARKER, persistentPieces } from "./bridge.js";
-import { hashContent, OWNER, withLedger } from "./ledger.js";
+import { hashContent, OWNER, readLedger, withLedger } from "./ledger.js";
 
 const RULESYNC = ".rulesync";
 // A key atril writes: a whole file under one of rulesync's kind folders, never `..` nor a block.
@@ -63,7 +63,7 @@ function pruneEmpty(start, stop) {
 }
 
 /**
- * @param {{ projectDir?: string, root?: string, userRoot?: string, env?: object }} [opts]
+ * @param {{ projectDir?: string, root?: string, userRoot?: string, env?: object, check?: boolean }} [opts]
  * @returns {{ path: string, action: "written"|"claimed"|"removed"|"unchanged" }[]}
  */
 export function sync(opts = {}) {
@@ -72,6 +72,8 @@ export function sync(opts = {}) {
     throw new Error(`${projectDir}: no .rulesync/; atril installs nothing persistent without rulesync (run rulesync init)`);
   }
   const wanted = new Map(persistentPieces({ ...opts, projectDir }).map(({ path, content }) => [path, content]));
+  // --check (step 9c): the same judgment, read-only and without the lock.
+  if (opts.check) return plan(projectDir, readLedger(projectDir), wanted);
   let steps;
   withLedger(projectDir, (ledger) => {
     steps = plan(projectDir, ledger, wanted);

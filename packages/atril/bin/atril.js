@@ -7,6 +7,7 @@ import { graph } from "../src/graph.js";
 import { scan } from "../src/scan.js";
 import { SEARCH_MODE, search } from "../src/search.js";
 import { install, remove } from "../src/store.js";
+import { generate } from "../src/generate.js";
 import { readConfig } from "../src/config.js";
 import { expose, unexpose } from "../src/bridge.js";
 import { sync } from "../src/sync.js";
@@ -20,7 +21,7 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
-  + "       atril sync [--root <dir>]\n       atril mcp [--root <dir>]";
+  + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]";
 
 async function runMcp(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" } } });
@@ -28,10 +29,19 @@ async function runMcp(args) {
 }
 
 function runSync(args) {
-  const { values } = parseArgs({ args, options: { root: { type: "string" } } });
-  const changed = sync({ root: values.root }).filter(({ action }) => action !== "unchanged");
-  if (changed.length === 0) console.log("up to date");
+  const { values } = parseArgs({ args, options: { root: { type: "string" }, check: { type: "boolean" } } });
+  const changed = sync({ root: values.root, check: values.check }).filter(({ action }) => action !== "unchanged");
   for (const { action, path } of changed) console.log(`${action}\t${path}`);
+  if (values.check) {
+    if (changed.length > 0) {
+      console.error(`atril: ${changed.length} piece(s) out of date: run atril sync`);
+      process.exitCode = 1;
+    }
+    return;
+  }
+  if (changed.length === 0) console.log("up to date");
+  if (generate({ root: values.root })) console.log("rulesync generate: done");
+  else console.error("atril: run rulesync generate to reach your agents, or declare rulesync.generate: true in atril.json");
 }
 
 function runExpose(command, args) {
