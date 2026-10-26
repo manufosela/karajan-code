@@ -1,6 +1,6 @@
 {
   "name": "@karajan-family/atril",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Skills, commands and subagents for every AI CLI, on demand: search, install and resolve the Markdown each task needs without loading it into the initial context.",
   "type": "module",
   "main": "src/index.js",
