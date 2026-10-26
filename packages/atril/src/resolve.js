@@ -146,12 +146,16 @@ export function resolve({ task, role, budget = {}, projectDir, root, userRoot, e
   if (typeof task !== "string" || !task.trim()) throw new Error("resolve needs a non-empty task");
   if (role !== undefined && (typeof role !== "string" || !role.trim())) throw new Error("role must be a non-empty string");
   const byKey = new Map(scan(scanOpts).artifacts.map((a) => [keyOf(a), a]));
-  const best = search(task, scanOpts).find((hit) => servesRole(byKey.get(keyOf(hit)), role));
+  const hits = search(task, scanOpts);
+  const best = hits.find((hit) => hit.installed && servesRole(byKey.get(keyOf(hit)), role));
+  // Step 11a: what fits from the catalogs is proposed, never loaded; installing stays explicit.
+  const available = hits.filter((hit) => !hit.installed).slice(0, 3)
+    .map(({ name, kind, description, catalog }) => ({ name, kind, description, catalog }));
   if (!best) {
     const reason = `no artifact matches ${JSON.stringify(task)}${role === undefined ? "" : ` for role ${role}`}`;
-    return { block: [], suggested: [], left: [], reason };
+    return { block: [], suggested: [], left: [], reason, available };
   }
-  return resolveBlock(keyOf(best), scanOpts, budget);
+  return { ...resolveBlock(keyOf(best), scanOpts, budget), available };
 }
 
 /** A block as the files to read, not their content: a subagent carries its own block. */
