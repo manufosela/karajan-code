@@ -11,11 +11,12 @@ import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { catalogs, sourceDir } from "./catalog.js";
 
-const defaultGit = (args, cwd) => execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+export const defaultGit = (args, cwd) => execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
 // Never a hook, never a symlink, never a detached-HEAD lecture.
-const SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "core.symlinks=false", "-c", "advice.detachedHead=false"];
+export const SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "core.symlinks=false", "-c", "advice.detachedHead=false"];
 
-function fetchInto(target, url, commit, git) {
+/** Fetch one commit into target, verified, through a temporary folder (also used by update.js). */
+export function fetchInto(target, url, commit, git) {
   const temp = `${target}.${randomUUID()}.tmp`;
   mkdirSync(temp, { recursive: true });
   try {
