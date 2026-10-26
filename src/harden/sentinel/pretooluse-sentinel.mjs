@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, readFileSync, realpathSync, statSync } from
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, foreignLane, laneTop, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, foreignLane, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { isGhIssueCreate, isPublishCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
@@ -265,7 +265,7 @@ process.stdin.on("end", () => {
       return d ? foreignLane(d) : null;
     };
     const laneDeny = (what, lane) => {
-      console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0). Sin escape (ADR 0015): un cruce deliberado lo hace tu usuario en su terminal." + doc("cross-lane"));
+      console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0)" + (laneRefusal() ? " " + laneRefusal() : "") + ". Sin escape (ADR 0015): un cruce deliberado lo hace tu usuario en su terminal." + doc("cross-lane"));
       return true;
     };
     if (EDIT_TOOLS.includes(tool)) {

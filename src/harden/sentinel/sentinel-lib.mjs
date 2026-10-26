@@ -2,7 +2,8 @@
 // Single source for every sentinel script: state, branch, classification,
 // and violations.
 import process from "node:process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { execSync, spawnSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,18 +41,60 @@ const _git = (args, cwd) => {
 // MONO-0 (ADR 0002, amended by #2566): lane identity = worktree toplevel; repo
 // identity = git-common-dir. The session's lane is where the HOST says it works
 // (the hook payload's cwd, which EnterWorktree moves) when that is a worktree of
-// this same repo; otherwise the dir the guard is installed in. Once the session
-// mutated, its bound lane wins over any later cwd (a `cd`). ROOT keeps the
+// this same repo; otherwise the dir the guard is installed in. ROOT keeps the
 // harness (state, config); laneTop() is the git tree the session works in.
+// ADR 0033 (KJC-TSK-1236): a session switches into a lane only when no other live session
+// is there. Each session keeps one presence mark (its lane and when it last resolved it) in
+// the repo's git common dir. Entering is intent first, then a look: the session writes the
+// new lane, then reads the others' marks and steps back if another live one is there. Two
+// sessions entering together never both stay: the later write is seen by the later look.
+const LANE_TTL_MS = 30 * 60 * 1000;
 let _cwd = null;
+let _sid = null;
 let _home;
+let _refusal = null;
 const homeOf = (dir) => {
   const [top = "", common = ""] = _git("rev-parse --show-toplevel --path-format=absolute --git-common-dir", dir).split("\n");
   return { top, common };
 };
-export const enterLane = (state, sid, cwd) => {
-  _cwd = state.sessions?.[sid]?.lane ?? cwd;
+export const enterLane = (_state, sid, cwd) => {
+  _cwd = cwd;
+  _sid = sid;
   _home = undefined;
+  _refusal = null;
+};
+/** Why the session was kept out of the lane its cwd is in, or null. */
+export const laneRefusal = () => _refusal;
+const laneKey = (s) => createHash("sha256").update(String(s)).digest("hex").slice(0, 16);
+const readJson = (f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } };
+// The lane the session may take: `lane` when it is home, already its live lane, or free.
+const claimLane = (root, lane, now = Date.now()) => {
+  if (!_sid || !root.common) return lane;
+  const dir = join(root.common, "kj-lanes");
+  const mark = join(dir, "session-" + laneKey(_sid) + ".json");
+  const write = (top) => writeFileSync(mark, JSON.stringify({ sid: _sid, lane: top, at: now }));
+  try {
+    mkdirSync(dir, { recursive: true });
+    const prev = readJson(mark);
+    if (lane.top !== root.top && !(prev?.lane === lane.top && now - prev.at < LANE_TTL_MS)) {
+      write(lane.top);
+      const other = readdirSync(dir).filter((f) => f.startsWith("session-")).map((f) => readJson(join(dir, f)))
+        .find((r) => r && r.sid !== _sid && r.lane === lane.top && now - r.at < LANE_TTL_MS);
+      if (other) {
+        _refusal = "(" + lane.top + " tiene otra sesión viva: un carril, una sesión, ADR 0033)";
+        lane = root;
+      }
+    }
+    write(lane.top);
+  } catch {
+    if (lane.top !== root.top) {
+      _refusal = "(no se pudo reclamar " + lane.top + ")";
+      lane = root;
+      // Best effort: a mark left in the refused lane would keep others out for 30 min.
+      try { write(root.top); } catch { /* the session stays home either way */ }
+    }
+  }
+  return lane;
 };
 // Resolved on first use: a hook that never asks git pays no spawn.
 const home = () => {
@@ -59,7 +102,7 @@ const home = () => {
   const root = homeOf(ROOT);
   const here = _cwd ? homeOf(_cwd) : null;
   // git that cannot answer ("" common dir) never matches: fail closed to the install lane.
-  return (_home = here?.top && root.common && here.common === root.common ? here : root);
+  return (_home = claimLane(root, here?.top && root.common && here.common === root.common ? here : root));
 };
 export const laneTop = () => home().top || ROOT;
 export const branchOf = () => {
