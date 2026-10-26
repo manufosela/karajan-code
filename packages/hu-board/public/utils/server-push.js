@@ -164,20 +164,11 @@ async function patchBoardIncremental() {
     stories = await api(`/api/projects/${encodeURIComponent(selectedProject)}/stories`);
   } catch { return false; }
 
-  // Re-derive the column → status mapping (kept in lockstep with
-  // renderBoard's `columns` object — change there, change here).
-  const statusToColumn = (status) => {
-    if (['pending', 'certified', 'needs_context', 'blocked'].includes(status)) return 'pending';
-    if (['coding', 'reviewing'].includes(status)) return 'running';
-    if (status === 'done') return 'done';
-    if (status === 'failed') return 'failed';
-    return 'pending';                  // safe default
-  };
-
+  // KJC-BUG-0405: the same lanes renderBoard uses (formatters.js::kanbanColumnOf).
   const seen = new Set();
   for (const story of stories) {
     seen.add(story.id);
-    const targetCol = columns[statusToColumn(story.status)];
+    const targetCol = columns[kanbanColumnOf(story.status)];
     if (!targetCol) continue;
     const existing = kanban.querySelector(`.story-card[data-story-id="${cssEscape(story.id)}"]`);
     if (!existing) {

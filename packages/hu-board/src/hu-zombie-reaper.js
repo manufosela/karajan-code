@@ -73,10 +73,14 @@ export function reapZombieHus({ db, setHuStatus, setHuFailResult, opts = {}, now
     const localHuId = hu.id.includes("::") ? hu.id.split("::").slice(1).join("::") : hu.id;
     let planPersisted = false;
     if (hu.plan_id) {
+      let result = null;
       try {
-        const result = setHuStatus({ planId: hu.plan_id, huId: localHuId, status: "pending", projectId: hu.project_id });
+        result = setHuStatus({ planId: hu.plan_id, huId: localHuId, status: "pending", projectId: hu.project_id });
         planPersisted = !!(result && result.ok);
       } catch { /* swallow — never block startup */ }
+      // KJC-BUG-0405: a read-only plan mirrors the shared board; its running HU is a
+      // teammate's live work, not a zombie. Neither the plan nor the DB is touched.
+      if (result?.readonly) continue;
       // KJC-TSK-0404: además de resetear status=pending, marcar la HU con
       // result=fail + blocker. El siguiente `kj run` ve el blocker y se
       // lo inyecta al coder como "## PREVIOUS ATTEMPT FAILED" para que

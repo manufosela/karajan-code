@@ -52,7 +52,7 @@ async function renderProjectPicker() {
     const c = { pending: 0, running: 0, done: 0, failed: 0 };
     for (const s of stories) {
       if (['pending', 'certified', 'needs_context', 'blocked'].includes(s.status)) c.pending += 1;
-      else if (['coding', 'reviewing'].includes(s.status)) c.running += 1;
+      else if (kanbanColumnOf(s.status) === 'running') c.running += 1;
       else if (s.status === 'done') c.done += 1;
       else if (s.status === 'failed') c.failed += 1;
     }

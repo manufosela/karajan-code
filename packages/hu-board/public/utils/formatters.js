@@ -161,6 +161,22 @@ function formatDuration(ms) {
   return `${min}m ${sec.toString().padStart(2, '0')}s`;
 }
 
+// KJC-TSK-0403 + KJC-BUG-0405: the three kanban lanes, one place for every view. A failed
+// HU goes back to Pending with its badge; `running` is what kj hu move and the shared-board
+// mirror write, next to the pipeline's coding/reviewing.
+const KANBAN_RUNNING = new Set(['coding', 'reviewing', 'running']);
+function kanbanColumnOf(status) {
+  if (KANBAN_RUNNING.has(status)) return 'running';
+  if (status === 'done') return 'done';
+  return 'pending';
+}
+
+// The shared board's mirror (src/hu/team-board-mirror.js::MIRROR_PLAN_ID) holds the team's
+// HUs: this board shows them but never runs or stops them.
+const SHARED_BOARD_PLAN_ID = 'plan-github-board';
+const isBoardRunnable = (story) => story.plan_id !== SHARED_BOARD_PLAN_ID;
+const isBoardRun = (story) => isBoardRunnable(story) && kanbanColumnOf(story.status) === 'running';
+
 function scoreClass(score, max = 60) {
   if (score === null || score === undefined) return '';
   const pct = score / max;

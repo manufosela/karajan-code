@@ -76,6 +76,15 @@ describe('reapZombieHus', () => {
     expect(db.prepare("SELECT status FROM stories WHERE id = 'proj::hu_001'").get().status).toBe('pending');
   });
 
+  // KJC-BUG-0405: a running HU of the shared board is a teammate's live work. Its plan is
+  // read-only, so the DB-only fallback would show it as pending; it is left alone instead.
+  it('leaves a running HU of a read-only plan untouched, in the plan and in the DB', () => {
+    insert('proj::HU-7', 'plan-github-board', 'running', null, ago(60));
+    const setHuStatus = vi.fn(() => ({ ok: false, readonly: true, error: 'this plan mirrors the shared board' }));
+    expect(reapZombieHus({ db, setHuStatus, opts: { runningMinutes: 30 }, now: () => NOW })).toEqual([]);
+    expect(db.prepare("SELECT status FROM stories WHERE id = 'proj::HU-7'").get().status).toBe('running');
+  });
+
   it('retorna [] sin zombis o sin db', () => {
     insert('proj::hu_001', 'plan-x', 'done', 'pass', ago(60));
     expect(reapZombieHus({ db, setHuStatus: vi.fn(), now: () => NOW })).toEqual([]);

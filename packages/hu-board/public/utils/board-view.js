@@ -63,11 +63,9 @@ async function renderBoard() {
     // columna "Failed" — vuelven a Pending con result=fail y badge ✗.
     // status=failed legacy se trata como pending (migración lazy).
     const columns = {
-      pending: stories.filter((s) =>
-        ['pending', 'certified', 'needs_context', 'blocked', 'failed'].includes(s.status)
-      ),
-      running: stories.filter((s) => ['coding', 'reviewing'].includes(s.status)),
-      done: stories.filter((s) => s.status === 'done'),
+      pending: stories.filter((s) => kanbanColumnOf(s.status) === 'pending'),
+      running: stories.filter((s) => kanbanColumnOf(s.status) === 'running'),
+      done: stories.filter((s) => kanbanColumnOf(s.status) === 'done'),
     };
 
     if (stories.length === 0) {
@@ -80,8 +78,8 @@ async function renderBoard() {
     // running (to avoid accidentally launching a second pipeline over a
     // live one). Replaces the old "Mark as certified" button — the
     // intermediate "certified" state was noise from the user's POV.
-    const awaitingCount = columns.pending.length;
-    const runningCount = columns.running.length;
+    const awaitingCount = columns.pending.filter(isBoardRunnable).length;
+    const runningCount = columns.running.filter(isBoardRun).length;
     const canRun = Boolean(selectedProject) && awaitingCount > 0 && runningCount === 0;
     const isRunning = runningCount > 0;
 
@@ -202,7 +200,7 @@ async function renderBoard() {
     const runningBadgeBtn = document.getElementById('running-badge-btn');
     if (runningBadgeBtn) {
       runningBadgeBtn.addEventListener('click', async () => {
-        const running = stories.find((s) => s.status === 'coding' || s.status === 'reviewing');
+        const running = stories.find(isBoardRun);
         if (!running) return;
         const planId = running.plan_id;
         if (!planId) {
@@ -223,7 +221,7 @@ async function renderBoard() {
     const stopRunBtn = document.getElementById('stop-run-btn');
     if (stopRunBtn) {
       stopRunBtn.addEventListener('click', async () => {
-        const runningHus = stories.filter((s) => s.status === 'coding' || s.status === 'reviewing');
+        const runningHus = stories.filter(isBoardRun);
         const planIds = [...new Set(runningHus.map((s) => s.plan_id).filter(Boolean))];
         if (planIds.length === 0) {
           await showError('No hay plan_id asociado a las HUs en marcha.', { title: 'Sin runs' });
@@ -362,7 +360,7 @@ function renderStoryCard(story) {
   //     don't exist yet, hitting the missing-prereq path at runtime.
   const canRunHu = ['certified', 'failed', 'pending', 'done'].includes(story.status)
     && testCount > 0
-    && !['coding', 'reviewing'].includes(story.status)
+    && kanbanColumnOf(story.status) !== 'running'
     && blockedBy.length === 0;
 
   return `
