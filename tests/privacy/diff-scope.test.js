@@ -76,3 +76,17 @@ describe("isGeneratedPath", () => {
     expect(isGeneratedPath(null)).toBe(false);
   });
 });
+
+// KJC-BUG-0408 (#2560): with diff.mnemonicPrefix the headers read i/ and w/; the parser saw no
+// file, the gate scanned nothing and passed. A diff it cannot read now fails closed.
+describe("splitAddedByFile ante cabeceras que no entiende", () => {
+  const mnemonic = ["diff --git i/src/app.js w/src/app.js", "--- i/src/app.js", "+++ w/src/app.js", "@@ -1 +1,2 @@", " a", "+b"].join("\n");
+
+  it("falla en cerrado: un diff con ficheros que no sabe leer no pasa como vacío", () => {
+    expect(() => splitAddedByFile(mnemonic)).toThrow(/cannot read the file headers/);
+  });
+
+  it("un diff vacío sigue siendo nada", () => {
+    expect(splitAddedByFile("")).toEqual([]);
+  });
+});

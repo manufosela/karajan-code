@@ -7,6 +7,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { tools } from "./tools.js";
 import { handleToolCall, responseText, enrichedFailPayload } from "./server-handlers.js";
+import { pinGitDiffFormat } from "../utils/git-diff-format.js";
+
+// KJC-BUG-0408: every git the MCP server runs prints a/ and b/, whatever the user's gitconfig says.
+pinGitDiffFormat();
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PKG_PATH = path.resolve(MODULE_DIR, "../../package.json");
