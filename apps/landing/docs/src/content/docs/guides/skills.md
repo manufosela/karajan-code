@@ -18,12 +18,14 @@ Skills mode installs Karajan roles as **slash commands** in Claude Code. Each co
 kj init
 ```
 
-During setup, you'll be asked: *"Install Karajan skills as slash commands?"*. Say yes, and the skills are copied to `.claude/commands/` in your project.
+During setup, you'll be asked whether to install Karajan's commands. Say yes, and they go into atril's store under `.karajan/commands/`, on demand. Since 5.0 they are no longer copied to `.claude/commands/`.
 
-You can also install them manually:
+In a project that uses rulesync, `kj init` also runs `atril sync`, which installs the `/atril <name or task>` bridge in every CLI: `/atril kj-run <task>` runs the full pipeline. Without rulesync, run `rulesync init` and then `atril sync --root .karajan`.
+
+You can also install them by hand:
 
 ```bash
-cp node_modules/karajan-code/templates/skills/*.md .claude/commands/
+atril install node_modules/karajan-code/templates/atril/commands/kj-run.md --root .karajan
 ```
 
 ## Available Skills
