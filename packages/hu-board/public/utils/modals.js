@@ -143,6 +143,11 @@ function showHelp() {
         Tip: hover any tab in the header for ~1 second to see a one-line summary.
       </div>
       <div style="padding:12px 18px;border-top:1px solid var(--border);text-align:right">
+        <button id="app-dialog-tour" class="control-btn"
+                style="padding:6px 16px;border:none;background:var(--color-blue,#3b82f6);color:#fff;
+                       border-radius:var(--radius-sm);cursor:pointer;margin-right:8px">
+          ▶ Start the guided tour
+        </button>
         <button id="app-dialog-close" class="control-btn"
                 style="padding:6px 16px;border:1px solid var(--border);
                        background:var(--bg-primary);color:var(--text);
@@ -157,6 +162,8 @@ function showHelp() {
     };
     dlg.addEventListener('close', done, { once: true });
     dlg.querySelector('#app-dialog-close').addEventListener('click', done, { once: true });
+    // KJC-TSK-1198: the tour highlights the page, so the modal closes first.
+    dlg.querySelector('#app-dialog-tour').addEventListener('click', () => { done(); startBoardTour(); }, { once: true });
     dlg.showModal();
   });
 }
