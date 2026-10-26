@@ -11,3 +11,7 @@ export { resolve, resolveBlock } from "./resolve.js";
 export { MARKER, expose, persistentPieces, unexpose } from "./bridge.js";
 export { sync } from "./sync.js";
 export { generate } from "./generate.js";
+export { install, remove } from "./store.js";
+export { catalogSync } from "./fetch.js";
+export { installFromCatalog } from "./catalog-install.js";
+export { importSkills } from "./import.js";
