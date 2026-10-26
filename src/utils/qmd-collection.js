@@ -2,7 +2,9 @@ import path from "node:path";
 import { existsSync, statSync } from "node:fs";
 import { runCommand } from "./process.js";
 
-export const QMD_DEFAULT_PATHS = ["docs", ".reviews", ".karajan/plans"];
+// ADR 0032: the wiki indexes what travels with the project, so a whole team gets the same one:
+// the docs and the plans shared with `kj plan share` (private plans stay out of it).
+export const QMD_DEFAULT_PATHS = ["docs", ".karajan-shared/plans"];
 
 export function projectSlug(projectDir) {
   const base = path.basename(path.resolve(projectDir));

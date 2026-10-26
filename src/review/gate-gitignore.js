@@ -46,6 +46,12 @@ export const CONTRACT_BLOCK = [
   "!.karajan/security-level.json",
   // KJC-TSK-1163 (ADR 0025): which HU Board the repo uses; the team shares it.
   "!.karajan/board.yml",
+  // ADR 0032 (KJC-TSK-1231): the team's own state, as the board: the rules the roles
+  // apply and atril's config with its lockfile. Shared plans travel in .karajan-shared/.
+  "!.karajan/coder-rules.md",
+  "!.karajan/review-rules.md",
+  "!.karajan/atril.json",
+  "!.karajan/atril.lock.json",
 ];
 
 /**
@@ -117,6 +123,8 @@ export async function excludeLocalArtifacts(projectDir, run = runCommand) {
   }
 }
 
+const SHADOWING = new Set(["review-rules.md", "coder-rules.md"]);
+
 export async function ensureGateTrackable(projectDir) {
   const file = path.join(projectDir, ".gitignore");
   let text;
@@ -126,14 +134,22 @@ export async function ensureGateTrackable(projectDir) {
   // a partial state (e.g. a hand-written marker re-include without the hook
   // ones) must still be completed, not silently accepted.
   const reIncludes = CONTRACT_BLOCK.filter((l) => l.startsWith("!"));
-  if (reIncludes.every((l) => text.includes(l))) return { changed: false };
-
   const isRootExclude = (l) => {
     const t = l.trim();
     return t === ".karajan/" || t === ".karajan" || t === ".karajan/*";
   };
   const lines = text.split("\n");
   const idx = lines.findIndex(isRootExclude);
+  // ADR 0032: a bare rules line an older kj wrote after its re-include (or with none) undoes
+  // it, since the last match wins: it goes. One after the root exclude but before its own
+  // re-include was already overridden, so it is kept and moved ahead of the block, where it
+  // stays overridden. Lines before the root exclude are never touched.
+  const placed = (l, i) => {
+    if (idx === -1 || i <= idx || !SHADOWING.has(l.trim())) return "keep";
+    const reInclude = lines.findLastIndex((x) => x.trim() === `!.karajan/${l.trim()}`);
+    return reInclude === -1 || i > reInclude ? "drop" : "move";
+  };
+  if (reIncludes.every((l) => text.includes(l)) && lines.every((l, i) => placed(l, i) === "keep")) return { changed: false };
   if (idx === -1) return { changed: false };
 
   // Drop EVERY .karajan root exclude (a later duplicate would override the
@@ -142,9 +158,10 @@ export async function ensureGateTrackable(projectDir) {
   // position of the first exclude. Exactly one coherent block, idempotent.
   const partials = new Set(CONTRACT_BLOCK);
   const marker = "@@kj-contract-block@@";
+  const moved = lines.filter((l, i) => placed(l, i) === "move");
   const cleaned = lines.map((l, i) => (i === idx ? marker : l))
-    .filter((l) => l === marker || (!isRootExclude(l) && !partials.has(l.trim())));
-  const result = cleaned.flatMap((l) => (l === marker ? CONTRACT_BLOCK : [l]));
+    .filter((l, i) => l === marker || (!isRootExclude(l) && !partials.has(l.trim()) && placed(l, i) === "keep"));
+  const result = cleaned.flatMap((l) => (l === marker ? [...moved, ...CONTRACT_BLOCK] : [l]));
   await fs.writeFile(file, result.join("\n"));
   return { changed: true };
 }
