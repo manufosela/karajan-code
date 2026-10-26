@@ -15,6 +15,7 @@ import { blockPaths } from "../src/resolve.js";
 import { serve } from "../src/mcp.js";
 import { catalogSync } from "../src/fetch.js";
 import { installFromCatalog, isCatalogRef } from "../src/catalog-install.js";
+import { importSkills } from "../src/import.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -24,7 +25,15 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
-  + "       atril catalog sync [--root <dir>]";
+  + "       atril catalog sync [--root <dir>]\n       atril import --from openskills [--root <dir>]";
+
+function runImport(args) {
+  const { values } = parseArgs({ args, options: { from: { type: "string" }, root: { type: "string" } } });
+  if (!values.from) throw new Error(`import needs --from\n${USAGE}`);
+  const done = importSkills(values.from, { root: values.root });
+  if (done.length === 0) console.log(`nothing to import from ${values.from}`);
+  for (const { kind, name, from, path } of done) console.log(`imported\t${kind}:${name}\t${from} -> ${path}`);
+}
 
 function runCatalog(args) {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" } } });
@@ -183,6 +192,7 @@ try {
   else if (command === "sync") runSync(rest);
   else if (command === "mcp") await runMcp(rest);
   else if (command === "catalog") runCatalog(rest);
+  else if (command === "import") runImport(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
