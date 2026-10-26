@@ -27,8 +27,7 @@ process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, transcript_path: transcript = null, cwd = null } = JSON.parse(raw);
-    // #2566: one lane per session — once it mutated, that lane wins over any later cwd (a `cd`).
-    enterLane(load().sessions?.[sid]?.lane ?? cwd);
+    enterLane(load(), sid, cwd);
     // KJC-TSK-0920 (SNT-E): every deny ends with the same line, whatever gate it was.
     // KJC-TSK-0968 (HUM-E, ADR 0018): and leaves a record next to the state, with the
     // gate's own words: kj handoff takes the why from here, never from the agent.

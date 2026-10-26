@@ -40,29 +40,39 @@ const _git = (args, cwd) => {
 // MONO-0 (ADR 0002, amended by #2566): lane identity = worktree toplevel; repo
 // identity = git-common-dir. The session's lane is where the HOST says it works
 // (the hook payload's cwd, which EnterWorktree moves) when that is a worktree of
-// this same repo; otherwise the dir the guard is installed in.
+// this same repo; otherwise the dir the guard is installed in. Once the session
+// mutated, its bound lane wins over any later cwd (a `cd`). ROOT keeps the
+// harness (state, config); laneTop() is the git tree the session works in.
+let _cwd = null;
 let _home;
-const homeOf = (dir) => ({ top: _git("rev-parse --show-toplevel", dir), common: _git("rev-parse --path-format=absolute --git-common-dir", dir) });
-export const enterLane = (cwd) => {
-  const root = homeOf(ROOT);
-  const here = cwd ? homeOf(cwd) : null;
-  // git that cannot answer ("" common dir) never matches: fail closed to the install lane.
-  _home = here?.top && root.common && here.common === root.common ? here : root;
-  return _home.top;
+const homeOf = (dir) => {
+  const [top = "", common = ""] = _git("rev-parse --show-toplevel --path-format=absolute --git-common-dir", dir).split("\n");
+  return { top, common };
 };
-export const laneTop = () => (_home ||= homeOf(ROOT)).top || ROOT;
+export const enterLane = (state, sid, cwd) => {
+  _cwd = state.sessions?.[sid]?.lane ?? cwd;
+  _home = undefined;
+};
+// Resolved on first use: a hook that never asks git pays no spawn.
+const home = () => {
+  if (_home) return _home;
+  const root = homeOf(ROOT);
+  const here = _cwd ? homeOf(_cwd) : null;
+  // git that cannot answer ("" common dir) never matches: fail closed to the install lane.
+  return (_home = here?.top && root.common && here.common === root.common ? here : root);
+};
+export const laneTop = () => home().top || ROOT;
 export const branchOf = () => {
   try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: laneTop(), stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
   catch { return null; }
 };
 // Same repo but another toplevel than OUR lane => foreign lane (its toplevel); else null.
 export const foreignLane = (targetDir) => {
-  const top = _git("rev-parse --show-toplevel", targetDir);
-  if (!top) return null;
-  _home ||= homeOf(ROOT);
-  if (!_home.top || top === _home.top) return null;
-  const common = _git("rev-parse --path-format=absolute --git-common-dir", targetDir);
-  return common && common === _home.common ? top : null;
+  const target = homeOf(targetDir);
+  if (!target.top) return null;
+  const own = home();
+  if (!own.top || target.top === own.top) return null;
+  return target.common && target.common === own.common ? target.top : null;
 };
 // KJC-TSK-0765 board-sync: cards merged in this session but not yet moved in
 // the tracker. The method does not advance until the board is true.

@@ -727,7 +727,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
   });
   it("from inside a lane, the main checkout and other lanes are foreign", () => {
     fs.writeFileSync(path.join(dir, "y.js"), "y");
-    const root = run(gate, inLane({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, "y.js") } }));
+    const root = run(gate, inLane(editTool(path.join(dir, "y.js"))));
     expect(root.status).toBe(2);
     expect(root.stderr).toContain("carril");
   });
@@ -755,7 +755,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     fs.mkdirSync(path.join(second, "src"), { recursive: true });
     try {
       run(postScript, inLane(laneEdit())); // first mutation: `lane`
-      const edit = (file, cwd) => run(gate, inLane({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: file } }, cwd));
+      const edit = (file, cwd) => run(gate, inLane(editTool(file), cwd));
       expect(edit(path.join(second, "src", "z.js"), second).stderr).toContain("carril");
       expect(edit(path.join(lane, "src", "x.js"), lane).stderr).not.toContain("carril");
     } finally {

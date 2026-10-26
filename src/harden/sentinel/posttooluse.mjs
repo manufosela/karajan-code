@@ -14,7 +14,7 @@ process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, tool_response: response = {}, cwd = null } = JSON.parse(raw);
-    enterLane(load().sessions?.[sid]?.lane ?? cwd);
+    enterLane(load(), sid, cwd);
     // KJC-TSK-0765 board-sync: a merge that gh CONFIRMS leaves its card pending
     // in the tracker (the PreToolUse gate then refuses to advance until it is
     // moved). Recorded here, after the fact, so a failed merge never blocks.
