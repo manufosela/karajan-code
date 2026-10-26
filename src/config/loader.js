@@ -74,13 +74,18 @@ export function getProjectConfigPath(projectDir = process.cwd()) {
   return path.join(projectDir, ".karajan", "kj.config.yml");
 }
 
+/** ADR 0032: a member's own preferences, ignored by git, on top of the team's project config. */
+export function getLocalConfigPath(projectDir = process.cwd()) {
+  return path.join(projectDir, ".karajan", "kj.config.local.yml");
+}
+
+async function readYamlIfPresent(filePath) {
+  if (!(await exists(filePath))) return null;
+  return parseYamlOrThrow(await fs.readFile(filePath, "utf8"), filePath);
+}
+
 export async function loadProjectConfig(projectDir = process.cwd()) {
-  const projectConfigPath = getProjectConfigPath(projectDir);
-  if (!(await exists(projectConfigPath))) {
-    return null;
-  }
-  const raw = await fs.readFile(projectConfigPath, "utf8");
-  return parseYamlOrThrow(raw, projectConfigPath);
+  return readYamlIfPresent(getProjectConfigPath(projectDir));
 }
 
 async function loadProjectPricingOverrides(projectDir = process.cwd()) {
@@ -113,23 +118,28 @@ export async function loadConfig(projectDir) {
 
   // Load project config (.karajan/kj.config.yml)
   const projectConfig = await loadProjectConfig(projectDir);
+  const localConfig = await readYamlIfPresent(getLocalConfigPath(projectDir));
 
   // KJC-TSK-0395: enforce the local-overrides-global hierarchy. A project
   // config with no global counterpart is almost always user error (copied
   // a .karajan dir from another repo, edited the wrong file, etc.) and
   // would silently behave like a global config without the defaults
   // people expect. Refuse with an actionable message.
-  if (projectConfig && !globalExists) {
+  if ((projectConfig || localConfig) && !globalExists) {
+    const found = projectConfig ? getProjectConfigPath(projectDir) : getLocalConfigPath(projectDir);
     throw new Error(
-      `Local config found at ${getProjectConfigPath(projectDir)} but no global config exists.\n` +
+      `Local config found at ${found} but no global config exists.\n` +
       "Local configs are merged ON TOP of the global one — run `kj init --global` first to create the base."
     );
   }
 
-  // Merge: DEFAULTS < global < project
+  // Merge: DEFAULTS < global < project (the team's) < local (the member's, ADR 0032)
   let merged = mergeDeep(DEFAULTS, globalConfig);
   if (projectConfig) {
     merged = mergeDeep(merged, projectConfig);
+  }
+  if (localConfig) {
+    merged = mergeDeep(merged, localConfig);
   }
 
   if (projectPricing) {

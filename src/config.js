@@ -25,6 +25,7 @@ export { DEFAULTS } from "./config/defaults.js";
 export {
   getConfigPath,
   getProjectConfigPath,
+  getLocalConfigPath,
   loadProjectConfig,
   loadConfig,
   writeConfig,

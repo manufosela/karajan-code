@@ -18,10 +18,11 @@ This creates `~/.karajan/kj.config.yml` with sensible defaults. You're ready to 
 | File | Purpose |
 |------|---------|
 | `~/.karajan/kj.config.yml` | Main configuration |
-| `<project>/.karajan/kj.config.yml` | Project-level overrides |
+| `<project>/.karajan/kj.config.yml` | Project-level overrides, shared by the team |
+| `<project>/.karajan/kj.config.local.yml` | Your own preferences for this project, never committed |
 | `<project>/.karajan.yml` | Project pricing overrides only |
 
-Override priority: **CLI flags > project config > global config > defaults**.
+Override priority: **CLI flags > local config > project config > global config > defaults**.
 
 Since v1.57.1, the YAML config loader tolerates duplicated keys in user config files. If a key appears more than once, the last value wins without raising an error.
 
