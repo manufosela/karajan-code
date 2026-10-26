@@ -66,7 +66,8 @@ export function parseArtifact(path, { defaultKind } = {}) {
   } catch (err) {
     throw new Error(`${path}: invalid frontmatter (${err.message})`, { cause: err });
   }
-  if (defaultKind !== undefined && isMapping(front) && front.kind === undefined) front = { ...front, kind: defaultKind };
+  const kindDefaulted = defaultKind !== undefined && isMapping(front) && front.kind === undefined;
+  if (kindDefaulted) front = { ...front, kind: defaultKind };
   validate(path, front);
   const body = match[2];
   const { atril = {}, ...author } = front;
@@ -80,5 +81,7 @@ export function parseArtifact(path, { defaultKind } = {}) {
     atril,
     body,
     hash,
+    // The file itself declares no kind (an OpenSkills skill): installing it must write one.
+    ...(kindDefaulted && { kindDefaulted }),
   };
 }

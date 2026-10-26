@@ -14,12 +14,13 @@ import { sync } from "../src/sync.js";
 import { blockPaths } from "../src/resolve.js";
 import { serve } from "../src/mcp.js";
 import { catalogSync } from "../src/fetch.js";
+import { installFromCatalog, isCatalogRef } from "../src/catalog-install.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
   + "       atril search <query> [--kind <kind>] [--root <dir>] [--json]\n"
   + "       atril route <task> [--role <role>] [--root <dir>] [--json]\n"
-  + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
+  + "       atril install <path | kind:name> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
@@ -78,6 +79,11 @@ function runStore(command, args) {
   const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" } }, allowPositionals: true });
   if (positionals.length !== 1) throw new Error(`${command} takes exactly one argument\n${USAGE}`);
   const [ref] = positionals;
+  if (command === "install" && isCatalogRef(ref)) {
+    const { status, kind, name, path, catalog } = installFromCatalog(ref, { root: values.root });
+    console.log(`${status}\t${kind}:${name}\t${path}\tfrom ${printable(catalog)}`);
+    return;
+  }
   if (command === "install") {
     const { status, kind, name, path } = install(ref, { root: values.root, kind: values.kind });
     console.log(`${status}\t${kind}:${name}\t${path}`);
