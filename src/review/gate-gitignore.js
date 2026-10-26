@@ -47,10 +47,9 @@ export const CONTRACT_BLOCK = [
   // KJC-TSK-1163 (ADR 0025): which HU Board the repo uses; the team shares it.
   "!.karajan/board.yml",
   // ADR 0032 (KJC-TSK-1231): the team's own state, as the board: the rules the roles
-  // apply, the plans (a source of the wiki) and atril's config with its lockfile.
+  // apply and atril's config with its lockfile. Shared plans travel in .karajan-shared/.
   "!.karajan/coder-rules.md",
   "!.karajan/review-rules.md",
-  "!.karajan/plans/",
   "!.karajan/atril.json",
   "!.karajan/atril.lock.json",
 ];
@@ -99,6 +98,7 @@ const LOCAL_ARTIFACTS = [
   ".karajan/audits/",
   ".karajan/reviews/",
   ".karajan/steward/",
+  ".karajan/plans/",
 ];
 
 export async function excludeLocalArtifacts(projectDir, run = runCommand) {

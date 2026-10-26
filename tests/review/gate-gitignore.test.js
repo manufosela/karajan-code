@@ -79,13 +79,14 @@ describe("ensureGateTrackable", () => {
 
   // ADR 0032: a block written before it is completed, so the team's rules, plans and atril
   // config travel, while what is personal stays ignored.
-  it("a block from before ADR 0032 now tracks the team's rules, plans and atril config", async () => {
-    const before = CONTRACT_BLOCK.filter((l) => !/coder-rules|review-rules|plans|atril/.test(l));
+  it("a block from before ADR 0032 now tracks the team's rules and atril config", async () => {
+    const before = CONTRACT_BLOCK.filter((l) => !/coder-rules|review-rules|atril/.test(l));
     fs.writeFileSync(path.join(dir, ".gitignore"), `${before.join("\n")}\n`);
     expect((await ensureGateTrackable(dir)).changed).toBe(true);
-    for (const shared of [".karajan/coder-rules.md", ".karajan/review-rules.md", ".karajan/plans/p.md", ".karajan/atril.json"]) {
+    for (const shared of [".karajan/coder-rules.md", ".karajan/review-rules.md", ".karajan/atril.json", ".karajan-shared/plans/p.json"]) {
       expect(ignored(shared), shared).toBe(false);
     }
+    expect(ignored(".karajan/plans/p.json")).toBe(true);
     expect(ignored(".karajan/kj.config.local.yml")).toBe(true);
     expect(ignored(".karajan/rag.db")).toBe(true);
   });

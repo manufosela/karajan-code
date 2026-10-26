@@ -85,10 +85,12 @@ describe("lo que kj deja en .karajan/", () => {
     }
   });
 
-  it("el contrato re-incluye lo comun del equipo (ADR 0032): sus reglas, sus planes y atril", () => {
-    for (const shared of ["!.karajan/coder-rules.md", "!.karajan/review-rules.md", "!.karajan/plans/", "!.karajan/atril.json", "!.karajan/atril.lock.json"]) {
+  it("el contrato re-incluye lo comun del equipo (ADR 0032): sus reglas y atril", () => {
+    for (const shared of ["!.karajan/coder-rules.md", "!.karajan/review-rules.md", "!.karajan/atril.json", "!.karajan/atril.lock.json"]) {
       expect(CONTRACT_BLOCK, shared).toContain(shared);
     }
+    // Los planes compartidos viajan por .karajan-shared/ (kj plan share); .karajan/plans es local.
+    expect(CONTRACT_BLOCK).not.toContain("!.karajan/plans/");
     // kj.config.yml todavia puede llevar secretos (tokens de Sonar): viaja cuando existan
     // kj.config.local.yml y la comprobacion que impide commitearlo con ellos.
     expect(CONTRACT_BLOCK).not.toContain("!.karajan/kj.config.yml");
