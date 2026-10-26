@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getKarajanHome } from "../src/utils/paths.js";
+import { pinGitDiffFormat } from "../src/utils/git-diff-format.js";
 
 process.env.ANTHROPIC_API_KEY ??= "sk-test-anthropic";
 process.env.OPENAI_API_KEY ??= "sk-test-openai";
@@ -93,3 +94,6 @@ process.env.GIT_CONFIG_KEY_0 = "gc.auto";
 process.env.GIT_CONFIG_VALUE_0 = "0";
 process.env.GIT_CONFIG_KEY_1 = "maintenance.auto";
 process.env.GIT_CONFIG_VALUE_1 = "false";
+// KJC-BUG-0408 (#2560): appended after the two above, so a developer's diff.mnemonicPrefix
+// cannot turn the suite red.
+pinGitDiffFormat();

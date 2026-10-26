@@ -50,6 +50,9 @@ export function splitAddedByFile(diff) {
       out.push(current);
       continue;
     }
+    // KJC-BUG-0408: a file header in another shape (mnemonic or no prefix) would leave its lines
+    // unscanned and the gate passing. A diff that cannot be read fails closed.
+    if (line.startsWith("diff --git ")) throw new Error(`cannot read the file headers of this diff (${line}): refusing to scan it as empty`);
     if (!current) continue;
     // `+++ b/x` is the header, not content; `+` alone is an added blank line.
     if (line.startsWith("+") && !line.startsWith("+++")) current.lines.push(line.slice(1));
