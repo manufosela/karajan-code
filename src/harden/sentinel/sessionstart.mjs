@@ -26,7 +26,7 @@ process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
     const { session_id: sid = "default", source, cwd = null } = JSON.parse(raw || "{}");
-    enterLane(cwd);
+    enterLane(cwd, sid);
     // KJC-TSK-0949: an MD changed and its compiled rules fell behind. Said at
     // every start, a new session included: that one gets this line and nothing else.
     const drift = rulesDriftNotice({ root: ROOT, run: spawnSync });

@@ -2,7 +2,8 @@
 // Single source for every sentinel script: state, branch, classification,
 // and violations.
 import process from "node:process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { execSync, spawnSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,11 +44,51 @@ const _git = (args, cwd) => {
 // this same repo; otherwise the dir the guard is installed in.
 let _home;
 const homeOf = (dir) => ({ top: _git("rev-parse --show-toplevel", dir), common: _git("rev-parse --path-format=absolute --git-common-dir", dir) });
-export const enterLane = (cwd) => {
+// ADR 0033 (KJC-TSK-1236): a session switches into a lane only when no other live session
+// is there. Each session keeps one presence mark (its lane and when it last called a hook)
+// in the repo's git common dir. Entering is intent first, then a look: the session writes
+// the new lane, then reads the others' marks and steps back if another live one is there.
+// Two sessions entering together never both stay: the later write is seen by the later look.
+const LANE_TTL_MS = 30 * 60 * 1000;
+const laneKey = (s) => createHash("sha256").update(String(s)).digest("hex").slice(0, 16);
+const readJson = (f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } };
+let _refusal = null;
+/** Why the last enterLane kept the session out of the lane its cwd is in, or null. */
+export const laneRefusal = () => _refusal;
+export const enterLane = (cwd, sid = null, now = Date.now()) => {
   const root = homeOf(ROOT);
   const here = cwd ? homeOf(cwd) : null;
   // git that cannot answer ("" common dir) never matches: fail closed to the install lane.
-  _home = here?.top && root.common && here.common === root.common ? here : root;
+  let lane = here?.top && root.common && here.common === root.common ? here : root;
+  _refusal = null;
+  if (sid && root.common) {
+    const dir = join(root.common, "kj-lanes");
+    const mark = join(dir, "session-" + laneKey(sid) + ".json");
+    const write = (top) => writeFileSync(mark, JSON.stringify({ sid, lane: top, at: now }));
+    try {
+      mkdirSync(dir, { recursive: true });
+      const prev = readJson(mark);
+      const kept = prev?.lane === lane.top && now - prev.at < LANE_TTL_MS;
+      if (lane.top !== root.top && !kept) {
+        write(lane.top);
+        const other = readdirSync(dir).filter((f) => f.startsWith("session-")).map((f) => readJson(join(dir, f)))
+          .find((r) => r && r.sid !== sid && r.lane === lane.top && now - r.at < LANE_TTL_MS);
+        if (other) {
+          _refusal = "(" + lane.top + " tiene otra sesión viva: un carril, una sesión, ADR 0033)";
+          lane = root;
+        }
+      }
+      write(lane.top);
+    } catch {
+      if (lane.top !== root.top) {
+        _refusal = "(no se pudo reclamar " + lane.top + ")";
+        lane = root;
+        // Best effort: a mark left in the refused lane would keep others out for 30 min.
+        try { write(root.top); } catch { /* the session stays home either way */ }
+      }
+    }
+  }
+  _home = lane;
   return _home.top;
 };
 export const laneTop = () => (_home ||= homeOf(ROOT)).top || ROOT;

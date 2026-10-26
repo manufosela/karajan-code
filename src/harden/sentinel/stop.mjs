@@ -37,7 +37,7 @@ process.stdin.on("end", () => {
   try {
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
     const { session_id: sid = "default", transcript_path: transcript = null, cwd = null } = JSON.parse(raw);
-    enterLane(load().sessions?.[sid]?.lane ?? cwd);
+    enterLane(cwd, sid);
     const state = load();
     // Tamper check runs regardless of session state: shell indirection leaves
     // no edit-tool record, but it cannot survive `kj sentinel verify`, whose

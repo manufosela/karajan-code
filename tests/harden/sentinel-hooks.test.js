@@ -743,24 +743,33 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     const res = run(gate, inLane(laneEdit()));
     expect(res.stderr).not.toMatch(/card|tarjeta/i);
   });
-  it("once a session mutated one lane, a cwd in another lane does not open it", () => {
-    run(postScript, inLane(editTool(path.join(dir, "src", "a.js")), dir)); // first mutation: the main checkout
+  // ADR 0033 (KJC-TSK-1236): a session may switch lanes, exclusively, and going home is free.
+  it("a session that went back to the main checkout writes there again", () => {
+    run(gate, inLane(laneEdit()));
+    fs.writeFileSync(path.join(dir, "y.js"), "y");
+    const home = run(gate, inLane({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, "y.js") } }, dir));
+    expect(home.stderr).not.toContain("carril");
+  });
+  it("a lane another live session is in refuses the entry, and the deny says why", () => {
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
     const res = run(gate, inLane(laneEdit()));
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("carril");
+    expect(res.stderr).toMatch(/otra sesi[oó]n viva/);
   });
-  it("a cd between two lanes after the first mutation stays denied; the lane that mutated first stays open", () => {
-    const second = path.join(path.dirname(lane), "wt2");
-    execSync(`git worktree add --detach ${second}`, { cwd: dir });
-    fs.mkdirSync(path.join(second, "src"), { recursive: true });
-    try {
-      run(postScript, inLane(laneEdit())); // first mutation: `lane`
-      const edit = (file, cwd) => run(gate, inLane({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: file } }, cwd));
-      expect(edit(path.join(second, "src", "z.js"), second).stderr).toContain("carril");
-      expect(edit(path.join(lane, "src", "x.js"), lane).stderr).not.toContain("carril");
-    } finally {
-      execSync(`git worktree remove --force ${second}`, { cwd: dir });
+  it("a session silent past the period does not hold its lane", () => {
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
+    const lanes = path.join(execSync("git rev-parse --path-format=absolute --git-common-dir", { cwd: dir }).toString().trim(), "kj-lanes");
+    for (const f of fs.readdirSync(lanes)) {
+      const rec = JSON.parse(fs.readFileSync(path.join(lanes, f), "utf8"));
+      fs.writeFileSync(path.join(lanes, f), JSON.stringify({ ...rec, at: rec.at - 31 * 60_000 }));
     }
+    expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
+  });
+  it("the lane is free again once the other session went home", () => {
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }, dir));
+    expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
   });
 });
 
