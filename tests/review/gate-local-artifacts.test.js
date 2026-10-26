@@ -85,15 +85,15 @@ describe("lo que kj deja en .karajan/", () => {
     }
   });
 
-  it("el contrato re-incluye lo comun del equipo (ADR 0032): sus reglas y atril", () => {
-    for (const shared of ["!.karajan/coder-rules.md", "!.karajan/review-rules.md", "!.karajan/atril.json", "!.karajan/atril.lock.json"]) {
+  it("el contrato re-incluye lo comun del equipo (ADR 0032): sus reglas, su config y atril", () => {
+    // kj.config.yml viaja porque el pre-commit generado lo rechaza con un secreto dentro (KJC-TSK-1234).
+    for (const shared of ["!.karajan/coder-rules.md", "!.karajan/review-rules.md", "!.karajan/kj.config.yml", "!.karajan/atril.json", "!.karajan/atril.lock.json"]) {
       expect(CONTRACT_BLOCK, shared).toContain(shared);
     }
     // Los planes compartidos viajan por .karajan-shared/ (kj plan share); .karajan/plans es local.
     expect(CONTRACT_BLOCK).not.toContain("!.karajan/plans/");
-    // kj.config.yml todavia puede llevar secretos (tokens de Sonar): viaja cuando existan
-    // kj.config.local.yml y la comprobacion que impide commitearlo con ellos.
-    expect(CONTRACT_BLOCK).not.toContain("!.karajan/kj.config.yml");
+    // Lo personal nunca: kj.config.local.yml queda ignorado por .karajan/*.
+    expect(CONTRACT_BLOCK.some((l) => l.includes("local"))).toBe(false);
   });
 
   it("ninguna exclusion pisa lo que el contrato del .gitignore re-incluye", async () => {

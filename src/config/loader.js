@@ -27,6 +27,7 @@ import { getKarajanHome } from "../utils/paths.js";
 import { safeParseConfig, formatConfigIssues } from "./schema.js";
 import { DEFAULTS } from "./defaults.js";
 import { resolveTestHarness } from "./test-harness.js";
+import { SECRET_PATHS } from "./secrets.js";
 
 /**
  * Parse a YAML config file with an actionable error message.
@@ -207,19 +208,24 @@ function stripRuntimeOnlyKeys(config) {
 // KJC-BUG-0253: a project's .karajan/kj.config.yml is versioned with the repo,
 // so the SonarQube credentials never go there; they live in the global config
 // (~/.karajan), where the token bootstrap already saves them.
-const SECRET_KEYS = ["token", "admin_password"];
 const isProjectConfig = (configPath) =>
   path.basename(configPath) === "kj.config.yml"
   && path.basename(path.dirname(configPath)) === ".karajan"
   && path.resolve(configPath) !== path.resolve(getConfigPath());
 
+// KJC-TSK-1234 (ADR 0032): the same secret paths the pre-commit check refuses (SonarCloud's token
+// included), one list for both, so writing never keeps what committing would reject.
 function stripSecrets(config) {
-  if (!config?.sonarqube || typeof config.sonarqube !== "object") return { out: config, stripped: [] };
-  const stripped = SECRET_KEYS.filter((k) => config.sonarqube[k] != null);
-  if (!stripped.length) return { out: config, stripped };
-  const sonarqube = { ...config.sonarqube };
-  for (const k of stripped) delete sonarqube[k];
-  return { out: { ...config, sonarqube }, stripped: stripped.map((k) => `sonarqube.${k}`) };
+  let out = config;
+  const stripped = [];
+  for (const [section, key] of SECRET_PATHS) {
+    const block = out?.[section];
+    if (!block || typeof block !== "object" || block[key] == null) continue;
+    const { [key]: _secret, ...kept } = block;
+    out = { ...out, [section]: kept };
+    stripped.push(`${section}.${key}`);
+  }
+  return { out, stripped };
 }
 
 /** @returns {Promise<{strippedSecrets: string[]}>} the secret keys kept out of a project config */

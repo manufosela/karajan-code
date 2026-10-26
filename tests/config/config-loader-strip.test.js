@@ -125,6 +125,15 @@ describe("writeConfig — strip runtime-only keys (KJC-BUG-0036)", () => {
     expect(yaml.load(readFileSync(configPath, "utf8")).sonarqube.token).toBe("squ_secret");
   });
 
+  // KJC-TSK-1234 (ADR 0032): the project config travels with the repo; SonarCloud's token too stays out.
+  it("keeps the SonarCloud token out of a project config as well", async () => {
+    const projectConfig = join(tmp, "repo", ".karajan", "kj.config.yml");
+    // Only sonarcloud.token is a secret path: any other SonarCloud key is kept as written.
+    const res = await writeConfig(projectConfig, { coder: "claude", sonarcloud: { organization: "acme", token: "sc_secret", admin_password: "kept" } });
+    expect(yaml.load(readFileSync(projectConfig, "utf8")).sonarcloud).toEqual({ organization: "acme", admin_password: "kept" });
+    expect(res.strippedSecrets).toEqual(["sonarcloud.token"]);
+  });
+
   it("survives a config without a sonarqube block at all", async () => {
     await writeConfig(configPath, {
       coder: "claude",
