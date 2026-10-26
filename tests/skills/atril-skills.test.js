@@ -59,7 +59,7 @@ describe("atrilRoleSkills", () => {
     expect(r.others).toEqual([{ name: "ship", kind: "command", path: "/c/ship.md" }, { name: "qa", kind: "agent", path: "/a/qa.md" }]);
   });
 
-  it("hasAtrilStore: true with a kind directory under .karajan, false without", () => withStore((projectDir) => {
+  it("hasAtrilStore: true with a skills directory under .karajan, false without", () => withStore((projectDir) => {
     expect(hasAtrilStore(projectDir)).toBe(true);
     expect(hasAtrilStore(join(projectDir, "nowhere"))).toBe(false);
   }));

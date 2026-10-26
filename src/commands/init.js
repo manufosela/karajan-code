@@ -28,6 +28,7 @@ import { registerQmdCollections } from "../utils/qmd-collection.js";
 import { isGitRepo } from "../harden/harden-engine.js";
 import { isPhoneEnrolled } from "../harden/phone-sign.js";
 import { identityCommand } from "./identity.js";
+import { installKarajanCommands } from "./init-atril.js";
 import { hardenCommand } from "./harden.js";
 import { contractChanges } from "../environment/contract-commit.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
@@ -680,54 +681,22 @@ async function bootstrapOllama({ flags, config, logger, interactive }) {
   }
 }
 
-async function installSkills(logger, interactive) {
-  const projectDir = process.cwd();
-  const commandsDir = path.join(projectDir, ".claude", "commands");
-  const skillsTemplateDir = path.join(getTemplatesRoot(), "atril", "commands");
-
+// KJC-TSK-1219 (ADR 0021, step 15d): Karajan's commands go to atril's store, not .claude/commands.
+async function installSkills(logger, interactive, offerRulesync) {
   let doInstall = true;
   if (interactive) {
     const wizard = createWizard();
     try {
-      doInstall = await wizard.confirm("Install Karajan skills as slash commands (/kj-code, /kj-review, etc.)?", true);
+      doInstall = await wizard.confirm("Install Karajan's commands (kj-run, kj-code, kj-review...) into atril's store, on demand?", true);
     } finally {
       wizard.close();
     }
   }
-
   if (!doInstall) {
-    logger.info("Skills installation skipped.");
+    logger.info("Karajan's commands skipped.");
     return;
   }
-
-  await ensureDir(commandsDir);
-
-  let installed = 0;
-  try {
-    const files = await fs.readdir(skillsTemplateDir);
-    for (const file of files) {
-      if (!file.endsWith(".md")) continue;
-      const src = path.join(skillsTemplateDir, file);
-      const dest = path.join(commandsDir, file);
-      if (await exists(dest)) {
-        logger.info(`  ${file} already exists — skipping`);
-        continue;
-      }
-      const content = await fs.readFile(src, "utf8");
-      await fs.writeFile(dest, content, "utf8");
-      installed += 1;
-    }
-  } catch (err) {
-    logger.warn(`Could not install skills: ${err.message}`);
-    return;
-  }
-
-  if (installed > 0) {
-    logger.info(`Installed ${installed} Karajan skill(s) in .claude/commands/`);
-    logger.info("Available as slash commands: /kj-run, /kj-code, /kj-review, /kj-test, /kj-security, /kj-discover, /kj-architect, /kj-sonar, /kj-rag-query");
-  } else {
-    logger.info("All skills already installed.");
-  }
+  installKarajanCommands({ projectDir: process.cwd(), logger, offerRulesync });
 }
 
 const GITIGNORE_ENTRIES = [
@@ -876,7 +845,7 @@ export async function initCommand({ logger, flags = {} }) {
   await ensureReviewRules(reviewRulesPath, logger);
   await ensureCoderRules(coderRulesPath, logger);
   await ensureGitignoreEntries(process.cwd(), logger);
-  await installSkills(logger, interactive);
+  await installSkills(logger, interactive, flags.rulesync !== false);
   await bootstrapOllama({ flags, config, logger, interactive });
 
   // Auto-detect project stack and preconfigure
