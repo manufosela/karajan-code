@@ -81,6 +81,8 @@ vi.mock("../src/commands/harden.js", () => ({
 
 // HU-0011: a rulesync that is never there, so init cannot touch this repo.
 vi.mock("../src/utils/rulesync.js", async (importOriginal) => ({ ...(await importOriginal()), defaultRun: vi.fn() }));
+// init runs in the repo cwd: atril writes with the real fs, so its install never runs here.
+vi.mock("../src/commands/init-atril.js", () => ({ installKarajanCommands: vi.fn(() => ({ installed: 0, synced: false })) }));
 
 describe("initCommand", () => {
   let initCommand;
@@ -202,6 +204,8 @@ describe("initCommand", () => {
       await initCommand({ logger, flags: { noInteractive: true, harden: false, sonar: false, ...flags } });
       expect(said(logger[level])).toMatch(message);
       expect(defaultRun.mock.calls.length > 0).toBe(ran);
+      const { installKarajanCommands } = await import("../src/commands/init-atril.js");
+      expect(installKarajanCommands).toHaveBeenLastCalledWith(expect.objectContaining({ offerRulesync: flags.rulesync !== false }));
     });
   });
 

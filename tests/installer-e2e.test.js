@@ -150,6 +150,8 @@ vi.mock("../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true)
 }));
 
+// init runs in the repo cwd: atril writes with the real fs, so its install never runs here.
+vi.mock("../src/commands/init-atril.js", () => ({ installKarajanCommands: vi.fn(() => ({ installed: 0, synced: false })) }));
 // init runs in the repo cwd; mock the harness so it never hardens the tree.
 vi.mock("../src/commands/harden.js", () => ({
   hardenCommand: vi.fn().mockResolvedValue({ ok: true })

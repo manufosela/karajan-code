@@ -10,10 +10,11 @@ import { join } from "node:path";
 import { resolve as atrilResolve } from "@karajan-family/atril";
 
 export const ATRIL_ROOT = ".karajan";
-const KIND_DIRS = ["skills", "commands", "agents"];
-
-/** A project has a store when any kind directory exists under `.karajan/`. */
-export const hasAtrilStore = (projectDir, root = ATRIL_ROOT) => KIND_DIRS.some((dir) => existsSync(join(projectDir, root, dir)));
+/**
+ * The roles ask atril for their skills once the store holds skills: Karajan's own commands
+ * (installed there by kj init, step 15d) must not switch the roles off their usual skills.
+ */
+export const hasAtrilStore = (projectDir, root = ATRIL_ROOT) => existsSync(join(projectDir, root, "skills"));
 
 /**
  * The block atril resolves for this role and task, in the shape the prompts
