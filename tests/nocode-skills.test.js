@@ -35,7 +35,7 @@ describe("no-code skills", () => {
   });
 
   describe("skill files exist and have correct format", () => {
-    const templatesDir = path.resolve(import.meta.dirname, "..", "templates", "skills");
+    const templatesDir = path.resolve(import.meta.dirname, "..", "templates", "atril", "commands");
 
     it("sql-analysis skill file exists and has SKILL.md format content", () => {
       const content = readFileSync(path.join(templatesDir, "kj-sql-analysis.md"), "utf8");

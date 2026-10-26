@@ -1,3 +1,8 @@
+---
+name: kj-discover
+description: "Gap Detection"
+kind: command
+---
 # kj-discover — Gap Detection
 
 Analyze the task for gaps, ambiguities, and missing information BEFORE coding.

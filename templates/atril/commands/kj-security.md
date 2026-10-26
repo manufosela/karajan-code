@@ -1,3 +1,8 @@
+---
+name: kj-security
+description: "Security Audit"
+kind: command
+---
 # kj-security — Security Audit
 
 Perform a security audit on the current changes.

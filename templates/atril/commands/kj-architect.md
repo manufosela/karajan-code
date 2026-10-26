@@ -1,3 +1,8 @@
+---
+name: kj-architect
+description: "Architecture Design"
+kind: command
+---
 # kj-architect — Architecture Design
 
 Analyze the task and propose an architecture before implementation.

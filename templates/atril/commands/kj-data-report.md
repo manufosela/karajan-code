@@ -1,3 +1,8 @@
+---
+name: kj-data-report
+description: "Data Report Generation"
+kind: command
+---
 # kj-data-report — Data Report Generation
 
 Generate structured data reports with clear findings, methodology, and recommendations.

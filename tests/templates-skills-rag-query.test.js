@@ -7,9 +7,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const SKILL_PATH = path.resolve(HERE, "../templates/skills/kj-rag-query.md");
+const SKILL_PATH = path.resolve(HERE, "../templates/atril/commands/kj-rag-query.md");
 
-describe("templates/skills/kj-rag-query.md (RAG Camino B)", () => {
+describe("templates/atril/commands/kj-rag-query.md (RAG Camino B)", () => {
   it("exists and is non-empty", async () => {
     const content = await readFile(SKILL_PATH, "utf8");
     expect(content.length).toBeGreaterThan(200);

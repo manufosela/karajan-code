@@ -7,7 +7,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SKILLS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../templates/skills");
+const SKILLS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../templates/atril/commands");
 const skill = (name) => readFile(path.join(SKILLS, `${name}.md`), "utf8");
 
 describe("templates/skills pass the review gate (KJC-BUG-0282)", () => {

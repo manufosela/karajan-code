@@ -1,3 +1,8 @@
+---
+name: kj-sonar
+description: "Static Analysis"
+kind: command
+---
 # kj-sonar — Static Analysis
 
 Run SonarQube/SonarCloud analysis and fix any issues found.
