@@ -18,10 +18,11 @@ Esto crea `~/.karajan/kj.config.yml` con valores por defecto razonables. Ya pued
 | Fichero | Propósito |
 |---------|-----------|
 | `~/.karajan/kj.config.yml` | Configuración principal |
-| `<proyecto>/.karajan/kj.config.yml` | Overrides a nivel de proyecto |
+| `<proyecto>/.karajan/kj.config.yml` | Overrides a nivel de proyecto, compartidos por el equipo |
+| `<proyecto>/.karajan/kj.config.local.yml` | Tus preferencias para este proyecto, nunca se commitean |
 | `<proyecto>/.karajan.yml` | Overrides de pricing del proyecto |
 
-Prioridad de override: **Flags CLI > config proyecto > config global > defaults**.
+Prioridad de override: **Flags CLI > config local > config proyecto > config global > defaults**.
 
 Desde v1.57.1, el cargador de config YAML tolera claves duplicadas en ficheros de configuracion del usuario. Si una clave aparece mas de una vez, el ultimo valor gana sin producir error.
 
