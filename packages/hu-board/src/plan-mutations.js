@@ -90,7 +90,13 @@ function readPlan(filePath) {
 // in the issues; the board shows it and refuses to edit it, so the two never diverge.
 function mirrorGuard(plan) {
   if (!plan?.readonly) return null;
-  return { ok: false, error: `this plan mirrors the shared board (${plan.readonly}) and is read-only here: change it with kj hu move` };
+  return { ok: false, readonly: true, error: `this plan mirrors the shared board (${plan.readonly}) and is read-only here: change it with kj hu move` };
+}
+
+/** KJC-BUG-0405: the refusal for a plan that mirrors the shared board, or null for any other. */
+export function readonlyRefusal(planId, projectId) {
+  const filePath = findPlanFilePath(planId, projectId);
+  return filePath ? mirrorGuard(readPlan(filePath)) : null;
 }
 
 function writePlan(filePath, plan) {

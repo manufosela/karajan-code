@@ -44,7 +44,8 @@ describe('a plan that mirrors the shared board', () => {
       planMutationsMod.setHuFailResult({ ...args, blocker: 'x' }),
       planMutationsMod.markPlanReady({ planId: PLAN_ID, projectId: PROJECT_ID }),
     ];
-    for (const r of attempts) expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/mirrors the shared board.*kj hu move/) });
+    // KJC-BUG-0405: the refusal says it is read-only, so callers can tell it from a failure.
+    for (const r of attempts) expect(r).toMatchObject({ ok: false, readonly: true, error: expect.stringMatching(/mirrors the shared board.*kj hu move/) });
     expect(JSON.parse(readFileSync(planPath(), 'utf-8'))).toEqual(plan());
   });
 
@@ -54,6 +55,18 @@ describe('a plan that mirrors the shared board', () => {
     expect(planMutationsMod.renameProject({ projectId: PROJECT_ID, name: 'New name' })).toMatchObject({ ok: true });
     expect(JSON.parse(readFileSync(local, 'utf-8')).name).toBe('New name');
     expect(JSON.parse(readFileSync(planPath(), 'utf-8')).name).toBe('github');
+  });
+
+  it('KJC-BUG-0405: a stop over it is refused and leaves its running HU as it was', async () => {
+    const { default: express } = await import('express');
+    const { default: request } = await import('supertest');
+    const { default: apiRoutes } = await import('../src/routes/api.js');
+    dbMod.upsertStory({ id: `${PROJECT_ID}::HU-7`, project_id: PROJECT_ID, plan_id: PLAN_ID, status: 'running' });
+    const app = express().use(express.json()).use('/api', apiRoutes);
+    const res = await request(app).post(`/api/runs/${PLAN_ID}/stop`).send({ projectId: PROJECT_ID, timeoutMs: 0 });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ readonly: true });
+    expect(dbMod.getStoriesByProject(PROJECT_ID).map((s) => s.status)).toEqual(['running']);
   });
 
   it('KJC-TSK-1197: is announced by the plans endpoint with its repo, so the board can explain it', async () => {

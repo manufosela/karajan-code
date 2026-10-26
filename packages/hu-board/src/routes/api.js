@@ -43,7 +43,7 @@ import {
   getProjectCost,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject, revertHuFromSnapshot } from '../plan-mutations.js';
+import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject, revertHuFromSnapshot, readonlyRefusal } from '../plan-mutations.js';
 import { getActiveRuns } from '../run-tracker.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
@@ -1207,6 +1207,9 @@ router.post('/runs/:planId/stop', async (req, res) => {
   const { planId } = req.params;
   const stopTimeoutMs = Number(req.body?.timeoutMs ?? 5000);
   try {
+    // KJC-BUG-0405: the shared board's running HUs are teammates' work, not a run of this board.
+    const refusal = readonlyRefusal(planId, req.body?.projectId);
+    if (refusal) return res.status(409).json(refusal);
     const errors = [];
     let stopped = 0;
     let killed = 0;

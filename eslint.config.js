@@ -363,7 +363,7 @@ export default [
            confirmRunWithPreflight cssEscape currentSessionId currentView deriveInitialsFromName deriveRoleStatus els
            embedderCard ensureDialog esc escapeHtml fetchPreflight formatCacheRatio formatCost formatDuration formatHHMM
            formatProjectCostSummary formatSessionLabel handleRoute humaniseProjectName isTestIcon isTestTitle
-           isMaggleMode lastLaunchedPlanId lastOpenedLog load loadSessions logPollTimer logViewerState maggleText
+           isMaggleMode kanbanColumnOf isBoardRun isBoardRunnable lastLaunchedPlanId lastOpenedLog load loadSessions logPollTimer logViewerState maggleText
            applyMaggleChrome maggleErrorParts MAGGLE_LABELS MAGGLE_STORE_KEY navigate nextIsTestValue
            Terminal conversationState openConversationPanel
            openCommandLogViewer openGenericLogPanel openLogViewer patchBoardIncremental pollServerVersion pollTimer
