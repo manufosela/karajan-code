@@ -13,6 +13,7 @@ import { expose, unexpose } from "../src/bridge.js";
 import { sync } from "../src/sync.js";
 import { blockPaths } from "../src/resolve.js";
 import { serve } from "../src/mcp.js";
+import { catalogSync } from "../src/fetch.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -21,7 +22,16 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril install <path> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
-  + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]";
+  + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
+  + "       atril catalog sync [--root <dir>]";
+
+function runCatalog(args) {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" } } });
+  if (positionals.join(" ") !== "sync") throw new Error(USAGE);
+  const done = catalogSync({ root: values.root });
+  if (done.length === 0) console.log("no git sources to fetch");
+  for (const { status, source, commit, catalog } of done) console.log(`${status}\t${source}@${commit.slice(0, 12)}\t${catalog}`);
+}
 
 async function runMcp(args) {
   const { values } = parseArgs({ args, options: { root: { type: "string" } } });
@@ -166,6 +176,7 @@ try {
   else if (command === "expose" || command === "unexpose") runExpose(command, rest);
   else if (command === "sync") runSync(rest);
   else if (command === "mcp") await runMcp(rest);
+  else if (command === "catalog") runCatalog(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);

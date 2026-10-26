@@ -7,10 +7,10 @@
  * not hold is "available": search shows it, installing it stays an explicit step.
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 import { readConfig } from "./config.js";
 import { isMapping } from "./model.js";
-import { keyOf, scan, scanStore } from "./scan.js";
+import { keyOf, resolveRoot, scan, scanStore } from "./scan.js";
 
 const SEGMENT = /^[A-Za-z0-9_.-]+$/;
 const COMMIT = /^[0-9a-f]{40}$/;
@@ -35,6 +35,16 @@ function readSources(ref, file) {
     if (typeof note !== "string" || !note.trim()) fail(`source "${source}": a note on what it is for is required`);
     return { source, commit, note };
   });
+}
+
+/** Where fetched sources live: under the store, never scanned as artifacts (a dot folder). */
+export const cacheRoot = ({ projectDir = process.cwd(), root, env = process.env } = {}) =>
+  join(resolvePath(projectDir, resolveRoot({ root, env })), ".cache", "catalogs");
+
+/** A source's pinned commit in the cache; owner and repo are validated segments. */
+export function sourceDir(opts, { source, commit }) {
+  const [owner, repo] = source.split("/");
+  return join(cacheRoot(opts), owner, repo, commit);
 }
 
 /** @param {{ projectDir?: string, root?: string, env?: object }} [opts] */
