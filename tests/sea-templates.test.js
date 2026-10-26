@@ -29,7 +29,7 @@ describe("SEA templates (KJC-BUG-0104)", () => {
     // prompts (prompt-resolver), coder-rules + workflows (init/config-init).
     expect(files).toContain("coder-rules.md");
     expect(files).toContain("review-rules.md");
-    expect(files.some((f) => f.startsWith(path.join("skills", "")))).toBe(true);
+    expect(files.some((f) => f.startsWith(path.join("atril", "commands", "")))).toBe(true);
     expect(files.some((f) => f.startsWith(path.join("roles", "")))).toBe(true);
     expect(files.some((f) => f.startsWith(path.join("workflows", "")))).toBe(true);
     // Sanity: matches what actually lives on disk.
@@ -42,7 +42,7 @@ describe("SEA templates (KJC-BUG-0104)", () => {
   it("getTemplatesRoot resolves the real templates/ dir outside a SEA binary", () => {
     const root = getTemplatesRoot();
     expect(root).toBe(path.join(REPO_ROOT, "templates"));
-    expect(fs.existsSync(path.join(root, "skills"))).toBe(true);
+    expect(fs.existsSync(path.join(root, "atril", "commands"))).toBe(true);
   });
 
   it("extractEmbeddedTemplates writes every file faithfully and is idempotent", () => {

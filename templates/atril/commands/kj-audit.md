@@ -1,3 +1,8 @@
+---
+name: kj-audit
+description: "Codebase Health Audit"
+kind: command
+---
 # kj-audit — Codebase Health Audit
 
 Analyze the current codebase for security, code quality, performance, architecture, and testing issues. This is a READ-ONLY analysis — do not modify any files.

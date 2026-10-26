@@ -1,3 +1,8 @@
+---
+name: kj-review
+description: "Code Review with Quality Gates"
+kind: command
+---
 # kj-review — Code Review with Quality Gates
 
 Review the current changes against task requirements and quality standards.

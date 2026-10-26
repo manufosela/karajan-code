@@ -1,3 +1,8 @@
+---
+name: kj-sql-analysis
+description: "SQL Analysis & Generation"
+kind: command
+---
 # kj-sql-analysis — SQL Analysis & Generation
 
 Generate and review SQL queries with a focus on correctness, performance, and security.

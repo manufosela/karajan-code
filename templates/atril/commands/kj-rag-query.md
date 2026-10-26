@@ -1,3 +1,8 @@
+---
+name: kj-rag-query
+description: "Query Project RAG index"
+kind: command
+---
 # kj-rag-query — Query Project RAG index
 
 Query the Project RAG (vector store + embedder) and return the top-K most relevant chunks of the indexed project: plans, onboarding briefs, and (optionally) source code.

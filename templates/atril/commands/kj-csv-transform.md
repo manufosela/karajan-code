@@ -1,3 +1,8 @@
+---
+name: kj-csv-transform
+description: "CSV & Data Transformation"
+kind: command
+---
 # kj-csv-transform — CSV & Data Transformation
 
 Transform, validate, and process CSV and tabular data files.

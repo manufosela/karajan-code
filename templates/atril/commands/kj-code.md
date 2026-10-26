@@ -1,3 +1,8 @@
+---
+name: kj-code
+description: "Coder with Guardrails"
+kind: command
+---
 # kj-code — Coder with Guardrails
 
 Implement the task with TDD methodology and built-in quality checks.

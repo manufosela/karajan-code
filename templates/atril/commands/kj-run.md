@@ -1,3 +1,8 @@
+---
+name: kj-run
+description: "Full Pipeline (Skills Mode)"
+kind: command
+---
 # kj-run — Full Pipeline (Skills Mode)
 
 Execute the complete Karajan pipeline as sequential skills.

@@ -683,7 +683,7 @@ async function bootstrapOllama({ flags, config, logger, interactive }) {
 async function installSkills(logger, interactive) {
   const projectDir = process.cwd();
   const commandsDir = path.join(projectDir, ".claude", "commands");
-  const skillsTemplateDir = path.join(getTemplatesRoot(), "skills");
+  const skillsTemplateDir = path.join(getTemplatesRoot(), "atril", "commands");
 
   let doInstall = true;
   if (interactive) {

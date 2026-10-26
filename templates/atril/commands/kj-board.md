@@ -1,3 +1,8 @@
+---
+name: kj-board
+description: "HU Board Dashboard"
+kind: command
+---
 # kj-board — HU Board Dashboard
 
 Manage the Karajan HU Board for visualizing user stories and sessions.

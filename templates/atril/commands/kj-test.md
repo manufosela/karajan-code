@@ -1,3 +1,8 @@
+---
+name: kj-test
+description: "Test Quality Audit"
+kind: command
+---
 # kj-test — Test Quality Audit
 
 Evaluate test coverage and quality for the current changes.
