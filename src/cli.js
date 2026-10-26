@@ -14,6 +14,10 @@ import { registerStandby } from "./cli/register-standby.js";
 import { printUpdateNotice } from "./utils/update-check.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
 import { migrateKjToKarajan } from "./utils/home-migration.js";
+import { pinGitDiffFormat } from "./utils/git-diff-format.js";
+
+// KJC-BUG-0408: every git kj runs prints a/ and b/, whatever the user's gitconfig says.
+pinGitDiffFormat();
 
 const PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json");
 const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
