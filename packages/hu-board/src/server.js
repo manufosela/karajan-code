@@ -327,6 +327,8 @@ async function main() {
     '/vendor/xterm',
     express.static(dirname(requireCjs.resolve('@xterm/xterm/package.json'))),
   );
+  // KJC-TSK-1198: driver.js (MIT, pinned) for the guided tour, from the dependency's dist/.
+  app.use('/vendor/driver', express.static(dirname(requireCjs.resolve('driver.js'))));
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {

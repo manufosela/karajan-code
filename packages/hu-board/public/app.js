@@ -249,6 +249,7 @@ function handleRoute() {
     btn.classList.toggle('active', btn.dataset.view === currentView);
   });
 
-  render();
+  // KJC-TSK-1198: the view's promise, so the boot can wait for it before the tour.
+  return render();
 }
 

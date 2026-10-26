@@ -149,9 +149,12 @@ window.selectProject = selectProject;
 startStandbyPolling();
 
 // Initial load — sync disk data first so new batches are visible
-triggerSync().then(() => {
-  handleRoute();
+triggerSync().then(async () => {
+  const shown = handleRoute();
   subscribeToServerEvents();
+  // KJC-TSK-1198: the guided tour, by itself on the first visit only, once the view is drawn.
+  await shown;
+  maybeStartFirstTour();
 });
 
 // Auto-refresh every 60 seconds as a SAFETY NET only — the board is
