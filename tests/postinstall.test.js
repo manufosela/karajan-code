@@ -131,6 +131,26 @@ describe("postinstall", () => {
       const entry = JSON.parse(await fs.readFile(claudeJson, "utf8")).mcpServers["karajan-mcp"];
       expect(entry.env).toEqual({ KJ_LOG_LEVEL: "debug", KARAJAN_HOME: path.join(fakeHome, ".karajan") });
     });
+
+    // KJC-BUG-0404: the .karajan of a git working tree is a project's own state (ADR 0032),
+    // never a Karajan home; used as one, every project's home data landed in that repo.
+    it("never takes a repo's .karajan as the home, from the existing entry or the registry", async () => {
+      const repo = path.join(tmpDir, "some-repo");
+      await fs.mkdir(path.join(repo, ".git"), { recursive: true });
+      await fs.mkdir(path.join(fakeHome, ".karajan"), { recursive: true });
+      await fs.writeFile(path.join(fakeHome, ".karajan", "instances.json"),
+        JSON.stringify({ instances: { default: { kjHome: path.join(repo, ".karajan") } } }), "utf8");
+      await fs.writeFile(claudeJson, JSON.stringify({
+        mcpServers: { "karajan-mcp": { command: "node", args: ["x"], env: { KARAJAN_HOME: path.join(repo, ".karajan") } } }
+      }), "utf8");
+
+      const { code, stderr } = await runScript({ HOME: fakeHome });
+      expect(code).toBe(0);
+
+      const entry = JSON.parse(await fs.readFile(claudeJson, "utf8")).mcpServers["karajan-mcp"];
+      expect(entry.env.KARAJAN_HOME).toBe(path.join(fakeHome, ".karajan"));
+      expect(stderr).toMatch(/some-repo[\\/]\.karajan is a project's \.karajan, not a Karajan home/);
+    });
   });
 
   it("preserves existing MCP servers in ~/.claude.json", async () => {
