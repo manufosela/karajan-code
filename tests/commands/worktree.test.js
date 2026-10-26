@@ -70,4 +70,21 @@ describe("kj worktree", () => {
     expect(r.removed).toBe(true);
     expect(fs.existsSync(wt)).toBe(false);
   });
+
+  // Issue #2566: lanes hang from the main checkout wherever the command runs.
+  it("start run inside a lane creates the new lane at the main checkout, not nested", async () => {
+    const outer = await worktreeCommand({ config: cfg(), action: "start", args: ["fuera"], flags: {} });
+    const inner = await worktreeCommand({ config: { projectDir: outer.path }, action: "start", args: ["dentro"], flags: {} });
+    expect(inner.path).toBe(path.join(fs.realpathSync(dir), ".kj/worktrees", "dentro"));
+    expect(fs.existsSync(path.join(outer.path, ".kj"))).toBe(false);
+  });
+
+  it("list and done from inside a lane see the main checkout's lanes", async () => {
+    const a = await worktreeCommand({ config: cfg(), action: "start", args: ["a"], flags: {} });
+    await worktreeCommand({ config: cfg(), action: "start", args: ["b"], flags: {} });
+    const rows = await worktreeCommand({ config: { projectDir: a.path }, action: "list", flags: {} });
+    expect(rows.map((r) => r.slug).sort()).toEqual(["a", "b"]);
+    await worktreeCommand({ config: { projectDir: a.path }, action: "done", args: ["b"], flags: {} });
+    expect(fs.existsSync(path.join(dir, ".kj/worktrees", "b"))).toBe(false);
+  });
 });

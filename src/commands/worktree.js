@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { classifyLanes, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
 import { recordGateDecision } from "../policy/decisions.js";
+import { mainCheckout } from "../utils/main-checkout.js";
 
 const execFileAsync = promisify(execFile);
 const WORKTREE_DIR = ".kj/worktrees"; // shared with the headless lanes
@@ -22,7 +23,9 @@ const SLUG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 export async function worktreeCommand({ config = null, action, args = [], flags = {}, deps = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   const git = (gitArgs, cwd = projectDir) => execFileAsync("git", gitArgs, { cwd });
-  const lanePath = (slug) => path.join(projectDir, WORKTREE_DIR, slug);
+  // #2566: lanes hang from the main checkout, never from the lane the command runs in.
+  const lanesDir = path.join(mainCheckout(projectDir), WORKTREE_DIR);
+  const lanePath = (slug) => path.join(lanesDir, slug);
 
   if (action === "start") {
     const slug = String(args[0] || "").trim();
@@ -44,7 +47,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
   }
 
   if (action === "list") {
-    const laneRoot = path.join(projectDir, WORKTREE_DIR) + path.sep;
+    const laneRoot = lanesDir + path.sep;
     const { stdout } = await git(["worktree", "list", "--porcelain"]);
     const rows = [];
     let current = null;
@@ -78,7 +81,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
   if (action === "prune") {
     const { processes = liveProcesses() } = deps;
     const base = await resolveBase({ git, base: config?.base_branch || "main" });
-    const lanes = await classifyLanes({ git, laneRoot: path.join(projectDir, WORKTREE_DIR), base, processes, now: deps.now });
+    const lanes = await classifyLanes({ git, laneRoot: lanesDir, base, processes, now: deps.now });
     const abandoned = lanes.filter((l) => l.reasons.length === 0);
     const kept = lanes.filter((l) => l.reasons.length > 0);
     for (const l of kept) console.log(`kept    ${l.slug.padEnd(24)} ${l.reasons.join("; ")}`);
