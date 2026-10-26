@@ -50,6 +50,8 @@ export const CONTRACT_BLOCK = [
   // apply and atril's config with its lockfile. Shared plans travel in .karajan-shared/.
   "!.karajan/coder-rules.md",
   "!.karajan/review-rules.md",
+  // KJC-TSK-1234: the project config, once the pre-commit refuses it with a secret in it.
+  "!.karajan/kj.config.yml",
   "!.karajan/atril.json",
   "!.karajan/atril.lock.json",
 ];

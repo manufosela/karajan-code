@@ -1,6 +1,7 @@
 import { initCommand } from "../commands/init.js";
 import { ollamaStartCommand, ollamaStopCommand, ollamaStatusCommand, ollamaPullCommand } from "../commands/ollama.js";
 import { configCommand } from "../commands/config.js";
+import { checkSecretsCommand } from "../config/secrets.js";
 import { codeCommand } from "../commands/code.js";
 import { reviewCommand } from "../commands/review.js";
 import { tournamentCommand } from "../commands/tournament.js";
@@ -52,7 +53,9 @@ export function registerPipeline(program, { pkgVersion }) {
     .description("Show current config")
     .option("--json", "Show as JSON")
     .option("--edit", "Open config in $EDITOR for editing")
+    .option("--check-secrets <file>", "Exit 1 when a project kj.config.yml (or - for stdin) holds a secret (ADR 0032)")
     .action(async (flags) => {
+      if (flags.checkSecrets) return checkSecretsCommand(flags.checkSecrets);
       await configCommand(flags);
     });
 
