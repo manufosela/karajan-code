@@ -47,7 +47,7 @@ describe("resolve", () => {
 
   it("returns an empty block and says why when nothing matches", () => {
     expect(run("deploy kubernetes", "coder")).toEqual({
-      block: [], suggested: [], left: [], reason: 'no artifact matches "deploy kubernetes" for role coder',
+      block: [], suggested: [], left: [], reason: 'no artifact matches "deploy kubernetes" for role coder', available: [],
     });
   });
 
@@ -79,7 +79,7 @@ describe("atril route", () => {
         { name: "base", kind: "skill", path: join(dir, ".atril", "skills", "base", "SKILL.md"), as: "inline" },
         { name: "tdd", kind: "skill", path: join(dir, ".atril", "skills", "tdd", "SKILL.md"), as: "inline" },
       ],
-      suggested: [], left: [],
+      suggested: [], left: [], available: [],
     });
   });
 

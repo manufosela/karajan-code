@@ -4,6 +4,7 @@
  * A query term scores by the field it appears in, the name weighing most
  * and the body least; ties break on kind, then name.
  */
+import { availableArtifacts } from "./catalog.js";
 import { KINDS } from "./model.js";
 import { keyOf, scan } from "./scan.js";
 
@@ -30,20 +31,25 @@ const scoreOf = (fields, terms) =>
   Object.entries(WEIGHTS).reduce((sum, [field, weight]) => sum + weight * terms.filter((term) => fields[field].has(term)).length, 0);
 
 /**
+ * The stores' artifacts, and (step 11a) what the catalogs offer, marked `installed: false`
+ * with its `catalog`.
  * @param {string} query
- * @param {{ kind?: string } & Parameters<typeof scan>[0]} [opts] the rest goes to scan()
- * @returns {{ name: string, kind: string, description: string, source: string, installed: boolean, score: number }[]}
+ * @param {{ kind?: string, catalogs?: boolean } & Parameters<typeof scan>[0]} [opts] the rest goes to scan()
+ * @returns {{ name: string, kind: string, description: string, source: string, installed: boolean, score: number, catalog?: string }[]}
  */
-export function search(query, { kind, ...scanOpts } = {}) {
+export function search(query, { kind, catalogs: withCatalogs = true, ...scanOpts } = {}) {
   const terms = typeof query === "string" ? [...tokenize(query)] : [];
   if (terms.length === 0) throw new Error("search needs a non-empty query");
   if (kind !== undefined && !KINDS.includes(kind)) throw new Error(`kind ${JSON.stringify(kind)} is not one of ${KINDS.join(", ")}`);
-  return scan(scanOpts)
-    .artifacts.filter((artifact) => kind === undefined || artifact.kind === kind)
+  const { artifacts } = scan(scanOpts);
+  const pool = withCatalogs ? [...artifacts, ...availableArtifacts(scanOpts, artifacts)] : artifacts;
+  return pool
+    .filter((artifact) => kind === undefined || artifact.kind === kind)
     .map((artifact) => ({ artifact, score: scoreOf(fieldsOf(artifact), terms) }))
     .filter(({ score }) => score > 0)
     .toSorted((a, b) => b.score - a.score || (keyOf(a.artifact) < keyOf(b.artifact) ? -1 : 1))
-    .map(({ artifact: { name, kind: artifactKind, description, source }, score }) => ({
-      name, kind: artifactKind, description, source, installed: true, score,
+    .map(({ artifact: { name, kind: artifactKind, description, source, catalog }, score }) => ({
+      name, kind: artifactKind, description, source, installed: catalog === undefined, score,
+      ...(catalog !== undefined && { catalog }),
     }));
 }

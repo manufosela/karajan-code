@@ -139,10 +139,18 @@ function runRoute(args) {
     args, allowPositionals: true,
     options: { role: { type: "string" }, root: { type: "string" }, json: { type: "boolean" } },
   });
-  const { block, suggested, left, reason } = resolve({ task: positionals.join(" "), role: values.role, root: values.root });
-  if (values.json) console.log(JSON.stringify({ block: blockPaths(block), suggested, left, ...(reason && { reason }) }, null, 2));
-  else if (reason) console.log(reason);
-  else printBlock(block);
+  const { block, suggested, left, reason, available } = resolve({ task: positionals.join(" "), role: values.role, root: values.root });
+  if (values.json) {
+    console.log(JSON.stringify({ block: blockPaths(block), suggested, left, available, ...(reason && { reason }) }, null, 2));
+    return;
+  }
+  if (reason) {
+    console.log(reason);
+  } else {
+    printBlock(block);
+  }
+  // Either way, what fits from the catalogs follows.
+  for (const { kind, name, catalog } of available) console.log(`available\t${kind}:${name}\tfrom ${printable(catalog)}`);
 }
 
 const [command, ...rest] = process.argv.slice(2);
