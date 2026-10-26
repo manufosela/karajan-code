@@ -34,21 +34,32 @@ export const session = (state, sid) => {
   state.sessions ||= {};
   return (state.sessions[sid] ||= { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0 });
 };
-export const branchOf = () => {
-  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
-  catch { return null; }
-};
 const _git = (args, cwd) => {
   try { return execSync("git " + args, { cwd, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch { return ""; }
 };
+// MONO-0 (ADR 0002, amended by #2566): lane identity = worktree toplevel; repo
+// identity = git-common-dir. The session's lane is where the HOST says it works
+// (the hook payload's cwd, which EnterWorktree moves) when that is a worktree of
+// this same repo; otherwise the dir the guard is installed in.
 let _home;
-// MONO-0 (ADR 0002): lane identity = worktree toplevel; repo identity =
-// git-common-dir. Same repo but another toplevel than OUR root => foreign
-// lane (returns its toplevel); anything else => null.
+const homeOf = (dir) => ({ top: _git("rev-parse --show-toplevel", dir), common: _git("rev-parse --path-format=absolute --git-common-dir", dir) });
+export const enterLane = (cwd) => {
+  const root = homeOf(ROOT);
+  const here = cwd ? homeOf(cwd) : null;
+  // git that cannot answer ("" common dir) never matches: fail closed to the install lane.
+  _home = here?.top && root.common && here.common === root.common ? here : root;
+  return _home.top;
+};
+export const laneTop = () => (_home ||= homeOf(ROOT)).top || ROOT;
+export const branchOf = () => {
+  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: laneTop(), stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+  catch { return null; }
+};
+// Same repo but another toplevel than OUR lane => foreign lane (its toplevel); else null.
 export const foreignLane = (targetDir) => {
   const top = _git("rev-parse --show-toplevel", targetDir);
   if (!top) return null;
-  _home ||= { top: _git("rev-parse --show-toplevel", ROOT), common: _git("rev-parse --path-format=absolute --git-common-dir", ROOT) };
+  _home ||= homeOf(ROOT);
   if (!_home.top || top === _home.top) return null;
   const common = _git("rev-parse --path-format=absolute --git-common-dir", targetDir);
   return common && common === _home.common ? top : null;

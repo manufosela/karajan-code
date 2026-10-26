@@ -6,7 +6,7 @@
 // Copied byte for byte into .karajan/harness; never fails a session (exit 0).
 import process from "node:process";
 import { spawnSync } from "node:child_process";
-import { CARD, ROOT, branchOf, load, pendingMoves } from "./sentinel-lib.mjs";
+import { CARD, ROOT, branchOf, enterLane, load, pendingMoves } from "./sentinel-lib.mjs";
 import { rulesDriftNotice } from "./sentinel-rules.mjs";
 
 const RULES = [
@@ -25,7 +25,8 @@ let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
-    const { session_id: sid = "default", source } = JSON.parse(raw || "{}");
+    const { session_id: sid = "default", source, cwd = null } = JSON.parse(raw || "{}");
+    enterLane(cwd);
     // KJC-TSK-0949: an MD changed and its compiled rules fell behind. Said at
     // every start, a new session included: that one gets this line and nothing else.
     const drift = rulesDriftNotice({ root: ROOT, run: spawnSync });

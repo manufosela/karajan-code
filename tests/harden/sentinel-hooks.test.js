@@ -717,6 +717,51 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     const outside = path.join(os.tmpdir(), "kj-nolane-note.md");
     expect(run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: outside } }).status).toBe(0);
   });
+
+  // #2566: the host moves the session into a lane (EnterWorktree) and says so in
+  // the payload's cwd. That lane is the session's own; the rest stay foreign.
+  const inLane = (payload, cwd = lane) => ({ ...payload, cwd });
+  it("an Edit inside the lane the host's cwd points at is the session's own lane", () => {
+    const res = run(gate, inLane(laneEdit()));
+    expect(res.stderr).not.toContain("carril");
+  });
+  it("from inside a lane, the main checkout and other lanes are foreign", () => {
+    fs.writeFileSync(path.join(dir, "y.js"), "y");
+    const root = run(gate, inLane({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, "y.js") } }));
+    expect(root.status).toBe(2);
+    expect(root.stderr).toContain("carril");
+  });
+  it("a cwd outside this repo does not move the lane", () => {
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), "kj-other-"));
+    execSync("git init -q", { cwd: other });
+    const res = run(gate, inLane(laneEdit(), other));
+    expect(res.status).toBe(2);
+  });
+  it("card-first reads the lane's branch, not the main checkout's", () => {
+    execSync("git checkout -q main", { cwd: dir }); // root on the base branch
+    execSync("git checkout -q -b feat/KJC-TSK-0002-lane", { cwd: lane });
+    const res = run(gate, inLane(laneEdit()));
+    expect(res.stderr).not.toMatch(/card|tarjeta/i);
+  });
+  it("once a session mutated one lane, a cwd in another lane does not open it", () => {
+    run(postScript, inLane(editTool(path.join(dir, "src", "a.js")), dir)); // first mutation: the main checkout
+    const res = run(gate, inLane(laneEdit()));
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("carril");
+  });
+  it("a cd between two lanes after the first mutation stays denied; the lane that mutated first stays open", () => {
+    const second = path.join(path.dirname(lane), "wt2");
+    execSync(`git worktree add --detach ${second}`, { cwd: dir });
+    fs.mkdirSync(path.join(second, "src"), { recursive: true });
+    try {
+      run(postScript, inLane(laneEdit())); // first mutation: `lane`
+      const edit = (file, cwd) => run(gate, inLane({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: file } }, cwd));
+      expect(edit(path.join(second, "src", "z.js"), second).stderr).toContain("carril");
+      expect(edit(path.join(lane, "src", "x.js"), lane).stderr).not.toContain("carril");
+    } finally {
+      execSync(`git worktree remove --force ${second}`, { cwd: dir });
+    }
+  });
 });
 
 describe("installSentinelHooks settings merge", () => {

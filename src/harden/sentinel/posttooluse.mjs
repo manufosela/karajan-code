@@ -7,13 +7,14 @@ import process from "node:process";
 import { realpathSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { CODE, TESTS, ROOT, CARD, branchOf, load, save, session } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, CARD, branchOf, enterLane, laneTop, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
-    const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, tool_response: response = {} } = JSON.parse(raw);
+    const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, tool_response: response = {}, cwd = null } = JSON.parse(raw);
+    enterLane(load().sessions?.[sid]?.lane ?? cwd);
     // KJC-TSK-0765 board-sync: a merge that gh CONFIRMS leaves its card pending
     // in the tracker (the PreToolUse gate then refuses to advance until it is
     // moved). Recorded here, after the fact, so a failed merge never blocks.
@@ -184,7 +185,8 @@ process.stdin.on("end", () => {
     const state = load();
     const s = session(state, sid);
     s.at = Date.now();
-    const rel = relative(ROOT, file).replaceAll("\\", "/");
+    s.lane ||= laneTop(); // the first mutation binds the session to its lane (#2566)
+    const rel = relative(laneTop(), file).replaceAll("\\", "/");
     // KJC-BUG-0279 (#1981): a file outside the repository is not one of its sources.
     const inside = rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
     const bucket = !inside ? null : TESTS.test(rel) ? s.edited_tests : CODE.test(rel) ? s.edited_sources : null;
