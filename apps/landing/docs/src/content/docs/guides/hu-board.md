@@ -79,6 +79,14 @@ kj init  # Select "Enable HU Board" when prompted
 
 The board reads JSON files from `~/.karajan/hu-stories/` and `~/.karajan/sessions/`. SQLite is used as an index for fast queries — if deleted, it rebuilds from the JSON files on next startup.
 
+## Shared board
+
+A team can work on one board: its HUs live as GitHub Issues of the repo (label `kj:hu`) and everyone sees the same ones.
+
+- **Turn it on**: `kj hu backend github` writes `.karajan/board.yml` with the repo of `origin`. That file goes in a PR; whoever pulls inherits it.
+- **Work with it**: `kj hu list` reads it, `kj hu move <HU> <status>` changes an HU. Each HU is assigned to whoever has it in progress.
+- **See it in the board**: the project shows a `github` plan with those HUs and a notice explaining it is the shared board, with a link to its issues. It is read-only from the web: the issues are the truth, and `kj hu move` changes them.
+
 ## MCP Tool
 
 Available as `kj_board` MCP tool:

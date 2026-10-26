@@ -29,7 +29,8 @@ describe("the shared board mirrored for kj board", () => {
   it("kj hu list writes the read-only plan the web board shows", async () => {
     await huCommand({ config: { projectDir: dir }, action: "list", flags: { json: true }, deps });
     const plan = await loadPlan(dir, "github");
-    expect(plan).toMatchObject({ readonly: "github", task: expect.stringContaining("acme/app") });
+    // KJC-TSK-1197: the repo travels on its own so the board can link to its issues.
+    expect(plan).toMatchObject({ readonly: "github", repo: "acme/app", task: expect.stringContaining("acme/app") });
     expect(plan.hus.map((h) => [h.id, h.status, h.claimed_by, h.external_ref])).toEqual([["HU-7", "running", "jorgecasar", "acme/app#7"], ["HU-8", "pending", null, "acme/app#8"]]);
   });
 

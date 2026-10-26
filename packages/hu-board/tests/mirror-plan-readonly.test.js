@@ -55,4 +55,14 @@ describe('a plan that mirrors the shared board', () => {
     expect(JSON.parse(readFileSync(local, 'utf-8')).name).toBe('New name');
     expect(JSON.parse(readFileSync(planPath(), 'utf-8')).name).toBe('github');
   });
+
+  it('KJC-TSK-1197: is announced by the plans endpoint with its repo, so the board can explain it', async () => {
+    writeFileSync(planPath(), JSON.stringify({ ...plan(), repo: 'acme/app' }, null, 2), 'utf-8');
+    const { default: express } = await import('express');
+    const { default: request } = await import('supertest');
+    const { default: apiRoutes } = await import('../src/routes/api.js');
+    const app = express().use('/api', apiRoutes);
+    const res = await request(app).get(`/api/projects/${PROJECT_ID}/plans-outcome`);
+    expect(res.body.plans).toEqual([expect.objectContaining({ planId: PLAN_ID, readonly: 'github', repo: 'acme/app' })]);
+  });
 });

@@ -150,6 +150,7 @@ async function renderBoard() {
         </button>
         <div id="rag-results" style="flex-basis:100%;font-size:0.8rem;color:var(--text-muted);"></div>
       </div>
+      <div id="shared-board-notice"></div>
       <div id="plan-rollup-banner"></div>
       <div class="kanban">
         ${visibleColumns.map((c) => renderKanbanColumn(c.title, c.cls, c.rows)).join('')}
@@ -176,6 +177,8 @@ async function renderBoard() {
     // project has a stamped outcome. Non-blocking — if it fails the
     // user just doesn't see the banner.
     renderPlanRollup(selectedProject).catch(() => {});
+    // KJC-TSK-1197: explain the shared board when this project mirrors one.
+    renderSharedBoardNotice(selectedProject).catch((err) => console.warn('shared board notice:', err.message));
     const viewLogBtn = document.getElementById('view-log-btn');
     if (viewLogBtn && lastOpenedLog) {
       viewLogBtn.addEventListener('click', () => openGenericLogPanel({

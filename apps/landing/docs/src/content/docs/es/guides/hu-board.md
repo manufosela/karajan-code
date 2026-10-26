@@ -79,6 +79,14 @@ kj init  # Seleccionar "Enable HU Board" cuando se pregunte
 
 El board lee ficheros JSON desde `~/.karajan/hu-stories/` y `~/.karajan/sessions/`. SQLite se usa como índice para consultas rápidas, si se elimina, se reconstruye desde los ficheros JSON en el siguiente arranque.
 
+## Tablero compartido
+
+Un equipo puede trabajar sobre un mismo tablero: sus HUs viven como GitHub Issues del repo (etiqueta `kj:hu`) y todos ven las mismas.
+
+- **Activarlo**: `kj hu backend github` escribe `.karajan/board.yml` con el repo de `origin`. Ese fichero va en una PR; quien haga pull lo hereda.
+- **Trabajar con él**: `kj hu list` lo lee, `kj hu move <HU> <estado>` cambia una HU. Cada HU tiene asignada a la persona que la tiene en marcha.
+- **Verlo en el board**: el proyecto muestra un plan `github` con esas HUs y un aviso que explica que es el tablero compartido, con un enlace a sus issues. Desde la web es de solo lectura: lo que cuenta son las issues, y se cambian con `kj hu move`.
+
 ## Herramienta MCP
 
 Disponible como herramienta MCP `kj_board`:
