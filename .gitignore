@@ -29,10 +29,15 @@ apps/landing/public/docs/
 !.karajan/rules.yml
 !.karajan/security-level.json
 !.karajan/board.yml
+!.karajan/coder-rules.md
+!.karajan/review-rules.md
+!.karajan/kj.config.yml
+!.karajan/atril.json
+!.karajan/atril.lock.json
 .reviews/
 .kj/
 kj.config.yml
-review-rules.md
+/review-rules.md
 .sonar-env
 .kj-ready.json
 
