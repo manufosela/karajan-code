@@ -6,10 +6,10 @@
  * each pinned to a commit and saying what it is for. What a catalog offers that the stores do
  * not hold is "available": search shows it, installing it stays an explicit step.
  */
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { join, resolve as resolvePath } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { basename, join, resolve as resolvePath } from "node:path";
 import { readConfig } from "./config.js";
-import { isMapping } from "./model.js";
+import { isMapping, parseArtifact } from "./model.js";
 import { keyOf, resolveRoot, scan, scanStore } from "./scan.js";
 
 const SEGMENT = /^[A-Za-z0-9_.-]+$/;
@@ -59,19 +59,51 @@ export function catalogs(opts = {}) {
 }
 
 /**
+ * A fetched source (step 11b): a store's layout, one OpenSkills skill folder, or a folder of
+ * them. A SKILL.md that declares no kind is a skill, and must be named after its folder.
+ */
+function scanFetched(dir, source) {
+  if (["skills", "commands", "agents"].some((kind) => existsSync(join(dir, kind)))) return scanStore(dir, source);
+  const skillAt = (folder) => {
+    const artifact = parseArtifact(join(folder, "SKILL.md"), { defaultKind: "skill" });
+    if (artifact.kind !== "skill" || artifact.name !== basename(folder)) {
+      throw new Error(`${folder}: a catalog skill must be kind skill and named after its folder, not "${artifact.name}"`);
+    }
+    return { ...artifact, source };
+  };
+  if (existsSync(join(dir, "SKILL.md"))) return [skillAt(dir)];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && existsSync(join(dir, entry.name, "SKILL.md")))
+    .map((entry) => entry.name)
+    .toSorted()
+    .map((name) => skillAt(join(dir, name)));
+}
+
+/** The folders a catalog offers: a store catalog itself, or each source already fetched. */
+function offered(opts, catalog) {
+  if (catalog.type === "store") return [{ dir: catalog.dir, scanOf: scanStore }];
+  return catalog.sources
+    .map((entry) => join(sourceDir(opts, entry), ...entry.source.split("/").slice(2)))
+    .filter((dir) => existsSync(dir))
+    .map((dir) => ({ dir, scanOf: scanFetched }));
+}
+
+/**
  * What the catalogs offer that the stores do not hold, each with its `catalog`. The first
- * catalog listed wins a name two of them share. A sources catalog joins once fetched (step 11b).
+ * catalog listed wins a name two of them share; a source not fetched yet offers nothing.
  * @param {Parameters<typeof scan>[0]} [opts]
  * @param {object[]} [held] the stores' artifacts, when the caller already scanned them
  */
 export function availableArtifacts(opts = {}, held = scan(opts).artifacts) {
   const seen = new Set(held.map(keyOf));
   const found = [];
-  for (const catalog of catalogs(opts).filter(({ type }) => type === "store")) {
-    for (const artifact of scanStore(catalog.dir, `catalog:${catalog.ref}`)) {
-      if (seen.has(keyOf(artifact))) continue;
-      seen.add(keyOf(artifact));
-      found.push({ ...artifact, catalog: catalog.ref });
+  for (const catalog of catalogs(opts)) {
+    for (const { dir, scanOf } of offered(opts, catalog)) {
+      for (const artifact of scanOf(dir, `catalog:${catalog.ref}`)) {
+        if (seen.has(keyOf(artifact))) continue;
+        seen.add(keyOf(artifact));
+        found.push({ ...artifact, catalog: catalog.ref });
+      }
     }
   }
   return found;

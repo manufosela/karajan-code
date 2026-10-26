@@ -54,8 +54,10 @@ function validate(path, front) {
  * Parse and validate one artifact file. Invalid frontmatter fails loudly,
  * naming the file and the field.
  * @param {string} path
+ * @param {{ defaultKind?: string }} [opts] the kind of a file that declares none: catalog
+ *   sources in OpenSkills' format write a SKILL.md without `kind` (step 11b)
  */
-export function parseArtifact(path) {
+export function parseArtifact(path, { defaultKind } = {}) {
   const match = FRONTMATTER.exec(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
   if (!match) throw new Error(`${path}: no frontmatter (--- … --- lines at the top)`);
   let front;
@@ -64,6 +66,7 @@ export function parseArtifact(path) {
   } catch (err) {
     throw new Error(`${path}: invalid frontmatter (${err.message})`, { cause: err });
   }
+  if (defaultKind !== undefined && isMapping(front) && front.kind === undefined) front = { ...front, kind: defaultKind };
   validate(path, front);
   const body = match[2];
   const { atril = {}, ...author } = front;
