@@ -85,6 +85,15 @@ describe("lo que kj deja en .karajan/", () => {
     }
   });
 
+  it("el contrato re-incluye lo comun del equipo (ADR 0032): sus reglas, sus planes y atril", () => {
+    for (const shared of ["!.karajan/coder-rules.md", "!.karajan/review-rules.md", "!.karajan/plans/", "!.karajan/atril.json", "!.karajan/atril.lock.json"]) {
+      expect(CONTRACT_BLOCK, shared).toContain(shared);
+    }
+    // kj.config.yml todavia puede llevar secretos (tokens de Sonar): viaja cuando existan
+    // kj.config.local.yml y la comprobacion que impide commitearlo con ellos.
+    expect(CONTRACT_BLOCK).not.toContain("!.karajan/kj.config.yml");
+  });
+
   it("ninguna exclusion pisa lo que el contrato del .gitignore re-incluye", async () => {
     // Las dos listas viven en este mismo modulo y dicen cosas opuestas sobre
     // .karajan/: si una excluye lo que la otra promete versionar, el contrato

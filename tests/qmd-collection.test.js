@@ -32,7 +32,8 @@ describe("projectSlug", () => {
 
 describe("planQmdCollections", () => {
   it("exposes the default paths", () => {
-    expect(QMD_DEFAULT_PATHS).toEqual(["docs", ".reviews", ".karajan/plans"]);
+    // ADR 0032: the wiki's sources travel with the project; .reviews/ is local legacy.
+    expect(QMD_DEFAULT_PATHS).toEqual(["docs", ".karajan/plans"]);
   });
 
   it("returns only existing directories", () => {
@@ -40,7 +41,7 @@ describe("planQmdCollections", () => {
     mkdirSync(path.join(projectDir, "docs"));
     mkdirSync(path.join(projectDir, ".reviews"));
     const names = planQmdCollections(projectDir).map((r) => r.name).sort();
-    expect(names).toEqual(["karajan-docs", "karajan-reviews"]);
+    expect(names).toEqual(["karajan-docs"]);
   });
 
   it("returns [] when nothing indexable exists", () => {
@@ -66,13 +67,13 @@ describe("registerQmdCollections", () => {
   it("registers new collections", async () => {
     setupProject("Alpha");
     mkdirSync(path.join(projectDir, "docs"));
-    mkdirSync(path.join(projectDir, ".reviews"));
+    mkdirSync(path.join(projectDir, ".karajan", "plans"), { recursive: true });
     runCommand
       .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
       .mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
     const result = await registerQmdCollections(projectDir, logger);
     expect(result.ok).toBe(true);
-    expect(result.added.sort()).toEqual(["alpha-docs", "alpha-reviews"]);
+    expect(result.added.sort()).toEqual(["alpha-docs", "alpha-karajan-plans"]);
   });
 
   it("skips collections already present (idempotent)", async () => {

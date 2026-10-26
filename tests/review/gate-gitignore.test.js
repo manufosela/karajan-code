@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureGateTrackable } from "../../src/review/gate-gitignore.js";
+import { CONTRACT_BLOCK, ensureGateTrackable } from "../../src/review/gate-gitignore.js";
 
 let dir;
 beforeEach(() => {
@@ -75,6 +75,47 @@ describe("ensureGateTrackable", () => {
     // exactly one coherent block — no duplicated re-includes
     const text = fs.readFileSync(path.join(dir, ".gitignore"), "utf8");
     expect(text.match(/!\.karajan\/review-gate/g)).toHaveLength(1);
+  });
+
+  // ADR 0032: a block written before it is completed, so the team's rules, plans and atril
+  // config travel, while what is personal stays ignored.
+  it("a block from before ADR 0032 now tracks the team's rules, plans and atril config", async () => {
+    const before = CONTRACT_BLOCK.filter((l) => !/coder-rules|review-rules|plans|atril/.test(l));
+    fs.writeFileSync(path.join(dir, ".gitignore"), `${before.join("\n")}\n`);
+    expect((await ensureGateTrackable(dir)).changed).toBe(true);
+    for (const shared of [".karajan/coder-rules.md", ".karajan/review-rules.md", ".karajan/plans/p.md", ".karajan/atril.json"]) {
+      expect(ignored(shared), shared).toBe(false);
+    }
+    expect(ignored(".karajan/kj.config.local.yml")).toBe(true);
+    expect(ignored(".karajan/rag.db")).toBe(true);
+  });
+
+  // Older kj wrote bare `review-rules.md` / `coder-rules.md` lines after the block; the last match
+  // wins in gitignore, so they silently undid the re-include. Only those exact lines go.
+  it("drops the bare rules lines an older kj wrote, which would shadow the re-include", async () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), `${CONTRACT_BLOCK.join("\n")}\nkj.config.yml\nreview-rules.md\ncoder-rules.md\n`);
+    expect((await ensureGateTrackable(dir)).changed).toBe(true);
+    expect(ignored(".karajan/review-rules.md")).toBe(false);
+    expect(ignored(".karajan/coder-rules.md")).toBe(false);
+    expect(ignored(".karajan/kj.config.yml")).toBe(true);
+    expect((await ensureGateTrackable(dir)).changed).toBe(false);
+  });
+
+  it("keeps a bare rules line placed before the block: it shadows nothing and may be the user's", async () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), `review-rules.md\n${CONTRACT_BLOCK.join("\n")}\n`);
+    expect((await ensureGateTrackable(dir)).changed).toBe(false);
+    expect(fs.readFileSync(path.join(dir, ".gitignore"), "utf8").startsWith("review-rules.md\n")).toBe(true);
+    expect(ignored(".karajan/review-rules.md")).toBe(false);
+  });
+
+  it("keeps a user's line that its own re-include already overrode, moved ahead of the block", async () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/*\nreview-rules.md\n!.karajan/review-rules.md\n");
+    expect((await ensureGateTrackable(dir)).changed).toBe(true);
+    const text = fs.readFileSync(path.join(dir, ".gitignore"), "utf8");
+    expect(text.match(/^review-rules\.md$/gm)).toHaveLength(1);
+    expect(text.indexOf("review-rules.md\n")).toBeLessThan(text.indexOf(".karajan/*"));
+    expect(ignored(".karajan/review-rules.md")).toBe(false);
+    expect((await ensureGateTrackable(dir)).changed).toBe(false);
   });
 
   // KJC-BUG-0269: the policy is what CI evaluates, and its anchor and the signers
