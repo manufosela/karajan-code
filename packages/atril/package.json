@@ -12,7 +12,8 @@
   },
   "files": [
     "src/",
-    "bin/"
+    "bin/",
+    "recommended/"
   ],
   "dependencies": {
     "js-yaml": "^4.2.0"

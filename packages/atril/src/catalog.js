@@ -4,13 +4,29 @@
  * a consumer's own or the recommended set) or a JSON file of git sources:
  * `{ "sources": [{ "source": "owner/repo[/path]", "commit": "<40 hex>", "note": "..." }] }`,
  * each pinned to a commit and saying what it is for. What a catalog offers that the stores do
- * not hold is "available": search shows it, installing it stays an explicit step.
+ * not hold is "available": search shows it, installing it stays an explicit step. The set atril
+ * recommends (decision 13; plan step 12a) ships in the package and is always the first catalog.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readConfig } from "./config.js";
 import { isMapping, parseArtifact } from "./model.js";
 import { keyOf, resolveRoot, scan, scanStore } from "./scan.js";
+
+export const RECOMMENDED = fileURLToPath(new URL("../recommended", import.meta.url));
+
+/**
+ * The recommended set's folder: the option wins, then ATRIL_RECOMMENDED (relative to the
+ * project), then the bundled one. A set named explicitly must exist.
+ */
+export function recommendedDir({ recommended, projectDir = process.cwd(), env = process.env } = {}) {
+  const chosen = recommended || env.ATRIL_RECOMMENDED;
+  if (!chosen) return RECOMMENDED;
+  const dir = resolvePath(projectDir, chosen);
+  if (!existsSync(dir)) throw new Error(`recommended set ${dir} not found`);
+  return dir;
+}
 
 const SEGMENT = /^[A-Za-z0-9_.-]+$/;
 const COMMIT = /^[0-9a-f]{40}$/;
@@ -51,15 +67,16 @@ export function sourceDir(opts, { source, commit }) {
   return join(cacheRoot(opts), owner, repo, commit);
 }
 
-/** @param {{ projectDir?: string, root?: string, env?: object }} [opts] */
+/** @param {{ projectDir?: string, root?: string, env?: object, recommended?: string }} [opts] */
 export function catalogs(opts = {}) {
   const projectDir = opts.projectDir ?? process.cwd();
-  return readConfig(opts).catalogs.map((ref) => {
+  const bundled = { ref: "atril:recommended", type: "store", dir: recommendedDir(opts) };
+  return [bundled, ...readConfig(opts).catalogs.map((ref) => {
     const path = resolvePath(projectDir, ref);
     if (!existsSync(path)) throw new Error(`catalog "${ref}": ${path} not found`);
     if (statSync(path).isDirectory()) return { ref, type: "store", dir: path };
     return { ref, type: "sources", sources: readSources(ref, path) };
-  });
+  })];
 }
 
 /**
