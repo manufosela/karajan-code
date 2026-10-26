@@ -2,7 +2,8 @@
 // Single source for every sentinel script: state, branch, classification,
 // and violations.
 import process from "node:process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { execSync, spawnSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,24 +35,87 @@ export const session = (state, sid) => {
   state.sessions ||= {};
   return (state.sessions[sid] ||= { edited_sources: [], edited_tests: [], escapes: [], errors: [], blocks: 0 });
 };
-export const branchOf = () => {
-  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
-  catch { return null; }
-};
 const _git = (args, cwd) => {
   try { return execSync("git " + args, { cwd, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch { return ""; }
 };
+// MONO-0 (ADR 0002, amended by #2566): lane identity = worktree toplevel; repo
+// identity = git-common-dir. The session's lane is where the HOST says it works
+// (the hook payload's cwd, which EnterWorktree moves) when that is a worktree of
+// this same repo; otherwise the dir the guard is installed in. ROOT keeps the
+// harness (state, config); laneTop() is the git tree the session works in.
+// ADR 0033 (KJC-TSK-1236): a session switches into a lane only when no other live session
+// is there. Each session keeps one presence mark (its lane and when it last resolved it) in
+// the repo's git common dir. Entering is intent first, then a look: the session writes the
+// new lane, then reads the others' marks and steps back if another live one is there. Two
+// sessions entering together never both stay: the later write is seen by the later look.
+const LANE_TTL_MS = 30 * 60 * 1000;
+let _cwd = null;
+let _sid = null;
 let _home;
-// MONO-0 (ADR 0002): lane identity = worktree toplevel; repo identity =
-// git-common-dir. Same repo but another toplevel than OUR root => foreign
-// lane (returns its toplevel); anything else => null.
+let _refusal = null;
+const homeOf = (dir) => {
+  const [top = "", common = ""] = _git("rev-parse --show-toplevel --path-format=absolute --git-common-dir", dir).split("\n");
+  return { top, common };
+};
+export const enterLane = (_state, sid, cwd) => {
+  _cwd = cwd;
+  _sid = sid;
+  _home = undefined;
+  _refusal = null;
+};
+/** Why the session was kept out of the lane its cwd is in, or null. */
+export const laneRefusal = () => _refusal;
+const laneKey = (s) => createHash("sha256").update(String(s)).digest("hex").slice(0, 16);
+const readJson = (f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } };
+// The lane the session may take: `lane` when it is home, already its live lane, or free.
+const claimLane = (root, lane, now = Date.now()) => {
+  if (!_sid || !root.common) return lane;
+  const dir = join(root.common, "kj-lanes");
+  const mark = join(dir, "session-" + laneKey(_sid) + ".json");
+  const write = (top) => writeFileSync(mark, JSON.stringify({ sid: _sid, lane: top, at: now }));
+  try {
+    mkdirSync(dir, { recursive: true });
+    const prev = readJson(mark);
+    if (lane.top !== root.top && !(prev?.lane === lane.top && now - prev.at < LANE_TTL_MS)) {
+      write(lane.top);
+      const other = readdirSync(dir).filter((f) => f.startsWith("session-")).map((f) => readJson(join(dir, f)))
+        .find((r) => r && r.sid !== _sid && r.lane === lane.top && now - r.at < LANE_TTL_MS);
+      if (other) {
+        _refusal = "(" + lane.top + " tiene otra sesión viva: un carril, una sesión, ADR 0033)";
+        lane = root;
+      }
+    }
+    write(lane.top);
+  } catch {
+    if (lane.top !== root.top) {
+      _refusal = "(no se pudo reclamar " + lane.top + ")";
+      lane = root;
+      // Best effort: a mark left in the refused lane would keep others out for 30 min.
+      try { write(root.top); } catch { /* the session stays home either way */ }
+    }
+  }
+  return lane;
+};
+// Resolved on first use: a hook that never asks git pays no spawn.
+const home = () => {
+  if (_home) return _home;
+  const root = homeOf(ROOT);
+  const here = _cwd ? homeOf(_cwd) : null;
+  // git that cannot answer ("" common dir) never matches: fail closed to the install lane.
+  return (_home = claimLane(root, here?.top && root.common && here.common === root.common ? here : root));
+};
+export const laneTop = () => home().top || ROOT;
+export const branchOf = () => {
+  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: laneTop(), stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+  catch { return null; }
+};
+// Same repo but another toplevel than OUR lane => foreign lane (its toplevel); else null.
 export const foreignLane = (targetDir) => {
-  const top = _git("rev-parse --show-toplevel", targetDir);
-  if (!top) return null;
-  _home ||= { top: _git("rev-parse --show-toplevel", ROOT), common: _git("rev-parse --path-format=absolute --git-common-dir", ROOT) };
-  if (!_home.top || top === _home.top) return null;
-  const common = _git("rev-parse --path-format=absolute --git-common-dir", targetDir);
-  return common && common === _home.common ? top : null;
+  const target = homeOf(targetDir);
+  if (!target.top) return null;
+  const own = home();
+  if (!own.top || target.top === own.top) return null;
+  return target.common && target.common === own.common ? target.top : null;
 };
 // KJC-TSK-0765 board-sync: cards merged in this session but not yet moved in
 // the tracker. The method does not advance until the board is true.

@@ -717,6 +717,59 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     const outside = path.join(os.tmpdir(), "kj-nolane-note.md");
     expect(run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: outside } }).status).toBe(0);
   });
+
+  // #2566: the host moves the session into a lane (EnterWorktree) and says so in
+  // the payload's cwd. That lane is the session's own; the rest stay foreign.
+  const inLane = (payload, cwd = lane) => ({ ...payload, cwd });
+  it("an Edit inside the lane the host's cwd points at is the session's own lane", () => {
+    const res = run(gate, inLane(laneEdit()));
+    expect(res.stderr).not.toContain("carril");
+  });
+  it("from inside a lane, the main checkout and other lanes are foreign", () => {
+    fs.writeFileSync(path.join(dir, "y.js"), "y");
+    const root = run(gate, inLane(editTool(path.join(dir, "y.js"))));
+    expect(root.status).toBe(2);
+    expect(root.stderr).toContain("carril");
+  });
+  it("a cwd outside this repo does not move the lane", () => {
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), "kj-other-"));
+    execSync("git init -q", { cwd: other });
+    const res = run(gate, inLane(laneEdit(), other));
+    expect(res.status).toBe(2);
+  });
+  it("card-first reads the lane's branch, not the main checkout's", () => {
+    execSync("git checkout -q main", { cwd: dir }); // root on the base branch
+    execSync("git checkout -q -b feat/KJC-TSK-0002-lane", { cwd: lane });
+    const res = run(gate, inLane(laneEdit()));
+    expect(res.stderr).not.toMatch(/card|tarjeta/i);
+  });
+  // ADR 0033 (KJC-TSK-1236): a session may switch lanes, exclusively, and going home is free.
+  it("a session that went back to the main checkout writes there again", () => {
+    run(gate, inLane(laneEdit()));
+    fs.writeFileSync(path.join(dir, "y.js"), "y");
+    expect(run(gate, inLane(editTool(path.join(dir, "y.js")), dir)).stderr).not.toContain("carril");
+  });
+  it("a lane another live session is in refuses the entry, and the deny says why", () => {
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
+    const res = run(gate, inLane(laneEdit()));
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("carril");
+    expect(res.stderr).toMatch(/otra sesi[oó]n viva/);
+  });
+  it("a session silent past the period does not hold its lane", () => {
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
+    const lanes = path.join(execSync("git rev-parse --path-format=absolute --git-common-dir", { cwd: dir }).toString().trim(), "kj-lanes");
+    for (const f of fs.readdirSync(lanes)) {
+      const rec = JSON.parse(fs.readFileSync(path.join(lanes, f), "utf8"));
+      fs.writeFileSync(path.join(lanes, f), JSON.stringify({ ...rec, at: rec.at - 31 * 60_000 }));
+    }
+    expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
+  });
+  it("the lane is free again once the other session went home", () => {
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
+    run(gate, inLane({ ...laneEdit(), session_id: "s2" }, dir));
+    expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
+  });
 });
 
 describe("installSentinelHooks settings merge", () => {
