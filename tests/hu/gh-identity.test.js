@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { activeGhUser, assertGhIdentity } from "../../src/hu/gh-identity.js";
+import { activeGhUser, assertGhIdentity, pinGhIdentity } from "../../src/hu/gh-identity.js";
 import { huCommand } from "../../src/commands/hu.js";
 
 let root, projectDir, ghDir;
@@ -42,19 +42,42 @@ describe("assertGhIdentity", () => {
   });
 });
 
-describe("kj hu on the shared board", () => {
-  it("checks the account before touching GitHub, and leaves the local board alone", async () => {
+// KJC-BUG-0406: checking the account first was a race; another session switched it between the
+// check and the gh calls, and #2540 was created as another account, without its labels.
+describe("pinGhIdentity", () => {
+  it("pins GH_TOKEN to the declared account's token, whatever account is active", () => {
     hosts("other");
     declare("manufosela");
-    const prev = process.env.GH_CONFIG_DIR;
-    process.env.GH_CONFIG_DIR = ghDir;
+    const env = { GH_CONFIG_DIR: ghDir };
+    const tokenOf = vi.fn(() => "tok-manufosela");
+    expect(pinGhIdentity({ projectDir, env, tokenOf })).toEqual({ declared: "manufosela", pinned: true });
+    expect(tokenOf).toHaveBeenCalledWith("manufosela", env);
+    expect(env.GH_TOKEN).toBe("tok-manufosela");
+  });
+
+  it("pins nothing without a declaration, or when the environment already names a token", () => {
+    const env = { GH_CONFIG_DIR: ghDir };
+    expect(pinGhIdentity({ projectDir, env, tokenOf: () => "x" })).toEqual({ declared: null, pinned: false });
+    declare("manufosela");
+    const explicit = { GH_TOKEN: "mine" };
+    expect(pinGhIdentity({ projectDir, env: explicit, tokenOf: () => "x" })).toEqual({ declared: "manufosela", pinned: false });
+    expect(explicit.GH_TOKEN).toBe("mine");
+    expect(env.GH_TOKEN).toBeUndefined();
+  });
+
+  it("refuses with the remedy when gh has no login for the declared account", () => {
+    declare("manufosela");
+    expect(() => pinGhIdentity({ projectDir, env: {}, tokenOf: () => null })).toThrow(/no login for manufosela.*gh auth login/);
+  });
+});
+
+describe("kj hu on the shared board", () => {
+  it("pins the account before touching GitHub, and nothing reaches GitHub when it cannot", async () => {
     const listTeamHus = vi.fn(async () => []);
-    try {
-      await expect(huCommand({ config: { projectDir }, action: "list", deps: { boardConfig: async () => ({ backend: "github", repo: "acme/app" }), listTeamHus, who: "me" } }))
-        .rejects.toThrow(/gh auth switch --user manufosela/);
-      expect(listTeamHus).not.toHaveBeenCalled();
-    } finally {
-      if (prev === undefined) delete process.env.GH_CONFIG_DIR; else process.env.GH_CONFIG_DIR = prev;
-    }
+    const deps = { boardConfig: async () => ({ backend: "github", repo: "acme/app" }), listTeamHus, who: "me" };
+    const refuse = vi.fn(() => { throw new Error("gh has no login for manufosela"); });
+    await expect(huCommand({ config: { projectDir }, action: "list", deps: { ...deps, pinGhIdentity: refuse } })).rejects.toThrow(/no login/);
+    expect(refuse).toHaveBeenCalledWith({ projectDir });
+    expect(listTeamHus).not.toHaveBeenCalled();
   });
 });

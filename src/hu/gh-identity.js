@@ -2,6 +2,7 @@
 // accounts on one machine, another session switching the active one turned `kj hu move` into an
 // opaque GraphQL permission error, three times in a day. The clone declares its account in
 // .karajan/identity.local.yml (ADR 0005): with a declaration, the active account must be it.
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -41,4 +42,26 @@ export function assertGhIdentity({ projectDir, env = process.env }) {
     throw new BoardRejectedError(`the active gh account is ${active} and this clone declares ${declared}: run gh auth switch --user ${declared} and retry`);
   }
   return { declared, active };
+}
+
+/** The token gh keeps for `user`, read without switching the active account; null when it has none. */
+function ghTokenOf(user, env) {
+  const res = spawnSync("gh", ["auth", "token", "--hostname", "github.com", "--user", user], { env, encoding: "utf8" });
+  return res.status === 0 ? res.stdout.trim() || null : null;
+}
+
+/**
+ * KJC-BUG-0406: checking the active account and then calling gh was a race; another session could
+ * switch it in between. With an identity declared, GH_TOKEN is pinned to that account's token for
+ * the rest of the command, so every gh call goes out as it. A token already in the environment is
+ * the user's explicit choice and is left alone.
+ * @returns {{ declared: string | null, pinned: boolean }}
+ */
+export function pinGhIdentity({ projectDir, env = process.env, tokenOf = ghTokenOf }) {
+  const declared = readIdentity(projectDir)?.gh_user ?? null;
+  if (!declared || env.GH_TOKEN || env.GITHUB_TOKEN) return { declared, pinned: false };
+  const token = tokenOf(declared, env);
+  if (!token) throw new BoardRejectedError(`gh has no login for ${declared}, the account this clone declares: run gh auth login and retry`);
+  env.GH_TOKEN = token;
+  return { declared, pinned: true };
 }
