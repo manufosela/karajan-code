@@ -259,6 +259,9 @@ router.get('/projects/:id/plans-outcome', async (req, res) => {
           updatedAt: plan.updatedAt || null,
           outcome: plan.outcome || null,
           huCount: Array.isArray(plan.hus) ? plan.hus.length : 0,
+          // KJC-TSK-1197: a plan mirroring the shared board says so, with its repo.
+          readonly: plan.readonly || null,
+          repo: plan.readonly ? plan.repo || null : null,
         });
       } catch { /* skip unreadable plan */ }
       }

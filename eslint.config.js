@@ -370,7 +370,7 @@ export default [
            populateProjectSelect preflightCache preflightStatusColor preflightStatusIcon projectInitialsCache
            projectIsSharedCache projectNameCache qualityBar refreshCurrentView refreshInterval refreshOnce refreshStandby
            render renderBoard renderDashboard renderEmptyState renderGovernance renderGraph renderHits renderInstallCTA renderIterations
-           renderKanbanColumn renderOutcomeChip renderPlanRollup renderPreflightPanel renderProjectPicker
+           renderKanbanColumn renderOutcomeChip renderPlanRollup renderPreflightPanel renderProjectPicker renderSharedBoardNotice
            renderResultBadge renderRoleGrid renderSessionCard renderSessions renderSolomon renderStoryCard
            renderStoryEditForm renderSummary resolveBlockedBy resolveProjectInitials resolveProjectMeta runProject
            runSearch saveStoryEdits scopedProjectSlug scoreClass selectProject selectedProject shortStoryId shortTask

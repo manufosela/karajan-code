@@ -19,7 +19,7 @@ export async function writeTeamMirror(projectDir, rows, { repo }) {
   const plan = {
     version: 2, planId: MIRROR_PLAN_ID, name: "github", alias: "github", projectDir,
     task: `Shared HU Board: GitHub Issues of ${repo}`,
-    status: "ready", readonly: "github", createdAt: now,
+    status: "ready", readonly: "github", repo, createdAt: now,
     hus: rows.map((r) => ({
       id: r.short_id, short_id: r.short_id, title: r.title, status: r.status,
       claimed_by: r.claimed_by ?? null, created_by: "github", external_ref: `${repo}#${r.number}`,
