@@ -185,7 +185,6 @@ process.stdin.on("end", () => {
     const state = load();
     const s = session(state, sid);
     s.at = Date.now();
-    s.lane ||= laneTop(); // the first mutation binds the session to its lane (#2566)
     const rel = relative(laneTop(), file).replaceAll("\\", "/");
     // KJC-BUG-0279 (#1981): a file outside the repository is not one of its sources.
     const inside = rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
