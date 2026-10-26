@@ -14,6 +14,7 @@ import { sync } from "../src/sync.js";
 import { blockPaths } from "../src/resolve.js";
 import { serve } from "../src/mcp.js";
 import { catalogSync } from "../src/fetch.js";
+import { applyCatalogUpdate, catalogUpdates } from "../src/update.js";
 import { installFromCatalog, isCatalogRef } from "../src/catalog-install.js";
 import { importSkills } from "../src/import.js";
 
@@ -25,7 +26,8 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
-  + "       atril catalog sync [--root <dir>]\n       atril import --from openskills [--root <dir>]";
+  + "       atril catalog sync [--root <dir>]\n       atril catalog update [--apply] [--root <dir>]\n"
+  + "       atril import --from openskills [--root <dir>]";
 
 function runImport(args) {
   const { values } = parseArgs({ args, options: { from: { type: "string" }, root: { type: "string" } } });
@@ -35,8 +37,20 @@ function runImport(args) {
   for (const { kind, name, from, path } of done) console.log(`imported\t${kind}:${name}\t${from} -> ${path}`);
 }
 
+function runCatalogUpdate(values) {
+  const updates = catalogUpdates({ root: values.root });
+  if (updates.length === 0) console.log("no git sources to check");
+  for (const update of updates) {
+    console.log(`${update.status}\t${update.source}\t${update.from.slice(0, 12)}..${update.to.slice(0, 12)}\t${update.catalog}`);
+    if (update.status !== "outdated") continue;
+    console.log(update.diff);
+    if (values.apply) console.log(`pinned\t${update.source}@${update.to.slice(0, 12)}\t${applyCatalogUpdate({ root: values.root }, update)}`);
+  }
+}
+
 function runCatalog(args) {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" } } });
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" }, apply: { type: "boolean" } } });
+  if (positionals.join(" ") === "update") return runCatalogUpdate(values);
   if (positionals.join(" ") !== "sync") throw new Error(USAGE);
   const done = catalogSync({ root: values.root });
   if (done.length === 0) console.log("no git sources to fetch");

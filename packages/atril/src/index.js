@@ -15,3 +15,4 @@ export { install, remove } from "./store.js";
 export { catalogSync } from "./fetch.js";
 export { installFromCatalog } from "./catalog-install.js";
 export { importSkills } from "./import.js";
+export { applyCatalogUpdate, catalogUpdates } from "./update.js";
