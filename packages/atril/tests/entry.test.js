@@ -6,7 +6,7 @@ import * as atril from "../src/index.js";
 describe("atril's entry", () => {
   it("exports exactly the public API", () => {
     expect(Object.keys(atril).toSorted()).toEqual([
-      "MARKER", "VERSION", "catalogSync", "expose", "generate", "importSkills", "install",
+      "MARKER", "VERSION", "applyCatalogUpdate", "catalogSync", "catalogUpdates", "expose", "generate", "importSkills", "install",
       "installFromCatalog", "persistentPieces", "remove", "resolve", "resolveBlock", "search", "sync", "unexpose",
     ]);
   });

@@ -46,6 +46,8 @@ describe("catalogs", () => {
     expect(bad([{ source: "acme", commit: COMMIT, note: "n" }])).toThrow(/source "acme" is not owner\/repo/);
     expect(bad([{ source: "acme/skills", commit: "abc123", note: "n" }])).toThrow(/commit .* 40 hex/);
     expect(bad([{ source: "acme/skills", commit: COMMIT }])).toThrow(/note/);
+    const twice = { source: "acme/skills", commit: COMMIT, note: "n" };
+    expect(bad([twice, twice])).toThrow(/source "acme\/skills" is listed twice/);
   });
 });
 

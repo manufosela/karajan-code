@@ -27,10 +27,14 @@ function readSources(ref, file) {
     fail(`invalid JSON (${err.message})`, err);
   }
   if (!isMapping(raw) || !Array.isArray(raw.sources)) fail('must be { "sources": [...] }');
+  const seen = new Set();
   return raw.sources.map((entry, index) => {
     if (!isMapping(entry)) fail(`sources[${index}] must be an object`);
     const { source, commit, note } = entry;
     if (!isSource(source)) fail(`source ${JSON.stringify(source)} is not owner/repo[/path]`);
+    // One pin per source: an update moves exactly one entry.
+    if (seen.has(source)) fail(`source "${source}" is listed twice`);
+    seen.add(source);
     if (typeof commit !== "string" || !COMMIT.test(commit)) fail(`source "${source}": commit must be 40 hex characters (a pinned commit)`);
     if (typeof note !== "string" || !note.trim()) fail(`source "${source}": a note on what it is for is required`);
     return { source, commit, note };

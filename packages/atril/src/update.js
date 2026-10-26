@@ -5,8 +5,9 @@
  * symlink, commit verified). It moves nothing: the diff is for another AI to review first.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { writeAtomic } from "./atomic.js";
 import { cacheRoot, catalogs, sourceDir } from "./catalog.js";
 import { defaultGit, fetchInto, SAFE } from "./fetch.js";
 
@@ -54,4 +55,26 @@ export function catalogUpdates(opts = {}, { gitBase = "https://github.com", git 
     }
   }
   return found;
+}
+
+/**
+ * Move a source's pin to a commit already fetched into the cache, the one whose diff was
+ * reviewed (ADR 0031). The catalog file is rewritten atomically, every other field kept.
+ * @param {{ projectDir?: string, root?: string, env?: object }} opts
+ * @param {{ catalog: string, source: string, to: string }} update as catalogUpdates reported it
+ * @returns {string} the catalog file written
+ */
+export function applyCatalogUpdate(opts, { catalog, source, to }) {
+  const projectDir = opts.projectDir ?? process.cwd();
+  const listed = catalogs(opts).find((entry) => entry.ref === catalog && entry.type === "sources");
+  if (!listed) throw new Error(`catalog "${catalog}" is not a sources catalog in atril.json`);
+  if (!listed.sources.some((entry) => entry.source === source)) throw new Error(`catalog "${catalog}" has no source "${source}"`);
+  if (!COMMIT.test(String(to)) || !existsSync(sourceDir(opts, { source, commit: to }))) {
+    throw new Error(`${source}@${to}: not in the cache; only a fetched and reviewed commit can be pinned`);
+  }
+  const file = resolve(projectDir, catalog);
+  const raw = JSON.parse(readFileSync(file, "utf8"));
+  raw.sources = raw.sources.map((entry) => (entry.source === source ? { ...entry, commit: to } : entry));
+  writeAtomic(file, `${JSON.stringify(raw, null, 2)}\n`);
+  return file;
 }
