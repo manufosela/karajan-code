@@ -44,6 +44,7 @@ El output es un reporte de salud en markdown (o `--json`): scores y findings por
 | `--no-sonar` | sonar on | Salta el colector SonarQube (más rápido, menos contexto). | Auto-saltado igualmente cuando SonarQube es inalcanzable. |
 | `--no-osv` | osv on | Salta el colector de CVEs OSV-Scanner. | Auto-saltado cuando `osv-scanner` no está instalado. |
 | `--no-semgrep` | semgrep on | Salta el colector SAST Semgrep. | Auto-saltado cuando `semgrep` no está instalado. |
+| `--sbom <fichero>` | off | Solo escribe en `<fichero>` el SBOM CycloneDX de las dependencias de producción del proyecto npm y se para (sin auditoría). | Lo genera `npm sbom` desde `package-lock.json`; se escribe de forma atómica. Si no es un proyecto npm, lo dice y no escribe nada. |
 | `--report-file <path>` | none | Persiste el reporte. La extensión decide formato (`.md` / `.json`); un directorio crea `audit-<ISO>.<ext>`. `$KJ_AUDIT_REPORT_DIR` es el dir por defecto si no se da. | Funciona con `--deterministic-only` y `--json`. |
 | `-y, --yes` | off | Auto-confirma "Continue with LLM analysis?" no-interactivamente. | Sin efecto con `--deterministic-only` (no hay prompt) ni en CI/no-TTY (ya auto-confirma). |
 

@@ -1,5 +1,6 @@
 import { discoverCommand } from "../commands/discover.js";
 import { specRefineCommand } from "../commands/spec-refine.js";
+import { writeSbom } from "../audit/sbom.js";
 import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
@@ -947,8 +948,21 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--deterministic-only", "Skip the LLM analysis entirely. Print/persist only the deterministic findings (basalCost, sonar, stack, growth-delta, webperf). Zero tokens spent. Compatible with --report-file and --json.")
     .option("--security", "Focused deterministic security pass: prompt-injection scan over the agent-context surface (CLAUDE.md/AGENTS.md/templates/.rulesync/.karajan) + OSV + Semgrep + Sonar. Skips basal-cost, webperf, madge, knip, ai-slop, harness and the LLM — zero tokens. Designed for agents to self-invoke when a task touches sensitive surface (KJC-TSK-0695).")
     .option("-y, --yes", "Auto-confirm the 'Continue with LLM analysis?' prompt. Useful in scripts that want the full audit non-interactively. CI/non-TTY paths already auto-confirm without this flag.")
+    .option("--sbom <file>", "Only write the CycloneDX SBOM of the npm project's production dependencies to <file> (from package-lock.json) and stop. KJC-TSK-1255.")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "audit", flags, async ({ config, logger }) => {
+        if (flags.sbom) {
+          try {
+            const res = await writeSbom({ projectDir: config.projectDir || process.cwd(), file: flags.sbom });
+            if (flags.json) console.log(JSON.stringify(res));
+            else console.log(`SBOM (CycloneDX, ${res.components} components): ${res.file}`);
+          } catch (err) {
+            if (flags.json) console.log(JSON.stringify({ error: err.message }));
+            else logger.error(err.message);
+            process.exitCode = 1;
+          }
+          return;
+        }
         let resolvedTask = task;
         if (flags.taskFile) {
           const { readTaskFile } = await import("../utils/task-file.js");
