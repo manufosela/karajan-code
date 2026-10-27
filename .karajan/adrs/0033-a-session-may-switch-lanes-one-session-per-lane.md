@@ -21,7 +21,7 @@ The guarantee this decision adds is about switching: a session never switches in
 
 6. Starting a session is not a claim and is never refused: a session that starts in a checkout only leaves its presence mark, which is what makes a later switch into that checkout fail. Two sessions started by the user in the same checkout are the user's choice, as before this decision; making the start exclusive too is a separate decision.
 
-The lane is never taken from the path of an edited file.
+The lane is never taken from the path of an edited file. (Superseded on 2026-10-27 by ADR 0034: the lane of each write is the worktree of the path it writes; the exclusivity above stays.)
 
 Amended 2026-10-27 (KJC-BUG-0410): point 3 first described a lock per lane created atomically. The implementation uses presence marks only, because taking over a stale lock had a race; the text now describes what the code does.
 
