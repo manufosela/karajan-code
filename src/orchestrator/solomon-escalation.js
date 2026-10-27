@@ -3,11 +3,34 @@ import { addCheckpoint, pauseSession, saveSession } from "../session/store.js";
 import { setSuggestions } from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
+import { listPendingPaths } from "../utils/git.js";
+import { keepSymlinkTargets, symlinkTargets } from "../git/symlink-targets.js";
 
 /**
  * @typedef {import("../types/solomon.js").Conflict} Conflict
  * @typedef {import("../types/solomon.js").SolomonResult} SolomonResult
  */
+
+// KJC-BUG-0414 (#2606): the symlinks among the pending paths, so Solomon never advises taking a
+// link's target out of the commit. Unlistable is said, and Solomon goes on without the fact.
+async function changeSymlinks(config, logger) {
+  const projectDir = config.projectDir || process.cwd();
+  try {
+    return symlinkTargets(projectDir, await listPendingPaths(projectDir));
+  } catch (err) {
+    logger.warn(`Solomon: the change's symlinks could not be listed (${err.message})`);
+    return [];
+  }
+}
+
+function dropSymlinkTargetConditions(ruling, symlinks, logger) {
+  const conditions = ruling?.result?.conditions;
+  if (!Array.isArray(conditions) || symlinks.length === 0) return;
+  const { kept, dropped } = keepSymlinkTargets(conditions, symlinks);
+  if (dropped.length === 0) return;
+  ruling.result.conditions = kept;
+  logger.warn(`Solomon: dropped ${dropped.length} condition(s) that took a symlink's target out of the commit: ${dropped.join(" | ")}`);
+}
 
 /**
  * Architectural invariant (DO NOT BREAK):
@@ -147,12 +170,15 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
   try {
     // Inject Solomon's own history so it doesn't repeat failed strategies
     const solomonHistory = extractSolomonHistory(session);
+    const symlinks = await changeSymlinks(config, logger);
     const enrichedConflict = {
       ...conflict,
       ...(pendingSuggestions && { hostSuggestions: pendingSuggestions }),
-      ...(solomonHistory.length > 0 && { previousSolomonRulings: solomonHistory })
+      ...(solomonHistory.length > 0 && { previousSolomonRulings: solomonHistory }),
+      ...(symlinks.length > 0 && { symlinkTargets: symlinks })
     };
     ruling = await solomon.run({ conflict: enrichedConflict });
+    dropSymlinkTargetConditions(ruling, symlinks, logger);
   } catch (err) {
     logger.warn(`Solomon threw: ${err.message}`);
     return escalateToHuman({
