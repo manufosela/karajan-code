@@ -74,7 +74,7 @@ describe("plan-store getKjHome — VITEST auto-isolation", () => {
     delete process.env.KJ_HOME;
     process.env.VITEST = "true";
     const { plansDir, savePlan, getKjHome } = await import("../../src/plan/plan-store.js");
-    const projectDir = "/some/fake/project";
+    const projectDir = os.tmpdir(); // plansDir resolves it with git (#2566): it must exist
     const dir = plansDir(projectDir);
     expect(dir.startsWith(getKjHome())).toBe(true);
     expect(dir).not.toContain(path.join(os.homedir(), ".kj"));

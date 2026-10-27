@@ -2,9 +2,10 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import net from "node:net";
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { getKarajanHome } from "../utils/paths.js";
 import { projectSlug as slugOfDir } from "../plan/plan-store.js";
+import { mainCheckout } from "../utils/main-checkout.js";
 import { getPortOccupant } from "../utils/port-occupant.js";
 
 const BOARD_DIR = path.resolve(import.meta.dirname, "../../packages/hu-board");
@@ -90,16 +91,11 @@ export function buildBoardUrl(port, projectSlug) {
 }
 
 /**
- * KJC-TSK-0884: the board slug of a project is its PARENT repo's, even from a
- * `kj worktree` lane, or the lane opens an empty view.
+ * KJC-TSK-0884: the board slug of a project is its main checkout's (#2566), even from a
+ * lane or a subfolder, or the lane opens an empty view. A git failure throws, never falls back.
  */
 export function boardSlug(projectDir) {
-  let dir = projectDir;
-  try {
-    const common = execFileSync("git", ["-C", projectDir, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    if (path.basename(common) === ".git") dir = path.dirname(common);
-  } catch { /* not a git repo: the dir is the project */ }
-  return slugOfDir(dir);
+  return slugOfDir(mainCheckout(projectDir));
 }
 
 /**

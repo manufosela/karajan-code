@@ -10,10 +10,11 @@ import { normaliseAlias } from "../../src/plan/plan-id.js";
 import { formatHuTable } from "../../src/commands/plan/_shared.js";
 
 let tmpHome;
-const projectDir = "/tmp/test-greta-app";
+let projectDir;
 
 beforeEach(() => {
   tmpHome = mkdtempSync(join(tmpdir(), "kj-alias-"));
+  projectDir = tmpHome; // plansDir resolves it with git (#2566): it must exist
   // KJC-BUG-0174: resolveHome PREFERS KARAJAN_HOME over KJ_HOME, so setting
   // only KJ_HOME left this test hostage to a KARAJAN_HOME leaked by another
   // suite in the same worker — the plan store then resolved to a SHARED dir and

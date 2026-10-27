@@ -8,6 +8,7 @@
 import { addHu, updateHuStatus } from "../plan/plan-hu-ops.js";
 import { generatePlanId } from "../plan/plan-id.js";
 import { savePlan, listPlans, loadPlan } from "../plan/plan-store.js";
+import { migrateLanePlans } from "../plan/lane-plans.js";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { readIdentity } from "../identity/store.js";
 import { effectiveGitEmail } from "../identity/detect.js";
@@ -209,6 +210,13 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   }
   // KJC-TSK-1165 (TEAM-GH-D): moves made without network go first, once GitHub answers.
   if (board.backend === "github") await applyQueuedMoves({ projectDir, repo: board.repo, deps });
+  // #2566: plans a lane saved under its own slug move to the main checkout's; loud, never blocking.
+  if (action === "list") {
+    const { moved, kept } = await migrateLanePlans(projectDir)
+      .catch((err) => { console.warn(`⚠ plans from lanes not migrated: ${err.message}`); return { moved: [], kept: [] }; });
+    const keptNote = kept.length ? `, ${kept.length} kept (name taken, compare and delete): ${kept.join(", ")}` : "";
+    if (moved.length || kept.length) console.warn(`plans from lanes: ${moved.length} moved to the main checkout${keptNote}`);
+  }
   if (board.backend === "github" && action === "list") {
     const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, repo: board.repo, list: deps.listTeamHus ?? listHus });
     if (source === "cache") console.warn(`⚠ GitHub did not answer: this is the local copy of the board from ${updatedAt}`);

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -31,6 +31,8 @@ describe("buildBoardUrl", () => {
       git(repo, "worktree", "add", "-q", join(repo, "lane"));
       expect(boardSlug(join(repo, "lane"))).toBe(projectSlug(repo));
       expect(boardSlug(repo)).toBe(projectSlug(repo));
+      mkdirSync(join(repo, "lane", "src")); // #2566: a lane subfolder is still the root's view
+      expect(boardSlug(join(repo, "lane", "src"))).toBe(projectSlug(repo));
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

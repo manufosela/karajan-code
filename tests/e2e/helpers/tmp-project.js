@@ -17,7 +17,7 @@ import { execSync } from "node:child_process";
  * @returns {{ projectDir: string, kjHome: string, cleanup: () => void }}
  */
 export function makeTmpProject({ prefix = "kj-e2e-", spec } = {}) {
-  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const projectDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix))); // git answers real paths
   const kjHome = path.join(projectDir, ".karajan");
   fs.mkdirSync(kjHome, { recursive: true });
 
