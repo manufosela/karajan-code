@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.67.0: Python projects end green, and resume commits its own work (current)
+### v4.68.0: kj run pushes again in a hardened repo, and JS/TS leaves the coder formatted (current)
+
+`kj harden` no longer turns Claude Code's Bash sandbox on: inside it, `kj run` could not push, open the PR or reach Sonar on localhost. Ask for it with `kj harden --sandbox`. A repo where an earlier `kj harden` turned it on keeps it until `sandbox.enabled: false` in `.claude/settings.local.json`. Right after the coder, kj now formats JavaScript and TypeScript files too, with the prettier or biome the project declares, from `node_modules/.bin`.
+
+### v4.67.0: Python projects end green, and resume commits its own work
 
 On a project with `uv.lock` or `poetry.lock`, kj now runs pytest and ruff through `uv run` or `poetry run`. `kj resume` commits the work of the session it resumes, and the auto-commit header comes from the task's first paragraph. Right after the coder, kj formats the session's files with the project's formatter (ruff, gofmt, php-cs-fixer); `development.format_after_coder: false` turns it off. `kj review --third-party` checks commit format only when the reviewed repo declares a convention, and a PR without tests comes back as a question.
 
