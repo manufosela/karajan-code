@@ -147,13 +147,15 @@ kj harden                       # Instala el perfil standard
 kj harden --profile strict      # Añade además el gate de shrink-budget
 kj harden --dry-run             # Muestra qué cambiaría, sin escribir
 kj harden --no-ci --no-guidelines   # Solo hooks + config
-kj harden --no-sandbox          # No toca el sandbox de Bash del anfitrión
+kj harden --sandbox             # Enciende también el sandbox de Bash del anfitrión
 ```
 
 Qué instala (según el stack detectado):
 
-- **El sandbox de Bash del anfitrión** en `.claude/settings.local.json`, solo
-  donde puede arrancar en esta máquina (Linux: bubblewrap y socat; macOS: el
+- **El sandbox de Bash del anfitrión, solo con `--sandbox`.** Viene apagado:
+  dentro de él, `kj run` no puede hacer push, abrir la PR con `gh` ni llegar a
+  Sonar en localhost, y el Sentinel protege el harness sin él. Con `--sandbox`
+  va a `.claude/settings.local.json`, solo donde puede arrancar en esta máquina (Linux: bubblewrap y socat; macOS: el
   sandbox del sistema). Las escrituras se quedan en el proyecto, más el estado
   de kj y las cachés de paquetes; el supervisor y la clave del móvil quedan
   fuera de alcance; `gh` y `kj review` corren fuera de él. Donde no arranca no se

@@ -1119,7 +1119,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--no-config", "Skip lint/format/commit config files (hooks only)")
     .option("--no-ci", "Skip CI quality workflows")
     .option("--no-guidelines", "Skip AI-agent guideline files (AGENTS.md/CLAUDE.md)")
-    .option("--no-sandbox", "Leave the host Bash sandbox alone (by default it is turned on where it can start)")
+    .option("--sandbox", "Turn the host Bash sandbox on where it can start (off by default: it blocks gh, push and Sonar)")
+    .option("--no-sandbox", "Leave the host Bash sandbox alone (the default; kept for existing scripts)")
     .option("--mutation", "Also seed an opt-in nightly/manual mutation CI job (never a PR gate)")
     .option("--only <dirs...>", "Harden only these language roots (e.g. frontend backend)")
     .option("--exclude <globs...>", "Skip language roots matching these globs (e.g. wrappers)")
@@ -1137,7 +1138,7 @@ export function registerMeta(program, { pkgVersion }) {
           config: flags.config !== false,
           ci: flags.ci !== false,
           guidelines: flags.guidelines !== false,
-          sandbox: flags.sandbox !== false,
+          sandbox: flags.sandbox === true,
           mutation: Boolean(flags.mutation),
           only: flags.only ?? [],
           exclude: flags.exclude ?? [],

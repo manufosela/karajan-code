@@ -24,3 +24,7 @@ La auditoría `docs/audit/2026-10-gates-and-escapes.md` cuenta 53 arreglos de ga
 ## Consequences
 
 Se retiran los guards de shell y la mayoría de los escapes; el sandbox pasa a ser requisito para la garantía de "no escribe fuera". Los checks obligatorios de CI y la protección de rama se vuelven parte de `kj harden`. El juez por modelo cuesta tokens solo en los casos ambiguos.
+
+## Amendment 2026-10-27 (KJC-TSK-1241, decided by dev_001)
+
+The host sandbox is opt-in: `kj harden` leaves it off and `kj harden --sandbox` turns it on. Inside it, `kj run` could not push, open the PR with `gh` or reach Sonar on localhost. With the sandbox off, the Sentinel's Bash-text guards stay active (they step aside only where the sandbox covers the path), so the harness is still guarded.
