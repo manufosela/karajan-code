@@ -353,6 +353,17 @@ describe("resumeFlow from stopped/failed sessions", () => {
     expect(result.approved).toBe(true);
   });
 
+  it("hands the resumed session's baseline of pending changes to git automation (KJC-BUG-0412)", async () => {
+    const { prepareGitAutomation } = await import("../src/git/automation.js");
+    loadSession.mockResolvedValue({
+      id: "sess-budget", status: "stopped", task: "Fix bug", checkpoints: [],
+      config_snapshot: makeConfig({ max_iterations: 1 }), git_preexisting: ["notes.md"],
+    });
+    saveSession.mockResolvedValue(undefined);
+    await resumeFlow({ sessionId: "sess-budget", config: makeConfig({ max_iterations: 1 }), logger });
+    expect(prepareGitAutomation).toHaveBeenCalledWith(expect.objectContaining({ preexisting: ["notes.md"] }));
+  });
+
   it("rejects resuming an approved (completed) session", async () => {
     const approvedSession = {
       id: "sess-approved",
