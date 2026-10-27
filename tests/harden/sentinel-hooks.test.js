@@ -743,6 +743,20 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     const res = run(gate, inLane(laneEdit()));
     expect(res.stderr).not.toMatch(/card|tarjeta/i);
   });
+  // ADR 0034 (KJC-TSK-1243): each write is judged in the lane its path lands in.
+  it("laneFor gives the worktree of a path in this repo, and the session's lane for any other path", async () => {
+    execSync("git checkout -q -b feat/KJC-TSK-0003-other", { cwd: lane });
+    const lib = await import(`file://${path.join(dir, ".karajan", "harness", "sentinel-lib.mjs")}?t=${Date.now()}`);
+    const top = lib.laneFor(path.join(lane, "src", "new-dir", "y.js"));
+    expect(top).toBe(fs.realpathSync(lane));
+    expect(lib.branchOf(top)).toBe("feat/KJC-TSK-0003-other");
+    expect(lib.laneFor(path.join(os.tmpdir(), "kj-nolane", "z.js"))).toBe(lib.laneTop());
+    expect(lib.branchOf()).toBe("feat/KJC-TSK-0001-demo");
+  });
+  it("a denied write in another lane leaves nothing in the session's first-touch ledger", () => {
+    expect(run(gate, laneEdit()).status).toBe(2);
+    expect(state().sessions.s1.first_touch ?? {}).toEqual({});
+  });
   // ADR 0033 (KJC-TSK-1236): a session may switch lanes, exclusively, and going home is free.
   it("a session that went back to the main checkout writes there again", () => {
     run(gate, inLane(laneEdit()));
