@@ -25,12 +25,29 @@ export const COMMANDS_BY_LANGUAGE = {
   },
 };
 
+// KJC-TSK-1237 (#2565): the formatter in write mode, run on the files of a session.
+const FORMAT_WRITE_BY_LANGUAGE = {
+  python: { command: "ruff format", extensions: [".py", ".pyi"] },
+  go: { command: "gofmt -w", extensions: [".go"] },
+  php: { command: "vendor/bin/php-cs-fixer fix", extensions: [".php"] },
+};
+
+const runnerFor = (language, projectDir) => (language === "python" && projectDir
+  ? PYTHON_RUNNERS.find(([lock]) => existsSync(join(projectDir, lock)))?.[1] ?? null
+  : null);
+
 /** Native commands for a language, or {} when JS/TS or unknown; python ones through uv/poetry when the project uses them. */
 export function commandsForLanguage(language, projectDir = null) {
   const cmds = { ...COMMANDS_BY_LANGUAGE[language] };
-  const runner = language === "python" && projectDir
-    ? PYTHON_RUNNERS.find(([lock]) => existsSync(join(projectDir, lock)))?.[1]
-    : null;
+  const runner = runnerFor(language, projectDir);
   if (runner) for (const [step, command] of Object.entries(cmds)) cmds[step] = `${runner} ${command}`;
   return cmds;
+}
+
+/** The write-mode formatter of a language and the extensions it takes, or null. */
+export function formatWriteFor(language, projectDir = null) {
+  const entry = FORMAT_WRITE_BY_LANGUAGE[language];
+  if (!entry) return null;
+  const runner = runnerFor(language, projectDir);
+  return { ...entry, command: runner ? `${runner} ${entry.command}` : entry.command };
 }

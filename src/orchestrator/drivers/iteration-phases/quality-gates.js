@@ -23,9 +23,13 @@ import { runPerfStage } from "../../stages/perf-stage.js";
 import { runTddDisciplineStage } from "../../stages/tdd-discipline-stage.js";
 import { runSuiteGreenStage, suiteGreenRequired } from "../../stages/suite-green-stage.js";
 import { runToolJudgeStage } from "../../stages/tool-judge-stage.js";
+import { runFormatStage } from "../../stages/format-stage.js";
 import { tryCiComment } from "../../ci-integration.js";
 
 export async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags, brainCtx }) {
+  // KJC-TSK-1237 (#2565): the coder's files reach every gate formatted.
+  await runFormatStage({ config, logger, emitter, eventBase, session });
+
   const tddResult = await runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration: i, askQuestion, task, brainCtx });
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };

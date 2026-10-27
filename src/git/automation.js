@@ -126,7 +126,20 @@ async function checkoutRunBranch(created) {
 
 export async function prepareGitAutomation({ config, task, logger, session, preexisting: resumedBaseline = null }) {
   const enabled = config.git.auto_commit || config.git.auto_push || config.git.auto_pr;
-  if (!enabled) return { enabled: false };
+  if (!enabled) {
+    // KJC-TSK-1237: the format stage needs the baseline also when kj does not
+    // commit; outside git there is none, and that stage says so.
+    let baseline = resumedBaseline;
+    if (!baseline) {
+      try {
+        baseline = await listPendingPaths();
+      } catch {
+        baseline = null;
+      }
+    }
+    if (session && Array.isArray(baseline)) setGitPreexisting(session, baseline);
+    return { enabled: false };
+  }
 
   if (!(await ensureGitRepo())) {
     throw new Error("Git automation requested but current directory is not a git repository");
