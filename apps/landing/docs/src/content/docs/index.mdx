@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.68.0: kj run pushes again in a hardened repo, and JS/TS leaves the coder formatted (current)
+### v4.68.1: the verdict hash ignores your gitconfig, and Solomon keeps symlink targets (current)
+
+kj pins every option that changes the text of the diffs it hashes and parses (`diff.algorithm`, context, renames, headers) to git's defaults, so a verdict recorded on a machine with `diff.algorithm=histogram` is the one CI recomputes. Solomon now knows the change's symlinks: it never advises dropping a link's target from the commit, and any condition that would is dropped.
+
+### v4.68.0: kj run pushes again in a hardened repo, and JS/TS leaves the coder formatted
 
 `kj harden` no longer turns Claude Code's Bash sandbox on: inside it, `kj run` could not push, open the PR or reach Sonar on localhost. Ask for it with `kj harden --sandbox`. A repo where an earlier `kj harden` turned it on keeps it until `sandbox.enabled: false` in `.claude/settings.local.json`. Right after the coder, kj now formats JavaScript and TypeScript files too, with the prettier or biome the project declares, from `node_modules/.bin`.
 
