@@ -66,11 +66,25 @@ describe("prepareGitAutomation baseline of pending changes", () => {
   });
 
   it("a resumed run keeps the baseline it is given instead of the tree's (KJC-BUG-0412)", async () => {
-    git.listPendingPaths.mockResolvedValueOnce(["notes.md", "src/work.js"]);
     const session = { id: "s" };
     const ctx = await prepareGitAutomation({ config, task: "x", logger, session, preexisting: ["notes.md"] });
     expect(ctx.preexisting).toEqual(["notes.md"]);
     expect(session.git_preexisting).toEqual(["notes.md"]);
     expect(git.listPendingPaths).not.toHaveBeenCalled();
+  });
+
+  // KJC-TSK-1237: the format stage needs the baseline also when kj does not commit.
+  it("records the baseline when git automation is off (KJC-TSK-1237)", async () => {
+    git.listPendingPaths.mockResolvedValueOnce(["notes.md"]);
+    const session = { id: "s" };
+    expect(await prepareGitAutomation({ config: { git: {} }, task: "x", logger, session })).toEqual({ enabled: false });
+    expect(session.git_preexisting).toEqual(["notes.md"]);
+  });
+
+  it("outside git, with automation off, records no baseline and does not fail", async () => {
+    git.listPendingPaths.mockRejectedValueOnce(new Error("not a git repository"));
+    const session = { id: "s" };
+    expect(await prepareGitAutomation({ config: { git: {} }, task: "x", logger, session })).toEqual({ enabled: false });
+    expect(session.git_preexisting).toBeUndefined();
   });
 });
