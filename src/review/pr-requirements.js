@@ -4,6 +4,8 @@
  * The rules are the own-work ones: the same budget, Conventional Commits and
  * attribution patterns, and tests-with-code.
  */
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { AI_ATTRIBUTION, CONVENTIONAL_TYPES } from "../harden/hook-templates.js";
 import { loadPolicy } from "../policy/engine.js";
 import { runCommand } from "../utils/process.js";
@@ -59,12 +61,35 @@ export function commitChecks(commits) {
   ];
 }
 
-/** Source changed with no test changed (a delete-only change needs none). */
+// KJC-TSK-1238 (#2263): a convention the reviewed repo declares (commitlint, kj's commit-msg hook).
+const CONVENTION_FILES = [
+  "commitlint.config.js", "commitlint.config.cjs", "commitlint.config.mjs", "commitlint.config.ts",
+  ".commitlintrc", ".commitlintrc.json", ".commitlintrc.yml", ".commitlintrc.yaml", ".commitlintrc.js", ".commitlintrc.cjs",
+  ".karajan/hooks/commit-msg",
+];
+
+export function declaresCommitConvention(projectDir) {
+  if (CONVENTION_FILES.some((f) => existsSync(join(projectDir, f)))) return true;
+  try {
+    return Boolean(JSON.parse(readFileSync(join(projectDir, "package.json"), "utf8")).commitlint);
+  } catch {
+    return false; // no package.json, or not JSON: it declares nothing
+  }
+}
+
+/**
+ * Source changed with no test changed (a delete-only change needs none). On
+ * someone else's PR test-first is kj's rule, not theirs (KJC-TSK-1238): a
+ * change with no business logic needs no test, so it is a question, not a failure.
+ */
 export function testsCheck({ config, numstat }) {
   const rows = rowsOf(numstat);
   const res = checkTestsWithCode({ config, stagedFiles: rows.map((r) => r.file), numstat: rows });
-  const ok = res.ok && res.mode !== "warn";
-  return { id: "tests", ok, detail: ok ? `tests: ${res.mode}` : res.reason || "source changed with no test changed" };
+  if (res.ok && res.mode !== "warn") return { id: "tests", ok: true, detail: `tests: ${res.mode}` };
+  return {
+    id: "tests", ok: null, detail: res.reason || "source changed with no test changed",
+    question: "No test changed: does the change touch business logic, behaviour a unit, integration or E2E test could observe? A plain index, configuration or infrastructure needs none.",
+  };
 }
 
 const git = async (projectDir, args) => {
@@ -83,5 +108,9 @@ export async function prRequirementChecks({ range, projectDir, config, run = git
     const [sha, subject = "", body = ""] = r.split("\x1f");
     return { sha, subject, body };
   });
-  return [sizeCheck({ numstat, limit: prSizeLimit({ projectDir, config }).limit }), ...commitChecks(commits), testsCheck({ config, numstat })];
+  const [conventional, attribution] = commitChecks(commits);
+  const commitFormat = declaresCommitConvention(projectDir)
+    ? conventional
+    : { id: "conventional-commits", ok: null, skipped: true, detail: "the repo declares no commit convention (no commitlint config, no kj commit-msg hook): not checked" };
+  return [sizeCheck({ numstat, limit: prSizeLimit({ projectDir, config }).limit }), commitFormat, attribution, testsCheck({ config, numstat })];
 }

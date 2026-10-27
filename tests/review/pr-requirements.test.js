@@ -1,7 +1,10 @@
 // KJC-TSK-1076: the requirements of a third-party PR, checked with no tokens:
 // size against the repo's budget, Conventional Commits and no AI attribution
 // in base..head, and tests next to the code. Each one is a check {id, ok, detail}.
-import { describe, it, expect } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
 import { sizeCheck, commitChecks, testsCheck, prRequirementChecks } from "../../src/review/pr-requirements.js";
 
 describe("sizeCheck", () => {
@@ -41,13 +44,40 @@ describe("prRequirementChecks", () => {
     };
     const checks = await prRequirementChecks({ range: "main...pr", projectDir: "/nowhere", config: {}, run });
     expect(calls).toEqual(["diff --numstat main...pr", "log --format=%H%x1f%s%x1f%b%x1e main..pr"]);
-    expect(checks.map((c) => [c.id, c.ok])).toEqual([["size", true], ["conventional-commits", true], ["ai-attribution", true], ["tests", true]]);
+    expect(checks.map((c) => [c.id, c.ok])).toEqual([["size", true], ["conventional-commits", null], ["ai-attribution", true], ["tests", true]]);
+  });
+});
+
+// KJC-TSK-1238 (#2263): on someone else's PR kj's house rules are not imposed.
+describe("prRequirementChecks on the reviewed repo's conventions (KJC-TSK-1238)", () => {
+  const run = async (_dir, args) => (args[0] === "diff" ? "10\t0\tsrc/a.js\n" : "abc123\x1fAdd the index\x1f\x1e");
+  let dir;
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-pr-req-")); });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  const conventional = async () => (await prRequirementChecks({ range: "main...pr", projectDir: dir, config: {}, run })).find((c) => c.id === "conventional-commits");
+
+  it("does not check the commit format when the repo declares no convention", async () => {
+    expect(await conventional()).toMatchObject({ ok: null, skipped: true, detail: expect.stringMatching(/declares no commit convention/) });
+  });
+
+  it.each([
+    ["commitlint.config.js", "export default {};"],
+    [".commitlintrc.json", "{}"],
+    ["package.json", JSON.stringify({ commitlint: { extends: ["@commitlint/config-conventional"] } })],
+    [".karajan/hooks/commit-msg", "#!/bin/sh"],
+  ])("checks it when the repo declares one in %s", async (file, content) => {
+    mkdirSync(join(dir, ".karajan/hooks"), { recursive: true });
+    writeFileSync(join(dir, file), content);
+    expect(await conventional()).toMatchObject({ ok: false, detail: expect.stringMatching(/Add the index/) });
   });
 });
 
 describe("testsCheck", () => {
-  it("fails source changes with no test changed, passes a delete-only or tested change", () => {
-    expect(testsCheck({ config: {}, numstat: "10\t0\tsrc/a.js\n" })).toMatchObject({ id: "tests", ok: false });
+  it("asks, never fails, when source changed with no test changed (KJC-TSK-1238)", () => {
+    expect(testsCheck({ config: {}, numstat: "10\t0\tsrc/a.js\n" })).toMatchObject({ id: "tests", ok: null, question: expect.stringMatching(/business logic/) });
+  });
+
+  it("passes a delete-only or tested change", () => {
     expect(testsCheck({ config: {}, numstat: "10\t0\tsrc/a.js\n5\t0\ttests/a.test.js\n" }).ok).toBe(true);
     expect(testsCheck({ config: {}, numstat: "0\t9\tsrc/a.js\n" }).ok).toBe(true);
   });
