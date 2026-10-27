@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.69.0: dos familias de IA revisan una PR compleja y se verifican entre sí (actual)
+### v4.70.0: de una spec de alto nivel a una detallada que aceptas antes del plan (actual)
+
+`kj spec refine --task-file spec.md` convierte una spec de alto nivel en una detallada: comportamiento, casos límite, criterios de aceptación, supuestos y preguntas abiertas. Con `--e2e <tests>`, cada criterio nombra el test que lo cubre; sin tests e2e, propone los escenarios que hay que escribir. Escribe `spec.detailed.md` y se para, sin necesitar terminal (`--json` para agentes): la aceptas o la corriges y luego `kj plan generate --task-file spec.detailed.md`.
+
+### v4.69.0: dos familias de IA revisan una PR compleja y se verifican entre sí
 
 `kj review --third-party --reviewers claude,codex` hace que dos revisores de familias distintas revisen el rango entero por su cuenta, y cada uno verifica los hallazgos del otro. Sale un solo resultado: quién encontró cada hallazgo y cómo se verificó, primero los que encontraron ambos, los descartados aparte y un veredicto único. Cuesta dos revisiones, así que es opcional para PRs complejas; sin `--reviewers` no cambia nada.
 
