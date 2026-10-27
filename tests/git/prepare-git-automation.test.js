@@ -51,3 +51,26 @@ describe("prepareGitAutomation with a Planning Game card", () => {
     expect(git.createBranch).not.toHaveBeenCalled();
   });
 });
+
+// KJC-BUG-0412 (#2564): a resumed run keeps the baseline of the session it
+// resumes; recomputed, the original run's own work counted as pending before.
+describe("prepareGitAutomation baseline of pending changes", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("records on the session what was pending when it started", async () => {
+    git.listPendingPaths.mockResolvedValueOnce(["notes.md"]);
+    const session = { id: "s" };
+    const ctx = await prepareGitAutomation({ config, task: "x", logger, session });
+    expect(ctx.preexisting).toEqual(["notes.md"]);
+    expect(session.git_preexisting).toEqual(["notes.md"]);
+  });
+
+  it("a resumed run keeps the baseline it is given instead of the tree's (KJC-BUG-0412)", async () => {
+    git.listPendingPaths.mockResolvedValueOnce(["notes.md", "src/work.js"]);
+    const session = { id: "s" };
+    const ctx = await prepareGitAutomation({ config, task: "x", logger, session, preexisting: ["notes.md"] });
+    expect(ctx.preexisting).toEqual(["notes.md"]);
+    expect(session.git_preexisting).toEqual(["notes.md"]);
+    expect(git.listPendingPaths).not.toHaveBeenCalled();
+  });
+});

@@ -119,7 +119,7 @@ async function checkoutRunBranch(created) {
   }
 }
 
-export async function prepareGitAutomation({ config, task, logger, session }) {
+export async function prepareGitAutomation({ config, task, logger, session, preexisting: resumedBaseline = null }) {
   const enabled = config.git.auto_commit || config.git.auto_push || config.git.auto_pr;
   if (!enabled) return { enabled: false };
 
@@ -147,7 +147,10 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
   // pipeline commits only what it changes. Both names of a pending rename are
   // kept. Fails closed: with no answer from git the run stops here rather than
   // commit the person's pending changes later.
-  const preexisting = await listPendingPaths();
+  // KJC-BUG-0412 (#2564): a resumed run keeps the baseline of the session it
+  // resumes; the tree now also holds that session's own work.
+  const preexisting = resumedBaseline ?? await listPendingPaths();
+  if (session) session.git_preexisting = preexisting;
   const repoHasCommits = await hasCommits();
 
   // New repo without commits: create branch directly (no fetch/sync possible)

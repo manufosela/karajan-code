@@ -47,7 +47,7 @@ export function adoptPreLoopConfig(ctx, updatedConfig) {
   ctx.coderRoleInstance.config = updatedConfig;
 }
 
-export async function initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags }) {
+export async function initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags, preexisting = null }) {
   // Auto-init .karajan/ if missing (copies coder-rules, review-rules, role templates)
   const initProjectDir = config.projectDir || process.cwd();
   await autoInit(initProjectDir, logger);
@@ -229,7 +229,7 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
     ctx.journalDecisions = [];
   }
 
-  ctx.gitCtx = await prepareGitAutomation({ config: ctx.config, task, logger, session: ctx.session });
+  ctx.gitCtx = await prepareGitAutomation({ config: ctx.config, task, logger, session: ctx.session, preexisting });
   const projectDir = ctx.config.projectDir || process.cwd();
   ctx.reviewRules = (await resolveReviewProfile({ mode: ctx.config.review_mode, projectDir })).rules;
   await ctx.coderRoleInstance.init();
