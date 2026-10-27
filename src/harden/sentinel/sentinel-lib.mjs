@@ -2,7 +2,7 @@
 // Single source for every sentinel script: state, branch, classification,
 // and violations.
 import process from "node:process";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execSync, spawnSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
@@ -105,17 +105,25 @@ const home = () => {
   return (_home = claimLane(root, here?.top && root.common && here.common === root.common ? here : root));
 };
 export const laneTop = () => home().top || ROOT;
-export const branchOf = () => {
-  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: laneTop(), stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+export const branchOf = (top = laneTop()) => {
+  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
   catch { return null; }
 };
-// Same repo but another toplevel than OUR lane => foreign lane (its toplevel); else null.
-export const foreignLane = (targetDir) => {
-  const target = homeOf(targetDir);
-  if (!target.top) return null;
+// ADR 0034 (KJC-TSK-1243): the lane a write lands in is the worktree holding its path when
+// that worktree is of this repo; any other path is judged in the session's lane. It walks up
+// to the first existing dir (a subdir not created yet escaped) and canonicalizes it (a local
+// symlink into another lane was classified by its literal path).
+export const laneFor = (p) => {
+  let d = String(p);
+  while (d && !(existsSync(d) && statSync(d).isDirectory())) {
+    const up = dirname(d);
+    if (up === d) return laneTop();
+    d = up;
+  }
+  try { d = realpathSync(d); } catch { /* classified as is */ }
+  const target = homeOf(d);
   const own = home();
-  if (!own.top || target.top === own.top) return null;
-  return target.common && target.common === own.common ? target.top : null;
+  return target.top && own.top && target.common && target.common === own.common ? target.top : laneTop();
 };
 // KJC-TSK-0765 board-sync: cards merged in this session but not yet moved in
 // the tracker. The method does not advance until the board is true.

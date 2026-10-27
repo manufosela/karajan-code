@@ -7,11 +7,11 @@
 import console from "node:console";
 import process from "node:process";
 import { dirname, join, relative, resolve } from "node:path";
-import { appendFileSync, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, foreignLane, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { isGhIssueCreate, isPublishCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
@@ -61,7 +61,9 @@ process.stdin.on("end", () => {
     // only the human, editing outside it.
     if (EDIT_TOOLS.includes(tool)) {
       const target = input.file_path || input.notebook_path;
-      const relT = target ? relative(laneTop(), String(target)).replaceAll("\\", "/") : "";
+      // ADR 0034: judged in the lane the write lands in (its supervisor, its config).
+      const targetTop = target ? laneFor(target) : laneTop();
+      const relT = target ? relative(targetTop, String(target)).replaceAll("\\", "/") : "";
       if (relT && PROTECTED.test(relT)) {
         console.error("karajan sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion." + doc("supervisor"));
         process.exit(2);
@@ -75,7 +77,8 @@ process.stdin.on("end", () => {
         console.error("karajan sentinel: " + relT + " es configuracion de gobierno (politicas, gates, exclusiones): la cambia tu usuario, no la sesion. Si un gate te parece injusto, proponselo a tu usuario o usa kj report-issue." + doc("governance"));
         process.exit(2);
       }
-      if (relT && !relT.startsWith("..") && !relT.startsWith("/")) noteFirstTouch(relT);
+      // The ledger is keyed by path in the session's lane: a write the lane guard will deny records nothing.
+      if (targetTop === laneTop() && relT && !relT.startsWith("..") && !relT.startsWith("/")) noteFirstTouch(relT);
     }
     // KJC-BUG-0261: rm / git rm is the session touching those files, noted before they go.
     if (tool === "Bash") for (const words of shellSegments(String(input.command || ""))) for (const f of removedFiles(words, ROOT)) noteFirstTouch(f);
@@ -250,19 +253,10 @@ process.stdin.on("end", () => {
     }
     // MONO-0 (KJC-TSK-0737, ADR 0002): cada sesion muta solo SU worktree;
     // otro carril del MISMO repo se deniega ANTES del dano. Lectura libre.
+    // Another lane of this repo => its toplevel; the session's own lane or no repo => null.
     const laneOf = (p) => {
-      // Sube al primer ancestro EXISTENTE (un subdir aun no creado escapaba).
-      let d = String(p);
-      if (!(existsSync(d) && statSync(d).isDirectory())) d = dirname(d);
-      while (d && !existsSync(d)) {
-        const up = dirname(d);
-        if (up === d) return null;
-        d = up;
-      }
-      // Canonicaliza (reviewer catch: un symlink local hacia otro carril
-      // esquivaba la clasificacion por ruta literal).
-      try { d = realpathSync(d); } catch { /* se clasifica tal cual */ }
-      return d ? foreignLane(d) : null;
+      const top = laneFor(p);
+      return top === laneTop() ? null : top;
     };
     const laneDeny = (what, lane) => {
       console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0)" + (laneRefusal() ? " " + laneRefusal() : "") + ". Sin escape (ADR 0015): un cruce deliberado lo hace tu usuario en su terminal." + doc("cross-lane"));
@@ -522,10 +516,12 @@ process.stdin.on("end", () => {
         }
       } catch { /* no report or unreadable — the Steward is not adopted here */ }
       const file = input.file_path || input.notebook_path;
-      const rel = file ? relative(laneTop(), String(file)).replaceAll("\\", "/") : "";
+      // ADR 0034: the card, the branch and the RAG of the lane the write lands in.
+      const top = file ? laneFor(file) : laneTop();
+      const rel = file ? relative(top, String(file)).replaceAll("\\", "/") : "";
       // KJC-BUG-0279 (#1981): outside the repository there is no source to govern.
       if (rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/") && CODE.test(rel) && !TESTS.test(rel)) {
-        const branch = branchOf();
+        const branch = branchOf(top);
         const why = !branch ? null : BASE_BRANCHES.has(branch) ? "base" : !CARD.test(branch) ? "nocard" : null;
         // ADR 0015 (KJC-TSK-0925): no escape. Without a card there is no work.
         if (why) {
@@ -548,7 +544,7 @@ process.stdin.on("end", () => {
         // Solo se pregunta a git en el camino lento, cuando el gate iba a
         // denegar: exit 1 = git responde que no lo conoce; cualquier otro
         // resultado se comporta como hasta ahora y bloquea.
-        const fresh = () => !existsSync(String(file)) || spawnSync("git", ["-C", laneTop(), "ls-files", "--error-unmatch", "--", rel], { encoding: "utf8" }).status === 1;
+        const fresh = () => !existsSync(String(file)) || spawnSync("git", ["-C", top, "ls-files", "--error-unmatch", "--", rel], { encoding: "utf8" }).status === 1;
         // A path outside this tree is another lane's business (the lane guard
         // above rules on it) and the ledger only holds in-repo paths.
         // KJC-BUG-0190: with nothing indexed, no query can cover anything —
@@ -569,7 +565,7 @@ process.stdin.on("end", () => {
             // esa: un indice vacio o por detras si tiene arreglo (kj rag index)
             // y sigue bloqueando, porque si no el gate desapareceria en
             // cualquier proyecto sin indexar. Nada legible = se bloquea.
-            const cov = spawnSync("kj", ["rag", "covers", rel, "--json"], { cwd: laneTop(), encoding: "utf8" });
+            const cov = spawnSync("kj", ["rag", "covers", rel, "--json"], { cwd: top, encoding: "utf8" });
             let blind = null;
             let absent = null;
             try {
