@@ -122,6 +122,14 @@ describe("SolomonRole", () => {
     expect(callArgs.role).toBe("solomon");
   });
 
+  // KJC-BUG-0414 (#2606): the targets of the change's symlinks reach Solomon as a fact.
+  it("names the symlink targets that must stay in the commit", async () => {
+    const role = new SolomonRole({ config, logger, createAgentFn: mockCreateAgent });
+    await role.init({});
+    await role.run({ conflict: { stage: "commit", symlinkTargets: [{ link: "docs/adr/0009-x.md", target: ".karajan/adrs/0009-x.md" }] } });
+    expect(mockRunTask.mock.calls[0][0].prompt).toMatch(/docs\/adr\/0009-x\.md -> \.karajan\/adrs\/0009-x\.md[\s\S]*dangling/);
+  });
+
   // --- Ruling: approve ---
 
   it("returns ok=true with ruling=approve when all issues are style", async () => {
