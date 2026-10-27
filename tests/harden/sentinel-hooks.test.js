@@ -518,11 +518,15 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     execSync(`git worktree add --detach ${lane}`, { cwd: dir });
     fs.mkdirSync(path.join(lane, "src"), { recursive: true });
     fs.writeFileSync(path.join(lane, "src", "x.js"), "x");
+    // ADR 0034: a lane takes writes from any session unless another live one holds it;
+    // the guard's cases below run against a lane session s9 is working in.
+    run(gate, { session_id: "s9", tool_name: "Edit", tool_input: { file_path: path.join(lane, "src", "x.js") }, cwd: lane });
   });
   afterEach(() => {
     execSync(`git worktree remove --force ${lane}`, { cwd: dir });
   });
   const laneEdit = () => ({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(lane, "src", "x.js") } });
+  const free = () => fs.rmSync(path.join(execSync("git rev-parse --path-format=absolute --git-common-dir", { cwd: dir }).toString().trim(), "kj-lanes"), { recursive: true, force: true });
 
   it("denies an Edit into a sibling worktree of the same repo, naming the lane", () => {
     const res = run(gate, laneEdit());
@@ -578,6 +582,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     execSync(`git worktree add --detach ${inTree}`, { cwd: dir });
     fs.mkdirSync(path.join(inTree, "src"), { recursive: true });
     fs.writeFileSync(path.join(inTree, "src", "x.js"), "x");
+    run(gate, { session_id: "s8", tool_name: "Edit", tool_input: { file_path: path.join(inTree, "src", "x.js") }, cwd: inTree });
     const spawn = (command) => spawnSync("node", [gate], {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
       encoding: "utf8", cwd: dir, env: { ...process.env },
@@ -722,14 +727,17 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
   // the payload's cwd. That lane is the session's own; the rest stay foreign.
   const inLane = (payload, cwd = lane) => ({ ...payload, cwd });
   it("an Edit inside the lane the host's cwd points at is the session's own lane", () => {
+    free();
     const res = run(gate, inLane(laneEdit()));
     expect(res.stderr).not.toContain("carril");
   });
-  it("from inside a lane, the main checkout and other lanes are foreign", () => {
+  it("from inside a lane, a main checkout another live session is in is refused", () => {
+    free();
+    run(gate, inLane(editTool(path.join(dir, "notes.md"), "s2"), dir));
     fs.writeFileSync(path.join(dir, "y.js"), "y");
     const root = run(gate, inLane(editTool(path.join(dir, "y.js"))));
     expect(root.status).toBe(2);
-    expect(root.stderr).toContain("carril");
+    expect(root.stderr).toMatch(/carril[\s\S]*otra sesi[oó]n viva/);
   });
   it("a cwd outside this repo does not move the lane", () => {
     const other = fs.mkdtempSync(path.join(os.tmpdir(), "kj-other-"));
@@ -738,6 +746,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(res.status).toBe(2);
   });
   it("card-first reads the lane's branch, not the main checkout's", () => {
+    free();
     execSync("git checkout -q main", { cwd: dir }); // root on the base branch
     execSync("git checkout -q -b feat/KJC-TSK-0002-lane", { cwd: lane });
     const res = run(gate, inLane(laneEdit()));
@@ -759,11 +768,13 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
   });
   // ADR 0033 (KJC-TSK-1236): a session may switch lanes, exclusively, and going home is free.
   it("a session that went back to the main checkout writes there again", () => {
+    free();
     run(gate, inLane(laneEdit()));
     fs.writeFileSync(path.join(dir, "y.js"), "y");
     expect(run(gate, inLane(editTool(path.join(dir, "y.js")), dir)).stderr).not.toContain("carril");
   });
   it("a lane another live session is in refuses the entry, and the deny says why", () => {
+    free();
     run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
     const res = run(gate, inLane(laneEdit()));
     expect(res.status).toBe(2);
@@ -771,6 +782,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(res.stderr).toMatch(/otra sesi[oó]n viva/);
   });
   it("a session silent past the period does not hold its lane", () => {
+    free();
     run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
     const lanes = path.join(execSync("git rev-parse --path-format=absolute --git-common-dir", { cwd: dir }).toString().trim(), "kj-lanes");
     for (const f of fs.readdirSync(lanes)) {
@@ -780,9 +792,42 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
   });
   it("the lane is free again once the other session went home", () => {
+    free();
     run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
-    run(gate, inLane({ ...laneEdit(), session_id: "s2" }, dir));
+    run(gate, inLane(editTool(notes(dir), "s2"), dir));
     expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
+  });
+  // ADR 0034 (KJC-TSK-1244): one session writes in any free lane and holds it; never in a held one.
+  const notes = (top) => path.join(top, "notes.md");
+  it("a free lane takes a write from a session elsewhere, which then holds it against others", () => {
+    free();
+    expect(run(gate, editTool(notes(lane))).status).toBe(0);
+    const other = run(gate, editTool(notes(lane), "s2"));
+    expect(other.status).toBe(2);
+    expect(other.stderr).toMatch(/otra sesi[oó]n viva/);
+  });
+  it("one session holds several lanes at once, and a Bash write lands in a free one", () => {
+    free();
+    const lane2 = path.join(path.dirname(lane), "wt2");
+    execSync(`git worktree add --detach ${lane2}`, { cwd: dir });
+    expect(run(gate, editTool(notes(lane))).status).toBe(0);
+    expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `rm -f ${notes(lane2)}` } }).status).toBe(0);
+    for (const top of [lane, lane2]) expect(run(gate, editTool(notes(top), "s2")).status).toBe(2);
+    execSync(`git worktree remove --force ${lane2}`, { cwd: dir });
+  });
+  it("a session mark that cannot be read keeps the lane closed", () => {
+    free();
+    run(gate, editTool(notes(dir)));
+    const lanes = path.join(execSync("git rev-parse --path-format=absolute --git-common-dir", { cwd: dir }).toString().trim(), "kj-lanes");
+    fs.writeFileSync(path.join(lanes, "session-garbled.json"), "{ not json");
+    const res = run(gate, editTool(notes(lane)));
+    expect(res.status).toBe(2);
+    expect(res.stderr).toMatch(/no se pudo reclamar/);
+  });
+  it("a source written in another lane is not recorded as one of the session's lane", () => {
+    free();
+    run(postScript, laneEdit());
+    expect(state().sessions.s1.edited_sources).toEqual([]);
   });
 });
 

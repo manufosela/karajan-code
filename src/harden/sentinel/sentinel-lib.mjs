@@ -67,20 +67,26 @@ export const enterLane = (_state, sid, cwd) => {
 export const laneRefusal = () => _refusal;
 const laneKey = (s) => createHash("sha256").update(String(s)).digest("hex").slice(0, 16);
 const readJson = (f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } };
+const live = (at, now) => typeof at === "number" && now - at < LANE_TTL_MS;
+// ADR 0034: a mark also lists the lanes the session wrote in (`held`); another session holds
+// a lane when it is in it or wrote there within the period. Another session's mark that cannot
+// be read or parsed throws: the caller refuses rather than read it as a free lane.
+const heldByOther = (dir, top, now) => readdirSync(dir).filter((f) => f.startsWith("session-"))
+  .map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")))
+  .some((r) => r?.sid !== _sid && ((r?.lane === top && live(r.at, now)) || live(r?.held?.[top], now)));
+const liveHeld = (mark, now) => Object.fromEntries(Object.entries(mark?.held ?? {}).filter(([, at]) => live(at, now)));
 // The lane the session may take: `lane` when it is home, already its live lane, or free.
 const claimLane = (root, lane, now = Date.now()) => {
   if (!_sid || !root.common) return lane;
   const dir = join(root.common, "kj-lanes");
   const mark = join(dir, "session-" + laneKey(_sid) + ".json");
-  const write = (top) => writeFileSync(mark, JSON.stringify({ sid: _sid, lane: top, at: now }));
+  const write = (top) => writeFileSync(mark, JSON.stringify({ sid: _sid, lane: top, at: now, held: liveHeld(readJson(mark), now) }));
   try {
     mkdirSync(dir, { recursive: true });
     const prev = readJson(mark);
-    if (lane.top !== root.top && !(prev?.lane === lane.top && now - prev.at < LANE_TTL_MS)) {
+    if (lane.top !== root.top && !(prev?.lane === lane.top && live(prev.at, now))) {
       write(lane.top);
-      const other = readdirSync(dir).filter((f) => f.startsWith("session-")).map((f) => readJson(join(dir, f)))
-        .find((r) => r && r.sid !== _sid && r.lane === lane.top && now - r.at < LANE_TTL_MS);
-      if (other) {
+      if (heldByOther(dir, lane.top, now)) {
         _refusal = "(" + lane.top + " tiene otra sesión viva: un carril, una sesión, ADR 0033)";
         lane = root;
       }
@@ -105,6 +111,29 @@ const home = () => {
   return (_home = claimLane(root, here?.top && root.common && here.common === root.common ? here : root));
 };
 export const laneTop = () => home().top || ROOT;
+/**
+ * ADR 0034 (KJC-TSK-1244): why the session may not write in lane `top`, or null once it holds it.
+ * Intent first, then a look, as a switch does (ADR 0033): the hold is written, then another
+ * live session in that lane takes it back out. Anything unreadable refuses.
+ */
+export const holdLane = (top, now = Date.now()) => {
+  const own = home();
+  if (top === laneTop()) return null;
+  if (!_sid || !own.common) return "(sin sesión identificada no se reclama " + top + ")";
+  const dir = join(own.common, "kj-lanes");
+  const mark = join(dir, "session-" + laneKey(_sid) + ".json");
+  try {
+    mkdirSync(dir, { recursive: true });
+    const mine = { sid: _sid, lane: own.top, at: now, ...readJson(mark) };
+    const held = liveHeld(mine, now);
+    writeFileSync(mark, JSON.stringify({ ...mine, held: { ...held, [top]: now } }));
+    if (!heldByOther(dir, top, now)) return null;
+    writeFileSync(mark, JSON.stringify({ ...mine, held }));
+    return "(" + top + " tiene otra sesión viva: un carril, una sesión, ADR 0033/0034)";
+  } catch {
+    return "(no se pudo reclamar " + top + ")";
+  }
+};
 export const branchOf = (top = laneTop()) => {
   try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
   catch { return null; }

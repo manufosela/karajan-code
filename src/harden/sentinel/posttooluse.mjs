@@ -7,7 +7,7 @@ import process from "node:process";
 import { realpathSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { CODE, TESTS, ROOT, CARD, branchOf, enterLane, laneTop, load, save, session } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, CARD, branchOf, enterLane, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
@@ -187,7 +187,8 @@ process.stdin.on("end", () => {
     s.at = Date.now();
     const rel = relative(laneTop(), file).replaceAll("\\", "/");
     // KJC-BUG-0279 (#1981): a file outside the repository is not one of its sources.
-    const inside = rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
+    // ADR 0034: nor one in another lane (it would read as this lane's); KJC-TSK-1245 tracks those per lane.
+    const inside = laneFor(file) === laneTop() && rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
     const bucket = !inside ? null : TESTS.test(rel) ? s.edited_tests : CODE.test(rel) ? s.edited_sources : null;
     if (bucket && !bucket.includes(rel)) bucket.push(rel);
     // KJC-TSK-0910: the branch size while it is written, with the CI budget
