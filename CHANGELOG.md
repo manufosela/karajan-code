@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.68.0] - 2026-10-27
+
+Minor, cut from 4.67.0. `kj run` can push, open the PR and reach Sonar again in a hardened repo, and JavaScript and TypeScript files leave the coder formatted.
+
+### Changed
+
+- **The host Bash sandbox is opt-in: `kj harden --sandbox`** (KJC-TSK-1241, PR #2612): `kj harden` turned Claude Code's Bash sandbox on wherever it could start, and inside it `kj run` could not push, open the PR with `gh` or reach Sonar on localhost. Now `kj harden` leaves it alone and `kj harden --sandbox` turns it on as before. `--no-sandbox` keeps working. A repo where an earlier `kj harden` turned it on keeps it until you set `sandbox.enabled: false` in `.claude/settings.local.json`.
+
+### Added
+
+- **The coder's JavaScript and TypeScript files are formatted too** (KJC-TSK-1239, PR #2619, follow-up of issue #2565): the format stage after the coder runs the formatter the project declares, `prettier --write` or `biome format --write`, from `node_modules/.bin`, on the session's files only. With both declared, the one the project's scripts call wins. A formatter that is not installed is not used.
+
 ## [4.67.0] - 2026-10-27
 
 Minor, cut from 4.66.1. Fixes reported from the field on Python projects and on `kj resume`, the coder's files formatted before the quality gates, and a third-party review that judges a PR by the reviewed repo's own rules.
