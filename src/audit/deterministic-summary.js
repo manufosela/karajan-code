@@ -40,6 +40,7 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.osvFindings) lines.push(...formatOsvBlock(ctx.osvFindings));
   if (ctx.semgrepFindings) lines.push(...formatSemgrepBlock(ctx.semgrepFindings));
   if (ctx.infraFindings) lines.push(...formatInfraBlock(ctx.infraFindings));
+  if (ctx.npmSignatures) lines.push(...formatNpmSignaturesBlock(ctx.npmSignatures));
   if (ctx.circularDeps) lines.push(...formatCircularDepsBlock(ctx.circularDeps));
   if (ctx.deadExports) lines.push(...formatDeadExportsBlock(ctx.deadExports));
   if (ctx.injectionFindings) lines.push(...formatInjectionBlock(ctx.injectionFindings));
@@ -159,6 +160,22 @@ function formatSemgrepBlock(semgrepFindings) {
 
 // INF-C (KJC-TSK-0760): checkov misconfigs — same shape as the semgrep
 // block; a not-applicable repo (no infra markers) declares it in one line.
+// KJC-TSK-1253: an invalid signature is a tampered package; a missing one, a package the registry cannot vouch for.
+function formatNpmSignaturesBlock(sigs) {
+  if (!sigs.available) return ["### npm signatures", `- Status: not available — ${sigs.reason}`, ""];
+  const lines = ["### npm signatures"];
+  const list = (title, pkgs) => {
+    if (!pkgs.length) return;
+    lines.push(`  - ${title} (${pkgs.length}):`);
+    for (const p of pkgs.slice(0, MAX_SAMPLE_SEMGREP_PER_SEVERITY * 3)) lines.push(`    - ${p.name}@${p.version}`);
+  };
+  if (!sigs.invalid.length && !sigs.missing.length) lines.push("- Every installed dependency has a valid registry signature");
+  list("Invalid signature", sigs.invalid);
+  list("No signature", sigs.missing);
+  lines.push("");
+  return lines;
+}
+
 function formatInfraBlock(infraFindings) {
   if (!infraFindings.available) {
     return ["### Infra misconfigurations (checkov)", `- Status: not available — ${infraFindings.reason || "checkov not installed"}`, ""];

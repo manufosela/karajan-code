@@ -7,7 +7,7 @@ description: Read-only codebase health report across six dimensions — determin
 
 ## What it does
 
-`kj audit` runs in **two phases**. Phase one is deterministic and free: a set of collectors gather hard facts — basal cost (LOC, file count, dependency count, unused deps, dead exports), SonarQube findings if a server is reachable, OSV-Scanner CVEs if installed, Semgrep SAST findings if installed, stack detection, growth-delta versus the last audit, and any persisted Lighthouse web-perf result. These are printed and optionally written to a report file with **zero tokens spent**.
+`kj audit` runs in **two phases**. Phase one is deterministic and free: a set of collectors gather hard facts — basal cost (LOC, file count, dependency count, unused deps, dead exports), SonarQube findings if a server is reachable, OSV-Scanner CVEs if installed, Semgrep SAST findings if installed, the npm registry signatures of the installed dependencies (`npm audit signatures`: an invalid signature is a tampered package, a missing one a package the registry cannot vouch for; it also runs with `--security`), stack detection, growth-delta versus the last audit, and any persisted Lighthouse web-perf result. These are printed and optionally written to a report file with **zero tokens spent**.
 
 Phase two is the LLM analysis. The deterministic findings are fed as context into an auditor sub-agent that evaluates the codebase across **six dimensions** — security, code quality, performance, architecture, testing, accessibility — and produces a scored report (A–F per dimension, overall health, ranked recommendations with impact/effort). On a TTY you're prompted "Continue with LLM analysis?" between the two phases so you can stop after the free part; in CI / non-TTY it auto-continues.
 
