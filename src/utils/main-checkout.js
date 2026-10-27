@@ -10,7 +10,8 @@ import { execFileSync } from "node:child_process";
 const gitOrNull = (args, cwd) => {
   // A git hook exports GIT_DIR & co: left in, they would override `cwd` and answer for the wrong repo.
   const env = { ...process.env };
-  for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR"]) delete env[name];
+  for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "LANGUAGE"]) delete env[name];
+  env.LC_ALL = "C"; // the stderr check below reads git's English message (KJC-BUG-0409)
   try {
     return execFileSync("git", args, { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   } catch (err) {
