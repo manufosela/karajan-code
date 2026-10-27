@@ -267,10 +267,12 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--lens <lens>", "With --third-party: what the reviewer looks at; qa = test coverage, weak assertions, flakiness, test data")
     .option("--verifier <provider>", "With --third-party: an AI of another family confirms, downgrades or rejects each finding (#2369)")
     .option("--verifier-model <model>", "With --verifier: the verifier's model")
+    .option("--reviewers <a,b>", "With --third-party: two reviewers of different families review on their own and verify each other (#2623)")
+    .option("--reviewer-models <a=model,b=model>", "With --reviewers: each reviewer's model")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
-        if ((flags.verifier || flags.verifierModel) && !flags.thirdParty) {
-          logger.error("--verifier and --verifier-model work with --third-party only");
+        if ((flags.verifier || flags.verifierModel || flags.reviewers || flags.reviewerModels) && !flags.thirdParty) {
+          logger.error("--verifier, --verifier-model, --reviewers and --reviewer-models work with --third-party only");
           process.exitCode = 1;
           return;
         }
