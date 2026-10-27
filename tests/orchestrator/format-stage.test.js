@@ -76,11 +76,36 @@ describe("format stage", () => {
 
   it.each([
     ["the project opts out", { config: { development: { format_after_coder: false } } }],
-    ["the language has no known formatter", { detectLanguageImpl: () => "javascript" }],
+    ["a JS project declares no formatter", { detectLanguageImpl: () => "javascript" }],
     ["no file of the language changed", { listPendingImpl: async () => ["README.md"] }],
   ])("does nothing when %s", async (_why, overrides) => {
     const { args, runImpl } = stage(overrides);
     if (overrides.config) args.config = { projectDir: repo, ...overrides.config };
+    expect(await runFormatStage(args)).toMatchObject({ ran: false });
+    expect(runImpl).not.toHaveBeenCalled();
+  });
+
+  // KJC-TSK-1239: a JS/TS project is formatted with the formatter it declares, from node_modules.
+  const jsProject = (pkg, bins) => {
+    writeFileSync(join(repo, "package.json"), JSON.stringify(pkg));
+    mkdirSync(join(repo, "node_modules", ".bin"), { recursive: true });
+    for (const b of bins) writeFileSync(join(repo, "node_modules", ".bin", b), "");
+    for (const f of ["src.ts", "view.jsx"]) writeFileSync(join(repo, f), "x\n");
+  };
+  const jsStage = () => stage({ detectLanguageImpl: () => "typescript", listPendingImpl: async () => ["src.ts", "view.jsx", "README.md", "app.py"] });
+  it.each([
+    ["prettier", { devDependencies: { prettier: "^3" } }, "node_modules/.bin/prettier", ["--write"]],
+    ["biome", { devDependencies: { "@biomejs/biome": "^1" } }, "node_modules/.bin/biome", ["format", "--write"]],
+    ["the one its scripts use when both are declared", { scripts: { "format:check": "biome format ." }, devDependencies: { prettier: "^3", "@biomejs/biome": "^1" } }, "node_modules/.bin/biome", ["format", "--write"]],
+  ])("a JS/TS project is formatted with %s", async (_which, pkg, bin, flags) => {
+    jsProject(pkg, ["prettier", "biome"]);
+    const { args, runImpl } = jsStage();
+    expect(await runFormatStage(args)).toMatchObject({ ran: true, ok: true, files: ["src.ts", "view.jsx"] });
+    expect(runImpl).toHaveBeenCalledWith(bin, [...flags, "--", "src.ts", "view.jsx"], expect.objectContaining({ cwd: repo }));
+  });
+  it("a declared formatter that is not installed formats nothing", async () => {
+    jsProject({ devDependencies: { prettier: "^3" } }, []);
+    const { args, runImpl } = jsStage();
     expect(await runFormatStage(args)).toMatchObject({ ran: false });
     expect(runImpl).not.toHaveBeenCalled();
   });
