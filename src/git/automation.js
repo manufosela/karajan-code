@@ -4,6 +4,7 @@
  */
 
 import { addCheckpoint } from "../session/store.js";
+import { setGitPreexisting } from "../session/mutators.js";
 import { pipelineSonarBlock, stampStagedVerdict } from "../review/verdict-store.js";
 import { branchSize } from "../commands/pr-size.js";
 import { pushRemedy } from "./hu-automation.js";
@@ -150,7 +151,7 @@ export async function prepareGitAutomation({ config, task, logger, session, pree
   // KJC-BUG-0412 (#2564): a resumed run keeps the baseline of the session it
   // resumes; the tree now also holds that session's own work.
   const preexisting = resumedBaseline ?? await listPendingPaths();
-  if (session) session.git_preexisting = preexisting;
+  if (session) setGitPreexisting(session, preexisting);
   const repoHasCommits = await hasCommits();
 
   // New repo without commits: create branch directly (no fetch/sync possible)
