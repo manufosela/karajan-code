@@ -265,6 +265,22 @@ kj review --range main...pr-branch --third-party --json --reviewer claude
 
 ---
 
+## kj spec refine
+
+Turn a high-level spec into a detailed one you accept before planning. kj never plans here: it writes the detailed spec and stops.
+
+```bash
+kj spec refine --task-file spec.md [--e2e tests/e2e/reset.spec.js ...] [--out <file>] [--json]
+```
+
+- The spec reviewer looks for gaps first; the detailed spec addresses them.
+- The result has these sections: Goal, Behaviour, Edge cases and errors, Out of scope, Acceptance criteria (Given/When/Then), Assumptions and Open questions. What the spec does not decide goes to Assumptions or Open questions; no scope is invented.
+- With `--e2e`, each acceptance criterion names the e2e test that covers it, or says `(no e2e yet)`. Without e2e tests, each one ends with `(proposed e2e)` and names the scenario to write.
+- It is written to `<spec>.detailed.md` next to the spec, or to `--out`. An existing file is never overwritten.
+- Review it (Assumptions and Open questions first), edit what you need, then `kj plan generate --task-file spec.detailed.md`.
+
+---
+
 ## kj plan
 
 Generate an implementation plan without writing code.
