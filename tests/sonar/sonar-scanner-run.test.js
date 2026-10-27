@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import os, { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // KJC-BUG-0156: with a sonar-project.properties in cwd (this repo has one),
@@ -52,6 +52,13 @@ describe("[opt-in: sonar] runSonarScan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.KJ_SONAR_TOKEN;
+    // On arm64 the scanner probes for a native sonar-scanner before docker;
+    // pin x64 so these tests describe the docker path on every host.
+    vi.spyOn(os, "arch").mockReturnValue("x64");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("starts SonarQube service before running scanner", async () => {
