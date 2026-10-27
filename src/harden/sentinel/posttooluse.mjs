@@ -185,11 +185,18 @@ process.stdin.on("end", () => {
     const state = load();
     const s = session(state, sid);
     s.at = Date.now();
-    const rel = relative(laneTop(), file).replaceAll("\\", "/");
+    // ADR 0034 (KJC-TSK-1245): a write in another lane is recorded under that lane, relative to it,
+    // so the Stop gate judges it with that lane's branch and tree.
+    const top = laneFor(file);
+    const rec = top === laneTop() ? s : (((s.lanes ||= {})[top]) ||= { edited_sources: [], edited_tests: [] });
+    const rel = relative(top, file).replaceAll("\\", "/");
     // KJC-BUG-0279 (#1981): a file outside the repository is not one of its sources.
-    // ADR 0034: nor one in another lane (it would read as this lane's); KJC-TSK-1245 tracks those per lane.
-    const inside = laneFor(file) === laneTop() && rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
-    const bucket = !inside ? null : TESTS.test(rel) ? s.edited_tests : CODE.test(rel) ? s.edited_sources : null;
+    const inside = rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
+    const bucketOf = () => {
+      if (TESTS.test(rel)) return rec.edited_tests;
+      return CODE.test(rel) ? rec.edited_sources : null;
+    };
+    const bucket = inside ? bucketOf() : null;
     if (bucket && !bucket.includes(rel)) bucket.push(rel);
     // KJC-TSK-0910: the branch size while it is written, with the CI budget
     // (kj pr-size), said once per threshold crossed. Context, never a block.
