@@ -1,19 +1,22 @@
 // KJC-TSK-0396 (extensión): tests del registry FS de runs.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { tmpdir } from "node:os";
-import { mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerRun, unregisterRun, listActiveRuns, runsDir } from "../../src/utils/run-registry.js";
 
 let tmpHome;
 
+// KARAJAN_HOME outranks KJ_HOME (packages/core/src/paths.js), so set it too.
 beforeEach(() => {
   tmpHome = mkdtempSync(join(tmpdir(), "kj-run-registry-"));
+  process.env.KARAJAN_HOME = tmpHome;
   process.env.KJ_HOME = tmpHome;
 });
 
 afterEach(() => {
   rmSync(tmpHome, { recursive: true, force: true });
+  delete process.env.KARAJAN_HOME;
   delete process.env.KJ_HOME;
 });
 
@@ -69,8 +72,7 @@ describe("run-registry", () => {
   it("listActiveRuns descarta archivos JSON corruptos y los borra", () => {
     const runId = registerRun({ pid: process.pid, planId: "p" });
     // Corrompemos otro archivo (manual fs write con contenido inválido).
-    const fs = require("node:fs");
-    fs.writeFileSync(join(runsDir(), "bad.json"), "{not valid json");
+    writeFileSync(join(runsDir(), "bad.json"), "{not valid json");
     const active = listActiveRuns();
     expect(active.map((r) => r.runId)).toEqual([runId]);
     // bad.json se borró

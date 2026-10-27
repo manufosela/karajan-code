@@ -33,6 +33,11 @@ process.env.OPENCODE_API_KEY ??= "sk-test-opencode";
 // cwd is still the karajan-code repo, which ships a real `.karajan/kj.config.yml`.
 // Pre-seed an empty global config so loadConfig is happy in tests that exercise
 // it (i18n.test.js, board.test.js, sea-build.test.js).
+//
+// HU-2598: a shell that exports KARAJAN_HOME or KJ_HOME outranks the per-worker vitest
+// home (packages/core/src/paths.js) and points tests at the real ~/.karajan.
+delete process.env.KARAJAN_HOME;
+delete process.env.KJ_HOME;
 const _home = getKarajanHome();
 fs.mkdirSync(_home, { recursive: true });
 const _globalCfg = path.join(_home, "kj.config.yml");
