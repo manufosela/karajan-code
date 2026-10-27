@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.67.0] - 2026-10-27
+
+Minor, cut from 4.66.1. Fixes reported from the field on Python projects and on `kj resume`, the coder's files formatted before the quality gates, and a third-party review that judges a PR by the reviewed repo's own rules.
+
+### Added
+
+- **The coder's files are formatted before the quality gates** (KJC-TSK-1237, #2565): right after the coder, kj runs the project's formatter in write mode (`ruff format`, `gofmt -w`, `vendor/bin/php-cs-fixer fix`) on the files of the session only, never on changes that were pending before it. It is not a gate: a formatter that fails or is missing warns and the run goes on. Turn it off with `development.format_after_coder: false`.
+
+### Changed
+
+- **`kj review --third-party` checks the reviewed repo's own commit convention** (KJC-TSK-1238, #2263): the Conventional Commits check runs only when the repo declares a convention (a commitlint config, `commitlint` in `package.json`, or kj's commit-msg hook). A PR without test changes comes back as a question for the reviewer, not as a failure.
+
+### Fixed
+
+- **Python commands run through `uv run` or `poetry run`** when the project has `uv.lock` or `poetry.lock` (KJC-BUG-0411, #2563): pytest and ruff were looked up on the bare PATH and failed with exit 127, so no task could end green.
+- **`kj resume` commits the work of the session it resumes** (KJC-BUG-0412, #2564): the baseline of changes pending before the run is kept in the session, so files the first run wrote are no longer left out of the commit as someone else's.
+- **The auto-commit header comes from the task's first paragraph** (KJC-BUG-0413, #2565): a task that started with a Markdown title or ran over several paragraphs gave a header with `#` marks or cut mid-word; it is now the first paragraph, cleaned and cut at 72 characters on a word.
+
 ## [4.66.1] - 2026-10-25
 
 Patch.
