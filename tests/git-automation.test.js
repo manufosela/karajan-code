@@ -34,6 +34,13 @@ describe("commitMessageFromTask", () => {
     expect(msg).toBe("feat: Fix the bug here");
   });
 
+  // KJC-BUG-0413 (#2565): a Markdown task gives its first paragraph, unmarked.
+  it("takes the header from the first paragraph of a Markdown task (KJC-BUG-0413)", () => {
+    const task = "# Roadmap step 3\n\nContext: read the plan and\nimplement the parser.";
+    expect(commitMessageFromTask(task)).toBe("feat: Roadmap step 3");
+    expect(commitMessageFromTask("\n\n- Add the login\n  form\n\nMore text")).toBe("feat: Add the login form");
+  });
+
   it("uses fallback for empty task", () => {
     expect(commitMessageFromTask("")).toBe("feat: karajan update");
     expect(commitMessageFromTask(null)).toBe("feat: karajan update");
