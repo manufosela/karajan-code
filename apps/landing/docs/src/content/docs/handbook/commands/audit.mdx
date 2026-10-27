@@ -44,6 +44,7 @@ The output is a markdown (or `--json`) health report: per-dimension scores and f
 | `--no-sonar` | sonar on | Skip the SonarQube collector (faster, less context). | Auto-skipped anyway when SonarQube is unreachable. |
 | `--no-osv` | osv on | Skip the OSV-Scanner CVE collector. | Auto-skipped when `osv-scanner` is not installed. |
 | `--no-semgrep` | semgrep on | Skip the Semgrep SAST collector. | Auto-skipped when `semgrep` is not installed. |
+| `--sbom <file>` | off | Only write the CycloneDX SBOM of the npm project's production dependencies to `<file>` and stop (no audit). | Built by `npm sbom` from `package-lock.json`; written atomically. Not an npm project: it says so and writes nothing. |
 | `--report-file <path>` | none | Persist the report. File extension drives format (`.md` / `.json`); a directory creates `audit-<ISO>.<ext>`. `$KJ_AUDIT_REPORT_DIR` is the default dir if unset. | Works with `--deterministic-only` and `--json`. |
 | `-y, --yes` | off | Auto-confirm "Continue with LLM analysis?" non-interactively. | No effect with `--deterministic-only` (no prompt exists) or in CI/non-TTY (already auto-confirms). |
 
