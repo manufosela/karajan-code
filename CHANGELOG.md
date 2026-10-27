@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.70.0] - 2026-10-27
+
+Minor, cut from 4.69.0 (tag `v4.70.0` on the branch `release/KJC-TSK-1252-v4.70.0`): main already carries changes for 5.0.0. A high-level spec becomes a detailed one you accept before the plan.
+
+### Added
+
+- **`kj spec refine --task-file spec.md [--e2e <tests...>]`** (KJC-TSK-1251): the spec reviewer looks for gaps and kj writes a detailed spec next to yours (`<spec>.detailed.md`): goal, behaviour, edge cases and errors, out of scope, acceptance criteria (Given/When/Then), assumptions and open questions. With e2e tests each criterion names the test that covers it; without them, each one proposes the e2e scenario to write. What the spec does not decide goes to assumptions or open questions, never invented scope. It stops there, works without a terminal (`--json` for agents) and never overwrites a file; once accepted, `kj plan generate --task-file spec.detailed.md` turns it into user stories.
+
 ## [4.69.0] - 2026-10-27
 
 Minor, cut from 4.68.1 (tag `v4.69.0` on the branch `release/KJC-TSK-1250-v4.69.0`): main already carries changes for 5.0.0. A third-party review can have two AI families review a complex PR on their own and verify each other.
