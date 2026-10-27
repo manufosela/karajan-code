@@ -2,7 +2,7 @@
 // audits the user's spec and returns structured findings. Does NOT execute.
 
 import { AgentRole } from "./agent-role.js";
-import { buildSpecReviewerPrompt, buildSpecRefinerPrompt, VALID_CATEGORIES } from "../prompts/spec-reviewer.js";
+import { buildSpecReviewerPrompt, buildSpecRefinerPrompt, buildSpecDetailerPrompt, VALID_CATEGORIES } from "../prompts/spec-reviewer.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
@@ -69,21 +69,32 @@ export class SpecReviewerRole extends AgentRole {
    * @returns {Promise<{ ok:boolean, refinedSpec?:string, error?:string, provider:string, usage?:object }>}
    */
   async refineSpec({ spec, findings }) {
+    const prompt = buildSpecRefinerPrompt({ originalSpec: spec, findings, instructions: this.instructions });
+    const { text, ...rest } = await this.#rewrite(spec, prompt, "refine");
+    return text ? { ...rest, refinedSpec: text } : rest;
+  }
+
+  /** KJC-TSK-1251 (kj spec refine): the detailed spec, as Markdown, for the user to accept before the plan. */
+  async detailSpec({ spec, e2e, findings }) {
+    const prompt = buildSpecDetailerPrompt({ spec, e2e, findings, instructions: this.instructions });
+    const { text, ...rest } = await this.#rewrite(spec, prompt, "detail");
+    return text ? { ...rest, detailedSpec: text } : rest;
+  }
+
+  // Runs a rewriting prompt and returns the agent's text verbatim, without a surrounding fence.
+  async #rewrite(spec, prompt, what) {
     if (!this._initialized) await this.init({ task: spec });
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-    const prompt = buildSpecRefinerPrompt({ originalSpec: spec, findings, instructions: this.instructions });
     const result = await withBrainRecovery({
       agent: { runTask: (a) => agent.runTask(a), provider },
       taskArgs: { prompt, role: this.name },
       role: this.name, provider, emitter: this.emitter, logger: this.logger,
     });
-    if (!result.ok) {
-      return { ok: false, error: result.error || "refine failed", provider, usage: result.usage };
-    }
-    const refinedSpec = String(result.output || "").replace(/^```[a-z]*\n?|```$/g, "").trim();
-    if (!refinedSpec) return { ok: false, error: "empty refined spec", provider, usage: result.usage };
-    return { ok: true, refinedSpec, provider, usage: result.usage };
+    if (!result.ok) return { ok: false, error: result.error || `${what} failed`, provider, usage: result.usage };
+    const text = String(result.output || "").replace(/^```[a-z]*\n?|```$/g, "").trim();
+    if (!text) return { ok: false, error: `empty ${what === "refine" ? "refined" : "detailed"} spec`, provider, usage: result.usage };
+    return { ok: true, text, provider, usage: result.usage };
   }
 
   #degraded(agentResult, provider, reason, detail) {

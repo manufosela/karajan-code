@@ -32,7 +32,7 @@ export const META_COMMANDS = ["advanced", "help"];
  */
 export const ADVANCED_GROUPS = [
   { title: "Pipeline (piezas sueltas)", commands: ["autorun", "code", "review", "solomon", "agent", "scan", "tournament"] },
-  { title: "Análisis pre-run", commands: ["discover", "triage", "researcher", "architect", "onboard", "brief"] },
+  { title: "Análisis pre-run", commands: ["discover", "spec", "triage", "researcher", "architect", "onboard", "brief"] },
   { title: "Búsqueda / RAG", commands: ["rag", "qmd", "watch", "doc"] },
   { title: "Calidad / auditoría", commands: ["audit", "check", "mutate", "webperf", "sonar", "privacy", "release", "policy", "rules", "rulesync", "claims", "steward", "pr-size"] },
   { title: "Sesión / board", commands: ["resume", "report", "board", "hu", "adr", "worktree", "undo", "standby", "sentinel", "identity", "security", "handoff"] },
