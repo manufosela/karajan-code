@@ -6,6 +6,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { hardenCommand, resolveCmds } from "../../src/commands/harden.js";
+import { installSandbox } from "../../src/harden/sandbox.js";
+
+vi.mock("../../src/harden/sandbox.js", () => ({ installSandbox: vi.fn(() => ({ state: "on" })) }));
 
 let repo;
 const logger = { info: vi.fn(), error: vi.fn() };
@@ -152,6 +155,21 @@ describe("hardenCommand", () => {
     const res = await hardenCommand({ projectDir: repo, interactive: true, logger });
     expect(res.ok).toBe(true);
     expect(existsSync(join(repo, ".karajan", "hooks", "commit-msg"))).toBe(true);
+  });
+
+  // KJC-TSK-1241: inside the sandbox kj run cannot push, open the PR or reach
+  // Sonar, and the Sentinel guards the harness without it. So it is opt-in.
+  it("leaves the host sandbox alone unless asked (KJC-TSK-1241)", async () => {
+    const res = await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
+    expect(res.ok).toBe(true);
+    expect(installSandbox).not.toHaveBeenCalled();
+    expect(res.sandbox).toBeUndefined();
+  });
+
+  it("turns the host sandbox on with sandbox: true (kj harden --sandbox)", async () => {
+    const res = await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, sandbox: true, logger });
+    expect(installSandbox).toHaveBeenCalledWith(expect.objectContaining({ projectDir: repo }));
+    expect(res.sandbox).toBe("on");
   });
 
   it("returns ok:false on a non-repo dir without throwing", async () => {
