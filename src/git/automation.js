@@ -80,7 +80,11 @@ function prefixForTaskType(taskType) {
 }
 
 export function commitMessageFromTask(task, taskType = null) {
-  const clean = String(task || "")
+  // KJC-BUG-0413 (#2565): the header comes from the first paragraph, without
+  // its leading Markdown marks; the whole task made "feat: # Roadmap ... Context: ...".
+  const firstParagraph = String(task || "").trim().split(/\n[ \t]*\r?\n/)[0];
+  const clean = firstParagraph
+    .replace(/^[#>*\-\s]+/, "")
     .replaceAll(/\s+/g, " ")
     .trim();
   const prefix = prefixForTaskType(taskType);
