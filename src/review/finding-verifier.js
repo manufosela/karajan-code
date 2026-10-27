@@ -65,6 +65,9 @@ export function applyVerification(findings, verdicts, { verifier, model = null }
     if (Number.isInteger(v?.index) && VERDICTS.has(v.verdict) && !byIndex.has(v.index)) byIndex.set(v.index, v);
   }
   const kept = [];
+  // KJC-TSK-1247: how each kept finding came out, parallel to `kept`, for the dual review.
+  const outcomes = [];
+  const keep = (finding, outcome) => { kept.push(finding); outcomes.push(outcome); };
   const rejected = [];
   let confirmed = 0;
   let downgraded = 0;
@@ -74,19 +77,19 @@ export function applyVerification(findings, verdicts, { verifier, model = null }
     const v = byIndex.get(i);
     if (v && v.verdict !== "confirmed" && isProtected(finding)) {
       keptByRule += 1;
-      kept.push(finding);
+      keep(finding, "kept_by_rule");
     } else if (v?.verdict === "rejected") {
       rejected.push({ finding, reason: oneLine(v.reason) });
     } else if (v?.verdict === "confirmed") {
       confirmed += 1;
-      kept.push(finding);
+      keep(finding, "confirmed");
     } else if (v?.verdict === "downgraded" && isLower(v.severity, finding.severity)) {
       downgraded += 1;
-      kept.push({ ...finding, severity: v.severity });
+      keep({ ...finding, severity: v.severity }, "downgraded");
     } else {
       unverified += 1;
-      kept.push(finding);
+      keep(finding, "unverified");
     }
   });
-  return { findings: kept, verification: { verifier, model, confirmed, downgraded, rejected, unverified, kept_by_rule: keptByRule } };
+  return { findings: kept, outcomes, verification: { verifier, model, confirmed, downgraded, rejected, unverified, kept_by_rule: keptByRule } };
 }
