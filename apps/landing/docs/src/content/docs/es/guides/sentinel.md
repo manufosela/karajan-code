@@ -39,7 +39,7 @@ El RAG tiene que haber respondido sobre una zona antes de que la sesión la toqu
 
 ## cross-lane
 
-Desde MONO-0, cada sesión muta solo su propio carril (worktree); leer es libre. La guarda también rechaza mutaciones que no puede verificar: `cd` en una cadena mutadora, sustitución de comandos, expansión de shell, o redirecciones cuyo destino se esconde tras una variable, usa `git -C`, `npm --prefix` y rutas literales. No hay escape (ADR 0015): un cruce deliberado lo hace tu usuario en su propia terminal.
+Cada escritura pertenece al carril (worktree) de la ruta que toca (ADR 0034). Una sesión puede trabajar en varios carriles del mismo repo: se permite escribir en otro carril mientras ninguna otra sesión viva lo tenga, y desde ese momento la sesión lo retiene. Un carril en el que está otra sesión viva, o en el que escribió en los últimos 30 minutos, se rechaza diciendo por qué; dos sesiones nunca escriben en el mismo carril. Cada escritura se juzga con la rama, la card y el supervisor de su carril; leer es libre. La guarda también rechaza mutaciones que no puede verificar: `cd` en una cadena mutadora, sustitución de comandos, expansión de shell, o redirecciones cuyo destino se esconde tras una variable, usa `git -C`, `npm --prefix` y rutas literales. No hay escape (ADR 0015): un cruce deliberado lo hace tu usuario en su propia terminal.
 
 ## identity
 
@@ -134,7 +134,7 @@ Karajan gobierna y se le obedece. Una sesión no cambia las reglas que la gobier
 
 ## stop-gate
 
-El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Resuelve las violaciones listadas. Estado: `kj sentinel status`.
+El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Cada carril en el que escribió la sesión se juzga con su propia rama y su árbol, y sus violaciones nombran el carril. Resuelve las violaciones listadas. Estado: `kj sentinel status`.
 
 ## push-gate
 

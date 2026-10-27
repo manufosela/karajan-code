@@ -182,31 +182,35 @@ export const boardGate = (sid, pend) => {
 // files dirty, or local commits the remote does not have), not the ledger: after a
 // merged PR and a sync of main the ledger stays full while the base holds nothing.
 // Anything git cannot answer (no upstream, odd path) counts as work: fail closed.
-const baseHoldsWork = (files) => {
+const baseHoldsWork = (files, top) => {
   if (files.some((f) => !/^[A-Za-z0-9._/-]+$/.test(f))) return true;
   try {
-    if (execSync("git status --porcelain -- " + files.join(" "), { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim()) return true;
-    return execSync("git rev-list @{u}..HEAD", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== "";
+    if (execSync("git status --porcelain -- " + files.join(" "), { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim()) return true;
+    return execSync("git rev-list @{u}..HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== "";
   } catch { return true; }
 };
-export const violations = (s, branch, pending = pendingMoves(s)) => {
+// `top` is the tree the recorded paths are relative to: ROOT, or another lane (ADR 0034).
+// laneViolations: those of every other lane the session wrote in, each named by its lane.
+export const laneViolations = (s) => Object.entries(s?.lanes ?? {})
+  .flatMap(([top, rec]) => violations(rec, branchOf(top), [], top).map((x) => "[" + top + "] " + x));
+export const violations = (s, branch, pending = pendingMoves(s), top = ROOT) => {
   const v = pending.map(pendingText);
   if (!s || !(s.edited_sources || []).length) return v;
   if (bootstrapPhase()) return v;
-  if (BASE_BRANCHES.has(branch)) { if (baseHoldsWork(s.edited_sources)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion"); }
+  if (BASE_BRANCHES.has(branch)) { if (baseHoldsWork(s.edited_sources, top)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion"); }
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
-  if (!(s.edited_tests || []).length && sessionAddsCode(s)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
+  if (!(s.edited_tests || []).length && sessionAddsCode(s, top)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
   return v;
 };
 // KJC-TSK-0795 AC1: deleting code adds no behavior to test — a session whose
 // source edits only REMOVED lines owes no test. Unreadable git = conservative
 // (the violation stands): a gate must never stand down on a shrug.
-const sessionAddsCode = (s) => {
+const sessionAddsCode = (s, top) => {
   const files = s.edited_sources || [];
   // _git builds a shell string: any path outside a strict charset stays out of
   // it — and the gate stays ARMED for it (conservative, and injection-proof).
   if (files.some((f) => !/^[A-Za-z0-9._/-]+$/.test(f))) return true;
-  const stat = _git("diff HEAD --numstat -- " + files.join(" "), ROOT);
+  const stat = _git("diff HEAD --numstat -- " + files.join(" "), top);
   if (!stat) return true;
   return stat.split(String.fromCharCode(10)).some((l) => {
     const a = l.trim().replaceAll(String.fromCharCode(9), " ").split(" ").filter(Boolean)[0];

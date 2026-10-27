@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { doc, load, save, branchOf, enterLane, violations, ROOT } from "./sentinel-lib.mjs";
+import { doc, load, save, branchOf, enterLane, laneViolations, violations, ROOT } from "./sentinel-lib.mjs";
 // KJC-TSK-0774: when the turn ends green with cards closed, remind the user
 // where to look — the board URL if it runs (pid file alive), else how to start it.
 const boardHint = () => {
@@ -27,7 +27,7 @@ if (process.argv.includes("--status")) {
   if (!sessions.length) console.log("sentinel: sin actividad registrada en esta sesion");
   for (const [sid, s] of sessions) {
     console.log("session " + sid + ": sources=[" + (s.edited_sources || []).join(", ") + "] tests=[" + (s.edited_tests || []).join(", ") + "] escapes=[" + (s.escapes || []).join(", ") + "] blocks=" + (s.blocks || 0) + ((s.errors || []).length ? " errors=" + s.errors.length : "") + " rag=" + (s.rag_queries || []).length + " queries/" + (s.rag_hits || []).length + " sources");
-    for (const x of violations(s, branch)) console.log("  ROJO: " + x);
+    for (const x of [...violations(s, branch), ...laneViolations(s)]) console.log("  ROJO: " + x);
   }
   process.exit(0);
 }
@@ -88,7 +88,7 @@ process.stdin.on("end", () => {
         if ((p.stdout || "").trim()) console.error(p.stdout.trim());
       }
     }
-    const v = violations(s, branchOf());
+    const v = [...violations(s, branchOf()), ...laneViolations(s)];
     if (claimsBlock) v.push(claimsBlock);
     if (!v.length) {
       s.blocks = 0;

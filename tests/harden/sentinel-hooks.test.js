@@ -824,10 +824,24 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     expect(res.status).toBe(2);
     expect(res.stderr).toMatch(/no se pudo reclamar/);
   });
-  it("a source written in another lane is not recorded as one of the session's lane", () => {
+  it("a source written in another lane is recorded under that lane, not the session's", () => {
     free();
     run(postScript, laneEdit());
     expect(state().sessions.s1.edited_sources).toEqual([]);
+    expect(state().sessions.s1.lanes[fs.realpathSync(lane)].edited_sources).toEqual(["src/x.js"]);
+  });
+  // ADR 0034 (KJC-TSK-1245): the turn ends only when every lane the session wrote in is green.
+  it("the Stop gate judges each lane written with that lane's branch", () => {
+    free();
+    run(postScript, laneEdit());
+    const red = run(stopScript, { session_id: "s1" });
+    expect(red.status).toBe(2);
+    expect(red.stderr).toContain(fs.realpathSync(lane));
+    expect(red.stderr).toMatch(/'HEAD' no referencia ninguna card/);
+    execSync("git checkout -q -b feat/KJC-TSK-0002-lane", { cwd: lane });
+    fs.mkdirSync(path.join(lane, "tests"), { recursive: true });
+    run(postScript, editTool(path.join(lane, "tests", "x.test.js")));
+    expect(run(stopScript, { session_id: "s1" }).status).toBe(0);
   });
 });
 
