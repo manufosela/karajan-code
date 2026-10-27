@@ -15,13 +15,15 @@ The guarantee this decision adds is about switching: a session never switches in
 
 1. The session's lane starts as its start checkout. When the host reports a working directory (`cwd` in the hook input) inside another worktree of the same repo, the session claims that lane and it becomes its lane: writes are allowed there and every other lane, the start checkout included, is foreign as usual.
 2. A claim is exclusive. It is refused, with the reason, when another live session is in that lane: one that started there, or one that claimed it. A session is live while it keeps calling tools within a fixed period.
-3. Claims are files in the repo's git common dir, shared by every worktree and invisible to git: a lock per lane created atomically, and a presence mark per session refreshed on every hook call.
+3. Claims are presence marks: one file per session in the repo's git common dir (`kj-lanes/`), shared by every worktree and invisible to git, holding the session's lane and the time of its last hook call. There is no lock file. A switch writes its intent first and then looks: the session marks the lane it enters, then searches for another live mark in that lane; if one exists, the switch is refused and the session's mark goes back to its start checkout. When two sessions switch into the same lane at once, the one that looks last always sees the other's mark: at most one gets in, and at worst both are refused and retry.
 4. Returning to the start checkout is free and releases the claimed lane. A session whose claim passed to another session (it went silent past the period) is denied writes in that lane.
 5. The lane is resolved once per hook call, before the guard runs, so every guard sees the same lane.
 
-6. Starting a session is not a claim and is never refused: a session that starts in a checkout takes no lock and only leaves its presence mark, which is what makes a later switch into that checkout fail. Two sessions started by the user in the same checkout are the user's choice, as before this decision; making the start exclusive too is a separate decision.
+6. Starting a session is not a claim and is never refused: a session that starts in a checkout only leaves its presence mark, which is what makes a later switch into that checkout fail. Two sessions started by the user in the same checkout are the user's choice, as before this decision; making the start exclusive too is a separate decision.
 
 The lane is never taken from the path of an edited file.
+
+Amended 2026-10-27 (KJC-BUG-0410): point 3 first described a lock per lane created atomically. The implementation uses presence marks only, because taking over a stale lock had a race; the text now describes what the code does.
 
 ## Consequences
 
