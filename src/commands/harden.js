@@ -92,7 +92,7 @@ export async function hardenCommand({
   only = [],
   exclude = [],
   commitSupervisor = false,
-  sandbox = true,
+  sandbox = false,
   kjVersion = null,
   // KJC-BUG-0289: the contract files already dirty before anything was generated
   // (kj init captures them before writing its own). What is dirty NOW is the person's.
@@ -162,7 +162,8 @@ export async function hardenCommand({
       // sin sello, que es como una sesión se dejaba sin herramientas.
       const sh = installSentinelHooks({ projectDir, logger, human: commitSupervisor });
       result.sentinelHooks = sh.wired ? "wired" : "script-only";
-      // KJC-TSK-1092: the host sandbox, on by default wherever it can start here.
+      // KJC-TSK-1092/1241: the host sandbox, only when asked (kj harden --sandbox):
+      // inside it kj run cannot push, open the PR or reach Sonar on localhost.
       if (sandbox) result.sandbox = installSandbox({ projectDir, logger }).state;
     }
   } catch (err) {

@@ -147,13 +147,16 @@ kj harden                       # Install the standard profile
 kj harden --profile strict      # Add the shrink-budget gate too
 kj harden --dry-run             # Show what would change, write nothing
 kj harden --no-ci --no-guidelines   # Hooks + config only
-kj harden --no-sandbox          # Leave the host Bash sandbox alone
+kj harden --sandbox             # Also turn the host Bash sandbox on
 ```
 
 What it installs (per the detected stack):
 
-- **The host Bash sandbox** in `.claude/settings.local.json`, only where it can
-  start on this machine (Linux: bubblewrap and socat; macOS: the system
+- **The host Bash sandbox, only with `--sandbox`.** It is off by default:
+  inside it, `kj run` cannot push, open the PR with `gh` or reach Sonar on
+  localhost, and the Sentinel guards the harness without it. With `--sandbox`
+  it goes to `.claude/settings.local.json`, only where it can start on this
+  machine (Linux: bubblewrap and socat; macOS: the system
   sandbox). Writes stay in the project, plus kj's state and the package caches;
   the supervisor and the phone key are out of reach; `gh` and `kj review` run
   outside it.

@@ -1,5 +1,5 @@
-// KJC-TSK-1092: kj harden turns the host sandbox on, by default, wherever it can
-// start. The block goes to .claude/settings.local.json: whether bwrap starts is a
+// KJC-TSK-1092: kj harden --sandbox turns the host sandbox on wherever it can
+// start (opt-in since KJC-TSK-1241). The block goes to .claude/settings.local.json: whether bwrap starts is a
 // fact of each machine, so it never travels in the shared settings.json.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
