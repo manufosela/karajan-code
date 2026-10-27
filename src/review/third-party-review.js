@@ -19,6 +19,7 @@ import { thirdPartyTask } from "./untrusted-context.js";
 import { readTaskFile } from "../utils/task-file.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 import { assertCrossFamily, verifyFindings } from "./run-verifier.js";
+import { reconcileReviews } from "./dual-review.js";
 
 // KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
 const MAX_REVIEW_BATCHES = 10;
@@ -36,10 +37,12 @@ const finding = (i) => ({
 });
 
 /** The review as data: verdict, findings, suggestions, security checks and, apart, the house requirements. */
-export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings }) {
+export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null }) {
   // KJC-TSK-1195: a verifier of the reviewer's own family is refused before any token is spent.
   const reviewerRole = resolveRole(config, "reviewer");
   if (verifier) assertCrossFamily({ reviewer: reviewerRole.provider, reviewerModel: reviewerRole.model, verifier, verifierModel, logger });
+  // KJC-TSK-1248 (#2623): two reviewers of the same family would share their blind spots.
+  if (reviewers) assertCrossFamily({ reviewer: reviewers[0].provider, reviewerModel: reviewers[0].model, verifier: reviewers[1].provider, verifierModel: reviewers[1].model, logger, flag: "--reviewers" });
   const diff = await gitDiff(projectDir, range);
   // KJC-TSK-1076/1077: the PR's requirements and its security, with no tokens; they never stop the review.
   // KJC-BUG-0379 (#2263): the house requirements (size, commits, attribution, tests) travel apart:
@@ -51,10 +54,16 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
   const provider = reviewerRole.provider || null;
   const { batches, coverage } = batchDiff(diff, { limit, maxBatches });
   if (coverage.files.total === 0) throw new Error(`nothing to review — ${range} has no file changes`);
-  const records = [];
-  for (const batch of batches) {
-    records.push(await run({ diff: batch.text, task, config, logger, projectDir, reviewerOverride: provider, persist: false }));
+  const reviewWith = async (who, cfg) => {
+    const recs = [];
+    for (const batch of batches) recs.push(await run({ diff: batch.text, task, config: cfg, logger, projectDir, reviewerOverride: who, persist: false }));
+    return recs;
+  };
+  if (reviewers) {
+    const dual = await dualReview({ reviewers, reviewWith, verify, diff, coverage, config, logger });
+    return { mode: "third-party", range, ...dual, checks, policyChecks, advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit) };
   }
+  const records = await reviewWith(provider, config);
   const findings = records.flatMap((r) => (r.issues ?? []).map(finding));
   // KJC-TSK-1195 (#2369): with a verifier, the findings are the verified ones and the block says what changed.
   const verified = verifier ? await verify({ findings, diff, verifier, model: verifierModel, config, logger }) : null;
@@ -71,6 +80,23 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
     policyChecks,
     advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit),
   };
+}
+
+/**
+ * KJC-TSK-1248 (#2623): both reviewers review the whole range on their own, in parallel, each
+ * with its model; each one's findings are verified by the other family; one reconciled result.
+ */
+async function dualReview({ reviewers, reviewWith, verify, diff, coverage, config, logger }) {
+  const withModel = ({ provider, model }) => ({ ...config, roles: { ...config?.roles, reviewer: { ...config?.roles?.reviewer, provider, model } } });
+  const records = await Promise.all(reviewers.map((r) => reviewWith(r.provider, withModel(r))));
+  const sides = await Promise.all(reviewers.map(async (me, i) => {
+    const other = reviewers[1 - i];
+    const found = records[i].flatMap((r) => (r.issues ?? []).map(finding));
+    const verified = await verify({ findings: found, diff, verifier: other.provider, model: other.model, config, logger });
+    return { reviewer: me.provider, model: me.model, coverage, verdict: verdictOf(records[i], coverage), ...verified };
+  }));
+  const reconciled = reconcileReviews(sides);
+  return { reviewer: reviewers.map((r) => r.provider).join("+"), ...reconciled, suggestions: records.flat().flatMap((r) => r.suggestions ?? []) };
 }
 
 /** KJC-TSK-1101: over the size budget, how to split the PR; advice only, never a finding. */
@@ -91,6 +117,19 @@ function verdictOf(records, coverage) {
 
 // KJC-TSK-1153: flags of the own-work review that this mode would otherwise ignore in silence.
 const OWN_WORK_FLAGS = { staged: "--staged", check: "--check", installGate: "--install-gate", prune: "--prune", dryRun: "--dry-run", publishPr: "--publish-pr", verifyPr: "--verify-pr", baseRef: "--base-ref", walkedWith: "--walked-with" };
+
+/** KJC-TSK-1248: --reviewers a,b [--reviewer-models a=model,b=model] as two reviewers, or null. */
+function reviewersOf(flags) {
+  if (!flags.reviewers) {
+    if (flags.reviewerModels) throw new Error("--reviewer-models needs --reviewers <a,b>");
+    return null;
+  }
+  if (flags.verifier) throw new Error("--reviewers already verifies each reviewer with the other: drop --verifier");
+  const providers = String(flags.reviewers).split(",").map((p) => p.trim()).filter(Boolean);
+  if (providers.length !== 2) throw new Error("--reviewers takes exactly two providers of different families, e.g. claude,codex");
+  const models = Object.fromEntries(String(flags.reviewerModels ?? "").split(",").filter(Boolean).map((pair) => pair.split("=").map((s) => s.trim())));
+  return providers.map((provider) => ({ provider, model: models[provider] || null }));
+}
 
 function assertThirdPartyFlags(flags) {
   const used = Object.keys(OWN_WORK_FLAGS).filter((k) => flags[k]).map((k) => OWN_WORK_FLAGS[k]);
@@ -120,7 +159,8 @@ export async function thirdPartyReviewCommand({ flags, config, out = process.std
     const context = flags.taskFile ? await readTask(flags.taskFile, { projectDir }) : flags.task;
     const task = await lensTask(flags.lens ?? null, thirdPartyTask(context ?? null));
     if (flags.verifierModel && !flags.verifier) throw new Error("--verifier-model needs --verifier <provider>");
-    print(await review({ range: flags.range, config, projectDir, logger, task, verifier: flags.verifier ?? null, verifierModel: flags.verifierModel ?? null }));
+    const reviewers = reviewersOf(flags);
+    print(await review({ range: flags.range, config, projectDir, logger, task, verifier: flags.verifier ?? null, verifierModel: flags.verifierModel ?? null, ...(reviewers && { reviewers }) }));
     return 0;
   } catch (e) {
     print({ error: e.message });
