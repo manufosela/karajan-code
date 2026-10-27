@@ -79,4 +79,23 @@ describe("mainCheckout", () => {
     fs.mkdirSync(plain);
     expect(mainCheckout(plain)).toBe(plain);
   });
+
+  it("knows a dir is outside git whatever language git speaks (KJC-BUG-0409)", () => {
+    // A git that answers in Spanish unless kj asks for the C locale.
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "git"), [
+      "#!/bin/sh",
+      'if [ "$LC_ALL" = C ]; then echo "fatal: not a git repository" >&2;',
+      'else echo "fatal: no es un repositorio git" >&2; fi',
+      "exit 128",
+    ].join("\n"), { mode: 0o755 });
+    const savedPath = process.env.PATH;
+    process.env.PATH = `${bin}${path.delimiter}${savedPath}`;
+    try {
+      expect(mainCheckout(dir)).toBe(dir);
+    } finally {
+      process.env.PATH = savedPath;
+    }
+  });
 });
