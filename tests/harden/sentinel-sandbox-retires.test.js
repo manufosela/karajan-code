@@ -30,6 +30,10 @@ beforeEach(() => {
   placeGuardCopies(dir);
   idEnv = declareTestIdentity(dir);
   pre = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
+  // ADR 0034: guard 12 denies a lane another live session holds; s9 works in "other".
+  const other = path.join(dir, ".kj", "worktrees", "other");
+  spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s9", tool_name: "Edit", tool_input: { file_path: path.join(other, "src", "a.py") }, cwd: other }),
+    encoding: "utf8", cwd: dir, env: { ...process.env, ...idEnv } });
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
