@@ -17,7 +17,7 @@ const MANIFESTS = [
 ];
 
 // The name prefixes store names and refs: no path separators, no ":" or "__".
-const SAFE_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/i;
+export const SAFE_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/i;
 
 const findManifest = (dir) => {
   const found = MANIFESTS.find(({ file }) => existsSync(join(dir, file)));
@@ -27,14 +27,24 @@ const findManifest = (dir) => {
 
 export const detectPluginFormat = (dir) => findManifest(dir).format;
 
-export function readPluginManifest(dir) {
-  const { format, path } = findManifest(dir);
-  let manifest;
+// Reads a JSON file; any failure names the file.
+export function readJson(path) {
+  let text;
   try {
-    manifest = JSON.parse(readFileSync(path, "utf8"));
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    throw new Error(`${path}: cannot be read (${error.code ?? error.message})`, { cause: error });
+  }
+  try {
+    return JSON.parse(text);
   } catch (error) {
     throw new Error(`${path}: invalid JSON (${error.message})`, { cause: error });
   }
+}
+
+export function readPluginManifest(dir) {
+  const { format, path } = findManifest(dir);
+  const manifest = readJson(path);
   if (!isMapping(manifest)) throw new Error(`${path}: a manifest must be a JSON object`);
   if (typeof manifest.name !== "string" || !SAFE_NAME.test(manifest.name)) throw new Error(`${path}: a manifest needs a name made of letters, digits and dashes`);
   return { format, name: manifest.name, version: manifest.version, manifest };

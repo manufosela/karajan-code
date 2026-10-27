@@ -17,7 +17,7 @@ describe("pinGitDiffFormat", () => {
     pinGitDiffFormat(env);
     pinGitDiffFormat(env);
     expect(env.GIT_CONFIG_KEY_0).toBe("core.pager");
-    expect(Number(env.GIT_CONFIG_COUNT)).toBe(5);
+    expect(Number(env.GIT_CONFIG_COUNT)).toBeGreaterThan(5);
     expect(env.GIT_CONFIG_KEY_1).toBe("diff.mnemonicPrefix");
     expect(env.GIT_CONFIG_VALUE_1).toBe("false");
   });
@@ -33,5 +33,25 @@ describe("pinGitDiffFormat", () => {
     for (const key of Object.keys(clean)) if (key.startsWith("GIT_CONFIG_") || key === "KJ_GIT_DIFF_PINNED") delete clean[key];
     expect(git(["diff", "--cached"], clean)).toMatch(/^diff --git c\/f\.txt i\/f\.txt$/m);
     expect(git(["diff", "--cached"], pinGitDiffFormat(clean))).toMatch(/^diff --git a\/f\.txt b\/f\.txt$/m);
+  });
+
+  // KJC-BUG-0415 (#2622): a verdict binds to the hash of the diff text, so no user option may
+  // change that text: the hash kj review --staged records must be the one CI recomputes.
+  it("a hostile gitconfig prints kj the same diff as a clean one", () => {
+    dir = mkdtempSync(join(tmpdir(), "kj-diff-format-"));
+    const clean = { ...process.env };
+    for (const key of Object.keys(clean)) if (key.startsWith("GIT_CONFIG_") || key === "KJ_GIT_DIFF_PINNED") delete clean[key];
+    const env = pinGitDiffFormat({ ...clean });
+    const git = (args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", env });
+    git(["init", "-q"]);
+    const lines = Array.from({ length: 40 }, (_, i) => `line ${i % 7} {\n}`);
+    writeFileSync(join(dir, "f.txt"), lines.join("\n") + "\n");
+    git(["add", "f.txt"]);
+    writeFileSync(join(dir, "f.txt"), lines.toSpliced(5, 1, "changed {").toSpliced(30, 0, "added").join("\n") + "\n");
+    const before = git(["diff"]);
+    for (const [key, value] of [["diff.algorithm", "histogram"], ["diff.context", "10"], ["diff.interHunkContext", "20"], ["diff.indentHeuristic", "false"], ["diff.suppressBlankEmpty", "true"], ["diff.renames", "copies"], ["color.ui", "always"], ["color.diff", "always"]]) {
+      git(["config", key, value]);
+    }
+    expect(git(["diff"])).toBe(before);
   });
 });

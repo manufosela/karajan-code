@@ -67,20 +67,26 @@ export const enterLane = (_state, sid, cwd) => {
 export const laneRefusal = () => _refusal;
 const laneKey = (s) => createHash("sha256").update(String(s)).digest("hex").slice(0, 16);
 const readJson = (f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } };
+const live = (at, now) => typeof at === "number" && now - at < LANE_TTL_MS;
+// ADR 0034: a mark also lists the lanes the session wrote in (`held`); another session holds
+// a lane when it is in it or wrote there within the period. Another session's mark that cannot
+// be read or parsed throws: the caller refuses rather than read it as a free lane.
+const heldByOther = (dir, top, now) => readdirSync(dir).filter((f) => f.startsWith("session-"))
+  .map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")))
+  .some((r) => r?.sid !== _sid && ((r?.lane === top && live(r.at, now)) || live(r?.held?.[top], now)));
+const liveHeld = (mark, now) => Object.fromEntries(Object.entries(mark?.held ?? {}).filter(([, at]) => live(at, now)));
 // The lane the session may take: `lane` when it is home, already its live lane, or free.
 const claimLane = (root, lane, now = Date.now()) => {
   if (!_sid || !root.common) return lane;
   const dir = join(root.common, "kj-lanes");
   const mark = join(dir, "session-" + laneKey(_sid) + ".json");
-  const write = (top) => writeFileSync(mark, JSON.stringify({ sid: _sid, lane: top, at: now }));
+  const write = (top) => writeFileSync(mark, JSON.stringify({ sid: _sid, lane: top, at: now, held: liveHeld(readJson(mark), now) }));
   try {
     mkdirSync(dir, { recursive: true });
     const prev = readJson(mark);
-    if (lane.top !== root.top && !(prev?.lane === lane.top && now - prev.at < LANE_TTL_MS)) {
+    if (lane.top !== root.top && !(prev?.lane === lane.top && live(prev.at, now))) {
       write(lane.top);
-      const other = readdirSync(dir).filter((f) => f.startsWith("session-")).map((f) => readJson(join(dir, f)))
-        .find((r) => r && r.sid !== _sid && r.lane === lane.top && now - r.at < LANE_TTL_MS);
-      if (other) {
+      if (heldByOther(dir, lane.top, now)) {
         _refusal = "(" + lane.top + " tiene otra sesión viva: un carril, una sesión, ADR 0033)";
         lane = root;
       }
@@ -105,6 +111,29 @@ const home = () => {
   return (_home = claimLane(root, here?.top && root.common && here.common === root.common ? here : root));
 };
 export const laneTop = () => home().top || ROOT;
+/**
+ * ADR 0034 (KJC-TSK-1244): why the session may not write in lane `top`, or null once it holds it.
+ * Intent first, then a look, as a switch does (ADR 0033): the hold is written, then another
+ * live session in that lane takes it back out. Anything unreadable refuses.
+ */
+export const holdLane = (top, now = Date.now()) => {
+  const own = home();
+  if (top === laneTop()) return null;
+  if (!_sid || !own.common) return "(sin sesión identificada no se reclama " + top + ")";
+  const dir = join(own.common, "kj-lanes");
+  const mark = join(dir, "session-" + laneKey(_sid) + ".json");
+  try {
+    mkdirSync(dir, { recursive: true });
+    const mine = { sid: _sid, lane: own.top, at: now, ...readJson(mark) };
+    const held = liveHeld(mine, now);
+    writeFileSync(mark, JSON.stringify({ ...mine, held: { ...held, [top]: now } }));
+    if (!heldByOther(dir, top, now)) return null;
+    writeFileSync(mark, JSON.stringify({ ...mine, held }));
+    return "(" + top + " tiene otra sesión viva: un carril, una sesión, ADR 0033/0034)";
+  } catch {
+    return "(no se pudo reclamar " + top + ")";
+  }
+};
 export const branchOf = (top = laneTop()) => {
   try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
   catch { return null; }
@@ -153,31 +182,35 @@ export const boardGate = (sid, pend) => {
 // files dirty, or local commits the remote does not have), not the ledger: after a
 // merged PR and a sync of main the ledger stays full while the base holds nothing.
 // Anything git cannot answer (no upstream, odd path) counts as work: fail closed.
-const baseHoldsWork = (files) => {
+const baseHoldsWork = (files, top) => {
   if (files.some((f) => !/^[A-Za-z0-9._/-]+$/.test(f))) return true;
   try {
-    if (execSync("git status --porcelain -- " + files.join(" "), { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim()) return true;
-    return execSync("git rev-list @{u}..HEAD", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== "";
+    if (execSync("git status --porcelain -- " + files.join(" "), { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim()) return true;
+    return execSync("git rev-list @{u}..HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== "";
   } catch { return true; }
 };
-export const violations = (s, branch, pending = pendingMoves(s)) => {
+// `top` is the tree the recorded paths are relative to: ROOT, or another lane (ADR 0034).
+// laneViolations: those of every other lane the session wrote in, each named by its lane.
+export const laneViolations = (s) => Object.entries(s?.lanes ?? {})
+  .flatMap(([top, rec]) => violations(rec, branchOf(top), [], top).map((x) => "[" + top + "] " + x));
+export const violations = (s, branch, pending = pendingMoves(s), top = ROOT) => {
   const v = pending.map(pendingText);
   if (!s || !(s.edited_sources || []).length) return v;
   if (bootstrapPhase()) return v;
-  if (BASE_BRANCHES.has(branch)) { if (baseHoldsWork(s.edited_sources)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion"); }
+  if (BASE_BRANCHES.has(branch)) { if (baseHoldsWork(s.edited_sources, top)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion"); }
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
-  if (!(s.edited_tests || []).length && sessionAddsCode(s)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
+  if (!(s.edited_tests || []).length && sessionAddsCode(s, top)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
   return v;
 };
 // KJC-TSK-0795 AC1: deleting code adds no behavior to test — a session whose
 // source edits only REMOVED lines owes no test. Unreadable git = conservative
 // (the violation stands): a gate must never stand down on a shrug.
-const sessionAddsCode = (s) => {
+const sessionAddsCode = (s, top) => {
   const files = s.edited_sources || [];
   // _git builds a shell string: any path outside a strict charset stays out of
   // it — and the gate stays ARMED for it (conservative, and injection-proof).
   if (files.some((f) => !/^[A-Za-z0-9._/-]+$/.test(f))) return true;
-  const stat = _git("diff HEAD --numstat -- " + files.join(" "), ROOT);
+  const stat = _git("diff HEAD --numstat -- " + files.join(" "), top);
   if (!stat) return true;
   return stat.split(String.fromCharCode(10)).some((l) => {
     const a = l.trim().replaceAll(String.fromCharCode(9), " ").split(" ").filter(Boolean)[0];

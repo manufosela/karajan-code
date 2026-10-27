@@ -242,6 +242,7 @@ kj review --range main...pr-branch --third-party --json --reviewer claude
 - Own-work flags this mode does not use (`--staged`, `--check`, `--base-ref`, `--walked`, `--no-sonar`, `--publish-pr`...) fail with a JSON error instead of being ignored.
 - `--lens qa` reviews with a QA rubric: new behavior with no test, tests that cannot fail, flakiness by construction (sleeps, order, uncontrolled clock or network), fragile selectors, missing scenarios and test data that is not reserved for testing.
 - `--verifier <provider> [--verifier-model <model>]` sends every finding, with only its hunk, to an AI of another provider family (kj refuses the reviewer's own family). It answers confirmed, downgraded or rejected per finding: rejected findings leave `findings` and are listed in `verification.rejected` with their reason, a downgrade can only lower the severity, and a security or critical finding is never rejected nor downgraded. The `verification` block counts what was confirmed, downgraded, rejected, left unverified and kept by rule; a verifier that fails leaves every finding as it was and says why in `verification.error`.
+- `--reviewers <a,b> [--reviewer-models <a=model,b=model>]` (for complex PRs, it costs two reviews) has two reviewers of different families review the whole range on their own; each one's findings are verified by the other, as `--verifier` does. One result comes back: `reviewers` holds each one's verdict, every finding says who found it (`found_by`) and how the other family judged it (`verification`), the ones both found rank first, and `verification.rejected` lists the rejected with who found and who rejected them. The verdict is `rejected` while a confirmed blocker remains (security, or high/critical confirmed by the other family or found by both), `approved` only when both approve and every file was reviewed, and `partial` otherwise, with its `reason`. Two reviewers of the same family are refused, and so is `--verifier` next to it.
 - Known privacy false positives of the reviewed repo go in its own `.karajan/privacy.yml`, under `allow`. It is read at the **base** of the range, so a PR cannot add the exemption it needs; a `personal` list in that file is ignored (it only lives in `~/.karajan/privacy.yml`).
 - Test data with ordinary-looking phones or emails: list the test folders under `test_paths` in the same file (for example `src/test/**`, `**/testdata/**`). Generic personal-data findings in those files are discarded and counted in the check's detail; the personal denylist and secret shapes still block there. A glob with no folder name (`**`, `**/*`) is refused.
 - Reviews the whole diff of a large PR: whole files are grouped into batches that fit one reviewer prompt, up to 10 calls. A file too large for one prompt is split by hunks, and a hunk too large (a new file is one hunk) by lines, each piece with the file's header and its own line numbers; only files past the cap, or a single line larger than one prompt, are not reviewed, and they are named in `coverage.unreviewed`. `verdict.status` is `rejected` if any batch was, `approved` only when every file was reviewed, and `partial` otherwise (`approved: false`).
@@ -261,6 +262,22 @@ kj review --range main...pr-branch --third-party --json --reviewer claude
   "policyChecks": [{ "id": "tests", "ok": null, "detail": "source changed with no test changed", "question": "No test changed: does the change touch business logic, ...?" }]
 }
 ```
+
+---
+
+## kj spec refine
+
+Turn a high-level spec into a detailed one you accept before planning. kj never plans here: it writes the detailed spec and stops.
+
+```bash
+kj spec refine --task-file spec.md [--e2e tests/e2e/reset.spec.js ...] [--out <file>] [--json]
+```
+
+- The spec reviewer looks for gaps first; the detailed spec addresses them.
+- The result has these sections: Goal, Behaviour, Edge cases and errors, Out of scope, Acceptance criteria (Given/When/Then), Assumptions and Open questions. What the spec does not decide goes to Assumptions or Open questions; no scope is invented.
+- With `--e2e`, each acceptance criterion names the e2e test that covers it, or says `(no e2e yet)`. Without e2e tests, each one ends with `(proposed e2e)` and names the scenario to write.
+- It is written to `<spec>.detailed.md` next to the spec, or to `--out`. An existing file is never overwritten.
+- Review it (Assumptions and Open questions first), edit what you need, then `kj plan generate --task-file spec.detailed.md`.
 
 ---
 

@@ -144,6 +144,12 @@ function buildPrompt({ conflict, task, instructions }) {
     sections.push(`## Blocking issues\n${issueList}`);
   }
 
+  // KJC-BUG-0414 (#2606): taking a symlink's target out of the commit leaves the link dangling.
+  if (conflict?.symlinkTargets?.length) {
+    const links = conflict.symlinkTargets.map(({ link, target }) => `- ${link} -> ${target}`).join("\n");
+    sections.push(`## Symlinks in this change\n${links}\nEach target stays in the commit: never propose unstaging, removing or restoring it, or the link is committed dangling.`);
+  }
+
   if (task) {
     sections.push(`## Original task\n${task}`);
   }

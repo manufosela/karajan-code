@@ -27,13 +27,13 @@ export function parseVerdicts(text) {
 }
 
 /** Throws when the verifier is the reviewer's family; warns when either family cannot be told. */
-export function assertCrossFamily({ reviewer, reviewerModel = null, verifier, verifierModel = null, logger }) {
+export function assertCrossFamily({ reviewer, reviewerModel = null, verifier, verifierModel = null, logger, flag = "--verifier" }) {
   const theirs = familyOf(reviewer, reviewerModel);
   const mine = familyOf(verifier, verifierModel);
   if (theirs && theirs === mine) {
-    throw new Error(`--verifier ${verifier} is the same family (${mine}) as the reviewer ${reviewer}: it would repeat its blind spots; pick another family`);
+    throw new Error(`${flag} ${verifier} is the same family (${mine}) as the reviewer ${reviewer}: it would repeat its blind spots; pick another family`);
   }
-  if (!theirs || !mine) logger?.warn?.(`--verifier: the family of ${mine ? reviewer : verifier} cannot be told; make sure it differs from the reviewer's`);
+  if (!theirs || !mine) logger?.warn?.(`${flag}: the family of ${mine ? reviewer : verifier} cannot be told; make sure it differs from the reviewer's`);
 }
 
 /** The findings after the verifier, and the verification block. */

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.70.0] - 2026-10-27
+
+Minor, cut from 4.69.0 (tag `v4.70.0` on the branch `release/KJC-TSK-1252-v4.70.0`): main already carries changes for 5.0.0. A high-level spec becomes a detailed one you accept before the plan.
+
+### Added
+
+- **`kj spec refine --task-file spec.md [--e2e <tests...>]`** (KJC-TSK-1251): the spec reviewer looks for gaps and kj writes a detailed spec next to yours (`<spec>.detailed.md`): goal, behaviour, edge cases and errors, out of scope, acceptance criteria (Given/When/Then), assumptions and open questions. With e2e tests each criterion names the test that covers it; without them, each one proposes the e2e scenario to write. What the spec does not decide goes to assumptions or open questions, never invented scope. It stops there, works without a terminal (`--json` for agents) and never overwrites a file; once accepted, `kj plan generate --task-file spec.detailed.md` turns it into user stories.
+
+## [4.69.0] - 2026-10-27
+
+Minor, cut from 4.68.1 (tag `v4.69.0` on the branch `release/KJC-TSK-1250-v4.69.0`): main already carries changes for 5.0.0. A third-party review can have two AI families review a complex PR on their own and verify each other.
+
+### Added
+
+- **Dual third-party review: `kj review --third-party --reviewers a,b`** (KJC-TSK-1247 and KJC-TSK-1248, issue #2623): two reviewers of different families review the whole range on their own, with `--reviewer-models a=model,b=model` if wanted, and each one's findings are verified by the other family. One result comes back: every finding says who found it and how it was verified, the ones both found rank first, the rejected are listed apart with who found and who rejected them, and there is one verdict (rejected while a confirmed blocker remains, approved only when both approve and every file was reviewed, partial otherwise with the reason). Two reviewers of the same family are refused. Without `--reviewers`, the review is unchanged.
+
+## [4.68.1] - 2026-10-27
+
+Patch, cut from 4.68.0 (tag `v4.68.1` on the branch `release/KJC-TSK-1249-v4.68.1`): main already carries changes for 5.0.0. A correct cross-AI verdict no longer fails in CI because of the reviewer's gitconfig, and Solomon never advises dropping the target of a symlink.
+
+### Fixed
+
+- **The diffs kj hashes and parses no longer depend on the user's gitconfig** (KJC-BUG-0408 and KJC-BUG-0415, issues #2560 and #2622): kj pins, for every git it runs, the diff headers (`a/` and `b/`) and every option that changes the diff text (`diff.algorithm`, context, renames, indent heuristic, color) to git's defaults. With `diff.algorithm=histogram` in a reviewer's gitconfig, `kj review --staged` recorded a hash that `kj review --verify-pr` never recomputed in CI. Machines with default config hash exactly as before.
+- **Solomon never takes a symlink's target out of the commit** (KJC-BUG-0414, issues #2606 and #2564): kj gives Solomon the change's symlinks and their targets, and drops any condition that would unstage, remove or restore a target, saying so. Following such advice committed the link dangling.
+
 ## [4.68.0] - 2026-10-27
 
 Minor, cut from 4.67.0 (tag `v4.68.0` on the branch `release/KJC-TSK-1246-v4.68.0`): main already carries changes for 5.0.0. `kj run` can push, open the PR and reach Sonar again in a hardened repo, and JavaScript and TypeScript files leave the coder formatted.

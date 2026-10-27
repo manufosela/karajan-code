@@ -39,7 +39,7 @@ The RAG must have answered about a zone before the session touches it (ADR 0010)
 
 ## cross-lane
 
-Since MONO-0, each session mutates only its own worktree lane; reading is free. The guard also refuses mutations it cannot verify: `cd` in a mutator chain, command substitution, shell expansion, or redirections whose target hides behind a variable — use `git -C`, `npm --prefix` and literal paths. There is no escape (ADR 0015): a deliberate crossing is your user's, in their own terminal.
+Each write belongs to the lane (worktree) of the path it touches (ADR 0034). One session can work several lanes of the same repo: a write in another lane is allowed while no other live session holds it, and the session then holds that lane. A lane another live session is in, or wrote in during the last 30 minutes, is refused with the reason; two sessions never write in the same lane. Each write is judged with its own lane's branch, card and supervisor; reading is free. The guard also refuses mutations it cannot verify: `cd` in a mutator chain, command substitution, shell expansion, or redirections whose target hides behind a variable — use `git -C`, `npm --prefix` and literal paths. There is no escape (ADR 0015): a deliberate crossing is your user's, in their own terminal.
 
 ## identity
 
@@ -134,7 +134,7 @@ Karajan governs, and it is obeyed. A session does not change the rules that gove
 
 ## stop-gate
 
-The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Resolve the listed violations. State: `kj sentinel status`.
+The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Every lane the session wrote in is judged with its own branch and tree, and its violations name the lane. Resolve the listed violations. State: `kj sentinel status`.
 
 ## push-gate
 

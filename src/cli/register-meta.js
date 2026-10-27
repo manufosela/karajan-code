@@ -1,4 +1,5 @@
 import { discoverCommand } from "../commands/discover.js";
+import { specRefineCommand } from "../commands/spec-refine.js";
 import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
@@ -78,6 +79,30 @@ export function registerMeta(program, { pkgVersion }) {
         const { resolveTaskInput } = await import("../utils/task-file.js");
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
         await discoverCommand({ task: resolvedTask, config, logger, mode: flags.mode, json: flags.json });
+      });
+    });
+
+  // KJC-TSK-1251: a detailed spec for the user to accept before kj plan generate.
+  program
+    .command("spec")
+    .description("Specs before the plan")
+    .command("refine")
+    .description("Propose a detailed spec from a high-level one (and its e2e tests), to accept before kj plan generate")
+    .requiredOption("--task-file <path>", "The high-level spec (.md)")
+    .option("--e2e <paths...>", "E2E tests the acceptance criteria must tie to (without them, e2e scenarios are proposed)")
+    .option("--out <path>", "Where to write it (default: <spec>.detailed.md next to the spec); never overwritten")
+    .option("--json", "Output raw JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "spec", flags, async ({ config, logger }) => {
+        try {
+          const res = await specRefineCommand({ taskFile: flags.taskFile, e2e: flags.e2e ?? [], out: flags.out ?? null, config, logger });
+          if (flags.json) console.log(JSON.stringify(res));
+          else console.log(`Detailed spec: ${res.file}\nReview it (assumptions and open questions first), then: kj plan generate --task-file ${res.file}`);
+        } catch (err) {
+          if (flags.json) console.log(JSON.stringify({ error: err.message }));
+          else logger.error(err.message);
+          process.exitCode = 1;
+        }
       });
     });
 

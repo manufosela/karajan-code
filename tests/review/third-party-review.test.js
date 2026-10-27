@@ -175,4 +175,51 @@ describe("thirdPartyReviewCommand", () => {
     expect(code).toBe(1);
     expect(JSON.parse(out2.text()).error).toMatch(/nothing to review/);
   });
+
+  // KJC-TSK-1248 (#2623): --reviewers a,b and --reviewer-models reach the review as two reviewers.
+  it("passes --reviewers with each one's model, and refuses it next to --verifier or with one reviewer", async () => {
+    let seen = null;
+    const review = async ({ reviewers }) => { seen = reviewers; return {}; };
+    const flags = { range: "a...b", reviewers: "claude,codex", reviewerModels: "codex=gpt-5" };
+    expect(await thirdPartyReviewCommand({ flags, config: {}, out: sink(), err: sink(), review })).toBe(0);
+    expect(seen).toEqual([{ provider: "claude", model: null }, { provider: "codex", model: "gpt-5" }]);
+    for (const bad of [{ ...flags, verifier: "codex" }, { range: "a...b", reviewers: "claude" }]) {
+      const out = sink();
+      expect(await thirdPartyReviewCommand({ flags: bad, config: {}, out, err: sink(), review })).toBe(1);
+      expect(JSON.parse(out.text()).error).toMatch(/--reviewers/);
+    }
+  });
+});
+
+// KJC-TSK-1248 (#2623): two families review the range on their own and verify each other's findings.
+describe("thirdPartyReview with two reviewers", () => {
+  const base = { range: "main...pr", config: {}, projectDir: dir, logger: { info() {}, warn() {} }, gitDiff: async () => DIFF,
+    requirements: async () => [], security: async () => [], sonar: async () => ({ id: "sonar", ok: true }), sizeLimit: 10_000 };
+  const issue = (line) => ({ file: "x.js", line, severity: "high", description: "d", suggested_fix: null });
+
+  it("runs both reviews, cross-verifies them and returns one reconciled result", async () => {
+    const run = vi.fn(async ({ reviewerOverride, config }) => ({
+      verdict: "rejected", reviewer: reviewerOverride, summary: reviewerOverride, issues: [issue(reviewerOverride === "claude" ? 1 : 2)],
+      suggestions: [], model: config.roles.reviewer.model,
+    }));
+    const verify = vi.fn(async ({ findings, verifier }) => ({
+      findings, outcomes: findings.map(() => "confirmed"), verification: { verifier, confirmed: findings.length, downgraded: 0, rejected: [], unverified: 0, kept_by_rule: 0 },
+    }));
+    const res = await thirdPartyReview({ ...base, run, verify, reviewers: [{ provider: "claude", model: null }, { provider: "codex", model: "gpt-5" }] });
+    expect(run.mock.calls.map(([a]) => [a.reviewerOverride, a.config.roles.reviewer.model])).toEqual([["claude", null], ["codex", "gpt-5"]]);
+    expect(verify.mock.calls.map(([a]) => a.verifier)).toEqual(["codex", "claude"]);
+    expect(res).toMatchObject({
+      mode: "third-party", reviewer: "claude+codex",
+      reviewers: [{ reviewer: "claude" }, { reviewer: "codex", model: "gpt-5" }],
+      verdict: { status: "rejected" },
+      findings: [{ file: "x.js", found_by: ["claude", "codex"], verification: { codex: "confirmed", claude: "confirmed" } }],
+    });
+  });
+
+  it("refuses two reviewers of the same family before spending a token", async () => {
+    const run = vi.fn();
+    await expect(thirdPartyReview({ ...base, run, reviewers: [{ provider: "claude", model: null }, { provider: "claude", model: "claude-opus-5-5" }] }))
+      .rejects.toThrow(/same family/);
+    expect(run).not.toHaveBeenCalled();
+  });
 });

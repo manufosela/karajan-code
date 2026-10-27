@@ -77,7 +77,19 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.68.0: kj run pushes again in a hardened repo, and JS/TS leaves the coder formatted (current)
+### v4.70.0: from a high-level spec to a detailed one you accept before the plan (current)
+
+`kj spec refine --task-file spec.md` turns a high-level spec into a detailed one: behaviour, edge cases, acceptance criteria, assumptions and open questions. Pass `--e2e <tests>` and each criterion names the test that covers it; without e2e tests, it proposes the scenarios to write. It writes `spec.detailed.md` and stops, with no terminal needed (`--json` for agents): you accept or edit it, then `kj plan generate --task-file spec.detailed.md`.
+
+### v4.69.0: two AI families review a complex PR and verify each other
+
+`kj review --third-party --reviewers claude,codex` has two reviewers of different families review the whole range on their own, and each one verifies the other's findings. You get one result: who found each finding and how it was verified, the ones both found first, the rejected listed apart, and one verdict. It costs two reviews, so it is opt-in for complex PRs; without `--reviewers` nothing changes.
+
+### v4.68.1: the verdict hash ignores your gitconfig, and Solomon keeps symlink targets
+
+kj pins every option that changes the text of the diffs it hashes and parses (`diff.algorithm`, context, renames, headers) to git's defaults, so a verdict recorded on a machine with `diff.algorithm=histogram` is the one CI recomputes. Solomon now knows the change's symlinks: it never advises dropping a link's target from the commit, and any condition that would is dropped.
+
+### v4.68.0: kj run pushes again in a hardened repo, and JS/TS leaves the coder formatted
 
 `kj harden` no longer turns Claude Code's Bash sandbox on: inside it, `kj run` could not push, open the PR or reach Sonar on localhost. Ask for it with `kj harden --sandbox`. A repo where an earlier `kj harden` turned it on keeps it until `sandbox.enabled: false` in `.claude/settings.local.json`. Right after the coder, kj now formats JavaScript and TypeScript files too, with the prettier or biome the project declares, from `node_modules/.bin`.
 

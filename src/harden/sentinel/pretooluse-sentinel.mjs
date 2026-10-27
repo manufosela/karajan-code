@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { isGhIssueCreate, isPublishCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
@@ -251,15 +251,18 @@ process.stdin.on("end", () => {
         process.exit(2);
       }
     }
-    // MONO-0 (KJC-TSK-0737, ADR 0002): cada sesion muta solo SU worktree;
-    // otro carril del MISMO repo se deniega ANTES del dano. Lectura libre.
+    // MONO-0 (ADR 0002) under ADR 0034 (KJC-TSK-1244): a write in another lane of the SAME
+    // repo is allowed while no other live session holds that lane; the session then holds it.
+    // A held lane is denied BEFORE the damage. Reads are free.
     // Another lane of this repo => its toplevel; the session's own lane or no repo => null.
     const laneOf = (p) => {
       const top = laneFor(p);
       return top === laneTop() ? null : top;
     };
     const laneDeny = (what, lane) => {
-      console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0)" + (laneRefusal() ? " " + laneRefusal() : "") + ". Sin escape (ADR 0015): un cruce deliberado lo hace tu usuario en su terminal." + doc("cross-lane"));
+      const why = holdLane(lane);
+      if (!why) return false;
+      console.error("karajan sentinel: " + what + " vive en otro carril (" + lane + ") de este repo " + why + (laneRefusal() ? " " + laneRefusal() : "") + ". Sin escape (ADR 0015): un cruce deliberado lo hace tu usuario en su terminal." + doc("cross-lane"));
       return true;
     };
     if (EDIT_TOOLS.includes(tool)) {

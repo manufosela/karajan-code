@@ -60,7 +60,7 @@ npm install -g @karajan-family/code
 
 Verify:
 ```bash
-kj --version    # 4.68.0
+kj --version    # 4.70.0
 kj doctor       # Check environment
 ```
 
@@ -338,6 +338,7 @@ Common issues: [troubleshooting.md](troubleshooting.md)
 ## Next steps
 
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the pipeline
+- Starting from a high-level spec? `kj spec refine --task-file spec.md [--e2e <tests>]` proposes a detailed spec to accept before `kj plan generate`
 - Use [task file templates](task-templates/README.md) when invoking `kj plan generate`, `kj run`, `kj researcher`, `kj architect`, `kj discover` or `kj refactorer` — they encode the sweet spot between too-brief and too-pre-processed
 - Check [SKILLS.md](SKILLS.md) for OpenSkills integration
 - Browse [templates/roles/](../templates/roles/) to see role definitions
