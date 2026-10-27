@@ -13,6 +13,7 @@ import { collectWebPerfInput } from "../audit/webperf-input.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { collectSemgrepFindings } from "../audit/semgrep-findings.js";
 import { collectInfraFindings } from "../audit/infra-findings.js";
+import { collectNpmSignatures } from "../audit/npm-signatures.js";
 import { collectCircularDeps } from "../audit/circular-deps.js";
 import { collectDeadExports } from "../audit/dead-exports.js";
 import { collectInjectionFindings } from "../audit/injection-findings.js";
@@ -67,6 +68,7 @@ export class AuditRole extends AgentRole {
     const noKnip = (typeof input === "object" ? Boolean(input?.noKnip) : false) || securityOnly;
     const noInjectionScan = typeof input === "object" ? Boolean(input?.noInjectionScan) : false;
     const noInfraScan = typeof input === "object" ? Boolean(input?.noInfraScan) : false;
+    const noNpmSignatures = typeof input === "object" ? Boolean(input?.noNpmSignatures) : false;
     const noAiSlop = (typeof input === "object" ? Boolean(input?.noAiSlop) : false) || securityOnly;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
@@ -80,6 +82,7 @@ export class AuditRole extends AgentRole {
     let deadExports = null;
     let injectionFindings = null;
     let infraFindings = null;
+    let npmSignatures = null;
     let aiSlop = null;
     let envKeys = null;
     if (!securityOnly) {
@@ -152,6 +155,13 @@ export class AuditRole extends AgentRole {
         infraFindings = await collectInfraFindings(projectDir, this.logger);
       } catch { /* checkov is best-effort */ }
     }
+    // KJC-TSK-1253: npm registry signatures and provenance. Supply-chain security, so it
+    // also runs in securityOnly; the collector says when it does not apply or cannot run.
+    if (!noNpmSignatures) {
+      try {
+        npmSignatures = await collectNpmSignatures(projectDir, this.logger);
+      } catch { /* npm audit signatures is best-effort */ }
+    }
     // AI-slop tells (KJC-TSK-0503). Deterministic, offline, regex-based.
     // Local equivalent of Deslopify-style review. Best-effort.
     if (!noAiSlop) {
@@ -172,7 +182,7 @@ export class AuditRole extends AgentRole {
       mkdirSync(dirname(securityAuditMarkerPath(projectDir)), { recursive: true });
       writeFileSync(securityAuditMarkerPath(projectDir), JSON.stringify({ at: new Date().toISOString(), mode: securityOnly ? "security" : "full" }));
     } catch { /* recording is best-effort — the audit itself already ran */ }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, infraFindings, aiSlop, envKeys };
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, infraFindings, npmSignatures, aiSlop, envKeys };
   }
 
   /**
