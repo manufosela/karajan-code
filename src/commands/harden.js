@@ -44,7 +44,7 @@ const JS_TEST_CMD = {
  */
 export async function resolveCmds(projectDir, language) {
   const lang = language ?? detectStackRoots(projectDir)[0]?.language ?? null;
-  const cmds = { ...commandsForLanguage(lang) };
+  const cmds = commandsForLanguage(lang, projectDir);
   if (lang !== "javascript" && lang !== "typescript") return cmds;
 
   const pkgPath = join(projectDir, "package.json");
