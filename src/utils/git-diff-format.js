@@ -7,11 +7,22 @@
  * the user's gitconfig. The pins are appended after whatever config the environment carries.
  */
 
+// KJC-BUG-0415 (#2622): a verdict binds to the hash of the diff text, so every option that
+// changes that text is pinned to git's default too, or the hash kj review --staged records on a
+// machine with diff.algorithm=histogram is not the one CI recomputes.
 const PINS = [
   ["diff.mnemonicPrefix", "false"],
   ["diff.noprefix", "false"],
   ["diff.srcPrefix", "a/"],
   ["diff.dstPrefix", "b/"],
+  ["diff.algorithm", "myers"],
+  ["diff.context", "3"],
+  ["diff.interHunkContext", "0"],
+  ["diff.indentHeuristic", "true"],
+  ["diff.suppressBlankEmpty", "false"],
+  ["diff.renames", "true"],
+  ["diff.relative", "false"],
+  ["color.diff", "false"],
 ];
 const PINNED = "KJ_GIT_DIFF_PINNED";
 
