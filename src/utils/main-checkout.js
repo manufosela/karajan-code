@@ -20,7 +20,10 @@ const gitOrNull = (args, cwd) => {
   }
 };
 
-export function mainCheckout(dir) {
+const mains = new Map(); // two git spawns per lookup, and plan list/load loops ask once per plan
+export const mainCheckout = (dir) => mains.get(dir) ?? mains.set(dir, resolveMain(dir)).get(dir);
+
+function resolveMain(dir) {
   const out = gitOrNull(["rev-parse", "--path-format=absolute", "--git-common-dir", "--is-bare-repository"], dir);
   if (out === null) return dir;
   const [common, bare] = out.split("\n");

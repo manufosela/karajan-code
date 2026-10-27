@@ -12,6 +12,8 @@ describe("plan-store", () => {
     savedKjHome = process.env.KJ_HOME;
     process.env.KJ_HOME = tmpDir;
   });
+  // plansDir resolves the project with git (#2566): it must exist.
+  const proj = async (name) => { const dir = path.join(tmpDir, name); await fs.mkdir(dir, { recursive: true }); return dir; };
 
   afterEach(async () => {
     if (savedKjHome === undefined) {
@@ -27,7 +29,7 @@ describe("plan-store", () => {
   it("savePlan persists to disk and returns planId", async () => {
     const { savePlan } = await import("../../src/plan/plan-store.js");
 
-    const planId = await savePlan("/home/user/my-project", {
+    const planId = await savePlan(await proj("my-project"), {
       task: "Add login feature",
       researchContext: { files: ["auth.js"] },
       architectContext: { layers: ["service"] },
@@ -58,14 +60,14 @@ describe("plan-store", () => {
   it("loadPlan retrieves a saved plan", async () => {
     const { savePlan, loadPlan } = await import("../../src/plan/plan-store.js");
 
-    const planId = await savePlan("/home/user/project-a", {
+    const planId = await savePlan(await proj("project-a"), {
       task: "Fix bug #42",
       researchContext: { patterns: ["singleton"] },
       architectContext: null,
       plan: { approach: "Patch the singleton", steps: [] }
     });
 
-    const loaded = await loadPlan("/home/user/project-a", planId);
+    const loaded = await loadPlan(await proj("project-a"), planId);
     expect(loaded).not.toBeNull();
     expect(loaded.planId).toBe(planId);
     expect(loaded.task).toBe("Fix bug #42");
@@ -80,21 +82,21 @@ describe("plan-store", () => {
   it("loadPlan returns null for non-existent plan", async () => {
     const { loadPlan } = await import("../../src/plan/plan-store.js");
 
-    const loaded = await loadPlan("/home/user/project-x", "plan-nonexistent-abc");
+    const loaded = await loadPlan(await proj("project-x"), "plan-nonexistent-abc");
     expect(loaded).toBeNull();
   });
 
   it("listPlans returns available plans sorted newest first", async () => {
     const { savePlan, listPlans } = await import("../../src/plan/plan-store.js");
 
-    const id1 = await savePlan("/home/user/proj", { task: "Task A", plan: "plan a" });
+    const id1 = await savePlan(await proj("proj"), { task: "Task A", plan: "plan a" });
 
     // Small delay to ensure different timestamps
     await new Promise((r) => setTimeout(r, 20));
 
-    const id2 = await savePlan("/home/user/proj", { task: "Task B", plan: "plan b" });
+    const id2 = await savePlan(await proj("proj"), { task: "Task B", plan: "plan b" });
 
-    const plans = await listPlans("/home/user/proj");
+    const plans = await listPlans(await proj("proj"));
     expect(plans.length).toBe(2);
     expect(plans[0].planId).toBe(id2);
     expect(plans[0].task).toBe("Task B");
@@ -105,18 +107,18 @@ describe("plan-store", () => {
   it("listPlans returns empty array for project with no plans", async () => {
     const { listPlans } = await import("../../src/plan/plan-store.js");
 
-    const plans = await listPlans("/nonexistent/project");
+    const plans = await listPlans(await proj("no-plans"));
     expect(plans).toEqual([]);
   });
 
   it("getLatestPlan returns the most recent plan", async () => {
     const { savePlan, getLatestPlan } = await import("../../src/plan/plan-store.js");
 
-    await savePlan("/home/user/proj2", { task: "Old task", plan: "old plan" });
+    await savePlan(await proj("proj2"), { task: "Old task", plan: "old plan" });
     await new Promise((r) => setTimeout(r, 20));
-    const latestId = await savePlan("/home/user/proj2", { task: "New task", plan: "new plan" });
+    const latestId = await savePlan(await proj("proj2"), { task: "New task", plan: "new plan" });
 
-    const latest = await getLatestPlan("/home/user/proj2");
+    const latest = await getLatestPlan(await proj("proj2"));
     expect(latest).not.toBeNull();
     expect(latest.planId).toBe(latestId);
     expect(latest.task).toBe("New task");
@@ -125,7 +127,7 @@ describe("plan-store", () => {
   it("getLatestPlan returns null when no plans exist", async () => {
     const { getLatestPlan } = await import("../../src/plan/plan-store.js");
 
-    const latest = await getLatestPlan("/empty/project");
+    const latest = await getLatestPlan(await proj("empty"));
     expect(latest).toBeNull();
   });
 });

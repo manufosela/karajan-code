@@ -16,8 +16,8 @@ let plansSubDir;
 beforeEach(() => {
   kjHome = mkdtempSync(join(tmpdir(), "kj-plan-corrupt-"));
   process.env.KJ_HOME = kjHome;
-  projectDir = "/proj"; // → projectSlug = "proj"
-  plansSubDir = join(kjHome, "plans", "proj");
+  projectDir = kjHome; // plansDir resolves it with git (#2566): it must exist
+  plansSubDir = plansDir(projectDir);
   mkdirSync(plansSubDir, { recursive: true });
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -28,7 +28,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const { listPlans, loadPlan } = await import("../../src/plan/plan-store.js");
+const { listPlans, loadPlan, plansDir } = await import("../../src/plan/plan-store.js");
 
 describe("plan-store — corrupt JSON handling", () => {
   it("listPlans warns about a corrupt file (was silently skipped)", async () => {

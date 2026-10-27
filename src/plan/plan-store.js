@@ -10,6 +10,7 @@ import { writeJsonAtomic } from "../utils/atomic-write.js";
 import { resolveHome } from "../utils/paths.js";
 import { getSharedPlansDir } from "../utils/shared-paths.js";
 import { generatePlanId, normaliseAlias } from "./plan-id.js";
+import { mainCheckout } from "../utils/main-checkout.js";
 
 /**
  * A plan JSON file failed to parse — typically an interrupted write
@@ -51,7 +52,7 @@ export function getKjHome() {
 /**
  * Deterministic slug for a project path — stable across plan-store writes,
  * HU-board syncs and board URL routing. Keep in lockstep with
- * `packages/hu-board/src/sync.js::deriveProjectIdFromDir`.
+ * `packages/hu-board/src/sync.js::deriveProjectIdFromDir` (kj slugs the main checkout, #2566).
  * @param {string} projectDir - absolute project path
  * @returns {string}
  */
@@ -64,11 +65,12 @@ export function projectSlug(projectDir) {
 }
 
 // KJC-TSK-1166: the board honours KJ_PLANS_DIR as its plans root; what kj writes must land
-// in the same root, or the board shows none of it.
+// in the same root, or the board shows none of it. #2566: one folder per main checkout, lanes included.
 export function plansDir(projectDir) {
   const root = process.env.KJ_PLANS_DIR || path.join(getKjHome(), "plans");
-  return path.join(root, projectSlug(projectDir));
+  return path.join(root, projectSlug(mainCheckout(projectDir)));
 }
+
 
 /**
  * Save a plan to disk. Accepts both v1 and v2 schemas.
@@ -88,7 +90,8 @@ export async function savePlan(projectDir, planResult) {
     // plan so the GC can check `fs.exists(projectDir)` reliably. Reverse-
     // engineering it from the slug is lossy (underscores in the original
     // name collide with underscores introduced by slash-substitution).
-    if (!planResult.projectDir && projectDir) planResult.projectDir = projectDir;
+    // #2566: the main checkout, never a lane that is deleted after merge.
+    if (!planResult.projectDir && projectDir) planResult.projectDir = mainCheckout(projectDir);
     // Humanización IDs: si el plan no tiene alias todavía, derívalo de
     // plan.name (lo que el planner pidió al usuario). Resuelve
     // colisiones con sufijo -2, -3… leyendo el dir antes.
