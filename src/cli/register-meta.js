@@ -1,4 +1,5 @@
 import { discoverCommand } from "../commands/discover.js";
+import { specRefineCommand } from "../commands/spec-refine.js";
 import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
@@ -93,7 +94,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--json", "Output raw JSON")
     .action(async (flags) => {
       await withConfig(pkgVersion, "spec", flags, async ({ config, logger }) => {
-        const { specRefineCommand } = await import("../commands/spec-refine.js");
         try {
           const res = await specRefineCommand({ taskFile: flags.taskFile, e2e: flags.e2e ?? [], out: flags.out ?? null, config, logger });
           if (flags.json) console.log(JSON.stringify(res));
