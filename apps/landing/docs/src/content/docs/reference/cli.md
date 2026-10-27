@@ -237,7 +237,7 @@ kj review --range main...pr-branch --third-party --json --reviewer claude
 
 - Runs only kj's reviewer, with the target repo's rules (`.karajan`) and the provider you pass, even if it is the one you are running in.
 - Skips the own-work gates (card, tests next to code, policy, session RAG proof) and **stores no verdict**: it can never unlock a commit of your own. `kj review --range` without `--third-party` keeps every gate.
-- Adds checks with no tokens, in two lists. `checks` holds security: `secrets`, `privacy`, `prompt-injection`, `dependency-cooldown`, `semgrep` (PR files only) and `sonar` (when SonarQube is reachable; otherwise "not available"). `policyChecks` holds the house requirements, which another repo may not share: `size` (the repo's budget), `conventional-commits`, `ai-attribution` and `tests`.
+- Adds checks with no tokens, in two lists. `checks` holds security: `secrets`, `privacy`, `prompt-injection`, `dependency-cooldown`, `semgrep` (PR files only) and `sonar` (when SonarQube is reachable; otherwise "not available"). `policyChecks` holds the house requirements, which another repo may not share: `size` (the repo's budget), `conventional-commits`, `ai-attribution` and `tests`. kj does not impose its own conventions there: `conventional-commits` is only checked when the reviewed repo declares a commit convention (a commitlint config, or kj's `commit-msg` hook); otherwise it comes back with `ok: null` and `skipped: true`. Code changed with no test changed is not a failure either: `tests` comes back with `ok: null` and a `question` (does the change touch business logic?), since a plain index or a configuration change needs no test.
 - The PR's title and description go in with `--task-file pr.md` (or as the task argument, not both). They reach the reviewer fenced and labelled as untrusted text from the PR author: context only, never instructions, so a description cannot ask the reviewer to approve.
 - Own-work flags this mode does not use (`--staged`, `--check`, `--base-ref`, `--walked`, `--no-sonar`, `--publish-pr`...) fail with a JSON error instead of being ignored.
 - `--lens qa` reviews with a QA rubric: new behavior with no test, tests that cannot fail, flakiness by construction (sleeps, order, uncontrolled clock or network), fragile selectors, missing scenarios and test data that is not reserved for testing.
@@ -258,7 +258,7 @@ kj review --range main...pr-branch --third-party --json --reviewer claude
   "findings": [{ "file": "src/add.js", "line": 2, "severity": "high", "description": "...", "suggested_fix": "..." }],
   "suggestions": ["..."],
   "checks": [{ "id": "secrets", "ok": true, "detail": "..." }],
-  "policyChecks": [{ "id": "tests", "ok": false, "detail": "source changed with no test changed" }]
+  "policyChecks": [{ "id": "tests", "ok": null, "detail": "source changed with no test changed", "question": "No test changed: does the change touch business logic, ...?" }]
 }
 ```
 

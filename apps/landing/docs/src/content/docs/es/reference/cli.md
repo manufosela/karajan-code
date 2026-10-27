@@ -237,7 +237,7 @@ kj review --range main...rama-de-la-pr --third-party --json --reviewer claude
 
 - Corre solo el reviewer de kj, con las reglas del repo destino (`.karajan`) y el proveedor que indiques, aunque sea en el que estás trabajando.
 - Se salta las gates del trabajo propio (card, tests junto al código, policy, prueba de RAG de la sesión) y **no guarda veredicto**: nunca puede desbloquear un commit tuyo. `kj review --range` sin `--third-party` mantiene todas las gates.
-- Añade checks sin tokens, en dos listas. `checks` lleva la seguridad: `secrets`, `privacy`, `prompt-injection`, `dependency-cooldown`, `semgrep` (solo los ficheros de la PR) y `sonar` (si hay SonarQube accesible; si no, "not available"). `policyChecks` lleva los requisitos de la casa, que otro repo puede no compartir: `size` (el presupuesto del repo), `conventional-commits`, `ai-attribution` y `tests`.
+- Añade checks sin tokens, en dos listas. `checks` lleva la seguridad: `secrets`, `privacy`, `prompt-injection`, `dependency-cooldown`, `semgrep` (solo los ficheros de la PR) y `sonar` (si hay SonarQube accesible; si no, "not available"). `policyChecks` lleva los requisitos de la casa, que otro repo puede no compartir: `size` (el presupuesto del repo), `conventional-commits`, `ai-attribution` y `tests`. kj no impone ahí sus propias convenciones: `conventional-commits` solo se comprueba si el repo revisado declara una convención de commits (una config de commitlint o el hook `commit-msg` de kj); si no, vuelve con `ok: null` y `skipped: true`. Tampoco es un fallo que cambie código sin tests: `tests` vuelve con `ok: null` y una `question` (¿el cambio toca lógica de negocio?), porque un índice simple o un cambio de configuración no necesitan test.
 - El título y la descripción de la PR entran con `--task-file pr.md` (o como argumento de tarea, no los dos). Llegan al reviewer acotados y marcados como texto no fiable del autor de la PR: solo contexto, nunca instrucciones, así que una descripción no puede pedirle al reviewer que apruebe.
 - Los flags del trabajo propio que este modo no usa (`--staged`, `--check`, `--base-ref`, `--walked`, `--no-sonar`, `--publish-pr`...) fallan con un error JSON en vez de ignorarse.
 - `--lens qa` revisa con una rúbrica de QA: comportamiento nuevo sin test, tests que no pueden fallar, inestabilidad de serie (esperas fijas, orden, reloj o red sin controlar), selectores frágiles, escenarios que faltan y datos de prueba que no son reservados para pruebas.
@@ -258,7 +258,7 @@ kj review --range main...rama-de-la-pr --third-party --json --reviewer claude
   "findings": [{ "file": "src/add.js", "line": 2, "severity": "high", "description": "...", "suggested_fix": "..." }],
   "suggestions": ["..."],
   "checks": [{ "id": "secrets", "ok": true, "detail": "..." }],
-  "policyChecks": [{ "id": "tests", "ok": false, "detail": "source changed with no test changed" }]
+  "policyChecks": [{ "id": "tests", "ok": null, "detail": "source changed with no test changed", "question": "No test changed: does the change touch business logic, ...?" }]
 }
 ```
 
