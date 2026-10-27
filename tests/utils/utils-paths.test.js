@@ -3,10 +3,21 @@ import path from "node:path";
 import os from "node:os";
 
 describe("utils/paths", () => {
+  const originalKarajanHome = process.env.KARAJAN_HOME;
   const originalKjHome = process.env.KJ_HOME;
   const originalVitest = process.env.VITEST;
 
+  // KARAJAN_HOME outranks KJ_HOME and VITEST in resolveHome.
+  beforeEach(() => {
+    delete process.env.KARAJAN_HOME;
+  });
+
   afterEach(() => {
+    if (originalKarajanHome !== undefined) {
+      process.env.KARAJAN_HOME = originalKarajanHome;
+    } else {
+      delete process.env.KARAJAN_HOME;
+    }
     if (originalKjHome !== undefined) {
       process.env.KJ_HOME = originalKjHome;
     } else {
