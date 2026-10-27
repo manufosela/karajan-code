@@ -15,6 +15,6 @@ export { install, remove } from "./store.js";
 export { catalogSync } from "./fetch.js";
 export { installFromCatalog } from "./catalog-install.js";
 export { importSkills } from "./import.js";
-export { recommended } from "./recommended.js";
+export { applyRecommended, recommended } from "./recommended.js";
 export { applyCatalogUpdate, catalogUpdates } from "./update.js";
 export { detectPluginFormat, listPluginMarkdown, readPluginManifest } from "./plugin.js";
