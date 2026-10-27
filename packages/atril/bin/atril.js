@@ -4,7 +4,7 @@ import { VERSION, resolve } from "../src/index.js";
 import { relative } from "node:path";
 import { enrich } from "../src/enrich.js";
 import { graph } from "../src/graph.js";
-import { scan } from "../src/scan.js";
+import { keyOf, scan } from "../src/scan.js";
 import { SEARCH_MODE, search } from "../src/search.js";
 import { install, remove } from "../src/store.js";
 import { generate } from "../src/generate.js";
@@ -17,7 +17,9 @@ import { catalogSync } from "../src/fetch.js";
 import { applyCatalogUpdate, catalogUpdates } from "../src/update.js";
 import { installFromCatalog, isCatalogRef } from "../src/catalog-install.js";
 import { importSkills } from "../src/import.js";
-import { recommended } from "../src/recommended.js";
+import { createInterface } from "node:readline/promises";
+import { applyRecommended, recommended } from "../src/recommended.js";
+import { answersFor, askAnswers, offered } from "../src/init.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -28,7 +30,9 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
   + "       atril catalog sync [--root <dir>]\n       atril catalog update [--apply] [--root <dir>]\n"
-  + "       atril import --from openskills [--root <dir>]\n       atril recommended [--root <dir>] [--json]";
+  + "       atril import --from openskills [--root <dir>]\n       atril recommended [--root <dir>] [--json]\n"
+  + "       atril init [--yes] [--recommended=on-demand|persistent|none] [--root <dir>] [--json]"
+  + "  (--recommended wins over --yes)";
 
 function runImport(args) {
   const { values } = parseArgs({ args, options: { from: { type: "string" }, root: { type: "string" } } });
@@ -92,6 +96,42 @@ function runRecommended(args) {
   if (values.json) console.log(JSON.stringify(entries, null, 2));
   else if (entries.length === 0) console.log("this version of atril recommends nothing");
   else for (const { state, kind, name, description } of entries) console.log(`${state}\t${kind}:${name}\t${printable(description)}`);
+}
+
+async function askInTerminal(entries) {
+  if (!process.stdin.isTTY) throw new Error("init needs a terminal to ask: pass --yes or --recommended=on-demand|persistent|none");
+  // Questions go to stderr, so --json keeps stdout clean; EOF or Ctrl-C cancel before applying.
+  const terminal = createInterface({ input: process.stdin, output: process.stderr });
+  const cancelled = new AbortController();
+  terminal.once("close", () => cancelled.abort());
+  try {
+    return await askAnswers(entries, (question) => terminal.question(`${printable(question)} `, { signal: cancelled.signal }));
+  } catch (err) {
+    throw cancelled.signal.aborted ? new Error("init cancelled: nothing applied") : err;
+  } finally {
+    terminal.close();
+  }
+}
+
+async function runInit(args) {
+  const { values } = parseArgs({
+    args, options: { root: { type: "string" }, yes: { type: "boolean" }, recommended: { type: "string" }, json: { type: "boolean" } },
+  });
+  const entries = recommended({ root: values.root });
+  const fresh = offered(entries);
+  const answers = answersFor(entries, values) ?? (fresh.length === 0 ? {} : await askInTerminal(entries));
+  const applied = applyRecommended(answers, { root: values.root });
+  // A changed entry is never offered: init reports it and leaves it as it is.
+  const result = { ...applied, changed: [...applied.changed, ...entries.filter(({ state }) => state === "changed").map(keyOf)] };
+  if (values.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (fresh.length === 0) console.log("nothing new to offer from the recommended set");
+  for (const [action, keys] of Object.entries(result)) {
+    for (const key of keys) console.log(action === "changed" ? `changed\t${key}\tchanged in this version, not touched` : `${action}\t${key}`);
+  }
+  console.log(Object.entries(result).map(([action, keys]) => `${keys.length} ${action}`).join(", "));
 }
 
 function runConfig(args) {
@@ -217,6 +257,7 @@ try {
   else if (command === "catalog") runCatalog(rest);
   else if (command === "import") runImport(rest);
   else if (command === "recommended") runRecommended(rest);
+  else if (command === "init") await runInit(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
