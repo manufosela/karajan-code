@@ -227,6 +227,11 @@ export function setPgTaskId(session, id) {
   session.pg_task_id = id;
 }
 
+/** KJC-BUG-0412: what was pending in the tree when the session started. */
+export function setGitPreexisting(session, paths) {
+  session.git_preexisting = paths;
+}
+
 export function appendPgCommits(session, commits) {
   session.pg_commits = [...(session.pg_commits ?? []), ...commits];
 }
