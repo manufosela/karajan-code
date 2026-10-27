@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.69.0] - 2026-10-27
+
+Minor, cut from 4.68.1 (tag `v4.69.0` on the branch `release/KJC-TSK-1250-v4.69.0`): main already carries changes for 5.0.0. A third-party review can have two AI families review a complex PR on their own and verify each other.
+
+### Added
+
+- **Dual third-party review: `kj review --third-party --reviewers a,b`** (KJC-TSK-1247 and KJC-TSK-1248, issue #2623): two reviewers of different families review the whole range on their own, with `--reviewer-models a=model,b=model` if wanted, and each one's findings are verified by the other family. One result comes back: every finding says who found it and how it was verified, the ones both found rank first, the rejected are listed apart with who found and who rejected them, and there is one verdict (rejected while a confirmed blocker remains, approved only when both approve and every file was reviewed, partial otherwise with the reason). Two reviewers of the same family are refused. Without `--reviewers`, the review is unchanged.
+
 ## [4.68.1] - 2026-10-27
 
 Patch, cut from 4.68.0 (tag `v4.68.1` on the branch `release/KJC-TSK-1249-v4.68.1`): main already carries changes for 5.0.0. A correct cross-AI verdict no longer fails in CI because of the reviewer's gitconfig, and Solomon never advises dropping the target of a symlink.

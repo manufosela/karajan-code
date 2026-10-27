@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.68.1: el hash del veredicto ignora tu gitconfig, y Solomon respeta los enlaces simbólicos (actual)
+### v4.69.0: dos familias de IA revisan una PR compleja y se verifican entre sí (actual)
+
+`kj review --third-party --reviewers claude,codex` hace que dos revisores de familias distintas revisen el rango entero por su cuenta, y cada uno verifica los hallazgos del otro. Sale un solo resultado: quién encontró cada hallazgo y cómo se verificó, primero los que encontraron ambos, los descartados aparte y un veredicto único. Cuesta dos revisiones, así que es opcional para PRs complejas; sin `--reviewers` no cambia nada.
+
+### v4.68.1: el hash del veredicto ignora tu gitconfig, y Solomon respeta los enlaces simbólicos
 
 kj fija a los valores por defecto de git todas las opciones que cambian el texto de los diffs que hashea y lee (`diff.algorithm`, contexto, renombrados, cabeceras), así que un veredicto grabado en una máquina con `diff.algorithm=histogram` es el que recalcula el CI. Solomon conoce ahora los enlaces simbólicos del cambio: nunca propone sacar del commit el destino de un enlace, y si alguna condición lo hace, se descarta.
 

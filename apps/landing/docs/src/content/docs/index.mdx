@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.68.1: the verdict hash ignores your gitconfig, and Solomon keeps symlink targets (current)
+### v4.69.0: two AI families review a complex PR and verify each other (current)
+
+`kj review --third-party --reviewers claude,codex` has two reviewers of different families review the whole range on their own, and each one verifies the other's findings. You get one result: who found each finding and how it was verified, the ones both found first, the rejected listed apart, and one verdict. It costs two reviews, so it is opt-in for complex PRs; without `--reviewers` nothing changes.
+
+### v4.68.1: the verdict hash ignores your gitconfig, and Solomon keeps symlink targets
 
 kj pins every option that changes the text of the diffs it hashes and parses (`diff.algorithm`, context, renames, headers) to git's defaults, so a verdict recorded on a machine with `diff.algorithm=histogram` is the one CI recomputes. Solomon now knows the change's symlinks: it never advises dropping a link's target from the commit, and any condition that would is dropped.
 
