@@ -12,8 +12,7 @@ describe("plan-store", () => {
     savedKjHome = process.env.KJ_HOME;
     process.env.KJ_HOME = tmpDir;
   });
-  // plansDir resolves the project with git (#2566): it must exist.
-  const proj = async (name) => { const dir = path.join(tmpDir, name); await fs.mkdir(dir, { recursive: true }); return dir; };
+  const proj = async (name) => { const dir = path.join(tmpDir, name); await fs.mkdir(dir, { recursive: true }); return dir; }; // must exist: plansDir asks git (#2566)
 
   afterEach(async () => {
     if (savedKjHome === undefined) {

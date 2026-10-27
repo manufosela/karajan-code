@@ -1,5 +1,4 @@
-// #2566 PR 2: plans hang from the main checkout. Field case: from a lane, `kj review`
-// found no live card because the lane read its own plans folder.
+// #2566 PR 2: from a lane, `kj review` found no live card: the lane read its own plans folder.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
@@ -60,10 +59,12 @@ describe("migrateLanePlans", () => {
   });
 
   it("keeps a colliding plan in place and reports it, never overwrites", async () => {
-    await savePlan(main, v2("p3"));
+    await Promise.all([savePlan(main, v2("p3")), savePlan(main, v2("plan-github-board"))]);
     const old = oldFolder(`${projectSlug(main)}_.claude_worktrees_x`, "p3.json", "{\"stale\":true}");
+    fs.writeFileSync(path.join(old, "plan-github-board.json"), "{}"); // the team mirror: dropped, no collision
     const r = await migrateLanePlans(main);
     expect(r.kept).toEqual([path.join(old, "p3.json")]);
+    expect(fs.readdirSync(old)).toEqual(["p3.json"]);
     expect((await loadPlan(main, "p3")).stale).toBeUndefined();
   });
 

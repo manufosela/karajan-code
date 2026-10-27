@@ -1,14 +1,12 @@
 /**
- * One-time move of plans saved under a lane's slug into the main checkout's (#2566, PR 2).
- * Before plansDir hung from the main checkout, a lane at <main>/.kj/worktrees/<x> (or a
- * Claude worktree at <main>/.claude/worktrees/<x>) kept its own plans folder, so the root
- * and the lanes saw different boards. `kj hu list` calls this; a name collision is kept in
- * place and reported, never overwritten.
+ * #2566: a lane (<main>/.kj/worktrees/<x>, <main>/.claude/worktrees/<x>) kept plans under its own
+ * slug; `kj hu list` moves them to the main checkout's. A taken name is kept and reported.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { plansDir } from "./plan-store.js";
 import { mainCheckout } from "../utils/main-checkout.js";
+import { MIRROR_PLAN_ID } from "../hu/team-board-mirror.js";
 
 const LANE_DIRS = [".kj_worktrees_", ".claude_worktrees_"];
 
@@ -40,6 +38,8 @@ export async function migrateLanePlans(projectDir) {
     const from = path.join(root, lane.name);
     await fs.mkdir(target, { recursive: true });
     for (const file of await fs.readdir(from)) {
+      // The team board mirror is no plan: `kj hu list` rewrites it from GitHub, a lane's copy is stale.
+      if (file === `${MIRROR_PLAN_ID}.json`) { await fs.unlink(path.join(from, file)); continue; }
       try {
         await moveEntry(path.join(from, file), path.join(target, file), main);
         moved.push(file);
