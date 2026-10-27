@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.66.1: cambiar de runner cablea cada guardia una vez (actual)
+### v4.67.0: los proyectos Python terminan en verde y resume commitea su trabajo (actual)
+
+En un proyecto con `uv.lock` o `poetry.lock`, kj lanza pytest y ruff con `uv run` o `poetry run`. `kj resume` commitea el trabajo de la sesión que retoma, y la cabecera del commit automático sale del primer párrafo de la tarea. Justo después del coder, kj formatea los ficheros de la sesión con el formateador del proyecto (ruff, gofmt, php-cs-fixer); `development.format_after_coder: false` lo desactiva. `kj review --third-party` solo comprueba el formato de los commits si el repo revisado declara una convención, y una PR sin tests vuelve como pregunta.
+
+### v4.66.1: cambiar de runner cablea cada guardia una vez
 
 Un proyecto migrado con la 4.66.0 antes de tener `kj-hook` en el PATH ejecuta sus guardias por `kj sentinel hook`. Al volver a endurecerlo con `kj-hook` ya disponible, conservaba las dos entradas y ejecutaba cada guardia dos veces; ahora `kj harden` sustituye el comando del runner anterior. Vuelve a ejecutar `kj harden` en un proyecto así.
 
