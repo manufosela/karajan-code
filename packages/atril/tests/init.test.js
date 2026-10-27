@@ -1,8 +1,14 @@
 // ADR 0021, decision 13 and plan step 12c: `atril init` offers the recommended set's available
 // entries, from the flags or asked one by one, and hands the answers to applyRecommended.
-import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { answersFor, askAnswers } from "../src/init.js";
 
+const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 const entries = [
   { kind: "command", name: "plan", description: "plan things", state: "available" },
   { kind: "skill", name: "lint", description: "lint code", state: "available" },
@@ -54,5 +60,43 @@ describe("askAnswers", () => {
 
   it("a question that fails (EOF) fails the whole, with no partial answers", async () => {
     await expect(askAnswers(entries, async () => { throw new Error("closed"); })).rejects.toThrow("closed");
+  });
+});
+
+describe("atril init", () => {
+  let dir;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "atril-init-"));
+    const command = (path, name, body = "body") => {
+      mkdirSync(join(dir, path, ".."), { recursive: true });
+      writeFileSync(join(dir, path), `---\nname: ${name}\ndescription: ${name} things\nkind: command\n---\n${body}\n`);
+    };
+    command("set/commands/plan.md", "plan");
+    command("set/commands/test.md", "test");
+    command("store/commands/test.md", "test", "edited");
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  const run = (...args) => spawnSync(process.execPath, [BIN, "init", "--root", "store", ...args], {
+    cwd: dir, encoding: "utf8", input: "",
+    env: { ...process.env, ATRIL_USER_ROOT: join(dir, "no-user-store"), ATRIL_RECOMMENDED: join(dir, "set") },
+  });
+
+  it("--recommended=none skips every available entry and reports the changed one", () => {
+    const res = run("--recommended=none");
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe("skipped\tcommand:plan\nchanged\tcommand:test\tchanged in this version, not touched\n"
+      + "0 installed, 0 exposed, 1 skipped, 1 changed\n");
+  });
+
+  it("--yes installs on demand; --json prints what was applied", () => {
+    expect(JSON.parse(run("--yes", "--json").stdout)).toEqual({ installed: ["command:plan"], exposed: [], skipped: [], changed: ["command:test"] });
+    expect(run("--yes").stdout).toMatch(/^nothing new to offer/);
+  });
+
+  it("without a terminal and without --yes or --recommended it fails and applies nothing", () => {
+    const res = run();
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/init needs a terminal to ask: pass --yes or --recommended=on-demand\|persistent\|none/);
+    expect(JSON.parse(run("--recommended=none", "--json").stdout).skipped).toEqual(["command:plan"]);
   });
 });
