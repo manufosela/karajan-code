@@ -36,6 +36,25 @@ describe("resolveCmds", () => {
     writeFileSync(join(repo, "package.json"), JSON.stringify({ devDependencies: { vitest: "^4" } }));
     expect((await resolveCmds(repo)).test).toBe("npx vitest run");
   });
+
+  // KJC-BUG-0411 (#2563): uv/poetry keep pytest and ruff in the venv, so a bare
+  // command exits 127; the project's manager runs them.
+  it.each([
+    ["uv.lock", "uv run"],
+    ["poetry.lock", "poetry run"],
+  ])("runs python commands through the manager when %s exists (KJC-BUG-0411)", async (lock, runner) => {
+    writeFileSync(join(repo, "pyproject.toml"), "[project]\nname = \"x\"\n");
+    writeFileSync(join(repo, lock), "");
+    expect(await resolveCmds(repo, "python")).toEqual({
+      lint: `${runner} ruff check .`,
+      format: `${runner} ruff format --check .`,
+      test: `${runner} pytest`,
+    });
+  });
+
+  it("keeps bare python commands without a uv or poetry lock (KJC-BUG-0411)", async () => {
+    expect((await resolveCmds(repo, "python")).test).toBe("pytest");
+  });
 });
 
 describe("hardenCommand", () => {

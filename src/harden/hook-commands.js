@@ -8,6 +8,12 @@
  * commands depend on what the project defines). Unknown language ⇒ no commands,
  * leaving only the universal POSIX-shell checks.
  */
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+// KJC-BUG-0411 (#2563): uv and poetry keep pytest and ruff in the project's
+// venv, where a bare command exits 127; their manager runs them.
+const PYTHON_RUNNERS = [["uv.lock", "uv run"], ["poetry.lock", "poetry run"]];
 
 export const COMMANDS_BY_LANGUAGE = {
   python: { lint: "ruff check .", format: "ruff format --check .", test: "pytest" },
@@ -19,7 +25,12 @@ export const COMMANDS_BY_LANGUAGE = {
   },
 };
 
-/** Native commands for a language, or {} when JS/TS or unknown. */
-export function commandsForLanguage(language) {
-  return COMMANDS_BY_LANGUAGE[language] ?? {};
+/** Native commands for a language, or {} when JS/TS or unknown; python ones through uv/poetry when the project uses them. */
+export function commandsForLanguage(language, projectDir = null) {
+  const cmds = { ...COMMANDS_BY_LANGUAGE[language] };
+  const runner = language === "python" && projectDir
+    ? PYTHON_RUNNERS.find(([lock]) => existsSync(join(projectDir, lock)))?.[1]
+    : null;
+  if (runner) for (const [step, command] of Object.entries(cmds)) cmds[step] = `${runner} ${command}`;
+  return cmds;
 }
