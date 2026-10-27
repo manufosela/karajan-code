@@ -8,7 +8,7 @@
  * commands depend on what the project defines). Unknown language ⇒ no commands,
  * leaving only the universal POSIX-shell checks.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // KJC-BUG-0411 (#2563): uv and poetry keep pytest and ruff in the project's
@@ -32,6 +32,23 @@ const FORMAT_WRITE_BY_LANGUAGE = {
   php: { command: "vendor/bin/php-cs-fixer fix", extensions: [".php"] },
 };
 
+// KJC-TSK-1239: JS/TS takes the formatter the project declares, from its node_modules.
+// Declared both? The one its scripts call wins; else prettier, the more common.
+const JS_TS = [".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx"];
+const JS_FORMATTERS = [
+  { pkg: "prettier", bin: "prettier", inScripts: /\bprettier\b/, command: "node_modules/.bin/prettier --write" },
+  { pkg: "@biomejs/biome", bin: "biome", inScripts: /\bbiome\b/, command: "node_modules/.bin/biome format --write" },
+];
+function jsFormatWrite(projectDir) {
+  let pkg;
+  try { pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf8")); } catch { return null; }
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const scripts = Object.values(pkg.scripts ?? {}).join("\n");
+  const usable = JS_FORMATTERS.filter((f) => deps[f.pkg] && existsSync(join(projectDir, "node_modules", ".bin", f.bin)));
+  const chosen = usable.find((f) => f.inScripts.test(scripts)) ?? usable[0];
+  return chosen ? { command: chosen.command, extensions: JS_TS } : null;
+}
+
 const runnerFor = (language, projectDir) => (language === "python" && projectDir
   ? PYTHON_RUNNERS.find(([lock]) => existsSync(join(projectDir, lock)))?.[1] ?? null
   : null);
@@ -46,6 +63,7 @@ export function commandsForLanguage(language, projectDir = null) {
 
 /** The write-mode formatter of a language and the extensions it takes, or null. */
 export function formatWriteFor(language, projectDir = null) {
+  if (language === "javascript" || language === "typescript") return projectDir ? jsFormatWrite(projectDir) : null;
   const entry = FORMAT_WRITE_BY_LANGUAGE[language];
   if (!entry) return null;
   return { ...entry, command: [runnerFor(language, projectDir), entry.command].filter(Boolean).join(" ") };
