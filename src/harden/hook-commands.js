@@ -48,6 +48,5 @@ export function commandsForLanguage(language, projectDir = null) {
 export function formatWriteFor(language, projectDir = null) {
   const entry = FORMAT_WRITE_BY_LANGUAGE[language];
   if (!entry) return null;
-  const runner = runnerFor(language, projectDir);
-  return { ...entry, command: runner ? `${runner} ${entry.command}` : entry.command };
+  return { ...entry, command: [runnerFor(language, projectDir), entry.command].filter(Boolean).join(" ") };
 }
