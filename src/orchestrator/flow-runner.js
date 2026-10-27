@@ -112,7 +112,7 @@ export async function runFlow(opts) {
   return withRunContext({}, () => _runFlowInner(opts));
 }
 
-async function _runFlowInner({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null }) {
+async function _runFlowInner({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null, preexisting = null }) {
   // Defensive test-harness resolution for callers that bypass loadConfig()
   // (orchestrator unit tests that build raw config objects). Production
   // callers go through src/config/loader.js → loadConfig which already
@@ -153,7 +153,7 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
 
   let ctx;
   try {
-    ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
+    ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags, preexisting });
   } catch (initError) {
     // Pre-loop / preflight failures are CONFIG problems, not pipeline
     // disputes. Pre-v2.7.5 we escalated them to Solomon, which:
@@ -356,7 +356,8 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
 
   // Re-run the flow with the existing session context
   try {
-    return await runFlow({ task, config: sessionConfig, logger, flags, emitter, askQuestion });
+    // KJC-BUG-0412: what was pending is what was pending when THIS session started.
+    return await runFlow({ task, config: sessionConfig, logger, flags, emitter, askQuestion, preexisting: session.git_preexisting ?? null });
   } catch (err) {
     await markSessionStatus(session, "failed");
     throw err;
