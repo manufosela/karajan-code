@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.70.0: de una spec de alto nivel a una detallada que aceptas antes del plan (actual)
+### v4.70.1: el policy check de CI se juzga desde la rama base (actual)
+
+Arreglo de seguridad (GHSA-3xrh-frxv-mwxr): el workflow `kj-policy.yml` que siembra `kj harden` se ejecutaba con la copia de la propia PR, así que una PR podía reescribir el paso que la juzga. Ahora corre con `pull_request_target`: el workflow y el kj que juzga salen de la rama base, y la PR solo se lee. Además ya funciona fuera del repo de kj (issue #2666). Vuelve a ejecutar `kj harden` y séllalo (`kj harden --commit`) para recibir el workflow nuevo.
+
+### v4.70.0: de una spec de alto nivel a una detallada que aceptas antes del plan
 
 `kj spec refine --task-file spec.md` convierte una spec de alto nivel en una detallada: comportamiento, casos límite, criterios de aceptación, supuestos y preguntas abiertas. Con `--e2e <tests>`, cada criterio nombra el test que lo cubre; sin tests e2e, propone los escenarios que hay que escribir. Escribe `spec.detailed.md` y se para, sin necesitar terminal (`--json` para agentes): la aceptas o la corriges y luego `kj plan generate --task-file spec.detailed.md`.
 
