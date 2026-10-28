@@ -45,6 +45,7 @@ describe("kj init — resolveConfigScope — KJC-TSK-0395", () => {
 describe("loadConfig — local-sin-global rejection — KJC-TSK-0395", () => {
   let projectDir;
   let prevHome;
+  let prevCi;
 
   beforeEach(() => {
     projectDir = mkdtempSync(join(tmpdir(), "kj-scope-"));
@@ -52,17 +53,32 @@ describe("loadConfig — local-sin-global rejection — KJC-TSK-0395", () => {
     // points to a location with NO global config.
     prevHome = process.env.KARAJAN_HOME;
     process.env.KARAJAN_HOME = mkdtempSync(join(tmpdir(), "kj-home-"));
+    // The CI this suite runs in sets CI: each test says which side it is on.
+    prevCi = process.env.CI;
+    delete process.env.CI;
   });
   afterEach(() => {
     rmSync(projectDir, { recursive: true, force: true });
     if (process.env.KARAJAN_HOME) rmSync(process.env.KARAJAN_HOME, { recursive: true, force: true });
     if (prevHome === undefined) delete process.env.KARAJAN_HOME;
     else process.env.KARAJAN_HOME = prevHome;
+    if (prevCi === undefined) delete process.env.CI;
+    else process.env.CI = prevCi;
   });
 
   it("E) throws when local config exists without a global counterpart", async () => {
     mkdirSync(join(projectDir, ".karajan"));
     writeFileSync(join(projectDir, ".karajan", "kj.config.yml"), "roles:\n  coder:\n    provider: opencode\n");
     await expect(loadConfig(projectDir)).rejects.toThrow(/Local config found.*no global config/);
+  });
+
+  // KJC-BUG-0428 (issue #2694): a CI runner never has a global config, so the team's
+  // committed project config sat on nothing and every policy-check died before judging.
+  it("F) in CI a committed project config sits on the defaults instead", async () => {
+    process.env.CI = "true";
+    mkdirSync(join(projectDir, ".karajan"));
+    writeFileSync(join(projectDir, ".karajan", "kj.config.yml"), "roles:\n  coder:\n    provider: opencode\n");
+    const { config } = await loadConfig(projectDir);
+    expect(config.roles.coder.provider).toBe("opencode");
   });
 });
