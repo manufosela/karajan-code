@@ -4,12 +4,23 @@
  * A query term scores by the field it appears in, the name weighing most
  * and the body least; ties break on kind, then name.
  */
-import { availableArtifacts } from "./catalog.js";
+import { availableArtifacts, availablePlugins } from "./catalog.js";
 import { KINDS } from "./model.js";
 import { keyOf, scan } from "./scan.js";
 
 /** The only mode until QMD lands (ADR 0021 plan step 5); always reported. */
 export const SEARCH_MODE = "lexical";
+
+const toStderr = ({ catalog, entry, reason }) =>
+  process.stderr.write(`atril: catalog "${catalog}": ${entry} skipped: ${reason}\n`);
+
+// A plugin is pooled in the artifact shape so that fieldsOf and scoreOf work unchanged.
+function pluginHits(opts, onWarning) {
+  const { plugins, warnings } = availablePlugins(opts);
+  warnings.forEach(onWarning);
+  return plugins.map(({ name, description, catalog }) =>
+    ({ name, kind: "plugin", description, source: `catalog:${catalog}`, catalog, atril: {}, body: "" }));
+}
 
 const WEIGHTS = { name: 8, keywords: 4, description: 2, body: 1 };
 const tokenize = (text) => new Set(String(text).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
@@ -32,17 +43,23 @@ const scoreOf = (fields, terms) =>
 
 /**
  * The stores' artifacts, and (step 11a) what the catalogs offer, marked `installed: false`
- * with its `catalog`.
+ * with its `catalog`. Plugins of marketplace catalogs are hits of kind "plugin" (`plugins: false`
+ * leaves them out); a marketplace entry that was skipped goes to `onWarning`, by default to
+ * stderr (stdout is MCP's).
  * @param {string} query
- * @param {{ kind?: string, catalogs?: boolean } & Parameters<typeof scan>[0]} [opts] the rest goes to scan()
+ * @param {{ kind?: string, catalogs?: boolean, plugins?: boolean,
+ *   onWarning?: (warning: { catalog: string, entry: string, reason: string }) => void }
+ *   & Parameters<typeof scan>[0]} [opts] the rest goes to scan()
  * @returns {{ name: string, kind: string, description: string, source: string, installed: boolean, score: number, catalog?: string }[]}
  */
-export function search(query, { kind, catalogs: withCatalogs = true, ...scanOpts } = {}) {
+export function search(query, { kind, catalogs: withCatalogs = true, plugins: withPlugins = true, onWarning = toStderr, ...scanOpts } = {}) {
   const terms = typeof query === "string" ? [...tokenize(query)] : [];
   if (terms.length === 0) throw new Error("search needs a non-empty query");
   if (kind !== undefined && !KINDS.includes(kind)) throw new Error(`kind ${JSON.stringify(kind)} is not one of ${KINDS.join(", ")}`);
   const { artifacts } = scan(scanOpts);
-  const pool = withCatalogs ? [...artifacts, ...availableArtifacts(scanOpts, artifacts)] : artifacts;
+  const pool = withCatalogs
+    ? [...artifacts, ...availableArtifacts(scanOpts, artifacts), ...(withPlugins ? pluginHits(scanOpts, onWarning) : [])]
+    : artifacts;
   return pool
     .filter((artifact) => kind === undefined || artifact.kind === kind)
     .map((artifact) => ({ artifact, score: scoreOf(fieldsOf(artifact), terms) }))

@@ -52,6 +52,19 @@ describe("readMarketplace", () => {
     expect(() => readMarketplace(dir)).toThrow(`${file}: plugins[0] ("evil"): a plugin path must stay inside the marketplace`);
   });
 
+  it("with onSkip, a broken entry is skipped and reported, and the rest is read", () => {
+    write({ name: "acme", plugins: [{ name: "ok", source: "./ok" }, { name: "bad", source: { source: "npm" } }, { name: "ok", source: "./b" }] });
+    const skipped = [];
+    const { plugins } = readMarketplace(dir, { onSkip: (skip) => skipped.push(skip) });
+    expect(plugins.map((plugin) => plugin.name)).toEqual(["ok"]);
+    expect(skipped).toEqual([
+      { index: 1, name: "bad", reason: expect.stringMatching(/^unknown plugin source/) },
+      { index: 2, name: "ok", reason: "a plugin name appears twice" },
+    ]);
+    write("{nope");
+    expect(() => readMarketplace(dir, { onSkip: () => {} })).toThrow(`${file}: invalid JSON`);
+  });
+
   it("rejects a plugin name that appears twice", () => {
     write({ name: "acme", plugins: [{ name: "dup", source: "./a" }, { name: "dup", source: "./b" }] });
     expect(() => readMarketplace(dir)).toThrow(`${file}: plugins[1] ("dup"): a plugin name appears twice`);

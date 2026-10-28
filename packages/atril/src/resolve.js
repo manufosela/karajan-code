@@ -146,7 +146,7 @@ export function resolve({ task, role, budget = {}, projectDir, root, userRoot, e
   if (typeof task !== "string" || !task.trim()) throw new Error("resolve needs a non-empty task");
   if (role !== undefined && (typeof role !== "string" || !role.trim())) throw new Error("role must be a non-empty string");
   const byKey = new Map(scan(scanOpts).artifacts.map((a) => [keyOf(a), a]));
-  const hits = search(task, scanOpts);
+  const hits = search(task, { ...scanOpts, plugins: false });
   const best = hits.find((hit) => hit.installed && servesRole(byKey.get(keyOf(hit)), role));
   // Step 11a: what fits from the catalogs is proposed, never loaded; installing stays explicit.
   const available = hits.filter((hit) => !hit.installed).slice(0, 3)

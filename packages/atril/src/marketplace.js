@@ -30,21 +30,28 @@ const readEntry = (dir, entry) => {
   };
 };
 
-export function readMarketplace(dir) {
+/**
+ * @param {string} dir
+ * @param {{ onSkip?: (skip: { index: number, name: unknown, reason: string }) => void }} [opts]
+ *   with `onSkip` a broken entry is reported and left out instead of failing the whole read
+ */
+export function readMarketplace(dir, { onSkip } = {}) {
   const path = join(dir, ".claude-plugin", "marketplace.json");
   const marketplace = readJson(path);
   if (!isMapping(marketplace)) throw new Error(`${path}: a marketplace must be a JSON object`);
   if (!isSafeName(marketplace.name)) throw new Error(`${path}: a marketplace needs a name made of letters, digits and dashes`);
   if (!Array.isArray(marketplace.plugins)) throw new Error(`${path}: a marketplace needs a plugins list`);
   const seen = new Set();
-  const plugins = marketplace.plugins.map((entry, index) => {
+  const plugins = [];
+  marketplace.plugins.forEach((entry, index) => {
     try {
       const plugin = readEntry(dir, entry);
       if (seen.has(plugin.name)) throw new Error("a plugin name appears twice");
       seen.add(plugin.name);
-      return plugin;
+      plugins.push(plugin);
     } catch (error) {
-      throw new Error(`${path}: plugins[${index}] (${JSON.stringify(entry?.name)}): ${error.message}`, { cause: error });
+      if (!onSkip) throw new Error(`${path}: plugins[${index}] (${JSON.stringify(entry?.name)}): ${error.message}`, { cause: error });
+      onSkip({ index, name: entry?.name, reason: error.message });
     }
   });
   return { name: marketplace.name, plugins };
