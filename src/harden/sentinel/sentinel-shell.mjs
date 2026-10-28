@@ -174,7 +174,22 @@ const isGitCommit = (words) => {
   return words[0] === "git" && words[i] === "commit";
 };
 
-const isTextOnlyHead = (seg) => /^kj\s+(?:hu|adr|handoff)\s+add\b/.test(seg) || isGitCommit(seg.split(/\s+/));
+// KJC-BUG-0425: gh pr/issue/release commands only publish their text to GitHub.
+const isTextOnlyHead = (seg) => /^kj\s+(?:hu|adr|handoff)\s+add\b/.test(seg) || /^gh\s+(?:pr|issue|release)\s+(?:create|edit|comment|review)\b/.test(seg) || isGitCommit(seg.split(/\s+/));
+
+// KJC-BUG-0425: a heredoc whose delimiter is quoted expands nothing; read from stdin
+// by a text-only command, it is the text stored or published. The FIRST line equal to
+// the delimiter must be the last one, or the shell would run what follows it.
+const HEREDOC_HEAD = /^([^\n]*?)[ \t]*<<(-?)[ \t]*(['"])([A-Za-z_]\w*)\3[ \t]*$/;
+const READS_STDIN = /(^|\s)(?:--body-file|--notes-file|--file|-F)(?:=|\s+)-(?=\s|$)/;
+const quotedHeredocHead = (cmd) => {
+  const lines = cmd.replace(/\n$/, "").split("\n");
+  const m = lines.length > 1 ? HEREDOC_HEAD.exec(lines[0]) : null;
+  if (!m) return null;
+  const [, head, dash, , delim] = m;
+  const end = lines.findIndex((l, i) => i > 0 && (dash ? l.replace(/^\t+/, "") : l) === delim);
+  return end === lines.length - 1 && READS_STDIN.test(head) ? head : null;
+};
 
 /**
  * KJC-BUG-0354: blank the quoted text values (stripTextOptionValues) only when the
@@ -185,9 +200,10 @@ const isTextOnlyHead = (seg) => /^kj\s+(?:hu|adr|handoff)\s+add\b/.test(seg) || 
 export const stripTextOnlyCommandValues = (cmd) => {
   // Only a whole input that is ONE simple text-storage command: a chained
   // segment could follow a shell function that turns the stored text into code.
-  const bare = stripInertQuotes(cmd);
-  if (splitOutsideQuotes(cmd).length !== 1 || /[(){}<>`$\n]/.test(bare) || !isTextOnlyHead(cmd.trim())) return cmd;
-  return stripTextOptionValues(cmd);
+  const line = quotedHeredocHead(cmd) ?? cmd;
+  const bare = stripInertQuotes(line);
+  if (splitOutsideQuotes(line).length !== 1 || /[(){}<>`$\n]/.test(bare) || !isTextOnlyHead(line.trim())) return cmd;
+  return stripTextOptionValues(line);
 };
 
 /** Segments and the ; && || | between them, cut only outside quotes (the pieces join back to cmd). */

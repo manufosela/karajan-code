@@ -101,6 +101,8 @@ If the hook is broken, fixing it is the answer. There is no escape (ADR 0015): i
 
 The Sentinel's own files (`.karajan/harness`, hooks) are read-only from inside a session — a supervisor a session can edit is no supervisor. Only the human dismantles or regenerates it (`kj harden`), outside the session. Tampering is detected against what the installed kj itself would write.
 
+A Bash command that names them is denied unless the name is only text: the quoted title or body of `gh pr|issue|release create|edit|comment|review`, a commit message, or a heredoc with a quoted delimiter (`<<'EOF'`) that such a command reads from stdin (`--body-file -`, `-F -`). So a PR can describe a seal. Anything the Sentinel cannot prove is only text is still denied: a redirection, a chain, an unquoted heredoc (it expands `$( )`), or a heredoc that repeats its delimiter before the end.
+
 When they differ, kj tells three cases apart. If the file is exactly what `kj harden` wrote (it records a sha256 per file in `.karajan/harness/installed.json`) and no human sealed it, kj has simply moved on: it regenerates the file itself and says so in one line. If a human sealed it, it is left alone and you are told that advancing it is theirs. Anything else was changed after installation, and that blocks. Forging the record gains nothing: the only thing it enables is restoring the file from the installed kj.
 
 Human acts (sealing with `kj harden --commit`, enrolling the phone) are refused by the commands themselves when they run inside an agent session: the environment, the terminal, the process ancestry and a code typed back. The Sentinel does not read their text, so a card title or a commit message that mentions them passes; the phone key file itself stays off-limits to the session.
