@@ -129,7 +129,7 @@ export const sources = [
     // atril vive en este monorepo y la fuente está en INGLÉS: las páginas se
     // generan en la raíz (EN) y `es/` son las traducciones (ADR 0037).
     repo: 'manufosela/karajan-code',
-    ref: 'e8dffc272bdde0f63ca56059209b5791232e611b',
+    ref: '1f93ff844b77afbffd1f2683c35ff657f103286d',
     path: 'packages/atril/README.md',
     sourceLang: 'en',
     outDir: 'src/content/docs/atril',

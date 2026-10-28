@@ -3,7 +3,7 @@ title: 'Find, install and remove'
 description: 'Search the catalogs, install artifacts into the store and remove them.'
 ---
 
-<!-- synced-from: manufosela/karajan-code@e8dffc272bdde0f63ca56059209b5791232e611b:packages/atril/README.md · section-sha256: 44363e6f7a2eefe3d700bf2c8cad1df805620841a3ee775fcc223fa6b2f172ef
+<!-- synced-from: manufosela/karajan-code@1f93ff844b77afbffd1f2683c35ff657f103286d:packages/atril/README.md · section-sha256: 44363e6f7a2eefe3d700bf2c8cad1df805620841a3ee775fcc223fa6b2f172ef
      DO NOT EDIT BY HAND — regenerated with `npm run sync:family-docs` -->
 
 ```sh

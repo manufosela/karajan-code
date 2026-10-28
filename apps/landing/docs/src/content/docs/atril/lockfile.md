@@ -3,7 +3,7 @@ title: 'Lockfile, status and update'
 description: 'The versioned lockfile, atril status for CI and atril update.'
 ---
 
-<!-- synced-from: manufosela/karajan-code@e8dffc272bdde0f63ca56059209b5791232e611b:packages/atril/README.md · section-sha256: 5b063968f072b8070daebcada45b598b76015dd1b221bdd1ddcd077aa41ecade
+<!-- synced-from: manufosela/karajan-code@1f93ff844b77afbffd1f2683c35ff657f103286d:packages/atril/README.md · section-sha256: 5b063968f072b8070daebcada45b598b76015dd1b221bdd1ddcd077aa41ecade
      DO NOT EDIT BY HAND — regenerated with `npm run sync:family-docs` -->
 
 `atril.lock.json` sits in the store root (`.atril/atril.lock.json`, or under whatever `--root` or `ATRIL_ROOT` names). It records, per `kind:name`, where each installed artifact came from and a hash of its content:

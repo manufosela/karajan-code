@@ -3,7 +3,7 @@ title: 'rulesync and MCP server'
 description: 'Persistent pieces through rulesync and the atril MCP server.'
 ---
 
-<!-- synced-from: manufosela/karajan-code@e8dffc272bdde0f63ca56059209b5791232e611b:packages/atril/README.md · section-sha256: 6d4ab0511acef9c7d082f75a2de9b49af6f7291fd39dee1f57c90e338b6b879e
+<!-- synced-from: manufosela/karajan-code@1f93ff844b77afbffd1f2683c35ff657f103286d:packages/atril/README.md · section-sha256: 6d4ab0511acef9c7d082f75a2de9b49af6f7291fd39dee1f57c90e338b6b879e
      DO NOT EDIT BY HAND — regenerated with `npm run sync:family-docs` -->
 
 CLIs only accept slash commands they know. atril registers **one** in each CLI, the bridge `/atril <name or task>`, plus a router rule that tells the agent to ask atril before a task. Everything else stays on demand, unless you choose to expose it permanently:
