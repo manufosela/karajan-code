@@ -13,10 +13,14 @@ let dir;
 let calls;
 let manifest;
 let remote; // what `ls-remote` answers
+let layout; // the folder of the plugin inside the fetched repo
+let planted; // whether the fetch checks out a symlink
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "atril-plugin-fetch-"));
   calls = [];
   remote = "";
+  layout = "";
+  planted = false;
   manifest = { name: "lint-kit", version: "1.2.0" };
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -26,9 +30,16 @@ const git = (args, cwd) => {
   const [verb, ...rest] = args.slice(SAFE.length);
   calls.push([verb, ...rest]);
   if (verb === "fetch") {
-    mkdirSync(join(cwd, ".claude-plugin"), { recursive: true });
+    const at = join(cwd, layout); // where the plugin sits in the repo: "" is the root
+    mkdirSync(join(at, ".claude-plugin"), { recursive: true });
     mkdirSync(join(cwd, ".git"), { recursive: true });
-    if (manifest) writeFileSync(join(cwd, ".claude-plugin", "plugin.json"), JSON.stringify(manifest));
+    if (manifest) writeFileSync(join(at, ".claude-plugin", "plugin.json"), JSON.stringify(manifest));
+    if (layout) {
+      mkdirSync(join(cwd, "plugins", "other"), { recursive: true });
+      writeFileSync(join(cwd, "plugins", "other", "x.md"), "x");
+      writeFileSync(join(cwd, "README.md"), "root");
+    }
+    if (planted) symlinkSync("/etc/hosts", join(at, "link"));
     writeFileSync(join(cwd, "commit"), rest.at(-1));
   }
   if (verb === "ls-remote") {
@@ -153,6 +164,96 @@ describe("fetchPlugin (ls-remote)", () => {
       expect(() => fetchIt("acme/lint-kit#main")).toThrow(message);
     }
     expect(calls.some(([verb]) => verb === "fetch")).toBe(false);
+  });
+});
+
+describe("fetchPlugin (pins)", () => {
+  const marketplace = { source: "github", repo: "acme/lint-kit", ref: "main", sha: C1 };
+
+  it("takes the marketplace sha as the pin and never resolves the ref beside it", () => {
+    expect(fetchIt(marketplace).commit).toBe(C1);
+    expect(calls.some(([verb]) => verb === "ls-remote")).toBe(false);
+    expect(calls.find(([verb]) => verb === "fetch").at(-1)).toBe(C1);
+    expect(JSON.parse(state()).source).toEqual({ type: "github", repo: "acme/lint-kit", ref: "main", commit: C1 });
+  });
+
+  it("accepts an opts.commit that agrees with the sha", () => {
+    expect(fetchIt(marketplace, { commit: C1 }).status).toBe("fetched");
+  });
+
+  it("refuses pins that disagree, listing each, before any git call", () => {
+    expect(() => fetchIt(marketplace, { commit: C2 })).toThrow(/pins disagree.*commit b{40}.*sha a{40}/);
+    expect(() => fetchIt({ source: "url", url: "https://example.com/x.git", ref: C1, sha: C2 })).toThrow(/pins disagree.*sha b{40}.*ref a{40}/);
+    expect(calls).toEqual([]);
+  });
+
+  it("still rejects an invalid opts.commit next to a sha before any git call", () => {
+    expect(() => fetchIt(marketplace, { commit: "--upload-pack=x" })).toThrow(/pinned commit/);
+    expect(calls).toEqual([]);
+  });
+
+  it("never calls git again for a marketplace entry cached at its sha", () => {
+    fetchIt(marketplace);
+    calls.length = 0;
+    expect(fetchIt(marketplace, { name: "lint-kit" }).status).toBe("cached");
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("fetchPlugin (git-subdir)", () => {
+  const url = "https://github.com/acme/mono.git";
+  const sub = { source: "git-subdir", url, path: "plugins/lint-kit", ref: "main", sha: C1 };
+  const left = () => readdirSync(join(dir, "store", "plugins"));
+
+  it("caches exactly <path> at the pinned commit", () => {
+    layout = "plugins/lint-kit";
+    expect(fetchIt(sub)).toEqual({ name: "lint-kit", version: "1.2.0", commit: C1, dir: copy("1.2.0"), status: "fetched" });
+    expect(readdirSync(copy("1.2.0"))).toEqual([".claude-plugin"]);
+    expect(calls.some(([verb]) => verb === "ls-remote")).toBe(false);
+    expect(calls.find(([verb]) => verb === "fetch").at(-2)).toBe(url);
+    expect(left()).toEqual(["lint-kit"]);
+    expect(JSON.parse(state()).source).toEqual({ type: "git-subdir", url, path: "plugins/lint-kit", ref: "main", commit: C1 });
+    calls.length = 0;
+    expect(fetchIt(sub, { name: "lint-kit" }).status).toBe("cached");
+    expect(calls).toEqual([]);
+  });
+
+  it("refuses a path that is missing, naming url and path, and leaves nothing behind", () => {
+    layout = "elsewhere";
+    expect(() => fetchIt(sub)).toThrow(/mono\.git \(plugins\/lint-kit\): plugins\/lint-kit is not a folder at a{12}$/);
+    expect(left()).toEqual([]);
+  });
+
+  it("refuses a path that is a plain file, what a repo symlink becomes", () => {
+    layout = "plugins/lint-kit";
+    expect(() => fetchIt({ ...sub, path: "plugins/lint-kit/.claude-plugin/plugin.json" })).toThrow(/is not a folder/);
+    expect(left()).toEqual([]);
+  });
+
+  it("never caches git internals: .git is gone before the folder check", () => {
+    layout = "plugins/lint-kit";
+    expect(() => fetchIt({ ...sub, path: ".git" })).toThrow(/\.git is not a folder/);
+    expect(left()).toEqual([]);
+  });
+
+  it("refuses a symlink inside the folder and caches nothing", () => {
+    layout = "plugins/lint-kit";
+    planted = true;
+    expect(() => fetchIt(sub)).toThrow(/may not hold symlinks/);
+    expect(left()).toEqual([]);
+  });
+
+  it("refuses an unsafe path before any git call", () => {
+    for (const path of ["../x", "/etc", "a/../b", "a//b", ".", "a\\b"]) expect(() => fetchIt({ ...sub, path })).toThrow(/unknown plugin source/);
+    expect(calls).toEqual([]);
+  });
+
+  it("names url and path when git fails and leaves the plugins folder empty", () => {
+    const broken = () => {
+      throw new Error("boom");
+    };
+    expect(() => fetchPlugin(sub, o(), { git: broken })).toThrow(/mono\.git \(plugins\/lint-kit\).*boom/);
+    expect(left()).toEqual([]);
   });
 });
 
