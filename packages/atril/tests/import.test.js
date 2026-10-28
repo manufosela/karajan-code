@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { importSkills } from "../src/import.js";
+import { readLock } from "../src/lock.js";
 
 const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 let dir;
@@ -32,6 +33,7 @@ describe("atril import --from openskills", () => {
     expect(readFileSync(join(dir, "store", "skills", "lint", "rules.md"), "utf8")).toBe("rules");
     expect(existsSync(join(dir, ".claude", "skills", "lint"))).toBe(false);
     expect(existsSync(join(dir, ".agent", "skills", "fmt"))).toBe(false);
+    expect(readLock(o()).artifacts["skill:lint"]).toEqual({ origin: "import", from: "openskills", hash: expect.stringMatching(/^sha256:/) });
   });
 
   it("keeps the original when the store holds a different skill of that name", () => {

@@ -36,7 +36,7 @@ export function importSkills(from, opts = {}) {
       if (artifact.kind !== "skill" || artifact.name !== name) {
         throw new Error(`${folder}: an imported skill must be kind skill and named after its folder, not "${artifact.name}"`);
       }
-      const result = installSkillFolder(folder, opts, Boolean(artifact.kindDefaulted));
+      const result = installSkillFolder(folder, { ...opts, origin: { origin: "import", from } }, Boolean(artifact.kindDefaulted));
       rmSync(folder, { recursive: true });
       done.push({ ...result, from: join(rel, name) });
     }
