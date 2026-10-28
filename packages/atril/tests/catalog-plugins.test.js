@@ -76,11 +76,13 @@ describe("search over plugins", () => {
     writeConfig({ catalogs: ["mkt"] }, o());
   });
 
-  it("a plugin hit is kind plugin, not installed, with its catalog", () => {
+  it("a plugin hit is kind plugin, not installed, with its catalog; --kind plugin filters", () => {
     vi.spyOn(process.stderr, "write").mockReturnValue(true);
     expect(search("refactor", o())).toEqual([
       { name: "tdd-kit", kind: "plugin", description: "Red green refactor", source: "catalog:mkt", installed: false, score: 2, catalog: "mkt" },
     ]);
+    expect(search("tdd", { ...o(), kind: "plugin" }).map((hit) => hit.name)).toEqual(["tdd-kit"]);
+    expect(search("tdd", { ...o(), kind: "skill" })).toEqual([]);
   });
 
   it("plugins: false and catalogs: false leave plugins out; no description never matches 'undefined'", () => {
@@ -88,6 +90,10 @@ describe("search over plugins", () => {
     expect(search("refactor", { ...o(), plugins: false })).toEqual([]);
     expect(search("refactor", { ...o(), catalogs: false })).toEqual([]);
     expect(search("undefined", o())).toEqual([]);
+  });
+
+  it("an unknown kind lists plugin among the valid ones", () => {
+    expect(() => search("tdd", { ...o(), kind: "bogus" })).toThrow(/plugin/);
   });
 
   it("a skipped entry reaches onWarning, or stderr, and never stdout", () => {
@@ -99,6 +105,12 @@ describe("search over plugins", () => {
     search("tdd", o());
     expect(err).toHaveBeenCalledWith(expect.stringContaining('catalog "mkt": plugins[2] ("bad") skipped: unknown plugin source'));
     expect(out).not.toHaveBeenCalled();
+  });
+
+  it("onWarning receives the warning alone, not forEach's index and array", () => {
+    const onWarning = vi.fn();
+    search("tdd", { ...o(), onWarning });
+    expect(onWarning.mock.calls.map((args) => args.length)).toEqual([1]);
   });
 
   it("resolve never proposes a plugin as available", () => {
