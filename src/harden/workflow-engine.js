@@ -16,6 +16,13 @@ import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
+// KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
+// listens to pull_request, the new one to pull_request_target), so policy-check never reports.
+export const POLICY_TRIGGER_MOVE_NOTE =
+  "kj-policy.yml moves from pull_request to pull_request_target (judged from the base branch). " +
+  "The PR that brings this change gets no policy-check run: if policy-check is a required check, " +
+  "merge that one PR as an admin after the other checks pass; from then on the base runs the judge.";
+
 // La versión del kj que corre harden — es la que se pinea en el fallback
 // npx del workflow de policy (jamás @latest en CI). Lectura LAZY: en el
 // bundle SEA no hay package.json junto al módulo y una lectura eager a
@@ -125,7 +132,9 @@ export function installWorkflows({
       // pre-commit rechaza el fichero recién generado.
       writeFileSync(target, content.endsWith("\n") ? content : `${content}\n`);
     }
-    results.push({ file: label, action });
+    // KJC-BUG-0424: the PR that moves the trigger cannot report policy-check.
+    const movesTrigger = wf.blockId === "wf-policy" && action !== "unchanged" && /^\s*pull_request:\s*$/m.test(source);
+    results.push({ file: label, action, ...(movesTrigger ? { note: POLICY_TRIGGER_MOVE_NOTE } : {}) });
   }
   return { dryRun, workflows: results };
 }
