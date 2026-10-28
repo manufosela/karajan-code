@@ -69,7 +69,7 @@ describe("readPluginManifest", () => {
 
   it("rejects a manifest without a usable name, or with invalid JSON", () => {
     write("no-name/plugin.json", "{}");
-    for (const bad of ["../evil", "a:b", "a__b"]) {
+    for (const bad of ["../evil", "a:b", "a__b", "MyPlugin"]) {
       manifest("unsafe/plugin.json", bad);
       expect(() => readPluginManifest(root("unsafe"))).toThrow(root("unsafe/plugin.json"));
     }
