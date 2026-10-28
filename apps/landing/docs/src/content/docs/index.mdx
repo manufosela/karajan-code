@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.70.1: the CI policy check is judged from the base branch (current)
+### v4.70.2: the CI policy check works in projects that commit their config (current)
+
+`policy-check` no longer dies in projects that commit their `.karajan/kj.config.yml` (CI has no global config: there the project's sits on the defaults). With npm 12, `kj doctor` and the RAG say exactly how to build `better-sqlite3`, which npm 12 leaves unbuilt. `kj policy add` works with reviewer claude, and a PR can describe a seal without the Sentinel stopping it.
+
+### v4.70.1: the CI policy check is judged from the base branch
 
 Security fix (GHSA-3xrh-frxv-mwxr): the `kj-policy.yml` workflow that `kj harden` seeds ran from the PR's own copy, so a PR could rewrite the step that judges it. It now runs on `pull_request_target`: the workflow and the kj that judges come from the base branch, and the PR is only read. It also works outside kj's own repo now (issue #2666). Run `kj harden` again and seal it (`kj harden --commit`) to get the new workflow.
 
