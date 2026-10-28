@@ -1,16 +1,22 @@
 // ADR 0021, plan step 13b1: a plugin is normalized before `rulesync import`
-// (flat .mcp.json wrapped) and its server count kept for the check after it.
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+// (flat .mcp.json wrapped) and its server count kept for the check after it;
+// lossyFields reports what the import would drop.
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { countServers, prepareImport, wrapMcp } from "../src/plugin-normalize.js";
+import { countServers, lossyFields, prepareImport, wrapMcp } from "../src/plugin-normalize.js";
 
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-normalize-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-const write = (rel, value) => writeFileSync(join(dir, rel), typeof value === "string" ? value : JSON.stringify(value));
+const write = (rel, value) => {
+  const file = join(dir, rel);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+};
+
 const read = (rel) => JSON.parse(readFileSync(join(dir, rel), "utf8"));
 const server = { command: "npx", args: ["srv"] };
 
@@ -63,5 +69,49 @@ describe("prepareImport", () => {
   it("throws with the path on invalid JSON", () => {
     write(".mcp.json", "{ nope");
     expect(() => prepareImport(dir)).toThrow(join(dir, ".mcp.json"));
+  });
+});
+describe("lossyFields", () => {
+  const manifest = (extra = {}) => write(".claude-plugin/plugin.json", { name: "kit", ...extra });
+
+  it("is empty for a plugin the import keeps whole", () => {
+    manifest();
+    write("hooks/hooks.json", { hooks: { Stop: [{ hooks: [{ type: "command", command: "x" }] }] } });
+    expect(lossyFields(dir)).toEqual([]);
+  });
+
+  it("reports modules and rewake fields in hooks.json, sorted", () => {
+    manifest();
+    write("hooks/hooks.json", {
+      modules: ["m"],
+      hooks: {
+        Stop: [{ hooks: [{ command: "x", rewakeSummary: "s" }] }],
+        PreToolUse: [{ matcher: "*", hooks: [{ command: "y" }, { command: "z", rewakeMessage: "m" }] }],
+      },
+    });
+    const file = join("hooks", "hooks.json");
+    expect(lossyFields(dir)).toEqual([
+      { file, field: "rewakeMessage", where: "hooks.PreToolUse[0].hooks[1]" },
+      { file, field: "rewakeSummary", where: "hooks.Stop[0].hooks[0]" },
+      { file, field: "modules", where: "modules" },
+    ]);
+  });
+
+  it("throws when hooks.json is not an object", () => {
+    manifest();
+    write("hooks/hooks.json", []);
+    expect(() => lossyFields(dir)).toThrow("must be a JSON object");
+  });
+
+  it("reports inline hooks and mcpServers in the manifest, not path strings", () => {
+    manifest({ hooks: {}, mcpServers: {}, commands: "./x" });
+    expect(lossyFields(dir)).toHaveLength(2);
+    manifest({ hooks: "./hooks/hooks.json", mcpServers: {} });
+    expect(lossyFields(dir)).toHaveLength(1);
+    manifest({ hooks: {}, mcpServers: {} });
+    expect(lossyFields(dir)).toEqual([
+      { file: "plugin.json", field: "hooks", where: "claude manifest" },
+      { file: "plugin.json", field: "mcpServers", where: "claude manifest" },
+    ]);
   });
 });
