@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.70.1] - 2026-10-28
+
+Patch, cut from 4.70.0 (tag `v4.70.1` on the branch `release/KJC-TSK-1260-v4.70.1`): main already carries changes for 5.0.0. Security fix for the CI policy check that `kj harden` seeds (GHSA-3xrh-frxv-mwxr), which also makes it work in projects other than kj's own.
+
+### Security
+
+- **The policy check in CI is judged from the base branch** (KJC-BUG-0419, GHSA-3xrh-frxv-mwxr): `kj-policy.yml` ran on `pull_request`, so GitHub used the PR's own copy of the workflow and a PR could rewrite the step that judges it and pass. It now runs on `pull_request_target`: the workflow and the kj that judges come from the base branch, and the PR is fetched into its own worktree where kj only reads it; nothing from the PR is installed or executed. Projects hardened with an earlier kj get the new workflow by running `kj harden` again and sealing it (`kj harden --commit`).
+
+### Fixed
+
+- **`policy-check` works outside kj's own repo** (KJC-BUG-0422, issue #2666): the workflow ran `npx --yes karajan-code@<version>`, and npx could not tell which of the package's binaries to run, so the job failed before judging anything. The pinned kj is now installed apart (`--ignore-scripts`) and run with node.
+- **Production dependencies patched** (KJC-BUG-0416): fast-uri, hono, ip-address and postcss move to releases that fix their moderate advisories.
+
 ## [4.70.0] - 2026-10-27
 
 Minor, cut from 4.69.0 (tag `v4.70.0` on the branch `release/KJC-TSK-1252-v4.70.0`): main already carries changes for 5.0.0. A high-level spec becomes a detailed one you accept before the plan.
