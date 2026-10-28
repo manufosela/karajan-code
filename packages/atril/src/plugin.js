@@ -17,7 +17,7 @@ const MANIFESTS = [
 ];
 
 // The name prefixes store names and refs: no path separators, no ":" or "__".
-export const SAFE_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/i;
+export const SAFE_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const findManifest = (dir) => {
   const found = MANIFESTS.find(({ file }) => existsSync(join(dir, file)));
@@ -46,7 +46,7 @@ export function readPluginManifest(dir) {
   const { format, path } = findManifest(dir);
   const manifest = readJson(path);
   if (!isMapping(manifest)) throw new Error(`${path}: a manifest must be a JSON object`);
-  if (typeof manifest.name !== "string" || !SAFE_NAME.test(manifest.name)) throw new Error(`${path}: a manifest needs a name made of letters, digits and dashes`);
+  if (typeof manifest.name !== "string" || !SAFE_NAME.test(manifest.name)) throw new Error(`${path}: a manifest needs a name made of lowercase letters, digits and dashes`);
   return { format, name: manifest.name, version: manifest.version, manifest };
 }
 

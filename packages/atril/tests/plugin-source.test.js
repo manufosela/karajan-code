@@ -52,7 +52,7 @@ describe("pluginPaths", () => {
   });
 
   it("rejects a name or a version that escapes the cache", () => {
-    for (const [name, version] of [["..", "1.0.0"], ["a/b", "1.0.0"], ["kit", ".."], ["kit", "1/2"], ["kit", "1\\2"], ["kit", ""], ["kit", "..."], ["kit", undefined]]) {
+    for (const [name, version] of [["..", "1.0.0"], ["a/b", "1.0.0"], ["Kit", "1.0.0"], ["kit", ".."], ["kit", "1/2"], ["kit", "1\\2"], ["kit", ""], ["kit", "..."], ["kit", undefined]]) {
       expect(() => pluginPaths("/r", name, version)).toThrow(/plugin (name|version)/);
     }
   });
