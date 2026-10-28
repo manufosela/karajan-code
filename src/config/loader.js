@@ -126,7 +126,10 @@ export async function loadConfig(projectDir) {
   // a .karajan dir from another repo, edited the wrong file, etc.) and
   // would silently behave like a global config without the defaults
   // people expect. Refuse with an actionable message.
-  if ((projectConfig || localConfig) && !globalExists) {
+  // KJC-BUG-0428 (issue #2694): a CI runner never has a global config; there the
+  // team's committed project config sits on the defaults instead. A member's local
+  // config is never committed, so without a global it is still refused, in CI too.
+  if (!globalExists && (localConfig || (projectConfig && !process.env.CI))) {
     const found = projectConfig ? getProjectConfigPath(projectDir) : getLocalConfigPath(projectDir);
     throw new Error(
       `Local config found at ${found} but no global config exists.\n` +
