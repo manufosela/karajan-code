@@ -15,8 +15,8 @@ import { HOST_SETTINGS, isSealedConfig, PROVENANCE_FILE } from "../harden/superv
 
 const HOOKS_PREFIX = ".karajan/hooks/";
 const HARNESS_PREFIX = ".karajan/harness/";
-// globalHooksDir es el único texto libre que se interpola en el render:
-// vocabulario cerrado de ruta o la provenance no verifica NADA.
+// HU-2762: el render ya no interpola globalHooksDir; se conserva el guard para
+// provenances antiguas, donde era texto libre: vocabulario cerrado o no verifica NADA.
 const SAFE_DIR = /^(\$HOME)?(\/[\w.@%+~-]+)+$/;
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
