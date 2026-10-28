@@ -5,7 +5,7 @@
  * fetched into a staging folder, verified, and only then moved into place.
  */
 import { randomUUID } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { writeAtomic } from "./atomic.js";
 import { refuseLinks } from "./catalog-install.js";
@@ -39,10 +39,14 @@ const lsRemote = (url, ref, git, cwd) => {
   return sha;
 };
 
+// opts.commit, then the marketplace sha, then a ref that is already a commit: all those given must agree.
+// A branch or tag ref beside a pin is informational and is never resolved.
 const pinOf = (source, opts, url, git, cwd) => {
-  if (opts.commit === undefined && !COMMIT.test(source.ref ?? "")) return lsRemote(url, source.ref ?? "HEAD", git, cwd);
-  const commit = opts.commit ?? source.ref;
+  const pins = [["commit", opts.commit], ["sha", source.commit], ["ref", COMMIT.test(source.ref ?? "") ? source.ref : undefined]].filter(([, pin]) => pin !== undefined);
+  if (!pins.length) return lsRemote(url, source.ref ?? "HEAD", git, cwd);
+  const [[, commit]] = pins;
   if (typeof commit !== "string" || !COMMIT.test(commit)) throw new Error("needs a pinned commit of 40 hex characters");
+  if (pins.some(([, pin]) => pin !== commit)) throw new Error(`the pins disagree: ${pins.map(([key, pin]) => `${key} ${pin}`).join(", ")}`);
   return commit;
 };
 
@@ -56,7 +60,7 @@ const pinOf = (source, opts, url, git, cwd) => {
 export function fetchPlugin(spec, opts = {}, { git = defaultGit, gitBase = "https://github.com" } = {}) {
   const source = parsePluginSource(spec);
   if (source.type === "marketplace-url") throw new Error(`${source.url} is a marketplace, not a plugin`);
-  const label = source.repo ?? source.url ?? source.path;
+  const label = source.type === "git-subdir" ? `${source.url} (${source.path})` : (source.repo ?? source.url ?? source.path);
   const project = resolve(opts.projectDir ?? process.cwd());
   const local = source.type === "path" ? resolve(project, source.path) : null; // cannot be pinned: copied on every call
   const root = resolve(project, resolveRoot(opts));
@@ -68,6 +72,7 @@ export function fetchPlugin(spec, opts = {}, { git = defaultGit, gitBase = "http
 
   const staging = join(root, "plugins", `.staging-${randomUUID()}`);
   const old = `${staging}.old`;
+  const repo = `${staging}.repo`; // a git-subdir checkout: only <path> of it is kept
   try {
     if (opts.name !== undefined && !SAFE_NAME.test(opts.name)) throw new Error(`invalid plugin name: ${JSON.stringify(opts.name)}`);
     if (local) refuseLinks(local);
@@ -79,6 +84,12 @@ export function fetchPlugin(spec, opts = {}, { git = defaultGit, gitBase = "http
     if (local) {
       cpSync(local, staging, { recursive: true, filter: (path) => basename(path) !== ".git" });
       refuseLinks(staging); // a link planted after the first check never reaches the cache
+    } else if (source.type === "git-subdir") {
+      fetchInto(repo, url, commit, git);
+      const from = join(repo, ...source.path.split("/")); // parsePluginSource only lets plain segments through
+      if (!lstatSync(from, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${source.path} is not a folder at ${commit.slice(0, 12)}`);
+      renameSync(from, staging); // a sibling folder: no copy
+      refuseLinks(staging);
     } else fetchInto(staging, url, commit, git);
     const { name, version = commit?.slice(0, 12) ?? "local" } = readPluginManifest(staging);
     if (opts.name && opts.name !== name) throw new Error(`the plugin is named "${name}", not "${opts.name}"`);
@@ -113,5 +124,6 @@ export function fetchPlugin(spec, opts = {}, { git = defaultGit, gitBase = "http
   } finally {
     rmSync(staging, { recursive: true, force: true });
     rmSync(old, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true });
   }
 }
