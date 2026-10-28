@@ -70,13 +70,15 @@ describe("governedExecFile", () => {
     // The child spawns a grandchild that would outlive it if only the
     // direct child were killed — exactly the orphaned semgrep-core case.
     const script = "const{spawn}=require('node:child_process');const g=spawn(process.execPath,['-e','setInterval(()=>{},1e3)']);console.log('grandchild:'+g.pid);setInterval(()=>{},1e3);";
-    const err = await governedExecFile(process.execPath, ["-e", script], { timeout: 1500 }).catch((e) => e);
+    // KJC-BUG-0421: the timeout leaves room for two node processes to start on a loaded
+    // machine (the full suite); at 1.5 s it fired before the grandchild existed.
+    const err = await governedExecFile(process.execPath, ["-e", script], { timeout: 5000 }).catch((e) => e);
     expect(err.killed).toBe(true);
     const grandchildPid = Number(String(err.stdout).match(/grandchild:(\d+)/)?.[1]);
     expect(grandchildPid).toBeGreaterThan(0);
     await new Promise((r) => setTimeout(r, 200));
     expect(() => process.kill(grandchildPid, 0)).toThrow(); // dead → ESRCH
-  });
+  }, 20_000);
 });
 
 describe("runGoverned", () => {
