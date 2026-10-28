@@ -7,6 +7,7 @@
  */
 import { cpSync, existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { forgetInstall, readLock, recordInstall } from "./lock.js";
 import { KINDS, SLUG, parseArtifact } from "./model.js";
 import { LAYOUT, resolveRoot } from "./scan.js";
 
@@ -28,10 +29,11 @@ const sameContent = (a, b) => {
 
 /**
  * @param {string} ref a local path: a skill folder, or a command or agent .md file
- * @param {{ kind?: string, root?: string, projectDir?: string, env?: object }} [opts]
+ * @param {{ kind?: string, root?: string, projectDir?: string, env?: object }} [opts] `origin` is what the lockfile records (default local, no path)
  * @returns {{ kind: string, name: string, path: string, status: "installed" | "unchanged" }}
  */
 export function install(ref, opts = {}) {
+  const origin = opts.origin ?? { origin: "local" };
   const source = resolve(opts.projectDir ?? process.cwd(), ref);
   if (!existsSync(source)) throw new Error(`${source} does not exist`);
   // cpSync keeps a symlink source as a link: the stored artifact would follow its target.
@@ -46,10 +48,18 @@ export function install(ref, opts = {}) {
   if (opts.kind && opts.kind !== kind) throw new Error(`${file}: declares kind ${kind}, not ${opts.kind}`);
   const path = target(name, { ...opts, kind });
   if (existsSync(path)) {
-    if (sameContent(source, path)) return { kind, name, path, status: "unchanged" };
-    throw new Error(`${kind}:${name} already exists at ${path} with different content; remove it first`);
+    if (!sameContent(source, path)) throw new Error(`${kind}:${name} already exists at ${path} with different content; remove it first`);
+    // Never rewrites an existing origin; only fills a missing record.
+    if (!Object.hasOwn(readLock(opts).artifacts, `${kind}:${name}`)) recordInstall({ kind, name, path }, origin, opts);
+    return { kind, name, path, status: "unchanged" };
   }
   cpSync(source, path, { recursive: true });
+  try {
+    recordInstall({ kind, name, path }, origin, opts);
+  } catch (err) {
+    rmSync(path, { recursive: true, force: true });
+    throw err;
+  }
   return { kind, name, path, status: "installed" };
 }
 
@@ -60,7 +70,12 @@ export function install(ref, opts = {}) {
  */
 export function remove(name, opts) {
   const path = target(name, opts);
-  if (!existsSync(path)) throw new Error(`${opts.kind}:${name} is not installed in ${path}`);
-  rmSync(path, { recursive: true });
+  const key = `${opts.kind}:${name}`;
+  // Reading first validates the lock before anything is deleted.
+  const tracked = Object.hasOwn(readLock(opts).artifacts, key);
+  if (!existsSync(path) && !tracked) throw new Error(`${key} is not installed in ${path}`);
+  // Delete, then forget: a failure in between leaves the entry, so a retry finishes the job.
+  rmSync(path, { recursive: true, force: true });
+  forgetInstall(key, opts);
   return { kind: opts.kind, name, path };
 }
