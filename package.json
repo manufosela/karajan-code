@@ -94,12 +94,6 @@
     "prepublishOnly": "node scripts/verify-pack.mjs",
     "verify-quickstart": "node scripts/quickstart-gate.mjs"
   },
-  "simple-git-hooks": {
-    "pre-commit": "npx lint-staged"
-  },
-  "lint-staged": {
-    "src/**/*.js": "eslint --max-warnings=999"
-  },
   "overrides": {
     "fast-uri": "^3.1.2"
   },
@@ -141,10 +135,8 @@
     "eslint-plugin-node-security": "5.2.2",
     "eslint-plugin-security": "^4.0.0",
     "globals": "^17.6.0",
-    "lint-staged": "^17.0.7",
     "postject": "^1.0.0-alpha.6",
     "prettier": "^3.4.2",
-    "simple-git-hooks": "^2.13.1",
     "smol-toml": "^1.7.0",
     "vitest": "^4.1.8"
   }
