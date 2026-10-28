@@ -17,6 +17,7 @@ import { catalogSync } from "../src/fetch.js";
 import { applyCatalogUpdate, catalogUpdates } from "../src/update.js";
 import { installFromCatalog, isCatalogRef } from "../src/catalog-install.js";
 import { importSkills } from "../src/import.js";
+import { status } from "../src/status.js";
 import { createInterface } from "node:readline/promises";
 import { applyRecommended, recommended } from "../src/recommended.js";
 import { answersFor, askAnswers, offered } from "../src/init.js";
@@ -31,6 +32,7 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
   + "       atril catalog sync [--root <dir>]\n       atril catalog update [--apply] [--root <dir>]\n"
   + "       atril import --from openskills [--root <dir>]\n       atril recommended [--root <dir>] [--json]\n"
+  + "       atril status [--check] [--root <dir>] [--json]\n"
   + "       atril init [--yes] [--recommended=on-demand|persistent|none] [--root <dir>] [--json]"
   + "  (--recommended wins over --yes)";
 
@@ -241,6 +243,26 @@ function runRoute(args) {
   for (const { kind, name, catalog } of available) console.log(`available\t${kind}:${name}\tfrom ${printable(catalog)}`);
 }
 
+const describeOrigin = (origin) => {
+  if (!origin) return "unknown";
+  const { origin: kind, catalog, source, commit, from } = origin;
+  const pinned = source && `${source}${commit ? `@${commit.slice(0, 12)}` : ""}`;
+  return [kind, ...(kind === "catalog" ? [catalog, pinned] : [from])].filter(Boolean).join(" ");
+};
+
+function runStatus(args) {
+  const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" }, check: { type: "boolean" } } });
+  const rows = status({ root: values.root });
+  if (values.json) console.log(JSON.stringify(rows, null, 2));
+  else if (rows.length === 0) console.log("nothing installed");
+  else {
+    for (const { state, kind, name, origin } of rows) console.log(`${state}\t${kind}:${name}\t${printable(describeOrigin(origin))}`);
+    const count = (wanted) => rows.filter(({ state }) => state === wanted).length;
+    console.log(`${count("ok")} ok, ${count("edited")} edited, ${count("missing")} missing, ${count("uncurated")} uncurated`);
+  }
+  if (values.check && rows.some(({ state }) => state === "edited" || state === "missing")) process.exitCode = 1;
+}
+
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "--version" || command === "-v") console.log(VERSION);
@@ -257,6 +279,7 @@ try {
   else if (command === "catalog") runCatalog(rest);
   else if (command === "import") runImport(rest);
   else if (command === "recommended") runRecommended(rest);
+  else if (command === "status") runStatus(rest);
   else if (command === "init") await runInit(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
