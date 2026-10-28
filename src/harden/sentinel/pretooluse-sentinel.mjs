@@ -84,8 +84,9 @@ process.stdin.on("end", () => {
     // substitution) cannot be resolved from command text: that vector is
     // caught by the Stop gate's checksum verification, which blocks the turn.
     // KJC-TSK-1114: where the host sandbox denies writing them, the sandbox guards them instead.
+    // KJC-BUG-0425 (ADR 0036): text a command only publishes or stores (a PR description) is not a write.
     const SUPERVISOR_PATHS = [".claude/settings.json", ".karajan/hooks", ".karajan/harness"];
-    if (tool === "Bash" && PROTECTED.test(String(input.command || "").replaceAll("\\", "/")) && !sandboxCovers(ROOT, SUPERVISOR_PATHS)) {
+    if (tool === "Bash" && PROTECTED.test(stripTextOnlyCommandValues(String(input.command || "")).replaceAll("\\", "/")) && !sandboxCovers(ROOT, SUPERVISOR_PATHS)) {
       console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);
     }
