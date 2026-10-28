@@ -143,13 +143,12 @@ export function availablePlugins(opts = {}) {
 }
 
 /**
- * What the catalogs offer that the stores do not hold, each with its `catalog`. The first
- * catalog listed wins a name two of them share; a source not fetched yet offers nothing.
+ * Everything the catalogs offer, held by the stores or not, each with its `catalog` (and `pin`).
+ * The first catalog listed wins a name two of them share; a source not fetched yet offers nothing.
  * @param {Parameters<typeof scan>[0]} [opts]
- * @param {object[]} [held] the stores' artifacts, when the caller already scanned them
  */
-export function availableArtifacts(opts = {}, held = scan(opts).artifacts) {
-  const seen = new Set(held.map(keyOf));
+export function catalogArtifacts(opts = {}) {
+  const seen = new Set();
   const found = [];
   for (const catalog of catalogs(opts)) {
     for (const { dir, scanOf, pin } of offered(opts, catalog)) {
@@ -161,4 +160,13 @@ export function availableArtifacts(opts = {}, held = scan(opts).artifacts) {
     }
   }
   return found;
+}
+
+/**
+ * What the catalogs offer that the stores do not hold.
+ * @param {object[]} [held] the stores' artifacts, when the caller already scanned them
+ */
+export function availableArtifacts(opts = {}, held = scan(opts).artifacts) {
+  const heldKeys = new Set(held.map(keyOf));
+  return catalogArtifacts(opts).filter((artifact) => !heldKeys.has(keyOf(artifact)));
 }

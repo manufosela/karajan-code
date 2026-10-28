@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RECOMMENDED, catalogs } from "../src/catalog.js";
+import { RECOMMENDED, availableArtifacts, catalogArtifacts, catalogs } from "../src/catalog.js";
 import { writeConfig } from "../src/config.js";
 import { resolve } from "../src/resolve.js";
 import { search } from "../src/search.js";
@@ -70,6 +70,11 @@ describe("available artifacts", () => {
     ]);
   });
 
+  it("catalogArtifacts also lists what the stores hold; the first catalog wins a shared name", () => {
+    const names = (list) => list.filter(({ name }) => ["review", "deploy"].includes(name)).map(({ name, catalog }) => `${name}:${catalog}`);
+    expect(names(catalogArtifacts(o()))).toEqual(["deploy:kit", "review:kit"]);
+    expect(names(availableArtifacts(o()))).toEqual(["deploy:kit"]);
+  });
   it("are proposed by resolve, never loaded", () => {
     const result = resolve({ task: "deploy the app", ...o() });
     expect(result.block).toEqual([]);

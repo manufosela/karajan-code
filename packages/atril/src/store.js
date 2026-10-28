@@ -5,8 +5,9 @@
  * existing artifact is never overwritten: the same content is a no-op,
  * different content fails naming it.
  */
-import { cpSync, existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
+import { cpSync, existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { forgetInstall, readLock, recordInstall } from "./lock.js";
 import { KINDS, SLUG, parseArtifact } from "./model.js";
 import { LAYOUT, resolveRoot } from "./scan.js";
@@ -29,7 +30,7 @@ const sameContent = (a, b) => {
 
 /**
  * @param {string} ref a local path: a skill folder, or a command or agent .md file
- * @param {{ kind?: string, root?: string, projectDir?: string, env?: object }} [opts] `origin` is what the lockfile records (default local, no path)
+ * @param {{ kind?: string, root?: string, projectDir?: string, env?: object, replace?: boolean }} [opts] `origin` is what the lockfile records (default local, no path); `replace` swaps different content in atomically
  * @returns {{ kind: string, name: string, path: string, status: "installed" | "unchanged" }}
  */
 export function install(ref, opts = {}) {
@@ -47,19 +48,36 @@ export function install(ref, opts = {}) {
   if (isFolder !== (kind === "skill")) throw new Error(`${source}: a ${kind} must be a ${kind === "skill" ? "folder" : "file"}`);
   if (opts.kind && opts.kind !== kind) throw new Error(`${file}: declares kind ${kind}, not ${opts.kind}`);
   const path = target(name, { ...opts, kind });
-  if (existsSync(path)) {
-    if (!sameContent(source, path)) throw new Error(`${kind}:${name} already exists at ${path} with different content; remove it first`);
-    // Never rewrites an existing origin; only fills a missing record.
-    if (!Object.hasOwn(readLock(opts).artifacts, `${kind}:${name}`)) recordInstall({ kind, name, path }, origin, opts);
+  const held = existsSync(path);
+  if (held && sameContent(source, path)) {
+    // Never rewrites an existing origin unless replacing; otherwise only fills a missing record.
+    if (opts.replace || !Object.hasOwn(readLock(opts).artifacts, `${kind}:${name}`)) recordInstall({ kind, name, path }, origin, opts);
     return { kind, name, path, status: "unchanged" };
   }
-  cpSync(source, path, { recursive: true });
+  if (held && !opts.replace) throw new Error(`${kind}:${name} already exists at ${path} with different content; remove it first`);
+  // `replace` stages the copy in a hidden sibling (scanStore skips dot names) and moves the old one aside, so a failure puts it back.
+  const hidden = (tag) => join(dirname(path), `.${basename(path)}.${tag}.${randomUUID()}`);
+  const [staged, aside] = ["new", "old"].map(hidden);
   try {
+    if (held) {
+      cpSync(source, staged, { recursive: true });
+      renameSync(path, aside);
+      renameSync(staged, path);
+    } else {
+      cpSync(source, path, { recursive: true });
+    }
     recordInstall({ kind, name, path }, origin, opts);
   } catch (err) {
-    rmSync(path, { recursive: true, force: true });
+    rmSync(staged, { recursive: true, force: true });
+    if (existsSync(aside)) {
+      rmSync(path, { recursive: true, force: true });
+      renameSync(aside, path);
+    } else if (!held) {
+      rmSync(path, { recursive: true, force: true });
+    }
     throw err;
   }
+  rmSync(aside, { recursive: true, force: true });
   return { kind, name, path, status: "installed" };
 }
 
