@@ -15,7 +15,7 @@ through indirect means:
 - **Build/test config files** referenced by name (e.g. a Vitest
   `provider: "v8"` referencing `@vitest/coverage-v8`).
 - **Git hooks** installed once into `.git/hooks/` by the package itself
-  (e.g. `simple-git-hooks`).
+  (e.g. `simple-git-hooks`, removed from this repo by KJC-BUG-0417).
 - **Scripts on disk** invoked via `npx` from shell scripts or CI
   workflows (e.g. `postject` invoked by `scripts/build-sea.mjs`).
 - **External infrastructure** with config in dot-folders (e.g.
@@ -34,7 +34,7 @@ Investigation tracked in KJC-TSK-0353 / GH issue #574.
 | `@changesets/cli` | **Keep** | `.changeset/config.json` references `@changesets/cli/changelog`. PR #360 (Jorge del Casar) is in flight against changesets infra. |
 | `@vitest/coverage-v8` | **Keep** | `vitest.config.js` declares `coverage.provider = "v8"`. Activated when running `npx vitest run --coverage`. |
 | `postject` | **Keep** | `scripts/build-sea.mjs` invokes `npx postject` to inject the SEA blob into the binary. Workflow `release-binaries.yml` depends on this for every release. |
-| `simple-git-hooks` | **Keep** | Hook installed at `.git/hooks/pre-commit` (runs `npx lint-staged`). Config block in `package.json` under `"simple-git-hooks"`. |
+| `simple-git-hooks` | **Removed (KJC-BUG-0417, 2026-10-28)** | Superseded by the governance hooks in `.karajan/hooks` (`core.hooksPath`), whose pre-commit already runs eslint and prettier. Its postinstall wrote into that folder on every `npm install` and wiped the governance hooks (KJC-BUG-0135, KJC-BUG-0417). `lint-staged` went with it. |
 
 ## Process for future audits
 
@@ -141,7 +141,7 @@ did. Verified one by one:
 | `express`, `express-rate-limit`, `helmet` | Runtime deps of the shipped `packages/hu-board`. Nested workspace `package.json` deps are NOT installed for tarball consumers — `packages/hu-board/src/*` resolves them by walking up to the consumer's top-level `node_modules`, which only contains what the ROOT declares. Removing them breaks `kj board` on every `npm install karajan-code`. |
 | `sqlite-vec` | Runtime dep of `karajan-core` (vec-store). Core resolves from the npm registry (KJC-BUG-0103 removed bundling) and declares its runtime deps as peers — those resolve against the root install, so the ROOT must declare them. |
 | `postject` | Already a devDependency (correct placement). Used by `scripts/build-sea.mjs` in the SEA release workflow. |
-| `simple-git-hooks` | Already a devDependency (correct placement). Drives the `pre-commit` hook via the `simple-git-hooks` config block in `package.json`. |
+| `simple-git-hooks` | Removed since (KJC-BUG-0417): the governance hooks in `.karajan/hooks` replace it. |
 
 Rule of thumb: anything imported by `packages/hu-board/src` or
 `packages/core/src` must ALSO be declared in the root `dependencies`,
