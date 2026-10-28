@@ -11,6 +11,7 @@ import yaml from "js-yaml";
 import { parsePolicy } from "@karajan-family/governance";
 import { createAgent } from "../agents/index.js";
 import { resolveRole } from "../config/role-resolver.js";
+import { agentAnswerText } from "../review/parser.js";
 
 const PROMPT = (text) => `Traduce esta regla de proyecto hablada a un FRAGMENTO YAML del vocabulario
 cerrado v1 de policy de Karajan. Vocabulario COMPLETO (nada fuera de esto):
@@ -27,7 +28,8 @@ async function defaultTranslate({ text, config, logger }) {
   const role = resolveRole(config, "reviewer");
   const res = await createAgent(role.provider, config, logger).reviewTask({ prompt: PROMPT(text), role: "reviewer" });
   if (!res?.ok) throw new Error(`el agente traductor (${role.provider}) falló: ${res?.error || "sin salida"}`);
-  return String(res.output || "").replace(/^```[a-z]*\n?|```\s*$/g, "").trim();
+  // KJC-BUG-0430 (issue #2695): claude answers with its stream-json; the answer is its final result.
+  return String(agentAnswerText(res.output) || "").replace(/^```[a-z]*\n?|```\s*$/g, "").trim();
 }
 
 // Merge conservador: las listas se CONCATENAN (añadir jamás borra), los
