@@ -10,6 +10,13 @@ vi.mock("../../src/orchestrator.js", () => ({
   resumeFlow: vi.fn().mockResolvedValue({ approved: true, sessionId: "s_test" })
 }));
 
+// KJC-BUG-0431: kj_run takes a per-project run lock; with no projectDir it would take
+// the repo's real one, which another test (or a real run) may hold at that moment.
+vi.mock("../../src/utils/run-log.js", async (importOriginal) => ({
+  ...(await importOriginal()),
+  createRunLog: vi.fn(() => ({ owned: true, logText: vi.fn(), logEvent: vi.fn(), close: vi.fn() })),
+}));
+
 vi.mock("../../src/config.js", () => ({
   loadConfig: vi.fn().mockResolvedValue({
     config: {
