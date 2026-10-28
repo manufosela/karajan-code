@@ -104,9 +104,9 @@ function scanFetched(dir, source) {
 function offered(opts, catalog) {
   if (catalog.type === "store") return [{ dir: catalog.dir, scanOf: scanStore }];
   return catalog.sources
-    .map((entry) => join(sourceDir(opts, entry), ...entry.source.split("/").slice(2)))
-    .filter((dir) => existsSync(dir))
-    .map((dir) => ({ dir, scanOf: scanFetched }));
+    .map((entry) => ({ entry, dir: join(sourceDir(opts, entry), ...entry.source.split("/").slice(2)) }))
+    .filter(({ dir }) => existsSync(dir))
+    .map(({ entry, dir }) => ({ dir, scanOf: scanFetched, pin: { source: entry.source, commit: entry.commit } }));
 }
 
 /**
@@ -119,11 +119,11 @@ export function availableArtifacts(opts = {}, held = scan(opts).artifacts) {
   const seen = new Set(held.map(keyOf));
   const found = [];
   for (const catalog of catalogs(opts)) {
-    for (const { dir, scanOf } of offered(opts, catalog)) {
+    for (const { dir, scanOf, pin } of offered(opts, catalog)) {
       for (const artifact of scanOf(dir, `catalog:${catalog.ref}`)) {
         if (seen.has(keyOf(artifact))) continue;
         seen.add(keyOf(artifact));
-        found.push({ ...artifact, catalog: catalog.ref });
+        found.push({ ...artifact, catalog: catalog.ref, ...(pin && { pin }) });
       }
     }
   }

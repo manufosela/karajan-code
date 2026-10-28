@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { installFromCatalog } from "../src/catalog-install.js";
 import { writeConfig } from "../src/config.js";
 import { catalogSync } from "../src/fetch.js";
+import { readLock } from "../src/lock.js";
 import { search } from "../src/search.js";
 
 const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
@@ -28,6 +29,7 @@ describe("atril install kind:name", () => {
     put("kit/commands/deploy.md", "---\nname: deploy\ndescription: deploy the app\nkind: command\n---\nbody\n");
     writeConfig({ catalogs: ["kit"] }, o());
     expect(installFromCatalog("command:deploy", o())).toMatchObject({ status: "installed", catalog: "kit", path: join(dir, "store", "commands", "deploy.md") });
+    expect(readLock(o()).artifacts["command:deploy"]).toEqual({ origin: "catalog", catalog: "kit", hash: expect.stringMatching(/^sha256:/) });
     expect(search("deploy", o()).map(({ installed }) => installed)).toEqual([true]);
     expect(() => installFromCatalog("command:deploy", o())).toThrow(/command:deploy is already installed/);
   });
@@ -39,12 +41,14 @@ describe("atril install kind:name", () => {
     git(remote, "init", "--quiet");
     git(remote, "add", "-A");
     git(remote, "commit", "--quiet", "-m", "skills");
-    put("pins.json", JSON.stringify({ sources: [{ source: "acme/skills", commit: git(remote, "rev-parse", "HEAD"), note: "acme" }] }));
+    const commit = git(remote, "rev-parse", "HEAD");
+    put("pins.json", JSON.stringify({ sources: [{ source: "acme/skills", commit, note: "acme" }] }));
     writeConfig({ catalogs: ["pins.json"] }, o());
     catalogSync(o(), { gitBase: `file://${join(dir, "remotes")}` });
     expect(installFromCatalog("skill:lint", o())).toMatchObject({ status: "installed", catalog: "pins.json" });
     expect(readFileSync(join(dir, "store", "skills", "lint", "SKILL.md"), "utf8")).toBe("---\nkind: skill\nname: lint\ndescription: lint the code\n---\nbody\n");
     expect(readFileSync(join(dir, "store", "skills", "lint", "rules.md"), "utf8")).toBe("rules");
+    expect(readLock(o()).artifacts["skill:lint"]).toMatchObject({ origin: "catalog", catalog: "pins.json", source: "acme/skills", commit });
   });
 
   it("names what no catalog offers, from the API and the CLI", () => {

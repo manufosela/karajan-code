@@ -27,8 +27,9 @@ export function installFromCatalog(ref, opts = {}) {
     const held = scan(opts).artifacts.some((candidate) => keyOf(candidate) === ref);
     throw new Error(held ? `${ref} is already installed` : `${ref} is not in any catalog (atril catalog sync fetches the git sources)`);
   }
-  if (artifact.kind === "skill") return { ...installSkillFolder(dirname(artifact.path), opts, artifact.kindDefaulted), catalog: artifact.catalog };
-  return { ...install(artifact.path, { ...opts, kind: artifact.kind }), catalog: artifact.catalog };
+  const origin = { origin: "catalog", catalog: artifact.catalog, ...artifact.pin };
+  if (artifact.kind === "skill") return { ...installSkillFolder(dirname(artifact.path), { ...opts, origin }, artifact.kindDefaulted), catalog: artifact.catalog };
+  return { ...install(artifact.path, { ...opts, kind: artifact.kind, origin }), catalog: artifact.catalog };
 }
 
 /**
