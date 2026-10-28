@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>La familia Karajan, un método, una familia de herramientas</title>
-  <meta name="description" content="La familia @karajan-family de herramientas: Karajan Code, kaRAGan, kaWATCHan, Console, Governance, Core y Radar, cada una explicada por separado.">
+  <meta name="description" content="La familia @karajan-family de herramientas: Karajan Code, kaRAGan, kaWATCHan, atril, Console, Governance, Core y Radar, cada una explicada por separado.">
   <link rel="icon" href="/img/logo-120.png">
   <link rel="alternate" hreflang="en" href="https://karajancode.com/family">
   <link rel="alternate" hreflang="es" href="https://karajancode.com/es/family">
@@ -72,6 +72,11 @@
     .fam-links { font-family: var(--mono); font-size: 0.8rem; display: flex; gap: 1.1rem; flex-wrap: wrap; }
     .fam-links a { text-decoration: none; }
     .fam-links a:hover { text-decoration: underline; }
+    .fits { border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); padding: 2rem; }
+    .fits h2 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; }
+    .fits p { color: var(--text-dim); margin: 0.7rem 0 1rem; font-size: 0.95rem; }
+    .fits ul { list-style: none; display: grid; gap: 0.5rem; font-size: 0.95rem; color: var(--text-muted); }
+    .fits li strong { color: var(--text); font-weight: 600; }
     .brewing { opacity: 0.82; border-style: dashed; }
     .foot { text-align: center; padding: 2rem 0 3rem; color: var(--text-dim); font-size: 0.85rem; }
     .foot a { color: var(--accent); text-decoration: none; }
@@ -135,6 +140,15 @@
       </article>
 
       <article class="fam-row">
+        <div class="fam-media"><span class="monogram">atril</span></div>
+        <div class="fam-body">
+          <h2>atril <span class="role">el atril</span></h2>
+          <p>Skills, comandos y subagentes para cualquier CLI de IA, guardados en un almacén que ningún CLI carga de entrada y que solo se resuelve cuando una tarea los pide: buscar, resolver dentro de un presupuesto, instalar, enrutar. Ahora lee catálogos y marketplaces de plugins, y fija lo que instala en un lockfile que compruebas con <code>atril status</code> y renuevas con <code>atril update</code>. Totalmente aislado: no depende de nada más de la familia. Una contribución de Jorge del Casar.</p>
+          <p class="fam-links"><a href="https://www.npmjs.com/package/@karajan-family/atril">npm</a><a href="https://github.com/manufosela/karajan-code/tree/main/packages/atril">github</a></p>
+        </div>
+      </article>
+
+      <article class="fam-row">
         <div class="fam-media"><span class="monogram">console</span></div>
         <div class="fam-body">
           <h2>Console <span class="role">la administración</span></h2>
@@ -170,6 +184,18 @@
         </div>
       </article>
     </main>
+
+    <section class="fits">
+      <h2>Quién se apoya en quién</h2>
+      <p>Leído de los manifiestos de los paquetes, no de un diagrama dibujado antes. Tres piezas funcionan solas y las demás las combinan.</p>
+      <ul>
+        <li><strong>Solas:</strong> kaRAGan, atril, Governance. Instala cualquiera sin el resto.</li>
+        <li><strong>Karajan Code</strong> combina Core, kaRAGan, Governance y atril.</li>
+        <li><strong>Libretto</strong> se apoya en Core.</li>
+        <li><strong>kaWATCHan</strong> se apoya en kaRAGan.</li>
+        <li><strong>Console</strong> se apoya en Governance.</li>
+      </ul>
+    </section>
 
     <footer class="foot">
       <p>Todo publicado bajo <a href="https://www.npmjs.com/org/karajan-family">@karajan-family</a> en npm. &nbsp;·&nbsp; <a href="/es/">Volver a karajancode.com</a></p>
