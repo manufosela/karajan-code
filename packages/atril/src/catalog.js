@@ -12,6 +12,7 @@ import { basename, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfig } from "./config.js";
 import { isMapping, parseArtifact } from "./model.js";
+import { readMarketplace } from "./marketplace.js";
 import { keyOf, resolveRoot, scan, scanStore } from "./scan.js";
 
 export const RECOMMENDED = fileURLToPath(new URL("../recommended", import.meta.url));
@@ -107,6 +108,38 @@ function offered(opts, catalog) {
     .map((entry) => ({ entry, dir: join(sourceDir(opts, entry), ...entry.source.split("/").slice(2)) }))
     .filter(({ dir }) => existsSync(dir))
     .map(({ entry, dir }) => ({ dir, scanOf: scanFetched, pin: { source: entry.source, commit: entry.commit } }));
+}
+
+/**
+ * The plugins of the marketplaces the catalogs offer (a folder holding .claude-plugin/marketplace.json),
+ * read from disk only. The first catalog wins a name; a broken entry is skipped and reported in
+ * `warnings`, an unreadable marketplace.json throws.
+ * @param {Parameters<typeof scan>[0]} [opts]
+ */
+export function availablePlugins(opts = {}) {
+  const seen = new Set();
+  const plugins = [];
+  const warnings = [];
+  for (const catalog of catalogs(opts)) {
+    for (const { dir } of offered(opts, catalog)) {
+      if (!existsSync(join(dir, ".claude-plugin", "marketplace.json"))) continue;
+      const onSkip = ({ index, name, reason }) =>
+        warnings.push({ catalog: catalog.ref, entry: `plugins[${index}] (${JSON.stringify(name)})`, reason });
+      let marketplace;
+      try {
+        marketplace = readMarketplace(dir, { onSkip });
+      } catch (cause) {
+        throw new Error(`catalog "${catalog.ref}": ${cause.message}`, { cause });
+      }
+      for (const { name, description, version, source } of marketplace.plugins) {
+        if (seen.has(name)) continue;
+        seen.add(name);
+        // A non-string description would be indexed as the word "null" or "object".
+        plugins.push({ name, description: typeof description === "string" ? description : "", version, source, marketplace: marketplace.name, catalog: catalog.ref });
+      }
+    }
+  }
+  return { plugins, warnings };
 }
 
 /**
