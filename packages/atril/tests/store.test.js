@@ -1,11 +1,12 @@
 // HU-0021 (ADR 0021, decision 5 and plan step 7): install and remove put
 // artifacts in the store and take them out, never silently overwriting.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { LOCK_FILE } from "../src/lock.js";
 import { install, remove } from "../src/store.js";
 const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 let dir;
@@ -95,6 +96,80 @@ describe("remove", () => {
   });
 });
 
+// HU-2677 (plan step 10a1): every install leaves a record in atril.lock.json.
+describe("lockfile", () => {
+  const lock = () => JSON.parse(readFileSync(at(LOCK_FILE), "utf8")).artifacts;
+  it("records a local install with its hash and never the path", () => {
+    install(dirname(artifact("src/tdd/SKILL.md", "skill", "tdd")), o());
+    expect(lock()["skill:tdd"]).toEqual({ origin: "local", hash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) });
+    expect(readFileSync(at(LOCK_FILE), "utf8")).not.toContain(dir);
+  });
+  it("records the origin a caller passes and keeps an existing entry on an unchanged install", () => {
+    const src = artifact("src/review.md", "command", "review");
+    install(src, { ...o(), origin: { origin: "import", from: "openskills" } });
+    install(src, o());
+    expect(lock()["command:review"]).toMatchObject({ origin: "import", from: "openskills" });
+  });
+  it("records an unchanged install that has no entry yet", () => {
+    const src = artifact("src/review.md", "command", "review");
+    install(src, o());
+    rmSync(at(LOCK_FILE));
+    expect(install(src, o()).status).toBe("unchanged");
+    expect(lock()["command:review"].origin).toBe("local");
+  });
+  it("remove deletes the entry; removing an artifact without one is fine", () => {
+    install(artifact("src/review.md", "command", "review"), o());
+    remove("review", { ...o(), kind: "command" });
+    expect(lock()).toEqual({});
+    install(artifact("src/tester.md", "agent", "tester"), o());
+    rmSync(at(LOCK_FILE));
+    expect(() => remove("tester", { ...o(), kind: "agent" })).not.toThrow();
+  });
+  it("a lock that cannot be updated fails the remove and keeps the artifact", () => {
+    install(artifact("src/review.md", "command", "review"), o());
+    writeFileSync(at(LOCK_FILE), "not json");
+    expect(() => remove("review", { ...o(), kind: "command" })).toThrow();
+    expect(existsSync(at("commands", "review.md"))).toBe(true);
+    expect(readdirSync(at("commands"))).toEqual(["review.md"]);
+  });
+  it("an artifact that cannot be deleted fails the remove and keeps its lock entry", () => {
+    install(artifact("src/review.md", "command", "review"), o());
+    chmodSync(at("commands"), 0o500);
+    try {
+      expect(() => remove("review", { ...o(), kind: "command" })).toThrow();
+      expect(lock()["command:review"]).toMatchObject({ origin: "local" });
+    } finally {
+      chmodSync(at("commands"), 0o700);
+    }
+    expect(existsSync(at("commands", "review.md"))).toBe(true);
+  });
+  it("a partial delete keeps the lock entry and a retry finishes the remove", () => {
+    const src = dirname(artifact("src/tdd/SKILL.md", "skill", "tdd"));
+    write("src/tdd/refs/notes.md", "notes");
+    install(src, o());
+    chmodSync(at("skills", "tdd", "refs"), 0o500);
+    try {
+      expect(() => remove("tdd", { ...o(), kind: "skill" })).toThrow();
+      expect(lock()["skill:tdd"]).toBeDefined();
+    } finally {
+      chmodSync(at("skills", "tdd", "refs"), 0o700);
+    }
+    remove("tdd", { ...o(), kind: "skill" });
+    expect(lock()).toEqual({});
+    expect(existsSync(at("skills", "tdd"))).toBe(false);
+  });
+  it("remove clears a lock entry whose artifact is already gone", () => {
+    install(artifact("src/review.md", "command", "review"), o());
+    rmSync(at("commands", "review.md"));
+    expect(() => remove("review", { ...o(), kind: "command" })).not.toThrow();
+    expect(lock()).toEqual({});
+  });
+  it("a lock that cannot be written fails the install and leaves no artifact", () => {
+    mkdirSync(at(LOCK_FILE), { recursive: true });
+    expect(() => install(artifact("src/review.md", "command", "review"), o())).toThrow();
+    expect(existsSync(at("commands", "review.md"))).toBe(false);
+  });
+});
 describe("atril install / remove CLI", () => {
   it("installs a path and removes kind:name", () => {
     artifact("src/review.md", "command", "review");
