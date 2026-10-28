@@ -14,8 +14,9 @@ import { listPluginMarkdown, readPluginManifest } from "./plugin.js";
 import { install, remove } from "./store.js";
 
 // Copies one entry into the staging folder with the frontmatter the store needs: the
-// store name, the kind (Claude plugin commands carry neither) and its plugin. The body is untouched.
-function stageEntry(entry, plugin, stage, inside) {
+// store name, the kind (Claude plugin commands carry neither) and its plugin. The body is untouched
+// unless `rewrite` changes it: it gets { entry, front, body } and returns the { front, body } to write.
+function stageEntry(entry, plugin, stage, inside, rewrite) {
   const { kind, storeName, path } = entry;
   if (!SLUG.test(storeName)) throw new Error(`${path}: store name "${storeName}" is not a slug (lowercase letters, digits, . _ -)`);
   const isSkill = kind === "skill";
@@ -36,7 +37,8 @@ function stageEntry(entry, plugin, stage, inside) {
   }
   if (!isMapping(front) || typeof front.description !== "string" || !front.description.trim()) throw new Error(`${path}: needs a description in its frontmatter`);
   if (front.atril !== undefined && !isMapping(front.atril)) throw new Error(`${path}: atril must be a mapping`);
-  writeFileSync(file, `---\n${yaml.dump({ ...front, name: storeName, kind, atril: { ...front.atril, plugin } })}---\n${match[2]}`);
+  const { front: next, body } = rewrite({ entry, front, body: match[2] });
+  writeFileSync(file, `---\n${yaml.dump({ ...next, name: storeName, kind, atril: { ...next.atril, plugin } })}---\n${body}`);
   parseArtifact(file);
   return staged;
 }
@@ -44,15 +46,17 @@ function stageEntry(entry, plugin, stage, inside) {
 /**
  * @param {string} dir the plugin's cached copy
  * @param {{ root?: string, projectDir?: string, env?: object }} [opts] the store, as install() takes it
+ * @param {{ rewrite?: (staged: { entry: object, front: object, body: string }) => { front: object, body: string } }} [how]
+ *   `rewrite` runs in the preflight, before the store is touched; the default leaves every entry as it is
  * @returns {{ plugin: string, entries: { kind: string, name: string, ref: string, path: string, status: "installed" | "unchanged" }[] }}
  */
-export function installPluginMarkdown(dir, opts = {}) {
+export function installPluginMarkdown(dir, opts = {}, { rewrite = (staged) => staged } = {}) {
   const { name: plugin } = readPluginManifest(dir);
   const stage = mkdtempSync(join(tmpdir(), "atril-plugin-"));
   const created = [];
   try {
     const inside = join(realpathSync(dir), sep);
-    const staged = listPluginMarkdown(dir).map((entry) => ({ entry, source: stageEntry(entry, plugin, stage, inside) }));
+    const staged = listPluginMarkdown(dir).map((entry) => ({ entry, source: stageEntry(entry, plugin, stage, inside, rewrite) }));
     const entries = staged.map(({ entry, source }) => {
       const done = install(source, { ...opts, kind: entry.kind });
       if (done.status === "installed") created.push(done);

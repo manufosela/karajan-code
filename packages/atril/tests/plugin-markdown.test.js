@@ -97,6 +97,36 @@ describe("installPluginMarkdown", () => {
     expect(stored.atril).toEqual({ x: 1, plugin: "kit" });
     expect(readFileSync(at("store/commands/kit__ship.md"), "utf8")).toContain("allowed-tools: Bash");
   });
+  it("lets an optional rewrite hook change the body and the frontmatter of every entry", () => {
+    seed();
+    const seen = [];
+    const rewrite = ({ entry, front, body }) => {
+      seen.push(entry.ref);
+      return { front: { ...front, "allowed-tools": "Bash(ls)" }, body: body.toUpperCase() };
+    };
+    installPluginMarkdown(at("p"), opts(), { rewrite });
+    expect(seen).toEqual(["kit:tdd", "kit:ship", "kit:rev"]);
+    const stored = parseArtifact(at("store/commands/kit__ship.md"));
+    expect(stored.body).toBe("SHIP IT\n");
+    expect(readFileSync(at("store/skills/kit__tdd/SKILL.md"), "utf8")).toContain("allowed-tools: Bash(ls)");
+  });
+  it("stores the same bytes with no hook as with an identity hook", () => {
+    seed();
+    run();
+    const plain = readFileSync(at("store/commands/kit__ship.md"), "utf8");
+    rmSync(at("store"), { recursive: true });
+    installPluginMarkdown(at("p"), opts(), { rewrite: ({ front, body }) => ({ front, body }) });
+    expect(readFileSync(at("store/commands/kit__ship.md"), "utf8")).toBe(plain);
+  });
+  it("touches nothing when the rewrite hook throws", () => {
+    seed();
+    const rewrite = (staged) => {
+      if (staged.entry.kind === "agent") throw new Error("boom");
+      return staged;
+    };
+    expect(() => installPluginMarkdown(at("p"), opts(), { rewrite })).toThrow(/boom/);
+    expect(existsSync(at("store"))).toBe(false);
+  });
   it("returns no entries for a plugin with no Markdown", () => {
     write("p/.claude-plugin/plugin.json", JSON.stringify({ name: "kit" }));
     expect(run()).toEqual({ plugin: "kit", entries: [] });
