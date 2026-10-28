@@ -1,9 +1,11 @@
 // KJC-TSK-1170 (RAG-E, ADR 0026): the retriever against a FIXED corpus with the real
-// embedder, compared with the frozen baseline in tests/rag/baseline.json. Recall, MRR
-// or p95 latency getting worse fails the suite. Without Ollama (CI) it is skipped and
-// says so: a skipped measurement is never a green one.
+// embedder, compared with the frozen baseline in tests/rag/baseline.json. Recall or MRR
+// getting worse fails the suite. Latency is NOT checked here (KJC-BUG-0418): inside the
+// parallel suite the wall clock measures the machine's load, not the retriever. Check it
+// alone with: kj rag eval --golden <file> --baseline tests/rag/baseline.json
+// Without Ollama (CI) it is skipped and says so: a skipped measurement is never a green one.
 //   Measure a new baseline:  KJ_RAG_SAVE_BASELINE=1 npx vitest run tests/rag/eval-regression.test.js
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,16 +53,19 @@ describe.skipIf(!available)("retrieval does not regress against the frozen basel
     process.exitCode = prevExit;
   });
 
-  it("recall@k, MRR and p95 latency are not worse than tests/rag/baseline.json", async () => {
+  it("recall@k and MRR are not worse than tests/rag/baseline.json", async () => {
     const { ragEvalCommand } = await import("../../src/commands/rag.js");
+    const { compareToBaseline } = await import("../../src/rag/eval.js");
     const saving = process.env.KJ_RAG_SAVE_BASELINE === "1";
     if (!saving && !existsSync(BASELINE)) throw new Error(`no baseline at ${BASELINE}: measure one with KJ_RAG_SAVE_BASELINE=1`);
     process.exitCode = 0;
     const report = await ragEvalCommand({
       config: config(), logger,
-      flags: { golden: GOLDEN, topK: 10, project: "all", ...(saving ? { saveBaseline: BASELINE } : { baseline: BASELINE }) },
+      flags: { golden: GOLDEN, topK: 10, project: "all", ...(saving ? { saveBaseline: BASELINE } : {}) },
     });
     expect(report.aggregate.n).toBe(24);
     expect(process.exitCode).toBe(0);
+    const { recall, mrr } = JSON.parse(readFileSync(BASELINE, "utf8")).aggregate;
+    expect(compareToBaseline(report.aggregate, { recall, mrr }).problems).toEqual([]);
   }, 120_000);
 });
