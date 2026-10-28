@@ -219,7 +219,10 @@ export async function hardenCommand({
     const note = c.note ? ` (${c.note})` : "";
     logger.info?.(`  • ${c.file}: ${c.action}${note}`);
   }
-  for (const w of out.workflows) logger.info?.(`  • ${w.file}: ${w.action}`);
+  for (const w of out.workflows) {
+    logger.info?.(`  • ${w.file}: ${w.action}`);
+    if (w.note) logger.warn?.(`⚠ ${w.note}`);
+  }
   for (const g of out.guidelines) {
     logger.info?.(`  • ${g.file}: ${g.action}`);
     // KJC-BUG-0206: quitar reglas no puede leerse como "updated" y nada más.
