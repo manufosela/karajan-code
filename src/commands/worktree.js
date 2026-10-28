@@ -3,7 +3,8 @@
  * host agent. Field case: the playbook said "one worktree per task" and an
  * agent NARRATED the isolation while editing the project root. Ordering a
  * command beats ordering a practice: start = worktree + feat/ branch +
- * dependency bootstrap + the exact cd printed; done = remove after merge.
+ * dependency bootstrap + the exact cd printed; done = remove after merge
+ * and delete the branch once it is merged into origin/<base>.
  * Same lane dir (.kj/worktrees) and bootstrap the headless pipeline uses.
  */
 import fs from "node:fs";
@@ -11,7 +12,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
-import { classifyLanes, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
+import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { mainCheckout } from "../utils/main-checkout.js";
 
@@ -26,6 +27,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
   // #2566: lanes hang from the main checkout, never from the lane the command runs in.
   const lanesDir = path.join(mainCheckout(projectDir), WORKTREE_DIR);
   const lanePath = (slug) => path.join(lanesDir, slug);
+  const baseName = config?.base_branch || "main";
 
   if (action === "start") {
     const slug = String(args[0] || "").trim();
@@ -37,13 +39,25 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       throw new Error(`lane "${slug}" already exists — cd ${wtPath}, or finish it with: kj worktree done ${slug}`);
     }
     const branch = `feat/${slug}`;
+    // HU-2761: a lane is cut from origin/<base>, never from the HEAD the command runs in (#2566).
+    const from = await resolveBase({ git, base: baseName });
+    try { await git(["rev-parse", "--verify", "--quiet", `${from}^{commit}`]); } catch {
+      throw new Error(`base "${baseName}" not found — set base_branch in kj config`);
+    }
+    if (from === baseName) {
+      console.warn(`! no origin/${baseName} ref — lane starts from local ${baseName}, which may lag (git fetch origin ${baseName} to refresh)`);
+    }
+    const leftover = await git(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).then(() => true, () => false);
+    if (leftover) {
+      throw new Error(`branch ${branch} already exists (kept by an unmerged done?) — delete it with git branch -D ${branch} or pick another slug`);
+    }
     // KJC-TSK-1093: --no-track, so no upstream lands in .git/config (read-only in the host sandbox).
-    await git(["worktree", "add", "--no-track", "-b", branch, wtPath]);
+    await git(["worktree", "add", "--no-track", "-b", branch, wtPath, from]);
     const boot = await bootstrapWorktree({ worktreePath: wtPath, setupCommand: config?.session?.worktree_setup || null });
-    console.log(`✓ lane ready: ${branch}`);
+    console.log(`✓ lane ready: ${branch} (from ${from})`);
     console.log(`  cd ${wtPath}`);
     console.log("  The gates travel with the repo — kj review --staged works there. When merged: kj worktree done " + slug);
-    return { path: wtPath, branch, bootstrap: boot };
+    return { path: wtPath, branch, from, bootstrap: boot };
   }
 
   if (action === "list") {
@@ -73,14 +87,30 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     if (dirty.trim() && !flags.force) {
       throw new Error(`lane "${slug}" has uncommitted changes — commit them (through the gate) or discard with --force`);
     }
+    // The lane's real branch (headless kj-hu-* lanes share the folder); detached HEAD → null.
+    // symbolic-ref -q exits 1 on a detached HEAD; any other failure is a real error.
+    const branch = await git(["symbolic-ref", "--short", "-q", "HEAD"], wtPath).then((r) => r.stdout.trim() || null, (err) => {
+      if (err.code === 1) return null;
+      throw err;
+    });
+    const base = await resolveBase({ git, base: baseName });
+    // A missing base must not block removing a clean lane: the branch is kept, with its remedy.
+    const ahead = branch ? await commitsNotIn({ git, base, ref: branch }).catch(() => null) : 0;
     await git(["worktree", "remove", ...(flags.force ? ["--force"] : []), wtPath]);
-    console.log(`✓ lane "${slug}" removed — its branch survives; delete it after merge if you want`);
-    return { removed: true, slug };
+    // -D after our own check: -d measures against HEAD/upstream, not origin/<base>. Never the base itself.
+    const branchDeleted = Boolean(branch) && branch !== baseName && (ahead === 0 || Boolean(flags.force));
+    if (branchDeleted) await git(["branch", "-D", branch]);
+    const note = !branch ? "detached HEAD, no branch"
+      : branchDeleted ? (ahead === 0 ? `branch ${branch} deleted (merged into ${base})` : `branch ${branch} deleted with --force (${ahead ?? "unknown"} commit(s) not in ${base} were discarded)`)
+        : ahead === null ? `branch ${branch} kept: base "${base}" not found, cannot tell if it is merged (git branch -D ${branch} to delete it)`
+          : `branch ${branch} kept: ${ahead} commit(s) not in ${base} (squash-merged or not fetched? git fetch, then git branch -D ${branch})`;
+    console.log(`✓ lane "${slug}" removed; ${note}`);
+    return { removed: true, slug, branch, branchDeleted, merged: branch ? ahead === 0 : null };
   }
 
   if (action === "prune") {
     const { processes = liveProcesses() } = deps;
-    const base = await resolveBase({ git, base: config?.base_branch || "main" });
+    const base = await resolveBase({ git, base: baseName });
     const lanes = await classifyLanes({ git, laneRoot: lanesDir, base, processes, now: deps.now });
     const abandoned = lanes.filter((l) => l.reasons.length === 0);
     const kept = lanes.filter((l) => l.reasons.length > 0);

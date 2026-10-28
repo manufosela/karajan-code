@@ -62,8 +62,8 @@ export async function classifyLanes({ git, laneRoot, base, processes, now = Date
     const precious = entries.filter((e) => e.startsWith("!! ") && !REGENERABLE.has(e.slice(3).split("/")[0]));
     if (precious.length > 0) reasons.push(`ignored files that are not regenerable (${precious[0].slice(3)}${precious.length > 1 ? ", …" : ""})`);
     // The lane's HEAD, branch or detached: a detached lane's commits have no other name.
-    const { stdout: ahead } = await git(["rev-list", "--count", `${base}..HEAD`], lane.path);
-    if (Number(ahead) > 0) reasons.push(`${Number(ahead)} commit(s) not in ${base}`);
+    const ahead = await commitsNotIn({ git, base, cwd: lane.path });
+    if (ahead > 0) reasons.push(`${ahead} commit(s) not in ${base}`);
     if (processes === null) reasons.push("cannot check for live processes on this platform");
     else if ([...processes.cwds].some((cwd) => inside(cwd, lane.path))) reasons.push("a live process works in it");
     else if (processes.unseen > 0 && (await idleHours(git, lane.path, now)) < IDLE_HOURS) {
@@ -83,6 +83,12 @@ export async function resolveBase({ git, base }) {
   }
 }
 
+/** Commits of `ref` (default HEAD, run in `cwd`) that `base` lacks; 0 means merged. */
+export async function commitsNotIn({ git, base, ref = "HEAD", cwd }) {
+  const { stdout } = await git(["rev-list", "--count", `${base}..${ref}`], cwd);
+  return Number(stdout);
+}
+
 /** KJC-TSK-1037: loose kj-hu-* branches (no worktree): the empty ones, and the ones with work and how much. */
 export async function looseLaneBranches({ git, base }) {
   const { stdout: listed } = await git(["for-each-ref", "--format=%(refname:short) %(worktreepath)", "refs/heads/kj-hu-*"]);
@@ -90,9 +96,9 @@ export async function looseLaneBranches({ git, base }) {
   const empty = [];
   const withWork = [];
   for (const branch of loose) {
-    const { stdout: ahead } = await git(["rev-list", "--count", `${base}..${branch}`]);
-    if (Number(ahead) === 0) empty.push(branch);
-    else withWork.push({ branch, reason: `${Number(ahead)} commit(s) not in ${base}` });
+    const ahead = await commitsNotIn({ git, base, ref: branch });
+    if (ahead === 0) empty.push(branch);
+    else withWork.push({ branch, reason: `${ahead} commit(s) not in ${base}` });
   }
   return { empty, withWork };
 }
