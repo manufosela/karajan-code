@@ -1,6 +1,32 @@
 // KJC-BUG-0092 — `kj doctor` native-build (better-sqlite3) check.
 import { describe, expect, it } from "vitest";
-import { createNativeBuildCheck } from "../../src/checks/native-build.js";
+import { createNativeBuildCheck, explainNativeLoadError } from "../../src/checks/native-build.js";
+
+// KJC-BUG-0426 (issue #2670): the RAG met the raw bindings error; it gets the remedy instead.
+describe("explainNativeLoadError — KJC-BUG-0426", () => {
+  const bindings = new Error("Could not locate the bindings file. Tried:\n → /x/better_sqlite3.node");
+
+  it("turns a missing native addon into the npm 12 remedy, keeping the cause", () => {
+    const err = explainNativeLoadError(bindings, { npmMajor: () => 12, pkgDir: "/k" });
+    expect(err.message).toMatch(/better-sqlite3 native addon is not built/);
+    expect(err.message).toContain('cd "/k" && npm install-scripts approve better-sqlite3');
+    expect(err.cause).toBe(bindings);
+  });
+
+  it("points to kj doctor under an older npm", () => {
+    expect(explainNativeLoadError(bindings, { npmMajor: () => 11 }).message).toMatch(/kj doctor/);
+  });
+
+  it("leaves any other error as it is", () => {
+    const other = new Error("SQLITE_CORRUPT: database disk image is malformed");
+    expect(explainNativeLoadError(other, { npmMajor: () => 12 })).toBe(other);
+  });
+
+  it("leaves a missing package alone: rebuilding cannot fix it", () => {
+    const missing = new Error("Cannot find module 'better-sqlite3'");
+    expect(explainNativeLoadError(missing, { npmMajor: () => 12 })).toBe(missing);
+  });
+});
 
 describe("checks/native-build — KJC-BUG-0092", () => {
   it("ok when the native addon loads", async () => {
