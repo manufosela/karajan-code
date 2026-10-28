@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RECOMMENDED, catalogs } from "../src/catalog.js";
 import { writeConfig } from "../src/config.js";
 import { resolve } from "../src/resolve.js";
@@ -58,7 +58,10 @@ describe("available artifacts", () => {
     command("kit/commands/review.md", "review", "the catalog's review");
     command("kit/commands/deploy.md", "deploy", "deploy the app to production");
     writeConfig({ catalogs: ["kit"] }, o());
+    mkdirSync(join(dir, "empty-set"));
+    vi.stubEnv("ATRIL_RECOMMENDED", join(dir, "empty-set"));
   });
+  afterEach(() => vi.unstubAllEnvs());
 
   it("show in search as not installed, and an installed artifact wins over the catalog's", () => {
     expect(search("review deploy", o()).map(({ name, installed, source }) => [name, installed, source])).toEqual([
