@@ -1,6 +1,9 @@
 // ADR 0021, plan step 13a1: where a plugin comes from, and where its copy lives.
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readMarketplace } from "../src/marketplace.js";
 import { parsePluginSource, pluginPaths } from "../src/plugin-source.js";
 
 describe("parsePluginSource", () => {
@@ -41,6 +44,74 @@ describe("parsePluginSource", () => {
   it("rejects object fields that are not strings, even when they would stringify to a valid one", () => {
     for (const spec of [{ source: "github", repo: ["acme/kit"] }, { source: "url", url: ["https://git.example.com/kit.git"] }]) {
       expect(() => parsePluginSource(spec)).toThrow(/unknown plugin source/);
+    }
+  });
+
+  it("reads a git-subdir source, with and without a ref", () => {
+    const url = "https://github.com/acme/mono.git";
+    expect(parsePluginSource({ source: "git-subdir", url, path: "plugins/kit" })).toEqual({ type: "git-subdir", url, path: "plugins/kit" });
+    expect(parsePluginSource({ source: "git-subdir", url, path: "kit", ref: "main" })).toEqual({ type: "git-subdir", url, path: "kit", ref: "main" });
+  });
+
+  it("reads a 40-hex sha as the commit of github, url and git-subdir sources", () => {
+    const sha = "a".repeat(40);
+    const url = "https://github.com/acme/mono.git";
+    expect(parsePluginSource({ source: "github", repo: "acme/kit", sha })).toEqual({ type: "github", repo: "acme/kit", commit: sha });
+    expect(parsePluginSource({ source: "url", url, ref: "v1", sha })).toEqual({ type: "git", url, ref: "v1", commit: sha });
+    expect(parsePluginSource({ source: "git-subdir", url, path: "kit", sha })).toEqual({ type: "git-subdir", url, path: "kit", commit: sha });
+  });
+
+  it("rejects a sha that is not 40 hex characters, and a git-subdir url or path that escapes", () => {
+    const url = "https://github.com/acme/mono.git";
+    const bad = [
+      { source: "github", repo: "acme/kit", sha: "a".repeat(39) },
+      { source: "url", url, sha: "g".repeat(40) },
+      { source: "git-subdir", url, path: "kit", sha: 42 },
+      { source: "github", repo: "acme/kit", sha: "A".repeat(40) },
+      { source: "github", repo: "acme/kit", sha: `${"a".repeat(40)}\n` },
+      { source: "github", repo: "acme/kit", sha: null },
+      { source: "github", repo: "acme/kit", sha: "" },
+      { source: "git-subdir", url, path: "kit\n" },
+      { source: "git-subdir", url, path: "a//b" },
+      { source: "git-subdir", url, path: "a/" },
+      { source: "git-subdir", url, path: "a/./b" },
+      { source: "git-subdir", url, path: "a/.." },
+      { source: "git-subdir", url, path: "a\\b" },
+      { source: "git-subdir", url, path: "kit", ref: "-x" },
+      { source: "git-subdir", url: ["https://github.com/acme/mono.git"], path: "kit" },
+      { source: "git-subdir", url, path: "../x" },
+      { source: "git-subdir", url, path: "a/../x" },
+      { source: "git-subdir", url, path: "/abs" },
+      { source: "git-subdir", url, path: "./kit" },
+      { source: "git-subdir", url, path: "" },
+      { source: "git-subdir", url, path: ["kit"] },
+      { source: "git-subdir", url: "not-a-git-url", path: "kit" },
+      { source: "git-subdir", path: "kit" },
+    ];
+    for (const spec of bad) expect(() => parsePluginSource(spec)).toThrow(/unknown plugin source/);
+  });
+
+  it("lets readMarketplace read one entry of each shape the official marketplace uses", () => {
+    const dir = mkdtempSync(join(tmpdir(), "atril-plugin-source-"));
+    try {
+      const sha = "b".repeat(40);
+      const url = "https://github.com/acme/mono.git";
+      mkdirSync(join(dir, ".claude-plugin"));
+      writeFileSync(join(dir, ".claude-plugin", "marketplace.json"), JSON.stringify({
+        name: "official",
+        plugins: [
+          { name: "local", source: "./plugins/local" },
+          { name: "pinned", source: { source: "url", url, sha } },
+          { name: "nested", source: { source: "git-subdir", url, path: "plugins/nested", ref: "main", sha } },
+        ],
+      }));
+      expect(readMarketplace(dir).plugins.map((plugin) => plugin.source)).toEqual([
+        { type: "path", path: join(dir, "plugins", "local") },
+        { type: "git", url, commit: sha },
+        { type: "git-subdir", url, path: "plugins/nested", ref: "main", commit: sha },
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
