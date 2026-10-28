@@ -104,6 +104,30 @@ describe("installWorkflows", () => {
     expect(afterPr.trim().split("\n")).toEqual(['cd "$PR_TREE"', '$KJ policy check --range "origin/${BASE_REF}...HEAD" --strict']);
   });
 
+  // KJC-BUG-0424: the PR that moves the trigger gets no policy-check at all (the base's
+  // YAML listens to pull_request, the new one to pull_request_target). Harden says so.
+  it("warns when it moves an existing policy workflow from pull_request to pull_request_target", () => {
+    mkdirSync(join(dir, ".karajan"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "policy.yml"), "rules: []\n");
+    const wfDir = join(dir, ".github", "workflows");
+    mkdirSync(wfDir, { recursive: true });
+    writeFileSync(join(wfDir, "kj-policy.yml"), "# >>> kj:managed:wf-policy v1 >>>\nname: Policy\non:\n  pull_request:\njobs: {}\n# <<< kj:managed:wf-policy <<<\n");
+    const moved = installWorkflows({ projectDir: dir, kjVersion: "9.9.9" }).workflows.find((w) => w.file.endsWith("kj-policy.yml"));
+    expect(moved.action).toBe("updated");
+    expect(moved.note).toMatch(/pull_request_target/);
+    expect(moved.note).toMatch(/admin/);
+    const again = installWorkflows({ projectDir: dir, kjVersion: "9.9.9" }).workflows.find((w) => w.file.endsWith("kj-policy.yml"));
+    expect(again.note).toBeUndefined();
+  });
+
+  it("does not warn when it seeds the policy workflow for the first time", () => {
+    mkdirSync(join(dir, ".karajan"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "policy.yml"), "rules: []\n");
+    const seeded = installWorkflows({ projectDir: dir, kjVersion: "9.9.9" }).workflows.find((w) => w.file.endsWith("kj-policy.yml"));
+    expect(seeded.action).toBe("inserted");
+    expect(seeded.note).toBeUndefined();
+  });
+
   it("never overwrites a user workflow without our marker", () => {
     const abs = join(dir, ".github", "workflows");
     mkdirSync(abs, { recursive: true });
