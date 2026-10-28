@@ -34,6 +34,18 @@ function defaultNpmMajor() {
 export const npmAllowScriptsRemedy = (pkgDir = OWN_PKG_DIR) =>
   `cd "${pkgDir}" && npm install-scripts approve better-sqlite3 && npm install-scripts approve node-pty && npm rebuild better-sqlite3 node-pty`;
 
+// The addon is installed but its native build is missing (a missing package needs a reinstall, not this).
+const UNBUILT_ADDON = /bindings file|better_sqlite3\.node/;
+
+/** A missing better-sqlite3 addon becomes an error that says how to build it; any other error passes as it is. */
+export function explainNativeLoadError(err, { npmMajor = defaultNpmMajor, pkgDir = OWN_PKG_DIR } = {}) {
+  if (!UNBUILT_ADDON.test(String(err?.message ?? err))) return err;
+  const remedy = (npmMajor() ?? 0) >= 12
+    ? `npm 12 skipped its install script (allowScripts); build it with: ${npmAllowScriptsRemedy(pkgDir)}`
+    : "run kj doctor for the exact fix on this install";
+  return new Error(`better-sqlite3 native addon is not built, so the RAG cannot open its index — ${remedy}`, { cause: err });
+}
+
 /** pnpm lays packages out under a `.pnpm` virtual store and symlinks them in. */
 function isPnpmInstall() {
   return (
