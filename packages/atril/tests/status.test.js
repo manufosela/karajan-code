@@ -94,9 +94,11 @@ describe("status", () => {
 
   it("sorts by kind:name", () => {
     command("b");
-    command("a");
+    command("a_x");
+    command("a-x");
     put("store/agents/z.md", "---\nname: z\ndescription: d\nkind: agent\n---\nbody\n");
-    expect(status(o()).map(({ kind, name }) => `${kind}:${name}`)).toEqual(["agent:z", "command:a", "command:b"]);
+    // "-" (45) is before "_" (95) in code units; a locale collation puts "_" first.
+    expect(status(o()).map(({ kind, name }) => `${kind}:${name}`)).toEqual(["agent:z", "command:a-x", "command:a_x", "command:b"]);
   });
 
   it("fails loudly on a broken lock", () => {

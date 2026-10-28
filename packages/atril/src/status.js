@@ -27,18 +27,18 @@ export function status(opts = {}) {
   const held = new Map(scanStore(storeDir).map((artifact) => [keyOf(artifact), artifact]));
   const lock = readLock(opts).artifacts;
   const configured = catalogs(opts);
-  const rows = [];
-  for (const key of new Set([...held.keys(), ...Object.keys(lock)])) {
-    // readLock guarantees every entry a hash, so a missing entry is the only way to have none.
-    const { hash, ...origin } = lock[key] ?? {};
-    const recorded = hash ? origin : null;
+  // Code-unit order, not localeCompare: the order must not depend on the machine's locale.
+  const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...new Set([...held.keys(), ...Object.keys(lock)])].sort(byCodeUnit).map((key) => {
+    const entry = lock[key];
+    const { hash, ...origin } = entry ?? {};
+    const recorded = entry ? origin : null;
     const artifact = held.get(key);
     const [kind, name] = key.split(":");
     let state = "ok";
     if (!artifact) state = "missing";
-    else if (hash && contentHash(kind === "skill" ? dirname(artifact.path) : artifact.path, kind) !== hash) state = "edited";
+    else if (entry && contentHash(kind === "skill" ? dirname(artifact.path) : artifact.path, kind) !== hash) state = "edited";
     else if (!isCurated(recorded, configured)) state = "uncurated";
-    rows.push({ kind, name, state, origin: recorded });
-  }
-  return rows.toSorted((a, b) => (`${a.kind}:${a.name}` < `${b.kind}:${b.name}` ? -1 : 1));
+    return { kind, name, state, origin: recorded };
+  });
 }
