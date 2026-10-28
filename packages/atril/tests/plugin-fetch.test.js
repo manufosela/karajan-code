@@ -1,6 +1,6 @@
 // ADR 0021, plan step 13a2-i: fetchPlugin puts a plugin at a pinned commit into the cache and
 // records it in state.json. Git is always a fake: no real git, no network.
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -12,9 +12,11 @@ const C2 = "b".repeat(40);
 let dir;
 let calls;
 let manifest;
+let remote; // what `ls-remote` answers
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "atril-plugin-fetch-"));
   calls = [];
+  remote = "";
   manifest = { name: "lint-kit", version: "1.2.0" };
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -28,6 +30,11 @@ const git = (args, cwd) => {
     mkdirSync(join(cwd, ".git"), { recursive: true });
     if (manifest) writeFileSync(join(cwd, ".claude-plugin", "plugin.json"), JSON.stringify(manifest));
     writeFileSync(join(cwd, "commit"), rest.at(-1));
+  }
+  if (verb === "ls-remote") {
+    // like git: a line is answered only when a pattern is its ref name or a tail of it
+    const patterns = rest.slice(1);
+    return remote.split("\n").filter((line) => patterns.some((p) => line.split("\t")[1] === p || line.split("\t")[1]?.endsWith(`/${p}`))).map((line) => `${line}\n`).join("");
   }
   return verb === "rev-parse" ? `${readFileSync(join(cwd, "commit"), "utf8")}\n` : "";
 };
@@ -81,7 +88,6 @@ describe("fetchPlugin (git sources)", () => {
 
   it("rejects a commit that is not 40 hex characters before any git call", () => {
     for (const commit of ["--upload-pack=x", "abc123", "A".repeat(40), "a".repeat(41), [C1]]) expect(() => fetchIt("acme/lint-kit", { commit })).toThrow(/pinned commit/);
-    expect(() => fetchIt("acme/lint-kit")).toThrow(/pinned commit/);
     expect(calls).toEqual([]);
   });
 
@@ -111,8 +117,89 @@ describe("fetchPlugin (git sources)", () => {
     expect(readdirSync(join(dir, "store", "plugins"))).toEqual([]);
   });
 
-  it("refuses a marketplace and, for now, a local path", () => {
+  it("refuses a marketplace", () => {
     expect(() => fetchIt("https://example.com/marketplace.json")).toThrow(/is a marketplace, not a plugin/);
-    expect(() => fetchIt("./local-plugin")).toThrow(/not supported yet/);
+  });
+});
+
+describe("fetchPlugin (ls-remote)", () => {
+  it("resolves a ref or HEAD through ls-remote and fetches that commit", () => {
+    remote = `${C1}\trefs/heads/main\n`;
+    expect(fetchIt("acme/lint-kit#main").commit).toBe(C1);
+    expect(calls[0]).toEqual(["ls-remote", "https://github.com/acme/lint-kit.git", "main", "main^{}"]);
+    expect(calls.find(([verb]) => verb === "fetch").at(-1)).toBe(C1);
+    calls.length = 0;
+    remote = `${C2}\tHEAD\n`;
+    manifest = { name: "lint-kit", version: "2.0.0" };
+    expect(fetchIt("acme/other-kit").commit).toBe(C2);
+    expect(calls[0].slice(-2)).toEqual(["HEAD", "HEAD^{}"]);
+  });
+
+  it("takes the commit an annotated tag points at", () => {
+    remote = `${C2}\trefs/tags/v1\n${C1}\trefs/tags/v1^{}\n`;
+    expect(fetchIt("acme/lint-kit#v1").commit).toBe(C1);
+  });
+
+  it("does not ask the remote when the commit is already pinned", () => {
+    fetchIt("acme/lint-kit#main", { commit: C1 });
+    manifest = { name: "lint-kit", version: "2.0.0" };
+    fetchIt({ source: "url", url: "https://example.com/x.git", ref: C2 });
+    expect(calls.some(([verb]) => verb === "ls-remote")).toBe(false);
+  });
+
+  it("fails on no match, several matches or an answer that is not a commit, before any fetch", () => {
+    for (const [answer, message] of [["", /no commit matches "main"/], [`${C1}\trefs/heads/main\n${C2}\trefs/tags/main\n`, /matches 2 refs/], ["--upload-pack=x\trefs/heads/main\n", /not a commit/]]) {
+      remote = answer;
+      expect(() => fetchIt("acme/lint-kit#main")).toThrow(message);
+    }
+    expect(calls.some(([verb]) => verb === "fetch")).toBe(false);
+  });
+});
+
+describe("fetchPlugin (local path)", () => {
+  const plugin = (at = "local-plugin") => {
+    mkdirSync(join(dir, at, ".claude-plugin"), { recursive: true });
+    mkdirSync(join(dir, at, ".git"), { recursive: true });
+    writeFileSync(join(dir, at, ".claude-plugin", "plugin.json"), JSON.stringify(manifest));
+    writeFileSync(join(dir, at, "rule.md"), "v1");
+  };
+
+  it("copies it without .git or git, with no commit, and copies it again on every call", () => {
+    plugin();
+    expect(fetchIt("./local-plugin")).toEqual({ name: "lint-kit", version: "1.2.0", commit: null, dir: copy("1.2.0"), status: "fetched" });
+    expect(existsSync(join(copy("1.2.0"), ".git"))).toBe(false);
+    writeFileSync(join(dir, "local-plugin", "rule.md"), "v2");
+    expect(fetchIt("./local-plugin", { name: "lint-kit" }).status).toBe("fetched");
+    expect(readFileSync(join(copy("1.2.0"), "rule.md"), "utf8")).toBe("v2");
+    expect(calls).toEqual([]);
+    expect(readdirSync(join(dir, "store", "plugins"))).toEqual(["lint-kit"]);
+  });
+
+  it("records the path relative to the project, or `local` outside it, never an absolute one", () => {
+    manifest = { name: "lint-kit" };
+    plugin();
+    fetchIt("./local-plugin");
+    expect(JSON.parse(state())).toEqual({ name: "lint-kit", version: "local", commit: null, source: { type: "path", path: "local-plugin" } });
+    plugin("elsewhere");
+    mkdirSync(join(dir, "proj"));
+    fetchPlugin(join(dir, "elsewhere"), o({ projectDir: join(dir, "proj") }), { git });
+    const text = readFileSync(join(dir, "proj", "store", "plugins", "lint-kit", "state.json"), "utf8");
+    expect(JSON.parse(text).source).toEqual({ type: "path", path: "local" });
+    expect(text).not.toContain(dir);
+  });
+
+  it("never replaces a git copy of the same name and version, nor leaves a backup behind", () => {
+    fetchIt("acme/lint-kit", { commit: C1 });
+    plugin();
+    expect(() => fetchIt("./local-plugin")).toThrow("lint-kit@1.2.0 is cached and is not a local copy");
+    expect(readFileSync(join(copy("1.2.0"), "commit"), "utf8")).toBe(C1);
+    expect(readdirSync(join(dir, "store", "plugins"))).toEqual(["lint-kit"]);
+  });
+
+  it("refuses a symlink anywhere in it before copying", () => {
+    plugin();
+    symlinkSync("/etc/hosts", join(dir, "local-plugin", "link"));
+    expect(() => fetchIt("./local-plugin")).toThrow(/may not hold symlinks/);
+    expect(existsSync(join(dir, "store", "plugins"))).toBe(false);
   });
 });
