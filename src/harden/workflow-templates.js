@@ -69,10 +69,13 @@ export const WORKFLOWS = [
 // npx PINEADO a la versión del kj que corrió harden — jamás @latest en CI.
 // KJC-BUG-0399: the judge is never the PR's code. A repo that ships kj itself
 // judges with the kj of the BASE branch, checked out apart; the PR is only data.
+// KJC-BUG-0419: on `pull_request` GitHub runs the PR's own copy of this YAML, so a
+// PR could rewrite its judge. `pull_request_target` runs the base's YAML; the PR
+// is fetched into its own worktree, read by kj and never installed nor executed.
 export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "name: Policy",
   "on:",
-  "  pull_request:",
+  "  pull_request_target:",
   "permissions:",
   "  contents: read",
   "jobs:",
@@ -88,16 +91,23 @@ export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "      - name: kj policy check (strict) on the PR diff",
   "        env:",
   "          BASE_REF: ${{ github.base_ref }}",
+  "          PR_NUMBER: ${{ github.event.pull_request.number }}",
   "        run: |",
   '          JUDGE="$RUNNER_TEMP/kj-judge"',
+  '          PR_TREE="$RUNNER_TEMP/kj-pr"',
   '          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"',
+  '          git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/kj-pr-head"',
   '          if git cat-file -e "origin/${BASE_REF}:bin/kj.js" 2>/dev/null; then',
   '            git worktree add --detach "$JUDGE" "origin/${BASE_REF}"',
   '            (cd "$JUDGE" && npm ci --ignore-scripts)',
   '            KJ="node $JUDGE/bin/kj.js"',
   "          else",
-  `            KJ="npx --yes ${kjName}@${kjVersion}"`,
+  '            mkdir -p "$JUDGE"',
+  `            (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund ${kjName}@${kjVersion})`,
+  `            KJ="node $JUDGE/node_modules/${kjName}/bin/kj.js"`,
   "          fi",
+  '          git worktree add --detach "$PR_TREE" origin/kj-pr-head',
+  '          cd "$PR_TREE"',
   '          $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict',
 ].join("\n");
 

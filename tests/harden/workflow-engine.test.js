@@ -76,8 +76,32 @@ describe("installWorkflows", () => {
     expect(text.indexOf('git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"')).toBeLessThan(text.indexOf("git cat-file"));
     expect(text).toContain('git worktree add --detach "$JUDGE" "origin/${BASE_REF}"');
     expect(text).toContain('KJ="node $JUDGE/bin/kj.js"');
-    expect(text).toContain('KJ="npx --yes karajan-code@9.9.9"');
     expect(text).toContain('$KJ policy check --range "origin/${BASE_REF}...HEAD" --strict');
+  });
+
+  // KJC-BUG-0419 (GHSA-3xrh-frxv-mwxr): on `pull_request` GitHub runs the YAML of the
+  // PR, so a PR could rewrite this very workflow (exit 0, another kj) and pass. The
+  // YAML and the judge must come from the base; the PR is fetched and read, never run.
+  it("the policy workflow runs from the base branch and treats the PR only as data", () => {
+    mkdirSync(join(dir, ".karajan"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "policy.yml"), "rules: []\n");
+    installWorkflows({ projectDir: dir, kjVersion: "9.9.9" });
+    const text = read(".github/workflows/kj-policy.yml");
+    const wf = yaml.load(text);
+    expect(Object.keys(wf.on)).toEqual(["pull_request_target"]);
+    expect(wf.permissions).toEqual({ contents: "read" });
+    const step = wf.jobs["policy-check"].steps.find((s) => s.run);
+    expect(step.env.PR_NUMBER).toBe("${{ github.event.pull_request.number }}");
+    expect(step.run).not.toContain("${{");
+    // No npx: it would resolve config from whatever directory it runs in.
+    expect(step.run).not.toMatch(/\bnpx\b/);
+    expect(step.run).toContain('git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/kj-pr-head"');
+    expect(step.run).toContain("npm install --no-save --ignore-scripts --no-audit --no-fund karajan-code@9.9.9");
+    expect(step.run).toContain('KJ="node $JUDGE/node_modules/karajan-code/bin/kj.js"');
+    // The PR is checked out apart, after the judge is installed, and only judged there.
+    const afterPr = step.run.slice(step.run.indexOf('cd "$PR_TREE"'));
+    expect(step.run.indexOf('git worktree add --detach "$PR_TREE" origin/kj-pr-head')).toBeGreaterThan(step.run.indexOf("fi"));
+    expect(afterPr.trim().split("\n")).toEqual(['cd "$PR_TREE"', '$KJ policy check --range "origin/${BASE_REF}...HEAD" --strict']);
   });
 
   it("never overwrites a user workflow without our marker", () => {
