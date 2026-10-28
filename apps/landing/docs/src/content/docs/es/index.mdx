@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.70.1: el policy check de CI se juzga desde la rama base (actual)
+### v4.70.2: el policy check de CI funciona en proyectos que commitean su config (actual)
+
+`policy-check` ya no muere en proyectos que commitean su `.karajan/kj.config.yml` (en CI no hay config global: ahí la del proyecto se monta sobre los valores por defecto). Con npm 12, `kj doctor` y el RAG dicen exactamente cómo compilar `better-sqlite3`, que npm 12 deja sin compilar. `kj policy add` funciona con reviewer claude, y una PR puede describir un sello sin que el Sentinel la pare.
+
+### v4.70.1: el policy check de CI se juzga desde la rama base
 
 Arreglo de seguridad (GHSA-3xrh-frxv-mwxr): el workflow `kj-policy.yml` que siembra `kj harden` se ejecutaba con la copia de la propia PR, así que una PR podía reescribir el paso que la juzga. Ahora corre con `pull_request_target`: el workflow y el kj que juzga salen de la rama base, y la PR solo se lee. Además ya funciona fuera del repo de kj (issue #2666). Vuelve a ejecutar `kj harden` y séllalo (`kj harden --commit`) para recibir el workflow nuevo.
 

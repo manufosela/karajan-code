@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.70.2] - 2026-10-28
+
+Patch, cut from 4.70.1 (tag `v4.70.2` on the branch `release/KJC-TSK-1265-v4.70.2`): main already carries changes for 5.0.0. The CI policy check works in projects that commit their kj config, npm 12 installs say how to build the database, and several frictions found in other projects are gone.
+
+### Fixed
+
+- **`policy-check` no longer dies in projects that commit their kj config** (KJC-BUG-0428, issue #2694): a CI runner never has a global kj config, so a committed `.karajan/kj.config.yml` made kj exit before judging and the check was red on every PR. In CI that config now sits on the defaults; on a person's machine the missing global config is still an error that says `kj init --global`.
+- **npm 12 installs** (KJC-BUG-0426, issue #2670): npm 12 runs a dependency's install script only when `allowScripts` covers it, so `better-sqlite3` was left unbuilt and `kj rag` failed with a raw bindings error. `kj doctor` now detects it and prints the exact approve-and-rebuild command for your install, and the RAG says the same instead of the raw error.
+- **`kj policy add` with reviewer claude** (KJC-BUG-0430, issue #2695): it parsed claude's whole event stream as YAML and applied nothing; it now reads its final answer.
+- **A PR can describe the supervisor's files** (KJC-BUG-0425, issue #2679): the Sentinel denied any Bash naming them, so a PR documenting a seal could not be opened. Text that a `gh pr|issue|release` command only publishes is now text; anything not provably text is still denied.
+- **`kj harden` warns about the one PR that moves `kj-policy.yml` to `pull_request_target`** (KJC-BUG-0424): GitHub runs neither workflow on that PR, so a required `policy-check` never reports. Merge that PR once as an admin after the other checks pass.
+
 ## [4.70.1] - 2026-10-28
 
 Patch, cut from 4.70.0 (tag `v4.70.1` on the branch `release/KJC-TSK-1260-v4.70.1`): main already carries changes for 5.0.0. Security fix for the CI policy check that `kj harden` seeds (GHSA-3xrh-frxv-mwxr), which also makes it work in projects other than kj's own.
