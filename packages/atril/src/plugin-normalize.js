@@ -5,12 +5,16 @@
  * plugin's cached copy is normalized before the import (flat MCP wrapped), and the
  * server count is kept for the caller to check after it. lossyFields reports what
  * the import would still drop, so the caller can keep such a plugin native-only.
+ * normalizePlugin (step 13b2) runs the import itself and checks the server count after it.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { writeAtomic } from "./atomic.js";
 import { isMapping } from "./model.js";
-import { readPluginManifest } from "./plugin.js";
+import { detectPluginFormat, readPluginManifest } from "./plugin.js";
+import { defaultRun, runRulesync } from "./rulesync-cli.js";
+// The ADR names only these two import targets; Codex is unverified, so it stays native-only.
+const IMPORT_TARGETS = { claude: "claudecode-plugin", agent: "antigravity-plugin" };
 const HOOKS_FILE = join("hooks", "hooks.json");
 const HOOK_LOSSY = ["rewakeMessage", "rewakeSummary"];
 // The ADR marks inline hooks / mcpServers in plugin.json "untested": lossy until verified.
@@ -79,4 +83,30 @@ export function lossyFields(dir) {
     lost.push(...findHookFields(hooks.hooks, "hooks"));
   }
   return lost.toSorted(compare);
+}
+
+/**
+ * Imports the cached copy `dir` into `<dir>/.rulesync` (ADR 0021). Run it on a freshly fetched copy only.
+ * The binary is resolved from `projectDir`, never from the copy. A plugin the import cannot keep whole
+ * is returned as native-only (a choice for the install step), not thrown.
+ */
+export function normalizePlugin(dir, { projectDir = process.cwd() } = {}, run = defaultRun) {
+  const target = IMPORT_TARGETS[detectPluginFormat(dir)];
+  if (!target) return { status: "native-only", reason: "no rulesync import target for .codex-plugin" };
+  const lossy = lossyFields(dir);
+  if (lossy.length) return { status: "native-only", reason: "rulesync import would drop fields", lossy };
+  const abs = resolve(dir);
+  const source = join(abs, ".rulesync");
+  if (existsSync(source)) throw new Error(`${source} already exists; normalize a freshly fetched copy`);
+  const { servers, wrapped } = prepareImport(abs);
+  try {
+    // cwd stays projectDir: the `npx --no-install` fallback resolves local bins from cwd, and the copy is untrusted.
+    runRulesync(["import", "--targets", target, "--output-root", abs], { projectDir }, run);
+  } catch (error) {
+    throw new Error(`rulesync import failed for ${dir} (${error.message})`, { cause: error });
+  }
+  const imported = join(source, "mcp.json");
+  const after = existsSync(imported) ? countServers(readJson(imported)) : 0;
+  if (after !== servers) throw new Error(`${dir}: rulesync import changed the MCP server count (${servers} → ${after})`);
+  return { status: "split", source, target, servers, wrapped };
 }
