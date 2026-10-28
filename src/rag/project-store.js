@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 import { openVecStore } from "./vec-store.js";
+import { explainNativeLoadError } from "../checks/native-build.js";
 import { getKarajanHome } from "../utils/paths.js";
 
 function projectRoot(dir) {
@@ -39,10 +40,20 @@ export function libraryDbPath() {
   return process.env.KJ_LIBRARY_DB || path.join(getKarajanHome(), "library.db");
 }
 
+// KJC-BUG-0426: an unbuilt better-sqlite3 addon says how to build it, not "bindings file".
+// Every opening of a RAG store goes through here.
+export function openVecStoreExplained(opts) {
+  try {
+    return openVecStore(opts);
+  } catch (err) {
+    throw explainNativeLoadError(err);
+  }
+}
+
 export function openLibraryStore({ dim = 768 } = {}) {
-  return openVecStore({ dim, path: libraryDbPath() });
+  return openVecStoreExplained({ dim, path: libraryDbPath() });
 }
 
 export function openProjectStore({ projectDir = process.cwd(), dim = 768 } = {}) {
-  return openVecStore({ dim, path: projectDbPath(projectDir) });
+  return openVecStoreExplained({ dim, path: projectDbPath(projectDir) });
 }

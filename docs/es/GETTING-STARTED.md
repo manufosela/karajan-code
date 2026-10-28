@@ -64,6 +64,8 @@ kj --version    # 4.70.1
 kj doctor       # Comprobar entorno
 ```
 
+> **npm 12 o posterior:** npm solo ejecuta el script de instalación de una dependencia si `allowScripts` lo cubre, así que `better-sqlite3` (la base de datos del RAG y del board) queda sin compilar y npm solo avisa de que bloqueó scripts. `kj doctor` lo detecta e imprime el comando exacto para tu instalación: aprobar y recompilar dentro de la carpeta del paquete de kj (`npm install-scripts approve better-sqlite3`, lo mismo con `node-pty`, y luego `npm rebuild better-sqlite3 node-pty`). Reinstalar no sirve, porque el script se vuelve a bloquear.
+
 ## Primera ejecución
 
 ### Opción A: Zero config (lo más simple)
