@@ -43,20 +43,8 @@ export async function qmdQueryCommand({ text, config, logger, flags = {} }) {
     if (err?.code === "ENOENT") return notInstalled(logger);
     throw err;
   }
-
-  const stderr = out.stderr || "";
-  if (out.exitCode === 127 || QMD_NOT_INSTALLED.test(stderr)) return notInstalled(logger);
-  if (COLLECTION_MISSING.test(stderr)) {
-    logger.error?.(`[qmd] ${INIT_HINT}`);
-    process.exitCode = 1;
-    return { ok: false, error: "collection not registered", collection };
-  }
-  if (out.exitCode !== 0) {
-    const msg = (stderr || out.stdout || `qmd exit ${out.exitCode}`).trim();
-    logger.error?.(`[qmd] ${msg}`);
-    process.exitCode = out.exitCode || 1;
-    return { ok: false, error: msg };
-  }
+  const failure = runFailure(out, collection, logger);
+  if (failure) return failure;
 
   let results;
   try { results = JSON.parse(out.stdout || "[]"); }
@@ -75,12 +63,30 @@ export async function qmdQueryCommand({ text, config, logger, flags = {} }) {
     return { ok: true, results: [] };
   }
   logger.info(`[qmd] ${results.length} hit(s) in ${collection}:`);
-  for (const h of results) {
-    const src = h.source || h.path || h.file || "?";
-    const score = typeof h.score === "number" ? ` · score=${h.score.toFixed(4)}` : "";
-    const snippet = h.snippet || h.text || h.body || "";
-    logger.info(`  - ${src}${score}`);
-    if (snippet) logger.info(`    ${snippet.length > 200 ? `${snippet.slice(0, 200)}…` : snippet}`);
-  }
+  for (const h of results) printHit(h, logger);
   return { ok: true, results };
+}
+
+// A finished qmd run that did not answer: not installed, no collection, or a failing exit.
+function runFailure(out, collection, logger) {
+  const stderr = out.stderr || "";
+  if (out.exitCode === 127 || QMD_NOT_INSTALLED.test(stderr)) return notInstalled(logger);
+  if (COLLECTION_MISSING.test(stderr)) {
+    logger.error?.(`[qmd] ${INIT_HINT}`);
+    process.exitCode = 1;
+    return { ok: false, error: "collection not registered", collection };
+  }
+  if (out.exitCode === 0) return null;
+  const msg = (stderr || out.stdout || `qmd exit ${out.exitCode}`).trim();
+  logger.error?.(`[qmd] ${msg}`);
+  process.exitCode = out.exitCode || 1;
+  return { ok: false, error: msg };
+}
+
+function printHit(h, logger) {
+  const src = h.source || h.path || h.file || "?";
+  const score = typeof h.score === "number" ? ` · score=${h.score.toFixed(4)}` : "";
+  const snippet = h.snippet || h.text || h.body || "";
+  logger.info(`  - ${src}${score}`);
+  if (snippet) logger.info(`    ${snippet.length > 200 ? `${snippet.slice(0, 200)}…` : snippet}`);
 }
