@@ -76,57 +76,76 @@ export function mmrRerank(candidates, embeddings, { topK, lambda = 0.7 }) {
   return picked;
 }
 
-export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", rrfK = DEFAULT_RRF_K, where = null, whereRoot = null, rerankOpts = null, diversify = false, mmrLambda = 0.7 } = {}) {
-  if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
-  const rerankTopN = rerankOpts ? Math.max(topK, rerankOpts.topN ?? DEFAULT_RERANK_TOP_N) : 0; // never fewer than asked
-  const fetchK = Math.min(50, Math.max(topK * 2, rerankTopN)); // the rerank pool must be retrievable
-  const scopeKind = scope === "plans" ? "plan" : scope === "code" ? "code" : scope === "onboarding" ? "onboarding" : null;
-  // KJC-TSK-0448 — metadata filter. `where` is a string like "symbol=Foo AND
-  // hu_id=HU-003"; we parse once and reuse the SQL fragment across both
-  // semantic and keyword searches.
+const SCOPE_KINDS = { plans: "plan", code: "code", onboarding: "onboarding" };
+
+/**
+ * KJC-TSK-0448 — metadata filter. `where` is a string like "symbol=Foo AND
+ * hu_id=HU-003"; we parse once and reuse the SQL fragment across both
+ * semantic and keyword searches.
+ */
+function whereFilter(where, whereRoot) {
   const parsed = parseWhere(where);
   if (!parsed.ok) throw new Error(`query: ${parsed.error}`);
   // KJC-TSK-1179: a relative `source~=` prefix is placed under the project root the caller names.
   const { sql: whereSql, params: whereParams } = buildWhereSql(parsed.clauses, { root: whereRoot });
-  const opts = { kind: scopeKind, project, whereSql, whereParams };
-  const wantSemantic = mode !== "keyword";
-  const wantKeyword = mode !== "semantic";
-  const semanticHits = wantSemantic ? searchSimilar(db, await embedder.embed(text), fetchK, opts) : [];
-  const keywordHits = wantKeyword ? searchBM25(db, text, fetchK, opts) : [];
-  const raw = fuseHits(semanticHits, keywordHits, mode, { rrfK });
-  if (raw.length === 0) return [];
+  return { whereSql, whereParams };
+}
+
+/** Lower is better: the fused distance minus the kind boost and, for source-hungry queries, the non-test boost. */
+function scoreHits(raw, text, kindBoost) {
   const boostSources = shouldBoostSources(text);
-  const scored = raw.map((r) => {
+  return raw.map((r) => {
     const kindB = kindBoost[r.kind] || 0;
     const sourceB = (boostSources && r.kind === "code" && !isTestPath(r.source)) ? SOURCE_BOOST_NON_TEST : 0;
     return { ...r, score: r.distance - kindB - sourceB };
   }).sort((a, b) => a.score - b.score);
-  // KJC-TSK-0484 PR-B — MMR diversification over topK*2 candidates. Fetches
-  // embeddings only when requested; cosine between candidate vectors drives
-  // the redundancy penalty so near-duplicates that survived dedup (e.g. a
-  // boilerplate chunk repeated under slightly different wording) get pushed
-  // down. Skipped entirely when `diversify=false` (default).
-  let reranked;
-  if (diversify) {
-    const pool = scored.slice(0, Math.min(scored.length, topK * 2));
-    const embeddings = getEmbeddingsByIds(db, pool.map((c) => c.id));
-    reranked = mmrRerank(pool, embeddings, { topK, lambda: mmrLambda });
-  } else {
-    reranked = scored.slice(0, topK);
-  }
-  // KJC-TSK-0449 — optional cross-encoder rerank. KJC-TSK-1173 (RAG-D, ADR 0026): the cross-encoder
-  // sees the top N after the boosts (`rerankOpts.topN`, 40 by default; with `diversify`, what MMR
-  // chose) and the caller gets the top K of its order. Without the library or the model, a caller
-  // that gave `onUnavailable` is told and gets the top K as retrieved; otherwise the error is its.
-  if (!rerankOpts) return reranked;
-  const pool = diversify ? reranked : scored.slice(0, Math.min(scored.length, rerankTopN));
+}
+
+/**
+ * KJC-TSK-0484 PR-B — MMR diversification over topK*2 candidates. Fetches
+ * embeddings only when requested; cosine between candidate vectors drives
+ * the redundancy penalty so near-duplicates that survived dedup (e.g. a
+ * boilerplate chunk repeated under slightly different wording) get pushed
+ * down. Skipped entirely when `diversify=false` (default).
+ */
+function topOf(db, scored, { diversify, topK, mmrLambda }) {
+  if (!diversify) return scored.slice(0, topK);
+  const pool = scored.slice(0, Math.min(scored.length, topK * 2));
+  const embeddings = getEmbeddingsByIds(db, pool.map((c) => c.id));
+  return mmrRerank(pool, embeddings, { topK, lambda: mmrLambda });
+}
+
+/**
+ * KJC-TSK-0449 — optional cross-encoder rerank. KJC-TSK-1173 (RAG-D, ADR 0026): the cross-encoder
+ * sees the top N after the boosts (`rerankOpts.topN`, 40 by default; with `diversify`, what MMR
+ * chose) and the caller gets the top K of its order. Without the library or the model, a caller
+ * that gave `onUnavailable` is told and gets the top K as retrieved; otherwise the error is its.
+ */
+async function rerankedTop(text, { scored, top, diversify, topK, rerankTopN, rerankOpts }) {
+  const pool = diversify ? top : scored.slice(0, Math.min(scored.length, rerankTopN));
   try {
     return (await rerank(text, pool, rerankOpts)).slice(0, topK);
   } catch (err) {
     if (err?.name !== "RerankError" || !rerankOpts.onUnavailable) throw err;
     rerankOpts.onUnavailable(err);
-    return reranked;
+    return top;
   }
+}
+
+export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", rrfK = DEFAULT_RRF_K, where = null, whereRoot = null, rerankOpts = null, diversify = false, mmrLambda = 0.7 } = {}) {
+  if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
+  const rerankTopN = rerankOpts ? Math.max(topK, rerankOpts.topN ?? DEFAULT_RERANK_TOP_N) : 0; // never fewer than asked
+  const fetchK = Math.min(50, Math.max(topK * 2, rerankTopN)); // the rerank pool must be retrievable
+  const kind = Object.hasOwn(SCOPE_KINDS, scope) ? SCOPE_KINDS[scope] : null;
+  const opts = { kind, project, ...whereFilter(where, whereRoot) };
+  const semanticHits = mode === "keyword" ? [] : searchSimilar(db, await embedder.embed(text), fetchK, opts);
+  const keywordHits = mode === "semantic" ? [] : searchBM25(db, text, fetchK, opts);
+  const raw = fuseHits(semanticHits, keywordHits, mode, { rrfK });
+  if (raw.length === 0) return [];
+  const scored = scoreHits(raw, text, kindBoost);
+  const top = topOf(db, scored, { diversify, topK, mmrLambda });
+  if (!rerankOpts) return top;
+  return rerankedTop(text, { scored, top, diversify, topK, rerankTopN, rerankOpts });
 }
 
 export { fuseHits, cosineSim };
