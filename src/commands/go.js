@@ -64,53 +64,83 @@ function defaultLaunch(agent, prompt) {
     });
   });
 }
+const failed = () => {
+  process.exitCode = 1;
+  return 1;
+};
+
+// No agent ready: say what only the person can do (log in, or install one).
+function explainNoAgent(agents, logger) {
+  const needLogin = agents.filter((a) => a.installed && !a.authenticated);
+  if (needLogin.length > 0) {
+    logger.error?.("Tienes el agente instalado pero falta iniciar sesión — eso solo puedes hacerlo tú (la cuenta es tuya; Karajan nunca toca tus credenciales):");
+    for (const a of needLogin) logger.error?.(`  ${a.label}:  ${a.login}`);
+    logger.error?.("Cuando hayas iniciado sesión, vuelve a escribir: kj go");
+    return;
+  }
+  logger.error?.("Karajan trabaja con un agente de IA que aún no tienes instalado. Elige uno, instálalo con su comando, e inicia sesión con TU cuenta (la cuenta es tuya):");
+  for (const a of agents) logger.error?.(`  ${a.label}:  ${a.install}`);
+  logger.error?.("Después, vuelve a escribir: kj go");
+}
+
+// At most one question, and only when more than one agent is ready.
+async function chooseAgent(ready, { flags, deps }) {
+  if (ready.length === 1) return ready[0];
+  const ask = deps.ask ?? createCliAskQuestion({ flags });
+  const answer = await ask("¿Con cuál de tus agentes quieres trabajar?", { options: ready.map((a) => a.name), default: ready[0].name });
+  return ready.find((a) => a.name === String(answer).trim()) ?? ready[0];
+}
+
+// Prepare ONCE: decisions already taken are never re-asked. Resolves false
+// when something is left for the person's hands (already said above).
+async function prepareOnce({ projectDir, config, logger, deps }) {
+  if (existsSync(path.join(projectDir, ".karajan", "review-gate"))) return true;
+  logger.info?.("Preparando tu proyecto (solo la primera vez)…");
+  // BOOT-A paso 3 (KJC-TSK-0857): el orden vive en UN sitio, kj bootstrap.
+  // Antes esta puerta cableaba su propia secuencia (git init y env install),
+  // así que la puerta del maggle y la técnica podían separarse sin que nadie
+  // se diera cuenta. Ahora las dos hacen lo mismo.
+  const booted = await (deps.bootstrap ?? bootstrapCommand)({ config, logger, flags: {}, deps: {} });
+  if (!booted.ok) {
+    logger.error?.(`Falta una cosa que solo puedes hacer tú, la tienes justo arriba (${booted.pending}). Cuando la hagas, vuelve a escribir: kj go`);
+    return false;
+  }
+  const prepared = deps.prepare ? await deps.prepare({ config, logger }) : null;
+  // Algo depende de tus manos (arriba tienes el detalle). Sin eso el
+  // proyecto quedaría a medias, así que paramos aquí en vez de seguir.
+  if (prepared?.exitCode) {
+    logger.error?.("Falta una cosa que solo puedes hacer tú, la tienes justo arriba. Cuando la hagas, vuelve a escribir: kj go");
+    return false;
+  }
+  return true;
+}
+
+// The board is the muggle's window — unless the project turned it off
+// (hu_board.enabled false is respected: KJC-BUG-0152). A board failure is
+// said and never stops the conversation from starting. Resolves whether it opened.
+async function openBoard({ config, logger, deps, windowMode }) {
+  if (config.hu_board?.enabled === false) return false;
+  const openPath = windowMode ? "/?maggle=1&window=1" : "/?maggle=1";
+  try {
+    await (deps.board ?? defaultBoard)({ config, logger, openPath });
+    return true;
+  } catch (err) {
+    logger.warn?.(`El tablero no pudo abrirse (${err.message}) — la conversación arranca igual.`);
+    return false;
+  }
+}
+
 export async function goCommand({ config = {}, logger = console, flags = {}, deps = {} } = {}) {
   const projectDir = config.projectDir || process.cwd();
   const agents = await (deps.detect ?? detectMaggleAgents)();
   const ready = agents.filter((a) => a.installed && a.authenticated);
-  const needLogin = agents.filter((a) => a.installed && !a.authenticated);
   if (ready.length === 0) {
-    if (needLogin.length > 0) {
-      logger.error?.("Tienes el agente instalado pero falta iniciar sesión — eso solo puedes hacerlo tú (la cuenta es tuya; Karajan nunca toca tus credenciales):");
-      for (const a of needLogin) logger.error?.(`  ${a.label}:  ${a.login}`);
-      logger.error?.("Cuando hayas iniciado sesión, vuelve a escribir: kj go");
-    } else {
-      logger.error?.("Karajan trabaja con un agente de IA que aún no tienes instalado. Elige uno, instálalo con su comando, e inicia sesión con TU cuenta (la cuenta es tuya):");
-      for (const a of agents) logger.error?.(`  ${a.label}:  ${a.install}`);
-      logger.error?.("Después, vuelve a escribir: kj go");
-    }
-    process.exitCode = 1;
-    return 1;
+    explainNoAgent(agents, logger);
+    return failed();
   }
-  let chosen = ready[0];
-  if (ready.length > 1) {
-    const ask = deps.ask ?? createCliAskQuestion({ flags });
-    const answer = await ask("¿Con cuál de tus agentes quieres trabajar?", { options: ready.map((a) => a.name), default: ready[0].name });
-    chosen = ready.find((a) => a.name === String(answer).trim()) ?? ready[0];
-  }
+  const chosen = await chooseAgent(ready, { flags, deps });
   logger.info?.(`Trabajarás con ${chosen.label}.`);
-  // Prepare ONCE: decisions already taken are never re-asked.
-  if (!existsSync(path.join(projectDir, ".karajan", "review-gate"))) {
-    logger.info?.("Preparando tu proyecto (solo la primera vez)…");
-    // BOOT-A paso 3 (KJC-TSK-0857): el orden vive en UN sitio, kj bootstrap.
-    // Antes esta puerta cableaba su propia secuencia (git init y env install),
-    // así que la puerta del maggle y la técnica podían separarse sin que nadie
-    // se diera cuenta. Ahora las dos hacen lo mismo.
-    const booted = await (deps.bootstrap ?? bootstrapCommand)({ config, logger, flags: {}, deps: {} });
-    if (!booted.ok) {
-      logger.error?.(`Falta una cosa que solo puedes hacer tú, la tienes justo arriba (${booted.pending}). Cuando la hagas, vuelve a escribir: kj go`);
-      process.exitCode = 1;
-      return 1;
-    }
-    const prepared = deps.prepare ? await deps.prepare({ config, logger }) : null;
-    // Algo depende de tus manos (arriba tienes el detalle). Sin eso el
-    // proyecto quedaría a medias, así que paramos aquí en vez de seguir.
-    if (prepared?.exitCode) {
-      logger.error?.("Falta una cosa que solo puedes hacer tú, la tienes justo arriba. Cuando la hagas, vuelve a escribir: kj go");
-      process.exitCode = 1;
-      return 1;
-    }
-  }
+  if (!(await prepareOnce({ projectDir, config, logger, deps }))) return failed();
   const prompt = (deps.prompt ?? buildGoPrompt)();
   // --window (MGL-E, ADR 0008): la conversación vive DENTRO del board — el
   // daemon hereda por env (HU_BOARD_TERMINAL_CWD/AGENT/PROMPT) el cwd, el
@@ -123,19 +153,7 @@ export async function goCommand({ config = {}, logger = console, flags = {}, dep
     process.env.HU_BOARD_TERMINAL_AGENT = chosen.name;
     process.env.HU_BOARD_TERMINAL_PROMPT = prompt;
   }
-  // The board is the muggle's window — unless the project turned it off
-  // (hu_board.enabled false is respected: KJC-BUG-0152). A board failure is
-  // said and never stops the conversation from starting.
-  let boardOpened = false;
-  if (config.hu_board?.enabled !== false) {
-    const openPath = windowMode ? "/?maggle=1&window=1" : "/?maggle=1";
-    try {
-      await (deps.board ?? defaultBoard)({ config, logger, openPath });
-      boardOpened = true;
-    } catch (err) {
-      logger.warn?.(`El tablero no pudo abrirse (${err.message}) — la conversación arranca igual.`);
-    }
-  }
+  const boardOpened = await openBoard({ config, logger, deps, windowMode });
   if (windowMode && boardOpened) {
     logger.info?.("Tu conversación vive en la ventana del navegador que se acaba de abrir. Si el tablero ya estaba arrancado de antes, reinícialo con kj board stop && kj go --window para que recoja este proyecto.");
     process.exitCode = 0;
