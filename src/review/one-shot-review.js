@@ -39,6 +39,36 @@ export async function pickCrossReviewer({ config, hostAgent, detectAgents = dete
   return CROSS_ORDER.find((name) => candidates.includes(name)) || candidates[0] || null;
 }
 
+const needsQuotaFailover = (result, config) =>
+  !result?.ok && isQuotaExhausted(result?.error) && (config?.reviewer_options?.auto_fallback ?? true);
+
+// KJC-TSK-0730 — quota failover: exhausted quota is not a review failure,
+// it is a provider outage. One retry with an authenticated candidate
+// (loud notice, never silent), or an actionable menu. Never the host:
+// the brain does not review itself.
+async function quotaFailover({ reviewer, hostAgent, config, logger, candidateStatusFn, attempt }) {
+  const statuses = await candidateStatusFn();
+  const fallback = pickQuotaFallback(statuses, { exclude: [reviewer, hostAgent].filter(Boolean) });
+  if (!fallback) {
+    throw new Error(
+      `reviewer ${reviewer} sin cuota y ningún candidato autenticado con adaptador.\n` +
+      formatCandidateMenu(statuses, { exclude: [hostAgent].filter(Boolean) })
+    );
+  }
+  logger?.warn?.(
+    `⚠ reviewer ${reviewer} sin cuota → usando ${fallback} SOLO en esta invocación. ` +
+    `Para fijarlo: roles.reviewer.provider: ${fallback} (avisando, nunca en silencio — KJC-TSK-0730).`
+  );
+  // The role's model pin belongs to the exhausted provider (a codex
+  // model name means nothing to copilot) — the candidate runs on its
+  // own default model.
+  const result = await attempt(fallback, {
+    ...config,
+    roles: { ...config?.roles, reviewer: { ...config?.roles?.reviewer, model: null } },
+  });
+  return { result, activeReviewer: fallback };
+}
+
 /**
  * Review a raw diff with a cross-AI reviewer and persist the verdict.
  * @returns {Promise<object>} the stored verdict record.
@@ -85,36 +115,10 @@ export async function runOneShotReview({
     return createAgentFn(who, cfg, logger).reviewTask({ prompt, role: "reviewer" });
   };
 
-  let activeReviewer = reviewer;
-  let result = await attempt(activeReviewer);
-
-  // KJC-TSK-0730 — quota failover: exhausted quota is not a review failure,
-  // it is a provider outage. One retry with an authenticated candidate
-  // (loud notice, never silent), or an actionable menu. Never the host:
-  // the brain does not review itself.
-  if (!result?.ok && isQuotaExhausted(result?.error) && (config?.reviewer_options?.auto_fallback ?? true)) {
-    const statuses = await candidateStatusFn();
-    const fallback = pickQuotaFallback(statuses, { exclude: [activeReviewer, hostAgent].filter(Boolean) });
-    if (fallback) {
-      logger?.warn?.(
-        `⚠ reviewer ${activeReviewer} sin cuota → usando ${fallback} SOLO en esta invocación. ` +
-        `Para fijarlo: roles.reviewer.provider: ${fallback} (avisando, nunca en silencio — KJC-TSK-0730).`
-      );
-      activeReviewer = fallback;
-      // The role's model pin belongs to the exhausted provider (a codex
-      // model name means nothing to copilot) — the candidate runs on its
-      // own default model.
-      result = await attempt(activeReviewer, {
-        ...config,
-        roles: { ...config?.roles, reviewer: { ...config?.roles?.reviewer, model: null } },
-      });
-    } else {
-      throw new Error(
-        `reviewer ${activeReviewer} sin cuota y ningún candidato autenticado con adaptador.\n` +
-        formatCandidateMenu(statuses, { exclude: [hostAgent].filter(Boolean) })
-      );
-    }
-  }
+  const first = await attempt(reviewer);
+  const { result, activeReviewer } = needsQuotaFailover(first, config)
+    ? await quotaFailover({ reviewer, hostAgent, config, logger, candidateStatusFn, attempt })
+    : { result: first, activeReviewer: reviewer };
 
   if (!result?.ok) {
     throw new Error(`reviewer ${activeReviewer} failed: ${result?.error || "no output"}`);
@@ -130,9 +134,14 @@ export async function runOneShotReview({
     throw new Error(await reportUnparseableVerdict({ projectDir, reviewer: activeReviewer, output: result.output, hash: diffHash(diff) }));
   }
 
-  const record = {
+  const record = await verdictRecord(parsed, { reviewer: activeReviewer, hostAgent, projectDir, sonar, rag, ui });
+  return persist ? saveVerdict(projectDir, diff, record) : record;
+}
+
+async function verdictRecord(parsed, { reviewer, hostAgent, projectDir, sonar, rag, ui }) {
+  return {
     verdict: parsed.approved ? "approved" : "rejected",
-    reviewer: activeReviewer,
+    reviewer,
     host: hostAgent || null,
     // KJC-TSK-0680: where the review ran — makes any isolation claim auditable.
     workspace: await detectWorkspace(projectDir),
@@ -148,5 +157,4 @@ export async function runOneShotReview({
     ...(ui ? { ui } : {}),
     confidence: parsed.confidence ?? null,
   };
-  return persist ? saveVerdict(projectDir, diff, record) : record;
 }
