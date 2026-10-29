@@ -29,7 +29,7 @@ function formatHistory(history) {
     .join("\n\n");
 }
 
-function buildPrompt({ conflict, task, instructions }) {
+export function buildPrompt({ conflict, task, instructions }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -85,82 +85,79 @@ function buildPrompt({ conflict, task, instructions }) {
   );
 
   const stage = conflict?.stage || "unknown";
-  const iterationCount = conflict?.iterationCount ?? "?";
-  const maxIterations = conflict?.maxIterations ?? "?";
-
-  const isFirstRejection = conflict?.isFirstRejection ?? false;
-  const isRepeat = conflict?.isRepeat ?? false;
-
-  const budgetUsd = conflict?.budget_usd;
-  const budgetLine = typeof budgetUsd === "number" ? `Budget spent so far: $${budgetUsd.toFixed(2)}` : "";
-
   sections.push(
+    ...conflictContextLines(conflict, stage),
+    ...previousRulingsLines(conflict?.previousSolomonRulings),
+    // Rate limit specific instruction
+    ...(stage.includes("rate_limit") ? rateLimitLines(conflict) : []),
+    ...conflictDetailSections(conflict, task),
+    `## Agent interaction history\n${formatHistory(conflict?.history)}`
+  );
+  return sections.join("\n\n");
+}
+
+function conflictContextLines(conflict, stage) {
+  const budgetUsd = conflict?.budget_usd;
+  return [
     `## Conflict context`,
     `Stage: ${stage}`,
-    `Iterations exhausted: ${iterationCount}/${maxIterations}`,
-    `isFirstRejection: ${isFirstRejection}`,
-    `isRepeat: ${isRepeat}`,
-    budgetLine,
+    `Iterations exhausted: ${conflict?.iterationCount ?? "?"}/${conflict?.maxIterations ?? "?"}`,
+    `isFirstRejection: ${conflict?.isFirstRejection ?? false}`,
+    `isRepeat: ${conflict?.isRepeat ?? false}`,
+    typeof budgetUsd === "number" ? `Budget spent so far: $${budgetUsd.toFixed(2)}` : "",
     "",
     "## Budget awareness",
     "Consider the cost-benefit ratio when deciding. If significant budget has been spent with little progress,",
     "prefer approving the current work or escalating to human. If progress is good and budget is low,",
     "prefer continuing with conditions. Never waste budget on style-only iterations."
-  );
+  ];
+}
 
-  if (conflict?.previousSolomonRulings?.length > 0) {
-    const rulingLines = conflict.previousSolomonRulings.map((r, idx) =>
-      `${idx + 1}. Stage: ${r.conflictStage}, Ruling: ${r.ruling}${r.alternativeAgent ? `, agent: ${r.alternativeAgent}` : ""}${r.error ? ` (FAILED: ${r.error})` : ""}`
-    ).join("\n");
-    sections.push(
-      "## Your previous rulings in this session (DO NOT repeat failed strategies)",
-      rulingLines,
-      "If a previous ruling failed (e.g., alternative agent also rate-limited), do NOT suggest the same strategy again. Escalate or try a different approach."
-    );
-  }
+function previousRulingsLines(rulings) {
+  if (!(rulings?.length > 0)) return [];
+  const rulingLines = rulings.map((r, idx) =>
+    `${idx + 1}. Stage: ${r.conflictStage}, Ruling: ${r.ruling}${r.alternativeAgent ? `, agent: ${r.alternativeAgent}` : ""}${r.error ? ` (FAILED: ${r.error})` : ""}`
+  ).join("\n");
+  return [
+    "## Your previous rulings in this session (DO NOT repeat failed strategies)",
+    rulingLines,
+    "If a previous ruling failed (e.g., alternative agent also rate-limited), do NOT suggest the same strategy again. Escalate or try a different approach."
+  ];
+}
 
-  // Rate limit specific instruction
-  if (stage?.includes("rate_limit")) {
-    const rateLimitedAgent = conflict?.history?.[0]?.feedback?.match(/Agent "(\w+)"/)?.[1] || "unknown";
-    sections.push(
-      "## CRITICAL: Agent rate-limited",
-      `Agent "${rateLimitedAgent}" is rate-limited. You MUST NOT approve skipping this stage.`,
-      "Your ONLY valid options are:",
-      `1. approve_with_conditions + alternativeAgent: pick a different agent (available: claude, codex, gemini — NOT "${rateLimitedAgent}")`,
-      "2. approve_with_conditions + waitUntil: if cooldown is known and <10min",
-      "3. escalate_human: if no alternatives work",
-      `DO NOT set ruling to "approve". The stage MUST be completed by some agent.`
-    );
-  }
+function rateLimitLines(conflict) {
+  const rateLimitedAgent = conflict?.history?.[0]?.feedback?.match(/Agent "(\w+)"/)?.[1] || "unknown";
+  return [
+    "## CRITICAL: Agent rate-limited",
+    `Agent "${rateLimitedAgent}" is rate-limited. You MUST NOT approve skipping this stage.`,
+    "Your ONLY valid options are:",
+    `1. approve_with_conditions + alternativeAgent: pick a different agent (available: claude, codex, gemini — NOT "${rateLimitedAgent}")`,
+    "2. approve_with_conditions + waitUntil: if cooldown is known and <10min",
+    "3. escalate_human: if no alternatives work",
+    `DO NOT set ruling to "approve". The stage MUST be completed by some agent.`
+  ];
+}
 
+// The optional sections, in order: issue categories, blocking issues, symlinks, task, diff.
+function conflictDetailSections(conflict, task) {
+  const sections = [];
   if (conflict?.issueCategories) {
     sections.push(`## Issue categories\n${JSON.stringify(conflict.issueCategories, null, 2)}`);
   }
-
   if (conflict?.blockingIssues?.length) {
     const issueList = conflict.blockingIssues
       .map((issue, i) => `${i + 1}. [${issue.severity || "unknown"}] ${issue.description || issue}`)
       .join("\n");
     sections.push(`## Blocking issues\n${issueList}`);
   }
-
   // KJC-BUG-0414 (#2606): taking a symlink's target out of the commit leaves the link dangling.
   if (conflict?.symlinkTargets?.length) {
     const links = conflict.symlinkTargets.map(({ link, target }) => `- ${link} -> ${target}`).join("\n");
     sections.push(`## Symlinks in this change\n${links}\nEach target stays in the commit: never propose unstaging, removing or restoring it, or the link is committed dangling.`);
   }
-
-  if (task) {
-    sections.push(`## Original task\n${task}`);
-  }
-
-  if (conflict?.diff) {
-    sections.push(`## Current diff\n${conflict.diff}`);
-  }
-
-  sections.push(`## Agent interaction history\n${formatHistory(conflict?.history)}`);
-
-  return sections.join("\n\n");
+  if (task) sections.push(`## Original task\n${task}`);
+  if (conflict?.diff) sections.push(`## Current diff\n${conflict.diff}`);
+  return sections;
 }
 
 function parseSolomonOutput(raw) {
