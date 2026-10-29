@@ -82,6 +82,58 @@ export function groupByScanRoot(files, { root = process.cwd(), exists = existsSy
   return groups;
 }
 
+// One scan root: scan it, prove its coverage, read its issues (repo-relative).
+async function scanGroup(config, dir, { projectDir, rootCwd, logger }) {
+  const prefix = dir ? `${dir}/` : "";
+  // KJC-TSK-0838: verbose, so the scanner names every file it indexed.
+  const scanCwd = dir ? join(projectDir, dir) : rootCwd;
+  const scan = await runSonarScan(config, null, { verbose: true, ...(scanCwd ? { cwd: scanCwd } : {}) });
+  if (scan.note) logger?.warn?.(scan.note); // KJC-BUG-0156: precedence is said, never silent
+  if (!scan.ok) {
+    return { failure: { available: false, reason: (scan.stderr || scan.stdout || "sonar scan failed").trim() } };
+  }
+  // Coverage is PROVED by the scanner's own index, never inferred from
+  // config — a root-scoped properties file let 4 PRs under packages/radar
+  // pass as "0 issues on staged files". No index in the log = no proof.
+  const own = indexedFilesFrom(scan.stdout);
+  if (own.size === 0) {
+    return { failure: { available: false, reason: `the scanner log names no indexed file (sonar.verbose) — coverage cannot be proved for ${dir || "the repo root"}` } };
+  }
+  // The scan above ALWAYS runs before issues are read (single-flight), and
+  // it returns once the server has processed it (KJC-BUG-0263: before, the
+  // upload returned first and the issues read were the previous analysis).
+  const res = await getOpenIssues(config, scan.projectKey);
+  return {
+    indexed: [...own].map((f) => `${prefix}${f}`),
+    projectKey: scan.projectKey,
+    total: res.total ?? (res.issues || []).length,
+    // Issue components are package-relative: made repo-relative here.
+    issues: (res.issues || []).map((i) => ({ ...i, component: `${scan.projectKey}:${prefix}${issueFile(i)}` })),
+  };
+}
+
+function pregateResult({ config, stagedFiles, touchedLines, indexed, issues, keys, totalProject }) {
+  const { sources } = sourceFilesOf(config, stagedFiles);
+  const staged = new Set(stagedFiles);
+  const onStaged = issues.filter((i) => staged.has(issueFile(i)));
+  // KJC-TSK-0795 AC3: with the diff's line map, only issues on lines the PR
+  // ADDS can veto — a 3-line PR must not answer for 30 preexisting issues.
+  // No line, or an untouched line, is the file's TREND: reported, never a block.
+  const isTouched = (i) => !touchedLines || (i.line != null && touchedLines.get(issueFile(i))?.has(Number(i.line)));
+  const mine = onStaged.filter(isTouched);
+  const isBlocking = (i) => BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase());
+  return {
+    available: true,
+    projectKey: keys.join(","),
+    covered: sources.filter((f) => indexed.has(f)),
+    uncovered: sources.filter((f) => !indexed.has(f)),
+    blocking: mine.filter(isBlocking),
+    advisory: mine.filter((i) => !isBlocking(i)),
+    preexisting: touchedLines ? onStaged.filter((i) => !isTouched(i)) : [],
+    totalProject,
+  };
+}
+
 // KJC-TSK-1078: projectDir is where the files live (a third-party PR's clone may not be the cwd).
 export async function runSonarPregate({ config, stagedFiles = [], touchedLines = null, logger = null, exists = existsSync, projectDir = process.cwd() }) {
   if (config?.review_gate?.sonar === false) {
@@ -104,51 +156,14 @@ export async function runSonarPregate({ config, stagedFiles = [], touchedLines =
     const keys = [];
     let totalProject = 0;
     for (const dir of groups.keys()) {
-      const prefix = dir ? `${dir}/` : "";
-      // KJC-TSK-0838: verbose, so the scanner names every file it indexed.
-      const scanCwd = dir ? join(projectDir, dir) : rootCwd;
-      const scan = await runSonarScan(config, null, { verbose: true, ...(scanCwd ? { cwd: scanCwd } : {}) });
-      if (scan.note) logger?.warn?.(scan.note); // KJC-BUG-0156: precedence is said, never silent
-      if (!scan.ok) {
-        return { available: false, reason: (scan.stderr || scan.stdout || "sonar scan failed").trim() };
-      }
-      // Coverage is PROVED by the scanner's own index, never inferred from
-      // config — a root-scoped properties file let 4 PRs under packages/radar
-      // pass as "0 issues on staged files". No index in the log = no proof.
-      const own = indexedFilesFrom(scan.stdout);
-      if (own.size === 0) {
-        return { available: false, reason: `the scanner log names no indexed file (sonar.verbose) — coverage cannot be proved for ${dir || "the repo root"}` };
-      }
-      for (const f of own) indexed.add(`${prefix}${f}`);
-      keys.push(scan.projectKey);
-      // The scan above ALWAYS runs before issues are read (single-flight), and
-      // it returns once the server has processed it (KJC-BUG-0263: before, the
-      // upload returned first and the issues read were the previous analysis).
-      const res = await getOpenIssues(config, scan.projectKey);
-      totalProject += res.total ?? (res.issues || []).length;
-      // Issue components are package-relative: made repo-relative here.
-      for (const i of res.issues || []) issues.push({ ...i, component: `${scan.projectKey}:${prefix}${issueFile(i)}` });
+      const group = await scanGroup(config, dir, { projectDir, rootCwd, logger });
+      if (group.failure) return group.failure;
+      for (const f of group.indexed) indexed.add(f);
+      keys.push(group.projectKey);
+      totalProject += group.total;
+      issues.push(...group.issues);
     }
-    const { sources } = sourceFilesOf(config, stagedFiles);
-    const covered = sources.filter((f) => indexed.has(f));
-    const uncovered = sources.filter((f) => !indexed.has(f));
-    const staged = new Set(stagedFiles);
-    const onStaged = issues.filter((i) => staged.has(issueFile(i)));
-    // KJC-TSK-0795 AC3: with the diff's line map, only issues on lines the PR
-    // ADDS can veto — a 3-line PR must not answer for 30 preexisting issues.
-    // No line, or an untouched line, is the file's TREND: reported, never a block.
-    const isTouched = (i) => !touchedLines || (i.line != null && touchedLines.get(issueFile(i))?.has(Number(i.line)));
-    const mine = onStaged.filter(isTouched);
-    return {
-      available: true,
-      projectKey: keys.join(","),
-      covered,
-      uncovered,
-      blocking: mine.filter((i) => BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
-      advisory: mine.filter((i) => !BLOCKING_SEVERITIES.has(String(i.severity).toUpperCase())),
-      preexisting: touchedLines ? onStaged.filter((i) => !isTouched(i)) : [],
-      totalProject,
-    };
+    return pregateResult({ config, stagedFiles, touchedLines, indexed, issues, keys, totalProject });
   } catch (err) {
     logger?.warn?.(`[sonar-pregate] ${err.message}`);
     return { available: false, reason: err.message };
