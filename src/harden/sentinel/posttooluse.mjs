@@ -205,10 +205,12 @@ process.stdin.on("end", () => {
       const ps = spawnSync("kj", ["pr-size", "--json"], { cwd: ROOT, encoding: "utf8", timeout: 5000 });
       let size = null;
       try { size = JSON.parse(String(ps.stdout || "").trim().split(String.fromCharCode(10)).pop()); } catch { size = null; }
-      const crossed = size ? [200, 150].find((t) => size.added > t) : undefined;
+      // KJC-BUG-0435: net lines, as the CI gate counts them; a kj older than 0434 reports only added.
+      const lines = size ? (size.net ?? size.added) : 0;
+      const crossed = size ? [200, 150].find((t) => lines > t) : undefined;
       if (crossed && (s.size_warned || 0) < crossed) {
         s.size_warned = crossed;
-        sizeNote = "karajan sentinel: la rama ya suma " + size.added + " lineas contables (" + size.testAdded + " de tests); " + (crossed >= 200 ? "pasa el limite de 200 del CI: parte antes de seguir" : "pasa de 150: planea la particion ahora, no en el stage");
+        sizeNote = "karajan sentinel: la rama ya suma " + lines + " lineas netas contables (" + size.testAdded + " de tests); " + (crossed >= 200 ? "pasa el limite de 200 del CI: parte antes de seguir" : "pasa de 150: planea la particion ahora, no en el stage");
       }
     }
     const ids = Object.keys(state.sessions);
