@@ -23,6 +23,15 @@ const base = () => {
 };
 
 describe("suite-green stage", () => {
+  // KJC-BUG-0427: a login shell re-reads the person's profile, which may rewrite PATH
+  // (nvm drops node when npm_config_prefix is set) and turned `npm test` into exit 127.
+  // The suite runs with the environment kj runs in.
+  it("runs the test command in a plain shell, never a login one", async () => {
+    const { args } = base();
+    const r = await runSuiteGreenStage({ ...args, config: { ...args.config, projectDir: process.cwd() }, resolveCmdsImpl: async () => ({ test: "shopt -q login_shell && exit 3; exit 0" }) });
+    expect(r.result).toMatchObject({ ran: true, ok: true });
+  });
+
   it("a red suite goes back to the coder with the command, the exit code and the tail of the output", async () => {
     const { args, events } = base();
     const r = await runSuiteGreenStage({ ...args, runTestsImpl: async () => ({ exitCode: 1, output: "FAIL tests/x.test.js\nexpected 2 to be 3" }) });

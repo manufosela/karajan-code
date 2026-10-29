@@ -378,7 +378,7 @@ describe("kj_run smoke", () => {
     expect(bashIdx).toBeGreaterThanOrEqual(0);
     expect(dockerIdx).toBeGreaterThanOrEqual(0);
     expect(bashIdx).toBeLessThan(dockerIdx);
-    expect(runCommand.mock.calls[bashIdx][1]).toEqual(["-lc", "echo coverage"]);
+    expect(runCommand.mock.calls[bashIdx][1]).toEqual(["-c", "echo coverage"]);
     expect(runCommand.mock.calls[0][0]).toBe("git");
   });
 });

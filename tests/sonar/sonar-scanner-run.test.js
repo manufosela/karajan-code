@@ -317,7 +317,7 @@ describe("[opt-in: sonar] runSonarScan", () => {
       const result = await runSonarScan(config, "my-key");
       expect(result.ok).toBe(true);
       expect(runCommand.mock.calls[0][0]).toBe("bash");
-      expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
+      expect(runCommand.mock.calls[0][1]).toEqual(["-c", "echo coverage"]);
       expect(runCommand.mock.calls[0][2]).toEqual({ timeout: 12345 });
       expect(runCommand.mock.calls[1][0]).toBe("docker");
       const scannerEnv = runCommand.mock.calls[1][2].env.SONAR_SCANNER_OPTS;
