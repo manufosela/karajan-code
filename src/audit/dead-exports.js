@@ -93,6 +93,68 @@ function resolveKnipBin() {
   return path.join(knipRoot, "bin", "knip.js");
 }
 
+// The ephemeral knip config for the entrypoints kj can vouch for. A project with
+// its OWN knip config already decided — it is respected. Declaring is
+// best-effort: on any error the default scan still runs.
+async function declareEntrypoints(projectDir, config) {
+  try {
+    const eps = await resolveProjectEntrypoints(projectDir, config);
+    if (eps && !(await hasOwnKnipConfig(projectDir))) {
+      const cfgPath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "kj-knip-")), "knip.json");
+      await fs.writeFile(cfgPath, JSON.stringify(buildEphemeralKnipConfig(eps)));
+      return { configArgs: ["--config", cfgPath], declaredEntrypoints: eps };
+    }
+  } catch { /* declaring is best-effort; the default scan still runs */ }
+  return { configArgs: [], declaredEntrypoints: null };
+}
+
+async function runKnip(args, projectDir, logger) {
+  try {
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      args,
+      { cwd: projectDir, timeout: SCAN_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
+    );
+    return { raw: stdout };
+  } catch (err) {
+    // knip exits non-zero when issues are found; with --no-exit-code that
+    // should not happen, but old configs might still trigger it. If the
+    // process produced JSON on stdout we still try to parse it.
+    const raw = err?.stdout || "";
+    if (raw) return { raw };
+    logger?.warn?.(`audit/dead-exports: knip failed (${err?.message || err})`);
+    return { failure: { available: false, reason: `knip run failed: ${err?.shortMessage || err?.message || err}` } };
+  }
+}
+
+// One knip file entry → its unused exports, then its unused types.
+function deadExportIssuesOf(fi) {
+  const file = fi.file || fi.filePath || "";
+  if (!file) return [];
+  const exportIssues = (fi.exports || []).map((ex) => ({
+    tool: "knip",
+    rule: "unused-exports",
+    component: file,
+    path: file,
+    line: ex.line || 1,
+    col: ex.col,
+    name: ex.name,
+    severity: "MINOR",
+    message: `Unused export \`${ex.name}\` in ${file}`,
+  }));
+  const typeIssues = (fi.types || []).map((t) => ({
+    tool: "knip",
+    rule: "unused-types",
+    component: file,
+    path: file,
+    line: t.line || 1,
+    name: t.name,
+    severity: "MINOR",
+    message: `Unused type \`${t.name}\` in ${file}`,
+  }));
+  return [...exportIssues, ...typeIssues];
+}
+
 /**
  * Collect dead-exports findings for a project.
  *
@@ -116,36 +178,12 @@ export async function collectDeadExports(projectDir, stack, config = {}, logger 
   }
 
   const args = [knipBin, "--reporter", "json", "--no-progress", "--no-exit-code"];
-  let declaredEntrypoints = null;
-  try {
-    const eps = await resolveProjectEntrypoints(projectDir, config);
-    // a project with its OWN knip config already decided — it is respected
-    if (eps && !(await hasOwnKnipConfig(projectDir))) {
-      const cfgPath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "kj-knip-")), "knip.json");
-      await fs.writeFile(cfgPath, JSON.stringify(buildEphemeralKnipConfig(eps)));
-      args.push("--config", cfgPath);
-      declaredEntrypoints = eps;
-    }
-  } catch { /* declaring is best-effort; the default scan still runs */ }
+  const { configArgs, declaredEntrypoints } = await declareEntrypoints(projectDir, config);
+  args.push(...configArgs);
 
-  let raw;
-  try {
-    const { stdout } = await execFileAsync(
-      process.execPath,
-      args,
-      { cwd: projectDir, timeout: SCAN_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
-    );
-    raw = stdout;
-  } catch (err) {
-    // knip exits non-zero when issues are found; with --no-exit-code that
-    // should not happen, but old configs might still trigger it. If the
-    // process produced JSON on stdout we still try to parse it.
-    raw = err?.stdout || "";
-    if (!raw) {
-      logger?.warn?.(`audit/dead-exports: knip failed (${err?.message || err})`);
-      return { available: false, reason: `knip run failed: ${err?.shortMessage || err?.message || err}` };
-    }
-  }
+  const run = await runKnip(args, projectDir, logger);
+  if (run.failure) return run.failure;
+  const { raw } = run;
 
   let report;
   try {
@@ -158,36 +196,7 @@ export async function collectDeadExports(projectDir, stack, config = {}, logger 
   const unusedFiles = Array.isArray(report.files) ? report.files : [];
   const fileIssues = Array.isArray(report.issues) ? report.issues : [];
 
-  const deadExportIssues = [];
-  for (const fi of fileIssues) {
-    const file = fi.file || fi.filePath || "";
-    if (!file) continue;
-    for (const ex of fi.exports || []) {
-      deadExportIssues.push({
-        tool: "knip",
-        rule: "unused-exports",
-        component: file,
-        path: file,
-        line: ex.line || 1,
-        col: ex.col,
-        name: ex.name,
-        severity: "MINOR",
-        message: `Unused export \`${ex.name}\` in ${file}`,
-      });
-    }
-    for (const t of fi.types || []) {
-      deadExportIssues.push({
-        tool: "knip",
-        rule: "unused-types",
-        component: file,
-        path: file,
-        line: t.line || 1,
-        name: t.name,
-        severity: "MINOR",
-        message: `Unused type \`${t.name}\` in ${file}`,
-      });
-    }
-  }
+  const deadExportIssues = fileIssues.flatMap(deadExportIssuesOf);
 
   const unusedFileIssues = unusedFiles.map((f) => ({
     tool: "knip",
