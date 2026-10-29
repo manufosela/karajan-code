@@ -60,6 +60,15 @@ describe("kj policy check --staged (warn)", () => {
     expect(out).toContain("warn");
   });
 
+  // KJC-TSK-1257: the dispatcher reads own keys only; any other action is check, as it always was.
+  it("una acción con nombre de Object.prototype corre check, no el método heredado", async () => {
+    for (const action of ["toString", "__proto__", "constructor"]) {
+      const log = logger();
+      expect(await policyCommand({ action, config: { projectDir: "/p" }, logger: log, flags: { json: true }, deps: deps({ gitFn }) })).toBe(0);
+      expect(JSON.parse(log.lines.at(-1)).mode).toBe("warn");
+    }
+  });
+
   it("--json emite {mode, violations} parseable; limpio dice limpio", async () => {
     const log = logger();
     await policyCommand({ action: "check", config: { projectDir: "/p" }, logger: log, flags: { json: true }, deps: deps({ gitFn }) });
