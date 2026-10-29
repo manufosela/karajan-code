@@ -90,4 +90,30 @@ describe("pre-push identity lock", () => {
     expect(denied.status).not.toBe(0);
     expect(denied.stdout).toMatch(/identity lock — commit \w+ is authored\/committed as intruder@x\.y intruder@x\.y but this clone is declared as t@t/);
   });
+
+  // KJC-BUG-0436: merging origin/main into a pushed branch brings main's merges (made by
+  // GitHub, under another identity). The remote already has them: this push does not.
+  it("does not judge commits the remote already has when it updates an existing branch", () => {
+    declare("manufosela", "t@t");
+    hosts("manufosela");
+    const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+    expect(commit().status).toBe(0);
+    const pushed = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/feat/KJC-TSK-0001-x", pushed);
+    git("checkout", "-q", "-b", "main-upstream");
+    fs.writeFileSync(path.join(dir, "main.js"), "// main\n");
+    git("add", "main.js");
+    git("-c", "core.hooksPath=/dev/null", "-c", "user.email=github@x.y", "commit", "-q", "-m", "feat: on main");
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("checkout", "-q", "feat/KJC-TSK-0001-x");
+    git("-c", "core.hooksPath=/dev/null", "-c", "user.email=t@t", "merge", "-q", "--no-ff", "--no-edit", "main-upstream");
+    const update = () => spawnSync("sh", [path.join(dir, ".karajan", "hooks", "pre-push")], {
+      cwd: dir, encoding: "utf8", input: `refs/heads/x ${git("rev-parse", "HEAD")} refs/heads/x ${pushed}\n`, env: { ...process.env, GH_CONFIG_DIR: ghDir },
+    });
+    expect(update().status).toBe(0);
+    fs.writeFileSync(path.join(dir, "f.js"), "// intruder\n");
+    git("add", "f.js");
+    git("-c", "core.hooksPath=/dev/null", "-c", "user.email=intruder@x.y", "commit", "-q", "-m", "feat: y");
+    expect(update().stdout).toMatch(/identity lock — commit \w+ is authored\/committed as intruder@x\.y/);
+  });
 });
