@@ -12,10 +12,10 @@ import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, bin, post;
-const fakeSize = (added) => {
+const fakeSize = (added, net = added) => {
   fs.mkdirSync(bin, { recursive: true });
   const file = path.join(bin, "kj");
-  fs.writeFileSync(file, `#!/bin/sh\necho '{"added":${added},"exempt":0,"testAdded":10,"base":"main"}'\n`);
+  fs.writeFileSync(file, `#!/bin/sh\necho '{"added":${added},"net":${net},"exempt":0,"testAdded":10,"base":"main"}'\n`);
   fs.chmodSync(file, 0o755);
 };
 const edit = () => spawnSync("node", [post], {
@@ -42,6 +42,12 @@ describe("sentinel × branch size", () => {
     const res = edit();
     expect(res.status).toBe(0);
     expect(note(res)).toBeNull();
+  });
+
+  // KJC-BUG-0435: the CI gate counts net lines; a rewrite in place is not growth.
+  it("measures net lines, as CI does: a rewrite in place says nothing", () => {
+    fakeSize(260, 40);
+    expect(note(edit())).toBeNull();
   });
 
   it("past 150 it says so once, as context, and exits 0", () => {
