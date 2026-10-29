@@ -31,6 +31,53 @@ const countSources = (db, slug, projectDir) => {
 export const DEFAULT_MAX_DRIFT_FILES = 25;
 const HOOK_SRC = resolve(fileURLToPath(import.meta.url), "../../../scripts/git-hooks/post-merge");
 
+// KJC-TSK-1174 (RAG-A2): no index yet. It is built in the background, once; the session
+// does not wait. A recent attempt that died (no Ollama) is not retried blindly.
+function bootstrapInBackground({ projectDir, slug, head, logger }) {
+  const boot = startBootstrap(projectDir);
+  if (boot.recent) {
+    warnOnce(logger, `bootstrap:${projectDir}`, `[rag] ${slug} has no index and the background indexing did not finish: run kj rag index --with-sources`);
+    return { skipped: true, reason: "bootstrap-failed", head };
+  }
+  warnOnce(logger, `bootstrap:${projectDir}`, `[rag] ${slug} has no index yet: indexing it in the background (pid ${boot.pid}); queries answer from it once it is done`);
+  return { skipped: true, reason: "bootstrapping", pid: boot.pid, head };
+}
+
+// KJC-TSK-1171 (RAG-B): an index built before the embedded header holds vectors a
+// query by file or symbol name cannot reach. Small, it is rebuilt here; large, the
+// query answers from it and says once how to rebuild.
+async function rebuildOldSchema({ db, slug, projectDir, config, logger, head, maxFiles }, schema) {
+  const sources = countSources(db, slug, projectDir);
+  if (sources > maxFiles) {
+    warnOnce(logger, projectDir, `[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}): answering from it as it is; rebuild it with kj rag index --with-sources`);
+    return { skipped: true, reason: "embed-schema-old", sources, head };
+  }
+  logger.info?.(`[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}); rebuilding ${sources} source(s)`);
+  const totals = await indexProject(projectDir, { db, embedder: makeGovernedEmbedder(config), karajanHome: getKarajanHome(), logger, withSources: true, exclude: ragExclude(config) });
+  if (totals.head) setLastIndexedCommit(db, slug, totals.head);
+  return { ran: true, rebuilt: true, totals };
+}
+
+// KJC-TSK-1174 (RAG-A1): the drift is measured up to the files on disk, untracked ones
+// included, so a query sees what the session is writing before it is committed.
+// The dirty paths of the last refresh count too: reverted or deleted since, they hold stale chunks.
+async function deltaUpdate({ db, slug, projectDir, config, logger, head, maxFiles }, since) {
+  const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-only", "-z", since]);
+  const dirty = [...stdout.split("\0").filter(Boolean), ...(await untrackedFiles(projectDir))];
+  const reconcile = readRefreshedPaths(projectDir).filter((p) => !dirty.includes(p));
+  const changed = dirty.length + reconcile.length;
+  if (changed === 0) return { skipped: true, head };
+  if (changed > maxFiles) {
+    logger.warn?.(`[rag] ${changed} file(s) changed since the last index (more than ${maxFiles}): answering from the index as it is; bring it up to date with kj rag index --since auto`);
+    return { skipped: true, reason: "drift-too-large", changed, head };
+  }
+  logger.info?.(`[rag] drift detected (${since.slice(0, 7)} → ${head.slice(0, 7)}, ${changed} file(s)); running delta update`);
+  const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger, exclude: ragExclude(config), worktree: true, reconcile });
+  if (totals.head) setLastIndexedCommit(db, slug, totals.head);
+  writeRefreshedPaths(projectDir, dirty);
+  return { ran: true, totals };
+}
+
 export async function maybeAutoUpdate({ projectDir, config, logger = console, flags = {} } = {}) {
   // commander turns `--no-rag-update` into flags.ragUpdate === false.
   if (flags?.ragUpdate === false || config?.rag?.autoUpdate?.onRun === false) return { skipped: true };
@@ -42,53 +89,15 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
   try {
     const since = getLastIndexedCommit(db, slug);
-    if (!since) {
-      // KJC-TSK-1174 (RAG-A2): no index yet. It is built in the background, once; the session
-      // does not wait. A recent attempt that died (no Ollama) is not retried blindly.
-      const boot = startBootstrap(projectDir);
-      if (boot.recent) {
-        warnOnce(logger, `bootstrap:${projectDir}`, `[rag] ${slug} has no index and the background indexing did not finish: run kj rag index --with-sources`);
-        return { skipped: true, reason: "bootstrap-failed", head };
-      }
-      warnOnce(logger, `bootstrap:${projectDir}`, `[rag] ${slug} has no index yet: indexing it in the background (pid ${boot.pid}); queries answer from it once it is done`);
-      return { skipped: true, reason: "bootstrapping", pid: boot.pid, head };
-    }
+    if (!since) return bootstrapInBackground({ projectDir, slug, head, logger });
     // KJC-BUG-0304: a drift of hundreds of files (an index weeks old) reindexed the
     // repo for half an hour before the query answered. Past the bound the query
     // answers from the index as it is, and says how to bring it up to date.
-    const maxFiles = config?.rag?.autoUpdate?.maxFiles ?? DEFAULT_MAX_DRIFT_FILES;
-    // KJC-TSK-1171 (RAG-B): an index built before the embedded header holds vectors a
-    // query by file or symbol name cannot reach. Small, it is rebuilt here; large, the
-    // query answers from it and says once how to rebuild.
+    const ctx = { db, slug, projectDir, config, logger, head, maxFiles: config?.rag?.autoUpdate?.maxFiles ?? DEFAULT_MAX_DRIFT_FILES };
     const schema = readEmbedSchema(projectDir);
-    if (schema < EMBED_SCHEMA) {
-      const sources = countSources(db, slug, projectDir);
-      if (sources > maxFiles) {
-        warnOnce(logger, projectDir, `[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}): answering from it as it is; rebuild it with kj rag index --with-sources`);
-        return { skipped: true, reason: "embed-schema-old", sources, head };
-      }
-      logger.info?.(`[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}); rebuilding ${sources} source(s)`);
-      const totals = await indexProject(projectDir, { db, embedder: makeGovernedEmbedder(config), karajanHome: getKarajanHome(), logger, withSources: true, exclude: ragExclude(config) });
-      if (totals.head) setLastIndexedCommit(db, slug, totals.head);
-      return { ran: true, rebuilt: true, totals };
-    }
-    // KJC-TSK-1174 (RAG-A1): the drift is measured up to the files on disk, untracked ones
-    // included, so a query sees what the session is writing before it is committed.
-    // The dirty paths of the last refresh count too: reverted or deleted since, they hold stale chunks.
-    const { stdout } = await execa("git", ["-C", projectDir, "diff", "--name-only", "-z", since]);
-    const dirty = [...stdout.split("\0").filter(Boolean), ...(await untrackedFiles(projectDir))];
-    const reconcile = readRefreshedPaths(projectDir).filter((p) => !dirty.includes(p));
-    const changed = dirty.length + reconcile.length;
-    if (changed === 0) return { skipped: true, head };
-    if (changed > maxFiles) {
-      logger.warn?.(`[rag] ${changed} file(s) changed since the last index (more than ${maxFiles}): answering from the index as it is; bring it up to date with kj rag index --since auto`);
-      return { skipped: true, reason: "drift-too-large", changed, head };
-    }
-    logger.info?.(`[rag] drift detected (${since.slice(0, 7)} → ${head.slice(0, 7)}, ${changed} file(s)); running delta update`);
-    const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger, exclude: ragExclude(config), worktree: true, reconcile });
-    if (totals.head) setLastIndexedCommit(db, slug, totals.head);
-    writeRefreshedPaths(projectDir, dirty);
-    return { ran: true, totals };
+    // Awaited here, inside the try: the catch must see their errors and the finally must not close the store under them.
+    if (schema < EMBED_SCHEMA) return await rebuildOldSchema(ctx, schema);
+    return await deltaUpdate(ctx, since);
   } catch (err) {
     // Said once per process: an embedder that is down would repeat it on every query otherwise.
     warnOnce(logger, `failed:${projectDir}`, `[rag] auto-update failed (${err.message}); continuing without refresh`);
