@@ -81,11 +81,11 @@ describe("phone signature v2", () => {
 
   it("with the relay announcing v2, kj publishes version and expiry and verifies the v2 signature", async () => {
     const res = await request(phone());
-    expect(res).toMatchObject({ ok: true, challenge: { v: 2, kjVersion: "4.36.0", issuedMs: 1_700_000_000_000, expiresMs: 1_700_000_060_000 } });
+    expect(res).toMatchObject({ ok: true, challenge: { v: 2, kjVersion: "4.36.0", issuedMs: 1_700_000_000_000, expiresMs: 1_700_000_150_000 } });
   });
 
   it("a signature that arrives after its signed expiry is refused, even if it verifies", async () => {
-    const res = await request(phone({ signAt: 1_700_000_061_000 }));
+    const res = await request(phone({ signAt: 1_700_000_151_000 }));
     expect(res).toMatchObject({ ok: false });
     expect(res.reason).toMatch(/vigencia/);
   });
