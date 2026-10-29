@@ -32,54 +32,66 @@ export class ImpeccableRole extends AgentRole {
   }
 
   async execute(input) {
-    const task = typeof input === "string" ? input : input?.task || this.context?.task || "";
-    const diff = typeof input === "object" ? input?.diff || null : null;
-    const projectDir = typeof input === "object" ? input?.projectDir || null : null;
-
+    const { task, diff, projectDir } = readInput(input, this.context);
+    const devTools = isDevToolsMcpAvailable(this.config);
     // Auto-install WebPerf skills when DevTools MCP is configured
-    if (isDevToolsMcpAvailable(this.config)) {
-      const dir = projectDir || process.cwd();
-      try {
-        const webperfResult = await ensureWebPerfSkills(dir, this.logger);
-        if (webperfResult.installed.length > 0) this.logger?.info?.(`WebPerf skills installed: ${webperfResult.installed.join(", ")}`);
-      } catch (err) {
-        this.logger?.warn?.(`WebPerf skill installation failed: ${err.message}`);
-      }
-    } else {
-      this.logger?.debug?.("Chrome DevTools MCP not configured — WebPerf skills skipped");
-    }
+    if (devTools) await installWebPerfSkills(projectDir || process.cwd(), this.logger);
+    else this.logger?.debug?.("Chrome DevTools MCP not configured — WebPerf skills skipped");
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-
-    const sections = [SUBAGENT_PREAMBLE];
-    if (this.instructions) sections.push(this.instructions);
-    sections.push(`## Task\n${task}`);
-    if (diff) sections.push(`## Git diff to audit\n${diff}`);
-    if (isDevToolsMcpAvailable(this.config)) {
-      sections.push("\nNote: WebPerf domain skills are available. Use them for Core Web Vitals analysis if the audit involves frontend performance.");
-    }
-
-    const result = await agent.runTask({ prompt: sections.join("\n\n"), role: "impeccable" });
+    const prompt = buildPrompt({ instructions: this.instructions, task, diff, devTools });
+    const result = await agent.runTask({ prompt, role: "impeccable" });
 
     if (!result.ok) {
       return { ok: false, result: { error: result.error || result.output || "Impeccable audit failed", provider }, summary: `Impeccable audit failed: ${result.error || "unknown error"}` };
     }
-
     try {
-      const parsed = extractFirstJson(result.output);
-      if (!parsed) {
-        return { ok: false, result: { error: "Failed to parse impeccable output: no JSON found", provider }, summary: "Impeccable output parse error: no JSON found" };
-      }
-
-      const verdict = parsed.verdict || (parsed.issuesFound > 0 ? "IMPROVED" : "APPROVED");
-      return {
-        ok: verdict === "APPROVED" || verdict === "IMPROVED",
-        result: { verdict, issuesFound: parsed.issuesFound || 0, issuesFixed: parsed.issuesFixed || 0, categories: parsed.categories || {}, changes: parsed.changes || [], provider },
-        summary: buildSummary({ ...parsed, verdict })
-      };
+      return parseAudit(result.output, provider);
     } catch (err) {
       return { ok: false, result: { error: `Failed to parse impeccable output: ${err.message}`, provider }, summary: `Impeccable output parse error: ${err.message}` };
     }
   }
+}
+
+function readInput(input, context) {
+  if (typeof input === "string") return { task: input, diff: null, projectDir: null };
+  return {
+    task: input?.task || context?.task || "",
+    diff: typeof input === "object" ? input?.diff || null : null,
+    projectDir: typeof input === "object" ? input?.projectDir || null : null,
+  };
+}
+
+async function installWebPerfSkills(dir, logger) {
+  try {
+    const webperfResult = await ensureWebPerfSkills(dir, logger);
+    if (webperfResult.installed.length > 0) logger?.info?.(`WebPerf skills installed: ${webperfResult.installed.join(", ")}`);
+  } catch (err) {
+    logger?.warn?.(`WebPerf skill installation failed: ${err.message}`);
+  }
+}
+
+function buildPrompt({ instructions, task, diff, devTools }) {
+  const sections = [SUBAGENT_PREAMBLE];
+  if (instructions) sections.push(instructions);
+  sections.push(`## Task\n${task}`);
+  if (diff) sections.push(`## Git diff to audit\n${diff}`);
+  if (devTools) {
+    sections.push("\nNote: WebPerf domain skills are available. Use them for Core Web Vitals analysis if the audit involves frontend performance.");
+  }
+  return sections.join("\n\n");
+}
+
+function parseAudit(output, provider) {
+  const parsed = extractFirstJson(output);
+  if (!parsed) {
+    return { ok: false, result: { error: "Failed to parse impeccable output: no JSON found", provider }, summary: "Impeccable output parse error: no JSON found" };
+  }
+  const verdict = parsed.verdict || (parsed.issuesFound > 0 ? "IMPROVED" : "APPROVED");
+  return {
+    ok: verdict === "APPROVED" || verdict === "IMPROVED",
+    result: { verdict, issuesFound: parsed.issuesFound || 0, issuesFixed: parsed.issuesFixed || 0, categories: parsed.categories || {}, changes: parsed.changes || [], provider },
+    summary: buildSummary({ ...parsed, verdict })
+  };
 }
