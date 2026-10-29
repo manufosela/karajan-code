@@ -286,6 +286,92 @@ export async function ensureSonarProjectProperties(cwd = process.cwd()) {
   }
 }
 
+function scanSettings(sonarConfig) {
+  const rawHost = sonarConfig.host || "http://localhost:9000";
+  const isLocalHost = /localhost|127\.0\.0\.1/.test(rawHost);
+  return {
+    rawHost,
+    isExternalSonar: sonarConfig.external === true,
+    scannerTimeout: Number(sonarConfig?.timeouts?.scanner_ms) > 0 ? Number(sonarConfig.timeouts.scanner_ms) : 15 * 60 * 1000,
+    sonarNetwork: sonarConfig.network || "karajan_sonar_net",
+    apiHost: resolveSonarHost(rawHost),
+    isLocalHost,
+    host: isLocalHost ? rawHost.replaceAll(/localhost|127\.0\.0\.1/g, "host.docker.internal") : rawHost,
+  };
+}
+
+const repoPropertiesNote = (repoProps, sonarConfig) => (repoProps.existed && sonarConfig.scanner?.sources
+  ? "sonar: the repo's sonar-project.properties wins over sonarqube.scanner.sources — kj passed only its ignore rules"
+  : null);
+
+// Server up, token resolved (and exported for the scanner), coverage generated:
+// the first step that fails is the scan's result.
+async function prepareServer(config, rawHost, apiHost) {
+  const start = await sonarUp(rawHost);
+  if (start.exitCode !== 0) {
+    return { failure: { ok: false, stdout: start.stdout || "", stderr: start.stderr || "Failed to start SonarQube service", exitCode: start.exitCode } };
+  }
+  const token = await resolveSonarTokenWithFallback(config, apiHost);
+  if (!token) {
+    return { failure: {
+      ok: false,
+      stdout: "",
+      stderr:
+        "Unable to resolve Sonar token. Fix: (1) run 'kj init' to configure it, (2) set KJ_SONAR_TOKEN env var, or (3) add sonarqube.token to ~/.karajan/kj.config.yml.",
+      exitCode: 1
+    } };
+  }
+  process.env.KJ_SONAR_TOKEN = token;
+  const coverage = await maybeRunCoverage(config);
+  if (!coverage.ok) {
+    return { failure: {
+      ok: false,
+      stdout: coverage.stdout || "",
+      stderr: coverage.stderr || "Failed to generate coverage report for SonarQube",
+      exitCode: coverage.exitCode || 1
+    } };
+  }
+  return { token, coverage };
+}
+
+// A nested package (explicit cwd, no explicit key) scans under the key its properties declare.
+function scanProjectKey(config, projectKey, cwd, repoProps) {
+  if (cwd && !projectKey && repoProps.declaredKey) return repoProps.declaredKey;
+  return resolveSonarProjectKey(config, { projectKey });
+}
+
+function scannerCommand(pick, { scanCwd, isLocalHost, isExternalSonar, sonarNetwork }) {
+  if (pick.type === "native") return { cmd: pick.bin, args: [] };
+  return {
+    cmd: "docker",
+    args: [
+      "run",
+      "--rm",
+      "-v",
+      `${scanCwd}:/usr/src`,
+      ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : []),
+      ...(isLocalHost || isExternalSonar ? [] : ["--network", sonarNetwork]),
+      "-e", "SONAR_HOST_URL",
+      "-e", "SONAR_TOKEN",
+      "-e", "SONAR_SCANNER_OPTS",
+      "sonarsource/sonar-scanner-cli"
+    ]
+  };
+}
+
+// KJC-BUG-0263: the scan is done when the server has processed it; whoever reads
+// the issues next would otherwise get the previous analysis. Said out loud when
+// the log names no task to wait for.
+async function serverAnalysis(result, apiConfig) {
+  const taskId = /api\/ce\/task\?id=([\w-]+)/.exec(String(result.stdout || ""))?.[1];
+  if (!taskId) {
+    return { ok: true, analysisNote: "sonar: the scanner log names no analysis task, so kj could not wait for the server — issues may belong to the previous analysis" };
+  }
+  const done = await waitForAnalysis(apiConfig, taskId);
+  if (done.ok) return { ok: true, analysisNote: null };
+  return { ok: false, analysisNote: `sonar: the server did not finish analysis ${taskId} (${done.status}${done.timedOut ? ", timed out" : ""}) — its issues would be the previous analysis` };
+}
+
 export async function runSonarScan(config, projectKey = null, { verbose = false, cwd = null } = {}) {
   const scanCwd = cwd || process.cwd();
   // KJC-TSK-0838 step 3 (monorepo): a nested package scans from its own
@@ -296,63 +382,25 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
     return { ok: false, skipped: true, projectKey: null, stdout: "", stderr: `sonar: ${repoProps.nothingToScan}`, exitCode: 0 };
   }
   let effectiveProjectKey;
-  if (cwd && !projectKey && repoProps.declaredKey) {
-    effectiveProjectKey = repoProps.declaredKey;
-  } else {
-    try {
-      effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
-    } catch (error) {
-      return {
-        ok: false,
-        projectKey: null,
-        stdout: "",
-        stderr: error?.message || String(error),
-        exitCode: 1
-      };
-    }
-  }
-  const sonarConfig = config?.sonarqube || {};
-  const rawHost = sonarConfig.host || "http://localhost:9000";
-  const isExternalSonar = sonarConfig.external === true;
-  const scannerTimeout = Number(sonarConfig?.timeouts?.scanner_ms) > 0
-    ? Number(sonarConfig.timeouts.scanner_ms)
-    : 15 * 60 * 1000;
-  const sonarNetwork = sonarConfig.network || "karajan_sonar_net";
-  const apiHost = resolveSonarHost(rawHost);
-  const isLocalHost = /localhost|127\.0\.0\.1/.test(rawHost);
-  const host = isLocalHost ? rawHost.replaceAll(/localhost|127\.0\.0\.1/g, "host.docker.internal") : rawHost;
-
-  const start = await sonarUp(rawHost);
-  if (start.exitCode !== 0) {
+  try {
+    effectiveProjectKey = await scanProjectKey(config, projectKey, cwd, repoProps);
+  } catch (error) {
     return {
       ok: false,
-      stdout: start.stdout || "",
-      stderr: start.stderr || "Failed to start SonarQube service",
-      exitCode: start.exitCode
-    };
-  }
-  // KJC-BUG-0156: kj's -Dsonar.projectKey stays (scan and query must use the
-  // SAME key), but the repo's properties own the LAYOUT from here on.
-  const token = await resolveSonarTokenWithFallback(config, apiHost);
-  if (!token) {
-    return {
-      ok: false,
+      projectKey: null,
       stdout: "",
-      stderr:
-        "Unable to resolve Sonar token. Fix: (1) run 'kj init' to configure it, (2) set KJ_SONAR_TOKEN env var, or (3) add sonarqube.token to ~/.karajan/kj.config.yml.",
+      stderr: error?.message || String(error),
       exitCode: 1
     };
   }
-  process.env.KJ_SONAR_TOKEN = token;
-  const coverage = await maybeRunCoverage(config);
-  if (!coverage.ok) {
-    return {
-      ok: false,
-      stdout: coverage.stdout || "",
-      stderr: coverage.stderr || "Failed to generate coverage report for SonarQube",
-      exitCode: coverage.exitCode || 1
-    };
-  }
+  const sonarConfig = config?.sonarqube || {};
+  const { rawHost, isExternalSonar, scannerTimeout, sonarNetwork, apiHost, isLocalHost, host } = scanSettings(sonarConfig);
+
+  const prepared = await prepareServer(config, rawHost, apiHost);
+  if (prepared.failure) return prepared.failure;
+  const { token, coverage } = prepared;
+  // KJC-BUG-0156: kj's -Dsonar.projectKey stays (scan and query must use the
+  // SAME key), but the repo's properties own the LAYOUT from here on.
   const scannerConfig = respectRepoProperties(
     normalizeScannerConfig({
       ...sonarConfig.scanner,
@@ -361,9 +409,7 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
     }),
     repoProps
   );
-  const note = repoProps.existed && sonarConfig.scanner?.sources
-    ? "sonar: the repo's sonar-project.properties wins over sonarqube.scanner.sources — kj passed only its ignore rules"
-    : null;
+  const note = repoPropertiesNote(repoProps, sonarConfig);
 
   const pick = await pickSonarScanner(sonarConfig.scanner);
   // KJC-BUG-0225: en un carril, el plugin SCM del scanner (JGit) no sabe abrir
@@ -378,44 +424,11 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
     SONAR_SCANNER_OPTS: buildScannerOpts(effectiveProjectKey, scannerConfig, { linkedWorktree })
   };
 
-  let cmd, args;
-  if (pick.type === "native") {
-    cmd = pick.bin;
-    args = [];
-  } else {
-    cmd = "docker";
-    args = [
-      "run",
-      "--rm",
-      "-v",
-      `${scanCwd}:/usr/src`,
-      ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : []),
-      ...(isLocalHost || isExternalSonar ? [] : ["--network", sonarNetwork]),
-      "-e", "SONAR_HOST_URL",
-      "-e", "SONAR_TOKEN",
-      "-e", "SONAR_SCANNER_OPTS",
-      "sonarsource/sonar-scanner-cli"
-    ];
-  }
-
+  const { cmd, args } = scannerCommand(pick, { scanCwd, isLocalHost, isExternalSonar, sonarNetwork });
   const result = await runCommand(cmd, args, { timeout: scannerTimeout, env, cwd: scanCwd });
-  // KJC-BUG-0263: the scan is done when the server has processed it; whoever reads
-  // the issues next would otherwise get the previous analysis. Said out loud when
-  // the log names no task to wait for.
-  let ok = result.exitCode === 0;
-  let analysisNote = null;
-  if (ok) {
-    const taskId = /api\/ce\/task\?id=([\w-]+)/.exec(String(result.stdout || ""))?.[1];
-    if (taskId) {
-      const done = await waitForAnalysis({ ...config, sonarqube: { ...sonarConfig, host: apiHost } }, taskId);
-      if (!done.ok) {
-        ok = false;
-        analysisNote = `sonar: the server did not finish analysis ${taskId} (${done.status}${done.timedOut ? ", timed out" : ""}) — its issues would be the previous analysis`;
-      }
-    } else {
-      analysisNote = "sonar: the scanner log names no analysis task, so kj could not wait for the server — issues may belong to the previous analysis";
-    }
-  }
+  const { ok, analysisNote } = result.exitCode === 0
+    ? await serverAnalysis(result, { ...config, sonarqube: { ...sonarConfig, host: apiHost } })
+    : { ok: false, analysisNote: null };
   return {
     ok,
     projectKey: effectiveProjectKey,
