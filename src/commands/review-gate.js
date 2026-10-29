@@ -460,6 +460,166 @@ async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate
   return res;
 }
 
+const DEFAULT_REVIEW_TASK = "Review the following diff for correctness, security and maintainability.";
+/** Appends a gate's finding for the reviewer to the task (the default task when there is none). */
+const withNote = (task, note) => (note ? `${task || DEFAULT_REVIEW_TASK}\n\n${note}` : task);
+const listed = (items) => `${items.slice(0, 5).join(", ")}${items.length > 5 ? "…" : ""}`;
+
+/**
+ * KJC-TSK-0676: deterministic pre-gate — sonar findings on the changed
+ * files come back BEFORE any AI opinion. Blocking severities reject
+ * without spending reviewer tokens; the rest travel with the task so
+ * the cross-AI reviewer weighs them. Unavailable sonar degrades loudly.
+ * KJC-TSK-0838: what sonar saw travels INSIDE the verdict (`record`), bound to the
+ * diff hash — a reviewed diff and a reviewed AND analysed diff must be
+ * distinguishable by --check and by the method report.
+ */
+async function sonarPregate({ config, logger, range, liveFiles, enabled }) {
+  if (!enabled) return { record: { ran: false, reason: "--no-sonar: the pre-gate was skipped by flag" } };
+  // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
+  const touchedLines = addedLinesByFile(await rawDiff(range, ["--unified=0"]));
+  const pre = await runSonarPregate({ config, stagedFiles: liveFiles, touchedLines, logger });
+  if (!pre.available) {
+    // KJC-BUG-0156 (issue #1543): a scan that FAILED must not read like one
+    // more config warning — it hid a dead quality gate for 8 straight PRs.
+    // Still fail-open (a laptop without Docker still commits), but SAID.
+    const chosen = /disabled in config/.test(pre.reason || "");
+    console.log(chosen
+      ? `⚠ sonar pre-gate skipped: ${pre.reason}`
+      : `✗ sonar pre-gate UNAVAILABLE — the quality gate did NOT run on this diff: ${pre.reason}`);
+    return { record: { ran: false, reason: pre.reason } };
+  }
+  const record = {
+    ran: true, projectKey: pre.projectKey, covered: pre.covered ?? [], uncovered: pre.uncovered ?? [],
+    blocking: pre.blocking.length, advisory: pre.advisory.length,
+  };
+  printSonarPregate(pre, record);
+  if (pre.blocking.length > 0) {
+    console.log("✗ REJECTED by sonar (deterministic) — fix the blocking findings; the cross-AI reviewer was not invoked.");
+    return { record, rejection: rejected("sonar", pre.blocking.map((i) => ({ severity: i.severity, file: undefined, description: formatSonarFinding(i) }))) };
+  }
+  const findings = pre.advisory.map((f) => `- ${formatSonarFinding(f)}`).join("\n");
+  const note = pre.advisory.length > 0 ? `Deterministic Sonar findings on these files (fold them into your review):\n${findings}` : null;
+  return { record, note };
+}
+
+function printSonarPregate(pre, record) {
+  if (record.uncovered.length > 0) {
+    console.log(`⚠ sonar coverage: ${record.uncovered.length} staged source(s) were NOT in the analysis (${listed(record.uncovered)}) — the scan did not see them`);
+  }
+  const found = [...pre.blocking, ...pre.advisory];
+  if (found.length > 0) {
+    console.log(`Sonar on the changed lines — ${pre.blocking.length} blocking, ${pre.advisory.length} advisory (project total: ${pre.totalProject}):`);
+    for (const f of found) console.log(`  - ${formatSonarFinding(f)}`);
+  }
+  if ((pre.preexisting || []).length > 0) {
+    console.log(`⚠ sonar trend: ${pre.preexisting.length} preexisting issue(s) on untouched lines of these files — not this PR's veto, but the debt is real`);
+  }
+}
+
+/**
+ * KJC-TSK-0838: fail-CLOSED for code. Sonar disabled, down, skipped by
+ * flag, or blind to a staged source — the diff does not reach the reviewer.
+ * Docs-only diffs pass; a live human grant on the rule is the only escape.
+ * The verdict says on what grounds the requirement was met (proof, docs-only,
+ * human grant): `record.mode`, read back by the method report.
+ */
+function sonarRequirementGate({ config, liveFiles, std, record }) {
+  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: record, standingExceptions: std.standing });
+  if (!req.ok) {
+    console.log(`✗ ${req.reason}`);
+    return rejected("sonar", [{ severity: "high", file: undefined, description: req.reason }]);
+  }
+  if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
+  record.mode = req.mode;
+  return null;
+}
+
+/**
+ * KJC-TSK-0849 (ADR 0010, RAG-C): the session's RAG ledger must show the
+ * RAG answered about every staged source (file or sibling), and the TWINS
+ * it returned that the diff does not touch travel to the reviewer by name —
+ * the 16-sep bugs were exactly the twin nobody touched.
+ */
+async function ragGate({ config, projectDir, range, liveFiles, std }) {
+  const ledger = readRagLedger(projectDir);
+  const newFiles = (await rawDiff(range, ["--name-only", "--diff-filter=A"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  const req = checkRagRequirement({ config, stagedFiles: liveFiles, newFiles, ledger, standingExceptions: std.standing });
+  if (!req.ok) {
+    console.log(`✗ ${req.reason}`);
+    return { rejection: rejected("rag-first", [{ severity: "high", file: undefined, description: req.reason }]) };
+  }
+  if (req.mode === "granted") console.log(formatRagGrant(req.grant));
+  if (req.mode === "no-harness") console.log("⚠ rag: no Sentinel harness in this tree — no session ledger to check (kj harden installs it)");
+  const record = ragBlock(req, ledger);
+  const twins = record.twinsUntouched;
+  if (twins.length === 0) return { record };
+  console.log(`ℹ rag twins: this session's queries also returned ${twins.length} file(s) the diff does not touch — ${listed(twins)}`);
+  const note = "The session's RAG queries also returned these files, which the diff does NOT touch — the same concept may live there, so check the change is complete, not only correct:\n"
+    + twins.map((t) => `- ${t}`).join("\n");
+  return { record, note };
+}
+
+/**
+ * BOOT-D (KJC-TSK-0863): green is not proof for what a person SEES. kj does
+ * not drive the browser (the host has it); it demands the walkthrough and
+ * records it in the verdict, bound to the diff like sonar and rag. It WARNS:
+ * the last proof, never the only one, and a gate that fires often teaches
+ * people to skip gates.
+ */
+function uiEvidence({ changedFiles, flags, std }) {
+  const walked = Array.isArray(flags.walked) ? flags.walked : [];
+  const uiReq = checkUiEvidence({
+    stagedFiles: changedFiles,
+    evidence: walked.length > 0 ? { walked, tool: flags.walkedWith ?? null } : null,
+    standingExceptions: std.standing,
+  });
+  if (uiReq.warn) console.log(`⚠ ${uiReq.reason}`);
+  return uiBlock(uiReq);
+}
+
+/**
+ * MUT-A (KJC-TSK-0716): mutation pre-gate — opt-in (method_gates.mutation),
+ * SOLO en --staged (jamás en pre-commit: cuesta minutos; y jamás en --range:
+ * el scope es el ÍNDICE y anotaría trabajo ajeno — catch de codex). block
+ * cierra ANTES de gastar reviewer; warn viaja como advisory en su task.
+ */
+async function mutationGate({ config, projectDir, flags }) {
+  const mut = flags.staged && !flags.range ? await runMutationPregate({ config, projectDir }) : { enabled: false, ok: true };
+  if (!mut.enabled) return {};
+  if (mut.available === false) {
+    console.log(`⚠ mutation pre-gate no disponible: ${mut.reason} — degradado avisando (method_gates.mutation)`);
+    return {};
+  }
+  if (mut.survived.length === 0) return {};
+  console.log(`Mutantes supervivientes en el diff — score ${mut.score ?? "n/a"}%:`);
+  for (const m of mut.survived) console.log(`  ✗ ${formatSurvivor(m)}`);
+  if (!mut.ok) {
+    console.log("✗ mutation gate: la suite verde no PRUEBA el cambio — mata los supervivientes antes del review (method_gates.mutation: block).");
+    return { rejection: rejected("mutation", mut.survived.map((m) => ({ severity: "high", file: m.file, description: formatSurvivor(m) }))) };
+  }
+  const survivors = mut.survived.map((m) => `- ${formatSurvivor(m)}`).join("\n");
+  return { note: `Surviving mutants on the changed lines (weak asserts — fold into your review):\n${survivors}` };
+}
+
+/**
+ * KJC-TSK-0722: a dependency published under the cooldown is said, and weighed by the reviewer.
+ * KJC-TSK-1056: method_gates.dep_cooldown: block stops it here, before any reviewer token.
+ */
+async function cooldownStep({ diff, config, std }) {
+  const cooldownHours = config?.supply_chain?.cooldown_hours ?? DEFAULT_COOLDOWN_HOURS;
+  const cooldownResult = await cooldownAdvisories(diff, { thresholdHours: cooldownHours });
+  const cooldown = formatCooldown(cooldownResult, cooldownHours);
+  for (const line of cooldown.lines) console.log(line);
+  const stop = cooldownGate({ result: cooldownResult, mode: config?.method_gates?.dep_cooldown, standingExceptions: std.standing });
+  if (stop.grant) console.log(`⚠ dep_cooldown lifted by a HUMAN grant [method.dep_cooldown] until ${stop.grant.expiresAt}`);
+  if (stop.block) {
+    console.log(`✗ ${stop.reason}`);
+    return { rejection: rejected("dep-cooldown", cooldownResult.young.map((p) => ({ severity: "high", description: `${p.name}@${p.version} published ${p.hours} h ago` }))) };
+  }
+  return { note: cooldown.note || null };
+}
+
 export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   if (flags.installGate) return installGateAction(projectDir);
@@ -505,154 +665,26 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   if (policyRejection) return policyRejection;
   if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal });
 
-  // KJC-TSK-0676: deterministic pre-gate — sonar findings on the changed
-  // files come back BEFORE any AI opinion. Blocking severities reject
-  // without spending reviewer tokens; the rest travel with the task so
-  // the cross-AI reviewer weighs them. Unavailable sonar degrades loudly.
-  let task = flags.task;
-  // KJC-TSK-0838: what sonar saw travels INSIDE the verdict, bound to the
-  // diff hash — a reviewed diff and a reviewed AND analysed diff must be
-  // distinguishable by --check and by the method report.
-  let sonarRecord = { ran: false, reason: "--no-sonar: the pre-gate was skipped by flag" };
-  if (flags.sonar !== false) {
-    // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
-    const touchedLines = addedLinesByFile(await rawDiff(flags.range, ["--unified=0"]));
-    const pre = await runSonarPregate({ config, stagedFiles: liveFiles, touchedLines, logger });
-    if (!pre.available) {
-      // KJC-BUG-0156 (issue #1543): a scan that FAILED must not read like one
-      // more config warning — it hid a dead quality gate for 8 straight PRs.
-      // Still fail-open (a laptop without Docker still commits), but SAID.
-      const chosen = /disabled in config/.test(pre.reason || "");
-      console.log(chosen
-        ? `⚠ sonar pre-gate skipped: ${pre.reason}`
-        : `✗ sonar pre-gate UNAVAILABLE — the quality gate did NOT run on this diff: ${pre.reason}`);
-      sonarRecord = { ran: false, reason: pre.reason };
-    } else {
-      sonarRecord = {
-        ran: true, projectKey: pre.projectKey, covered: pre.covered ?? [], uncovered: pre.uncovered ?? [],
-        blocking: pre.blocking.length, advisory: pre.advisory.length,
-      };
-      if (sonarRecord.uncovered.length > 0) {
-        console.log(`⚠ sonar coverage: ${sonarRecord.uncovered.length} staged source(s) were NOT in the analysis (${sonarRecord.uncovered.slice(0, 5).join(", ")}${sonarRecord.uncovered.length > 5 ? "…" : ""}) — the scan did not see them`);
-      }
-      const found = [...pre.blocking, ...pre.advisory];
-      if (found.length > 0) {
-        console.log(`Sonar on the changed lines — ${pre.blocking.length} blocking, ${pre.advisory.length} advisory (project total: ${pre.totalProject}):`);
-        for (const f of found) console.log(`  - ${formatSonarFinding(f)}`);
-      }
-      if ((pre.preexisting || []).length > 0) {
-        console.log(`⚠ sonar trend: ${pre.preexisting.length} preexisting issue(s) on untouched lines of these files — not this PR's veto, but the debt is real`);
-      }
-      if (pre.blocking.length > 0) {
-        console.log("✗ REJECTED by sonar (deterministic) — fix the blocking findings; the cross-AI reviewer was not invoked.");
-        process.exitCode = 1;
-        return {
-          verdict: "rejected", reviewer: "sonar",
-          issues: pre.blocking.map((i) => ({ severity: i.severity, file: undefined, description: formatSonarFinding(i) })),
-        };
-      }
-      if (pre.advisory.length > 0) {
-        task = `${task || "Review the following diff for correctness, security and maintainability."}\n\n`
-          + `Deterministic Sonar findings on these files (fold them into your review):\n`
-          + pre.advisory.map((f) => `- ${formatSonarFinding(f)}`).join("\n");
-      }
-    }
-  }
-
-  // KJC-TSK-0838: fail-CLOSED for code. Sonar disabled, down, skipped by
-  // flag, or blind to a staged source — the diff does not reach the reviewer.
-  // Docs-only diffs pass; a live human grant on the rule is the only escape.
-  const sonarReq = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: sonarRecord, standingExceptions: std.standing });
-  if (!sonarReq.ok) {
-    console.log(`✗ ${sonarReq.reason}`);
-    process.exitCode = 1;
-    return { verdict: "rejected", reviewer: "sonar", issues: [{ severity: "high", file: undefined, description: sonarReq.reason }] };
-  }
-  if (sonarReq.mode === "granted") console.log(formatSonarGrant(sonarReq.grant));
-  // The verdict says on what grounds the requirement was met (proof, docs-only,
-  // human grant) — the method report reads it back.
-  sonarRecord.mode = sonarReq.mode;
-
-  // KJC-TSK-0849 (ADR 0010, RAG-C): the session's RAG ledger must show the
-  // RAG answered about every staged source (file or sibling), and the TWINS
-  // it returned that the diff does not touch travel to the reviewer by name —
-  // the 16-sep bugs were exactly the twin nobody touched.
-  const ledger = readRagLedger(projectDir);
-  const newFiles = (await rawDiff(flags.range, ["--name-only", "--diff-filter=A"])).split("\n").map((f) => f.trim()).filter(Boolean);
-  const ragReq = checkRagRequirement({ config, stagedFiles: liveFiles, newFiles, ledger, standingExceptions: std.standing });
-  if (!ragReq.ok) {
-    console.log(`✗ ${ragReq.reason}`);
-    process.exitCode = 1;
-    return { verdict: "rejected", reviewer: "rag-first", issues: [{ severity: "high", file: undefined, description: ragReq.reason }] };
-  }
-  if (ragReq.mode === "granted") console.log(formatRagGrant(ragReq.grant));
-  if (ragReq.mode === "no-harness") console.log("⚠ rag: no Sentinel harness in this tree — no session ledger to check (kj harden installs it)");
-  const ragRecord = ragBlock(ragReq, ledger);
-  if (ragRecord.twinsUntouched.length > 0) {
-    const twins = ragRecord.twinsUntouched;
-    console.log(`ℹ rag twins: this session's queries also returned ${twins.length} file(s) the diff does not touch — ${twins.slice(0, 5).join(", ")}${twins.length > 5 ? "…" : ""}`);
-    task = `${task || "Review the following diff for correctness, security and maintainability."}\n\n`
-      + "The session's RAG queries also returned these files, which the diff does NOT touch — the same concept may live there, so check the change is complete, not only correct:\n"
-      + twins.map((t) => `- ${t}`).join("\n");
-  }
-
-  // BOOT-D (KJC-TSK-0863): green is not proof for what a person SEES. kj does
-  // not drive the browser (the host has it); it demands the walkthrough and
-  // records it in the verdict, bound to the diff like sonar and rag. It WARNS:
-  // the last proof, never the only one, and a gate that fires often teaches
-  // people to skip gates.
-  const walked = Array.isArray(flags.walked) ? flags.walked : [];
-  const uiReq = checkUiEvidence({
-    stagedFiles: changedFiles,
-    evidence: walked.length > 0 ? { walked, tool: flags.walkedWith ?? null } : null,
-    standingExceptions: std.standing,
-  });
-  if (uiReq.warn) console.log(`⚠ ${uiReq.reason}`);
-  const uiRecord = uiBlock(uiReq);
-
-  // MUT-A (KJC-TSK-0716): mutation pre-gate — opt-in (method_gates.mutation),
-  // SOLO en --staged (jamás en pre-commit: cuesta minutos; y jamás en --range:
-  // el scope es el ÍNDICE y anotaría trabajo ajeno — catch de codex). block
-  // cierra ANTES de gastar reviewer; warn viaja como advisory en su task.
-  const mut = flags.staged && !flags.range ? await runMutationPregate({ config, projectDir }) : { enabled: false, ok: true };
-  if (mut.enabled) {
-    if (mut.available === false) {
-      console.log(`⚠ mutation pre-gate no disponible: ${mut.reason} — degradado avisando (method_gates.mutation)`);
-    } else if (mut.survived.length > 0) {
-      console.log(`Mutantes supervivientes en el diff — score ${mut.score ?? "n/a"}%:`);
-      for (const m of mut.survived) console.log(`  ✗ ${formatSurvivor(m)}`);
-      if (!mut.ok) {
-        console.log("✗ mutation gate: la suite verde no PRUEBA el cambio — mata los supervivientes antes del review (method_gates.mutation: block).");
-        process.exitCode = 1;
-        return { verdict: "rejected", reviewer: "mutation", issues: mut.survived.map((m) => ({ severity: "high", file: m.file, description: formatSurvivor(m) })) };
-      }
-      task = `${task || "Review the following diff for correctness, security and maintainability."}\n\n`
-        + `Surviving mutants on the changed lines (weak asserts — fold into your review):\n`
-        + mut.survived.map((m) => `- ${formatSurvivor(m)}`).join("\n");
-    }
-  }
-
+  // KJC-TSK-1257: the review path's gates in their order; each may reject, and what they found
+  // that does not reject travels to the reviewer inside the task.
+  const sonar = await sonarPregate({ config, logger, range: flags.range, liveFiles, enabled: flags.sonar !== false });
+  if (sonar.rejection) return sonar.rejection;
+  const sonarRejection = sonarRequirementGate({ config, liveFiles, std, record: sonar.record });
+  if (sonarRejection) return sonarRejection;
+  const rag = await ragGate({ config, projectDir, range: flags.range, liveFiles, std });
+  if (rag.rejection) return rag.rejection;
+  const uiRecord = uiEvidence({ changedFiles, flags, std });
+  const mutation = await mutationGate({ config, projectDir, flags });
+  if (mutation.rejection) return mutation.rejection;
   // KJC-TSK-1052 (TEAM-F): another branch in progress touching the same files is said, never blocks.
   if (flags.staged && !flags.range) {
     for (const line of formatOverlaps(await branchOverlaps({ projectDir, stagedFiles: changedFiles, base: config?.base_branch || "main" }))) console.log(line);
   }
+  const cooldown = await cooldownStep({ diff, config, std });
+  if (cooldown.rejection) return cooldown.rejection;
+  const task = [sonar.note, rag.note, mutation.note, cooldown.note].reduce(withNote, flags.task);
 
-  // KJC-TSK-0722: a dependency published under the cooldown is said, and weighed by the reviewer.
-  const cooldownHours = config?.supply_chain?.cooldown_hours ?? DEFAULT_COOLDOWN_HOURS;
-  const cooldownResult = await cooldownAdvisories(diff, { thresholdHours: cooldownHours });
-  const cooldown = formatCooldown(cooldownResult, cooldownHours);
-  for (const line of cooldown.lines) console.log(line);
-  // KJC-TSK-1056: method_gates.dep_cooldown: block stops it here, before any reviewer token.
-  const cooldownStop = cooldownGate({ result: cooldownResult, mode: config?.method_gates?.dep_cooldown, standingExceptions: std.standing });
-  if (cooldownStop.grant) console.log(`⚠ dep_cooldown lifted by a HUMAN grant [method.dep_cooldown] until ${cooldownStop.grant.expiresAt}`);
-  if (cooldownStop.block) {
-    console.log(`✗ ${cooldownStop.reason}`);
-    process.exitCode = 1;
-    return { verdict: "rejected", reviewer: "dep-cooldown", issues: cooldownResult.young.map((p) => ({ severity: "high", description: `${p.name}@${p.version} published ${p.hours} h ago` })) };
-  }
-  if (cooldown.note) task = `${task || "Review the following diff for correctness, security and maintainability."}\n\n${cooldown.note}`;
-
-  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonarRecord, rag: ragRecord, ui: uiRecord });
+  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonar.record, rag: rag.record, ui: uiRecord });
   printVerdict(record, record.verdict === "approved" ? await reviewCorrectionRounds(projectDir, record) : 0);
   process.exitCode = record.verdict === "approved" ? 0 : 1;
   return record;
