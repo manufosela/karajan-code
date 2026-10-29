@@ -187,42 +187,152 @@ export async function solomonCommand({ config, logger = null, flags = {} }) {
   return res;
 }
 
+async function installGateAction(projectDir) {
+  const fs = await import("node:fs/promises");
+  const marker = join(projectDir, ".karajan", "review-gate");
+  await fs.mkdir(join(projectDir, ".karajan"), { recursive: true });
+  await fs.writeFile(marker, "# Cross-AI review gate enabled (ENV-C1). Commit this file so the whole team inherits the gate.\n");
+  console.log("✓ review gate enabled — commits now require an approved cross-AI verdict (kj review --staged)");
+  // KJC-TSK-0646: a `.karajan/` dir-exclude would silently keep the
+  // contract out of git — rewrite it so the team actually inherits it.
+  const gi = await ensureGateTrackable(projectDir);
+  if (gi.changed) {
+    console.log("✓ .gitignore adjusted: the gate contract (.karajan/review-gate, hooks) is now trackable — commit it");
+  }
+  const hookProbe = await runCommand("git", ["config", "core.hooksPath"]);
+  if (!hookProbe.stdout?.trim()) {
+    console.log("⚠ no core.hooksPath configured — run `kj harden` so the pre-commit hook enforces the gate");
+  }
+  return { installed: true };
+}
+
+// KJC-BUG-0173: manual GC of the verdict store. Opportunistic pruning runs
+// on every saved verdict; this lets a human sweep on demand, with --dry-run
+// to see what would go without deleting.
+async function pruneAction(projectDir, flags) {
+  const dryRun = Boolean(flags.dryRun || flags.checkOnly);
+  const days = Number(flags.pruneDays);
+  const res = await pruneVerdicts({ projectDir, dryRun, ...(Number.isFinite(days) && days > 0 ? { maxAgeDays: days } : {}) });
+  console.log(
+    dryRun
+      ? `kj review --prune (dry run): ${res.expired.length} of ${res.scanned} verdict(s) older than ${res.maxAgeDays}d would be removed`
+      : `kj review --prune: removed ${res.removed} verdict(s) older than ${res.maxAgeDays}d (${res.scanned - res.removed} kept)`,
+  );
+  return { pruned: res.removed, dryRun };
+}
+
+/** A gate's rejection: said, exit 1, and the record the caller returns (KJC-TSK-1257). */
+function rejected(reviewer, issues) {
+  process.exitCode = 1;
+  return { verdict: "rejected", reviewer, issues };
+}
+
+/**
+ * KJC-TSK-0688 (MG-C) + KJC-TSK-0691 (MG-E): oversized-diff policy.
+ * Field case: a 522-line PR sailed past the warning with a
+ * rationalization — where the project wants teeth, pr_size: "block"
+ * rejects deterministically with a NAMED escape. Default stays warn.
+ * PL-C (KJC-TSK-0735), fuente única de umbrales: si la policy declara el
+ * invariante net_lines_added, SU max es el umbral — el mismo número que
+ * aplican kj policy check y el tier C de CI; method_gates queda de fallback.
+ * KJC-BUG-0326 (#2085): two tiers. ~150 is the ideal (method_gates.pr_size_warn);
+ * up to the limit (the policy's net_lines_added max, else method_gates.pr_size_max,
+ * 200) is allowed without asking; above the limit, partition. KJC-TSK-1076: one
+ * source, shared with the third-party PR checks.
+ * @returns {Promise<object|null>} the rejection, or null to go on
+ */
+async function prSizeGate({ projectDir, config, range }) {
+  const { ideal: sizeIdeal, limit: sizeWarn, source: sizeSource } = prSizeLimit({ projectDir, config });
+  if (sizeWarn <= 0) return null;
+  const numstat = await rawDiff(range, ["--numstat"]);
+  // KJC-BUG-0205: the budget caps CODE growth, so generated output and human
+  // documentation are exempt — the same rule CI applies. Counting everything
+  // here warned 234 lines on a doc-only PR that CI counted at 104, and two
+  // implementations of one rule that disagree teach people to trust neither.
+  const { added, exempt, testAdded } = budgetedAdded(numstat);
+  // Said out loud: an exemption nobody sees is indistinguishable from a gate
+  // that is not looking.
+  if (exempt > 0) console.log(`ℓ pr-size: ${exempt} line(s) exempt from the budget (generated output and human docs; AI-rule files always count)`);
+  if (added > sizeIdeal && added <= sizeWarn) {
+    console.log(`ℓ pr-size: ${added} lines added, over the ~${sizeIdeal} ideal, within the ${sizeWarn} limit: allowed, nothing to ask`);
+  }
+  if (added <= sizeWarn) return null;
+  // KJC-TSK-0795 AC5: say how much of the weight is the module's OWN tests —
+  // partitioning is a decision, and it must never split code from its tests.
+  const split = testAdded > 0 ? ` (${added - testAdded} source + ${testAdded} accompanying tests — partition by feature, never code from its tests)` : "";
+  // ADR 0015: no env escape — an exception is the user's label on the PR, judged in CI.
+  if ((config?.method_gates?.pr_size || "warn") === "block") {
+    const reason = `${added} lines added${split} is over the ${sizeWarn}-line limit (${sizeSource}; method_gates.pr_size: block) — partition the work; an exception is your user's large-pr-justified label on the PR`;
+    console.log(`✗ pr-size gate: ${reason}`);
+    return rejected("pr-size", [{ severity: "high", description: reason }]);
+  }
+  console.log(`⚠ pr-size: ${added} lines added${split}, over the ${sizeWarn}-line limit (ideal ~${sizeIdeal}, source: ${sizeSource}) — partition the work before committing (method_gates.pr_size: block to harden)`);
+  return null;
+}
+
+/**
+ * KJC-TSK-0705 (PV-B): the outbound privacy boundary at commit time.
+ * Denylist data rejects with no escape (ADR 0015: false positives go in the allow list); generic PII
+ * warns (privacy.generic: "block" hardens). Added lines only — deletions
+ * don't publish. In the SEA binary the privacy module is stubbed and
+ * throws: the gate degrades with a note instead of crashing.
+ * @returns {object|null} the rejection, or null to go on
+ */
+function privacyGate({ diff, config }) {
+  try {
+    // KJC-BUG-0203: per file, so a finding can name where it lives and so
+    // build output is judged as what it is. Generic heuristics are silenced
+    // there (nobody typed a minified bundle); a denylist hit is not, because
+    // the incident behind this scanner was personal data inside a build.
+    const list = loadPrivacyList();
+    const findings = splitAddedByFile(diff).flatMap(({ file, added }) => {
+      const found = scanText(added, { list, source: file });
+      return isGeneratedPath(file) ? found.filter((f) => f.severity === "block") : found;
+    });
+    const blocks = findings.filter((f) => f.severity === "block");
+    const warns = findings.filter((f) => f.severity === "warn");
+    for (const f of warns) console.log(`⚠ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked} — personal data? move it out before it ships`);
+    const hardened = config?.privacy?.generic === "block" && warns.length > 0;
+    if (blocks.length === 0 && !hardened) return null;
+    for (const f of blocks) console.log(`✗ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
+    const reason = `${blocks.length || warns.length} personal-data finding(s) in the staged diff — this must not reach the repo (a confirmed false positive goes in the allow list of ~/.karajan/privacy.yml)`;
+    console.log(`✗ privacy gate: ${reason}`);
+    return rejected("privacy", [{ severity: "high", description: reason }]);
+  } catch (err) {
+    // Known degradation: the SEA stub throws its install-from-npm message.
+    // Anything else fails CLOSED — a silent skip would defeat the guarantee.
+    if (/standalone binary/i.test(err?.message || "")) {
+      console.log("⚠ privacy gate unavailable in this build — skipping");
+      return null;
+    }
+    const reason = `privacy gate error: ${err.message} — refusing to pass the boundary unchecked`;
+    console.log(`✗ ${reason}`);
+    return rejected("privacy", [{ severity: "high", description: reason }]);
+  }
+}
+
+/**
+ * KJC-TSK-0795 AC1: hand the gate the numbers so a delete-only diff is
+ * exempt — deleting code adds no behavior to test.
+ * @returns {Promise<object|null>} the rejection, or null to go on
+ */
+async function testsWithCodeGate({ config, projectDir, range, changedFiles }) {
+  const numstat = (await rawDiff(range, ["--numstat"])).split("\n").map((l) => l.trim()).filter(Boolean)
+    .map((l) => { const [a, r, ...f] = l.split(/\s+/); return { file: f.join(" "), added: a === "-" ? 1 : Number(a) || 0, removed: r === "-" ? 0 : Number(r) || 0 }; });
+  await markCommentOnlyAdditions(numstat, { range, projectDir });
+  const tests = checkTestsWithCode({ config, stagedFiles: changedFiles, numstat });
+  if (tests.mode === "delete-only") console.log(`⚠ tests-with-code: exempt — ${tests.reason}`);
+  if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
+  if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);
+  if (tests.ok) return null;
+  console.log(`✗ tests-with-code gate: ${tests.reason}`);
+  return rejected("tests-with-code", [{ severity: "high", description: tests.reason }]);
+}
+
 export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
-
-  if (flags.installGate) {
-    const fs = await import("node:fs/promises");
-    const marker = join(projectDir, ".karajan", "review-gate");
-    await fs.mkdir(join(projectDir, ".karajan"), { recursive: true });
-    await fs.writeFile(marker, "# Cross-AI review gate enabled (ENV-C1). Commit this file so the whole team inherits the gate.\n");
-    console.log("✓ review gate enabled — commits now require an approved cross-AI verdict (kj review --staged)");
-    // KJC-TSK-0646: a `.karajan/` dir-exclude would silently keep the
-    // contract out of git — rewrite it so the team actually inherits it.
-    const gi = await ensureGateTrackable(projectDir);
-    if (gi.changed) {
-      console.log("✓ .gitignore adjusted: the gate contract (.karajan/review-gate, hooks) is now trackable — commit it");
-    }
-    const hookProbe = await runCommand("git", ["config", "core.hooksPath"]);
-    if (!hookProbe.stdout?.trim()) {
-      console.log("⚠ no core.hooksPath configured — run `kj harden` so the pre-commit hook enforces the gate");
-    }
-    return { installed: true };
-  }
-
-  // KJC-BUG-0173: manual GC of the verdict store. Opportunistic pruning runs
-  // on every saved verdict; this lets a human sweep on demand, with --dry-run
-  // to see what would go without deleting.
-  if (flags.prune) {
-    const dryRun = Boolean(flags.dryRun || flags.checkOnly);
-    const days = Number(flags.pruneDays);
-    const res = await pruneVerdicts({ projectDir, dryRun, ...(Number.isFinite(days) && days > 0 ? { maxAgeDays: days } : {}) });
-    console.log(
-      dryRun
-        ? `kj review --prune (dry run): ${res.expired.length} of ${res.scanned} verdict(s) older than ${res.maxAgeDays}d would be removed`
-        : `kj review --prune: removed ${res.removed} verdict(s) older than ${res.maxAgeDays}d (${res.scanned - res.removed} kept)`,
-    );
-    return { pruned: res.removed, dryRun };
-  }
+  if (flags.installGate) return installGateAction(projectDir);
+  if (flags.prune) return pruneAction(projectDir, flags);
 
   const diff = await rawDiff(flags.range);
 
@@ -249,101 +359,12 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // cuenta. El borrado danino lo cubre la review cruzada, que lee todo el diff.
   const liveFiles = (await rawDiff(flags.range, ["--name-only", "--diff-filter=ACMR"])).split("\n").map((f) => f.trim()).filter(Boolean);
 
-  // KJC-TSK-0688 (MG-C) + KJC-TSK-0691 (MG-E): oversized-diff policy.
-  // Field case: a 522-line PR sailed past the warning with a
-  // rationalization — where the project wants teeth, pr_size: "block"
-  // rejects deterministically with a NAMED escape. Default stays warn.
-  // PL-C (KJC-TSK-0735), fuente única de umbrales: si la policy declara el
-  // invariante net_lines_added, SU max es el umbral — el mismo número que
-  // aplican kj policy check y el tier C de CI; method_gates queda de fallback.
-  // KJC-BUG-0326 (#2085): two tiers. ~150 is the ideal (method_gates.pr_size_warn);
-  // up to the limit (the policy's net_lines_added max, else method_gates.pr_size_max,
-  // 200) is allowed without asking; above the limit, partition. KJC-TSK-1076: one
-  // source, shared with the third-party PR checks.
   const pol = loadPolicy({ projectDir });
-  const { ideal: sizeIdeal, limit: sizeWarn, source: sizeSource } = prSizeLimit({ projectDir, config });
-  if (sizeWarn > 0) {
-    const numstat = await rawDiff(flags.range, ["--numstat"]);
-    // KJC-BUG-0205: the budget caps CODE growth, so generated output and human
-    // documentation are exempt — the same rule CI applies. Counting everything
-    // here warned 234 lines on a doc-only PR that CI counted at 104, and two
-    // implementations of one rule that disagree teach people to trust neither.
-    const { added, exempt, testAdded } = budgetedAdded(numstat);
-    // Said out loud: an exemption nobody sees is indistinguishable from a gate
-    // that is not looking.
-    if (exempt > 0) console.log(`ℓ pr-size: ${exempt} line(s) exempt from the budget (generated output and human docs; AI-rule files always count)`);
-    if (added > sizeIdeal && added <= sizeWarn) {
-      console.log(`ℓ pr-size: ${added} lines added, over the ~${sizeIdeal} ideal, within the ${sizeWarn} limit: allowed, nothing to ask`);
-    }
-    if (added > sizeWarn) {
-      // KJC-TSK-0795 AC5: say how much of the weight is the module's OWN tests —
-      // partitioning is a decision, and it must never split code from its tests.
-      const split = testAdded > 0 ? ` (${added - testAdded} source + ${testAdded} accompanying tests — partition by feature, never code from its tests)` : "";
-      const sizePolicy = config?.method_gates?.pr_size || "warn";
-      // ADR 0015: no env escape — an exception is the user's label on the PR, judged in CI.
-      if (sizePolicy === "block") {
-        const reason = `${added} lines added${split} is over the ${sizeWarn}-line limit (${sizeSource}; method_gates.pr_size: block) — partition the work; an exception is your user's large-pr-justified label on the PR`;
-        console.log(`✗ pr-size gate: ${reason}`);
-        process.exitCode = 1;
-        return { verdict: "rejected", reviewer: "pr-size", issues: [{ severity: "high", description: reason }] };
-      } else {
-        console.log(`⚠ pr-size: ${added} lines added${split}, over the ${sizeWarn}-line limit (ideal ~${sizeIdeal}, source: ${sizeSource}) — partition the work before committing (method_gates.pr_size: block to harden)`);
-      }
-    }
-  }
-  // KJC-TSK-0705 (PV-B): the outbound privacy boundary at commit time.
-  // Denylist data rejects with no escape (ADR 0015: false positives go in the allow list); generic PII
-  // warns (privacy.generic: "block" hardens). Added lines only — deletions
-  // don't publish. In the SEA binary the privacy module is stubbed and
-  // throws: the gate degrades with a note instead of crashing.
-  try {
-    // KJC-BUG-0203: per file, so a finding can name where it lives and so
-    // build output is judged as what it is. Generic heuristics are silenced
-    // there (nobody typed a minified bundle); a denylist hit is not, because
-    // the incident behind this scanner was personal data inside a build.
-    const list = loadPrivacyList();
-    const findings = splitAddedByFile(diff).flatMap(({ file, added }) => {
-      const found = scanText(added, { list, source: file });
-      return isGeneratedPath(file) ? found.filter((f) => f.severity === "block") : found;
-    });
-    const blocks = findings.filter((f) => f.severity === "block");
-    const warns = findings.filter((f) => f.severity === "warn");
-    for (const f of warns) console.log(`⚠ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked} — personal data? move it out before it ships`);
-    const hardened = config?.privacy?.generic === "block" && warns.length > 0;
-    if (blocks.length > 0 || hardened) {
-      for (const f of blocks) console.log(`✗ privacy: [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
-      const reason = `${blocks.length || warns.length} personal-data finding(s) in the staged diff — this must not reach the repo (a confirmed false positive goes in the allow list of ~/.karajan/privacy.yml)`;
-      console.log(`✗ privacy gate: ${reason}`);
-      process.exitCode = 1;
-      return { verdict: "rejected", reviewer: "privacy", issues: [{ severity: "high", description: reason }] };
-    }
-  } catch (err) {
-    // Known degradation: the SEA stub throws its install-from-npm message.
-    // Anything else fails CLOSED — a silent skip would defeat the guarantee.
-    if (/standalone binary/i.test(err?.message || "")) {
-      console.log("⚠ privacy gate unavailable in this build — skipping");
-    } else {
-      const reason = `privacy gate error: ${err.message} — refusing to pass the boundary unchecked`;
-      console.log(`✗ ${reason}`);
-      process.exitCode = 1;
-      return { verdict: "rejected", reviewer: "privacy", issues: [{ severity: "high", description: reason }] };
-    }
-  }
-
-  // KJC-TSK-0795 AC1: hand the gate the numbers so a delete-only diff is
-  // exempt — deleting code adds no behavior to test.
-  const numstat = (await rawDiff(flags.range, ["--numstat"])).split("\n").map((l) => l.trim()).filter(Boolean)
-    .map((l) => { const [a, r, ...f] = l.split(/\s+/); return { file: f.join(" "), added: a === "-" ? 1 : Number(a) || 0, removed: r === "-" ? 0 : Number(r) || 0 }; });
-  await markCommentOnlyAdditions(numstat, { range: flags.range, projectDir });
-  const tests = checkTestsWithCode({ config, stagedFiles: changedFiles, numstat });
-  if (tests.mode === "delete-only") console.log(`⚠ tests-with-code: exempt — ${tests.reason}`);
-  if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
-  if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);
-  if (!tests.ok) {
-    console.log(`✗ tests-with-code gate: ${tests.reason}`);
-    process.exitCode = 1;
-    return { verdict: "rejected", reviewer: "tests-with-code", issues: [{ severity: "high", description: tests.reason }] };
-  }
+  // KJC-TSK-1257: the pre-gates in their order; the first rejection ends the review.
+  const preRejection = await prSizeGate({ projectDir, config, range: flags.range })
+    ?? privacyGate({ diff, config })
+    ?? await testsWithCodeGate({ config, projectDir, range: flags.range, changedFiles });
+  if (preRejection) return preRejection;
 
   // KJC-TSK-0734 (PL-B): la policy declarativa como gate determinista, en
   // --staged Y en --check — el pre-commit hereda los dientes sin regenerar
