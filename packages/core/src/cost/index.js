@@ -46,6 +46,22 @@ function priceTokens(pricing, tokensIn, tokensOut) {
  *   currency:string
  * }}
  */
+/** KJC-TSK-1274: an event's fields with their safe defaults, or null when it carries no tokens. */
+function usageOf(ev) {
+  if (!ev || typeof ev !== "object") return null;
+  const tokensIn = Number.isFinite(ev.tokensIn) ? ev.tokensIn : 0;
+  const tokensOut = Number.isFinite(ev.tokensOut) ? ev.tokensOut : 0;
+  if (tokensIn === 0 && tokensOut === 0) return null;
+  return {
+    role: typeof ev.role === "string" && ev.role.length > 0 ? ev.role : "unknown",
+    model: typeof ev.model === "string" ? ev.model : "",
+    tokensIn,
+    tokensOut,
+  };
+}
+
+const roundedValues = (totals) => Object.fromEntries(Object.entries(totals).map(([k, v]) => [k, round(v)]));
+
 export function aggregateRunCost({ events, logger } = {}) {
   const safeEvents = Array.isArray(events) ? events : [];
   const byRole = {};
@@ -56,13 +72,9 @@ export function aggregateRunCost({ events, logger } = {}) {
   let unknownOut = 0;
 
   for (const ev of safeEvents) {
-    if (!ev || typeof ev !== "object") continue;
-    const role = typeof ev.role === "string" && ev.role.length > 0 ? ev.role : "unknown";
-    const model = typeof ev.model === "string" ? ev.model : "";
-    const tokensIn = Number.isFinite(ev.tokensIn) ? ev.tokensIn : 0;
-    const tokensOut = Number.isFinite(ev.tokensOut) ? ev.tokensOut : 0;
-    if (tokensIn === 0 && tokensOut === 0) continue;
-
+    const usage = usageOf(ev);
+    if (!usage) continue;
+    const { role, model, tokensIn, tokensOut } = usage;
     const pricing = getModelPricing(model);
     if (!pricing) {
       unknownIn += tokensIn;
@@ -80,17 +92,10 @@ export function aggregateRunCost({ events, logger } = {}) {
     byModel[model] = (byModel[model] || 0) + cost;
   }
 
-  const roundedByRole = Object.fromEntries(
-    Object.entries(byRole).map(([k, v]) => [k, round(v)])
-  );
-  const roundedByModel = Object.fromEntries(
-    Object.entries(byModel).map(([k, v]) => [k, round(v)])
-  );
-
   return {
     totalUsd: round(totalUsd),
-    byRole: roundedByRole,
-    byModel: roundedByModel,
+    byRole: roundedValues(byRole),
+    byModel: roundedValues(byModel),
     unknownModelTokens: {
       tokensIn: unknownIn,
       tokensOut: unknownOut,

@@ -33,6 +33,16 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
   sqliteVec.load(db);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
+  // KJC-TSK-1274: the schema, one step each, in the order the store has always been migrated.
+  ensureChunksTable(db);
+  addMissingChunkColumns(db);
+  const migratedChunksTable = migrateLibraryKind(db);
+  ensureMetaAndVectors(db, dim);
+  ensureFts(db, migratedChunksTable);
+  return db;
+}
+
+function ensureChunksTable(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS chunks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,6 +55,9 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     CREATE INDEX IF NOT EXISTS chunks_by_source ON chunks(source);
     CREATE INDEX IF NOT EXISTS chunks_by_kind ON chunks(kind);
   `);
+}
+
+function addMissingChunkColumns(db) {
   // KJC-TSK-0438 — Project isolation. project_slug = basename of projectDir
   // normalized; chunks indexed before the migration carry NULL and remain
   // queryable when `--project all` (or no slug detected at query time).
@@ -61,16 +74,18 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     db.exec("ALTER TABLE chunks ADD COLUMN content_hash TEXT;");
     db.exec("CREATE INDEX IF NOT EXISTS chunks_by_hash ON chunks(content_hash, project_slug);");
   }
+}
+
+/** @returns {boolean} true when the chunks table was rebuilt (its FTS index must be rebuilt too) */
+function migrateLibraryKind(db) {
   // KJC-TSK-0697 — the 'library' kind (distilled engineering canon) joins
   // the store. SQLite cannot alter a CHECK constraint, so stores created
   // before it rebuild `chunks` once: ids are preserved (the external-content
   // FTS keeps pointing at the same rowids) and the fts triggers, dropped
   // with the old table, are recreated by the block below.
   const chunksDdl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='chunks'").get()?.sql ?? "";
-  let migratedChunksTable = false;
-  if (chunksDdl.includes("'onboarding'") && !chunksDdl.includes("'library'")) {
-    migratedChunksTable = true;
-    db.exec(`
+  if (!chunksDdl.includes("'onboarding'") || chunksDdl.includes("'library'")) return false;
+  db.exec(`
       DROP TRIGGER IF EXISTS chunks_ai;
       DROP TRIGGER IF EXISTS chunks_ad;
       DROP TRIGGER IF EXISTS chunks_au;
@@ -93,7 +108,10 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
       CREATE INDEX IF NOT EXISTS chunks_by_project ON chunks(project_slug);
       CREATE INDEX IF NOT EXISTS chunks_by_hash ON chunks(content_hash, project_slug);
     `);
-  }
+  return true;
+}
+
+function ensureMetaAndVectors(db, dim) {
   // KJC-TSK-0455 — Auto-update by commit diff. Per-project metadata tracks
   // the last commit whose changes were reflected in the index, so subsequent
   // `kj rag index --since auto` invocations (and the post-merge hook / pre-run
@@ -107,6 +125,9 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     );
   `);
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(embedding float[${dim}]);`);
+}
+
+function ensureFts(db, migratedChunksTable) {
   // KJC-TSK-0443 — FTS5 keyword index for BM25 hybrid scoring. content='chunks'
   // makes it a contentless mirror linked by id (no double storage); triggers
   // sync the FTS5 rows on insert/update/delete. Rebuilds idempotently when
@@ -133,7 +154,6 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
   if (migratedChunksTable || (ftsCount === 0 && chunksCount > 0)) {
     db.exec("INSERT INTO chunks_fts(chunks_fts) VALUES('rebuild');");
   }
-  return db;
 }
 
 /**
