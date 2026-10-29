@@ -89,7 +89,9 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
     if (await isSealCommit(projectDir, c.oid, run, seal)) sealCommits.push(c.oid.slice(0, 7));
     else problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): no approved verdict for the diff it brings`);
   }
-  // A PR that only brings the seal needs no review; anything else without one is told to publish it.
-  if (problems.length > 0 && kjReviews.length === 0) problems.splice(0, problems.length, `no kj review published by a member: run kj review --publish-pr ${pr}`);
+  // A PR that only brings the seal needs no review; anything else without one (a clean merge
+  // included, KJC-BUG-0438) is told to publish it.
+  const onlySeals = sealCommits.length > 0 && sealCommits.length === commits.length;
+  if (kjReviews.length === 0 && !onlySeals) problems.splice(0, problems.length, `no kj review published by a member: run kj review --publish-pr ${pr}`);
   return { ok: problems.length === 0, commits: commits.length, problems, ...(sealCommits.length > 0 ? { sealCommits } : {}) };
 }
