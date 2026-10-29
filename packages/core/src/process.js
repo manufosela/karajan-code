@@ -74,6 +74,48 @@ async function awaitWithTimeout(subprocess, timeout, getStdout) {
   return result;
 }
 
+/**
+ * KJC-TSK-1274: kills the subprocess after `silenceTimeoutMs` with no output; every chunk re-arms it.
+ * A non-positive or non-numeric value turns it off.
+ */
+function silenceWatchdog(subprocess, silenceTimeoutMs) {
+  let timer = null;
+  let timedOut = false;
+  const clear = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+  const arm = () => {
+    const ms = Number(silenceTimeoutMs);
+    if (!Number.isFinite(ms) || ms <= 0 || timedOut) return;
+    clear();
+    timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        subprocess.kill(KILL_SIGNAL, { forceKillAfterDelay: 1000 });
+      } catch {
+        // no-op
+      }
+    }, ms);
+  };
+  return { arm, clear, timedOut: () => timedOut };
+}
+
+/** What a thrown run reports: exit 1 with every detail execa gave, never an empty message. */
+function thrownResult(error, stdoutAccum) {
+  const details = [error?.shortMessage, error?.originalMessage, error?.stderr, error?.stdout, error?.message]
+    .filter(Boolean)
+    .join("\n");
+  return {
+    exitCode: 1,
+    stdout: error?.stdout || stdoutAccum,
+    stderr: details || String(error),
+    signal: error?.signal || null
+  };
+}
+
 export async function runCommand(command, args = [], options = {}) {
   const { timeout, onOutput, silenceTimeoutMs, partialOutputFlushMs, ...rest } = options;
   // Detach stdin unless the caller provides input (e.g. Codex uses input: prompt).
@@ -83,92 +125,55 @@ export async function runCommand(command, args = [], options = {}) {
 
   let stdoutAccum = "";
   let stderrAccum = "";
-  let outputSilenceTimer = null;
-  let silenceTimedOut = false;
-
-  function clearSilenceTimer() {
-    if (outputSilenceTimer) {
-      clearTimeout(outputSilenceTimer);
-      outputSilenceTimer = null;
-    }
-  }
-
-  function armSilenceTimer() {
-    const ms = Number(silenceTimeoutMs);
-    if (!Number.isFinite(ms) || ms <= 0 || silenceTimedOut) return;
-    clearSilenceTimer();
-    outputSilenceTimer = setTimeout(() => {
-      silenceTimedOut = true;
-      try {
-        subprocess.kill(KILL_SIGNAL, { forceKillAfterDelay: 1000 });
-      } catch {
-        // no-op
-      }
-    }, ms);
-  }
-
-  if (subprocess.stdout) {
-    subprocess.stdout.on("data", (chunk) => {
-      stdoutAccum += chunk.toString();
-      armSilenceTimer();
-    });
-  }
-  if (subprocess.stderr) {
-    subprocess.stderr.on("data", (chunk) => {
-      stderrAccum += chunk.toString();
-      armSilenceTimer();
-    });
-  }
-
-  if (onOutput) {
-    setupOutputStreaming(subprocess, onOutput, partialOutputFlushMs);
-  }
-  armSilenceTimer();
+  const watchdog = silenceWatchdog(subprocess, silenceTimeoutMs);
+  subprocess.stdout?.on("data", (chunk) => {
+    stdoutAccum += chunk.toString();
+    watchdog.arm();
+  });
+  subprocess.stderr?.on("data", (chunk) => {
+    stderrAccum += chunk.toString();
+    watchdog.arm();
+  });
+  if (onOutput) setupOutputStreaming(subprocess, onOutput, partialOutputFlushMs);
+  watchdog.arm();
 
   try {
     const result = timeout
       ? await awaitWithTimeout(subprocess, timeout, () => stdoutAccum)
       : await subprocess;
-    clearSilenceTimer();
-    if (silenceTimedOut) return buildSilenceKilledResult(silenceTimeoutMs, stdoutAccum);
+    watchdog.clear();
+    if (watchdog.timedOut()) return buildSilenceKilledResult(silenceTimeoutMs, stdoutAccum);
     return enrichResult(result, stdoutAccum, stderrAccum);
   } catch (error) {
-    clearSilenceTimer();
-    if (silenceTimedOut) return buildSilenceKilledResult(silenceTimeoutMs, error?.stdout || stdoutAccum, error?.signal);
-
-    const details = [error?.shortMessage, error?.originalMessage, error?.stderr, error?.stdout, error?.message]
-      .filter(Boolean)
-      .join("\n");
-
-    return {
-      exitCode: 1,
-      stdout: error?.stdout || stdoutAccum,
-      stderr: details || String(error),
-      signal: error?.signal || null
-    };
+    watchdog.clear();
+    if (watchdog.timedOut()) return buildSilenceKilledResult(silenceTimeoutMs, error?.stdout || stdoutAccum, error?.signal);
+    return thrownResult(error, stdoutAccum);
   }
+}
+
+/**
+ * execa with reject:false RESOLVES (does not throw) on a spawn
+ * failure — ENOENT (binary not in PATH), EACCES, etc. The result
+ * then carries exitCode null/undefined, an empty stderr, and the
+ * real cause only in `code` / `shortMessage`. Surface it: a missing
+ * agent CLI used to fail with a completely empty error message,
+ * leaving the user with "coder failed" and no idea what to install.
+ */
+function spawnFailedResult(result, stdoutAccum) {
+  const code = result.code ? ` (${result.code})` : "";
+  const reason = result.shortMessage || result.message || `spawn failed${code}`;
+  return {
+    ...result,
+    exitCode: 1,
+    stdout: result.stdout || stdoutAccum,
+    stderr: result.stderr || reason,
+    spawnError: result.code || true,
+  };
 }
 
 function enrichResult(result, stdoutAccum, _stderrAccum) {
   if (result.timedOut) return result;
-
-  // execa with reject:false RESOLVES (does not throw) on a spawn
-  // failure — ENOENT (binary not in PATH), EACCES, etc. The result
-  // then carries exitCode null/undefined, an empty stderr, and the
-  // real cause only in `code` / `shortMessage`. Surface it: a missing
-  // agent CLI used to fail with a completely empty error message,
-  // leaving the user with "coder failed" and no idea what to install.
-  if (result.failed && result.exitCode == null && !result.signal) {
-    const reason = result.shortMessage || result.message
-      || `spawn failed${result.code ? ` (${result.code})` : ""}`;
-    return {
-      ...result,
-      exitCode: 1,
-      stdout: result.stdout || stdoutAccum,
-      stderr: result.stderr || reason,
-      spawnError: result.code || true,
-    };
-  }
+  if (result.failed && result.exitCode == null && !result.signal) return spawnFailedResult(result, stdoutAccum);
 
   const killed = result.killed || !!result.signal;
   const signal = result.signal || null;
