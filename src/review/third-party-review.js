@@ -15,7 +15,8 @@ import { prSecurityChecks } from "./pr-security.js";
 import { sonarCheck } from "./pr-sonar.js";
 import { batchDiff, splitByFile } from "./diff-batches.js";
 import { lensTask } from "./review-lens.js";
-import { thirdPartyTask } from "./untrusted-context.js";
+import { thirdPartyTask, THIRD_PARTY_INSTRUCTION } from "./untrusted-context.js";
+import { baseOf, readRepoDocs, repoDocsTask } from "./repo-docs.js";
 import { readTaskFile } from "../utils/task-file.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 import { assertCrossFamily, verifyFindings } from "./run-verifier.js";
@@ -37,7 +38,7 @@ const finding = (i) => ({
 });
 
 /** The review as data: verdict, findings, suggestions, security checks and, apart, the house requirements. */
-export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null }) {
+export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null, repoDocs = readRepoDocs }) {
   // KJC-TSK-1195: a verifier of the reviewer's own family is refused before any token is spent.
   const reviewerRole = resolveRole(config, "reviewer");
   if (verifier) assertCrossFamily({ reviewer: reviewerRole.provider, reviewerModel: reviewerRole.model, verifier, verifierModel, logger });
@@ -54,14 +55,19 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
   const provider = reviewerRole.provider || null;
   const { batches, coverage } = batchDiff(diff, { limit, maxBatches });
   if (coverage.files.total === 0) throw new Error(`nothing to review — ${range} has no file changes`);
+  // KJC-TSK-1266 (#2753): the repo's own docs at the base, fenced as untrusted, and named in the output.
+  const docs = await repoDocs({ projectDir, base: baseOf(range) });
+  if (docs.error) logger.warn?.(docs.error);
+  const repoContext = { files: docs.files, omitted: docs.omitted, ...(docs.error && { error: docs.error }) };
+  const reviewTask = docs.text ? repoDocsTask(task ?? THIRD_PARTY_INSTRUCTION, docs) : task;
   const reviewWith = async (who, cfg) => {
     const recs = [];
-    for (const batch of batches) recs.push(await run({ diff: batch.text, task, config: cfg, logger, projectDir, reviewerOverride: who, persist: false }));
+    for (const batch of batches) recs.push(await run({ diff: batch.text, task: reviewTask, config: cfg, logger, projectDir, reviewerOverride: who, persist: false }));
     return recs;
   };
   if (reviewers) {
     const dual = await dualReview({ reviewers, reviewWith, verify, diff, coverage, config, logger });
-    return { mode: "third-party", range, ...dual, checks, policyChecks, advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit) };
+    return { mode: "third-party", range, ...dual, checks, policyChecks, repoContext, advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit) };
   }
   const records = await reviewWith(provider, config);
   const findings = records.flatMap((r) => (r.issues ?? []).map(finding));
@@ -78,6 +84,7 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
     suggestions: records.flatMap((r) => r.suggestions ?? []),
     checks,
     policyChecks,
+    repoContext,
     advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit),
   };
 }
