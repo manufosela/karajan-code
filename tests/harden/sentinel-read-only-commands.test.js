@@ -17,7 +17,6 @@ const READS = [
   `cat ${POLICY} | head -5`,
   `tail -n 3 ${POLICY} 2>&1`,
   `grep -c x ${POLICY} 2>/dev/null && wc -l ${HOOK}`,
-  `git -c user.name=a -c user.email=b -C /repo log --oneline -- ${POLICY}`,
   `jq . < ${POLICY}`,
 ];
 
@@ -36,6 +35,11 @@ const NOT_READS = [
   `git -c core.pager=sh log -- ${POLICY}`,
   `git log --output=${POLICY}`,
   `git checkout -- ${POLICY}`,
+  // KJC-BUG-0437: git runs what its config names (filters, textconv, diff.external, fsmonitor).
+  `git cat-file --filters HEAD:${POLICY}`,
+  `git -c user.name=a -c user.email=b -C /repo log --oneline -- ${POLICY}`,
+  `git diff -- ${POLICY}`,
+  `git status ${HOOK}`,
   `tee ${POLICY} < /tmp/x`,
 ];
 
