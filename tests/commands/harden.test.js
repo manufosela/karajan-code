@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -170,6 +170,17 @@ describe("hardenCommand", () => {
     const res = await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, sandbox: true, logger });
     expect(installSandbox).toHaveBeenCalledWith(expect.objectContaining({ projectDir: repo }));
     expect(res.sandbox).toBe("on");
+  });
+
+  // KJC-BUG-0420 (#2664): consumer CI installs kj from npm; an unpublished pin killed policy-check.
+  it("pins the policy workflow to a version npm has, and warns when it is not the running one", async () => {
+    mkdirSync(join(repo, ".karajan"), { recursive: true });
+    writeFileSync(join(repo, ".karajan", "policy.yml"), "rules: []\n");
+    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => ({ versions: { "0.0.1": {} } }) }));
+    const warn = vi.fn();
+    await hardenCommand({ projectDir: repo, profile: "standard", guidelines: false, fetchFn, logger: { ...logger, warn } });
+    expect(readFileSync(join(repo, ".github", "workflows", "kj-policy.yml"), "utf8")).toMatch(/@0\.0\.1\b/);
+    expect(warn.mock.calls.flat().join("\n")).toMatch(/is not on npm yet; the workflow pins 0\.0\.1/);
   });
 
   it("returns ok:false on a non-repo dir without throwing", async () => {
