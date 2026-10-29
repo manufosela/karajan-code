@@ -25,7 +25,7 @@ import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
 import { installSandbox } from "../harden/sandbox.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
-import { installWorkflows } from "../harden/workflow-engine.js";
+import { installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
 import { adviseBranchProtection } from "../harden/branch-protection.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { ensureIdentity } from "../identity/bootstrap.js";
@@ -97,6 +97,7 @@ export async function hardenCommand({
   // KJC-BUG-0289: the contract files already dirty before anything was generated
   // (kj init captures them before writing its own). What is dirty NOW is the person's.
   contractBefore = null,
+  fetchFn = fetch,
   logger = console,
 } = {}) {
   const dirtyBefore = contractBefore ?? contractChanges(projectDir);
@@ -177,8 +178,11 @@ export async function hardenCommand({
   const withConfig = config && profile !== "minimal";
   const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
   const withCi = ci && profile !== "minimal";
+  // KJC-BUG-0420: consumer CI installs kj from npm, so the workflows pin a published version.
+  const pin = withCi ? await resolveKjPin({ projectDir, fetchFn }) : null;
+  if (pin?.note) logger.warn?.(`⚠ ${pin.note}`);
   const wf = withCi
-    ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, root: roots[0]?.dir ?? ".", profile, mutation, dryRun })
+    ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, root: roots[0]?.dir ?? ".", profile, mutation, dryRun, kjVersion: pin?.version ?? null })
     : null;
   const withGuidelines = guidelines && profile !== "minimal";
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
