@@ -294,6 +294,74 @@ async function handleStandalone({ tool, standalone, manualUrl, dryRun, yes, logg
   return { tool, action: "failed", via: "binary", error: r.error };
 }
 
+// Sonar: plan the container, then start it on a yes.
+async function startSonar({ available, dryRun, yes, logger }) {
+  const result = await handleSonar({ available, dryRun });
+  if (result.action === "manual") logger.warn?.(`✗ sonar: ${result.reason}`);
+  else logger.info?.(`▸ sonar: ${result.command}`);
+  if (dryRun || result.action !== "ready") return result;
+  const proceed = yes || await promptYesNo(`Start SonarQube with: ${result.command}?`);
+  if (!proceed) return result;
+  const r = await runInstall(result.command);
+  result.action = r.ok ? "installed" : "failed";
+  if (!r.ok) result.error = r.error;
+  return result;
+}
+
+async function handleOptimizer({ tool, dryRun, yes, logger }) {
+  if (dryRun) {
+    logger.info?.(`▸ ${tool}: would install (init installer)`);
+    return { tool, action: "planned", command: `kj install-tools --only ${tool}` };
+  }
+  const proceed = yes || await promptYesNo(`Install ${tool}?`);
+  if (!proceed) return { tool, action: "declined" };
+  const install = await OPTIMIZER_INSTALLERS[tool]();
+  const r = await install(logger);
+  return r.ok ? { tool, action: "installed", version: r.version } : { tool, action: "failed", error: r.error };
+}
+
+// No package manager matched: try a standalone route (static binary for
+// osv-scanner, a concrete command for semgrep) before giving up.
+async function handleNoManager({ tool, hint, available, dryRun, yes, logger }) {
+  const standalone = resolveStandalone(tool, available);
+  if (standalone) return handleStandalone({ tool, standalone, manualUrl: hint.manualUrl, dryRun, yes, logger });
+  logger.warn?.(`✗ ${tool}: no automatic install route here. Run \`kj doctor\` for options, or install manually: ${hint.manualUrl}`);
+  return { tool, action: "manual", reason: "no compatible package manager found", manualUrl: hint.manualUrl, suggested: hint.command };
+}
+
+// semgrep / osv-scanner / lighthouse — package-manager driven.
+async function handlePackageManaged(ctx) {
+  const { tool, available, dryRun, yes, logger } = ctx;
+  const hint = await getInstallHint(tool, available);
+  if (!hint.command || !hint.manager) return handleNoManager({ ...ctx, hint });
+  if (dryRun) {
+    logger.info?.(`▸ ${tool}: would run \`${hint.command}\` (manager: ${hint.manager})`);
+    return { tool, action: "dry-run", command: hint.command, manager: hint.manager };
+  }
+  const proceed = yes || await promptYesNo(`Install ${tool} with: ${hint.command}?`);
+  if (!proceed) {
+    logger.info?.(`⊘ ${tool}: declined`);
+    return { tool, action: "declined", command: hint.command };
+  }
+  logger.info?.(`▸ ${tool}: running \`${hint.command}\`...`);
+  const r = await runInstall(hint.command);
+  if (r.ok) {
+    logger.info?.(`✓ ${tool}: installed via ${hint.manager}`);
+    return { tool, action: "installed", command: hint.command, manager: hint.manager };
+  }
+  logger.warn?.(`✗ ${tool}: install failed (${r.error})`);
+  return { tool, action: "failed", command: hint.command, error: r.error };
+}
+
+// Tools with their own route; any other one goes through the package manager.
+const TOOL_HANDLERS = {
+  sonar: startSonar,
+  git: handleGit,
+  "agent-cli": handleAgentCli,
+  docker: handleDocker,
+  ...Object.fromEntries(Object.keys(OPTIMIZER_INSTALLERS).map((tool) => [tool, handleOptimizer])),
+};
+
 /**
  * Plan + (optionally execute) the install of every requested tool.
  *
@@ -330,91 +398,8 @@ export async function installToolsCommand(opts = {}) {
       continue;
     }
 
-    if (tool === "sonar") {
-      const result = await handleSonar({ available, dryRun });
-      results.push(result);
-      if (result.action === "manual") logger.warn?.(`✗ sonar: ${result.reason}`);
-      else logger.info?.(`▸ sonar: ${result.command}`);
-      if (!dryRun && result.action === "ready") {
-        const proceed = yes || await promptYesNo(`Start SonarQube with: ${result.command}?`);
-        if (proceed) {
-          const r = await runInstall(result.command);
-          result.action = r.ok ? "installed" : "failed";
-          if (!r.ok) result.error = r.error;
-        }
-      }
-      continue;
-    }
-
-    if (OPTIMIZER_INSTALLERS[tool]) {
-      if (dryRun) {
-        results.push({ tool, action: "planned", command: `kj install-tools --only ${tool}` });
-        logger.info?.(`▸ ${tool}: would install (init installer)`);
-        continue;
-      }
-      const proceed = yes || await promptYesNo(`Install ${tool}?`);
-      if (!proceed) { results.push({ tool, action: "declined" }); continue; }
-      const install = await OPTIMIZER_INSTALLERS[tool]();
-      const r = await install(logger);
-      results.push(r.ok
-        ? { tool, action: "installed", version: r.version }
-        : { tool, action: "failed", error: r.error });
-      continue;
-    }
-
-    if (tool === "git") {
-      const result = await handleGit({ available, dryRun, yes, logger });
-      results.push(result);
-      continue;
-    }
-
-    if (tool === "agent-cli") {
-      const result = await handleAgentCli({ available, dryRun, yes, logger });
-      results.push(result);
-      continue;
-    }
-
-    if (tool === "docker") {
-      const result = await handleDocker({ available, dryRun, yes, logger });
-      results.push(result);
-      continue;
-    }
-
-    // semgrep / osv-scanner / lighthouse — package-manager driven.
-    const hint = await getInstallHint(tool, available);
-    if (!hint.command || !hint.manager) {
-      // No package manager matched — try a standalone route (static binary
-      // for osv-scanner, a concrete command for semgrep) before giving up.
-      const standalone = resolveStandalone(tool, available);
-      if (standalone) {
-        const result = await handleStandalone({ tool, standalone, manualUrl: hint.manualUrl, dryRun, yes, logger });
-        results.push(result);
-        continue;
-      }
-      results.push({ tool, action: "manual", reason: "no compatible package manager found", manualUrl: hint.manualUrl, suggested: hint.command });
-      logger.warn?.(`✗ ${tool}: no automatic install route here. Run \`kj doctor\` for options, or install manually: ${hint.manualUrl}`);
-      continue;
-    }
-    if (dryRun) {
-      results.push({ tool, action: "dry-run", command: hint.command, manager: hint.manager });
-      logger.info?.(`▸ ${tool}: would run \`${hint.command}\` (manager: ${hint.manager})`);
-      continue;
-    }
-    const proceed = yes || await promptYesNo(`Install ${tool} with: ${hint.command}?`);
-    if (!proceed) {
-      results.push({ tool, action: "declined", command: hint.command });
-      logger.info?.(`⊘ ${tool}: declined`);
-      continue;
-    }
-    logger.info?.(`▸ ${tool}: running \`${hint.command}\`...`);
-    const r = await runInstall(hint.command);
-    if (r.ok) {
-      results.push({ tool, action: "installed", command: hint.command, manager: hint.manager });
-      logger.info?.(`✓ ${tool}: installed via ${hint.manager}`);
-    } else {
-      results.push({ tool, action: "failed", command: hint.command, error: r.error });
-      logger.warn?.(`✗ ${tool}: install failed (${r.error})`);
-    }
+    const install = Object.hasOwn(TOOL_HANDLERS, tool) ? TOOL_HANDLERS[tool] : handlePackageManaged;
+    results.push(await install({ tool, available, dryRun, yes, logger }));
   }
 
   // KJC-TSK-0659 stop-on-sudo: anything that still needs the user's hands
