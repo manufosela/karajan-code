@@ -52,7 +52,12 @@ async function findLiveCardInBranch(projectDir, branch) {
   return closedHit;
 }
 
-export async function checkCardFirst({ config = {}, projectDir = process.cwd(), branch, deps = {} }) {
+// A failed check under the effective policy: blocks, or passes with a warning.
+const failedCheck = (effective, reason, extra = {}) => (effective === "block"
+  ? { ok: false, mode: "block", reason, ...extra }
+  : { ok: true, mode: "warn", reason, ...extra });
+
+function exemption(config, branch) {
   const exempt = config.method_gates?.card_first_exempt_branches || DEFAULT_EXEMPT_PREFIXES;
   if (exempt.some((p) => branch.startsWith(p))) {
     return { ok: true, mode: "exempt", reason: `branch prefix exempt (${branch.split("/")[0]}/…)` };
@@ -62,59 +67,64 @@ export async function checkCardFirst({ config = {}, projectDir = process.cwd(), 
   if ([config.base_branch || "main", "main", "master", "HEAD"].includes(branch)) {
     return { ok: true, mode: "exempt", reason: "base branch — the branch-first gate owns this case" };
   }
+  return null;
+}
 
-  const backend = config.state_backend || "hu-board";
-  const policy = config.method_gates?.card_first || "auto";
+async function huBoardCheck({ projectDir, branch, policy }) {
+  const hit = await findLiveCardInBranch(projectDir, branch);
+  if (hit?.live) return { ok: true, mode: "pass", ref: hit.ref };
+  const reason = hit
+    ? `branch references ${hit.ref} but its card is "${hit.status}" — card-first needs a live card (reopen it or create one: kj hu add)`
+    : `no live card referenced in branch "${branch}" — create it first (kj hu add "…" --id <REF>) and name the branch after it`;
+  return failedCheck(policy === "auto" ? "block" : policy, reason);
+}
 
-  if (backend === "hu-board") {
-    const hit = await findLiveCardInBranch(projectDir, branch);
-    if (hit?.live) return { ok: true, mode: "pass", ref: hit.ref };
-    const effective = policy === "auto" ? "block" : policy;
-    const reason = hit
-      ? `branch references ${hit.ref} but its card is "${hit.status}" — card-first needs a live card (reopen it or create one: kj hu add)`
-      : `no live card referenced in branch "${branch}" — create it first (kj hu add "…" --id <REF>) and name the branch after it`;
-    return effective === "block"
-      ? { ok: false, mode: "block", reason }
-      : { ok: true, mode: "warn", reason };
+// A card-shaped reference in the branch, verified against the tracker when an adapter is declared.
+async function trackerRefCheck({ config, projectDir, branch, deps, boardName, effective }) {
+  const ref = branch.match(CARD_REF_RE)[0];
+  const { verifyFn = verifyCardAlive } = deps;
+  const v = await verifyFn({ ref, verifyCmd: config.board?.verify_cmd, projectDir });
+  if (v.verified === false) {
+    const reason = `branch references ${ref} but ${boardName} reports it "${v.status}" — card-first needs a live card in the tracker (create/reopen it there)`;
+    return failedCheck(effective, reason, { level: v.level });
   }
+  // KJC-TSK-0878 (issue #1371): "no he podido verificar" y "he verificado y
+  // esta mal" no son lo mismo, y ambas pueden merecer una parada. El proyecto
+  // decide si la primera para, y el mensaje dice cual de las dos es: un gate
+  // que aprueba lo que no ha comprobado da una confianza que no ha ganado.
+  // Sin adaptador declarado no hay nada que bloquear: la opcion no castiga a
+  // quien aun no tiene verify_cmd.
+  if (v.verified === null && config.board?.unverifiable === "block" && config.board?.verify_cmd) {
+    return {
+      ok: false, mode: "block", level: v.level,
+      reason: `branch references ${ref} but the card could not be verified against ${boardName} — ${v.note} (board.unverifiable: block refuses to approve a check kj did not make)`,
+    };
+  }
+  const huNote = `no live HU on the HU Board links ${ref}: kj hu add "…" --ref ${ref}`;
+  return { ok: true, mode: "pass", ref, level: v.level, note: v.note ? `${v.note}; ${huNote}` : huNote };
+}
 
-  // planning-game / external: presence check, upgraded to LIVENESS against
-  // the real tracker when board.verify_cmd declares an adapter
-  // (KJC-TSK-0732, issue #1371). Unverifiable degrades honestly — the
-  // result names its level so nobody mistakes branch-ref for tracker.
+// planning-game / external: presence check, upgraded to LIVENESS against
+// the real tracker when board.verify_cmd declares an adapter
+// (KJC-TSK-0732, issue #1371). Unverifiable degrades honestly — the
+// result names its level so nobody mistakes branch-ref for tracker.
+async function externalBoardCheck({ config, projectDir, branch, deps, backend, policy }) {
   const boardName = config.board?.name || backend;
   const effective = policy === "auto" ? "warn" : policy;
   // KJC-BUG-0353: the HU Board is always kj's board (KJC-BUG-0305) — a live HU
   // the branch names, or whose replica it names, is checked here, not guessed.
   const huHit = await findLiveCardInBranch(projectDir, branch);
   if (huHit?.live) return { ok: true, mode: "pass", ref: huHit.ref, level: "hu-board" };
-  if (CARD_REF_RE.test(branch)) {
-    const ref = branch.match(CARD_REF_RE)[0];
-    const { verifyFn = verifyCardAlive } = deps;
-    const v = await verifyFn({ ref, verifyCmd: config.board?.verify_cmd, projectDir });
-    if (v.verified === false) {
-      const reason = `branch references ${ref} but ${boardName} reports it "${v.status}" — card-first needs a live card in the tracker (create/reopen it there)`;
-      return effective === "block"
-        ? { ok: false, mode: "block", reason, level: v.level }
-        : { ok: true, mode: "warn", reason, level: v.level };
-    }
-    // KJC-TSK-0878 (issue #1371): "no he podido verificar" y "he verificado y
-    // esta mal" no son lo mismo, y ambas pueden merecer una parada. El proyecto
-    // decide si la primera para, y el mensaje dice cual de las dos es: un gate
-    // que aprueba lo que no ha comprobado da una confianza que no ha ganado.
-    // Sin adaptador declarado no hay nada que bloquear: la opcion no castiga a
-    // quien aun no tiene verify_cmd.
-    if (v.verified === null && config.board?.unverifiable === "block" && config.board?.verify_cmd) {
-      return {
-        ok: false, mode: "block", level: v.level,
-        reason: `branch references ${ref} but the card could not be verified against ${boardName} — ${v.note} (board.unverifiable: block refuses to approve a check kj did not make)`,
-      };
-    }
-    const huNote = `no live HU on the HU Board links ${ref}: kj hu add "…" --ref ${ref}`;
-    return { ok: true, mode: "pass", ref, level: v.level, note: v.note ? `${v.note}; ${huNote}` : huNote };
-  }
+  if (CARD_REF_RE.test(branch)) return trackerRefCheck({ config, projectDir, branch, deps, boardName, effective });
   const reason = `no card reference in branch "${branch}" — card-first on ${boardName}: create the card there and name the branch after it (e.g. feat/ABC-123-summary)`;
-  return effective === "block"
-    ? { ok: false, mode: "block", reason }
-    : { ok: true, mode: "warn", reason };
+  return failedCheck(effective, reason);
+}
+
+export async function checkCardFirst({ config = {}, projectDir = process.cwd(), branch, deps = {} }) {
+  const exempt = exemption(config, branch);
+  if (exempt) return exempt;
+  const backend = config.state_backend || "hu-board";
+  const policy = config.method_gates?.card_first || "auto";
+  if (backend === "hu-board") return huBoardCheck({ projectDir, branch, policy });
+  return externalBoardCheck({ config, projectDir, branch, deps, backend, policy });
 }
