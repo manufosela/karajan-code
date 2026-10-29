@@ -30,39 +30,57 @@ const ghRuns = (projectDir, baseBranch) => () => {
 
 const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; } };
 
+const MARK = { [VERDICTS.OK]: "✓", [VERDICTS.BROKEN]: "✗", [VERDICTS.UNKNOWN]: "?", [VERDICTS.NOT_OBSERVABLE]: "∅" };
+
+/**
+ * STW-E (KJC-TSK-0793): --if-stale <days> — resuming work with a fresh
+ * report does not re-sweep; the report in the repo stays the ONE source.
+ * @returns {object|null} the fresh previous report, or null when a sweep is due
+ */
+function freshReport(projectDir, flags, probes) {
+  if (flags.ifStale === undefined) return null;
+  const prev = readJson(path.join(stewardDir(projectDir), "report.json"));
+  const ageMs = prev?.sweptAt ? (probes.nowMs ?? Date.now()) - Date.parse(prev.sweptAt) : Infinity;
+  return ageMs < Number(flags.ifStale) * 86_400_000 ? prev : null;
+}
+
+/**
+ * Live osv probe (best-effort): unavailable is null → the invariant answers
+ * unknown with its remedy, never a clean bill.
+ */
+async function liveVulns({ projectDir, logger, probes }) {
+  if (probes.vulns != null) return probes.vulns;
+  try {
+    const osv = await (probes.osvFn ?? collectOsvFindings)(projectDir, logger);
+    if (osv?.available) return (osv.vulnerabilities || []).map((v) => ({ id: v.id, severity: v.severity, publishedAt: v.publishedAt ?? null }));
+  } catch { /* stays null — unknown */ }
+  return null;
+}
+
+/** The dead code the last audit counted: knip's exports + files, or the older deadExports list. */
+async function deadCodeNow(projectDir) {
+  const snapshot = await loadPreviousAudit(projectDir).catch(() => null);
+  if (typeof snapshot?.knipDeadExports?.exports === "number") {
+    return { deadExports: snapshot.knipDeadExports.exports + (snapshot.knipDeadExports.files || 0) };
+  }
+  return Array.isArray(snapshot?.deadExports) ? { deadExports: snapshot.deadExports.length } : null;
+}
+
 export async function stewardSweepCommand({ flags = {}, config = {}, logger = console, probes = {} } = {}) {
   const projectDir = config.projectDir || process.cwd();
   const baseBranch = config.base_branch || "main";
-  // STW-E (KJC-TSK-0793): --if-stale <days> — resuming work with a fresh
-  // report does not re-sweep; the report in the repo stays the ONE source.
-  if (flags.ifStale !== undefined) {
-    const prev = readJson(path.join(stewardDir(projectDir), "report.json"));
-    const ageMs = prev?.sweptAt ? (probes.nowMs ?? Date.now()) - Date.parse(prev.sweptAt) : Infinity;
-    if (ageMs < Number(flags.ifStale) * 86_400_000) {
-      logger.info?.(`steward: report is fresh (swept ${prev.sweptAt}) — not re-sweeping`);
-      return 0;
-    }
+  const fresh = freshReport(projectDir, flags, probes);
+  if (fresh) {
+    logger.info?.(`steward: report is fresh (swept ${fresh.sweptAt}) — not re-sweeping`);
+    return 0;
   }
   const freshness = resolveFreshness(config);
   const nowMs = probes.nowMs ?? Date.now();
   const runsFn = probes.runsFn ?? ghRuns(projectDir, baseBranch);
-
-  // Live osv probe (best-effort): unavailable is null → the invariant answers
-  // unknown with its remedy, never a clean bill.
-  let vulns = probes.vulns ?? null;
-  if (vulns === null) {
-    try {
-      const osv = await (probes.osvFn ?? collectOsvFindings)(projectDir, logger);
-      if (osv?.available) vulns = (osv.vulnerabilities || []).map((v) => ({ id: v.id, severity: v.severity, publishedAt: v.publishedAt ?? null }));
-    } catch { /* stays null — unknown */ }
-  }
-
+  const vulns = await liveVulns({ projectDir, logger, probes });
   // Dead-code baseline: the PREVIOUS report in the repo — shared memory.
   const prevReport = readJson(path.join(stewardDir(projectDir), "report.json"));
-  const snapshot = await loadPreviousAudit(projectDir).catch(() => null);
-  const deadNow = typeof snapshot?.knipDeadExports?.exports === "number"
-    ? { deadExports: snapshot.knipDeadExports.exports + (snapshot.knipDeadExports.files || 0) }
-    : Array.isArray(snapshot?.deadExports) ? { deadExports: snapshot.deadExports.length } : null;
+  const deadNow = await deadCodeNow(projectDir);
 
   const invariants = [
     { id: "main-ci", renew: "push to the base branch (or fix the red run)", evaluate: () => evaluateMainCi({ projectDir, baseBranch, freshness: freshness.values, runsFn, nowMs }) },
@@ -82,57 +100,81 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
     invariants: results,
     deadCodeBaseline: deadNow ? { ...deadNow, timestamp: new Date(nowMs).toISOString() } : (prevReport?.deadCodeBaseline ?? null),
   };
-  const mark = { [VERDICTS.OK]: "✓", [VERDICTS.BROKEN]: "✗", [VERDICTS.UNKNOWN]: "?", [VERDICTS.NOT_OBSERVABLE]: "∅" };
+  writeReport(projectDir, report, freshness);
+  sealSweep({ projectDir, results, broken, logger });
+  await cardBrokenInvariants({ projectDir, config, results, sweptAt: report.sweptAt, logger });
+  warnIfReportIgnored(projectDir, logger);
+  printSweep({ flags, report, results, broken, logger });
+  process.exitCode = broken.length ? 1 : 0;
+  return broken.length ? 1 : 0;
+}
+
+function writeReport(projectDir, report, freshness) {
+  const freshnessValues = Object.entries(freshness.values).map(([k, v]) => `${k}=${v}`).join(", ");
   const md = [
     "# Steward report",
     "", `Last swept: ${report.sweptAt}`, "",
-    `Freshness: ${freshness.declared ? "declared by the project" : "calibrated defaults (the project declared none)"} — ${Object.entries(freshness.values).map(([k, v]) => `${k}=${v}`).join(", ")}`, "",
-    ...results.map((r) => [
-      `## ${mark[r.verdict] || "?"} ${r.id} — ${r.verdict}`,
+    `Freshness: ${freshness.declared ? "declared by the project" : "calibrated defaults (the project declared none)"} — ${freshnessValues}`, "",
+    ...report.invariants.flatMap((r) => [
+      `## ${MARK[r.verdict] || "?"} ${r.id} — ${r.verdict}`,
       `- evidence: ${r.evidence || "(none)"}`,
       ...(r.remedy ? [`- remedy: ${r.remedy}`] : []),
       `- renews with: ${r.renew}`, "",
-    ]).flat(),
+    ]),
   ].join("\n");
-
   fs.mkdirSync(stewardDir(projectDir), { recursive: true });
   fs.writeFileSync(path.join(stewardDir(projectDir), "report.md"), md);
   fs.writeFileSync(path.join(stewardDir(projectDir), "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+}
 
-  // Every sweep is SEALED in the decision chain — the same criterion policy
-  // decisions already meet: recorded and verifiable, not just notified.
+/**
+ * Every sweep is SEALED in the decision chain — the same criterion policy
+ * decisions already meet: recorded and verifiable, not just notified.
+ */
+function sealSweep({ projectDir, results, broken, logger }) {
   try {
     const counts = {};
     for (const r of results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
     recordGateDecision(projectDir, { kind: "steward-sweep", verdicts: { ok: counts[VERDICTS.OK] || 0, broken: broken.length, unknown: counts[VERDICTS.UNKNOWN] || 0, "not-observable": counts[VERDICTS.NOT_OBSERVABLE] || 0 }, broken_ids: broken.map((b) => b.id) });
   } catch (err) { logger.warn?.(`⚠ steward: the sweep could not be sealed in the decision chain (${err.message})`); }
+}
 
-  // STW-D (KJC-TSK-0792): every break is PROPOSED work on the board the brain
-  // already consumes. AFTER the report and the seal: a board failure never
-  // costs either, and it is said loudly — never swallowed.
+/**
+ * STW-D (KJC-TSK-0792): every break is PROPOSED work on the board the brain
+ * already consumes. AFTER the report and the seal: a board failure never
+ * costs either, and it is said loudly — never swallowed.
+ */
+async function cardBrokenInvariants({ projectDir, config, results, sweptAt, logger }) {
   try {
-    const sync = await syncProposedWork({ projectDir, config, results, sweptAt: report.sweptAt });
-    if (!sync.synced) logger.warn?.(`⚠ steward: broken invariants not carded — ${sync.reason}`);
-    else if (sync.created || sync.updated || sync.resolved) {
-      logger.info?.(`steward board: ${sync.created} card(s) proposed, ${sync.updated} updated, ${sync.resolved} resolved`);
-      if (sync.replicateIn) logger.info?.(`→ replicate them in ${sync.replicateIn} through your agent's board tools (kj hu list shows them)`);
+    const sync = await syncProposedWork({ projectDir, config, results, sweptAt });
+    if (!sync.synced) {
+      logger.warn?.(`⚠ steward: broken invariants not carded — ${sync.reason}`);
+      return;
     }
+    if (!(sync.created || sync.updated || sync.resolved)) return;
+    logger.info?.(`steward board: ${sync.created} card(s) proposed, ${sync.updated} updated, ${sync.resolved} resolved`);
+    if (sync.replicateIn) logger.info?.(`→ replicate them in ${sync.replicateIn} through your agent's board tools (kj hu list shows them)`);
   } catch (err) { logger.warn?.(`⚠ steward: carding the broken invariants failed (${err.message}) — the report and the seal stand`); }
+}
 
-  // A report nobody can see is not shared state — say it, do not fix their tree.
+/** A report nobody can see is not shared state — say it, do not fix their tree. */
+function warnIfReportIgnored(projectDir, logger) {
   try {
     execFileSync("git", ["check-ignore", "-q", path.join(".karajan", "steward", "report.md")], { cwd: projectDir });
     logger.warn?.("⚠ steward: the report path is gitignored — untrack .karajan/steward from .gitignore so the state is shared");
   } catch { /* not ignored — good */ }
+}
 
+function printSweep({ flags, report, results, broken, logger }) {
   if (flags.json) {
     process.stdout.write(`${JSON.stringify(report)}\n`);
-  } else {
-    for (const r of results) logger.info?.(`${mark[r.verdict]} ${r.id}: ${r.verdict}${r.verdict === VERDICTS.OK ? "" : ` — ${r.remedy || r.evidence}`}`);
-    logger.info?.(broken.length ? `steward: ${broken.length} invariant(s) BROKEN — the report names them (.karajan/steward/report.md)` : "steward: nothing broken — the full state is in .karajan/steward/report.md");
+    return;
   }
-  process.exitCode = broken.length ? 1 : 0;
-  return broken.length ? 1 : 0;
+  for (const r of results) {
+    const why = r.verdict === VERDICTS.OK ? "" : ` — ${r.remedy || r.evidence}`;
+    logger.info?.(`${MARK[r.verdict]} ${r.id}: ${r.verdict}${why}`);
+  }
+  logger.info?.(broken.length ? `steward: ${broken.length} invariant(s) BROKEN — the report names them (.karajan/steward/report.md)` : "steward: nothing broken — the full state is in .karajan/steward/report.md");
 }
 
 /**
