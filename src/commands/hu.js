@@ -246,183 +246,203 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     }
   }
 
-  if (action === "list") {
-    const plans = await listPlans(projectDir);
-    const rows = [];
-    for (const meta of plans) {
-      const plan = await loadPlan(projectDir, meta.planId);
-      for (const h of plan.hus || []) {
-        rows.push({
-          id: h.id, short_id: h.short_id, title: h.title, status: h.status,
-          plan: plan.alias || plan.planId,
-          // KJC-TSK-0661: provenance — where a card came from is part of
-          // the card. Older HUs predate the stamp: shown as "?".
-          created_by: h.created_by || null, created_at: h.createdAt || null,
-          external_ref: h.external_ref || null,
-          claimed_by: h.claimed_by || null, claimed_at: h.claimed_at || null,
-        });
-      }
-    }
-    if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
-    for (const r of rows) {
-      const reserved = r.status === "running" && r.claimed_by ? `reserved by ${r.claimed_by}` : null;
-      const suffixes = [r.created_at?.slice(0, 10), r.external_ref, reserved].filter(Boolean).map((s) => ` · ${s}`).join("");
-      const origin = `${r.plan} · by ${r.created_by || "?"}${suffixes}`;
-      console.log(`${(r.short_id || r.id).padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${origin}]`);
-    }
-    if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
-    else console.log("→ work one: ask your agent, or kj run --plan <plan> · discard one: kj hu move <id> skipped");
-    return rows;
-  }
-
-  if (action === "add") {
-    const title = args[0];
-    if (!title || !title.trim()) throw new Error("kj hu add requires a title: kj hu add \"<story>\"");
-    // KJC-TSK-1163 (ADR 0025): with the shared board on, the HU is an issue and GitHub gives its id.
-    if (board.backend === "github") return addToTeamBoard({ repo: board.repo, title, flags, deps, emit });
-    // Cross-plan title dedup (KJC-TSK-0675) — check BEFORE creating anything.
-    const allHus = [];
-    for (const meta of await listPlans(projectDir)) {
-      const p = await loadPlan(projectDir, meta.planId);
-      for (const h of p.hus || []) allHus.push({ ...h, plan: p.alias || p.name || p.planId });
-    }
-    const { identical, similar } = findTitleMatches(title, allHus);
-    if (identical.length > 0) {
-      const ref = identical[0];
-      throw new Error(
-        `An HU with this title already exists: ${ref.short_id || ref.id} (status: ${ref.status}, plan: ${ref.plan}). `
-        + `HUs are never duplicated — work that card, move it with: kj hu move ${ref.short_id || ref.id} <status>, `
-        + `or run kj hu list before adding.`
-      );
-    }
-    if (similar.length > 0) {
-      const plural = similar.length === 1 ? "" : "s";
-      const candidates = similar.map((h) => `  · ${h.short_id || h.id} (${h.status}, plan: ${h.plan}) "${h.title}"`).join("\n");
-      console.warn(`⚠ possible duplicate${plural} — check before working it:\n${candidates}`);
-    }
-    const plan = await backlogPlan(projectDir);
-    /** Lowest free HU-#### in this plan — ids are permanent, never reused. */
-    const nextHuRef = (p) => {
-      const taken = new Set((p.hus || []).map((h) => h.short_id).filter(Boolean));
-      let n = 1;
-      while (taken.has(`HU-${String(n).padStart(4, "0")}`)) n += 1;
-      return `HU-${String(n).padStart(4, "0")}`;
-    };
-    // KJC-TSK-0669 (absolute rule): cards are permanent. The delete-and-
-    // recreate "fix" an agent improvises loses history and duplicates ids —
-    // refuse it with the norm spelled out.
-    if (flags.id) {
-      const dup = (plan.hus || []).find((h) => h.short_id === flags.id);
-      if (dup) {
-        throw new Error(
-          `HU "${flags.id}" already exists (status: ${dup.status}). HUs are never deleted or recreated — `
-          + `update its state with: kj hu move ${flags.id} <pending|running|done|failed|skipped>, `
-          + `or discard it with: kj hu move ${flags.id} skipped`
-        );
-      }
-    }
-    // KJC-TSK-0678 (issue #1296): complete HUs in ONE call. --ac / --tests
-    // are repeatable AND accept multiline strings; --criteria stays as the
-    // legacy single-criterion alias.
-    const TASK_TYPES = ["sw", "infra", "doc", "add-tests", "refactor"];
-    if (flags.taskType && !TASK_TYPES.includes(flags.taskType)) {
-      throw new Error(`invalid --task-type "${flags.taskType}" — valid: ${TASK_TYPES.join(", ")}`);
-    }
-    const splitLines = linesOf;
-    const hu = addHu(plan, {
-      title,
-      // KJC-BUG-0189: the card-first gate demands a branch that references a
-      // card, and it is this command the gate sends the agent to. The
-      // canonical plan id (hu_plan-<stamp>-<rand>_001) does not match
-      // CARD_REF_RE, so without an explicit --id the card kj just created
-      // could not satisfy kj's own gate. Sequential HU-#### does.
-      short_id: flags.id || nextHuRef(plan),
-      acceptance_criteria: [...splitLines(flags.ac), ...splitLines(flags.criteria)],
-      acceptance_tests: splitLines(flags.tests),
-      scope: flags.scope || null,
-      task_type: flags.taskType || undefined,
-    });
-    hu.created_by = creatorLabel();
-    if (flags.ref) hu.external_ref = String(flags.ref).trim();
-    await savePlan(projectDir, plan);
-    if (externalBoard && !hu.external_ref) {
-      console.log(`→ replicate it in ${externalBoard} through your agent's MCP/tools and link both: kj hu add ... --ref <id in ${externalBoard}>`);
-    }
-    const missing = [];
-    if (hu.acceptance_criteria.length === 0) missing.push("acceptance criteria (--ac \"...\")");
-    if (hu.acceptance_tests.length === 0) missing.push("tests (--tests \"...\")");
-    if (missing.length > 0) {
-      console.warn(`⚠ incomplete spec — kj run's spec review will flag it. Missing: ${missing.join(", ")}`);
-    }
-    return emit({
-      id: hu.id, short_id: hu.short_id, status: hu.status, created_by: hu.created_by,
-      acceptance_criteria: hu.acceptance_criteria, acceptance_tests: hu.acceptance_tests,
-      scope: hu.scope, task_type: hu.task_type, external_ref: hu.external_ref || null,
-    }, `✓ HU created: ${hu.short_id || hu.id} (pending, by ${hu.created_by}) — it shows up in \`kj board\``);
-  }
-
-  if (action === "move") {
-    const [ref, status] = args;
-    if (!ref || !status) throw new Error("usage: kj hu move <id> <status>");
-    if (!HU_STATUSES.includes(status)) {
-      throw new Error(`invalid status "${status}" — valid: ${HU_STATUSES.join(", ")}`);
-    }
-    // Exact canonical id wins outright (it IS the disambiguator); only then
-    // fall back to short_id matches — which can repeat between plans, so
-    // silently moving the first hit could move the wrong card.
-    const byId = [];
-    const byShort = [];
-    const running = [];
-    for (const meta of await listPlans(projectDir)) {
-      const plan = await loadPlan(projectDir, meta.planId);
-      for (const hu of plan.hus || []) {
-        if (hu.id === ref) byId.push({ plan, hu });
-        else if (hu.short_id === ref) byShort.push({ plan, hu });
-        if (hu.status === "running") running.push(hu);
-      }
-    }
-    const matches = byId.length > 0 ? byId : byShort;
-    if (matches.length === 0) throw new Error(`HU "${ref}" not found — see kj hu list`);
-    if (matches.length > 1) {
-      const ids = matches.map((m) => m.hu.id).join(", ");
-      throw new Error(`"${ref}" is ambiguous (${matches.length} matches: ${ids}) — use the full id`);
-    }
-    const { plan, hu } = matches[0];
-    // KJC-TSK-0688 (MG-C): the nudge fires AT the deviation — a second
-    // concurrent task belongs in its own lane, not in the shared tree.
-    const others = running.filter((r) => r.id !== hu.id);
-    if (status === "running" && hu.status !== "running" && others.length > 0) {
-      const slug = String(hu.short_id || hu.id).toLowerCase();
-      console.warn(
-        `⚠ ${others.map((r) => r.short_id || r.id).join(", ")} ${others.length === 1 ? "is" : "are"} already running — `
-        + `a second concurrent task should live in its own lane: kj worktree start ${slug}`
-      );
-    }
-    // KJC-TSK-1047 (TEAM-A): a running card reserved by someone else moves only with --release.
-    const who = deps.who === undefined ? workerOf(projectDir) : deps.who;
-    const label = hu.short_id || hu.id;
-    // An unidentified caller is not the one who reserved it.
-    const takenOver = hu.status === "running" && hu.claimed_by && hu.claimed_by !== who;
-    if (takenOver && !flags.release) {
-      throw new Error(`${label} is reserved by ${hu.claimed_by} since ${hu.claimed_at} — releasing it is explicit: kj hu move ${ref} ${status} --release`);
-    }
-    const starting = status === "running" && hu.status !== "running";
-    // A running card nobody reserved is reserved by who moves it there again, once kj knows who.
-    const unclaimedRunning = status === "running" && !hu.claimed_by && who;
-    updateHuStatus(plan, hu.id, status);
-    // Starting it, or releasing it to any status, rewrites the reservation: who did it, or nobody.
-    if (starting || takenOver || unclaimedRunning) Object.assign(hu, { claimed_by: who ?? null, claimed_at: who ? new Date().toISOString() : null });
-    if (starting && !who) console.warn(`⚠ ${label} is not reserved: kj cannot tell who works this clone — declare it with kj identity set`);
-    await savePlan(projectDir, plan);
-    // KJC-TSK-1065: the host session starts the card here; it learns which skills apply and where to read them.
-    if (starting && !flags.json) {
-      const text = [hu.title, hu.scope, ...(Array.isArray(hu.acceptance_criteria) ? hu.acceptance_criteria : [])].filter(Boolean).join(" ");
-      const { skills } = await (deps.skills ?? roleSkills)({ role: "coder", task: text, projectDir });
-      const where = (s) => (s.path ? ": read " + s.path : " (native)");
-      if (skills.length) console.log([`skills for ${label} (read them before you start):`, ...skills.map((s) => "- " + s.name + where(s))].join("\n"));
-    }
-    return emit({ id: hu.id, status, claimed_by: hu.claimed_by ?? null }, `✓ ${label} → ${status}`);
-  }
+  // KJC-TSK-1257: one function per action on the local board (add also routes to the shared one).
+  if (action === "list") return listLocal({ projectDir, flags });
+  if (action === "add") return addAction({ projectDir, board, args, flags, deps, emit, externalBoard });
+  if (action === "move") return moveLocal({ projectDir, args, flags, deps, emit });
 
   throw new Error(`unknown action "${action}" — use: add | move | list | backend`);
+}
+
+async function listLocal({ projectDir, flags }) {
+  const plans = await listPlans(projectDir);
+  const rows = [];
+  for (const meta of plans) {
+    const plan = await loadPlan(projectDir, meta.planId);
+    for (const h of plan.hus || []) {
+      rows.push({
+        id: h.id, short_id: h.short_id, title: h.title, status: h.status,
+        plan: plan.alias || plan.planId,
+        // KJC-TSK-0661: provenance — where a card came from is part of
+        // the card. Older HUs predate the stamp: shown as "?".
+        created_by: h.created_by || null, created_at: h.createdAt || null,
+        external_ref: h.external_ref || null,
+        claimed_by: h.claimed_by || null, claimed_at: h.claimed_at || null,
+      });
+    }
+  }
+  if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
+  for (const r of rows) {
+    const reserved = r.status === "running" && r.claimed_by ? `reserved by ${r.claimed_by}` : null;
+    const suffixes = [r.created_at?.slice(0, 10), r.external_ref, reserved].filter(Boolean).map((s) => ` · ${s}`).join("");
+    const origin = `${r.plan} · by ${r.created_by || "?"}${suffixes}`;
+    console.log(`${(r.short_id || r.id).padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${origin}]`);
+  }
+  if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
+  else console.log("→ work one: ask your agent, or kj run --plan <plan> · discard one: kj hu move <id> skipped");
+  return rows;
+}
+
+/** Cross-plan title dedup (KJC-TSK-0675) — checked BEFORE creating anything. */
+async function refuseDuplicateTitle(projectDir, title) {
+  const allHus = [];
+  for (const meta of await listPlans(projectDir)) {
+    const p = await loadPlan(projectDir, meta.planId);
+    for (const h of p.hus || []) allHus.push({ ...h, plan: p.alias || p.name || p.planId });
+  }
+  const { identical, similar } = findTitleMatches(title, allHus);
+  if (identical.length > 0) {
+    const ref = identical[0];
+    throw new Error(
+      `An HU with this title already exists: ${ref.short_id || ref.id} (status: ${ref.status}, plan: ${ref.plan}). `
+      + `HUs are never duplicated — work that card, move it with: kj hu move ${ref.short_id || ref.id} <status>, `
+      + `or run kj hu list before adding.`
+    );
+  }
+  if (similar.length > 0) {
+    const plural = similar.length === 1 ? "" : "s";
+    const candidates = similar.map((h) => `  · ${h.short_id || h.id} (${h.status}, plan: ${h.plan}) "${h.title}"`).join("\n");
+    console.warn(`⚠ possible duplicate${plural} — check before working it:\n${candidates}`);
+  }
+}
+
+/** Lowest free HU-#### in this plan — ids are permanent, never reused. */
+function nextHuRef(plan) {
+  const taken = new Set((plan.hus || []).map((h) => h.short_id).filter(Boolean));
+  let n = 1;
+  while (taken.has(`HU-${String(n).padStart(4, "0")}`)) n += 1;
+  return `HU-${String(n).padStart(4, "0")}`;
+}
+
+// KJC-TSK-0678 (issue #1296): complete HUs in ONE call. --ac / --tests
+// are repeatable AND accept multiline strings; --criteria stays as the
+// legacy single-criterion alias.
+const TASK_TYPES = ["sw", "infra", "doc", "add-tests", "refactor"];
+
+function assertAddFlags(plan, flags) {
+  // KJC-TSK-0669 (absolute rule): cards are permanent. The delete-and-
+  // recreate "fix" an agent improvises loses history and duplicates ids —
+  // refuse it with the norm spelled out.
+  const dup = flags.id ? (plan.hus || []).find((h) => h.short_id === flags.id) : null;
+  if (dup) {
+    throw new Error(
+      `HU "${flags.id}" already exists (status: ${dup.status}). HUs are never deleted or recreated — `
+      + `update its state with: kj hu move ${flags.id} <pending|running|done|failed|skipped>, `
+      + `or discard it with: kj hu move ${flags.id} skipped`
+    );
+  }
+  if (flags.taskType && !TASK_TYPES.includes(flags.taskType)) {
+    throw new Error(`invalid --task-type "${flags.taskType}" — valid: ${TASK_TYPES.join(", ")}`);
+  }
+}
+
+async function addAction({ projectDir, board, args, flags, deps, emit, externalBoard }) {
+  const title = args[0];
+  if (!title || !title.trim()) throw new Error("kj hu add requires a title: kj hu add \"<story>\"");
+  // KJC-TSK-1163 (ADR 0025): with the shared board on, the HU is an issue and GitHub gives its id.
+  if (board.backend === "github") return addToTeamBoard({ repo: board.repo, title, flags, deps, emit });
+  await refuseDuplicateTitle(projectDir, title);
+  const plan = await backlogPlan(projectDir);
+  assertAddFlags(plan, flags);
+  const hu = addHu(plan, {
+    title,
+    // KJC-BUG-0189: the card-first gate demands a branch that references a
+    // card, and it is this command the gate sends the agent to. The
+    // canonical plan id (hu_plan-<stamp>-<rand>_001) does not match
+    // CARD_REF_RE, so without an explicit --id the card kj just created
+    // could not satisfy kj's own gate. Sequential HU-#### does.
+    short_id: flags.id || nextHuRef(plan),
+    acceptance_criteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)],
+    acceptance_tests: linesOf(flags.tests),
+    scope: flags.scope || null,
+    task_type: flags.taskType || undefined,
+  });
+  hu.created_by = creatorLabel();
+  if (flags.ref) hu.external_ref = String(flags.ref).trim();
+  await savePlan(projectDir, plan);
+  if (externalBoard && !hu.external_ref) {
+    console.log(`→ replicate it in ${externalBoard} through your agent's MCP/tools and link both: kj hu add ... --ref <id in ${externalBoard}>`);
+  }
+  const missing = [];
+  if (hu.acceptance_criteria.length === 0) missing.push("acceptance criteria (--ac \"...\")");
+  if (hu.acceptance_tests.length === 0) missing.push("tests (--tests \"...\")");
+  if (missing.length > 0) {
+    console.warn(`⚠ incomplete spec — kj run's spec review will flag it. Missing: ${missing.join(", ")}`);
+  }
+  return emit({
+    id: hu.id, short_id: hu.short_id, status: hu.status, created_by: hu.created_by,
+    acceptance_criteria: hu.acceptance_criteria, acceptance_tests: hu.acceptance_tests,
+    scope: hu.scope, task_type: hu.task_type, external_ref: hu.external_ref || null,
+  }, `✓ HU created: ${hu.short_id || hu.id} (pending, by ${hu.created_by}) — it shows up in \`kj board\``);
+}
+
+/**
+ * Exact canonical id wins outright (it IS the disambiguator); only then
+ * fall back to short_id matches — which can repeat between plans, so
+ * silently moving the first hit could move the wrong card.
+ */
+async function findHuToMove(projectDir, ref) {
+  const byId = [];
+  const byShort = [];
+  const running = [];
+  for (const meta of await listPlans(projectDir)) {
+    const plan = await loadPlan(projectDir, meta.planId);
+    for (const hu of plan.hus || []) {
+      if (hu.id === ref) byId.push({ plan, hu });
+      else if (hu.short_id === ref) byShort.push({ plan, hu });
+      if (hu.status === "running") running.push(hu);
+    }
+  }
+  const matches = byId.length > 0 ? byId : byShort;
+  if (matches.length === 0) throw new Error(`HU "${ref}" not found — see kj hu list`);
+  if (matches.length > 1) {
+    const ids = matches.map((m) => m.hu.id).join(", ");
+    throw new Error(`"${ref}" is ambiguous (${matches.length} matches: ${ids}) — use the full id`);
+  }
+  return { ...matches[0], running };
+}
+
+async function moveLocal({ projectDir, args, flags, deps, emit }) {
+  const [ref, status] = args;
+  if (!ref || !status) throw new Error("usage: kj hu move <id> <status>");
+  if (!HU_STATUSES.includes(status)) {
+    throw new Error(`invalid status "${status}" — valid: ${HU_STATUSES.join(", ")}`);
+  }
+  const { plan, hu, running } = await findHuToMove(projectDir, ref);
+  // KJC-TSK-0688 (MG-C): the nudge fires AT the deviation — a second
+  // concurrent task belongs in its own lane, not in the shared tree.
+  const others = running.filter((r) => r.id !== hu.id);
+  if (status === "running" && hu.status !== "running" && others.length > 0) {
+    const slug = String(hu.short_id || hu.id).toLowerCase();
+    console.warn(
+      `⚠ ${others.map((r) => r.short_id || r.id).join(", ")} ${others.length === 1 ? "is" : "are"} already running — `
+      + `a second concurrent task should live in its own lane: kj worktree start ${slug}`
+    );
+  }
+  // KJC-TSK-1047 (TEAM-A): a running card reserved by someone else moves only with --release.
+  const who = deps.who === undefined ? workerOf(projectDir) : deps.who;
+  const label = hu.short_id || hu.id;
+  // An unidentified caller is not the one who reserved it.
+  const takenOver = hu.status === "running" && hu.claimed_by && hu.claimed_by !== who;
+  if (takenOver && !flags.release) {
+    throw new Error(`${label} is reserved by ${hu.claimed_by} since ${hu.claimed_at} — releasing it is explicit: kj hu move ${ref} ${status} --release`);
+  }
+  const starting = status === "running" && hu.status !== "running";
+  // A running card nobody reserved is reserved by who moves it there again, once kj knows who.
+  const unclaimedRunning = status === "running" && !hu.claimed_by && who;
+  updateHuStatus(plan, hu.id, status);
+  // Starting it, or releasing it to any status, rewrites the reservation: who did it, or nobody.
+  if (starting || takenOver || unclaimedRunning) Object.assign(hu, { claimed_by: who ?? null, claimed_at: who ? new Date().toISOString() : null });
+  if (starting && !who) console.warn(`⚠ ${label} is not reserved: kj cannot tell who works this clone — declare it with kj identity set`);
+  await savePlan(projectDir, plan);
+  // KJC-TSK-1065: the host session starts the card here; it learns which skills apply and where to read them.
+  if (starting && !flags.json) await printStartSkills({ projectDir, hu, label, deps });
+  return emit({ id: hu.id, status, claimed_by: hu.claimed_by ?? null }, `✓ ${label} → ${status}`);
+}
+
+async function printStartSkills({ projectDir, hu, label, deps }) {
+  const text = [hu.title, hu.scope, ...(Array.isArray(hu.acceptance_criteria) ? hu.acceptance_criteria : [])].filter(Boolean).join(" ");
+  const { skills } = await (deps.skills ?? roleSkills)({ role: "coder", task: text, projectDir });
+  const where = (s) => (s.path ? ": read " + s.path : " (native)");
+  if (skills.length) console.log([`skills for ${label} (read them before you start):`, ...skills.map((s) => "- " + s.name + where(s))].join("\n"));
 }
