@@ -88,3 +88,103 @@ describe("kj worktree", () => {
     expect(fs.existsSync(path.join(dir, ".kj/worktrees", "b"))).toBe(false);
   });
 });
+
+// HU-2761 (#2566 plan PR 5): lanes branch from origin/<base>; done deletes the merged branch.
+describe("kj worktree lifecycle", () => {
+  const g = (cwd, ...args) => execFileSync("git", ["-C", cwd, ...args]).toString().trim();
+  const commit = (cwd, file) => { fs.writeFileSync(path.join(cwd, file), `${file}\n`); g(cwd, "add", file); g(cwd, "commit", "-qm", file); };
+  const run = (action, slug, flags = {}, projectDir = dir) => worktreeCommand({ config: { projectDir }, action, args: [slug], flags });
+  const branches = (name) => g(dir, "branch", "--list", name);
+
+  it("start branches from origin/main, not the current HEAD, and still records no upstream", async () => {
+    g(dir, "update-ref", "refs/remotes/origin/main", "HEAD");
+    const origin = g(dir, "rev-parse", "HEAD");
+    commit(dir, "x.js");
+    g(dir, "checkout", "-q", "-b", "side");
+    commit(dir, "y.js");
+    const r = await run("start", "from-origin");
+    expect(g(r.path, "rev-parse", "HEAD")).toBe(origin);
+    expect(() => g(dir, "config", "--get", "branch.feat/from-origin.merge")).toThrow();
+  });
+
+  it("start without origin falls back to local main and warns", async () => {
+    const mainSha = g(dir, "rev-parse", "main");
+    g(dir, "checkout", "-q", "-b", "side");
+    commit(dir, "y.js");
+    const warns = [];
+    const orig = console.warn;
+    console.warn = (m) => warns.push(m);
+    let r;
+    try { r = await run("start", "local-base"); } finally { console.warn = orig; }
+    expect(g(r.path, "rev-parse", "HEAD")).toBe(mainSha);
+    expect(warns.join("\n")).toMatch(/local main/);
+  });
+
+  it("start fails loudly when the base does not exist", async () => {
+    g(dir, "branch", "-m", "main", "trunk");
+    await expect(run("start", "nobase")).rejects.toThrow(/base "main" not found/);
+  });
+
+  it("start from inside a lane does not inherit that lane's commits", async () => {
+    const outer = await run("start", "outer");
+    commit(outer.path, "outer.js");
+    const inner = await run("start", "inner", {}, outer.path);
+    expect(fs.existsSync(path.join(inner.path, "outer.js"))).toBe(false);
+  });
+
+  it("done deletes a merged branch and the slug can be reused", async () => {
+    const lane = await run("start", "x");
+    commit(lane.path, "x.js");
+    g(dir, "merge", "-q", "--no-ff", "-m", "merge x", "feat/x");
+    const r = await run("done", "x");
+    expect(r).toMatchObject({ branchDeleted: true, merged: true, branch: "feat/x" });
+    expect(branches("feat/x")).toBe("");
+    await expect(run("start", "x")).resolves.toBeDefined();
+  });
+
+  it("done keeps an unmerged branch; --force deletes it", async () => {
+    const lane = await run("start", "keep");
+    commit(lane.path, "k.js");
+    const kept = await run("done", "keep");
+    expect(kept).toMatchObject({ branchDeleted: false, merged: false });
+    expect(branches("feat/keep")).toContain("feat/keep");
+    const lane2 = await run("start", "force");
+    commit(lane2.path, "f.js");
+    const forced = await run("done", "force", { force: true });
+    expect(forced.branchDeleted).toBe(true);
+    expect(branches("feat/force")).toBe("");
+  });
+
+  it("done does not call a squash merge merged", async () => {
+    const lane = await run("start", "sq");
+    commit(lane.path, "s.js");
+    g(dir, "merge", "-q", "--squash", "feat/sq");
+    g(dir, "commit", "-qm", "squash sq");
+    const r = await run("done", "sq");
+    expect(r).toMatchObject({ branchDeleted: false, merged: false });
+    expect(branches("feat/sq")).toContain("feat/sq");
+  });
+
+  it("done judges against origin/main: merged into local main only is not merged", async () => {
+    g(dir, "update-ref", "refs/remotes/origin/main", "HEAD");
+    const lane = await run("start", "lag");
+    commit(lane.path, "l.js");
+    g(dir, "merge", "-q", "--no-ff", "-m", "merge lag", "feat/lag");
+    const r = await run("done", "lag");
+    expect(r).toMatchObject({ branchDeleted: false, merged: false });
+  });
+
+  it("done still removes a clean lane when the base no longer exists, keeping the branch", async () => {
+    const lane = await run("start", "nb");
+    g(dir, "branch", "-m", "main", "trunk");
+    const r = await run("done", "nb");
+    expect(r).toMatchObject({ removed: true, branchDeleted: false });
+    expect(fs.existsSync(lane.path)).toBe(false);
+    expect(branches("feat/nb")).toContain("feat/nb");
+  });
+
+  it("start refuses a leftover branch with the exact remedy", async () => {
+    g(dir, "branch", "feat/left");
+    await expect(run("start", "left")).rejects.toThrow(/already exists.*branch -D/);
+  });
+});

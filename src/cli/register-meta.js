@@ -318,7 +318,7 @@ export function registerMeta(program, { pkgVersion }) {
   // beats ordering a practice an agent can narrate without doing.
   const wt = program.command("worktree").description("Isolated task lanes (git worktrees) for the host agent");
   wt.command("start <slug>")
-    .description("Create a lane: worktree + feat/<slug> branch + dependency bootstrap")
+    .description("Create a lane: worktree + feat/<slug> branch from origin/<base> + dependency bootstrap")
     .action(async (slug, flags) => {
       await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
         await worktreeCommand({ config, action: "start", args: [slug], flags });
@@ -332,8 +332,8 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
   wt.command("done <slug>")
-    .option("--force", "Remove the lane even with uncommitted changes")
-    .description("Remove a merged lane (refuses uncommitted changes without --force)")
+    .option("--force", "Remove the lane even with uncommitted changes, and delete its branch even if not merged")
+    .description("Remove a lane and delete its branch when merged into the base (refuses uncommitted changes without --force)")
     .action(async (slug, flags) => {
       await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
         await worktreeCommand({ config, action: "done", args: [slug], flags });
