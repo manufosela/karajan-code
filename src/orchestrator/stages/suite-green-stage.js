@@ -39,7 +39,9 @@ export async function runSuiteGreenStage({ config, logger, emitter, eventBase, s
   }
   const timeout = Number(config?.development?.test_timeout_ms) > 0 ? Number(config.development.test_timeout_ms) : DEFAULT_TIMEOUT_MS;
   const run = runTestsImpl || (async () => {
-    const res = await runCommand("bash", ["-lc", command], { cwd: projectDir, timeout });
+    // KJC-BUG-0427: never a login shell, which re-reads the person's profile and may rewrite
+    // PATH (nvm drops node when npm_config_prefix is set): the suite runs in kj's own environment.
+    const res = await runCommand("bash", ["-c", command], { cwd: projectDir, timeout });
     return { exitCode: res.exitCode ?? 1, output: `${res.stdout || ""}\n${res.stderr || ""}` };
   });
   const res = await run(command);

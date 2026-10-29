@@ -198,7 +198,8 @@ async function maybeRunCoverage(config) {
 
   const command = String(coverage.command || "").trim();
   const timeout = Number(coverage.timeout_ms) > 0 ? Number(coverage.timeout_ms) : 5 * 60 * 1000;
-  const run = await runCommand("bash", ["-lc", command], { timeout });
+  // KJC-BUG-0427: a plain shell in kj's environment; a login one may rewrite PATH.
+  const run = await runCommand("bash", ["-c", command], { timeout });
 
   if (run.exitCode !== 0) {
     if (blockOnFailure) {
