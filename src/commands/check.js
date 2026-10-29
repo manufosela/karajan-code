@@ -25,16 +25,7 @@ export async function checkCommand({ projectDir = process.cwd(), profile = "stan
   // An evaluation error (corrupt store, git failure) is a failing check, never
   // a silent pass: the only tolerated non-red state is the explicit "no index".
   const ragCoverage = await createRagCoverageCheck().detect({ config, projectDir }).catch((err) => ({ ok: false, severity: "fail", detail: `rag coverage could not be evaluated: ${err.message}` }));
-  // KJC-TSK-0694: same deal for the MCP inventory — a nudge, never a gate.
-  // KJC-TSK-0728: observed agent CLIs ride the same snapshot as "(cli)"
-  // entries, so a newly-appeared agent binary trips the same drift question.
-  let aiSurface = null;
-  try {
-    const clis = (await detectObservedAgents().catch(() => []))
-      .filter((a) => a.available)
-      .map((a) => `${a.name} (cli)`);
-    aiSurface = checkAiSurface({ projectDir, extraSurface: clis });
-  } catch { /* inventory is best-effort */ }
+  const aiSurface = await observedAiSurface(projectDir);
 
   // KJC-TSK-1059: young dependencies the branch brings in, a warning outside the review.
   const depCooldown = await branchCooldownLines({ projectDir, base: config?.base_branch ?? "main", thresholdHours: config?.supply_chain?.cooldown_hours })
@@ -48,10 +39,35 @@ export async function checkCommand({ projectDir = process.cwd(), profile = "stan
     return ok ? 0 : 1;
   }
 
+  printReport({ profile, result, method, ragCoverage, aiSurface, depCooldown, audit, config, ok, logger });
+  return ok ? 0 : 1;
+}
+
+// KJC-TSK-0694: same deal for the MCP inventory — a nudge, never a gate.
+// KJC-TSK-0728: observed agent CLIs ride the same snapshot as "(cli)"
+// entries, so a newly-appeared agent binary trips the same drift question.
+async function observedAiSurface(projectDir) {
+  try {
+    const clis = (await detectObservedAgents().catch(() => []))
+      .filter((a) => a.available)
+      .map((a) => `${a.name} (cli)`);
+    return checkAiSurface({ projectDir, extraSurface: clis });
+  } catch { return null; /* inventory is best-effort */ }
+}
+
+const mark = (ok) => (ok ? "✓" : "✗");
+
+function verdictLine(ok, harnessOk) {
+  if (ok) return "Harness OK.";
+  if (harnessOk) return "RAG index drift detected — a gate cannot protect what it cannot see.";
+  return "Harness drift detected — run `kj harden` to repair.";
+}
+
+function printReport({ profile, result, method, ragCoverage, aiSurface, depCooldown, audit, config, ok, logger }) {
   logger.info?.(`kj check (${profile})`);
-  for (const c of result.checks) logger.info?.(`  ${c.ok ? "✓" : "✗"} ${c.id}: ${c.detail}`);
+  for (const c of result.checks) logger.info?.(`  ${mark(c.ok)} ${c.id}: ${c.detail}`);
   if (method) logger.info?.(`  method: ${formatMethodStats(method)}`);
-  logger.info?.(`  ${ragCoverage.ok ? "✓" : "✗"} rag-coverage: ${ragCoverage.detail}`);
+  logger.info?.(`  ${mark(ragCoverage.ok)} rag-coverage: ${ragCoverage.detail}`);
   if (aiSurface) logger.info?.(`  ${formatAiSurface(aiSurface)}`);
   for (const line of depCooldown) logger.info?.(`  ${line}`);
   logger.info?.(`  ${audit.line}`);
@@ -59,8 +75,5 @@ export async function checkCommand({ projectDir = process.cwd(), profile = "stan
   // said out loud next to everything else that describes the project. Never
   // a check: it has no ok/fail, it informs.
   logger.info?.(`  ${panelSummary(config)}`);
-  if (ok) logger.info?.("Harness OK.");
-  else if (result.ok) logger.info?.("RAG index drift detected — a gate cannot protect what it cannot see.");
-  else logger.info?.("Harness drift detected — run `kj harden` to repair.");
-  return ok ? 0 : 1;
+  logger.info?.(verdictLine(ok, result.ok));
 }
