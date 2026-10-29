@@ -264,5 +264,39 @@ export const withoutRedirections = (words) => {
   return rest;
 };
 
+// KJC-BUG-0429 (ADR 0036): the guards decide by write verb. These readers were picked
+// because no option of theirs writes a file or runs a program; a command made only of
+// them, with output to the session, /dev/null or another descriptor, writes nothing.
+// KJC-BUG-0437: never git, whose reads run what its config names (filters, textconv,
+// diff.external, fsmonitor); the Read tool reads those files instead.
+const READERS = new Set(["cat", "head", "tail", "grep", "egrep", "fgrep", "ls", "wc", "diff", "cmp", "stat", "jq", "sha256sum", "sha1sum", "md5sum"]);
+
+const REDIRECTION = /^(\d*)(>>|>&|>\||>|<)(.*)$/;
+const quietRedirections = (words) => words.every((w, i) => {
+  const m = REDIRECTION.exec(w);
+  if (!m) return true;
+  const [, , op, glued] = m;
+  const target = glued || words[i + 1] || "";
+  if (op === "<") return target !== "";
+  if (op === ">&") return /^\d$/.test(target);
+  return (op === ">" || op === ">>") && target === "/dev/null";
+});
+
+/**
+ * Whether the command only reads: every simple command is a known reader and no
+ * output goes to a file. Substitution, subshells, heredocs, expansion, newlines
+ * or assignments are not provably that.
+ * @param {string} cmd
+ */
+export const isReadOnlyCommand = (cmd) => {
+  const bare = stripInertQuotes(String(cmd));
+  if (/[(){}`\n]|<</.test(bare) || LIVE_EXPANSION.test(bare)) return false;
+  const segs = shellSegments(cmd);
+  return segs.length > 0 && segs.every((words) => {
+    const rest = withoutRedirections(words);
+    return quietRedirections(words) && READERS.has(rest[0]);
+  });
+};
+
 /** Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n). */
 export const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");

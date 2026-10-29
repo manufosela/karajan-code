@@ -60,6 +60,13 @@ describe("the supervisor guard (PreToolUse Bash)", () => {
     }
   });
 
+  // KJC-BUG-0429 (ADR 0036): reading them from Bash is not touching them.
+  it("lets a read-only command name them", () => {
+    for (const cmd of ["ls .karajan/harness/", `grep -n exit ${HOOK} 2>/dev/null | head -3`]) {
+      expect(bash(cmd).stderr, cmd).not.toMatch(/ficheros del supervisor/);
+    }
+  });
+
   it("still denies every command that may write them", () => {
     for (const cmd of [`cp x ${HOOK}`, `cat <<'EOF' > ${HOOK}\nexit 0\nEOF`, `gh pr create --title 'x' ; rm ${HOOK}`, `gh pr create --body-file - <<EOF\n$(cp x ${HOOK})\nEOF`, `gh pr create --body-file - <<'EOF'\ntext\nEOF\ncp x ${HOOK}\nEOF`]) {
       const r = bash(cmd);

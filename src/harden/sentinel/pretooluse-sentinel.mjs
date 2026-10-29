@@ -13,7 +13,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, foreignLane, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { isGhIssueCreate, isPublishCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
+import { isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { sandboxCovers, shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
@@ -85,8 +85,9 @@ process.stdin.on("end", () => {
     // caught by the Stop gate's checksum verification, which blocks the turn.
     // KJC-TSK-1114: where the host sandbox denies writing them, the sandbox guards them instead.
     // KJC-BUG-0425 (ADR 0036): text a command only publishes or stores (a PR description) is not a write.
+    // KJC-BUG-0429: nor is a command made only of known readers (an allow-list, not a write blocklist).
     const SUPERVISOR_PATHS = [".claude/settings.json", ".karajan/hooks", ".karajan/harness"];
-    if (tool === "Bash" && PROTECTED.test(stripTextOnlyCommandValues(String(input.command || "")).replaceAll("\\", "/")) && !sandboxCovers(ROOT, SUPERVISOR_PATHS)) {
+    if (tool === "Bash" && !isReadOnlyCommand(String(input.command || "")) && PROTECTED.test(stripTextOnlyCommandValues(String(input.command || "")).replaceAll("\\", "/")) && !sandboxCovers(ROOT, SUPERVISOR_PATHS)) {
       console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);
     }

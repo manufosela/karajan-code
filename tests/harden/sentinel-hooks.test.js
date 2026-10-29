@@ -415,12 +415,15 @@ describe("self-protection + audited escapes (SEN-C)", () => {
     }
   });
 
-  it("denies ANY Bash mentioning protected paths (write blocklists are bypassable), leaves other Bash alone", () => {
+  // KJC-BUG-0429 (ADR 0036): any Bash naming them that is not provably a read (an
+  // allow-list of readers, never a write blocklist) is denied.
+  it("denies Bash mentioning protected paths unless it only reads, leaves other Bash alone", () => {
     const bash = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });
     expect(bash("sed -i 's/x/y/' .karajan/harness/stop.mjs").status).toBe(2);
     expect(bash("echo '{}' > .claude/settings.json").status).toBe(2);
     expect(bash("cp evil.mjs .karajan/harness/stop.mjs").status).toBe(2);
-    expect(bash("cat .claude/settings.json").status).toBe(2);
+    expect(bash("sed -n 1p .claude/settings.json").status).toBe(2);
+    expect(bash("cat .claude/settings.json").status).toBe(0);
     expect(bash("ls -la src/").status).toBe(0);
   });
 
