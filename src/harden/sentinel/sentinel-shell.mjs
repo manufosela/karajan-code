@@ -264,5 +264,50 @@ export const withoutRedirections = (words) => {
   return rest;
 };
 
+// KJC-BUG-0429 (ADR 0036): the guards decide by write verb. These readers were picked
+// because no option of theirs writes a file or runs a program; a command made only of
+// them, with output to the session, /dev/null or another descriptor, writes nothing.
+const READERS = new Set(["cat", "head", "tail", "grep", "egrep", "fgrep", "ls", "wc", "diff", "cmp", "stat", "jq", "sha256sum", "sha1sum", "md5sum"]);
+const GIT_READS = new Set(["log", "show", "diff", "status", "blame", "ls-files", "ls-tree", "cat-file", "rev-parse"]);
+const GIT_WRITES_OR_RUNS = /^--(?:output|ext-diff|textconv)\b/;
+
+const isGitRead = (words) => {
+  let i = 1;
+  while (i < words.length) {
+    if (words[i] === "-C") i += 2;
+    else if (words[i] === "-c" && /^user\.(?:name|email)=/.test(words[i + 1] ?? "")) i += 2;
+    else if (words[i] === "--no-pager") i += 1;
+    else break;
+  }
+  return GIT_READS.has(words[i]) && !words.some((w) => GIT_WRITES_OR_RUNS.test(w));
+};
+
+const REDIRECTION = /^(\d*)(>>|>&|>\||>|<)(.*)$/;
+const quietRedirections = (words) => words.every((w, i) => {
+  const m = REDIRECTION.exec(w);
+  if (!m) return true;
+  const [, , op, glued] = m;
+  const target = glued || words[i + 1] || "";
+  if (op === "<") return target !== "";
+  if (op === ">&") return /^\d$/.test(target);
+  return (op === ">" || op === ">>") && target === "/dev/null";
+});
+
+/**
+ * Whether the command only reads: every simple command is a known reader and no
+ * output goes to a file. Substitution, subshells, heredocs, expansion, newlines
+ * or assignments are not provably that.
+ * @param {string} cmd
+ */
+export const isReadOnlyCommand = (cmd) => {
+  const bare = stripInertQuotes(String(cmd));
+  if (/[(){}`\n]|<</.test(bare) || LIVE_EXPANSION.test(bare)) return false;
+  const segs = shellSegments(cmd);
+  return segs.length > 0 && segs.every((words) => {
+    const rest = withoutRedirections(words);
+    return quietRedirections(words) && (rest[0] === "git" ? isGitRead(rest) : READERS.has(rest[0]));
+  });
+};
+
 /** Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n). */
 export const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");

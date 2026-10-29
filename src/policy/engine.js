@@ -9,7 +9,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { stripTextOptionValues } from "../harden/sentinel/sentinel-shell.mjs";
+import { isReadOnlyCommand, stripTextOptionValues } from "../harden/sentinel/sentinel-shell.mjs";
 import {
   ALLOW_VERDICT,
   checkArtifacts,
@@ -36,7 +36,8 @@ export const SUPERVISOR_DEFAULTS = [
     // it is USED (commit, CI, release), whatever wrote it: only the human's seal lifts it.
     id: "defaults.governance.write",
     // KJC-BUG-0400: the CI workflows too; a PR could rewrite the check that judges it.
-    pattern: /(^|\/)\.karajan\/(policy|rules)\.yml\b|(^|\/)\.github\/workflows\/[^/\s]+\.ya?ml\b/,
+    // KJC-BUG-0429: in shell text a relative path follows a blank or a quote, not a slash.
+    pattern: /(^|[^\w.-])\.karajan\/(policy|rules)\.yml\b|(^|[^\w.-])\.github\/workflows\/[^/\s]+\.ya?ml\b/,
     message: "es configuración de gobierno: solo entra sellada por la persona (kj harden --commit, firmado desde su móvil)",
   },
 ];
@@ -84,7 +85,12 @@ export function evalToolCall(policy, { role = "coder", tool, input = {}, root = 
   // KJC-BUG-0343: the inert prose of a text option (--title, --error, -m...) is
   // not a target: a report naming a supervisor path is not a write to it. A path
   // anywhere else, or a value that can expand, is still judged.
-  if (tool === "Bash") return evalShell(policy, role, stripTextOptionValues(String(input.command ?? "")));
+  if (tool === "Bash") {
+    const command = stripTextOptionValues(String(input.command ?? ""));
+    // KJC-BUG-0429 (ADR 0036): a command that only reads may name the guarded files;
+    // the role's own shell rules still judge it.
+    return evalShell(isReadOnlyCommand(command) ? { ...policy, defaults: [] } : policy, role, command);
+  }
   if (READONLY_TOOLS.has(tool) || !policy.roles?.[role]) return ALLOW_VERDICT;
   return denyVerdict(`roles.${role}.tools`, `tool "${tool}" fuera del registro de la policy — no verificable para el rol declarado ${role}`);
 }
