@@ -367,17 +367,20 @@ function formatWebperfBlock(webperf) {
  */
 export function deterministicContextHasFindings(ctx) {
   if (!ctx) return false;
-  if (ctx.basalCost?.deadExports?.length > 0) return true;
-  if (ctx.basalCost?.unusedDependencies?.unused?.length > 0) return true;
-  if (ctx.sonarFindings?.available && (ctx.sonarFindings.total ?? 0) > 0) return true;
-  if (ctx.sonarFindings?.qualityGate?.status === "ERROR") return true;
-  if (ctx.osvFindings?.available && (ctx.osvFindings.total ?? 0) > 0) return true;
-  if (ctx.semgrepFindings?.available && (ctx.semgrepFindings.total ?? 0) > 0) return true;
-  if (ctx.infraFindings?.available && (ctx.infraFindings.total ?? 0) > 0) return true;
-  if (ctx.circularDeps?.available && (ctx.circularDeps.total ?? 0) > 0) return true;
-  if (ctx.deadExports?.available && (ctx.deadExports.total ?? 0) > 0) return true;
-  if (ctx.growthDelta && (Math.abs(ctx.growthDelta.lines || 0) > 100 || Math.abs(ctx.growthDelta.deps || 0) > 0)) return true;
-  if (ctx.aiSlop?.available && (ctx.aiSlop.total ?? 0) > 0) return true;
-  if (ctx.envKeys?.available && ((ctx.envKeys.divergent?.length ?? 0) + (ctx.envKeys.incomplete?.length ?? 0)) > 0) return true;
-  return false;
+  return FINDING_SIGNALS.some((signal) => signal(ctx));
 }
+
+// Sections that report a `total` once collected.
+const COUNTED_SECTIONS = ["sonarFindings", "osvFindings", "semgrepFindings", "infraFindings", "circularDeps", "deadExports", "aiSlop"];
+const hasCount = (section) => Boolean(section?.available) && (section.total ?? 0) > 0;
+const grewNoticeably = (delta) => Boolean(delta) && (Math.abs(delta.lines || 0) > 100 || Math.abs(delta.deps || 0) > 0);
+const envKeysDiverge = (envKeys) => Boolean(envKeys?.available) && ((envKeys.divergent?.length ?? 0) + (envKeys.incomplete?.length ?? 0)) > 0;
+
+const FINDING_SIGNALS = [
+  (ctx) => ctx.basalCost?.deadExports?.length > 0,
+  (ctx) => ctx.basalCost?.unusedDependencies?.unused?.length > 0,
+  (ctx) => ctx.sonarFindings?.qualityGate?.status === "ERROR",
+  (ctx) => COUNTED_SECTIONS.some((key) => hasCount(ctx[key])),
+  (ctx) => grewNoticeably(ctx.growthDelta),
+  (ctx) => envKeysDiverge(ctx.envKeys),
+];
