@@ -12,60 +12,54 @@ export function estimateTokens(promptLength, responseLength) {
   };
 }
 
+/**
+ * KJC-TSK-1257: where each provider puts each figure, in the order they are read. A path starts
+ * with "result" (the agent's result) or "usage" (its usage/metrics block).
+ */
+const USAGE_PATHS = {
+  tokens_in: [["result", "tokens_in"], ["usage", "tokens_in"], ["usage", "input_tokens"], ["usage", "prompt_tokens"]],
+  tokens_out: [["result", "tokens_out"], ["usage", "tokens_out"], ["usage", "output_tokens"], ["usage", "completion_tokens"]],
+  cached_tokens: [
+    ["result", "cached_tokens"], ["usage", "cached_tokens"], ["usage", "cache_read_input_tokens"],
+    ["usage", "prompt_tokens_details", "cached_tokens"], ["usage", "cachedContentTokenCount"],
+  ],
+  cost_usd: [["result", "cost_usd"], ["usage", "cost_usd"], ["usage", "usd_cost"], ["usage", "cost"]],
+  model: [["result", "model"], ["usage", "model"], ["usage", "model_name"], ["usage", "model_id"]],
+};
+
+/** The first value that is not null/undefined, as a `??` chain reads; otherwise the last one read. */
+function firstOf(sources, paths) {
+  const values = paths.map(([source, ...keys]) => keys.reduce((obj, key) => obj?.[key], sources[source]));
+  const found = values.findIndex((value) => value !== undefined && value !== null);
+  return found === -1 ? values.at(-1) : values[found];
+}
+
+const MIN_TEXT_FOR_ESTIMATION = 40;
+const isExplicitCost = (cost) => cost !== undefined && cost !== null && cost !== "";
+
+/**
+ * If no real token data AND no explicit cost, estimate from prompt/output sizes.
+ * Primary: uses result.promptSize when explicitly provided.
+ * Fallback: estimates from result.output or result.error text length.
+ * @returns {{tokens_in: number, tokens_out: number}|null} null when there is nothing to estimate from
+ */
+function estimatedUsage(result) {
+  const outputText = result?.output || result?.error || result?.summary || "";
+  const promptSize = result?.promptSize || 0;
+  if (promptSize <= 0 && outputText.length < MIN_TEXT_FOR_ESTIMATION) return null;
+  return estimateTokens(promptSize, outputText.length);
+}
+
 export function extractUsageMetrics(result, defaultModel = null) {
-  const usage = result?.usage || result?.metrics || {};
-  const tokens_in =
-    result?.tokens_in ??
-    usage?.tokens_in ??
-    usage?.input_tokens ??
-    usage?.prompt_tokens ??
-    0;
-  const tokens_out =
-    result?.tokens_out ??
-    usage?.tokens_out ??
-    usage?.output_tokens ??
-    usage?.completion_tokens ??
-    0;
-  const cached_tokens =
-    result?.cached_tokens ??
-    usage?.cached_tokens ??
-    usage?.cache_read_input_tokens ??
-    usage?.prompt_tokens_details?.cached_tokens ??
-    usage?.cachedContentTokenCount ??
-    0;
-  const cost_usd =
-    result?.cost_usd ??
-    usage?.cost_usd ??
-    usage?.usd_cost ??
-    usage?.cost;
-  const model =
-    result?.model ??
-    usage?.model ??
-    usage?.model_name ??
-    usage?.model_id ??
-    defaultModel ??
-    null;
-
-  // If no real token data AND no explicit cost, estimate from prompt/output sizes.
-  // Primary: uses result.promptSize when explicitly provided.
-  // Fallback: estimates from result.output or result.error text length.
-  let estimated = false;
-  let finalTokensIn = tokens_in;
-  let finalTokensOut = tokens_out;
-  const hasExplicitCost = cost_usd !== undefined && cost_usd !== null && cost_usd !== "";
-  if (!tokens_in && !tokens_out && !hasExplicitCost) {
-    const outputText = result?.output || result?.error || result?.summary || "";
-    const promptSize = result?.promptSize || 0;
-    const MIN_TEXT_FOR_ESTIMATION = 40;
-    if (promptSize > 0 || outputText.length >= MIN_TEXT_FOR_ESTIMATION) {
-      const est = estimateTokens(promptSize, outputText.length);
-      finalTokensIn = est.tokens_in;
-      finalTokensOut = est.tokens_out;
-      estimated = true;
-    }
-  }
-
-  return { tokens_in: finalTokensIn, tokens_out: finalTokensOut, cached_tokens, cost_usd, model, estimated };
+  const sources = { result, usage: result?.usage || result?.metrics || {} };
+  const tokens_in = firstOf(sources, USAGE_PATHS.tokens_in) ?? 0;
+  const tokens_out = firstOf(sources, USAGE_PATHS.tokens_out) ?? 0;
+  const cached_tokens = firstOf(sources, USAGE_PATHS.cached_tokens) ?? 0;
+  const cost_usd = firstOf(sources, USAGE_PATHS.cost_usd);
+  const model = firstOf(sources, USAGE_PATHS.model) ?? defaultModel ?? null;
+  const est = !tokens_in && !tokens_out && !isExplicitCost(cost_usd) ? estimatedUsage(result) : null;
+  if (est) return { tokens_in: est.tokens_in, tokens_out: est.tokens_out, cached_tokens, cost_usd, model, estimated: true };
+  return { tokens_in, tokens_out, cached_tokens, cost_usd, model, estimated: false };
 }
 
 function toSafeNumber(value) {
