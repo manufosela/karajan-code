@@ -35,7 +35,7 @@ const SERENA_INSTRUCTIONS = [
  * on it; the per-review content (task context + git diff, up to 12 KB
  * and always different) goes last.
  */
-export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
+export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null, roleSkillBlock = null }) {
   const { body: clippedDiff, note: clipNote } = clipDiff(diff);
   // KJC-BUG-0138: full diff on purpose — the moved-to side survives clipping.
   const splitSignal = buildSplitSignal(diff);
@@ -44,7 +44,10 @@ export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode,
   const rtkSnippet = buildRtkInstructions({ rtkAvailable });
   // KJC-TSK-1065: the reviewer gets the skills of its role and of the task, up to 3.
   let skillSection = null;
-  if (projectDir) {
+  // KJC-TSK-1272: a block the caller resolved (a third-party repo's stack) wins over the project's.
+  if (roleSkillBlock) {
+    skillSection = buildRoleSkillSection(roleSkillBlock, { provider }) || null;
+  } else if (projectDir) {
     skillSection = buildRoleSkillSection(await roleSkills({ role: "reviewer", task, projectDir }), { provider }) || null;
   }
 

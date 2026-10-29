@@ -60,6 +60,8 @@ export async function runOneShotReview({
   // review can never unlock a commit of one's own.
   reviewerOverride = null,
   persist = true,
+  // KJC-TSK-1272: skills resolved by the caller (a third-party repo's stack) instead of the project's.
+  skills = null,
 }) {
   if (!diff || !diff.trim()) {
     throw new Error("nothing to review — the diff is empty (stage your changes or pass --range)");
@@ -77,7 +79,7 @@ export async function runOneShotReview({
     const prompt = await buildReviewerPrompt({
       task: task || "Review the following diff for correctness, security and maintainability.",
       // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
-      diff: summarizeGeneratedFiles(diff), reviewRules: rules, mode: "standard", provider: who, projectDir,
+      diff: summarizeGeneratedFiles(diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
     });
     logger?.info?.(`kj review: host=${hostAgent || "none"} → reviewer=${who} (cross-AI)`);
     return createAgentFn(who, cfg, logger).reviewTask({ prompt, role: "reviewer" });
