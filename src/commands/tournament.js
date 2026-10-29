@@ -20,47 +20,53 @@ function tournamentDirFor(config, rawId) {
   return path.join(config?.projectDir || process.cwd(), ".kj", "tournaments", id);
 }
 
+// TOR-C: `--judge <id>` ranks the finalists.
+async function judgeAction({ config, logger, flags, judgeTournamentFn }) {
+  const judgement = await judgeTournamentFn({ tournamentDir: tournamentDirFor(config, flags.judge), config, logger });
+  if (flags.json) logger?.info?.(JSON.stringify(judgement));
+  else logger?.info?.(`  siguiente: kj tournament --crown ${flags.judge}${judgement.escalated ? " (ganador vía solomon)" : ""}`);
+  return judgement;
+}
+
+// TOR-C: `--crown <id>` commits the winner through the real gate in its lane.
+async function crownAction({ config, logger, flags, crownWinnerFn }) {
+  const crown = await crownWinnerFn({
+    tournamentDir: tournamentDirFor(config, flags.crown), config, logger, cardRef: flags.card || null,
+  });
+  if (flags.json) logger?.info?.(JSON.stringify(crown));
+  return crown;
+}
+
+function scoreboardRow(r) {
+  if (!r.finalist) return `  ${r.coder.padEnd(10)} eliminado (${r.eliminated_by})`;
+  const mut = typeof r.mutation?.score === "number" ? `${r.mutation.score}%` : "n/a";
+  return `  ${r.coder.padEnd(10)} FINALISTA  loc:${String(r.loc.net).padStart(5)}  tests:${r.loc.testsTouched}  mutation:${mut}`;
+}
+
+// TOR-B: `--score <id>` scores an EXISTING tournament from its artifacts.
+async function scoreAction({ config, logger, flags, scoreTournamentFn }) {
+  const board = await scoreTournamentFn({ tournamentDir: tournamentDirFor(config, flags.score) });
+  if (flags.json) logger?.info?.(JSON.stringify(board));
+  else printScoreboard(board, logger);
+  return board;
+}
+
+function printScoreboard(board, logger) {
+  logger?.info?.(`scoreboard ${board.id} — regla: ${board.rule}`);
+  for (const r of board.rows) logger?.info?.(scoreboardRow(r));
+  logger?.info?.(`  ranking: ${board.ranking.join(" > ") || "(sin finalistas)"}`);
+}
+
+// The first of --judge, --crown, --score that is set wins, in that order.
+const ID_ACTIONS = [["judge", judgeAction], ["crown", crownAction], ["score", scoreAction]];
+
 export async function tournamentCommand({
   task, config, logger = console, flags = {},
   runTournamentFn = runTournament, scoreTournamentFn = scoreTournament,
   judgeTournamentFn = judgeTournament, crownWinnerFn = crownWinner,
 }) {
-  // TOR-C: `--judge <id>` ranks the finalists; `--crown <id>` commits the
-  // winner through the real gate in its lane.
-  if (flags.judge) {
-    const judgement = await judgeTournamentFn({ tournamentDir: tournamentDirFor(config, flags.judge), config, logger });
-    if (flags.json) logger?.info?.(JSON.stringify(judgement));
-    else logger?.info?.(`  siguiente: kj tournament --crown ${flags.judge}${judgement.escalated ? " (ganador vía solomon)" : ""}`);
-    return judgement;
-  }
-  if (flags.crown) {
-    const crown = await crownWinnerFn({
-      tournamentDir: tournamentDirFor(config, flags.crown), config, logger, cardRef: flags.card || null,
-    });
-    if (flags.json) logger?.info?.(JSON.stringify(crown));
-    return crown;
-  }
-
-  // TOR-B: `--score <id>` scores an EXISTING tournament from its artifacts.
-  if (flags.score) {
-    const tournamentDir = tournamentDirFor(config, flags.score);
-    const board = await scoreTournamentFn({ tournamentDir });
-    if (flags.json) {
-      logger?.info?.(JSON.stringify(board));
-      return board;
-    }
-    logger?.info?.(`scoreboard ${board.id} — regla: ${board.rule}`);
-    for (const r of board.rows) {
-      if (!r.finalist) {
-        logger?.info?.(`  ${r.coder.padEnd(10)} eliminado (${r.eliminated_by})`);
-        continue;
-      }
-      const mut = typeof r.mutation?.score === "number" ? `${r.mutation.score}%` : "n/a";
-      logger?.info?.(`  ${r.coder.padEnd(10)} FINALISTA  loc:${String(r.loc.net).padStart(5)}  tests:${r.loc.testsTouched}  mutation:${mut}`);
-    }
-    logger?.info?.(`  ranking: ${board.ranking.join(" > ") || "(sin finalistas)"}`);
-    return board;
-  }
+  const idAction = ID_ACTIONS.find(([flag]) => flags[flag]);
+  if (idAction) return idAction[1]({ config, logger, flags, scoreTournamentFn, judgeTournamentFn, crownWinnerFn });
 
   if (!task || !String(task).trim()) {
     throw new Error("tournament: falta la tarea — kj tournament \"<tarea>\" --coders claude,codex");
@@ -74,12 +80,15 @@ export async function tournamentCommand({
   }
 
   const res = await runTournamentFn({ task, coders, config, logger });
+  printRunSummary(res, logger);
+  return res;
+}
 
+function printRunSummary(res, logger) {
   const completed = res.lanes.filter((l) => l.status === "completed");
   const green = completed.filter((l) => l.suite?.ok);
   logger?.info?.("");
   logger?.info?.(`torneo ${res.id}: ${completed.length}/${res.lanes.length} carriles completados, ${green.length} con suite verde`);
   logger?.info?.(`  evidencia: ${res.dir}`);
   logger?.info?.("  siguiente: el scoreboard determinista (TOR-B) puntuará los carriles; de momento compara los diff.patch a mano.");
-  return res;
 }
