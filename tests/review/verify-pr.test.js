@@ -17,19 +17,21 @@ const DIFFS = { aaa1111: "diff --git a/a.js b/a.js\n+const a = 1;\n", bbb2222: "
 const PR = { headRefOid: "bbb2222", commits: [{ oid: "aaa1111", messageHeadline: "feat: a" }, { oid: "bbb2222", messageHeadline: "fix: b" }] };
 
 // KJC-BUG-0391: merges, as {sha: {parents, tree, merged}}; merged is what git merge-tree gives.
-function fakeGit(args, diffs, merges, names = {}) {
+// KJC-BUG-0438: blobs, as {"rev:file": id}; a file not listed has the same blob at every revision.
+function fakeGit(args, diffs, merges, names = {}, blobs = {}) {
   const sub = args[2];
   if (args.includes("--name-only")) return { exitCode: 0, stdout: (names[args.at(-1)] ?? ["x.js"]).join("\n") };
+  if (sub === "rev-parse" && args.includes("--verify")) return { exitCode: 0, stdout: blobs[args.at(-1)] ?? `blob-${args.at(-1).split(":")[1]}` };
   if (sub === "rev-list") return { exitCode: 0, stdout: [args.at(-1), ...(merges[args.at(-1)]?.parents ?? ["p0"])].join(" ") };
   if (sub === "rev-parse") return { exitCode: 0, stdout: merges[args.at(-1).replace("^{tree}", "")]?.tree ?? "" };
   if (sub === "merge-tree") return Object.values(merges).find((m) => m.parents.join() === args.slice(-2).join())?.merged ?? { exitCode: 1, stdout: "" };
   return { exitCode: 0, stdout: diffs[args.at(-1)] ?? "" };
 }
 
-function fakeRun({ reviews = [], posted = [], diffs = DIFFS, pr = PR, merges = {}, names = {} } = {}) {
+function fakeRun({ reviews = [], posted = [], diffs = DIFFS, pr = PR, merges = {}, names = {}, blobs = {} } = {}) {
   return async (cmd, args) => {
     if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(pr) };
-    if (cmd === "git") return fakeGit(args, diffs, merges, names);
+    if (cmd === "git") return fakeGit(args, diffs, merges, names, blobs);
     if (cmd === "gh" && args.includes("POST")) { posted.push(args); return { exitCode: 0, stdout: "{}" }; }
     if (cmd === "gh" && args.includes("--jq")) return { exitCode: 0, stdout: reviews.map((r) => JSON.stringify(r)).join("\n") };
     if (cmd === "gh" && args[0] === "api") return { exitCode: 0, stdout: "[]" };
@@ -113,7 +115,7 @@ describe("verifyPrReview", () => {
     const HOOK = [".karajan", "hooks", "pre-commit"].join("/");
     const PROV = ".karajan/supervisor-provenance.json";
     const unlisted = async () => (await publishedBody()).split("\n").filter((l) => !l.includes("aaa1111")).join("\n");
-    const verify = async (names, sealed) => verifyPrReview({ projectDir: dir, pr: 7, sealed, run: fakeRun({ reviews: [{ body: await unlisted(), author_association: "OWNER" }], names }) });
+    const verify = async (names, sealed, blobs = {}) => verifyPrReview({ projectDir: dir, pr: 7, sealed, run: fakeRun({ reviews: [{ body: await unlisted(), author_association: "OWNER" }], names, blobs }) });
     const signedSeal = { files: new Set([HOOK]), complete: true, signed: true };
 
     it("needs no verdict when it only touches files the roster-signed seal vouches for, and is named", async () => {
@@ -135,8 +137,19 @@ describe("verifyPrReview", () => {
         [{ aaa1111: [HOOK, PROV] }, { ...signedSeal, complete: false }],
         [{ aaa1111: [HOOK, "src/a.js"] }, signedSeal],
         [{ aaa1111: [] }, signedSeal],
+        // KJC-BUG-0438: a hook-only commit before the seal signs those bytes is not the seal act.
+        [{ aaa1111: [HOOK] }, signedSeal],
       ]) {
         expect((await verify(names, sealed)).problems, JSON.stringify(names)).toEqual([expect.stringMatching(/aaa1111/)]);
+      }
+    });
+
+    // KJC-BUG-0438: a hooks-plus-provenance precursor that a later valid seal replaced.
+    it("still needs one when a later commit replaced what this one left", async () => {
+      for (const file of [PROV, HOOK]) {
+        const blobs = { [`aaa1111:${file}`]: "forged", [`HEAD:${file}`]: "signed" };
+        const r = await verify({ aaa1111: [HOOK, PROV] }, signedSeal, blobs);
+        expect(r.problems, file).toEqual([expect.stringMatching(/aaa1111/)]);
       }
     });
   });
