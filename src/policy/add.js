@@ -67,31 +67,29 @@ const naiveDiff = (oldText, newText) => {
   ].join("\n");
 };
 
-export async function policyAddCommand({ text, config = {}, flags = {}, logger = console, deps = {} }) {
-  const projectDir = config?.projectDir || process.cwd();
-  if (!text?.trim()) {
-    logger.error?.('policy add: falta la regla — kj policy add "el coder no toca los workflows"');
-    return 1;
-  }
-  const { translateFn = defaultTranslate } = deps;
-  const raw = await translateFn({ text, config, logger });
+// The agent's answer as a policy fragment, or null (said) when it is not one:
+// untranslatable, not YAML, or keys outside the closed vocabulary.
+function fragmentOf(raw, logger) {
   if (raw.includes("NO_TRADUCIBLE")) {
     logger.error?.("policy add: la regla no cabe en el vocabulario cerrado v1 — no se inventa nada; exprésala como write/shell/diff-threshold o queda como instrucción de prompt");
-    return 1;
+    return null;
   }
   let frag;
   try {
     frag = yaml.load(raw);
   } catch (err) {
     logger.error?.(`policy add: el agente no devolvió YAML válido (${err.message}) — nada que aplicar`);
-    return 1;
+    return null;
   }
   if (typeof frag !== "object" || frag === null || Object.keys(frag).some((k) => !["roles", "invariants"].includes(k))) {
     logger.error?.("policy add: el fragmento solo puede declarar roles y/o invariants — rechazado (vocabulario cerrado)");
-    return 1;
+    return null;
   }
+  return frag;
+}
 
-  const file = join(projectDir, ".karajan", "policy.yml");
+// The current policy merged with the fragment, or null (said) when the engine rejects it.
+function proposePolicy(file, frag, logger) {
   let current = "";
   try {
     current = readFileSync(file, "utf8");
@@ -102,8 +100,24 @@ export async function policyAddCommand({ text, config = {}, flags = {}, logger =
   if (errors.length > 0) {
     for (const e of errors) logger.error?.(`✗ ${e}`);
     logger.error?.("policy add: la regla traducida no valida contra el vocabulario del motor — rechazada, no se inventa");
+    return null;
+  }
+  return { current, proposed };
+}
+
+export async function policyAddCommand({ text, config = {}, flags = {}, logger = console, deps = {} }) {
+  const projectDir = config?.projectDir || process.cwd();
+  if (!text?.trim()) {
+    logger.error?.('policy add: falta la regla — kj policy add "el coder no toca los workflows"');
     return 1;
   }
+  const { translateFn = defaultTranslate } = deps;
+  const frag = fragmentOf(await translateFn({ text, config, logger }), logger);
+  if (!frag) return 1;
+  const file = join(projectDir, ".karajan", "policy.yml");
+  const proposal = proposePolicy(file, frag, logger);
+  if (!proposal) return 1;
+  const { current, proposed } = proposal;
 
   logger.info?.(`policy add — diff propuesto para .karajan/policy.yml:\n${naiveDiff(current, proposed)}`);
   if (current.includes("#")) {
