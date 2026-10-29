@@ -14,6 +14,8 @@ describe("sizeCheck", () => {
     expect(big).toMatchObject({ id: "size", ok: false, detail: expect.stringMatching(/250 .*200/) });
     // human docs are exempt, as in the own-work gate
     expect(sizeCheck({ numstat: "900\t0\tdocs/guide.md\n", limit: 200 }).ok).toBe(true);
+    // KJC-BUG-0434: net, as the CI gate counts it — a rewrite in place is not growth.
+    expect(sizeCheck({ numstat: "250\t240\tsrc/a.js\n", limit: 200 })).toMatchObject({ ok: true });
   });
 });
 

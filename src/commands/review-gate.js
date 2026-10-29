@@ -249,24 +249,26 @@ async function prSizeGate({ projectDir, config, range }) {
   // documentation are exempt — the same rule CI applies. Counting everything
   // here warned 234 lines on a doc-only PR that CI counted at 104, and two
   // implementations of one rule that disagree teach people to trust neither.
-  const { added, exempt, testAdded } = budgetedAdded(numstat);
+  // KJC-BUG-0434: measured NET, as CI and the policy's net_lines_added do — a rewrite in place is not growth.
+  const { added, testAdded } = budgetedAdded(numstat);
+  const { net, exempt } = budgetedNet(numstat);
   // Said out loud: an exemption nobody sees is indistinguishable from a gate
   // that is not looking.
   if (exempt > 0) console.log(`ℓ pr-size: ${exempt} line(s) exempt from the budget (generated output and human docs; AI-rule files always count)`);
-  if (added > sizeIdeal && added <= sizeWarn) {
-    console.log(`ℓ pr-size: ${added} lines added, over the ~${sizeIdeal} ideal, within the ${sizeWarn} limit: allowed, nothing to ask`);
+  if (net > sizeIdeal && net <= sizeWarn) {
+    console.log(`ℓ pr-size: ${net} net lines, over the ~${sizeIdeal} ideal, within the ${sizeWarn} limit: allowed, nothing to ask`);
   }
-  if (added <= sizeWarn) return null;
+  if (net <= sizeWarn) return null;
   // KJC-TSK-0795 AC5: say how much of the weight is the module's OWN tests —
   // partitioning is a decision, and it must never split code from its tests.
-  const split = testAdded > 0 ? ` (${added - testAdded} source + ${testAdded} accompanying tests — partition by feature, never code from its tests)` : "";
+  const split = testAdded > 0 ? ` (${added - testAdded} source + ${testAdded} test lines added — partition by feature, never code from its tests)` : "";
   // ADR 0015: no env escape — an exception is the user's label on the PR, judged in CI.
   if ((config?.method_gates?.pr_size || "warn") === "block") {
-    const reason = `${added} lines added${split} is over the ${sizeWarn}-line limit (${sizeSource}; method_gates.pr_size: block) — partition the work; an exception is your user's large-pr-justified label on the PR`;
+    const reason = `${net} net lines${split} is over the ${sizeWarn}-line limit (${sizeSource}; method_gates.pr_size: block) — partition the work; an exception is your user's large-pr-justified label on the PR`;
     console.log(`✗ pr-size gate: ${reason}`);
     return rejected("pr-size", [{ severity: "high", description: reason }]);
   }
-  console.log(`⚠ pr-size: ${added} lines added${split}, over the ${sizeWarn}-line limit (ideal ~${sizeIdeal}, source: ${sizeSource}) — partition the work before committing (method_gates.pr_size: block to harden)`);
+  console.log(`⚠ pr-size: ${net} net lines${split}, over the ${sizeWarn}-line limit (ideal ~${sizeIdeal}, source: ${sizeSource}) — partition the work before committing (method_gates.pr_size: block to harden)`);
   return null;
 }
 
