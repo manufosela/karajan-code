@@ -129,6 +129,11 @@ describe("verifyPrReview", () => {
       expect(seal).toMatchObject({ ok: true, sealCommits: ["aaa1111"] });
       const code = await verifyPrReview({ projectDir: dir, pr: 7, sealed: signedSeal, run: fakeRun({ names: { aaa1111: [HOOK, PROV] } }) });
       expect(code).toMatchObject({ ok: false, problems: [expect.stringMatching(/no kj review published/)] });
+      // KJC-BUG-0438: a PR of clean merges only, with no review, is not a seal PR.
+      const merges = { mmm3333: { parents: ["bbb2222", "main000"], tree: "t1", merged: { exitCode: 0, stdout: "t1\n" } } };
+      const mergeOnly = { headRefOid: "mmm3333", commits: [{ oid: "mmm3333", messageHeadline: "Merge main" }] };
+      const merged = await verifyPrReview({ projectDir: dir, pr: 7, sealed: signedSeal, run: fakeRun({ pr: mergeOnly, merges }) });
+      expect(merged).toMatchObject({ ok: false, problems: [expect.stringMatching(/no kj review published/)] });
     });
 
     it("still needs one when the seal is unsigned, incomplete, or the commit touches anything else", async () => {
