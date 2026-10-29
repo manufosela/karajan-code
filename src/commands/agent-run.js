@@ -8,10 +8,8 @@
 import { createAgent, getAvailableAgents } from "../agents/index.js";
 import { detectAvailableAgents } from "../utils/agent-detect.js";
 
-export async function agentRunCommand({ agent, task, config = {}, logger = null, flags = {} }) {
-  if (!task || !task.trim()) {
-    throw new Error("kj agent run requires a task: kj agent run <agent> \"<task>\"");
-  }
+// The agent must be one kj supports AND installed here; both errors name what is available.
+async function assertAgentAvailable(agent) {
   const known = getAvailableAgents().map((a) => a.name);
   const detected = await detectAvailableAgents();
   const up = detected.filter((a) => a.available).map((a) => a.name).join(", ") || "none";
@@ -22,15 +20,44 @@ export async function agentRunCommand({ agent, task, config = {}, logger = null,
   if (!entry?.available) {
     throw new Error(`agent "${agent}" is not available on this machine (available: ${up}) — install its CLI or pick another`);
   }
+}
 
-  let timeoutMs;
-  if (flags.timeoutMinutes !== undefined) {
-    const minutes = Number(flags.timeoutMinutes);
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      throw new Error(`--timeout-minutes must be a positive number, got "${flags.timeoutMinutes}"`);
-    }
-    timeoutMs = minutes * 60000;
+function timeoutMsOf(flags) {
+  if (flags.timeoutMinutes === undefined) return undefined;
+  const minutes = Number(flags.timeoutMinutes);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    throw new Error(`--timeout-minutes must be a positive number, got "${flags.timeoutMinutes}"`);
   }
+  return minutes * 60000;
+}
+
+function delegationResult(agent, result) {
+  return {
+    ok: Boolean(result?.ok),
+    agent,
+    output: result?.output || "",
+    error: result?.error || null,
+    usage: result?.tokens_out != null
+      ? { tokens_in: result.tokens_in ?? null, tokens_out: result.tokens_out, cached_tokens: result.cached_tokens ?? null }
+      : null,
+  };
+}
+
+function printResult(res, json) {
+  if (json) {
+    console.log(JSON.stringify(res));
+    return;
+  }
+  if (res.output) console.log(res.output);
+  if (!res.ok && res.error) console.error(res.error);
+}
+
+export async function agentRunCommand({ agent, task, config = {}, logger = null, flags = {} }) {
+  if (!task || !task.trim()) {
+    throw new Error("kj agent run requires a task: kj agent run <agent> \"<task>\"");
+  }
+  await assertAgentAvailable(agent);
+  const timeoutMs = timeoutMsOf(flags);
 
   // --json must emit ONLY the serialized result — no informational lines,
   // and a crash of the delegated subprocess still yields one JSON payload.
@@ -43,21 +70,8 @@ export async function agentRunCommand({ agent, task, config = {}, logger = null,
     result = { ok: false, output: "", error: err.message };
   }
 
-  const res = {
-    ok: Boolean(result?.ok),
-    agent,
-    output: result?.output || "",
-    error: result?.error || null,
-    usage: result?.tokens_out != null
-      ? { tokens_in: result.tokens_in ?? null, tokens_out: result.tokens_out, cached_tokens: result.cached_tokens ?? null }
-      : null,
-  };
-  if (flags.json) {
-    console.log(JSON.stringify(res));
-  } else {
-    if (res.output) console.log(res.output);
-    if (!res.ok && res.error) console.error(res.error);
-  }
+  const res = delegationResult(agent, result);
+  printResult(res, flags.json);
   process.exitCode = res.ok ? 0 : 1;
   return res;
 }
