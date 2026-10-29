@@ -84,7 +84,7 @@ describe("atril init", () => {
   it("--recommended=none skips every available entry and reports the changed one", () => {
     const res = run("--recommended=none");
     expect(res.status).toBe(0);
-    expect(res.stdout).toBe("skipped\tcommand:plan\nchanged\tcommand:test\tchanged in this version, not touched\n"
+    expect(res.stdout).toBe("skipped\tcommand:plan\nchanged\tcommand:test\tchanged in this version, not touched: run atril update\n"
       + "0 installed, 0 exposed, 1 skipped, 1 changed\n");
   });
 

@@ -21,6 +21,7 @@ import { status } from "../src/status.js";
 import { createInterface } from "node:readline/promises";
 import { applyRecommended, recommended } from "../src/recommended.js";
 import { answersFor, askAnswers, offered } from "../src/init.js";
+import { applyInstalledUpdate, installedUpdates } from "../src/upgrade.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -34,7 +35,9 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril import --from openskills [--root <dir>]\n       atril recommended [--root <dir>] [--json]\n"
   + "       atril status [--check] [--root <dir>] [--json]\n"
   + "       atril init [--yes] [--recommended=on-demand|persistent|none] [--root <dir>] [--json]"
-  + "  (--recommended wins over --yes)";
+  + "  (--recommended wins over --yes)\n"
+  + "       atril update [<kind:name>...] [--yes] [--discard-edits] [--root <dir>] [--json]"
+  + "  (no terminal and no --yes: dry run)";
 
 function runImport(args) {
   const { values } = parseArgs({ args, options: { from: { type: "string" }, root: { type: "string" } } });
@@ -131,9 +134,71 @@ async function runInit(args) {
   }
   if (fresh.length === 0) console.log("nothing new to offer from the recommended set");
   for (const [action, keys] of Object.entries(result)) {
-    for (const key of keys) console.log(action === "changed" ? `changed\t${key}\tchanged in this version, not touched` : `${action}\t${key}`);
+    for (const key of keys) console.log(action === "changed" ? `changed\t${key}\tchanged in this version, not touched: run atril update` : `${action}\t${key}`);
   }
   console.log(Object.entries(result).map(([action, keys]) => `${keys.length} ${action}`).join(", "));
+}
+
+// One question per artifact, on stderr so --json keeps stdout clean; an edited one says the edit is lost.
+async function askUpdates(pending) {
+  const terminal = createInterface({ input: process.stdin, output: process.stderr });
+  const cancelled = new AbortController();
+  terminal.once("close", () => cancelled.abort());
+  try {
+    const accepted = [];
+    for (const { kind, name, state } of pending) {
+      const lost = state === "edited" ? " (your local edit will be lost)" : "";
+      const answer = await terminal.question(`update ${printable(`${kind}:${name}`)}?${lost} [y/N] `, { signal: cancelled.signal });
+      if (/^y(es)?$/i.test(answer.trim())) accepted.push(`${kind}:${name}`);
+    }
+    return accepted;
+  } catch (err) {
+    throw cancelled.signal.aborted ? new Error("update cancelled: nothing applied") : err;
+  } finally {
+    terminal.close();
+  }
+}
+
+async function runUpdate(args) {
+  const { values, positionals } = parseArgs({
+    args, allowPositionals: true,
+    options: { root: { type: "string" }, yes: { type: "boolean" }, "discard-edits": { type: "boolean" }, json: { type: "boolean" } },
+  });
+  const opts = { root: values.root };
+  const all = installedUpdates(opts);
+  const refOf = ({ kind, name }) => `${kind}:${name}`;
+  const unknown = positionals.filter((ref) => !all.some((update) => refOf(update) === ref));
+  if (unknown.length > 0) throw new Error(`${unknown.join(", ")}: no catalog origin in the lock; nothing to update from`);
+  const updates = positionals.length > 0 ? all.filter((update) => positionals.includes(refOf(update))) : all;
+  const gone = updates.filter(({ state }) => state === "unavailable").map(refOf);
+  if (positionals.length > 0 && gone.length > 0) throw new Error(`${gone.join(", ")}: not offered by its catalog now (atril catalog sync fetches the git sources)`);
+  const pending = updates.filter(({ state }) => state === "outdated" || state === "edited");
+  if (!values.json) {
+    for (const update of pending) console.log(`${update.state}\t${printable(refOf(update))}\t${printable(update.catalog)}\n${update.diff}`);
+    if (pending.length === 0) console.log("everything installed from a catalog is up to date");
+  }
+  let accepted = [];
+  if (values.yes) accepted = pending.filter(({ state }) => state === "outdated" || values["discard-edits"]).map(refOf);
+  else if (process.stdin.isTTY) accepted = await askUpdates(pending);
+  else if (pending.length > 0) console.error("atril: dry run, nothing applied: pass --yes to update (--discard-edits to overwrite local edits)");
+  // An accepted edited ref carries its own consent (--yes --discard-edits, or a "y" to the edit warning).
+  // One failed apply does not hide the ones that already landed.
+  const applied = [];
+  for (const ref of accepted) {
+    try {
+      applyInstalledUpdate(ref, opts, { discardEdits: pending.some((p) => refOf(p) === ref && p.state === "edited") });
+      applied.push(ref);
+    } catch (err) {
+      console.error(`atril: ${printable(ref)}: ${err.message}`);
+      process.exitCode = 1;
+    }
+  }
+  if (values.json) {
+    console.log(JSON.stringify({ updates, applied }, null, 2));
+    return;
+  }
+  for (const ref of applied) console.log(`updated\t${printable(ref)}`);
+  if (values.yes) for (const update of pending.filter((p) => !accepted.includes(refOf(p)))) console.log(`skipped\t${printable(refOf(update))}\tedited locally; pass --discard-edits to overwrite it`);
 }
 
 function runConfig(args) {
@@ -281,6 +346,7 @@ try {
   else if (command === "recommended") runRecommended(rest);
   else if (command === "status") runStatus(rest);
   else if (command === "init") await runInit(rest);
+  else if (command === "update") await runUpdate(rest);
   else throw new Error(command ? `unknown command "${command}"\n${USAGE}` : USAGE);
 } catch (err) {
   console.error(`atril: ${err.message}`);
