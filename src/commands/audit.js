@@ -289,141 +289,144 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     const deterministicCtx = await role.collectDeterministic(roleInput);
     const deterministicMd = formatDeterministicSummary(deterministicCtx);
 
-    // KJC-TSK-0471 — Harness Scorecard (Docker one-shot, golden metric).
-    // Runs after the deterministic phase, before the LLM. Auto-skipped on
-    // --no-harness or if `runHarnessSection` surfaces an error (graceful
-    // degradation: a missing Docker daemon must not break `kj audit`).
-    let harnessSummary = null;
-    if (!noHarness) {
-      try {
-        harnessSummary = await runHarnessSection({
-          projectDir: config?.projectDir || process.cwd(),
-          harnessConfig: config?.audit?.harness || null,
-        });
-        if (harnessSummary?.ok && !harnessSummary.skipped) {
-          runLog.logText(`[audit] harness score=${harnessSummary.score}/100 grade=${harnessSummary.grade}`);
-        }
-      } catch (e) {
-        harnessSummary = { ok: false, error: e?.message || String(e) };
-        runLog.logText(`[audit] harness skipped: ${harnessSummary.error}`);
-      }
-    }
+    const harnessSummary = noHarness ? null : await runHarness({ config, runLog });
     const harnessMd = formatHarnessSection(harnessSummary);
 
     // --json suppresses the interactive flow regardless: it would mangle
     // a script's stdout. JSON consumers always get the full audit unless
     // they explicitly pass deterministicOnly.
     const reportPath = await resolveReportFilePath(reportFile, json);
-    let runLlm = !deterministicOnly;
-    if (runLlm && !json && !yes) {
-      console.log(deterministicMd);
-      console.log("");
-      const ok = await promptContinueWithLlm({ promptFn });
-      runLlm = ok;
-      if (!ok) logger.info("LLM analysis skipped (deterministic-only mode).");
-    }
-
-    if (!runLlm) {
-      // Deterministic-only path. Produce the report from what we already
-      // have, persist it (md or json), and exit. Zero tokens spent.
-      const harnessJson = harnessSummaryForJson(harnessSummary);
-      const currentHarness = harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null;
-      const history = loadAuditHistoryContext(config?.projectDir || process.cwd(), currentHarness, { showTrend: trend });
-      const historyMd = composeHistoryBlock(history);
-      const stdoutContent = json
-        ? JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, harnessScoreDiff: history.diff, mode: "deterministic-only" }, null, 2)
-        : (deterministicOnly ? `${deterministicMd}\n${harnessMd}${historyMd}` : `${harnessMd}${historyMd}`);
-      if (json || deterministicOnly || harnessMd) console.log(stdoutContent);
-
-      if (reportPath) {
-        let payload;
-        if (reportPath.endsWith(".json")) {
-          payload = JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, harnessScoreDiff: history.diff, mode: "deterministic-only" }, null, 2);
-        } else {
-          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, noAiSlop, json, deterministicOnly, yes }));
-          payload = `${header}${deterministicMd}\n${harnessMd}${historyMd}`;
-        }
-        await fs.writeFile(reportPath, payload, "utf8");
-        runLog.logText(`[audit] report written (deterministic-only) → ${reportPath}`);
-        logger.info(`Audit report written: ${reportPath}`);
-      }
-      persistAuditRun(config?.projectDir || process.cwd(), { runId: new Date().toISOString(), timestamp: new Date().toISOString(), gitSha: null, harness: harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null, rawReportPath: reportPath });
-      logger.info("Audit completed (deterministic-only).");
-      return { ok: true, mode: "deterministic-only", reportPath: reportPath || undefined };
-    }
-
-    // Continue with the LLM phase using the already-collected context.
-    const progress = createCliProgressReporter({ role: "auditor" });
-    let roleResult;
-    try {
-      // KJC-BUG-0094: resilient fallback — if the configured provider/model
-      // is down (e.g. an inherited model like "claude-fable-5" is offline),
-      // degrade to the provider default, then to the next installed provider,
-      // reusing the deterministic context so no static analysis is re-run.
-      roleResult = await runAuditWithFallback({
-        config, logger,
-        roleInput: { ...roleInput, onOutput: progress.onOutput },
-        deterministicCtx,
-        available,
-        candidates: fallbackCandidates,
-        onFallback: (cand) => logger.warn(`Audit provider fallback → ${cand.provider}${cand.model ? ` (${cand.model})` : " (default model)"}`),
-      });
-      progress.finish(roleResult.ok ? "done" : "failed");
-    } catch (err) { progress.finish("failed"); throw err; }
-
-    if (!roleResult.ok) {
-      const err = roleResult.result?.error || "Audit failed";
-      throw new Error(err);
-    }
-
-    const parsed = roleResult.result;
-    const usage = roleResult.usage;
-    if (parsed?.summary?.overallHealth) {
-      runLog.logText(`[audit] findings=${parsed.summary.totalFindings} (critical=${parsed.summary.critical}, high=${parsed.summary.high})`);
-    }
-    if (usage?.available) {
-      runLog.logText(`[audit] usage tokens=${usage.total_tokens} cost=$${(usage.cost_usd ?? 0).toFixed(4)} duration=${(usage.durationMs / 1000).toFixed(1)}s`);
-    }
-
-    const harnessJson = harnessSummaryForJson(harnessSummary);
-    const currentHarness = harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null;
-    const history = loadAuditHistoryContext(config?.projectDir || process.cwd(), currentHarness, { showTrend: trend });
-    const historyMd = composeHistoryBlock(history);
-    let stdoutContent;
-    if (json) {
-      const jsonPayload = parsed
-        ? { ...parsed, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined }
-        : { ...roleResult, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined };
-      stdoutContent = JSON.stringify(jsonPayload, null, 2);
-    } else if (parsed?.summary?.overallHealth) {
-      stdoutContent = `${formatAudit(parsed, usage)}\n${harnessMd}${historyMd}`;
-    } else if (parsed?.raw) {
-      stdoutContent = parsed.raw + (usage ? `\n\n${formatUsageSummary(usage) || ""}` : "") + `\n${harnessMd}${historyMd}`;
-    } else {
-      stdoutContent = `${roleResult.summary || "Audit complete."}\n${harnessMd}${historyMd}`;
-    }
-    console.log(stdoutContent);
-
-    if (reportPath) {
-      let payload;
-      if (reportPath.endsWith(".json")) {
-        const jsonPayload = parsed
-          ? { ...parsed, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined }
-          : { ...roleResult, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined };
-        payload = JSON.stringify(jsonPayload, null, 2);
-      } else {
-        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, noAiSlop, json, deterministicOnly, yes }));
-        payload = header + stdoutContent + "\n";
-      }
-      await fs.writeFile(reportPath, payload, "utf8");
-      runLog.logText(`[audit] report written → ${reportPath}`);
-      logger.info(`Audit report written: ${reportPath}`);
-    }
-
-    persistAuditRun(config?.projectDir || process.cwd(), { runId: new Date().toISOString(), timestamp: new Date().toISOString(), gitSha: null, harness: harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null, rawReportPath: reportPath });
-    logger.info("Audit completed.");
-    return { ok: true, reportPath: reportPath || undefined };
+    const runLlm = await chooseLlm({ deterministicOnly, json, yes, deterministicMd, promptFn, logger });
+    const invocation = { task, dimensions, noSonar, noOsv, noSemgrep, noHarness, noAiSlop, json, deterministicOnly, yes };
+    const ctx = { config, logger, runLog, json, trend, invocation, deterministicCtx, deterministicMd, harnessSummary, harnessMd, reportPath };
+    if (!runLlm) return deterministicOnlyAudit(ctx);
+    return llmAudit({ ...ctx, roleInput, available, fallbackCandidates });
   });
+}
+
+/**
+ * KJC-TSK-0471 — Harness Scorecard (Docker one-shot, golden metric).
+ * Runs after the deterministic phase, before the LLM. Skipped on
+ * --no-harness; an error from `runHarnessSection` degrades gracefully
+ * (a missing Docker daemon must not break `kj audit`).
+ */
+async function runHarness({ config, runLog }) {
+  try {
+    const summary = await runHarnessSection({
+      projectDir: config?.projectDir || process.cwd(),
+      harnessConfig: config?.audit?.harness || null,
+    });
+    if (summary?.ok && !summary.skipped) runLog.logText(`[audit] harness score=${summary.score}/100 grade=${summary.grade}`);
+    return summary;
+  } catch (e) {
+    const summary = { ok: false, error: e?.message || String(e) };
+    runLog.logText(`[audit] harness skipped: ${summary.error}`);
+    return summary;
+  }
+}
+
+/** Two-phase audit (KJC-TSK-0364): asks before spending tokens, unless --json, --yes or --deterministic-only. */
+async function chooseLlm({ deterministicOnly, json, yes, deterministicMd, promptFn, logger }) {
+  if (deterministicOnly) return false;
+  if (json || yes) return true;
+  console.log(deterministicMd);
+  console.log("");
+  const ok = await promptContinueWithLlm({ promptFn });
+  if (!ok) logger.info("LLM analysis skipped (deterministic-only mode).");
+  return ok;
+}
+
+const scoredHarness = (summary) => (summary?.ok && !summary.skipped ? summary : null);
+
+/** The harness score as JSON and the history block, shared by both paths. */
+function harnessReport({ config, harnessSummary, trend }) {
+  const history = loadAuditHistoryContext(config?.projectDir || process.cwd(), scoredHarness(harnessSummary), { showTrend: trend });
+  return { harnessJson: harnessSummaryForJson(harnessSummary), history, historyMd: composeHistoryBlock(history) };
+}
+
+async function writeReport({ ctx, payloadJson, markdownBody, note }) {
+  const { config, runLog, logger, reportPath, invocation } = ctx;
+  if (!reportPath) return;
+  const payload = reportPath.endsWith(".json")
+    ? payloadJson
+    : `${await buildReportHeader(config?.projectDir, describeInvocation(invocation))}${markdownBody}`;
+  await fs.writeFile(reportPath, payload, "utf8");
+  runLog.logText(`[audit] report written${note} → ${reportPath}`);
+  logger.info(`Audit report written: ${reportPath}`);
+}
+
+function persistRun(ctx) {
+  const now = new Date().toISOString();
+  persistAuditRun(ctx.config?.projectDir || process.cwd(), { runId: now, timestamp: now, gitSha: null, harness: scoredHarness(ctx.harnessSummary), rawReportPath: ctx.reportPath });
+}
+
+/** Deterministic-only path: the report from what was already collected, persisted, zero tokens spent. */
+async function deterministicOnlyAudit(ctx) {
+  const { json, invocation, deterministicCtx, deterministicMd, harnessMd, reportPath, logger } = ctx;
+  const { harnessJson, history, historyMd } = harnessReport(ctx);
+  const payloadJson = JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, harnessScoreDiff: history.diff, mode: "deterministic-only" }, null, 2);
+  let stdoutContent = `${harnessMd}${historyMd}`;
+  if (json) stdoutContent = payloadJson;
+  else if (invocation.deterministicOnly) stdoutContent = `${deterministicMd}\n${harnessMd}${historyMd}`;
+  if (json || invocation.deterministicOnly || harnessMd) console.log(stdoutContent);
+  await writeReport({ ctx, payloadJson, markdownBody: `${deterministicMd}\n${harnessMd}${historyMd}`, note: " (deterministic-only)" });
+  persistRun(ctx);
+  logger.info("Audit completed (deterministic-only).");
+  return { ok: true, mode: "deterministic-only", reportPath: reportPath || undefined };
+}
+
+/**
+ * KJC-BUG-0094: resilient fallback — if the configured provider/model
+ * is down (e.g. an inherited model like "claude-fable-5" is offline),
+ * degrade to the provider default, then to the next installed provider,
+ * reusing the deterministic context so no static analysis is re-run.
+ */
+async function runLlmPhase({ config, logger, roleInput, deterministicCtx, available, fallbackCandidates }) {
+  const progress = createCliProgressReporter({ role: "auditor" });
+  try {
+    const roleResult = await runAuditWithFallback({
+      config, logger,
+      roleInput: { ...roleInput, onOutput: progress.onOutput },
+      deterministicCtx,
+      available,
+      candidates: fallbackCandidates,
+      onFallback: (cand) => logger.warn(`Audit provider fallback → ${cand.provider}${cand.model ? ` (${cand.model})` : " (default model)"}`),
+    });
+    progress.finish(roleResult.ok ? "done" : "failed");
+    return roleResult;
+  } catch (err) {
+    progress.finish("failed");
+    throw err;
+  }
+}
+
+function llmStdout({ parsed, usage, roleResult, harnessMd, historyMd }) {
+  if (parsed?.summary?.overallHealth) return `${formatAudit(parsed, usage)}\n${harnessMd}${historyMd}`;
+  if (parsed?.raw) return parsed.raw + (usage ? `\n\n${formatUsageSummary(usage) || ""}` : "") + `\n${harnessMd}${historyMd}`;
+  return `${roleResult.summary || "Audit complete."}\n${harnessMd}${historyMd}`;
+}
+
+/** The LLM phase, over the deterministic context already collected. */
+async function llmAudit(ctx) {
+  const { json, runLog, logger, harnessMd, reportPath } = ctx;
+  const roleResult = await runLlmPhase(ctx);
+  if (!roleResult.ok) throw new Error(roleResult.result?.error || "Audit failed");
+  const parsed = roleResult.result;
+  const usage = roleResult.usage;
+  if (parsed?.summary?.overallHealth) {
+    runLog.logText(`[audit] findings=${parsed.summary.totalFindings} (critical=${parsed.summary.critical}, high=${parsed.summary.high})`);
+  }
+  if (usage?.available) {
+    runLog.logText(`[audit] usage tokens=${usage.total_tokens} cost=$${(usage.cost_usd ?? 0).toFixed(4)} duration=${(usage.durationMs / 1000).toFixed(1)}s`);
+  }
+  const { harnessJson, history, historyMd } = harnessReport(ctx);
+  const payloadJson = JSON.stringify({ ...(parsed || roleResult), harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined }, null, 2);
+  const stdoutContent = json ? payloadJson : llmStdout({ parsed, usage, roleResult, harnessMd, historyMd });
+  console.log(stdoutContent);
+  await writeReport({ ctx, payloadJson, markdownBody: `${stdoutContent}\n`, note: "" });
+  persistRun(ctx);
+  logger.info("Audit completed.");
+  return { ok: true, reportPath: reportPath || undefined };
 }
 
 // Exposed for tests — kept module-private otherwise.
