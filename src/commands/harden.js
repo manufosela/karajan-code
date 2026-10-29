@@ -149,54 +149,13 @@ export async function hardenCommand({
   const baseBranch = await resolveBaseBranch(projectDir);
   let result;
   try {
-    result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch });
-    // KJC-TSK-0710 — the TOOL gate: rules imposed at tool time (Claude Code
-    // PreToolUse). Standard+ only; minimal stays hooks-lite.
-    if (profile !== "minimal" && !dryRun) {
-      const hh = installHarnessHooks({ projectDir, logger });
-      result.harnessHooks = hh.wired ? "wired" : "script-only";
-      // KJC-TSK-0713 — the Sentinel: method state + Stop gate (turn cannot
-      // end red). Same Claude-only harness surface as the tool gate.
-      // KJC-BUG-0193: solo un humano avanza lo que un humano selló. Sin
-      // --commit, un guardia sellado se queda como está en lugar de quedarse
-      // sin sello, que es como una sesión se dejaba sin herramientas.
-      const sh = installSentinelHooks({ projectDir, logger, human: commitSupervisor });
-      result.sentinelHooks = sh.wired ? "wired" : "script-only";
-      // KJC-TSK-1092/1241: the host sandbox, only when asked (kj harden --sandbox):
-      // inside it kj run cannot push, open the PR or reach Sonar on localhost.
-      if (sandbox) result.sandbox = installSandbox({ projectDir, logger }).state;
-    }
+    result = await installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitSupervisor, sandbox, logger });
   } catch (err) {
     if (json) logger.info?.(JSON.stringify({ ok: false, error: err.message }));
     else logger.error?.(`kj harden: ${err.message}`);
     return { ok: false, error: err.message };
   }
-
-  // Config (lint/format/commit) ships with standard+, per language root so a
-  // fullstack monorepo is hardened on every side, not just one.
-  const withConfig = config && profile !== "minimal";
-  const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
-  const withCi = ci && profile !== "minimal";
-  const wf = withCi
-    ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, root: roots[0]?.dir ?? ".", profile, mutation, dryRun })
-    : null;
-  const withGuidelines = guidelines && profile !== "minimal";
-  // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
-  // the configs already use — a Python project must not be told to use `const`.
-  const gl = withGuidelines ? installGuidelines({ projectDir, language: roots[0]?.language ?? null, dryRun }) : null;
-  // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
-  if (withGuidelines && !dryRun) {
-    let kjConfig = null;
-    try { kjConfig = (await loadConfig(projectDir))?.config; } catch { /* no kj config: not opted in */ }
-    maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
-  }
-  const out = {
-    ok: true,
-    ...result,
-    configs: cfg?.configs ?? [],
-    workflows: wf?.workflows ?? [],
-    guidelines: gl?.guidelines ?? [],
-  };
+  const out = { ok: true, ...result, ...(await installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, logger })) };
   // KJC-BUG-0289 (#1984): what kj harden generates, kj commits (KJC-BUG-0273's
   // path): only that, never on the base branch. Left to the agent, 3.2k generated
   // lines exceeded its own PR size and stayed untracked. The seal (--commit, ADR
@@ -212,6 +171,55 @@ export async function hardenCommand({
     return out;
   }
 
+  printHardenSummary({ out, result, profile, dryRun, logger });
+  if (!dryRun) await afterInstall({ out, result, projectDir, profile, commitSupervisor, kjVersion, logger });
+  return out;
+}
+
+/** The git hooks and, from standard up, the tool gate, the Sentinel and the optional sandbox. */
+async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitSupervisor, sandbox, logger }) {
+  const result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch });
+  // KJC-TSK-0710 — the TOOL gate: rules imposed at tool time (Claude Code
+  // PreToolUse). Standard+ only; minimal stays hooks-lite.
+  if (profile === "minimal" || dryRun) return result;
+  const hh = installHarnessHooks({ projectDir, logger });
+  result.harnessHooks = hh.wired ? "wired" : "script-only";
+  // KJC-TSK-0713 — the Sentinel: method state + Stop gate (turn cannot
+  // end red). Same Claude-only harness surface as the tool gate.
+  // KJC-BUG-0193: solo un humano avanza lo que un humano selló. Sin
+  // --commit, un guardia sellado se queda como está en lugar de quedarse
+  // sin sello, que es como una sesión se dejaba sin herramientas.
+  const sh = installSentinelHooks({ projectDir, logger, human: commitSupervisor });
+  result.sentinelHooks = sh.wired ? "wired" : "script-only";
+  // KJC-TSK-1092/1241: the host sandbox, only when asked (kj harden --sandbox):
+  // inside it kj run cannot push, open the PR or reach Sonar on localhost.
+  if (sandbox) result.sandbox = installSandbox({ projectDir, logger }).state;
+  return result;
+}
+
+/** Configs, workflows and guidelines (standard+), with the language detected for the first root. */
+async function installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, logger }) {
+  const full = profile !== "minimal";
+  const language = roots[0]?.language ?? null;
+  // Config (lint/format/commit) ships with standard+, per language root so a
+  // fullstack monorepo is hardened on every side, not just one.
+  const cfg = config && full ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
+  const wf = ci && full ? installWorkflows({ projectDir, language, root: roots[0]?.dir ?? ".", profile, mutation, dryRun }) : null;
+  const withGuidelines = guidelines && full;
+  // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
+  // the configs already use — a Python project must not be told to use `const`.
+  const gl = withGuidelines ? installGuidelines({ projectDir, language, dryRun }) : null;
+  // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
+  if (withGuidelines && !dryRun) {
+    let kjConfig = null;
+    try { kjConfig = (await loadConfig(projectDir))?.config; } catch { /* no kj config: not opted in */ }
+    maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
+  }
+  return { configs: cfg?.configs ?? [], workflows: wf?.workflows ?? [], guidelines: gl?.guidelines ?? [] };
+}
+
+/** KJC-TSK-1257: what was installed, file by file, in the order it always had. */
+function printHardenSummary({ out, result, profile, dryRun, logger }) {
   const verb = dryRun ? "would install" : "installed";
   logger.info?.(`kj harden (${profile}) — ${verb} ${result.hooks.length} hook(s) → ${result.hooksPath}`);
   for (const h of result.hooks) logger.info?.(`  • ${h.hook}: ${h.action}`);
@@ -223,48 +231,49 @@ export async function hardenCommand({
     logger.info?.(`  • ${w.file}: ${w.action}`);
     if (w.note) logger.warn?.(`⚠ ${w.note}`);
   }
-  for (const g of out.guidelines) {
-    logger.info?.(`  • ${g.file}: ${g.action}`);
-    // KJC-BUG-0206: quitar reglas no puede leerse como "updated" y nada más.
-    if (g.shrank) logger.warn?.(`    ⚠ ${g.file} queda con MENOS reglas que antes — revisa si el lenguaje detectado es el que crees (kj check lo dice)`);
-    // KJC-BUG-0232: cuales. Si una es tuya, vivia dentro del bloque: va fuera.
-    if (g.removed?.length) {
-      for (const line of g.removed.slice(0, 10)) logger.warn?.(`      - ${line.length > 120 ? `${line.slice(0, 117)}...` : line}`);
-      if (g.removed.length > 10) logger.warn?.(`      (+${g.removed.length - 10} más)`);
-      logger.warn?.("      Si alguna es vuestra, estaba dentro del bloque gestionado: recuperadla de git y ponedla fuera de él.");
-    }
-  }
+  for (const g of out.guidelines) printGuideline(g, logger);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
+}
+
+function printGuideline(g, logger) {
+  logger.info?.(`  • ${g.file}: ${g.action}`);
+  // KJC-BUG-0206: quitar reglas no puede leerse como "updated" y nada más.
+  if (g.shrank) logger.warn?.(`    ⚠ ${g.file} queda con MENOS reglas que antes — revisa si el lenguaje detectado es el que crees (kj check lo dice)`);
+  // KJC-BUG-0232: cuales. Si una es tuya, vivia dentro del bloque: va fuera.
+  if (!g.removed?.length) return;
+  for (const line of g.removed.slice(0, 10)) logger.warn?.(`      - ${line.length > 120 ? `${line.slice(0, 117)}...` : line}`);
+  if (g.removed.length > 10) logger.warn?.(`      (+${g.removed.length - 10} más)`);
+  logger.warn?.("      Si alguna es vuestra, estaba dentro del bloque gestionado: recuperadla de git y ponedla fuera de él.");
+}
+
+/** After a real install: who works the clone, the branch protection advice and, if asked, the human seal. */
+async function afterInstall({ out, result, projectDir, profile, commitSupervisor, kjVersion, logger }) {
   // IDN-A (KJC-TSK-0762): a hardened clone declares who works it. Captured
   // only with a human confirming; headless runs get the pending command.
-  if (!dryRun) {
-    const id = await ensureIdentity({ projectDir, logger });
-    out.identity = id.declared ? id.identity : null;
-    if (id.pending) {
-      out.identityPending = id.pending;
-      out.identityCommand = id.command;
-    }
+  const id = await ensureIdentity({ projectDir, logger });
+  out.identity = id.declared ? id.identity : null;
+  if (id.pending) {
+    out.identityPending = id.pending;
+    out.identityCommand = id.command;
   }
   // KJC-TSK-0928: the method's checks only stop a merge with branch protection; kj says the exact command.
-  if (!dryRun) out.branchProtection = await adviseBranchProtection({ projectDir, branch: await resolveBaseBranch(projectDir), logger });
+  out.branchProtection = await adviseBranchProtection({ projectDir, branch: await resolveBaseBranch(projectDir), logger });
   // KJC-BUG-0161 / ADR 0009 (opción A): --commit versiona la regeneración
   // del supervisor con procedencia sellada. Acto humano — el guard vive en
   // commitSupervisorRegeneration y rechaza sesiones de agente.
-  if (commitSupervisor && !dryRun) {
-    try {
-      out.supervisorCommit = await commitSupervisorRegeneration({
-        projectDir,
-        kjVersion: kjVersion ?? "unknown",
-        generation: result.generation ?? { profile },
-        logger,
-      });
-    } catch (err) {
-      // Fallar ALTO (catch de codex): un --commit que no commitea no puede
-      // devolver ok — quien lo pidió debe verlo, no descubrirlo después.
-      logger.error?.(`kj harden: ${err.message}`);
-      out.supervisorCommit = { committed: false, reason: err.message };
-      out.ok = false;
-    }
+  if (!commitSupervisor) return;
+  try {
+    out.supervisorCommit = await commitSupervisorRegeneration({
+      projectDir,
+      kjVersion: kjVersion ?? "unknown",
+      generation: result.generation ?? { profile },
+      logger,
+    });
+  } catch (err) {
+    // Fallar ALTO (catch de codex): un --commit que no commitea no puede
+    // devolver ok — quien lo pidió debe verlo, no descubrirlo después.
+    logger.error?.(`kj harden: ${err.message}`);
+    out.supervisorCommit = { committed: false, reason: err.message };
+    out.ok = false;
   }
-  return out;
 }
