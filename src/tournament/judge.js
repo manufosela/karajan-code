@@ -58,6 +58,65 @@ function finalistBlock(board, torDir, coder) {
   ].filter(Boolean).join("\n");
 }
 
+function walkover({ board, tournamentDir, logger, winner }) {
+  const judgement = { winner, judge: null, escalated: false, walkover: true, board_ranking: board.ranking };
+  fs.writeFileSync(path.join(tournamentDir, "judgement.json"), JSON.stringify(judgement, null, 2));
+  logger?.info?.(`torneo ${board.id}: ganador por walkover — ${winner} (único finalista)`);
+  return judgement;
+}
+
+function judgePrompt(board, finalists, tournamentDir) {
+  return [
+    "Eres el JUEZ de un torneo de código: varios coders resolvieron la MISMA tarea de forma independiente.",
+    "La fase determinista ya eliminó a los que suspendieron la suite. Tu trabajo: ordenar a los finalistas",
+    "por calidad de solución (diseño, legibilidad, ausencia de sobre-ingeniería), con el scoreboard a la vista.",
+    `Regla del scoreboard: ${board.rule}`,
+    `Ranking del scoreboard: ${board.ranking.join(" > ")}`,
+    `TAREA ORIGINAL:\n${board.task}`,
+    ...finalists.map((c) => finalistBlock(board, tournamentDir, c)),
+    'Responde SOLO con JSON: {"ranking": ["coder", ...], "reasons": {"coder": "por qué"}, "tie": false}',
+    "Declara tie:true únicamente si de verdad no puedes distinguirlos.",
+  ].join("\n\n");
+}
+
+function parseVerdict(output, judge, finalists) {
+  let verdict;
+  try {
+    verdict = JSON.parse(String(output).replace(/^[^{]*/, "").replace(/[^}]*$/, ""));
+  } catch {
+    throw new Error(`tournament: el juez ${judge} no devolvió un veredicto parseable`);
+  }
+  // An LLM verdict is untrusted input: the ranking must name FINALISTS and
+  // nobody else — a hallucinated coder must fail loud, never get crowned.
+  if (!Array.isArray(verdict.ranking) || verdict.ranking.length === 0 || !verdict.ranking.every((c) => finalists.includes(c))) {
+    throw new Error(`tournament: ranking del juez inválido (${JSON.stringify(verdict.ranking)}) — debe nombrar solo finalistas: ${finalists.join(", ")}`);
+  }
+  return verdict;
+}
+
+// Only FIRST place crowns a winner: a judge that reorders lower positions
+// but agrees on who wins is agreement, not a dispute for solomon.
+async function crownedBy({ verdict, board, finalists, solomonFn }) {
+  const judgeTop = verdict.ranking?.[0];
+  const boardTop = board.ranking[0];
+  const escalated = Boolean(verdict.tie || judgeTop !== boardTop);
+  if (!escalated) return { winner: judgeTop, solomon: null, escalated };
+  if (!solomonFn) {
+    const why = verdict.tie ? "empate declarado" : `discrepancia juez(${judgeTop}) vs scoreboard(${boardTop})`;
+    throw new Error(`tournament: ${why} y sin árbitro configurado`);
+  }
+  const solomon = await solomonFn({
+    judgeRanking: verdict.ranking,
+    boardRanking: board.ranking,
+    reasons: verdict.reasons,
+    tie: Boolean(verdict.tie),
+  });
+  if (!finalists.includes(solomon?.winner)) {
+    throw new Error(`tournament: solomon devolvió un ganador inválido (${solomon?.winner}) — debe ser finalista`);
+  }
+  return { winner: solomon.winner, solomon, escalated };
+}
+
 /**
  * Judge a scored tournament: rank finalists, escalate on tie/disagreement.
  * @returns {Promise<{winner: string, judge: string|null, escalated: boolean, walkover?: boolean}>}
@@ -69,12 +128,7 @@ export async function judgeTournament({ tournamentDir, config = {}, logger = con
   const participants = board.rows.map((r) => r.coder);
 
   if (finalists.length === 0) throw new Error("tournament: sin finalistas (todas las suites rojas) — no hay nada que juzgar");
-  if (finalists.length === 1) {
-    const judgement = { winner: finalists[0], judge: null, escalated: false, walkover: true, board_ranking: board.ranking };
-    fs.writeFileSync(path.join(tournamentDir, "judgement.json"), JSON.stringify(judgement, null, 2));
-    logger?.info?.(`torneo ${board.id}: ganador por walkover — ${finalists[0]} (único finalista)`);
-    return judgement;
-  }
+  if (finalists.length === 1) return walkover({ board, tournamentDir, logger, winner: finalists[0] });
 
   const judge = await judgeFn({ config, participants });
   if (!judge) {
@@ -84,59 +138,12 @@ export async function judgeTournament({ tournamentDir, config = {}, logger = con
     );
   }
 
-  const prompt = [
-    "Eres el JUEZ de un torneo de código: varios coders resolvieron la MISMA tarea de forma independiente.",
-    "La fase determinista ya eliminó a los que suspendieron la suite. Tu trabajo: ordenar a los finalistas",
-    "por calidad de solución (diseño, legibilidad, ausencia de sobre-ingeniería), con el scoreboard a la vista.",
-    `Regla del scoreboard: ${board.rule}`,
-    `Ranking del scoreboard: ${board.ranking.join(" > ")}`,
-    `TAREA ORIGINAL:\n${board.task}`,
-    ...finalists.map((c) => finalistBlock(board, tournamentDir, c)),
-    'Responde SOLO con JSON: {"ranking": ["coder", ...], "reasons": {"coder": "por qué"}, "tie": false}',
-    "Declara tie:true únicamente si de verdad no puedes distinguirlos.",
-  ].join("\n\n");
-
+  const prompt = judgePrompt(board, finalists, tournamentDir);
   logger?.info?.(`torneo ${board.id}: juez=${judge} sobre ${finalists.length} finalistas`);
   const res = await agentFn({ judge, prompt, config, logger });
   if (!res?.ok) throw new Error(`tournament: el juez ${judge} falló: ${res?.error || "sin salida"}`);
-  let verdict;
-  try {
-    verdict = JSON.parse(String(res.output).replace(/^[^{]*/, "").replace(/[^}]*$/, ""));
-  } catch {
-    throw new Error(`tournament: el juez ${judge} no devolvió un veredicto parseable`);
-  }
-  // An LLM verdict is untrusted input: the ranking must name FINALISTS and
-  // nobody else — a hallucinated coder must fail loud, never get crowned.
-  const isFinalist = (c) => finalists.includes(c);
-  if (!Array.isArray(verdict.ranking) || verdict.ranking.length === 0 || !verdict.ranking.every(isFinalist)) {
-    throw new Error(`tournament: ranking del juez inválido (${JSON.stringify(verdict.ranking)}) — debe nombrar solo finalistas: ${finalists.join(", ")}`);
-  }
-
-  // Only FIRST place crowns a winner: a judge that reorders lower positions
-  // but agrees on who wins is agreement, not a dispute for solomon.
-  const judgeTop = verdict.ranking?.[0];
-  const boardTop = board.ranking[0];
-  const disagreement = judgeTop !== boardTop;
-  const escalated = Boolean(verdict.tie || disagreement);
-
-  let winner = judgeTop;
-  let solomon = null;
-  if (escalated) {
-    if (!solomonFn) {
-      const why = verdict.tie ? "empate declarado" : `discrepancia juez(${judgeTop}) vs scoreboard(${boardTop})`;
-      throw new Error(`tournament: ${why} y sin árbitro configurado`);
-    }
-    solomon = await solomonFn({
-      judgeRanking: verdict.ranking,
-      boardRanking: board.ranking,
-      reasons: verdict.reasons,
-      tie: Boolean(verdict.tie),
-    });
-    if (!isFinalist(solomon?.winner)) {
-      throw new Error(`tournament: solomon devolvió un ganador inválido (${solomon?.winner}) — debe ser finalista`);
-    }
-    winner = solomon.winner;
-  }
+  const verdict = parseVerdict(res.output, judge, finalists);
+  const { winner, solomon, escalated } = await crownedBy({ verdict, board, finalists, solomonFn });
 
   const judgement = {
     winner, judge, escalated,
