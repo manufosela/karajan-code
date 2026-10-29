@@ -77,7 +77,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.70.2: el policy check de CI funciona en proyectos que commitean su config (actual)
+### v4.70.3: harden fija versiones publicadas y el Sentinel deja leer (actual)
+
+`kj harden` ya no siembra el workflow de policy de CI con una versión de kj que npm no tiene. El Sentinel deja que un comando que solo lee (`cat`, `grep`, `ls`) nombre sus propios ficheros y la config de gobierno, y ahora caza los comandos de una línea que escribían esa config con una ruta relativa. Tu commit de sello pasa la comprobación de review de CI, probado por la firma del móvil. `kj run` funciona con nvm, los tamaños se miden en líneas netas como en CI, y hacer push tras mergear main ya no se rechaza. Vuelve a sellar una vez tras actualizar (`kj harden --commit`).
+
+### v4.70.2: el policy check de CI funciona en proyectos que commitean su config
 
 `policy-check` ya no muere en proyectos que commitean su `.karajan/kj.config.yml` (en CI no hay config global: ahí la del proyecto se monta sobre los valores por defecto). Con npm 12, `kj doctor` y el RAG dicen exactamente cómo compilar `better-sqlite3`, que npm 12 deja sin compilar. `kj policy add` funciona con reviewer claude, y una PR puede describir un sello sin que el Sentinel la pare.
 
