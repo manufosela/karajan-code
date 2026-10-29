@@ -177,6 +177,61 @@ export async function backlogPlan(projectDir) {
   return loadPlan(projectDir, planId);
 }
 
+// KJC-BUG-0305 (issue #2042): the HU Board is always kj's board. An external
+// tracker coexists with it: each HU points at its replica there (--ref).
+const externalBoardOf = (config) => (config?.state_backend === "external" ? (config?.board?.name || "the external board") : null);
+
+// KJC-TSK-1166 (TEAM-GH-E): the HUs created before the shared board, moved to it once.
+function migrateAction({ projectDir, board, flags, deps, emit, who }) {
+  if (flags.to !== "github") throw new Error("usage: kj hu migrate --to github [--dry-run]");
+  if (board.backend !== "github") throw new Error("the shared board is off in this repo: turn it on first with kj hu backend github");
+  return migrateToTeamBoard({ projectDir, repo: board.repo, who, dryRun: Boolean(flags.dryRun), deps, emit });
+}
+
+async function backendAction({ projectDir, args, deps, emit }) {
+  if (!args[0]) throw new Error("usage: kj hu backend <github | local>");
+  const r = await (deps.setBackend ?? setBoardBackend)({ projectDir, backend: args[0] });
+  const where = r.backend === "github" ? `GitHub Issues of ${r.repo}` : "the local board";
+  const files = r.gitignoreChanged ? `${r.file} and .gitignore` : r.file;
+  return emit(r, `✓ HU Board: ${where} — commit ${files} in a PR so the whole team inherits it`);
+}
+
+// #2566: plans a lane saved under its own slug move to the main checkout's; loud, never blocking.
+async function migrateLanePlansLoudly(projectDir) {
+  const { moved, kept } = await migrateLanePlans(projectDir)
+    .catch((err) => { console.warn(`⚠ plans from lanes not migrated: ${err.message}`); return { moved: [], kept: [] }; });
+  const keptNote = kept.length ? `, ${kept.length} kept (name taken, compare and delete): ${kept.join(", ")}` : "";
+  if (moved.length || kept.length) console.warn(`plans from lanes: ${moved.length} moved to the main checkout${keptNote}`);
+}
+
+async function listTeam({ projectDir, repo, flags, deps }) {
+  const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, repo, list: deps.listTeamHus ?? listHus });
+  if (source === "cache") console.warn(`⚠ GitHub did not answer: this is the local copy of the board from ${updatedAt}`);
+  // KJC-TSK-1166: what GitHub answered is what kj board shows, as a read-only plan.
+  else await writeTeamMirror(projectDir, hus, { repo });
+  const rows = hus.map((h) => ({ ...h, id: h.short_id, plan: "github" }));
+  if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
+  for (const r of rows) {
+    const held = r.claimed_by ? " · held by " + r.claimed_by : "";
+    console.log(`${r.short_id.padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${repo}${held}]`);
+  }
+  if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
+  return rows;
+}
+
+async function moveTeamOrQueue({ projectDir, repo, args, flags, deps, emit, who }) {
+  try {
+    return await moveOnTeamBoard({ repo, args, flags, deps, emit, who });
+  } catch (err) {
+    // Offline: the move waits in the queue; GitHub still decides when it is applied.
+    if (!isOffline(err)) throw err;
+    const number = Number(/^(?:HU-|#)(\d+)$/i.exec(args[0])[1]);
+    queueMove({ projectDir, number, status: args[1], who, release: Boolean(flags.release) });
+    console.warn(`⚠ GitHub did not answer: HU-${number} → ${args[1]} queued, applied when GitHub answers again`);
+    return emit({ id: `HU-${number}`, status: args[1], queued: true }, `⏳ HU-${number} → ${args[1]} (queued)`);
+  }
+}
+
 // KJC-TSK-1047 (TEAM-A): who works this clone, the one a started card is reserved to.
 const workerOf = (projectDir) => readIdentity(projectDir)?.gh_user || effectiveGitEmail(projectDir) || null;
 
@@ -184,71 +239,27 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   const projectDir = config?.projectDir || process.cwd();
   const emit = (obj, human) => { console.log(flags.json ? JSON.stringify(obj) : human); return obj; };
 
-  // KJC-BUG-0305 (issue #2042): the HU Board is always kj's board. An external
-  // tracker coexists with it: each HU points at its replica there (--ref).
-  const externalBoard = config?.state_backend === "external" ? (config?.board?.name || "the external board") : null;
-
   // KJC-TSK-1163/1164 (ADR 0025): the repo's board; with the shared one on, add/list/move go to GitHub.
   // The repo turns its board on once; the file travels in a PR. Before reading it: it may be what is fixed.
-  if (action === "backend") {
-    if (!args[0]) throw new Error("usage: kj hu backend <github | local>");
-    const r = await (deps.setBackend ?? setBoardBackend)({ projectDir, backend: args[0] });
-    const where = r.backend === "github" ? `GitHub Issues of ${r.repo}` : "the local board";
-    const files = r.gitignoreChanged ? `${r.file} and .gitignore` : r.file;
-    return emit(r, `✓ HU Board: ${where} — commit ${files} in a PR so the whole team inherits it`);
-  }
+  if (action === "backend") return backendAction({ projectDir, args, deps, emit });
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
+  const shared = board.backend === "github";
   // KJC-TSK-1186 + KJC-BUG-0406: with an identity declared, every gh call of the command goes out as
   // that account (GH_TOKEN pinned before the first one), whatever another session switches to.
-  if (board.backend === "github") (deps.pinGhIdentity ?? pinGhIdentity)({ projectDir });
+  if (shared) (deps.pinGhIdentity ?? pinGhIdentity)({ projectDir });
   const who = deps.who === undefined ? workerOf(projectDir) : deps.who;
-  // KJC-TSK-1166 (TEAM-GH-E): the HUs created before the shared board, moved to it once.
-  if (action === "migrate") {
-    if (flags.to !== "github") throw new Error("usage: kj hu migrate --to github [--dry-run]");
-    if (board.backend !== "github") throw new Error("the shared board is off in this repo: turn it on first with kj hu backend github");
-    return migrateToTeamBoard({ projectDir, repo: board.repo, who, dryRun: Boolean(flags.dryRun), deps, emit });
-  }
+  if (action === "migrate") return migrateAction({ projectDir, board, flags, deps, emit, who });
   // KJC-TSK-1165 (TEAM-GH-D): moves made without network go first, once GitHub answers.
-  if (board.backend === "github") await applyQueuedMoves({ projectDir, repo: board.repo, deps });
-  // #2566: plans a lane saved under its own slug move to the main checkout's; loud, never blocking.
-  if (action === "list") {
-    const { moved, kept } = await migrateLanePlans(projectDir)
-      .catch((err) => { console.warn(`⚠ plans from lanes not migrated: ${err.message}`); return { moved: [], kept: [] }; });
-    const keptNote = kept.length ? `, ${kept.length} kept (name taken, compare and delete): ${kept.join(", ")}` : "";
-    if (moved.length || kept.length) console.warn(`plans from lanes: ${moved.length} moved to the main checkout${keptNote}`);
-  }
-  if (board.backend === "github" && action === "list") {
-    const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, repo: board.repo, list: deps.listTeamHus ?? listHus });
-    if (source === "cache") console.warn(`⚠ GitHub did not answer: this is the local copy of the board from ${updatedAt}`);
-    // KJC-TSK-1166: what GitHub answered is what kj board shows, as a read-only plan.
-    else await writeTeamMirror(projectDir, hus, { repo: board.repo });
-    const rows = hus.map((h) => ({ ...h, id: h.short_id, plan: "github" }));
-    if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
-    for (const r of rows) {
-      const held = r.claimed_by ? " · held by " + r.claimed_by : "";
-      console.log(`${r.short_id.padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${board.repo}${held}]`);
-    }
-    if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
-    return rows;
-  }
+  if (shared) await applyQueuedMoves({ projectDir, repo: board.repo, deps });
+  if (action === "list") await migrateLanePlansLoudly(projectDir);
+  if (shared && action === "list") return listTeam({ projectDir, repo: board.repo, flags, deps });
   // KJC-BUG-0392: a zero-padded id (HU-0104) is a local HU from before the shared board: it stays local.
   const legacyLocal = /^HU-0\d+$/i.test(String(args[0] ?? ""));
-  if (board.backend === "github" && action === "move" && !legacyLocal) {
-    try {
-      return await moveOnTeamBoard({ repo: board.repo, args, flags, deps, emit, who });
-    } catch (err) {
-      // Offline: the move waits in the queue; GitHub still decides when it is applied.
-      if (!isOffline(err)) throw err;
-      const number = Number(/^(?:HU-|#)(\d+)$/i.exec(args[0])[1]);
-      queueMove({ projectDir, number, status: args[1], who, release: Boolean(flags.release) });
-      console.warn(`⚠ GitHub did not answer: HU-${number} → ${args[1]} queued, applied when GitHub answers again`);
-      return emit({ id: `HU-${number}`, status: args[1], queued: true }, `⏳ HU-${number} → ${args[1]} (queued)`);
-    }
-  }
+  if (shared && action === "move" && !legacyLocal) return moveTeamOrQueue({ projectDir, repo: board.repo, args, flags, deps, emit, who });
 
   // KJC-TSK-1257: one function per action on the local board (add also routes to the shared one).
   if (action === "list") return listLocal({ projectDir, flags });
-  if (action === "add") return addAction({ projectDir, board, args, flags, deps, emit, externalBoard });
+  if (action === "add") return addAction({ projectDir, board, args, flags, deps, emit, externalBoard: externalBoardOf(config) });
   if (action === "move") return moveLocal({ projectDir, args, flags, deps, emit });
 
   throw new Error(`unknown action "${action}" — use: add | move | list | backend`);
