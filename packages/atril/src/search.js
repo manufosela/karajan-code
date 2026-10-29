@@ -11,13 +11,16 @@ import { keyOf, scan } from "./scan.js";
 /** The only mode until QMD lands (ADR 0021 plan step 5); always reported. */
 export const SEARCH_MODE = "lexical";
 
-const toStderr = ({ catalog, entry, reason }) =>
+/** What a hit can be: an artifact kind, or a marketplace plugin (search-only, not an artifact kind). */
+const HIT_KINDS = [...KINDS, "plugin"];
+
+const toStderr =({ catalog, entry, reason }) =>
   process.stderr.write(`atril: catalog "${catalog}": ${entry} skipped: ${reason}\n`);
 
 // A plugin is pooled in the artifact shape so that fieldsOf and scoreOf work unchanged.
 function pluginHits(opts, onWarning) {
   const { plugins, warnings } = availablePlugins(opts);
-  warnings.forEach(onWarning);
+  warnings.forEach((warning) => onWarning(warning));
   return plugins.map(({ name, description, catalog }) =>
     ({ name, kind: "plugin", description, source: `catalog:${catalog}`, catalog, atril: {}, body: "" }));
 }
@@ -55,7 +58,7 @@ const scoreOf = (fields, terms) =>
 export function search(query, { kind, catalogs: withCatalogs = true, plugins: withPlugins = true, onWarning = toStderr, ...scanOpts } = {}) {
   const terms = typeof query === "string" ? [...tokenize(query)] : [];
   if (terms.length === 0) throw new Error("search needs a non-empty query");
-  if (kind !== undefined && !KINDS.includes(kind)) throw new Error(`kind ${JSON.stringify(kind)} is not one of ${KINDS.join(", ")}`);
+  if (kind !== undefined && !HIT_KINDS.includes(kind)) throw new Error(`kind ${JSON.stringify(kind)} is not one of ${HIT_KINDS.join(", ")}`);
   const { artifacts } = scan(scanOpts);
   const pool = withCatalogs
     ? [...artifacts, ...availableArtifacts(scanOpts, artifacts), ...(withPlugins ? pluginHits(scanOpts, onWarning) : [])]

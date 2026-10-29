@@ -58,7 +58,7 @@ describe("search", () => {
     expect(() => find("   ")).toThrow(/query/);
     expect(() => find(undefined)).toThrow(/query/);
     expect(() => find(42)).toThrow(/query/);
-    expect(() => find("tdd", { kind: "plugin" })).toThrow(/kind/);
+    expect(() => find("tdd", { kind: "bogus" })).toThrow(/kind/);
   });
 
   it("keywords that are not a list fail loudly, naming the file", () => {
