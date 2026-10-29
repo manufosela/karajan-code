@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { AI_ATTRIBUTION, CONVENTIONAL_TYPES } from "../harden/hook-templates.js";
 import { loadPolicy } from "../policy/engine.js";
 import { runCommand } from "../utils/process.js";
-import { budgetedAdded } from "./loc-budget.js";
+import { budgetedNet } from "./loc-budget.js";
 import { checkTestsWithCode } from "./tests-with-code.js";
 
 const HEADER_MAX = 100;
@@ -37,13 +37,13 @@ export function prSizeLimit({ projectDir, config }) {
   };
 }
 
-/** Lines added that count against the budget (generated output and human docs exempt). */
+/** Net lines that count against the budget, as the CI gate counts them (generated output and human docs exempt). */
 export function sizeCheck({ numstat, limit }) {
-  const { added, exempt } = budgetedAdded(numstat);
+  const { net, exempt } = budgetedNet(numstat);
   const exemptNote = exempt > 0 ? ` (${exempt} exempt)` : "";
-  return added > limit
-    ? { id: "size", ok: false, detail: `${added} lines added${exemptNote}, over the ${limit}-line limit: partition the PR` }
-    : { id: "size", ok: true, detail: `${added} lines added${exemptNote}, within the ${limit}-line limit` };
+  return net > limit
+    ? { id: "size", ok: false, detail: `${net} net lines${exemptNote}, over the ${limit}-line limit: partition the PR` }
+    : { id: "size", ok: true, detail: `${net} net lines${exemptNote}, within the ${limit}-line limit` };
 }
 
 /** Conventional Commits headers (at most 100 characters) and no AI attribution in base..head. */
