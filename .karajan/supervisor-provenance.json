@@ -1,6 +1,6 @@
 {
-  "kj_version": "4.66.1",
-  "generated_at": "2026-10-25T22:48:20.321Z",
+  "kj_version": "4.70.2",
+  "generated_at": "2026-10-28T20:29:06.530Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -47,7 +47,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "ecf498e658ca667b1ddf39a7461d730496304e7eaf0f0791cb9dcf8281c47083"
+      "sha256": "326c46bfb7cdac00b180e880f4722773108eca6eb56c09b6ff8565dbe3cd1df5"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -99,7 +99,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "fd68a97cde191636a0128d236ee386dc0823aa68ad8ed5a2984a379b25eafdbd"
+      "sha256": "10bbec40b42fa890a235ff1d24abedc3ca5cd0cd1232fd3644a1a7807e750de6"
     },
     {
       "file": ".karajan/hooks/pre-push",
@@ -167,15 +167,15 @@
     }
   ],
   "signature": {
-    "cid": "28399bb264465e920a10f85bc4beacc3",
-    "nonce": "0d804a4bf6ab54cfa9f2ed271692762b",
+    "cid": "5a26cbe37b7b58c6b7298d5b04a61f54",
+    "nonce": "13556bd8bb40c3b9d1f1aba342f96cee",
     "project": "karajan-code",
-    "filesHash": "93f5b4d9a373075cd4c89a85614ecf6029c5bda0323a22c9af294d23c0243511",
+    "filesHash": "11be91b1ba0f6bcd62572b7929f1d3607a6bdcd129f61fa6f8cc1c13e3e0b2e9",
     "v": 2,
-    "kjVersion": "4.66.1",
-    "issuedMs": 1792968492154,
-    "expiresMs": 1792968552154,
+    "kjVersion": "4.70.2",
+    "issuedMs": 1793219333865,
+    "expiresMs": 1793219393865,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "URP1Gvik/Vn/xdD+dFBhiHTkrBtMpWE0XKGzYsPoLC3O+gPrSAzk9XbqnTufPn7aYUr4okOJ+qc6bMmQzSnpBw=="
+    "signature": "e6WGKA7YiModasnUE8bV+59APgtVUJ1zw+eU6udq2JC45HhneiPVGr7AiM4tvKqdHryjbJ4/oPY9CPBN9ufpCg=="
   }
 }
