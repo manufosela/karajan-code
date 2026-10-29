@@ -292,6 +292,7 @@ export function registerPipeline(program, { pkgVersion }) {
           const r = await verifyPrReview({ projectDir: config.projectDir || process.cwd(), pr: flags.verifyPr });
           if (r.ok) logger.info(`✓ PR #${flags.verifyPr}: ${r.commits} commit(s), each with its cross-AI verdict`);
           else logger.error(`✗ PR #${flags.verifyPr}:\n  - ${r.problems.join("\n  - ")}`);
+          if (r.sealCommits) logger.info(`  seal commit(s) signed by the roster, a human act with no AI verdict: ${r.sealCommits.join(", ")}`);
           process.exitCode = r.ok ? 0 : 1;
           return;
         }

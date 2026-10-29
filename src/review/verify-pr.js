@@ -9,6 +9,8 @@ import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
 import { MARKER } from "./publish-pr.js";
 import { isCleanMerge } from "./clean-merge.js";
+import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
+import { PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 
 const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 // The marker of a kj review for any head: what MARKER writes up to the head itself.
@@ -38,10 +40,33 @@ async function hashesOf(projectDir, sha, run) {
   return hashes;
 }
 
+// KJC-BUG-0388: kj harden --commit is the human's act, signed from the phone, and no AI
+// reviews it. The proof is the signature, never the message: a commit that only touches
+// files the roster-signed seal vouches for at the head is that act.
+async function isSealCommit(projectDir, sha, run, sealed) {
+  if (sealed.signed !== true) return false;
+  const res = await run("git", ["-C", projectDir, "diff", "--name-only", `${sha}^`, sha]);
+  if (res.exitCode !== 0) throw new Error(`git diff --name-only ${sha.slice(0, 7)} failed: ${(res.stderr || "").trim()}`);
+  const files = (res.stdout || "").split("\n").filter(Boolean);
+  // KJC-BUG-0438: the seal act writes the signed provenance; a commit without it only touched files.
+  if (!files.includes(PROVENANCE_FILE)) return false;
+  if (!files.every((f) => sealed.files.has(f) || (f === PROVENANCE_FILE && sealed.complete === true))) return false;
+  // What the commit leaves is byte for byte what the signed seal vouches for at the head: a
+  // precursor whose provenance or hooks a later commit replaced is not the seal act.
+  for (const f of files) if ((await blobAt(projectDir, sha, f, run)) !== (await blobAt(projectDir, "HEAD", f, run))) return false;
+  return true;
+}
+
+/** The blob id of a file at a revision, or null when the file is absent there. */
+async function blobAt(projectDir, rev, file, run) {
+  const res = await run("git", ["-C", projectDir, "rev-parse", "--verify", "--quiet", `${rev}:${file}`]);
+  return res.exitCode === 0 ? String(res.stdout || "").trim() : null;
+}
+
 /**
- * @returns {Promise<{ok: boolean, commits: number, problems: string[]}>}
+ * @returns {Promise<{ok: boolean, commits: number, problems: string[], sealCommits?: string[]}>}
  */
-export async function verifyPrReview({ projectDir, pr, run = runCommand }) {
+export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null }) {
   const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits"], projectDir);
   const commits = info.commits ?? [];
   // One review per line, every page: --slurp is missing from the gh that distros ship.
@@ -52,15 +77,21 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand }) {
   // today's head: the diff hash of each commit is what proves it, and a commit pushed after
   // the review is simply not listed. "Update branch" no longer leaves the check red.
   const kjReviews = reviews.filter((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER_PREFIX));
-  if (kjReviews.length === 0) {
-    return { ok: false, commits: commits.length, problems: [`no kj review published by a member: run kj review --publish-pr ${pr}`] };
-  }
   const listed = new Map(kjReviews.flatMap((r) => [...r.body.matchAll(LISTED)].map((m) => [m[1], m[2]])));
   const problems = [];
+  const sealCommits = [];
+  let seal = sealed;
   for (const c of commits) {
     if (await isCleanMerge(projectDir, c.oid, run)) continue;
     const hash = listed.get(c.oid.slice(0, 7));
-    if (!hash || !(await hashesOf(projectDir, c.oid, run)).has(hash)) problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): no approved verdict for the diff it brings`);
+    if (hash && (await hashesOf(projectDir, c.oid, run)).has(hash)) continue;
+    seal ??= verifiedSupervisorFiles({ projectDir, trackedOnly: true });
+    if (await isSealCommit(projectDir, c.oid, run, seal)) sealCommits.push(c.oid.slice(0, 7));
+    else problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): no approved verdict for the diff it brings`);
   }
-  return { ok: problems.length === 0, commits: commits.length, problems };
+  // A PR that only brings the seal needs no review; anything else without one (a clean merge
+  // included, KJC-BUG-0438) is told to publish it.
+  const onlySeals = sealCommits.length > 0 && sealCommits.length === commits.length;
+  if (kjReviews.length === 0 && !onlySeals) problems.splice(0, problems.length, `no kj review published by a member: run kj review --publish-pr ${pr}`);
+  return { ok: problems.length === 0, commits: commits.length, problems, ...(sealCommits.length > 0 ? { sealCommits } : {}) };
 }
