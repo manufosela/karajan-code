@@ -17,6 +17,10 @@ import { batchDiff, splitByFile } from "./diff-batches.js";
 import { lensTask } from "./review-lens.js";
 import { thirdPartyTask, THIRD_PARTY_INSTRUCTION } from "./untrusted-context.js";
 import { baseOf, readRepoDocs, repoDocsTask } from "./repo-docs.js";
+import { detectStack } from "./repo-stack.js";
+import { thirdPartySkills } from "./third-party-skills.js";
+import { hasAtrilStore } from "../skills/atril-skills.js";
+import { MAX_SKILLS } from "../skills/role-skills.js";
 import { readTaskFile } from "../utils/task-file.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 import { assertCrossFamily, verifyFindings } from "./run-verifier.js";
@@ -38,7 +42,7 @@ const finding = (i) => ({
 });
 
 /** The review as data: verdict, findings, suggestions, security checks and, apart, the house requirements. */
-export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null, repoDocs = readRepoDocs }) {
+export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null, repoDocs = readRepoDocs, hasStore = hasAtrilStore, stackOf = detectStack, skillsFor = thirdPartySkills }) {
   // KJC-TSK-1195: a verifier of the reviewer's own family is refused before any token is spent.
   const reviewerRole = resolveRole(config, "reviewer");
   if (verifier) assertCrossFamily({ reviewer: reviewerRole.provider, reviewerModel: reviewerRole.model, verifier, verifierModel, logger });
@@ -60,33 +64,65 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
   if (docs.error) logger.warn?.(docs.error);
   const repoContext = { files: docs.files, omitted: docs.omitted, ...(docs.error && { error: docs.error }) };
   const reviewTask = docs.text ? repoDocsTask(task ?? THIRD_PARTY_INSTRUCTION, docs) : task;
+  // KJC-TSK-1272 (#2753): a repo with no atril store gets skills for its stack; the temporary store goes after the review.
+  const stackSkills = await gatherStackSkills({ projectDir, range, config, logger, hasStore, stackOf, skillsFor });
+  repoContext.skills = stackSkills.report;
   const reviewWith = async (who, cfg) => {
     const recs = [];
-    for (const batch of batches) recs.push(await run({ diff: batch.text, task: reviewTask, config: cfg, logger, projectDir, reviewerOverride: who, persist: false }));
+    for (const batch of batches) recs.push(await run({ diff: batch.text, task: reviewTask, config: cfg, logger, projectDir, reviewerOverride: who, persist: false, skills: stackSkills.block }));
     return recs;
   };
-  if (reviewers) {
-    const dual = await dualReview({ reviewers, reviewWith, verify, diff, coverage, config, logger });
-    return { mode: "third-party", range, ...dual, checks, policyChecks, repoContext, advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit) };
+  try {
+    if (reviewers) {
+      const dual = await dualReview({ reviewers, reviewWith, verify, diff, coverage, config, logger });
+      return { mode: "third-party", range, ...dual, checks, policyChecks, repoContext, advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit) };
+    }
+    const records = await reviewWith(provider, config);
+    const findings = records.flatMap((r) => (r.issues ?? []).map(finding));
+    // KJC-TSK-1195 (#2369): with a verifier, the findings are the verified ones and the block says what changed.
+    const verified = verifier ? await verify({ findings, diff, verifier, model: verifierModel, config, logger }) : null;
+    return {
+      mode: "third-party",
+      range,
+      reviewer: records[0]?.reviewer ?? provider,
+      verdict: verdictOf(records, coverage),
+      coverage,
+      findings: verified ? verified.findings : findings,
+      ...(verified && { verification: verified.verification }),
+      suggestions: records.flatMap((r) => r.suggestions ?? []),
+      checks,
+      policyChecks,
+      repoContext,
+      advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit),
+    };
+  } finally {
+    stackSkills.cleanup();
   }
-  const records = await reviewWith(provider, config);
-  const findings = records.flatMap((r) => (r.issues ?? []).map(finding));
-  // KJC-TSK-1195 (#2369): with a verifier, the findings are the verified ones and the block says what changed.
-  const verified = verifier ? await verify({ findings, diff, verifier, model: verifierModel, config, logger }) : null;
-  return {
-    mode: "third-party",
-    range,
-    reviewer: records[0]?.reviewer ?? provider,
-    verdict: verdictOf(records, coverage),
-    coverage,
-    findings: verified ? verified.findings : findings,
-    ...(verified && { verification: verified.verification }),
-    suggestions: records.flatMap((r) => r.suggestions ?? []),
-    checks,
-    policyChecks,
-    repoContext,
-    advice: adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit),
-  };
+}
+
+/**
+ * KJC-TSK-1272 (#2753): the skills for the reviewed repo's stack, the prompt block that carries
+ * them, what to report and how to remove the temporary store. A repo with its own atril store
+ * keeps the usual path; a failure is reported and the review goes on without them.
+ */
+async function gatherStackSkills({ projectDir, range, config, logger, hasStore, stackOf, skillsFor }) {
+  const none = { block: null, cleanup: () => {} };
+  if (projectDir && hasStore(projectDir)) return { ...none, report: { source: "the reviewed repo's atril store" } };
+  try {
+    if (!projectDir) throw new Error("no project directory to read the stack from");
+    const stack = await stackOf({ projectDir, base: baseOf(range) });
+    const max = config?.skills?.max_per_role ?? MAX_SKILLS;
+    const found = await skillsFor({ stack, max, catalogs: config?.review?.third_party?.catalogs ?? [] });
+    return {
+      block: found.skills.length ? { skills: found.skills, dropped: found.dropped, limit: max } : null,
+      report: { stack, used: found.skills.map((s) => s.name), installed: found.installed, dropped: found.dropped, ...(found.reason && { reason: found.reason }) },
+      cleanup: found.cleanup,
+    };
+  } catch (e) {
+    const error = `the stack's skills could not be gathered: ${e.message}`;
+    logger.warn?.(error);
+    return { ...none, report: { error } };
+  }
 }
 
 /**

@@ -236,7 +236,7 @@ describe("thirdPartyReview with the repo's own docs", () => {
     const res = await thirdPartyReview({ range: "main...pr", config: quiet, projectDir: dir, logger: { info() {} }, task: "Review it.", run, repoDocs, ...deps });
     expect(repoDocs).toHaveBeenCalledWith(expect.objectContaining({ projectDir: dir, base: "main" }));
     expect(run.mock.calls[0][0].task).toMatch(/^Review it\.[\s\S]*<<<UNTRUSTED_REPO_DOCS>>>\n### CONTRIBUTING.md\nfree-form commits/);
-    expect(res.repoContext).toEqual({ files: ["CONTRIBUTING.md"], omitted: ["docs/big.md"] });
+    expect(res.repoContext).toMatchObject({ files: ["CONTRIBUTING.md"], omitted: ["docs/big.md"] });
   });
 
   it("keeps the task as it was when the base has no docs, and reports why it could not read them", async () => {
@@ -245,7 +245,53 @@ describe("thirdPartyReview with the repo's own docs", () => {
     const repoDocs = async () => ({ files: [], omitted: [], text: "", error: "the repo's docs could not be read at main" });
     const res = await thirdPartyReview({ range: "main...pr", config: quiet, projectDir: dir, logger: { info() {}, warn }, task: "Review it.", run, repoDocs, ...deps });
     expect(run.mock.calls[0][0].task).toBe("Review it.");
-    expect(res.repoContext).toEqual({ files: [], omitted: [], error: "the repo's docs could not be read at main" });
+    expect(res.repoContext).toMatchObject({ files: [], omitted: [], error: "the repo's docs could not be read at main" });
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/could not be read/));
+  });
+});
+
+// KJC-TSK-1272 (#2753): with no atril store in the reviewed repo, skills for its stack reach the reviewer.
+describe("thirdPartyReview with skills for the repo's stack", () => {
+  const cfg = { roles: { reviewer: { provider: "claude" } }, review: { third_party: { catalogs: ["/abs/team.json"] } } };
+  const deps = { gitDiff: async () => DIFF, requirements: async () => [], security: async () => [], sonar: async () => ({ id: "sonar", ok: true }), repoDocs: async () => ({ files: [], omitted: [], text: "" }) };
+  const approved = { verdict: "approved", reviewer: "claude", summary: "ok", issues: [], suggestions: [] };
+  const stack = { languages: ["typescript"], frameworks: ["astro"] };
+  const astro = { name: "astro", content: "# astro", path: "/tmp/x/astro/SKILL.md", catalog: true };
+
+  it("hands the reviewer the skills found for the stack, lists them and removes the temporary store", async () => {
+    const run = vi.fn().mockResolvedValue(approved);
+    const cleanup = vi.fn();
+    const skillsFor = vi.fn().mockResolvedValue({ skills: [astro], others: [], dropped: ["ts"], installed: ["astro"], cleanup });
+    const res = await thirdPartyReview({ range: "main...pr", config: cfg, projectDir: dir, logger: { info() {} }, run, ...deps, hasStore: () => false, stackOf: async ({ base }) => (base === "main" ? stack : null), skillsFor });
+    expect(skillsFor).toHaveBeenCalledWith(expect.objectContaining({ stack, catalogs: ["/abs/team.json"], max: 3 }));
+    expect(run.mock.calls[0][0].skills).toEqual({ skills: [astro], dropped: ["ts"], limit: 3 });
+    expect(res.repoContext.skills).toEqual({ stack, used: ["astro"], installed: ["astro"], dropped: ["ts"] });
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("removes the temporary store even when the review fails", async () => {
+    const cleanup = vi.fn();
+    const run = vi.fn().mockRejectedValue(new Error("reviewer down"));
+    const skillsFor = async () => ({ skills: [astro], others: [], dropped: [], installed: [], cleanup });
+    await expect(thirdPartyReview({ range: "main...pr", config: cfg, projectDir: dir, logger: { info() {} }, run, ...deps, hasStore: () => false, stackOf: async () => stack, skillsFor })).rejects.toThrow(/reviewer down/);
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("says why when the skills could not be gathered, and still reviews", async () => {
+    const run = vi.fn().mockResolvedValue(approved);
+    const warn = vi.fn();
+    const res = await thirdPartyReview({ range: "main...pr", config: cfg, projectDir: dir, logger: { info() {}, warn }, run, ...deps, hasStore: () => false, stackOf: async () => stack, skillsFor: async () => { throw new Error("catalog fetch failed"); } });
+    expect(run.mock.calls[0][0].skills).toBeNull();
+    expect(res.repoContext.skills).toEqual({ error: "the stack's skills could not be gathered: catalog fetch failed" });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/catalog fetch failed/));
+  });
+
+  it("leaves a repo with its own atril store to the usual path", async () => {
+    const run = vi.fn().mockResolvedValue(approved);
+    const stackOf = vi.fn();
+    const res = await thirdPartyReview({ range: "main...pr", config: cfg, projectDir: dir, logger: { info() {} }, run, ...deps, hasStore: () => true, stackOf });
+    expect(stackOf).not.toHaveBeenCalled();
+    expect(run.mock.calls[0][0].skills).toBeNull();
+    expect(res.repoContext.skills).toEqual({ source: "the reviewed repo's atril store" });
   });
 });
