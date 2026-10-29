@@ -77,7 +77,7 @@
       sign: "Firmar el sello", doneTitle: "Firmado.", doneBody: "Vuelve al ordenador.", errorTitle: "No se puede continuar",
       offline: "Sin conexión. Revisa la red y recarga la página.", gone: "Esta petición de firma no existe o ha caducado. Genera una nueva desde el ordenador con kj.",
       readFail: (s) => `No se pudo leer la petición (error ${s}). Recarga la página; si sigue, genera otra desde kj.`, notPending: "Esta petición ya está firmada o ya no admite firma. Si necesitas firmar, genera una nueva desde kj.",
-      noExpiry: "La petición no trae una vigencia legible. Genera una nueva desde kj.", rejected: (s) => `El servidor rechazó la firma (error ${s}). La petición pudo caducar: genera una nueva desde kj.`,
+      noExpiry: "La petición no trae una vigencia legible. Genera una nueva desde kj.", expired: "Esta petición ha caducado y kj ya no la espera. Vuelve a lanzarla en el ordenador y firma la nueva.", rejected: (s) => `El servidor rechazó la firma (error ${s}). La petición pudo caducar: genera una nueva desde kj.`,
       signFail: "No se pudo firmar. Recarga la página e inténtalo otra vez.", noCrypto: "Este navegador no soporta la criptografía que necesita la firma. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día).",
       noEd25519: "Este navegador no soporta claves Ed25519. Abre esta página en un navegador actual (Chrome, Firefox o Safari al día).", badLink: "El enlace no es válido. Genera uno nuevo desde el ordenador con kj.",
     },
@@ -91,7 +91,7 @@
       sign: "Sign the seal", doneTitle: "Signed.", doneBody: "Go back to the computer.", errorTitle: "Cannot continue",
       offline: "No connection. Check the network and reload the page.", gone: "This signing request does not exist or has expired. Make a new one from the computer with kj.",
       readFail: (s) => `The request could not be read (error ${s}). Reload the page; if it persists, make another one from kj.`, notPending: "This request is already signed or no longer accepts a signature. If you need to sign, make a new one from kj.",
-      noExpiry: "The request carries no readable validity. Make a new one from kj.", rejected: (s) => `The server refused the signature (error ${s}). The request may have expired: make a new one from kj.`,
+      noExpiry: "The request carries no readable validity. Make a new one from kj.", expired: "This request has expired and kj no longer waits for it. Run it again on the computer and sign the new one.", rejected: (s) => `The server refused the signature (error ${s}). The request may have expired: make a new one from kj.`,
       signFail: "Could not sign. Reload the page and try again.", noCrypto: "This browser lacks the cryptography the signature needs. Open this page in a current browser (Chrome, Firefox or Safari, up to date).",
       noEd25519: "This browser does not support Ed25519 keys. Open this page in a current browser (Chrome, Firefox or Safari, up to date).", badLink: "The link is not valid. Make a new one from the computer with kj.",
     },
@@ -148,6 +148,8 @@
     };
   });
   const sha256hex = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", enc(s))).toHex();
+  // kj polls every 2 s: a signature in the last seconds could land after its last look.
+  const SIGN_MARGIN_MS = 5000;
   const signMode = async (cid, keys) => {
     let res;
     try { res = await fetch(`${BASE}/${cid}?key=${API_KEY}`); } catch { return fail(TEXT.offline); }
@@ -179,6 +181,8 @@
     for (const it of files) $("files").append(renderFile(it, changes.find((c) => c.file === it.file) ?? null));
     show("approve");
     $("sign-btn").onclick = async () => {
+      // KJC-BUG-0432: past its expiry kj has stopped waiting; saying "signed" would be false.
+      if (v2 && Date.now() >= expiresMs - SIGN_MARGIN_MS) return fail(TEXT.expired);
       $("sign-btn").disabled = true;
       try {
         const filesHash = await sha256hex(JSON.stringify(files));
