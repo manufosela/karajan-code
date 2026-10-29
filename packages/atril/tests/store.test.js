@@ -54,6 +54,20 @@ describe("install", () => {
     expect(() => install(other, o())).toThrow(/command:review already exists .* different content/);
     expect(readFileSync(at("commands", "review.md"), "utf8")).toMatch(/\nbody\n/);
   });
+  it("replace swaps different content in; a failed copy keeps the old one", () => {
+    install(artifact("src/review.md", "command", "review"), o());
+    const other = artifact("other/review.md", "command", "review", "changed");
+    expect(install(other, { ...o(), replace: true })).toMatchObject({ status: "installed", path: at("commands", "review.md") });
+    expect(readFileSync(at("commands", "review.md"), "utf8")).toMatch(/\nchanged\n/);
+    install(dirname(artifact("old/review/SKILL.md", "skill", "review")), o());
+    const next = dirname(artifact("next/review/SKILL.md", "skill", "review", "new"));
+    const unreadable = write("next/review/x.md", "x");
+    chmodSync(unreadable, 0o000);
+    expect(() => install(next, { ...o(), replace: true })).toThrow();
+    chmodSync(unreadable, 0o644);
+    expect(readFileSync(at("skills", "review", "SKILL.md"), "utf8")).toMatch(/\nbody\n/);
+    expect(readdirSync(at("skills"))).toEqual(["review"]);
+  });
   it("compares every file of a skill folder", () => {
     const src = dirname(artifact("src/tdd/SKILL.md", "skill", "tdd"));
     install(src, o());

@@ -14,7 +14,7 @@ import { defaultGit, fetchInto, SAFE } from "./fetch.js";
 const COMMIT = /^[0-9a-f]{40}$/;
 
 // The diff between two cached folders; exit 1 only means they differ. No external diff tool runs.
-function diffOf(cwd, from, to) {
+export function diffOf(cwd, from, to) {
   const res = spawnSync("git", ["diff", "--no-index", "--no-color", "--no-ext-diff", "--", from, to], { cwd, encoding: "utf8" });
   if (res.status !== 0 && res.status !== 1) throw new Error(`git diff failed (${res.stderr.trim()})`);
   return res.stdout;

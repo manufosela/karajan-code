@@ -16,7 +16,7 @@ const KEY = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
 const lockPath = ({ root, projectDir = process.cwd(), env = process.env } = {}) =>
   join(resolve(projectDir, resolveRoot({ root, env })), LOCK_FILE);
 /** A command or agent: the parsed hash (ignores the `atril:` block). A skill: that hash plus every other file of the folder. */
-export function contentHash(path, kind) {
+export function contentHash(path, kind, parseOpts) {
   if (kind !== "skill") return parseArtifact(path).hash;
   const entries = readdirSync(path, { recursive: true, withFileTypes: true });
   const link = entries.find((e) => e.isSymbolicLink());
@@ -27,7 +27,7 @@ export function contentHash(path, kind) {
     .filter((rel) => rel !== "SKILL.md")
     .toSorted()
     .map((rel) => `${rel}\n${hashContent(readFileSync(join(path, rel)))}`);
-  return hashContent([parseArtifact(join(path, "SKILL.md")).hash, ...parts].join("\n"));
+  return hashContent([parseArtifact(join(path, "SKILL.md"), parseOpts).hash, ...parts].join("\n"));
 }
 function validate(lock, path) {
   const fail = (why) => { throw new Error(`${path}: ${why}`); };
