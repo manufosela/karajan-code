@@ -128,68 +128,95 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
   // KJC-TSK-0883: --library abre la base del canon, no la del proyecto.
   const db = flags.library ? openLibraryStore({ dim: config?.rag?.embedder?.dim || 768 }) : openDb(config);
   try {
+    const projectDir = config?.projectDir || process.cwd();
     const topK = Math.max(1, Number(flags.topK) || 5);
     const scope = flags.scope || "all";
-    // KJC-TSK-0438 — project isolation. Auto-detect slug from projectDir
-    // (basename normalised); `--project all` disables the filter, `--project
-    // <slug>` overrides. Pre-v2.27 chunks with NULL slug are only visible
-    // when no filter is in effect.
-    const detected = projectSlug(config?.projectDir || process.cwd());
     // KJC-TSK-0697 — `--library` targets the distilled-canon collection:
     // its own project namespace plus the kind filter.
     const library = Boolean(flags.library);
-    let project = flags.project === "all" ? null : (flags.project || detected || null);
-    if (library) project = LIBRARY_PROJECT;
-    // KJC-BUG-0061 follow-up: align the CLI `--json` shape with the MCP
-    // handler. The MCP tool responds `{ hits: [], empty: true, topK, scope }`
-    // so agents (and the `/kj-rag-query` skill from Camino B) have a
-    // deterministic recovery signal. The CLI was emitting just `[]`, which
-    // is indistinguishable from "query returned zero hits over a populated
-    // store" and forced consumers to parse stderr.
-    // KJC-TSK-0882: cuenta lo de ESTE proyecto; chunks ajenos no son respuesta.
-    if (countChunks(db) === 0 || (project && countProjectChunks(db, project) === 0)) {
-      // La library se rellena en cada `kj rag index`; migrar la llevaria al proyecto.
-      const remedy = library ? "kj rag index" : emptyIndexRemedy({ slug: project, legacyPath: join(getKarajanHome(), "rag.db"), dim: config?.rag?.embedder?.dim || 768 });
-      logger.warn(`[rag] ${library ? "the library index" : "this project's index"} holds no chunks of ${project || "any project"}: this is not an answer, run ${remedy}`);
-      if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope, remedy })}\n`);
-      return [];
-    }
+    const project = library ? LIBRARY_PROJECT : queryProject(flags, projectDir);
+    if (reportEmptyIndex({ db, project, library, config, flags, topK, scope, logger })) return [];
     // KJC-BUG-0258: chunks of plans and briefs but none of the project's own files
     // answer nothing about the code; said now, not when kj review --staged blocks.
-    if (!library && project && countProjectSources(db, project, config?.projectDir || process.cwd()) === 0) {
+    if (!library && project && countProjectSources(db, project, projectDir) === 0) {
       logger.warn("[rag] this project's index holds none of its own files (only plans or briefs): run kj rag index --with-sources");
     }
-    const mode = flags.mode || "hybrid";
-    // KJC-TSK-1180 (RAG-C, core 1.6.0): hybrid fusion is reciprocal rank; `alpha` weighs nothing
-    // any more, so a value that is still around is said once, never silently ignored.
-    if ((flags.alpha !== undefined && flags.alpha !== "0.6") || config?.rag?.search?.alpha !== undefined) {
-      logger.warn("[rag] alpha no longer applies: hybrid fusion is reciprocal rank (RRF); tune rag.search.rrf_k instead and drop alpha from the config");
-    }
-    const rrfK = config?.rag?.search?.rrf_k;
-    if (rrfK !== undefined && !(Number.isInteger(rrfK) && rrfK > 0)) throw new Error(`rag.search.rrf_k must be a positive integer, got ${JSON.stringify(rrfK)}`);
+    const { mode, rrfK } = searchSettings({ config, flags, logger });
     // KJC-TSK-1180 (RAG-B3): a relative `source~=` prefix is placed under this project's root.
-    const whereRoot = config?.projectDir || process.cwd();
-    // Safe by grammar: parseWhere (core where-parser.js) accepts ONLY
-    // AND-joined key=value pairs — an OR or parens never parses, so the
-    // composed clause cannot leak past the kind filter; it fails loudly.
-    let where = flags.where || null;
-    if (library) where = flags.where ? `kind=library AND ${flags.where}` : "kind=library";
+    const where = whereFor(flags, library);
     const rerankOpts = rerankOptionsFor({ config, flags, logger });
-    const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, rrfK, where, whereRoot, rerankOpts });
-    const hits = library ? ranked : withPathNamedHits(pathNamedHits(db, text, { project, projectDir: config?.projectDir || process.cwd() }), ranked, topK);
-    if (flags.json) {
-      process.stdout.write(`${JSON.stringify(hits)}\n`);
-    } else {
-      for (const h of hits) {
-        const label = h.metadata?.hu_id || h.metadata?.symbol || h.metadata?.headingPath?.join(" > ") || "block";
-        logger.info(`[${h.kind} · ${label} · score=${h.score.toFixed(4)}] ${h.source}`);
-        logger.info(h.text.length > 240 ? `${h.text.slice(0, 240)}…` : h.text);
-        logger.info("");
-      }
-    }
+    const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, rrfK, where, whereRoot: projectDir, rerankOpts });
+    const hits = library ? ranked : withPathNamedHits(pathNamedHits(db, text, { project, projectDir }), ranked, topK);
+    printHits(hits, flags, logger);
     return hits;
   } finally {
     db.close();
+  }
+}
+
+/**
+ * KJC-TSK-0438 — project isolation. Auto-detect slug from projectDir
+ * (basename normalised); `--project all` disables the filter, `--project
+ * <slug>` overrides. Pre-v2.27 chunks with NULL slug are only visible
+ * when no filter is in effect.
+ */
+function queryProject(flags, projectDir) {
+  if (flags.project === "all") return null;
+  return flags.project || projectSlug(projectDir) || null;
+}
+
+/**
+ * KJC-BUG-0061 follow-up: align the CLI `--json` shape with the MCP
+ * handler. The MCP tool responds `{ hits: [], empty: true, topK, scope }`
+ * so agents (and the `/kj-rag-query` skill from Camino B) have a
+ * deterministic recovery signal. The CLI was emitting just `[]`, which
+ * is indistinguishable from "query returned zero hits over a populated
+ * store" and forced consumers to parse stderr.
+ * KJC-TSK-0882: cuenta lo de ESTE proyecto; chunks ajenos no son respuesta.
+ * @returns {boolean} true when the index has nothing to answer with (and it was said)
+ */
+function reportEmptyIndex({ db, project, library, config, flags, topK, scope, logger }) {
+  if (countChunks(db) > 0 && !(project && countProjectChunks(db, project) === 0)) return false;
+  // La library se rellena en cada `kj rag index`; migrar la llevaria al proyecto.
+  const remedy = library ? "kj rag index" : emptyIndexRemedy({ slug: project, legacyPath: join(getKarajanHome(), "rag.db"), dim: config?.rag?.embedder?.dim || 768 });
+  logger.warn(`[rag] ${library ? "the library index" : "this project's index"} holds no chunks of ${project || "any project"}: this is not an answer, run ${remedy}`);
+  if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope, remedy })}\n`);
+  return true;
+}
+
+/**
+ * KJC-TSK-1180 (RAG-C, core 1.6.0): hybrid fusion is reciprocal rank; `alpha` weighs nothing
+ * any more, so a value that is still around is said once, never silently ignored.
+ */
+function searchSettings({ config, flags, logger }) {
+  if ((flags.alpha !== undefined && flags.alpha !== "0.6") || config?.rag?.search?.alpha !== undefined) {
+    logger.warn("[rag] alpha no longer applies: hybrid fusion is reciprocal rank (RRF); tune rag.search.rrf_k instead and drop alpha from the config");
+  }
+  const rrfK = config?.rag?.search?.rrf_k;
+  if (rrfK !== undefined && !(Number.isInteger(rrfK) && rrfK > 0)) throw new Error(`rag.search.rrf_k must be a positive integer, got ${JSON.stringify(rrfK)}`);
+  return { mode: flags.mode || "hybrid", rrfK };
+}
+
+/**
+ * Safe by grammar: parseWhere (core where-parser.js) accepts ONLY
+ * AND-joined key=value pairs — an OR or parens never parses, so the
+ * composed clause cannot leak past the kind filter; it fails loudly.
+ */
+function whereFor(flags, library) {
+  if (!library) return flags.where || null;
+  return flags.where ? `kind=library AND ${flags.where}` : "kind=library";
+}
+
+function printHits(hits, flags, logger) {
+  if (flags.json) {
+    process.stdout.write(`${JSON.stringify(hits)}\n`);
+    return;
+  }
+  for (const h of hits) {
+    const label = h.metadata?.hu_id || h.metadata?.symbol || h.metadata?.headingPath?.join(" > ") || "block";
+    logger.info(`[${h.kind} · ${label} · score=${h.score.toFixed(4)}] ${h.source}`);
+    logger.info(h.text.length > 240 ? `${h.text.slice(0, 240)}…` : h.text);
+    logger.info("");
   }
 }
 
