@@ -329,6 +329,137 @@ async function testsWithCodeGate({ config, projectDir, range, changedFiles }) {
   return rejected("tests-with-code", [{ severity: "high", description: tests.reason }]);
 }
 
+const atFile = (v) => (v.file ? ` (${v.file})` : "");
+
+/**
+ * KJC-TSK-0734 (PL-B): la policy declarativa como gate determinista, en
+ * --staged Y en --check — el pre-commit hereda los dientes sin regenerar
+ * hooks. enforcement=warn avisa; deny cierra sin excepción por diff (ADR
+ * 0015); class=security cierra además sin arbitraje.
+ * @returns {Promise<{rejection: object|null, gate: object, seal: Function}>} `seal` records the chokepoint's decisions
+ */
+async function policyGate({ projectDir, diff, pol, changedFiles, std, range, check }) {
+  // KJC-BUG-0208: el mismo modulo que decide el presupuesto decide el metrico
+  // del invariante. Sumar aqui el numstat entero daba dos cifras para la misma
+  // regla en dos lineas seguidas del mismo comando.
+  const { net } = budgetedNet(await rawDiff(range, ["--numstat"]));
+  const gate = evaluatePolicyGate({
+    policy: pol.policy, errors: pol.errors, files: changedFiles, netLinesAdded: net,
+    diffHashValue: diffHash(diff),
+    recordException: (entry) => recordPolicyException({ projectDir, entry }),
+    standingExceptions: std.standing,
+  });
+  // ADR 0009 (KJC-BUG-0161): la exención ESTRUCTURAL del supervisor — un
+  // diff de .karajan/hooks respaldado por la provenance sellada Y el render
+  // canónico no es una edición: es la regeneración de kj harden --commit.
+  const lifted = liftSealedSupervisorViolations({ projectDir, violations: gate.denials });
+  if (lifted.lifted > 0) {
+    console.log(`✓ policy: ${lifted.lifted} fichero(s) de supervisor verificados contra la provenance sellada (ADR 0009) — regeneración, no edición`);
+    gate.denials = lifted.violations;
+    gate.ok = gate.denials.length === 0 && !gate.invalid;
+  }
+  for (const w of gate.warns) console.log(`⚠ policy [${w.rule_id}] ${w.reason}${atFile(w)}`);
+  for (const e of gate.exempted) console.log(formatExempted(e));
+  // GOV-C (KJC-TSK-0747): las decisiones de chokepoint dejan rastro
+  // hash-encadenado — cada deny, cada excepción, y el allow del commit.
+  const chokepoint = check ? "commit" : "review";
+  const seal = (decision, extra = {}) =>
+    recordGateDecision(projectDir, { decision, chokepoint, policy_hash: policyFileHash(projectDir), artifact_hash: diffHash(diff), ...extra });
+  if (gate.exempted.length > 0) seal("exempt", { rule_ids: gate.exempted.map((e) => e.rule_id) });
+  if (gate.ok) return { rejection: null, gate, seal };
+  for (const d of gate.denials) {
+    const sec = d.class === "security" ? " [security — sin escape ni arbitraje]" : "";
+    console.log(`✗ policy [${d.rule_id}]${sec} ${d.reason}${atFile(d)}`);
+  }
+  seal("deny", { rule_ids: gate.denials.map((d) => d.rule_id) });
+  const reason = gate.invalid
+    ? "policy.yml inválida — una regla que miente es peor que ninguna: corrígela"
+    : `${gate.denials.length} violación(es) de policy con enforcement=deny — el diff no entra`;
+  console.log(`✗ policy gate: ${reason}`);
+  const rejection = rejected("policy", gate.denials.map((d) => ({ severity: "high", file: d.file, description: `[${d.rule_id}] ${d.reason}` })));
+  return { rejection, gate, seal };
+}
+
+/**
+ * KJC-BUG-0132 (issue #1344): a PURE merge commit stages no content of
+ * its own — everything it brings reached the parent branches already
+ * reviewed, and there is no diff to bind a verdict to, so demanding one
+ * deadlocks the merge. A merge WITH conflict resolutions stages real
+ * content and still requires its verdict.
+ */
+async function isPureMerge({ projectDir, diff, range }) {
+  if (range || diff.trim()) return false;
+  const gitDirRaw = (await runCommand("git", ["rev-parse", "--git-dir"])).stdout?.trim();
+  const gitDir = gitDirRaw && !isAbsolute(gitDirRaw) ? join(projectDir, gitDirRaw) : gitDirRaw;
+  return Boolean(gitDir && existsSync(join(gitDir, "MERGE_HEAD")));
+}
+
+/**
+ * KJC-TSK-0838: a reviewed diff with code enters only if the verdict's
+ * sonar block proves the analysis ran and covered every staged source.
+ * The headless pipeline stamps its verdict after its own sonar stage and
+ * carries no block yet (step 3 of the card) — said, never assumed silent.
+ */
+function withSonarProof(res, { config, liveFiles, std }) {
+  if (res.verdict.host === "kj-pipeline") {
+    // The pipeline scans the whole project (no per-file proof yet), so its
+    // stamp must at least show the stage RAN; no block or a skipped stage
+    // is refused like any other unanalysed code.
+    const stage = res.verdict.sonar;
+    if (stage?.ran) return res;
+    const why = stage ? `the pipeline's sonar stage did not run: ${stage.reason || "unknown reason"}` : "the pipeline verdict carries no sonar block";
+    return { ok: false, verdict: res.verdict, reason: `Sonar is mandatory for code — ${why}` };
+  }
+  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: res.verdict.sonar, standingExceptions: std.standing });
+  if (!req.ok) return { ok: false, verdict: res.verdict, reason: req.reason };
+  if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
+  return res;
+}
+
+/**
+ * KJC-TSK-0849 (ADR 0010, RAG-C): the verdict's rag block is the evidence
+ * that the session consulted the RAG about every staged source. The one
+ * place the rule cannot be verified is a pipeline verdict: the headless
+ * pipeline keeps no session ledger yet. It WARNS and the allow seals the
+ * warn under the rule id, so the exception is auditable (kj policy report)
+ * and gains teeth with data — never accepted in silence.
+ */
+function withRagProof(res, { config, liveFiles, std, projectDir, warnIds }) {
+  if (res.verdict.host === "kj-pipeline") {
+    console.log(`⚠ rag [${RAG_RULE_ID}]: the pipeline verdict carries no session ledger — the headless pipeline does not consult the RAG yet; sealed as a warn`);
+    if (!warnIds.includes(RAG_RULE_ID)) warnIds.push(RAG_RULE_ID);
+    return res;
+  }
+  const { harness, verified, mismatched, drift } = readRagLedger(projectDir);
+  const rreq = checkRagVerdict({ config, stagedFiles: liveFiles, rag: res.verdict.rag, harness, verified, mismatched, drift, standingExceptions: std.standing });
+  if (!rreq.ok) return { ok: false, verdict: res.verdict, reason: rreq.reason };
+  if (rreq.mode === "granted" && rreq.grant) console.log(formatRagGrant(rreq.grant));
+  return res;
+}
+
+/** --check (the pre-commit): the staged diff enters only with an approved verdict that carries its proofs. */
+async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate, seal }) {
+  if (await isPureMerge({ projectDir, diff, range })) {
+    console.log("✓ pure merge commit — empty staged diff, parents already reviewed; gate passes with trail");
+    process.exitCode = 0;
+    return { ok: true, merge: true, reason: "pure merge commit (MERGE_HEAD, empty staged diff)" };
+  }
+  let res = await checkVerdict(projectDir, diff);
+  if (res.note) console.log(`ℹ ${res.note}`);
+  if (res.ok) res = withSonarProof(res, { config, liveFiles, std });
+  const warnIds = gate.warns.map((w) => w.rule_id);
+  if (res.ok) res = withRagProof(res, { config, liveFiles, std, projectDir, warnIds });
+  console.log(res.ok
+    ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
+    : `✗ ${res.reason}`);
+  // GOV-C: el allow del chokepoint de COMMIT es evidencia — se sella. PL-E
+  // (KJC-TSK-0767): con las reglas que AVISARON, para que "nace avisando y
+  // gana dientes" se decida con datos (kj policy report), no a ciegas.
+  if (res.ok) seal("allow", warnIds.length > 0 ? { warn_rule_ids: warnIds } : {});
+  process.exitCode = res.ok ? 0 : 1;
+  return res;
+}
+
 export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   if (flags.installGate) return installGateAction(projectDir);
@@ -366,119 +497,13 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     ?? await testsWithCodeGate({ config, projectDir, range: flags.range, changedFiles });
   if (preRejection) return preRejection;
 
-  // KJC-TSK-0734 (PL-B): la policy declarativa como gate determinista, en
-  // --staged Y en --check — el pre-commit hereda los dientes sin regenerar
-  // hooks. enforcement=warn avisa; deny cierra sin excepción por diff (ADR
-  // 0015); class=security cierra además sin arbitraje.
-  // KJC-BUG-0208: el mismo modulo que decide el presupuesto decide el metrico
-  // del invariante. Sumar aqui el numstat entero daba dos cifras para la misma
-  // regla en dos lineas seguidas del mismo comando.
-  const { net } = budgetedNet(await rawDiff(flags.range, ["--numstat"]));
   // GOV-B (KJC-TSK-0746): las permanentes concedidas (kj policy grant)
   // eximen su regla mientras viven; el descarte de líneas corruptas se dice.
   const std = loadStandingExceptions(projectDir);
   if (std.discarded > 0) console.log(`⚠ policy: ${std.discarded} línea(s) corruptas descartadas en policy-exceptions.jsonl — revísalo`);
-  const gate = evaluatePolicyGate({
-    policy: pol.policy, errors: pol.errors, files: changedFiles, netLinesAdded: net,
-    diffHashValue: diffHash(diff),
-    recordException: (entry) => recordPolicyException({ projectDir, entry }),
-    standingExceptions: std.standing,
-  });
-  // ADR 0009 (KJC-BUG-0161): la exención ESTRUCTURAL del supervisor — un
-  // diff de .karajan/hooks respaldado por la provenance sellada Y el render
-  // canónico no es una edición: es la regeneración de kj harden --commit.
-  {
-    const res = liftSealedSupervisorViolations({ projectDir, violations: gate.denials });
-    if (res.lifted > 0) {
-      console.log(`✓ policy: ${res.lifted} fichero(s) de supervisor verificados contra la provenance sellada (ADR 0009) — regeneración, no edición`);
-      gate.denials = res.violations;
-      gate.ok = gate.denials.length === 0 && !gate.invalid;
-    }
-  }
-  const at = (v) => (v.file ? ` (${v.file})` : "");
-  for (const w of gate.warns) console.log(`⚠ policy [${w.rule_id}] ${w.reason}${at(w)}`);
-  for (const e of gate.exempted) console.log(formatExempted(e));
-  // GOV-C (KJC-TSK-0747): las decisiones de chokepoint dejan rastro
-  // hash-encadenado — cada deny, cada excepción, y el allow del commit.
-  const chokepoint = flags.check ? "commit" : "review";
-  const seal = (decision, extra = {}) =>
-    recordGateDecision(projectDir, { decision, chokepoint, policy_hash: policyFileHash(projectDir), artifact_hash: diffHash(diff), ...extra });
-  if (gate.exempted.length > 0) seal("exempt", { rule_ids: gate.exempted.map((e) => e.rule_id) });
-  if (!gate.ok) {
-    for (const d of gate.denials) {
-      const sec = d.class === "security" ? " [security — sin escape ni arbitraje]" : "";
-      console.log(`✗ policy [${d.rule_id}]${sec} ${d.reason}${at(d)}`);
-    }
-    seal("deny", { rule_ids: gate.denials.map((d) => d.rule_id) });
-    const reason = gate.invalid
-      ? "policy.yml inválida — una regla que miente es peor que ninguna: corrígela"
-      : `${gate.denials.length} violación(es) de policy con enforcement=deny — el diff no entra`;
-    console.log(`✗ policy gate: ${reason}`);
-    process.exitCode = 1;
-    return { verdict: "rejected", reviewer: "policy", issues: gate.denials.map((d) => ({ severity: "high", file: d.file, description: `[${d.rule_id}] ${d.reason}` })) };
-  }
-
-  if (flags.check) {
-    // KJC-BUG-0132 (issue #1344): a PURE merge commit stages no content of
-    // its own — everything it brings reached the parent branches already
-    // reviewed, and there is no diff to bind a verdict to, so demanding one
-    // deadlocks the merge. A merge WITH conflict resolutions stages real
-    // content and still requires its verdict below.
-    if (!flags.range && !diff.trim()) {
-      const gitDirRaw = (await runCommand("git", ["rev-parse", "--git-dir"])).stdout?.trim();
-      const gitDir = gitDirRaw && !isAbsolute(gitDirRaw) ? join(projectDir, gitDirRaw) : gitDirRaw;
-      if (gitDir && existsSync(join(gitDir, "MERGE_HEAD"))) {
-        console.log("✓ pure merge commit — empty staged diff, parents already reviewed; gate passes with trail");
-        process.exitCode = 0;
-        return { ok: true, merge: true, reason: "pure merge commit (MERGE_HEAD, empty staged diff)" };
-      }
-    }
-    let res = await checkVerdict(projectDir, diff);
-    if (res.note) console.log(`ℹ ${res.note}`);
-    // KJC-TSK-0838: a reviewed diff with code enters only if the verdict's
-    // sonar block proves the analysis ran and covered every staged source.
-    // The headless pipeline stamps its verdict after its own sonar stage and
-    // carries no block yet (step 3 of the card) — said, never assumed silent.
-    if (res.ok && res.verdict.host === "kj-pipeline") {
-      // The pipeline scans the whole project (no per-file proof yet), so its
-      // stamp must at least show the stage RAN; no block or a skipped stage
-      // is refused like any other unanalysed code.
-      const stage = res.verdict.sonar;
-      if (!stage?.ran) {
-        const why = stage ? `the pipeline's sonar stage did not run: ${stage.reason || "unknown reason"}` : "the pipeline verdict carries no sonar block";
-        res = { ok: false, verdict: res.verdict, reason: `Sonar is mandatory for code — ${why}` };
-      }
-    } else if (res.ok) {
-      const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: res.verdict.sonar, standingExceptions: std.standing });
-      if (!req.ok) res = { ok: false, verdict: res.verdict, reason: req.reason };
-      else if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
-    }
-    // KJC-TSK-0849 (ADR 0010, RAG-C): the verdict's rag block is the evidence
-    // that the session consulted the RAG about every staged source. The one
-    // place the rule cannot be verified is a pipeline verdict: the headless
-    // pipeline keeps no session ledger yet. It WARNS and the allow seals the
-    // warn under the rule id, so the exception is auditable (kj policy report)
-    // and gains teeth with data — never accepted in silence.
-    const warnIds = gate.warns.map((w) => w.rule_id);
-    if (res.ok && res.verdict.host === "kj-pipeline") {
-      console.log(`⚠ rag [${RAG_RULE_ID}]: the pipeline verdict carries no session ledger — the headless pipeline does not consult the RAG yet; sealed as a warn`);
-      if (!warnIds.includes(RAG_RULE_ID)) warnIds.push(RAG_RULE_ID);
-    } else if (res.ok) {
-      const { harness, verified, mismatched, drift } = readRagLedger(projectDir);
-      const rreq = checkRagVerdict({ config, stagedFiles: liveFiles, rag: res.verdict.rag, harness, verified, mismatched, drift, standingExceptions: std.standing });
-      if (!rreq.ok) res = { ok: false, verdict: res.verdict, reason: rreq.reason };
-      else if (rreq.mode === "granted" && rreq.grant) console.log(formatRagGrant(rreq.grant));
-    }
-    console.log(res.ok
-      ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
-      : `✗ ${res.reason}`);
-    // GOV-C: el allow del chokepoint de COMMIT es evidencia — se sella. PL-E
-    // (KJC-TSK-0767): con las reglas que AVISARON, para que "nace avisando y
-    // gana dientes" se decida con datos (kj policy report), no a ciegas.
-    if (res.ok) seal("allow", warnIds.length > 0 ? { warn_rule_ids: warnIds } : {});
-    process.exitCode = res.ok ? 0 : 1;
-    return res;
-  }
+  const { rejection: policyRejection, gate, seal } = await policyGate({ projectDir, diff, pol, changedFiles, std, range: flags.range, check: flags.check });
+  if (policyRejection) return policyRejection;
+  if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal });
 
   // KJC-TSK-0676: deterministic pre-gate — sonar findings on the changed
   // files come back BEFORE any AI opinion. Blocking severities reject
