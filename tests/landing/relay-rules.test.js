@@ -23,7 +23,8 @@ it("the create rule admits every field of a full v2 request, informative ones in
     project: "p", files: [{ file: ".karajan/hooks/pre-commit", sha256: "ab".repeat(32) }], kjVersion: "9.9.9", branch: "main", origin: "harden --commit (kj 9.9.9)",
     changes: [{ file: ".karajan/hooks/pre-commit", status: "new", added: 1, removed: 0, summary: "s", diff: "+x", truncated: false }],
     why: "Qué se va a hacer: …", logger: { info() {} },
-    deps: { fetch: fetchFn, now: () => (t += 70_000), sleep: async () => {}, qr: () => {}, spinner: { tick() {}, stop() {} } },
+    // Each clock read jumps past kj's wait (150 s, KJC-BUG-0432), so the request expires before any poll.
+    deps: { fetch: fetchFn, now: () => (t += 160_000), sleep: async () => {}, qr: () => {}, spinner: { tick() {}, stop() {} } },
   });
   expect(res).toMatchObject({ ok: false, reason: "caducado" });
   const sent = Object.keys(body.fields);
