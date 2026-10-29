@@ -96,8 +96,9 @@ function identityGuard(hook) {
     '  if [ -n "$kj_declared_email" ]; then',
     '    printf "%s\\n" "$kj_push_refs" | while read -r kj_lref kj_lsha kj_rref kj_rsha; do',
     '      case "$kj_lsha" in *[!0]*) ;; *) continue ;; esac',
-    // A new ref: what the PUSH TARGET ($1, the remote git hands the hook) does not have yet.
-    '      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_rsha..$kj_lsha") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac',
+    // What the PUSH TARGET ($1, the remote git hands the hook) does not have yet. KJC-BUG-0436:
+    // an existing ref too, or merging main into a pushed branch judges main's own merges.
+    '      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_lsha" --not "$kj_rsha" --remotes="${1:-origin}") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac',
     "      for kj_c in $kj_new; do",
     '        kj_who=$(git log -1 --format="%ae %ce" "$kj_c")',
     '        if [ "$kj_who" != "$kj_declared_email $kj_declared_email" ]; then',
