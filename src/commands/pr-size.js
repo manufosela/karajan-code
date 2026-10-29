@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { budgetedAdded } from "../review/loc-budget.js";
+import { budgetedAdded, budgetedNet } from "../review/loc-budget.js";
 
 const git = (projectDir, args) =>
   execFileSync("git", ["-C", projectDir, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -40,12 +40,13 @@ export async function branchSize({ projectDir = process.cwd(), base = "main", ex
     const n = text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
     numstat += `${n}\t0\t${file}\n`;
   }
-  return { ...budgetedAdded(numstat), base };
+  // KJC-BUG-0434: `net` is what the CI gate and the policy measure; `added` stays for its readers.
+  return { ...budgetedAdded(numstat), net: budgetedNet(numstat).net, base };
 }
 
 export async function prSizeCommand({ config, logger = console, flags = {} }) {
   const s = await branchSize({ projectDir: config?.projectDir || process.cwd(), base: config?.base_branch || "main" });
   if (flags.json) process.stdout.write(`${JSON.stringify(s)}\n`);
-  else logger.info(`pr-size: ${s.added} line(s) added against ${s.base} (${s.testAdded} in tests, ${s.exempt} exempt)`);
+  else logger.info(`pr-size: ${s.net} net line(s) against ${s.base}, as the CI gate counts them (${s.added} added, ${s.testAdded} in tests, ${s.exempt} exempt)`);
   return s;
 }

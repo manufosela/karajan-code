@@ -91,6 +91,22 @@ describe("pr-size policy", () => {
     expect(said).not.toMatch(/ask your user/);
   });
 
+  // KJC-BUG-0434: the CI gate and the policy count NET lines; a pure refactor that rewrites
+  // 250 lines in place adds 250 and removes 250, and must not be told to partition.
+  it("a refactor that rewrites lines in place is measured net, as in CI", async () => {
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args]);
+    fs.writeFileSync(path.join(dir, "a.js"), Array.from({ length: 300 }, (_, i) => `old ${i}`).join("\n"));
+    git("add", "-A"); git("commit", "-qm", "before the refactor");
+    fs.writeFileSync(path.join(dir, "a.js"), Array.from({ length: 300 }, (_, i) => (i < 250 ? `new ${i}` : `old ${i}`)).join("\n"));
+    git("add", "a.js");
+    const logs = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
+    const r = await reviewGateCommand({ config: cfg("block"), flags: { staged: true } });
+    spy.mockRestore();
+    expect(r.verdict).toBe("approved");
+    expect(logs.join("\n")).not.toMatch(/over the 200-line limit/);
+  });
+
   it("default policy stays warn — review proceeds", async () => {
     const r = await reviewGateCommand({ config: cfg(undefined), flags: { staged: true } });
     expect(r.verdict).toBe("approved");

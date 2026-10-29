@@ -50,6 +50,14 @@ describe("branchSize", () => {
     expect((await branchSize({ projectDir: dir, base: "main" })).added).toBe(0);
   });
 
+  // KJC-BUG-0434: the CI gate counts net lines; `added` stays for the readers that use it.
+  it("reports the net lines too, as the CI gate counts them", async () => {
+    writeFileSync(join(dir, "a.js"), lines(5).replaceAll("const", "let")); // 5 rewritten in place
+    writeFileSync(join(dir, "b.js"), lines(2)); // 2 new
+    const s = await branchSize({ projectDir: dir, base: "main" });
+    expect(s).toMatchObject({ added: 7, net: 2 });
+  });
+
   it("human docs are exempt, as in the CI gate", async () => {
     writeFileSync(join(dir, "README.md"), lines(50));
     const s = await branchSize({ projectDir: dir, base: "main" });

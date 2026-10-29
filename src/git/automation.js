@@ -348,10 +348,11 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     } catch (err) {
       logger.warn(`pr-size: the branch could not be measured (${err.message}); the budget is not checked for this commit`);
     }
-    if (size && size.added > limit) {
-      logger.warn(`pr-size: ${size.added} line(s) added against ${gitCtx.baseBranch}, over the budget of ${limit}: nothing committed. Split the step (several commits, several HUs); the changes stay in the tree`);
-      await addCheckpoint(session, { stage: "git-commit", committed: false, skipped: "over-budget", added: size.added, limit });
-      return { committed: false, branch: gitCtx.branch, prUrl: null, pr: null, commits: [], overBudget: { added: size.added, limit } };
+    // KJC-BUG-0434: net, as the CI gate counts it.
+    if (size && size.net > limit) {
+      logger.warn(`pr-size: ${size.net} net line(s) against ${gitCtx.baseBranch}, over the budget of ${limit}: nothing committed. Split the step (several commits, several HUs); the changes stay in the tree`);
+      await addCheckpoint(session, { stage: "git-commit", committed: false, skipped: "over-budget", added: size.added, net: size.net, limit });
+      return { committed: false, branch: gitCtx.branch, prUrl: null, pr: null, commits: [], overBudget: { added: size.added, net: size.net, limit } };
     }
     // ENV-F1: this path only runs after the pipeline's reviewer approved,
     // so stamp that verdict for the staged diff — the v4 pre-commit gate
