@@ -33,6 +33,15 @@ describe("extractUsageMetrics", () => {
     expect(metrics.estimated).toBe(false);
   });
 
+  // KJC-TSK-1257: the lookup tables read like the ?? chains they replaced.
+  it("reads each provider's fields in order, nested ones included, and keeps a ?? chain's last null", () => {
+    const fromMetrics = extractUsageMetrics({ metrics: { prompt_tokens: 3, completion_tokens: 4, prompt_tokens_details: { cached_tokens: 2 }, model_id: "m" } });
+    expect(fromMetrics).toEqual({ tokens_in: 3, tokens_out: 4, cached_tokens: 2, cost_usd: undefined, model: "m", estimated: false });
+    expect(extractUsageMetrics({ tokens_in: 0, usage: { input_tokens: 9 } }).tokens_in).toBe(0);
+    expect(extractUsageMetrics({ tokens_in: 1, usage: { cost: null } }).cost_usd).toBeNull();
+    expect(extractUsageMetrics(null)).toEqual({ tokens_in: 0, tokens_out: 0, cached_tokens: 0, cost_usd: undefined, model: null, estimated: false });
+  });
+
   it("extracts from nested usage object", () => {
     const result = { usage: { input_tokens: 500, output_tokens: 800 } };
     const metrics = extractUsageMetrics(result, "sonnet");
