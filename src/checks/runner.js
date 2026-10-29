@@ -51,162 +51,25 @@ export async function runChecks(checks, ctx, options = {}) {
 
   const { config } = ctx;
   const startTotal = Date.now();
-  const entries = [];
+  const entries = checks.map((check) => entryFor(check, config));
   const overrides = {};
-
-  // Build applicable entries (skipped checks noted up front).
-  // A check.applies(config) may return:
-  //   - true / false — boolean form (back-compat).
-  //   - an object { applies: boolean, reason?: string } — when false, `reason`
-  //     is shown verbatim so users see WHY (e.g. "sonarqube.enabled is false
-  //     in kj.config.yml") instead of the opaque "Not applicable" message
-  //     that confused users debugging their config.
-  for (const check of checks) {
-    if (typeof check.applies !== "function") {
-      entries.push({ check, status: null, detail: null, runMs: 0, detectResult: null, remediated: false });
-      continue;
-    }
-    const verdict = check.applies(config);
-    const isObj = verdict && typeof verdict === "object" && "applies" in verdict;
-    const applies = isObj ? Boolean(verdict.applies) : Boolean(verdict);
-    if (applies) {
-      entries.push({ check, status: null, detail: null, runMs: 0, detectResult: null, remediated: false });
-      continue;
-    }
-    const reason = (isObj && typeof verdict.reason === "string" && verdict.reason.trim())
-      ? verdict.reason.trim()
-      : "Not applicable for current configuration";
-    entries.push({
-      check,
-      status: STATUS.SKIPPED,
-      detail: reason,
-      runMs: 0,
-      detectResult: null,
-      remediated: false,
-    });
-  }
 
   // Phase 1: detect in parallel with timeout.
   const detectBase = Date.now();
-  await Promise.all(
-    entries.map(async (entry) => {
-      if (entry.status === STATUS.SKIPPED) return;
-      const start = Date.now();
-      // Per-check override: checks that spawn slow tools (e.g. `npx <pkg>` cold
-      // start) declare detectTimeoutMs so the blanket pipeline timeout doesn't
-      // kill them. Falls back to the pipeline-wide timeoutMs.
-      const detectTimeoutMs = Number.isFinite(entry.check.detectTimeoutMs)
-        ? entry.check.detectTimeoutMs
-        : timeoutMs;
-      try {
-        const result = await withTimeout(entry.check.detect({ config, signal }), detectTimeoutMs, entry.check.name);
-        entry.detectResult = result;
-        entry.runMs = Date.now() - start;
-        entry.status = resolveStatusFromDetect(entry.check, result);
-        entry.detail = result.detail;
-        // KJC-BUG-0049: si el check es degradable y falló (status FAIL/WARN tras
-        // resolveStatusFromDetect), aplicar disables al overrides y degradar a WARN.
-        // Así el preflight no aborta — la feature opcional se desactiva con aviso.
-        if (!result.ok && entry.check.degradable && (entry.status === STATUS.FAIL || entry.status === STATUS.WARN)) {
-          for (const dotPath of entry.check.degradable.disables || []) {
-            setDotPath(overrides, dotPath, false);
-          }
-          entry.status = STATUS.WARN;
-          entry.detail = `${result.detail} → ${entry.check.degradable.warn}`;
-          entry.degraded = true;
-        }
-      } catch (err) {
-        entry.runMs = Date.now() - start;
-        if (err instanceof TimeoutError) {
-          entry.detectResult = { ok: false, severity: "warn", detail: `Timeout after ${detectTimeoutMs}ms` };
-          // A timeout on a degradable (optional) check must not block the
-          // pipeline: degrade to WARN and disable its feature flags, same as
-          // a regular failure (KJC-BUG-0049 semantics).
-          if (entry.check.degradable) {
-            for (const dotPath of entry.check.degradable.disables || []) {
-              setDotPath(overrides, dotPath, false);
-            }
-            entry.status = STATUS.WARN;
-            entry.detail = `${entry.detectResult.detail} → ${entry.check.degradable.warn}`;
-            entry.degraded = true;
-          } else {
-            entry.status = STATUS.TIMEOUT;
-            entry.detail = entry.detectResult.detail;
-          }
-        } else {
-          entry.detectResult = { ok: false, severity: "fail", detail: `Detection error: ${err.message}` };
-          entry.status = STATUS.FAIL;
-          entry.detail = entry.detectResult.detail;
-        }
-      }
-    })
-  );
+  await Promise.all(entries.map((entry) => detectEntry(entry, { config, signal, timeoutMs, overrides })));
   logger.info?.(`Detect phase done in ${Date.now() - detectBase}ms`);
 
-  // Phase 2: remediate sequentially (only in "fix" mode, only failing checks).
   if (mode !== "check-only") {
+    // Phase 2: remediate sequentially (only in "fix" mode, only failing checks).
     for (const entry of entries) {
-      if (!shouldAttemptRemediation(entry)) continue;
-      const { check, detectResult } = entry;
-      if (check.strategy === STRATEGY.PROMPT && !yes) {
-        const approved = await onConfirm(check.describe || `Fix: ${check.name}`);
-        if (!approved) {
-          logger.info?.(`User declined remediation for ${check.name}`);
-          continue;
-        }
-      }
-      const start = Date.now();
-      try {
-        const rem = await withTimeout(
-          check.remediate({ config, extra: detectResult.extra, signal, logger }),
-          remediateTimeoutMs,
-          `${check.name}:remediate`
-        );
-        entry.remediated = rem.fixed === true;
-        entry.runMs += Date.now() - start;
-        if (rem.fixed) {
-          if (rem.changes) mergeOverrides(overrides, rem.changes);
-          entry.detail = rem.detail;
-          entry.status = STATUS.FIXED;
-        } else {
-          entry.detail = rem.detail || entry.detail;
-          entry.status = STATUS.FAIL;
-        }
-      } catch (err) {
-        entry.runMs += Date.now() - start;
-        const msg = err instanceof TimeoutError ? `Remediation timeout after ${remediateTimeoutMs}ms` : `Remediation error: ${err.message}`;
-        entry.detail = msg;
-        entry.status = STATUS.FAIL;
-        logger.warn?.(`Remediation failed for ${check.name}: ${msg}`);
-      }
+      if (shouldAttemptRemediation(entry)) await remediateEntry(entry, { config, signal, logger, yes, onConfirm, remediateTimeoutMs, overrides });
     }
-
     // Phase 3: re-verify fixed checks using the config merged with any
     // runtime overrides applied by remediations. Without this merge, a check
     // that rebinds to a new port (override) would re-verify against the old
     // config and wrongly report failure.
     const verifyConfig = mergeConfigAndOverrides(config, overrides);
-    await Promise.all(
-      entries.filter((e) => e.remediated).map(async (entry) => {
-        const start = Date.now();
-        try {
-          const result = await withTimeout(
-            entry.check.detect({ config: verifyConfig, signal }),
-            Number.isFinite(entry.check.detectTimeoutMs) ? entry.check.detectTimeoutMs : timeoutMs,
-            `${entry.check.name}:reverify`
-          );
-          entry.runMs += Date.now() - start;
-          if (!result.ok) {
-            entry.status = STATUS.FAIL;
-            entry.detail = `${entry.detail} (but re-verify failed: ${result.detail})`;
-          }
-        } catch (err) {
-          entry.runMs += Date.now() - start;
-          entry.status = STATUS.FAIL;
-          entry.detail = `${entry.detail} (re-verify error: ${err.message})`;
-        }
-      })
-    );
+    await Promise.all(entries.filter((e) => e.remediated).map((entry) => reverifyEntry(entry, { verifyConfig, signal, timeoutMs })));
   }
 
   // Flatten into reports.
@@ -232,6 +95,129 @@ export async function runChecks(checks, ctx, options = {}) {
     totalMs: Date.now() - startTotal,
     summary,
   };
+}
+
+// Build an applicable entry (skipped checks noted up front).
+// A check.applies(config) may return:
+//   - true / false — boolean form (back-compat).
+//   - an object { applies: boolean, reason?: string } — when false, `reason`
+//     is shown verbatim so users see WHY (e.g. "sonarqube.enabled is false
+//     in kj.config.yml") instead of the opaque "Not applicable" message
+//     that confused users debugging their config.
+function entryFor(check, config) {
+  const entry = { check, status: null, detail: null, runMs: 0, detectResult: null, remediated: false };
+  if (typeof check.applies !== "function") return entry;
+  const verdict = check.applies(config);
+  const isObj = verdict && typeof verdict === "object" && "applies" in verdict;
+  const applies = isObj ? Boolean(verdict.applies) : Boolean(verdict);
+  if (applies) return entry;
+  const reason = (isObj && typeof verdict.reason === "string" && verdict.reason.trim())
+    ? verdict.reason.trim()
+    : "Not applicable for current configuration";
+  return { ...entry, status: STATUS.SKIPPED, detail: reason };
+}
+
+// Per-check override: checks that spawn slow tools (e.g. `npx <pkg>` cold
+// start) declare detectTimeoutMs so the blanket pipeline timeout doesn't
+// kill them. Falls back to the pipeline-wide timeoutMs.
+const detectTimeoutOf = (check, timeoutMs) => (Number.isFinite(check.detectTimeoutMs) ? check.detectTimeoutMs : timeoutMs);
+
+// KJC-BUG-0049: an optional (degradable) check that fails or times out does not
+// block the pipeline: its feature flags are disabled and it degrades to WARN.
+function degrade(entry, overrides, detail) {
+  for (const dotPath of entry.check.degradable.disables || []) {
+    setDotPath(overrides, dotPath, false);
+  }
+  entry.status = STATUS.WARN;
+  entry.detail = `${detail} → ${entry.check.degradable.warn}`;
+  entry.degraded = true;
+}
+
+async function detectEntry(entry, { config, signal, timeoutMs, overrides }) {
+  if (entry.status === STATUS.SKIPPED) return;
+  const start = Date.now();
+  const detectTimeoutMs = detectTimeoutOf(entry.check, timeoutMs);
+  try {
+    const result = await withTimeout(entry.check.detect({ config, signal }), detectTimeoutMs, entry.check.name);
+    entry.detectResult = result;
+    entry.runMs = Date.now() - start;
+    entry.status = resolveStatusFromDetect(entry.check, result);
+    entry.detail = result.detail;
+    // Así el preflight no aborta — la feature opcional se desactiva con aviso.
+    if (!result.ok && entry.check.degradable && (entry.status === STATUS.FAIL || entry.status === STATUS.WARN)) {
+      degrade(entry, overrides, result.detail);
+    }
+  } catch (err) {
+    entry.runMs = Date.now() - start;
+    if (!(err instanceof TimeoutError)) {
+      entry.detectResult = { ok: false, severity: "fail", detail: `Detection error: ${err.message}` };
+      entry.status = STATUS.FAIL;
+      entry.detail = entry.detectResult.detail;
+      return;
+    }
+    entry.detectResult = { ok: false, severity: "warn", detail: `Timeout after ${detectTimeoutMs}ms` };
+    if (entry.check.degradable) {
+      degrade(entry, overrides, entry.detectResult.detail);
+    } else {
+      entry.status = STATUS.TIMEOUT;
+      entry.detail = entry.detectResult.detail;
+    }
+  }
+}
+
+async function remediateEntry(entry, { config, signal, logger, yes, onConfirm, remediateTimeoutMs, overrides }) {
+  const { check, detectResult } = entry;
+  if (check.strategy === STRATEGY.PROMPT && !yes) {
+    const approved = await onConfirm(check.describe || `Fix: ${check.name}`);
+    if (!approved) {
+      logger.info?.(`User declined remediation for ${check.name}`);
+      return;
+    }
+  }
+  const start = Date.now();
+  try {
+    const rem = await withTimeout(
+      check.remediate({ config, extra: detectResult.extra, signal, logger }),
+      remediateTimeoutMs,
+      `${check.name}:remediate`
+    );
+    entry.remediated = rem.fixed === true;
+    entry.runMs += Date.now() - start;
+    if (rem.fixed) {
+      if (rem.changes) mergeOverrides(overrides, rem.changes);
+      entry.detail = rem.detail;
+      entry.status = STATUS.FIXED;
+    } else {
+      entry.detail = rem.detail || entry.detail;
+      entry.status = STATUS.FAIL;
+    }
+  } catch (err) {
+    entry.runMs += Date.now() - start;
+    const msg = err instanceof TimeoutError ? `Remediation timeout after ${remediateTimeoutMs}ms` : `Remediation error: ${err.message}`;
+    entry.detail = msg;
+    entry.status = STATUS.FAIL;
+    logger.warn?.(`Remediation failed for ${check.name}: ${msg}`);
+  }
+}
+
+async function reverifyEntry(entry, { verifyConfig, signal, timeoutMs }) {
+  const start = Date.now();
+  try {
+    const result = await withTimeout(
+      entry.check.detect({ config: verifyConfig, signal }),
+      detectTimeoutOf(entry.check, timeoutMs),
+      `${entry.check.name}:reverify`
+    );
+    entry.runMs += Date.now() - start;
+    if (!result.ok) {
+      entry.status = STATUS.FAIL;
+      entry.detail = `${entry.detail} (but re-verify failed: ${result.detail})`;
+    }
+  } catch (err) {
+    entry.runMs += Date.now() - start;
+    entry.status = STATUS.FAIL;
+    entry.detail = `${entry.detail} (re-verify error: ${err.message})`;
+  }
 }
 
 function shouldAttemptRemediation(entry) {
