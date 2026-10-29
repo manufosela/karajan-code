@@ -39,6 +39,86 @@ function buildSummary(parsed) {
   return `Overall health: ${summary.overallHealth}. ${summary.totalFindings} findings (${findingsStr})`;
 }
 
+/** A deterministic collector's result, or null when it fails: every section is best-effort. */
+async function bestEffort(collect) {
+  try { return await collect(); } catch { return null; }
+}
+
+/** Basal cost and its growth against the last audit; a failure on the way leaves what was measured. */
+async function basalWithGrowth(projectDir) {
+  let basalCost = null;
+  let growthDelta = null;
+  try {
+    basalCost = await measureBasalCost(projectDir);
+    const previous = await loadPreviousAudit(projectDir);
+    growthDelta = computeGrowthDelta(basalCost, previous);
+  } catch { /* basal cost is best-effort */ }
+  return { basalCost, growthDelta };
+}
+
+/**
+ * Knip dead-exports — KJC-TSK v2.17. Stack-aware, JS/TS only, needs
+ * package.json. Best-effort: any failure returns available:false and
+ * the audit continues without the section.
+ * AC8 (KJC-TSK-0794): the report leads with the derivative — hand the
+ * block its previous measurement, if one was ever recorded.
+ */
+async function deadExportsWithPrevious(projectDir, stack, config, logger) {
+  const deadExports = await collectDeadExports(projectDir, stack, config, logger);
+  if (deadExports?.available) {
+    try {
+      const prev = await loadPreviousAudit(projectDir);
+      deadExports.previous = prev?.knipDeadExports ? { ...prev.knipDeadExports, timestamp: prev.timestamp || null } : null;
+    } catch { /* the findings stand without their previous measurement */ }
+  }
+  return deadExports;
+}
+
+/**
+ * STW-A (KJC-TSK-0789 AC5): record that the security surface was looked
+ * at, so the Steward can age it — GREBLA went 79 days with "never".
+ */
+function recordSecurityAudit(projectDir, securityOnly) {
+  try {
+    mkdirSync(dirname(securityAuditMarkerPath(projectDir)), { recursive: true });
+    writeFileSync(securityAuditMarkerPath(projectDir), JSON.stringify({ at: new Date().toISOString(), mode: securityOnly ? "security" : "full" }));
+  } catch { /* recording is best-effort — the audit itself already ran */ }
+}
+
+/** The LLM phase's input, from a task string or the options object. */
+function auditInput(input, fallbackTask) {
+  if (typeof input === "string") return { task: input, onOutput: null, dimensions: null, context: null };
+  const rawDimensions = input?.dimensions || null;
+  return {
+    task: input?.task || fallbackTask,
+    onOutput: input?.onOutput || null,
+    dimensions: typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions,
+    context: input?.context || null,
+  };
+}
+
+const ifAvailable = (section) => (section?.available ? section : undefined);
+
+/** The structured result: the parsed audit plus every deterministic section that ran. */
+function structuredResult(parsed, ctx, provider) {
+  const { basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, envKeys } = ctx;
+  return {
+    summary: parsed.summary, dimensions: parsed.dimensions,
+    topRecommendations: parsed.topRecommendations,
+    textSummary: parsed.textSummary || undefined,
+    basalCost: basalCost || undefined, growthDelta: growthDelta || undefined,
+    stack: stack || undefined,
+    sonarFindings: ifAvailable(sonarFindings),
+    webperf: ifAvailable(webperf),
+    osvFindings: ifAvailable(osvFindings),
+    semgrepFindings: ifAvailable(semgrepFindings),
+    circularDeps: ifAvailable(circularDeps),
+    deadExports: ifAvailable(deadExports),
+    envKeys: ifAvailable(envKeys),
+    provider,
+  };
+}
+
 export class AuditRole extends AgentRole {
   constructor(opts) {
     super({ ...opts, name: "audit" });
@@ -57,131 +137,46 @@ export class AuditRole extends AgentRole {
    *   execute() would gather internally)
    */
   async collectDeterministic(input) {
+    const opts = (typeof input === "object" && input) || {};
     // KJC-TSK-0695: securityOnly = the focused pass an agent self-invokes
     // when a task touches sensitive surface. Only the security collectors
     // run (sonar, osv, semgrep, injection) — zero tokens, fast.
-    const securityOnly = typeof input === "object" ? Boolean(input?.securityOnly) : false;
-    const noSonar = typeof input === "object" ? Boolean(input?.noSonar) : false;
-    const noOsv = typeof input === "object" ? Boolean(input?.noOsv) : false;
-    const noSemgrep = typeof input === "object" ? Boolean(input?.noSemgrep) : false;
-    const noMadge = (typeof input === "object" ? Boolean(input?.noMadge) : false) || securityOnly;
-    const noKnip = (typeof input === "object" ? Boolean(input?.noKnip) : false) || securityOnly;
-    const noInjectionScan = typeof input === "object" ? Boolean(input?.noInjectionScan) : false;
-    const noInfraScan = typeof input === "object" ? Boolean(input?.noInfraScan) : false;
-    const noNpmSignatures = typeof input === "object" ? Boolean(input?.noNpmSignatures) : false;
-    const noAiSlop = (typeof input === "object" ? Boolean(input?.noAiSlop) : false) || securityOnly;
+    const securityOnly = Boolean(opts.securityOnly);
+    const skip = (flag) => Boolean(opts[flag]);
     const projectDir = this.config?.projectDir || process.cwd();
-    let basalCost = null;
-    let growthDelta = null;
-    let stack = null;
-    let sonarFindings = null;
-    let webperf = null;
-    let osvFindings = null;
-    let semgrepFindings = null;
-    let circularDeps = null;
-    let deadExports = null;
-    let injectionFindings = null;
-    let infraFindings = null;
-    let npmSignatures = null;
-    let aiSlop = null;
-    let envKeys = null;
-    if (!securityOnly) {
-      try {
-        basalCost = await measureBasalCost(projectDir);
-        const previous = await loadPreviousAudit(projectDir);
-        growthDelta = computeGrowthDelta(basalCost, previous);
-      } catch { /* basal cost is best-effort */ }
-    }
-    try {
-      stack = await detectProjectStack(projectDir);
-    } catch { /* stack detect is best-effort */ }
-    if (!noSonar) {
-      try {
-        sonarFindings = await collectSonarFindings(this.config, this.logger);
-      } catch { /* sonar fetch is best-effort */ }
-    }
-    if (!securityOnly) {
-      try {
-        webperf = collectWebPerfInput(stack, this.config);
-      } catch { /* webperf input is best-effort */ }
-    }
+    const { config, logger } = this;
+    // KJC-TSK-1257: every collector is best-effort — a failure leaves its section out (null).
+    const { basalCost, growthDelta } = securityOnly ? { basalCost: null, growthDelta: null } : await basalWithGrowth(projectDir);
+    const stack = await bestEffort(() => detectProjectStack(projectDir));
+    const sonarFindings = skip("noSonar") ? null : await bestEffort(() => collectSonarFindings(config, logger));
+    const webperf = securityOnly ? null : await bestEffort(() => collectWebPerfInput(stack, config));
     // OSV vulnerabilities — KJC-TSK-0365. Best-effort: missing
     // osv-scanner binary returns available:false and the audit
     // continues without the section.
-    if (!noOsv) {
-      try {
-        osvFindings = await collectOsvFindings(projectDir, this.logger);
-      } catch { /* osv-scanner is best-effort */ }
-    }
+    const osvFindings = skip("noOsv") ? null : await bestEffort(() => collectOsvFindings(projectDir, logger));
     // Semgrep SAST — KJC-TSK-0366. Best-effort: missing semgrep binary
     // returns available:false and the audit continues without the section.
-    if (!noSemgrep) {
-      try {
-        semgrepFindings = await collectSemgrepFindings(projectDir, this.logger);
-      } catch { /* semgrep is best-effort */ }
-    }
+    const semgrepFindings = skip("noSemgrep") ? null : await bestEffort(() => collectSemgrepFindings(projectDir, logger));
     // Madge circular-import deps — KJC-TSK v2.17. Stack-aware: skipped for
     // non-JS/TS projects. Best-effort: any failure returns available:false
     // and the audit continues without the section.
-    if (!noMadge) {
-      try {
-        circularDeps = await collectCircularDeps(projectDir, stack, this.config, this.logger);
-      } catch { /* madge is best-effort */ }
-    }
-    // Knip dead-exports — KJC-TSK v2.17. Stack-aware, JS/TS only, needs
-    // package.json. Best-effort: any failure returns available:false and
-    // the audit continues without the section.
-    if (!noKnip) {
-      try {
-        deadExports = await collectDeadExports(projectDir, stack, this.config, this.logger);
-        // AC8 (KJC-TSK-0794): the report leads with the derivative — hand the
-        // block its previous measurement, if one was ever recorded.
-        if (deadExports?.available) {
-          const prev = await loadPreviousAudit(projectDir);
-          deadExports.previous = prev?.knipDeadExports ? { ...prev.knipDeadExports, timestamp: prev.timestamp || null } : null;
-        }
-      } catch { /* knip is best-effort */ }
-    }
-    if (!noInjectionScan) {
-      try {
-        injectionFindings = await collectInjectionFindings(projectDir, this.logger);
-      } catch { /* injection scan is best-effort (KJC-TSK-0498) */ }
-    }
+    const circularDeps = skip("noMadge") || securityOnly ? null : await bestEffort(() => collectCircularDeps(projectDir, stack, config, logger));
+    const deadExports = skip("noKnip") || securityOnly ? null : await bestEffort(() => deadExportsWithPrevious(projectDir, stack, config, logger));
+    const injectionFindings = skip("noInjectionScan") ? null : await bestEffort(() => collectInjectionFindings(projectDir, logger));
     // Checkov infra misconfigs — INF-C (KJC-TSK-0760). Security surface, so
     // it ALSO runs in securityOnly. Best-effort: no infra markers or missing
     // checkov return available:false declaring why.
-    if (!noInfraScan) {
-      try {
-        infraFindings = await collectInfraFindings(projectDir, this.logger);
-      } catch { /* checkov is best-effort */ }
-    }
+    const infraFindings = skip("noInfraScan") ? null : await bestEffort(() => collectInfraFindings(projectDir, logger));
     // KJC-TSK-1253: npm registry signatures and provenance. Supply-chain security, so it
     // also runs in securityOnly; the collector says when it does not apply or cannot run.
-    if (!noNpmSignatures) {
-      try {
-        npmSignatures = await collectNpmSignatures(projectDir, this.logger);
-      } catch { /* npm audit signatures is best-effort */ }
-    }
+    const npmSignatures = skip("noNpmSignatures") ? null : await bestEffort(() => collectNpmSignatures(projectDir, logger));
     // AI-slop tells (KJC-TSK-0503). Deterministic, offline, regex-based.
     // Local equivalent of Deslopify-style review. Best-effort.
-    if (!noAiSlop) {
-      try {
-        aiSlop = await collectAiSlop(projectDir);
-      } catch { /* ai-slop scan is best-effort */ }
-    }
+    const aiSlop = skip("noAiSlop") || securityOnly ? null : await bestEffort(() => collectAiSlop(projectDir));
     // KJC-TSK-0845: one key, two resolution rules = a migration left half-way
     // (KJ_HOME → KARAJAN_HOME). Deterministic, offline, best-effort.
-    if (!securityOnly) {
-      try {
-        envKeys = await collectEnvKeyFindings(projectDir);
-      } catch { /* env-key scan is best-effort */ }
-    }
-    // STW-A (KJC-TSK-0789 AC5): record that the security surface was looked
-    // at, so the Steward can age it — GREBLA went 79 days with "never".
-    try {
-      mkdirSync(dirname(securityAuditMarkerPath(projectDir)), { recursive: true });
-      writeFileSync(securityAuditMarkerPath(projectDir), JSON.stringify({ at: new Date().toISOString(), mode: securityOnly ? "security" : "full" }));
-    } catch { /* recording is best-effort — the audit itself already ran */ }
+    const envKeys = securityOnly ? null : await bestEffort(() => collectEnvKeyFindings(projectDir));
+    recordSecurityAudit(projectDir, securityOnly);
     return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, infraFindings, npmSignatures, aiSlop, envKeys };
   }
 
@@ -192,13 +187,8 @@ export class AuditRole extends AgentRole {
    * call this if the user wants to spend tokens.
    */
   async executeWithDeterministic(input, deterministicCtx) {
-    const task = typeof input === "string" ? input : input?.task || this.context?.task || "";
-    const onOutput = typeof input === "string" ? null : input?.onOutput || null;
-    const rawDimensions = typeof input === "object" ? input?.dimensions || null : null;
-    const context = typeof input === "object" ? input?.context || null : null;
-    const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
-
-    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, envKeys } = deterministicCtx;
+    const { task, onOutput, dimensions, context } = auditInput(input, this.context?.task || "");
+    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports } = deterministicCtx;
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
@@ -248,26 +238,7 @@ export class AuditRole extends AgentRole {
         try { await saveAuditSnapshot(projectDir, { ...basalCost, knipDeadExports }); } catch { /* best-effort */ }
       }
 
-      return {
-        ok: true,
-        result: {
-          summary: parsed.summary, dimensions: parsed.dimensions,
-          topRecommendations: parsed.topRecommendations,
-          textSummary: parsed.textSummary || undefined,
-          basalCost: basalCost || undefined, growthDelta: growthDelta || undefined,
-          stack: stack || undefined,
-          sonarFindings: sonarFindings?.available ? sonarFindings : undefined,
-          webperf: webperf?.available ? webperf : undefined,
-          osvFindings: osvFindings?.available ? osvFindings : undefined,
-          semgrepFindings: semgrepFindings?.available ? semgrepFindings : undefined,
-          circularDeps: circularDeps?.available ? circularDeps : undefined,
-          deadExports: deadExports?.available ? deadExports : undefined,
-          envKeys: envKeys?.available ? envKeys : undefined,
-          provider
-        },
-        summary: buildSummary(parsed),
-        usage
-      };
+      return { ok: true, result: structuredResult(parsed, deterministicCtx, provider), summary: buildSummary(parsed), usage };
     } catch {
       return { ok: true, result: { raw: result.output, provider }, summary: "Audit complete (unstructured output)", usage };
     }
