@@ -11,6 +11,7 @@ import yaml from "js-yaml";
 import { assertGraph } from "./graph.js";
 import { FRONTMATTER, KINDS } from "./model.js";
 import { keyOf, resolveRoot, scan, scanStore } from "./scan.js";
+import { fold } from "./text.js";
 
 const MAX_KEYWORDS = 20;
 const STOPWORDS = new Set(
@@ -23,7 +24,7 @@ const WORD = /[\p{L}\p{N}][\p{L}\p{N}-]*/gu;
 /** Lowercase words of the description and the Markdown headings, sorted and capped. */
 export function extractKeywords(description, body) {
   const headings = [...body.replace(FENCED_CODE, "").matchAll(HEADING)].map((match) => match[1]);
-  const words = [description, ...headings].join(" ").toLowerCase().match(WORD) ?? [];
+  const words = fold([description, ...headings].join(" ")).match(WORD) ?? [];
   const keywords = new Set(words.filter((word) => word.length > 1 && !STOPWORDS.has(word)));
   return [...keywords].toSorted().slice(0, MAX_KEYWORDS);
 }

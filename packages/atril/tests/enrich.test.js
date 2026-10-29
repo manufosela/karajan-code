@@ -27,6 +27,10 @@ const run = (check = false) => enrich({ projectDir: dir, env: {}, check });
 const cli = (...args) => spawnSync(process.execPath, [BIN, "enrich", ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, ATRIL_ROOT: "" } });
 
 describe("extractKeywords", () => {
+  // HU-2729 (ADR 0038, layer 1): keywords are folded, so they match folded queries.
+  it("folds accents and ñ in keywords", () => {
+    expect(extractKeywords("Mejora la búsqueda del año", "")).toEqual(["ano", "busqueda", "del", "la", "mejora"]);
+  });
   it("lowercases the description and headings, drops stopwords and fenced code, sorts and caps", () => {
     expect(extractKeywords("Write the failing test first", BODY)).toEqual(["code", "failing", "first", "green", "red", "refactor", "test", "write"]);
     const many = Array.from({ length: 40 }, (_, i) => `word${String(i).padStart(2, "0")}`).join(" ");

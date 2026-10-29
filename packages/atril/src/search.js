@@ -7,6 +7,7 @@
 import { availableArtifacts, availablePlugins } from "./catalog.js";
 import { KINDS } from "./model.js";
 import { keyOf, scan } from "./scan.js";
+import { fold } from "./text.js";
 
 /** The only mode until QMD lands (ADR 0021 plan step 5); always reported. */
 export const SEARCH_MODE = "lexical";
@@ -26,7 +27,7 @@ function pluginHits(opts, onWarning) {
 }
 
 const WEIGHTS = { name: 8, keywords: 4, description: 2, body: 1 };
-const tokenize = (text) => new Set(String(text).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+const tokenize = (text) => new Set(fold(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean));
 
 function fieldsOf(artifact) {
   const { keywords = [] } = artifact.atril;

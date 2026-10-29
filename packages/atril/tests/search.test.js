@@ -123,6 +123,17 @@ describe("atril search", () => {
     expect(out).not.toContain(String.fromCodePoint(27));
     expect(out).toMatch(/^\d+\tcommand\tred\tproject\tTurns \[31mred \[0m now$/m);
   });
+  // HU-2729 (ADR 0038, layer 1): accents do not matter, in either direction.
+  it("finds an accented description with an unaccented query, and the reverse", () => {
+    put("proj", "skills/busca/SKILL.md", "name: busca\ndescription: Mejora la búsqueda\nkind: skill");
+    expect(find("busqueda").map((hit) => hit.name)).toEqual(["busca"]);
+    expect(find("BÚSQUEDA").map((hit) => hit.name)).toEqual(["busca"]);
+  });
+  it("folds ñ to n like any accent", () => {
+    put("proj", "skills/anual/SKILL.md", "name: anual\ndescription: Informe del año\nkind: skill");
+    expect(find("ano").map((hit) => hit.name)).toEqual(["anual"]);
+    expect(find("año").map((hit) => hit.name)).toEqual(["anual"]);
+  });
   it("text output keeps one hit per line for multi-line descriptions", () => {
     put("proj", "commands/plan.md", "name: plan\ndescription: |\n  Plans\n  \tthe work\nkind: command");
     expect(run("plan").stdout).toMatch(/^\d+\tcommand\tplan\tproject\tPlans the work\n$/);
