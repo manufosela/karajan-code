@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`kj harden` hooks are byte-stable across machines** (HU-2762, issue #2762): the generated hooks used to bake in the global hooks directory that git reported when `kj harden` ran, so under another HOME (a sandbox, a lane, CI) the chain disappeared and every lane started with 5 modified hooks. Each hook now looks up the global hooks directory when it runs, so the same bytes come out everywhere and personal guards keep working. **One-time re-seal:** after upgrading, run `kj harden --commit` once on main in every repo that commits its hooks (this one included) to regenerate the 5 hooks and re-seal the provenance in a single commit; until then `kj harden` shows the hooks as changed.
+
 ## [4.70.2] - 2026-10-28
 
 Patch, cut from 4.70.1. The CI policy check works in projects that commit their kj config, npm 12 installs say how to build the database, and several frictions found in other projects are gone.
