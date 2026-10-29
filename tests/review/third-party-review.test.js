@@ -223,3 +223,29 @@ describe("thirdPartyReview with two reviewers", () => {
     expect(run).not.toHaveBeenCalled();
   });
 });
+
+// KJC-TSK-1266 (#2753): the reviewed repo's docs, read at the base, reach the reviewer and are listed.
+describe("thirdPartyReview with the repo's own docs", () => {
+  const quiet = { roles: { reviewer: { provider: "claude" } } };
+  const deps = { gitDiff: async () => DIFF, requirements: async () => [], security: async () => [], sonar: async () => ({ id: "sonar", ok: true }) };
+  const approved = { verdict: "approved", reviewer: "claude", summary: "ok", issues: [], suggestions: [] };
+
+  it("reads them at the range's base, fences them in the task and says which ones were used", async () => {
+    const run = vi.fn().mockResolvedValue(approved);
+    const repoDocs = vi.fn().mockResolvedValue({ files: ["CONTRIBUTING.md"], omitted: ["docs/big.md"], text: "### CONTRIBUTING.md\nfree-form commits" });
+    const res = await thirdPartyReview({ range: "main...pr", config: quiet, projectDir: dir, logger: { info() {} }, task: "Review it.", run, repoDocs, ...deps });
+    expect(repoDocs).toHaveBeenCalledWith(expect.objectContaining({ projectDir: dir, base: "main" }));
+    expect(run.mock.calls[0][0].task).toMatch(/^Review it\.[\s\S]*<<<UNTRUSTED_REPO_DOCS>>>\n### CONTRIBUTING.md\nfree-form commits/);
+    expect(res.repoContext).toEqual({ files: ["CONTRIBUTING.md"], omitted: ["docs/big.md"] });
+  });
+
+  it("keeps the task as it was when the base has no docs, and reports why it could not read them", async () => {
+    const run = vi.fn().mockResolvedValue(approved);
+    const warn = vi.fn();
+    const repoDocs = async () => ({ files: [], omitted: [], text: "", error: "the repo's docs could not be read at main" });
+    const res = await thirdPartyReview({ range: "main...pr", config: quiet, projectDir: dir, logger: { info() {}, warn }, task: "Review it.", run, repoDocs, ...deps });
+    expect(run.mock.calls[0][0].task).toBe("Review it.");
+    expect(res.repoContext).toEqual({ files: [], omitted: [], error: "the repo's docs could not be read at main" });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/could not be read/));
+  });
+});
