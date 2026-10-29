@@ -129,11 +129,12 @@ describe("requestPhoneSignature (KJC-TSK-0822)", () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it("expires after 60s of pending state", async () => {
+  // KJC-BUG-0432: 60 s was too short to scan, read the files and sign; 150 s stays under the relay's 3 min.
+  it("expires after 150s of pending state", async () => {
     enrollPhone(rawPub, { home });
     await expect(request(fakePhone({ state: "pending" }))).resolves.toEqual({ ok: false, reason: "caducado" });
-    expect(t).toBeGreaterThanOrEqual(60000);
-    expect(t).toBeLessThan(120000);
+    expect(t).toBeGreaterThanOrEqual(150000);
+    expect(t).toBeLessThan(180000);
   });
 
   it("logs the waiting message once, not on every poll", async () => {

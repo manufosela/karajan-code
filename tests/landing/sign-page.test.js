@@ -24,6 +24,15 @@ describe("landing sign page", () => {
     expect(html).not.toMatch(/@import/);
   });
 
+  // KJC-BUG-0432: the page said "signed" after kj had given up; past the request's expiry it refuses before signing.
+  it("refuses to sign an expired request, before computing the signature", () => {
+    const guard = html.indexOf("Date.now() >= expiresMs - SIGN_MARGIN_MS");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(html.indexOf('crypto.subtle.sign("Ed25519"'));
+    expect(html).toMatch(/expired: "Esta petición ha caducado/);
+    expect(html).toMatch(/expired: "This request has expired/);
+  });
+
   it("carries the public firebase api key and talks only to firestore", () => {
     expect(html).toContain("AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8");
     expect(html).toContain(

@@ -36,7 +36,9 @@ async function relayConfig(fetchFn) {
 }
 const SIGN_PAGE = "https://karajancode.com/sign";
 const POLL_INTERVAL_MS = 2000;
-const TTL_MS = 60000;
+// KJC-BUG-0432: 60 s was too short to scan, read the files and sign, and the page still said
+// "signed" after kj had given up. 150 s leaves time and stays under the relay's 3 min window.
+const TTL_MS = 150000;
 
 /** Spinner en su sitio (una línea, con \r) solo en TTY; no-op fuera de TTY o en tests. */
 function makeSpinner() {
