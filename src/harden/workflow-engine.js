@@ -14,6 +14,7 @@ import { dirname } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
+import { publishedPin } from "./published-pin.js";
 import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
@@ -73,6 +74,25 @@ function hasLintScript(projectDir) {
   }
 }
 
+const policyDeclared = (projectDir) => existsSync(join(projectDir, ".karajan", "policy.yml"));
+
+// STW-E (KJC-TSK-0793): the scheduled sweep is OPT-IN — the project says
+// steward.action: true in its config; nothing is imposed by default.
+function stewardActionOn(projectDir) {
+  try {
+    return parseYaml(readFileSync(join(projectDir, ".karajan", "kj.config.yml"), "utf8"))?.steward?.action === true;
+  } catch {
+    return false; // no config — no action
+  }
+}
+
+/** KJC-BUG-0420: the published kj version the policy and steward workflows pin; null when neither is seeded. */
+export async function resolveKjPin({ projectDir, fetchFn } = {}) {
+  const own = ownPkg();
+  if (!own || !(policyDeclared(projectDir) || stewardActionOn(projectDir))) return null;
+  return publishedPin({ name: own.name, version: own.version, fetchFn });
+}
+
 export function installWorkflows({
   projectDir = process.cwd(),
   language = null,
@@ -94,14 +114,10 @@ export function installWorkflows({
   // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
   // recurso inalcanzable en los caminos reales.
   const pinned = kjVersion ?? ownPkg()?.version ?? "latest";
-  const policy = existsSync(join(projectDir, ".karajan", "policy.yml"))
+  const policy = policyDeclared(projectDir)
     ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") }
     : null;
-  // STW-E (KJC-TSK-0793): the scheduled sweep is OPT-IN — the project says
-  // steward.action: true in its config; nothing is imposed by default.
-  let stewardOn = false;
-  try { stewardOn = parseYaml(readFileSync(join(projectDir, ".karajan", "kj.config.yml"), "utf8"))?.steward?.action === true; } catch { /* no config — no action */ }
-  const steward = stewardOn ? { file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") } : null;
+  const steward = stewardActionOn(projectDir) ?{ file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") } : null;
   const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
   const results = [];
   for (const wf of all) {
