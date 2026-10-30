@@ -14,25 +14,13 @@
  * Steps 2-4 must share a single on-disk write: we never ack the mutation to
  * the UI without persisting it, otherwise a reload would silently revert.
  */
-import { readFileSync, existsSync, readdirSync, mkdirSync, openSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { writeJsonAtomicSync } from 'karajan-core/atomic-write';
-import { spawn } from 'node:child_process';
-import { trackRun, untrack } from './run-tracker.js';
-import { getHuBoardRunsDir } from './db.js';
-import { fileURLToPath } from 'node:url';
 import { updateHuStatus, certifyAllHus, updateHu } from 'karajan-core/plan-hu-ops';
 import { validateBlockedByChange } from 'karajan-core/plan-validation';
 import { syncPlanFile } from './sync.js';
 import { getDb } from './db.js';
-
-// Repo root → so we can spawn `node <repo>/src/cli.js run ...` without
-// depending on `kj` being in $PATH of the board process.
-const REPO_ROOT = (() => {
-  const here = dirname(fileURLToPath(import.meta.url));       // packages/hu-board/src
-  return join(here, '..', '..', '..');                         // → repo root
-})();
-const KJ_CLI = join(REPO_ROOT, 'src', 'cli.js');
 
 /**
  * Root directory where `kj plan` writes `<slug>/<planId>.json`. Honours
@@ -349,103 +337,4 @@ export function markPlanReady({ planId, projectId }) {
   writePlan(filePath, plan);
   syncPlanFile(filePath);
   return { ok: true, count, planStatus: plan.status };
-}
-
-/**
- * Launch `kj run --plan <planId>` as a detached child. This is the
- * "Run plan" button's server-side handler: the board no longer asks the
- * user to drop to the terminal to kick off execution.
- *
- * We spawn against the repo's own CLI (`node <repo>/src/cli.js`) instead
- * of a `kj` binary on $PATH — the board is always shipped with the repo
- * that hosts it, so that entry point is guaranteed to exist. Tests set
- * `KJ_RUN_SPAWN_MODE=echo` to replace the spawn with a no-op that just
- * returns a fake pid, so we can assert payload shape without booting the
- * whole orchestrator inside vitest.
- *
- * Output is redirected to `~/.karajan/hu-board-runs/<planId>.log` so the
- * board can tail it later if we wire up a live log viewer — for now it's
- * just a durable trail. stdin is `ignore` (coder subprocess requirement
- * documented in CLAUDE.md).
- *
- * @param {object} args
- * @param {string} args.planId
- * @param {string} [args.projectId]
- * @param {string} [args.taskOverride] - optional custom task string
- * @returns {{ ok: true, pid: number, logPath: string } | { ok: false, error: string }}
- */
-export function runPlan({ planId, projectId, taskOverride, huIds = null } = {}) {
-  const filePath = findPlanFilePath(planId, projectId);
-  if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
-
-  const plan = readPlan(filePath);
-  const mirrored = mirrorGuard(plan);
-  if (mirrored) return mirrored;
-  if (!Array.isArray(plan.hus) || plan.hus.length === 0) {
-    return { ok: false, error: 'plan has no hus[]' };
-  }
-  const projectDir = plan.projectDir;
-  if (!projectDir) {
-    return {
-      ok: false,
-      error:
-        'plan has no projectDir stamped — re-run `kj plan` to regenerate it, '
-        + 'then try again (plans pre-v2.7.4 did not persist the dir).',
-    };
-  }
-
-  // PR4: when huIds is set, validate they exist before spawning so
-  // we surface "unknown HU" as an HTTP 400 instead of letting the
-  // CLI fail mid-startup with a less obvious message.
-  let huFlag = null;
-  if (Array.isArray(huIds) && huIds.length > 0) {
-    const validIds = new Set(plan.hus.map((h) => h.id));
-    const unknown = huIds.filter((id) => !validIds.has(id));
-    if (unknown.length > 0) {
-      return { ok: false, error: `unknown HU id(s) in plan ${planId}: ${unknown.join(', ')}` };
-    }
-    huFlag = huIds.join(',');
-  }
-
-  const runsDir = getHuBoardRunsDir(); // KJC-TSK-0421 — centralised in db.js
-  mkdirSync(runsDir, { recursive: true });
-  // PR4: when running a single HU, suffix the log with the HU id so
-  // a subsequent full-plan run doesn't overwrite the per-HU log.
-  const logName = huFlag
-    ? `${planId}--hu-${huIds.join('-').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60)}.log`
-    : `${planId}.log`;
-  const logPath = join(runsDir, logName);
-
-  const task = taskOverride || plan.task || `run plan ${planId}`;
-  const args = [KJ_CLI, 'run', '--plan', planId];
-  if (huFlag) args.push('--hu', huFlag);
-  args.push(task);
-
-  // Escape hatch for tests — hard-kill the spawn so vitest doesn't boot
-  // the full orchestrator. The shape of the response is what we assert.
-  if (process.env.KJ_RUN_SPAWN_MODE === 'echo') {
-    return { ok: true, pid: 0, logPath, argv: [process.execPath, ...args], projectDir, huIds: huIds || null };
-  }
-
-  const out = openSync(logPath, 'a');
-  const err = openSync(logPath, 'a');
-  const child = spawn(process.execPath, args, {
-    cwd: projectDir,
-    detached: true,
-    stdio: ['ignore', out, err],
-    // Strip CLAUDECODE so the Claude agent subprocess trick in
-    // claude-agent.js doesn't misbehave (documented in CLAUDE.md).
-    env: { ...process.env, CLAUDECODE: undefined },
-  });
-  child.unref();
-  // KJC-TSK-0396: registrar el PID para que el botón ⏹ Stop del board
-  // sepa qué procesos matar. trackRun usa Set, así que llamadas
-  // duplicadas no inflan el registro. Cuando el proceso muera, el
-  // event 'exit' lo des-registra (defensa adicional: reaper periódico
-  // que limpia PIDs muertos cada 30s).
-  if (child.pid) {
-    trackRun(planId, { pid: child.pid, huIds: huIds || null });
-    child.on('exit', () => { untrack(planId, child.pid); });
-  }
-  return { ok: true, pid: child.pid ?? 0, logPath };
 }
