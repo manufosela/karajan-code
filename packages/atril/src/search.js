@@ -37,7 +37,8 @@ function fieldsOf(artifact) {
   return {
     name: tokenize(artifact.name),
     keywords: tokenize(keywords.join(" ")),
-    description: tokenize(artifact.description),
+    // ADR 0039: the English description (atril.en, checked by the model) is found as well as the original.
+    description: tokenize(`${artifact.description} ${artifact.atril.en?.description ?? ""}`),
     body: tokenize(artifact.body),
   };
 }
