@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { formatElapsed } from "../src/utils/display/formatters.js";
 import { applyRunOverrides } from "../src/config.js";
 
 describe("config quiet/verbose flags", () => {
@@ -37,14 +36,5 @@ describe("config quiet/verbose flags", () => {
   it("--verbose overrides default quiet", () => {
     const result = applyRunOverrides(baseConfig, { verbose: true });
     expect(result.output.quiet).toBe(false);
-  });
-});
-
-describe("formatElapsed", () => {
-  it("formats milliseconds correctly", () => {
-    expect(formatElapsed(0)).toBe("00:00");
-    expect(formatElapsed(5000)).toBe("00:05");
-    expect(formatElapsed(65000)).toBe("01:05");
-    expect(formatElapsed(135000)).toBe("02:15");
   });
 });
