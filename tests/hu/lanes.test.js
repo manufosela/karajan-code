@@ -1,6 +1,6 @@
 // KJC-TSK-1313: which card each worktree lane works on, read from git (never stored on the card).
 import { describe, expect, it } from "vitest";
-import { parseLanes, lanesByCard } from "../../src/hu/lanes.js";
+import { parseLanes, lanesByCard, prsByBranch } from "../../src/hu/lanes.js";
 
 const PORCELAIN = [
   "worktree /repo", "HEAD aaa", "branch refs/heads/main", "",
@@ -42,5 +42,15 @@ describe("lanesByCard", () => {
 
   it("an id with regex characters is matched literally", () => {
     expect([...lanesByCard([{ slug: "x", branch: "feat/a.b", path: "/x" }], ["a+b", "a.b"]).keys()]).toEqual(["a.b"]);
+  });
+});
+
+describe("prsByBranch", () => {
+  it("keeps one PR per branch: an open one first, else the newest", () => {
+    const pr = (number, state, headRefName) => ({ number, url: `https://github.com/o/r/pull/${number}`, state, headRefName });
+    const map = prsByBranch([pr(3, "MERGED", "feat/a"), pr(7, "OPEN", "feat/a"), pr(8, "CLOSED", "feat/a"), pr(4, "CLOSED", "feat/b"), pr(6, "MERGED", "feat/b")]);
+    expect(map.get("feat/a")).toEqual({ number: 7, url: "https://github.com/o/r/pull/7", state: "OPEN" });
+    expect(map.get("feat/b").number).toBe(6);
+    expect(map.has("feat/c")).toBe(false);
   });
 });

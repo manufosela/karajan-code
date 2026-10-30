@@ -50,6 +50,28 @@ describe("kj worktree list --json", () => {
     expect(JSON.parse(logSpy.mock.calls.at(-1)[0])).toEqual(rows);
   });
 
+  // KJC-TSK-1316: --prs adds each lane's PR from ONE gh call; an open PR wins over a merged one.
+  it("--prs adds each lane's PR, and a gh failure lists the lanes without PRs and says so", async () => {
+    await run("start", "HU-27-fix");
+    await run("start", "KJC-TSK-1313-board");
+    const listPrs = vi.fn().mockResolvedValue([
+      { number: 5, url: "https://github.com/o/r/pull/5", state: "MERGED", headRefName: "feat/HU-27-fix" },
+      { number: 9, url: "https://github.com/o/r/pull/9", state: "OPEN", headRefName: "feat/HU-27-fix" },
+    ]);
+    const rows = await worktreeCommand({ config: { projectDir: dir }, action: "list", flags: { json: true, prs: true }, deps: { listPrs } });
+    expect(listPrs).toHaveBeenCalledTimes(1);
+    const bySlug = Object.fromEntries(rows.map((r) => [r.slug, r]));
+    expect(bySlug["HU-27-fix"].pr).toEqual({ number: 9, url: "https://github.com/o/r/pull/9", state: "OPEN" });
+    expect(bySlug["KJC-TSK-1313-board"].pr).toBeNull();
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failing = vi.fn().mockRejectedValue(new Error("gh: not logged in"));
+    const without = await worktreeCommand({ config: { projectDir: dir }, action: "list", flags: { json: true, prs: true }, deps: { listPrs: failing } });
+    expect(without.map((r) => r.pr)).toEqual([null, null]);
+    expect(warn.mock.calls[0][0]).toMatch(/not logged in/);
+    warn.mockRestore();
+  });
+
   it("prints an empty array when there are no lanes", async () => {
     expect(await run("list", null, { json: true })).toEqual([]);
     expect(logSpy.mock.calls.at(-1)[0]).toBe("[]");

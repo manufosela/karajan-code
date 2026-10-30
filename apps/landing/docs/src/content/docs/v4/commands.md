@@ -21,7 +21,7 @@ The commands a v4 setup actually uses. Everything supports `--help`; agent-facin
 | `kj rag query "<q>"` | Semantic search over the project (auto-refreshes on drift). |
 | `kj brief <role>` | Mission + invariants + deliverable of a role. No role → list. |
 | `kj review --staged` | Sonar pre-gate on the changed files (BLOCKER/CRITICAL reject deterministically), then cross-AI review; verdict bound to the diff's sha256 and stamped with its workspace. Exit 0/1. |
-| `kj worktree start\|list\|done <slug>` | Isolated task lanes: worktree + `feat/<slug>` branch + dependency bootstrap; `done` removes a merged lane. `list --json` gives each lane's commits ahead of the base and the cards its branch names (by id or reference): the HU Board shows them on each card. |
+| `kj worktree start\|list\|done <slug>` | Isolated task lanes: worktree + `feat/<slug>` branch + dependency bootstrap; `done` removes a merged lane. `list --json` gives each lane's commits ahead of the base and the cards its branch names (by id or reference); `--prs` adds each lane's PR (one `gh` call). The HU Board shows them on each card. |
 | `kj review --check` | Is there an approved verdict for the exact staged diff? (What the hook runs.) |
 | `kj solomon --position "<why>"` | Third-AI arbitration of a rejected verdict. Exit 0 approve / 1 reject. |
 | `kj agent run <agent> "<task>"` | Delegate a task to another AI and print its output. |

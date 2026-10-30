@@ -8,11 +8,17 @@ import { requestProjectDir } from '../project-dir.js';
 
 const router = Router();
 
+// KJC-TSK-1316: each lane's PR comes from GitHub; a good answer is kept a minute per project.
+const CACHE_MS = 60_000;
+const cache = new Map();
+
 router.get('/:project', async (req, res) => {
   const { project } = req.params;
+  const hit = cache.get(project);
+  if (hit && Date.now() - hit.at < CACHE_MS) return res.json(hit.body);
   try {
     const dir = requestProjectDir(project);
-    const r = await runCommand('kj', ['worktree', 'list', '--json'], { cwd: dir });
+    const r = await runCommand('kj', ['worktree', 'list', '--json', '--prs'], { cwd: dir });
     const line = String(r.stdout || '').trim().split('\n').findLast((l) => l.startsWith('['));
     if (r.exitCode !== 0 || !line) return res.json({ byStory: {}, error: `kj worktree list --json failed (exit ${r.exitCode})` });
     const byStory = {};
@@ -24,6 +30,7 @@ router.get('/:project', async (req, res) => {
         byStory[key].push(lane);
       }
     }
+    cache.set(project, { at: Date.now(), body: { byStory } });
     return res.json({ byStory });
   } catch (err) {
     return res.json({ byStory: {}, error: String(err.message || err) });
