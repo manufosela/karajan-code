@@ -2,7 +2,7 @@
 // Wires the read-only sweep (0568) → deterministic assessment (0569) → haiku
 // decider (0569), reports the recommended next step, and — interactively only —
 // confirms and dispatches the chosen intent to its saved command
-// (harden/rag/run/plan). --json / --yes / no-TTY stay read-only: emit the
+// (harden/rag). --json / --yes / no-TTY stay read-only: emit the
 // assessment + intent and apply nothing. Collaborators are injected for testing.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,16 +17,15 @@ const NEXT_STEP = {
   ASSESS_ONLY: "Everything looks healthy — nothing to do.",
   RECOMMEND_HARDEN: "Suggested: `kj harden --interactive`",
   RECOMMEND_INDEX: "Suggested: `kj rag index`",
-  START_TASK: 'Suggested: `kj run "<task>"`',
-  PROPOSE_PLAN: 'Suggested: `kj plan "<goal>"`',
+  // KJC-TSK-1322: kj run and kj plan generate are retired in 5.0; your agent does the work.
+  START_TASK: 'Suggested: ask your agent for it, and put it on the board first with `kj hu add "<task>"`',
+  PROPOSE_PLAN: 'Suggested: have your agent plan it with `kj brief planner`, then `kj hu add` each piece',
 };
 
 // Each writing intent maps to the saved command + args `kj start` dispatches.
 const DISPATCH = {
   RECOMMEND_HARDEN: () => ["harden", "--interactive"],
   RECOMMEND_INDEX: () => ["rag", "index"],
-  START_TASK: (task) => ["run", task],
-  PROPOSE_PLAN: (task) => ["plan", task],
 };
 
 const ASK_FALLBACK = "What would you like to do with this project?";
