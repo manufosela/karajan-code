@@ -120,6 +120,17 @@ describe("search", () => {
     });
   });
 
+  // HU-2732 (ADR 0039): atril.en.description is indexed with the description's weight, besides the original.
+  it("finds a skill by its original description and by atril.en.description, the original shown", () => {
+    put("proj", "skills/es/SKILL.md",
+      "name: es\ndescription: Búsqueda léxica\nkind: skill\natril:\n  en:\n    description: Lexical search\n    hash: sha256:x");
+    expect(find("búsqueda").map((hit) => hit.description)).toEqual(["Búsqueda léxica"]);
+    expect(find("lexical").map((hit) => hit.description)).toEqual(["Búsqueda léxica"]);
+  });
+  it("an atril.en.description that is not a string fails loudly, naming the file", () => {
+    put("proj", "skills/es/SKILL.md", "name: es\ndescription: d\nkind: skill\natril:\n  en:\n    description: [1]");
+    expect(() => find("tdd")).toThrow(/es\/SKILL\.md: atril\.en\.description must be a string/);
+  });
   it("matches accented and non-Latin terms whole", () => {
     put("proj", "skills/es/SKILL.md", "name: es\ndescription: Búsqueda テスト\nkind: skill");
     expect(find("búsqueda").map((hit) => hit.name)).toEqual(["es"]);
