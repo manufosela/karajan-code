@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`kj review --third-party` gives the reviewer skills for the reviewed repo's stack** (KJC-TSK-1267/1271/1272, issue #2753): with no atril store in the repo, kj detects its languages and frameworks at the base and atril resolves the reviewer's skill from your own store, or installs the best catalog skill into a temporary folder outside the repo (removed after the review). Extra catalogs go under `review.third_party.catalogs`; `repoContext.skills` lists what was used.
 - **`kj review --third-party` reads the reviewed repo's own docs** (KJC-TSK-1266, issue #2753): `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, the PR template, `README.md` and `docs/**/*.md` reach the reviewer, so it judges by the repo's conventions instead of general ones (#2263). They are read at the base of the range, never from the PR, and fenced as untrusted data; `repoContext` in the JSON lists what was used and what the size budget left out.
 
+### Fixed
+- **A `KARAJAN_HOME` pointed elsewhere no longer receives a copy of your `~/.kj`** (KJC-BUG-0439): with `KARAJAN_HOME` set and no `KJ_HOME`, every kj command, read-only ones too, migrated the default `~/.kj` into it and left a world-readable backup there. An explicitly chosen home is now left alone, and the migration backup is private (folder 700, tarball 600).
+
 ## [4.70.3] - 2026-10-29
 
 Patch, cut from 4.70.2. `kj harden` stops pinning unpublished versions, the Sentinel lets reads through, the seal commit passes the CI review check, `kj run` works with nvm, and pushing after merging main is no longer refused. Re-seal once after upgrading (`kj harden --commit`): the hooks change.

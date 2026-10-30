@@ -46,6 +46,9 @@ export async function migrateKjToKarajan({ dryRun = false, force = false } = {})
   // the developer's real HOME. Migrator's own tests pass `force: true`.
   if (process.env.VITEST && !force) return { migrated: false, reason: "vitest-skip" };
 
+  // KJC-BUG-0439: a KARAJAN_HOME chosen on purpose (CI, a sandbox, a canary) never receives
+  // the person's default ~/.kj; only an explicit KJ_HOME → KARAJAN_HOME pair is migrated.
+  if (process.env.KARAJAN_HOME && !process.env.KJ_HOME) return { migrated: false, reason: "explicit-home" };
   const sourceDir = process.env.KJ_HOME || path.join(os.homedir(), ".kj");
   const targetDir = process.env.KARAJAN_HOME || path.join(os.homedir(), ".karajan");
 
@@ -64,10 +67,13 @@ export async function migrateKjToKarajan({ dryRun = false, force = false } = {})
   if (dryRun) return { migrated: false, reason: "dry-run", sourceDir, targetDir };
 
   const backupDir = path.join(targetDir, "backup");
-  await fs.mkdir(backupDir, { recursive: true });
+  // The backup copies the person's files: readable by them only (KJC-BUG-0439).
+  await fs.mkdir(backupDir, { recursive: true, mode: 0o700 });
+  await fs.chmod(backupDir, 0o700);
   const ts = new Date().toISOString().replaceAll(/[:.]/g, "-");
   const backupPath = path.join(backupDir, `kj-pre-migration-${ts}.tar.gz`);
   await execa("tar", ["-czf", backupPath, "-C", path.dirname(sourceDir), path.basename(sourceDir)]);
+  await fs.chmod(backupPath, 0o600);
 
   const counts = {};
   for (const sub of MOVE_DIRS) {
