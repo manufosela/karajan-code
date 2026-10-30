@@ -3,6 +3,10 @@ title: MCP Tools Reference
 description: Complete parameter reference for all 26 Karajan Code MCP tools.
 ---
 
+:::caution[v3 docs (legacy)]
+This is the v3 MCP reference. `kj_run`, `kj_resume` and the other pipeline tools were retired in 5.0: see [Migrating to 5.0](/docs/v4/migration/) and the current list in [MCP server](/docs/guides/mcp-server/).
+:::
+
 ## kj_run
 
 Run the full coder &rarr; sonar &rarr; reviewer pipeline with real-time progress notifications.

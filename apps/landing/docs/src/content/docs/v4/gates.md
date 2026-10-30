@@ -57,7 +57,6 @@ Rejected but the agent disagrees? `kj solomon` brings a third AI to arbitrate; a
 - **Board guarantee** — `kj env install` verifies an operational access path to the project's declared board (kj's HU Board, the Planning Game MCP, or an external board via MCP/API token) and blocks with the exact steps when there is none. There is no `none`: Karajan does not run without a board.
 - **Commit policy** — Conventional Commits header, length cap, no AI attribution.
 - **Chained personal guards** — if your machine had global git hooks before Karajan, the generated hooks call them too. Activating Karajan adds protections; it never silently removes yours.
-- **Headless parity** — `kj run` (headless mode) stamps its internal reviewer's verdict the same way, so pipeline commits pass the same gate.
 
 ## Honest opt-outs
 

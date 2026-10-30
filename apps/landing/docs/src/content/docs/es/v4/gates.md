@@ -57,8 +57,6 @@ Con `.karajan/review-gate` presente (lo instala `kj review --install-gate`, trac
 - **Garantía de board**, `kj env install` verifica que existe vía de acceso operativa al board declarado del proyecto (el HU Board de kj, el MCP del Planning Game, o un board externo vía MCP/token de API) y bloquea con los pasos exactos cuando no la hay. No existe `none`: Karajan no funciona sin board.
 - **Política de commits**, cabecera Conventional Commits, tope de longitud, sin atribución a IA.
 - **Guards personales encadenados**, si tu máquina tenía hooks globales de git antes de Karajan, los hooks generados también los llaman. Activar Karajan añade protecciones; jamás quita las tuyas en silencio.
-- **Paridad headless**, `kj run` (modo headless) estampa el veredicto de su reviewer interno igual, así que los commits del pipeline pasan el mismo gate.
-
 ## Opt-outs honestos
 
 Cada gate es visible y reversible, borra el marcador, quita `core.hooksPath`, o no instales el gate. La promesa de Karajan no es que no puedas desactivarlo; es que **puedes verificar, en el repo, que nada saltó la revisión mientras estuvo activo**. La confianza pasa a ser una pregunta de `git log`.

@@ -3,6 +3,10 @@ title: CLI Commands
 description: Complete reference of all kj CLI commands and flags.
 ---
 
+:::caution[v3 docs (legacy)]
+This is the v3 command reference. `kj run` and the rest of the pipeline commands were retired in 5.0: see [Migrating to 5.0](/docs/v4/migration/) and the current [Command reference](/docs/v4/commands/).
+:::
+
 ## Commands Overview
 
 | Command | Description |
