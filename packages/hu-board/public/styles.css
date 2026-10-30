@@ -374,6 +374,14 @@ a:hover {
   color: var(--text-muted);
 }
 
+/* KJC-TSK-1313: the worktree lane working the card. */
+.story-card__lane {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-green);
+  overflow-wrap: anywhere;
+}
+
 .quality-bar {
   display: inline-flex;
   gap: 1px;

@@ -39,3 +39,11 @@ export function lanesByCard(lanes, cardIds) {
   }
   return byCard;
 }
+
+/**
+ * The cards a lane works on: those whose id or any of whose references (a tracker card, an
+ * issue) its branch names. `cards` are `{id, refs}`.
+ * @returns {string[]}
+ */
+export const cardsOfLane = (lane, cards) =>
+  cards.filter((c) => lanesByCard([lane], [c.id, ...c.refs]).size > 0).map((c) => c.id);

@@ -21,7 +21,7 @@ Los comandos que un setup v4 usa de verdad. Todo soporta `--help`; los comandos 
 | `kj rag query "<q>"` | Búsqueda semántica sobre el proyecto (se refresca sola con el drift). |
 | `kj brief <rol>` | Misión + invariantes + entregable de un rol. Sin rol → lista. |
 | `kj review --staged` | Pre-gate de Sonar sobre los ficheros cambiados (BLOCKER/CRITICAL rechazan determinísticamente), después revisión cruzada; veredicto ligado al sha256 del diff y estampado con su workspace. Exit 0/1. |
-| `kj worktree start\|list\|done <slug>` | Carriles de tarea aislados: worktree + rama `feat/<slug>` + bootstrap de dependencias; `done` desmonta un carril mergeado. |
+| `kj worktree start\|list\|done <slug>` | Carriles de tarea aislados: worktree + rama `feat/<slug>` + bootstrap de dependencias; `done` desmonta un carril mergeado. `list --json` da los commits por delante de la base de cada carril y las cards que nombra su rama (por ID o referencia): el HU Board los muestra en cada card. |
 | `kj review --check` | ¿Hay veredicto approved para el diff staged exacto? (Lo que ejecuta el hook.) |
 | `kj solomon --position "<por qué>"` | Arbitraje de tercera IA sobre un veredicto rechazado. Exit 0 approve / 1 reject. |
 | `kj agent run <agente> "<tarea>"` | Delega una tarea a otra IA e imprime su salida. |

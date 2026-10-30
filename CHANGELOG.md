@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **The HU Board shows each card's worktree lane** (KJC-TSK-1313/1315, issue #2815): a card whose id or reference (a tracker card, an issue) is named by a `kj worktree` lane's branch carries a badge with the lane, its branch and its commits ahead of the base. Read from git every time through `kj worktree list --json` (new), never stored, so a lane removed by hand never lingers.
 - **`kj review --third-party` gives the reviewer skills for the reviewed repo's stack** (KJC-TSK-1267/1271/1272, issue #2753): with no atril store in the repo, kj detects its languages and frameworks at the base and atril resolves the reviewer's skill from your own store, or installs the best catalog skill into a temporary folder outside the repo (removed after the review). Extra catalogs go under `review.third_party.catalogs`; `repoContext.skills` lists what was used.
 - **`kj review --third-party` reads the reviewed repo's own docs** (KJC-TSK-1266, issue #2753): `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, the PR template, `README.md` and `docs/**/*.md` reach the reviewer, so it judges by the repo's conventions instead of general ones (#2263). They are read at the base of the range, never from the PR, and fenced as untrusted data; `repoContext` in the JSON lists what was used and what the size budget left out.
 
