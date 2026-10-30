@@ -17,72 +17,21 @@
  * evidence), but the user cannot pre-disable Sonar at config load time.
  *
  * If you find yourself wanting to remove these tests because they're "in
- * the way", STOP. Read `src/orchestrator/preflight-checks.js`,
- * `src/orchestrator/flow-runner.js::runQualityGateStages`, and
- * `src/guards/policy-resolver.js`. Then open a discussion before changing
- * the contract.
+ * the way", STOP. Read `src/review/sonar-requirement.js` (the review gate's
+ * "Sonar is mandatory for code") and `src/guards/policy-resolver.js`. Then
+ * open a discussion before changing the contract.
+ *
+ * KJC-TSK-1331: the cases that read the retired pipeline's preflight-checks.js
+ * and quality-gates.js went with those files (5.0); the flag handling stays.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn().mockResolvedValue({ ok: true, version: "test" }),
 }));
 
 describe("architecture/sonar-intrinsic — Sonar is not a config toggle", () => {
-  describe("preflight (runPreflightChecks)", () => {
-    it("does NOT read config.sonarqube.enabled — only resolvedPolicies.sonar", async () => {
-      // Read the source and assert the guard is the policy, not the config.
-      // A textual assertion is uglier than mocking, but it's the only way to
-      // prevent a future PR from sneaking the config check back in by
-      // ANDing with `sonarqube.enabled` again.
-      const fs = await import("node:fs/promises");
-      const path = await import("node:path");
-      const url = await import("node:url");
-      const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
-      const text = await fs.readFile(
-        path.join(repoRoot, "src/orchestrator/preflight-checks.js"),
-        "utf8",
-      );
-      // Forbid the AND with config.sonarqube.enabled — that was the v2.7.3 bug.
-      expect(
-        text.match(/sonarqube\?\.enabled\)\s*&&\s*resolvedPolicies/i),
-        "Preflight must derive sonarEnabled from resolvedPolicies.sonar ONLY, not from config.sonarqube.enabled. " +
-          "Sonar is intrinsic to Karajan for code tasks since v2.7.4.",
-      ).toBeNull();
-      // Affirmative: the live expression must reference resolvedPolicies (the
-      // gate may include a test-only escape hatch like __KJ_DISABLE_SONAR_STAGE
-      // ANDed in, which is fine — what matters is that production code only
-      // looks at resolvedPolicies and never at config.sonarqube.enabled).
-      expect(text).toMatch(/resolvedPolicies\.sonar\s*!==\s*false/);
-    });
-  });
-
-  describe("iteration-loop driver (runQualityGateStages)", () => {
-    it("gates the sonar stage on resolved_policies.sonar, not config.sonarqube.enabled", async () => {
-      // TSK-0335 (Oleada 3): runQualityGateStages moved from flow-runner.js
-      // into the iteration-loop driver. v2.7.x audit follow-up: extracted
-      // again into ./iteration-phases/quality-gates.js to stay under the
-      // 600-LOC ceiling. Assert the invariant at the new address so the
-      // decomposition can't sneak the forbidden gate back in.
-      const fs = await import("node:fs/promises");
-      const path = await import("node:path");
-      const url = await import("node:url");
-      const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
-      const text = await fs.readFile(
-        path.join(repoRoot, "src/orchestrator/drivers/iteration-phases/quality-gates.js"),
-        "utf8",
-      );
-      // Forbid: `if (config.sonarqube.enabled && ...) runSonarStage`
-      expect(
-        text.match(/config\.sonarqube\.enabled\s*&&[^\n]*runSonarStage/i),
-        "runSonarStage must be gated on session.resolved_policies.sonar, not config.sonarqube.enabled.",
-      ).toBeNull();
-      // Affirmative: must check resolved_policies in the gate.
-      expect(text).toMatch(/session\.resolved_policies\?\.sonar\s*!==\s*false[^\n]*\)\s*\{[\s\S]{0,600}runSonarStage/);
-    });
-  });
-
   describe("flag handling", () => {
     it("accepts --no-sonar but records it as deprecated (does NOT mutate sonarqube.enabled)", async () => {
       const { applyRunOverrides } = await import("../../src/config.js");

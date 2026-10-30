@@ -1,66 +1,9 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import fs from "node:fs/promises";
-import path from "node:path";
-import os from "node:os";
-import { loadProductContext } from "../src/orchestrator/config-init.js";
+import { describe, expect, it } from "vitest";
 import { buildCoderPrompt } from "../src/prompts/coder.js";
 import { buildReviewerPrompt } from "../src/prompts/reviewer.js";
 import { buildHuReviewerPrompt } from "../src/prompts/hu-reviewer.js";
 import { buildArchitectPrompt } from "../src/prompts/architect.js";
 import { buildPlannerPrompt } from "../src/prompts/planner.js";
-
-describe("loadProductContext", () => {
-  let tmpDir;
-
-  beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-ctx-"));
-  });
-
-  afterEach(async () => {
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
-
-  it("returns null when no context file exists", async () => {
-    const result = await loadProductContext(tmpDir);
-    expect(result.content).toBeNull();
-    expect(result.source).toBeNull();
-  });
-
-  it("loads .karajan/context.md when it exists", async () => {
-    const karajanDir = path.join(tmpDir, ".karajan");
-    await fs.mkdir(karajanDir, { recursive: true });
-    await fs.writeFile(path.join(karajanDir, "context.md"), "# Product Vision\nWe build dental software.");
-
-    const result = await loadProductContext(tmpDir);
-    expect(result.content).toBe("# Product Vision\nWe build dental software.");
-    expect(result.source).toBe(path.join(karajanDir, "context.md"));
-  });
-
-  it("loads product-vision.md as fallback", async () => {
-    await fs.writeFile(path.join(tmpDir, "product-vision.md"), "Vision fallback content");
-
-    const result = await loadProductContext(tmpDir);
-    expect(result.content).toBe("Vision fallback content");
-    expect(result.source).toBe(path.join(tmpDir, "product-vision.md"));
-  });
-
-  it("prefers .karajan/context.md over product-vision.md", async () => {
-    const karajanDir = path.join(tmpDir, ".karajan");
-    await fs.mkdir(karajanDir, { recursive: true });
-    await fs.writeFile(path.join(karajanDir, "context.md"), "Priority 1");
-    await fs.writeFile(path.join(tmpDir, "product-vision.md"), "Priority 2");
-
-    const result = await loadProductContext(tmpDir);
-    expect(result.content).toBe("Priority 1");
-  });
-
-  it("uses process.cwd() when projectDir is null", async () => {
-    const result = await loadProductContext(null);
-    // Should not throw, just return content or null
-    expect(result).toHaveProperty("content");
-    expect(result).toHaveProperty("source");
-  });
-});
 
 describe("productContext injection into prompts", () => {
   const productContext = "We build dental treatment planning software for orthodontists.";
