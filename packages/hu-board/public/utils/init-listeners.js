@@ -45,7 +45,7 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
 });
 
 // Commands button — opens the launcher modal so the user can run
-// `kj plan`, `kj architect`, `kj clean` (and more later) without
+// `kj clean` (and more later) without
 // dropping to a terminal. Output streams to the existing log panel.
 document.getElementById('commands-btn').addEventListener('click', () => {
   showCommandLauncher();

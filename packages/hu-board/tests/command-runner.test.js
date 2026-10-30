@@ -35,7 +35,18 @@ describe("GET /api/commands", () => {
   it("lists the supported kj commands the board can launch", async () => {
     const res = await request(app).get("/api/commands");
     expect(res.status).toBe(200);
-    expect(res.body.commands).toEqual(expect.arrayContaining(["plan", "architect", "clean"]));
+    expect(res.body.commands).toEqual(["clean"]);
+  });
+});
+
+// KJC-TSK-1323: kj plan (generate) and kj architect are retired in 5.0.
+describe("POST /api/commands/:command, retired commands", () => {
+  it.each(["plan", "architect"])("rejects %s with 400 and launches nothing", async (command) => {
+    const res = await request(app).post(`/api/commands/${command}`).send({ task: "build login" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Unsupported command/);
+    expect(res.body.commandId).toBeUndefined();
+    expect(existsSync(join(tmpHome, "hu-board-runs"))).toBe(false);
   });
 });
 
@@ -44,30 +55,6 @@ describe("POST /api/commands/:command", () => {
     const res = await request(app).post("/api/commands/sudo").send({ task: "rm -rf /" });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/Unsupported command/);
-  });
-
-  it("plan: builds argv with the positional task when no taskFile is given", async () => {
-    const { runKjCommand } = await import("../src/command-runner.js");
-    const result = runKjCommand({ command: "plan", input: { task: "build login" } });
-    expect(result.ok).toBe(true);
-    expect(result.argv.some((a) => a === "build login")).toBe(true);
-    expect(result.argv).toContain("plan");
-  });
-
-  it("plan: passes --task-file when provided AND drops the positional task", async () => {
-    const { runKjCommand } = await import("../src/command-runner.js");
-    const result = runKjCommand({ command: "plan", input: { taskFile: "/tmp/SPEC.md", task: "ignored" } });
-    expect(result.ok).toBe(true);
-    const idx = result.argv.indexOf("--task-file");
-    expect(idx).toBeGreaterThan(-1);
-    expect(result.argv[idx + 1]).toBe("/tmp/SPEC.md");
-    expect(result.argv).not.toContain("ignored");
-  });
-
-  it("plan: forwards --quick / --no-tests-synth / --no-plan-review flags", async () => {
-    const { runKjCommand } = await import("../src/command-runner.js");
-    const result = runKjCommand({ command: "plan", input: { taskFile: "/tmp/x.md", quick: true, noTestsSynth: true, noPlanReview: true } });
-    expect(result.argv).toEqual(expect.arrayContaining(["--quick", "--no-tests-synth", "--no-plan-review"]));
   });
 
   it("clean: always passes --yes and conditionally --nuke", async () => {
@@ -81,10 +68,10 @@ describe("POST /api/commands/:command", () => {
   });
 
   it("returns commandId + logPath the client can tail", async () => {
-    const res = await request(app).post("/api/commands/plan").send({ task: "do thing" });
+    const res = await request(app).post("/api/commands/clean").send({ dryRun: true });
     expect(res.status).toBe(200);
-    expect(res.body.commandId).toMatch(/^cmd-plan-/);
-    expect(res.body.logPath).toMatch(/hu-board-runs\/cmd-plan-.+\.log$/);
+    expect(res.body.commandId).toMatch(/^cmd-clean-/);
+    expect(res.body.logPath).toMatch(/hu-board-runs\/cmd-clean-.+\.log$/);
   });
 });
 

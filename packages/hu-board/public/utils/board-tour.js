@@ -10,7 +10,7 @@ const BOARD_TOUR = [
   ['[data-view="dashboard"]', 'Dashboard', 'Every project the board knows, with its stats. Click a project to open it.'],
   ['#help-btn', 'Help', 'A quick reference of each view, and this tour again whenever you want it.'],
   ['#config-btn', 'Settings', 'Configure Karajan: models, agents, iteration cap.'],
-  ['#commands-btn', 'Commands', 'Launch a kj command (kj plan, kj architect, kj clean…) and watch its log.'],
+  ['#commands-btn', 'Commands', 'Launch a kj command (kj clean) and watch its log.'],
   ['#conversation-btn', 'Conversation', 'Your agent’s real terminal, inside the board.'],
   ['#restart-btn', 'Restart', 'Restart the board server. The page reconnects by itself.'],
   ['#sync-btn', 'Re-scan', 'Read the plans and sessions on disk again when something new is missing.'],
