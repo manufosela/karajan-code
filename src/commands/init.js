@@ -687,7 +687,7 @@ async function installSkills(logger, interactive, offerRulesync) {
   if (interactive) {
     const wizard = createWizard();
     try {
-      doInstall = await wizard.confirm("Install Karajan's commands (kj-run, kj-code, kj-review...) into atril's store, on demand?", true);
+      doInstall = await wizard.confirm("Install Karajan's commands (kj-code, kj-review, kj-audit...) into atril's store, on demand?", true);
     } finally {
       wizard.close();
     }

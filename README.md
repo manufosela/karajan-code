@@ -110,9 +110,9 @@ Tier B is the guarantee floor — hosts without hooks lose A, never B; C re-veri
 
 Every chokepoint decision lands in a hash-chained log (`kj policy anchor` seals its head in git), and `kj policy report` turns that log into evidence of process: per rule, how often it warned, denied or was exempted, which denials are still open, which grants are alive, expired or renewed — so a rule "gains teeth" on data, not on a hunch, and a renewed exception is read for what it is: the policy asking to change.
 
-## Headless mode
+## Unattended runs (CI and automation)
 
-The classic multiagent pipeline lives on for CI and automation: `kj run "<task>"` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. Agents and CI pass `--non-interactive` (or `KJ_NON_INTERACTIVE=1`): safe gates auto-answer, FAIL findings stop the run with a real exit code. `kj advanced` lists the full surface. [Headless mode docs](https://karajancode.com/docs/v4/headless/).
+The classic multiagent pipeline (`kj run` and its family) was retired in 5.0: your agent does the work and Karajan governs it. In CI and scripts, pass `--non-interactive` (or `KJ_NON_INTERACTIVE=1`): safe gates auto-answer, FAIL findings stop with a real exit code. Moving from 4.x? See [MIGRATION-v5.md](MIGRATION-v5.md). `kj advanced` lists the full surface.
 
 ## v3 (historical)
 
