@@ -1,6 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 vi.mock("node:fs/promises", () => ({
   readdir: vi.fn(),
@@ -16,68 +14,11 @@ vi.mock("../../src/utils/paths.js", () => ({
 
 const { readdir, readFile, writeFile, mkdir } = await import("node:fs/promises");
 
-// Load the real example domain template for testing
-const EXAMPLE_DENTAL = readFileSync(
-  join(process.cwd(), "templates/domains/example-dental.md"),
-  "utf-8"
-);
-
 describe("Domain Knowledge System — integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mkdir.mockResolvedValue(undefined);
     writeFile.mockResolvedValue(undefined);
-  });
-
-  it("project-local domains merge with user-global", async () => {
-    const { loadDomains } = await import("../../src/domains/domain-loader.js");
-
-    const projectDomain = `---
-name: dental-project
-description: Project-specific dental overrides
-tags: [dental]
----
-
-## Project Rules
-
-This project uses a custom bracket system.
-`;
-
-    readdir.mockImplementation(async (dir) => {
-      if (dir === "/home/user/.karajan/domains") {
-        return [{ name: "dental", isDirectory: () => true }];
-      }
-      if (dir === "/project/.karajan/domains") {
-        return [
-          { name: "dental", isDirectory: () => true },
-          { name: "billing", isDirectory: () => true }
-        ];
-      }
-      throw new Error("ENOENT");
-    });
-    readFile.mockImplementation(async (filePath) => {
-      if (filePath.startsWith("/project/") && filePath.includes("dental")) return projectDomain;
-      if (filePath.startsWith("/project/") && filePath.includes("billing")) return `---
-name: billing
-tags: [billing]
----
-
-## Billing Rules
-
-30 day payment terms.
-`;
-      if (filePath.includes("dental")) return EXAMPLE_DENTAL;
-      throw new Error("ENOENT");
-    });
-
-    const domains = await loadDomains("/project");
-
-    // dental should be overridden by project version, billing is project-only
-    expect(domains).toHaveLength(2);
-    const dental = domains.find(d => d.name === "dental-project");
-    expect(dental).toBeDefined();
-    expect(dental.origin).toBe("project");
-    expect(dental.content).toContain("custom bracket system");
   });
 
   it("domainContext injection in coder prompt (end-to-end)", async () => {

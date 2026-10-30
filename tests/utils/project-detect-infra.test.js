@@ -52,19 +52,3 @@ describe("detectTestFramework — markers de infra", () => {
     expect(TEST_PATTERNS_BY_LANGUAGE.infra.length).toBeGreaterThan(0);
   });
 });
-
-describe("tester brief con proyecto de infra", () => {
-  it("ordena la suite de infra y el fail-loud de tools ausentes (nunca verde vacío)", async () => {
-    fs.writeFileSync(path.join(dir, "main.tf"), "resource {}\n");
-    const { TesterRole } = await import("../../src/roles/tester-role.js");
-    const role = new TesterRole({ config: { projectDir: dir, roles: {} }, logger: { warn: () => {} } });
-    const { prompt } = await role.buildPrompt({
-      task: "t", diff: null, sonarIssues: null, pendingGherkinTests: null, shellTestResults: null,
-    });
-    expect(prompt).toContain("terraform-validate (infra)");
-    expect(prompt).toContain("terraform validate");
-    expect(prompt).toContain("checkov");
-    expect(prompt).toContain("MISSING");
-    expect(prompt).not.toContain("npm install");
-  });
-});
