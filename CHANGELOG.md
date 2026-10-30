@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **A `KARAJAN_HOME` pointed elsewhere no longer receives a copy of your `~/.kj`** (KJC-BUG-0439): with `KARAJAN_HOME` set and no `KJ_HOME`, every kj command, read-only ones too, migrated the default `~/.kj` into it and left a world-readable backup there. An explicitly chosen home is now left alone, and the migration backup is private (folder 700, tarball 600).
 - **The Sentinel counts `kj_rag_query` answers given over MCP** (KJC-BUG-0440, issue #2830): the MCP tool wraps its answer twice, so the session ledger recorded the query with no sources and the rag-first gate kept blocking edits on a file the answer named. The ledger now unwraps the nested answer, whole or cut short.
+- **`kj review` finds the shared board's HU that links your card** (KJC-BUG-0443): with the shared board on, the tracker reference of `kj hu add --ref` lived only in the issue body, so the card-first check said "no live HU on the HU Board links" a card that had one. The board now reads that reference back, keeps it in what the gates read, and `kj hu add` puts the new HU there at once.
 - **A `kj worktree` lane shares its repo's HU stories** (KJC-BUG-0441, issue #2815): the HU store named the project after the folder, so every lane got an empty board of its own. It now resolves the main checkout first, as plans already do.
 
 ## [4.70.3] - 2026-10-29

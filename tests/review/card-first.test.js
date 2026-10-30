@@ -86,6 +86,17 @@ describe("checkCardFirst — external / planning-game (presence check, warns by 
     }
   });
 
+  // KJC-BUG-0443: the shared board's mirror keeps "repo#n · ref"; each part is a reference.
+  it("passes at hu-board level on a shared-board HU whose mirror links the tracker card", async () => {
+    await savePlan(dir, {
+      version: 2, planId: "plan-github-board", name: "github", task: "t", status: "ready", createdAt: new Date().toISOString(),
+      hus: [{ id: "HU-2840", short_id: "HU-2840", title: "Compartida", status: "pending", external_ref: "acme/app#2840 · KJC-TSK-1317" }],
+    });
+    const r = await checkCardFirst({ config: ext, projectDir: dir, branch: "feat/KJC-TSK-1317-retire", env: {} });
+    expect(r).toMatchObject({ ok: true, mode: "pass", level: "hu-board", ref: "KJC-TSK-1317" });
+    expect(r.note).toBeUndefined();
+  });
+
   it("a tracker reference no HU links still passes, naming the HU Board remedy", async () => {
     const r = await checkCardFirst({ config: ext, projectDir: dir, branch: "jorge/lin-123-fix", env: {} });
     expect(r).toMatchObject({ ok: true, ref: "lin-123" });

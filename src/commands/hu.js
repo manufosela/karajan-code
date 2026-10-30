@@ -59,11 +59,14 @@ function linesOf(v) {
 }
 
 /** KJC-TSK-1163: kj hu add on the shared board; the same no-duplicates rule, checked against the issues. */
-async function addToTeamBoard({ repo, title, flags, deps, emit }) {
+async function addToTeamBoard({ projectDir, repo, title, flags, deps, emit }) {
   if (flags.id) throw new Error(`--id is not used with the shared board: GitHub gives each HU its id (the issue number)`);
   let hu;
+  let existing;
+  const ref = flags.ref ? String(flags.ref).trim() : null;
   try {
-    const { identical, similar } = findTitleMatches(title, await (deps.listTeamHus ?? listHus)({ repo }));
+    existing = await (deps.listTeamHus ?? listHus)({ repo });
+    const { identical, similar } = findTitleMatches(title, existing);
     if (identical.length > 0) {
       throw new Error(`An HU with this title already exists: ${identical[0].short_id} (status: ${identical[0].status}). Work that card or move it with: kj hu move ${identical[0].short_id} <status>`);
     }
@@ -72,13 +75,15 @@ async function addToTeamBoard({ repo, title, flags, deps, emit }) {
       console.warn("⚠ possible duplicate — check before working it:\n" + candidates);
     }
     hu = await (deps.createTeamHu ?? createHu)({
-      repo, title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref: flags.ref ? String(flags.ref).trim() : null,
+      repo, title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref,
     });
   } catch (err) {
     // KJC-TSK-1165: an id is only ever minted by GitHub; nothing is created offline.
     if (isOffline(err)) throw new Error(`creating a HU needs the network: GitHub gives it its id and no local one is made up (${err.message})`, { cause: err });
     throw err;
   }
+  // KJC-BUG-0443: the gates read the mirror; the new HU is in it before the next kj hu list.
+  await (deps.writeMirror ?? writeTeamMirror)(projectDir, [...existing, { ...hu, claimed_by: null, ref }], { repo });
   return emit({ ...hu, board: "github", repo }, `✓ HU created: ${hu.short_id} (pending) in the shared board, issue #${hu.number} of ${repo}`);
 }
 
@@ -351,7 +356,7 @@ async function addAction({ projectDir, board, args, flags, deps, emit, externalB
   const title = args[0];
   if (!title || !title.trim()) throw new Error("kj hu add requires a title: kj hu add \"<story>\"");
   // KJC-TSK-1163 (ADR 0025): with the shared board on, the HU is an issue and GitHub gives its id.
-  if (board.backend === "github") return addToTeamBoard({ repo: board.repo, title, flags, deps, emit });
+  if (board.backend === "github") return addToTeamBoard({ projectDir, repo: board.repo, title, flags, deps, emit });
   await refuseDuplicateTitle(projectDir, title);
   const plan = await backlogPlan(projectDir);
   assertAddFlags(plan, flags);

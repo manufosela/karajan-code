@@ -70,8 +70,10 @@ export async function createHu({ repo, title, acceptanceCriteria = [], tests = [
 
 /** Every HU of the repo, with its status and who holds it. */
 export async function listHus({ repo, run = runCommand }) {
-  const issues = listOf(await gh(run, ["issue", "list", "-R", repo, "--label", HU_LABEL, "--state", "all", "--limit", "1000", "--json", "number,title,state,labels,assignees"]));
-  return issues.map((i) => ({ short_id: `HU-${i.number}`, number: i.number, title: i.title, status: statusOf(i), claimed_by: i.assignees[0]?.login ?? null }));
+  const issues = listOf(await gh(run, ["issue", "list", "-R", repo, "--label", HU_LABEL, "--state", "all", "--limit", "1000", "--json", "number,title,state,labels,assignees,body"]));
+  // KJC-BUG-0443: the tracker reference kj hu add --ref wrote in the body.
+  const refOf = (body) => /^Ref: (\S.*)$/m.exec(body ?? "")?.[1].trim() ?? null;
+  return issues.map((i) => ({ short_id: `HU-${i.number}`, number: i.number, title: i.title, status: statusOf(i), claimed_by: i.assignees[0]?.login ?? null, ref: refOf(i.body) }));
 }
 
 /** The one kj:<status> of an issue; none or several is a board someone broke by hand. */
