@@ -81,7 +81,9 @@ describe("GET /api/governance", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ ok: false, dir: os.tmpdir() });
     expect(res.body.error).toMatch(/not a karajan project/);
-    expect(runCommand).toHaveBeenCalledTimes(1);
+    // Only the karajan project ran kj (its report and its lanes, KJC-TSK-1314); the other never did.
+    expect(runCommand).toHaveBeenCalledTimes(2);
+    expect(runCommand.mock.calls.every(([, , opts]) => opts.cwd === dir)).toBe(true);
   });
 
   it("returns policy rules, the kj report, anchor state and declared identity", async () => {
@@ -101,6 +103,27 @@ describe("GET /api/governance", () => {
     expect(res.body.report).toEqual(REPORT);
     expect(res.body.anchor).toMatchObject({ sealed: true, head: "abc", length: 2, current: 3, stale: true });
     expect(res.body.identity).toEqual({ declared: true, gh_user: "manufosela", git_email: "m@example.invalid" });
+  });
+
+  // KJC-TSK-1314: lanes outside the method, from `kj worktree list --json --prs`.
+  it("warns of lanes whose branch names no card and of merged lanes still standing, with the command", async () => {
+    const lane = (slug, cards, ahead, pr = null) => ({ slug, branch: `feat/${slug}`, path: `/r/${slug}`, ahead, cards, pr });
+    const lanes = [lane("loose", [], 2), lane("left", ["HU-1"], 0, { number: 7, url: "u", state: "MERGED" }), lane("again", ["HU-2"], 3, { number: 8, url: "u", state: "MERGED" }), lane("fresh", ["HU-3"], 0)];
+    runCommand.mockImplementation(async (_kj, args) => ({ exitCode: 0, stdout: `${JSON.stringify(args[0] === "worktree" ? lanes : REPORT)}\n`, stderr: "" }));
+    const res = await request(app).get("/api/governance").query({ dir });
+    expect(runCommand).toHaveBeenCalledWith("kj", ["worktree", "list", "--json", "--prs"], { cwd: dir });
+    expect(res.body.lanes).toEqual({
+      noCard: [{ slug: "loose", branch: "feat/loose" }],
+      merged: [{ slug: "left", branch: "feat/left", pr: 7, done: "kj worktree done left" }],
+      error: null,
+    });
+  });
+
+  it("a kj that cannot list the lanes leaves the rest of governance intact and says why", async () => {
+    runCommand.mockImplementation(async (_kj, args) => (args[0] === "worktree" ? { exitCode: 1, stdout: "", stderr: "boom" } : { exitCode: 0, stdout: JSON.stringify(REPORT), stderr: "" }));
+    const res = await request(app).get("/api/governance").query({ dir });
+    expect(res.body.report).toEqual(REPORT);
+    expect(res.body.lanes).toMatchObject({ noCard: [], merged: [], error: expect.stringMatching(/exit 1/) });
   });
 
   it("no policy, no anchor, no identity: says so instead of inventing; a broken chain (exit 1) is still data", async () => {

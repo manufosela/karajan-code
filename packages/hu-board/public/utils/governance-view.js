@@ -23,7 +23,7 @@ async function renderGovernance() {
       return;
     }
     localStorage.setItem(GOV_DIR_KEY, data.dir);
-    app.innerHTML = govDirForm(data.dir) + govIdentity(data.identity) + govChain(data.report, data.anchor) + govRules(data.policy, data.report) + govGrants(data.report.grants, data.policy) + govSignals(data.report.signals);
+    app.innerHTML = govDirForm(data.dir) + govIdentity(data.identity) + govChain(data.report, data.anchor) + govRules(data.policy, data.report) + govGrants(data.report.grants, data.policy) + govSignals(data.report.signals) + govLanes(data.lanes);
   } catch (err) {
     app.innerHTML = govDirForm(dir) + `<div class="empty-state"><div class="empty-state__title">Governance unavailable</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
   }
@@ -144,6 +144,18 @@ function govGrants(g, policy) {
     ? `<div class="gov-grant"><select id="gov-grant-rule" aria-label="Rule">${grantable}</select><input id="gov-grant-until" type="date" aria-label="Until"><input id="gov-grant-reason" class="gov-dir__input" placeholder="why, written now" aria-label="Reason"><button class="gov-btn" onclick="govGrant()">Grant until</button></div>`
     : '<p class="gov-note">Nothing grantable: no declared non-security rule.</p>';
   return `<div class="section-header"><span class="section-header__title">Standing exceptions</span><span class="section-header__count">${(g.alive || []).length} alive · ${(g.soon || []).length} expiring · ${(g.expired || []).length} expired · ${g.point || 0} one-off</span></div>${alive}${renewals ? `<ul class="gov-list">${renewals}</ul>` : ''}${form}<p id="gov-msg" class="gov-note"></p>`;
+}
+
+// KJC-TSK-1314: worktree lanes outside the method, each with what to do about it.
+function govLanes(lanes) {
+  if (!lanes) return '';
+  const head = '<div class="section-header"><span class="section-header__title">Lanes</span></div>';
+  if (lanes.error) return `${head}<p class="gov-note">⚠ ${esc(lanes.error)}</p>`;
+  const items = [
+    ...lanes.noCard.map((l) => `<li>⚠ ${esc(l.slug)} (${esc(l.branch)}): its branch names no card. Work starts from a card.</li>`),
+    ...lanes.merged.map((l) => `<li>⚠ ${esc(l.slug)}: PR #${esc(String(l.pr))} is merged and the lane is still there: <code>${esc(l.done)}</code></li>`),
+  ];
+  return head + (items.length ? `<ul class="gov-list">${items.join('')}</ul>` : '<p class="gov-note">Every lane works a card and none is left over.</p>');
 }
 
 const govSignals = (signals) => `<div class="section-header"><span class="section-header__title">Signals</span></div>${(signals || []).length ? `<ul class="gov-list">${signals.map((s) => `<li>⚠ ${esc(s)}</li>`).join('')}</ul>` : '<p class="gov-note">None.</p>'}`;

@@ -11,6 +11,8 @@ Un dashboard web que visualiza todas las historias de usuario (HU) y sesiones de
 
 Más allá del kanban, el board tiene una vista **Governance**, el acta encadenada por hash del proyecto, en vivo. Cada decisión que toma el entorno (un deny, una excepción con su caducidad y su ámbito, un veredicto de revisión, un resellado del supervisor) aterriza ahí sellada, y cada entrada lleva la huella criptográfica de la anterior. Así, mientras tu agente trabaja, puedes leer, en un navegador, sin terminal, exactamente qué se decidió y por quién, con la certeza de que nadie reescribió el registro de ayer sin que se note.
 
+El trabajo en paralelo también se ve. Una card que se trabaja en un carril de `kj worktree` lleva una etiqueta con el carril, su rama, sus commits por delante de la base y su PR. La vista Governance lista los carriles fuera del método: una rama que no nombra ninguna card y un carril cuya PR ya está mergeada, con el `kj worktree done <slug>` exacto que lo despeja. Todo se lee de git cada vez, no se guarda nada.
+
 ## Bajo el capó, pruébalo tú mismo
 
 El acta es un fichero plano de solo-añadido donde cada línea liga la anterior:
