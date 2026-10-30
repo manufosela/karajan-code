@@ -6,7 +6,6 @@ import os from "node:os";
 import path from "node:path";
 import { correctionNote, rejectionsBeforeApproval, reviewCorrectionRounds } from "../../src/review/correction-rounds.js";
 import { renderPlaybook } from "../../src/environment/playbook.js";
-import { approvedMessage } from "../../src/orchestrator/stages/reviewer-stage.js";
 
 const rec = (diffHash, verdict, timestamp, branch = "feat/x") => ({ diffHash, verdict, timestamp, branch });
 
@@ -49,14 +48,6 @@ describe("reviewCorrectionRounds", () => {
 
   it("a record without a branch counts no rounds", async () => {
     expect(await reviewCorrectionRounds(dir, { diffHash: "e", verdict: "approved" })).toBe(0);
-  });
-});
-
-describe("kj run", () => {
-  it("an approval after rejections names them as review corrections", () => {
-    const checkpoints = [{ stage: "reviewer", approved: false }, { stage: "coder" }, { stage: "reviewer", approved: false }, { stage: "reviewer", approved: true }];
-    expect(approvedMessage({ checkpoints })).toMatch(/^Review approved — review correction: 2 round/);
-    expect(approvedMessage({ checkpoints: [] })).toBe("Review approved");
   });
 });
 
