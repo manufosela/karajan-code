@@ -1,5 +1,4 @@
 import {
-  planGenerateCommand,
   planListCommand,
   planShowCommand,
   planReadyCommand,
@@ -13,113 +12,23 @@ import {
   planUnshareCommand,
 } from "../commands/plan.js";
 import { planLicenseCommand } from "../commands/plan/license.js";
-import { parseCanvasMarkdown } from "../canvas/parse-md.js";
-import { validateCanvas } from "../canvas/validate.js";
-import { canvasToTask } from "../canvas/to-flat.js";
 import { withConfig } from "./_shared.js";
+import { retire } from "./retired-commands.js";
 
 /**
  * Register the `plan` parent command and every sub-command that lives
- * under it (generate / list / show / ready / validate / delete /
- * add-hu / remove-hu). Centralising plan management here keeps the
- * REASONS Canvas auto-detection logic in one file alongside the
- * planner entrypoint.
+ * under it (list / show / ready / validate / delete / add-hu / remove-hu...).
  */
 export function registerPlan(program, { pkgVersion }) {
-  const plan = program.command("plan").description("Plan management (generate, review, approve, execute)");
+  const plan = program.command("plan").description("Plan management (list, show, validate, approve)");
 
+  // KJC-TSK-1317: retired in 5.0; it answers to say what replaced it.
   plan
-    .command("generate", { isDefault: true })
-    .description("Generate implementation plan with HUs")
-    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
-    .option("--task-file <path>", "Read the task from a file (e.g. .md)")
-    .option("--planner <name>")
-    .option("--planner-model <name>")
-    .option("--context <text>", "Additional context for the planner")
-    .option("--json", "Output raw JSON plan")
-    // Tests-first quality knobs (v2.7.5). Default is "thorough":
-    // when the planner skips acceptance_tests on some HUs, run a
-    // focused synthesizer pass to fill them in. Disable with these
-    // flags only if you explicitly want a fast / sketch plan.
-    .option("--no-tests-synth", "Skip the tests-synthesizer pass that fills in missing acceptance_tests")
-    .option("--no-plan-review", "Skip the high-level plan reviewer pass (gaps / deps / overlap / order)")
-    .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
-    .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
-    .option("--no-preflight-hu", "Skip auto-injection of [PREFLIGHT-000] HU at the top of the generated plan")
-    .option("--use-onboarding", "Inject the cached Architecture Brief (~/.karajan/onboarding/<slug>.md) into the planner context")
-    .option("-y, --yes", "Skip the project-name prompt (use the auto-derived default).")
-    .option("--no-interactive", "Force non-interactive mode (no prompts, use defaults).")
-    .action(async (task, flags) => {
-      await withConfig(pkgVersion, "plan", flags, async ({ config, logger }) => {
-        const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
-
-        // REASONS Canvas auto-detection: a SPEC that contains
-        // `## REASONS:Section` headings is treated as a structured
-        // Canvas — parsed + validated BEFORE the planner runs. This
-        // catches broken acceptance tests (jq syntax, bash parse,
-        // gherkin missing Given/Then, the 2026-04-29 as-binding
-        // misuse class) at plan-time, without spending LLM dollars.
-        //
-        // Detection by file CONTENTS, not by CLI flag — the Canvas
-        // format is the signal. Flat SPECs without REASONS sections
-        // continue through the legacy path unchanged (back-compat).
-        if (typeof resolvedTask === "string" && /^##\s+REASONS:/m.test(resolvedTask)) {
-          let parsed;
-          try {
-            parsed = parseCanvasMarkdown(resolvedTask);
-          } catch (err) {
-            throw new Error(`Canvas parse error: ${err.message}`, { cause: err });
-          }
-          const validation = validateCanvas(parsed);
-          if (!validation.valid) {
-            const lines = ["Canvas validation failed."];
-            if (validation.schemaIssues) {
-              lines.push("Schema issues:");
-              for (const issue of validation.schemaIssues) {
-                lines.push(`  - ${issue.path?.map((p) => p.key).join(".") || "(root)"}: ${issue.message}`);
-              }
-            }
-            if (validation.testIssues) {
-              lines.push("Acceptance test issues:");
-              for (const issue of validation.testIssues) {
-                lines.push(`  - Operation #${issue.operationIndex + 1} "${issue.operationTitle}", test #${issue.testIndex + 1} (${issue.type}, ${issue.kind}):`);
-                lines.push(`      ${issue.content}`);
-                lines.push(`      → ${issue.error}`);
-              }
-            }
-            throw new Error(lines.join("\n"));
-          }
-          // Pass the Canvas-derived flat task to the existing planner.
-          // Norms + Safeguards ride along under explicit headings the
-          // coder prompt can grep for.
-          const taskFromCanvas = canvasToTask(validation.canvas);
-          // KJC-TSK-0348: remember WHERE the Canvas lived on disk so
-          // `kj sync --apply` later knows which file to patch.
-          let sourceCanvasPath = null;
-          if (typeof flags?.taskFile === "string" && flags.taskFile.length > 0) {
-            const path = await import("node:path");
-            sourceCanvasPath = path.isAbsolute(flags.taskFile)
-              ? flags.taskFile
-              : path.resolve(config.projectDir || process.cwd(), flags.taskFile);
-          }
-          await planGenerateCommand({ task: taskFromCanvas, config, logger, flags, sourceCanvasPath });
-          return;
-        }
-        await planGenerateCommand({
-          task: resolvedTask, config, logger, json: flags.json, context: flags.context,
-          flags: {
-            noTestsSynth: flags.testsSynth === false,
-            noPlanReview: flags.planReview === false,
-            quick: Boolean(flags.quick),
-            yes: Boolean(flags.yes),
-            interactive: flags.interactive,
-            preflightHu: flags.preflightHu !== false, // KJC-TSK-0397
-            useOnboarding: Boolean(flags.useOnboarding), // KJC-TSK-0384 PR 3
-          },
-        });
-      });
-    });
+    .command("generate", { hidden: true })
+    .argument("[args...]")
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .action(() => retire("plan generate"));
 
   plan.command("list").description("List all plans").action(async (flags) => {
     await withConfig(pkgVersion, "plan", flags, async ({ config }) => {

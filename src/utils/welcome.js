@@ -10,11 +10,11 @@ const A = {
 };
 
 const QUICK_START = [
-  ["kj run <task>",  "Run the full coder+reviewer pipeline"],
   ["kj init",        "Initialize config and setup"],
+  ["kj hu add",      "Put a piece of work on the board before it starts"],
+  ["kj review --staged", "Have another AI review the diff you are about to commit"],
+  ["kj board start", "Open the HU board and its governance view"],
   ["kj doctor",      "Check environment and agent availability"],
-  ["kj status",      "Show pipeline dashboard"],
-  ["kj report",      "Show latest session report"],
 ];
 
 /**

@@ -1,9 +1,6 @@
 import { discoverCommand } from "../commands/discover.js";
 import { specRefineCommand } from "../commands/spec-refine.js";
 import { writeSbom } from "../audit/sbom.js";
-import { triageCommand } from "../commands/triage.js";
-import { researcherCommand } from "../commands/researcher.js";
-import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { startCommand } from "../commands/start.js";
 import { goCommand } from "../commands/go.js";
@@ -20,10 +17,8 @@ import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
-import { resumeCommand } from "../commands/resume.js";
 import { boardCommand } from "../commands/board.js";
 import { webperfCommand } from "../commands/webperf.js";
-import { undoCommand } from "../commands/undo.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
 import { checkCommand } from "../commands/check.js";
@@ -104,54 +99,6 @@ export function registerMeta(program, { pkgVersion }) {
           else logger.error(err.message);
           process.exitCode = 1;
         }
-      });
-    });
-
-  program
-    .command("triage")
-    .description("Classify task complexity and recommend pipeline roles")
-    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
-    .option("--task-file <path>", "Read the task from a file (e.g. .md)")
-    .option("--triage <name>", "Override triage agent")
-    .option("--triage-model <name>", "Override triage model")
-    .option("--json", "Output raw JSON")
-    .action(async (task, flags) => {
-      await withConfig(pkgVersion, "triage", flags, async ({ config, logger }) => {
-        const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
-        await triageCommand({ task: resolvedTask, config, logger, json: flags.json });
-      });
-    });
-
-  program
-    .command("researcher")
-    .description("Research codebase for a task (files, patterns, constraints)")
-    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
-    .option("--task-file <path>", "Read the task from a file (e.g. .md)")
-    .option("--researcher <name>", "Override researcher agent")
-    .option("--researcher-model <name>", "Override researcher model")
-    .action(async (task, flags) => {
-      await withConfig(pkgVersion, "researcher", flags, async ({ config, logger }) => {
-        const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
-        await researcherCommand({ task: resolvedTask, config, logger });
-      });
-    });
-
-  program
-    .command("architect")
-    .description("Design solution architecture (layers, patterns, contracts)")
-    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
-    .option("--task-file <path>", "Read the task from a file (e.g. .md)")
-    .option("--architect <name>", "Override architect agent")
-    .option("--architect-model <name>", "Override architect model")
-    .option("--context <text>", "Additional context (e.g. researcher output)")
-    .option("--json", "Output raw JSON")
-    .action(async (task, flags) => {
-      await withConfig(pkgVersion, "architect", flags, async ({ config, logger }) => {
-        const { resolveTaskInput } = await import("../utils/task-file.js");
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger, indexFirstBytes: config.docs?.indexFirstBytes });
-        await architectCommand({ task: resolvedTask, config, logger, context: flags.context, json: flags.json });
       });
     });
 
@@ -1013,21 +960,6 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
-  program
-    .command("resume")
-    .description("Resume a paused session")
-    .argument("<sessionId>")
-    .option("--answer <text>", "Answer to the question that caused the pause")
-    .option("--non-interactive", "Agents/CI: auto-answer prompts with their safe defaults; stop when there is none. Also enabled by KJ_NON_INTERACTIVE=1.")
-    .option("--json", "Output JSON only")
-    .action(async (sessionId, flags) => {
-      await withConfig(pkgVersion, "resume", flags, async ({ config, logger }) => {
-        const res = await resumeCommand({ sessionId, answer: flags.answer, config, logger, flags });
-        // KJC-TSK-0674 (issue #1289): same contract as kj run — an aborted
-        // resume must be observable by CI.
-        if (res?.aborted) process.exitCode = 1;
-      });
-    });
 
   program
     .command("update")
@@ -1074,17 +1006,6 @@ export function registerMeta(program, { pkgVersion }) {
         const port = Number(opts.port) || config.hu_board?.port || 4000;
         const bind = opts.bind || config.hu_board?.bind || "127.0.0.1";
         await boardCommand({ action, port, bind, logger });
-      });
-    });
-
-  program
-    .command("undo")
-    .description("Revert last pipeline run")
-    .option("--hard", "Discard all changes (default: soft reset, keeps changes staged)")
-    .action(async (flags) => {
-      await withConfig(pkgVersion, "undo", flags, async ({ logger }) => {
-        const result = await undoCommand({ hard: !!flags.hard, logger });
-        if (!result.ok) process.exit(1);
       });
     });
 
