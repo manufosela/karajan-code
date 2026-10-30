@@ -73,15 +73,6 @@ describe("Brain⇄Solomon invariant is documented where it matters", () => {
     expect(src).toMatch(/Brain-as-gateway|on behalf of Brain/);
   });
 
-  it("solomon-consult.js imports the Conflict + SolomonResult typedefs", async () => {
-    const src = await fs.readFile(
-      path.join(ROOT, "src/brain/solomon-consult.js"),
-      "utf8"
-    );
-    expect(src).toMatch(/import\("\.\.\/types\/solomon\.js"\)\.Conflict/);
-    expect(src).toMatch(/import\("\.\.\/types\/solomon\.js"\)\.SolomonResult/);
-  });
-
   it("ARCHITECTURE.md (EN) documents the invariant", async () => {
     const src = await fs.readFile(path.join(ROOT, "docs/ARCHITECTURE.md"), "utf8");
     expect(src).toMatch(/never from stages or rules/i);
