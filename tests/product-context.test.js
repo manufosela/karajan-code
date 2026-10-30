@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { loadProductContext } from "../src/orchestrator.js";
+import { loadProductContext } from "../src/orchestrator/config-init.js";
 import { buildCoderPrompt } from "../src/prompts/coder.js";
 import { buildReviewerPrompt } from "../src/prompts/reviewer.js";
 import { buildHuReviewerPrompt } from "../src/prompts/hu-reviewer.js";

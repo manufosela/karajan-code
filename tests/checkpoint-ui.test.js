@@ -9,7 +9,7 @@ import { buildDecompositionQuestion } from "../src/planning-game/decomposition.j
 import { formatEscalationMessage, parseEscalationAnswer } from "../src/orchestrator/solomon-escalation.js";
 
 // 3. Checkpoint answer parsing (extracted from orchestrator.js)
-import { parseCheckpointAnswer } from "../src/orchestrator.js";
+import { parseCheckpointAnswer } from "../src/orchestrator/flow-control.js";
 
 describe("Triage decomposition question UI", () => {
   it("includes numbered options in the question", () => {

@@ -5,11 +5,6 @@ vi.mock("../../src/mcp/run-kj.js", () => ({
   runKjCommand: vi.fn().mockResolvedValue({ ok: true, exitCode: 0, stdout: "done", stderr: "" })
 }));
 
-vi.mock("../../src/orchestrator.js", () => ({
-  runFlow: vi.fn().mockResolvedValue({ approved: true, sessionId: "s_test" }),
-  resumeFlow: vi.fn().mockResolvedValue({ approved: true, sessionId: "s_test" })
-}));
-
 // KJC-BUG-0431: kj_run takes a per-project run lock; with no projectDir it would take
 // the repo's real one, which another test (or a real run) may hold at that moment.
 vi.mock("../../src/utils/run-log.js", async (importOriginal) => ({
@@ -149,7 +144,6 @@ const {
 } = await import("../../src/mcp/server-handlers.js");
 
 const { runKjCommand } = await import("../../src/mcp/run-kj.js");
-const { runFlow, resumeFlow } = await import("../../src/orchestrator.js");
 const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
 const { createAgent } = await import("../../src/agents/index.js");
 const { sendTrackerLog } = await import("../../src/mcp/progress.js");
