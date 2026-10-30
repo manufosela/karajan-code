@@ -37,11 +37,8 @@ Los comandos que un setup v4 usa de verdad. Todo soporta `--help`; los comandos 
 | `kj board` | Dashboard del HU Board (con `state_backend: hu-board`). |
 | `kj gain` | Analítica de ahorro de tokens. |
 
-## Headless
+## Retirados en la 5.0
 
-| Comando | Hace |
-|---|---|
-| `kj run "<tarea>"` | El pipeline subprocess clásico — ver [Modo headless](/docs/es/v4/headless/). `--non-interactive` (o `KJ_NON_INTERACTIVE=1`) auto-responde los gates seguros; los findings FAIL paran con exit 1. |
-| `kj autorun <spec>` | Spec → plan → cada historia → informe final, desatendido. |
+`kj run`, `kj autorun`, `kj resume`, `kj standby`, `kj plan generate`, `kj status`, `kj undo`, `kj triage`, `kj researcher`, `kj architect` y `kj review "<tarea>"` movían el antiguo pipeline de subprocesos y se retiraron con él: responden con un aviso y no arrancan nada. Qué sustituye a cada uno: [Migrar a la 5.0](/docs/es/v4/migration/). Para CI y scripts, ver [Ejecuciones desatendidas](/docs/es/v4/headless/).
 
-Todo lo demás (`kj advanced` lista ~30 más) pertenece al pipeline headless y usuarios avanzados — documentado en el **archivo histórico V3** ([aquí](/docs/es/getting-started/introduction/), claramente marcado como legacy).
+`kj advanced` lista el resto de comandos. El pipeline antiguo está documentado en el **archivo histórico V3** ([aquí](/docs/es/getting-started/introduction/)).

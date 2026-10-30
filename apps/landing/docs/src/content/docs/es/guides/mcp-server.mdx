@@ -5,7 +5,7 @@ description: Usar Karajan Code como servidor MCP dentro de tu agente de IA.
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-La forma más potente de usar Karajan Code es como **servidor MCP** dentro de tu agente de IA. En lugar de alternar entre terminales y copiar/pegar outputs, tu agente envía tareas directamente a `kj_run` y recibe resultados estructurados, todo dentro de la conversación.
+Karajan Code funciona también como **servidor MCP** dentro de tu agente de IA. El trabajo lo hace tu agente; a través del servidor llega a la memoria del proyecto (`kj_rag_query`), al board (`kj_hu`) y al coder declarado en tu panel (`kj_code`) sin salir de la conversación.
 
 ## En la práctica, desde tu agente
 
@@ -48,7 +48,7 @@ Recuperación rápida:
 
 1. Reinicia la sesión del host MCP (Claude/Codex).
 2. Confirma que el servidor aparece listado (`codex mcp list` o equivalente en tu host).
-3. Ejecuta `kj_config` (y opcionalmente un `kj_plan` corto) antes de tareas largas.
+3. Ejecuta `kj_config` antes de tareas largas.
 
 ## Configuración manual
 
@@ -100,237 +100,33 @@ node /path/to/karajan-code/src/mcp/server.js
 
 ## Herramientas disponibles
 
-Karajan Code expone **26 herramientas MCP**:
+Karajan Code expone **17 herramientas MCP**:
 
 | Herramienta | Params requeridos | Descripción |
 |-------------|------------------|-------------|
-| `kj_run` | `task` | Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer |
-| `kj_discover` | `task` | Detección de gaps pre-ejecución con 5 modos (gaps, momtest, wendel, classify, jtbd) |
-| `kj_code` | `task` | Modo solo coder (sin revisión) |
-| `kj_review` | `task` | Modo solo reviewer sobre el diff actual |
-| `kj_plan` | `task` | Generar plan de implementación con telemetría heartbeat/stall |
-| `kj_resume` | `sessionId` | Reanudar una sesión pausada, detenida o fallida |
-| `kj_preflight` | `humanResponse` | El humano confirma la config de agentes antes de kj_run/kj_code |
-| `kj_agents` |, | Listar o cambiar agente IA por rol (scope sesión/proyecto/global) |
-| `kj_status` |, | Dashboard con estados de HUs, stage actual, tiempos, progreso. Devuelve JSON estructurado |
-| `kj_report` |, | Leer informes de sesión con desglose de costes |
-| `kj_scan` |, | Ejecutar escaneo SonarQube en el proyecto actual |
-| `kj_init` |, | Inicializar config, reglas de revisión, SonarQube y scaffolding de BecarIA (`--scaffold-becaria`) |
-| `kj_doctor` |, | Verificar dependencias del sistema y CLIs de agentes |
-| `kj_config` |, | Mostrar configuración actual |
-| `kj_roles` |, | Listar roles del pipeline o mostrar templates de roles |
-| `kj_triage` | `task` | Clasificar complejidad de tareas y activar roles |
-| `kj_researcher` | `task` | Investigar contexto del codebase |
-| `kj_architect` | `task` | Diseñar arquitectura de la solución |
+| `kj_rag_query` | `text` | Búsqueda semántica en el código, los planes y el brief de onboarding del proyecto |
+| `kj_rag_index` | — | (Re)indexar el proyecto en el almacén vectorial local |
+| `kj_hu` | `action` | Gestionar historias de usuario (crear, actualizar, listar, obtener) en el HU Board |
 | `kj_board` | `action` | Start/stop/status del dashboard HU Board |
-| `kj_hu` | `action` | Gestionar historias de usuario (crear, actualizar, listar, obtener) en el HU Board local |
-| `kj_suggest` | `observation` | Enviar una observación a Solomon sin interrumpir el pipeline |
-| `kj_undo` |, | Revertir la ultima ejecucion del pipeline (soft reset o hard) |
+| `kj_code` | `task` | Que escriba el cambio el coder declarado en tu panel |
+| `kj_preflight` | `humanResponse` | El humano confirma la config de agentes antes del primer `kj_code` |
+| `kj_discover` | `task` | Detección de huecos antes de empezar (gaps, momtest, wendel, classify, jtbd) |
+| `kj_audit` | — | Análisis de salud del código, solo lectura |
+| `kj_scan` | — | Ejecutar escaneo SonarQube en el proyecto actual |
+| `kj_suggest` | `observation` | Proponer una observación a Solomon |
+| `kj_agents` | — | Listar o cambiar el agente IA de cada rol |
+| `kj_roles` | — | Listar roles o mostrar sus plantillas |
+| `kj_report` | — | Leer informes de sesión |
+| `kj_init` | — | Inicializar config, reglas de revisión y SonarQube |
+| `kj_doctor` | — | Verificar dependencias del sistema y CLIs de agentes |
+| `kj_config` | — | Mostrar configuración actual |
+| `kj_clean` | — | Limpiar estado antiguo de Karajan (en seco por defecto) |
 
-Ver la [Referencia de Herramientas MCP](/docs/es/reference/mcp-tools/) para la documentación completa de parámetros.
+### Retiradas en la 5.0
+
+`kj_run`, `kj_resume`, `kj_plan`, `kj_status`, `kj_undo`, `kj_review`, `kj_triage`, `kj_researcher` y `kj_architect` movían el pipeline antiguo y se retiraron con él. Una llamada responde con un aviso y no arranca nada. Qué sustituye a cada una: [Migrar a la 5.0](/docs/es/v4/migration/).
 
 Las skills, los comandos y los subagentes los sirve atril, no el servidor `kj` (desde la 5.0 ya no existe `kj_skills`). Para buscarlos, resolverlos, instalarlos o quitarlos por MCP, añade `atril mcp` como segundo servidor.
-
-## Usar kj_run
-
-`kj_run` es la herramienta principal. Orquesta el pipeline completo y devuelve resultados estructurados.
-
-### Uso básico
-
-Desde tu agente de IA, simplemente pide:
-
-> "Usa kj_run para añadir validación de inputs al formulario de registro"
-
-El agente llama:
-
-```json
-{
-  "tool": "kj_run",
-  "params": {
-    "task": "Añadir validación de inputs al formulario de registro"
-  }
-}
-```
-
-### Con opciones
-
-```json
-{
-  "tool": "kj_run",
-  "params": {
-    "task": "Corregir la vulnerabilidad de inyección SQL en búsqueda",
-    "coder": "claude",
-    "reviewer": "codex",
-    "mode": "paranoid",
-    "methodology": "tdd",
-    "maxIterations": 5,
-    "autoCommit": true
-  }
-}
-```
-
-### Con BecarIA Gateway
-
-```json
-{
-  "tool": "kj_run",
-  "params": {
-    "task": "Añadir validación de inputs al formulario de registro",
-    "enableBecaria": true
-  }
-}
-```
-
-Cuando `enableBecaria` es true, Karajan crea una PR en borrador tras la primera iteración del coder y todos los agentes (Coder, Reviewer, Sonar, Solomon, Tester, Security, Planner) publican sus resultados como comentarios/reviews en la PR. Los dispatch events configurables disparan workflows de GitHub Actions en cada etapa del pipeline.
-
-### Con integración Planning Game
-
-```json
-{
-  "tool": "kj_run",
-  "params": {
-    "task": "Implementar autenticación de usuarios",
-    "pgTask": "PRJ-TSK-0042",
-    "pgProject": "MiProyecto"
-  }
-}
-```
-
-La herramienta obtiene el contexto completo de la card (descripción, criterios de aceptación) desde Planning Game.
-
-## Progreso en tiempo real
-
-Durante la ejecución, Karajan envía **notificaciones de progreso en tiempo real** vía logging MCP. Tu agente ve actualizaciones a medida que cada etapa se completa:
-
-```
-[1] coder:start, Escribiendo código y tests...
-[1] coder:end, Generación de código completada
-[1] sonar:start, Ejecutando análisis SonarQube...
-[1] sonar:end, Quality gate superado
-[1] reviewer:start, Revisando código...
-[1] reviewer:end, APROBADO
-[1] session:end, Pipeline completado
-```
-
-Las etapas de progreso incluyen: `session:start`, `iteration:start`, `planner:start/end`, `coder:start/end`, `refactorer:start/end`, `tdd:result`, `sonar:start/end`, `reviewer:start/end`, `iteration:end`, `solomon:escalate`, `question`, `session:end`, `pipeline:tracker`.
-
-### Tracker acumulativo del pipeline
-
-Además de los eventos individuales de stage, Karajan emite un evento `pipeline:tracker` tras cada transición de stage con el estado acumulativo completo:
-
-```json
-{
-  "type": "pipeline:tracker",
-  "detail": {
-    "stages": [
-      { "name": "triage", "status": "done", "summary": "medium" },
-      { "name": "coder", "status": "running", "summary": "claude/sonnet" },
-      { "name": "sonar", "status": "pending" },
-      { "name": "reviewer", "status": "pending" }
-    ]
-  }
-}
-```
-
-Esto permite a los hosts MCP renderizar un único widget de progreso mostrando todas las stages de un vistazo, en lugar de interpretar eventos individuales.
-
-Para herramientas single-agent (`kj_code`, `kj_review`, `kj_plan`), también se emiten logs de tracker start/end via `sendLoggingMessage`.
-
-## Formato de respuesta
-
-### Ejecución exitosa
-
-```json
-{
-  "ok": true,
-  "sessionId": "s_2026-02-28T20-47-24-270Z",
-  "approved": true,
-  "review": {
-    "status": "approved",
-    "summary": "El código cumple todos los estándares",
-    "issues": [],
-    "suggestions": ["Considerar extraer la validación a un helper"]
-  },
-  "git": {
-    "committed": true,
-    "commits": ["abc123"],
-    "branch": "feat/signup-validation",
-    "pushed": false
-  }
-}
-```
-
-### Sesión pausada
-
-Cuando la detección fail-fast se activa o se necesita clarificación:
-
-```json
-{
-  "ok": false,
-  "paused": true,
-  "sessionId": "s_2026-02-28T20-47-24-270Z",
-  "question": "El reviewer rechazó el mismo issue dos veces. ¿Procedemos?",
-  "context": "reviewer_fail_fast"
-}
-```
-
-Reanudar con `kj_resume`:
-
-```json
-{
-  "tool": "kj_resume",
-  "params": {
-    "sessionId": "s_2026-02-28T20-47-24-270Z",
-    "answer": "Sí, proceder con el enfoque actual"
-  }
-}
-```
-
-### Respuesta de error
-
-```json
-{
-  "ok": false,
-  "error": "SonarQube no es accesible",
-  "tool": "kj_run",
-  "category": "sonar_unavailable",
-  "suggestion": "Intenta: docker start sonarqube, o usa noSonar: true"
-}
-```
-
-Categorías de error: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `git_error`.
-
-## Gestión de sesiones
-
-Las sesiones persisten en disco en `$KJ_HOME/sessions/{sessionId}/`. Esto permite:
-
-- **Pausar/reanudar** entre conversaciones del agente
-- **Tracking de costes** por sesión con `kj_report`
-- **Auto-limpieza** de sesiones más antiguas que `session.expiry_days` (por defecto: 30)
-
-### Listar sesiones
-
-```json
-{
-  "tool": "kj_report",
-  "params": { "list": true }
-}
-```
-
-### Desglose de costes
-
-```json
-{
-  "tool": "kj_report",
-  "params": {
-    "sessionId": "s_2026-02-28T20-47-24-270Z",
-    "trace": true,
-    "currency": "usd"
-  }
-}
-```
-
-Devuelve un desglose etapa por etapa con tiempos, tokens y costes.
 
 ## MCPs complementarios
 
@@ -345,13 +141,13 @@ Karajan Code funciona bien junto a otros servidores MCP:
 
 ### Ejemplo de workflow con Planning Game
 
-1. El agente obtiene la tarea de mayor prioridad desde Planning Game MCP
-2. El agente envía la tarea a `kj_run`
-3. Karajan orquesta coder &rarr; sonar &rarr; reviewer
-4. El agente actualiza el estado de la card a "To Validate" en Planning Game
-5. El agente crea una PR vía GitHub MCP
+1. El agente obtiene la tarea de mayor prioridad desde Planning Game MCP y la pone en el board (`kj_hu`)
+2. El agente consulta la memoria del proyecto (`kj_rag_query`) antes de tocar el código
+3. El agente escribe el cambio con el test primero (o se lo pasa al coder del panel con `kj_code`) y pasa `kj review --staged` antes de cada commit
+4. El agente crea una PR vía GitHub MCP
+5. El agente actualiza el estado de la card a "To Validate" en Planning Game
 
-Todo dentro de una única conversación, totalmente automatizado.
+Todo dentro de una única conversación, bajo los mismos gates.
 
 ## Solución de problemas
 
@@ -361,4 +157,3 @@ Todo dentro de una única conversación, totalmente automatizado.
 | Las herramientas no aparecen | Reiniciar tu agente de IA tras la instalación |
 | Conexión rechazada | Verificar que el binario `karajan-mcp` está en tu PATH |
 | Errores de SonarQube | Ejecutar `kj_doctor` para diagnosticar, o usar `noSonar: true` |
-| Sesión atascada | Usar `kj_report --list` para encontrar la sesión, luego `kj_resume` |

@@ -32,8 +32,8 @@ El prompt engineering sacaba una buena respuesta de un buen prompt. El context e
 
 - **Separación maker / checker** — un coder contra roles independientes de reviewer, tester y security, con Solomon arbitrando los conflictos. El maker nunca corrige su propio trabajo.
 - **Verificación determinista** — TDD, tests de aceptación por HU, gates de SonarQube y guardarraíles deterministas. Verificar es tests, no intuición.
-- **La escalera de autonomía L1 → L2 → L3** — el eje `interactive | assisted | autonomous` (v3.7.0). Informe, luego fixes asistidos, luego `kj autorun` desatendido — con default `interactive`, así que tú decides.
-- **Un spine de estado duradero** — sesiones, el HU Board, journals, el índice RAG y `kj resume` mantienen vivo el bucle entre runs.
+- **La escalera de autonomía L1 → L2 → L3** — el eje `interactive | assisted | autonomous` (v3.7.0). Informe, luego fixes asistidos, luego trabajo autónomo — con default `interactive`, así que tú decides.
+- **Un spine de estado duradero** — el HU Board, los carriles (`kj worktree`), los ADRs y el índice RAG mantienen vivo el bucle entre sesiones.
 
 El caveat que el loop engineering recalca — *los bucles desatendidos cometen errores desatendidos* — está diseñado de serie: los runs autónomos listan sus defectos residuales, cada historia aterriza tras una PR, y `kj-trash` hace snapshot de las operaciones destructivas. [Lee el mapeo completo de building blocks →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
 
@@ -53,8 +53,8 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
   <Card title="Ecosistema que se repara solo" icon="github">
     ¿Tu agente choca con un bug de kj? `kj report-issue` lo diagnostica y lo sube — sanitizado, deduplicado y solo con tu aprobación. Los fixes vuelven a todos. [Referencia de comandos →](/docs/es/v4/commands/)
   </Card>
-  <Card title="Modo headless" icon="seti:shell">
-    El pipeline multiagente clásico sigue vivo para CI y automatización: `kj run` orquesta roles coder/reviewer/tester en subprocesos sin humano delante, con los mismos gates. [Modo headless →](/docs/es/v4/headless/)
+  <Card title="Ejecuciones desatendidas" icon="seti:shell">
+    En CI y en scripts, `--non-interactive` deja que los gates seguros se respondan solos y los FAIL paren con un código de salida real; los workflows de CI vuelven a comprobar cada PR. ¿Vienes de `kj run`? Se retiró en la 5.0. [Migrar a la 5.0 →](/docs/es/v4/migration/)
   </Card>
   <Card title="Torneo gobernado (v4.15)" icon="star">
     Una tarea, N coders en carriles worktree aislados: `kj tournament` reparte, `--score` construye un scoreboard determinista sin LLM, un juez cross-AI sin conflicto de interés elige al ganador, y `--crown` lo corona por el gate normal de review — ganar da candidatura, no bypass.
