@@ -14,6 +14,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 import { getKarajanHome } from "../utils/paths.js";
+import { mainCheckout } from "../utils/main-checkout.js";
 
 // FUTURE: hu-storage adapter for PG/Trello/etc — currently local files only
 
@@ -280,7 +281,8 @@ export async function detectProject(cwd) {
  * @returns {string}
  */
 function projectSlug(projectDir) {
-  return path.basename(projectDir);
+  // KJC-BUG-0441 (#2815): a kj worktree lane shares its repo's stories, never a board of its own.
+  return path.basename(mainCheckout(projectDir));
 }
 
 /**
