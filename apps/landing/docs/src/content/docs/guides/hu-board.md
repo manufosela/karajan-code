@@ -11,6 +11,8 @@ A web dashboard that visualizes all HU stories and pipeline sessions managed by 
 
 Beyond the kanban, the board has a **Governance** view — the project's hash-chained ledger, live. Every decision the environment makes (a deny, an exception with its expiry and scope, a review verdict, a supervisor reseal) lands there sealed, and each entry carries the cryptographic fingerprint of the one before it. So while your agent works, you can read — in a browser, no terminal — exactly what was decided and by whom, and be sure nobody rewrote yesterday's record without it showing.
 
+Parallel work shows too. A card worked in a `kj worktree` lane carries a badge with the lane, its branch, its commits ahead of the base and its PR. The Governance view lists the lanes outside the method: a branch that names no card, and a lane whose PR is already merged, with the exact `kj worktree done <slug>` that clears it. All of it is read from git every time, nothing is stored.
+
 ## Under the hood — try it yourself
 
 The ledger is a plain append-only file where every line links the last:
