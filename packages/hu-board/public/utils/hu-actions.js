@@ -15,58 +15,6 @@
 //                                 transparently because both share the same realm)
 
 /**
- * PR4: launch a single HU from the per-card ▶ button. Confirms with
- * the user (so an accidental click doesn't kick a run) and POSTs to
- * the new /api/hus/:huId/run endpoint, which resolves the planId
- * server-side from the SQLite row.
- *
- * Exposed on `window` because the inline onclick on the card calls it.
- */
-window.runSingleHuFromCard = async function runSingleHuFromCard(huId, title) {
-  const friendlyTitle = (title || huId).replace(/&#39;/g, "'");
-  const ok = await showConfirm(
-    `¿Lanzar solo esta HU?\n\n${friendlyTitle}\n\nKarajan ejecutará únicamente esta HU; las demás del plan no se tocarán.`,
-    { title: 'Lanzar HU individual', okLabel: 'Lanzar', cancelLabel: 'Cancelar' }
-  );
-  if (!ok) return;
-  try {
-    const res = await fetch(`/api/hus/${encodeURIComponent(huId)}/run`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    if (!res.ok) {
-      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
-      await showError(msg, { title: 'No se pudo lanzar la HU' });
-      return;
-    }
-    const body = await res.json();
-    // Surface the log path so the user can tail it from the View log button
-    // AND auto-open the viewer so the click produces visible feedback. Without
-    // the open, the user clicks Lanzar, sees nothing change, and concludes the
-    // run never started — the run IS started, the log IS being written, the
-    // UI just wasn't showing it.
-    //
-    // The tail URL must be derived from body.logPath, not constructed from
-    // huId. When `kj run --plan ... --hu <id>` is launched, runPlan writes to
-    //   <runsDir>/<planId>--hu-<localHuId>.log
-    // — not <runsDir>/hu-<huId>.log. The previous code guessed the wrong
-    // filename and the viewer would have hit a non-existent file even if
-    // it had been opened.
-    if (body.logPath) {
-      const logBasename = body.logPath.split('/').pop().replace(/\.log$/, '');
-      const tailUrl = (offset) => `/api/runs/${encodeURIComponent(logBasename)}/log?offset=${offset || 0}`;
-      lastOpenedLog = { id: `hu-${huId}`, label: `HU ${huId}`, tailUrl };
-      openGenericLogPanel({ id: logBasename, label: `HU ${huId}`, tailUrl });
-    }
-    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
-    await renderBoard();
-  } catch (err) {
-    await showError(err.message || String(err), { title: 'Fallo al lanzar la HU' });
-  }
-};
-
-/**
  * KJC-TSK-0394 step 2: devolver una HU al estado `pending` desde
  * cualquier estado no-terminal (coding/reviewing/blocked zombi) o
  * terminal (done/failed) que el usuario quiera relanzar limpio.

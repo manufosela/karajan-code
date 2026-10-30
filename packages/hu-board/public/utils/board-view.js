@@ -6,12 +6,11 @@
 //
 // Globals consumed from app.js / earlier scripts:
 //   - api(), esc(), renderEmptyState(), renderProjectPicker(),
-//     renderPreflightPanel(), renderPlanRollup(), confirmRunWithPreflight(),
-//     runProject(), openGenericLogPanel(), humaniseProjectName(),
+//     renderPreflightPanel(), renderPlanRollup(),
+//     openGenericLogPanel(), humaniseProjectName(),
 //     resolveProjectMeta(), shortStoryId(), truncate(), scoreClass(),
 //     qualityBar(), timeAgo(), showError(), showConfirm(),
-//     showStoryDetail(), showOutcomeModal(), runSingleHuFromCard(),
-//     renameProjectModal()
+//     showStoryDetail(), showOutcomeModal(), renameProjectModal()
 //   - mutable: selectedProject, lastOpenedLog, projectNameCache,
 //     projectInitialsCache
 // All lookups are runtime-bound; load order only needs board-view.js to live
@@ -76,14 +75,8 @@ async function renderBoard() {
       return;
     }
 
-    // "Run plan" bulk action: visible when a project is selected AND at
-    // least one HU is still awaiting execution AND nothing's currently
-    // running (to avoid accidentally launching a second pipeline over a
-    // live one). Replaces the old "Mark as certified" button — the
-    // intermediate "certified" state was noise from the user's POV.
-    const awaitingCount = columns.pending.filter(isBoardRunnable).length;
+    // KJC-TSK-1319: the "Run plan" button launched kj run, retired in 5.0.
     const runningCount = columns.running.filter(isBoardRun).length;
-    const canRun = Boolean(selectedProject) && awaitingCount > 0 && runningCount === 0;
     const isRunning = runningCount > 0;
 
     // KJC-TSK-0403: 3 canonical lanes. Failed eliminado — HUs con
@@ -126,13 +119,6 @@ async function renderBoard() {
             ${maggleText('board.viewLog', '📜 View log')}
           </button>
         ` : ''}
-        ${canRun ? `
-          <button class="control-btn" id="run-plan-btn"
-                  style="margin-left:auto;padding:6px 14px;font-size:0.9rem;background:var(--color-green);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;"
-                  title="${maggleText('board.runTitle', 'Launch kj run --plan over every plan in this project')}">
-            ${maggleText('board.run', '▶ Run plan')} (${awaitingCount} ${maggleText('board.story', 'HU')}${awaitingCount === 1 ? '' : 's'})
-          </button>
-        ` : ''}
       </div>
       <div id="preflight-panel" class="preflight-panel" style="margin:8px 0;">
         <div class="preflight-panel__loading" style="font-size:0.8rem;color:var(--text-muted);padding:6px 10px;">
@@ -158,18 +144,6 @@ async function renderBoard() {
       </div>
     `;
 
-    if (canRun) {
-      document.getElementById('run-plan-btn').addEventListener('click', async () => {
-        // Pre-run safety: ask preflight if anything risky is missing
-        // (no remote, dirty tree, missing agents, etc.). The modal
-        // shows blockers + warnings in plain Spanish and the user
-        // can cancel or proceed anyway. If everything is green we
-        // skip the modal and run straight away.
-        const ok = await confirmRunWithPreflight(selectedProject);
-        if (!ok) return;
-        await runProject(selectedProject);
-      });
-    }
     // Preflight panel is rendered AFTER the kanban so we can fetch
     // it without blocking the initial paint. Replaces a placeholder
     // div in-place (no full re-render).
@@ -368,33 +342,11 @@ function renderStoryCard(story) {
   // this on the card so the user edits the HU before trying to run.
   const missingTestContract = testCount === 0 && ['pending', 'certified'].includes(story.status);
 
-  // PR4: per-HU ▶ Run button. Visible when:
-  //   - the HU is in a re-runnable lifecycle state (certified / failed /
-  //     pending / done — KJC-TSK-0394 step 2 adds `done` so the user can
-  //     replay a HU whose `result` was fail or partial without having to
-  //     "reset to pending" first) AND
-  //   - it has at least one acceptance test (otherwise the run would
-  //     refuse) AND
-  //   - it isn't currently coding/reviewing AND
-  //   - KJC-BUG-0048: it has no unresolved blocked_by deps. The card
-  //     already shows "⏳ waits for: ..." below the title; the ▶ button
-  //     must match that gating or the user can launch a HU whose deps
-  //     don't exist yet, hitting the missing-prereq path at runtime.
-  const canRunHu = ['certified', 'failed', 'pending', 'done'].includes(story.status)
-    && testCount > 0
-    && kanbanColumnOf(story.status) !== 'running'
-    && blockedBy.length === 0;
-
+  // KJC-TSK-1319: the per-HU ▶ launched kj run, retired in 5.0.
   return `
     <div class="story-card" data-story-id="${esc(story.id)}" data-status="${esc(story.status || 'pending')}" onclick="showStoryDetail('${esc(story.id)}')">
       <div class="story-card__id" title="${esc(story.id)}">
         ${esc(shortId)}
-        ${canRunHu ? `
-          <button class="story-card__run-btn"
-                  style="float:right;padding:1px 6px;font-size:0.7rem;background:var(--color-green);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;"
-                  title="Lanzar solo esta HU"
-                  onclick="event.stopPropagation(); window.runSingleHuFromCard('${esc(story.id)}', '${esc(title.replace(/'/g, '&#39;'))}');">▶</button>
-        ` : ''}
       </div>
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
       <div class="story-card__meta" style="gap:10px">

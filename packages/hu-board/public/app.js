@@ -123,24 +123,9 @@ function renderEmptyState(title, text) {
 
 // ---- Plan execution ----
 //
-// The board delegates execution to the CLI via `POST /api/projects/:id/run`.
-// There's no more intermediate "certify" step: the user reviews HUs
-// (editing inline if needed — see edit-in-place PR), and when happy
-// clicks "Run plan", which spawns `kj run --plan <id>` as a detached
-// child on the server. Status updates flow back through the plan JSON
-// watcher without any manual refresh.
-//
-// We still expose a per-HU status PATCH endpoint for corrective moves
-// (e.g. retry a failed HU manually), but it's no longer the primary
-// action on the card.
+// KJC-TSK-1319: the board no longer launches kj run (retired in 5.0); your
+// agent does the work. A per-HU status PATCH stays for corrective moves.
 
-/**
- * Launch the pipeline over every plan of a project. Returns when the
- * spawn ack is received — not when the run completes. Live progress is
- * reflected automatically by the plans-dir watcher on the server, so
- * the board re-renders without us having to poll.
- * @param {string} projectId
- */
 // Track the most recently launched planId so the "View log" button in
 // the section header can re-open the viewer without the user hunting
 // through plan ids.

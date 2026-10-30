@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - **The `kj run` pipeline is retired** (KJC-TSK-1317, epic KJC-PCS-0104, issue #2815). Since v4 your agent does the work and kj governs it; the pipeline where kj spawned its own coder and reviewer goes away. `kj run`, `kj autorun`, `kj resume`, `kj standby`, `kj plan generate`, `kj status`, `kj undo`, `kj triage`, `kj researcher`, `kj architect` and `kj review` with a task still answer, hidden from the help: they exit 1 without starting anything and say what replaced them. `kj code` stays, as the way to have the coder declared in your panel write. See [MIGRATION-v5.md](MIGRATION-v5.md).
+- **The HU Board no longer launches `kj run`** (KJC-TSK-1319): the "Run plan" button and the ▶ of each card are gone, and the routes they called answer 410 with the same notice and start nothing. A ▶ that opens a lane for the card and starts your agent in it is coming (KJC-TSK-1324).
 
 ### Added
 - **The HU Board shows each card's worktree lane** (KJC-TSK-1313/1315, issue #2815): a card whose id or reference (a tracker card, an issue) is named by a `kj worktree` lane's branch carries a badge with the lane, its branch and its commits ahead of the base. Read from git every time through `kj worktree list --json` (new), never stored, so a lane removed by hand never lingers. The badge links the lane's PR (KJC-TSK-1316): `--prs` reads them in one `gh` call, the board keeps them a minute, and when `gh` fails the lanes show without PRs and kj says so.
