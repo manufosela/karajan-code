@@ -6,10 +6,6 @@ vi.mock("../src/mcp/run-kj.js", () => ({
   runKjCommand: vi.fn(async () => ({ ok: true }))
 }));
 
-vi.mock("../src/mcp/tool-arg-normalizers.js", () => ({
-  normalizePlanArgs: vi.fn((a) => a)
-}));
-
 vi.mock("../src/mcp/progress.js", () => ({
   buildProgressHandler: vi.fn(() => vi.fn()),
   buildProgressNotifier: vi.fn(() => null),
@@ -115,10 +111,6 @@ vi.mock("../src/mcp/preflight.js", () => ({
 
 vi.mock("../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn(async () => {})
-}));
-
-vi.mock("../src/mcp/sovereignty-guard.js", () => ({
-  validateSovereignty: vi.fn(() => ({ error: null, warnings: [], params: {} }))
 }));
 
 vi.mock("../src/mcp/suggest-handler.js", () => ({
