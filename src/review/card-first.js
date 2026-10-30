@@ -41,7 +41,8 @@ async function findLiveCardInBranch(projectDir, branch) {
     const plan = await loadPlan(projectDir, meta.planId);
     for (const h of plan.hus || []) {
       // KJC-BUG-0353: an HU is also named by the id of its replica in an external tracker.
-      for (const ref of [h.short_id, h.id, h.external_ref]) {
+      // KJC-BUG-0443: a shared-board HU carries "repo#n · ref"; each part names it.
+      for (const ref of [h.short_id, h.id, ...String(h.external_ref ?? "").split(" · ")]) {
         if (ref && refInBranch(ref, needle)) {
           if (LIVE_STATUSES.has(h.status)) return { ref, live: true, status: h.status };
           closedHit = { ref, live: false, status: h.status };

@@ -22,7 +22,7 @@ afterEach(() => {
   if (prevHome === undefined) delete process.env.KARAJAN_HOME; else process.env.KARAJAN_HOME = prevHome;
 });
 
-const HUS = [{ short_id: "HU-7", number: 7, title: "A", status: "running", claimed_by: "jorgecasar" }, { short_id: "HU-8", number: 8, title: "B", status: "pending", claimed_by: null }];
+const HUS = [{ short_id: "HU-7", number: 7, title: "A", status: "running", claimed_by: "jorgecasar", ref: "KJC-TSK-0042" }, { short_id: "HU-8", number: 8, title: "B", status: "pending", claimed_by: null }];
 const deps = { boardConfig: async () => ({ backend: "github", repo: "acme/app" }), listTeamHus: async () => HUS, who: "manufosela" };
 
 describe("the shared board mirrored for kj board", () => {
@@ -31,7 +31,8 @@ describe("the shared board mirrored for kj board", () => {
     const plan = await loadPlan(dir, "github");
     // KJC-TSK-1197: the repo travels on its own so the board can link to its issues.
     expect(plan).toMatchObject({ readonly: "github", repo: "acme/app", task: expect.stringContaining("acme/app") });
-    expect(plan.hus.map((h) => [h.id, h.status, h.claimed_by, h.external_ref])).toEqual([["HU-7", "running", "jorgecasar", "acme/app#7"], ["HU-8", "pending", null, "acme/app#8"]]);
+    // KJC-BUG-0443: the tracker reference travels with the issue, so card-first finds the HU by it.
+    expect(plan.hus.map((h) => [h.id, h.status, h.claimed_by, h.external_ref])).toEqual([["HU-7", "running", "jorgecasar", "acme/app#7 · KJC-TSK-0042"], ["HU-8", "pending", null, "acme/app#8"]]);
   });
 
   it("lands in the plans root the board reads when KJ_PLANS_DIR overrides it", async () => {
