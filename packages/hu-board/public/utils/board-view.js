@@ -35,10 +35,13 @@ async function renderBoard() {
       return;
     }
 
-    const [stories, projectCost] = await Promise.all([
+    const [stories, projectCost, lanes] = await Promise.all([
       api(`/api/projects/${encodeURIComponent(selectedProject)}/stories`),
       api(`/api/projects/${encodeURIComponent(selectedProject)}/cost`).catch(() => null),
+      api(`/api/lanes/${encodeURIComponent(selectedProject)}`).catch((err) => ({ byStory: {}, error: String(err.message || err) })),
     ]);
+    lanesByStory = lanes.byStory || {};
+    if (lanes.error) console.warn(`[board] worktree lanes unavailable: ${lanes.error}`);
     const costSummary = projectCost ? formatProjectCostSummary(projectCost) : null;
     // Φ0-G (KJC-TSK-0525): aggregated cache-hit badge at the project
     // header, rendered alongside the project cost chip.
@@ -316,6 +319,18 @@ function renderKanbanColumn(title, cssClass, stories) {
   `;
 }
 
+// KJC-TSK-1313: story id → the worktree lanes working it (GET /api/lanes/:project).
+let lanesByStory = {};
+
+/** One badge per lane working the card: its name, branch and commits ahead of the base. */
+function renderLaneBadges(story) {
+  return (lanesByStory[story.id] || []).map((l) => {
+    const ahead = typeof l.ahead === 'number' ? ` · ${l.ahead} ↑` : '';
+    const title = `carril ${l.slug} · ${l.path}`;
+    return `<span class="story-card__lane" title="${esc(title)}">🌿 ${esc(l.slug)} (${esc(l.branch)})${ahead}</span>`;
+  }).join('');
+}
+
 /**
  * Renders a story card for the kanban board.
  * @param {object} story
@@ -376,6 +391,7 @@ function renderStoryCard(story) {
       </div>
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
       <div class="story-card__meta" style="gap:10px">
+        ${renderLaneBadges(story)}
         ${acCount > 0 ? `<span title="${acCount} acceptance criteria">📋 ${acCount} AC${acCount === 1 ? '' : 's'}</span>` : ''}
         ${testCount > 0 ? `<span title="${testCount} acceptance tests declared">✅ ${testCount} test${testCount === 1 ? '' : 's'}</span>` : ''}
         ${story.spec_section ? `<span title="Implements SPEC ${esc(story.spec_section)}" style="font-family:var(--font-mono, monospace)">📖 §${esc(story.spec_section)}</span>` : ''}

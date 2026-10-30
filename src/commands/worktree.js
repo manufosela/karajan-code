@@ -15,7 +15,16 @@ import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { mainCheckout } from "../utils/main-checkout.js";
-import { parseLanes } from "../hu/lanes.js";
+import { cardsOfLane, parseLanes } from "../hu/lanes.js";
+import { listPlans, loadPlan } from "../plan/plan-store.js";
+
+const REF_SEPARATOR = " · "; // external_ref joins a tracker card and an issue (src/commands/hu.js)
+
+/** Every HU of the project's plans with its references, as `{id, refs}`. */
+async function planCards(projectDir) {
+  const plans = await Promise.all((await listPlans(projectDir)).map((m) => loadPlan(projectDir, m.planId)));
+  return plans.flatMap((p) => (p?.hus ?? []).map((h) => ({ id: h.id, refs: String(h.external_ref ?? "").split(REF_SEPARATOR).filter(Boolean) })));
+}
 
 const execFileAsync = promisify(execFile);
 const WORKTREE_DIR = ".kj/worktrees"; // shared with the headless lanes
@@ -64,6 +73,16 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
   if (action === "list") {
     const { stdout } = await git(["worktree", "list", "--porcelain"]);
     const rows = parseLanes(stdout, { root: lanesDir });
+    if (flags.json) {
+      // KJC-TSK-1313: what the HU Board paints on each card.
+      const base = await resolveBase({ git, base: baseName });
+      const cards = await planCards(projectDir);
+      const out = await Promise.all(rows.map(async (r) => ({
+        ...r, ahead: await commitsNotIn({ git, base, ref: r.branch }).catch(() => null), cards: cardsOfLane(r, cards),
+      })));
+      console.log(JSON.stringify(out));
+      return out;
+    }
     if (rows.length === 0) console.log("no lanes — create one with: kj worktree start <slug>");
     for (const r of rows) console.log(`${r.slug.padEnd(24)} ${r.branch.padEnd(30)} ${r.path}`);
     return rows;
