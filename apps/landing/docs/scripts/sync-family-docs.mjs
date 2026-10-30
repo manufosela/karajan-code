@@ -6,8 +6,10 @@
  * - Descarga cada fuente de GitHub raw pinneada a un tag (`ref`).
  * - Parte el markdown en páginas por headings declarados en
  *   family-docs.config.mjs y escribe el locale `es/` (los docs fuente
- *   están en español): frontmatter + procedencia + sha256 de la sección.
- * - Las páginas EN (raíz) son traducciones mantenidas en ESTE repo: cada
+ *   están en español; `sourceLang: 'en'` invierte los locales, como atril):
+ *   frontmatter + procedencia + sha256 de la sección.
+ * - Las páginas EN (raíz) son traducciones mantenidas en ESTE repo (en las
+ *   fuentes EN, las de `es/`): cada
  *   una declara `source-sha256` de la sección que traduce. Si la fuente
  *   cambió, el sync lo AVISA (y con `--check` falla), para que la
  *   traducción nunca quede obsoleta en silencio.
@@ -23,6 +25,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sources } from './family-docs.config.mjs';
+import { bannerFor, missingMessage, noMarkMessage, staleMessage } from './family-docs-lang.mjs';
 
 const docsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const checkMode = process.argv.includes('--check');
@@ -137,9 +140,7 @@ for (const source of sources) {
     );
     const hash = sha256(content);
     const pageLabel = source.files !== undefined ? `${label}:${page.filePath}` : label;
-    const banner =
-      `<!-- synced-from: ${pageLabel} · section-sha256: ${hash}\n` +
-      '     NO EDITAR A MANO — regenerado con `npm run sync:family-docs` -->';
+    const banner = bannerFor(source.sourceLang, pageLabel, hash);
     await writeFile(
       path.join(outDir, `${page.slug}.md`),
       `${frontmatter(page)}\n\n${banner}\n\n${content}\n`,
@@ -149,17 +150,17 @@ for (const source of sources) {
     // Frescura de la traducción EN: debe declarar el sha256 de la sección.
     const enPath = path.join(docsRoot, source.translationDir, `${page.slug}.md`);
     if (!existsSync(enPath)) {
-      warnings.push(`EN ausente: ${source.translationDir}/${page.slug}.md (traducir desde ${label})`);
+      warnings.push(missingMessage(source.sourceLang, `${source.translationDir}/${page.slug}.md`, label));
       continue;
     }
     const enContent = await readFile(enPath, 'utf8');
     const declared = enContent.match(/source-sha256: ([0-9a-f]{64})/)?.[1];
     if (declared === undefined) {
-      throw new Error(`la página EN ${page.slug}.md no declara source-sha256 — añade su marca de procedencia`);
+      throw new Error(noMarkMessage(source.sourceLang, `${page.slug}.md`));
     }
     if (declared !== hash) {
       warnings.push(
-        `EN obsoleta: karagan/${page.slug}.md traduce ${declared.slice(0, 12)}… pero la fuente es ${hash.slice(0, 12)}… — retraducir y actualizar la marca`,
+        staleMessage(source.sourceLang, `${source.translationDir}/${page.slug}.md`, declared, hash),
       );
     }
   }
