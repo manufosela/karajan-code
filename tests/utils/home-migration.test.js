@@ -56,6 +56,21 @@ describe("migrateKjToKarajan", () => {
     expect(warnSpy.mock.calls[0][0]).toMatch(/Migrated.*plans.*backup:/);
   });
 
+  // KJC-BUG-0439: KARAJAN_HOME pointed elsewhere (a CI-like empty home) got a copy of the
+  // person's ~/.kj and a world-readable backup, even from read-only commands.
+  it("never migrates the default ~/.kj into an explicitly chosen KARAJAN_HOME", async () => {
+    delete process.env.KJ_HOME;
+    expect((await migrateKjToKarajan({ force: true })).reason).toBe("explicit-home");
+    expect(await fs.readdir(dst)).toEqual([]);
+  });
+
+  it("keeps the backup private: 700 folder, 600 tarball", async () => {
+    await w(path.join(src, "plans", "a", "p1.json"));
+    const r = await migrateKjToKarajan({ force: true });
+    expect((await fs.stat(path.dirname(r.backupPath))).mode & 0o777).toBe(0o700);
+    expect((await fs.stat(r.backupPath)).mode & 0o777).toBe(0o600);
+  });
+
   it("is idempotent — second run with new content is a no-op", async () => {
     await w(path.join(src, "plans", "a", "p1.json"));
     await migrateKjToKarajan({ force: true });
