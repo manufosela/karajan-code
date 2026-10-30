@@ -2,7 +2,8 @@
  * Lexical search over the store (ADR 0021, decision 5). The index is built
  * from scan(), so it is deterministic: the same store ranks the same way.
  * A query term scores by the field it appears in, the name weighing most
- * and the body least; ties break on kind, then name.
+ * and the body least; a prefix of a token weighs less than an exact match;
+ * ties break on kind, then name.
  */
 import { availableArtifacts, availablePlugins } from "./catalog.js";
 import { KINDS } from "./model.js";
@@ -42,8 +43,29 @@ function fieldsOf(artifact) {
   };
 }
 
-const scoreOf = (fields, terms) =>
-  Object.entries(WEIGHTS).reduce((sum, [field, weight]) => sum + weight * terms.filter((term) => fields[field].has(term)).length, 0);
+// ADR 0039, layer 2: a term of 4+ chars also matches the tokens it prefixes, at 1/16 of the field's
+// weight. Spread over the terms, the prefix share is at most 15/16 (the weights sum to 15, so keep
+// PREFIX_SHARE >= 15): an exact match always outranks it. The sums are integers and divide once,
+// so equal matches give equal scores and the kind/name tie-break holds.
+const PREFIX_MIN = 4;
+const PREFIX_SHARE = 16;
+const isPrefixOf = (term, tokens) => {
+  if ([...term].length < PREFIX_MIN) return false;
+  for (const token of tokens) if (token.startsWith(term)) return true;
+  return false;
+};
+
+function scoreOf(fields, terms) {
+  let exact = 0;
+  let prefix = 0;
+  for (const [field, weight] of Object.entries(WEIGHTS)) {
+    for (const term of terms) {
+      if (fields[field].has(term)) exact += weight;
+      else if (isPrefixOf(term, fields[field])) prefix += weight;
+    }
+  }
+  return exact + Math.round((prefix / (PREFIX_SHARE * terms.length)) * 1e4) / 1e4;
+}
 
 /**
  * The stores' artifacts, and (step 11a) what the catalogs offer, marked `installed: false`
