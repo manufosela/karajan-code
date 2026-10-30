@@ -293,6 +293,23 @@ describe("[opt-in: sonar] runSonarScan", () => {
     }, { withSrc: true });
   });
 
+  // KJC-BUG-0445: the folders are checked in the SCANNED directory, not in process.cwd().
+  it("filters the source folders against the scanned directory, not the process cwd", async () => {
+    const config = { sonarqube: { host: "http://localhost:9000", token: "token-123", scanner: { sources: "src,public,lib" } } };
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "ok", stderr: "" });
+    const scanned = mkdtempSync(join(tmpdir(), "kj-sonar-scanned-"));
+    try {
+      mkdirSync(join(scanned, "lib"));
+      await inRepoWithoutProperties(async () => {
+        await runSonarScan(config, "my-key", { cwd: scanned });
+        const opts = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
+        expect(opts).toContain("-Dsonar.sources=lib");
+        expect(opts).not.toMatch(/sonar\.sources=[^ ]*src/);
+      }, { withSrc: true });
+    } finally { rmSync(scanned, { recursive: true, force: true }); }
+  });
+
   it("runs configured coverage command and injects lcov path only when configured and existing", async () => {
     const config = {
       sonarqube: {

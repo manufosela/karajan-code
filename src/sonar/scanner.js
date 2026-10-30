@@ -85,7 +85,9 @@ export function buildScannerOpts(projectKey, scanner = {}, where = {}) {
   if (scanner.scm_disabled || where.linkedWorktree) opts.push("-Dsonar.scm.disabled=true");
   // KJC-TSK-0838: verbose is what makes the scanner name every indexed file.
   if (scanner.verbose) opts.push("-Dsonar.verbose=true");
+  if (scanner.project_name) opts.push(`-Dsonar.projectName=${scanner.project_name}`);
   if (scanner.sources) opts.push(`-Dsonar.sources=${scanner.sources}`);
+  if (scanner.tests) opts.push(`-Dsonar.tests=${scanner.tests}`);
   if (scanner.exclusions) opts.push(`-Dsonar.exclusions=${scanner.exclusions}`);
   if (scanner.test_inclusions) opts.push(`-Dsonar.test.inclusions=${scanner.test_inclusions}`);
   if (scanner.coverage_exclusions) opts.push(`-Dsonar.coverage.exclusions=${scanner.coverage_exclusions}`);
@@ -107,14 +109,15 @@ export function buildScannerOpts(projectKey, scanner = {}, where = {}) {
   return opts.join(" ");
 }
 
-function normalizeScannerConfig(scanner = {}) {
+// The folders are checked in the scanned directory (baseDir), not in process.cwd().
+function normalizeScannerConfig(scanner = {}, baseDir = process.cwd()) {
   const out = { ...scanner };
   if (typeof out.sources === "string" && out.sources.trim()) {
     const existing = out.sources
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
-      .filter((entry) => fs.existsSync(entry));
+      .filter((entry) => fs.existsSync(path.resolve(baseDir, entry)));
 
     if (existing.length > 0) {
       out.sources = existing.join(",");
@@ -238,7 +241,7 @@ export async function resolveSonarTokenWithFallback(config, apiHost) {
 export function respectRepoProperties(scanner = {}, props = {}) {
   if (!props.existed) return scanner;
   const kept = { ...scanner };
-  for (const k of ["sources", "exclusions", "test_inclusions", "coverage_exclusions", "javascript_lcov_report_paths"]) delete kept[k];
+  for (const k of ["project_name", "sources", "tests", "exclusions", "test_inclusions", "coverage_exclusions", "javascript_lcov_report_paths"]) delete kept[k];
   return kept;
 }
 
@@ -271,19 +274,17 @@ export async function ensureSonarProjectProperties(cwd = process.cwd()) {
       const wanted = SOURCE_DIRS.map((d) => `${d}/`).join(", ");
       return { existed: false, declaredKey: null, written: false, nothingToScan: `no ${wanted} folder to analyse: write a sonar-project.properties declaring sonar.sources when the code arrives` };
     }
-    const projectKey = (pkg.name || path.basename(cwd)).replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
-    const layout = [`sonar.sources=${sources.join(",")}`, ...(tests.length ? [`sonar.tests=${tests.join(",")}`] : [])];
-    const props = [
-      `sonar.projectKey=${projectKey}`,
-      `sonar.projectName=${pkg.name || path.basename(cwd)}`,
-      ...layout,
-      `sonar.javascript.lcov.reportPaths=coverage/lcov.info`,
-      `sonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**`,
-    ].join("\n");
-    await fsPromises.writeFile(propsPath, props + "\n", "utf8");
-    // Said out loud: the file is new in the working tree and the team should see it.
-    const note = `sonar: wrote sonar-project.properties (${layout.join(", ")}): review it and commit it`;
-    return { existed: false, declaredKey: null, written: true, note };
+    // KJC-BUG-0445 (#2854): nothing is written in the tree (a lane kept the file
+    // untracked); the layout reaches the scanner as -D opts, under kj's config.
+    const layout = {
+      project_name: pkg.name || path.basename(cwd),
+      sources: sources.join(","),
+      ...(tests.length ? { tests: tests.join(",") } : {}),
+      exclusions: "**/node_modules/**,**/dist/**,**/build/**,**/coverage/**",
+    };
+    const declared = [`sonar.sources=${layout.sources}`, ...(layout.tests ? [`sonar.tests=${layout.tests}`] : [])];
+    const note = `sonar: no sonar-project.properties, kj scanned with ${declared.join(", ")}: commit one to own the layout`;
+    return { existed: false, declaredKey: null, written: false, layout, note };
   }
 }
 
@@ -404,10 +405,11 @@ export async function runSonarScan(config, projectKey = null, { verbose = false,
   // SAME key), but the repo's properties own the LAYOUT from here on.
   const scannerConfig = respectRepoProperties(
     normalizeScannerConfig({
+      ...repoProps.layout,
       ...sonarConfig.scanner,
       ...coverage.scannerPatch,
       ...(verbose ? { verbose: true } : {})
-    }),
+    }, scanCwd),
     repoProps
   );
   const note = repoPropertiesNote(repoProps, sonarConfig);
