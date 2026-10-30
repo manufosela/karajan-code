@@ -1,0 +1,41 @@
+/**
+ * KJC-TSK-1313: which card each worktree lane works on. Read from git every time, never stored on
+ * the card, so a lane removed by hand never lingers on the board.
+ */
+import path from "node:path";
+
+/**
+ * The worktrees with a branch in `git worktree list --porcelain`. The first entry is the main
+ * checkout and is left out, as are detached worktrees. With `root`, only the lanes under it.
+ * @returns {{slug: string, branch: string, path: string}[]}
+ */
+export function parseLanes(porcelain, { root = null } = {}) {
+  const lanes = [];
+  let current = null;
+  let seen = 0;
+  for (const line of porcelain.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      current = seen++ === 0 ? null : { path: line.slice(9).trim() };
+    } else if (line.startsWith("branch ") && current) {
+      lanes.push({ slug: path.basename(current.path), branch: line.slice(7).trim().replace(/^refs\/heads\//, ""), path: current.path });
+    }
+  }
+  return root ? lanes.filter((l) => l.path.startsWith(root + path.sep)) : lanes;
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+
+/**
+ * The lanes of each card: those whose branch carries the card id as a whole token (so HU-2 never
+ * claims HU-27). Cards without a lane have no entry.
+ * @returns {Map<string, {slug: string, branch: string, path: string}[]>}
+ */
+export function lanesByCard(lanes, cardIds) {
+  const byCard = new Map();
+  for (const id of new Set(cardIds)) {
+    const token = new RegExp(`(^|[^a-z0-9])${escapeRe(id)}($|[^a-z0-9])`, "i");
+    const hits = lanes.filter((l) => token.test(l.branch));
+    if (hits.length > 0) byCard.set(id, hits);
+  }
+  return byCard;
+}
