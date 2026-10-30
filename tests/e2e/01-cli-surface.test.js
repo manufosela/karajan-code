@@ -28,7 +28,7 @@ describe("e2e/10 — CLI surface", () => {
       expect(r.exitCode).toBe(0);
       // KJC-TSK-0582: --help shows only the core basics + a pointer to
       // `kj advanced`. The advanced commands no longer clutter this listing.
-      for (const cmd of ["init", "run", "plan", "doctor", "harden", "advanced"]) {
+      for (const cmd of ["init", "hu", "review", "plan", "doctor", "harden", "advanced"]) {
         expect(r.stdout, `'${cmd}' missing from --help`).toContain(cmd);
       }
     } finally { proj.cleanup(); }
@@ -71,12 +71,14 @@ describe("e2e/10 — CLI surface", () => {
     } finally { proj.cleanup(); }
   });
 
-  it("kj plan generate --task-fil <path> (typo'd flag) suggests --task-file", () => {
-    const proj = makeTmpProject({ spec: "demo" });
+  // KJC-TSK-1317: the real binary answers a retired command with its notice.
+  it("kj run (retired in 5.0) exits 1 and points at the migration guide", () => {
+    const proj = makeTmpProject();
     try {
-      const r = runKj(["plan", "generate", "--task-fil", "SPEC.md"], { cwd: proj.projectDir });
-      expect(r.exitCode).not.toBe(0);
-      expect(r.stderr).toMatch(/--task-file/);
+      const r = runKj(["run", "a task", "--coder", "claude"], { cwd: proj.projectDir });
+      expect(r.exitCode).toBe(1);
+      expect(r.stderr).toContain("kj run was retired in 5.0");
+      expect(r.stderr).toContain("MIGRATION-v5.md");
     } finally { proj.cleanup(); }
   });
 });

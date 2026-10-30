@@ -5,7 +5,7 @@ import { registerPlan } from "../../src/cli/register-plan.js";
 import { registerRolesSkills } from "../../src/cli/register-roles-skills.js";
 import { registerMeta } from "../../src/cli/register-meta.js";
 import { registerSonar } from "../../src/cli/register-sonar.js";
-import { registerStandby } from "../../src/cli/register-standby.js";
+import { registerRetired } from "../../src/cli/retired-commands.js";
 import {
   CORE_COMMANDS,
   ADVANCED_COMMANDS,
@@ -24,14 +24,16 @@ function buildProgram() {
   registerRolesSkills(program, opts);
   registerMeta(program, opts);
   registerSonar(program);
-  registerStandby(program);
+  registerRetired(program);
   return program;
 }
 
 describe("advanced-commands registry (KJC-TSK-0582)", () => {
   it("classifies every registered top-level command (no drift)", () => {
     const program = buildProgram();
+    // KJC-TSK-1317: the retired commands are hidden and listed nowhere.
     const unknown = program.commands
+      .filter((c) => !c._hidden)
       .map((c) => c.name())
       .filter((name) => classifyCommand(name) === "unknown");
     expect(unknown).toEqual([]);
@@ -65,7 +67,7 @@ describe("advanced-commands registry (KJC-TSK-0582)", () => {
 
   it("isAdvancedCommand hides advanced, keeps core/meta visible", () => {
     expect(isAdvancedCommand("audit")).toBe(true);
-    expect(isAdvancedCommand("run")).toBe(false);
+    expect(isAdvancedCommand("hu")).toBe(false);
     expect(isAdvancedCommand("advanced")).toBe(false);
   });
 });

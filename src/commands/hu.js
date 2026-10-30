@@ -290,7 +290,7 @@ async function listLocal({ projectDir, flags }) {
     console.log(`${(r.short_id || r.id).padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${origin}]`);
   }
   if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
-  else console.log("→ work one: ask your agent, or kj run --plan <plan> · discard one: kj hu move <id> skipped");
+  else console.log("→ work one: ask your agent · discard one: kj hu move <id> skipped");
   return rows;
 }
 
