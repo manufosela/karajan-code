@@ -1,6 +1,6 @@
 /**
- * Direct role handler logic (code, review, plan, audit, discover, triage, researcher, architect, impeccable).
- * Extracted from server-handlers.js for maintainability.
+ * Direct role handler logic (code, audit, discover). KJC-TSK-1318: review,
+ * plan, triage, researcher and architect left with the kj run pipeline.
  */
 
 import fs from "node:fs/promises";
@@ -8,12 +8,7 @@ import { resolveRole } from "../../config.js";
 import { createLogger } from "../../utils/logger.js";
 import { assertAgentsAvailable } from "../../agents/availability.js";
 import { createAgent } from "../../agents/index.js";
-import { buildPlannerPrompt } from "../../prompts/planner.js";
 import { buildCoderPrompt } from "../../prompts/coder.js";
-import { buildReviewerPrompt } from "../../prompts/reviewer.js";
-import { parseMaybeJsonString, agentAnswerText } from "../../review/parser.js";
-import { computeBaseRef, generateDiff } from "../../review/diff-generator.js";
-import { resolveReviewProfile } from "../../review/profiles.js";
 import { createRunLog } from "../../utils/run-log.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 import { sendTrackerLog } from "../progress.js";
@@ -64,165 +59,6 @@ function applySessionOverrides(a, roleKeys) {
   for (const key of roleKeys) {
     if (sessionOvr[key] !== undefined) { a[key] = sessionOvr[key]; }
   }
-}
-
-export async function handlePlanDirect(a, server, extra) {
-  // KJC-PCS-0048 PR 3b: same `specReviewMode: skip` → skipSpecReview
-  // mapping as kj_run. Default "auto" keeps the reviewer enabled.
-  if (a.specReviewMode === "skip") a.skipSpecReview = true;
-  const { normalizePlanArgs } = await import("../tool-arg-normalizers.js");
-  const options = normalizePlanArgs(a);
-  const config = await buildConfig(options, "plan");
-  const logger = createLogger(config.output.log_level, "mcp");
-
-  const plannerRole = resolveRole(config, "planner");
-  await assertAgentsAvailable([plannerRole.provider]);
-
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  await ensureTaskFromFile(a, projectDir);
-  const runLog = createRunLog(projectDir);
-  const silenceTimeoutMs = Number(config?.session?.max_agent_silence_minutes) > 0
-    ? Math.round(Number(config.session.max_agent_silence_minutes) * 60 * 1000)
-    : undefined;
-  const plannerTimeoutMs = Number(config?.session?.max_planner_minutes) > 0
-    ? Math.round(Number(config.session.max_planner_minutes) * 60 * 1000)
-    : undefined;
-  const silenceLabel = silenceTimeoutMs ? `${Math.round(silenceTimeoutMs / 1000)}s` : "disabled";
-  const runtimeLabel = plannerTimeoutMs ? `${Math.round(plannerTimeoutMs / 1000)}s` : "disabled";
-  runLog.logText(
-    `[kj_plan] started — provider=${plannerRole.provider}, max_silence=${silenceLabel}, max_runtime=${runtimeLabel}`
-  );
-  const emitter = buildDirectEmitter(server, runLog, extra);
-  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
-
-  // --- Phase 1: Researcher (codebase context) ---
-  let researchContext = null;
-  try {
-    const { ResearcherRole } = await import("../../roles/researcher-role.js");
-    const researcherRole = resolveRole(config, "researcher");
-    const researcherOnOutput = ({ stream, line }) => {
-      emitter.emit("progress", { type: "agent:output", stage: "researcher", message: line, detail: { stream, agent: researcherRole.provider } });
-    };
-    const researcherStall = createStallDetector({
-      onOutput: researcherOnOutput, emitter, eventBase, stage: "researcher", provider: researcherRole.provider
-    });
-
-    sendTrackerLog(server, "researcher", "running", researcherRole.provider);
-    runLog.logText(`[researcher] agent launched for plan context...`);
-    const researcher = new ResearcherRole({ config, logger, emitter });
-    await researcher.init({ task: a.task });
-    let researchOutput;
-    try {
-      researchOutput = await researcher.run({ task: a.task, onOutput: researcherStall.onOutput });
-    } finally {
-      researcherStall.stop();
-    }
-    if (researchOutput.ok) {
-      researchContext = researchOutput.result;
-      sendTrackerLog(server, "researcher", "done");
-      runLog.logText(`[researcher] completed — context available`);
-    } else {
-      sendTrackerLog(server, "researcher", "failed");
-      runLog.logText(`[researcher] failed: ${researchOutput.summary || "unknown"}`);
-    }
-  } catch (err) {
-    logger.warn(`Researcher phase skipped: ${err.message}`);
-  }
-
-  // --- Phase 2: Architect (solution design) ---
-  let architectContext = null;
-  try {
-    const { ArchitectRole } = await import("../../roles/architect-role.js");
-    const architectRole = resolveRole(config, "architect");
-    const architectOnOutput = ({ stream, line }) => {
-      emitter.emit("progress", { type: "agent:output", stage: "architect", message: line, detail: { stream, agent: architectRole.provider } });
-    };
-    const architectStall = createStallDetector({
-      onOutput: architectOnOutput, emitter, eventBase, stage: "architect", provider: architectRole.provider
-    });
-
-    sendTrackerLog(server, "architect", "running", architectRole.provider);
-    runLog.logText(`[architect] agent launched for plan context...`);
-    const architect = new ArchitectRole({ config, logger, emitter });
-    await architect.init({ task: a.task });
-    let architectOutput;
-    try {
-      architectOutput = await architect.run({ task: a.task, researchContext, onOutput: architectStall.onOutput });
-    } finally {
-      architectStall.stop();
-    }
-    if (architectOutput.ok) {
-      architectContext = architectOutput.result;
-      sendTrackerLog(server, "architect", "done");
-      runLog.logText(`[architect] completed — context available`);
-    } else {
-      sendTrackerLog(server, "architect", "failed");
-      runLog.logText(`[architect] failed: ${architectOutput.summary || "unknown"}`);
-    }
-  } catch (err) {
-    logger.warn(`Architect phase skipped: ${err.message}`);
-  }
-
-  // --- Phase 3: Planner (with research + architecture context) ---
-  const onOutput = ({ stream, line }) => {
-    emitter.emit("progress", { type: "agent:output", stage: "planner", message: line, detail: { stream, agent: plannerRole.provider } });
-  };
-  const stallDetector = createStallDetector({
-    onOutput, emitter, eventBase, stage: "planner", provider: plannerRole.provider
-  });
-
-  const planner = createAgent(plannerRole.provider, config, logger);
-  const prompt = buildPlannerPrompt({ task: a.task, context: a.context, architectContext });
-  sendTrackerLog(server, "planner", "running", plannerRole.provider);
-  runLog.logText(`[planner] agent launched, waiting for response...`);
-  let result;
-  let plannerStats;
-  try {
-    result = await planner.runTask({
-      prompt,
-      role: "planner",
-      onOutput: stallDetector.onOutput,
-      silenceTimeoutMs,
-      timeoutMs: plannerTimeoutMs
-    });
-  } finally {
-    stallDetector.stop();
-    plannerStats = stallDetector.stats();
-    runLog.logText(
-      `[planner] finished — lines=${plannerStats.lineCount}, bytes=${plannerStats.bytesReceived}, elapsed=${Math.round(plannerStats.elapsedMs / 1000)}s`
-    );
-    runLog.close();
-  }
-
-  if (!result.ok) {
-    sendTrackerLog(server, "planner", "failed");
-    const baseError = result.error || result.output || "Planner failed";
-    const statsSuffix = plannerStats
-      ? ` [lines=${plannerStats.lineCount}, bytes=${plannerStats.bytesReceived}, elapsed=${Math.round(plannerStats.elapsedMs / 1000)}s]`
-      : "";
-    throw new Error(`${baseError}${statsSuffix}`);
-  }
-
-  sendTrackerLog(server, "planner", "done");
-  const parsed = parseMaybeJsonString(result.output);
-
-  // --- Persist plan ---
-  let planId = null;
-  try {
-    const { savePlan } = await import("../../plan/plan-store.js");
-    planId = await savePlan(projectDir, {
-      task: a.task,
-      researchContext,
-      architectContext,
-      plan: parsed || result.output,
-      raw: result.output
-    });
-    runLog.logText(`[kj_plan] plan persisted — planId=${planId}`);
-  } catch (err) {
-    logger.warn(`Plan persistence failed (non-blocking): ${err.message}`);
-  }
-
-  return { ok: true, plan: parsed || result.output, raw: result.output, planId, researchContext, architectContext };
 }
 
 export async function handleCodeDirect(a, server, extra) {
@@ -277,55 +113,6 @@ export async function handleCodeDirect(a, server, extra) {
   return { ok: true, output: result.output, exitCode: result.exitCode };
 }
 
-export async function handleReviewDirect(a, server, extra) {
-  const config = await buildConfig(a, "review");
-  await assertNotOnBaseBranch(config);
-  const logger = createLogger(config.output.log_level, "mcp");
-
-  const reviewerRole = resolveRole(config, "reviewer");
-  await assertAgentsAvailable([reviewerRole.provider]);
-
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  await ensureTaskFromFile(a, projectDir);
-  const runLog = createRunLog(projectDir);
-  runLog.logText(`[kj_review] started — provider=${reviewerRole.provider}`);
-  const emitter = buildDirectEmitter(server, runLog, extra);
-  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
-  const onOutput = ({ stream, line }) => {
-    emitter.emit("progress", { type: "agent:output", stage: "reviewer", message: line, detail: { stream, agent: reviewerRole.provider } });
-  };
-  const stallDetector = createStallDetector({
-    onOutput, emitter, eventBase, stage: "reviewer", provider: reviewerRole.provider
-  });
-
-  const reviewer = createAgent(reviewerRole.provider, config, logger);
-  const resolvedBase = await computeBaseRef({ baseBranch: config.base_branch, baseRef: a.baseRef });
-  const diff = await generateDiff({ baseRef: resolvedBase });
-  const { rules } = await resolveReviewProfile({ mode: config.review_mode, projectDir: process.cwd() });
-
-  const prompt = await buildReviewerPrompt({ task: a.task, diff, reviewRules: rules, mode: config.review_mode });
-  sendTrackerLog(server, "reviewer", "running", reviewerRole.provider);
-  runLog.logText(`[reviewer] agent launched, waiting for response...`);
-  let result;
-  try {
-    result = await reviewer.reviewTask({ prompt, role: "reviewer", onOutput: stallDetector.onOutput });
-  } finally {
-    stallDetector.stop();
-    const stats = stallDetector.stats();
-    runLog.logText(`[reviewer] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
-    runLog.close();
-  }
-
-  if (!result.ok) {
-    sendTrackerLog(server, "reviewer", "failed");
-    throw new Error(result.error || result.output || `Reviewer failed (exit ${result.exitCode})`);
-  }
-
-  sendTrackerLog(server, "reviewer", "done");
-  const parsed = parseMaybeJsonString(agentAnswerText(result.output));
-  return { ok: true, review: parsed || result.output, raw: result.output };
-}
-
 export async function handleDiscoverDirect(a, server, extra) {
   // Build context from pgTask if provided
   let context = a.context || null;
@@ -350,34 +137,6 @@ export async function handleDiscoverDirect(a, server, extra) {
   });
 }
 
-export async function handleTriageDirect(a, server, extra) {
-  return runDirectRole({
-    roleName: "triage",
-    importRole: async () => {
-      const { TriageRole } = await import("../../roles/triage-role.js");
-      return { RoleClass: TriageRole };
-    },
-    initContext: { task: a.task },
-    runInput: { task: a.task },
-    args: a, server, extra,
-    resolveProjectDir, buildConfig, buildDirectEmitter
-  });
-}
-
-export async function handleResearcherDirect(a, server, extra) {
-  return runDirectRole({
-    roleName: "researcher",
-    importRole: async () => {
-      const { ResearcherRole } = await import("../../roles/researcher-role.js");
-      return { RoleClass: ResearcherRole };
-    },
-    initContext: { task: a.task },
-    runInput: { task: a.task },
-    args: a, server, extra,
-    resolveProjectDir, buildConfig, buildDirectEmitter
-  });
-}
-
 export async function handleAuditDirect(a, server, extra) {
   const task = a.task || "Analyze the full codebase";
   return runDirectRole({
@@ -389,20 +148,6 @@ export async function handleAuditDirect(a, server, extra) {
     initContext: { task },
     runInput: { task, dimensions: a.dimensions || null },
     logStartMsg: `[kj_audit] started — dimensions=${a.dimensions || "all"}`,
-    args: a, server, extra,
-    resolveProjectDir, buildConfig, buildDirectEmitter
-  });
-}
-
-export async function handleArchitectDirect(a, server, extra) {
-  return runDirectRole({
-    roleName: "architect",
-    importRole: async () => {
-      const { ArchitectRole } = await import("../../roles/architect-role.js");
-      return { RoleClass: ArchitectRole };
-    },
-    initContext: { task: a.task },
-    runInput: { task: a.task, researchContext: a.context || null },
     args: a, server, extra,
     resolveProjectDir, buildConfig, buildDirectEmitter
   });
@@ -422,20 +167,6 @@ export async function handleCode(a, server, extra) {
   return handleCodeDirect(a, server, extra);
 }
 
-export async function handleReview(a, server, extra) {
-  const missingTask = await requireTask(a, server);
-  if (missingTask) return missingTask;
-  await runBootstrapGate(server, a);
-  return handleReviewDirect(a, server, extra);
-}
-
-export async function handlePlan(a, server, extra) {
-  const missingTask = await requireTask(a, server);
-  if (missingTask) return missingTask;
-  await runBootstrapGate(server, a);
-  return handlePlanDirect(a, server, extra);
-}
-
 export async function handleDiscover(a, server, extra) {
   const missingTask = await requireTask(a, server);
   if (missingTask) return missingTask;
@@ -445,27 +176,6 @@ export async function handleDiscover(a, server, extra) {
   }
   await runBootstrapGate(server, a);
   return handleDiscoverDirect(a, server, extra);
-}
-
-export async function handleTriage(a, server, extra) {
-  const missingTask = await requireTask(a, server);
-  if (missingTask) return missingTask;
-  await runBootstrapGate(server, a);
-  return handleTriageDirect(a, server, extra);
-}
-
-export async function handleResearcher(a, server, extra) {
-  const missingTask = await requireTask(a, server);
-  if (missingTask) return missingTask;
-  await runBootstrapGate(server, a);
-  return handleResearcherDirect(a, server, extra);
-}
-
-export async function handleArchitect(a, server, extra) {
-  const missingTask = await requireTask(a, server);
-  if (missingTask) return missingTask;
-  await runBootstrapGate(server, a);
-  return handleArchitectDirect(a, server, extra);
 }
 
 export async function handleAudit(a, server, extra) {

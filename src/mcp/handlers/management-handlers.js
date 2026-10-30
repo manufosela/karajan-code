@@ -1,11 +1,10 @@
 /**
- * Management handler logic (init, doctor, config, scan, report, roles, agents, preflight, status, board).
- * Extracted from server-handlers.js for maintainability.
+ * Management handler logic (init, doctor, config, scan, report, roles, agents, preflight, board, clean).
+ * KJC-TSK-1318: status and undo left with the kj run pipeline.
  */
 
 import { runKjCommand } from "../run-kj.js";
 import { loadConfig } from "../../config.js";
-import { readRunLog } from "../../utils/run-log.js";
 import { ackPreflight, getSessionOverrides } from "../preflight.js";
 import { ensureBootstrap } from "../../bootstrap.js";
 import {
@@ -14,8 +13,6 @@ import {
   responseText,
   buildConfig,
 } from "../shared-helpers.js";
-import { buildDashboardJson } from "../../utils/status-dashboard.js";
-import { loadMostRecentSession } from "../../session/store.js";
 import { escapeRegExp } from "../../utils/escape-regexp.js";
 
 const AGENT_ROLES = new Set(["coder", "reviewer", "tester", "security", "solomon"]);
@@ -27,31 +24,6 @@ async function runBootstrapGate(server, a) {
   const projectDir = await resolveProjectDir(server, a.projectDir);
   const { config } = await loadConfig(projectDir);
   await ensureBootstrap(projectDir, config);
-}
-
-export async function handleStatus(a, server) {
-  const maxLines = a.lines || 50;
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  const logResult = readRunLog(projectDir, maxLines);
-
-  // Enrich with dashboard data when possible
-  try {
-    const session = await loadMostRecentSession();
-    const stories = [];
-    if (session) {
-      try {
-        const { loadHuBatch } = await import("../../hu/store.js");
-        const batch = await loadHuBatch(session.id);
-        if (batch?.stories) stories.push(...batch.stories);
-      } catch { /* no HU batch for this session */ }
-    }
-
-    const dashboard = buildDashboardJson(session, logResult.lines || [], { stories });
-    return { ...logResult, dashboard };
-  } catch {
-    // Fallback: return raw log without dashboard
-    return logResult;
-  }
 }
 
 export async function handleAgents(a) {
@@ -187,18 +159,6 @@ export async function handleBoard(a) {
     case "stop": return stopBoard();
     case "status": return boardStatus(port);
     default: return failPayload(`Unknown board action: ${action}`);
-  }
-}
-
-export async function handleUndo(a, server) {
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  const origCwd = process.cwd();
-  try {
-    process.chdir(projectDir);
-    const { undoCommand } = await import("../../commands/undo.js");
-    return undoCommand({ hard: !!a.hard });
-  } finally {
-    process.chdir(origCwd);
   }
 }
 

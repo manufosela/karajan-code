@@ -20,9 +20,8 @@ export {
 } from "./shared-helpers.js";
 
 // ── Sub-module re-exports ────────────────────────────────────────────
-export { handleRunDirect, handleResumeDirect, validateResumeAnswer, handleRun, handleResume } from "./handlers/run-handler.js";
-export { handlePlanDirect, handleCodeDirect, handleReviewDirect, handleDiscoverDirect, handleTriageDirect, handleResearcherDirect, handleAuditDirect, handleArchitectDirect, handleCode, handleReview, handlePlan, handleDiscover, handleTriage, handleResearcher, handleArchitect, handleAudit } from "./handlers/direct-handlers.js";
-export { handleStatus, handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleUndo, handleClean, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
+export { handleCodeDirect, handleDiscoverDirect, handleAuditDirect, handleCode, handleDiscover, handleAudit } from "./handlers/direct-handlers.js";
+export { handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleClean, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
 export { handleHu, handleSuggest } from "./handlers/hu-handlers.js";
 
 // ── Handler dispatch ─────────────────────────────────────────────────

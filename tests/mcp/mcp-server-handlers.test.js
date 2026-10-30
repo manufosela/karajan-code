@@ -152,9 +152,7 @@ const {
   assertNotOnBaseBranch,
   buildAskQuestion,
   handleToolCall,
-  handlePlanDirect,
-  handleCodeDirect,
-  handleReviewDirect
+  handleCodeDirect
 } = await import("../../src/mcp/server-handlers.js");
 
 const { runKjCommand } = await import("../../src/mcp/run-kj.js");
@@ -545,37 +543,5 @@ describe("mcp/server-handlers", () => {
       expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "coder", "done");
     });
 
-    it("kj_review sends tracker start and done logs", async () => {
-      await handleReviewDirect({ task: "Review code" }, mockServer, {});
-
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "reviewer", "running", expect.any(String));
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "reviewer", "done");
-    });
-
-    it("kj_plan sends tracker start and done logs", async () => {
-      await handlePlanDirect({ task: "Plan feature" }, mockServer, {});
-
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "planner", "running", expect.any(String));
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "planner", "done");
-    });
-
-    it("kj_plan passes planner runtime timeout to agent", async () => {
-      await handlePlanDirect({ task: "Plan feature" }, mockServer, {});
-
-      const planner = createAgent.mock.results[0].value;
-      expect(planner.runTask).toHaveBeenCalledWith(expect.objectContaining({
-        timeoutMs: 3600000
-      }));
-    });
-
-    it("kj_plan failure includes runtime stats in the error message", async () => {
-      createAgent.mockReturnValueOnce({
-        runTask: vi.fn().mockResolvedValue({ ok: false, error: "Command killed after 1200000ms without output" })
-      });
-
-      await expect(handlePlanDirect({ task: "Plan feature" }, mockServer, {}))
-        .rejects.toThrow(/without output.*lines=/i);
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "planner", "failed");
-    });
   });
 });
