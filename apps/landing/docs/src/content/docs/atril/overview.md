@@ -3,7 +3,7 @@ title: 'Overview'
 description: 'What atril is, how its store works and when to use it.'
 ---
 
-<!-- synced-from: manufosela/karajan-code@1f93ff844b77afbffd1f2683c35ff657f103286d:packages/atril/README.md · section-sha256: 16e80fb68fdc4a126a0b4fce189b96284dc4e1eae9982a3b2bbd6d026fbdc89f
+<!-- synced-from: manufosela/karajan-code@2030b52dd4ffa815e271be2341d40620b8627084:packages/atril/README.md · section-sha256: 16e80fb68fdc4a126a0b4fce189b96284dc4e1eae9982a3b2bbd6d026fbdc89f
      DO NOT EDIT BY HAND — regenerated with `npm run sync:family-docs` -->
 
 Skills, commands and subagents for every AI CLI, on demand.

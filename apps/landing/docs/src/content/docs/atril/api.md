@@ -3,7 +3,7 @@ title: 'Programmatic API'
 description: 'The exports of @karajan-family/atril.'
 ---
 
-<!-- synced-from: manufosela/karajan-code@1f93ff844b77afbffd1f2683c35ff657f103286d:packages/atril/README.md · section-sha256: b287b40fb2168e30b7fdabbf3bf4d289306f09c20ad215b139741649865f4c98
+<!-- synced-from: manufosela/karajan-code@2030b52dd4ffa815e271be2341d40620b8627084:packages/atril/README.md · section-sha256: b287b40fb2168e30b7fdabbf3bf4d289306f09c20ad215b139741649865f4c98
      DO NOT EDIT BY HAND — regenerated with `npm run sync:family-docs` -->
 
 ```js

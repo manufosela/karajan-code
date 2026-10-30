@@ -3,7 +3,7 @@ title: 'Catalogs and marketplaces'
 description: 'Add catalogs and plugin marketplaces, and search across them.'
 ---
 
-<!-- synced-from: manufosela/karajan-code@1f93ff844b77afbffd1f2683c35ff657f103286d:packages/atril/README.md · section-sha256: 7af953ee4c463ccba2b0abfed41fb634aad4527cd8e5a0820480deef06645cba
+<!-- synced-from: manufosela/karajan-code@2030b52dd4ffa815e271be2341d40620b8627084:packages/atril/README.md · section-sha256: 7af953ee4c463ccba2b0abfed41fb634aad4527cd8e5a0820480deef06645cba
      DO NOT EDIT BY HAND — regenerated with `npm run sync:family-docs` -->
 
 A catalog lists what you can install without installing it. List catalogs in `atril.json`:
