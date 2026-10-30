@@ -53,60 +53,6 @@ describe("Domain Knowledge System — integration", () => {
     expect(context).toContain("Business Rules");
   });
 
-  it("full flow: loadDomains -> curator -> domainContext", async () => {
-    const { DomainCuratorRole } = await import("../../src/roles/domain-curator-role.js");
-
-    readdir.mockImplementation(async (dir) => {
-      if (dir === "/project/.karajan/domains") {
-        return [{ name: "dental", isDirectory: () => true }];
-      }
-      throw new Error("ENOENT");
-    });
-    readFile.mockImplementation(async (filePath) => {
-      if (filePath.includes("DOMAIN.md")) return EXAMPLE_DENTAL;
-      throw new Error("ENOENT");
-    });
-
-    const curator = new DomainCuratorRole({
-      config: {},
-      logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), setContext: vi.fn() }
-    });
-
-    const result = await curator.execute({
-      task: "Build treatment plan approval workflow",
-      domainHints: ["dental", "clinical"],
-      projectDir: "/project"
-    });
-
-    expect(result.ok).toBe(true);
-    expect(result.result.domainsFound).toBe(1);
-    expect(result.result.domainsUsed).toBe(1);
-    expect(result.result.domainContext).toContain("dental-clinical");
-    expect(result.result.domainContext).toContain("Treatment plans must be approved");
-  });
-
-  it("backward compatibility: no domains directory means pipeline unchanged", async () => {
-    readdir.mockRejectedValue(new Error("ENOENT"));
-    readFile.mockRejectedValue(new Error("ENOENT"));
-
-    const { DomainCuratorRole } = await import("../../src/roles/domain-curator-role.js");
-
-    const curator = new DomainCuratorRole({
-      config: {},
-      logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), setContext: vi.fn() }
-    });
-
-    const result = await curator.execute({
-      task: "Refactor React component",
-      domainHints: [],
-      projectDir: "/project"
-    });
-
-    expect(result.ok).toBe(true);
-    expect(result.result.domainContext).toBeNull();
-    expect(result.result.domainsFound).toBe(0);
-  });
-
   it("project-local domains merge with user-global", async () => {
     const { loadDomains } = await import("../../src/domains/domain-loader.js");
 

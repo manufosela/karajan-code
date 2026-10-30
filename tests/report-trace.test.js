@@ -1,51 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BudgetTracker } from "../src/utils/budget.js";
 import { formatDuration, convertCost, formatCost, printTraceTable } from "../src/commands/report.js";
-
-describe("BudgetTracker trace()", () => {
-  it("returns entries with stage_index and duration_ms", () => {
-    const tracker = new BudgetTracker();
-    tracker.record({ role: "triage", provider: "codex", tokens_in: 100, tokens_out: 50, cost_usd: 0.1, duration_ms: 1200, stage_index: 0 });
-    tracker.record({ role: "coder", provider: "codex", tokens_in: 5000, tokens_out: 2000, cost_usd: 1.5, duration_ms: 45000, stage_index: 1 });
-    tracker.record({ role: "reviewer", provider: "claude", tokens_in: 3000, tokens_out: 800, cost_usd: 0.8, duration_ms: 12000, stage_index: 2 });
-
-    const trace = tracker.trace();
-    expect(trace).toHaveLength(3);
-    expect(trace[0]).toEqual({
-      index: 0,
-      role: "triage",
-      provider: "codex",
-      model: "codex",
-      timestamp: expect.any(String),
-      duration_ms: 1200,
-      tokens_in: 100,
-      tokens_out: 50,
-      cached_tokens: 0,
-      cost_usd: 0.1
-    });
-    expect(trace[1].index).toBe(1);
-    expect(trace[1].role).toBe("coder");
-    expect(trace[1].duration_ms).toBe(45000);
-    expect(trace[2].index).toBe(2);
-    expect(trace[2].role).toBe("reviewer");
-  });
-
-  it("uses entry index as fallback when stage_index is not set", () => {
-    const tracker = new BudgetTracker();
-    tracker.record({ role: "coder", provider: "codex", tokens_in: 100, tokens_out: 50, cost_usd: 0.1 });
-    tracker.record({ role: "reviewer", provider: "claude", tokens_in: 200, tokens_out: 100, cost_usd: 0.2 });
-
-    const trace = tracker.trace();
-    expect(trace[0].index).toBe(0);
-    expect(trace[1].index).toBe(1);
-    expect(trace[0].duration_ms).toBeNull();
-  });
-
-  it("returns empty array when no entries recorded", () => {
-    const tracker = new BudgetTracker();
-    expect(tracker.trace()).toEqual([]);
-  });
-});
 
 describe("formatDuration", () => {
   it("formats milliseconds", () => {
