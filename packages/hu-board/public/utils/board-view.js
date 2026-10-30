@@ -322,12 +322,19 @@ function renderKanbanColumn(title, cssClass, stories) {
 // KJC-TSK-1313: story id → the worktree lanes working it (GET /api/lanes/:project).
 let lanesByStory = {};
 
+/** KJC-TSK-1316: the lane's PR as a link (https only); a closed or merged one says so. */
+function renderLanePr(pr) {
+  if (!pr || !/^https:\/\//.test(String(pr.url))) return '';
+  const state = pr.state === 'OPEN' ? '' : ` (${esc(String(pr.state).toLowerCase())})`;
+  return ` · <a href="${esc(pr.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">PR #${esc(String(pr.number))}</a>${state}`;
+}
+
 /** One badge per lane working the card: its name, branch and commits ahead of the base. */
 function renderLaneBadges(story) {
   return (lanesByStory[story.id] || []).map((l) => {
     const ahead = typeof l.ahead === 'number' ? ` · ${l.ahead} ↑` : '';
     const title = `carril ${l.slug} · ${l.path}`;
-    return `<span class="story-card__lane" title="${esc(title)}">🌿 ${esc(l.slug)} (${esc(l.branch)})${ahead}</span>`;
+    return `<span class="story-card__lane" title="${esc(title)}">🌿 ${esc(l.slug)} (${esc(l.branch)})${ahead}${renderLanePr(l.pr)}</span>`;
   }).join('');
 }
 

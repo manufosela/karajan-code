@@ -327,6 +327,7 @@ export function registerMeta(program, { pkgVersion }) {
   wt.command("list")
     .description("List the active lanes")
     .option("--json", "Each lane with its commits ahead of the base and the cards its branch names")
+    .option("--prs", "With --json, each lane's PR (one gh call)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
         await worktreeCommand({ config, action: "list", flags });

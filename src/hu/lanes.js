@@ -45,5 +45,22 @@ export function lanesByCard(lanes, cardIds) {
  * issue) its branch names. `cards` are `{id, refs}`.
  * @returns {string[]}
  */
+/**
+ * KJC-TSK-1316: one PR per branch from `gh pr list --json number,url,state,headRefName`: an open
+ * one wins, else the newest (a merged lane is what KJC-TSK-1314 warns about).
+ * @returns {Map<string, {number: number, url: string, state: string}>}
+ */
+export function prsByBranch(prs) {
+  const byBranch = new Map();
+  const open = (p) => (p.state === "OPEN" ? 1 : 0);
+  for (const p of prs) {
+    const cur = byBranch.get(p.headRefName);
+    if (!cur || open(p) > open(cur) || (open(p) === open(cur) && p.number > cur.number)) {
+      byBranch.set(p.headRefName, { number: p.number, url: p.url, state: p.state });
+    }
+  }
+  return byBranch;
+}
+
 export const cardsOfLane = (lane, cards) =>
   cards.filter((c) => lanesByCard([lane], [c.id, ...c.refs]).size > 0).map((c) => c.id);

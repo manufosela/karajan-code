@@ -15,10 +15,23 @@ import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { mainCheckout } from "../utils/main-checkout.js";
-import { cardsOfLane, parseLanes } from "../hu/lanes.js";
+import { cardsOfLane, parseLanes, prsByBranch } from "../hu/lanes.js";
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 
 const REF_SEPARATOR = " · "; // external_ref joins a tracker card and an issue (src/commands/hu.js)
+
+// KJC-TSK-1316: ONE gh call for every lane, open and merged PRs alike.
+const listPrs = async (cwd) => JSON.parse((await execFileAsync("gh", ["pr", "list", "--state", "all", "--limit", "200", "--json", "number,url,state,headRefName"], { cwd })).stdout);
+
+/** Each branch's PR; when gh fails the lanes go without PRs, and kj says so. */
+async function lanePrs(list, cwd) {
+  try {
+    return prsByBranch(await list(cwd));
+  } catch (err) {
+    console.warn(`! kj worktree list: cannot read the PRs (${String(err.stderr || err.message).trim().split("\n")[0]}); lanes listed without them`);
+    return new Map();
+  }
+}
 
 /** Every HU of the project's plans with its references, as `{id, refs}`. */
 async function planCards(projectDir) {
@@ -77,8 +90,10 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       // KJC-TSK-1313: what the HU Board paints on each card.
       const base = await resolveBase({ git, base: baseName });
       const cards = await planCards(projectDir);
+      const prs = flags.prs ? await lanePrs(deps.listPrs ?? listPrs, projectDir) : null;
       const out = await Promise.all(rows.map(async (r) => ({
         ...r, ahead: await commitsNotIn({ git, base, ref: r.branch }).catch(() => null), cards: cardsOfLane(r, cards),
+        ...(prs && { pr: prs.get(r.branch) ?? null }),
       })));
       console.log(JSON.stringify(out));
       return out;

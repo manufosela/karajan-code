@@ -24,9 +24,23 @@ describe('GET /api/lanes/:project', () => {
     runCommand.mockResolvedValue({ exitCode: 0, stdout: `[info] noise\n${JSON.stringify([lane('HU-27-fix', ['HU-27']), lane('both', ['HU-27', 'HU-30'], 0)])}\n`, stderr: '' });
     const res = await request(app).get('/api/lanes/proj-1');
     expect(res.status).toBe(200);
-    expect(runCommand).toHaveBeenCalledWith('kj', ['worktree', 'list', '--json'], { cwd: '/repo' });
+    expect(runCommand).toHaveBeenCalledWith('kj', ['worktree', 'list', '--json', '--prs'], { cwd: '/repo' });
     expect(Object.keys(res.body.byStory).toSorted()).toEqual(['proj-1::HU-27', 'proj-1::HU-30']);
     expect(res.body.byStory['proj-1::HU-27'].map((l) => l.slug)).toEqual(['HU-27-fix', 'both']);
+  });
+
+  // KJC-TSK-1316: the PRs come from GitHub, so a good answer is kept 60 s per project; a failure never is.
+  it('serves a project from its 60 s cache and never caches a failure', async () => {
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: JSON.stringify([lane('a', ['HU-1'])]), stderr: '' });
+    await request(app).get('/api/lanes/cached');
+    const again = await request(app).get('/api/lanes/cached');
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    expect(again.body.byStory['cached::HU-1']).toHaveLength(1);
+
+    runCommand.mockResolvedValue({ exitCode: 1, stdout: '', stderr: 'boom' });
+    await request(app).get('/api/lanes/failing');
+    await request(app).get('/api/lanes/failing');
+    expect(runCommand).toHaveBeenCalledTimes(3);
   });
 
   it('a project that cannot be resolved or a kj that fails gives no lanes and says why, never a 500', async () => {
@@ -36,7 +50,7 @@ describe('GET /api/lanes/:project', () => {
 
     requestProjectDir.mockReturnValue('/repo');
     runCommand.mockResolvedValue({ exitCode: 1, stdout: '', stderr: 'boom' });
-    const failed = await request(app).get('/api/lanes/proj-1');
+    const failed = await request(app).get('/api/lanes/proj-2');
     expect(failed.status).toBe(200);
     expect(failed.body.byStory).toEqual({});
     expect(failed.body.error).toMatch(/exit 1/);
