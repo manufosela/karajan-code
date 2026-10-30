@@ -127,9 +127,7 @@ vi.mock("../../src/mcp/shared-helpers.js", async (importOriginal) => {
 });
 
 const {
-  handleCode, handleReview, handlePlan,
-  handleDiscover, handleTriage, handleResearcher,
-  handleArchitect, handleAudit
+  handleCode, handleDiscover, handleAudit
 } = await import("../../src/mcp/handlers/direct-handlers.js");
 
 const { runDirectRole } = await import("../../src/mcp/direct-role-runner.js");
@@ -156,12 +154,7 @@ describe("direct-handlers — public handler wrappers", () => {
   describe("missing task validation", () => {
     const handlersRequiringTask = [
       ["handleCode", handleCode],
-      ["handleReview", handleReview],
-      ["handlePlan", handlePlan],
-      ["handleDiscover", handleDiscover],
-      ["handleTriage", handleTriage],
-      ["handleResearcher", handleResearcher],
-      ["handleArchitect", handleArchitect]
+      ["handleDiscover", handleDiscover]
     ];
 
     it.each(handlersRequiringTask)(
@@ -203,7 +196,7 @@ describe("direct-handlers — public handler wrappers", () => {
     );
 
     it("reports an unreadable taskFile instead of a missing task", async () => {
-      const result = await handleReview({ taskFile: "missing.md" }, mockServer, mockExtra);
+      const result = await handleCode({ taskFile: "missing.md" }, mockServer, mockExtra);
 
       expect(result.ok).toBe(false);
       expect(result.error).toMatch(/taskFile read failed: Task file not found/);
@@ -262,30 +255,6 @@ describe("direct-handlers — public handler wrappers", () => {
 
       expect(runDirectRole).toHaveBeenCalledWith(
         expect.objectContaining({ roleName: "discover" })
-      );
-    });
-
-    it("handleTriage delegates to runDirectRole with roleName=triage", async () => {
-      await handleTriage({ task: "classify this" }, mockServer, mockExtra);
-
-      expect(runDirectRole).toHaveBeenCalledWith(
-        expect.objectContaining({ roleName: "triage" })
-      );
-    });
-
-    it("handleResearcher delegates to runDirectRole with roleName=researcher", async () => {
-      await handleResearcher({ task: "research this" }, mockServer, mockExtra);
-
-      expect(runDirectRole).toHaveBeenCalledWith(
-        expect.objectContaining({ roleName: "researcher" })
-      );
-    });
-
-    it("handleArchitect delegates to runDirectRole with roleName=architect", async () => {
-      await handleArchitect({ task: "design this" }, mockServer, mockExtra);
-
-      expect(runDirectRole).toHaveBeenCalledWith(
-        expect.objectContaining({ roleName: "architect" })
       );
     });
   });

@@ -131,25 +131,7 @@ describe("plan-store", () => {
   });
 });
 
-describe("kj_plan runs researcher + architect before planner", () => {
-  it("handlePlanDirect invokes researcher and architect phases", async () => {
-    const directHandlers = await import("../../src/mcp/handlers/direct-handlers.js");
-    const fnSource = directHandlers.handlePlanDirect.toString();
-    expect(fnSource).toContain("ResearcherRole");
-    expect(fnSource).toContain("ArchitectRole");
-    expect(fnSource).toContain("savePlan");
-  });
-});
-
 describe("kj_run with plan parameter", () => {
-  it("kj_run tool definition includes plan parameter", async () => {
-    const { tools } = await import("../../src/mcp/tools.js");
-    const runTool = tools.find((t) => t.name === "kj_run");
-    expect(runTool).toBeDefined();
-    expect(runTool.inputSchema.properties.plan).toBeDefined();
-    expect(runTool.inputSchema.properties.plan.type).toBe("string");
-  });
-
   it("kj_run without plan runs normally (no plan loading)", async () => {
     // TSK-0315: runFlow implementation moved to src/orchestrator/flow-runner.js;
     // src/orchestrator.js is now a thin barrel that re-exports runFlow.

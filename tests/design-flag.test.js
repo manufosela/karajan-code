@@ -52,16 +52,6 @@ describe("--design flag", () => {
     });
   });
 
-  describe("kj_run MCP tool schema", () => {
-    it("design parameter exists in kj_run tool schema", async () => {
-      const { tools } = await import("../src/mcp/tools.js");
-      const kjRun = tools.find((t) => t.name === "kj_run");
-      expect(kjRun).toBeDefined();
-      expect(kjRun.inputSchema.properties.design).toBeDefined();
-      expect(kjRun.inputSchema.properties.design.type).toBe("boolean");
-    });
-  });
-
   describe("--design forces impeccable enabled", () => {
     it("applyFlagOverrides enables impeccable and sets refactoring mode when design=true", () => {
       // Replicate the applyFlagOverrides logic from orchestrator.js

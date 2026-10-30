@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
+- **The MCP tools of the `kj run` pipeline are retired** (KJC-TSK-1318): `kj_run`, `kj_resume`, `kj_plan`, `kj_status`, `kj_undo`, `kj_triage`, `kj_researcher`, `kj_architect` and `kj_review` are no longer listed, and a call answers with the same notice as the command. `kj_code`, `kj_audit`, `kj_discover`, `kj_board`, `kj_hu` and the RAG tools stay.
 - **The `kj run` pipeline is retired** (KJC-TSK-1317, epic KJC-PCS-0104, issue #2815). Since v4 your agent does the work and kj governs it; the pipeline where kj spawned its own coder and reviewer goes away. `kj run`, `kj autorun`, `kj resume`, `kj standby`, `kj plan generate`, `kj status`, `kj undo`, `kj triage`, `kj researcher`, `kj architect` and `kj review` with a task still answer, hidden from the help: they exit 1 without starting anything and say what replaced them. `kj code` stays, as the way to have the coder declared in your panel write. See [MIGRATION-v5.md](MIGRATION-v5.md).
 - **The HU Board no longer launches `kj run`** (KJC-TSK-1319): the "Run plan" button and the ▶ of each card are gone, and the routes they called answer 410 with the same notice and start nothing. A ▶ that opens a lane for the card and starts your agent in it is coming (KJC-TSK-1324).
 
