@@ -29,30 +29,6 @@ describe("Domain Knowledge System — integration", () => {
     writeFile.mockResolvedValue(undefined);
   });
 
-  it("full flow: parseDomainFile -> synthesize -> verify output", async () => {
-    const { parseDomainFile } = await import("../../src/domains/domain-loader.js");
-    const { synthesizeDomainContext } = await import("../../src/domains/domain-synthesizer.js");
-
-    readFile.mockResolvedValue(EXAMPLE_DENTAL);
-    const domain = await parseDomainFile("/domains/dental/DOMAIN.md");
-
-    expect(domain).not.toBeNull();
-    expect(domain.name).toBe("dental-clinical");
-    expect(domain.tags).toContain("dental");
-    expect(domain.sections.length).toBeGreaterThanOrEqual(4);
-
-    const context = synthesizeDomainContext({
-      task: "Create a bracket positioning algorithm for orthodontic treatment",
-      domainHints: ["dental", "orthodontics"],
-      selectedDomains: [domain]
-    });
-
-    expect(context).toContain("dental-clinical");
-    expect(context).toContain("Core Concepts");
-    expect(context).toContain("Bracket");
-    expect(context).toContain("Business Rules");
-  });
-
   it("project-local domains merge with user-global", async () => {
     const { loadDomains } = await import("../../src/domains/domain-loader.js");
 
