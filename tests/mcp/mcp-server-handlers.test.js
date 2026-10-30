@@ -65,10 +65,6 @@ vi.mock("../../src/mcp/progress.js", () => ({
   sendTrackerLog: vi.fn()
 }));
 
-vi.mock("../../src/mcp/tool-arg-normalizers.js", () => ({
-  normalizePlanArgs: vi.fn((a) => a)
-}));
-
 vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn(() => ({
     runTask: vi.fn().mockResolvedValue({ ok: true, output: "done", exitCode: 0 }),
@@ -139,9 +135,6 @@ vi.mock("../../src/plan/plan-store.js", () => ({
   savePlan: vi.fn().mockResolvedValue("plan-20260331-test")
 }));
 
-vi.mock("../../src/mcp/sovereignty-guard.js", () => ({
-  validateSovereignty: vi.fn((params) => ({ params: { ...params }, warnings: [] }))
-}));
 
 const {
   asObject,
