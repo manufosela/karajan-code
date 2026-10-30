@@ -1,9 +1,7 @@
 /**
  * Generic Karajan-CLI launcher used by the board's "Commands" panel.
- * Wraps the same spawn-detached-with-log pattern that `runPlan`
- * already uses (see plan-mutations.js), but covers the broader set
- * of commands the user wants to trigger from the UI: plan,
- * architect, clean, etc.
+ * Spawns a whitelisted `kj` command detached, with its output in a
+ * log the board can tail. Today the whitelist holds `clean`.
  *
  * Security: the command name is matched against an explicit
  * whitelist. Free-form arg arrays are NOT allowed — each command
@@ -36,7 +34,7 @@ import { getHuBoardRunsDir } from "./db.js";
 
 /**
  * Whitelist + argv builders. Each entry maps a logical command name
- * (`plan`, `architect`, `clean`) to a function that turns the
+ * (e.g. `clean`) to a function that turns the
  * board-side input into a CLI argv. Adding a new command means: add
  * an entry here and an entry in the board UI's `COMMANDS` table.
  *
@@ -47,25 +45,9 @@ import { getHuBoardRunsDir } from "./db.js";
  * Each builder returns `{ args, projectDir? }`. `projectDir` is the
  * cwd the spawn should use (defaults to the board's cwd).
  */
+// KJC-TSK-1323: `plan` (generate) and `architect` left with 5.0, which retired them;
+// a request for either now gets the 400 of any command outside the whitelist.
 const COMMAND_BUILDERS = {
-  plan: (input) => {
-    const args = ["plan"];
-    if (input.taskFile) args.push("--task-file", String(input.taskFile));
-    if (input.context) args.push("--context", String(input.context));
-    if (input.quick) args.push("--quick");
-    if (input.noTestsSynth) args.push("--no-tests-synth");
-    if (input.noPlanReview) args.push("--no-plan-review");
-    // Positional task goes last when no --task-file was given.
-    if (!input.taskFile && input.task) args.push(String(input.task));
-    return { args, projectDir: input.projectDir };
-  },
-  architect: (input) => {
-    const args = ["architect"];
-    if (input.taskFile) args.push("--task-file", String(input.taskFile));
-    if (input.context) args.push("--context", String(input.context));
-    if (!input.taskFile && input.task) args.push(String(input.task));
-    return { args, projectDir: input.projectDir };
-  },
   clean: (input) => {
     const args = ["clean", "--yes"];      // never prompt; UI confirms ahead
     if (input.nuke) args.push("--nuke");

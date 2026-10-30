@@ -17,7 +17,7 @@
 // ---- Command launcher modal ----
 //
 // Opens a small form inside the existing <dialog> singleton with a
-// command picker (plan / architect / clean) and the appropriate
+// command picker (today: clean) and the appropriate
 // fields per command. Submit POSTs to /api/commands/:command, the
 // server spawns a detached `kj` child, and we open the existing log
 // viewer (re-uses openLogViewer's tail loop, just pointed at the
@@ -28,28 +28,8 @@ async function showCommandLauncher() {
   const dlg = ensureDialog();
   // Per-command field schemas — kept in the client because each
   // command has different inputs and the modal renders accordingly.
+  // KJC-TSK-1323: kj plan (generate) and kj architect left with 5.0, which retired them.
   const SCHEMAS = {
-    plan: {
-      label: '📋 kj plan',
-      help: 'Generate an implementation plan with HUs. Paste the task text OR a file path.',
-      fields: [
-        { name: 'taskFile', label: 'SPEC file path (absolute)', type: 'text', placeholder: '/home/me/project/SPEC.md' },
-        { name: 'task', label: 'OR paste task text directly', type: 'textarea', rows: 6 },
-        { name: 'context', label: 'Extra context (optional)', type: 'text' },
-        { name: 'projectDir', label: 'Project directory (optional, defaults to board\'s cwd)', type: 'text' },
-        { name: 'quick', label: '--quick (skip synth + reviewer)', type: 'checkbox' },
-      ],
-    },
-    architect: {
-      label: '🏛 kj architect',
-      help: 'Design an architecture and persist ADRs. Same input as kj plan.',
-      fields: [
-        { name: 'taskFile', label: 'SPEC file path (absolute)', type: 'text', placeholder: '/home/me/project/SPEC.md' },
-        { name: 'task', label: 'OR paste task text directly', type: 'textarea', rows: 6 },
-        { name: 'context', label: 'Extra context (optional)', type: 'text' },
-        { name: 'projectDir', label: 'Project directory (optional)', type: 'text' },
-      ],
-    },
     clean: {
       label: '🧹 kj clean',
       help: 'Garbage-collect plans / sessions / batches. --nuke wipes everything including the board DB.',
@@ -60,25 +40,10 @@ async function showCommandLauncher() {
     },
   };
 
-  // Maggle mode (KJC-TSK-0810 AC2): the frequent action leads in plain
-  // language — one textarea, clear promise of what will happen. The full
-  // technical launcher (file paths, architect, clean) stays one click
-  // away behind "Más opciones…".
-  const maggle = isMaggleMode();
-  let advancedVisible = !maggle;
-  if (maggle) {
-    SCHEMAS.plan.label = maggleText('launcher.planLabel', SCHEMAS.plan.label);
-    SCHEMAS.plan.help = maggleText('launcher.planHelp', SCHEMAS.plan.help);
-    SCHEMAS.plan.simpleFields = [
-      { name: 'task', label: maggleText('launcher.taskLabel', 'Task'), type: 'textarea', rows: 6 },
-    ];
-  }
-
-  let active = 'plan';
+  let active = 'clean';
   const renderForm = () => {
     const s = SCHEMAS[active];
-    const visibleFields = (!advancedVisible && s.simpleFields) ? s.simpleFields : s.fields;
-    const fields = visibleFields.map((f) => {
+    const fields = s.fields.map((f) => {
       const id = `cmd-field-${f.name}`;
       if (f.type === 'textarea') {
         return `
@@ -112,7 +77,7 @@ async function showCommandLauncher() {
         </button>
       </div>
       <div style="padding:12px 18px;display:flex;gap:8px;border-bottom:1px solid var(--border)">
-        ${Object.entries(SCHEMAS).filter(([key]) => advancedVisible || key === 'plan').map(([key, s]) => `
+        ${Object.entries(SCHEMAS).map(([key, s]) => `
           <button type="button" data-cmd="${key}"
                   style="padding:6px 12px;border:1px solid var(--border);
                          background:${key === active ? 'var(--color-green)' : 'var(--bg-primary)'};
@@ -121,13 +86,6 @@ async function showCommandLauncher() {
             ${esc(s.label)}
           </button>
         `).join('')}
-        ${maggle && !advancedVisible ? `
-          <button type="button" id="cmd-more"
-                  style="margin-left:auto;padding:6px 12px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-muted);border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem"
-                  title="Comandos técnicos: kj plan con ficheros, kj architect, kj clean">
-            ${esc(maggleText('launcher.more', 'More…'))}
-          </button>
-        ` : ''}
       </div>
       <form id="cmd-form" onsubmit="return false"
             style="padding:14px 18px;display:flex;flex-direction:column;gap:12px;width:min(640px, 88vw);box-sizing:border-box">
@@ -149,8 +107,6 @@ async function showCommandLauncher() {
     dlg.querySelectorAll('[data-cmd]').forEach((btn) => {
       btn.addEventListener('click', () => { active = btn.dataset.cmd; renderForm(); });
     });
-    const moreBtn = dlg.querySelector('#cmd-more');
-    if (moreBtn) moreBtn.addEventListener('click', () => { advancedVisible = true; renderForm(); });
     dlg.querySelector('#cmd-close').addEventListener('click', () => dlg.close());
     dlg.querySelector('#cmd-cancel').addEventListener('click', () => dlg.close());
     dlg.querySelector('#cmd-submit').addEventListener('click', () => submitCommand(active));
@@ -167,23 +123,6 @@ async function showCommandLauncher() {
         const v = (el.value || '').trim();
         if (v) body[f.name] = v;
       }
-    }
-    // plan / architect: at least one of taskFile or task is required.
-    if ((command === 'plan' || command === 'architect') && !body.taskFile && !body.task) {
-      await showError(
-        maggle ? 'Escribe primero qué quieres pedir — con tus palabras vale.' : 'Provide either a SPEC file path or paste the task text.',
-        { title: 'Missing input' }
-      );
-      return;
-    }
-    // AC2: before launching, the maggle confirms knowing exactly what
-    // will happen — in their language, never a command name alone.
-    if (maggle && command === 'plan') {
-      const ok = await showConfirm(maggleText('launcher.confirm', ''), {
-        title: SCHEMAS.plan.label,
-        okLabel: maggleText('launcher.submit', 'Run'),
-      });
-      if (!ok) return;
     }
     if (command === 'clean' && body.nuke) {
       const ok = await showConfirm(
