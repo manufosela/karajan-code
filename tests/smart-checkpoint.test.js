@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldAutoContinueCheckpoint } from "../src/orchestrator.js";
+import { shouldAutoContinueCheckpoint } from "../src/orchestrator/flow-control.js";
 
 describe("shouldAutoContinueCheckpoint", () => {
   it("auto-continues when progress is detected", () => {

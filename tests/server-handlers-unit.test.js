@@ -25,11 +25,6 @@ vi.mock("../src/mcp/direct-role-runner.js", () => ({
   runDirectRole: vi.fn(async () => ({ ok: true, output: "mock-role-output" }))
 }));
 
-vi.mock("../src/orchestrator.js", () => ({
-  runFlow: vi.fn(async () => ({ approved: true })),
-  resumeFlow: vi.fn(async () => ({ approved: true }))
-}));
-
 vi.mock("../src/config.js", () => ({
   loadConfig: vi.fn(async () => ({
     config: {
