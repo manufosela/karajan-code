@@ -77,7 +77,10 @@ process.stdin.on("end", () => {
     // Sources are read STRUCTURALLY, never through the stringified response:
     // a JSON document (the MCP {content:[{text}]} parts, the CLI --json array)
     // is parsed and its hits[].source / [].source collected.
-    const sourcesOf = (doc) => {
+    // KJC-BUG-0440 (#2830): the MCP tool may wrap its answer again (the part's
+    // text is itself {content:[parts]}); unwrapped up to three levels.
+    const sourcesOf = (doc, depth = 0) => {
+      if (Array.isArray(doc?.content) && depth < 3) return doc.content.flatMap((p) => sourcesOf(parseJson(String(p?.text || "")), depth + 1));
       const list = Array.isArray(doc) ? doc : Array.isArray(doc?.hits) ? doc.hits : [];
       return list.map((h) => h?.source).filter((x) => typeof x === "string");
     };
@@ -89,7 +92,7 @@ process.stdin.on("end", () => {
       let found = parts.flatMap((p) => sourcesOf(parseJson(String(p?.text || ""))));
       // KJC-BUG-0365 (#2208): an answer cut short (whole code chunks) is no
       // longer valid JSON, but every "source" it carries still names a hit.
-      if (found.length === 0) found = [...text.matchAll(/\\?"source\\?"\s*:\s*\\?"([^"\\]+)\\?"/g)].map((m) => m[1]);
+      if (found.length === 0) found = [...text.matchAll(/\\*"source\\*"\s*:\s*\\*"([^"\\]+)\\*"/g)].map((m) => m[1]);
       recordRag(input.text, found, parts.map((p) => String(p?.text || "")).join(String.fromCharCode(10)));
       process.exit(0);
     }

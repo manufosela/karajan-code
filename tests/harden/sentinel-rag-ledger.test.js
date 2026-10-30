@@ -97,4 +97,15 @@ describe("rag ledger (PostToolUse)", () => {
     expect(run({ tool_name: "mcp__kj-rag__kj_rag_query", tool_input: { text: "referrer" }, tool_response: { content: [{ type: "text", text: cut }] } }).status).toBe(0);
     expect(session().rag_hits).toEqual(["packages/domain/src/referrer.js", "src/b.js"]);
   });
+
+  // KJC-BUG-0440 (#2830): the MCP tool wraps its answer again, so the part's
+  // text is itself {content:[{type,text:<hits json>}]}; whole or cut short.
+  it("reads the sources of an MCP answer wrapped twice, whole or cut short", () => {
+    const hits = JSON.stringify({ hits: [{ source: `${dir}/packages/x/src/file.js`, matchedBy: "path", score: 0 }] });
+    const wrapped = JSON.stringify({ content: [{ type: "text", text: hits }] });
+    const twice = (text) => ({ tool_name: "mcp__karajan-mcp__kj_rag_query", tool_input: { text: "q" }, tool_response: { content: [{ type: "text", text }] } });
+    expect(run(twice(wrapped)).status).toBe(0);
+    expect(run(twice(wrapped.slice(0, wrapped.indexOf("file.js") + 9))).status).toBe(0);
+    expect(session().rag_queries.map((q) => q.hits)).toEqual([["packages/x/src/file.js"], ["packages/x/src/file.js"]]);
+  });
 });
