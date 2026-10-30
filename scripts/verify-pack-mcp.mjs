@@ -65,7 +65,9 @@ export async function mcpSmoke({ serverPath, kjHome, projectDir, taskFile, env =
     // gate. The coder is a name no machine has, so the gate stops the call
     // before a single LLM token, on a laptop with real agents as much as in CI.
     const code = await call("kj_code", { kjHome, projectDir, taskFile, coder: "kj-verify-stub" });
-    if (!code.gated || !/Unsupported agent: kj-verify-stub/.test(code.reason)) findings.push(`kj_code did not stop at its gate with the stub coder: ${code.reason ?? "it answered ok"}`);
+    // Its gate: the bootstrap on a runner with no agent CLI (CI), the unknown coder anywhere else.
+    // Both come after the taskFile is read; an answer that is not a refusal ran something.
+    if (!code.gated || !/Unsupported agent: kj-verify-stub|BOOTSTRAP FAILED/.test(code.reason)) findings.push(`kj_code did not stop at its gate with the stub coder: ${code.reason ?? "it answered ok"}`);
     // KJC-TSK-1318: a retired tool says so and points at the migration guide.
     const retired = await call("kj_run", { kjHome, projectDir, task: "x" });
     if (!/^kj run was retired in 5\.0/.test(retired.reason ?? "")) findings.push(`kj_run did not answer with its retirement notice: ${retired.reason}`);
