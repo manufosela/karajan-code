@@ -15,6 +15,7 @@ import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { mainCheckout } from "../utils/main-checkout.js";
+import { parseLanes } from "../hu/lanes.js";
 
 const execFileAsync = promisify(execFile);
 const WORKTREE_DIR = ".kj/worktrees"; // shared with the headless lanes
@@ -61,19 +62,8 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
   }
 
   if (action === "list") {
-    const laneRoot = lanesDir + path.sep;
     const { stdout } = await git(["worktree", "list", "--porcelain"]);
-    const rows = [];
-    let current = null;
-    for (const line of stdout.split("\n")) {
-      if (line.startsWith("worktree ")) current = { path: line.slice(9).trim() };
-      else if (line.startsWith("branch ") && current) {
-        current.branch = line.slice(7).trim().replace("refs/heads/", "");
-        if (current.path.startsWith(laneRoot)) {
-          rows.push({ slug: path.basename(current.path), branch: current.branch, path: current.path });
-        }
-      }
-    }
+    const rows = parseLanes(stdout, { root: lanesDir });
     if (rows.length === 0) console.log("no lanes — create one with: kj worktree start <slug>");
     for (const r of rows) console.log(`${r.slug.padEnd(24)} ${r.branch.padEnd(30)} ${r.path}`);
     return rows;
