@@ -49,91 +49,6 @@ export const tools = [
     }
   },
   {
-    name: "kj_run",
-    description:
-      "Run the full Karajan pipeline. IMPORTANT: Pass the user's task description exactly as they wrote it. Do NOT group, split, reorder, or modify tasks yourself. Karajan handles decomposition, role activation, iteration, and quality gates internally. Do NOT override pipeline parameters (enableHuReviewer, mode, methodology) unless the user explicitly requested it. If you have observations about the task, use kj_suggest instead.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task: { type: "string", description: "Task description for the coder (can include a Planning Game card ID like KJC-TSK-0042). Either `task` or `taskFile` is required." },
-        taskFile: { type: "string", description: "Alternative to `task`: path to a .md (or any text file) whose contents become the task description. Relative paths resolve against projectDir." },
-        plan: { type: "string", description: "Plan ID from kj_plan. Loads persisted plan context and skips researcher/architect/planner stages." },
-        projectDir: { type: "string", description: "Absolute path to the project directory. Required when KJ MCP server runs from a different directory than the target project." },
-        pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as task context and updates card status on completion." },
-        pgProject: { type: "string", description: "Planning Game project ID (e.g., 'Karajan Code'). Required when pgTask is used." },
-        planner: { type: "string" },
-        coder: { type: "string" },
-        reviewer: { type: "string" },
-        refactorer: { type: "string" },
-        plannerModel: { type: "string" },
-        coderModel: { type: "string" },
-        reviewerModel: { type: "string" },
-        refactorerModel: { type: "string" },
-        enablePlanner: { type: "boolean" },
-        enableReviewer: { type: "boolean" },
-        enableRefactorer: { type: "boolean" },
-        enableResearcher: { type: "boolean" },
-        enableTester: { type: "boolean" },
-        enableSecurity: { type: "boolean" },
-        enableImpeccable: { type: "boolean" },
-        enablePerf: { type: "boolean" },
-        enableTriage: { type: "boolean" },
-        enableDiscover: { type: "boolean" },
-        enableArchitect: { type: "boolean" },
-        enableHuReviewer: { type: "boolean" },
-        architectModel: { type: "string" },
-        huFile: { type: "string", description: "Path to YAML file with HU stories to certify before coding" },
-        enableSerena: { type: "boolean" },
-        enableCi: { type: "boolean", description: "Enable Karajan CI (early PR + dispatch comments/reviews)" },
-        reviewerFallback: { type: "string" },
-        reviewerRetries: { type: "number" },
-        mode: { type: "string" },
-        maxIterations: { type: "number" },
-        maxIterationMinutes: { type: "number" },
-        maxTotalMinutes: { type: "number" },
-        baseBranch: { type: "string" },
-        baseRef: { type: "string" },
-        methodology: { type: "string", enum: ["tdd", "standard"] },
-        autoCommit: { type: "boolean" },
-        autoPush: { type: "boolean" },
-        autoPr: { type: "boolean" },
-        autoRebase: { type: "boolean" },
-        branchPrefix: { type: "string" },
-        autoSimplify: { type: "boolean", description: "Auto-simplify pipeline for simple tasks (level trivial/simple). Disable with false to force full pipeline." },
-        smartModels: { type: "boolean", description: "Enable/disable smart model selection based on triage complexity" },
-        checkpointInterval: { type: "number", description: "Minutes between interactive checkpoints (default: 5). Set 0 to disable." },
-        taskType: { type: "string", enum: ["sw", "infra", "doc", "add-tests", "refactor"], description: "Explicit task type for policy resolution. Overrides triage classification." },
-        quiet: { type: "boolean", description: "Suppress raw agent output lines, show only stage status (default: true). Set false for verbose output." },
-        noSonar: { type: "boolean" },
-        design: { type: "boolean", description: "Activate design refactoring mode. Impeccable role applies design changes instead of just auditing." },
-        enableSonarcloud: { type: "boolean", description: "Enable SonarCloud scan (complementary to SonarQube)" },
-        kjHome: { type: "string" },
-        sonarToken: { type: "string" },
-        timeoutMs: { type: "number" },
-        domain: { type: "string", description: "Domain knowledge: inline text describing the project domain, or absolute path to a .md file. Auto-saved to .karajan/domains/ for the curator." },
-        brain: { type: "string", enum: ["on", "off"], description: "Brain decisor: on|off. Controls whether intent-driven routing overrides pipeline flags." },
-        forceRole: { type: "array", items: { type: "string" }, description: "Force roles ON regardless of triage (e.g. [\"security\"])" },
-        skipRole: { type: "array", items: { type: "string" }, description: "Force roles OFF regardless of triage (e.g. [\"tester\"])" },
-        specReviewMode: { type: "string", enum: ["auto", "skip"], description: "Pre-pipeline spec-reviewer behaviour (KJC-PCS-0048). `auto` (default): the role runs, findings stream to the client via progress events; the pipeline continues regardless. `skip`: bypass the reviewer entirely (mirrors the --skip-spec-review CLI flag)." }
-      }
-    }
-  },
-  {
-    name: "kj_resume",
-    description:
-      "Resume a paused, stopped, or failed session by ID. For paused sessions, provide an answer. For stopped/failed sessions, re-runs the flow from scratch. Sends real-time progress notifications via MCP logging.",
-    inputSchema: {
-      type: "object",
-      required: ["sessionId"],
-      properties: {
-        sessionId: { type: "string", description: "Session ID to resume" },
-        answer: { type: "string", description: "Answer to the question that caused the pause" },
-        projectDir: { type: "string", description: "Absolute path to the project directory" },
-        kjHome: { type: "string" }
-      }
-    }
-  },
-  {
     name: "kj_report",
     description: "Read latest or list session reports. Use trace=true for chronological stage-by-stage breakdown with timing and token usage.",
     inputSchema: {
@@ -176,7 +91,7 @@ export const tools = [
   },
   {
     name: "kj_preflight",
-    description: "Confirm or adjust agent configuration before first kj_run/kj_code. REQUIRED before running any task via MCP. Show the config to the human, get their confirmation or adjustments, then call this tool with their response.",
+    description: "Confirm or adjust agent configuration before first kj_code. REQUIRED before running any task via MCP. Show the config to the human, get their confirmation or adjustments, then call this tool with their response.",
     inputSchema: {
       type: "object",
       required: ["humanResponse"],
@@ -208,50 +123,6 @@ export const tools = [
     }
   },
   {
-    name: "kj_review",
-    description: "Run reviewer-only mode against current diff. Do NOT filter or pre-process the diff before passing it.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task: { type: "string", description: "Task description. Either `task` or `taskFile` is required." },
-        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
-        reviewer: { type: "string" },
-        reviewerModel: { type: "string" },
-        baseRef: { type: "string" },
-        projectDir: { type: "string", description: "Absolute path to the project directory" },
-        kjHome: { type: "string" }
-      }
-    }
-  },
-  {
-    name: "kj_status",
-    description: "Show real-time status and log of the current or last Karajan run. Returns a parsed status (current stage, agent, iteration, errors) plus recent log lines. Use this to monitor progress while kj_run/kj_plan/kj_code is executing.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        lines: { type: "number", description: "Number of log lines to show (default 50)" }
-      }
-    }
-  },
-  {
-    name: "kj_plan",
-    description: "Generate implementation plan for a task. Pass the task as the user described it. Karajan's planner decides the approach.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task: { type: "string", description: "Task description. Either `task` or `taskFile` is required." },
-        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
-        planner: { type: "string" },
-        plannerModel: { type: "string" },
-        coder: { type: "string", description: "Legacy alias for planner" },
-        coderModel: { type: "string", description: "Legacy alias for plannerModel" },
-        projectDir: { type: "string", description: "Absolute path to the project directory" },
-        kjHome: { type: "string" },
-        specReviewMode: { type: "string", enum: ["auto", "skip"], description: "Pre-planner spec-reviewer behaviour (KJC-PCS-0048). `auto` (default): runs the reviewer, findings stream as progress, planner continues. `skip`: bypass entirely." }
-      }
-    }
-  },
-  {
     name: "kj_discover",
     description: "Analyze a task for gaps, ambiguities, and missing information before execution. Returns a verdict (ready/needs_validation) with structured gap list. Can read task details from Planning Game if pgTask is provided.",
     inputSchema: {
@@ -263,46 +134,6 @@ export const tools = [
         context: { type: "string", description: "Additional context for the analysis (e.g., research output)" },
         pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as additional context." },
         pgProject: { type: "string", description: "Planning Game project ID. Required when pgTask is used." },
-        projectDir: { type: "string", description: "Absolute path to the project directory" },
-        kjHome: { type: "string" }
-      }
-    }
-  },
-  {
-    name: "kj_triage",
-    description: "Classify task complexity and recommend which pipeline roles to activate. Returns level (trivial/simple/medium/complex), taskType, recommended roles, and optional decomposition.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task: { type: "string", description: "Task description to classify. Either `task` or `taskFile` is required." },
-        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
-        projectDir: { type: "string", description: "Absolute path to the project directory" },
-        kjHome: { type: "string" }
-      }
-    }
-  },
-  {
-    name: "kj_researcher",
-    description: "Research the codebase for a task. Identifies affected files, patterns, constraints, prior decisions, risks, and test coverage.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task: { type: "string", description: "Task description to research. Either `task` or `taskFile` is required." },
-        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
-        projectDir: { type: "string", description: "Absolute path to the project directory" },
-        kjHome: { type: "string" }
-      }
-    }
-  },
-  {
-    name: "kj_architect",
-    description: "Design solution architecture for a task. Returns layers, patterns, data model, API contracts, tradeoffs, and a verdict (ready/needs_clarification).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task: { type: "string", description: "Task description to architect. Either `task` or `taskFile` is required." },
-        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
-        context: { type: "string", description: "Additional context (e.g., researcher output)" },
         projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
@@ -360,17 +191,6 @@ export const tools = [
         suggestion: { type: "string", description: "What you observed or want to propose" },
         context: { type: "string", description: "Additional context (current HU, iteration, etc.)" },
         projectDir: { type: "string", description: "Project directory" }
-      }
-    }
-  },
-  {
-    name: "kj_undo",
-    description: "Revert the last pipeline run by resetting to the pre-pipeline commit. Default: soft reset (keeps changes staged). Use hard=true to discard all changes.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        hard: { type: "boolean", description: "If true, discard all changes (git reset --hard). Default: false (soft reset, keeps changes staged)." },
-        projectDir: { type: "string", description: "Absolute path to the project directory" }
       }
     }
   },

@@ -169,41 +169,6 @@ describe("server-handlers: handleToolCall", () => {
       await import("../src/mcp/server-handlers.js"));
   });
 
-  // --- handleRun ---
-
-  describe("handleRun (kj_run)", () => {
-    it("returns error when task is missing", async () => {
-      const result = await handleToolCall("kj_run", {}, mockServer());
-      expect(result.ok).toBe(false);
-      expect(result.error).toMatch(/task/i);
-    });
-
-    it("returns error for invalid taskType", async () => {
-      const result = await handleToolCall("kj_run", { task: "do stuff", taskType: "invalid" }, mockServer());
-      expect(result.ok).toBe(false);
-      expect(result.error).toMatch(/taskType/i);
-    });
-
-    it("calls sovereignty guard and bootstrap gate on valid input", async () => {
-      const { validateSovereignty } = await import("../src/mcp/sovereignty-guard.js");
-      const { ensureBootstrap } = await import("../src/bootstrap.js");
-
-      await handleToolCall("kj_run", { task: "implement feature X" }, mockServer());
-
-      expect(validateSovereignty).toHaveBeenCalled();
-      expect(ensureBootstrap).toHaveBeenCalled();
-    });
-
-    it("returns sovereignty error if guard fails", async () => {
-      const { validateSovereignty } = await import("../src/mcp/sovereignty-guard.js");
-      validateSovereignty.mockReturnValueOnce({ error: "active session exists", warnings: [], params: {} });
-
-      const result = await handleToolCall("kj_run", { task: "do stuff" }, mockServer());
-      expect(result.ok).toBe(false);
-      expect(result.error).toMatch(/active session/i);
-    });
-  });
-
   // --- handleCode ---
 
   describe("handleCode (kj_code)", () => {
@@ -220,16 +185,6 @@ describe("server-handlers: handleToolCall", () => {
         await handleToolCall("kj_code", { task: "fix bug" }, mockServer());
       } catch { /* expected */ }
       expect(ensureBootstrap).toHaveBeenCalled();
-    });
-  });
-
-  // --- handleReview ---
-
-  describe("handleReview (kj_review)", () => {
-    it("returns error when task is missing", async () => {
-      const result = await handleToolCall("kj_review", {}, mockServer());
-      expect(result.ok).toBe(false);
-      expect(result.error).toMatch(/task/i);
     });
   });
 
