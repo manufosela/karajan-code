@@ -131,10 +131,6 @@ vi.mock("node:fs/promises", () => ({
   }
 }));
 
-vi.mock("../src/session-cleanup.js", () => ({
-  cleanupExpiredSessions: vi.fn(async () => {})
-}));
-
 // --- Helpers ---
 
 function mockServer() {
