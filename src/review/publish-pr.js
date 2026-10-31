@@ -9,6 +9,8 @@ import { diffHash, loadVerdict } from "./verdict-store.js";
 import { isCleanMerge } from "./clean-merge.js";
 
 export const MARKER = (head) => `<!-- kj-review head=${head} -->`;
+/** Who may publish a kj review that counts: verify-pr ignores anyone else. */
+export const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
 // gh runs in the project's own directory, so it reads and writes the same repo the verdicts belong to.
 async function json(run, cmd, args, cwd) {
@@ -39,7 +41,8 @@ export async function publishPrReview({ projectDir, pr, run = runCommand }) {
   }
   if (uncovered.length > 0) throw new Error(`PR #${pr}: ${uncovered.length} commit(s) without an approved verdict of their exact diff, nothing published: ${uncovered.join(", ")}`);
   const reviews = await json(run, "gh", ["api", `repos/{owner}/{repo}/pulls/${pr}/reviews`], projectDir);
-  if ((reviews ?? []).some((r) => String(r.body ?? "").includes(MARKER(info.headRefOid)))) {
+  // KJC-BUG-0456: one a non-member posted (gh switched to another account) does not count in CI.
+  if ((reviews ?? []).some((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER(info.headRefOid)))) {
     return { published: false, reason: `a kj review for head ${info.headRefOid.slice(0, 7)} is already published` };
   }
   const body = [
