@@ -97,6 +97,13 @@ El review corre en el hook de commit, así que una bandera que se salta el hook 
 
 Si el hook está roto, lo que toca es arreglarlo. No hay escape (ADR 0015): si el commit tiene que entrar igual, lo lanza tu usuario en su propia terminal. El `--no-verify` que `kj harden --commit` usa por dentro no se ve afectado, porque no pasa por una tool call.
 
+## commit-verdict
+
+En un repo que ha activado el gate de review (`.karajan/review-gate` commiteado), un `git commit` necesita un veredicto cruzado APPROVED para el diff exacto que está stageado. Lo comprueba el hook pre-commit, y lo comprueba también el Sentinel antes de que el comando se ejecute. Así, un repo cuyo hook no aplica el gate, o un review encadenado a `tail` que ocultó su fallo, ya no pueden dejar pasar un commit.
+
+- Sin veredicto, o con uno REJECTED: el commit se deniega. Lanza `kj review --staged` solo (sin tuberías) y commitea cuando apruebe.
+- Stagear y commitear en el mismo comando (`git add … && git commit`, `git commit -a`, `git commit <rutas>`) también se deniega: el veredicto se comprueba sobre lo que ya está stageado, y ese comando lo cambia por el camino. Stagea por nombre, revisa y luego commitea.
+
 ## supervisor
 
 Los propios ficheros del Sentinel (`.karajan/harness`, hooks) son de solo lectura desde dentro de una sesión, un supervisor que una sesión puede editar no es un supervisor. Solo el humano lo desmonta o lo regenera (`kj harden`), fuera de la sesión. La manipulación se detecta contra lo que el propio kj instalado escribiría.

@@ -11,9 +11,9 @@ import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText, stagedVerdict } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
+import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { sandboxCovers, shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
@@ -634,6 +634,22 @@ process.stdin.on("end", () => {
         // if it ever must happen, is the user's act in their own terminal.
         console.error("karajan sentinel: el gate de commit no se apaga con una bandera — el review cruzado y la policy corren en el hook, y saltarselos deja el diff sin veredicto. Si el hook esta roto, arreglalo; si de verdad hace falta saltarlo, lo hace tu usuario en su terminal." + doc("escapes"));
         process.exit(2);
+      }
+      // KJC-BUG-0455 (#2933): the verdict of the staged diff, checked HERE as well as in
+      // the pre-commit hook: a repo whose hook does not run the gate, or a review piped into
+      // tail that hid its failure, let a commit through with no verdict at all.
+      const plan = commitStaging(cmd);
+      if (plan.commits) {
+        const verdict = stagedVerdict(plan.dir ? resolve(cwd || ROOT, plan.dir) : (cwd || ROOT));
+        if (verdict.gate && plan.stages) {
+          console.error("karajan sentinel: stagea y commitea en comandos separados — el veredicto se comprueba sobre lo que ya esta stageado, y este comando stagea a la vez que commitea (git add/rm/mv, -a o rutas en git commit). Stagea por nombre, pasa kj review --staged y luego git commit." + doc("commit-verdict"));
+          process.exit(2);
+        }
+        if (verdict.gate && (verdict.state === "missing" || verdict.state === "rejected")) {
+          const why = verdict.state === "rejected" ? "el review de este diff fue RECHAZADO por " + (verdict.reviewer || "el reviewer") + " — corrige y vuelve a pasar kj review --staged" : "no hay veredicto para el diff stageado — pasa kj review --staged (solo, sin tuberias que oculten si falla)";
+          console.error("karajan sentinel: commit sin veredicto aprobado: " + why + "." + doc("commit-verdict"));
+          process.exit(2);
+        }
       }
       // KJC-BUG-0296 (#1989): the staged set is reviewed by name. A blanket
       // git add -A / git add . / git add -u put a Claude scheduler lock into

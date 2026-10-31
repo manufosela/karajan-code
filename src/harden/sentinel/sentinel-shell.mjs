@@ -300,3 +300,78 @@ export const isReadOnlyCommand = (cmd) => {
 
 /** Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n). */
 export const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
+
+// KJC-BUG-0455 (#2933): git commit's options that take a value, and the git verbs that
+// change the index. A commit that stages in the same command commits a diff nobody
+// could have reviewed yet: the verdict is checked against what is staged BEFORE it runs.
+const COMMIT_VALUE_OPTS = new Set(["-m", "-F", "-C", "-c", "-t", "--message", "--file", "--reuse-message", "--reedit-message", "--template", "--author", "--date", "--cleanup", "--fixup", "--squash", "--trailer", "--pathspec-from-file"]);
+const COMMIT_VALUE_SHORT = new Set(["m", "F", "C", "c", "t"]);
+const INDEX_VERBS = new Set(["add", "rm", "mv", "stage", "restore", "reset", "apply", "update-index"]);
+
+/** Where `git` is in a segment and its verb, skipping git's global options; null when not git. */
+const gitVerbOf = (words) => {
+  if (words[0]?.slice(words[0].lastIndexOf("/") + 1) !== "git") return null;
+  let i = 1;
+  let dir = null;
+  while (i < words.length) {
+    const w = words[i];
+    if (GIT_GLOBAL_WITH_VALUE.has(w)) {
+      if (w === "-C") {
+        dir = words[i + 1] ?? null;
+      }
+      i += 2; // the option and its value
+    } else if (GIT_GLOBAL_FLAG.test(w)) {
+      i += 1;
+    } else {
+      break;
+    }
+  }
+  return { verb: words[i], at: i, dir };
+};
+
+/** How many words a git commit argument takes, and whether it makes the commit stage on its own. */
+const commitArg = (a) => {
+  if (a === "--all") return { stages: true, words: 1 };
+  if (a.startsWith("--")) {
+    // --message=x carries its value; --message x takes the next word.
+    return { stages: false, words: COMMIT_VALUE_OPTS.has(a) ? 2 : 1 };
+  }
+  if (/^-[a-zA-Z]/.test(a)) {
+    const cluster = a.slice(1);
+    const valueAt = [...cluster].findIndex((c) => COMMIT_VALUE_SHORT.has(c));
+    const flags = valueAt < 0 ? cluster : cluster.slice(0, valueAt);
+    if (flags.includes("a")) return { stages: true, words: 1 };
+    // -m x takes the next word; -mx carries its value.
+    return { stages: false, words: valueAt === cluster.length - 1 ? 2 : 1 };
+  }
+  return { stages: true, words: 1 }; // a pathspec
+};
+
+/** -a/--all, or a path (with or without --), makes git commit stage on its own. */
+const commitStagesItself = (args) => {
+  let i = 0;
+  while (i < args.length) {
+    if (args[i] === "--") {
+      return i + 1 < args.length;
+    }
+    const { stages, words } = commitArg(args[i]);
+    if (stages) {
+      return true;
+    }
+    i += words;
+  }
+  return false;
+};
+
+/**
+ * Does the command run git commit, and does it stage in the same command?
+ * @param {string} cmd
+ * @returns {{commits: boolean, stages: boolean, dir: string|null}}
+ */
+export const commitStaging = (cmd) => {
+  const gits = shellSegments(cmd).map((words) => ({ words, g: gitVerbOf(words) })).filter((s) => s.g);
+  const commits = gits.filter((s) => s.g.verb === "commit");
+  if (commits.length === 0) return { commits: false, stages: false, dir: null };
+  const stages = gits.some((s) => INDEX_VERBS.has(s.g.verb)) || commits.some((s) => commitStagesItself(s.words.slice(s.g.at + 1)));
+  return { commits: true, stages, dir: commits[0].g.dir };
+};
