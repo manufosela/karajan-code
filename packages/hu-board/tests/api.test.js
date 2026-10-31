@@ -341,28 +341,11 @@ describe('PATCH /api/stories/:id — canonical status guard (KJC-TSK-0394 AC 6)'
   });
 });
 
-// KJC-TSK-0414 PR4
+// KJC-TSK-1351: standby belonged to the kj run pipeline (kj standby/resume, retired in 5.0).
 describe('GET /api/standby', () => {
-  it('lista vacía cuando no hay sesiones hibernadas', async () => {
+  it('is gone with the pipeline', async () => {
     const res = await request(app).get('/api/standby');
-    expect(res.status).toBe(200);
-    expect(res.body.sessions).toEqual([]);
-  });
-
-  it('devuelve las sesiones persistidas', async () => {
-    const { persistStandby } = await import('karajan-core/standby-store');
-    persistStandby({
-      sessionId: 'test-s1',
-      cooldownUntil: '2099-01-01T00:00:00Z',
-      reason: 'QUOTA_EXHAUSTED_DAILY',
-      planId: 'p1',
-      huId: 'hu_001',
-    });
-    const res = await request(app).get('/api/standby');
-    expect(res.status).toBe(200);
-    expect(res.body.sessions).toHaveLength(1);
-    expect(res.body.sessions[0].sessionId).toBe('test-s1');
-    expect(res.body.sessions[0].planId).toBe('p1');
+    expect(res.status).toBe(404);
   });
 });
 

@@ -65,24 +65,6 @@ router.get('/version', (_req, res) => {
 });
 
 /**
- * GET /api/standby — KJC-TSK-0414 PR4. Lista sesiones hibernadas.
- * Devuelve [{ sessionId, planId, huId, role, cooldownUntil, reason, ... }]
- * El front renderiza un badge "💤 standby · resume en HH:MM:SS" por sesión.
- */
-router.get('/standby', async (_req, res) => {
-  try {
-    // KJC-TSK-0632: resolve from karajan-core directly — the CLI's
-    // src/brain/standby-store.js is just a re-export shim of this.
-    const { listPendingStandby } = await import('karajan-core/standby-store');
-    const sessions = listPendingStandby();
-    res.set('Cache-Control', 'no-store');
-    res.json({ sessions });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
  * GET /api/dashboard - Global dashboard statistics.
  */
 router.get('/dashboard', (_req, res) => {
