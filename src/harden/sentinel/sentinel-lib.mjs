@@ -4,6 +4,7 @@
 import process from "node:process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
@@ -64,6 +65,28 @@ export const pendingText = (p) => (p.card ? p.card : "card sin identificar") + "
 export const bootstrapPhase = () => {
   try { execSync("git rev-parse --verify HEAD", { cwd: ROOT, stdio: ["ignore", "ignore", "ignore"] }); return false; }
   catch { return true; }
+};
+// KJC-BUG-0455 (#2933): the cross-AI verdict of the diff staged in `dir`, read the way
+// `kj review --check` reads it (sha256 of `git diff --cached`, trailing blanks trimmed,
+// in <top>/.karajan/reviews). gate:false when the repo has not committed the gate marker.
+// state: approved | rejected | missing | empty (nothing staged) | unknown (git failed).
+export const stagedVerdict = (dir) => {
+  const git = (args) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+  // No commit yet (or no repo): no committed marker can exist, as the hook reads it.
+  if (git(["rev-parse", "--verify", "-q", "HEAD"]).status !== 0) return { gate: false };
+  // A git error is not a missing marker: it fails closed.
+  const marker = git(["ls-tree", "--name-only", "HEAD", ".karajan/review-gate"]);
+  if (marker.status !== 0) return { gate: true, state: "unknown" };
+  if (!marker.stdout.trim()) return { gate: false };
+  const top = git(["rev-parse", "--show-toplevel"]).stdout?.trim();
+  const diff = git(["diff", "--cached"]);
+  if (!top || diff.status !== 0) return { gate: true, state: "unknown" };
+  if (!diff.stdout.trim()) return { gate: true, state: "empty" };
+  const hash = createHash("sha256").update(diff.stdout.trimEnd(), "utf8").digest("hex");
+  try {
+    const v = JSON.parse(readFileSync(join(top, ".karajan", "reviews", hash + ".json"), "utf8"));
+    return { gate: true, state: v.verdict === "approved" ? "approved" : "rejected", reviewer: v.reviewer || null };
+  } catch { return { gate: true, state: "missing" }; }
 };
 // KJC-BUG-0198/0262: a card split across PRs is carried while another PR of it is
 // open. kj decides with that checkable fact, the same answer for commit and push

@@ -97,6 +97,13 @@ The review runs in the commit hook, so a flag that skips the hook skips the verd
 
 If the hook is broken, fixing it is the answer. There is no escape (ADR 0015): if the commit really has to go in without it, your user runs it in their own terminal. The `--no-verify` that `kj harden --commit` uses internally is not affected, because it never goes through a tool call.
 
+## commit-verdict
+
+In a repo that has turned the review gate on (`.karajan/review-gate` committed), a `git commit` needs an APPROVED cross-AI verdict for the exact diff that is staged. The pre-commit hook checks it, and the Sentinel checks it too before the command runs. So a repo whose hook does not run the gate, or a review piped into `tail` that hid its failure, can no longer let a commit through.
+
+- No verdict, or a REJECTED one: the commit is denied. Run `kj review --staged` on its own (not piped) and commit after it approves.
+- Staging and committing in one command (`git add … && git commit`, `git commit -a`, `git commit <paths>`) is denied as well: the verdict is checked against what is already staged, and that command changes it on the way. Stage by name, review, then commit.
+
 ## supervisor
 
 The Sentinel's own files (`.karajan/harness`, hooks) are read-only from inside a session — a supervisor a session can edit is no supervisor. Only the human dismantles or regenerates it (`kj harden`), outside the session. Tampering is detected against what the installed kj itself would write.
