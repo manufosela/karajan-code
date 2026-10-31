@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateBlockedByChange } from "../../src/plan/plan-validation.js";
+import { validateBlockedByChange } from "karajan-core/plan-validation";
 
 // KJC-TSK-0401: validación de cambios en blocked_by para edición desde
 // el board. Rechaza auto-deps, refs huérfanas y ciclos.

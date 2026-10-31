@@ -2,7 +2,7 @@
 // model weights; we inject a synthetic pipeline via `pipelineFn` so the
 // tests cover ordering, input validation, and truncation behaviour.
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { rerank, RerankError, _resetPipeline } from "../../src/rag/rerank.js";
+import { rerank, RerankError, _resetPipeline } from "karajan-core/rag/rerank";
 import { query } from "../../src/rag/retriever.js";
 import { openVecStore, insertChunk } from "../../src/rag/vec-store.js";
 import { mkdtempSync, rmSync } from "node:fs";
