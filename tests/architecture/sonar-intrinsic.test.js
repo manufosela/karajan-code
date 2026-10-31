@@ -4,8 +4,8 @@
  *
  * The user's contract (set in v2.7.4): SonarQube quality gate is run for
  * every code task (sw / refactor / add-tests) and skipped for non-code tasks
- * (audit / doc / infra / analysis / no-code). The decision lives in
- * `src/guards/policy-resolver.js::DEFAULT_POLICIES`. Users CANNOT disable
+ * (audit / doc / infra / analysis / no-code); the review gate enforces it
+ * (`src/review/sonar-requirement.js`). Users CANNOT disable
  * Sonar via `sonarqube.enabled: false` or `--no-sonar` — those are accepted
  * (back-compat) but ignored, with a deprecation warning.
  *
@@ -18,11 +18,12 @@
  *
  * If you find yourself wanting to remove these tests because they're "in
  * the way", STOP. Read `src/review/sonar-requirement.js` (the review gate's
- * "Sonar is mandatory for code") and `src/guards/policy-resolver.js`. Then
- * open a discussion before changing the contract.
+ * "Sonar is mandatory for code"). Then open a discussion before changing the
+ * contract.
  *
- * KJC-TSK-1331: the cases that read the retired pipeline's preflight-checks.js
- * and quality-gates.js went with those files (5.0); the flag handling stays.
+ * KJC-TSK-1331 / KJC-TSK-1339: the cases on the retired pipeline's
+ * preflight-checks.js, quality-gates.js and policy-resolver.js went with those
+ * files (5.0); the flag handling and config cases stay.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -79,24 +80,6 @@ describe("architecture/sonar-intrinsic — Sonar is not a config toggle", () => 
       expect(text).toMatch(/userSetSonarEnabled/);
       expect(text).toMatch(/sonarqubeEnabledKey/);
       expect(text).toMatch(/_deprecated/);
-    });
-  });
-
-  describe("policy mapping (DEFAULT_POLICIES)", () => {
-    it("code task types DO require Sonar", async () => {
-      const { applyPolicies } = await import("../../src/guards/policy-resolver.js");
-      for (const codeType of ["sw", "refactor", "add-tests"]) {
-        const res = applyPolicies({ taskType: codeType, policies: {} });
-        expect(res.sonar, `taskType=${codeType} must require Sonar`).toBe(true);
-      }
-    });
-
-    it("non-code task types do NOT require Sonar", async () => {
-      const { applyPolicies } = await import("../../src/guards/policy-resolver.js");
-      for (const nonCodeType of ["audit", "doc", "infra", "analysis", "no-code"]) {
-        const res = applyPolicies({ taskType: nonCodeType, policies: {} });
-        expect(res.sonar, `taskType=${nonCodeType} must NOT require Sonar`).toBe(false);
-      }
     });
   });
 });

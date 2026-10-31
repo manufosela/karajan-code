@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCoderPrompt } from "../src/prompts/coder.js";
 import { buildReviewerPrompt } from "../src/prompts/reviewer.js";
-import { buildHuReviewerPrompt } from "../src/prompts/hu-reviewer.js";
-import { buildArchitectPrompt } from "../src/prompts/architect.js";
 import { buildPlannerPrompt } from "../src/prompts/planner.js";
 
 describe("productContext injection into prompts", () => {
@@ -49,42 +47,6 @@ describe("productContext injection into prompts", () => {
       diff: "some diff",
       reviewRules: "rules",
       mode: "standard"
-    });
-    expect(result).not.toContain("## Product Context");
-  });
-
-  it("buildHuReviewerPrompt includes productContext when provided", async () => {
-    const result = buildHuReviewerPrompt({
-      stories: [{ id: "HU-001", text: "As a doctor..." }],
-      instructions: null,
-      productContext
-    });
-    expect(result).toContain("## Product Context");
-    expect(result).toContain(productContext);
-  });
-
-  it("buildHuReviewerPrompt omits productContext when null", async () => {
-    const result = buildHuReviewerPrompt({
-      stories: [{ id: "HU-001", text: "As a doctor..." }],
-      instructions: null
-    });
-    expect(result).not.toContain("## Product Context");
-  });
-
-  it("buildArchitectPrompt includes productContext when provided", async () => {
-    const result = await buildArchitectPrompt({
-      task: "Design auth system",
-      instructions: null,
-      productContext
-    });
-    expect(result).toContain("## Product Context");
-    expect(result).toContain(productContext);
-  });
-
-  it("buildArchitectPrompt omits productContext when null", async () => {
-    const result = await buildArchitectPrompt({
-      task: "Design auth system",
-      instructions: null
     });
     expect(result).not.toContain("## Product Context");
   });

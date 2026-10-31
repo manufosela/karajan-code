@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { detectOsLocale, getLanguageInstruction, SUPPORTED_LANGUAGES } from "../src/utils/locale.js";
 import { buildCoderPrompt } from "../src/prompts/coder.js";
-import { buildHuReviewerPrompt } from "../src/prompts/hu-reviewer.js";
 
 describe("locale detection", () => {
   const originalEnv = {};
@@ -114,34 +113,6 @@ describe("coder prompt includes language instruction", () => {
   it("does not include language instruction when language is omitted", async () => {
     const prompt = await buildCoderPrompt({
       task: "Fix the bug"
-    });
-    expect(prompt).not.toContain("IMPORTANT: Respond in");
-  });
-});
-
-describe("HU reviewer uses hu_language, not language", () => {
-  it("includes Spanish instruction when hu_language is 'es'", () => {
-    const prompt = buildHuReviewerPrompt({
-      stories: [{ id: "HU-001", text: "As a user..." }],
-      instructions: null,
-      hu_language: "es"
-    });
-    expect(prompt).toContain("IMPORTANT: Respond in Spanish");
-  });
-
-  it("does not include language instruction when hu_language is 'en'", () => {
-    const prompt = buildHuReviewerPrompt({
-      stories: [{ id: "HU-001", text: "As a user..." }],
-      instructions: null,
-      hu_language: "en"
-    });
-    expect(prompt).not.toContain("IMPORTANT: Respond in");
-  });
-
-  it("defaults to English when hu_language is omitted", () => {
-    const prompt = buildHuReviewerPrompt({
-      stories: [{ id: "HU-001", text: "As a user..." }],
-      instructions: null
     });
     expect(prompt).not.toContain("IMPORTANT: Respond in");
   });
