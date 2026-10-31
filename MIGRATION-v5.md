@@ -42,3 +42,9 @@ The rest of `kj plan` (`list`, `show`, `validate`, `ready`...) stays as it was.
 ## MCP tools
 
 The MCP tools that drove the same pipeline (`kj_run`, `kj_resume` and the single-role tools) are retired with their commands. A call answers with the same notice. Your agent works with the commands above instead.
+
+`kj_hu` stays, and it now works on the same board as `kj hu`.
+
+## Old pipeline data
+
+The pipeline kept its user stories in `~/.karajan/hu-stories/`. Nothing reads that folder any more: the HU Board shows the cards of `kj hu` (your plan backlog, or the shared board), so stories from old `kj run` sessions no longer appear on it. The folder is not deleted for you: `kj clean` removes its old entries, or you can delete the folder yourself.

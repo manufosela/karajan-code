@@ -83,13 +83,6 @@ router.get('/standby', async (_req, res) => {
 });
 
 /**
- * Resolve the hu-stories dir where batch.json files live.
- */
-function huStoriesDir() {
-  return path.join(getKjHome(), 'hu-stories');
-}
-
-/**
  * GET /api/dashboard - Global dashboard statistics.
  */
 router.get('/dashboard', (_req, res) => {
@@ -368,8 +361,8 @@ router.get('/sessions', (_req, res) => {
 
 /**
  * DELETE /api/projects/:id - Cascade delete project + its stories + sessions.
- * Also removes the hu-stories/<id>/ directory from disk so the next sync
- * does not re-import it.
+ * Also removes its session and plan directories from disk so the next sync
+ * does not re-import them.
  */
 router.delete('/projects/:id', async (req, res) => {
   try {
@@ -388,7 +381,6 @@ router.delete('/projects/:id', async (req, res) => {
     // residual plan dirs, sweep BOTH the canonical and legacy roots
     // so the cleanup is consistent for users mid-migration.
     const fsPaths = [
-      ...storyIds.map((sid) => path.join(huStoriesDir(), sid)),
       ...sessionIds.map((sid) => path.join(getKjHome(), 'sessions', sid)),
       ...getHuBoardPlansDirs().map((root) => path.join(root, id)),
     ];
@@ -397,7 +389,7 @@ router.delete('/projects/:id', async (req, res) => {
     if (!existed) return res.status(404).json({ error: 'Project not found' });
 
     // Tombstone the project AND its children so chokidar / fullScan
-    // can't bring them back via syncStoryFile / syncSessionFile.
+    // can't bring them back via syncSessionFile / syncPlanFile.
     addTombstone('project', id, { source: 'api', fsPaths });
     for (const sid of storyIds) addTombstone('story', sid, { source: 'api' });
     for (const sid of sessionIds) addTombstone('session', sid, { source: 'api' });
@@ -440,12 +432,7 @@ router.delete('/prompts/:promptId', async (req, res) => {
 });
 
 /**
- * DELETE /api/stories/:id - Delete a single story.
- *
- * Tombstones the story (KJC-TSK-0380) and removes its batch directory
- * from `~/.karajan/hu-stories/<id>/` so the next sync does NOT re-import
- * it. Pre-tombstones this endpoint was a DB-only soft hide that the next
- * chokidar event undid silently.
+ * DELETE /api/stories/:id - Refused: stories are never deleted (KJC-TSK-0671).
  */
 router.delete('/stories/:id', (req, res) => {
   // KJC-TSK-0671 (absolute product rule): stories are NEVER deleted — the
@@ -1213,7 +1200,7 @@ router.post('/board/restart', (_req, res) => {
 });
 
 /**
- * POST /api/sync - Force a full re-scan of hu-stories/ and sessions/ on disk.
+ * POST /api/sync - Force a full re-scan of the plans and sessions/ on disk.
  * Useful when chokidar's file watcher misses new subdirectories created after
  * the board started (known limitation with glob patterns).
  */

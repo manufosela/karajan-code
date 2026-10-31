@@ -27,7 +27,7 @@
  *
  * What "cleanup" means: DELETE the project row + cascade-delete its
  * stories and sessions, ADD a project tombstone, and rm-rf the
- * on-disk dirs (`hu-stories/<sid>/`, `sessions/<sid>/`,
+ * on-disk dirs (`sessions/<sid>/`,
  * `~/.kj/plans/<projectId>/`). Without the tombstone + fs cleanup,
  * the very next chokidar `add` event or `fullScan` would re-import
  * those files as a brand-new project (KJC-BUG-0055).
@@ -165,7 +165,6 @@ export function cleanupEphemeralProjects({
     const sessionIds = selSessions.all(project.id).map((r) => r.id);
     const fsPaths = home
       ? [
-          ...storyIds.map((sid) => path.join(home, "hu-stories", sid)),
           ...sessionIds.map((sid) => path.join(home, "sessions", sid)),
           path.join(plansRoot, project.id),
         ]

@@ -77,13 +77,6 @@ describe('tombstones — db layer', () => {
 // ---------- sync layer respects tombstones -----------------------------------
 
 describe('tombstones — sync.* skip + cleanup', () => {
-  function writeStory(batchId, projectId, stories = []) {
-    const dir = join(tmpDir, 'hu-stories', batchId);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'batch.json'), JSON.stringify({
-      id: batchId, session_id: batchId, project_id: projectId, stories,
-    }));
-  }
   function writePlan(projectSlug, planId, { updatedAt = null, projectDir = '/some/path' } = {}) {
     const dir = join(tmpDir, '.kj', 'plans', projectSlug);
     mkdirSync(dir, { recursive: true });
@@ -95,21 +88,6 @@ describe('tombstones — sync.* skip + cleanup', () => {
     writeFileSync(file, JSON.stringify(payload));
     return file;
   }
-
-  it('fullScan does NOT resurrect a tombstoned project', async () => {
-    writeStory('batch-1', 'proj-A');
-    dbMod.addTombstone('project', 'proj-A');
-    syncMod.fullScan();
-    expect(dbMod.getProjects().find((p) => p.id === 'proj-A')).toBeUndefined();
-  });
-
-  it('fullScan REMOVES the fs directory of a tombstoned story', () => {
-    writeStory('batch-2', 'proj-B');
-    const batchDir = join(tmpDir, 'hu-stories', 'batch-2');
-    dbMod.addTombstone('story', 'batch-2');
-    syncMod.fullScan();
-    expect(existsSync(batchDir)).toBe(false);
-  });
 
   it('fullScan ignores a tombstoned plan and deletes its file', () => {
     const planPath = writePlan('proj-slug', 'plan-xyz');
@@ -159,19 +137,15 @@ describe('tombstones — sync.* skip + cleanup', () => {
     expect(dbMod.isTombstoned('plan', 'plan-dead')).toBe(true);
   });
 
-  // KJC-BUG-0055: orphan hu-stories/<id>/ and sessions/<id>/ dirs with
-  // a tombstone (but no DB row — typical after a manual DB wipe) MUST
-  // be rm-rfed by fullScan before the per-file scan; otherwise they
-  // re-enter as ghost projects.
-  it('fullScan rm-rfs tombstoned hu-stories + sessions dirs at boot', () => {
-    writeStory('ghost-batch', 'ghost-proj');
+  // KJC-BUG-0055: an orphan sessions/<id>/ dir with a tombstone (but no DB
+  // row — typical after a manual DB wipe) MUST be rm-rfed by fullScan before
+  // the per-file scan; otherwise it re-enters as a ghost project.
+  it('fullScan rm-rfs tombstoned sessions dirs at boot', () => {
     const sessDir = join(tmpDir, 'sessions', 'ghost-sess');
     mkdirSync(sessDir, { recursive: true });
     writeFileSync(join(sessDir, 'session.json'), JSON.stringify({ id: 'ghost-sess' }));
-    dbMod.addTombstone('story', 'ghost-batch');
     dbMod.addTombstone('session', 'ghost-sess');
     syncMod.fullScan();
-    expect(existsSync(join(tmpDir, 'hu-stories', 'ghost-batch'))).toBe(false);
     expect(existsSync(sessDir)).toBe(false);
   });
 });
@@ -183,7 +157,6 @@ describe('tombstones — DELETE endpoints', () => {
     dbMod.upsertProject({ id: 'proj-X', name: 'X' });
     dbMod.upsertStory({ id: 'st-X-1', project_id: 'proj-X', status: 'pending' });
     dbMod.upsertSession({ id: 'sess-X-1', project_id: 'proj-X', status: 'running' });
-    mkdirSync(join(tmpDir, 'hu-stories', 'st-X-1'), { recursive: true });
     mkdirSync(join(tmpDir, 'sessions', 'sess-X-1'), { recursive: true });
 
     const r = await request(app).delete('/api/projects/proj-X').expect(200);
@@ -191,7 +164,6 @@ describe('tombstones — DELETE endpoints', () => {
     expect(dbMod.isTombstoned('project', 'proj-X')).toBe(true);
     expect(dbMod.isTombstoned('story', 'st-X-1')).toBe(true);
     expect(dbMod.isTombstoned('session', 'sess-X-1')).toBe(true);
-    expect(existsSync(join(tmpDir, 'hu-stories', 'st-X-1'))).toBe(false);
     expect(existsSync(join(tmpDir, 'sessions', 'sess-X-1'))).toBe(false);
   });
 

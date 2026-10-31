@@ -91,7 +91,6 @@ export function cleanupZombies(opts = {}) {
     const storyIds = db.prepare('SELECT id FROM stories WHERE project_id = ?').all(proj.id).map((r) => r.id);
     const sessionIds = db.prepare('SELECT id FROM sessions WHERE project_id = ?').all(proj.id).map((r) => r.id);
     const fsPaths = [
-      ...storyIds.map((sid) => path.join(getKjHome(), 'hu-stories', sid)),
       ...sessionIds.map((sid) => path.join(getKjHome(), 'sessions', sid)),
       ...plansRoots().map((root) => path.join(root, proj.id)),
     ];
