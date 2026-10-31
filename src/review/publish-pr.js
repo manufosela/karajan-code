@@ -7,6 +7,7 @@
 import { runCommand } from "../utils/process.js";
 import { diffHash, loadVerdict } from "./verdict-store.js";
 import { isCleanMerge } from "./clean-merge.js";
+import { labelKarajanPr } from "../git/karajan-label.js";
 
 export const MARKER = (head) => `<!-- kj-review head=${head} -->`;
 /** Who may publish a kj review that counts: verify-pr ignores anyone else. */
@@ -40,6 +41,9 @@ export async function publishPrReview({ projectDir, pr, run = runCommand }) {
     else uncovered.push(`${c.oid.slice(0, 7)} (${c.messageHeadline})`);
   }
   if (uncovered.length > 0) throw new Error(`PR #${pr}: ${uncovered.length} commit(s) without an approved verdict of their exact diff, nothing published: ${uncovered.join(", ")}`);
+  // KJC-BUG-0461 (#2315): with kj run retired, this is where Karajan meets every PR it governs, so
+  // the PR gets the «Karajan» label here. Labelling never fails the publish: a failure is warned.
+  await labelKarajanPr({ url: String(pr), cwd: projectDir, run });
   const reviews = await json(run, "gh", ["api", `repos/{owner}/{repo}/pulls/${pr}/reviews`], projectDir);
   // KJC-BUG-0456: one a non-member posted (gh switched to another account) does not count in CI.
   if ((reviews ?? []).some((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER(info.headRefOid)))) {

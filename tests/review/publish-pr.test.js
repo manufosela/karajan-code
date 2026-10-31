@@ -23,9 +23,10 @@ const gitOf = (args) => {
   return DIFFS[args.at(-1)] ?? "";
 };
 
-function fakeRun({ reviews = [], posted = [], ghDirs = [], pr = PR } = {}) {
+function fakeRun({ reviews = [], posted = [], ghDirs = [], pr = PR, labels = [] } = {}) {
   return async (cmd, args, opts) => {
     if (cmd === "gh") ghDirs.push(opts?.cwd);
+    if (cmd === "gh" && (args[0] === "label" || (args[0] === "pr" && args[1] === "edit"))) { labels.push(args.join(" ")); return { exitCode: 0, stdout: "" }; }
     if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(pr) };
     if (cmd === "git") return { exitCode: 0, stdout: gitOf(args) };
     if (cmd === "gh" && args.includes("POST")) { posted.push(args); return { exitCode: 0, stdout: "{}" }; }
@@ -49,6 +50,19 @@ describe("publishPrReview", () => {
     expect(args).toMatch(/commit_id=bbb2222/);
     expect(args).toMatch(/aaa1111.*feat: a.*codex/s);
     expect(args).toMatch(/kj-review head=bbb2222/);
+  });
+
+  // KJC-BUG-0461 (#2315): with kj run retired, publishing the verdicts is where Karajan meets every PR.
+  it("the PR gets the Karajan label, on a new publish and when the review was already there", async () => {
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    const labels = [];
+    await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ labels }) });
+    expect(labels.some((l) => l.startsWith("label create Karajan"))).toBe(true);
+    expect(labels).toContain("pr edit 42 --add-label Karajan");
+    const again = [];
+    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ labels: again, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }] }) });
+    expect(r.published).toBe(false);
+    expect(again).toContain("pr edit 42 --add-label Karajan");
   });
 
   it("a commit without an approved verdict: fails naming it and publishes nothing", async () => {

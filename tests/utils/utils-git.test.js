@@ -241,44 +241,6 @@ describe("utils/git", () => {
     });
   });
 
-  describe("createPullRequest", () => {
-    it("creates PR via gh CLI", async () => {
-      runCommand.mockResolvedValue({ exitCode: 0, stdout: "https://github.com/repo/pull/1\n", stderr: "" });
-
-      const url = await git.createPullRequest({
-        baseBranch: "main",
-        branch: "feat/test",
-        title: "Test PR",
-        body: "Description"
-      });
-
-      expect(url).toBe("https://github.com/repo/pull/1");
-      expect(runCommand).toHaveBeenCalledWith(
-        "gh",
-        ["pr", "create", "--base", "main", "--head", "feat/test", "--title", "Test PR", "--body", "Description"],
-        {}
-      );
-    });
-
-    // KJC-TSK-1123: the PR kj opens is labelled «Karajan»; a labelling failure keeps the PR.
-    it("labels the PR it opened, and returns the URL even if labelling fails", async () => {
-      runCommand
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "https://github.com/repo/app/pull/2\n", stderr: "" })
-        .mockResolvedValue({ exitCode: 1, stdout: "", stderr: "HTTP 403" });
-      const url = await git.createPullRequest({ baseBranch: "main", branch: "feat/x", title: "T", body: "B" });
-      expect(url).toBe("https://github.com/repo/app/pull/2");
-      expect(runCommand).toHaveBeenCalledWith("gh", ["pr", "edit", url, "--add-label", "Karajan"], {});
-    });
-
-    it("throws on gh failure", async () => {
-      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "auth error" });
-
-      await expect(
-        git.createPullRequest({ baseBranch: "main", branch: "feat/test", title: "T", body: "B" })
-      ).rejects.toThrow("gh");
-    });
-  });
-
   describe("syncBaseBranch", () => {
     it("returns synced=true, rebased=false when already in sync", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "abc123\n", stderr: "" });

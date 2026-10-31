@@ -229,7 +229,7 @@ kj review "Buscar problemas de seguridad" --reviewer claude --base-ref HEAD~5
 
 ### Probar la review cruzada en CI (`--publish-pr`, `--verify-pr`)
 
-`kj review --publish-pr <n>` publica, como una sola review de GitHub, el veredicto que kj guarda de cada commit de la PR, atado al hash del diff que trajo. `kj review --verify-pr <n>` es su parte de CI: sale con 1 y nombra cada commit que la review del head actual de la PR no lista con un hash de diff que coincida. Solo cuenta una review escrita por un owner, member o collaborator del repo, así que saltarse el hook de pre-commit (`--no-verify`) ya no deja un commit sin revisar.
+`kj review --publish-pr <n>` publica, como una sola review de GitHub, el veredicto que kj guarda de cada commit de la PR, atado al hash del diff que trajo. `kj review --verify-pr <n>` es su parte de CI: sale con 1 y nombra cada commit que la review del head actual de la PR no lista con un hash de diff que coincida. Solo cuenta una review escrita por un owner, member o collaborator del repo, así que saltarse el hook de pre-commit (`--no-verify`) ya no deja un commit sin revisar. `--publish-pr` también pone a la PR la etiqueta `Karajan` (la crea si falta; significa "pasó por Karajan", no "lo escribió una IA"), para que un equipo pueda medir cuánto de su cambio pasa por el método; si no se puede etiquetar, se avisa y la publicación sigue.
 
 ### Revisar la PR de otra persona (`--third-party`)
 
