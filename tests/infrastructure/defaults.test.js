@@ -5,7 +5,7 @@ import path from "node:path";
 import { defaultFileSystem } from "../../src/infrastructure/file-system-service.js";
 import { defaultCommandRunner } from "../../src/infrastructure/command-runner.js";
 import { defaultEnvironment, buildEnvironment } from "../../src/infrastructure/environment.js";
-import { MockCommandRunner, MockFileSystem } from "../../src/infrastructure/mocks.js";
+import { MockCommandRunner, MockFileSystem } from "../support/infrastructure-mocks.js";
 
 let workdir;
 

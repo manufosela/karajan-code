@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CopilotAgent, extractCopilotOutput } from "../../src/agents/copilot-agent.js";
 import { createAgent, getAgentMeta } from "../../src/agents/index.js";
-import { buildMockEnvironment } from "../../src/infrastructure/mocks.js";
+import { buildMockEnvironment } from "../support/infrastructure-mocks.js";
 
 const JSONL = [
   '{"type":"user.message","data":{"content":"x"}}',
