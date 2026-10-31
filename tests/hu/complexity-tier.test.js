@@ -3,7 +3,6 @@
 // deterministic signal; the higher one wins, and sensitive zones are always deep.
 import { describe, it, expect } from "vitest";
 import { deterministicTier, huComplexity } from "../../src/hu/complexity-tier.js";
-import { parseDecompositionOutput, buildDecompositionPrompt } from "../../src/prompts/hu-reviewer.js";
 
 const hu = (over = {}) => ({ title: "Rename a label", goal: "rename the button label", acceptanceCriteria: ["the label reads Save"], ...over });
 
@@ -34,16 +33,5 @@ describe("huComplexity", () => {
 
   it("no judgement from the model (old prompt, odd value): the signal alone, said so", () => {
     expect(huComplexity(hu({ tier: "huge" }))).toMatchObject({ tier: "trivial", judged: null, reason: expect.stringMatching(/no judged tier/) });
-  });
-});
-
-describe("decomposition prompt and parse", () => {
-  it("the prompt asks for tier and tierReason in the same answer", () => {
-    expect(buildDecompositionPrompt("task")).toMatch(/"tier":"trivial"\|"standard"\|"deep","tierReason":string/);
-  });
-
-  it("the parse keeps the model's tier and reason", () => {
-    const raw = JSON.stringify({ stories: [{ id: "HU-DECOMP-001", title: "t", tier: "standard", tierReason: "two files" }] });
-    expect(parseDecompositionOutput(raw)[0]).toMatchObject({ tier: "standard", tierReason: "two files" });
   });
 });

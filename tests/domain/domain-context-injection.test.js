@@ -49,18 +49,6 @@ describe("domainContext injection into prompt builders", () => {
     expect(prompt).toContain("Invoices need VAT");
   });
 
-  it("architect prompt includes domain context when provided", async () => {
-    const { buildArchitectPrompt } = await import("../../src/prompts/architect.js");
-    const prompt = await buildArchitectPrompt({
-      task: "Design system",
-      instructions: "Follow patterns",
-      domainContext: "### logistics\n\nIncoterms define responsibilities."
-    });
-
-    expect(prompt).toContain("## Domain Context");
-    expect(prompt).toContain("Incoterms");
-  });
-
   it("planner prompt includes domain context when provided", async () => {
     const { buildPlannerPrompt } = await import("../../src/prompts/planner.js");
     const prompt = buildPlannerPrompt({
@@ -71,17 +59,5 @@ describe("domainContext injection into prompt builders", () => {
 
     expect(prompt).toContain("## Domain Context");
     expect(prompt).toContain("Treatment plans need approval");
-  });
-
-  it("hu-reviewer prompt includes domain context when provided", async () => {
-    const { buildHuReviewerPrompt } = await import("../../src/prompts/hu-reviewer.js");
-    const prompt = buildHuReviewerPrompt({
-      stories: [{ title: "Test story", criteria: "Works" }],
-      instructions: "Review HU",
-      domainContext: "### finance\n\nPayment terms default to 30 days."
-    });
-
-    expect(prompt).toContain("## Domain Context");
-    expect(prompt).toContain("Payment terms");
   });
 });

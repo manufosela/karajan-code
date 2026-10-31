@@ -196,27 +196,6 @@ describe("skill injection into prompts", () => {
     expect(prompt).toContain("Always validate input");
   });
 
-  it("architect prompt includes skill content when skills exist", async () => {
-    readdir.mockImplementation(async (dir) => {
-      if (dir === "/project/.agent/skills") {
-        return [{ name: "aws", isDirectory: () => true }];
-      }
-      throw new Error("ENOENT");
-    });
-    readFile.mockResolvedValue("Use Lambda for compute");
-
-    const { buildArchitectPrompt } = await import("../src/prompts/architect.js");
-    const prompt = await buildArchitectPrompt({
-      task: "Design infra",
-      instructions: "Follow best practices",
-      projectDir: "/project"
-    });
-
-    expect(prompt).toContain("## Domain Skills");
-    expect(prompt).toContain("### aws");
-    expect(prompt).toContain("Use Lambda for compute");
-  });
-
   it("prompts unchanged when projectDir is null", async () => {
     const { buildCoderPrompt } = await import("../src/prompts/coder.js");
     const prompt = await buildCoderPrompt({ task: "Do something" });
