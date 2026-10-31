@@ -23,7 +23,9 @@ vi.mock("node:fs/promises", () => ({
     }),
     // dir-setup check stats the home dir tree; treat all as existing dirs.
     stat: vi.fn().mockResolvedValue({ isDirectory: () => true }),
-    mkdir: vi.fn().mockResolvedValue(undefined)
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    // KJC-TSK-0662: a fresh install has no data of the retired kj run pipeline.
+    readdir: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }))
   }
 }));
 
@@ -239,6 +241,7 @@ describe("installer E2E: init → doctor", () => {
       if (writtenFiles.has(p)) return writtenFiles.get(p);
       throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     });
+    fsPromises.readdir.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
   });
 
   afterEach(() => {

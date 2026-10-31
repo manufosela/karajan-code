@@ -98,6 +98,39 @@ export function createLegacyKjHomeCheck() {
   };
 }
 
+/**
+ * KJC-TSK-0662: the kj run pipeline kept its user stories in ~/.karajan/hu-stories/.
+ * 5.0 retired it and nothing reads that folder any more (MIGRATION-v5.md). Said, never
+ * touched: kj clean removes it when the user asks.
+ * @internal Exported for tests.
+ */
+export function createLegacyHuStoriesCheck() {
+  return {
+    name: "legacy-hu-stories",
+    label: "retired pipeline data (~/.karajan/hu-stories)",
+    strategy: STRATEGY.MANUAL,
+    describe: "Detect the user stories of the retired kj run pipeline",
+    async detect() {
+      const dir = path.join(getKarajanHome(), "hu-stories");
+      let entries;
+      try {
+        entries = await fs.readdir(dir);
+      } catch (err) {
+        if (err.code === "ENOENT") return { ok: true, severity: "info", detail: "No retired pipeline data" };
+        return { ok: false, severity: "warn", detail: `could not read ${dir}: ${err.message}` };
+      }
+      if (entries.length === 0) return { ok: true, severity: "info", detail: "No retired pipeline data" };
+      return {
+        ok: false,
+        severity: "warn",
+        detail: `${dir} still has ${entries.length} entries from the kj run pipeline, retired in 5.0: nothing reads them`,
+        // kj clean also applies its usual retention to plans and sessions: show first, then delete.
+        fix: "kj clean --hu-days 0 lists what would go (old plans and sessions too); add --yes to delete it",
+      };
+    },
+  };
+}
+
 export function getDirSetupChecks() {
-  return [createKarajanDirsCheck(), createLegacyKjHomeCheck()];
+  return [createKarajanDirsCheck(), createLegacyKjHomeCheck(), createLegacyHuStoriesCheck()];
 }
