@@ -44,6 +44,17 @@ kj review: host=claude → reviewer=codex (cross-AI) [CODEX_HOME=/home/you/.code
 
 With the default account the bracket does not appear. `kj doctor` also checks the codex config of the selected account (`$CODEX_HOME/config.toml`).
 
+## The GitHub account kj uses
+
+With several `gh` accounts, the active one is shared by every session, and another session can switch it while kj is running. So kj does not use it: at startup it takes the token of the repo's account (`gh auth token --user <account>`) and every `gh` it runs uses that one. The account is the owner of the `origin` remote (`git@github.com:you/repo.git` → `you`), provided `gh` has it logged in. For a repo owned by an organization, name the account in `.karajan/kj.config.yml`:
+
+```yaml
+review:
+  github_account: you-work
+```
+
+A `GH_TOKEN` or `GITHUB_TOKEN` already set (CI, for instance) is always respected. If the configured account is not logged in to `gh`, kj warns and uses the active one.
+
 ## Good to know
 
 - A long-running process keeps the account of the session that started it. If you start `kj board start` from a personal session, whatever the board launches uses the personal accounts.
