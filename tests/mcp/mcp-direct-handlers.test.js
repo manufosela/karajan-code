@@ -44,12 +44,6 @@ vi.mock("../../src/review/parser.js", () => ({
   agentAnswerText: vi.fn((s) => s)
 }));
 
-vi.mock("../../src/review/diff-generator.js", () => ({
-  computeBaseRef: vi.fn(async () => "main"),
-  generateDiff: vi.fn(async () => "diff content"),
-  setProjectDir: vi.fn()
-}));
-
 vi.mock("../../src/review/profiles.js", () => ({
   resolveReviewProfile: vi.fn(async () => ({ rules: "default rules" }))
 }));
