@@ -2,10 +2,10 @@
  * Test doubles for the DI surfaces. Intentionally dumb — tests stage inputs
  * through simple setters and assert on recorded calls.
  *
- * @typedef {import("./file-system-service.js").FileSystemService} FileSystemService
- * @typedef {import("./command-runner.js").CommandRunner} CommandRunner
- * @typedef {import("./command-runner.js").CommandRunResult} CommandRunResult
- * @typedef {import("./command-runner.js").CommandRunOptions} CommandRunOptions
+ * @typedef {import("../../src/infrastructure/file-system-service.js").FileSystemService} FileSystemService
+ * @typedef {import("../../src/infrastructure/command-runner.js").CommandRunner} CommandRunner
+ * @typedef {import("../../src/infrastructure/command-runner.js").CommandRunResult} CommandRunResult
+ * @typedef {import("../../src/infrastructure/command-runner.js").CommandRunOptions} CommandRunOptions
  */
 
 /**

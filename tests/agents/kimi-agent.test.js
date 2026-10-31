@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { KimiAgent } from "../../src/agents/kimi-agent.js";
 import { createAgent, getAgentMeta } from "../../src/agents/index.js";
-import { buildMockEnvironment } from "../../src/infrastructure/mocks.js";
+import { buildMockEnvironment } from "../support/infrastructure-mocks.js";
 import { KNOWN_AGENTS, OBSERVED_AGENTS } from "../../src/utils/agent-detect.js";
 import { REVIEWER_CANDIDATES } from "../../src/review/reviewer-fallback.js";
 import { AGENT_EXTRAS } from "../../src/utils/role-env.js";

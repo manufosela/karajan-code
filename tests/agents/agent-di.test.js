@@ -11,7 +11,7 @@ import { GeminiAgent } from "../../src/agents/gemini-agent.js";
 import { AiderAgent } from "../../src/agents/aider-agent.js";
 import { OpenCodeAgent } from "../../src/agents/opencode-agent.js";
 import { createAgent } from "../../src/agents/index.js";
-import { buildMockEnvironment } from "../../src/infrastructure/mocks.js";
+import { buildMockEnvironment } from "../support/infrastructure-mocks.js";
 import { defaultEnvironment } from "../../src/infrastructure/environment.js";
 
 const silentLogger = { info() {}, warn() {}, error() {} };

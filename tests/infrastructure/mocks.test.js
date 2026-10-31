@@ -3,7 +3,7 @@ import {
   MockFileSystem,
   MockCommandRunner,
   buildMockEnvironment
-} from "../../src/infrastructure/mocks.js";
+} from "../support/infrastructure-mocks.js";
 
 describe("MockFileSystem", () => {
   it("returns files seeded via constructor", async () => {

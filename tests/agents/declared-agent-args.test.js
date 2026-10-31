@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { KimiAgent } from "../../src/agents/kimi-agent.js";
-import { buildMockEnvironment } from "../../src/infrastructure/mocks.js";
+import { buildMockEnvironment } from "../support/infrastructure-mocks.js";
 
 const declared = (args) => ({ agents: { kimi: { task_args: args } } });
 

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QwenAgent } from "../../src/agents/qwen-agent.js";
 import { createAgent, getAgentMeta } from "../../src/agents/index.js";
-import { buildMockEnvironment } from "../../src/infrastructure/mocks.js";
+import { buildMockEnvironment } from "../support/infrastructure-mocks.js";
 
 describe("QwenAgent", () => {
   let runCommand, env;
