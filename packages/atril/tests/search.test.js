@@ -67,6 +67,59 @@ describe("search", () => {
     put("proj", "agents/bad.md", "name: bad\ndescription: d\nkind: agent\natril:\n  keywords: [{ a: 1 }]");
     expect(() => find("tdd")).toThrow(/bad\.md: atril\.keywords must be a list of strings/);
   });
+  describe("prefix matches (ADR 0039, layer 2)", () => {
+    const names = (query) => find(query).map((hit) => hit.name);
+
+    it("a term of 4+ chars finds the tokens it prefixes, `test` finds `testing`", () => {
+      put("proj", "skills/qa/SKILL.md", "name: qa\ndescription: Testing and pruebas\nkind: skill");
+      expect(names("test")).toContain("qa");
+      expect(names("prueba")).toContain("qa");
+    });
+
+    it("a prefix match scores below an exact one, whatever the field", () => {
+      put("proj", "skills/testing/SKILL.md", "name: testing\ndescription: d\nkind: skill");
+      put("proj", "skills/exa/SKILL.md", "name: exa\ndescription: d\nkind: skill", "test\n");
+      const hits = find("test").filter((hit) => ["exa", "testing"].includes(hit.name));
+      expect(hits.map((hit) => hit.name)).toEqual(["exa", "testing"]);
+      expect(hits[0].score).toBeGreaterThan(hits[1].score);
+      expect(hits[1].score).toBeGreaterThan(0);
+    });
+
+    it("exact scores stay whole numbers; a term under 4 chars never prefixes", () => {
+      put("proj", "skills/tddx/SKILL.md", "name: tddx\ndescription: d\nkind: skill");
+      expect(find("tdd").map((hit) => hit.name)).toEqual(["tdd", "tester", "review"]);
+      expect(find("tdd").every((hit) => Number.isInteger(hit.score))).toBe(true);
+    });
+
+    it("prefix hits in every field of every term stay below one exact body hit", () => {
+      put("proj", "skills/pfxrich-alphabet-betamax/SKILL.md",
+        "name: pfxrich-alphabet-betamax\ndescription: gammaray deltaforce\nkind: skill\natril:\n  keywords: [alphabet, betamax, gammaray]",
+        "deltaforce alphabet betamax gammaray\n");
+      put("proj", "skills/oneexact/SKILL.md", "name: oneexact\ndescription: d\nkind: skill", "alph\n");
+      expect(find("alph beta gamm delt").filter((hit) => /pfxrich|oneexact/.test(hit.name)).map((hit) => hit.name))
+        .toEqual(["oneexact", "pfxrich-alphabet-betamax"]);
+    });
+
+    it("equal prefix totals reached through different fields tie, then break on name", () => {
+      put("proj", "skills/zz/SKILL.md", "name: zz\ndescription: d\nkind: skill\natril:\n  keywords: [wolfram]", "xenonium\n");
+      put("proj", "skills/yy/SKILL.md", "name: yy\ndescription: d\nkind: skill\natril:\n  keywords: [xenonium]", "wolfram\n");
+      const hits = find("wolf xeno qqqq");
+      expect(hits.map((hit) => hit.name)).toEqual(["yy", "zz"]);
+      expect(hits[0].score).toBe(hits[1].score);
+    });
+
+    it("ties still break on kind, then name", () => {
+      put("proj", "skills/bb/SKILL.md", "name: bb\ndescription: d\nkind: skill", "zebrafish\n");
+      put("proj", "skills/aa/SKILL.md", "name: aa\ndescription: d\nkind: skill", "zebrafish\n");
+      expect(names("zebra")).toEqual(["aa", "bb"]);
+    });
+
+    it("compares folded tokens: `busqueda` finds `búsquedas`", () => {
+      put("proj", "skills/es/SKILL.md", "name: es\ndescription: Las búsquedas\nkind: skill");
+      expect(names("busqueda")).toEqual(["es"]);
+    });
+  });
+
   it("matches accented and non-Latin terms whole", () => {
     put("proj", "skills/es/SKILL.md", "name: es\ndescription: Búsqueda テスト\nkind: skill");
     expect(find("búsqueda").map((hit) => hit.name)).toEqual(["es"]);
@@ -136,6 +189,7 @@ describe("atril search", () => {
   });
   it("text output keeps one hit per line for multi-line descriptions", () => {
     put("proj", "commands/plan.md", "name: plan\ndescription: |\n  Plans\n  \tthe work\nkind: command");
-    expect(run("plan").stdout).toMatch(/^\d+\tcommand\tplan\tproject\tPlans the work\n$/);
+    // "plan" also prefixes "plans" in the description (ADR 0039), so the score carries a fraction.
+    expect(run("plan").stdout).toMatch(/^8\.125\tcommand\tplan\tproject\tPlans the work\n$/);
   });
 });
