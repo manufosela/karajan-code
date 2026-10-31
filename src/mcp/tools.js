@@ -335,17 +335,17 @@ export const tools = [
   },
   {
     name: "kj_hu",
-    description: "Manage user stories (HUs) in the local board",
+    description: "Manage user stories (HUs) in the HU Board, the same board `kj hu` uses (local or shared)",
     inputSchema: {
       type: "object",
       required: ["action"],
       properties: {
         action: { type: "string", enum: ["create", "update", "list", "get"], description: "Action to perform" },
         title: { type: "string", description: "HU title (required for create)" },
-        description: { type: "string", description: "HU description" },
-        acceptanceCriteria: { type: "string", description: "Acceptance criteria" },
+        acceptanceCriteria: { type: "string", description: "Acceptance criteria, one per line" },
+        ref: { type: "string", description: "Id of this card's replica in the external tracker (Planning Game, Jira, Linear...)" },
         huId: { type: "string", description: "HU ID (required for update/get)" },
-        status: { type: "string", description: "HU status (for create/update)", enum: ["pending", "coding", "reviewing", "done", "failed", "blocked"] },
+        status: { type: "string", description: "HU status (for create/update)", enum: ["pending", "running", "done", "failed", "skipped"] },
         projectDir: { type: "string", description: "Project directory (defaults to cwd)" }
       }
     }
