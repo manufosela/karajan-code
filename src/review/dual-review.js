@@ -47,10 +47,11 @@ function verdictOf(sides, findings, coverage) {
   if (blockers.length) return { status: "rejected", approved: false, reason: `confirmed blocker(s): ${blockers.map(where).join(", ")}`, summary };
   const rejecting = sides.filter((s) => !s.verdict?.approved).map((s) => s.reviewer);
   if (rejecting.length === 0 && !coverage.truncated) return { status: "approved", approved: true, summary };
-  const reason = rejecting.length
-    ? `${rejecting.join(" and ")} rejected, but no blocking finding was confirmed by the other family`
-    : "not every file was reviewed";
-  return { status: "partial", approved: false, reason, summary };
+  const dispute = rejecting.length ? `${rejecting.join(" and ")} rejected, but no blocking finding was confirmed by the other family` : null;
+  // KJC-BUG-0453 (#2921): "partial" only when files were left out (they are in coverage.unreviewed);
+  // everything reviewed and the reviewers disagreeing is "disputed".
+  if (coverage.truncated) return { status: "partial", approved: false, reason: ["not every file was reviewed", dispute].filter(Boolean).join("; "), summary };
+  return { status: "disputed", approved: false, reason: dispute, summary };
 }
 
 /** The two sides (reviewer, model, verdict, coverage, findings, outcomes, verification) as one result. */
