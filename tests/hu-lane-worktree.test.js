@@ -1,9 +1,8 @@
 // PAR-E2 (KJC-TSK-0629) PR1: worktree lanes aim git + coder prompt at the
-// lane directory. Covers the cwd plumbing in utils/git and the per-call
-// projectDir override in CoderRole.
+// lane directory. Covers the cwd plumbing in utils/git (the CoderRole
+// override cases went with the retired pipeline, KJC-TSK-1338).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { commitAll, hasChanges, pushBranch, setRunner } from "../src/utils/git.js";
-import { CoderRole } from "../src/roles/coder-role.js";
 
 describe("utils/git cwd plumbing (PAR-E2)", () => {
   afterEach(() => setRunner(null));
@@ -46,23 +45,5 @@ describe("utils/git cwd plumbing (PAR-E2)", () => {
     setRunner(runner);
     await hasChanges();
     expect(runner.mock.calls[0][2]).toEqual({});
-  });
-});
-
-describe("CoderRole per-call projectDir override (PAR-E2)", () => {
-  const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-
-  it("worktree lane dir wins over the role's own config", async () => {
-    const role = new CoderRole({ config: { projectDir: "/main/root" }, logger });
-    const input = role.extractInput({ task: "do x", projectDir: "/main/root/.kj/worktrees/HU-001" });
-    const { prompt } = await role.buildPrompt(input);
-    expect(prompt).toContain("/main/root/.kj/worktrees/HU-001");
-    expect(prompt).not.toContain("The project root is **/main/root**");
-  });
-
-  it("without an override the role's config.projectDir still applies", async () => {
-    const role = new CoderRole({ config: { projectDir: "/main/root" }, logger });
-    const { prompt } = await role.buildPrompt(role.extractInput({ task: "do x" }));
-    expect(prompt).toContain("The project root is **/main/root**");
   });
 });
