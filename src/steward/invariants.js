@@ -154,11 +154,12 @@ export function evaluateCoverageConfig({ projectDir }) {
   }
   return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "no coverage threshold configured anywhere — nothing measures the level", remedy: "instrument: configure a coverage threshold (any value the team stands behind — no 80% is demanded)" };
 }
-/** AC3 — phantom coverage: the two detectors exist (KJC-TSK-0800) but the
- * sweep does not yet discover test↔source pairs, so their output is INJECTED.
- * No output → not observable: never ok by absence of the detector's run. */
-export function evaluatePhantomCoverage({ phantoms } = {}) {
+/** AC3 — phantom coverage: the sweep (KJC-TSK-1343) runs the two detectors
+ * (KJC-TSK-0800) over the test↔source pairs and hands their output in.
+ * No output → not observable, with the sweep's reason: never ok by absence. */
+export function evaluatePhantomCoverage({ phantoms, reason } = {}) {
   if (!Array.isArray(phantoms)) {
+    if (reason) return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: reason, remedy: "the detectors read Lit components in a git repository; until the project has them this invariant cannot be observed" };
     return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "the phantom detectors were not run", remedy: "instrument: run the detectors (steward/phantom-coverage) over the suite's test↔source pairs and feed their output" };
   }
   if (phantoms.length > 0) {
