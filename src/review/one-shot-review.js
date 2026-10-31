@@ -14,6 +14,7 @@ import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveReviewProfile } from "./profiles.js";
 import { parseReviewVerdict } from "./parser.js";
 import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js";
+import { accountLabel } from "../utils/agent-home.js";
 import { saveVerdict, diffHash } from "./verdict-store.js";
 import { summarizeGeneratedFiles } from "./prompt-diff.js";
 import { reportUnparseableVerdict } from "./unparseable-verdict.js";
@@ -90,6 +91,7 @@ export async function runOneShotReview({
   // review can never unlock a commit of one's own.
   reviewerOverride = null,
   persist = true,
+  env = process.env,
   // KJC-TSK-1272: skills resolved by the caller (a third-party repo's stack) instead of the project's.
   skills = null,
 }) {
@@ -111,7 +113,9 @@ export async function runOneShotReview({
       // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
       diff: summarizeGeneratedFiles(diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
     });
-    logger?.info?.(`kj review: host=${hostAgent || "none"} → reviewer=${who} (cross-AI)`);
+    // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.
+    const account = accountLabel(who, { env });
+    logger?.info?.(`kj review: host=${hostAgent || "none"} → reviewer=${who} (cross-AI)${account ? ` [${account}]` : ""}`);
     return createAgentFn(who, cfg, logger).reviewTask({ prompt, role: "reviewer" });
   };
 

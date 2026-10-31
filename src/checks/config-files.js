@@ -18,6 +18,7 @@ import { getConfigPath } from "../config.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { withDocLink } from "../utils/doc-links.js";
 import { STRATEGY } from "./types.js";
+import { codexHome } from "../utils/agent-home.js";
 
 /**
  * kj.config.yml presence check.
@@ -218,16 +219,16 @@ function createStaleMcpPathCheck() {
 }
 
 /**
- * Codex config (~/.codex/config.toml) validity.
+ * Codex config ($CODEX_HOME/config.toml, ~/.codex by default) validity.
+ * KJC-TSK-1344: the account CODEX_HOME selects is the one whose config counts.
  */
-function createCodexConfigCheck() {
+export function createCodexConfigCheck({ env = process.env, home = os.homedir() } = {}) {
+  const codexTomlPath = path.join(codexHome({ home, env }), "config.toml");
   return {
     name: "agent-config:codex",
-    label: "Agent config: codex (~/.codex/config.toml)",
+    label: `Agent config: codex (${codexTomlPath})`,
     strategy: STRATEGY.MANUAL,
     async detect() {
-      const home = os.homedir();
-      const codexTomlPath = path.join(home, ".codex", "config.toml");
       try {
         const raw = await fs.readFile(codexTomlPath, "utf8");
         const duplicates = findDuplicateTomlKeys(raw);
@@ -236,7 +237,7 @@ function createCodexConfigCheck() {
             ok: false,
             severity: "warn",
             detail: `Duplicate TOML keys: ${duplicates.join(", ")}`,
-            fix: `Remove duplicate entries in ~/.codex/config.toml: ${duplicates.join(", ")}`,
+            fix: `Remove duplicate entries in ${codexTomlPath}: ${duplicates.join(", ")}`,
           };
         }
         return { ok: true, severity: "info", detail: "Valid TOML (no duplicate keys)" };
@@ -248,7 +249,7 @@ function createCodexConfigCheck() {
           ok: false,
           severity: "warn",
           detail: `Cannot read: ${err.message.split("\n")[0]}`,
-          fix: "Check file permissions on ~/.codex/config.toml",
+          fix: `Check file permissions on ${codexTomlPath}`,
         };
       }
     },
