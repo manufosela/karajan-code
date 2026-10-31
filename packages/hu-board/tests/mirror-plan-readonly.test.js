@@ -57,15 +57,14 @@ describe('a plan that mirrors the shared board', () => {
     expect(JSON.parse(readFileSync(planPath(), 'utf-8')).name).toBe('github');
   });
 
-  it('KJC-BUG-0405: a stop over it is refused and leaves its running HU as it was', async () => {
+  it('KJC-BUG-0405: nothing over it can reset its running HU (Stop is gone, KJC-TSK-1351)', async () => {
     const { default: express } = await import('express');
     const { default: request } = await import('supertest');
     const { default: apiRoutes } = await import('../src/routes/api.js');
     dbMod.upsertStory({ id: `${PROJECT_ID}::HU-7`, project_id: PROJECT_ID, plan_id: PLAN_ID, status: 'running' });
     const app = express().use(express.json()).use('/api', apiRoutes);
     const res = await request(app).post(`/api/runs/${PLAN_ID}/stop`).send({ projectId: PROJECT_ID, timeoutMs: 0 });
-    expect(res.status).toBe(409);
-    expect(res.body).toMatchObject({ readonly: true });
+    expect(res.status).toBe(404);
     expect(dbMod.getStoriesByProject(PROJECT_ID).map((s) => s.status)).toEqual(['running']);
   });
 

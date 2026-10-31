@@ -101,16 +101,10 @@ async function renderBoard() {
         ${costSummary ? `<span class="section-header__cost" title="${esc(costSummary.tooltip)}">💵 ${esc(costSummary.label)}</span>` : ''}
         ${cacheSummary ? `<span class="section-header__cache" title="${esc(cacheSummary.tooltip)}">${esc(cacheSummary.label)}</span>` : ''}
         ${isRunning ? `
-          <button id="running-badge-btn" class="section-header__badge"
-                style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;border:none;cursor:pointer;"
-                title="Abrir el log de la HU en marcha">
-            ⚙ ${runningCount} ${maggleText('board.running', 'running')}…
-          </button>
-          <button id="stop-run-btn" class="control-btn"
-                style="padding:4px 10px;font-size:0.8rem;background:var(--color-red,#ef4444);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;"
-                title="${maggleText('board.stopTitle', 'Abortar todos los kj run en marcha de este proyecto (SIGTERM con escalado a SIGKILL tras 5s)')}">
-            ${maggleText('board.stop', '⏹ Stop')}
-          </button>
+          <span class="section-header__badge"
+                style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;">
+            ⚙ ${runningCount} ${maggleText('board.running', 'running')}
+          </span>
         ` : ''}
         ${lastOpenedLog ? `
           <button class="control-btn" id="view-log-btn"
@@ -162,76 +156,9 @@ async function renderBoard() {
         tailUrl: lastOpenedLog.tailUrl,
       }));
     }
-    // Wire the yellow "⚙ N running…" badge so it opens the live log of the
-    // first running HU. Without this the badge was decorative — and if the
-    // run was started before the current page load (refresh / new browser
-    // session) `lastOpenedLog` is null, so the "📜 View log" button isn't
-    // even rendered. Then the user has no way to see the live output.
-    //
-    // For a single-HU run the log lives at:
-    //   ~/.karajan/hu-board-runs/<planId>--hu-<localHuId>.log
-    // which the /api/runs/:commandId/log endpoint serves when commandId
-    // matches the basename. The composite id stored in SQLite is
-    // "<projectId>::<localHuId>", so we strip the prefix to derive
-    // localHuId and concatenate with plan_id (already on the story row).
-    const runningBadgeBtn = document.getElementById('running-badge-btn');
-    if (runningBadgeBtn) {
-      runningBadgeBtn.addEventListener('click', async () => {
-        const running = stories.find(isBoardRun);
-        if (!running) return;
-        const planId = running.plan_id;
-        if (!planId) {
-          await showError('Esta HU no tiene plan_id asociado, no puedo localizar su log.', { title: 'Sin log' });
-          return;
-        }
-        const localHuId = running.id.includes('::') ? running.id.split('::').pop() : running.id;
-        const logBasename = `${planId}--hu-${localHuId}`;
-        const tailUrl = (offset) => `/api/runs/${encodeURIComponent(logBasename)}/log?offset=${offset || 0}`;
-        lastOpenedLog = { id: logBasename, label: `HU ${localHuId}`, tailUrl };
-        openGenericLogPanel({ id: logBasename, label: `HU ${localHuId}`, tailUrl });
-      });
-    }
-
-    // KJC-TSK-0396: botón ⏹ Stop. Abortar todos los kj run vivos del
-    // proyecto. Si hay múltiples planes corriendo (caso raro pero
-    // posible), itera sobre cada planId único de las HUs running.
-    const stopRunBtn = document.getElementById('stop-run-btn');
-    if (stopRunBtn) {
-      stopRunBtn.addEventListener('click', async () => {
-        const runningHus = stories.filter(isBoardRun);
-        const planIds = [...new Set(runningHus.map((s) => s.plan_id).filter(Boolean))];
-        if (planIds.length === 0) {
-          await showError('No hay plan_id asociado a las HUs en marcha.', { title: 'Sin runs' });
-          return;
-        }
-        const ok = await showConfirm(
-          `Esto matará ${planIds.length === 1 ? 'el proceso' : `los ${planIds.length} procesos`} del orquestador en marcha y dejará las HUs en curso (coding/reviewing) en pending para que puedas relanzarlas.\n\n¿Seguro?`,
-          { title: 'Abortar kj run', okLabel: 'Stop', cancelLabel: 'Cancelar', destructive: true }
-        );
-        if (!ok) return;
-        const summaries = [];
-        for (const planId of planIds) {
-          try {
-            const res = await fetch(`/api/runs/${encodeURIComponent(planId)}/stop`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-            });
-            const body = await res.json();
-            if (!res.ok) summaries.push(`${planId}: error ${body.error || res.status}`);
-            else summaries.push(`${planId}: ${body.stopped} SIGTERM, ${body.killed} SIGKILL, ${body.hu_reset_count || 0} HUs → pending`);
-          } catch (err) {
-            summaries.push(`${planId}: ${err.message}`);
-          }
-        }
-        await fetch('/api/sync', { method: 'POST' }).catch(() => {});
-        await renderBoard();
-        if (summaries.some((s) => s.includes('SIGKILL') && !s.startsWith('0 ')) && summaries.some((s) => /\b[1-9]\d* SIGKILL/.test(s))) {
-          await showError(
-            `Algún proceso no respondió a SIGTERM en 5s y fue forzado con SIGKILL:\n\n${summaries.join('\n')}`,
-            { title: 'Forzado con SIGKILL' }
-          );
-        }
-      });
-    }
+    // KJC-TSK-1351: the "⚙ N running" badge is a count. It used to open the log of a
+    // kj run, and ⏹ Stop killed it: with kj run retired an HU in progress is someone
+    // working on it, with no process or log of the board's to open or stop.
 
     // RAG search panel (KJC-PCS-0049 Step 8) — input + scope + render hits.
     const ragInput = document.getElementById('rag-query');
