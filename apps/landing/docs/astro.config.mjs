@@ -78,7 +78,7 @@ export default defineConfig({
 									{ label: 'Command reference', slug: 'v4/commands', translations: { es: 'Referencia de comandos' } },
 									{ label: 'Migrating to 5.0', slug: 'v4/migration', translations: { es: 'Migrar a la 5.0' } },
 									{ label: 'Unattended runs', slug: 'v4/headless', translations: { es: 'Ejecuciones desatendidas' } },
-									{ label: 'Several claude and codex accounts', slug: 'v4/accounts', translations: { es: 'Varias cuentas de claude y codex' } },
+									{ label: 'Several claude, codex and gh accounts', slug: 'v4/accounts', translations: { es: 'Varias cuentas de claude, codex y gh' } },
 									{ label: 'MCP server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
 									{ label: 'Contributors', slug: 'contributors' },
 								],
