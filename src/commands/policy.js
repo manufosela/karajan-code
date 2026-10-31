@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { rosterViolation } from "../policy/roster-check.js";
+import { adrNumberViolation } from "../policy/adr-number-check.js";
 import { loadExceptionRecords, loadGlobalExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { buildPolicyReport } from "../policy/report.js";
 import { budgetedNet } from "../review/loc-budget.js";
@@ -309,6 +310,9 @@ async function checkViolations({ projectDir, policy, flags, logger, deps, facts 
   }
   // KJC-TSK-1000 (HUM-B3, ADR 0018): a change of the roster of phones is judged
   // against the base's roster: admitted by a present phone or by the recovery code.
-  const roster = await rosterViolation({ projectDir, files: facts.files, range: flags.range || null, run: gitRunner(projectDir, deps.gitFn) });
-  return roster ? [...violations, roster] : violations;
+  const run = gitRunner(projectDir, deps.gitFn);
+  const roster = await rosterViolation({ projectDir, files: facts.files, range: flags.range || null, run });
+  // HU-2792: a PR may not add an ADR number that the base already has.
+  const adr = await adrNumberViolation({ files: facts.files, range: flags.range || null, run });
+  return [...violations, ...[roster, adr].filter(Boolean)];
 }
