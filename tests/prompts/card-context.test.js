@@ -30,6 +30,15 @@ describe("resolveCardContext", () => {
     expect(card.acceptanceTests).toEqual([{ type: "gherkin", content: hu.acceptanceCriteria }]);
   });
 
+  // KJC-BUG-0454: the HU Board keeps criteria as a list and the scope apart.
+  it("a board card brings its criteria list and its scope", async () => {
+    const getHu = vi.fn(async () => ({ id: "x-1", short_id: "HU-0007", title: "Local card", status: "pending", acceptance_criteria: ["Given a", "Then b"], scope: "src/a.js" }));
+    const card = await resolveCardContext({ projectDir: "/x", ref: "HU-0007", deps: { getHu } });
+    expect(card).toMatchObject({ huId: "HU-0007", title: "Local card", external: false });
+    expect(card.acceptanceTests).toEqual([{ type: "gherkin", content: "Given a\nThen b" }]);
+    expect(card.section).toContain("Scope: src/a.js");
+  });
+
   it("a local HU without criteria passes none rather than an empty test", async () => {
     const getHu = vi.fn(async () => ({ ...hu, acceptanceCriteria: "  " }));
     const card = await resolveCardContext({ projectDir: "/x", ref: hu.id, deps: { getHu } });

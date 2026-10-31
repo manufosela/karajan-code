@@ -12,7 +12,7 @@
  * and says so: the coder learns the card exists and where to ask for it,
  * instead of receiving a silently empty context.
  */
-import { getHu } from "../hu/store.js";
+import { findBoardHu } from "../hu/board-lookup.js";
 
 /** Ids minted by the HU Board; anything else belongs to an external board. */
 const LOCAL_HU = /^HU-/i;
@@ -25,9 +25,14 @@ const externalSection = (ref) =>
     "Treat the task below as the card's statement, and if something the card should answer is missing, ASK instead of guessing.",
   ].join("\n");
 
+// KJC-BUG-0454: a board card keeps its criteria as a list; older HUs as one string.
+const criteriaOf = (hu) => (Array.isArray(hu.acceptance_criteria) ? hu.acceptance_criteria.join("\n") : hu.acceptanceCriteria ?? "").trim();
+const idOf = (hu) => hu.short_id || hu.id;
+
 const localSection = (hu) => {
-  const lines = [`## Card ${hu.id} — ${hu.title}`, ""];
+  const lines = [`## Card ${idOf(hu)} — ${hu.title}`, ""];
   if (hu.description?.trim()) lines.push(hu.description.trim(), "");
+  if (hu.scope?.trim()) lines.push(`Scope: ${hu.scope.trim()}`, "");
   lines.push(`Status on the board: ${hu.status}. The card is the contract: done means its statement is literally true.`);
   return lines.join("\n");
 };
@@ -45,10 +50,10 @@ export async function resolveCardContext({ projectDir, ref, deps = {} }) {
   }
   // A missing local HU is an error, never an empty context: the caller asked
   // for a card by id and kj either delivers it or says it does not exist.
-  const hu = await (deps.getHu || getHu)(projectDir, id);
-  const criteria = hu.acceptanceCriteria?.trim();
+  const hu = await (deps.getHu || findBoardHu)(projectDir, id);
+  const criteria = criteriaOf(hu);
   return {
-    huId: hu.id,
+    huId: idOf(hu),
     title: hu.title,
     section: localSection(hu),
     acceptanceTests: criteria ? [{ type: "gherkin", content: criteria }] : null,
