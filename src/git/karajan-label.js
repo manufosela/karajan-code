@@ -13,20 +13,31 @@ export const KARAJAN_LABEL = "Karajan";
 const LABEL_COLOR = "1f6feb";
 const LABEL_DESCRIPTION = "Went through Karajan (governed and reviewed); not a claim that an AI wrote it";
 
-/** owner/repo of a GitHub PR URL, or null when the URL has another shape. */
-const repoOf = (url) => /^https:\/\/[^/]+\/([^/]+\/[^/]+)\/pull\/\d+/.exec(url)?.[1] ?? null;
+/** The PR a URL or a bare number names: { repo: "owner/repo" or null for the repo gh runs in, number }. */
+function prOf(ref) {
+  const url = /^https:\/\/[^/]+\/([^/]+\/[^/]+)\/pull\/(\d+)/.exec(String(ref ?? ""));
+  if (url) return { repo: url[1], number: url[2] };
+  return /^\d+$/.test(String(ref ?? "")) ? { repo: null, number: String(ref) } : null;
+}
 
 /**
  * Add the label to the PR, creating it first when the repo lacks it.
+ * @param {{url: string|number}} args a PR URL, or its number in the repo gh runs in
  * @returns {Promise<boolean>} true when the PR carries the label.
  */
 export async function labelKarajanPr({ url, cwd = null, run = runCommand, warn = (msg) => process.stderr.write(`${msg}\n`) }) {
   const opts = cwd ? { cwd } : {};
-  const repo = repoOf(url);
+  const pr = prOf(url);
+  if (!pr) {
+    warn(`kj: could not add the Karajan label to ${url}: not a pull request URL or number`);
+    return false;
+  }
   try {
-    // Fails when the label exists; the edit below says whether the PR got it.
-    await run("gh", ["label", "create", KARAJAN_LABEL, "--color", LABEL_COLOR, "--description", LABEL_DESCRIPTION, ...(repo ? ["--repo", repo] : [])], opts);
-    const res = await run("gh", ["pr", "edit", url, "--add-label", KARAJAN_LABEL], opts);
+    // Fails when the label exists; the call below says whether the PR got it.
+    await run("gh", ["label", "create", KARAJAN_LABEL, "--color", LABEL_COLOR, "--description", LABEL_DESCRIPTION, ...(pr.repo ? ["--repo", pr.repo] : [])], opts);
+    // KJC-BUG-0462: REST. `gh pr edit --add-label` asks GraphQL for the PR's classic project
+    // cards and fails since GitHub sunset Projects (classic), so no PR got the label.
+    const res = await run("gh", ["api", "-X", "POST", `repos/${pr.repo ?? "{owner}/{repo}"}/issues/${pr.number}/labels`, "-f", `labels[]=${KARAJAN_LABEL}`], opts);
     if (res.exitCode === 0) return true;
     warn(`kj: could not add the Karajan label to ${url}: ${(res.stderr || res.stdout || "").trim()}`);
   } catch (err) {

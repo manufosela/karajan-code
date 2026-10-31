@@ -26,7 +26,7 @@ const gitOf = (args) => {
 function fakeRun({ reviews = [], posted = [], ghDirs = [], pr = PR, labels = [] } = {}) {
   return async (cmd, args, opts) => {
     if (cmd === "gh") ghDirs.push(opts?.cwd);
-    if (cmd === "gh" && (args[0] === "label" || (args[0] === "pr" && args[1] === "edit"))) { labels.push(args.join(" ")); return { exitCode: 0, stdout: "" }; }
+    if (cmd === "gh" && (args[0] === "label" || String(args[3] ?? "").endsWith("/labels"))) { labels.push(args.join(" ")); return { exitCode: 0, stdout: "" }; }
     if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(pr) };
     if (cmd === "git") return { exitCode: 0, stdout: gitOf(args) };
     if (cmd === "gh" && args.includes("POST")) { posted.push(args); return { exitCode: 0, stdout: "{}" }; }
@@ -58,11 +58,11 @@ describe("publishPrReview", () => {
     const labels = [];
     await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ labels }) });
     expect(labels.some((l) => l.startsWith("label create Karajan"))).toBe(true);
-    expect(labels).toContain("pr edit 42 --add-label Karajan");
+    expect(labels).toContain("api -X POST repos/{owner}/{repo}/issues/42/labels -f labels[]=Karajan");
     const again = [];
     const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ labels: again, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }] }) });
     expect(r.published).toBe(false);
-    expect(again).toContain("pr edit 42 --add-label Karajan");
+    expect(again).toContain("api -X POST repos/{owner}/{repo}/issues/42/labels -f labels[]=Karajan");
   });
 
   it("a commit without an approved verdict: fails naming it and publishes nothing", async () => {
