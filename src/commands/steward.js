@@ -19,6 +19,7 @@ import { loadPreviousAudit } from "../audit/basal-cost.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { syncProposedWork } from "../steward/proposed-work.js";
+import { sweepPhantoms } from "../steward/phantom-sweep.js";
 
 const stewardDir = (projectDir) => path.join(projectDir, ".karajan", "steward");
 
@@ -66,6 +67,12 @@ async function deadCodeNow(projectDir) {
   return Array.isArray(snapshot?.deadExports) ? { deadExports: snapshot.deadExports.length } : null;
 }
 
+/** The phantom detectors over the project's test↔source pairs; a failure is said, never clean. */
+function phantomSweep(projectDir, probes) {
+  if (probes.phantoms) return probes.phantoms;
+  try { return sweepPhantoms({ projectDir }); } catch (err) { return { reason: `the phantom sweep failed (${err.message})` }; }
+}
+
 export async function stewardSweepCommand({ flags = {}, config = {}, logger = console, probes = {} } = {}) {
   const projectDir = config.projectDir || process.cwd();
   const baseBranch = config.base_branch || "main";
@@ -88,7 +95,7 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
     { id: "vulnerable-deps", renew: "kj audit (osv-scanner)", evaluate: () => evaluateVulnAging({ vulns, freshness: freshness.values, nowMs }) },
     { id: "dead-code-trend", renew: "kj audit (knip inventory)", evaluate: () => evaluateDeadCodeTrend({ current: deadNow, previous: prevReport?.deadCodeBaseline ?? null }) },
     { id: "coverage-config", renew: "configure a coverage threshold", evaluate: () => evaluateCoverageConfig({ projectDir }) },
-    { id: "phantom-coverage", renew: "KJC-TSK-0800 ships the detectors", evaluate: () => evaluatePhantomCoverage() },
+    { id: "phantom-coverage", renew: "kj steward sweep (runs the phantom detectors)", evaluate: () => evaluatePhantomCoverage(phantomSweep(projectDir, probes)) },
   ];
   const results = runInvariants(invariants, {}).map((r, i) => ({ ...r, renew: invariants[i].renew }));
   const broken = results.filter((r) => r.verdict === VERDICTS.BROKEN);

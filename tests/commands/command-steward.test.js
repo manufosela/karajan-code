@@ -63,6 +63,18 @@ describe("kj steward sweep", () => {
     expect(entries).toEqual([".github", ".git", ".karajan", "src.js"].sort());
   });
 
+  it("KJC-TSK-1343: the sweep runs the phantom detectors — a test that only exercises dead code breaks the invariant", async () => {
+    fs.mkdirSync(path.join(dir, "src"));
+    fs.mkdirSync(path.join(dir, "tests"));
+    fs.writeFileSync(path.join(dir, "src", "panel.js"), "export class Panel extends LitElement {\n  render() { return 1; }\n  _dead() { return 2; }\n}\n");
+    fs.writeFileSync(path.join(dir, "tests", "panel.test.js"), "import { Panel } from \"../src/panel.js\";\nit(\"x\", () => new Panel()._dead());\n");
+    await run();
+    const json = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "steward", "report.json"), "utf8"));
+    const phantom = json.invariants.find((i) => i.id === "phantom-coverage");
+    expect(phantom.verdict).toBe("broken");
+    expect(phantom.evidence).toMatch(/_dead/);
+  });
+
   it("a gitignored report path is warned about — a report nobody can see is not shared state", async () => {
     fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/\n");
     const log = logger();
