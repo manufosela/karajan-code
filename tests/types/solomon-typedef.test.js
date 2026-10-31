@@ -4,12 +4,9 @@
  * The typedef module is runtime-empty (it only carries JSDoc). The test
  * guarantees:
  *   1. The module is loadable (no syntax errors in the JSDoc comments).
- *   2. src/orchestrator/solomon-escalation.js and src/brain/solomon-consult.js
- *      reference the typedef via JSDoc `import("../types/solomon.js")`.
- *   3. src/orchestrator/solomon-escalation.js carries the architectural
- *      invariant note ("only Brain / the orchestrator may call invokeSolomon").
- *   4. docs/ARCHITECTURE.md (EN + ES) mentions the same invariant so the rule
- *      is visible outside the source file.
+ *   2. docs/ARCHITECTURE.md (EN + ES) mentions the Brain⇄Solomon invariant.
+ * (The cases on the retired pipeline's solomon-escalation.js and
+ * solomon-consult.js went with those files in 5.0.)
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -56,23 +53,6 @@ describe("src/types/solomon.js — Conflict typedef registry (TSK-0326)", () => 
 });
 
 describe("Brain⇄Solomon invariant is documented where it matters", () => {
-  it("solomon-escalation.js uses the Conflict typedef via JSDoc import", async () => {
-    const src = await fs.readFile(
-      path.join(ROOT, "src/orchestrator/solomon-escalation.js"),
-      "utf8"
-    );
-    expect(src).toMatch(/import\("\.\.\/types\/solomon\.js"\)\.Conflict/);
-  });
-
-  it("solomon-escalation.js carries the 'only Brain may invoke' note", async () => {
-    const src = await fs.readFile(
-      path.join(ROOT, "src/orchestrator/solomon-escalation.js"),
-      "utf8"
-    );
-    expect(src).toMatch(/MUST NOT be called directly from stages/i);
-    expect(src).toMatch(/Brain-as-gateway|on behalf of Brain/);
-  });
-
   it("ARCHITECTURE.md (EN) documents the invariant", async () => {
     const src = await fs.readFile(path.join(ROOT, "docs/ARCHITECTURE.md"), "utf8");
     expect(src).toMatch(/never from stages or rules/i);

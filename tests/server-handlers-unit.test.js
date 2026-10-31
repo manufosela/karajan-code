@@ -75,12 +75,6 @@ vi.mock("../src/review/parser.js", () => ({
   parseMaybeJsonString: vi.fn((s) => null)
 }));
 
-vi.mock("../src/review/diff-generator.js", () => ({
-  computeBaseRef: vi.fn(async () => "abc123"),
-  generateDiff: vi.fn(async () => "mock diff"),
-  setProjectDir: vi.fn()
-}));
-
 vi.mock("../src/review/profiles.js", () => ({
   resolveReviewProfile: vi.fn(async () => ({ rules: "mock rules" }))
 }));
