@@ -102,7 +102,8 @@ function applyRoleOverrides(out, flags) {
   if (flags.reviewerModel) out.reviewer_options.model = String(flags.reviewerModel);
 
   // KJC-TSK-0699: a profile fills only the models nothing above has set.
-  const profile = flags.profile ?? out.model_profile;
+  // KJC-BUG-0448: its own key — `--profile` belongs to harden/check (the harness profile).
+  const profile = flags.modelProfile ?? out.model_profile;
   if (profile) {
     applyModelProfile(out, String(profile));
     out.model_profile = String(profile);

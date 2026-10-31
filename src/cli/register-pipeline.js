@@ -136,6 +136,9 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("-q, --quiet", "Show only stage status lines, suppress raw agent output (default)")
     .option("-v, --verbose", "Show full agent output (stream-json, raw lines)")
     .action(async (task, flags) => {
+      // KJC-BUG-0448: run's --profile is the model profile; harden and check use
+      // --profile for the harness, so the config loader reads modelProfile.
+      if (flags.profile) flags.modelProfile = flags.profile;
       await withConfig(pkgVersion, "run", flags, async ({ config, logger }) => {
         // If `--plan <id>` was passed and the user didn't provide a task
         // argument or --task-file, fall back to the task embedded in the
