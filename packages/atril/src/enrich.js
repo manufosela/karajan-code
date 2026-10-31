@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import yaml from "js-yaml";
 import { assertGraph } from "./graph.js";
-import { FRONTMATTER, KINDS } from "./model.js";
+import { FRONTMATTER, KINDS, isMapping } from "./model.js";
 import { keyOf, resolveRoot, scan, scanStore } from "./scan.js";
 import { fold } from "./text.js";
 
@@ -115,20 +115,37 @@ function rewrite(path, atril) {
   writeFileSync(path, `${bom}${text.slice(0, start)}${newFront}${text.slice(start + front.length)}`);
 }
 
+// ADR 0039: what the enricher returns is data from outside; it is checked before it is written.
+function englishOf(artifact, result) {
+  const { description, keywords } = result ?? {};
+  if (!isMapping(result) || (description !== undefined && typeof description !== "string")
+    || (keywords !== undefined && !(Array.isArray(keywords) && keywords.every((k) => typeof k === "string")))) {
+    throw new Error(`${artifact.path}: the enricher must return { description?: string, keywords?: string[] }`);
+  }
+  return { ...(description !== undefined && { description }), ...(keywords && { keywords }), hash: artifact.hash };
+}
+
 /**
  * Enrich the project store's artifacts, or with `check` only report them
- * (and fail on a graph error).
- * @param {{ projectDir?: string, root?: string, env?: object, check?: boolean }} [opts]
- * @returns {{ path: string, state: "not enriched" | "out of date" }[]} what was (or would be) rewritten
+ * (and fail on a graph error). An `enricher(artifact)` (ADR 0039, layer 1) returns
+ * the artifact's English `{ description?, keywords? }`, written under `atril.en`; it
+ * runs only when `atril.en` is missing or was made for another hash, never with `check`.
+ * @param {{ projectDir?: string, root?: string, env?: object, check?: boolean,
+ *   enricher?: (artifact: object) => Promise<{ description?: string, keywords?: string[] }> }} [opts]
+ * @returns {Promise<{ path: string, state: "not enriched" | "out of date" }[]>} what was (or would be) rewritten
  */
-export function enrich({ projectDir = process.cwd(), root, env = process.env, check = false } = {}) {
+export async function enrich({ projectDir = process.cwd(), root, env = process.env, check = false, enricher } = {}) {
   const stale = [];
   const artifacts = scanStore(resolve(projectDir, resolveRoot({ root, env })));
   if (check) assertGraph(scan({ projectDir, root, env }).artifacts);
   for (const artifact of artifacts) {
     const { uses: _u, delegates: _d, related: _r, ...kept } = artifact.atril;
     const relations = discoverRelations(artifact, artifacts);
-    const atril = { ...kept, ...relations, keywords: extractKeywords(artifact.description, artifact.body), hash: artifact.hash };
+    const en = enricher && !check && kept.en?.hash !== artifact.hash ? englishOf(artifact, await enricher(artifact)) : kept.en;
+    // The English keywords come first, so the cap never drops what the enricher added.
+    const english = (en?.keywords ?? []).map((k) => fold(k.trim())).filter(Boolean);
+    const keywords = new Set([...english, ...extractKeywords(artifact.description, artifact.body)]);
+    const atril = { ...kept, ...relations, ...(en && { en }), keywords: [...keywords].slice(0, MAX_KEYWORDS).toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0)), hash: artifact.hash };
     if (isDeepStrictEqual(atril, artifact.atril)) continue;
     stale.push({ path: artifact.path, state: artifact.atril.hash ? "out of date" : "not enriched" });
     if (!check) rewrite(artifact.path, atril);

@@ -24,9 +24,9 @@ ADR 0021 plans QMD as an optional backend and says atril calls no model on its o
 
 ## Decision
 
-English is the language of the index. A skill may be written in any language, because the agent reads it in that language. To be found, it carries an English `description` and English `atril.keywords`.
+English is the language of the index. A skill may be written in any language, because the agent reads it in that language. To be found, it carries an English description in `atril.en` and English `atril.keywords`.
 
-1. **English metadata.** The consumer's enricher (Karajan, through its agents) writes the English `description` and keywords of a skill in another language, once, at import or enrich time. atril calls no model. `atril enrich` and the import warn when a skill's metadata is not in English.
+1. **English metadata.** The consumer's enricher (Karajan, through its agents) writes the English description (in `atril.en`) and keywords of a skill in another language, once, at import or enrich time. atril calls no model. `atril enrich` and the import warn when a skill's metadata is not in English.
 2. **Queries in English.** The router rule tells the agent to query atril in English. `kj skills search` translates a person's query before it reaches atril.
 3. **No silent miss.** When `atril search` finds nothing and the query looks non-English (accented letters or common Spanish stopwords), it says that the index is in English and suggests English terms.
 4. **Cheap lexical help that works in any language.**
@@ -48,7 +48,7 @@ Alternatives considered:
 - A person who types a Spanish query into `atril search` gets a hint, not a hit.
 - Card changes:
   - Spanish stopwords and `atril.lang` (HU-2730) are dropped.
-  - The enricher card (HU-2732) writes the English `description` and keywords.
+  - The enricher card (HU-2732) writes the English description (in `atril.en`) and keywords.
   - A new card covers the router rule, the import warning and the no-hit hint.
   - Translation in `kj skills search` is a kj-side card.
 

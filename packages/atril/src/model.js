@@ -44,6 +44,14 @@ function validate(path, front) {
     if (front[field] !== undefined) checkList(field, front[field], RELATIONS.includes(field));
   }
   if (front.atril !== undefined && !isMapping(front.atril)) fail("atril must be a mapping");
+  const { en } = front.atril ?? {};
+  if (en !== undefined) {
+    if (!isMapping(en)) fail("atril.en must be a mapping");
+    if (en.description !== undefined && typeof en.description !== "string") fail("atril.en.description must be a string");
+    if (en.keywords !== undefined && !(Array.isArray(en.keywords) && en.keywords.every((k) => typeof k === "string"))) {
+      fail("atril.en.keywords must be a list of strings");
+    }
+  }
   // KJC-TSK-1129: what atril discovered is a relation too, so the graph never meets a malformed one.
   for (const field of RELATIONS) {
     if (front.atril?.[field] !== undefined) checkList(`atril.${field}`, front.atril[field], true);
