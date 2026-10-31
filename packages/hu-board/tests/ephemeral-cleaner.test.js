@@ -238,7 +238,8 @@ describe("cleanupEphemeralProjects (integration with in-memory SQLite)", () => {
       "session:sess_x",
       "story:story_x",
     ]);
-    expect(removedPaths).toContain("/fake/home/hu-stories/story_x");
+    // KJC-TSK-1347: hu-stories is no longer read, so it is no longer swept either.
+    expect(removedPaths).not.toContain("/fake/home/hu-stories/story_x");
     expect(removedPaths).toContain("/fake/home/sessions/sess_x");
   });
 });

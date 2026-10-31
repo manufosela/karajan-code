@@ -8,7 +8,6 @@ import {
   upsertProject,
   upsertStory,
   upsertSession,
-  insertContextRequest,
   getDb,
   isTombstoned,
   getTombstone,
@@ -61,31 +60,6 @@ function skipIfTombstoned(resourceType, resourceId, fsPathToRemove) {
   return true;
 }
 
-/**
- * Derive a human-readable project name from batch data.
- * Priority: explicit data.project_name → extracted from story text → sessionId.
- */
-function deriveProjectName(data, fallbackId) {
-  if (data.project_name) return data.project_name;
-  // Try to find "Part of: <originalTask>" in any story's certified text
-  const stories = data.stories || [];
-  for (const story of stories) {
-    const text = story.certified?.text || '';
-    const match = text.match(/Part of:\s*([^\n]+)/);
-    if (match) {
-      return slugToTitle(match[1].trim());
-    }
-  }
-  // Try first story's original text as a fallback
-  if (stories[0]?.original?.text) {
-    return slugToTitle(stories[0].original.text);
-  }
-  return fallbackId;
-}
-
-/**
- * Turn a free-text goal into a short title-cased name (max 60 chars).
- */
 /**
  * Derive a stable `project_id` from a plan's absolute `projectDir`.
  * Used so every plan under the same source tree groups under one project
@@ -182,113 +156,6 @@ function slugToTitle(text) {
 }
 
 /**
- * Parses a batch.json HU stories file and syncs to SQLite.
- * @param {string} filePath - Absolute path to the batch.json file
- */
-function syncStoryFile(filePath) {
-  try {
-    const raw = readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(raw);
-    const sessionId = data.session_id || basename(join(filePath, '..'));
-    const projectId = data.project_id || sessionId;
-
-    // Tombstone gate: if the project or its batch is buried, drop the
-    // file from disk and skip. Without this, fullScan resurrects them.
-    if (skipIfTombstoned('project', projectId, dirname(filePath))) return;
-    if (skipIfTombstoned('story', sessionId, dirname(filePath))) return;
-
-    // Skip if this is a non-auto batch and an auto- version already exists.
-    // Prevents duplicate projects when both auto-s_xxx/ and s_xxx/ exist.
-    if (!projectId.startsWith('auto-')) {
-      const db = getDb();
-      const autoExists = db.prepare('SELECT id FROM projects WHERE id = ?').get(`auto-${projectId}`);
-      if (autoExists) {
-        console.log(`[sync] Skipping ${projectId} — auto-${projectId} already covers this session`);
-        return;
-      }
-    }
-
-    upsertProject({
-      id: projectId,
-      name: deriveProjectName(data, projectId),
-      last_activity: data.created_at || new Date().toISOString(),
-      total_stories: (data.stories || []).length,
-    });
-
-    for (const story of data.stories || []) {
-      const certified = story.certified || {};
-      const quality = story.quality || {};
-      const dimensions = quality.dimensions || {};
-
-      // acceptance_criteria: support both array (auto-generator) and object (hu-reviewer)
-      let acText = null;
-      if (Array.isArray(story.acceptance_criteria)) {
-        acText = JSON.stringify(story.acceptance_criteria);
-      } else if (story.acceptance_criteria?.criteria) {
-        acText = JSON.stringify(story.acceptance_criteria.criteria);
-      }
-
-      upsertStory({
-        id: story.id,
-        project_id: projectId,
-        session_id: sessionId,
-        status: story.status || 'pending',
-        title: extractTitle(story),
-        original_text: story.original?.text || certified.text || null,
-        certified_as: certified.as || null,
-        certified_want: certified.want || (certified.text ? certified.text.slice(0, 500) : null),
-        certified_so_that: certified.so_that || null,
-        quality_total: quality.total ?? null,
-        quality_d1: dimensions.d1 ?? null,
-        quality_d2: dimensions.d2 ?? null,
-        quality_d3: dimensions.d3 ?? null,
-        quality_d4: dimensions.d4 ?? null,
-        quality_d5: dimensions.d5 ?? null,
-        quality_d6: dimensions.d6 ?? null,
-        antipatterns: quality.antipatterns ? JSON.stringify(quality.antipatterns) : null,
-        ac_format: story.acceptance_criteria?.format || (Array.isArray(story.acceptance_criteria) ? 'list' : null),
-        acceptance_criteria: acText,
-        created_at: story.created_at,
-        updated_at: story.updated_at,
-        certified_at: story.certified_at || null,
-      });
-
-      // Sync context requests
-      for (const ctx of story.context_requests || []) {
-        insertContextRequest({
-          story_id: story.id,
-          fields_needed: ctx.fields_needed ? JSON.stringify(ctx.fields_needed) : null,
-          question: ctx.question || null,
-          answer: ctx.answer || null,
-          requested_at: ctx.requested_at || null,
-          answered_at: ctx.answered_at || null,
-        });
-      }
-    }
-
-    console.log(`[sync] Synced stories from ${basename(join(filePath, '..'))}: ${(data.stories || []).length} stories`);
-    publishEvent({ type: 'batch', projectId, path: filePath });
-  } catch (err) {
-    console.error(`[sync] Error syncing story file ${filePath}:`, err.message);
-  }
-}
-
-/**
- * Extracts a short title from a story.
- * @param {object} story
- * @returns {string}
- */
-function extractTitle(story) {
-  // Auto-generated HUs have story.title directly
-  if (story.title && story.title !== story.id) return story.title.slice(0, 120);
-  // HU-reviewer format: certified.want
-  if (story.certified?.want) return story.certified.want.slice(0, 120);
-  // Fallback: original text or id
-  const text = story.original?.text || '';
-  return text.slice(0, 120) || story.id;
-}
-
-/**
  * Parses a session.json file and syncs to SQLite.
  * @param {string} filePath - Absolute path to session.json
  */
@@ -327,7 +194,7 @@ function syncSessionFile(filePath) {
     }
 
     // Ensure the project row exists. Skip when an auto-batch owns it already
-    // (that row was written by syncStoryFile with richer metadata and we do
+    // (that row was written with richer metadata and we do
     // not want to overwrite name/total_stories).
     if (!existingBatch) {
       upsertProject({
@@ -575,7 +442,8 @@ export function syncPlanFile(filePath) {
 
 export function fullScan() {
   const kjHome = getKjHome();
-  const storiesDir = join(kjHome, 'hu-stories');
+  // KJC-TSK-1347: ~/.karajan/hu-stories (the retired kj run store) is no longer
+  // read; the board's HUs come from the plan backlog and the shared board.
   const sessionsDir = join(kjHome, 'sessions');
 
   // Clear existing data for a clean rebuild
@@ -585,29 +453,15 @@ export function fullScan() {
   db.exec('DELETE FROM sessions');
   db.exec('DELETE FROM projects');
 
-  // KJC-BUG-0055: garbage-collect on-disk story/session artefacts whose
-  // ids carry an active tombstone. Without this, a tombstone is useless
-  // against a stray ~/.karajan/hu-stories/<id>/ that survived a manual
-  // DB wipe — the next pass would re-import it as a ghost project.
-  // (Plan dirs are NOT pre-purged here: a tombstoned project may hold a
-  // newer plan from a legit projectDir re-use; `syncPlanFile`'s
-  // timestamp gate decides per-file.)
-  for (const [type, root] of [['story', storiesDir], ['session', sessionsDir]]) {
-    if (!existsSync(root)) continue;
-    for (const name of readdirSync(root)) {
-      if (!isTombstoned(type, name)) continue;
-      try { rmSync(join(root, name), { recursive: true, force: true }); } catch { /* best effort */ }
-    }
-  }
-
-  // Scan stories
-  if (existsSync(storiesDir)) {
-    const dirs = readdirSync(storiesDir);
-    for (const dir of dirs) {
-      const batchPath = join(storiesDir, dir, 'batch.json');
-      if (existsSync(batchPath)) {
-        syncStoryFile(batchPath);
-      }
+  // KJC-BUG-0055: garbage-collect on-disk session artefacts whose ids carry
+  // an active tombstone, or a stray one that survived a manual DB wipe would
+  // come back as a ghost. (Plan dirs are NOT pre-purged here: a tombstoned
+  // project may hold a newer plan from a legit projectDir re-use;
+  // `syncPlanFile`'s timestamp gate decides per-file.)
+  if (existsSync(sessionsDir)) {
+    for (const name of readdirSync(sessionsDir)) {
+      if (!isTombstoned('session', name)) continue;
+      try { rmSync(join(sessionsDir, name), { recursive: true, force: true }); } catch { /* best effort */ }
     }
   }
 
@@ -694,7 +548,6 @@ function scanSharedPlans() {
  */
 export function startWatcher() {
   const kjHome = getKjHome();
-  const storiesGlob = join(kjHome, 'hu-stories', '*', 'batch.json');
   const sessionsGlob = join(kjHome, 'sessions', '*', 'session.json');
   const promptsGlob = join(kjHome, 'prompts', '*.json');
   // Plans live under KJ_PLANS_DIR or `~/.karajan/plans/` after
@@ -709,7 +562,7 @@ export function startWatcher() {
   const plansGlob = join(plansRoot, '*', 'plan-*.json');
   const legacyPlansGlob = legacyPlansRoot ? join(legacyPlansRoot, '*', 'plan-*.json') : null;
 
-  const watchTargets = [storiesGlob, sessionsGlob, plansGlob, promptsGlob];
+  const watchTargets = [sessionsGlob, plansGlob, promptsGlob];
   if (legacyPlansGlob) watchTargets.push(legacyPlansGlob);
   // KJC-PRP-0002 PR2: live-watch shared plans for the board's cwd + any
   // dir listed in KJ_SHARED_PROJECT_DIRS. Without this, `kj plan share`
@@ -728,8 +581,7 @@ export function startWatcher() {
   });
 
   const syncByPath = (p, eventName) => {
-    if (p.includes('hu-stories')) syncStoryFile(p);
-    else if (p.includes('sessions')) syncSessionFile(p);
+    if (p.includes('sessions')) syncSessionFile(p);
     else if (p.includes(`${plansRoot}${plansRoot.endsWith('/') ? '' : '/'}`) || p.includes('/plans/')) {
       // Catches both per-user `~/.karajan/plans/<slug>/plan-*.json` and
       // team-shared `<projectDir>/.karajan-shared/plans/plan-*.json` — the

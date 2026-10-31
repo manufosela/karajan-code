@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { tmpdir } from 'node:os';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 let tmpDir;
@@ -25,79 +25,19 @@ async function setup() {
 }
 
 // ---------------------------------------------------------------------------
-// Parsing batch.json (story files)
+// The retired kj run store (KJC-TSK-1347)
 // ---------------------------------------------------------------------------
-describe('syncStoryFile via fullScan', () => {
-  it('parses a valid batch.json and syncs stories to db', async () => {
+describe('hu-stories is no longer read', () => {
+  it('a batch.json left in ~/.karajan/hu-stories is neither imported nor deleted', async () => {
     const { db, sync } = await setup();
-
     const sessionDir = join(tmpDir, 'hu-stories', 'sess-001');
     mkdirSync(sessionDir, { recursive: true });
-    writeFileSync(
-      join(sessionDir, 'batch.json'),
-      JSON.stringify({
-        session_id: 'sess-001',
-        project_id: 'proj-alpha',
-        project_name: 'Alpha',
-        created_at: '2026-01-01T00:00:00Z',
-        stories: [
-          {
-            id: 'hu-001',
-            status: 'certified',
-            original: { text: 'As a user I want login' },
-            certified: { as: 'a user', want: 'login via SSO', so_that: 'I save time' },
-            quality: { total: 92, dimensions: { d1: 90, d2: 95, d3: 88, d4: 92, d5: 90, d6: 97 } },
-            acceptance_criteria: { format: 'gherkin', criteria: [{ given: 'logged out', when: 'click SSO', then: 'logged in' }] },
-            context_requests: [{ question: 'Which IdP?', answer: 'Azure AD', requested_at: '2026-01-01T00:00:00Z' }],
-          },
-          {
-            id: 'hu-002',
-            status: 'pending',
-            original: { text: 'As admin I want reports' },
-          },
-        ],
-      })
-    );
+    writeFileSync(join(sessionDir, 'batch.json'), JSON.stringify({ session_id: 'sess-001', project_id: 'proj-alpha', stories: [{ id: 'hu-001', status: 'pending' }] }));
 
     sync.fullScan();
 
-    // Projects synced
-    const projects = db.getProjects();
-    expect(projects.length).toBeGreaterThanOrEqual(1);
-    const alpha = projects.find((p) => p.id === 'proj-alpha');
-    expect(alpha).toBeTruthy();
-    expect(alpha.name).toBe('Alpha');
-
-    // Stories synced
-    const stories = db.getStoriesByProject('proj-alpha');
-    expect(stories).toHaveLength(2);
-
-    const hu001 = db.getStoryDetail('hu-001');
-    expect(hu001.status).toBe('certified');
-    expect(hu001.certified_as).toBe('a user');
-    expect(hu001.quality_total).toBe(92);
-    expect(hu001.context_requests).toHaveLength(1);
-    expect(hu001.context_requests[0].question).toBe('Which IdP?');
-
-    const hu002 = db.getStoryDetail('hu-002');
-    expect(hu002.status).toBe('pending');
-  });
-
-  it('handles malformed batch.json gracefully (no crash)', async () => {
-    const { sync } = await setup();
-
-    const sessionDir = join(tmpDir, 'hu-stories', 'bad-session');
-    mkdirSync(sessionDir, { recursive: true });
-    writeFileSync(join(sessionDir, 'batch.json'), '{ invalid json !!!');
-
-    // Should not throw — the sync function catches errors internally
-    expect(() => sync.fullScan()).not.toThrow();
-  });
-
-  it('handles missing stories directory gracefully', async () => {
-    const { sync } = await setup();
-    // hu-stories dir does not exist — should not throw
-    expect(() => sync.fullScan()).not.toThrow();
+    expect(db.getProjects().find((p) => p.id === 'proj-alpha')).toBeUndefined();
+    expect(existsSync(join(sessionDir, 'batch.json'))).toBe(true);
   });
 });
 

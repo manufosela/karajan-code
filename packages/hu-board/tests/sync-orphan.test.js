@@ -66,30 +66,6 @@ describe('sync.js — orphan-proof (PR-B)', () => {
     expect(proj).toBeDefined();
     expect(proj.id).toBe('my-project');
   });
-
-  it('attaches a session to its auto-batch project when the batch session id starts with auto-', async () => {
-    // Pre-create the auto-batch under hu-stories/ so syncStoryFile registers
-    // the project. The session's id matches so syncSessionFile picks it up.
-    const huDir = join(tmpHome, 'hu-stories', 'auto-sess-paired');
-    mkdirSync(huDir, { recursive: true });
-    writeFileSync(join(huDir, 'batch.json'), JSON.stringify({
-      session_id: 'auto-sess-paired',
-      stories: [{ id: 'HU-1', status: 'pending', original: { text: 'hello' } }],
-    }));
-    const sessDir = join(tmpHome, 'sessions', 'auto-sess-paired');
-    mkdirSync(sessDir, { recursive: true });
-    writeFileSync(join(sessDir, 'session.json'), JSON.stringify({
-      id: 'auto-sess-paired', task: 'paired', status: 'running', project_id: null,
-    }));
-    const { initDb, getDb } = await import('../src/db.js');
-    initDb();
-    const { fullScan } = await import('../src/sync.js');
-    fullScan();
-    // The auto-batch project should exist; the orphan-skip logic must NOT
-    // have rejected the session (because the batch project covers it).
-    const projects = getDb().prepare('SELECT id FROM projects').all();
-    expect(projects.find(p => p.id === 'auto-sess-paired')).toBeDefined();
-  });
 });
 
 describe('sync.js — plan name preference (PR-B)', () => {
