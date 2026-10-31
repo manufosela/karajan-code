@@ -81,6 +81,52 @@ describe("startBootstrap", () => {
   });
 });
 
+// HU-2757: one background index per machine. Another lane's indexer is a live pid that is not this one.
+describe("startBootstrap machine lease", () => {
+  const other = () => ({ pid: process.ppid, unref: vi.fn() });
+  let lease, rootB, t0;
+  const spawnOther = vi.fn(other);
+  const inB = (opts) => { state.dbPath = join(rootB, ".karajan", "rag.db"); return startBootstrap(rootB, { spawnFn: spawnOther, lease, now: t0, ...opts }); };
+  beforeEach(() => {
+    lease = join(root, "locks", "rag-index.json");
+    rootB = mkdtempSync(join(tmpdir(), "kj-rag-bootstrap-b-"));
+    t0 = Date.now();
+    expect(startBootstrap(root, { spawnFn: spawnOther, lease, now: t0 })).toEqual({ started: true, pid: process.ppid });
+  });
+  afterEach(() => rmSync(rootB, { recursive: true, force: true }));
+
+  it("a second project finds the machine busy and spawns nothing, nor burns its RETRY_MS", () => {
+    expect(inB()).toMatchObject({ started: false, busy: { pid: process.ppid, slug: "p" } });
+    expect(spawnOther).toHaveBeenCalledTimes(1);
+    expect(readBootstrap(rootB)).toBeNull();
+  });
+
+  it("a lease whose holder is dead is taken over", () => {
+    writeFileSync(lease, JSON.stringify({ pid: 2 ** 22 - 1, at: t0, projectDir: root, slug: "p" }), "utf8");
+    expect(inB()).toMatchObject({ started: true, pid: process.ppid });
+  });
+
+  it("a spawn that fails frees the lease and the marker it had taken, and says why", () => {
+    rmSync(lease);
+    rmSync(`${state.dbPath}.bootstrap`);
+    expect(() => inB({ spawnFn: () => { throw new Error("EAGAIN"); } })).toThrow("EAGAIN");
+    expect(readBootstrap(rootB)).toBeNull();
+    expect(inB()).toMatchObject({ started: true });
+  });
+
+  it("a lease older than MAX_RUN_MS is taken over even when its pid is alive", () => {
+    expect(inB({ now: t0 + MAX_RUN_MS })).toMatchObject({ started: true, pid: process.ppid });
+  });
+
+  it("a machine mutex held fresh yields; one left by a crashed command is taken over", () => {
+    rmSync(lease);
+    mkdirSync(`${lease}.lock`, { recursive: true });
+    expect(inB()).toMatchObject({ started: false, busy: {} });
+    utimesSync(`${lease}.lock`, 1, 1);
+    expect(inB()).toMatchObject({ started: true });
+  });
+});
+
 describe("maybeAutoUpdate without an index", () => {
   beforeEach(() => {
     execFileSync("git", ["init", "-q"], { cwd: root });
@@ -92,6 +138,13 @@ describe("maybeAutoUpdate without an index", () => {
     expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ skipped: true, reason: "bootstrapping", pid: 4242 });
     expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ skipped: true, reason: "bootstrapping" });
     expect(warned.filter((l) => /indexing it in the background/.test(l))).toHaveLength(1);
+  });
+
+  it("a machine busy with another index queues this one: said once, tried again on the next command", async () => {
+    startBootstrap.mockReturnValue({ started: false, busy: { slug: "other", pid: 77 } });
+    expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ skipped: true, reason: "bootstrap-queued", holder: { pid: 77 } });
+    await maybeAutoUpdate({ projectDir: root, config: {}, logger });
+    expect(warned.filter((l) => /another background index is running \(other, pid 77\)/.test(l))).toHaveLength(1);
   });
 
   it("a recent dead attempt is not retried: the index is asked for by hand, once", async () => {
