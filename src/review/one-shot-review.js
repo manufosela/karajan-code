@@ -19,7 +19,7 @@ import { summarizeGeneratedFiles } from "./prompt-diff.js";
 import { reportUnparseableVerdict } from "./unparseable-verdict.js";
 import { detectWorkspace } from "./workspace.js";
 import { branchOf } from "./correction-rounds.js";
-import { isQuotaExhausted, candidateStatus, pickQuotaFallback, formatCandidateMenu } from "./reviewer-fallback.js";
+import { isQuotaExhausted, candidateStatus, pickQuotaFallback, formatCandidateMenu, reviewerFailureMessage } from "./reviewer-fallback.js";
 
 // Cross-AI preference when the configured reviewer IS the host.
 const CROSS_ORDER = ["codex", "claude", "gemini", "opencode", "aider"];
@@ -115,7 +115,7 @@ export async function runOneShotReview({
   }
 
   if (!result?.ok) {
-    throw new Error(`reviewer ${activeReviewer} failed: ${result?.error || "no output"}`);
+    throw new Error(reviewerFailureMessage(activeReviewer, result?.error));
   }
 
   // KJC-BUG-0146, second half: parseMaybeJsonString only PARSES — it returns whatever JSON came
