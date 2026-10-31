@@ -13,6 +13,7 @@ import {
   candidateStatus,
   pickQuotaFallback,
   formatCandidateMenu,
+  reviewerFailureMessage,
 } from "../../src/review/reviewer-fallback.js";
 import { runOneShotReview } from "../../src/review/one-shot-review.js";
 
@@ -27,6 +28,30 @@ describe("isQuotaExhausted", () => {
     expect(isQuotaExhausted("SyntaxError: unexpected token")).toBe(false);
     expect(isQuotaExhausted("")).toBe(false);
     expect(isQuotaExhausted(undefined)).toBe(false);
+  });
+});
+
+// KJC-BUG-0451 (#2799): every codex JSON event carries a `rate_limits` telemetry field,
+// so ANY codex failure matched /rate.?limit/ and was reported as exhausted quota.
+describe("isQuotaExhausted ignores codex's rate_limits telemetry", () => {
+  const telemetry = '{"type":"token_count","rate_limits":{"primary":{"used_percent":3.0,"window_minutes":300},"secondary":{"used_percent":2.0}}}';
+  it("a routing failure next to the telemetry is not quota", () => {
+    expect(isQuotaExhausted(`${telemetry}\nERROR: workspace routing discovery failed`)).toBe(false);
+  });
+  it("the real quota message still is, telemetry or not", () => {
+    expect(isQuotaExhausted(`${telemetry}\n${CODEX_REAL_ERROR}`)).toBe(true);
+    expect(isQuotaExhausted('{"error":{"code":"rate_limit_exceeded"}}')).toBe(true);
+  });
+});
+
+describe("reviewerFailureMessage", () => {
+  it("a failure codex hits before reaching its service gets the real error and a sandbox/network hint", () => {
+    const msg = reviewerFailureMessage("codex", "ERROR: workspace routing discovery failed");
+    expect(msg).toMatch(/workspace routing discovery failed/);
+    expect(msg).toMatch(/sandbox|network/i);
+  });
+  it("any other failure is shown as it is, without a hint", () => {
+    expect(reviewerFailureMessage("codex", "boom")).toBe("reviewer codex failed: boom");
   });
 });
 
