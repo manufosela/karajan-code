@@ -80,6 +80,23 @@ describe("candidate registry + status", () => {
     fs.rmSync(home, { recursive: true, force: true });
   });
 
+  // KJC-TSK-1344: a claude-tribbu session sets CODEX_HOME=~/.codex-tribbu; the
+  // personal ~/.codex session must not count for it, nor the other way round.
+  it("codex's session is looked for in CODEX_HOME, not in a fixed ~/.codex", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-fb-codexhome-"));
+    const work = path.join(home, ".codex-work");
+    fs.mkdirSync(work);
+    fs.writeFileSync(path.join(work, "auth.json"), "{}");
+    const base = { home, checkBin: async () => ({ ok: true }) };
+    const codexOf = async (env) => (await candidateStatus({ ...base, env })).find((s) => s.name === "codex");
+    expect((await codexOf({ CODEX_HOME: work })).authenticated).toBe(true);
+    expect((await codexOf({})).authenticated).toBe(false); // ~/.codex has no session here
+    fs.mkdirSync(path.join(home, ".codex"));
+    fs.writeFileSync(path.join(home, ".codex", "auth.json"), "{}");
+    expect((await codexOf({ CODEX_HOME: path.join(home, ".codex-empty") })).authenticated).toBe(false);
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
   it("reports installed × authenticated from local heuristics (fake home)", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-fb-home-"));
     fs.mkdirSync(path.join(home, ".copilot"), { recursive: true });
@@ -163,6 +180,20 @@ describe("runOneShotReview quota failover", () => {
       { name: "kimi", installed: false, authenticated: false, tier: "gratis", login: "kimi /login" },
     ];
     await expect(runOneShotReview(args)).rejects.toThrow(/candidato|login/i);
+  });
+
+  // KJC-TSK-1344: with two codex subscriptions the review says which account it used.
+  it("the reviewer line names CODEX_HOME when it moves codex's account, and nothing when it does not", async () => {
+    const agents = { codex: { reviewTask: async () => ({ ok: true, output: JSON.stringify({ approved: true, blocking_issues: [], summary: "ok" }) }) } };
+    const lineFor = async (env) => {
+      const infos = [];
+      const args = { ...baseArgs(agents), env, persist: false };
+      args.logger = { info: (m) => infos.push(m), warn: () => {} };
+      await runOneShotReview(args);
+      return infos.find((m) => m.includes("reviewer=codex"));
+    };
+    expect(await lineFor({ CODEX_HOME: "/home/u/.codex-tribbu" })).toContain("CODEX_HOME=/home/u/.codex-tribbu");
+    expect(await lineFor({})).not.toContain("CODEX_HOME");
   });
 
   it("does not fall back on non-quota errors", async () => {

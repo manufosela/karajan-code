@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { checkBinary } from "../utils/agent-detect.js";
+import { agentAuthFiles } from "../utils/agent-home.js";
 import { createCliAskQuestion } from "../utils/cli-ask-question.js";
 import { bootstrapCommand } from "./bootstrap.js";
 import { boardCommand } from "./board.js";
@@ -21,12 +22,14 @@ export const MAGGLE_AGENTS = [
   { name: "claude", label: "Claude Code (Anthropic)", authPaths: [".claude.json", ".claude"], install: "npm install -g @anthropic-ai/claude-code", login: "claude   (sigue el enlace de inicio de sesión que te muestre)" },
   { name: "codex", label: "Codex (OpenAI)", authPaths: [".codex/auth.json"], install: "npm install -g @openai/codex", login: "codex login" },
 ];
-export async function detectMaggleAgents({ home = os.homedir(), checkBin = checkBinary } = {}) {
+export async function detectMaggleAgents({ home = os.homedir(), env = process.env, checkBin = checkBinary } = {}) {
   return Promise.all(
     MAGGLE_AGENTS.map(async (a) => {
       let installed = false;
       try { installed = (await checkBin(a.name)).ok; } catch { /* not installed */ }
-      const authenticated = installed && a.authPaths.some((p) => existsSync(path.join(home, p)));
+      // KJC-TSK-1344: the session lives where CLAUDE_CONFIG_DIR / CODEX_HOME point.
+      const files = agentAuthFiles(a.name, { home, env }) ?? a.authPaths.map((p) => path.join(home, p));
+      const authenticated = installed && files.some((f) => existsSync(f));
       return { ...a, installed, authenticated };
     }),
   );
