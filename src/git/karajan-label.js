@@ -1,10 +1,11 @@
 /**
- * KJC-TSK-1123 (#2315): every PR Karajan opens carries the «Karajan» label, so
+ * KJC-TSK-1123 (#2315): every PR Karajan governs carries the «Karajan» label, so
  * a team can measure how much of its change goes through the governor. It means
  * "went through Karajan", never "written by an AI": Karajan governs AIs, and the
  * PR may be a person's work it reviewed. The signal lives only in the PR's
  * metadata, never in commits or the PR body. Labelling never costs the PR: a
- * failure is logged and the work goes on.
+ * failure is logged and the work goes on. KJC-BUG-0461: since 5.0 (no kj run opening PRs)
+ * kj review --publish-pr adds it, the step of the method that runs on every PR.
  */
 import { runCommand } from "../utils/process.js";
 

@@ -229,7 +229,7 @@ kj review "Check for security issues" --reviewer claude --base-ref HEAD~5
 
 ### Proving the cross-AI review in CI (`--publish-pr`, `--verify-pr`)
 
-`kj review --publish-pr <n>` publishes, as one GitHub review, the verdict kj holds for each commit of the PR, bound to the hash of the diff it brought. `kj review --verify-pr <n>` is its CI side: it exits 1 naming every commit that the review for the PR's current head does not list with a matching diff hash. Only a review written by an owner, member or collaborator of the repo counts, so skipping the pre-commit hook (`--no-verify`) no longer leaves a commit unreviewed.
+`kj review --publish-pr <n>` publishes, as one GitHub review, the verdict kj holds for each commit of the PR, bound to the hash of the diff it brought. `kj review --verify-pr <n>` is its CI side: it exits 1 naming every commit that the review for the PR's current head does not list with a matching diff hash. Only a review written by an owner, member or collaborator of the repo counts, so skipping the pre-commit hook (`--no-verify`) no longer leaves a commit unreviewed. `--publish-pr` also gives the PR the `Karajan` label (created if missing; it means "went through Karajan", not "written by an AI"), so a team can measure how much of its change goes through the method; a labelling failure is logged and the publish goes on.
 
 ### Reviewing someone else's PR (`--third-party`)
 

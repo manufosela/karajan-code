@@ -1,7 +1,6 @@
 import { runCommand } from "./process.js";
 import { getRunContext } from "./run-context.js";
 import { identityEnv } from "../git/run-identity.js";
-import { labelKarajanPr } from "../git/karajan-label.js";
 
 /**
  * Module-scoped runner — legacy back-compat for callers outside a
@@ -312,16 +311,4 @@ export async function hasRemote(cwd = null) {
 // the host sandbox. Nothing in kj reads a feature branch's upstream.
 export async function pushBranch(branch, cwd = null) {
   await runGit(["push", "origin", branch], cwd ? { cwd } : {});
-}
-
-export async function createPullRequest({ baseBranch, branch, title, body, cwd = null }) {
-  const args = ["pr", "create", "--base", baseBranch, "--head", branch, "--title", title, "--body", body];
-  const res = await runCommand("gh", args, cwd ? { cwd } : {});
-  if (res.exitCode !== 0) {
-    throw new Error(`gh ${args.join(" ")} failed: ${res.stderr || res.stdout}`);
-  }
-  const url = res.stdout.trim();
-  // KJC-TSK-1123: the PR Karajan opens carries its label; a failure is logged, the PR stays.
-  await labelKarajanPr({ url, cwd });
-  return url;
 }
