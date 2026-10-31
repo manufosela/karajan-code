@@ -128,7 +128,9 @@ async function enforcementBlocked(result, config, projectDir) {
         { retry: "kj env install", why: "this clone has no declared identity, and kj never binds one on its own" });
       return true;
     }
-    await reviewGateCommand({ config, flags: { installGate: true } });
+    const gate = await reviewGateCommand({ config, flags: { installGate: true } });
+    // KJC-BUG-0447: a gate no hook runs is decorative; never call it active.
+    if (!gate?.enforced) throw new Error("the review gate is declared but no pre-commit hook runs it");
     console.log("✓ enforcement active: git hooks + cross-AI verdict gate — a commit outside the method is rejected, not narrated");
     return false;
   } catch (err) {
