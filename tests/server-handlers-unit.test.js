@@ -138,12 +138,13 @@ function mockServer() {
 // --- Tests ---
 
 describe("server-handlers: handleToolCall", () => {
-  let handleToolCall, failPayload, classifyError;
+  let handleToolCall, failPayload, classifyError, runKjCommand;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     ({ handleToolCall, failPayload, classifyError } =
       await import("../src/mcp/server-handlers.js"));
+    ({ runKjCommand } = await import("../src/mcp/run-kj.js"));
   });
 
   // --- handleCode ---
@@ -204,29 +205,48 @@ describe("server-handlers: handleToolCall", () => {
       expect(result.error).toMatch(/action/i);
     });
 
-    it("dispatches create correctly", async () => {
-      const { createManualHu } = await import("../src/hu/store.js");
-      const result = await handleToolCall("kj_hu", { action: "create", title: "My HU" }, mockServer());
-      expect(result.ok).toBe(true);
-      expect(createManualHu).toHaveBeenCalledWith("/tmp/project", expect.objectContaining({ title: "My HU" }));
+    // KJC-BUG-0452 (#2815): kj_hu read the old kj run store and answered an empty board while
+    // `kj hu list` showed every card. It now runs the same `kj hu` the CLI does.
+    const kjHuAnswers = (stdout) => runKjCommand.mockResolvedValueOnce({ ok: true, exitCode: 0, stdout, stderr: "" });
+    const lastKjHu = () => runKjCommand.mock.calls.at(-1)[0];
+
+    it("create runs `kj hu add --json` in the project, with criteria and ref", async () => {
+      kjHuAnswers(JSON.stringify({ id: "HU-7", title: "My HU", status: "pending" }));
+      const result = await handleToolCall("kj_hu", { action: "create", title: "My HU", acceptanceCriteria: "a\nb", ref: "PRJ-TSK-1" }, mockServer());
+      expect(result).toMatchObject({ ok: true, hu: { id: "HU-7" } });
+      expect(lastKjHu()).toMatchObject({ command: "hu", commandArgs: ["add", "My HU", "--ac", "a\nb", "--ref", "PRJ-TSK-1", "--json"], options: { projectDir: "/tmp/project" } });
     });
 
-    it("dispatches list correctly", async () => {
-      const { listHus } = await import("../src/hu/store.js");
+    it("list returns the cards `kj hu list --json` returns", async () => {
+      kjHuAnswers(`plans from lanes: 0 moved\n${JSON.stringify([{ id: "HU-1", short_id: "HU-1", title: "A", status: "running" }])}`);
       const result = await handleToolCall("kj_hu", { action: "list" }, mockServer());
-      expect(result.ok).toBe(true);
-      expect(listHus).toHaveBeenCalled();
+      expect(result).toMatchObject({ ok: true, hus: [{ id: "HU-1", status: "running" }] });
+      expect(lastKjHu().commandArgs).toEqual(["list", "--json"]);
     });
 
-    it("dispatches get correctly", async () => {
-      const result = await handleToolCall("kj_hu", { action: "get", huId: "HU-001" }, mockServer());
-      expect(result.ok).toBe(true);
-      expect(result.hu.id).toBe("HU-001");
+    it("get finds the card by id or short id, and says when it is not on the board", async () => {
+      kjHuAnswers(JSON.stringify([{ id: "x-1", short_id: "HU-9", title: "B", status: "pending" }]));
+      expect(await handleToolCall("kj_hu", { action: "get", huId: "HU-9" }, mockServer())).toMatchObject({ ok: true, hu: { short_id: "HU-9" } });
+      kjHuAnswers("[]");
+      const missing = await handleToolCall("kj_hu", { action: "get", huId: "HU-404" }, mockServer());
+      expect(missing.ok).toBe(false);
+      expect(missing.error).toMatch(/HU-404/);
     });
 
-    it("dispatches update correctly", async () => {
-      const result = await handleToolCall("kj_hu", { action: "update", huId: "HU-001", status: "done" }, mockServer());
-      expect(result.ok).toBe(true);
+    it("update runs `kj hu move` with a board status, and refuses the old pipeline statuses", async () => {
+      kjHuAnswers(JSON.stringify({ id: "HU-1", status: "done" }));
+      expect((await handleToolCall("kj_hu", { action: "update", huId: "HU-1", status: "done" }, mockServer())).ok).toBe(true);
+      expect(lastKjHu().commandArgs).toEqual(["move", "HU-1", "done", "--json"]);
+      const old = await handleToolCall("kj_hu", { action: "update", huId: "HU-1", status: "coding" }, mockServer());
+      expect(old.ok).toBe(false);
+      expect(old.error).toMatch(/pending, running, done, failed, skipped/);
+    });
+
+    it("a failing `kj hu` is reported, never an empty board", async () => {
+      runKjCommand.mockResolvedValueOnce({ ok: false, exitCode: 1, stdout: "", stderr: "boom", errorSummary: "boom" });
+      const result = await handleToolCall("kj_hu", { action: "list" }, mockServer());
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/boom/);
     });
 
     it("returns error for create without title", async () => {
