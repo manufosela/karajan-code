@@ -255,6 +255,16 @@ describe("installWorkflows", () => {
     expect(read(mutFile)).not.toContain("npm ci");
   });
 
+  // KJC-BUG-0450 (#2789): hooks and workflows read the package manager the same way;
+  // the packageManager field wins over a lockfile that is not there yet.
+  it("packageManager in package.json picks pnpm even before a lockfile exists", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", packageManager: "pnpm@9.12.0", scripts: { lint: "eslint ." } }));
+    installWorkflows({ projectDir: dir, language: "javascript" });
+    const q = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(q).toContain("pnpm install --frozen-lockfile");
+    expect(q).not.toContain("npm ci");
+  });
+
   // KJC-BUG-0137 (issue #1357): `--if-present` let the gate disarm itself when
   // the script was missing — silently green, the opposite of the local hook.
   // Now the lint step only exists when the project HAS a lint script at harden

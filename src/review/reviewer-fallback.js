@@ -14,6 +14,7 @@ import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { checkBinary } from "../utils/agent-detect.js";
+import { agentAuthFiles } from "../utils/agent-home.js";
 
 export const REVIEWER_CANDIDATES = [
   {
@@ -70,9 +71,22 @@ export const REVIEWER_CANDIDATES = [
 
 const QUOTA_RE = /usage limit|quota|rate.?limit|credits? (?:exhausted|left: ?0)|hit your .{0,20}limit/i;
 
+// KJC-BUG-0451 (#2799): codex puts a `rate_limits` telemetry object in every JSON event;
+// it says how much quota is LEFT, so it is no evidence that the quota ran out.
+const RATE_LIMITS_TELEMETRY = /"rate_limits"\s*:\s*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|null)/g;
+
 /** True when the agent error smells like exhausted quota, not a real failure. */
 export function isQuotaExhausted(text) {
-  return typeof text === "string" && QUOTA_RE.test(text);
+  return typeof text === "string" && QUOTA_RE.test(text.replace(RATE_LIMITS_TELEMETRY, ""));
+}
+
+// The CLI could not reach its service at all: a sandboxed shell or the network, not the reviewer.
+const UNREACHABLE_RE = /routing discovery failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|getaddrinfo|stream disconnected|network (?:error|is unreachable)/i;
+
+/** The real error, plus a hint when the reviewer CLI never reached its service. */
+export function reviewerFailureMessage(reviewer, error) {
+  const base = `reviewer ${reviewer} failed: ${error || "no output"}`;
+  return UNREACHABLE_RE.test(String(error || "")) ? `${base} — ${reviewer} could not reach its service (a sandboxed shell or the network?); run kj review from an unsandboxed shell` : base;
 }
 
 /** installed × authenticated for every candidate, from cheap local checks. */
@@ -86,8 +100,10 @@ export async function candidateStatus({ home = os.homedir(), checkBin = checkBin
       // Session-file heuristics, or env keys for CLIs (aider) that carry
       // no session file. Key present ≠ credit left — it is menu signal;
       // the failover only sticks if the candidate actually answers.
+      // KJC-TSK-1344: codex and claude keep the account where CODEX_HOME / CLAUDE_CONFIG_DIR say.
+      const files = agentAuthFiles(c.name, { home, env }) ?? c.authPaths.map((p) => path.join(home, p));
       const authenticated =
-        c.authPaths.some((p) => existsSync(path.join(home, p))) ||
+        files.some((f) => existsSync(f)) ||
         (c.authEnv || []).some((name) => Boolean(env[name]));
       return { ...c, installed, authenticated };
     }),

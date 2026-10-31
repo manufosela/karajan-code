@@ -162,6 +162,11 @@ describe("phantom coverage — the invariant consumes the detectors' output", ()
     expect(evaluatePhantomCoverage({ phantoms: [{ literal: "Head al que reporta", file: "hierarchy.spec.js" }] }).verdict).toBe(VERDICTS.BROKEN);
     expect(evaluatePhantomCoverage({ phantoms: [] }).verdict).toBe(VERDICTS.OK);
   });
+  it("the sweep's reason for not observing travels as the evidence", () => {
+    const r = evaluatePhantomCoverage({ reason: "no Lit component in the project" });
+    expect(r.verdict).toBe(VERDICTS.NOT_OBSERVABLE);
+    expect(r.evidence).toMatch(/no Lit component/);
+  });
 });
 describe("runInvariants — dependencies inherit NOT OBSERVABLE", () => {
   it("a child of a not-observable parent is not-observable, never ok", () => {

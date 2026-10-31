@@ -17,7 +17,7 @@ Casi nunca tecleas `kj` tú. Lo hace tu agente, el playbook que instala `kj env 
 
 **Desde tu agente:** el proyecto declara sus garantías ("la suite pasa", "hay una auditoría reciente"), y el **Steward** las re-verifica de forma periódica. La evidencia vieja deja de contar, una garantía caducada se lee como *desconocida*, nunca como verde, y cada rotura aterriza en el board como trabajo PROPUESTO que nada ejecuta sin revisar. Los proyectos se pudren justo cuando nadie mira; esto mira.
 
-**Bajo el capó:** `kj steward sweep` corre la comprobación a demanda; también corre en `kj resume` cuando la evidencia está caducada, o como una Action programada opcional.
+**Bajo el capó:** `kj steward sweep` corre la comprobación a demanda, o como una Action programada opcional.
 
 ## Qué ordena el playbook
 

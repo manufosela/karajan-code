@@ -87,10 +87,17 @@ describe("startCommand dispatch (KJC-TSK-0570 PR2)", () => {
     expect(d._spawnKj).toHaveBeenCalledWith(["harden", "--interactive"], { cwd: "/tmp/proj" });
   });
 
-  it("passes the task as the run argument for START_TASK", async () => {
-    const d = interactiveDeps({ intent: "START_TASK" });
+  // KJC-TSK-1322: kj run and kj plan generate are retired; the work goes to the agent.
+  it.each([
+    ["START_TASK", /ask your agent[\s\S]*kj hu add/],
+    ["PROPOSE_PLAN", /kj brief planner[\s\S]*kj hu add/],
+  ])("%s suggests the v4 way and launches nothing", async (intent, suggestion) => {
+    const d = interactiveDeps({ intent });
     await startCommand({ task: "add logout", config, logger, flags: {}, deps: d });
-    expect(d._spawnKj).toHaveBeenCalledWith(["run", "add logout"], { cwd: "/tmp/proj" });
+    expect(logs.join("\n")).toMatch(suggestion);
+    expect(logs.join("\n")).not.toMatch(/kj run|kj plan "/);
+    expect(d._wizard.confirm).not.toHaveBeenCalled();
+    expect(d._spawnKj).not.toHaveBeenCalled();
   });
 
   it("does not dispatch when the user declines the confirmation", async () => {
@@ -110,7 +117,7 @@ describe("startCommand dispatch (KJC-TSK-0570 PR2)", () => {
     const r = await startCommand({ config, logger, flags: {}, deps: d });
     expect(execute).toHaveBeenNthCalledWith(2, { userMessage: "modernize it", assessment: "ASSESSMENT TEXT" });
     expect(r.intent).toBe("PROPOSE_PLAN");
-    expect(spawnKj).toHaveBeenCalledWith(["plan", "modernize it"], { cwd: "/tmp/proj" });
+    expect(spawnKj).not.toHaveBeenCalled();
   });
 
   it("never dispatches without a TTY (read-only by default)", async () => {

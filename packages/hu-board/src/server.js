@@ -11,6 +11,7 @@ import pipelineRoutes from './routes/pipeline.js';
 import ragRoutes from './routes/rag.js';
 import wikiRoutes from './routes/wiki.js';
 import governanceRoutes from './routes/governance.js';
+import lanesRoutes from './routes/lanes.js';
 import { authMiddleware } from './auth.js';
 import { getOrCreateToken, getTokenPath } from './token-store.js';
 import { createRequire } from 'node:module';
@@ -308,6 +309,7 @@ async function main() {
   app.use('/api/rag', authMiddleware(), ragRoutes);
   app.use('/api/wiki', authMiddleware(), wikiRoutes);
   app.use('/api/governance', authMiddleware(), governanceRoutes);
+  app.use('/api/lanes', authMiddleware(), lanesRoutes);
 
   // Terminal embebida (KJC-TSK-0816, ADR 0008): la lógica vive en
   // terminal.js; aquí solo el montaje. El agente arranca en el cwd del

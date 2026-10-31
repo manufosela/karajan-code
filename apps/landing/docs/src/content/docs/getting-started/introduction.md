@@ -4,7 +4,7 @@ description: What is Karajan Code and why use it.
 ---
 
 :::caution[v3 docs (legacy)]
-You are reading the docs for the v3 headless pipeline. Karajan v4 attaches to the AI agent you already work with — start at [Install (v4)](/docs/v4/install/).
+You are reading the docs for the v3 headless pipeline. That pipeline (`kj run` and its family) was retired in 5.0: see [Migrating to 5.0](/docs/v4/migration/). Karajan attaches to the AI agent you already work with — start at [Install (v4)](/docs/v4/install/).
 :::
 
 **One command. Multiple AI agents. Full quality pipeline.**

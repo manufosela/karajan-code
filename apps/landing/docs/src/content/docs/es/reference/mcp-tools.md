@@ -3,6 +3,10 @@ title: Referencia de Herramientas MCP
 description: Referencia completa de parámetros de las 26 herramientas MCP de Karajan Code.
 ---
 
+:::caution[Docs de v3 (legacy)]
+Esta es la referencia MCP de v3. `kj_run`, `kj_resume` y las demás herramientas del pipeline se retiraron en la 5.0: ver [Migrar a la 5.0](/docs/es/v4/migration/) y la lista actual en [Servidor MCP](/docs/es/guides/mcp-server/).
+:::
+
 ## kj_run
 
 Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer con notificaciones de progreso en tiempo real.

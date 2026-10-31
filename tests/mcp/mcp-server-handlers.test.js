@@ -5,11 +5,6 @@ vi.mock("../../src/mcp/run-kj.js", () => ({
   runKjCommand: vi.fn().mockResolvedValue({ ok: true, exitCode: 0, stdout: "done", stderr: "" })
 }));
 
-vi.mock("../../src/orchestrator.js", () => ({
-  runFlow: vi.fn().mockResolvedValue({ approved: true, sessionId: "s_test" }),
-  resumeFlow: vi.fn().mockResolvedValue({ approved: true, sessionId: "s_test" })
-}));
-
 // KJC-BUG-0431: kj_run takes a per-project run lock; with no projectDir it would take
 // the repo's real one, which another test (or a real run) may hold at that moment.
 vi.mock("../../src/utils/run-log.js", async (importOriginal) => ({
@@ -65,10 +60,6 @@ vi.mock("../../src/mcp/progress.js", () => ({
   sendTrackerLog: vi.fn()
 }));
 
-vi.mock("../../src/mcp/tool-arg-normalizers.js", () => ({
-  normalizePlanArgs: vi.fn((a) => a)
-}));
-
 vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn(() => ({
     runTask: vi.fn().mockResolvedValue({ ok: true, output: "done", exitCode: 0 }),
@@ -96,13 +87,6 @@ vi.mock("../../src/review/parser.js", () => ({
   agentAnswerText: vi.fn((s) => s)
 }));
 
-vi.mock("../../src/review/diff-generator.js", () => ({
-  computeBaseRef: vi.fn().mockResolvedValue("abc123"),
-  getUntrackedFiles: vi.fn().mockResolvedValue([]),
-  generateDiff: vi.fn().mockResolvedValue("diff content"),
-  setProjectDir: vi.fn()
-}));
-
 vi.mock("../../src/review/profiles.js", () => ({
   resolveReviewProfile: vi.fn().mockResolvedValue({ rules: "review rules" })
 }));
@@ -121,27 +105,10 @@ vi.mock("../../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock("../../src/roles/researcher-role.js", () => ({
-  ResearcherRole: vi.fn().mockImplementation(() => ({
-    init: vi.fn().mockResolvedValue(),
-    run: vi.fn().mockResolvedValue({ ok: true, result: { files: ["a.js"] }, summary: "research done" })
-  }))
-}));
-
-vi.mock("../../src/roles/architect-role.js", () => ({
-  ArchitectRole: vi.fn().mockImplementation(() => ({
-    init: vi.fn().mockResolvedValue(),
-    run: vi.fn().mockResolvedValue({ ok: true, result: { layers: ["service"] }, summary: "architecture done" })
-  }))
-}));
-
 vi.mock("../../src/plan/plan-store.js", () => ({
   savePlan: vi.fn().mockResolvedValue("plan-20260331-test")
 }));
 
-vi.mock("../../src/mcp/sovereignty-guard.js", () => ({
-  validateSovereignty: vi.fn((params) => ({ params: { ...params }, warnings: [] }))
-}));
 
 const {
   asObject,
@@ -152,13 +119,10 @@ const {
   assertNotOnBaseBranch,
   buildAskQuestion,
   handleToolCall,
-  handlePlanDirect,
-  handleCodeDirect,
-  handleReviewDirect
+  handleCodeDirect
 } = await import("../../src/mcp/server-handlers.js");
 
 const { runKjCommand } = await import("../../src/mcp/run-kj.js");
-const { runFlow, resumeFlow } = await import("../../src/orchestrator.js");
 const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
 const { createAgent } = await import("../../src/agents/index.js");
 const { sendTrackerLog } = await import("../../src/mcp/progress.js");
@@ -460,56 +424,12 @@ describe("mcp/server-handlers", () => {
       );
     });
 
-    it("routes kj_review in-process (not via subprocess)", async () => {
-      const result = await handleToolCall("kj_review", { task: "Review auth" }, mockServer, {});
-      expect(result.ok).toBe(true);
-      expect(result.review).toBeDefined();
-      expect(createAgent).toHaveBeenCalled();
-      expect(runKjCommand).not.toHaveBeenCalledWith(
-        expect.objectContaining({ command: "review" })
-      );
-    });
-
-    it("routes kj_plan in-process (not via subprocess)", async () => {
-      const result = await handleToolCall("kj_plan", { task: "Plan feature" }, mockServer, {});
-      expect(result.ok).toBe(true);
-      expect(result.plan).toBeDefined();
-      expect(createAgent).toHaveBeenCalled();
-      expect(runKjCommand).not.toHaveBeenCalledWith(
-        expect.objectContaining({ command: "plan" })
-      );
-    });
-
     // --- Required field validation ---
-
-    it("returns error when kj_run has no task", async () => {
-      const result = await handleToolCall("kj_run", {}, mockServer, {});
-      expect(result.ok).toBe(false);
-      expect(result.error).toContain("task");
-    });
 
     it("returns error when kj_code has no task", async () => {
       const result = await handleToolCall("kj_code", {}, mockServer, {});
       expect(result.ok).toBe(false);
       expect(result.error).toContain("task");
-    });
-
-    it("returns error when kj_review has no task", async () => {
-      const result = await handleToolCall("kj_review", {}, mockServer, {});
-      expect(result.ok).toBe(false);
-      expect(result.error).toContain("task");
-    });
-
-    it("returns error when kj_plan has no task", async () => {
-      const result = await handleToolCall("kj_plan", {}, mockServer, {});
-      expect(result.ok).toBe(false);
-      expect(result.error).toContain("task");
-    });
-
-    it("returns error when kj_resume has no sessionId", async () => {
-      const result = await handleToolCall("kj_resume", {}, mockServer, {});
-      expect(result.ok).toBe(false);
-      expect(result.error).toContain("sessionId");
     });
 
     it("returns error for unknown tool", async () => {
@@ -520,7 +440,7 @@ describe("mcp/server-handlers", () => {
 
     // --- kjHome (KJC-BUG-0176, #1722) ---
 
-    it("kj_review resolves the home from kjHome for the bootstrap gate, without touching the env", async () => {
+    it("kj_code resolves the home from kjHome for the bootstrap gate, without touching the env", async () => {
       const { ensureBootstrap } = await import("../../src/bootstrap.js");
       const { getKarajanHome } = await import("../../src/utils/paths.js");
       const seen = [];
@@ -528,7 +448,7 @@ describe("mcp/server-handlers", () => {
       const envBefore = process.env.KARAJAN_HOME;
 
       const result = await handleToolCall(
-        "kj_review", { task: "Review auth", kjHome: "/tmp/other-home" }, mockServer, {}
+        "kj_code", { task: "Fix auth", kjHome: "/tmp/other-home" }, mockServer, {}
       );
 
       expect(result.ok).toBe(true);
@@ -538,12 +458,6 @@ describe("mcp/server-handlers", () => {
     });
 
     // --- Preflight gate ---
-
-    it("kj_run auto-acknowledges preflight when not acked", async () => {
-      const result = await handleToolCall("kj_run", { task: "Do stuff" }, mockServer, {});
-      // With auto-ack, kj_run proceeds to execution instead of returning preflightRequired
-      expect(result.ok).toBe(true);
-    });
 
     it("kj_code auto-acknowledges preflight when not acked", async () => {
       const result = await handleToolCall("kj_code", { task: "Do stuff" }, mockServer, {});
@@ -563,63 +477,12 @@ describe("mcp/server-handlers", () => {
       expect(result.overrides.coder).toBe("gemini");
     });
 
-    // --- Direct handlers (kj_run, kj_resume) ---
-
-    it("kj_run calls runFlow and returns result", async () => {
-      ackPreflight();
-      const result = await handleToolCall("kj_run", { task: "Implement feature" }, mockServer, {});
-      expect(assertAgentsAvailable).toHaveBeenCalled();
-      expect(runFlow).toHaveBeenCalledWith(
-        expect.objectContaining({ task: "Implement feature" })
-      );
-      expect(result.ok).toBe(true);
-      expect(result.approved).toBe(true);
-    });
-
-    it("kj_resume calls resumeFlow with sessionId", async () => {
-      const result = await handleToolCall("kj_resume", { sessionId: "s_test-123", answer: "proceed" }, mockServer, {});
-      expect(resumeFlow).toHaveBeenCalledWith(
-        expect.objectContaining({ sessionId: "s_test-123", answer: "proceed" })
-      );
-      expect(result.ok).toBe(true);
-    });
-
-    it("kj_run returns ok=false when result is paused", async () => {
-      ackPreflight();
-      runFlow.mockResolvedValueOnce({ paused: true, sessionId: "s_paused", question: "How?" });
-      const result = await handleToolCall("kj_run", { task: "Task" }, mockServer, {});
-      expect(result.ok).toBe(false);
-      expect(result.paused).toBe(true);
-    });
-
-    it("kj_run returns ok=false when not approved", async () => {
-      ackPreflight();
-      runFlow.mockResolvedValueOnce({ approved: false, sessionId: "s_fail", reason: "stalled" });
-      const result = await handleToolCall("kj_run", { task: "Task" }, mockServer, {});
-      expect(result.ok).toBe(false);
-      expect(result.reason).toBe("stalled");
-    });
-
     // --- Branch validation ---
-
-    it("kj_run allows base branch (creates feature branch automatically)", async () => {
-      ackPreflight();
-      currentBranch.mockResolvedValueOnce("main");
-      runFlow.mockResolvedValueOnce({ approved: true, sessionId: "s_ok" });
-      const result = await handleToolCall("kj_run", { task: "Do stuff" }, mockServer, {});
-      expect(result.ok).toBe(true);
-    });
 
     it("kj_code rejects when on base branch", async () => {
       ackPreflight();
       currentBranch.mockResolvedValueOnce("main");
       await expect(handleToolCall("kj_code", { task: "Do stuff" }, mockServer, {}))
-        .rejects.toThrow(/You are on the base branch/);
-    });
-
-    it("kj_review rejects when on base branch", async () => {
-      currentBranch.mockResolvedValueOnce("main");
-      await expect(handleToolCall("kj_review", { task: "Do stuff" }, mockServer, {}))
         .rejects.toThrow(/You are on the base branch/);
     });
 
@@ -646,37 +509,5 @@ describe("mcp/server-handlers", () => {
       expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "coder", "done");
     });
 
-    it("kj_review sends tracker start and done logs", async () => {
-      await handleReviewDirect({ task: "Review code" }, mockServer, {});
-
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "reviewer", "running", expect.any(String));
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "reviewer", "done");
-    });
-
-    it("kj_plan sends tracker start and done logs", async () => {
-      await handlePlanDirect({ task: "Plan feature" }, mockServer, {});
-
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "planner", "running", expect.any(String));
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "planner", "done");
-    });
-
-    it("kj_plan passes planner runtime timeout to agent", async () => {
-      await handlePlanDirect({ task: "Plan feature" }, mockServer, {});
-
-      const planner = createAgent.mock.results[0].value;
-      expect(planner.runTask).toHaveBeenCalledWith(expect.objectContaining({
-        timeoutMs: 3600000
-      }));
-    });
-
-    it("kj_plan failure includes runtime stats in the error message", async () => {
-      createAgent.mockReturnValueOnce({
-        runTask: vi.fn().mockResolvedValue({ ok: false, error: "Command killed after 1200000ms without output" })
-      });
-
-      await expect(handlePlanDirect({ task: "Plan feature" }, mockServer, {}))
-        .rejects.toThrow(/without output.*lines=/i);
-      expect(sendTrackerLog).toHaveBeenCalledWith(mockServer, "planner", "failed");
-    });
   });
 });

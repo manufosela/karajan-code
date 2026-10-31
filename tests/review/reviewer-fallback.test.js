@@ -13,6 +13,7 @@ import {
   candidateStatus,
   pickQuotaFallback,
   formatCandidateMenu,
+  reviewerFailureMessage,
 } from "../../src/review/reviewer-fallback.js";
 import { runOneShotReview } from "../../src/review/one-shot-review.js";
 
@@ -27,6 +28,30 @@ describe("isQuotaExhausted", () => {
     expect(isQuotaExhausted("SyntaxError: unexpected token")).toBe(false);
     expect(isQuotaExhausted("")).toBe(false);
     expect(isQuotaExhausted(undefined)).toBe(false);
+  });
+});
+
+// KJC-BUG-0451 (#2799): every codex JSON event carries a `rate_limits` telemetry field,
+// so ANY codex failure matched /rate.?limit/ and was reported as exhausted quota.
+describe("isQuotaExhausted ignores codex's rate_limits telemetry", () => {
+  const telemetry = '{"type":"token_count","rate_limits":{"primary":{"used_percent":3.0,"window_minutes":300},"secondary":{"used_percent":2.0}}}';
+  it("a routing failure next to the telemetry is not quota", () => {
+    expect(isQuotaExhausted(`${telemetry}\nERROR: workspace routing discovery failed`)).toBe(false);
+  });
+  it("the real quota message still is, telemetry or not", () => {
+    expect(isQuotaExhausted(`${telemetry}\n${CODEX_REAL_ERROR}`)).toBe(true);
+    expect(isQuotaExhausted('{"error":{"code":"rate_limit_exceeded"}}')).toBe(true);
+  });
+});
+
+describe("reviewerFailureMessage", () => {
+  it("a failure codex hits before reaching its service gets the real error and a sandbox/network hint", () => {
+    const msg = reviewerFailureMessage("codex", "ERROR: workspace routing discovery failed");
+    expect(msg).toMatch(/workspace routing discovery failed/);
+    expect(msg).toMatch(/sandbox|network/i);
+  });
+  it("any other failure is shown as it is, without a hint", () => {
+    expect(reviewerFailureMessage("codex", "boom")).toBe("reviewer codex failed: boom");
   });
 });
 
@@ -52,6 +77,23 @@ describe("candidate registry + status", () => {
     expect(withKey.find((s) => s.name === "aider").authenticated).toBe(true);
     const without = await candidateStatus({ ...base, env: {} });
     expect(without.find((s) => s.name === "aider").authenticated).toBe(false);
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  // KJC-TSK-1344: a claude-tribbu session sets CODEX_HOME=~/.codex-tribbu; the
+  // personal ~/.codex session must not count for it, nor the other way round.
+  it("codex's session is looked for in CODEX_HOME, not in a fixed ~/.codex", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-fb-codexhome-"));
+    const work = path.join(home, ".codex-work");
+    fs.mkdirSync(work);
+    fs.writeFileSync(path.join(work, "auth.json"), "{}");
+    const base = { home, checkBin: async () => ({ ok: true }) };
+    const codexOf = async (env) => (await candidateStatus({ ...base, env })).find((s) => s.name === "codex");
+    expect((await codexOf({ CODEX_HOME: work })).authenticated).toBe(true);
+    expect((await codexOf({})).authenticated).toBe(false); // ~/.codex has no session here
+    fs.mkdirSync(path.join(home, ".codex"));
+    fs.writeFileSync(path.join(home, ".codex", "auth.json"), "{}");
+    expect((await codexOf({ CODEX_HOME: path.join(home, ".codex-empty") })).authenticated).toBe(false);
     fs.rmSync(home, { recursive: true, force: true });
   });
 
@@ -138,6 +180,20 @@ describe("runOneShotReview quota failover", () => {
       { name: "kimi", installed: false, authenticated: false, tier: "gratis", login: "kimi /login" },
     ];
     await expect(runOneShotReview(args)).rejects.toThrow(/candidato|login/i);
+  });
+
+  // KJC-TSK-1344: with two codex subscriptions the review says which account it used.
+  it("the reviewer line names CODEX_HOME when it moves codex's account, and nothing when it does not", async () => {
+    const agents = { codex: { reviewTask: async () => ({ ok: true, output: JSON.stringify({ approved: true, blocking_issues: [], summary: "ok" }) }) } };
+    const lineFor = async (env) => {
+      const infos = [];
+      const args = { ...baseArgs(agents), env, persist: false };
+      args.logger = { info: (m) => infos.push(m), warn: () => {} };
+      await runOneShotReview(args);
+      return infos.find((m) => m.includes("reviewer=codex"));
+    };
+    expect(await lineFor({ CODEX_HOME: "/home/u/.codex-tribbu" })).toContain("CODEX_HOME=/home/u/.codex-tribbu");
+    expect(await lineFor({})).not.toContain("CODEX_HOME");
   });
 
   it("does not fall back on non-quota errors", async () => {

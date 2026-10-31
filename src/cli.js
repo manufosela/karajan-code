@@ -10,7 +10,7 @@ import { registerPlan } from "./cli/register-plan.js";
 import { registerRolesSkills } from "./cli/register-roles-skills.js";
 import { registerMeta } from "./cli/register-meta.js";
 import { registerSonar } from "./cli/register-sonar.js";
-import { registerStandby } from "./cli/register-standby.js";
+import { registerRetired } from "./cli/retired-commands.js";
 import { printUpdateNotice } from "./utils/update-check.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
 import { migrateKjToKarajan } from "./utils/home-migration.js";
@@ -65,8 +65,8 @@ program.addHelpText(
   `
 Getting started (the basics — start here):
   kj init             Set up Karajan in this project (run once)
-  kj run "<task>"     Build or fix something end-to-end (coder + review)
-  kj plan "<task>"    Break a task into user stories first, then run them
+  kj hu add "<title>" Put a piece of work on the board before it starts
+  kj review --staged  Have another AI review the diff you are about to commit
   kj doctor           Check your environment is ready
   kj harden           Add quality git hooks + CI to any repo
 
@@ -78,7 +78,7 @@ registerPlan(program, { pkgVersion: PKG_VERSION });
 registerRolesSkills(program, { pkgVersion: PKG_VERSION });
 registerMeta(program, { pkgVersion: PKG_VERSION });
 registerSonar(program);
-registerStandby(program);
+registerRetired(program);
 
 /**
  * Find subcommands whose name is "close enough" to a typo. Used by the
@@ -124,7 +124,7 @@ function levenshtein(a, b) {
 program.action(async (_opts, command) => {
   if (command.args.length > 0) {
     const bad = command.args[0];
-    const known = program.commands.map((c) => c.name()).sort();
+    const known = program.commands.filter((c) => !c._hidden).map((c) => c.name()).sort();
     process.stderr.write(`error: '${bad}' no es un comando válido de kj\n`);
     const suggestions = suggestSimilarCommands(bad, known);
     if (suggestions.length > 0) {

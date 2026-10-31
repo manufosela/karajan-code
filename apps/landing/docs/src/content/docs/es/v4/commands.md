@@ -21,7 +21,7 @@ Los comandos que un setup v4 usa de verdad. Todo soporta `--help`; los comandos 
 | `kj rag query "<q>"` | Búsqueda semántica sobre el proyecto (se refresca sola con el drift). |
 | `kj brief <rol>` | Misión + invariantes + entregable de un rol. Sin rol → lista. |
 | `kj review --staged` | Pre-gate de Sonar sobre los ficheros cambiados (BLOCKER/CRITICAL rechazan determinísticamente), después revisión cruzada; veredicto ligado al sha256 del diff y estampado con su workspace. Exit 0/1. |
-| `kj worktree start\|list\|done <slug>` | Carriles de tarea aislados: worktree + rama `feat/<slug>` + bootstrap de dependencias; `done` desmonta un carril mergeado. |
+| `kj worktree start\|list\|done <slug>` | Carriles de tarea aislados: worktree + rama `feat/<slug>` + bootstrap de dependencias; `done` desmonta un carril mergeado. `list --json` da los commits por delante de la base de cada carril y las cards que nombra su rama (por ID o referencia); `--prs` añade la PR de cada carril (una sola llamada a `gh`). El HU Board los muestra en cada card. |
 | `kj review --check` | ¿Hay veredicto approved para el diff staged exacto? (Lo que ejecuta el hook.) |
 | `kj solomon --position "<por qué>"` | Arbitraje de tercera IA sobre un veredicto rechazado. Exit 0 approve / 1 reject. |
 | `kj agent run <agente> "<tarea>"` | Delega una tarea a otra IA e imprime su salida. |
@@ -37,11 +37,8 @@ Los comandos que un setup v4 usa de verdad. Todo soporta `--help`; los comandos 
 | `kj board` | Dashboard del HU Board (con `state_backend: hu-board`). |
 | `kj gain` | Analítica de ahorro de tokens. |
 
-## Headless
+## Retirados en la 5.0
 
-| Comando | Hace |
-|---|---|
-| `kj run "<tarea>"` | El pipeline subprocess clásico — ver [Modo headless](/docs/es/v4/headless/). `--non-interactive` (o `KJ_NON_INTERACTIVE=1`) auto-responde los gates seguros; los findings FAIL paran con exit 1. |
-| `kj autorun <spec>` | Spec → plan → cada historia → informe final, desatendido. |
+`kj run`, `kj autorun`, `kj resume`, `kj standby`, `kj plan generate`, `kj status`, `kj undo`, `kj triage`, `kj researcher`, `kj architect` y `kj review "<tarea>"` movían el antiguo pipeline de subprocesos y se retiraron con él: responden con un aviso y no arrancan nada. Qué sustituye a cada uno: [Migrar a la 5.0](/docs/es/v4/migration/). Para CI y scripts, ver [Ejecuciones desatendidas](/docs/es/v4/headless/).
 
-Todo lo demás (`kj advanced` lista ~30 más) pertenece al pipeline headless y usuarios avanzados — documentado en el **archivo histórico V3** ([aquí](/docs/es/getting-started/introduction/), claramente marcado como legacy).
+`kj advanced` lista el resto de comandos. El pipeline antiguo está documentado en el **archivo histórico V3** ([aquí](/docs/es/getting-started/introduction/)).

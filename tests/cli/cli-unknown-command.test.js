@@ -50,8 +50,9 @@ describe("CLI unknown-command guard", () => {
     expect(r.stderr).toMatch(/Comandos disponibles:/);
     // Spot-check a few well-known top-level commands appear in the list.
     expect(r.stderr).toContain("plan");
-    expect(r.stderr).toContain("run");
     expect(r.stderr).toContain("doctor");
+    // KJC-TSK-1317: a command retired in 5.0 is not offered.
+    expect(r.stderr).not.toMatch(/^ {2}run$/m);
   });
 
   it("points the user at --help for more info", () => {
@@ -69,11 +70,11 @@ describe("CLI unknown-command guard", () => {
   });
 
   it("propagates Commander's option-typo suggestion to subcommands", () => {
-    // `--task-fil` is a 1-char typo of `--task-file`. With
+    // `--stagd` is a 1-char typo of `--staged`. With
     // showSuggestionAfterError(true), Commander should hint at the
     // correct flag inside subcommands too.
-    const r = runKj(["plan", "generate", "--task-fil", "SPEC.md"]);
+    const r = runKj(["review", "--stagd"]);
     expect(r.code).not.toBe(0);
-    expect(r.stderr).toMatch(/--task-file/);
+    expect(r.stderr).toMatch(/--staged/);
   });
 });

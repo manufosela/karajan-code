@@ -14,11 +14,25 @@ describe("detectMaggleAgents", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-go-home-"));
     try {
       fs.writeFileSync(path.join(home, ".claude.json"), "{}");
-      const out = await detectMaggleAgents({ home, checkBin: async (name) => ({ ok: name === "claude" }) });
+      const out = await detectMaggleAgents({ home, env: {}, checkBin: async (name) => ({ ok: name === "claude" }) });
       const claude = out.find((a) => a.name === "claude");
       const codex = out.find((a) => a.name === "codex");
       expect(claude).toMatchObject({ installed: true, authenticated: true });
       expect(codex).toMatchObject({ installed: false, authenticated: false });
+    } finally { fs.rmSync(home, { recursive: true, force: true }); }
+  });
+
+  // KJC-TSK-1344: claude-tribbu runs with CLAUDE_CONFIG_DIR, and its session lives there.
+  it("claude's session is looked for in CLAUDE_CONFIG_DIR when it is set", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-go-cfgdir-"));
+    try {
+      const cfg = path.join(home, ".claude-work");
+      fs.mkdirSync(cfg);
+      fs.writeFileSync(path.join(cfg, ".credentials.json"), "{}");
+      const checkBin = async () => ({ ok: true });
+      const claudeOf = async (env) => (await detectMaggleAgents({ home, env, checkBin })).find((a) => a.name === "claude");
+      expect((await claudeOf({ CLAUDE_CONFIG_DIR: cfg })).authenticated).toBe(true);
+      expect((await claudeOf({})).authenticated).toBe(false);
     } finally { fs.rmSync(home, { recursive: true, force: true }); }
   });
 });

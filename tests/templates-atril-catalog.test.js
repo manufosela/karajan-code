@@ -20,7 +20,8 @@ describe("templates/atril, Karajan's catalog", () => {
       const { artifacts } = JSON.parse(out);
       const files = readdirSync(join(CATALOG, "commands")).map((file) => file.replace(/\.md$/, ""));
       expect(artifacts.map(({ kind, name }) => `${kind}:${name}`).toSorted()).toEqual(files.toSorted().map((name) => `command:${name}`));
-      expect(files).toHaveLength(14);
+      expect(files).toHaveLength(13);
+      expect(files).not.toContain("kj-run"); // KJC-TSK-1320: kj run is retired in 5.0
       expect(files.every((name) => name.startsWith("kj-"))).toBe(true);
     } finally {
       rmSync(noUserStore, { recursive: true, force: true });

@@ -11,6 +11,8 @@ Un dashboard web que visualiza todas las historias de usuario (HU) y sesiones de
 
 Más allá del kanban, el board tiene una vista **Governance**, el acta encadenada por hash del proyecto, en vivo. Cada decisión que toma el entorno (un deny, una excepción con su caducidad y su ámbito, un veredicto de revisión, un resellado del supervisor) aterriza ahí sellada, y cada entrada lleva la huella criptográfica de la anterior. Así, mientras tu agente trabaja, puedes leer, en un navegador, sin terminal, exactamente qué se decidió y por quién, con la certeza de que nadie reescribió el registro de ayer sin que se note.
 
+El trabajo en paralelo también se ve. Una card que se trabaja en un carril de `kj worktree` lleva una etiqueta con el carril, su rama, sus commits por delante de la base y su PR. La vista Governance lista los carriles fuera del método: una rama que no nombra ninguna card y un carril cuya PR ya está mergeada, con el `kj worktree done <slug>` exacto que lo despeja. Todo se lee de git cada vez, no se guarda nada.
+
 ## Bajo el capó, pruébalo tú mismo
 
 El acta es un fichero plano de solo-añadido donde cada línea liga la anterior:
@@ -53,7 +55,6 @@ Activar en `kj.config.yml`:
 hu_board:
   enabled: true
   port: 4000
-  auto_start: true  # Iniciar automáticamente con kj run
 ```
 
 O activar durante el setup:
@@ -69,11 +70,10 @@ kj init  # Seleccionar "Enable HU Board" cuando se pregunte
 - **Multi-Proyecto**: Auto-descubre todos los proyectos desde ~/.karajan/
 - **Auto-Sincronización**: Vigila ficheros JSON para actualizaciones en tiempo real
 - **Tema Oscuro**: Coincide con el diseño de Karajan Code
-- **HUs Auto-Generadas**: Desde v1.38.0, el board muestra HUs generadas automáticamente a partir de tareas complejas, no solo las proporcionadas manualmente. Cuando el triage activa hu-reviewer para tareas medias/complejas, las HUs descompuestas aparecen en el board con su estado de sub-pipeline (pending/coding/reviewing/done/failed/blocked)
-- **Sincronización con Planes (v2.5.0)**: Las HUs generadas con `kj plan` también se rastrean en el board. Al ejecutar `kj run --plan <planId>`, el board muestra el estado del sub-pipeline de cada HU en tiempo real, agrupadas por su plan de origen
-- **Tests de Aceptación (v2.4.0+)**: Cada tarjeta HU muestra sus tests de aceptación ejecutables y su estado pasa/falla tras cada iteración del coder
 - **Fallback de Puerto**: Arranca en el puerto 4000 por defecto; prueba automáticamente 4001–4009 si el puerto primario está ocupado
-- **Historial de Pipeline**: Se generan registros de historial para todas las ejecuciones del pipeline, proporcionando trazabilidad completa entre tareas y sus descomposiciones en HUs
+- **Carriles y Gobierno**: cada card muestra su carril, rama, commits por delante y PR; la vista de Gobierno lista los carriles fuera del método
+
+Hasta la 4.x el board podía lanzar también el pipeline de `kj run` (el botón **Run plan** y el ▶ de cada card). Ese pipeline se retiró en la 5.0: ver [Migrar a la 5.0](/docs/es/v4/migration/).
 
 ## Cómo Funciona
 
@@ -96,11 +96,3 @@ kj_board({ action: "open" })
 kj_board({ action: "status" })
 kj_board({ action: "stop" })
 ```
-
-## Arranque Automático
-
-El board arranca automáticamente cuando:
-- `hu_board.auto_start: true` está configurado en `kj.config.yml`
-- `kj run` genera un batch automático de HUs para una tarea compleja
-
-En ambos casos el board se inicia antes de que comience la ejecución del pipeline, de modo que las historias aparecen en el board en cuanto la primera HU entra al pipeline.

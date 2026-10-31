@@ -8,7 +8,7 @@
  *
  * This adapter preserves the runCommand API exactly, so current consumers
  * can opt-in to DI without behavioural changes. A matching MockCommandRunner
- * lives in src/infrastructure/mocks.js and lets tests script outputs per
+ * lives in tests/support/infrastructure-mocks.js and lets tests script outputs per
  * invocation.
  *
  * @typedef {Object} CommandRunResult

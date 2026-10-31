@@ -35,6 +35,10 @@ const HOOK_SRC = resolve(fileURLToPath(import.meta.url), "../../../scripts/git-h
 // does not wait. A recent attempt that died (no Ollama) is not retried blindly.
 function bootstrapInBackground({ projectDir, slug, head, logger }) {
   const boot = startBootstrap(projectDir);
+  if (boot.busy) {
+    warnOnce(logger, `bootstrap-busy:${projectDir}`, `[rag] ${slug} has no index yet: another background index is running (${boot.busy.slug ?? "?"}, pid ${boot.busy.pid ?? "?"}); it is tried again on the next command`);
+    return { skipped: true, reason: "bootstrap-queued", holder: boot.busy, head };
+  }
   if (boot.recent) {
     warnOnce(logger, `bootstrap:${projectDir}`, `[rag] ${slug} has no index and the background indexing did not finish: run kj rag index --with-sources`);
     return { skipped: true, reason: "bootstrap-failed", head };

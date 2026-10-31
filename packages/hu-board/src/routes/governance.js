@@ -84,8 +84,30 @@ router.get("/", async (req, res) => {
     if (err?.code === "ENOENT") return res.status(503).json({ ok: false, error: "kj not installed", installable: true });
     return res.status(500).json({ ok: false, error: String(err.message || err) });
   }
-  res.json({ ok: true, dir, policy: policySummary(dir), report, anchor: anchorState(dir, report.chain?.length ?? 0), identity: identityState(dir) });
+  res.json({ ok: true, dir, policy: policySummary(dir), report, anchor: anchorState(dir, report.chain?.length ?? 0), identity: identityState(dir), lanes: await laneWarnings(dir) });
 });
+
+/**
+ * KJC-TSK-1314: lanes outside the method. A branch naming no card, and a lane whose PR is merged
+ * with nothing after it (a fresh lane also has 0 commits ahead, so the merged PR is what tells).
+ */
+async function laneWarnings(dir) {
+  const none = (error) => ({ noCard: [], merged: [], error });
+  try {
+    const r = await runCommand("kj", ["worktree", "list", "--json", "--prs"], { cwd: dir });
+    const line = String(r.stdout || "").trim().split("\n").findLast((l) => l.startsWith("["));
+    if (r.exitCode !== 0 || !line) return none(`kj worktree list --json failed (exit ${r.exitCode})`);
+    const lanes = JSON.parse(line);
+    return {
+      noCard: lanes.filter((l) => l.cards.length === 0).map(({ slug, branch }) => ({ slug, branch })),
+      merged: lanes.filter((l) => l.pr?.state === "MERGED" && l.ahead === 0)
+        .map(({ slug, branch, pr }) => ({ slug, branch, pr: pr.number, done: `kj worktree done ${slug}` })),
+      error: null,
+    };
+  } catch (err) {
+    return none(String(err.message || err));
+  }
+}
 
 // GUI-C (KJC-TSK-0773): actions go through the SAME CLI commands the
 // terminal uses — the inexemptable (security, defaults.*) is refused by kj

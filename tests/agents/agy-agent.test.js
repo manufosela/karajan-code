@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AgyAgent, extractAgyOutput } from "../../src/agents/agy-agent.js";
 import { createAgent, getAgentMeta } from "../../src/agents/index.js";
-import { buildMockEnvironment } from "../../src/infrastructure/mocks.js";
+import { buildMockEnvironment } from "../support/infrastructure-mocks.js";
 import { KNOWN_AGENTS } from "../../src/utils/agent-detect.js";
 import { REVIEWER_CANDIDATES } from "../../src/review/reviewer-fallback.js";
 

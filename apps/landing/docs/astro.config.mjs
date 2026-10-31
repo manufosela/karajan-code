@@ -70,14 +70,15 @@ export default defineConfig({
 								label: 'Try it', translations: { es: 'Pruébalo' },
 								items: [
 									{ label: 'Recommended setup', slug: 'guides/recommended-setup', translations: { es: 'Configuración recomendada' } },
-									{ label: 'Pipeline flows', slug: 'guides/flows', translations: { es: 'Flujos del pipeline' } },
 								],
 							},
 							{
 								label: 'Reference', translations: { es: 'Referencia' },
 								items: [
 									{ label: 'Command reference', slug: 'v4/commands', translations: { es: 'Referencia de comandos' } },
-									{ label: 'Headless mode', slug: 'v4/headless', translations: { es: 'Modo headless' } },
+									{ label: 'Migrating to 5.0', slug: 'v4/migration', translations: { es: 'Migrar a la 5.0' } },
+									{ label: 'Unattended runs', slug: 'v4/headless', translations: { es: 'Ejecuciones desatendidas' } },
+									{ label: 'Several claude and codex accounts', slug: 'v4/accounts', translations: { es: 'Varias cuentas de claude y codex' } },
 									{ label: 'MCP server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
 									{ label: 'Contributors', slug: 'contributors' },
 								],
@@ -142,6 +143,7 @@ export default defineConfig({
 									{ label: 'Installation', slug: 'getting-started/installation', translations: { es: 'Instalación' } },
 									{ label: 'Quick Start', slug: 'getting-started/quick-start', translations: { es: 'Inicio Rápido' } },
 									{ label: 'Pipeline', slug: 'guides/pipeline' },
+									{ label: 'Pipeline flows', slug: 'guides/flows', translations: { es: 'Flujos del pipeline' } },
 									{ label: 'Skills Mode', slug: 'guides/skills', translations: { es: 'Modo Skills' } },
 									{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
 									{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },

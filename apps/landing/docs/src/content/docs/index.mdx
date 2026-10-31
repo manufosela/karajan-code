@@ -32,8 +32,8 @@ Prompt engineering got one good answer from one good prompt. Context engineering
 
 - **Maker / checker split** — a coder against independent reviewer, tester and security roles, with Solomon judging disputes. The maker never grades its own work.
 - **Deterministic verification** — TDD, per-HU acceptance tests, SonarQube gates and deterministic guards. Checking is tests, not vibes.
-- **The autonomy ladder L1 → L2 → L3** — the `interactive | assisted | autonomous` axis (v3.7.0). Report, then assisted fixes, then unattended `kj autorun` — defaulting to `interactive`, so you opt in.
-- **A durable state spine** — sessions, the HU Board, journals, the RAG index and `kj resume` keep the loop alive across runs.
+- **The autonomy ladder L1 → L2 → L3** — the `interactive | assisted | autonomous` axis (v3.7.0). Report, then assisted fixes, then autonomous work — defaulting to `interactive`, so you opt in.
+- **A durable state spine** — the HU Board, the lanes (`kj worktree`), the ADRs and the RAG index keep the loop alive across sessions.
 
 The caveat loop engineering insists on — *unattended loops make unattended mistakes* — is designed in: autonomous runs list their residual defects, every story lands behind a PR, and `kj-trash` snapshots destructive operations. [Read the full building-block mapping →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
 
@@ -53,8 +53,8 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
   <Card title="Self-healing ecosystem" icon="github">
     Your agent hits a kj bug? `kj report-issue` diagnoses and files it upstream — sanitized, deduped, and only with your approval. Fixes ship back to everyone. [Command reference →](/docs/v4/commands/)
   </Card>
-  <Card title="Headless mode" icon="seti:shell">
-    The classic multiagent pipeline lives on for CI and automation: `kj run` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. [Headless mode →](/docs/v4/headless/)
+  <Card title="Unattended runs" icon="seti:shell">
+    In CI and scripts, `--non-interactive` lets the safe gates answer on their own and FAIL findings stop with a real exit code; the CI workflows re-check every PR. Coming from `kj run`? It was retired in 5.0. [Migrating to 5.0 →](/docs/v4/migration/)
   </Card>
   <Card title="Governed tournament (v4.15)" icon="star">
     One task, N coders in isolated worktree lanes: `kj tournament` fans out, `--score` builds a deterministic zero-LLM scoreboard, a cross-AI judge with no conflict of interest picks the winner, and `--crown` promotes it through the normal review gate — winning earns a candidacy, not a bypass.
@@ -77,7 +77,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.70.2: the CI policy check works in projects that commit their config (current)
+### v4.70.3: harden pins published versions, and the Sentinel lets reads through (current)
+
+`kj harden` no longer seeds the CI policy workflow with a kj version that npm does not have. The Sentinel lets a command that only reads (`cat`, `grep`, `ls`) name its own files and the governance config, and now catches one-liners that wrote that config by a relative path. Your seal commit passes the CI review check, proved by the phone signature. `kj run` works with nvm, sizes are measured in net lines as CI does, and pushing after merging main is no longer refused. Re-seal once after upgrading (`kj harden --commit`).
+
+### v4.70.2: the CI policy check works in projects that commit their config
 
 `policy-check` no longer dies in projects that commit their `.karajan/kj.config.yml` (CI has no global config: there the project's sits on the defaults). With npm 12, `kj doctor` and the RAG say exactly how to build `better-sqlite3`, which npm 12 leaves unbuilt. `kj policy add` works with reviewer claude, and a PR can describe a seal without the Sentinel stopping it.
 

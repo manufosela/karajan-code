@@ -8,7 +8,7 @@
  * This adapter preserves the exact native API shapes for the handful of
  * operations actually used in the codebase, so consumers can opt-in to DI
  * without rewriting call sites. A matching MockFileSystem lives in
- * src/infrastructure/mocks.js.
+ * tests/support/infrastructure-mocks.js.
  *
  * Scope for TSK-0316: intentionally minimal. Only the operations already used
  * by orchestrator + agents. Additional methods added on demand.

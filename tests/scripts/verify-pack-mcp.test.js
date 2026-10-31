@@ -43,16 +43,17 @@ describe("mcpSmoke against the source tree", () => {
   }, 240_000);
   afterAll(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
 
-  it("the server lists the tools, answers kj_status and kj_config, and kj_review reads the taskFile before its gate", async () => {
+  it("the server lists the tools, answers kj_config, kj_code reads the taskFile before its gate, and kj_run says it is retired", async () => {
     const res = await mcpSmoke({ serverPath: SERVER, kjHome: env.KARAJAN_HOME, projectDir: path.join(tmp, "repo"), taskFile: "task.md", env });
     expect(res.findings, res.findings.join("\n")).toEqual([]);
     expect(res.ok).toBe(true);
-    const review = res.answers.find((a) => a.tool === "kj_review");
-    expect(review).toBeTruthy();
-    // Said, not hidden: this runner has no reviewer, so the gate answers — and that is the pass.
-    if (review.gated) {
-      console.info(`kj_review reached its gate: ${review.reason}`);
-      expect(review.reason).not.toMatch(/Missing required field|Config file not found/);
+    const code = res.answers.find((a) => a.tool === "kj_code");
+    expect(code).toBeTruthy();
+    // Said, not hidden: this runner has no such coder, so the gate answers — and that is the pass.
+    if (code.gated) {
+      console.info(`kj_code reached its gate: ${code.reason}`);
+      expect(code.reason).not.toMatch(/Missing required field|Config file not found/);
     }
+    expect(res.answers.find((a) => a.tool === "kj_run")?.reason).toMatch(/kj run was retired in 5\.0/);
   }, 180_000);
 });

@@ -5,7 +5,7 @@
 // validation, dim mismatch detection).
 import { describe, expect, it, vi } from "vitest";
 import { makeEmbedder } from "../../src/rag/embedders/factory.js";
-import { ONNXEmbedder, ONNXEmbedderError } from "../../src/rag/embedders/onnx.js";
+import { ONNXEmbedder, ONNXEmbedderError } from "karajan-core/rag/embedders/onnx";
 
 describe("rag/embedders/onnx — factory wiring", () => {
   it("selects ONNX provider when configured", () => {

@@ -21,7 +21,10 @@ describe("printWelcomeScreen", () => {
   it("prints quick start commands", () => {
     printWelcomeScreen({ version: "1.0.0" });
     const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
-    expect(output).toContain("kj run");
+    // KJC-TSK-1317: kj run is retired; the welcome points at the v4 method.
+    expect(output).not.toContain("kj run");
+    expect(output).toContain("kj hu add");
+    expect(output).toContain("kj review --staged");
     expect(output).toContain("kj init");
     expect(output).toContain("kj doctor");
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildScannerOpts, indexedFilesFrom, respectRepoProperties, ensureSonarProjectProperties } from "../../src/sonar/scanner.js";
@@ -104,6 +104,12 @@ describe("[opt-in: sonar] respectRepoProperties (KJC-BUG-0156)", () => {
     expect(kept.javascript_lcov_report_paths).toBeUndefined();
     expect(kept.disabled_rules).toEqual(["js:S1"]);
   });
+  it("also strips the project name and the tests folder (KJC-BUG-0445): the repo's file owns them", () => {
+    const kept = respectRepoProperties({ project_name: "x", tests: "tests", disabled_rules: [] }, { existed: true });
+    expect(kept.project_name).toBeUndefined();
+    expect(kept.tests).toBeUndefined();
+    expect(buildScannerOpts("k", kept)).toBe("-Dsonar.projectKey=k");
+  });
   it("leaves everything untouched when kj generated the properties itself", () => {
     const scanner = { sources: "src", disabled_rules: [] };
     expect(respectRepoProperties(scanner, { existed: false })).toEqual(scanner);
@@ -119,17 +125,23 @@ describe("[opt-in: sonar] ensureSonarProjectProperties (KJC-BUG-0156)", () => {
       expect(r).toMatchObject({ existed: true, declaredKey: "my-monorepo" });
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
-  it("generates the file and reports existed=false when the repo has none", async () => {
+  // KJC-BUG-0445 (#2854): the generated file stayed untracked in a lane and
+  // `kj worktree done` refused to remove it. The layout now travels as -D opts.
+  it("writes nothing when the repo has none, and hands its layout to the scanner instead", async () => {
     const dir = mkdtempSync(join(tmpdir(), "kj-sonar-props-"));
     try {
       mkdirSync(join(dir, "src"));
       mkdirSync(join(dir, "tests"));
+      writeFileSync(join(dir, "package.json"), '{"name":"@acme/app"}');
       const r = await ensureSonarProjectProperties(dir);
-      expect(r).toMatchObject({ existed: false, written: true });
-      const props = readFileSync(join(dir, "sonar-project.properties"), "utf8");
-      expect(props).toContain("sonar.sources=src\n");
-      expect(props).toContain("sonar.tests=tests\n");
-      expect(r.note).toMatch(/wrote sonar-project\.properties/);
+      expect(r).toMatchObject({ existed: false, written: false });
+      expect(existsSync(join(dir, "sonar-project.properties"))).toBe(false);
+      expect(r.layout).toMatchObject({ project_name: "@acme/app", sources: "src", tests: "tests" });
+      const opts = buildScannerOpts("k", r.layout);
+      expect(opts).toContain("-Dsonar.projectName=@acme/app");
+      expect(opts).toContain("-Dsonar.sources=src");
+      expect(opts).toContain("-Dsonar.tests=tests");
+      expect(r.note).toMatch(/no sonar-project\.properties.*commit one/);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
   // KJC-BUG-0280 (#1979): the scanner aborts, with a stack trace, on a declared
@@ -138,10 +150,9 @@ describe("[opt-in: sonar] ensureSonarProjectProperties (KJC-BUG-0156)", () => {
     const dir = mkdtempSync(join(tmpdir(), "kj-sonar-props-"));
     try {
       mkdirSync(join(dir, "lib"));
-      await ensureSonarProjectProperties(dir);
-      const props = readFileSync(join(dir, "sonar-project.properties"), "utf8");
-      expect(props).toContain("sonar.sources=lib\n");
-      expect(props).not.toContain("sonar.tests=");
+      const r = await ensureSonarProjectProperties(dir);
+      expect(r.layout.sources).toBe("lib");
+      expect(r.layout.tests).toBeUndefined();
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
   it("writes nothing and says why when there is no folder to analyse", async () => {

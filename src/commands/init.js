@@ -687,7 +687,7 @@ async function installSkills(logger, interactive, offerRulesync) {
   if (interactive) {
     const wizard = createWizard();
     try {
-      doInstall = await wizard.confirm("Install Karajan's commands (kj-run, kj-code, kj-review...) into atril's store, on demand?", true);
+      doInstall = await wizard.confirm("Install Karajan's commands (kj-code, kj-review, kj-audit...) into atril's store, on demand?", true);
     } finally {
       wizard.close();
     }
@@ -1017,7 +1017,7 @@ export async function initCommand({ logger, flags = {} }) {
   logger.info(hardened || skipHarden
     ? "✓ Karajan is set up in this project."
     : "⚠ Karajan is set up EXCEPT the quality harness — without it there are no gates.");
-  logger.info('  Next:  kj run "describe what to build or fix"');
+  logger.info("  Next:  ask your agent for the work; it follows the method kj installed");
   logger.info("  More:  kj --help   ·   kj doctor (check your setup)");
 }
 

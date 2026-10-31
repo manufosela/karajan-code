@@ -26,9 +26,6 @@ afterEach(() => {
 const { readConfig, writeConfigPatch, EDITABLE_FIELDS } = await import(
   "../../packages/hu-board/src/config-yaml.js"
 );
-const { resolveSearchOpts } = await import(
-  "../../src/orchestrator/stages/rag-context-stage.js"
-);
 
 describe("config-yaml — RAG search knobs (KJC-TSK-0463)", () => {
   it("exposes ragSearchMode/Alpha/Rerank with the expected shape", () => {
@@ -83,36 +80,5 @@ describe("config-yaml — RAG search knobs (KJC-TSK-0463)", () => {
     expect(get("ragSearchMode")).toBe("hybrid");
     expect(get("ragSearchAlpha")).toBe(0.6);
     expect(get("ragSearchRerank")).toBe(false);
-  });
-});
-
-describe("rag-context-stage — resolveSearchOpts (KJC-TSK-0463)", () => {
-  it("falls back to defaults when rag.search is absent", () => {
-    const out = resolveSearchOpts({});
-    expect(out.mode).toBe("hybrid");
-    expect(out.alpha).toBe(0.6);
-    expect(out.rerankOpts).toBeUndefined();
-  });
-
-  it("forwards explicit mode/alpha as-is", () => {
-    const out = resolveSearchOpts({ rag: { search: { mode: "keyword", alpha: 0.2 } } });
-    expect(out.mode).toBe("keyword");
-    expect(out.alpha).toBe(0.2);
-  });
-
-  it("maps rerank=true to an empty rerankOpts object", () => {
-    const out = resolveSearchOpts({ rag: { search: { rerank: true } } });
-    expect(out.rerankOpts).toEqual({});
-  });
-
-  it("forwards an object-shaped rerank config verbatim", () => {
-    const cfg = { rag: { search: { rerank: { provider: "cohere", model: "rerank-3" } } } };
-    const out = resolveSearchOpts(cfg);
-    expect(out.rerankOpts).toEqual({ provider: "cohere", model: "rerank-3" });
-  });
-
-  it("ignores non-finite alpha (NaN, string) and falls back to default", () => {
-    expect(resolveSearchOpts({ rag: { search: { alpha: "nope" } } }).alpha).toBe(0.6);
-    expect(resolveSearchOpts({ rag: { search: { alpha: NaN } } }).alpha).toBe(0.6);
   });
 });

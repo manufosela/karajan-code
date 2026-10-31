@@ -88,6 +88,13 @@ vi.mock("../src/harden/phone-sign.js", async (importOriginal) => ({
   isPhoneEnrolled: vi.fn(() => true)
 }));
 
+// KJC-BUG-0446: these two checks read the real RAG index and ask GitHub for
+// every pinned action. Under a loaded full suite they hit the runner's 5 s
+// timeout and turned this unit test red; their own tests cover them.
+const stubCheck = (name, label) => ({ name, label, strategy: "none", detect: async () => ({ ok: true, severity: "info", detail: "stubbed in the doctor unit test" }) });
+vi.mock("../src/checks/rag-coverage.js", () => ({ createRagCoverageCheck: () => stubCheck("rag-coverage", "RAG index coverage (ADR 0010)") }));
+vi.mock("../src/checks/action-pins.js", () => ({ createActionPinsCheck: () => stubCheck("action-pins", "actions fijadas por SHA") }));
+
 const baseConfig = {
   review_mode: "standard",
   sonarqube: { enabled: true, host: "http://localhost:9000", enforcement_profile: "pragmatic" }

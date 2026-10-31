@@ -5,7 +5,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createNoopLogger } from "../_fixtures/loggers.js";
 import { baseAgentConfig } from "../_fixtures/agents.js";
 import { applyCoderRoute, routeCoder } from "../../src/hu/coder-routing.js";
-import { CoderRole } from "../../src/roles/coder-role.js";
 
 vi.mock("../../src/utils/process.js", () => ({ runCommand: vi.fn() }));
 vi.mock("../../src/agents/resolve-bin.js", () => ({ resolveBin: vi.fn((name) => `/usr/local/bin/${name}`) }));
@@ -39,16 +38,6 @@ describe("the coder agent runs on the route", () => {
     vi.resetAllMocks();
     ({ runCommand } = await import("../../src/utils/process.js"));
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
-  });
-
-  it("CoderRole builds the agent with the routed model and effort, leaving its own config alone", () => {
-    const own = baseAgentConfig();
-    const createAgentFn = vi.fn((provider, cfg) => ({ provider, cfg }));
-    const role = new CoderRole({ config: own, logger, createAgentFn });
-    const agent = role.createAgentInstance("claude", { route: { model: "haiku", effort: "low" } });
-    expect(agent.cfg.roles.coder).toMatchObject({ model: "haiku", effort: "low" });
-    expect(own.roles?.coder?.model ?? null).not.toBe("haiku");
-    expect(role.createAgentInstance("claude", {}).cfg).toBe(own);
   });
 
   it("claude takes --effort from the coder's config", async () => {

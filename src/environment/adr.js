@@ -6,6 +6,8 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 const ADR_DIR = path.join(".karajan", "adrs");
 // KJC-BUG-0272: whoever records a decision proposes it. Accepting is the user's:
@@ -28,12 +30,24 @@ export async function listAdrs(projectDir) {
   return adrs;
 }
 
-export async function addAdr(projectDir, { title, decision, context = "", consequences = "" }) {
+const realGit = (cwd) => async (args) => (await promisify(execFile)("git", args, { cwd })).stdout;
+
+// HU-2792: numbers that open branches hold, read from the local origin/* refs
+// (no network). Not a git repo, or no remotes: nothing taken, as before.
+async function remoteAdrNumbers(run) {
+  try {
+    const refs = (await run(["for-each-ref", "--format=%(refname)", "refs/remotes/origin"])).split("\n").filter(Boolean);
+    const trees = await Promise.all(refs.map((ref) => run(["ls-tree", "--name-only", ref, `${ADR_DIR}/`]).catch(() => "")));
+    return trees.flatMap((t) => t.split("\n")).map((f) => /\/(\d{4})-[^/]*\.md$/.exec(f)?.[1]).filter(Boolean).map(Number);
+  } catch { return []; }
+}
+
+export async function addAdr(projectDir, { title, decision, context = "", consequences = "" }, run = realGit(projectDir)) {
   if (!title?.trim() || !decision?.trim()) {
     throw new Error("kj adr add requires a title and --decision");
   }
   const existing = await listAdrs(projectDir);
-  const number = (existing.at(-1)?.number || 0) + 1;
+  const number = Math.max(0, ...existing.map((a) => a.number), ...await remoteAdrNumbers(run)) + 1;
   const file = path.join(ADR_DIR, `${String(number).padStart(4, "0")}-${slugify(title)}.md`);
   const body = [
     `# ${title}`, "",

@@ -16,12 +16,15 @@ afterEach(() => { vi.restoreAllMocks(); fs.rmSync(dir, { recursive: true, force:
 
 const team = (existing = []) => {
   const created = [];
+  const mirrored = [];
   return {
     created,
+    mirrored,
     deps: {
       boardConfig: async () => ({ backend: "github", repo: "acme/app" }),
       listTeamHus: async () => existing,
       createTeamHu: async (args) => { created.push(args); return { short_id: "HU-42", number: 42, status: "pending", title: args.title }; },
+      writeMirror: async (projectDir, rows, opts) => { mirrored.push({ projectDir, rows, opts }); },
     },
   };
 };
@@ -34,6 +37,15 @@ describe("kj hu add on the shared board", () => {
     expect(r).toMatchObject({ short_id: "HU-42", status: "pending", board: "github" });
     expect(created[0]).toMatchObject({ repo: "acme/app", title: "Login with SSO", acceptanceCriteria: ["redirects"], tests: ["e2e login"], ref: "KJC-TSK-9" });
     expect(fs.existsSync(path.join(dir, ".karajan", "plans"))).toBe(false);
+  });
+
+  // KJC-BUG-0443: the gates read the mirror, so the new HU and its ref are in it at once.
+  it("refreshes the board's mirror with the new HU and its ref", async () => {
+    const { mirrored, deps } = team([{ short_id: "HU-7", number: 7, title: "Other", status: "running", ref: null }]);
+    await add("Login with SSO", { ref: "KJC-TSK-9" }, deps);
+    expect(mirrored).toHaveLength(1);
+    expect(mirrored[0]).toMatchObject({ projectDir: dir, opts: { repo: "acme/app" } });
+    expect(mirrored[0].rows.map((r) => [r.short_id, r.ref])).toEqual([["HU-7", null], ["HU-42", "KJC-TSK-9"]]);
   });
 
   it("refuses a title the team board already has, and an id GitHub did not give", async () => {

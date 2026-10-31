@@ -17,7 +17,7 @@ You almost never type `kj` yourself. Your agent does — the playbook installed 
 
 **From your agent:** the project declares its guarantees ("the suite passes", "there is a recent audit"), and the **Steward** re-verifies them on a schedule. Stale evidence stops counting — an expired guarantee reads as *unknown*, never green — and every break lands on the board as PROPOSED work that nothing executes unreviewed. Projects rot exactly when nobody is looking; this looks.
 
-**Under the hood:** `kj steward sweep` runs the check on demand; it also runs on `kj resume` when the evidence is stale, or as an opt-in scheduled Action.
+**Under the hood:** `kj steward sweep` runs the check on demand, or as an opt-in scheduled Action.
 
 ## What the playbook orders
 

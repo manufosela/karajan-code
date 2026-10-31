@@ -43,6 +43,34 @@ const addCommand = ({ missing, ...target }) =>
   `gh api -X POST ${protectionPath(target)}/required_status_checks/contexts ${missing.map((c) => `-f ${shellQuote(`contexts[]=${c}`)}`).join(" ")}`;
 
 const settingsUrl = ({ owner, repo }) => `https://github.com/${owner}/${repo}/settings/branches`;
+const rulesUrl = ({ owner, repo }) => `https://github.com/${owner}/${repo}/settings/rules`;
+
+/**
+ * KJC-BUG-0449 (#2787): every rule that applies to the branch, rulesets included.
+ * [] when none applies (a 404 included); null when it cannot be read.
+ */
+async function branchRules({ owner, repo, branch }, run) {
+  let res;
+  try { res = await run("gh", ["api", `repos/${owner}/${repo}/rules/branches/${encodeURIComponent(branch)}`]); } catch { return null; }
+  if (res.exitCode !== 0) return /404/.test(`${res.stderr}${res.stdout}`) ? [] : null;
+  try {
+    const rules = JSON.parse(res.stdout || "[]");
+    return Array.isArray(rules) ? rules : null;
+  } catch { return null; }
+}
+
+const rulesetChecks = (rules) => rules
+  .filter((r) => r?.type === "required_status_checks")
+  .flatMap((r) => (r.parameters?.required_status_checks ?? []).map((c) => c.context));
+
+/** No classic protection: the rulesets decide, and they are fixed in their own page, never with a PUT. */
+function rulesetAdvice({ rules, checks, target }) {
+  if (rules === null) return { status: "unverified", reason: "the branch rules could not be read", settings: rulesUrl(target), missing: checks };
+  if (rules.length === 0) return { status: "unprotected", command: protectCommand({ ...target, checks }) };
+  const required = new Set(rulesetChecks(rules));
+  const missing = checks.filter((c) => !required.has(c));
+  return missing.length > 0 ? { status: "ruleset-missing", missing, settings: rulesUrl(target) } : { status: "ok", via: "ruleset" };
+}
 
 /**
  * What the base branch needs for the checks to be required, and how. A command
@@ -61,14 +89,18 @@ export async function protectionAdvice({ owner, repo, branch, checks, run = runC
     return { status: "unverified", reason: err.message, settings: settingsUrl(target), missing: checks };
   }
   if (res.exitCode !== 0) {
-    if (/404|not protected/i.test(`${res.stderr}${res.stdout}`)) return { status: "unprotected", command: protectCommand({ ...target, checks }) };
+    if (/404|not protected/i.test(`${res.stderr}${res.stdout}`)) return rulesetAdvice({ rules: await branchRules(target, run), checks, target });
     return { status: "unverified", reason: (res.stderr || res.stdout || "gh failed").trim(), settings: settingsUrl(target), missing: checks };
   }
   const protection = JSON.parse(res.stdout || "{}");
+  const rules = await branchRules(target, run);
+  const fromRules = rulesetChecks(rules ?? []);
   const statusChecks = protection.required_status_checks;
-  if (!statusChecks) return { status: "no-checks", settings: settingsUrl(target), missing: checks };
-  const existing = new Set(statusChecks.contexts ?? []);
+  const existing = new Set([...(statusChecks?.contexts ?? []), ...fromRules]);
   const missing = checks.filter((c) => !existing.has(c));
+  // Unreadable rules: a ruleset may require what the classic layer lacks, so nothing is "missing" for sure.
+  if (rules === null && missing.length > 0) return { status: "unverified", reason: "the branch rules could not be read", settings: rulesUrl(target), missing };
+  if (!statusChecks && fromRules.length === 0) return { status: "no-checks", settings: settingsUrl(target), missing: checks };
   // KJC-BUG-0401: required checks an admin skips are not required for an agent holding an admin's token.
   const bindAdmins = protection.enforce_admins?.enabled === false ? `gh api -X POST ${protectionPath(target)}/enforce_admins` : null;
   if (missing.length > 0) return { status: "missing", missing, command: [addCommand({ ...target, missing }), bindAdmins].filter(Boolean).join(" && ") };
@@ -105,6 +137,7 @@ export async function adviseBranchProtection({ projectDir, branch, logger, run =
     missing: `${branch} does not require ${advice.missing?.length} kj check(s) (${list}). An admin runs (kj never does):`,
     "no-checks": `${branch} is protected but requires no status checks. An admin enables "Require status checks" and adds ${list} in:`,
     unverified: `could not read the protection of ${branch} (${advice.reason}). An admin checks that ${list} are required in:`,
+    "ruleset-missing": `${branch} is protected by a ruleset that does not require ${advice.missing?.length} kj check(s) (${list}). An admin adds them to the ruleset (no second protection layer) in:`,
     "admins-exempt": `${branch} requires the kj checks, but admins can merge without them, and an agent working with an admin's token would. An admin runs (kj never does):`,
   }[advice.status];
   logger.warn?.(`  ⚠ branch protection: ${why}`);

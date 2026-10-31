@@ -466,38 +466,23 @@ describe('PATCH /api/stories/:id - field edits (title, scope, task_type, accepta
   });
 });
 
-describe('POST /api/plans/:planId/run', () => {
-  it('returns the pid + log path + resolved argv in echo mode', async () => {
-    const res = await request(app)
-      .post(`/api/plans/${PLAN_ID}/run`)
-      .send({ projectId: PROJECT_ID });
-    expect(res.status).toBe(200);
-    expect(res.body.launched).toBe(true);
-    expect(res.body.planId).toBe(PLAN_ID);
-    expect(res.body.logPath).toMatch(/hu-board-runs\/.+\.log$/);
+// KJC-TSK-1319: kj run is retired in 5.0; the board's run routes say so and launch nothing.
+describe('the run routes, retired with kj run', () => {
+  it.each([
+    `/api/plans/${PLAN_ID}/run`,
+    `/api/hus/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_001`)}/run`,
+    `/api/projects/${encodeURIComponent(PROJECT_ID)}/run`,
+  ])('POST %s answers 410 with the notice and the guide, and starts nothing', async (url) => {
+    const res = await request(app).post(url).send({ projectId: PROJECT_ID });
+    expect(res.status).toBe(410);
+    expect(res.body.error).toMatch(/^kj run was retired in 5\.0/);
+    expect(res.body.guide).toMatch(/MIGRATION-v5\.md$/);
+    expect(existsSync(join(tmpHome, 'hu-board-runs'))).toBe(false);
+    expect(readPlanFromDisk().hus.map((h) => h.status)).toEqual(['pending', 'pending', 'pending']);
   });
 
-  it('respects taskOverride when provided', () => {
-    const result = planMutationsMod.runPlan({
-      planId: PLAN_ID,
-      projectId: PROJECT_ID,
-      taskOverride: 'custom goal here',
-    });
-    expect(result.ok).toBe(true);
-    expect(result.argv[result.argv.length - 1]).toBe('custom goal here');
-  });
-
-  it('returns 404 for an unknown plan', async () => {
-    const res = await request(app).post('/api/plans/plan-nope/run').send({});
-    expect(res.status).toBe(404);
-  });
-
-  it('refuses to run plans without projectDir (legacy pre-v2.7.4)', () => {
-    // Strip projectDir from the existing plan and rewrite it.
-    writePlanToDisk({ projectDir: undefined });
-    const result = planMutationsMod.runPlan({ planId: PLAN_ID, projectId: PROJECT_ID });
-    expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/projectDir/);
+  it('plan-mutations no longer offers runPlan', () => {
+    expect(planMutationsMod.runPlan).toBeUndefined();
   });
 });
 
@@ -733,25 +718,5 @@ describe('acceptance_tests stamping', () => {
     const tests = JSON.parse(row.acceptance_tests);
     expect(tests[0]).toBe('it should do the thing');
     expect(tests[1].given).toBe('x');
-  });
-});
-
-describe('POST /api/projects/:id/run', () => {
-  it('launches every plan of the project', async () => {
-    const res = await request(app)
-      .post(`/api/projects/${encodeURIComponent(PROJECT_ID)}/run`)
-      .send({});
-    expect(res.status).toBe(200);
-    expect(res.body.launched).toBe(1);
-    expect(res.body.total).toBe(1);
-  });
-
-  it('returns 404 when the project has no plan-backed stories', async () => {
-    dbMod.upsertProject({ id: 'bare-project', name: 'Bare' });
-    dbMod.upsertStory({ id: 'bare-project::hu-x', project_id: 'bare-project', status: 'pending' });
-    const res = await request(app)
-      .post(`/api/projects/${encodeURIComponent('bare-project')}/run`)
-      .send({});
-    expect(res.status).toBe(404);
   });
 });

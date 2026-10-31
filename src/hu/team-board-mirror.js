@@ -22,7 +22,8 @@ export async function writeTeamMirror(projectDir, rows, { repo }) {
     status: "ready", readonly: "github", repo, createdAt: now,
     hus: rows.map((r) => ({
       id: r.short_id, short_id: r.short_id, title: r.title, status: r.status,
-      claimed_by: r.claimed_by ?? null, created_by: "github", external_ref: `${repo}#${r.number}`,
+      // KJC-BUG-0443: the tracker card it replicates too, so the gates find it by that reference.
+      claimed_by: r.claimed_by ?? null, created_by: "github", external_ref: [`${repo}#${r.number}`, r.ref].filter(Boolean).join(" · "),
       acceptance_criteria: [], acceptance_tests: [], createdAt: now, updatedAt: now,
     })),
   };

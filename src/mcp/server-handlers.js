@@ -20,32 +20,35 @@ export {
 } from "./shared-helpers.js";
 
 // ── Sub-module re-exports ────────────────────────────────────────────
-export { handleRunDirect, handleResumeDirect, validateResumeAnswer, handleRun, handleResume } from "./handlers/run-handler.js";
-export { handlePlanDirect, handleCodeDirect, handleReviewDirect, handleDiscoverDirect, handleTriageDirect, handleResearcherDirect, handleAuditDirect, handleArchitectDirect, handleCode, handleReview, handlePlan, handleDiscover, handleTriage, handleResearcher, handleArchitect, handleAudit } from "./handlers/direct-handlers.js";
-export { handleStatus, handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleUndo, handleClean, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
+export { handleCodeDirect, handleDiscoverDirect, handleAuditDirect, handleCode, handleDiscover, handleAudit } from "./handlers/direct-handlers.js";
+export { handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleClean, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
 export { handleHu, handleSuggest } from "./handlers/hu-handlers.js";
 
 // ── Handler dispatch ─────────────────────────────────────────────────
 
 import { asObject, failPayload } from "./shared-helpers.js";
-import { handleRun, handleResume } from "./handlers/run-handler.js";
+import { handleCode, handleDiscover, handleAudit } from "./handlers/direct-handlers.js";
 import {
-  handleCode, handleReview, handlePlan, handleDiscover,
-  handleTriage, handleResearcher, handleArchitect, handleAudit
-} from "./handlers/direct-handlers.js";
-import {
-  handleStatus, handleAgents, handlePreflight, handleRoles,
+  handleAgents, handlePreflight, handleRoles,
   handleReport, handleInit, handleDoctor, handleConfig,
-  handleScan, handleBoard, handleUndo, handleClean
+  handleScan, handleBoard, handleClean
 } from "./handlers/management-handlers.js";
+import { retiredMessage } from "../cli/retired-commands.js";
+
+// KJC-TSK-1318: the tools of the kj run pipeline, retired in 5.0 with their
+// commands; a call answers with the same notice and starts nothing.
+const RETIRED_TOOLS = {
+  kj_run: "run", kj_resume: "resume", kj_plan: "plan generate", kj_status: "status", kj_undo: "undo",
+  kj_triage: "triage", kj_researcher: "researcher", kj_architect: "architect", kj_review: "review",
+};
 import { handleHu, handleSuggest } from "./handlers/hu-handlers.js";
 import { handleRagQuery, handleRagIndex } from "./handlers/rag-handler.js";
 import { withKarajanHome } from "../utils/paths.js";
 
 export async function handleToolCall(name, args, server, extra) {
+  if (Object.hasOwn(RETIRED_TOOLS, name)) return failPayload(retiredMessage(RETIRED_TOOLS[name]));
   const a = asObject(args);
   const handler = {
-    kj_status:      (a, server) => handleStatus(a, server),
     kj_init:        (a) => handleInit(a),
     kj_doctor:      (a) => handleDoctor(a),
     kj_agents:      (a) => handleAgents(a),
@@ -54,20 +57,12 @@ export async function handleToolCall(name, args, server, extra) {
     kj_scan:        (a, server) => handleScan(a, server),
     kj_roles:       (a) => handleRoles(a),
     kj_report:      (a) => handleReport(a),
-    kj_resume:      (a, server, extra) => handleResume(a, server, extra),
-    kj_run:         (a, server, extra) => handleRun(a, server, extra),
     kj_code:        (a, server, extra) => handleCode(a, server, extra),
-    kj_review:      (a, server, extra) => handleReview(a, server, extra),
-    kj_plan:        (a, server, extra) => handlePlan(a, server, extra),
     kj_discover:    (a, server, extra) => handleDiscover(a, server, extra),
-    kj_triage:      (a, server, extra) => handleTriage(a, server, extra),
-    kj_researcher:  (a, server, extra) => handleResearcher(a, server, extra),
-    kj_architect:   (a, server, extra) => handleArchitect(a, server, extra),
     kj_audit:       (a, server, extra) => handleAudit(a, server, extra),
     kj_board:       (a) => handleBoard(a),
     kj_hu:          (a, server) => handleHu(a, server),
     kj_suggest:     (a) => handleSuggest(a),
-    kj_undo:        (a, server) => handleUndo(a, server),
     kj_clean:       (a) => handleClean(a),
     kj_rag_query:   (a, server) => handleRagQuery(a, server),
     kj_rag_index:   (a, server) => handleRagIndex(a, server),

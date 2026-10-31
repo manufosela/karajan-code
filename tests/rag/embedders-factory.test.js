@@ -1,11 +1,11 @@
 // KJC-TSK-0442 — embedder factory + OpenAI + Voyage adapters.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { makeEmbedder } from "../../src/rag/embedders/factory.js";
-import { OpenAIEmbedder, OpenAIEmbedderError } from "../../src/rag/embedders/openai.js";
-import { VoyageEmbedder, VoyageEmbedderError } from "../../src/rag/embedders/voyage.js";
-import { CohereEmbedder, CohereEmbedderError } from "../../src/rag/embedders/cohere.js";
-import { MistralEmbedder, MistralEmbedderError } from "../../src/rag/embedders/mistral.js";
-import { OllamaEmbedder } from "../../src/rag/embedder.js";
+import { OpenAIEmbedder, OpenAIEmbedderError } from "karajan-core/rag/embedders/openai";
+import { VoyageEmbedder, VoyageEmbedderError } from "karajan-core/rag/embedders/voyage";
+import { CohereEmbedder, CohereEmbedderError } from "karajan-core/rag/embedders/cohere";
+import { MistralEmbedder, MistralEmbedderError } from "karajan-core/rag/embedders/mistral";
+import { OllamaEmbedder } from "karajan-core/rag/embedder";
 
 describe("rag/embedders factory (KJC-TSK-0442)", () => {
   it("defaults to Ollama provider when none configured", () => {

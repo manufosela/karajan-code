@@ -22,19 +22,20 @@ describe("kj init: Karajan's commands go to atril's store", () => {
   it("installs every kj-* command under .karajan/commands and nothing under .claude/commands", () => {
     const result = installKarajanCommands({ projectDir: project, logger, env: env() });
     const installed = readdirSync(join(project, ".karajan", "commands"));
-    expect(installed).toHaveLength(14);
-    expect(result.installed).toBe(14);
+    expect(installed).toHaveLength(13);
+    expect(installed).not.toContain("kj-run.md"); // KJC-TSK-1320: kj run is retired in 5.0
+    expect(result.installed).toBe(13);
     expect(existsSync(join(project, ".claude", "commands"))).toBe(false);
     expect(lines.join("\n")).toMatch(/rulesync init/);
     expect(installKarajanCommands({ projectDir: project, logger, env: env() }).installed).toBe(0);
-    expect(lines.join("\n")).toMatch(/0 Karajan command\(s\) installed .*\(14 already there\)/);
+    expect(lines.join("\n")).toMatch(/0 Karajan command\(s\) installed .*\(13 already there\)/);
   });
 
   it("warns by name about a command atril refuses, and installs the rest", () => {
     mkdirSync(join(project, ".karajan", "commands"), { recursive: true });
-    writeFileSync(join(project, ".karajan", "commands", "kj-run.md"), "---\nname: kj-run\ndescription: mine\nkind: command\n---\nmy own\n");
-    expect(installKarajanCommands({ projectDir: project, logger, env: env() }).installed).toBe(13);
-    expect(lines.join("\n")).toMatch(/WARN kj: kj-run\.md was not installed in \.karajan: .*different content/);
+    writeFileSync(join(project, ".karajan", "commands", "kj-code.md"), "---\nname: kj-code\ndescription: mine\nkind: command\n---\nmy own\n");
+    expect(installKarajanCommands({ projectDir: project, logger, env: env() }).installed).toBe(12);
+    expect(lines.join("\n")).toMatch(/WARN kj: kj-code\.md was not installed in \.karajan: .*different content/);
   });
 
   it("runs atril sync when the project uses rulesync", () => {

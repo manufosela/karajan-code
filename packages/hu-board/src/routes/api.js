@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 
 /** Async existence probe (KJC-TSK-0539 — no sync fs in handlers). */
@@ -34,16 +33,14 @@ import {
   deleteSession,
   getKjHome,
   getHuBoardRunsDir,
-  getHuBoardPlansDir,
   getHuBoardPlansDirs,
   getStoryRow,
   listPlanIdsForProject,
-  updateStoryStatus,
   setProjectIsTest,
   getProjectCost,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject, revertHuFromSnapshot, readonlyRefusal } from '../plan-mutations.js';
+import { setHuStatus, setHuFields, markPlanReady, renameProject, revertHuFromSnapshot, readonlyRefusal } from '../plan-mutations.js';
 import { getActiveRuns } from '../run-tracker.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
@@ -950,139 +947,17 @@ router.get('/plans/:planId/log', async (req, res) => {
 });
 
 /**
- * POST /api/plans/:planId/run - Launch `kj run --plan <planId>` as a
- * detached child. This is the "Run plan" button's endpoint — the board
- * no longer requires the user to drop to a terminal to kick off the
- * pipeline.
- *
- * Body: { projectId?: string, task?: string } — both optional. projectId
- * makes the plan-file lookup O(1); task overrides plan.task as the
- * pipeline's headline description.
- *
- * Returns the child's pid + the log path so a future "tail this run"
- * viewer can attach.
+ * KJC-TSK-1319: the board launched `kj run` for a plan, an HU or a whole
+ * project. kj run is retired in 5.0 (your agent does the work, kj governs
+ * it), so these routes say so and launch nothing. The board never imports
+ * the CLI tree (KJC-TSK-0632): the notice lives here.
  */
-router.post('/plans/:planId/run', (req, res) => {
-  try {
-    const { projectId, task, huIds } = req.body || {};
-    // PR4: callers may pass `huIds: ["hu_x_001"]` to scope the run
-    // to a single HU (or comma-separated subset). When omitted, the
-    // whole plan runs as before.
-    const result = runPlan({
-      planId: req.params.planId,
-      projectId,
-      taskOverride: task,
-      huIds: Array.isArray(huIds) ? huIds : null,
-    });
-    if (!result.ok) {
-      // 404 for "plan not found" (preserves the contract the existing
-      // test asserts on), 400 for validation errors (unknown HU id,
-      // missing projectDir, etc.).
-      const code = /^plan not found/.test(result.error) ? 404 : 400;
-      return res.status(code).json({ error: result.error });
-    }
-    res.json({
-      launched: true,
-      planId: req.params.planId,
-      pid: result.pid,
-      logPath: result.logPath,
-      huIds: Array.isArray(huIds) && huIds.length > 0 ? huIds : null,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/hus/:huId/run — PR4: launch a single HU (or, when the
- * caller passes additional ids in body.extraHuIds, a small bundle).
- *
- * The HU's plan is resolved from the SQLite stories table so the
- * front doesn't have to know the planId — it only needs the story
- * id from the card.
- */
-router.post('/hus/:huId/run', (req, res) => {
-  try {
-    const huId = req.params.huId;
-    const row = getStoryRow(huId);
-    if (!row) return res.status(404).json({ error: `unknown HU: ${huId}` });
-    if (!row.plan_id) return res.status(400).json({ error: `HU ${huId} is not backed by a plan (legacy row)` });
-
-    // Story id on disk uses just the HU local id (hu_<plan>_NNN),
-    // not the "<projectId>::<huId>" composite the board persists.
-    // Strip the prefix back off before forwarding to runPlan.
-    const planLocalHuId = huId.includes('::') ? huId.split('::').pop() : huId;
-    const extraIds = Array.isArray(req.body?.extraHuIds) ? req.body.extraHuIds.map((x) => (x.includes('::') ? x.split('::').pop() : x)) : [];
-    const huIds = [planLocalHuId, ...extraIds];
-
-    // Read the HU title from the plan JSON so kj run receives a
-    // meaningful task description instead of the generic plan.task.
-    let taskOverride;
-    try {
-      const planPath = path.join(getHuBoardPlansDir(), row.project_id, `${row.plan_id}.json`);
-      const planRaw = fs.readFileSync(planPath, 'utf8');
-      const planData = JSON.parse(planRaw);
-      const hu = (planData.hus || []).find((h) => h.id === planLocalHuId);
-      if (hu?.title) taskOverride = hu.title;
-    } catch { /* fall through — runPlan will use plan.task */ }
-
-    const result = runPlan({ planId: row.plan_id, projectId: row.project_id, huIds, taskOverride });
-    if (!result.ok) return res.status(400).json({ error: result.error });
-
-    // Move the launched HU(s) to "coding" in BOTH the SQLite mirror and the
-    // source-of-truth plan JSON. The plan JSON write is what makes it stick
-    // — the next /api/sync re-reads the plan file and would otherwise
-    // overwrite the SQLite update back to "certified". Without this the
-    // card flashes to Running for ~1s and snaps back, which the user reads
-    // as "nothing happened".
-    //
-    // The orchestrator owns the lifecycle once it boots (it'll move the HU
-    // through coding → reviewing → done/failed and persist back to the plan
-    // JSON), so this is just the bootstrap nudge to give the user immediate
-    // visual feedback.
-    const allHuIds = [planLocalHuId, ...extraIds];
-    for (const localId of allHuIds) {
-      try { setHuStatus({ planId: row.plan_id, huId: localId, status: 'coding', projectId: row.project_id }); } catch { /* non-fatal */ }
-      // Also stamp the SQLite row so the next renderBoard() (before any
-      // sync tick) shows it in Running.
-      const compositeId = localId.includes('::') ? localId : `${row.project_id}::${localId}`;
-      try { updateStoryStatus(compositeId, 'coding'); } catch { /* non-fatal */ }
-    }
-
-    res.json({
-      launched: true,
-      planId: row.plan_id,
-      huIds,
-      pid: result.pid,
-      logPath: result.logPath,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/projects/:id/run - Sugar: launch every plan of a project. For
- * the common case where each project has exactly one active plan this
- * behaves the same as POST /plans/:planId/run; with multiple plans it
- * kicks each one in its own detached child.
- */
-router.post('/projects/:id/run', (req, res) => {
-  try {
-    const planIds = listPlanIdsForProject(req.params.id);
-    if (planIds.length === 0) {
-      return res.status(404).json({ error: 'No plan-backed stories for this project' });
-    }
-    const results = [];
-    for (const planId of planIds) {
-      const r = runPlan({ planId, projectId: req.params.id });
-      results.push({ planId, ...r });
-    }
-    const launched = results.filter((r) => r.ok).length;
-    res.json({ launched, total: planIds.length, results });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+const RUN_RETIRED = {
+  error: 'kj run was retired in 5.0. Your agent (Claude Code, OpenCode...) does the work now and kj governs it: split the task with kj brief planner + kj hu add, one lane per card with kj worktree start, and kj review --staged before every commit.',
+  guide: 'https://github.com/manufosela/karajan-code/blob/main/MIGRATION-v5.md',
+};
+router.post(['/plans/:planId/run', '/hus/:huId/run', '/projects/:id/run'], (_req, res) => {
+  res.status(410).json(RUN_RETIRED);
 });
 
 /**

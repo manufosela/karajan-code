@@ -11,11 +11,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { claudeConfigFile, codexHome } from "../utils/agent-home.js";
 
-const sources = (projectDir, home) => [
+// KJC-TSK-1344: claude and codex configs of the account CLAUDE_CONFIG_DIR / CODEX_HOME select.
+const sources = (projectDir, home, env = process.env) => [
   { file: path.join(projectDir, ".mcp.json"), format: "json" },
-  { file: path.join(home, ".claude.json"), format: "json" },
-  { file: path.join(home, ".codex", "config.toml"), format: "toml" },
+  { file: claudeConfigFile({ home, env }), format: "json" },
+  { file: path.join(codexHome({ home, env }), "config.toml"), format: "toml" },
   { file: path.join(home, ".gemini", "settings.json"), format: "json" },
 ];
 
@@ -34,9 +36,9 @@ const tomlServerNames = (text) =>
   new Set([...text.matchAll(/^\s*\[mcp_servers\.["']?([^\]"']+)["']?\]/gm)].map((m) => m[1]));
 
 /** Sorted `name (config-file)` entries for every MCP reachable in this project. */
-export function collectAiSurface({ projectDir = process.cwd(), home = os.homedir() } = {}) {
+export function collectAiSurface({ projectDir = process.cwd(), home = os.homedir(), env = process.env } = {}) {
   const surface = new Set();
-  for (const { file, format } of sources(projectDir, home)) {
+  for (const { file, format } of sources(projectDir, home, env)) {
     if (!existsSync(file)) continue;
     let text;
     try { text = readFileSync(file, "utf8"); } catch { continue; }
@@ -50,11 +52,11 @@ export function collectAiSurface({ projectDir = process.cwd(), home = os.homedir
  * Diff the current surface against the last-seen snapshot and persist the
  * new state. First run records the baseline silently.
  */
-export function checkAiSurface({ projectDir = process.cwd(), home = os.homedir(), statePath = path.join(os.homedir(), ".karajan", "ai-surface.json"), extraSurface = [] } = {}) {
+export function checkAiSurface({ projectDir = process.cwd(), home = os.homedir(), env = process.env, statePath = path.join(os.homedir(), ".karajan", "ai-surface.json"), extraSurface = [] } = {}) {
   // KJC-TSK-0728: extraSurface carries entries the (async) caller collected
   // outside config files — e.g. observed agent CLIs as "grok (cli)" — so
   // they ride the same snapshot and the same "NEW since last check" drift.
-  const surface = [...new Set([...collectAiSurface({ projectDir, home }), ...extraSurface])].sort();
+  const surface = [...new Set([...collectAiSurface({ projectDir, home, env }), ...extraSurface])].sort();
   let state = {};
   try { state = JSON.parse(readFileSync(statePath, "utf8")); } catch { /* first run or corrupt → baseline */ }
   const prev = Array.isArray(state[projectDir]) ? state[projectDir] : null;
