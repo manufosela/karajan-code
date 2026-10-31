@@ -57,9 +57,20 @@ export function isPublishableNpm(projectDir) {
   }
 }
 
-/** Lockfile-detected package manager (KJC-BUG-0131): npm ci kills pnpm/yarn CI. */
+const KNOWN_PMS = new Set(["npm", "pnpm", "yarn", "bun"]);
+
+/**
+ * The project's package manager (KJC-BUG-0131: npm ci kills pnpm/yarn CI).
+ * KJC-BUG-0450 (#2789): the same answer for hooks and workflows; the
+ * packageManager field of package.json first, then the lockfile.
+ */
 export function detectPackageManager(projectDir) {
+  try {
+    const declared = String(JSON.parse(readFileSync(join(projectDir, "package.json"), "utf8")).packageManager || "").split("@")[0];
+    if (KNOWN_PMS.has(declared)) return declared;
+  } catch { /* no or unreadable package.json: the lockfile decides */ }
   if (existsSync(join(projectDir, "pnpm-lock.yaml"))) return "pnpm";
+  if (existsSync(join(projectDir, "bun.lock")) || existsSync(join(projectDir, "bun.lockb"))) return "bun";
   if (existsSync(join(projectDir, "yarn.lock"))) return "yarn";
   return "npm";
 }

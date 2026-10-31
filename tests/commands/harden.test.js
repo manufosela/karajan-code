@@ -35,6 +35,19 @@ describe("resolveCmds", () => {
     });
   });
 
+  // KJC-BUG-0450 (#2789): the hooks used npm in a pnpm workspace while the CI used pnpm.
+  it.each([
+    ["pnpm-lock.yaml", null, { lint: "pnpm run -s lint", format: "pnpm run -s format:check", test: "pnpm test" }],
+    ["yarn.lock", null, { lint: "yarn run lint", format: "yarn run format:check", test: "yarn test" }],
+    ["bun.lock", null, { lint: "bun run lint", format: "bun run format:check", test: "bun run test" }],
+    [null, "pnpm@9.12.0", { lint: "pnpm run -s lint", format: "pnpm run -s format:check", test: "pnpm test" }],
+  ])("hook commands follow the package manager (lockfile %s, packageManager %s)", async (lock, packageManager, expected) => {
+    const scripts = { lint: "eslint .", "format:check": "prettier -c .", test: "vitest run" };
+    writeFileSync(join(repo, "package.json"), JSON.stringify({ scripts, ...(packageManager ? { packageManager } : {}) }));
+    if (lock) writeFileSync(join(repo, lock), "");
+    expect(await resolveCmds(repo)).toEqual(expected);
+  });
+
   it("falls back to framework detection when no test script", async () => {
     writeFileSync(join(repo, "package.json"), JSON.stringify({ devDependencies: { vitest: "^4" } }));
     expect((await resolveCmds(repo)).test).toBe("npx vitest run");
