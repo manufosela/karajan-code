@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { gateHookStatus } from "../../src/review/gate-hook.js";
+import { hookBody } from "../../src/harden/hook-templates.js";
 
 let dir;
 const SAVED_GLOBAL = process.env.GIT_CONFIG_GLOBAL;
@@ -45,6 +46,39 @@ describe("gateHookStatus", () => {
     const s = gateHookStatus(dir);
     expect(s.enforced).toBe(false);
     expect(s.reason).toMatch(/kj review --check/);
+  });
+
+  it.each([
+    ["commented out", "# kj review --check || exit 1"],
+    ["inside an echo", "echo 'run kj review --check || exit 1 first'"],
+    ["with its failure ignored", "kj review --check || true"],
+    ["that exits 0 on failure", "kj review --check || exit 0"],
+    ["whose failure group never exits", "kj review --check || { echo 'review failed'; }"],
+    ["whose group exits with the echo's status", "kj review --check || { echo 'review failed'; exit; }"],
+    ["whose only exit is quoted text", "kj review --check || { echo 'then exit 1'; }"],
+    ["whose exit is skipped by ||", "kj review --check || { true || exit 1; }"],
+    ["whose exit is skipped by &&", "kj review --check || { echo x; false && exit 1; }"],
+    ["whose exit sits in a nested group", "kj review --check || { false && { echo x; exit 1; }; }"],
+    ["whose exit is inside a quoted string", "kj review --check || { echo 'x; exit 1; }'; true; }"],
+    ["whose exit status wraps to 0", "kj review --check || exit 256"],
+    ["whose group exit status wraps to 0", "kj review --check || { echo x; exit 512; }"],
+    ["whose group exits 0 first", "kj review --check || { exit 0; exit 1; }"],
+    ["whose group runs more than messages", "kj review --check || { echo x || exit 0; exit 1; }"],
+    ["whose group is followed by || true", "kj review --check || { echo x; exit 1; } || true"],
+    ["whose group runs in a pipe's subshell", "kj review --check || { echo x; exit 1; } | cat"],
+  ])("a call %s does not enforce it", (_label, line) => {
+    writeHook(".git/hooks/pre-commit", `#!/bin/sh\n${line}\nnpx lint-staged\n`);
+    expect(gateHookStatus(dir)).toMatchObject({ enforced: false, reason: expect.stringMatching(/kj review --check/) });
+  });
+
+  it.each(["kj review --check || exit", "kj review --check || exit 255 # gate", `kj review --check || { echo "no verdict; run it" >&2; printf 'see docs'; exit 1; }`])("%s enforces it", (line) => {
+    writeHook(".git/hooks/pre-commit", `#!/bin/sh\n${line}\n`);
+    expect(gateHookStatus(dir).enforced).toBe(true);
+  });
+
+  it("the pre-commit kj harden writes enforces it", () => {
+    writeHook(".git/hooks/pre-commit", hookBody("pre-commit"));
+    expect(gateHookStatus(dir).enforced).toBe(true);
   });
 
   it("a pre-commit git cannot execute does not enforce it", () => {
