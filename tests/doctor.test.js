@@ -37,6 +37,8 @@ vi.mock("../src/utils/git.js", () => ({
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
+    // KJC-TSK-0662: a clean machine has no data of the retired kj run pipeline.
+    readdir: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
     access: vi.fn().mockResolvedValue(undefined),
     stat: vi.fn().mockResolvedValue({ isDirectory: () => true }),
     mkdir: vi.fn().mockResolvedValue(undefined)
@@ -125,6 +127,7 @@ describe("doctor", () => {
     // Agent config files: simulate ENOENT (not found) so checks are skipped
     const fsPromises = await import("node:fs/promises");
     fsPromises.default.readFile.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+    fsPromises.default.readdir.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
     fsPromises.default.stat.mockResolvedValue({ isDirectory: () => true });
 
     const { isPortAvailable } = await import("../src/utils/port-check.js");
