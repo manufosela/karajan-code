@@ -32,7 +32,17 @@ describe("reconcileReviews", () => {
     const out = reconcileReviews([claude, codex]);
     expect(out.findings).toEqual([]);
     expect(out.verification.rejected).toEqual([{ finding: f("a.js", 1, "high", "bogus"), reason: "not real", found_by: "claude", rejected_by: "codex" }]);
-    expect(out.verdict.status).toBe("partial");
+    // KJC-BUG-0453 (#2921): everything was reviewed, the reviewers disagree: that is not "partial".
+    expect(out.verdict).toMatchObject({ status: "disputed", approved: false });
+    expect(out.verdict.reason).toMatch(/claude rejected/);
+  });
+
+  it("partial only means files left out, even when the reviewers also disagree", () => {
+    const left = { ...coverage, truncated: true, unreviewed: ["big.js"] };
+    const claude = { ...side("claude", "codex", false, [f("a.js", 1, "high", "bogus")], [{ index: 0, verdict: "rejected" }]), coverage: left };
+    const out = reconcileReviews([claude, side("codex", "claude", true, [], [])]);
+    expect(out.verdict).toMatchObject({ status: "partial", approved: false });
+    expect(out.verdict.reason).toMatch(/not every file was reviewed/);
     expect(out.verdict.reason).toMatch(/claude rejected/);
   });
 
