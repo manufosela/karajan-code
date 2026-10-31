@@ -301,8 +301,7 @@ export const isReadOnlyCommand = (cmd) => {
 /** Short flags of a cluster stop at "e": the rest is -e's value (-fen = -f -e n). */
 export const shortOpts = (a) => (/^-[a-zA-Z]/.test(a) ? a.slice(1).split("e")[0] : "");
 
-// KJC-BUG-0455 (#2933): git commit's options that take a value, and the git verbs that
-// change the index. A commit that stages in the same command commits a diff nobody
+// KJC-BUG-0455 (#2933): a commit that stages in the same command commits a diff nobody
 // could have reviewed yet: the verdict is checked against what is staged BEFORE it runs.
 const COMMIT_VALUE_OPTS = new Set(["-m", "-F", "-C", "-c", "-t", "--message", "--file", "--reuse-message", "--reedit-message", "--template", "--author", "--date", "--cleanup", "--fixup", "--squash", "--trailer", "--pathspec-from-file"]);
 const COMMIT_VALUE_SHORT = new Set(["m", "F", "C", "c", "t"]);
@@ -316,9 +315,7 @@ const gitVerbOf = (words) => {
   while (i < words.length) {
     const w = words[i];
     if (GIT_GLOBAL_WITH_VALUE.has(w)) {
-      if (w === "-C") {
-        dir = words[i + 1] ?? null;
-      }
+      if (w === "-C") dir = words[i + 1] ?? null;
       i += 2; // the option and its value
     } else if (GIT_GLOBAL_FLAG.test(w)) {
       i += 1;
@@ -351,23 +348,15 @@ const commitArg = (a) => {
 const commitStagesItself = (args) => {
   let i = 0;
   while (i < args.length) {
-    if (args[i] === "--") {
-      return i + 1 < args.length;
-    }
+    if (args[i] === "--") return i + 1 < args.length;
     const { stages, words } = commitArg(args[i]);
-    if (stages) {
-      return true;
-    }
+    if (stages) return true;
     i += words;
   }
   return false;
 };
 
-/**
- * Does the command run git commit, and does it stage in the same command?
- * @param {string} cmd
- * @returns {{commits: boolean, stages: boolean, dir: string|null}}
- */
+/** Does the command run git commit, and does it stage in the same command? → { commits, stages, dir } */
 export const commitStaging = (cmd) => {
   const gits = shellSegments(cmd).map((words) => ({ words, g: gitVerbOf(words) })).filter((s) => s.g);
   const commits = gits.filter((s) => s.g.verb === "commit");

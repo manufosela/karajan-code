@@ -172,7 +172,11 @@ export const bootstrapPhase = () => {
 // state: approved | rejected | missing | empty (nothing staged) | unknown (git failed).
 export const stagedVerdict = (dir) => {
   const git = (args) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
-  if (git(["cat-file", "-e", "HEAD:.karajan/review-gate"]).status !== 0) return { gate: false };
+  // No commit yet (or no repo): no committed marker exists. A git error fails closed.
+  if (git(["rev-parse", "--verify", "-q", "HEAD"]).status !== 0) return { gate: false };
+  const marker = git(["ls-tree", "--name-only", "HEAD", ".karajan/review-gate"]);
+  if (marker.status !== 0) return { gate: true, state: "unknown" };
+  if (!marker.stdout.trim()) return { gate: false };
   const top = git(["rev-parse", "--show-toplevel"]).stdout?.trim();
   const diff = git(["diff", "--cached"]);
   if (!top || diff.status !== 0) return { gate: true, state: "unknown" };

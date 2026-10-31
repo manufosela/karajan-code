@@ -645,8 +645,9 @@ process.stdin.on("end", () => {
           console.error("karajan sentinel: stagea y commitea en comandos separados — el veredicto se comprueba sobre lo que ya esta stageado, y este comando stagea a la vez que commitea (git add/rm/mv, -a o rutas en git commit). Stagea por nombre, pasa kj review --staged y luego git commit." + doc("commit-verdict"));
           process.exit(2);
         }
-        if (verdict.gate && (verdict.state === "missing" || verdict.state === "rejected")) {
-          const why = verdict.state === "rejected" ? "el review de este diff fue RECHAZADO por " + (verdict.reviewer || "el reviewer") + " — corrige y vuelve a pasar kj review --staged" : "no hay veredicto para el diff stageado — pasa kj review --staged (solo, sin tuberias que oculten si falla)";
+        // Only an approved verdict passes, or nothing staged (a merge: git itself decides).
+        if (verdict.gate && verdict.state !== "approved" && verdict.state !== "empty") {
+          const why = { rejected: "el review de este diff fue RECHAZADO por " + (verdict.reviewer || "el reviewer") + " — corrige y vuelve a pasar kj review --staged", unknown: "git no pudo leer el diff stageado, asi que el veredicto no se puede comprobar" }[verdict.state] || "no hay veredicto para el diff stageado — pasa kj review --staged (solo, sin tuberias que oculten si falla)";
           console.error("karajan sentinel: commit sin veredicto aprobado: " + why + "." + doc("commit-verdict"));
           process.exit(2);
         }
