@@ -70,8 +70,17 @@ describe("publishPrReview", () => {
   it("already published for that head: it does not duplicate the review", async () => {
     for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
     const posted = [];
-    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->" }] }) });
+    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }] }) });
     expect(r).toMatchObject({ published: false, reason: expect.stringMatching(/already/) });
     expect(posted).toHaveLength(0);
+  });
+
+  // KJC-BUG-0456: verify-pr ignores a review by a non-member (another gh account), so it must not block publishing.
+  it("a review for that head by a non-member does not count: it publishes again", async () => {
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    const posted = [];
+    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "NONE" }] }) });
+    expect(r).toMatchObject({ published: true, commits: 2 });
+    expect(posted).toHaveLength(1);
   });
 });
