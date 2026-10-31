@@ -213,6 +213,21 @@ describe("kj adr", () => {
     expect((await listAdrs(dir))[0].status).toBe("proposed");
   });
 
+  // HU-2792: a number an open branch already holds is not handed out again.
+  it("add skips numbers held by origin/* branches; a failing git behaves as today", async () => {
+    const asked = [];
+    const git = async (args) => {
+      asked.push(args);
+      if (args[0] === "for-each-ref") return "refs/remotes/origin/main\nrefs/remotes/origin/feat-x";
+      if (args[0] === "ls-tree") return args[2] === "refs/remotes/origin/feat-x" ? ".karajan/adrs/0041-x.md" : ".karajan/adrs/0002-a.md";
+      throw new Error("unexpected");
+    };
+    expect((await addAdr(dir, { title: "Remote aware", decision: "d" }, git)).number).toBe(42);
+    expect(asked[0]).toEqual(["for-each-ref", "--format=%(refname)", "refs/remotes/origin"]);
+    const broken = async () => { throw new Error("fatal: not a git repository"); };
+    expect((await addAdr(dir, { title: "Offline", decision: "d" }, broken)).number).toBe(43); // local 0042 + 1, as before
+  });
+
   it("add without decision throws", async () => {
     await expect(addAdr(dir, { title: "X" })).rejects.toThrow(/--decision/);
   });
