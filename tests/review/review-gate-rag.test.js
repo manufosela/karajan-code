@@ -16,7 +16,7 @@ vi.mock("../../src/review/sonar-pregate.js", async (orig) => ({
 vi.mock("../../src/review/one-shot-review.js", () => ({ runOneShotReview: (...a) => reviewMock(...a) }));
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
-import { saveVerdict } from "../../src/review/verdict-store.js";
+import { saveVerdict, diffHash } from "../../src/review/verdict-store.js";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
 let dir;
@@ -54,6 +54,16 @@ describe("review gate × rag requirement", () => {
     expect(r.issues[0].description).toContain("a.js");
     expect(reviewMock).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
+  });
+
+  // KJC-BUG-0423 (#2665): a rejection from a gate that only runs in the review replaces an earlier
+  // APPROVED of the same diff, so neither --check nor the Sentinel lets that diff through.
+  it("a review-only gate's rejection is recorded over an earlier approval of the same diff", async () => {
+    await saveVerdict(dir, staged(), { verdict: "approved", reviewer: "codex" });
+    harness({ rag_hits: ["lib/other.js"], rag_queries: [{ text: "q", hits: ["lib/other.js"] }] });
+    await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    const stored = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "reviews", `${diffHash(staged())}.json`), "utf8"));
+    expect(stored).toMatchObject({ verdict: "rejected", reviewer: "rag-first" });
   });
 
   it("hands the reviewer the rag block and names the untouched twins in its task", async () => {

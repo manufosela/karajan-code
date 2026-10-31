@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { runCommand } from "../utils/process.js";
-import { checkVerdict, diffHash, pruneVerdicts } from "../review/verdict-store.js";
+import { checkVerdict, diffHash, pruneVerdicts, saveVerdict } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
@@ -671,22 +671,24 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal });
 
   // KJC-TSK-1257: the review path's gates in their order; each may reject, and what they found
-  // that does not reject travels to the reviewer inside the task.
+  // that does not reject travels to the reviewer inside the task. KJC-BUG-0423 (#2665): --check
+  // does not run these, so their rejection is recorded for the diff, replacing an earlier APPROVED.
+  const recorded = (rejection) => saveVerdict(projectDir, diff, rejection).then(() => rejection);
   const sonar = await sonarPregate({ config, logger, range: flags.range, liveFiles, enabled: flags.sonar !== false });
-  if (sonar.rejection) return sonar.rejection;
+  if (sonar.rejection) return recorded(sonar.rejection);
   const sonarRejection = sonarRequirementGate({ config, liveFiles, std, record: sonar.record });
-  if (sonarRejection) return sonarRejection;
+  if (sonarRejection) return recorded(sonarRejection);
   const rag = await ragGate({ config, projectDir, range: flags.range, liveFiles, std });
-  if (rag.rejection) return rag.rejection;
+  if (rag.rejection) return recorded(rag.rejection);
   const uiRecord = uiEvidence({ changedFiles, flags, std });
   const mutation = await mutationGate({ config, projectDir, flags });
-  if (mutation.rejection) return mutation.rejection;
+  if (mutation.rejection) return recorded(mutation.rejection);
   // KJC-TSK-1052 (TEAM-F): another branch in progress touching the same files is said, never blocks.
   if (flags.staged && !flags.range) {
     for (const line of formatOverlaps(await branchOverlaps({ projectDir, stagedFiles: changedFiles, base: config?.base_branch || "main" }))) console.log(line);
   }
   const cooldown = await cooldownStep({ diff, config, std });
-  if (cooldown.rejection) return cooldown.rejection;
+  if (cooldown.rejection) return recorded(cooldown.rejection);
   const task = [sonar.note, rag.note, mutation.note, cooldown.note].reduce(withNote, flags.task);
 
   const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonar.record, rag: rag.record, ui: uiRecord });
