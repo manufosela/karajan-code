@@ -19,7 +19,8 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const repo = { owner: "acme", repo: "app", branch: "main" };
-const gh = (result) => async () => result;
+// The classic-protection answer; no ruleset applies (KJC-BUG-0449 reads the branch rules too).
+const gh = (result) => async (cmd, args) => (args?.[1]?.includes("/rules/branches/") ? { exitCode: 0, stdout: "[]" } : result);
 
 describe("adviseBranchProtection", () => {
   const remote = (url) => async (cmd, args) => (cmd === "git" ? { exitCode: 0, stdout: `${url}\n` } : { exitCode: 1, stdout: "", stderr: "Branch not protected (HTTP 404)" });
@@ -110,6 +111,64 @@ describe("protectionAdvice", () => {
   it("every check already required: nothing to do", async () => {
     const a = await protectionAdvice({ ...repo, checks: ["policy-check"], run: protection({ contexts: ["policy-check"] }) });
     expect(a).toEqual({ status: "ok" });
+  });
+
+  // KJC-BUG-0449 (#2787): a repository ruleset protects the branch too; kj read only the
+  // classic protection, said "not protected" and proposed a second, clashing layer.
+  describe("rulesets", () => {
+    const NO_CLASSIC = { exitCode: 1, stdout: "", stderr: "gh: Branch not protected (HTTP 404)" };
+    const rulesOf = (rules) => ({ exitCode: 0, stdout: JSON.stringify(rules) });
+    const byPath = ({ classic, rules }) => async (cmd, args) => (args[1].includes("/rules/branches/") ? rules : classic);
+    const checksRule = (...contexts) => ({ type: "required_status_checks", parameters: { required_status_checks: contexts.map((context) => ({ context })) } });
+
+    it("a branch a ruleset protects with the kj checks is ok, and no classic command is proposed", async () => {
+      const run = byPath({ classic: NO_CLASSIC, rules: rulesOf([{ type: "pull_request" }, checksRule("policy-check", "ci")]) });
+      const a = await protectionAdvice({ ...repo, checks: ["policy-check"], run });
+      expect(a).toMatchObject({ status: "ok", via: "ruleset" });
+      expect(a.command).toBeUndefined();
+    });
+
+    it("a ruleset that lacks kj checks points to the rulesets page, never to a classic PUT", async () => {
+      const run = byPath({ classic: NO_CLASSIC, rules: rulesOf([{ type: "pull_request" }, checksRule("ci")]) });
+      const a = await protectionAdvice({ ...repo, checks: ["policy-check", "quality"], run });
+      expect(a).toMatchObject({ status: "ruleset-missing", missing: ["policy-check", "quality"], settings: "https://github.com/acme/app/settings/rules" });
+      expect(a.command).toBeUndefined();
+    });
+
+    it("checks a ruleset requires count with the classic ones", async () => {
+      const classic = { exitCode: 0, stdout: JSON.stringify({ required_status_checks: { contexts: ["policy-check"] }, enforce_admins: { enabled: true } }) };
+      const run = byPath({ classic, rules: rulesOf([checksRule("quality")]) });
+      expect((await protectionAdvice({ ...repo, checks: ["policy-check", "quality"], run })).status).toBe("ok");
+    });
+
+    it("no rule applies and no classic protection: still unprotected, with the classic command", async () => {
+      const a = await protectionAdvice({ ...repo, checks: ["policy-check"], run: byPath({ classic: NO_CLASSIC, rules: rulesOf([]) }) });
+      expect(a.status).toBe("unprotected");
+    });
+
+    it("rules that cannot be read and no classic protection: unverified, never 'not protected'", async () => {
+      const a = await protectionAdvice({ ...repo, checks: ["policy-check"], run: byPath({ classic: NO_CLASSIC, rules: { exitCode: 1, stdout: "", stderr: "HTTP 403" } }) });
+      expect(a).toMatchObject({ status: "unverified", settings: "https://github.com/acme/app/settings/rules" });
+    });
+
+    it("classic protection lacking checks while the rules cannot be read: unverified, never a 'missing' command", async () => {
+      const classic = { exitCode: 0, stdout: JSON.stringify({ required_status_checks: { contexts: ["policy-check"] }, enforce_admins: { enabled: true } }) };
+      const a = await protectionAdvice({ ...repo, checks: ["policy-check", "quality"], run: byPath({ classic, rules: { exitCode: 1, stdout: "", stderr: "HTTP 403" } }) });
+      expect(a).toMatchObject({ status: "unverified", missing: ["quality"], settings: "https://github.com/acme/app/settings/rules" });
+      expect(a.command).toBeUndefined();
+    });
+
+    it("the warning names the ruleset and its page", async () => {
+      const out = [];
+      const run = async (cmd, args) => {
+        if (cmd === "git") return { exitCode: 0, stdout: "git@github.com:acme/app.git\n" };
+        return args[1].includes("/rules/branches/") ? rulesOf([checksRule("ci")]) : NO_CLASSIC;
+      };
+      await adviseBranchProtection({ projectDir: dir, branch: "main", logger: { warn: (l) => out.push(l), info: (l) => out.push(l) }, run, identity: () => {} });
+      expect(out.join("\n")).toMatch(/protected by a ruleset/);
+      expect(out.join("\n")).toMatch(/settings\/rules/);
+      expect(out.join("\n")).not.toMatch(/-X PUT/);
+    });
   });
 
   it("gh cannot answer: it says it could not verify and points to the settings, never failing", async () => {
