@@ -403,6 +403,12 @@ export default [
     rules: { "no-undef": "error", "no-console": "error" },
   },
   {
+    // The landing's hero film and page script: BROWSER ES modules, no build (KJL-TSK-0146).
+    files: ["apps/landing/public/film/**/*.js", "apps/landing/public/js/**/*.js"],
+    languageOptions: { ecmaVersion: 2025, sourceType: "module", globals: { ...globals.browser } },
+    rules: { "no-undef": "error", "no-console": ["error", { allow: ["warn"] }] },
+  },
+  {
     files: ["packages/*/tests/**/*.js", "packages/*/tests/**/*.mjs"],
     languageOptions: {
       ecmaVersion: 2024,
