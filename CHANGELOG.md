@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Sentinel counts `kj_rag_query` answers given over MCP** (KJC-BUG-0440, issue #2830): the MCP tool wraps its answer twice, so the session ledger recorded the query with no sources and the rag-first gate kept blocking edits on a file the answer named. The ledger now unwraps the nested answer, whole or cut short.
 - **`kj review` finds the shared board's HU that links your card** (KJC-BUG-0443): with the shared board on, the tracker reference of `kj hu add --ref` lived only in the issue body, so the card-first check said "no live HU on the HU Board links" a card that had one. The board now reads that reference back, keeps it in what the gates read, and `kj hu add` puts the new HU there at once.
 - **A `kj worktree` lane shares its repo's HU stories** (KJC-BUG-0441, issue #2815): the HU store named the project after the folder, so every lane got an empty board of its own. It now resolves the main checkout first, as plans already do.
+- **A codex failure is no longer reported as "no quota"** (KJC-BUG-0451, issue #2799): every codex JSON event carries a `rate_limits` telemetry field, so any failure matched the quota pattern and its real message was hidden. That telemetry no longer counts as quota, and a reviewer that could not reach its service (a sandboxed shell, the network) shows the real error with that hint.
 
 ## [4.70.3] - 2026-10-29
 
