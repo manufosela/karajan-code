@@ -135,7 +135,9 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
         console.log(result.pendingBlock);
         return result;
       }
-      await reviewGateCommand({ config, flags: { installGate: true } });
+      const gate = await reviewGateCommand({ config, flags: { installGate: true } });
+      // KJC-BUG-0447: a gate no hook runs is decorative; never call it active.
+      if (!gate?.enforced) throw new Error("the review gate is declared but no pre-commit hook runs it");
       console.log("✓ enforcement active: git hooks + cross-AI verdict gate — a commit outside the method is rejected, not narrated");
     } catch (err) {
       result.exitCode = PENDING_EXIT_CODE;

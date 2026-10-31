@@ -34,6 +34,7 @@ import { evaluatePolicyGate } from "../review/policy-gate.js";
 import { correctionNote, reviewCorrectionRounds } from "../review/correction-rounds.js";
 import { cooldownAdvisories, cooldownGate, DEFAULT_COOLDOWN_HOURS, formatCooldown } from "../review/dep-cooldown.js";
 import { branchOverlaps, formatOverlaps } from "../review/branch-overlap.js";
+import { gateHookStatus } from "../review/gate-hook.js";
 
 // KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
 // (before spending sonar/reviewer effort) AND on --check — the pre-commit
@@ -195,18 +196,20 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     const marker = join(projectDir, ".karajan", "review-gate");
     await fs.mkdir(join(projectDir, ".karajan"), { recursive: true });
     await fs.writeFile(marker, "# Cross-AI review gate enabled (ENV-C1). Commit this file so the whole team inherits the gate.\n");
-    console.log("✓ review gate enabled — commits now require an approved cross-AI verdict (kj review --staged)");
+    // KJC-BUG-0447 (#2655): the marker declares the gate; only a pre-commit that runs it enforces it.
+    const hook = gateHookStatus(projectDir);
+    if (hook.enforced) console.log("✓ review gate enabled — commits now require an approved cross-AI verdict (kj review --staged)");
+    else {
+      console.log(`✗ review gate declared (.karajan/review-gate) but NOT enforced: ${hook.reason} — run \`kj harden\` so the pre-commit hook runs it`);
+      process.exitCode = 1;
+    }
     // KJC-TSK-0646: a `.karajan/` dir-exclude would silently keep the
     // contract out of git — rewrite it so the team actually inherits it.
     const gi = await ensureGateTrackable(projectDir);
     if (gi.changed) {
       console.log("✓ .gitignore adjusted: the gate contract (.karajan/review-gate, hooks) is now trackable — commit it");
     }
-    const hookProbe = await runCommand("git", ["config", "core.hooksPath"]);
-    if (!hookProbe.stdout?.trim()) {
-      console.log("⚠ no core.hooksPath configured — run `kj harden` so the pre-commit hook enforces the gate");
-    }
-    return { installed: true };
+    return { installed: true, enforced: hook.enforced };
   }
 
   // KJC-BUG-0173: manual GC of the verdict store. Opportunistic pruning runs

@@ -24,7 +24,7 @@ vi.mock("../../src/environment/board-access.js", () => ({
   verifyBoardAccess: vi.fn(() => ({ ok: true, backend: "hu-board", via: "bundled HU Board" })),
 }));
 vi.mock("../../src/commands/harden.js", () => ({ hardenCommand: vi.fn(async () => ({ ok: true })) }));
-vi.mock("../../src/commands/review-gate.js", () => ({ reviewGateCommand: vi.fn(async () => ({ installed: true })) }));
+vi.mock("../../src/commands/review-gate.js", () => ({ reviewGateCommand: vi.fn(async () => ({ installed: true, enforced: true })) }));
 
 import { envInstallCommand } from "../../src/commands/env.js";
 import { hardenCommand } from "../../src/commands/harden.js";
@@ -99,6 +99,13 @@ describe("env install — installing IS activating (KJC-BUG-0133)", () => {
     await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false, enforce: false } });
     expect(hardenCommand).not.toHaveBeenCalled();
     hardenCommand.mockResolvedValueOnce({ ok: false, error: "boom" });
+    const res = await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false } });
+    expect(res.exitCode).toBe(3);
+  });
+
+  // KJC-BUG-0447 (#2655): a gate no pre-commit runs is not "enforcement active".
+  it("a review gate declared but not enforced by any hook BLOCKS pending", async () => {
+    reviewGateCommand.mockResolvedValueOnce({ installed: true, enforced: false });
     const res = await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false } });
     expect(res.exitCode).toBe(3);
   });
