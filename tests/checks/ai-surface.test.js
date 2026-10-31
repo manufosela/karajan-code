@@ -29,7 +29,8 @@ beforeEach(() => {
 });
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(home, { recursive: true, force: true }); });
 
-const run = () => checkAiSurface({ projectDir: dir, home, statePath });
+// env: {} — a CLAUDE_CONFIG_DIR / CODEX_HOME of the session running the suite must not leak in.
+const run = () => checkAiSurface({ projectDir: dir, home, env: {}, statePath });
 
 describe("checkAiSurface", () => {
   it("inventories MCPs across configs, scoping ~/.claude.json to this project", () => {
@@ -41,6 +42,16 @@ describe("checkAiSurface", () => {
     expect(names).toContain("qmd");
     expect(names).toContain("dev-hooks");
     expect(names).not.toContain("unrelated-mcp");
+  });
+
+  // KJC-TSK-1344: a claude-tribbu session reads the MCPs of ITS account.
+  it("reads the claude and codex configs of the account the env selects", () => {
+    const acct = path.join(home, ".claude-work");
+    writeJson(path.join(acct, ".claude.json"), { mcpServers: { "work-only": {} } });
+    const names = checkAiSurface({ projectDir: dir, home, env: { CLAUDE_CONFIG_DIR: acct, CODEX_HOME: path.join(home, "none") }, statePath }).surface.join(" ");
+    expect(names).toContain("work-only");
+    expect(names).not.toContain("planning-game");
+    expect(names).not.toContain("dev-hooks");
   });
 
   it("first run records the baseline silently; second run is quiet if unchanged", () => {

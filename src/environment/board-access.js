@@ -14,6 +14,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { claudeConfigFile, codexHome } from "../utils/agent-home.js";
 
 const TOKEN_CONVENTIONS = {
   linear: ["LINEAR_API_KEY"],
@@ -23,18 +24,19 @@ const TOKEN_CONVENTIONS = {
   asana: ["ASANA_ACCESS_TOKEN"],
 };
 
-function mcpConfigPaths(projectDir, home) {
+// KJC-TSK-1344: claude and codex configs of the account CLAUDE_CONFIG_DIR / CODEX_HOME select.
+function mcpConfigPaths(projectDir, home, env = process.env) {
   return [
     path.join(projectDir, ".mcp.json"),
-    path.join(home, ".claude.json"),
-    path.join(home, ".codex", "config.toml"),
+    claudeConfigFile({ home, env }),
+    path.join(codexHome({ home, env }), "config.toml"),
     path.join(home, ".gemini", "settings.json"),
   ];
 }
 
-function mcpConfigsMention(slug, projectDir, home) {
+function mcpConfigsMention(slug, projectDir, home, env) {
   const needle = slug.toLowerCase();
-  for (const p of mcpConfigPaths(projectDir, home)) {
+  for (const p of mcpConfigPaths(projectDir, home, env)) {
     try {
       if (existsSync(p) && readFileSync(p, "utf8").toLowerCase().includes(needle)) return p;
     } catch { /* unreadable config — keep looking */ }
@@ -50,13 +52,13 @@ function mcpConfigsMention(slug, projectDir, home) {
  */
 export function detectAvailableBoards({ projectDir = process.cwd(), env = process.env, home = os.homedir() } = {}) {
   const boards = [{ value: "hu-board", label: "HU Board (bundled, zero setup)" }];
-  if (mcpConfigsMention("planning-game", projectDir, home)) {
+  if (mcpConfigsMention("planning-game", projectDir, home, env)) {
     boards.push({ value: "planning-game", label: "Planning Game (MCP detected)" });
   }
   for (const [slug, envs] of Object.entries(TOKEN_CONVENTIONS)) {
     const token = envs.find((k) => env[k]);
     if (token) boards.push({ value: `external:${slug}`, label: `${slug} (token ${token})` });
-    else if (mcpConfigsMention(slug, projectDir, home)) boards.push({ value: `external:${slug}`, label: `${slug} (MCP detected)` });
+    else if (mcpConfigsMention(slug, projectDir, home, env)) boards.push({ value: `external:${slug}`, label: `${slug} (MCP detected)` });
   }
   return boards;
 }
@@ -65,7 +67,7 @@ export function verifyBoardAccess({ config = {}, projectDir = process.cwd(), env
   const backend = config.state_backend || "hu-board";
 
   if (backend === "planning-game") {
-    const hit = mcpConfigsMention("planning-game", projectDir, home);
+    const hit = mcpConfigsMention("planning-game", projectDir, home, env);
     if (hit) return { ok: true, backend, via: `planning-game MCP (${hit})` };
     return {
       ok: false, backend,
@@ -77,7 +79,7 @@ export function verifyBoardAccess({ config = {}, projectDir = process.cwd(), env
     const name = String(config.board?.name || "").trim();
     if (!name) return { ok: false, backend, needed: ["declare board.name in kj.config.yml (e.g. Linear, Trello, Jira, GitHub Issues)"] };
     const slug = name.toLowerCase().split(/\s+/)[0];
-    const hit = mcpConfigsMention(slug, projectDir, home);
+    const hit = mcpConfigsMention(slug, projectDir, home, env);
     if (hit) return { ok: true, backend, via: `${name} MCP detected (${hit})` };
     const tokenEnvs = config.board?.token_env ? [config.board.token_env] : (TOKEN_CONVENTIONS[slug] || []);
     const found = tokenEnvs.find((k) => env[k]);

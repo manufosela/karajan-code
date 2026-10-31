@@ -14,6 +14,7 @@ import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { checkBinary } from "../utils/agent-detect.js";
+import { agentAuthFiles } from "../utils/agent-home.js";
 
 export const REVIEWER_CANDIDATES = [
   {
@@ -86,8 +87,10 @@ export async function candidateStatus({ home = os.homedir(), checkBin = checkBin
       // Session-file heuristics, or env keys for CLIs (aider) that carry
       // no session file. Key present ≠ credit left — it is menu signal;
       // the failover only sticks if the candidate actually answers.
+      // KJC-TSK-1344: codex and claude keep the account where CODEX_HOME / CLAUDE_CONFIG_DIR say.
+      const files = agentAuthFiles(c.name, { home, env }) ?? c.authPaths.map((p) => path.join(home, p));
       const authenticated =
-        c.authPaths.some((p) => existsSync(path.join(home, p))) ||
+        files.some((f) => existsSync(f)) ||
         (c.authEnv || []).some((name) => Boolean(env[name]));
       return { ...c, installed, authenticated };
     }),
