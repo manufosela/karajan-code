@@ -15,6 +15,7 @@ import { printUpdateNotice } from "./utils/update-check.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
 import { migrateKjToKarajan } from "./utils/home-migration.js";
 import { pinGitDiffFormat } from "./utils/git-diff-format.js";
+import { pinGhAccount } from "./utils/gh-account.js";
 
 // KJC-BUG-0408: every git kj runs prints a/ and b/, whatever the user's gitconfig says.
 pinGitDiffFormat();
@@ -139,6 +140,18 @@ program.action(async (_opts, command) => {
   const { config } = await loadConfig().catch(() => ({ config: null }));
   printWelcomeScreen({ version: PKG_VERSION, config });
 });
+
+// KJC-BUG-0458 (ADR 0040): every gh kj runs uses the repo's account, not whichever another
+// session left active. A broken config is each command's to report; here it only means the
+// account comes from the remote. Kept in a top-level try: the SEA build wraps from here on.
+try {
+  const { config } = await loadConfig().catch(() => ({ config: null }));
+  const githubAccount = config?.review?.github_account ?? null;
+  const ghPin = pinGhAccount({ account: githubAccount });
+  if (githubAccount && ghPin.reason) console.warn(`\x1b[33m[warn]\x1b[0m review.github_account: ${ghPin.reason}`);
+} catch (err) {
+  console.warn(`\x1b[33m[warn]\x1b[0m gh account not pinned: ${err.message}`);
+}
 
 // One-shot ~/.kj/ → ~/.karajan/ consolidation. Idempotent via marker
 // file; failures non-blocking. See src/utils/home-migration.js.

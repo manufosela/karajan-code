@@ -44,6 +44,17 @@ kj review: host=claude → reviewer=codex (cross-AI) [CODEX_HOME=/home/tu/.codex
 
 Con la cuenta por defecto no aparece el corchete. `kj doctor` comprueba también la configuración de codex de la cuenta elegida (`$CODEX_HOME/config.toml`).
 
+## La cuenta de GitHub que usa kj
+
+Con varias cuentas de `gh`, la activa es la misma para todas las sesiones, y otra sesión puede cambiarla mientras kj trabaja. Por eso kj no la usa: al arrancar toma el token de la cuenta del repo (`gh auth token --user <cuenta>`) y todos los `gh` que ejecuta usan ese. La cuenta es la dueña del remote `origin` (`git@github.com:tu/repo.git` → `tu`), siempre que `gh` la tenga con sesión iniciada. Para un repo de una organización, indica la cuenta en `.karajan/kj.config.yml`:
+
+```yaml
+review:
+  github_account: tu-trabajo
+```
+
+Un `GH_TOKEN` o `GITHUB_TOKEN` ya definido (en CI, por ejemplo) se respeta siempre. Si la cuenta configurada no tiene sesión en `gh`, kj avisa y usa la activa.
+
 ## Conviene saber
 
 - Un proceso de larga duración conserva la cuenta de la sesión que lo arrancó. Si lanzas `kj board start` desde una sesión personal, lo que el board lance usa las cuentas personales.
