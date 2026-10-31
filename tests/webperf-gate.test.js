@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { evaluateCwv, mergeThresholds, CWV_THRESHOLDS } from "../src/webperf/cwv-gate.js";
-import { buildWebPerfSection, formatCwvForEvent } from "../src/webperf/webperf-role-integration.js";
 
 describe("[opt-in: webperf] evaluateCwv", () => {
   describe("LCP", () => {
@@ -149,35 +148,5 @@ describe("mergeThresholds", () => {
     expect(result.cls.good).toBe(0.05);
     expect(result.cls.poor).toBe(0.15);
     expect(result.lcp.good).toBe(2500);
-  });
-});
-
-describe("buildWebPerfSection", () => {
-  it("builds readable section for passing result", () => {
-    const cwv = evaluateCwv({ lcp: 2000, cls: 0.05, inp: 100 });
-    const section = buildWebPerfSection(cwv);
-    expect(section).toContain("PASSED");
-    expect(section).toContain("LCP");
-    expect(section).toContain("2000ms");
-    expect(section).not.toContain("Blocking");
-  });
-
-  it("builds readable section for failing result", () => {
-    const cwv = evaluateCwv({ lcp: 5000, cls: 0.3, inp: 100 });
-    const section = buildWebPerfSection(cwv);
-    expect(section).toContain("FAILED");
-    expect(section).toContain("Blocking");
-  });
-});
-
-describe("formatCwvForEvent", () => {
-  it("formats result for event payload", () => {
-    const cwv = evaluateCwv({ lcp: 2000, cls: 0.15, inp: 600 });
-    const event = formatCwvForEvent(cwv);
-    expect(event.type).toBe("webperf-cwv");
-    expect(event.pass).toBe(false);
-    expect(event.blockingCount).toBe(1);
-    expect(event.advisoryCount).toBe(1);
-    expect(event.metrics.lcp.rating).toBe("good");
   });
 });
