@@ -38,7 +38,7 @@ kj rag query "rate limiting" --top-k 10 --json
 ┌───────────────────────────────────────────────────────┐
 │ src/rag/retriever.js  ─ over-fetch + kind boost       │
 │ src/rag/vec-store.js  ─ sqlite-vec cosine search      │
-│ src/rag/embedder.js   ─ OllamaEmbedder                │
+│ core/rag/embedder.js  ─ OllamaEmbedder                │
 │ src/rag/chunker.js    ─ md / plan / source chunkers   │
 │ src/rag/indexer.js    ─ project walker + idempotence  │
 └───────────────────────────────────────────────────────┘

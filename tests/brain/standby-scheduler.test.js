@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { scheduleResume, cancelScheduled, reconcileAll, _resetScheduledForTests } from "../../src/brain/standby-scheduler.js";
+import { scheduleResume, cancelScheduled, reconcileAll, _resetScheduledForTests } from "karajan-core/standby-scheduler";
 import { persistStandby } from "../../src/brain/standby-store.js";
 
 // KJC-TSK-0414 PR 1: scheduler event-driven (setTimeout único per session).

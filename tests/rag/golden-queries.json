@@ -11,12 +11,12 @@
   { "query": "delta re-index files changed since git ref", "expected_sources": ["src/rag/indexer.js"], "expected_symbols": ["indexProjectDelta"] },
   { "query": "chunkSource split JavaScript file into AST chunks", "expected_sources": ["src/rag/chunker.js", "src/rag/chunker-ast.js"], "expected_symbols": ["chunkSource"] },
   { "query": "chunkMarkdown plan headings split", "expected_sources": ["src/rag/chunker.js"], "expected_symbols": ["chunkMarkdown"] },
-  { "query": "Ollama embedder local HTTP adapter", "expected_sources": ["src/rag/embedder.js", "src/rag/embedders/factory.js"] },
-  { "query": "Voyage cloud embedder", "expected_sources": ["src/rag/embedders/voyage.js"] },
-  { "query": "OpenAI cloud embedder adapter", "expected_sources": ["src/rag/embedders/openai.js"] },
-  { "query": "cross-encoder rerank top results", "expected_sources": ["src/rag/rerank.js"], "expected_symbols": ["rerank"] },
+  { "query": "Ollama embedder local HTTP adapter", "expected_sources": ["packages/core/src/rag/embedder.js", "src/rag/embedders/factory.js"] },
+  { "query": "Voyage cloud embedder", "expected_sources": ["packages/core/src/rag/embedders/voyage.js"] },
+  { "query": "OpenAI cloud embedder adapter", "expected_sources": ["packages/core/src/rag/embedders/openai.js"] },
+  { "query": "cross-encoder rerank top results", "expected_sources": ["packages/core/src/rag/rerank.js"], "expected_symbols": ["rerank"] },
   { "query": "chokidar watcher live re-index daemon", "expected_sources": ["src/rag/watcher.js"] },
   { "query": "kj rag query CLI command implementation", "expected_sources": ["src/commands/rag.js"], "expected_symbols": ["ragQueryCommand"] },
-  { "query": "where clause parser metadata filter", "expected_sources": ["src/rag/where-parser.js"], "expected_symbols": ["parseWhere", "buildWhereSql"] },
+  { "query": "where clause parser metadata filter", "expected_sources": ["packages/core/src/rag/where-parser.js"], "expected_symbols": ["parseWhere", "buildWhereSql"] },
   { "query": "Ollama Docker manager auto-bootstrap", "expected_sources": ["src/rag/ollama-manager.js"] }
 ]

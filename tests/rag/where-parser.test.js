@@ -1,6 +1,6 @@
 // KJC-TSK-0448 — tests for the --where parser used by `kj rag query`.
 import { describe, expect, it } from "vitest";
-import { parseWhere, buildWhereSql } from "../../src/rag/where-parser.js";
+import { parseWhere, buildWhereSql } from "karajan-core/rag/where-parser";
 
 describe("parseWhere", () => {
   it("returns ok with empty clauses for null / empty input", () => {

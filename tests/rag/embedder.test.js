@@ -1,7 +1,7 @@
 // KJC-PCS-0049 Step 2 — OllamaEmbedder acceptance pins. Uses an injected
 // fetch mock; no real network call.
 import { describe, expect, it, vi } from "vitest";
-import { OllamaEmbedder, OllamaEmbedderError } from "../../src/rag/embedder.js";
+import { OllamaEmbedder, OllamaEmbedderError } from "karajan-core/rag/embedder";
 
 function okResponse(embedding) {
   return { ok: true, status: 200, json: async () => ({ embedding }) };
