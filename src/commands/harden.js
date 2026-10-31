@@ -25,11 +25,19 @@ import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
 import { installSandbox } from "../harden/sandbox.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
-import { installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
+import { detectPackageManager, installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
 import { adviseBranchProtection } from "../harden/branch-protection.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { ensureIdentity } from "../identity/bootstrap.js";
 import { commitContract, contractChanges } from "../environment/contract-commit.js";
+
+// How each package manager runs a package.json script in a hook (`bun test` is bun's own runner, not the script).
+const HOOK_RUNNERS = {
+  npm: { run: (s) => `npm run -s ${s}`, test: "npm test" },
+  pnpm: { run: (s) => `pnpm run -s ${s}`, test: "pnpm test" },
+  yarn: { run: (s) => `yarn run ${s}`, test: "yarn test" },
+  bun: { run: (s) => `bun run ${s}`, test: "bun run test" },
+};
 
 const JS_TEST_CMD = {
   vitest: "npx vitest run",
@@ -51,10 +59,12 @@ export async function resolveCmds(projectDir, language) {
   if (existsSync(pkgPath)) {
     try {
       const scripts = JSON.parse(readFileSync(pkgPath, "utf8")).scripts ?? {};
-      if (scripts.lint) cmds.lint = "npm run -s lint";
-      if (scripts["format:check"]) cmds.format = "npm run -s format:check";
-      else if (scripts.format) cmds.format = "npm run -s format";
-      if (scripts.test) cmds.test = "npm test";
+      // KJC-BUG-0450 (#2789): the project's own package manager, as the workflows use it.
+      const pm = HOOK_RUNNERS[detectPackageManager(projectDir)] ?? HOOK_RUNNERS.npm;
+      if (scripts.lint) cmds.lint = pm.run("lint");
+      if (scripts["format:check"]) cmds.format = pm.run("format:check");
+      else if (scripts.format) cmds.format = pm.run("format");
+      if (scripts.test) cmds.test = pm.test;
     } catch {
       /* unreadable package.json → fall back to framework detection */
     }
