@@ -7,12 +7,11 @@
  */
 import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
-import { MARKER } from "./publish-pr.js";
+import { MARKER, TRUSTED } from "./publish-pr.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 
-const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 // The marker of a kj review for any head: what MARKER writes up to the head itself.
 const MARKER_PREFIX = MARKER("\0").split("\0")[0];
 // One line per commit, as publish-pr writes it: - `<sha7>` headline: approved by X (diff <hash12>)...
