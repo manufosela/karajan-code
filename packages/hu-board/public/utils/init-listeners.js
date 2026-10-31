@@ -15,8 +15,7 @@
 //   - showStoryDetail()               (utils/story-detail-view.js)
 //   - showSessionDetail()             (utils/sessions-view.js)
 //   - selectProject()                 (app.js)
-//   - triggerSync(),
-//     startStandbyPolling()           (utils/api.js)
+//   - triggerSync()                   (utils/api.js)
 //   - subscribeToServerEvents(),
 //     smartRefresh()                  (utils/server-push.js)
 //   - selectedProject, currentView,
@@ -144,9 +143,6 @@ window.showStoryDetail = showStoryDetail;
 window.showSessionDetail = showSessionDetail;
 window.closeModal = closeModal;
 window.selectProject = selectProject;
-
-// KJC-TSK-0414 PR4: arranca el polling del banner de standby al cargar la página.
-startStandbyPolling();
 
 // Initial load — sync disk data first so new batches are visible
 triggerSync().then(async () => {
