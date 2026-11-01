@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.70.3: harden pins published versions, and the Sentinel lets reads through (current)
+### v5.0.0: your agent works, Karajan governs (current)
+
+`kj run` and its pipeline are retired: your agent does the work, and Karajan installs the method and governs it. A task starts in one step with `kj hu start`, in a lane that is ready on creation, and the HU Board's ▶ does the same and has your panel's coder write the card there. atril joins the core. kj no longer compiles a database addon (everything runs on `node:sqlite`), a revoked reviewer session is no longer taken for missing quota, and kj can be published from CI with signed provenance. See [Migrating to 5.0](/docs/v4/migration/).
+
+### v4.70.3: harden pins published versions, and the Sentinel lets reads through
 
 `kj harden` no longer seeds the CI policy workflow with a kj version that npm does not have. The Sentinel lets a command that only reads (`cat`, `grep`, `ls`) name its own files and the governance config, and now catches one-liners that wrote that config by a relative path. Your seal commit passes the CI review check, proved by the phone signature. `kj run` works with nvm, sizes are measured in net lines as CI does, and pushing after merging main is no longer refused. Re-seal once after upgrading (`kj harden --commit`).
 

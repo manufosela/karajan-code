@@ -1880,6 +1880,12 @@ An audit of the governance seal asked, for each claim, for the line that proves 
 
 The method showed its value along the way. Codex rejected the first cut as a security gap: it added the runner but still ran the project's copies. Solomon upheld that, since security findings are not arbitrable. Codex then caught, one by one, an emptied settings file falling back to dead copies; versioned settings passing as unjudgeable; untracked settings taken for ignored ones; and a local file's content on its way to the phone.
 
+## Phase 155: v5.0.0, your agent works and Karajan governs
+
+Since v4 the host agent did the work and Karajan governed it, yet the `kj run` pipeline, where kj spawned its own coder, reviewer and judge, was still there. 5.0 retires it, with every retired command saying what replaced it, and moves what was left of its job into the method. Starting a task became one step, `kj hu start`, which checks the card before anything is created and opens a lane that comes with the clone identity and the Sentinel. The HU Board's ▶ came back on top of it: it starts the card and has the panel coder write it, and review and commit stay with the person.
+
+The same release took the database addon out of kj (everything runs on `node:sqlite`), made atril part of the core, and closed the agent's admin power over the repo (ADR 0037): the agent works with a token that cannot change protection or approve a release, and `kj doctor` checks it. kj itself can be published from CI with signed provenance (ADR 0035), with the maintainer's approval as the human gate.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

@@ -1879,6 +1879,12 @@ Una auditoría del sello de gobierno pidió, para cada afirmación, la línea qu
 
 El método demostró su valor por el camino. Codex rechazó el primer corte como un hueco de seguridad: añadía el runner pero seguía ejecutando las copias del proyecto. Solomon lo confirmó, porque los hallazgos de seguridad no se arbitran. Después Codex cazó, uno a uno, un fichero de configuración vaciado que volvía a las copias muertas, una configuración versionada que pasaba por no juzgable, una sin versionar tomada por ignorada y el contenido de un fichero local camino del móvil.
 
+## Phase 155: v5.0.0, tu agente trabaja y Karajan gobierna
+
+Desde la v4 el agente anfitrión hacía el trabajo y Karajan lo gobernaba, pero seguía ahí el pipeline de `kj run`, en el que kj lanzaba su propio coder, revisor y juez. La 5.0 lo retira, con cada comando retirado diciendo qué lo sustituye, y pasa al método lo que quedaba de su trabajo. Empezar una tarea pasó a ser un paso, `kj hu start`, que comprueba la card antes de crear nada y abre un carril que trae la identidad del clon y el Sentinel. Encima volvió el ▶ del HU Board: arranca la card y pone al coder del panel a escribirla, y la revisión y el commit siguen siendo de la persona.
+
+La misma versión sacó de kj el addon de base de datos (todo va sobre `node:sqlite`), metió atril en el núcleo y cerró el poder de administrador del agente sobre el repo (ADR 0037): el agente trabaja con un token que no puede cambiar la protección ni aprobar una publicación, y `kj doctor` lo comprueba. El propio kj puede publicarse desde CI con procedencia firmada (ADR 0035), con la aprobación del mantenedor como puerta humana.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
