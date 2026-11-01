@@ -6,7 +6,9 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 document.getElementById('theme').addEventListener('click', () => {
   const dark = getComputedStyle(root).colorScheme === 'dark';
   root.dataset.theme = dark ? 'light' : 'dark';
-  localStorage.setItem('kj-theme', root.dataset.theme);
+  // Same keys as the Starlight docs, so the docs open in the theme chosen here.
+  localStorage.setItem('theme', root.dataset.theme);
+  localStorage.setItem('starlight-theme', root.dataset.theme);
 });
 
 const copy = document.getElementById('copy');
