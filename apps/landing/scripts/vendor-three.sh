@@ -19,7 +19,7 @@ tar -xzf "$WORK/three-$VERSION.tgz" -C "$WORK/node_modules/three" --strip-compon
 JSM=./node_modules/three/examples/jsm
 cat > "$WORK/entry.js" <<EOF
 export {
-  ACESFilmicToneMapping, AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry,
+  ACESFilmicToneMapping, AdditiveBlending, Box3, BoxGeometry, BufferAttribute, BufferGeometry,
   CanvasTexture, CapsuleGeometry, CatmullRomCurve3, CircleGeometry, Color, ConeGeometry,
   CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight,
   LatheGeometry, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial,

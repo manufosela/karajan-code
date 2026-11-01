@@ -7,6 +7,7 @@ import { createStage } from './stage.js';
 import { createCast } from './cast.js';
 import { perform } from './score.js';
 import { cameraAt } from './camera.js';
+import { fitBeside } from './framing.js';
 import { T, asideAt, lerp } from './timeline.js';
 
 const root = document.documentElement;
@@ -74,6 +75,31 @@ function start() {
   composer.addPass(new THREE.OutputPass());
 
   let width = 1, height = 1, copyRight = 0, copyBottom = 0;
+  let beside = { wide: 1, shift: 0 };
+  // The pieces the final shot must show whole (not the verdict's wave, which spreads out invisibly).
+  const framed = [cast.conductor.root, cast.rag.root, cast.watch.root, cast.stand.group,
+    cast.verdict.pedestal, cast.verdict.check, ...cast.crates.map((c) => c.group)];
+  const box = new THREE.Box3();
+  const corner = new THREE.Vector3();
+  // Where the cast falls on screen, in px, in its final pose seen from `wide`.
+  const castSpan = (wide) => {
+    const shot = cameraAt(T.end, perform(T.end, cast, stage), wide);
+    camera.position.copy(shot.pos);
+    camera.lookAt(shot.look);
+    camera.clearViewOffset();
+    camera.updateMatrixWorld();
+    let left = Infinity, right = -Infinity;
+    for (const piece of framed) {
+      box.setFromObject(piece);
+      for (let i = 0; i < 8; i++) {
+        corner.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
+        const x = (corner.project(camera).x + 1) / 2 * width;
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+      }
+    }
+    return { left, right };
+  };
   const resize = () => {
     width = hero.clientWidth;
     height = hero.clientHeight;
@@ -86,9 +112,15 @@ function start() {
     camera.aspect = width / height;
     // Where the hero copy ends: the final shot is framed in the room beside it or below it.
     const copy = document.querySelector('.hero-copy').getBoundingClientRect();
-    const box = hero.getBoundingClientRect();
-    copyRight = copy.right - box.left;
-    copyBottom = copy.bottom - box.top;
+    const frame = hero.getBoundingClientRect();
+    copyRight = copy.right - frame.left;
+    copyBottom = copy.bottom - frame.top;
+    // Measured twice: perspective makes the first pull-back slightly off.
+    const room = { width, copyRight, gap: Math.max(24, 0.03 * width) };
+    const fit = Math.max(1, 1.5 / camera.aspect);
+    const first = fitBeside(castSpan(fit), room);
+    const wide = fit * first.wide * fitBeside(castSpan(fit * first.wide), room).wide;
+    beside = { wide, shift: fitBeside(castSpan(wide), room).shift };
   };
   resize();
 
@@ -108,8 +140,8 @@ function start() {
     const aside = asideAt(t);
     const besideCopy = !stacked.matches;
     // The final shot pulls back until the cast fits the room the copy leaves.
-    const room = besideCopy ? 1.05 * height / (width - copyRight) : 0.65 * height / Math.max(1, height - copyBottom);
     const fit = Math.max(1, 1.5 / aspect);
+    const room = besideCopy ? beside.wide : 0.65 * height / Math.max(1, height - copyBottom);
     const wide = Math.min(2.4, lerp(fit, Math.max(fit, room), aside));
     const shot = cameraAt(t, cubeX, wide);
     scene.fog.density = 0.042 / wide;
@@ -125,7 +157,7 @@ function start() {
     }
     camera.position.copy(shot.pos);
     camera.lookAt(shot.look);
-    if (besideCopy) camera.setViewOffset(width, height, -0.45 * copyRight * aside, 0, width, height);
+    if (besideCopy) camera.setViewOffset(width, height, beside.shift * aside, 0, width, height);
     else camera.setViewOffset(width, height, 0, -0.47 * copyBottom * aside, width, height);
     camera.updateProjectionMatrix();
     composer.render();
