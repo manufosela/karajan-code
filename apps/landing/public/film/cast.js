@@ -3,25 +3,28 @@
 import { createRobot } from './robot.js';
 import { createCrate, createDiff, createVerdict, createShock, CRATE, DIFF_SIZE } from './props.js';
 import { STAFF, PODIUM } from './stage.js';
-import { T, SLOTS, VERDICT_X, span, easeInOut, easeOut, lerp, pulse, blinkAt } from './timeline.js';
+import { T, SLOTS, REFUSING_CRATE, VERDICT_X, span, easeInOut, easeOut, lerp, pulse, blinkAt } from './timeline.js';
 
 const Z = STAFF.z;
 const TOP = CRATE.h + DIFF_SIZE / 2;
 
-/** Builds the cast; `tools` are the crate labels, in the page's language. */
-export function createCast(scene, tools) {
+/**
+ * Builds the cast; `tools` are the crate labels, in the page's language, and
+ * `fresh` names the tool that is new in this release and the badge it wears.
+ */
+export function createCast(scene, tools, fresh) {
   const conductor = createRobot({ accent: 0x34e07f, bow: 0xeef1f6, name: 'Karajan Code' });
   conductor.root.position.set(PODIUM.x, PODIUM.h, PODIUM.z);
   conductor.root.scale.setScalar(1.25);
   const rag = createRobot({ accent: 0xf0b429, name: 'kaRAGan' });
   const watch = createRobot({ accent: 0x4fb3e8, name: 'kaWATCHan' });
-  const crates = tools.map((name, i) => createCrate(i, name));
+  const crates = tools.map((name, i) => createCrate(i, name, name === fresh.tool ? fresh.badge : ''));
   const rogue = createDiff('rogue');
   const honest = createDiff('honest');
   const verdict = createVerdict();
   verdict.group.position.set(VERDICT_X, 0, Z);
   const shock = createShock();
-  shock.position.set(SLOTS[2] - CRATE.w / 2, TOP, Z);
+  shock.position.set(SLOTS[REFUSING_CRATE] - CRATE.w / 2, TOP, Z);
   shock.rotation.y = Math.PI / 2;
   scene.add(conductor.root, rag.root, watch.root, rogue.group, honest.group, verdict.group, shock);
   crates.forEach((c) => scene.add(c.group));
