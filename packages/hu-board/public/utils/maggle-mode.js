@@ -19,7 +19,6 @@ const MAGGLE_LABELS = {
   'board.stories': 'tareas',
   'board.story': 'tarea',
   'board.viewLog': '📜 Ver actividad',
-  'board.running': 'en marcha',
   'board.ragPlaceholder': '🔍 Pregunta lo que quieras sobre este proyecto…',
   'header.subtitle': 'tu tablero de trabajo',
   'nav.board': 'Tablero',

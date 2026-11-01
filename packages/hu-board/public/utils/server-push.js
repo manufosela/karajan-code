@@ -223,21 +223,11 @@ async function patchBoardIncremental() {
       setTimeout(() => node.remove(), 160);
     }
   }
-  // Recount each column + update the "N running" badge in the header.
+  // Recount each column (the Running column's count is the "how many in progress").
   for (const [cls, col] of Object.entries(columns)) {
     const counter = col.querySelector('[data-column-count]');
     if (counter) counter.textContent = String(col.querySelectorAll('.story-card').length);
     col.style.opacity = col.querySelectorAll('.story-card').length === 0 ? '0.55' : '1';
-  }
-  const runningCount = columns.running.querySelectorAll('.story-card').length;
-  const runningBadge = document.querySelector('.section-header__badge');
-  if (runningBadge) {
-    if (runningCount > 0) {
-      runningBadge.textContent = `⚙ ${runningCount} running…`;
-      runningBadge.style.display = '';
-    } else {
-      runningBadge.style.display = 'none';
-    }
   }
   return true;
 }
