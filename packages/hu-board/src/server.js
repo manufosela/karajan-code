@@ -167,6 +167,16 @@ export function buildRateLimiter() {
 }
 
 /**
+ * KJC-BUG-0463: mounted on /api after every API router, so an API route that does not
+ * exist gets a 404 JSON naming it instead of falling to the SPA's index.html (a 200
+ * the caller then fails to parse).
+ * @type {import('express').RequestHandler}
+ */
+export function apiNotFound(req, res) {
+  res.status(404).json({ error: `no such API route: ${req.method} ${req.originalUrl}` });
+}
+
+/**
  * Main entry point: initializes database, syncs data, and starts the server.
  */
 async function main() {
@@ -303,6 +313,8 @@ async function main() {
   );
   // KJC-TSK-1198: driver.js (MIT, pinned) for the guided tour, from the dependency's dist/.
   app.use('/vendor/driver', express.static(dirname(requireCjs.resolve('driver.js'))));
+
+  app.use('/api', apiNotFound);
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {
