@@ -26,11 +26,8 @@ describe('kanbanColumnOf (KJC-BUG-0405)', () => {
     expect(ctx.kanbanColumnOf('done')).toBe('done');
   });
 
-  it('a running HU of the shared board is shown, never counted as a run of this board', () => {
-    const run = (src) => vm.runInContext(src, ctx);
-    expect(run("isBoardRun({ plan_id: 'plan-x', status: 'running' })")).toBe(true);
-    expect(run("isBoardRun({ plan_id: 'plan-x', status: 'pending' })")).toBe(false);
-    expect(run("isBoardRun({ plan_id: 'plan-github-board', status: 'running' })")).toBe(false);
-    expect(run("isBoardRunnable({ plan_id: 'plan-github-board', status: 'pending' })")).toBe(false);
+  // KJC-TSK-1351: "a run of this board" (isBoardRun) went with kj run; a running HU is only in progress.
+  it('has no notion of a board run any more', () => {
+    expect(vm.runInContext("typeof isBoardRun + ',' + typeof isBoardRunnable", ctx)).toBe('undefined,undefined');
   });
 });

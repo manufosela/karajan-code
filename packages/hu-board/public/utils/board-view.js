@@ -75,9 +75,8 @@ async function renderBoard() {
       return;
     }
 
-    // KJC-TSK-1319: the "Run plan" button launched kj run, retired in 5.0.
-    const runningCount = columns.running.filter(isBoardRun).length;
-    const isRunning = runningCount > 0;
+    // KJC-TSK-1351: no "⚙ N running" badge in the header. It counted the HUs the board's kj run
+    // could launch; with kj run retired the Running column's own count says how many are in progress.
 
     // KJC-TSK-0403: 3 canonical lanes. Failed eliminado — HUs con
     // result=fail aparecen en Pending con badge ✗.
@@ -100,15 +99,9 @@ async function renderBoard() {
         <span class="section-header__count" title="stories">${stories.length} ${maggleText('board.stories', 'stories')}</span>
         ${costSummary ? `<span class="section-header__cost" title="${esc(costSummary.tooltip)}">💵 ${esc(costSummary.label)}</span>` : ''}
         ${cacheSummary ? `<span class="section-header__cache" title="${esc(cacheSummary.tooltip)}">${esc(cacheSummary.label)}</span>` : ''}
-        ${isRunning ? `
-          <span class="section-header__badge"
-                style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;">
-            ⚙ ${runningCount} ${maggleText('board.running', 'running')}
-          </span>
-        ` : ''}
         ${lastOpenedLog ? `
           <button class="control-btn" id="view-log-btn"
-                  style="${isRunning ? '' : 'margin-left:auto;'}padding:6px 12px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;"
+                  style="margin-left:auto;padding:6px 12px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;"
                   title="Re-open the log of the most recent run/command">
             ${maggleText('board.viewLog', '📜 View log')}
           </button>
