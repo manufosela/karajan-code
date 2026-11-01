@@ -1,12 +1,14 @@
 // KJC-TSK-0542: the board's SQLite connection, its schema and migrations. Other modules reach the
 // handle through getDb(); db.js re-exports these functions, so callers keep importing from there.
-import Database from 'better-sqlite3';
+// KJC-TSK-0617 (SQL-C): the handle is karajan-core's better-sqlite3-compatible adapter over
+// node:sqlite, built into Node: no native addon to compile.
+import { openDatabase } from 'karajan-core/db';
 import { join } from 'node:path';
 import { mkdirSync, renameSync } from 'node:fs';
 
 import { getKjHome } from './db-paths.js';
 
-/** @type {import('better-sqlite3').Database | null} */
+/** @type {ReturnType<typeof openDatabase> | null} */
 let db = null;
 
 // Bump when the schema gains a column / index / table that older
@@ -23,25 +25,27 @@ const SCHEMA_VERSION = 1;
  * checkpoint died in the wrong place.
  *
  * @param {string} dbPath
- * @returns {import('better-sqlite3').Database}
+ * @returns {ReturnType<typeof openDatabase>}
  */
 function openDbResilient(dbPath) {
+  let handle = null;
   try {
-    const handle = new Database(dbPath);
-    // better-sqlite3 opens lazily — the first pragma is what actually
-    // touches the file and surfaces "file is not a database". Probe
-    // `schema_version` (a built-in SQLite pragma) to force it.
+    handle = openDatabase(dbPath);
+    // SQLite reads the file header on the first statement, which is what
+    // surfaces "file is not a database". Probe `schema_version` (a built-in
+    // SQLite pragma) to force it.
     handle.pragma("schema_version", { simple: true });
     return handle;
   } catch (err) {
     const code = err?.code || "";
     const msg = err?.message || "";
     if (code === "SQLITE_CORRUPT" || code === "SQLITE_NOTADB" || /malformed|not a database/i.test(msg)) {
+      try { handle?.close(); } catch { /* already unusable */ }
       const aside = `${dbPath}.corrupt-${Date.now()}`;
       try { renameSync(dbPath, aside); } catch { /* may already be gone */ }
       // eslint-disable-next-line no-console
       console.warn(`[hu-board] DB at ${dbPath} was corrupt; moved aside to ${aside}. Rebuilding from disk via fullScan.`);
-      return new Database(dbPath);
+      return openDatabase(dbPath);
     }
     throw err;
   }

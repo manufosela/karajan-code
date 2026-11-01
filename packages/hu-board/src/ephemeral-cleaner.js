@@ -123,7 +123,7 @@ export function findEphemeralProjects(projects, opts = {}) {
  * has no effect on the second pass.
  *
  * @param {object} deps
- * @param {object} deps.db        better-sqlite3 Database handle
+ * @param {object} deps.db        SQLite handle (karajan-core/db adapter)
  * @param {object} [deps.opts]    threshold overrides
  * @param {Function} [deps.now]   () => number, for tests
  * @returns {Array<{ id: string, reason: string, stories_deleted: number, sessions_deleted: number }>}

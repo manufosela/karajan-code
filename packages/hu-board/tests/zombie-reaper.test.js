@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import Database from "better-sqlite3";
+import { openDatabase } from "karajan-core/db";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -195,7 +195,7 @@ describe("reapZombieSessions (integration with in-memory SQLite + disk)", () => 
   let tmp;
 
   beforeEach(() => {
-    db = new Database(":memory:");
+    db = openDatabase(":memory:");
     db.exec(`
       CREATE TABLE sessions (
         id TEXT PRIMARY KEY,
@@ -216,7 +216,8 @@ describe("reapZombieSessions (integration with in-memory SQLite + disk)", () => 
   function insert(row) {
     db.prepare(
       "INSERT INTO sessions (id, status, updated_at, created_at, checkpoints) VALUES (?, ?, ?, ?, ?)",
-    ).run(row.id, row.status, row.updated_at, row.created_at, row.checkpoints || null);
+    // node:sqlite binds no undefined (better-sqlite3 turned it into NULL): absent columns are null.
+    ).run(row.id, row.status, row.updated_at ?? null, row.created_at ?? null, row.checkpoints || null);
   }
 
   it("returns [] when nothing to reap", () => {

@@ -180,17 +180,15 @@ export function apiNotFound(req, res) {
  * Main entry point: initializes database, syncs data, and starts the server.
  */
 async function main() {
-  // Initialize SQLite. better-sqlite3 is a native module — when its
-  // prebuilt binary is missing or ABI-mismatched (Node was upgraded),
-  // initDb() throws. Surface an actionable message instead of a bare
-  // stack trace so the user knows exactly what to run.
+  // Initialize SQLite (node:sqlite, built into Node 22+: KJC-TSK-0617). When
+  // initDb() throws, surface an actionable message instead of a bare stack trace.
   console.log('[server] Initializing database...');
   try {
     initDb();
   } catch (err) {
     console.error('[server] FATAL: could not initialize the database.');
-    console.error('[server] The native module better-sqlite3 failed to load, or the DB file could not be opened.');
-    console.error('[server] Fix: run `npm rebuild better-sqlite3` (or reinstall karajan-code).');
+    console.error('[server] The DB file could not be opened, or this Node has no node:sqlite (it needs Node 22.12 or newer).');
+    console.error('[server] Fix: check the path in the error below, or upgrade Node.');
     console.error('[server] Original error:', err?.stack || String(err));
     process.exit(1);
   }

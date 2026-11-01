@@ -1,6 +1,6 @@
 // KJC-TSK-0394 step 3: tests del HU zombie reaper.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Database from 'better-sqlite3';
+import { openDatabase } from 'karajan-core/db';
 import { classifyHuZombie, findZombieHus, reapZombieHus } from '../src/hu-zombie-reaper.js';
 
 const NOW = new Date('2026-05-13T12:00:00Z').getTime();
@@ -51,7 +51,7 @@ describe('reapZombieHus', () => {
     db.prepare("INSERT INTO stories VALUES (?, ?, ?, ?, ?, ?)").run(id, 'proj', planId, status, result, updated);
 
   beforeEach(() => {
-    db = new Database(':memory:');
+    db = openDatabase(':memory:');
     db.exec(`CREATE TABLE stories (id TEXT PRIMARY KEY, project_id TEXT, plan_id TEXT, status TEXT, result TEXT, updated_at TEXT);`);
   });
   afterEach(() => { db.close(); });

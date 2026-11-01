@@ -172,7 +172,7 @@ export function markSessionFailedOnDisk(sessionId, reason, reapedAtIso, opts = {
  * sessions so the server can log them.
  *
  * @param {object} deps
- * @param {object} deps.db        better-sqlite3 Database handle
+ * @param {object} deps.db        SQLite handle (karajan-core/db adapter)
  * @param {object} [deps.opts]    threshold + sessionsDir overrides
  * @param {Function} [deps.now]   () => number, for tests
  * @returns {Array<{ id: string, status_before: string, reason: string, disk_persisted: boolean }>}
