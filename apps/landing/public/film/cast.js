@@ -9,8 +9,8 @@ const Z = STAFF.z;
 const TOP = CRATE.h + DIFF_SIZE / 2;
 
 /**
- * Builds the cast; `tools` are the crate labels, in the page's language, and
- * `fresh` names the tool that is new in this release and the badge it wears.
+ * Builds the cast; `tools` are the crates ({ name, kind }), labelled in the page's
+ * language, and `fresh` names the tool that is new in this release and its badge.
  */
 export function createCast(scene, tools, fresh) {
   const conductor = createRobot({ accent: 0x34e07f, bow: 0xeef1f6, name: 'Karajan Code' });
@@ -18,7 +18,8 @@ export function createCast(scene, tools, fresh) {
   conductor.root.scale.setScalar(1.25);
   const rag = createRobot({ accent: 0xf0b429, name: 'kaRAGan' });
   const watch = createRobot({ accent: 0x4fb3e8, name: 'kaWATCHan' });
-  const crates = tools.map((name, i) => createCrate(i, name, name === fresh.tool ? fresh.badge : ''));
+  const crates = tools.map(({ name, kind }, i) =>
+    createCrate(i, name, { kind, badge: name === fresh.tool ? fresh.badge : '' }));
   const rogue = createDiff('rogue');
   const honest = createDiff('honest');
   const verdict = createVerdict();

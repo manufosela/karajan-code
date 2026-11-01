@@ -67,7 +67,7 @@
 
 <main id="main">
   <section class="hero" id="hero" aria-label="Karajan Code">
-    <canvas id="film" data-tools="atril|TDD|Sentinel|Revisión IA|Guardas git|SonarQube|Ledger|Steward" data-new-tool="atril" data-new-badge="nuevo" role="img" aria-label="Película: el robot director de Karajan sube al podio, kaRAGan y kaWATCHan empujan las herramientas del método hasta un pentagrama, un diff sin revisar es rechazado y uno revisado se gana el veredicto verde. atril, la novedad de la 5.0, abre la fila."></canvas>
+    <canvas id="film" data-kinds="tool|tool|method|method|method|tool|method|method" data-tools="atril|TDD|Sentinel|Revisión IA|Guardas git|SonarQube|Ledger|Steward" data-new-tool="atril" data-new-badge="nuevo" role="img" aria-label="Película: el robot director de Karajan sube al podio, kaRAGan y kaWATCHan empujan las piezas del método y sus herramientas hasta un pentagrama, un diff sin revisar es rechazado y uno revisado se gana el veredicto verde. atril, la novedad de la 5.0, abre la fila."></canvas>
     <img class="hero-still" src="/img/logo-480.webp" alt="" width="420" height="463">
     <div class="wrap hero-inner">
       <div class="hero-copy">
@@ -132,7 +132,8 @@
         <h2>Siete piezas, <em>ninguna opinión.</em></h2>
         <p class="motto">Mecanismo donde había opinión. Evidencia donde había una afirmación.</p>
       </div>
-      <ol class="pieces reveal">
+      <div>
+      <ol class="pieces reveal" data-kind="method">
         <li><b>Revisión cruzada obligatoria</b><span>Otra IA revisa cada cambio, atada al hash del diff.</span></li>
         <li><b>Reglas como mecanismo</b><span>Las normas viven en las guardas de git y en la política, no en el prompt. La seguridad nunca se puede saltar.</span></li>
         <li><b>El Sentinel</b><span>Bloquea la acción prohibida dentro de la sesión, en el momento en que ocurre.</span></li>
@@ -141,6 +142,13 @@
         <li><b>La confianza caduca</b><span>El Steward vuelve a verificar las garantías de forma periódica; la evidencia caducada deja de contar.</span></li>
         <li><b>Memoria del proyecto</b><span>El agente consulta el código indexado antes de suponer nada, sin que entren los secretos.</span></li>
       </ol>
+      <p class="kicker pieces-sub reveal">Y tres herramientas que incorpora</p>
+      <ol class="pieces reveal" data-kind="tool">
+        <li><b>atril <small>nuevo en la 5.0</small></b><span>Skills, comandos y subagentes para cualquier CLI de IA, cargados cuando una tarea los necesita en lugar de llenar el contexto inicial.</span></li>
+        <li><b>TDD</b><span>Primero el test que falla, y la suite nunca se queda en rojo.</span></li>
+        <li><b>SonarQube</b><span>Análisis estático y quality gate sobre el código que cambias.</span></li>
+      </ol>
+      </div>
     </div>
   </section>
 

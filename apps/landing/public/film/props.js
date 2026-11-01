@@ -6,9 +6,13 @@ import * as THREE from 'three';
 
 export const CRATE = { w: 1.15, h: 0.78, d: 0.78 };
 export const DIFF_SIZE = 0.42;
-const GOLD = new THREE.Color(0xe8b04b);
 const RED = new THREE.Color(0xff4d4d);
 const GREEN = new THREE.Color(0x34d399);
+// The method's own pieces wear steel; the tools Karajan brings in wear green.
+const KINDS = {
+  method: { ink: '#8cb4c9', strip: 0x6b8fa3, body: 0x1a2332, glow: new THREE.Color(0x8cb4c9) },
+  tool: { ink: '#34d399', strip: 0x1f9e74, body: 0x14292a, glow: GREEN },
+};
 
 function labelTexture(lines, { width = 512, height = 256, color = '#e2e8f0', accent = '#e8b04b' } = {}) {
   const c = document.createElement('canvas');
@@ -29,11 +33,16 @@ function labelTexture(lines, { width = 512, height = 256, color = '#e2e8f0', acc
   return texture;
 }
 
-/** A tool crate; `badge` (e.g. "new") is printed in green next to its number. */
-export function createCrate(index, name, badge = '') {
+/**
+ * A crate on the staff. `kind` is 'method' or 'tool' and sets its colours;
+ * `badge` (e.g. "new") is printed in green next to its number.
+ */
+export function createCrate(index, name, { kind, badge = '' }) {
+  const look = KINDS[kind];
+  if (!look) throw new Error(`crate "${name}": unknown kind "${kind}"`);
   const group = new THREE.Group();
   const material = new THREE.MeshPhysicalMaterial({
-    color: 0x1a2332, roughness: 0.45, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.3,
+    color: look.body, roughness: 0.45, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.3,
     emissive: new THREE.Color(0x000000),
   });
   const body = new THREE.Mesh(new THREE.RoundedBoxGeometry(CRATE.w, CRATE.h, CRATE.d, 4, 0.07), material);
@@ -41,21 +50,21 @@ export function createCrate(index, name, badge = '') {
   body.castShadow = true;
   body.receiveShadow = true;
   const labelMaterial = new THREE.MeshBasicMaterial({
-    map: labelTexture([[String(index + 1).padStart(2, '0'), badge].filter(Boolean).join(' · '), name], { accent: badge ? '#34d399' : '#e8b04b' }),
+    map: labelTexture([[String(index + 1).padStart(2, '0'), badge].filter(Boolean).join(' · '), name], { color: look.ink, accent: badge ? '#34d399' : '#e8b04b' }),
     transparent: true, toneMapped: false,
   });
   const label = new THREE.Mesh(new THREE.PlaneGeometry(CRATE.w * 0.92, CRATE.w * 0.46), labelMaterial);
   label.position.set(0, CRATE.h / 2, CRATE.d / 2 + 0.003);
-  const stripMaterial = new THREE.MeshStandardMaterial({ color: 0x2a3a4e, emissive: GOLD.clone(), emissiveIntensity: 0 });
+  const stripMaterial = new THREE.MeshStandardMaterial({ color: look.strip, emissive: look.glow.clone(), emissiveIntensity: 0 });
   const strip = new THREE.Mesh(new THREE.BoxGeometry(CRATE.w * 0.86, 0.025, 0.05), stripMaterial);
   strip.position.set(0, CRATE.h - 0.02, CRATE.d / 2 - 0.02);
   group.add(body, label, strip);
   return {
     group,
-    /** gold: earned light (0..1); red: refusal flash (0..1). */
+    /** gold: earned light (0..1), in the crate's own colour; red: refusal flash (0..1). */
     setLight(gold, red = 0) {
-      material.emissive.copy(GOLD).multiplyScalar(gold * 0.22).lerp(RED.clone().multiplyScalar(0.55), red);
-      stripMaterial.emissive.copy(GOLD).lerp(RED, red);
+      material.emissive.copy(look.glow).multiplyScalar(gold * 0.16).lerp(RED.clone().multiplyScalar(0.55), red);
+      stripMaterial.emissive.copy(look.glow).lerp(RED, red);
       stripMaterial.emissiveIntensity = Math.max(gold, red) * 3.2;
       labelMaterial.color.setScalar(0.55 + 0.45 * Math.max(gold, red));
     },

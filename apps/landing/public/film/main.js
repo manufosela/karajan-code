@@ -18,7 +18,8 @@ const frozenAt = new URLSearchParams(location.search).get('t');
 // Captions and crate labels live in the page, so each language brings its own.
 const CAPTIONS = [...document.querySelectorAll('#captions li')]
   .map((li) => [Number(li.dataset.from), Number(li.dataset.to), li.textContent]);
-const TOOLS = canvas.dataset.tools.split('|');
+const KINDS = canvas.dataset.kinds.split('|');
+const TOOLS = canvas.dataset.tools.split('|').map((name, i) => ({ name, kind: KINDS[i] }));
 const FRESH = { tool: canvas.dataset.newTool, badge: canvas.dataset.newBadge };
 
 function supportsWebGL() {

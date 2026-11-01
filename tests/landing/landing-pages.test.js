@@ -9,6 +9,8 @@ const publicDir = new URL("../../apps/landing/public/", import.meta.url);
 const pages = { en: "index.html", es: "es/index.html" };
 const read = (path) => readFileSync(new URL(path, publicDir), "utf8");
 const filmModules = readdirSync(new URL("film/", publicDir)).filter((f) => f.endsWith(".js"));
+// Both languages sort the crates the same way; English is the reference.
+const enKinds = read(pages.en).match(/data-kinds="([^"]+)"/)?.[1].split("|");
 
 describe.each(Object.entries(pages))("landing page (%s)", (lang, path) => {
   const html = read(path);
@@ -41,6 +43,16 @@ describe.each(Object.entries(pages))("landing page (%s)", (lang, path) => {
 
   it("labels one crate per slot on the staff", () => {
     expect(html.match(/data-tools="([^"]+)"/)[1].split("|")).toHaveLength(SLOTS.length);
+  });
+
+  it("sorts every crate into the method or the tools, and lists both groups", () => {
+    const kinds = html.match(/data-kinds="([^"]+)"/)[1].split("|");
+    expect(kinds).toEqual(enKinds);
+    expect(kinds).toHaveLength(SLOTS.length);
+    expect(new Set(kinds)).toEqual(new Set(["method", "tool"]));
+    const items = (kind) => html.match(new RegExp(`<ol class="pieces[^"]*" data-kind="${kind}">([\\s\\S]*?)</ol>`))[1].match(/<li>/g);
+    expect(items("method")).toHaveLength(7);
+    expect(items("tool")).toHaveLength(kinds.filter((k) => k === "tool").length);
   });
 
   it("lets the visitor skip and replay the film", () => {
