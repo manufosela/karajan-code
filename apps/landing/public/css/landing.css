@@ -59,7 +59,7 @@ a { color: inherit; }
 .hero-still { display: none; }
 .no-webgl .hero-still { display: block; position: absolute; right: 9%; top: 50%; translate: 0 -50%; width: min(34vw, 420px); height: auto; }
 .hero-inner { position: relative; z-index: 2; height: 100%; display: flex; align-items: center; }
-.hero-copy { max-width: 35rem; }
+.hero-copy { max-width: min(35rem, 44vw); }
 .kicker { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--steel-ink); }
 .hero h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2.9rem, 5.6vw, 5.2rem); line-height: 0.97; letter-spacing: -0.015em; margin-block: 0.9rem 1.3rem; }
 .hero h1 em { color: var(--gold-ink); }
@@ -165,10 +165,14 @@ footer nav { display: flex; gap: 1.4rem; }
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out); }
 .reveal.in { opacity: 1; transform: none; }
 
-@media (max-width: 880px) {
-  .top nav a:not(.keep) { display: none; }
+/* Narrow or near-square screens: the copy on top, the film below (same query in film/main.js). */
+@media (max-width: 1000px), (max-aspect-ratio: 23/20) {
+  .hero-copy { max-width: 35rem; }
   .hero-inner { align-items: flex-start; padding-top: 5.2rem; }
   .hero::after { background: linear-gradient(180deg, #05080d 0%, rgb(5 8 13 / 0.85) 34%, rgb(5 8 13 / 0) 58%); }
+}
+@media (max-width: 880px) {
+  .top nav a:not(.keep) { display: none; }
   .hero h1 { font-size: clamp(2.4rem, 10vw, 3.2rem); }
   .prompt { display: none; }
   .refusal, .pieces-layout, .five { grid-template-columns: 1fr; }
