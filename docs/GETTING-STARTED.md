@@ -64,7 +64,7 @@ kj --version    # 4.70.4
 kj doctor       # Check environment
 ```
 
-> **npm 12 or newer:** npm only runs a dependency's install script when `allowScripts` covers it, so `better-sqlite3` (the database behind the RAG and the board) is left unbuilt and npm just warns that install scripts were blocked. `kj doctor` says so and prints the exact command for your install: approve and rebuild inside kj's package directory (`npm install-scripts approve better-sqlite3`, the same for `node-pty`, then `npm rebuild better-sqlite3 node-pty`). Reinstalling does not help, because the script is blocked again.
+> **npm 12 or newer:** npm only runs a dependency's install script when `allowScripts` covers it. kj's databases need no native build (they run on `node:sqlite`), but `node-pty`, the optional module behind the HU Board terminal, may be left unbuilt; everything else works. `kj doctor` says so and prints the exact command for your install: approve and rebuild inside kj's package directory (`npm install-scripts approve node-pty`, then `npm rebuild node-pty`). Reinstalling does not help, because the script is blocked again.
 
 ## First run
 
