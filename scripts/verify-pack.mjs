@@ -253,10 +253,10 @@ try {
   // (a symlinked virtual store), so it can break resolution of the bundled
   // karajan-core the way npm packaging breakage did before (KJC-BUG-0082/0086).
   // Verify a pnpm install resolves the JS tree and `kj --version` boots — every
-  // release catches a pnpm packaging regression. (pnpm also blocks
-  // better-sqlite3's native build by default, so DB-backed commands need
-  // `pnpm approve-builds`; that's surfaced as a doctor warning, KJC-BUG-0092 —
-  // not a gate failure, since it's inherent to pnpm.) Auto-skips without pnpm.
+  // release catches a pnpm packaging regression. (pnpm also blocks node-pty's
+  // native build by default, so the HU Board terminal needs `pnpm approve-builds`;
+  // that's surfaced as a doctor warning, KJC-BUG-0092 / KJC-TSK-1353 — not a gate
+  // failure, since it's inherent to pnpm.) Auto-skips without pnpm.
   // KJC-BUG-0135: `npm run` leaks npm_config_* into the child env, and pnpm
   // maps those variables onto its own config — which can re-anchor it to THIS
   // repo (7-aug incident: the repo's node_modules converted to pnpm layout,

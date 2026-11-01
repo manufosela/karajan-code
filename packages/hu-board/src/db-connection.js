@@ -53,7 +53,7 @@ function openDbResilient(dbPath) {
 
 /**
  * Initializes the SQLite database and creates tables if they don't exist.
- * @returns {import('better-sqlite3').Database}
+ * @returns {ReturnType<typeof openDatabase>}
  */
 export function initDb() {
   const kjHome = getKjHome();
@@ -253,7 +253,7 @@ export function initDb() {
 
 /**
  * Returns the current database instance.
- * @returns {import('better-sqlite3').Database}
+ * @returns {ReturnType<typeof openDatabase>}
  */
 export function getDb() {
   if (!db) throw new Error('Database not initialized. Call initDb() first.');
