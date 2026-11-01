@@ -2,7 +2,7 @@
   "name": "karajan-telemetry-functions",
   "description": "Firebase Functions backend for Karajan Code telemetry",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "type": "module",
