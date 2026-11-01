@@ -1,6 +1,6 @@
 {
   "kj_version": "4.70.4",
-  "generated_at": "2026-11-01T09:38:27.743Z",
+  "generated_at": "2026-11-01T17:14:16.449Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -78,7 +78,11 @@
     },
     {
       "file": ".github/workflows/release-binaries.yml",
-      "sha256": "bc3f915bab8492b0d19a786c3cb5716ed3145e8715244486e22812f4c0c495bf"
+      "sha256": "4d77f50440689bb2581efa91fe6bad10a3229c082c329f82ee1cff4add49026d"
+    },
+    {
+      "file": ".github/workflows/release-npm.yml",
+      "sha256": "09144a4e118e13d9a9db22b384b365cc7eb75064024bd089a62fd3541ed158fe"
     },
     {
       "file": ".github/workflows/sea-smoke.yml",
@@ -166,15 +170,15 @@
     }
   ],
   "signature": {
-    "cid": "5bce5fafbd92be8814467363360f2799",
-    "nonce": "17a8d3fa45ae8b03d9d9662760403c49",
+    "cid": "58f8a37cf946d8f83a2068d6bf6a3b40",
+    "nonce": "2aaff2ba3f228c21cacde8e0339ed605",
     "project": "karajan-code",
-    "filesHash": "2285bab00b9cc11dda986799b2fa288402e7c20877c29083eb238a0c43ee0ea6",
+    "filesHash": "855a04643d1a8ebeca6da7d0c370a1721006541fae888a0ce2e0bff2f3b69322",
     "v": 2,
     "kjVersion": "4.70.4",
-    "issuedMs": 1793525897479,
-    "expiresMs": 1793526047479,
+    "issuedMs": 1793553248284,
+    "expiresMs": 1793553398284,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "3fqPkwbE4pXRSraBx144ZaCM2SXZeZ5iLJngcy8A9p6MChJw725io7TA0OFFQ7biNVzDeW9p+6bQVcO+0vGdDA=="
+    "signature": "2XxpHr6b8NZqIfYzt1uIM4UwJEC8oAivlNnzGxxFljjznW7i/1ME8YkEyNYvztP9/l4WfkRBCKVtnHfFQHGtAw=="
   }
 }
