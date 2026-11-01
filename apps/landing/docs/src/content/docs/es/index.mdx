@@ -26,16 +26,23 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 Tu agente de IA (Claude Code, Codex, Gemini CLI, Cursor…) escribe el código — Karajan gobierna cómo ocurre. `kj` instala un método que tu agente sigue en cada tarea (RAG antes de suponer, card primero, tests primero) y lo hace cumplir con gates de git: **cada commit exige el veredicto de una IA distinta**, los hallazgos de seguridad no los anula nadie, y la rama base solo se mueve por PR. El que hace nunca se califica a sí mismo — y el falso verde es estructuralmente imposible.
 
-## Un runtime de loop engineering
+## El método
 
-El prompt engineering sacaba una buena respuesta de un buen prompt. El context engineering curaba lo que veía el modelo. La frontera de 2026 es el **loop engineering**: dejas de promptear al agente a mano y diseñas el sistema que lo promptea, lo verifica y decide qué pasa después — hasta que se cumple el objetivo o te lo devuelve a ti. Karajan se construyó alrededor de ese bucle antes de que el término calara:
+Siete piezas, ninguna opinión. Mecanismo donde había opinión, evidencia donde había una afirmación.
 
-- **Separación maker / checker** — un coder contra roles independientes de reviewer, tester y security, con Solomon arbitrando los conflictos. El maker nunca corrige su propio trabajo.
-- **Verificación determinista** — TDD, tests de aceptación por HU, gates de SonarQube y guardarraíles deterministas. Verificar es tests, no intuición.
-- **La escalera de autonomía L1 → L2 → L3** — el eje `interactive | assisted | autonomous` (v3.7.0). Informe, luego fixes asistidos, luego trabajo autónomo — con default `interactive`, así que tú decides.
-- **Un spine de estado duradero** — el HU Board, los carriles (`kj worktree`), los ADRs y el índice RAG mantienen vivo el bucle entre sesiones.
+1. **Revisión cruzada obligatoria**: una IA distinta revisa cada cambio, ligada al hash del diff.
+2. **Reglas como mecanismo**: las normas viven en guardas de git y en la política, no en el prompt. La seguridad no se anula nunca.
+3. **El Sentinel**: bloquea la acción prohibida dentro de la sesión, en el momento en que ocurre.
+4. **Afirmaciones con fuente**: lo que afirma el agente se contrasta con lo que ejecutó su propia sesión.
+5. **Registro encadenado por hash**: cada comando, veredicto y excepción queda sellado, así que el pasado no se puede reescribir sin que se vea.
+6. **La confianza caduca**: el Steward vuelve a verificar las garantías con un calendario, y la evidencia vieja deja de contar.
+7. **Memoria del proyecto**: el agente consulta el código indexado antes de suponer, con los secretos fuera.
 
-El caveat que el loop engineering recalca — *los bucles desatendidos cometen errores desatendidos* — está diseñado de serie: los runs autónomos listan sus defectos residuales, cada historia aterriza tras una PR, y `kj-trash` hace snapshot de las operaciones destructivas. [Lee el mapeo completo de building blocks →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
+### Y tres herramientas que incorpora
+
+- **atril** (nuevo en la 5.0): skills, comandos y subagentes para cualquier CLI de IA, que se cargan cuando una tarea los necesita en vez de llenar el contexto inicial.
+- **TDD**: primero el test que falla, y la suite nunca se queda en rojo.
+- **SonarQube**: análisis estático y quality gate sobre el código que cambias.
 
 <CardGrid stagger>
   <Card title="Arranque en una línea" icon="rocket">
@@ -63,11 +70,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 ## La familia
 
-Un método, contado con la orquesta en la cabeza, y nueve piezas publicadas bajo `@karajan-family`. Quién se apoya en quién, leído de los manifiestos de cada paquete:
+Un método, contado con la orquesta en la cabeza, y sus piezas publicadas bajo `@karajan-family`. Quién se apoya en quién, leído de los manifiestos de cada paquete:
 
 - **Van solas**: [kaRAGan](/docs/es/karagan/) (la memoria: RAG sobre código, documentos y datos), **atril** (el atril: skills, comandos y subagentes para cualquier CLI de IA) y **Governance** (política, decisión y excepción como objetos). Cualquiera se instala sin el resto.
-- **Karajan Code** (el director) combina Core, kaRAGan y Governance.
-- **Libretto** (el HU Board: las historias, quién lleva cada una, qué se ha tocado) se apoya en Core.
+- **Karajan Code** (el director) combina kaRAGan y Governance.
+- **Libretto** (el HU Board: las historias, quién lleva cada una, qué se ha tocado) es el tablero que abre Karajan Code.
 - **kaWATCHan** (el vigía: vigilancia multirrepo) se apoya en kaRAGan.
 - **Console** (la administración) se apoya en Governance.
 
