@@ -14,8 +14,8 @@
  * planId, in routes/api.js).
  */
 
-import { mkdirSync, openSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { existsSync, mkdirSync, openSync, readdirSync } from "node:fs";
+import { join, dirname, isAbsolute } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -83,6 +83,11 @@ export function runKjCommand({ command, input = {} } = {}) {
     return { ok: false, error: `Bad input for "${command}": ${err.message}` };
   }
 
+  return spawnKj(command, built);
+}
+
+/** Spawn `kj <args>` detached, its output in a run log the board can tail. */
+function spawnKj(command, built) {
   const dir = getHuBoardRunsDir();
   mkdirSync(dir, { recursive: true });
   const commandId = `cmd-${command}-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -107,6 +112,30 @@ export function runKjCommand({ command, input = {} } = {}) {
   });
   child.unref();
   return { ok: true, commandId, pid: child.pid ?? 0, logPath };
+}
+
+const CARD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+/**
+ * KJC-TSK-1324: the ▶ of a card. `kj hu start <id> --code` checks the card, opens its lane
+ * and has the panel coder write it there; review and commit stay with the person. Only a card
+ * id and an absolute git checkout get through, never a free-form argument.
+ */
+export function startCardInLane({ id, projectDir } = {}) {
+  if (!CARD_ID.test(String(id ?? ""))) return { ok: false, error: `not a card id: ${id}` };
+  if (!isAbsolute(String(projectDir ?? "")) || !existsSync(join(projectDir, ".git"))) {
+    return { ok: false, error: `not a git checkout: ${projectDir}` };
+  }
+  const lane = laneOfCard({ id, projectDir });
+  if (lane) return { ok: false, lane, error: `${id} already has a lane: ${lane}` };
+  return spawnKj("hu-start", { args: ["hu", "start", id, "--code"], projectDir });
+}
+
+/** The lane a card already has (kj names it <id>-<slug>), or null. */
+export function laneOfCard({ id, projectDir }) {
+  const lanes = join(projectDir, ".kj", "worktrees");
+  const found = existsSync(lanes) ? readdirSync(lanes).find((name) => name.startsWith(`${id}-`)) : null;
+  return found ? join(lanes, found) : null;
 }
 
 /** Test helper: list of command names exposed. */

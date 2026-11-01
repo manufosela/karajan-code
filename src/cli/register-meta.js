@@ -325,6 +325,7 @@ export function registerMeta(program, { pkgVersion }) {
   // KJC-TSK-1372 (#2853): one step to start a task: card, lane, running.
   hu.command("start <id> [slug]")
     .description("Start a card: open its lane feat/<id>-<slug> from origin/<base> and move it to running (slug from the title if omitted)")
+    .option("--code", "Then have the panel coder write the card in the lane (kj code --card)")
     .option("--json", "Machine-readable output")
     .action(async (id, slug, flags) => {
       await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
