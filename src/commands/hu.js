@@ -18,6 +18,7 @@ import { createHu, listHus, claim, setStatus, assertNotHeld, isOffline } from ".
 import { pinGhIdentity } from "../hu/gh-identity.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
 import { writeTeamMirror } from "../hu/team-board-mirror.js";
+import { startAction } from "./hu-start.js";
 
 // KJC-TSK-0661 (Jorge's friction): every HU records WHO created it — the
 // board must never show work nobody can trace. Host agent env → that agent;
@@ -266,8 +267,14 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   if (action === "list") return listLocal({ projectDir, flags });
   if (action === "add") return addAction({ projectDir, board, args, flags, deps, emit, externalBoard: externalBoardOf(config) });
   if (action === "move") return moveLocal({ projectDir, args, flags, deps, emit });
+  // KJC-TSK-1372 (#2853): card, lane, running, in that order.
+  if (action === "start") {
+    const findCard = deps.findCard ?? (shared ? findSharedCard(board.repo, deps) : findLocalCard(projectDir));
+    const move = () => huCommand({ config, action: "move", args: [args[0], "running"], flags: { json: flags.json }, deps });
+    return startAction({ config, args, deps: { ...deps, findCard }, move, who, emit });
+  }
 
-  throw new Error(`unknown action "${action}" — use: add | move | list | backend`);
+  throw new Error(`unknown action "${action}" — use: add | move | list | start | backend`);
 }
 
 async function listLocal({ projectDir, flags }) {
@@ -417,6 +424,22 @@ async function findHuToMove(projectDir, ref) {
   }
   return { ...matches[0], running };
 }
+
+// KJC-TSK-1372: a card as `kj hu start` reads it, from either board; null when there is none.
+const findSharedCard = (repo, deps) => async (ref) => {
+  const rows = await (deps.listTeamHus ?? listHus)({ repo });
+  const row = rows.find((r) => r.short_id.toLowerCase() === String(ref).toLowerCase());
+  return row ? { id: row.short_id, title: row.title, status: row.status, claimed_by: row.claimed_by } : null;
+};
+const findLocalCard = (projectDir) => async (ref) => {
+  const found = await findHuToMove(projectDir, ref).catch((err) => {
+    if (/not found/.test(err.message)) return null;
+    throw err;
+  });
+  if (!found) return null;
+  const { hu } = found;
+  return { id: hu.short_id || hu.id, title: hu.title, status: hu.status, claimed_by: hu.status === "running" ? hu.claimed_by ?? null : null };
+};
 
 async function moveLocal({ projectDir, args, flags, deps, emit }) {
   const [ref, status] = args;

@@ -17,6 +17,28 @@ afterEach(() => { vi.restoreAllMocks(); fs.rmSync(dir, { recursive: true, force:
 const hu = (action, args, { who, flags = {} } = {}) => huCommand({ config: { projectDir: dir }, action, args, flags: { json: true, ...flags }, deps: { who } });
 const card = async () => (await hu("list", [])).find((h) => h.short_id === "T-1");
 
+// KJC-TSK-1372 (#2853): kj hu start on the local board finds the card, opens its lane and claims it.
+describe("kj hu start on the local board", () => {
+  beforeEach(async () => { await hu("add", ["Shared work"], { flags: { id: "T-1" } }); });
+  const start = (args, who, worktree) => huCommand({ config: { projectDir: dir }, action: "start", args, flags: { json: true }, deps: { who, worktree } });
+  const lane = async ({ args }) => ({ path: `/lanes/${args[0]}`, branch: `feat/${args[0]}` });
+
+  it("opens the lane named after the card and leaves the card running, held by who started it", async () => {
+    const r = await start(["T-1"], "ana", lane);
+    expect(r).toMatchObject({ id: "T-1", branch: "feat/T-1-shared-work" });
+    expect(await card()).toMatchObject({ status: "running", claimed_by: "ana" });
+  });
+
+  it("a card held by someone else, or no card at all, opens no lane", async () => {
+    await hu("move", ["T-1", "running"], { who: "ana" });
+    const opened = [];
+    const spy = async (o) => { opened.push(o.args[0]); return lane(o); };
+    await expect(start(["T-1"], "luis", spy)).rejects.toThrow(/held by ana/);
+    await expect(start(["T-9"], "luis", spy)).rejects.toThrow(/T-9 not found/);
+    expect(opened).toEqual([]);
+  });
+});
+
 describe("kj hu move reserves the card", () => {
   beforeEach(async () => { await hu("add", ["Shared work"], { flags: { id: "T-1" } }); });
 
