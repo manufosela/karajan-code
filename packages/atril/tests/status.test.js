@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeConfig } from "../src/config.js";
 import { status } from "../src/index.js";
-import { recordInstall } from "../src/lock.js";
+import { recordInstall, recordPlugin } from "../src/lock.js";
 
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-status-")); });
@@ -29,6 +29,13 @@ describe("status", () => {
   it("is ok for an artifact that matches its lock entry, and gives the origin without the hash", () => {
     record("command", "deploy", command("deploy"));
     expect(status(o())).toEqual([{ kind: "command", name: "deploy", state: "ok", origin: { origin: "catalog", catalog: "atril:recommended" } }]);
+  });
+
+  it("reports a plugin artifact with its plugin: ok while the lock holds the plugin, uncurated when it does not", () => {
+    record("command", "kit__ship", command("kit__ship"), { origin: "plugin", plugin: "kit" });
+    expect(status(o())[0]).toMatchObject({ state: "uncurated", origin: { origin: "plugin", plugin: "kit" } });
+    recordPlugin("kit", { entries: ["command:kit__ship"] }, o());
+    expect(states()).toEqual({ "command:kit__ship": "ok" });
   });
 
   it("is edited when the body changes, but not when only the atril: block does", () => {

@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { contentHash, forgetInstall, LOCK_FILE, readLock, recordInstall, writeLock } from "../src/lock.js";
+import { contentHash, forgetInstall, LOCK_FILE, readLock, recordInstall, recordPlugin, writeLock } from "../src/lock.js";
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-lock-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -18,6 +18,7 @@ const write = (rel, text) => {
 };
 const HASH = `sha256:${"a".repeat(64)}`;
 const withEntry = (fields, key = "skill:tdd") => ({ version: 1, artifacts: { [key]: { origin: "local", hash: HASH, ...fields } } });
+const withPlugin = (fields) => ({ version: 1, artifacts: {}, plugins: { kit: { entries: ["skill:kit__tdd"], ...fields } } });
 const skill = (extra = "") => write("s/SKILL.md", `---\nname: tdd\ndescription: d\nkind: skill\n${extra}---\nbody\n`);
 describe("readLock", () => {
   it("reads an absent file as an empty lock without writing it", () => {
@@ -34,10 +35,25 @@ describe("readLock", () => {
     ["an unknown origin", withEntry({ origin: "web" }), /skill:tdd.*origin/],
     ["a bad hash", withEntry({ hash: "abc" }), /skill:tdd.*hash/],
     ["a bad commit", withEntry({ commit: "abc" }), /skill:tdd.*commit/],
+    ["a plugin origin with no plugin name", withEntry({ origin: "plugin" }), /skill:tdd.*plugin/],
+    ["a plugins section that is not a mapping", { version: 1, artifacts: {}, plugins: [] }, /plugins/],
+    ["a plugin entry with an unknown field", withPlugin({ installedAt: "x" }), /plugin "kit".*installedAt/],
+    ["a plugin entry whose entries are not refs", withPlugin({ entries: ["tdd"] }), /plugin "kit".*entries/],
+    ["a plugin entry with a bad commit", withPlugin({ commit: "abc" }), /plugin "kit".*commit/],
   ])("fails naming the file and the entry on %s", (_why, content, message) => {
     write("store/atril.lock.json", typeof content === "string" ? content : JSON.stringify(content));
     expect(() => readLock(o())).toThrow(message);
     expect(() => readLock(o())).toThrow(lockFile());
+  });
+});
+describe("plugins", () => {
+  const entry = { catalog: "kits", source: "github:o/r", commit: "a".repeat(40), version: "1.0.0", entries: ["skill:kit__tdd"] };
+  it("records a plugin under plugins and its artifacts with origin plugin, and an old lock gains no section", () => {
+    recordInstall({ kind: "skill", name: "kit__tdd", path: dirname(skill()) }, { origin: "plugin", plugin: "kit" }, o());
+    expect(readLock(o())).not.toHaveProperty("plugins");
+    recordPlugin("kit", entry, o());
+    expect(readLock(o()).plugins).toEqual({ kit: entry });
+    expect(readLock(o()).artifacts["skill:kit__tdd"]).toMatchObject({ origin: "plugin", plugin: "kit" });
   });
 });
 describe("writeLock", () => {

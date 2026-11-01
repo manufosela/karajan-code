@@ -10,8 +10,9 @@ import { hashContent } from "./ledger.js";
 import { isMapping, KINDS, parseArtifact, SLUG, sortKeys } from "./model.js";
 import { resolveRoot } from "./scan.js";
 export const LOCK_FILE = "atril.lock.json";
-const ORIGINS = ["catalog", "local", "import"];
-const FIELDS = ["origin", "catalog", "source", "commit", "from", "hash"];
+const ORIGINS = ["catalog", "local", "import", "plugin"];
+const FIELDS = ["origin", "catalog", "source", "commit", "from", "plugin", "hash"];
+const PLUGIN_FIELDS = ["catalog", "source", "commit", "version", "entries"];
 const KEY = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
 const lockPath = ({ root, projectDir = process.cwd(), env = process.env } = {}) =>
   join(resolve(projectDir, resolveRoot({ root, env })), LOCK_FILE);
@@ -29,6 +30,20 @@ export function contentHash(path, kind, parseOpts) {
     .map((rel) => `${rel}\n${hashContent(readFileSync(join(path, rel)))}`);
   return hashContent([parseArtifact(join(path, "SKILL.md"), parseOpts).hash, ...parts].join("\n"));
 }
+/** The optional top-level `plugins` section: `<name>: { catalog, source, commit, version, entries }`, entries being lock keys. */
+function validatePlugins(plugins, fail) {
+  if (!isMapping(plugins)) fail("plugins must be a mapping");
+  for (const [name, entry] of Object.entries(plugins)) {
+    const bad = (why) => fail(`plugin "${name}": ${why}`);
+    if (!isMapping(entry)) bad("must be a mapping");
+    const unknown = Object.keys(entry).find((field) => !PLUGIN_FIELDS.includes(field));
+    if (unknown) bad(`${unknown} is not a known field`);
+    const text = ["catalog", "source", "version"].find((field) => entry[field] !== undefined && !(typeof entry[field] === "string" && entry[field]));
+    if (text) bad(`${text} must be a non-empty string`);
+    if (entry.commit !== undefined && !(typeof entry.commit === "string" && /^[0-9a-f]{40}$/.test(entry.commit))) bad("commit must be 40 hex");
+    if (!Array.isArray(entry.entries) || !entry.entries.every((key) => typeof key === "string" && KEY.test(key))) bad("entries must be a list of kind:slug keys");
+  }
+}
 function validate(lock, path) {
   const fail = (why) => { throw new Error(`${path}: ${why}`); };
   if (!isMapping(lock) || lock.version !== 1 || !isMapping(lock.artifacts)) fail("expected { version: 1, artifacts: {} }");
@@ -38,12 +53,14 @@ function validate(lock, path) {
     if (!isMapping(entry)) bad("must be a mapping");
     const unknown = Object.keys(entry).find((field) => !FIELDS.includes(field));
     if (unknown) bad(`${unknown} is not a known field`);
-    const text = ["catalog", "source", "from"].find((field) => entry[field] !== undefined && !(typeof entry[field] === "string" && entry[field]));
+    const text = ["catalog", "source", "from", "plugin"].find((field) => entry[field] !== undefined && !(typeof entry[field] === "string" && entry[field]));
     if (text) bad(`${text} must be a non-empty string`);
     if (!ORIGINS.includes(entry.origin)) bad(`origin must be one of ${ORIGINS.join(", ")}`);
+    if (entry.origin === "plugin" && entry.plugin === undefined) bad("a plugin origin needs the plugin name");
     if (!/^sha256:[0-9a-f]{64}$/.test(entry.hash)) bad("hash must be sha256:<64 hex>");
     if (entry.commit !== undefined && !/^[0-9a-f]{40}$/.test(entry.commit)) bad("commit must be 40 hex");
   }
+  if (lock.plugins !== undefined) validatePlugins(lock.plugins, fail);
   return lock;
 }
 /** @param {{ root?: string, projectDir?: string, env?: object }} [opts] */
@@ -69,6 +86,12 @@ export function writeLock(lock, opts) {
 export function recordInstall({ kind, name, path }, origin, opts) {
   const lock = readLock(opts);
   lock.artifacts[`${kind}:${name}`] = { ...origin, hash: contentHash(path, kind) };
+  writeLock(lock, opts);
+}
+/** Records an installed plugin under `plugins`; `entry.entries` are the lock keys of its artifacts. */
+export function recordPlugin(name, entry, opts) {
+  const lock = readLock(opts);
+  lock.plugins = { ...lock.plugins, [name]: entry };
   writeLock(lock, opts);
 }
 export function forgetInstall(key, opts) {
