@@ -154,6 +154,20 @@ Don't grant `delete_repo` to your default GitHub token. Without that scope, no A
 gh auth status   # verify scopes; ensure delete_repo is NOT listed
 ```
 
+### A token without admin power for the agent (ADR 0037)
+
+Going further: the agent should not hold admin power at all. A classic or OAuth token with the `repo` scope lets it change branch protection, create environments and secrets, approve a protected environment and merge as admin, all in your name. An agent running as your OS user can read any token stored on your laptop, so a second account is not enough: the admin-capable token has to leave the laptop.
+
+1. Create a fine-grained token at `github.com/settings/personal-access-tokens/new`, owned by your account. Give it Contents, Pull requests, Issues, Workflows and Actions (read and write), plus Checks and Commit statuses (read). Give it no account permissions. Leave out Administration, Environments, Secrets, Variables and Deployments.
+2. Load it into gh yourself, in your own terminal: `read -rs T && printf '%s' "$T" | gh auth login --with-token; unset T`. `read -s` hides what you type, and gh reads the token from stdin. Never paste it into the agent's chat or into a command line.
+3. Revoke the old admin-capable credentials: the GitHub CLI authorization under Settings, Applications, Authorized OAuth Apps (it invalidates gh's old OAuth token), and any old classic token with the `repo` scope under Settings, Developer settings, Personal access tokens, Tokens (classic).
+4. Do admin acts (branch protection, environments, secrets, settings) in the browser with your passkey or 2FA.
+5. Keep "Do not allow bypassing the above settings" (`enforce_admins`) on in the protected branch. The token still acts as you, and that setting is what stops an admin-role merge bypass.
+
+`kj doctor` checks this with two probes that change nothing. It warns if the token gh uses can read branch protection (the Administration permission) or approve a protected environment (Deployments write).
+
+Your SSH key stays for git and the agent can read it too. It only does git operations, never the API, and branch protection applies to it. For more, use a FIDO2 key (`ed25519-sk`), which needs a touch on every push.
+
 ## Layer 5 — Tool-specific deny rules
 
 This is the **weakest layer** but useful for catching obvious mistakes.
