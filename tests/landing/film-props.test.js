@@ -14,6 +14,16 @@ describe("film props", () => {
     for (const material of fading) expect(material).toContain("depthWrite: false");
   });
 
+  // KJL-TSK-0150: atril joins the family: glowing eyes that blink and follow the
+  // diff, an arm that turns the pages, both arms up on the verdict, a plate that reads.
+  it("brings atril to life every frame", () => {
+    const score = readFileSync(new URL("../../apps/landing/public/film/score.js", import.meta.url), "utf8");
+    expect(stand).toMatch(/live\(blink, look, cheer\)/);
+    expect(stand).toContain("function createFace");
+    expect(stand).toContain("function createArm");
+    expect(score).toMatch(/cast\.stand\.live\(blinkAt\(t, [\d.]+\), look, pulse\(t, T\.verdict/);
+  });
+
   it("keeps atril's stand out of the shadow map, where its thin poles band the whole stage", () => {
     expect(stand).toContain("export function createStand");
     expect(stand).not.toMatch(/castShadow\s*=\s*true/);
