@@ -7,13 +7,15 @@ import { createStage } from './stage.js';
 import { createCast } from './cast.js';
 import { perform } from './score.js';
 import { cameraAt } from './camera.js';
-import { T, asideAt } from './timeline.js';
+import { T, asideAt, lerp } from './timeline.js';
 
 const root = document.documentElement;
 const hero = document.getElementById('hero');
 const canvas = document.getElementById('film');
 const caption = document.getElementById('caption');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// The hero stacks the copy over the film on narrow or near-square screens (css/landing.css).
+const stacked = matchMedia('(max-width: 1000px), (max-aspect-ratio: 23/20)');
 const frozenAt = new URLSearchParams(location.search).get('t');
 // Captions and crate labels live in the page, so each language brings its own.
 const CAPTIONS = [...document.querySelectorAll('#captions li')]
@@ -71,7 +73,7 @@ function start() {
   composer.addPass(bloom);
   composer.addPass(new THREE.OutputPass());
 
-  let width = 1, height = 1;
+  let width = 1, height = 1, copyRight = 0, copyBottom = 0;
   const resize = () => {
     width = hero.clientWidth;
     height = hero.clientHeight;
@@ -82,6 +84,11 @@ function start() {
     composer.setSize(width, height);
     stage.setPixelRatio(pixelRatio);
     camera.aspect = width / height;
+    // Where the hero copy ends: the final shot is framed in the room beside it or below it.
+    const copy = document.querySelector('.hero-copy').getBoundingClientRect();
+    const box = hero.getBoundingClientRect();
+    copyRight = copy.right - box.left;
+    copyBottom = copy.bottom - box.top;
   };
   resize();
 
@@ -98,7 +105,12 @@ function start() {
   function renderAt(t) {
     const cubeX = perform(t, cast, stage);
     const aspect = width / height;
-    const wide = Math.min(2.4, Math.max(1, 1.5 / aspect));
+    const aside = asideAt(t);
+    const besideCopy = !stacked.matches;
+    // The final shot pulls back until the cast fits the room the copy leaves.
+    const room = besideCopy ? 1.05 * height / (width - copyRight) : 0.65 * height / Math.max(1, height - copyBottom);
+    const fit = Math.max(1, 1.5 / aspect);
+    const wide = Math.min(2.4, lerp(fit, Math.max(fit, room), aside));
     const shot = cameraAt(t, cubeX, wide);
     scene.fog.density = 0.042 / wide;
     if (t > T.end && !reduced) {
@@ -113,9 +125,8 @@ function start() {
     }
     camera.position.copy(shot.pos);
     camera.lookAt(shot.look);
-    const aside = asideAt(t);
-    if (aspect > 1.15) camera.setViewOffset(width, height, -0.17 * width * aside, 0, width, height);
-    else camera.setViewOffset(width, height, 0, -0.17 * height * aside, width, height);
+    if (besideCopy) camera.setViewOffset(width, height, -0.45 * copyRight * aside, 0, width, height);
+    else camera.setViewOffset(width, height, 0, -0.47 * copyBottom * aside, width, height);
     camera.updateProjectionMatrix();
     composer.render();
   }
