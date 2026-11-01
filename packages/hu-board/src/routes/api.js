@@ -8,18 +8,18 @@ import {
   getHuBoardRunsDir,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { markPlanReady } from '../plan-mutations.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { readConfig, writeConfigPatch } from '../config-yaml.js';
 import { requestProjectDir } from '../project-dir.js';
 import { BOOT_TIME, PKG_VERSION } from '../boot-info.js';
-import { addTombstone, removeTombstone, listTombstones } from '../db.js';
-import { pathExists, findPlanFile } from '../plans-service.js';
+import { pathExists } from '../plans-service.js';
 import projectsRouter from './api/projects.js';
 import storiesRouter from './api/stories.js';
 import sessionsRouter from './api/sessions.js';
 import promptsRouter from './api/prompts.js';
+import plansRouter from './api/plans.js';
+import tombstonesRouter from './api/tombstones.js';
 
 const router = Router();
 
@@ -57,78 +57,9 @@ router.use(sessionsRouter);
 // KJC-TSK-0541: prompt endpoints (list, answer, discard).
 router.use(promptsRouter);
 
-/**
- * DELETE /api/plans/:planId - Delete a single plan file.
- *
- * Removes `~/.kj/plans/<projectSlug>/plan-<planId>.json` and tombstones
- * the plan id so the next watcher event doesn't re-sync it. Does NOT
- * delete the project: a project can have multiple plans, deleting one
- * plan only removes that plan's HUs from the board.
- */
-router.delete('/plans/:planId', async (req, res) => {
-  try {
-    const planId = req.params.planId;
-    // Locate the plan file by scanning both canonical and legacy plans
-    // roots — KJC-BUG-0059 (v2.19.3). Pre-fix this hard-coded
-    // `getKjHome()/../.kj/plans` which silently misses plans saved by
-    // post-2.19.0 callers under `~/.karajan/plans/`.
-    let foundPath = null;
-    try {
-      foundPath = await findPlanFile(planId);
-    } catch { /* plansRoot missing */ }
-    addTombstone('plan', planId, { source: 'api', fsPaths: foundPath ? [foundPath] : [] });
-    if (foundPath) { try { await fsp.unlink(foundPath); } catch { /* */ } }
-    res.json({ deleted: true, fileRemoved: !!foundPath });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/tombstones - List every active tombstone for diagnostics.
- *
- * Returns rows ordered by deleted_at DESC; useful for the diagnostics
- * pane and for the cleanup script (KJC-TSK-0380 PR-C).
- */
-router.get('/tombstones', (_req, res) => {
-  try {
-    res.json(listTombstones());
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/tombstones/:type/:id/restore - Bring a buried id back to
- * life. The next sync will then re-import the resource if its filesystem
- * source still exists. Idempotent: returns false when nothing to remove.
- */
-router.post('/tombstones/:type/:id/restore', (req, res) => {
-  try {
-    const removed = removeTombstone(req.params.type, req.params.id);
-    if (!removed) return res.status(404).json({ error: 'Tombstone not found' });
-    res.json({ restored: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/plans/:planId/ready - Bulk-certify every pending HU of a plan.
- * Equivalent to the CLI `kj plan ready <planId>`. Body is optional — if the
- * client knows the projectId we use it as a fast path, otherwise we fall
- * back to scanning the plans dir.
- */
-router.post('/plans/:planId/ready', (req, res) => {
-  try {
-    const { projectId } = req.body || {};
-    const result = markPlanReady({ planId: req.params.planId, projectId });
-    if (!result.ok) return res.status(404).json({ error: result.error });
-    res.json({ ready: true, planId: req.params.planId, count: result.count, planStatus: result.planStatus });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// KJC-TSK-0541: plan endpoints (delete, ready) and tombstone endpoints (list, restore).
+router.use(plansRouter);
+router.use(tombstonesRouter);
 
 /**
  * GET /api/events - Server-Sent Events stream for live board updates.
