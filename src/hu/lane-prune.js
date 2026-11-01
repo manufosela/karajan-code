@@ -6,6 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { laneWork } from "./lane-setup.js";
 
 const IDLE_HOURS = 24;
 const REGENERABLE = new Set(["node_modules", "dist", "build", "coverage", ".venv", "venv", "__pycache__", ".cache", "target"]);
@@ -55,8 +56,9 @@ export async function classifyLanes({ git, laneRoot, base, processes, now = Date
   }
   return Promise.all(lanes.map(async (lane) => {
     const reasons = [];
-    const { stdout: status } = await git(["status", "--porcelain", "--ignored=matching"], lane.path);
-    const entries = status.split("\n").filter(Boolean);
+    // KJC-TSK-1371: the identity and Sentinel files lane setup wrote are not the lane's work.
+    const { stdout: status } = await git(["status", "--porcelain", "--ignored=matching", "--untracked-files=all"], lane.path);
+    const entries = laneWork(status, lane.path);
     if (entries.some((e) => !e.startsWith("!! "))) reasons.push("uncommitted changes");
     // Ignored files can be valuable (.env, local artifacts); only regenerable dirs are not.
     const precious = entries.filter((e) => e.startsWith("!! ") && !REGENERABLE.has(e.slice(3).split("/")[0]));
