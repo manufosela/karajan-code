@@ -53,6 +53,8 @@ vi.mock("../src/checks/project-checks.js", () => ({
   getProjectChecks: vi.fn(() => []),
   detectProjectSignals: vi.fn(() => new Set()),
 }));
+// KJC-TSK-1268: the agent-token check calls GitHub; this flow test stays offline.
+vi.mock("../src/checks/agent-token.js", () => ({ getAgentTokenChecks: vi.fn(() => []) }));
 
 vi.mock("node:child_process", async (orig) => {
   const real = await orig();

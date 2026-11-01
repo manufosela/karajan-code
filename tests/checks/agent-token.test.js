@@ -51,8 +51,12 @@ describe("checks/agent-token — KJC-TSK-1268, ADR 0037", () => {
   it("says so, without guessing, when there is no GitHub origin or gh cannot answer", async () => {
     const none = createAgentTokenCheck({ originUrl: () => null, gh: async () => refused });
     expect(await none.detect()).toMatchObject({ ok: true, severity: "info", detail: expect.stringMatching(/no GitHub origin/) });
-    const broken = createAgentTokenCheck({ originUrl: () => "https://github.com/acme/app", gh: async () => { throw new Error("gh: not found"); } });
+    const broken = createAgentTokenCheck({ originUrl: () => "https://github.com/acme/app", gh: async () => { throw new Error("gh: unexpected EOF"); } });
     expect(await broken.detect()).toMatchObject({ ok: false, severity: "warn", detail: expect.stringMatching(/could not check/) });
+    for (const err of [Object.assign(new Error("spawn gh ENOENT"), { code: "ENOENT" }), Object.assign(new Error("Command failed"), { stderr: "To get started with GitHub CLI, please run:  gh auth login" })]) {
+      const noToken = createAgentTokenCheck({ originUrl: () => "https://github.com/acme/app", gh: async () => { throw err; } });
+      expect(await noToken.detect()).toMatchObject({ ok: true, severity: "info", detail: expect.stringMatching(/no GitHub token/) });
+    }
   });
 
   it("encodes a default branch with a slash in the protection probe", async () => {

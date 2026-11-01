@@ -98,6 +98,9 @@ export function createAgentTokenCheck({ projectDir = process.cwd(), originUrl = 
         if (powers.length === 0) return { ok: true, severity: "info", detail: `the token gh uses has no admin power over ${repo}` };
         return { ok: false, severity: "warn", detail: `the token gh uses on ${repo}: ${powers.join("; ")}`, fix: FIX };
       } catch (err) {
+        const reason = `${err?.code ?? ""} ${err?.stderr ?? ""} ${err?.message ?? err}`;
+        // No gh, or gh with no token: the agent holds no GitHub power to check.
+        if (/ENOENT|gh auth login|not logged in/i.test(reason)) return { ok: true, severity: "info", detail: "gh has no GitHub token here: nothing to check" };
         return { ok: false, severity: "warn", detail: `could not check the token gh uses: ${String(err?.message || err).split("\n")[0]}`, fix: FIX };
       }
     },
