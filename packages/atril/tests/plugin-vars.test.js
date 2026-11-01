@@ -77,6 +77,17 @@ describe("pluginVarRewriter", () => {
     expect(result.entries.every((e) => e.status === "installed")).toBe(true);
     expect(install().result.entries.every((e) => e.status === "unchanged")).toBe(true);
   });
+  it("keeps a plugin root longer than 80 characters on one line of the rewritten frontmatter", () => {
+    const rel = `${"deep".repeat(25)}/p`;
+    write(`${rel}/.claude-plugin/plugin.json`, JSON.stringify({ name: "kit" }));
+    write(`${rel}/skills/tdd/SKILL.md`, "---\ndescription: Test first\nallowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/a:*)\n---\nbody\n");
+    const plugin = join(dir, rel);
+    const vars = pluginVarRewriter(plugin, opts());
+    installPluginMarkdown(plugin, opts(), { rewrite: vars.rewrite });
+    const root = realpathSync(plugin);
+    expect(root.length).toBeGreaterThan(80);
+    expect(readFileSync(join(dir, "store/skills/kit__tdd/SKILL.md"), "utf8")).toContain(`allowed-tools: Bash(${root}/a:*)\n`);
+  });
   it("creates the data folder only when an entry names it and passes a non-string tool through", () => {
     write("p/.claude-plugin/plugin.json", JSON.stringify({ name: "kit" }));
     const out = pluginVarRewriter(join(dir, "p"), opts()).rewrite({ entry: { kind: "command", ref: "kit:a" }, front: { "allowed-tools": ["Read", 5] }, body: "x" });
