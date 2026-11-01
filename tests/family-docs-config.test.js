@@ -5,7 +5,7 @@ import { sources } from "../apps/landing/docs/scripts/family-docs.config.mjs";
 describe("family-docs sources", () => {
   it("pins the atril source to the rebased readme commit", () => {
     const atril = sources.find((source) => source.path === "packages/atril/README.md");
-    expect(atril?.ref).toBe("1f93ff844b77afbffd1f2683c35ff657f103286d");
+    expect(atril?.ref).toBe("2030b52dd4ffa815e271be2341d40620b8627084");
   });
 
   it("cites only ADRs that exist in .karajan/adrs", () => {
