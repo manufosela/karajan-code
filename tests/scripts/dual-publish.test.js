@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { withScopedName, SCOPED_NAME } from "../../scripts/dual-publish.mjs";
+import { withScopedName, publishArgs, SCOPED_NAME } from "../../scripts/dual-publish.mjs";
 
 let dir;
 beforeEach(() => {
@@ -43,6 +43,13 @@ describe("withScopedName", () => {
     const before = fs.readFileSync(path.join(dir, "package.json"), "utf8");
     await expect(withScopedName(dir, async () => { throw new Error("boom"); })).rejects.toThrow("boom");
     expect(fs.readFileSync(path.join(dir, "package.json"), "utf8")).toBe(before);
+  });
+
+  // KJC-TSK-1359 (ADR 0035): from CI, trusted publishing needs no OTP and adds provenance.
+  it("publishArgs: --provenance from CI with no OTP; the local OTP flow is unchanged", () => {
+    expect(publishArgs(["--publish", "--provenance"])).toEqual(["publish", "--ignore-scripts", "--provenance"]);
+    expect(publishArgs(["--publish", "--otp=123456"])).toEqual(["publish", "--ignore-scripts", "--otp=123456"]);
+    expect(publishArgs(["--publish"])).toEqual(["publish", "--ignore-scripts"]);
   });
 
   it("se niega a hacer swap sobre un manifest que NO es el legacy esperado — jamás renombra a ciegas", async () => {

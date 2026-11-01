@@ -7,6 +7,7 @@
  * Uso:
  *   node scripts/dual-publish.mjs --pack-only          # genera+verifica el tarball scoped
  *   node scripts/dual-publish.mjs --publish --otp=XXX  # publica el scoped (tras publicar el legacy)
+ *   node scripts/dual-publish.mjs --publish --provenance  # desde CI: trusted publishing, sin OTP (ADR 0035)
  *
  * El swap del name es EN SITIO con restauración en finally: un crash a mitad
  * no deja el manifest renombrado. La verificación es el MISMO verify-pack
@@ -43,6 +44,12 @@ export async function withScopedName(repoRoot, fn) {
   }
 }
 
+/** KJC-TSK-1359 (ADR 0035): npm publish arguments; from CI, provenance and no OTP. */
+export function publishArgs(args) {
+  const otp = args.find((a) => a.startsWith("--otp="))?.slice(6);
+  return ["publish", "--ignore-scripts", ...(args.includes("--provenance") ? ["--provenance"] : []), ...(otp ? [`--otp=${otp}`] : [])];
+}
+
 // argv[1] normalizado (catch de codex): node lo absolutiza hoy, pero el
 // guard no debe depender de ese detalle de implementación.
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
@@ -50,13 +57,12 @@ if (isMain) {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
   const args = process.argv.slice(2);
   const publish = args.includes("--publish");
-  const otp = args.find((a) => a.startsWith("--otp="))?.slice(6);
   await withScopedName(repoRoot, async () => {
     console.log(`dual-publish: manifest → ${SCOPED_NAME} (temporal)`);
     // La E2E real: empaqueta el scoped, instálalo aislado y corre kj.
     execFileSync("node", [join(repoRoot, "scripts", "verify-pack.mjs")], { cwd: repoRoot, stdio: "inherit" });
     if (publish) {
-      const pubArgs = ["publish", "--ignore-scripts", ...(otp ? [`--otp=${otp}`] : [])];
+      const pubArgs = publishArgs(args);
       console.log(`dual-publish: npm ${pubArgs.join(" ").replace(/--otp=\S+/, "--otp=***")}`);
       execFileSync("npm", pubArgs, { cwd: repoRoot, stdio: "inherit" });
     } else {
