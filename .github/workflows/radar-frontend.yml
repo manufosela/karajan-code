@@ -35,7 +35,7 @@ jobs:
           # Pinned: pnpm 11 requires a newer Node than the 20 used here and
           # dies with ERR_UNKNOWN_BUILTIN_MODULE. "latest" made this workflow
           # break without a change to the repository.
-          version: 9
+          version: 10
 
       - name: Install dependencies
         working-directory: packages/radar/frontend

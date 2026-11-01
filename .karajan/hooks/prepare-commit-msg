@@ -25,9 +25,10 @@ if [ -n "$ref" ] && [ -n "$header" ]; then
       ;;
   esac
 fi
-# Chain the machine's previous global hook (kj harden keeps it active).
-if [ -x "$HOME/.git-hooks/prepare-commit-msg" ]; then
-  "$HOME/.git-hooks/prepare-commit-msg" "$@"; rc=$?
+# Chain the machine's global hook, looked up when the hook runs, not when kj harden ran (KJC-TSK-0645, HU-2762).
+kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
+if [ -n "$kj_global" ] && [ -x "$kj_global/prepare-commit-msg" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  "$kj_global/prepare-commit-msg" "$@"; rc=$?
   [ "$rc" -eq 0 ] || exit "$rc"
 fi
 # <<< kj:managed:hook:prepare-commit-msg <<<

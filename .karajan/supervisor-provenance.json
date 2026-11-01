@@ -1,14 +1,13 @@
 {
-  "kj_version": "4.70.2",
-  "generated_at": "2026-10-28T20:29:06.530Z",
+  "kj_version": "4.70.4",
+  "generated_at": "2026-11-01T07:21:13.142Z",
   "generation": {
     "profile": "standard",
     "cmds": {
       "lint": "npm run -s lint",
       "format": "npm run -s format:check"
     },
-    "baseBranch": "main",
-    "globalHooksDir": "$HOME/.git-hooks"
+    "baseBranch": "main"
   },
   "who": {
     "gh": "manufosela",
@@ -47,7 +46,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "326c46bfb7cdac00b180e880f4722773108eca6eb56c09b6ff8565dbe3cd1df5"
+      "sha256": "915f4f7db6bd24900c49db932b8dfad66b8e08fec47453e4a03b5bdbf6a93d51"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -71,7 +70,7 @@
     },
     {
       "file": ".github/workflows/radar-frontend.yml",
-      "sha256": "8a40ed3fa1dc45857f2b736d62b647ce9a1a31e1097e859536271f256e9aca5f"
+      "sha256": "cc45060d4f4bc56edf2f0f4ff68a8d41f3e04a533df6ead5c1b4788c872f2dee"
     },
     {
       "file": ".github/workflows/radar-infra.yml",
@@ -91,23 +90,23 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "7be3ae11b0bcd1029d70009bc1a9e0649695b4db343f8c83654a4936bbd2953e"
+      "sha256": "d5302359fe2127384874d1c653208b49acf10a240859120f16ae4d139084218b"
     },
     {
       "file": ".karajan/hooks/post-merge",
-      "sha256": "a3dabd83659f5de4427235a8d4347cde72b9f85f1be32d8420fd91be00df7483"
+      "sha256": "a069100da9cb037badd40289494c4e64de761208e3f0c8b4fe536e2d0a5bed50"
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "10bbec40b42fa890a235ff1d24abedc3ca5cd0cd1232fd3644a1a7807e750de6"
+      "sha256": "9162592f582390aa4562925c16fe560ef711b17c5dc978c3907d8ed779fc0d1c"
     },
     {
       "file": ".karajan/hooks/pre-push",
-      "sha256": "69939a0062ffea538694d23040ae32aa5686bff87b616cd14a3b3d6ed87cfa22"
+      "sha256": "2ea25b2286af4b75843247d0fa8a24d48c1e1863c03a1e82f8c3d91361cbaa10"
     },
     {
       "file": ".karajan/hooks/prepare-commit-msg",
-      "sha256": "4850712b985d9c2470fbaf55f84019ff739370ad3fd0d941aaefcbdebe6537f9"
+      "sha256": "ba046aefffc8f36b4d6af733e8f7a273bdbfe938746dbda18014a3dfee74ff96"
     },
     {
       "file": ".karajan/policy.yml",
@@ -167,15 +166,15 @@
     }
   ],
   "signature": {
-    "cid": "5a26cbe37b7b58c6b7298d5b04a61f54",
-    "nonce": "13556bd8bb40c3b9d1f1aba342f96cee",
+    "cid": "5d576ca03cd2ba3d9c46a8f25e08590b",
+    "nonce": "0e5e1b48f6abb5a648af67f250a93247",
     "project": "karajan-code",
-    "filesHash": "11be91b1ba0f6bcd62572b7929f1d3607a6bdcd129f61fa6f8cc1c13e3e0b2e9",
+    "filesHash": "448adf3ff50c7199fe5ae6df9952a12ab16d5b9fedf5791e93c222e9a970dac3",
     "v": 2,
-    "kjVersion": "4.70.2",
-    "issuedMs": 1793219333865,
-    "expiresMs": 1793219393865,
+    "kjVersion": "4.70.4",
+    "issuedMs": 1793517665174,
+    "expiresMs": 1793517815174,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "e6WGKA7YiModasnUE8bV+59APgtVUJ1zw+eU6udq2JC45HhneiPVGr7AiM4tvKqdHryjbJ4/oPY9CPBN9ufpCg=="
+    "signature": "uuWD7dFijosMffZl4Q/z9itAdE18COt9QkoMdw9CnaTyksdZsvHULI5Muv4asm8xdKwJWSVbxtUFhTq1fFrkAQ=="
   }
 }

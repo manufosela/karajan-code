@@ -69,9 +69,10 @@ if git cat-file -e HEAD:.karajan/review-gate 2>/dev/null; then
   fi
   kj review --check || { echo 'kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`'; exit 1; }
 fi
-# Chain the machine's previous global hook (kj harden keeps it active).
-if [ -x "$HOME/.git-hooks/pre-commit" ]; then
-  "$HOME/.git-hooks/pre-commit" "$@"; rc=$?
+# Chain the machine's global hook, looked up when the hook runs, not when kj harden ran (KJC-TSK-0645, HU-2762).
+kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
+if [ -n "$kj_global" ] && [ -x "$kj_global/pre-commit" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  "$kj_global/pre-commit" "$@"; rc=$?
   [ "$rc" -eq 0 ] || exit "$rc"
 fi
 # <<< kj:managed:hook:pre-commit <<<
