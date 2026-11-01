@@ -34,7 +34,7 @@ export const ADVANCED_GROUPS = [
   { title: "Agentes y revisión", commands: ["code", "solomon", "agent", "scan", "tournament"] },
   { title: "Análisis previo", commands: ["discover", "spec", "onboard", "brief"] },
   { title: "Búsqueda / RAG", commands: ["rag", "qmd", "watch", "doc"] },
-  { title: "Calidad / auditoría", commands: ["audit", "check", "mutate", "webperf", "sonar", "privacy", "release", "policy", "rules", "rulesync", "claims", "steward", "pr-size"] },
+  { title: "Calidad / auditoría", commands: ["audit", "check", "mutate", "webperf", "sonar", "privacy", "release", "policy", "rules", "rulesync", "claims", "steward", "pr-size", "main-guard"] },
   { title: "Sesión / board", commands: ["report", "board", "adr", "worktree", "sentinel", "identity", "security", "handoff"] },
   { title: "Infra / setup", commands: ["install-tools", "ollama", "skills", "roles", "agents", "env"] },
   { title: "Mantenimiento", commands: ["clean", "sync", "telemetry", "report-issue"] },
