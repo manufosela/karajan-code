@@ -154,7 +154,7 @@ describe("installWorkflows", () => {
   it("php gets a setup-php Quality workflow", () => {
     installWorkflows({ projectDir: dir, language: "php" });
     const text = read(join(".github", "workflows", "kj-quality.yml"));
-    expect(text).toContain("shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2");
+    expect(text).toContain("shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2");
     expect(text).toContain("vendor/bin/phpunit");
   });
 
