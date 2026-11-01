@@ -52,7 +52,9 @@ describe.each(Object.entries(pages))("landing page (%s)", (lang, path) => {
     expect(new Set(kinds)).toEqual(new Set(["method", "tool"]));
     const items = (kind) => html.match(new RegExp(`<ol class="pieces[^"]*" data-kind="${kind}">([\\s\\S]*?)</ol>`))[1].match(/<li>/g);
     expect(items("method")).toHaveLength(7);
-    expect(items("tool")).toHaveLength(kinds.filter((k) => k === "tool").length);
+    // The tools are the green crates plus atril, which stands by the podium.
+    expect(items("tool")).toHaveLength(kinds.filter((k) => k === "tool").length + 1);
+    expect(html.match(/data-tools="([^"]+)"/)[1]).not.toContain(html.match(/data-new-tool="([^"]+)"/)[1]);
   });
 
   it("lets the visitor skip and replay the film", () => {

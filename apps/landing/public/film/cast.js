@@ -1,16 +1,19 @@
 // The cast and how each robot moves: the conductor on the podium, kaRAGan and
 // kaWATCHan pushing the tool crates onto the staff and gathering at the end.
 import { createRobot } from './robot.js';
+import { createStand } from './stand.js';
 import { createCrate, createDiff, createVerdict, createShock, CRATE, DIFF_SIZE } from './props.js';
 import { STAFF, PODIUM } from './stage.js';
 import { T, SLOTS, REFUSING_CRATE, VERDICT_X, span, easeInOut, easeOut, lerp, pulse, blinkAt } from './timeline.js';
 
 const Z = STAFF.z;
+// atril stands by the podium, at the conductor's right, turned to both him and the audience.
+const STAND = { x: 1.75, z: -0.75, yaw: -0.38 };
 const TOP = CRATE.h + DIFF_SIZE / 2;
 
 /**
  * Builds the cast; `tools` are the crates ({ name, kind }), labelled in the page's
- * language, and `fresh` names the tool that is new in this release and its badge.
+ * language, and `fresh` names atril, new in this release, and its badge.
  */
 export function createCast(scene, tools, fresh) {
   const conductor = createRobot({ accent: 0x34e07f, bow: 0xeef1f6, name: 'Karajan Code' });
@@ -18,8 +21,12 @@ export function createCast(scene, tools, fresh) {
   conductor.root.scale.setScalar(1.25);
   const rag = createRobot({ accent: 0xf0b429, name: 'kaRAGan' });
   const watch = createRobot({ accent: 0x4fb3e8, name: 'kaWATCHan' });
-  const crates = tools.map(({ name, kind }, i) =>
-    createCrate(i, name, { kind, badge: name === fresh.tool ? fresh.badge : '' }));
+  const crates = tools.map(({ name, kind }, i) => createCrate(i, name, { kind }));
+  const sheets = [[fresh.tool, 'skills'], ...tools.map(({ name }) => [name, 'skill'])];
+  const stand = createStand(fresh.tool, fresh.badge, sheets);
+  stand.group.position.set(STAND.x, 0, STAND.z);
+  stand.group.rotation.y = STAND.yaw;
+  scene.add(stand.group);
   const rogue = createDiff('rogue');
   const honest = createDiff('honest');
   const verdict = createVerdict();
@@ -29,7 +36,7 @@ export function createCast(scene, tools, fresh) {
   shock.rotation.y = Math.PI / 2;
   scene.add(conductor.root, rag.root, watch.root, rogue.group, honest.group, verdict.group, shock);
   crates.forEach((c) => scene.add(c.group));
-  return { conductor, rag, watch, crates, rogue, honest, verdict, shock };
+  return { conductor, rag, watch, crates, stand, rogue, honest, verdict, shock };
 }
 
 const headToward = (robot, x, z) => {
@@ -81,7 +88,7 @@ export function walkerAt(t, robot, side, crates, cube) {
   // In the outro the two walk to the podium for the family portrait.
   const gather = easeInOut(span(t, T.outro + 0.2, T.outro + 1.9));
   const settledX = x + side * 0.4 * settle;
-  robot.root.position.set(lerp(settledX, side * 2.75, gather), 0, lerp(lerp(Z, 0.2, settle), -0.9, gather));
+  robot.root.position.set(lerp(settledX, side * 3.35, gather), 0, lerp(lerp(Z, 0.2, settle), -0.9, gather));
   robot.root.rotation.y = lerp(lerp(-side * Math.PI / 2, -side * 0.55, settle), -side * 0.22, gather);
   const strolling = gather > 0 && gather < 1 ? 1 : 0;
   robot.hover.rotation.x = 0.14 * (1 - settle) * (t > enter[0] ? 1 : 0);

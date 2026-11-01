@@ -18,11 +18,12 @@ describe("landing film timeline", () => {
     expect(T.refuse).toBeGreaterThan(T.rogueHops + REFUSING_CRATE * T.rogueHop);
   });
 
-  // atril is new in 5.0 and opens the line: eight crates, AI review the fourth.
-  it("lines up eight crates, left to right, with AI review fourth", () => {
-    expect(SLOTS).toHaveLength(8);
+  // KJL-TSK-0148: atril left the line for a music stand by the podium, so the
+  // staff holds seven crates again and AI review is the third.
+  it("lines up seven crates, left to right, with AI review third", () => {
+    expect(SLOTS).toHaveLength(7);
     expect(SLOTS).toEqual(SLOTS.toSorted((a, b) => a - b));
-    expect(REFUSING_CRATE).toBe(3);
+    expect(REFUSING_CRATE).toBe(2);
   });
 
   it("earns the verdict before the closing shot begins", () => {
