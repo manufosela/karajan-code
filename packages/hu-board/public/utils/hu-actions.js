@@ -122,30 +122,6 @@ window.saveHuAssignee = async function saveHuAssignee(storyId) {
   }
 };
 
-// KJC-TSK-0408: deshace los cambios de una HU restaurando el snapshot
-// git tomado pre-run. ATENCIÓN: es destructivo (git reset --hard) —
-// confirmamos siempre antes de invocar.
-window.undoHuChanges = async function undoHuChanges(storyId) {
-  const ok = await showConfirm(
-    '⚠️ Esta acción es destructiva.\n\nSe descartan los cambios de ficheros que esta HU hizo durante su última ejecución y se restaura el estado pre-run. La HU vuelve a pending y podrás relanzarla con otros modelos.\n\n¿Continuar?',
-    { title: 'Deshacer cambios de la HU', okLabel: 'Deshacer', cancelLabel: 'Cancelar' }
-  );
-  if (!ok) return;
-  try {
-    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}/undo`, { method: 'POST' });
-    if (!res.ok) {
-      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
-      await showError(msg, { title: 'No se pudo deshacer la HU' });
-      return;
-    }
-    closeModal();
-    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
-    await renderBoard();
-  } catch (err) {
-    await showError(err.message || String(err), { title: 'Fallo al deshacer la HU' });
-  }
-};
-
 window.resetHuToPending = async function resetHuToPending(storyId) {
   const ok = await showConfirm(
     '¿Devolver esta HU a pending?\n\nEl estado se cambia a pending y se podrá relanzar. El resultado de la última ejecución (✓/✗/~) se conserva como historial hasta que vuelvas a ejecutarla.',

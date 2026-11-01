@@ -40,7 +40,7 @@ import {
   getProjectCost,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { setHuStatus, setHuFields, markPlanReady, renameProject, revertHuFromSnapshot } from '../plan-mutations.js';
+import { setHuStatus, setHuFields, markPlanReady, renameProject } from '../plan-mutations.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
@@ -644,37 +644,6 @@ router.patch('/stories/:id', (req, res) => {
 });
 
 /**
- * POST /api/stories/:id/undo — KJC-TSK-0408: revert a HU.
- *
- * Restaura los ficheros del workspace al snapshot pre-run guardado por
- * la pipeline. Marca status=pending + result=null + outcome.reverted=true
- * para que el usuario pueda relanzar la HU con otros modelos.
- *
- * Falla con 400 si la HU no tiene snapshot (HUs anteriores al hook).
- * Falla con 404 si plan/HU no existe.
- */
-router.post('/stories/:id/undo', async (req, res) => {
-  try {
-    const row = getStoryRow(req.params.id);
-    if (!row) return res.status(404).json({ error: 'Story not found' });
-    if (!row.plan_id) {
-      return res.status(409).json({ error: 'Story sin plan_id — legacy row no soportada.' });
-    }
-    const huId = req.params.id.includes('::')
-      ? req.params.id.split('::').slice(1).join('::')
-      : req.params.id;
-    const result = await revertHuFromSnapshot({ planId: row.plan_id, huId, projectId: row.project_id });
-    if (!result.ok) {
-      const code = /not found|no encontrado/i.test(result.error) ? 404 : 400;
-      return res.status(code).json({ error: result.error });
-    }
-    res.json({ ok: true, id: req.params.id, sha: result.sha });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
  * POST /api/plans/:planId/ready - Bulk-certify every pending HU of a plan.
  * Equivalent to the CLI `kj plan ready <planId>`. Body is optional — if the
  * client knows the projectId we use it as a fast path, otherwise we fall
@@ -866,52 +835,6 @@ router.get('/events', (req, res) => {
     unsubscribe();
     res.end?.();
   });
-});
-
-/**
- * GET /api/plans/:planId/log - Tail the detached run's log file.
- *
- * Accepts ?offset=N so a polling UI can request only the new bytes
- * since last read (the "tail -f" UX without SSE). Returns:
- *
- *   { content: string, size: number, exists: boolean }
- *
- * - `exists` is false when the run hasn't started yet (the log path is
- *   deterministic, so we know where to look).
- * - `size` is the current file length; clients pass `offset=size` next
- *   time to get only the delta.
- *
- * Path is the same one that `runPlan` wrote to:
- *   ~/.karajan/hu-board-runs/<planId>.log (honours KJ_HOME in tests).
- */
-router.get('/plans/:planId/log', async (req, res) => {
-  try {
-    const runsDir = getHuBoardRunsDir(); // KJC-TSK-0421
-    const logPath = path.join(runsDir, `${req.params.planId}.log`);
-    if (!(await pathExists(logPath))) {
-      return res.json({ exists: false, size: 0, content: '' });
-    }
-    const stat = await fsp.stat(logPath);
-    const offset = Math.max(0, Math.min(stat.size, Number(req.query.offset) || 0));
-    // Cap per-request read to 1 MiB so a huge log can't blow up the
-    // response. The client will keep polling and catch up.
-    const MAX_READ = 1024 * 1024;
-    const length = Math.min(MAX_READ, stat.size - offset);
-    let content = '';
-    if (length > 0) {
-      const fh = await fsp.open(logPath, 'r');
-      try {
-        const buf = Buffer.alloc(length);
-        await fh.read(buf, 0, length, offset);
-        content = buf.toString('utf-8');
-      } finally {
-        await fh.close();
-      }
-    }
-    res.json({ exists: true, size: stat.size, content });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 /**

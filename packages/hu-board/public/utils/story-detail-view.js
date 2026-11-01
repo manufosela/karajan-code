@@ -12,7 +12,7 @@
 //   - projectIsSharedCache        (mutable, app.js)
 //   - renderStoryEditForm()       (app.js)
 //   - closeModal(), changeHuStatusFromModal(), resetHuToPending(),
-//     undoHuChanges(), saveHuModels(), saveHuAssignee() — bound on
+//     saveHuModels(), saveHuAssignee() — bound on
 //     window from app.js so the inline handlers in this template
 //     keep working unchanged.
 
@@ -104,20 +104,6 @@ async function showStoryDetail(storyId) {
               ↺ Reset
             </button>
           ` : ''}
-          ${(() => {
-            // KJC-TSK-0408: Undo solo si la HU tiene snapshot_sha en outcome.
-            let parsedOutcome = null;
-            try { parsedOutcome = typeof story.outcome === 'string' ? JSON.parse(story.outcome) : story.outcome; } catch { /* */ }
-            const canUndo = parsedOutcome?.snapshot_sha && !parsedOutcome?.reverted;
-            return canUndo ? `
-              <button id="undo-hu-btn" class="control-btn"
-                      style="padding:6px 12px;border:1px solid var(--color-red,#ef4444);background:var(--bg-primary);color:var(--color-red,#ef4444);border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem"
-                      title="Deshacer cambios de esta HU: restaura los ficheros al snapshot pre-run y marca pending"
-                      onclick="undoHuChanges('${esc(story.id)}')">
-                ⏪ Undo
-              </button>
-            ` : '';
-          })()}
           <button class="modal__close" onclick="closeModal()">&times;</button>
         </div>
       </div>

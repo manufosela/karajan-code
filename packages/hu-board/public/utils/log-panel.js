@@ -1,8 +1,8 @@
 // KJC-TSK-0501 step 7/8 — Floating run-log panel + window controls.
 //
 // Classic script (no exports). Loaded by index.html before app.js so
-// the function declarations hoist and inline onclick="openLogViewer(...)"
-// handlers emitted by board-view / dashboard-view resolve transparently.
+// the function declarations hoist and the other scripts call
+// openGenericLogPanel() directly.
 // `logPollTimer` and `logViewerState` are top-level `let` bindings in
 // this classic script — same realm as app.js, so the cross-script
 // references keep working unchanged.
@@ -20,22 +20,9 @@ let logPollTimer = null;
 let logViewerState = { planId: null, panel: null, offset: 0, isMax: false, isMin: false };
 
 /**
- * Open (or refocus) the run-log panel for the given plan. Thin shim
- * over `openGenericLogPanel` — the original entry point used for
- * `kj run --plan` runs that the Run-plan button kicks off.
- */
-function openLogViewer(planId) {
-  return openGenericLogPanel({
-    id: planId,
-    label: 'Run log',
-    tailUrl: (offset) => `/api/plans/${encodeURIComponent(planId)}/log?offset=${offset}`,
-  });
-}
-
-/**
  * Generic floating log panel anchored bottom-right. Used by:
- *   - openLogViewer(planId)         → /api/plans/:planId/log
  *   - openCommandLogViewer(cmd, id) → /api/runs/:commandId/log
+ *     (KJC-TSK-1351: the per-plan kj run log viewer went with kj run)
  *
  * The only thing that changes between callers is the tail URL +
  * the label; the window controls (min/max/close), polling, and ANSI

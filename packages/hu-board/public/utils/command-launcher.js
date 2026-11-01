@@ -20,8 +20,8 @@
 // command picker (today: clean) and the appropriate
 // fields per command. Submit POSTs to /api/commands/:command, the
 // server spawns a detached `kj` child, and we open the existing log
-// viewer (re-uses openLogViewer's tail loop, just pointed at the
-// new generic /api/runs/:commandId/log endpoint).
+// viewer (openGenericLogPanel's tail loop, pointed at the
+// generic /api/runs/:commandId/log endpoint).
 
 
 async function showCommandLauncher() {
@@ -159,8 +159,7 @@ async function showCommandLauncher() {
 
 /**
  * Open the run-log panel pointed at a /api/runs/<commandId>/log
- * tail. Reuses the same panel UI as openLogViewer() for plans —
- * just swaps the URL it polls.
+ * tail, with the generic panel UI (openGenericLogPanel).
  */
 function openCommandLogViewer(commandLabel, commandId) {
   const args = {
