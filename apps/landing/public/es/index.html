@@ -1,654 +1,217 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Karajan Code, Programa con varias IAs, con garantías</title>
-  <meta name="description" content="La capa que gobierna el desarrollo con IA: tu agente escribe, Karajan impone método TDD primero, revisión cruzada entre IAs en cada commit y guardas en git. Un falso verde es imposible.">
-  <meta name="theme-color" content="#0f1520" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#f4f7f9" media="(prefers-color-scheme: light)">
-  <link rel="icon" type="image/png" sizes="48x48" href="/img/favicon-48.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
-  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-  <script defer src="https://analytics.manulitics.com/script.js" data-website-id="8871eadf-4414-4baf-b83a-9f3da27b97fe"></script>
-
-  <!-- Open Graph -->
-  <meta property="og:title" content="Karajan Code, El gobernador de los agentes de código">
-  <meta property="og:description" content="Programa con varias IAs, con garantías. Tu agente escribe; Karajan gobierna: TDD primero, revisión cruzada entre IAs en cada commit, guardas en git que hacen imposible un falso verde.">
-  <meta property="og:image" content="https://karajancode.com/og.png">
-  <meta property="og:url" content="https://karajancode.com/es/">
-  <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
-
-  <link rel="alternate" hreflang="en" href="https://karajancode.com">
-  <link rel="alternate" hreflang="es" href="https://karajancode.com/es/">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" onload="this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet"></noscript>
-  <link rel="preload" as="image" type="image/webp" href="/img/logo-240.webp">
-
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-    :root {
-      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-      --serif: 'Instrument Serif', Georgia, serif;
-      /* Brand colors, the gold conducts; green is RESERVED for earned verdicts */
-      --baton-gold: #e8b04b;
-      --baton-gold-deep: #b7832a;
-      --verdict-green: #34d399;
-      --verdict-green-dim: #059669;
-      --reject-red: #f87171;
-      --brand-steel: #6b8fa3;
-      --brand-steel-light: #8cb4c9;
-    }
-
-    /* Dark mode (default) */
-    :root, [data-theme="dark"] {
-      --bg: #0f1520;
-      --bg-card: #1a2332;
-      --border: #2a3a4e;
-      --text: #e2e8f0;
-      --text-muted: #a4aeb6;
-      --text-dim: #94a4ac;
-      --accent-teal: var(--baton-gold);
-      --accent-purple: var(--brand-steel-light);
-      --accent-indigo: var(--brand-steel);
-      --gold-ink: var(--baton-gold);
-      --steel-ink: var(--brand-steel-light);
-      --verdict-ink: var(--verdict-green);
-      color-scheme: dark;
-    }
-
-    /* Light mode */
-    @media (prefers-color-scheme: light) {
-      :root:not([data-theme="dark"]) {
-        --bg: #f4f7f9;
-        --bg-card: #ffffff;
-        --border: #d0dbe3;
-        --text: #1a2a35;
-        --text-muted: #424c52;
-        --text-dim: #4b555b;
-        --accent-teal: var(--baton-gold-deep);
-        --accent-purple: var(--brand-steel);
-        --accent-indigo: var(--brand-steel);
-        --gold-ink: var(--baton-gold-deep);
-        --steel-ink: #4d6a79;
-        --verdict-ink: var(--verdict-green-dim);
-        color-scheme: light;
-      }
-    }
-
-    [data-theme="light"] {
-      --bg: #f4f7f9;
-      --bg-card: #ffffff;
-      --border: #d0dbe3;
-      --text: #1a2a35;
-      --text-muted: #424c52;
-      --text-dim: #4b555b;
-      --accent-teal: var(--baton-gold-deep);
-      --accent-purple: var(--brand-steel);
-      --accent-indigo: var(--brand-steel);
-      --gold-ink: var(--baton-gold-deep);
-      --steel-ink: #4d6a79;
-      --verdict-ink: var(--verdict-green-dim);
-      color-scheme: light;
-    }
-
-    html { scroll-behavior: smooth; }
-
-    .skip-link {
-      position: absolute; top: -100%; left: 50%; transform: translateX(-50%);
-      background: var(--accent-purple); color: #fff; padding: 0.5rem 1.5rem;
-      border-radius: 0 0 8px 8px; z-index: 100; font-size: 0.9rem; text-decoration: none;
-      transition: top 0.2s;
-    }
-    .skip-link:focus { top: 0; }
-
-    body {
-      font-family: var(--font); background: var(--bg); color: var(--text);
-      line-height: 1.6; overflow-x: hidden;
-    }
-
-    /* --- HERO --- */
-    .hero {
-      min-height: 100vh; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; text-align: center;
-      padding: 2rem; position: relative;
-    }
-    .hero::before {
-      content: ''; position: absolute; inset: 0; pointer-events: none;
-      background:
-        radial-gradient(ellipse 600px 400px at 50% 40%, rgba(107,143,163,0.08), transparent),
-        radial-gradient(ellipse 400px 300px at 60% 35%, rgba(232,176,75,0.05), transparent);
-    }
-
-    .hero-logo { width: clamp(120px, 20vw, 200px); height: auto; filter: drop-shadow(0 0 30px rgba(232,176,75,0.10)); }
-
-    /* --- AGENT ORBIT --- */
-    .logo-orbit {
-      position: relative;
-      margin-bottom: 1.5rem;
-      width: 280px; height: 280px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .orbit-ring {
-      position: absolute; inset: 0;
-      animation: orbit-spin 50s linear infinite;
-    }
-    .orbit-agent {
-      position: absolute;
-      width: 24px; height: 24px;
-      margin: -12px 0 0 -12px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .orbit-agent svg {
-      width: 18px; height: 18px;
-      fill: var(--text-dim); opacity: 0.55;
-      transition: opacity 0.3s, fill 0.3s;
-      animation: orbit-counter 50s linear infinite;
-    }
-    .orbit-agent:hover svg { opacity: 1; fill: var(--text-muted); }
-    /* 5 agents on r=130 circle, center=(140,140) */
-    .orbit-agent:nth-child(1) { top: 10px;  left: 140px; }
-    .orbit-agent:nth-child(2) { top: 100px; left: 264px; }
-    .orbit-agent:nth-child(3) { top: 233px; left: 204px; }
-    .orbit-agent:nth-child(4) { top: 233px; left: 52px; }
-    .orbit-agent:nth-child(5) { top: 100px; left: 16px; }
-
-    @keyframes orbit-spin { to { transform: rotate(360deg); } }
-    @keyframes orbit-counter { to { transform: rotate(-360deg); } }
-
-    /* Family, smaller siblings standing beside the mascot, one per side
-       (KJL-TSK-0103): kaRAGan on the right; karajan-watch takes the left
-       when it ships. Same treatment as the parent, no frame, just smaller. */
-    .family-child {
-      position: absolute; bottom: 36px; z-index: 2; line-height: 0;
-      text-align: center; text-decoration: none;
-      filter: drop-shadow(0 0 14px rgba(232,176,75,0.10));
-      transition: transform 0.2s;
-    }
-    .family-child img { height: 58px; width: auto; }
-    .family-child-label {
-      display: block; margin-top: 5px; line-height: 1;
-      font-family: var(--mono); font-size: 0.6rem; font-weight: 600;
-      letter-spacing: 0.18em; color: var(--text-dim);
-      transition: color 0.2s;
-    }
-    .family-child:hover .family-child-label { color: var(--gold-ink); }
-    .family-child:hover.family-child:focus-visible { transform: scale(1.1); }
-    .family-child:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 4px; }
-    /* Fuera del radio de giro de la órbita (r=130 + logo del agente). */
-    .family-child-right { right: -92px; }
-    .family-child-left { left: -92px; }
-    @media (max-width: 640px) {
-      /* Al entrar en el flujo, uno a cada lado del logo en vez de los dos
-         apilados a su derecha (la órbita ya está oculta a este ancho). */
-      .family-child { position: static; margin: 0 0.5rem; vertical-align: bottom; display: inline-block; }
-      .family-child-left { order: -1; }
-      .logo-orbit { flex-wrap: wrap; justify-content: center; }
-    }
-
-    @media (max-width: 640px) {
-      .orbit-ring { display: none; }
-      .logo-orbit { width: auto; height: auto; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .orbit-ring { animation: none; }
-      .orbit-agent svg { animation: none; }
-    }
-    .hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
-    .hero-tagline { font-size: clamp(1.15rem, 2.6vw, 1.5rem); color: var(--text); max-width: 560px; margin-bottom: 0.4rem; font-weight: 300; }
-    /* The guarantee motif: every guarantee-word on this page signs in serif italic */
-    .guarantee { font-family: var(--serif); font-style: italic; font-size: 1.12em; color: var(--gold-ink); }
-    .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.04em; font-weight: 400; max-width: 560px; }
-    .v4-pill { display: inline-flex; align-items: center; height: 22px; box-sizing: border-box; padding: 0 0.7rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; color: #e8b04b; border: 1px solid rgba(232, 176, 75, 0.45); background: rgba(232, 176, 75, 0.08); }
-    .hero-note { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.65rem; letter-spacing: 0.02em; font-weight: 400; max-width: 560px; }
-    .hero-note-last { margin-bottom: 2.5rem; }
-
-    .hero-install {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
-      padding: 0.9rem 1.8rem; font-family: var(--mono); font-size: 0.95rem;
-      color: var(--steel-ink); display: flex; align-items: center; gap: 1rem;
-      cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; position: relative;
-      margin-bottom: 2.5rem;
-    }
-    [data-theme="light"] .hero-install,
-    :root:not([data-theme="dark"]) .hero-install {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) .hero-install { box-shadow: none; }
-    }
-    .hero-install:hover.hero-install:focus-visible { border-color: var(--accent-teal); }
-    .hero-install:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-    .hero-install .prompt { color: var(--text-dim); user-select: none; }
-    .hero-install .copy-hint {
-      font-family: var(--font); font-size: 0.75rem; color: var(--text-dim);
-      position: absolute; right: -0.5rem; top: -1.6rem; opacity: 0; transition: opacity 0.2s;
-    }
-    .hero-install:hover .copy-hint { opacity: 1; }
-    .hero-install.copied .copy-hint { opacity: 1; color: var(--accent-teal); }
-
-    /* --- INSTALL TABS (KJL-TSK-0131): Maggle vs Developer --- */
-    /* Segmented mode selector, one piece, active filled (KJL-TSK-0132) */
-    .install-tabs {
-      display: inline-flex; gap: 3px; margin: 0 0 0.6rem;
-      padding: 3px; border: 1px solid var(--border); border-radius: 11px;
-      background: var(--bg-card);
-    }
-    .install-tab {
-      font-family: var(--font); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.01em;
-      padding: 0.4rem 1.15rem; border: 0; border-radius: 8px; cursor: pointer;
-      color: var(--text-muted); background: transparent;
-      transition: color 0.2s, background 0.2s;
-    }
-    .install-tab:hover { color: var(--text); }
-    .install-tab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-    .install-tab.is-active { color: var(--bg); background: var(--accent-teal); }
-    .install-panel { display: flex; flex-direction: column; align-items: center; }
-    .install-panel[hidden] { display: none; }
-    .install-panel .hero-note { text-align: center; margin-top: 0.15rem; }
-
-    .hero-links { display: flex; gap: 1.5rem; }
-    .hero-links a {
-      color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500;
-      transition: color 0.2s;
-    }
-    .hero-links a:hover.hero-links a:focus-visible { color: var(--accent-teal); }
-    .hero-links a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-
-    /* --- THE METHOD (signature) --- */
-    .method-section { padding: 3rem 2rem 4rem; max-width: 960px; margin: 0 auto; }
-    /* The governed panel (KJL-TSK-0130): the nine agents, in their own type. */
-    .hero-agents {
-      font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim);
-      letter-spacing: 0.04em; margin: 0.7rem auto 0; max-width: 680px; line-height: 1.8;
-    }
-    .hero-agents span { color: var(--text); }
-    .hero-agents em { color: var(--gold-ink); font-style: normal; }
-    /* Family section (KJL-TSK-0130): every member, one line of truth each. */
-    .family-section { padding: 3rem 2rem 4rem; max-width: 900px; margin: 0 auto; }
-    .family-intro { text-align: center; color: var(--text-muted); max-width: 620px; margin: 0 auto 1.6rem; font-size: 0.95rem; }
-    .family-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.55rem; margin-bottom: 1.9rem; }
-    .family-chip { font-family: var(--mono); font-size: 0.74rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.4rem 0.9rem; color: var(--text-dim); }
-    .family-cta-wrap { text-align: center; }
-    .family-cta {
-      display: inline-block; font-family: var(--mono); font-size: 0.82rem; text-decoration: none;
-      color: var(--bg); background: var(--baton-gold); border-radius: 8px; padding: 0.6rem 1.3rem;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .family-cta:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,176,75,0.25); }
-    .family-cta:focus-visible { outline: 2px solid var(--baton-gold); outline-offset: 3px; }
-    .score-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
-    .score-title { text-align: center; font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 2rem; }
-    .method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.8rem; }
-    .method-piece {
-      display: block; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);
-      padding: 1.3rem 1.4rem; text-decoration: none; color: inherit; text-align: left;
-      transition: border-color 0.2s ease, transform 0.2s ease;
-    }
-    .method-piece:hover { border-color: var(--baton-gold); transform: translateY(-2px); }
-    .method-piece:focus-visible { outline: 2px solid var(--baton-gold); outline-offset: 2px; }
-    .method-num { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.2em; color: var(--gold-ink); font-weight: 700; }
-    .method-piece h3 { margin: 0.5rem 0 0.4rem; font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
-    .method-piece p { margin: 0; font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
-    .method-more { display: inline-block; margin-top: 0.8rem; font-family: var(--mono); font-size: 0.74rem; color: var(--accent-teal, #6b8fa3); }
-    .method-tagline { text-align: center; margin-top: 2.2rem; font-family: var(--serif); font-style: italic; font-size: 1.05rem; color: var(--text-muted); }
-
-    /* --- MORE --- */
-    .more-section { padding: 0 2rem 5rem; max-width: 720px; margin: 0 auto; }
-    .more-section details {
-      border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card);
-    }
-    .more-section summary {
-      padding: 1rem 1.5rem; cursor: pointer; font-weight: 500; font-size: 1rem;
-      color: var(--text-muted); list-style: none; transition: color 0.2s;
-    }
-    .more-section summary::-webkit-details-marker { display: none; }
-    .more-section summary::before { content: '+ '; font-family: var(--mono); color: var(--accent-indigo); }
-    .more-section details[open] summary::before { content: '- '; }
-    .more-section details[open] summary { color: var(--text); }
-    .more-list { padding: 0 1.5rem 1.5rem; list-style: none; }
-    .more-list li { padding: 0.6rem 0; color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; }
-    .more-list li + li { border-top: 1px solid var(--border); }
-    .more-list strong { color: var(--text); font-weight: 600; }
-    .more-list a { color: var(--accent-teal); text-decoration: none; transition: color 0.2s; }
-    .more-list a:hover { color: var(--text); }
-    .more-list a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-
-    /* --- FOOTER --- */
-    footer {
-      text-align: center; padding: 3rem 2rem; border-top: 1px solid var(--border);
-      color: var(--text-dim); font-size: 0.85rem;
-    }
-    footer a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
-    footer a:hover, footer a:focus-visible { color: var(--accent-teal); }
-    footer a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-    .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
-    .footer-version { margin-top: 0.4rem; }
-    .footer-family { margin-top: 0.4rem; max-width: 640px; margin-left: auto; margin-right: auto; }
-    .hero-badge { margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
-    .hero-badge a { display: flex; align-items: center; }
-    .footer-author { margin-top: 0.4rem; }
-    .footer-counter { margin-top: 1rem; }
-
-    /* --- THEME TOGGLE --- */
-    .theme-toggle {
-      position: fixed; top: 1rem; right: 1rem; z-index: 50;
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-      padding: 0.5rem; cursor: pointer; color: var(--text-muted);
-      font-size: 1.2rem; line-height: 1; transition: border-color 0.2s, color 0.2s;
-      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-    }
-    .theme-toggle:hover { border-color: var(--accent-teal); color: var(--text); }
-    .theme-toggle:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-    .theme-toggle .icon-sun { display: none; }
-    .theme-toggle .icon-moon { display: block; }
-    [data-theme="light"] .theme-toggle .icon-sun { display: block; }
-    [data-theme="light"] .theme-toggle .icon-moon { display: none; }
-    @media (prefers-color-scheme: light) {
-      :root:not([data-theme="dark"]) .theme-toggle .icon-sun { display: block; }
-      :root:not([data-theme="dark"]) .theme-toggle .icon-moon { display: none; }
-    }
-    .lang-switch {
-      position: fixed; top: 1rem; right: 3.75rem; z-index: 50;
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-      height: 36px; padding: 0 0.6rem; display: flex; align-items: center;
-      font-family: var(--font-mono, monospace); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em;
-      color: var(--text-muted); text-decoration: none; transition: border-color 0.2s, color 0.2s;
-    }
-    .lang-switch:hover { border-color: var(--accent-teal); color: var(--text); }
-    .lang-switch:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-
-    /* --- RESPONSIVE --- */
-    @media (max-width: 640px) {
-      .hero-install { padding: 0.8rem 1.2rem; font-size: 0.82rem; }
-    }
-
-    /* --- ANIMATIONS --- */
-    .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
-    .fade-in.visible { opacity: 1; transform: translateY(0); }
-
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      .fade-in { opacity: 1; transform: none; transition: none; }
-    }
-  </style>
-  <noscript><style>.fade-in { opacity: 1; transform: none; }</style></noscript>
-  <script>
-    (function() {
-      var saved = localStorage.getItem('theme') || localStorage.getItem('starlight-theme');
-      if (saved && saved !== 'auto') {
-        document.documentElement.setAttribute('data-theme', saved);
-        localStorage.setItem('theme', saved);
-        localStorage.setItem('starlight-theme', saved);
-      }
-    })();
-  </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Karajan Code · Tu agente escribe. Karajan gobierna.</title>
+<meta name="description" content="Programa con cualquier IA y conserva las garantías: el test falla primero, otra IA revisa cada diff y las guardas de git rechazan lo que no se ha ganado.">
+<meta name="theme-color" content="#05080d">
+<link rel="icon" type="image/png" sizes="48x48" href="/img/favicon-48.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<script defer src="https://analytics.manulitics.com/script.js" data-website-id="8871eadf-4414-4baf-b83a-9f3da27b97fe"></script>
+<meta property="og:title" content="Karajan Code · Tu agente escribe. Karajan gobierna.">
+<meta property="og:description" content="Programa con cualquier IA y conserva las garantías: el test falla primero, otra IA revisa cada diff y las guardas de git rechazan lo que no se ha ganado.">
+<meta property="og:image" content="https://karajancode.com/og.png">
+<meta property="og:url" content="https://karajancode.com/es/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="en" href="https://karajancode.com">
+<link rel="alternate" hreflang="es" href="https://karajancode.com/es/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script>
+  // Decide before first paint whether the film plays, so nothing flashes.
+  (() => {
+    const root = document.documentElement;
+    // Same theme keys as the Starlight docs, so both remember one choice.
+    const theme = localStorage.getItem('starlight-theme') ?? localStorage.getItem('theme');
+    if (theme && theme !== 'auto') root.dataset.theme = theme;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const seen = localStorage.getItem('kj-intro-seen') === '1';
+    const frozen = new URLSearchParams(location.search).has('t');
+    if (!reduced && !seen && !frozen) root.classList.add('film-pending');
+  })();
+</script>
+<link rel="stylesheet" href="/css/landing.css?v=5.0.0">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
 </head>
 <body>
-  <a href="#main-content" class="skip-link">Skip to content</a>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div class="letterbox upper" aria-hidden="true"></div>
+<div class="letterbox lower" aria-hidden="true"></div>
+<p class="caption" id="caption" aria-hidden="true"></p>
+<ol id="captions" hidden>
+  <li data-from="0.7" data-to="2.5">El director sube al podio.</li>
+  <li data-from="3" data-to="5.5">La familia trae el método.</li>
+  <li data-from="6" data-to="7.85">Un diff que nadie ha revisado intenta colarse.</li>
+  <li data-from="7.9" data-to="8.9">Rechazado. Este diff no tiene veredicto.</li>
+  <li data-from="9.2" data-to="11.9">Revisado por otra IA, pasa por todas las guardas.</li>
+  <li data-from="12.3" data-to="13.1">El verde se gana.</li>
+</ol>
+<button class="skip" type="button" id="skip">Saltar intro<kbd>Esc</kbd></button>
 
-  <a class="lang-switch" href="/" hreflang="en" aria-label="View this page in English">EN</a>
-  <button type="button" class="theme-toggle" aria-label="Cambiar tema" onclick="toggleTheme()">
-    <span class="icon-sun" aria-hidden="true">&#9728;</span>
-    <span class="icon-moon" aria-hidden="true">&#9790;</span>
-  </button>
+<header class="wrap top">
+  <a class="brand" href="/es/"><img src="/img/logo-320.webp" alt="" width="30" height="30">Karajan Code</a>
+  <nav aria-label="Principal">
+    <a href="#refusal">Cómo funciona</a>
+    <a href="#family">Familia</a>
+    <a href="/docs/es/">Docs</a>
+    <a href="https://github.com/manufosela/karajan-code">GitHub</a>
+    <a class="keep" href="/" lang="en">EN</a>
+    <button class="ghost-btn" type="button" id="replay">Ver la intro</button>
+    <button class="ghost-btn" type="button" id="theme" aria-label="Cambiar entre tema claro y oscuro">◐</button>
+  </nav>
+</header>
 
-  <main id="main-content">
-
-  <!-- HERO -->
-  <section class="hero">
-    <div class="logo-orbit">
-      <picture>
-        <source type="image/webp"
-          srcset="/img/logo-120.webp 120w, /img/logo-160.webp 160w, /img/logo-200.webp 200w, /img/logo-240.webp 240w, /img/logo-320.webp 320w, /img/logo-480.webp 480w"
-          sizes="(max-width: 480px) 120px, (max-width: 768px) 160px, 200px">
-        <source type="image/png"
-          srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
-          sizes="(max-width: 480px) 120px, (max-width: 768px) 160px, 200px">
-        <img src="/img/logo-240.png" alt="Karajan Code, robot mascot" class="hero-logo" width="200" height="200" fetchpriority="high">
-      </picture>
-      <div class="orbit-ring" aria-hidden="true">
-        <!-- Claude -->
-        <span class="orbit-agent" title="Claude"><svg viewBox="0 0 16 16"><path d="m3.127 10.604 3.135-1.76.053-.153-.053-.085H6.11l-.525-.032-1.791-.048-1.554-.065-1.505-.08-.38-.081L0 7.832l.036-.234.32-.214.455.04 1.009.069 1.513.105 1.097.064 1.626.17h.259l.036-.105-.089-.065-.068-.064-1.566-1.062-1.695-1.121-.887-.646-.48-.327-.243-.306-.104-.67.435-.48.585.04.15.04.593.456 1.267.981 1.654 1.218.242.202.097-.068.012-.049-.109-.181-.9-1.626-.96-1.655-.428-.686-.113-.411a2 2 0 0 1-.068-.484l.496-.674L4.446 0l.662.089.279.242.411.94.666 1.48 1.033 2.014.302.597.162.553.06.17h.105v-.097l.085-1.134.157-1.392.154-1.792.052-.504.25-.605.497-.327.387.186.319.456-.045.294-.19 1.23-.37 1.93-.243 1.29h.142l.161-.16.654-.868 1.097-1.372.484-.545.565-.601.363-.287h.686l.505.751-.226.775-.707.895-.585.759-.839 1.13-.524.904.048.072.125-.012 1.897-.403 1.024-.186 1.223-.21.553.258.06.263-.218.536-1.307.323-1.533.307-2.284.54-.028.02.032.04 1.029.098.44.024h1.077l2.005.15.525.346.315.424-.053.323-.807.411-3.631-.863-.872-.218h-.12v.073l.726.71 1.331 1.202 1.667 1.55.084.383-.214.302-.226-.032-1.464-1.101-.565-.497-1.28-1.077h-.084v.113l.295.432 1.557 2.34.08.718-.112.234-.404.141-.444-.08-.911-1.28-.94-1.44-.759-1.291-.093.053-.448 4.821-.21.246-.484.186-.403-.307-.214-.496.214-.98.258-1.28.21-1.016.19-1.263.112-.42-.008-.028-.092.012-.953 1.307-1.448 1.957-1.146 1.227-.274.109-.477-.247.045-.44.266-.39 1.586-2.018.956-1.25.617-.723-.004-.105h-.036l-4.212 2.736-.75.096-.324-.302.04-.496.154-.162 1.267-.871z"/></svg></span>
-        <!-- OpenAI -->
-        <span class="orbit-agent" title="OpenAI"><svg viewBox="0 0 16 16"><path d="M14.949 6.547a3.94 3.94 0 0 0-.348-3.273 4.11 4.11 0 0 0-4.4-1.934 4.1 4.1 0 0 0-1.778-.514 4.15 4.15 0 0 0-2.118.114 4.1 4.1 0 0 0-1.891.948 4.04 4.04 0 0 0-1.158 1.753 4.1 4.1 0 0 0-1.563.679 4 4 0 0 0-1.14 1.253 3.99 3.99 0 0 0 .502 4.731 3.94 3.94 0 0 0 .346 3.274 4.11 4.11 0 0 0 4.402 1.933c.382.425.852.764 1.377.995.526.231 1.095.35 1.67.346 1.78.002 3.358-1.132 3.901-2.804a4.1 4.1 0 0 0 1.563-.68 4 4 0 0 0 1.14-1.253 3.99 3.99 0 0 0-.506-4.716m-6.097 8.406a3.05 3.05 0 0 1-1.945-.694l.096-.054 3.23-1.838a.53.53 0 0 0 .265-.455v-4.49l1.366.778q.02.011.025.035v3.722c-.003 1.653-1.361 2.992-3.037 2.996m-6.53-2.75a2.95 2.95 0 0 1-.36-2.01l.095.057L5.29 12.09a.53.53 0 0 0 .527 0l3.949-2.246v1.555a.05.05 0 0 1-.022.041L6.473 13.3c-1.454.826-3.311.335-4.15-1.098m-.85-6.94A3.02 3.02 0 0 1 3.07 3.949v3.785a.51.51 0 0 0 .262.451l3.93 2.237-1.366.779a.05.05 0 0 1-.048 0L2.585 9.342a2.98 2.98 0 0 1-1.113-4.094zm11.216 2.571L8.747 5.576l1.362-.776a.05.05 0 0 1 .048 0l3.265 1.86a3 3 0 0 1 1.173 1.207 2.96 2.96 0 0 1-.27 3.2 3.05 3.05 0 0 1-1.36.997V8.279a.52.52 0 0 0-.276-.445m1.36-2.015-.097-.057-3.226-1.855a.53.53 0 0 0-.53 0L6.249 6.153V4.598a.04.04 0 0 1 .019-.04L9.533 2.7a3.07 3.07 0 0 1 3.257.139c.474.325.843.778 1.066 1.303.223.526.289 1.103.191 1.664zM5.503 8.575 4.139 7.8a.05.05 0 0 1-.026-.037V4.049c0-.57.166-1.127.476-1.607s.752-.864 1.275-1.105a3.08 3.08 0 0 1 3.234.41l-.096.054-3.23 1.838a.53.53 0 0 0-.265.455zm.742-1.577 1.758-1 1.762 1v2l-1.755 1-1.762-1z"/></svg></span>
-        <!-- Gemini -->
-        <span class="orbit-agent" title="Gemini"><svg viewBox="0 0 65 65"><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.9 38.9 0 0 0 1.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 0 0 5.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.9 38.9 0 0 0-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.97 38.97 0 0 0-2 5.906 1.485 1.485 0 0 1-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.91 38.91 0 0 0-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.97 38.97 0 0 0-5.905-2A1.485 1.485 0 0 1 0 32.448c0-.68.465-1.272 1.125-1.438a38.9 38.9 0 0 0 5.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.97 38.97 0 0 0 1.999-5.905A1.485 1.485 0 0 1 32.447 0z"/></svg></span>
-        <!-- Aider -->
-        <span class="orbit-agent" title="Aider"><svg viewBox="0 0 16 16"><path d="M5.5 2h5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H9v1.5h2.5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H9V11h2.5a.5.5 0 0 1 .354.854l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5A.5.5 0 0 1 5.5 11H7V9.5H5.5a.5.5 0 0 1-.5-.5V7a.5.5 0 0 1 .5-.5H7V5H5.5a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5zM6 3v1h4V3zm0 4v1h4V7z"/></svg></span>
-        <!-- OpenCode -->
-        <span class="orbit-agent" title="OpenCode"><svg viewBox="0 0 16 16"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8zm4.292-0.708a.5.5 0 0 0 0 .708L13.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0"/></svg></span>
+<main id="main">
+  <section class="hero" id="hero" aria-label="Karajan Code">
+    <canvas id="film" data-tools="atril|TDD|Sentinel|Revisión IA|Guardas git|SonarQube|Ledger|Steward" data-new-tool="atril" data-new-badge="nuevo" role="img" aria-label="Película: el robot director de Karajan sube al podio, kaRAGan y kaWATCHan empujan las herramientas del método hasta un pentagrama, un diff sin revisar es rechazado y uno revisado se gana el veredicto verde. atril, la novedad de la 5.0, abre la fila."></canvas>
+    <img class="hero-still" src="/img/logo-480.webp" alt="" width="420" height="463">
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <p class="kicker">Karajan Code 5.0 · código abierto</p>
+        <h1>Tu agente escribe. <em>Karajan gobierna.</em></h1>
+        <p class="lede">Programa con cualquier IA y conserva las garantías. El test falla primero, <strong>otra IA revisa cada diff</strong> y las guardas de git rechazan lo que no se ha ganado. <strong>Un falso verde no entra.</strong></p>
+        <div class="prompt">
+          <p class="prompt-label">Pega esto en tu agente (Claude Code, Codex, Cursor, VS Code):</p>
+          <div class="prompt-row">
+            <code id="prompt-text">Instala Karajan y arráncalo: lee karajancode.com/go.md y haz todo lo que diga.</code>
+            <button class="copy-btn" type="button" id="copy" data-done="Copiado" data-failed="Selecciona y copia">Copiar</button>
+          </div>
+        </div>
+        <div class="hero-links">
+          <a href="#refusal">Míralo rechazar un commit ↓</a>
+          <a href="/docs/es/">Lee la documentación</a>
+        </div>
       </div>
-      <a class="family-child family-child-right" href="https://rag.karajancode.com" aria-label="kaRAGan, RAG over your code, docs and data" title="kaRAGan, RAG over your code, docs and data">
-        <picture>
-          <source type="image/webp" srcset="/img/rag-logo-120.webp">
-          <img src="/img/rag-logo-120.png" alt="kaRAGan" width="53" height="58" loading="lazy">
-        </picture>
-        <span class="family-child-label">RAG</span>
-      </a>
-      <a class="family-child family-child-left" href="https://watch.karajancode.com" aria-label="kaWATCHan, cross-repo impact analysis on every merge" title="kaWATCHan, cross-repo impact analysis on every merge">
-        <picture>
-          <source type="image/webp" srcset="/img/watch-logo-120.webp">
-          <img src="/img/watch-logo-120.png" alt="kaWATCHan" width="53" height="58" loading="lazy">
-        </picture>
-        <span class="family-child-label">WATCH</span>
-      </a>
     </div>
-    <h1>Karajan Code</h1>
-    <p class="hero-tagline">Programa con varias IAs, <em class="guarantee">con garantías</em>.</p>
-    <p class="hero-sub">El gobernador de los agentes de código: tu agente escribe; Karajan impone TDD primero, revisión cruzada entre IAs en cada commit y guardas en git. Un falso verde es imposible.</p>
-    <p class="hero-agents" aria-label="Agentes de código soportados">gobierna <span>claude-code</span> · <span>codex</span> · <span>copilot</span> · <span>antigravity</span> · <span>kimi</span> · <span>qwen</span> · <span>opencode</span> · <span>aider</span> · <span>gemini</span>, uno escribe, otro <em>distinto</em> revisa, un tercero arbitra</p>
-    <p class="hero-badge">
-      <span class="v4-pill">v4 · el Entorno Karajan</span>
-      <a href="https://www.npmjs.com/package/karajan-code" aria-label="Current version on npm">
-        <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=6b8fa3&label=latest" alt="npm version" height="22">
-      </a>
-    </p>
-    <div class="install-tabs" role="tablist" aria-label="Cómo instalar Karajan">
-      <button type="button" role="tab" id="tab-maggle" aria-controls="panel-maggle" aria-selected="true" class="install-tab is-active" onclick="showInstall('maggle')">Configúralo por mí</button>
-      <button type="button" role="tab" id="tab-dev" aria-controls="panel-dev" aria-selected="false" tabindex="-1" class="install-tab" onclick="showInstall('dev')">Pregúntame en cada paso</button>
-    </div>
-
-    <div id="panel-maggle" role="tabpanel" aria-labelledby="tab-maggle" class="install-panel">
-      <button type="button" class="hero-install" data-copy="Configura Karajan en este proyecto y arráncalo por mí: lee karajancode.com/go.md y haz todo lo que diga. No soy programador, no me hagas preguntas técnicas, solo déjalo funcionando y avísame cuando esté listo." onclick="copyInstall(this)" aria-label="Prompt de instalación, pulsa para copiar">
-        <span class="prompt" aria-hidden="true">&gt;</span>
-        <span>Configura Karajan y arráncalo por mí: lee karajancode.com/go.md y haz todo lo que diga.</span>
-        <span class="copy-hint" aria-live="polite">pulsa para copiar</span>
-      </button>
-      <p class="hero-note">Pégalo en tu asistente de IA (Claude Code, Codex, Cursor, VS Code). Instala Karajan, prepara el proyecto y abre una única ventana con el tablero y tu agente dentro, <em>tú nunca tocas la terminal</em>. Solo se detiene si un paso necesita tu permiso.</p>
-    </div>
-
-    <div id="panel-dev" role="tabpanel" aria-labelledby="tab-dev" class="install-panel" hidden>
-      <button type="button" class="hero-install" data-copy="Quiero usar Karajan en este proyecto: lee karajancode.com/start.md y haz lo que diga." onclick="copyInstall(this)" aria-label="Prompt de instalación, pulsa para copiar">
-        <span class="prompt" aria-hidden="true">&gt;</span>
-        <span>Quiero usar Karajan en este proyecto: lee karajancode.com/start.md y haz lo que diga.</span>
-        <span class="copy-hint" aria-live="polite">pulsa para copiar</span>
-      </button>
-      <p class="hero-note">Pégalo en tu agente de IA (Claude Code, Codex, Cursor, VS Code). Comprueba tu máquina, instala lo que falte y <em>se detiene a esperarte</em> cada vez que un paso necesita tu permiso, mantienes el control.</p>
-    </div>
-
-    <p class="hero-note">¿Quieres ver qué se instala, o hacerlo tú mismo primero? <a href="/docs/es/v4/install/">Requisitos e instalación manual</a>.</p>
-    <!-- /es/brief.md y /es/spec.md no son ficheros estáticos: apps/landing/firebase.json los redirige (302) a docs/prompts/{brief.es,spec.es}.md en GitHub raw, igual que /go.md y /start.md. -->
-    <p class="hero-note hero-note-last">¿Ya instalado? Para arrancar un proyecto por el método Karajan, pega <a href="/es/brief.md">brief.md</a> en tu agente. ¿No sabes cómo describir lo que quieres? Lee <a href="/es/spec.md">cómo escribir una spec</a>.</p>
-    <nav class="hero-links" aria-label="Enlaces del proyecto">
-      <a href="/docs/es/v4/install/">Empezar</a>
-      <a href="#method">El método</a>
-      <a href="https://github.com/manufosela/karajan-code">GitHub</a>
-      <a href="/docs/es/">Docs</a>
-      <a href="/" hreflang="en">English</a>
-    </nav>
   </section>
 
-  <!-- THE KARAJAN METHOD, the seven pieces (KJL-TSK-0134) -->
-  <section id="method" class="method-section fade-in" aria-label="The Karajan method">
-    <p class="score-eyebrow">El método</p>
-    <h2 class="score-title">El método Karajan, en <em class="guarantee">siete piezas</em></h2>
-    <div class="method-grid">
-      <a class="method-piece" href="/es/method#cross-review">
-        <span class="method-num">01</span>
-        <h3>Revisión cruzada obligatoria</h3>
-        <p>Una IA distinta revisa cada cambio, atado al hash exacto del diff. Cambias una línea y no la revisas: el sistema rechaza el commit, aunque el agente intente saltárselo.</p>
-        <span class="method-more">leer &rarr;</span>
-      </a>
-      <a class="method-piece" href="/es/method#rules">
-        <span class="method-num">02</span>
-        <h3>Reglas como mecanismo</h3>
-        <p>Las normas viven en guardas de git y en la política del proyecto, no en el prompt. O pasa, o el commit se rechaza. La seguridad es innegociable.</p>
-        <span class="method-more">leer &rarr;</span>
-      </a>
-      <a class="method-piece" href="/es/method#sentinel">
-        <span class="method-num">03</span>
-        <h3>El Sentinel</h3>
-        <p>Un vigilante dentro de la sesión bloquea la acción prohibida en el momento, y te enlaza a la regla.</p>
-        <span class="method-more">leer &rarr;</span>
-      </a>
-      <a class="method-piece" href="/es/method#claims">
-        <span class="method-num">04</span>
-        <h3>Afirmaciones con fuente</h3>
-        <p>Cada dato que el agente publica se contrasta con lo que su propia sesión ejecutó. ¿Desmentido por su terminal? Rechazado.</p>
-        <span class="method-more">leer &rarr;</span>
-      </a>
-      <a class="method-piece" href="/es/method#ledger">
-        <span class="method-num">05</span>
-        <h3>Acta encadenada</h3>
-        <p>Cada comando, veredicto y excepción se sella, y cada entrada lleva la huella de la anterior. El pasado no se reescribe sin que se note.</p>
-        <span class="method-more">leer &rarr;</span>
-      </a>
-      <a class="method-piece" href="/es/method#trust">
-        <span class="method-num">06</span>
-        <h3>La confianza caduca</h3>
-        <p>El Steward re-verifica las garantías del proyecto de forma periódica; la evidencia vieja deja de valer. Los proyectos se pudren cuando nadie mira.</p>
-        <span class="method-more">leer &rarr;</span>
-      </a>
-      <a class="method-piece" href="/es/method#rag">
-        <span class="method-num">07</span>
-        <h3>Memoria del proyecto (RAG)</h3>
-        <p>El agente consulta el código indexado antes de suponer, con política de sensibilidad, y los secretos excluidos del índice.</p>
-        <span class="method-more">leer &rarr;</span>
-      </a>
+  <section class="band" id="refusal">
+    <div class="wrap refusal">
+      <div class="reveal">
+        <p class="kicker">El momento en que dice no</p>
+        <h2>Tu agente dice que los tests pasan. <em>Karajan lo comprueba.</em></h2>
+        <p class="sub">Un commit solo entra con el veredicto de otra IA, atado al diff exacto. Cambia una línea y el veredicto deja de coincidir: el commit se rechaza, aunque el agente intente saltarse el hook.</p>
+      </div>
+      <div class="term reveal" id="term" role="group" aria-label="Sesión de terminal: un commit se rechaza hasta que otra IA revisa el diff">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p><span class="ps">$</span> git commit -m "feat: retry on 429"</p>
+        <p class="no">✕ kj: no verdict recorded for the current diff</p>
+        <p class="dim">  run kj review --staged</p>
+        <p><span class="ps">$</span> kj review --staged</p>
+        <p class="dim">  reviewer: codex · diff sha256:9c1e4a…</p>
+        <p class="ok">  ✓ approved · 0 blocking findings</p>
+        <p><span class="ps">$</span> git commit -m "feat: retry on 429"</p>
+        <p class="ok">✓ verdict matches the diff · sealed in the ledger</p>
+        <p class="dim">[feat/retry 3f2c1ab] feat: retry on 429</p>
+      </div>
     </div>
-    <p class="method-tagline">Mecanismo donde había opinión. Evidencia donde había afirmación.</p>
   </section>
 
-  <!-- THE KARAJAN FAMILY, teaser to the dedicated page (KJL-TSK-0134) -->
-  <section id="family" class="family-section fade-in" aria-label="The Karajan family">
-    <p class="score-eyebrow">La familia</p>
-    <h2 class="score-title">Un método, <em class="guarantee">una familia</em> de herramientas</h2>
-    <p class="family-intro">Alrededor de Karajan Code hay una familia que comparte el mismo método, contexto, vigilancia, gobierno y el suelo sobre el que se apoyan todas.</p>
-    <div class="family-strip" aria-hidden="true">
-      <span class="family-chip">Karajan Code</span>
-      <span class="family-chip">kaRAGan</span>
-      <span class="family-chip">kaWATCHan</span>
-      <span class="family-chip">Console</span>
-      <span class="family-chip">Governance</span>
-      <span class="family-chip">Core</span>
-      <span class="family-chip">Radar</span>
+  <section class="band">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Tres momentos, tres guardas</p>
+        <h2>Para el error <em>donde ocurre.</em></h2>
+      </div>
+      <div class="moments">
+        <div class="moment reveal"><p class="when">Mientras el agente trabaja</p><h3>El Sentinel</h3><p>Vigila dentro de la sesión y deniega la acción prohibida antes del daño, con un enlace a la regla que incumple.</p></div>
+        <div class="moment reveal"><p class="when">En cada commit</p><h3>El veredicto</h3><p>Ningún diff entra sin un veredicto cruzado entre IAs atado a su hash. Es el suelo de garantías en cualquier anfitrión.</p></div>
+        <div class="moment reveal"><p class="when">Al mergear</p><h3>La CI</h3><p>Vuelve a comprobar la misma política en el servidor, así que manipular un hook local no cambia nada.</p></div>
+      </div>
     </div>
-    <p class="family-cta-wrap"><a class="family-cta" href="/es/family">Conoce la familia entera &rarr;</a></p>
   </section>
 
-  <!-- WANT TO KNOW MORE? -->
-  <section class="more-section fade-in">
-    <details>
-      <summary>¿Quieres saber más?</summary>
-      <ul class="more-list">
-        <li><strong>Nueve agentes bajo un mismo gobierno</strong>, Claude Code, Codex, GitHub Copilot, Antigravity, Kimi Code, Qwen, OpenCode, Aider, Gemini. Cualquiera es el cerebro y absorbe los roles (triaje, planner, arquitecto, tester, seguridad, auditoría) vía <code>kj brief</code>; cuando el reviewer se queda sin cuota, el panel conmuta con un aviso sonoro, nunca en silencio, nunca autorevisión. <a href="/docs/es/v4/working-with-your-agent/">Ver el método &rarr;</a></li>
-        <li><strong>Cómo funciona el gobierno: tres niveles</strong>, en tiempo de herramienta el Sentinel deniega la violación ANTES del daño; en tiempo de commit ningún diff entra sin un veredicto cruzado entre IAs atado a su sha256 (el suelo de la garantía en cualquier host); en tiempo de merge el CI re-comprueba la misma política, así que un hook local manipulado no cambia nada. Los hallazgos de seguridad no los salta nadie, ni el arbitraje. <a href="/docs/es/v4/gates/">Ver las guardas &rarr;</a></li>
-        <li><strong>Revisión cruzada entre IAs en cada commit</strong>, una IA distinta aprueba cada diff; una tercera arbitra las disputas; los hallazgos de seguridad no los salta nadie. <a href="/docs/es/v4/gates/">Ver las guardas &rarr;</a></li>
-        <li><strong>Pipeline headless para CI</strong>, el bucle multiagente clásico, desatendido, las mismas guardas. <a href="/docs/es/v4/headless/">Ver el modo headless &rarr;</a></li>
-        <li><strong>6.000+ tests. 90+ releases. Código abierto (AGPL-3.0).</strong> <a href="https://github.com/manufosela/karajan-code">Ver el repo &rarr;</a></li>
-      </ul>
-    </details>
+  <section class="band">
+    <div class="wrap pieces-layout">
+      <div class="reveal">
+        <p class="kicker">El método</p>
+        <h2>Siete piezas, <em>ninguna opinión.</em></h2>
+        <p class="motto">Mecanismo donde había opinión. Evidencia donde había una afirmación.</p>
+      </div>
+      <ol class="pieces reveal">
+        <li><b>Revisión cruzada obligatoria</b><span>Otra IA revisa cada cambio, atada al hash del diff.</span></li>
+        <li><b>Reglas como mecanismo</b><span>Las normas viven en las guardas de git y en la política, no en el prompt. La seguridad nunca se puede saltar.</span></li>
+        <li><b>El Sentinel</b><span>Bloquea la acción prohibida dentro de la sesión, en el momento en que ocurre.</span></li>
+        <li><b>Afirmaciones con fuente</b><span>Lo que afirma el agente se contrasta con lo que ejecutó su propia sesión.</span></li>
+        <li><b>Ledger encadenado por hash</b><span>Cada comando, veredicto y excepción queda sellado. Nadie reescribe el pasado sin que se note.</span></li>
+        <li><b>La confianza caduca</b><span>El Steward vuelve a verificar las garantías de forma periódica; la evidencia caducada deja de contar.</span></li>
+        <li><b>Memoria del proyecto</b><span>El agente consulta el código indexado antes de suponer nada, sin que entren los secretos.</span></li>
+      </ol>
+    </div>
   </section>
 
-  </main>
+  <section class="band">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Trae tus agentes</p>
+        <h2>Uno escribe. Otro revisa. <em>Un tercero decide.</em></h2>
+      </div>
+      <p class="agents reveal">
+        <span>Claude Code</span><span>Codex</span><span>GitHub Copilot</span><span>Antigravity</span><span>Kimi Code</span><span>Qwen</span><span>OpenCode</span><span>Aider</span><span>Gemini</span>
+      </p>
+      <div class="roles">
+        <div class="reveal"><b>El coder</b><p>Tu agente, en tu editor. Escribe el cambio con el test primero.</p></div>
+        <div class="reveal"><b>El revisor</b><p>Otra IA. Si se queda sin cuota, el panel cambia de revisor y lo avisa. Nunca se revisa a sí mismo.</p></div>
+        <div class="reveal"><b>El árbitro</b><p>Una tercera IA resuelve los desacuerdos. Los hallazgos de seguridad siguen bloqueando, diga lo que diga.</p></div>
+      </div>
+    </div>
+  </section>
 
-  <!-- FOOTER -->
-  <footer>
-    <nav class="footer-links" aria-label="Footer links">
-      <a href="https://github.com/manufosela/karajan-code">GitHub</a>
-      <a href="https://www.npmjs.com/package/karajan-code">npm</a>
-      <a href="/docs/">Docs</a>
-      <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
-      <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a>
-    </nav>
-    <p class="footer-version">Karajan Code</p>
-    <p class="footer-family">La familia Karajan: <a href="/es/#family">Code</a> &middot; <a href="https://rag.karajancode.com">kaRAGan</a> &middot; <a href="https://watch.karajancode.com">kaWATCHan</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/console">Console</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/governance">Governance</a> &middot; <a href="https://www.npmjs.com/package/@karajan-family/core">Core</a> &middot; Radar (en preparación), todo bajo <a href="https://www.npmjs.com/~karajan-family">@karajan-family</a>.</p>
-    <p class="footer-author">Hecho por <a href="https://github.com/manufosela">@manufosela</a></p>
-  </footer>
+  <section class="band" id="family">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">La familia</p>
+        <h2>Un método, <em>una orquesta.</em></h2>
+      </div>
+      <div class="family">
+        <div class="member reveal"><img src="/img/logo-320.webp" alt="" width="96" height="106"><h3>Karajan Code</h3><p class="role">el director</p><p>Gobierna el trabajo: método, guardas, veredictos y ledger.</p></div>
+        <div class="member reveal"><img src="/img/rag-320.webp" alt="" width="96" height="106"><h3>kaRAGan</h3><p class="role">la memoria</p><p>Responde desde tu código, tu documentación y tus datos, con una política sobre qué modelo puede ver qué.</p></div>
+        <div class="member reveal"><img src="/img/watch-320.webp" alt="" width="96" height="106"><h3>kaWATCHan</h3><p class="role">el vigía</p><p>Vigila muchos repos a la vez y avisa cuando un cambio en uno repercute en otro.</p></div>
+      </div>
+      <p class="ensemble reveal"><span><b>atril</b> el atril</span><span><b>Libretto</b> las historias</span><span><b>Console</b> la administración</span><span><b>Governance</b> el núcleo</span><span><b>Core</b> la base común</span><a href="/es/family.html">Conoce a toda la familia →</a></p>
+    </div>
+  </section>
 
+  <section class="band">
+    <div class="wrap five">
+      <div class="reveal">
+        <p class="kicker">Novedades de la 5.0</p>
+        <h2>El anfitrión orquesta. <em>Karajan gobierna.</em></h2>
+        <p class="sub">Tu agente ya ejecuta el bucle, así que Karajan ha dejado de ejecutar el suyo. <code>kj run</code> se retira y Karajan pasa a ser la capa que gobierna el agente que uses. atril entra en el núcleo.</p>
+      </div>
+      <div class="shrink reveal" role="img" aria-label="Tamaño del código fuente: 86.718 líneas en la 4.x y 59.835 en la 5.0, un 31 por ciento menos">
+        <div class="row"><span>4.x</span><span class="meter"></span><span>86.718 líneas</span></div>
+        <div class="row now"><span>5.0</span><span class="meter"></span><span>59.835 líneas</span></div>
+        <p class="note">Un 31 % menos de código. Las mismas garantías.</p>
+      </div>
+    </div>
+  </section>
+</main>
 
-  <script>
-    /* --- COPY PROMPT --- */
-    function showInstall(which) {
-      ['maggle', 'dev'].forEach(function(k) {
-        var tab = document.getElementById('tab-' + k);
-        var panel = document.getElementById(k === 'maggle' ? 'panel-maggle' : 'panel-dev');
-        var active = (k === which);
-        tab.classList.toggle('is-active', active);
-        tab.setAttribute('aria-selected', active ? 'true' : 'false');
-        tab.tabIndex = active ? 0 : -1;
-        panel.hidden = !active;
-      });
-    }
-    (function() {
-      var tablist = document.querySelector('.install-tabs');
-      if (!tablist) return;
-      tablist.addEventListener('keydown', function(e) {
-        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-        var toDev = document.getElementById('tab-maggle').getAttribute('aria-selected') === 'true';
-        var which = toDev ? 'dev' : 'maggle';
-        showInstall(which);
-        document.getElementById('tab-' + which).focus();
-        e.preventDefault();
-      });
-    })();
+<footer class="wrap">
+  <span>Karajan Code · AGPL-3.0</span>
+  <nav aria-label="Pie de página"><a href="https://github.com/manufosela/karajan-code">GitHub</a><a href="https://www.npmjs.com/package/karajan-code">npm</a><a href="/docs/es/">Docs</a><a href="/" lang="en">English</a></nav>
+</footer>
 
-    function copyInstall(btn) {
-      var text = btn.getAttribute('data-copy') || '';
-      navigator.clipboard.writeText(text).then(function() {
-        btn.classList.add('copied');
-        var hint = btn.querySelector('.copy-hint');
-        if (hint) hint.textContent = 'copied!';
-        setTimeout(function() {
-          btn.classList.remove('copied');
-          if (hint) hint.textContent = 'click to copy';
-        }, 2000);
-      });
-    }
-
-    /* --- THEME TOGGLE --- */
-    function toggleTheme() {
-      var html = document.documentElement;
-      var current = html.getAttribute('data-theme');
-      var next;
-      if (current) { next = current === 'dark' ? 'light' : 'dark'; }
-      else { next = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'; }
-      html.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      localStorage.setItem('starlight-theme', next);
-    }
-
-    /* --- FADE-IN REVEALS --- */
-    (function() {
-      var els = document.querySelectorAll('.fade-in');
-      if (!('IntersectionObserver' in window)) {
-        els.forEach(function(e){ e.classList.add('visible'); });
-        return;
-      }
-      var io = new IntersectionObserver(function(entries) {
-        entries.forEach(function(e) {
-          if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
-        });
-      }, { threshold: 0.15 });
-      els.forEach(function(e){ io.observe(e); });
-    })();
-  </script>
+<script type="importmap">
+{ "imports": {
+  "three": "/lib/three.min.js?v=0.187.0",
+  "/film/timeline.js": "/film/timeline.js?v=5.0.0",
+  "/film/stage.js": "/film/stage.js?v=5.0.0",
+  "/film/stage-fx.js": "/film/stage-fx.js?v=5.0.0",
+  "/film/robot.js": "/film/robot.js?v=5.0.0",
+  "/film/robot-head.js": "/film/robot-head.js?v=5.0.0",
+  "/film/props.js": "/film/props.js?v=5.0.0",
+  "/film/cast.js": "/film/cast.js?v=5.0.0",
+  "/film/score.js": "/film/score.js?v=5.0.0",
+  "/film/camera.js": "/film/camera.js?v=5.0.0"
+} }
+</script>
+<script type="module" src="/film/main.js?v=5.0.0"></script>
+<script type="module" src="/js/page.js?v=5.0.0"></script>
 </body>
 </html>
