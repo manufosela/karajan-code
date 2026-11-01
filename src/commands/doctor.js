@@ -33,6 +33,7 @@ import { getNodeChecks } from "../checks/node.js";
 import { getNativeBuildChecks } from "../checks/native-build.js";
 import { getPortChecks } from "../checks/ports.js";
 import { getTokenChecks } from "../checks/tokens.js";
+import { getAgentTokenChecks } from "../checks/agent-token.js";
 import { getMcpHealthChecks } from "../checks/mcp-health.js";
 import { getSkillsChecks } from "../checks/skills.js";
 import { getDirSetupChecks } from "../checks/dir-setup.js";
@@ -72,6 +73,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getPhoneChecks(),
     ...getPortChecks(),
     ...getTokenChecks(config),
+    ...getAgentTokenChecks({ projectDir }),
     ...getMcpHealthChecks(),
     ...getSkillsChecks(),
     ...getCiChecks(),
