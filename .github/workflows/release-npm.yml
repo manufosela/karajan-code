@@ -1,0 +1,90 @@
+name: Release npm (provenance)
+
+# KJC-TSK-1359 (ADR 0035): kj is published from the tag with npm provenance through
+# trusted publishing (OIDC): no npm token is stored and no OTP is needed. The publish
+# job waits in the npm-publish environment until the maintainer approves it
+# ("Review deployments" on the run, from the browser or the GitHub mobile app).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Suite, verify-pack and privacy scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: The tag matches package.json
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          got="$(node -p 'require("./package.json").version')"
+          [ "$want" = "$got" ] || { echo "::error::tag $GITHUB_REF_NAME but package.json says $got"; exit 1; }
+
+      - name: Full suite
+        run: npx vitest run --reporter=default --reporter=github-actions
+
+      - name: verify-pack (karajan-code)
+        run: node scripts/verify-pack.mjs
+
+      - name: verify-pack (@karajan-family/code)
+        run: node scripts/dual-publish.mjs --pack-only
+
+      - name: Privacy scan of the tarball
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pack"
+          mkdir -p "$out"
+          npm pack --ignore-scripts --pack-destination "$out"
+          tar -xzf "$out"/*.tgz -C "$out"
+          node bin/kj.js privacy scan "$out/package"
+
+  # This job holds the OIDC token, so it installs nothing and runs no package scripts:
+  # an install script of a dependency could otherwise publish with it. The verify job,
+  # which has no token, already checked both names.
+  publish:
+    name: Publish both names with provenance
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: npm supports trusted publishing
+        run: |
+          set -euo pipefail
+          v="$(npm --version)"
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$v" \
+            || { echo "::error::trusted publishing needs npm >= 11.5.1, the runner has $v"; exit 1; }
+
+      - name: Publish karajan-code
+        run: npm publish --provenance --ignore-scripts
+
+      - name: Publish @karajan-family/code
+        run: node scripts/dual-publish.mjs --publish --provenance --no-verify

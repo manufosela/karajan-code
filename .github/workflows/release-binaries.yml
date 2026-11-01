@@ -63,6 +63,10 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     needs: ensure-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -144,6 +148,13 @@ jobs:
       - name: Generate SHA256 checksum (Windows)
         if: runner.os == 'Windows'
         run: certutil -hashfile dist\kj-${{ matrix.target }}.exe SHA256 > dist\kj-${{ matrix.target }}.exe.sha256
+
+      # KJC-TSK-1359 (ADR 0035): a signed build provenance for each binary, checked with
+      # gh attestation verify <binary> --repo manufosela/karajan-code.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.os == 'Windows' && format('dist/kj-{0}.exe', matrix.target) || format('dist/kj-{0}', matrix.target) }}
 
       # KJC-BUG-0040 root cause: the release-create from the human's
       # release checklist (`gh release create`) and softprops fight for
