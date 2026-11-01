@@ -1,6 +1,6 @@
 {
   "kj_version": "4.70.4",
-  "generated_at": "2026-11-01T07:21:13.142Z",
+  "generated_at": "2026-11-01T09:38:27.743Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -54,7 +54,7 @@
     },
     {
       "file": ".github/workflows/nightly.yml",
-      "sha256": "4278a17882916641781f36c5be0eff8b0d28e976be27e9233b714997017ca969"
+      "sha256": "c75575a00351984cd315566c6b83f5cc658c70fb158d847ff2cc838cdb1452b4"
     },
     {
       "file": ".github/workflows/osv.yml",
@@ -166,15 +166,15 @@
     }
   ],
   "signature": {
-    "cid": "5d576ca03cd2ba3d9c46a8f25e08590b",
-    "nonce": "0e5e1b48f6abb5a648af67f250a93247",
+    "cid": "5bce5fafbd92be8814467363360f2799",
+    "nonce": "17a8d3fa45ae8b03d9d9662760403c49",
     "project": "karajan-code",
-    "filesHash": "448adf3ff50c7199fe5ae6df9952a12ab16d5b9fedf5791e93c222e9a970dac3",
+    "filesHash": "2285bab00b9cc11dda986799b2fa288402e7c20877c29083eb238a0c43ee0ea6",
     "v": 2,
     "kjVersion": "4.70.4",
-    "issuedMs": 1793517665174,
-    "expiresMs": 1793517815174,
+    "issuedMs": 1793525897479,
+    "expiresMs": 1793526047479,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "uuWD7dFijosMffZl4Q/z9itAdE18COt9QkoMdw9CnaTyksdZsvHULI5Muv4asm8xdKwJWSVbxtUFhTq1fFrkAQ=="
+    "signature": "3fqPkwbE4pXRSraBx144ZaCM2SXZeZ5iLJngcy8A9p6MChJw725io7TA0OFFQ7biNVzDeW9p+6bQVcO+0vGdDA=="
   }
 }
