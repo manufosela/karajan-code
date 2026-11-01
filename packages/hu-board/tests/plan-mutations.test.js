@@ -258,34 +258,21 @@ describe('PATCH /api/stories/:id', () => {
   });
 });
 
-// KJC-TSK-0408: POST /api/stories/:id/undo deshace una HU restaurando
-// el snapshot git. Los tests cubren los códigos de error (sin snapshot,
-// HU inexistente, plan sin projectDir); el happy path requiere un repo
-// git real así que se valida en e2e.
+// KJC-TSK-1351: Undo ran `git reset --hard` to the snapshot kj run took before an HU.
+// kj run is retired; the HUs it ran still carry a snapshot_sha, and resetting today's
+// tree to it would wipe everything since. The route is gone and the HU is left alone.
 describe('POST /api/stories/:id/undo', () => {
-  it('400 cuando la HU no tiene snapshot_sha en outcome', async () => {
-    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
-    const res = await request(app).post(`/api/stories/${encodeURIComponent(storyId)}/undo`);
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/snapshot/i);
-  });
-
-  it('404 cuando la story no existe', async () => {
-    const res = await request(app).post('/api/stories/ghost/undo');
-    expect(res.status).toBe(404);
-  });
-
-  it('400 cuando el plan no tiene projectDir', async () => {
-    // Pre-seed: la HU tiene snapshot_sha pero el plan carece de projectDir
+  it('is gone, and an HU with an old snapshot keeps its status', async () => {
     const plan = readPlanFromDisk();
     plan.hus[0].outcome = { snapshot_sha: 'abc123', snapshot_ref: 'refs/kj-snapshots/x' };
-    delete plan.projectDir;
+    plan.hus[0].status = 'done';
     writeFileSync(planPath(), JSON.stringify(plan, null, 2), 'utf-8');
     syncMod.syncPlanFile(planPath());
     const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
     const res = await request(app).post(`/api/stories/${encodeURIComponent(storyId)}/undo`);
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/projectDir/);
+    expect(res.status).toBe(404);
+    expect(res.text).toMatch(/Cannot POST/); // no such route, not the route's own "not found"
+    expect(readPlanFromDisk().hus[0].status).toBe('done');
   });
 });
 
@@ -555,47 +542,10 @@ describe('POST /api/runs/:planId/stop + GET /api/runs/:planId/active', () => {
   });
 });
 
+// KJC-TSK-1351: the log of a plan's kj run; nothing writes one since kj run was retired.
 describe('GET /api/plans/:planId/log', () => {
-  it('returns exists:false when the log file does not exist yet', async () => {
-    const res = await request(app).get(`/api/plans/${PLAN_ID}/log`);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ exists: false, size: 0, content: '' });
-  });
-
-  it('tails the log from a given offset', async () => {
-    // Seed a fake log file at the path `runPlan` would write to.
-    const runsDir = join(tmpHome, 'hu-board-runs');
-    mkdirSync(runsDir, { recursive: true });
-    const logPath = join(runsDir, `${PLAN_ID}.log`);
-    writeFileSync(logPath, 'first chunk\nsecond chunk\n', 'utf-8');
-
-    const firstBytes = Buffer.byteLength('first chunk\nsecond chunk\n');
-    const full = await request(app).get(`/api/plans/${PLAN_ID}/log`);
-    expect(full.status).toBe(200);
-    expect(full.body.exists).toBe(true);
-    expect(full.body.size).toBe(firstBytes);
-    expect(full.body.content).toBe('first chunk\nsecond chunk\n');
-
-    // Append more, read only delta.
-    writeFileSync(logPath, 'first chunk\nsecond chunk\nthird chunk\n', 'utf-8');
-    const totalBytes = Buffer.byteLength('first chunk\nsecond chunk\nthird chunk\n');
-    const delta = await request(app)
-      .get(`/api/plans/${PLAN_ID}/log`)
-      .query({ offset: firstBytes });
-    expect(delta.body.content).toBe('third chunk\n');
-    expect(delta.body.size).toBe(totalBytes);
-  });
-
-  it('clamps a too-large offset to the file size', async () => {
-    const runsDir = join(tmpHome, 'hu-board-runs');
-    mkdirSync(runsDir, { recursive: true });
-    writeFileSync(join(runsDir, `${PLAN_ID}.log`), 'hello\n', 'utf-8');
-
-    const res = await request(app)
-      .get(`/api/plans/${PLAN_ID}/log`)
-      .query({ offset: 9999 });
-    expect(res.status).toBe(200);
-    expect(res.body.content).toBe('');
+  it('is gone with kj run', async () => {
+    expect((await request(app).get(`/api/plans/${PLAN_ID}/log`)).status).toBe(404);
   });
 });
 
