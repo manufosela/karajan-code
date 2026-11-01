@@ -79,6 +79,32 @@ describe("enrich", () => {
     expect(await run(true)).toEqual([{ path: file, state: "out of date" }]);
     expect(readFileSync(file, "utf8")).toBe(before);
   });
+
+  // HU-2781 (ADR 0039, decision 1): a non-English description is warned about, never changed.
+  describe("non-English warning", () => {
+    const addSpanish = () => {
+      const other = join(dir, ".atril", "skills", "probar", "SKILL.md");
+      mkdirSync(dirname(other), { recursive: true });
+      writeFileSync(other, "---\nname: probar\ndescription: Escribe la prueba para el login\nkind: skill\n---\nbody\n");
+    };
+    it("warns once for the Spanish skill only, on every run and under --check, without changing the result", () => {
+      addSpanish();
+      const warnings = [];
+      const onWarning = (text) => warnings.push(text);
+      const plain = run(true);
+      expect(enrich({ projectDir: dir, env: {}, check: true, onWarning })).toEqual(plain);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toMatch(/^skill:probar: description look\(s\) non-English/);
+      enrich({ projectDir: dir, env: {}, onWarning });
+      expect(warnings).toHaveLength(2);
+    });
+    it("reaches stderr from the CLI and leaves stdout alone", () => {
+      addSpanish();
+      const res = cli();
+      expect(res.stderr).toContain("skill:probar: description look(s) non-English");
+      expect(res.stdout).not.toContain("non-English");
+    });
+  });
 });
 
 // HU-2732 (ADR 0039, layer 1): the enricher hook writes English metadata to atril.en.

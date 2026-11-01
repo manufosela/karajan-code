@@ -7,6 +7,7 @@
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { installSkillFolder, refuseLinks } from "./catalog-install.js";
+import { warnIfNonEnglish } from "./lang.js";
 import { parseArtifact } from "./model.js";
 
 const SOURCES = { openskills: [join(".claude", "skills"), join(".agent", "skills")] };
@@ -37,6 +38,7 @@ export function importSkills(from, opts = {}) {
         throw new Error(`${folder}: an imported skill must be kind skill and named after its folder, not "${artifact.name}"`);
       }
       const result = installSkillFolder(folder, { ...opts, origin: { origin: "import", from } }, Boolean(artifact.kindDefaulted));
+      warnIfNonEnglish(artifact, opts.onWarning);
       rmSync(folder, { recursive: true });
       done.push({ ...result, from: join(rel, name) });
     }

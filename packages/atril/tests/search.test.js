@@ -170,6 +170,20 @@ describe("atril search", () => {
     expect(JSON.parse(run("nothing-matches", "--json").stdout)).toEqual({ mode: "lexical", hits: [] });
   });
 
+  // HU-2781 (ADR 0039, decision 3): a Spanish query with no hits gets a hint, outside stdout.
+  it("a Spanish query with no hits hints at English on stderr, leaving stdout alone", () => {
+    const res = run("búsqueda de nada");
+    expect(res.stdout).toBe('no results for "búsqueda de nada"\n');
+    expect(res.stderr).toContain("atril: the index is in English: try English terms");
+    const json = JSON.parse(run("búsqueda de nada", "--json").stdout);
+    expect(json).toMatchObject({ hits: [], hint: expect.stringContaining("English") });
+  });
+  it("gives no hint for an English query with no hits, or a Spanish one that hits", () => {
+    expect(run("nothing-matches").stderr).not.toContain("English");
+    expect(JSON.parse(run("nothing-matches", "--json").stdout)).not.toHaveProperty("hint");
+    put("proj", "skills/probar/SKILL.md", "name: probar\ndescription: Probar para todo\nkind: skill");
+    expect(run("probar para").stderr).not.toContain("English");
+  });
   it("a missing query fails loudly", () => {
     const res = run();
     expect(res.status).toBe(1);

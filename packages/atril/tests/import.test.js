@@ -21,6 +21,16 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 const o = () => ({ projectDir: dir, root: "store" });
 
 describe("atril import --from openskills", () => {
+  // HU-2781 (ADR 0039, decision 1): a Spanish skill is imported as it is and warned about once.
+  it("warns once per imported skill that looks non-English, and not for an English one", () => {
+    put(".claude/skills/lint/SKILL.md", skill("lint"));
+    put(".claude/skills/probar/SKILL.md", "---\nname: probar\ndescription: Escribe la prueba para el login\n---\nbody\n");
+    const warnings = [];
+    importSkills("openskills", { ...o(), onWarning: (text) => warnings.push(text) });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^skill:probar: description look\(s\) non-English/);
+  });
+
   it("moves each skill from .claude/skills and .agent/skills into the store, as kind skill", () => {
     put(".claude/skills/lint/SKILL.md", skill("lint"));
     put(".claude/skills/lint/rules.md", "rules");
