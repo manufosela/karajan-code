@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { readPlanCached } from "../../packages/hu-board/src/routes/api.js";
+import { readPlanCached } from "../../packages/hu-board/src/plans-service.js";
 
 // KJC-TSK-0539 — the plan scans must not re-parse unchanged files on
 // every request. readPlanCached serves the parsed object while the
