@@ -21,6 +21,7 @@
  * `left`, `for` the caller or the subagent (kind:name) whose context lost it.
  */
 import { assertGraph, edgesOf } from "./graph.js";
+import { pluginSubstituter } from "./plugin-vars.js";
 import { keyOf, scan } from "./scan.js";
 import { search } from "./search.js";
 
@@ -42,7 +43,10 @@ function checkBudget(budget) {
 const overBudget = (pieces, { maxArtifacts = Infinity, maxTokens = Infinity }) =>
   pieces.length > maxArtifacts || pieces.reduce((sum, p) => sum + estimateTokens(p.content), 0) > maxTokens;
 
-const itemOf = ({ name, kind, source, path, body }, as) => ({ name, kind, source, path, content: body, as });
+const itemOf = (artifact, as, fill) => {
+  const { name, kind, source, path, body } = artifact;
+  return { name, kind, source, path, content: fill(artifact, body), as };
+};
 
 /**
  * @typedef {{ name: string, kind: string, source: string, path: string, content: string,
@@ -58,6 +62,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
   const { artifacts } = scan(scanOpts);
   assertGraph(artifacts);
   const byKey = new Map(artifacts.map((a) => [keyOf(a), a]));
+  const { fill, unresolved } = pluginSubstituter(scanOpts);
   if (!byKey.has(ref)) throw new Error(`${ref} does not exist`);
   const loadsOf = (key) => edgesOf(byKey.get(key)).filter((e) => LOADS.has(e.relation));
   const blocks = new Map();
@@ -74,11 +79,11 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
         if (loaded.has(`${relation} ${to}`)) continue;
         loaded.add(`${relation} ${to}`);
         if (relation === "delegates") {
-          entries.push([to, { ...itemOf(byKey.get(to), "subagent"), block: blockOf(to) }]);
+          entries.push([to, { ...itemOf(byKey.get(to), "subagent", fill), block: blockOf(to) }]);
           continue;
         }
         visit(to);
-        entries.push([to, itemOf(byKey.get(to), "inline")]);
+        entries.push([to, itemOf(byKey.get(to), "inline", fill)]);
       }
     };
     visit(root);
@@ -113,7 +118,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
     return kept;
   };
   const items = contextOf(ref);
-  const block = [...items, itemOf(byKey.get(ref), "inline")];
+  const block = [...items, itemOf(byKey.get(ref), "inline", fill)];
   const inBlock = new Set(block.map(keyOf));
   // Suggestions come from the caller's own context only (ADR 0021, decision 9).
   const own = block.filter((i) => i.as === "inline").map(keyOf);
@@ -122,7 +127,7 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
     const { name, kind, path } = byKey.get(key);
     return { name, kind, path };
   });
-  return { block: fit(items, block.at(-1), "caller"), suggested, left };
+  return { block: fit(items, block.at(-1), "caller"), suggested, left, ...(unresolved.length && { unresolved }) };
 }
 
 // An artifact with no `roles` nor `atril.roles` serves every role.

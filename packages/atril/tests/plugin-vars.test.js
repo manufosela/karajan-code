@@ -1,12 +1,13 @@
-// ADR 0021, plan step 13c3 (i): a plugin's path variables are filled in at install, in c2's staging.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+// ADR 0021 decision 14: a plugin's path variables are filled in at resolve, never written into the store.
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parseArtifact } from "../src/model.js";
+import { readLock } from "../src/lock.js";
 import { installPluginMarkdown } from "../src/plugin-markdown.js";
-import { pluginDataDir, pluginVarRewriter, substitutePluginVars } from "../src/plugin-vars.js";
-import { scanStore } from "../src/scan.js";
+import { pluginDataDir, substitutePluginVars } from "../src/plugin-vars.js";
+import { resolveBlock } from "../src/resolve.js";
+import { status } from "../src/status.js";
 
 describe("substitutePluginVars", () => {
   const values = { CLAUDE_PLUGIN_ROOT: "/r", PLUGIN_ROOT: "/r", CLAUDE_PLUGIN_DATA: "/d", PLUGIN_DATA: "/d", CLAUDE_SKILL_DIR: "/r/skills/s" };
@@ -38,60 +39,87 @@ describe("pluginDataDir", () => {
   });
 });
 
-describe("pluginVarRewriter", () => {
+describe("plugin variables at resolve", () => {
   let dir;
   beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "atril-pvars-")); });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
-  const write = (rel, content) => {
-    mkdirSync(dirname(join(dir, rel)), { recursive: true });
-    writeFileSync(join(dir, rel), content);
+  const write = (base, rel, content) => {
+    mkdirSync(dirname(join(base, rel)), { recursive: true });
+    writeFileSync(join(base, rel), content);
   };
-  const opts = () => ({ root: join(dir, "store"), projectDir: dir });
-  const install = () => {
-    const vars = pluginVarRewriter(join(dir, "p"), opts());
-    return { vars, result: installPluginMarkdown(join(dir, "p"), opts(), { rewrite: vars.rewrite }) };
+  // A project whose plugin "kit" is cached in <store>/plugins/kit/1.0.0 and installed from there.
+  const project = (name = "a") => {
+    const base = join(dir, name);
+    const opts = { root: join(base, "store"), projectDir: base, userRoot: join(base, "user") };
+    const cache = join(opts.root, "plugins", "kit", "1.0.0");
+    write(cache, ".claude-plugin/plugin.json", JSON.stringify({ name: "kit", version: "1.0.0" }));
+    write(cache, "skills/tdd/SKILL.md", "---\ndescription: Test first\n---\n${CLAUDE_PLUGIN_ROOT}/a ${PLUGIN_DATA} ${CLAUDE_SKILL_DIR}/b\n");
+    write(cache, "commands/ship.md", "---\ndescription: Ship\n---\n${CLAUDE_SKILL_DIR} ${user_config.k}\n");
+    installPluginMarkdown(cache, opts);
+    return { opts, cache, store: opts.root };
   };
-  const seed = () => {
-    write("p/.claude-plugin/plugin.json", JSON.stringify({ name: "kit" }));
-    write("p/skills/tdd/SKILL.md", "---\ndescription: Test first\nallowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/a:*)\n---\nrun ${CLAUDE_SKILL_DIR}/x and ${CLAUDE_PLUGIN_ROOT}/y\n");
-    write("p/skills/tdd/references/doc.md", "see ${CLAUDE_PLUGIN_ROOT}\n");
-    write("p/skills/two/SKILL.md", "---\ndescription: Two\nallowed-tools:\n  - Bash(${CLAUDE_SKILL_DIR}/b:*)\n  - Read\n---\nbody\n");
-    write("p/commands/ship.md", "---\ndescription: Ship\n---\n${CLAUDE_SKILL_DIR} ${CLAUDE_PLUGIN_DATA} ${user_config.k}\n");
-  };
-  it("fills the stored copy with absolute realpaths and leaves other files alone", () => {
-    seed();
-    const { vars, result } = install();
-    const root = realpathSync(join(dir, "p"));
-    const skill = readFileSync(join(dir, "store/skills/kit__tdd/SKILL.md"), "utf8");
-    expect(skill).toContain(`run ${root}/skills/tdd/x and ${root}/y\n`);
-    expect(skill).toContain(`allowed-tools: Bash(${root}/a:*)`);
-    expect(parseArtifact(join(dir, "store/skills/kit__two/SKILL.md")).body).toBe("body\n");
-    expect(readFileSync(join(dir, "store/skills/kit__two/SKILL.md"), "utf8")).toContain(`- Bash(${root}/skills/two/b:*)`);
-    expect(readFileSync(join(dir, "store/skills/kit__tdd/references/doc.md"), "utf8")).toBe("see ${CLAUDE_PLUGIN_ROOT}\n");
-    expect(existsSync(pluginDataDir(realpathSync(join(dir, "store")), "kit"))).toBe(true);
-    expect(vars.unresolved).toEqual([
-      { ref: "kit:ship", variable: "CLAUDE_SKILL_DIR", reason: "skill-only" },
-      { ref: "kit:ship", variable: "user_config.k", reason: "undeclared" },
+  it("keeps the variables in the store, free of this machine's paths, with status ok", () => {
+    const { opts, store } = project();
+    expect(readFileSync(join(store, "skills/kit__tdd/SKILL.md"), "utf8")).toContain("${CLAUDE_PLUGIN_ROOT}/a ${PLUGIN_DATA}");
+    expect(readFileSync(join(store, "atril.lock.json"), "utf8")).not.toContain(dir);
+    expect(status(opts).map((s) => s.state)).toEqual(["ok", "ok"]);
+  });
+  it("stores the same bytes and hashes on two machines", () => {
+    const [a, b] = [project("a"), project("b")];
+    const bytes = ({ store }) => readFileSync(join(store, "skills/kit__tdd/SKILL.md"), "utf8");
+    expect(bytes(a)).toBe(bytes(b));
+    expect(readLock(a.opts).artifacts).toEqual(readLock(b.opts).artifacts);
+  });
+  it("fills a skill's cache, data and skill folders, creating the data folder", () => {
+    const { opts, cache, store } = project();
+    const out = resolveBlock("skill:kit__tdd", opts);
+    const data = pluginDataDir(store, "kit");
+    expect(out.block[0].content).toBe(`${cache}/a ${data} ${join(store, "skills/kit__tdd")}/b\n`);
+    expect(out).not.toHaveProperty("unresolved");
+    expect(existsSync(data)).toBe(true);
+  });
+  it("leaves the cache variable and reports it when the cache is missing, still filling the data folder", () => {
+    const { opts, cache, store } = project();
+    rmSync(cache, { recursive: true });
+    const out = resolveBlock("skill:kit__tdd", opts);
+    expect(out.block[0].content).toContain(`\${CLAUDE_PLUGIN_ROOT}/a ${pluginDataDir(store, "kit")} `);
+    expect(out.unresolved).toEqual([{ ref: "skill:kit__tdd", variable: "CLAUDE_PLUGIN_ROOT", reason: "not cached", hint: expect.stringContaining(cache) }]);
+  });
+  it("reports skill-only and undeclared variables of a command and leaves the text as written", () => {
+    const { opts } = project();
+    const out = resolveBlock("command:kit__ship", opts);
+    expect(out.block[0].content).toBe("${CLAUDE_SKILL_DIR} ${user_config.k}\n");
+    expect(out.unresolved).toEqual([
+      { ref: "command:kit__ship", variable: "CLAUDE_SKILL_DIR", reason: "skill-only" },
+      { ref: "command:kit__ship", variable: "user_config.k", reason: "undeclared" },
     ]);
-    expect(scanStore(join(dir, "store"))).toHaveLength(3);
-    expect(result.entries.every((e) => e.status === "installed")).toBe(true);
-    expect(install().result.entries.every((e) => e.status === "unchanged")).toBe(true);
   });
-  it("keeps a plugin root longer than 80 characters on one line of the rewritten frontmatter", () => {
-    const rel = `${"deep".repeat(25)}/p`;
-    write(`${rel}/.claude-plugin/plugin.json`, JSON.stringify({ name: "kit" }));
-    write(`${rel}/skills/tdd/SKILL.md`, "---\ndescription: Test first\nallowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/a:*)\n---\nbody\n");
-    const plugin = join(dir, rel);
-    const vars = pluginVarRewriter(plugin, opts());
-    installPluginMarkdown(plugin, opts(), { rewrite: vars.rewrite });
-    const root = realpathSync(plugin);
-    expect(root.length).toBeGreaterThan(80);
-    expect(readFileSync(join(dir, "store/skills/kit__tdd/SKILL.md"), "utf8")).toContain(`allowed-tools: Bash(${root}/a:*)\n`);
+  it("touches no local artifact and reports a plugin artifact with no lock entry", () => {
+    const { opts, store } = project();
+    write(store, "commands/loc.md", "---\nname: loc\nkind: command\ndescription: Local\n---\n${CLAUDE_PLUGIN_ROOT}\n");
+    write(store, "commands/orphan.md", "---\nname: orphan\nkind: command\ndescription: Orphan\natril:\n  plugin: ghost\n---\n${CLAUDE_PLUGIN_ROOT}\n");
+    const local = resolveBlock("command:loc", opts);
+    expect(local.block[0].content).toBe("${CLAUDE_PLUGIN_ROOT}\n");
+    expect(local).not.toHaveProperty("unresolved");
+    expect(resolveBlock("command:orphan", opts).unresolved).toMatchObject([{ variable: "CLAUDE_PLUGIN_ROOT", reason: "no lock entry" }]);
   });
-  it("creates the data folder only when an entry names it and passes a non-string tool through", () => {
-    write("p/.claude-plugin/plugin.json", JSON.stringify({ name: "kit" }));
-    const out = pluginVarRewriter(join(dir, "p"), opts()).rewrite({ entry: { kind: "command", ref: "kit:a" }, front: { "allowed-tools": ["Read", 5] }, body: "x" });
-    expect(out).toEqual({ front: { "allowed-tools": ["Read", 5] }, body: "x" });
-    expect(existsSync(pluginDataDir(join(dir, "store"), "kit"))).toBe(false);
+  it("reports a lock plugin with no version instead of throwing", () => {
+    const { opts, store } = project();
+    const lock = readLock(opts);
+    delete lock.plugins.kit.version;
+    writeFileSync(join(store, "atril.lock.json"), JSON.stringify(lock));
+    expect(resolveBlock("skill:kit__tdd", opts).unresolved[0]).toMatchObject({ reason: "no usable version in the lock" });
+  });
+  it("records the effective version when the manifest has none", () => {
+    const { opts } = project();
+    const bare = (name) => {
+      write(join(dir, name), ".claude-plugin/plugin.json", JSON.stringify({ name }));
+      write(join(dir, name), "commands/x.md", "---\ndescription: X\n---\nx\n");
+      return join(dir, name);
+    };
+    installPluginMarkdown(bare("pinned"), opts, { from: { commit: "a".repeat(40) } });
+    installPluginMarkdown(bare("loose"), opts);
+    expect(readLock(opts).plugins.pinned.version).toBe("aaaaaaaaaaaa");
+    expect(readLock(opts).plugins.loose.version).toBe("local");
   });
 });

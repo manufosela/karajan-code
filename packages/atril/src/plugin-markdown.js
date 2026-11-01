@@ -53,7 +53,8 @@ function stageEntry(entry, plugin, stage, inside, rewrite) {
  * @returns {{ plugin: string, entries: { kind: string, name: string, ref: string, path: string, status: "installed" | "unchanged" }[] }}
  */
 export function installPluginMarkdown(dir, opts = {}, { rewrite = (staged) => staged, from } = {}) {
-  const { name: plugin, version } = readPluginManifest(dir);
+  // The version names the cache folder, as fetchPlugin() does: the lock lookup at resolve needs no fallback.
+  const { name: plugin, version = from?.commit?.slice(0, 12) ?? "local" } = readPluginManifest(dir);
   const stage = mkdtempSync(join(tmpdir(), "atril-plugin-"));
   const created = [];
   try {
