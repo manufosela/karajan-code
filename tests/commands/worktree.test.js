@@ -35,6 +35,23 @@ describe("kj worktree", () => {
     expect(gitDir).not.toBe(commonDir);
   });
 
+  // KJC-TSK-1371 (#2852): the lane is ready on creation, with the clone identity and the Sentinel.
+  it("start copies the clone identity and wires the Sentinel in the lane, leaving tracked files untouched", async () => {
+    fs.mkdirSync(path.join(dir, ".karajan"));
+    fs.writeFileSync(path.join(dir, ".karajan", "identity.local.yml"), "github: someone\n");
+    const r = await worktreeCommand({ config: cfg(), action: "start", args: ["lista"], flags: {} });
+    expect(fs.readFileSync(path.join(r.path, ".karajan", "identity.local.yml"), "utf8")).toBe("github: someone\n");
+    expect(JSON.parse(fs.readFileSync(path.join(r.path, ".claude", "settings.json"), "utf8")).hooks).toBeTruthy();
+    expect(r.setup).toEqual({ identity: true, wired: true });
+    expect(execFileSync("git", ["-C", r.path, "status", "--porcelain", "--untracked-files=no"]).toString()).toBe("");
+  });
+
+  it("a failing setup step stops start, naming it and the way to retire the lane", async () => {
+    const deps = { setupLane: async () => { throw new Error("lane setup failed at the Sentinel wiring: EACCES"); } };
+    await expect(worktreeCommand({ config: cfg(), action: "start", args: ["rota"], flags: {}, deps }))
+      .rejects.toThrow(/Sentinel wiring: EACCES.*kj worktree done rota --force/);
+  });
+
   // KJC-TSK-1093: inside the host sandbox .git/config is read-only, so a lane never
   // records an upstream, even where git would by default.
   it("start records no upstream for the lane, whatever branch.autoSetupMerge says", async () => {

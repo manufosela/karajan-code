@@ -12,6 +12,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
+import { laneWork, setupLane } from "../hu/lane-setup.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { mainCheckout } from "../utils/main-checkout.js";
@@ -77,10 +78,17 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     // KJC-TSK-1093: --no-track, so no upstream lands in .git/config (read-only in the host sandbox).
     await git(["worktree", "add", "--no-track", "-b", branch, wtPath, from]);
     const boot = await bootstrapWorktree({ worktreePath: wtPath, setupCommand: config?.session?.worktree_setup || null });
+    // KJC-TSK-1371 (#2852): identity and Sentinel in the lane; a failure names the step and the way out.
+    const retire = `kj worktree done ${slug} --force`;
+    const setup = await (deps.setupLane ?? setupLane)({ mainDir: mainCheckout(projectDir), lanePath: wtPath }).catch((err) => {
+      throw new Error(`${err.message} — the lane is half set; retire it with: ${retire}`, { cause: err });
+    });
+    const { stdout: touched } = await git(["status", "--porcelain", "--untracked-files=no"], wtPath);
+    if (touched.trim()) throw new Error(`lane setup changed tracked files (${touched.trim().split("\n").join(", ")}) — retire it with: ${retire}`);
     console.log(`✓ lane ready: ${branch} (from ${from})`);
     console.log(`  cd ${wtPath}`);
     console.log("  The gates travel with the repo — kj review --staged works there. When merged: kj worktree done " + slug);
-    return { path: wtPath, branch, from, bootstrap: boot };
+    return { path: wtPath, branch, from, bootstrap: boot, setup };
   }
 
   if (action === "list") {
@@ -107,8 +115,10 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     const slug = String(args[0] || "").trim();
     const wtPath = lanePath(slug);
     if (!fs.existsSync(wtPath)) throw new Error(`lane "${slug}" not found — see kj worktree list`);
-    const { stdout: dirty } = await git(["status", "--porcelain"], wtPath);
-    if (dirty.trim() && !flags.force) {
+    // KJC-TSK-1371: the identity and Sentinel files lane setup wrote are not the lane's work.
+    const { stdout: status } = await git(["status", "--porcelain", "--untracked-files=all"], wtPath);
+    const dirty = laneWork(status, wtPath).join("\n");
+    if (dirty && !flags.force) {
       throw new Error(`lane "${slug}" has uncommitted changes — commit them (through the gate) or discard with --force`);
     }
     // The lane's real branch (headless kj-hu-* lanes share the folder); detached HEAD → null.
@@ -120,7 +130,8 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     const base = await resolveBase({ git, base: baseName });
     // A missing base must not block removing a clean lane: the branch is kept, with its remedy.
     const ahead = branch ? await commitsNotIn({ git, base, ref: branch }).catch(() => null) : 0;
-    await git(["worktree", "remove", ...(flags.force ? ["--force"] : []), wtPath]);
+    // Only setup files left (checked above): git still calls them untracked, so the remove is forced.
+    await git(["worktree", "remove", ...(flags.force || status.trim() ? ["--force"] : []), wtPath]);
     // -D after our own check: -d measures against HEAD/upstream, not origin/<base>. Never the base itself.
     const branchDeleted = Boolean(branch) && branch !== baseName && (ahead === 0 || Boolean(flags.force));
     if (branchDeleted) await git(["branch", "-D", branch]);
@@ -153,7 +164,8 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       console.log(`✓ deleted branch ${b}`);
     }
     for (const l of abandoned) {
-      await git(["worktree", "remove", l.path]);
+      // Judged abandoned above: what is left are setup or regenerable files, which git would refuse.
+      await git(["worktree", "remove", "--force", l.path]);
       if (l.branch) await git(["branch", "-D", l.branch]);
       console.log(`✓ retired ${l.slug} (${l.branch ?? "detached"})`);
     }
