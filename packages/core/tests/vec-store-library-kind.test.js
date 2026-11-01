@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import Database from "better-sqlite3";
+import { openDatabase } from "../src/db.js";
 import { openVecStore, insertChunk, countChunks, searchBM25 } from "../src/vec-store.js";
 
 const DIM = 8;
@@ -32,7 +32,8 @@ describe("vec-store library kind", () => {
 
   it("a store with the pre-library CHECK migrates once, keeping rows and FTS", () => {
     // Hand-build the OLD schema exactly as shipped before this change.
-    const raw = new Database(process.env.KJ_RAG_DB);
+    // KJC-TSK-1355: core no longer has better-sqlite3; its own adapter builds the old store.
+    const raw = openDatabase(process.env.KJ_RAG_DB);
     raw.exec(`
       CREATE TABLE chunks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
