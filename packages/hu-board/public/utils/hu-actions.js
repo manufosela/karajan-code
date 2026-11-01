@@ -122,6 +122,31 @@ window.saveHuAssignee = async function saveHuAssignee(storyId) {
   }
 };
 
+// KJC-TSK-1324: the ▶ of a card. Board story ids are `<project>::<hu id>` (sync.js).
+window.startCardLane = async function startCardLane(storyId, event) {
+  event?.stopPropagation();
+  const [project, huId] = String(storyId).split('::');
+  if (!project || !huId) return showError(`Not a board card: ${storyId}`, { title: 'Cannot start the card' });
+  const ok = await showConfirm(
+    `Start ${huId}?\n\nkj opens its lane, moves the card to running and your panel's coder writes it there. Reviewing and committing stay with you.`,
+    { title: 'Start card', okLabel: 'Start' }
+  );
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/hu/${encodeURIComponent(huId)}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (res.status === 409) return showError(`${huId} already has a lane. Open it with:\n\ncd ${payload.lane}`, { title: 'Card already started' });
+    if (!res.ok) return showError(payload.error || `HTTP ${res.status}`, { title: 'Could not start the card' });
+    openCommandLogViewer(`hu start ${huId}`, payload.commandId);
+  } catch (err) {
+    await showError(err.message || String(err), { title: 'Could not start the card' });
+  }
+};
+
 window.resetHuToPending = async function resetHuToPending(storyId) {
   const ok = await showConfirm(
     '¿Devolver esta HU a pending?\n\nEl estado se cambia a pending y se podrá relanzar. El resultado de la última ejecución (✓/✗/~) se conserva como historial hasta que vuelvas a ejecutarla.',

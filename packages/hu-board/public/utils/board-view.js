@@ -311,9 +311,18 @@ function renderStoryCard(story) {
         ${renderResultBadge(computeEffectiveResult(story))}
         <span class="story-card__time">${timeAgo(story.updated_at)}</span>
         ${renderOutcomeChip(story.outcome)}
+        ${renderPlayButton(story)}
       </div>
     </div>
   `;
+}
+
+// KJC-TSK-1324: ▶ starts a pending card without a lane: kj opens its lane and the panel coder
+// writes it there (kj hu start --code). Review and commit stay with the person.
+function renderPlayButton(story) {
+  if (story.status !== 'pending' || (lanesByStory[story.id] || []).length > 0) return '';
+  const hint = 'Start: open its lane and have your coder write it';
+  return `<button type="button" class="story-card__play" title="${hint}" aria-label="${esc(`${hint} (${story.id})`)}" onclick="startCardLane('${esc(story.id)}', event)">▶</button>`;
 }
 
 /**

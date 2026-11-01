@@ -73,7 +73,18 @@ kj init  # Seleccionar "Enable HU Board" cuando se pregunte
 - **Fallback de Puerto**: Arranca en el puerto 4000 por defecto; prueba automáticamente 4001–4009 si el puerto primario está ocupado
 - **Carriles y Gobierno**: cada card muestra su carril, rama, commits por delante y PR; la vista de Gobierno lista los carriles fuera del método
 
-Hasta la 4.x el board podía lanzar también el pipeline de `kj run` (el botón **Run plan** y el ▶ de cada card). Ese pipeline se retiró en la 5.0: ver [Migrar a la 5.0](/docs/es/v4/migration/).
+Hasta la 4.x el board podía lanzar también el pipeline de `kj run` (el botón **Run plan**). Ese pipeline se retiró en la 5.0: ver [Migrar a la 5.0](/docs/es/v4/migration/).
+
+### Arrancar una card desde el board (▶)
+
+Cada card pendiente sin carril tiene un ▶. Al confirmar, el board ejecuta `kj hu start <id> --code` en el proyecto:
+
+1. kj comprueba la card. Si no existe o la tiene otra persona, no se crea nada.
+2. Abre el carril de la card, `feat/<id>-<slug>`, desde `origin/<base>`, ya con tu identidad y el Sentinel dentro.
+3. Pasa la card a en marcha, reservada a tu nombre.
+4. El coder que declaraste en tu panel la escribe ahí (`kj code --card <id>`), y su log se abre en el board.
+
+La revisión y el commit siguen siendo tuyos o de tu agente, dentro del carril. Una card que ya tiene carril no se arranca otra vez: el board te dice dónde está. Desde la terminal es lo mismo con `kj hu start <id> [slug]`, y `--code` para que el coder la escriba.
 
 ## Cómo Funciona
 

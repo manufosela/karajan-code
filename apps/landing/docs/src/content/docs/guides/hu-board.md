@@ -73,7 +73,18 @@ kj init  # Select "Enable HU Board" when prompted
 - **Port Fallback**: Starts on port 4000 by default; automatically tries 4001–4009 if the primary port is busy
 - **Lanes and Governance**: each card shows its lane, branch, commits ahead and PR; the Governance view lists lanes outside the method
 
-Up to 4.x the board could also launch the `kj run` pipeline (the **Run plan** button and the ▶ on each card). That pipeline was retired in 5.0: see [Migrating to 5.0](/docs/v4/migration/).
+Up to 4.x the board could also launch the `kj run` pipeline (the **Run plan** button). That pipeline was retired in 5.0: see [Migrating to 5.0](/docs/v4/migration/).
+
+### Start a card from the board (▶)
+
+Each pending card without a lane has a ▶. After you confirm, the board runs `kj hu start <id> --code` in the project:
+
+1. kj checks the card. If it does not exist or someone else holds it, nothing is created.
+2. It opens the card's lane `feat/<id>-<slug>` from `origin/<base>`, with your identity and the Sentinel already in it.
+3. It moves the card to running, reserved to you.
+4. The coder declared in your panel writes the card there (`kj code --card <id>`), and its log opens in the board.
+
+Reviewing and committing stay with you or your agent, inside the lane. A card that already has a lane is not started again: the board tells you where it is. From the terminal, the same is `kj hu start <id> [slug]`, with `--code` to have the coder write it.
 
 ## How It Works
 
