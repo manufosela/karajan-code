@@ -3,15 +3,15 @@
 // skipped, replayed or frozen at any frame.
 
 export const T = {
-  rogueDrop: 6, rogueHops: 6.45, rogueHop: 0.4, refuse: 7.9, rogueGone: 8.55,
+  rogueDrop: 6.4, rogueHops: 6.85, rogueHop: 0.4, refuse: 7.9, rogueGone: 8.55,
   honestDrop: 8.6, honestHops: 9, honestHop: 0.36,
   outro: 12.9, titles: 13.4, end: 14.9,
 };
 
-/** Where the eight tool crates stand on the staff, left to right: atril first. */
-export const SLOTS = [-5.2, -3.9, -2.6, -1.3, 0, 1.3, 2.6, 3.9];
+/** Where the seven crates stand on the staff, left to right. */
+export const SLOTS = [-3.9, -2.6, -1.3, 0, 1.3, 2.6, 3.9];
 /** The crate that refuses the unreviewed diff: AI review. */
-export const REFUSING_CRATE = 3;
+export const REFUSING_CRATE = 2;
 export const VERDICT_X = 5.6;
 export const SPAWN_X = -6.3;
 

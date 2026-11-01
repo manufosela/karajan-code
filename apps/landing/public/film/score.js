@@ -91,13 +91,10 @@ export function perform(t, cast, stage) {
   const indices = [...SLOTS.keys()];
   walkerAt(t, cast.rag, -1, pushed(indices.slice(0, half)), cube);
   walkerAt(t, cast.watch, 1, pushed(indices.slice(half).toReversed()), cube);
-  // In the outro atril, new in 5.0, steps out of the line to the front of the stage.
-  const toStand = easeInOut(span(t, T.outro + 0.3, T.outro + 1.8));
-  if (toStand > 0) {
-    const stand = cast.crates[0].group;
-    stand.position.set(lerp(SLOTS[0], 0.5, toStand), 0, lerp(Z, 2.9, toStand));
-    stand.rotation.y = -0.12 * toStand;
-  }
+  // atril turns to the next skill each time the reviewed diff lands on a crate.
+  const landed = SLOTS.filter((_, i) => t >= T.honestHops + (i + 1) * T.honestHop).length;
+  const lastLanding = T.honestHops + landed * T.honestHop;
+  cast.stand.turnTo(landed, landed ? easeInOut(span(t, lastLanding, lastLanding + 0.3)) : 1);
   // The refusing crate shudders around its slot after the hit.
   if (t > T.refuse) {
     const shudder = 0.06 * Math.sin((t - T.refuse) * 55) * Math.exp(-(t - T.refuse) * 6);
