@@ -2,7 +2,7 @@
 import { CRATE, DIFF_SIZE } from './props.js';
 import { STAFF } from './stage.js';
 import { conductorAt, walkerAt } from './cast.js';
-import { T, SLOTS, REFUSING_CRATE, VERDICT_X, SPAWN_X, span, easeInOut, easeOut, easeIn, lerp, pulse, hops } from './timeline.js';
+import { T, SLOTS, REFUSING_CRATE, VERDICT_X, SPAWN_X, span, easeInOut, easeOut, easeIn, lerp, pulse, hops, blinkAt } from './timeline.js';
 
 const Z = STAFF.z;
 const REST = DIFF_SIZE / 2;
@@ -95,6 +95,8 @@ export function perform(t, cast, stage) {
   const landed = SLOTS.filter((_, i) => t >= T.honestHops + (i + 1) * T.honestHop).length;
   const lastLanding = T.honestHops + landed * T.honestHop;
   cast.stand.turnTo(landed, landed ? easeInOut(span(t, lastLanding, lastLanding + 0.3)) : 1);
+  const look = Math.max(-1, Math.min(1, (cube.x - cast.stand.group.position.x) / 3));
+  cast.stand.live(blinkAt(t, 1.7), look, pulse(t, T.verdict + 0.1, 1));
   // The refusing crate shudders around its slot after the hit.
   if (t > T.refuse) {
     const shudder = 0.06 * Math.sin((t - T.refuse) * 55) * Math.exp(-(t - T.refuse) * 6);
