@@ -1,6 +1,6 @@
 {
   "name": "karajan-core",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Shared modules for Karajan Code CLI and @karajan/hu-board (atomic-write, paths, RAG store, plan ops, process runner).",
   "type": "module",
   "license": "AGPL-3.0",
@@ -41,14 +41,10 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "better-sqlite3": "^12.10.0",
     "execa": "^9.6.0",
     "sqlite-vec": "^0.1.9"
   },
   "peerDependenciesMeta": {
-    "better-sqlite3": {
-      "optional": true
-    },
     "execa": {
       "optional": true
     },
