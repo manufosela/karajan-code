@@ -14,6 +14,7 @@ import { isGenerated } from "./loc-budget.js";
 import { prSecurityChecks } from "./pr-security.js";
 import { sonarCheck } from "./pr-sonar.js";
 import { batchDiff, splitByFile } from "./diff-batches.js";
+import { ceilingOf, isTooLarge, measureCode, tooLargeSummary } from "./third-party-size.js";
 import { lensTask } from "./review-lens.js";
 import { thirdPartyTask, THIRD_PARTY_INSTRUCTION } from "./untrusted-context.js";
 import { baseOf, readRepoDocs, repoDocsTask } from "./repo-docs.js";
@@ -45,6 +46,10 @@ const finding = (i) => ({
 export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null, repoDocs = readRepoDocs, hasStore = hasAtrilStore, stackOf = detectStack, skillsFor = thirdPartySkills }) {
   const reviewerRole = assertPanel({ config, verifier, verifierModel, reviewers, logger });
   const diff = await gitDiff(projectDir, range);
+  const budget = () => sizeLimit ?? prSizeLimit({ projectDir, config }).limit;
+  // KJC-TSK-1356 (#3027): past the ceiling, no reviewer runs: the size, the ceiling and the split.
+  const tooLarge = sizeVerdict({ diff, config, range, budget });
+  if (tooLarge) return tooLarge;
   // KJC-TSK-1076/1077: the PR's requirements and its security, with no tokens; they never stop the review.
   // KJC-BUG-0379 (#2263): the house requirements (size, commits, attribution, tests) travel apart:
   // on another repo with other conventions they must not read as findings next to security.
@@ -65,7 +70,7 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
     for (const batch of batches) recs.push(await run({ diff: batch.text, task: reviewTask, config: cfg, logger, projectDir, reviewerOverride: who, persist: false, skills: stackSkills.block }));
     return recs;
   };
-  const advice = () => adviceFor(diff, sizeLimit ?? prSizeLimit({ projectDir, config }).limit);
+  const advice = () => adviceFor(diff, budget());
   try {
     const review = reviewers
       ? await dualReview({ reviewers, reviewWith, verify, diff, coverage, config, logger })
@@ -151,6 +156,21 @@ async function dualReview({ reviewers, reviewWith, verify, diff, coverage, confi
   }));
   const reconciled = reconcileReviews(sides);
   return { reviewer: reviewers.map((r) => r.provider).join("+"), ...reconciled, suggestions: records.flat().flatMap((r) => r.suggestions ?? []) };
+}
+
+/** KJC-TSK-1356 (#3027): the too_large result, or null when the PR is within the ceiling. */
+function sizeVerdict({ diff, config, range, budget }) {
+  const ceiling = ceilingOf(config);
+  const files = splitByFile(diff);
+  const size = measureCode(files);
+  if (!isTooLarge(size, ceiling)) return null;
+  const limit = budget();
+  return {
+    mode: "third-party", range,
+    verdict: { status: "too_large", approved: false, summary: tooLargeSummary(size, ceiling, limit) },
+    size, threshold: ceiling, findings: [], suggestions: [],
+    advice: { split: splitAdvice(files.filter((f) => !isGenerated(f.file)), { limit }) },
+  };
 }
 
 /** KJC-TSK-1101: over the size budget, how to split the PR; advice only, never a finding. */

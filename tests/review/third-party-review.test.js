@@ -104,6 +104,40 @@ describe("thirdPartyReview on a large PR", () => {
   it("an empty range is an error, never an approval of nothing", async () => {
     await expect(review("", verdictFor([]))).rejects.toThrow(/nothing to review/);
   });
+
+  // KJC-TSK-1356 (#3027): over the exceptional ceiling (800 lines or 20 files of code) the PR is
+  // not reviewed at all: too_large, its size, the ceiling and how to split it into atomic PRs.
+  it("over 800 lines of code: too_large, no reviewer runs, size, ceiling and the split", async () => {
+    const run = vi.fn();
+    const diff = [file("src/main/java/com/acme/api/A.java", 450), file("src/main/java/com/acme/model/M.java", 400)].join("\n");
+    const res = await review(diff, run, { sizeLimit: 150 });
+    expect(run).not.toHaveBeenCalled();
+    expect(res.verdict).toMatchObject({ status: "too_large", approved: false });
+    expect(res.size).toMatchObject({ codeLines: 850, codeFiles: 2 });
+    expect(res.threshold).toEqual({ maxLines: 800, maxFiles: 20 });
+    expect(res.advice.split.chunks.length).toBeGreaterThan(1);
+  });
+
+  it("over 20 code files is too_large too; Markdown, docs, JSON and generated files never count", async () => {
+    const run = verdictFor([]);
+    const many = Array.from({ length: 21 }, (_, i) => file(`src/f${i}.js`, 2)).join("\n");
+    expect((await review(many, run)).verdict.status).toBe("too_large");
+    const docs = [file("README.md", 900), file(".claude/skills/x/SKILL.md", 900), file("data/seed.json", 900), file("package-lock.json", 900), file("src/a.js", 10)].join("\n");
+    const res = await review(docs, run, { limit: 1_000_000 });
+    expect(res.verdict.status).toBe("approved");
+    expect(run).toHaveBeenCalled();
+  });
+
+  it("the ceiling is configurable per repo (review.third_party.max_lines / max_files)", async () => {
+    const run = vi.fn();
+    const diff = file("src/a.js", 120);
+    const config = { review: { third_party: { max_lines: 100, max_files: 5 } } };
+    const res = await review(diff, run, { config });
+    expect(run).not.toHaveBeenCalled();
+    expect(res.threshold).toEqual({ maxLines: 100, maxFiles: 5 });
+    // A bad value fails loud instead of falling back in silence.
+    await expect(review(diff, run, { config: { review: { third_party: { max_lines: "lots" } } } })).rejects.toThrow(/max_lines must be a positive integer/);
+  });
 });
 
 describe("thirdPartyReviewCommand", () => {
