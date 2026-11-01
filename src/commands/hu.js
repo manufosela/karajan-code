@@ -271,7 +271,7 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   if (action === "start") {
     const findCard = deps.findCard ?? (shared ? findSharedCard(board.repo, deps) : findLocalCard(projectDir));
     const move = () => huCommand({ config, action: "move", args: [args[0], "running"], flags: { json: flags.json }, deps });
-    return startAction({ config, args, deps: { ...deps, findCard }, move, who, emit });
+    return startAction({ config, args, flags, deps: { ...deps, findCard }, move, who, emit });
   }
 
   throw new Error(`unknown action "${action}" — use: add | move | list | start | backend`);

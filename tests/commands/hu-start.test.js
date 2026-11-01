@@ -41,6 +41,17 @@ describe("kj hu start — KJC-TSK-1372", () => {
     expect(held.calls).toEqual(["find HU-42"]);
   });
 
+  // KJC-TSK-1324: the board's ▶ starts the card and has the panel coder write in its lane.
+  it("with --code the panel coder runs in the lane on the card, after the card is running", async () => {
+    const calls = [];
+    const deps = { findCard: async () => card(), worktree: async () => ({ path: "/lanes/HU-42-x", branch: "feat/HU-42-x" }), runCoder: (o) => { calls.push(o); return 0; } };
+    await startAction({ config: {}, args: ["HU-42", "x"], flags: { code: true }, deps, move: async () => calls.push("moved"), who: "me", emit: (o) => o });
+    expect(calls).toEqual(["moved", { cwd: "/lanes/HU-42-x", card: "HU-42", task: "Board ▶ opens a lane" }]);
+    const failing = { ...deps, runCoder: () => 3 };
+    await expect(startAction({ config: {}, args: ["HU-42", "x"], flags: { code: true }, deps: failing, move: async () => {}, who: "me", emit: (o) => o }))
+      .rejects.toThrow(/coder.*exit 3.*\/lanes\/HU-42-x/);
+  });
+
   it("a card I already hold starts again; a failed move says the lane is there and how to finish", async () => {
     const mine = harness({ found: card({ status: "running", claimed_by: "manufosela" }) });
     await expect(mine.run(["HU-42", "x"])).resolves.toMatchObject({ id: "HU-42" });

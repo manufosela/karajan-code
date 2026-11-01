@@ -75,6 +75,36 @@ describe("POST /api/commands/:command", () => {
   });
 });
 
+// KJC-TSK-1324: the ▶ of a card starts it in its lane (kj hu start <id> --code).
+describe("startCardInLane", () => {
+  let repo;
+  beforeEach(async () => {
+    const { mkdirSync } = await import("node:fs");
+    repo = mkdtempSync(join(tmpdir(), "hu-board-repo-"));
+    mkdirSync(join(repo, ".git"));
+  });
+  afterEach(() => rmSync(repo, { recursive: true, force: true }));
+
+  it("launches kj hu start <id> --code in the project, or reports the lane the card already has", async () => {
+    const { mkdirSync } = await import("node:fs");
+    const { startCardInLane } = await import("../src/command-runner.js");
+    const launched = startCardInLane({ id: "HU-42", projectDir: repo });
+    expect(launched.argv.slice(-4)).toEqual(["hu", "start", "HU-42", "--code"]);
+    expect(launched.commandId).toMatch(/^cmd-hu-start-/);
+    mkdirSync(join(repo, ".kj", "worktrees", "HU-42-board-play"), { recursive: true });
+    expect(startCardInLane({ id: "HU-42", projectDir: repo })).toMatchObject({ ok: false, lane: join(repo, ".kj", "worktrees", "HU-42-board-play") });
+  });
+
+  it.each([
+    ["a crafted id", "HU-1;rm", () => repo],
+    ["a relative project", "HU-1", () => "repo"],
+    ["a folder that is not a git repo", "HU-1", () => tmpdir()],
+  ])("refuses %s", async (_label, id, dir) => {
+    const { startCardInLane } = await import("../src/command-runner.js");
+    expect(startCardInLane({ id, projectDir: dir() })).toMatchObject({ ok: false });
+  });
+});
+
 describe("GET /api/runs/:commandId/log", () => {
   it("returns exists:false when the log file hasn't been created yet", async () => {
     const res = await request(app).get("/api/runs/cmd-nope-1/log");

@@ -5,8 +5,9 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 import { getHuBoardRunsDir } from '../../db.js';
-import { runKjCommand, listSupportedCommands } from '../../command-runner.js';
+import { runKjCommand, listSupportedCommands, startCardInLane } from '../../command-runner.js';
 import { pathExists } from '../../plans-service.js';
+import { requestProjectDir } from '../../project-dir.js';
 
 const router = Router();
 
@@ -55,6 +56,30 @@ router.post('/commands/:command', (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/hu/:id/start - KJC-TSK-1324: the ▶ of a card. The body names the board project;
+ * its directory is resolved here, never taken from the client (ADR 0011). A card that already
+ * has a lane gets 409 with that lane and nothing is launched; otherwise `kj hu start <id>
+ * --code` runs detached and the response carries the commandId to tail.
+ */
+router.post('/hu/:id/start', (req, res) => {
+  let projectDir;
+  try {
+    projectDir = requestProjectDir(req.body?.project);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  if (!projectDir) return res.status(400).json({ error: 'name the board project the card belongs to' });
+  try {
+    const result = startCardInLane({ id: req.params.id, projectDir });
+    if (result.lane) return res.status(409).json({ error: result.error, lane: result.lane });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    return res.json({ ok: true, commandId: result.commandId, pid: result.pid, logPath: result.logPath });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
