@@ -41,7 +41,7 @@ describe("resolve", () => {
 
   it("excludes an artifact declared for another role, author's or discovered", () => {
     expect(refs(run("test", "security").block).at(-1)).toBe("skill:audit");
-    expect(refs(run("failing test", "tester").block)).toEqual([]);
+    expect(refs(run("failing", "tester").block)).toEqual([]); // "test" would prefix the tester agent (ADR 0039)
     expect(refs(run("failing test").block)).toContain("skill:tdd");
   });
 
