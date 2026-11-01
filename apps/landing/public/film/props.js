@@ -126,7 +126,7 @@ export function createVerdict() {
   light.position.y = 1.4;
   const wave = new THREE.Mesh(
     new THREE.TorusGeometry(0.7, 0.02, 8, 96),
-    new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0, toneMapped: false }),
+    new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }),
   );
   wave.rotation.x = Math.PI / 2;
   wave.position.y = 0.62;
@@ -137,7 +137,7 @@ export function createVerdict() {
 /** A red shock ring for the refused diff. */
 export const createShock = () => new THREE.Mesh(
   new THREE.TorusGeometry(0.5, 0.025, 8, 96),
-  new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0, toneMapped: false }),
+  new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }),
 );
 
 let contactShadowTexture;

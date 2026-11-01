@@ -91,11 +91,12 @@ export function perform(t, cast, stage) {
   const indices = [...SLOTS.keys()];
   walkerAt(t, cast.rag, -1, pushed(indices.slice(0, half)), cube);
   walkerAt(t, cast.watch, 1, pushed(indices.slice(half).toReversed()), cube);
-  // In the outro atril, new in 5.0, steps out of the line to the front of the stage.
+  // In the outro atril, new in 5.0, steps out of the line to the front of the stage,
+  // far enough forward to sit below the line instead of hiding the crates behind it.
   const toStand = easeInOut(span(t, T.outro + 0.3, T.outro + 1.8));
   if (toStand > 0) {
     const stand = cast.crates[0].group;
-    stand.position.set(lerp(SLOTS[0], 0.5, toStand), 0, lerp(Z, 2.9, toStand));
+    stand.position.set(lerp(SLOTS[0], 0.5, toStand), 0, lerp(Z, 5, toStand));
     stand.rotation.y = -0.12 * toStand;
   }
   // The refusing crate shudders around its slot after the hit.
