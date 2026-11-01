@@ -33,6 +33,9 @@
 html { background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.6; -webkit-font-smoothing: antialiased; }
 body { overflow-x: clip; }
 a { color: inherit; }
+.skip-link { position: absolute; top: -100%; left: 50%; translate: -50% 0; z-index: 9; background: var(--gold); color: #05080d;
+  padding: 0.5rem 1.4rem; border-radius: 0 0 8px 8px; font-weight: 600; text-decoration: none; }
+.skip-link:focus { top: 0; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
 .wrap { width: min(1320px, 100% - 2.5rem); margin-inline: auto; }
 
