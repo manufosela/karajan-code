@@ -254,10 +254,10 @@ async function showStoryDetail(storyId) {
         <div class="modal__section" style="border:1px solid var(--color-yellow,#eab308);background:rgba(234,179,8,0.08);padding:10px 12px;border-radius:var(--radius-sm)">
           <div class="modal__section-title" style="color:var(--color-yellow,#eab308)">⚠ Missing test contract</div>
           <div style="font-size:0.85rem;line-height:1.5;margin-top:4px">
-            This HU has no acceptance_tests declared. The tests-first pipeline (v2.7.5)
-            refuses to run HUs without an executable contract. Click ✎ Edit above and
-            add at least one test — a <code>shell</code> command that exits 0 on pass,
-            or a <code>gherkin</code> Given/When/Then spec.
+            This HU has no acceptance tests declared. The method writes the failing
+            test first, so declare at least one: ✎ Edit above, or
+            <code>kj hu add --tests</code>. A test is a <code>shell</code> command that
+            exits 0 on pass, or a <code>gherkin</code> Given/When/Then spec.
           </div>
         </div>
       ` : `
