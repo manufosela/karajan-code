@@ -6,7 +6,7 @@ import { T, SLOTS } from "../../apps/landing/public/film/timeline.js";
 // and the page script. Firebase caches .js and .css as immutable, so every module
 // the film loads must go through the import map with the release's ?v=.
 const publicDir = new URL("../../apps/landing/public/", import.meta.url);
-const pages = { en: "index.html" };
+const pages = { en: "index.html", es: "es/index.html" };
 const read = (path) => readFileSync(new URL(path, publicDir), "utf8");
 const filmModules = readdirSync(new URL("film/", publicDir)).filter((f) => f.endsWith(".js"));
 
