@@ -125,7 +125,7 @@ export async function runOneShotReview({
     : { result: first, activeReviewer: reviewer };
 
   if (!result?.ok) {
-    throw new Error(reviewerFailureMessage(activeReviewer, result?.error));
+    throw new Error(reviewerFailureMessage(activeReviewer, result?.error, { account: accountLabel(activeReviewer, { env }) }));
   }
 
   // KJC-BUG-0146, second half: parseMaybeJsonString only PARSES — it returns whatever JSON came

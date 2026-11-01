@@ -44,6 +44,24 @@ describe("isQuotaExhausted ignores codex's rate_limits telemetry", () => {
   });
 });
 
+// KJC-BUG-0471 (#3064): a revoked codex session is an auth failure, not quota.
+const CODEX_REVOKED = 'ERROR: unexpected status 401 Unauthorized: {"error":{"code":"refresh_token_invalidated","message":"Your access token could not be refreshed because your refresh token was revoked. Please log out and sign in again."}}';
+
+describe("an auth failure is never quota", () => {
+  it("a revoked or expired session is not exhausted quota, even next to rate_limits telemetry", () => {
+    expect(isQuotaExhausted(CODEX_REVOKED)).toBe(false);
+    expect(isQuotaExhausted(`{"rate_limits":{"primary":{"used_percent":3}}}\n${CODEX_REVOKED}`)).toBe(false);
+    expect(isQuotaExhausted("401 Unauthorized: token expired, quota check skipped")).toBe(false);
+  });
+  it("the message says it is the session, names the account and tells how to sign in again", () => {
+    const msg = reviewerFailureMessage("codex", CODEX_REVOKED, { account: "codex-tribbu" });
+    expect(msg).toMatch(/refresh_token_invalidated/);
+    expect(msg).toMatch(/not signed in.*codex-tribbu/);
+    expect(msg).toMatch(/codex logout.*codex login/);
+    expect(msg).not.toMatch(/cuota|quota/i);
+  });
+});
+
 describe("reviewerFailureMessage", () => {
   it("a failure codex hits before reaching its service gets the real error and a sandbox/network hint", () => {
     const msg = reviewerFailureMessage("codex", "ERROR: workspace routing discovery failed");

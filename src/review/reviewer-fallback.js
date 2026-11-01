@@ -75,17 +75,32 @@ const QUOTA_RE = /usage limit|quota|rate.?limit|credits? (?:exhausted|left: ?0)|
 // it says how much quota is LEFT, so it is no evidence that the quota ran out.
 const RATE_LIMITS_TELEMETRY = /"rate_limits"\s*:\s*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|null)/g;
 
-/** True when the agent error smells like exhausted quota, not a real failure. */
-export function isQuotaExhausted(text) {
-  return typeof text === "string" && QUOTA_RE.test(text.replace(RATE_LIMITS_TELEMETRY, ""));
+// KJC-BUG-0471 (#3064): a revoked or expired session. The fix is to sign in again, not to wait.
+const AUTH_RE = /\b401\b|unauthori[sz]ed|refresh_token_(?:invalidated|expired|reused)|token (?:was |has been )?(?:revoked|expired)|(?:log|sign) (?:out and sign )?in again|not logged in/i;
+
+/** True when the agent could not authenticate: the session, not the quota. */
+export function isAuthFailure(text) {
+  return typeof text === "string" && AUTH_RE.test(text.replace(RATE_LIMITS_TELEMETRY, ""));
 }
+
+/** True when the agent error smells like exhausted quota, not a real failure. An auth failure never is. */
+export function isQuotaExhausted(text) {
+  return typeof text === "string" && !isAuthFailure(text) && QUOTA_RE.test(text.replace(RATE_LIMITS_TELEMETRY, ""));
+}
+
+// How to sign in again, per CLI; the rest fall back to the candidate's login hint.
+const RELOGIN = { codex: "codex logout, then codex login" };
 
 // The CLI could not reach its service at all: a sandboxed shell or the network, not the reviewer.
 const UNREACHABLE_RE = /routing discovery failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|getaddrinfo|stream disconnected|network (?:error|is unreachable)/i;
 
-/** The real error, plus a hint when the reviewer CLI never reached its service. */
-export function reviewerFailureMessage(reviewer, error) {
+/** The real error, plus a hint when the reviewer CLI never reached its service or is not signed in. */
+export function reviewerFailureMessage(reviewer, error, { account = null } = {}) {
   const base = `reviewer ${reviewer} failed: ${error || "no output"}`;
+  if (isAuthFailure(error)) {
+    const relogin = RELOGIN[reviewer] ?? REVIEWER_CANDIDATES.find((c) => c.name === reviewer)?.login ?? `sign in to ${reviewer} again`;
+    return `${base} — ${reviewer} is not signed in${account ? ` (${account})` : ""}: the session was revoked or expired; sign in again: ${relogin}`;
+  }
   return UNREACHABLE_RE.test(String(error || "")) ? `${base} — ${reviewer} could not reach its service (a sandboxed shell or the network?); run kj review from an unsandboxed shell` : base;
 }
 
