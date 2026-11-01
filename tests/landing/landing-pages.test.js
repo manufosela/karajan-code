@@ -68,6 +68,17 @@ describe.each(Object.entries(pages))("landing page (%s)", (lang, path) => {
     }
   });
 
+  // KJL-BUG-0009: defer scripts and modules run in order, so a hung third-party
+  // script held back the film. Anything from another origin loads async.
+  it("never lets a third-party script hold back the film", () => {
+    const external = [...html.matchAll(/<script\b[^>]*\bsrc="https?:\/\/[^"]*"[^>]*>/g)].map(([tag]) => tag);
+    expect(external.length).toBeGreaterThan(0);
+    for (const tag of external) {
+      expect(tag).toMatch(/\basync\b/);
+      expect(tag).not.toMatch(/\bdefer\b/);
+    }
+  });
+
   it("writes no em dashes", () => {
     expect(html).not.toMatch(/—|&mdash;/);
   });
