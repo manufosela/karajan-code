@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectDbPath } from "./project-store.js";
 import { projectSlug } from "./vec-store.js";
-import { GRACE_MS, MAX_RUN_MS, indexLeasePath, readLease, takeLock, unlessGone, withMutex, writeLease } from "./pid-lease.js";
+import { GRACE_MS, MAX_RUN_MS, indexLeasePath, readLease, stopLeaseHolder, takeLock, unlessGone, withMutex, writeLease } from "./pid-lease.js";
 
 const KJ_BIN = resolve(fileURLToPath(import.meta.url), "../../../bin/kj.js");
 // An attempt that died (no Ollama, no model) is not repeated on every command: this long apart.
@@ -33,7 +33,9 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
   try {
     const last = readBootstrap(projectDir, { now });
     if (last?.running) return { started: false, pid: last.pid };
-    if (last && now - last.at < RETRY_MS) return { started: false, recent: true, pid: null };
+    // HU-2758: one stopped for running too long is not respawned in the background, at any age.
+    if (last?.stoppedBy === "max-run") return { started: false, recent: true, stopped: "max-run" };
+    if (last && now - (last.stoppedAt ?? last.at) < RETRY_MS) return { started: false, recent: true, pid: null };
     // One indexer per machine: the lease is taken inside the project mutex, before the marker is
     // written, so a queued project does not spend its RETRY_MS. Both mutexes yield, never wait.
     const slug = projectSlug(projectDir);
@@ -57,4 +59,13 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
     });
     return res.busy === true ? { started: false, busy: {} } : res;
   } finally { unlessGone(() => rmdirSync(lock)); }
+}
+
+// HU-2758: stops the marker's indexer past MAX_RUN_MS (`force`: any age) and frees the lease naming it.
+export async function stopBootstrap(projectDir, { lease = indexLeasePath(), now = Date.now(), ...opts } = {}) {
+  const stopped = await stopLeaseHolder(markerPath(projectDir), { ...opts, now });
+  // `marked: false` (the stop never reached the marker): the lease is kept, naming a dead pid, which readLease
+  // already reads as free. The caller warns; nothing here pretends the stop is on file.
+  if (stopped?.marked) withMutex(lease, now, () => { if (readLease(lease, { now })?.pid === stopped.pid) unlessGone(() => unlinkSync(lease)); });
+  return stopped;
 }

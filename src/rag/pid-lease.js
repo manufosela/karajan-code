@@ -1,7 +1,8 @@
 // HU-2757: a lease names the pid that holds a resource and when it took it. The background indexers
 // never release it (HU-2907: a foreground `kj rag index` releases its own): a dead pid, or an age
 // of MAX_RUN_MS, means free. A mkdir mutex makes the decision atomic.
-import { mkdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -30,7 +31,7 @@ export function readLease(file, { now = Date.now() } = {}) {
   if (raw === null) return null;
   try {
     const note = JSON.parse(raw);
-    return { ...note, running: alive(note.pid) && now - note.at < MAX_RUN_MS };
+    return { ...note, running: !note.stoppedAt && alive(note.pid) && now - note.at < MAX_RUN_MS };
   } catch {
     // Another command is writing it this very moment: running for a moment; past the grace, a crash.
     const stat = unlessGone(() => statSync(file));
@@ -68,6 +69,81 @@ export function withMutex(file, now, fn) {
   mkdirSync(dirname(lock), { recursive: true });
   if (!takeLock(lock, now)) return { busy: true };
   try { return fn(); } finally { unlessGone(() => rmdirSync(lock)); }
+}
+
+// HU-2758: an indexer past MAX_RUN_MS is stopped from outside, once ps confirms the pid still runs it.
+export const KILL_AFTER_MS = 3000;
+const POLL_MS = 100;
+const START_SLACK_MS = 60 * 1000;
+// By absolute path: a ps found through PATH could be forged (as in harden/human-act.js).
+const PS_BIN = ["/bin/ps", "/usr/bin/ps"].find((p) => existsSync(p)) ?? null;
+
+/** `ps -o etime= -o command=` output as `{ elapsedMs, command }`, or null. */
+export function parsePs(out) {
+  const text = String(out ?? "").trim();
+  const split = text.search(/\s/);
+  const m = /^(?:(?:(\d+)-)?(\d+):)?(\d+):(\d+)$/.exec(text.slice(0, split < 0 ? 0 : split));
+  const command = text.slice(split).trim();
+  if (!m || split < 0 || !command) return null;
+  const [d, h, min, s] = [m[1], m[2], m[3], m[4]].map((n) => Number(n ?? 0));
+  return { elapsedMs: (((d * 24 + h) * 60 + min) * 60 + s) * 1000, command };
+}
+
+// No system ps (Windows), or it failed: null, and nothing is stopped.
+const psInfo = (pid) => {
+  if (!PS_BIN) return null;
+  try { return parsePs(execFileSync(PS_BIN, ["-o", "etime=", "-o", "command=", "-p", String(pid)], { encoding: "utf8", env: {}, timeout: 2000 })); }
+  catch { return null; }
+};
+// Anchored on the executable: startBootstrap spawns `node <kj.js> rag index`, so `vim kj rag index` is not one.
+const INDEXER_COMMAND = /^\S*node\S*\s+\S*\/kj(?:\.js)?\s+rag\s+index(?:\s|$)/;
+const isIndexer = (info, at, now) => Boolean(info) && INDEXER_COMMAND.test(info.command) && info.elapsedMs >= Math.max(0, now - at - START_SLACK_MS);
+const isAliveVia = (kill, pid) => { try { kill(pid, 0); return true; } catch { return false; } };
+// The indexer leads its own process group (spawned detached): -pid reaches its whole tree.
+const signal = (kill, pid, sig) => {
+  try { kill(-pid, sig); } catch { try { kill(pid, sig); } catch (err) { if (err.code !== "ESRCH") throw err; } }
+};
+
+/** SIGTERM to a verified indexer, SIGKILL if it outlives `killAfterMs`. True only once it is confirmed gone. */
+export async function stopIndexer(pid, at, { now = Date.now(), ps = psInfo, kill = (p, s) => process.kill(p, s), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), killAfterMs = KILL_AFTER_MS } = {}) {
+  if (!isIndexer(ps(pid), at, now)) return false;
+  signal(kill, pid, "SIGTERM");
+  for (let waited = 0; waited < killAfterMs; waited += POLL_MS) {
+    await sleep(POLL_MS);
+    if (!isAliveVia(kill, pid)) return true;
+  }
+  const again = ps(pid); // verified again: no answer is gone-or-unverified, never signalled blind
+  if (!again) return !isAliveVia(kill, pid);
+  if (!isIndexer(again, at, now)) return true; // the pid was reused: the indexer is gone
+  signal(kill, pid, "SIGKILL");
+  await sleep(POLL_MS);
+  return !isAliveVia(kill, pid);
+}
+
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+// Notes the stop while the file still names that pid: 5 tries at the mutex, 20 ms apart; false if never free.
+const noteStopped = (file, pid, now, reason, wait) => {
+  const mark = () => withMutex(file, now, () => {
+    const { running: _running, ...note } = readLease(file, { now }) ?? {};
+    if (note.pid === pid && !note.stoppedAt) writeLease(file, { ...note, stoppedAt: now, stoppedBy: reason });
+    return true;
+  });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt > 0) wait(20);
+    if (mark() === true) return true;
+  }
+  return false;
+};
+
+// Stops the process `file` names past MAX_RUN_MS (or `force`) and notes it there: `{ pid, slug }` or null.
+export async function stopLeaseHolder(file, { force = false, now = Date.now(), ...io } = {}) {
+  const held = readLease(file, { now });
+  const kill = io.kill ?? ((p, s) => process.kill(p, s));
+  if (!Number.isInteger(held?.pid) || held.pid <= 1 || held.pid === process.pid || held.stoppedAt || !isAliveVia(kill, held.pid)) return null;
+  if (!force && now - held.at < MAX_RUN_MS) return null;
+  if (!(await stopIndexer(held.pid, held.at, { ...io, now, kill }))) return null;
+  const marked = noteStopped(file, held.pid, now, force ? "lane-done" : "max-run", io.wait ?? sleepSync);
+  return { pid: held.pid, slug: held.slug, marked };
 }
 
 // Overlapping claims of one process (two MCP requests in a host share its pid): the lease goes with the last.
