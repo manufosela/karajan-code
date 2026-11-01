@@ -60,7 +60,7 @@ npm install -g @karajan-family/code
 
 Verifica:
 ```bash
-kj --version    # 4.70.4
+kj --version    # 5.0.0
 kj doctor       # Comprobar entorno
 ```
 
