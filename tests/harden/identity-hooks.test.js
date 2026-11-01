@@ -70,6 +70,29 @@ describe("pre-push identity lock", () => {
     expect(push({ KJ_ALLOW_IDENTITY: "1" }).status).not.toBe(0);
   });
 
+  // KJC-BUG-0459: with a per-account gh as the credential helper (ADR 0040), the push goes out as
+  // that gh's account, whatever the default gh config says.
+  it("reads the config of the gh-<account> credential helper, the account the push goes out as", () => {
+    // The accounts guide: gh-<account> runs gh with GH_CONFIG_DIR=~/.config/gh-<account>.
+    const xdg = fs.mkdtempSync(path.join(os.tmpdir(), "kj-idhooks-xdg-"));
+    fs.mkdirSync(path.join(xdg, "gh-acme"));
+    fs.writeFileSync(path.join(xdg, "gh-acme", "hosts.yml"), "github.com:\n    user: manufosela-tribbu\n");
+    try {
+      for (const v of ["", "!/home/someone/.local/bin/gh-acme auth git-credential"]) {
+        execFileSync("git", ["config", "--add", "credential.https://github.com.helper", v], { cwd: dir });
+      }
+      hosts("manufosela");
+      declare("manufosela-tribbu", "t@t");
+      expect(push({ XDG_CONFIG_HOME: xdg }).status).toBe(0);
+      declare("manufosela", "t@t");
+      const denied = push({ XDG_CONFIG_HOME: xdg });
+      expect(denied.status).not.toBe(0);
+      expect(denied.stdout).toContain("manufosela-tribbu");
+    } finally {
+      fs.rmSync(xdg, { recursive: true, force: true });
+    }
+  });
+
   // KJC-TSK-1085: a rebase, cherry-pick, merge or tag never ran pre-commit; the
   // push checks every commit it brings against the declared identity.
   it("rechaza un commit del push con otra identidad aunque no pasara por pre-commit", () => {

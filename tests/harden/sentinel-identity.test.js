@@ -83,6 +83,61 @@ describe("identity lock — gh", () => {
   });
 });
 
+// KJC-BUG-0459: one gh config per account (GH_CONFIG_DIR) and its gh-<account> wrapper are the
+// documented setup (ADR 0040); the lock judges the account each command really runs as.
+describe("identity lock — per-account gh", () => {
+  it("an inline GH_CONFIG_DIR is the config that command reads", () => {
+    declare("manufosela-tribbu", "a@b.c");
+    activeGh("manufosela");
+    const tribbuDir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-gh-tribbu-"));
+    fs.writeFileSync(path.join(tribbuDir, "hosts.yml"), "github.com:\n    user: manufosela-tribbu\n");
+    try {
+      expect(run(`GH_CONFIG_DIR=${tribbuDir} gh pr list`).status).toBe(0);
+      expect(run("gh pr list").status).toBe(2);
+      // The assignment survives a wrapper: env, sudo... rescan with it (review catch).
+      expect(run(`env GH_CONFIG_DIR=${tribbuDir} gh pr list`).status).toBe(0);
+      declare("manufosela", "a@b.c");
+      expect(run("gh pr list").status).toBe(0);
+      expect(run(`env GH_CONFIG_DIR=${tribbuDir} gh pr list`).status).toBe(2);
+      // ...and so does one written before the wrapper (review catch).
+      expect(run(`GH_CONFIG_DIR=${tribbuDir} env gh pr list`).status).toBe(2);
+      expect(run(`GH_CONFIG_DIR=${tribbuDir} bash -lc 'gh pr list'`).status).toBe(2);
+      // An inner assignment naming the default dir is still the inner one's choice (review catch).
+      expect(run(`GH_CONFIG_DIR=${tribbuDir} env GH_CONFIG_DIR=${ghDir} gh pr list`).status).toBe(0);
+      // A gh auth switch moves the default config only; an explicit assignment is not overridden.
+      expect(run(`gh auth switch --user manufosela && GH_CONFIG_DIR=${tribbuDir} gh pr list`).status).toBe(2);
+    } finally {
+      fs.rmSync(tribbuDir, { recursive: true, force: true });
+    }
+  });
+
+  it("a gh-<account> wrapper is judged by its own config, read and never executed", () => {
+    // The accounts guide: gh-<account> runs gh with GH_CONFIG_DIR=~/.config/gh-<account>.
+    const xdg = fs.mkdtempSync(path.join(os.tmpdir(), "kj-gh-xdg-"));
+    fs.mkdirSync(path.join(xdg, "gh-acme"));
+    fs.writeFileSync(path.join(xdg, "gh-acme", "hosts.yml"), "github.com:\n    user: manufosela-tribbu\n");
+    const env = { XDG_CONFIG_HOME: xdg };
+    try {
+      declare("manufosela-tribbu", "a@b.c");
+      activeGh("manufosela");
+      expect(run("gh-acme pr list", env).status).toBe(0);
+      expect(run("/home/someone/.local/bin/gh-acme pr list", env).status).toBe(0);
+      declare("manufosela", "a@b.c");
+      const denied = run("gh-acme issue comment 1 --body hola", env);
+      expect(denied.status).toBe(2);
+      expect(denied.stderr).toContain("manufosela-tribbu");
+      expect(run("gh-acme auth status", env).status).toBe(0);
+      // The documented wrapper sets GH_CONFIG_DIR itself (`GH_CONFIG_DIR=... exec gh`), so an inline
+      // assignment does not change its account: still judged by its own config.
+      expect(run(`GH_CONFIG_DIR=${ghDir} gh-acme pr list`, env).status).toBe(2);
+      // No config for that wrapper: no session, never a guess.
+      expect(run("gh-other pr list", env).stderr).toMatch(/no session/);
+    } finally {
+      fs.rmSync(xdg, { recursive: true, force: true });
+    }
+  });
+});
+
 // KJC-TSK-1085 (ADR 0015): git authorship and push identity moved to the git hooks
 // (pre-commit: the author; pre-push: every pushed commit and the gh session; see
 // identity-hooks.test.js). The Sentinel no longer reads git commands for identity.
