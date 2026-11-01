@@ -19,7 +19,7 @@ export const PINNED_ACTIONS = {
   setupNode: "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4",
   setupPython: "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5",
   setupGo: "actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5",
-  setupPhp: "shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2",
+  setupPhp: "shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2",
 };
 
 export const NO_AI_ATTRIBUTION_WORKFLOW = [
