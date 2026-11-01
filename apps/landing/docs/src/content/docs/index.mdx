@@ -26,16 +26,23 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 Your AI agent (Claude Code, Codex, Gemini CLI, Cursor…) writes the code — Karajan governs how it happens. `kj` installs a method your agent follows on every task (RAG before assuming, card first, tests first) and enforces it with git gates: **every commit requires a verdict from a different AI**, security findings are never overridable, and the base branch only moves via PR. The maker never grades its own work — and a false green is structurally impossible.
 
-## A loop-engineering runtime
+## The method
 
-Prompt engineering got one good answer from one good prompt. Context engineering curated what the model saw. The 2026 frontier is **loop engineering**: you stop prompting the agent by hand and design the system that prompts it, checks it, and decides what happens next — until the goal is met or it hands back to you. Karajan was built around that loop before the term caught on:
+Seven pieces, no opinions. Mechanism where there was opinion, evidence where there was a claim.
 
-- **Maker / checker split** — a coder against independent reviewer, tester and security roles, with Solomon judging disputes. The maker never grades its own work.
-- **Deterministic verification** — TDD, per-HU acceptance tests, SonarQube gates and deterministic guards. Checking is tests, not vibes.
-- **The autonomy ladder L1 → L2 → L3** — the `interactive | assisted | autonomous` axis (v3.7.0). Report, then assisted fixes, then autonomous work — defaulting to `interactive`, so you opt in.
-- **A durable state spine** — the HU Board, the lanes (`kj worktree`), the ADRs and the RAG index keep the loop alive across sessions.
+1. **Mandatory cross-review**: a different AI reviews every change, bound to the diff hash.
+2. **Rules as mechanism**: norms live in git guards and policy, not in the prompt. Security is never overridable.
+3. **The Sentinel**: it blocks the forbidden action inside the session, the moment it happens.
+4. **Claims with a source**: what the agent states is checked against what its own session ran.
+5. **Hash-chained ledger**: every command, verdict and exception is sealed, so the past cannot be rewritten unseen.
+6. **Trust expires**: the Steward re-verifies the guarantees on a schedule, and stale evidence stops counting.
+7. **Project memory**: the agent queries the indexed code before it assumes, with secrets kept out.
 
-The caveat loop engineering insists on — *unattended loops make unattended mistakes* — is designed in: autonomous runs list their residual defects, every story lands behind a PR, and `kj-trash` snapshots destructive operations. [Read the full building-block mapping →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
+### And three tools it brings in
+
+- **atril** (new in 5.0): skills, commands and subagents for every AI CLI, loaded when a task needs them instead of filling the initial context.
+- **TDD**: the failing test comes first, and the suite is never left red.
+- **SonarQube**: static analysis and a quality gate on the code you change.
 
 <CardGrid stagger>
   <Card title="One-liner setup" icon="rocket">
@@ -63,11 +70,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 ## The family
 
-One method, told with the orchestra in mind, and nine pieces published under `@karajan-family`. Who stands on whom, read from the package manifests:
+One method, told with the orchestra in mind, and its pieces published under `@karajan-family`. Who stands on whom, read from the package manifests:
 
 - **Stand alone**: [kaRAGan](/docs/karagan/) (the memory: RAG over code, docs and data), **atril** (the music stand: skills, commands and subagents for every AI CLI) and **Governance** (policy, decision and exception as objects). Install any of them without the rest.
-- **Karajan Code** (the conductor) combines Core, kaRAGan and Governance.
-- **Libretto** (the HU Board: the stories, who holds each, what was played) stands on Core.
+- **Karajan Code** (the conductor) combines kaRAGan and Governance.
+- **Libretto** (the HU Board: the stories, who holds each, what was played) is the board Karajan Code opens.
 - **kaWATCHan** (the watchman: multi-repo vigilance) stands on kaRAGan.
 - **Console** (the admin) stands on Governance.
 
