@@ -1,11 +1,13 @@
-// KJC-PCS-0049 Step 1 — Vector store sobre better-sqlite3 + sqlite-vec.
+// KJC-PCS-0049 Step 1 — Vector store sobre SQLite + sqlite-vec.
 // El RAG indexer (Step 4) escribe; el retriever (Step 5) lee. Una sola
 // DB en `~/.karajan/rag.db` por instalación.
+// KJC-TSK-0616 (SQL-B): the handle is this package's better-sqlite3-compatible adapter over
+// node:sqlite (db.js), built into Node; sqlite-vec loads as an extension.
 import { mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 
+import { openDatabase } from "./db.js";
 import { getKarajanHome } from "./paths.js";
 
 const DEFAULT_DIM = 768;
@@ -29,7 +31,7 @@ export function dbPath() {
  */
 export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
   if (!existsSync(dirname(path))) mkdirSync(dirname(path), { recursive: true });
-  const db = new Database(path);
+  const db = openDatabase(path, { allowExtension: true });
   sqliteVec.load(db);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");

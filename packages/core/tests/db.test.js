@@ -35,6 +35,13 @@ describe("openDatabase — better-sqlite3 parity over node:sqlite (KJC-TSK-0615)
     again.close();
   });
 
+  // KJC-TSK-0616: better-sqlite3 lets close() run twice; node:sqlite throws "database is not open".
+  it("close() twice is harmless, as in better-sqlite3", () => {
+    const db = openDatabase(":memory:");
+    db.close();
+    expect(() => db.close()).not.toThrow();
+  });
+
   it("pragma supports assignments and simple reads (the shapes karajan uses)", () => {
     const db = openDatabase(join(dir, "p.db"));
     db.pragma("journal_mode = WAL");
