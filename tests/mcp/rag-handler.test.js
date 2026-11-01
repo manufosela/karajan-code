@@ -112,6 +112,17 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
     expect(payload.indexed).toBeGreaterThan(0);
   });
 
+  // HU-2907: the long-lived host claims the machine lease for the walk and releases it after.
+  it("kj_rag_index claims the machine lease for its walk and releases it", async () => {
+    const { indexLeasePath, writeLease, readLease } = await import("../../src/rag/pid-lease.js");
+    writeLease(indexLeasePath(), { pid: process.pid, at: Date.now(), slug: "stale" });
+    const projectDir = join(root, "p3");
+    mkdirSync(projectDir);
+    const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
+    expect((await handleRagIndex({ projectDir }, {})).ok).not.toBe(false);
+    expect(readLease(indexLeasePath())).toBeNull();
+  });
+
   // KJC-TSK-0883 (ADR 0011): el MCP lee el indice del PROYECTO, como la CLI
   // desde 0882; si no, dos clientes del mismo repo veian indices distintos.
   it("kj_rag_index and kj_rag_query use <projectDir>/.karajan/rag.db, and an empty one names its remedy", async () => {
