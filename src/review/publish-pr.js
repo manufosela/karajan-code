@@ -8,6 +8,8 @@ import { runCommand } from "../utils/process.js";
 import { diffHash, loadVerdict } from "./verdict-store.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { labelKarajanPr } from "../git/karajan-label.js";
+import { isSealCommit } from "./seal-commit.js";
+import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 
 export const MARKER = (head) => `<!-- kj-review head=${head} -->`;
 /** Who may publish a kj review that counts: verify-pr ignores anyone else. */
@@ -29,15 +31,20 @@ async function verdictOf(projectDir, sha, run) {
 /**
  * @returns {Promise<{published: boolean, commits?: number, reason?: string}>}
  */
-export async function publishPrReview({ projectDir, pr, run = runCommand }) {
+export async function publishPrReview({ projectDir, pr, run = runCommand, sealed = null }) {
   const info = await json(run, "gh", ["pr", "view", String(pr), "--json", "headRefOid,commits"], projectDir);
   const rows = [];
+  const seals = [];
   const uncovered = [];
+  let seal = sealed;
   for (const c of info.commits ?? []) {
     // KJC-BUG-0391: a clean merge of the base brings no work of the PR and holds no verdict.
     if (await isCleanMerge(projectDir, c.oid, run)) continue;
     const v = await verdictOf(projectDir, c.oid, run);
-    if (v?.verdict === "approved") rows.push({ ...c, v });
+    if (v?.verdict === "approved") { rows.push({ ...c, v }); continue; }
+    // KJC-BUG-0470: the owner's kj harden --commit is a signed act, as verify-pr already accepts.
+    seal ??= verifiedSupervisorFiles({ projectDir, trackedOnly: true });
+    if (await isSealCommit(projectDir, c.oid, run, seal)) seals.push(c);
     else uncovered.push(`${c.oid.slice(0, 7)} (${c.messageHeadline})`);
   }
   if (uncovered.length > 0) throw new Error(`PR #${pr}: ${uncovered.length} commit(s) without an approved verdict of their exact diff, nothing published: ${uncovered.join(", ")}`);
@@ -56,6 +63,7 @@ export async function publishPrReview({ projectDir, pr, run = runCommand }) {
       const summary = r.v.summary ? ". " + r.v.summary : "";
       return `- \`${r.oid.slice(0, 7)}\` ${r.messageHeadline}: approved by ${r.v.reviewer} (diff ${r.v.diffHash.slice(0, 12)})${summary}`;
     }),
+    ...seals.map((s) => `- \`${s.oid.slice(0, 7)}\` ${s.messageHeadline}: the owner's sealed act (kj harden --commit, signed), not an AI review`),
     "",
     MARKER(info.headRefOid),
   ].join("\n");
