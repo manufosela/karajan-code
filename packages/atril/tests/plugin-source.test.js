@@ -116,6 +116,50 @@ describe("parsePluginSource", () => {
   });
 });
 
+describe("parsePluginSource, a source already normalized", () => {
+  const COMMIT = "a".repeat(40);
+  const normalized = [
+    { type: "github", repo: "acme/kit", ref: "v2", commit: COMMIT },
+    { type: "git", url: "https://git.example.com/acme/kit.git" },
+    { type: "git-subdir", url: "git@github.com:acme/kit.git", path: "plugins/kit", commit: COMMIT },
+    { type: "path", path: "/abs/kit" },
+    { type: "marketplace-url", url: "https://example.com/marketplace.json" },
+  ];
+  it.each(normalized)("comes back unchanged: $type", (source) => {
+    expect(parsePluginSource(source)).toEqual(source);
+  });
+  it("round-trips whatever readMarketplace returns", () => {
+    const dir = mkdtempSync(join(tmpdir(), "atril-source-roundtrip-"));
+    try {
+      mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+      const plugins = [{ name: "a", source: { source: "github", repo: "acme/a", sha: COMMIT } }, { name: "b", source: "./plugins/b" }];
+      writeFileSync(join(dir, ".claude-plugin", "marketplace.json"), JSON.stringify({ name: "m", plugins }));
+      for (const { source } of readMarketplace(dir).plugins) expect(parsePluginSource(source)).toEqual(source);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it.each([
+    { type: "npm", package: "kit" },
+    { type: "github" },
+    { type: "github", repo: "../evil" },
+    { type: "github", repo: "acme/kit", ref: "--upload-pack=x" },
+    { type: "github", repo: "acme/kit", commit: "abc" },
+    { type: "git", url: "ftp://example.com/kit" },
+    { type: "git-subdir", url: "https://git.example.com/kit.git", path: "../up" },
+    { type: "path", path: "" },
+    { type: "path", path: "no-prefix" },
+    { type: "path", path: "/x", commit: "a".repeat(40) },
+    { type: "marketplace-url", url: "https://example.com/m.json", ref: "main" },
+    { type: "__proto__" },
+    { type: "constructor", repo: "acme/kit" },
+    { type: null },
+    { type: "github", repo: {} },
+    { type: "github", repo: "acme/kit", commit: "A".repeat(40) },
+    { type: "marketplace-url", url: "https://example.com/readme.md" },
+  ])("rejects a malformed one: %j", (source) => {
+    expect(() => parsePluginSource(source)).toThrow(/unknown plugin source/);
+  });
+});
+
 describe("pluginPaths", () => {
   it("places a plugin under <root>/plugins/<name>/<version>", () => {
     expect(pluginPaths("/r", "tdd-kit", "1.2.0")).toEqual({ base: join("/r", "plugins", "tdd-kit"), dir: join("/r", "plugins", "tdd-kit", "1.2.0") });

@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { availablePlugins, sourceDir } from "../src/catalog.js";
+import { availablePlugins, findPlugin, sourceDir } from "../src/catalog.js";
 import { writeConfig } from "../src/config.js";
 import { resolve } from "../src/resolve.js";
 import { search } from "../src/search.js";
@@ -115,5 +115,28 @@ describe("search over plugins", () => {
 
   it("resolve never proposes a plugin as available", () => {
     expect(resolve({ task: "tdd refactor", ...o() }).available ?? []).toEqual([]);
+  });
+});
+describe("findPlugin", () => {
+  it("returns the entry by name, its source ready for fetchPlugin", () => {
+    marketplace("a", "first", [gh("lint", "Lint"), gh("fmt")]);
+    writeConfig({ catalogs: ["a"] }, o());
+    expect(findPlugin("lint", o())).toMatchObject({ name: "lint", catalog: "a", source: { type: "github", repo: "acme/lint" } });
+  });
+  it("throws naming the catalogs it searched when the name is nowhere", () => {
+    marketplace("a", "first", [gh("lint")]);
+    writeConfig({ catalogs: ["a"] }, o());
+    expect(() => findPlugin("nope", o())).toThrow(/"nope".*atril:recommended, a/);
+  });
+  it("throws naming both catalogs when two offer the name", () => {
+    marketplace("a", "first", [gh("shared")]);
+    marketplace("b", "second", [gh("shared")]);
+    writeConfig({ catalogs: ["a", "b"] }, o());
+    expect(() => findPlugin("shared", o())).toThrow(/"shared" is offered by more than one catalog: a, b$/);
+  });
+  it("says why when the entry asked for was skipped as broken", () => {
+    marketplace("a", "first", [{ name: "bad", source: { source: "npm" } }]);
+    writeConfig({ catalogs: ["a"] }, o());
+    expect(() => findPlugin("bad", o())).toThrow(/not found.*\(skipped in a: /);
   });
 });

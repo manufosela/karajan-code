@@ -114,7 +114,8 @@ function offered(opts, catalog) {
  * The plugins of the marketplaces the catalogs offer (a folder holding .claude-plugin/marketplace.json),
  * read from disk only. The first catalog wins a name; a broken entry is skipped and reported in
  * `warnings`, an unreadable marketplace.json throws.
- * @param {Parameters<typeof scan>[0]} [opts]
+ * `shadowed: true` keeps the entries a name already offered by an earlier catalog hides.
+ * @param {Parameters<typeof scan>[0] & { shadowed?: boolean }} [opts]
  */
 export function availablePlugins(opts = {}) {
   const seen = new Set();
@@ -132,7 +133,7 @@ export function availablePlugins(opts = {}) {
         throw new Error(`catalog "${catalog.ref}": ${cause.message}`, { cause });
       }
       for (const { name, description, version, source } of marketplace.plugins) {
-        if (seen.has(name)) continue;
+        if (seen.has(name) && !opts.shadowed) continue;
         seen.add(name);
         // A non-string description would be indexed as the word "null" or "object".
         plugins.push({ name, description: typeof description === "string" ? description : "", version, source, marketplace: marketplace.name, catalog: catalog.ref });
@@ -140,6 +141,27 @@ export function availablePlugins(opts = {}) {
     }
   }
   return { plugins, warnings };
+}
+
+/**
+ * The marketplace entry named `name`, its `source` ready for fetchPlugin. It throws naming the
+ * catalogs searched when none offers it, and naming the ones that do when two of them offer it
+ * (availablePlugins would silently let the first win).
+ * @param {string} name
+ * @param {Parameters<typeof availablePlugins>[0]} [opts]
+ */
+export function findPlugin(name, opts = {}) {
+  const { plugins, warnings } = availablePlugins({ ...opts, shadowed: true });
+  // First entry per catalog: only a name two catalogs offer is ambiguous.
+  const found = plugins.filter((plugin, index) => plugin.name === name
+    && plugins.findIndex((other) => other.name === name && other.catalog === plugin.catalog) === index);
+  if (found.length === 0) {
+    const skipped = warnings.filter((warning) => warning.entry.includes(JSON.stringify(name)));
+    const why = skipped.map((warning) => ` (skipped in ${warning.catalog}: ${warning.reason})`).join("");
+    throw new Error(`plugin ${JSON.stringify(name)} not found in the catalogs: ${catalogs(opts).map(({ ref }) => ref).join(", ")}${why}`);
+  }
+  if (found.length > 1) throw new Error(`plugin ${JSON.stringify(name)} is offered by more than one catalog: ${found.map(({ catalog }) => catalog).join(", ")}`);
+  return found[0];
 }
 
 /**
