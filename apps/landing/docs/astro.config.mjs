@@ -28,7 +28,7 @@ export default defineConfig({
 				},
 				{
 					tag: 'script',
-					attrs: { defer: true, src: 'https://analytics.manulitics.com/script.js', 'data-website-id': '8871eadf-4414-4baf-b83a-9f3da27b97fe' },
+					attrs: { async: true, src: 'https://analytics.manulitics.com/script.js', 'data-website-id': '8871eadf-4414-4baf-b83a-9f3da27b97fe' },
 				},
 			],
 			logo: {
