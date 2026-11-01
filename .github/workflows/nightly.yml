@@ -79,7 +79,7 @@ jobs:
               echo "- \`$file:$lineno\` (~${age_days}d old)" >> /tmp/todos.md
               count=$((count + 1))
             fi
-          done < <(grep -rn -E '(TODO|FIXME)' src/ 2>/dev/null || true)
+          done < <(grep -rn -E '\b(TODO|FIXME)\b[:(]' src/ 2>/dev/null || true)
           echo "count=$count" >> "$GITHUB_OUTPUT"
           if [ "$count" -eq 0 ]; then
             echo "_No TODOs older than 90 days._" > /tmp/todos.md
