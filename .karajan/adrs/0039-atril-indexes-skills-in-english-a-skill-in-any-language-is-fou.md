@@ -1,7 +1,7 @@
 # atril indexes skills in English; a skill in any language is found through English metadata
 
-Status: proposed
-Date: 2026-10-29
+Status: accepted
+Date: 2026-10-29 (accepted 2026-11-01)
 
 ## Context
 
@@ -27,8 +27,8 @@ ADR 0021 plans QMD as an optional backend and says atril calls no model on its o
 English is the language of the index. A skill may be written in any language, because the agent reads it in that language. To be found, it carries an English `description` and English `atril.keywords`.
 
 1. **English metadata.** The consumer's enricher (Karajan, through its agents) writes the English `description` and keywords of a skill in another language, once, at import or enrich time. atril calls no model. `atril enrich` and the import warn when a skill's metadata is not in English.
-2. **Queries in English.** The router rule tells the agent to query atril in English. `kj skills search` translates a person's query before it reaches atril.
-3. **No silent miss.** When `atril search` finds nothing and the query looks non-English (accented letters or common Spanish stopwords), it says that the index is in English and suggests English terms.
+2. **Queries in English, answers in the asker's language.** The router rule tells the agent to query atril in English; the agent reads the results itself. `kj skills search` translates both ways: a person's query into English before it reaches atril, and the results back into that person's language. A person who asks in Spanish always gets an answer, with no second index.
+3. **No silent miss where nobody translates.** Only `atril search` run on its own (no kj, no agent) has no translator, because atril calls no model. There, when it finds nothing and the query looks non-English (accented letters or common Spanish stopwords), it says that the index is in English and suggests English terms or `kj skills search`.
 4. **Cheap lexical help that works in any language.**
    - One shared `fold()` (lowercase, NFD, strip combining marks) for search and enrich.
    - A prefix match: a query term of 4+ characters that is a prefix of a field token scores below an exact match.
@@ -45,13 +45,13 @@ Alternatives considered:
 
 - Store content and ranking stay deterministic, synchronous and free of dependencies, and atril still calls no model.
 - A skill without English metadata is hard to find, and atril says so.
-- A person who types a Spanish query into `atril search` gets a hint, not a hit.
+- A person who types a Spanish query into `atril search` on its own gets a hint, not a hit; through `kj skills search` the same query gets results in Spanish.
 - Card changes:
   - Spanish stopwords and `atril.lang` (HU-2730) are dropped.
   - The enricher card (HU-2732) writes the English `description` and keywords.
   - A new card covers the router rule, the import warning and the no-hit hint.
-  - Translation in `kj skills search` is a kj-side card.
+  - Translation both ways in `kj skills search` is a kj-side card.
 
-Open for the maintainer:
-- whether `ñ` folds to `n` along with the accents (proposed: yes);
-- whether to amend ADR 0021's "no model" rule if a backend ever passes.
+Decided by the maintainer (2026-11-01):
+- `ñ` folds to `n` along with the accents; the shared `fold()` (NFD, combining marks stripped) already does it.
+- ADR 0021's "no model" rule stays. Whether to amend it is decided only if a semantic backend passes the #2733 spike, with its data.
