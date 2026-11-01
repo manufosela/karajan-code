@@ -100,7 +100,7 @@ kj doctor
 Esto verifica tu entorno completo: git, Docker, conectividad con SonarQube, CLIs de agentes y ficheros de reglas. Corrige cualquier problema que reporte antes de ejecutar tu primera tarea.
 
 :::note[npm 12 o posterior]
-npm solo ejecuta el script de instalación de una dependencia si `allowScripts` lo cubre, así que `better-sqlite3` (la base de datos del RAG y del board) queda sin compilar y npm solo avisa de que bloqueó scripts. `kj doctor` lo detecta e imprime el comando exacto para tu instalación: aprobar y recompilar dentro de la carpeta del paquete de kj. Reinstalar no sirve, porque el script se vuelve a bloquear.
+npm solo ejecuta el script de instalación de una dependencia si `allowScripts` lo cubre. Las bases de datos de kj no necesitan compilación nativa (usan `node:sqlite`, incluido en Node), pero `node-pty`, el módulo opcional de la terminal del HU Board, puede quedar sin compilar, y npm solo avisa de que bloqueó scripts. Todo lo demás funciona. `kj doctor` lo detecta e imprime el comando exacto para tu instalación: aprobar y recompilar `node-pty` dentro de la carpeta del paquete de kj. Reinstalar no sirve, porque el script se vuelve a bloquear.
 :::
 
 ## Alternativa: Instalar desde código fuente

@@ -10,7 +10,7 @@ import { existsSync } from "node:fs";
 import { sep } from "node:path";
 
 import { insertChunk, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
-import { openVecStoreExplained as openVecStore } from "./project-store.js";
+import { openVecStore } from "./vec-store.js";
 
 export const countProjectChunks = (db, slug) => db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE project_slug = ?").get(slug).n;
 
