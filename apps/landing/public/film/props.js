@@ -29,7 +29,8 @@ function labelTexture(lines, { width = 512, height = 256, color = '#e2e8f0', acc
   return texture;
 }
 
-export function createCrate(index, name) {
+/** A tool crate; `badge` (e.g. "new") is printed in green next to its number. */
+export function createCrate(index, name, badge = '') {
   const group = new THREE.Group();
   const material = new THREE.MeshPhysicalMaterial({
     color: 0x1a2332, roughness: 0.45, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.3,
@@ -40,7 +41,8 @@ export function createCrate(index, name) {
   body.castShadow = true;
   body.receiveShadow = true;
   const labelMaterial = new THREE.MeshBasicMaterial({
-    map: labelTexture([String(index + 1).padStart(2, '0'), name]), transparent: true, toneMapped: false,
+    map: labelTexture([[String(index + 1).padStart(2, '0'), badge].filter(Boolean).join(' · '), name], { accent: badge ? '#34d399' : '#e8b04b' }),
+    transparent: true, toneMapped: false,
   });
   const label = new THREE.Mesh(new THREE.PlaneGeometry(CRATE.w * 0.92, CRATE.w * 0.46), labelMaterial);
   label.position.set(0, CRATE.h / 2, CRATE.d / 2 + 0.003);

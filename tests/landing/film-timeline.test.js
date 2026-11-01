@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { T, SLOTS, span, hops, asideAt } from "../../apps/landing/public/film/timeline.js";
+import { T, SLOTS, REFUSING_CRATE, span, hops, asideAt } from "../../apps/landing/public/film/timeline.js";
 
 // KJL-TSK-0146: the hero film is a pure function of its clock. These guards keep
 // the story in order and the travelling diff landing where the camera expects it.
@@ -13,9 +13,20 @@ describe("landing film timeline", () => {
     expect(T.verdict).toBeCloseTo(T.honestHops + (SLOTS.length + 1) * T.honestHop);
   });
 
-  it("refuses the unreviewed diff before it lands on the third crate", () => {
-    expect(T.refuse).toBeLessThan(T.rogueHops + 3 * T.rogueHop);
-    expect(T.refuse).toBeGreaterThan(T.rogueHops + 2 * T.rogueHop);
+  it("refuses the unreviewed diff in mid-air, on its hop onto the AI review crate", () => {
+    expect(T.refuse).toBeLessThan(T.rogueHops + (REFUSING_CRATE + 1) * T.rogueHop);
+    expect(T.refuse).toBeGreaterThan(T.rogueHops + REFUSING_CRATE * T.rogueHop);
+  });
+
+  // atril is new in 5.0 and opens the line: eight crates, AI review the fourth.
+  it("lines up eight crates, left to right, with AI review fourth", () => {
+    expect(SLOTS).toHaveLength(8);
+    expect(SLOTS).toEqual(SLOTS.toSorted((a, b) => a - b));
+    expect(REFUSING_CRATE).toBe(3);
+  });
+
+  it("earns the verdict before the closing shot begins", () => {
+    expect(T.verdict + 0.5).toBeLessThan(T.outro);
   });
 
   it("clamps progress between 0 and 1", () => {
