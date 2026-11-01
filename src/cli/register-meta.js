@@ -751,6 +751,19 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // KJC-TSK-1369 (ADR 0037): the audit job on every push to the protected branch.
+  program.command("main-guard")
+    .description("Audit a push to the protected branch: merges without their required checks, and the protection (exit 1 with a markdown report)")
+    .requiredOption("--repo <owner/repo>", "GitHub repository")
+    .requiredOption("--before <sha>", "The branch tip before the push")
+    .requiredOption("--after <sha>", "The branch tip after the push")
+    .requiredOption("--require <checks...>", "Required checks that every merge must have passed")
+    .option("--branch <name>", "Protected branch", "main")
+    .action(async (flags) => {
+      const { mainGuardCommand } = await import("../commands/main-guard.js");
+      await mainGuardCommand({ flags });
+    });
+
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
   rag.command("index")
     .description("Index plans + onboarding (and optionally project sources) into the local vector store")
