@@ -1,7 +1,7 @@
 # kj is published from CI with signed provenance
 
-Status: proposed
-Date: 2026-10-27
+Status: accepted
+Date: 2026-10-27 (accepted 2026-11-01)
 
 ## Context
 
@@ -9,11 +9,11 @@ Today a kj release is published from the maintainer's machine: `git archive` of 
 
 The user asked (2026-10-27) to sign kj's releases so they can be verified, for 5.0.0.
 
-## Decision (proposed)
+## Decision
 
 1. A release workflow publishes on the tag (`v*`), from that tag's tree: install, the full suite, `verify-pack`, the privacy scan of the tarball, then `npm publish --provenance` of both names.
 2. npm trusted publishing (OIDC) authorises the workflow: no npm token is stored in the repo and no one-time password is needed. Each package is configured on npmjs.com to trust only this repo and this workflow file.
-3. A protected GitHub environment (`npm-publish`) with the maintainer as required reviewer guards the publish job: a human still says yes, in GitHub instead of with an OTP.
+3. A protected GitHub environment (`npm-publish`) with the maintainer as required reviewer guards the publish job: a human still says yes, in GitHub instead of with an OTP. The run stops before publishing and GitHub notifies the maintainer (mail and the mobile app); the maintainer opens the run in the repo's Actions tab and presses "Review deployments", then "Approve and deploy", from the browser or the GitHub mobile app.
 4. The SEA binaries get a build provenance attestation (`actions/attest-build-provenance`) next to their checksums.
 5. Users verify with `npm audit signatures` (which `kj audit --security` already runs, KJC-TSK-1253) and `gh attestation verify <binary> --repo manufosela/karajan-code`. The README and the landing say how.
 
