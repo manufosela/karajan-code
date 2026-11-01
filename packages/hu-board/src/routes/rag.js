@@ -4,7 +4,7 @@
 // "uninitialized" payload so the dashboard renders an empty state cleanly.
 import { Router } from "express";
 import { existsSync, statSync } from "node:fs";
-import Database from "better-sqlite3";
+import { openDatabase } from "karajan-core/db";
 import { dbPath } from "karajan-core/vec-store";
 import { readConfig } from "../config-yaml.js";
 
@@ -23,8 +23,9 @@ router.get("/stats", (_req, res) => {
   const path = dbPath();
   if (!existsSync(path)) return res.json({ ok: true, initialized: false, message: "rag.db not initialized — run `kj rag index <dir>` to start indexing.", embedder: embedder() });
   try {
-    const db = new Database(path, { readonly: true, fileMustExist: true });
-    // KJC-BUG-0068 — readonly handler cannot run the project_slug migration
+    // KJC-TSK-0617: node:sqlite adapter. The file was checked above and this route only reads.
+    const db = openDatabase(path);
+    // KJC-BUG-0068 — this route never runs the project_slug migration
     // (KJC-TSK-0438). Legacy DBs created pre-v2.27 lack the column; detect
     // and fall back so the dashboard renders instead of crashing with 500.
     const hasProjectSlug = db.prepare("PRAGMA table_info(chunks)").all().some((c) => c.name === "project_slug");

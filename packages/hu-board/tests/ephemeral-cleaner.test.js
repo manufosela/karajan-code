@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import Database from "better-sqlite3";
+import { openDatabase } from "karajan-core/db";
 import fs from "node:fs";
 import {
   classifyEphemeral,
@@ -114,7 +114,7 @@ describe("cleanupEphemeralProjects (integration with in-memory SQLite)", () => {
   let db;
 
   beforeEach(() => {
-    db = new Database(":memory:");
+    db = openDatabase(":memory:");
     db.exec(`
       CREATE TABLE projects (
         id TEXT PRIMARY KEY,

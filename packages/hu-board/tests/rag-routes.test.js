@@ -55,8 +55,8 @@ describe("GET /api/rag/stats", () => {
   // with HTTP 500 "no such column: project_slug". Now it must respond 200
   // with `by_project=[]` and `schema_legacy=true` so the dashboard renders.
   it("falls back gracefully when chunks lacks project_slug (legacy DB)", async () => {
-    const Database = (await import("better-sqlite3")).default;
-    const db = new Database(process.env.KJ_RAG_DB);
+    const { openDatabase } = await import("karajan-core/db");
+    const db = openDatabase(process.env.KJ_RAG_DB);
     db.exec("CREATE TABLE chunks (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, kind TEXT, text TEXT, metadata TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
     db.prepare("INSERT INTO chunks (source, kind, text) VALUES (?, ?, ?)").run("legacy.js", "code", "x");
     db.close();
