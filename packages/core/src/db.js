@@ -27,6 +27,7 @@ const { DatabaseSync } = (() => {
 
 class DbHandle {
   #db;
+  #closed = false;
 
   constructor(db) {
     this.#db = db;
@@ -89,8 +90,11 @@ class DbHandle {
     this.#db.loadExtension(path);
   }
 
+  /** Idempotent, as in better-sqlite3 (node:sqlite throws on a second close: KJC-TSK-0616). */
   close() {
+    if (this.#closed) return;
     this.#db.close();
+    this.#closed = true;
   }
 }
 
