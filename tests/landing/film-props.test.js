@@ -5,11 +5,17 @@ import { describe, expect, it } from "vitest";
 // buffer, so its invisible ring hid part of the Ledger crate's label in the
 // final shot. An effect that fades to nothing must not write depth.
 const props = readFileSync(new URL("../../apps/landing/public/film/props.js", import.meta.url), "utf8");
+const stand = readFileSync(new URL("../../apps/landing/public/film/stand.js", import.meta.url), "utf8");
 
 describe("film props", () => {
   it("lets every effect that starts invisible stay out of the depth buffer", () => {
     const fading = [...props.matchAll(/new THREE\.MeshBasicMaterial\(\{[^}]*opacity: 0[^}]*\}\)/g)].map(([m]) => m);
     expect(fading.length).toBeGreaterThan(0);
     for (const material of fading) expect(material).toContain("depthWrite: false");
+  });
+
+  it("keeps atril's stand out of the shadow map, where its thin poles band the whole stage", () => {
+    expect(stand).toContain("export function createStand");
+    expect(stand).not.toMatch(/castShadow\s*=\s*true/);
   });
 });
