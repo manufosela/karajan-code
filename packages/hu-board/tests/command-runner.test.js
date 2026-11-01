@@ -76,7 +76,7 @@ describe("POST /api/commands/:command", () => {
 });
 
 // KJC-TSK-1324: the ▶ of a card starts it in its lane (kj hu start <id> --code).
-describe("POST /api/hu/:id/start", () => {
+describe("startCardInLane", () => {
   let repo;
   beforeEach(async () => {
     const { mkdirSync } = await import("node:fs");
@@ -85,29 +85,23 @@ describe("POST /api/hu/:id/start", () => {
   });
   afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
-  it("launches kj hu start <id> --code in the project and returns the log to tail", async () => {
-    const { startCardInLane } = await import("../src/command-runner.js");
-    expect(startCardInLane({ id: "HU-42", projectDir: repo }).argv.slice(-4)).toEqual(["hu", "start", "HU-42", "--code"]);
-    const res = await request(app).post("/api/hu/HU-42/start").send({ projectDir: repo });
-    expect(res.status).toBe(200);
-    expect(res.body.commandId).toMatch(/^cmd-hu-start-/);
-  });
-
-  it("a card that already has a lane gets 409 with that lane, and nothing is launched", async () => {
+  it("launches kj hu start <id> --code in the project, or reports the lane the card already has", async () => {
     const { mkdirSync } = await import("node:fs");
+    const { startCardInLane } = await import("../src/command-runner.js");
+    const launched = startCardInLane({ id: "HU-42", projectDir: repo });
+    expect(launched.argv.slice(-4)).toEqual(["hu", "start", "HU-42", "--code"]);
+    expect(launched.commandId).toMatch(/^cmd-hu-start-/);
     mkdirSync(join(repo, ".kj", "worktrees", "HU-42-board-play"), { recursive: true });
-    const res = await request(app).post("/api/hu/HU-42/start").send({ projectDir: repo });
-    expect(res.status).toBe(409);
-    expect(res.body.lane).toBe(join(repo, ".kj", "worktrees", "HU-42-board-play"));
+    expect(startCardInLane({ id: "HU-42", projectDir: repo })).toMatchObject({ ok: false, lane: join(repo, ".kj", "worktrees", "HU-42-board-play") });
   });
 
   it.each([
     ["a crafted id", "HU-1;rm", () => repo],
     ["a relative project", "HU-1", () => "repo"],
     ["a folder that is not a git repo", "HU-1", () => tmpdir()],
-  ])("refuses %s with 400", async (_label, id, dir) => {
-    const res = await request(app).post(`/api/hu/${encodeURIComponent(id)}/start`).send({ projectDir: dir() });
-    expect(res.status).toBe(400);
+  ])("refuses %s", async (_label, id, dir) => {
+    const { startCardInLane } = await import("../src/command-runner.js");
+    expect(startCardInLane({ id, projectDir: dir() })).toMatchObject({ ok: false });
   });
 });
 
