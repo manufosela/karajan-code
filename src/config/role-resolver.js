@@ -65,6 +65,7 @@ const CODER_INHERITED_ROLES = new Set([
   "impeccable", "triage", "discover", "architect", "audit",
   "hu_reviewer", "hu-reviewer",
   "spec_reviewer", "spec-reviewer",
+  "translator",
 ]);
 
 function resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer) {

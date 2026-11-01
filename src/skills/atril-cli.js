@@ -4,9 +4,10 @@
  * contract between them stays narrow. The store is the project's `.karajan/`
  * unless the user names another root.
  */
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { ATRIL_ROOT } from "./atril-skills.js";
 
 export const ATRIL_COMMANDS = ["search", "route", "scan", "install", "remove", "graph", "enrich", "config"];
@@ -30,6 +31,23 @@ export function atrilBin(resolveFn = (spec) => import.meta.resolve(spec)) {
     throw new Error(`the atril CLI is not available here (${err.message}): ${INSTALL_HINT}`, { cause: err });
   }
   return fileURLToPath(new URL("../bin/atril.js", entry));
+}
+
+/** `atril search --json` through atril's own CLI (KJC-TSK-1193): `{ mode, hits }`, or an error carrying atril's stderr. */
+export async function atrilSearch(query, { kind, root = ATRIL_ROOT } = {}, { exec = promisify(execFile), bin = atrilBin() } = {}) {
+  // `--` keeps a query that starts with a dash from being read as an atril option.
+  const args = [bin, "search", ...(kind ? ["--kind", kind] : []), "--root", root, "--json", "--", query];
+  let stdout;
+  try {
+    ({ stdout } = await exec(process.execPath, args));
+  } catch (err) {
+    throw new Error(`atril search failed: ${String(err.stderr || err.message).trim()}`, { cause: err });
+  }
+  try {
+    return JSON.parse(stdout);
+  } catch (err) {
+    throw new Error(`atril search printed invalid JSON: ${err.message}`, { cause: err });
+  }
 }
 
 /** Runs atril with this node; its output is the user's, its exit code is kj's. */
