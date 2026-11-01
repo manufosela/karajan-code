@@ -1,7 +1,8 @@
 // KJC-TSK-0472 — Per-project audit history (sqlite at .karajan/audit-history.db).
 import path from "node:path";
 import fs from "node:fs";
-import Database from "better-sqlite3";
+// KJC-TSK-0618 (SQL-D): karajan-core's adapter over node:sqlite, built into Node.
+import { openDatabase } from "karajan-core/db";
 
 const SCHEMA_VERSION = 1;
 
@@ -12,7 +13,7 @@ export function getAuditHistoryDbPath(projectDir) {
 export function openAuditHistoryDb(projectDir) {
   const dbPath = getAuditHistoryDbPath(projectDir);
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  const db = new Database(dbPath);
+  const db = openDatabase(dbPath);
   db.pragma("journal_mode = WAL");
   migrate(db);
   return db;

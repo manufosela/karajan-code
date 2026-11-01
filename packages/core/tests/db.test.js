@@ -35,6 +35,19 @@ describe("openDatabase — better-sqlite3 parity over node:sqlite (KJC-TSK-0615)
     again.close();
   });
 
+  // KJC-TSK-0618: better-sqlite3's { readonly: true }, for code that only inspects a store.
+  it("opens read-only when asked: reads work, writes throw", () => {
+    const file = join(dir, "ro.db");
+    const rw = openDatabase(file);
+    rw.exec("CREATE TABLE t (a TEXT)");
+    rw.prepare("INSERT INTO t VALUES (?)").run("x");
+    rw.close();
+    const ro = openDatabase(file, { readOnly: true });
+    expect(ro.prepare("SELECT a FROM t").get().a).toBe("x");
+    expect(() => ro.prepare("INSERT INTO t VALUES (?)").run("y")).toThrow(/readonly/i);
+    ro.close();
+  });
+
   // KJC-TSK-0616: better-sqlite3 lets close() run twice; node:sqlite throws "database is not open".
   it("close() twice is harmless, as in better-sqlite3", () => {
     const db = openDatabase(":memory:");

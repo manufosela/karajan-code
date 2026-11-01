@@ -9,7 +9,7 @@
 import fs from "node:fs/promises";
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import { openDatabase } from "karajan-core/db";
 import { parseDocument } from "yaml";
 import { getProjectConfigPath } from "../config/loader.js";
 import { projectDbPath } from "./project-store.js";
@@ -31,7 +31,7 @@ export function resetEmptyStore(projectDir = process.cwd()) {
   if (!existsSync(storePath)) return true;
   // Read-only, schema-agnostic inspection: no DDL, no vec extension, no
   // dimension assumptions — the store is only ever OPENED to be counted.
-  const db = new Database(storePath, { readonly: true });
+  const db = openDatabase(storePath, { readOnly: true });
   try {
     const hasChunksTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='chunks'").get();
     if (hasChunksTable && db.prepare("SELECT COUNT(*) AS n FROM chunks").get().n > 0) return false;

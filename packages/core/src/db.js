@@ -101,7 +101,11 @@ class DbHandle {
 /**
  * Open (or create) a SQLite database at `location` (a path or ":memory:").
  * `allowExtension: true` is required to later loadExtension (sqlite-vec).
+ * `readOnly: true` opens an existing file for reading only (better-sqlite3's `readonly`).
  */
-export function openDatabase(location, { allowExtension = false } = {}) {
-  return new DbHandle(new DatabaseSync(location, allowExtension ? { allowExtension: true } : {}));
+export function openDatabase(location, { allowExtension = false, readOnly = false } = {}) {
+  const options = {};
+  if (allowExtension) options.allowExtension = true;
+  if (readOnly) options.readOnly = true;
+  return new DbHandle(new DatabaseSync(location, options));
 }
