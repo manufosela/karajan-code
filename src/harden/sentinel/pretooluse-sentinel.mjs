@@ -206,9 +206,9 @@ process.stdin.on("end", () => {
       };
       const declaredGh = idLine("gh_user");
       const ghHostsPath = join(process.env.GH_CONFIG_DIR || join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "gh"), "hosts.yml");
-      const activeGh = () => {
-        if (!existsSync(ghHostsPath)) return null;
-        const lines = readFileSync(ghHostsPath, "utf8").split(ESC_NL);
+      const activeGh = (hostsPath = ghHostsPath) => {
+        if (!existsSync(hostsPath)) return null;
+        const lines = readFileSync(hostsPath, "utf8").split(ESC_NL);
         const start = lines.findIndex((l) => l.startsWith("github.com:"));
         if (start < 0) return null;
         for (let k = start + 1; k < lines.length; k += 1) {
@@ -220,6 +220,19 @@ process.stdin.on("end", () => {
       };
       const words = (seg) => seg.trim().split(" ").filter((w) => w.length > 0 && w !== ESC_TAB);
       const headOf = (ws) => { let k = 0; while (k < ws.length && ws[k].indexOf("=") > 0 && ws[k].indexOf("=") < ws[k].length) k += 1; return ws.slice(k); };
+      // KJC-BUG-0459: `GH_CONFIG_DIR=<dir> gh ...` reads <dir>, not the hook's config.
+      const hostsOf = (ws) => {
+        const a = ws.slice(0, ws.length - headOf(ws).length).findLast((w) => w.startsWith("GH_CONFIG_DIR="));
+        if (!a) return null; // no assignment of its own (not the same as one naming the default dir)
+        const d = bare(a.slice("GH_CONFIG_DIR=".length)).replace(/^(~|\$HOME|\$\{HOME\})(?=\/|$)/, homedir());
+        return join(d, "hosts.yml");
+      };
+      // KJC-BUG-0459: a per-account gh (gh-tribbu, gh-ox: ADR 0040). The accounts guide makes
+      // gh-<account> run gh with GH_CONFIG_DIR=~/.config/gh-<account>: its config is READ, the
+      // wrapper is never executed by the hook.
+      const wrapperName = (w) => w.slice(w.lastIndexOf("/") + 1);
+      const isGhWrapper = (w) => /^gh-[A-Za-z0-9_.-]+$/.test(wrapperName(w));
+      const wrapperHosts = (w) => join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), wrapperName(w), "hosts.yml");
       // Wrapper shells hide the payload in a string (review catch): scan inside.
       const WRAPPERS =["sh", "bash", "zsh", "dash", "eval", "env", "xargs", "sudo", "nohup", "time", "exec"];
       let switchedTo = null;
@@ -227,12 +240,21 @@ process.stdin.on("end", () => {
       // $( and backticks are separators too (review catch): their payload is its own segment.
       const SEPS = [";", "&&", "||", "|", "$(", String.fromCharCode(96), "(", ")"];
       const bare = (w) => w.replaceAll(String.fromCharCode(39), "").replaceAll(String.fromCharCode(34), "");
-      const scan = (text, depth) => { if (depth > 3) return; for (const seg of SEPS.reduce((acc, s) => acc.flatMap((l) => l.split(s)), text.split(ESC_NL))) checkSeg(headOf(words(seg)), depth); };
-      const checkSeg = (ws, depth) => {
+      // A rescanned payload inherits the config resolved outside it (`GH_CONFIG_DIR=<dir> env gh ...`).
+      const scan = (text, depth, inherited = null) => {
+        if (depth > 3) return;
+        for (const seg of SEPS.reduce((acc, s) => acc.flatMap((l) => l.split(s)), text.split(ESC_NL))) {
+          checkSeg(headOf(words(seg)), depth, hostsOf(words(seg)) ?? inherited);
+        }
+      };
+      // hostsPath: the config an explicit GH_CONFIG_DIR assignment selects, or null without one.
+      const checkSeg = (ws, depth, hostsPath = null) => {
         if (ws.length === 0) return;
         if (WRAPPERS.includes(ws[0])) { // wrapper args have arity (sudo -u bob): scan from the first gh/wrapper token (review catch)
-          const j = ws.findIndex((w, i) => i > 0 && ["gh", ...WRAPPERS].includes(bare(w)));
-          if (j > 0) scan(ws.slice(j).map(bare).join(" "), depth + 1);
+          const j = ws.findIndex((w, i) => i > 0 && (["gh", ...WRAPPERS].includes(bare(w)) || isGhWrapper(bare(w))));
+          // `env GH_CONFIG_DIR=<dir> gh ...`: the assignments before the command go with it (review catch).
+          const assigns = ws.slice(1, Math.max(j, 1)).map(bare).filter((w) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(w));
+          if (j > 0) scan([...assigns, ...ws.slice(j).map(bare)].join(" "), depth + 1, hostsPath);
           return;
         }
         if (ws[0] === "gh") {
@@ -241,8 +263,15 @@ process.stdin.on("end", () => {
             return; // session commands ARE the remedy — never blocked
           }
           if (!declaredGh) { problems.push("gh without a declared identity for this clone — run: kj identity set"); return; }
-          const eff = switchedTo || activeGh();
-          if (eff !== declaredGh) problems.push("gh as '" + (eff || "no session") + "' but this clone is declared as '" + declaredGh + "' — prefix the command: gh auth switch --user " + declaredGh + " && ...");
+          const eff = hostsPath ? activeGh(hostsPath) : (switchedTo || activeGh());
+          if (eff !== declaredGh) problems.push("gh as '" + (eff || "no session") + "' but this clone is declared as '" + declaredGh + "' — prefix the command: gh auth switch --user " + declaredGh + " && ... (or use the gh of that account, e.g. gh-<account>)");
+        }
+        if (isGhWrapper(ws[0])) {
+          if (ws[1] === "auth") return; // its session commands are the remedy too
+          if (!declaredGh) { problems.push(ws[0] + " without a declared identity for this clone — run: kj identity set"); return; }
+          // Its own config even with an inline GH_CONFIG_DIR: the wrapper sets that variable itself.
+          const eff = activeGh(wrapperHosts(ws[0]));
+          if (eff !== declaredGh) problems.push(wrapperName(ws[0]) + " runs as '" + (eff || "no session") + "' (" + wrapperHosts(ws[0]) + ") but this clone is declared as '" + declaredGh + "' — use the gh of that account");
         }
         // KJC-TSK-1085 (ADR 0015): git commit/tag/rebase/push are no longer read here:
         // pre-commit checks the author, pre-push every pushed commit and the gh session.
