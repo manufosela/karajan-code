@@ -1,7 +1,7 @@
 # La etiqueta Karajan en las PRs que abre el anfitrión
 
-Status: proposed
-Date: 2026-10-23
+Status: accepted
+Date: 2026-10-23 (accepted 2026-11-01)
 
 ## Context
 
@@ -9,7 +9,9 @@ KJC-TSK-1123 (#2315): kj ya etiqueta las PRs que abre él mismo (kj run). En v4 
 
 ## Decision
 
-Propuesta: etiquetar en kj review --publish-pr, que el método ya ejecuta en cada PR: la etiqueta pasa a significar que la PR lleva la review de Karajan publicada. Alternativa: que el hook PostToolUse etiquete tras un gh pr create con éxito; cubre también repos sin publish-pr, pero da al hook un efecto de red y obliga a resellar el harness.
+Etiquetar en kj review --publish-pr, que el método ya ejecuta en cada PR: la etiqueta pasa a significar que la PR lleva la review de Karajan publicada. Implementado en KJC-BUG-0461 (publish-pr añade la etiqueta) y KJC-BUG-0462 (por la API REST).
+
+Descartada: que el hook PostToolUse etiquete tras un gh pr create con éxito; cubre también repos sin publish-pr, pero da al hook un efecto de red y obliga a resellar el harness.
 
 ## Consequences
 
