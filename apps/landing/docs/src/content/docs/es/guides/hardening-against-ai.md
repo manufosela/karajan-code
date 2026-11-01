@@ -166,13 +166,14 @@ Un agente que corre con tu usuario del sistema puede leer cualquier token guarda
 
 1. Crea un token fine-grained de tu cuenta en `github.com/settings/personal-access-tokens/new`:
    - Contents, Pull requests, Issues, Workflows y Actions: lectura y escritura.
-   - Checks y Commit statuses: lectura.
+   - Commit statuses: lectura. Los tokens fine-grained no tienen permiso Checks; los checks de una PR se leen con los permisos anteriores.
    - Ningún permiso de cuenta.
    - Ni Administration, ni Environments, ni Secrets, ni Variables, ni Deployments.
 2. Cárgalo tú en gh, en tu propio terminal: `read -rs T && printf '%s' "$T" | gh auth login --with-token; unset T`. `read -s` oculta lo que escribes y gh lee el token por stdin. Nunca lo pegues en el chat del agente ni en una línea de comandos.
 3. Revoca las credenciales antiguas con poder de admin:
    - la autorización de GitHub CLI en Settings, Applications, Authorized OAuth Apps, que invalida el token OAuth antiguo de gh;
-   - cualquier token clásico antiguo con el scope `repo`, en Settings, Developer settings, Personal access tokens, Tokens (classic).
+   - cualquier token clásico antiguo con el scope `repo`, en Settings, Developer settings, Personal access tokens, Tokens (classic);
+   - y revisa el resto de Authorized OAuth Apps: un editor con sesión de GitHub, como VS Code, guarda en el portátil un token con `repo` que el agente también podría leer.
 4. Haz los actos de admin (protección de ramas, entornos, secretos y ajustes) en el navegador, con tu passkey o tu 2FA.
 5. Mantén activado en la rama protegida "Do not allow bypassing the above settings" (`enforce_admins`). El token sigue actuando como tú, y eso es lo que impide saltarse la protección al mergear con rol de admin.
 
