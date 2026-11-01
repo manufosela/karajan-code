@@ -1,0 +1,17 @@
+---
+// KJL-TSK-0149: replaces Starlight's Footer to claim the name while the trademark
+// application (OEPM M4413063) is pending: ™ only, never ® until it is granted.
+import Default from '@astrojs/starlight/components/Footer.astro';
+---
+
+<Default />
+<p class="kj-brand">Karajan Code™ · AGPL-3.0</p>
+
+<style>
+	.kj-brand {
+		margin-top: 1.5rem;
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-gray-3);
+		text-align: center;
+	}
+</style>

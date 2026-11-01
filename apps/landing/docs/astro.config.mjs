@@ -45,7 +45,7 @@ export default defineConfig({
 			],
 			customCss: ['./src/styles/custom.css'],
 			// KJC-TSK-1350: the v3 archive pages say they are history (src/archive.mjs).
-			components: { Banner: './src/components/ArchiveBanner.astro' },
+			components: { Banner: './src/components/ArchiveBanner.astro', Footer: './src/components/Footer.astro' },
 			plugins: [
 				starlightSidebarTopics([
 					{
