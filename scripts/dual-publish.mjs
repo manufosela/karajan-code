@@ -7,7 +7,7 @@
  * Uso:
  *   node scripts/dual-publish.mjs --pack-only          # genera+verifica el tarball scoped
  *   node scripts/dual-publish.mjs --publish --otp=XXX  # publica el scoped (tras publicar el legacy)
- *   node scripts/dual-publish.mjs --publish --provenance  # desde CI: trusted publishing, sin OTP (ADR 0035)
+ *   node scripts/dual-publish.mjs --publish --provenance --no-verify  # desde CI (ADR 0035), tras --pack-only en otro job
  *
  * El swap del name es EN SITIO con restauración en finally: un crash a mitad
  * no deja el manifest renombrado. La verificación es el MISMO verify-pack
@@ -50,6 +50,16 @@ export function publishArgs(args) {
   return ["publish", "--ignore-scripts", ...(args.includes("--provenance") ? ["--provenance"] : []), ...(otp ? [`--otp=${otp}`] : [])];
 }
 
+/**
+ * KJC-TSK-1359: the CI publish job holds the OIDC token and installs nothing, so it skips
+ * verify-pack (which installs the tarball and runs its scripts); the verify job ran --pack-only.
+ */
+export function shouldVerify(args) {
+  if (!args.includes("--no-verify")) return true;
+  if (!args.includes("--publish")) throw new Error("dual-publish: --no-verify only goes with --publish; --pack-only always verifies");
+  return false;
+}
+
 // argv[1] normalizado (catch de codex): node lo absolutiza hoy, pero el
 // guard no debe depender de ese detalle de implementación.
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
@@ -60,7 +70,7 @@ if (isMain) {
   await withScopedName(repoRoot, async () => {
     console.log(`dual-publish: manifest → ${SCOPED_NAME} (temporal)`);
     // La E2E real: empaqueta el scoped, instálalo aislado y corre kj.
-    execFileSync("node", [join(repoRoot, "scripts", "verify-pack.mjs")], { cwd: repoRoot, stdio: "inherit" });
+    if (shouldVerify(args)) execFileSync("node", [join(repoRoot, "scripts", "verify-pack.mjs")], { cwd: repoRoot, stdio: "inherit" });
     if (publish) {
       const pubArgs = publishArgs(args);
       console.log(`dual-publish: npm ${pubArgs.join(" ").replace(/--otp=\S+/, "--otp=***")}`);
