@@ -17,7 +17,10 @@ const PR = { headRefOid: "bbb2222", commits: [{ oid: "aaa1111", messageHeadline:
 
 // KJC-BUG-0391: mmm3333 is a clean merge of main (its tree is what git merge-tree gives).
 const MERGE = { rev: "mmm3333 bbb2222 main000", tree: "t1" };
+// KJC-BUG-0470: sss4444 touches only what the signed seal vouches for (a hook + the provenance).
+const NAMES = { sss4444: ".karajan/hooks/pre-push\n.karajan/supervisor-provenance.json\n", aaa1111: "a.js\n" };
 const gitOf = (args) => {
+  if (args[3] === "--name-only") return NAMES[args.at(-1)] ?? "";
   if (args[2] === "rev-list") return args.at(-1) === "mmm3333" ? MERGE.rev : `${args.at(-1)} p0`;
   if (args[2] === "merge-tree" || args[2] === "rev-parse") return MERGE.tree;
   return DIFFS[args.at(-1)] ?? "";
@@ -71,6 +74,18 @@ describe("publishPrReview", () => {
     const posted = [];
     await expect(publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted }) })).rejects.toThrow(/bbb2222 \(fix: b\)/);
     expect(posted).toHaveLength(0);
+  });
+
+  // KJC-BUG-0470: verify-pr accepts the owner's kj harden --commit as a signed act; publish-pr must too.
+  it("the owner's seal commit needs no AI verdict: the review lists it as the sealed act", async () => {
+    await saveVerdict(dir, DIFFS.aaa1111, { verdict: "approved", reviewer: "codex" });
+    const sealed = { signed: true, complete: true, files: new Set([".karajan/hooks/pre-push"]) };
+    const pr = { headRefOid: "sss4444", commits: [PR.commits[0], { oid: "sss4444", messageHeadline: "chore(harden): sealed" }] };
+    const posted = [];
+    expect(await publishPrReview({ projectDir: dir, pr: 42, sealed, run: fakeRun({ posted, pr }) })).toMatchObject({ published: true, commits: 1 });
+    expect(posted[0].join(" ")).toMatch(/sss4444.*sealed act/s);
+    // Unsigned, or a commit that is not the seal: still refused.
+    await expect(publishPrReview({ projectDir: dir, pr: 42, sealed: { ...sealed, signed: false }, run: fakeRun({ pr }) })).rejects.toThrow(/sss4444/);
   });
 
   it("a clean merge of main on top needs no verdict and is not listed", async () => {
