@@ -125,6 +125,13 @@ section.band { padding-block: clamp(4rem, 11vh, 8rem); border-top: 1px solid var
 .pieces { list-style: none; counter-reset: piece; }
 .pieces li { counter-increment: piece; display: grid; grid-template-columns: 3rem 1fr; gap: 0.2rem 1rem; padding-block: 1.05rem; border-bottom: 1px solid var(--line); }
 .pieces li::before { content: counter(piece, decimal-leading-zero); font: 0.85rem var(--mono); color: var(--gold-ink); padding-top: 0.2rem; grid-row: span 2; }
+/* Same colours as the crates in the film: the method in steel, the tools in green. */
+.pieces[data-kind="method"] { --kind: var(--steel-ink); }
+.pieces[data-kind="tool"] { --kind: var(--verdict-ink); }
+.pieces[data-kind] li { border-left: 3px solid var(--kind); padding-left: 1rem; }
+.pieces[data-kind] li::before { color: var(--kind); }
+.pieces small { font: 0.72rem var(--mono); color: var(--verdict-ink); margin-left: 0.4rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.pieces-sub { margin-top: 2.5rem; margin-bottom: 0.4rem; }
 .pieces b { font-weight: 600; }
 .pieces span { color: var(--text-muted); }
 .motto { font: italic 1.5rem/1.3 var(--serif); margin-top: 2rem; max-width: 20ch; }

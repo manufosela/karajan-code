@@ -67,7 +67,7 @@
 
 <main id="main">
   <section class="hero" id="hero" aria-label="Karajan Code">
-    <canvas id="film" data-tools="atril|TDD|Sentinel|AI review|Git gates|SonarQube|Ledger|Steward" data-new-tool="atril" data-new-badge="new" role="img" aria-label="Film: the Karajan conductor robot takes the podium, kaRAGan and kaWATCHan push the method's tools onto a staff, an unreviewed diff is refused and a reviewed one earns the green verdict. atril, new in 5.0, opens the line."></canvas>
+    <canvas id="film" data-kinds="tool|tool|method|method|method|tool|method|method" data-tools="atril|TDD|Sentinel|AI review|Git gates|SonarQube|Ledger|Steward" data-new-tool="atril" data-new-badge="new" role="img" aria-label="Film: the Karajan conductor robot takes the podium, kaRAGan and kaWATCHan push the method's pieces and its tools onto a staff, an unreviewed diff is refused and a reviewed one earns the green verdict. atril, new in 5.0, opens the line."></canvas>
     <img class="hero-still" src="/img/logo-480.webp" alt="" width="420" height="463">
     <div class="wrap hero-inner">
       <div class="hero-copy">
@@ -132,7 +132,8 @@
         <h2>Seven pieces, <em>no opinions.</em></h2>
         <p class="motto">Mechanism where there was opinion. Evidence where there was a claim.</p>
       </div>
-      <ol class="pieces reveal">
+      <div>
+      <ol class="pieces reveal" data-kind="method">
         <li><b>Mandatory cross-review</b><span>A different AI reviews every change, bound to the diff hash.</span></li>
         <li><b>Rules as mechanism</b><span>Norms live in git guards and policy, not in the prompt. Security is never overridable.</span></li>
         <li><b>The Sentinel</b><span>Blocks the forbidden action inside the session, the moment it happens.</span></li>
@@ -141,6 +142,13 @@
         <li><b>Trust expires</b><span>The Steward re-verifies the guarantees on a schedule; stale evidence stops counting.</span></li>
         <li><b>Project memory</b><span>The agent queries the indexed code before it assumes, with secrets kept out.</span></li>
       </ol>
+      <p class="kicker pieces-sub reveal">And three tools it brings in</p>
+      <ol class="pieces reveal" data-kind="tool">
+        <li><b>atril <small>new in 5.0</small></b><span>Skills, commands and subagents for every AI CLI, loaded when a task needs them instead of filling the initial context.</span></li>
+        <li><b>TDD</b><span>The failing test comes first, and the suite is never left red.</span></li>
+        <li><b>SonarQube</b><span>Static analysis and a quality gate on the code you change.</span></li>
+      </ol>
+      </div>
     </div>
   </section>
 
