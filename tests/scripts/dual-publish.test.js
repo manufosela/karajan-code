@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { withScopedName, publishArgs, SCOPED_NAME } from "../../scripts/dual-publish.mjs";
+import { withScopedName, publishArgs, shouldVerify, SCOPED_NAME } from "../../scripts/dual-publish.mjs";
 
 let dir;
 beforeEach(() => {
@@ -50,6 +50,15 @@ describe("withScopedName", () => {
     expect(publishArgs(["--publish", "--provenance"])).toEqual(["publish", "--ignore-scripts", "--provenance"]);
     expect(publishArgs(["--publish", "--otp=123456"])).toEqual(["publish", "--ignore-scripts", "--otp=123456"]);
     expect(publishArgs(["--publish"])).toEqual(["publish", "--ignore-scripts"]);
+  });
+
+  // KJC-TSK-1359: the publish job holds the OIDC token and installs nothing; the verify job
+  // already ran --pack-only, so the publish skips verify-pack (which installs the tarball).
+  it("shouldVerify: verify-pack runs unless --no-verify is given with --publish", () => {
+    expect(shouldVerify(["--pack-only"])).toBe(true);
+    expect(shouldVerify(["--publish", "--otp=123456"])).toBe(true);
+    expect(shouldVerify(["--publish", "--provenance", "--no-verify"])).toBe(false);
+    expect(() => shouldVerify(["--pack-only", "--no-verify"])).toThrow(/--no-verify/);
   });
 
   it("se niega a hacer swap sobre un manifest que NO es el legacy esperado — jamás renombra a ciegas", async () => {
