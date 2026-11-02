@@ -126,7 +126,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       throw new Error(`lane "${slug}" has uncommitted changes — commit them (through the gate) or discard with --force`);
     }
     // HU-3114: the lane's background indexer must not outlive it (any age); a failure never blocks the removal.
-    const stopIndexer = deps.stopBootstrap ?? (await import("../rag/bootstrap-index.js")).stopBootstrap;
+    const stopIndexer = deps.stopBootstrap ?? stopBootstrap;
     const indexerStopped = await stopIndexer(wtPath, { force: true }).catch((err) => {
       console.warn(`warning: could not stop the background indexer of "${slug}": ${err.message}`);
       return null;
