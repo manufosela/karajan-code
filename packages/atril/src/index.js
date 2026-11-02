@@ -4,7 +4,6 @@
  * consumer, calling this module exactly as a third party would.
  */
 import { readFileSync } from "node:fs";
-
 export const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 export { search } from "./search.js";
 export { resolve, resolveBlock } from "./resolve.js";
@@ -18,6 +17,6 @@ export { installFromCatalog } from "./catalog-install.js";
 export { importSkills } from "./import.js";
 export { applyRecommended, recommended } from "./recommended.js";
 export { applyCatalogUpdate, catalogUpdates } from "./update.js";
-export { installPlugin, pluginInstallSet } from "./plugin-install.js";
+export { installPlugin, installPluginSet, pluginInstallSet } from "./plugin-install.js";
 export { declaredPluginConfig,readPluginConfig, writePluginConfig } from "./plugin-config.js";
 export { detectPluginFormat, listPluginMarkdown, readPluginManifest } from "./plugin.js";

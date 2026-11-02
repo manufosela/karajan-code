@@ -13,12 +13,14 @@ import { target } from "./store.js";
 
 /**
  * @param {string} name a plugin the lock's `plugins` section holds
- * @param {{ root?: string, projectDir?: string, env?: object, purge?: boolean }} [opts]
+ * @param {{ root?: string, projectDir?: string, env?: object, purge?: boolean, force?: boolean }} [opts] force: remove even while an installed plugin depends on it
  * @returns {{ plugin: string, removed: string[], purged: boolean, leftBehind?: string[] }} leftBehind: hidden folders the lock no longer knows, that could not be deleted
  */
-export function removePlugin(name, { purge = false, ...opts } = {}) {
+export function removePlugin(name, { purge = false, force = false, ...opts } = {}) {
   const lock = readLock(opts);
   if (!Object.hasOwn(lock.plugins ?? {}, name)) throw new Error(`plugin "${name}" is not installed`);
+  const dependents = Object.entries(lock.plugins).filter(([other, { dependencies = [] }]) => other !== name && dependencies.includes(name)).map(([other]) => other);
+  if (dependents.length && !force) throw new Error(`plugin "${name}" is required by: ${dependents.join(", ")}; remove them first or pass --force`);
   const keys = lock.plugins[name].entries;
   for (const key of keys) {
     const held = lock.artifacts[key]; // absent: already gone from the lock, only the file is left
