@@ -22,7 +22,7 @@ vi.mock("../../src/rag/pid-lease.js", async () => {
   return { ...real, stopLeaseHolder: vi.fn(real.stopLeaseHolder) };
 });
 
-const { startBootstrap, stopBootstrap, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS } = await import("../../src/rag/bootstrap-index.js");
+const { startBootstrap, stopBootstrap, noteDeadline, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS, DEADLINE_MARGIN_MS } = await import("../../src/rag/bootstrap-index.js");
 const { readLease, stopLeaseHolder } = await import("../../src/rag/pid-lease.js");
 const { maybeAutoUpdate } = await import("../../src/rag/auto-update.js");
 
@@ -253,5 +253,41 @@ describe("maybeAutoUpdate without an index", () => {
       await maybeAutoUpdate({ projectDir: root, config: {}, logger });
     }
     expect(warned.filter((l) => /could not be noted/.test(l))).toHaveLength(1);
+  });
+});
+
+// HU-3092: the child stops itself at its deadline; the spawn tells it when, and nobody respawns it.
+describe("bootstrap deadline", () => {
+  let lease;
+  beforeEach(async () => {
+    startBootstrap.mockImplementation((await vi.importActual("../../src/rag/bootstrap-index.js")).startBootstrap); // earlier describes stub it
+    lease = join(root, "locks", "rag-index.json");
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "base"], { cwd: root });
+  });
+  it("the spawn carries KJ_RAG_DEADLINE (MAX_RUN_MS minus the margin) and PATH; argv and the marker command are unchanged", () => {
+    const now = 5_000_000;
+    startBootstrap(root, { spawnFn, bin: "/kj/bin/kj.js", now, lease });
+    expect(DEADLINE_MARGIN_MS).toBe(60_000);
+    expect(spawned[0].opts.env).toMatchObject({ KJ_RAG_DEADLINE: String(now + MAX_RUN_MS - DEADLINE_MARGIN_MS), PATH: process.env.PATH });
+    expect(spawned[0].args).toEqual(["/kj/bin/kj.js", "rag", "index", "--with-sources"]);
+    expect(readBootstrap(root, { now }).command).toBe([process.execPath, "/kj/bin/kj.js", "rag", "index", "--with-sources"].join(" "));
+  });
+  it("a stop by deadline is not respawned in the background, and maybeAutoUpdate warns once", async () => {
+    const now = Date.now();
+    startBootstrap(root, { spawnFn, now, lease });
+    expect(noteDeadline(root, { pid: process.pid, now })).toBe(true);
+    expect(startBootstrap(root, { spawnFn, now: now + RETRY_MS + 1, lease })).toEqual({ started: false, recent: true, stopped: "deadline" });
+    stopBootstrap.mockResolvedValue(null); // the real stops would read this machine's lease
+    stopLeaseHolder.mockResolvedValue(null);
+    for (let i = 0; i < 2; i += 1) expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ reason: "bootstrap-failed" });
+    expect(warned.filter((l) => /deadline.*partial.*kj rag index --with-sources/.test(l))).toHaveLength(1);
+    stopBootstrap.mockReset(); stopLeaseHolder.mockReset();
+  });
+  it("noteDeadline leaves a marker that names another pid untouched", () => {
+    startBootstrap(root, { spawnFn: () => ({ pid: 4242, unref: vi.fn() }), lease });
+    expect(noteDeadline(root, { pid: process.pid })).toBe(true);
+    expect(readBootstrap(root)).toMatchObject({ pid: 4242 });
+    expect(readBootstrap(root).stoppedBy).toBeUndefined();
   });
 });

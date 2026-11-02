@@ -44,8 +44,9 @@ async function bootstrapInBackground({ projectDir, slug, head, logger }) {
     if (stopped.marked === false) warnOnce(logger, `bootstrap-unmarked:${projectDir}`, `[rag] the stop of the background index of ${stopped.slug ?? slug} (pid ${stopped.pid}) could not be noted: it may be started again on the next command; run kj rag index --with-sources by hand`);
   }
   const boot = startBootstrap(projectDir);
-  if (boot.stopped === "max-run") {
-    warnOnce(logger, `bootstrap-stopped:${projectDir}`, `[rag] the background index of ${slug} ran past 60 min and was stopped: run kj rag index --with-sources by hand`);
+  if (boot.stopped) {
+    const why = boot.stopped === "deadline" ? "reached its deadline and left a partial index" : "ran past 60 min and was stopped";
+    warnOnce(logger, `bootstrap-stopped:${projectDir}`, `[rag] the background index of ${slug} ${why}: run kj rag index --with-sources by hand`);
     return { skipped: true, reason: "bootstrap-failed", head };
   }
   if (boot.busy) {

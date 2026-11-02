@@ -62,6 +62,19 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     expect(readEmbedSchema(projectDir)).toBe(EMBED_SCHEMA);
   });
 
+  // HU-3092: past the deadline the walk stops between files; the partial index carries no embed schema.
+  it("indexProject stops between files at the deadline and records no embed schema", async () => {
+    const { readEmbedSchema } = await import("../../src/rag/embed-schema.js");
+    const projectDir = join(root, "proj-deadline");
+    mkdirSync(join(projectDir, "src"), { recursive: true });
+    for (const n of ["a", "b", "c"]) writeFileSync(join(projectDir, "src", `${n}.js`), `export const ${n} = 1;\n`);
+    const ticks = [0, 100]; // checked before file 1 (in time), then before file 2 (past)
+    const now = vi.fn(() => ticks.shift() ?? 100);
+    const totals = await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: join(root, "missing-dl"), logger: noopLogger, withSources: true, deadline: 50, now });
+    expect(totals).toMatchObject({ files: 1, stopped: "deadline" });
+    expect(readEmbedSchema(projectDir)).toBe(1); // the legacy default: nothing was written
+  });
+
   it("indexFile detects onboarding kind for ~/.karajan/onboarding/*.md", async () => {
     mkdirSync(join(root, "onboarding"), { recursive: true });
     const briefPath = join(root, "onboarding", "myproj.md");

@@ -12,6 +12,7 @@ import { fileIndexState } from "../rag/coverage.js";
 import { query } from "../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../rag/path-hits.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
+import { noteDeadline } from "../rag/bootstrap-index.js";
 import { claimLease, indexLeasePath, releaseLease } from "../rag/pid-lease.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
@@ -48,8 +49,22 @@ async function indexFiles({ files, projectDir, db, embedder, slug, logger, json,
   return totals;
 }
 
+// HU-3092: the background indexer is given the time it may stop at; unset, non-numeric or <= 0 means none.
+const deadlineFromEnv = () => { const n = Number(process.env.KJ_RAG_DEADLINE); return Number.isFinite(n) && n > 0 ? n : null; };
+
+// The partial index keeps its chunks but not its commit: the marker says why it stopped, the warning how to finish.
+function reportDeadline({ totals, projectDir, logger, json }) {
+  noteDeadline(projectDir);
+  logger.warn?.(`[rag] KJ_RAG_DEADLINE reached after ${totals.files} file(s): the index is partial and its commit is not recorded; run kj rag index --with-sources by hand`);
+  if (json) process.stdout.write(`${JSON.stringify(totals)}\n`);
+  return totals;
+}
+
 export async function ragIndexCommand({ config, logger, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
+  const deadline = deadlineFromEnv();
+  // Past already (a queued start, a slow machine): nothing is opened, claimed or embedded.
+  if (deadline !== null && Date.now() >= deadline) return reportDeadline({ totals: { indexed: 0, failed: 0, files: 0, stopped: "deadline" }, projectDir, logger, json: flags.json });
   const db = openDb(config);
   try {
     const slug = projectSlug(projectDir);
@@ -87,10 +102,11 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
           db, embedder,
           karajanHome: getKarajanHome(), logger,
           withSources: Boolean(flags.withSources),
-          exclude: ragExclude(config),
+          exclude: ragExclude(config), deadline,
         });
       } finally { if (claim.claimed) releaseLease(lease); }
     }
+    if (totals.stopped) return reportDeadline({ totals, projectDir, logger, json: flags.json });
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
     // KJC-TSK-0697 — the library corpus refreshes on every index run.
     // Best-effort and cheap: a handful of cards, content-hash dedup.
