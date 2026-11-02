@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.2] - 2026-11-02
+
+### Fixed
+- **A lane's `npm ci` no longer repoints the global `karajan-mcp` at the lane** (KJC-BUG-0474, #3128): the postinstall does not register the MCP from a git worktree, and `kj doctor` flags a registration that already points into a lane and repoints it (run from a lane, it only warns).
+- **The Sentinel lets you resolve a rebase conflict** (KJC-BUG-0475, #3125): during a rebase HEAD is detached, and the card-first gate denied the edit that resolves it; it now judges the branch being rebased, also inside a lane.
+- **`kj solomon` says why it will not arbitrate** (KJC-BUG-0476, #3137): a security refusal names each blocking finding, why it counts as security (its category or the matched term) and its description. The rule does not change.
+- **`kj review --publish-pr` publishes again when the PR gained a commit** (KJC-BUG-0477, #3127): a stacked PR retargeted to `main` brings its base's commit under the same head; the old review missed it and verify-pr stayed red.
+- **`kj doctor` and `kj init` warn when the default branch is not `main`** (KJC-BUG-0473, #3080), with how to rename it in GitHub and update the clone: with `master`, every gate kj writes for `main` never runs.
+
+### Changed
+- **Dependencies inside their declared ranges are up to date** (KJC-BUG-0479), among them karajan-rag 1.8.0, express 5.3.0 and @modelcontextprotocol/sdk 1.32.2.
+
+### Documentation
+- **How to verify what you installed** (KJC-TSK-1364): `npm audit signatures` for the npm package and `gh attestation verify` for the standalone binaries, in the README and the install docs.
+
 ## [5.0.1] - 2026-11-02
 
 ### Added
