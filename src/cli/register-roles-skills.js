@@ -10,7 +10,7 @@ import { withConfig } from "./_shared.js";
 export function registerRolesSkills(program, { pkgVersion }) {
   program
     .command("skills [action] [args...]")
-    .description("Manage the skill cache (list | clear-cache | sync-addyosmani | list-addyosmani) and, through atril, the .karajan store (search | route | scan | install | remove | graph | enrich | config)")
+    .description("Manage the skill cache (list | clear-cache | sync-addyosmani | list-addyosmani) and, through atril, the .karajan store (search, which translates a non-English query first | route | scan | install | remove | graph | enrich | config)")
     // KJC-TSK-1193: atril's options (--json, --kind, --role, --root) travel to atril untouched.
     .allowUnknownOption()
     .action(async (action, args) => {
