@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.0.2: fixes for lanes, rebases and reviews (current)
+### v5.0.3: doctor fails on a default branch other than main (current)
+
+`kj doctor` now fails, and exits 1, while the repository's default branch is not `main`: every gate kj writes for `main` never runs there. 5.0.2 only warned.
+
+### v5.0.2: fixes for lanes, rebases and reviews
 
 A lane's `npm ci` no longer repoints the global MCP at the lane, the Sentinel lets you resolve a rebase conflict, `kj solomon` names the finding when it refuses on security grounds, `kj review --publish-pr` publishes again when a PR gains a commit, and `kj doctor` and `kj init` warn when the default branch is not `main`. The install docs show how to verify what you installed.
 

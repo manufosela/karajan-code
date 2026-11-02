@@ -37,6 +37,25 @@ describe("substitutePluginVars", () => {
   });
 });
 
+describe("substitutePluginVars with user_config", () => {
+  const text = "${user_config.dir} ${user_config.unset} ${user_config.token} ${user_config.nope}";
+  const userConfig = { dir: { value: "/work" }, unset: {}, token: { sensitive: true, value: "s3cret" } };
+  it("fills a declared value and reports not set, sensitive and undeclared, never the secret", () => {
+    const out = substitutePluginVars(text, {}, userConfig);
+    expect(out.text).toBe("/work ${user_config.unset} ${user_config.token} ${user_config.nope}");
+    expect(out.unresolved).toEqual([
+      { variable: "user_config.unset", reason: "not set" },
+      { variable: "user_config.token", reason: "sensitive" },
+      { variable: "user_config.nope", reason: "undeclared" },
+    ]);
+    expect(JSON.stringify(out)).not.toContain("s3cret");
+  });
+  it("inserts the value literally and treats an inherited name as undeclared", () => {
+    expect(substitutePluginVars("${user_config.a}", {}, { a: { value: "$&$1" } }).text).toBe("$&$1");
+    expect(substitutePluginVars("${user_config.constructor}", {}, {}).unresolved).toEqual([{ variable: "user_config.constructor", reason: "undeclared" }]);
+  });
+});
+
 describe("pluginDataDir", () => {
   it("sits outside the version folders and refuses unsafe names", () => {
     expect(pluginDataDir("/s", "kit")).toBe(join("/s", "plugins", ".data", "kit"));
@@ -127,6 +146,35 @@ describe("plugin variables at resolve", () => {
     installPluginMarkdown(bare("loose"), opts);
     expect(readLock(opts).plugins.pinned.version).toBe("aaaaaaaaaaaa");
     expect(readLock(opts).plugins.loose.version).toBe("local");
+  });
+
+  describe("user_config at resolve", () => {
+    const declare = (cache, userConfig) => write(cache, ".claude-plugin/plugin.json", JSON.stringify({ name: "kit", version: "1.0.0", userConfig }));
+    const configured = (userConfig) => {
+      const p = project();
+      write(p.cache, "commands/cfg.md", "---\ndescription: Cfg\n---\n${user_config.dir} ${user_config.unset} ${user_config.token}\n");
+      declare(p.cache, userConfig);
+      installPluginMarkdown(p.cache, p.opts);
+      return p;
+    };
+    const decl = { dir: {}, unset: {}, token: { sensitive: true } };
+    it("fills a non-sensitive value on resolve; the store text and the lock hashes do not change", () => {
+      const p = configured(decl);
+      const stored = join(p.store, "commands/kit__cfg.md");
+      const [before, lock] = [readFileSync(stored, "utf8"), readFileSync(join(p.store, "atril.lock.json"), "utf8")];
+      write(p.store, "atril.json", JSON.stringify({ pluginConfig: { kit: { dir: "/work" } } }));
+      const opts = { ...p.opts, env: { ...process.env, ATRIL_PLUGIN_KIT_TOKEN: "s3cret" } };
+      const out = resolveBlock("command:kit__cfg", opts);
+      expect(out.block[0].content).toBe("/work ${user_config.unset} ${user_config.token}\n");
+      expect(out.unresolved.map(({ variable, reason }) => [variable, reason])).toEqual([["user_config.unset", "not set"], ["user_config.token", "sensitive"]]);
+      expect(JSON.stringify(out)).not.toContain("s3cret");
+      expect(readFileSync(stored, "utf8")).toBe(before);
+      expect(readFileSync(join(p.store, "atril.lock.json"), "utf8")).toBe(lock);
+    });
+    it("reports a key the manifest does not declare as undeclared", () => {
+      const p = configured({ dir: {} });
+      expect(resolveBlock("command:kit__cfg", p.opts).unresolved.map(({ reason }) => reason)).toEqual(["not set", "undeclared", "undeclared"]);
+    });
   });
 
   describe("on demand: route, MCP and sync", () => {
