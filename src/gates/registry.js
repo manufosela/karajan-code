@@ -23,6 +23,8 @@ export const ADJUSTABLE_RULES = [
   { id: "mutation", key: "mutation", levels: ["off", "warn", "block"], default: "off", text: "surviving mutants after green" },
   { id: "claims", key: "claims", levels: ["off", "warn", "block"], text: "data in a final message its own source denies" },
   { id: "steward", key: "steward", levels: ["inform", "block"], default: "inform", text: "a broken project state when work starts" },
+  // KJC-TSK-1386: choices, not levels: only leaving "free" tightens; any other move loosens.
+  { id: "commit-convention", key: "commit_convention", levels: ["free", "project", "conventional"], unordered: true, default: "conventional", text: "the commit message convention (conventional, the project's commitlint, or free)" },
 ];
 
 const defaultOf = (rule) => DEFAULTS.method_gates[rule.key] ?? rule.default;
@@ -41,18 +43,24 @@ export function parseRuleValue(rule, raw) {
 /** True when `next` is stricter than `current` for this rule. */
 export function stricter(rule, current, next) {
   if (rule.number) return typeof next === "number" && next < current;
+  if (rule.unordered) return current === rule.levels[0] && next !== current && rule.levels.includes(next);
   return rule.levels.includes(next) && rule.levels.indexOf(next) > rule.levels.indexOf(current);
 }
 
 /**
  * @param {object} config the merged kj config
- * @param {{ tighten?: Array<{rule: string, value: unknown, by: string}> }} [opts] tightenings declared by skills
+ * @param {{ tighten?: Array<{rule: string, value: unknown, by: string}>,
+ *   project?: Record<string, {value: unknown, evidence: string}> }} [opts] tightenings declared by
+ *   skills; what the project says (src/gates/project-conventions.js), between the defaults and kj.config.yml
  */
-export function resolveRules(config, { tighten = [] } = {}) {
+export function resolveRules(config, { tighten = [], project = {} } = {}) {
   const gates = config?.method_gates || {};
   const adjustable = ADJUSTABLE_RULES.map((rule) => {
-    const value = gates[rule.key] ?? defaultOf(rule);
-    return { ...rule, value, origin: value === defaultOf(rule) ? "default" : "kj.config.yml" };
+    const set = gates[rule.key];
+    if (set !== undefined && set !== defaultOf(rule)) return { ...rule, value: set, origin: "kj.config.yml" };
+    const said = project[rule.id];
+    if (said) return { ...rule, value: said.value, origin: `project: ${said.evidence}` };
+    return { ...rule, value: defaultOf(rule), origin: "default" };
   });
   const ignored = [];
   for (const t of tighten) {

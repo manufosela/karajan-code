@@ -768,10 +768,14 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--json", "Output the resolved rules as JSON")
     .action(async (action, rule, value, flags) => {
       await withConfig(pkgVersion, "gates", flags, async ({ config }) => {
-        const { gatesCommand, gatesSetCommand } = await import("../commands/gates.js");
-        if (action === "set") await gatesSetCommand({ config, rule, value, kjVersion: pkgVersion, projectDir: config?.projectDir || process.cwd() });
-        else if (action) throw new Error(`unknown action "${action}": kj gates, or kj gates set <rule> <value>`);
-        else gatesCommand({ config, flags });
+        const { gatesCommand, gatesSetCommand, gatesValueCommand } = await import("../commands/gates.js");
+        const { detectProjectConventions } = await import("../gates/project-conventions.js");
+        const projectDir = config?.projectDir || process.cwd();
+        const project = detectProjectConventions(projectDir);
+        if (action === "set") await gatesSetCommand({ config, project, rule, value, kjVersion: pkgVersion, projectDir });
+        else if (action === "value") gatesValueCommand({ config, project, rule });
+        else if (action) throw new Error(`unknown action "${action}": kj gates, kj gates value <rule> or kj gates set <rule> <value>`);
+        else gatesCommand({ config, project, flags });
       });
     });
 
