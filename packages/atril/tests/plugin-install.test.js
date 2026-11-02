@@ -6,8 +6,8 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeConfig } from "../src/config.js";
 import { SAFE } from "../src/fetch.js";
-import { readLock } from "../src/lock.js";
-import { installPlugin } from "../src/plugin-install.js";
+import { readLock, recordPlugin } from "../src/lock.js";
+import { installPlugin, pluginInstallSet } from "../src/plugin-install.js";
 
 const C1 = "a".repeat(40);
 let dir, calls, runs, tree, confirm;
@@ -45,6 +45,38 @@ const o = () => ({ projectDir: dir, root: "store", userRoot: join(dir, "nouser")
 const install = (opts = o()) => installPlugin("kit", opts, { confirm, git, run });
 const lock = () => readLock(o());
 const GH = { source: "github", repo: "o/r", sha: C1 };
+
+describe("pluginInstallSet", () => {
+  // Every plugin in `manifests` is offered by one marketplace and planted as a relative path.
+  const offer = (manifests) => {
+    for (const [name, extra] of Object.entries(manifests)) put(dir, `mkt/plugins/${name}/.claude-plugin/plugin.json`, { name, version: "1.0.0", ...extra });
+    put(dir, "mkt/.claude-plugin/marketplace.json", { name: "m", plugins: Object.keys(manifests).map((name) => ({ name, source: `./plugins/${name}` })) });
+    writeConfig({ catalogs: ["mkt"] }, o());
+  };
+
+  it("puts the dependencies first, in the order the plugin lists them, and the plugin last", () => {
+    offer({ app: { dependencies: ["b", "a"] }, a: {}, b: { dependencies: ["a"] } });
+    expect(pluginInstallSet("app", o())).toEqual(["a", "b", "app"]);
+  });
+
+  it("fails naming the plugin that needs a missing dependency and the catalogs searched", () => {
+    offer({ app: { dependencies: ["ghost"] } });
+    expect(() => pluginInstallSet("app", o())).toThrow(/app.*ghost.*not found in the catalogs: .*mkt/);
+  });
+
+  it("fails naming a cycle", () => {
+    offer({ a: { dependencies: ["b"] }, b: { dependencies: ["a"] } });
+    expect(() => pluginInstallSet("a", o())).toThrow("a -> b -> a");
+  });
+
+  it("leaves an installed dependency out, but keeps the plugin itself", async () => {
+    offer({ app: { dependencies: ["a", "b"] }, a: {}, b: {} });
+    recordPlugin("a", { catalog: "mkt", version: "1.0.0", entries: [] }, o());
+    expect(pluginInstallSet("app", o())).toEqual(["b", "app"]);
+    recordPlugin("app", { catalog: "mkt", version: "1.0.0", entries: [] }, o());
+    expect(pluginInstallSet("app", o())).toEqual(["b", "app"]);
+  });
+});
 
 describe("installPlugin", () => {
   it("installs a Markdown-only plugin and records it", async () => {

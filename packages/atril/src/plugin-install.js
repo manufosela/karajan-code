@@ -6,13 +6,45 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { findPlugin } from "./catalog.js";
-import { installNpmDeps } from "./plugin-deps.js";
+import { readLock } from "./lock.js";
+import { dependencyOrder, installNpmDeps, pluginDependencies } from "./plugin-deps.js";
 import { fetchPlugin } from "./plugin-fetch.js";
 import { installPluginMarkdown } from "./plugin-markdown.js";
+import { readPluginManifest } from "./plugin.js";
 import { pluginInventory } from "./plugin-trust.js";
 
 // What the lock records of a source: never a local path, which would carry the home folder.
 const LABEL = { github: (s) => s.repo, git: (s) => s.url, "git-subdir": (s) => `${s.url} (${s.path})` };
+
+/**
+ * The plugins to install for `name`, dependencies first and `name` last: every dependency is
+ * resolved through findPlugin, recursively (matching by name only). A dependency already in the
+ * lock is left out and not followed; `name` itself is always kept, so a reinstall still works.
+ * A missing dependency names the plugin that needs it; a cycle names the loop.
+ * @param {string} name
+ * @param {Parameters<typeof findPlugin>[1]} [opts]
+ * @param {{ git?: Function, gitBase?: string }} [how] how plugins are fetched to read their manifests
+ * @returns {string[]}
+ */
+export function pluginInstallSet(name, opts = {}, { git, gitBase } = {}) {
+  const installed = readLock(opts).plugins ?? {};
+  const set = [];
+  const visit = (plugin, neededBy) => {
+    if (set.some((entry) => entry.name === plugin)) return;
+    let manifest;
+    try {
+      const { source } = findPlugin(plugin, opts);
+      manifest = readPluginManifest(fetchPlugin(source, { ...opts, name: plugin }, { git, gitBase }).dir).manifest;
+    } catch (e) {
+      throw new Error(neededBy ? `${neededBy} depends on ${plugin}: ${e.message}` : e.message, { cause: e });
+    }
+    const missing = pluginDependencies(manifest).filter((dep) => !Object.hasOwn(installed, dep.name));
+    set.push({ name: plugin, manifest: { dependencies: missing } });
+    for (const dep of missing) visit(dep.name, plugin);
+  };
+  visit(name);
+  return dependencyOrder(set);
+}
 
 /**
  * @param {string} name a plugin a catalog offers
