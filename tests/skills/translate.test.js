@@ -1,6 +1,6 @@
 // HU-2782 (ADR 0039, decision 2): a non-English skill-search query is translated by the `translator` role.
 import { describe, it, expect, vi } from "vitest";
-import { looksNonEnglish, panelAsk, translateQuery } from "../../src/skills/translate.js";
+import { looksNonEnglish, panelAsk, translateDescriptions, translateQuery } from "../../src/skills/translate.js";
 
 describe("looksNonEnglish", () => {
   it.each(["formulario de inscripción", "¿qué hago?", "sin errores", "Validación SIN errores", "usar ESTE patrón"])("%s is not English", (query) => {
@@ -31,6 +31,24 @@ describe("translateQuery", () => {
     await expect(translateQuery({ query: "q", ask: ask("sorry") })).rejects.toThrow("not valid JSON");
     await expect(translateQuery({ query: "q", ask: ask('{"lang":"es"}') })).rejects.toThrow("no english text");
     await expect(translateQuery({ query: "q", ask: ask('{"english":"  "}') })).rejects.toThrow("no english text");
+  });
+});
+
+describe("translateDescriptions", () => {
+  const ask = (text) => vi.fn(async () => text);
+
+  it("translates all the texts in one call, in order, with the target language in the prompt", async () => {
+    const spy = ask('["formularios","validación"]');
+    expect(await translateDescriptions({ texts: ["forms", "validation"], lang: "es", ask: spy })).toEqual(["formularios", "validación"]);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toContain('"es"');
+    expect(spy.mock.calls[0][0]).toContain(JSON.stringify(["forms", "validation"]));
+  });
+
+  it("throws on a wrong-length answer, bad JSON or a non-string item", async () => {
+    await expect(translateDescriptions({ texts: ["a", "b"], lang: "es", ask: ask('["x"]') })).rejects.toThrow("array of 2 strings");
+    await expect(translateDescriptions({ texts: ["a"], lang: "es", ask: ask("sorry") })).rejects.toThrow("not valid JSON");
+    await expect(translateDescriptions({ texts: ["a"], lang: "es", ask: ask("[3]") })).rejects.toThrow("array of 1 strings");
   });
 });
 

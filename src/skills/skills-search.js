@@ -7,7 +7,7 @@ import { loadConfig } from "../config/loader.js";
 import { createLogger } from "../utils/logger.js";
 import { ATRIL_ROOT } from "./atril-skills.js";
 import { atrilSearch } from "./atril-cli.js";
-import { looksNonEnglish, panelAsk, translateQuery } from "./translate.js";
+import { looksNonEnglish, panelAsk, translateDescriptions, translateQuery } from "./translate.js";
 
 // Text from an artifact author or an agent must not drive the terminal.
 const printable = (text) => [...String(text)]
@@ -16,6 +16,22 @@ const printable = (text) => [...String(text)]
 
 // Errors only, to stderr: the agent's progress lines must never mix into the results on stdout.
 const lazyAsk = async (prompt) => panelAsk({ config: (await loadConfig()).config, logger: createLogger("error") })(prompt);
+
+const TOP_HITS = 10;
+
+// The top hits' descriptions back into the asker's language, in one call; never the name, kind, source or score.
+async function describeIn(hits, lang, { ask, err, translation }) {
+  const top = hits.slice(0, TOP_HITS);
+  if (top.length === 0) return hits;
+  try {
+    const texts = await translateDescriptions({ texts: top.map((h) => h.description), lang, ask });
+    return hits.map((h, i) => (i < TOP_HITS ? { ...h, description: texts[i], description_en: h.description } : h));
+  } catch (cause) {
+    translation.error = cause.message;
+    err(`kj: translation unavailable (${cause.message}); showing the original descriptions`);
+    return hits;
+  }
+}
 
 export async function skillsSearch({ args, deps = {} }) {
   const { search = atrilSearch, ask = lazyAsk, out = (line) => process.stdout.write(`${line}\n`), err = (line) => process.stderr.write(`${line}\n`) } = deps;
@@ -31,8 +47,12 @@ export async function skillsSearch({ args, deps = {} }) {
     if (!values["no-translate"] && (found.hits.length === 0 || looksNonEnglish(query))) {
       try {
         const { english, lang } = await translateQuery({ query, ask });
-        if (english !== query) found = await search(english, opts);
+        if (english !== query) {
+          found = await search(english, opts);
+          err(`kj: searched in English: ${JSON.stringify(english)}`);
+        }
         Object.assign(translation, { english, lang, translated: true });
+        if (lang && lang !== "en") found = { ...found, hits: await describeIn(found.hits, lang, { ask, err, translation }) };
       } catch (cause) {
         translation.error = cause.message;
         err(`kj: translation unavailable (${cause.message}); showing results for the untranslated query`);
