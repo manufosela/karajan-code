@@ -1,0 +1,19 @@
+{
+  "sources": [
+    {
+      "source": "addyosmani/agent-skills/skills",
+      "commit": "301b02b12bff98e4688e6984af6556802322bbde",
+      "note": "engineering skills, picked one per task; its commands overlap kj-* and are never installed"
+    },
+    {
+      "source": "anthropics/skills/skills",
+      "commit": "ca45fc496a3436251f191354091d557da31c15b5",
+      "note": "official skills (webapp-testing, mcp-builder, docs formats), picked one per task"
+    },
+    {
+      "source": "trailofbits/skills",
+      "commit": "2be6433b39e009cd2b6fd3be1895f6b1faa5af9a",
+      "note": "security review skills and plugins, picked one per task"
+    }
+  ]
+}
