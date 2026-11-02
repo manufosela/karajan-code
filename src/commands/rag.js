@@ -60,11 +60,24 @@ function reportDeadline({ totals, projectDir, logger, json }) {
   return totals;
 }
 
-export async function ragIndexCommand({ config, logger, flags = {} }) {
+// HU-3116: the cooperative stop only looks between files; a hung embed call is ended this long after the deadline.
+// It stays inside DEADLINE_MARGIN_MS (60 s), so the child is gone before its lease reads as expired.
+export const BACKSTOP_GRACE_MS = 30 * 1000;
+
+export async function ragIndexCommand({ config, logger, flags = {}, backstop = {} }) {
+  const { setTimer = setTimeout, clearTimer = clearTimeout, exit = process.exit } = backstop;
   const projectDir = config?.projectDir || process.cwd();
   const deadline = deadlineFromEnv();
   // Past already (a queued start, a slow machine): nothing is opened, claimed or embedded.
   if (deadline !== null && Date.now() >= deadline) return reportDeadline({ totals: { indexed: 0, failed: 0, files: 0, stopped: "deadline" }, projectDir, logger, json: flags.json });
+  let heldLease = null;
+  const timer = deadline === null ? null : setTimer(() => {
+    if (heldLease) releaseLease(heldLease);
+    noteDeadline(projectDir);
+    logger.warn?.("[rag] KJ_RAG_DEADLINE passed with an embed call still hung: the index is partial and its commit is not recorded; run kj rag index --with-sources by hand");
+    exit(0);
+  }, Math.max(0, deadline + BACKSTOP_GRACE_MS - Date.now()));
+  timer?.unref?.();
   const db = openDb(config);
   try {
     const slug = projectSlug(projectDir);
@@ -97,6 +110,7 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
       const lease = indexLeasePath();
       const claim = claimLease(lease, { projectDir, slug }, { kin: [process.ppid] });
       if (claim.holder) logger.warn?.(`[rag] another index is running (${claim.holder.slug ?? "?"}, pid ${claim.holder.pid}); indexing anyway`);
+      if (claim.claimed) heldLease = lease;
       try {
         totals = await indexProject(projectDir, {
           db, embedder,
@@ -125,6 +139,7 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
     }
     return totals;
   } finally {
+    if (timer) clearTimer(timer);
     db.close();
   }
 }
