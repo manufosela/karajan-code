@@ -15,7 +15,7 @@
       --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'JetBrains Mono', 'SF Mono', monospace;
       --serif: 'Instrument Serif', Georgia, serif;
-      --baton-gold: #e8b04b; --baton-gold-deep: #b7832a;
+      --baton-gold: #e8b04b; --baton-gold-deep: #8a5f14;
       --brand-steel: #6b8fa3; --brand-steel-light: #8cb4c9;
     }
     :root, [data-theme="dark"] {
@@ -67,14 +67,14 @@
     .fam-links { font-family: var(--mono); font-size: 0.8rem; display: flex; gap: 1.1rem; flex-wrap: wrap; }
     .fam-links a { text-decoration: none; }
     .fam-links a:hover { text-decoration: underline; }
-    .brewing { opacity: 0.82; border-style: dashed; }
+    .brewing { border-style: dashed; }
     .fits { border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); padding: 2rem; }
     .fits h2 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; }
     .fits p { color: var(--text-dim); margin: 0.7rem 0 1rem; font-size: 0.95rem; }
     .fits ul { list-style: none; display: grid; gap: 0.5rem; font-size: 0.95rem; color: var(--text-muted); }
     .fits li strong { color: var(--text); font-weight: 600; }
     .foot { text-align: center; padding: 2rem 0 3rem; color: var(--text-dim); font-size: 0.85rem; }
-    .foot a { color: var(--accent); text-decoration: none; }
+    .foot a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
     @media (max-width: 760px) {
       .fam-row { grid-template-columns: 1fr; gap: 1.2rem; padding: 1.5rem; }
       .fam-row:nth-child(even) .fam-media { order: 0; }
