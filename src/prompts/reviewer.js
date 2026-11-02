@@ -35,7 +35,7 @@ const SERENA_INSTRUCTIONS = [
  * on it; the per-review content (task context + git diff, up to 12 KB
  * and always different) goes last.
  */
-export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null, roleSkillBlock = null }) {
+export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null, roleSkillBlock = null, factsBlock = null }) {
   const { body: clippedDiff, note: clipNote } = clipDiff(diff);
   // KJC-BUG-0138: full diff on purpose — the moved-to side survives clipping.
   const splitSignal = buildSplitSignal(diff);
@@ -71,6 +71,8 @@ export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode,
     section(`Review rules:\n${reviewRules}`, STABLE),
     section(skillSection, STABLE),
     section(`Task context:\n${task}`, VOLATILE),
+    // KJC-TSK-1380 (#3207): facts computed without a model, before the diff they describe.
+    section(factsBlock || null, VOLATILE),
     section(`Git diff:\n${clippedDiff}`, VOLATILE),
     section(clipNote, VOLATILE),
     section(splitSignal, VOLATILE),
