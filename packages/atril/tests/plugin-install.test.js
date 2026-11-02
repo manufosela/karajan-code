@@ -159,6 +159,15 @@ describe("installPlugin", () => {
       expect(result.notInstalled.mcpServers).toEqual([]);
     });
 
+    it("points a script of the plugin to its copy in the store and reports the rewrite", async () => {
+      withMcp();
+      mkdirSync(join(dir, ".rulesync"));
+      const rulesync = (_cmd, args) => { if (args.includes("import")) put(args[args.indexOf("--output-root") + 1], ".rulesync/mcp.json", { mcpServers: { db: { command: "./servers/x" } } }); };
+      const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });
+      expect(JSON.parse(readFileSync(join(dir, ".rulesync", "mcp.json"), "utf8")).mcpServers.db.command).toBe("./store/plugins/kit/1.0.0/servers/x");
+      expect(result.rulesync).toEqual({ status: "merged", rewritten: true });
+    });
+
     it("installs the Markdown, writes no entry and says what was left out when rulesync is absent", async () => {
       withMcp();
       const result = await installPlugin("kit", o(), { confirm, git, run, rulesync: () => { throw new Error("absent"); } });

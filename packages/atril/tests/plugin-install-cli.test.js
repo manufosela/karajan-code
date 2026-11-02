@@ -97,6 +97,12 @@ describe("notInstalledLines", () => {
   it("prefixes each line with the plugin name when asked", () => {
     expect(notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [], bin: [] } }, "dep")).toEqual(["atril: dep: not installed yet: 1 hook(s)"]);
   });
+  it("asks the team to run atril sync once when script paths were rewritten, and not otherwise", () => {
+    const base = { notInstalled: { hooks: [], mcpServers: [], bin: [] } };
+    const lines = notInstalledLines({ ...base, rulesync: { status: "merged", rewritten: true } });
+    expect(lines.filter((line) => line.includes("atril sync"))).toHaveLength(1);
+    expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/atril sync/);
+  });
   it("lists hooks, MCP servers, bin and unsupported npm", () => {
     const text = notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [{ name: "db" }], bin: ["x"] }, npm: { status: "unsupported", reason: "no lockfile" } }).join("\n");
     expect(text).toMatch(/1 hook/);

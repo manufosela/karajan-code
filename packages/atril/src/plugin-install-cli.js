@@ -43,7 +43,8 @@ export function updateConfirm({ yes, tty, ask, err }) {
 export function notInstalledLines({ notInstalled: { hooks, mcpServers, bin }, npm, rulesync }, name) {
   const who = name ? `${name}: ` : "";
   const absent = rulesync?.status === "absent" ? [`atril: ${who}rulesync is not installed, so the hooks and MCP servers below were left out: install rulesync and run the install again`] : [];
-  return [...absent, ...(rulesync?.status === "merged" ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...[
+  const sync = rulesync?.rewritten ? [`atril: ${who}its hook and MCP commands point to its copy in the store: the team must run \`atril sync\` to have that copy (the store may not be committed)`] : [];
+  return [...absent, ...(rulesync?.status === "merged" ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...sync, ...[
     ...(hooks.length ? [`${hooks.length} hook(s)`] : []),
     ...(mcpServers.length ? [`${mcpServers.length} MCP server(s): ${mcpServers.map(({ name }) => JSON.stringify(name)).join(" ")}`] : []),
     ...(bin.length ? [`${bin.length} executable(s) in bin/`] : []),
