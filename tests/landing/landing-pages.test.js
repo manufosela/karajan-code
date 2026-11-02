@@ -8,7 +8,9 @@ import { T, SLOTS } from "../../apps/landing/public/film/timeline.js";
 const publicDir = new URL("../../apps/landing/public/", import.meta.url);
 const pages = { en: "index.html", es: "es/index.html" };
 const read = (path) => readFileSync(new URL(path, publicDir), "utf8");
-const filmModules = readdirSync(new URL("film/", publicDir)).filter((f) => f.endsWith(".js"));
+// The modules the pages load: film/ and its pieces (film/family/ only feeds the portrait bench).
+const filmModules = readdirSync(new URL("film/", publicDir), { recursive: true })
+  .filter((f) => f.endsWith(".js") && !f.startsWith("family/"));
 // Both languages sort the crates the same way; English is the reference.
 const enKinds = read(pages.en).match(/data-kinds="([^"]+)"/)?.[1].split("|");
 
