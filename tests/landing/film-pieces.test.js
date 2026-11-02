@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 // KJL-TSK-0155: the method's pieces are characters of the orchestra, built on one
 // frame (film/piece.js) with a body each that says what it does.
 const read = (path) => readFileSync(new URL(`../../apps/landing/public/film/${path}`, import.meta.url), "utf8");
-const BODIES = { tdd: "tddBody", sentinel: "sentinelBody", review: "reviewBody" };
+const BODIES = {
+  tdd: "tddBody", sentinel: "sentinelBody", review: "reviewBody", gates: "gatesBody",
+  sonar: "sonarBody", ledger: "ledgerBody", steward: "stewardBody",
+};
 
 describe("film pieces", () => {
   const frame = read("piece.js");
