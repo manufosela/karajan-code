@@ -7,11 +7,22 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { readLock } from "./lock.js";
 import { SAFE_NAME } from "./plugin.js";
+import { declaredPluginConfig, readPluginConfig } from "./plugin-config.js";
 import { pluginPaths } from "./plugin-source.js";
 import { keyOf, resolveRoot } from "./scan.js";
 
 const VARIABLE = /\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT|CLAUDE_PLUGIN_DATA|PLUGIN_DATA|CLAUDE_SKILL_DIR|user_config\.[A-Za-z_][A-Za-z0-9_]*)\}/g;
 const DATA = /\$\{(?:CLAUDE_)?PLUGIN_DATA\}/;
+
+const USER_CONFIG = /\$\{user_config\./;
+
+// The plugin's declared keys with THIS machine's values. A sensitive key carries no value at all, so a
+// secret cannot reach the Markdown, a reason or an error from here.
+function pluginUserConfig({ name, dir }, opts) {
+  const declared = declaredPluginConfig(dir);
+  const values = readPluginConfig(name, { ...opts, keys: declared.map(({ key }) => key) });
+  return Object.fromEntries(declared.map(({ key, sensitive }) => [key, sensitive ? { sensitive } : { value: values[key] }]));
+}
 
 /** Whether a text names a plugin path variable, whatever its value would be. */
 export const usesPluginVars = (text) => text.search(VARIABLE) !== -1;
@@ -25,16 +36,23 @@ export function pluginDataDir(root, name) {
 /**
  * Pure. A replacer function keeps `$&` or `$1` in a path literal. A variable with no value stays
  * as written and is reported; runtime, brace-less and shell variables are left unreported.
- * `${user_config.*}` waits for step 13c3 part ii: reported as undeclared.
+ * `${user_config.KEY}` follows `userConfig` (declared keys only, `{ sensitive?, value? }`): a value is
+ * filled; no value is "not set"; an undeclared key is "undeclared"; a sensitive key is NEVER filled
+ * ("sensitive"), and its value is not even looked at.
  * @param {string} text
  * @param {Record<string, string>} values by variable name
+ * @param {Record<string, { sensitive?: boolean, value?: unknown }>} [userConfig] by key
  * @returns {{ text: string, unresolved: { variable: string, reason: string }[] }}
  */
-export function substitutePluginVars(text, values) {
+export function substitutePluginVars(text, values, userConfig = {}) {
   const unresolved = [];
   const out = text.replace(VARIABLE, (whole, variable) => {
-    if (variable.startsWith("user_config.")) unresolved.push({ variable, reason: "undeclared" });
-    else if (Object.hasOwn(values, variable)) return values[variable];
+    if (variable.startsWith("user_config.")) {
+      const key = variable.slice("user_config.".length);
+      const option = Object.hasOwn(userConfig, key) ? userConfig[key] : undefined;
+      if (option && !option.sensitive && option.value !== undefined) return String(option.value);
+      unresolved.push({ variable, reason: !option ? "undeclared" : option.sensitive ? "sensitive" : "not set" });
+    } else if (Object.hasOwn(values, variable)) return values[variable];
     else unresolved.push({ variable, reason: "no value" });
     return whole;
   });
@@ -80,10 +98,11 @@ export function pluginSubstituter(opts = {}) {
       Object.assign(values, { CLAUDE_PLUGIN_DATA: data, PLUGIN_DATA: data });
     }
     if (where.dir) Object.assign(values, { CLAUDE_PLUGIN_ROOT: where.dir, PLUGIN_ROOT: where.dir });
-    const filled = substitutePluginVars(text, values);
+    const userConfig = where.dir && USER_CONFIG.test(text) ? pluginUserConfig(where, opts) : {};
+    const filled = substitutePluginVars(text, values, userConfig);
     for (const { variable, reason } of filled.unresolved) {
       // A skill always has CLAUDE_SKILL_DIR, so an unfilled one belongs to a command or an agent.
-      const why = variable === "CLAUDE_SKILL_DIR" ? { reason: "skill-only" } : reason === "undeclared" ? { reason } : where;
+      const why = variable === "CLAUDE_SKILL_DIR" ? { reason: "skill-only" } : variable.startsWith("user_config.") ? { reason } : where;
       unresolved.push({ ref: keyOf(artifact), variable, reason: why.reason, ...(why.hint && { hint: why.hint }) });
     }
     done.set(memo, filled.text);

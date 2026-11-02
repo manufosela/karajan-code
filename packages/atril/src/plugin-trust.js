@@ -5,6 +5,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import yaml from "js-yaml";
 import { FRONTMATTER, isMapping } from "./model.js";
 import { listPluginMarkdown, readJson, readPluginManifest } from "./plugin.js";
+import { declaredPluginConfig } from "./plugin-config.js";
 import { npmLockfile } from "./plugin-deps.js";
 import { countServers, wrapMcp } from "./plugin-normalize.js";
 import { substitutePluginVars } from "./plugin-vars.js";
@@ -80,18 +81,20 @@ const npmInventory = (dir) => {
 };
 
 // The variables the install leaves as written: the same surface it substitutes (body and allowed-tools),
-// keeping what it never fills: `user_config.*` and, outside a skill, CLAUDE_SKILL_DIR.
+// keeping what it never fills: `user_config.*` ("needs config" when the manifest declares the key) and,
+// outside a skill, CLAUDE_SKILL_DIR.
 const unfilled = (dir) => {
   const root = realpathSync(dir);
+  const declared = Object.fromEntries(declaredPluginConfig(dir).map(({ key }) => [key, {}]));
   return listPluginMarkdown(dir).flatMap(({ kind, ref, path }) => {
     const file = kind === "skill" ? join(path, "SKILL.md") : path;
     if (outside(root, realpathSync(file))) throw new Error(`${shown(relative(dir, file))} escapes the plugin (symlink)`);
     const match = FRONTMATTER.exec(readFileSync(file, "utf8").replace(/^\u{FEFF}/u, ""));
     if (!match) return [];
     const texts = [match[2], ...[yaml.load(match[1])?.["allowed-tools"]].flat().filter((tool) => typeof tool === "string")];
-    return texts.flatMap((text) => substitutePluginVars(text, {}).unresolved)
+    return texts.flatMap((text) => substitutePluginVars(text, {}, declared).unresolved)
       .filter(({ variable }) => variable.startsWith("user_config.") || (variable === "CLAUDE_SKILL_DIR" && kind !== "skill"))
-      .map(({ variable, reason }) => ({ ref, variable, reason: variable === "CLAUDE_SKILL_DIR" ? "skill-only" : reason }));
+      .map(({ variable, reason }) => ({ ref, variable, reason: variable === "CLAUDE_SKILL_DIR" ? "skill-only" : reason === "undeclared" ? reason : "needs config" }));
   });
 };
 

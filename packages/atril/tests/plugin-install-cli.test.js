@@ -23,33 +23,53 @@ const market = (files = {}) => {
   for (const [rel, content] of Object.entries(files)) put(`mkt/kit/${rel}`, content);
   writeConfig({ catalogs: ["mkt"] }, { projectDir: dir, root: "store", userRoot: join(dir, "nouser") });
 };
-const atril = (...args) => spawnSync(process.execPath, [BIN, "install", "plugin:kit", "--root", "store", ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, HOME: dir } });
-const inventory = { name: "kit", version: "1.0.0", format: "claude", hooks: [], mcpServers: [], bin: [], npm: { packages: [] }, variables: [] };
+const atril = (...args) => atrilOf("kit", ...args);
+const atrilOf = (name, ...args) => spawnSync(process.execPath, [BIN, "install", `plugin:${name}`, "--root", "store", ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, HOME: dir } });
+const inv = { name: "kit", version: "1.0.0", format: "claude", hooks: [], mcpServers: [], bin: [], npm: { packages: [] }, variables: [] };
+const member = (name = "kit") => ({ name, status: "fetched", inventory: { ...inv, name } });
 
 describe("installConfirm", () => {
   const out = () => { const lines = []; return { lines, err: (text) => lines.push(text) }; };
   it.each([["y", true], ["yes", true], ["n", false], ["", false]])("asks [y/N] on a terminal: %j", async (answer, expected) => {
     const { lines, err } = out();
     const ask = vi.fn(async () => answer);
-    expect(await installConfirm({ yes: false, tty: true, ask, err }).confirm(inventory, {})).toBe(expected);
+    expect(await installConfirm({ yes: false, tty: true, ask, err }).confirm([member()])).toBe(expected);
     expect(lines.join("")).toContain("plugin kit");
     expect(ask).toHaveBeenCalledWith(expect.stringContaining("[y/N]"));
   });
   it("--yes skips the question", async () => {
     const ask = vi.fn();
-    expect(await installConfirm({ yes: true, tty: false, ask, err: () => {} }).confirm(inventory, {})).toBe(true);
+    expect(await installConfirm({ yes: true, tty: false, ask, err: () => {} }).confirm([member()])).toBe(true);
     expect(ask).not.toHaveBeenCalled();
+  });
+  it("a set prints one header, every inventory in order and asks once", async () => {
+    const { lines, err } = out();
+    const ask = vi.fn(async () => "y");
+    expect(await installConfirm({ yes: false, tty: true, ask, err }).confirm([member("a"), member("b"), member("app")])).toBe(true);
+    const text = lines.join("");
+    expect(text).toContain("3 plugins will be installed: a, b, app");
+    expect(text.indexOf("plugin a ")).toBeLessThan(text.indexOf("plugin b "));
+    expect(text.indexOf("plugin b ")).toBeLessThan(text.indexOf("plugin app "));
+    expect(ask).toHaveBeenCalledTimes(1);
+  });
+  it("a single plugin prints no header", async () => {
+    const { lines, err } = out();
+    await installConfirm({ yes: true, tty: false, ask: vi.fn(), err }).confirm([member()]);
+    expect(lines.join("")).not.toContain("will be installed");
   });
   it("no terminal and no --yes is a dry run", async () => {
     const { lines, err } = out();
     const gate = installConfirm({ yes: false, tty: false, ask: vi.fn(), err });
-    expect(await gate.confirm(inventory, {})).toBe(false);
+    expect(await gate.confirm([member()])).toBe(false);
     expect(gate.dryRun()).toBe(true);
     expect(lines.join("")).toContain("dry run");
   });
 });
 
 describe("notInstalledLines", () => {
+  it("prefixes each line with the plugin name when asked", () => {
+    expect(notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [], bin: [] } }, "dep")).toEqual(["atril: dep: not installed yet: 1 hook(s)"]);
+  });
   it("lists hooks, MCP servers, bin and unsupported npm", () => {
     const text = notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [{ name: "db" }], bin: ["x"] }, npm: { status: "unsupported", reason: "no lockfile" } }).join("\n");
     expect(text).toMatch(/1 hook/);
@@ -80,5 +100,35 @@ describe("atril install plugin:<name>", () => {
     expect(res.stderr).toMatch(/dry run/);
     expect(JSON.parse(res.stdout)).toMatchObject({ status: "declined" });
     expect(existsSync(join(dir, "store", "commands"))).toBe(false);
+  });
+  describe("a plugin with a dependency", () => {
+    const set = () => {
+      market();
+      put("mkt/.claude-plugin/marketplace.json", { name: "m", plugins: [{ name: "kit", source: "./kit" }, { name: "app", source: "./app" }] });
+      put("mkt/app/.claude-plugin/plugin.json", { name: "app", version: "2.0.0", dependencies: ["kit"] });
+      put("mkt/app/commands/run.md", "---\ndescription: Run\n---\nRun it\n");
+    };
+    it("asks once, lists the set in order and --json adds dependencies and skipped", () => {
+      set();
+      const res = atrilOf("app", "--yes", "--json");
+      expect(res.status).toBe(0);
+      expect(res.stderr).toContain("2 plugins will be installed: kit, app");
+      expect(res.stderr.indexOf("plugin kit ")).toBeLessThan(res.stderr.indexOf("plugin app "));
+      expect(JSON.parse(res.stdout)).toMatchObject({ plugin: "app", status: "installed", dependencies: [{ plugin: "kit" }], skipped: [] });
+      expect(existsSync(join(dir, "store", "commands", "kit__ship.md"))).toBe(true);
+    });
+    it("reports an already installed dependency as skipped", () => {
+      set();
+      atril("--yes");
+      const res = atrilOf("app", "--yes", "--json");
+      expect(res.stderr).toContain("atril: already installed, skipped: kit");
+      expect(JSON.parse(res.stdout)).toMatchObject({ dependencies: [], skipped: ["kit"] });
+    });
+    it("a dry run writes nothing", () => {
+      set();
+      const res = atrilOf("app");
+      expect(res.stderr).toMatch(/dry run/);
+      expect(existsSync(join(dir, "store", "commands"))).toBe(false);
+    });
   });
 });

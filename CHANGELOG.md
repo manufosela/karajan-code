@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.3] - 2026-11-02
+
+### Fixed
+- **`kj doctor` fails while the default branch is not `main`** (KJC-BUG-0481, #3080): 5.0.2 warned about it but still ended with "All checks passed" and exit 0. The repo-state check now reports FAIL and doctor exits 1 until the branch is renamed; its other symptoms stay warnings.
+
 ## [5.0.2] - 2026-11-02
 
 ### Fixed
