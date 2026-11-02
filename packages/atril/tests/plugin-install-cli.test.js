@@ -103,6 +103,12 @@ describe("notInstalledLines", () => {
     expect(lines.filter((line) => line.includes("atril sync"))).toHaveLength(1);
     expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/atril sync/);
   });
+  it("says which environment variable a merged MCP server or hook needs, naming the plugin, once per variable", () => {
+    const base = { plugin: "kit", notInstalled: { hooks: [], mcpServers: [], bin: [] } };
+    const lines = notInstalledLines({ ...base, rulesync: { status: "merged", needs: ["TOKEN", "KEY2"] } });
+    expect(lines.filter((line) => /needs \$\{(TOKEN|KEY2)\}/.test(line) && line.includes("kit"))).toHaveLength(2);
+    expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/environment/);
+  });
   it("lists hooks, MCP servers, bin and unsupported npm", () => {
     const text = notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [{ name: "db" }], bin: ["x"] }, npm: { status: "unsupported", reason: "no lockfile" } }).join("\n");
     expect(text).toMatch(/1 hook/);

@@ -55,6 +55,12 @@ describe("importCanonical", () => {
     const { canonical } = importCanonical(plugin, { projectDir: join(dir, "project") }, fake(mcp));
     expect(canonical.mcp.mcpServers.db.env).toEqual({ A: "${TOKEN}", B: "${user_config.REGION}" });
   });
+
+  it("names the sensitive keys the entries refer to, and only those", () => {
+    const mcp = { mcpServers: { db: { env: { A: "${user_config.TOKEN}" } } } };
+    expect(importCanonical(plugin, { projectDir: join(dir, "project") }, fake(mcp)).needs).toEqual(["TOKEN"]);
+    expect(importCanonical(plugin, { projectDir: join(dir, "project") }, fake({ mcpServers: { db: { command: "npx" } } }))).not.toHaveProperty("needs");
+  });
 });
 
 describe("importCanonical: plugin paths", () => {
