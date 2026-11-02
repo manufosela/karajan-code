@@ -53,7 +53,10 @@ export async function publishPrReview({ projectDir, pr, run = runCommand, sealed
   await labelKarajanPr({ url: String(pr), cwd: projectDir, run });
   const reviews = await json(run, "gh", ["api", `repos/{owner}/{repo}/pulls/${pr}/reviews`], projectDir);
   // KJC-BUG-0456: one a non-member posted (gh switched to another account) does not count in CI.
-  if ((reviews ?? []).some((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER(info.headRefOid)))) {
+  // KJC-BUG-0477 (#3127): nor does one that misses a commit the PR gained under the same head
+  // (a stacked PR retargeted to main); verify-pr adds up every kj review, so publish another.
+  const listsAll = (body) => [...rows, ...seals].every((c) => body.includes(`\`${c.oid.slice(0, 7)}\``));
+  if ((reviews ?? []).some((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER(info.headRefOid)) && listsAll(String(r.body)))) {
     return { published: false, reason: `a kj review for head ${info.headRefOid.slice(0, 7)} is already published` };
   }
   const body = [
