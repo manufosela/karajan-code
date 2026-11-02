@@ -1,0 +1,74 @@
+name: Main guard
+
+# KJC-TSK-1370 (ADR 0037 layer 2): on every push to main, check that each merge passed the
+# required checks and that main's protection still enforces them on admins. It cannot stop
+# an abuse made with the maintainer's credentials; it makes it visible: the job fails and
+# an issue labelled main-guard names the PR and who merged it.
+# The protection is read with MAIN_GUARD_TOKEN, a read-only secret (Administration: read).
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  statuses: read
+  issues: write
+
+concurrency:
+  group: main-guard
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Merges and protection of main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Audit the push
+        id: audit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_GUARD_PROTECTION_TOKEN: ${{ secrets.MAIN_GUARD_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          set -o pipefail
+          node bin/kj.js main-guard --repo "$GITHUB_REPOSITORY" --branch main \
+            --before "$BEFORE" --after "$AFTER" \
+            --require pack-smoke policy-check quality scan verdicts \
+            | tee "$RUNNER_TEMP/main-guard.md"
+
+      - name: Raise the alarm
+        if: failure() && steps.audit.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/main-guard.md"
+          [ -s "$report" ] || echo "main-guard failed before writing its report: see the run." > "$report"
+          printf '\n\nRun: %s\n' "$RUN_URL" >> "$report"
+          gh label create main-guard --color b60205 --description "A merge to main skipped its checks, or the protection changed (ADR 0037)" --force
+          open="$(gh issue list --label main-guard --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file "$report"
+          else
+            gh issue create --title "main-guard: a merge to main needs a look" --label main-guard --body-file "$report"
+          fi
