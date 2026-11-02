@@ -88,12 +88,15 @@ export function mergeEntries(projectDir, plugin, canonical) {
   });
 }
 
+/** Whether `plugin` owns entries in `.rulesync/` now. */
+export const hasEntries = (projectDir, plugin) => existsSync(join(projectDir, RULESYNC)) && owned(readLedger(projectDir), plugin).length > 0;
+
 /**
  * Deletes the entries `plugin` owns, from the file each ledger key names, and their ledger keys.
  * @returns {{ removed: string[], kept: string[] }} `kept`: keys of entries the user edited, left in the file
  */
 export function removeEntries(projectDir, plugin) {
-  if (!existsSync(join(projectDir, RULESYNC)) || !owned(readLedger(projectDir), plugin).length) return { removed: [], kept: [] };
+  if (!hasEntries(projectDir, plugin)) return { removed: [], kept: [] };
   let result;
   withLedger(projectDir, (ledger) => {
     const files = new Map();
