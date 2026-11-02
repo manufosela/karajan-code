@@ -23,10 +23,15 @@ const SECURITY_PATTERN = /injection|xss|csrf|secret|credential|password|token le
 // Structured signal first (`category: "security"` — part of the reviewer's
 // JSON schema since AB-E); the free-text pattern stays as a fail-closed net
 // for verdicts recorded before the schema carried categories.
-function isSecurityIssue(issue) {
-  return issue.category === "security"
-    || SECURITY_PATTERN.test(`${issue.id || ""} ${issue.description || ""}`);
+// KJC-BUG-0476 (#3137): returns why the issue counts as security, or null.
+function securityReason(issue) {
+  if (issue.category === "security") return "category security";
+  const match = SECURITY_PATTERN.exec(`${issue.id || ""} ${issue.description || ""}`);
+  return match ? `matches "${match[0]}"` : null;
 }
+
+const describeSecurityIssue = (issue) =>
+  `${issue.id || "?"} (${securityReason(issue)}): ${String(issue.description || "").slice(0, 160)}`;
 
 export async function pickThirdParty({ config, hostAgent, reviewerAgent, detectAgents = detectAvailableAgents }) {
   const excluded = new Set([hostAgent, reviewerAgent]);
@@ -52,13 +57,14 @@ export async function runSolomonArbitration({
   }
 
   // ABSOLUTE RULE: security findings are never overridable.
-  const securityIssues = (verdict.issues || []).filter(isSecurityIssue);
+  const securityIssues = (verdict.issues || []).filter((issue) => securityReason(issue));
   if (securityIssues.length > 0) {
+    const named = securityIssues.map(describeSecurityIssue).join("; ");
     const record = await saveVerdict(projectDir, diff, {
       ...verdict,
-      arbitration: { position, ruling: "reject", reasoning: "security issues from the reviewer are never overridable", solomon: null },
+      arbitration: { position, ruling: "reject", reasoning: `security issues from the reviewer are never overridable: ${named}`, solomon: null },
     });
-    return { ruling: "reject", reasoning: "security issues are never overridable — fix them", solomon: null, record };
+    return { ruling: "reject", reasoning: `security issues are never overridable, fix them: ${named}`, solomon: null, record };
   }
 
   const solomon = await pickThirdParty({ config, hostAgent, reviewerAgent: verdict.reviewer, detectAgents });

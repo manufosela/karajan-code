@@ -120,6 +120,20 @@ describe("runSolomonArbitration", () => {
     expect(agent.reviewTask).not.toHaveBeenCalled();
   });
 
+  // KJC-BUG-0476 (#3137): the refusal names the finding and why it counts as security.
+  it("a security refusal names each blocking finding and its reason", async () => {
+    await seedRejected([
+      { id: "C1", severity: "high", description: "rollback leaves the member unrestored" },
+      { id: "S2", severity: "high", description: "the session cookie is read before the check" },
+      { id: "S3", severity: "medium", category: "security", description: "input handling" },
+    ]);
+    const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", createAgentFn: () => ruling("approve") });
+    expect(res.ruling).toBe("reject");
+    expect(res.reasoning).toMatch(/S2 \(matches "session"\): the session cookie/);
+    expect(res.reasoning).toMatch(/S3 \(category security\): input handling/);
+    expect(res.reasoning).not.toMatch(/C1/);
+  });
+
   it("errors without a prior rejected verdict (nothing to arbitrate)", async () => {
     await expect(runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p" }))
       .rejects.toThrow(/nothing to arbitrate/i);
