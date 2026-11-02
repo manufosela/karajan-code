@@ -1885,6 +1885,10 @@ Desde la v4 el agente anfitrión hacía el trabajo y Karajan lo gobernaba, pero 
 
 La misma versión sacó de kj el addon de base de datos (todo va sobre `node:sqlite`), metió atril en el núcleo y cerró el poder de administrador del agente sobre el repo (ADR 0037): el agente trabaja con un token que no puede cambiar la protección ni aprobar una publicación, y `kj doctor` lo comprueba. El propio kj puede publicarse desde CI con procedencia firmada (ADR 0035), con la aprobación del mantenedor como puerta humana.
 
+## Phase 156: v5.1.0, la revisión empieza por los hechos
+
+Cuatro ideas que un colaborador llevó al mantenedor la misma mañana, cada una decidida en una pregunta. El método pide una pasada de simplificación entre la suite en verde y la revisión, porque el veredicto va atado al diff exacto y limpiar después cuesta otra revisión; es una línea del método y no un gate, porque un gate solo probaría que alguien dijo haberla hecho. Antes de la revisión entre IAs, kj calcula sin modelo hechos sobre el diff (tamaño por fichero, código sin tests, dependencias nuevas, un import dinámico de un módulo ya importado en estático, cadenas con forma de secreto) y el revisor empieza por ellos. Los hallazgos nombran su fichero y su línea, y `kj solomon --finding` arbitra uno solo, así que un hallazgo de corrección se puede discutir por separado mientras los demás, y sobre todo los de seguridad, siguen bloqueando. La auditoría de seguridad dice cuántas de sus comprobaciones corrieron, y una auditoría en verde en una máquina sin sus escáneres ya no parece completa.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

@@ -1886,6 +1886,10 @@ Since v4 the host agent did the work and Karajan governed it, yet the `kj run` p
 
 The same release took the database addon out of kj (everything runs on `node:sqlite`), made atril part of the core, and closed the agent's admin power over the repo (ADR 0037): the agent works with a token that cannot change protection or approve a release, and `kj doctor` checks it. kj itself can be published from CI with signed provenance (ADR 0035), with the maintainer's approval as the human gate.
 
+## Phase 156: v5.1.0, the review starts from facts
+
+Four ideas a contributor brought to the maintainer the same morning, each decided in one question. The method asks for a simplification pass between a green suite and the review, because the verdict binds to the exact diff and a cleanup after it costs a second review; it is a line of the method, not a gate, since a gate could only prove the pass was claimed. Before the cross-AI review, kj computes facts about the diff without a model (size per file, code without tests, new dependencies, a dynamic import of a module already imported statically, secret-shaped strings) and the reviewer starts from them. Findings name their file and line, and `kj solomon --finding` rules on one of them, so a correctness finding can be disputed on its own while the rest, security above all, keep blocking. The security audit says how many of its checks ran, so a green audit on a machine without its scanners no longer reads as a complete one.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

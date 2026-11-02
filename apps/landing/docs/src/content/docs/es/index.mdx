@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.0.3: doctor falla con una rama por defecto distinta de main (actual)
+### v5.1.0: la revisión empieza por los hechos (actual)
+
+Antes de la revisión entre IAs, kj calcula sin modelo hechos sobre el diff y el revisor empieza por ellos; los hallazgos nombran su fichero y su línea, y `kj solomon --finding` arbitra uno solo mientras los demás siguen bloqueando. El método pide una pasada de simplificación antes de la revisión, y `kj audit` dice cuántas de sus comprobaciones corrieron.
+
+### v5.0.3: doctor falla con una rama por defecto distinta de main
 
 `kj doctor` falla ahora, y sale con 1, mientras la rama por defecto del repositorio no sea `main`: ahí no se lanza nunca ningún gate de los que kj escribe para `main`. La 5.0.2 solo avisaba.
 
