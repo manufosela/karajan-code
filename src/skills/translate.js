@@ -20,15 +20,32 @@ Answer ONLY a JSON object {"lang":"<ISO 639-1 code>","english":"<the query in En
 
 Query: ${JSON.stringify(query)}`;
 
-/** One agent call: `ask(prompt)` returns the agent's text. Throws when the answer is unusable. */
-export async function translateQuery({ query, ask }) {
-  const text = String(await ask(PROMPT(query))).replace(/^```[a-z]*\n?|```\s*$/g, "").trim();
-  let parsed;
+const DESCRIPTIONS_PROMPT = (texts, lang) => `Translate each of these skill descriptions from English into the language with ISO 639-1 code ${JSON.stringify(lang)}.
+Answer ONLY a JSON array of ${texts.length} strings, in the same order, no fences, no explanation.
+
+Descriptions: ${JSON.stringify(texts)}`;
+
+async function askJson(ask, prompt) {
+  const text = String(await ask(prompt)).replace(/^```[a-z]*\n?|```\s*$/g, "").trim();
   try {
-    parsed = JSON.parse(text);
+    return JSON.parse(text);
   } catch (err) {
     throw new Error(`the translator answer is not valid JSON (${err.message})`, { cause: err });
   }
+}
+
+/** One batched agent call back into the asker's language. Throws unless the answer is one string per text. */
+export async function translateDescriptions({ texts, lang, ask }) {
+  const parsed = await askJson(ask, DESCRIPTIONS_PROMPT(texts, lang));
+  if (!Array.isArray(parsed) || parsed.length !== texts.length || !parsed.every((t) => typeof t === "string")) {
+    throw new Error(`the translator answer is not a JSON array of ${texts.length} strings`);
+  }
+  return parsed;
+}
+
+/** One agent call: `ask(prompt)` returns the agent's text. Throws when the answer is unusable. */
+export async function translateQuery({ query, ask }) {
+  const parsed = await askJson(ask, PROMPT(query));
   if (typeof parsed?.english !== "string" || !parsed.english.trim()) throw new Error("the translator answer has no english text");
   return { lang: typeof parsed.lang === "string" ? parsed.lang : null, english: parsed.english.trim() };
 }

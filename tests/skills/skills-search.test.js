@@ -5,6 +5,9 @@ import { skillsSearch } from "../../src/skills/skills-search.js";
 
 const hit = { name: "forms", kind: "skill", description: "accessible forms", source: "project", installed: true, score: 0.9 };
 const answer = (lang, english) => async () => JSON.stringify({ lang, english });
+// The agent answers in turn: first the query translation, then (for a non-English query) the descriptions.
+const seq = (...texts) => vi.fn(async () => texts.shift());
+const query = (lang, english) => JSON.stringify({ lang, english });
 
 async function run(args, { hits = {}, ask } = {}) {
   const out = []; const err = [];
@@ -23,18 +26,55 @@ describe("kj skills search", () => {
     expect(r.code).toBe(0);
   });
 
-  it("an accented query is translated and atril is asked the English text", async () => {
-    const ask = vi.fn(answer("es", "forms"));
+  it("an accented query is translated, atril is asked the English text, and the descriptions come back in Spanish", async () => {
+    const ask = seq(query("es", "forms"), '["formularios accesibles"]');
     const r = await run(["formulários"], { hits: { forms: [hit] }, ask });
-    expect(ask).toHaveBeenCalledTimes(1);
+    expect(ask).toHaveBeenCalledTimes(2);
     expect(r.search.mock.calls.map(([q]) => q)).toEqual(["formulários", "forms"]);
-    expect(r.out).toHaveLength(1);
+    expect(r.out).toEqual(["0.9\tskill\tforms\tproject\tformularios accesibles"]);
+    expect(r.err).toContain('kj: searched in English: "forms"');
+  });
+
+  it("--json keeps atril's description in description_en; name, kind, source and score never change", async () => {
+    const r = await run(["--json", "formulários"], { hits: { forms: [hit] }, ask: seq(query("es", "forms"), '["formularios accesibles"]') });
+    const [h] = JSON.parse(r.out[0]).hits;
+    expect(h).toMatchObject({ ...hit, description: "formularios accesibles", description_en: "accessible forms" });
+  });
+
+  it("only the top 10 descriptions go to the agent, in one call", async () => {
+    const hits = Array.from({ length: 12 }, (_, i) => ({ ...hit, name: `s${i}`, description: `d${i}` }));
+    const ask = seq(query("es", "forms"), JSON.stringify(hits.slice(0, 10).map((_, i) => `t${i}`)));
+    const r = await run(["--json", "formulários"], { hits: { forms: hits }, ask });
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(ask.mock.calls[1][0]).toContain(JSON.stringify(hits.slice(0, 10).map((h) => h.description)));
+    const out = JSON.parse(r.out[0]).hits;
+    expect(out[9]).toMatchObject({ description: "t9", description_en: "d9" });
+    expect(out[10]).toMatchObject({ description: "d10" });
+    expect(out[10]).not.toHaveProperty("description_en");
+  });
+
+  it.each([
+    ["a wrong-length answer", '["one","two"]'],
+    ["a non-JSON answer", "sorry"],
+  ])("%s for the descriptions leaves them untranslated, with a visible warning and exit 0", async (_, bad) => {
+    const r = await run(["--json", "formulários"], { hits: { forms: [hit] }, ask: seq(query("es", "forms"), bad) });
+    expect(r.code).toBe(0);
+    const json = JSON.parse(r.out[0]);
+    expect(json.hits[0]).toMatchObject({ description: "accessible forms" });
+    expect(json.hits[0]).not.toHaveProperty("description_en");
+    expect(json.translation_error).toContain("translator answer");
+    expect(r.err.join("\n")).toContain("showing the original descriptions");
+  });
+
+  it("control characters in a translated description never reach the terminal", async () => {
+    const r = await run(["formulários"], { hits: { forms: [hit] }, ask: seq(query("es", "forms"), '["a\\u001b[31mred\\u0007"]') });
+    expect(r.out[0]).toBe("0.9\tskill\tforms\tproject\ta [31mred");
   });
 
   it("an unaccented Spanish query with a stopword is translated even when atril has hits", async () => {
-    const ask = vi.fn(answer("es", "no errors"));
+    const ask = seq(query("es", "no errors"), '["sin errores"]');
     const r = await run(["sin errores"], { hits: { "sin errores": [hit], "no errors": [hit] }, ask });
-    expect(ask).toHaveBeenCalledTimes(1);
+    expect(ask).toHaveBeenCalledTimes(2);
     expect(r.search.mock.calls.map(([q]) => q)).toEqual(["sin errores", "no errors"]);
   });
 
@@ -42,6 +82,7 @@ describe("kj skills search", () => {
     const ask = vi.fn(answer("en", "form validation"));
     const r = await run(["formz validation"], { hits: { "form validation": [hit] }, ask });
     expect(r.search.mock.calls.map(([q]) => q)).toEqual(["formz validation", "form validation"]);
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(r.out).toHaveLength(1);
   });
 
@@ -66,7 +107,7 @@ describe("kj skills search", () => {
   });
 
   it("--json carries the query, whether it was translated, and the translation error", async () => {
-    const ok = await run(["--json", "formulário"], { hits: { forms: [hit] }, ask: answer("es", "forms") });
+    const ok = await run(["--json", "formulário"], { hits: { forms: [hit] }, ask: seq(query("es", "forms"), '["formularios"]') });
     expect(JSON.parse(ok.out[0])).toMatchObject({ mode: "lexical", translated: true, query: { original: "formulário", english: "forms", lang: "es" } });
     const bad = await run(["--json", "formulário"], { ask: async () => { throw new Error("x: down"); } });
     expect(JSON.parse(bad.out[0])).toMatchObject({ translated: false, translation_error: "x: down", query: { original: "formulário", english: "formulário", lang: null } });
