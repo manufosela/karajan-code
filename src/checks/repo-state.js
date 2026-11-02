@@ -124,12 +124,13 @@ export function createRepoStateCheck({ projectDir }) {
       }
 
       const notMain = defaultBranchProblem(dir);
-      if (notMain) symptoms.push({ detail: notMain.detail, fix: notMain.fix });
+      // KJC-BUG-0481 (#3080, point 3): a failure until it is fixed, not a warning, so doctor exits 1.
+      if (notMain) symptoms.push({ detail: notMain.detail, fix: notMain.fix, fails: true });
 
       if (symptoms.length === 0) return { ok: true, severity: "info", detail: "el repositorio está en orden" };
       return {
         ok: false,
-        severity: "warn",
+        severity: symptoms.some((s) => s.fails) ? "fail" : "warn",
         detail: symptoms.map((s) => s.detail).join(" · "),
         fix: symptoms.map((s) => s.fix).join("  ·  "),
       };
