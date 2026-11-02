@@ -84,6 +84,16 @@ describe.each(["index.html", "es/index.html"])("%s", (page) => {
     expect(start + prompts * prompt + (lines - prompts) * output).toBeLessThan(5000);
   });
 
+  // KJL-BUG-0014 (1.4.3): the stage's light beam reaches the menu; the sky fades
+  // in behind the header so the links keep their contrast.
+  it("fades the sky in behind the header, over the light beam", () => {
+    const css = read("css/landing.css");
+    expect(css).toMatch(/\.hero::before \{[^}]*linear-gradient\(#05080d/);
+    expect(css).toMatch(/\.film-on \.hero::before[^{]*\{ opacity: 0; \}/);
+    // Stacked, the links under the copy carry a dark halo for the beam's tip.
+    expect(css).toMatch(/max-aspect-ratio: 23\/20\) \{[^@]*\.hero-links a \{ text-shadow: [^}]*#05080d/);
+  });
+
   it("hides the controls that do nothing when motion is reduced", () => {
     expect(read("css/landing.css")).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[^@]*?#replay, #pause \{ display: none; \}/);
   });
