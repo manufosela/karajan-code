@@ -7,7 +7,7 @@
  * - Idempotent: safe to run many times.
  * - Never fails hard (exits 0 even on error) so `npm install` is not blocked.
  */
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -140,7 +140,21 @@ async function setupCodexMcp(kjHome) {
   await fs.writeFile(configPath, updated, "utf8");
 }
 
+// KJC-BUG-0474 (#3128): a git worktree (a kj lane) has a `.git` FILE. `npm ci` there runs this
+// script, and registering would point every session of the machine at the lane's server.
+function insideLinkedWorktree(dir = ROOT_DIR) {
+  try {
+    return statSync(path.join(dir, ".git")).isFile();
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
+  if (insideLinkedWorktree()) {
+    process.stderr.write("karajan-mcp: not registered from a git worktree (a lane); the global MCP keeps pointing at the installed kj\n");
+    return;
+  }
   const claudeConfig = await readClaudeConfig();
   const kjHome = await resolveKjHome(claudeConfig.mcpServers?.["karajan-mcp"]);
 
