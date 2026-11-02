@@ -23,7 +23,7 @@ import { createInterface } from "node:readline/promises";
 import { applyRecommended, recommended } from "../src/recommended.js";
 import { answersFor, askAnswers, offered } from "../src/init.js";
 import { applyInstalledUpdate, installedUpdates } from "../src/upgrade.js";
-import { installPlugin } from "../src/plugin-install.js";
+import { installPluginSet } from "../src/plugin-install.js";
 import { removePlugin } from "../src/plugin-remove.js";
 import { installConfirm, notInstalledLines } from "../src/plugin-install-cli.js";
 
@@ -224,8 +224,12 @@ async function runInstallPlugin(name, values) {
   const terminal = process.stdin.isTTY ? createInterface({ input: process.stdin, output: process.stderr }) : undefined;
   const gate = installConfirm({ yes: values.yes, tty: Boolean(terminal), ask: (question) => terminal.question(question), err: (text) => process.stderr.write(text) });
   try {
-    const result = await installPlugin(name, { root: values.root }, { confirm: gate.confirm });
-    for (const line of result.status === "installed" ? notInstalledLines(result) : []) console.error(printable(line));
+    const result = await installPluginSet(name, { root: values.root }, { confirm: gate.confirm });
+    if (result.skipped.length) console.error(printable(`atril: already installed, skipped: ${result.skipped.join(", ")}`));
+    if (result.status === "installed") {
+      const prefixed = result.dependencies.length > 0;
+      for (const member of [...result.dependencies, result]) for (const line of notInstalledLines(member, prefixed ? member.plugin : undefined)) console.error(printable(line));
+    }
     if (values.json) console.log(JSON.stringify(gate.dryRun() ? { ...result, dryRun: true } : result, null, 2));
     else if (result.status === "declined") console.log(`${gate.dryRun() ? "dry run" : "declined"}\tplugin:${printable(name)}\tnothing installed`);
     else console.log(`installed\tplugin:${printable(name)}\t${result.entries.map(printable).join(" ")}`);
