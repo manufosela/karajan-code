@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<!--
+  Portrait bench (KJL-TSK-0154): renders the family's characters from the same
+  three.js modules as the film, with a transparent background, as the
+  <name>-320.webp portraits of the family page. Not deployed.
+  Run: python3 -m http.server -d apps/landing 8000, open /portraits/, save each
+  image into public/img/. window.portraits holds them as data URLs too.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Karajan family portrait bench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  body { font: 15px Inter, sans-serif; background: #0f1520; color: #e2e8f0; margin: 2rem; }
+  figure { display: inline-block; margin: 0 1.5rem 1.5rem 0; text-align: center; }
+  img { display: block; height: 320px; background: repeating-conic-gradient(#1a2332 0 25%, #151d2a 0 50%) 0 0 / 20px 20px; }
+  a { color: #e8b04b; }
+</style>
+<script type="importmap">{ "imports": { "three": "../public/lib/three.min.js" } }</script>
+</head>
+<body>
+<h1>Family portraits</h1>
+<main id="out"></main>
+<script type="module">
+import * as THREE from 'three';
+import { createStand } from '../public/film/stand.js';
+
+// One entry per portrait: builds the character in its portrait pose.
+const CAST = {
+  atril: () => {
+    const stand = createStand('atril', [['atril', 'skills'], ['TDD', 'skill']]);
+    stand.live(0, 0.4, 0.55);
+    stand.turnTo(1, 0);
+    return stand.group;
+  },
+};
+
+const W = 720, H = 800, HEIGHT = 320, FOV = 24;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H, false);
+renderer.setClearColor(0x000000, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const pmrem = new THREE.PMREMGenerator(renderer);
+const environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+
+function render(build) {
+  const scene = new THREE.Scene();
+  scene.environment = environment;
+  scene.environmentIntensity = 0.55;
+  const key = new THREE.DirectionalLight(0xffe0b0, 2.4);
+  key.position.set(2.5, 4, 4);
+  const rim = new THREE.DirectionalLight(0x8cb4c9, 2.2);
+  rim.position.set(-3, 3, -2.5);
+  scene.add(key, rim, new THREE.HemisphereLight(0x8cb4c9, 0x05080d, 0.6));
+  const subject = build();
+  subject.rotation.y = -0.4;
+  // Without the film's bloom a glow reads as white: paint it in its flat colour instead.
+  subject.traverse((mesh) => {
+    if (mesh.material?.emissiveIntensity > 1) mesh.material = new THREE.MeshBasicMaterial({ color: mesh.material.emissive, toneMapped: false });
+  });
+  scene.add(subject);
+  const box = new THREE.Box3().setFromObject(subject);
+  const centre = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const half = Math.tan((FOV / 2) * Math.PI / 180);
+  const distance = 1.15 * Math.max(size.y / (2 * half), size.x / (2 * half * W / H)) + size.z / 2;
+  const camera = new THREE.PerspectiveCamera(FOV, W / H, 0.1, 50);
+  camera.position.set(centre.x, centre.y + size.y * 0.12, centre.z + distance);
+  camera.lookAt(centre);
+  renderer.render(scene, camera);
+  return trim(renderer.domElement);
+}
+
+// Crops the render to what it drew (plus a margin) and scales it to HEIGHT px.
+function trim(source) {
+  const flat = Object.assign(document.createElement('canvas'), { width: W, height: H });
+  const g = flat.getContext('2d');
+  g.drawImage(source, 0, 0);
+  const { data } = g.getImageData(0, 0, W, H);
+  let left = W, right = 0, top = H, bottom = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (data[(y * W + x) * 4 + 3] === 0) continue;
+    left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
+  }
+  const pad = 12;
+  const [sx, sy] = [Math.max(0, left - pad), Math.max(0, top - pad)];
+  const [sw, sh] = [Math.min(W, right + pad) - sx, Math.min(H, bottom + pad) - sy];
+  const out = Object.assign(document.createElement('canvas'), { width: Math.round(sw * HEIGHT / sh), height: HEIGHT });
+  out.getContext('2d').drawImage(flat, sx, sy, sw, sh, 0, 0, out.width, out.height);
+  return out.toDataURL('image/webp', 0.88);
+}
+
+await Promise.all([document.fonts.load('600 64px "Inter"'), document.fonts.load('500 17px "JetBrains Mono"')]);
+const portraits = {};
+for (const [name, build] of Object.entries(CAST)) {
+  portraits[name] = render(build);
+  const figure = document.createElement('figure');
+  const img = Object.assign(document.createElement('img'), { alt: name, src: portraits[name] });
+  const link = Object.assign(document.createElement('a'), { download: `${name}-320.webp`, href: portraits[name], textContent: `${name}-320.webp` });
+  figure.append(img, link);
+  document.getElementById('out').append(figure);
+}
+globalThis.portraits = portraits;
+</script>
+</body>
+</html>
