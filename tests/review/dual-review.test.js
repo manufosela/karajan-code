@@ -56,6 +56,34 @@ describe("reconcileReviews", () => {
     expect(truncated.verdict).toMatchObject({ status: "partial", reason: expect.stringMatching(/not every file/) });
   });
 
+  // KJC-BUG-0483 (#3269): one problem, one finding, whoever reported it and wherever.
+  it("joins the same problem reported in other files or twice by one reviewer", () => {
+    const claude = side("claude", "codex", false, [
+      f("package.json", 30, "high", "undeclared major bump of `@sentry/nextjs`"),
+      f("package-lock.json", 14, "medium", "lockfile moves @sentry/nextjs to 11"),
+      f("CreateAdminUserModal.jsx", 200, "medium", "`zod` 4 changes the error shape"),
+    ], [{ index: 0, verdict: "confirmed" }, { index: 1, verdict: "confirmed" }, { index: 2, verdict: "confirmed" }]);
+    const codex = side("codex", "claude", false, [
+      f("package.json", 52, "low", "`zod` 3 to 4 is a breaking bump"),
+      f("next.config.mjs", 1, "critical", "`withSentryConfig` moved to @sentry/nextjs/config"),
+    ], [{ index: 0, verdict: "confirmed" }, { index: 1, verdict: "confirmed" }]);
+    const out = reconcileReviews([claude, codex]);
+    expect(out.findings).toHaveLength(2);
+    const sentry = out.findings.find((x) => x.file === "next.config.mjs");
+    expect(sentry).toMatchObject({ severity: "critical", found_by: ["claude", "codex"] });
+    expect(sentry.also.map((x) => x.at)).toEqual(["package.json:30", "package-lock.json:14"]);
+    expect(sentry.also[0]).toMatchObject({ found_by: ["claude"], description: "undeclared major bump of `@sentry/nextjs`" });
+    expect(out.findings.find((x) => x.file === "CreateAdminUserModal.jsx")).toMatchObject({ found_by: ["claude", "codex"], also: [{ at: "package.json:52" }] });
+  });
+
+  it("keeps apart findings that share only plain words or a version", () => {
+    const claude = side("claude", "codex", false, [f("a.js", 1, "medium", "the value may be null in 1.2.0"), f("b.js", 90, "medium", "the value is never freed in 1.2.0")],
+      [{ index: 0, verdict: "confirmed" }, { index: 1, verdict: "confirmed" }]);
+    const out = reconcileReviews([claude, side("codex", "claude", true, [], [])]);
+    expect(out.findings).toHaveLength(2);
+    expect(out.findings.every((x) => x.also === undefined)).toBe(true);
+  });
+
   it("a security finding is a confirmed blocker whatever the verifier says", () => {
     const claude = side("claude", "codex", false, [f("a.js", 1, "medium", "sqli", "security")], [{ index: 0, verdict: "rejected" }]);
     const out = reconcileReviews([claude, side("codex", "claude", true, [], [])]);

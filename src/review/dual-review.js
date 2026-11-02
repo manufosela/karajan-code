@@ -12,6 +12,12 @@ const rank = (f) => RANK[f.severity] ?? -1;
 const NEAR_LINES = 3;
 const sameSpot = (a, b) => a.file === b.file
   && (a.line == null || b.line == null ? a.line == null && b.line == null : Math.abs(a.line - b.line) <= NEAR_LINES);
+// KJC-BUG-0483 (#3269): code a description names (`backticked`, @scope/package, camelCase). Two
+// findings of one category that name the same code are one problem, in whatever file.
+const CODE_TERM = /`([^`]+)`|@[\w.-]+\/[\w.-]+|\b[a-z]+[A-Z]\w*/g;
+const codeTerms = (f) => new Set([...(f.description ?? "").matchAll(CODE_TERM)].map((m) => (m[1] ?? m[0]).toLowerCase()));
+const sameProblem = (a, b) => sameSpot(a, b)
+  || ((a.category ?? null) === (b.category ?? null) && !codeTerms(a).isDisjointFrom(codeTerms(b)));
 const isBlocker = (f) => f.category === "security" || rank(f) >= RANK.high;
 // Security is never overridable; otherwise the other family confirmed it, or both reviewers found it.
 const isConfirmed = (f) => f.category === "security" || f.found_by.length === 2
@@ -28,17 +34,33 @@ function tagged(side) {
   }));
 }
 
-/** One list: a finding both reviewers made is merged (the higher severity wins) and ranks first. */
+const STRENGTH = ["unverified", "downgraded", "kept_by_rule", "confirmed"];
+const stronger = (x, y) => (STRENGTH.indexOf(y) > STRENGTH.indexOf(x) ? y : x);
+const joinVerification = (a, b) => Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])]
+  .map((k) => [k, a[k] && b[k] ? stronger(a[k], b[k]) : a[k] ?? b[k]]));
+
+/** One finding per problem: the highest severity leads, the others stay in `also` with who and where. */
+function joinGroup(members) {
+  const top = members.reduce((x, y) => (rank(y) > rank(x) ? y : x));
+  const also = members.filter((m) => m !== top)
+    .map((m) => ({ at: where(m), found_by: m.found_by, severity: m.severity, description: m.description }));
+  return {
+    ...top,
+    found_by: [...new Set(members.flatMap((m) => m.found_by))],
+    verification: members.map((m) => m.verification).reduce(joinVerification),
+    ...(also.length && { also }),
+  };
+}
+
+/** One list: the same problem, from either reviewer or twice from one, is one finding; both-found rank first. */
 function mergeFindings(a, b) {
-  const rest = tagged(b);
-  const merged = tagged(a).map((fa) => {
-    const at = rest.findIndex((fb) => sameSpot(fa, fb));
-    if (at < 0) return fa;
-    const [fb] = rest.splice(at, 1);
-    const top = rank(fb) > rank(fa) ? fb : fa;
-    return { ...top, found_by: [...fa.found_by, ...fb.found_by], verification: { ...fa.verification, ...fb.verification } };
-  });
-  return [...merged, ...rest].toSorted((x, y) => y.found_by.length - x.found_by.length || rank(y) - rank(x));
+  const groups = [];
+  for (const finding of [...tagged(a), ...tagged(b)]) {
+    const group = groups.find((g) => g.some((m) => sameProblem(m, finding)));
+    if (group) group.push(finding);
+    else groups.push([finding]);
+  }
+  return groups.map(joinGroup).toSorted((x, y) => y.found_by.length - x.found_by.length || rank(y) - rank(x));
 }
 
 function verdictOf(sides, findings, coverage) {
