@@ -128,7 +128,8 @@ function commit({ name, catalog, source, fetched, inventory }, opts, { run, rule
   const { hooks, mcpServers, bin } = inventory;
   const projectDir = resolve(opts.projectDir ?? process.cwd());
   // Before anything is written: a failing import installs nothing. Without rulesync the hooks and MCP stay out (reported, nothing half done).
-  const imported = hooks.length || mcpServers.length ? importCanonical(fetched.dir, { projectDir }, rulesync) : undefined;
+  const pluginCopy = pluginPaths(resolve(projectDir, resolveRoot(opts)), name, fetched.version).dir;
+  const imported = hooks.length || mcpServers.length ? importCanonical(fetched.dir, { projectDir, pluginCopy }, rulesync) : undefined;
   // npm writes only into the cache, which is kept; a cached copy that has its packages is not installed twice
   const npm = fetched.status === "cached" && existsSync(join(fetched.dir, "node_modules")) ? { status: "present" } : installNpmDeps(fetched.dir, { run });
   const label = LABEL[source.type]?.(source);
@@ -147,7 +148,7 @@ function commit({ name, catalog, source, fetched, inventory }, opts, { run, rule
   if (!imported) removeEntries(projectDir, name); // an update that drops every hook and MCP server drops what the old version wrote
   // The derived plugin is only written and listed: no host CLI runs (ADR 0042), so there is nothing for remove to undo.
   const derived = writeDerived(plugin, fetched.version, fetched.dir, { root: resolve(opts.projectDir ?? process.cwd(), resolveRoot(opts)), hooks: hooks.length, mcpServers: mcpServers.length });
-  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks: merged ? [] : hooks, mcpServers: merged ? [] : mcpServers, bin }, ...(imported && { rulesync: { status: merged ? "merged" : "absent" } }), ...(derived && { derived }) };
+  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks: merged ? [] : hooks, mcpServers: merged ? [] : mcpServers, bin }, ...(imported && { rulesync: { status: merged ? "merged" : "absent", ...(imported.rewritten && { rewritten: true }) } }), ...(derived && { derived }) };
 }
 
 /**

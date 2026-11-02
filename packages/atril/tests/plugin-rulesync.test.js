@@ -56,3 +56,63 @@ describe("importCanonical", () => {
     expect(canonical.mcp.mcpServers.db.env).toEqual({ A: "${TOKEN}", B: "${user_config.REGION}" });
   });
 });
+
+describe("importCanonical: plugin paths", () => {
+  const importWith = (canonical, root = ".karajan") => {
+    const fakeBoth = (cmd, args) => {
+      if (args.includes("--version")) return "1.0.0";
+      const out = join(args[args.indexOf("--output-root") + 1], ".rulesync");
+      mkdirSync(out, { recursive: true });
+      for (const [kind, doc] of Object.entries(canonical)) writeFileSync(join(out, `${kind}.json`), JSON.stringify(doc));
+    };
+    const projectDir = join(dir, "project");
+    return importCanonical(plugin, { projectDir, pluginCopy: join(projectDir, root, "plugins", "kit", "1.0.0") }, fakeBoth);
+  };
+  const hook = (command) => ({ hooks: { PreToolUse: [{ type: "command", command }] } });
+
+  it("points a hook script and a runner script to the plugin copy in the store", () => {
+    const first = importWith({ hooks: hook("./scripts/x.sh") });
+    expect(first.canonical.hooks.hooks.PreToolUse[0].command).toBe("./.karajan/plugins/kit/1.0.0/scripts/x.sh");
+    expect(first.rewritten).toBe(true);
+    const second = importWith({ hooks: hook("node ./dist/h.js --flag ./keep") });
+    expect(second.canonical.hooks.hooks.PreToolUse[0].command).toBe("node ./.karajan/plugins/kit/1.0.0/dist/h.js --flag ./keep");
+  });
+
+  it("points an MCP command and its runner script argument to the store, taking the root from the option", () => {
+    const { canonical } = importWith({ mcp: { mcpServers: { a: { command: "./servers/x" }, b: { command: "node", args: ["./dist/server.js", "./data"] } } } }, "store");
+    expect(canonical.mcp.mcpServers.a.command).toBe("./store/plugins/kit/1.0.0/servers/x");
+    expect(canonical.mcp.mcpServers.b.args).toEqual(["./store/plugins/kit/1.0.0/dist/server.js", "./data"]);
+  });
+
+  it("leaves other arguments, absolute, home, parent and URL paths and variables as they are, and reports no rewrite", () => {
+    const hooks = ["npx prettier --write ./src", "/usr/bin/x ./y", "~/bin/x", "../x/run.sh", "${HOME}/run.sh", "node ../x.js", "node https://h/x.js"].map((command) => ({ type: "command", command }));
+    const mcp = { mcpServers: { s: { command: "npx", args: ["-y", "./pkg"] }, u: { url: "https://h/mcp" } } };
+    const result = importWith({ hooks: { hooks: { Stop: hooks } }, mcp });
+    expect(result.canonical.hooks.hooks.Stop).toEqual(hooks);
+    expect(result.canonical.mcp).toEqual(mcp);
+    expect(result.rewritten).toBeUndefined();
+  });
+
+  it.each(["python3 -W ignore ./server.py", "bash -o pipefail ./hook.sh", "node --require ./r.js ./main.js"])("refuses %s with a clear error and writes nothing", (command) => {
+    const message = `this command cannot be pointed to the store: ${command}; write it without options before the script`;
+    expect(() => importWith({ hooks: hook(command) })).toThrow(message);
+    expect(() => importWith({ mcp: { mcpServers: { s: { command: command.split(" ")[0], args: command.split(" ").slice(1) } } } })).toThrow(message);
+  });
+
+  it("leaves a runner given a bare script or only non-path words as it is", () => {
+    const { canonical } = importWith({ hooks: { hooks: { Stop: [{ command: "node server.js ./data" }, { command: "bash -x run.sh" }] } } });
+    expect(canonical.hooks.hooks.Stop.map(({ command }) => command)).toEqual(["node server.js ./data", "bash -x run.sh"]);
+  });
+
+  it("keeps the quotes of a quoted script and refuses a store path the shell would split", () => {
+    const quoted = importWith({ hooks: hook("node \"./scripts/hook.js\"") });
+    expect(quoted.canonical.hooks.hooks.PreToolUse[0].command).toBe("node \"./.karajan/plugins/kit/1.0.0/scripts/hook.js\"");
+    expect(importWith({ hooks: hook("node \t ./a.js  ./b") }).canonical.hooks.hooks.PreToolUse[0].command).toBe("node \t ./.karajan/plugins/kit/1.0.0/a.js  ./b");
+    expect(() => importWith({ hooks: hook("./x.sh") }, "my store")).toThrow(/needs shell quoting/);
+  });
+
+  it("rejects a path that escapes the plugin copy with ..", () => {
+    expect(() => importWith({ hooks: hook("./a/../../x.sh") })).toThrow(/escapes the plugin/);
+    expect(() => importWith({ mcp: { mcpServers: { s: { command: "node", args: ["./../x.js"] } } } })).toThrow(/escapes the plugin/);
+  });
+});
