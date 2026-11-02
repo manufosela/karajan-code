@@ -18,5 +18,5 @@ export { installFromCatalog } from "./catalog-install.js";
 export { importSkills } from "./import.js";
 export { applyRecommended, recommended } from "./recommended.js";
 export { applyCatalogUpdate, catalogUpdates } from "./update.js";
-export { installPlugin } from "./plugin-install.js";
+export { installPlugin, pluginInstallSet } from "./plugin-install.js";
 export { detectPluginFormat, listPluginMarkdown, readPluginManifest } from "./plugin.js";
