@@ -141,9 +141,12 @@ jobs:
           & ".\$bin" init --help | Out-Null
           Write-Host "Smoke OK: $bin reports $got and the command tree resolves."
 
+      # KJC-BUG-0478: the checksum names the bare file, so `sha256sum -c` works next to a
+      # downloaded binary. Windows keeps certutil's format: install-binary.ps1 parses it.
       - name: Generate SHA256 checksum (Linux/macOS)
         if: runner.os != 'Windows'
-        run: shasum -a 256 dist/kj-${{ matrix.target }} > dist/kj-${{ matrix.target }}.sha256
+        working-directory: dist
+        run: shasum -a 256 kj-${{ matrix.target }} > kj-${{ matrix.target }}.sha256
 
       - name: Generate SHA256 checksum (Windows)
         if: runner.os == 'Windows'
