@@ -10,7 +10,7 @@ export function installConfirm({ yes, tty, ask, err }) {
   // `members` are the whole install set in install order; a lone plugin prints exactly what it always did.
   const confirm = async (members) => {
     const set = members.length > 1;
-    if (set) err(`${members.length} plugins will be installed: ${members.map(({ name }) => name).join(", ")}\n`);
+    if (set) err(`${members.length} plugins will be installed: ${members.map(({ name, mode }) => (mode ? `${name} (${mode})` : name)).join(", ")}\n`);
     for (const { inventory, source, commit } of members) err(formatInventory(inventory, { source, commit }));
     if (yes) return true;
     if (tty) return /^y(es)?$/i.test((await ask(`install ${set ? "these plugins" : "this plugin"}? [y/N] `)).trim());

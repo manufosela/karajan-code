@@ -283,7 +283,8 @@ async function runInstallPlugin(name, values) {
   const gate = installConfirm({ yes: values.yes, tty: Boolean(terminal), ask: (question) => terminal.question(question), err: (text) => process.stderr.write(text) });
   try {
     const result = await installPluginSet(name, { root: values.root }, { confirm: gate.confirm });
-    if (result.skipped.length) console.error(printable(`atril: already installed, skipped: ${result.skipped.join(", ")}`));
+    if (result.skipped.length) console.error(printable(`atril: already installed or chosen skip/native, left out: ${result.skipped.join(", ")}`));
+    for (const { plugin, instructions = [] } of result.chosen) for (const line of instructions) console.error(printable(`atril: ${plugin}: ${line}`));
     const notSplit = result.status === "skipped" || result.status === "native";
     for (const line of [...(result.instructions ?? []), ...(result.removeWith ? [`an earlier split install stays: ${result.removeWith} drops it`] : [])]) console.error(printable(`atril: ${line}`));
     if (result.status === "installed") {

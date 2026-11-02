@@ -45,12 +45,18 @@ function snapshot({ fetched }, opts, held = []) {
 // What the lock records of a source: never a local path, which would carry the home folder.
 const LABEL = { github: (s) => s.repo, git: (s) => s.url, "git-subdir": (s) => `${s.url} (${s.path})` };
 
+// The native instruction of a dependency; one no catalog offers names the plugin that needs it.
+function nativeInstructionsOf(dep, neededBy, opts) {
+  try { return nativeInstructions(dep, findPlugin(dep, opts)); } catch (e) { throw new Error(`${neededBy} depends on ${dep}: ${e.message}`, { cause: e }); }
+}
+
 /**
  * The plugins to install for `name`, dependencies first and `name` last: every dependency is
  * resolved through findPlugin, recursively (matching by name only). A dependency already in the
  * lock is left out and not followed; `name` itself is always kept, so a reinstall still works.
  * A missing dependency names the plugin that needs it; a cycle names the loop.
- * `skipped` lists the installed dependencies that were left out.
+ * `skipped` lists the dependencies left out: installed ones, and those whose pluginMode is skip or
+ * native (never fetched or followed); `chosen` says which mode, with the native instruction.
  * @param {string} name
  * @param {Parameters<typeof findPlugin>[1]} [opts]
  * @param {{ git?: Function, gitBase?: string }} [how] how plugins are fetched to read their manifests
@@ -60,6 +66,7 @@ export function pluginInstallSet(name, opts = {}, { git, gitBase } = {}) {
   const installed = readLock(opts).plugins ?? {};
   const set = [];
   const skipped = [];
+  const chosen = [];
   const fetched = {};
   const visit = (plugin, neededBy) => {
     if (set.some((entry) => entry.name === plugin)) return;
@@ -71,14 +78,22 @@ export function pluginInstallSet(name, opts = {}, { git, gitBase } = {}) {
     } catch (e) {
       throw new Error(neededBy ? `${neededBy} depends on ${plugin}: ${e.message}` : e.message, { cause: e });
     }
-    const deps = pluginDependencies(manifest);
-    const missing = deps.filter((dep) => !Object.hasOwn(installed, dep.name));
-    for (const dep of deps) if (Object.hasOwn(installed, dep.name) && !skipped.includes(dep.name)) skipped.push(dep.name);
+    const missing = [];
+    for (const entry of pluginDependencies(manifest)) {
+      const dep = entry.name;
+      const present = Object.hasOwn(installed, dep);
+      const mode = pluginMode(dep, opts);
+      if (!present && mode === "split") { missing.push(entry); continue; }
+      if (skipped.includes(dep)) continue;
+      // Left out and not followed (already there, skip or native): what it needs is not needed.
+      skipped.push(dep);
+      if (!present) chosen.push({ plugin: dep, mode, ...(mode === "native" && { instructions: nativeInstructionsOf(dep, plugin, opts) }) });
+    }
     set.push({ name: plugin, manifest: { dependencies: missing } });
     for (const dep of missing) visit(dep.name, plugin);
   };
   visit(name);
-  return { order: dependencyOrder(set), skipped, fetched };
+  return { order: dependencyOrder(set), skipped, chosen, fetched };
 }
 
 // The pin override (`opts.commit`) is meant for the plugin asked for, never for its dependencies.
@@ -125,7 +140,7 @@ function commit({ catalog, source, fetched, inventory }, opts, { run }) {
  * @param {string} name
  * @param {Parameters<typeof installPlugin>[1]} [opts]
  * @param {{ confirm: (members: { name: string, inventory: object, source: object, commit?: string, status: string }[]) => boolean | Promise<boolean>, git?: Function, gitBase?: string, run?: Function }} [how]
- * @returns {Promise<object>} the target's result, plus `dependencies` (the other members, in install order) and `skipped`
+ * @returns {Promise<object>} the target's result, plus `dependencies` (the other members, in install order), `skipped` and `chosen`
  */
 export async function installPluginSet(name, opts = {}, { confirm, git, gitBase, run } = {}) {
   if (typeof confirm !== "function") throw new Error("installPluginSet needs a confirm function");
@@ -134,14 +149,15 @@ export async function installPluginSet(name, opts = {}, { confirm, git, gitBase,
     // Nothing is fetched, confirmed or written; a copy installed as split earlier stays, and the user is told how to drop it.
     const removeWith = Object.hasOwn(readLock(opts).plugins ?? {}, name) ? { removeWith: `atril remove plugin:${name}` } : {};
     const instructions = mode === "native" ? { instructions: nativeInstructions(name, findPlugin(name, opts)) } : {};
-    return { plugin: name, status: mode === "skip" ? "skipped" : "native", mode, dependencies: [], skipped: [], ...instructions, ...removeWith };
+    return { plugin: name, status: mode === "skip" ? "skipped" : "native", mode, dependencies: [], skipped: [], chosen: [], ...instructions, ...removeWith };
   }
-  const { order, skipped, fetched } = pluginInstallSet(name, opts, { git, gitBase });
+  const { order, skipped, chosen, fetched } = pluginInstallSet(name, opts, { git, gitBase });
   // Reuses the fetch that read each manifest, so `confirm` sees "fetched" for what this run downloaded.
   const members = order.map((member) => prepare(member, pinFor(member, name, opts), { git, gitBase }, fetched[member]));
-  if (listPluginMarkdown(members.at(-1).fetched.dir).length === 0) throw new Error(`${name} has no Markdown to split: set its pluginMode to native or skip`);
-  const asked = members.map(({ name: member, inventory, source, fetched }) => ({ name: member, inventory, source, commit: fetched.commit, status: fetched.status }));
-  if (!(await confirm(asked))) return { plugin: name, status: "declined", inventory: members.at(-1).inventory, dependencies: [], skipped };
+  // Every member is split here: one with no Markdown fails the whole set before anything is written.
+  for (const { name: member, fetched } of members) if (listPluginMarkdown(fetched.dir).length === 0) throw new Error(`${member} has no Markdown to split: set its pluginMode to native or skip`);
+  const asked = members.map(({ name: member, inventory, source, fetched }) => ({ name: member, mode, inventory, source, commit: fetched.commit, status: fetched.status }));
+  if (!(await confirm(asked))) return { plugin: name, status: "declined", inventory: members.at(-1).inventory, dependencies: [], skipped, chosen };
   // Every snapshot is kept until the whole set succeeds: a failure restores them all, newest first, exactly as they
   // were. removePlugin is not used, it would delete an artifact a member adopted from a pre-existing identical one.
   const done = [];
@@ -149,7 +165,7 @@ export async function installPluginSet(name, opts = {}, { confirm, git, gitBase,
   try {
     for (const member of members) {
       snapshots.push(snapshot(member, opts));
-      done.push(commit(member, opts, { run }));
+      done.push({ ...commit(member, opts, { run }), mode });
     }
   } catch (error) {
     const failed = members[done.length].name;
@@ -162,7 +178,7 @@ export async function installPluginSet(name, opts = {}, { confirm, git, gitBase,
   } finally {
     for (const before of snapshots) before.discard();
   }
-  return { ...done.at(-1), mode, dependencies: done.slice(0, -1), skipped };
+  return { ...done.at(-1), dependencies: done.slice(0, -1), skipped, chosen };
 }
 
 // What a plugin can run: a change here is what the user is asked about again.

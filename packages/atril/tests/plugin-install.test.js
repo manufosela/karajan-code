@@ -280,6 +280,62 @@ describe("installPluginSet", () => {
     }
     expect(snapshot()).toEqual(before);
   });
+
+  describe("each dependency honours its own pluginMode", () => {
+    const choose = (pluginMode) => writeConfig({ catalogs: ["mkt"], pluginMode }, o());
+    it("leaves a skip dependency out, reports it, and installs the rest", async () => {
+      offer(app);
+      choose({ a: "skip" });
+      const result = await installSet();
+      expect(result.dependencies.map((d) => [d.plugin, d.mode])).toEqual([["b", "split"]]);
+      expect(result.skipped).toEqual(["a"]);
+      expect(result.chosen).toEqual([{ plugin: "a", mode: "skip" }]);
+      expect(Object.keys(lock().plugins).toSorted()).toEqual(["app", "b"]);
+      expect(confirm.mock.calls[0][0].map((m) => [m.name, m.mode])).toEqual([["b", "split"], ["app", "split"]]);
+    });
+    it("does not install a native dependency and carries its instruction", async () => {
+      offer(app);
+      choose({ b: "native" });
+      const result = await installSet();
+      expect(result.skipped).toEqual(["b"]);
+      expect(result.chosen).toMatchObject([{ plugin: "b", mode: "native" }]);
+      expect(result.chosen[0].instructions.join("\n")).toMatch(/claude: install "b".*does not know the exact command/s);
+      expect(lock().plugins.b).toBeUndefined();
+    });
+    it("does not follow what a skipped dependency needs", async () => {
+      offer({ app: { dependencies: ["a"] }, a: { dependencies: ["ghost"] } });
+      choose({ a: "skip" });
+      expect(await installSet()).toMatchObject({ skipped: ["a"], dependencies: [] });
+    });
+    it("installs only the plugin asked for when every dependency is skipped", async () => {
+      offer(app);
+      choose({ a: "skip", b: "skip" });
+      const result = await installSet();
+      expect(result).toMatchObject({ status: "installed", dependencies: [], skipped: ["a", "b"] });
+      expect(Object.keys(lock().plugins)).toEqual(["app"]);
+    });
+    it("still rolls back what this run installed when a split member fails and another was skipped", async () => {
+      offer(app);
+      choose({ a: "skip" });
+      put(dir, "mkt/plugins/app/commands/go.md", "---\ndescription: Go\n---\ngo\n");
+      put(dir, "store/commands/app__go.md", "---\ndescription: Mine\n---\nlocal\n");
+      await expect(installSet()).rejects.toThrow(/app.*already exists.*rolled back: b/s);
+      expect(lock().plugins).toBeUndefined();
+    });
+    it("fails the whole set before writing when a split dependency has no Markdown", async () => {
+      offer(app);
+      rmSync(join(dir, "mkt/plugins/a/skills"), { recursive: true });
+      await expect(installSet()).rejects.toThrow(/a has no Markdown to split.*native or skip/);
+      expect(lock().plugins).toBeUndefined();
+      choose({ a: "skip" });
+      expect(await installSet()).toMatchObject({ status: "installed", skipped: ["a"] });
+    });
+    it("keeps a requested plugin set to skip as it was", async () => {
+      offer(app);
+      choose({ app: "skip" });
+      expect(await installSet()).toMatchObject({ status: "skipped", dependencies: [] });
+    });
+  });
 });
 
 describe("the choice per plugin (P12)", () => {
