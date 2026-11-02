@@ -3,19 +3,24 @@
 // skipped, replayed or frozen at any frame.
 
 export const T = {
-  rogueDrop: 6.4, rogueHops: 6.85, rogueHop: 0.4, refuse: 7.9, rogueGone: 8.55,
-  honestDrop: 8.6, honestHops: 9, honestHop: 0.36,
-  outro: 12.9, titles: 13.4, end: 14.9,
+  rogueDrop: 6.4, rogueHops: 6.85, rogueHop: 0.4, rogueGone: 9,
+  honestDrop: 9, honestHops: 9.4, honestHop: 0.36,
+  outro: 13.3, titles: 13.8, end: 15.3,
 };
 
-/** Where the seven crates stand on the staff, left to right. */
+/** Where the seven pieces stand on the staff, left to right. */
 export const SLOTS = [-3.9, -2.6, -1.3, 0, 1.3, 2.6, 3.9];
-/** The crate that refuses the unreviewed diff: AI review. */
-export const REFUSING_CRATE = 2;
+/** The piece that refuses the unreviewed diff: AI review. */
+export const REFUSING_PIECE = 2;
+
+// The unreviewed diff is passed hand to hand until AI review catches it (refuse),
+// looks, shakes its head and throws it off the stage (throw).
+T.refuse = T.rogueHops + (REFUSING_PIECE + 1) * T.rogueHop;
+T.throw = T.refuse + 0.45;
 export const VERDICT_X = 5.6;
 export const SPAWN_X = -6.3;
 
-// The reviewed diff hops from the spawn point over every crate onto the pedestal.
+// The reviewed diff is passed along every piece onto the pedestal.
 T.verdict = T.honestHops + (SLOTS.length + 1) * T.honestHop;
 
 export const clamp01 = (x) => Math.min(1, Math.max(0, x));

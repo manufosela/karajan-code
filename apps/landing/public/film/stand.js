@@ -1,6 +1,6 @@
 // atril, new in 5.0: a music stand by the podium, with the family's glowing eyes
 // and two thin arms. Its sheets are the skills; it turns to the next one each
-// time the reviewed diff lands on a crate.
+// time the reviewed diff reaches a piece.
 // 'three' is the landing's trimmed bundle (public/lib/three.min.js): the core
 // classes and the addons the film uses, all under one name (tests/landing/three-bundle.test.js).
 import * as THREE from 'three';
@@ -103,7 +103,7 @@ export function createStand(name, pages) {
   const board = new THREE.Mesh(new THREE.RoundedBoxGeometry(DESK.w, DESK.h, 0.035, 3, 0.012), metal);
   const lip = new THREE.Mesh(new THREE.RoundedBoxGeometry(DESK.w + 0.04, 0.09, 0.09, 3, 0.02), metal);
   lip.position.set(0, -DESK.h / 2 + 0.02, 0.05);
-  // The name plate glows just over the bloom threshold, like the crates' labels.
+  // The name plate glows just over the bloom threshold, like the pieces' plates.
   const plaqueGlow = new THREE.MeshBasicMaterial({ map: plaqueTexture(name), transparent: true, toneMapped: false });
   plaqueGlow.color.setScalar(1.3);
   const plaque = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.275), plaqueGlow);

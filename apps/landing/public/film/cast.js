@@ -1,18 +1,27 @@
 // The cast and how each robot moves: the conductor on the podium, kaRAGan and
-// kaWATCHan pushing the tool crates onto the staff and gathering at the end.
+// kaWATCHan bringing the method's pieces onto the staff and gathering at the end.
 import { createRobot } from './robot.js';
 import { createStand } from './stand.js';
-import { createCrate, createDiff, createVerdict, createShock, CRATE, DIFF_SIZE } from './props.js';
+import { createDiff, createVerdict, createShock } from './props.js';
+import { createPiece, PIECE } from './piece.js';
+import { tddBody } from './pieces/tdd.js';
+import { sentinelBody } from './pieces/sentinel.js';
+import { reviewBody } from './pieces/review.js';
+import { gatesBody } from './pieces/gates.js';
+import { sonarBody } from './pieces/sonar.js';
+import { ledgerBody } from './pieces/ledger.js';
+import { stewardBody } from './pieces/steward.js';
 import { STAFF, PODIUM } from './stage.js';
-import { T, SLOTS, REFUSING_CRATE, VERDICT_X, span, easeInOut, easeOut, lerp, pulse, blinkAt } from './timeline.js';
+import { T, SLOTS, REFUSING_PIECE, VERDICT_X, span, easeInOut, easeOut, lerp, pulse, blinkAt } from './timeline.js';
 
 const Z = STAFF.z;
 // atril stands by the podium, at the conductor's right, turned to both him and the audience.
 const STAND = { x: 1.75, z: -0.75, yaw: -0.38 };
-const TOP = CRATE.h + DIFF_SIZE / 2;
+// One body per slot, in the order of the page's data-tools (tests/landing/landing-pages.test.js).
+const BODIES = [tddBody, sentinelBody, reviewBody, gatesBody, sonarBody, ledgerBody, stewardBody];
 
 /**
- * Builds the cast; `tools` are the crates ({ name, kind }), labelled in the page's
+ * Builds the cast; `tools` are the pieces ({ name, kind }), labelled in the page's
  * language, and `fresh` names atril, new in this release.
  */
 export function createCast(scene, tools, fresh) {
@@ -21,7 +30,7 @@ export function createCast(scene, tools, fresh) {
   conductor.root.scale.setScalar(1.25);
   const rag = createRobot({ accent: 0xf0b429, name: 'kaRAGan' });
   const watch = createRobot({ accent: 0x4fb3e8, name: 'kaWATCHan' });
-  const crates = tools.map(({ name, kind }, i) => createCrate(i, name, { kind }));
+  const pieces = tools.map(({ name, kind }, i) => createPiece(i, name, { kind, body: BODIES[i] }));
   const sheets = [[fresh.tool, 'skills'], ...tools.map(({ name }) => [name, 'skill'])];
   const stand = createStand(fresh.tool, sheets);
   stand.group.position.set(STAND.x, 0, STAND.z);
@@ -32,11 +41,10 @@ export function createCast(scene, tools, fresh) {
   const verdict = createVerdict();
   verdict.group.position.set(VERDICT_X, 0, Z);
   const shock = createShock();
-  shock.position.set(SLOTS[REFUSING_CRATE] - CRATE.w / 2, TOP, Z);
-  shock.rotation.y = Math.PI / 2;
+  shock.position.set(SLOTS[REFUSING_PIECE], PIECE.catchY, Z);
   scene.add(conductor.root, rag.root, watch.root, rogue.group, honest.group, verdict.group, shock);
-  crates.forEach((c) => scene.add(c.group));
-  return { conductor, rag, watch, crates, stand, rogue, honest, verdict, shock };
+  pieces.forEach((p) => scene.add(p.group));
+  return { conductor, rag, watch, pieces, stand, rogue, honest, verdict, shock };
 }
 
 const headToward = (robot, x, z) => {
@@ -78,7 +86,7 @@ export function conductorAt(t, { conductor: k, honest }, beat) {
   k.head.rotation.y = shake + follow;
 }
 
-export function walkerAt(t, robot, side, crates, cube) {
+export function walkerAt(t, robot, side, pieces, cube) {
   const enter = side < 0 ? [2.7, 5.1] : [2.9, 5.3];
   const travel = easeInOut(span(t, enter[0], enter[1]));
   const endX = side * 7;
@@ -104,12 +112,14 @@ export function walkerAt(t, robot, side, crates, cube) {
   const watching = t > T.rogueDrop - 0.3 ? 1 : 0;
   robot.head.rotation.y = watching * headToward(robot, cube.x, Z) * 0.8 + (t > T.end ? 0.15 * Math.sin(t * 0.7 + side) : 0);
 
-  crates.forEach(({ crate, slot, order }) => {
+  pieces.forEach(({ piece, slot, order }) => {
     const front = x + side * -1 * (1.35 + order * 1.2);
     const stopped = endX + side * -1 * (1.35 + order * 1.2);
     const glide = easeOut(span(t, enter[1], enter[1] + 0.9 + order * 0.12));
     const cx = t <= enter[1] ? front : lerp(stopped, slot, glide);
-    crate.group.position.set(cx, 0, Z);
-    crate.group.rotation.y = 0.05 * Math.sin(t * 7 + order) * (t < enter[1] + 0.6 ? 1 : 0) * (1 - glide);
+    // They hop along beside the robots until they settle in their slots.
+    const hopping = (t > enter[0] ? 1 : 0) * (1 - glide);
+    piece.group.position.set(cx, 0.08 * Math.abs(Math.sin(t * 9 + order)) * hopping, Z);
+    piece.group.rotation.y = 0.05 * Math.sin(t * 7 + order) * (t < enter[1] + 0.6 ? 1 : 0) * (1 - glide);
   });
 }

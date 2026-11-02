@@ -1,10 +1,9 @@
-// Props on stage: the method's tool crates, the diffs that travel across
-// them and the pedestal where the green verdict is earned.
+// Props on stage: the diffs the pieces pass along, the pedestal where the
+// green verdict is earned, and the look the pieces share (labels and kinds).
 // 'three' is the landing's trimmed bundle (public/lib/three.min.js): the core
 // classes and the addons the film uses, all under one name (tests/landing/three-bundle.test.js).
 import * as THREE from 'three';
 
-export const CRATE = { w: 1.15, h: 0.78, d: 0.78 };
 export const DIFF_SIZE = 0.42;
 export const RED = new THREE.Color(0xff4d4d);
 const GREEN = new THREE.Color(0x34d399);
@@ -31,44 +30,6 @@ export function labelTexture(lines, { width = 512, height = 256, color = '#e2e8f
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
   return texture;
-}
-
-/**
- * A crate on the staff. `kind` is 'method' or 'tool' and sets its colours;
- * `badge` (e.g. "new") is printed in green next to its number.
- */
-export function createCrate(index, name, { kind, badge = '' }) {
-  const look = KINDS[kind];
-  if (!look) throw new Error(`crate "${name}": unknown kind "${kind}"`);
-  const group = new THREE.Group();
-  const material = new THREE.MeshPhysicalMaterial({
-    color: look.body, roughness: 0.45, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.3,
-    emissive: new THREE.Color(0x000000),
-  });
-  const body = new THREE.Mesh(new THREE.RoundedBoxGeometry(CRATE.w, CRATE.h, CRATE.d, 4, 0.07), material);
-  body.position.y = CRATE.h / 2;
-  body.castShadow = true;
-  body.receiveShadow = true;
-  const labelMaterial = new THREE.MeshBasicMaterial({
-    map: labelTexture([[String(index + 1).padStart(2, '0'), badge].filter(Boolean).join(' · '), name], { color: look.ink, accent: badge ? '#34d399' : '#e8b04b' }),
-    transparent: true, toneMapped: false,
-  });
-  const label = new THREE.Mesh(new THREE.PlaneGeometry(CRATE.w * 0.92, CRATE.w * 0.46), labelMaterial);
-  label.position.set(0, CRATE.h / 2, CRATE.d / 2 + 0.003);
-  const stripMaterial = new THREE.MeshStandardMaterial({ color: look.strip, emissive: look.glow.clone(), emissiveIntensity: 0 });
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(CRATE.w * 0.86, 0.025, 0.05), stripMaterial);
-  strip.position.set(0, CRATE.h - 0.02, CRATE.d / 2 - 0.02);
-  group.add(body, label, strip);
-  return {
-    group,
-    /** gold: earned light (0..1), in the crate's own colour; red: refusal flash (0..1). */
-    setLight(gold, red = 0) {
-      material.emissive.copy(look.glow).multiplyScalar(gold * 0.16).lerp(RED.clone().multiplyScalar(0.55), red);
-      stripMaterial.emissive.copy(look.glow).lerp(RED, red);
-      stripMaterial.emissiveIntensity = Math.max(gold, red) * 3.2;
-      labelMaterial.color.setScalar(0.55 + 0.45 * Math.max(gold, red));
-    },
-  };
 }
 
 export function createDiff(kind) {
