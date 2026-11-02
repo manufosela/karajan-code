@@ -193,6 +193,8 @@ describe("installPluginSet", () => {
     expect(result).toMatchObject({ plugin: "app", status: "installed", skipped: [] });
     expect(result.dependencies.map((d) => d.plugin)).toEqual(["a", "b"]);
     expect(Object.keys(lock().plugins).toSorted()).toEqual(["a", "app", "b"]);
+    expect(lock().plugins.app.dependencies).toEqual(["a", "b"]);
+    expect(lock().plugins.a.dependencies).toBeUndefined();
   });
 
   it("shows what this run downloaded as fetched, not cached", async () => {
@@ -234,8 +236,8 @@ describe("installPluginSet", () => {
   it("rolls back what this run installed and leaves a reinstalled member untouched", async () => {
     offer(app);
     await installSet();
-    removePlugin("a", o());
-    removePlugin("b", o()); // a and b are new again; app is a reinstall
+    removePlugin("a", { ...o(), force: true });
+    removePlugin("b", { ...o(), force: true }); // a and b are new again; app is a reinstall
     const appEntry = structuredClone(lock().plugins.app);
     put(dir, "mkt/plugins/app/commands/go.md", "---\ndescription: Go\n---\ngo\n"); // new file in the source...
     put(dir, "store/commands/app__go.md", "---\ndescription: Mine\n---\nlocal\n"); // ...that a local file already holds
@@ -260,8 +262,8 @@ describe("installPluginSet", () => {
   it.each([["app", false], ["b", false], ["app", true], ["b", true]])("restores the store and the lock when %s fails after its Markdown is written (torn lock: %s)", async (failing, torn) => {
     offer(app);
     await installSet();
-    removePlugin("a", o());
-    removePlugin("b", o()); // a and b are new again; app is a reinstall
+    removePlugin("a", { ...o(), force: true });
+    removePlugin("b", { ...o(), force: true }); // a and b are new again; app is a reinstall
     put(dir, "mkt/plugins/app/commands/go.md", "---\ndescription: Go\n---\ngo\n"); // the reinstall also brings a new file
     // Not compared: the fetch cache (store/plugins, kept on purpose) and emptied folders.
     const files = () => readdirSync(join(dir, "store"), { recursive: true }).filter((p) => !p.startsWith("plugins") && statSync(join(dir, "store", p)).isFile()).toSorted();

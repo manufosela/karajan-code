@@ -89,6 +89,41 @@ describe("removePlugin", () => {
   });
 });
 
+describe("removePlugin with dependents (HU-3195)", () => {
+  const dependOn = (...names) => {
+    const lock = readLock(o());
+    lock.plugins.app = { entries: [], dependencies: names };
+    writeLock(lock, o());
+  };
+  it("refuses while an installed plugin depends on it, naming the dependents, and touches nothing", () => {
+    dependOn("kit");
+    expect(() => removePlugin("kit", o())).toThrow(/"kit" is required by: app/);
+    expect(has("skills/kit__tdd")).toBe(true);
+    expect(readLock(o()).plugins.kit).toBeDefined();
+  });
+  it("--force removes it anyway", () => {
+    dependOn("kit");
+    expect(removePlugin("kit", { ...o(), force: true }).removed).toContain("skill:kit__tdd");
+    expect(readLock(o()).plugins.kit).toBeUndefined();
+  });
+  it("removing the dependent itself is not blocked by it", () => {
+    dependOn("kit");
+    expect(removePlugin("app", o()).plugin).toBe("app");
+  });
+  it("an old lock entry without dependencies still loads and removes", () => {
+    expect(readLock(o()).plugins.kit.dependencies).toBeUndefined();
+    expect(removePlugin("kit", o()).plugin).toBe("kit");
+  });
+  it("the CLI refuses with the dependents and --force passes through", () => {
+    dependOn("kit");
+    const cli = (...a) => spawnSync(process.execPath, [BIN, "remove", "plugin:kit", "--root", "store", ...a], { cwd: dir, encoding: "utf8" });
+    const refused = cli();
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain("required by: app");
+    expect(cli("--force").status).toBe(0);
+  });
+});
+
 describe("atril remove plugin:<name>", () => {
   const atril = (...args) => spawnSync(process.execPath, [BIN, "remove", "plugin:kit", "--root", "store", ...args], { cwd: dir, encoding: "utf8" });
   it("removes and prints the keys; --json and --purge work", () => {
