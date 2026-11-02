@@ -29,6 +29,7 @@ import { createLibretto } from '../public/film/family/libretto.js';
 import { createConsole } from '../public/film/family/console.js';
 import { createGovernance } from '../public/film/family/governance.js';
 import { createCore } from '../public/film/family/core.js';
+import { createRadar } from '../public/film/family/radar.js';
 
 // One entry per portrait: builds the character in its portrait pose.
 const CAST = {
@@ -42,6 +43,7 @@ const CAST = {
   console: () => createConsole(),
   governance: () => createGovernance(),
   core: () => createCore(),
+  radar: () => createRadar(),
 };
 
 const W = 720, H = 800, HEIGHT = 320, FOV = 24;
