@@ -84,8 +84,21 @@ router.get("/", async (req, res) => {
     if (err?.code === "ENOENT") return res.status(503).json({ ok: false, error: "kj not installed", installable: true });
     return res.status(500).json({ ok: false, error: String(err.message || err) });
   }
-  res.json({ ok: true, dir, policy: policySummary(dir), report, anchor: anchorState(dir, report.chain?.length ?? 0), identity: identityState(dir), lanes: await laneWarnings(dir) });
+  res.json({ ok: true, dir, policy: policySummary(dir), report, anchor: anchorState(dir, report.chain?.length ?? 0), identity: identityState(dir), lanes: await laneWarnings(dir), gates: await gatesState(dir) });
 });
+
+/** KJC-TSK-1393 (ADR 0045): the rules as `kj gates --json` resolves them (pretty-printed JSON after any log line). */
+async function gatesState(dir) {
+  try {
+    const r = await runCommand("kj", ["gates", "--json"], { cwd: dir });
+    const out = String(r.stdout || "");
+    const start = out.indexOf("{");
+    if (r.exitCode !== 0 || start === -1) return { error: `kj gates --json failed (exit ${r.exitCode})` };
+    return JSON.parse(out.slice(start));
+  } catch (err) {
+    return { error: String(err.message || err) };
+  }
+}
 
 /**
  * KJC-TSK-1314: lanes outside the method. A branch naming no card, and a lane whose PR is merged
@@ -157,6 +170,20 @@ router.post("/anchor", async (req, res) => {
   const dir = projectOf(req);
   if (!dir) return res.status(404).json({ ok: false, error: "not a karajan project" });
   return runKj(res, dir, ["policy", "anchor"]);
+});
+
+// KJC-TSK-1393 (ADR 0045): the same `kj gates set` as the terminal. A click may tighten; kj
+// refuses a loosening from here (no terminal for the human act) and its message comes back.
+const RULE_ID = /^[a-z][a-z-]{1,40}$/;
+const RULE_VALUE = /^[a-z0-9]{1,20}$/;
+router.post("/gates", async (req, res) => {
+  const dir = projectOf(req);
+  if (!dir) return res.status(404).json({ ok: false, error: "not a karajan project" });
+  const { rule, value } = req.body || {};
+  if (!RULE_ID.test(String(rule ?? "")) || !RULE_VALUE.test(String(value ?? ""))) {
+    return res.status(400).json({ ok: false, error: "rule and value are required (a rule id and a level or number)" });
+  }
+  return runKj(res, dir, ["gates", "set", rule, String(value)]);
 });
 
 export default router;

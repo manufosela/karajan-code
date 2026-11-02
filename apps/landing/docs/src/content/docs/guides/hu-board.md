@@ -13,6 +13,8 @@ Beyond the kanban, the board has a **Governance** view — the project's hash-ch
 
 Parallel work shows too. A card worked in a `kj worktree` lane carries a badge with the lane, its branch, its commits ahead of the base and its PR. The Governance view lists the lanes outside the method: a branch that names no card, and a lane whose PR is already merged, with the exact `kj worktree done <slug>` that clears it. All of it is read from git every time, nothing is stored.
 
+The Governance view also shows the **method rules**, the same list as `kj gates`: the fixed ones with a lock, and each adjustable one with its value and who set it (the default, the project, you or a skill), plus any sentence of the project's CONTRIBUTING that contradicts a fixed rule. A click tightens an adjustable rule. Loosening one is yours alone: the board shows the `kj gates set` command to type in your terminal.
+
 ## Under the hood — try it yourself
 
 The ledger is a plain append-only file where every line links the last:
