@@ -30,6 +30,20 @@ import { removePlugin } from "../src/plugin-remove.js";
 import { derivedInstructions, removedInstructions } from "../src/plugin-derived.js";
 import { installConfirm, notInstalledLines, updateConfirm } from "../src/plugin-install-cli.js";
 import { configureMissing, pluginConfigRows, setPluginConfig, unsetPluginKey } from "../src/plugin-config-cli.js";
+import { generateAfter, requireRulesync } from "../src/plugin-generate.js";
+import { hasEntries } from "../src/rulesync-entries.js";
+
+// Once at the end of an install, update or remove that wrote or removed .rulesync/ entries; a failed generate keeps them and fails the command.
+function afterEntries(wrote, values) {
+  try {
+    const line = generateAfter(wrote, { root: values.root });
+    if (line) console.error(`atril: ${line}`);
+  } catch (err) {
+    console.error(`atril: ${err.message}`);
+    process.exitCode = 1;
+  }
+}
+const mergedEntries = (results) => results.some((member) => member.rulesync?.status === "merged");
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -209,6 +223,7 @@ async function runUpdate(args) {
   const refs = given.filter((ref) => !ref.startsWith("plugin:"));
   const artifacts = given.length === 0 || refs.length > 0 ? await runArtifactUpdates(values, refs) : undefined;
   const plugins = await runUpdatePlugins(given.length === 0 ? Object.keys(known) : named, values);
+  afterEntries(mergedEntries(plugins), values);
   if (values.json) console.log(JSON.stringify({ ...artifacts, plugins }, null, 2));
   else for (const result of plugins) console.log(describePluginUpdate(result));
 }
@@ -292,6 +307,7 @@ async function runInstallPlugin(name, values) {
       const prefixed = result.dependencies.length > 0;
       for (const member of [...result.dependencies, result]) for (const line of notInstalledLines(member, prefixed ? member.plugin : undefined)) console.error(printable(line));
       for (const { derived } of [...result.dependencies, result]) for (const line of derived ? derivedInstructions(derived) : []) console.error(printable(`atril: ${line}`));
+      afterEntries(mergedEntries([...result.dependencies, result]), values);
       terminal?.close();
       for (const member of [...result.dependencies, result]) {
         member.needsConfig = await configureMissing(member.plugin, { root: values.root }, { prompt: Boolean(terminal) && !values.yes });
@@ -308,7 +324,9 @@ async function runInstallPlugin(name, values) {
 }
 
 function runRemovePlugin(name, values) {
+  if (hasEntries(process.cwd(), name)) requireRulesync({ root: values.root }); // before any change: nothing half done
   const result = removePlugin(name, { root: values.root, purge: values.purge, force: values.force });
+  afterEntries(result.entries?.removed.length > 0, values);
   for (const path of result.leftBehind ?? []) console.error(`atril: removed, but could not delete ${printable(path)}: delete it by hand`);
   for (const key of result.entries?.kept ?? []) console.error(printable(`atril: kept ${key} in .rulesync/: you edited it since atril wrote it, so it is yours now`));
   for (const line of result.derived ? removedInstructions(result.derived) : []) console.error(printable(`atril: ${line}`));
