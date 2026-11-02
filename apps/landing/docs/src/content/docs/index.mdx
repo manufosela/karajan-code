@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.0.3: doctor fails on a default branch other than main (current)
+### v5.1.0: the review starts from facts (current)
+
+Before the cross-AI review, kj computes facts about the diff without a model and the reviewer starts from them; findings name their file and line, and `kj solomon --finding` rules on one of them while the rest keep blocking. The method asks for a simplification pass before the review, and `kj audit` says how many of its checks ran.
+
+### v5.0.3: doctor fails on a default branch other than main
 
 `kj doctor` now fails, and exits 1, while the repository's default branch is not `main`: every gate kj writes for `main` never runs there. 5.0.2 only warned.
 
