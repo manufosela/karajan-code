@@ -134,9 +134,22 @@ export const holdLane = (top, now = Date.now()) => {
     return "(no se pudo reclamar " + top + ")";
   }
 };
+// KJC-BUG-0475 (#3125): during a rebase HEAD is detached; the branch being rebased is in head-name.
+const rebasingBranch = (top) => {
+  for (const dir of ["rebase-merge", "rebase-apply"]) {
+    try {
+      const file = execSync("git rev-parse --path-format=absolute --git-path " + dir + "/head-name", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+      const name = readFileSync(file, "utf8").trim();
+      if (name.startsWith("refs/heads/")) return name.slice("refs/heads/".length);
+    } catch { /* no rebase of this kind in progress */ }
+  }
+  return null;
+};
 export const branchOf = (top = laneTop()) => {
-  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+  let branch;
+  try { branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
   catch { return null; }
+  return branch === "HEAD" ? (rebasingBranch(top) ?? branch) : branch;
 };
 // ADR 0034 (KJC-TSK-1243): the lane a write lands in is the worktree holding its path when
 // that worktree is of this repo; any other path is judged in the session's lane. It walks up
