@@ -83,6 +83,10 @@ git config core.hooksPath .karajan/hooks
 
 Requires git and at least one AI agent CLI — two enables cross-AI review; three enables arbitration. The npm route is `npm install -g @karajan-family/code` (published as `karajan-code` before joining the scope; the legacy name still installs the same versions). All install routes (npm, binaries, brew, Python wrapper) in the [install docs](https://karajancode.com/docs/v4/install/).
 
+### Verify what you installed
+
+Since 5.0.0 every release is published from GitHub Actions with signed provenance (SLSA), tied to the tagged commit that built it. Check the npm package with `npm audit signatures` in the folder where kj is installed (kj must be listed with verified attestations), and a standalone binary with `gh attestation verify kj-linux-x64 --repo manufosela/karajan-code` (GitHub CLI 2.49+). Details in the [install docs](https://karajancode.com/docs/v4/install/#verify-what-you-installed).
+
 ## The daily loop
 
 1. You describe what you want. Your agent creates the card (`kj hu add`), queries the RAG, writes the failing test, then the code.
