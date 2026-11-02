@@ -56,6 +56,17 @@ describe("runOneShotReview", () => {
     expect(agent.reviewTask).toHaveBeenCalledOnce();
   });
 
+  // KJC-TSK-1380 (#3207): the reviewer starts from facts computed without a model, kept in the verdict.
+  it("hands the reviewer the diff's facts and keeps them in the verdict", async () => {
+    const agent = fakeAgent(reviewOutput(true));
+    const record = await runOneShotReview({
+      diff: DIFF, config, projectDir: dir, hostAgent: "claude",
+      createAgentFn: () => agent, detectAgents: agentsUp("claude", "codex"),
+    });
+    expect(agent.reviewTask.mock.calls[0][0].prompt).toMatch(/Verified facts \(computed without a model\)[\s\S]*x\.js \+1 \/ -0/);
+    expect(record.facts).toContainEqual(expect.objectContaining({ kind: "no-tests" }));
+  });
+
   // KJC-TSK-0838: the sonar block is persisted with the verdict, so the
   // pre-commit check can refuse a diff that was reviewed but never analysed.
   it("persists the sonar block it is handed, bound to the same diff hash", async () => {

@@ -24,6 +24,7 @@ Los comandos que un setup v4 usa de verdad. Todo soporta `--help`; los comandos 
 | `kj worktree start\|list\|done <slug>` | Carriles de tarea aislados: worktree + rama `feat/<slug>` + bootstrap de dependencias; `done` desmonta un carril mergeado. `list --json` da los commits por delante de la base de cada carril y las cards que nombra su rama (por ID o referencia); `--prs` añade la PR de cada carril (una sola llamada a `gh`). El HU Board los muestra en cada card. |
 | `kj review --check` | ¿Hay veredicto approved para el diff staged exacto? (Lo que ejecuta el hook.) |
 | `kj solomon --position "<por qué>"` | Arbitraje de tercera IA sobre un veredicto rechazado. Exit 0 approve / 1 reject. |
+| `kj solomon --finding <id> --position "<por qué>"` | Arbitra un solo hallazgo del veredicto. Si lo aprueba, lo quita; el gate solo se abre cuando no queda ninguno. Un hallazgo de seguridad nunca se arbitra. |
 | `kj agent run <agente> "<tarea>"` | Delega una tarea a otra IA e imprime su salida. |
 | `kj report-issue --title "<t>"` | Reporta un bug de kj upstream, sanitizado. Nunca publica sin `--publish`. |
 

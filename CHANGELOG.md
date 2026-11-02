@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-11-02
+
+### Added
+- **The reviewer starts from facts computed without a model** (KJC-TSK-1380, #3207): before the cross-AI review, `kj review --staged` lists the size of each file's change, code changed with no test touched, dependencies a package.json adds, an `await import()` of a module the file already imports statically and secret-shaped strings on added lines, each with its file:line. The verdict keeps them as `facts`. They inform; they never block on their own.
+- **`kj solomon --finding <id>` arbitrates one finding** (KJC-TSK-1379, #3207): approving it removes it from the verdict, and the gate opens only when no finding is left; a security finding is still never arbitrated. The reviewer now names the file and line of every blocking issue.
+- **`kj audit` says how many checks ran** (KJC-TSK-1381, #3208): the summary opens with "N of M checks ran", names each check that did not run with its reason, and points at `kj install-tools` when a tool is missing.
+
+### Changed
+- **The method asks for a simplification pass before the review** (KJC-TSK-1378, #3206): after green and before `kj review --staged`, simplify the change without changing behavior or weakening a test. A line of the method and of `kj brief tester`, not a gate. The next `kj env install` rewrites the method block in each project.
+
 ## [5.0.3] - 2026-11-02
 
 ### Fixed
