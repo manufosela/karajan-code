@@ -38,7 +38,7 @@ function stageEntry(entry, plugin, stage, inside, rewrite) {
   if (!isMapping(front) || typeof front.description !== "string" || !front.description.trim()) throw new Error(`${path}: needs a description in its frontmatter`);
   if (front.atril !== undefined && !isMapping(front.atril)) throw new Error(`${path}: atril must be a mapping`);
   const { front: next, body } = rewrite({ entry, front, body: match[2] });
-  writeFileSync(file, `---\n${yaml.dump({ ...next, name: storeName, kind, atril: { ...next.atril, plugin } })}---\n${body}`);
+  writeFileSync(file, `---\n${yaml.dump({ ...next, name: storeName, kind, atril: { ...next.atril, plugin } }, { lineWidth: -1 })}---\n${body}`);
   parseArtifact(file);
   return staged;
 }
