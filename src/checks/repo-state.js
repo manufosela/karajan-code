@@ -29,6 +29,29 @@ const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
 const git = (projectDir, args) => execFileSync("git", ["-C", projectDir, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
 const gitOk = (projectDir, args) => { try { git(projectDir, args); return true; } catch { return false; } };
 
+/**
+ * KJC-BUG-0473 (#3080): the main branch is main, always. With master as the default branch,
+ * every gate kj writes for [main] never runs, and nothing says so. Read from origin/HEAD when
+ * the clone knows it; with no origin, from a local master that has no main beside it.
+ * @returns {{branch: string, detail: string, fix: string} | null}
+ */
+export function defaultBranchProblem(projectDir) {
+  let branch = null;
+  try {
+    branch = git(projectDir, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]).trim().replace(/^origin\//, "");
+  } catch {
+    if (gitOk(projectDir, ["rev-parse", "--verify", "-q", "refs/heads/master"])
+      && !gitOk(projectDir, ["rev-parse", "--verify", "-q", "refs/heads/main"])) branch = "master";
+  }
+  if (!branch || branch === "main") return null;
+  return {
+    branch,
+    detail: `la rama por defecto es ${branch}, no main: los gates que kj escribe para main no se lanzan nunca`,
+    fix: `renombra ${branch} a main (en GitHub: Settings > Branches > Rename; si no existe, crea main) y actualiza el clon: `
+      + `git branch -m ${branch} main && git fetch origin && git branch -u origin/main main && git remote set-head origin -a`,
+  };
+}
+
 /** @internal Exported for dynamic import from tests. */
 export function createRepoStateCheck({ projectDir }) {
   return {
@@ -99,6 +122,9 @@ export function createRepoStateCheck({ projectDir }) {
           fix: deadRemotes.map((n) => `git remote remove -- ${shellQuote(n)}`).join(" && "),
         });
       }
+
+      const notMain = defaultBranchProblem(dir);
+      if (notMain) symptoms.push({ detail: notMain.detail, fix: notMain.fix });
 
       if (symptoms.length === 0) return { ok: true, severity: "info", detail: "el repositorio está en orden" };
       return {
