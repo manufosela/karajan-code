@@ -10,7 +10,7 @@ vi.mock("../../src/rag/vec-store.js", async () => ({ ...(await vi.importActual("
 vi.mock("../../src/rag/indexer.js", () => ({ indexProject: vi.fn(), indexProjectDelta: vi.fn(), indexFile: vi.fn(), sourceKind: vi.fn() }));
 vi.mock("../../src/rag/governed-embedder.js", () => ({ makeGovernedEmbedder: vi.fn(() => ({})) }));
 vi.mock("../../src/rag/library.js", () => ({ indexLibrary: vi.fn(), LIBRARY_PROJECT: "library" }));
-const { ragIndexCommand } = await import("../../src/commands/rag.js");
+const { ragIndexCommand, BACKSTOP_GRACE_MS } = await import("../../src/commands/rag.js");
 const { indexProject, indexProjectDelta } = await import("../../src/rag/indexer.js");
 const { indexLeasePath, readLease, writeLease } = await import("../../src/rag/pid-lease.js");
 const totals = { indexed: 1, failed: 0, files: 1, deleted: 0 };
@@ -104,5 +104,44 @@ describe("ragIndexCommand deadline", () => {
     expect(readLease(lease)).toBeNull();
     expect(readLease(marker())).toMatchObject({ stoppedBy: "deadline" });
     expect(warned).toEqual([expect.stringMatching(/KJ_RAG_DEADLINE reached after 2 file\(s\).*partial.*not recorded/)]);
+  });
+});
+
+// HU-3116: the cooperative stop only checks between files; a hung embed call is ended by a backstop timer.
+describe("ragIndexCommand deadline backstop", () => {
+  const marker = () => `${root}/rag.db.bootstrap`;
+  let timers, exit, handle;
+  const backstopRun = (flags = { withSources: true }) => ragIndexCommand({ config: { projectDir: root }, logger, flags, backstop: { setTimer: (fn, ms) => { timers.push({ fn, ms }); return handle; }, clearTimer: vi.fn(), exit } });
+  beforeEach(() => {
+    projectDbPath.mockReturnValue(`${root}/rag.db`);
+    timers = []; exit = vi.fn(); handle = { unref: vi.fn() };
+  });
+  it("an embedder that never resolves: the backstop frees the lease, notes the marker, warns and exits", async () => {
+    writeLease(marker(), { pid: process.pid, at: Date.now(), command: "c" });
+    const deadline = Date.now() + 60_000;
+    process.env.KJ_RAG_DEADLINE = String(deadline);
+    indexProject.mockReturnValue(new Promise(() => {}));
+    void backstopRun();
+    await vi.waitFor(() => expect(readLease(lease)).toMatchObject({ pid: process.pid }));
+    expect(timers).toHaveLength(1);
+    expect(timers[0].ms).toBeGreaterThan(60_000 + BACKSTOP_GRACE_MS - 5_000);
+    expect(timers[0].ms).toBeLessThanOrEqual(60_000 + BACKSTOP_GRACE_MS);
+    expect(handle.unref).toHaveBeenCalled();
+    timers[0].fn();
+    expect(readLease(lease)).toBeNull();
+    expect(readLease(marker())).toMatchObject({ stoppedBy: "deadline" });
+    expect(warned).toEqual([expect.stringMatching(/KJ_RAG_DEADLINE.*hung/)]);
+    expect(exit).toHaveBeenCalledTimes(1);
+  });
+  it("without KJ_RAG_DEADLINE no timer is armed", async () => {
+    await backstopRun();
+    expect(timers).toEqual([]);
+  });
+  it("a normal run clears the timer", async () => {
+    process.env.KJ_RAG_DEADLINE = String(Date.now() + 60_000);
+    const clearTimer = vi.fn();
+    await ragIndexCommand({ config: { projectDir: root }, logger, flags: {}, backstop: { setTimer: () => handle, clearTimer, exit } });
+    expect(clearTimer).toHaveBeenCalledWith(handle);
+    expect(exit).not.toHaveBeenCalled();
   });
 });
