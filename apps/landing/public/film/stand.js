@@ -4,6 +4,7 @@
 // 'three' is the landing's trimmed bundle (public/lib/three.min.js): the core
 // classes and the addons the film uses, all under one name (tests/landing/three-bundle.test.js).
 import * as THREE from 'three';
+import { createArm, createFace } from './parts.js';
 
 const DESK = { w: 1.25, h: 0.86, tilt: 0.42 };
 const SHEET = { w: 0.56, h: 0.76 };
@@ -78,38 +79,6 @@ const sheetMesh = (map) => new THREE.Mesh(
   new THREE.MeshStandardMaterial({ map, roughness: 0.9, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.04 }),
 );
 
-// A thin metal arm hanging from its shoulder, with a white hand like the robots'.
-function createArm(metal, white) {
-  const shoulder = new THREE.Group();
-  const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, ARM, 10), metal);
-  bone.position.y = -ARM / 2;
-  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), white);
-  hand.position.y = -ARM;
-  shoulder.add(bone, hand);
-  return shoulder;
-}
-
-// A face like the robots': a dark visor on top of the desk with two glowing eyes.
-function createFace() {
-  const face = new THREE.Group();
-  face.position.set(0, DESK.h / 2 + 0.13, 0);
-  const visor = new THREE.Mesh(
-    new THREE.RoundedBoxGeometry(0.66, 0.3, 0.08, 3, 0.07),
-    new THREE.MeshStandardMaterial({ color: 0x0b1118, roughness: 0.25, metalness: 0.4 }),
-  );
-  const glow = new THREE.MeshStandardMaterial({ color: GREEN, emissive: GREEN, emissiveIntensity: 2.4 });
-  const eyes = new THREE.Group();
-  eyes.position.z = 0.045;
-  const eyeGeo = new THREE.CapsuleGeometry(0.036, 0.1, 4, 10);
-  for (const x of [-0.13, 0.13]) {
-    const eye = new THREE.Mesh(eyeGeo, glow);
-    eye.position.x = x;
-    eyes.add(eye);
-  }
-  face.add(visor, eyes);
-  return { face, eyes };
-}
-
 /**
  * The stand. `pages` are the sheets in order (the cover first); `turnTo(n, f)`
  * shows sheet n on the right, with sheet n-1 still turning over by f (0..1);
@@ -153,10 +122,11 @@ export function createStand(name, pages) {
   back.position.x = SHEET.w / 2 + 0.01;
   back.rotation.y = Math.PI;
   hinge.add(turning, back);
-  const { face, eyes } = createFace();
+  const { face, eyes } = createFace(GREEN);
+  face.position.set(0, DESK.h / 2 + 0.13, 0);
   const white = new THREE.MeshPhysicalMaterial({ color: 0xe6eaf0, roughness: 0.35, clearcoat: 0.6 });
   const arms = [-1, 1].map((side) => {
-    const arm = createArm(metal, white);
+    const arm = createArm(metal, white, ARM);
     arm.position.set(side * (DESK.w / 2 + 0.02), DESK.h * 0.15, 0.08);
     return arm;
   });

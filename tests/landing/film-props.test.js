@@ -19,8 +19,11 @@ describe("film props", () => {
   it("brings atril to life every frame", () => {
     const score = readFileSync(new URL("../../apps/landing/public/film/score.js", import.meta.url), "utf8");
     expect(stand).toMatch(/live\(blink, look, cheer\)/);
-    expect(stand).toContain("function createFace");
-    expect(stand).toContain("function createArm");
+    // The face and arms are the family's shared parts (KJL-TSK-0154).
+    const parts = readFileSync(new URL("../../apps/landing/public/film/parts.js", import.meta.url), "utf8");
+    expect(stand).toContain("import { createArm, createFace } from './parts.js'");
+    expect(parts).toContain("export function createFace(color, width = 0.66)");
+    expect(parts).toContain("export function createArm(metal, white, length)");
     expect(score).toMatch(/cast\.stand\.live\(blinkAt\(t, [\d.]+\), look, pulse\(t, T\.verdict/);
   });
 
