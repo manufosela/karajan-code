@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.2.1: el método vuelve a llegar a tus agentes con atril (actual)
+### v5.3.0: cada carril conoce el código desde su primer minuto (actual)
+
+Un carril nuevo copia el índice RAG de main en vez de empezar vacío y luego se pone al día con sus propios commits en segundo plano, con un solo indexador por máquina como mucho. La revisión conjunta de `kj review --third-party --reviewers a,b` cuenta problemas distintos: el mismo nombrado en otro fichero o dos veces por un revisor es un solo hallazgo, y los demás informes quedan en su `also`.
+
+### v5.2.1: el método vuelve a llegar a tus agentes con atril
 
 En un proyecto con atril, kj tomaba la carpeta `.rulesync/` que crea atril por una señal de Rulesync y escribía el método solo ahí, así que CLAUDE.md, AGENTS.md y GEMINI.md se quedaban sin actualizar. Rulesync cuenta ahora solo con `rulesync.jsonc`, rulesync en package.json o `rulesync.generate: true`. Ejecuta `kj env install` una vez para poner al día los ficheros de los agentes.
 

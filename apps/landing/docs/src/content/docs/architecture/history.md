@@ -1894,6 +1894,10 @@ Four ideas a contributor brought to the maintainer the same morning, each decide
 
 The rules lived in a YAML file the user is not meant to edit, and the method block quoted limits a project might have changed. The maintainer debated it one point at a time (ADR 0045): install asks nothing and applies every rule; five fixed rules change for no one; the adjustable ones take what the project says (its commitlint or history, and its CONTRIBUTING when the exact sentence is in the file, checked on every read) before kj's defaults. The agent may tighten a rule and only the human loosens one, with the same human act as the seal, because when an agent runs the change kj cannot know who asked for it; for the same reason a click on the board can tighten but not loosen. `kj gates`, `kj init`, `kj doctor` and the HU Board show the same list, every gate applies the resolved value, and the commit hook follows the project's convention instead of imposing one.
 
+## Phase 158: v5.3.0, every lane knows the code from its first minute
+
+A lane used to start with an empty RAG index and build it from scratch, so the first questions in a new lane answered from nothing while a full bootstrap ran. A contributor seeded each new lane with a copy of main's index (paths, slug and watermark rewritten) and then had it catch up with the lane's own commits in the background, under one machine-wide lease so several lanes never index at once; an indexer whose lane was removed is stopped, and only after checking its exact command. The joint third-party review learned to count problems instead of reports: the same problem named in another file or twice by one reviewer becomes one finding, decided without a model by the spot or the code it names, with every other report kept in its `also`.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

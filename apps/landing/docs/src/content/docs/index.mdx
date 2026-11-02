@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.2.1: the method reaches your agents again with atril (current)
+### v5.3.0: every lane knows the code from its first minute (current)
+
+A new lane copies main's RAG index instead of starting empty, then catches up with its own commits in the background, with at most one indexer per machine. The joint review of `kj review --third-party --reviewers a,b` counts distinct problems: the same one named in another file or twice by one reviewer is one finding, and the other reports stay in its `also`.
+
+### v5.2.1: the method reaches your agents again with atril
 
 In a project with atril, kj took the `.rulesync/` folder atril creates for a sign of Rulesync and wrote its method only there, so CLAUDE.md, AGENTS.md and GEMINI.md went stale. Rulesync now counts only with `rulesync.jsonc`, rulesync in package.json or `rulesync.generate: true`. Run `kj env install` once to bring the agent files up to date.
 
