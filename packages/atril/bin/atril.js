@@ -26,6 +26,7 @@ import { applyInstalledUpdate, installedUpdates } from "../src/upgrade.js";
 import { installPluginSet } from "../src/plugin-install.js";
 import { removePlugin } from "../src/plugin-remove.js";
 import { installConfirm, notInstalledLines } from "../src/plugin-install-cli.js";
+import { configureMissing, pluginConfigRows, setPluginConfig, unsetPluginKey } from "../src/plugin-config-cli.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -35,6 +36,7 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril install plugin:<name> [--yes] [--root <dir>] [--json]  (no terminal and no --yes: dry run)\n"
   + "       atril remove plugin:<name> [--purge] [--force] [--root <dir>] [--json]  (--purge also drops its cache and data; --force removes it though an installed plugin depends on it)\n"
   + "       atril config [--root <dir>] [--json]\n"
+  + "       atril config plugin:<name> [--set KEY[=VALUE]] [--unset KEY] [--root <dir>] [--json]  (a sensitive value comes from stdin)\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
   + "       atril catalog sync [--root <dir>]\n       atril catalog update [--apply] [--root <dir>]\n"
@@ -207,8 +209,21 @@ async function runUpdate(args) {
   if (values.yes) for (const update of pending.filter((p) => !accepted.includes(refOf(p)))) console.log(`skipped\t${printable(refOf(update))}\tedited locally; pass --discard-edits to overwrite it`);
 }
 
-function runConfig(args) {
-  const { values } = parseArgs({ args, options: { root: { type: "string" }, json: { type: "boolean" } } });
+async function runPluginConfig([ref, ...extra], values) {
+  const name = ref.startsWith("plugin:") ? ref.slice("plugin:".length) : undefined;
+  if (!name || extra.length) throw new Error(`config takes plugin:<name>\n${USAGE}`);
+  const opts = { root: values.root };
+  if (values.set !== undefined) await setPluginConfig(name, values.set, opts);
+  if (values.unset !== undefined) unsetPluginKey(name, values.unset, opts);
+  const rows = pluginConfigRows(name, opts);
+  if (values.json) console.log(JSON.stringify(rows, null, 2));
+  else for (const { key, set, value } of rows) console.log(`${printable(key)}\t${set ? "set" : "unset"}${value === undefined ? "" : `\t${printable(String(value))}`}`);
+}
+
+async function runConfig(args) {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" }, json: { type: "boolean" }, set: { type: "string" }, unset: { type: "string" } } });
+  if (positionals.length > 0) return runPluginConfig(positionals, values);
+  if (values.set !== undefined || values.unset !== undefined) throw new Error("--set and --unset only apply to config plugin:<name>");
   const config = readConfig({ root: values.root });
   if (values.json) {
     console.log(JSON.stringify(config, null, 2));
@@ -229,6 +244,11 @@ async function runInstallPlugin(name, values) {
     if (result.status === "installed") {
       const prefixed = result.dependencies.length > 0;
       for (const member of [...result.dependencies, result]) for (const line of notInstalledLines(member, prefixed ? member.plugin : undefined)) console.error(printable(line));
+      terminal?.close();
+      for (const member of [...result.dependencies, result]) {
+        member.needsConfig = await configureMissing(member.plugin, { root: values.root }, { prompt: Boolean(terminal) && !values.yes });
+        if (member.needsConfig.length) console.error(printable(`atril: not configured: ${member.needsConfig.join(", ")}; run atril config plugin:${member.plugin}`));
+      }
     }
     if (values.json) console.log(JSON.stringify(gate.dryRun() ? { ...result, dryRun: true } : result, null, 2));
     else if (result.status === "declined") console.log(`${gate.dryRun() ? "dry run" : "declined"}\tplugin:${printable(name)}\tnothing installed`);
@@ -382,7 +402,7 @@ try {
   else if (command === "search") runSearch(rest);
   else if (command === "route") runRoute(rest);
   else if (command === "install" || command === "remove") await runStore(command, rest);
-  else if (command === "config") runConfig(rest);
+  else if (command === "config") await runConfig(rest);
   else if (command === "expose" || command === "unexpose") runExpose(command, rest);
   else if (command === "sync") runSync(rest);
   else if (command === "mcp") await runMcp(rest);
