@@ -43,7 +43,7 @@ function known(value, fields, prefix, fail) {
 function normalize(raw, path) {
   const fail = (why) => { throw new Error(`${path}: ${why}`); };
   if (!isMapping(raw)) fail("atril.json must be a JSON object");
-  known(raw, [...Object.keys(DEFAULT_CONFIG), "pluginConfig"], "", fail);
+  known(raw, [...Object.keys(DEFAULT_CONFIG), "pluginConfig", "pluginMode"], "", fail);
   const expose = raw.expose === undefined ? {} : raw.expose;
   if (!isMapping(expose)) fail("expose must be a mapping of kind to names");
   for (const kind of Object.keys(expose)) {
@@ -60,13 +60,28 @@ function normalize(raw, path) {
   const generate = rulesync.generate === undefined ? false : rulesync.generate;
   if (typeof generate !== "boolean") fail("rulesync.generate must be true or false");
   const pluginConfig = normalizePluginConfig(raw.pluginConfig, fail);
+  const pluginMode = normalizePluginMode(raw.pluginMode, fail);
   return {
     targets: strings(raw.targets, "targets", fail),
     expose: exposed,
     catalogs: strings(raw.catalogs, "catalogs", fail),
     rulesync: { generate },
     ...(Object.keys(pluginConfig).length > 0 && { pluginConfig }),
+    ...(Object.keys(pluginMode).length > 0 && { pluginMode }),
   };
+}
+
+export const PLUGIN_MODES = ["skip", "split", "native"];
+
+// `pluginMode.<plugin>`: how each plugin is installed (ADR 0021, decision 14); a plugin that is not listed is split.
+function normalizePluginMode(value, fail) {
+  if (value === undefined) return {};
+  if (!isMapping(value)) fail("pluginMode must be a mapping of plugin to skip, split or native");
+  for (const [plugin, mode] of Object.entries(value)) {
+    if (!SAFE_NAME.test(plugin)) fail(`pluginMode.${plugin} is not a plugin name (lowercase letters, digits and dashes)`);
+    if (!PLUGIN_MODES.includes(mode)) fail(`pluginMode.${plugin} must be skip, split or native`);
+  }
+  return { ...value };
 }
 
 export const CONFIG_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
