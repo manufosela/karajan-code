@@ -73,6 +73,25 @@ describe("kj worktree", () => {
       expect(lines).toEqual([`rag: index seeded from main (1 chunks @ ${head.slice(0, 7)})`]);
     });
 
+    it("a seed behind the lane HEAD starts the delta once and the line states its commits and files", async () => {
+      const db = openVecStore({ dim: 768, path: path.join(dir, ".karajan", "rag.db") });
+      insertChunk(db, { source: `${dir}/a.js`, kind: "code", text: "x", metadata: null, embedding: new Float32Array(768), project: projectSlug(dir) });
+      const old = execFileSync("git", ["-C", dir, "rev-parse", "HEAD"]).toString().trim();
+      setLastIndexedCommit(db, projectSlug(dir), old);
+      db.close();
+      writeEmbedSchema(dir);
+      fs.writeFileSync(path.join(dir, "b.js"), "y\n");
+      execFileSync("git", ["-C", dir, "add", "b.js"]); execFileSync("git", ["-C", dir, "commit", "-qm", "more"]);
+      const startDeltaIndex = vi.fn(() => ({ started: true, pid: 1 }));
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        await worktreeCommand({ config: cfg(), action: "start", args: ["rag-lane"], flags: {}, deps: { startDeltaIndex } });
+        expect(log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("rag:")))
+          .toEqual([`rag: index seeded from main (1 chunks @ ${old.slice(0, 7)}); catching up 1 commit and 1 file in the background`]);
+      } finally { log.mockRestore(); }
+      expect(startDeltaIndex).toHaveBeenCalledTimes(1);
+    });
+
     it("without a main index no file is created and the fallback line is printed", async () => {
       const { r, lines } = await ragLines();
       expect(fs.existsSync(path.join(r.path, ".karajan", "rag.db"))).toBe(false);

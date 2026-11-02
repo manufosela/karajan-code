@@ -15,6 +15,7 @@ import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
 import { stopBootstrap } from "../rag/bootstrap-index.js";
+import { catchUpLine } from "../rag/lane-catchup.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { mainCheckout } from "../utils/main-checkout.js";
 import { cardsOfLane, parseLanes, prsByBranch } from "../hu/lanes.js";
@@ -90,9 +91,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     const { stdout: touched } = await git(["status", "--porcelain", "--untracked-files=no"], wtPath);
     if (touched.trim()) throw new Error(`lane setup changed tracked files (${touched.trim().split("\n").join(", ")}) — retire it with: ${retire}`);
     const { seed } = boot;
-    console.log(seed.seeded
-      ? `rag: index seeded from main (${seed.chunks} chunks @ ${seed.commit.slice(0, 7)})`
-      : `rag: not seeded (${seed.reason}) — the first query indexes this lane in the background`);
+    console.log(await catchUpLine({ laneDir: wtPath, seed, git, start: deps.startDeltaIndex }));
     console.log(`✓ lane ready: ${branch} (from ${from})`);
     console.log(`  cd ${wtPath}`);
     console.log("  The gates travel with the repo — kj review --staged works there. When merged: kj worktree done " + slug);
