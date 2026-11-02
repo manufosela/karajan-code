@@ -24,6 +24,7 @@ import { applyRecommended, recommended } from "../src/recommended.js";
 import { answersFor, askAnswers, offered } from "../src/init.js";
 import { applyInstalledUpdate, installedUpdates } from "../src/upgrade.js";
 import { installPlugin } from "../src/plugin-install.js";
+import { removePlugin } from "../src/plugin-remove.js";
 import { installConfirm, notInstalledLines } from "../src/plugin-install-cli.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
@@ -32,6 +33,7 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril route <task> [--role <role>] [--root <dir>] [--json]\n"
   + "       atril install <path | kind:name> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
   + "       atril install plugin:<name> [--yes] [--root <dir>] [--json]  (no terminal and no --yes: dry run)\n"
+  + "       atril remove plugin:<name> [--purge] [--root <dir>] [--json]  (--purge also drops its cache and data)\n"
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
@@ -232,12 +234,25 @@ async function runInstallPlugin(name, values) {
   }
 }
 
+function runRemovePlugin(name, values) {
+  const result = removePlugin(name, { root: values.root, purge: values.purge });
+  for (const path of result.leftBehind ?? []) console.error(`atril: removed, but could not delete ${printable(path)}: delete it by hand`);
+  if (values.json) console.log(JSON.stringify(result, null, 2));
+  else console.log(`removed\tplugin:${printable(name)}\t${result.removed.map(printable).join(" ")}${result.purged ? "\tpurged cache and data" : ""}`);
+}
+
 async function runStore(command, args) {
-  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" }, yes: { type: "boolean" }, json: { type: "boolean" } }, allowPositionals: true });
+  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" }, yes: { type: "boolean" }, json: { type: "boolean" }, purge: { type: "boolean" } }, allowPositionals: true });
   if (positionals.length !== 1) throw new Error(`${command} takes exactly one argument\n${USAGE}`);
   const [ref] = positionals;
-  if (command === "install" && ref.startsWith("plugin:")) return runInstallPlugin(ref.slice("plugin:".length), values);
-  for (const flag of ["yes", "json"]) if (values[flag]) throw new Error(`--${flag} only applies to install plugin:<name>`);
+  const plugin = ref.startsWith("plugin:") ? ref.slice("plugin:".length) : undefined;
+  if (values.purge && !(command === "remove" && plugin !== undefined)) throw new Error("--purge only applies to remove plugin:<name>");
+  if (plugin !== undefined && command === "remove") {
+    if (values.yes) throw new Error("--yes only applies to install plugin:<name>");
+    return runRemovePlugin(plugin, values);
+  }
+  if (plugin !== undefined) return runInstallPlugin(plugin, values);
+  for (const flag of ["yes", "json"]) if (values[flag]) throw new Error(`--${flag} only applies to install plugin:<name>${flag === "json" ? " and remove plugin:<name>" : ""}`);
   if (command === "install" && isCatalogRef(ref)) {
     const { status, kind, name, path, catalog } = installFromCatalog(ref, { root: values.root });
     console.log(`${status}\t${kind}:${name}\t${path}\tfrom ${printable(catalog)}`);

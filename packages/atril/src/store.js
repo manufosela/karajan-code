@@ -13,7 +13,7 @@ import { KINDS, SLUG, parseArtifact } from "./model.js";
 import { LAYOUT, resolveRoot } from "./scan.js";
 
 
-function target(name, { kind, root, projectDir = process.cwd(), env = process.env }) {
+export function target(name, { kind, root, projectDir = process.cwd(), env = process.env }) {
   if (!KINDS.includes(kind)) throw new Error(`kind ${JSON.stringify(kind)} is not one of ${KINDS.join(", ")}`);
   if (!SLUG.test(name)) throw new Error(`name "${name}" is not a slug (lowercase letters, digits, . _ -)`);
   const base = join(resolve(projectDir, resolveRoot({ root, env })), LAYOUT.find((layout) => layout.kind === kind).dir);
