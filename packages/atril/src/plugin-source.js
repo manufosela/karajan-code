@@ -12,7 +12,9 @@ import { SAFE_NAME } from "./plugin.js";
 const REPO = /^(?!\.{1,2}\/)[\w.-]+\/(?!\.{1,2}$)[\w.-]+$/;
 // A ref never starts with "-" (git would read it as an option) nor holds "..".
 const REF = /^(?!-)(?!.*\.\.)[\w./-]+$/;
-const GIT_URL = /^(https?:\/\/|ssh:\/\/|git@)\S+$/;
+const LOCAL_PATH = /^(\.{1,2}\/|\/)/;
+const MARKETPLACE_URL = /^https?:\/\/\S+\.json$/;
+const GIT_URL =/^(https?:\/\/|ssh:\/\/|git@)\S+$/;
 // Lowercase, as lock.js stores a commit.
 const COMMIT = /^[0-9a-f]{40}$/;
 // A folder inside a repo: relative, "/"-separated segments, none of them "." or "..".
@@ -30,8 +32,8 @@ const withRef = (spec, value, ref) => {
 };
 
 const parseString = (spec) => {
-  if (/^(\.{1,2}\/|\/)/.test(spec)) return { type: "path", path: spec };
-  if (/^https?:\/\/\S+\.json$/.test(spec)) return { type: "marketplace-url", url: spec };
+  if (LOCAL_PATH.test(spec)) return { type: "path", path: spec };
+  if (MARKETPLACE_URL.test(spec)) return { type: "marketplace-url", url: spec };
   const [target, ref] = spec.split(/#(.*)/s, 2);
   if (GIT_URL.test(target)) return withRef(spec, { type: "git", url: target }, ref);
   if (REPO.test(target)) return withRef(spec, { type: "github", repo: target }, ref);
@@ -55,9 +57,29 @@ const parseObject = (spec) => {
   throw unknown(spec);
 };
 
+// A source already normalized (what readMarketplace and availablePlugins hand out): the type
+// names the required fields, the optional ref and commit are validated like the raw form's.
+const NORMALIZED = {
+  github: (spec) => matches(REPO, spec.repo) && { repo: spec.repo },
+  git: (spec) => matches(GIT_URL, spec.url) && { url: spec.url },
+  "git-subdir": (spec) => matches(GIT_URL, spec.url) && isSubdir(spec.path) && { url: spec.url, path: spec.path },
+  path: (spec) => matches(LOCAL_PATH, spec.path) && { path: spec.path },
+  "marketplace-url": (spec) => matches(MARKETPLACE_URL, spec.url) && { url: spec.url },
+};
+// A local folder or a hosted marketplace has no git history to pin.
+const UNPINNABLE = new Set(["path", "marketplace-url"]);
+const parseNormalized = (spec) => {
+  const fields = Object.hasOwn(NORMALIZED, spec.type) && NORMALIZED[spec.type](spec);
+  if (!fields || (UNPINNABLE.has(spec.type) && (spec.ref !== undefined || spec.commit !== undefined))) throw unknown(spec);
+  const value = withRef(spec, { type: spec.type, ...fields }, spec.ref);
+  if (spec.commit === undefined) return value;
+  if (!matches(COMMIT, spec.commit)) throw unknown(spec);
+  return { ...value, commit: spec.commit };
+};
+
 export function parsePluginSource(spec) {
   if (typeof spec === "string") return parseString(spec);
-  if (isMapping(spec)) return parseObject(spec);
+  if (isMapping(spec)) return spec.type === undefined ? parseObject(spec) : parseNormalized(spec);
   throw unknown(spec);
 }
 
