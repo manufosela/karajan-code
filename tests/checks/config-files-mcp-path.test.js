@@ -3,8 +3,11 @@
 // temp-prefix verify install leaves behind) and repair it: re-point to this
 // install's server, or drop a dead entry when the standalone binary has none.
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
-import { getConfigFileChecks, karajanMcpServerPath, repairKarajanMcpPath } from "../../src/checks/config-files.js";
+import { getConfigFileChecks, inLinkedWorktree, karajanMcpServerPath, repairKarajanMcpPath } from "../../src/checks/config-files.js";
 import { STRATEGY } from "../../src/checks/types.js";
 
 describe("stale karajan-mcp path check (KJC-BUG-0172)", () => {
@@ -17,6 +20,25 @@ describe("stale karajan-mcp path check (KJC-BUG-0172)", () => {
     expect(check).toBeDefined();
     expect(check.strategy).toBe(STRATEGY.AUTO);
     expect(typeof check.remediate).toBe("function");
+  });
+});
+
+// KJC-BUG-0474 (#3128): a registration that points into a lane (a git worktree) works until the
+// lane is removed, and meanwhile runs the lane's code in every session.
+describe("inLinkedWorktree (KJC-BUG-0474)", () => {
+  it("tells a file under a git worktree (its .git is a file) from one under a normal checkout", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "kj-mcp-lane-"));
+    try {
+      const lane = path.join(root, "repo", ".kj", "worktrees", "HU-1-x");
+      fs.mkdirSync(path.join(root, "repo", ".git"), { recursive: true });
+      fs.mkdirSync(path.join(lane, "src", "mcp"), { recursive: true });
+      fs.writeFileSync(path.join(lane, ".git"), "gitdir: ../../../.git/worktrees/HU-1-x\n");
+      expect(inLinkedWorktree(path.join(lane, "src", "mcp", "server.js"))).toBe(true);
+      expect(inLinkedWorktree(path.join(root, "repo", "src", "mcp", "server.js"))).toBe(false);
+      expect(inLinkedWorktree(path.join(root, "elsewhere", "server.js"))).toBe(false);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

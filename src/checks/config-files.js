@@ -8,7 +8,7 @@
  *     ~/.karajan/kj.config.yml (strategy: manual — structural fixes needed)
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -147,6 +147,19 @@ export function karajanMcpServerPath(config) {
 }
 
 /**
+ * KJC-BUG-0474 (#3128): whether a file lives in a linked git worktree (a kj lane). The
+ * nearest `.git` up the tree decides: a worktree's is a file, a normal checkout's a folder.
+ */
+export function inLinkedWorktree(file) {
+  for (let dir = path.dirname(path.resolve(file)); ; dir = path.dirname(dir)) {
+    try {
+      return statSync(path.join(dir, ".git")).isFile();
+    } catch { /* no .git here: keep climbing */ }
+    if (path.dirname(dir) === dir) return false;
+  }
+}
+
+/**
  * Repair a stale karajan-mcp registration in place: re-point it to this
  * install's server when that server exists, or drop the dead entry when this
  * install has no bundled server (the standalone binary). `serverExists` is
@@ -191,12 +204,19 @@ function createStaleMcpPathCheck() {
       }
       const registered = karajanMcpServerPath(config);
       if (!registered) return { ok: true, severity: "info", detail: "karajan-mcp not registered (skipped)" };
-      if (await exists(registered)) return { ok: true, severity: "info", detail: "karajan-mcp path valid" };
+      // KJC-BUG-0474 (#3128): a path inside a lane works until the lane goes, and meanwhile runs its code everywhere.
+      const inLane = inLinkedWorktree(registered);
+      if (!inLane && (await exists(registered))) return { ok: true, severity: "info", detail: "karajan-mcp path valid" };
       const correct = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "mcp", "server.js");
+      if (inLane && inLinkedWorktree(correct)) {
+        return { ok: false, severity: "warn", detail: `karajan-mcp runs a lane's server: ${registered}`, fix: "Run kj doctor from the installed kj (not from a lane) to re-point it" };
+      }
       return {
         ok: false,
         severity: "warn",
-        detail: `karajan-mcp points at a path that no longer exists: ${registered} — this is the CONNECTION_CLOSED cause`,
+        detail: inLane
+          ? `karajan-mcp runs a lane's server (${registered}): every session runs that lane's code, and removing the lane breaks it`
+          : `karajan-mcp points at a path that no longer exists: ${registered} — this is the CONNECTION_CLOSED cause`,
         fix: `Re-point karajan-mcp to ${correct} (or remove the entry) in ~/.claude.json`,
         extra: { claudeJsonPath, correct },
       };

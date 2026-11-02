@@ -211,4 +211,27 @@ describe("postinstall", () => {
     const { code } = await runScript({ HOME: fakeHome, KJ_HOME: "/tmp/kj-test-home" });
     expect(code).toBe(0);
   });
+
+  // KJC-BUG-0474 (#3128): `npm ci` in a lane (a git worktree, whose .git is a file) ran this
+  // script and pointed every session of the machine at that lane's server.
+  it("from a git worktree (a kj lane) it registers nothing, in Claude Code or Codex", async () => {
+    const lane = path.join(tmpDir, "lane");
+    await fs.mkdir(path.join(lane, "scripts"), { recursive: true });
+    for (const f of ["postinstall.js", "toml-value.js"]) await fs.copyFile(path.join(ROOT_DIR, "scripts", f), path.join(lane, "scripts", f));
+    await fs.writeFile(path.join(lane, ".git"), "gitdir: /repo/.git/worktrees/lane\n");
+    await fs.writeFile(claudeJson, "{}", "utf8");
+    const merged = { ...process.env, HOME: fakeHome };
+    delete merged.KARAJAN_HOME;
+    delete merged.KJ_HOME;
+    const result = await new Promise((resolve) => {
+      const child = spawn("node", [path.join(lane, "scripts", "postinstall.js")], { cwd: lane, env: merged });
+      let stderr = "";
+      child.stderr.on("data", (d) => { stderr += d; });
+      child.on("close", (code) => resolve({ code, stderr }));
+    });
+    expect(result.code).toBe(0);
+    expect(result.stderr).toMatch(/not registered from a git worktree/);
+    expect(JSON.parse(await fs.readFile(claudeJson, "utf8"))).toEqual({});
+    await expect(fs.access(codexConfig)).rejects.toThrow();
+  });
 });
