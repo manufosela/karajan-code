@@ -2,7 +2,9 @@
 // lanes. Born from a field case: an agent NARRATED worktree isolation while
 // editing the project root. The compliant path must be the easy one.
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { openVecStore, insertChunk, projectSlug, setLastIndexedCommit } from "../../src/rag/vec-store.js";
+import { writeEmbedSchema } from "../../src/rag/embed-schema.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -44,6 +46,38 @@ describe("kj worktree", () => {
     expect(JSON.parse(fs.readFileSync(path.join(r.path, ".claude", "settings.json"), "utf8")).hooks).toBeTruthy();
     expect(r.setup).toEqual({ identity: true, wired: true });
     expect(execFileSync("git", ["-C", r.path, "status", "--porcelain", "--untracked-files=no"]).toString()).toBe("");
+  });
+
+  // HU-3260: the lane's index starts as a copy of main's, with ONE line saying so.
+  describe("start and the lane index", () => {
+    const ragLines = async () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        const r = await worktreeCommand({ config: cfg(), action: "start", args: ["rag-lane"], flags: {} });
+        return { r, lines: log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("rag:")) };
+      } finally { log.mockRestore(); }
+    };
+    beforeEach(() => { vi.stubEnv("KJ_RAG_DB", ""); dir = fs.realpathSync(dir); });
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("a seeded main gives the lane its own rag.db and the seeded line", async () => {
+      const slug = projectSlug(dir);
+      const db = openVecStore({ dim: 768, path: path.join(dir, ".karajan", "rag.db") });
+      insertChunk(db, { source: `${dir}/a.js`, kind: "code", text: "x", metadata: null, embedding: new Float32Array(768), project: slug });
+      const head = execFileSync("git", ["-C", dir, "rev-parse", "HEAD"]).toString().trim();
+      setLastIndexedCommit(db, slug, head);
+      db.close();
+      writeEmbedSchema(dir);
+      const { r, lines } = await ragLines();
+      expect(fs.existsSync(path.join(r.path, ".karajan", "rag.db"))).toBe(true);
+      expect(lines).toEqual([`rag: index seeded from main (1 chunks @ ${head.slice(0, 7)})`]);
+    });
+
+    it("without a main index no file is created and the fallback line is printed", async () => {
+      const { r, lines } = await ragLines();
+      expect(fs.existsSync(path.join(r.path, ".karajan", "rag.db"))).toBe(false);
+      expect(lines).toEqual(["rag: not seeded (no-main-index) — the first query indexes this lane in the background"]);
+    });
   });
 
   it("a failing setup step stops start, naming it and the way to retire the lane", async () => {

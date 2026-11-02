@@ -89,6 +89,10 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     });
     const { stdout: touched } = await git(["status", "--porcelain", "--untracked-files=no"], wtPath);
     if (touched.trim()) throw new Error(`lane setup changed tracked files (${touched.trim().split("\n").join(", ")}) — retire it with: ${retire}`);
+    const { seed } = boot;
+    console.log(seed.seeded
+      ? `rag: index seeded from main (${seed.chunks} chunks @ ${seed.commit.slice(0, 7)})`
+      : `rag: not seeded (${seed.reason}) — the first query indexes this lane in the background`);
     console.log(`✓ lane ready: ${branch} (from ${from})`);
     console.log(`  cd ${wtPath}`);
     console.log("  The gates travel with the repo — kj review --staged works there. When merged: kj worktree done " + slug);
