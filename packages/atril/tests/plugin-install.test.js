@@ -135,6 +135,16 @@ describe("installPlugin", () => {
     expect(result.entries.length).toBe(2);
     expect(result.notInstalled.hooks).toHaveLength(2);
     expect(result.notInstalled.mcpServers[0].name).toBe("db");
+    // ADR 0042: the derived plugin is written and listed, and nothing is run (no npm lockfile here, so runs counts any spawn).
+    expect(result.derived).toMatchObject({ name: "kit", commands: [{ cli: "claude" }, { cli: "agy" }] });
+    expect(existsSync(join(dir, "store", "plugins", ".marketplace", ".claude-plugin", "marketplace.json"))).toBe(true);
+    expect(runs).toBe(0);
+  });
+
+  it("a Markdown-only plugin has no derived entry and no marketplace", async () => {
+    market(GH);
+    expect((await install()).derived).toBeUndefined();
+    expect(existsSync(join(dir, "store", "plugins", ".marketplace"))).toBe(false);
   });
 
   it("a reinstall reuses the cache and its node_modules, asks again, and leaves the lock byte-identical", async () => {

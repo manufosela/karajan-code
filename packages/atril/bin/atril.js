@@ -27,6 +27,7 @@ import { installPluginSet, updatePlugin } from "../src/plugin-install.js";
 import { readLock } from "../src/lock.js";
 import { setPluginMode } from "../src/plugin-mode.js";
 import { removePlugin } from "../src/plugin-remove.js";
+import { derivedInstructions } from "../src/plugin-derived.js";
 import { installConfirm, notInstalledLines, updateConfirm } from "../src/plugin-install-cli.js";
 import { configureMissing, pluginConfigRows, setPluginConfig, unsetPluginKey } from "../src/plugin-config-cli.js";
 
@@ -290,6 +291,7 @@ async function runInstallPlugin(name, values) {
     if (result.status === "installed") {
       const prefixed = result.dependencies.length > 0;
       for (const member of [...result.dependencies, result]) for (const line of notInstalledLines(member, prefixed ? member.plugin : undefined)) console.error(printable(line));
+      for (const { derived } of [...result.dependencies, result]) for (const line of derived ? derivedInstructions(derived) : []) console.error(printable(`atril: ${line}`));
       terminal?.close();
       for (const member of [...result.dependencies, result]) {
         member.needsConfig = await configureMissing(member.plugin, { root: values.root }, { prompt: Boolean(terminal) && !values.yes });

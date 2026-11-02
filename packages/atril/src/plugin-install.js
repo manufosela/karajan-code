@@ -9,6 +9,7 @@ import { join, resolve } from "node:path";
 import { writeAtomic } from "./atomic.js";
 import { findPlugin } from "./catalog.js";
 import { lockPath, readLock } from "./lock.js";
+import { writeDerived } from "./plugin-derived.js";
 import { dependencyOrder, installNpmDeps, pluginDependencies } from "./plugin-deps.js";
 import { fetchPlugin } from "./plugin-fetch.js";
 import { installPluginMarkdown } from "./plugin-markdown.js";
@@ -129,7 +130,9 @@ function commit({ catalog, source, fetched, inventory }, opts, { run }) {
   const dependencies = pluginDependencies(readPluginManifest(fetched.dir).manifest).map((dep) => dep.name);
   const { plugin, entries } = installPluginMarkdown(fetched.dir, opts, { from: { catalog, ...(label && { source: label }), ...(fetched.commit && { commit: fetched.commit }), ...(dependencies.length && { dependencies }) } });
   const { hooks, mcpServers, bin } = inventory;
-  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks, mcpServers, bin } };
+  // The derived plugin is only written and listed: no host CLI runs (ADR 0042), so there is nothing for remove to undo.
+  const derived = writeDerived(plugin, fetched.version, fetched.dir, { root: resolve(opts.projectDir ?? process.cwd(), resolveRoot(opts)), hooks: hooks.length, mcpServers: mcpServers.length });
+  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks, mcpServers, bin }, ...(derived && { derived }) };
 }
 
 /**
