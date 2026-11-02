@@ -25,6 +25,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { createStand } from '../public/film/stand.js';
+import { createLibretto } from '../public/film/family/libretto.js';
 
 // One entry per portrait: builds the character in its portrait pose.
 const CAST = {
@@ -34,6 +35,7 @@ const CAST = {
     stand.turnTo(1, 0);
     return stand.group;
   },
+  libretto: () => createLibretto(),
 };
 
 const W = 720, H = 800, HEIGHT = 320, FOV = 24;

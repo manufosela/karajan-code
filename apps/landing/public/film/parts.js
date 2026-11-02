@@ -41,3 +41,17 @@ export function createArm(metal, white, length) {
   shoulder.add(bone, hand);
   return shoulder;
 }
+
+/** The family's metal in `color`, and the white of the robots' hands. */
+export const metalIn = (color) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.32, metalness: 0.75, clearcoat: 0.4 });
+export const handWhite = () => new THREE.MeshPhysicalMaterial({ color: 0xe6eaf0, roughness: 0.35, clearcoat: 0.6 });
+
+/** Two small feet `spread` apart, for the characters that stand on the floor. */
+export function createFeet(material, spread) {
+  return [-spread, spread].map((x) => {
+    const foot = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.07, 4, 10), material);
+    foot.rotation.x = Math.PI / 2;
+    foot.position.set(x, 0.04, 0.04);
+    return foot;
+  });
+}

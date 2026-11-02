@@ -6,15 +6,20 @@ const publicDir = new URL("../../apps/landing/public/", import.meta.url);
 const read = (path) => readFileSync(new URL(path, publicDir), "utf8");
 const bench = readFileSync(new URL("../../apps/landing/portraits/index.html", import.meta.url), "utf8");
 
+// Each character's portrait, rendered from its three.js module (KJL-TSK-0153, KJL-TSK-0154).
+// A member the page does not list (the Spanish page has no Libretto yet) is skipped.
+const PORTRAITS = ["atril", "libretto"];
+
 describe.each(["family.html", "es/family.html"])("%s", (page) => {
   const html = read(page);
 
-  it("gives atril its robot portrait, rendered from the film's model", () => {
-    const img = html.match(/<img src="\/(img\/atril-[^"]+)" alt="([^"]+)"[^>]*>/);
-    expect(img, "atril portrait").toBeTruthy();
+  it.each(PORTRAITS)("gives %s its character's portrait instead of a monogram", (name) => {
+    if (!html.includes(`<span class="monogram">${name}</span>`) && !html.includes(`/img/${name}-320.webp`)) return;
+    const img = html.match(new RegExp(`<img src="/(img/${name}-320\\.webp)" alt="([^"]+)"[^>]*>`));
+    expect(img, `${name} portrait`).toBeTruthy();
     expect(existsSync(new URL(img[1], publicDir))).toBe(true);
-    expect(img[2]).toMatch(/atril/);
-    expect(html).not.toContain('<span class="monogram">atril</span>');
+    expect(img[2].toLowerCase()).toContain(name);
+    expect(html).not.toContain(`<span class="monogram">${name}</span>`);
   });
 });
 
