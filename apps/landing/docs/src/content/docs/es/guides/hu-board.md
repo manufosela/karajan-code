@@ -13,6 +13,8 @@ Más allá del kanban, el board tiene una vista **Governance**, el acta encadena
 
 El trabajo en paralelo también se ve. Una card que se trabaja en un carril de `kj worktree` lleva una etiqueta con el carril, su rama, sus commits por delante de la base y su PR. La vista Governance lista los carriles fuera del método: una rama que no nombra ninguna card y un carril cuya PR ya está mergeada, con el `kj worktree done <slug>` exacto que lo despeja. Todo se lee de git cada vez, no se guarda nada.
 
+La vista Governance muestra también las **reglas del método**, la misma lista que `kj gates`: las fijas con candado, y cada ajustable con su valor y quién lo puso (el valor por defecto, el proyecto, tú o una skill), más cualquier frase del CONTRIBUTING del proyecto que contradiga una regla fija. Un clic endurece una regla ajustable. Aflojarla es solo cosa tuya: el board te enseña el comando `kj gates set` para que lo teclees en tu terminal.
+
 ## Bajo el capó, pruébalo tú mismo
 
 El acta es un fichero plano de solo-añadido donde cada línea liga la anterior:

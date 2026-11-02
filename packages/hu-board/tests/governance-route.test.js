@@ -81,8 +81,8 @@ describe("GET /api/governance", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ ok: false, dir: os.tmpdir() });
     expect(res.body.error).toMatch(/not a karajan project/);
-    // Only the karajan project ran kj (its report and its lanes, KJC-TSK-1314); the other never did.
-    expect(runCommand).toHaveBeenCalledTimes(2);
+    // Only the karajan project ran kj (its report, its lanes KJC-TSK-1314, its rules KJC-TSK-1393); the other never did.
+    expect(runCommand).toHaveBeenCalledTimes(3);
     expect(runCommand.mock.calls.every(([, , opts]) => opts.cwd === dir)).toBe(true);
   });
 
@@ -145,5 +145,32 @@ describe("GET /api/governance", () => {
     expect(res.status).toBe(200);
     expect(res.body.policy.declared).toBe(true);
     expect(res.body.policy.error).toBeTruthy();
+  });
+});
+
+// KJC-TSK-1393 (ADR 0045): the rules section. Data from `kj gates --json`; a change runs the
+// same `kj gates set` as the terminal, so a loosening is refused there and its message travels back.
+describe("rules (kj gates) in governance", () => {
+  const GATES = { fixed: [{ id: "card-first", text: "a card first" }], adjustable: [{ id: "mutation", value: "off", origin: "default", levels: ["off", "warn", "block"] }], ignored: [], conflicts: [], stale: [] };
+  const kj = (gates) => async (_kj, args) => ({ exitCode: 0, stdout: args[0] === "gates" ? `log line\n${JSON.stringify(gates, null, 2)}\n` : `${JSON.stringify(args[0] === "worktree" ? [] : REPORT)}\n`, stderr: "" });
+
+  it("GET carries the resolved rules, read from a pretty-printed kj gates --json", async () => {
+    runCommand.mockImplementation(kj(GATES));
+    const res = await request(app).get("/api/governance").query({ dir });
+    expect(runCommand).toHaveBeenCalledWith("kj", ["gates", "--json"], { cwd: dir });
+    expect(res.body.gates).toEqual(GATES);
+  });
+
+  it("POST /gates runs kj gates set; kj's refusal to loosen comes back as 409 with its message; bad input is 400", async () => {
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "✓ mutation: off → block\n", stderr: "" });
+    const ok = await request(app).post("/api/governance/gates").send({ dir, rule: "mutation", value: "block" });
+    expect(ok.status).toBe(200);
+    expect(runCommand).toHaveBeenCalledWith("kj", ["gates", "set", "mutation", "block"], { cwd: dir });
+    runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "kj gates set (aflojar una regla) es un acto humano" });
+    const refused = await request(app).post("/api/governance/gates").send({ dir, rule: "mutation", value: "off" });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/acto humano/);
+    expect((await request(app).post("/api/governance/gates").send({ dir, rule: "x; rm -rf /", value: "off" })).status).toBe(400);
+    expect((await request(app).post("/api/governance/gates").send({ dir, rule: "mutation", value: "" })).status).toBe(400);
   });
 });

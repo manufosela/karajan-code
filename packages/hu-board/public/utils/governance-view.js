@@ -23,7 +23,7 @@ async function renderGovernance() {
       return;
     }
     localStorage.setItem(GOV_DIR_KEY, data.dir);
-    app.innerHTML = govDirForm(data.dir) + govIdentity(data.identity) + govChain(data.report, data.anchor) + govRules(data.policy, data.report) + govGrants(data.report.grants, data.policy) + govSignals(data.report.signals) + govLanes(data.lanes);
+    app.innerHTML = govDirForm(data.dir) + govIdentity(data.identity) + govChain(data.report, data.anchor) + govGates(data.gates) + govRules(data.policy, data.report) + govGrants(data.report.grants, data.policy) + govSignals(data.report.signals) + govLanes(data.lanes);
   } catch (err) {
     app.innerHTML = govDirForm(dir) + `<div class="empty-state"><div class="empty-state__title">Governance unavailable</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
   }
@@ -123,6 +123,38 @@ function govRules(policy, report) {
     <td>${r.warns}</td><td class="${r.denies ? 'gov-red' : ''}">${r.denies}</td><td>${r.exempts}</td><td class="${r.open ? 'gov-red' : ''}">${r.open}</td></tr>`).join('');
   return `<div class="section-header"><span class="section-header__title">Rules by friction</span><span class="section-header__count">${rows.size}</span></div>${head}
     <div class="gov-scroll"><table class="gov-table"><thead><tr><th>rule</th><th>enforcement</th><th>warn</th><th>deny</th><th>exempt</th><th>open</th></tr></thead><tbody>${body}</tbody></table></div>${govRuleBox()}`;
+}
+
+// KJC-TSK-1393 (ADR 0045): the method's rules. Fixed ones are locked; a click tightens an
+// adjustable one through the same `kj gates set`; kj refuses a loosening from here (it is a
+// human act, typed in a terminal) and the view shows the command to type.
+function govGates(g) {
+  const head = '<div class="section-header"><span class="section-header__title">Method rules</span></div>';
+  if (!g || g.error) return `${head}<p class="gov-note">⚠ ${esc((g && g.error) || 'rules unavailable')}</p>`;
+  const fixed = (g.fixed || []).map((r) => `<li>🔒 <code>${esc(r.id)}</code>: ${esc(r.text)}</li>`).join('');
+  const control = (r) => (r.number
+    ? `<input id="gov-gate-${esc(r.id)}" type="number" min="1" value="${esc(String(r.value))}" aria-label="${esc(r.id)} value">`
+    : `<select id="gov-gate-${esc(r.id)}" aria-label="${esc(r.id)} level">${(r.levels || []).map((l) => `<option${l === r.value ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`);
+  const rows = (g.adjustable || []).map((r) => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(String(r.value))}</td><td class="gov-small">${esc(r.origin)}</td>
+    <td>${control(r)} <button class="gov-btn" onclick="govGate('${esc(r.id)}')">Set</button></td></tr>`).join('');
+  const warns = [
+    ...(g.conflicts || []).map((c) => `<li class="gov-red">⚠ ${esc(c.rule)} is fixed and ${esc(c.file)} says "${esc(c.quote)}": the rule stays; decide whether to use Karajan here</li>`),
+    ...(g.stale || []).map((s) => `<li>⚠ ${esc(s.rule)} → ${esc(String(s.value))} no longer applies: ${esc(s.reason)}</li>`),
+  ].join('');
+  return `${head}<ul class="gov-list">${fixed}</ul>${warns ? `<ul class="gov-list">${warns}</ul>` : ''}
+    <div class="gov-scroll"><table class="gov-table"><thead><tr><th>adjustable rule</th><th>value</th><th>set by</th><th>change</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="gov-note">A click tightens a rule. Loosening one is yours alone: kj asks you to type it in your terminal.</p><p id="gov-gate-msg" class="gov-note" aria-live="polite"></p>`;
+}
+
+async function govGate(id) {
+  const value = document.getElementById(`gov-gate-${id}`).value.trim();
+  const r = await govPost('/api/governance/gates', { rule: id, value });
+  if (r.ok) return renderGovernance();
+  const msg = document.getElementById('gov-gate-msg');
+  if (msg) {
+    msg.textContent = `${r.error || 'refused'}. To loosen it, type in your terminal: kj gates set ${id} ${value}`;
+    msg.className = 'gov-note gov-note--warn';
+  }
 }
 
 // Typed text and the last proposal survive the server-push re-renders.
