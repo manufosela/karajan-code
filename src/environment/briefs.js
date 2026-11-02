@@ -74,6 +74,7 @@ const B = {
           ...(config?.method_gates?.mutation
             ? ["Green is not proof: run `kj mutate --since <base>` after the suite passes and BEFORE review — kill surviving mutants (weak asserts) first."]
             : []),
+          "Once green, simplify your change before `kj review --staged`: same behavior, no test weakened, within the line budget. The verdict binds to the exact diff, so a cleanup after it costs a second review.",
         ],
         "green suite + the list of new/changed tests and what each one pins.");
     },

@@ -34,6 +34,8 @@ describe("renderPlaybook", () => {
       expect(text).toMatch(/kj_rag_query/);
       // KJC-BUG-0312 (#2059): the line budget is for code; what the pr-size gate exempts is named.
       expect(text).toMatch(/150 net lines of code[\s\S]*human\s+docs, lockfiles, snapshots and dist\/ do not count, AI-rule files do/);
+      // KJC-TSK-1378 (#3206): simplify after green and before the review the verdict binds to.
+      expect(text).toMatch(/simplify[\s\S]*no test weakened[\s\S]*BEFORE the\s+review/i);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }
