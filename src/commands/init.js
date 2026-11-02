@@ -33,6 +33,7 @@ import { hardenCommand } from "./harden.js";
 import { contractChanges } from "../environment/contract-commit.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { defaultBranchProblem } from "../checks/repo-state.js";
+import { rulesAtClose } from "../gates/summary.js";
 import { bootstrapSonarToken } from "../sonar/token-bootstrap.js";
 
 /**
@@ -1028,6 +1029,9 @@ export async function initCommand({ logger, flags = {} }) {
     ? "✓ Karajan is set up in this project."
     : "⚠ Karajan is set up EXCEPT the quality harness — without it there are no gates.");
   warnIfDefaultBranchNotMain({ projectDir: process.cwd(), logger });
+  // KJC-TSK-1388 (ADR 0045): init asks nothing about rules; it says which ones govern and how to change them.
+  const { config: loaded } = await loadConfig(process.cwd());
+  for (const line of rulesAtClose({ config: loaded, projectDir: process.cwd() })) logger.info(line);
   logger.info("  Next:  ask your agent for the work; it follows the method kj installed");
   logger.info("  More:  kj --help   ·   kj doctor (check your setup)");
 }
