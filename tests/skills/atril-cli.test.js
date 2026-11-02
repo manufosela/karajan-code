@@ -71,11 +71,12 @@ describe("atrilSearch", () => {
 });
 
 describe("kj skills", () => {
-  it("hands every atril command to atril, and keeps the cache actions of its own", async () => {
+  it("hands every atril command but search to atril, and keeps the cache actions of its own", async () => {
     const seen = [];
     const atril = ({ action, args }) => { seen.push([action, args]); return 0; };
-    for (const action of ATRIL_COMMANDS) expect(await skillsCommand({ action, args: ["x"], deps: { atril } })).toBe(0);
-    expect(seen.map(([a]) => a)).toEqual(ATRIL_COMMANDS);
+    const skillsSearch = ({ args }) => { seen.push(["search*", args]); return 0; };
+    for (const action of ATRIL_COMMANDS) expect(await skillsCommand({ action, args: ["x"], deps: { atril, skillsSearch } })).toBe(0);
+    expect(seen.map(([a]) => a)).toEqual(ATRIL_COMMANDS.map((a) => (a === "search" ? "search*" : a)));
     expect(seen.every(([, args]) => args[0] === "x")).toBe(true);
   });
 

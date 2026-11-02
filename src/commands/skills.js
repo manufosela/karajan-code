@@ -13,6 +13,7 @@
 import { listCached, clearCache, getCacheRoot, DEFAULT_TTL_MS } from "../skills/skills-cache.js";
 import { refreshIfStale, listAvailableSlugs, getCatalogRoot, loadSkillBySlug } from "../skills/addyosmani-catalog.js";
 import { ATRIL_COMMANDS, runAtril } from "../skills/atril-cli.js";
+import { skillsSearch } from "../skills/skills-search.js";
 
 function humanAge(cachedAt) {
   const ms = Date.now() - Date.parse(cachedAt);
@@ -22,7 +23,9 @@ function humanAge(cachedAt) {
   return `${days.toFixed(1)}d ago`;
 }
 
-export async function skillsCommand({ action = "list", args = [], deps = { atril: runAtril } } = {}) {
+export async function skillsCommand({ action = "list", args = [], deps = { atril: runAtril, skillsSearch } } = {}) {
+  // HU-2782: search is kj's own, so the query can be translated into English first.
+  if (action === "search") return deps.skillsSearch({ args });
   // KJC-TSK-1193: atril's own commands go to atril, on the .karajan store.
   if (ATRIL_COMMANDS.includes(action)) return deps.atril({ action, args });
   switch (action) {
