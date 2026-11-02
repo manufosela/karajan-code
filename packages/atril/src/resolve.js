@@ -43,9 +43,15 @@ function checkBudget(budget) {
 const overBudget = (pieces, { maxArtifacts = Infinity, maxTokens = Infinity }) =>
   pieces.length > maxArtifacts || pieces.reduce((sum, p) => sum + estimateTokens(p.content), 0) > maxTokens;
 
+// Items whose content differs from the file: path-only consumers must carry it, the file is not enough.
+const FILLED = new WeakSet();
+
 const itemOf = (artifact, as, fill) => {
   const { name, kind, source, path, body } = artifact;
-  return { name, kind, source, path, content: fill(artifact, body), as };
+  const content = fill(artifact, body);
+  const item = { name, kind, source, path, content, as };
+  if (content !== body) FILLED.add(item);
+  return item;
 };
 
 /**
@@ -79,7 +85,10 @@ export function resolveBlock(ref, scanOpts = {}, budget = {}) {
         if (loaded.has(`${relation} ${to}`)) continue;
         loaded.add(`${relation} ${to}`);
         if (relation === "delegates") {
-          entries.push([to, { ...itemOf(byKey.get(to), "subagent", fill), block: blockOf(to) }]);
+          // Assign, never spread: a copy would lose the FILLED mark.
+          const sub = itemOf(byKey.get(to), "subagent", fill);
+          sub.block = blockOf(to);
+          entries.push([to, sub]);
           continue;
         }
         visit(to);
@@ -163,8 +172,12 @@ export function resolve({ task, role, budget = {}, projectDir, root, userRoot, e
   return { ...resolveBlock(keyOf(best), scanOpts, budget), available };
 }
 
-/** A block as the files to read, not their content: a subagent carries its own block. */
-export const blockPaths = (block) => block.map(({ name, kind, path, as, block: own }) => ({
-  name, kind, path, as,
-  ...(own && { block: blockPaths(own) }),
+/**
+ * A block as the files to read, not their content: a subagent carries its own block. An item
+ * whose plugin variables were filled also carries that `content`, since its file still has them.
+ */
+export const blockPaths = (block) => block.map((item) => ({
+  name: item.name, kind: item.kind, path: item.path, as: item.as,
+  ...(FILLED.has(item) && { content: item.content }),
+  ...(item.block && { block: blockPaths(item.block) }),
 }));

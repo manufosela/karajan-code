@@ -297,10 +297,13 @@ function runRoute(args) {
     args, allowPositionals: true,
     options: { role: { type: "string" }, root: { type: "string" }, json: { type: "boolean" } },
   });
-  const { block, suggested, left, reason, available } = resolve({ task: positionals.join(" "), role: values.role, root: values.root });
+  const { block, suggested, left, reason, available, unresolved } = resolve({ task: positionals.join(" "), role: values.role, root: values.root });
   if (values.json) {
-    console.log(JSON.stringify({ block: blockPaths(block), suggested, left, available, ...(reason && { reason }) }, null, 2));
+    console.log(JSON.stringify({ block: blockPaths(block), suggested, left, available, ...(reason && { reason }), ...(unresolved && { unresolved }) }, null, 2));
     return;
+  }
+  for (const { ref, variable, reason: why, hint } of unresolved ?? []) {
+    console.error(`unresolved\t${printable(ref)}\t\${${variable}}\t${why}${hint ? `; ${printable(hint)}` : ""}`);
   }
   if (reason) {
     console.log(reason);

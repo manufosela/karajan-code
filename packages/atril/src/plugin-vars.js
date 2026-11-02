@@ -13,6 +13,9 @@ import { keyOf, resolveRoot } from "./scan.js";
 const VARIABLE = /\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT|CLAUDE_PLUGIN_DATA|PLUGIN_DATA|CLAUDE_SKILL_DIR|user_config\.[A-Za-z_][A-Za-z0-9_]*)\}/g;
 const DATA = /\$\{(?:CLAUDE_)?PLUGIN_DATA\}/;
 
+/** Whether a text names a plugin path variable, whatever its value would be. */
+export const usesPluginVars = (text) => text.search(VARIABLE) !== -1;
+
 /** Where a plugin keeps data that survives updates: outside the version folders, and no plugin name starts with ".". */
 export function pluginDataDir(root, name) {
   if (typeof name !== "string" || !SAFE_NAME.test(name)) throw new Error(`plugin name "${name}" is not safe (lowercase letters, digits and dashes)`);

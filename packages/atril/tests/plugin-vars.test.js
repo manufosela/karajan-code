@@ -1,13 +1,19 @@
 // ADR 0021 decision 14: a plugin's path variables are filled in at resolve, never written into the store.
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { expose, persistentPieces, unexpose } from "../src/bridge.js";
 import { readLock } from "../src/lock.js";
+import { callTool } from "../src/mcp.js";
 import { installPluginMarkdown } from "../src/plugin-markdown.js";
 import { pluginDataDir, substitutePluginVars } from "../src/plugin-vars.js";
 import { resolveBlock } from "../src/resolve.js";
 import { status } from "../src/status.js";
+
+const BIN = fileURLToPath(new URL("../bin/atril.js", import.meta.url));
 
 describe("substitutePluginVars", () => {
   const values = { CLAUDE_PLUGIN_ROOT: "/r", PLUGIN_ROOT: "/r", CLAUDE_PLUGIN_DATA: "/d", PLUGIN_DATA: "/d", CLAUDE_SKILL_DIR: "/r/skills/s" };
@@ -121,5 +127,49 @@ describe("plugin variables at resolve", () => {
     installPluginMarkdown(bare("loose"), opts);
     expect(readLock(opts).plugins.pinned.version).toBe("aaaaaaaaaaaa");
     expect(readLock(opts).plugins.loose.version).toBe("local");
+  });
+
+  describe("on demand: route, MCP and sync", () => {
+    const route = ({ opts }, ...args) => spawnSync(process.execPath, [BIN, "route", ...args, "--root", opts.root], {
+      cwd: opts.projectDir, encoding: "utf8", env: { ...process.env, ATRIL_ROOT: "", ATRIL_USER_ROOT: opts.userRoot },
+    });
+    it("gives the filled content of an item with variables and paths only for the rest", () => {
+      const p = project();
+      write(p.store, "commands/loc.md", "---\nname: loc\nkind: command\ndescription: Local\nuses: [skill:kit__tdd]\n---\nplain\n");
+      const [filled, plain] = JSON.parse(route(p, "loc", "--json").stdout).block;
+      expect(filled.content).toBe(`${p.cache}/a ${pluginDataDir(p.store, "kit")} ${join(p.store, "skills/kit__tdd")}/b\n`);
+      expect(plain).not.toHaveProperty("content");
+    });
+    it("carries the filled content of a delegated subagent too", () => {
+      const p = project();
+      write(p.cache, "agents/helper.md", "---\ndescription: Helper\n---\n${PLUGIN_DATA}\n");
+      installPluginMarkdown(p.cache, p.opts);
+      write(p.store, "commands/loc.md", "---\nname: loc\nkind: command\ndescription: Local\ndelegates: [agent:kit__helper]\n---\nplain\n");
+      const [sub] = JSON.parse(route(p, "loc", "--json").stdout).block;
+      expect(sub).toMatchObject({ as: "subagent", content: `${pluginDataDir(p.store, "kit")}\n` });
+    });
+    it("reports unresolved variables in the JSON and on stderr in text mode", () => {
+      const p = project();
+      const json = JSON.parse(route(p, "ship", "--json").stdout);
+      expect(json.unresolved).toMatchObject([{ ref: "command:kit__ship", variable: "CLAUDE_SKILL_DIR", reason: "skill-only" }, { variable: "user_config.k" }]);
+      expect(route(p, "ship").stderr).toContain("unresolved\tcommand:kit__ship\t${CLAUDE_SKILL_DIR}\tskill-only\n");
+    });
+    it("gives the same filled content through the MCP resolve tool", () => {
+      const p = project();
+      const { text } = callTool("resolve", { task: "test first" }, p.opts).content[0];
+      expect(JSON.parse(text).block[0].content).toContain(p.cache);
+    });
+    it("tells the agent to use content when present", () => {
+      expect(persistentPieces(project().opts)[0].content).toContain("`content` when");
+    });
+    it("refuses to expose a plugin artifact that uses variables, naming it, and exposes a plain one", () => {
+      const { opts, store } = project();
+      write(store, "commands/plain.md", "---\nname: plain\nkind: command\ndescription: Plain\natril:\n  plugin: kit\n---\nno variables\n");
+      expose(["skill:kit__tdd"], opts);
+      expect(() => persistentPieces(opts)).toThrow(/skill:kit__tdd.*on demand/);
+      unexpose(["skill:kit__tdd"], opts);
+      expose(["command:plain"], opts);
+      expect(persistentPieces(opts).map((piece) => piece.path)).toContain("commands/plain.md");
+    });
   });
 });
