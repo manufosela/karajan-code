@@ -14,6 +14,7 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const DIFFS = { aaa1111: "diff --git a/a.js b/a.js\n+const a = 1;\n", bbb2222: "diff --git a/b.js b/b.js\n+const b = 2;\n" };
 const PR = { headRefOid: "bbb2222", commits: [{ oid: "aaa1111", messageHeadline: "feat: a" }, { oid: "bbb2222", messageHeadline: "fix: b" }] };
+const PUBLISHED = "- `aaa1111` feat: a\n- `bbb2222` fix: b\n<!-- kj-review head=bbb2222 -->";
 
 // KJC-BUG-0391: mmm3333 is a clean merge of main (its tree is what git merge-tree gives).
 const MERGE = { rev: "mmm3333 bbb2222 main000", tree: "t1" };
@@ -63,7 +64,7 @@ describe("publishPrReview", () => {
     expect(labels.some((l) => l.startsWith("label create Karajan"))).toBe(true);
     expect(labels).toContain("api -X POST repos/{owner}/{repo}/issues/42/labels -f labels[]=Karajan");
     const again = [];
-    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ labels: again, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }] }) });
+    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ labels: again, reviews: [{ body: PUBLISHED, author_association: "OWNER" }] }) });
     expect(r.published).toBe(false);
     expect(again).toContain("api -X POST repos/{owner}/{repo}/issues/42/labels -f labels[]=Karajan");
   });
@@ -99,9 +100,19 @@ describe("publishPrReview", () => {
   it("already published for that head: it does not duplicate the review", async () => {
     for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
     const posted = [];
-    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }] }) });
+    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: PUBLISHED, author_association: "OWNER" }] }) });
     expect(r).toMatchObject({ published: false, reason: expect.stringMatching(/already/) });
     expect(posted).toHaveLength(0);
+  });
+
+  // KJC-BUG-0477 (#3127): a retargeted stacked PR gains its base's commit under the same head.
+  it("a review for that head that misses a commit of the PR: it publishes again", async () => {
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    const posted = [];
+    const reviews = [{ body: "- `bbb2222` fix: b: approved\n<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }];
+    const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews }) });
+    expect(r).toMatchObject({ published: true, commits: 2 });
+    expect(posted[0].join(" ")).toMatch(/`aaa1111` feat: a/);
   });
 
   // KJC-BUG-0456: verify-pr ignores a review by a non-member (another gh account), so it must not block publishing.
