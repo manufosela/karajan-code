@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.0.2: arreglos en carriles, rebases y revisiones (actual)
+### v5.0.3: doctor falla con una rama por defecto distinta de main (actual)
+
+`kj doctor` falla ahora, y sale con 1, mientras la rama por defecto del repositorio no sea `main`: ahí no se lanza nunca ningún gate de los que kj escribe para `main`. La 5.0.2 solo avisaba.
+
+### v5.0.2: arreglos en carriles, rebases y revisiones
 
 El `npm ci` de un carril ya no reapunta el MCP global al carril, el Sentinel te deja resolver un conflicto de rebase, `kj solomon` nombra el hallazgo cuando se niega por seguridad, `kj review --publish-pr` vuelve a publicar cuando una PR gana un commit, y `kj doctor` y `kj init` avisan cuando la rama por defecto no es `main`. Las docs de instalación explican cómo verificar lo que has instalado.
 
