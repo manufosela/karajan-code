@@ -125,4 +125,52 @@ export const sources = [
       },
     ],
   },
+  {
+    // atril vive en este monorepo y la fuente está en INGLÉS: las páginas se
+    // generan en la raíz (EN) y `es/` son las traducciones (ADR 0038).
+    repo: 'manufosela/karajan-code',
+    ref: '2030b52dd4ffa815e271be2341d40620b8627084',
+    path: 'packages/atril/README.md',
+    sourceLang: 'en',
+    outDir: 'src/content/docs/atril',
+    translationDir: 'src/content/docs/es/atril',
+    pages: [
+      {
+        start: null,
+        slug: 'overview',
+        title: 'Overview',
+        description: 'What atril is, how its store works and when to use it.',
+      },
+      {
+        start: '## Find and use',
+        slug: 'use',
+        title: 'Find, install and remove',
+        description: 'Search the catalogs, install artifacts into the store and remove them.',
+      },
+      {
+        start: '## Catalogs',
+        slug: 'catalogs',
+        title: 'Catalogs and marketplaces',
+        description: 'Add catalogs and plugin marketplaces, and search across them.',
+      },
+      {
+        start: '## The lockfile',
+        slug: 'lockfile',
+        title: 'Lockfile, status and update',
+        description: 'The versioned lockfile, atril status for CI and atril update.',
+      },
+      {
+        start: '## Persistent pieces through rulesync',
+        slug: 'integrations',
+        title: 'rulesync and MCP server',
+        description: 'Persistent pieces through rulesync and the atril MCP server.',
+      },
+      {
+        start: '## API',
+        slug: 'api',
+        title: 'Programmatic API',
+        description: 'The exports of @karajan-family/atril.',
+      },
+    ],
+  },
 ];

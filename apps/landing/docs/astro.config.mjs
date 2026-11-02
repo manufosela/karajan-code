@@ -118,6 +118,21 @@ export default defineConfig({
 						],
 					},
 					{
+						label: 'atril',
+						translations: { es: 'atril' },
+						link: '/atril/overview/',
+						icon: 'puzzle',
+						items: [
+							{ label: 'Overview', slug: 'atril/overview', translations: { es: 'Visión general' } },
+							{ label: 'Find, install and remove', slug: 'atril/use', translations: { es: 'Buscar, instalar y quitar' } },
+							{ label: 'Catalogs and marketplaces', slug: 'atril/catalogs', translations: { es: 'Catálogos y marketplaces' } },
+							{ label: 'Lockfile, status and update', slug: 'atril/lockfile', translations: { es: 'Lockfile, status y update' } },
+							{ label: 'rulesync and MCP server', slug: 'atril/integrations', translations: { es: 'rulesync y servidor MCP' } },
+							{ label: 'Programmatic API', slug: 'atril/api', translations: { es: 'API programática' } },
+							{ label: 'With the family', slug: 'atril/with-the-family', translations: { es: 'Con la familia' } },
+						],
+					},
+					{
 						label: { en: 'v3 — historical archive', es: 'v3 — archivo histórico' },
 						link: '/getting-started/introduction/',
 						icon: 'seti:folder',
