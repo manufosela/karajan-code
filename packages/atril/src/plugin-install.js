@@ -5,7 +5,7 @@
  */
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { writeAtomic } from "./atomic.js";
 import { findPlugin } from "./catalog.js";
 import { lockPath, readLock } from "./lock.js";
@@ -13,15 +13,20 @@ import { dependencyOrder, installNpmDeps, pluginDependencies } from "./plugin-de
 import { fetchPlugin } from "./plugin-fetch.js";
 import { installPluginMarkdown } from "./plugin-markdown.js";
 import { listPluginMarkdown, readPluginManifest } from "./plugin.js";
+import { pluginPaths } from "./plugin-source.js";
 import { pluginInventory } from "./plugin-trust.js";
-import { target } from "./store.js";
+import { resolveRoot } from "./scan.js";
+import { remove, target } from "./store.js";
 
-// The exact bytes of the lock and of every store path `member` writes; restore() puts them back, deleting what was absent.
-function snapshot({ fetched }, opts) {
+// A lock key `kind:name` as the { kind, storeName } of a plugin Markdown entry.
+const entryOf = (key) => { const [kind, ...rest] = key.split(":"); return { kind, storeName: rest.join(":") }; };
+
+// The exact bytes of the lock and of every store path `member` writes (and of `held`, the lock keys it replaces); restore() puts them back, deleting what was absent.
+function snapshot({ fetched }, opts, held = []) {
   const lock = lockPath(opts);
   const lockBytes = existsSync(lock) ? readFileSync(lock) : null;
   const backup = mkdtempSync(join(tmpdir(), "atril-set-"));
-  const paths = listPluginMarkdown(fetched.dir).map(({ kind, storeName }) => target(storeName, { ...opts, kind }));
+  const paths = [...listPluginMarkdown(fetched.dir), ...held.map(entryOf)].map(({ kind, storeName }) => target(storeName, { ...opts, kind }));
   const kept = paths.map((path, i) => existsSync(path) && (cpSync(path, join(backup, String(i)), { recursive: true }), true));
   return {
     restore() {
@@ -149,4 +154,47 @@ export async function installPluginSet(name, opts = {}, { confirm, git, gitBase,
     for (const before of snapshots) before.discard();
   }
   return { ...done.at(-1), dependencies: done.slice(0, -1), skipped };
+}
+
+// What a plugin can run: a change here is what the user is asked about again.
+const executable = ({ hooks, mcpServers, bin, npm }) => JSON.stringify({ hooks, mcpServers, bin, npm });
+// An installed copy that is gone or unreadable counts as changed: the user is asked rather than assumed.
+const sameAsInstalled = (dir, inventory) => {
+  try { return executable(pluginInventory(dir)) === executable(inventory); } catch { return false; }
+};
+
+/**
+ * Brings an installed plugin to the commit its catalog pins now (`atril catalog update` moves the pin; an
+ * unpinned source follows its ref). The new copy is fetched and inventoried first and `confirm` sees the
+ * inventory before anything is written; when what it can run differs from the installed copy, `confirm` is
+ * asked a second time (`again: true`). A failure puts the store paths and the lock back, byte for byte.
+ * @param {string} name an installed plugin
+ * @param {Parameters<typeof installPlugin>[1]} [opts]
+ * @param {{ confirm: (inventory: object, info: { source: object, commit?: string, from?: string, status: string, changed: boolean, again?: boolean }) => boolean | Promise<boolean>, git?: Function, gitBase?: string, run?: Function }} [how]
+ * @returns {Promise<{ plugin: string, status: "updated" | "current" | "declined", from?: string }>} "updated" also carries installPlugin's result
+ */
+export async function updatePlugin(name, opts = {}, { confirm, git, gitBase, run } = {}) {
+  if (typeof confirm !== "function") throw new Error("updatePlugin needs a confirm function");
+  const { plugins, artifacts } = readLock(opts);
+  const held = plugins?.[name];
+  if (!held) throw new Error(`plugin "${name}" is not installed`);
+  const prepared = prepare(name, opts, { git, gitBase });
+  const { fetched, inventory } = prepared;
+  if (fetched.commit && fetched.commit === held.commit) return { plugin: name, status: "current", version: held.version, commit: held.commit };
+  for (const key of held.entries) if (artifacts[key] && (artifacts[key].origin !== "plugin" || artifacts[key].plugin !== name)) throw new Error(`${key} is not owned by plugin "${name}"; remove it by itself first`);
+  // A local copy has no commit and its cache is replaced in place, so it keeps no baseline to compare with: always asked twice.
+  const changed = !held.commit || !sameAsInstalled(pluginPaths(resolve(opts.projectDir ?? process.cwd(), resolveRoot(opts)), name, held.version).dir, inventory);
+  const info = { source: prepared.source, commit: fetched.commit, from: held.commit, status: fetched.status, changed };
+  if (!(await confirm(inventory, info)) || (changed && !(await confirm(inventory, { ...info, again: true })))) return { plugin: name, status: "declined", from: held.commit, inventory };
+  const before = snapshot(prepared, opts, held.entries);
+  try {
+    for (const { kind, storeName } of held.entries.map(entryOf)) remove(storeName, { ...opts, kind });
+    return { ...commit(prepared, opts, { run }), status: "updated", from: held.commit };
+  } catch (error) {
+    let restored = "the previous store and lock";
+    try { before.restore(); } catch (e) { restored = `nothing (restore failed: ${e.message})`; }
+    throw new Error(`${error.message}; rolled back: ${restored}`, { cause: error });
+  } finally {
+    before.discard();
+  }
 }

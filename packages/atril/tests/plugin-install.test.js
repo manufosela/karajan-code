@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeConfig } from "../src/config.js";
 import { SAFE } from "../src/fetch.js";
 import { readLock, recordPlugin } from "../src/lock.js";
-import { installPlugin, installPluginSet, pluginInstallSet } from "../src/plugin-install.js";
+import { installPlugin, installPluginSet, pluginInstallSet, updatePlugin } from "../src/plugin-install.js";
 import { removePlugin } from "../src/plugin-remove.js";
 
 // recordPlugin runs after the Markdown is written: failing it injects a failure there; `torn` also half-writes the lock.
@@ -22,8 +22,9 @@ vi.mock("../src/lock.js", async (importOriginal) => {
 });
 
 const C1 = "a".repeat(40);
-let dir, calls, runs, tree, confirm;
+let dir, calls, runs, tree, confirm, head;
 beforeEach(() => {
+  head = C1;
   dir = mkdtempSync(join(tmpdir(), "atril-plugin-install-"));
   calls = [];
   runs = 0;
@@ -45,7 +46,7 @@ const git = (args, cwd) => {
   const [verb, ...rest] = args.slice(SAFE.length);
   calls.push(verb);
   if (verb === "fetch") { mkdirSync(join(cwd, ".git"), { recursive: true }); plant(cwd, tree); }
-  return verb === "rev-parse" ? `${C1}\n` : "";
+  return verb === "rev-parse" ? `${head}\n` : "";
 };
 const run = (_cmd, _args, cwd) => { runs++; mkdirSync(join(cwd, "node_modules")); };
 const NPM = { "package.json": { name: "kit", dependencies: { a: "1.0.0" } }, "package-lock.json": { lockfileVersion: 3, packages: {} } };
@@ -277,5 +278,78 @@ describe("installPluginSet", () => {
       failRecord.plugin = failRecord.torn = null;
     }
     expect(snapshot()).toEqual(before);
+  });
+});
+
+describe("updatePlugin", () => {
+  const C2 = "b".repeat(40);
+  const HOOK = { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "x.sh" }] }] } };
+  const lockFile = () => readFileSync(join(dir, "store", "atril.lock.json"), "utf8");
+  const skill = () => readFileSync(join(dir, "store", "skills", "kit__tdd", "SKILL.md"), "utf8");
+  // The catalog pins C2 now, as `atril catalog update` would have; the plugin at C2 is 2.0.0 with a new command.
+  const moveTo = (files = {}) => {
+    head = C2;
+    tree = { manifest: { version: "2.0.0" }, files: { "commands/new.md": "---\ndescription: New\n---\nnew\n", "skills/tdd/SKILL.md": "---\nname: tdd\ndescription: Test first\n---\nnew body\n", ...files } };
+    market({ ...GH, sha: C2 });
+  };
+  const update = () => updatePlugin("kit", o(), { confirm, git, run });
+  beforeEach(async () => {
+    market(GH);
+    await install();
+    confirm.mockClear();
+  });
+
+  it("brings the store and the lock to the new commit, asking once when the inventory is the same", async () => {
+    moveTo();
+    expect(await update()).toMatchObject({ plugin: "kit", status: "updated", from: C1, commit: C2, version: "2.0.0" });
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm.mock.calls[0][1]).toMatchObject({ commit: C2, from: C1, changed: false });
+    expect(lock().plugins.kit).toEqual({ catalog: "mkt", source: "o/r", commit: C2, version: "2.0.0", entries: ["command:kit__new", "command:kit__ship", "skill:kit__tdd"] });
+    expect(skill()).toContain("new body");
+  });
+
+  it("asks again when the inventory changed, and a refusal writes nothing", async () => {
+    moveTo({ "hooks/hooks.json": HOOK });
+    const before = [lockFile(), skill()];
+    confirm = vi.fn((_, { again }) => !again);
+    expect((await update()).status).toBe("declined");
+    expect(confirm.mock.calls.map(([, info]) => [info.changed, Boolean(info.again)])).toEqual([[true, false], [true, true]]);
+    expect([lockFile(), skill()]).toEqual(before);
+  });
+
+  it("always asks twice for a local plugin, which keeps no baseline: a declined attempt and its retry alike", async () => {
+    put(dir, "mkt/plugins/kit/.claude-plugin/plugin.json", { name: "kit", version: "1.0.0" });
+    put(dir, "mkt/plugins/kit/commands/ship.md", "---\ndescription: Ship\n---\nShip it\n");
+    put(dir, "mkt/.claude-plugin/marketplace.json", { name: "m", plugins: [{ name: "kit", source: "./plugins/kit" }] });
+    removePlugin("kit", { ...o(), purge: true });
+    await install();
+    confirm.mockClear();
+    put(dir, "mkt/plugins/kit/hooks/hooks.json", HOOK);
+    confirm = vi.fn((_, { again }) => !again);
+    expect((await update()).status).toBe("declined");
+    expect((await update()).status).toBe("declined"); // the retry is not fooled by the cache the first attempt replaced
+    expect(confirm.mock.calls.map(([, info]) => [info.changed, Boolean(info.again)])).toEqual([[true, false], [true, true], [true, false], [true, true]]);
+  });
+
+  it("leaves a plugin already at the pinned commit alone and asks nothing", async () => {
+    expect(await update()).toMatchObject({ plugin: "kit", status: "current", commit: C1 });
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("restores the exact previous store and lock when the update fails", async () => {
+    moveTo();
+    const before = [lockFile(), skill()];
+    failRecord.plugin = "kit";
+    try {
+      await expect(update()).rejects.toThrow(/lock write failed.*rolled back/);
+    } finally {
+      failRecord.plugin = null;
+    }
+    expect([lockFile(), skill()]).toEqual(before);
+    expect(existsSync(join(dir, "store", "commands", "kit__new.md"))).toBe(false);
+  });
+
+  it("refuses a plugin that is not installed", async () => {
+    await expect(updatePlugin("ghost", o(), { confirm, git, run })).rejects.toThrow('plugin "ghost" is not installed');
   });
 });
