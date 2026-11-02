@@ -54,6 +54,11 @@ describe("renderBrief", () => {
     expect(text).toMatch(/never overridable|cannot be overridden/i);
   });
 
+  // KJC-TSK-1378 (#3206): a plain line, never a gate: it does not depend on any method_gates.
+  it("tester brief asks for a simplification pass between green and the review", () => {
+    expect(renderBrief("tester", {})).toMatch(/simplify[\s\S]*before[\s\S]*review/i);
+  });
+
   it("tester brief keeps the TDD invariant tied to the configured methodology", () => {
     expect(renderBrief("tester", { development: { methodology: "tdd" } })).toMatch(/failing test .*first/i);
     expect(renderBrief("tester", { development: { methodology: "standard" } })).not.toMatch(/failing test .*first/i);

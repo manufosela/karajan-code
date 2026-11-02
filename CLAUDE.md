@@ -44,10 +44,10 @@ Invariants (the git gates enforce these — they are not suggestions):
   `kj_rag_query` tool: reach for it before grepping by hand. Questions about
   the project's docs, notes, ADRs or plans: ask qmd (its MCP) first.
 - Every piece of work has a card in the HU Board before it starts (`kj hu list`, then `kj hu add --ref <id>`) and its replica in the Planning Game, created through its MCP/tools; move both as you work it.
-- Tests prove behavior: the failing test exists first (TDD), and the suite
-  is never left red. Green is not proof: with `method_gates.mutation`
-  declared, run `kj mutate --since <base>` after green and BEFORE the
-  review — a surviving mutant is a weak assert; kill it first.
+- Tests prove behavior: failing test first (TDD), suite never left red.
+  Green is not proof: with `method_gates.mutation` declared, run
+  `kj mutate --since <base>` and kill surviving mutants (weak asserts); then
+  simplify (same behavior, no test weakened). Both BEFORE the review.
 - Every diff is reviewed by a DIFFERENT AI before it is committed
   (`kj review --staged`): verdicts bind to the exact diff — change the code
   and it must be reviewed again. Disagree with a rejection? `kj solomon`.
