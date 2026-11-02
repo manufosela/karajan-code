@@ -43,7 +43,7 @@ export async function pickThirdParty({ config, hostAgent, reviewerAgent, detectA
 }
 
 export async function runSolomonArbitration({
-  diff, position, config, logger, projectDir,
+  diff, position, config, logger, projectDir, findingId = null,
   hostAgent = detectHostAgent(),
   createAgentFn = createAgent,
   detectAgents = detectAvailableAgents,
@@ -56,8 +56,15 @@ export async function runSolomonArbitration({
     throw new Error("nothing to arbitrate — there is no rejected verdict for the current diff (run `kj review --staged` first)");
   }
 
+  // KJC-TSK-1379 (#3207): with findingId only that finding is disputed; the rest keep blocking.
+  const allIssues = verdict.issues || [];
+  const disputed = findingId ? allIssues.filter((issue) => issue.id === findingId) : allIssues;
+  if (findingId && disputed.length === 0) {
+    throw new Error(`no finding "${findingId}" in the rejected verdict; its findings are: ${allIssues.map((i) => i.id).join(", ") || "none"}`);
+  }
+
   // ABSOLUTE RULE: security findings are never overridable.
-  const securityIssues = (verdict.issues || []).filter((issue) => securityReason(issue));
+  const securityIssues = disputed.filter((issue) => securityReason(issue));
   if (securityIssues.length > 0) {
     const named = securityIssues.map(describeSecurityIssue).join("; ");
     const record = await saveVerdict(projectDir, diff, {
@@ -79,8 +86,9 @@ export async function runSolomonArbitration({
     "The reviewer REJECTED a diff; the orchestrating brain DISAGREES. Decide who is right.",
     "Never approve to save time or effort — only if the reviewer's objections are genuinely wrong or immaterial for this diff.",
     'Return only one JSON object: {"ruling":"approve"|"reject","reasoning":string}. "approve" = the brain is right, the diff may ship as-is. "reject" = the reviewer is right, the brain must fix the issues.',
+    ...(findingId ? ["Rule on this one finding only: the reviewer's other findings are not in dispute."] : []),
     "", "## Reviewer's blocking issues",
-    JSON.stringify(verdict.issues || [], null, 2),
+    JSON.stringify(disputed, null, 2),
     "", "## Brain's position", position,
     // KJC-BUG-0347: generated files summarized; the ruling still binds to the full diff.
     "", "## The diff under dispute", summarizeGeneratedFiles(diff),
@@ -115,12 +123,17 @@ export async function runSolomonArbitration({
   // for this exact hash and travels with the overriding verdict — without it
   // `kj review --check` refuses every arbitrated diff.
   const evidence = { ...(verdict.sonar ? { sonar: verdict.sonar } : {}), ...(verdict.rag ? { rag: verdict.rag } : {}) };
-  const record = parsed.ruling === "approve"
-    ? await saveVerdict(projectDir, diff, {
+  if (findingId) arbitration.findingId = findingId;
+  const remaining = parsed.ruling === "approve" ? allIssues.filter((issue) => !disputed.includes(issue)) : allIssues;
+  let record;
+  if (parsed.ruling !== "approve") record = await saveVerdict(projectDir, diff, { ...verdict, arbitration });
+  else if (remaining.length > 0) record = await saveVerdict(projectDir, diff, { ...verdict, issues: remaining, arbitration });
+  else {
+    record = await saveVerdict(projectDir, diff, {
       verdict: "approved", reviewer: `solomon:${solomon}`, host: hostAgent || null,
       issues: [], summary: `Arbitration overrode ${verdict.reviewer}'s rejection: ${parsed.reasoning || ""}`.trim(), arbitration, ...evidence,
-    })
-    : await saveVerdict(projectDir, diff, { ...verdict, arbitration });
+    });
+  }
 
-  return { ruling: parsed.ruling, reasoning: parsed.reasoning || "", solomon, record };
+  return { ruling: parsed.ruling, reasoning: parsed.reasoning || "", solomon, record, remaining: remaining.map((issue) => issue.id) };
 }
