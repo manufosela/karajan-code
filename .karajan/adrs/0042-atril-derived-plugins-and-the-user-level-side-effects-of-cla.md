@@ -1,7 +1,7 @@
 # atril derived plugins and the user-level side effects of claude plugin install
 
-Status: proposed
-Date: 2026-11-02
+Status: accepted
+Date: 2026-11-02 (accepted 2026-11-02)
 
 ## Context
 
@@ -9,8 +9,8 @@ A derived plugin (P11) is installed through the host CLI (claude/agy plugin inst
 
 ## Decision
 
-PROPOSED, needs the user: decide whether atril may run claude plugin install at all, with what scope and confirmation, and how remove undoes it. Default until decided: atril refuses and lists the command for the user to run.
+Accepted by the maintainer: atril never runs `claude plugin install`, or the equivalent command of another CLI. It lists the command for the user to run. Derived plugins stay manual: atril lists them and shows the command, and installs nothing at user level. This is what the `native` mode of `pluginMode` already does.
 
 ## Consequences
 
-Keeps a project install from silently changing the user machine. Derived plugins stay manual until accepted.
+A project install never changes the user machine. The user runs the command and owns its effect at user level. `atril remove` has nothing to undo for a derived plugin, because atril installed nothing. Letting atril run the command, with a scope, a confirmation and an undo, would need a new ADR.
