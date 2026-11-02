@@ -8,7 +8,7 @@ const bench = readFileSync(new URL("../../apps/landing/portraits/index.html", im
 
 // Each character's portrait, rendered from its three.js module (KJL-TSK-0153, KJL-TSK-0154).
 // A member the page does not list (the Spanish page has no Libretto yet) is skipped.
-const PORTRAITS = ["atril", "libretto", "console", "governance", "core"];
+const PORTRAITS = ["atril", "libretto", "console", "governance", "core", "radar"];
 
 describe.each(["family.html", "es/family.html"])("%s", (page) => {
   const html = read(page);
