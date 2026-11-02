@@ -6,9 +6,9 @@ import * as atril from "../src/index.js";
 describe("atril's entry", () => {
   it("exports exactly the public API", () => {
     expect(Object.keys(atril).toSorted()).toEqual([
-      "MARKER", "VERSION", "applyCatalogUpdate", "applyRecommended", "catalogSync", "catalogUpdates", "detectPluginFormat", "expose", "generate", "importSkills", "install",
-      "installFromCatalog", "installPlugin", "listPluginMarkdown", "persistentPieces", "pluginInstallSet", "readPluginManifest", "recommended", "remove", "resolve", "resolveBlock", "search",
-      "status", "sync", "unexpose",
+      "MARKER", "VERSION", "applyCatalogUpdate", "applyRecommended", "catalogSync", "catalogUpdates", "declaredPluginConfig", "detectPluginFormat", "expose", "generate", "importSkills", "install",
+      "installFromCatalog", "installPlugin", "listPluginMarkdown", "persistentPieces", "pluginInstallSet", "readPluginConfig", "readPluginManifest", "recommended", "remove", "resolve", "resolveBlock", "search",
+      "status", "sync", "unexpose", "writePluginConfig",
     ]);
   });
 });
