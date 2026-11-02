@@ -14,7 +14,7 @@ const ORIGINS = ["catalog", "local", "import", "plugin"];
 const FIELDS = ["origin", "catalog", "source", "commit", "from", "plugin", "hash"];
 const PLUGIN_FIELDS = ["catalog", "source", "commit", "version", "entries"];
 const KEY = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
-const lockPath = ({ root, projectDir = process.cwd(), env = process.env } = {}) =>
+export const lockPath = ({ root, projectDir = process.cwd(), env = process.env } = {}) =>
   join(resolve(projectDir, resolveRoot({ root, env })), LOCK_FILE);
 /** A command or agent: the parsed hash (ignores the `atril:` block). A skill: that hash plus every other file of the folder. */
 export function contentHash(path, kind, parseOpts) {

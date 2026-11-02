@@ -1,13 +1,25 @@
 // ADR 0021, plan step 13 P3b: installPlugin composes find, fetch, inventory, confirm, npm and the Markdown install.
 // Git and npm are fakes: no network.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeConfig } from "../src/config.js";
 import { SAFE } from "../src/fetch.js";
 import { readLock, recordPlugin } from "../src/lock.js";
-import { installPlugin, pluginInstallSet } from "../src/plugin-install.js";
+import { installPlugin, installPluginSet, pluginInstallSet } from "../src/plugin-install.js";
+import { removePlugin } from "../src/plugin-remove.js";
+
+// recordPlugin runs after the Markdown is written: failing it injects a failure there; `torn` also half-writes the lock.
+const failRecord = vi.hoisted(() => ({ plugin: null, torn: null }));
+vi.mock("../src/lock.js", async (importOriginal) => {
+  const real = await importOriginal();
+  return { ...real, recordPlugin: (name, ...rest) => {
+    if (name !== failRecord.plugin) return real.recordPlugin(name, ...rest);
+    if (failRecord.torn) writeFileSync(failRecord.torn, "{");
+    throw new Error("lock write failed");
+  } };
+});
 
 const C1 = "a".repeat(40);
 let dir, calls, runs, tree, confirm;
@@ -56,7 +68,7 @@ describe("pluginInstallSet", () => {
 
   it("puts the dependencies first, in the order the plugin lists them, and the plugin last", () => {
     offer({ app: { dependencies: ["b", "a"] }, a: {}, b: { dependencies: ["a"] } });
-    expect(pluginInstallSet("app", o())).toEqual(["a", "b", "app"]);
+    expect(pluginInstallSet("app", o())).toMatchObject({ order: ["a", "b", "app"], skipped: [] });
   });
 
   it("fails naming the plugin that needs a missing dependency and the catalogs searched", () => {
@@ -72,9 +84,9 @@ describe("pluginInstallSet", () => {
   it("leaves an installed dependency out, but keeps the plugin itself", async () => {
     offer({ app: { dependencies: ["a", "b"] }, a: {}, b: {} });
     recordPlugin("a", { catalog: "mkt", version: "1.0.0", entries: [] }, o());
-    expect(pluginInstallSet("app", o())).toEqual(["b", "app"]);
+    expect(pluginInstallSet("app", o())).toMatchObject({ order: ["b", "app"], skipped: ["a"] });
     recordPlugin("app", { catalog: "mkt", version: "1.0.0", entries: [] }, o());
-    expect(pluginInstallSet("app", o())).toEqual(["b", "app"]);
+    expect(pluginInstallSet("app", o())).toMatchObject({ order: ["b", "app"], skipped: ["a"] });
   });
 });
 
@@ -160,5 +172,108 @@ describe("installPlugin", () => {
     expect(result.npm.status).toBe("unsupported");
     expect(result.npm.reason).toBeTruthy();
     expect(runs).toBe(0);
+  });
+});
+
+describe("installPluginSet", () => {
+  const offer = (manifests) => {
+    for (const [name, extra] of Object.entries(manifests)) {
+      put(dir, `mkt/plugins/${name}/.claude-plugin/plugin.json`, { name, version: "1.0.0", ...extra });
+      put(dir, `mkt/plugins/${name}/skills/${name}-s/SKILL.md`, `---\nname: ${name}-s\ndescription: d\n---\nbody\n`);
+    }
+    put(dir, "mkt/.claude-plugin/marketplace.json", { name: "m", plugins: Object.keys(manifests).map((name) => ({ name, source: `./plugins/${name}` })) });
+    writeConfig({ catalogs: ["mkt"] }, o());
+  };
+  const installSet = () => installPluginSet("app", o(), { confirm, git, run });
+  const app = { app: { dependencies: ["a", "b"] }, a: {}, b: {} };
+
+  it("installs the dependencies in order, then the plugin, and reports the set", async () => {
+    offer(app);
+    const result = await installSet();
+    expect(result).toMatchObject({ plugin: "app", status: "installed", skipped: [] });
+    expect(result.dependencies.map((d) => d.plugin)).toEqual(["a", "b"]);
+    expect(Object.keys(lock().plugins).toSorted()).toEqual(["a", "app", "b"]);
+  });
+
+  it("shows what this run downloaded as fetched, not cached", async () => {
+    offer(app);
+    await installSet();
+    expect(confirm.mock.calls[0][0].map((m) => m.status)).toEqual(["fetched", "fetched", "fetched"]);
+  });
+
+  it("applies the pin override to the plugin asked for only, not to its dependencies", async () => {
+    // a is on GitHub at C1: the pin C2 would disagree if it reached a (app is a local path)
+    const C2 = "b".repeat(40);
+    put(dir, "mkt/plugins/app/.claude-plugin/plugin.json", { name: "app", version: "1.0.0", dependencies: ["a"] });
+    put(dir, "mkt/.claude-plugin/marketplace.json", { name: "m", plugins: [{ name: "app", source: "./plugins/app" }, { name: "a", source: { source: "github", repo: "o/a", sha: C1 } }] });
+    writeConfig({ catalogs: ["mkt"] }, o());
+    tree = { manifest: { name: "a" } };
+    const result = await installPluginSet("app", { ...o(), commit: C2 }, { confirm, git, run });
+    expect(result.dependencies.map((d) => d.plugin)).toEqual(["a"]);
+  });
+
+  it("leaves an installed dependency out and reports it as skipped", async () => {
+    offer(app);
+    recordPlugin("a", { catalog: "mkt", version: "1.0.0", entries: [] }, o());
+    const result = await installSet();
+    expect(result.skipped).toEqual(["a"]);
+    expect(result.dependencies.map((d) => d.plugin)).toEqual(["b"]);
+  });
+
+  it("asks once for the whole set, and a decline writes nothing", async () => {
+    offer(app);
+    confirm = vi.fn(() => false);
+    const result = await installSet();
+    expect(result.status).toBe("declined");
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm.mock.calls[0][0].map((m) => m.name)).toEqual(["a", "b", "app"]);
+    expect(lock().plugins).toBeUndefined();
+    expect(existsSync(join(dir, "store", "skills"))).toBe(false);
+  });
+
+  it("rolls back what this run installed and leaves a reinstalled member untouched", async () => {
+    offer(app);
+    await installSet();
+    removePlugin("a", o());
+    removePlugin("b", o()); // a and b are new again; app is a reinstall
+    const appEntry = structuredClone(lock().plugins.app);
+    put(dir, "mkt/plugins/app/commands/go.md", "---\ndescription: Go\n---\ngo\n"); // new file in the source...
+    put(dir, "store/commands/app__go.md", "---\ndescription: Mine\n---\nlocal\n"); // ...that a local file already holds
+    await expect(installSet()).rejects.toThrow(/app.*already exists.*rolled back: b, a/s);
+    expect(lock().plugins.a).toBeUndefined();
+    expect(lock().plugins.b).toBeUndefined();
+    expect(lock().plugins.app).toEqual(appEntry);
+    expect(existsSync(join(dir, "store", "skills", "app__app-s"))).toBe(true);
+  });
+
+  it("keeps an untracked artifact that already existed when a later member fails", async () => {
+    offer(app);
+    const mine = "---\ndescription: Mine\n---\nlocal\n";
+    put(dir, "store/skills/a__a-s/SKILL.md", mine); // a's artifact, held by nobody
+    put(dir, "mkt/plugins/app/commands/go.md", "---\ndescription: Go\n---\ngo\n");
+    put(dir, "store/commands/app__go.md", mine);
+    await expect(installSet()).rejects.toThrow(/rolled back/);
+    for (const file of ["skills/a__a-s/SKILL.md", "commands/app__go.md"]) expect(readFileSync(join(dir, "store", file), "utf8")).toBe(mine);
+    expect(lock().plugins).toBeUndefined();
+  });
+
+  it.each([["app", false], ["b", false], ["app", true], ["b", true]])("restores the store and the lock when %s fails after its Markdown is written (torn lock: %s)", async (failing, torn) => {
+    offer(app);
+    await installSet();
+    removePlugin("a", o());
+    removePlugin("b", o()); // a and b are new again; app is a reinstall
+    put(dir, "mkt/plugins/app/commands/go.md", "---\ndescription: Go\n---\ngo\n"); // the reinstall also brings a new file
+    // Not compared: the fetch cache (store/plugins, kept on purpose) and emptied folders.
+    const files = () => readdirSync(join(dir, "store"), { recursive: true }).filter((p) => !p.startsWith("plugins") && statSync(join(dir, "store", p)).isFile()).toSorted();
+    const snapshot = () => [readFileSync(join(dir, "store", "atril.lock.json"), "utf8"), files()];
+    const before = snapshot();
+    failRecord.plugin = failing;
+    failRecord.torn = torn ? join(dir, "store", "atril.lock.json") : null;
+    try {
+      await expect(installSet()).rejects.toThrow(new RegExp(`^${failing}: lock write failed`));
+    } finally {
+      failRecord.plugin = failRecord.torn = null;
+    }
+    expect(snapshot()).toEqual(before);
   });
 });
