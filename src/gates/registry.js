@@ -72,7 +72,7 @@ export function resolveRules(config, { tighten = [], project = {} } = {}) {
 }
 
 /** The list `kj gates` prints. */
-export function formatRules({ fixed, adjustable, ignored = [] }) {
+export function formatRules({ fixed, adjustable, ignored = [], conflicts = [], stale = [] }) {
   const pad = Math.max(...adjustable.map((r) => r.id.length));
   return [
     "Fixed rules (no one changes them):",
@@ -81,6 +81,9 @@ export function formatRules({ fixed, adjustable, ignored = [] }) {
     "Adjustable rules (value, who set it):",
     ...adjustable.map((r) => `  ${r.id.padEnd(pad)}  ${r.value}  (${r.origin}): ${r.text}`),
     ...ignored.map((i) => `  ✗ ignored from skill ${i.by}: ${i.rule} → ${i.value} (${i.reason})`),
+    // KJC-TSK-1391: what the project's CONTRIBUTING says against a fixed rule, and settings gone stale.
+    ...conflicts.map((c) => `  ⚠ conflict with the fixed rule ${c.rule}: ${c.file} says "${c.quote}" (the rule stays; decide whether to use Karajan here)`),
+    ...stale.map((s) => `  ✗ ${s.rule} → ${s.value} no longer applies: ${s.reason}`),
     "",
     "Ask your agent to change an adjustable rule; kj gates shows this list again.",
   ].join("\n");
