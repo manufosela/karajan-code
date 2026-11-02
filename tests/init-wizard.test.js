@@ -79,8 +79,8 @@ vi.mock("../src/commands/harden.js", () => ({
   hardenCommand: vi.fn().mockResolvedValue({ ok: true })
 }));
 
-// HU-0011: a rulesync that is never there, so init cannot touch this repo.
-vi.mock("../src/utils/rulesync.js", async (importOriginal) => ({ ...(await importOriginal()), defaultRun: vi.fn() }));
+// HU-0011: a rulesync that is never there (the repo's own .rulesync/ included), so init cannot touch this repo.
+vi.mock("../src/utils/rulesync.js", async (importOriginal) => ({ ...(await importOriginal()), defaultRun: vi.fn(), detectRulesync: vi.fn(() => false) }));
 // init runs in the repo cwd: atril writes with the real fs, so its install never runs here.
 vi.mock("../src/commands/init-atril.js", () => ({ installKarajanCommands: vi.fn(() => ({ installed: 0, synced: false })) }));
 

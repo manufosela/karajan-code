@@ -1,0 +1,62 @@
+{
+  "artifacts": {
+    "command:kj-architect": {
+      "hash": "sha256:2df653aaea4ac63f33acd17f61ac6ac25e5db2447eecef06d3158ed37c84faa0",
+      "origin": "local"
+    },
+    "command:kj-audit": {
+      "hash": "sha256:b3d76540c35e15856f958e8955893d8dd247607b462fcff0769b041733c9df5f",
+      "origin": "local"
+    },
+    "command:kj-board": {
+      "hash": "sha256:cb125562b9d110ed4792481232e114c6435adaeee45027d99798a209e20b8873",
+      "origin": "local"
+    },
+    "command:kj-code": {
+      "hash": "sha256:f9f05d79224b349625a618db157233ecb6ca1de50701919fe26147c5ca308e20",
+      "origin": "local"
+    },
+    "command:kj-csv-transform": {
+      "hash": "sha256:2a6ceb0803712bc178536f9afd0f6f19096c88db9fe94913459a785324986ecc",
+      "origin": "local"
+    },
+    "command:kj-data-report": {
+      "hash": "sha256:8a63dd74ca77e2cddaca88e4b2a512011e80c4a9d6423ba7fefd738476d2125c",
+      "origin": "local"
+    },
+    "command:kj-discover": {
+      "hash": "sha256:33af4b096dc162c17398959d532818034e3a3ad6bf3f91ba25841ea1d396097b",
+      "origin": "local"
+    },
+    "command:kj-rag-query": {
+      "hash": "sha256:ad53d861bf03f45ad7467fc8041149118b85cb590087276a42d6da9e20b7a5d2",
+      "origin": "local"
+    },
+    "command:kj-review": {
+      "hash": "sha256:ea59f9d6f978533841a84b81280445490b2f57d669195bc39add3062c6be7f95",
+      "origin": "local"
+    },
+    "command:kj-security": {
+      "hash": "sha256:2b88d00f1b4300ffd852e9112f83e3884049db753ebf02b93c6ff90d82644933",
+      "origin": "local"
+    },
+    "command:kj-sonar": {
+      "hash": "sha256:db527e9d92c2fa525783cb826020e0489ab0b3a599ed29fccfb842a13eb134b6",
+      "origin": "local"
+    },
+    "command:kj-sql-analysis": {
+      "hash": "sha256:3cb0336c4a6e70973205602e3f77ed32370c60b6ad0b72bd1840dbbe3e620f22",
+      "origin": "local"
+    },
+    "command:kj-test": {
+      "hash": "sha256:6dbdde324089c0182747209bff2a0d9034b62d756c2ee61ac0003a12850042fc",
+      "origin": "local"
+    },
+    "skill:using-atril": {
+      "catalog": "atril:recommended",
+      "hash": "sha256:954ea8660e55408f36c7bea1333f9c6c50c3edeb2fd27f1c6fce1f526508a7fc",
+      "origin": "catalog"
+    }
+  },
+  "version": 1
+}

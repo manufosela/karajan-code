@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "entries": {
+    "commands/atril.md": {
+      "owner": "atril",
+      "hash": "sha256:17101e0292f41a801f5469faac70b9154ab147c9ec3ae71d5ae13a11de2758f5"
+    },
+    "rules/atril-router.md": {
+      "owner": "atril",
+      "hash": "sha256:7397cf954254a5ed8edfa06d3cd482562ccc7d4401a0aecf9db14dd3729cd2b1"
+    }
+  }
+}

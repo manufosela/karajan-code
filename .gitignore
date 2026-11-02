@@ -34,6 +34,8 @@ apps/landing/public/docs/
 !.karajan/kj.config.yml
 !.karajan/atril.json
 !.karajan/atril.lock.json
+!.karajan/commands/
+!.karajan/skills/
 .reviews/
 .kj/
 kj.config.yml
