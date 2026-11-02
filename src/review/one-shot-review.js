@@ -17,6 +17,9 @@ import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js
 import { accountLabel } from "../utils/agent-home.js";
 import { saveVerdict, diffHash } from "./verdict-store.js";
 import { summarizeGeneratedFiles } from "./prompt-diff.js";
+import { diffFacts, formatDiffFacts } from "./diff-facts.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { reportUnparseableVerdict } from "./unparseable-verdict.js";
 import { detectWorkspace } from "./workspace.js";
 import { branchOf } from "./correction-rounds.js";
@@ -107,11 +110,14 @@ export async function runOneShotReview({
   }
 
   const { rules } = await resolveReviewProfile({ mode: "standard", projectDir });
+  // KJC-TSK-1380 (#3207): facts computed without a model; the reviewer starts from them.
+  const facts = diffFacts(diff, { readFile: (p) => readFileSync(join(projectDir || process.cwd(), p), "utf8") });
   const attempt = async (who, cfg = config) => {
     const prompt = await buildReviewerPrompt({
       task: task || "Review the following diff for correctness, security and maintainability.",
       // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
       diff: summarizeGeneratedFiles(diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
+      factsBlock: formatDiffFacts(facts),
     });
     // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.
     const account = accountLabel(who, { env });
@@ -139,6 +145,7 @@ export async function runOneShotReview({
   }
 
   const record = await verdictRecord(parsed, { reviewer: activeReviewer, hostAgent, projectDir, sonar, rag, ui });
+  if (facts.length > 0) record.facts = facts;
   return persist ? saveVerdict(projectDir, diff, record) : record;
 }
 
