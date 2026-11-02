@@ -36,3 +36,9 @@ describe("portrait bench", () => {
     expect(bench).toContain("new THREE.MeshBasicMaterial({ color: mesh.material.emissive, toneMapped: false })");
   });
 });
+
+// KJL-BUG-0015: the Spanish page had lost Libretto; both pages list the same family.
+it("lists the same members on the English and Spanish family pages", () => {
+  const members = (page) => [...read(page).matchAll(/<h2>([^<]+?) <span class="role">/g)].map(([, name]) => name);
+  expect(members("es/family.html")).toEqual(members("family.html"));
+});
