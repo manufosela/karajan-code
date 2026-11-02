@@ -32,6 +32,11 @@ describe("persistent pieces", () => {
       expect(content).toContain("atril route");
     }
   });
+  it("tell the agent to query atril in English", () => {
+    const [command, rule] = persistentPieces(o()).map((p) => p.content);
+    expect(rule).toContain("in English");
+    expect(command).toContain("into English");
+  });
 
   it("add each exposed artifact where rulesync reads its kind, the marker after its frontmatter", () => {
     artifact("skills/tdd/SKILL.md", "skill", "tdd");

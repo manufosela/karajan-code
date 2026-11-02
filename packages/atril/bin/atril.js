@@ -4,6 +4,7 @@ import { VERSION, resolve } from "../src/index.js";
 import { relative } from "node:path";
 import { enrich } from "../src/enrich.js";
 import { graph } from "../src/graph.js";
+import { SEARCH_HINT, looksNonEnglish } from "../src/lang.js";
 import { keyOf, scan } from "../src/scan.js";
 import { SEARCH_MODE, search } from "../src/search.js";
 import { install, remove } from "../src/store.js";
@@ -273,11 +274,13 @@ function runSearch(args) {
   });
   const query = positionals.join(" ");
   const hits = search(query, { kind: values.kind, root: values.root });
+  const hint = hits.length === 0 && looksNonEnglish(query) ? SEARCH_HINT : undefined;
   if (values.json) {
-    console.log(JSON.stringify({ mode: SEARCH_MODE, hits }, null, 2));
+    console.log(JSON.stringify({ mode: SEARCH_MODE, hits, ...(hint && { hint }) }, null, 2));
     return;
   }
   console.error(`atril: search mode ${SEARCH_MODE}`);
+  if (hint) console.error(`atril: ${hint}`);
   if (hits.length === 0) console.log(`no results for ${JSON.stringify(query)}`);
   for (const hit of hits) console.log(`${hit.score}\t${hit.kind}\t${printable(hit.name)}\t${hit.source}\t${printable(hit.description)}`);
 }

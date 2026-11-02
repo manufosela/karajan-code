@@ -12,6 +12,7 @@ import { assertGraph } from "./graph.js";
 import { FRONTMATTER, KINDS, isMapping } from "./model.js";
 import { keyOf, resolveRoot, scan, scanStore } from "./scan.js";
 import { fold } from "./text.js";
+import { warnIfNonEnglish } from "./lang.js";
 
 const MAX_KEYWORDS = 20;
 const STOPWORDS = new Set(
@@ -130,15 +131,18 @@ function englishOf(artifact, result) {
  * (and fail on a graph error). An `enricher(artifact)` (ADR 0039, layer 1) returns
  * the artifact's English `{ description?, keywords? }`, written under `atril.en`; it
  * runs only when `atril.en` is missing or was made for another hash, never with `check`.
+ * `onWarning(text)` hears of an artifact that looks non-English (stderr by default).
  * @param {{ projectDir?: string, root?: string, env?: object, check?: boolean,
- *   enricher?: (artifact: object) => Promise<{ description?: string, keywords?: string[] }> }} [opts]
+ *   enricher?: (artifact: object) => Promise<{ description?: string, keywords?: string[] }>,
+ *   onWarning?: (text: string) => void }} [opts]
  * @returns {Promise<{ path: string, state: "not enriched" | "out of date" }[]>} what was (or would be) rewritten
  */
-export async function enrich({ projectDir = process.cwd(), root, env = process.env, check = false, enricher } = {}) {
+export async function enrich({ projectDir = process.cwd(), root, env = process.env, check = false, enricher, onWarning } = {}) {
   const stale = [];
   const artifacts = scanStore(resolve(projectDir, resolveRoot({ root, env })));
   if (check) assertGraph(scan({ projectDir, root, env }).artifacts);
   for (const artifact of artifacts) {
+    warnIfNonEnglish(artifact, onWarning);
     const { uses: _u, delegates: _d, related: _r, ...kept } = artifact.atril;
     const relations = discoverRelations(artifact, artifacts);
     const en = enricher && !check && kept.en?.hash !== artifact.hash ? englishOf(artifact, await enricher(artifact)) : kept.en;

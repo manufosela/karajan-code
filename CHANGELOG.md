@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- **atril indexes in English** (HU-2781, issue #2781, ADR 0039): the router rule and the `/atril` command now tell the agent to query atril in English, so `atril sync --check` reports the rule as out of date until the next `atril sync`. `atril enrich` and `atril import` warn on stderr about a description or keywords that look non-English (Spanish), and `atril search` hints at English when a Spanish query finds nothing.
 
 ## [5.0.0] - 2026-11-01
 
