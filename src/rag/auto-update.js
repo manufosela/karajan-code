@@ -10,7 +10,7 @@ import { projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-s
 import { indexProject, indexProjectDelta } from "./indexer.js";
 import { readRefreshedPaths, untrackedFiles, writeRefreshedPaths } from "./worktree-files.js";
 import { startBootstrap, stopBootstrap } from "./bootstrap-index.js";
-import { indexLeasePath, stopLeaseHolder } from "./pid-lease.js";
+import { indexLeasePath, readLease, stopLeaseHolder } from "./pid-lease.js";
 import { ragExclude } from "./indexable.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { openProjectStore } from "./project-store.js";
@@ -96,6 +96,15 @@ async function deltaUpdate({ db, slug, projectDir, config, logger, head, maxFile
   return { ran: true, totals };
 }
 
+// HU-3279: an indexer whose lane is gone is stopped by the next command that finds it (ps-verified, as any stop).
+async function stopOrphanIndexer(logger) {
+  const lease = indexLeasePath();
+  const held = readLease(lease);
+  if (!held?.running || !held.projectDir || existsSync(held.projectDir)) return;
+  const stopped = await stopLeaseHolder(lease, { force: true }).catch(() => null);
+  if (stopped) logger.info?.(`[rag] stopped the background index of ${stopped.slug ?? "?"} (pid ${stopped.pid}): its lane no longer exists`);
+}
+
 export async function maybeAutoUpdate({ projectDir, config, logger = console, flags = {} } = {}) {
   // commander turns `--no-rag-update` into flags.ragUpdate === false.
   if (flags?.ragUpdate === false || config?.rag?.autoUpdate?.onRun === false) return { skipped: true };
@@ -104,6 +113,7 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   try { const r = await execa("git", ["-C", projectDir, "rev-parse", "HEAD"]); head = r.stdout.trim(); }
   catch { return { skipped: true }; }
   const slug = projectSlug(projectDir);
+  await stopOrphanIndexer(logger);
   const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
   try {
     const since = getLastIndexedCommit(db, slug);

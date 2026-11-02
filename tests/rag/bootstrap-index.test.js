@@ -23,7 +23,7 @@ vi.mock("../../src/rag/pid-lease.js", async () => {
 });
 
 const { startBootstrap, stopBootstrap, noteDeadline, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS, DEADLINE_MARGIN_MS } = await import("../../src/rag/bootstrap-index.js");
-const { readLease, stopLeaseHolder } = await import("../../src/rag/pid-lease.js");
+const { claimLease, indexLeasePath, readLease, stopLeaseHolder, writeLease } = await import("../../src/rag/pid-lease.js");
 const { maybeAutoUpdate } = await import("../../src/rag/auto-update.js");
 
 let root;
@@ -36,8 +36,7 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "kj-rag-bootstrap-"));
   state.dbPath = join(root, ".karajan", "rag.db");
   spawned.length = 0; warned.length = 0;
-  vi.clearAllMocks();
-});
+  vi.clearAllMocks();});
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("startBootstrap", () => {
@@ -56,6 +55,24 @@ describe("startBootstrap", () => {
     const racing = vi.fn(() => { inner = startBootstrap(root, { spawnFn }); return { pid: process.pid, unref: vi.fn() }; });
     expect(startBootstrap(root, { spawnFn: racing })).toEqual({ started: true, pid: process.pid });
     expect(inner).toEqual({ started: false, pid: process.pid });
+  });
+
+  // HU-3279: a project asking while another one is between naming itself and naming its child got through.
+  it("a second project asking while a spawn is in flight finds the machine busy: one child per machine", () => {
+    const rootB = mkdtempSync(join(tmpdir(), "kj-rag-bootstrap-b-"));
+    const first = state.dbPath;
+    const lease = join(root, "locks", "rag-index.json");
+    let inner;
+    const racing = vi.fn(() => {
+      state.dbPath = join(rootB, ".karajan", "rag.db");
+      inner = startBootstrap(rootB, { spawnFn, lease });
+      state.dbPath = first;
+      return { pid: process.ppid, unref: vi.fn() };
+    });
+    expect(startBootstrap(root, { spawnFn: racing, lease })).toEqual({ started: true, pid: process.ppid });
+    expect(inner).toMatchObject({ started: false, busy: {} });
+    expect(spawnFn).not.toHaveBeenCalled();
+    rmSync(rootB, { recursive: true, force: true });
   });
 
   it("a marker caught half-written counts as running, so nobody spawns over it", () => {
@@ -121,6 +138,27 @@ describe("startBootstrap machine lease", () => {
 
   it("a lease older than MAX_RUN_MS is taken over even when its pid is alive", () => {
     expect(inB({ now: t0 + MAX_RUN_MS })).toMatchObject({ started: true, pid: process.ppid });
+  });
+
+  // HU-3279: the indexer re-claims the lease it was spawned under; the command that identifies it must survive,
+  // or the lease can no longer be used to stop it once its lane is gone.
+  it("the spawned indexer claiming the lease keeps the command that identifies it", () => {
+    const { command } = readLease(lease);
+    expect(command).toContain("--with-sources");
+    expect(claimLease(lease, { projectDir: root, slug: "p" }, { pid: process.ppid })).toEqual({ claimed: true });
+    expect(readLease(lease)).toMatchObject({ pid: process.ppid, command });
+  });
+
+  it("an expired lease of another lane: its indexer is stopped first, then the next project starts", async () => {
+    const command = "node kj rag index --with-sources";
+    writeFileSync(lease, JSON.stringify({ pid: 777, at: t0, projectDir: "/other", slug: "o", command }), "utf8");
+    const calls = [];
+    let dead = false;
+    const kill = (pid, sig) => { calls.push([pid, sig]); if (sig === "SIGTERM") dead = true; if (sig === 0 && dead) throw new Error("ESRCH"); };
+    const later = t0 + MAX_RUN_MS;
+    expect(await stopLeaseHolder(lease, { now: later, kill, ps: () => ({ elapsedMs: 10 * MAX_RUN_MS, command }), sleep: async () => {} })).toMatchObject({ pid: 777, marked: true });
+    expect(calls.filter(([, sig]) => sig !== 0)).toEqual([[-777, "SIGTERM"]]);
+    expect(inB({ now: later })).toMatchObject({ started: true });
   });
 
   it("a machine mutex held fresh yields; one left by a crashed command is taken over", () => {
@@ -215,6 +253,21 @@ describe("maybeAutoUpdate without an index", () => {
     expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ skipped: true, reason: "bootstrapping", pid: 4242 });
     expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ skipped: true, reason: "bootstrapping" });
     expect(warned.filter((l) => /indexing it in the background/.test(l))).toHaveLength(1);
+  });
+
+  // HU-3279: the indexer of a lane that is gone is stopped by the next command that finds it, and the line says so.
+  it("stops the indexer whose lane no longer exists and says so; one whose lane exists is left alone", async () => {
+    startBootstrap.mockReturnValue({ started: true, pid: 1 });
+    writeLease(indexLeasePath(), { pid: process.pid, at: Date.now(), projectDir: join(root, "gone"), slug: "gone", command: "kj rag index" });
+    stopLeaseHolder.mockResolvedValueOnce({ pid: 9, slug: "gone", marked: true });
+    await maybeAutoUpdate({ projectDir: root, config: {}, logger });
+    expect(stopLeaseHolder).toHaveBeenCalledWith(indexLeasePath(), { force: true });
+    expect(logger.info).toHaveBeenCalledWith(expect.stringMatching(/stopped the background index of gone \(pid 9\): its lane no longer exists/));
+    stopLeaseHolder.mockClear();
+    writeLease(indexLeasePath(), { pid: process.pid, at: Date.now(), projectDir: root, slug: "p", command: "kj rag index" });
+    await maybeAutoUpdate({ projectDir: root, config: {}, logger });
+    expect(stopLeaseHolder).not.toHaveBeenCalledWith(indexLeasePath(), { force: true });
+    rmSync(indexLeasePath(), { force: true }); // this machine's default lease: not left for the next test
   });
 
   it("a machine busy with another index queues this one: said once, tried again on the next command", async () => {

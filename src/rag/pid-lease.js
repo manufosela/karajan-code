@@ -156,7 +156,9 @@ export function claimLease(file, record, { now = Date.now(), pid = process.pid, 
   const res = withMutex(file, now, () => {
     const holder = readLease(file, { now });
     if (holder?.running && holder.pid !== pid && !kin.includes(holder.pid)) return { claimed: false, holder };
-    writeLease(file, { ...record, pid, at: now });
+    // HU-3279: the spawner's lease names the indexer's command; the indexer re-claiming it keeps that, or no stop could verify it.
+    const command = holder?.running ? holder.command : undefined;
+    writeLease(file, { ...(command && { command }), ...record, pid, at: now });
     claims.set(file, (claims.get(file) ?? 0) + 1);
     return { claimed: true };
   });
