@@ -176,8 +176,11 @@ export async function solomonCommand({ config, logger = null, flags = {} }) {
     process.exitCode = 1;
     return { ruling: "reject", reasoning: "security-class policy denial — not arbitrable" };
   }
-  const res = await runSolomonArbitration({ diff, position, config, logger, projectDir });
-  if (res.ruling === "approve") {
+  const res = await runSolomonArbitration({ diff, position, config, logger, projectDir, findingId: flags.finding || null });
+  if (res.ruling === "approve" && res.remaining?.length > 0) {
+    // KJC-TSK-1379: one finding arbitrated; the rest still block the gate.
+    console.log(`⚖ Solomon (${res.solomon}) rules for the brain on ${flags.finding}; still blocking: ${res.remaining.join(", ")}.`);
+  } else if (res.ruling === "approve") {
     console.log(`⚖ Solomon (${res.solomon}) rules for the brain — verdict recorded, the gate is open.`);
   } else {
     const who = res.solomon ? ` (${res.solomon})` : "";
