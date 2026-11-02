@@ -121,6 +121,12 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     if (dirty && !flags.force) {
       throw new Error(`lane "${slug}" has uncommitted changes — commit them (through the gate) or discard with --force`);
     }
+    // HU-3114: the lane's background indexer must not outlive it (any age); a failure never blocks the removal.
+    const stopIndexer = deps.stopBootstrap ?? (await import("../rag/bootstrap-index.js")).stopBootstrap;
+    const indexerStopped = await stopIndexer(wtPath, { force: true }).catch((err) => {
+      console.warn(`warning: could not stop the background indexer of "${slug}": ${err.message}`);
+      return null;
+    });
     // The lane's real branch (headless kj-hu-* lanes share the folder); detached HEAD → null.
     // symbolic-ref -q exits 1 on a detached HEAD; any other failure is a real error.
     const branch = await git(["symbolic-ref", "--short", "-q", "HEAD"], wtPath).then((r) => r.stdout.trim() || null, (err) => {
@@ -140,7 +146,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
         : ahead === null ? `branch ${branch} kept: base "${base}" not found, cannot tell if it is merged (git branch -D ${branch} to delete it)`
           : `branch ${branch} kept: ${ahead} commit(s) not in ${base} (squash-merged or not fetched? git fetch, then git branch -D ${branch})`;
     console.log(`✓ lane "${slug}" removed; ${note}`);
-    return { removed: true, slug, branch, branchDeleted, merged: branch ? ahead === 0 : null };
+    return { removed: true, slug, branch, branchDeleted, merged: branch ? ahead === 0 : null, indexerStopped };
   }
 
   if (action === "prune") {

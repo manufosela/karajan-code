@@ -88,6 +88,33 @@ describe("kj worktree", () => {
     expect(fs.existsSync(wt)).toBe(false);
   });
 
+  // HU-3114 (#2758 3/3): done stops the lane's background indexer while the lane still exists.
+  it("done stops the lane's indexer before removing it; a failure only warns", async () => {
+    const { path: wt } = await worktreeCommand({ config: cfg(), action: "start", args: ["idx"], flags: {} });
+    const calls = [];
+    const stopBootstrap = async (p, o) => { calls.push({ p, o, existed: fs.existsSync(p) }); return { stopped: true }; };
+    const r = await worktreeCommand({ config: cfg(), action: "done", args: ["idx"], flags: {}, deps: { stopBootstrap } });
+    expect(calls).toEqual([{ p: wt, o: { force: true }, existed: true }]);
+    expect(r.indexerStopped).toEqual({ stopped: true });
+
+    const { path: wt2 } = await worktreeCommand({ config: cfg(), action: "start", args: ["boom"], flags: {} });
+    const boom = async () => { throw new Error("ps unavailable"); };
+    const r2 = await worktreeCommand({ config: cfg(), action: "done", args: ["boom"], flags: {}, deps: { stopBootstrap: boom } });
+    expect(r2.removed).toBe(true);
+    expect(r2.indexerStopped).toBeNull();
+    expect(fs.existsSync(wt2)).toBe(false);
+  });
+
+  it("a dirty lane refused by done does not touch its indexer", async () => {
+    const { path: wt } = await worktreeCommand({ config: cfg(), action: "start", args: ["dirty"], flags: {} });
+    fs.writeFileSync(path.join(wt, "a.js"), "changed\n");
+    let called = false;
+    const stopBootstrap = async () => { called = true; };
+    await expect(worktreeCommand({ config: cfg(), action: "done", args: ["dirty"], flags: {}, deps: { stopBootstrap } }))
+      .rejects.toThrow(/uncommitted/);
+    expect(called).toBe(false);
+  });
+
   // Issue #2566: lanes hang from the main checkout wherever the command runs.
   it("start run inside a lane creates the new lane at the main checkout, not nested", async () => {
     const outer = await worktreeCommand({ config: cfg(), action: "start", args: ["fuera"], flags: {} });
