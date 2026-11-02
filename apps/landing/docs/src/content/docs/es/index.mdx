@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.0.0: tu agente trabaja, Karajan gobierna (actual)
+### v5.0.1: skills que se encuentran en tu idioma, y plugins de atril (actual)
+
+`kj skills search` traduce al inglés una pregunta en tu idioma para el índice de atril y te devuelve los resultados en el tuyo. atril 1.3.0 instala plugins con sus paquetes npm y los plugins de los que dependen, y retira todo lo que instalaron. El indexador del RAG en segundo plano se para en su plazo, `kj worktree done` y `prune` paran el indexador de un carril antes de retirarlo, y `prune` ve los procesos vivos en macOS.
+
+### v5.0.0: tu agente trabaja, Karajan gobierna
 
 `kj run` y su pipeline se retiran: tu agente hace el trabajo, y Karajan instala el método y lo gobierna. Una tarea arranca en un paso con `kj hu start`, en un carril que nace listo, y el ▶ del HU Board hace lo mismo y además pone al coder de tu panel a escribir la card ahí. atril entra en el núcleo. kj ya no compila ningún addon de base de datos (todo va sobre `node:sqlite`), una sesión revocada del revisor ya no se confunde con falta de cuota, y kj puede publicarse desde CI con procedencia firmada. Ver [Migrar a la 5.0](/docs/es/v4/migration/).
 
