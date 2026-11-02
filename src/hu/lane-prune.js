@@ -5,6 +5,7 @@
  * touched, so a session may run this without risking anyone's work.
  */
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { isLaneSetupPath, laneWork } from "./lane-setup.js";
 import { readBootstrap } from "../rag/bootstrap-index.js";
@@ -14,12 +15,35 @@ const IDLE_HOURS = 24;
 const RAG_STATE = /^\.karajan\/rag\.db([.-]|$)/;
 const REGENERABLE = new Set(["node_modules", "dist", "build", "coverage", ".venv", "venv", "__pycache__", ".cache", "target"]);
 
+const LSOF = "/usr/sbin/lsof";
+const LSOF_TIMEOUT_MS = 10_000;
+
+/** HU-3117: `lsof -Fpn` output is `p<pid>` then `n<path>` lines; a pid with no path line is skipped. */
+export function parseLsofCwds(out) {
+  const procs = [];
+  let pid = null;
+  for (const line of out.split("\n")) {
+    if (line.startsWith("p") && /^\d+$/.test(line.slice(1))) pid = Number(line.slice(1));
+    else if (line.startsWith("n") && pid !== null) { procs.push({ pid, cwd: line.slice(1) }); pid = null; }
+  }
+  return procs;
+}
+
+/** darwin has no /proc: lsof lists this user's cwds. null when it is missing, fails or times out (never "no processes"). */
+function lsofProcesses({ run, uid }) {
+  const r = run(LSOF, ["-a", "-d", "cwd", "-u", String(uid), "-Fpn"], { encoding: "utf8", timeout: LSOF_TIMEOUT_MS });
+  if (r.error || r.status !== 0 || typeof r.stdout !== "string") return null;
+  const procs = parseLsofCwds(r.stdout);
+  return { cwds: new Set(procs.map((p) => p.cwd)), unseen: 0, procs };
+}
+
 /**
  * This user's live processes (another user's cannot write in our worktrees): the
  * cwds that can be read and how many cannot (non-dumpable ones: ssh-agent, systemd,
- * some JVMs). null when the platform has no /proc.
+ * some JVMs). null when the platform's listing is unavailable (no /proc, no lsof).
  */
-export function liveProcesses() {
+export function liveProcesses({ platform = process.platform, run = spawnSync, uid = process.getuid() } = {}) {
+  if (platform === "darwin") return lsofProcesses({ run, uid });
   let pids;
   try { pids = fs.readdirSync("/proc").filter((p) => /^\d+$/.test(p)); } catch { return null; }
   const cwds = new Set();
