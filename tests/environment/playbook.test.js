@@ -8,6 +8,16 @@ import os from "node:os";
 import path from "node:path";
 import { renderPlaybook, installPlaybook, PLAYBOOK_TARGETS } from "../../src/environment/playbook.js";
 
+describe("renderPlaybook × live values", () => {
+  // KJC-TSK-1392 (ADR 0045): the agent reads the PR size its project really has.
+  it("states the resolved PR size, not a hardcoded one", () => {
+    const text = renderPlaybook({ config: { method_gates: { pr_size_warn: 250, pr_size_max: 400 } } });
+    expect(text).toMatch(/~250 net lines of code is the ideal, up to 400 is\s+allowed without asking, above 400 partition/);
+    expect(text).toMatch(/atomic PR \(~250 net lines of code/);
+    expect(renderPlaybook({})).toMatch(/~150 net lines of code is the ideal, up to 200/);
+  });
+});
+
 describe("renderPlaybook", () => {
   for (const target of ["claude", "codex", "gemini"]) {
     it(`${target}: orders the method and stays concise`, () => {
