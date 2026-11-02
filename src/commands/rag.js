@@ -12,6 +12,7 @@ import { fileIndexState } from "../rag/coverage.js";
 import { query } from "../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../rag/path-hits.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
+import { claimLease, indexLeasePath, releaseLease } from "../rag/pid-lease.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
@@ -76,12 +77,19 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
       }
     }
     if (!totals) {
-      totals = await indexProject(projectDir, {
-        db, embedder,
-        karajanHome: getKarajanHome(), logger,
-        withSources: Boolean(flags.withSources),
-        exclude: ragExclude(config),
-      });
+      // HU-2907: a full foreground index holds the machine lease, so background lanes defer to it.
+      // The bootstrap child finds its spawning parent in the lease (it names itself first): kin.
+      const lease = indexLeasePath();
+      const claim = claimLease(lease, { projectDir, slug }, { kin: [process.ppid] });
+      if (claim.holder) logger.warn?.(`[rag] another index is running (${claim.holder.slug ?? "?"}, pid ${claim.holder.pid}); indexing anyway`);
+      try {
+        totals = await indexProject(projectDir, {
+          db, embedder,
+          karajanHome: getKarajanHome(), logger,
+          withSources: Boolean(flags.withSources),
+          exclude: ragExclude(config),
+        });
+      } finally { if (claim.claimed) releaseLease(lease); }
     }
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
     // KJC-TSK-0697 — the library corpus refreshes on every index run.

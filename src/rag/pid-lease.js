@@ -1,6 +1,7 @@
-// HU-2757: a lease names the pid that holds a resource and when it took it. Nobody releases it:
-// a dead pid, or an age of MAX_RUN_MS, means free. A mkdir mutex makes the decision atomic.
-import { mkdirSync, readFileSync, renameSync, rmdirSync, statSync, writeFileSync } from "node:fs";
+// HU-2757: a lease names the pid that holds a resource and when it took it. The background indexers
+// never release it (HU-2907: a foreground `kj rag index` releases its own): a dead pid, or an age
+// of MAX_RUN_MS, means free. A mkdir mutex makes the decision atomic.
+import { mkdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -67,4 +68,42 @@ export function withMutex(file, now, fn) {
   mkdirSync(dirname(lock), { recursive: true });
   if (!takeLock(lock, now)) return { busy: true };
   try { return fn(); } finally { unlessGone(() => rmdirSync(lock)); }
+}
+
+// Overlapping claims of one process (two MCP requests in a host share its pid): the lease goes with the last.
+const claims = new Map();
+const RELEASE_TRIES = 5;
+const RELEASE_WAIT_MS = 20;
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+/**
+ * HU-2907: claims the lease for `pid` unless another live process holds it. Never waits. A holder
+ * in `kin` (the spawning parent, which names itself before the child's pid lands) is not "another".
+ */
+export function claimLease(file, record, { now = Date.now(), pid = process.pid, kin = [] } = {}) {
+  const res = withMutex(file, now, () => {
+    const holder = readLease(file, { now });
+    if (holder?.running && holder.pid !== pid && !kin.includes(holder.pid)) return { claimed: false, holder };
+    writeLease(file, { ...record, pid, at: now });
+    claims.set(file, (claims.get(file) ?? 0) + 1);
+    return { claimed: true };
+  });
+  return res.busy === true ? { claimed: false, busy: true } : res;
+}
+
+/** Removes the lease only while it still names `pid`: never another process's claim. */
+export function releaseLease(file, { pid = process.pid, now = Date.now(), sleep = pause } = {}) {
+  // This claim is over whatever the mutex says: counted down once, so a busy mutex never leaves it stale.
+  const left = (claims.get(file) ?? 1) - 1;
+  if (left > 0) { claims.set(file, left); return { released: false, shared: true }; }
+  claims.delete(file);
+  const release = () => withMutex(file, now, () => {
+    if (readLease(file, { now })?.pid !== pid) return { released: false };
+    unlessGone(() => unlinkSync(file));
+    return { released: true };
+  });
+  // Up to RELEASE_TRIES attempts while the mutex is busy; past that the lease expires on its own (dead pid, or MAX_RUN_MS).
+  let res = release();
+  for (let attempt = 1; res.busy === true && attempt < RELEASE_TRIES; attempt += 1) { sleep(RELEASE_WAIT_MS); res = release(); }
+  return res;
 }
