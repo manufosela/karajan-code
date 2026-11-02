@@ -21,6 +21,24 @@ export function installConfirm({ yes, tty, ask, err }) {
   return { confirm, dryRun: () => dry };
 }
 
+/**
+ * The terminal half of `atril update plugin:<name>`: the new inventory, then [y/N]; when what the plugin can run
+ * changed, updatePlugin asks again (`again`) and the warning replaces the listing. Same rules as installConfirm.
+ * @param {Parameters<typeof installConfirm>[0]} io
+ */
+export function updateConfirm({ yes, tty, ask, err }) {
+  let dry = false;
+  const confirm = async (inventory, { source, commit, again }) => {
+    err(again ? "atril: the new version's hooks, MCP servers, executables or npm packages differ from the installed one; read the listing above again\n" : formatInventory(inventory, { source, commit }));
+    if (yes) return true;
+    if (tty) return /^y(es)?$/i.test((await ask(again ? "apply it anyway? [y/N] " : "update this plugin? [y/N] ")).trim());
+    dry = true;
+    err("atril: dry run, nothing updated: pass --yes to update\n");
+    return false;
+  };
+  return { confirm, dryRun: () => dry };
+}
+
 /** What the plugin brings that this version of atril does not install, as stderr lines; `name` prefixes each one. */
 export function notInstalledLines({ notInstalled: { hooks, mcpServers, bin }, npm }, name) {
   return [

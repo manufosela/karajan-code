@@ -179,6 +179,7 @@ atril update skill:lint         # only the named artifacts
 atril update --yes              # apply every outdated one, skip edited ones
 atril update --yes --discard-edits
 atril update --json
+atril update plugin:kit         # only that plugin; plain `atril update` also looks at every installed plugin
 ```
 
 `atril update` brings the artifacts installed from a catalog up to what that catalog offers now. (`atril catalog update` is the one that moves a git source's pinned commit; `atril update` then moves your copies.) It prints each pending artifact with its diff, then:
@@ -189,6 +190,16 @@ atril update --json
 - **`--json`** prints `{ updates, applied }`: every artifact's state (`current`, `outdated`, `edited` or `unavailable`) and the refs that were updated.
 
 An update replaces the copy atomically: if copying fails, the previous version stays. A named `kind:name` with no catalog origin in the lockfile fails before anything is applied. `atril init` reports a recommended artifact that changed in this version and tells you to run `atril update`.
+
+### Updating plugins
+
+`atril update plugin:<name>` brings an installed plugin to the commit its catalog pins now (`atril catalog update` moves the pin; an unpinned source follows its ref). Like `atril install plugin:<name>`, it fetches the new version and prints its trust listing (hooks, MCP servers, `bin/`, npm packages) to stderr *before* writing anything, then asks `update this plugin? [y/N]`. When what the new version can run differs from the installed copy, it warns and asks `apply it anyway? [y/N]` a second time. A local plugin keeps no commit to compare with, so it is always asked twice. Nothing is applied on its own:
+
+- **`--yes`** answers both questions; **without a terminal and without `--yes`** it is a dry run that writes nothing and exits 0.
+- **A plugin already at the pinned commit** prints `current`; one that is not installed fails before anything is fetched.
+- **`--json`** adds `plugins` (one `{ plugin, status, ... }` per plugin: `updated`, `current` or `declined`, plus `dryRun: true` for a dry run) beside `updates` and `applied`.
+
+The store and the lock are replaced together: a failed update puts both back exactly as they were. `user_config` values are never touched.
 
 ## Persistent pieces through rulesync
 
