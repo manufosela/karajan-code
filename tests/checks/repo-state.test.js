@@ -92,6 +92,7 @@ describe("repo-state check", () => {
     const r = await detect();
     expect(r.ok).toBe(false);
     expect(r.detail).toMatch(/identidad/i);
+    expect(r.severity).toBe("warn");
     expect(r.fix).toMatch(/kj identity set/);
   });
 
@@ -129,6 +130,8 @@ describe("repo-state check", () => {
     git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/master");
     const r = await detect();
     expect(r.ok).toBe(false);
+    // KJC-BUG-0481 (#3080, point 3): a failure until it is fixed, so doctor exits 1.
+    expect(r.severity).toBe("fail");
     expect(r.detail).toMatch(/rama por defecto es master, no main/);
     expect(r.fix).toMatch(/Rename/);
     expect(r.fix).toMatch(/git branch -m master main/);
