@@ -87,6 +87,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--position <text>", "Why the brain disagrees with the reviewer")
     .option("--position-file <path>", "Read the position from a file (no quoting to get right)")
     .option("--range <range>", "Arbitrate a git range instead of the staged diff")
+    .option("--finding <id>", "Arbitrate only this finding of the verdict; the others keep blocking")
     .action(async (flags) => {
       await withConfig(pkgVersion, "solomon", flags, async ({ config, logger }) => {
         await solomonCommand({ config, logger, flags });

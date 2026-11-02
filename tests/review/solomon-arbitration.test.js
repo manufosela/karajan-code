@@ -134,6 +134,46 @@ describe("runSolomonArbitration", () => {
     expect(res.reasoning).not.toMatch(/C1/);
   });
 
+  // KJC-TSK-1379 (#3207): one finding at a time; the gate opens only when none is left.
+  describe("--finding <id>", () => {
+    const two = [
+      { id: "C1", severity: "high", file: "a.js", line: 3, description: "rollback leaves the member unrestored" },
+      { id: "C2", severity: "medium", file: "b.js", line: 9, description: "name could be clearer" },
+    ];
+
+    it("the arbiter sees only that finding, and approving it keeps the others blocking", async () => {
+      await seedRejected(two);
+      const agent = ruling("approve");
+      const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "C2 is cosmetic", findingId: "C2", createAgentFn: () => agent });
+      const prompt = agent.reviewTask.mock.calls[0][0].prompt;
+      expect(prompt).toMatch(/"id": "C2"/);
+      expect(prompt).not.toMatch(/"id": "C1"/);
+      expect(res.ruling).toBe("approve");
+      expect(res.remaining).toEqual(["C1"]);
+      const check = await checkVerdict(dir, DIFF);
+      expect(check.ok).toBe(false);
+      expect(check.verdict.issues.map((i) => i.id)).toEqual(["C1"]);
+      expect(check.verdict.arbitration.findingId).toBe("C2");
+    });
+
+    it("approving the last finding left opens the gate", async () => {
+      await seedRejected([two[1]]);
+      const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", findingId: "C2", createAgentFn: () => ruling("approve") });
+      expect(res.remaining).toEqual([]);
+      expect((await checkVerdict(dir, DIFF)).ok).toBe(true);
+    });
+
+    it("a security finding is still never arbitrated, and an unknown id names the ones there are", async () => {
+      await seedRejected([...two, { id: "S1", severity: "high", category: "security", description: "x" }]);
+      const agent = ruling("approve");
+      const sec = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", findingId: "S1", createAgentFn: () => agent });
+      expect(sec.ruling).toBe("reject");
+      expect(agent.reviewTask).not.toHaveBeenCalled();
+      await expect(runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", findingId: "Z9", createAgentFn: () => agent }))
+        .rejects.toThrow(/Z9.*C1, C2, S1/);
+    });
+  });
+
   it("errors without a prior rejected verdict (nothing to arbitrate)", async () => {
     await expect(runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p" }))
       .rejects.toThrow(/nothing to arbitrate/i);

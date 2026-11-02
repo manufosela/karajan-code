@@ -33,6 +33,7 @@ export function formatDeterministicSummary(ctx) {
   const lines = ["## Deterministic Findings", ""];
   lines.push("These are the rule-based findings (no LLM). They cost zero tokens and are always factually accurate. The interactive prompt below asks if you want to extend this with an LLM analysis (which will cost tokens).");
   lines.push("");
+  lines.push(...formatCoverageBlock(auditCoverage(ctx)));
 
   if (ctx.stack) lines.push(...formatStackBlock(ctx.stack));
   if (ctx.basalCost) lines.push(...formatBasalCostBlock(ctx.basalCost, ctx.growthDelta));
@@ -49,6 +50,31 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.webperf) lines.push(...formatWebperfBlock(ctx.webperf));
 
   return lines.join("\n");
+}
+
+// KJC-TSK-1381 (#3208): a green audit that skipped half its checks must not read as complete.
+const CHECK_NAMES = {
+  sonarFindings: "Sonar", osvFindings: "osv-scanner", semgrepFindings: "semgrep",
+  injectionFindings: "prompt-injection", infraFindings: "checkov", npmSignatures: "npm signatures",
+  circularDeps: "madge", deadExports: "knip", aiSlop: "ai-slop", envKeys: "env keys", webperf: "webperf",
+};
+
+/** Checks attempted (a section skipped by a flag is null and does not count), and those that did not run. */
+export function auditCoverage(ctx) {
+  const attempted = Object.entries(CHECK_NAMES).filter(([key]) => ctx[key]);
+  const notRun = attempted.filter(([key]) => ctx[key].available === false)
+    .map(([key, name]) => ({ name, reason: ctx[key].reason || "did not run" }));
+  return { ran: attempted.length - notRun.length, total: attempted.length, notRun };
+}
+
+function formatCoverageBlock({ ran, total, notRun }) {
+  const lines = [`**Coverage:** ${ran} of ${total} checks ran.`];
+  for (const n of notRun) lines.push(`- not run, ${n.name}: ${n.reason}`);
+  if (notRun.some((n) => /not installed|not found/i.test(n.reason))) {
+    lines.push("- Install the missing tools with `kj install-tools`: until then this audit covers less than it can.");
+  }
+  lines.push("");
+  return lines;
 }
 
 const MAX_SAMPLE_ENV_KEYS = 8;
