@@ -43,6 +43,29 @@ describe.each(["method.html", "es/method.html", "family.html", "es/family.html"]
   it("underlines the footer links, so colour is not the only cue", () => {
     expect(html).toMatch(/\.foot a \{[^}]*text-decoration: underline/);
   });
+
+  // KJL-BUG-0012 (4.1.2): the theme button says whether the dark theme is on.
+  it("exposes the theme button as a toggle with its state", () => {
+    expect(html).toMatch(/<button[^>]*id="theme"[^>]*aria-pressed=/);
+    expect(html).toContain("theme.setAttribute('aria-pressed'");
+    expect(html).not.toMatch(/onclick=|\bvar [a-z]/);
+  });
+});
+
+// KJL-BUG-0012 (4.1.3, 4.1.2): the home pages.
+describe.each(["index.html", "es/index.html"])("%s", (page) => {
+  const html = read(page);
+  const script = read("js/page.js");
+
+  it("announces the copy through a status region", () => {
+    expect(html).toMatch(/<output[^>]*id="copy-status"[^>]*aria-live="polite"/);
+    expect(script).toContain("copyStatus.textContent = copy.textContent");
+  });
+
+  it("exposes the theme button as a toggle with its state", () => {
+    expect(html).toMatch(/<button[^>]*id="theme"[^>]*aria-pressed=/);
+    expect(script).toContain("theme.setAttribute('aria-pressed'");
+  });
 });
 
 // WCAG relative-luminance contrast ratio between two #rrggbb colours.
