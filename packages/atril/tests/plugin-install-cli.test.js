@@ -1,12 +1,12 @@
 // HU-3097 (step 13 P4): atril install plugin:<name> asks before installing, and says what it does not install yet.
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeConfig } from "../src/config.js";
-import { installConfirm, notInstalledLines } from "../src/plugin-install-cli.js";
+import { installConfirm, notInstalledLines, updateConfirm } from "../src/plugin-install-cli.js";
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), "..", "bin", "atril.js");
 let dir;
@@ -66,6 +66,33 @@ describe("installConfirm", () => {
   });
 });
 
+describe("updateConfirm", () => {
+  const info = { source: { repo: "o/r" }, commit: "b".repeat(40), changed: false };
+  const out = () => { const lines = []; return { lines, err: (text) => lines.push(text) }; };
+  it("lists the new inventory and asks [y/N]", async () => {
+    const { lines, err } = out();
+    const ask = vi.fn(async () => "y");
+    expect(await updateConfirm({ yes: false, tty: true, ask, err }).confirm(inv, info)).toBe(true);
+    expect(lines.join("")).toContain("plugin kit");
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining("[y/N]"));
+  });
+  it("warns before the second question, when the inventory changed", async () => {
+    const { lines, err } = out();
+    const ask = vi.fn(async () => "n");
+    expect(await updateConfirm({ yes: false, tty: true, ask, err }).confirm(inv, { ...info, changed: true, again: true })).toBe(false);
+    expect(lines.join("")).toContain("differ from the installed one");
+    expect(lines.join("")).not.toContain("plugin kit");
+  });
+  it("--yes asks nothing and no terminal is a dry run", async () => {
+    const ask = vi.fn();
+    expect(await updateConfirm({ yes: true, tty: false, ask, err: () => {} }).confirm(inv, info)).toBe(true);
+    const gate = updateConfirm({ yes: false, tty: false, ask, err: () => {} });
+    expect(await gate.confirm(inv, info)).toBe(false);
+    expect(gate.dryRun()).toBe(true);
+    expect(ask).not.toHaveBeenCalled();
+  });
+});
+
 describe("notInstalledLines", () => {
   it("prefixes each line with the plugin name when asked", () => {
     expect(notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [], bin: [] } }, "dep")).toEqual(["atril: dep: not installed yet: 1 hook(s)"]);
@@ -76,6 +103,33 @@ describe("notInstalledLines", () => {
     expect(text).toMatch(/db/);
     expect(text).toMatch(/bin/);
     expect(text).toMatch(/no lockfile/);
+  });
+});
+
+describe("atril update plugin:<name>", () => {
+  const update = (...args) => spawnSync(process.execPath, [BIN, "update", ...args, "--root", "store", "--json"], { cwd: dir, encoding: "utf8", env: { ...process.env, HOME: dir } });
+  const installed = () => { market(); atril("--yes"); put("mkt/kit/.claude-plugin/plugin.json", { name: "kit", version: "2.0.0" }); };
+  it("without a terminal and without --yes it is a dry run: the plugin is reported, nothing written", () => {
+    installed();
+    const res = update("plugin:kit");
+    expect(res.status).toBe(0);
+    expect(res.stderr).toMatch(/plugin kit .*\n[\s\S]*dry run/);
+    expect(JSON.parse(res.stdout).plugins).toMatchObject([{ plugin: "kit", status: "declined", dryRun: true }]);
+    expect(JSON.parse(readFileSync(join(dir, "store", "atril.lock.json"), "utf8")).plugins.kit.version).toBe("1.0.0");
+  });
+  it("--yes updates the plugin and the lock", () => {
+    installed();
+    const res = update("plugin:kit", "--yes");
+    expect(res.status).toBe(0);
+    expect(JSON.parse(res.stdout).plugins).toMatchObject([{ plugin: "kit", status: "updated", version: "2.0.0" }]);
+    expect(JSON.parse(readFileSync(join(dir, "store", "atril.lock.json"), "utf8")).plugins.kit.version).toBe("2.0.0");
+  });
+  it("plain atril update also looks at the installed plugins, and a plugin that is not installed fails loudly", () => {
+    installed();
+    expect(JSON.parse(update().stdout).plugins).toMatchObject([{ plugin: "kit", status: "declined" }]);
+    const res = update("plugin:ghost");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain('plugin "ghost" is not installed');
   });
 });
 

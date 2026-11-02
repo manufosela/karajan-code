@@ -23,9 +23,10 @@ import { createInterface } from "node:readline/promises";
 import { applyRecommended, recommended } from "../src/recommended.js";
 import { answersFor, askAnswers, offered } from "../src/init.js";
 import { applyInstalledUpdate, installedUpdates } from "../src/upgrade.js";
-import { installPluginSet } from "../src/plugin-install.js";
+import { installPluginSet, updatePlugin } from "../src/plugin-install.js";
+import { readLock } from "../src/lock.js";
 import { removePlugin } from "../src/plugin-remove.js";
-import { installConfirm, notInstalledLines } from "../src/plugin-install-cli.js";
+import { installConfirm, notInstalledLines, updateConfirm } from "../src/plugin-install-cli.js";
 import { configureMissing, pluginConfigRows, setPluginConfig, unsetPluginKey } from "../src/plugin-config-cli.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
@@ -45,7 +46,8 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril init [--yes] [--recommended=on-demand|persistent|none] [--root <dir>] [--json]"
   + "  (--recommended wins over --yes)\n"
   + "       atril update [<kind:name>...] [--yes] [--discard-edits] [--root <dir>] [--json]"
-  + "  (no terminal and no --yes: dry run)";
+  + "  (no terminal and no --yes: dry run)\n"
+  + "       atril update plugin:<name> [--yes] [--root <dir>] [--json]  (reviews the new inventory, asks again when it changed)";
 
 function runImport(args) {
   const { values } = parseArgs({ args, options: { from: { type: "string" }, root: { type: "string" } } });
@@ -167,11 +169,49 @@ async function askUpdates(pending) {
   }
 }
 
+// Each named plugin, or every installed one: a failed update does not hide the others (the result carries what happened).
+async function runUpdatePlugins(names, values) {
+  const terminal = process.stdin.isTTY ? createInterface({ input: process.stdin, output: process.stderr }) : undefined;
+  const results = [];
+  try {
+    for (const name of names) {
+      const gate = updateConfirm({ yes: values.yes, tty: Boolean(terminal), ask: (question) => terminal.question(question), err: (text) => process.stderr.write(text) });
+      try {
+        const result = await updatePlugin(name, { root: values.root }, { confirm: gate.confirm });
+        results.push(gate.dryRun() ? { ...result, dryRun: true } : result);
+      } catch (err) {
+        console.error(`atril: ${printable(`plugin:${name}`)}: ${err.message}`);
+        process.exitCode = 1;
+      }
+    }
+  } finally {
+    terminal?.close();
+  }
+  return results;
+}
+
+const describePluginUpdate = ({ plugin, status, version, dryRun }) => {
+  const label = dryRun ? "dry run" : status;
+  return `${label}\tplugin:${printable(plugin)}${status === "updated" ? `\t${printable(version)}` : ""}`;
+};
+
 async function runUpdate(args) {
-  const { values, positionals } = parseArgs({
+  const { values, positionals: given } = parseArgs({
     args, allowPositionals: true,
     options: { root: { type: "string" }, yes: { type: "boolean" }, "discard-edits": { type: "boolean" }, json: { type: "boolean" } },
   });
+  const named = given.filter((ref) => ref.startsWith("plugin:")).map((ref) => ref.slice("plugin:".length));
+  const known = readLock({ root: values.root }).plugins ?? {};
+  const missing = named.filter((name) => !Object.hasOwn(known, name));
+  if (missing.length > 0) throw new Error(`plugin "${missing[0]}" is not installed`);
+  const refs = given.filter((ref) => !ref.startsWith("plugin:"));
+  const artifacts = given.length === 0 || refs.length > 0 ? await runArtifactUpdates(values, refs) : undefined;
+  const plugins = await runUpdatePlugins(given.length === 0 ? Object.keys(known) : named, values);
+  if (values.json) console.log(JSON.stringify({ ...artifacts, plugins }, null, 2));
+  else for (const result of plugins) console.log(describePluginUpdate(result));
+}
+
+async function runArtifactUpdates(values, positionals) {
   const opts = { root: values.root };
   const all = installedUpdates(opts);
   const refOf = ({ kind, name }) => `${kind}:${name}`;
@@ -201,10 +241,7 @@ async function runUpdate(args) {
       process.exitCode = 1;
     }
   }
-  if (values.json) {
-    console.log(JSON.stringify({ updates, applied }, null, 2));
-    return;
-  }
+  if (values.json) return { updates, applied };
   for (const ref of applied) console.log(`updated\t${printable(ref)}`);
   if (values.yes) for (const update of pending.filter((p) => !accepted.includes(refOf(p)))) console.log(`skipped\t${printable(refOf(update))}\tedited locally; pass --discard-edits to overwrite it`);
 }
