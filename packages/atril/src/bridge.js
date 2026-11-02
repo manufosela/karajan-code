@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { readConfig, writeConfig } from "./config.js";
 import { FRONTMATTER, KINDS } from "./model.js";
+import { usesPluginVars } from "./plugin-vars.js";
 import { keyOf, scan } from "./scan.js";
 
 export const MARKER = "<!-- atril:managed -->";
@@ -28,8 +29,9 @@ description: "Run any atril skill, command or agent: /atril <name or task>"
 targets: ["*"]
 ---
 Run \`atril route --json "$ARGUMENTS"\` and follow the plan it prints:
-read each block's file in order and apply it to the task; run an entry
-of kind "subagent" as a subagent. If the route is empty, say so.
+read each block's \`content\` when it has one, else its file, in order and
+apply it to the task; run an entry of kind "subagent" as a subagent.
+If the route is empty, say so.
 Translate "$ARGUMENTS" into English before running it: atril's index is in English.
 `),
 });
@@ -73,6 +75,10 @@ export function persistentPieces(opts) {
       const key = `${kind}:${name}`;
       if (key === RESERVED) throw new Error(`atril.json exposes ${key}, reserved for the bridge: atril unexpose ${key}`);
       if (!byKey.has(key)) throw new Error(`atril.json exposes ${key}, which is not in the store: atril unexpose ${key}`);
+      // A plugin's variables are filled per machine at resolve: a persistent copy would carry this machine's paths.
+      if (byKey.get(key).atril?.plugin && usesPluginVars(byKey.get(key).body)) {
+        throw new Error(`atril.json exposes ${key}, a plugin artifact that uses plugin variables; it is used on demand (atril route, MCP resolve): atril unexpose ${key}`);
+      }
       pieces.push(...exposedPiece(byKey.get(key)));
     }
   }

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **atril indexes in English** (HU-2781, issue #2781, ADR 0039): the router rule and the `/atril` command now tell the agent to query atril in English, so `atril sync --check` reports the rule as out of date until the next `atril sync`. `atril enrich` and `atril import` warn on stderr about a description or keywords that look non-English (Spanish), and `atril search` hints at English when a Spanish query finds nothing.
 
+### Changed
+
+- **atril** (HU-3105, part of #2430 step 13): `atril route --json` and the MCP `resolve` tool return `content` with the plugin variables filled for the items that use them (paths only for the rest), and report `unresolved` variables (on stderr in text mode). `atril sync` refuses to expose persistently a plugin artifact that uses plugin variables: it is used on demand. The bridge command `commands/atril.md` now says "use `content` when present, else read the file", so the next `atril sync` rewrites it in each project.
+
 ## [5.0.0] - 2026-11-01
 
 ### Removed
