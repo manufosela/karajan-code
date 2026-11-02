@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.1.0",
-  "generated_at": "2026-11-02T12:20:02.575Z",
+  "kj_version": "5.2.1",
+  "generated_at": "2026-11-02T22:45:11.603Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -37,6 +37,10 @@
       "sha256": "53f8fcd18785a94918204cfe87f37155cc0518374f0f2eb71db9d26574e6421d"
     },
     {
+      "file": ".github/workflows/kj-main-guard.yml",
+      "sha256": "e217873cbf9c1229f20a76bb5e1ed3df2a91a30c082f3192b3f9a254144f7142"
+    },
+    {
       "file": ".github/workflows/kj-no-ai-attribution.yml",
       "sha256": "e01c40dbd0f4a98432a205bacdd54711096572db31ccf28422ac167144121445"
     },
@@ -46,7 +50,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "e37a535cf570e5fb60945f56574f57534ea0e5a15f1238b7eeaf0fefe3b1bfc9"
+      "sha256": "f7bfcccbd5f8176d7266d44af85e026dcbaae68b370a6059ef69fb4b2d94350e"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -94,7 +98,7 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "d5302359fe2127384874d1c653208b49acf10a240859120f16ae4d139084218b"
+      "sha256": "91db6db8389ae5ab8103cca6e979824130d74ed049b093dadddb3d41b2110e47"
     },
     {
       "file": ".karajan/hooks/post-merge",
@@ -170,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "9cf571e274eb6aade521608a2b8d49dc",
-    "nonce": "d513f09ec3f3ad66da2d97e5241ae8e5",
+    "cid": "93bb85f2b42d54a50ebf6fa92590a805",
+    "nonce": "eedb5017aabf4981aaa021241b20b884",
     "project": "karajan-code",
-    "filesHash": "c49394b6894983b88182d3ac6a2bcc6b845feff24c4bc0e132d36822cd4ec54f",
+    "filesHash": "46012f5d0b07817162dfffaf8814875f48026fa1defd8d200f996acd60e1d9a4",
     "v": 2,
-    "kjVersion": "5.1.0",
-    "issuedMs": 1793621989861,
-    "expiresMs": 1793622139861,
+    "kjVersion": "5.2.1",
+    "issuedMs": 1793659500887,
+    "expiresMs": 1793659650887,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "vmXhEwZ9YEIyiTKy41nhhHT9EekUJoVKYV0ei9TVDhfXA3MEqZhZl05mBIjGxZzD5wjqC41RuyKadRLz08PtBw=="
+    "signature": "Q8HFYPIw8911H5aFhrTfTplG3v+1UVje/Kw9ttVJ3mKJbaPjO2ChSuU9dCGsoNDRVQKBF1PJfTLa5pFf5HBZAA=="
   }
 }
