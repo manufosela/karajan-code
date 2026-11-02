@@ -7,7 +7,7 @@ describe("atril's entry", () => {
   it("exports exactly the public API", () => {
     expect(Object.keys(atril).toSorted()).toEqual([
       "MARKER", "VERSION", "applyCatalogUpdate", "applyRecommended", "catalogSync", "catalogUpdates", "detectPluginFormat", "expose", "generate", "importSkills", "install",
-      "installFromCatalog", "listPluginMarkdown", "persistentPieces", "readPluginManifest", "recommended", "remove", "resolve", "resolveBlock", "search",
+      "installFromCatalog", "installPlugin", "listPluginMarkdown", "persistentPieces", "readPluginManifest", "recommended", "remove", "resolve", "resolveBlock", "search",
       "status", "sync", "unexpose",
     ]);
   });
