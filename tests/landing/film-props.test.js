@@ -29,6 +29,11 @@ describe("film props", () => {
     expect(stand).not.toMatch(/castShadow\s*=\s*true/);
   });
 
+  // KJL-TSK-0153: the family portrait shows the legs the film hides behind the crates.
+  it("stands atril on a tripod that spreads toward the floor", () => {
+    expect(stand).toContain("leg.rotation.set(-Math.cos(a) * 0.75, 0, Math.sin(a) * 0.75)");
+  });
+
   it("prints only atril's name on its plaque", () => {
     expect(stand).toContain("export function createStand(name, pages)");
     expect(stand).toMatch(/g\.fillText\(name, /);

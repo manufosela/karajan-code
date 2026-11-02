@@ -123,7 +123,7 @@ export function createStand(name, pages) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.62, 12), metal);
     const a = (i / 3) * Math.PI * 2 + 0.5;
     leg.position.set(Math.sin(a) * 0.2, 0.27, Math.cos(a) * 0.2);
-    leg.rotation.set(Math.cos(a) * 0.75, 0, -Math.sin(a) * 0.75);
+    leg.rotation.set(-Math.cos(a) * 0.75, 0, Math.sin(a) * 0.75);
     group.add(leg);
   }
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 1.2, 16), metal);
