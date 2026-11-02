@@ -14,6 +14,9 @@ const root = document.documentElement;
 const hero = document.getElementById('hero');
 const canvas = document.getElementById('film');
 const caption = document.getElementById('caption');
+// While the film plays only Skip intro is on screen: the rest of the page stays out of the tab order.
+const veiled = [...document.querySelectorAll('.skip-link, .top, #main, footer')];
+const veil = (on) => { for (const el of veiled) el.inert = on; };
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // The hero stacks the copy over the film on narrow or near-square screens (css/landing.css).
 const stacked = matchMedia('(max-width: 1000px), (max-aspect-ratio: 23/20)');
@@ -41,6 +44,7 @@ function showCaption(t) {
 function finish() {
   root.classList.remove('film-on', 'film-outro');
   caption.style.opacity = '0';
+  veil(false);
   localStorage.setItem('kj-intro-seen', '1');
 }
 
@@ -186,6 +190,7 @@ function start() {
     startedAt = performance.now();
     root.classList.remove('film-pending', 'film-outro');
     root.classList.add('film-on');
+    veil(true);
     scrollTo(0, 0);
     document.getElementById('skip').focus({ preventScroll: true });
     setPlaying(true);
