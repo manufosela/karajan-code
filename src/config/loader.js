@@ -28,6 +28,7 @@ import { safeParseConfig, formatConfigIssues } from "./schema.js";
 import { DEFAULTS } from "./defaults.js";
 import { resolveTestHarness } from "./test-harness.js";
 import { SECRET_PATHS } from "./secrets.js";
+import { applyEffectiveGates } from "../gates/effective.js";
 
 /**
  * Parse a YAML config file with an actionable error message.
@@ -175,6 +176,8 @@ export async function loadConfig(projectDir) {
   }
 
   merged.testHarness = resolveTestHarness(merged.testHarness);
+  // KJC-TSK-1387 (ADR 0045): every gate reads its rule's resolved value.
+  merged = applyEffectiveGates(merged, projectDir || process.cwd());
   return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig };
 }
 
@@ -195,6 +198,11 @@ function stripRuntimeOnlyKeys(config) {
   const out = { ...config };
   // _deprecated is loader-synthesised — never written intentionally.
   if ("_deprecated" in out) delete out._deprecated;
+  // KJC-TSK-1387: method_gates holds resolved values at runtime; only the declared ones persist.
+  if ("method_gates_declared" in out) {
+    out.method_gates = out.method_gates_declared;
+    delete out.method_gates_declared;
+  }
   // sonarqube.enabled was deprecated in v2.7.4. The init wizard still
   // uses it as a hint to drive setupSonarQube during install, but the
   // runtime ignores it. Persisting it would re-trigger the deprecation

@@ -3,8 +3,7 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { resolveRules, formatRules, FIXED_RULES, ADJUSTABLE_RULES, parseRuleValue, stricter } from "../gates/registry.js";
-import { findQuote, contributingLayer, CONTRIBUTING_FILES } from "../gates/contributing.js";
-import { detectProjectConventions } from "../gates/project-conventions.js";
+import { findQuote, CONTRIBUTING_FILES } from "../gates/contributing.js";
 import { loadProjectConfig, writeConfig } from "../config/loader.js";
 import { humanAct } from "../harden/human-act.js";
 import { signAct } from "../harden/act-sign.js";
@@ -65,12 +64,7 @@ export async function gatesFromContributingCommand({
   return { rule: id, value, file, conflict };
 }
 
-/** What the project says: its CONTRIBUTING settings over what is detected, plus conflicts and stale settings. */
-export function projectSignals({ projectDir, config, detect = detectProjectConventions,
-  readFile = (rel) => readFileSync(path.join(projectDir, rel), "utf8") }) {
-  const layer = contributingLayer(config?.contributing_rules, readFile);
-  return { project: { ...detect(projectDir), ...layer.project }, conflicts: layer.conflicts, stale: layer.stale };
-}
+export { projectSignals } from "../gates/effective.js";
 
 /** KJC-TSK-1386: only the resolved value of one adjustable rule, for a hook to read. */
 export function gatesValueCommand({ rule: id, config, project, print = console.log }) {

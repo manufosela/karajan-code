@@ -54,7 +54,8 @@ export function stricter(rule, current, next) {
  *   skills; what the project says (src/gates/project-conventions.js), between the defaults and kj.config.yml
  */
 export function resolveRules(config, { tighten = [], project = {} } = {}) {
-  const gates = config?.method_gates || {};
+  // KJC-TSK-1387: what was declared, not the resolved values the loader puts in method_gates.
+  const gates = config?.method_gates_declared || config?.method_gates || {};
   const adjustable = ADJUSTABLE_RULES.map((rule) => {
     const set = gates[rule.key];
     if (set !== undefined && set !== defaultOf(rule)) return { ...rule, value: set, origin: "kj.config.yml" };
