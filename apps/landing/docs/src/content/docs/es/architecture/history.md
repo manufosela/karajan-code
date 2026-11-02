@@ -1893,6 +1893,10 @@ Cuatro ideas que un colaborador llevó al mantenedor la misma mañana, cada una 
 
 Las reglas vivían en un YAML que el usuario no debe tocar, y el bloque del método citaba límites que un proyecto podía haber cambiado. El mantenedor lo debatió punto a punto (ADR 0045): instalar no pregunta nada y aplica todas las reglas; cinco reglas fijas no las cambia nadie; las ajustables toman lo que dice el proyecto (su commitlint o su historial, y su CONTRIBUTING cuando la frase exacta está en el fichero, comprobada en cada lectura) antes que los valores por defecto de kj. El agente puede endurecer una regla y solo la persona la afloja, con el mismo acto humano que el sello, porque cuando un agente ejecuta el cambio kj no puede saber quién lo pidió; por la misma razón un clic en el board puede endurecer pero no aflojar. `kj gates`, `kj init`, `kj doctor` y el HU Board enseñan la misma lista, cada gate aplica el valor resuelto y el hook de commit sigue la convención del proyecto en vez de imponer una.
 
+## Phase 158: v5.3.0, cada carril conoce el código desde su primer minuto
+
+Un carril empezaba con el índice RAG vacío y lo construía desde cero, así que las primeras preguntas en un carril nuevo se respondían sin nada mientras corría un bootstrap completo. Un colaborador hizo que cada carril nuevo arranque con una copia del índice de main (con rutas, slug y marca de agua reescritos) y que luego se ponga al día con los commits del propio carril en segundo plano, bajo un único permiso por máquina para que varios carriles no indexen a la vez; el indexador de un carril que ya no existe se para, y solo tras comprobar su comando exacto. La revisión conjunta de terceros aprendió a contar problemas en vez de informes: el mismo problema nombrado en otro fichero o dos veces por un revisor pasa a ser un hallazgo, decidido sin modelo por el punto o el código que nombra, y cada otro informe se queda en su `also`.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

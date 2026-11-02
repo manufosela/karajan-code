@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0] - 2026-11-03
+
+### Added
+- **A new lane starts with main's RAG index** (HU-3260, by Jorge del Casar): `kj worktree start` and the board's lanes copy main's index into the lane instead of starting empty, and print one `rag:` line saying whether it was seeded or why not.
+- **The seeded index catches up with the lane in the background** (HU-3278, by Jorge del Casar): when the seed is behind the lane's HEAD, a `kj rag index --since auto` runs detached for the lane under the machine's indexer lease, and the `rag:` line says what the delta covers.
+
+### Fixed
+- **One finding per problem in the joint review** (KJC-BUG-0483, #3269): `kj review --third-party --reviewers a,b` reported the same problem two or three times when it was named in another file or twice by one reviewer. Findings at the same spot or naming the same code (backticked, an `@scope/package` or a camelCase name) are one now; the most severe report leads and the others stay in its `also` with where, who and what they said.
+- **At most one background RAG indexer per machine** (HU-3279, by Jorge del Casar): the re-claiming indexer keeps the command the stop verifies, and an indexer whose lane was removed is stopped.
+
 ## [5.2.1] - 2026-11-02
 
 ### Fixed
