@@ -87,15 +87,15 @@ describe("enrich", () => {
       mkdirSync(dirname(other), { recursive: true });
       writeFileSync(other, "---\nname: probar\ndescription: Escribe la prueba para el login\nkind: skill\n---\nbody\n");
     };
-    it("warns once for the Spanish skill only, on every run and under --check, without changing the result", () => {
+    it("warns once for the Spanish skill only, on every run and under --check, without changing the result", async () => {
       addSpanish();
       const warnings = [];
       const onWarning = (text) => warnings.push(text);
-      const plain = run(true);
-      expect(enrich({ projectDir: dir, env: {}, check: true, onWarning })).toEqual(plain);
+      const plain = await run(true);
+      expect(await enrich({ projectDir: dir, env: {}, check: true, onWarning })).toEqual(plain);
       expect(warnings).toHaveLength(1);
       expect(warnings[0]).toMatch(/^skill:probar: description look\(s\) non-English/);
-      enrich({ projectDir: dir, env: {}, onWarning });
+      await enrich({ projectDir: dir, env: {}, onWarning });
       expect(warnings).toHaveLength(2);
     });
     it("reaches stderr from the CLI and leaves stdout alone", () => {
