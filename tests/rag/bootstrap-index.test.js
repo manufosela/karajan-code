@@ -18,7 +18,8 @@ vi.mock("../../src/rag/bootstrap-index.js", async () => {
   return { ...real, startBootstrap: vi.fn(real.startBootstrap) };
 });
 
-const { startBootstrap, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS } = await import("../../src/rag/bootstrap-index.js");
+const { startBootstrap, stopBootstrap, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS } = await import("../../src/rag/bootstrap-index.js");
+const { readLease } = await import("../../src/rag/pid-lease.js");
 const { maybeAutoUpdate } = await import("../../src/rag/auto-update.js");
 
 let root;
@@ -124,6 +125,47 @@ describe("startBootstrap machine lease", () => {
     expect(inB()).toMatchObject({ started: false, busy: {} });
     utimesSync(`${lease}.lock`, 1, 1);
     expect(inB()).toMatchObject({ started: true });
+  });
+});
+
+// HU-2758: an indexer past MAX_RUN_MS is stopped, verified through ps; nothing here signals a real process.
+describe("stopBootstrap", () => {
+  const PID = 4242;
+  let lease, t0;
+  const table = ({ command = readBootstrap(root).command } = {}) => {
+    const calls = [];
+    let dead = false;
+    const kill = (pid, sig) => { calls.push([pid, sig]); if (sig === "SIGTERM") dead = true; if (sig === 0 && dead) throw new Error("ESRCH"); };
+    return { calls, kill, ps: () => ({ elapsedMs: 10 * MAX_RUN_MS, command }), sleep: async () => {} };
+  };
+  const signals = (calls) => calls.filter(([, sig]) => sig !== 0);
+  beforeEach(() => {
+    lease = join(root, "locks", "rag-index.json");
+    t0 = Date.now();
+    startBootstrap(root, { spawnFn: () => ({ pid: PID, unref: vi.fn() }), lease, now: t0 });
+  });
+
+  it("past MAX_RUN_MS it stops the indexer, and the next start does not respawn it, even after RETRY_MS", async () => {
+    const proc = table();
+    const later = t0 + MAX_RUN_MS;
+    expect(await stopBootstrap(root, { lease, now: later, ...proc })).toMatchObject({ pid: PID });
+    expect(signals(proc.calls)).toEqual([[-PID, "SIGTERM"]]);
+    expect(readBootstrap(root, { now: later })).toMatchObject({ pid: PID, stoppedAt: later, stoppedBy: "max-run", running: false });
+    expect(startBootstrap(root, { spawnFn, lease, now: later + RETRY_MS + 1 })).toEqual({ started: false, recent: true, stopped: "max-run" });
+    expect(spawnFn).not.toHaveBeenCalled();
+  });
+
+  it("frees the lease that names the stopped pid", async () => {
+    expect(await stopBootstrap(root, { lease, now: t0 + MAX_RUN_MS, ...table() })).toMatchObject({ pid: PID });
+    expect(readLease(lease)).toBeNull();
+  });
+
+  it("keeps the lease when the stop could not be noted (marked: false)", async () => {
+    const now = t0 + MAX_RUN_MS;
+    mkdirSync(`${state.dbPath}.bootstrap.lock`); // the marker mutex stays busy: held fresh as of `now`
+    utimesSync(`${state.dbPath}.bootstrap.lock`, now / 1000, now / 1000);
+    expect(await stopBootstrap(root, { lease, now, wait: () => {}, ...table() })).toMatchObject({ pid: PID, marked: false });
+    expect(readLease(lease)).toMatchObject({ pid: PID });
   });
 });
 
