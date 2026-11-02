@@ -6,12 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [5.0.1] - 2026-11-02
+
+### Added
+- **`kj skills search` answers in your language** (HU-2782, HU-3089, HU-3083, ADR 0039; #3091, #3110, #3111, #3113): a query that is not in English is translated into English before it reaches atril, whose index is in English, and the results come back translated into the language you asked in. The translation runs with the new `roles.translator`, which inherits the coder unless you set it.
+- **atril 1.3.0 with plugins** (#2430 steps 11 to 13; karajan-code now depends on `@karajan-family/atril ^1.3.0`): `atril install plugin:<name>` asks first, installs the plugin's markdown half with its npm packages and the plugins it depends on, in order; `atril remove plugin:<name>` removes everything it installed; the lockfile records installed plugins; the trust listing shows npm packages and unresolved variables; plugin variables are filled when a piece is resolved, never written into the store; a plugin's `user_config` values are stored without committing secrets. The enricher hook writes English metadata to `atril.en` (HU-2732).
+- **The docs site has an atril section** (HU-2750, #2756), standalone and with the family.
+
 ### Changed
 - **atril indexes in English** (HU-2781, issue #2781, ADR 0039): the router rule and the `/atril` command now tell the agent to query atril in English, so `atril sync --check` reports the rule as out of date until the next `atril sync`. `atril enrich` and `atril import` warn on stderr about a description or keywords that look non-English (Spanish), and `atril search` hints at English when a Spanish query finds nothing.
-
-### Changed
-
 - **atril** (HU-3105, part of #2430 step 13): `atril route --json` and the MCP `resolve` tool return `content` with the plugin variables filled for the items that use them (paths only for the rest), and report `unresolved` variables (on stderr in text mode). `atril sync` refuses to expose persistently a plugin artifact that uses plugin variables: it is used on demand. The bridge command `commands/atril.md` now says "use `content` when present, else read the file", so the next `atril sync` rewrites it in each project.
+
+### Fixed
+- **The background RAG indexer can no longer outlive its job** (HU-2758, HU-2907, HU-3092, HU-3103, HU-3114, HU-3116; #3099, #3102, #3106, #3119, #3120, #3122, #3124): it stops itself at its deadline, even with an embed call that hangs, and leaves a partial index unmarked so the next run finishes it; the next command stops an orphaned indexer and warns when a lane will not be re-indexed; a foreground `kj rag index` claims the machine's index lease; `kj worktree done` and `kj worktree prune` stop a lane's indexer before removing it.
+- **`kj worktree prune` sees live processes on macOS** (HU-3117, #3126), so it no longer retires a lane something is still working in.
+- **atril**: a long plugin path is no longer folded when the frontmatter is rewritten (#3087), and a marketplace plugin's source can be fetched again and found by name (#3100).
 
 ## [5.0.0] - 2026-11-01
 
