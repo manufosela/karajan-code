@@ -132,7 +132,7 @@ describe("startBootstrap machine lease", () => {
 describe("stopBootstrap", () => {
   const PID = 4242;
   let lease, t0;
-  const table = ({ command = "node /k/bin/kj.js rag index --with-sources" } = {}) => {
+  const table = ({ command = readBootstrap(root).command } = {}) => {
     const calls = [];
     let dead = false;
     const kill = (pid, sig) => { calls.push([pid, sig]); if (sig === "SIGTERM") dead = true; if (sig === 0 && dead) throw new Error("ESRCH"); };

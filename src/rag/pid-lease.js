@@ -78,7 +78,6 @@ const START_SLACK_MS = 60 * 1000;
 // By absolute path: a ps found through PATH could be forged (as in harden/human-act.js).
 const PS_BIN = ["/bin/ps", "/usr/bin/ps"].find((p) => existsSync(p)) ?? null;
 
-/** `ps -o etime= -o command=` output as `{ elapsedMs, command }`, or null. */
 export function parsePs(out) {
   const text = String(out ?? "").trim();
   const split = text.search(/\s/);
@@ -89,24 +88,21 @@ export function parsePs(out) {
   return { elapsedMs: (((d * 24 + h) * 60 + min) * 60 + s) * 1000, command };
 }
 
-// No system ps (Windows), or it failed: null, and nothing is stopped.
 const psInfo = (pid) => {
   if (!PS_BIN) return null;
   try { return parsePs(execFileSync(PS_BIN, ["-o", "etime=", "-o", "command=", "-p", String(pid)], { encoding: "utf8", env: {}, timeout: 2000 })); }
   catch { return null; }
 };
-// Anchored on the executable: startBootstrap spawns `node <kj.js> rag index`, so `vim kj rag index` is not one.
-const INDEXER_COMMAND = /^\S*node\S*\s+\S*\/kj(?:\.js)?\s+rag\s+index(?:\s|$)/;
-const isIndexer = (info, at, now) => Boolean(info) && INDEXER_COMMAND.test(info.command) && info.elapsedMs >= Math.max(0, now - at - START_SLACK_MS);
+// ps flattens argv, so the identity is the exact command recorded at spawn; none recorded (older format): not ours.
+const isIndexer = (info, at, now, command) => Boolean(info && command) && info.command === command && info.elapsedMs >= Math.max(0, now - at - START_SLACK_MS);
 const isAliveVia = (kill, pid) => { try { kill(pid, 0); return true; } catch { return false; } };
-// The indexer leads its own process group (spawned detached): -pid reaches its whole tree.
 const signal = (kill, pid, sig) => {
   try { kill(-pid, sig); } catch { try { kill(pid, sig); } catch (err) { if (err.code !== "ESRCH") throw err; } }
 };
 
 /** SIGTERM to a verified indexer, SIGKILL if it outlives `killAfterMs`. True only once it is confirmed gone. */
-export async function stopIndexer(pid, at, { now = Date.now(), ps = psInfo, kill = (p, s) => process.kill(p, s), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), killAfterMs = KILL_AFTER_MS } = {}) {
-  if (!isIndexer(ps(pid), at, now)) return false;
+export async function stopIndexer(pid, at, { command, now = Date.now(), ps = psInfo, kill = (p, s) => process.kill(p, s), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), killAfterMs = KILL_AFTER_MS } = {}) {
+  if (!isIndexer(ps(pid), at, now, command)) return false;
   signal(kill, pid, "SIGTERM");
   for (let waited = 0; waited < killAfterMs; waited += POLL_MS) {
     await sleep(POLL_MS);
@@ -114,7 +110,7 @@ export async function stopIndexer(pid, at, { now = Date.now(), ps = psInfo, kill
   }
   const again = ps(pid); // verified again: no answer is gone-or-unverified, never signalled blind
   if (!again) return !isAliveVia(kill, pid);
-  if (!isIndexer(again, at, now)) return true; // the pid was reused: the indexer is gone
+  if (!isIndexer(again, at, now, command)) return true; // the pid was reused: the indexer is gone
   signal(kill, pid, "SIGKILL");
   await sleep(POLL_MS);
   return !isAliveVia(kill, pid);
@@ -141,7 +137,7 @@ export async function stopLeaseHolder(file, { force = false, now = Date.now(), .
   const kill = io.kill ?? ((p, s) => process.kill(p, s));
   if (!Number.isInteger(held?.pid) || held.pid <= 1 || held.pid === process.pid || held.stoppedAt || !isAliveVia(kill, held.pid)) return null;
   if (!force && now - held.at < MAX_RUN_MS) return null;
-  if (!(await stopIndexer(held.pid, held.at, { ...io, now, kill }))) return null;
+  if (!(await stopIndexer(held.pid, held.at, { ...io, command: held.command, now, kill }))) return null;
   const marked = noteStopped(file, held.pid, now, force ? "lane-done" : "max-run", io.wait ?? sleepSync);
   return { pid: held.pid, slug: held.slug, marked };
 }

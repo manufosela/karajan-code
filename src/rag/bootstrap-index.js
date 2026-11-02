@@ -44,7 +44,8 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
       if (holder?.running && holder.pid !== process.pid) return { started: false, busy: { projectDir: holder.projectDir, slug: holder.slug, pid: holder.pid } };
       // Marker and lease land whole each time: first with the claimant's pid, so they read as
       // running meanwhile, then with the indexer's.
-      const note = (pid) => { writeLease(file, { pid, at: now }); writeLease(lease, { pid, at: now, projectDir, slug }); };
+      const command = [process.execPath, bin, "rag", "index", "--with-sources"].join(" ");
+      const note = (pid) => { writeLease(file, { pid, at: now, command }); writeLease(lease, { pid, at: now, command, projectDir, slug }); };
       note(process.pid);
       try {
         const child = spawnFn(process.execPath, [bin, "rag", "index", "--with-sources"], { cwd: projectDir, detached: true, stdio: "ignore" });
