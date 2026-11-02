@@ -13,8 +13,9 @@ const exported = new Set(
 );
 
 const filmDir = new URL("film/", publicDir);
+// Every module under film/, the pieces and the family's characters included.
 const filmSources = existsSync(filmDir)
-  ? readdirSync(filmDir).filter((f) => f.endsWith(".js")).map((f) => readFileSync(new URL(f, filmDir), "utf8"))
+  ? readdirSync(filmDir, { recursive: true }).filter((f) => f.endsWith(".js")).map((f) => readFileSync(new URL(f, filmDir), "utf8"))
   : [];
 
 const namesUsed = (source) => [

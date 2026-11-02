@@ -6,15 +6,15 @@ import * as THREE from 'three';
 
 export const CRATE = { w: 1.15, h: 0.78, d: 0.78 };
 export const DIFF_SIZE = 0.42;
-const RED = new THREE.Color(0xff4d4d);
+export const RED = new THREE.Color(0xff4d4d);
 const GREEN = new THREE.Color(0x34d399);
 // The method's own pieces wear steel; the tools Karajan brings in wear green.
-const KINDS = {
+export const KINDS = {
   method: { ink: '#8cb4c9', strip: 0x6b8fa3, body: 0x1a2332, glow: new THREE.Color(0x8cb4c9) },
   tool: { ink: '#34d399', strip: 0x1f9e74, body: 0x14292a, glow: GREEN },
 };
 
-function labelTexture(lines, { width = 512, height = 256, color = '#e2e8f0', accent = '#e8b04b' } = {}) {
+export function labelTexture(lines, { width = 512, height = 256, color = '#e2e8f0', accent = '#e8b04b' } = {}) {
   const c = document.createElement('canvas');
   c.width = width;
   c.height = height;
