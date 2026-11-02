@@ -6,12 +6,14 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectDbPath } from "./project-store.js";
 import { projectSlug } from "./vec-store.js";
-import { GRACE_MS, MAX_RUN_MS, indexLeasePath, readLease, stopLeaseHolder, takeLock, unlessGone, withMutex, writeLease } from "./pid-lease.js";
+import { GRACE_MS, MAX_RUN_MS, indexLeasePath, noteStopped, readLease, stopLeaseHolder, takeLock, unlessGone, withMutex, writeLease } from "./pid-lease.js";
 
 const KJ_BIN = resolve(fileURLToPath(import.meta.url), "../../../bin/kj.js");
 // An attempt that died (no Ollama, no model) is not repeated on every command: this long apart.
 export const RETRY_MS = 10 * 60 * 1000;
 export { GRACE_MS, MAX_RUN_MS };
+// HU-3092: the child stops itself this long before MAX_RUN_MS, so it ends before the lease reads as expired.
+export const DEADLINE_MARGIN_MS = 60 * 1000;
 const markerPath = (projectDir) => `${projectDbPath(projectDir)}.bootstrap`;
 
 /** What the marker says of the last attempt: `{ pid, at, running }`, or null when none was ever made. */
@@ -34,7 +36,8 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
     const last = readBootstrap(projectDir, { now });
     if (last?.running) return { started: false, pid: last.pid };
     // HU-2758: one stopped for running too long is not respawned in the background, at any age.
-    if (last?.stoppedBy === "max-run") return { started: false, recent: true, stopped: "max-run" };
+    // HU-3092: so is one that stopped itself at its deadline.
+    if (last?.stoppedBy === "max-run" || last?.stoppedBy === "deadline") return { started: false, recent: true, stopped: last.stoppedBy };
     if (last && now - (last.stoppedAt ?? last.at) < RETRY_MS) return { started: false, recent: true, pid: null };
     // One indexer per machine: the lease is taken inside the project mutex, before the marker is
     // written, so a queued project does not spend its RETRY_MS. Both mutexes yield, never wait.
@@ -48,7 +51,7 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
       const note = (pid) => { writeLease(file, { pid, at: now, command }); writeLease(lease, { pid, at: now, command, projectDir, slug }); };
       note(process.pid);
       try {
-        const child = spawnFn(process.execPath, [bin, "rag", "index", "--with-sources"], { cwd: projectDir, detached: true, stdio: "ignore" });
+        const child = spawnFn(process.execPath, [bin, "rag", "index", "--with-sources"], { cwd: projectDir, detached: true, stdio: "ignore", env: { ...process.env, KJ_RAG_DEADLINE: String(now + MAX_RUN_MS - DEADLINE_MARGIN_MS) } });
         child.unref?.();
         note(child.pid);
         return { started: true, pid: child.pid };
@@ -61,6 +64,9 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
     return res.busy === true ? { started: false, busy: {} } : res;
   } finally { unlessGone(() => rmdirSync(lock)); }
 }
+
+/** HU-3092: the indexer that reached its deadline notes it, only while the marker still names it. */
+export const noteDeadline = (projectDir, { pid = process.pid, now = Date.now(), wait } = {}) => noteStopped(markerPath(projectDir), pid, now, "deadline", wait);
 
 // HU-2758: stops the marker's indexer past MAX_RUN_MS (`force`: any age) and frees the lease naming it.
 export async function stopBootstrap(projectDir, { lease = indexLeasePath(), now = Date.now(), ...opts } = {}) {

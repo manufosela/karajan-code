@@ -14,12 +14,18 @@ const { ragIndexCommand } = await import("../../src/commands/rag.js");
 const { indexProject, indexProjectDelta } = await import("../../src/rag/indexer.js");
 const { indexLeasePath, readLease, writeLease } = await import("../../src/rag/pid-lease.js");
 const totals = { indexed: 1, failed: 0, files: 1, deleted: 0 };
-let root, prevHome, lease, warned;
+const { openProjectStore, projectDbPath } = await import("../../src/rag/project-store.js");
+const { makeGovernedEmbedder } = await import("../../src/rag/governed-embedder.js");
+const { setLastIndexedCommit } = await import("../../src/rag/vec-store.js");
+const { indexLibrary } = await import("../../src/rag/library.js");
+let root, prevHome, prevDeadline, lease, warned;
 const logger = { info: vi.fn(), warn: (line) => warned.push(line) };
 const run = (flags) => ragIndexCommand({ config: { projectDir: root }, logger, flags });
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "kj-index-lease-"));
   prevHome = process.env.KARAJAN_HOME;
+  prevDeadline = process.env.KJ_RAG_DEADLINE;
+  delete process.env.KJ_RAG_DEADLINE;
   process.env.KARAJAN_HOME = root;
   lease = indexLeasePath();
   warned = [];
@@ -30,6 +36,7 @@ beforeEach(() => {
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
   if (prevHome === undefined) delete process.env.KARAJAN_HOME; else process.env.KARAJAN_HOME = prevHome;
+  if (prevDeadline === undefined) delete process.env.KJ_RAG_DEADLINE; else process.env.KJ_RAG_DEADLINE = prevDeadline;
 });
 describe("ragIndexCommand machine lease", () => {
   it("a free lease names this pid and project during the full walk, and is gone after", async () => {
@@ -60,5 +67,42 @@ describe("ragIndexCommand machine lease", () => {
     await run({});
     expect(warned).toEqual([]);
     expect(readLease(lease)).toBeNull();
+  });
+});
+
+// HU-3092: a background indexer stops itself at its deadline and leaves a partial index unmarked.
+describe("ragIndexCommand deadline", () => {
+  const marker = () => `${root}/rag.db.bootstrap`;
+  beforeEach(() => { projectDbPath.mockReturnValue(`${root}/rag.db`); });
+  it("a deadline already past returns at once: no store, no embedder, no indexing; the marker naming this pid is noted", async () => {
+    writeLease(marker(), { pid: process.pid, at: Date.now(), command: "c" });
+    process.env.KJ_RAG_DEADLINE = "1";
+    expect(await run({ withSources: true })).toEqual({ indexed: 0, failed: 0, files: 0, stopped: "deadline" });
+    expect(indexProject).not.toHaveBeenCalled();
+    expect(openProjectStore).not.toHaveBeenCalled();
+    expect(makeGovernedEmbedder).not.toHaveBeenCalled();
+    expect(readLease(marker())).toMatchObject({ stoppedBy: "deadline", running: false });
+  });
+  it("a marker naming another pid is left untouched", async () => {
+    writeLease(marker(), { pid: process.ppid, at: Date.now(), command: "c" });
+    process.env.KJ_RAG_DEADLINE = "1";
+    await run({});
+    expect(readLease(marker()).stoppedBy).toBeUndefined();
+  });
+  it.each(["", "abc", "0", "-5"])("KJ_RAG_DEADLINE=%j means no deadline", async (v) => {
+    process.env.KJ_RAG_DEADLINE = v;
+    await run({});
+    expect(indexProject).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ deadline: null }));
+  });
+  it("a stopped index keeps no commit, skips the library, releases the lease, notes the marker and warns", async () => {
+    writeLease(marker(), { pid: process.pid, at: Date.now(), command: "c" });
+    process.env.KJ_RAG_DEADLINE = String(Date.now() + 60_000);
+    indexProject.mockResolvedValue({ indexed: 3, failed: 0, files: 2, head: "abc", stopped: "deadline" });
+    expect((await run({ withSources: true })).stopped).toBe("deadline");
+    expect(setLastIndexedCommit).not.toHaveBeenCalled();
+    expect(indexLibrary).not.toHaveBeenCalled();
+    expect(readLease(lease)).toBeNull();
+    expect(readLease(marker())).toMatchObject({ stoppedBy: "deadline" });
+    expect(warned).toEqual([expect.stringMatching(/KJ_RAG_DEADLINE reached after 2 file\(s\).*partial.*not recorded/)]);
   });
 });

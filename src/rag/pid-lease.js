@@ -118,7 +118,7 @@ export async function stopIndexer(pid, at, { command, now = Date.now(), ps = psI
 
 const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 // Notes the stop while the file still names that pid: 5 tries at the mutex, 20 ms apart; false if never free.
-const noteStopped = (file, pid, now, reason, wait) => {
+export const noteStopped = (file, pid, now, reason, wait = sleepSync) => {
   const mark = () => withMutex(file, now, () => {
     const { running: _running, ...note } = readLease(file, { now }) ?? {};
     if (note.pid === pid && !note.stoppedAt) writeLease(file, { ...note, stoppedAt: now, stoppedBy: reason });

@@ -139,7 +139,7 @@ async function listFiles(dir, predicate) {
  * indexing tens of thousands of files is expensive — the CLI exposes
  * it as `--with-sources`.
  */
-export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false, exclude = [] } = {}) {
+export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false, exclude = [], deadline = null, now = Date.now } = {}) {
   // KJC-TSK-0640: a full index must stamp HEAD too — without it,
   // last_indexed_commit stayed null after the FIRST index, so the drift
   // delta-update (maybeAutoUpdate) never engaged until a manual --since.
@@ -150,20 +150,23 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
   } catch { /* not a git repo (or zero commits) — nothing to stamp */ }
   const slug = projectDir.split("/").pop()?.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase() || "project";
   await prepareAdapters(detectAdaptersForProject(projectDir), { logger });
+  // HU-3092: past the deadline (a background indexer's) the walk stops between files; what it indexed stays.
+  const stop = () => { if (deadline != null && now() >= deadline) totals.stopped = "deadline"; return Boolean(totals.stopped); };
   const planRoot = join(karajanHome, PLANS_DIR, slug);
   if (existsSync(planRoot)) {
     const plans = await listFiles(planRoot, (p) => /plan-.*\.json$/.test(p));
     for (const p of plans) {
+      if (stop()) break;
       const r = await indexFile(p, { db, embedder, logger, project: slug, root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }
   const onboarding = join(karajanHome, ONBOARDING_DIR, `${slug}.md`);
-  if (existsSync(onboarding)) {
+  if (existsSync(onboarding) && !stop()) {
     const r = await indexFile(onboarding, { db, embedder, logger, project: slug, root: projectDir });
     totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
   }
-  if (withSources) {
+  if (withSources && !totals.stopped) {
     // KJC-BUG-0062: `.kj/worktrees/HU-*/` contains git worktrees Karajan spawns
     // per HU during `kj run`; they hold complete copies of `src/` that
     // duplicate every chunk and contaminate retrieval scores. `_diet` is the
@@ -182,12 +185,14 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
       if (source.startsWith(prefix) && outOf(source) !== null) deleteChunksBySource(db, source);
     }
     for (const s of sources) {
+      if (stop()) break;
       const r = await indexFile(s, { db, embedder, logger, project: slug, kind: sourceKind(), root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
     // KJC-TSK-1171: only a COMPLETE index of the sources carries the embed schema; a file the
     // embedder failed on leaves the marker as it was, so the rebuild is asked for again.
-    if (totals.failed === 0) writeEmbedSchema(projectDir);
+    if (totals.stopped) logger.info?.("[rag-indexer] deadline reached: the index is partial, no embed schema recorded");
+    else if (totals.failed === 0) writeEmbedSchema(projectDir);
     else logger.warn?.(`[rag-indexer] ${totals.failed} chunk(s) failed: the embed schema is not recorded, the index will be rebuilt again`);
   }
   return totals;
