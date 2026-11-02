@@ -208,6 +208,7 @@ describe("installPluginSet", () => {
     // a is on GitHub at C1: the pin C2 would disagree if it reached a (app is a local path)
     const C2 = "b".repeat(40);
     put(dir, "mkt/plugins/app/.claude-plugin/plugin.json", { name: "app", version: "1.0.0", dependencies: ["a"] });
+    put(dir, "mkt/plugins/app/commands/go.md", "---\ndescription: Go\n---\nGo\n");
     put(dir, "mkt/.claude-plugin/marketplace.json", { name: "m", plugins: [{ name: "app", source: "./plugins/app" }, { name: "a", source: { source: "github", repo: "o/a", sha: C1 } }] });
     writeConfig({ catalogs: ["mkt"] }, o());
     tree = { manifest: { name: "a" } };
@@ -278,6 +279,67 @@ describe("installPluginSet", () => {
       failRecord.plugin = failRecord.torn = null;
     }
     expect(snapshot()).toEqual(before);
+  });
+});
+
+describe("the choice per plugin (P12)", () => {
+  const choose = (mode) => writeConfig({ catalogs: ["mkt"], pluginMode: { kit: mode } }, o());
+  const set = () => installPluginSet("kit", o(), { confirm, git, run });
+
+  it("rejects an unknown choice loudly", () => {
+    expect(() => writeConfig({ pluginMode: { kit: "fast" } }, o())).toThrow(/pluginMode\.kit.*skip, split or native/);
+    expect(() => writeConfig({ pluginMode: { "Bad Name": "skip" } }, o())).toThrow(/pluginMode\.Bad Name/);
+  });
+
+  it("split is the default and the result says so", async () => {
+    market(GH);
+    expect(await set()).toMatchObject({ status: "installed", mode: "split" });
+  });
+
+  it("skip records and writes nothing, and does not even ask", async () => {
+    market(GH);
+    choose("skip");
+    expect(await set()).toMatchObject({ plugin: "kit", status: "skipped", mode: "skip", dependencies: [], skipped: [] });
+    expect(confirm).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+    expect(lock().plugins).toBeUndefined();
+    expect(existsSync(join(dir, "store", "skills"))).toBe(false);
+  });
+
+  it("native installs nothing and names, per CLI, what the user runs and that it fills the context", async () => {
+    market(GH);
+    choose("native");
+    const result = await set();
+    expect(result).toMatchObject({ status: "native", mode: "native" });
+    expect(result.instructions.join("\n")).toMatch(/claude.*o\/r[\s\S]*agy.*o\/r[\s\S]*everything in context.*that CLI only/);
+    expect(result.instructions.join("\n")).toMatch(/does not know the exact command/);
+    expect(calls).toEqual([]);
+    expect(runs).toBe(0);
+    expect(lock().plugins).toBeUndefined();
+  });
+
+  it("split says a plugin with no Markdown needs native or skip", async () => {
+    put(dir, "mkt/plugins/kit/.claude-plugin/plugin.json", { name: "kit", version: "1.0.0" });
+    market("./plugins/kit");
+    await expect(set()).rejects.toThrow(/kit has no Markdown to split.*native or skip/);
+    choose("skip");
+    expect(await set()).toMatchObject({ status: "skipped" });
+  });
+
+  it("a plugin installed as split and then set to native is left as it is, and install says how to remove it", async () => {
+    market(GH);
+    await set();
+    choose("native");
+    expect(await set()).toMatchObject({ status: "native", removeWith: "atril remove plugin:kit" });
+    expect(lock().plugins.kit).toBeDefined();
+    expect(await updatePlugin("kit", o(), { confirm, git, run })).toEqual({ plugin: "kit", status: "kept", mode: "native" });
+  });
+
+  it("remove of a skip or native plugin says there is nothing to remove", async () => {
+    market(GH);
+    choose("skip");
+    expect(removePlugin("kit", o())).toEqual({ plugin: "kit", removed: [], purged: false, mode: "skip" });
+    expect(() => removePlugin("ghost", o())).toThrow(/not installed/);
   });
 });
 

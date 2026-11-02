@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, renameSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { readLock, writeLock } from "./lock.js";
+import { pluginMode } from "./plugin-mode.js";
 import { pluginDataDir } from "./plugin-vars.js";
 import { resolveRoot } from "./scan.js";
 import { target } from "./store.js";
@@ -18,7 +19,11 @@ import { target } from "./store.js";
  */
 export function removePlugin(name, { purge = false, force = false, ...opts } = {}) {
   const lock = readLock(opts);
-  if (!Object.hasOwn(lock.plugins ?? {}, name)) throw new Error(`plugin "${name}" is not installed`);
+  if (!Object.hasOwn(lock.plugins ?? {}, name)) {
+    const mode = pluginMode(name, opts);
+    if (mode === "split") throw new Error(`plugin "${name}" is not installed`);
+    return { plugin: name, removed: [], purged: false, mode }; // skip and native leave nothing in the store
+  }
   const dependents = Object.entries(lock.plugins).filter(([other, { dependencies = [] }]) => other !== name && dependencies.includes(name)).map(([other]) => other);
   if (dependents.length && !force) throw new Error(`plugin "${name}" is required by: ${dependents.join(", ")}; remove them first or pass --force`);
   const keys = lock.plugins[name].entries;

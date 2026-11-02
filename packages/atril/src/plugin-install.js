@@ -12,6 +12,7 @@ import { lockPath, readLock } from "./lock.js";
 import { dependencyOrder, installNpmDeps, pluginDependencies } from "./plugin-deps.js";
 import { fetchPlugin } from "./plugin-fetch.js";
 import { installPluginMarkdown } from "./plugin-markdown.js";
+import { nativeInstructions, pluginMode } from "./plugin-mode.js";
 import { listPluginMarkdown, readPluginManifest } from "./plugin.js";
 import { pluginPaths } from "./plugin-source.js";
 import { pluginInventory } from "./plugin-trust.js";
@@ -128,9 +129,17 @@ function commit({ catalog, source, fetched, inventory }, opts, { run }) {
  */
 export async function installPluginSet(name, opts = {}, { confirm, git, gitBase, run } = {}) {
   if (typeof confirm !== "function") throw new Error("installPluginSet needs a confirm function");
+  const mode = pluginMode(name, opts);
+  if (mode !== "split") {
+    // Nothing is fetched, confirmed or written; a copy installed as split earlier stays, and the user is told how to drop it.
+    const removeWith = Object.hasOwn(readLock(opts).plugins ?? {}, name) ? { removeWith: `atril remove plugin:${name}` } : {};
+    const instructions = mode === "native" ? { instructions: nativeInstructions(name, findPlugin(name, opts)) } : {};
+    return { plugin: name, status: mode === "skip" ? "skipped" : "native", mode, dependencies: [], skipped: [], ...instructions, ...removeWith };
+  }
   const { order, skipped, fetched } = pluginInstallSet(name, opts, { git, gitBase });
   // Reuses the fetch that read each manifest, so `confirm` sees "fetched" for what this run downloaded.
   const members = order.map((member) => prepare(member, pinFor(member, name, opts), { git, gitBase }, fetched[member]));
+  if (listPluginMarkdown(members.at(-1).fetched.dir).length === 0) throw new Error(`${name} has no Markdown to split: set its pluginMode to native or skip`);
   const asked = members.map(({ name: member, inventory, source, fetched }) => ({ name: member, inventory, source, commit: fetched.commit, status: fetched.status }));
   if (!(await confirm(asked))) return { plugin: name, status: "declined", inventory: members.at(-1).inventory, dependencies: [], skipped };
   // Every snapshot is kept until the whole set succeeds: a failure restores them all, newest first, exactly as they
@@ -153,7 +162,7 @@ export async function installPluginSet(name, opts = {}, { confirm, git, gitBase,
   } finally {
     for (const before of snapshots) before.discard();
   }
-  return { ...done.at(-1), dependencies: done.slice(0, -1), skipped };
+  return { ...done.at(-1), mode, dependencies: done.slice(0, -1), skipped };
 }
 
 // What a plugin can run: a change here is what the user is asked about again.
@@ -178,6 +187,8 @@ export async function updatePlugin(name, opts = {}, { confirm, git, gitBase, run
   const { plugins, artifacts } = readLock(opts);
   const held = plugins?.[name];
   if (!held) throw new Error(`plugin "${name}" is not installed`);
+  const mode = pluginMode(name, opts);
+  if (mode !== "split") return { plugin: name, status: "kept", mode }; // left as installed; atril remove plugin:<name> drops it
   const prepared = prepare(name, opts, { git, gitBase });
   const { fetched, inventory } = prepared;
   if (fetched.commit && fetched.commit === held.commit) return { plugin: name, status: "current", version: held.version, commit: held.commit };

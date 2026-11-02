@@ -25,6 +25,7 @@ import { answersFor, askAnswers, offered } from "../src/init.js";
 import { applyInstalledUpdate, installedUpdates } from "../src/upgrade.js";
 import { installPluginSet, updatePlugin } from "../src/plugin-install.js";
 import { readLock } from "../src/lock.js";
+import { setPluginMode } from "../src/plugin-mode.js";
 import { removePlugin } from "../src/plugin-remove.js";
 import { installConfirm, notInstalledLines, updateConfirm } from "../src/plugin-install-cli.js";
 import { configureMissing, pluginConfigRows, setPluginConfig, unsetPluginKey } from "../src/plugin-config-cli.js";
@@ -37,7 +38,7 @@ const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]
   + "       atril install plugin:<name> [--yes] [--root <dir>] [--json]  (no terminal and no --yes: dry run)\n"
   + "       atril remove plugin:<name> [--purge] [--force] [--root <dir>] [--json]  (--purge also drops its cache and data; --force removes it though an installed plugin depends on it)\n"
   + "       atril config [--root <dir>] [--json]\n"
-  + "       atril config plugin:<name> [--set KEY[=VALUE]] [--unset KEY] [--root <dir>] [--json]  (a sensitive value comes from stdin)\n"
+  + "       atril config plugin:<name> [--set KEY[=VALUE]] [--unset KEY] [--mode skip|split|native] [--root <dir>] [--json]  (a sensitive value comes from stdin; --mode is how install treats it, split by default)\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
   + "       atril catalog sync [--root <dir>]\n       atril catalog update [--apply] [--root <dir>]\n"
@@ -252,15 +253,20 @@ async function runPluginConfig([ref, ...extra], values) {
   const opts = { root: values.root };
   if (values.set !== undefined) await setPluginConfig(name, values.set, opts);
   if (values.unset !== undefined) unsetPluginKey(name, values.unset, opts);
+  if (values.mode !== undefined) {
+    setPluginMode(name, values.mode, opts);
+    console.log(values.json ? JSON.stringify({ plugin: name, mode: values.mode }, null, 2) : `mode\tplugin:${printable(name)}\t${values.mode}`);
+    return;
+  }
   const rows = pluginConfigRows(name, opts);
   if (values.json) console.log(JSON.stringify(rows, null, 2));
   else for (const { key, set, value } of rows) console.log(`${printable(key)}\t${set ? "set" : "unset"}${value === undefined ? "" : `\t${printable(String(value))}`}`);
 }
 
 async function runConfig(args) {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" }, json: { type: "boolean" }, set: { type: "string" }, unset: { type: "string" } } });
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { root: { type: "string" }, json: { type: "boolean" }, set: { type: "string" }, unset: { type: "string" }, mode: { type: "string" } } });
   if (positionals.length > 0) return runPluginConfig(positionals, values);
-  if (values.set !== undefined || values.unset !== undefined) throw new Error("--set and --unset only apply to config plugin:<name>");
+  if (values.set !== undefined || values.unset !== undefined || values.mode !== undefined) throw new Error("--set, --unset and --mode only apply to config plugin:<name>");
   const config = readConfig({ root: values.root });
   if (values.json) {
     console.log(JSON.stringify(config, null, 2));
@@ -278,6 +284,8 @@ async function runInstallPlugin(name, values) {
   try {
     const result = await installPluginSet(name, { root: values.root }, { confirm: gate.confirm });
     if (result.skipped.length) console.error(printable(`atril: already installed, skipped: ${result.skipped.join(", ")}`));
+    const notSplit = result.status === "skipped" || result.status === "native";
+    for (const line of [...(result.instructions ?? []), ...(result.removeWith ? [`an earlier split install stays: ${result.removeWith} drops it`] : [])]) console.error(printable(`atril: ${line}`));
     if (result.status === "installed") {
       const prefixed = result.dependencies.length > 0;
       for (const member of [...result.dependencies, result]) for (const line of notInstalledLines(member, prefixed ? member.plugin : undefined)) console.error(printable(line));
@@ -289,6 +297,7 @@ async function runInstallPlugin(name, values) {
     }
     if (values.json) console.log(JSON.stringify(gate.dryRun() ? { ...result, dryRun: true } : result, null, 2));
     else if (result.status === "declined") console.log(`${gate.dryRun() ? "dry run" : "declined"}\tplugin:${printable(name)}\tnothing installed`);
+    else if (notSplit) console.log(`${result.status}\tplugin:${printable(name)}\tnothing installed`);
     else console.log(`installed\tplugin:${printable(name)}\t${result.entries.map(printable).join(" ")}`);
   } finally {
     terminal?.close();
@@ -299,6 +308,7 @@ function runRemovePlugin(name, values) {
   const result = removePlugin(name, { root: values.root, purge: values.purge, force: values.force });
   for (const path of result.leftBehind ?? []) console.error(`atril: removed, but could not delete ${printable(path)}: delete it by hand`);
   if (values.json) console.log(JSON.stringify(result, null, 2));
+  else if (result.mode) console.log(`nothing to remove\tplugin:${printable(name)}\tchosen as ${result.mode}: atril installed nothing`);
   else console.log(`removed\tplugin:${printable(name)}\t${result.removed.map(printable).join(" ")}${result.purged ? "\tpurged cache and data" : ""}`);
 }
 

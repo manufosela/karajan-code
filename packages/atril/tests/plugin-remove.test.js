@@ -138,6 +138,15 @@ describe("atril remove plugin:<name>", () => {
     expect(res.status).toBe(1);
     expect(res.stderr).toContain('"kit" is not installed');
   });
+  it("config --mode stores the choice and rejects an unknown one; remove of a skipped plugin has nothing to remove", () => {
+    const config = (...args) => spawnSync(process.execPath, [BIN, "config", "plugin:ghost", "--root", "store", ...args], { cwd: dir, encoding: "utf8" });
+    expect(config("--mode", "fast").stderr).toContain("pluginMode.ghost must be skip, split or native");
+    expect(config("--mode", "skip").stdout).toBe("mode\tplugin:ghost\tskip\n");
+    expect(JSON.parse(config("--mode", "skip", "--json").stdout)).toEqual({ plugin: "ghost", mode: "skip" });
+    const gone = spawnSync(process.execPath, [BIN, "remove", "plugin:ghost", "--root", "store"], { cwd: dir, encoding: "utf8" });
+    expect(gone.status).toBe(0);
+    expect(gone.stdout).toContain("nothing to remove\tplugin:ghost\tchosen as skip");
+  });
   it("--purge and --yes are refused where they do not apply", () => {
     const plain = spawnSync(process.execPath, [BIN, "remove", "skill:x", "--purge", "--root", "store"], { cwd: dir, encoding: "utf8" });
     expect(plain.stderr).toContain("--purge only applies to remove plugin:<name>");
