@@ -28,6 +28,7 @@ const DEFAULTS = {
     discover: { provider: null, model: null },
     architect: { provider: null, model: null },
     hu_reviewer: { provider: null, model: null },
+    translator: { provider: null, model: null },
     start: { provider: null, model: "haiku" }
   },
   pipeline: {

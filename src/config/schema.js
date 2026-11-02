@@ -90,6 +90,7 @@ const RolesMap = v.optional(v.looseObject({
   discover: v.optional(RoleEntry),
   architect: v.optional(RoleEntry),
   hu_reviewer: v.optional(RoleEntry),
+  translator: v.optional(RoleEntry),
   start: v.optional(RoleEntry),
 }));
 

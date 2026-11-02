@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { ATRIL_COMMANDS, atrilArgs, atrilBin, runAtril } from "../../src/skills/atril-cli.js";
+import { ATRIL_COMMANDS, atrilArgs, atrilBin, atrilSearch, runAtril } from "../../src/skills/atril-cli.js";
 import { skillsCommand } from "../../src/commands/skills.js";
 
 describe("atrilArgs", () => {
@@ -40,6 +40,33 @@ describe("runAtril", () => {
   it("a spawn that cannot start is an error, not a silent pass", () => {
     const spawn = () => ({ error: new Error("ENOENT") });
     expect(() => runAtril({ action: "scan", args: [], spawn, bin: "/b/atril.js" })).toThrow("ENOENT");
+  });
+});
+
+describe("atrilSearch", () => {
+  const bin = "/b/atril.js";
+
+  it("spawns atril's CLI with --json and the query after --", async () => {
+    const calls = [];
+    const exec = async (...call) => { calls.push(call); return { stdout: '{"mode":"lexical","hits":[]}' }; };
+    expect(await atrilSearch("-x y", { kind: "skill", root: "r" }, { exec, bin })).toEqual({ mode: "lexical", hits: [] });
+    expect(calls).toEqual([[process.execPath, [bin, "search", "--kind", "skill", "--root", "r", "--json", "--", "-x y"]]]);
+  });
+
+  it("searches the .karajan store when no root is named", async () => {
+    const calls = [];
+    const exec = async (...call) => { calls.push(call); return { stdout: "{}" }; };
+    await atrilSearch("q", {}, { exec, bin });
+    expect(calls[0][1]).toEqual([bin, "search", "--root", ".karajan", "--json", "--", "q"]);
+  });
+
+  it("a non-zero exit carries atril's stderr", async () => {
+    const exec = async () => { throw Object.assign(new Error("exit 1"), { stderr: "atril: empty query\n" }); };
+    await expect(atrilSearch("", {}, { exec, bin })).rejects.toThrow("atril search failed: atril: empty query");
+  });
+
+  it("output that is not JSON is an error, not a silent pass", async () => {
+    await expect(atrilSearch("a", {}, { exec: async () => ({ stdout: "nope" }), bin })).rejects.toThrow(/invalid JSON/);
   });
 });
 
