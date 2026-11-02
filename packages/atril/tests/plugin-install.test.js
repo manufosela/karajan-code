@@ -131,7 +131,7 @@ describe("installPlugin", () => {
     market(GH);
     const hook = { type: "command", command: "x" };
     tree = { manifest: { hooks: { Stop: [{ matcher: "", hooks: [hook] }] } }, files: { "hooks/hooks.json": { hooks: { Start: [{ matcher: "", hooks: [hook] }] } }, ".mcp.json": { mcpServers: { db: { command: "npx" } } } } };
-    const result = await install();
+    const result = await installPlugin("kit", o(), { confirm, git, run, rulesync: () => { throw new Error("absent"); } });
     expect(result.entries.length).toBe(2);
     expect(result.notInstalled.hooks).toHaveLength(2);
     expect(result.notInstalled.mcpServers[0].name).toBe("db");
@@ -139,6 +139,61 @@ describe("installPlugin", () => {
     expect(result.derived).toMatchObject({ name: "kit", commands: [{ cli: "claude" }, { cli: "agy" }] });
     expect(existsSync(join(dir, "store", "plugins", ".marketplace", ".claude-plugin", "marketplace.json"))).toBe(true);
     expect(runs).toBe(0);
+  });
+
+  describe("hooks and MCP through rulesync", () => {
+    const withMcp = () => { market(GH); tree = { files: { ".mcp.json": { mcpServers: { db: { command: "npx" } } } } }; };
+    // The import: canonical .rulesync/mcp.json under --output-root, never in the project.
+    const imports = (args) => {
+      const root = args[args.indexOf("--output-root") + 1];
+      put(root, ".rulesync/mcp.json", { mcpServers: { db: { command: "npx" } } });
+    };
+
+    it("merges the imported entries into the project's .rulesync and reports them", async () => {
+      withMcp();
+      mkdirSync(join(dir, ".rulesync"));
+      const rulesync = vi.fn((_cmd, args) => { if (args.includes("import")) imports(args); });
+      const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });
+      expect(JSON.parse(readFileSync(join(dir, ".rulesync", "mcp.json"), "utf8")).mcpServers.db).toEqual({ command: "npx" });
+      expect(result.rulesync).toEqual({ status: "merged" });
+      expect(result.notInstalled.mcpServers).toEqual([]);
+    });
+
+    it("installs the Markdown, writes no entry and says what was left out when rulesync is absent", async () => {
+      withMcp();
+      const result = await installPlugin("kit", o(), { confirm, git, run, rulesync: () => { throw new Error("absent"); } });
+      expect(result.entries.length).toBe(2);
+      expect(existsSync(join(dir, ".rulesync"))).toBe(false);
+      expect(result.rulesync).toEqual({ status: "absent" });
+      expect(result.notInstalled.mcpServers).toHaveLength(1);
+    });
+
+    it("never runs rulesync for a plugin without hooks or MCP servers", async () => {
+      market(GH);
+      const rulesync = vi.fn();
+      const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });
+      expect(rulesync).not.toHaveBeenCalled();
+      expect(result.rulesync).toBeUndefined();
+    });
+
+    it("an update with no hooks or MCP servers drops the entries the old version wrote", async () => {
+      withMcp();
+      mkdirSync(join(dir, ".rulesync"));
+      await installPlugin("kit", o(), { confirm, git, run, rulesync: (_cmd, args) => { if (args.includes("import")) imports(args); } });
+      head = "b".repeat(40);
+      tree = { manifest: { version: "2.0.0" } };
+      market({ ...GH, sha: head }); // the catalog now pins a version without the MCP server
+      await updatePlugin("kit", o(), { confirm, git, run });
+      expect(JSON.parse(readFileSync(join(dir, ".rulesync", "mcp.json"), "utf8")).mcpServers).toEqual({});
+    });
+
+    it("installs nothing when the import fails", async () => {
+      withMcp();
+      const rulesync = (_cmd, args) => { if (args.includes("import")) throw new Error("boom"); };
+      await expect(installPlugin("kit", o(), { confirm, git, run, rulesync })).rejects.toThrow("rulesync import failed");
+      expect(lock().plugins).toBeUndefined();
+      expect(existsSync(join(dir, ".rulesync"))).toBe(false);
+    });
   });
 
   it("a Markdown-only plugin has no derived entry and no marketplace", async () => {

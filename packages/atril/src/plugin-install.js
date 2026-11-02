@@ -17,6 +17,8 @@ import { nativeInstructions, pluginMode } from "./plugin-mode.js";
 import { listPluginMarkdown, readPluginManifest } from "./plugin.js";
 import { pluginPaths } from "./plugin-source.js";
 import { pluginInventory } from "./plugin-trust.js";
+import { importCanonical } from "./plugin-rulesync.js";
+import { mergeEntries, removeEntries } from "./rulesync-entries.js";
 import { resolveRoot } from "./scan.js";
 import { remove, target } from "./store.js";
 
@@ -106,12 +108,12 @@ const pinFor = (plugin, target, { commit, ...rest }) => (plugin === target && co
  * @param {{ confirm: (inventory: object, from: { source: object, commit?: string, status: string }) => boolean | Promise<boolean>, git?: Function, gitBase?: string, run?: Function }} [how]
  *   `confirm` is required and asked on every install, reinstalls included
  */
-export async function installPlugin(name, opts = {}, { confirm, git, gitBase, run } = {}) {
+export async function installPlugin(name, opts = {}, { confirm, git, gitBase, run, rulesync } = {}) {
   if (typeof confirm !== "function") throw new Error("installPlugin needs a confirm function");
   const prepared = prepare(name, opts, { git, gitBase });
   // The shim: a single install still asks with one inventory and its origin.
   if (!(await confirm(prepared.inventory, { source: prepared.source, commit: prepared.fetched.commit, status: prepared.fetched.status }))) return { plugin: name, status: "declined", inventory: prepared.inventory };
-  return commit(prepared, opts, { run });
+  return commit(prepared, opts, { run, rulesync });
 }
 
 /** Finds, fetches and inventories a plugin; writes nothing (the cache aside). A broken file aborts here. */
@@ -122,17 +124,30 @@ function prepare(name, opts, { git, gitBase }, fetchedBefore) {
 }
 
 /** Installs a prepared plugin: its npm packages into the cache, its Markdown into the store and the lock. */
-function commit({ catalog, source, fetched, inventory }, opts, { run }) {
+function commit({ name, catalog, source, fetched, inventory }, opts, { run, rulesync }) {
+  const { hooks, mcpServers, bin } = inventory;
+  const projectDir = resolve(opts.projectDir ?? process.cwd());
+  // Before anything is written: a failing import installs nothing. Without rulesync the hooks and MCP stay out (reported, nothing half done).
+  const imported = hooks.length || mcpServers.length ? importCanonical(fetched.dir, { projectDir }, rulesync) : undefined;
   // npm writes only into the cache, which is kept; a cached copy that has its packages is not installed twice
   const npm = fetched.status === "cached" && existsSync(join(fetched.dir, "node_modules")) ? { status: "present" } : installNpmDeps(fetched.dir, { run });
   const label = LABEL[source.type]?.(source);
   // No try/catch and no rollback: installPluginMarkdown stages first, writes the lock last and undoes exactly what it created.
   const dependencies = pluginDependencies(readPluginManifest(fetched.dir).manifest).map((dep) => dep.name);
-  const { plugin, entries } = installPluginMarkdown(fetched.dir, opts, { from: { catalog, ...(label && { source: label }), ...(fetched.commit && { commit: fetched.commit }), ...(dependencies.length && { dependencies }) } });
-  const { hooks, mcpServers, bin } = inventory;
+  const merged = imported?.status === "imported";
+  if (merged) mergeEntries(projectDir, name, imported.canonical);
+  let installed;
+  try {
+    installed = installPluginMarkdown(fetched.dir, opts, { from: { catalog, ...(label && { source: label }), ...(fetched.commit && { commit: fetched.commit }), ...(dependencies.length && { dependencies }) } });
+  } catch (error) {
+    if (merged) removeEntries(projectDir, name);
+    throw error;
+  }
+  const { plugin, entries } = installed;
+  if (!imported) removeEntries(projectDir, name); // an update that drops every hook and MCP server drops what the old version wrote
   // The derived plugin is only written and listed: no host CLI runs (ADR 0042), so there is nothing for remove to undo.
   const derived = writeDerived(plugin, fetched.version, fetched.dir, { root: resolve(opts.projectDir ?? process.cwd(), resolveRoot(opts)), hooks: hooks.length, mcpServers: mcpServers.length });
-  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks, mcpServers, bin }, ...(derived && { derived }) };
+  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks: merged ? [] : hooks, mcpServers: merged ? [] : mcpServers, bin }, ...(imported && { rulesync: { status: merged ? "merged" : "absent" } }), ...(derived && { derived }) };
 }
 
 /**
@@ -145,7 +160,7 @@ function commit({ catalog, source, fetched, inventory }, opts, { run }) {
  * @param {{ confirm: (members: { name: string, inventory: object, source: object, commit?: string, status: string }[]) => boolean | Promise<boolean>, git?: Function, gitBase?: string, run?: Function }} [how]
  * @returns {Promise<object>} the target's result, plus `dependencies` (the other members, in install order), `skipped` and `chosen`
  */
-export async function installPluginSet(name, opts = {}, { confirm, git, gitBase, run } = {}) {
+export async function installPluginSet(name, opts = {}, { confirm, git, gitBase, run, rulesync } = {}) {
   if (typeof confirm !== "function") throw new Error("installPluginSet needs a confirm function");
   const mode = pluginMode(name, opts);
   if (mode !== "split") {
@@ -168,7 +183,7 @@ export async function installPluginSet(name, opts = {}, { confirm, git, gitBase,
   try {
     for (const member of members) {
       snapshots.push(snapshot(member, opts));
-      done.push({ ...commit(member, opts, { run }), mode });
+      done.push({ ...commit(member, opts, { run, rulesync }), mode });
     }
   } catch (error) {
     const failed = members[done.length].name;
@@ -201,7 +216,7 @@ const sameAsInstalled = (dir, inventory) => {
  * @param {{ confirm: (inventory: object, info: { source: object, commit?: string, from?: string, status: string, changed: boolean, again?: boolean }) => boolean | Promise<boolean>, git?: Function, gitBase?: string, run?: Function }} [how]
  * @returns {Promise<{ plugin: string, status: "updated" | "current" | "declined", from?: string }>} "updated" also carries installPlugin's result
  */
-export async function updatePlugin(name, opts = {}, { confirm, git, gitBase, run } = {}) {
+export async function updatePlugin(name, opts = {}, { confirm, git, gitBase, run, rulesync } = {}) {
   if (typeof confirm !== "function") throw new Error("updatePlugin needs a confirm function");
   const { plugins, artifacts } = readLock(opts);
   const held = plugins?.[name];
@@ -219,7 +234,7 @@ export async function updatePlugin(name, opts = {}, { confirm, git, gitBase, run
   const before = snapshot(prepared, opts, held.entries);
   try {
     for (const { kind, storeName } of held.entries.map(entryOf)) remove(storeName, { ...opts, kind });
-    return { ...commit(prepared, opts, { run }), status: "updated", from: held.commit };
+    return { ...commit(prepared, opts, { run, rulesync }), status: "updated", from: held.commit };
   } catch (error) {
     let restored = "the previous store and lock";
     try { before.restore(); } catch (e) { restored = `nothing (restore failed: ${e.message})`; }

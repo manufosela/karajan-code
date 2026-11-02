@@ -1,7 +1,7 @@
 // HU-3097 (step 13 P4): atril install plugin:<name> asks before installing, and says what it does not install yet.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -136,10 +136,13 @@ describe("atril update plugin:<name>", () => {
 describe("atril install plugin:<name>", () => {
   it("--yes installs and --json carries notInstalled", () => {
     market({ "hooks/hooks.json": { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "echo" }] }] } } });
-    const res = atril("--yes", "--json");
+    // No rulesync on this machine: an npx that fails first in PATH.
+    mkdirSync(join(dir, "bin"));
+    writeFileSync(join(dir, "bin", "npx"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    const res = spawnSync(process.execPath, [BIN, "install", "plugin:kit", "--root", "store", "--yes", "--json"], { cwd: dir, encoding: "utf8", env: { ...process.env, HOME: dir, PATH: `${join(dir, "bin")}${delimiter}${process.env.PATH}` } });
     expect(res.status).toBe(0);
-    expect(JSON.parse(res.stdout)).toMatchObject({ plugin: "kit", status: "installed", notInstalled: { hooks: [expect.anything()] } });
-    expect(res.stderr).toMatch(/not installed yet/);
+    expect(JSON.parse(res.stdout)).toMatchObject({ plugin: "kit", status: "installed", rulesync: { status: "absent" }, notInstalled: { hooks: [expect.anything()] } });
+    expect(res.stderr).toMatch(/rulesync is not installed/);
     expect(existsSync(join(dir, "store", "commands", "kit__ship.md"))).toBe(true);
   });
   it.each(["--yes", "--json"])("%s on a plain install fails loudly", (flag) => {
