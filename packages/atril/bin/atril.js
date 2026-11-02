@@ -310,6 +310,7 @@ async function runInstallPlugin(name, values) {
 function runRemovePlugin(name, values) {
   const result = removePlugin(name, { root: values.root, purge: values.purge, force: values.force });
   for (const path of result.leftBehind ?? []) console.error(`atril: removed, but could not delete ${printable(path)}: delete it by hand`);
+  for (const key of result.entries?.kept ?? []) console.error(printable(`atril: kept ${key} in .rulesync/: you edited it since atril wrote it, so it is yours now`));
   for (const line of result.derived ? removedInstructions(result.derived) : []) console.error(printable(`atril: ${line}`));
   if (values.json) console.log(JSON.stringify(result, null, 2));
   else if (result.mode) console.log(`nothing to remove\tplugin:${printable(name)}\tchosen as ${result.mode}: atril installed nothing`);

@@ -9,6 +9,7 @@ import { readLock, writeLock } from "../src/lock.js";
 import { removeDerived, writeDerived } from "../src/plugin-derived.js";
 import { installPluginMarkdown } from "../src/plugin-markdown.js";
 import { removePlugin } from "../src/plugin-remove.js";
+import { mergeEntries } from "../src/rulesync-entries.js";
 import { install } from "../src/store.js";
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), "..", "bin", "atril.js");
@@ -44,6 +45,13 @@ describe("removePlugin", () => {
     expect(readLock(o()).plugins).toBeUndefined();
     expect(has("plugins/kit/1.0.0/x")).toBe(true);
     expect(has("plugins/.data/kit/y")).toBe(true);
+  });
+
+  it("also takes the plugin's hooks and MCP entries out of .rulesync/", () => {
+    mkdirSync(join(dir, ".rulesync"));
+    mergeEntries(dir, "kit", { mcp: { mcpServers: { db: { command: "db" } } } });
+    expect(removePlugin("kit", o()).entries).toEqual({ removed: ["mcp.json#kit/db"], kept: [] });
+    expect(JSON.parse(readFileSync(join(dir, ".rulesync", "mcp.json"), "utf8")).mcpServers).toEqual({});
   });
 
   it("--purge also removes the cache and the data, and only this plugin's", () => {
