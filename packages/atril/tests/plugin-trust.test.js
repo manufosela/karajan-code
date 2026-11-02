@@ -108,6 +108,14 @@ describe("npm packages and variables", () => {
     expect(formatInventory(plugin())).toContain('unresolved variables (3):\n  ref "demo:s" variable "user_config.key" reason "undeclared"');
   });
 
+  it("says needs config for a key the manifest declares, sensitive or not, and undeclared for the rest", () => {
+    write("commands/run.md", entry("", "${user_config.token} ${user_config.dir} ${user_config.other}"));
+    const { variables } = plugin({ userConfig: { token: { sensitive: true }, dir: {} } });
+    expect(variables.map(({ variable, reason }) => [variable, reason])).toEqual([
+      ["user_config.token", "needs config"], ["user_config.dir", "needs config"], ["user_config.other", "undeclared"],
+    ]);
+  });
+
   it("scans the body and allowed-tools only, as the install substitutes them", () => {
     write("commands/run.md", entry('allowed-tools: ["Bash(${user_config.tool})"]\ndescription2: ${user_config.ignored}\n', "plain"));
     expect(plugin().variables).toEqual([{ ref: "demo:run", variable: "user_config.tool", reason: "undeclared" }]);
