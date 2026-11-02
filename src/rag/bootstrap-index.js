@@ -24,7 +24,7 @@ export const readBootstrap = (projectDir, o) => readLease(markerPath(projectDir)
  * `{ started, pid }`, or `{ started: false, recent: true }` when the last attempt died less
  * than RETRY_MS ago: the index is then asked for by hand instead of being retried blindly.
  */
-export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now = Date.now(), lease = indexLeasePath() } = {}) {
+export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now = Date.now(), lease = indexLeasePath(), indexArgs = ["--with-sources"] } = {}) {
   const file = markerPath(projectDir);
   mkdirSync(dirname(file), { recursive: true });
   // One claimant at a time: the lock directory is created atomically, so of two commands arriving
@@ -47,11 +47,11 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
       if (holder?.running && holder.pid !== process.pid) return { started: false, busy: { projectDir: holder.projectDir, slug: holder.slug, pid: holder.pid } };
       // Marker and lease land whole each time: first with the claimant's pid, so they read as
       // running meanwhile, then with the indexer's.
-      const command = [process.execPath, bin, "rag", "index", "--with-sources"].join(" ");
+      const command = [process.execPath, bin, "rag", "index", ...indexArgs].join(" ");
       const note = (pid) => { writeLease(file, { pid, at: now, command }); writeLease(lease, { pid, at: now, command, projectDir, slug }); };
       note(process.pid);
       try {
-        const child = spawnFn(process.execPath, [bin, "rag", "index", "--with-sources"], { cwd: projectDir, detached: true, stdio: "ignore", env: { ...process.env, KJ_RAG_DEADLINE: String(now + MAX_RUN_MS - DEADLINE_MARGIN_MS) } });
+        const child = spawnFn(process.execPath, [bin, "rag", "index", ...indexArgs], { cwd: projectDir, detached: true, stdio: "ignore", env: { ...process.env, KJ_RAG_DEADLINE: String(now + MAX_RUN_MS - DEADLINE_MARGIN_MS) } });
         child.unref?.();
         note(child.pid);
         return { started: true, pid: child.pid };
@@ -64,6 +64,9 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
     return res.busy === true ? { started: false, busy: {} } : res;
   } finally { unlessGone(() => rmdirSync(lock)); }
 }
+
+/** HU-3278: a seeded lane catches up with `kj rag index --since auto` (no per-query cap), same marker and machine lease. */
+export const startDeltaIndex = (projectDir, opts) => startBootstrap(projectDir, { ...opts, indexArgs: ["--since", "auto"] });
 
 /** HU-3092: the indexer that reached its deadline notes it, only while the marker still names it. */
 export const noteDeadline = (projectDir, { pid = process.pid, now = Date.now(), wait } = {}) => noteStopped(markerPath(projectDir), pid, now, "deadline", wait);
