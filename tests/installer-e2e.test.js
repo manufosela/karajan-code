@@ -295,7 +295,14 @@ describe("installer E2E: init → doctor", () => {
     const { loadFirstExisting } = await import("../src/roles/base-role.js");
     loadFirstExisting.mockResolvedValue("# Rules");
 
-    const checks = await runChecks({ config: defaultConfig });
+    // An empty project dir: the repo's own .rulesync/ must not pull the rulesync check into a mocked run.
+    const projectDir = mkdtempSync(join(tmpdir(), "kj-e2e-project-"));
+    let checks;
+    try {
+      checks = await runChecks({ config: { ...defaultConfig, projectDir } });
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
     const failures = checks.filter((c) => !c.ok && c.fix);
     expect(failures).toEqual([]);
   });
@@ -430,7 +437,8 @@ describe("installer E2E: init → doctor", () => {
     const { runChecks } = await import("../src/commands/doctor.js");
     let checks;
     try {
-      checks = await runChecks({ config });
+      // An empty project dir: the repo's own .rulesync/ must not pull the rulesync check into a mocked run.
+      checks = await runChecks({ config: { ...config, projectDir: mkdtempSync(join(tmpdir(), "kj-e2e-project-")) } });
     } finally {
       if (prevDb === undefined) delete process.env.KJ_RAG_DB; else process.env.KJ_RAG_DB = prevDb;
     }
