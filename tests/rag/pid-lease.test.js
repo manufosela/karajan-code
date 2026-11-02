@@ -71,6 +71,12 @@ describe("stopIndexer", () => {
     const answers = [indexer];
     expect(await run(() => answers.shift() ?? null)).toBe(false);
   });
+  it("a pid reused during the wait gets no SIGKILL", async () => {
+    const calls = [];
+    const answers = [indexer, { elapsedMs: 1000, command: "vim x" }];
+    await stopIndexer(4242, AT, { now: NOW, ps: () => answers.shift(), kill: (pid, sig) => { calls.push([pid, sig]); }, sleep: async () => {}, killAfterMs: 200 });
+    expect(calls.some(([, sig]) => sig === "SIGKILL")).toBe(false);
+  });
 });
 describe("stopLeaseHolder when the mutex is busy", () => {
   const stopWith = async (releaseAt) => {

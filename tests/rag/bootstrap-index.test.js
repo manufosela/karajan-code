@@ -15,11 +15,15 @@ vi.mock("../../src/rag/governed-embedder.js", () => ({ makeGovernedEmbedder: vi.
 vi.mock("../../src/rag/embed-schema.js", () => ({ readEmbedSchema: vi.fn(() => 99) }));
 vi.mock("../../src/rag/bootstrap-index.js", async () => {
   const real = await vi.importActual("../../src/rag/bootstrap-index.js");
-  return { ...real, startBootstrap: vi.fn(real.startBootstrap) };
+  return { ...real, startBootstrap: vi.fn(real.startBootstrap), stopBootstrap: vi.fn(real.stopBootstrap) };
+});
+vi.mock("../../src/rag/pid-lease.js", async () => {
+  const real = await vi.importActual("../../src/rag/pid-lease.js");
+  return { ...real, stopLeaseHolder: vi.fn(real.stopLeaseHolder) };
 });
 
 const { startBootstrap, stopBootstrap, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS } = await import("../../src/rag/bootstrap-index.js");
-const { readLease } = await import("../../src/rag/pid-lease.js");
+const { readLease, stopLeaseHolder } = await import("../../src/rag/pid-lease.js");
 const { maybeAutoUpdate } = await import("../../src/rag/auto-update.js");
 
 let root;
@@ -167,9 +171,40 @@ describe("stopBootstrap", () => {
     expect(await stopBootstrap(root, { lease, now, wait: () => {}, ...table() })).toMatchObject({ pid: PID, marked: false });
     expect(readLease(lease)).toMatchObject({ pid: PID });
   });
+
+  it("younger than MAX_RUN_MS it is left alone; with force it is stopped and RETRY_MS counts from stoppedAt", async () => {
+    const proc = table();
+    const now = t0 + 1000;
+    expect(await stopBootstrap(root, { lease, now, ...proc })).toBeNull();
+    expect(signals(proc.calls)).toEqual([]);
+    expect(await stopBootstrap(root, { lease, now, force: true, ...proc })).toMatchObject({ pid: PID });
+    expect(readBootstrap(root, { now })).toMatchObject({ stoppedBy: "lane-done" });
+    expect(startBootstrap(root, { spawnFn, lease, now: now + RETRY_MS - 1 })).toEqual({ started: false, recent: true, pid: null });
+    expect(startBootstrap(root, { spawnFn, lease, now: now + RETRY_MS })).toMatchObject({ started: true });
+  });
+
+  it("a reused pid gets no signal and the marker is unchanged", async () => {
+    const proc = table({ command: "vim notes.md" });
+    expect(await stopBootstrap(root, { lease, now: t0 + MAX_RUN_MS, ...proc })).toBeNull();
+    expect(signals(proc.calls)).toEqual([]);
+    expect(readBootstrap(root, { now: t0 })).toMatchObject({ pid: PID, at: t0 });
+    expect(readBootstrap(root, { now: t0 })).not.toHaveProperty("stoppedAt");
+  });
+
+  it("leaves a lease that names another pid", async () => {
+    writeFileSync(lease, JSON.stringify({ pid: 777, at: t0, projectDir: "/other", slug: "o" }), "utf8");
+    expect(await stopBootstrap(root, { lease, now: t0 + MAX_RUN_MS, ...table() })).toMatchObject({ pid: PID });
+    expect(readLease(lease)).toMatchObject({ pid: 777 });
+  });
 });
 
 describe("maybeAutoUpdate without an index", () => {
+  // The real stops would read this machine's lease: here they answer "nothing to stop" unless a test says otherwise.
+  beforeEach(() => {
+    stopBootstrap.mockResolvedValue(null);
+    stopLeaseHolder.mockResolvedValue(null);
+  });
+  afterEach(() => { stopBootstrap.mockReset(); stopLeaseHolder.mockReset(); });
   beforeEach(() => {
     execFileSync("git", ["init", "-q"], { cwd: root });
     execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "base"], { cwd: root });
@@ -194,5 +229,29 @@ describe("maybeAutoUpdate without an index", () => {
     expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ skipped: true, reason: "bootstrap-failed" });
     await maybeAutoUpdate({ projectDir: root, config: {}, logger });
     expect(warned.filter((l) => /kj rag index --with-sources/.test(l))).toHaveLength(1);
+  });
+
+  it("stops run before the bootstrap and never block it; max-run and marked: false each warn once", async () => {
+    const order = [];
+    stopBootstrap.mockImplementationOnce(async () => { order.push("stop"); return null; });
+    stopLeaseHolder.mockImplementationOnce(async () => { order.push("lease"); return null; });
+    startBootstrap.mockImplementationOnce(() => { order.push("start"); return { started: true, pid: 1 }; });
+    await maybeAutoUpdate({ projectDir: root, config: {}, logger });
+    expect(order).toEqual(["stop", "lease", "start"]);
+
+    stopBootstrap.mockRejectedValueOnce(new Error("ps gone"));
+    stopLeaseHolder.mockRejectedValueOnce(new Error("ps gone"));
+    startBootstrap.mockReturnValue({ started: true, pid: 2 });
+    expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ reason: "bootstrapping", pid: 2 });
+
+    startBootstrap.mockReturnValue({ started: false, recent: true, stopped: "max-run" });
+    for (let i = 0; i < 2; i += 1) expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ reason: "bootstrap-failed" });
+    expect(warned.filter((l) => /ran past 60 min and was stopped: run kj rag index --with-sources/.test(l))).toHaveLength(1);
+
+    for (let i = 0; i < 2; i += 1) {
+      stopBootstrap.mockResolvedValueOnce({ pid: 9, slug: "p", marked: false });
+      await maybeAutoUpdate({ projectDir: root, config: {}, logger });
+    }
+    expect(warned.filter((l) => /could not be noted/.test(l))).toHaveLength(1);
   });
 });

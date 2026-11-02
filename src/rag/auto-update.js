@@ -9,7 +9,8 @@ import { execa } from "execa";
 import { projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 import { indexProject, indexProjectDelta } from "./indexer.js";
 import { readRefreshedPaths, untrackedFiles, writeRefreshedPaths } from "./worktree-files.js";
-import { startBootstrap } from "./bootstrap-index.js";
+import { startBootstrap, stopBootstrap } from "./bootstrap-index.js";
+import { indexLeasePath, stopLeaseHolder } from "./pid-lease.js";
 import { ragExclude } from "./indexable.js";
 import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { openProjectStore } from "./project-store.js";
@@ -33,8 +34,20 @@ const HOOK_SRC = resolve(fileURLToPath(import.meta.url), "../../../scripts/git-h
 
 // KJC-TSK-1174 (RAG-A2): no index yet. It is built in the background, once; the session
 // does not wait. A recent attempt that died (no Ollama) is not retried blindly.
-function bootstrapInBackground({ projectDir, slug, head, logger }) {
+async function bootstrapInBackground({ projectDir, slug, head, logger }) {
+  // HU-2758: an indexer past MAX_RUN_MS is stopped first: this project's, then whichever holds the machine lease
+  // (an orphan of an older build that no marker names). A failure here never keeps the bootstrap from happening.
+  for (const stopped of [await stopBootstrap(projectDir).catch(() => null), await stopLeaseHolder(indexLeasePath()).catch(() => null)]) {
+    if (!stopped) continue;
+    logger.info?.(`[rag] stopped the background index of ${stopped.slug ?? slug} (pid ${stopped.pid}): it ran past 60 min`);
+    // The stop never reached the marker (busy mutex): nothing on file says it was stopped, so it may start again.
+    if (stopped.marked === false) warnOnce(logger, `bootstrap-unmarked:${projectDir}`, `[rag] the stop of the background index of ${stopped.slug ?? slug} (pid ${stopped.pid}) could not be noted: it may be started again on the next command; run kj rag index --with-sources by hand`);
+  }
   const boot = startBootstrap(projectDir);
+  if (boot.stopped === "max-run") {
+    warnOnce(logger, `bootstrap-stopped:${projectDir}`, `[rag] the background index of ${slug} ran past 60 min and was stopped: run kj rag index --with-sources by hand`);
+    return { skipped: true, reason: "bootstrap-failed", head };
+  }
   if (boot.busy) {
     warnOnce(logger, `bootstrap-busy:${projectDir}`, `[rag] ${slug} has no index yet: another background index is running (${boot.busy.slug ?? "?"}, pid ${boot.busy.pid ?? "?"}); it is tried again on the next command`);
     return { skipped: true, reason: "bootstrap-queued", holder: boot.busy, head };
@@ -93,7 +106,7 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
   try {
     const since = getLastIndexedCommit(db, slug);
-    if (!since) return bootstrapInBackground({ projectDir, slug, head, logger });
+    if (!since) return await bootstrapInBackground({ projectDir, slug, head, logger });
     // KJC-BUG-0304: a drift of hundreds of files (an index weeks old) reindexed the
     // repo for half an hour before the query answered. Past the bound the query
     // answers from the index as it is, and says how to bring it up to date.
