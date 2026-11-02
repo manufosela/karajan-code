@@ -1,7 +1,10 @@
 // KJC-TSK-1384 (ADR 0045): `kj gates` lists every rule, fixed and adjustable, with its
 // value and who set it. KJC-TSK-1385: `kj gates set` changes an adjustable one.
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { resolveRules, formatRules, FIXED_RULES, ADJUSTABLE_RULES, parseRuleValue, stricter } from "../gates/registry.js";
+import { findQuote, contributingLayer, CONTRIBUTING_FILES } from "../gates/contributing.js";
+import { detectProjectConventions } from "../gates/project-conventions.js";
 import { loadProjectConfig, writeConfig } from "../config/loader.js";
 import { humanAct } from "../harden/human-act.js";
 import { signAct } from "../harden/act-sign.js";
@@ -37,6 +40,38 @@ export async function gatesSetCommand({
   return { rule: id, value, loosened };
 }
 
+/**
+ * KJC-TSK-1391: a setting the project's CONTRIBUTING justifies, kept with its sentence, which
+ * must be in the file. No human act: the project says it and the quote is checked (ADR 0045).
+ * About a fixed rule it changes nothing and is recorded as a conflict, shown to the user.
+ */
+export async function gatesFromContributingCommand({
+  rule: id, value: raw, quote, projectDir = process.cwd(),
+  readFile = (rel) => readFileSync(path.join(projectDir, rel), "utf8"),
+  load = loadProjectConfig, write = writeConfig, print = console.log,
+}) {
+  const file = findQuote(quote, readFile);
+  if (!file) throw new Error(`that sentence is not in the project's CONTRIBUTING (${CONTRIBUTING_FILES.join(", ")}): nothing changed`);
+  const conflict = FIXED_RULES.some((r) => r.id === id);
+  const rule = ADJUSTABLE_RULES.find((r) => r.id === id);
+  if (!conflict && !rule) throw new Error(`no adjustable rule "${id}": ${ADJUSTABLE_RULES.map((r) => r.id).join(", ")}`);
+  const value = conflict ? raw : parseRuleValue(rule, raw);
+  const projectConfig = (await load(projectDir)) || {};
+  projectConfig.contributing_rules = [...(projectConfig.contributing_rules || []).filter((e) => e.rule !== id), { rule: id, value, quote }];
+  await write(path.join(projectDir, ".karajan", "kj.config.yml"), projectConfig);
+  print(conflict
+    ? `⚠ ${id} is a fixed rule and stays: recorded as a conflict with ${file}, decide whether to use Karajan here`
+    : `✓ ${id} → ${value}, from ${file}`);
+  return { rule: id, value, file, conflict };
+}
+
+/** What the project says: its CONTRIBUTING settings over what is detected, plus conflicts and stale settings. */
+export function projectSignals({ projectDir, config, detect = detectProjectConventions,
+  readFile = (rel) => readFileSync(path.join(projectDir, rel), "utf8") }) {
+  const layer = contributingLayer(config?.contributing_rules, readFile);
+  return { project: { ...detect(projectDir), ...layer.project }, conflicts: layer.conflicts, stale: layer.stale };
+}
+
 /** KJC-TSK-1386: only the resolved value of one adjustable rule, for a hook to read. */
 export function gatesValueCommand({ rule: id, config, project, print = console.log }) {
   const rule = resolveRules(config, { project }).adjustable.find((r) => r.id === id);
@@ -45,8 +80,8 @@ export function gatesValueCommand({ rule: id, config, project, print = console.l
   return rule.value;
 }
 
-export function gatesCommand({ config, flags = {}, project = {}, print = console.log }) {
-  const resolved = resolveRules(config, { project });
+export function gatesCommand({ config, flags = {}, project = {}, conflicts = [], stale = [], print = console.log }) {
+  const resolved = { ...resolveRules(config, { project }), conflicts, stale };
   print(flags.json ? JSON.stringify(resolved, null, 2) : formatRules(resolved));
   return resolved;
 }
