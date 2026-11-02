@@ -49,7 +49,7 @@ function refuseSymlinks(projectDir, key) {
 
 /** Every step of a sync, judged and nothing written. */
 export function plan(projectDir, ledger, wanted) {
-  const stale = Object.entries(ledger.entries).filter(([key, { owner }]) => owner === OWNER && !wanted.has(key));
+  const stale = Object.entries(ledger.entries).filter(([key, { owner }]) => owner === OWNER && !key.includes("#") && !wanted.has(key)); // `file#block` keys are plugin entries, not files sync owns
   return [...wanted.keys(), ...stale.map(([key]) => key)].map((key) => {
     if (ownKey(key)) refuseSymlinks(projectDir, key);
     const current = readOrNull(join(projectDir, RULESYNC, key));

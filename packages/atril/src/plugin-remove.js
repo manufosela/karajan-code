@@ -10,6 +10,7 @@ import { readLock, writeLock } from "./lock.js";
 import { removeDerived } from "./plugin-derived.js";
 import { pluginMode } from "./plugin-mode.js";
 import { pluginDataDir } from "./plugin-vars.js";
+import { removeEntries } from "./rulesync-entries.js";
 import { resolveRoot } from "./scan.js";
 import { target } from "./store.js";
 
@@ -56,5 +57,6 @@ export function removePlugin(name, { purge = false, force = false, ...opts } = {
     try { rmSync(aside, { recursive: true, force: true }); return []; } catch { return [aside]; }
   });
   const derived = removeDerived(name, root);
-  return { plugin: name, removed: keys, purged: purge, ...(leftBehind.length && { leftBehind }), ...(derived && { derived }) };
+  const entries = removeEntries(opts.projectDir ?? process.cwd(), name);
+  return { plugin: name, removed: keys, purged: purge, ...(leftBehind.length && { leftBehind }), ...(derived && { derived }), ...(entries.removed.length + entries.kept.length && { entries }) };
 }
