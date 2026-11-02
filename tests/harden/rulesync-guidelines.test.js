@@ -15,16 +15,17 @@ import { LEDGER_FILE, readLedger } from "../../src/utils/rulesync-ledger.js";
 
 let dir;
 const rule = () => join(dir, RULESYNC_RULE);
+// KJC-BUG-0482: a Rulesync project has rulesync.jsonc; .rulesync/ alone is atril's ground.
+const adoptRulesync = () => { mkdirSync(join(dir, ".rulesync"), { recursive: true }); writeFileSync(join(dir, "rulesync.jsonc"), "{}\n"); };
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-rulesync-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("detectRulesync", () => {
-  it("detecta .rulesync/ o rulesync.jsonc, y nada mas", () => {
+  it("detecta rulesync.jsonc; .rulesync/ sola (la de atril) no cuenta", () => {
+    expect(detectRulesync(dir)).toBe(false);
+    mkdirSync(join(dir, ".rulesync"));
     expect(detectRulesync(dir)).toBe(false);
     writeFileSync(join(dir, "rulesync.jsonc"), "{}\n");
-    expect(detectRulesync(dir)).toBe(true);
-    rmSync(join(dir, "rulesync.jsonc"));
-    mkdirSync(join(dir, ".rulesync"));
     expect(detectRulesync(dir)).toBe(true);
   });
 });
@@ -37,7 +38,7 @@ describe("kj harden guidelines con Rulesync", () => {
   });
 
   it("con Rulesync, el bloque va a .rulesync/rules/karajan.md con su frontmatter, y no toca CLAUDE.md", () => {
-    mkdirSync(join(dir, ".rulesync"));
+    adoptRulesync();
     const res = installGuidelines({ projectDir: dir, language: "javascript" });
     expect(res.guidelines.map((g) => g.file)).toEqual([RULESYNC_RULE]);
     const text = readFileSync(rule(), "utf8");
@@ -47,7 +48,7 @@ describe("kj harden guidelines con Rulesync", () => {
   });
 
   it("idempotente, y lo que el equipo escribe fuera del bloque se queda", () => {
-    mkdirSync(join(dir, ".rulesync"));
+    adoptRulesync();
     installGuidelines({ projectDir: dir, language: "javascript" });
     writeFileSync(rule(), `${readFileSync(rule(), "utf8")}\n- Regla propia del equipo.\n`);
     const again = installGuidelines({ projectDir: dir, language: "javascript" });
@@ -60,7 +61,7 @@ describe("kj harden guidelines con Rulesync", () => {
 // the ownership ledger. It owns its managed blocks, not the file: the team's
 // own rules outside them stay free, a hand edit inside one stops kj.
 describe("kj's karajan.md blocks through the ownership ledger", () => {
-  const withRulesync = () => mkdirSync(join(dir, ".rulesync"));
+  const withRulesync = adoptRulesync;
   const key = "rules/karajan.md#guidelines";
 
   it("records kj as the owner of the block it wrote, with its hash", () => {

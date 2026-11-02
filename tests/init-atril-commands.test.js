@@ -40,6 +40,7 @@ describe("kj init: Karajan's commands go to atril's store", () => {
 
   it("runs atril sync when the project uses rulesync", () => {
     mkdirSync(join(project, ".rulesync"));
+    writeFileSync(join(project, "rulesync.jsonc"), "{}"); // KJC-BUG-0482: the folder alone is atril's
     installKarajanCommands({ projectDir: project, logger, env: env() });
     expect(existsSync(join(project, ".rulesync", "commands", "atril.md"))).toBe(true);
     expect(existsSync(join(project, ".rulesync", "rules", "atril-router.md"))).toBe(true);
