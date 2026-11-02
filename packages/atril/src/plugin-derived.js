@@ -61,6 +61,39 @@ export function writeDerived(name, version, copy, { root, hooks, mcpServers }) {
   return { name, path: args.path, marketplace, commands, ...(withoutAssets && { withoutAssets }) };
 }
 
+// The command each CLI with a plugin route is told to run to undo `COMMANDS`; `last`: no derived plugin stays in the marketplace.
+const UNINSTALL = {
+  claude: ({ name, last }) => `claude plugin uninstall ${q(`${name}@${MARKETPLACE}`)}${last ? ` && claude plugin marketplace remove ${q(MARKETPLACE)}` : ""}`,
+};
+
+/**
+ * Deletes the derived plugin of `name` and its marketplace entry (the file stays, empty, as a reinstall leaves it)
+ * and returns the commands the user runs to uninstall it; undefined when there was none. Runs no host CLI.
+ * @param {string} name @param {string} root the resolved atril root
+ */
+export function removeDerived(name, root) {
+  const { base } = pluginPaths(root, name, "0"); // throws on a name that would escape plugins/
+  const path = join(base, "derived");
+  const marketplace = join(root, "plugins", ".marketplace");
+  const file = join(marketplace, ".claude-plugin", "marketplace.json");
+  const held = existsSync(file) ? readJson(file).plugins ?? [] : [];
+  const listed = held.some((entry) => entry.name === name);
+  if (!listed && !existsSync(path)) return undefined;
+  rmSync(path, { recursive: true, force: true });
+  const plugins = held.filter((entry) => entry.name !== name);
+  if (listed) writeJson(file, { name: MARKETPLACE, owner: { name: MARKETPLACE }, plugins });
+  const args = { name, last: plugins.length === 0 };
+  const commands = Object.entries(UNINSTALL).filter(([cli]) => CLI_MATRIX[cli]?.hooks).map(([cli, command]) => ({ cli, command: command(args) }));
+  return { name, marketplace, commands };
+}
+
+/** Lines for the user after a removal: the command per CLI. atril runs none of them. */
+export const removedInstructions = ({ name, commands }) => [
+  `derived plugin "${name}" deleted from atril; to uninstall it from a host CLI, run:`,
+  ...commands.map(({ cli, command }) => `  ${cli}: ${command}`),
+  "atril runs none of these",
+];
+
 /** Lines for the user: what the derived plugin is and the command per CLI. atril runs none of them. */
 export function derivedInstructions({ name, marketplace, commands, withoutAssets }) {
   return [

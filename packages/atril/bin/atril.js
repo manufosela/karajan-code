@@ -27,7 +27,7 @@ import { installPluginSet, updatePlugin } from "../src/plugin-install.js";
 import { readLock } from "../src/lock.js";
 import { setPluginMode } from "../src/plugin-mode.js";
 import { removePlugin } from "../src/plugin-remove.js";
-import { derivedInstructions } from "../src/plugin-derived.js";
+import { derivedInstructions, removedInstructions } from "../src/plugin-derived.js";
 import { installConfirm, notInstalledLines, updateConfirm } from "../src/plugin-install-cli.js";
 import { configureMissing, pluginConfigRows, setPluginConfig, unsetPluginKey } from "../src/plugin-config-cli.js";
 
@@ -310,6 +310,7 @@ async function runInstallPlugin(name, values) {
 function runRemovePlugin(name, values) {
   const result = removePlugin(name, { root: values.root, purge: values.purge, force: values.force });
   for (const path of result.leftBehind ?? []) console.error(`atril: removed, but could not delete ${printable(path)}: delete it by hand`);
+  for (const line of result.derived ? removedInstructions(result.derived) : []) console.error(printable(`atril: ${line}`));
   if (values.json) console.log(JSON.stringify(result, null, 2));
   else if (result.mode) console.log(`nothing to remove\tplugin:${printable(name)}\tchosen as ${result.mode}: atril installed nothing`);
   else console.log(`removed\tplugin:${printable(name)}\t${result.removed.map(printable).join(" ")}${result.purged ? "\tpurged cache and data" : ""}`);

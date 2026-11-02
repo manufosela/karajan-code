@@ -1,11 +1,12 @@
 // HU-3098 (step 13 P5): removePlugin deletes what the lock lists for a plugin, all or nothing; --purge also drops cache and data.
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readLock, writeLock } from "../src/lock.js";
+import { removeDerived, writeDerived } from "../src/plugin-derived.js";
 import { installPluginMarkdown } from "../src/plugin-markdown.js";
 import { removePlugin } from "../src/plugin-remove.js";
 import { install } from "../src/store.js";
@@ -121,6 +122,60 @@ describe("removePlugin with dependents (HU-3195)", () => {
     expect(refused.status).toBe(1);
     expect(refused.stderr).toContain("required by: app");
     expect(cli("--force").status).toBe(0);
+  });
+});
+
+describe("removePlugin with a derived plugin (HU-3184, ADR 0042)", () => {
+  const HOOKS = { hooks: { Stop: [{ hooks: [{ type: "command", command: "x" }] }] } };
+  const derive = (name = "kit") => {
+    put("copy/hooks/hooks.json", JSON.stringify(HOOKS));
+    writeDerived(name, "1.0.0", join(dir, "copy"), { root: join(dir, "store"), hooks: 1, mcpServers: 0 });
+  };
+  const listed = () => JSON.parse(readFileSync(join(dir, "store/plugins/.marketplace/.claude-plugin/marketplace.json"), "utf8")).plugins.map((p) => p.name);
+
+  it("deletes the derived plugin and its marketplace entry, keeps the other entries, and lists the uninstall command", () => {
+    derive();
+    derive("other");
+    const { derived } = removePlugin("kit", o());
+    expect(has("plugins/kit/derived")).toBe(false);
+    expect(has("plugins/other/derived")).toBe(true);
+    expect(listed()).toEqual(["other"]);
+    expect(derived.commands).toEqual([{ cli: "claude", command: "claude plugin uninstall 'kit@atril'" }]);
+  });
+
+  it("adds the marketplace removal when no derived plugin is left, and keeps the file as a reinstall does", () => {
+    derive();
+    const { derived } = removePlugin("kit", o());
+    expect(listed()).toEqual([]);
+    expect(derived.commands[0].command).toBe("claude plugin uninstall 'kit@atril' && claude plugin marketplace remove 'atril'");
+  });
+
+  it("a plugin without a derived plugin gets no extra field", () => {
+    expect(removePlugin("kit", o())).not.toHaveProperty("derived");
+  });
+
+  it("the CLI prints the command in text and in --json, and runs no host CLI", () => {
+    derive();
+    const bin = join(dir, "bin");
+    for (const cli of ["claude", "agy"]) {
+      put(`bin/${cli}`, `#!/bin/sh\ntouch "${join(dir, "ran")}"\n`);
+      chmodSync(join(bin, cli), 0o755);
+    }
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+    const run = (...a) => spawnSync(process.execPath, [BIN, "remove", "plugin:kit", "--root", "store", ...a], { cwd: dir, encoding: "utf8", env });
+    const text = run();
+    expect(text.status).toBe(0);
+    expect(text.stderr).toContain("claude: claude plugin uninstall 'kit@atril'");
+    expect(existsSync(join(dir, "ran"))).toBe(false); // runs === 0
+    derive();
+    installPluginMarkdown(join(dir, "kit"), o(), { from: { catalog: "mkt" } });
+    expect(JSON.parse(run("--json").stdout).derived.commands[0].cli).toBe("claude");
+    expect(existsSync(join(dir, "ran"))).toBe(false);
+  });
+
+  it("rejects a name that would escape plugins/, deleting nothing", () => {
+    expect(() => removeDerived("../store", join(dir, "store"))).toThrow(/invalid plugin name/);
+    expect(has("plugins/kit")).toBe(true);
   });
 });
 
