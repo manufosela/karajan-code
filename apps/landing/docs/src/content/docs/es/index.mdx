@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.2.0: las reglas, a la vista (actual)
+### v5.2.1: el método vuelve a llegar a tus agentes con atril (actual)
+
+En un proyecto con atril, kj tomaba la carpeta `.rulesync/` que crea atril por una señal de Rulesync y escribía el método solo ahí, así que CLAUDE.md, AGENTS.md y GEMINI.md se quedaban sin actualizar. Rulesync cuenta ahora solo con `rulesync.jsonc`, rulesync en package.json o `rulesync.generate: true`. Ejecuta `kj env install` una vez para poner al día los ficheros de los agentes.
+
+### v5.2.0: las reglas, a la vista
 
 `kj gates` enseña las reglas con las que gobierna kj: cinco fijas que no cambia nadie, y cada ajustable con su valor y quién lo puso. Lo que dice el propio proyecto gana sobre los valores por defecto de kj: su commitlint o su historial para la convención de commits, y su CONTRIBUTING cuando la frase exacta está en el fichero. El agente puede endurecer una regla; aflojarla es solo cosa tuya. `kj init`, `kj doctor` y el HU Board enseñan la lista, y cada gate aplica el valor resuelto.
 

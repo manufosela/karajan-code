@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.1] - 2026-11-02
+
+### Fixed
+- **The method reaches CLAUDE.md, AGENTS.md and GEMINI.md again in projects with atril** (KJC-BUG-0482, agreed with atril's maintainer): kj took a project for a Rulesync one as soon as `.rulesync/` existed, and atril creates that folder in every project, so `kj env install` and `kj harden` wrote kj's blocks only into `.rulesync/rules/karajan.md`. A project uses Rulesync now when it has `rulesync.jsonc`, rulesync in package.json, or `rulesync.generate: true` declared. Run `kj env install` once to bring the agent files up to date.
+
 ## [5.2.0] - 2026-11-02
 
 ### Added
