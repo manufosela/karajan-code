@@ -13,13 +13,17 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
-import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase } from "../hu/lane-prune.js";
+import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
+import { stopBootstrap } from "../rag/bootstrap-index.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { mainCheckout } from "../utils/main-checkout.js";
 import { cardsOfLane, parseLanes, prsByBranch } from "../hu/lanes.js";
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 
-const REF_SEPARATOR = " · "; // external_ref joins a tracker card and an issue (src/commands/hu.js)
+// The pid itself, not the marker's expiry: an indexer past MAX_RUN_MS still runs. EPERM is a process too.
+const pidAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (err) { return err.code === "EPERM"; } };
+
+const REF_SEPARATOR =" · "; // external_ref joins a tracker card and an issue (src/commands/hu.js)
 
 // KJC-TSK-1316: ONE gh call for every lane, open and merged PRs alike.
 const listPrs = async (cwd) => JSON.parse((await execFileAsync("gh", ["pr", "list", "--state", "all", "--limit", "200", "--json", "number,url,state,headRefName"], { cwd })).stdout);
@@ -122,7 +126,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       throw new Error(`lane "${slug}" has uncommitted changes — commit them (through the gate) or discard with --force`);
     }
     // HU-3114: the lane's background indexer must not outlive it (any age); a failure never blocks the removal.
-    const stopIndexer = deps.stopBootstrap ?? (await import("../rag/bootstrap-index.js")).stopBootstrap;
+    const stopIndexer = deps.stopBootstrap ?? stopBootstrap;
     const indexerStopped = await stopIndexer(wtPath, { force: true }).catch((err) => {
       console.warn(`warning: could not stop the background indexer of "${slug}": ${err.message}`);
       return null;
@@ -153,6 +157,8 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     const { processes = liveProcesses() } = deps;
     const base = await resolveBase({ git, base: baseName });
     const lanes = await classifyLanes({ git, laneRoot: lanesDir, base, processes, now: deps.now });
+    // HU-3092: a removable lane's own background indexer is stopped first (never in a dry run); one that survives keeps the lane.
+    if (!flags.dryRun) await stopLaneIndexers(lanes, { stop: deps.stopIndexer ?? ((l) => stopBootstrap(l.path, { force: true })), stillRunning: deps.indexerRunning ?? ((l) => pidAlive(l.indexer.pid)) });
     const abandoned = lanes.filter((l) => l.reasons.length === 0);
     const kept = lanes.filter((l) => l.reasons.length > 0);
     for (const l of kept) console.log(`kept    ${l.slug.padEnd(24)} ${l.reasons.join("; ")}`);
@@ -161,7 +167,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     const { empty: branches, withWork } = await looseLaneBranches({ git, base });
     for (const b of withWork) console.log(`kept    branch ${b.branch.padEnd(17)} ${b.reason}`);
     if (flags.dryRun) {
-      for (const l of abandoned) console.log(`would retire ${l.slug} (${l.branch ?? "detached"})`);
+      for (const l of abandoned) console.log(`would retire ${l.slug} (${l.branch ?? "detached"})${l.indexer ? ` (stopping its background index, pid ${l.indexer.pid})` : ""}`);
       for (const b of branches) console.log(`would delete branch ${b}`);
       return { wouldRemove: abandoned, kept, wouldRemoveBranches: branches, branchesKept: withWork };
     }
