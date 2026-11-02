@@ -51,7 +51,7 @@ function sheetTexture(title, kicker) {
   return texture;
 }
 
-function plaqueTexture(name, badge) {
+function plaqueTexture(name) {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 128;
@@ -67,7 +67,7 @@ function plaqueTexture(name, badge) {
   g.textBaseline = 'middle';
   g.fillStyle = '#34d399';
   g.font = '600 64px "Inter", sans-serif';
-  g.fillText(`${name}  ·  ${badge}`, 256, 66, 470);
+  g.fillText(name, 256, 66, 470);
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -116,7 +116,7 @@ function createFace() {
  * `live(blink, look, cheer)` closes the eyes by blink (0..1), turns them toward
  * look (-1 left .. 1 right) and raises both arms by cheer (0..1).
  */
-export function createStand(name, badge, pages) {
+export function createStand(name, pages) {
   const metal = new THREE.MeshPhysicalMaterial(METAL);
   const group = new THREE.Group();
   for (let i = 0; i < 3; i++) {
@@ -135,7 +135,7 @@ export function createStand(name, badge, pages) {
   const lip = new THREE.Mesh(new THREE.RoundedBoxGeometry(DESK.w + 0.04, 0.09, 0.09, 3, 0.02), metal);
   lip.position.set(0, -DESK.h / 2 + 0.02, 0.05);
   // The name plate glows just over the bloom threshold, like the crates' labels.
-  const plaqueGlow = new THREE.MeshBasicMaterial({ map: plaqueTexture(name, badge), transparent: true, toneMapped: false });
+  const plaqueGlow = new THREE.MeshBasicMaterial({ map: plaqueTexture(name), transparent: true, toneMapped: false });
   plaqueGlow.color.setScalar(1.3);
   const plaque = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.275), plaqueGlow);
   plaque.position.set(0, -DESK.h / 2 - 0.1, 0.1);

@@ -57,6 +57,12 @@ describe.each(Object.entries(pages))("landing page (%s)", (lang, path) => {
     expect(html.match(/data-tools="([^"]+)"/)[1]).not.toContain(html.match(/data-new-tool="([^"]+)"/)[1]);
   });
 
+  // KJL-TSK-0152: the copy says atril is new in 5.0; the film must not date.
+  it("names atril on its plaque with no badge that would date the film", () => {
+    expect(html).not.toContain("data-new-badge");
+    expect(html).toMatch(/<small>[^<]*5\.0<\/small>/);
+  });
+
   it("lets the visitor skip and replay the film", () => {
     expect(html).toContain('id="skip"');
     expect(html).toContain('id="replay"');

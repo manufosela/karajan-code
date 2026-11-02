@@ -28,4 +28,9 @@ describe("film props", () => {
     expect(stand).toContain("export function createStand");
     expect(stand).not.toMatch(/castShadow\s*=\s*true/);
   });
+
+  it("prints only atril's name on its plaque", () => {
+    expect(stand).toContain("export function createStand(name, pages)");
+    expect(stand).toMatch(/g\.fillText\(name, /);
+  });
 });
