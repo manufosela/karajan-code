@@ -12,7 +12,7 @@ import { resolveRoot } from "./scan.js";
 export const LOCK_FILE = "atril.lock.json";
 const ORIGINS = ["catalog", "local", "import", "plugin"];
 const FIELDS = ["origin", "catalog", "source", "commit", "from", "plugin", "hash"];
-const PLUGIN_FIELDS = ["catalog", "source", "commit", "version", "entries"];
+const PLUGIN_FIELDS = ["catalog", "source", "commit", "version", "entries", "dependencies"];
 const KEY = new RegExp(`^(${KINDS.join("|")}):${SLUG.source.slice(1)}`);
 export const lockPath = ({ root, projectDir = process.cwd(), env = process.env } = {}) =>
   join(resolve(projectDir, resolveRoot({ root, env })), LOCK_FILE);
@@ -42,6 +42,7 @@ function validatePlugins(plugins, fail) {
     if (text) bad(`${text} must be a non-empty string`);
     if (entry.commit !== undefined && !(typeof entry.commit === "string" && /^[0-9a-f]{40}$/.test(entry.commit))) bad("commit must be 40 hex");
     if (!Array.isArray(entry.entries) || !entry.entries.every((key) => typeof key === "string" && KEY.test(key))) bad("entries must be a list of kind:slug keys");
+    if (entry.dependencies !== undefined && !(Array.isArray(entry.dependencies) && entry.dependencies.every((dep) => typeof dep === "string" && SLUG.test(dep)))) bad("dependencies must be a list of plugin names");
   }
 }
 function validate(lock, path) {

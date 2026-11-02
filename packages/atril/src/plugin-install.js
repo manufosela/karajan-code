@@ -105,7 +105,8 @@ function commit({ catalog, source, fetched, inventory }, opts, { run }) {
   const npm = fetched.status === "cached" && existsSync(join(fetched.dir, "node_modules")) ? { status: "present" } : installNpmDeps(fetched.dir, { run });
   const label = LABEL[source.type]?.(source);
   // No try/catch and no rollback: installPluginMarkdown stages first, writes the lock last and undoes exactly what it created.
-  const { plugin, entries } = installPluginMarkdown(fetched.dir, opts, { from: { catalog, ...(label && { source: label }), ...(fetched.commit && { commit: fetched.commit }) } });
+  const dependencies = pluginDependencies(readPluginManifest(fetched.dir).manifest).map((dep) => dep.name);
+  const { plugin, entries } = installPluginMarkdown(fetched.dir, opts, { from: { catalog, ...(label && { source: label }), ...(fetched.commit && { commit: fetched.commit }), ...(dependencies.length && { dependencies }) } });
   const { hooks, mcpServers, bin } = inventory;
   return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks, mcpServers, bin } };
 }
