@@ -82,19 +82,15 @@
     @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   </style>
   <script>
-    (function () {
-      try {
-        var saved = localStorage.getItem('theme') || localStorage.getItem('starlight-theme');
-        if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
-      } catch (e) {}
-    })();
+    const savedTheme = localStorage.getItem('theme') ?? localStorage.getItem('starlight-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
   </script>
 </head>
 <body>
   <div class="wrap">
     <div class="top">
       <a class="home" href="/">&larr; karajancode.com</a>
-      <button type="button" class="theme-toggle" aria-label="Toggle light and dark theme" onclick="toggleTheme()">&#9789;</button>
+      <button type="button" class="theme-toggle" id="theme" aria-label="Dark theme" aria-pressed="true">&#9789;</button>
     </div>
 
     <header class="head">
@@ -204,12 +200,18 @@
   </div>
 
   <script>
-    function toggleTheme() {
-      var cur = document.documentElement.getAttribute('data-theme');
-      var next = cur === 'light' ? 'dark' : (cur === 'dark' ? 'light' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
-      document.documentElement.setAttribute('data-theme', next);
-      try { localStorage.setItem('theme', next); localStorage.setItem('starlight-theme', next); } catch (e) {}
-    }
+    // The theme button is a toggle named "Dark theme": pressed while the dark theme is on.
+    const theme = document.getElementById('theme');
+    const isDark = () => getComputedStyle(document.documentElement).colorScheme === 'dark';
+    const showTheme = () => theme.setAttribute('aria-pressed', String(isDark()));
+    theme.addEventListener('click', () => {
+      const next = isDark() ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem('theme', next);
+      localStorage.setItem('starlight-theme', next);
+      showTheme();
+    });
+    showTheme();
   </script>
 </body>
 </html>

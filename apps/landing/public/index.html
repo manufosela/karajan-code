@@ -61,7 +61,7 @@
     <a href="https://github.com/manufosela/karajan-code">GitHub</a>
     <a class="keep" href="/es/" lang="es">ES</a>
     <button class="ghost-btn" type="button" id="replay">Replay intro</button>
-    <button class="ghost-btn" type="button" id="theme" aria-label="Toggle colour theme">◐</button>
+    <button class="ghost-btn" type="button" id="theme" aria-label="Dark theme" aria-pressed="true">◐</button>
   </nav>
 </header>
 
@@ -79,6 +79,7 @@
           <div class="prompt-row">
             <code id="prompt-text">Set up Karajan and start it for me: read karajancode.com/go.md and do everything it says.</code>
             <button class="copy-btn" type="button" id="copy" data-done="Copied" data-failed="Select and copy">Copy</button>
+            <output class="visually-hidden" id="copy-status" aria-live="polite"></output>
           </div>
         </div>
         <div class="hero-links">
