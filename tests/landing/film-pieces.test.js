@@ -28,3 +28,20 @@ describe("film pieces", () => {
     expect(body).toMatch(/return \{ group, face: \{ y: [\d.]+, z: -?[\d.]+, width: [\d.]+ \}, shoulders: \{ x: [\d.]+, y: [\d.]+, z: -?[\d.]+ \} \};/);
   });
 });
+
+// KJL-TSK-0156: the film casts the pieces, not crates, one body per slot.
+describe("film cast", () => {
+  const cast = read("cast.js");
+  const score = read("score.js");
+
+  it("stands one character per slot, in the order of the page's tools", () => {
+    expect(cast).toContain("const BODIES = [tddBody, sentinelBody, reviewBody, gatesBody, sonarBody, ledgerBody, stewardBody];");
+    expect(cast).toContain("createPiece(i, name, { kind, body: BODIES[i] })");
+    expect(read("props.js")).not.toContain("createCrate");
+  });
+
+  it("passes the diff between raised hands, and lets AI review shake its head before the throw", () => {
+    expect(score).toContain("piece.catch(");
+    expect(score).toMatch(/pieces\[REFUSING_PIECE\]\.shake\(/);
+  });
+});

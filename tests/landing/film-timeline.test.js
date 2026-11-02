@@ -1,29 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { T, SLOTS, REFUSING_CRATE, span, hops, asideAt } from "../../apps/landing/public/film/timeline.js";
+import { T, SLOTS, REFUSING_PIECE, span, hops, asideAt } from "../../apps/landing/public/film/timeline.js";
 
 // KJL-TSK-0146: the hero film is a pure function of its clock. These guards keep
 // the story in order and the travelling diff landing where the camera expects it.
 describe("landing film timeline", () => {
   it("tells the story in order", () => {
-    const beats = [T.rogueDrop, T.rogueHops, T.refuse, T.rogueGone, T.honestDrop, T.honestHops, T.verdict, T.outro, T.titles, T.end];
+    const beats = [T.rogueDrop, T.rogueHops, T.refuse, T.throw, T.rogueGone, T.honestDrop, T.honestHops, T.verdict, T.outro, T.titles, T.end];
     expect(beats).toEqual(beats.toSorted((a, b) => a - b));
   });
 
-  it("earns the verdict when the reviewed diff lands on the pedestal, after every crate", () => {
+  it("earns the verdict when the reviewed diff lands on the pedestal, after every piece", () => {
     expect(T.verdict).toBeCloseTo(T.honestHops + (SLOTS.length + 1) * T.honestHop);
   });
 
-  it("refuses the unreviewed diff in mid-air, on its hop onto the AI review crate", () => {
-    expect(T.refuse).toBeLessThan(T.rogueHops + (REFUSING_CRATE + 1) * T.rogueHop);
-    expect(T.refuse).toBeGreaterThan(T.rogueHops + REFUSING_CRATE * T.rogueHop);
+  // KJL-TSK-0156: the pieces pass the diff hand to hand; AI review catches the
+  // unreviewed one, says no, and throws it off the stage before it is gone.
+  it("lets AI review catch the unreviewed diff, then throw it away", () => {
+    expect(T.refuse).toBeCloseTo(T.rogueHops + (REFUSING_PIECE + 1) * T.rogueHop);
+    expect(T.throw).toBeGreaterThan(T.refuse);
+    expect(T.rogueGone).toBeGreaterThan(T.throw);
   });
 
   // KJL-TSK-0148: atril left the line for a music stand by the podium, so the
-  // staff holds seven crates again and AI review is the third.
-  it("lines up seven crates, left to right, with AI review third", () => {
+  // staff holds seven pieces and AI review is the third.
+  it("lines up seven pieces, left to right, with AI review third", () => {
     expect(SLOTS).toHaveLength(7);
     expect(SLOTS).toEqual(SLOTS.toSorted((a, b) => a - b));
-    expect(REFUSING_CRATE).toBe(2);
+    expect(REFUSING_PIECE).toBe(2);
   });
 
   it("earns the verdict before the closing shot begins", () => {

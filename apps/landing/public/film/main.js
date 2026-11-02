@@ -21,7 +21,7 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // The hero stacks the copy over the film on narrow or near-square screens (css/landing.css).
 const stacked = matchMedia('(max-width: 1000px), (max-aspect-ratio: 23/20)');
 const frozenAt = new URLSearchParams(location.search).get('t');
-// Captions and crate labels live in the page, so each language brings its own.
+// Captions and piece labels live in the page, so each language brings its own.
 const CAPTIONS = [...document.querySelectorAll('#captions li')]
   .map((li) => [Number(li.dataset.from), Number(li.dataset.to), li.textContent]);
 const KINDS = canvas.dataset.kinds.split('|');
@@ -82,7 +82,7 @@ function start() {
   let beside = { wide: 1, shift: 0 };
   // The pieces the final shot must show whole (not the verdict's wave, which spreads out invisibly).
   const framed = [cast.conductor.root, cast.rag.root, cast.watch.root, cast.stand.group,
-    cast.verdict.pedestal, cast.verdict.check, ...cast.crates.map((c) => c.group)];
+    cast.verdict.pedestal, cast.verdict.check, ...cast.pieces.map((p) => p.group)];
   const box = new THREE.Box3();
   const corner = new THREE.Vector3();
   // Where the cast falls on screen, in px, in its final pose seen from `wide`.
