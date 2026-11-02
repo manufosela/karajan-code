@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, renameSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { readLock, writeLock } from "./lock.js";
+import { removeDerived } from "./plugin-derived.js";
 import { pluginMode } from "./plugin-mode.js";
 import { pluginDataDir } from "./plugin-vars.js";
 import { resolveRoot } from "./scan.js";
@@ -54,5 +55,6 @@ export function removePlugin(name, { purge = false, force = false, ...opts } = {
   const leftBehind = moved.flatMap(([, aside]) => {
     try { rmSync(aside, { recursive: true, force: true }); return []; } catch { return [aside]; }
   });
-  return { plugin: name, removed: keys, purged: purge, ...(leftBehind.length && { leftBehind }) };
+  const derived = removeDerived(name, root);
+  return { plugin: name, removed: keys, purged: purge, ...(leftBehind.length && { leftBehind }), ...(derived && { derived }) };
 }
