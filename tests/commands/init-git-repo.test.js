@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureGitRepo } from "../../src/commands/init.js";
+import { ensureGitRepo, warnIfDefaultBranchNotMain } from "../../src/commands/init.js";
 
 let dir;
 const logger = { info() {}, warn() {}, error() {} };
@@ -25,6 +25,18 @@ describe("kj init × git", () => {
     expect(ensureGitRepo({ projectDir: dir, logger })).toBe(true);
     const branch = execFileSync("git", ["symbolic-ref", "--short", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
     expect(branch).toBe("trunk");
+  });
+
+  // KJC-BUG-0473 (#3080): init closed OK on a master repo whose gates target main and never run.
+  it("warns when the default branch is not main, and stays quiet on main", () => {
+    const warned = [];
+    const capture = { ...logger, warn: (m) => warned.push(m) };
+    execFileSync("git", ["init", "-q", "-b", "master"], { cwd: dir });
+    execFileSync("git", ["-c", "user.name=T", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "first"], { cwd: dir });
+    expect(warnIfDefaultBranchNotMain({ projectDir: dir, logger: capture })).toBe(true);
+    expect(warned.join("\n")).toMatch(/master, no main[\s\S]*git branch -m master main/);
+    execFileSync("git", ["branch", "-m", "master", "main"], { cwd: dir });
+    expect(warnIfDefaultBranchNotMain({ projectDir: dir, logger: capture })).toBe(false);
   });
 
   it("reports failure instead of pretending, when git cannot run", () => {

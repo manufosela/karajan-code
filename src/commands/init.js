@@ -32,6 +32,7 @@ import { installKarajanCommands } from "./init-atril.js";
 import { hardenCommand } from "./harden.js";
 import { contractChanges } from "../environment/contract-commit.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
+import { defaultBranchProblem } from "../checks/repo-state.js";
 import { bootstrapSonarToken } from "../sonar/token-bootstrap.js";
 
 /**
@@ -775,6 +776,15 @@ export async function resolveConfigScope({ flags, interactive }) {
   return { configPath: getConfigPath(), scope: "global" };
 }
 
+/** KJC-BUG-0473 (#3080): said at the close, so a master repo never ends init looking governed. */
+export function warnIfDefaultBranchNotMain({ projectDir, logger }) {
+  const problem = defaultBranchProblem(projectDir);
+  if (!problem) return false;
+  logger.warn(`⚠ ${problem.detail}`);
+  logger.warn(`  Fix: ${problem.fix}`);
+  return true;
+}
+
 /**
  * KJC-BUG-0187: the enforcement gates live in git hooks, so a project without
  * a repo gets no harness at all. Init creates it, exactly like `kj run` does
@@ -1017,6 +1027,7 @@ export async function initCommand({ logger, flags = {} }) {
   logger.info(hardened || skipHarden
     ? "✓ Karajan is set up in this project."
     : "⚠ Karajan is set up EXCEPT the quality harness — without it there are no gates.");
+  warnIfDefaultBranchNotMain({ projectDir: process.cwd(), logger });
   logger.info("  Next:  ask your agent for the work; it follows the method kj installed");
   logger.info("  More:  kj --help   ·   kj doctor (check your setup)");
 }

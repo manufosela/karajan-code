@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { createRepoStateCheck } from "../../src/checks/repo-state.js";
+import { createRepoStateCheck, defaultBranchProblem } from "../../src/checks/repo-state.js";
 
 let dir;
 const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
@@ -117,6 +117,32 @@ describe("repo-state check", () => {
     expect(r.detail).toMatch(/rag-import/);
     // The name is quoted: a crafted remote cannot run anything when the fix is pasted.
     expect(r.fix).toBe("git remote remove -- 'fileurl' && git remote remove -- 'rag-import' && git remote remove -- 'rel' && git remote remove -- 'x$(touch_pwned)'");
+  });
+
+  // KJC-BUG-0473 (#3080): with master as the default branch, every gate on [main] never runs.
+  it("origin's default branch is not main: says so, with how to rename it", async () => {
+    seedRepo();
+    seedMethod();
+    git("add", "-A");
+    git("commit", "-qm", "chore: contract");
+    git("remote", "add", "origin", "git@github.com:acme/app.git");
+    git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/master");
+    const r = await detect();
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatch(/rama por defecto es master, no main/);
+    expect(r.fix).toMatch(/Rename/);
+    expect(r.fix).toMatch(/git branch -m master main/);
+    expect(defaultBranchProblem(dir)).toMatchObject({ branch: "master" });
+  });
+
+  it("no origin and a local master with no main: the same warning", async () => {
+    execFileSync("git", ["-C", dir, "init", "-q", "-b", "master"], { encoding: "utf8" });
+    write("README.md");
+    git("add", "README.md");
+    git("-c", "user.name=T", "-c", "user.email=t@t", "commit", "-qm", "chore: first");
+    expect(defaultBranchProblem(dir)).toMatchObject({ branch: "master" });
+    git("branch", "main");
+    expect(defaultBranchProblem(dir)).toBeNull();
   });
 
   it("a healthy project reports nothing", async () => {
