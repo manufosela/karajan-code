@@ -1,7 +1,7 @@
 # kj delivers the card skills to the developing agent and the reviewer enforces them
 
-Status: proposed
-Date: 2026-11-02
+Status: accepted
+Date: 2026-11-02 (accepted 2026-11-02)
 
 ## Context
 
