@@ -166,7 +166,7 @@ describe("atril install plugin:<name>", () => {
       set();
       const res = atrilOf("app", "--yes", "--json");
       expect(res.status).toBe(0);
-      expect(res.stderr).toContain("2 plugins will be installed: kit, app");
+      expect(res.stderr).toContain("2 plugins will be installed: kit (split), app (split)");
       expect(res.stderr.indexOf("plugin kit ")).toBeLessThan(res.stderr.indexOf("plugin app "));
       expect(JSON.parse(res.stdout)).toMatchObject({ plugin: "app", status: "installed", dependencies: [{ plugin: "kit" }], skipped: [] });
       expect(existsSync(join(dir, "store", "commands", "kit__ship.md"))).toBe(true);
@@ -175,7 +175,7 @@ describe("atril install plugin:<name>", () => {
       set();
       atril("--yes");
       const res = atrilOf("app", "--yes", "--json");
-      expect(res.stderr).toContain("atril: already installed, skipped: kit");
+      expect(res.stderr).toContain("atril: already installed or chosen skip/native, left out: kit");
       expect(JSON.parse(res.stdout)).toMatchObject({ dependencies: [], skipped: ["kit"] });
     });
     it("a dry run writes nothing", () => {
