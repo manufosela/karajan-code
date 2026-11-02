@@ -106,6 +106,8 @@ export const HUMAN_ACTS = Object.freeze({
   "phone-enroll": { label: "kj identity enroll-phone", module: "src/commands/identity.js" },
   "handoff-run": { label: "kj handoff run", module: null, pending: "KJC-TSK-0968" },
   "security-level-down": { label: "kj security normal", module: "src/harden/security-level.js" },
+  // KJC-TSK-1385 (ADR 0045): the agent may tighten a rule; only the human loosens one.
+  "gates-loosen": { label: "kj gates set (aflojar una regla)", module: "src/commands/gates.js" },
 });
 
 /**

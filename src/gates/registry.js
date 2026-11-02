@@ -27,8 +27,19 @@ export const ADJUSTABLE_RULES = [
 
 const defaultOf = (rule) => DEFAULTS.method_gates[rule.key] ?? rule.default;
 
+/** The value as the rule takes it, or an error naming what it takes. */
+export function parseRuleValue(rule, raw) {
+  if (rule.number) {
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n <= 0) throw new Error(`${rule.id} takes a positive whole number, not "${raw}"`);
+    return n;
+  }
+  if (!rule.levels.includes(raw)) throw new Error(`${rule.id} takes ${rule.levels.join(", ")}, not "${raw}"`);
+  return raw;
+}
+
 /** True when `next` is stricter than `current` for this rule. */
-function stricter(rule, current, next) {
+export function stricter(rule, current, next) {
   if (rule.number) return typeof next === "number" && next < current;
   return rule.levels.includes(next) && rule.levels.indexOf(next) > rule.levels.indexOf(current);
 }
