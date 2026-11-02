@@ -26,7 +26,7 @@ const CAPTIONS = [...document.querySelectorAll('#captions li')]
   .map((li) => [Number(li.dataset.from), Number(li.dataset.to), li.textContent]);
 const KINDS = canvas.dataset.kinds.split('|');
 const TOOLS = canvas.dataset.tools.split('|').map((name, i) => ({ name, kind: KINDS[i] }));
-const FRESH = { tool: canvas.dataset.newTool, badge: canvas.dataset.newBadge };
+const FRESH = { tool: canvas.dataset.newTool };
 
 function supportsWebGL() {
   const probe = document.createElement('canvas');

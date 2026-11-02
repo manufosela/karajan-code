@@ -13,7 +13,7 @@ const TOP = CRATE.h + DIFF_SIZE / 2;
 
 /**
  * Builds the cast; `tools` are the crates ({ name, kind }), labelled in the page's
- * language, and `fresh` names atril, new in this release, and its badge.
+ * language, and `fresh` names atril, new in this release.
  */
 export function createCast(scene, tools, fresh) {
   const conductor = createRobot({ accent: 0x34e07f, bow: 0xeef1f6, name: 'Karajan Code' });
@@ -23,7 +23,7 @@ export function createCast(scene, tools, fresh) {
   const watch = createRobot({ accent: 0x4fb3e8, name: 'kaWATCHan' });
   const crates = tools.map(({ name, kind }, i) => createCrate(i, name, { kind }));
   const sheets = [[fresh.tool, 'skills'], ...tools.map(({ name }) => [name, 'skill'])];
-  const stand = createStand(fresh.tool, fresh.badge, sheets);
+  const stand = createStand(fresh.tool, sheets);
   stand.group.position.set(STAND.x, 0, STAND.z);
   stand.group.rotation.y = STAND.yaw;
   scene.add(stand.group);
