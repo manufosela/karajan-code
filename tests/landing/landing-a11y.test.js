@@ -66,6 +66,27 @@ describe.each(["index.html", "es/index.html"])("%s", (page) => {
     expect(html).toMatch(/<button[^>]*id="theme"[^>]*aria-pressed=/);
     expect(script).toContain("theme.setAttribute('aria-pressed'");
   });
+
+  // KJL-BUG-0013 (2.2.2): moving content that lasts over 5 s can be paused.
+  it("lets the visitor pause the living hero, and remembers it", () => {
+    expect(html).toMatch(/<button[^>]*id="pause"[^>]*aria-pressed="false"/);
+    const film = read("film/main.js");
+    expect(film).toContain("pause.setAttribute('aria-pressed'");
+    expect(film).toContain("localStorage.setItem('kj-hero-paused'");
+    expect(film).toMatch(/if \(held\(\)\) \{ playing = false; return; \}/);
+  });
+
+  it("types the terminal out in under 5 seconds", () => {
+    const [, start, prompt, output] = script.match(/let at = (\d+);[\s\S]*?\? (\d+) : (\d+);/).map(Number);
+    const term = html.match(/id="term"[\s\S]*?<\/div>\s*<\/div>/)[0];
+    const lines = term.match(/<p[ >]/g).length;
+    const prompts = term.match(/class="ps"/g).length;
+    expect(start + prompts * prompt + (lines - prompts) * output).toBeLessThan(5000);
+  });
+
+  it("hides the controls that do nothing when motion is reduced", () => {
+    expect(read("css/landing.css")).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[^@]*?#replay, #pause \{ display: none; \}/);
+  });
 });
 
 // WCAG relative-luminance contrast ratio between two #rrggbb colours.

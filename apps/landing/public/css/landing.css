@@ -95,6 +95,13 @@ a { color: inherit; }
   background: rgb(17 25 37 / 0.9); border: 1px solid #2a3a4e; border-radius: 999px; padding: 0.5rem 1.05rem; cursor: pointer; }
 .skip kbd { font: 0.75rem var(--mono); color: #a4aeb6; margin-left: 0.4rem; }
 .film-on .skip { display: block; }
+/* Pauses the living hero after the intro: two bars, a triangle once paused. */
+.hero-pause { position: absolute; right: 1.5rem; bottom: 1.5rem; z-index: 3; width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer;
+  color: #e2e8f0; background: rgb(17 25 37 / 0.9); border: 1px solid #3a4c62; border-radius: 999px; }
+.hero-pause:hover { border-color: var(--steel); }
+.hero-pause::before { content: ''; width: 10px; height: 12px; border-inline: 3px solid currentColor; }
+.hero-pause[aria-pressed="true"]::before { width: 11px; border: 0; background: currentColor; clip-path: polygon(0 0, 100% 50%, 0 100%); forced-color-adjust: none; }
+.film-pending .hero-pause, .film-on .hero-pause, .no-webgl .hero-pause { display: none; }
 
 /* ---------- Sections ---------- */
 section.band { padding-block: clamp(4rem, 11vh, 8rem); border-top: 1px solid var(--line); }
@@ -182,4 +189,6 @@ footer nav { display: flex; gap: 1.4rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
+  /* Nothing moves, so there is nothing to replay or pause. */
+  #replay, #pause { display: none; }
 }

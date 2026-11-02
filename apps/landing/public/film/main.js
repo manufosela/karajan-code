@@ -136,6 +136,9 @@ function start() {
 
   let startedAt = performance.now() - T.end * 1000;
   let playing = false;
+  let paused = localStorage.getItem('kj-hero-paused') === '1';
+  const held = () => paused && !root.classList.contains('film-on');
+  const onScreen = () => !document.hidden && hero.getBoundingClientRect().bottom > 0;
   const filmTime = () => (frozenAt === null ? (performance.now() - startedAt) / 1000 : Number(frozenAt));
 
   function renderAt(t) {
@@ -177,6 +180,8 @@ function start() {
     }
     showCaption(t);
     renderAt(t);
+    // A paused hero keeps the frame it shows and stops the loop.
+    if (held()) { playing = false; return; }
     requestAnimationFrame(tick);
   }
 
@@ -206,6 +211,18 @@ function start() {
   document.getElementById('replay').addEventListener('click', () => { if (!reduced) playFilm(); });
   addEventListener('resize', () => { resize(); if (!playing) renderAt(filmTime()); });
 
+  // After the intro the hero lives on; the visitor can pause it (WCAG 2.2.2), and the
+  // choice is remembered. The intro itself has Skip instead.
+  const pause = document.getElementById('pause');
+  const showPause = () => pause.setAttribute('aria-pressed', String(paused));
+  pause.addEventListener('click', () => {
+    paused = !paused;
+    localStorage.setItem('kj-hero-paused', paused ? '1' : '0');
+    showPause();
+    setPlaying(onScreen());
+  });
+  showPause();
+
   if (reduced || frozenAt !== null) {
     root.classList.remove('film-pending');
     if (frozenAt !== null && Number(frozenAt) < T.end) root.classList.add('film-on');
@@ -213,7 +230,7 @@ function start() {
     renderAt(reduced ? T.end : filmTime());
   } else {
     new IntersectionObserver(([entry]) => setPlaying(entry.isIntersecting && !document.hidden)).observe(hero);
-    document.addEventListener('visibilitychange', () => setPlaying(!document.hidden && hero.getBoundingClientRect().bottom > 0));
+    document.addEventListener('visibilitychange', () => setPlaying(onScreen()));
     if (root.classList.contains('film-pending')) playFilm();
     else setPlaying(true);
   }
