@@ -762,13 +762,16 @@ export function registerMeta(program, { pkgVersion }) {
     });
 
   // KJC-TSK-1384 (ADR 0045): every rule, fixed and adjustable, with its value and origin.
-  program.command("gates")
-    .description("List the rules kj governs with: fixed ones, and each adjustable one with its value and who set it")
+  // KJC-TSK-1385: `kj gates set <rule> <value>`; the agent may tighten, only the human loosens.
+  program.command("gates [action] [rule] [value]")
+    .description("List the rules kj governs with (fixed, and each adjustable one with its value and who set it); set <rule> <value> changes an adjustable one")
     .option("--json", "Output the resolved rules as JSON")
-    .action(async (flags) => {
+    .action(async (action, rule, value, flags) => {
       await withConfig(pkgVersion, "gates", flags, async ({ config }) => {
-        const { gatesCommand } = await import("../commands/gates.js");
-        gatesCommand({ config, flags });
+        const { gatesCommand, gatesSetCommand } = await import("../commands/gates.js");
+        if (action === "set") await gatesSetCommand({ config, rule, value, kjVersion: pkgVersion, projectDir: config?.projectDir || process.cwd() });
+        else if (action) throw new Error(`unknown action "${action}": kj gates, or kj gates set <rule> <value>`);
+        else gatesCommand({ config, flags });
       });
     });
 

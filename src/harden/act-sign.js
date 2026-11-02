@@ -25,6 +25,11 @@ const EXPLAIN = {
     "El agente propone cómo se compilan las reglas que le vigilan; solo tú las apruebas.",
     "Reglas instaladas sin tu firma no son tuyas: el agente podría aflojar las que le frenan.",
   ],
+  "gates-loosen": [
+    "Se afloja una regla ajustable del proyecto (kj gates set), por ejemplo un tamaño de PR mayor o un gate de bloqueo a aviso.",
+    "El agente puede endurecer las reglas que le vigilan, pero aflojarlas solo puedes tú (ADR 0045).",
+    "Una regla aflojada sin tu firma dejaría al agente rebajar lo que le frena.",
+  ],
   "phone-enroll": [
     "Entra una clave pública nueva en el padrón de móviles que pueden firmar en este proyecto.",
     "Quien está en el padrón sella, aprueba reglas y baja el nivel: solo un móvil ya enrolado admite a otro.",
