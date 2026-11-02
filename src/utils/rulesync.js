@@ -10,6 +10,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
+import yaml from "js-yaml";
 import { findManagedBlock } from "./managed-markers.js";
 import { hashContent, USER_OWNER, verifyEntry, withLedger } from "./rulesync-ledger.js";
 
@@ -32,10 +33,31 @@ const FRONTMATTER = [
 // the project as a rulesync one. Local state: never commit it.
 export const ADOPTION_PENDING = join(".rulesync", ".kj-adoption-pending");
 
-/** The project uses Rulesync when it has `.rulesync/` or `rulesync.jsonc`, and no adoption is half done. */
+/**
+ * The project uses Rulesync when it has `rulesync.jsonc`, rulesync in package.json, or
+ * `rulesync.generate: true` in its kj config, and no adoption is half done.
+ */
 export function detectRulesync(projectDir) {
   if (existsSync(join(projectDir, ADOPTION_PENDING))) return false;
-  return existsSync(join(projectDir, ".rulesync")) || existsSync(join(projectDir, "rulesync.jsonc"));
+  // KJC-BUG-0482 (agreed in #2430): .rulesync/ alone is atril's shared ground (ADR 0041), created
+  // in every atril project; taken for Rulesync it kept kj's blocks out of the agent files.
+  if (existsSync(join(projectDir, "rulesync.jsonc"))) return true;
+  return rulesyncInPackage(projectDir) || generateDeclared(projectDir);
+}
+
+function rulesyncInPackage(projectDir) {
+  try {
+    const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf8"));
+    return Boolean(pkg?.dependencies?.rulesync || pkg?.devDependencies?.rulesync);
+  } catch { return false; } // no package.json, or not JSON: it declares nothing
+}
+
+// Declared in kj's project config or in atril's (.karajan/atril.json), the two places that read it.
+function generateDeclared(projectDir) {
+  const read = (file, parse) => {
+    try { return parse(readFileSync(join(projectDir, ".karajan", file), "utf8"))?.rulesync?.generate === true; } catch { return false; } // absent or unreadable: nothing declared
+  };
+  return read("kj.config.yml", (t) => yaml.load(t)) || read("atril.json", JSON.parse);
 }
 
 /** What a brand-new karajan.md starts with, before kj's managed blocks. */

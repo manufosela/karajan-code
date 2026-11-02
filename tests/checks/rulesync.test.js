@@ -11,7 +11,8 @@ beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-rs-range-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 const detect = (run) => getRulesyncChecks({ projectDir: dir, run })[0].detect();
-const withRulesync = () => mkdirSync(join(dir, ".rulesync"));
+// KJC-BUG-0482: a Rulesync project has rulesync.jsonc; .rulesync/ alone is atril's ground.
+const withRulesync = () => { mkdirSync(join(dir, ".rulesync")); writeFileSync(join(dir, "rulesync.jsonc"), "{}"); };
 const reporting = (stdout) => vi.fn(async () => ({ exitCode: 0, stdout }));
 
 describe("inTestedRange", () => {

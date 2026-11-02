@@ -12,7 +12,8 @@ import { maybeRulesyncGenerate } from "../../src/utils/rulesync.js";
 
 let dir;
 const logger = () => ({ info: vi.fn(), warn: vi.fn() });
-beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-rs-gen-")); mkdirSync(join(dir, ".rulesync")); });
+// KJC-BUG-0482: a Rulesync project has rulesync.jsonc; .rulesync/ alone is atril's ground.
+beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-rs-gen-")); mkdirSync(join(dir, ".rulesync")); writeFileSync(join(dir, "rulesync.jsonc"), "{}"); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("maybeRulesyncGenerate", () => {
@@ -48,7 +49,7 @@ describe("maybeRulesyncGenerate", () => {
   });
 
   it("sin Rulesync en el proyecto, nada", () => {
-    rmSync(join(dir, ".rulesync"), { recursive: true });
+    rmSync(join(dir, "rulesync.jsonc")); // atril's .rulesync/ stays: it is not Rulesync
     const run = vi.fn();
     expect(maybeRulesyncGenerate({ projectDir: dir, config: { rulesync: { generate: true } }, logger: logger(), run }).reason).toBe("no-rulesync");
     expect(run).not.toHaveBeenCalled();

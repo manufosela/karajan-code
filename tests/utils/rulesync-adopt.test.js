@@ -18,9 +18,13 @@ const installLocalBin = () => {
   mkdirSync(join(dir, "node_modules", ".bin"), { recursive: true });
   writeFileSync(join(dir, "node_modules", ".bin", "rulesync"), "");
 };
-// A stand-in for rulesync: `init` makes its source dir, as the real one does.
+// A stand-in for rulesync: `init` makes its source dir and its rulesync.jsonc, as the real one does
+// (KJC-BUG-0482: rulesync.jsonc, not the folder, is what marks a Rulesync project).
 const fakeRulesync = (onImport = () => {}, onInit = () => {}) => vi.fn((cmd, args) => {
-  if (args[0] === "init") mkdirSync(join(dir, ".rulesync"), { recursive: true });
+  if (args[0] === "init") {
+    mkdirSync(join(dir, ".rulesync"), { recursive: true });
+    writeFileSync(join(dir, "rulesync.jsonc"), "{}");
+  }
   if (args[0] === "init") onInit();
   if (args[0] === "import") onImport();
 });
@@ -98,6 +102,7 @@ describe("offerRulesyncAdoption", () => {
 
   it("asks nothing in a project that already uses rulesync", async () => {
     mkdirSync(join(dir, ".rulesync"));
+    writeFileSync(join(dir, "rulesync.jsonc"), "{}");
     const confirm = vi.fn();
     expect(await offerRulesyncAdoption({ projectDir: dir, interactive: true, confirm })).toMatchObject({ adopted: false, reason: "already" });
     expect(confirm).not.toHaveBeenCalled();

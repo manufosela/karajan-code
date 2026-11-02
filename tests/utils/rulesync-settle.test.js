@@ -23,6 +23,7 @@ const editBlock = () => {
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "kj-rulesync-settle-"));
   mkdirSync(join(dir, ".rulesync"));
+  writeFileSync(join(dir, "rulesync.jsonc"), "{}"); // KJC-BUG-0482: what makes it a Rulesync project
   install();
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
