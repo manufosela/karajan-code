@@ -23,12 +23,15 @@ import { createInterface } from "node:readline/promises";
 import { applyRecommended, recommended } from "../src/recommended.js";
 import { answersFor, askAnswers, offered } from "../src/init.js";
 import { applyInstalledUpdate, installedUpdates } from "../src/upgrade.js";
+import { installPlugin } from "../src/plugin-install.js";
+import { installConfirm, notInstalledLines } from "../src/plugin-install-cli.js";
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
   + "       atril search <query> [--kind <kind>] [--root <dir>] [--json]\n"
   + "       atril route <task> [--role <role>] [--root <dir>] [--json]\n"
   + "       atril install <path | kind:name> [--kind <kind>] [--root <dir>]\n       atril remove <kind:name> [--root <dir>]\n"
+  + "       atril install plugin:<name> [--yes] [--root <dir>] [--json]  (no terminal and no --yes: dry run)\n"
   + "       atril config [--root <dir>] [--json]\n"
   + "       atril expose <kind:name>... [--root <dir>]\n       atril unexpose <kind:name>... [--root <dir>]\n"
   + "       atril sync [--check] [--root <dir>]\n       atril mcp [--root <dir>]\n"
@@ -215,10 +218,26 @@ function runConfig(args) {
   console.log(`rulesync.generate\t${config.rulesync.generate}`);
 }
 
-function runStore(command, args) {
-  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" } }, allowPositionals: true });
+async function runInstallPlugin(name, values) {
+  const terminal = process.stdin.isTTY ? createInterface({ input: process.stdin, output: process.stderr }) : undefined;
+  const gate = installConfirm({ yes: values.yes, tty: Boolean(terminal), ask: (question) => terminal.question(question), err: (text) => process.stderr.write(text) });
+  try {
+    const result = await installPlugin(name, { root: values.root }, { confirm: gate.confirm });
+    for (const line of result.status === "installed" ? notInstalledLines(result) : []) console.error(printable(line));
+    if (values.json) console.log(JSON.stringify(gate.dryRun() ? { ...result, dryRun: true } : result, null, 2));
+    else if (result.status === "declined") console.log(`${gate.dryRun() ? "dry run" : "declined"}\tplugin:${printable(name)}\tnothing installed`);
+    else console.log(`installed\tplugin:${printable(name)}\t${result.entries.map(printable).join(" ")}`);
+  } finally {
+    terminal?.close();
+  }
+}
+
+async function runStore(command, args) {
+  const { values, positionals } = parseArgs({ args, options: { root: { type: "string" }, kind: { type: "string" }, yes: { type: "boolean" }, json: { type: "boolean" } }, allowPositionals: true });
   if (positionals.length !== 1) throw new Error(`${command} takes exactly one argument\n${USAGE}`);
   const [ref] = positionals;
+  if (command === "install" && ref.startsWith("plugin:")) return runInstallPlugin(ref.slice("plugin:".length), values);
+  for (const flag of ["yes", "json"]) if (values[flag]) throw new Error(`--${flag} only applies to install plugin:<name>`);
   if (command === "install" && isCatalogRef(ref)) {
     const { status, kind, name, path, catalog } = installFromCatalog(ref, { root: values.root });
     console.log(`${status}\t${kind}:${name}\t${path}\tfrom ${printable(catalog)}`);
@@ -342,7 +361,7 @@ try {
   else if (command === "graph") runGraph(rest);
   else if (command === "search") runSearch(rest);
   else if (command === "route") runRoute(rest);
-  else if (command === "install" || command === "remove") runStore(command, rest);
+  else if (command === "install" || command === "remove") await runStore(command, rest);
   else if (command === "config") runConfig(rest);
   else if (command === "expose" || command === "unexpose") runExpose(command, rest);
   else if (command === "sync") runSync(rest);

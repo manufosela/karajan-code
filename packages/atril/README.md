@@ -102,7 +102,15 @@ Its plugins are indexed from the files already on disk, with no fetch and nothin
 atril search tdd --kind plugin
 ```
 
-The first catalog that lists a plugin name wins it. A marketplace entry that cannot be read is skipped with a warning on stderr; an unreadable `marketplace.json` stops the search and names the catalog. `atril route` leaves plugins out of what it proposes. This release only finds plugins: installing them arrives in a later 5.x release.
+The first catalog that lists a plugin name wins it. A marketplace entry that cannot be read is skipped with a warning on stderr; an unreadable `marketplace.json` stops the search and names the catalog. `atril route` leaves plugins out of what it proposes.
+
+```sh
+atril install plugin:kit          # lists what the plugin holds on stderr, asks [y/N]
+atril install plugin:kit --yes    # skips the question
+atril install plugin:kit --json   # prints the install result on stdout
+```
+
+`atril install plugin:<name>` installs a plugin's Markdown (skills, commands, agents) into the store and its npm packages into the plugin cache. The trust listing and the question go to stderr; with no terminal and no `--yes` it is a dry run that writes nothing (the same as `atril update`). Hooks, MCP servers and `bin/` executables are not installed yet: they are listed on stderr and under `notInstalled` in `--json`. `--yes` and `--json` only apply to `plugin:<name>`.
 
 ### The recommended set
 
