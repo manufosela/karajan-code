@@ -761,6 +761,17 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // KJC-TSK-1384 (ADR 0045): every rule, fixed and adjustable, with its value and origin.
+  program.command("gates")
+    .description("List the rules kj governs with: fixed ones, and each adjustable one with its value and who set it")
+    .option("--json", "Output the resolved rules as JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "gates", flags, async ({ config }) => {
+        const { gatesCommand } = await import("../commands/gates.js");
+        gatesCommand({ config, flags });
+      });
+    });
+
   // KJC-TSK-1369 (ADR 0037): the audit job on every push to the protected branch.
   program.command("main-guard")
     .description("Audit a push to the protected branch: merges without their required checks, and the protection (exit 1 with a markdown report)")
