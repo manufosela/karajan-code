@@ -112,6 +112,8 @@ atril install plugin:kit --json   # prints the install result on stdout
 
 `atril install plugin:<name>` installs a plugin's Markdown (skills, commands, agents) into the store and its npm packages into the plugin cache. The trust listing and the question go to stderr; with no terminal and no `--yes` it is a dry run that writes nothing (the same as `atril update`). Hooks, MCP servers and `bin/` executables are not installed yet: they are listed on stderr and under `notInstalled` in `--json`. `--yes` and `--json` only apply to `plugin:<name>`.
 
+A plugin that lists `dependencies` installs them with it: one header (`N plugins will be installed: a, b, c`), each plugin's listing in install order and a single `[y/N]`. A declined or failed set writes nothing. Dependencies already installed are skipped (`atril: already installed, skipped: <names>`). `--json` keeps the requested plugin's object and adds `dependencies` (one object per plugin, in install order) and `skipped` (names).
+
 ### The recommended set
 
 atril ships a set of artifacts it recommends, bundled in the package. It is always the first catalog, before the ones in `atril.json`, so it works offline and versions with atril. Nothing in it is installed on its own:
