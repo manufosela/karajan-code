@@ -14,6 +14,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { runCommand } from "../utils/process.js";
+import { mainCheckout } from "../utils/main-checkout.js";
+import { seedLaneIndex } from "../rag/seed-lane.js";
 
 const STEP_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -24,11 +26,19 @@ const STEP_TIMEOUT_MS = 5 * 60 * 1000;
  * @param {object|null} [params.logger]
  * @param {number} [params.timeoutMs]
  * @param {Function} [params.run]  Injectable runner (tests).
- * @returns {Promise<{ok: boolean, steps: string[], warnings: string[]}>}
+ * @returns {Promise<{ok: boolean, steps: string[], warnings: string[], seed: {seeded: boolean, chunks?: number, commit?: string, reason?: string}}>}
  */
-export async function bootstrapWorktree({ worktreePath, setupCommand = null, logger = null, timeoutMs = STEP_TIMEOUT_MS, run = runCommand }) {
+export async function bootstrapWorktree({ worktreePath, setupCommand = null, logger = null, timeoutMs = STEP_TIMEOUT_MS, run = runCommand, seed = seedLaneIndex, mainOf = mainCheckout }) {
   const warnings = [];
   const steps = [];
+
+  // HU-3260: the lane starts from a copy of main's index. Never throws; the reason is returned for the caller to say.
+  let seeded;
+  try {
+    seeded = await seed({ mainDir: mainOf(worktreePath), laneDir: worktreePath });
+  } catch (err) {
+    seeded = { seeded: false, reason: `main-unresolved: ${err.message}` };
+  }
 
   if (existsSync(join(worktreePath, ".gitmodules"))) {
     steps.push({ name: "submodules", cmd: "git", args: ["submodule", "update", "--init", "--recursive"] });
@@ -55,5 +65,5 @@ export async function bootstrapWorktree({ worktreePath, setupCommand = null, log
   }
 
   for (const w of warnings) logger?.warn?.(`worktree bootstrap: ${w} — lane continues`);
-  return { ok: warnings.length === 0, steps: steps.map((s) => s.name), warnings };
+  return { ok: warnings.length === 0, steps: steps.map((s) => s.name), warnings, seed: seeded };
 }

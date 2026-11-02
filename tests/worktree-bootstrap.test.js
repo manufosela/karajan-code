@@ -20,6 +20,23 @@ afterEach(() => {
 
 const okRun = () => vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
 
+describe("bootstrapWorktree seeds the lane index (HU-3260)", () => {
+  it("seeds from the main checkout of the lane and returns what the seeding said", async () => {
+    const wt = makeWorktree();
+    const seed = vi.fn(async () => ({ seeded: true, chunks: 3, commit: "abc" }));
+    const res = await bootstrapWorktree({ worktreePath: wt, run: okRun(), seed });
+    expect(seed).toHaveBeenCalledWith({ mainDir: wt, laneDir: wt });
+    expect(res.seed).toEqual({ seeded: true, chunks: 3, commit: "abc" });
+  });
+
+  it("an unresolvable main checkout is said as the reason, never thrown", async () => {
+    const seed = vi.fn();
+    const res = await bootstrapWorktree({ worktreePath: "/nonexistent/lane", run: okRun(), seed, mainOf: () => { throw new Error("bare"); } });
+    expect(seed).not.toHaveBeenCalled();
+    expect(res.seed).toEqual({ seeded: false, reason: "main-unresolved: bare" });
+  });
+});
+
 describe("bootstrapWorktree (PAR-G)", () => {
   it("initializes submodules when .gitmodules exists, with cwd=worktree", async () => {
     const wt = makeWorktree([".gitmodules"]);
