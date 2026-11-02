@@ -1890,6 +1890,10 @@ The same release took the database addon out of kj (everything runs on `node:sql
 
 Four ideas a contributor brought to the maintainer the same morning, each decided in one question. The method asks for a simplification pass between a green suite and the review, because the verdict binds to the exact diff and a cleanup after it costs a second review; it is a line of the method, not a gate, since a gate could only prove the pass was claimed. Before the cross-AI review, kj computes facts about the diff without a model (size per file, code without tests, new dependencies, a dynamic import of a module already imported statically, secret-shaped strings) and the reviewer starts from them. Findings name their file and line, and `kj solomon --finding` rules on one of them, so a correctness finding can be disputed on its own while the rest, security above all, keep blocking. The security audit says how many of its checks ran, so a green audit on a machine without its scanners no longer reads as a complete one.
 
+## Phase 157: v5.2.0, the rules, visible
+
+The rules lived in a YAML file the user is not meant to edit, and the method block quoted limits a project might have changed. The maintainer debated it one point at a time (ADR 0045): install asks nothing and applies every rule; five fixed rules change for no one; the adjustable ones take what the project says (its commitlint or history, and its CONTRIBUTING when the exact sentence is in the file, checked on every read) before kj's defaults. The agent may tighten a rule and only the human loosens one, with the same human act as the seal, because when an agent runs the change kj cannot know who asked for it; for the same reason a click on the board can tighten but not loosen. `kj gates`, `kj init`, `kj doctor` and the HU Board show the same list, every gate applies the resolved value, and the commit hook follows the project's convention instead of imposing one.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

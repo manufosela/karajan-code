@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-11-02
+
+### Added
+- **`kj gates`: the rules kj governs with, visible** (ADR 0045; KJC-TSK-1384): five fixed rules no one changes (card first, cross-AI review, security, no AI attribution, privacy), and each adjustable one (PR size, tests with code, dependency cooldown, mutation, claims, steward, commit convention) with its value and who set it: the default, the project, kj.config.yml or a skill. `kj gates --json` and `kj gates value <rule>` for scripts and hooks.
+- **`kj gates set <rule> <value>`** (KJC-TSK-1385): the agent may tighten a rule; loosening one is a human act, refused to an agent session and signed by the phone when one is enrolled, like the seal. A fixed rule is refused.
+- **The project's word wins over kj's defaults** (KJC-TSK-1386, KJC-TSK-1391): the commit convention follows the project's own commitlint config or its git history; `kj gates set ... --from-contributing "<sentence>"` takes a setting from the CONTRIBUTING only with that sentence found in the file, checks it again on every read, and records a sentence against a fixed rule as a conflict.
+- **The rules where you look** (KJC-TSK-1388, KJC-TSK-1393): `kj init` asks nothing about rules and closes with the list; `kj doctor` has a rules check that warns on conflicts and stale settings; the HU Board's Governance view has a Method rules section where a click tightens a rule and a loosening shows the command to type.
+
+### Changed
+- **Every gate applies its rule's resolved value** (KJC-TSK-1387): kj.config.yml, else what the project says. Writing a config back never saves a project-derived value as yours.
+- **The commit hook follows the project's convention** (KJC-TSK-1390): free or the project's own commitlint skip the Conventional Commits header check; anything else, or no kj, keeps it. Projects get it when kj harden regenerates their hooks and the owner seals them.
+- **The method block states the real PR size** (KJC-TSK-1392), the resolved ideal and maximum instead of a fixed 150 and 200.
+
+### Fixed
+- **The binaries' `.sha256` names the bare file** (KJC-BUG-0478), so `sha256sum -c kj-linux-x64.sha256` works next to a downloaded binary.
+
 ## [5.1.0] - 2026-11-02
 
 ### Added

@@ -1889,6 +1889,10 @@ La misma versión sacó de kj el addon de base de datos (todo va sobre `node:sql
 
 Cuatro ideas que un colaborador llevó al mantenedor la misma mañana, cada una decidida en una pregunta. El método pide una pasada de simplificación entre la suite en verde y la revisión, porque el veredicto va atado al diff exacto y limpiar después cuesta otra revisión; es una línea del método y no un gate, porque un gate solo probaría que alguien dijo haberla hecho. Antes de la revisión entre IAs, kj calcula sin modelo hechos sobre el diff (tamaño por fichero, código sin tests, dependencias nuevas, un import dinámico de un módulo ya importado en estático, cadenas con forma de secreto) y el revisor empieza por ellos. Los hallazgos nombran su fichero y su línea, y `kj solomon --finding` arbitra uno solo, así que un hallazgo de corrección se puede discutir por separado mientras los demás, y sobre todo los de seguridad, siguen bloqueando. La auditoría de seguridad dice cuántas de sus comprobaciones corrieron, y una auditoría en verde en una máquina sin sus escáneres ya no parece completa.
 
+## Phase 157: v5.2.0, las reglas, a la vista
+
+Las reglas vivían en un YAML que el usuario no debe tocar, y el bloque del método citaba límites que un proyecto podía haber cambiado. El mantenedor lo debatió punto a punto (ADR 0045): instalar no pregunta nada y aplica todas las reglas; cinco reglas fijas no las cambia nadie; las ajustables toman lo que dice el proyecto (su commitlint o su historial, y su CONTRIBUTING cuando la frase exacta está en el fichero, comprobada en cada lectura) antes que los valores por defecto de kj. El agente puede endurecer una regla y solo la persona la afloja, con el mismo acto humano que el sello, porque cuando un agente ejecuta el cambio kj no puede saber quién lo pidió; por la misma razón un clic en el board puede endurecer pero no aflojar. `kj gates`, `kj init`, `kj doctor` y el HU Board enseñan la misma lista, cada gate aplica el valor resuelto y el hook de commit sigue la convención del proyecto en vez de imponer una.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
