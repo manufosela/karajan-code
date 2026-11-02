@@ -102,6 +102,26 @@ kj seeds configs only when NO variant exists — your `eslint.config.mjs`, `.pre
 </TabItem>
 </Tabs>
 
+## Verify what you installed
+
+Since 5.0.0 every release is built and published by GitHub Actions from a tagged commit of [manufosela/karajan-code](https://github.com/manufosela/karajan-code), with a signed provenance statement (SLSA): it ties the package you download to the exact commit and workflow that built it.
+
+**npm package.** In the project (or folder) where kj is installed:
+
+```sh
+npm audit signatures
+```
+
+kj's packages must appear among those with *verified attestations*. The npm page of [@karajan-family/code](https://www.npmjs.com/package/@karajan-family/code) shows the same provenance, with a link to the workflow run.
+
+**Standalone binaries.** With GitHub CLI 2.49 or later, next to the downloaded binary:
+
+```sh
+gh attestation verify kj-linux-x64 --repo manufosela/karajan-code
+```
+
+Each binary also ships with its `.sha256` file: the hash `sha256sum kj-linux-x64` prints must match the one in it. A version published before 5.0.0 has no provenance.
+
 ## Uninstalling / opting out
 
 Every gate is a file you can see: remove `.karajan/review-gate` to disable the review gate, unset `core.hooksPath` to disable the hooks, delete the managed block in the rule files to remove the method. Nothing is hidden.

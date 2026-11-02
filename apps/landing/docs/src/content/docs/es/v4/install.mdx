@@ -102,6 +102,26 @@ kj solo siembra configs cuando NO existe ninguna variante — tu `eslint.config.
 </TabItem>
 </Tabs>
 
+## Verifica lo que has instalado
+
+Desde la 5.0.0, cada versión la construye y publica GitHub Actions a partir de un commit etiquetado de [manufosela/karajan-code](https://github.com/manufosela/karajan-code), con una declaración de procedencia firmada (SLSA): une el paquete que descargas con el commit y el workflow exactos que lo construyeron.
+
+**Paquete de npm.** En el proyecto (o la carpeta) donde está instalado kj:
+
+```sh
+npm audit signatures
+```
+
+Los paquetes de kj tienen que salir entre los que tienen *attestations verificadas*. La página de npm de [@karajan-family/code](https://www.npmjs.com/package/@karajan-family/code) muestra la misma procedencia, con un enlace a la ejecución del workflow.
+
+**Binarios independientes.** Con GitHub CLI 2.49 o posterior, junto al binario descargado:
+
+```sh
+gh attestation verify kj-linux-x64 --repo manufosela/karajan-code
+```
+
+Cada binario trae además su fichero `.sha256`: el hash que imprime `sha256sum kj-linux-x64` tiene que coincidir con el suyo. Una versión publicada antes de la 5.0.0 no tiene procedencia.
+
 ## Desinstalar / desactivar
 
 Cada gate es un fichero visible: borra `.karajan/review-gate` para desactivar el gate de revisión, quita `core.hooksPath` para desactivar los hooks, elimina el bloque gestionado de los ficheros de reglas para retirar el método. No hay nada oculto.
