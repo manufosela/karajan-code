@@ -14,6 +14,7 @@ import path from "node:path";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { detectRulesync, RULESYNC_RULE, rulesyncRuleSeed, writeRulesyncBlock } from "../utils/rulesync.js";
 import { panelLine } from "./panel.js";
+import { DEFAULTS } from "../config/defaults.js";
 
 // AB-A (KJC-TSK-0650): any agent can be the brain. AGENTS.md is the
 // emerging standard (Codex, Cursor and most new CLIs read it); GEMINI.md
@@ -50,7 +51,7 @@ function trackingLine(stateBackend, boardName) {
 // AB-C2 (KJC-TSK-0653): outcome-first — invariants over step scripts.
 // Frontier models choose their own path best; what they need explicit are
 // the limits. The git gates enforce these regardless of what any brain does.
-const playbookBody = (stateBackend, boardName, panel) => `# Karajan method (v4)
+const playbookBody = (stateBackend, boardName, panel, { ideal, max }) => `# Karajan method (v4)
 
 You are the orchestrator; Karajan governs. A task is DONE when its
 done-statement is literally true, the full suite is green, and every commit
@@ -79,15 +80,15 @@ ${panel ? `${panel}\n` : ""}- Security findings are never overridable — not ev
   \`kj audit --security\` (zero tokens) and remediate BEFORE the review.
 - A design decision the card's AC don't cover belongs to the USER: record
   it as a proposed ADR (\`kj adr add\`) and ask — never bury it in a PR
-  bullet. Diff size: ~150 net lines of code is the ideal, up to 200 is
-  allowed without asking, above 200 partition, always.
+  bullet. Diff size: ~${ideal} net lines of code is the ideal, up to ${max} is
+  allowed without asking, above ${max} partition, always.
 - A non-trivial plan names at least two approaches — one as if the
   codebase didn't exist — and says why the winner won. Following the
   legacy line is a choice, never a default.
 - Publishing ANY artifact (a build's dist/, a docs site, a tarball)?
   \`kj privacy scan <dir>\` first — nothing personal or secret-shaped ships.
 - Branch first: never commit on the base branch — every change reaches it
-  through an atomic PR (~150 net lines of code, Conventional Commits; human
+  through an atomic PR (~${ideal} net lines of code, Conventional Commits; human
   docs, lockfiles, snapshots and dist/ do not count, AI-rule files do). More than one
   task, or the base tree must stay untouched? \`kj worktree start <slug>\`
   (one lane per task; \`kj worktree done <slug>\` after merge). Never CLAIM
@@ -108,8 +109,15 @@ Something only your user can do (publish, seal, run a script)? Register it:
 \`kj handoff add <command> --why "<what for>"\`; they follow \`kj handoff watch\`.
 `;
 
+// KJC-TSK-1392 (ADR 0045): the values the agent reads are the ones its gates apply (the loader
+// resolved them into method_gates); with no config, kj's defaults.
+const prSize = (config) => ({
+  ideal: config?.method_gates?.pr_size_warn ?? DEFAULTS.method_gates.pr_size_warn,
+  max: config?.method_gates?.pr_size_max ?? DEFAULTS.method_gates.pr_size_max,
+});
+
 export function renderPlaybook({ stateBackend = "hu-board", boardName = null, config = null } = {}) {
-  return playbookBody(stateBackend, boardName, panelLine(config));
+  return playbookBody(stateBackend, boardName, panelLine(config), prSize(config));
 }
 
 /**
