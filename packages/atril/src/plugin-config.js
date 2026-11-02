@@ -57,6 +57,17 @@ export function readPluginConfig(plugin, opts = {}) {
   return values;
 }
 
+/** Forgets a value wherever it is kept (atril.json and the per-user file); the environment is not ours to change. */
+export function unsetPluginConfig(plugin, key, opts = {}) {
+  check(plugin, key);
+  const config = readConfig(opts);
+  const without = (values) => Object.fromEntries(Object.entries(values).filter(([name]) => name !== key));
+  const stored = config.pluginConfig?.[plugin];
+  if (stored && key in stored) writeConfig({ ...config, pluginConfig: { ...config.pluginConfig, [plugin]: without(stored) } }, opts);
+  const values = readUserFile(plugin, opts);
+  if (key in values) writeAtomic(userFile(plugin, opts), `${JSON.stringify(without(values), null, 2)}\n`, 0o600);
+}
+
 /** `opts.sensitive` is required: the caller got it from the manifest, and a guess could leak a secret. */
 export function writePluginConfig(plugin, key, value, opts = {}) {
   check(plugin, key);
