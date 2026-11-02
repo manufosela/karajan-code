@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readLock, writeLock } from "../src/lock.js";
 import { parseArtifact } from "../src/model.js";
 import { installPluginMarkdown } from "../src/plugin-markdown.js";
 import { scanStore } from "../src/scan.js";
@@ -40,6 +41,30 @@ describe("installPluginMarkdown", () => {
     expect(found.every((a) => a.atril.plugin === "kit")).toBe(true);
     expect(readFileSync(at("store/skills/kit__tdd/scripts/run.sh"), "utf8")).toBe("echo hi\n");
     expect(parseArtifact(at("store/commands/kit__ship.md")).body).toBe("Ship it\n");
+  });
+  it("records each artifact with origin plugin and the plugin in a plugins section", () => {
+    seed({ version: "1.2.0" });
+    const commit = "b".repeat(40);
+    installPluginMarkdown(at("p"), opts(), { from: { catalog: "kits", source: "github:o/r", commit } });
+    const lock = readLock(opts());
+    expect(Object.values(lock.artifacts).map(({ origin, plugin }) => [origin, plugin])).toEqual(Array(3).fill(["plugin", "kit"]));
+    expect(lock.plugins.kit).toEqual({ catalog: "kits", source: "github:o/r", commit, version: "1.2.0", entries: ["agent:kit__rev", "command:kit__ship", "skill:kit__tdd"] });
+  });
+  it("fails, rolling back, when an identical artifact is already held under another origin", () => {
+    seed();
+    run();
+    const lock = readLock(opts());
+    lock.artifacts["command:kit__ship"] = { origin: "local", hash: lock.artifacts["command:kit__ship"].hash };
+    delete lock.plugins;
+    writeLock(lock, opts());
+    expect(() => run()).toThrow(/command:kit__ship.*origin local/);
+    expect(readLock(opts())).not.toHaveProperty("plugins");
+  });
+  it("leaves no plugins entry when the install is rolled back", () => {
+    seed();
+    write("store/agents/kit__rev.md", "---\nname: kit__rev\ndescription: Other\nkind: agent\n---\nmine\n");
+    expect(() => run()).toThrow(/different content/);
+    expect(readLock(opts())).toEqual({ version: 1, artifacts: {} });
   });
   it("refuses a command with no frontmatter, since it has no description", () => {
     seed();

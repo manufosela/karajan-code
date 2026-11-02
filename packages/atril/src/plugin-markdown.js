@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import yaml from "js-yaml";
 import { refuseLinks } from "./catalog-install.js";
+import { readLock, recordPlugin } from "./lock.js";
 import { FRONTMATTER, SLUG, isMapping, parseArtifact } from "./model.js";
 import { listPluginMarkdown, readPluginManifest } from "./plugin.js";
 import { install, remove } from "./store.js";
@@ -46,22 +47,30 @@ function stageEntry(entry, plugin, stage, inside, rewrite) {
 /**
  * @param {string} dir the plugin's cached copy
  * @param {{ root?: string, projectDir?: string, env?: object }} [opts] the store, as install() takes it
- * @param {{ rewrite?: (staged: { entry: object, front: object, body: string }) => { front: object, body: string } }} [how]
- *   `rewrite` runs in the preflight, before the store is touched; the default leaves every entry as it is
+ * @param {{ rewrite?: (staged: { entry: object, front: object, body: string }) => { front: object, body: string }, from?: { catalog?: string, source?: string, commit?: string } }} [how]
+ *   `rewrite` runs in the preflight, before the store is touched; the default leaves every entry as it is.
+ *   `from` is where the plugin came from; the lock's `plugins` section records it with the plugin's version and artifacts
  * @returns {{ plugin: string, entries: { kind: string, name: string, ref: string, path: string, status: "installed" | "unchanged" }[] }}
  */
-export function installPluginMarkdown(dir, opts = {}, { rewrite = (staged) => staged } = {}) {
-  const { name: plugin } = readPluginManifest(dir);
+export function installPluginMarkdown(dir, opts = {}, { rewrite = (staged) => staged, from } = {}) {
+  const { name: plugin, version } = readPluginManifest(dir);
   const stage = mkdtempSync(join(tmpdir(), "atril-plugin-"));
   const created = [];
   try {
     const inside = join(realpathSync(dir), sep);
     const staged = listPluginMarkdown(dir).map((entry) => ({ entry, source: stageEntry(entry, plugin, stage, inside, rewrite) }));
     const entries = staged.map(({ entry, source }) => {
-      const done = install(source, { ...opts, kind: entry.kind });
+      const done = install(source, { ...opts, kind: entry.kind, origin: { origin: "plugin", plugin } });
       if (done.status === "installed") created.push(done);
       return { kind: entry.kind, name: entry.storeName, ref: entry.ref, path: done.path, status: done.status };
     });
+    // An identical artifact already held keeps its first origin: the plugin may not claim it.
+    const { artifacts } = readLock(opts);
+    for (const { kind, name } of entries) {
+      const held = artifacts[`${kind}:${name}`];
+      if (held?.origin !== "plugin" || held.plugin !== plugin) throw new Error(`${kind}:${name} is already installed with origin ${held?.origin}; remove it first`);
+    }
+    recordPlugin(plugin,{ ...from, version, entries: entries.map(({ kind, name }) => `${kind}:${name}`).toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0)) }, opts);
     return { plugin, entries };
   } catch (error) {
     const left = created.toReversed().flatMap(({ kind, name, path }) => {

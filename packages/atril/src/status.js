@@ -9,8 +9,9 @@ import { catalogs } from "./catalog.js";
 import { contentHash, readLock } from "./lock.js";
 import { keyOf, resolveRoot, scanStore } from "./scan.js";
 
-/** `local` and `import` are never curated; a catalog origin is while its ref (and source) are still configured. */
-function isCurated(origin, configured) {
+/** `local` and `import` are never curated; a plugin origin is while the lock still holds its plugin; a catalog origin is while its ref (and source) are still configured. */
+function isCurated(origin, configured, plugins = {}) {
+  if (origin?.origin === "plugin") return Object.hasOwn(plugins, origin.plugin);
   if (origin?.origin !== "catalog") return false;
   const catalog = configured.find(({ ref }) => ref === origin.catalog);
   if (!catalog) return false;
@@ -25,7 +26,7 @@ export function status(opts = {}) {
   const { projectDir = process.cwd(), env = process.env } = opts;
   const storeDir = resolve(projectDir, resolveRoot({ root: opts.root, env }));
   const held = new Map(scanStore(storeDir).map((artifact) => [keyOf(artifact), artifact]));
-  const lock = readLock(opts).artifacts;
+  const { artifacts: lock, plugins } = readLock(opts);
   const configured = catalogs(opts);
   // Code-unit order, not localeCompare: the order must not depend on the machine's locale.
   const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -38,7 +39,7 @@ export function status(opts = {}) {
     let state = "ok";
     if (!artifact) state = "missing";
     else if (entry && contentHash(kind === "skill" ? dirname(artifact.path) : artifact.path, kind) !== hash) state = "edited";
-    else if (!isCurated(recorded, configured)) state = "uncurated";
+    else if (!isCurated(recorded, configured, plugins)) state = "uncurated";
     return { kind, name, state, origin: recorded };
   });
 }

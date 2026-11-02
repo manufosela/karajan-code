@@ -53,6 +53,11 @@ describe("installedUpdates", () => {
     install(join(dir, "loose", "deploy.md"), o());
     expect(states()).toEqual([]);
   });
+  it("skips what a plugin installed: plugin updates come later", () => {
+    put("loose/kit__deploy.md", "---\nname: kit__deploy\ndescription: d\nkind: command\n---\nx\n");
+    install(join(dir, "loose", "kit__deploy.md"), { ...o(), origin: { origin: "plugin", plugin: "kit" } });
+    expect(states()).toEqual(["command:deploy:current"]);
+  });
 });
 
 describe("applyInstalledUpdate", () => {
