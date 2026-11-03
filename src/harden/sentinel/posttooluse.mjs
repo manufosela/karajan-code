@@ -4,7 +4,7 @@
 // a tool call (PostToolUse, always exit 0).
 import console from "node:console";
 import process from "node:process";
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, enterLane, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
@@ -123,14 +123,22 @@ process.stdin.on("end", () => {
       const cmdText = String(input.command || "");
       // CLI form of the ledger: the human output lists one hit per line as
       // "[kind · label · score=…] <path>"; --json prints an array with "source".
-      const ragCmd = /kj +rag +query/.exec(cmdText);
+      const ragCmd = /kj(?:\.js)? +rag +query/.exec(cmdText);
       if (ragCmd) {
         const out = typeof response === "string" ? response : String(response.stdout || "") + String(response.stderr || "");
         const fromLines = out.split(String.fromCharCode(10))
           .filter((l) => l.includes("score=") && l.includes("] "))
           .map((l) => l.slice(l.lastIndexOf("] ") + 2).trim())
           .filter(Boolean);
-        recordRag(cmdText.slice(ragCmd.index), fromLines.concat(sourcesOf(parseJson(out.trim()))), out);
+        // KJC-BUG-0486 (#3308): kj rag query notes what it answered; a filtered output
+        // (| tail -2) names no hit, the note of this same query, just written, does.
+        const noted = [...new Set([laneTop(), ROOT])].flatMap((top) => {
+          let note = null;
+          try { note = parseJson(readFileSync(join(top, ".karajan", "harness", "rag-answer.json"), "utf8")); } catch { /* no note: the output alone */ }
+          const fresh = note && Date.now() - Number(note.at) < 5 * 60 * 1000 && note.text && cmdText.includes(note.text);
+          return fresh && Array.isArray(note.sources) ? note.sources : [];
+        });
+        recordRag(cmdText.slice(ragCmd.index), fromLines.concat(sourcesOf(parseJson(out.trim())), noted), out);
         process.exit(0);
       }
       // gh prints "merged pull request #N" only on a TTY: under a tool call the
