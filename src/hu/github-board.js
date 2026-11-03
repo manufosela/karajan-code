@@ -6,22 +6,14 @@
  * person; every call names the repo explicitly.
  */
 import { runCommand } from "../utils/process.js";
+import { BoardOfflineError, BoardRejectedError, HuClaimedError, isOffline, isRefusal } from "./board-errors.js";
 
 export const HU_LABEL = "kj:hu";
 export const STATUSES = ["pending", "running", "done", "failed", "skipped"];
 const statusLabel = (s) => `kj:${s}`;
 
-/** gh could not reach GitHub: the caller may queue the change, never invent data. */
-export class BoardOfflineError extends Error { name = "BoardOfflineError"; }
-/** GitHub answered and said no (permissions, missing repo...). */
-export class BoardRejectedError extends Error { name = "BoardRejectedError"; }
-/** The HU is running and someone else holds it: taking it over is explicit (release). */
-export class HuClaimedError extends Error { name = "HuClaimedError"; }
-
-// KJC-TSK-1165: by name, not only instanceof: a test runner may load this module twice.
-export const isOffline = (err) => err instanceof BoardOfflineError || err?.name === "BoardOfflineError";
-/** GitHub answered and refused (rejected, or the HU is held by someone else): a conflict, not a failure of kj. */
-export const isRefusal = (err) => err instanceof BoardRejectedError || err instanceof HuClaimedError || ["BoardRejectedError", "HuClaimedError"].includes(err?.name);
+// HU-3333: the errors live in a neutral file; every current import keeps working from here.
+export { BoardOfflineError, BoardRejectedError, HuClaimedError, isOffline, isRefusal };
 
 // gh is not localized: these are the network failures it prints.
 const OFFLINE = /dial tcp|no such host|could not resolve host|connection refused|i\/o timeout|network is unreachable|error connecting to/i;
