@@ -114,6 +114,7 @@ atril install plugin:kit --json   # prints the install result on stdout
 
 Limits of the hook and MCP import (the commands are pointed to the plugin copy in the store):
 - A hook or MCP server whose command cannot be pointed to the copy (options between a runner and its script, a `..` escape, a store path needing shell quoting, or a `./` path mixed with `&&`, `||`, `;`, `|`, a `VAR=value` prefix or `sh -c`) is left out, named with the reason on stderr and under `rulesync.skipped` in `--json`; the Markdown and the other entries install. A command with no `./` path is never left out.
+- When the rulesync import drops a field, the Markdown still installs. A field that only carries text (`rewakeMessage`, `rewakeSummary`) is named on stderr and under `rulesync.lossy` in `--json`, and the entries are written. Any other field, unknown ones included, changes when or how an entry runs: no hook or MCP entry of that plugin is written, the field is named under `rulesync.skipped`, and the host CLI's install instructions are printed (atril runs none).
 - After the import a `./` path cannot be told apart as plugin path or project path (`npx prettier --write ./src`): only position rules apply, the command word and the script right after a runner.
 - The `cwd` of an MCP server is not rewritten.
 
