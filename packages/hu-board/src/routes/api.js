@@ -9,6 +9,7 @@ import promptsRouter from './api/prompts.js';
 import plansRouter from './api/plans.js';
 import tombstonesRouter from './api/tombstones.js';
 import commandsRouter from './api/commands.js';
+import stageRouter from './api/stage.js';
 
 const router = Router();
 
@@ -31,5 +32,7 @@ router.use(tombstonesRouter);
 
 // The kj commands the board launches, their run logs and the retired `kj run` routes.
 router.use(commandsRouter);
+// What kj stage shows on open (ADR 0046).
+router.use(stageRouter);
 
 export default router;
