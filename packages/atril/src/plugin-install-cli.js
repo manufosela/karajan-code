@@ -39,6 +39,12 @@ export function updateConfirm({ yes, tty, ask, err }) {
   return { confirm, dryRun: () => dry };
 }
 
+/** Whether any result wrote or removed `.rulesync/` entries: what decides if `rulesync generate` is due. */
+export const wroteEntries = (results) => results.some(({ rulesync, dropped }) => rulesync?.status === "merged" || dropped?.removed.length > 0);
+
+/** The entries an update left in `.rulesync/` because the user edited them, as stderr lines. */
+export const keptLines = ({ dropped }) => (dropped?.kept ?? []).map((key) => `atril: kept ${key} in .rulesync/: you edited it since atril wrote it, so it is yours now`);
+
 /** What the plugin brings that this version of atril does not install, as stderr lines; `name` prefixes each one. */
 export function notInstalledLines({ plugin, notInstalled: { hooks, mcpServers, bin }, npm, rulesync }, name) {
   const who = name ? `${name}: ` : "";

@@ -28,7 +28,7 @@ import { readLock } from "../src/lock.js";
 import { setPluginMode } from "../src/plugin-mode.js";
 import { removePlugin } from "../src/plugin-remove.js";
 import { derivedInstructions, removedInstructions } from "../src/plugin-derived.js";
-import { installConfirm, notInstalledLines, updateConfirm } from "../src/plugin-install-cli.js";
+import { installConfirm, keptLines, notInstalledLines, updateConfirm, wroteEntries } from "../src/plugin-install-cli.js";
 import { configureMissing, pluginConfigRows, setPluginConfig, unsetPluginKey } from "../src/plugin-config-cli.js";
 import { generateAfter, requireRulesync } from "../src/plugin-generate.js";
 import { hasEntries } from "../src/rulesync-entries.js";
@@ -43,7 +43,6 @@ function afterEntries(wrote, values) {
     process.exitCode = 1;
   }
 }
-const mergedEntries = (results) => results.some((member) => member.rulesync?.status === "merged");
 
 const USAGE = "Usage: atril --version\n       atril scan [--root <dir>] [--json]\n"
   + "       atril enrich [--root <dir>] [--check]\n       atril graph [<kind:name>] [--root <dir>] [--json]\n"
@@ -223,7 +222,8 @@ async function runUpdate(args) {
   const refs = given.filter((ref) => !ref.startsWith("plugin:"));
   const artifacts = given.length === 0 || refs.length > 0 ? await runArtifactUpdates(values, refs) : undefined;
   const plugins = await runUpdatePlugins(given.length === 0 ? Object.keys(known) : named, values);
-  afterEntries(mergedEntries(plugins), values);
+  afterEntries(wroteEntries(plugins), values);
+  for (const result of plugins) for (const line of keptLines(result)) console.error(printable(line));
   if (values.json) console.log(JSON.stringify({ ...artifacts, plugins }, null, 2));
   else for (const result of plugins) console.log(describePluginUpdate(result));
 }
@@ -307,7 +307,7 @@ async function runInstallPlugin(name, values) {
       const prefixed = result.dependencies.length > 0;
       for (const member of [...result.dependencies, result]) for (const line of notInstalledLines(member, prefixed ? member.plugin : undefined)) console.error(printable(line));
       for (const { derived } of [...result.dependencies, result]) for (const line of derived ? derivedInstructions(derived) : []) console.error(printable(`atril: ${line}`));
-      afterEntries(mergedEntries([...result.dependencies, result]), values);
+      afterEntries(wroteEntries([...result.dependencies, result]), values);
       terminal?.close();
       for (const member of [...result.dependencies, result]) {
         member.needsConfig = await configureMissing(member.plugin, { root: values.root }, { prompt: Boolean(terminal) && !values.yes });

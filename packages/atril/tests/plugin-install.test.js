@@ -8,6 +8,8 @@ import { writeConfig } from "../src/config.js";
 import { SAFE } from "../src/fetch.js";
 import { readLock, recordPlugin } from "../src/lock.js";
 import { installPlugin, installPluginSet, pluginInstallSet, updatePlugin } from "../src/plugin-install.js";
+import { generateAfter } from "../src/plugin-generate.js";
+import { wroteEntries } from "../src/plugin-install-cli.js";
 import { removePlugin } from "../src/plugin-remove.js";
 
 // recordPlugin runs after the Markdown is written: failing it injects a failure there; `torn` also half-writes the lock.
@@ -217,6 +219,49 @@ describe("installPlugin", () => {
       market({ ...GH, sha: head }); // the catalog now pins a version without the MCP server
       await updatePlugin("kit", o(), { confirm, git, run });
       expect(JSON.parse(readFileSync(join(dir, ".rulesync", "mcp.json"), "utf8")).mcpServers).toEqual({});
+    });
+
+    describe("an update to a version with no hooks and no MCP servers (HU-3317)", () => {
+      const rulesyncDir = () => join(dir, ".rulesync");
+      const readJson = (file) => JSON.parse(readFileSync(join(rulesyncDir(), file), "utf8"));
+      // v1 carries a hook and two MCP servers; v2 carries neither. The generate runner is recorded apart.
+      const setup = async ({ generate }) => {
+        withMcp();
+        mkdirSync(rulesyncDir());
+        const first = (_cmd, args) => {
+          if (!args.includes("import")) return;
+          const root = args[args.indexOf("--output-root") + 1];
+          put(root, ".rulesync/mcp.json", { mcpServers: { db: { command: "npx" }, cache: { command: "redis" } } });
+          put(root, ".rulesync/hooks.json", { hooks: { Stop: [{ command: "x.sh" }] } });
+        };
+        await installPlugin("kit", o(), { confirm, git, run, rulesync: first });
+        writeConfig({ catalogs: ["mkt"], rulesync: { generate } }, o());
+        head = "b".repeat(40);
+        tree = { manifest: { version: "2.0.0" } };
+        market({ ...GH, sha: head });
+        writeConfig({ catalogs: ["mkt"], rulesync: { generate } }, o());
+      };
+
+      it("removes the hook and the server, keeps the one the user edited and names it", async () => {
+        await setup({ generate: false });
+        const mcp = readJson("mcp.json");
+        mcp.mcpServers.cache.command = "mine";
+        writeFileSync(join(rulesyncDir(), "mcp.json"), JSON.stringify(mcp));
+        const result = await updatePlugin("kit", o(), { confirm, git, run });
+        expect(result.dropped.kept).toEqual(["mcp.json#kit/cache"]);
+        expect(result.dropped.removed).toHaveLength(2);
+        expect(readJson("mcp.json").mcpServers).toEqual({ cache: { command: "mine" } });
+        expect(readJson("hooks.json").hooks).toEqual({});
+        expect(Object.keys(readJson(".owners.json").entries).filter((key) => key.includes("#kit/"))).toEqual([]);
+      });
+
+      it.each([[true, /generate: done/, 1], [false, /run `rulesync generate/, 0]])("with rulesync.generate %s the removal is reported (%s, %s run)", async (generate, line, times) => {
+        await setup({ generate });
+        const gen = vi.fn();
+        const result = await updatePlugin("kit", o(), { confirm, git, run });
+        expect(generateAfter(wroteEntries([result]), o(), gen)).toMatch(line);
+        expect(gen).toHaveBeenCalledTimes(times);
+      });
     });
 
     it("installs nothing when the import fails", async () => {
