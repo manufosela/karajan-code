@@ -1897,6 +1897,10 @@ Las reglas vivían en un YAML que el usuario no debe tocar, y el bloque del mét
 
 Un carril empezaba con el índice RAG vacío y lo construía desde cero, así que las primeras preguntas en un carril nuevo se respondían sin nada mientras corría un bootstrap completo. Un colaborador hizo que cada carril nuevo arranque con una copia del índice de main (con rutas, slug y marca de agua reescritos) y que luego se ponga al día con los commits del propio carril en segundo plano, bajo un único permiso por máquina para que varios carriles no indexen a la vez; el indexador de un carril que ya no existe se para, y solo tras comprobar su comando exacto. La revisión conjunta de terceros aprendió a contar problemas en vez de informes: el mismo problema nombrado en otro fichero o dos veces por un revisor pasa a ser un hallazgo, decidido sin modelo por el punto o el código que nombra, y cada otro informe se queda en su `also`.
 
+## Phase 159: v5.4.0, una regla ve cada línea de un comando
+
+La revisión cruzada de un colaborador rechazó tres reglas compiladas del propio bloque del método de kj: sus patrones tomaban el inicio de un comando por el inicio de la llamada, así que un comando prohibido en la segunda línea de una llamada de Bash de varias líneas pasaba. Reescribir los patrones en cada proyecto habría dejado al siguiente patrón la tarea de acordarse, así que el arreglo fue al único sitio que los ejecuta: `matches` va con el flag `m` y cada línea se juzga como un comando, y el revisor de reglas lo sabe. Ese mismo día la propuesta de las reglas del mantenedor se quedó sin revisor, con un modelo sin cuota y otro sin permiso bajo el token de mínimo privilegio del agente, y `kj rules review` ganó el `--reviewer` que `kj review` ya tenía.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

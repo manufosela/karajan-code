@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.3.1: una consulta al RAG cuenta la leas como la leas (actual)
+### v5.4.0: una regla ve cada línea de un comando (actual)
+
+Una regla compilada juzga cada línea de una llamada de Bash de varias líneas como un comando, así que uno prohibido no puede esconderse en la segunda línea, y cada proyecto lo recibe sin recompilar. `kj rules review --reviewer` elige la IA que revisa, como `kj review`. Un `kj rag index` en primer plano cede ante un indexador activo salvo con `--force`.
+
+### v5.3.1: una consulta al RAG cuenta la leas como la leas
 
 El gate rag-first del Sentinel cuenta un `kj rag query` aunque su salida vaya filtrada (`| tail -2`) o se ejecute como `node bin/kj.js`, porque kj anota lo que respondió. `kj harden` ya no pide el job de main-guard como check obligatorio, que habría bloqueado todas las PRs.
 
