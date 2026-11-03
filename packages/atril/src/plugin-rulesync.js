@@ -68,7 +68,7 @@ function pointToCopy(canonical, base) {
 /**
  * `pluginCopy` is where the plugin lives in the store: the `./` script paths the import left (they would point to the
  * project) become paths to that copy, and `rewritten` says so, so the caller can ask the team to run `atril sync`.
- * @returns {{ status: "absent" } | { status: "imported", canonical: { mcp?: object, hooks?: object }, rewritten?: true }} absent: rulesync does not answer
+ * @returns {{ status: "absent" } | { status: "imported", canonical: { mcp?: object, hooks?: object }, needs?: string[], rewritten?: true }} absent: rulesync does not answer; needs: sensitive keys the entries refer to as `${KEY}`
  * @throws when the import itself fails; the temporary directory is removed either way
  */
 export function importCanonical(pluginDir, { projectDir, pluginCopy }, run = defaultRun) {
@@ -86,7 +86,9 @@ export function importCanonical(pluginDir, { projectDir, pluginCopy }, run = def
       if (doc) canonical[kind] = referSecrets(doc, secrets);
     }
     const rewritten = pluginCopy ? pointToCopy(canonical, `./${relative(projectDir, pluginCopy).split(sep).join("/")}`.replace(/^\.\/\.\./, "..")) : false;
-    return { status: "imported", canonical, ...(rewritten && { rewritten }) };
+    const text = JSON.stringify(canonical);
+    const needs = secrets.filter((key) => text.includes(`\${${key}}`)); // the variables the user must have: names only, never a value
+    return { status: "imported", canonical, ...(needs.length && { needs }), ...(rewritten && { rewritten }) };
   } catch (error) {
     throw new Error(`rulesync import failed (${error.message}); nothing was installed`, { cause: error });
   } finally {

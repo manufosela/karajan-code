@@ -159,6 +159,16 @@ describe("installPlugin", () => {
       expect(result.notInstalled.mcpServers).toEqual([]);
     });
 
+    it("writes a sensitive key as ${VAR} with no value and reports the variable the user needs", async () => {
+      withMcp();
+      tree = { manifest: { userConfig: { TOKEN: { title: "t", sensitive: true } } }, files: { ".mcp.json": { mcpServers: { db: { command: "npx" } } } } };
+      mkdirSync(join(dir, ".rulesync"));
+      const rulesync = (_cmd, args) => { if (args.includes("import")) put(args[args.indexOf("--output-root") + 1], ".rulesync/mcp.json", { mcpServers: { db: { command: "npx", env: { T: "${user_config.TOKEN}" } } } }); };
+      const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });
+      expect(JSON.parse(readFileSync(join(dir, ".rulesync", "mcp.json"), "utf8")).mcpServers.db.env).toEqual({ T: "${TOKEN}" });
+      expect(result.rulesync).toEqual({ status: "merged", needs: ["TOKEN"] });
+    });
+
     it("points a script of the plugin to its copy in the store and reports the rewrite", async () => {
       withMcp();
       mkdirSync(join(dir, ".rulesync"));
