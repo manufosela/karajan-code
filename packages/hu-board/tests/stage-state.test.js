@@ -1,0 +1,69 @@
+// KJC-TSK-1405 (ADR 0046): on open, each stage piece shows its last real state.
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import express from 'express';
+import request from 'supertest';
+
+import { lastStageState } from '../src/stage-state.js';
+
+let tmp, proj, prev;
+const kj = (...p) => join(proj, '.karajan', ...p);
+const jsonl = (...rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n';
+
+beforeEach(() => {
+  tmp = mkdtempSync(join(tmpdir(), 'hu-board-stage-state-'));
+  proj = join(tmp, 'work', 'proj');
+  mkdirSync(kj('harness'), { recursive: true });
+  mkdirSync(kj('reviews'), { recursive: true });
+  prev = { home: process.env.KJ_HOME, plans: process.env.KJ_PLANS_DIR };
+  process.env.KJ_HOME = join(tmp, 'home');
+  process.env.KJ_PLANS_DIR = join(tmp, 'plans');
+});
+
+afterEach(() => {
+  for (const [k, v] of [['KJ_HOME', prev.home], ['KJ_PLANS_DIR', prev.plans]]) {
+    if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
+  rmSync(tmp, { recursive: true, force: true });
+});
+
+describe('lastStageState', () => {
+  it('is all null in a project without records', () => {
+    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null });
+  });
+
+  it('takes the last denial and seal and the newest verdict', () => {
+    writeFileSync(kj('harness', 'denials.jsonl'), jsonl({ at: 't1', tool: 'Bash', why: 'a' }, { at: 't2', tool: 'Edit', why: 'b' }));
+    writeFileSync(kj('policy-decisions.jsonl'), jsonl({ ts: 's1', decision: 'allow', chokepoint: 'commit' }));
+    writeFileSync(kj('reviews', 'old.json'), JSON.stringify({ verdict: 'approved', diffHash: 'old' }));
+    writeFileSync(kj('reviews', 'new.json'), JSON.stringify({ verdict: 'rejected', diffHash: 'new', reviewer: 'agy' }));
+    utimesSync(kj('reviews', 'old.json'), new Date(1000), new Date(1000));
+    const state = lastStageState(proj);
+    expect(state.denial).toMatchObject({ type: 'sentinel-deny', at: 't2', tool: 'Edit' });
+    expect(state.seal).toMatchObject({ type: 'ledger-seal', decision: 'allow' });
+    expect(state.verdict).toMatchObject({ type: 'review-verdict', verdict: 'rejected', diffHash: 'new' });
+  });
+
+  it('reads only the tail of a large log, skipping a cut first line', () => {
+    const filler = Array.from({ length: 2000 }, (_, i) => ({ at: `t${i}`, tool: 'Bash', why: 'x'.repeat(40) }));
+    writeFileSync(kj('harness', 'denials.jsonl'), jsonl(...filler));
+    expect(lastStageState(proj, { tailBytes: 300 }).denial).toMatchObject({ at: 't1999' });
+  });
+});
+
+describe('GET /api/stage/state', () => {
+  it('answers the state of the project it names, and 400 without one it can resolve', async () => {
+    const { deriveProjectIdFromDir } = await import('../src/sync.js');
+    const slug = deriveProjectIdFromDir(proj);
+    mkdirSync(join(tmp, 'plans', slug), { recursive: true });
+    writeFileSync(join(tmp, 'plans', slug, 'plan-1.json'), JSON.stringify({ projectDir: proj }));
+    const { default: apiRoutes } = await import('../src/routes/api.js');
+    const app = express().use('/api', apiRoutes);
+    const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
+    expect(ok.body).toEqual({ denial: null, verdict: null, seal: null });
+    await request(app).get('/api/stage/state?project=nowhere').expect(400);
+    await request(app).get('/api/stage/state').expect(400);
+  });
+});
