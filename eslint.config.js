@@ -409,6 +409,13 @@ export default [
     rules: { "no-undef": "error", "no-console": ["error", { allow: ["warn"] }] },
   },
   {
+    // kj stage (ADR 0046): the board's stage page and its copy of the film cast are
+    // BROWSER ES modules, unlike the rest of the board's classic scripts.
+    files: ["packages/hu-board/public/stage/**/*.js"],
+    languageOptions: { ecmaVersion: 2025, sourceType: "module", globals: { ...globals.browser } },
+    rules: { "no-undef": "error", "no-console": ["error", { allow: ["warn"] }] },
+  },
+  {
     files: ["packages/*/tests/**/*.js", "packages/*/tests/**/*.mjs"],
     languageOptions: {
       ecmaVersion: 2024,
