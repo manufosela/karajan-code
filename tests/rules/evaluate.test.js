@@ -79,6 +79,21 @@ rules:
     expect(evalRules(r, { tool: "Bash", input: { command: "git push origin x", updates: { status: "Closed" } } }).decision).toBe("deny");
   });
 
+  // KJC-BUG-0487 (#3328): a newline separates commands like a semicolon does, so a command
+  // boundary written as (^|;|&&) catches the forbidden command on any line.
+  it("matches judges each line of a multi-line command: ^ and $ hold at every line", () => {
+    const r = rulesOf(`
+version: 1
+rules:
+  - { id: R-0000000007, kind: deterministic, when: { tool: Bash, any: [{ arg: command, matches: "(^|&&|;)\\\\s*kj\\\\s+update\\\\b" }] } }
+  - { id: R-0000000008, kind: deterministic, when: { tool: Bash, any: [{ arg: command, matches: "--force$" }] } }
+`);
+    const bash = (command) => evalRules(r, { tool: "Bash", input: { command } }).decision;
+    expect(bash("echo ready\nkj update")).toBe("deny");
+    expect(bash("git push --force\necho done")).toBe("deny");
+    expect(bash("echo 'run kj update later'")).toBe("allow");
+  });
+
   it("compares numbers only, and reads own properties only", () => {
     const r = rulesOf(`
 version: 1
