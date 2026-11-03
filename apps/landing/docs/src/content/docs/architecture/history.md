@@ -1898,6 +1898,10 @@ The rules lived in a YAML file the user is not meant to edit, and the method blo
 
 A lane used to start with an empty RAG index and build it from scratch, so the first questions in a new lane answered from nothing while a full bootstrap ran. A contributor seeded each new lane with a copy of main's index (paths, slug and watermark rewritten) and then had it catch up with the lane's own commits in the background, under one machine-wide lease so several lanes never index at once; an indexer whose lane was removed is stopped, and only after checking its exact command. The joint third-party review learned to count problems instead of reports: the same problem named in another file or twice by one reviewer becomes one finding, decided without a model by the spot or the code it names, with every other report kept in its `also`.
 
+## Phase 159: v5.4.0, a rule sees every line of a command
+
+A contributor's cross-AI review rejected three compiled rules of kj's own method block: their patterns took the start of a command to be the start of the call, so a forbidden command on the second line of a multi-line Bash call went through. Rewriting the patterns in every project would have left the next pattern to remember it, so the fix went into the one place that runs them: `matches` runs with the `m` flag and each line is judged as a command, and the rules reviewer is told so. The same day the proposal for the maintainer's own rules had no reviewer, with one model over its quota and another without permission under the agent's least-privilege token, and `kj rules review` gained the `--reviewer` that `kj review` already had.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.4.0] - 2026-11-03
+
+### Added
+- **`kj rules review --reviewer <name>`** (KJC-TSK-1408), as in `kj review`: with codex over its quota and copilot failing, a rules proposal had no reviewer at all. The host is still never accepted.
+
+### Fixed
+- **A newline separates commands in the rules' patterns** (KJC-BUG-0487, #3328): `matches` runs with the `m` flag, so `^` and `$` hold at every line, and a forbidden command on any line of a multi-line Bash call is denied. Every project's compiled rules get it without recompiling, and the rules reviewer is told so.
+- **A foreground `kj rag index` yields to a live indexer** (HU-3279, by Jorge del Casar) unless `--force` is given, so two indexers no longer run at once.
+
 ## [5.3.1] - 2026-11-03
 
 ### Fixed
