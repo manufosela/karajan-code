@@ -61,4 +61,15 @@ describe("kj rules review", () => {
     await expect(rulesReview({ projectDir: dir, home, config: {}, deps: onlyTheHost })).rejects.toThrow(/agent other than the host/);
     expect(agents).not.toHaveBeenCalled();
   });
+
+  // KJC-TSK-1408: codex without quota and copilot failing left no reviewer; kj review takes
+  // --reviewer, and so does kj rules review (withConfig applies it to the config).
+  it("kj rules review takes --reviewer like kj review", async () => {
+    const { Command } = await import("commander");
+    const { registerMeta } = await import("../../src/cli/register-meta.js");
+    const program = new Command();
+    registerMeta(program, { pkgVersion: "0.0.0-test" });
+    const reviewCmd = program.commands.find((c) => c.name() === "rules").commands.find((c) => c.name() === "review");
+    expect(reviewCmd.options.map((o) => o.long)).toContain("--reviewer");
+  });
 });

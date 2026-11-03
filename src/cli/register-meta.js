@@ -469,6 +469,7 @@ export function registerMeta(program, { pkgVersion }) {
   rules.command("review")
     .description("A DIFFERENT AI reviews a checked proposal, rule by rule: is each compilation as strong as its text? The verdict is tied to the proposal's exact content")
     .option("--file <path>", "The proposal", PROPOSAL_FILE)
+    .option("--reviewer <name>", "The reviewing AI, as in kj review (never the host)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-review", flags, async ({ config, logger }) => {
         const res = await rulesReview({ projectDir: config?.projectDir || process.cwd(), file: flags.file, config, logger });
