@@ -145,10 +145,11 @@ function commit({ name, catalog, source, fetched, inventory }, opts, { run, rule
     throw error;
   }
   const { plugin, entries } = installed;
-  if (!imported) removeEntries(projectDir, name); // an update that drops every hook and MCP server drops what the old version wrote
+  // An update that drops every hook and MCP server drops what the old version wrote; `dropped` tells the CLI what went and what stayed.
+  const dropped = imported ? undefined : removeEntries(projectDir, name);
   // The derived plugin is only written and listed: no host CLI runs (ADR 0042), so there is nothing for remove to undo.
   const derived = writeDerived(plugin, fetched.version, fetched.dir, { root: resolve(opts.projectDir ?? process.cwd(), resolveRoot(opts)), hooks: hooks.length, mcpServers: mcpServers.length });
-  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks: merged ? [] : hooks, mcpServers: merged ? [] : mcpServers, bin }, ...(imported && { rulesync: { status: merged ? "merged" : "absent", ...(imported.needs && { needs: imported.needs }), ...(imported.rewritten && { rewritten: true }), ...(imported.skipped && { skipped: imported.skipped }) } }), ...(derived && { derived }) };
+  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks: merged ? [] : hooks, mcpServers: merged ? [] : mcpServers, bin }, ...(imported && { rulesync: { status: merged ? "merged" : "absent", ...(imported.needs && { needs: imported.needs }), ...(imported.rewritten && { rewritten: true }), ...(imported.skipped && { skipped: imported.skipped }) } }), ...(dropped && (dropped.removed.length || dropped.kept.length) && { dropped }), ...(derived && { derived }) };
 }
 
 /**

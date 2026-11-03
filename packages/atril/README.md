@@ -202,6 +202,7 @@ An update replaces the copy atomically: if copying fails, the previous version s
 
 - **`--yes`** answers both questions; **without a terminal and without `--yes`** it is a dry run that writes nothing and exits 0.
 - **A plugin already at the pinned commit** prints `current`; one that is not installed fails before anything is fetched.
+- **A new version with no hooks and no MCP servers** removes the `.rulesync/` entries the old one wrote (one you edited since stays and is named), then runs `rulesync generate` when `rulesync.generate` is true, or names the command.
 - **`--json`** adds `plugins` (one `{ plugin, status, ... }` per plugin: `updated`, `current` or `declined`, plus `dryRun: true` for a dry run) beside `updates` and `applied`.
 
 The store and the lock are replaced together: a failed update puts both back exactly as they were. `user_config` values are never touched.
