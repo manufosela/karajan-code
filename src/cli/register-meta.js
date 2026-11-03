@@ -18,6 +18,7 @@ import { ragMcpCommand } from "../commands/rag-mcp.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
 import { boardCommand } from "../commands/board.js";
+import { stageCommand } from "../commands/stage.js";
 import { webperfCommand } from "../commands/webperf.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
@@ -1048,6 +1049,18 @@ export function registerMeta(program, { pkgVersion }) {
         const port = Number(opts.port) || config.hu_board?.port || 4000;
         const bind = opts.bind || config.hu_board?.bind || "127.0.0.1";
         await boardCommand({ action, port, bind, logger });
+      });
+    });
+
+  // KJC-TSK-1400 (ADR 0046): the live 3D stage of this project, a page of the HU Board.
+  program
+    .command("stage")
+    .description("Open the live 3D stage of this project: what the Sentinel, kj review and the Ledger do, as it happens (starts the HU Board if needed)")
+    .option("--port <number>", "HU Board port (default: hu_board.port, else 4000)")
+    .action(async (opts) => {
+      await withConfig(pkgVersion, "stage", opts, async ({ config, logger }) => {
+        const port = Number(opts.port ?? config.hu_board?.port ?? 4000);
+        await stageCommand({ projectDir: process.cwd(), port, logger });
       });
     });
 

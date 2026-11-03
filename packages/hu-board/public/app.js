@@ -194,6 +194,7 @@ function updateProjectNav() {
   if (!visible) return;
   const nameEl = document.getElementById('project-nav-name');
   nameEl.textContent = projectNameCache[selectedProject] || humaniseProjectName(selectedProject);
+  document.getElementById('project-nav-stage').href = `/stage.html?project=${encodeURIComponent(selectedProject)}`;
   resolveProjectMeta(selectedProject).then((meta) => {
     if (meta.name) nameEl.textContent = meta.name;
   });
