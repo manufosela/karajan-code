@@ -182,7 +182,7 @@ describe("installPlugin", () => {
 
     it("installs the Markdown and writes the other hooks when one cannot be pointed to the store", async () => {
       market(GH);
-      tree = { manifest: { hooks: { Stop: [{ matcher: "", hooks: [{ type: "command", command: "node --require ./r.js ./main.js" }, { type: "command", command: "./ok.sh" }] }] } }, files: {} };
+      tree = { manifest: {}, files: { "hooks/hooks.json": { hooks: { Stop: [{ matcher: "", hooks: [{ type: "command", command: "node --require ./r.js ./main.js" }, { type: "command", command: "./ok.sh" }] }] } } } };
       mkdirSync(join(dir, ".rulesync"));
       const rulesync = (_cmd, args) => { if (args.includes("import")) put(args[args.indexOf("--output-root") + 1], ".rulesync/hooks.json", { hooks: { Stop: [{ command: "node --require ./r.js ./main.js" }, { command: "./ok.sh" }] } }); };
       const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });

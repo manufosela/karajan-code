@@ -7,7 +7,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { declaredPluginConfig } from "./plugin-config.js";
-import { prepareImport } from "./plugin-normalize.js";
+import { lossyFields, prepareImport, splitLossy } from "./plugin-normalize.js";
 import { defaultRun, runRulesync } from "./rulesync-cli.js";
 
 const readKind = (root, kind) => {
@@ -95,6 +95,7 @@ function pointToCopy(canonical, base) {
  * `pluginCopy` is where the plugin lives in the store: the `./` script paths the import left (they would point to the
  * project) become paths to that copy, and `rewritten` says so, so the caller can ask the team to commit the store.
  * A hook or MCP server that cannot be pointed to the copy is left out of `canonical` and named in `skipped`.
+ * `lossy` names the harmless fields the import dropped; one that changes what runs leaves all entries out (`skipped`, kind "plugin").
  * @returns {{ status: "absent" } | { status: "imported", canonical: { mcp?: object, hooks?: object }, needs?: string[], rewritten?: true, skipped?: { kind: "hook" | "mcp", name: string, reason: string }[] }} absent: rulesync does not answer; needs: sensitive keys the entries refer to as `${KEY}`
  * @throws when the import itself fails; the temporary directory is removed either way
  */
@@ -112,10 +113,15 @@ export function importCanonical(pluginDir, { projectDir, pluginCopy }, run = def
       const doc = readKind(copy, kind);
       if (doc) canonical[kind] = referSecrets(doc, secrets);
     }
+    // A lost field that changes when or how an entry runs keeps every hook and MCP entry of the plugin out (the host CLI keeps them whole).
+    const { harmless, blocking } = splitLossy(lossyFields(pluginDir));
+    if (blocking.length) for (const kind of Object.keys(canonical)) delete canonical[kind];
     const { rewritten, skipped } = pluginCopy ? pointToCopy(canonical, `./${relative(projectDir, pluginCopy).split(sep).join("/")}`.replace(/^\.\/\.\./, "..")) : { skipped: [] };
+    if (blocking.length) skipped.push({ kind: "plugin", name: "hooks and MCP servers", reason: `the import loses ${[...new Set(blocking.map(({ field }) => field))].join(", ")}, which change when or how they run` });
+    const lossy = blocking.length ? [] : harmless.map(({ field, where }) => ({ field, where }));
     const text = JSON.stringify(canonical);
     const needs = secrets.filter((key) => text.includes(`\${${key}}`)); // the variables the user must have: names only, never a value
-    return { status: "imported", canonical, ...(needs.length && { needs }), ...(rewritten && { rewritten }), ...(skipped.length && { skipped }) };
+    return { status: "imported", canonical, ...(needs.length && { needs }), ...(rewritten && { rewritten }), ...(lossy.length && { lossy }), ...(skipped.length && { skipped }) };
   } catch (error) {
     throw new Error(`rulesync import failed (${error.message}); nothing was installed`, { cause: error });
   } finally {

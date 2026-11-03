@@ -69,6 +69,17 @@ const findHookFields = (value, where) => {
 const byCodeUnit = (x, y) => (x < y ? -1 : Number(x > y));
 const compare = (a, b) => byCodeUnit(a.file, b.file) || byCodeUnit(a.where, b.where) || byCodeUnit(a.field, b.field);
 
+// Lost fields that only carry text for the user: the entry still runs as written. Any field not listed here, an unknown one included, counts as changing when or how it runs.
+export const HARMLESS_LOSSY = ["rewakeMessage", "rewakeSummary"];
+// Known fields that change what runs; none may also be in HARMLESS_LOSSY (a test checks it).
+export const RUN_CHANGING_LOSSY = ["env", "cwd", "matcher", "timeout", "args", "command", "modules", "hooks", "mcpServers"];
+
+/** Splits lossyFields output: `harmless` may be written and named, `blocking` must be left to the host CLI. */
+export function splitLossy(lossy) {
+  const harmless = lossy.filter(({ field }) => HARMLESS_LOSSY.includes(field));
+  return { harmless, blocking: lossy.filter((lost) => !harmless.includes(lost)) };
+}
+
 /** What `rulesync import` would lose, as [{ file, field, where }]; empty means the import is safe. */
 export function lossyFields(dir) {
   const { format, manifest } = readPluginManifest(dir);
