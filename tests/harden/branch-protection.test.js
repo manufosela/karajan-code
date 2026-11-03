@@ -12,7 +12,9 @@ beforeEach(() => {
   const wf = path.join(dir, ".github", "workflows");
   fs.mkdirSync(wf, { recursive: true });
   fs.writeFileSync(path.join(wf, "kj-policy.yml"), "name: Policy\non:\n  pull_request:\njobs:\n  policy-check:\n    runs-on: ubuntu-latest\n");
-  fs.writeFileSync(path.join(wf, "kj-quality.yml"), "name: Quality\njobs:\n  quality:\n    name: \"Lint and tests\"\n    runs-on: ubuntu-latest\n");
+  fs.writeFileSync(path.join(wf, "kj-quality.yml"), "name: Quality\non: [push, pull_request]\njobs:\n  quality:\n    name: \"Lint and tests\"\n    runs-on: ubuntu-latest\n");
+  // KJC-BUG-0484: runs only on the push to main, so its check never reaches a PR.
+  fs.writeFileSync(path.join(wf, "kj-main-guard.yml"), "name: Main guard\non:\n  push:\n    branches: [main]\njobs:\n  guard:\n    name: \"Merges and protection of main\"\n    runs-on: ubuntu-latest\n");
   fs.writeFileSync(path.join(wf, "kj-mutation.yml"), "name: Mutation\njobs:\n  mutation:\n    runs-on: ubuntu-latest\n");
   fs.writeFileSync(path.join(wf, "ci.yml"), "name: CI\njobs:\n  test:\n    runs-on: ubuntu-latest\n");
 });
@@ -58,6 +60,13 @@ describe("adviseBranchProtection", () => {
 describe("requiredChecksFrom", () => {
   it("names the job of each kj workflow, by its name when it has one; mutation and the user's own CI stay out", () => {
     expect(requiredChecksFrom(dir)).toEqual(["policy-check", "Lint and tests"]);
+  });
+
+  it("KJC-BUG-0484: a workflow that never runs on a PR gives no required check", () => {
+    const wf = path.join(dir, ".github", "workflows");
+    fs.writeFileSync(path.join(wf, "kj-target.yml"), "on: pull_request_target\njobs:\n  scan:\n    runs-on: ubuntu-latest\n");
+    fs.writeFileSync(path.join(wf, "kj-nightly.yml"), "on:\n  schedule:\n    - cron: '0 3 * * *'\njobs:\n  drift:\n    runs-on: ubuntu-latest\n");
+    expect(requiredChecksFrom(dir)).toEqual(["policy-check", "Lint and tests", "scan"]);
   });
 });
 

@@ -12,10 +12,16 @@ import { assertGhIdentity } from "../hu/gh-identity.js";
 // Scheduled or advisory kj workflows: they never block a PR, so they are never required.
 const NOT_REQUIRED = new Set(["kj-mutation.yml", "kj-steward.yml"]);
 
+// KJC-BUG-0484: only a workflow that runs on a PR publishes its check there; requiring any other
+// one (main-guard runs on the push to main) would block every PR.
+const PR_EVENTS = new Set(["pull_request", "pull_request_target"]);
+const triggers = (on) => (typeof on === "string" ? [on] : Array.isArray(on) ? on : Object.keys(on ?? {}));
+
 /** The GitHub check name of each job: its `name:` when it has one, its id otherwise. */
 function jobChecks(text) {
-  const jobs = parseYaml(text)?.jobs ?? {};
-  return Object.entries(jobs).map(([id, job]) => (typeof job?.name === "string" ? job.name : id));
+  const workflow = parseYaml(text);
+  if (!triggers(workflow?.on).some((event) => PR_EVENTS.has(event))) return [];
+  return Object.entries(workflow.jobs ?? {}).map(([id, job]) => (typeof job?.name === "string" ? job.name : id));
 }
 
 /** The checks kj harden's own workflows publish, from the files installed in the repo. */
