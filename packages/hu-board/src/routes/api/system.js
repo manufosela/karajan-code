@@ -9,6 +9,7 @@ import { fullScan } from '../../sync.js';
 import { subscribe as subscribeEvents } from '../../event-bus.js';
 import { readConfig, writeConfigPatch } from '../../config-yaml.js';
 import { requestProjectDir } from '../../project-dir.js';
+import { watchStageFeed } from '../../stage-feed.js';
 import { BOOT_TIME, PKG_VERSION } from '../../boot-info.js';
 
 const router = Router();
@@ -50,6 +51,12 @@ router.get('/dashboard', (_req, res) => {
  * 25s so intermediate proxies don't kill the idle socket.
  */
 router.get('/events', (req, res) => {
+  // KJC-TSK-1403 (ADR 0046): naming a project adds its stage feed to this stream only.
+  let stageDir;
+  try { stageDir = requestProjectDir(req.query.project); } catch (err) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -73,6 +80,7 @@ router.get('/events', (req, res) => {
     }
   };
   const unsubscribe = subscribeEvents(send);
+  const stopStageFeed = stageDir ? watchStageFeed(stageDir, send, { project: req.query.project }) : null;
 
   // 25s is well under the default 60-90s idle timeout of every sane
   // reverse proxy, but high enough that it doesn't spam the log.
@@ -83,6 +91,7 @@ router.get('/events', (req, res) => {
   req.on('close', () => {
     clearInterval(keepAlive);
     unsubscribe();
+    stopStageFeed?.();
     res.end?.();
   });
 });
