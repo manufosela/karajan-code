@@ -1,5 +1,6 @@
 // KJC-PCS-0049 Step 7 — MCP rag handlers acceptance pins.
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { mkdtempSync,mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -121,6 +122,31 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
     const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
     expect((await handleRagIndex({ projectDir }, {})).ok).not.toBe(false);
     expect(readLease(indexLeasePath())).toBeNull();
+  });
+
+  // HU-3279: a live indexer holds the lease: the handler yields unless force is true.
+  describe("kj_rag_index with another live indexer holding the lease", () => {
+    let other, projectDir, handleRagIndex, leaseApi;
+    beforeEach(async () => {
+      ({ handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js"));
+      leaseApi = await import("../../src/rag/pid-lease.js");
+      other = spawn("sleep", ["30"]);
+      leaseApi.writeLease(leaseApi.indexLeasePath(), { pid: other.pid, at: Date.now(), slug: "other" });
+      projectDir = join(root, "p4");
+      mkdirSync(projectDir);
+    });
+    afterEach(() => other.kill());
+    it("yields without force: names the holder and force, and leaves the lease", async () => {
+      const res = await handleRagIndex({ projectDir }, {});
+      expect(res.ok).toBe(false);
+      expect(res.error).toMatch(new RegExp(`other.*pid ${other.pid}.*force: true`));
+      expect(leaseApi.readLease(leaseApi.indexLeasePath())).toMatchObject({ pid: other.pid });
+    });
+    it("indexes with force: true and leaves the other holder's lease", async () => {
+      const res = await handleRagIndex({ projectDir, force: true }, {});
+      expect(res.ok).not.toBe(false);
+      expect(leaseApi.readLease(leaseApi.indexLeasePath())).toMatchObject({ pid: other.pid });
+    });
   });
 
   // KJC-TSK-0883 (ADR 0011): el MCP lee el indice del PROYECTO, como la CLI

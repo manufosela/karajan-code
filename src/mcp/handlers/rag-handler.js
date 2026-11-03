@@ -10,7 +10,7 @@ import { indexProject } from "../../rag/indexer.js";
 import { ragExclude } from "../../rag/indexable.js";
 import { query } from "../../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../../rag/path-hits.js";
-import { claimLease, indexLeasePath, releaseLease } from "../../rag/pid-lease.js";
+import { claimLease, holderLabel, indexLeasePath, releaseLease } from "../../rag/pid-lease.js";
 import { getKarajanHome } from "../../utils/paths.js";
 import { resolveProjectDir, buildConfig, responseText, failPayload } from "../shared-helpers.js";
 
@@ -62,6 +62,10 @@ export async function handleRagIndex(args, server) {
     let claim;
     try {
       claim = claimLease(lease, { projectDir, slug: projectSlug(projectDir) });
+      // HU-3279: yield to another live indexer unless forced; its lease is never touched.
+      if (!claim.claimed && args?.force !== true) {
+        return failPayload(`kj_rag_index: another index is running (${holderLabel(claim)}); not indexing. Pass force: true to index anyway`);
+      }
       const totals = await indexProject(projectDir, {
         db, embedder: makeGovernedEmbedder(config),
         karajanHome: getKarajanHome(), logger: silentLogger,

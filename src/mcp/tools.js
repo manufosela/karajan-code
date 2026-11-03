@@ -231,6 +231,7 @@ export const tools = [
       type: "object",
       properties: {
         withSources: { type: "boolean", description: "Also index .js/.ts files under projectDir. Default false." },
+        force: { type: "boolean", description: "Index even when another indexer holds the machine lease (otherwise it yields). Default false." },
         projectDir: { type: "string", description: "Absolute path to the project directory" }
       }
     }
