@@ -99,10 +99,27 @@ describe("importCanonical: plugin paths", () => {
     expect(result.rewritten).toBeUndefined();
   });
 
-  it.each(["python3 -W ignore ./server.py", "bash -o pipefail ./hook.sh", "node --require ./r.js ./main.js"])("refuses %s with a clear error and writes nothing", (command) => {
-    const message = `this command cannot be pointed to the store: ${command}; write it without options before the script`;
-    expect(() => importWith({ hooks: hook(command) })).toThrow(message);
-    expect(() => importWith({ mcp: { mcpServers: { s: { command: command.split(" ")[0], args: command.split(" ").slice(1) } } } })).toThrow(message);
+  it.each(["python3 -W ignore ./server.py", "bash -o pipefail ./hook.sh", "node --require ./r.js ./main.js"])("skips %s, as hook and as MCP server, and keeps the rest", (command) => {
+    const reason = `this command cannot be pointed to the store: ${command}; write it without options before the script`;
+    const [runner, ...args] = command.split(" ");
+    const result = importWith({ hooks: { hooks: { PreToolUse: [{ command }, { command: "./ok.sh" }] } }, mcp: { mcpServers: { s: { command: runner, args }, t: { command: "npx" } } } });
+    expect(result.canonical.hooks.hooks.PreToolUse.map((h) => h.command)).toEqual(["./.karajan/plugins/kit/1.0.0/ok.sh"]);
+    expect(Object.keys(result.canonical.mcp.mcpServers)).toEqual(["t"]);
+    expect(result.skipped).toEqual([{ kind: "hook", name: `PreToolUse: ${command}`, reason }, { kind: "mcp", name: "s", reason }]);
+  });
+
+  it.each(["VAR=1 ./x.sh", "cd ./a && ./x.sh", "./a.sh && ./b.sh", "./x.sh | tee out", "./a.sh; ./b.sh", "./a.sh || true", "sh -c \"./x.sh\"", "bash -c './x.sh'"])("skips the compound or prefixed %s instead of leaving ./ paths", (command) => {
+    const result = importWith({ hooks: hook(command) });
+    expect(result.canonical.hooks).toBeUndefined();
+    expect(result.skipped).toEqual([{ kind: "hook", name: `PreToolUse: ${command}`, reason: expect.stringContaining("shell syntax") }]);
+    expect(result.rewritten).toBeUndefined();
+  });
+
+  it("never skips a command with no ./ path, however compound", () => {
+    const commands = ["echo a && echo b", "VAR=1 npx x", "sh -c \"echo hi\"", "../a.sh && ../b.sh"];
+    const result = importWith({ hooks: { hooks: { Stop: commands.map((command) => ({ command })) } } });
+    expect(result.canonical.hooks.hooks.Stop.map((h) => h.command)).toEqual(commands);
+    expect(result.skipped).toBeUndefined();
   });
 
   it("leaves a runner given a bare script or only non-path words as it is", () => {
@@ -114,11 +131,11 @@ describe("importCanonical: plugin paths", () => {
     const quoted = importWith({ hooks: hook("node \"./scripts/hook.js\"") });
     expect(quoted.canonical.hooks.hooks.PreToolUse[0].command).toBe("node \"./.karajan/plugins/kit/1.0.0/scripts/hook.js\"");
     expect(importWith({ hooks: hook("node \t ./a.js  ./b") }).canonical.hooks.hooks.PreToolUse[0].command).toBe("node \t ./.karajan/plugins/kit/1.0.0/a.js  ./b");
-    expect(() => importWith({ hooks: hook("./x.sh") }, "my store")).toThrow(/needs shell quoting/);
+    expect(importWith({ hooks: hook("./x.sh") }, "my store").skipped[0].reason).toMatch(/needs shell quoting/);
   });
 
-  it("rejects a path that escapes the plugin copy with ..", () => {
-    expect(() => importWith({ hooks: hook("./a/../../x.sh") })).toThrow(/escapes the plugin/);
-    expect(() => importWith({ mcp: { mcpServers: { s: { command: "node", args: ["./../x.js"] } } } })).toThrow(/escapes the plugin/);
+  it("skips a path that escapes the plugin copy with ..", () => {
+    expect(importWith({ hooks: hook("./a/../../x.sh") }).skipped[0].reason).toMatch(/escapes the plugin/);
+    expect(importWith({ mcp: { mcpServers: { s: { command: "node", args: ["./../x.js"] } } } }).skipped[0]).toMatchObject({ kind: "mcp", name: "s" });
   });
 });

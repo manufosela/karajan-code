@@ -44,8 +44,9 @@ export function notInstalledLines({ plugin, notInstalled: { hooks, mcpServers, b
   const who = name ? `${name}: ` : "";
   const needs = (rulesync?.needs ?? []).map((key) => `atril: ${plugin ?? name ?? "the plugin"} needs \${${key}} in your environment: its MCP server or hook reads it, and atril never writes its value`);
   const absent = rulesync?.status === "absent" ? [`atril: ${who}rulesync is not installed, so the hooks and MCP servers below were left out: install rulesync and run the install again`] : [];
-  const sync = rulesync?.rewritten ? [`atril: ${who}its hook and MCP commands point to its copy in the store: the team must run \`atril sync\` to have that copy (the store may not be committed)`] : [];
-  return [...absent, ...(rulesync?.status === "merged" ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...needs, ...sync, ...[
+  const sync = rulesync?.rewritten ? [`atril: ${who}its hook and MCP commands point to its copy in the store: commit the store, or the team must reinstall the plugin on each machine with \`atril install plugin:${plugin ?? name ?? "<name>"}\``] : [];
+  const left = (rulesync?.skipped ?? []).map(({ kind, name: entry, reason }) => `atril: ${who}left out ${kind} ${JSON.stringify(entry)}: ${reason}; fix it in the plugin (one command per hook, no options before the script, or a \`./\`-free command) and install again`);
+  return [...absent, ...(rulesync?.status === "merged" ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...needs, ...sync, ...left, ...[
     ...(hooks.length ? [`${hooks.length} hook(s)`] : []),
     ...(mcpServers.length ? [`${mcpServers.length} MCP server(s): ${mcpServers.map(({ name }) => JSON.stringify(name)).join(" ")}`] : []),
     ...(bin.length ? [`${bin.length} executable(s) in bin/`] : []),

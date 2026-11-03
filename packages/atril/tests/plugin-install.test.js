@@ -178,6 +178,19 @@ describe("installPlugin", () => {
       expect(result.rulesync).toEqual({ status: "merged", rewritten: true });
     });
 
+    it("installs the Markdown and writes the other hooks when one cannot be pointed to the store", async () => {
+      market(GH);
+      tree = { manifest: { hooks: { Stop: [{ matcher: "", hooks: [{ type: "command", command: "node --require ./r.js ./main.js" }, { type: "command", command: "./ok.sh" }] }] } }, files: {} };
+      mkdirSync(join(dir, ".rulesync"));
+      const rulesync = (_cmd, args) => { if (args.includes("import")) put(args[args.indexOf("--output-root") + 1], ".rulesync/hooks.json", { hooks: { Stop: [{ command: "node --require ./r.js ./main.js" }, { command: "./ok.sh" }] } }); };
+      const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });
+      expect(result.entries.length).toBeGreaterThan(0);
+      expect(lock().plugins.kit).toBeDefined();
+      expect(readFileSync(join(dir, ".rulesync", "hooks.json"), "utf8")).not.toContain("--require");
+      expect(readFileSync(join(dir, ".rulesync", "hooks.json"), "utf8")).toContain("./store/plugins/kit/1.0.0/ok.sh");
+      expect(result.rulesync).toMatchObject({ status: "merged", rewritten: true, skipped: [{ kind: "hook", name: "Stop: node --require ./r.js ./main.js" }] });
+    });
+
     it("installs the Markdown, writes no entry and says what was left out when rulesync is absent", async () => {
       withMcp();
       const result = await installPlugin("kit", o(), { confirm, git, run, rulesync: () => { throw new Error("absent"); } });

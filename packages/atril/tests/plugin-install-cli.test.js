@@ -97,11 +97,19 @@ describe("notInstalledLines", () => {
   it("prefixes each line with the plugin name when asked", () => {
     expect(notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [], bin: [] } }, "dep")).toEqual(["atril: dep: not installed yet: 1 hook(s)"]);
   });
-  it("asks the team to run atril sync once when script paths were rewritten, and not otherwise", () => {
+  it("says the commands point to the store copy the team must commit, never that atril sync restores it", () => {
     const base = { notInstalled: { hooks: [], mcpServers: [], bin: [] } };
     const lines = notInstalledLines({ ...base, rulesync: { status: "merged", rewritten: true } });
-    expect(lines.filter((line) => line.includes("atril sync"))).toHaveLength(1);
-    expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/atril sync/);
+    expect(lines.filter((line) => line.includes("commit"))).toHaveLength(1);
+    expect(lines.join("\n")).not.toMatch(/atril sync/);
+    expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/commit/);
+  });
+  it("names each skipped hook or MCP server with the reason", () => {
+    const base = { plugin: "kit", notInstalled: { hooks: [], mcpServers: [], bin: [] } };
+    const skipped = [{ kind: "hook", name: "Stop: VAR=1 ./x.sh", reason: "mixes shell syntax" }];
+    const text = notInstalledLines({ ...base, rulesync: { status: "merged", skipped } }).join("\n");
+    expect(text).toContain("left out hook \"Stop: VAR=1 ./x.sh\": mixes shell syntax");
+    expect(text).toContain("one command per hook");
   });
   it("says which environment variable a merged MCP server or hook needs, naming the plugin, once per variable", () => {
     const base = { plugin: "kit", notInstalled: { hooks: [], mcpServers: [], bin: [] } };
