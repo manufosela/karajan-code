@@ -13,7 +13,7 @@ import { query } from "../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../rag/path-hits.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
 import { noteDeadline } from "../rag/bootstrap-index.js";
-import { claimLease, indexLeasePath, releaseLease } from "../rag/pid-lease.js";
+import { claimLease, holderLabel, indexLeasePath, releaseLease } from "../rag/pid-lease.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
@@ -110,8 +110,16 @@ export async function ragIndexCommand({ config, logger, flags = {}, backstop = {
       // The bootstrap child finds its spawning parent in the lease (it names itself first): kin.
       const lease = indexLeasePath();
       const claim = claimLease(lease, { projectDir, slug }, { kin: [process.ppid] });
-      if (claim.holder) logger.warn?.(`[rag] another index is running (${claim.holder.slug ?? "?"}, pid ${claim.holder.pid}); indexing anyway`);
-      if (claim.claimed) heldLease = lease;
+      if (!claim.claimed) {
+        const who = `[rag] another index is running (${holderLabel(claim)})`;
+        // HU-3279: yield (EX_TEMPFAIL) unless forced; the other holder's lease is never touched.
+        if (!flags.force) {
+          logger.warn?.(`${who}: not indexing (exit code 75); rerun with --force to index anyway`);
+          process.exitCode = 75;
+          return null;
+        }
+        logger.warn?.(`${who}; --force given, forcing: indexing anyway`);
+      } else heldLease = lease;
       try {
         totals = await indexProject(projectDir, {
           db, embedder,

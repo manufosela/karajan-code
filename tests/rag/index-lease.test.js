@@ -46,16 +46,30 @@ describe("ragIndexCommand machine lease", () => {
     expect(during).toMatchObject({ pid: process.pid, slug: "p", running: true });
     expect(readLease(lease)).toBeNull();
   });
-  it("a lease held by another live pid warns once, indexes anyway and leaves the lease untouched", async () => {
-    const other = spawn("sleep", ["30"]); // a live pid that is neither this process nor its parent
-    try {
+  // HU-3279: a live indexer holds the lease: yield with EX_TEMPFAIL, unless --force.
+  describe("another live pid holds the lease", () => {
+    let other, before, prevExitCode;
+    beforeEach(() => {
+      prevExitCode = process.exitCode;
+      other = spawn("sleep", ["30"]); // a live pid that is neither this process nor its parent
       writeLease(lease, { pid: other.pid, at: Date.now(), slug: "other" });
-      const before = readFileSync(lease, "utf8");
+      before = readFileSync(lease, "utf8");
+    });
+    afterEach(() => { other.kill(); process.exitCode = prevExitCode; });
+    it("yields: nothing is indexed, the message names holder, 75 and --force, exit code 75, lease untouched", async () => {
       await run({});
-      expect(warned).toEqual([`[rag] another index is running (other, pid ${other.pid}); indexing anyway`]);
+      expect(indexProject).not.toHaveBeenCalled();
+      expect(warned).toEqual([expect.stringMatching(new RegExp(`other.*pid ${other.pid}.*75.*--force`))]);
+      expect(process.exitCode).toBe(75);
       expect(readFileSync(lease, "utf8")).toBe(before);
-    } finally { other.kill(); }
-    expect(indexProject).toHaveBeenCalledTimes(1);
+    });
+    it("--force indexes anyway, warns that it forces and leaves the lease untouched", async () => {
+      await run({ force: true });
+      expect(indexProject).toHaveBeenCalledTimes(1);
+      expect(warned).toEqual([expect.stringMatching(new RegExp(`other.*pid ${other.pid}.*forcing`))]);
+      expect(process.exitCode).toBe(prevExitCode);
+      expect(readFileSync(lease, "utf8")).toBe(before);
+    });
   });
   it("a run that throws propagates the error and still releases the lease", async () => {
     indexProject.mockRejectedValue(new Error("boom"));

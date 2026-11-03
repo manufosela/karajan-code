@@ -165,6 +165,9 @@ export function claimLease(file, record, { now = Date.now(), pid = process.pid, 
   return res.busy === true ? { claimed: false, busy: true } : res;
 }
 
+/** HU-3279: who a refused claim names (a busy mutex has no holder yet). */
+export const holderLabel = (claim) => claim.holder ? `${claim.holder.slug ?? "?"}, pid ${claim.holder.pid}` : "claim in progress";
+
 /** Removes the lease only while it still names `pid`: never another process's claim. */
 export function releaseLease(file, { pid = process.pid, now = Date.now(), sleep = pause } = {}) {
   // This claim is over whatever the mutex says: counted down once, so a busy mutex never leaves it stale.
