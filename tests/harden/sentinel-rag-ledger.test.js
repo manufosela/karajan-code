@@ -83,6 +83,24 @@ describe("rag ledger (PostToolUse)", () => {
     expect(s.rag_hits).toEqual(["src/paths.js", "src/my file.js", "src/config/loader.js"]);
   });
 
+  // KJC-BUG-0486 (#3308): the output an agent filters (| tail -2) names no hit; what kj rag query
+  // answered is in its own note, and that note counts.
+  it("records a CLI kj rag query from kj's answer note when the visible output names no hit", () => {
+    const note = path.join(dir, ".karajan", "harness", "rag-answer.json");
+    fs.writeFileSync(note, JSON.stringify({ at: Date.now(), text: "what does src/a.js do", sources: [`${dir}/src/a.js`] }));
+    expect(cliQuery("node bin/kj.js rag query 'what does src/a.js do' 2>&1 | tail -2", "…\n\n").status).toBe(0);
+    expect(session().rag_hits).toEqual(["src/a.js"]);
+  });
+
+  it("ignores an answer note of another query or an old one", () => {
+    const note = path.join(dir, ".karajan", "harness", "rag-answer.json");
+    fs.writeFileSync(note, JSON.stringify({ at: Date.now(), text: "something else", sources: [`${dir}/src/a.js`] }));
+    cliQuery("kj rag query 'what does src/b.js do' | tail -1", "");
+    fs.writeFileSync(note, JSON.stringify({ at: Date.now() - 10 * 60 * 1000, text: "old", sources: [`${dir}/src/a.js`] }));
+    cliQuery("kj rag query 'old' | tail -1", "");
+    expect(session().rag_hits).toEqual([]);
+  });
+
   it("shows the ledger in the status line", () => {
     mcpQuery("q", [`${dir}/src/a.js`]);
     const r = spawnSync("node", [stop, "--status"], { encoding: "utf8", cwd: dir, env: { ...process.env, ...env } });

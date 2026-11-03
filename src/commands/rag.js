@@ -19,6 +19,7 @@ import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { countProjectChunks, countProjectSources, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
 import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
+import { noteRagAnswer } from "../rag/answer-note.js";
 
 // KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
 function openDb(config) {
@@ -187,6 +188,7 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, rrfK, where, whereRoot: projectDir, rerankOpts });
     const hits = library ? ranked : withPathNamedHits(pathNamedHits(db, text, { project, projectDir }), ranked, topK);
     printHits(hits, flags, logger);
+    noteRagAnswer({ projectDir, text, hits });
     return hits;
   } finally {
     db.close();
