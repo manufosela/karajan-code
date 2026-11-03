@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.1] - 2026-11-03
+
+### Fixed
+- **A `kj rag query` counts for rag-first whatever its output shows** (KJC-BUG-0486, #3308): the Sentinel read the hits of a CLI query from its visible output, so a filtered one (`| tail -2`) counted as no answer and the Edit stayed blocked; `node bin/kj.js rag query` was not recognised either. kj rag query now notes what it answered and the hook reads that note. A project whose `kj_rag_query` over MCP is not recorded has its hooks from before KJC-BUG-0236 (September): run `kj harden` there.
+- **kj harden no longer asks for main-guard's job as a required check** (KJC-BUG-0484): only jobs of workflows that run on a pull request are required; requiring one that runs on the push to main would block every PR.
+
 ## [5.3.0] - 2026-11-03
 
 ### Added

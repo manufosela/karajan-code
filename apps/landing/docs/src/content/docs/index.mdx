@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.3.0: every lane knows the code from its first minute (current)
+### v5.3.1: a RAG query counts however you read it (current)
+
+The Sentinel's rag-first gate counts a `kj rag query` even when its output is filtered (`| tail -2`) or run as `node bin/kj.js`, because kj notes what it answered. `kj harden` no longer asks for main-guard's job as a required check, which would have blocked every PR.
+
+### v5.3.0: every lane knows the code from its first minute
 
 A new lane copies main's RAG index instead of starting empty, then catches up with its own commits in the background, with at most one indexer per machine. The joint review of `kj review --third-party --reviewers a,b` counts distinct problems: the same one named in another file or twice by one reviewer is one finding, and the other reports stay in its `also`.
 
