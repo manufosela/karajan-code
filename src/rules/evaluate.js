@@ -31,7 +31,9 @@ function holds(cond, input) {
   if ("days_from" in cond) value = daysBetween(at(input, cond.days_from), value);
   if ("equals" in cond) return value === cond.equals;
   if ("in" in cond) return cond.in.includes(value);
-  if ("matches" in cond) return typeof value === "string" && new RegExp(cond.matches).test(value);
+  // KJC-BUG-0487 (#3328): multiline, so ^ and $ hold at every line: a newline separates
+  // commands like a semicolon does, and a boundary written as (^|;|&&) sees each one.
+  if ("matches" in cond) return typeof value === "string" && new RegExp(cond.matches, "m").test(value);
   if (typeof value !== "number" || Number.isNaN(value)) return false;
   return "gt" in cond ? value > cond.gt : value < cond.lt;
 }
