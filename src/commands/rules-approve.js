@@ -28,7 +28,7 @@ import { loadRules, LOCAL_RULES_FILE, PROPOSAL_FILE, RULES_FILE, rulesCheck } fr
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 const lines = (text) => (text ? text.split("\n").length - 1 : 0);
 
-export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, kjVersion = "unknown", env, tty, deps = {}, log = console.log }) {
+export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, kjVersion = "unknown", env, tty, all = false, deps = {}, log = console.log }) {
   const act = humanActOf("rules-approve");
   act.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
   const proposal = path.resolve(projectDir, file);
@@ -51,7 +51,8 @@ export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, kjV
   }
   const { rules, local } = checked;
   // KJC-TSK-0962: read in the order of what can hurt, weakened rules first.
-  const view = approvalView(rules, loadRules(projectDir).rules, local, { versioned: RULES_FILE, unversioned: LOCAL_RULES_FILE });
+  // KJC-TSK-1410: what changes, the unchanged in one line; --all lists every rule.
+  const view = approvalView(rules, loadRules(projectDir).rules, local, { versioned: RULES_FILE, unversioned: LOCAL_RULES_FILE }, { all });
   for (const line of view) log(line);
   act.confirm(deps.confirm);
   // KJC-TSK-0961 (ADR 0017): a rule written only in the user's private MD files

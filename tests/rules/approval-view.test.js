@@ -8,7 +8,8 @@ const gate = (id, matches = "deploy") => ({ id, kind: "deterministic", text: `Re
 const judged = (id) => ({ id, kind: "judgment", text: `Regla ${id}.`, when: { tool: "Bash" } });
 const outside = (id) => ({ id, kind: "out-of-scope", text: `Regla ${id}.`, reason: "no es una acción" });
 const FILES = { versioned: ".karajan/rules.yml", unversioned: ".karajan/rules.local.yml" };
-const view = (proposed, current = [], local = new Set()) => approvalView(proposed, current, local, FILES).join("\n");
+// The full view (--all); KJC-TSK-1410's default, only what changes, is tested at the end.
+const view = (proposed, current = [], local = new Set()) => approvalView(proposed, current, local, FILES, { all: true }).join("\n");
 const at = (text, needle) => { const i = text.indexOf(needle); expect(i, needle).toBeGreaterThan(-1); return i; };
 
 describe("approvalView", () => {
@@ -46,5 +47,26 @@ describe("approvalView", () => {
     const text = view([{ ...judged("R-a"), reason: "lo que la rompe está en un fichero" }, judged("R-b")]);
     expect(text).toMatch(/when: \{"tool":"Bash"\} {2}\(lo que la rompe está en un fichero\)/);
     expect(text).toMatch(/Regla R-b\.\n {4}when: \{"tool":"Bash"\}\n/);
+  });
+
+  // KJC-TSK-1410: the human approves what changes; what they approved before and stays the same
+  // is one line, so the changes and the confirmation code are not lost in hundreds of lines.
+  it("by default lists only what changes, and counts the unchanged rules in one line", () => {
+    const current = [gate("R-a"), judged("R-b"), outside("R-c"), gate("R-z")];
+    const text = approvalView([gate("R-a"), judged("R-b"), outside("R-c", "x"), judged("R-n"), gate("R-a2")], current, new Set(), FILES).join("\n");
+    expect(text).not.toMatch(/R-a {2}|R-b {2}|R-c {2}/);
+    expect(text).toMatch(/R-n {2}judgment/);
+    expect(text).toMatch(/R-a2 {2}deterministic/);
+    expect(text).toMatch(/1 rule\(s\) LEAVE[\s\S]*R-z/);
+    expect(text).toMatch(/3 rule\(s\) unchanged from what is approved today, not listed: kj rules approve --all shows them/);
+    // a weakened rule is never hidden
+    expect(approvalView([judged("R-a")], [gate("R-a")], new Set(), FILES).join("\n")).toMatch(/R-a {2}was deterministic, now judgment/);
+  });
+
+  it("a first approval shows every rule, all of them new", () => {
+    const text = approvalView([gate("R-a"), judged("R-b")], [], new Set(), FILES).join("\n");
+    expect(text).toMatch(/R-a {2}deterministic/);
+    expect(text).toMatch(/R-b {2}judgment/);
+    expect(text).not.toMatch(/unchanged/);
   });
 });
