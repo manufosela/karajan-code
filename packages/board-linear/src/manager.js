@@ -6,7 +6,10 @@ import { BoardRejectedError, HuClaimedError } from "./board-errors.js";
 
 const section = (title, items) => (items.length ? [`## ${title}\n${items.map((i) => `- ${i}`).join("\n")}`] : []);
 
-export function createLinearManager({ config: raw, apiKey, fetch }) {
+// HU-3408: Linear's workflow state types, for a state that linear.states does not declare.
+const STATUS_OF_TYPE = { triage: "pending", backlog: "pending", unstarted: "pending", started: "running", completed: "done", canceled: "failed" };
+
+export function createLinearManager({ config: raw, apiKey, fetch, warn = console.warn }) {
   const config = validateConfig(raw);
   const gql = createClient({ apiKey, fetch });
   const idPattern = new RegExp(`^${config.team.replaceAll(/\W/g, String.raw`\$&`)}-\\d+$`, "i");
@@ -25,9 +28,15 @@ export function createLinearManager({ config: raw, apiKey, fetch }) {
     if (!id) throw new BoardRejectedError(`invalid status "${status}", or the Linear team has no state "${config.states[status]}"`);
     return id;
   };
+  // A declared state name wins; any other state is read by its Linear type; an unknown type maps to nothing.
+  const statusOf = ({ identifier, state }) => {
+    if (!state) throw new BoardRejectedError(`Linear returned ${identifier} without a state`); // a malformed answer is never an unknown type
+    return Object.keys(config.states).find((s) => config.states[s] === state.name) ?? STATUS_OF_TYPE[state.type];
+  };
+  const unmapped = ({ identifier, state }) => `${identifier} is in the Linear state "${state.name}" of type "${state.type}", which maps to no kj status`;
   const toHu = (issue) => {
-    const status = Object.keys(config.states).find((s) => config.states[s] === issue.state.name);
-    if (!status) throw new BoardRejectedError(`${issue.identifier} is in the Linear state "${issue.state.name}", which maps to no kj status: fix linear.states or the issue`);
+    const status = statusOf(issue);
+    if (!status) throw new BoardRejectedError(`${unmapped(issue)}: kj does not guess`);
     const email = issue.assignee?.email;
     return { short_id: issue.identifier, title: issue.title, status, claimed_by: email ? (holders[email.toLowerCase()] ?? email) : null, ref: /^Ref: (\S.*)$/m.exec(issue.description ?? "")?.[1].trim() ?? null, url: issue.url };
   };
@@ -59,13 +68,17 @@ export function createLinearManager({ config: raw, apiKey, fetch }) {
       let after = null;
       do {
         const { nodes, pageInfo } = (await gql(Q.list, { team: config.team, label: config.label, after })).issues;
-        hus.push(...nodes.map(toHu));
+        for (const issue of nodes) {
+          if (statusOf(issue)) hus.push(toHu(issue));
+          else warn(`${unmapped(issue)}: it is left out`);
+        }
         after = pageInfo.hasNextPage ? pageInfo.endCursor : null;
       } while (after);
       return hus;
     },
     async move(ref, status) {
       const issue = await read(ref);
+      toHu(issue); // refuses a state of an unknown type before writing anything
       const stateId = await stateIdOf(status);
       await gql(Q.update, { id: issue.identifier, input: { stateId } });
       const landed = await read(ref);
@@ -79,7 +92,8 @@ export function createLinearManager({ config: raw, apiKey, fetch }) {
       const email = config.users[who] ?? (who.includes("@") ? who : null);
       if (!email) throw new BoardRejectedError(`no Linear user mapped for ${who}: add it to linear.users`);
       const held = await read(ref);
-      if (held.state.name === config.states.running && held.assignee && held.assignee.email?.toLowerCase() !== email.toLowerCase() && !release) throw new HuClaimedError(`${ref} is held by ${toHu(held).claimed_by}: taking it over is explicit (release)`);
+      const heldHu = toHu(held); // refuses a state of an unknown type
+      if (held.state.name === config.states.running && held.assignee && held.assignee.email?.toLowerCase() !== email.toLowerCase() && !release) throw new HuClaimedError(`${ref} is held by ${heldHu.claimed_by}: taking it over is explicit (release)`);
       const user = (await gql(Q.user, { email })).users.nodes[0];
       if (!user) throw new BoardRejectedError(`no Linear user with the email ${email}`);
       await gql(Q.update, { id: held.identifier, input: { assigneeId: user.id } });
@@ -90,4 +104,4 @@ export function createLinearManager({ config: raw, apiKey, fetch }) {
   };
 }
 
-export const createManager = ({ config, env = process.env, fetch } = {}) => createLinearManager({ config, apiKey: env.LINEAR_API_KEY, fetch });
+export const createManager = ({ config, env = process.env, fetch, warn } = {}) => createLinearManager({ config, apiKey: env.LINEAR_API_KEY, fetch, warn });
