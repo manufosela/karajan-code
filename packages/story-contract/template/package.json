@@ -1,0 +1,28 @@
+{
+  "name": "kj-board-example",
+  "version": "0.1.0",
+  "description": "A task manager for karajan-code: replace this with what your manager talks to.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "dependencies": {
+    "@karajan-family/story-contract": "^0.1.0"
+  },
+  "devDependencies": {
+    "vitest": ">=4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "keywords": [
+    "task-manager",
+    "karajan"
+  ],
+  "license": "MIT"
+}
