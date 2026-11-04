@@ -1,5 +1,5 @@
 // HU-3181 part 1 (ADR 0041): a plugin's hooks and MCP entries are merged into .rulesync/ and owned in the ledger.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -20,6 +20,24 @@ const hook = { type: "command", command: "echo hi" };
 const entries = { mcp: { mcpServers: { db: { command: "db", env: { DB_HOST: "${DB_HOST}" } } } }, hooks: { hooks: { sessionStart: [hook] } } };
 
 describe("mergeEntries / removeEntries", () => {
+  describe("a project with no .rulesync/", () => {
+    beforeEach(() => rmSync(join(dir, ".rulesync"), { recursive: true }));
+    it("creates only the folder, the source file it needs and the ledger", () => {
+      mergeEntries(dir, "kit", { mcp: entries.mcp });
+      expect(readdirSync(join(dir, ".rulesync")).sort()).toEqual([".owners.json", "mcp.json"]);
+    });
+    it("a refused merge leaves no .rulesync/ behind, and so does its undo", () => {
+      expect(() => mergeEntries(dir, "kit", { mcp: { mcpServers: { constructor: {} } } })).toThrow(/"constructor"/);
+      expect(existsSync(join(dir, ".rulesync"))).toBe(false);
+      mergeEntries(dir, "kit", entries)();
+      expect(existsSync(join(dir, ".rulesync"))).toBe(false);
+    });
+    it("removing the last plugin leaves .rulesync/ alone", () => {
+      mergeEntries(dir, "kit", entries);
+      removeEntries(dir, "kit");
+      expect(existsSync(join(dir, ".rulesync"))).toBe(true);
+    });
+  });
   it("creates the .json files and owns each entry in the ledger", () => {
     mergeEntries(dir, "kit", entries);
     expect([json("mcp.json").mcpServers.db.command, json("hooks.json").hooks.sessionStart]).toEqual(["db", [hook]]);
