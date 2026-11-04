@@ -26,6 +26,9 @@ export function createGithubManager({ repo, run, board = {} }) {
   };
   return {
     idHint,
+    // ADR 0029: criteria live in the issue body, issues only link to one another, the verdicts go on the PR.
+    capabilities: { acceptanceCriteria: "body", dependencies: "partial", assignee: true, verdicts: "pr", offline: true },
+    credentials: [], // gh holds the login
     // Zero-padded (HU-0NNN) is a card of the local board, never an issue.
     isId: (ref) => SHARED_ID.test(ref),
     canonicalId: (ref) => `HU-${numberOf(ref)}`,

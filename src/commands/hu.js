@@ -16,6 +16,7 @@ import { roleSkills } from "../skills/role-skills.js";
 import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
 import { isOffline } from "../hu/board-errors.js";
 import { createGithubManager } from "../hu/managers/github/index.js";
+import { capabilityLines } from "../hu/story-contract.js";
 import { pinGhIdentity } from "../hu/gh-identity.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
 import { writeTeamMirror } from "../hu/team-board-mirror.js";
@@ -210,7 +211,9 @@ async function backendAction({ projectDir, args, deps, emit }) {
   const r = await (deps.setBackend ?? setBoardBackend)({ projectDir, backend: args[0] });
   const where = r.backend === "github" ? `GitHub Issues of ${r.repo}` : "the local board";
   const files = r.gitignoreChanged ? `${r.file} and .gitignore` : r.file;
-  return emit(r, `✓ HU Board: ${where} — commit ${files} in a PR so the whole team inherits it`);
+  const done = emit(r, `✓ HU Board: ${where} — commit ${files} in a PR so the whole team inherits it`);
+  if (r.backend === "github") for (const line of capabilityLines(teamManager(r.repo, deps))) console.log(line);
+  return done;
 }
 
 // #2566: plans a lane saved under its own slug move to the main checkout's; loud, never blocking.

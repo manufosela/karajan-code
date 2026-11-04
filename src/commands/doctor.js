@@ -41,6 +41,7 @@ import { getProjectChecks } from "../checks/project-checks.js";
 import { getHardwareChecks } from "../checks/hardware.js";
 import { getOrphanChecks } from "../checks/orphans.js";
 import { getMethodChecks } from "../checks/method.js";
+import { getTaskManagerChecks } from "../checks/task-manager.js";
 
 /**
  * Build the list of Check objects applicable to the current config.
@@ -86,6 +87,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getRagHooksChecks({ projectDir }),
     ...getRulesyncChecks({ projectDir }),
     ...getProjectChecks({ projectDir }),
+    ...getTaskManagerChecks({ projectDir }),
   ];
 }
 

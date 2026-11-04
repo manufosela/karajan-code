@@ -14,6 +14,15 @@ describe("kj hu backend", () => {
     expect(log.mock.calls[0][0]).toMatch(/GitHub Issues of acme\/app.*\.karajan\/board\.yml and \.gitignore in a PR/);
   });
 
+  it("shows what the chosen manager can and cannot do, with the HU Board for what is missing", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const setBackend = async ({ backend }) => ({ backend, repo: "acme/app", file: ".karajan/board.yml", gitignoreChanged: false });
+    await huCommand({ config: { projectDir: "/r" }, action: "backend", args: ["github"], deps: { setBackend, boardConfig: async () => ({ backend: "local" }) } });
+    const out = log.mock.calls.map((c) => c[0]).join("\n");
+    expect(out).toMatch(/can: .*acceptance criteria in the story body.*review verdicts on the PR/);
+    expect(out).toMatch(/cannot: the full dependency graph — see it in the HU Board \(kj board start\)/);
+  });
+
   it("needs the backend name", async () => {
     await expect(huCommand({ config: { projectDir: "/r" }, action: "backend", args: [], deps: { boardConfig: async () => ({ backend: "local" }) } })).rejects.toThrow(/github \| local/);
   });
