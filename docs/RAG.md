@@ -163,6 +163,16 @@ rag:
     brownfield: false         # auto policy: force pull when true
 ```
 
+### `rag.autoUpdate.rebuildStale`
+
+An index built before the embedded header (embed schema 1) answers queries as it is, but no new lane can be seeded from it, so every lane embeds the whole project on its own. When kj finds the **main checkout's** index at an older schema and too large to rebuild in-line (more than `rag.autoUpdate.maxFiles` sources), it says so once and starts one background `kj rag index --with-sources`, holding the machine lease (one background indexer per machine). `kj rag query` keeps answering from the old index and prints one line saying the rebuild is in progress. A lane never starts it. Once it ends the schema is current and new lanes are seeded from main.
+
+```yaml
+rag:
+  autoUpdate:
+    rebuildStale: false   # default true; false = never start the rebuild, run kj rag index --with-sources by hand
+```
+
 ### `rag.preload.policy`
 
 | Policy | When `enabled: true` |

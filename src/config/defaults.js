@@ -271,7 +271,8 @@ const DEFAULTS = {
     // `kj rag install-hooks` to decide whether to install the post-merge
     // hook. Both default ON; flip to false to opt out without uninstalling.
     // maxFiles (KJC-BUG-0304): past this drift the pre-query refresh answers from the index as it is.
-    autoUpdate: { onCommit: true, onRun: true, maxFiles: 25 },
+    // rebuildStale (HU-3363): a large index at an old embed schema is rebuilt once in the background, from the main checkout.
+    autoUpdate: { onCommit: true, onRun: true, maxFiles: 25, rebuildStale: true },
     // KJC-TSK-0682 — sensitivity of the indexed code. Cloud embedders
     // (openai/voyage/cohere/mistral) require an explicit "public"; the
     // safe default blocks them (local ollama/onnx always allowed).
