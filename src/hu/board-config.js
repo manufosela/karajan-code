@@ -17,7 +17,7 @@ const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
 // board.yml is versioned: a key that looks like a credential never belongs in it (ADR 0032).
 // `kj config --check-secrets` judges fixed paths of kj.config.yml, so it does not fit here: keys are matched by name.
 const SECRET_KEY = /key|token|secret|password/i;
-const LINEAR_STATES = { pending: "Todo", running: "In Progress", done: "Done", failed: "Canceled", skipped: "Canceled" };
+const LINEAR_STATES = { pending: "Todo", running: "In Progress", done: "Done", failed: "Canceled", skipped: "Backlog" };
 
 function assertNoSecrets(node) {
   for (const [key, value] of Object.entries(node ?? {})) {
