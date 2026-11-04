@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.5.0: apruebas lo que cambia, y más reglas que bloquean (actual)
+### v5.6.0: tus historias donde ya las tienes (actual)
+
+Elige el gestor de tareas en `board.yml`: GitHub Issues o Linear, o un paquete de la comunidad tras una lista de permitidos, y `kj hu` funciona igual en todos. Una guía y una plantilla enseñan a escribir uno. `kj main-guard-except` deja al mantenedor firmar en el móvil una excepción para un merge que salta sus checks, que main-guard acepta y nombra.
+
+### v5.5.0: apruebas lo que cambia, y más reglas que bloquean
 
 `kj rules approve` enseña solo las reglas que cambian, con el resto en una línea. Una condición puede leer un elemento de una lista, así que «una decisión por pregunta» bloquea, y `kj rules compile --reopen` recompila una regla aprobada. El gestor de tareas declara lo que sabe hacer, `rag.embedder.cpus` limita la CPU del embedder y `kj doctor` nombra al indexador que se pasa de su presupuesto.
 
