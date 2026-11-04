@@ -1,6 +1,6 @@
-// HU-3333: GitHub Issues against the shared story contract. The adapter below is the test's own
-// (the real one is slice 2); gh is a fake that keeps issues in memory.
-import { createHu, listHus, setStatus, claim } from "../../src/hu/github-board.js";
+// HU-3333/HU-3335: the GitHub Issues manager against the shared story contract;
+// gh is a fake that keeps issues in memory.
+import { createGithubManager } from "../../src/hu/managers/github/index.js";
 import { runStoryContract } from "./story-contract-suite.js";
 
 const REPO = "acme/app";
@@ -52,13 +52,5 @@ function fakeGh() {
 
 runStoryContract("GitHub Issues", () => {
   const { run, backend } = fakeGh();
-  const find = async (id) => (await listHus({ repo: REPO, run })).find((h) => h.short_id === id);
-  const idOf = (id) => ({ repo: REPO, number: Number(id.slice(3)), run });
-  const manager = {
-    create: async (args) => find((await createHu({ repo: REPO, ...args, run })).short_id),
-    list: () => listHus({ repo: REPO, run }),
-    move: async (id, status) => { await setStatus({ ...idOf(id), status }); return find(id); },
-    claim: async (id, who, { release = false } = {}) => { await claim({ ...idOf(id), who, release }); return find(id); },
-  };
-  return { manager, backend };
+  return { manager: createGithubManager({ repo: REPO, run }), backend };
 });
