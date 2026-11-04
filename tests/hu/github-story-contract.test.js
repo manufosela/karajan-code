@@ -1,5 +1,6 @@
 // HU-3333/HU-3335: the GitHub Issues manager against the shared story contract;
 // gh is a fake that keeps issues in memory.
+import { expect, it } from "vitest";
 import { createGithubManager } from "../../src/hu/managers/github/index.js";
 import { runStoryContract } from "./story-contract-suite.js";
 
@@ -49,6 +50,12 @@ function fakeGh() {
   };
   return { run, backend };
 }
+
+it("GitHub Issues declares ADR 0029's values: criteria in the body, partial dependencies, PR verdicts, no credentials", () => {
+  const { capabilities, credentials } = createGithubManager({ repo: REPO });
+  expect(capabilities).toEqual({ acceptanceCriteria: "body", dependencies: "partial", assignee: true, verdicts: "pr", offline: true });
+  expect(credentials).toEqual([]);
+});
 
 runStoryContract("GitHub Issues", () => {
   const { run, backend } = fakeGh();

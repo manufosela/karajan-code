@@ -4,7 +4,7 @@
 // `backend.corrupt(shortId, n)` (the story ends up with n status labels, as if edited by hand).
 import { describe, it, expect } from "vitest";
 import { BoardRejectedError, HuClaimedError } from "../../src/hu/board-errors.js";
-import { assertManager, HU_FIELDS } from "../../src/hu/story-contract.js";
+import { assertManager, CAPABILITY_VALUES, HU_FIELDS } from "../../src/hu/story-contract.js";
 
 export function runStoryContract(name, makeManager) {
   describe(`story contract: ${name}`, () => {
@@ -13,6 +13,12 @@ export function runStoryContract(name, makeManager) {
       assertManager(made.manager);
       return made;
     };
+
+    it("declares valid capabilities and credentials", () => {
+      const { manager } = setup();
+      expect(Object.keys(manager.capabilities).toSorted()).toEqual(Object.keys(CAPABILITY_VALUES).toSorted());
+      expect(Array.isArray(manager.credentials ?? [])).toBe(true);
+    });
 
     it("creates a pending Hu with the contract's shape and lists it", async () => {
       const { manager } = setup();
