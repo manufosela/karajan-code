@@ -45,6 +45,21 @@ describe("importCanonical", () => {
     expect(existsSync(calls[3].cwd)).toBe(false);
   });
 
+  // rulesync writes `.rulesync/` under its working directory and only reads the tool files from --output-root (HU-3357).
+  const inCwd = (hooks) => (cmd, args, cwd) => {
+    if (args.includes("--version")) return "1.0.0";
+    if (hooks) { mkdirSync(join(cwd, ".rulesync"), { recursive: true }); writeFileSync(join(cwd, ".rulesync", "hooks.jsonc"), JSON.stringify(hooks)); }
+  };
+
+  it("reads what the import wrote under its working directory", () => {
+    const hooks = { version: 1, hooks: { Stop: [{ command: "x.sh" }] } };
+    expect(importCanonical(plugin, { projectDir: join(dir, "project") }, inCwd(hooks)).canonical).toEqual({ hooks });
+  });
+
+  it("fails instead of reporting an import that produced neither hooks nor MCP servers", () => {
+    expect(() => importCanonical(plugin, { projectDir: join(dir, "project") }, inCwd())).toThrow(/no hooks or MCP servers.*nothing was installed/);
+  });
+
   it("reports absent when rulesync does not answer", () => {
     const run = () => { throw new Error("not found"); };
     expect(importCanonical(plugin, { projectDir: join(dir, "project") }, run)).toEqual({ status: "absent" });

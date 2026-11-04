@@ -4,10 +4,10 @@
  * ledger: `<file>#<plugin>/<server>` for an MCP server, `<file>#<plugin>/<event>/<sha256 hex>` for a hook handler.
  * User entries and other plugins' entries are never touched; remove undoes exactly what merge wrote.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { writeAtomic } from "./atomic.js";
-import { hashContent, OWNER, readLedger, withLedger } from "./ledger.js";
+import { hashContent, LEDGER_FILE, OWNER, readLedger, withLedger } from "./ledger.js";
 import { isMapping } from "./model.js";
 
 const RULESYNC = ".rulesync";
@@ -57,13 +57,28 @@ function release(projectDir, ledger, plugin, files, strict) {
   return { removed: keys.map(([key]) => key).filter((key) => !kept.includes(key)), kept };
 }
 
+// Every file a merge can write: the ledger and both forms of each source. `undo` puts back their bytes, deleting what was absent.
+function snapshot(projectDir) {
+  const before = [LEDGER_FILE, ...["mcp", "hooks"].flatMap((kind) => [`${kind}.json`, `${kind}.jsonc`].map((name) => join(RULESYNC, name)))]
+    .map((file) => join(projectDir, file)).map((path) => [path, existsSync(path) ? readFileSync(path) : null]);
+  return () => before.forEach(([path, bytes]) => (bytes ? writeAtomic(path, bytes) : rmSync(path, { force: true })));
+}
+
 /**
  * Merges the canonical entries of `plugin` into `.rulesync/` and owns them in the ledger. Everything is judged
- * before anything is written; a user entry with the same key stops it with nothing changed.
+ * before anything is written; a user entry with the same key stops it with nothing changed, and a failed write
+ * puts every file back.
  * @param {{ mcp?: { mcpServers?: object }, hooks?: { hooks?: Record<string, object[]> } }} canonical
+ * @returns {() => void} undo: puts `.rulesync/` back as it was before this merge
  */
 export function mergeEntries(projectDir, plugin, canonical) {
   checkName("plugin name", plugin);
+  const undo = snapshot(projectDir);
+  try { merge(projectDir, plugin, canonical); } catch (error) { undo(); throw error; }
+  return undo;
+}
+
+function merge(projectDir, plugin, canonical) {
   withLedger(projectDir, (ledger) => {
     const files = new Map();
     release(projectDir, ledger, plugin, files, true); // a reinstall replaces everything this plugin wrote, in any file
