@@ -1,0 +1,38 @@
+{
+  "name": "@karajan-family/story-contract",
+  "version": "0.1.0",
+  "description": "The contract every task manager (GitHub Issues, Linear...) fulfils for karajan-code, the errors it raises, and the shared test a manager author runs.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./suite": "./src/suite.js"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "vitest": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-code.git",
+    "directory": "packages/story-contract"
+  },
+  "keywords": [
+    "task-manager",
+    "contract",
+    "karajan"
+  ],
+  "author": "@manufosela",
+  "license": "MIT"
+}

@@ -40,7 +40,8 @@
     "packages/hu-board",
     "packages/governance",
     "packages/console",
-    "packages/atril"
+    "packages/atril",
+    "packages/story-contract"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
@@ -61,6 +62,8 @@
     "packages/ai-trash/src/",
     "packages/ai-trash/bin/",
     "packages/ai-trash/package.json",
+    "packages/story-contract/src/",
+    "packages/story-contract/package.json",
     "docs/README.es.md",
     "LICENSE",
     "README.md"
