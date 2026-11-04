@@ -1,7 +1,7 @@
 // KJC-TSK-0455 PR2 — Pre-run drift check + post-merge hook installer.
 // Keeps the local RAG index aligned with HEAD so retrieval never serves
 // stale code without the user having to run `kj rag index` by hand.
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
@@ -17,6 +17,7 @@ import { openProjectStore } from "./project-store.js";
 import { readEmbedSchema } from "./embed-schema.js";
 import { EMBED_SCHEMA } from "./embed-header.js";
 import { getKarajanHome } from "../utils/paths.js";
+import { mainCheckout } from "../utils/main-checkout.js";
 
 // Said once per process and project: every query of a session would repeat it otherwise.
 const warnedFor = new Set();
@@ -61,12 +62,21 @@ async function bootstrapInBackground({ projectDir, slug, head, logger }) {
   return { skipped: true, reason: "bootstrapping", pid: boot.pid, head };
 }
 
+const isLane = (projectDir) => realpathSync(mainCheckout(projectDir)) !== realpathSync(projectDir);
+
 // KJC-TSK-1171 (RAG-B): an index built before the embedded header holds vectors a
 // query by file or symbol name cannot reach. Small, it is rebuilt here; large, the
 // query answers from it and says once how to rebuild.
 async function rebuildOldSchema({ db, slug, projectDir, config, logger, head, maxFiles }, schema) {
   const sources = countSources(db, slug, projectDir);
   if (sources > maxFiles) {
+    // HU-3363: nothing else rebuilds it, so no lane is ever seeded from it. Main only (a lane has its own index);
+    // startBootstrap holds the machine lease, so a second command finds it taken and does nothing.
+    const boot = config?.rag?.autoUpdate?.rebuildStale === false || isLane(projectDir) ? null : startBootstrap(projectDir);
+    if (boot?.pid) {
+      warnOnce(logger, projectDir, `[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}): answering from it as it is while it is rebuilt in the background (pid ${boot.pid})`);
+      return { skipped: true, reason: "embed-schema-old", rebuilding: boot.pid, sources, head };
+    }
     warnOnce(logger, projectDir, `[rag] the index of ${slug} predates the embedded header (schema ${schema} < ${EMBED_SCHEMA}): answering from it as it is; rebuild it with kj rag index --with-sources`);
     return { skipped: true, reason: "embed-schema-old", sources, head };
   }

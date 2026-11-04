@@ -20,9 +20,12 @@ vi.mock("../../src/rag/indexer.js", () => ({
 }));
 vi.mock("../../src/rag/governed-embedder.js", () => ({ makeGovernedEmbedder: vi.fn(() => ({})) }));
 vi.mock("../../src/rag/embed-schema.js", () => ({ readEmbedSchema: vi.fn(() => state.schema) }));
+// HU-3363: the background rebuild is a fake here; the machine lease it takes is tested with startBootstrap.
+vi.mock("../../src/rag/bootstrap-index.js", () => ({ startBootstrap: vi.fn(() => ({ started: true, pid: 42 })), stopBootstrap: vi.fn(async () => null) }));
 
 const { maybeAutoUpdate } = await import("../../src/rag/auto-update.js");
 const { indexProject, indexProjectDelta } = await import("../../src/rag/indexer.js");
+const { startBootstrap } = await import("../../src/rag/bootstrap-index.js");
 
 let dir;
 const warned = [];
@@ -47,13 +50,41 @@ describe("maybeAutoUpdate and the embed schema", () => {
     expect(indexProjectDelta).not.toHaveBeenCalled();
   });
 
-  it("a large old index is served as it is, and the rebuild is asked for once", async () => {
+  const off = { rag: { autoUpdate: { rebuildStale: false } } };
+
+  it("a large old index is served as it is, and the rebuild is asked for once (rebuildStale: false)", async () => {
     state.schema = 1; state.sources = 400;
-    expect(await maybeAutoUpdate({ projectDir: dir, config: {}, logger })).toMatchObject({ skipped: true, reason: "embed-schema-old", sources: 400 });
-    await maybeAutoUpdate({ projectDir: dir, config: {}, logger });
+    expect(await maybeAutoUpdate({ projectDir: dir, config: off, logger })).toMatchObject({ skipped: true, reason: "embed-schema-old", sources: 400 });
+    await maybeAutoUpdate({ projectDir: dir, config: off, logger });
     expect(warned.filter((l) => /predates the embedded header/.test(l))).toHaveLength(1);
     expect(warned[0]).toMatch(/kj rag index --with-sources/);
     expect(indexProject).not.toHaveBeenCalled();
+    expect(startBootstrap).not.toHaveBeenCalled();
+  });
+
+  it("a large old index on the main checkout starts one background rebuild and says so in one line", async () => {
+    state.schema = 1; state.sources = 400;
+    expect(await maybeAutoUpdate({ projectDir: dir, config: {}, logger })).toMatchObject({ skipped: true, reason: "embed-schema-old" });
+    await maybeAutoUpdate({ projectDir: dir, config: {}, logger });
+    expect(startBootstrap).toHaveBeenCalledWith(dir);
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toMatch(/predates the embedded header.*rebuilt in the background \(pid 42\)/);
+  });
+
+  it("a rebuild that cannot start (lease held elsewhere) falls back to asking for it by hand", async () => {
+    state.schema = 1; state.sources = 400;
+    startBootstrap.mockReturnValueOnce({ started: false, busy: { slug: "other", pid: 7 } });
+    await maybeAutoUpdate({ projectDir: dir, config: {}, logger });
+    expect(warned[0]).toMatch(/kj rag index --with-sources/);
+  });
+
+  it("a lane never starts the rebuild: it has its own index", async () => {
+    state.schema = 1; state.sources = 400;
+    const lane = join(dir, ".kj", "lane-x");
+    git("worktree", "add", "-q", lane, "-b", "lane-x");
+    await maybeAutoUpdate({ projectDir: lane, config: {}, logger });
+    expect(startBootstrap).not.toHaveBeenCalled();
+    expect(warned[0]).toMatch(/kj rag index --with-sources/);
   });
 
   it("an index on the current schema goes straight to the drift check", async () => {

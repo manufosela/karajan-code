@@ -76,8 +76,15 @@ describe("seedLaneIndex", () => {
     expect(readEmbedSchema(lane)).toBe(EMBED_SCHEMA);
   });
 
+  it("refuses while main's schema is old and seeds once the rebuild has made it current", async () => {
+    seedMain({ marker: false });
+    expect(await seedLaneIndex({ mainDir: main, laneDir: lane, dim: DIM })).toEqual({ seeded: false, reason: "embed-schema-old" });
+    writeEmbedSchema(main);
+    expect(await seedLaneIndex({ mainDir: main, laneDir: lane, dim: DIM })).toMatchObject({ seeded: true });
+  });
+
   it.each([
-    ["no main db", "no-main-index", () => {}, {}],
+    ["no main db","no-main-index", () => {}, {}],
     ["no watermark", "no-watermark", () => seedMain({ watermark: false }), {}],
     ["marker missing", "embed-schema-old", () => seedMain({ marker: false }), {}],
     ["marker schema 1", "embed-schema-old", () => { seedMain({ marker: false }); writeEmbedSchema(main, 1); }, {}],
