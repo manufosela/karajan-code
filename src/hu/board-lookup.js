@@ -9,6 +9,7 @@ import { readBoardConfig } from "./board-config.js";
 import { loadManager } from "./managers/index.js";
 import { pinGhIdentity } from "./gh-identity.js";
 import { listWithCache } from "./team-board-cache.js";
+import { boardKey } from "./board-key.js";
 
 export async function findBoardHu(projectDir, ref, deps = {}) {
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
@@ -16,7 +17,7 @@ export async function findBoardHu(projectDir, ref, deps = {}) {
   const manager = board.backend === "local" ? null : (deps.manager ?? await loadManager(board, { projectDir, board: { listHus: deps.listTeamHus } }));
   if (manager?.isId(ref)) {
     (deps.pinGhIdentity ?? pinGhIdentity)({ projectDir });
-    const { rows } = await (deps.cache?.list ?? listWithCache)({ projectDir, repo: board.repo, list: manager.list });
+    const { rows } = await (deps.cache?.list ?? listWithCache)({ projectDir, file: boardKey(board).cacheFile, list: manager.list });
     const hu = rows.find((h) => h.short_id.toUpperCase() === ref.toUpperCase());
     if (hu) return hu;
   }

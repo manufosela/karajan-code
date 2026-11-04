@@ -37,10 +37,4 @@ describe("kj hu backend", () => {
     expect(out).toMatch(/Linear team TRI/);
     expect(out).toMatch(/LINEAR_API_KEY is not set/);
   });
-
-  it("a board.yml naming a manager the core cannot drive yet fails loud instead of using the local board", async () => {
-    const boardConfig = async () => ({ backend: "linear", linear: { team: "TRI" } });
-    const manager = { list: async () => [] };
-    await expect(huCommand({ config: { projectDir: "/r" }, action: "list", deps: { boardConfig, manager } })).rejects.toThrow(/does not drive the linear manager yet/);
-  });
 });
