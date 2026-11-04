@@ -117,6 +117,18 @@ describe("kj steward sweep", () => {
     expect(created.some((h) => h.title.includes("vulnerable-deps") && h.status === "pending")).toBe(true);
   }, 30_000);
 
+  // HU-3364 — an embedder over its CPU budget is carded once, with the facts; a second sweep updates that card.
+  it("embedder-load over budget: one card with the facts, no twin on the next sweep", async () => {
+    const embedderLoad = { state: "over", container: "kj-ollama", budget: 200, samples: [230, 240], indexers: [{ pid: 4242, elapsed: "12m03s", cwd: "/w", holdsLease: true }] };
+    await run({ embedderLoad });
+    await run({ embedderLoad, nowMs: NOW + 60_000 });
+    const { listPlans, loadPlan } = await import("../../src/plan/plan-store.js");
+    const hus = (await Promise.all((await listPlans(dir)).map((p) => loadPlan(dir, p.planId)))).flatMap((p) => p.hus || []);
+    const cards = hus.filter((h) => h.title.includes("embedder-load"));
+    expect(cards).toHaveLength(1);
+    expect(cards[0].scope).toMatch(/pid 4242/);
+  }, 30_000);
+
   // STW-E (KJC-TSK-0793) — execution modes: on-demand, on-resume, or the Action.
   it("--if-stale skips the sweep while the report is fresh, and sweeps when it is old", async () => {
     await run();
