@@ -1,0 +1,32 @@
+{
+  "name": "@karajan-family/board-linear",
+  "version": "0.1.0",
+  "description": "Linear as a task manager for karajan-code: the HTTP client and config over Linear's GraphQL API (the manager follows).",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-code.git",
+    "directory": "packages/board-linear"
+  },
+  "keywords": [
+    "task-manager",
+    "linear",
+    "karajan"
+  ],
+  "author": "@manufosela",
+  "license": "MIT"
+}

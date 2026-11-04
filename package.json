@@ -42,7 +42,8 @@
     "packages/console",
     "packages/atril",
     "packages/story-contract",
-    "packages/board-github"
+    "packages/board-github",
+    "packages/board-linear"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
@@ -67,6 +68,8 @@
     "packages/story-contract/package.json",
     "packages/board-github/src/",
     "packages/board-github/package.json",
+    "packages/board-linear/src/",
+    "packages/board-linear/package.json",
     "docs/README.es.md",
     "LICENSE",
     "README.md"
