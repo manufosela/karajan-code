@@ -24,15 +24,25 @@ function weakening(rule, approved) {
   return JSON.stringify(rule.when) === JSON.stringify(approved.when) ? "" : "condition changed";
 }
 
+// KJC-TSK-1410: a rule approved before and proposed again as it is was already read by the human.
+const shape = (rule) => JSON.stringify([rule.kind, rule.text, rule.when ?? null, rule.reason ?? null]);
+
 /**
  * @param {object[]} proposed the rules of a checked proposal
  * @param {object[]} current the rules approved today (both files)
  * @param {Set<string>} local ids that go to the unversioned file
  * @param {{versioned: string, unversioned: string}} files the two rules files, as shown
+ * @param {{all?: boolean}} [opts] all: list the unchanged rules too
  * @returns {string[]} lines, ready to print
  */
-export function approvalView(proposed, current, local, files) {
+export function approvalView(proposed, current, local, files, { all = false } = {}) {
   const approved = new Map(current.map((rule) => [rule.id, rule]));
+  const unchanged = all ? [] : proposed.filter((rule) => approved.has(rule.id) && shape(rule) === shape(approved.get(rule.id)));
+  if (unchanged.length) {
+    const same = new Set(unchanged.map((rule) => rule.id));
+    const changes = approvalView(proposed.filter((rule) => !same.has(rule.id)), current.filter((rule) => !same.has(rule.id)), local, files, { all: true });
+    return [...changes, `${unchanged.length} rule(s) unchanged from what is approved today, not listed: kj rules approve --all shows them.`];
+  }
   const where = (rule) => (local.has(rule.id) ? `${files.unversioned}, not versioned` : files.versioned);
   const shown = (rule) => [`${rule.id}  ${rule.kind}  → ${where(rule)}`, `    ${rule.text}`, `    ${compiled(rule)}`];
   const weakened = proposed.map((rule) => ({ rule, how: weakening(rule, approved.get(rule.id)) })).filter(({ how }) => how);

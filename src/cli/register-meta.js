@@ -481,9 +481,10 @@ export function registerMeta(program, { pkgVersion }) {
   rules.command("approve")
     .description("HUMAN act: show a checked and cross-reviewed proposal and install it as the project's rules; no agent session runs it (ADR 0009)")
     .option("--file <path>", "The proposal", PROPOSAL_FILE)
+    .option("--all", "List the rules that stay as approved too, not only what changes")
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-approve", flags, async ({ config }) => {
-        const res = await rulesApprove({ projectDir: config?.projectDir || process.cwd(), file: flags.file, kjVersion: pkgVersion });
+        const res = await rulesApprove({ projectDir: config?.projectDir || process.cwd(), file: flags.file, kjVersion: pkgVersion, all: Boolean(flags.all) });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });
