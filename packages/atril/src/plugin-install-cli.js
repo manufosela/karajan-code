@@ -53,9 +53,10 @@ export function notInstalledLines({ plugin, notInstalled: { hooks, mcpServers, b
   const sync = rulesync?.rewritten ? [`atril: ${who}its hook and MCP commands point to its copy in the store: commit the store, or the team must reinstall the plugin on each machine with \`atril install plugin:${plugin ?? name ?? "<name>"}\``] : [];
   const fix = (kind) => kind === "plugin" ? "install it with the host CLI, as below" : "fix it in the plugin (one command per hook, no options before the script, or a `./`-free command) and install again";
   const left = (rulesync?.skipped ?? []).map(({ kind, name: entry, reason }) => `atril: ${who}left out ${kind} ${JSON.stringify(entry)}: ${reason}; ${fix(kind)}`);
+  const kept = (rulesync?.kept ?? []).map(({ kind, name: entry, path }) => `atril: ${who}left ${kind} ${JSON.stringify(entry)} with ${path} as it is: the plugin does not ship it, so it is the project's`);
   const lossy = (rulesync?.lossy ?? []).map(({ field, where }) => `atril: ${who}the import lost ${field} (${where}): the entry is written, the field does not change what runs`);
   const native = (rulesync?.instructions ?? []).map((line) => `atril: ${who}${line}`);
-  return [...absent, ...(rulesync?.status === "merged" && !rulesync.instructions ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...needs, ...sync, ...lossy, ...left, ...native, ...[
+  return [...absent, ...(rulesync?.status === "merged" && !rulesync.instructions ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...needs, ...sync, ...kept, ...lossy, ...left, ...native, ...[
     ...(hooks.length ? [`${hooks.length} hook(s)`] : []),
     ...(mcpServers.length ? [`${mcpServers.length} MCP server(s): ${mcpServers.map(({ name }) => JSON.stringify(name)).join(" ")}`] : []),
     ...(bin.length ? [`${bin.length} executable(s) in bin/`] : []),

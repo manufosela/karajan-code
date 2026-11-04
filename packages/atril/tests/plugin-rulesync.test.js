@@ -1,7 +1,7 @@
 // importCanonical: `rulesync import` runs on a throwaway copy in a throwaway directory; the runner is a fake.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { importCanonical } from "../src/plugin-rulesync.js";
 
@@ -64,7 +64,12 @@ describe("importCanonical", () => {
 });
 
 describe("importCanonical: plugin paths", () => {
+  const SHIPPED = ["scripts/x.sh", "scripts/hook.js", "scripts/check.js", "dist/h.js", "dist/server.js", "servers/x", "bin/tool", "ok.sh", "a.js", "x.sh"];
   const importWith = (canonical, root = ".karajan") => {
+    for (const file of SHIPPED) {
+      mkdirSync(dirname(join(plugin, file)), { recursive: true });
+      writeFileSync(join(plugin, file), "");
+    }
     const fakeBoth = (cmd, args) => {
       if (args.includes("--version")) return "1.0.0";
       const out = join(args[args.indexOf("--output-root") + 1], ".rulesync");
@@ -132,6 +137,28 @@ describe("importCanonical: plugin paths", () => {
     expect(quoted.canonical.hooks.hooks.PreToolUse[0].command).toBe("node \"./.karajan/plugins/kit/1.0.0/scripts/hook.js\"");
     expect(importWith({ hooks: hook("node \t ./a.js  ./b") }).canonical.hooks.hooks.PreToolUse[0].command).toBe("node \t ./.karajan/plugins/kit/1.0.0/a.js  ./b");
     expect(importWith({ hooks: hook("./x.sh") }, "my store").skipped[0].reason).toMatch(/needs shell quoting/);
+  });
+
+  it("rewrites a ./ path only if the plugin ships it, and names each one it leaves to the project", () => {
+    const hooks = ["npx prettier --write ./src", "node ./scripts/check.js", "./bin/tool --fast", "./missing.sh", "node ./missing.js"].map((command) => ({ command }));
+    const mcp = { mcpServers: { tool: { command: "./bin/tool" }, gone: { command: "node", args: ["./nope.js", "./scripts/x.sh"] } } };
+    const result = importWith({ hooks: { hooks: { Stop: hooks } }, mcp });
+    expect(result.canonical.hooks.hooks.Stop.map((h) => h.command)).toEqual(["npx prettier --write ./src", "node ./.karajan/plugins/kit/1.0.0/scripts/check.js", "./.karajan/plugins/kit/1.0.0/bin/tool --fast", "./missing.sh", "node ./missing.js"]);
+    expect(result.canonical.mcp.mcpServers).toEqual({ tool: { command: "./.karajan/plugins/kit/1.0.0/bin/tool" }, gone: { command: "node", args: ["./nope.js", "./scripts/x.sh"] } });
+    expect(result.kept).toEqual([{ kind: "hook", name: "Stop: ./missing.sh", path: "./missing.sh" }, { kind: "hook", name: "Stop: node ./missing.js", path: "./missing.js" }, { kind: "mcp", name: "gone", path: "./nope.js" }]);
+    expect(result.rewritten).toBe(true);
+  });
+
+  it("reports no kept path, and no rewrite, when every ./ path is the project's", () => {
+    const result = importWith({ hooks: hook("./only-mine.sh") });
+    expect(result.kept).toEqual([{ kind: "hook", name: "PreToolUse: ./only-mine.sh", path: "./only-mine.sh" }]);
+    expect(result.rewritten).toBeUndefined();
+    expect(importWith({ hooks: hook("./scripts/x.sh") })).not.toHaveProperty("kept");
+  });
+
+  it("does not name a kept path of an entry that is then skipped", () => {
+    const result = importWith({ hooks: hook("node ./missing.js ./a.js && ./b.sh") });
+    expect(result).not.toHaveProperty("kept");
   });
 
   it("skips a path that escapes the plugin copy with ..", () => {

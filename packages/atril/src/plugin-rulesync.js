@@ -22,9 +22,11 @@ const RUNNERS = new Set(["node", "python", "python3", "bash", "sh", "bun", "tsx"
 
 // A `./` path of the plugin as the same file in its copy in the store, relative to the project; one that climbs out with `..` is refused.
 // The word may be wrapped in one pair of quotes, which stay. A store path the shell would split or expand is refused: no quoting is invented.
-function inCopy(word, base) {
+// A path the plugin does not ship is the project's: it stays as it is and is added to `kept`, so the install can say so.
+function inCopy(word, { base, ships, kept }) {
   const [, open, path, close] = /^(["']?)(\.\/.*?)(["']?)$/.exec(word);
   if (path.split("/").includes("..")) throw new Error(`${JSON.stringify(path)} escapes the plugin`);
+  if (!ships(path.slice(2))) { kept.push(path); return word; }
   if (/[\s"'`$\\;&|<>()*?]/.test(base)) throw new Error(`the plugin copy path ${JSON.stringify(base)} needs shell quoting: use a store path without spaces or shell characters`);
   return `${open}${base}/${path.slice(2)}${close}`;
 }
@@ -34,15 +36,15 @@ const HAS_PLUGIN_PATH = /(^|[\s"'=;&|(<>])\.\//;
 
 // Only the plugin's files move: the command word, and the script right after a known runner. Options between the
 // runner and a `./` path cannot be told from their values without guessing, so that command is refused.
-function rewriteWords(words, base) {
+function rewriteWords(words, to) {
   const text = words.join(" ");
   const unquoted = text.replace(/"[^"]*"|'[^']*'/g, '""');
   if (HAS_PLUGIN_PATH.test(text) && (/&&|\|\||[;|]|^\s*[A-Za-z_]\w*=/.test(unquoted) || /(^|\s)(sh|bash)\s+-c\s/.test(text))) {
     throw new Error(`this command mixes ./ paths with shell syntax the rewrite does not follow: ${text}; write one command per hook, with no VAR=value prefix, ; && || | or sh -c, or use a command with no ./ path`);
   }
   const out = [...words];
-  if (isPluginPath(words[0])) out[0] = inCopy(words[0], base);
-  else if (RUNNERS.has(words[0]) && isPluginPath(words[1])) out[1] = inCopy(words[1], base);
+  if (isPluginPath(words[0])) out[0] = inCopy(words[0], to);
+  else if (RUNNERS.has(words[0]) && isPluginPath(words[1])) out[1] = inCopy(words[1], to);
   else if (RUNNERS.has(words[0]) && words[1]?.startsWith("-") && words.some(isPluginPath)) {
     throw new Error(`this command cannot be pointed to the store: ${words.join(" ")}; write it without options before the script`);
   }
@@ -50,25 +52,32 @@ function rewriteWords(words, base) {
 }
 
 // The words of a command line are told apart by any run of whitespace, which is kept as it was.
-function rewriteCommand(command, base) {
+function rewriteCommand(command, to) {
   const parts = command.split(/(\s+)/);
   const at = parts.flatMap((part, i) => (part && !/^\s+$/.test(part) ? [i] : []));
-  rewriteWords(at.map((i) => parts[i]), base).forEach((word, k) => { parts[at[k]] = word; });
+  rewriteWords(at.map((i) => parts[i]), to).forEach((word, k) => { parts[at[k]] = word; });
   return parts.join("");
 }
 
 // Decides per hook entry and per MCP server: one that cannot be pointed to the store is dropped from `canonical` and
 // listed in `skipped` with the reason; the others are rewritten in place.
-function pointToCopy(canonical, base) {
+function pointToCopy(canonical, base, ships) {
   const skipped = [];
+  const kept = [];
   let rewritten = false;
+  // `fn` gets the `to` of its entry; the paths it left to the project are named only if the entry stays.
   const attempt = (kind, name, fn) => {
-    try { rewritten = fn() || rewritten; return true; } catch (error) { skipped.push({ kind, name, reason: error.message }); return false; }
+    const paths = [];
+    try {
+      rewritten = fn({ base, ships, kept: paths }) || rewritten;
+      kept.push(...paths.map((path) => ({ kind, name, path })));
+      return true;
+    } catch (error) { skipped.push({ kind, name, reason: error.message }); return false; }
   };
   const hooks = canonical.hooks?.hooks ?? {};
   for (const [event, entries] of Object.entries(hooks)) {
-    hooks[event] = entries.filter((entry) => typeof entry.command !== "string" || attempt("hook", `${event}: ${entry.command}`, () => {
-      const command = rewriteCommand(entry.command, base);
+    hooks[event] = entries.filter((entry) => typeof entry.command !== "string" || attempt("hook", `${event}: ${entry.command}`, (to) => {
+      const command = rewriteCommand(entry.command, to);
       const changed = command !== entry.command;
       entry.command = command;
       return changed;
@@ -79,8 +88,8 @@ function pointToCopy(canonical, base) {
   for (const [name, server] of Object.entries(servers)) {
     if (typeof server.command !== "string") continue;
     const before = JSON.stringify(server);
-    const ok = attempt("mcp", name, () => {
-      const words = rewriteWords([server.command, ...(server.args ?? [])], base);
+    const ok = attempt("mcp", name, (to) => {
+      const words = rewriteWords([server.command, ...(server.args ?? [])], to);
       server.command = words[0];
       if (server.args) server.args = words.slice(1);
       return JSON.stringify(server) !== before;
@@ -88,15 +97,16 @@ function pointToCopy(canonical, base) {
     if (!ok) delete servers[name];
   }
   if (skipped.length) for (const [kind, entries] of [["hooks", hooks], ["mcp", servers]]) if (canonical[kind] && !Object.keys(entries).length) delete canonical[kind];
-  return { rewritten, skipped };
+  return { rewritten, skipped, kept };
 }
 
 /**
  * `pluginCopy` is where the plugin lives in the store: the `./` script paths the import left (they would point to the
  * project) become paths to that copy, and `rewritten` says so, so the caller can ask the team to commit the store.
+ * A `./` path the plugin does not ship is the project's: it is left as it is and named in `kept`.
  * A hook or MCP server that cannot be pointed to the copy is left out of `canonical` and named in `skipped`.
  * `lossy` names the harmless fields the import dropped; one that changes what runs leaves all entries out (`skipped`, kind "plugin").
- * @returns {{ status: "absent" } | { status: "imported", canonical: { mcp?: object, hooks?: object }, needs?: string[], rewritten?: true, skipped?: { kind: "hook" | "mcp", name: string, reason: string }[] }} absent: rulesync does not answer; needs: sensitive keys the entries refer to as `${KEY}`
+ * @returns {{ status: "absent" } | { status: "imported", canonical: { mcp?: object, hooks?: object }, needs?: string[], rewritten?: true, kept?: { kind: "hook" | "mcp", name: string, path: string }[], skipped?: { kind: "hook" | "mcp", name: string, reason: string }[] }} absent: rulesync does not answer; needs: sensitive keys the entries refer to as `${KEY}`
  * @throws when the import itself fails; the temporary directory is removed either way
  */
 export function importCanonical(pluginDir, { projectDir, pluginCopy }, run = defaultRun) {
@@ -116,12 +126,13 @@ export function importCanonical(pluginDir, { projectDir, pluginCopy }, run = def
     // A lost field that changes when or how an entry runs keeps every hook and MCP entry of the plugin out (the host CLI keeps them whole).
     const { harmless, blocking } = splitLossy(lossyFields(pluginDir));
     if (blocking.length) for (const kind of Object.keys(canonical)) delete canonical[kind];
-    const { rewritten, skipped } = pluginCopy ? pointToCopy(canonical, `./${relative(projectDir, pluginCopy).split(sep).join("/")}`.replace(/^\.\/\.\./, "..")) : { skipped: [] };
+    const ships = (path) => existsSync(join(pluginDir, path)); // `..` was refused before this runs: the check stays inside the plugin
+    const { rewritten, skipped, kept } = pluginCopy ? pointToCopy(canonical, `./${relative(projectDir, pluginCopy).split(sep).join("/")}`.replace(/^\.\/\.\./, ".."), ships) : { skipped: [], kept: [] };
     if (blocking.length) skipped.push({ kind: "plugin", name: "hooks and MCP servers", reason: `the import loses ${[...new Set(blocking.map(({ field }) => field))].join(", ")}, which change when or how they run` });
     const lossy = blocking.length ? [] : harmless.map(({ field, where }) => ({ field, where }));
     const text = JSON.stringify(canonical);
     const needs = secrets.filter((key) => text.includes(`\${${key}}`)); // the variables the user must have: names only, never a value
-    return { status: "imported", canonical, ...(needs.length && { needs }), ...(rewritten && { rewritten }), ...(lossy.length && { lossy }), ...(skipped.length && { skipped }) };
+    return { status: "imported", canonical, ...(needs.length && { needs }), ...(rewritten && { rewritten }), ...(kept.length && { kept }), ...(lossy.length && { lossy }), ...(skipped.length && { skipped }) };
   } catch (error) {
     throw new Error(`rulesync import failed (${error.message}); nothing was installed`, { cause: error });
   } finally {

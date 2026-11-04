@@ -111,6 +111,16 @@ describe("notInstalledLines", () => {
     expect(text).toContain("left out hook \"Stop: VAR=1 ./x.sh\": mixes shell syntax");
     expect(text).toContain("one command per hook");
   });
+  it("names, one line per entry, each ./ path left to the project because the plugin does not ship it", () => {
+    const base = { plugin: "kit", notInstalled: { hooks: [], mcpServers: [], bin: [] } };
+    const kept = [{ kind: "hook", name: "Stop: ./missing.sh", path: "./missing.sh" }, { kind: "mcp", name: "db", path: "./nope.js" }];
+    const lines = notInstalledLines({ ...base, rulesync: { status: "merged", kept } }).filter((line) => line.includes("project"));
+    expect(lines).toEqual([
+      "atril: left hook \"Stop: ./missing.sh\" with ./missing.sh as it is: the plugin does not ship it, so it is the project's",
+      "atril: left mcp \"db\" with ./nope.js as it is: the plugin does not ship it, so it is the project's",
+    ]);
+    expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/the project's/);
+  });
   it("says which environment variable a merged MCP server or hook needs, naming the plugin, once per variable", () => {
     const base = { plugin: "kit", notInstalled: { hooks: [], mcpServers: [], bin: [] } };
     const lines = notInstalledLines({ ...base, rulesync: { status: "merged", needs: ["TOKEN", "KEY2"] } });

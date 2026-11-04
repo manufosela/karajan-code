@@ -173,6 +173,7 @@ describe("installPlugin", () => {
 
     it("points a script of the plugin to its copy in the store and reports the rewrite", async () => {
       withMcp();
+      tree.files["servers/x"] = "";
       mkdirSync(join(dir, ".rulesync"));
       const rulesync = (_cmd, args) => { if (args.includes("import")) put(args[args.indexOf("--output-root") + 1], ".rulesync/mcp.json", { mcpServers: { db: { command: "./servers/x" } } }); };
       const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });
@@ -182,7 +183,7 @@ describe("installPlugin", () => {
 
     it("installs the Markdown and writes the other hooks when one cannot be pointed to the store", async () => {
       market(GH);
-      tree = { manifest: {}, files: { "hooks/hooks.json": { hooks: { Stop: [{ matcher: "", hooks: [{ type: "command", command: "node --require ./r.js ./main.js" }, { type: "command", command: "./ok.sh" }] }] } } } };
+      tree = { manifest: {}, files: { "ok.sh": "", "hooks/hooks.json": { hooks: { Stop: [{ matcher: "", hooks: [{ type: "command", command: "node --require ./r.js ./main.js" }, { type: "command", command: "./ok.sh" }] }] } } } };
       mkdirSync(join(dir, ".rulesync"));
       const rulesync = (_cmd, args) => { if (args.includes("import")) put(args[args.indexOf("--output-root") + 1], ".rulesync/hooks.json", { hooks: { Stop: [{ command: "node --require ./r.js ./main.js" }, { command: "./ok.sh" }] } }); };
       const result = await installPlugin("kit", o(), { confirm, git, run, rulesync });
