@@ -23,12 +23,25 @@ const RUNNERS = new Set(["node", "python", "python3", "bash", "sh", "bun", "tsx"
 // A `./` path of the plugin as the same file in its copy in the store, relative to the project; one that climbs out with `..` is refused.
 // The word may be wrapped in one pair of quotes, which stay. A store path the shell would split or expand is refused: no quoting is invented.
 // A path the plugin does not ship is the project's: it stays as it is and is added to `kept`, so the install can say so.
+const refuseEscape = (path) => { if (path.split("/").includes("..")) throw new Error(`${JSON.stringify(path)} escapes the plugin`); };
+
 function inCopy(word, { base, ships, kept }) {
   const [, open, path, close] = /^(["']?)(\.\/.*?)(["']?)$/.exec(word);
-  if (path.split("/").includes("..")) throw new Error(`${JSON.stringify(path)} escapes the plugin`);
+  refuseEscape(path);
   if (!ships(path.slice(2))) { kept.push(path); return word; }
   if (/[\s"'`$\\;&|<>()*?]/.test(base)) throw new Error(`the plugin copy path ${JSON.stringify(base)} needs shell quoting: use a store path without spaces or shell characters`);
   return `${open}${base}/${path.slice(2)}${close}`;
+}
+
+// The `cwd` of an MCP server follows the same rule as a `./` path: a relative one the plugin ships becomes its copy in the store, one it does not ship stays the project's.
+// Absolute, home and variable paths are not ours. The `..` check comes before the disk is looked at.
+function cwdInCopy(cwd, { base, ships, kept }) {
+  if (typeof cwd !== "string" || /^([/~$\\]|[A-Za-z]:)/.test(cwd)) return cwd;
+  refuseEscape(cwd);
+  const path = cwd.split("/").filter((part) => part && part !== ".").join("/");
+  if (!path) return base;
+  if (!ships(path)) { kept.push(cwd); return cwd; }
+  return `${base}/${path}`;
 }
 
 const isPluginPath = (word) => /^["']?\.\//.test(word ?? "");
@@ -89,9 +102,13 @@ function pointToCopy(canonical, base, ships) {
     if (typeof server.command !== "string") continue;
     const before = JSON.stringify(server);
     const ok = attempt("mcp", name, (to) => {
-      const words = rewriteWords([server.command, ...(server.args ?? [])], to);
+      const cwd = server.cwd === undefined ? undefined : cwdInCopy(server.cwd, to);
+      // The server starts in its new cwd, so the paths of its command are written from there: they still name the plugin's file.
+      const up = cwd === server.cwd ? to.base : cwd.slice(to.base.length).split("/").filter(Boolean).map(() => "..").join("/") || ".";
+      const words = rewriteWords([server.command, ...(server.args ?? [])], { ...to, base: up });
       server.command = words[0];
       if (server.args) server.args = words.slice(1);
+      if (cwd !== undefined) server.cwd = cwd;
       return JSON.stringify(server) !== before;
     });
     if (!ok) delete servers[name];
