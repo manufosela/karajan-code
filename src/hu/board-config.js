@@ -9,6 +9,7 @@ import path from "node:path";
 import { parse as parseYaml, stringify as toYaml } from "yaml";
 import { runCommand } from "../utils/process.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
+import { parseAllow } from "./managers/allowlist.js";
 
 export const BOARD_FILE = ".karajan/board.yml";
 const BACKENDS = ["github", "linear", "local"];
@@ -48,8 +49,11 @@ export async function readBoardConfig(projectDir) {
     throw err;
   }
   const raw = parseYaml(text) || {};
-  if (!BACKENDS.includes(raw.backend)) throw new Error(`${BOARD_FILE}: backend must be one of ${BACKENDS.join(", ")}`);
+  const allow = parseAllow(raw.managers);
+  const community = allow.some((item) => item.backend === raw.backend);
+  if (!BACKENDS.includes(raw.backend) && !community) throw new Error(`${BOARD_FILE}: backend must be one of ${BACKENDS.join(", ")}, or a manager listed in managers.allow`);
   assertNoSecrets(raw);
+  if (community) return { backend: raw.backend, managers: raw.managers, [raw.backend]: raw[raw.backend] };
   if (raw.backend === "local") return { backend: "local" };
   if (raw.backend === "linear") {
     if (raw.linear === null || typeof raw.linear !== "object") throw new Error(`${BOARD_FILE}: backend linear needs a linear block (team, label, states)`);
