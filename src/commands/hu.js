@@ -14,7 +14,8 @@ import { readIdentity } from "../identity/store.js";
 import { effectiveGitEmail } from "../identity/detect.js";
 import { roleSkills } from "../skills/role-skills.js";
 import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
-import { createHu, listHus, claim, setStatus, assertNotHeld, isOffline } from "../hu/github-board.js";
+import { isOffline } from "../hu/board-errors.js";
+import { createGithubManager } from "../hu/managers/github/index.js";
 import { pinGhIdentity } from "../hu/gh-identity.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
 import { writeTeamMirror } from "../hu/team-board-mirror.js";
@@ -28,6 +29,11 @@ export function creatorLabel() {
 }
 
 export const HU_STATUSES = ["pending", "running", "done", "failed", "skipped"];
+
+// HU-3335: the shared board's task manager; the test seams (deps.*TeamHu...) swap its functions.
+const teamManager = (repo, deps) => createGithubManager({
+  repo, board: { createHu: deps.createTeamHu, listHus: deps.listTeamHus, setStatus: deps.setTeamStatus, claim: deps.claimTeamHu, assertNotHeld: deps.assertNotHeld },
+});
 const BACKLOG_NAME = "brain-backlog";
 
 // KJC-TSK-0675 (issue #1288): agents that skip `kj hu list` created twins of
@@ -66,7 +72,8 @@ async function addToTeamBoard({ projectDir, repo, title, flags, deps, emit }) {
   let existing;
   const ref = flags.ref ? String(flags.ref).trim() : null;
   try {
-    existing = await (deps.listTeamHus ?? listHus)({ repo });
+    const manager = teamManager(repo, deps);
+    existing = await manager.list();
     const { identical, similar } = findTitleMatches(title, existing);
     if (identical.length > 0) {
       throw new Error(`An HU with this title already exists: ${identical[0].short_id} (status: ${identical[0].status}). Work that card or move it with: kj hu move ${identical[0].short_id} <status>`);
@@ -75,8 +82,8 @@ async function addToTeamBoard({ projectDir, repo, title, flags, deps, emit }) {
       const candidates = similar.map((h) => `  · ${h.short_id} (${h.status}) "${h.title}"`).join("\n");
       console.warn("⚠ possible duplicate — check before working it:\n" + candidates);
     }
-    hu = await (deps.createTeamHu ?? createHu)({
-      repo, title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref,
+    hu = await manager.create({
+      title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref,
     });
   } catch (err) {
     // KJC-TSK-1165: an id is only ever minted by GitHub; nothing is created offline.
@@ -106,7 +113,7 @@ async function migrateToTeamBoard({ projectDir, repo, who, dryRun, deps, emit })
       const status = h.migration_pending ?? h.status;
       if (!h.migrated_to) {
         const was = `was ${label}`;
-        const issue = await (deps.createTeamHu ?? createHu)({ repo, title: h.title, acceptanceCriteria: h.acceptance_criteria ?? [], tests: h.acceptance_tests ?? [], ref: h.external_ref ? `${h.external_ref} · ${was}` : was });
+        const issue = await teamManager(repo, deps).create({ title: h.title, acceptanceCriteria: h.acceptance_criteria ?? [], tests: h.acceptance_tests ?? [], ref: h.external_ref ? `${h.external_ref} · ${was}` : was });
         // Persisted the moment the issue exists: a retry after a failure further on never
         // creates it twice; what is still owed to it (its running state) is remembered.
         h.migrated_to = issue.short_id;
@@ -115,9 +122,9 @@ async function migrateToTeamBoard({ projectDir, repo, who, dryRun, deps, emit })
         await savePlan(projectDir, plan);
       }
       if (h.migration_pending === "running") {
-        const number = Number(h.migrated_to.slice(3));
-        await (deps.claimTeamHu ?? claim)({ repo, number, who, release: false });
-        await (deps.setTeamStatus ?? setStatus)({ repo, number, status: "running" });
+        const manager = teamManager(repo, deps);
+        await manager.write.claim(h.migrated_to, who);
+        await manager.write.move(h.migrated_to, "running");
         delete h.migration_pending;
       }
       updateHuStatus(plan, h.id, "skipped");
@@ -133,18 +140,20 @@ async function migrateToTeamBoard({ projectDir, repo, who, dryRun, deps, emit })
 
 /** KJC-TSK-1165: apply the moves queued offline; conflicts are said, never forced; still offline is silent. */
 async function applyQueuedMoves({ projectDir, repo, deps }) {
+  const manager = teamManager(repo, deps);
   let now = null; // status of every HU as GitHub has it, read once, kept up to date as moves apply
   const apply = async (op) => {
-    now ??= new Map((await (deps.listTeamHus ?? listHus)({ repo })).map((h) => [h.number, h.status]));
+    now ??= new Map((await manager.list()).map((h) => [h.number, h.status]));
     // The HU moved while this clone was offline: the newer state wins, the queued move is a conflict.
     if (op.expected && now.get(op.number) !== op.expected) {
       const err = new Error(`HU-${op.number} is ${now.get(op.number) ?? "gone"} now and was ${op.expected} when the move was queued`);
       err.name = "BoardRejectedError";
       throw err;
     }
-    if (op.status === "running" || op.release) await (deps.claimTeamHu ?? claim)({ repo, number: op.number, who: op.who, release: op.release });
-    else await (deps.assertNotHeld ?? assertNotHeld)({ repo, number: op.number, who: op.who });
-    await (deps.setTeamStatus ?? setStatus)({ repo, number: op.number, status: op.status });
+    const id = `HU-${op.number}`;
+    if (op.status === "running" || op.release) await manager.write.claim(id, op.who, { release: op.release });
+    else await manager.assertNotHeld(id, op.who);
+    await manager.write.move(id, op.status);
     now.set(op.number, op.status);
   };
   const r = await flushQueue({ projectDir, apply });
@@ -162,9 +171,10 @@ async function moveOnTeamBoard({ repo, args, flags, deps, emit, who }) {
   // GitHub assigns by login: kj identity must name the GitHub user of this clone.
   if (!who || who.includes("@")) throw new Error("the shared board reserves by GitHub login: declare it with kj identity set");
   // Starting it, or releasing it, claims it; any other move of a HU someone else runs is refused.
-  if (status === "running" || flags.release) await (deps.claimTeamHu ?? claim)({ repo, number, who, release: Boolean(flags.release) });
-  else await (deps.assertNotHeld ?? assertNotHeld)({ repo, number, who });
-  await (deps.setTeamStatus ?? setStatus)({ repo, number, status });
+  const manager = teamManager(repo, deps);
+  if (status === "running" || flags.release) await manager.write.claim(ref, who, { release: Boolean(flags.release) });
+  else await manager.assertNotHeld(ref, who);
+  await manager.write.move(ref, status);
   return emit({ id: `HU-${number}`, status, claimed_by: status === "running" ? who : null }, `✓ HU-${number} → ${status}`);
 }
 
@@ -211,7 +221,7 @@ async function migrateLanePlansLoudly(projectDir) {
 }
 
 async function listTeam({ projectDir, repo, flags, deps }) {
-  const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, repo, list: deps.listTeamHus ?? listHus });
+  const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, repo, list: teamManager(repo, deps).list });
   if (source === "cache") console.warn(`⚠ GitHub did not answer: this is the local copy of the board from ${updatedAt}`);
   // KJC-TSK-1166: what GitHub answered is what kj board shows, as a read-only plan.
   else await writeTeamMirror(projectDir, hus, { repo });
@@ -427,7 +437,7 @@ async function findHuToMove(projectDir, ref) {
 
 // KJC-TSK-1372: a card as `kj hu start` reads it, from either board; null when there is none.
 const findSharedCard = (repo, deps) => async (ref) => {
-  const rows = await (deps.listTeamHus ?? listHus)({ repo });
+  const rows = await teamManager(repo, deps).list();
   const row = rows.find((r) => r.short_id.toLowerCase() === String(ref).toLowerCase());
   return row ? { id: row.short_id, title: row.title, status: row.status, claimed_by: row.claimed_by } : null;
 };

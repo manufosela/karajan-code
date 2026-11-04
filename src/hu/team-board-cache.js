@@ -8,7 +8,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { isOffline, isRefusal } from "./github-board.js";
+import { isOffline, isRefusal } from "./board-errors.js";
 
 const CACHE_FILE = ".karajan/board-cache.json";
 // A fresh object every time: a shared default array would carry one read's queue into the next.

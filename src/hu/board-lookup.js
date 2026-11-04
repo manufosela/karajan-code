@@ -6,7 +6,7 @@
  */
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { readBoardConfig } from "./board-config.js";
-import { listHus } from "./github-board.js";
+import { createGithubManager } from "./managers/github/index.js";
 import { pinGhIdentity } from "./gh-identity.js";
 import { listWithCache } from "./team-board-cache.js";
 
@@ -16,7 +16,7 @@ export async function findBoardHu(projectDir, ref, deps = {}) {
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
   if (board.backend === "github" && SHARED_ID.test(ref)) {
     (deps.pinGhIdentity ?? pinGhIdentity)({ projectDir });
-    const { rows } = await (deps.cache?.list ?? listWithCache)({ projectDir, repo: board.repo, list: deps.listTeamHus ?? listHus });
+    const { rows } = await (deps.cache?.list ?? listWithCache)({ projectDir, repo: board.repo, list: createGithubManager({ repo: board.repo, board: { listHus: deps.listTeamHus } }).list });
     const hu = rows.find((h) => h.short_id.toUpperCase() === ref.toUpperCase());
     if (hu) return hu;
   }

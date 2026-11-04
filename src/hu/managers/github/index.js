@@ -1,0 +1,34 @@
+/**
+ * HU-3335 (epic #3332, ADR 0029): GitHub Issues as a task manager of the story contract.
+ * It wraps createHu/listHus/setStatus/claim of github-board.js; the issue number behind
+ * HU-<n> (or #<n>) is this adapter's business, the core hands over the id as it got it.
+ * `board` lets a caller swap any of those functions (tests, offline fakes).
+ */
+import { createHu, listHus, setStatus, claim, assertNotHeld } from "../../github-board.js";
+
+const ISSUE_ID = /^(?:HU-|#)(\d+)$/i;
+
+export function createGithubManager({ repo, run, board = {} }) {
+  const fn = { createHu, listHus, setStatus, claim, assertNotHeld, ...Object.fromEntries(Object.entries(board).filter(([, f]) => f)) };
+  const base = run ? { repo, run } : { repo };
+  const numberOf = (id) => {
+    const number = Number(ISSUE_ID.exec(id)?.[1]);
+    if (!Number.isInteger(number)) throw new Error(`"${id}" is not a shared-board HU: use HU-<issue number>`);
+    return number;
+  };
+  const find = async (id) => (await fn.listHus(base)).find((h) => h.number === numberOf(id));
+  // The writes alone: a failed read-back must never fail a write that went through.
+  const write = {
+    move: (id, status) => fn.setStatus({ ...base, number: numberOf(id), status }),
+    claim: (id, who, { release = false } = {}) => fn.claim({ ...base, number: numberOf(id), who, release }),
+  };
+  return {
+    write,
+    list: () => fn.listHus(base),
+    create: async (args) => ({ claimed_by: null, ref: args.ref ?? null, ...(await fn.createHu({ ...base, ...args })) }),
+    move: async (id, status) => { await write.move(id, status); return find(id); },
+    claim: async (id, who, opts) => { await write.claim(id, who, opts); return find(id); },
+    /** Not part of the contract: a running HU held by someone else is theirs (the core decides what to do). */
+    assertNotHeld: (id, who) => fn.assertNotHeld({ ...base, number: numberOf(id), who }),
+  };
+}
