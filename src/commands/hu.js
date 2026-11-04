@@ -16,6 +16,7 @@ import { roleSkills } from "../skills/role-skills.js";
 import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
 import { isOffline } from "../hu/board-errors.js";
 import { loadManager } from "../hu/managers/index.js";
+import { withManagerDefaults } from "../hu/manager-ops.js";
 import { capabilityLines, missingCredentials } from "../hu/story-contract.js";
 import { pinGhIdentity } from "../hu/gh-identity.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
@@ -34,9 +35,9 @@ export const HU_STATUSES = ["pending", "running", "done", "failed", "skipped"];
 
 // HU-3335/HU-3336: the shared board's task manager, the one board.yml names (loadManager); the test seams
 // (deps.*TeamHu...) swap its functions. Loaded once per command, so every flow reads it from deps.manager.
-const loadTeamManager = (board, deps, projectDir) => deps.manager ?? loadManager(board, {
+const loadTeamManager = async (board, deps, projectDir) => withManagerDefaults(deps.manager ?? await loadManager(board, {
   projectDir, board: { createHu: deps.createTeamHu, listHus: deps.listTeamHus, setStatus: deps.setTeamStatus, claim: deps.claimTeamHu, assertNotHeld: deps.assertNotHeld },
-});
+}));
 // The id as the manager lists it: the core never builds one from a number.
 const canonicalIdOf = (manager, ref) => manager.canonicalId?.(ref) ?? ref;
 const BACKLOG_NAME = "brain-backlog";
