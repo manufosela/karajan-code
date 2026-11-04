@@ -94,6 +94,23 @@ rules:
     expect(bash("echo 'run kj update later'")).toBe("allow");
   });
 
+  // KJC-TSK-1411: a path reads a list item by its index, so "two questions in one call" is one fact.
+  it("a dotted path reads a list item by its index; a bad or missing index is an absent argument", () => {
+    const r = rulesOf(`
+version: 1
+rules:
+  - { id: R-0000000009, kind: deterministic, when: { tool: AskUserQuestion, any: [{ arg: questions.1, exists: true }] } }
+  - { id: R-0000000010, kind: deterministic, when: { tool: Edit, any: [{ arg: edits.0.old_string, equals: "x" }] } }
+`);
+    const ask = (questions) => evalRules(r, { tool: "AskUserQuestion", input: { questions } }).decision;
+    expect(ask([{ question: "A" }, { question: "B" }])).toBe("deny");
+    expect(ask([{ question: "A" }])).toBe("allow");
+    expect(evalRules(r, { tool: "Edit", input: { edits: [{ old_string: "x" }] } }).decision).toBe("deny");
+    expect(evalRules(r, { tool: "Edit", input: { edits: { 0: { old_string: "x" } } } }).decision).toBe("deny");
+    expect(evalRules(r, { tool: "Edit", input: { edits: [] } }).decision).toBe("allow");
+    expect(evalRules(r, { tool: "AskUserQuestion", input: { questions: { length: 2 } } }).decision).toBe("allow");
+  });
+
   it("compares numbers only, and reads own properties only", () => {
     const r = rulesOf(`
 version: 1

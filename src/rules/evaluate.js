@@ -16,9 +16,14 @@ const toolMatches = (glob, tool) => {
   return new RegExp(`^${literal.join(".*")}$`).test(String(tool));
 };
 
-/** The value at a dotted path of the tool input, own properties only. */
-const at = (input, dotted) =>
-  dotted.split(".").reduce((node, key) => (isObject(node) && Object.hasOwn(node, key) ? node[key] : undefined), input);
+// KJC-TSK-1411: in a list a key is an index (questions.1 is the second question); own properties only.
+const step = (node, key) => {
+  if (Array.isArray(node)) return /^\d+$/.test(key) ? node[Number(key)] : undefined;
+  return isObject(node) && Object.hasOwn(node, key) ? node[key] : undefined;
+};
+
+/** The value at a dotted path of the tool input. */
+const at = (input, dotted) => dotted.split(".").reduce(step, input);
 
 /** Calendar days (UTC) from one date to another: the same day is 0, whatever the hour. */
 const daysBetween = (from, to) => Math.floor(Date.parse(to) / DAY_MS) - Math.floor(Date.parse(from) / DAY_MS);
