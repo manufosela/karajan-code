@@ -20,6 +20,7 @@ import { collectOsvFindings } from "../audit/osv-findings.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { syncProposedWork } from "../steward/proposed-work.js";
 import { sweepPhantoms } from "../steward/phantom-sweep.js";
+import { probeEmbedderLoad, evaluateEmbedderLoad } from "../checks/embedder-load.js";
 
 const stewardDir = (projectDir) => path.join(projectDir, ".karajan", "steward");
 
@@ -88,6 +89,7 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
   // Dead-code baseline: the PREVIOUS report in the repo — shared memory.
   const prevReport = readJson(path.join(stewardDir(projectDir), "report.json"));
   const deadNow = await deadCodeNow(projectDir);
+  const embedder = await (probes.embedderLoad ?? probeEmbedderLoad(config).catch(() => null));
 
   const invariants = [
     { id: "main-ci", renew: "push to the base branch (or fix the red run)", evaluate: () => evaluateMainCi({ projectDir, baseBranch, freshness: freshness.values, runsFn, nowMs }) },
@@ -96,6 +98,7 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
     { id: "dead-code-trend", renew: "kj audit (knip inventory)", evaluate: () => evaluateDeadCodeTrend({ current: deadNow, previous: prevReport?.deadCodeBaseline ?? null }) },
     { id: "coverage-config", renew: "configure a coverage threshold", evaluate: () => evaluateCoverageConfig({ projectDir }) },
     { id: "phantom-coverage", renew: "kj steward sweep (runs the phantom detectors)", evaluate: () => evaluatePhantomCoverage(phantomSweep(projectDir, probes)) },
+    { id: "embedder-load", renew: "kj doctor (embedder-load)", evaluate: () => evaluateEmbedderLoad(embedder) },
   ];
   const results = runInvariants(invariants, {}).map((r, i) => ({ ...r, renew: invariants[i].renew }));
   const broken = results.filter((r) => r.verdict === VERDICTS.BROKEN);

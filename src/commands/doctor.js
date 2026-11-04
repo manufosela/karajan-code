@@ -20,6 +20,7 @@ import { getConfigFileChecks } from "../checks/config-files.js";
 import { getBinaryChecks } from "../checks/binaries.js";
 import { getSonarChecks } from "../checks/sonar.js";
 import { getOllamaChecks } from "../checks/ollama.js";
+import { getEmbedderLoadChecks } from "../checks/embedder-load.js";
 import { getHarnessScorecardChecks } from "../checks/harness-scorecard.js";
 import { getPhoneChecks } from "../harden/phone-invite.js";
 import { getCiChecks } from "../checks/ci.js";
@@ -70,6 +71,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getBinaryChecks(),
     ...getSonarChecks(),
     ...getOllamaChecks(),
+  ...getEmbedderLoadChecks(),
     ...getHarnessScorecardChecks(),
     ...getPhoneChecks(),
     ...getPortChecks(),
