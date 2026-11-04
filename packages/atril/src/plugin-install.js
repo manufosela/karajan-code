@@ -136,12 +136,12 @@ function commit({ name, catalog, source, fetched, inventory }, opts, { run, rule
   // No try/catch and no rollback: installPluginMarkdown stages first, writes the lock last and undoes exactly what it created.
   const dependencies = pluginDependencies(readPluginManifest(fetched.dir).manifest).map((dep) => dep.name);
   const merged = imported?.status === "imported";
-  if (merged) mergeEntries(projectDir, name, imported.canonical);
+  const undoEntries = merged ? mergeEntries(projectDir, name, imported.canonical) : undefined;
   let installed;
   try {
     installed = installPluginMarkdown(fetched.dir, opts, { from: { catalog, ...(label && { source: label }), ...(fetched.commit && { commit: fetched.commit }), ...(dependencies.length && { dependencies }) } });
   } catch (error) {
-    if (merged) removeEntries(projectDir, name);
+    undoEntries?.();
     throw error;
   }
   const { plugin, entries } = installed;

@@ -265,6 +265,42 @@ describe("installPlugin", () => {
       });
     });
 
+    describe("an empty .rulesync folder (HU-3357)", () => {
+      const HOOKS = { version: 1, hooks: { Stop: [{ command: "x.sh" }] } };
+      const MCP = { mcpServers: { db: { command: "npx" } } };
+      const kinds = { hooks: [HOOKS, { "hooks/hooks.json": { hooks: { Stop: [{ hooks: [{ type: "command", command: "x.sh" }] }] } } }], mcp: [MCP, { ".mcp.json": MCP }] };
+      // The import as rulesync does it: `.rulesync/` under its working directory.
+      const importing = (which) => (_cmd, args, cwd) => { if (args.includes("import")) for (const kind of which) put(cwd, `.rulesync/${kind}.json`, kinds[kind][0]); };
+      const names = () => readdirSync(join(dir, ".rulesync")).sort();
+
+      it.each([[["hooks"], ["hooks.json"]], [["mcp"], ["mcp.json"]], [["hooks", "mcp"], ["hooks.json", "mcp.json"]]])("writes only atril's entries for a plugin with %j", async (which, files) => {
+        market(GH);
+        tree = { files: Object.assign({}, ...which.map((kind) => kinds[kind][1])) };
+        mkdirSync(join(dir, ".rulesync"));
+        const result = await installPlugin("kit", o(), { confirm, git, run, rulesync: importing(which) });
+        expect(result.rulesync).toEqual({ status: "merged" });
+        expect(names()).toEqual([".owners.json", ...files]);
+        for (const kind of which) expect(JSON.parse(readFileSync(join(dir, ".rulesync", `${kind}.json`), "utf8"))).toMatchObject(kinds[kind][0]);
+      });
+
+      it("leaves the folder as it was when a later step fails", async () => {
+        market(GH);
+        tree = { files: { ...kinds.hooks[1], ...kinds.mcp[1] } };
+        mkdirSync(join(dir, ".rulesync"));
+        failRecord.plugin = "kit";
+        try { await expect(installPlugin("kit", o(), { confirm, git, run, rulesync: importing(["hooks", "mcp"]) })).rejects.toThrow("lock write failed"); } finally { failRecord.plugin = null; }
+        expect(names()).toEqual([]);
+      });
+
+      it("still fails, writing nothing, when the folder is missing", async () => {
+        market(GH);
+        tree = { files: kinds.mcp[1] };
+        await expect(installPlugin("kit", o(), { confirm, git, run, rulesync: importing(["mcp"]) })).rejects.toThrow(".rulesync/ is missing");
+        expect(existsSync(join(dir, ".rulesync"))).toBe(false);
+        expect(lock().plugins).toBeUndefined();
+      });
+    });
+
     it("installs nothing when the import fails", async () => {
       withMcp();
       const rulesync = (_cmd, args) => { if (args.includes("import")) throw new Error("boom"); };

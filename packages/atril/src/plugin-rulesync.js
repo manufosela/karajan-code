@@ -133,13 +133,14 @@ export function importCanonical(pluginDir, { projectDir, pluginCopy }, run = def
     const copy = join(tmp, "plugin");
     cpSync(pluginDir, copy, { recursive: true, filter: (path) => !/[\\/](node_modules|\.git|\.rulesync)$/.test(path) });
     prepareImport(copy);
-    runRulesync(["import", "--targets", "claudecode-plugin", "--features", "mcp,hooks", "--output-root", copy], { projectDir, cwd: tmp }, run);
+    runRulesync(["import", "--targets", "claudecode-plugin", "--features", "mcp,hooks", "--output-root", copy], { projectDir, cwd: copy }, run); // rulesync writes `.rulesync/` under its working directory, whatever --output-root says
     const secrets = declaredPluginConfig(pluginDir).filter(({ sensitive }) => sensitive).map(({ key }) => key);
     const canonical = {};
     for (const kind of ["mcp", "hooks"]) {
       const doc = readKind(copy, kind);
       if (doc) canonical[kind] = referSecrets(doc, secrets);
     }
+    if (!Object.keys(canonical).length) throw new Error("the import produced no hooks or MCP servers");
     // A lost field that changes when or how an entry runs keeps every hook and MCP entry of the plugin out (the host CLI keeps them whole).
     const { harmless, blocking } = splitLossy(lossyFields(pluginDir));
     if (blocking.length) for (const kind of Object.keys(canonical)) delete canonical[kind];
