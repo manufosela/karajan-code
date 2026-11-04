@@ -7,23 +7,26 @@
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import { plansDir, savePlan } from "../plan/plan-store.js";
+import { boardKey } from "./board-key.js";
 
 // KJC-BUG-0397: the board reads plan-*.json only and groups a plan by its projectDir;
 // the mirror was plan_github-board.json with no projectDir, so it was never shown.
+// HU-3386: one mirror per board (plan-<backend>[-<team>]-board), named by board-key.js.
 export const MIRROR_PLAN_ID = "plan-github-board";
+export const isMirrorFile = (file) => /^plan-(?:github|linear)(?:-[\w-]+)?-board\.json$/.test(file);
 const LEGACY_MIRROR_FILE = "plan_github-board.json";
 
 /** The shared board as a plan the web board can show, marked read-only. */
-export async function writeTeamMirror(projectDir, rows, { repo }) {
+export async function writeTeamMirror(projectDir, rows, { repo, key = boardKey({ backend: "github", repo }) }) {
   const now = new Date().toISOString();
   const plan = {
-    version: 2, planId: MIRROR_PLAN_ID, name: "github", alias: "github", projectDir,
-    task: `Shared HU Board: GitHub Issues of ${repo}`,
-    status: "ready", readonly: "github", repo, createdAt: now,
+    version: 2, planId: key.planId, name: key.name, alias: key.name, projectDir,
+    task: `Shared HU Board: ${key.label}`,
+    status: "ready", readonly: key.name, repo: key.place, createdAt: now,
     hus: rows.map((r) => ({
       id: r.short_id, short_id: r.short_id, title: r.title, status: r.status,
       // KJC-BUG-0443: the tracker card it replicates too, so the gates find it by that reference.
-      claimed_by: r.claimed_by ?? null, created_by: "github", external_ref: [`${repo}#${r.number}`, r.ref].filter(Boolean).join(" · "),
+      claimed_by: r.claimed_by ?? null, created_by: key.name, external_ref: [key.refOf(r), r.ref].filter(Boolean).join(" · "),
       acceptance_criteria: [], acceptance_tests: [], createdAt: now, updatedAt: now,
     })),
   };
