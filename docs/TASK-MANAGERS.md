@@ -70,11 +70,26 @@ linear:
 
 For GitHub it is `backend: github` with `repo: owner/repo`. The block is passed to `createManager` as `config`.
 
-## Loading a community manager: not yet
+## Loading a community manager: the allowlist
 
-Be clear about today: the registry (`src/hu/managers/index.js`) loads only the built-in managers, listed in `BUILT_IN` (`github`, `linear`), from `packages/board-<name>/` inside this repo. A package installed by name is not loaded.
+A manager is code that runs with the agent's rights and sees its credentials, so a community manager loads only when `.karajan/board.yml` lists it, at an exact version:
 
-That is deliberate. A manager is code that runs with the agent's rights and sees its credentials, so loading one by name needs its own step first (an allowlist of trusted packages). That step is not built yet. Until then, a community manager enters through a pull request that adds it to the built-in list (the package under `packages/` and its name in `BUILT_IN`).
+```yaml
+backend: acme
+acme: { workspace: w }      # the block named like the backend, passed to createManager as config
+managers:
+  allow:
+    - { name: kj-board-acme, version: 1.2.3 }
+```
+
+- The backend name is the package name without the `@scope/` and a leading `board-` or `kj-board-` (`@x/kj-board-acme` answers to `acme`). Two entries for one backend, and a name that would shadow `github`, `linear` or `local`, are errors; the built-in managers always load first.
+- `name` is an npm package name and `version` an exact version (no ranges, no tags).
+- **kj never installs.** Install the package yourself (`npm install --save-exact <name>@<version>`). It is resolved from the project; if it is missing or its installed version is not exactly the listed one, kj refuses and says why.
+- **An installed package that is not listed is never run**: kj does not import it.
+- The module must export `credentials` (the variable names it needs) and `createManager`. It receives only those variables in `env`; values are never printed.
+- The result must pass `assertManager`. The shared conformance suite is not run at load time, because it cannot run against a real service.
+- `kj doctor` shows the allowlist, the loaded manager and its version, its capabilities and its missing credentials; a refusal shows the reason and the fix.
+- A change to `allow` goes through a pull request like a dependency.
 
 ## Not verified
 

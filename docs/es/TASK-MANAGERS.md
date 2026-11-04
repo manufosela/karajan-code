@@ -70,11 +70,26 @@ linear:
 
 Para GitHub es `backend: github` con `repo: owner/repo`. El bloque llega a `createManager` como `config`.
 
-## Cargar un gestor de la comunidad: todavía no
+## Cargar un gestor de la comunidad: la lista de permitidos
 
-Seamos claros con lo de hoy: el registro (`src/hu/managers/index.js`) carga solo los gestores incluidos, los de `BUILT_IN` (`github`, `linear`), desde `packages/board-<nombre>/` dentro de este repo. Un paquete instalado por nombre no se carga.
+Un gestor es código que corre con los permisos del agente y ve sus credenciales, así que uno de la comunidad solo se carga si `.karajan/board.yml` lo lista, con versión exacta:
 
-Es a propósito. Un gestor es código que corre con los permisos del agente y ve sus credenciales, así que cargarlo por nombre pide antes su propio paso (una lista de paquetes de confianza). Ese paso aún no existe. Hasta entonces, un gestor de la comunidad entra con una pull request que lo añade a la lista de incluidos (el paquete bajo `packages/` y su nombre en `BUILT_IN`).
+```yaml
+backend: acme
+acme: { workspace: w }      # el bloque con el nombre del backend, llega a createManager como config
+managers:
+  allow:
+    - { name: kj-board-acme, version: 1.2.3 }
+```
+
+- El nombre del backend es el del paquete sin `@scope/` y sin un `board-` o `kj-board-` inicial (`@x/kj-board-acme` responde a `acme`). Dos entradas para un backend, o un nombre que taparía `github`, `linear` o `local`, son errores; los gestores incluidos cargan siempre primero.
+- `name` es un nombre de paquete npm y `version` una versión exacta (sin rangos ni etiquetas).
+- **kj nunca instala.** Instala el paquete tú (`npm install --save-exact <name>@<version>`). Se resuelve desde el proyecto; si falta o su versión instalada no es exactamente la listada, kj lo rechaza y dice por qué.
+- **Un paquete instalado que no está listado no se ejecuta nunca**: kj no lo importa.
+- El módulo debe exportar `credentials` (los nombres de variables que necesita) y `createManager`. Recibe solo esas variables en `env`; los valores nunca se imprimen.
+- El resultado debe pasar `assertManager`. La suite de conformidad compartida no se ejecuta al cargar, porque no puede correr contra un servicio real.
+- `kj doctor` muestra la lista, el gestor cargado y su versión, sus capacidades y las credenciales que faltan; un rechazo muestra el motivo y el arreglo.
+- Un cambio en `allow` pasa por una pull request, como una dependencia.
 
 ## Sin verificar
 
