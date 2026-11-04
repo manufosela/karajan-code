@@ -136,6 +136,7 @@ function commit({ name, catalog, source, fetched, inventory }, opts, { run, rule
   // No try/catch and no rollback: installPluginMarkdown stages first, writes the lock last and undoes exactly what it created.
   const dependencies = pluginDependencies(readPluginManifest(fetched.dir).manifest).map((dep) => dep.name);
   const merged = imported?.status === "imported";
+  const created = merged && !existsSync(join(projectDir, ".rulesync"));
   const undoEntries = merged ? mergeEntries(projectDir, name, imported.canonical) : undefined;
   let installed;
   try {
@@ -149,7 +150,7 @@ function commit({ name, catalog, source, fetched, inventory }, opts, { run, rule
   const dropped = imported ? undefined : removeEntries(projectDir, name);
   // The derived plugin is only written and listed: no host CLI runs (ADR 0042), so there is nothing for remove to undo.
   const derived = writeDerived(plugin, fetched.version, fetched.dir, { root: resolve(opts.projectDir ?? process.cwd(), resolveRoot(opts)), hooks: hooks.length, mcpServers: mcpServers.length });
-  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks: merged ? [] : hooks, mcpServers: merged ? [] : mcpServers, bin }, ...(imported && { rulesync: { status: merged ? "merged" : "absent", ...(imported.needs && { needs: imported.needs }), ...(imported.rewritten && { rewritten: true }), ...(imported.kept && { kept: imported.kept }),...(imported.skipped && { skipped: imported.skipped }), ...(imported.lossy && { lossy: imported.lossy }), ...(imported.skipped?.some(({ kind }) => kind === "plugin") && { instructions: nativeInstructions(name, { source, catalog }) }) } }), ...(dropped && (dropped.removed.length || dropped.kept.length) && { dropped }), ...(derived && { derived }) };
+  return { plugin, version: fetched.version, commit: fetched.commit, catalog, status: "installed", fetched: fetched.status, npm, entries, notInstalled: { hooks: merged ? [] : hooks, mcpServers: merged ? [] : mcpServers, bin }, ...(imported && { rulesync: { status: merged ? "merged" : "absent", ...(created && { created }), ...(imported.needs && { needs: imported.needs }), ...(imported.rewritten && { rewritten: true }), ...(imported.kept && { kept: imported.kept }),...(imported.skipped && { skipped: imported.skipped }), ...(imported.lossy && { lossy: imported.lossy }), ...(imported.skipped?.some(({ kind }) => kind === "plugin") && { instructions: nativeInstructions(name, { source, catalog }) }) } }), ...(dropped && (dropped.removed.length || dropped.kept.length) && { dropped }), ...(derived && { derived }) };
 }
 
 /**
@@ -177,7 +178,10 @@ export async function installPluginSet(name, opts = {}, { confirm, git, gitBase,
   // Every member is split here: one with no Markdown fails the whole set before anything is written.
   for (const { name: member, fetched } of members) if (listPluginMarkdown(fetched.dir).length === 0) throw new Error(`${member} has no Markdown to split: set its pluginMode to native or skip`);
   const asked = members.map(({ name: member, inventory, source, fetched }) => ({ name: member, mode, inventory, source, commit: fetched.commit, status: fetched.status }));
-  if (!(await confirm(asked))) return { plugin: name, status: "declined", inventory: members.at(-1).inventory, dependencies: [], skipped, chosen };
+  // Hooks or MCP in a project with no `.rulesync/`: the install creates it, so the question says so (see mergeEntries).
+  const creates = Object.entries({ hooks: "hooks.json", mcpServers: "mcp.json" }).filter(([kind]) => members.some(({ inventory }) => inventory[kind].length)).map(([, file]) => file);
+  const needsFolder = creates.length > 0 && !existsSync(join(resolve(opts.projectDir ?? process.cwd()), ".rulesync"));
+  if (!(await confirm(asked, needsFolder ? { creates } : {}))) return { plugin: name, status: "declined", inventory: members.at(-1).inventory, dependencies: [], skipped, chosen };
   // Every snapshot is kept until the whole set succeeds: a failure restores them all, newest first, exactly as they
   // were. removePlugin is not used, it would delete an artifact a member adopted from a pre-existing identical one.
   const done = [];
