@@ -23,6 +23,8 @@ faked in memory: see `tests/github-story-contract.test.js`. The functions it wra
 
 It carries a temporary copy of the board errors (`src/board-errors.js`) until `story-contract` is published; check them by `err.name` (`isOffline`/`isRefusal`), never by `instanceof`.
 
+To write a manager of your own, see [docs/TASK-MANAGERS.md](../../docs/TASK-MANAGERS.md).
+
 ## Turn it on in a project
 A project whose board is shared through GitHub Issues sets its board to GitHub with the repo
 (`owner/repo`) in its karajan config; `kj hu add|list|move` then work on the issues.

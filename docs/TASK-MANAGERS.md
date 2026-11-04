@@ -1,0 +1,82 @@
+# Writing a task manager
+
+A task manager is the place where a project keeps its stories (HUs): GitHub Issues, Linear, your own tool.
+karajan-code talks to it through one small contract, so a manager is a package that anyone can write.
+This is the guide; the copyable starting point is [`packages/story-contract/template/`](../packages/story-contract/template/).
+
+## The contract
+
+Depend on `@karajan-family/story-contract` alone (it imports nothing from karajan-code). A manager offers four operations, each returning an `Hu`:
+
+| Operation | What it does |
+|---|---|
+| `create({ title, acceptanceCriteria, tests, ref })` | makes a `pending` story |
+| `list()` | every story |
+| `move(id, status)` | changes the status and reads the story back |
+| `claim(id, who, { release })` | says who holds the story |
+
+An `Hu` has `short_id`, `title`, `status`, `claimed_by` and `ref`. Optional parts: `isId(ref)`, `canonicalId(ref)` and `idHint` (the id format of your system; the core never assumes `HU-<n>`). Required: `capabilities` (`acceptanceCriteria: field|body`, `dependencies: none|partial|graph`, `assignee`, `verdicts: pr|comment|none`, `offline`) and `credentials` (names of environment variables, `[]` when none). `assertManager(manager)` fails loud on anything missing.
+
+Today the core also calls `manager.write.move`, `manager.write.claim` and `manager.assertNotHeld` (the writes without the read-back, and the "held by someone else" check). They are not part of the contract or of `assertManager`; the template and `board-github` provide them. Treat them as required until the contract says otherwise.
+
+## The factory
+
+The package exports `createManager({ config, env, run })`: `config` is your block of `board.yml`, `env` the environment, `run` an injectable command runner. The registry also passes `projectDir` and `board`. See `packages/board-github/src/index.js`.
+
+## What the core promises
+
+- **Offline cache and queue.** `list` is cached on every answer; when the service does not answer, the cache is read and a move is queued, then applied in order when it answers again. A move the service refuses is reported and dropped, never forced. Creating offline is refused: an id is only ever minted by your service.
+- **Mirror.** Each read rewrites a read-only plan so the HU Board can show the stories.
+- **Claim race rule.** A running story held by someone else moves only with an explicit release.
+- **Errors by name.** The core recognises errors by `err.name` (`isOffline`, `isRefusal`), never by `instanceof`.
+
+## What your manager must provide
+
+- **Opaque ids.** The id is what your service gave; the core hands it back as it got it.
+- **The three errors**, from `@karajan-family/story-contract`: `BoardOfflineError` (could not reach the service: the core may queue), `BoardRejectedError` (it answered and said no), `HuClaimedError` (held by someone else).
+- **A read-back after every write.** `move` returns what the service now says, and throws `BoardRejectedError` if it disagrees.
+- **Exactly one status per story.** Zero or several is a `BoardRejectedError`, not a guess.
+- **Credentials only from the environment.** List the variable names in `credentials`. Never put a secret in `board.yml` (the core refuses keys named like `key`, `token`, `secret`, `password`) and never in an error message.
+
+## Test it
+
+`@karajan-family/story-contract/suite` (tests only, needs `vitest`) runs the shared behaviour against your manager:
+
+```js
+import { runStoryContract } from "@karajan-family/story-contract/suite";
+
+// makeManager() returns { manager, backend }: your manager and a fake of your service
+// with rejectMoves() and corrupt(shortId, n) to provoke the refusals.
+runStoryContract("my manager", makeManager);
+```
+
+The template's test is `tests/hu/manager-template.test.js`; `packages/board-github/tests/github-story-contract.test.js` does the same with `gh` faked.
+
+## Naming
+
+`@karajan-family/board-<name>` is for managers of the family; the community is suggested `kj-board-<name>`. Both are conventions, not checked by code.
+
+## Turn one on in a project
+
+`kj hu backend <github | linear | local>` writes `.karajan/board.yml`; you can also edit it. The file has `backend` and a block named like the manager, for example:
+
+```yaml
+backend: linear
+linear:
+  team: ENG
+  label: kj:hu
+  states: { pending: Todo, running: In Progress, done: Done, failed: Canceled, skipped: Canceled }
+```
+
+For GitHub it is `backend: github` with `repo: owner/repo`. The block is passed to `createManager` as `config`.
+
+## Loading a community manager: not yet
+
+Be clear about today: the registry (`src/hu/managers/index.js`) loads only the built-in managers, listed in `BUILT_IN` (`github`, `linear`), from `packages/board-<name>/` inside this repo. A package installed by name is not loaded.
+
+That is deliberate. A manager is code that runs with the agent's rights and sees its credentials, so loading one by name needs its own step first (an allowlist of trusted packages). That step is not built yet. Until then, a community manager enters through a pull request that adds it to the built-in list (the package under `packages/` and its name in `BUILT_IN`).
+
+## Not verified
+
+- `@karajan-family/story-contract` is a workspace package here; I could not confirm it is published to npm, so the template's `^0.1.0` dependency is the version in this repo.
+- The second built-in manager, Linear (`packages/board-linear`), has no `manager.js` yet in this tree: only its client and config.
