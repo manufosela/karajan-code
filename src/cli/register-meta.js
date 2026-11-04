@@ -352,7 +352,8 @@ export function registerMeta(program, { pkgVersion }) {
     });
   // KJC-TSK-1163 (ADR 0025): the team board, turned on once per repo.
   hu.command("backend <backend>")
-    .description("Turn the repo's HU Board on: github (shared, in GitHub Issues) or local; writes .karajan/board.yml for a PR")
+    .description("Turn the repo's HU Board on: github (shared, in GitHub Issues), linear or local; writes .karajan/board.yml for a PR")
+    .option("--team <key>", "linear: the team key written in the file")
     .option("--json", "Machine-readable output")
     .action(async (backend, flags) => {
       await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
