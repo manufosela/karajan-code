@@ -11,7 +11,7 @@ backend: linear
 linear:
   team: TRI            # the team key; ids look like TRI-123
   label: kj:hu         # optional, this is the default
-  states: { pending: Todo, running: In Progress, done: Done, failed: Failed, skipped: Canceled }
+  states: { pending: Todo, running: In Progress, done: Done, failed: Canceled, skipped: Backlog }
   users: { alice: alice@acme.test }   # kj identity -> Linear email
 ```
 
@@ -40,8 +40,13 @@ Not verified: the maximum page size of `issues` (`first: 50` works).
 
 ## Statuses and Linear states
 - Linear's built-in `Duplicate` cannot be used for a kj status: Linear only accepts it with a duplicate relation to another issue.
-- Two statuses may share one state. `move` checks the read-back by state name, and `list` reads a shared state as the first status in the order `pending, running, done, failed, skipped`.
-- The default of `kj hu backend linear` shares `Canceled` for `failed` and `skipped`, so a `skipped` issue lists as `failed`.
+- The defaults written by `kj hu backend linear` are `pending: Todo`, `running: In Progress`, `done: Done`, `failed: Canceled`, `skipped: Backlog`: five distinct states, so every status reads back as itself.
+- `skipped` is `Backlog` because it exists in every standard Linear team, needs no relation and differs from `failed`. A run against the real API moved a card there and read it back as `skipped`.
+- Two statuses may still share one state. `move` checks the read-back by state name, and `list` reads a shared state as the first status in the order `pending, running, done, failed, skipped`.
+
+## Behaviour seen against the real API
+- A `list` right after a `create` can miss the new issue for a moment: the search index lags. A direct read of the issue always sees it. Seen in two of three runs.
+- A card with the kj label that is moved by hand to a state that is not in `linear.states` makes `list` fail loud, naming the card and the state. Add the state to `linear.states` or move the card back.
 
 ## What it needs
 - A personal API key in the `LINEAR_API_KEY` environment variable. It is sent as the `Authorization`

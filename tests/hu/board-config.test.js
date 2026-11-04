@@ -106,6 +106,9 @@ describe("board config", () => {
   it("kj hu backend linear writes the block the user fills in", async () => {
     const r = await setBoardBackend({ projectDir: dir, backend: "linear", team: "TRI", run: gitWith() });
     expect(r).toMatchObject({ backend: "linear", linear: { team: "TRI", label: "kj:hu" } });
-    expect((await readBoardConfig(dir)).linear.states).toEqual({ pending: "Todo", running: "In Progress", done: "Done", failed: "Canceled", skipped: "Canceled" });
+    const { states } = (await readBoardConfig(dir)).linear;
+    expect(states).toEqual({ pending: "Todo", running: "In Progress", done: "Done", failed: "Canceled", skipped: "Backlog" });
+    expect(new Set(Object.values(states)).size).toBe(5);
+    expect(Object.values(states)).not.toContain("Duplicate");
   });
 });

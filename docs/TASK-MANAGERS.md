@@ -65,7 +65,7 @@ backend: linear
 linear:
   team: ENG
   label: kj:hu
-  states: { pending: Todo, running: In Progress, done: Done, failed: Canceled, skipped: Canceled }
+  states: { pending: Todo, running: In Progress, done: Done, failed: Canceled, skipped: Backlog }
 ```
 
 For GitHub it is `backend: github` with `repo: owner/repo`. The block is passed to `createManager` as `config`.
