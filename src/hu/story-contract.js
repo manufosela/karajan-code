@@ -5,6 +5,11 @@
  *   list()                      -> Hu[]
  *   move(id, status)            -> Hu     (read back after writing)
  *   claim(id, who, { release }) -> Hu
+ *
+ * Optional, the id format of the manager (the core never assumes HU-<n>):
+ *   isId(ref)        -> boolean  (is this text one of my ids; no manager matching = refused loud)
+ *   canonicalId(ref) -> string   (the id as list() returns it; default: the ref as typed)
+ *   idHint           -> string   (how an id looks, for messages)
  */
 export const OPERATIONS = ["create", "list", "move", "claim"];
 /** The fields of an Hu, whatever manager it comes from. */

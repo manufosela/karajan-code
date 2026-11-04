@@ -10,13 +10,13 @@ import { createGithubManager } from "./managers/github/index.js";
 import { pinGhIdentity } from "./gh-identity.js";
 import { listWithCache } from "./team-board-cache.js";
 
-const SHARED_ID = /^HU-[1-9]\d*$/i;
-
 export async function findBoardHu(projectDir, ref, deps = {}) {
   const board = await (deps.boardConfig ?? readBoardConfig)(projectDir);
-  if (board.backend === "github" && SHARED_ID.test(ref)) {
+  // The id format is the manager's.
+  const manager = board.backend === "github" ? (deps.manager ?? createGithubManager({ repo: board.repo, board: { listHus: deps.listTeamHus } })) : null;
+  if (manager?.isId(ref)) {
     (deps.pinGhIdentity ?? pinGhIdentity)({ projectDir });
-    const { rows } = await (deps.cache?.list ?? listWithCache)({ projectDir, repo: board.repo, list: createGithubManager({ repo: board.repo, board: { listHus: deps.listTeamHus } }).list });
+    const { rows } = await (deps.cache?.list ?? listWithCache)({ projectDir, repo: board.repo, list: manager.list });
     const hu = rows.find((h) => h.short_id.toUpperCase() === ref.toUpperCase());
     if (hu) return hu;
   }

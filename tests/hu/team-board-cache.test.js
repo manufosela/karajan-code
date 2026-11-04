@@ -33,31 +33,31 @@ describe("listWithCache", () => {
 describe("queueMove and flushQueue", () => {
   it("queues a move offline and applies it in order when the network is back", async () => {
     await listWithCache({ projectDir: dir, repo: "acme/app", list: async () => HUS });
-    queueMove({ projectDir: dir, number: 7, status: "running", who: "manufosela", release: false });
-    queueMove({ projectDir: dir, number: 7, status: "done", who: "manufosela", release: false });
+    queueMove({ projectDir: dir, id: "HU-7", status: "running", who: "manufosela", release: false });
+    queueMove({ projectDir: dir, id: "HU-7", status: "done", who: "manufosela", release: false });
     // Each move expects the status the copy showed; the copy takes the move, so the second expects the first.
     expect(readCache(dir).queue.map((o) => o.expected)).toEqual(["pending", "running"]);
     expect(readCache(dir).hus[0].status).toBe("done");
     const applied = [];
-    const r = await flushQueue({ projectDir: dir, apply: async (op) => applied.push(`${op.number}:${op.status}`) });
-    expect(applied).toEqual(["7:running", "7:done"]);
+    const r = await flushQueue({ projectDir: dir, apply: async (op) => applied.push(`${op.id}:${op.status}`) });
+    expect(applied).toEqual(["HU-7:running", "HU-7:done"]);
     expect(r).toEqual({ applied: 2, conflicts: [], pending: 0 });
     expect(readCache(dir).queue).toEqual([]);
   });
 
   it("a conflict (someone else holds it) is reported and dropped; still offline, the rest stays queued", async () => {
-    queueMove({ projectDir: dir, number: 7, status: "running", who: "manufosela", release: false });
-    queueMove({ projectDir: dir, number: 8, status: "done", who: "manufosela", release: false });
-    const apply = async (op) => { if (op.number === 7) throw new HuClaimedError("HU-7 is held by jorgecasar"); throw new BoardOfflineError("no such host"); };
+    queueMove({ projectDir: dir, id: "HU-7", status: "running", who: "manufosela", release: false });
+    queueMove({ projectDir: dir, id: "HU-8", status: "done", who: "manufosela", release: false });
+    const apply = async (op) => { if (op.id === "HU-7") throw new HuClaimedError("HU-7 is held by jorgecasar"); throw new BoardOfflineError("no such host"); };
     const r = await flushQueue({ projectDir: dir, apply });
     expect(r.conflicts).toEqual([expect.stringMatching(/HU-7.*held by jorgecasar/)]);
     expect(r).toMatchObject({ applied: 0, pending: 1 });
-    expect(readCache(dir).queue.map((o) => o.number)).toEqual([8]);
+    expect(readCache(dir).queue.map((o) => o.id)).toEqual(["HU-8"]);
   });
 
   it("an error that is neither offline nor a refusal surfaces, and the move stays queued", async () => {
-    queueMove({ projectDir: dir, number: 9, status: "done", who: "manufosela", release: false });
+    queueMove({ projectDir: dir, id: "HU-9", status: "done", who: "manufosela", release: false });
     await expect(flushQueue({ projectDir: dir, apply: async () => { throw new TypeError("gh output was not JSON"); } })).rejects.toThrow(/not JSON/);
-    expect(readCache(dir).queue.map((o) => o.number)).toEqual([9]);
+    expect(readCache(dir).queue.map((o) => o.id)).toEqual(["HU-9"]);
   });
 });
