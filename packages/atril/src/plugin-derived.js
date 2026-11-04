@@ -1,7 +1,7 @@
 /**
  * The derived plugin (ADR 0021, decision 14; ADR 0042): a plugin with hooks or MCP gets a Markdown-free copy
  * (manifest, hooks/hooks.json, .mcp.json) under <root>/plugins/<name>/derived, published in the local
- * marketplace atril owns at <root>/plugins/.marketplace. atril never runs a host CLI: it shows the command.
+ * marketplace atril owns at <root>/plugins (sources start with ./, as claude requires). atril never runs a host CLI: it shows the command.
  */
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -28,6 +28,20 @@ const writeJson =(path, value) => {
   writeAtomic(path, `${JSON.stringify(value, null, 2)}\n`);
 };
 
+// The marketplace root is plugins/ itself: claude only accepts a source that starts with ./ and sits inside that root.
+const marketplaceFile = (root) => join(root, "plugins", ".claude-plugin", "marketplace.json");
+// A 1.4.0 marketplace (plugins/.marketplace, `../` sources) is read when the new file is absent and deleted on the next write.
+const legacyDir = (root) => join(root, "plugins", ".marketplace");
+const entryOf = (name) => ({ name, source: `./${name}/derived` });
+const heldEntries = (root) => {
+  const file = [marketplaceFile(root), join(legacyDir(root), ".claude-plugin", "marketplace.json")].find(existsSync);
+  return (file ? readJson(file).plugins ?? [] : []).map(({ name }) => entryOf(name));
+};
+const writeMarketplace = (root, plugins) => {
+  writeJson(marketplaceFile(root), { name: MARKETPLACE, owner: { name: MARKETPLACE }, plugins });
+  rmSync(legacyDir(root), { recursive: true, force: true });
+};
+
 /**
  * Reconciles the derived plugin of a fetched copy and returns it; undefined when the plugin has no hooks and no
  * MCP, in which case a derived plugin left by an earlier version is removed with its marketplace entry.
@@ -37,11 +51,10 @@ const writeJson =(path, value) => {
 export function writeDerived(name, version, copy, { root, hooks, mcpServers }) {
   const { base } = pluginPaths(root, name, version); // throws on a name or version that would escape plugins/
   const path = join(base, "derived");
-  const marketplace = join(root, "plugins", ".marketplace");
-  const file = join(marketplace, ".claude-plugin", "marketplace.json");
+  const marketplace = join(root, "plugins");
   const derives = hooks > 0 || mcpServers > 0;
   rmSync(path, { recursive: true, force: true });
-  const held = existsSync(file) ? readJson(file).plugins ?? [] : [];
+  const held = heldEntries(root);
   if (!derives && !held.some((entry) => entry.name === name)) return undefined;
   const plugins = held.filter((entry) => entry.name !== name);
   const written = [];
@@ -50,9 +63,9 @@ export function writeDerived(name, version, copy, { root, hooks, mcpServers }) {
     if (existsSync(join(copy, "hooks", "hooks.json"))) written.push({ rel: join("hooks", "hooks.json"), value: readJson(join(copy, "hooks", "hooks.json")) });
     if (existsSync(join(copy, ".mcp.json"))) written.push({ rel: ".mcp.json", value: wrapMcp(readJson(join(copy, ".mcp.json"))) });
     for (const { rel, value } of written) writeJson(join(path, rel), value);
-    plugins.push({ name, source: `../${name}/derived` });
+    plugins.push(entryOf(name));
   }
-  writeJson(file, { name: MARKETPLACE, owner: { name: MARKETPLACE }, plugins });
+  writeMarketplace(root, plugins);
   if (!derives) return undefined;
   const args = { name, path: resolve(path), marketplace };
   const commands = Object.entries(COMMANDS).filter(([cli]) => CLI_MATRIX[cli]?.hooks).map(([cli, command]) => ({ cli, command: command(args) }));
@@ -74,14 +87,13 @@ const UNINSTALL = {
 export function removeDerived(name, root) {
   const { base } = pluginPaths(root, name, "0"); // throws on a name that would escape plugins/
   const path = join(base, "derived");
-  const marketplace = join(root, "plugins", ".marketplace");
-  const file = join(marketplace, ".claude-plugin", "marketplace.json");
-  const held = existsSync(file) ? readJson(file).plugins ?? [] : [];
+  const marketplace = join(root, "plugins");
+  const held = heldEntries(root);
   const listed = held.some((entry) => entry.name === name);
   if (!listed && !existsSync(path)) return undefined;
   rmSync(path, { recursive: true, force: true });
   const plugins = held.filter((entry) => entry.name !== name);
-  if (listed) writeJson(file, { name: MARKETPLACE, owner: { name: MARKETPLACE }, plugins });
+  if (listed) writeMarketplace(root, plugins);
   const args = { name, last: plugins.length === 0 };
   const commands = Object.entries(UNINSTALL).filter(([cli]) => CLI_MATRIX[cli]?.hooks).map(([cli, command]) => ({ cli, command: command(args) }));
   return { name, marketplace, commands };

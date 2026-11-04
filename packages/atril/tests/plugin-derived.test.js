@@ -27,9 +27,33 @@ describe("writeDerived", () => {
     expect(read(base, ".claude-plugin", "plugin.json")).toEqual({ name: "kit", version: "1.0.0" });
     expect(read(base, "hooks", "hooks.json")).toEqual(HOOKS);
     expect(read(base, ".mcp.json")).toEqual({ mcpServers: { db: { command: "srv" } } });
-    expect(read(".marketplace", ".claude-plugin", "marketplace.json").plugins).toEqual([{ name: "kit", source: "../kit/derived" }]);
-    expect(derived).toMatchObject({ name: "kit", marketplace: join(dir, "plugins", ".marketplace") });
+    expect(read(".claude-plugin", "marketplace.json").plugins).toEqual([{ name: "kit", source: "./kit/derived" }]);
+    expect(derived).toMatchObject({ name: "kit", marketplace: join(dir, "plugins") });
     expect(derived.commands.map(({ cli }) => cli)).toEqual(["claude", "agy"]);
+  });
+
+  it("starts every marketplace source with ./ and points it at a folder inside the marketplace root, for hooks and for MCP", () => {
+    put("hooks/hooks.json", HOOKS);
+    writeDerived("hooked", "1.0.0", src, { root: dir, hooks: 1, mcpServers: 0 });
+    rmSync(join(src, "hooks"), { recursive: true });
+    put(".mcp.json", { db: { command: "srv" } });
+    writeDerived("served", "1.0.0", src, { root: dir, hooks: 0, mcpServers: 1 });
+    const { plugins } = read(".claude-plugin", "marketplace.json");
+    expect(plugins.map(({ name }) => name)).toEqual(["hooked", "served"]);
+    for (const { source } of plugins) {
+      expect(source).toMatch(/^\.\/[^.]/);
+      expect(existsSync(join(dir, "plugins", source, ".claude-plugin", "plugin.json"))).toBe(true);
+    }
+  });
+
+  it("replaces a 1.4.0 marketplace (../ entries, under .marketplace) with the new layout and deletes the old folder", () => {
+    const old = join(dir, "plugins", ".marketplace", ".claude-plugin", "marketplace.json");
+    mkdirSync(dirname(old), { recursive: true });
+    writeFileSync(old, JSON.stringify({ name: "atril", owner: { name: "atril" }, plugins: [{ name: "other", source: "../other/derived" }, { name: "kit", source: "../kit/derived" }] }));
+    put("hooks/hooks.json", HOOKS);
+    writeDerived("kit", "1.0.0", src, { root: dir, hooks: 1, mcpServers: 0 });
+    expect(read(".claude-plugin", "marketplace.json").plugins).toEqual([{ name: "other", source: "./other/derived" }, { name: "kit", source: "./kit/derived" }]);
+    expect(existsSync(join(dir, "plugins", ".marketplace"))).toBe(false);
   });
 
   it("produces nothing for a plugin with no hooks and no MCP", () => {
@@ -42,7 +66,7 @@ describe("writeDerived", () => {
     writeDerived("kit", "1.0.0", src, { root: dir, hooks: 1, mcpServers: 0 });
     expect(writeDerived("kit", "1.1.0", src, { root: dir, hooks: 0, mcpServers: 0 })).toBeUndefined();
     expect(existsSync(join(dir, "plugins", "kit", "derived"))).toBe(false);
-    expect(read(".marketplace", ".claude-plugin", "marketplace.json").plugins).toEqual([]);
+    expect(read(".claude-plugin", "marketplace.json").plugins).toEqual([]);
   });
 
   it("drops a stale hooks.json when the new version keeps only MCP", () => {
