@@ -31,9 +31,11 @@ export function creatorLabel() {
 export const HU_STATUSES = ["pending", "running", "done", "failed", "skipped"];
 
 // HU-3335: the shared board's task manager; the test seams (deps.*TeamHu...) swap its functions.
-const teamManager = (repo, deps) => createGithubManager({
+const teamManager = (repo, deps) => deps.manager ?? createGithubManager({
   repo, board: { createHu: deps.createTeamHu, listHus: deps.listTeamHus, setStatus: deps.setTeamStatus, claim: deps.claimTeamHu, assertNotHeld: deps.assertNotHeld },
 });
+// The id as the manager lists it: the core never builds one from a number.
+const canonicalIdOf = (manager, ref) => manager.canonicalId?.(ref) ?? ref;
 const BACKLOG_NAME = "brain-backlog";
 
 // KJC-TSK-0675 (issue #1288): agents that skip `kj hu list` created twins of
@@ -143,18 +145,17 @@ async function applyQueuedMoves({ projectDir, repo, deps }) {
   const manager = teamManager(repo, deps);
   let now = null; // status of every HU as GitHub has it, read once, kept up to date as moves apply
   const apply = async (op) => {
-    now ??= new Map((await manager.list()).map((h) => [h.number, h.status]));
+    now ??= new Map((await manager.list()).map((h) => [h.short_id, h.status]));
     // The HU moved while this clone was offline: the newer state wins, the queued move is a conflict.
-    if (op.expected && now.get(op.number) !== op.expected) {
-      const err = new Error(`HU-${op.number} is ${now.get(op.number) ?? "gone"} now and was ${op.expected} when the move was queued`);
+    if (op.expected && now.get(op.id) !== op.expected) {
+      const err = new Error(`${op.id} is ${now.get(op.id) ?? "gone"} now and was ${op.expected} when the move was queued`);
       err.name = "BoardRejectedError";
       throw err;
     }
-    const id = `HU-${op.number}`;
-    if (op.status === "running" || op.release) await manager.write.claim(id, op.who, { release: op.release });
-    else await manager.assertNotHeld(id, op.who);
-    await manager.write.move(id, op.status);
-    now.set(op.number, op.status);
+    if (op.status === "running" || op.release) await manager.write.claim(op.id, op.who, { release: op.release });
+    else await manager.assertNotHeld(op.id, op.who);
+    await manager.write.move(op.id, op.status);
+    now.set(op.id, op.status);
   };
   const r = await flushQueue({ projectDir, apply });
   if (r.applied) console.warn(`✓ ${r.applied} queued move(s) applied to the shared board`);
@@ -166,16 +167,16 @@ async function moveOnTeamBoard({ repo, args, flags, deps, emit, who }) {
   const [ref, status] = args;
   if (!ref || !status) throw new Error("usage: kj hu move <id> <status>");
   if (!HU_STATUSES.includes(status)) throw new Error(`invalid status "${status}" — valid: ${HU_STATUSES.join(", ")}`);
-  const number = Number(/^(?:HU-|#)(\d+)$/i.exec(ref)?.[1]);
-  if (!Number.isInteger(number)) throw new Error(`"${ref}" is not a shared-board HU: use HU-<issue number>`);
+  const manager = teamManager(repo, deps);
+  if (!manager.isId(ref)) throw new Error(`"${ref}" is not a shared-board HU: use ${manager.idHint ?? "an id of the board"}`);
+  const id = canonicalIdOf(manager, ref);
   // GitHub assigns by login: kj identity must name the GitHub user of this clone.
   if (!who || who.includes("@")) throw new Error("the shared board reserves by GitHub login: declare it with kj identity set");
   // Starting it, or releasing it, claims it; any other move of a HU someone else runs is refused.
-  const manager = teamManager(repo, deps);
-  if (status === "running" || flags.release) await manager.write.claim(ref, who, { release: Boolean(flags.release) });
-  else await manager.assertNotHeld(ref, who);
-  await manager.write.move(ref, status);
-  return emit({ id: `HU-${number}`, status, claimed_by: status === "running" ? who : null }, `✓ HU-${number} → ${status}`);
+  if (status === "running" || flags.release) await manager.write.claim(id, who, { release: Boolean(flags.release) });
+  else await manager.assertNotHeld(id, who);
+  await manager.write.move(id, status);
+  return emit({ id, status, claimed_by: status === "running" ? who : null }, `✓ ${id} → ${status}`);
 }
 
 // Exported for the Steward's proposed-work sync (KJC-TSK-0792): broken
@@ -241,10 +242,10 @@ async function moveTeamOrQueue({ projectDir, repo, args, flags, deps, emit, who 
   } catch (err) {
     // Offline: the move waits in the queue; GitHub still decides when it is applied.
     if (!isOffline(err)) throw err;
-    const number = Number(/^(?:HU-|#)(\d+)$/i.exec(args[0])[1]);
-    queueMove({ projectDir, number, status: args[1], who, release: Boolean(flags.release) });
-    console.warn(`⚠ GitHub did not answer: HU-${number} → ${args[1]} queued, applied when GitHub answers again`);
-    return emit({ id: `HU-${number}`, status: args[1], queued: true }, `⏳ HU-${number} → ${args[1]} (queued)`);
+    const id = canonicalIdOf(teamManager(repo, deps), args[0]);
+    queueMove({ projectDir, id, status: args[1], who, release: Boolean(flags.release) });
+    console.warn(`⚠ GitHub did not answer: ${id} → ${args[1]} queued, applied when GitHub answers again`);
+    return emit({ id, status: args[1], queued: true }, `⏳ ${id} → ${args[1]} (queued)`);
   }
 }
 

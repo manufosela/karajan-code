@@ -16,7 +16,10 @@ const empty = () => ({ hus: null, updatedAt: null, queue: [] });
 
 export function readCache(projectDir) {
   try {
-    return { ...empty(), ...JSON.parse(fs.readFileSync(path.join(projectDir, CACHE_FILE), "utf8")) };
+    const cache = { ...empty(), ...JSON.parse(fs.readFileSync(path.join(projectDir, CACHE_FILE), "utf8")) };
+    // A queue written by an older kj stored the issue number: it is HU-<number>, never lost.
+    cache.queue = cache.queue.map((op) => (op.id ? op : { ...op, id: `HU-${op.number}` }));
+    return cache;
   } catch (err) {
     if (err.code === "ENOENT") return empty();
     throw err;
@@ -48,10 +51,10 @@ export async function listWithCache({ projectDir, repo, list }) {
  * moved meanwhile is a conflict, not something to overwrite. The copy takes the move so a
  * second queued move on the same HU expects the first one's result.
  */
-export function queueMove({ projectDir, number, status, who, release }) {
+export function queueMove({ projectDir, id, status, who, release }) {
   const cache = readCache(projectDir);
-  const row = cache.hus?.find((h) => h.number === number) ?? null;
-  cache.queue.push({ number, status, who, release: Boolean(release), expected: row?.status ?? null, queuedAt: new Date().toISOString() });
+  const row = cache.hus?.find((h) => h.short_id === id) ?? null;
+  cache.queue.push({ id, status, who, release: Boolean(release), expected: row?.status ?? null, queuedAt: new Date().toISOString() });
   if (row) row.status = status;
   writeCache(projectDir, cache);
   return cache.queue.length;
@@ -75,7 +78,7 @@ export async function flushQueue({ projectDir, apply }) {
     } catch (err) {
       if (isOffline(err)) break;
       if (!isRefusal(err)) throw err;
-      conflicts.push(`HU-${op.number} → ${op.status} (queued ${op.queuedAt}) not applied: ${err.message}`);
+      conflicts.push(`${op.id} → ${op.status} (queued ${op.queuedAt}) not applied: ${err.message}`);
     }
     cache.queue.shift();
     writeCache(projectDir, cache);
