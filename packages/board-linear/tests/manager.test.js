@@ -11,6 +11,8 @@ const states = { pending: "Todo", running: "In Progress", done: "Done", failed: 
 const config = { team: "TRI", states, users: { alice: "alice@acme.test", bob: "bob@acme.test" } };
 const json = (data, init = {}) => new Response(JSON.stringify(data), { status: 200, ...init });
 const nameOf = (id) => id.slice(2);
+const typeOfState = { Todo: "unstarted", "In Progress": "started", Done: "completed", Failed: "canceled", Canceled: "canceled" };
+const stateOf = (name) => ({ name, type: typeOfState[name] });
 
 function fakeLinear() {
   const issues = new Map();
@@ -23,13 +25,13 @@ function fakeLinear() {
     [Q.labelCreate]: (v) => { backend.labels.push({ id: `l-${v.name}`, name: v.name }); return { issueLabelCreate: { success: true, issueLabel: { id: `l-${v.name}` } } }; },
     [Q.create]: ({ input }) => {
       const identifier = `TRI-${issues.size + 1}`;
-      issues.set(identifier, { identifier, title: input.title, description: input.description, url: `https://linear.app/acme/issue/${identifier}`, state: { name: nameOf(input.stateId) }, labels: input.labelIds.map((id) => ({ name: nameOf(id) })) });
+      issues.set(identifier, { identifier, title: input.title, description: input.description, url: `https://linear.app/acme/issue/${identifier}`, state: stateOf(nameOf(input.stateId)), labels: input.labelIds.map((id) => ({ name: nameOf(id) })) });
       return { issueCreate: { success: true, issue: view(issues.get(identifier)) } };
     },
     [Q.get]: (v) => ({ issue: issues.has(v.id) ? view(issues.get(v.id)) : null }),
     [Q.update]: (v) => {
       const i = issues.get(v.id);
-      if (v.input.stateId && !backend.reject) i.state = { name: nameOf(v.input.stateId) };
+      if (v.input.stateId && !backend.reject) i.state = stateOf(nameOf(v.input.stateId));
       if (v.input.assigneeId) i.assigneeId = v.input.assigneeId;
       return { issueUpdate: { success: true } };
     },
@@ -47,7 +49,8 @@ function fakeLinear() {
     calls.push({ query, variables, headers: init.headers });
     return json({ data: handlers[query](variables) });
   };
-  backend.corrupt = (shortId) => { issues.get(shortId).state = { name: "Weird" }; };
+  backend.setState = (shortId, name, type) => { issues.get(shortId).state = { name, type }; };
+  backend.corrupt = (shortId) => { issues.get(shortId).state = null; }; // Linear always sends a state: its absence is a malformed answer
   backend.rejectMoves = () => { backend.reject = true; };
   backend.unlabel = (shortId) => { issues.get(shortId).labels = []; };
   backend.assignTo = (shortId, assignee) => { issues.get(shortId).assignee = assignee; };
@@ -120,10 +123,39 @@ describe("Linear manager, failures", () => {
     expect(err.message).not.toContain(KEY);
   });
 
-  it("an issue in a state that maps to no kj status is a loud error naming both", async () => {
+  it("an undeclared state is listed by its Linear type, one card per type", async () => {
+    const { manager, backend } = await seeded();
+    const types = { triage: "pending", backlog: "pending", unstarted: "pending", started: "running", completed: "done", canceled: "failed" };
+    for (const [type] of Object.entries(types)) {
+      const { short_id } = await manager.create({ title: type });
+      backend.setState(short_id, `Custom ${type}`, type);
+    }
+    const listed = await manager.list();
+    expect(listed.slice(1).map((h) => [h.title, h.status])).toEqual(Object.entries(types));
+  });
+
+  it("a declared state wins over its type", async () => {
     const { manager, backend, short_id } = await seeded();
-    backend.corrupt(short_id);
-    await expect(manager.list()).rejects.toThrow(/TRI-1.*"Weird"/);
+    backend.setState(short_id, "In Progress", "completed");
+    expect((await manager.list())[0].status).toBe("running");
+  });
+
+  it("a state of an unknown type is warned about, left out, and the rest is listed", async () => {
+    const fake = await seeded();
+    const warn = vi.fn();
+    const manager = createLinearManager({ config, apiKey: KEY, fetch: fake.fetch, warn });
+    const other = await manager.create({ title: "other" });
+    fake.backend.setState(fake.short_id, "Weird", "mystery");
+    expect((await manager.list()).map((h) => h.short_id)).toEqual([other.short_id]);
+    expect(warn).toHaveBeenCalledWith('TRI-1 is in the Linear state "Weird" of type "mystery", which maps to no kj status: it is left out');
+  });
+
+  it("move and claim refuse a state of an unknown type and write nothing", async () => {
+    const { manager, backend, calls, short_id } = await seeded();
+    backend.setState(short_id, "Weird", "mystery");
+    await expect(manager.move(short_id, "running")).rejects.toThrow(/TRI-1.*"Weird".*no kj status/);
+    await expect(manager.claim(short_id, "alice")).rejects.toThrow(/TRI-1.*"Weird".*no kj status/);
+    expect(calls.some((c) => c.query === Q.update)).toBe(false);
   });
 
   it("move and claim refuse an issue without the kj:hu label, and write nothing", async () => {

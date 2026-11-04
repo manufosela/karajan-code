@@ -1,5 +1,5 @@
 // Every GraphQL document of the package lives here. Values only travel as variables, never concatenated into the text.
-const ISSUE = "id identifier title description url state { name } assignee { id email } labels { nodes { name } }";
+const ISSUE = "id identifier title description url state { name type } assignee { id email } labels { nodes { name } }";
 export const Q = {
   viewer: "query Viewer { viewer { id name email } }",
   team: "query Team($key: String!) { teams(filter: { key: { eq: $key } }) { nodes { id states { nodes { id name } } } } }",

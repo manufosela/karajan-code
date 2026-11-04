@@ -19,7 +19,7 @@ How it works:
 - `create` resolves the team and its states, finds or creates the label (once per run), and opens the
   issue with a markdown body (`## Acceptance criteria`, `## Tests`, `Ref:`). The id is the Linear identifier.
 - `list` pages the team's labelled issues and maps each state name back to a kj status; a state that
-  maps to none is a loud error naming the issue and the state.
+  maps to none is read by its Linear type (see "States that are not in `linear.states`").
 - `move` writes the state and reads it back; `claim` sets the assignee and reads it back. Both refuse an
   issue without the label.
 - `claim` takes an identity from `linear.users` or a direct email; anything else is a loud error.
@@ -46,7 +46,19 @@ Not verified: the maximum page size of `issues` (`first: 50` works).
 
 ## Behaviour seen against the real API
 - A `list` right after a `create` can miss the new issue for a moment: the search index lags. A direct read of the issue always sees it. Seen in two of three runs.
-- A card with the kj label that is moved by hand to a state that is not in `linear.states` makes `list` fail loud, naming the card and the state. Add the state to `linear.states` or move the card back.
+- A card with the kj label that is moved by hand to a state that is not in `linear.states` is read by the Linear type of that state (see below), so `kj hu list` never drops a card because someone moved it by hand.
+
+## States that are not in `linear.states`
+A state named in `linear.states` always wins over its type. Any other state is read by its Linear type:
+
+| Linear type | kj status |
+| --- | --- |
+| `triage`, `backlog`, `unstarted` | `pending` |
+| `started` | `running` |
+| `completed` | `done` |
+| `canceled` | `failed` |
+
+A state of any other type maps to no status: `list` leaves that card out and warns `<id> is in the Linear state "<name>" of type "<type>", which maps to no kj status: it is left out`. `move` and `claim` refuse such a card with an error naming the card and the state; they do not guess.
 
 ## What it needs
 - A personal API key in the `LINEAR_API_KEY` environment variable. It is sent as the `Authorization`
@@ -65,7 +77,7 @@ refusal. Check them by `err.name` (`isOffline`/`isRefusal`), never by `instanceo
 | --- | --- |
 | `LINEAR_API_KEY` missing | rejected, names the variable and never a value |
 | key refused (401/403) | rejected, `Linear refused the key (HTTP <status>)` |
-| issue in a state that maps to no kj status | rejected, names the issue and the state |
+| `move` or `claim` on a state of an unknown type | rejected, names the issue and the state |
 | issue without the label | rejected by `move` and `claim`; nothing is written |
 | identity without a `linear.users` entry and not an email | rejected, `no Linear user mapped for <who>` |
 | email unknown to Linear | rejected, `no Linear user with the email <email>` |
