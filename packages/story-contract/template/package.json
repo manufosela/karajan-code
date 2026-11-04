@@ -12,7 +12,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@karajan-family/story-contract": "^0.1.0"
+    "@karajan-family/story-contract": "^1.0.0"
   },
   "devDependencies": {
     "vitest": ">=4"
