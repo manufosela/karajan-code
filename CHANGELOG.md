@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.6.0] - 2026-11-04
+
+### Added
+- **Choose the task manager: GitHub Issues or Linear** (ADR 0029, by Jorge del Casar; HU-3336, HU-3353, HU-3384, HU-3334, HU-3386): `.karajan/board.yml` names the manager with a block per manager, and `kj hu add|list|move|claim` work the same on either. The core drives any manager through the story contract (opaque ids, offline cache and queue, claim rule), and `kj hu backend linear` writes a working Linear block. The Linear manager was checked against the real Linear API.
+- **Task managers from community packages** (HU-3390, by Jorge del Casar): a package listed in `board.yml` is loaded, behind an allowlist. A guide and a template to write one: `docs/TASK-MANAGERS.md` (HU-3354).
+- **A signed exception for main-guard** (KJC-TSK-1402): `kj main-guard-except <pr> --repo <r> --why <reason>`, a human act, has the phone sign the repo, the PR, its current head and the reason, and posts it on the PR. main-guard then lets that merge past its required checks and names it in its report; a change to the protection still alarms. It needs the phone's key in the repo's roster (`kj identity enroll-phone`).
+
+### Fixed
+- **The HU Board declares what it loads** (KJC-BUG-0480): `karajan-core ^1.7.0` (no better-sqlite3) and `sqlite-vec`, which `karajan-core/vec-store` loads; a lockfile update in its folder no longer prunes it.
+- **board-sync counts a move made with the tree's kj** (KJC-BUG-0488): `node bin/kj.js hu move` clears the pending move as `kj hu move` does.
+- **The core works with a manager that implements only the contract** (HU-3394, by Jorge del Casar).
+
 ## [5.5.0] - 2026-11-04
 
 ### Added
