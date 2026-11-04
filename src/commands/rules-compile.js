@@ -35,7 +35,8 @@ rules:
 \`\`\``;
 
 const HOW = [
-  "A condition reads ONE argument of the tool input (`arg`, a dotted path such as updates.status) with exactly one",
+  "A condition reads ONE argument of the tool input (`arg`, a dotted path such as updates.status; in a list a number is",
+  "the index, so questions.1 is the second question) with exactly one",
   "operator: equals, in (a list), matches (a regex), exists (true/false), gt, lt. With days_from, gt/lt compare the",
   "calendar days from that other argument to `arg`. There is nothing else: no other keys, no free code.",
   "",
