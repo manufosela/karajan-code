@@ -80,15 +80,21 @@ function writeSkeleton({ projectDir, home, pending, kept, gone }) {
   return rules.filter((entry) => !entry?.kind).length;
 }
 
-/** @returns {{code: 0|1, lines: string[]}} */
-export function rulesCompileBrief({ projectDir, home = os.homedir() }) {
+/**
+ * @param {{projectDir: string, home?: string, reopen?: string[]}} opts reopen: approved rules to
+ *   compile again (KJC-TSK-1412), written into the proposal with the others, as they are
+ * @returns {{code: 0|1, lines: string[]}}
+ */
+export function rulesCompileBrief({ projectDir, home = os.homedir(), reopen = [] }) {
   const covered = rulesCoverage({ projectDir, home });
   if (!covered.output) return covered;
   const pending = covered.output.rows.filter((row) => row.status === "none");
   const { stale } = covered.output;
-  if (pending.length + stale.length === 0) return { code: 0, lines: ["✓ every rule of the MD files is decided: nothing to compile"] };
+  if (pending.length + stale.length + reopen.length === 0) return { code: 0, lines: ["✓ every rule of the MD files is decided: nothing to compile"] };
   const gone = new Set(stale.map((rule) => rule.id));
   const kept = loadRules(projectDir).rules.filter((rule) => !gone.has(rule.id));
+  const unknown = reopen.filter((id) => !kept.some((rule) => rule.id === id));
+  if (unknown.length) return { code: 1, lines: [`✗ ${unknown.join(", ")}: not an approved rule, nothing to reopen`] };
   const undecided = writeSkeleton({ projectDir, home, pending, kept, gone });
   if (undecided === null) return { code: 1, lines: [`✗ ${PROPOSAL_FILE} is not valid YAML with a rules list: fix it or delete it`] };
   return {
@@ -100,6 +106,7 @@ export function rulesCompileBrief({ projectDir, home = os.homedir() }) {
       `with its id, source and literal text. ${undecided} entr${undecided === 1 ? "y has" : "ies have"} no kind yet: edit each one, give it its kind and`,
       `what that kind takes. Leave id, source and text as they are. You propose; you cannot write ${RULES_FILE}.`,
       ...(stale.length ? [`Left out, their text is in no MD any more: ${stale.map((rule) => rule.id).join(", ")}`] : []),
+      ...(reopen.length ? [`Reopened to recompile: ${reopen.join(", ")}. Their entries are as approved: change only what the stronger compilation needs.`] : []),
       "",
       FORMAT,
       "",
