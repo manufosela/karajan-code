@@ -165,4 +165,50 @@ describe("importCanonical: plugin paths", () => {
     expect(importWith({ hooks: hook("./a/../../x.sh") }).skipped[0].reason).toMatch(/escapes the plugin/);
     expect(importWith({ mcp: { mcpServers: { s: { command: "node", args: ["./../x.js"] } } } }).skipped[0]).toMatchObject({ kind: "mcp", name: "s" });
   });
+
+  describe("cwd of an MCP server", () => {
+    const withCwd = (cwd) => importWith({ mcp: { mcpServers: { s: { command: "npx", ...(cwd !== undefined && { cwd }) } } } });
+    const cwdOf = (result) => result.canonical.mcp.mcpServers.s.cwd;
+    const COPY = "./.karajan/plugins/kit/1.0.0";
+
+    it.each([["./servers", `${COPY}/servers`], ["servers", `${COPY}/servers`], ["./servers/", `${COPY}/servers`], ["servers/", `${COPY}/servers`]])("points the cwd %s to the store copy when the plugin ships it", (cwd, expected) => {
+      const result = withCwd(cwd);
+      expect(cwdOf(result)).toBe(expected);
+      expect(result.rewritten).toBe(true);
+      expect(result).not.toHaveProperty("kept");
+    });
+
+    it.each(["./nowhere", "nowhere/"])("leaves the cwd %s as the project's and names it, when the plugin does not ship it", (cwd) => {
+      const result = withCwd(cwd);
+      expect(cwdOf(result)).toBe(cwd);
+      expect(result.kept).toEqual([{ kind: "mcp", name: "s", path: cwd }]);
+      expect(result.rewritten).toBeUndefined();
+    });
+
+    it.each(["/opt/server", "~/server", "${HOME}/server", "C:\\server"])("leaves the absolute cwd %s alone with no line", (cwd) => {
+      const result = withCwd(cwd);
+      expect(cwdOf(result)).toBe(cwd);
+      expect(result).not.toHaveProperty("kept");
+      expect(result.rewritten).toBeUndefined();
+    });
+
+    it.each(["../servers", "./servers/../../x", "servers/.."])("skips the server whose cwd %s climbs out with .., before looking at the disk", (cwd) => {
+      const result = withCwd(cwd);
+      expect(result.skipped).toEqual([{ kind: "mcp", name: "s", reason: expect.stringMatching(/escapes the plugin/) }]);
+      expect(result.canonical.mcp).toBeUndefined();
+    });
+
+    it("writes the command and script paths relative to the rewritten cwd, so they still name the plugin's file", () => {
+      const server = (cwd) => importWith({ mcp: { mcpServers: { s: { command: "node", args: ["./dist/server.js", "./data"], cwd } } } }).canonical.mcp.mcpServers.s;
+      expect(server("./servers")).toEqual({ command: "node", args: ["../dist/server.js", "./data"], cwd: `${COPY}/servers` });
+      expect(server("./servers/x/")).toMatchObject({ args: ["../../dist/server.js", "./data"], cwd: `${COPY}/servers/x` });
+      expect(server("./")).toEqual({ command: "node", args: ["./dist/server.js", "./data"], cwd: COPY });
+    });
+
+    it("leaves a server with no cwd unchanged", () => {
+      const result = withCwd();
+      expect(result.canonical.mcp.mcpServers.s).toEqual({ command: "npx" });
+      expect(result.rewritten).toBeUndefined();
+    });
+  });
 });
