@@ -41,7 +41,8 @@
     "packages/governance",
     "packages/console",
     "packages/atril",
-    "packages/story-contract"
+    "packages/story-contract",
+    "packages/board-github"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
@@ -64,6 +65,8 @@
     "packages/ai-trash/package.json",
     "packages/story-contract/src/",
     "packages/story-contract/package.json",
+    "packages/board-github/src/",
+    "packages/board-github/package.json",
     "docs/README.es.md",
     "LICENSE",
     "README.md"
