@@ -75,12 +75,10 @@ If Ollama is already running on `:11434` (e.g. installed manually), Karajan dete
 
 Embedding a large repo can keep the `kj-ollama` container (and the Docker VM behind it) at full CPU. Two options:
 
-- **Limit the container.** `docker update --cpus <n> kj-ollama` applies the limit to the running container. The VM-wide limit (CPUs given to Docker Desktop, Colima, …) is set in that tool. *Assumption: the limit is not verified here.* `kj` rewrites `~/.karajan/docker-compose.ollama.yml` every time it starts the container (when Ollama is not already reachable) or stops it (it never adds a CPU limit), so a limit set by hand on the file does not persist, and one set with `docker update` is lost if the container is recreated.
+- **Limit the container.** Set `rag.embedder.cpus` (a number of CPUs). When absent, kj uses half the host's cores (`os.availableParallelism()`, at least 1); `0` means no limit. kj writes it into `~/.karajan/docker-compose.ollama.yml` when it creates the container, so it survives a recreate, and runs `docker update --cpus <n> kj-ollama` on a running container whose limit differs, printing one line saying so. If you do not name `rag.embedder.cpus` and the running container already has a limit set by hand, kj leaves it alone. With `rag.embedder.external: true` the setting does nothing (kj says so when you set it). To change a running container by hand: `docker update --cpus <n> kj-ollama`. The VM-wide limit (CPUs given to Docker Desktop, Colima, …) is set in that tool.
 - **Use a native Ollama.** Install Ollama on the host, pull the model (`ollama pull nomic-embed-text`) and set `rag.embedder.external: true` (plus `rag.embedder.host` or `port` if it is not on `:11434`). With `external: true` kj never starts or stops a container and fails loudly if that Ollama is not reachable.
 
 `kj doctor` prints a one-line reminder of both options while the embedder is the container kj manages. It is informational: no failure and no change in the exit code.
-
-> **Not implemented:** a configurable CPU limit (for example an `rag.embedder.cpus` setting written into the compose file) would keep the limit when the container is recreated. Today the limit is manual.
 
 ## Workflows
 
