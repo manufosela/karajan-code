@@ -139,7 +139,7 @@ describe("removePlugin with a derived plugin (HU-3184, ADR 0042)", () => {
     put("copy/hooks/hooks.json", JSON.stringify(HOOKS));
     writeDerived(name, "1.0.0", join(dir, "copy"), { root: join(dir, "store"), hooks: 1, mcpServers: 0 });
   };
-  const listed = () => JSON.parse(readFileSync(join(dir, "store/plugins/.marketplace/.claude-plugin/marketplace.json"), "utf8")).plugins.map((p) => p.name);
+  const listed = () => JSON.parse(readFileSync(join(dir, "store/plugins/.claude-plugin/marketplace.json"), "utf8")).plugins.map((p) => p.name);
 
   it("deletes the derived plugin and its marketplace entry, keeps the other entries, and lists the uninstall command", () => {
     derive();
