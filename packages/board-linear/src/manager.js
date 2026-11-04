@@ -68,8 +68,10 @@ export function createLinearManager({ config: raw, apiKey, fetch }) {
       const issue = await read(ref);
       const stateId = await stateIdOf(status);
       await gql(Q.update, { id: issue.identifier, input: { stateId } });
-      const after = toHu(await read(ref));
-      if (after.status !== status) throw new BoardRejectedError(`${issue.identifier} is ${after.status} after the move to ${status}: check it before moving it again`);
+      const landed = await read(ref);
+      const after = toHu(landed);
+      // By state name: two statuses may share a state, and toHu reads that back as the first of them.
+      if (landed.state.name !== config.states[status]) throw new BoardRejectedError(`${issue.identifier} is ${after.status} after the move to ${status}: check it before moving it again`);
       return after;
     },
     // Linear has a single assignee: a race is last-writer-wins, and the loser finds the winner on read-back.

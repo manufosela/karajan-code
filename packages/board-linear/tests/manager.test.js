@@ -152,6 +152,20 @@ describe("Linear manager, failures", () => {
     await expect(make(fake.fetch).create({ title: "t" })).rejects.toThrow(/no state "Todo"/);
   });
 
+  it("two statuses on one Linear state: move verifies by state name and list reads the first status", async () => {
+    const fake = fakeLinear();
+    const shared = createLinearManager({ config: { ...config, states: { ...states, failed: "Canceled" } }, apiKey: KEY, fetch: fake.fetch });
+    const { short_id } = await shared.create({ title: "t" });
+    expect((await shared.move(short_id, "skipped")).status).toBe("failed");
+    expect((await shared.list())[0].status).toBe("failed");
+  });
+
+  it("a move that lands in another state is still a loud error", async () => {
+    const { manager, backend, short_id } = await seeded();
+    backend.rejectMoves();
+    await expect(manager.move(short_id, "running")).rejects.toThrow(/TRI-1 is pending after the move to running/);
+  });
+
   it("an assignee without an email lists as unclaimed instead of crashing", async () => {
     const { manager, backend, short_id } = await seeded();
     backend.assignTo(short_id, { id: "u-1", email: null });

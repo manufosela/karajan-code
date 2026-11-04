@@ -94,4 +94,4 @@ managers:
 ## Not verified
 
 - `@karajan-family/story-contract` is a workspace package here; I could not confirm it is published to npm, so the template's `^0.1.0` dependency is the version in this repo.
-- The second built-in manager, Linear (`packages/board-linear`), has no `manager.js` yet in this tree: only its client and config.
+- The second built-in manager, Linear (`packages/board-linear`), ran against the real API on 2026-11-04 in a test team of a private workspace; see its README for what was verified and what was not.
