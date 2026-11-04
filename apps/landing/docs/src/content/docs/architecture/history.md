@@ -1902,6 +1902,10 @@ A lane used to start with an empty RAG index and build it from scratch, so the f
 
 A contributor's cross-AI review rejected three compiled rules of kj's own method block: their patterns took the start of a command to be the start of the call, so a forbidden command on the second line of a multi-line Bash call went through. Rewriting the patterns in every project would have left the next pattern to remember it, so the fix went into the one place that runs them: `matches` runs with the `m` flag and each line is judged as a command, and the rules reviewer is told so. The same day the proposal for the maintainer's own rules had no reviewer, with one model over its quota and another without permission under the agent's least-privilege token, and `kj rules review` gained the `--reviewer` that `kj review` already had.
 
+## Phase 160: v5.5.0, approve what changes
+
+The maintainer could not find the confirmation code of `kj rules approve`: it listed all 143 rules when 8 changed. Rules already approved and proposed again as they are now fold into one line, while a weakened rule still shows first. The same night the evaluator learned to read a list item by its index, so a rule that had to stay judgment (one decision per question) became a gate, and recompiling it showed that an approved rule could only be reopened by retyping the whole proposal: `kj rules compile --reopen` writes it from the approved rules. A contributor put GitHub Issues behind the story contract of ADR 0029, with each task manager declaring what it can do, and capped the embedder's CPU.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

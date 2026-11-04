@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.4.0: una regla ve cada línea de un comando (actual)
+### v5.5.0: apruebas lo que cambia, y más reglas que bloquean (actual)
+
+`kj rules approve` enseña solo las reglas que cambian, con el resto en una línea. Una condición puede leer un elemento de una lista, así que «una decisión por pregunta» bloquea, y `kj rules compile --reopen` recompila una regla aprobada. El gestor de tareas declara lo que sabe hacer, `rag.embedder.cpus` limita la CPU del embedder y `kj doctor` nombra al indexador que se pasa de su presupuesto.
+
+### v5.4.0: una regla ve cada línea de un comando
 
 Una regla compilada juzga cada línea de una llamada de Bash de varias líneas como un comando, así que uno prohibido no puede esconderse en la segunda línea, y cada proyecto lo recibe sin recompilar. `kj rules review --reviewer` elige la IA que revisa, como `kj review`. Un `kj rag index` en primer plano cede ante un indexador activo salvo con `--force`.
 
