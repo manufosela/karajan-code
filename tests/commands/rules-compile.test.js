@@ -87,4 +87,17 @@ describe("kj rules compile", () => {
     write(["{ id: bad }"]);
     expect(brief().code).toBe(1);
   });
+
+  // KJC-TSK-1412: an approved rule that can now be stronger is reopened, with every approved
+  // rule in the proposal, so only its entry is edited.
+  it("--reopen writes the proposal from the approved rules and names the reopened one", () => {
+    write(rules.map((r) => `{ id: ${r.id}, kind: out-of-scope, reason: decidido }`));
+    const res = rulesCompileBrief({ projectDir: dir, home, reopen: [rules[0].id] });
+    expect(res.code).toBe(0);
+    expect(proposal().map((e) => e.id)).toEqual(rules.map((r) => r.id));
+    expect(res.lines.join("\n")).toMatch(new RegExp(`Reopened to recompile: ${rules[0].id}`));
+    fs.rmSync(PROPOSAL);
+    expect(rulesCompileBrief({ projectDir: dir, home, reopen: ["R-0000000000"] })).toMatchObject({ code: 1, lines: [expect.stringMatching(/R-0000000000.*not an approved rule/)] });
+    expect(fs.existsSync(PROPOSAL)).toBe(false);
+  });
 });

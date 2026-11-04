@@ -444,9 +444,10 @@ export function registerMeta(program, { pkgVersion }) {
   // MDR-D (KJC-TSK-0940): the brief for whoever compiles the rules with no gate.
   rules.command("compile")
     .description("Print the brief to compile the rules with no gate into a proposal (.karajan/rules.proposed.yml); kj calls no model")
+    .option("--reopen <ids...>", "Approved rules to compile again, with every approved rule in the proposal")
     .action(async (flags) => {
       await withConfig(pkgVersion, "rules-compile", flags, async ({ config }) => {
-        const res = rulesCompileBrief({ projectDir: config?.projectDir || process.cwd() });
+        const res = rulesCompileBrief({ projectDir: config?.projectDir || process.cwd(), reopen: flags.reopen ?? [] });
         for (const line of res.lines) console.log(line);
         process.exitCode = res.code;
       });
