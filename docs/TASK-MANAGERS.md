@@ -17,7 +17,7 @@ Depend on `@karajan-family/story-contract` alone (it imports nothing from karaja
 
 An `Hu` has `short_id`, `title`, `status`, `claimed_by` and `ref`. Optional parts: `isId(ref)`, `canonicalId(ref)` and `idHint` (the id format of your system; the core never assumes `HU-<n>`). Required: `capabilities` (`acceptanceCriteria: field|body`, `dependencies: none|partial|graph`, `assignee`, `verdicts: pr|comment|none`, `offline`) and `credentials` (names of environment variables, `[]` when none). `assertManager(manager)` fails loud on anything missing.
 
-Today the core also calls `manager.write.move`, `manager.write.claim` and `manager.assertNotHeld` (the writes without the read-back, and the "held by someone else" check). They are not part of the contract or of `assertManager`; the template and `board-github` provide them. Treat them as required until the contract says otherwise.
+The core also uses `manager.write.move`, `manager.write.claim` and `manager.assertNotHeld`, but they are optional optimisations, not part of the contract or of `assertManager`: `write` skips the read-back after a write, and `assertNotHeld` is a cheaper "held by someone else" check. Without them the core uses `write = { move, claim }` of the contract, and reads the card through one `list()` to refuse a running card held by someone else (`HuClaimedError`).
 
 ## The factory
 
