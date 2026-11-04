@@ -1901,6 +1901,10 @@ Un carril empezaba con el índice RAG vacío y lo construía desde cero, así qu
 
 La revisión cruzada de un colaborador rechazó tres reglas compiladas del propio bloque del método de kj: sus patrones tomaban el inicio de un comando por el inicio de la llamada, así que un comando prohibido en la segunda línea de una llamada de Bash de varias líneas pasaba. Reescribir los patrones en cada proyecto habría dejado al siguiente patrón la tarea de acordarse, así que el arreglo fue al único sitio que los ejecuta: `matches` va con el flag `m` y cada línea se juzga como un comando, y el revisor de reglas lo sabe. Ese mismo día la propuesta de las reglas del mantenedor se quedó sin revisor, con un modelo sin cuota y otro sin permiso bajo el token de mínimo privilegio del agente, y `kj rules review` ganó el `--reviewer` que `kj review` ya tenía.
 
+## Phase 160: v5.5.0, apruebas lo que cambia
+
+El mantenedor no encontraba el código de confirmación de `kj rules approve`: listaba las 143 reglas cuando cambiaban 8. Las reglas ya aprobadas que se proponen igual quedan ahora en una línea, y una regla debilitada sigue saliendo la primera. Esa misma noche el evaluador aprendió a leer un elemento de una lista por su índice, así que una regla que tenía que quedarse en juicio (una decisión por pregunta) pasó a ser un gate, y al recompilarla se vio que una regla aprobada solo se podía reabrir reescribiendo la propuesta entera: `kj rules compile --reopen` la escribe a partir de las aprobadas. Un colaborador puso GitHub Issues detrás del contrato de historias de la ADR 0029, con cada gestor de tareas declarando lo que sabe hacer, y limitó la CPU del embedder.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

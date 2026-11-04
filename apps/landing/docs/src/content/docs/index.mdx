@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.4.0: a rule sees every line of a command (current)
+### v5.5.0: approve what changes, and more rules that block (current)
+
+`kj rules approve` lists only the rules that change, with the rest in one line. A condition can read a list item, so "one decision per question" blocks, and `kj rules compile --reopen` recompiles an approved rule. The task manager declares what it can do, `rag.embedder.cpus` caps the embedder's CPU, and `kj doctor` names an indexer over its budget.
+
+### v5.4.0: a rule sees every line of a command
 
 A compiled rule judges each line of a multi-line Bash call as a command, so a forbidden one cannot hide on the second line, and every project gets it without recompiling. `kj rules review --reviewer` picks the reviewing AI, as `kj review` does. A foreground `kj rag index` yields to a live indexer unless `--force` is given.
 

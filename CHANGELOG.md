@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.5.0] - 2026-11-04
+
+### Added
+- **`kj rules approve` shows only what changes** (KJC-TSK-1410): rules approved before and proposed again as they are go in one closing line, so the changes and the confirmation code are not lost in hundreds of lines; `--all` lists every rule. A weakened rule is never hidden, and a first approval lists everything.
+- **A rule's condition reads a list item by its index** (KJC-TSK-1411): `questions.1` is the second question, so "one decision per AskUserQuestion" can be a gate.
+- **`kj rules compile --reopen <ids...>`** (KJC-TSK-1412) recompiles an approved rule: the proposal is written from every approved rule, and only the reopened entry is edited.
+- **The task manager declares what it can do** (HU-3337, by Jorge del Casar): `kj hu backend` and `kj doctor` show it. GitHub Issues now sits behind a story contract (ADR 0029), the first step to choosing another task manager.
+- **`rag.embedder.cpus` caps the CPU of the kj-ollama container** (HU-3362, by Jorge del Casar), half the cores by default, and `kj doctor` flags an embedder over its budget and names the indexer behind it (HU-3364).
+
+### Fixed
+- **A main index with an old schema is rebuilt once, in the background** (HU-3363, by Jorge del Casar), so new lanes can be seeded from it again.
+
 ## [5.4.0] - 2026-11-03
 
 ### Added
