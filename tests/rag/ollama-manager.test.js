@@ -4,6 +4,7 @@ import net from "node:net";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import os from "node:os";
 
 vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn(),
@@ -74,6 +75,7 @@ describe("ollama-manager — KJC-TSK-0435", () => {
   it("ollamaUp falls through to docker compose up when unreachable", async () => {
     runCommand
       .mockResolvedValueOnce({ exitCode: 7, stdout: "", stderr: "" })   // healthcheck fail
+      .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "No such object" }) // docker inspect: no container yet
       .mockResolvedValueOnce({ exitCode: 0, stdout: "Started", stderr: "" }); // docker
     const res = await ollamaUp({});
     expect(res.exitCode).toBe(0);
@@ -87,5 +89,79 @@ describe("ollama-manager — KJC-TSK-0435", () => {
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "stopped", stderr: "" });
     await ollamaDown({});
     expect(runCommand).toHaveBeenCalledWith("docker", expect.arrayContaining(["compose", "stop"]), expect.any(Object));
+  });
+
+  describe("rag.embedder.cpus — HU-3362", () => {
+    const half = Math.max(1, Math.floor(os.availableParallelism() / 2));
+    const ok = (stdout = "") => ({ exitCode: 0, stdout, stderr: "" });
+    const nano = (cpus) => String(cpus * 1e9); // docker inspect HostConfig.NanoCpus
+    const dockerArgs = () => runCommand.mock.calls.filter((c) => c[0] === "docker").map((c) => c[1]);
+
+    it("defaults to half the host cores (min 1); 0 means no limit; rejects bad values", () => {
+      expect(normalizeOllamaConfig({})).toMatchObject({ cpus: half, cpusExplicit: false });
+      expect(normalizeOllamaConfig({ cpus: 0 })).toMatchObject({ cpus: 0, cpusExplicit: true });
+      expect(normalizeOllamaConfig({ cpus: 1.5 }).cpus).toBe(1.5);
+      for (const bad of [-1, "x", NaN, Infinity, 100000]) {
+        expect(() => normalizeOllamaConfig({ cpus: bad })).toThrow(/rag\.embedder\.cpus/);
+      }
+    });
+
+    it("writes cpus into the compose file only when limited", () => {
+      expect(buildComposeTemplate(normalizeOllamaConfig({ cpus: 2 }))).toContain("cpus: 2");
+      expect(buildComposeTemplate(normalizeOllamaConfig({ cpus: 0 }))).not.toContain("cpus");
+    });
+
+    it("updates a running container whose limit differs and says so", async () => {
+      runCommand.mockResolvedValueOnce(ok("200")).mockResolvedValueOnce(ok(nano(4))).mockResolvedValueOnce(ok());
+      const res = await ollamaUp({ cpus: 2 });
+      expect(dockerArgs()[1]).toEqual(["update", "--cpus", "2", "kj-ollama"]);
+      expect(res.stdout).toMatch(/CPU limit.*2/);
+    });
+
+    it("fails loudly when docker update fails on a running container", async () => {
+      runCommand.mockResolvedValueOnce(ok("200")).mockResolvedValueOnce(ok(nano(4))).mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "denied" });
+      const res = await ollamaUp({ cpus: 2 });
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toMatch(/Could not set the CPU limit.*denied/);
+    });
+
+    it("leaves a running container alone when the limit already matches", async () => {
+      runCommand.mockResolvedValueOnce(ok("200")).mockResolvedValueOnce(ok(nano(2)));
+      await ollamaUp({ cpus: 2 });
+      expect(dockerArgs()).toHaveLength(1);
+    });
+
+    it("respects a limit set by hand when cpus is not configured", async () => {
+      runCommand.mockResolvedValueOnce(ok("200")).mockResolvedValueOnce(ok(nano(1)));
+      const res = await ollamaUp({});
+      expect(dockerArgs().some((a) => a[0] === "update")).toBe(false);
+      expect(res.stdout).not.toMatch(/CPU limit set/);
+    });
+
+    it("applies the default to an unlimited running container", async () => {
+      runCommand.mockResolvedValueOnce(ok("200")).mockResolvedValueOnce(ok("0")).mockResolvedValueOnce(ok());
+      await ollamaUp({});
+      expect(dockerArgs()[1]).toEqual(["update", "--cpus", String(half), "kj-ollama"]);
+    });
+
+    it("does nothing without a container (native Ollama)", async () => {
+      runCommand.mockResolvedValueOnce(ok("200")).mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "No such object" });
+      const res = await ollamaUp({ cpus: 2 });
+      expect(dockerArgs()).toHaveLength(1);
+      expect(res.exitCode).toBe(0);
+    });
+
+    it("external=true ignores cpus and says so only when the user set it", async () => {
+      runCommand.mockResolvedValue(ok("200"));
+      expect((await ollamaUp({ external: true, cpus: 2 })).stdout).toMatch(/cpus.*ignored.*external/);
+      expect((await ollamaUp({ external: true })).stdout).not.toMatch(/cpus/);
+      expect(dockerArgs()).toHaveLength(0);
+    });
+
+    it("writes the limit into the compose file when it starts the container", async () => {
+      runCommand.mockResolvedValueOnce({ exitCode: 7, stdout: "", stderr: "" }).mockResolvedValueOnce(ok("0")).mockResolvedValueOnce(ok("Started"));
+      await ollamaUp({ cpus: 3 });
+      expect(readFileSync(join(process.env.KARAJAN_HOME, "docker-compose.ollama.yml"), "utf8")).toContain("cpus: 3");
+    });
   });
 });

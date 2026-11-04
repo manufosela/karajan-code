@@ -75,12 +75,10 @@ Si Ollama ya está corriendo en `:11434` (instalado manualmente), Karajan lo det
 
 Embeber un repo grande puede mantener el container `kj-ollama` (y la VM de Docker que lo aloja) al 100 % de CPU. Hay dos opciones:
 
-- **Limitar el container.** `docker update --cpus <n> kj-ollama` aplica el límite al container en ejecución. El límite de toda la VM (CPUs asignadas a Docker Desktop, Colima, …) se configura en esa herramienta. *Suposición: el límite no está verificado aquí.* `kj` reescribe `~/.karajan/docker-compose.ollama.yml` cada vez que arranca el container (cuando Ollama no está ya accesible) o lo detiene (nunca añade un límite de CPU), así que un límite puesto a mano en el fichero no persiste, y uno puesto con `docker update` se pierde si el container se recrea.
+- **Limitar el container.** Configura `rag.embedder.cpus` (número de CPUs). Si falta, kj usa la mitad de los núcleos del host (`os.availableParallelism()`, mínimo 1); `0` significa sin límite. kj lo escribe en `~/.karajan/docker-compose.ollama.yml` al crear el container, así que sobrevive a una recreación, y ejecuta `docker update --cpus <n> kj-ollama` en un container en ejecución cuyo límite difiera, imprimiendo una línea que lo dice. Si no nombras `rag.embedder.cpus` y el container ya tiene un límite puesto a mano, kj no lo toca. Con `rag.embedder.external: true` el ajuste no hace nada (kj lo dice cuando lo has puesto). Para cambiar un container en ejecución a mano: `docker update --cpus <n> kj-ollama`. El límite de toda la VM (CPUs asignadas a Docker Desktop, Colima, …) se configura en esa herramienta.
 - **Usar un Ollama nativo.** Instala Ollama en el host, descarga el modelo (`ollama pull nomic-embed-text`) y configura `rag.embedder.external: true` (más `rag.embedder.host` o `port` si no está en `:11434`). Con `external: true`, kj nunca arranca ni detiene un container y falla en voz alta si ese Ollama no está accesible.
 
 `kj doctor` imprime un recordatorio de una línea con ambas opciones mientras el embedder sea el container que gestiona kj. Es informativo: no produce fallo ni cambia el código de salida.
-
-> **No implementado:** un límite de CPU configurable (por ejemplo un ajuste `rag.embedder.cpus` escrito en el fichero compose) mantendría el límite al recrear el container. Hoy el límite es manual.
 
 ## Workflows
 
