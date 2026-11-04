@@ -27,12 +27,21 @@ How it works:
 - **Last writer wins.** Linear has a single assignee, so two simultaneous claims leave the later write;
   the other claimant finds the winner on read-back and gets the held error.
 
-## Not verified against the real API
-Built against the documentation and a fake `fetch`; it has not run against Linear. Unconfirmed:
-- `issueUpdate` accepting `assigneeId` and `stateId`; `issueCreate` accepting `labelIds` and `stateId`.
-- A filter by team key on `issues`, the states of a team through `teams`, and a filter of `users` by email.
-- A filter of `issueLabels` by name, and `issueLabelCreate` with `teamId`.
-- `first: 50` and the maximum page size.
+## Verified against the real API
+Run on 2026-11-04 against a test team of a private workspace (everything it created was deleted). Verified:
+- `create` with `labelIds` and `stateId`, and the label created with `teamId`.
+- `list` by team key and label, and the label filter.
+- `claim` by email with `assigneeId`.
+- `move` with `stateId` and the read-back.
+- The refusal of an issue without the label (nothing is written).
+- The states of a team.
+
+Not verified: the maximum page size of `issues` (`first: 50` works).
+
+## Statuses and Linear states
+- Linear's built-in `Duplicate` cannot be used for a kj status: Linear only accepts it with a duplicate relation to another issue.
+- Two statuses may share one state. `move` checks the read-back by state name, and `list` reads a shared state as the first status in the order `pending, running, done, failed, skipped`.
+- The default of `kj hu backend linear` shares `Canceled` for `failed` and `skipped`, so a `skipped` issue lists as `failed`.
 
 ## What it needs
 - A personal API key in the `LINEAR_API_KEY` environment variable. It is sent as the `Authorization`
