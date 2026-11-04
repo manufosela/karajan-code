@@ -45,4 +45,15 @@ describe("commands/main-guard — KJC-TSK-1369", () => {
     await runMainGuard({ repo: "acme/app", branch: "main", before: "b0", after: "m1", require: ["a", "b"], git: () => "m1\n", audit: async (args) => { seen = args; return clean; }, print: () => {} });
     expect(seen).toMatchObject({ branch: "main", commits: ["m1"], requiredChecks: ["a", "b"] });
   });
+
+  // KJC-TSK-1402: the audit gets the repo and the roster keys, and what passed on an exception is said.
+  it("passes the repo and the roster keys, and names each merge that passed on a signed exception", async () => {
+    let seen;
+    const keys = new Set(["k1"]);
+    const excepted = { ...clean, exceptions: [{ sha: "abcdef0123", pr: 7, mergedBy: "manufosela", missing: ["quality"], why: "transition merge" }] };
+    await runMainGuard({ repo: "acme/app", branch: "main", before: "b0", after: "m1", require: ["a"], keys, git: () => "m1\n", audit: async (args) => { seen = args; return excepted; }, print: () => {} });
+    expect(seen).toMatchObject({ repo: "acme/app", keys });
+    const md = renderReport(excepted, { repo: "acme/app", branch: "main" });
+    expect(md).toMatch(/PR #7 merged by @manufosela without quality, on the maintainer's signed exception: transition merge/);
+  });
 });
