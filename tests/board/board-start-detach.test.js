@@ -26,7 +26,7 @@ vi.mock("node:net", () => ({
       once: (event, cb) => {
         if (event === "listening") setImmediate(cb);
       },
-      listen: () => {},
+      listen: (_port, host) => { listenedHosts.push(host); },
       close: (cb) => cb && cb(),
     }),
   },
@@ -37,10 +37,13 @@ vi.mock("node:net", () => ({
 // "no board there" before spawn and "board answered" after spawn.
 let httpCallIdx = 0;
 let httpAlwaysFail = false;
+let probedHosts = [];
+const listenedHosts = [];
 vi.mock("node:http", () => {
   return {
     default: {
-      request: (_opts, cb) => {
+      request: (opts, cb) => {
+        probedHosts.push(opts.host);
         const idx = httpCallIdx++;
         const handlers = {};
         return {
@@ -70,6 +73,8 @@ beforeEach(() => {
   process.env.KJ_BOARD_READY_TIMEOUT_MS = "200";
   httpCallIdx = 0;
   httpAlwaysFail = false;
+  probedHosts = [];
+  listenedHosts.length = 0;
   unref.mockReset();
   child.once.mockReset();
   child.removeListener.mockReset();
@@ -136,5 +141,23 @@ describe("startBoard — detaches properly", () => {
     );
     const pidPath = join(tmpHome, "hu-board.pid");
     expect(existsSync(pidPath)).toBe(false);
+  });
+
+  // KJC-BUG-0498: bound to one address the server listens only there, so the
+  // probes and the free-port check go there too, and the PID is written.
+  it("with --bind to an address, checks the port and the board's health on that address", async () => {
+    const { startBoard } = await import("../../src/commands/board.js");
+    const result = await startBoard(4000, { bind: "100.64.0.7" });
+    expect(result.pid).toBe(4242);
+    expect(new Set(probedHosts)).toEqual(new Set(["100.64.0.7"]));
+    expect(new Set(listenedHosts)).toEqual(new Set(["100.64.0.7"]));
+    expect(readFileSync(join(tmpHome, "hu-board.pid"), "utf-8")).toBe("4242");
+  });
+
+  it("bound to every interface (0.0.0.0 or ::), it checks on loopback, where the server also answers", async () => {
+    const { startBoard } = await import("../../src/commands/board.js");
+    await startBoard(4000, { bind: "0.0.0.0" });
+    await startBoard(4000, { bind: "::" }).catch(() => {});
+    expect(new Set(probedHosts)).toEqual(new Set(["127.0.0.1"]));
   });
 });
