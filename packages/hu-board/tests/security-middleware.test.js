@@ -59,6 +59,14 @@ describe('security middleware — helmet headers', () => {
     expect(csp).toMatch(/font-src[^;]*fonts\.gstatic\.com/);
   });
 
+  // KJC-BUG-0492: off loopback (kj board --bind, Tailscale, LAN) the board is
+  // plain http; upgrade-insecure-requests sent every script to https and the
+  // pages stayed blank.
+  it('does not upgrade the board own requests to https', async () => {
+    const res = await request(buildApp()).get('/api/ping');
+    expect(res.headers['content-security-policy']).not.toMatch(/upgrade-insecure-requests/);
+  });
+
   it('removes the X-Powered-By: Express header', async () => {
     const res = await request(buildApp()).get('/api/ping');
     expect(res.headers['x-powered-by']).toBeUndefined();

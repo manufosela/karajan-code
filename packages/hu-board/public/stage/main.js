@@ -6,10 +6,13 @@ import { createFactory } from './factory.js';
 import { populate } from './crew.js';
 import { createLive } from './live.js';
 import { runAmbient } from './ambient-loop.js';
+import { boardToken, withToken } from './token.js';
 
 const canvas = document.getElementById('stage');
 const status = document.getElementById('stage-status');
 const project = new URLSearchParams(location.search).get('project');
+// KJC-BUG-0492: off loopback the board asks for its token, as on the RAG and Wiki pages.
+const token = boardToken(location.search, () => localStorage);
 const tell = (lines) => status.replaceChildren(...lines.map((text) => Object.assign(document.createElement('li'), { textContent: text })));
 
 /** Builds the hall; returns its stations by id, its crew by id and its render. */
@@ -38,7 +41,7 @@ function buildScene() {
 /** The last real state of the project, or the reason the board could not give it. */
 async function fetchState() {
   try {
-    const res = await fetch(`/api/stage/state?project=${encodeURIComponent(project)}`);
+    const res = await fetch(`/api/stage/state?project=${encodeURIComponent(project)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     const body = await res.json();
     return res.ok ? { state: body } : { error: body.error };
   } catch (err) {
@@ -51,14 +54,15 @@ async function start() {
   const scene = buildScene();
   const { state, error } = await fetchState();
   if (error) { tell([`The board cannot read this project: ${error}`]); return; }
-  const live = createLive(scene, { state, tell, counts: document.getElementById('stage-counts') });
-  const { lines } = live.settle();
-  tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
+  // The status list never goes blank: with nothing to tell, it says so (also after a live event).
+  const tellState = (lines) => tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
+  const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts') });
+  tellState(live.settle().lines);
   scene.render();
   // The crew is always busy (ADR 0047), except for someone who asked for no motion: then
   // each real event only moves its station's light and the status list, without crates.
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const events = new EventSource(`/api/events?project=${encodeURIComponent(project)}`);
+  const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
   events.onmessage = ({ data }) => {
     live.push(JSON.parse(data), performance.now());
     if (still) scene.render();
