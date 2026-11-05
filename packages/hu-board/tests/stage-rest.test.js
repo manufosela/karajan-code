@@ -43,6 +43,15 @@ describe('acrossLanes (ADR 0048)', () => {
     expect(restState(state, NOW).lines).toEqual(['Sentinel: last denial 30 min ago (Bash)','At work: codex reviewing in kj-stage']);
   });
 
+  it('tells the host with the tool it uses and each subagent by its id and type (KJC-TSK-1435)', () => {
+    const ev = (role, phase, id, extra) => ({ type: 'agent-activity', agent: 'claude', role, phase, id, lane: 'kj-stage', at: 'x', ...extra });
+    let state = withEvent({ working: [] }, ev('host', 'start', 's1', { tool: 'Bash' }));
+    state = withEvent(state, ev('subagent', 'start', 'a1', { kind: 'Explore' }));
+    state = withEvent(state, ev('subagent', 'start', 'a2', { kind: 'Plan' }));
+    state = withEvent(state, ev('subagent', 'end', 'a1'));
+    expect(restState(state, NOW).lines).toEqual(['At work: claude working (Bash) in kj-stage, claude subagent Plan in kj-stage']);
+  });
+
   it('a live start and end only touch the robot of their own lane', () => {
     const at = (lane, phase) => ({ type: 'agent-activity', agent: 'codex', role: 'reviewer', phase, lane, at: 'x' });
     let state = withEvent(withEvent({ working: [] }, at('a', 'start')), at('b', 'start'));

@@ -28,8 +28,9 @@ function workshop(name) {
   const pad = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width, 0.04, WORKSHOP.depth), matte(0x243244));
   pad.position.y = 0.02;
   pad.receiveShadow = true;
-  const bench = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width * 0.8, 0.5, 0.6), matte(0x5a4a3a));
-  bench.position.set(0, 0.25, 0.4);
+  // Low enough that the badge on a working robot's chest shows over it (KJC-TSK-1435).
+  const bench = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width * 0.8, 0.35, 0.6), matte(0x5a4a3a));
+  bench.position.set(0, 0.175, 0.4);
   bench.castShadow = true;
   group.add(pad, bench, nameplate(name));
   return group;
