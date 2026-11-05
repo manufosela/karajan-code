@@ -54,6 +54,19 @@ export function verdictEvent(raw) {
   return { type: 'review-verdict', at: r.timestamp, verdict: r.verdict, reviewer: r.reviewer, host: r.host, diffHash: r.diffHash };
 }
 
+/**
+ * KJC-TSK-1438 (ADR 0048): .karajan/harness/rag-answer.json (what the RAG last
+ * answered in the lane) → a rag-answer event with how many sources it gave, or
+ * null. Never the question: the agent may have asked anything.
+ */
+export function ragEvent(raw) {
+  const r = parse(raw);
+  const at = new Date(typeof r?.at === 'number' ? r.at : Number.NaN);
+  // A time out of Date's range would throw in toISOString, inside the watch.
+  if (!Number.isFinite(at.getTime()) || !Array.isArray(r.sources)) return null;
+  return { type: 'rag-answer', at: at.toISOString(), sources: r.sources.length };
+}
+
 const sizeOf = (file) => { try { return statSync(file).size; } catch { return 0; } };
 
 /**
@@ -105,13 +118,21 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
       let raw;
       try { raw = readFileSync(file, 'utf8'); } catch { return; } // pruned before it was read
       emit(verdictEvent(raw), raw, file);
+    } else if (file === ragNote) {
+      // Rewritten on every query: it is a new answer only when its time moved on.
+      let raw;
+      try { raw = readFileSync(file, 'utf8'); } catch { return; }
+      const event = ragEvent(raw);
+      if (event && event.at !== lastAnswer) { lastAnswer = event.at; send({ ...event, project }); }
     }
   };
+  const ragNote = join(root, 'harness', 'rag-answer.json');
+  let lastAnswer = null;
   // chokidar misses a path that did not exist when the watch began, so it
   // watches the project and lets through only the way down to these records.
   const harness = join(root, 'harness');
   const inReviews = (p) => p.startsWith(`${reviews}${sep}`);
-  const wanted = (p) => [projectDir, root, harness, reviews].includes(p) || logs.has(p) || inReviews(p);
+  const wanted = (p) => [projectDir, root, harness, reviews, ragNote].includes(p) || logs.has(p) || inReviews(p);
   const watcher = watch(projectDir, {
     ignored: (p) => !wanted(p),
     ignoreInitial: true,

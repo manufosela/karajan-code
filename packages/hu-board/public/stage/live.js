@@ -8,6 +8,7 @@ import { createAgentsFloor } from './agents-floor.js';
 import { turnAt } from './workers.js';
 import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
+import { raganAt, withRag } from './ragan.js';
 import { WORKSHOP } from './layout.js';
 import { Vector3 } from 'three';
 
@@ -29,11 +30,12 @@ function tagAt(text, position, camera, className = 'stage-count') {
   return tag;
 }
 
-export function createLive({ scene, pieces, camera, stand, hall, refit }, { state: initial, tell, counts }) {
+export function createLive({ scene, pieces, crew, camera, stand, hall, refit }, { state: initial, tell, counts }) {
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
   let marks = []; // KJC-TSK-1437: what the roles just did, by lane
+  let rag = null; // KJC-TSK-1438: the answer kaRAGan is taking, and where
   let gatesLit = new Set();
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
@@ -61,6 +63,13 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
       return tag;
     });
   };
+  /** KJC-TSK-1438: kaRAGan takes the RAG's answer to the lane that asked, and comes back. */
+  const moveRagan = (now) => {
+    const pose = raganAt(rag, now, hall.xOf);
+    crew.rag.root.position.set(pose.x, 0, pose.z);
+    crew.rag.root.rotation.y = pose.yaw;
+    crew.rag.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
+  };
   return {
     settle,
     /** Takes one stream event at `now` (performance clock, ms). */
@@ -76,6 +85,7 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: now, skills: event.skills };
       watch = withWatch(watch, event, now);
       marks = withMark(marks, event, now);
+      rag = withRag(rag, event, now);
       tell(settle().lines);
     },
     /** Flashes the pieces that handled a real event just now. */
@@ -83,6 +93,7 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
       const { lights } = settle();
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
+      moveRagan(now);
       const sentinel = sentinelAt(watch, now, hall.xOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;
