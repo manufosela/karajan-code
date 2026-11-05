@@ -21,6 +21,7 @@ import { reapZombieSessions } from './zombie-reaper.js';
 import { reapZombieHus } from './hu-zombie-reaper.js';
 import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
+import { spaFallback } from './spa-fallback.js';
 import { findAvailablePort as findAvailablePortBase } from 'karajan-core/port-check';
 
 /**
@@ -318,13 +319,8 @@ async function main() {
 
   app.use('/api', apiNotFound);
 
-  // SPA fallback: serve index.html for non-API, non-static routes
-  app.get('/{*splat}', (_req, res) => {
-    res.setHeader('Cache-Control', 'no-store, must-revalidate');
-    // `root` makes send() check dotfiles on the relative name only: an install path with a
-    // dot directory (a lane under .kj/, ~/.nvm, a .pnpm store) no longer turns the fallback into a 404.
-    res.sendFile('index.html', { root: PUBLIC_DIR });
-  });
+  // SPA fallback: index.html for non-API, non-static routes; a missing file is a 404 (KJC-BUG-0497).
+  app.get('/{*splat}', spaFallback(PUBLIC_DIR));
 
   // Find available port (always probed against loopback so the
   // result is meaningful regardless of bind host).
