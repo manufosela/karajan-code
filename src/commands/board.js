@@ -34,10 +34,10 @@ function isProcessAlive(pid) {
  * responds with 2xx within ~750ms. Used as a fallback when the PID
  * file is missing/stale to detect "board is up, just untracked".
  */
-async function isBoardReachable(port, timeoutMs = 750) {
+async function isBoardReachable(port, timeoutMs = 750, host = '127.0.0.1') {
   return new Promise((resolve) => {
     const req = http.request(
-      { host: '127.0.0.1', port, path: '/api/dashboard', method: 'GET', timeout: timeoutMs },
+      { host, port, path: '/api/dashboard', method: 'GET', timeout: timeoutMs },
       (res) => {
         const ok = res.statusCode >= 200 && res.statusCode < 500;
         res.resume();   // drain
@@ -54,14 +54,14 @@ async function isBoardReachable(port, timeoutMs = 750) {
  * Check if a TCP port is available on localhost.
  * Returns true when we can successfully bind (port is free).
  */
-function isPortAvailable(port) {
+function isPortAvailable(port, host = "127.0.0.1") {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.once("error", () => resolve(false));
     server.once("listening", () => {
       server.close(() => resolve(true));
     });
-    server.listen(port, "127.0.0.1");
+    server.listen(port, host);
   });
 }
 
@@ -69,13 +69,20 @@ function isPortAvailable(port) {
  * Starting from `desiredPort`, return the first free port within `maxTries`.
  * Returns null if none available.
  */
-async function findAvailablePort(desiredPort, maxTries = 10) {
+async function findAvailablePort(desiredPort, maxTries = 10, host = "127.0.0.1") {
   for (let i = 0; i < maxTries; i++) {
     const port = desiredPort + i;
-    if (await isPortAvailable(port)) return port;
+    if (await isPortAvailable(port, host)) return port;
   }
   return null;
 }
+
+/**
+ * KJC-BUG-0498: where the board answers when bound to `bind`. On every
+ * interface (0.0.0.0, ::) it answers on loopback too; bound to one address
+ * (Tailscale, LAN) it answers only there, so that is where it is checked.
+ */
+export const probeHost = (bind) => (["0.0.0.0", "::", ""].includes(bind ?? "") ? "127.0.0.1" : bind);
 
 /**
  * Build the board URL. KJC-TSK-0884 (ADR 0011, board scoped): with a project,
@@ -154,7 +161,7 @@ export function waitForEarlyExit(child, logPath) {
 // out, so we never announce "HU Board started" for an unreachable
 // server. Overridable with KJ_BOARD_READY_TIMEOUT_MS (tests set it
 // low to stay fast).
-async function waitForBoardReachable(port, totalTimeoutMs) {
+async function waitForBoardReachable(port, totalTimeoutMs, host = "127.0.0.1") {
   const envTimeout = Number(process.env.KJ_BOARD_READY_TIMEOUT_MS);
   const budget = Number.isFinite(envTimeout) && envTimeout >= 0
     ? envTimeout
@@ -164,7 +171,7 @@ async function waitForBoardReachable(port, totalTimeoutMs) {
   while (Date.now() < deadline) {
     const remaining = deadline - Date.now();
     const probeTimeout = Math.min(750, Math.max(50, remaining));
-    if (await isBoardReachable(port, probeTimeout)) return true;
+    if (await isBoardReachable(port, probeTimeout, host)) return true;
     const wait = Math.min(intervalMs, deadline - Date.now());
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   }
@@ -190,7 +197,8 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   // pre-fix scenario: 🔁 self-restart didn't update the PID file
   // (now fixed), so a `kj plan` afterwards saw a stale PID, spawned
   // a duplicate board on port 4001, and confused the user.
-  if (await isBoardReachable(desiredPort)) {
+  const host = probeHost(bind);
+  if (await isBoardReachable(desiredPort, 750, host)) {
     return {
       ok: true,
       alreadyRunning: true,
@@ -200,7 +208,7 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   }
 
   // Find a free port starting from desiredPort
-  const port = await findAvailablePort(desiredPort, 10);
+  const port = await findAvailablePort(desiredPort, 10, host);
   if (port === null) {
     throw new Error(`No free port in range ${desiredPort}-${desiredPort + 9}`);
   }
@@ -253,10 +261,11 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   // or be still booting. Probe /api/dashboard before announcing
   // success — without this the CLI used to print "HU Board started
   // at http://localhost:4000" while :4000 actually returned nothing.
-  const reachable = await waitForBoardReachable(port);
+  const reachable = await waitForBoardReachable(port, undefined, host);
   if (!reachable) {
+    const where = host === "127.0.0.1" ? "localhost" : host;
     throw new Error(
-      `HU Board daemon spawned (PID ${child.pid}) but did not answer on http://localhost:${port} in time. See ${logPath} for the cause.`
+      `HU Board daemon spawned (PID ${child.pid}) but did not answer on http://${where}:${port} in time. See ${logPath} for the cause.`
     );
   }
   fs.writeFileSync(PID_FILE, String(child.pid));
