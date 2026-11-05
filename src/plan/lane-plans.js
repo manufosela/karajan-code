@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { plansDir } from "./plan-store.js";
 import { mainCheckout } from "../utils/main-checkout.js";
-import { MIRROR_PLAN_ID } from "../hu/team-board-mirror.js";
+import { isMirrorFile } from "../hu/team-board-mirror.js";
 
 const LANE_DIRS = [".kj_worktrees_", ".claude_worktrees_"];
 
@@ -39,7 +39,7 @@ export async function migrateLanePlans(projectDir) {
     await fs.mkdir(target, { recursive: true });
     for (const file of await fs.readdir(from)) {
       // The team board mirror is no plan: `kj hu list` rewrites it from GitHub, a lane's copy is stale.
-      if (file === `${MIRROR_PLAN_ID}.json`) { await fs.unlink(path.join(from, file)); continue; }
+      if (isMirrorFile(file)) { await fs.unlink(path.join(from, file)); continue; }
       try {
         await moveEntry(path.join(from, file), path.join(target, file), main);
         moved.push(file);

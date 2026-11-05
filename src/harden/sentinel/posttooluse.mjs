@@ -176,7 +176,8 @@ process.stdin.on("end", () => {
         }
         save(state);
       }
-      const moved = /kj\s+hu\s+move\s+([A-Za-z0-9-]+)\s+([a-z&-]+)/i.exec(String(input.command || ""));
+      // KJC-BUG-0488: `node bin/kj.js hu move` (the tree's kj) moves the HU as `kj hu move` does.
+      const moved = /kj(?:\.js)?\s+hu\s+move\s+([A-Za-z0-9-]+)\s+([a-z&-]+)/i.exec(String(input.command || ""));
       // "not found" counts as failure (KJC-BUG-0154): a move that moved nothing must not
       // clear a pending — that would discard a LEGITIMATE one without touching the tracker.
       if (moved && CLOSING.includes(moved[2].toLowerCase()) && !/error|fail|not found/i.test(text)) clearPending(moved[1].toUpperCase());

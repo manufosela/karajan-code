@@ -184,6 +184,15 @@ describe("updateInstruction", () => {
     expect(msg).toContain("npm install -g karajan-code");
     expect(msg).toContain("binary installer");
   });
+
+  // KJC-BUG-0489: a session followed "npm install -g" over the user's linked stable clone and
+  // left kj pinned to an npm copy. A linked tree updates with that tree, never with npm.
+  it("a kj linked from a source tree is updated with that tree, never with npm install -g", () => {
+    const msg = updateInstruction({ channel: "npm", sourceTree: true });
+    expect(msg).not.toContain("npm install -g");
+    expect(msg).toMatch(/source tree/);
+    expect(msg).toMatch(/pull/);
+  });
 });
 
 // KJC-BUG-0301: the two facts that keep kj update from a downgrade or a link.

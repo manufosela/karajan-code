@@ -1,8 +1,8 @@
 // HU-3333/HU-3335: the GitHub Issues manager against the shared story contract;
 // gh is a fake that keeps issues in memory.
 import { expect, it } from "vitest";
-import { createGithubManager } from "../../src/hu/managers/github/index.js";
-import { runStoryContract } from "./story-contract-suite.js";
+import { createGithubManager } from "../src/manager.js";
+import { runStoryContract } from "../../story-contract/src/suite.js";
 
 const REPO = "acme/app";
 const out = (stdout = "") => ({ exitCode: 0, stdout });

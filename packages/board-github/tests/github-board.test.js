@@ -1,7 +1,7 @@
 // KJC-TSK-1162 (TEAM-GH-A, ADR 0025): the shared HU Board lives in GitHub Issues. Each HU is
 // an issue (its number is the id), its state a kj:<status> label; gh is faked here.
 import { describe, it, expect } from "vitest";
-import { createHu, listHus, setStatus, claim, assertNotHeld, BoardOfflineError, BoardRejectedError, HuClaimedError } from "../../src/hu/github-board.js";
+import { createHu, listHus, setStatus, claim, assertNotHeld, BoardOfflineError, BoardRejectedError, HuClaimedError } from "../src/github-board.js";
 
 const REPO = "acme/app";
 

@@ -109,6 +109,13 @@ describe("board-sync — limpieza del pendiente", () => {
   // KJC-BUG-0154, mitad (2): «HU "X" not found» no contiene error ni fail, así que un move
   // que no movió NADA limpiaba el pendiente — vía válida para descartar uno legítimo sin
   // tocar el tracker. Un movimiento fantasma no limpia.
+  // KJC-BUG-0488: the kj of the tree (node bin/kj.js), for code not merged yet, moves the HU too.
+  it("node bin/kj.js hu move limpia el pendiente como kj hu move", () => {
+    seed("KJC-TSK-0042");
+    hook(post, { tool_name: "Bash", tool_input: { command: "node bin/kj.js hu move KJC-TSK-0042 done" }, tool_response: { stdout: "✓ KJC-TSK-0042 → done" } });
+    expect(state().sessions.s1.pending_moves).toHaveLength(0);
+  });
+
   it("kj hu move de una HU inexistente NO limpia el pendiente", () => {
     seed("KJC-TSK-0042");
     hook(post, { tool_name: "Bash", tool_input: { command: "kj hu move KJC-TSK-0042 done" }, tool_response: { stdout: 'HU "KJC-TSK-0042" not found — see kj hu list' } });

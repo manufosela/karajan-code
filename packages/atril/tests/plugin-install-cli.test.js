@@ -57,6 +57,25 @@ describe("installConfirm", () => {
     await installConfirm({ yes: true, tty: false, ask: vi.fn(), err }).confirm([member()]);
     expect(lines.join("")).not.toContain("will be installed");
   });
+  it("says what it will create in .rulesync/ before the question, and only when it will", async () => {
+    const { lines, err } = out();
+    const ask = vi.fn(async () => "y");
+    await installConfirm({ yes: false, tty: true, ask, err }).confirm([member()], { creates: ["hooks.json", "mcp.json"] });
+    const text = lines.join("");
+    expect(text).toContain("no .rulesync/");
+    expect(text).toContain("hooks.json, mcp.json and the ledger .owners.json");
+    expect(text).toContain("no rulesync init example files");
+    const quiet = out();
+    await installConfirm({ yes: true, tty: false, ask, err: quiet.err }).confirm([member()], {});
+    expect(quiet.lines.join("")).not.toContain("no .rulesync/");
+  });
+  it("a dry run says what it would create and writes nothing", async () => {
+    const { lines, err } = out();
+    const gate = installConfirm({ yes: false, tty: false, ask: vi.fn(), err });
+    expect(await gate.confirm([member()], { creates: ["mcp.json"] })).toBe(false);
+    expect(lines.join("")).toContain("mcp.json and the ledger");
+    expect(lines.join("")).toContain("dry run");
+  });
   it("no terminal and no --yes is a dry run", async () => {
     const { lines, err } = out();
     const gate = installConfirm({ yes: false, tty: false, ask: vi.fn(), err });
@@ -126,6 +145,11 @@ describe("notInstalledLines", () => {
     const lines = notInstalledLines({ ...base, rulesync: { status: "merged", needs: ["TOKEN", "KEY2"] } });
     expect(lines.filter((line) => /needs \$\{(TOKEN|KEY2)\}/.test(line) && line.includes("kit"))).toHaveLength(2);
     expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/environment/);
+  });
+  it("says .rulesync/ was created, only when the install created it", () => {
+    const base = { notInstalled: { hooks: [], mcpServers: [], bin: [] } };
+    expect(notInstalledLines({ ...base, rulesync: { status: "merged", created: true } })).toContain("atril: created .rulesync/ (it did not exist)");
+    expect(notInstalledLines({ ...base, rulesync: { status: "merged" } }).join("\n")).not.toMatch(/created/);
   });
   it("lists hooks, MCP servers, bin and unsupported npm", () => {
     const text = notInstalledLines({ notInstalled: { hooks: [{}], mcpServers: [{ name: "db" }], bin: ["x"] }, npm: { status: "unsupported", reason: "no lockfile" } }).join("\n");

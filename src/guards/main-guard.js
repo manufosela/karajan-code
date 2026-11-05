@@ -9,6 +9,8 @@
  * api.protection()   → the branch protection, or null when the branch is not protected
  */
 
+import { findValidException } from "./main-guard-exception.js";
+
 // GitHub counts these as passing for a required check.
 const PASSING = new Set(["success", "neutral", "skipped"]);
 
@@ -17,14 +19,18 @@ function mergedInto(pulls, branch) {
   return pulls.find((p) => p.merged_at && p.base?.ref === branch) ?? null;
 }
 
-async function auditCommit(sha, { branch, requiredChecks, api }) {
+async function auditCommit(sha, { branch, repo, requiredChecks, keys, api }) {
   const pull = mergedInto(await api.pullsOf(sha), branch);
   if (!pull) return { sha, kind: "direct-push", detail: `no pull request merged into ${branch}` };
   const results = await api.checksOf(pull.head.sha);
   const passed = new Set(results.filter((c) => PASSING.has(c.conclusion)).map((c) => c.name));
   const missing = requiredChecks.filter((name) => !passed.has(name));
   if (missing.length === 0) return null;
-  return { sha, kind: "checks-skipped", pr: pull.number, mergedBy: pull.merged_by?.login ?? "unknown", missing };
+  const finding = { sha, kind: "checks-skipped", pr: pull.number, mergedBy: pull.merged_by?.login ?? "unknown", missing };
+  // KJC-TSK-1402: the maintainer's phone-signed exception for this PR and head lets it through, named.
+  if (!api.exceptionsOf || !keys?.size) return finding;
+  const found = findValidException({ bodies: await api.exceptionsOf(pull.number), repo, pr: pull.number, head: pull.head.sha, keys });
+  return found.ok ? { ...finding, kind: "excepted", why: found.why, signer: found.signer } : finding;
 }
 
 /** What changed in the protection against what is declared. */
@@ -39,16 +45,19 @@ function auditProtection(protection, { branch, requiredChecks }) {
 }
 
 /**
- * @param {{ branch: string, commits: string[], requiredChecks: string[], api: object }} opts
- * @returns {Promise<{ ok: boolean, merges: object[], protection: string[] }>}
+ * @param {{ branch: string, repo?: string, commits: string[], requiredChecks: string[], keys?: Set<string>, api: object }} opts
+ *   keys: the roster's public keys; api.exceptionsOf(pr): the PR's comment bodies (KJC-TSK-1402)
+ * @returns {Promise<{ ok: boolean, merges: object[], protection: string[], exceptions?: object[] }>}
  */
-export async function auditMain({ branch, commits, requiredChecks, api }) {
+export async function auditMain({ branch, repo, commits, requiredChecks, keys, api }) {
   if (!requiredChecks?.length) throw new Error("main-guard: declare at least one required check to audit against");
   const merges = [];
+  const exceptions = [];
   for (const sha of commits) {
-    const finding = await auditCommit(sha, { branch, requiredChecks, api });
-    if (finding) merges.push(finding);
+    const finding = await auditCommit(sha, { branch, repo, requiredChecks, keys, api });
+    if (finding) (finding.kind === "excepted" ? exceptions : merges).push(finding);
   }
+  // A change to the protection never takes an exception: it is reported whatever was signed.
   const protection = auditProtection(await api.protection(), { branch, requiredChecks });
-  return { ok: merges.length === 0 && protection.length === 0, merges, protection };
+  return { ok: merges.length === 0 && protection.length === 0, merges, protection, ...(exceptions.length && { exceptions }) };
 }

@@ -1906,6 +1906,10 @@ A contributor's cross-AI review rejected three compiled rules of kj's own method
 
 The maintainer could not find the confirmation code of `kj rules approve`: it listed all 143 rules when 8 changed. Rules already approved and proposed again as they are now fold into one line, while a weakened rule still shows first. The same night the evaluator learned to read a list item by its index, so a rule that had to stay judgment (one decision per question) became a gate, and recompiling it showed that an approved rule could only be reopened by retyping the whole proposal: `kj rules compile --reopen` writes it from the approved rules. A contributor put GitHub Issues behind the story contract of ADR 0029, with each task manager declaring what it can do, and capped the embedder's CPU.
 
+## Phase 161: v5.6.0, your stories where you keep them
+
+The HU Board kept its stories in GitHub Issues or on the disk, and a team on Linear had to copy them. A contributor finished the plan of ADR 0029 in a day: a small story contract with a shared suite, GitHub Issues and Linear behind it, the core driving any manager through it, and community packages loaded behind an allowlist, because a manager runs with the agent's rights and sees its credentials. The maintainer asked for that last part, and for managers that adapt to a board already in use. main-guard learned to take an exception: a merge past its checks passes only with the maintainer's phone signature over the repo, the PR, its head and the reason, posted on the PR and checked in CI against the repo's roster, while a change to the protection still alarms.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

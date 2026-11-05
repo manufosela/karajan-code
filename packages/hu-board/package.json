@@ -20,8 +20,9 @@
     "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
     "js-yaml": "^4.2.0",
-    "karajan-core": "*",
+    "karajan-core": "^1.7.0",
     "node-pty": "^1.1.0",
+    "sqlite-vec": "^0.1.9",
     "ws": "^8.21.3"
   },
   "devDependencies": {

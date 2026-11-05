@@ -3,7 +3,6 @@
 // it talks to, with `backend.rejectMoves()` (writes of a status are silently dropped) and
 // `backend.corrupt(shortId, n)` (the story ends up with n status labels, as if edited by hand).
 import { describe, it, expect } from "vitest";
-import { BoardRejectedError, HuClaimedError } from "./board-errors.js";
 import { assertManager, CAPABILITY_VALUES, HU_FIELDS } from "./story-contract.js";
 
 export function runStoryContract(name, makeManager) {
@@ -41,7 +40,7 @@ export function runStoryContract(name, makeManager) {
       const { manager, backend } = setup();
       const { short_id } = await manager.create({ title: "t" });
       backend.rejectMoves();
-      await expect(manager.move(short_id, "running")).rejects.toBeInstanceOf(BoardRejectedError);
+      await expect(manager.move(short_id, "running")).rejects.toMatchObject({ name: "BoardRejectedError" });
     });
 
     it("keeps a running Hu with its holder unless the other user releases it", async () => {
@@ -49,7 +48,7 @@ export function runStoryContract(name, makeManager) {
       const { short_id } = await manager.create({ title: "t" });
       await manager.claim(short_id, "alice");
       await manager.move(short_id, "running");
-      await expect(manager.claim(short_id, "bob")).rejects.toBeInstanceOf(HuClaimedError);
+      await expect(manager.claim(short_id, "bob")).rejects.toMatchObject({ name: "HuClaimedError" });
       expect(await manager.claim(short_id, "bob", { release: true })).toMatchObject({ short_id, claimed_by: "bob" });
     });
 
@@ -66,7 +65,7 @@ export function runStoryContract(name, makeManager) {
       const { manager, backend } = setup();
       const { short_id } = await manager.create({ title: "t" });
       backend.corrupt(short_id, n);
-      await expect(manager.list()).rejects.toBeInstanceOf(BoardRejectedError);
+      await expect(manager.list()).rejects.toMatchObject({ name: "BoardRejectedError" });
     });
   });
 }

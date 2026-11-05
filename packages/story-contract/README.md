@@ -31,6 +31,8 @@ import { runStoryContract } from "@karajan-family/story-contract/suite";
 runStoryContract("my manager", makeManager);
 ```
 
+Writing a manager? Read [docs/TASK-MANAGERS.md](../../docs/TASK-MANAGERS.md) and copy [`template/`](template/).
+
 ## Versions
 
 A change that breaks a manager that passes today's suite is a major version.
