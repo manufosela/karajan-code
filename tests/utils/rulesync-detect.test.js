@@ -21,6 +21,12 @@ describe("detectRulesync", () => {
     expect(detectRulesync(dir)).toBe(false);
   });
 
+  it("the minimal .rulesync atril creates for a plugin (hooks.json, mcp.json, ledger, no rules) is not Rulesync", () => {
+    fs.rmSync(path.join(dir, ".rulesync"), { recursive: true });
+    for (const file of ["hooks.json", "mcp.json", ".owners.json"]) write(`.rulesync/${file}`, "{}\n");
+    expect(detectRulesync(dir)).toBe(false);
+  });
+
   it("rulesync.jsonc is", () => {
     write("rulesync.jsonc", "{}\n");
     expect(detectRulesync(dir)).toBe(true);

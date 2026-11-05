@@ -4,7 +4,7 @@
  * ledger: `<file>#<plugin>/<server>` for an MCP server, `<file>#<plugin>/<event>/<sha256 hex>` for a hook handler.
  * User entries and other plugins' entries are never touched; remove undoes exactly what merge wrote.
  */
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { writeAtomic } from "./atomic.js";
 import { hashContent, LEDGER_FILE, OWNER, readLedger, withLedger } from "./ledger.js";
@@ -73,7 +73,15 @@ function snapshot(projectDir) {
  */
 export function mergeEntries(projectDir, plugin, canonical) {
   checkName("plugin name", plugin);
-  const undo = snapshot(projectDir);
+  // A project with no `.rulesync/` gets only the folder and what the merge writes (never `rulesync init`'s examples); undo takes the folder away again while it is empty.
+  const folder = join(projectDir, RULESYNC);
+  const created = !existsSync(folder);
+  if (created) mkdirSync(folder);
+  const restore = snapshot(projectDir);
+  const undo = () => {
+    restore();
+    if (created) try { rmdirSync(folder); } catch { /* someone else put a file in it meanwhile: it is theirs now */ }
+  };
   try { merge(projectDir, plugin, canonical); } catch (error) { undo(); throw error; }
   return undo;
 }

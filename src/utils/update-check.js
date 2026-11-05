@@ -79,9 +79,13 @@ export const INSTALL_PS1_URL = `${RAW_BASE}/install-binary.ps1`;
 /**
  * Build the "how to update" line for the detected install channel.
  * Pure and testable — no I/O.
- * @param {{channel: "sea"|"npm"|"unknown", platform?: string}} opts
+ * @param {{channel: "sea"|"npm"|"unknown", platform?: string, sourceTree?: boolean}} opts
  */
-export function updateInstruction({ channel, platform = process.platform }) {
+export function updateInstruction({ channel, platform = process.platform, sourceTree = false }) {
+  // KJC-BUG-0489: "npm install -g" over a linked tree replaces the link with a pinned npm copy.
+  if (channel === "npm" && sourceTree) {
+    return "This kj runs from a source tree (npm link): it updates when that tree is pulled, not through npm (a global install would replace the link)";
+  }
   if (channel === "sea") {
     return platform === "win32"
       ? `Re-run the installer: irm ${INSTALL_PS1_URL} | iex`
@@ -172,7 +176,7 @@ export async function printUpdateNotice(currentVersion) {
       "",
       `  Update available: v${result.current} → v${result.latest}`,
       ...(result.highlight ? [`  What it brings: ${result.highlight}`] : []),
-      `  ${updateInstruction({ channel })}`,
+      `  ${updateInstruction({ channel, sourceTree: isSourceTree() })}`,
       "  Agent: tell your user and ask before updating — never update on your own.",
       "",
     ];

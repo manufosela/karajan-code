@@ -58,6 +58,28 @@ describe("guards/main-guard — KJC-TSK-1368", () => {
     expect((await audit([], { prot })).protection).toEqual([]);
   });
 
+  // KJC-TSK-1402: a merge that skipped its checks with the maintainer's signed exception passes,
+  // and is named; one without it, or with an exception for another head, still alarms.
+  it("a merge with a valid signed exception passes and is listed; without it, it alarms", async () => {
+    const { generateKeyPairSync, sign } = await import("node:crypto");
+    const { canonicalPayload } = await import("../../src/harden/phone-sign.js");
+    const { exceptionFiles, renderException } = await import("../../src/guards/main-guard-exception.js");
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const signer = publicKey.export({ format: "der", type: "spki" }).subarray(12).toString("base64");
+    const ex = { repo: "acme/app", pr: 11, head: "h1", why: "transition merge" };
+    const challenge = { cid: "c", nonce: "n", project: "app", v: 2, kjVersion: "5.5.0", issuedMs: 1, expiresMs: 2 };
+    const signature = { ...challenge, signer, signature: sign(null, Buffer.from(canonicalPayload({ ...challenge, files: exceptionFiles(ex) })), privateKey).toString("base64") };
+    const world = { pulls: { m1: [pr(11, "h1", "someone")] }, checks: { h1: [] } };
+    const run = (comments, keys = new Set([signer])) => auditMain({
+      branch: "main", repo: "acme/app", commits: ["m1"], requiredChecks: REQUIRED, keys,
+      api: { ...apiOf(world), exceptionsOf: async (n) => (n === 11 ? comments : []) },
+    });
+    const passed = await run([renderException({ ...ex, signature })]);
+    expect(passed).toMatchObject({ ok: true, merges: [], exceptions: [{ sha: "m1", pr: 11, mergedBy: "someone", why: "transition merge" }] });
+    expect((await run([renderException({ ...ex, head: "h0", signature })])).merges).toHaveLength(1);
+    expect((await run([renderException({ ...ex, signature })], new Set())).ok).toBe(false);
+  });
+
   it("an unprotected main is reported, and an empty declaration is refused", async () => {
     expect((await audit([], { prot: null })).protection).toEqual(["main is not protected"]);
     await expect(auditMain({ branch: "main", commits: [], requiredChecks: [], api: apiOf() })).rejects.toThrow(/required check/);

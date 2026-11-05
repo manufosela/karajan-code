@@ -108,6 +108,8 @@ export const HUMAN_ACTS = Object.freeze({
   "security-level-down": { label: "kj security normal", module: "src/harden/security-level.js" },
   // KJC-TSK-1385 (ADR 0045): the agent may tighten a rule; only the human loosens one.
   "gates-loosen": { label: "kj gates set (aflojar una regla)", module: "src/commands/gates.js" },
+  // KJC-TSK-1402 (ADR 0037): a merge past its required checks passes main-guard only with this.
+  "main-guard-except": { label: "kj main-guard-except", module: "src/commands/main-guard-except.js" },
 });
 
 /**

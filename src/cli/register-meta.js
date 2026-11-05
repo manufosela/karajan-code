@@ -352,7 +352,8 @@ export function registerMeta(program, { pkgVersion }) {
     });
   // KJC-TSK-1163 (ADR 0025): the team board, turned on once per repo.
   hu.command("backend <backend>")
-    .description("Turn the repo's HU Board on: github (shared, in GitHub Issues) or local; writes .karajan/board.yml for a PR")
+    .description("Turn the repo's HU Board on: github (shared, in GitHub Issues), linear or local; writes .karajan/board.yml for a PR")
+    .option("--team <key>", "linear: the team key written in the file")
     .option("--json", "Machine-readable output")
     .action(async (backend, flags) => {
       await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
@@ -794,6 +795,16 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       const { mainGuardCommand } = await import("../commands/main-guard.js");
       await mainGuardCommand({ flags });
+    });
+  // KJC-TSK-1402: the maintainer's signed exception for a merge past its required checks (human act).
+  program.command("main-guard-except")
+    .description("HUMAN act: sign on the phone an exception for a PR merged without its required checks, posted on the PR for main-guard")
+    .argument("<pr>", "The pull request number")
+    .requiredOption("--repo <owner/repo>", "GitHub repository")
+    .requiredOption("--why <reason>", "Why the checks are skipped: it is signed and shown in main-guard's report")
+    .action(async (pr, flags) => {
+      const { mainGuardExceptCommand } = await import("../commands/main-guard-except.js");
+      await mainGuardExceptCommand({ repo: flags.repo, pr, why: flags.why, kjVersion: pkgVersion });
     });
 
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");

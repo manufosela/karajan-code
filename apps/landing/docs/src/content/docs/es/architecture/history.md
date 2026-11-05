@@ -1905,6 +1905,10 @@ La revisión cruzada de un colaborador rechazó tres reglas compiladas del propi
 
 El mantenedor no encontraba el código de confirmación de `kj rules approve`: listaba las 143 reglas cuando cambiaban 8. Las reglas ya aprobadas que se proponen igual quedan ahora en una línea, y una regla debilitada sigue saliendo la primera. Esa misma noche el evaluador aprendió a leer un elemento de una lista por su índice, así que una regla que tenía que quedarse en juicio (una decisión por pregunta) pasó a ser un gate, y al recompilarla se vio que una regla aprobada solo se podía reabrir reescribiendo la propuesta entera: `kj rules compile --reopen` la escribe a partir de las aprobadas. Un colaborador puso GitHub Issues detrás del contrato de historias de la ADR 0029, con cada gestor de tareas declarando lo que sabe hacer, y limitó la CPU del embedder.
 
+## Phase 161: v5.6.0, tus historias donde ya las tienes
+
+El HU Board guardaba sus historias en GitHub Issues o en disco, y un equipo en Linear tenía que copiarlas. Un colaborador terminó en un día el plan de la ADR 0029: un contrato de historias pequeño con una suite compartida, GitHub Issues y Linear detrás, el núcleo manejando cualquier gestor a través de él, y paquetes de la comunidad cargados tras una lista de permitidos, porque un gestor corre con los permisos del agente y ve sus credenciales. El mantenedor pidió esa última parte, y gestores que se adapten a un board que ya se usa. main-guard aprendió a aceptar una excepción: un merge que salta sus checks solo pasa con la firma del móvil del mantenedor sobre el repo, la PR, su head y el motivo, publicada en la PR y comprobada en CI contra el padrón del repo, mientras un cambio en la protección sigue haciendo saltar la alarma.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

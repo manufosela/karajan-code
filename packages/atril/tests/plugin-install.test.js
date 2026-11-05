@@ -161,6 +161,39 @@ describe("installPlugin", () => {
       expect(result.notInstalled.mcpServers).toEqual([]);
     });
 
+    it("with no .rulesync/ the confirmation names what will be created, then only that is written", async () => {
+      withMcp();
+      const rulesync = vi.fn((_cmd, args) => { if (args.includes("import")) imports(args); });
+      const result = await installPluginSet("kit", o(), { confirm, git, run, rulesync });
+      expect(confirm.mock.calls[0][1]).toEqual({ creates: ["mcp.json"] });
+      expect(readdirSync(join(dir, ".rulesync")).sort()).toEqual([".owners.json", "mcp.json"]);
+      expect(result.rulesync).toEqual({ status: "merged", created: true });
+    });
+
+    it("declining creates nothing", async () => {
+      withMcp();
+      confirm = vi.fn(() => false);
+      await installPluginSet("kit", o(), { confirm, git, run });
+      expect(existsSync(join(dir, ".rulesync"))).toBe(false);
+    });
+
+    it("a plugin with no hooks or MCP asks about nothing and creates nothing", async () => {
+      market(GH);
+      await installPluginSet("kit", o(), { confirm, git, run });
+      expect(confirm.mock.calls[0][1]).toEqual({});
+      expect(existsSync(join(dir, ".rulesync"))).toBe(false);
+    });
+
+    it("an existing .rulesync/ is not announced as created, and removing the plugin leaves it", async () => {
+      withMcp();
+      mkdirSync(join(dir, ".rulesync"));
+      const rulesync = vi.fn((_cmd, args) => { if (args.includes("import")) imports(args); });
+      await installPluginSet("kit", o(), { confirm, git, run, rulesync });
+      expect(confirm.mock.calls[0][1]).toEqual({});
+      removePlugin("kit", o());
+      expect(existsSync(join(dir, ".rulesync"))).toBe(true);
+    });
+
     it("writes a sensitive key as ${VAR} with no value and reports the variable the user needs", async () => {
       withMcp();
       tree = { manifest: { userConfig: { TOKEN: { title: "t", sensitive: true } } }, files: { ".mcp.json": { mcpServers: { db: { command: "npx" } } } } };
@@ -292,10 +325,11 @@ describe("installPlugin", () => {
         expect(names()).toEqual([]);
       });
 
-      it("still fails, writing nothing, when the folder is missing", async () => {
+      it("when the folder is missing and a later step fails, the folder it created goes too", async () => {
         market(GH);
         tree = { files: kinds.mcp[1] };
-        await expect(installPlugin("kit", o(), { confirm, git, run, rulesync: importing(["mcp"]) })).rejects.toThrow(".rulesync/ is missing");
+        failRecord.plugin = "kit";
+        try { await expect(installPlugin("kit", o(), { confirm, git, run, rulesync: importing(["mcp"]) })).rejects.toThrow("lock write failed"); } finally { failRecord.plugin = null; }
         expect(existsSync(join(dir, ".rulesync"))).toBe(false);
         expect(lock().plugins).toBeUndefined();
       });

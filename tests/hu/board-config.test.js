@@ -73,8 +73,42 @@ describe("board config", () => {
 
   it("refuses a remote that is not GitHub and a file it cannot trust", async () => {
     await expect(setBoardBackend({ projectDir: dir, backend: "github", run: gitWith({ remote: "https://gitlab.com/a/b.git" }) })).rejects.toThrow(/not a GitHub remote/);
-    await expect(setBoardBackend({ projectDir: dir, backend: "jira", run: gitWith() })).rejects.toThrow(/github, local/);
+    await expect(setBoardBackend({ projectDir: dir, backend: "jira", run: gitWith() })).rejects.toThrow(/github, linear, local/);
     fs.writeFileSync(path.join(dir, ".karajan", "board.yml"), "backend: github\nrepo: not a repo\n");
     await expect(readBoardConfig(dir)).rejects.toThrow(/owner\/repo/);
+  });
+
+  const writeBoard = (text) => fs.writeFileSync(path.join(dir, ".karajan", "board.yml"), text);
+
+  it("reads the old files unchanged and the new block of a manager", async () => {
+    writeBoard("backend: github\nrepo: acme/app\n");
+    expect(await readBoardConfig(dir)).toEqual({ backend: "github", repo: "acme/app" });
+    writeBoard("backend: local\n");
+    expect(await readBoardConfig(dir)).toEqual({ backend: "local" });
+    writeBoard("backend: github\ngithub:\n  repo: acme/app\n");
+    expect(await readBoardConfig(dir)).toEqual({ backend: "github", repo: "acme/app" });
+    writeBoard("backend: linear\nlinear:\n  team: TRI\n  label: kj:hu\n");
+    expect(await readBoardConfig(dir)).toEqual({ backend: "linear", linear: { team: "TRI", label: "kj:hu" } });
+  });
+
+  it("fails loud on an unknown backend, listing the valid ones, and on a linear file with no block", async () => {
+    writeBoard("backend: jira\n");
+    await expect(readBoardConfig(dir)).rejects.toThrow(/github, linear, local/);
+    writeBoard("backend: linear\n");
+    await expect(readBoardConfig(dir)).rejects.toThrow(/linear block/);
+  });
+
+  it.each(["apiKey: x", "token: x", "Client_Secret: x", "nested:\n    password: x"])("rejects a secret in the file (%s)", async (line) => {
+    writeBoard(`backend: linear\nlinear:\n  team: TRI\n  ${line}\n`);
+    await expect(readBoardConfig(dir)).rejects.toThrow(/credentials come from the environment/);
+  });
+
+  it("kj hu backend linear writes the block the user fills in", async () => {
+    const r = await setBoardBackend({ projectDir: dir, backend: "linear", team: "TRI", run: gitWith() });
+    expect(r).toMatchObject({ backend: "linear", linear: { team: "TRI", label: "kj:hu" } });
+    const { states } = (await readBoardConfig(dir)).linear;
+    expect(states).toEqual({ pending: "Todo", running: "In Progress", done: "Done", failed: "Canceled", skipped: "Backlog" });
+    expect(new Set(Object.values(states)).size).toBe(5);
+    expect(Object.values(states)).not.toContain("Duplicate");
   });
 });

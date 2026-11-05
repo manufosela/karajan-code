@@ -1,7 +1,7 @@
 # atril plugin machinery lives in the shared .rulesync with entries owned in the ledger
 
 Status: accepted
-Date: 2026-11-02 (accepted 2026-11-02, amended 2026-11-02, amended 2026-11-03)
+Date: 2026-11-02 (accepted 2026-11-02, amended 2026-11-02, amended 2026-11-03, amended 2026-11-04)
 
 ## Context
 
@@ -30,6 +30,8 @@ After install and remove, atril runs rulesync generate only if the project turne
 The user_config secrets of a plugin are never written in clear text to .rulesync. They are referenced as ${VAR} in env or headers, with no value.
 
 Removing a plugin deletes its entries from the ledger and from .rulesync, and its skills, commands and agents from the atril store. The next rulesync generate removes them from the other CLIs.
+
+Amended by the maintainer on 2026-11-04 (implemented in PR 3374, HU-3358). A project without .rulesync gets the minimal folder after the user confirms. When a plugin brings hooks or MCP servers and the project has no .rulesync/, atril creates it with only what it needs: the folder, hooks.json and/or mcp.json, and the ledger .owners.json. The confirmation is the one of the install: `--yes` is the answer; with no terminal and no `--yes` it is the dry run, which writes nothing. Declining creates nothing. atril never creates the example files of `rulesync init`. The install says `created .rulesync/ (it did not exist)`. Removing the last plugin leaves the folder alone. This replaces any earlier reading that a project without .rulesync gets only the Markdown, or is told to run `rulesync init`.
 
 ## Consequences
 
