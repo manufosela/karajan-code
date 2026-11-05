@@ -7,6 +7,7 @@ import { createDirector, cueFor } from './director.js';
 import { LIFETIME_MS, boxAt } from './line.js';
 import { LINE } from './layout.js';
 import { restState, withEvent } from './rest.js';
+import { createAgentsFloor } from './agents-floor.js';
 
 const CRATE = 0.5;
 const DARK = { gold: 0, red: 0 };
@@ -27,6 +28,7 @@ export function createLive({ scene, pieces, camera }, { state: initial, tell, co
   let state = initial;
   const director = createDirector({ lifetime: LIFETIME_MS });
   const crates = new Map();
+  const floor = createAgentsFloor({ scene, camera }, initial.working ?? [], performance.now());
   /** Every station back to its last real state; returns that state. */
   const settle = () => {
     const rest = restState(state, Date.now());
@@ -40,8 +42,9 @@ export function createLive({ scene, pieces, camera }, { state: initial, tell, co
       const next = withEvent(state, event);
       if (next === state) return; // not a stage event
       state = next;
-      // An agent at work moves no crate (KJC-TSK-1430): only the status list tells it.
+      // An agent at work moves no crate (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
+      floor.push(event, now);
       tell(settle().lines);
     },
     /** Moves the crates and flashes the stations they reached. */
@@ -66,7 +69,7 @@ export function createLive({ scene, pieces, camera }, { state: initial, tell, co
         else pieces[cue.piece].setLight(Math.max(base.gold, box.flash), base.red);
         if (cue.count > 1) tags.push(countTag(cue.count, mesh.position, camera));
       }
-      counts.replaceChildren(...tags);
+      counts.replaceChildren(...tags, ...floor.frame(now));
     },
   };
 }
