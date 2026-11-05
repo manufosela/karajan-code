@@ -122,6 +122,10 @@ export function buildSecurityMiddleware() {
           "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
           "img-src": ["'self'", "data:"],
+          // KJC-BUG-0492: off loopback (kj board --bind) the board is plain
+          // http; upgrading its requests sent every script to https and the
+          // pages stayed blank.
+          "upgrade-insecure-requests": null,
         },
       },
       // The board is a same-origin SPA; cross-origin embedders should
