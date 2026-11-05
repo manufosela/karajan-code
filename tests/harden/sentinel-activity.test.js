@@ -1,10 +1,11 @@
 // KJC-TSK-1434 (ADR 0048): the host agent leaves a trace from the hooks it already
 // runs, so kj stage shows it at work in its lane, and its subagents as they come and go.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BEAT_MS, hostTrace, traceHost } from "../../src/harden/sentinel/sentinel-activity.mjs";
+import { GOVERNING_WIRING, SENTINEL_WIRING, installSentinelHooks, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
 
 const call = (tool, extra = {}) => ({ session_id: "s1", tool_name: tool, tool_use_id: "t1", ...extra });
 
@@ -34,6 +35,24 @@ describe("hostTrace", () => {
     expect(lines).toEqual([{ agent: "claude", role: "host", phase: "end", id: "s1" }]);
     expect(beats).toEqual({});
     expect(hostTrace({}, { session_id: "s1" }, "stop", 9).lines).toEqual([]);
+  });
+});
+
+describe("the stage's wiring", () => {
+  let dir;
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "stage-wiring-")); });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("kj harden installs it, but a project wired before it is not taken for tampered", () => {
+    installSentinelHooks({ projectDir: dir, logger: { info() {}, warn() {} } });
+    const settings = join(dir, ".claude", "settings.json");
+    const cfg = JSON.parse(readFileSync(settings, "utf8"));
+    expect(cfg.hooks.PostToolUse.map((e) => e.matcher)).toContain("Agent|Task");
+    cfg.hooks.PostToolUse = cfg.hooks.PostToolUse.filter((e) => e.matcher !== "Agent|Task");
+    writeFileSync(settings, JSON.stringify(cfg));
+    expect(verifySentinelScripts({ projectDir: dir })).toMatchObject({ ok: true });
+    expect(GOVERNING_WIRING.some((e) => e.matcher === "Agent|Task")).toBe(false);
+    expect(SENTINEL_WIRING.some((e) => e.matcher === "Agent|Task")).toBe(true);
   });
 });
 

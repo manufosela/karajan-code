@@ -131,7 +131,7 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
   // KJC-TSK-1206 (ADR 0030): wired to the package runner, the guard that runs is
   // the installed kj's, so the wiring is what can be tampered with and is checked.
   // The governing guards; the tool gate (Write over an existing file) is a convenience.
-  const wiring = wiringState({ projectDir: root, entries: SENTINEL_WIRING });
+  const wiring = wiringState({ projectDir: root, entries: GOVERNING_WIRING });
   if (wiring.missing.length > 0) {
     return { ok: false, mismatched: wiring.missing, wiring: true, reason: "hooks de .claude/settings.json que ya no llaman a su guardia — restaura con kj harden" };
   }
@@ -244,8 +244,9 @@ export const SENTINEL_WIRING = [
   // KJC-BUG-0236 (#1886): the rag-first ledger records MCP answers here;
   // unwired, the official tool never satisfied the gate.
   { event: "PostToolUse", matcher: "mcp__.*__kj_rag_query", script: "posttooluse.mjs" },
-  // KJC-TSK-1434 (ADR 0048): a subagent coming back, for kj stage.
-  { event: "PostToolUse", matcher: "Agent|Task", script: "posttooluse.mjs" },
+  // KJC-TSK-1434 (ADR 0048): a subagent coming back, for kj stage. It governs
+  // nothing, so a project wired before it is not tampered with (stage: true).
+  { event: "PostToolUse", matcher: "Agent|Task", script: "posttooluse.mjs", stage: true },
   { event: "Stop", script: "stop.mjs" },
   // KJC-TSK-0918 (ADR 0014): the critical rules back after a compaction or a resume.
   { event: "SessionStart", matcher: "compact", script: "sessionstart.mjs" },
@@ -253,3 +254,6 @@ export const SENTINEL_WIRING = [
   // KJC-TSK-0949: a new session hears of MD rules with no gate, and nothing else.
   { event: "SessionStart", matcher: "startup", script: "sessionstart.mjs" },
 ];
+
+/** The wiring that governs: what the checks demand. kj harden installs SENTINEL_WIRING whole. */
+export const GOVERNING_WIRING = SENTINEL_WIRING.filter((e) => !e.stage);

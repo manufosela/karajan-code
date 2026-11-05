@@ -10,7 +10,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { detectHostAgent } from "../utils/agent-detect.js";
 import { wiringState } from "../harden/harness-hooks.js";
-import { SENTINEL_WIRING } from "../harden/sentinel-hooks.js";
+import { GOVERNING_WIRING } from "../harden/sentinel-hooks.js";
 
 /** Pure: computes the three tiers from observable facts. */
 export function guaranteeLevel({ host, harnessWired, policyDeclared, policyWorkflow }) {
@@ -31,7 +31,7 @@ export function guaranteeLevel({ host, harnessWired, policyDeclared, policyWorkf
 /** Facts from disk + env; injectable for tests. */
 export function collectGuaranteeFacts({ projectDir = process.cwd(), deps = {} } = {}) {
   // KJC-TSK-1208 (ADR 0030): the Sentinel is its wiring now, not files in the project.
-  const { detectHost = detectHostAgent, exists = existsSync, sentinelWired = () => wiringState({ projectDir, entries: SENTINEL_WIRING }).missing.length === 0 } = deps;
+  const { detectHost = detectHostAgent, exists = existsSync, sentinelWired = () => wiringState({ projectDir, entries: GOVERNING_WIRING }).missing.length === 0 } = deps;
   return guaranteeLevel({
     host: detectHost(),
     harnessWired: sentinelWired(),
