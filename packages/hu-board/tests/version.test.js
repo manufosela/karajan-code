@@ -42,7 +42,7 @@ beforeAll(async () => {
   app.use('/api', apiRoutes);
   app.get('/{*splat}', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store, must-revalidate');
-    res.sendFile(join(PUBLIC_DIR, 'index.html'));
+    res.sendFile('index.html', { root: PUBLIC_DIR });
   });
 });
 
