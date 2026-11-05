@@ -18,11 +18,18 @@ export function withEvent(state, event) {
     case 'review-verdict': return { ...state, verdict: { verdict: event.verdict, reviewer: event.reviewer, at: event.at } };
     case 'ledger-seal': return { ...state, seal: { decision: event.decision, chokepoint: event.chokepoint, at: event.at } };
     case 'commit-gate': return { ...state, gate: { outcome: event.outcome, rule: event.rule, at: event.at } };
+    case 'agent-activity': {
+      const others = (state.working ?? []).filter((w) => w.agent !== event.agent || w.role !== event.role);
+      const working = event.phase === 'start' ? [...others, { agent: event.agent, role: event.role, at: event.at }] : others;
+      return { ...state, working };
+    }
     default: return state;
   }
 }
 
-export function restState({ denial, verdict, seal, gate }, now) {
+const DOING = { coder: 'coding', reviewer: 'reviewing', solomon: 'arbitrating' };
+
+export function restState({ denial, verdict, seal, gate, working = [] }, now) {
   const lights = {};
   const lines = [];
   if (denial) {
@@ -43,5 +50,8 @@ export function restState({ denial, verdict, seal, gate }, now) {
     const told = gate.outcome === 'pass' ? 'commit passed' : `commit refused (${gate.rule})`;
     lines.push(`Git gates: ${told}, ${ago(gate.at, now)}`);
   }
+  // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
+  const doing = (w) => [w.agent, DOING[w.role] ?? w.role].join(' ');
+  if (working.length) lines.push(`At work: ${working.map(doing).join(', ')}`);
   return { lights, lines };
 }

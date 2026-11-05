@@ -31,7 +31,18 @@ afterEach(() => {
 
 describe('lastStageState', () => {
   it('is all null in a project without records', () => {
-    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null });
+    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, working: [] });
+  });
+
+  it('names the agents still at work: a recent start with no end (KJC-TSK-1430)', () => {
+    const now = Date.parse('2026-11-05T10:00:00Z');
+    writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl(
+      { at: '2026-11-05T09:58:00Z', agent: 'codex', role: 'reviewer', phase: 'start' },
+      { at: '2026-11-05T09:59:00Z', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok' },
+      { at: '2026-11-05T09:59:30Z', agent: 'claude', role: 'coder', phase: 'start' },
+      { at: '2026-11-05T08:00:00Z', agent: 'agy', role: 'solomon', phase: 'start' },
+    ));
+    expect(lastStageState(proj, { now }).working).toEqual([{ agent: 'claude', role: 'coder', at: '2026-11-05T09:59:30Z' }]);
   });
 
   it('takes the last commit attempt the commit-msg guard traced (KJC-TSK-1427)', () => {
@@ -67,7 +78,7 @@ describe('GET /api/stage/state', () => {
     const { default: apiRoutes } = await import('../src/routes/api.js');
     const app = express().use('/api', apiRoutes);
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
-    expect(ok.body).toEqual({ denial: null, verdict: null, seal: null, gate: null });
+    expect(ok.body).toEqual({ denial: null, verdict: null, seal: null, gate: null, working: [] });
     await request(app).get('/api/stage/state?project=nowhere').expect(400);
     await request(app).get('/api/stage/state').expect(400);
   });
