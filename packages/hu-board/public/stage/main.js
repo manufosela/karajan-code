@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { createFactory } from './factory.js';
 import { populate } from './crew.js';
-import { restState } from './rest.js';
+import { createLive } from './live.js';
 import { runAmbient } from './ambient-loop.js';
 
 const canvas = document.getElementById('stage');
@@ -32,7 +32,7 @@ function buildScene() {
   };
   addEventListener('resize', resize);
   resize();
-  return { pieces, crew, camera, render };
+  return { scene, pieces, crew, camera, render };
 }
 
 /** The last real state of the project, or the reason the board could not give it. */
@@ -51,12 +51,19 @@ async function start() {
   const scene = buildScene();
   const { state, error } = await fetchState();
   if (error) { tell([`The board cannot read this project: ${error}`]); return; }
-  const { lights, lines } = restState(state, Date.now());
-  for (const [id, { gold, red }] of Object.entries(lights)) scene.pieces[id].setLight(gold, red);
+  const live = createLive(scene, { state, tell, counts: document.getElementById('stage-counts') });
+  const { lines } = live.settle();
   tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
   scene.render();
-  // The crew is always busy (ADR 0047), except for someone who asked for no motion.
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) runAmbient(scene, document.getElementById('stage-bubble'));
+  // The crew is always busy (ADR 0047), except for someone who asked for no motion: then
+  // each real event only moves its station's light and the status list, without crates.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const events = new EventSource(`/api/events?project=${encodeURIComponent(project)}`);
+  events.onmessage = ({ data }) => {
+    live.push(JSON.parse(data), performance.now());
+    if (still) scene.render();
+  };
+  if (!still) runAmbient(scene, document.getElementById('stage-bubble'), live.frame);
 }
 
 if (!project) tell(['Open the stage of a project: kj stage, or the Stage link of the board.']);

@@ -11,6 +11,16 @@ const ago = (at, now) => {
   return min < 1 ? 'just now' : `${min} min ago`;
 };
 
+/** The last real state after a live event (KJC-TSK-1399): only the piece it touches moves. */
+export function withEvent(state, event) {
+  switch (event?.type) {
+    case 'sentinel-deny': return { ...state, denial: { at: event.at, tool: event.tool } };
+    case 'review-verdict': return { ...state, verdict: { verdict: event.verdict, reviewer: event.reviewer, at: event.at } };
+    case 'ledger-seal': return { ...state, seal: { decision: event.decision, chokepoint: event.chokepoint, at: event.at } };
+    default: return state;
+  }
+}
+
 export function restState({ denial, verdict, seal }, now) {
   const lights = {};
   const lines = [];

@@ -13,6 +13,7 @@
     #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
     #stage-status li { margin: 2px 0; }
     .stage-cue { color: #e2e8f0; }
+    .stage-count { position: fixed; transform: translate(-50%, -100%); font-weight: 700; color: #f0b429; pointer-events: none; }
     #stage-bubble { position: fixed; transform: translate(-50%, -100%); margin: 0; padding: 4px 10px; border-radius: 10px; background: #1a2332; border: 1px solid #2a3a4e; white-space: nowrap; pointer-events: none; }
   </style>
   <script type="importmap">{ "imports": { "three": "/stage/three.min.js" } }</script>
@@ -27,6 +28,8 @@
   <ul id="stage-status" aria-live="polite"></ul>
   <!-- The crew's workshop talk: ambient, so screen readers skip it. -->
   <p id="stage-bubble" aria-hidden="true" hidden></p>
+  <!-- Burst counts over the crates on the line; the status list already tells each event. -->
+  <div id="stage-counts" aria-hidden="true"></div>
   <script type="module" src="/stage/main.js"></script>
 </body>
 </html>

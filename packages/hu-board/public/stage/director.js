@@ -28,7 +28,11 @@ export function cueLevel(cue, now) {
   return x <= 0 || x >= 1 ? 0 : Math.sin(Math.PI * x);
 }
 
-export function createDirector() {
+/**
+ * `lifetime` is how long a cue stays active (default CUE_MS); the factory keeps it
+ * for the whole ride of its box (KJC-TSK-1399). Folding still uses CUE_MS.
+ */
+export function createDirector({ lifetime = CUE_MS } = {}) {
   let cues = [];
   return {
     /** Takes one stream event at time `now` (ms). */
@@ -41,7 +45,7 @@ export function createDirector() {
     },
     /** The cues still playing at `now`, oldest first. */
     active(now) {
-      cues = cues.filter((c) => now - c.at < CUE_MS);
+      cues = cues.filter((c) => now - c.at < lifetime);
       return cues;
     },
   };
