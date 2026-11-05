@@ -6,7 +6,7 @@
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { decisionEvent, denialEvent, verdictEvent } from './stage-feed.js';
+import { decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
 
 /** The last parseable line of a jsonl, reading at most its last `tailBytes`. */
 function lastRecord(file, toEvent, tailBytes) {
@@ -47,5 +47,6 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024 } = {}) {
     denial: lastRecord(join(root, 'harness', 'denials.jsonl'), denialEvent, tailBytes),
     verdict: newestVerdict(join(root, 'reviews')),
     seal: lastRecord(join(root, 'policy-decisions.jsonl'), decisionEvent, tailBytes),
+    gate: lastRecord(join(root, 'harness', 'commit-gate.jsonl'), gateEvent, tailBytes),
   };
 }

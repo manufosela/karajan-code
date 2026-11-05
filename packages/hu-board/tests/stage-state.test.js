@@ -31,7 +31,12 @@ afterEach(() => {
 
 describe('lastStageState', () => {
   it('is all null in a project without records', () => {
-    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null });
+    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null });
+  });
+
+  it('takes the last commit attempt the commit-msg guard traced (KJC-TSK-1427)', () => {
+    writeFileSync(kj('harness', 'commit-gate.jsonl'), jsonl({ at: 'c1', outcome: 'pass', rule: 'ok' }, { at: 'c2', outcome: 'refuse', rule: 'header' }));
+    expect(lastStageState(proj).gate).toEqual({ type: 'commit-gate', at: 'c2', outcome: 'refuse', rule: 'header' });
   });
 
   it('takes the last denial and seal and the newest verdict', () => {
@@ -62,7 +67,7 @@ describe('GET /api/stage/state', () => {
     const { default: apiRoutes } = await import('../src/routes/api.js');
     const app = express().use('/api', apiRoutes);
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
-    expect(ok.body).toEqual({ denial: null, verdict: null, seal: null });
+    expect(ok.body).toEqual({ denial: null, verdict: null, seal: null, gate: null });
     await request(app).get('/api/stage/state?project=nowhere').expect(400);
     await request(app).get('/api/stage/state').expect(400);
   });
