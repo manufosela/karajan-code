@@ -35,14 +35,41 @@ function workshop(name) {
   return group;
 }
 
+/**
+ * KJC-TSK-1437 (ADR 0048): the workshop's git gates, at the back where its work
+ * leaves for the base branch: two posts and a bar that lights when a commit
+ * passes or bounces. Returns the gate and its bar's material.
+ */
+function gates() {
+  const gate = new THREE.Group();
+  for (const x of [-0.6, 0.6]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 0.1), matte(0x3a4656));
+    post.position.set(x, 0.45, 0);
+    gate.add(post);
+  }
+  const light = new THREE.MeshStandardMaterial({ color: 0x55606e, emissive: 0x000000, roughness: 0.5 });
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 0.12), light);
+  bar.position.y = 0.9;
+  gate.add(bar);
+  gate.position.set(WORKSHOP.width / 2 - 0.9, 0, -WORKSHOP.depth / 2);
+  return { gate, light };
+}
+
+const PASS = 0x2fd27a;
+const BOUNCE = 0xe0484f;
+
 /** The row of workshops; `xOf(lane)` is the centre of a lane's workshop. */
 export function createHall(scene, lanes) {
   const shops = new Map();
+  const lights = new Map();
   const order = [];
   const relayout = () => order.forEach((lane, i) => shops.get(lane).position.set(workshopX(i, order.length), 0, WORKSHOP.z));
   const ensure = (lane) => {
     if (shops.has(lane)) return false;
     const shop = workshop(lane);
+    const { gate, light } = gates();
+    shop.add(gate);
+    lights.set(lane, light);
     shops.set(lane, shop);
     order.push(lane);
     scene.add(shop);
@@ -55,5 +82,12 @@ export function createHall(scene, lanes) {
     ensure,
     xOf: (lane) => workshopX(Math.max(0, order.indexOf(lane)), order.length),
     count: () => order.length,
+    /** Lights a lane's gates green (approve) or red (refuse) at `level` 0..1; 0 puts them out. */
+    lightGates(lane, tone, level) {
+      const light = lights.get(lane);
+      if (!light) return;
+      light.emissive.setHex(tone === 'approve' ? PASS : BOUNCE);
+      light.emissiveIntensity = Math.max(0, level) * 1.6;
+    },
   };
 }
