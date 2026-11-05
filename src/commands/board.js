@@ -391,6 +391,33 @@ export function renderBoardBanner({ url, status, projectName }) {
   return ["", rule, ...content, rule, ""].join("\n");
 }
 
+/**
+ * Why kj must not bring a local HU Board up for this config, or null.
+ * KJC-TSK-0684 (#1287): an external board is the source of truth, so no parallel
+ * HU Board. KJC-BUG-0152 (#1427): a board the config disables only starts when
+ * forced, so kj never does the opposite of what kj doctor reports. `stop` is never
+ * refused, so a leftover daemon can always be cleaned up. `starts` says whether
+ * the action brings a server up (default: only `start`); `retry` is the command
+ * that forces it.
+ */
+export function boardRefusal(config, { action, starts = action === "start", force, retry }) {
+  if (action === "stop") return null;
+  if (config?.state_backend === "external") {
+    const name = config?.board?.name || "an external board";
+    return { level: "warn", message: `⚠ this project's board lives in ${name} (state_backend: external) — kj does not run a parallel HU Board here.` };
+  }
+  if (starts && !force && config?.hu_board?.enabled === false) {
+    return {
+      level: "error",
+      message:
+        `hu_board.enabled es false en kj.config.yml — no arranco el HU Board (kj doctor ya lo reporta como omitido).\n` +
+        `  Para arrancarlo igualmente: ${retry}\n` +
+        `  Para dejarlo activado siempre: pon hu_board.enabled: true en kj.config.yml`,
+    };
+  }
+  return null;
+}
+
 export async function boardCommand({ action = "start", port = 4000, bind = "127.0.0.1", logger, path }) {
   switch (action) {
     case "start": {
