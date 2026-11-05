@@ -170,12 +170,19 @@ describe("Linear manager, failures", () => {
     const { manager, short_id } = await seeded();
     expect((await manager.claim(short_id, "bob")).claimed_by).toBe("bob");
     expect((await manager.claim(short_id, "carol@acme.test")).claimed_by).toBe("carol@acme.test");
-    await expect(manager.claim(short_id, "dave")).rejects.toThrow("no Linear user mapped for dave");
+    // HU-3420: the error carries the line to add and a code the core tells apart.
+    await expect(manager.claim(short_id, "dave")).rejects.toMatchObject({
+      name: "BoardRejectedError", code: "UNMAPPED_IDENTITY",
+      message: `no Linear user mapped for dave: add it to linear.users: { "dave": "<linear email>" }`,
+    });
   });
 
   it("an email Linear does not know is a loud error", async () => {
     const { manager, short_id } = await seeded();
-    await expect(manager.claim(short_id, "eve@elsewhere.test")).rejects.toThrow(/no Linear user with the email eve@elsewhere.test/);
+    await expect(manager.claim(short_id, "eve@elsewhere.test")).rejects.toMatchObject({
+      code: "UNMAPPED_IDENTITY",
+      message: `no Linear user with the email eve@elsewhere.test: add it to linear.users: { "eve@elsewhere.test": "<linear email>" }`,
+    });
   });
 
   it("fails loud when the team lacks the pending state", async () => {

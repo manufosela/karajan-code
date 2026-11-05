@@ -74,6 +74,27 @@ describe("the core with a contract-only manager", () => {
     expect(m.calls).toEqual([["claim", "TRI-123", "ana", true], ["move", "TRI-123", "done"]]);
   });
 
+  describe("HU-3420: an identity the board cannot resolve", () => {
+    const hint = `no Linear user mapped for ana: add it to linear.users: { "ana": "<linear email>" }`;
+    const unmapped = (opts) => Object.assign(contractOnly(opts), { claim: async () => { throw Object.assign(new Error(hint), { name: "BoardRejectedError", code: "UNMAPPED_IDENTITY" }); } });
+
+    it("still moves the card to running, unassigned, and says why with the line to add", async () => {
+      const m = unmapped();
+      const warning = `TRI-123 was not assigned: ${hint}`;
+      expect(await hu("move", ["TRI-123", "running"], m)).toEqual({ id: "TRI-123", status: "running", claimed_by: null, warning });
+      expect(m.calls).toEqual([["move", "TRI-123", "running"]]);
+      await hu("move", ["TRI-123", "running"], unmapped(), { json: false });
+      expect(console.log).toHaveBeenLastCalledWith(`✓ TRI-123 → running\n⚠ ${warning}`);
+    });
+
+    it("still refuses a card someone else runs, and an explicit release fails loud", async () => {
+      await expect(hu("move", ["TRI-123", "running"], unmapped({ status: "running", claimedBy: "bob" }))).rejects.toMatchObject({ name: "HuClaimedError" });
+      const m = unmapped();
+      await expect(hu("move", ["TRI-123", "done"], m, { release: true })).rejects.toThrow(hint);
+      expect(m.calls).toEqual([]);
+    });
+  });
+
   it("lets the holder, or any move of a card nobody runs, through (one list for the check)", async () => {
     const own = contractOnly({ status: "running", claimedBy: "ana" });
     await hu("move", ["TRI-123", "done"], own);

@@ -23,6 +23,10 @@ How it works:
 - `move` writes the state and reads it back; `claim` sets the assignee and reads it back. Both refuse an
   issue without the label.
 - `claim` takes an identity from `linear.users` or a direct email; anything else is a loud error.
+- `kj hu move <id> running` with an identity Linear cannot resolve (not in `linear.users`, or an email
+  with no Linear user) still moves the card, but leaves it **unassigned** and warns:
+  `⚠ <id> was not assigned: ... add it to linear.users: { "<who>": "<linear email>" }`. An explicit
+  `claim` call, or a `kj hu move --release`, by that identity still fails with the same hint.
 - A running issue held by someone else needs `claim(ref, who, { release: true })` to be taken over.
 - **Last writer wins.** Linear has a single assignee, so two simultaneous claims leave the later write;
   the other claimant finds the winner on read-back and gets the held error.
@@ -79,7 +83,7 @@ refusal. Check them by `err.name` (`isOffline`/`isRefusal`), never by `instanceo
 | key refused (401/403) | rejected, `Linear refused the key (HTTP <status>)` |
 | `move` or `claim` on a state of an unknown type | rejected, names the issue and the state |
 | issue without the label | rejected by `move` and `claim`; nothing is written |
-| identity without a `linear.users` entry and not an email | rejected, `no Linear user mapped for <who>` |
+| identity without a `linear.users` entry and not an email | rejected, `no Linear user mapped for <who>: add it to linear.users: ...` (a `move running` starts it unassigned and warns) |
 | email unknown to Linear | rejected, `no Linear user with the email <email>` |
 | team lacks the state for a status | rejected, `the Linear team has no state "<name>"` |
 | running issue held by someone else | held error, unless `release` is passed |
