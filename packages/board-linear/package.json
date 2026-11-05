@@ -1,6 +1,6 @@
 {
   "name": "@karajan-family/board-linear",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Linear as a task manager for karajan-code: the Linear task manager over its GraphQL API.",
   "type": "module",
   "main": "src/index.js",
