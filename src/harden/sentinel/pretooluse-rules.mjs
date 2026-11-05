@@ -9,6 +9,7 @@ import process from "node:process";
 import { spawnSync } from "node:child_process";
 import { ROOT, doc } from "./sentinel-lib.mjs";
 import { rulesGate } from "./sentinel-rules.mjs";
+import { traceHost } from "./sentinel-activity.mjs";
 
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
@@ -17,6 +18,8 @@ process.stdin.on("end", () => {
   try { call = JSON.parse(raw); } catch { process.exit(0); } // not a tool call: nothing to judge
   // The user's switch for the whole Sentinel, set in the host's environment.
   if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
+  // KJC-TSK-1434 (ADR 0048): every tool call passes here, so the host's trace is noted here.
+  traceHost(ROOT, call, "pre");
   const verdict = rulesGate({ root: ROOT, tool: call?.tool_name, input: call?.tool_input, run: spawnSync });
   if (!verdict.deny) process.exit(0);
   console.error("karajan sentinel: " + verdict.message + doc("rules"));

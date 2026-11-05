@@ -9,11 +9,15 @@ import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { CODE, TESTS, ROOT, CARD, branchOf, enterLane, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
+import { traceHost } from "./sentinel-activity.mjs";
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
-    const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, tool_response: response = {}, cwd = null } = JSON.parse(raw);
+    const call = JSON.parse(raw);
+    const { session_id: sid = "default", tool_name: tool, tool_input: input = {}, tool_response: response = {}, cwd = null } = call;
+    // KJC-TSK-1434 (ADR 0048): a subagent the host opened is back (after any other tool, nothing is noted).
+    traceHost(ROOT, call, "post");
     enterLane(load(), sid, cwd);
     // KJC-TSK-0765 board-sync: a merge that gh CONFIRMS leaves its card pending
     // in the tracker (the PreToolUse gate then refuses to advance until it is

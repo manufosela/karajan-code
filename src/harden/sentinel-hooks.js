@@ -43,6 +43,8 @@ const SCRIPT_BODIES = {
   // KJC-TSK-0946 (ADR 0016): the rules gate and its hook, for every tool call.
   "sentinel-rules.mjs": readFileSync(new URL("./sentinel/sentinel-rules.mjs", import.meta.url), "utf8"),
   "pretooluse-rules.mjs": readFileSync(new URL("./sentinel/pretooluse-rules.mjs", import.meta.url), "utf8"),
+  // KJC-TSK-1434 (ADR 0048): the host's trace for kj stage, noted by the guards above.
+  "sentinel-activity.mjs": readFileSync(new URL("./sentinel/sentinel-activity.mjs", import.meta.url), "utf8"),
 };
 
 /**
@@ -242,6 +244,8 @@ export const SENTINEL_WIRING = [
   // KJC-BUG-0236 (#1886): the rag-first ledger records MCP answers here;
   // unwired, the official tool never satisfied the gate.
   { event: "PostToolUse", matcher: "mcp__.*__kj_rag_query", script: "posttooluse.mjs" },
+  // KJC-TSK-1434 (ADR 0048): a subagent coming back, for kj stage.
+  { event: "PostToolUse", matcher: "Agent|Task", script: "posttooluse.mjs" },
   { event: "Stop", script: "stop.mjs" },
   // KJC-TSK-0918 (ADR 0014): the critical rules back after a compaction or a resume.
   { event: "SessionStart", matcher: "compact", script: "sessionstart.mjs" },

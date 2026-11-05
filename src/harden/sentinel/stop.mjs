@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { doc, load, save, branchOf, enterLane, laneViolations, violations, ROOT } from "./sentinel-lib.mjs";
+import { traceHost } from "./sentinel-activity.mjs";
 // KJC-TSK-0774: when the turn ends green with cards closed, remind the user
 // where to look — the board URL if it runs (pid file alive), else how to start it.
 const boardHint = () => {
@@ -37,6 +38,8 @@ process.stdin.on("end", () => {
   try {
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
     const { session_id: sid = "default", transcript_path: transcript = null, cwd = null } = JSON.parse(raw);
+    // KJC-TSK-1434 (ADR 0048): the turn stops, the host's work ends (if this stop blocks, its next tool starts it again).
+    traceHost(ROOT, { session_id: sid }, "stop");
     const state = load();
     enterLane(state, sid, cwd);
     // Tamper check runs regardless of session state: shell indirection leaves
