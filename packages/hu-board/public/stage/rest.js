@@ -32,8 +32,11 @@ export function withEvent(state, event) {
     case 'commit-gate': return { ...state, gate: { outcome: event.outcome, rule: event.rule, at: event.at } };
     case 'agent-activity': {
       const lane = event.lane ?? 'main';
-      const others = (state.working ?? []).filter((w) => w.agent !== event.agent || w.role !== event.role || (w.lane ?? 'main') !== lane);
-      const working = event.phase === 'start' ? [...others, { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [] }] : others;
+      // KJC-TSK-1435: the host's session and each subagent are told apart by their id.
+      const same = (w) => (w.lane ?? 'main') === lane && (event.id ? w.id === event.id : w.agent === event.agent && w.role === event.role);
+      const others = (state.working ?? []).filter((w) => !same(w));
+      const now = { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null };
+      const working = event.phase === 'start' ? [...others, now] : others;
       return { ...state, working };
     }
     default: return state;
@@ -66,7 +69,13 @@ export function restState({ denial, verdict, seal, gate, working = [] }, now) {
   // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
   const using = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
   const where = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
-  const doing = (w) => [w.agent, DOING[w.role] ?? w.role, ...where(w), ...using(w)].join(' ');
+  // KJC-TSK-1435: the host says the tool it uses; a subagent, its type.
+  const what = (w) => {
+    if (w.role === 'host') return w.tool ? ['working', `(${w.tool})`] : ['working'];
+    if (w.role === 'subagent') return ['subagent', ...(w.kind ? [w.kind] : [])];
+    return [DOING[w.role] ?? w.role];
+  };
+  const doing = (w) => [w.agent, ...what(w), ...where(w), ...using(w)].join(' ');
   if (working.length) lines.push(`At work: ${working.map(doing).join(', ')}`);
   return { lights, lines };
 }

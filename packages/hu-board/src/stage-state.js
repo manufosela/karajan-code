@@ -27,13 +27,20 @@ function tailRecords(file, toEvent, tailBytes) {
 
 const lastRecord = (file, toEvent, tailBytes) => tailRecords(file, toEvent, tailBytes).at(-1) ?? null;
 
-/** KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role. */
+/** KJC-TSK-1435: the host beats at least once a minute while it works, so a silent host has stopped sooner. */
+const STALE_HOST_MS = 5 * 60 * 1000;
+
+/**
+ * KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role;
+ * KJC-TSK-1435: by id when the trace names one (the host's session, each subagent).
+ */
 function agentsAtWork(file, tailBytes, now) {
   const last = new Map();
-  for (const ev of tailRecords(file, activityEvent, tailBytes)) last.set(`${ev.agent}:${ev.role}`, ev);
+  for (const ev of tailRecords(file, activityEvent, tailBytes)) last.set(ev.id ?? `${ev.agent}:${ev.role}`, ev);
+  const fresh = (ev) => now - Date.parse(ev.at) < (ev.role === 'host' ? STALE_HOST_MS : STALE_START_MS);
   return [...last.values()]
-    .filter((ev) => ev.phase === 'start' && now - Date.parse(ev.at) < STALE_START_MS)
-    .map(({ agent, role, at }) => ({ agent, role, at }));
+    .filter((ev) => ev.phase === 'start' && fresh(ev))
+    .map(({ agent, role, at, id, tool, kind }) => ({ agent, role, at, ...(id ? { id, tool, kind } : {}) }));
 }
 
 function newestVerdict(dir) {
