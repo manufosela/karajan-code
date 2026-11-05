@@ -18,8 +18,8 @@ function placeBubble(bubble, said, crew, camera) {
   bubble.hidden = false;
 }
 
-/** Starts the loop; returns nothing, the hall lives until the page closes. */
-export function runAmbient({ crew, pieces, camera, render }, bubble) {
+/** Starts the loop; `onFrame(ms)` runs before each render (the live crates). */
+export function runAmbient({ crew, pieces, camera, render }, bubble, onFrame = () => {}) {
   const stations = Object.values(pieces);
   const frame = (ms) => {
     const t = ms / 1000;
@@ -35,6 +35,7 @@ export function runAmbient({ crew, pieces, camera, render }, bubble) {
     // Each station works at its own pace: arms half raised, as if handling the piece.
     stations.forEach((piece, i) => piece.catch(0.12 + 0.1 * Math.sin(t * 1.6 + i)));
     placeBubble(bubble, bubbleAt(t), crew, camera);
+    onFrame(ms);
     render();
     requestAnimationFrame(frame);
   };

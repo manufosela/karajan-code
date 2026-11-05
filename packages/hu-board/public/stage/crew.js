@@ -1,6 +1,6 @@
 // ADR 0047: who works the factory hall. The film's seven pieces are the stations
 // of the line; Karajan, kaRAGan and kaWATCHan work the floor, with atril by kaRAGan.
-import { CREW, SCALE, STAND, STATION_X, STATION_Z } from './layout.js';
+import { CREW, SCALE, STAND, STATION_X, STATION_Z, STATIONS } from './layout.js';
 import { createRobot } from './cast/robot.js';
 import { createPiece } from './cast/piece.js';
 import { createStand } from './cast/stand.js';
@@ -12,13 +12,14 @@ import { sonarBody } from './cast/pieces/sonar.js';
 import { ledgerBody } from './cast/pieces/ledger.js';
 import { stewardBody } from './cast/pieces/steward.js';
 
-// The film's seven pieces, in its order: the stations of the line.
-const PIECES = [
-  ['tdd', 'TDD', 'tool', tddBody], ['sentinel', 'Sentinel', 'method', sentinelBody],
-  ['review', 'AI review', 'method', reviewBody], ['gates', 'Git gates', 'method', gatesBody],
-  ['sonar', 'SonarQube', 'tool', sonarBody], ['ledger', 'Ledger', 'method', ledgerBody],
-  ['steward', 'Steward', 'method', stewardBody],
-];
+// The film's seven pieces: the stations of the line, in the order of layout.js.
+const LOOKS = {
+  tdd: ['TDD', 'tool', tddBody], sentinel: ['Sentinel', 'method', sentinelBody],
+  review: ['AI review', 'method', reviewBody], gates: ['Git gates', 'method', gatesBody],
+  sonar: ['SonarQube', 'tool', sonarBody], ledger: ['Ledger', 'method', ledgerBody],
+  steward: ['Steward', 'method', stewardBody],
+};
+const PIECES = STATIONS.map((id) => [id, ...LOOKS[id]]);
 // The film's accents: Karajan green, kaRAGan amber, kaWATCHan blue.
 const ROBOTS = [
   ['conductor', { accent: 0x34e07f, bow: 0xeef1f6, name: 'Karajan Code' }],

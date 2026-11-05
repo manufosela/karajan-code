@@ -2,6 +2,8 @@
 // along x; the stations stand behind it, the crew on the floor beyond its ends.
 export const LINE = { from: -8, to: 8, z: 1.1, width: 0.9, height: 0.55 };
 export const STATION_X = [-6.3, -4.2, -2.1, 0, 2.1, 4.2, 6.3];
+/** The piece that works each station, in the film's order (crew.js builds them in it). */
+export const STATIONS = ['tdd', 'sentinel', 'review', 'gates', 'sonar', 'ledger', 'steward'];
 export const STATION_Z = -0.7;
 /** A piece's plinth is 1 m wide before scaling (cast/piece.js). */
 export const PLINTH_WIDTH = 1;
