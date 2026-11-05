@@ -66,6 +66,8 @@ export default [
   // tooling, no este config JS — sin ignore, `eslint packages/` revienta
   // contra su TS y el pre-commit bloquea cualquier commit del repo.
   { ignores: ["packages/radar/**"] },
+  // kj stage (ADR 0046): the vendored three.js bundle, a copy of the landing's.
+  { ignores: ["packages/hu-board/public/stage/three.min.js"] },
   // ESLint's own recommended set — already enables `no-undef`,
   // `no-unused-vars`, `no-redeclare`, etc. with sensible defaults.
   js.configs.recommended,
