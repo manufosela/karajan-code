@@ -13,6 +13,9 @@
   "scripts": {
     "test": "vitest run"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
   "engines": {
     "node": ">=22.12.0"
   },
