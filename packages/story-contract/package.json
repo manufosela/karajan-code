@@ -1,6 +1,6 @@
 {
   "name": "@karajan-family/story-contract",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "The contract every task manager (GitHub Issues, Linear...) fulfils for karajan-code, the errors it raises, and the shared test a manager author runs.",
   "type": "module",
   "main": "src/index.js",
