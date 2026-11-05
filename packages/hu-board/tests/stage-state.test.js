@@ -45,6 +45,19 @@ describe('lastStageState', () => {
     expect(lastStageState(proj, { now }).working).toEqual([{ agent: 'claude', role: 'coder', at: '2026-11-05T09:59:30Z' }]);
   });
 
+  it('tells the host and each subagent apart by id, and a host silent for 5 min has stopped (KJC-TSK-1435)', () => {
+    const now = Date.parse('2026-11-05T10:00:00Z');
+    writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl(
+      { at: '2026-11-05T09:59:00Z', agent: 'claude', role: 'host', phase: 'start', id: 's1', tool: 'Bash' },
+      { at: '2026-11-05T09:50:00Z', agent: 'claude', role: 'host', phase: 'start', id: 's0', tool: 'Read' },
+      { at: '2026-11-05T09:59:10Z', agent: 'claude', role: 'subagent', phase: 'start', id: 'a1', kind: 'Explore' },
+      { at: '2026-11-05T09:59:20Z', agent: 'claude', role: 'subagent', phase: 'start', id: 'a2', kind: 'Plan' },
+    ));
+    expect(lastStageState(proj, { now }).working.map((w) => [w.role, w.id, w.tool ?? w.kind])).toEqual([
+      ['host', 's1', 'Bash'], ['subagent', 'a1', 'Explore'], ['subagent', 'a2', 'Plan'],
+    ]);
+  });
+
   it('takes the last commit attempt the commit-msg guard traced (KJC-TSK-1427)', () => {
     writeFileSync(kj('harness', 'commit-gate.jsonl'), jsonl({ at: 'c1', outcome: 'pass', rule: 'ok' }, { at: 'c2', outcome: 'refuse', rule: 'header' }));
     expect(lastStageState(proj).gate).toEqual({ type: 'commit-gate', at: 'c2', outcome: 'refuse', rule: 'header' });

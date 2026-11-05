@@ -2,7 +2,7 @@
 // is a robot of its own that walks in, works behind its station and walks out.
 import { describe, expect, it } from 'vitest';
 
-import { DOOR, TURN_MS, WALK_MS, accentOf, spotOf, turnAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
+import { DOOR, TURN_MS, WALK_MS, accentOf, labelOf, spotOf, turnAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
 import { WORKSHOP } from '../public/stage/layout.js';
 
 const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
@@ -39,6 +39,43 @@ describe('spotOf (ADR 0048)', () => {
     workers = withActivity(workers, start('codex', 'reviewer', 'b'), 1);
     workers = withActivity(workers, end('codex', 'reviewer', 'a'), 2);
     expect(workers.map((w) => [w.lane, w.leftAt])).toEqual([['a', 2], ['b', undefined]]);
+  });
+});
+
+describe('the host and its subagents (KJC-TSK-1435)', () => {
+  const host = (phase, tool) => ({ type: 'agent-activity', agent: 'claude', role: 'host', phase, lane: 'kj-stage', id: 's1', tool });
+  const sub = (phase, id, kind = 'Explore') => ({ type: 'agent-activity', agent: 'claude', role: 'subagent', phase, lane: 'kj-stage', id, kind });
+  const xOf = () => 10;
+
+  it('the host works at its bench, its beat only changes the tool it says, and its label says it', () => {
+    let workers = withActivity([], host('start', 'Bash'), 0);
+    workers = withActivity(workers, host('start', 'Edit'), 60_000);
+    expect(workers).toHaveLength(1);
+    expect(labelOf(workers[0])).toBe('claude · Edit');
+    expect(workerAt(workers[0], WALK_MS, xOf)).toMatchObject({ ...spotOf('host', 10), walking: false });
+  });
+
+  it('each subagent walks out of the host to its own slot before the bench, and back into it', () => {
+    let workers = withActivity([], host('start', 'Agent'), 0);
+    workers = withActivity(workers, sub('start', 'a1'), 100);
+    workers = withActivity(workers, sub('start', 'a2', 'Plan'), 100);
+    const [, a1, a2] = workers;
+    expect([a1.slot, a2.slot]).toEqual([0, 1]);
+    expect([labelOf(a1), labelOf(a2)]).toEqual(['Explore', 'Plan']);
+    expect(workerAt(a1, 100, xOf)).toMatchObject({ ...spotOf('host', 10), walking: true });
+    expect(workerAt(a1, 100 + WALK_MS, xOf)).toMatchObject({ ...spotOf('subagent', 10, 0), walking: false });
+    workers = withActivity(workers, sub('end', 'a1'), 5000);
+    expect(workerAt(workers[1], 5000 + WALK_MS / 2, xOf).walking).toBe(true);
+    expect(workerAt(workers[1], 5000 + WALK_MS, xOf)).toBeNull();
+    expect(workers[2].leftAt).toBeUndefined();
+    // the freed slot is the next subagent's
+    workers = withActivity(workers, sub('start', 'a3'), 6000);
+    expect(workers.at(-1).slot).toBe(0);
+  });
+
+  it('never puts two subagents on one spot: past a row of five they start another', () => {
+    const spots = Array.from({ length: 12 }, (_, slot) => spotOf('subagent', 0, slot)).map(({ x, z }) => `${x},${z}`);
+    expect(new Set(spots).size).toBe(12);
   });
 });
 
