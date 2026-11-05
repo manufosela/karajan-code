@@ -7,6 +7,15 @@ import { restState, withEvent } from './rest.js';
 import { createAgentsFloor } from './agents-floor.js';
 import { turnAt } from './workers.js';
 import { sentinelAt, withWatch } from './sentinel-watch.js';
+import { marksAt, withMark } from './marks.js';
+import { WORKSHOP } from './layout.js';
+import { Vector3 } from 'three';
+
+// The marks stack over the workshop so two of one lane never sit on each other (tagAt adds OVER_PIECE).
+// Over the robots' own labels, which sit just above their helmets.
+// The gates' one sits just over their bar (0.9 m), which tagAt's lift would otherwise overshoot.
+const MARK_Y = { review: 1.4, gates: -0.5, ledger: 1.9 };
+const GATES_DX = WORKSHOP.width / 2 - 0.9; // as hall.js places them
 
 const DARK = { gold: 0, red: 0 };
 const OVER_PIECE = 1.6;
@@ -24,6 +33,8 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
+  let marks = []; // KJC-TSK-1437: what the roles just did, by lane
+  let gatesLit = new Set();
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf }, working, performance.now());
@@ -32,6 +43,23 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
     const rest = restState(state, Date.now());
     for (const [id, piece] of Object.entries(pieces)) piece.setLight((rest.lights[id] ?? DARK).gold, (rest.lights[id] ?? DARK).red);
     return rest;
+  };
+  /**
+   * KJC-TSK-1437: verdicts, commits and seals show on the workshop of their lane,
+   * and a commit lights that workshop's gates. Returns the marks' labels.
+   */
+  const showMarks = (now) => {
+    for (const lane of gatesLit) hall.lightGates(lane, 'approve', 0);
+    gatesLit = new Set();
+    return marksAt(marks, now).map((mark) => {
+      // The gates' mark sits over the gates themselves, at the back corner of the workshop.
+      const atGates = mark.kind === 'gates';
+      if (atGates) { hall.lightGates(mark.lane, mark.tone, mark.level); gatesLit.add(mark.lane); }
+      const over = new Vector3(hall.xOf(mark.lane) + (atGates ? GATES_DX : 0), MARK_Y[mark.kind], WORKSHOP.z - (atGates ? WORKSHOP.depth / 2 : 0));
+      const tag = tagAt(mark.text, over, camera, `stage-mark stage-mark-${mark.tone}`);
+      tag.style.opacity = String(mark.level); // it fades as it ages
+      return tag;
+    });
   };
   return {
     settle,
@@ -47,6 +75,7 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
       floor.push(event, now);
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: now, skills: event.skills };
       watch = withWatch(watch, event, now);
+      marks = withMark(marks, event, now);
       tell(settle().lines);
     },
     /** Flashes the pieces that handled a real event just now. */
@@ -57,6 +86,7 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
       const sentinel = sentinelAt(watch, now, hall.xOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;
+      tags.push(...showMarks(now));
       for (const cue of director.active(now)) {
         const flash = cueLevel(cue, now);
         const piece = pieces[cue.piece];

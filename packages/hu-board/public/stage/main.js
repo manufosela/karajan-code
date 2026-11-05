@@ -10,6 +10,7 @@ import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
 import { boardToken, withToken } from './token.js';
 import { listenZoom } from './zoom.js';
+import { MARK_MS } from './marks.js';
 
 const canvas = document.getElementById('stage');
 const status = document.getElementById('stage-status');
@@ -72,7 +73,13 @@ async function start() {
   const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
   events.onmessage = ({ data }) => {
     live.push(JSON.parse(data), performance.now());
-    if (still) scene.render();
+    // Without motion, each event still draws one frame: its lights, marks and gates, and
+    // another once its mark has expired, so nothing stays lit (KJC-TSK-1437).
+    if (still) {
+      const draw = () => { live.frame(performance.now()); scene.render(); };
+      draw();
+      setTimeout(draw, MARK_MS + 50);
+    }
   };
   const frame = (ms) => {
     live.frame(ms);
