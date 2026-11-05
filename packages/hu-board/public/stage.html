@@ -13,6 +13,7 @@
     #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
     #stage-status li { margin: 2px 0; }
     .stage-cue { color: #e2e8f0; }
+    #stage-bubble { position: fixed; transform: translate(-50%, -100%); margin: 0; padding: 4px 10px; border-radius: 10px; background: #1a2332; border: 1px solid #2a3a4e; white-space: nowrap; pointer-events: none; }
   </style>
   <script type="importmap">{ "imports": { "three": "/stage/three.min.js" } }</script>
 </head>
@@ -24,6 +25,8 @@
   </header>
   <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->
   <ul id="stage-status" aria-live="polite"></ul>
+  <!-- The crew's workshop talk: ambient, so screen readers skip it. -->
+  <p id="stage-bubble" aria-hidden="true" hidden></p>
   <script type="module" src="/stage/main.js"></script>
 </body>
 </html>
