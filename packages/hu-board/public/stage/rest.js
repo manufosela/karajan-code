@@ -17,11 +17,12 @@ export function withEvent(state, event) {
     case 'sentinel-deny': return { ...state, denial: { at: event.at, tool: event.tool } };
     case 'review-verdict': return { ...state, verdict: { verdict: event.verdict, reviewer: event.reviewer, at: event.at } };
     case 'ledger-seal': return { ...state, seal: { decision: event.decision, chokepoint: event.chokepoint, at: event.at } };
+    case 'commit-gate': return { ...state, gate: { outcome: event.outcome, rule: event.rule, at: event.at } };
     default: return state;
   }
 }
 
-export function restState({ denial, verdict, seal }, now) {
+export function restState({ denial, verdict, seal, gate }, now) {
   const lights = {};
   const lines = [];
   if (denial) {
@@ -35,6 +36,12 @@ export function restState({ denial, verdict, seal }, now) {
   if (seal) {
     lights.ledger = seal.decision === 'deny' ? REFUSED : PASSED;
     lines.push(`Ledger: ${seal.decision} at ${seal.chokepoint}, ${ago(seal.at, now)}`);
+  }
+  // KJC-TSK-1427: the commit-msg guard's last attempt opens the Git gates or keeps them shut.
+  if (gate) {
+    lights.gates = gate.outcome === 'pass' ? PASSED : REFUSED;
+    const told = gate.outcome === 'pass' ? 'commit passed' : `commit refused (${gate.rule})`;
+    lines.push(`Git gates: ${told}, ${ago(gate.at, now)}`);
   }
   return { lights, lines };
 }

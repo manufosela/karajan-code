@@ -17,6 +17,8 @@ export function cueFor(event) {
       return { piece: 'review', tone: tone(event.verdict === 'approved'), key: `review-verdict:${event.verdict}` };
     case 'ledger-seal':
       return { piece: 'ledger', tone: tone(event.decision !== 'deny'), key: `ledger-seal:${event.decision}` };
+    case 'commit-gate':
+      return { piece: 'gates', tone: tone(event.outcome === 'pass'), key: `commit-gate:${event.outcome}` };
     default:
       return null;
   }

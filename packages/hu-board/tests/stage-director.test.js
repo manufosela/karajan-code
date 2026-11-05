@@ -11,6 +11,8 @@ describe('cueFor', () => {
     expect(cueFor({ type: 'review-verdict', verdict: 'rejected' })).toMatchObject({ piece: 'review', tone: 'refuse' });
     expect(cueFor({ type: 'ledger-seal', decision: 'allow' })).toMatchObject({ piece: 'ledger', tone: 'approve' });
     expect(cueFor({ type: 'ledger-seal', decision: 'deny' })).toMatchObject({ piece: 'ledger', tone: 'refuse' });
+    expect(cueFor({ type: 'commit-gate', outcome: 'pass' })).toEqual({ piece: 'gates', tone: 'approve', key: 'commit-gate:pass' });
+    expect(cueFor({ type: 'commit-gate', outcome: 'refuse' })).toMatchObject({ piece: 'gates', tone: 'refuse' });
   });
 
   it('ignores what the stage does not draw', () => {

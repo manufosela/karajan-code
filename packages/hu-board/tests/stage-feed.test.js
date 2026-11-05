@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { denialEvent, decisionEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
+import { denialEvent, decisionEvent, gateEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 
@@ -22,6 +22,11 @@ describe('stage events from kj records', () => {
   it('a verdict keeps who reviewed, for which host and diff', () => {
     const raw = JSON.stringify({ verdict: 'rejected', reviewer: 'agy', host: 'claude', diffHash: 'abc', timestamp: 't3', issues: ['x'] });
     expect(verdictEvent(raw)).toEqual({ type: 'review-verdict', at: 't3', verdict: 'rejected', reviewer: 'agy', host: 'claude', diffHash: 'abc' });
+  });
+
+  it('a commit attempt keeps when, its outcome and the rule (KJC-TSK-1427)', () => {
+    expect(gateEvent(JSON.stringify({ at: 't4', outcome: 'refuse', rule: 'body' }))).toEqual({ type: 'commit-gate', at: 't4', outcome: 'refuse', rule: 'body' });
+    expect(gateEvent(JSON.stringify({ at: 't4', outcome: 'maybe', rule: 'x' }))).toBeNull();
   });
 
   it('a malformed or shapeless record gives no event', () => {
@@ -81,9 +86,12 @@ describe('watchStageFeed', () => {
     watcher.emit('change', decisions);
     writeFileSync(verdict, JSON.stringify({ verdict: 'approved', reviewer: 'agy', host: 'claude', diffHash: 'abc', timestamp: 't3' }));
     watcher.emit('add', verdict);
+    const gate = join(dir, '.karajan', 'harness', 'commit-gate.jsonl');
+    appendFileSync(gate, line({ at: 't5', outcome: 'pass', rule: 'ok' }));
+    watcher.emit('add', gate);
     watcher.emit('change', join(dir, '.karajan', 'other.json'));
     expect(sent.map((e) => [e.type, e.project])).toEqual([
-      ['sentinel-deny', 'demo'], ['ledger-seal', 'demo'], ['review-verdict', 'demo'],
+      ['sentinel-deny', 'demo'], ['ledger-seal', 'demo'], ['review-verdict', 'demo'], ['commit-gate', 'demo'],
     ]);
     stop();
     expect(watcher.closed).toBe(true);

@@ -46,11 +46,22 @@ describe('withEvent', () => {
     state = withEvent(state, { type: 'review-verdict', verdict: 'rejected', reviewer: 'codex', at });
     state = withEvent(state, { type: 'sentinel-deny', tool: 'Edit', why: 'x', at });
     state = withEvent(state, { type: 'ledger-seal', decision: 'allow', chokepoint: 'commit', at });
+    state = withEvent(state, { type: 'commit-gate', outcome: 'refuse', rule: 'header', at });
     state = withEvent(state, { type: 'unknown', at });
-    expect(restState(state, Date.parse(at)).lines).toEqual([
+    const { lights, lines } = restState(state, Date.parse(at));
+    expect(lines).toEqual([
       'Sentinel: last denial just now (Edit)',
       'Review: rejected by codex, just now',
       'Ledger: allow at commit, just now',
+      'Git gates: commit refused (header), just now',
     ]);
+    expect(lights.gates).toEqual({ gold: 0, red: 0.35 });
+  });
+
+  it('a passed commit opens the Git gates station', () => {
+    const state = withEvent({}, { type: 'commit-gate', outcome: 'pass', rule: 'ok', at: '2026-11-05T08:00:00Z' });
+    const { lights, lines } = restState(state, Date.parse('2026-11-05T08:03:00Z'));
+    expect(lights.gates).toEqual({ gold: 1, red: 0 });
+    expect(lines).toEqual(['Git gates: commit passed, 3 min ago']);
   });
 });

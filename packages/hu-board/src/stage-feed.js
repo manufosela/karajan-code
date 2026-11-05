@@ -27,6 +27,13 @@ export function decisionEvent(raw) {
   return { type: 'ledger-seal', at: r.ts, decision: r.decision, chokepoint: r.chokepoint };
 }
 
+/** A line of .karajan/harness/commit-gate.jsonl (the commit-msg guard, KJC-TSK-1401) → a commit-gate event, or null. */
+export function gateEvent(raw) {
+  const r = parse(raw);
+  if (!r?.at || !['pass', 'refuse'].includes(r.outcome) || !r.rule) return null;
+  return { type: 'commit-gate', at: r.at, outcome: r.outcome, rule: r.rule };
+}
+
 /** A .karajan/reviews/<hash>.json → a review-verdict event, or null. */
 export function verdictEvent(raw) {
   const r = parse(raw);
@@ -70,6 +77,7 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
   const logs = new Map([
     [join(root, 'harness', 'denials.jsonl'), denialEvent],
     [join(root, 'policy-decisions.jsonl'), decisionEvent],
+    [join(root, 'harness', 'commit-gate.jsonl'), gateEvent],
   ]);
   const tails = new Map([...logs.keys()].map((file) => [file, createTail(file)]));
   const emit = (event, raw, file) => {
