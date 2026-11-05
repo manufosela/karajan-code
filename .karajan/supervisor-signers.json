@@ -1,0 +1,25 @@
+{
+  "signers": [
+    {
+      "publicKey": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
+      "label": "movil",
+      "enrolledAt": "2026-11-05T06:06:33.622Z",
+      "admission": {
+        "cid": "bace3331a2e4711ad9258ad14e87843e",
+        "nonce": "733dd0766aa86499512a525989ce97e4",
+        "project": "karajan-code",
+        "filesHash": "9b196b06b2afb7836698ac1e22c8701d4e47140f5836830458ce85d9af9a0ae1",
+        "v": 2,
+        "kjVersion": "5.6.0",
+        "issuedMs": 1793858781694,
+        "expiresMs": 1793858931694,
+        "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
+        "signature": "lJnFyOE4/n9RAHqsvmAscRIKxFDM0AhgL4wa/zpBtt1mh6G5rsseMIuMjM/1Z7mDHBpw3aQ8mYus/Nbc1O6gDw=="
+      }
+    }
+  ],
+  "recovery": {
+    "fingerprint": "05e68349893ab70e11fccd0e210fb2e1277561c9e4eaca4f03179f0f9558c73c",
+    "issuedAt": "2026-11-05T06:06:33.622Z"
+  }
+}

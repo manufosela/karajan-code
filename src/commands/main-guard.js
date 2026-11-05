@@ -11,6 +11,7 @@
 import { execFileSync } from "node:child_process";
 
 import { auditMain } from "../guards/main-guard.js";
+import { readSigners } from "../harden/phone-sign.js";
 
 const NEW_BRANCH = /^0+$/;
 
@@ -38,6 +39,8 @@ export function githubApi({ repo, branch, protectionToken }) {
       const statuses = ghJson(`repos/${repo}/commits/${sha}/status`).statuses ?? [];
       return [...runs.map((r) => ({ name: r.name, conclusion: r.conclusion })), ...statuses.map((s) => ({ name: s.context, conclusion: s.state }))];
     },
+    // KJC-TSK-1402: where a signed exception travels, the PR's comments.
+    exceptionsOf: async (pr) => ghJson(`repos/${repo}/issues/${pr}/comments?per_page=100`).map((c) => c.body ?? ""),
     async protection() {
       if (!protectionToken) throw new Error("main-guard: MAIN_GUARD_PROTECTION_TOKEN is not set; the protection cannot be read");
       try {
@@ -52,8 +55,10 @@ export function githubApi({ repo, branch, protectionToken }) {
 
 /** The alarm as markdown. */
 export function renderReport(result, { repo, branch }) {
-  if (result.ok) return `main-guard: nothing reached ${branch} without its checks, and the protection of ${repo} is as declared.`;
-  const lines = [`## main-guard: ${repo}@${branch} needs a look`, ""];
+  // KJC-TSK-1402: what passed on the maintainer's signed exception is said, never silently.
+  const excepted = (result.exceptions ?? []).map((e) => `- \`${e.sha.slice(0, 7)}\`: PR #${e.pr} merged by @${e.mergedBy} without ${e.missing.join(", ")}, on the maintainer's signed exception: ${e.why}`);
+  if (result.ok) return [`main-guard: nothing reached ${branch} without its checks or a signed exception, and the protection of ${repo} is as declared.`, ...excepted].join("\n");
+  const lines = [`## main-guard: ${repo}@${branch} needs a look`, "", ...excepted];
   for (const m of result.merges) {
     lines.push(m.kind === "direct-push"
       ? `- \`${m.sha.slice(0, 7)}\`: direct push, ${m.detail}`
@@ -64,9 +69,9 @@ export function renderReport(result, { repo, branch }) {
 }
 
 /** @returns {Promise<number>} the exit code */
-export async function runMainGuard({ repo, branch, before, after, require, git, audit = auditMain, api, print = console.log }) {
+export async function runMainGuard({ repo, branch, before, after, require, git, keys = new Set(), audit = auditMain, api, print = console.log }) {
   const commits = pushedCommits({ before, after, git });
-  const result = await audit({ branch, commits, requiredChecks: require, api });
+  const result = await audit({ branch, repo, commits, requiredChecks: require, keys, api });
   print(renderReport(result, { repo, branch }));
   return result.ok ? 0 : 1;
 }
@@ -74,5 +79,7 @@ export async function runMainGuard({ repo, branch, before, after, require, git, 
 export async function mainGuardCommand({ flags, projectDir = process.cwd() }) {
   const { repo, branch, before, after } = flags;
   const api = githubApi({ repo, branch, protectionToken: process.env.MAIN_GUARD_PROTECTION_TOKEN });
-  process.exitCode = await runMainGuard({ repo, branch, before, after, require: flags.require, git: gitIn(projectDir), api });
+  // The roster versioned in the repo: the only keys whose exception CI accepts.
+  const keys = new Set(readSigners({ projectDir }));
+  process.exitCode = await runMainGuard({ repo, branch, before, after, require: flags.require, git: gitIn(projectDir), keys, api });
 }

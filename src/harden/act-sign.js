@@ -30,6 +30,11 @@ const EXPLAIN = {
     "El agente puede endurecer las reglas que le vigilan, pero aflojarlas solo puedes tú (ADR 0045).",
     "Una regla aflojada sin tu firma dejaría al agente rebajar lo que le frena.",
   ],
+  "main-guard-except": [
+    "Se firma una excepción para una PR que se mergea sin sus checks obligatorios (p. ej. un merge de admin en una transición), para su commit actual y con el motivo que ves.",
+    "main-guard solo deja pasar ese merge con tu firma, y lo nombra en su informe con el motivo.",
+    "Una excepción sin tu firma dejaría a cualquiera con tus credenciales saltarse los checks sin que saltara la alarma.",
+  ],
   "phone-enroll": [
     "Entra una clave pública nueva en el padrón de móviles que pueden firmar en este proyecto.",
     "Quien está en el padrón sella, aprueba reglas y baja el nivel: solo un móvil ya enrolado admite a otro.",

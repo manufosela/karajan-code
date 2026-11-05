@@ -1,6 +1,6 @@
 {
   "name": "karajan-code",
-  "version": "5.5.0",
+  "version": "5.6.0",
   "description": "Local multi-agent coding orchestrator with TDD, SonarQube, and code review pipeline",
   "type": "module",
   "license": "AGPL-3.0",
@@ -41,7 +41,9 @@
     "packages/governance",
     "packages/console",
     "packages/atril",
-    "packages/story-contract"
+    "packages/story-contract",
+    "packages/board-github",
+    "packages/board-linear"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
@@ -64,6 +66,10 @@
     "packages/ai-trash/package.json",
     "packages/story-contract/src/",
     "packages/story-contract/package.json",
+    "packages/board-github/src/",
+    "packages/board-github/package.json",
+    "packages/board-linear/src/",
+    "packages/board-linear/package.json",
     "docs/README.es.md",
     "LICENSE",
     "README.md"

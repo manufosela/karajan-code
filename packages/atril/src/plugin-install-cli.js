@@ -8,10 +8,11 @@ import { formatInventory } from "./plugin-trust.js";
 export function installConfirm({ yes, tty, ask, err }) {
   let dry = false;
   // `members` are the whole install set in install order; a lone plugin prints exactly what it always did.
-  const confirm = async (members) => {
+  const confirm = async (members, { creates } = {}) => {
     const set = members.length > 1;
     if (set) err(`${members.length} plugins will be installed: ${members.map(({ name, mode }) => (mode ? `${name} (${mode})` : name)).join(", ")}\n`);
     for (const { inventory, source, commit } of members) err(formatInventory(inventory, { source, commit }));
+    if (creates) err(`atril: the project has no .rulesync/; installing creates it with only ${creates.join(", ")} and the ledger .owners.json (no rulesync init example files)\n`);
     if (yes) return true;
     if (tty) return /^y(es)?$/i.test((await ask(`install ${set ? "these plugins" : "this plugin"}? [y/N] `)).trim());
     dry = true;
@@ -56,7 +57,7 @@ export function notInstalledLines({ plugin, notInstalled: { hooks, mcpServers, b
   const kept = (rulesync?.kept ?? []).map(({ kind, name: entry, path }) => `atril: ${who}left ${kind} ${JSON.stringify(entry)} with ${path} as it is: the plugin does not ship it, so it is the project's`);
   const lossy = (rulesync?.lossy ?? []).map(({ field, where }) => `atril: ${who}the import lost ${field} (${where}): the entry is written, the field does not change what runs`);
   const native = (rulesync?.instructions ?? []).map((line) => `atril: ${who}${line}`);
-  return [...absent, ...(rulesync?.status === "merged" && !rulesync.instructions ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...needs, ...sync, ...kept, ...lossy, ...left, ...native, ...[
+  return [...absent, ...(rulesync?.created ? ["atril: created .rulesync/ (it did not exist)"] : []), ...(rulesync?.status === "merged" && !rulesync.instructions ? [`atril: ${who}hooks and MCP servers written to .rulesync/`] : []), ...needs, ...sync, ...kept, ...lossy, ...left, ...native, ...[
     ...(hooks.length ? [`${hooks.length} hook(s)`] : []),
     ...(mcpServers.length ? [`${mcpServers.length} MCP server(s): ${mcpServers.map(({ name }) => JSON.stringify(name)).join(" ")}`] : []),
     ...(bin.length ? [`${bin.length} executable(s) in bin/`] : []),
