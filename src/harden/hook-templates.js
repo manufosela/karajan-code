@@ -185,6 +185,11 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
     case "commit-msg":
       // Pure POSIX — Conventional Commits header, length cap, AI-attribution.
       return [
+        "# KJC-TSK-1401: one line per attempt in .karajan/harness/commit-gate.jsonl (time, outcome, rule;",
+        "# never the message) for kj stage's Git gates station. Best effort: a trace that cannot be",
+        "# written never blocks a commit, it only goes missing from the stage.",
+        String.raw`kj_trace() { mkdir -p .karajan/harness 2>/dev/null && printf '{"at":"%s","outcome":"%s","rule":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> .karajan/harness/commit-gate.jsonl 2>/dev/null; return 0; }`,
+        'kj_refuse() { kj_trace refuse "$1"; echo "$2"; exit 1; }',
         'msg_file="$1"',
         'header=$(head -n1 "$msg_file")',
         "# KJC-TSK-1390 (ADR 0045): the project's convention (kj gates value commit-convention):",
@@ -195,22 +200,23 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
         "  free|project) ;;",
         "  *)",
         `    if ! printf '%s' "$header" | grep -qE '^(${CONVENTIONAL_TYPES})(\\([a-z0-9._-]+\\))?!?: .+'; then`,
-        "      echo 'kj harden: commit header must follow Conventional Commits (type: subject)'; exit 1",
+        "      kj_refuse header 'kj harden: commit header must follow Conventional Commits (type: subject)'",
         "    fi",
         "    ;;",
         "esac",
-        'if [ "${#header}" -gt 100 ]; then echo \'kj harden: commit header exceeds 100 chars\'; exit 1; fi',
+        'if [ "${#header}" -gt 100 ]; then kj_refuse length \'kj harden: commit header exceeds 100 chars\'; fi',
         "# KJC-TSK-0909: the rest of what CI's commitlint rejects, caught here.",
         "if ! awk 'NR > 2 && !/^#/ && length($0) > 100 { exit 1 }' \"$msg_file\"; then",
-        "  echo 'kj harden: a commit body line exceeds 100 chars (CI commitlint rejects it)'; exit 1",
+        "  kj_refuse body 'kj harden: a commit body line exceeds 100 chars (CI commitlint rejects it)'",
         "fi",
         'if [ -x node_modules/.bin/commitlint ]; then',
-        '  node_modules/.bin/commitlint --edit "$msg_file" || exit 1',
+        '  node_modules/.bin/commitlint --edit "$msg_file" || { kj_trace refuse commitlint; exit 1; }',
         "fi",
         `if grep -qiE '${AI_ATTRIBUTION}' "$msg_file"; then`,
-        "  echo 'kj harden: AI attribution is not allowed in commit messages'; exit 1",
+        "  kj_refuse attribution 'kj harden: AI attribution is not allowed in commit messages'",
         "fi",
         ...chain,
+        "kj_trace pass ok",
       ].join("\n");
     case "pre-push": {
       const lines = [
