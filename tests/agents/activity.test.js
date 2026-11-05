@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ACTIVITY_FILE, traceActivity } from "../../src/agents/activity.js";
+import { noteLoaded } from "../../src/skills/loaded.js";
 
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-activity-")); });
@@ -28,6 +29,16 @@ describe("traceActivity", () => {
     expect(end).toMatchObject({ agent: "codex", role: "reviewer", phase: "end", outcome: "ok" });
     expect(Date.parse(start.at)).not.toBeNaN();
     expect(readFileSync(join(dir, ACTIVITY_FILE), "utf8")).not.toMatch(/secret/);
+  });
+
+  it("the start line carries the atril skills just loaded for that role (KJC-TSK-1428)", async () => {
+    noteLoaded(dir, "reviewer", ["tdd", "review-rules"]);
+    const agent = traceActivity(fakeAgent(() => "done"), { name: "codex", role: "reviewer", projectDir: dir });
+    await agent.reviewTask({});
+    await agent.reviewTask({});
+    const [first, , second] = lines();
+    expect(first).toMatchObject({ phase: "start", skills: ["tdd", "review-rules"] });
+    expect(second.skills).toBeUndefined();
   });
 
   it("notes a failed run as ended with failure, and lets the error through", async () => {

@@ -2,11 +2,21 @@
 // is a robot of its own that walks in, works behind its station and walks out.
 import { describe, expect, it } from 'vitest';
 
-import { DOOR, WALK_MS, accentOf, spotOf, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
+import { DOOR, TURN_MS, WALK_MS, accentOf, spotOf, turnAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
 import { STATION_X, STATIONS } from '../public/stage/layout.js';
 
 const start = (agent, role) => ({ type: 'agent-activity', agent, role, phase: 'start' });
 const end = (agent, role) => ({ type: 'agent-activity', agent, role, phase: 'end', outcome: 'ok' });
+
+describe('turnAt (KJC-TSK-1428)', () => {
+  it('turns one page per skill, naming the skill on its page, then rests', () => {
+    const turn = { at: 1000, skills: ['tdd', 'review-rules'] };
+    expect(turnAt(turn, 1000 + TURN_MS / 2)).toEqual({ page: 1, fraction: 0.5, skill: 'tdd' });
+    expect(turnAt(turn, 1000 + TURN_MS * 1.25)).toMatchObject({ page: 2, skill: 'review-rules' });
+    expect(turnAt(turn, 1000 + TURN_MS * 2)).toBeNull();
+    expect(turnAt(null, 0)).toBeNull();
+  });
+});
 
 describe('spotOf', () => {
   it('puts the coder behind TDD and the reviewer and Solomon behind AI review, side by side', () => {

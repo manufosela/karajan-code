@@ -50,5 +50,5 @@ export function populate(scene) {
     return [id, piece];
   }));
   scene.add(stand.group, ...Object.values(crew).map((r) => r.root), ...Object.values(pieces).map((p) => p.group));
-  return { crew, pieces };
+  return { crew, pieces, stand };
 }

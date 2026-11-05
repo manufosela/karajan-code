@@ -67,6 +67,11 @@ describe('withEvent', () => {
     expect(restState(state, 0).lines).toEqual(['At work: claude coding']);
   });
 
+  it('names the atril skills an agent started with (KJC-TSK-1428)', () => {
+    const state = withEvent({}, { type: 'agent-activity', agent: 'codex', role: 'reviewer', phase: 'start', at: 'x', skills: ['tdd', 'review-rules'] });
+    expect(restState(state, 0).lines).toEqual(['At work: codex reviewing with tdd, review-rules']);
+  });
+
   it('a passed commit opens the Git gates station', () => {
     const state = withEvent({}, { type: 'commit-gate', outcome: 'pass', rule: 'ok', at: '2026-11-05T08:00:00Z' });
     const { lights, lines } = restState(state, Date.parse('2026-11-05T08:03:00Z'));

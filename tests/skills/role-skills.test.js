@@ -3,12 +3,28 @@
 // role, up to 3; the rest are named. The maintainer's choices (2026-10-17).
 import { describe, it, expect } from "vitest";
 import { roleSkills, buildRoleSkillSection } from "../../src/skills/role-skills.js";
+import { takeLoaded } from "../../src/skills/loaded.js";
 
 const catalog = ["frontend-ui-engineering", "incremental-implementation", "source-driven-development", "context-engineering", "debugging-and-error-recovery", "code-review-and-quality", "code-simplification", "security-and-hardening"];
 const deps = (local = []) => ({
   loadLocal: async () => local,
   listCatalog: async () => catalog,
   loadCatalog: async (slugs) => slugs.map((slug) => ({ name: slug, content: `# ${slug}\nbody`, path: `/home/u/.karajan/agent-skills/skills/${slug}/SKILL.md` })),
+});
+
+describe("the skills atril loads are noted for the agent that starts next (KJC-TSK-1428)", () => {
+  it("atril's skills wait for that role's agent, and are taken only once", async () => {
+    const atrilDeps = { hasAtril: () => true, maxPerRole: async () => 3, atril: async () => ({ skills: [{ name: "tdd" }, { name: "review-rules" }], dropped: [] }) };
+    await roleSkills({ role: "reviewer", task: "x", projectDir: "/p", deps: atrilDeps, logger: {} });
+    expect(takeLoaded("/p", "coder")).toEqual([]);
+    expect(takeLoaded("/p", "reviewer")).toEqual(["tdd", "review-rules"]);
+    expect(takeLoaded("/p", "reviewer")).toEqual([]);
+  });
+
+  it("the legacy catalog is not atril: nothing is noted", async () => {
+    await roleSkills({ role: "coder", task: "frontend", projectDir: "/q", deps: deps() });
+    expect(takeLoaded("/q", "coder")).toEqual([]);
+  });
 });
 
 describe("roleSkills", () => {

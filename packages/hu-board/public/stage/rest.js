@@ -20,7 +20,7 @@ export function withEvent(state, event) {
     case 'commit-gate': return { ...state, gate: { outcome: event.outcome, rule: event.rule, at: event.at } };
     case 'agent-activity': {
       const others = (state.working ?? []).filter((w) => w.agent !== event.agent || w.role !== event.role);
-      const working = event.phase === 'start' ? [...others, { agent: event.agent, role: event.role, at: event.at }] : others;
+      const working = event.phase === 'start' ? [...others, { agent: event.agent, role: event.role, at: event.at, skills: event.skills ?? [] }] : others;
       return { ...state, working };
     }
     default: return state;
@@ -51,7 +51,8 @@ export function restState({ denial, verdict, seal, gate, working = [] }, now) {
     lines.push(`Git gates: ${told}, ${ago(gate.at, now)}`);
   }
   // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
-  const doing = (w) => [w.agent, DOING[w.role] ?? w.role].join(' ');
+  const using = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
+  const doing = (w) => [w.agent, DOING[w.role] ?? w.role, ...using(w)].join(' ');
   if (working.length) lines.push(`At work: ${working.map(doing).join(', ')}`);
   return { lights, lines };
 }

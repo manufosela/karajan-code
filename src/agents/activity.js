@@ -5,6 +5,7 @@
 // without one there is nothing to trace, and tests leave no activity behind.
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { takeLoaded } from "../skills/loaded.js";
 
 export const ACTIVITY_FILE = ".karajan/harness/agent-activity.jsonl";
 
@@ -22,7 +23,9 @@ function note(projectDir, record, logger) {
 export function traceActivity(agent, { name, role, projectDir, logger }) {
   if (!projectDir) return agent;
   const traced = (method) => async (task) => {
-    note(projectDir, { agent: name, role, phase: "start" }, logger);
+    // KJC-TSK-1428: the atril skills loaded for this role ride on the start line.
+    const skills = takeLoaded(projectDir, role);
+    note(projectDir, { agent: name, role, phase: "start", ...(skills.length ? { skills } : {}) }, logger);
     try {
       const result = await method(task);
       note(projectDir, { agent: name, role, phase: "end", outcome: "ok" }, logger);

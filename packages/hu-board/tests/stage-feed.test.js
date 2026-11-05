@@ -31,9 +31,11 @@ describe('stage events from kj records', () => {
 
   it('an agent at work keeps who, in which role, the phase and its outcome (KJC-TSK-1430)', () => {
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok' })))
-      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok' });
+      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok', skills: [] });
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'start' })))
-      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', outcome: null });
+      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', outcome: null, skills: [] });
+    // KJC-TSK-1428: the atril skills on a start line, names only.
+    expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', skills: ['tdd', 7] })).skills).toEqual(['tdd']);
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', phase: 'nap' }))).toBeNull();
   });
 
