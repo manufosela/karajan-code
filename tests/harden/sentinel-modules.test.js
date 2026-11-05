@@ -18,6 +18,7 @@ const GUARDS = [
   "sessionstart.mjs",
   "sentinel-rules.mjs",
   "pretooluse-rules.mjs",
+  "sentinel-activity.mjs",
 ];
 
 describe("sentinel guards as package modules", () => {

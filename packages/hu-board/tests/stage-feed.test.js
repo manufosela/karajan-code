@@ -31,9 +31,13 @@ describe('stage events from kj records', () => {
 
   it('an agent at work keeps who, in which role, the phase and its outcome (KJC-TSK-1430)', () => {
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok' })))
-      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok', skills: [] });
+      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok', skills: [], id: null, tool: null, kind: null });
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'start' })))
-      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', outcome: null, skills: [] });
+      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', outcome: null, skills: [], id: null, tool: null, kind: null });
+    // KJC-TSK-1434: the host's trace keeps its id and the kind of tool; a subagent, its type; nothing but names.
+    expect(activityEvent(JSON.stringify({ at: 't6', agent: 'claude', role: 'host', phase: 'start', id: 's1', tool: 'Bash' })))
+      .toMatchObject({ role: 'host', id: 's1', tool: 'Bash', kind: null });
+    expect(activityEvent(JSON.stringify({ at: 't6', agent: 'claude', role: 'subagent', phase: 'start', id: 'a7', kind: { x: 1 } })).kind).toBeNull();
     // KJC-TSK-1428: the atril skills on a start line, names only.
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', skills: ['tdd', 7] })).skills).toEqual(['tdd']);
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', phase: 'nap' }))).toBeNull();

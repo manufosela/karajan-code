@@ -10,6 +10,7 @@ import { canonicalHarnessBody } from "../../src/harden/sentinel-hooks.js";
 const SENTINEL_GUARDS = [
   "sentinel-lib.mjs", "posttooluse.mjs", "stop.mjs", "pretooluse-sentinel.mjs", "sentinel-shell.mjs", "sentinel-discard.mjs",
   "sentinel-bash-write.mjs", "sentinel-reminders.mjs", "sessionstart.mjs", "sentinel-rules.mjs", "pretooluse-rules.mjs",
+  "sentinel-activity.mjs",
 ];
 
 export function placeGuardCopies(dir) {

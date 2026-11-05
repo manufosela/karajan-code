@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { findManagedBlock } from "../utils/managed-markers.js";
 import { findAlternative } from "./alternatives.js";
 import { wiringState } from "./harness-hooks.js";
-import { SENTINEL_WIRING } from "./sentinel-hooks.js";
+import { GOVERNING_WIRING } from "./sentinel-hooks.js";
 import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 import { detectStackRoots } from "./stack-roots.js";
 
@@ -173,7 +173,7 @@ export function classifyArtifact(searchDir, artifact, altDirs = [searchDir]) {
 const METHOD_PIECES = [
   // KJC-TSK-1208 (ADR 0030): the Sentinel is its wiring to the installed kj, not files.
   { id: "sentinel", what: "the Sentinel (it records the session, the RAG queries the review gate needs among them)",
-    files: [".claude/settings.json"], missingOf: (projectDir) => wiringState({ projectDir, entries: SENTINEL_WIRING }).missing },
+    files: [".claude/settings.json"], missingOf: (projectDir) => wiringState({ projectDir, entries: GOVERNING_WIRING }).missing },
   { id: "git-hooks", what: "the git hooks", files: [".karajan/hooks/pre-commit", ".karajan/hooks/commit-msg", ".karajan/hooks/pre-push"] },
 ];
 
