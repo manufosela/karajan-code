@@ -862,9 +862,11 @@ describe("installSentinelHooks settings merge", () => {
     // each wired exactly once across two installs.
     // KJC-BUG-0236 (#1886): and MCP kj_rag_query — without it the recorder
     // never ran and the official tool could not satisfy rag-first.
-    expect((JSON.stringify(cfg.hooks.PostToolUse).match(/then (kj-hook|kj sentinel hook) posttooluse;/g) || []).length).toBe(4);
+    // KJC-TSK-1434 (ADR 0048): and Agent|Task, a subagent coming back, for kj stage.
+    expect((JSON.stringify(cfg.hooks.PostToolUse).match(/then (kj-hook|kj sentinel hook) posttooluse;/g) || []).length).toBe(5);
     const matchers = cfg.hooks.PostToolUse.map((e) => e.matcher);
     expect(matchers).toContain("Bash");
+    expect(matchers).toContain("Agent|Task");
     expect(matchers.some((m) => /update_card/.test(m || ""))).toBe(true);
     const rag = matchers.find((m) => /kj_rag_query/.test(m || ""));
     expect(new RegExp(`^(?:${rag})$`).test("mcp__karajan-mcp__kj_rag_query")).toBe(true);

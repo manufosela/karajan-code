@@ -42,7 +42,9 @@ export function activityEvent(raw) {
   if (!r?.at || !r.agent || !r.role || !['start', 'end'].includes(r.phase)) return null;
   // KJC-TSK-1428: the atril skills a start line names, names only.
   const skills = Array.isArray(r.skills) ? r.skills.filter((s) => typeof s === 'string') : [];
-  return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null, skills };
+  // KJC-TSK-1434 (ADR 0048): the host's session or subagent id, the kind of tool it uses, the subagent's type.
+  const name = (v) => (typeof v === 'string' ? v.slice(0, 60) : null);
+  return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null, skills, id: name(r.id), tool: name(r.tool), kind: name(r.kind) };
 }
 
 /** A .karajan/reviews/<hash>.json → a review-verdict event, or null. */
