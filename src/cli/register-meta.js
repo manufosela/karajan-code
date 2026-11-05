@@ -29,6 +29,7 @@ import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/tel
 import { envInstallCommand, briefCommand } from "../commands/env.js";
 import { docCommand } from "../commands/doc.js";
 import { runReleaseCheck } from "../checks/release-check.js";
+import { mergeGate, runCommand } from "../guards/merge-gate.js";
 import { agentRunCommand } from "../commands/agent-run.js";
 import { reportIssueCommand } from "../commands/report-issue.js";
 import { huCommand, HU_STATUSES } from "../commands/hu.js";
@@ -586,6 +587,20 @@ export function registerMeta(program, { pkgVersion }) {
         }
         process.exitCode = res.ok ? 0 : 1;
       });
+    });
+
+  // KJC-BUG-0494: the Sentinel asks before every gh pr merge; exit 2 means the PR's checks say no.
+  program.command("merge-gate")
+    .description("Whether a gh pr merge command may run now: exit 2, with the reason, while the PR's checks run or are red")
+    .requiredOption("--for-command <cmd>", "The shell command about to run")
+    .action((flags) => {
+      let verdict;
+      try { verdict = mergeGate({ command: flags.forCommand, run: runCommand }); }
+      catch (err) { verdict = { ok: false, reason: `could not read the PR's checks: ${err.message}` }; }
+      if (!verdict.ok) {
+        console.error(`merge-gate: ${verdict.reason}`);
+        process.exitCode = 2;
+      }
     });
 
   // KJC-TSK-0733 PL-A — policy as code: motor determinista en modo warn.

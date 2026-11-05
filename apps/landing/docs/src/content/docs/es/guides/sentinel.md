@@ -49,6 +49,10 @@ El bloqueo de identidad (ADR 0005): `gh`, `git push` y los comandos que firman c
 
 Una card mergeada debe moverse en el tracker antes de que avance nada más, commit, push, nuevo PR, otro merge, o terminar el turno. Límpialo con la llamada real al tracker (`update_card` vía MCP, o `kj hu move`). Una épica y una card partida en varias PRs las decide el gate. Sin escape (ADR 0015).
 
+## merge
+
+`gh pr merge` espera al CI de la PR. Antes del merge, `kj merge-gate` lee los checks de la PR, con la última ejecución de cada uno. Si alguno sigue en marcha o está en rojo, el merge se para y el mensaje dice cuál. Una PR sin ningún check también se para si el repo tiene workflows, porque su CI aún no ha arrancado. `gh pr merge --auto` pasa: ya espera GitHub a los checks.
+
 ## policy
 
 `.karajan/policy.yml` se evalúa en cada llamada a herramienta. Un deny nombra su regla y su motivo. Las reglas etiquetadas como seguridad NO tienen escape NI arbitraje. El resto tampoco tiene escape (ADR 0015): una regla que se dispara mal la corrige tu usuario en `.karajan/policy.yml`, por PR.
