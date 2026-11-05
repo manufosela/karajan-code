@@ -21,6 +21,7 @@ import { reapZombieSessions } from './zombie-reaper.js';
 import { reapZombieHus } from './hu-zombie-reaper.js';
 import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
+import { startupBanner } from './startup-banner.js';
 import { spaFallback } from './spa-fallback.js';
 import { findAvailablePort as findAvailablePortBase } from 'karajan-core/port-check';
 
@@ -342,22 +343,12 @@ async function main() {
     } catch (err) {
       console.warn(`[server] could not write PID file: ${err.message}`);
     }
-    const visibleHost = isLoopback ? 'localhost' : bindHost;
-    console.log(`\n  Karajan HU Board`);
-    console.log(`  -----------------`);
-    console.log(`  PID:        ${process.pid}`);
-    console.log(`  Running at: http://${visibleHost}:${port}`);
-    console.log(`  Data dir:   ${process.env.KJ_HOME || '~/.karajan'}`);
-    if (!isLoopback) {
-      const token = process.env.HU_BOARD_TOKEN;
-      console.log('');
-      console.log('  ⚠️  Bound to non-loopback interface.');
-      console.log(`     Token required for non-loopback peers: ${getTokenPath()}`);
-      if (token) {
-        console.log(`     URL with token: http://${bindHost}:${port}/?token=${token}`);
-      }
-    }
-    console.log('');
+    // KJC-BUG-0499: the banner lands in hu-board.log, so it never carries the token.
+    const banner = startupBanner({
+      pid: process.pid, host: bindHost, port, isLoopback,
+      dataDir: process.env.KJ_HOME || '~/.karajan', tokenPath: getTokenPath(),
+    });
+    for (const line of banner) console.log(line);
   });
 
   // Graceful shutdown
