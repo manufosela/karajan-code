@@ -9,6 +9,7 @@
  * (ENV-C) keeps the commit out.
  */
 import { createAgent } from "../agents/index.js";
+import { traceActivity } from "../agents/activity.js";
 import { resolveRole } from "../config/role-resolver.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveReviewProfile } from "./profiles.js";
@@ -122,7 +123,7 @@ export async function runOneShotReview({
     // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.
     const account = accountLabel(who, { env });
     logger?.info?.(`kj review: host=${hostAgent || "none"} → reviewer=${who} (cross-AI)${account ? ` [${account}]` : ""}`);
-    return createAgentFn(who, cfg, logger).reviewTask({ prompt, role: "reviewer" });
+    return traceActivity(createAgentFn(who, cfg, logger), { name: who, role: "reviewer", projectDir, logger }).reviewTask({ prompt, role: "reviewer" });
   };
 
   const first = await attempt(reviewer);

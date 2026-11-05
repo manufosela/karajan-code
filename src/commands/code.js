@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { createAgent } from "../agents/index.js";
+import { traceActivity } from "../agents/activity.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { resolveCardContext } from "../prompts/card-context.js";
@@ -24,7 +25,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     await assertAgentsAvailable([coderRole.provider]);
     logger.info(`Coder (${coderRole.provider}) starting...`);
     runLog.logText(`[coder] provider=${coderRole.provider}`);
-    const coder = createAgent(coderRole.provider, config, logger);
+    const coder = traceActivity(createAgent(coderRole.provider, config, logger), { name: coderRole.provider, role: "coder", projectDir: config?.projectDir, logger });
     let coderRules = null;
     if (config.coder_rules) {
       try {
