@@ -177,10 +177,23 @@ async function moveOnTeamBoard({ args, flags, deps, emit, who, key }) {
   // GitHub assigns by login: kj identity must name the GitHub user of this clone.
   if (!who || (key.name === "github" && who.includes("@"))) throw new Error(`the shared board reserves by ${key.service} login: declare it with kj identity set`);
   // Starting it, or releasing it, claims it; any other move of a HU someone else runs is refused.
-  if (status === "running" || flags.release) await manager.write.claim(id, who, { release: Boolean(flags.release) });
-  else await manager.assertNotHeld(id, who);
+  const warning = status === "running" || flags.release ? await claimToStart(manager, id, who, Boolean(flags.release)) : await manager.assertNotHeld(id, who);
   await manager.write.move(id, status);
-  return emit({ id, status, claimed_by: status === "running" ? who : null }, `✓ ${id} → ${status}`);
+  const moved = { id, status, claimed_by: status === "running" && !warning ? who : null };
+  if (!warning) return emit(moved, `✓ ${id} → ${status}`);
+  return emit({ ...moved, warning }, `✓ ${id} → ${status}\n⚠ ${warning}`);
+}
+
+/** HU-3420: starting a card the board cannot assign to `who` still starts it, unassigned and said; a release still fails loud. */
+async function claimToStart(manager, id, who, release) {
+  try {
+    await manager.write.claim(id, who, { release });
+    return null;
+  } catch (err) {
+    if (err?.code !== "UNMAPPED_IDENTITY" || release) throw err;
+    await manager.assertNotHeld(id, who);
+    return `${id} was not assigned: ${err.message}`;
+  }
 }
 
 // Exported for the Steward's proposed-work sync (KJC-TSK-0792): broken

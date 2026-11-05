@@ -89,13 +89,15 @@ export function createLinearManager({ config: raw, apiKey, fetch, warn = console
     },
     // Linear has a single assignee: a race is last-writer-wins, and the loser finds the winner on read-back.
     async claim(ref, who, { release = false } = {}) {
+      // HU-3420: the code lets the core start a card unassigned when the identity has no Linear user.
+      const unmappedError = (why) => Object.assign(new BoardRejectedError(`${why}: add it to linear.users: { "${who}": "<linear email>" }`), { code: "UNMAPPED_IDENTITY" });
       const email = config.users[who] ?? (who.includes("@") ? who : null);
-      if (!email) throw new BoardRejectedError(`no Linear user mapped for ${who}: add it to linear.users`);
+      if (!email) throw unmappedError(`no Linear user mapped for ${who}`);
       const held = await read(ref);
       const heldHu = toHu(held); // refuses a state of an unknown type
       if (held.state.name === config.states.running && held.assignee && held.assignee.email?.toLowerCase() !== email.toLowerCase() && !release) throw new HuClaimedError(`${ref} is held by ${heldHu.claimed_by}: taking it over is explicit (release)`);
       const user = (await gql(Q.user, { email })).users.nodes[0];
-      if (!user) throw new BoardRejectedError(`no Linear user with the email ${email}`);
+      if (!user) throw unmappedError(`no Linear user with the email ${email}`);
       await gql(Q.update, { id: held.identifier, input: { assigneeId: user.id } });
       const after = await read(ref);
       if (after.assignee?.id !== user.id) throw new HuClaimedError(`${ref} is held by ${toHu(after).claimed_by ?? "nobody"} after a concurrent claim: check it before working it`);
