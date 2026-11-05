@@ -13,6 +13,7 @@
  *    reject keeps it closed. Both record the full conflict for audit.
  */
 import { createAgent } from "../agents/index.js";
+import { traceActivity } from "../agents/activity.js";
 import { parseMaybeJsonString, agentAnswerText } from "./parser.js";
 import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js";
 import { diffHash, loadVerdict, saveVerdict } from "./verdict-store.js";
@@ -95,7 +96,7 @@ export async function runSolomonArbitration({
   ].join("\n");
 
   logger?.info?.(`kj solomon: brain=${hostAgent || "?"} vs reviewer=${verdict.reviewer} → arbiter=${solomon}`);
-  const agent = createAgentFn(solomon, config, logger);
+  const agent = traceActivity(createAgentFn(solomon, config, logger), { name: solomon, role: "solomon", projectDir, logger });
   const result = await agent.reviewTask({ prompt, role: "solomon" });
   if (!result?.ok) {
     // KJC-BUG-0121 layer 3: a binary on PATH is not an OPERATIONAL arbiter
