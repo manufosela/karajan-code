@@ -55,7 +55,7 @@ function firstDataFrame(path, timeoutMs = 4500) {
 describe('GET /api/events?project=<slug>', () => {
   it('streams the stage events of the project it names', async () => {
     const { event } = await firstDataFrame(`/api/events?project=${slug}`);
-    expect(event).toEqual({ type: 'sentinel-deny', at: 't', tool: 'Bash', why: 'no', project: slug });
+    expect(event).toEqual({ type: 'sentinel-deny', at: 't', tool: 'Bash', why: 'no', project: slug, lane: 'main' });
   });
 
   it('answers 400 to a project it cannot resolve, without opening the stream', async () => {
