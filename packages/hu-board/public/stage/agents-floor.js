@@ -5,8 +5,8 @@ import { createRobot } from './cast/robot.js';
 import { SCALE } from './layout.js';
 import { accentOf, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
-// Just above the helmet, so the name never sits on it.
-const HEAD_Y = 2.5;
+// Just above the helmet, so the name never sits on it: the robot is 3.5 m tall before SCALE.crew.
+const HEAD_Y = 3.6 * SCALE.crew;
 
 /** The agent's name over its robot, placed in screen space. */
 function nameTag(name, position, camera) {
@@ -22,8 +22,9 @@ function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
 }
 
-export function createAgentsFloor({ scene, camera }, working, now) {
-  let workers = workersFrom(working, now);
+/** `lanes` is [{lane, working}] of the last state; `xOf(lane)` the centre of a lane's workshop. */
+export function createAgentsFloor({ scene, camera, xOf }, lanes, now) {
+  let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
@@ -31,7 +32,7 @@ export function createAgentsFloor({ scene, camera }, working, now) {
     frame(t) {
       const tags = [];
       for (const worker of workers) {
-        const pose = workerAt(worker, t);
+        const pose = workerAt(worker, t, xOf);
         const key = visitKey(worker);
         let robot = robots.get(key);
         if (!pose) {
@@ -49,7 +50,7 @@ export function createAgentsFloor({ scene, camera }, working, now) {
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         tags.push(nameTag(worker.agent, robot.root.position, camera));
       }
-      workers = workers.filter((w) => workerAt(w, t) !== null);
+      workers = workers.filter((w) => workerAt(w, t, xOf) !== null);
       return tags;
     },
   };

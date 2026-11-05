@@ -11,6 +11,18 @@ const ago = (at, now) => {
   return min < 1 ? 'just now' : `${min} min ago`;
 };
 
+const newest = (records) => records.filter(Boolean).toSorted((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] ?? null;
+
+/**
+ * KJC-TSK-1433 (ADR 0048): one last state from the state of every lane: the
+ * newest of each record, and everyone at work, each with its lane.
+ */
+export function acrossLanes(lanes) {
+  const pick = (key) => newest(lanes.map((l) => l[key]));
+  const working = lanes.flatMap((l) => (l.working ?? []).map((w) => ({ ...w, lane: l.lane })));
+  return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), working, lanes };
+}
+
 /** The last real state after a live event (KJC-TSK-1399): only the piece it touches moves. */
 export function withEvent(state, event) {
   switch (event?.type) {
@@ -19,8 +31,9 @@ export function withEvent(state, event) {
     case 'ledger-seal': return { ...state, seal: { decision: event.decision, chokepoint: event.chokepoint, at: event.at } };
     case 'commit-gate': return { ...state, gate: { outcome: event.outcome, rule: event.rule, at: event.at } };
     case 'agent-activity': {
-      const others = (state.working ?? []).filter((w) => w.agent !== event.agent || w.role !== event.role);
-      const working = event.phase === 'start' ? [...others, { agent: event.agent, role: event.role, at: event.at, skills: event.skills ?? [] }] : others;
+      const lane = event.lane ?? 'main';
+      const others = (state.working ?? []).filter((w) => w.agent !== event.agent || w.role !== event.role || (w.lane ?? 'main') !== lane);
+      const working = event.phase === 'start' ? [...others, { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [] }] : others;
       return { ...state, working };
     }
     default: return state;
@@ -52,7 +65,8 @@ export function restState({ denial, verdict, seal, gate, working = [] }, now) {
   }
   // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
   const using = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
-  const doing = (w) => [w.agent, DOING[w.role] ?? w.role, ...using(w)].join(' ');
+  const where = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
+  const doing = (w) => [w.agent, DOING[w.role] ?? w.role, ...where(w), ...using(w)].join(' ');
   if (working.length) lines.push(`At work: ${working.map(doing).join(', ')}`);
   return { lights, lines };
 }

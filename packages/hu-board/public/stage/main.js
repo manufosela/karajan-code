@@ -2,11 +2,14 @@
 // works the hall and each station shows the last real state of the project;
 // nothing is simulated. The live cues come from the director (KJC-TSK-1399).
 import * as THREE from 'three';
-import { createFactory } from './factory.js';
+import { createFactory, framing } from './factory.js';
 import { populate } from './crew.js';
+import { createHall } from './hall.js';
+import { hallWidth } from './layout.js';
 import { createLive } from './live.js';
-import { runAmbient } from './ambient-loop.js';
+import { acrossLanes } from './rest.js';
 import { boardToken, withToken } from './token.js';
+import { listenZoom } from './zoom.js';
 
 const canvas = document.getElementById('stage');
 const status = document.getElementById('stage-status');
@@ -15,27 +18,30 @@ const project = new URLSearchParams(location.search).get('project');
 const token = boardToken(location.search, () => localStorage);
 const tell = (lines) => status.replaceChildren(...lines.map((text) => Object.assign(document.createElement('li'), { textContent: text })));
 
-/** Builds the hall; returns its stations by id, its crew by id and its render. */
-function buildScene() {
+/** Builds the hall with one workshop per lane; returns its pieces, crew, hall and render. */
+function buildScene(lanes) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer);
   const { crew, pieces, stand } = populate(scene);
+  const hall = createHall(scene, lanes);
   const render = () => renderer.render(scene, camera);
-  const framing = camera.position.clone();
-  const resize = () => {
+  // The camera pulls back as the hall grows or the screen narrows, so every workshop
+  // fits; the wheel or a pinch brings it closer or further (KJC-TSK-1433).
+  let zoom = 1;
+  const refit = () => {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
-    // A narrow screen pulls the camera back so the whole line still fits across it.
-    camera.position.copy(target).lerp(framing, Math.max(1, 1.6 / camera.aspect));
+    camera.position.copy(target).add(framing(hallWidth(hall.count()), camera.aspect).multiplyScalar(zoom));
     camera.lookAt(target);
     camera.updateProjectionMatrix();
     render();
   };
-  addEventListener('resize', resize);
-  resize();
-  return { scene, pieces, crew, stand, camera, render };
+  addEventListener('resize', refit);
+  listenZoom(canvas, (k) => { zoom = k; refit(); });
+  refit();
+  return { scene, pieces, crew, stand, hall, camera, render, refit };
 }
 
 /** The last real state of the project, or the reason the board could not give it. */
@@ -43,7 +49,8 @@ async function fetchState() {
   try {
     const res = await fetch(`/api/stage/state?project=${encodeURIComponent(project)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     const body = await res.json();
-    return res.ok ? { state: body } : { error: body.error };
+    // ADR 0048: the state of every lane, newest first; a board without lanes answers the main checkout's.
+    return res.ok ? { state: body.lanes ? acrossLanes(body.lanes) : body } : { error: body.error };
   } catch (err) {
     return { error: `the board did not answer (${err.message})` };
   }
@@ -51,23 +58,28 @@ async function fetchState() {
 
 async function start() {
   document.getElementById('stage-project').textContent = `kj stage · ${project}`;
-  const scene = buildScene();
   const { state, error } = await fetchState();
   if (error) { tell([`The board cannot read this project: ${error}`]); return; }
+  const scene = buildScene((state.lanes ?? [{ lane: 'main' }]).map((l) => l.lane));
   // The status list never goes blank: with nothing to tell, it says so (also after a live event).
   const tellState = (lines) => tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
   const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts') });
   tellState(live.settle().lines);
   scene.render();
-  // The crew is always busy (ADR 0047), except for someone who asked for no motion: then
-  // each real event only moves its station's light and the status list, without crates.
+  // ADR 0048: nothing moves without a real event. The frames only play what events
+  // set going; someone who asked for no motion gets the lights and the list only.
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
   events.onmessage = ({ data }) => {
     live.push(JSON.parse(data), performance.now());
     if (still) scene.render();
   };
-  if (!still) runAmbient(scene, document.getElementById('stage-bubble'), live.frame);
+  const frame = (ms) => {
+    live.frame(ms);
+    scene.render();
+    requestAnimationFrame(frame);
+  };
+  if (!still) requestAnimationFrame(frame);
 }
 
 if (!project) tell(['Open the stage of a project: kj stage, or the Stage link of the board.']);

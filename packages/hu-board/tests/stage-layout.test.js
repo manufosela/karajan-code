@@ -1,24 +1,31 @@
-// ADR 0047: the factory hall's layout keeps every station on the line and the crew off it.
+// ADR 0048: one workshop per lane at the front, Karajan's posts at the back, no line.
 import { describe, expect, it } from 'vitest';
 
-import { CREW, LINE, PLINTH_WIDTH, SCALE, STATION_X } from '../public/stage/layout.js';
-
-const half = (PLINTH_WIDTH * SCALE.piece) / 2;
+import { CREW, PLINTH_WIDTH, POST, POSTS, SCALE, SENTINEL_POST, WORKSHOP, hallWidth, postX, workshopX } from '../public/stage/layout.js';
 
 describe('factory layout', () => {
-  it('has one station per piece of the method, each fully along the line', () => {
-    expect(STATION_X).toHaveLength(7);
-    for (const x of STATION_X) {
-      expect(x - half).toBeGreaterThanOrEqual(LINE.from);
-      expect(x + half).toBeLessThanOrEqual(LINE.to);
-    }
+  it('centres the row of workshops and never lets two touch', () => {
+    expect(workshopX(0, 1)).toBe(0);
+    expect(workshopX(0, 3) + workshopX(2, 3)).toBe(0);
+    expect(workshopX(1, 3) - workshopX(0, 3)).toBeGreaterThan(WORKSHOP.width);
   });
 
-  it('leaves a gap between neighbouring stations', () => {
-    STATION_X.slice(1).forEach((x, i) => expect(x - STATION_X[i]).toBeGreaterThan(2 * half));
+  it('keeps a post for every piece but the Sentinel, centred and apart, behind the workshops', () => {
+    expect(POSTS).toHaveLength(6);
+    expect(POSTS).not.toContain('sentinel');
+    expect(postX(POSTS[0]) + postX(POSTS.at(-1))).toBe(0);
+    expect(postX(POSTS[1]) - postX(POSTS[0])).toBeGreaterThan(PLINTH_WIDTH * SCALE.piece);
+    expect(POST.z + PLINTH_WIDTH).toBeLessThan(WORKSHOP.z - WORKSHOP.depth / 2);
   });
 
-  it('puts the crew on the floor beyond the ends of the line', () => {
-    for (const { x } of Object.values(CREW)) expect(x < LINE.from || x > LINE.to).toBe(true);
+  it('raises the Sentinel behind the posts and leaves the crew beyond their ends', () => {
+    expect(SENTINEL_POST.z).toBeLessThan(POST.z);
+    expect(SENTINEL_POST.height).toBeGreaterThan(1);
+    for (const { x } of Object.values(CREW)) expect(Math.abs(x)).toBeGreaterThan(Math.abs(postX(POSTS[0])));
+  });
+
+  it('grows the hall with its workshops and always fits the posts', () => {
+    expect(hallWidth(8)).toBeGreaterThan(hallWidth(2));
+    expect(hallWidth(1)).toBeGreaterThan(2 * Math.abs(postX(POSTS[0])));
   });
 });
