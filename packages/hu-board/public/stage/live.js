@@ -8,6 +8,7 @@ import { LIFETIME_MS, boxAt } from './line.js';
 import { LINE } from './layout.js';
 import { restState, withEvent } from './rest.js';
 import { createAgentsFloor } from './agents-floor.js';
+import { turnAt } from './workers.js';
 
 const CRATE = 0.5;
 const DARK = { gold: 0, red: 0 };
@@ -15,17 +16,18 @@ const DARK = { gold: 0, red: 0 };
 const crateMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a26b, roughness: 0.8 });
 const crateGeometry = new THREE.BoxGeometry(CRATE, CRATE * 0.8, CRATE);
 
-/** A burst count over its crate, placed in screen space. */
-function countTag(count, position, camera) {
+/** A label over a point of the scene, placed in screen space. */
+function tagAt(text, position, camera, className = 'stage-count') {
   const at = position.clone().setY(position.y + CRATE).project(camera);
-  const tag = Object.assign(document.createElement('span'), { textContent: `×${count}`, className: 'stage-count' });
+  const tag = Object.assign(document.createElement('span'), { textContent: text, className });
   tag.style.left = `${((at.x + 1) / 2) * innerWidth}px`;
   tag.style.top = `${((1 - at.y) / 2) * innerHeight}px`;
   return tag;
 }
 
-export function createLive({ scene, pieces, camera }, { state: initial, tell, counts }) {
+export function createLive({ scene, pieces, camera, stand }, { state: initial, tell, counts }) {
   let state = initial;
+  let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   const director = createDirector({ lifetime: LIFETIME_MS });
   const crates = new Map();
   const floor = createAgentsFloor({ scene, camera }, initial.working ?? [], performance.now());
@@ -45,6 +47,7 @@ export function createLive({ scene, pieces, camera }, { state: initial, tell, co
       // An agent at work moves no crate (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
+      if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: now, skills: event.skills };
       tell(settle().lines);
     },
     /** Moves the crates and flashes the stations they reached. */
@@ -67,7 +70,16 @@ export function createLive({ scene, pieces, camera }, { state: initial, tell, co
         const base = lights[cue.piece] ?? DARK;
         if (cue.tone === 'refuse') pieces[cue.piece].setLight(base.gold, Math.max(base.red, box.flash));
         else pieces[cue.piece].setLight(Math.max(base.gold, box.flash), base.red);
-        if (cue.count > 1) tags.push(countTag(cue.count, mesh.position, camera));
+        if (cue.count > 1) tags.push(tagAt(`×${cue.count}`, mesh.position, camera));
+      }
+      // atril turns a page per skill; its sheets are the film's, so the skill's real name rides above it.
+      const page = turnAt(turn, now);
+      if (page) {
+        stand.turnTo(page.page, page.fraction);
+        tags.push(tagAt(page.skill, stand.group.position.clone().setY(2.3), camera, 'stage-worker'));
+      } else if (turn) {
+        stand.turnTo(0, 1);
+        turn = null;
       }
       counts.replaceChildren(...tags, ...floor.frame(now));
     },

@@ -18,7 +18,7 @@ function buildScene() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer);
-  const { crew, pieces } = populate(scene);
+  const { crew, pieces, stand } = populate(scene);
   const render = () => renderer.render(scene, camera);
   const framing = camera.position.clone();
   const resize = () => {
@@ -32,7 +32,7 @@ function buildScene() {
   };
   addEventListener('resize', resize);
   resize();
-  return { scene, pieces, crew, camera, render };
+  return { scene, pieces, crew, stand, camera, render };
 }
 
 /** The last real state of the project, or the reason the board could not give it. */

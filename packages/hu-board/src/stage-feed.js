@@ -38,7 +38,9 @@ export function gateEvent(raw) {
 export function activityEvent(raw) {
   const r = parse(raw);
   if (!r?.at || !r.agent || !r.role || !['start', 'end'].includes(r.phase)) return null;
-  return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null };
+  // KJC-TSK-1428: the atril skills a start line names, names only.
+  const skills = Array.isArray(r.skills) ? r.skills.filter((s) => typeof s === 'string') : [];
+  return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null, skills };
 }
 
 /** A .karajan/reviews/<hash>.json → a review-verdict event, or null. */

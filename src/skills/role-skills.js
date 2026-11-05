@@ -14,6 +14,7 @@ import { listAvailableSlugs, loadSkillsBySlugs } from "./addyosmani-catalog.js";
 import { resolveAddyosmaniSlugs } from "./addyosmani-role-map.js";
 import { atrilRoleSkills, hasAtrilStore } from "./atril-skills.js";
 import { loadConfig } from "../config/loader.js";
+import { noteLoaded } from "./loaded.js";
 
 export const MAX_SKILLS = 3;
 
@@ -37,7 +38,10 @@ export async function roleSkills({ role, task, projectDir, max, deps = defaultDe
   if (deps.hasAtril?.(projectDir)) {
     const limit = max ?? (await deps.maxPerRole?.(projectDir)) ?? MAX_SKILLS;
     noteOnce(logger, projectDir, `[skills] resolved from the atril store under ${projectDir}/.karajan (up to ${limit} per role)`);
-    return { ...(await deps.atril({ role, task, projectDir, max: limit })), limit, source: "atril" };
+    const resolved = await deps.atril({ role, task, projectDir, max: limit });
+    // KJC-TSK-1428: the next agent of this role names them in its start line, for kj stage.
+    noteLoaded(projectDir, role, resolved.skills.map((s) => s.name));
+    return { ...resolved, limit, source: "atril" };
   }
   const limit = max ?? MAX_SKILLS;
   return { ...(await legacyRoleSkills({ role, task, projectDir, max: limit, deps })), limit, source: "legacy" };

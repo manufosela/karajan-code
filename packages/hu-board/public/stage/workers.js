@@ -13,6 +13,22 @@ const ROLE_SHIFT = { solomon: 0.9 };
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
 const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
 export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;
+/** How long atril takes to turn one page, in ms (KJC-TSK-1428). */
+export const TURN_MS = 1200;
+
+/**
+ * Which page atril is turning for the skills an agent started with, and how far
+ * (0..1), with the skill's name; null once every page is turned. Page 0 is the
+ * cover, so the first skill turns page 1.
+ */
+export function turnAt(turn, now) {
+  if (!turn) return null;
+  const k = (now - turn.at) / TURN_MS;
+  if (k < 0 || k >= turn.skills.length) return null;
+  const i = Math.floor(k);
+  return { page: i + 1, fraction: k - i, skill: turn.skills[i] };
+}
+
 /** The key of one robot's whole visit, from walking in to walking out. */
 export const visitKey = (w) => `${w.agent}:${w.role}:${w.since}`;
 
