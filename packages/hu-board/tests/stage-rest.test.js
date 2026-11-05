@@ -1,7 +1,7 @@
 // KJC-TSK-1398 (ADR 0046): on open, each piece shows its last real state.
 import { describe, expect, it } from 'vitest';
 
-import { restState } from '../public/stage/rest.js';
+import { acrossLanes, restState, withEvent } from '../public/stage/rest.js';
 
 const NOW = Date.parse('2026-11-03T10:00:00Z');
 
@@ -28,5 +28,25 @@ describe('restState', () => {
     const { lights, lines } = restState({ denial: { at: '2026-11-03T08:00:00Z', tool: 'Edit' }, verdict: null, seal: null }, NOW);
     expect(lights).toEqual({});
     expect(lines).toEqual(['Sentinel: last denial 120 min ago (Edit)']);
+  });
+});
+
+describe('acrossLanes (ADR 0048)', () => {
+  const empty = { denial: null, verdict: null, seal: null, gate: null, working: [] };
+  it('keeps the newest record of every lane and everyone at work with their lane', () => {
+    const state = acrossLanes([
+      { ...empty, lane: 'main', denial: { at: '2026-11-03T09:00:00Z', tool: 'Edit' } },
+      { ...empty, lane: 'kj-stage', denial: { at: '2026-11-03T09:30:00Z', tool: 'Bash' }, working: [{ agent: 'codex', role: 'reviewer', at: 'x' }] },
+    ]);
+    expect(state.denial.tool).toBe('Bash');
+    expect(state.verdict).toBeNull();
+    expect(restState(state, NOW).lines).toEqual(['Sentinel: last denial 30 min ago (Bash)','At work: codex reviewing in kj-stage']);
+  });
+
+  it('a live start and end only touch the robot of their own lane', () => {
+    const at = (lane, phase) => ({ type: 'agent-activity', agent: 'codex', role: 'reviewer', phase, lane, at: 'x' });
+    let state = withEvent(withEvent({ working: [] }, at('a', 'start')), at('b', 'start'));
+    state = withEvent(state, at('a', 'end'));
+    expect(state.working.map((w) => w.lane)).toEqual(['b']);
   });
 });

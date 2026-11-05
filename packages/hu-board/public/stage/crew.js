@@ -1,6 +1,7 @@
-// ADR 0047: who works the factory hall. The film's seven pieces are the stations
-// of the line; Karajan, kaRAGan and kaWATCHan work the floor, with atril by kaRAGan.
-import { CREW, SCALE, STAND, STATION_X, STATION_Z, STATIONS } from './layout.js';
+// ADR 0047, 0048: who works the factory hall. The film's seven pieces wait at
+// their posts at the back; Karajan, kaRAGan and kaWATCHan at the ends of the
+// row, with atril by kaRAGan. Nothing here moves on its own.
+import { CREW, POST, SCALE, SENTINEL_POST, STAND, STATIONS, postX } from './layout.js';
 import { createRobot } from './cast/robot.js';
 import { createPiece } from './cast/piece.js';
 import { createStand } from './cast/stand.js';
@@ -12,7 +13,7 @@ import { sonarBody } from './cast/pieces/sonar.js';
 import { ledgerBody } from './cast/pieces/ledger.js';
 import { stewardBody } from './cast/pieces/steward.js';
 
-// The film's seven pieces: the stations of the line, in the order of layout.js.
+// The film's seven pieces, in the order of layout.js.
 const LOOKS = {
   tdd: ['TDD', 'tool', tddBody], sentinel: ['Sentinel', 'method', sentinelBody],
   review: ['AI review', 'method', reviewBody], gates: ['Git gates', 'method', gatesBody],
@@ -45,7 +46,11 @@ export function populate(scene) {
   place(stand.group, STAND, SCALE.stand);
   const pieces = Object.fromEntries(PIECES.map(([id, name, kind, body], i) => {
     const piece = createPiece(i, name, { kind, body });
-    place(piece.group, { x: STATION_X[i], z: STATION_Z }, SCALE.piece);
+    // ADR 0048: each piece waits at its post; the Sentinel watches from its raised one.
+    if (id === 'sentinel') {
+      place(piece.group, SENTINEL_POST, SCALE.piece);
+      piece.group.position.y = SENTINEL_POST.height;
+    } else place(piece.group, { x: postX(id), z: POST.z }, SCALE.piece);
     piece.setLight(0);
     return [id, piece];
   }));

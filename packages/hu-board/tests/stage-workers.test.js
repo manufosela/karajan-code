@@ -3,10 +3,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { DOOR, TURN_MS, WALK_MS, accentOf, spotOf, turnAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
-import { STATION_X, STATIONS } from '../public/stage/layout.js';
+import { WORKSHOP } from '../public/stage/layout.js';
 
-const start = (agent, role) => ({ type: 'agent-activity', agent, role, phase: 'start' });
-const end = (agent, role) => ({ type: 'agent-activity', agent, role, phase: 'end', outcome: 'ok' });
+const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
+const end = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'end', outcome: 'ok', lane });
 
 describe('turnAt (KJC-TSK-1428)', () => {
   it('turns one page per skill, naming the skill on its page, then rests', () => {
@@ -18,11 +18,27 @@ describe('turnAt (KJC-TSK-1428)', () => {
   });
 });
 
-describe('spotOf', () => {
-  it('puts the coder behind TDD and the reviewer and Solomon behind AI review, side by side', () => {
-    expect(spotOf('coder').x).toBe(STATION_X[STATIONS.indexOf('tdd')]);
-    expect(spotOf('reviewer').x).toBe(STATION_X[STATIONS.indexOf('review')]);
-    expect(spotOf('solomon').x).not.toBe(spotOf('reviewer').x);
+describe('spotOf (ADR 0048)', () => {
+  it('puts the coder, the reviewer and Solomon side by side at the bench of their lane', () => {
+    const xs = ['coder', 'reviewer', 'solomon'].map((role) => spotOf(role, 10).x);
+    expect(new Set(xs).size).toBe(3);
+    for (const x of xs) expect(Math.abs(x - 10)).toBeLessThan(WORKSHOP.width / 2);
+    expect(spotOf('someone', 10).x).toBe(10);
+  });
+
+  it('sends each agent to the workshop of its own lane', () => {
+    const xOf = (lane) => ({ main: -5, 'kj-stage': 5 })[lane];
+    const [w] = withActivity([], start('codex', 'reviewer', 'kj-stage'), 0);
+    expect(workerAt(w, WALK_MS, xOf)).toMatchObject({ ...spotOf('reviewer', 5), walking: false });
+    const [m] = withActivity([], start('codex', 'reviewer'), 0);
+    expect(m.lane).toBe('main');
+  });
+
+  it('keeps one robot per agent and role in each lane', () => {
+    let workers = withActivity([], start('codex', 'reviewer', 'a'), 0);
+    workers = withActivity(workers, start('codex', 'reviewer', 'b'), 1);
+    workers = withActivity(workers, end('codex', 'reviewer', 'a'), 2);
+    expect(workers.map((w) => [w.lane, w.leftAt])).toEqual([['a', 2], ['b', undefined]]);
   });
 });
 
@@ -61,7 +77,8 @@ describe('a worker over time', () => {
   });
 
   it('agents already at work when the stage opens stand at their spot', () => {
-    const [w] = workersFrom([{ agent: 'agy', role: 'solomon', at: 'x' }], 5000);
-    expect(workerAt(w, 5000)).toMatchObject({ ...spotOf('solomon'), walking: false });
+    const [w] = workersFrom([{ agent: 'agy', role: 'solomon', at: 'x' }], 5000, 'kj-stage');
+    expect(w.lane).toBe('kj-stage');
+    expect(workerAt(w, 5000, () => 3)).toMatchObject({ ...spotOf('solomon', 3), walking: false });
   });
 });
