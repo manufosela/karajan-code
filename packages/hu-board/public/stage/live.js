@@ -37,9 +37,11 @@ export function createLive({ scene, pieces, camera }, { state: initial, tell, co
     settle,
     /** Takes one stream event at `now` (performance clock, ms). */
     push(event, now) {
-      if (!cueFor(event)) return;
-      state = withEvent(state, event);
-      director.push(event, now);
+      const next = withEvent(state, event);
+      if (next === state) return; // not a stage event
+      state = next;
+      // An agent at work moves no crate (KJC-TSK-1430): only the status list tells it.
+      if (cueFor(event)) director.push(event, now);
       tell(settle().lines);
     },
     /** Moves the crates and flashes the stations they reached. */

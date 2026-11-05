@@ -58,6 +58,15 @@ describe('withEvent', () => {
     expect(lights.gates).toEqual({ gold: 0, red: 0.35 });
   });
 
+  it('tells who is at work, as agents start and end (KJC-TSK-1430)', () => {
+    const act = (agent, role, phase) => ({ type: 'agent-activity', agent, role, phase, at: 'x' });
+    let state = withEvent({}, act('codex', 'reviewer', 'start'));
+    state = withEvent(state, act('claude', 'coder', 'start'));
+    expect(restState(state, 0).lines).toEqual(['At work: codex reviewing, claude coding']);
+    state = withEvent(state, act('codex', 'reviewer', 'end'));
+    expect(restState(state, 0).lines).toEqual(['At work: claude coding']);
+  });
+
   it('a passed commit opens the Git gates station', () => {
     const state = withEvent({}, { type: 'commit-gate', outcome: 'pass', rule: 'ok', at: '2026-11-05T08:00:00Z' });
     const { lights, lines } = restState(state, Date.parse('2026-11-05T08:03:00Z'));

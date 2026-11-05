@@ -6,23 +6,33 @@
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
+import { activityEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
 
-/** The last parseable line of a jsonl, reading at most its last `tailBytes`. */
-function lastRecord(file, toEvent, tailBytes) {
+/** A start older than this with no end is a run that died without saying so, not work. */
+const STALE_START_MS = 30 * 60 * 1000;
+
+/** The parseable lines of a jsonl as events, oldest first, reading at most its last `tailBytes`. */
+function tailRecords(file, toEvent, tailBytes) {
   let size;
-  try { size = statSync(file).size; } catch { return null; }
+  try { size = statSync(file).size; } catch { return []; }
   const length = Math.min(size, tailBytes);
   const buf = Buffer.alloc(length);
   const fd = openSync(file, 'r');
   try { readSync(fd, buf, 0, length, size - length); } finally { closeSync(fd); }
   const lines = buf.toString('utf8').split('\n');
   if (length < size) lines.shift(); // the first line of the tail may be cut
-  for (const raw of lines.toReversed()) {
-    const event = raw.trim() && toEvent(raw);
-    if (event) return event;
-  }
-  return null;
+  return lines.map((raw) => raw.trim() && toEvent(raw)).filter(Boolean);
+}
+
+const lastRecord = (file, toEvent, tailBytes) => tailRecords(file, toEvent, tailBytes).at(-1) ?? null;
+
+/** KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role. */
+function agentsAtWork(file, tailBytes, now) {
+  const last = new Map();
+  for (const ev of tailRecords(file, activityEvent, tailBytes)) last.set(`${ev.agent}:${ev.role}`, ev);
+  return [...last.values()]
+    .filter((ev) => ev.phase === 'start' && now - Date.parse(ev.at) < STALE_START_MS)
+    .map(({ agent, role, at }) => ({ agent, role, at }));
 }
 
 function newestVerdict(dir) {
@@ -41,12 +51,13 @@ function newestVerdict(dir) {
   return null;
 }
 
-export function lastStageState(projectDir, { tailBytes = 64 * 1024 } = {}) {
+export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now() } = {}) {
   const root = join(projectDir, '.karajan');
   return {
     denial: lastRecord(join(root, 'harness', 'denials.jsonl'), denialEvent, tailBytes),
     verdict: newestVerdict(join(root, 'reviews')),
     seal: lastRecord(join(root, 'policy-decisions.jsonl'), decisionEvent, tailBytes),
     gate: lastRecord(join(root, 'harness', 'commit-gate.jsonl'), gateEvent, tailBytes),
+    working: agentsAtWork(join(root, 'harness', 'agent-activity.jsonl'), tailBytes, now),
   };
 }

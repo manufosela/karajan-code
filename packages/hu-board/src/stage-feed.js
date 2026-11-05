@@ -34,6 +34,13 @@ export function gateEvent(raw) {
   return { type: 'commit-gate', at: r.at, outcome: r.outcome, rule: r.rule };
 }
 
+/** A line of .karajan/harness/agent-activity.jsonl (KJC-TSK-1429) → an agent-activity event, or null. */
+export function activityEvent(raw) {
+  const r = parse(raw);
+  if (!r?.at || !r.agent || !r.role || !['start', 'end'].includes(r.phase)) return null;
+  return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null };
+}
+
 /** A .karajan/reviews/<hash>.json → a review-verdict event, or null. */
 export function verdictEvent(raw) {
   const r = parse(raw);
@@ -78,6 +85,7 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
     [join(root, 'harness', 'denials.jsonl'), denialEvent],
     [join(root, 'policy-decisions.jsonl'), decisionEvent],
     [join(root, 'harness', 'commit-gate.jsonl'), gateEvent],
+    [join(root, 'harness', 'agent-activity.jsonl'), activityEvent],
   ]);
   const tails = new Map([...logs.keys()].map((file) => [file, createTail(file)]));
   const emit = (event, raw, file) => {

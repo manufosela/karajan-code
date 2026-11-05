@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { denialEvent, decisionEvent, gateEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
+import { activityEvent, denialEvent, decisionEvent, gateEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 
@@ -27,6 +27,14 @@ describe('stage events from kj records', () => {
   it('a commit attempt keeps when, its outcome and the rule (KJC-TSK-1427)', () => {
     expect(gateEvent(JSON.stringify({ at: 't4', outcome: 'refuse', rule: 'body' }))).toEqual({ type: 'commit-gate', at: 't4', outcome: 'refuse', rule: 'body' });
     expect(gateEvent(JSON.stringify({ at: 't4', outcome: 'maybe', rule: 'x' }))).toBeNull();
+  });
+
+  it('an agent at work keeps who, in which role, the phase and its outcome (KJC-TSK-1430)', () => {
+    expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok' })))
+      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'end', outcome: 'ok' });
+    expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'start' })))
+      .toEqual({ type: 'agent-activity', at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', outcome: null });
+    expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', phase: 'nap' }))).toBeNull();
   });
 
   it('a malformed or shapeless record gives no event', () => {
@@ -89,9 +97,12 @@ describe('watchStageFeed', () => {
     const gate = join(dir, '.karajan', 'harness', 'commit-gate.jsonl');
     appendFileSync(gate, line({ at: 't5', outcome: 'pass', rule: 'ok' }));
     watcher.emit('add', gate);
+    const activity = join(dir, '.karajan', 'harness', 'agent-activity.jsonl');
+    appendFileSync(activity, line({ at: 't7', agent: 'claude', role: 'coder', phase: 'start' }));
+    watcher.emit('add', activity);
     watcher.emit('change', join(dir, '.karajan', 'other.json'));
     expect(sent.map((e) => [e.type, e.project])).toEqual([
-      ['sentinel-deny', 'demo'], ['ledger-seal', 'demo'], ['review-verdict', 'demo'], ['commit-gate', 'demo'],
+      ['sentinel-deny', 'demo'], ['ledger-seal', 'demo'], ['review-verdict', 'demo'], ['commit-gate', 'demo'], ['agent-activity', 'demo'],
     ]);
     stop();
     expect(watcher.closed).toBe(true);
