@@ -1,0 +1,31 @@
+{
+  "name": "@karajan-family/board-planning-game",
+  "version": "1.0.0",
+  "description": "The Planning Game as a task manager for karajan-code, through the Planning Game's MCP server.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-code.git",
+    "directory": "packages/board-planning-game"
+  },
+  "keywords": [
+    "task-manager",
+    "planning-game",
+    "karajan"
+  ],
+  "author": "@manufosela",
+  "license": "MIT"
+}
