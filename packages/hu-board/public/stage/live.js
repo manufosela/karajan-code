@@ -6,6 +6,7 @@ import { createDirector, cueLevel, cueFor } from './director.js';
 import { restState, withEvent } from './rest.js';
 import { createAgentsFloor } from './agents-floor.js';
 import { turnAt } from './workers.js';
+import { sentinelAt, withWatch } from './sentinel-watch.js';
 
 const DARK = { gold: 0, red: 0 };
 const OVER_PIECE = 1.6;
@@ -22,6 +23,7 @@ function tagAt(text, position, camera, className = 'stage-count') {
 export function createLive({ scene, pieces, camera, stand, hall, refit }, { state: initial, tell, counts }) {
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
+  let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf }, working, performance.now());
@@ -44,12 +46,17 @@ export function createLive({ scene, pieces, camera, stand, hall, refit }, { stat
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: now, skills: event.skills };
+      watch = withWatch(watch, event, now);
       tell(settle().lines);
     },
     /** Flashes the pieces that handled a real event just now. */
     frame(now) {
       const { lights } = settle();
       const tags = [];
+      // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
+      const sentinel = sentinelAt(watch, now, hall.xOf);
+      pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
+      pieces.sentinel.group.rotation.y = sentinel.yaw;
       for (const cue of director.active(now)) {
         const flash = cueLevel(cue, now);
         const piece = pieces[cue.piece];
