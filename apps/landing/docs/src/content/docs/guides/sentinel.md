@@ -49,6 +49,10 @@ The identity lock (ADR 0005): `gh`, `git push` and commit-authoring commands mus
 
 A merged card must be moved in the tracker before anything else advances — commit, push, new PR, another merge, or ending the turn. Clear it with the real tracker call (`update_card` via MCP, or `kj hu move`). An epic and a card split across PRs are decided by the gate. No escape (ADR 0015).
 
+## merge
+
+`gh pr merge` waits for the PR's CI. Before the merge runs, `kj merge-gate` reads the PR's checks, taking the latest run of each one. A check still running or red stops the merge, and the message names it. A PR with no check yet stops it too when the repo has workflows, because its CI has not started. `gh pr merge --auto` passes, since GitHub itself waits for the checks.
+
 ## policy
 
 `.karajan/policy.yml` is evaluated on every tool call. A deny names its rule and reason. Security-tagged rules have NO escape and NO arbitration. The rest have no escape either (ADR 0015): a rule that misfires is fixed in `.karajan/policy.yml` by your user, through a PR.

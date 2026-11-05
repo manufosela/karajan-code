@@ -10,13 +10,37 @@ import { spawnSync } from "node:child_process";
 const VALUE_OPTIONS = new Set(["-b", "--body", "-F", "--body-file", "-t", "--subject", "-A", "--author-email", "--match-head-commit"]);
 const RED = new Set(["FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "STALE", "ERROR"]);
 
+// gh, a path to it, a gh-<account> wrapper, a substitution or a variable may name gh.
+const GH = /^(?:\S*\/)?gh(?:-[\w-]+)?$|^\$/;
+const PR_VALUE_FLAGS = new Set(["-R", "--repo"]);
+
+/** The shell as it runs the command: line continuations, escapes, quoted words, one-word prose. */
+function shellWords(command) {
+  const flat = String(command ?? "").replaceAll(/\\\n/g, " ").replaceAll(/\\(.)/g, "$1").replaceAll(/(["'])([\w-]*)\1/g, "$2");
+  const bare = flat.replaceAll(/\$\([^)]*\)/g, "$SUB").replaceAll(/'[^']*'|"[^"]*"/g, (q) => (/\s/.test(q) ? "_" : q));
+  return bare.split(/[;&|\n]+/).map((segment) => segment.match(/'[^']*'|"[^"]*"|\S+/g) ?? []);
+}
+
+/** The words after `gh pr [pr flags] merge` in a segment, or null when it merges no PR. */
+function mergeWords(words) {
+  for (let i = 0; i < words.length - 1; i += 1) {
+    if (!GH.test(words[i]) || words[i + 1] !== "pr") continue;
+    const rest = words.slice(i + 2);
+    const before = [];
+    while (rest[0]?.startsWith("-")) {
+      const flag = rest.shift();
+      before.push(flag, ...(PR_VALUE_FLAGS.has(flag) && rest.length > 0 ? [rest.shift()] : []));
+    }
+    if (rest[0] === "merge") return [...before, ...rest.slice(1)];
+  }
+  return null;
+}
+
 /** The PR a shell command merges ({selector, repo, auto}), or null when it merges none. */
 export function mergeTarget(command) {
-  // The shell runs `gh pr \<newline>merge`, `g\h` and `"gh"` as gh: read the command as it runs.
-  const flat = String(command ?? "").replaceAll(/\\\n/g, " ").replaceAll(/\\(.)/g, "$1").replaceAll(/(["'])([\w-]*)\1/g, "$2");
-  const m = /\bgh\s+pr\s+merge\b([^;&|\n]*)/.exec(flat);
-  if (!m) return null;
-  const words = (m[1].match(/'[^']*'|"[^"]*"|\S+/g) ?? []).map((w) => w.replace(/^(['"])(.*)\1$/, "$2"));
+  const found = shellWords(command).map(mergeWords).find(Boolean);
+  if (!found) return null;
+  const words = found.map((w) => w.replace(/^(['"])(.*)\1$/, "$2"));
   const target = { selector: null, repo: null, auto: false };
   let valueOf = null;
   for (const w of words) {

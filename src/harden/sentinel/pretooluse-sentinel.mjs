@@ -732,6 +732,17 @@ process.stdin.on("end", () => {
           process.exit(2);
         }
       }
+      // KJC-BUG-0494: no merge while the PR's CI runs or is red; kj reads the checks. kj also
+      // reads `gh pr \<newline>merge` or `g\h` as the shell runs them, so it decides on any "merge".
+      if (/merge/.test(cmd)) {
+        // Fails closed: a merge kj could not check is a merge nobody checked.
+        const g = spawnSync("kj", ["merge-gate", "--for-command", cmd], { cwd: ROOT, encoding: "utf8" });
+        if (g.error || g.status !== 0) {
+          const why = g.error ? "kj merge-gate no pudo ejecutarse (" + g.error.message + ")" : (g.stderr || "").trim().replace(/^merge-gate: /, "") || "kj merge-gate salió con " + g.status;
+          console.error("karajan sentinel: merge — " + why + "\nEspera a que el CI de la PR termine en verde, o usa gh pr merge --auto, que espera GitHub." + doc("merge"));
+          process.exit(2);
+        }
+      }
       // (the pending entry itself is recorded by the PostToolUse hook, only once
       // gh confirms "merged pull request #N" — a failed merge never blocks)
       // CLM-C (KJC-TSK-0803): a PR body outlives the turn — an invented figure

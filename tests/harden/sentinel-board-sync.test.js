@@ -46,7 +46,11 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe("board-sync gate", () => {
   it("un merge CONFIRMADO por gh registra la card de la rama como pendiente de mover; un merge fallido no", () => {
-    expect(bash(`gh auth switch --user ${TEST_GH_USER} && gh pr merge 12 --squash`).status).toBe(0); // el gate deja pasar el merge
+    // KJC-BUG-0494: the merge gate asks kj about the PR's checks; a fake kj says they are green.
+    const kjBin = path.join(dir, "kjbin");
+    fs.mkdirSync(kjBin);
+    fs.writeFileSync(path.join(kjBin, "kj"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    expect(bash(`gh auth switch --user ${TEST_GH_USER} && gh pr merge 12 --squash`, { PATH: `${kjBin}:${process.env.PATH}` }).status).toBe(0); // el gate deja pasar el merge
     expect(merged(12, false).status).toBe(0);
     expect(fs.existsSync(statePath) ? (state().sessions?.s1?.pending_moves ?? []) : []).toHaveLength(0);
     expect(merged(12).status).toBe(0);

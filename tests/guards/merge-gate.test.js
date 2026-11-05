@@ -17,12 +17,19 @@ describe("mergeTarget", () => {
   });
 
   it("sees the merge through the spellings the shell runs as gh pr merge", () => {
-    for (const cmd of ["gh pr \\\nmerge 12", "g\\h pr merge 12", `"gh" pr 'merge' 12`]) expect(mergeTarget(cmd)?.selector, cmd).toBe("12");
+    for (const cmd of ["gh pr \\\nmerge 12", "g\\h pr merge 12", `"gh" pr 'merge' 12`, "$(printf gh) pr merge 12"]) expect(mergeTarget(cmd)?.selector, cmd).toBe("12");
+    expect(mergeTarget("gh pr -R o/r merge 12")).toEqual({ selector: "12", repo: "o/r", auto: false });
+    for (const cmd of ["gh-ox pr merge 12", "$GH pr merge 12"]) expect(mergeTarget(cmd)?.selector, cmd).toBe("12");
   });
 
   it("is null for any command that merges no PR", () => {
     expect(mergeTarget("gh pr view 12")).toBeNull();
     expect(mergeTarget("git merge main")).toBeNull();
+    expect(mergeTarget(`git commit -m "fix pr merge"`)).toBeNull();
+    expect(mergeTarget(`gh pr create --title "a pr to merge"`)).toBeNull();
+    expect(mergeTarget("some-tool pr merge 12")).toBeNull();
+    expect(mergeTarget("gh pr view merge")).toBeNull();
+    expect(mergeTarget("gh pr create --title merge")).toBeNull();
   });
 });
 
