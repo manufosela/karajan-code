@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>kj stage · Karajan HU Board</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; background: #05080d; color: #e2e8f0; font: 14px/1.5 Inter, system-ui, sans-serif; }
+    #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    header { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 16px; align-items: center; padding: 12px 20px; }
+    header a { color: #8cb4c9; }
+    #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
+    #stage-status li { margin: 2px 0; }
+    .stage-cue { color: #e2e8f0; }
+  </style>
+  <script type="importmap">{ "imports": { "three": "/stage/three.min.js" } }</script>
+</head>
+<body>
+  <canvas id="stage" aria-label="Live 3D stage of the project: the method's pieces react to what Karajan does"></canvas>
+  <header>
+    <a href="/">← Board</a>
+    <strong id="stage-project">kj stage</strong>
+  </header>
+  <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->
+  <ul id="stage-status" aria-live="polite"></ul>
+  <script type="module" src="/stage/main.js"></script>
+</body>
+</html>
