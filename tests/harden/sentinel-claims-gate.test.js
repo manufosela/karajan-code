@@ -16,7 +16,11 @@ let dir, stop, home, bin;
 // product, fatal for the test: CI has no global kj. A shim pointing at this
 // checkout's bin/kj.js makes the test self-contained on any machine.
 const KJ_BIN = path.resolve("bin/kj.js");
-const env = () => ({ ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, KARAJAN_HOME: home });
+// KJ_NO_UPDATE_CHECK: on a branch behind the latest npm release kj prints an update
+// notice that corrupts the `kj sentinel verify --json` the hook parses (HU-3431).
+// KJ_NO_UPDATE_CHECK keeps the update notice of a branch behind the latest release
+// out of the hook output (HU-3431).
+const env = () => ({ ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, KARAJAN_HOME: home, KJ_NO_UPDATE_CHECK: "1" });
 const endTurn = (transcript) => spawnSync("node", [stop], {
   input: JSON.stringify({ session_id: "s1", ...(transcript ? { transcript_path: transcript } : {}) }),
   encoding: "utf8", cwd: dir, env: env(), timeout: 120_000,
@@ -46,6 +50,8 @@ beforeEach(() => {
   fs.mkdirSync(bin, { recursive: true });
   fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\nexec node "${KJ_BIN}" "$@"\n`, { mode: 0o755 });
   fs.writeFileSync(path.join(home, "kj.config.yml"), "base_branch: main\n");
+  // A branch behind the latest npm release: the cached "latest" is newer than any checkout.
+  fs.writeFileSync(path.join(home, "update-check.json"), JSON.stringify({ checkedAt: Date.now(), latest: "999.0.0" }));
   execSync("git init -q -b main && git config user.email a@b.c && git config user.name t && git commit -q --allow-empty -m init && git checkout -q -b feat/KJC-TSK-0042-demo", { cwd: dir });
   installSentinelHooks({ projectDir: dir });
   placeGuardCopies(dir);
