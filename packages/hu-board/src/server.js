@@ -321,7 +321,9 @@ async function main() {
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store, must-revalidate');
-    res.sendFile(join(PUBLIC_DIR, 'index.html'));
+    // `root` makes send() check dotfiles on the relative name only: an install path with a
+    // dot directory (a lane under .kj/, ~/.nvm, a .pnpm store) no longer turns the fallback into a 404.
+    res.sendFile('index.html', { root: PUBLIC_DIR });
   });
 
   // Find available port (always probed against loopback so the
