@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createFactory } from './factory.js';
 import { populate } from './crew.js';
 import { restState } from './rest.js';
+import { runAmbient } from './ambient-loop.js';
 
 const canvas = document.getElementById('stage');
 const status = document.getElementById('stage-status');
@@ -31,7 +32,7 @@ function buildScene() {
   };
   addEventListener('resize', resize);
   resize();
-  return { pieces, crew, render };
+  return { pieces, crew, camera, render };
 }
 
 /** The last real state of the project, or the reason the board could not give it. */
@@ -54,6 +55,8 @@ async function start() {
   for (const [id, { gold, red }] of Object.entries(lights)) scene.pieces[id].setLight(gold, red);
   tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
   scene.render();
+  // The crew is always busy (ADR 0047), except for someone who asked for no motion.
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) runAmbient(scene, document.getElementById('stage-bubble'));
 }
 
 if (!project) tell(['Open the stage of a project: kj stage, or the Stage link of the board.']);
