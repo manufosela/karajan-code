@@ -1,6 +1,6 @@
 // KJC-PCS-0049 Step 7 — MCP rag handlers acceptance pins.
 import { spawn } from "node:child_process";
-import { mkdtempSync,mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync,mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -94,6 +94,16 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
       const all = JSON.parse((await handleRagQuery({ text: "alpha", projectDir: mine, project: "all" }, {})).content[0].text);
       expect(all.project).toBeNull();
       expect(new Set(all.hits.map((h) => h.project_slug))).toEqual(new Set(["mine", "other"]));
+    });
+
+    it("leaves the answer note a kj project's stage and Sentinel read, as the CLI does (KJC-TSK-1438)", async () => {
+      const mine = await indexPlan("noted");
+      mkdirSync(join(mine, ".karajan"));
+      const { handleRagQuery } = await import("../../src/mcp/handlers/rag-handler.js");
+      await handleRagQuery({ text: "alpha", projectDir: mine }, {});
+      const note = JSON.parse(readFileSync(join(mine, ".karajan", "harness", "rag-answer.json"), "utf8"));
+      expect(note.text).toBe("alpha");
+      expect(note.sources.length).toBeGreaterThan(0);
     });
   });
 

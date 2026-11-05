@@ -71,7 +71,12 @@ describe('watchLanes', () => {
     appendFileSync(join(lateHarness, 'commit-gate.jsonl'), line({ at: 't2', outcome: 'pass', rule: 'ok' }));
     watcherOf(late).emit('add', join(lateHarness, 'commit-gate.jsonl'));
 
-    expect(sent.map((e) => [e.type, e.lane, e.project])).toEqual([['sentinel-deny', 'kj-stage', 'demo'], ['commit-gate', 'agent-a1', 'demo']]);
+    // KJC-TSK-1438: the RAG's answer note carries its lane like every other record.
+    writeFileSync(join(wtHarness, 'rag-answer.json'), JSON.stringify({ at: 5, text: 'q', sources: ['a'] }));
+    watcherOf(wt).emit('change', join(wtHarness, 'rag-answer.json'));
+    expect(sent.map((e) => [e.type, e.lane, e.project])).toEqual([
+      ['sentinel-deny', 'kj-stage', 'demo'], ['commit-gate', 'agent-a1', 'demo'], ['rag-answer', 'kj-stage', 'demo'],
+    ]);
     doors.emit('unlinkDir', late);
     expect(watcherOf(late).closed).toBe(true);
     stop();

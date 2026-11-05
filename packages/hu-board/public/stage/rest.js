@@ -36,13 +36,28 @@ export function withEvent(state, event) {
       const working = event.phase === 'start' ? [...others, { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [] }] : others;
       return { ...state, working };
     }
+    // KJC-TSK-1438: the RAG answered a lane; kaRAGan takes it there.
+    case 'rag-answer': return { ...state, rag: { sources: event.sources, lane: event.lane ?? 'main', at: event.at } };
     default: return state;
   }
 }
 
 const DOING = { coder: 'coding', reviewer: 'reviewing', solomon: 'arbitrating' };
 
-export function restState({ denial, verdict, seal, gate, working = [] }, now) {
+/** KJC-TSK-1427: the commit-msg guard's last attempt, as the status list tells it. */
+function gateLine(gate, now) {
+  const told = gate.outcome === 'pass' ? 'commit passed' : `commit refused (${gate.rule})`;
+  return `Git gates: ${told}, ${ago(gate.at, now)}`;
+}
+
+/** KJC-TSK-1438: what kaRAGan last took to a lane. */
+function ragLine(rag, now) {
+  const where = rag.lane && rag.lane !== 'main' ? ` in ${rag.lane}` : '';
+  const sources = `${rag.sources} source${rag.sources === 1 ? '' : 's'}`;
+  return `kaRAGan: answered with ${sources}${where}, ${ago(rag.at, now)}`;
+}
+
+export function restState({ denial, verdict, seal, gate, rag, working = [] }, now) {
   const lights = {};
   const lines = [];
   if (denial) {
@@ -60,9 +75,9 @@ export function restState({ denial, verdict, seal, gate, working = [] }, now) {
   // KJC-TSK-1427: the commit-msg guard's last attempt opens the Git gates or keeps them shut.
   if (gate) {
     lights.gates = gate.outcome === 'pass' ? PASSED : REFUSED;
-    const told = gate.outcome === 'pass' ? 'commit passed' : `commit refused (${gate.rule})`;
-    lines.push(`Git gates: ${told}, ${ago(gate.at, now)}`);
+    lines.push(gateLine(gate, now));
   }
+  if (rag) lines.push(ragLine(rag, now));
   // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
   const using = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
   const where = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
