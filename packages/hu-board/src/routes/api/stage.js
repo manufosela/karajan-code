@@ -2,7 +2,7 @@
 import { Router } from 'express';
 
 import { requestProjectDir } from '../../project-dir.js';
-import { lastStageState } from '../../stage-state.js';
+import { laneStates } from '../../stage-state.js';
 
 const router = Router();
 
@@ -18,7 +18,10 @@ router.get('/stage/state', (req, res) => {
     return;
   }
   res.set('Cache-Control', 'no-store');
-  res.json(lastStageState(dir));
+  // KJC-TSK-1432 (ADR 0048): every lane; the main checkout's state stays at the top until the scene draws the lanes.
+  const lanes = laneStates(dir);
+  const { lane: _main, ...main } = lanes[0];
+  res.json({ ...main, lanes });
 });
 
 export default router;

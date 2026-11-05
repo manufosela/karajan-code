@@ -7,8 +7,10 @@
  * it blocked: that input may hold anything the agent typed.
  */
 import { closeSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
-import { join, sep } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import { watch as chokidarWatch } from 'chokidar';
+
+import { LANE_HOMES, listLanes } from './lanes.js';
 
 const parse = (raw) => { try { return JSON.parse(raw); } catch { return null; } };
 const firstLine = (text) => String(text ?? '').split('\n')[0];
@@ -116,4 +118,32 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
   watcher.on('add', onFile);
   watcher.on('change', onFile);
   return () => watcher.close();
+}
+
+/**
+ * KJC-TSK-1432 (ADR 0048): watches every lane of a project (the main checkout
+ * and each worktree) and tags each event with its lane. A worktree born after
+ * the watch began is followed; one removed stops being watched.
+ */
+export function watchLanes(projectDir, send, { project, watch = chokidarWatch, warn = console.warn } = {}) {
+  const feeds = new Map();
+  const follow = ({ lane, dir }) => {
+    if (feeds.has(dir)) return;
+    feeds.set(dir, watchStageFeed(dir, (event) => send({ ...event, lane }), { project, watch, warn }));
+  };
+  listLanes(projectDir).forEach(follow);
+  const homes = LANE_HOMES.map((home) => join(projectDir, ...home));
+  const onTheWay = new Set([projectDir, ...LANE_HOMES.map(([top]) => join(projectDir, top)), ...homes]);
+  const doors = watch(projectDir, {
+    depth: 2,
+    ignored: (p) => !onTheWay.has(p) && !homes.includes(dirname(p)),
+    ignoreInitial: true,
+  });
+  doors.on('addDir', (p) => { if (homes.includes(dirname(p))) follow({ lane: basename(p), dir: p }); });
+  doors.on('unlinkDir', (p) => { feeds.get(p)?.(); feeds.delete(p); });
+  return () => {
+    doors.close();
+    for (const stop of feeds.values()) stop();
+    feeds.clear();
+  };
 }

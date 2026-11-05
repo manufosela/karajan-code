@@ -9,7 +9,7 @@ import { fullScan } from '../../sync.js';
 import { subscribe as subscribeEvents } from '../../event-bus.js';
 import { readConfig, writeConfigPatch } from '../../config-yaml.js';
 import { requestProjectDir } from '../../project-dir.js';
-import { watchStageFeed } from '../../stage-feed.js';
+import { watchLanes } from '../../stage-feed.js';
 import { BOOT_TIME, PKG_VERSION } from '../../boot-info.js';
 
 const router = Router();
@@ -80,7 +80,7 @@ router.get('/events', (req, res) => {
     }
   };
   const unsubscribe = subscribeEvents(send);
-  const stopStageFeed = stageDir ? watchStageFeed(stageDir, send, { project: req.query.project }) : null;
+  const stopStageFeed = stageDir ? watchLanes(stageDir, send, { project: req.query.project }) : null;
 
   // 25s is well under the default 60-90s idle timeout of every sane
   // reverse proxy, but high enough that it doesn't spam the log.
