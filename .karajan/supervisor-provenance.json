@@ -1,6 +1,6 @@
 {
   "kj_version": "5.6.0",
-  "generated_at": "2026-11-05T10:32:05.571Z",
+  "generated_at": "2026-11-05T10:50:30.383Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -22,7 +22,7 @@
     },
     {
       "file": ".github/workflows/ci.yml",
-      "sha256": "049da4b1516707415405f72f95153ce90a4b03dda4e5d95a8cde0e4614174585"
+      "sha256": "41409f95c649dd805399408b7633d23831cf186e33915aab4d9dbbf0718345e8"
     },
     {
       "file": ".github/workflows/cross-ai-verdict.yml",
@@ -174,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "07ad11e398b36ed7cdbc7d084d949add",
-    "nonce": "8fb9a11ac67275394524a51af0f1e5c9",
+    "cid": "f2bb54d23db1fcb3f5a675f167912c99",
+    "nonce": "18889b0a1598db1f81194d45ecc47a8a",
     "project": "karajan-code",
-    "filesHash": "01af43394c05a129bd3bb588c49efd0f127cac02e66dca9d5994cab22b4f8e55",
+    "filesHash": "e52e6934f6ccb35c277fc47e843c09658ed24427faa9fc80cc5e881e991b67ea",
     "v": 2,
     "kjVersion": "5.6.0",
-    "issuedMs": 1793874714910,
-    "expiresMs": 1793874864910,
+    "issuedMs": 1793875822769,
+    "expiresMs": 1793875972769,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "SadMRs2Bcb0wPyRwJAdkhIyU8Z63MGCuwuF+iJvXka4JSXcYqMLHiMJTLNdq5sO7b95IO4Q/o0CKZuGU+tM9Cw=="
+    "signature": "63cFNbnyeE8+JJEkfQF8J5wnQjc+H1ns7VCP/VsBhmvIWF3SmfS08/ufCfie/bMcd1A1uOOz7mDOSedyAmumBw=="
   }
 }
