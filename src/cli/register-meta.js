@@ -17,7 +17,8 @@ import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
-import { boardCommand } from "../commands/board.js";
+import { boardCommand, boardRefusal } from "../commands/board.js";
+import { stageCommand } from "../commands/stage.js";
 import { webperfCommand } from "../commands/webperf.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
@@ -50,6 +51,13 @@ import { rulesApprove } from "../commands/rules-approve.js";
 import { rulesDecide } from "../commands/rules-decide.js";
 import { rulesReview } from "../commands/rules-review.js";
 import { rulesCompileBrief } from "../commands/rules-compile.js";
+
+/** Says why kj did not bring the HU Board up: a note for an external board, an error (exit 1) for a disabled one. */
+function reportBoardRefusal({ level, message }, logger) {
+  if (level === "warn") { console.log(message); return; }
+  logger.error(message);
+  process.exitCode = 1;
+}
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -1037,32 +1045,27 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--force", "Arranca aunque hu_board.enabled sea false en kj.config.yml")
     .action(async (action = "start", opts) => {
       await withConfig(pkgVersion, "board", opts, async ({ config, logger }) => {
-        // KJC-TSK-0684 (issue #1287): an external board is the source of
-        // truth — don't start (or advertise) a parallel HU Board. "stop"
-        // stays allowed so a leftover daemon can be cleaned up.
-        if (config?.state_backend === "external" && action !== "stop") {
-          const name = config?.board?.name || "an external board";
-          console.log(`⚠ this project's board lives in ${name} (state_backend: external) — kj does not run a parallel HU Board here.`);
-          return;
-        }
-        // KJC-BUG-0152 (issue #1427): `kj board` with no action starts a persistent server.
-        // Doing that while hu_board.enabled is false contradicts kj doctor, which reports the
-        // board as skipped — two commands saying opposite things about the same config. The
-        // system works or fails loudly; it never does the opposite of what the config says.
-        // Only `start` is gated (the bare command defaults to it): stop, status, cleanup and open
-        // never bring a server up, and blocking them would take away the way to tidy up.
-        if (config?.hu_board?.enabled === false && !opts.force && action === "start") {
-          logger.error(
-            `hu_board.enabled es false en kj.config.yml — no arranco el HU Board (kj doctor ya lo reporta como omitido).\n` +
-            `  Para arrancarlo igualmente: kj board ${action} --force\n` +
-            `  Para dejarlo activado siempre: pon hu_board.enabled: true en kj.config.yml`
-          );
-          process.exitCode = 1;
-          return;
-        }
+        // Only `start` (the bare command's default) is gated on hu_board.enabled, so status,
+        // cleanup and open never lose the way to tidy up; `stop` is never refused.
+        const refusal = boardRefusal(config, { action, force: opts.force, retry: `kj board ${action} --force` });
+        if (refusal) { reportBoardRefusal(refusal, logger); return; }
         const port = Number(opts.port) || config.hu_board?.port || 4000;
         const bind = opts.bind || config.hu_board?.bind || "127.0.0.1";
         await boardCommand({ action, port, bind, logger });
+      });
+    });
+
+  // KJC-TSK-1400 (ADR 0046): the live 3D stage of this project, a page of the HU Board.
+  program
+    .command("stage")
+    .description("Open the live 3D stage of this project: what the Sentinel, kj review and the Ledger do, as it happens (starts the HU Board if needed)")
+    .option("--port <number>", "HU Board port (default: hu_board.port, else 4000)")
+    .option("--force", "Start the HU Board even when hu_board.enabled is false in kj.config.yml")
+    .action(async (opts) => {
+      await withConfig(pkgVersion, "stage", opts, async ({ config, logger }) => {
+        const port = Number(opts.port ?? config.hu_board?.port ?? 4000);
+        const result = await stageCommand({ projectDir: process.cwd(), port, logger, config, force: opts.force });
+        if (result?.refusal) reportBoardRefusal(result.refusal, logger);
       });
     });
 
