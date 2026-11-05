@@ -49,6 +49,21 @@ describe("commit-msg guard trace", () => {
     expect(trace()).toEqual([expect.objectContaining({ outcome: "refuse", rule: "commitlint" })]);
   });
 
+  // KJC-BUG-0493: the machine's global commit-msg hook, chained last, refuses too: one line for it.
+  it("notes a refusal by the chained global hook", () => {
+    const globalDir = join(dir, "global-hooks");
+    mkdirSync(globalDir);
+    writeFileSync(join(globalDir, "commit-msg"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(globalDir, "commit-msg"), 0o755);
+    writeFileSync(join(dir, "gitconfig"), `[core]\n\thooksPath = ${globalDir}\n`);
+    const hook = join(dir, "commit-msg");
+    writeFileSync(hook, `#!/bin/sh\n${hookBody("commit-msg", {}, {})}\n`);
+    writeFileSync(join(dir, "MSG"), `${OK}\n`);
+    const res = spawnSync("sh", [hook, join(dir, "MSG")], { cwd: dir, encoding: "utf8", env: { ...process.env, GIT_CONFIG_GLOBAL: join(dir, "gitconfig") } });
+    expect(res.status).toBe(1);
+    expect(trace()).toEqual([expect.objectContaining({ outcome: "refuse", rule: "global-hook" })]);
+  });
+
   it("never writes the message text", () => {
     run("secret-looking words here\n");
     expect(readFileSync(join(dir, ".karajan", "harness", "commit-gate.jsonl"), "utf8")).not.toMatch(/secret/);
