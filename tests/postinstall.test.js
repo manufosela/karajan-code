@@ -5,8 +5,18 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { tomlPath } from "../scripts/toml-value.js";
 
-const ROOT_DIR = path.resolve(import.meta.dirname, "..");
-const SCRIPT = path.join(ROOT_DIR, "scripts", "postinstall.js");
+const REPO_DIR = path.resolve(import.meta.dirname, "..");
+const SCRIPTS = ["postinstall.js", "toml-value.js"];
+
+// The script refuses to register from a git worktree (KJC-BUG-0474), and the suite itself may run
+// in one (a kj lane). So it runs from a copy of the package outside any checkout, never from REPO_DIR.
+let ROOT_DIR;
+let SCRIPT;
+
+async function copyPackage(root) {
+  await fs.mkdir(path.join(root, "scripts"), { recursive: true });
+  for (const f of SCRIPTS) await fs.copyFile(path.join(REPO_DIR, "scripts", f), path.join(root, "scripts", f));
+}
 
 // A `null` value UNSETS the variable for the child (the machine running the
 // suite may carry KARAJAN_HOME / KJ_HOME in its own env).
@@ -35,6 +45,10 @@ describe("postinstall", () => {
   beforeEach(async () => {
     await fs.mkdir(fakeHome, { recursive: true });
     await fs.mkdir(path.join(fakeHome, ".codex"), { recursive: true });
+    // realpath: node resolves the script's own path (/var → /private/var on macOS)
+    ROOT_DIR = path.join(await fs.realpath(tmpDir), "package");
+    SCRIPT = path.join(ROOT_DIR, "scripts", "postinstall.js");
+    await copyPackage(ROOT_DIR);
   });
 
   afterEach(async () => {
@@ -216,8 +230,7 @@ describe("postinstall", () => {
   // script and pointed every session of the machine at that lane's server.
   it("from a git worktree (a kj lane) it registers nothing, in Claude Code or Codex", async () => {
     const lane = path.join(tmpDir, "lane");
-    await fs.mkdir(path.join(lane, "scripts"), { recursive: true });
-    for (const f of ["postinstall.js", "toml-value.js"]) await fs.copyFile(path.join(ROOT_DIR, "scripts", f), path.join(lane, "scripts", f));
+    await copyPackage(lane);
     await fs.writeFile(path.join(lane, ".git"), "gitdir: /repo/.git/worktrees/lane\n");
     await fs.writeFile(claudeJson, "{}", "utf8");
     const merged = { ...process.env, HOME: fakeHome };
