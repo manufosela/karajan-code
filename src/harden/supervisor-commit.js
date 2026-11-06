@@ -37,8 +37,11 @@ const WORKFLOW_FILE = /^\.github\/workflows\/[^/]+\.ya?ml$/;
 // settings decide which guard runs. Committed where the project versions them;
 // where it ignores .claude/ (machine-local, like the guards) only their hash travels.
 export const HOST_SETTINGS = ".claude/settings.json";
+// KJC-TSK-1444: the Sentinel's wiring lives in the local settings (ignored by git, the developer's);
+// both files decide which guard runs, so the seal covers both.
+export const HOST_SETTINGS_FILES = [HOST_SETTINGS, ".claude/settings.local.json"];
 /** A file the seal covers by its hash alone: the governance config, every CI workflow and the host settings. */
-export const isSealedConfig = (file) => GOVERNANCE_FILES.includes(file) || WORKFLOW_FILE.test(file) || file === HOST_SETTINGS;
+export const isSealedConfig = (file) => GOVERNANCE_FILES.includes(file) || WORKFLOW_FILE.test(file) || HOST_SETTINGS_FILES.includes(file);
 
 const sha256 = (abs) => createHash("sha256").update(readFileSync(abs)).digest("hex");
 
@@ -101,12 +104,12 @@ export async function commitSupervisorRegeneration({
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   seal.confirm(deps.confirm);
-  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, HOST_SETTINGS, ".github/workflows"]).split("\n").filter(Boolean));
+  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, ...HOST_SETTINGS_FILES, ".github/workflows"]).split("\n").filter(Boolean));
   // Local only when git ignores it; untracked but not ignored, it is committed with the seal.
   const gitIgnores = (file) => { try { run(["check-ignore", "-q", "--", file]); return true; } catch { return false; } };
-  const settingsHere = !tracked.has(HOST_SETTINGS) && existsSync(join(projectDir, HOST_SETTINGS));
-  const localSettings = settingsHere && gitIgnores(HOST_SETTINGS) ? [HOST_SETTINGS] : [];
-  const newSettings = settingsHere && localSettings.length === 0 ? [HOST_SETTINGS] : [];
+  const settingsHere = HOST_SETTINGS_FILES.filter((f) => !tracked.has(f) && existsSync(join(projectDir, f)));
+  const localSettings = settingsHere.filter(gitIgnores);
+  const newSettings = settingsHere.filter((f) => !localSettings.includes(f));
   const onDisk = (() => { try { return readdirSync(join(projectDir, ".github", "workflows")).map((f) => `.github/workflows/${f}`); } catch { return []; } })();
   const candidates = [...new Set([...GOVERNANCE_FILES, ...onDisk, ...tracked, ...newSettings])].filter(isSealedConfig).sort();
   const governance = candidates.filter((f) => existsSync(join(projectDir, f)) || tracked.has(f));

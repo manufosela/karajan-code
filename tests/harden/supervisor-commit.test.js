@@ -300,6 +300,19 @@ describe("the seal covers the governance config (KJC-TSK-1032)", () => {
     expect(git(["show", "--name-only", "--format=", "HEAD"])).not.toContain(".claude/settings.json");
   });
 
+  // KJC-TSK-1444: the Sentinel's wiring lives in settings.local.json, which the clone's exclude ignores.
+  it("the local host settings, where the Sentinel is wired, are sealed by their hash and never committed", async () => {
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    mkdirSync(join(repo, ".git", "info"), { recursive: true });
+    writeFileSync(join(repo, ".git", "info", "exclude"), "/.claude/settings.local.json\n");
+    const local = join(repo, ".claude", "settings.local.json");
+    writeFileSync(local, '{"hooks":{"Stop":[]}}\n');
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".claude/settings.local.json", sha256: hashOf(local), local: true });
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).not.toContain("settings.local.json");
+  });
+
   it("a deleted policy.yml is recorded as deleted and committed", async () => {
     rmSync(policy());
     expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);

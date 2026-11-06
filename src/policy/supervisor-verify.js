@@ -11,7 +11,7 @@ import { resolve, sep } from "node:path";
 import { renderCanonicalHook } from "../harden/harden-engine.js";
 import { provenanceSignature } from "../harden/phone-sign.js";
 import { canonicalHarnessBody } from "../harden/sentinel-hooks.js";
-import { HOST_SETTINGS, isSealedConfig, PROVENANCE_FILE } from "../harden/supervisor-commit.js";
+import { HOST_SETTINGS_FILES, isSealedConfig, PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 
 const HOOKS_PREFIX = ".karajan/hooks/";
 const HARNESS_PREFIX = ".karajan/harness/";
@@ -76,7 +76,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
       // KJC-TSK-1207: host settings sealed as ignored by git (local) live only where
       // they were sealed; absent from this checkout they cannot be judged here (CI,
       // another clone). Versioned ones travel with the repo, so absent they fail.
-      if (st === null && entry.local === true && entry.file === HOST_SETTINGS) unjudgeable.add(entry.file);
+      if (st === null && entry.local === true && HOST_SETTINGS_FILES.includes(entry.file)) unjudgeable.add(entry.file);
       else if (entry.deleted === true ? st === null : st?.isFile() && sha256(readFileSync(abs)) === entry.sha256) ok.add(entry.file);
       continue;
     }
