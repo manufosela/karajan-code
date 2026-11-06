@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0] - 2026-11-06
+
+### Added
+- **`gh pr merge` waits for the PR's CI** (KJC-BUG-0494): before a merge, the Sentinel asks `kj merge-gate`, which reads the PR's checks, taking the latest run of each. It stops the merge while a check is running or red, and also when the PR has no check yet in a repo with workflows, because its CI has not started. If kj cannot answer, the merge stops too. `gh pr merge --auto` passes, because GitHub itself waits.
+- **kj stage, one workshop per lane** (ADR 0047; HU-3426, HU-3422, HU-3429, HU-3307, HU-3433, HU-3477, HU-3479, HU-3484, HU-3486, HU-3489, HU-3491): `kj stage` opens a live 3D view of the work.
+  - Each lane gets its own workshop, where the host agent works at its bench, with its badge, and its subagents beside it.
+  - The Sentinel watches from its post and goes down to stop an agent.
+  - Verdicts, commits and seals show in the workshop of their lane, and the RAG's answers reach the lane that asked.
+  - Agents kj launches leave start and end traces (HU-3453), and the commit-msg guard leaves one trace line per attempt for the git gates station (HU-3441, HU-3449).
+- **A Planning Game task manager package** (KJC-TSK-1417, KJC-TSK-1423 to 1426): `packages/board-planning-game` talks to the Planning Game through its MCP server. It reads, creates, claims and moves cards with what each transition asks for, and takes a card's commits and PR from git and gh. It cannot be chosen in `board.yml` yet.
+- **The story contract and the GitHub and Linear managers are on npm** as `@karajan-family/story-contract`, `board-github` and `board-linear` 1.0.0 (HU-3413, HU-3414, HU-3415, by Jorge del Casar).
+
+### Fixed
+- **A Sentinel gate that fails stops the command it was checking** (KJC-BUG-0501). This covers Bash and edits; reading tools go on. A state file that holds valid JSON of the wrong type reads as empty, and a publish stops when kj cannot answer the release check.
+- **A sealed deletion is checked the way the phone signs it** (KJC-BUG-0502): the seal's verifier no longer accepts a deletion mark the signature does not cover. Existing seals verify as before.
+- **With no phone enrolled, the refusal says how to get out** (KJC-BUG-0508, #3515). Someone who updated kj never saw the phone steps of `kj init`, and at the max level a seal or a governance change was refused with nowhere to go. The refusal and the Sentinel's deny now give https://karajancode.com/sign and `kj identity enroll-phone`, and also `kj security normal` while no phone is enrolled.
+- **commit-msg records the global hook's refusal** (KJC-BUG-0493, KJC-BUG-0500), also under the hook's `set -e`.
+- **`kj review` in a lane reads the Sentinel state of the main tree** (HU-3474, by Jorge del Casar). **The Stop gate reads a split card's id** (HU-3502, by Jorge del Casar). **A Linear move to running works when the kj identity has no Linear user** (HU-3420, by Jorge del Casar).
+- **HU Board:**
+  - the board token is never printed (HU-3497);
+  - `kj board start --bind` checks the board where it listens (HU-3495);
+  - a missing static file answers 404 (HU-3493), and the SPA fallback is not cached (HU-3450, by Jorge del Casar);
+  - kj stage works off loopback with the board token (HU-3463).
+- **The update notice of a linked kj no longer suggests `npm install -g`** (KJC-BUG-0489).
+
+### Infrastructure
+- The repo keeps its roster of signing phones (KJC-TSK-1402). The postinstall test passes inside a lane (HU-3475, by Jorge del Casar).
+
 ## [5.6.0] - 2026-11-04
 
 ### Added

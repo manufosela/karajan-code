@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.6.0: tus historias donde ya las tienes (actual)
+### v5.7.0: ningún merge antes que el CI, y un Sentinel que falla cerrado (actual)
+
+`gh pr merge` espera a los checks de la PR: kj para el merge mientras un check está en marcha o en rojo, o antes de que el CI haya arrancado. Cuando un gate del Sentinel falla, el comando que comprobaba se para en vez de pasar, y el verificador del sello solo acepta un borrado que el móvil firmó. `kj stage` enseña un taller por carril, con cada agente en su banco y el Sentinel vigilando. El contrato de historias y los gestores de GitHub y Linear están en npm.
+
+### v5.6.0: tus historias donde ya las tienes
 
 Elige el gestor de tareas en `board.yml`: GitHub Issues o Linear, o un paquete de la comunidad tras una lista de permitidos, y `kj hu` funciona igual en todos. Una guía y una plantilla enseñan a escribir uno. `kj main-guard-except` deja al mantenedor firmar en el móvil una excepción para un merge que salta sus checks, que main-guard acepta y nombra.
 
