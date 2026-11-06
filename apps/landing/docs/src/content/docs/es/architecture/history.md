@@ -1909,6 +1909,10 @@ El mantenedor no encontraba el código de confirmación de `kj rules approve`: l
 
 El HU Board guardaba sus historias en GitHub Issues o en disco, y un equipo en Linear tenía que copiarlas. Un colaborador terminó en un día el plan de la ADR 0029: un contrato de historias pequeño con una suite compartida, GitHub Issues y Linear detrás, el núcleo manejando cualquier gestor a través de él, y paquetes de la comunidad cargados tras una lista de permitidos, porque un gestor corre con los permisos del agente y ve sus credenciales. El mantenedor pidió esa última parte, y gestores que se adapten a un board que ya se usa. main-guard aprendió a aceptar una excepción: un merge que salta sus checks solo pasa con la firma del móvil del mantenedor sobre el repo, la PR, su head y el motivo, publicada en la PR y comprobada en CI contra el padrón del repo, mientras un cambio en la protección sigue haciendo saltar la alarma.
 
+## Phase 162: v5.7.0, comprobar donde el valor ya es real
+
+Un agente mergeó una pull request con su CI aún en marcha. Salió en verde después, por suerte. El mantenedor pidió un gate que lo impidiera, no una corrección a posteriori, y ahora el Sentinel pregunta a kj por los checks de la PR antes de cualquier merge. Luego trajo el informe de sshhole sobre OpenSSH: allí, comparar el mismo login en varias builds sacó el fallo de la única que no coincidía. Cuatro agentes aplicaron la misma idea al propio kj, comparando las piezas que deberían coincidir: la lectura de un comando del Sentinel frente a la de kj, los gates locales frente al CI, el sello frente a su verificador. También buscaron fallos que se leen como éxito. Esta release arregla lo primero que encontraron: un gate que lanza un error ya no deja pasar a los siguientes, y una marca de borrado fuera de la firma del sello ya no cuenta. `kj stage` pasó a tener un taller por carril.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

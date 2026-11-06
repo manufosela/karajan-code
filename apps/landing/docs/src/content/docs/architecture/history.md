@@ -1910,6 +1910,10 @@ The maintainer could not find the confirmation code of `kj rules approve`: it li
 
 The HU Board kept its stories in GitHub Issues or on the disk, and a team on Linear had to copy them. A contributor finished the plan of ADR 0029 in a day: a small story contract with a shared suite, GitHub Issues and Linear behind it, the core driving any manager through it, and community packages loaded behind an allowlist, because a manager runs with the agent's rights and sees its credentials. The maintainer asked for that last part, and for managers that adapt to a board already in use. main-guard learned to take an exception: a merge past its checks passes only with the maintainer's phone signature over the repo, the PR, its head and the reason, posted on the PR and checked in CI against the repo's roster, while a change to the protection still alarms.
 
+## Phase 162: v5.7.0, check where the value is real
+
+An agent merged a pull request while its CI was still running. It came out green afterwards, by luck. The maintainer asked for a gate that prevents it rather than a correction afterwards, and the Sentinel now asks kj about the PR's checks before any merge. Then the maintainer brought the sshhole report on OpenSSH: there, comparing the same login across builds showed the bug in the one build that disagreed. Four agents ran the same idea over kj itself, comparing the pieces that should agree: the Sentinel's reading of a command against kj's, the local gates against CI, the seal against its verifier. They also looked for failures that read as success. This release fixes what they found first: a gate that threw an error no longer waves the later ones past, and a deletion mark outside the seal's signature no longer counts. `kj stage` grew one workshop per lane.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
