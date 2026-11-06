@@ -32,6 +32,8 @@ const IGNORE_DIRS = new Set([
   "__fixtures__",
 ]);
 const DEFAULT_MAX_DEPTH = 2;
+// HU-3520: a Gradle build (Kotlin/Android/Java) is its own stack, whatever helper scripts sit beside it.
+const GRADLE_MARKERS = ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts", "gradlew"];
 
 /**
  * Minimal glob for harden scope flags — no dynamic RegExp (eslint security).
@@ -69,6 +71,7 @@ export function languageAt(dir) {
   if (["pyproject.toml", "requirements.txt", "setup.py"].some((f) => existsSync(join(dir, f)))) return "python";
   if (existsSync(join(dir, "go.mod"))) return "go";
   if (existsSync(join(dir, "composer.json"))) return "php";
+  if (GRADLE_MARKERS.some((f) => existsSync(join(dir, f)))) return "gradle";
   return null;
 }
 

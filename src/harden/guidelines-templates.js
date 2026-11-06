@@ -69,6 +69,13 @@ export const LANGUAGE_GUIDELINES = {
     "- No naked returns in long functions; accept interfaces, return structs.",
     "- Concurrency with a purpose: a goroutine with no way to stop it is a leak.",
   ],
+  gradle: [
+    "",
+    "## Gradle / Kotlin",
+    "- Build and test through the wrapper (`./gradlew`), never a globally installed Gradle.",
+    "- Follow the Kotlin coding conventions; prefer `val`, null-safety over `!!`, and immutable data classes.",
+    "- No lint command is inferred for Gradle: declare your own lint/format commands in the kj config.",
+  ],
   rust: [
     "",
     "## Rust",
