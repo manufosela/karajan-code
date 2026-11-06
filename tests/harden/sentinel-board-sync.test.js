@@ -76,6 +76,23 @@ describe("board-sync gate", () => {
     expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card: "KJC-TSK-0042", pr: 21 });
   });
 
+  // HU-3502 (#3454): a split card carries a hyphen letter suffix; the pending is that card, not its parent.
+  it.each([
+    ["feat/XEN-TSK-0815-A-chat-command", "XEN-TSK-0815-A"],
+    ["feat/KJC-TSK-1245-fix-the-thing", "KJC-TSK-1245"],
+    ["feat/KJC-TSK-1245-a-thing", "KJC-TSK-1245"],
+    ["feat/KJC-TSK-1245-2fa-login", "KJC-TSK-1245"],
+  ])("the branch %s registers %s as the pending card", (head, card) => {
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho '{"number":152,"state":"MERGED","headRefName":"${head}"}'\n`, { mode: 0o755 });
+    const r = spawnSync("node", [post], {
+      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `gh auth switch --user ${TEST_GH_USER} && gh pr merge 152 --squash` }, tool_response: { stdout: "", stderr: "" } }),
+      encoding: "utf8", cwd: dir, env: { ...process.env, ...env, PATH: `${bin}:${process.env.PATH}` },
+    });
+    expect(r.status).toBe(0);
+    expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card, pr: 152 });
+  });
   it("con una card pendiente: commit, nuevo PR y cierre de turno se deniegan nombrando card+PR y el remedio", () => {
     merged(12);
     // KJC-TSK-1089 (ADR 0015): el push ya no se lee; la card pendiente la sigue parando el cierre de turno.
