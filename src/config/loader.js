@@ -178,7 +178,9 @@ export async function loadConfig(projectDir) {
   merged.testHarness = resolveTestHarness(merged.testHarness);
   // KJC-TSK-1387 (ADR 0045): every gate reads its rule's resolved value.
   merged = applyEffectiveGates(merged, projectDir || process.cwd());
-  return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig };
+  // HU-3522: merged.base_branch is "main" even when nobody wrote it; this says whether a layer did.
+  const baseBranchExplicit = [globalConfig, projectConfig, localConfig].some((layer) => !!layer?.base_branch);
+  return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig, baseBranchExplicit };
 }
 
 /**
