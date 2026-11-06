@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { hookBody, PROFILE_HOOKS } from "../../src/harden/hook-templates.js";
 import { installHooks, renderCanonicalHook } from "../../src/harden/harden-engine.js";
 
@@ -25,6 +25,30 @@ describe("hookBody chain-to-global (runtime lookup)", () => {
       expect(body).not.toContain(".git-hooks");
       expect(body).not.toContain("homedir()");
     }
+  });
+
+  // KJC-BUG-0509: core.hooksPath eclipses .git/hooks, so the repo's own hooks are chained too.
+  it("every standard hook chains the repo's own .git/hooks first, found from the common git dir", () => {
+    for (const hook of PROFILE_HOOKS.standard) {
+      const body = hookBody(hook, {}, {});
+      expect(body).toContain('kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"');
+      expect(body).toContain(`[ -x "$kj_repo/${hook}" ]`);
+      expect(body.indexOf("kj_repo=")).toBeLessThan(body.indexOf("kj_global="));
+    }
+  });
+
+  it("a failing pre-commit in .git/hooks stops the commit; a .sample one is never run", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "kj-repo-hook-"));
+    execFileSync("git", ["init", "-q"], { cwd: repo });
+    const hook = path.join(repo, "kj-pre-commit");
+    fs.writeFileSync(hook, `#!/bin/sh\nset -e\n${hookBody("pre-commit", {}, {})}\n`);
+    fs.writeFileSync(path.join(repo, ".git", "hooks", "pre-commit.sample"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: path.join(repo, "none") };
+    const runHook = () => spawnSync("sh", [hook], { cwd: repo, env, encoding: "utf8" }).status;
+    expect(runHook()).toBe(0);
+    fs.writeFileSync(path.join(repo, ".git", "hooks", "pre-commit"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    expect(runHook()).toBe(1);
+    fs.rmSync(repo, { recursive: true, force: true });
   });
 
   it("pre-push hands the pushed refs to the chained hook", () => {

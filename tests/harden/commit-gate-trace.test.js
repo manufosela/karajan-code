@@ -66,6 +66,16 @@ describe("commit-msg guard trace", () => {
     expect(trace()).toEqual([expect.objectContaining({ outcome: "refuse", rule: "global-hook" })]);
   });
 
+  // KJC-BUG-0509: the repo's own commit-msg in .git/hooks runs too, and its refusal is traced.
+  it("runs the repo's own .git/hooks/commit-msg and notes its refusal", () => {
+    spawnSync("git", ["init", "-q"], { cwd: dir });
+    writeFileSync(join(dir, ".git", "hooks", "commit-msg"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(dir, ".git", "hooks", "commit-msg"), 0o755);
+    const res = run(`${OK}\n`);
+    expect(res.status).toBe(1);
+    expect(trace()).toEqual([expect.objectContaining({ outcome: "refuse", rule: "repo-hook" })]);
+  });
+
   it("never writes the message text", () => {
     run("secret-looking words here\n");
     expect(readFileSync(join(dir, ".karajan", "harness", "commit-gate.jsonl"), "utf8")).not.toMatch(/secret/);
