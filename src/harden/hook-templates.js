@@ -34,14 +34,17 @@ export const PROFILE_HOOKS = {
 function chainToGlobal(hook) {
   // KJC-TSK-1085: pre-push already read the refs from stdin; the chained hook gets them back.
   const call = hook === "pre-push" ? `printf '%s\\n' "$kj_push_refs" | "$kj_global/${hook}" "$@"; rc=$?` : `"$kj_global/${hook}" "$@"; rc=$?`;
-  // KJC-BUG-0493: commit-msg leaves one trace line per attempt, the global hook's refusal included.
-  const refused = hook === "commit-msg" ? '{ kj_trace refuse global-hook; exit "$rc"; }' : 'exit "$rc"';
+  const guard = `if [ -n "$kj_global" ] && [ -x "$kj_global/${hook}" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then`;
+  // KJC-BUG-0493/0500: commit-msg leaves one trace line per attempt, the global hook's refusal
+  // included. The hook runs under set -e, so the call sits in an if: set -e never cuts it short.
+  const body = hook === "commit-msg"
+    ? [`  if "$kj_global/${hook}" "$@"; then :; else rc=$?; kj_trace refuse global-hook; exit "$rc"; fi`]
+    : [`  ${call}`, '  [ "$rc" -eq 0 ] || exit "$rc"'];
   return [
     "# Chain the machine's global hook, looked up when the hook runs, not when kj harden ran (KJC-TSK-0645, HU-2762).",
     "kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)",
-    `if [ -n "$kj_global" ] && [ -x "$kj_global/${hook}" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then`,
-    `  ${call}`,
-    `  [ "$rc" -eq 0 ] || ${refused}`,
+    guard,
+    ...body,
     "fi",
   ];
 }

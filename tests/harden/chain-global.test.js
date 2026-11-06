@@ -19,8 +19,9 @@ describe("hookBody chain-to-global (runtime lookup)", () => {
       const body = hookBody(hook, {}, {});
       expect(body).toContain("kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)");
       expect(body).toContain(`[ -x "$kj_global/${hook}" ]`);
-      // KJC-BUG-0493: commit-msg traces the global hook's refusal, then exits with its code like the rest.
-      expect(body).toContain(hook === "commit-msg" ? '[ "$rc" -eq 0 ] || { kj_trace refuse global-hook; exit "$rc"; }' : '[ "$rc" -eq 0 ] || exit "$rc"');
+      // KJC-BUG-0493/0500: commit-msg traces the global hook's refusal (in an if, safe under set -e),
+      // then exits with its code like the rest.
+      expect(body).toContain(hook === "commit-msg" ? 'then :; else rc=$?; kj_trace refuse global-hook; exit "$rc"; fi' : '[ "$rc" -eq 0 ] || exit "$rc"');
       expect(body).not.toContain(".git-hooks");
       expect(body).not.toContain("homedir()");
     }
