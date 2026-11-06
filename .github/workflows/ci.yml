@@ -154,6 +154,16 @@ jobs:
         run: npx vitest run --reporter=default --reporter=github-actions
         working-directory: packages/atril
 
+      # The task managers of the story contract (ADR 0029) carry their own suites, and the root
+      # vitest run excludes packages/**: without this step a broken manager passes CI unnoticed.
+      - name: Run task manager package tests
+        run: |
+          for p in story-contract board-github board-linear board-planning-game; do
+            echo "::group::packages/$p"
+            (cd "packages/$p" && npx vitest run --reporter=default --reporter=github-actions) || exit 1
+            echo "::endgroup::"
+          done
+
       # The hu-board package ships its own package.json + vitest config,
       # and the root vitest run excludes packages/** — so without these
       # two steps its test suite never runs in CI. Regression cover for

@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.4.0",
-  "generated_at": "2026-11-04T01:53:46.157Z",
+  "kj_version": "5.6.0",
+  "generated_at": "2026-11-06T13:35:08.933Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -17,12 +17,12 @@
   "files": [
     {
       "file": ".claude/settings.json",
-      "sha256": "13c97d5da2e128d9ad026d00626fee5d4167c38a4095289fcf15ab877e292951",
+      "sha256": "327739a6b9816cb83d3097e41aa8acb28aa4f93237e2f5a0c9201737e7ec0971",
       "local": true
     },
     {
       "file": ".github/workflows/ci.yml",
-      "sha256": "049da4b1516707415405f72f95153ce90a4b03dda4e5d95a8cde0e4614174585"
+      "sha256": "41409f95c649dd805399408b7633d23831cf186e33915aab4d9dbbf0718345e8"
     },
     {
       "file": ".github/workflows/cross-ai-verdict.yml",
@@ -50,7 +50,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "9990abfdadcb1ea975748983dbe78909950a1628b8551b5fba4dd7d5ed330d4c"
+      "sha256": "140cd84d70a3c1c2d068d565acecb76e263fcc790637e04193e6a8b7a4dceac2"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -98,7 +98,7 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "91db6db8389ae5ab8103cca6e979824130d74ed049b093dadddb3d41b2110e47"
+      "sha256": "780f60672b18fcfd7756c0ea86f66f46997999f11d61d78b18978b777b39d4c3"
     },
     {
       "file": ".karajan/hooks/post-merge",
@@ -174,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "a16d047c057c8fbb474ba71e0cb68cb9",
-    "nonce": "a8e463106d176d1aacf95e74ab53a9c6",
+    "cid": "b6ece64d6fc1bb249ec443315da45c25",
+    "nonce": "dbb50f6eaa552f86de9d59f3fc84750a",
     "project": "karajan-code",
-    "filesHash": "0278dda4cffda75464e84241ece54ec42df89c3e555ad492105204676c51f07e",
+    "filesHash": "ec8af6f93a14d2c7211c77b49a134013b5c2d51f21e3bee23aab9354a56aaac6",
     "v": 2,
-    "kjVersion": "5.4.0",
-    "issuedMs": 1793757192212,
-    "expiresMs": 1793757342212,
+    "kjVersion": "5.6.0",
+    "issuedMs": 1793972090206,
+    "expiresMs": 1793972240206,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "PtLGrDGDw3l4JGqtF74BuJg7JDpv90zzSFZLQDBvwxALvJbU91qemU+ZyqNsaopSj3iz+Fgf8jDdj57v+cDqAA=="
+    "signature": "IJxCn1cRUh9avNUetQ+brtzma6tnDvl9hYLS+mLGMdZQMytdNnt7uG5jOoF4tmb5vcWlVoeOkkUxiJPO4hAeAw=="
   }
 }
