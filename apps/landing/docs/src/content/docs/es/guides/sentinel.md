@@ -147,6 +147,12 @@ Tras una compactación o al reanudar, el Sentinel le devuelve al agente las regl
 
 Karajan gobierna y se le obedece. Una sesión no cambia las reglas que la gobiernan: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` (las reglas de los MD compiladas en gates, ADR 0016) y cualquier `.ragignore` son del humano, como los ficheros del propio supervisor, y Edit o Write sobre ellos se deniega antes de cualquier escape. Si un gate parece equivocado, el remedio es proponer el cambio al usuario o reportarlo con `kj report-issue`, nunca relajar la regla. Toda denegación del PreToolUse termina con la misma línea que lo dice.
 
+## team
+
+En un equipo donde solo algunos usan kj, el Sentinel vive con quien lo instaló. Sus hooks se escriben en `.claude/settings.local.json`, que es personal y que git ignora mediante el fichero de exclusiones del propio clon. Un compañero que usa Claude Code sin kj no queda bloqueado nunca. Si un kj anterior puso los hooks en el `.claude/settings.json` versionado, `kj harden` saca solo las entradas de kj y deja el resto. Los hooks de git de `.karajan/hooks` solo corren en un clon donde alguien ejecutó `kj harden`, y también ejecutan los hooks que el repo ya tenía en `.git/hooks`.
+
+Lo que sí ve todo el equipo son los workflows del CI: se rechaza un commit que atribuye la autoría a una herramienta de IA, se ejecutan el lint y los tests del stack, y un cambio en los workflows o en la policy necesita el sello de alguien con kj.
+
 ## fail-closed
 
 Si un gate falla mientras comprueba un comando (un fichero que no puede leer, un estado que no puede usar), el comando se para, con el error en el mensaje. Solo se paran así los comandos que cambian algo: Bash y las ediciones. Las herramientas de lectura siguen. Un fichero de estado con JSON válido pero de otro tipo se lee como vacío, igual que uno corrupto. Y si kj no puede responder al release check, la publicación también se para, igual que en el gate del merge.
