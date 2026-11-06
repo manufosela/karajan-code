@@ -147,6 +147,10 @@ After a compaction or a resume, the Sentinel gives the agent back the project's 
 
 Karajan governs, and it is obeyed. A session does not change the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` (the rules of the MD files compiled into gates, ADR 0016) and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied before any escape. If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
 
+## fail-closed
+
+If a gate fails while it checks a command (a file it cannot read, a state it cannot use), the command stops, with the error in the message. Only commands that change something stop this way: Bash and edits. Reading tools go on. A state file that holds valid JSON of the wrong type reads as empty, like a corrupt one. When kj cannot answer the release check, the publish stops too, the same as the merge gate.
+
 ## stop-gate
 
 The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Every lane the session wrote in is judged with its own branch and tree, and its violations name the lane. Resolve the listed violations. State: `kj sentinel status`.

@@ -272,7 +272,7 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(run(gate, push).stderr).not.toMatch(/git push con el metodo en rojo/);
   });
 
-  it("blocks npm publish when the release check is red, with no escape, and fails open without kj", () => {
+  it("blocks npm publish when the release check is red, with no escape, and fails closed without kj", () => {
     const bin = path.join(dir, "fakebin");
     fs.mkdirSync(bin);
     fs.writeFileSync(
@@ -286,13 +286,13 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
     expect(blocked.stderr).toMatch(/changelog/);
     expect(blocked.stderr).not.toContain("KJ_ALLOW");
     expect(run(gate, publish, { PATH: `${bin}:${process.env.PATH}`, KJ_ALLOW_RELEASE: "1" }).status).toBe(2);
-    // KJC-BUG-0155: dirname(process.execPath) is node's OWN bin — the same dir
-    // where `npm link` installs the real kj on a dev machine, so the fail-open
-    // leg found kj and blocked. A lonely bin holding ONLY node proves it.
+    // KJC-BUG-0155: dirname(process.execPath) is node's OWN bin, where `npm link` puts the real
+    // kj, so a lonely bin holding ONLY node is what proves "no kj". KJC-BUG-0501: without kj the
+    // publish is unchecked, so it stops (it used to pass).
     const lonely = path.join(dir, "lonelybin");
     fs.mkdirSync(lonely);
     fs.symlinkSync(process.execPath, path.join(lonely, "node"));
-    expect(run(gate, publish, { PATH: lonely }).status).toBe(0);
+    expect(run(gate, publish, { PATH: lonely }).status).toBe(2);
     expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls -la" } }).status).toBe(0);
   });
 
