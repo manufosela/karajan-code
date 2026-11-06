@@ -39,7 +39,7 @@ export async function securityCommand({ action = "show", config, kjVersion, flag
   const level = readSecurityLevel({ projectDir, home });
   log(`nivel   ${MEANING[level.level]}`);
   log(`origen  ${sourceLine(level)}`);
-  log(`móvil   ${isPhoneEnrolled({ home }) ? "enrolado" : "no enrolado (kj identity enroll-phone <clave pública de la app>)"}`);
+  log(`móvil   ${isPhoneEnrolled({ home }) ? "enrolado" : "no enrolado (abre https://karajancode.com/sign en el móvil y kj identity enroll-phone <clave pública>)"}`);
   if (flags.json) log(JSON.stringify(level));
   return level.source === "invalid" ? 2 : 0;
 }

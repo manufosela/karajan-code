@@ -25,7 +25,7 @@ const run = (action, deps = {}) => securityCommand({ action, config: { projectDi
 describe("kj security", () => {
   it("show: the level, where it comes from and the phone; exit 2 on a record that cannot be trusted", async () => {
     expect(await run("show")).toBe(0);
-    expect(lines.join("\n")).toMatch(/nivel {3}máxima.*\norigen {2}por defecto.*\nmóvil {3}no enrolado \(kj identity enroll-phone/);
+    expect(lines.join("\n")).toMatch(/nivel {3}máxima.*\norigen {2}por defecto.*\nmóvil {3}no enrolado \(abre https:\/\/karajancode\.com\/sign en el móvil y kj identity enroll-phone/);
     writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "normal", since: "2026-10-09" }));
     lines = [];
     expect(await run("show")).toBe(2);

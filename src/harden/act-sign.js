@@ -10,7 +10,7 @@
 import { basename } from "node:path";
 
 import { humanActOf } from "./human-act.js";
-import { PHONE_ENROLL, PHONE_INVITE } from "./phone-texts.js";
+import { PHONE_ENROLL, PHONE_INVITE, PHONE_OR_NORMAL } from "./phone-texts.js";
 import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 import { readSecurityLevel } from "./security-level.js";
 
@@ -63,7 +63,7 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
   const phone = deps.phone ?? { enrolled: isPhoneEnrolled, request: requestPhoneSignature };
   if (!phone.enrolled({ home })) {
     if (level.level === "max" && !bootstrap) {
-      throw new Error(`${act.label}: con seguridad máxima este acto se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
+      throw new Error(`${act.label}: con seguridad máxima este acto se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL} ${PHONE_OR_NORMAL}`);
     }
     logger.warn?.(`${act.label}: sin móvil enrolado solo valen las cuatro capas y la garantía es menor (ADR 0018). ${PHONE_INVITE}`);
     return { level, signature: null };
