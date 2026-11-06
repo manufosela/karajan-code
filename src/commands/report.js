@@ -6,6 +6,7 @@ import { loadConfig } from "../config.js";
 import { DEFAULTS } from "../config/defaults.js";
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { formatModelTally, modelTally } from "../report/model-tally.js";
+import { readLaneSentinelState } from "../harden/sentinel-lane-state.js";
 
 function parseBudgetFromActivityLog(logText) {
   if (!logText) {
@@ -256,8 +257,7 @@ export function formatPanelTally(lines) {
 async function printSentinelEscapes({ projectDir = process.cwd(), format } = {}) {
   if (format === "json") return;
   try {
-    const raw = await fs.readFile(path.join(projectDir, ".karajan", "harness", "sentinel-state.json"), "utf8");
-    const text = formatSentinelEscapes(JSON.parse(raw));
+    const text = formatSentinelEscapes(readLaneSentinelState(projectDir));
     if (text) {
       console.log("");
       console.log(text);
