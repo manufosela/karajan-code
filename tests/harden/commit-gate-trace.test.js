@@ -14,9 +14,11 @@ let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-commitgate-")); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+// KJC-BUG-0500: the hook as kj harden writes it, preamble included (set -e).
+const hookFile = () => `#!/bin/sh\nset -e\n${hookBody("commit-msg", {}, {})}\n`;
 const run = (message) => {
   const hook = join(dir, "commit-msg");
-  writeFileSync(hook, `#!/bin/sh\n${hookBody("commit-msg", {}, {})}\n`);
+  writeFileSync(hook, hookFile());
   writeFileSync(join(dir, "MSG"), message);
   return spawnSync("sh", [hook, join(dir, "MSG")], { cwd: dir, encoding: "utf8" });
 };
@@ -57,7 +59,7 @@ describe("commit-msg guard trace", () => {
     chmodSync(join(globalDir, "commit-msg"), 0o755);
     writeFileSync(join(dir, "gitconfig"), `[core]\n\thooksPath = ${globalDir}\n`);
     const hook = join(dir, "commit-msg");
-    writeFileSync(hook, `#!/bin/sh\n${hookBody("commit-msg", {}, {})}\n`);
+    writeFileSync(hook, hookFile());
     writeFileSync(join(dir, "MSG"), `${OK}\n`);
     const res = spawnSync("sh", [hook, join(dir, "MSG")], { cwd: dir, encoding: "utf8", env: { ...process.env, GIT_CONFIG_GLOBAL: join(dir, "gitconfig") } });
     expect(res.status).toBe(1);
