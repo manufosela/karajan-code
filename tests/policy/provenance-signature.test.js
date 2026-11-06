@@ -97,6 +97,38 @@ describe("the seal's signature against the versioned roster", () => {
   });
 });
 
+// KJC-BUG-0502: a deletion is signed as a file with no hash. The verifier believed the
+// `deleted` mark on any entry, so marking a signed file deleted and removing it passed.
+describe("a deletion is only what the phone signed as one", () => {
+  const POLICY = ".karajan/policy.yml";
+  it("marking a signed, hashed entry deleted and removing its file verifies nothing", () => {
+    const mine = phone();
+    roster(mine.publicKey);
+    writeFileSync(join(repo, POLICY), "version: 1\n");
+    files = [...files, { file: POLICY, sha256: sha("version: 1\n") }];
+    seal(mine);
+    expect(verified()).toMatchObject({ complete: true });
+    const signedFiles = files;
+    for (const target of [POLICY, HOOK]) {
+      files = signedFiles.map((e) => (e.file === target ? { ...e, deleted: true } : e));
+      seal(mine, { signedFiles });
+      rmSync(join(repo, target), { force: true });
+      expect(verified().files.size, target).toBe(0);
+      expect(verified().reason, target).toMatch(/firma que no corresponde/);
+    }
+  });
+
+  it("a deletion the phone signed (no hash) still verifies once the file is gone", () => {
+    const mine = phone();
+    roster(mine.publicKey);
+    files = [...files, { file: POLICY, deleted: true }];
+    // As kj harden --commit signs it: every entry as {file, sha256}, a deletion with no hash.
+    seal(mine, { signedFiles: files.map(({ file, sha256 }) => ({ file, sha256: sha256 ?? "" })) });
+    expect(verified()).toMatchObject({ complete: true });
+    expect(verified().files.has(POLICY)).toBe(true);
+  });
+});
+
 // KJC-TSK-0877: the Sentinel guards live only on the user's machine, so CI never has
 // them. With the roster's signature verified, the signature over their hashes vouches
 // for them; without a roster, only a guard whose hash kj knows is accepted (KJC-BUG-0212).

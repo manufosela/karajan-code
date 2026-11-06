@@ -149,7 +149,9 @@ export function provenanceSignature({ projectDir, provenance }) {
   // A provenance is read from the project: a malformed one is rejected, it does not crash.
   const entries = Array.isArray(provenance?.files) ? provenance.files : [];
   if (entries.some((entry) => typeof entry?.file !== "string")) return { required: true, ok: false, reason: "la procedencia declara ficheros mal formados" };
-  const files = entries.map(({ file, sha256 }) => ({ file, sha256: sha256 ?? "" }));
+  // KJC-BUG-0502: the verifier trusts `deleted`, so a deleted entry is checked as the phone signs a
+  // deletion (no hash): a signed, hashed entry later marked deleted no longer matches its signature.
+  const files = entries.map(({ file, sha256, deleted }) => ({ file, sha256: deleted === true ? "" : (sha256 ?? "") }));
   const check = verifySignedFiles({ sig: provenance?.signature, files, keys: new Set(roster) });
   return check.ok ? { required: true, ok: true } : { required: true, ok: false, reason: `el padrón tiene firmantes y la procedencia ${check.reason}` };
 }
