@@ -6,6 +6,7 @@
  * (eslint/prettier) and CI gates land in later slices (H-C / H-D).
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -76,16 +77,32 @@ export async function resolveCmds(projectDir, language) {
   return cmds;
 }
 
+const DEFAULT_BASE_BRANCH = "main";
+
 /**
  * KJC-BUG-0233: loadConfig returns `{ config, ... }`; reading `base_branch` off
  * the result was always undefined, so the guard always protected "main".
  */
-export async function resolveBaseBranch(projectDir, load = loadConfig) {
+export async function resolveBaseBranch(projectDir, load = loadConfig, logger = {}) {
+  let configured = null;
   try {
-    return (await load(projectDir))?.config?.base_branch || "main";
+    // The merged value is "main" even when nobody wrote it: only a layer that set it (global, project, local) counts.
+    const loaded = await load(projectDir);
+    if (loaded?.baseBranchExplicit) configured = loaded.config?.base_branch || null;
   } catch {
-    return "main"; // no kj config: the default stands
+    /* no kj config: the repository decides */
   }
+  if (configured) return configured;
+  try {
+    // HU-3522: the remote HEAD, read locally (never the network); a person's own base_branch wins above.
+    const head = execFileSync("git", ["-C", projectDir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const branch = head.trim().replace(/^origin\//, "");
+    if (branch) return branch;
+  } catch {
+    /* no remote or no origin/HEAD: say so below */
+  }
+  logger.info?.(`kj harden: could not read the default branch (no origin/HEAD); using ${DEFAULT_BASE_BRANCH}. Set base_branch in the kj config or run \`git remote set-head origin -a\`.`);
+  return DEFAULT_BASE_BRANCH;
 }
 
 export async function hardenCommand({
@@ -157,7 +174,7 @@ export async function hardenCommand({
   // KJC-TSK-0648: branch-first guard — the base branch only moves via PR.
   // Resolved from the project's kj config (default "main"); best-effort so
   // harden keeps working on repos that never ran kj init.
-  const baseBranch = await resolveBaseBranch(projectDir);
+  const baseBranch = await resolveBaseBranch(projectDir, loadConfig, logger);
   let result;
   try {
     result = await installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitSupervisor, sandbox, logger });
