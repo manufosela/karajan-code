@@ -17,7 +17,7 @@ const bash = (command) => spawnSync("node", [pre], { input: JSON.stringify({ ses
 const sandbox = (sb) => fs.writeFileSync(path.join(dir, ".claude", "settings.local.json"), JSON.stringify({ sandbox: sb }));
 const COVERING = {
   enabled: true, allowUnsandboxedCommands: false,
-  filesystem: { denyWrite: [".karajan/harness", ".karajan/hooks", ".claude/settings.json", "kj.config.yml", ".ragignore", ".kj/worktrees"] },
+  filesystem: { denyWrite: [".karajan/harness", ".karajan/hooks", ".claude/settings.json", ".claude/settings.local.json", "kj.config.yml", ".ragignore", ".kj/worktrees"] },
 };
 
 beforeEach(() => {

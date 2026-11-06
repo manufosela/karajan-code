@@ -26,7 +26,7 @@ describe("sentinel verify over the wiring", () => {
     execFileSync("git", ["init", "-q", dir]);
     installHarnessHooks({ projectDir: dir, logger: quiet });
     installSentinelHooks({ projectDir: dir, logger: quiet, gitShowFn: () => "{}" });
-    settingsPath = path.join(dir, ".claude", "settings.json");
+    settingsPath = path.join(dir, ".claude", "settings.local.json");
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 

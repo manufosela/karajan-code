@@ -45,7 +45,7 @@ describe("kj harden retires the guard copies (KJC-TSK-1208)", () => {
   });
 
   it("when the hooks cannot be wired, the copies that still run stay where they are", () => {
-    writeFileSync(join(repo, ".claude", "settings.json"), JSON.stringify({ hooks: { Stop: { weird: true } } }));
+    writeFileSync(join(repo, ".claude", "settings.local.json"), JSON.stringify({ hooks: { Stop: { weird: true } } }));
     const res = installSentinelHooks({ projectDir: repo, logger: quiet });
     expect(res.wired).toBe(false);
     expect(res.retired).toEqual([]);

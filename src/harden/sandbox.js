@@ -64,7 +64,7 @@ const METHOD_SANDBOX = {
   // kj worktree runs outside, it is the sanctioned way to create and remove lanes.
   excludedCommands: ["gh *", "kj review *", "kj worktree *"],
   denyWrite: [
-    ".karajan/harness", ".karajan/hooks", ".claude/settings.json", ".karajan/supervisor-provenance.json", "~/.karajan/supervisor-phone.json",
+    ".karajan/harness", ".karajan/hooks", ".claude/settings.json", ".claude/settings.local.json", ".karajan/supervisor-provenance.json", "~/.karajan/supervisor-phone.json",
     "kj.config.yml", ".ragignore", ".kj/worktrees",
   ],
   allowWrite: ["~/.karajan", "~/.npm/_cacache", "~/.npm/_logs", "~/.npm/_npx", "~/.cache", "~/.config/configstore"],

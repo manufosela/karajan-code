@@ -47,7 +47,7 @@ describe("pretooluse script", () => {
 
 describe("installHarnessHooks settings merge", () => {
   it("is idempotent and preserves the user's existing settings", () => {
-    const settings = path.join(dir, ".claude", "settings.json");
+    const settings = path.join(dir, ".claude", "settings.local.json");
     fs.writeFileSync(settings, JSON.stringify({ model: "opus", hooks: { PreToolUse: [{ matcher: "Grep", hooks: [{ type: "command", command: "echo mine" }] }] } }));
     installHarnessHooks({ projectDir: dir });
     installHarnessHooks({ projectDir: dir });
@@ -60,7 +60,7 @@ describe("installHarnessHooks settings merge", () => {
 
   // KJC-TSK-1204 (ADR 0030): the hook runs the guard from the installed kj.
   it("replaces the old wiring to the project's copy with the package runner", () => {
-    const settings = path.join(dir, ".claude", "settings.json");
+    const settings = path.join(dir, ".claude", "settings.local.json");
     const legacy = { type: "command", command: `node ${path.join(".karajan", "harness", "pretooluse.mjs")}` };
     fs.writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Write", hooks: [legacy] }] } }));
     installHarnessHooks({ projectDir: dir });
@@ -74,7 +74,7 @@ describe("installHarnessHooks settings merge", () => {
 // the PATH, must end with one hook per guard, not both runners.
 describe("switching runner", () => {
   it("replaces the other runner's command for the same guard instead of adding a second hook", () => {
-    const settings = path.join(dir, ".claude", "settings.json");
+    const settings = path.join(dir, ".claude", "settings.local.json");
     const viaKj = { type: "command", command: guardCommand("pretooluse", { blocking: true, viaKj: true }) };
     fs.writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Write", hooks: [viaKj] }, { matcher: "Bash", hooks: [viaKj] }] } }));
     mergeClaudeHooks({ projectDir: dir, logger: { info() {}, warn() {} }, entries: [{ event: "PreToolUse", matcher: "Write", script: "pretooluse.mjs" }, { event: "PreToolUse", matcher: "Bash", script: "pretooluse.mjs" }], viaKj: false });

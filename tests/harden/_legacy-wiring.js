@@ -12,5 +12,6 @@ export function wireLegacy(dir) {
     (hooks[event] ||= []).push(matcher === undefined ? { hooks: [cmd] } : { matcher, hooks: [cmd] });
   }
   fs.mkdirSync(path.join(dir, ".claude"), { recursive: true });
-  fs.writeFileSync(path.join(dir, ".claude", "settings.json"), JSON.stringify({ hooks }));
+  // KJC-TSK-1444: where kj harden writes the wiring now, so the old wiring replaces it.
+  fs.writeFileSync(path.join(dir, ".claude", "settings.local.json"), JSON.stringify({ hooks }));
 }

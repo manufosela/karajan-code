@@ -66,13 +66,13 @@ describe("harden no siembra arneses huerfanos", () => {
     installSentinelHooks({ projectDir: sub, logger: quiet });
     expect(fs.existsSync(path.join(sub, ".karajan", "harness"))).toBe(false);
     expect(fs.existsSync(path.join(sub, ".claude"))).toBe(false);
-    expect(fs.existsSync(path.join(repo, ".claude", "settings.json"))).toBe(true);
+    expect(fs.existsSync(path.join(repo, ".claude", "settings.local.json"))).toBe(true);
   });
 
   it("el gate de tool tampoco: los dos instaladores responden lo mismo", () => {
     installHarnessHooks({ projectDir: sub, logger: quiet });
     expect(fs.existsSync(path.join(sub, ".claude"))).toBe(false);
-    expect(fs.existsSync(path.join(repo, ".claude", "settings.json"))).toBe(true);
+    expect(fs.existsSync(path.join(repo, ".claude", "settings.local.json"))).toBe(true);
   });
 
   it("lo dice cuando lo redirige, en vez de instalar en otro sitio en silencio", () => {

@@ -17,7 +17,8 @@ const IDENTITY = path.join(".karajan", "identity.local.yml");
 const INSTALLERS = { sentinel: installSentinelHooks, harness: installHarnessHooks };
 
 /** What setupLane writes into a lane (and the Sentinel's runtime state): never the lane's work. */
-export const isLaneSetupPath = (p) => p === IDENTITY || p === path.join(".claude", "settings.json") || p.startsWith(path.join(".karajan", "harness") + path.sep);
+// KJC-TSK-1444: the wiring lives in settings.local.json now; settings.json stays for lanes wired before.
+export const isLaneSetupPath = (p) => p === IDENTITY || p === path.join(".claude", "settings.json") || p === path.join(".claude", "settings.local.json") || p.startsWith(path.join(".karajan", "harness") + path.sep);
 
 /** A folder git lists whole (an ignored `.claude/`) is setup only when every file in it is. */
 function onlySetup(lanePath, dir) {
