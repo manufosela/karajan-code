@@ -24,6 +24,13 @@ export const STATE = join(ROOT, ".karajan", "harness", "sentinel-state.json");
 export const TESTS = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z]+$|_test\.[a-z]+$/;
 export const CODE = /\.(m?[jt]sx?|c[jt]s|py|go|rs|java|rb|php|cs|swift|kt|astro|svelte|vue|c|h|cc|cpp|hpp|tf|hcl|ya?ml|sh)$|(^|\/)(Dockerfile|Makefile|Vagrantfile)$/;
 export const CARD = new RegExp("\\b[a-z][a-z0-9]{1,9}(?:-[a-z][a-z0-9]{1,9})*-\\d{1,6}\\b(?!\\.\\d)", "i");
+// HU-3502 (#3454): a split card is the id plus ONE capital letter (XEN-TSK-0815-A); the review's
+// card-first gate gets it by matching the plan's ids, here there is no plan, so the letter is read.
+// Capital only: a lowercase "-a-" is a slug word, and "-2fa-" is never a suffix.
+export const cardOf = (ref) => {
+  const m = CARD.exec(ref || "");
+  return m && m[0] + (/^-[A-Z](?![A-Za-z0-9])/.exec(String(ref).slice(m.index + m[0].length))?.[0] ?? "");
+};
 export const BASE_BRANCHES = new Set(["main", "master"]);
 export const load = () => { try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return {}; } };
 export const save = (state) => {

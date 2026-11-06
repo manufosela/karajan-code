@@ -7,7 +7,7 @@ import process from "node:process";
 import { readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { CODE, TESTS, ROOT, CARD, branchOf, enterLane, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, cardOf, branchOf, enterLane, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
 import { traceHost } from "./sentinel-activity.mjs";
 let raw = "";
@@ -167,16 +167,16 @@ process.stdin.on("end", () => {
       if (mergedPr !== null) {
         const state = load();
         const s = session(state, sid);
-        const ref = CARD.exec(headRef || branchOf() || "");
+        const ref = cardOf(headRef || branchOf() || "");
         // KJC-BUG-0230: una EPICA (…-PCS-…) no tiene estado que mover: el PG
         // la deja en To Do por mas status que reciba y kj hu move no la
         // conoce. Registrarla como pendiente era un bloqueo sin cauce. Se dice
         // en el momento, para que no parezca que el board dejo de mirar.
-        const epic = ref && /-PCS-/i.test(ref[0]);
+        const epic = ref && /-PCS-/i.test(ref);
         if (epic) {
-          console.error("karajan sentinel: board-sync — la PR #" + mergedPr + " pertenece a la epica " + ref[0].toUpperCase() + ", que no tiene estado que mover: no queda pendiente (su cierre va en la descripcion de la epica)");
+          console.error("karajan sentinel: board-sync — la PR #" + mergedPr + " pertenece a la epica " + ref.toUpperCase() + ", que no tiene estado que mover: no queda pendiente (su cierre va en la descripcion de la epica)");
         } else {
-          (s.pending_moves ||= []).push({ card: ref ? ref[0].toUpperCase() : null, pr: mergedPr, at: Date.now(), ...(headRef ? {} : { head: "unknown" }) });
+          (s.pending_moves ||= []).push({ card: ref ? ref.toUpperCase() : null, pr: mergedPr, at: Date.now(), ...(headRef ? {} : { head: "unknown" }) });
         }
         save(state);
       }
