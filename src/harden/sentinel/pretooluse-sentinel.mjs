@@ -21,7 +21,8 @@ const inOrder = (want, got) => { let i = 0; for (const w of got) if (w === want[
 // KJC-BUG-0333: a publish is read per simple command by the shell reader, so
 // words inside a quoted argument of another command are not a publish.
 const isPublish = isPublishCommand;
-const PROTECTED = /\.claude\/settings\.json\b|\.karajan\/(hooks|harness)\//;
+// KJC-TSK-1444: the wiring moved to the local settings, guarded the same (settings.json stays for repos not migrated).
+const PROTECTED = /\.claude\/settings(\.local)?\.json\b|\.karajan\/(hooks|harness)\//;
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
@@ -90,7 +91,7 @@ process.stdin.on("end", () => {
     // KJC-TSK-1114: where the host sandbox denies writing them, the sandbox guards them instead.
     // KJC-BUG-0425 (ADR 0036): text a command only publishes or stores (a PR description) is not a write.
     // KJC-BUG-0429: nor is a command made only of known readers (an allow-list, not a write blocklist).
-    const SUPERVISOR_PATHS = [".claude/settings.json", ".karajan/hooks", ".karajan/harness"];
+    const SUPERVISOR_PATHS = [".claude/settings.json", ".claude/settings.local.json", ".karajan/hooks", ".karajan/harness"];
     if (tool === "Bash" && !isReadOnlyCommand(String(input.command || "")) && PROTECTED.test(stripTextOnlyCommandValues(String(input.command || "")).replaceAll("\\", "/")) && !sandboxCovers(ROOT, SUPERVISOR_PATHS)) {
       console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);

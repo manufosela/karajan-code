@@ -45,7 +45,7 @@ describe("the stage's wiring", () => {
 
   it("kj harden installs it, but a project wired before it is not taken for tampered", () => {
     installSentinelHooks({ projectDir: dir, logger: { info() {}, warn() {} } });
-    const settings = join(dir, ".claude", "settings.json");
+    const settings = join(dir, ".claude", "settings.local.json");
     const cfg = JSON.parse(readFileSync(settings, "utf8"));
     expect(cfg.hooks.PostToolUse.map((e) => e.matcher)).toContain("Agent|Task");
     cfg.hooks.PostToolUse = cfg.hooks.PostToolUse.filter((e) => e.matcher !== "Agent|Task");

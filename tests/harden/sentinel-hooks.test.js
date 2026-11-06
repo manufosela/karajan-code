@@ -406,6 +406,8 @@ describe("self-protection + audited escapes (SEN-C)", () => {
   it("blocks the agent editing settings.json or the harness/hooks, with NO agent escape honored", () => {
     for (const target of [
       path.join(dir, ".claude", "settings.json"),
+      // KJC-TSK-1444: the wiring lives in the local settings now, guarded the same.
+      path.join(dir, ".claude", "settings.local.json"),
       path.join(dir, ".karajan", "hooks", "pre-commit"),
       path.join(dir, ".karajan", "harness", "stop.mjs"),
     ]) {
@@ -421,6 +423,7 @@ describe("self-protection + audited escapes (SEN-C)", () => {
     const bash = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });
     expect(bash("sed -i 's/x/y/' .karajan/harness/stop.mjs").status).toBe(2);
     expect(bash("echo '{}' > .claude/settings.json").status).toBe(2);
+    expect(bash("echo '{}' > .claude/settings.local.json").status).toBe(2);
     expect(bash("cp evil.mjs .karajan/harness/stop.mjs").status).toBe(2);
     expect(bash("sed -n 1p .claude/settings.json").status).toBe(2);
     expect(bash("cat .claude/settings.json").status).toBe(0);
@@ -850,7 +853,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
 
 describe("installSentinelHooks settings merge", () => {
   it("wires PostToolUse and Stop idempotently, preserving the user's entries", () => {
-    const settings = path.join(dir, ".claude", "settings.json");
+    const settings = path.join(dir, ".claude", "settings.local.json");
     const mine = { matcher: "Grep", hooks: [{ type: "command", command: "echo mine" }] };
     fs.writeFileSync(settings, JSON.stringify({ model: "opus", hooks: { PostToolUse: [mine] } }));
     installSentinelHooks({ projectDir: dir });
@@ -875,7 +878,7 @@ describe("installSentinelHooks settings merge", () => {
   });
 
   it("leaves a non-array hook event untouched and reports script-only", () => {
-    const settings = path.join(dir, ".claude", "settings.json");
+    const settings = path.join(dir, ".claude", "settings.local.json");
     fs.writeFileSync(settings, JSON.stringify({ hooks: { Stop: { weird: true } } }));
     const res = installSentinelHooks({ projectDir: dir });
     expect(res.wired).toBe(false);

@@ -54,7 +54,7 @@ afterEach(() => {
 describe("rules hook (PreToolUse, every tool)", () => {
   it("is installed with its gate module and wired with no matcher, so MCP tools pass through it", () => {
     for (const f of ["pretooluse-rules.mjs", "sentinel-rules.mjs"]) expect(fs.existsSync(path.join(dir, ".karajan", "harness", f)), f).toBe(true);
-    const { hooks } = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "settings.json"), "utf8"));
+    const { hooks } = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "settings.local.json"), "utf8"));
     const entry = hooks.PreToolUse.find((e) => /(kj-hook|kj sentinel hook) pretooluse-rules;/.test(JSON.stringify(e)));
     expect(entry).toBeDefined();
     expect(entry.matcher).toBeUndefined();

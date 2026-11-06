@@ -81,7 +81,7 @@ describe("SessionStart hook", () => {
   });
 
   it("is wired in the host settings for startup, compact and resume", () => {
-    const cfg = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "settings.json"), "utf8"));
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "settings.local.json"), "utf8"));
     const matchers = (cfg.hooks.SessionStart || []).filter((e) => /(kj-hook|kj sentinel hook) sessionstart;/.test(JSON.stringify(e))).map((e) => e.matcher);
     expect(matchers.sort()).toEqual(["compact", "resume", "startup"]);
   });

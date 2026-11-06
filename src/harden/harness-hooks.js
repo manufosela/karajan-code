@@ -69,14 +69,29 @@ const withoutStale = (list, stale) => list.flatMap((e) => {
  * "files" = some entry still runs the project's copies, so those copies are live
  * and verified as before; "wiring" = every entry runs the installed kj.
  */
-export function wiringState({ projectDir, entries }) {
-  let hooks;
-  try {
-    hooks = JSON.parse(readFileSync(join(projectDir, ".claude", "settings.json"), "utf8"))?.hooks;
-  } catch {
-    hooks = null;
+// KJC-TSK-1444 (ADR, 6-nov): the wiring is personal. It lives in settings.local.json, which git
+// ignores, so a teammate who uses Claude Code without kj is not blocked by a versioned file.
+export const LOCAL_SETTINGS = join(".claude", "settings.local.json");
+const SHARED_SETTINGS = join(".claude", "settings.json");
+
+/** The hooks of both settings files, merged per event; null when neither has readable hooks. */
+function hooksOf(projectDir) {
+  const merged = {};
+  let found = false;
+  for (const file of [LOCAL_SETTINGS, SHARED_SETTINGS]) {
+    let hooks;
+    try { hooks = JSON.parse(readFileSync(join(projectDir, file), "utf8"))?.hooks; } catch { continue; }
+    if (!hooks || typeof hooks !== "object") continue;
+    found = true;
+    for (const [event, list] of Object.entries(hooks)) if (Array.isArray(list)) merged[event] = [...(merged[event] ?? []), ...list];
   }
-  if (!hooks || typeof hooks !== "object") return { mode: "wiring", missing: [".claude/settings.json (sin hooks legibles)"] };
+  return found ? merged : null;
+}
+
+export function wiringState({ projectDir, entries }) {
+  // A repo not migrated yet still has the wiring in settings.json: it counts until kj harden moves it.
+  const hooks = hooksOf(projectDir);
+  if (!hooks) return { mode: "wiring", missing: [`${LOCAL_SETTINGS} (sin hooks legibles)`] };
   const missing = [];
   let legacy = false;
   for (const { event, matcher, script } of entries) {
@@ -100,7 +115,7 @@ export function wiringState({ projectDir, entries }) {
  * same event (and matcher, when given).
  */
 export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj = isSea() || !kjHookOnPath() }) {
-  const settingsPath = join(projectDir, ".claude", "settings.json");
+  const settingsPath = join(projectDir, LOCAL_SETTINGS);
   let settings = {};
   if (existsSync(settingsPath)) {
     try {
@@ -134,7 +149,46 @@ export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj 
   }
   mkdirSync(join(projectDir, ".claude"), { recursive: true });
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+  ignoreLocalSettings(projectDir);
+  moveOutOfShared(projectDir, entries);
   return { wired: true };
+}
+
+/**
+ * settings.local.json is the developer's: git must ignore it. The clone's own exclude file, never
+ * the versioned .gitignore, so wiring a clone leaves no change behind for anyone to commit.
+ */
+function ignoreLocalSettings(projectDir) {
+  if (spawnSync("git", ["-C", projectDir, "check-ignore", "-q", LOCAL_SETTINGS]).status === 0) return;
+  const common = spawnSync("git", ["-C", projectDir, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8" });
+  if (common.status !== 0) return;
+  const file = join(common.stdout.trim(), "info", "exclude");
+  const text = existsSync(file) ? readFileSync(file, "utf8") : "";
+  mkdirSync(join(common.stdout.trim(), "info"), { recursive: true });
+  writeFileSync(file, `${text}${text === "" || text.endsWith("\n") ? "" : "\n"}/.claude/settings.local.json\n`);
+}
+
+/** KJC-TSK-1444: a versioned settings.json loses kj's hook commands, and keeps everything else. */
+function moveOutOfShared(projectDir, entries) {
+  const file = join(projectDir, SHARED_SETTINGS);
+  let shared;
+  try { shared = JSON.parse(readFileSync(file, "utf8")); } catch { return; }
+  if (!shared?.hooks || typeof shared.hooks !== "object") return;
+  const kj = entries.flatMap(({ event, script }) => {
+    const guard = script.replace(/\.mjs$/, "");
+    const blocking = event === "PreToolUse";
+    return [`node ${join(".karajan", "harness", script)}`, guardCommand(guard, { blocking, viaKj: true }), guardCommand(guard, { blocking, viaKj: false })];
+  });
+  let changed = false;
+  for (const event of new Set(entries.map((e) => e.event))) {
+    if (!Array.isArray(shared.hooks[event])) continue;
+    const kept = withoutStale(shared.hooks[event], kj);
+    if (kept.length === shared.hooks[event].length && JSON.stringify(kept) === JSON.stringify(shared.hooks[event])) continue;
+    changed = true;
+    if (kept.length) shared.hooks[event] = kept;
+    else delete shared.hooks[event];
+  }
+  if (changed) writeFileSync(file, `${JSON.stringify(shared, null, 2)}\n`);
 }
 
 /**
