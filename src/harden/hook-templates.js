@@ -31,21 +31,31 @@ export const PROFILE_HOOKS = {
 // local filesystem layout leaks into a public repo. `|| true`: the preamble
 // sets `set -e`. `--type=path` expands `~`; the pwd -P test stops a hook from
 // calling itself when the global setting is this repo's own hooks dir.
-function chainToGlobal(hook) {
+/** Run the namesake hook in the dir held by shell variable `dir`, unless it is this very hook. */
+function chainFrom(hook, dir, rule) {
   // KJC-TSK-1085: pre-push already read the refs from stdin; the chained hook gets them back.
-  const call = hook === "pre-push" ? `printf '%s\\n' "$kj_push_refs" | "$kj_global/${hook}" "$@"; rc=$?` : `"$kj_global/${hook}" "$@"; rc=$?`;
-  const guard = `if [ -n "$kj_global" ] && [ -x "$kj_global/${hook}" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then`;
-  // KJC-BUG-0493/0500: commit-msg leaves one trace line per attempt, the global hook's refusal
+  const call = hook === "pre-push" ? `printf '%s\\n' "$kj_push_refs" | "$${dir}/${hook}" "$@"; rc=$?` : `"$${dir}/${hook}" "$@"; rc=$?`;
+  // KJC-BUG-0493/0500: commit-msg leaves one trace line per attempt, a chained hook's refusal
   // included. The hook runs under set -e, so the call sits in an if: set -e never cuts it short.
   const body = hook === "commit-msg"
-    ? [`  if "$kj_global/${hook}" "$@"; then :; else rc=$?; kj_trace refuse global-hook; exit "$rc"; fi`]
+    ? [`  if "$${dir}/${hook}" "$@"; then :; else rc=$?; kj_trace refuse ${rule}; exit "$rc"; fi`]
     : [`  ${call}`, '  [ "$rc" -eq 0 ] || exit "$rc"'];
   return [
-    "# Chain the machine's global hook, looked up when the hook runs, not when kj harden ran (KJC-TSK-0645, HU-2762).",
-    "kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)",
-    guard,
+    `if [ -n "$${dir}" ] && [ -x "$${dir}/${hook}" ] && [ "$(cd "$${dir}" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then`,
     ...body,
     "fi",
+  ];
+}
+
+function chainToGlobal(hook) {
+  return [
+    // KJC-BUG-0509: core.hooksPath also eclipses the repo's own .git/hooks (git-secrets, syntax
+    // checks). The common git dir, not --git-path hooks: that one follows core.hooksPath back here.
+    "# Chain the repo's own hook in .git/hooks, then the machine's global one, both looked up when the hook runs (KJC-TSK-0645, HU-2762).",
+    'kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"',
+    ...chainFrom(hook, "kj_repo", "repo-hook"),
+    "kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)",
+    ...chainFrom(hook, "kj_global", "global-hook"),
   ];
 }
 
