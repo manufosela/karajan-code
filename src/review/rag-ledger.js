@@ -7,8 +7,9 @@
  * tree, so the last one that acted is the one now reviewing. Said here and
  * in the verdict (`sessionId`), never assumed in silence.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
+import { readLaneSentinelState } from "../harden/sentinel-lane-state.js";
 import { resolveSentinelRoot, verifySentinelScripts } from "../harden/sentinel-hooks.js";
 
 /**
@@ -34,10 +35,9 @@ export function readRagLedger(projectDir) {
   // quedado atras NO lo arregla `kj harden` (lo deja en paz a proposito), asi
   // que mandar ese comando para ese fichero es un bucle.
   const base = { root, harness, verified: harness && check.ok === true, mismatched: check.mismatched || [], drift: check.drift || [], queries: [], hits: [] };
-  let state;
-  try {
-    state = JSON.parse(readFileSync(path.join(harnessDir, "sentinel-state.json"), "utf8"));
-  } catch {
+  // HU-3474: in a lane the state may live in the main tree; only this lane's sessions count.
+  const state = readLaneSentinelState(root);
+  if (!state) {
     return { ...base, available: false, reason: harness ? "no session activity recorded by the Sentinel yet" : "no Sentinel harness in this tree (kj harden installs it)" };
   }
   const sessions = Object.entries(state?.sessions || {});

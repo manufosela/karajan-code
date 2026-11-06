@@ -17,9 +17,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
+import { readLaneSentinelState } from "../harden/sentinel-lane-state.js";
 import { CARD_REF_RE } from "./card-first.js";
 
 const cardOf = (text) => {
@@ -71,12 +70,11 @@ export function blockingMoves({ pendings = [], openPrHeads = null, openPrNumbers
   return { blocking, carried };
 }
 
-const readJson = (path) => { try { return JSON.parse(readFileSync(path, "utf8")); } catch { return null; } };
 
 /** The decision the guard asks for, gathering the facts here so the rule ships
  * with npm instead of waiting for the human to reseal the harness. */
 export function boardGate({ projectDir = process.cwd(), sessionId = "default", deps = {} } = {}) {
-  const state = deps.readState?.() ?? readJson(join(projectDir, ".karajan", "harness", "sentinel-state.json"));
+  const state = deps.readState?.() ?? readLaneSentinelState(projectDir);
   const pendings = state?.sessions?.[sessionId]?.pending_moves;
   if (!Array.isArray(pendings) || pendings.length === 0) return { blocking: [], carried: [] };
   // KJC-BUG-0364: gh can take several seconds; a timeout reads as "could not check" and blocks.
