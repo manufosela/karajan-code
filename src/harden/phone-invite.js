@@ -52,7 +52,7 @@ export function createPhoneCheck({ home, projectDir = process.cwd(), readLevel =
     async detect() {
       if (isPhoneEnrolled({ home })) return { ok: true, severity: "info", detail: "clave pública en ~/.karajan/supervisor-phone.json" };
       const level = await readLevel();
-      return { ok: false, severity: level === "normal" ? "warn" : "fail", detail: phoneTextFor(level), fix: "kj identity enroll-phone <clave pública de la app>" };
+      return { ok: false, severity: level === "normal" ? "warn" : "fail", detail: phoneTextFor(level), fix: "abre https://karajancode.com/sign en el móvil y kj identity enroll-phone <clave pública>" };
     },
   };
 }

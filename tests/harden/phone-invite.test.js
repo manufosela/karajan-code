@@ -5,7 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { PHONE_INVITE, PHONE_REFUSED_AT_MAX, createPhoneCheck, phoneInvite } from "../../src/harden/phone-invite.js";
+import { PHONE_ENROLL, PHONE_INVITE, PHONE_REFUSED_AT_MAX, createPhoneCheck, phoneInvite } from "../../src/harden/phone-invite.js";
+import { SUPERVISOR_DEFAULTS } from "../../src/policy/engine.js";
+
+const GOVERNANCE_DENY = SUPERVISOR_DEFAULTS.find((r) => r.id === "defaults.governance.write")?.message;
 
 let home;
 beforeEach(() => { home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-phone-invite-")); });
@@ -25,6 +28,16 @@ describe("phoneInvite", () => {
     expect(JSON.parse(fs.readFileSync(path.join(home, ".karajan", "phone-invite.json"), "utf8")).version).toBe("4.44.0");
     expect(phoneInvite({ home, version: "4.45.0" })).toBe(PHONE_REFUSED_AT_MAX); // a new version asks again, at max by default
     expect(PHONE_REFUSED_AT_MAX).toMatch(/kj identity enroll-phone/);
+  });
+
+  // KJC-BUG-0508: whoever updated kj never ran init, so the refusal is where they learn the way out.
+  it("every text a person without a phone reads says where the phone app is, and the other way out", () => {
+    for (const text of [PHONE_INVITE, PHONE_REFUSED_AT_MAX, PHONE_ENROLL, GOVERNANCE_DENY]) {
+      expect(text).toMatch(/karajancode\.com\/sign/);
+      expect(text).toMatch(/kj identity enroll-phone/);
+    }
+    expect(PHONE_REFUSED_AT_MAX).toMatch(/kj security normal/);
+    expect(GOVERNANCE_DENY).toMatch(/kj security normal/);
   });
 
   it("says nothing once the phone is enrolled", () => {
