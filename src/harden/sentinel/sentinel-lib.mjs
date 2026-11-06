@@ -32,7 +32,12 @@ export const cardOf = (ref) => {
   return m && m[0] + (/^-[A-Z](?![A-Za-z0-9])/.exec(String(ref).slice(m.index + m[0].length))?.[0] ?? "");
 };
 export const BASE_BRANCHES = new Set(["main", "master"]);
-export const load = () => { try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return {}; } };
+// KJC-BUG-0501: valid JSON of another type (null, 7, []) is as unusable as corrupt JSON.
+export const load = () => {
+  let state;
+  try { state = JSON.parse(readFileSync(STATE, "utf8")); } catch { return {}; }
+  return state && typeof state === "object" && !Array.isArray(state) ? state : {};
+};
 export const save = (state) => {
   mkdirSync(dirname(STATE), { recursive: true });
   writeFileSync(STATE, JSON.stringify(state, null, 2));

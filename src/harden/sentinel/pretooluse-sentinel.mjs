@@ -765,7 +765,11 @@ process.stdin.on("end", () => {
         // declara remedied_by no bloquea el comando que lo repara (desplegar
         // la landing era justo lo que el check pedia); publicar no se exime.
         const res = spawnSync("kj", ["release", "check", "--json", "--for-command", cmd], { cwd: ROOT, encoding: "utf8" });
-        if (res.error || res.status === null) process.exit(0);
+        // KJC-BUG-0501: fails closed like the merge gate; a publish kj could not check is unchecked.
+        if (res.error || res.status === null) {
+          console.error("karajan sentinel: release check sin respuesta — kj no pudo comprobarlo (" + (res.error?.message || "señal " + res.signal) + "), así que no se publica ni despliega." + doc("release"));
+          process.exit(2);
+        }
         let parsed = null;
         try { parsed = JSON.parse(res.stdout); } catch { /* raw output */ }
         const lifted = (parsed && parsed.lifted) || [];
@@ -785,6 +789,15 @@ process.stdin.on("end", () => {
       // protected (required checks), the card and the tests are judged at commit
       // (kj review), and pending card moves keep the turn from ending (stop gate).
     }
-  } catch { /* fail open */ }
+  } catch (err) {
+    // KJC-BUG-0501: one gate that throws must not wave the later ones past. A tool that
+    // changes something (Bash, an edit) stops; reading tools go on, nothing to protect.
+    let tool = null;
+    try { tool = JSON.parse(raw).tool_name; } catch { /* the host's payload is unreadable */ }
+    if (tool === "Bash" || EDIT_TOOLS.includes(tool)) {
+      console.error("karajan sentinel: un gate falló al comprobar esto (" + (err?.message || err) + ") y no se ejecuta sin comprobar. Si se repite, díselo a tu usuario o usa kj report-issue." + doc("fail-closed"));
+      process.exit(2);
+    }
+  }
   process.exit(0);
 });
