@@ -35,7 +35,7 @@ fi
 kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
 if [ -n "$kj_global" ] && [ -x "$kj_global/commit-msg" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   "$kj_global/commit-msg" "$@"; rc=$?
-  [ "$rc" -eq 0 ] || exit "$rc"
+  [ "$rc" -eq 0 ] || { kj_trace refuse global-hook; exit "$rc"; }
 fi
 kj_trace pass ok
 # <<< kj:managed:hook:commit-msg <<<

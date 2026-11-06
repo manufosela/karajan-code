@@ -1,6 +1,6 @@
 {
   "kj_version": "5.6.0",
-  "generated_at": "2026-11-05T10:50:30.383Z",
+  "generated_at": "2026-11-06T07:46:56.425Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -17,7 +17,7 @@
   "files": [
     {
       "file": ".claude/settings.json",
-      "sha256": "13c97d5da2e128d9ad026d00626fee5d4167c38a4095289fcf15ab877e292951",
+      "sha256": "327739a6b9816cb83d3097e41aa8acb28aa4f93237e2f5a0c9201737e7ec0971",
       "local": true
     },
     {
@@ -98,7 +98,7 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "df9b688396495e998a22d4432141510982f855f14e575818af36e2bce74dd6ed"
+      "sha256": "d8196bc002cdbfa1a3431c882c194826911a939bef965f574073bbde10d10eab"
     },
     {
       "file": ".karajan/hooks/post-merge",
@@ -174,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "f2bb54d23db1fcb3f5a675f167912c99",
-    "nonce": "18889b0a1598db1f81194d45ecc47a8a",
+    "cid": "e807131b519463c91538efa34c4dafa3",
+    "nonce": "7a60801191ffdd2c2b8e453a058b17af",
     "project": "karajan-code",
-    "filesHash": "e52e6934f6ccb35c277fc47e843c09658ed24427faa9fc80cc5e881e991b67ea",
+    "filesHash": "ade71953c00eaf67cb930e746312d979d250c8843bb4fc4c700c48f66155d48a",
     "v": 2,
     "kjVersion": "5.6.0",
-    "issuedMs": 1793875822769,
-    "expiresMs": 1793875972769,
+    "issuedMs": 1793951204925,
+    "expiresMs": 1793951354925,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "63cFNbnyeE8+JJEkfQF8J5wnQjc+H1ns7VCP/VsBhmvIWF3SmfS08/ufCfie/bMcd1A1uOOz7mDOSedyAmumBw=="
+    "signature": "V+SZ1ATv6Q2vYWudRIh/X28CLVEJeqQg+5ongdPT5QOsPvFlL/2co+ClT2tIcnwvfwMiJFPHa85PxnjyW2raBA=="
   }
 }
