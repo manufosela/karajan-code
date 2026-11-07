@@ -33,6 +33,10 @@ Cada bloqueo queda sellado en el acta de decisiones, así que "¿qué detuvo el 
 
 El trabajo necesita una card registrada antes de empezar. Editar fuentes en la rama base, o en una rama cuyo nombre no referencie ninguna card, queda bloqueado. Crea la card (`kj hu add`), muévela a running, y trabaja en una rama `feat/<CARD-ID>-descripcion`. Sin escape (ADR 0015).
 
+## delegate
+
+Una card planificada con nivel (`kj hu add --tier`) la escribe `kj code`, con contexto limpio y el modelo de su nivel, como hacía `kj run` antes de la 5.0: gasta menos tokens que escribirla en la conversación larga de tu agente. La primera vez que tu agente va a escribir él el código de esa card, el Sentinel le para una vez con el comando: `kj code --card <id> --brief`, luego `kj review --staged`, y `kj code --card <id> --retry --brief` si la review la rechaza. Si tu agente vuelve a intentarlo, la escritura pasa y la decisión queda anotada en la sesión. Los tests quedan fuera, así que tu agente puede escribirlos primero. Una card planificada sin nivel nunca se para, ni el coder de `kj code`. `kj hu tier <id>` dice el nivel de una card.
+
 ## rag-first
 
 El RAG tiene que haber respondido sobre una zona antes de que la sesión la toque (ADR 0010). Cada `kj_rag_query` / `kj rag query` de la sesión deja un registro de las fuentes que devolvió; editar una fuente que ninguna consulta devolvió (ni a ella ni a un hermano de su directorio) se bloquea indicando la consulta a hacer. Un fichero nuevo solo exige que la sesión haya consultado algo. Docs, config y tests quedan fuera, como en card-first. Un fichero que el índice no puede tener, o un índice vacío, los decide el propio gate. Sin escape (ADR 0015).

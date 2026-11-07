@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText, stagedVerdict } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, cardOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText, stagedVerdict } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
@@ -564,6 +564,30 @@ process.stdin.on("end", () => {
             ? "karajan sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion." + doc("card-first")
             : "karajan sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion." + doc("card-first"));
           process.exit(2);
+        }
+        // HU-3533 (KJC-TSK-1445): a card planned with a tier is written by kj code, in a clean
+        // context and on the model of its tier, as kj run did. The orchestrating agent is stopped
+        // once per card before it writes that code itself; a second try passes and is recorded.
+        // kj code's own coder (KJ_POLICY_ROLE) is never stopped; kj not answering stops nothing.
+        const card = branch && !process.env.KJ_POLICY_ROLE ? cardOf(branch) : null;
+        if (card) {
+          const ds = load();
+          const dl = (session(ds, sid).delegate ||= {});
+          if (!dl[card]) {
+            const asked = spawnSync("kj", ["hu", "tier", card, "--json"], { cwd: top, encoding: "utf8" });
+            const line = String(asked.stdout || "").trim().split(String.fromCharCode(10)).reverse().find((l) => l.startsWith("{"));
+            let tier = null;
+            try { tier = asked.status === 0 && line ? JSON.parse(line).tier ?? null : null; } catch { /* no answer: no tier */ }
+            dl[card] = { tier, told: Boolean(tier), at: Date.now(), ...(asked.status === 0 ? {} : { unknown: true }) };
+            save(ds);
+            if (tier) {
+              console.error("karajan sentinel: delegate: la card " + card + " se planificó con nivel " + tier + ": la escribe kj code con contexto limpio y el modelo de su nivel, más barato que en esta sesión. Lánzalo: kj code --card " + card + " --brief; luego kj review --staged (si rechaza: kj code --card " + card + " --retry --brief). ¿La escribes tú? Vuelve a intentarlo: pasa y queda anotado." + doc("delegate"));
+              process.exit(2);
+            }
+          } else if (dl[card].told && !dl[card].insisted) {
+            dl[card].insisted = Date.now();
+            save(ds);
+          }
         }
         // KJC-TSK-0848 (ADR 0010, RAG-B): the RAG must have answered about this
         // zone before the session touches it. Covered = the session ledger

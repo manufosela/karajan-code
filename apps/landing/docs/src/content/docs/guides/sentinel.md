@@ -33,6 +33,10 @@ Every block is sealed into the decision log, so "what did the Sentinel stop?" is
 
 Work needs a tracked card before it starts. Editing sources on the base branch, or on a branch whose name references no card, is blocked. Create the card (`kj hu add`), move it to running, and work on a `feat/<CARD-ID>-description` branch. No escape (ADR 0015).
 
+## delegate
+
+A card planned with a tier (`kj hu add --tier`) is written by `kj code`, in a clean context and on the model of its tier, as `kj run` did before 5.0: it costs fewer tokens than writing it in your agent's long conversation. The first time your agent goes to write that card's code itself, the Sentinel stops it once with the command: `kj code --card <id> --brief`, then `kj review --staged`, and `kj code --card <id> --retry --brief` if the review rejects it. If your agent tries again, the write passes and the decision is recorded in the session. Tests stay out, so your agent can write them first. A card planned without a tier is never stopped, nor is `kj code`'s own coder. `kj hu tier <id>` says a card's tier.
+
 ## rag-first
 
 The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Docs, config and tests stay out, like card-first. A file the index cannot hold, or an empty index, is decided by the gate itself. No escape (ADR 0015).
