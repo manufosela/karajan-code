@@ -55,6 +55,17 @@ describe("rag ledger (PostToolUse)", () => {
     }
   });
 
+  // KJC-BUG-0511: rag-first reads a file relative to the lane it lives in (ADR 0034); a hit
+  // recorded relative to the main tree (.kj/worktrees/<slug>/src/a.js) never matched it.
+  it("records a hit in a lane relative to that lane, as the rag-first gate reads it", () => {
+    const lane = path.join(dir, ".kj", "worktrees", "HU-1-x");
+    execSync(`git worktree add -q -b feat/HU-1-x ${lane}`, { cwd: dir });
+    fs.mkdirSync(path.join(lane, "src"));
+    fs.writeFileSync(path.join(lane, "src", "a.js"), "");
+    expect(mcpQuery("q", [path.join(lane, "src", "a.js"), `${dir}/src/paths.js`]).status).toBe(0);
+    expect(session().rag_hits).toEqual(["src/a.js", "src/paths.js"]);
+  });
+
   it("reads the MCP answer whether the host hands the parts in {content}, as a bare array or as a string", () => {
     const body = JSON.stringify({ hits: [{ source: `${dir}/src/a.js`, kind: "code" }], empty: false });
     expect(run({ tool_name: "mcp__karajan-mcp__kj_rag_query", tool_input: { text: "q" }, tool_response: [{ type: "text", text: body }] }).status).toBe(0);
