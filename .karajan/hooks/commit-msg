@@ -31,7 +31,11 @@ fi
 if grep -qiE 'co-authored-by:.*(claude|gpt|copilot|gemini)|(generated|written) (by|with) .*(claude|gpt|copilot)' "$msg_file"; then
   kj_refuse attribution 'kj harden: AI attribution is not allowed in commit messages'
 fi
-# Chain the machine's global hook, looked up when the hook runs, not when kj harden ran (KJC-TSK-0645, HU-2762).
+# Chain the repo's own hook in .git/hooks, then the machine's global one, both looked up when the hook runs (KJC-TSK-0645, HU-2762).
+kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"
+if [ -n "$kj_repo" ] && [ -x "$kj_repo/commit-msg" ] && [ "$(cd "$kj_repo" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  if "$kj_repo/commit-msg" "$@"; then :; else rc=$?; kj_trace refuse repo-hook; exit "$rc"; fi
+fi
 kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
 if [ -n "$kj_global" ] && [ -x "$kj_global/commit-msg" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   if "$kj_global/commit-msg" "$@"; then :; else rc=$?; kj_trace refuse global-hook; exit "$rc"; fi
