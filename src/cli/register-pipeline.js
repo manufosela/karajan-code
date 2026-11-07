@@ -77,7 +77,11 @@ export function registerPipeline(program, { pkgVersion }) {
       }
       if (flags.agent) flags.coder = flags.agent;
       await withConfig(pkgVersion, "code", flags, async ({ config, logger }) => {
-        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        // HU-3556: with --card and no written task, the card's title is the task.
+        const writtenTask = Boolean(task || flags.taskFile || !flags.card);
+        const resolvedTask = writtenTask
+          ? await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger })
+          : null;
         await codeCommand({ task: resolvedTask, config, logger, flags });
       });
     });

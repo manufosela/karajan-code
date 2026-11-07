@@ -51,6 +51,23 @@ describe("kj code --card with a tier", () => {
     expect(resolveCardContext.mock.calls.at(-1)[0]).toMatchObject({ projectDir: process.cwd(), ref: "HU-9" });
   });
 
+  // KJC-TSK-1450: the card already says what to do; the agent does not write the task again.
+  it("takes the card's title as the task when none is written, and still refuses with neither", async () => {
+    resolveCardContext.mockResolvedValue({ ...card("trivial"), title: "Add slugify" });
+    await codeCommand({ task: null, config: config(), logger, flags: { card: "HU-9" } });
+    expect(buildCoderPrompt.mock.calls.at(-1)[0].task).toContain("Add slugify");
+    resolveCardContext.mockResolvedValue(null);
+    await expect(codeCommand({ task: null, config: config(), logger, flags: {} })).rejects.toThrow(/No task provided/);
+  });
+
+  it("a written task wins over the card's title", async () => {
+    resolveCardContext.mockResolvedValue({ ...card("trivial"), title: "Add slugify" });
+    await codeCommand({ task: "Write the slug tests first", config: config(), logger, flags: { card: "HU-9" } });
+    const sent = buildCoderPrompt.mock.calls.at(-1)[0].task;
+    expect(sent).toContain("Write the slug tests first");
+    expect(sent).not.toContain("null");
+  });
+
   it("keeps the declared coder model for a card with no tier", async () => {
     resolveCardContext.mockResolvedValue(card(null));
     const r = await codeCommand({ task: "t", config: config(), logger, flags: { card: "HU-9" } });
