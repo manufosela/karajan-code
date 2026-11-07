@@ -39,6 +39,16 @@ A task is DONE when its done-statement is literally true, the suite is green, an
 - **`kj solomon --position "<why>"`** — when your agent disagrees with a rejected review, a **third** AI arbitrates (never the brain, never the reviewer). Its ruling is recorded and obeyed — except security findings, which nobody overrides.
 - **`kj report-issue`** — your agent hits a kj bug? It diagnoses it and files a **sanitized** issue upstream (no project code, no paths, no personal data), after asking you. The ecosystem repairs itself.
 
+## Your agent orchestrates, kj code writes
+
+Your agent's conversation keeps growing, and every turn re-reads all of it on its top model. Writing every card there costs more than it needs: most cards do not need the top model, and none needs the whole conversation. So the work is split, as `kj run` split it before 5.0:
+
+1. **Plan with a tier.** As your agent plans, it judges how much model each card needs and says so on creation: `kj hu add "<card>" --tier trivial|standard|deep --tier-reason "<why>"`. kj crosses it with its own signal: the higher one wins, and anything touching auth, secrets, migrations or the Sentinel is always `deep`. The tier lives on the card (a `kj:tier:<level>` label on the shared GitHub board), so anyone can change it there. `kj hu tier <id>` reads it.
+2. **kj code writes it.** `kj code --card <id> --brief` runs the coder of your panel in a clean context, on the model of the card's tier: with Claude, haiku for `trivial`, sonnet for `standard`, the usual model for `deep`. `--brief` hands your agent only the end of the coder's answer, so its own context stays small. A model you chose always wins.
+3. **The review judges it, and a rejection climbs.** Your agent runs `kj review --staged` as always. If the review rejects it, `kj code --card <id> --retry --brief` gives the coder that review's findings, on the most capable model.
+
+The first time your agent goes to write a planned card's code itself, the Sentinel stops it once with the command (see [the Sentinel guide](/docs/guides/sentinel/#delegate)). It can still write it: a second try passes, and the decision is recorded.
+
 ## Why a different AI reviews
 
 Self-review rubber-stamps. In v4 the reviewer is always a different model family than the orchestrator (Claude orchestrates → Codex reviews, and vice versa), and its verdict binds to the sha256 of the exact diff: change one byte and the verdict is void. This is not a convention — the pre-commit gate enforces it. In this repo's own development, the cross reviewer has repeatedly rejected the author's first version with real findings. It works on us; it will work on you.

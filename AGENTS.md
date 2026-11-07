@@ -37,6 +37,8 @@ Invariants (the git gates enforce these — they are not suggestions):
   `kj_rag_query` tool: reach for it before grepping by hand. Questions about
   the project's docs, notes, ADRs or plans: ask qmd (its MCP) first.
 - Every piece of work has a card in the HU Board before it starts (`kj hu list`, then `kj hu add --ref <id>`) and its replica in the Planning Game, created through its MCP/tools; move both as you work it.
+- You orchestrate, `kj code` writes: `kj hu add --tier trivial|standard|deep`, then
+  `kj code --card <id> --brief` (clean context, the tier's model; rejected? `--retry`).
 - Tests prove behavior: failing test first (TDD), suite never left red.
   Green is not proof: with `method_gates.mutation` declared, run
   `kj mutate --since <base>` and kill surviving mutants (weak asserts); then
@@ -46,9 +48,7 @@ Invariants (the git gates enforce these — they are not suggestions):
   and it must be reviewed again. Disagree with a rejection? `kj solomon`.
   A correction from the other AI is the method working: apply it and move
   on, no apology, and never report it as your mistake.
-- The panel is your user's, not yours: coder=claude, reviewer=codex, solomon=agy.
-  When the coder is not you, the writing is ITS job; write it yourself
-  anyway and say so in your closing message, never in silence.
+- The panel is your user's, not yours: coder=claude, reviewer=codex, solomon=agy. Wrote a card yourself? Say so.
 - Security findings are never overridable — not even by arbitration. You
   absorb the security role: `kj brief security` states what must be true.
   Task touches auth, user input, secrets, network or deps? Run
