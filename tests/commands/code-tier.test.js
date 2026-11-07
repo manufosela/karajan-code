@@ -11,8 +11,12 @@ vi.mock("../../src/agents/availability.js", () => ({ assertAgentsAvailable: vi.f
 vi.mock("../../src/prompts/coder.js", () => ({ buildCoderPrompt: vi.fn(async () => "coder prompt") }));
 vi.mock("../../src/commands/rag.js", () => ({ ragQueryCommand: vi.fn(async () => []) }));
 vi.mock("../../src/prompts/card-context.js", () => ({ resolveCardContext: vi.fn() }));
+vi.mock("../../src/review/retry-findings.js", () => ({
+  rejectedReview: vi.fn(async () => ({ reviewer: "codex", count: 1, section: "## The review rejected the previous attempt\n- [high] a.js:1: a is never validated" })),
+}));
 
 const { createAgent } = await import("../../src/agents/index.js");
+const { buildCoderPrompt } = await import("../../src/prompts/coder.js");
 const { resolveCardContext } = await import("../../src/prompts/card-context.js");
 const { codeCommand } = await import("../../src/commands/code.js");
 
@@ -44,6 +48,14 @@ describe("kj code --card with a tier", () => {
     const r = await codeCommand({ task: "t", config: config(), logger, flags: { card: "HU-9" } });
     expect(createAgent.mock.calls.at(-1)[1].roles.coder.model).toBeUndefined();
     expect(r.route).toBeNull();
+  });
+
+  it("with --retry hands the coder the review's findings and climbs to the most capable model", async () => {
+    resolveCardContext.mockResolvedValue(card("trivial"));
+    const r = await codeCommand({ task: "t", config: config(), logger, flags: { card: "HU-9", retry: true } });
+    expect(createAgent.mock.calls.at(-1)[1].roles.coder).toMatchObject({ model: "opus", effort: "max" });
+    expect(buildCoderPrompt.mock.calls.at(-1)[0].task).toContain("a is never validated");
+    expect(r.route).toMatchObject({ model: "opus" });
   });
 
   it("with --brief prints only the end of the coder's answer and says how much was left out", async () => {
