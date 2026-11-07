@@ -18,6 +18,11 @@ const runCommand = (cmd, args) => new Promise((resolve) => {
 export const HU_LABEL = "kj:hu";
 export const STATUSES = ["pending", "running", "done", "failed", "skipped"];
 const statusLabel = (s) => `kj:${s}`;
+// HU-3533 (story-contract 1.1.0): a story's tier is a label, so a person changes it on the board.
+export const TIERS = ["trivial", "standard", "deep"];
+const TIER_PREFIX = "kj:tier:";
+const tierLabel = (level) => `${TIER_PREFIX}${level}`;
+const TIER_LINE = /^Tier: (\w+)(?: - (.+))?$/m;
 
 // HU-3333: the errors live in a neutral file; every current import keeps working from here.
 export { BoardOfflineError, BoardRejectedError, HuClaimedError, isOffline, isRefusal };
@@ -38,7 +43,7 @@ const listOf = (stdout) => (stdout.trim() === "" ? [] : JSON.parse(stdout));
 
 async function ensureLabels(repo, run) {
   const existing = new Set(listOf(await gh(run, ["label", "list", "-R", repo, "--search", "kj:", "--json", "name", "--limit", "100"])).map((l) => l.name));
-  for (const name of [HU_LABEL, ...STATUSES.map(statusLabel)].filter((n) => !existing.has(n))) {
+  for (const name of [HU_LABEL, ...STATUSES.map(statusLabel), ...TIERS.map(tierLabel)].filter((n) => !existing.has(n))) {
     await gh(run, ["label", "create", name, "-R", repo, "--color", "1f6feb", "--description", "Karajan HU Board"]);
   }
 }
@@ -46,16 +51,19 @@ async function ensureLabels(repo, run) {
 const section = (title, items) => (items.length ? [`## ${title}`, ...items.map((i) => `- ${i}`), ""] : []);
 
 /** Create the HU as an issue; returns its id, never one made up when GitHub did not answer. */
-export async function createHu({ repo, title, acceptanceCriteria = [], tests = [], ref = null, run = runCommand }) {
+export async function createHu({ repo, title, acceptanceCriteria = [], tests = [], ref = null, tier = null, run = runCommand }) {
+  if (tier && !TIERS.includes(tier.level)) throw new TypeError(`story tier ${JSON.stringify(tier.level)} must be one of ${TIERS.join(", ")}`);
   await ensureLabels(repo, run);
-  const body = [...section("Acceptance criteria", acceptanceCriteria), ...section("Tests", tests), ...(ref ? [`Ref: ${ref}`, ""] : []), "<!-- kj:hu -->"].join("\n");
-  const url = (await gh(run, ["issue", "create", "-R", repo, "--title", title, "--body", body, "--label", HU_LABEL, "--label", statusLabel("pending")])).trim();
+  const because = tier?.reason ? " - " + tier.reason : "";
+  const tierLines = tier ? [`Tier: ${tier.level}${because}`, ""] : [];
+  const body = [...section("Acceptance criteria", acceptanceCriteria), ...section("Tests", tests), ...(ref ? [`Ref: ${ref}`, ""] : []), ...tierLines, "<!-- kj:hu -->"].join("\n");
+  const wanted = [HU_LABEL, statusLabel("pending"), ...(tier ? [tierLabel(tier.level)] : [])];
+  const url = (await gh(run, ["issue", "create", "-R", repo, "--title", title, "--body", body, ...wanted.flatMap((l) => ["--label", l])])).trim();
   const number = Number(/\/issues\/(\d+)$/.exec(url)?.[1]);
   if (!Number.isInteger(number)) throw new BoardRejectedError(`gh issue create returned no issue URL: ${url}`);
   // KJC-BUG-0395 (HU-2408): GitHub answered the create and left the issue without its labels, so
   // the next move refused it as "not a kj HU". An HU the board does not recognise is not announced:
   // the labels are checked, put back once, and a second absence is said loud.
-  const wanted = [HU_LABEL, statusLabel("pending")];
   const labelsOf = async () => new Set(JSON.parse(await gh(run, ["issue", "view", String(number), "-R", repo, "--json", "labels"])).labels.map((l) => l.name));
   let have = await labelsOf();
   if (wanted.some((l) => !have.has(l))) {
@@ -72,7 +80,17 @@ export async function listHus({ repo, run = runCommand }) {
   const issues = listOf(await gh(run, ["issue", "list", "-R", repo, "--label", HU_LABEL, "--state", "all", "--limit", "1000", "--json", "number,title,state,labels,assignees,body"]));
   // KJC-BUG-0443: the tracker reference kj hu add --ref wrote in the body.
   const refOf = (body) => /^Ref: (\S.*)$/m.exec(body ?? "")?.[1].trim() ?? null;
-  return issues.map((i) => ({ short_id: `HU-${i.number}`, number: i.number, title: i.title, status: statusOf(i), claimed_by: i.assignees[0]?.login ?? null, ref: refOf(i.body) }));
+  return issues.map((i) => ({ short_id: `HU-${i.number}`, number: i.number, title: i.title, status: statusOf(i), claimed_by: i.assignees[0]?.login ?? null, ref: refOf(i.body), tier: tierOf(i) }));
+}
+
+// HU-3533: the label wins; the body's reason only holds while it speaks of the same level.
+function tierOf(issue) {
+  const found = issue.labels.map((l) => l.name).filter((n) => n.startsWith(TIER_PREFIX));
+  if (found.length === 0) return null;
+  const level = found[0].slice(TIER_PREFIX.length);
+  if (found.length > 1 || !TIERS.includes(level)) throw new BoardRejectedError(`HU-${issue.number} has tier labels ${found.join(", ")}: leave exactly one ${TIER_PREFIX}<${TIERS.join("|")}>`);
+  const line = TIER_LINE.exec(issue.body ?? "");
+  return { level, reason: line?.[1] === level ? line[2]?.trim() ?? null : null };
 }
 
 /** The one kj:<status> of an issue; none or several is a board someone broke by hand. */

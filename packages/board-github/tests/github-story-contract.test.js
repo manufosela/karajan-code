@@ -53,7 +53,7 @@ function fakeGh() {
 
 it("GitHub Issues declares ADR 0029's values: criteria in the body, partial dependencies, PR verdicts, no credentials", () => {
   const { capabilities, credentials } = createGithubManager({ repo: REPO });
-  expect(capabilities).toEqual({ acceptanceCriteria: "body", dependencies: "partial", assignee: true, verdicts: "pr", offline: true });
+  expect(capabilities).toEqual({ acceptanceCriteria: "body", dependencies: "partial", assignee: true, verdicts: "pr", offline: true, tier: true });
   expect(credentials).toEqual([]);
 });
 

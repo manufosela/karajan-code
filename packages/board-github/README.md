@@ -3,6 +3,11 @@
 GitHub Issues as a task manager for karajan-code. Each story is an issue of the repo:
 its number is the id (`HU-<n>`), its state a `kj:<status>` label, and who holds it the assignee.
 
+Since 1.1.0 it keeps each story's tier (story-contract's `tier` capability): a
+`kj:tier:<trivial|standard|deep>` label, which anyone can change on the board, and a
+`Tier: <level> - <reason>` line in the body. The label wins: when someone changes it, the
+reason in the body no longer applies and the story is listed with `reason: null`.
+
 ## What it needs
 - The `gh` CLI, authenticated (`gh auth login`): it holds the login, so the manager asks for no credentials.
 - The repo as `owner/repo`.

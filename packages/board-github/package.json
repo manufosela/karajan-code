@@ -1,6 +1,6 @@
 {
   "name": "@karajan-family/board-github",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "GitHub Issues as a task manager for karajan-code: the manager that fulfils the story contract, over the gh CLI.",
   "type": "module",
   "main": "src/index.js",
