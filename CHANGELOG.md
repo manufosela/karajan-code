@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **story-contract 1.1.0: a story can carry its tier** (HU-3533, KJC-TSK-1445): a new optional capability, `tier`, for managers that keep how much model each story needs (`trivial`, `standard` or `deep`, with a reason), judged when it is planned. `create` takes `tier: { level, reason }`, `list()` gives it back or `null`, and `normalizeTier` checks it. A manager that does not declare it still passes the contract, and the shared suite checks the round trip only for those that do. This is the first step for kj code to write each card with a clean context and the model of its tier, as `kj run` did before 5.0.
+
 ## [5.7.0] - 2026-11-06
 
 ### Added

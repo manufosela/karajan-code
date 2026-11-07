@@ -17,6 +17,8 @@ Depend on `@karajan-family/story-contract` alone (it imports nothing from karaja
 
 An `Hu` has `short_id`, `title`, `status`, `claimed_by` and `ref`. Optional parts: `isId(ref)`, `canonicalId(ref)` and `idHint` (the id format of your system; the core never assumes `HU-<n>`). Required: `capabilities` (`acceptanceCriteria: field|body`, `dependencies: none|partial|graph`, `assignee`, `verdicts: pr|comment|none`, `offline`) and `credentials` (names of environment variables, `[]` when none). `assertManager(manager)` fails loud on anything missing.
 
+Optional capability `tier` (story-contract 1.1.0; absent means `false`): declare `tier: true` when your manager keeps each story's tier. `create` then receives `tier: { level, reason }` (`level` is `trivial`, `standard` or `deep`) and `list()` gives it back, or `null` when a story has none; `normalizeTier` checks and shapes it. kj code reads it to write each story with the coder model it was planned for. The shared suite checks the round trip only when you declare it.
+
 The core also uses `manager.write.move`, `manager.write.claim` and `manager.assertNotHeld`, but they are optional optimisations, not part of the contract or of `assertManager`: `write` skips the read-back after a write, and `assertNotHeld` is a cheaper "held by someone else" check. Without them the core uses `write = { move, claim }` of the contract, and reads the card through one `list()` to refuse a running card held by someone else (`HuClaimedError`).
 
 ## The factory

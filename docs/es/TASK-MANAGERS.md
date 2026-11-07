@@ -17,6 +17,8 @@ Depende solo de `@karajan-family/story-contract` (no importa nada de karajan-cod
 
 Un `Hu` tiene `short_id`, `title`, `status`, `claimed_by` y `ref`. Partes opcionales: `isId(ref)`, `canonicalId(ref)` e `idHint` (el formato de id de tu sistema; el núcleo nunca supone `HU-<n>`). Obligatorias: `capabilities` (`acceptanceCriteria: field|body`, `dependencies: none|partial|graph`, `assignee`, `verdicts: pr|comment|none`, `offline`) y `credentials` (nombres de variables de entorno, `[]` si no hay). `assertManager(manager)` falla en voz alta ante cualquier falta.
 
+Capacidad opcional `tier` (story-contract 1.1.0; si no está, vale `false`): declara `tier: true` cuando tu gestor guarda el nivel de cada historia. Entonces `create` recibe `tier: { level, reason }` (`level` es `trivial`, `standard` o `deep`) y `list()` lo devuelve, o `null` si la historia no tiene; `normalizeTier` lo comprueba y le da forma. kj code lo lee para escribir cada historia con el modelo de coder para el que se planificó. La suite compartida solo comprueba la ida y vuelta cuando lo declaras.
+
 El núcleo también usa `manager.write.move`, `manager.write.claim` y `manager.assertNotHeld`, pero son optimizaciones opcionales, no parte del contrato ni de `assertManager`: `write` evita la relectura tras escribir y `assertNotHeld` es una comprobación más barata de "lo tiene otra persona". Sin ellas el núcleo usa `write = { move, claim }` del contrato y lee la tarjeta con un solo `list()` para rechazar una tarjeta en `running` que tiene otra persona (`HuClaimedError`).
 
 ## La fábrica
