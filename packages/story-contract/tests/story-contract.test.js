@@ -1,6 +1,6 @@
 // The contract's own checks, and a fake in-memory manager passing the shared suite.
 import { describe, it, expect } from "vitest";
-import { assertManager, describeCapabilities, missingCredentials, OPERATIONS, BoardRejectedError, HuClaimedError } from "../src/index.js";
+import { assertManager, describeCapabilities, missingCredentials, normalizeTier, OPERATIONS, TIERS, BoardRejectedError, HuClaimedError } from "../src/index.js";
 import { runStoryContract } from "../src/suite.js";
 
 const capabilities = { acceptanceCriteria: "body", dependencies: "partial", assignee: true, verdicts: "pr", offline: true };
@@ -19,6 +19,10 @@ describe("assertManager", () => {
     expect(() => assertManager({ ...complete, capabilities: undefined })).toThrow(/capabilities/);
     expect(() => assertManager({ ...complete, capabilities: { ...capabilities, dependencies: "some" } })).toThrow(/dependencies.*"some"/);
   });
+  it("takes the optional tier capability as true or false, absent meaning false", () => {
+    expect(() => assertManager({ ...complete, capabilities: { ...capabilities, tier: true } })).not.toThrow();
+    expect(() => assertManager({ ...complete, capabilities: { ...capabilities, tier: "yes" } })).toThrow(/tier.*"yes"/);
+  });
   it("takes credentials as a list of variable names, or none", () => {
     expect(() => assertManager({ ...complete, credentials: undefined })).not.toThrow();
     expect(() => assertManager({ ...complete, credentials: [""] })).toThrow(/credentials/);
@@ -29,7 +33,18 @@ describe("describeCapabilities and missingCredentials", () => {
   it("splits what a manager can do from what it cannot", () => {
     const { can, cannot } = describeCapabilities({ capabilities });
     expect(can).toContain("review verdicts on the PR");
-    expect(cannot).toEqual(["the full dependency graph"]);
+    expect(cannot).toEqual(["the full dependency graph", "the tier of each story"]);
+  });
+  it("says whether the manager keeps each story's tier", () => {
+    expect(describeCapabilities({ capabilities: { ...capabilities, tier: true } }).can).toContain("the tier of each story");
+    expect(describeCapabilities({ capabilities }).cannot).toContain("the tier of each story");
+  });
+  it("normalizes a tier, or none, and refuses an unknown level", () => {
+    expect(TIERS).toEqual(["trivial", "standard", "deep"]);
+    expect(normalizeTier({ level: "deep", reason: "auth" })).toEqual({ level: "deep", reason: "auth" });
+    expect(normalizeTier({ level: "trivial" })).toEqual({ level: "trivial", reason: null });
+    expect(normalizeTier(undefined)).toBeNull();
+    expect(() => normalizeTier({ level: "huge" })).toThrow(/tier.*huge/);
   });
   it("names the unset variables and never reads a value", () => {
     expect(missingCredentials({ credentials: ["A_KEY", "B_KEY"] }, { A_KEY: "secret" })).toEqual(["B_KEY"]);
@@ -37,14 +52,15 @@ describe("describeCapabilities and missingCredentials", () => {
 });
 
 // A manager that keeps its stories in memory: what a manager author's own test looks like.
-const makeFakeManager = () => {
+const makeFakeManager = ({ keepsTier = false } = {}) => {
   const stories = new Map();
   let rejecting = false;
   const manager = {
-    capabilities,
+    capabilities: keepsTier ? { ...capabilities, tier: true } : capabilities,
     credentials: [],
-    create: async ({ title, ref = null }) => {
+    create: async ({ title, ref = null, tier }) => {
       const hu = { short_id: `S-${stories.size + 1}`, title, status: "pending", claimed_by: null, ref, labels: 1 };
+      if (keepsTier) hu.tier = normalizeTier(tier);
       stories.set(hu.short_id, hu);
       return { ...hu };
     },
@@ -70,3 +86,4 @@ const makeFakeManager = () => {
 };
 
 runStoryContract("in-memory fake", makeFakeManager);
+runStoryContract("in-memory fake that keeps the tier", () => makeFakeManager({ keepsTier: true }));

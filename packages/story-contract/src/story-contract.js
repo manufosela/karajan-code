@@ -15,6 +15,10 @@
  *   capabilities { acceptanceCriteria: field|body, dependencies: none|partial|graph, assignee: boolean,
  *                  verdicts: pr|comment|none, offline: boolean (works through the core cache) }
  *   credentials  string[]  (optional) names of the environment variables it needs; [] when none
+ *
+ * Optional capabilities, absent meaning false (HU-3533):
+ *   tier  boolean  keeps each story's tier: create({ ..., tier: { level, reason } }) and list() gives it back
+ *                  ({ level, reason } or null), so kj code picks the coder model the story was planned for
  */
 export const OPERATIONS = ["create", "list", "move", "claim"];
 export const CAPABILITY_VALUES = {
@@ -24,6 +28,16 @@ export const CAPABILITY_VALUES = {
   verdicts: ["pr", "comment", "none"],
   offline: [true, false],
 };
+export const OPTIONAL_CAPABILITY_VALUES = { tier: [true, false] };
+/** HU-3533: how much model a story needs, judged when it is planned. */
+export const TIERS = ["trivial", "standard", "deep"];
+
+/** A story's tier as managers store it: { level, reason } or null; an unknown level fails loud. */
+export function normalizeTier(tier) {
+  if (tier === null || tier === undefined) return null;
+  if (!TIERS.includes(tier.level)) throw new TypeError(`story tier ${JSON.stringify(tier.level)} must be one of ${TIERS.join(", ")}`);
+  return { level: tier.level, reason: tier.reason ? String(tier.reason) : null };
+}
 /** The fields of an Hu, whatever manager it comes from. */
 export const HU_FIELDS = ["short_id", "title", "status", "claimed_by", "ref"];
 
@@ -36,6 +50,9 @@ export function assertManager(manager) {
   if (declared === null || typeof declared !== "object") throw new TypeError(`task manager must declare its capabilities: ${Object.keys(CAPABILITY_VALUES).join(", ")}`);
   for (const [name, allowed] of Object.entries(CAPABILITY_VALUES)) {
     if (!allowed.includes(declared[name])) throw new TypeError(`task manager capability ${name} is ${JSON.stringify(declared[name]) ?? "missing"}: it must be one of ${allowed.join(", ")}`);
+  }
+  for (const [name, allowed] of Object.entries(OPTIONAL_CAPABILITY_VALUES)) {
+    if (name in declared && !allowed.includes(declared[name])) throw new TypeError(`task manager capability ${name} is ${JSON.stringify(declared[name])}: it must be one of ${allowed.join(", ")}`);
   }
   const { credentials } = manager;
   if (credentials !== undefined && !(Array.isArray(credentials) && credentials.every((n) => typeof n === "string" && n !== ""))) {
@@ -54,6 +71,7 @@ export function describeCapabilities({ capabilities: c }) {
   if (c.verdicts === "none") cannot.push("review verdicts");
   else can.push(`review verdicts ${c.verdicts === "pr" ? "on the PR" : "as a comment"}`);
   (c.offline ? can : cannot).push("work offline through the core cache");
+  (c.tier === true ? can : cannot).push("the tier of each story");
   return { can, cannot };
 }
 

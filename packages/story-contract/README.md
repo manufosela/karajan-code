@@ -16,6 +16,12 @@ Optional: `isId(ref)`, `canonicalId(ref)` and `idHint`, the id format of the man
 Required: `capabilities` (what it can show and manage) and `credentials` (the environment
 variables it needs, `[]` when none). `assertManager(manager)` fails loud on anything missing.
 
+Optional capability `tier` (since 1.1.0; absent means `false`): the manager keeps each story's
+tier, how much model it needs, judged when the story is planned. `create` receives
+`tier: { level, reason }` with `level` one of `TIERS` (`trivial`, `standard`, `deep`), and
+`list()` gives it back, or `null` when the story has none. `normalizeTier(tier)` checks and
+shapes it. kj code reads it to run each story with the coder model it was planned for.
+
 The package also exports the errors a manager raises: `BoardOfflineError`,
 `BoardRejectedError`, `HuClaimedError`, `isOffline` and `isRefusal`.
 

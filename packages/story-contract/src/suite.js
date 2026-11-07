@@ -3,7 +3,7 @@
 // it talks to, with `backend.rejectMoves()` (writes of a status are silently dropped) and
 // `backend.corrupt(shortId, n)` (the story ends up with n status labels, as if edited by hand).
 import { describe, it, expect } from "vitest";
-import { assertManager, CAPABILITY_VALUES, HU_FIELDS } from "./story-contract.js";
+import { assertManager, CAPABILITY_VALUES, HU_FIELDS, OPTIONAL_CAPABILITY_VALUES } from "./story-contract.js";
 
 export function runStoryContract(name, makeManager) {
   describe(`story contract: ${name}`, () => {
@@ -15,9 +15,21 @@ export function runStoryContract(name, makeManager) {
 
     it("declares valid capabilities and credentials", () => {
       const { manager } = setup();
-      const sortedKeys = (obj) => Object.keys(obj).toSorted((a, b) => a.localeCompare(b));
-      expect(sortedKeys(manager.capabilities)).toEqual(sortedKeys(CAPABILITY_VALUES));
+      const known = new Set([...Object.keys(CAPABILITY_VALUES), ...Object.keys(OPTIONAL_CAPABILITY_VALUES)]);
+      expect(Object.keys(manager.capabilities)).toEqual(expect.arrayContaining(Object.keys(CAPABILITY_VALUES)));
+      expect(Object.keys(manager.capabilities).filter((k) => !known.has(k))).toEqual([]);
       expect(Array.isArray(manager.credentials ?? [])).toBe(true);
+    });
+
+    // HU-3533: a manager that keeps the tier gives it back as it was written, and null when none was.
+    it("keeps each story's tier when it declares tier", async () => {
+      const { manager } = setup();
+      if (manager.capabilities.tier !== true) return;
+      const judged = await manager.create({ title: "Rotate the API keys", tier: { level: "deep", reason: "secrets" } });
+      const plain = await manager.create({ title: "Fix a typo" });
+      const listed = await manager.list();
+      expect(listed.find((h) => h.short_id === judged.short_id).tier).toEqual({ level: "deep", reason: "secrets" });
+      expect(listed.find((h) => h.short_id === plain.short_id).tier).toBeNull();
     });
 
     it("creates a pending Hu with the contract's shape and lists it", async () => {
