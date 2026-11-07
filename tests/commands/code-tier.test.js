@@ -43,6 +43,14 @@ describe("kj code --card with a tier", () => {
     expect(r.route).toMatchObject({ model: "haiku" });
   });
 
+  // KJC-BUG-0512 (HU-3551): a config with no projectDir crashed reading the card's board.
+  it("reads the card from the directory it runs in when the config carries no projectDir", async () => {
+    resolveCardContext.mockResolvedValue(card("trivial"));
+    const { projectDir: _none, ...withoutDir } = config();
+    await codeCommand({ task: "t", config: withoutDir, logger, flags: { card: "HU-9" } });
+    expect(resolveCardContext.mock.calls.at(-1)[0]).toMatchObject({ projectDir: process.cwd(), ref: "HU-9" });
+  });
+
   it("keeps the declared coder model for a card with no tier", async () => {
     resolveCardContext.mockResolvedValue(card(null));
     const r = await codeCommand({ task: "t", config: config(), logger, flags: { card: "HU-9" } });
