@@ -17,7 +17,8 @@ import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
 import { isOffline } from "../hu/board-errors.js";
 import { loadManager } from "../hu/managers/index.js";
 import { withManagerDefaults } from "../hu/manager-ops.js";
-import { NO_TIER_HINT, tierOfNewHu } from "../hu/hu-tier.js";
+import { NO_TIER_HINT, tierOfHu, tierOfNewHu } from "../hu/hu-tier.js";
+import { findBoardHu } from "../hu/board-lookup.js";
 import { capabilityLines, missingCredentials } from "../hu/story-contract.js";
 import { pinGhIdentity } from "../hu/gh-identity.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
@@ -319,7 +320,14 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     return startAction({ config, args, flags, deps: { ...deps, findCard }, move, who, emit });
   }
 
-  throw new Error(`unknown action "${action}" — use: add | move | list | start | backend`);
+  // HU-3533: the tier a card was planned with, whatever board keeps it (the Sentinel asks this).
+  if (action === "tier") {
+    if (!args[0]) throw new Error("usage: kj hu tier <id>");
+    const card = await (deps.findBoardHu ?? findBoardHu)(projectDir, args[0], deps);
+    const tier = tierOfHu(card);
+    return emit({ id: card.short_id || card.id, tier }, `${args[0]}: ${tier ?? "no tier (kj hu add --tier gives one)"}`);
+  }
+  throw new Error(`unknown action "${action}" — use: add | move | list | start | tier | backend`);
 }
 
 async function listLocal({ projectDir, flags }) {
