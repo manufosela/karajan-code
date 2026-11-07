@@ -39,7 +39,12 @@ elif [ ! -f .karajan/identity.local.yml ]; then
 fi
 # Run the test suite before pushing.
 # (no test command detected for this stack)
-# Chain the machine's global hook, looked up when the hook runs, not when kj harden ran (KJC-TSK-0645, HU-2762).
+# Chain the repo's own hook in .git/hooks, then the machine's global one, both looked up when the hook runs (KJC-TSK-0645, HU-2762).
+kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"
+if [ -n "$kj_repo" ] && [ -x "$kj_repo/pre-push" ] && [ "$(cd "$kj_repo" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  printf '%s\n' "$kj_push_refs" | "$kj_repo/pre-push" "$@"; rc=$?
+  [ "$rc" -eq 0 ] || exit "$rc"
+fi
 kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
 if [ -n "$kj_global" ] && [ -x "$kj_global/pre-push" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   printf '%s\n' "$kj_push_refs" | "$kj_global/pre-push" "$@"; rc=$?
