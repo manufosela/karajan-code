@@ -13,6 +13,7 @@
  * instead of receiving a silently empty context.
  */
 import { findBoardHu } from "../hu/board-lookup.js";
+import { tierOfHu } from "../hu/hu-tier.js";
 
 /** Ids minted by the HU Board; anything else belongs to an external board. */
 const LOCAL_HU = /^HU-/i;
@@ -59,7 +60,7 @@ export async function resolveCardContext({ projectDir, ref, deps = {} }) {
     acceptanceTests: criteria ? [{ type: "gherkin", content: criteria }] : null,
     external: false,
     // HU-3533: what kj code routes the coder by: the tier it was planned with, a model set on the board.
-    tier: hu.complexity?.tier ?? null,
+    tier: tierOfHu(hu),
     coderModel: hu.coder_model ?? null,
   };
 }

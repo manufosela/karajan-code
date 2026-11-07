@@ -8,6 +8,9 @@ import { TIERS, huComplexity } from "./complexity-tier.js";
 
 export const NO_TIER_HINT = "⚠ no tier: judge it with --tier trivial|standard|deep --tier-reason \"<why>\", so kj code writes it with the model it needs";
 
+/** A card's tier however its board keeps it: the local board's complexity, a manager's tier, or null. */
+export const tierOfHu = (hu) => hu?.complexity?.tier ?? hu?.tier?.level ?? null;
+
 /** The tier to store for a new HU, { level, reason }, or null when none was judged. */
 export function tierOfNewHu({ title, acceptanceCriteria = [], tier, tierReason }) {
   if (tier === undefined || tier === null || tier === "") return null;

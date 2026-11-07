@@ -323,6 +323,14 @@ export function registerMeta(program, { pkgVersion }) {
         await huCommand({ config, action: "add", args: [title], flags });
       });
     });
+  hu.command("tier <id>")
+    .description("The tier a card was planned with (kj hu add --tier), whatever board keeps it")
+    .option("--json", "Machine-readable output")
+    .action(async (id, flags) => {
+      await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
+        await huCommand({ config, action: "tier", args: [id], flags });
+      });
+    });
   hu.command("move <id> <status>")
     // KJC-BUG-0257: the valid states, said before the call fails.
     .description(`Move a card; <status> is one of: ${HU_STATUSES.join(", ")}`)

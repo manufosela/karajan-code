@@ -37,6 +37,12 @@ describe("resolveCardContext", () => {
     expect(await resolveCardContext({ projectDir: "/x", ref: hu.id, deps: { getHu: async () => hu } })).toMatchObject({ tier: null, coderModel: null });
   });
 
+  // HU-3533: a shared board's card comes from its manager with tier: { level, reason }.
+  it("a shared board's card brings the tier its manager keeps", async () => {
+    const getHu = vi.fn(async () => ({ short_id: "HU-42", title: "Shared", status: "pending", tier: { level: "standard", reason: "a view" } }));
+    expect(await resolveCardContext({ projectDir: "/x", ref: "HU-42", deps: { getHu } })).toMatchObject({ tier: "standard" });
+  });
+
   // KJC-BUG-0454: the HU Board keeps criteria as a list and the scope apart.
   it("a board card brings its criteria list and its scope", async () => {
     const getHu = vi.fn(async () => ({ id: "x-1", short_id: "HU-0007", title: "Local card", status: "pending", acceptance_criteria: ["Given a", "Then b"], scope: "src/a.js" }));
