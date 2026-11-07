@@ -64,8 +64,22 @@ describe("createHu", () => {
       "issue create": { exitCode: 0, stdout: "https://github.com/acme/app/issues/3\n" },
     });
     expect(await createHu({ repo: REPO, title: "First", run })).toMatchObject({ short_id: "HU-3" });
-    expect(calls.filter((a) => a[1] === "create" && a[0] === "label")).toHaveLength(6);
+    expect(calls.filter((a) => a[1] === "create" && a[0] === "label")).toHaveLength(9);
     expect(await listHus({ repo: REPO, run: fakeGh({ "issue list": { exitCode: 0, stdout: "" } }).run })).toEqual([]);
+  });
+
+  // HU-3533: the tier is a label a person can change on the board, and its reason a line of the body.
+  it("labels the issue with its tier and writes the reason in the body", async () => {
+    const { run, calls } = fakeGh({
+      "issue create": { exitCode: 0, stdout: "https://github.com/acme/app/issues/5\n" },
+      "issue view": { exitCode: 0, stdout: JSON.stringify({ labels: [{ name: "kj:hu" }, { name: "kj:pending" }, { name: "kj:tier:deep" }] }) },
+    });
+    await createHu({ repo: REPO, title: "Rotate keys", tier: { level: "deep", reason: "secrets" }, run });
+    const issue = calls.find((a) => a[1] === "create" && a[0] === "issue");
+    expect(issue).toEqual(expect.arrayContaining(["--label", "kj:tier:deep"]));
+    expect(issue[issue.indexOf("--body") + 1]).toMatch(/^Tier: deep - secrets$/m);
+    expect(calls.some((a) => a[0] === "issue" && a[1] === "edit")).toBe(false);
+    await expect(createHu({ repo: REPO, title: "x", tier: { level: "huge" }, run })).rejects.toThrow(/tier "huge"/);
   });
 
   it("tells no network apart from GitHub saying no, and never invents an id", async () => {
@@ -85,10 +99,19 @@ describe("listHus", () => {
     const { run, calls } = fakeGh({ "issue list": { exitCode: 0, stdout: JSON.stringify(issues) } });
     // KJC-BUG-0443: the tracker reference kj hu add --ref wrote in the body comes back.
     expect(await listHus({ repo: REPO, run })).toEqual([
-      { short_id: "HU-7", number: 7, title: "A", status: "running", claimed_by: "jorgecasar", ref: null },
-      { short_id: "HU-8", number: 8, title: "B", status: "done", claimed_by: null, ref: "KJC-TSK-0042" },
+      { short_id: "HU-7", number: 7, title: "A", status: "running", claimed_by: "jorgecasar", ref: null, tier: null },
+      { short_id: "HU-8", number: 8, title: "B", status: "done", claimed_by: null, ref: "KJC-TSK-0042", tier: null },
     ]);
     expect(calls[0]).toEqual(expect.arrayContaining(["--label", "kj:hu", "--state", "all"]));
+  });
+
+  // HU-3533: the label wins; the body's reason only stays when it speaks of the same level.
+  it("reads the tier from its label, with the body's reason while the level is the one written", async () => {
+    const hu = (number, tierLabels, body) => ({ number, title: "T", state: "OPEN", labels: [{ name: "kj:hu" }, { name: "kj:pending" }, ...tierLabels.map((name) => ({ name }))], assignees: [], body });
+    const listing = (issues) => listHus({ repo: REPO, run: fakeGh({ "issue list": { exitCode: 0, stdout: JSON.stringify(issues) } }).run });
+    const tiers = (await listing([hu(1, ["kj:tier:deep"], "Tier: deep - secrets\n"), hu(2, ["kj:tier:standard"], "Tier: trivial - one line\n")])).map((h) => h.tier);
+    expect(tiers).toEqual([{ level: "deep", reason: "secrets" }, { level: "standard", reason: null }]);
+    await expect(listing([hu(3, ["kj:tier:deep", "kj:tier:trivial"], "")])).rejects.toThrow(/HU-3.*tier label/);
   });
 
   it("fails loudly on an issue with no status label or two of them", async () => {
