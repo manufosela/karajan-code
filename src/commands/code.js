@@ -30,6 +30,8 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     const card = await resolveCardContext({ projectDir, ref: flags.card || null });
     if (card?.external) logger.warn(`card ${card.huId} lives on a board kj cannot read — passing the reference, not its text`);
     else if (card) logger.info(`Card ${card.huId}: ${card.title}`);
+    const effectiveTask = taskOrCardTitle(task, card);
+    if (!effectiveTask) throw new Error("No task provided. Pass a task argument or --task-file <path>.");
     // HU-3533: the card's tier picks the coder's model, as kj run's coder stage did.
     // HU-3533: a retry carries the review's findings and climbs to the most capable model.
     const review = flags.retry ? await rejectedReview({ projectDir }) : null;
@@ -54,7 +56,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     // rule and the skills section) and the provider. `kj code` did not, so the
     // declared coder got a weaker prompt from the session than from `kj run`.
     const prompt = await buildCoderPrompt({
-      task: composeTask(task, [card?.section, review?.section, rag?.section]),
+      task: composeTask(effectiveTask, [card?.section, review?.section, rag?.section]),
       coderRules,
       methodology: config.development?.methodology || "tdd",
       projectDir,
@@ -109,6 +111,12 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     const route = routed.route ? { model: routed.route.model, effort: routed.route.effort } : null;
     return { ok: true, provider: coderRole.provider, card: card?.huId ?? null, route, ragSources: rag?.sources ?? [] };
   });
+}
+
+/** A written task wins; with --card and none, the card's title says what to do. */
+function taskOrCardTitle(task, card) {
+  const written = typeof task === "string" ? task.trim() : "";
+  return written || card?.title || null;
 }
 
 const BRIEF_LINES = 30;

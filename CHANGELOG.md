@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **The tier judged at planning wins** (KJC-TSK-1449, HU-3553): `kj hu add --tier` keeps the tier the agent judged, and kj's signal only raises it to `deep` when the card touches a sensitive zone. The number of acceptance criteria no longer raises it: detailed criteria are a good spec, not difficulty, and a well-specified trivial card was written on a costlier model than it needed. A coder that falls short climbs with `kj code --retry`.
+- **`kj code --card <id>` needs no written task** (KJC-TSK-1450, HU-3556): with no task and no `--task-file`, the coder gets the card's title as its task, with the card's statement and criteria as always. In the token benchmark the agent spent turns writing task files the card already held. A written task still wins, and with neither a card nor a task kj still asks for one.
 
 ### Fixed
 - **`kj code --card` no longer crashes when the configuration carries no `projectDir`** (KJC-BUG-0512, HU-3551): it stopped with `The "path" argument must be of type string` before writing anything, which also broke the HU Board's ▶. The project is now the directory kj runs in, as for every other command.
