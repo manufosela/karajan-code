@@ -60,7 +60,8 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
   // when it was committed. The harness guards are machine-local and never in the
   // repo; the review and each PR's CI verify them when the seal is made. A check
   // over the repo's history (release check) judges only what is versioned.
-  const entries = (Array.isArray(prov?.files) ? prov.files : []).filter((e) => !trackedOnly || !String(e?.file).startsWith(HARNESS_PREFIX));
+  // KJC-BUG-0513: host settings sealed as local (`local: true`) differ per clone and lane: skipped too.
+  const entries = (Array.isArray(prov?.files) ? prov.files : []).filter((e) => !trackedOnly || !(String(e?.file).startsWith(HARNESS_PREFIX) || e?.local === true));
   // KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre tambien los guardias del
   // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
   // exige que TODAS las entradas verifiquen, el sello no se podia ni commitear.
