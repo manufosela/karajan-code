@@ -45,6 +45,26 @@ describe("kj hu add --tier", () => {
     expect(created[0].tier.reason).toMatch(/sensitive zone: auth/);
   });
 
+  // KJC-TSK-1449 (HU-3553): detailed criteria are a good spec, not difficulty; the judged tier wins.
+  it("keeps the judged tier for a card with many criteria and no sensitive zone", async () => {
+    const { created, deps } = team();
+    const ac = ["accents", "spaces", "symbols", "digits", "empty input", "export from index"];
+    await add("Add slugify", { tier: "trivial", tierReason: "one pure function", ac }, deps);
+    expect(created[0].tier).toEqual({ level: "trivial", reason: "judged trivial (one pure function)" });
+  });
+
+  it("says the judged tier had no reason when none was given", async () => {
+    const { created, deps } = team();
+    await add("Add slugify", { tier: "standard" }, deps);
+    expect(created[0].tier).toEqual({ level: "standard", reason: "judged standard (no reason given)" });
+  });
+
+  it("names the sensitive zone over the judged tier when the card touches one", async () => {
+    const { created, deps } = team();
+    await add("Rotate the auth tokens", { tier: "trivial", tierReason: "small" }, deps);
+    expect(created[0].tier).toEqual({ level: "deep", reason: "sensitive zone: auth over judged trivial (small)" });
+  });
+
   it("refuses a tier that is not one of trivial, standard or deep", async () => {
     await expect(add("Something", { tier: "huge" }, team().deps)).rejects.toThrow(/--tier.*trivial, standard, deep/);
   });
