@@ -30,6 +30,13 @@ describe("resolveCardContext", () => {
     expect(card.acceptanceTests).toEqual([{ type: "gherkin", content: hu.acceptanceCriteria }]);
   });
 
+  // HU-3533: the tier the card was planned with, and a model set on the board, reach kj code.
+  it("a card brings the tier it was planned with and the model set on the board", async () => {
+    const getHu = vi.fn(async () => ({ id: "x-2", short_id: "HU-0008", title: "Tiered", status: "pending", complexity: { tier: "trivial", reason: "one line" }, coder_model: "haiku" }));
+    expect(await resolveCardContext({ projectDir: "/x", ref: "HU-0008", deps: { getHu } })).toMatchObject({ tier: "trivial", coderModel: "haiku" });
+    expect(await resolveCardContext({ projectDir: "/x", ref: hu.id, deps: { getHu: async () => hu } })).toMatchObject({ tier: null, coderModel: null });
+  });
+
   // KJC-BUG-0454: the HU Board keeps criteria as a list and the scope apart.
   it("a board card brings its criteria list and its scope", async () => {
     const getHu = vi.fn(async () => ({ id: "x-1", short_id: "HU-0007", title: "Local card", status: "pending", acceptance_criteria: ["Given a", "Then b"], scope: "src/a.js" }));

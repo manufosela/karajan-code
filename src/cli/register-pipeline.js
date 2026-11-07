@@ -68,6 +68,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--agent <name>", "The agent that writes (alias of --coder)")
     .option("--card <ref>", "Card/HU the work belongs to — its statement and criteria reach the coder")
     .option("--coder-model <name>")
+    .option("--brief", "For the agent that orchestrates: no live stream, only the end of the coder's answer")
     .action(async (task, flags) => {
       if (flags.agent && flags.coder && flags.agent !== flags.coder) {
         console.error(`kj code: --agent ${flags.agent} and --coder ${flags.coder} name different agents — pick one`);

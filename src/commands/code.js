@@ -6,6 +6,7 @@ import { buildCoderPrompt } from "../prompts/coder.js";
 import { resolveCardContext } from "../prompts/card-context.js";
 import { composeTask, resolveRagContext } from "../prompts/session-context.js";
 import { resolveRole } from "../config.js";
+import { routedCoderConfig } from "../hu/coder-routing.js";
 // KJC-TSK-0859: the agents no longer substitute a dead model behind your back,
 // so the command needs the declared chain, with the one-shot policy a command
 // deserves (KJC-BUG-0194 moved it to its own module: audit needs the same).
@@ -23,9 +24,14 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     // with the agent named. The one thing it never does is quietly fall back
     // to whoever happens to be reachable.
     await assertAgentsAvailable([coderRole.provider]);
-    logger.info(`Coder (${coderRole.provider}) starting...`);
-    runLog.logText(`[coder] provider=${coderRole.provider}`);
-    const coder = traceActivity(createAgent(coderRole.provider, config, logger), { name: coderRole.provider, role: "coder", projectDir: config?.projectDir, logger });
+    const card = await resolveCardContext({ projectDir: config.projectDir, ref: flags.card || null });
+    if (card?.external) logger.warn(`card ${card.huId} lives on a board kj cannot read — passing the reference, not its text`);
+    else if (card) logger.info(`Card ${card.huId}: ${card.title}`);
+    // HU-3533: the card's tier picks the coder's model, as kj run's coder stage did.
+    const routed = routedCoderConfig({ config, card });
+    logger.info(`Coder (${coderRole.provider}) starting... model: ${routed.reason}`);
+    runLog.logText(`[coder] provider=${coderRole.provider} model=${routed.route?.model ?? "declared"}`);
+    const coder = traceActivity(createAgent(coderRole.provider, routed.config, logger), { name: coderRole.provider, role: "coder", projectDir: config?.projectDir, logger });
     let coderRules = null;
     if (config.coder_rules) {
       try {
@@ -34,9 +40,6 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
         try { coderRules = await fs.readFile("coder-rules.md", "utf8"); } catch { /* no coder rules file */ }
       }
     }
-    const card = await resolveCardContext({ projectDir: config.projectDir, ref: flags.card || null });
-    if (card?.external) logger.warn(`card ${card.huId} lives on a board kj cannot read — passing the reference, not its text`);
-    else if (card) logger.info(`Card ${card.huId}: ${card.title}`);
     // The method's first invariant is that the RAG answers before you assume.
     // The session asks on the coder's behalf: a subprocess coder cannot run
     // `kj rag query` itself, so it used to guess the codebase instead.
@@ -55,11 +58,12 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
       serenaEnabled: Boolean(config.serena?.enabled),
       rtkAvailable: Boolean(config.rtk?.available),
     });
-    const progress = createCliProgressReporter({ role: "coder" });
+    // HU-3533: --brief is for the agent that orchestrates: no live stream, only the end of the answer.
+    const progress = createCliProgressReporter({ role: "coder", quiet: Boolean(flags.brief) });
     let result;
     try {
       result = await withBrainRecovery({
-        agent: { runTask: (args) => coder.runTask(args), provider: coderRole.provider, model: coderRole.model },
+        agent: { runTask: (args) => coder.runTask(args), provider: coderRole.provider, model: routed.route?.model ?? coderRole.model },
         taskArgs: { prompt, onOutput: progress.onOutput, role: "coder" },
         role: "coder",
         provider: coderRole.provider,
@@ -74,7 +78,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
       throw new Error(result.error || result.output || `Coder failed (exit ${result.exitCode})`);
     }
     if (result.output) {
-      console.log(result.output);
+      console.log(flags.brief ? briefOf(result.output) : result.output);
     }
     if (result.error) {
       logger.warn(result.error);
@@ -96,6 +100,15 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     // DIFFERENT AI runs it. Saying so here is what keeps the panel honest.
     logger.info(`The work is in the tree. Review it before committing: kj review --staged (a different AI than ${coderRole.provider}).`);
     runLog.logText(`[coder] finished (exit=${result.exitCode})`);
-    return { ok: true, provider: coderRole.provider, card: card?.huId ?? null, ragSources: rag?.sources ?? [] };
+    const route = routed.route ? { model: routed.route.model, effort: routed.route.effort } : null;
+    return { ok: true, provider: coderRole.provider, card: card?.huId ?? null, route, ragSources: rag?.sources ?? [] };
   });
+}
+
+const BRIEF_LINES = 30;
+/** HU-3533: the end of the coder's answer, where it sums up, and how much was left out. */
+function briefOf(output) {
+  const lines = String(output).trimEnd().split("\n");
+  if (lines.length <= BRIEF_LINES) return lines.join("\n");
+  return [`(${lines.length - BRIEF_LINES} earlier line(s) left out: the full answer is in kj's run log)`, ...lines.slice(-BRIEF_LINES)].join("\n");
 }
