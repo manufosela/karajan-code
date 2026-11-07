@@ -206,6 +206,33 @@ describe("lo que aqui no se puede comprobar no es un fallo (KJC-BUG-0212)", () =
     expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(".claude/settings.json")).toBe(true);
   });
 
+  // KJC-BUG-0513: the release check judges the history on what is versioned (KJC-BUG-0259); a
+  // local entry differs in every clone and lane, and blocked every release cut away from the seal.
+  it("the history (trackedOnly) skips host settings sealed as local; the review still judges them", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    writeProvenance([
+      { file: ".karajan/hooks/pre-commit", sha256: sha(hook) },
+      { file: ".claude/settings.local.json", sha256: sha('{"hooks":{}}'), local: true },
+    ]);
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(join(repo, ".claude", "settings.local.json"), '{"hooks":{"Stop":[]}}');
+    expect(verifiedSupervisorFiles({ projectDir: repo, trackedOnly: true }).complete).toBe(true);
+    expect(verifiedSupervisorFiles({ projectDir: repo }).complete).toBe(false);
+  });
+
+  it("the history (trackedOnly) still judges the versioned entries when a local one is skipped", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), `${hook}\n# tampered`);
+    writeProvenance([
+      { file: ".karajan/hooks/pre-commit", sha256: sha(hook) },
+      { file: ".claude/settings.local.json", sha256: sha('{"hooks":{}}'), local: true },
+    ]);
+    const verified = verifiedSupervisorFiles({ projectDir: repo, trackedOnly: true });
+    expect(verified.complete).toBe(false);
+    expect(verified.files.has(".karajan/hooks/pre-commit")).toBe(false);
+  });
+
   it("versioned host settings travel with the repo: sealed and then absent, the seal is not complete", () => {
     const hook = renderCanonicalHook("pre-commit", generation);
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
