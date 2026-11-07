@@ -28,6 +28,8 @@ export async function writeTeamMirror(projectDir, rows, { repo, key = boardKey({
       // KJC-BUG-0443: the tracker card it replicates too, so the gates find it by that reference.
       claimed_by: r.claimed_by ?? null, created_by: key.name, external_ref: [key.refOf(r), r.ref].filter(Boolean).join(" · "),
       acceptance_criteria: [], acceptance_tests: [], createdAt: now, updatedAt: now,
+      // HU-3533: the tier the manager keeps, as the complexity the coder routing reads.
+      ...(r.tier ? { complexity: { tier: r.tier.level, reason: r.tier.reason ?? null } } : {}),
     })),
   };
   await savePlan(projectDir, plan);

@@ -35,6 +35,14 @@ describe("the shared board mirrored for kj board", () => {
     expect(plan.hus.map((h) => [h.id, h.status, h.claimed_by, h.external_ref])).toEqual([["HU-7", "running", "jorgecasar", "acme/app#7 · KJC-TSK-0042"], ["HU-8", "pending", null, "acme/app#8"]]);
   });
 
+  // HU-3533: a shared HU's tier reaches the mirror as the complexity the coder routing reads.
+  it("carries each HU's tier as its complexity, and none when it has no tier", async () => {
+    const tiered = [{ ...HUS[0], tier: { level: "deep", reason: "secrets" } }, HUS[1]];
+    await huCommand({ config: { projectDir: dir }, action: "list", flags: { json: true }, deps: { ...deps, listTeamHus: async () => tiered } });
+    const plan = await loadPlan(dir, "github");
+    expect(plan.hus.map((h) => h.complexity ?? null)).toEqual([{ tier: "deep", reason: "secrets" }, null]);
+  });
+
   it("lands in the plans root the board reads when KJ_PLANS_DIR overrides it", async () => {
     const override = path.join(dir, "board-plans");
     process.env.KJ_PLANS_DIR = override;

@@ -175,6 +175,8 @@ export const tools = [
         title: { type: "string", description: "HU title (required for create)" },
         acceptanceCriteria: { type: "string", description: "Acceptance criteria, one per line" },
         ref: { type: "string", description: "Id of this card's replica in the external tracker (Planning Game, Jira, Linear...)" },
+        tier: { type: "string", enum: ["trivial", "standard", "deep"], description: "How much model the card needs, judged as you plan it (for create): kj code writes it with that model" },
+        tierReason: { type: "string", description: "Why that tier, in a few words (for create)" },
         huId: { type: "string", description: "HU ID (required for update/get)" },
         status: { type: "string", description: "HU status (for create/update)", enum: ["pending", "running", "done", "failed", "skipped"] },
         projectDir: { type: "string", description: "Project directory (defaults to cwd)" }
