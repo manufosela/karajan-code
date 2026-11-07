@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Sentinel hands a planned card to kj code** (HU-3533, KJC-TSK-1445): the first time the orchestrating agent goes to write the code of a card planned with a tier, it is stopped once with the command (`kj code --card <id> --brief`, then `kj review --staged`, and `--retry` if the review rejects it). A second try passes and the decision is recorded in the session. Tests stay out, a card without a tier is never stopped, nor is `kj code`'s own coder, and kj not answering stops nothing. Sentinel guide: `#delegate`.
 - **The method says who writes** (HU-3533, KJC-TSK-1445): the block kj writes in CLAUDE.md, AGENTS.md and GEMINI.md now tells the agent it orchestrates and `kj code` writes, with `kj hu add --tier` and `kj code --card <id> --brief` (and `--retry`). The panel line no longer tells the agent to write the code itself; it asks it to say so when it does. "Working with your agent" explains the split. Run `kj env install` to bring a project's agent files up to date.
 
+### Fixed
+- **`kj code --card` no longer crashes when the configuration carries no `projectDir`** (KJC-BUG-0512, HU-3551): it stopped with `The "path" argument must be of type string` before writing anything, which also broke the HU Board's ▶. The project is now the directory kj runs in, as for every other command.
+
 ## [5.7.0] - 2026-11-06
 
 ### Added

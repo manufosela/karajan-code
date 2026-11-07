@@ -19,23 +19,25 @@ import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 
 export async function codeCommand({ task, config, logger, flags = {} }) {
-  return withCliRunLog("code", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+  // KJC-BUG-0512: a config without projectDir is the project kj runs in, as for every other command.
+  const projectDir = config?.projectDir || process.cwd();
+  return withCliRunLog("code", { projectDir, logger }, async ({ runLog }) => {
     const coderRole = resolveRole(config, "coder");
     // KJC-TSK-0864: no quota, not authenticated or simply absent? This THROWS
     // with the agent named. The one thing it never does is quietly fall back
     // to whoever happens to be reachable.
     await assertAgentsAvailable([coderRole.provider]);
-    const card = await resolveCardContext({ projectDir: config.projectDir, ref: flags.card || null });
+    const card = await resolveCardContext({ projectDir, ref: flags.card || null });
     if (card?.external) logger.warn(`card ${card.huId} lives on a board kj cannot read — passing the reference, not its text`);
     else if (card) logger.info(`Card ${card.huId}: ${card.title}`);
     // HU-3533: the card's tier picks the coder's model, as kj run's coder stage did.
     // HU-3533: a retry carries the review's findings and climbs to the most capable model.
-    const review = flags.retry ? await rejectedReview({ projectDir: config.projectDir }) : null;
+    const review = flags.retry ? await rejectedReview({ projectDir }) : null;
     if (review) logger.info(`Retry: ${review.count} finding(s) of ${review.reviewer}'s rejection reach the coder`);
     const routed = routedCoderConfig({ config, card, attempt: review ? 2 : 1 });
     logger.info(`Coder (${coderRole.provider}) starting... model: ${routed.reason}`);
     runLog.logText(`[coder] provider=${coderRole.provider} model=${routed.route?.model ?? "declared"}`);
-    const coder = traceActivity(createAgent(coderRole.provider, routed.config, logger), { name: coderRole.provider, role: "coder", projectDir: config?.projectDir, logger });
+    const coder = traceActivity(createAgent(coderRole.provider, routed.config, logger), { name: coderRole.provider, role: "coder", projectDir, logger });
     let coderRules = null;
     if (config.coder_rules) {
       try {
@@ -55,7 +57,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
       task: composeTask(task, [card?.section, review?.section, rag?.section]),
       coderRules,
       methodology: config.development?.methodology || "tdd",
-      projectDir: config.projectDir,
+      projectDir,
       provider: coderRole.provider,
       huId: card?.huId ?? null,
       acceptanceTests: card?.acceptanceTests ?? null,
@@ -97,7 +99,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     // como desviacion nombrandolo.
     const ranBy = result.provider || coderRole.provider;
     if (result.exitCode === 0) {
-      try { sealPanel({ projectDir: config.projectDir, coder: coderRole.provider, host: ranBy, honoured: ranBy === coderRole.provider }); }
+      try { sealPanel({ projectDir, coder: coderRole.provider, host: ranBy, honoured: ranBy === coderRole.provider }); }
       catch (err) { logger.warn(`panel: no se pudo sellar quién escribió (${err.message}) — el trabajo del coder no se toca`); }
     }
     // The work is in the tree, not committed: the gate is the next step and a
