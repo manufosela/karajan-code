@@ -1,0 +1,17 @@
+/**
+ * HU-3533 (KJC-TSK-1445): the tier an HU is created with. The agent that plans judges it
+ * (`kj hu add --tier`), as kj plan's decomposition did, and kj crosses it with its own signal
+ * (complexity-tier.js: the higher wins, a sensitive zone is always deep). No judged tier, no
+ * tier stored: kj says how to give one instead of guessing it.
+ */
+import { TIERS, huComplexity } from "./complexity-tier.js";
+
+export const NO_TIER_HINT = "⚠ no tier: judge it with --tier trivial|standard|deep --tier-reason \"<why>\", so kj code writes it with the model it needs";
+
+/** The tier to store for a new HU, { level, reason }, or null when none was judged. */
+export function tierOfNewHu({ title, acceptanceCriteria = [], tier, tierReason }) {
+  if (tier === undefined || tier === null || tier === "") return null;
+  if (!TIERS.includes(tier)) throw new Error(`--tier must be one of ${TIERS.join(", ")}: got "${tier}"`);
+  const judged = huComplexity({ title, goal: "", acceptanceCriteria, tier, tierReason });
+  return { level: judged.tier, reason: judged.reason };
+}

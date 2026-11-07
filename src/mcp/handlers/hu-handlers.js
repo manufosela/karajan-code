@@ -29,7 +29,8 @@ const notOnBoard = (id) => `HU ${id} is not on the board — kj_hu list shows it
 
 async function createHu(projectDir, a) {
   if (!a.title) return failPayload("Missing required field: title (required for create)");
-  const args = ["add", a.title, ...(a.acceptanceCriteria ? ["--ac", a.acceptanceCriteria] : []), ...(a.ref ? ["--ref", a.ref] : [])];
+  const args = ["add", a.title, ...(a.acceptanceCriteria ? ["--ac", a.acceptanceCriteria] : []), ...(a.ref ? ["--ref", a.ref] : []),
+    ...(a.tier ? ["--tier", a.tier] : []), ...(a.tierReason ? ["--tier-reason", a.tierReason] : [])];
   const added = await kjHu(projectDir, args);
   if (added.error) return failPayload(added.error);
   if (!a.status || a.status === "pending") return { ok: true, hu: added.data };

@@ -315,6 +315,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--task-type <type>", "sw | infra | doc | add-tests | refactor")
     .option("--criteria <text>", "Legacy alias for a single acceptance criterion")
     .option("--ref <id>", "Id of this card's replica in the external tracker (Planning Game, Jira, Linear...)")
+    .option("--tier <level>", "How much model the card needs: trivial | standard | deep (kj code writes it with that model)")
+    .option("--tier-reason <text>", "Why that tier, in a few words")
     .option("--json", "Machine-readable output")
     .action(async (title, flags) => {
       await withConfig(pkgVersion, "hu", flags, async ({ config }) => {

@@ -17,6 +17,7 @@ import { readBoardConfig, setBoardBackend } from "../hu/board-config.js";
 import { isOffline } from "../hu/board-errors.js";
 import { loadManager } from "../hu/managers/index.js";
 import { withManagerDefaults } from "../hu/manager-ops.js";
+import { NO_TIER_HINT, tierOfNewHu } from "../hu/hu-tier.js";
 import { capabilityLines, missingCredentials } from "../hu/story-contract.js";
 import { pinGhIdentity } from "../hu/gh-identity.js";
 import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js";
@@ -77,6 +78,12 @@ async function addToTeamBoard({ projectDir, key, title, flags, deps, emit }) {
   let hu;
   let existing;
   const ref = flags.ref ? String(flags.ref).trim() : null;
+  const criteria = [...linesOf(flags.ac), ...linesOf(flags.criteria)];
+  // HU-3533: stored only where the manager keeps it; elsewhere it is said, never lost in silence.
+  const judged = tierOfNewHu({ title, acceptanceCriteria: criteria, tier: flags.tier, tierReason: flags.tierReason });
+  const tier = judged && deps.manager.capabilities?.tier === true ? judged : null;
+  if (!judged) console.warn(NO_TIER_HINT);
+  else if (!tier) console.warn(`⚠ ${key.service} does not keep each story's tier: the HU is created without it, and kj code uses the coder's usual model`);
   try {
     const manager = deps.manager;
     existing = await manager.list();
@@ -88,17 +95,15 @@ async function addToTeamBoard({ projectDir, key, title, flags, deps, emit }) {
       const candidates = similar.map((h) => `  · ${h.short_id} (${h.status}) "${h.title}"`).join("\n");
       console.warn("⚠ possible duplicate — check before working it:\n" + candidates);
     }
-    hu = await manager.create({
-      title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tests: linesOf(flags.tests), ref,
-    });
+    hu = await manager.create({ title, acceptanceCriteria: criteria, tests: linesOf(flags.tests), ref, ...(tier ? { tier } : {}) });
   } catch (err) {
     // KJC-TSK-1165: an id is only ever minted by the manager; nothing is created offline.
     if (isOffline(err)) throw new Error(`creating a HU needs the network: ${key.service} gives it its id and no local one is made up (${err.message})`, { cause: err });
     throw err;
   }
   // KJC-BUG-0443: the gates read the mirror; the new HU is in it before the next kj hu list.
-  await (deps.writeMirror ?? writeTeamMirror)(projectDir, [...existing, { ...hu, claimed_by: null, ref }], { repo: key.place, key });
-  return emit({ ...hu, board: key.name, [key.name === "github" ? "repo" : "team"]: key.place }, `✓ HU created: ${hu.short_id} (pending) in the shared board, ${key.describe(hu)}`);
+  await (deps.writeMirror ?? writeTeamMirror)(projectDir, [...existing, { ...hu, claimed_by: null, ref, tier }], { repo: key.place, key });
+  return emit({ ...hu, tier, board: key.name, [key.name === "github" ? "repo" : "team"]: key.place }, `✓ HU created: ${hu.short_id} (pending) in the shared board, ${key.describe(hu)}`);
 }
 
 /**
@@ -407,6 +412,8 @@ async function addAction({ projectDir, board, args, flags, deps, emit, externalB
   await refuseDuplicateTitle(projectDir, title);
   const plan = await backlogPlan(projectDir);
   assertAddFlags(plan, flags);
+  const tier = tierOfNewHu({ title, acceptanceCriteria: [...linesOf(flags.ac), ...linesOf(flags.criteria)], tier: flags.tier, tierReason: flags.tierReason });
+  if (!tier) console.warn(NO_TIER_HINT);
   const hu = addHu(plan, {
     title,
     // KJC-BUG-0189: the card-first gate demands a branch that references a
@@ -422,6 +429,8 @@ async function addAction({ projectDir, board, args, flags, deps, emit, externalB
   });
   hu.created_by = creatorLabel();
   if (flags.ref) hu.external_ref = String(flags.ref).trim();
+  // HU-3533: the shape kj plan wrote and the coder routing reads (story.complexity.tier).
+  if (tier) hu.complexity = { tier: tier.level, reason: tier.reason };
   await savePlan(projectDir, plan);
   if (externalBoard && !hu.external_ref) {
     console.log(`→ replicate it in ${externalBoard} through your agent's MCP/tools and link both: kj hu add ... --ref <id in ${externalBoard}>`);
@@ -435,7 +444,7 @@ async function addAction({ projectDir, board, args, flags, deps, emit, externalB
   return emit({
     id: hu.id, short_id: hu.short_id, status: hu.status, created_by: hu.created_by,
     acceptance_criteria: hu.acceptance_criteria, acceptance_tests: hu.acceptance_tests,
-    scope: hu.scope, task_type: hu.task_type, external_ref: hu.external_ref || null,
+    scope: hu.scope, task_type: hu.task_type, external_ref: hu.external_ref || null, tier,
   }, `✓ HU created: ${hu.short_id || hu.id} (pending, by ${hu.created_by}) — it shows up in \`kj board\``);
 }
 
