@@ -47,6 +47,17 @@ export function routeCoder({ tier, huModel = null, attempt, config }) {
 }
 
 /**
+ * HU-3533 (KJC-TSK-1445): the config kj code runs the coder with: the card's tier routed as kj
+ * run's coder stage did (a model set on the board first), or the config as it is, and why.
+ */
+export function routedCoderConfig({ config, card, attempt = 1 }) {
+  const route = routeCoder({ tier: card?.tier ?? undefined, huModel: card?.coderModel ?? null, attempt, config });
+  if (route.skip) return { config, route: null, reason: route.reason };
+  const coder = { ...config.roles?.coder, model: route.model, ...(route.effort ? { effort: route.effort } : {}) };
+  return { config: { ...config, roles: { ...config.roles, coder } }, route, reason: route.reason };
+}
+
+/**
  * KJC-TSK-1070: the route of an HU's coder for this attempt, on its lane
  * config (coder_route, read by the coder stage); a skipped route clears it.
  */

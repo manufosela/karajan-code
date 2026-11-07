@@ -58,5 +58,8 @@ export async function resolveCardContext({ projectDir, ref, deps = {} }) {
     section: localSection(hu),
     acceptanceTests: criteria ? [{ type: "gherkin", content: criteria }] : null,
     external: false,
+    // HU-3533: what kj code routes the coder by: the tier it was planned with, a model set on the board.
+    tier: hu.complexity?.tier ?? null,
+    coderModel: hu.coder_model ?? null,
   };
 }
