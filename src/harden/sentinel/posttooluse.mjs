@@ -67,7 +67,10 @@ process.stdin.on("end", () => {
       const hits = [];
       const dropped = [];
       for (const src of sources) {
-        const rel = relative(ROOT_REAL, realOf(String(src))).split(String.fromCharCode(92)).join("/");
+        // KJC-BUG-0511: relative to the lane holding the file, as rag-first reads it (ADR 0034);
+        // a source outside this repo resolves to the session's lane and falls outside it.
+        const real = realOf(String(src));
+        const rel = relative(realOf(laneFor(real)), real).split(String.fromCharCode(92)).join("/");
         if (!rel || rel === ".." || rel.startsWith("../") || rel.startsWith("/")) { dropped.push(String(src)); continue; }
         if (!hits.includes(rel)) hits.push(rel);
       }
