@@ -46,6 +46,9 @@ describe("renderPlaybook", () => {
       expect(text).toMatch(/150 net lines of code[\s\S]*human\s+docs, lockfiles, snapshots and dist\/ do not count, AI-rule files do/);
       // KJC-TSK-1378 (#3206): simplify after green and before the review the verdict binds to.
       expect(text).toMatch(/simplify[\s\S]*no test weakened[\s\S]*BEFORE the\s+review/i);
+      // HU-3533 (KJC-TSK-1445): the agent plans each card's tier and kj code writes it, as kj run did.
+      expect(text).toMatch(/--tier trivial\|standard\|deep/);
+      expect(text).toMatch(/kj code --card <id> --brief[\s\S]*--retry/);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }

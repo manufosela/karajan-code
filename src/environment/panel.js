@@ -37,11 +37,8 @@ export function panelLine(config) {
   if (!coder && !reviewer) return null;
   const parts = [`coder=${coder || "unset"}`, `reviewer=${reviewer || "unset"}`];
   if (solomon && solomon !== coder) parts.push(`solomon=${solomon}`);
-  return [
-    `- The panel is your user's, not yours: ${parts.join(", ")}.`,
-    "  When the coder is not you, the writing is ITS job; write it yourself",
-    "  anyway and say so in your closing message, never in silence.",
-  ].join("\n");
+  // HU-3533: kj code runs the declared coder; the host writing instead is said, never silent.
+  return `- The panel is your user's, not yours: ${parts.join(", ")}. Wrote a card yourself? Say so.`;
 }
 
 /**

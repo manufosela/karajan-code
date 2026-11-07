@@ -65,6 +65,8 @@ Invariants (the git gates enforce these — they are not suggestions):
   \`kj_rag_query\` tool: reach for it before grepping by hand. Questions about
   the project's docs, notes, ADRs or plans: ask qmd (its MCP) first.
 - ${trackingLine(stateBackend, boardName)}
+- You orchestrate, \`kj code\` writes: \`kj hu add --tier trivial|standard|deep\`, then
+  \`kj code --card <id> --brief\` (clean context, the tier's model; rejected? \`--retry\`).
 - Tests prove behavior: failing test first (TDD), suite never left red.
   Green is not proof: with \`method_gates.mutation\` declared, run
   \`kj mutate --since <base>\` and kill surviving mutants (weak asserts); then

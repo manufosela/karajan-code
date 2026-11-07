@@ -39,6 +39,16 @@ Una tarea está HECHA cuando su enunciado-de-hecho es literalmente cierto, la su
 - **`kj solomon --position "<por qué>"`**, cuando tu agente discrepa de una revisión rechazada, arbitra una **tercera** IA (nunca el brain, nunca el reviewer). Su fallo queda registrado y se obedece, salvo los hallazgos de seguridad, que no anula nadie.
 - **`kj report-issue`**, ¿tu agente choca con un bug de kj? Lo diagnostica y abre una issue **sanitizada** upstream (sin código del proyecto, sin rutas, sin datos personales), tras pedírtelo. El ecosistema se repara solo.
 
+## Tu agente orquesta, kj code escribe
+
+La conversación de tu agente no para de crecer, y cada turno la vuelve a leer entera con su modelo más alto. Escribir ahí todas las cards cuesta más de lo necesario: la mayoría no necesita el modelo más alto y ninguna necesita la conversación entera. Por eso el trabajo se reparte, como lo repartía `kj run` antes de la 5.0:
+
+1. **Planifica con nivel.** Mientras planifica, tu agente juzga cuánto modelo necesita cada card y lo dice al crearla: `kj hu add "<card>" --tier trivial|standard|deep --tier-reason "<por qué>"`. kj lo cruza con su propia señal: gana el más alto, y todo lo que toca auth, secretos, migraciones o el Sentinel es siempre `deep`. El nivel vive en la card (una etiqueta `kj:tier:<nivel>` en el board compartido de GitHub), así que cualquiera puede cambiarlo ahí. `kj hu tier <id>` lo lee.
+2. **La escribe kj code.** `kj code --card <id> --brief` lanza el coder de tu panel con contexto limpio y el modelo del nivel de la card: con Claude, haiku para `trivial`, sonnet para `standard` y el modelo de siempre para `deep`. `--brief` le devuelve a tu agente solo el final de la respuesta del coder, para que su contexto no crezca. Un modelo que elijas tú siempre manda.
+3. **La review la juzga, y un rechazo sube de modelo.** Tu agente pasa `kj review --staged` como siempre. Si la review la rechaza, `kj code --card <id> --retry --brief` le da al coder los hallazgos de esa review, con el modelo más capaz.
+
+La primera vez que tu agente va a escribir él el código de una card planificada, el Sentinel le para una vez con el comando (ver [la guía del Sentinel](/docs/es/guides/sentinel/#delegate)). Puede escribirla igualmente: un segundo intento pasa y la decisión queda anotada.
+
 ## Por qué revisa una IA distinta
 
 La auto-revisión sella en falso. En v4 el reviewer es siempre una familia de modelos distinta del orquestador (Claude orquesta → Codex revisa, y viceversa), y su veredicto se liga al sha256 del diff exacto: cambia un byte y el veredicto caduca. No es una convención, lo fuerza el gate de pre-commit. En el desarrollo de este mismo repo, el reviewer cruzado ha rechazado varias veces la primera versión del autor con hallazgos reales. Funciona con nosotros; funcionará contigo.
