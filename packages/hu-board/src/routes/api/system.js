@@ -10,6 +10,7 @@ import { subscribe as subscribeEvents } from '../../event-bus.js';
 import { readConfig, writeConfigPatch } from '../../config-yaml.js';
 import { requestProjectDir } from '../../project-dir.js';
 import { watchLanes } from '../../stage-feed.js';
+import { watchMap } from '../../stage-map.js';
 import { BOOT_TIME, PKG_VERSION } from '../../boot-info.js';
 
 const router = Router();
@@ -80,7 +81,10 @@ router.get('/events', (req, res) => {
     }
   };
   const unsubscribe = subscribeEvents(send);
-  const stopStageFeed = stageDir ? watchLanes(stageDir, send, { project: req.query.project }) : null;
+  // KJC-TSK-1446 (ADR 0049): `map=1` streams every factory of the user instead of one project.
+  const stopStageFeed = req.query.map === '1'
+    ? watchMap(send)
+    : stageDir && watchLanes(stageDir, send, { project: req.query.project });
 
   // 25s is well under the default 60-90s idle timeout of every sane
   // reverse proxy, but high enough that it doesn't spam the log.

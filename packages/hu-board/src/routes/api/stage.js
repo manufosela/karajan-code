@@ -2,6 +2,7 @@
 import { Router } from 'express';
 
 import { requestProjectDir } from '../../project-dir.js';
+import { stageMap } from '../../stage-map.js';
 import { laneStates } from '../../stage-state.js';
 
 const router = Router();
@@ -22,6 +23,12 @@ router.get('/stage/state', (req, res) => {
   const lanes = laneStates(dir);
   const { lane: _main, ...main } = lanes[0];
   res.json({ ...main, lanes });
+});
+
+/** GET /api/stage/map - KJC-TSK-1446 (ADR 0049): every factory of the user with the state of its lanes. */
+router.get('/stage/map', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json(stageMap()); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;

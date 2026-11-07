@@ -1,5 +1,5 @@
 // KJC-TSK-1403 (ADR 0046): /api/events?project=<slug> adds that project's stage feed.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest';
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -61,5 +61,19 @@ describe('GET /api/events?project=<slug>', () => {
   it('answers 400 to a project it cannot resolve, without opening the stream', async () => {
     const { status } = await firstDataFrame('/api/events?project=nowhere');
     expect(status).toBe(400);
+  });
+});
+
+// KJC-TSK-1446 (ADR 0049): the map lists every factory and streams them all through one connection.
+describe('the map of every factory', () => {
+  it('lists the factory of a known project and streams its events tagged with project and lane', async () => {
+    const { closeDb, initDb, upsertProject } = await import('../src/db.js');
+    initDb();
+    onTestFinished(() => closeDb());
+    upsertProject({ id: slug });
+    const map = await (await fetch(`http://localhost:${port}/api/stage/map`)).json();
+    expect(map.map((f) => [f.project, f.lanes.map((l) => l.lane)])).toEqual([[slug, ['main']]]);
+    const { event } = await firstDataFrame('/api/events?map=1');
+    expect(event).toEqual({ type: 'sentinel-deny', at: 't', tool: 'Bash', why: 'no', project: slug, lane: 'main' });
   });
 });
