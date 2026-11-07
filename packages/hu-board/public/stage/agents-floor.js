@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { createRobot } from './cast/robot.js';
 import { SCALE } from './layout.js';
+import { tagAt } from './screen.js';
 import { accentOf, labelOf, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -35,15 +36,6 @@ function badge(name, accent) {
   return plate;
 }
 
-/** The worker's label over its robot, placed in screen space. */
-function nameTag(name, position, camera, height) {
-  const at = position.clone().setY(height).project(camera);
-  const tag = Object.assign(document.createElement('span'), { textContent: name, className: 'stage-worker' });
-  tag.style.left = `${((at.x + 1) / 2) * innerWidth}px`;
-  tag.style.top = `${((1 - at.y) / 2) * innerHeight}px`;
-  return tag;
-}
-
 /** A robot that left frees what it holds on the GPU: each one has its own geometry. */
 function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
@@ -57,7 +49,7 @@ function robotFor(worker) {
 }
 
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)` the centre of a lane's workshop. */
-export function createAgentsFloor({ scene, camera, xOf }, lanes, now) {
+export function createAgentsFloor({ scene, camera, xOf, origin }, lanes, now) {
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
   return {
@@ -82,7 +74,8 @@ export function createAgentsFloor({ scene, camera, xOf }, lanes, now) {
         robot.root.rotation.y = pose.yaw;
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         // Just above the helmet, so the label never sits on it.
-        tags.push(nameTag(labelOf(worker), robot.root.position, camera, 3.6 * scaleOf(worker)));
+        const head = robot.root.position.clone().setY(3.6 * scaleOf(worker));
+        tags.push(tagAt(labelOf(worker), head, camera, { className: 'stage-worker', origin }));
       }
       workers = workers.filter((w) => workerAt(w, t, xOf) !== null);
       return tags;

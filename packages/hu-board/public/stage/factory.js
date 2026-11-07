@@ -2,6 +2,8 @@
 // at three quarters: the floor, the Sentinel's raised post and the light. The
 // workshops are in hall.js; where everything stands is in layout.js.
 import * as THREE from 'three';
+import { populate } from './crew.js';
+import { createHall } from './hall.js';
 import { SENTINEL_POST } from './layout.js';
 
 const matte = (color, roughness = 0.85) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0.1 });
@@ -50,13 +52,22 @@ function createLights() {
   return [sky, sun];
 }
 
-/** Builds the hall in a new scene and returns it with its camera. */
+/**
+ * KJC-TSK-1447 (ADR 0049): one factory mounted on `parent` (the scene, or a group the
+ * map places): the Sentinel's tower, Karajan's crew and one workshop per lane.
+ */
+export function buildFactory(parent, lanes) {
+  parent.add(createTower());
+  return { ...populate(parent), hall: createHall(parent, lanes) };
+}
+
+/** Builds the floor and the light in a new scene and returns it with its camera. */
 export function createFactory(renderer) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0f1520);
-  scene.add(createFloor(), createTower(), ...createLights());
+  scene.add(createFloor(), ...createLights());
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 300);
   const target = new THREE.Vector3(0, 0, -0.6);
   return { scene, camera, target };
