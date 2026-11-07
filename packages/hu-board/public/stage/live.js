@@ -10,6 +10,7 @@ import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withRag } from './ragan.js';
 import { WORKSHOP } from './layout.js';
+import { tagAt } from './screen.js';
 import { Vector3 } from 'three';
 
 // The marks stack over the workshop so two of one lane never sit on each other (tagAt adds OVER_PIECE).
@@ -21,16 +22,11 @@ const GATES_DX = WORKSHOP.width / 2 - 0.9; // as hall.js places them
 const DARK = { gold: 0, red: 0 };
 const OVER_PIECE = 1.6;
 
-/** A label over a point of the scene, placed in screen space. */
-function tagAt(text, position, camera, className = 'stage-count') {
-  const at = position.clone().setY(position.y + OVER_PIECE).project(camera);
-  const tag = Object.assign(document.createElement('span'), { textContent: text, className });
-  tag.style.left = `${((at.x + 1) / 2) * innerWidth}px`;
-  tag.style.top = `${((1 - at.y) / 2) * innerHeight}px`;
-  return tag;
-}
+/** A label over a point of the factory (KJC-TSK-1447: from wherever the factory is mounted). */
+const overPiece = (text, position, camera, origin, className) =>
+  tagAt(text, position.clone().setY(position.y + OVER_PIECE), camera, { className, origin });
 
-export function createLive({ scene, pieces, crew, camera, stand, hall, refit }, { state: initial, tell, counts }) {
+export function createLive({ scene, pieces, crew, camera, stand, hall, refit, origin }, { state: initial, tell, counts }) {
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
@@ -39,7 +35,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, refit }, 
   let gatesLit = new Set();
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
-  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf }, working, performance.now());
+  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, origin }, working, performance.now());
   /** Every station back to its last real state; returns that state. */
   const settle = () => {
     const rest = restState(state, Date.now());
@@ -58,7 +54,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, refit }, 
       const atGates = mark.kind === 'gates';
       if (atGates) { hall.lightGates(mark.lane, mark.tone, mark.level); gatesLit.add(mark.lane); }
       const over = new Vector3(hall.xOf(mark.lane) + (atGates ? GATES_DX : 0), MARK_Y[mark.kind], WORKSHOP.z - (atGates ? WORKSHOP.depth / 2 : 0));
-      const tag = tagAt(mark.text, over, camera, `stage-mark stage-mark-${mark.tone}`);
+      const tag = overPiece(mark.text, over, camera, origin, `stage-mark stage-mark-${mark.tone}`);
       tag.style.opacity = String(mark.level); // it fades as it ages
       return tag;
     });
@@ -104,13 +100,13 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, refit }, 
         const base = lights[cue.piece] ?? DARK;
         if (cue.tone === 'refuse') piece.setLight(base.gold, Math.max(base.red, flash));
         else piece.setLight(Math.max(base.gold, flash), base.red);
-        if (cue.count > 1) tags.push(tagAt(`×${cue.count}`, piece.group.position, camera));
+        if (cue.count > 1) tags.push(overPiece(`×${cue.count}`, piece.group.position, camera, origin));
       }
       // atril turns a page per skill; its sheets are the film's, so the skill's real name rides above it.
       const page = turnAt(turn, now);
       if (page) {
         stand.turnTo(page.page, page.fraction);
-        tags.push(tagAt(page.skill, stand.group.position.clone().setY(2.3), camera, 'stage-worker'));
+        tags.push(overPiece(page.skill, stand.group.position.clone().setY(2.3), camera, origin, 'stage-worker'));
       } else if (turn) {
         stand.turnTo(0, 1);
         turn = null;

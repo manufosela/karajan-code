@@ -2,9 +2,7 @@
 // works the hall and each station shows the last real state of the project;
 // nothing is simulated. The live cues come from the director (KJC-TSK-1399).
 import * as THREE from 'three';
-import { createFactory, framing } from './factory.js';
-import { populate } from './crew.js';
-import { createHall } from './hall.js';
+import { buildFactory, createFactory, framing } from './factory.js';
 import { hallWidth } from './layout.js';
 import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
@@ -25,8 +23,7 @@ function buildScene(lanes) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer);
-  const { crew, pieces, stand } = populate(scene);
-  const hall = createHall(scene, lanes);
+  const { crew, pieces, stand, hall } = buildFactory(scene, lanes);
   const render = () => renderer.render(scene, camera);
   // The camera pulls back as the hall grows or the screen narrows, so every workshop
   // fits; the wheel or a pinch brings it closer or further (KJC-TSK-1433).
