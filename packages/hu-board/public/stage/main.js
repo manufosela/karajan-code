@@ -86,6 +86,23 @@ async function start() {
   if (!still) requestAnimationFrame(frame);
 }
 
-if (!project) tell(['Open the stage of a project: kj stage, or the Stage link of the board.']);
-else if (document.createElement('canvas').getContext('webgl2')) await start();
-else tell(['This browser has no WebGL2, so the 3D stage cannot be drawn.']);
+/** KJC-TSK-1452 (ADR 0049): the map of every factory, from the board's list of them. */
+async function startMapView() {
+  document.getElementById('stage-project').textContent = 'kj stage · every factory';
+  try {
+    const res = await fetch('/api/stage/map', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const body = await res.json();
+    if (!res.ok) { tell([`The board cannot draw the map: ${body.error}`]); return; }
+    if (!body.length) { tell(['The board knows no project with a folder on this machine: there is no factory to show.']); return; }
+    const { startMap } = await import('./map.js');
+    startMap({ canvas, factories: body, token, tell, counts: document.getElementById('stage-counts') });
+  } catch (err) {
+    tell([`The board did not answer (${err.message})`]);
+  }
+}
+
+const wantsMap = new URLSearchParams(location.search).get('map') === '1';
+if (!document.createElement('canvas').getContext('webgl2')) tell(['This browser has no WebGL2, so the 3D stage cannot be drawn.']);
+else if (wantsMap) await startMapView();
+else if (project) await start();
+else tell(['Open the stage of a project: kj stage, or the Stage link of the board. Every factory at once: add ?map=1.']);
