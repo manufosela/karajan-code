@@ -26,7 +26,8 @@ function tileTexture() {
   return texture;
 }
 
-function createFloor() {
+/** One hall's tiled floor; the map lays one under each factory (KJC-TSK-1452). */
+export function createFloor() {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR.width, FLOOR.depth), new THREE.MeshStandardMaterial({ map: tileTexture(), roughness: 0.85 }));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -61,14 +62,18 @@ export function buildFactory(parent, lanes) {
   return { ...populate(parent), hall: createHall(parent, lanes) };
 }
 
-/** Builds the floor and the light in a new scene and returns it with its camera. */
-export function createFactory(renderer) {
-  renderer.shadowMap.enabled = true;
+/**
+ * Builds the light (and one floor) in a new scene and returns it with its camera. The map
+ * lays its own floors and sees much further, without shadows (KJC-TSK-1452).
+ */
+export function createFactory(renderer, { floor = true, far = 300 } = {}) {
+  renderer.shadowMap.enabled = floor;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0f1520);
-  scene.add(createFloor(), ...createLights());
-  const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 300);
+  scene.add(...createLights());
+  if (floor) scene.add(createFloor());
+  const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, far);
   const target = new THREE.Vector3(0, 0, -0.6);
   return { scene, camera, target };
 }
