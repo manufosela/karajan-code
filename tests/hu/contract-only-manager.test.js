@@ -54,7 +54,7 @@ describe("the core with a contract-only manager", () => {
     expect(await hu("move", ["TRI-123", "running"], m)).toEqual({ id: "TRI-123", status: "running", claimed_by: "ana" });
     expect(m.calls).toEqual([["claim", "TRI-123", "ana", false], ["move", "TRI-123", "running"]]);
     const worktree = async () => ({ branch: "feat/TRI-123-existing", path: "/lane" });
-    expect(await hu("start", ["TRI-123"], contractOnly(), {}, { worktree })).toMatchObject({ id: "TRI-123" });
+    expect(await hu("start", ["TRI-123"], contractOnly(), {}, { worktree, lanes: async () => [] })).toMatchObject({ id: "TRI-123" });
   });
 
   it("replays the offline queue", async () => {

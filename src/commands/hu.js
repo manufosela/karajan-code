@@ -499,7 +499,7 @@ async function findHuToMove(projectDir, ref) {
 const findSharedCard = (deps) => async (ref) => {
   const rows = await deps.manager.list();
   const row = rows.find((r) => r.short_id.toLowerCase() === String(ref).toLowerCase());
-  return row ? { id: row.short_id, title: row.title, status: row.status, claimed_by: row.claimed_by } : null;
+  return row ? { id: row.short_id, title: row.title, status: row.status, claimed_by: row.claimed_by, external_ref: row.ref ?? null } : null;
 };
 const findLocalCard = (projectDir) => async (ref) => {
   const found = await findHuToMove(projectDir, ref).catch((err) => {
@@ -508,7 +508,7 @@ const findLocalCard = (projectDir) => async (ref) => {
   });
   if (!found) return null;
   const { hu } = found;
-  return { id: hu.short_id || hu.id, title: hu.title, status: hu.status, claimed_by: hu.status === "running" ? hu.claimed_by ?? null : null };
+  return { id: hu.short_id || hu.id, title: hu.title, status: hu.status, claimed_by: hu.status === "running" ? hu.claimed_by ?? null : null, external_ref: hu.external_ref ?? null };
 };
 
 async function moveLocal({ projectDir, args, flags, deps, emit }) {

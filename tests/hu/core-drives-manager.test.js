@@ -85,10 +85,10 @@ describe("the core drives a manager whose ids are not HU-<n>", () => {
   it("start reads the card from the manager, opens the lane and claims it", async () => {
     const m = fakeManager();
     const worktree = vi.fn(async () => ({ branch: "feat/TRI-123-existing", path: "/lane" }));
-    expect(await hu("start", ["TRI-123"], m, {}, { worktree })).toMatchObject({ id: "TRI-123", branch: "feat/TRI-123-existing" });
+    expect(await hu("start", ["TRI-123"], m, {}, { worktree, lanes: async () => [] })).toMatchObject({ id: "TRI-123", branch: "feat/TRI-123-existing" });
     expect(worktree).toHaveBeenCalledWith(expect.objectContaining({ args: ["TRI-123-existing"] }));
     expect(m.calls).toEqual([["claim", "TRI-123", "ana", false], ["move", "TRI-123", "running"]]);
-    await expect(hu("start", ["TRI-123"], fakeManager({ heldBy: "bob" }), {}, { worktree })).rejects.toThrow(/held by bob/);
+    await expect(hu("start", ["TRI-123"], fakeManager({ heldBy: "bob" }), {}, { worktree, lanes: async () => [] })).rejects.toThrow(/held by bob/);
   });
 });
 

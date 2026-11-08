@@ -86,7 +86,7 @@ Each pending card without a lane has a ▶. After you confirm, the board runs `k
 3. It moves the card to running, reserved to you.
 4. The coder declared in your panel writes the card there (`kj code --card <id>`), and its log opens in the board.
 
-Reviewing and committing stay with you or your agent, inside the lane. A card that already has a lane is not started again: the board tells you where it is. From the terminal, the same is `kj hu start <id> [slug]`, with `--code` to have the coder write it.
+Reviewing and committing stay with you or your agent, inside the lane. A card that already has a lane is not started again: the board tells you where it is. From the terminal, the same is `kj hu start <id> [slug]`, with `--code` to have the coder write it. When the card already has a lane, one whose branch names its id or its reference (a Planning Game card, say), `kj hu start` starts the card in that lane instead of opening another; with more than one, it stops and names them.
 
 ## How It Works
 
