@@ -10,7 +10,18 @@
 
 // KJC-TSK-1076: exported so the third-party PR checks apply the same rules.
 export const CONVENTIONAL_TYPES = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert";
-export const AI_ATTRIBUTION = "co-authored-by:.*(claude|gpt|copilot|gemini)|(generated|written) (by|with) .*(claude|gpt|copilot)";
+// KJC-BUG-0503: the ONE list every judge uses (commit-msg, pre-commit, kj review, the CI
+// workflow). A POSIX ERE that is also a JS RegExp source: no single quote, no `\d`-style escapes.
+const VENDORS = ["claude", "anthropic", "openai", "chatgpt", "codex", "gpt-?[0-9]", "copilot", "gemini", "cursor", "windsurf", "codeium", "deepseek"].join("|");
+const CREDIT_VERBS = ["generated", "written", "authored", "assisted", "powered", "created", "made"].join("|");
+export const AI_ATTRIBUTION = [
+  `co-authored-by:.*(${VENDORS})`,
+  // Also covers "Generated with [Claude Code]" (`.*` eats the bracket), so no
+  // separate `generated with \[?claude` alternative. The robot emoji is NOT here:
+  // the pre-commit scans every added code line with this list; only the CI
+  // workflow refuses the emoji, and only in the PR body and title.
+  `(${CREDIT_VERBS}) (by|with|using) .*(${VENDORS})`,
+].join("|");
 
 export const SHEBANG = "#!/usr/bin/env sh";
 

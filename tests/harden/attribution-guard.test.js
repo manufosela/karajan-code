@@ -11,6 +11,8 @@ import { join } from "node:path";
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 
 import { installHooks } from "../../src/harden/harden-engine.js";
+import { AI_ATTRIBUTION } from "../../src/harden/hook-templates.js";
+import { NO_AI_ATTRIBUTION_WORKFLOW } from "../../src/harden/workflow-templates.js";
 
 let repo;
 const git = (args, env = {}) =>
@@ -63,5 +65,61 @@ describe("pre-commit scans ADDED content for AI attribution (KJC-BUG-0164)", () 
     placeGuardCopies(repo);
     git(["add", "--force", ".karajan/harness"]);
     expect(() => git(["commit", "-q", "-m", "chore: bootstrap kj harden harness"])).not.toThrow();
+  });
+});
+
+// KJC-BUG-0503 (HU-3580): the local hook, kj review and the CI workflow judge
+// with ONE list. Every judge refuses the same messages and accepts the same.
+describe("one attribution list for every judge (KJC-BUG-0503)", () => {
+  const refused = [
+    "Co-authored-by: Claude <noreply@anthropic.com>",
+    "Co-authored-by: Cursor Agent <cursoragent@cursor.com>",
+    "Co-authored-by: Codex <codex@openai.com>",
+    "Written with GPT-5",
+    "Generated with Gemini",
+    "Assisted by Claude",
+    "Created by Claude",
+    "fix: written by claude",
+    "🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  ];
+  const accepted = [
+    "feat: add the claude provider adapter",
+    "docs: explain how copilot reviews work",
+    "Co-authored-by: Jane Doe <jane@example.com>",
+  ];
+  const posixGrep = (msg) => {
+    try {
+      execFileSync("grep", ["-qiE", AI_ATTRIBUTION], { input: msg });
+      return true;
+    } catch (error) {
+      if (error.status === 1) return false;
+      throw error;
+    }
+  };
+
+  it.each(refused)("refuses %s in JS, in POSIX grep and in the CI workflow", (msg) => {
+    expect(new RegExp(AI_ATTRIBUTION, "i").test(msg)).toBe(true);
+    expect(posixGrep(msg)).toBe(true);
+    expect(NO_AI_ATTRIBUTION_WORKFLOW).toContain(`pat='${AI_ATTRIBUTION}'`);
+  });
+
+  it.each(accepted)("accepts %s", (msg) => {
+    expect(new RegExp(AI_ATTRIBUTION, "i").test(msg)).toBe(false);
+    expect(posixGrep(msg)).toBe(false);
+  });
+
+  it("the robot emoji is refused only by the workflow's PR body and title check", () => {
+    const prBodyCheck = '| grep -qiE "$pat|generated with \\[?claude|🤖"; then';
+    expect(NO_AI_ATTRIBUTION_WORKFLOW).toContain(`"$PR_BODY" "$PR_TITLE" ${prBodyCheck}`);
+    expect(NO_AI_ATTRIBUTION_WORKFLOW).toContain('"$msgs" | grep -qiE "$pat"; then');
+  });
+
+  it("a code line with the robot emoji is not attribution", () => {
+    expect(new RegExp(AI_ATTRIBUTION, "i").test('icon: "🤖"')).toBe(false);
+    expect(posixGrep('icon: "🤖"')).toBe(false);
+  });
+
+  it("the pattern fits inside a single-quoted shell string", () => {
+    expect(AI_ATTRIBUTION).not.toContain("'");
   });
 });
