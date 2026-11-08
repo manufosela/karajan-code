@@ -105,11 +105,11 @@ architect, tester, security, audit, board) · \`kj hu add|move|list\` ·
 \`kj agent run <agent>\` · \`kj report\` · \`kj check\`
 
 Hit a kj bug or friction? Diagnose it and file it upstream with
-\`kj report-issue\` (sanitized; ask your user before \`--publish\`).
-kj announces a newer version? Tell your user what it brings and ask —
-never run \`kj update\` on your own.
+\`kj report-issue\` (sanitized; ask your user before \`--publish\`). kj announces a newer version?
+Tell your user what it brings and ask — never run \`kj update\` on your own.
 Something only your user can do (publish, seal, run a script)? Register it:
 \`kj handoff add <command> --why "<what for>"\`; they follow \`kj handoff watch\`.
+kj's human acts (\`kj harden --commit\`, \`kj rules approve\`, \`kj identity enroll-phone\`) are typed by your user in their own terminal: never put them in a script or run them with bash; kj refuses anything an agent launched.
 `;
 
 // KJC-TSK-1392 (ADR 0045): the values the agent reads are the ones its gates apply (the loader

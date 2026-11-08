@@ -63,6 +63,12 @@ describe("renderPlaybook", () => {
     expect(text).not.toMatch(/never create a parallel HU Board/);
     expect(text.split("\n").length).toBeLessThanOrEqual(60);
   });
+  // KJC-TSK-1469 (HU-3636): kj's human acts are typed by the user, never scripted.
+  it("states that kj's human acts are typed by hand, never run from a script", () => {
+    const text = renderPlaybook({});
+    expect(text).toMatch(/kj's human acts \(`kj harden --commit`, `kj rules approve`, `kj identity enroll-phone`\) are typed\s+by your user in their own terminal/);
+    expect(text).toMatch(/never put them in a script or run them with bash; kj\s+refuses anything an agent launched/);
+  });
   it("both targets come from the same source (same method lines)", () => {
     const a = renderPlaybook({ target: "claude" });
     const b = renderPlaybook({ target: "codex" });
