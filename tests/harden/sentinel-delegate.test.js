@@ -26,12 +26,16 @@ beforeEach(() => {
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
+// KJC-BUG-0518: run inside a kj code coder, process.env carries the coder's role, which the gate
+// steps aside for; the hook starts from the environment of a plain shell.
+const CODER_ONLY_VARS = new Set(["KJ_POLICY_ROLE", "CLAUDE_CODE_CHILD_SESSION"]);
+const shellEnv = () => Object.fromEntries(Object.entries(process.env).filter(([name]) => !CODER_ONLY_VARS.has(name)));
 const calls = () => path.join(dir, "kj-calls.txt");
 const fakeKj = (tier) => fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\necho "$@" >> ${calls()}\n[ "$1 $2" = "hu tier" ] && { echo '{"id":"'$3'","tier":${tier}}'; exit 0; }\nexit 0\n`, { mode: 0o755 });
 const edit = (file, env = {}) => spawnSync("node", [gate], {
   input: JSON.stringify({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, file) } }),
   encoding: "utf8",
-  env: { ...process.env, ...idEnv, PATH: `${bin}:${process.env.PATH}`, ...env },
+  env: { ...shellEnv(), ...idEnv, PATH: `${bin}:${process.env.PATH}`, ...env },
 });
 const delegate = () => JSON.parse(fs.readFileSync(statePath, "utf8")).sessions.s1.delegate;
 
