@@ -12,6 +12,8 @@
     header a { color: #8cb4c9; }
     #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
     #stage-status li { margin: 2px 0; }
+    /* KJC-TSK-1466: on the map the list only speaks to screen readers; one line per factory covered the scene. */
+    #stage-status.stage-unseen { clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; white-space: nowrap; }
     .stage-cue { color: #e2e8f0; }
     .stage-worker { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 8px; background: #1a2332; border: 1px solid #2a3a4e; font-size: 12px; color: #e2e8f0; pointer-events: none; }
     .stage-count { position: fixed; transform: translate(-50%, -100%); font-weight: 700; color: #f0b429; pointer-events: none; }
