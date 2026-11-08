@@ -10,8 +10,8 @@ import { courierAt, tripFor } from './courier.js';
 const COURIER = 0x8fa3b8; // a plain grey-blue: it is Karajan's errand robot, not an agent
 const NOTE_OVER = 4.2; // metres over the robot's feet before scaling: above its helmet
 
-/** The card's note, its id painted on it, as the wall shows it. */
-function note(id) {
+/** The card's note, its id painted on it, as the wall shows it (bench-notes.js puts it on the benches too). */
+export function cardNote(id) {
   const canvas = Object.assign(document.createElement('canvas'), { width: 256, height: 160 });
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#f0d58c';
@@ -23,15 +23,14 @@ function note(id) {
   ctx.fillText(id.slice(0, 9), 128, 80);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
-  plate.position.y = NOTE_OVER;
-  return plate;
+  return new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
 }
 
 function courierFor(trip) {
   const robot = createRobot({ accent: COURIER, name: 'courier' });
   robot.root.scale.setScalar(SCALE.crew);
-  const card = note(trip.id);
+  const card = cardNote(trip.id);
+  card.position.y = NOTE_OVER;
   robot.hover.add(card);
   return { robot, card };
 }
@@ -52,6 +51,8 @@ export function createCouriers(scene) {
       const trip = tripFor(event, now);
       if (trip) trips = [...trips, trip];
     },
+    /** KJC-TSK-1462: the cards a robot is still carrying, not on their bench yet. */
+    carried: () => new Set(trips.map((trip) => trip.id)),
     /** Moves every robot on an errand at `now`; `xOf(lane)` is the centre of a lane's workshop. */
     frame(now, xOf) {
       for (const trip of trips) {
