@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.9.0: el método en uso, y gates locales que juzgan como el CI (actual)
+### v5.10.0: lo que otros repos encontraron en la 5.9.0, arreglado (actual)
+
+Sesiones de otros repos pasaron a la 5.9.0 y contaron lo que les estorbaba; esta versión lo arregla. El hook de commit ya no rechaza un commit válido dentro del propio sandbox de kj, `kj harden --commit` ya no se niega a sellar por ficheros que dejó kj en el stage, el gate de parada ignora fuentes antiguas de fuera del repo, un `2>&1` tras `git commit` ya no cuenta como ruta y Solomon ya no lee "rce" dentro de "source". Sin kj instalado, los hooks generados se saltan con un aviso. El HU Board confía en los equipos de Tailscale y `kj stage` construye un mapa más ligero.
+
+### v5.9.0: el método en uso, y gates locales que juzgan como el CI
 
 El primer día con `kj code` escribiendo las cards y el anfitrión orquestando sacó los roces de ese flujo, y están arreglados: la review cuenta las respuestas del RAG de todas las sesiones del carril, el coder ya no deja fuera de su carril al anfitrión y un carril nuevo recibe tu `kj.config.yml` local. `kj review --third-party --lessons <fichero>` permite a quien revisa PRs de otros pasar las lecciones de cada repo, como datos no confiables. El hook de commit y el presupuesto de tamaño juzgan ahora como el CI, y `kj stage` muestra el mapa de tus fábricas con sus tablones de cards.
 

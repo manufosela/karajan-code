@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.10.0] - 2026-11-09
+
+Other sessions of the maintainer, in other repos, upgraded to 5.9.0 and reported what got in their way: a commit hook that refused valid commits inside kj's own sandbox, a seal that refused to run because of files kj itself had staged, a Stop gate that blocked every turn after an upgrade, and a security net that read "rce" inside "source". All of them are fixed here, with the generated hooks no longer blocking a teammate who has not installed kj.
+
+### Added
+- **The HU Board trusts Tailscale peers without a token** (KJC-TSK-1465, #3608): Tailscale already authenticates every device on the tailnet, so a request whose two ends are tailnet addresses needs no board token on top. A tailnet-looking peer that reached another interface still needs it.
+- **kj stage: a lighter map** (KJC-TSK-1466, 1467, 1468): a loading indicator while the factories are built, each factory takes only its own width, and the status list is hidden from sight (still read by screen readers).
+- **The method block says kj's human acts are typed by hand** (KJC-TSK-1469): `kj harden --commit`, `kj rules approve` and `kj identity enroll-phone` are typed by the user in their own terminal, never put in a script or run with bash, since kj refuses anything an agent launched.
+
+### Fixed
+- **The commit-msg hook no longer refuses a valid commit when it cannot write its trace** (KJC-BUG-0521, #3616): inside the sandbox kj configures, `.karajan/harness` is read-only, and dash aborted the whole hook on the failed redirection. Run `kj harden` and seal to get it.
+- **`kj harden --commit` no longer refuses to seal because of AGENTS.md and CLAUDE.md** (KJC-BUG-0522, #3617): when the hooks refused kj's own commit of those files, they stayed staged and the seal saw a foreign stage. kj now takes back from the index only what it staged.
+- **The generated git hooks skip with a notice when kj is not installed** (HU-3530, by @jorgecasar): a teammate without kj is told the review gate and the secret check of `kj.config.yml` were skipped, instead of being blocked; CI still requires the verdict.
+- **The Stop gate ignores recorded sources outside the repository** (KJC-BUG-0523, #3623): a session state from an older harness could keep a scratchpad script under `/tmp` and block every turn.
+- **A redirection after `git commit` is not a pathspec** (KJC-BUG-0524, #3621): `git commit -F msg 2>&1 | tail` was refused as a commit that stages on its own.
+- **The harness runtime state stays out of git** (KJC-BUG-0525, #3622): a repo that re-includes `.karajan/harness/` saw the Sentinel state and traces as untracked; the contract block now ignores `.karajan/harness/*.json` and `*.jsonl`.
+- **Solomon's security net matches `rce` only as a word** (KJC-BUG-0526, #3632): "source", "resource", "force" or "enforce" made a scope finding non-overridable.
+- **`kj privacy scan <dir>` reads what the staged scan reads** (KJC-BUG-0520): the release scan of the tarball skipped files over 512 KB and text files with a binary-looking name; now only files with a NUL byte are skipped, and they are counted.
+- **`kj hu start` reuses the lane a card already has** (KJC-BUG-0517, #3607): a lane whose branch names the card id or its reference is started in place of a new one; with more than one, it stops and names them.
+
 ## [5.9.0] - 2026-11-08
 
 The first day of 5.8.0's method in real use, `kj code` writing the cards and the host orchestrating, found the friction in that flow and fixed it. Reviewers of other people's PRs can teach kj the lessons of each repo. And the local gates now judge commits and PR size the way CI does, closing the gaps the divergence hunt of 5.7.0 found.
