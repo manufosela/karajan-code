@@ -6,6 +6,7 @@ import { createDirector, cueLevel, cueFor } from './director.js';
 import { restState, withEvent } from './rest.js';
 import { createAgentsFloor } from './agents-floor.js';
 import { createCouriers } from './couriers.js';
+import { createBenchNotes } from './bench-notes.js';
 import { turnAt } from './workers.js';
 import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
@@ -38,6 +39,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, origin }, working, performance.now());
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
+  const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
   /** Every station back to its last real state; returns that state. */
   const settle = () => {
     const rest = restState(state, Date.now());
@@ -97,6 +99,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       moveRagan(now);
       couriers.frame(now, hall.xOf);
+      benchNotes.frame(state.cards ?? [], hall.xOf, couriers.carried());
       const sentinel = sentinelAt(watch, now, hall.xOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;
