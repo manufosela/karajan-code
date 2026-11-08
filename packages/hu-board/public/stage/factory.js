@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { populate } from './crew.js';
 import { createHall } from './hall.js';
 import { SENTINEL_POST } from './layout.js';
+import { createWall } from './wall.js';
 
 const matte = (color, roughness = 0.85) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0.1 });
 
@@ -59,7 +60,8 @@ function createLights() {
  */
 export function buildFactory(parent, lanes) {
   parent.add(createTower());
-  return { ...populate(parent), hall: createHall(parent, lanes) };
+  // KJC-TSK-1459 (ADR 0050): and its task board wall.
+  return { ...populate(parent), hall: createHall(parent, lanes), wall: createWall(parent) };
 }
 
 /**

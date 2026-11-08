@@ -23,7 +23,7 @@ function buildScene(lanes) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer);
-  const { crew, pieces, stand, hall } = buildFactory(scene, lanes);
+  const { crew, pieces, stand, hall, wall } = buildFactory(scene, lanes);
   const render = () => renderer.render(scene, camera);
   // The camera pulls back as the hall grows or the screen narrows, so every workshop
   // fits; the wheel or a pinch brings it closer or further (KJC-TSK-1433).
@@ -39,7 +39,7 @@ function buildScene(lanes) {
   addEventListener('resize', refit);
   listenZoom(canvas, (k) => { zoom = k; refit(); });
   refit();
-  return { scene, pieces, crew, stand, hall, camera, render, refit };
+  return { scene, pieces, crew, stand, hall, wall, camera, render, refit };
 }
 
 /** The last real state of the project, or the reason the board could not give it. */
