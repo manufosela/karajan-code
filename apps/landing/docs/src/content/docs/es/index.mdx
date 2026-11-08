@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.8.0: tu agente orquesta, kj code escribe (actual)
+### v5.9.0: el método en uso, y gates locales que juzgan como el CI (actual)
+
+El primer día con `kj code` escribiendo las cards y el anfitrión orquestando sacó los roces de ese flujo, y están arreglados: la review cuenta las respuestas del RAG de todas las sesiones del carril, el coder ya no deja fuera de su carril al anfitrión y un carril nuevo recibe tu `kj.config.yml` local. `kj review --third-party --lessons <fichero>` permite a quien revisa PRs de otros pasar las lecciones de cada repo, como datos no confiables. El hook de commit y el presupuesto de tamaño juzgan ahora como el CI, y `kj stage` muestra el mapa de tus fábricas con sus tablones de cards.
+
+### v5.8.0: tu agente orquesta, kj code escribe
 
 Tu agente planifica cada card con su nivel (`kj hu add --tier`) y `kj code --card <id> --brief` la escribe con contexto limpio y el modelo de su nivel, como hacía `kj run` antes de la 5.0; si la review la rechaza, `--retry` sube de modelo. El Sentinel para una vez a tu agente antes de que escriba él una card planificada. En la misma tarea, `kj run` de la 4.70 costó 1,74 $ en Claude y el método de la 5.8.0, 1,41 $. Los hooks del Sentinel viven en el `.claude/settings.local.json` de cada developer, así que un compañero sin kj nunca queda bloqueado.
 

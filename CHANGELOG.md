@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.9.0] - 2026-11-08
+
+The first day of 5.8.0's method in real use, `kj code` writing the cards and the host orchestrating, found the friction in that flow and fixed it. Reviewers of other people's PRs can teach kj the lessons of each repo. And the local gates now judge commits and PR size the way CI does, closing the gaps the divergence hunt of 5.7.0 found.
+
+### Added
+- **`kj review --third-party --lessons <file>`** (KJC-TSK-1453, #3462): the reviewed repo's lessons learned from replies to past findings, a JSON list of `{ "rule", "reason", "source" }` (`rule` required, at most 50). The reviewer does not raise a finding a lesson rules out and says so in its summary, naming the lesson's source; a lesson never rules out a security finding nor changes the output format. The lessons reach the reviewer fenced as untrusted data. The file must be inside the reviewed checkout: a path or a symbolic link leading out of it is refused before it is read. `repoContext.lessons` says which file and how many lessons arrived.
+- **kj stage: the map of factories** (KJC-TSK-1452, 1454, 1456, 1459, 1460, 1462): one factory per project on the map, sized to its hall, with zoom, pan and a click that flies to it; each factory tells its cards in progress, shows its task board wall with three columns, folds its card trace into the last state of its board, and a robot carries each card between its workshop and the wall. `kj hu add` and `kj hu move` leave the card trace the stage reads. ADR 0050.
+
+### Fixed
+- **A new lane inherits the operator's local `kj.config.yml`** (KJC-BUG-0514, #3554): each card gets a new lane, and lane setup copied only the clone identity, so a local `.karajan/kj.config.yml` that git ignores looked vanished at every handoff. It is now copied when git ignores it in the main checkout and in the lane; an edit to that copy counts as the lane's work, so `kj worktree done` and `prune` never lose it.
+- **`kj review` after `kj code` counts the RAG answers of every session of the lane** (KJC-BUG-0515): `kj code` runs its coder as another session, and the review read only the latest, so a `--retry` that touched fewer files blocked on a file the first coder had already asked about. The main tree keeps the latest session alone.
+- **The kj code coder no longer locks the host out of its lane** (KJC-BUG-0516): its presence mark held the lane for 30 minutes, and a host that had left the lane came back refused even its reads. A runner takes the host's lane without a mark; a lane another live session holds stays closed to it.
+- **The blocks kj writes in AGENTS.md and CLAUDE.md name the project's commit convention** (KJC-BUG-0510): they always said Conventional Commits, while the commit hook already honoured `commit-convention` (conventional, the project's commitlint, or free).
+- **One list of commit credits for every judge** (KJC-BUG-0503): the local hooks, `kj review` and the generated CI workflow used different lists. Run `kj harden` to regenerate the workflow.
+- **The size budget counts a move into or out of an exempt path right** (KJC-BUG-0504): moving code into `dist/` or a docs folder freed its lines, and moving it out came in free. kj reads `git diff -M --numstat -z` and decides by the new path.
+- **The generated commit-msg hook judges the format the way CI's commitlint does** (KJC-BUG-0505): the header in UTF-16 units (it counted bytes), git's own merge, revert and fixup headers skip the format checks, any scope but `)`, and an uppercase subject, a trailing full stop or a long second line are refused, as in CI.
+- **The delegate test passes inside a `kj code` coder** (KJC-BUG-0518).
+
 ## [5.8.0] - 2026-11-07
 
 5.0 retired `kj run`, and with it each card written in a clean context on the model its difficulty needs; some users stayed on 4.70 because 5 cost more tokens. 5.8.0 brings that back inside the method: your agent plans each card with a tier and orchestrates, and `kj code` writes it. Measured on the same task with the same panel, 4.70's `kj run` cost $1.74 on Claude and 5.8.0's method $1.41. A team where only some people use kj is no longer blocked: the Sentinel's hooks are each developer's own.
