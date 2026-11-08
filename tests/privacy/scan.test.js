@@ -132,6 +132,29 @@ describe("privacy/scan", () => {
     expect(f[0]).toMatchObject({ severity: "block", line: 2 });
     expect(f[0].source.endsWith("leak.txt")).toBe(true);
   });
+
+  // HU-3612: the directory scan sees what the staged scan sees.
+  const leak = () => "token " + "ghp_" + "A1b2".repeat(9) + "\n";
+
+  it("scanPaths reads a text file over 512 KB", () => {
+    writeFileSync(join(dir, "big.txt"), `${"x".repeat(600 * 1024)}\n${leak()}`);
+    expect(scanPaths([dir], { list: list() }).length).toBeGreaterThan(0);
+  });
+
+  it("scanPaths reads text files with a binary-looking extension", () => {
+    writeFileSync(join(dir, "icon.ico"), leak());
+    writeFileSync(join(dir, "data.sqlite"), leak());
+    const sources = scanPaths([dir], { list: list() }).map((x) => x.source);
+    expect(sources.some((s) => s.endsWith("icon.ico"))).toBe(true);
+    expect(sources.some((s) => s.endsWith("data.sqlite"))).toBe(true);
+  });
+
+  it("scanPaths skips NUL-byte files and counts them in skippedBinary", () => {
+    writeFileSync(join(dir, "bin.dat"), Buffer.concat([Buffer.from([0]), Buffer.from(leak())]));
+    const f = scanPaths([dir], { list: list() });
+    expect(f).toHaveLength(0);
+    expect(f.skippedBinary).toBe(1);
+  });
 });
 
 // KJC-BUG-0202 (visto en vivo el 2026-09-24 durante la KJC-TSK-0864): el gate

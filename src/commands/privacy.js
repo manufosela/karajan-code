@@ -41,6 +41,8 @@ export async function privacyScanCommand({ paths = [], flags = {}, logger = cons
   if (!list.present) {
     logger.info?.(`hint: no personal denylist found — create ${privacyConfigPath()} (personal: [...], allow: [...]) so YOUR data blocks, not just warns`);
   }
+  const skippedBinary = findings.skippedBinary || 0;
+  if (skippedBinary > 0) logger.info?.(`kj privacy scan: ${skippedBinary} binary file(s) not read (NUL bytes)`);
   const context = discarded > 0 ? `; ${discarded} candidate(s) discarded by context — git SHAs / documentation domains` : "";
   logger.info?.(ok
     ? `privacy scan: clean of denylist hits (${warns.length} generic warning(s)${context})`
