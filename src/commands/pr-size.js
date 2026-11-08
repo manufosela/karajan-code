@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { budgetedAdded, budgetedNet } from "../review/loc-budget.js";
+import { budgetedAdded, budgetedNet, countLines, movedLines, parseNumstat } from "../review/loc-budget.js";
 
 const git = (projectDir, args) =>
   execFileSync("git", ["-C", projectDir, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -30,18 +30,18 @@ export async function branchSize({ projectDir = process.cwd(), base = "main", ex
   const from = mergeBase(projectDir, base);
   const skip = new Set(exclude);
   // Working tree against the merge base: committed and uncommitted together.
-  let numstat = git(projectDir, ["diff", "--numstat", from]).split("\n").filter((l) => l && !skip.has(l.split("\t").slice(2).join("\t"))).map((l) => `${l}\n`).join("");
+  const rows = parseNumstat(git(projectDir, ["diff", "-M", "--numstat", "-z", from])).filter((r) => !skip.has(r.to));
   // New files not yet added are where a branch grows while it is written.
   for (const file of git(projectDir, ["ls-files", "--others", "--exclude-standard"]).split("\n").filter((f) => f && !skip.has(f))) {
     let text;
     try { text = readFileSync(join(projectDir, file), "utf8"); } catch { continue; }
     if (text.includes("\0")) continue; // binary
-    // Lines as git counts them: an empty file adds none.
-    const n = text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
-    numstat += `${n}\t0\t${file}\n`;
+    rows.push({ added: countLines(text), removed: 0, from: file, to: file });
   }
+  // The diff is against the working tree, so a file moved out of an exempt path is counted from disk.
+  const linesOf = await movedLines(rows, (path) => readFileSync(join(projectDir, path), "utf8"));
   // KJC-BUG-0434: `net` is what the CI gate and the policy measure; `added` stays for its readers.
-  return { ...budgetedAdded(numstat), net: budgetedNet(numstat).net, base };
+  return { ...budgetedAdded(rows, linesOf), net: budgetedNet(rows, linesOf).net, base };
 }
 
 export async function prSizeCommand({ config, logger = console, flags = {} }) {

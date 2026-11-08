@@ -9,17 +9,15 @@ import { join } from "node:path";
 import { AI_ATTRIBUTION, CONVENTIONAL_TYPES } from "../harden/hook-templates.js";
 import { loadPolicy } from "../policy/engine.js";
 import { runCommand } from "../utils/process.js";
-import { budgetedNet } from "./loc-budget.js";
+import { budgetedNet, movedLines, parseNumstat, showSpec } from "./loc-budget.js";
 import { checkTestsWithCode } from "./tests-with-code.js";
 
 const HEADER_MAX = 100;
 const CONVENTIONAL = new RegExp(String.raw`^(${CONVENTIONAL_TYPES})(\([^)]+\))?!?: \S`);
 const ATTRIBUTION = new RegExp(AI_ATTRIBUTION, "i");
 
-const rowsOf = (numstat) => numstat.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
-  const [a, r, ...f] = l.split(/\s+/);
-  return { file: f.join(" "), added: a === "-" ? 1 : Number(a) || 0, removed: r === "-" ? 0 : Number(r) || 0 };
-});
+// A binary file counts as one added line; a rename is judged by its new path.
+const rowsOf = (numstat) => parseNumstat(numstat).map((r) => ({ file: r.to, added: Number.isNaN(r.added) ? 1 : r.added, removed: Number.isNaN(r.removed) ? 0 : r.removed }));
 
 /**
  * The PR size budget, one source for every gate (PL-C, KJC-TSK-0735): the
@@ -38,8 +36,8 @@ export function prSizeLimit({ projectDir, config }) {
 }
 
 /** Net lines that count against the budget, as the CI gate counts them (generated output and human docs exempt). */
-export function sizeCheck({ numstat, limit }) {
-  const { net, exempt } = budgetedNet(numstat);
+export function sizeCheck({ numstat, limit, linesOf }) {
+  const { net, exempt } = budgetedNet(numstat, linesOf);
   const exemptNote = exempt > 0 ? ` (${exempt} exempt)` : "";
   return net > limit
     ? { id: "size", ok: false, detail: `${net} net lines${exemptNote}, over the ${limit}-line limit: partition the PR` }
@@ -100,7 +98,8 @@ const git = async (projectDir, args) => {
 
 /** Size, commits and tests of base...head, read from git. */
 export async function prRequirementChecks({ range, projectDir, config, run = git }) {
-  const numstat = await run(projectDir, ["diff", "--numstat", range]);
+  const numstat = await run(projectDir, ["diff", "-M", "--numstat", "-z", range]);
+  const linesOf = await movedLines(numstat, (path) => run(projectDir, ["show", showSpec(range, path)]));
   // The commits of a PR are base..head, whichever range notation was given.
   const [base, head] = range.split(/\.{2,3}/);
   const log = await run(projectDir, ["log", "--format=%H%x1f%s%x1f%b%x1e", `${base}..${head || "HEAD"}`]);
@@ -112,5 +111,5 @@ export async function prRequirementChecks({ range, projectDir, config, run = git
   const commitFormat = declaresCommitConvention(projectDir)
     ? conventional
     : { id: "conventional-commits", ok: null, skipped: true, detail: "the repo declares no commit convention (no commitlint config, no kj commit-msg hook): not checked" };
-  return [sizeCheck({ numstat, limit: prSizeLimit({ projectDir, config }).limit }), commitFormat, attribution, testsCheck({ config, numstat })];
+  return [sizeCheck({ numstat, limit: prSizeLimit({ projectDir, config }).limit, linesOf }), commitFormat, attribution, testsCheck({ config, numstat })];
 }

@@ -24,7 +24,7 @@ import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { isGeneratedPath, splitAddedByFile } from "../privacy/diff-scope.js";
-import { budgetedAdded, budgetedNet } from "../review/loc-budget.js";
+import { budgetedAdded, budgetedNet, movedLines, showSpec } from "../review/loc-budget.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
 import { prSizeLimit } from "../review/pr-requirements.js";
 import { stewardBlocking } from "../steward/gate.js";
@@ -56,13 +56,16 @@ async function enforceCardFirst({ config, projectDir }) {
 }
 
 // Raw git always — never a wrapped/compressing runner (KJC-BUG-0115).
-async function rawDiff(range, extraArgs = []) {
-  const args = range ? ["diff", range, ...extraArgs] : ["diff", "--cached", ...extraArgs];
+async function rawGit(args) {
   const res = await runCommand("git", args);
   if (res.exitCode !== 0) {
     throw new Error(res.stderr?.trim() || `git ${args.join(" ")} failed`);
   }
   return res.stdout;
+}
+
+async function rawDiff(range, extraArgs = []) {
+  return rawGit(range ? ["diff", range, ...extraArgs] : ["diff", "--cached", ...extraArgs]);
 }
 
 /** The file as the reviewed diff leaves it. */
@@ -250,14 +253,15 @@ function rejected(reviewer, issues) {
 async function prSizeGate({ projectDir, config, range }) {
   const { ideal: sizeIdeal, limit: sizeWarn, source: sizeSource } = prSizeLimit({ projectDir, config });
   if (sizeWarn <= 0) return null;
-  const numstat = await rawDiff(range, ["--numstat"]);
+  const numstat = await rawDiff(range, ["-M", "--numstat", "-z"]);
+  const linesOf = await movedLines(numstat, (path) => rawGit(["show", showSpec(range, path)]));
   // KJC-BUG-0205: the budget caps CODE growth, so generated output and human
   // documentation are exempt — the same rule CI applies. Counting everything
   // here warned 234 lines on a doc-only PR that CI counted at 104, and two
   // implementations of one rule that disagree teach people to trust neither.
   // KJC-BUG-0434: measured NET, as CI and the policy's net_lines_added do — a rewrite in place is not growth.
-  const { added, testAdded } = budgetedAdded(numstat);
-  const { net, exempt } = budgetedNet(numstat);
+  const { added, testAdded } = budgetedAdded(numstat, linesOf);
+  const { net, exempt } = budgetedNet(numstat, linesOf);
   // Said out loud: an exemption nobody sees is indistinguishable from a gate
   // that is not looking.
   if (exempt > 0) console.log(`ℓ pr-size: ${exempt} line(s) exempt from the budget (generated output and human docs; AI-rule files always count)`);
@@ -350,7 +354,8 @@ async function policyGate({ projectDir, diff, pol, changedFiles, std, range, che
   // KJC-BUG-0208: el mismo modulo que decide el presupuesto decide el metrico
   // del invariante. Sumar aqui el numstat entero daba dos cifras para la misma
   // regla en dos lineas seguidas del mismo comando.
-  const { net } = budgetedNet(await rawDiff(range, ["--numstat"]));
+  const numstat = await rawDiff(range, ["-M", "--numstat", "-z"]);
+  const { net } = budgetedNet(numstat, await movedLines(numstat, (path) => rawGit(["show", showSpec(range, path)])));
   const gate = evaluatePolicyGate({
     policy: pol.policy, errors: pol.errors, files: changedFiles, netLinesAdded: net,
     diffHashValue: diffHash(diff),
