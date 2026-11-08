@@ -62,6 +62,21 @@ describe("kj worktree prune", () => {
     expect(r.kept[0].reasons.join()).toMatch(/not regenerable \(\.env\)/);
   });
 
+  // HU-3574 (#3554): the ignored config a lane inherits is setup; edited in the lane, it is the lane's.
+  it.each([["its own pattern", "kj.config.yml\n"], ["a whole ignored .karajan/", ".karajan/\n"]])("retires a lane holding the inherited local config (%s), keeps an edited one", async (_n, ignore) => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), ignore); git("add", ".gitignore"); git("commit", "-qm", "ignore");
+    fs.mkdirSync(path.join(dir, ".karajan"));
+    fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), "x: 1\n");
+    const edited = await lane("edited");
+    fs.writeFileSync(path.join(edited, ".karajan", "kj.config.yml"), "x: 2\n");
+    const inherited = await lane("inherited");
+    expect(fs.readFileSync(path.join(inherited, ".karajan", "kj.config.yml"), "utf8")).toBe("x: 1\n");
+    fs.writeFileSync(path.join(inherited, ".karajan", "rag.db"), "db");
+    const r = await prune();
+    expect(r.removed.map((l) => l.slug)).toEqual(["inherited"]);
+    expect(r.kept.map((l) => [l.slug, l.reasons.join()])).toEqual([["edited", expect.stringMatching(/not regenerable/)]]);
+  });
+
   it("a detached lane with commits of its own is kept", async () => {
     const p = await lane("det");
     execFileSync("git", ["-C", p, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "own"]);

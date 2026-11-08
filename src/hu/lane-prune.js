@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { isLaneSetupPath, laneWork } from "./lane-setup.js";
+import { isLaneSetupFile, laneWork } from "./lane-setup.js";
 import { readBootstrap } from "../rag/bootstrap-index.js";
 
 const IDLE_HOURS = 24;
@@ -77,7 +77,7 @@ const inside = (cwd, dir) => cwd === dir || cwd.startsWith(dir + path.sep);
 function onlyRagState(lanePath, dir) {
   try {
     return fs.readdirSync(path.join(lanePath, dir), { recursive: true, withFileTypes: true }).filter((d) => !d.isDirectory()) // symlinks and the like are the user's, never state
-      .every((d) => { const rel = path.relative(lanePath, path.join(d.parentPath, d.name)); return RAG_STATE.test(rel) || isLaneSetupPath(rel); });
+      .every((d) => { const rel = path.relative(lanePath, path.join(d.parentPath, d.name)); return RAG_STATE.test(rel) || isLaneSetupFile(lanePath, rel, true); });
   } catch { return false; }
 }
 const ragOnly = (lanePath, p) => RAG_STATE.test(p) || (p.endsWith("/") && onlyRagState(lanePath, p));
