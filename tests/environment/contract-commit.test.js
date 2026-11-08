@@ -121,6 +121,32 @@ describe("commitContract", () => {
     const res = commitContract({ projectDir: dir, env: { ...process.env, GIT_AUTHOR_NAME: "", GIT_COMMITTER_NAME: "", HOME: dir, GIT_CONFIG_NOSYSTEM: "1" } });
     expect(res.committed).toBe(false);
     expect(res.reason).toMatch(/git could not commit/);
+    // KJC-BUG-0522: nothing is left staged, so the seal can still run.
+    expect(git("diff", "--cached", "--name-only").trim()).toBe("");
+    expect(fs.existsSync(path.join(dir, "CLAUDE.md"))).toBe(true);
+    expect(git("status", "--porcelain", "--untracked-files=all")).toMatch(/CLAUDE\.md/);
+  });
+
+  it("a commit-msg hook that exits 1 leaves only the person's own staged file, in a repo with history", () => {
+    write("README.md", "# app\n");
+    write("CLAUDE.md", "# old\n");
+    git("add", "README.md", "CLAUDE.md");
+    git("commit", "-q", "-m", "chore: init");
+    git("checkout", "-q", "-b", "chore/kj");
+    const hooks = fs.mkdtempSync(path.join(os.tmpdir(), "kj-hooks-"));
+    try {
+      fs.writeFileSync(path.join(hooks, "commit-msg"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+      git("config", "core.hooksPath", hooks);
+      write("src/mine.js", "// mine\n");
+      git("add", "src/mine.js");
+      generate(); // CLAUDE.md modified (tracked) + three untracked files
+      const res = commitContract({ projectDir: dir });
+      expect(res.committed).toBe(false);
+      expect(git("diff", "--cached", "--name-only").trim()).toBe("src/mine.js");
+      expect(git("status", "--porcelain", "--untracked-files=all")).toMatch(/ M CLAUDE\.md/);
+    } finally {
+      fs.rmSync(hooks, { recursive: true, force: true });
+    }
   });
 
   // KJC-BUG-0302: after a version bump kj harden regenerates the contract AND the
