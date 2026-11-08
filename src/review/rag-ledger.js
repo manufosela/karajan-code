@@ -2,11 +2,16 @@
  * KJC-TSK-0849 (ADR 0010, RAG-C) — the session's RAG ledger as the review
  * sees it. The Sentinel records every RAG consultation per host session
  * (RAG-A) in `.karajan/harness/sentinel-state.json`. `kj review` runs as a
- * CLI and does not know the host's session id, so it takes the session with
- * the most recent activity (`at`): MONO-0 forbids two sessions mutating one
- * tree, so the last one that acted is the one now reviewing. Said here and
- * in the verdict (`sessionId`), never assumed in silence.
+ * CLI and does not know the host's session id. In a LANE (a linked worktree)
+ * one lane is one card, and `kj code` runs its coder as further sessions in
+ * it, so the ledger is the lane's: queries and hits of every session of the
+ * lane are joined. In the MAIN tree the state accumulates sessions of many
+ * days and tasks, and joining them would let a new session ride on queries
+ * made long ago, so it keeps the most recent session (`at`) alone.
+ * `sessions` says how many were read, `sessionId` is the most recent one.
+ * Said here and in the verdict, never assumed in silence.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { readLaneSentinelState } from "../harden/sentinel-lane-state.js";
@@ -44,6 +49,24 @@ export function readRagLedger(projectDir) {
   if (sessions.length === 0) {
     return { ...base, available: false, reason: "the sentinel state holds no session" };
   }
-  const [sessionId, s] = sessions.sort((a, b) => (b[1]?.at || 0) - (a[1]?.at || 0))[0];
-  return { ...base, available: true, sessionId, queries: Array.isArray(s?.rag_queries) ? s.rag_queries : [], hits: Array.isArray(s?.rag_hits) ? s.rag_hits : [] };
+  sessions.sort((a, b) => (b[1]?.at || 0) - (a[1]?.at || 0));
+  const read = isLane(root) ? sessions : sessions.slice(0, 1);
+  return { ...base, available: true, sessionId: sessions[0][0], sessions: read.length, ...joinSessions(read.map(([, s]) => s)) };
+}
+
+/** A linked worktree: `git rev-parse --git-dir` differs from `--git-common-dir`. */
+function isLane(dir) {
+  try {
+    const out = execFileSync("git", ["-C", dir, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const [gitDir, common] = out.trim().split("\n");
+    return Boolean(gitDir) && Boolean(common) && gitDir !== common;
+  } catch { return false; }
+}
+
+/** Joins the queries (sorted by `ts`) and the deduplicated hits of every session. */
+function joinSessions(list) {
+  const queries = list.flatMap((s) => (Array.isArray(s?.rag_queries) ? s.rag_queries : []));
+  queries.sort((a, b) => (a?.ts || 0) - (b?.ts || 0));
+  const hits = [...new Set(list.flatMap((s) => (Array.isArray(s?.rag_hits) ? s.rag_hits : [])))];
+  return { queries, hits };
 }

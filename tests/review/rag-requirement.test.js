@@ -120,7 +120,7 @@ describe("readRagLedger", () => {
         mute: { at: 3 },
       } }));
       // A hand-made harness dir is NOT verified (nothing here matches the installed kj).
-      expect(readRagLedger(dir)).toMatchObject({ harness: true, verified: false, available: true, sessionId: "mute", queries: [], hits: [] });
+      expect(readRagLedger(dir)).toMatchObject({ harness: true, verified: false, available: true, sessionId: "mute", sessions: 1, queries: [], hits: [] });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
