@@ -223,6 +223,46 @@ describe("thirdPartyReviewCommand", () => {
       expect(JSON.parse(out.text()).error).toMatch(/--reviewers/);
     }
   });
+
+  // KJC-TSK-1453 (#3462): --lessons reaches the reviewer fenced after the task, and is named in the review.
+  it("passes --lessons fenced in the task and as {file, count}, read at its real path (project dir resolved too)", async () => {
+    let seen = null;
+    const review = async (args) => { seen = args; return {}; };
+    fs.writeFileSync(path.join(dir, "l.json"), "[]");
+    fs.symlinkSync(dir, path.join(dir, "self"));
+    const readLessonsFile = async (file) => { expect(file).toBe(path.join(fs.realpathSync(dir), "l.json")); return [{ rule: "r1", reason: null, source: "#9" }]; };
+    const flags = { range: "a...b", task: "PR body", lessons: "l.json" };
+    expect(await thirdPartyReviewCommand({ flags, config: { projectDir: path.join(dir, "self") }, out: sink(), err: sink(), review, readLessonsFile })).toBe(0);
+    expect(seen.task).toMatch(/<<<END_UNTRUSTED_PR_CONTEXT>>>\n\n## Lessons learned[\s\S]*- r1 \(source: #9\)\n<<<END_UNTRUSTED_REPO_LESSONS>>>$/);
+    expect(seen.lessons).toEqual({ file: "l.json", count: 1 });
+  });
+
+  it("returns a JSON error and never reviews when the lessons file is bad", async () => {
+    const review = vi.fn();
+    const out = sink();
+    const readLessonsFile = async () => { throw new Error("lessons file l.json: entry 0 has no rule"); };
+    fs.writeFileSync(path.join(dir, "l.json"), "[]");
+    expect(await thirdPartyReviewCommand({ flags: { range: "a...b", lessons: "l.json" }, config: { projectDir: dir }, out, err: sink(), review, readLessonsFile })).toBe(1);
+    expect(JSON.parse(out.text())).toEqual({ error: "lessons file l.json: entry 0 has no rule" });
+    expect(review).not.toHaveBeenCalled();
+  });
+
+  it("refuses a lessons file outside the reviewed repository before reading it, through a symbolic link too", async () => {
+    const review = vi.fn();
+    const readLessonsFile = vi.fn();
+    const repo = path.join(dir, "repo");
+    fs.mkdirSync(repo);
+    fs.writeFileSync(path.join(dir, "secret.json"), "[]");
+    fs.symlinkSync(path.join(dir, "secret.json"), path.join(repo, "link.json"));
+    fs.symlinkSync(dir, path.join(repo, "up"));
+    for (const lessons of ["/etc/passwd", "../outside.json", "link.json", "up/secret.json"]) {
+      const out = sink();
+      expect(await thirdPartyReviewCommand({ flags: { range: "a...b", lessons }, config: { projectDir: repo }, out, err: sink(), review, readLessonsFile })).toBe(1);
+      expect(JSON.parse(out.text()).error).toMatch(/must be inside the reviewed repository/);
+    }
+    expect(readLessonsFile).not.toHaveBeenCalled();
+    expect(review).not.toHaveBeenCalled();
+  });
 });
 
 // KJC-TSK-1248 (#2623): two families review the range on their own and verify each other's findings.
@@ -327,5 +367,9 @@ describe("thirdPartyReview with skills for the repo's stack", () => {
     expect(stackOf).not.toHaveBeenCalled();
     expect(run.mock.calls[0][0].skills).toBeNull();
     expect(res.repoContext.skills).toEqual({ source: "the reviewed repo's atril store" });
+    expect(res.repoContext).not.toHaveProperty("lessons");
+    // KJC-TSK-1453 (#3462): the lessons used are named next to the skills.
+    const withLessons = await thirdPartyReview({ range: "main...pr", config: cfg, projectDir: dir, logger: { info() {} }, run, ...deps, hasStore: () => true, lessons: { file: "l.json", count: 2 } });
+    expect(withLessons.repoContext.lessons).toEqual({ file: "l.json", count: 2 });
   });
 });
