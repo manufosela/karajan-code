@@ -31,7 +31,21 @@ afterEach(() => {
 
 describe('lastStageState', () => {
   it('is all null in a project without records', () => {
-    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, working: [] });
+    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, working: [], cards: [] });
+  });
+
+  // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card, in its lane.
+  it('folds the card trace into the last state of each card, with its lane', () => {
+    writeFileSync(kj('harness', 'cards.jsonl'), jsonl(
+      { at: '2026-11-08T10:00:00Z', action: 'add', id: 'HU-1', title: 'Login', status: 'pending' },
+      { at: '2026-11-08T10:01:00Z', action: 'add', id: 'HU-2', title: 'Logout', status: 'pending' },
+      { at: '2026-11-08T10:02:00Z', action: 'move', id: 'HU-1', status: 'running' },
+      { at: '2026-11-08T10:03:00Z', action: 'move', id: 'HU-2', status: 'done', queued: true },
+    ));
+    expect(lastStageState(proj, { lane: 'feat-x' }).cards).toEqual([
+      { id: 'HU-2', title: 'Logout', status: 'pending', lane: 'feat-x', at: '2026-11-08T10:01:00Z' },
+      { id: 'HU-1', title: 'Login', status: 'running', lane: 'feat-x', at: '2026-11-08T10:02:00Z' },
+    ]);
   });
 
   it('names the agents still at work: a recent start with no end (KJC-TSK-1430)', () => {
@@ -91,7 +105,7 @@ describe('GET /api/stage/state', () => {
     const { default: apiRoutes } = await import('../src/routes/api.js');
     const app = express().use('/api', apiRoutes);
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
-    const empty = { denial: null, verdict: null, seal: null, gate: null, working: [] };
+    const empty = { denial: null, verdict: null, seal: null, gate: null, working: [], cards: [] };
     expect(ok.body).toEqual({ ...empty, lanes: [{ lane: 'main', ...empty }] });
     await request(app).get('/api/stage/state?project=nowhere').expect(400);
     await request(app).get('/api/stage/state').expect(400);
