@@ -36,13 +36,14 @@ describe('groundAt', () => {
 });
 
 describe('lotAt', () => {
-  const origins = [{ x: -15, z: 0 }, { x: 15, z: 0 }];
-  const size = { width: 30, depth: 20 };
+  // KJC-TSK-1467: each lot its own width; the floor runs from 9.5 m behind its origin to 6 m in front.
+  const lots = [{ x: -15, z: 0, width: 26 }, { x: 10, z: 0, width: 20 }];
 
-  it('names the factory whose floor holds the point (the aisle is on no floor)', () => {
-    expect(lotAt({ x: -15, z: 3 }, origins, size, 4)).toBe(0);
-    expect(lotAt({ x: 20, z: -1.75 }, origins, size, 4)).toBe(1);
-    expect(lotAt({ x: 0, z: 0 }, origins, size, 4)).toBe(-1);
-    expect(lotAt(null, origins, size, 4)).toBe(-1);
+  it('names the factory whose floor holds the point (the gap is on no floor)', () => {
+    expect(lotAt({ x: -15, z: 3 }, lots)).toBe(0);
+    expect(lotAt({ x: 19, z: -9 }, lots)).toBe(1);
+    expect(lotAt({ x: -1, z: 0 }, lots)).toBe(-1);
+    expect(lotAt({ x: 10, z: 6.5 }, lots)).toBe(-1);
+    expect(lotAt(null, lots)).toBe(-1);
   });
 });

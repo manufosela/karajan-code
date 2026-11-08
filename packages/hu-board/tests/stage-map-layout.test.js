@@ -1,58 +1,50 @@
 // KJC-TSK-1452 (ADR 0049): where each factory stands on the map of every factory.
 import { describe, expect, it } from 'vitest';
 
-import { AISLE, LOT, lotOrigin, lotSize, mapSize } from '../public/stage/map-layout.js';
+import { FLOOR_Z, GAP, packLots } from '../public/stage/map-layout.js';
 import { hallWidth } from '../public/stage/layout.js';
 
-describe('lotOrigin', () => {
-  it('puts a lone factory at the centre of the map', () => {
-    expect(lotOrigin(0, 1)).toEqual({ x: 0, z: 0 });
+const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
+const floorMid = ({ z }) => z + (FLOOR_Z.back + FLOOR_Z.front) / 2;
+const overlap = (a, b) =>
+  Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(floorMid(a) - floorMid(b)) < DEPTH;
+
+describe('packLots (KJC-TSK-1467)', () => {
+  it('gives each factory only its own hall plus 1 m a side, not the widest one', () => {
+    const { lots } = packLots([12, 1, 2]);
+    expect(lots.map(({ width }) => width)).toEqual([hallWidth(12) + 2, hallWidth(1) + 2, hallWidth(2) + 2]);
   });
 
-  it('lays the factories in a near-square grid, the first one at the back left', () => {
-    const lots = Array.from({ length: 4 }, (_, i) => lotOrigin(i, 4));
-    expect(lots).toEqual([
-      { x: -LOT.width / 2, z: -LOT.depth / 2 },
-      { x: LOT.width / 2, z: -LOT.depth / 2 },
-      { x: -LOT.width / 2, z: LOT.depth / 2 },
-      { x: LOT.width / 2, z: LOT.depth / 2 },
-    ]);
+  it('puts a lone factory with its floor at the centre of the map', () => {
+    const { lots, width, depth } = packLots([1]);
+    expect(lots[0].x).toBe(0);
+    expect(floorMid(lots[0])).toBeCloseTo(0);
+    expect({ width, depth }).toEqual({ width: hallWidth(1) + 2, depth: DEPTH });
   });
 
-  it('never puts two factories on the same lot', () => {
-    const lots = Array.from({ length: 10 }, (_, i) => lotOrigin(i, 10));
-    expect(new Set(lots.map(({ x, z }) => `${x},${z}`)).size).toBe(10);
+  it('leaves only the gap between neighbours of a row, the first at the back left', () => {
+    const { lots } = packLots([1, 1, 1, 1]);
+    const [a, b] = lots;
+    expect(b.x - a.x).toBeCloseTo((a.width + b.width) / 2 + GAP);
+    expect(a.z).toBe(b.z);
+    expect(lots[2].z - a.z).toBeCloseTo(DEPTH + GAP);
   });
 
-  it('keeps the grid centred, so the camera looks at the middle of the map', () => {
-    const lots = Array.from({ length: 9 }, (_, i) => lotOrigin(i, 9));
-    expect(lots.reduce((sum, { x }) => sum + x, 0)).toBeCloseTo(0);
-    expect(lots.reduce((sum, { z }) => sum + z, 0)).toBeCloseTo(0);
-  });
-});
-
-describe('lotSize', () => {
-  it('fits the widest hall plus an aisle, not the 80 m floor of the single view', () => {
-    const lot = lotSize([1, 2]);
-    expect(lot.width).toBe(hallWidth(2) + AISLE + 2);
-    expect(lot.width).toBeLessThan(30);
-    expect(lot).toEqual(lotSize([2]));
+  it('packs many factories into a near-square map with no two floors overlapping', () => {
+    const counts = [12, 3, 1, 1, 2, 1, 1, 1, 4, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1];
+    const { lots, width, depth } = packLots(counts);
+    for (const [i, a] of lots.entries()) for (const b of lots.slice(i + 1)) expect(overlap(a, b)).toBe(false);
+    expect(width / depth).toBeGreaterThan(0.5);
+    expect(width / depth).toBeLessThan(3);
+    const area = lots.reduce((sum, { width: w }) => sum + w * DEPTH, 0);
+    expect(area / (width * depth)).toBeGreaterThan(0.6); // little empty floor left
   });
 
-  it('grows with the hall that has the most lanes', () => {
-    expect(lotSize([1, 12]).width).toBe(hallWidth(12) + AISLE + 2);
-  });
-
-  it('places the lots with the size given', () => {
-    const lot = { width: 30, depth: 20 };
-    expect(lotOrigin(1, 2, lot)).toEqual({ x: 15, z: 0 });
-    expect(mapSize(4, lot)).toEqual({ width: 60, depth: 40 });
-  });
-});
-
-describe('mapSize', () => {
-  it('is as wide and deep as its columns and rows of lots', () => {
-    expect(mapSize(1)).toEqual({ width: LOT.width, depth: LOT.depth });
-    expect(mapSize(5)).toEqual({ width: 3 * LOT.width, depth: 2 * LOT.depth });
+  it('keeps the map centred and inside its bounds', () => {
+    const { lots, width, depth } = packLots([5, 1, 2, 1, 1, 3, 1]);
+    for (const lot of lots) {
+      expect(Math.abs(lot.x) + lot.width / 2).toBeLessThanOrEqual(width / 2 + 1e-9);
+      expect(Math.abs(floorMid(lot)) + DEPTH / 2).toBeLessThanOrEqual(depth / 2 + 1e-9);
+    }
   });
 });

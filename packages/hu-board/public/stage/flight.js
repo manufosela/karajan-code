@@ -24,11 +24,9 @@ export function groundAt(origin, dir) {
   return { x: origin.x + dir.x * t, z: origin.z + dir.z * t };
 }
 
-/** The index of the factory whose floor (its lot less the `aisle`) holds `point`, or -1. */
-export function lotAt(point, origins, size, aisle) {
+/** The index of the factory whose floor holds `point`, from the `{ x, z, width }` of each lot, or -1. */
+export function lotAt(point, lots) {
   if (!point) return -1;
-  const halfW = (size.width - aisle) / 2;
-  const halfD = (size.depth - aisle) / 2;
-  const midZ = (FLOOR_Z.back + FLOOR_Z.front) / 2;
-  return origins.findIndex(({ x, z }) => Math.abs(point.x - x) <= halfW && Math.abs(point.z - (z + midZ)) <= halfD);
+  return lots.findIndex(({ x, z, width }) =>
+    Math.abs(point.x - x) <= width / 2 && point.z >= z + FLOOR_Z.back && point.z <= z + FLOOR_Z.front);
 }
