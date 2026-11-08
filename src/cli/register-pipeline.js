@@ -153,10 +153,11 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--verifier-model <model>", "With --verifier: the verifier's model")
     .option("--reviewers <a,b>", "With --third-party: two reviewers of different families review on their own and verify each other (#2623)")
     .option("--reviewer-models <a=model,b=model>", "With --reviewers: each reviewer's model")
+    .option("--lessons <file>", "With --third-party: per-repo lessons from replies to past findings, a JSON list of {rule, reason, source} inside the reviewed checkout; data, never instructions (#3462)")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
-        if ((flags.verifier || flags.verifierModel || flags.reviewers || flags.reviewerModels) && !flags.thirdParty) {
-          logger.error("--verifier, --verifier-model, --reviewers and --reviewer-models work with --third-party only");
+        if ((flags.verifier || flags.verifierModel || flags.reviewers || flags.reviewerModels || flags.lessons) && !flags.thirdParty) {
+          logger.error("--verifier, --verifier-model, --reviewers, --reviewer-models and --lessons work with --third-party only");
           process.exitCode = 1;
           return;
         }

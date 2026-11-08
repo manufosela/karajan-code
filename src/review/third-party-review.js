@@ -17,6 +17,7 @@ import { batchDiff, splitByFile } from "./diff-batches.js";
 import { ceilingOf, isTooLarge, measureCode, tooLargeSummary } from "./third-party-size.js";
 import { lensTask } from "./review-lens.js";
 import { thirdPartyTask, THIRD_PARTY_INSTRUCTION } from "./untrusted-context.js";
+import { lessonsPath, lessonsTask, readLessons } from "./review-lessons.js";
 import { baseOf, readRepoDocs, repoDocsTask } from "./repo-docs.js";
 import { detectStack } from "./repo-stack.js";
 import { thirdPartySkills } from "./third-party-skills.js";
@@ -43,7 +44,7 @@ const finding = (i) => ({
 });
 
 /** The review as data: verdict, findings, suggestions, security checks and, apart, the house requirements. */
-export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null, repoDocs = readRepoDocs, hasStore = hasAtrilStore, stackOf = detectStack, skillsFor = thirdPartySkills }) {
+export async function thirdPartyReview({ range, config, projectDir, logger, task = null, gitDiff = gitDiffOf, run = runOneShotReview, requirements = prRequirementChecks, security = prSecurityChecks, sonar = sonarCheck, limit = DIFF_CLIP_CHARS, maxBatches = MAX_REVIEW_BATCHES, sizeLimit = null, verifier = null, verifierModel = null, verify = verifyFindings, reviewers = null, repoDocs = readRepoDocs, hasStore = hasAtrilStore, stackOf = detectStack, skillsFor = thirdPartySkills, lessons = null }) {
   const reviewerRole = assertPanel({ config, verifier, verifierModel, reviewers, logger });
   const diff = await gitDiff(projectDir, range);
   const budget = () => sizeLimit ?? prSizeLimit({ projectDir, config }).limit;
@@ -65,6 +66,8 @@ export async function thirdPartyReview({ range, config, projectDir, logger, task
   // KJC-TSK-1272 (#2753): a repo with no atril store gets skills for its stack; the temporary store goes after the review.
   const stackSkills = await gatherStackSkills({ projectDir, range, config, logger, hasStore, stackOf, skillsFor });
   repoContext.skills = stackSkills.report;
+  // KJC-TSK-1453 (#3462): the per-repo lessons the task carries, named next to the skills.
+  if (lessons) repoContext.lessons = lessons;
   const reviewWith = async (who, cfg) => {
     const recs = [];
     for (const batch of batches) recs.push(await run({ diff: batch.text, task: reviewTask, config: cfg, logger, projectDir, reviewerOverride: who, persist: false, skills: stackSkills.block }));
@@ -218,7 +221,7 @@ function assertThirdPartyFlags(flags) {
  * Exit 0 whatever the PR's verdict (the agent decides what to post); non-zero
  * only when kj itself fails.
  */
-export async function thirdPartyReviewCommand({ flags, config, out = process.stdout, err = process.stderr, review = thirdPartyReview, readTask = readTaskFile }) {
+export async function thirdPartyReviewCommand({ flags, config, out = process.stdout, err = process.stderr, review = thirdPartyReview, readTask = readTaskFile, readLessonsFile = readLessons }) {
   const print = (doc) => out.write(`${JSON.stringify(doc)}\n`);
   if (!flags.range) {
     print({ error: "--third-party reviews a range: pass --range <base>...<head>" });
@@ -231,10 +234,13 @@ export async function thirdPartyReviewCommand({ flags, config, out = process.std
     assertThirdPartyFlags(flags);
     // KJC-TSK-1153: the PR author's text, fenced as untrusted; KJC-TSK-1117: a lens puts its rubric first.
     const context = flags.taskFile ? await readTask(flags.taskFile, { projectDir }) : flags.task;
-    const task = await lensTask(flags.lens ?? null, thirdPartyTask(context ?? null));
+    const lensed = await lensTask(flags.lens ?? null, thirdPartyTask(context ?? null));
+    // KJC-TSK-1453 (#3462): per-repo lessons from replies to past findings, fenced as untrusted data.
+    const lessons = flags.lessons ? await readLessonsFile(await lessonsPath(projectDir, flags.lessons)) : [];
+    const task = lessonsTask(lensed, lessons);
     if (flags.verifierModel && !flags.verifier) throw new Error("--verifier-model needs --verifier <provider>");
     const reviewers = reviewersOf(flags);
-    print(await review({ range: flags.range, config, projectDir, logger, task, verifier: flags.verifier ?? null, verifierModel: flags.verifierModel ?? null, ...(reviewers && { reviewers }) }));
+    print(await review({ range: flags.range, config, projectDir, logger, task, verifier: flags.verifier ?? null, verifierModel: flags.verifierModel ?? null, ...(reviewers && { reviewers }), ...(flags.lessons && { lessons: { file: flags.lessons, count: lessons.length } }) }));
     return 0;
   } catch (e) {
     print({ error: e.message });
