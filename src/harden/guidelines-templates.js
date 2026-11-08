@@ -7,6 +7,8 @@
  * bloat dilutes the signal. Distilled from the dev-toolkit guidelines.
  */
 
+import { commitConventionPhrase } from "../gates/summary.js";
+
 // KJC-BUG-0199 (issue #1773, reported from the field): this used to be ONE
 // fixed text, so a Python project was told to use `const`, target ES2025 and
 // prefer ES modules over require. These rules enter the agent's context on
@@ -84,11 +86,18 @@ export const LANGUAGE_GUIDELINES = {
  */
 const ALIASES = { typescript: "javascript" };
 
+/** KJC-BUG-0510: the commit line follows the project's resolved commit-convention. */
+function coreFor(commitConvention) {
+  if (commitConvention === "conventional") return CORE;
+  const line = `- Commits follow ${commitConventionPhrase(commitConvention)}. Header <=100 chars.`;
+  return CORE.map((l) => (l.startsWith("- Conventional Commits") ? line : l));
+}
+
 /** The guidelines body for a language (unknown or absent ⇒ the core alone). */
-export function guidelinesBody(language = null) {
+export function guidelinesBody(language = null, { commitConvention = "conventional" } = {}) {
   const key = String(language || "").toLowerCase();
   const extra = LANGUAGE_GUIDELINES[ALIASES[key] ?? key] ?? [];
-  return [...CORE, ...extra].join("\n");
+  return [...coreFor(commitConvention), ...extra].join("\n");
 }
 
 /** Back-compat for callers that predate the language split. */

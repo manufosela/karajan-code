@@ -11,6 +11,24 @@ export function resolvedWithSignals({ config, projectDir, signals = projectSigna
   return { ...resolveRules(config, { project }), conflicts, stale };
 }
 
+/** KJC-BUG-0510: the project's resolved commit-convention (conventional, project or free). */
+export function commitConventionOf({ config, projectDir, signals }) {
+  return resolvedWithSignals({ config, projectDir, signals }).adjustable.find((r) => r.id === "commit-convention").value;
+}
+
+const COMMIT_PHRASES = {
+  conventional: "Conventional Commits",
+  project: "the project's own commitlint convention",
+  free: "the commit style of the project's history",
+};
+
+/** How the text kj writes into AGENTS.md/CLAUDE.md names a commit-convention value. */
+export function commitConventionPhrase(value) {
+  const phrase = COMMIT_PHRASES[value];
+  if (!phrase) throw new Error(`unknown commit-convention "${value}"`);
+  return phrase;
+}
+
 /** The lines kj init closes with. */
 export function rulesAtClose({ config, projectDir, signals }) {
   return ["", ...formatRules(resolvedWithSignals({ config, projectDir, signals })).split("\n")];
