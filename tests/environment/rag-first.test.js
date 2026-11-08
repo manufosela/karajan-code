@@ -36,6 +36,8 @@ vi.mock("../../src/environment/board-access.js", () => ({
   verifyBoardAccess: vi.fn(() => ({ ok: true, backend: "hu-board", via: "bundled HU Board" })),
 }));
 
+// HU-3529: the personal wiring would run the real `claude mcp add` here.
+vi.mock("../../src/environment/mcp-wiring.js", () => ({ installProjectMcp: vi.fn(() => ({ wired: true })) }));
 import { envInstallCommand } from "../../src/commands/env.js";
 import { getLastIndexedCommit } from "../../src/rag/vec-store.js";
 import { ragIndexCommand } from "../../src/commands/rag.js";
