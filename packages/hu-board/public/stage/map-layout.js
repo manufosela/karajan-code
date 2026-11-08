@@ -1,33 +1,48 @@
-// KJC-TSK-1452 (ADR 0049): where each factory stands on the map, in metres. The
-// lots fill a near-square grid, centred, the busiest factory (first in the list) at
-// the back left. KJC-TSK-1454: a lot is as big as the widest hall, plus an aisle.
+// KJC-TSK-1452 (ADR 0049): where each factory stands on the map, in metres, the
+// busiest factory (first in the list) at the back left. KJC-TSK-1467: each lot is
+// only as wide as its own hall, and the lots are packed in rows with a narrow gap;
+// one lot as wide as the widest hall left the small factories in a sea of floor.
 import { hallWidth } from './layout.js';
 
 /** The hall from behind its door to past its nameplates, along z (layout.js). */
 export const FLOOR_Z = { back: -9.5, front: 6 };
-export const AISLE = 4;
+export const GAP = 1.5;
+const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
+const MID = (FLOOR_Z.back + FLOOR_Z.front) / 2;
+const WIDER = 1.5; // rows a little wider than a square, as the screen is
 
-/** The lot every factory gets, from the lane count of each; the floor is 1 m wider each side than the hall. */
-export function lotSize(laneCounts) {
-  return { width: Math.max(...laneCounts.map(hallWidth)) + 2 + AISLE, depth: FLOOR_Z.front - FLOOR_Z.back + AISLE };
+/** Splits the widths into rows of about `target` metres, in order. */
+function rowsOf(widths, target) {
+  const rows = [];
+  for (const [i, width] of widths.entries()) {
+    const row = rows.at(-1);
+    if (row && row.width + GAP + width <= target) {
+      row.items.push(i);
+      row.width += GAP + width;
+    } else rows.push({ items: [i], width });
+  }
+  return rows;
 }
 
-export const LOT = lotSize([1]);
-
-const grid = (n) => {
-  const cols = Math.ceil(Math.sqrt(n));
-  return { cols, rows: Math.ceil(n / cols) };
-};
-
-/** The centre of factory `i`'s lot of `n`. */
-export function lotOrigin(i, n, lot = LOT) {
-  const { cols, rows } = grid(n);
-  const along = (k, count, size) => (k - (count - 1) / 2) * size;
-  return { x: along(i % cols, cols, lot.width), z: along(Math.floor(i / cols), rows, lot.depth) };
-}
-
-/** How wide and deep the map of `n` factories is, so the camera can fit it. */
-export function mapSize(n, lot = LOT) {
-  const { cols, rows } = grid(n);
-  return { width: cols * lot.width, depth: rows * lot.depth };
+/**
+ * Each factory's lot from the lane count of each: `lots[i]` is the origin of its
+ * hall and the width of its floor (1 m wider each side than the hall); `width` and
+ * `depth` are the bounds of the whole map, centred on 0.
+ */
+export function packLots(laneCounts) {
+  const widths = laneCounts.map((n) => hallWidth(n) + 2);
+  const area = widths.reduce((sum, w) => sum + (w + GAP) * (DEPTH + GAP), 0);
+  const rows = rowsOf(widths, Math.max(...widths, Math.sqrt(area * WIDER)));
+  const width = Math.max(...rows.map((row) => row.width));
+  const depth = rows.length * DEPTH + (rows.length - 1) * GAP;
+  const lots = [];
+  for (const [r, row] of rows.entries()) {
+    const z = -depth / 2 + DEPTH / 2 + r * (DEPTH + GAP) - MID;
+    let left = -row.width / 2;
+    for (const i of row.items) {
+      lots[i] = { x: left + widths[i] / 2, z, width: widths[i] };
+      left += widths[i] + GAP;
+    }
+  }
+  return { lots, width, depth };
 }

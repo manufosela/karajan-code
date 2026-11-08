@@ -3,7 +3,7 @@
 // taken to the factory of its project. A click on a factory flies there (KJC-TSK-1455).
 import * as THREE from 'three';
 import { buildFactory, createFactory, createFloor, framing } from './factory.js';
-import { AISLE, FLOOR_Z, lotOrigin, lotSize, mapSize } from './map-layout.js';
+import { FLOOR_Z, packLots } from './map-layout.js';
 import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
 import { tagAt } from './screen.js';
@@ -25,20 +25,19 @@ function buildMap(canvas, factories, { instant, onView }) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer, { floor: false, far: 3000 });
-  // KJC-TSK-1454: every lot as big as the widest hall, its floor just under the hall.
-  const size = lotSize(factories.map(({ lanes }) => lanes.length));
+  // KJC-TSK-1467: each lot as wide as its own hall, packed in rows; its floor just under the hall.
+  const bounds = packLots(factories.map(({ lanes }) => lanes.length));
+  const { lots } = bounds;
   const placed = factories.map(({ project, lanes }, i) => {
     const lot = new THREE.Group();
-    const { x, z } = lotOrigin(i, factories.length, size);
-    lot.position.set(x, 0, z);
-    const floor = createFloor(size.width - AISLE, size.depth - AISLE);
+    lot.position.set(lots[i].x, 0, lots[i].z);
+    const floor = createFloor(lots[i].width, FLOOR_Z.front - FLOOR_Z.back);
     floor.position.z = (FLOOR_Z.back + FLOOR_Z.front) / 2;
     lot.add(floor);
     scene.add(lot);
     return { project, lanes, lot, ...buildFactory(lot, lanes.map((l) => l.lane)) };
   });
   const render = () => renderer.render(scene, camera);
-  const bounds = mapSize(factories.length, size);
   let zoom = 1;
   const refit = () => {
     renderer.setSize(innerWidth, innerHeight, false);
@@ -61,8 +60,7 @@ function buildMap(canvas, factories, { instant, onView }) {
     refit();
   });
   // KJC-TSK-1455: a click (a press that did not drag) on a factory's floor flies there.
-  const origins = placed.map(({ lot }) => lot.position);
-  const factoryZoom = () => framing(size.width, camera.aspect).length() / framing(Math.max(bounds.width, bounds.depth * camera.aspect), camera.aspect).length();
+  const factoryZoom = (i) => framing(lots[i].width, camera.aspect).length() / framing(Math.max(bounds.width, bounds.depth * camera.aspect), camera.aspect).length();
   let pressed = null;
   canvas.addEventListener('pointerdown', (e) => { pressed = { x: e.clientX, y: e.clientY }; });
   canvas.addEventListener('pointerup', (e) => {
@@ -70,9 +68,9 @@ function buildMap(canvas, factories, { instant, onView }) {
     pressed = null;
     if (!click) return;
     const ray = new THREE.Vector3((e.clientX / innerWidth) * 2 - 1, 1 - (e.clientY / innerHeight) * 2, 0.5).unproject(camera).sub(camera.position);
-    const i = lotAt(groundAt(camera.position, ray), origins, size, AISLE);
-    if (i < 0) return; // the aisle between factories
-    const to = { x: origins[i].x, z: origins[i].z + HALL_LOOK_Z, zoom: Math.max(MAP_ZOOM.min, factoryZoom()) };
+    const i = lotAt(groundAt(camera.position, ray), lots);
+    if (i < 0) return; // the gap between factories
+    const to = { x: lots[i].x, z: lots[i].z + HALL_LOOK_Z, zoom: Math.max(MAP_ZOOM.min, factoryZoom(i)) };
     // Someone who asked for no motion lands at once.
     flight = { from: { x: target.x, z: target.z, zoom }, to, start: performance.now() - (instant ? FLIGHT_MS : 0) };
     onView();
