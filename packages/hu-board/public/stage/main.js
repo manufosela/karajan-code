@@ -96,6 +96,7 @@ async function startMapView() {
     if (!body.length) { tell(['The board knows no project with a folder on this machine: there is no factory to show.']); return; }
     const { startMap } = await import('./map.js');
     startMap({ canvas, factories: body, token, tell, counts: document.getElementById('stage-counts') });
+    status.classList.add('stage-unseen'); // KJC-TSK-1466: once the map is up its lines only speak to screen readers
   } catch (err) {
     tell([`The board did not answer (${err.message})`]);
   }
