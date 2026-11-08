@@ -19,6 +19,7 @@ import { commitSupervisorRegeneration } from "../harden/supervisor-commit.js";
 import { installConfigsForRoots } from "../harden/config-engine.js";
 import { readHardenConfig } from "../harden/harden-scope.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
+import { commitConventionOf } from "../gates/summary.js";
 import { maybeRulesyncGenerate } from "../utils/rulesync.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
@@ -239,11 +240,15 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
   const withGuidelines = guidelines && full;
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
   // the configs already use — a Python project must not be told to use `const`.
-  const gl = withGuidelines ? installGuidelines({ projectDir, language, dryRun }) : null;
+  let kjConfig = null;
+  if (withGuidelines) {
+    try { kjConfig = (await loadConfig(projectDir))?.config; } catch { /* no kj config: not opted in */ }
+  }
+  // KJC-BUG-0510: the guidelines name the commit convention the project really uses.
+  const commitConvention = withGuidelines ? commitConventionOf({ config: kjConfig, projectDir }) : undefined;
+  const gl = withGuidelines ? installGuidelines({ projectDir, language, dryRun, commitConvention }) : null;
   // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
   if (withGuidelines && !dryRun) {
-    let kjConfig = null;
-    try { kjConfig = (await loadConfig(projectDir))?.config; } catch { /* no kj config: not opted in */ }
     maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
   }
   return { configs: cfg?.configs ?? [], workflows: wf?.workflows ?? [], guidelines: gl?.guidelines ?? [] };
