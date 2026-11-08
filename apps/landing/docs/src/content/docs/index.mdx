@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.8.0: your agent orchestrates, kj code writes (current)
+### v5.9.0: the method in use, and local gates that judge like CI (current)
+
+The first day of `kj code` writing the cards and the host orchestrating found the friction in that flow and fixed it: the review counts the RAG answers of every session of the lane, the coder no longer locks the host out of its lane, and a new lane gets your local `kj.config.yml`. `kj review --third-party --lessons <file>` lets a reviewer of other people's PRs pass the lessons of each repo, as untrusted data. The commit hook and the size budget now judge the way CI does, and `kj stage` shows the map of your factories with their task boards.
+
+### v5.8.0: your agent orchestrates, kj code writes
 
 Your agent plans each card with a tier (`kj hu add --tier`) and `kj code --card <id> --brief` writes it in a clean context on the model of its tier, as `kj run` did before 5.0; a rejected review climbs with `--retry`. The Sentinel stops your agent once before it writes a planned card itself. On the same task, 4.70's `kj run` cost $1.74 on Claude and 5.8.0's method $1.41. The Sentinel's hooks live in each developer's `.claude/settings.local.json`, so a teammate without kj is never blocked.
 
