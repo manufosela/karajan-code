@@ -1,17 +1,18 @@
 // KJC-TSK-1452 (ADR 0049): the map of every factory of the user. One factory per
 // known project on its lot, the busiest first; one stream for them all, each event
-// taken to the factory of its project. Zoom levels and the flight come later (8d).
+// taken to the factory of its project. The flight to a factory comes later (8d-2).
 import * as THREE from 'three';
 import { buildFactory, createFactory, createFloor, framing } from './factory.js';
-import { mapSize, lotOrigin } from './map-layout.js';
+import { AISLE, FLOOR_Z, lotOrigin, lotSize, mapSize } from './map-layout.js';
 import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
 import { tagAt } from './screen.js';
 import { withToken } from './token.js';
-import { listenZoom } from './zoom.js';
+import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 
-const NAME_OVER = new THREE.Vector3(0, 9, -8); // the factory's name floats over its back wall
+const NAME_OVER = new THREE.Vector3(0, 2.5, -8.5); // the factory's name stands at the back of its floor
+const MAP_ZOOM = { min: 0.06, max: 1.3 }; // the closest shows one workshop whole
 
 /** The scene of the map with every factory on its lot; returns the factories and the render. */
 function buildMap(canvas, factories) {
@@ -19,28 +20,39 @@ function buildMap(canvas, factories) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer, { floor: false, far: 3000 });
+  // KJC-TSK-1454: every lot as big as the widest hall, its floor just under the hall.
+  const size = lotSize(factories.map(({ lanes }) => lanes.length));
   const placed = factories.map(({ project, lanes }, i) => {
     const lot = new THREE.Group();
-    const { x, z } = lotOrigin(i, factories.length);
+    const { x, z } = lotOrigin(i, factories.length, size);
     lot.position.set(x, 0, z);
-    lot.add(createFloor());
+    const floor = createFloor(size.width - AISLE, size.depth - AISLE);
+    floor.position.z = (FLOOR_Z.back + FLOOR_Z.front) / 2;
+    lot.add(floor);
     scene.add(lot);
     return { project, lanes, lot, ...buildFactory(lot, lanes.map((l) => l.lane)) };
   });
   const render = () => renderer.render(scene, camera);
-  const { width, depth } = mapSize(factories.length);
+  const bounds = mapSize(factories.length, size);
   let zoom = 1;
   const refit = () => {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
     // Wide enough for every column and, seen at three quarters, every row.
-    camera.position.copy(target).add(framing(Math.max(width, depth * camera.aspect), camera.aspect).multiplyScalar(zoom));
+    camera.position.copy(target).add(framing(Math.max(bounds.width, bounds.depth * camera.aspect), camera.aspect).multiplyScalar(zoom));
     camera.lookAt(target);
     camera.updateProjectionMatrix();
     render();
   };
   addEventListener('resize', refit);
-  listenZoom(canvas, (k) => { zoom = k; refit(); });
+  // From the whole map down to one workshop; dragging walks over the map at any zoom.
+  listenZoom(canvas, (k) => { zoom = k; refit(); }, MAP_ZOOM);
+  listenPan(canvas, (dx, dy) => {
+    const metresPerPx = (2 * camera.position.distanceTo(target) * Math.tan((camera.fov * Math.PI) / 360)) / innerHeight;
+    const next = panTarget(target, dx, dy, metresPerPx, bounds);
+    target.set(next.x, 0, next.z);
+    refit();
+  });
   refit();
   return { placed, camera, render, refit };
 }

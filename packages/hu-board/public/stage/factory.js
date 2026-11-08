@@ -12,8 +12,8 @@ const FLOOR = { width: 80, depth: 40, px: 32 };
 const FOV = 36;
 
 /** The floor tiles and their seams, one per metre (the trimmed bundle has no GridHelper nor RepeatWrapping). */
-function tileTexture() {
-  const canvas = Object.assign(document.createElement('canvas'), { width: FLOOR.width * FLOOR.px, height: FLOOR.depth * FLOOR.px });
+function tileTexture(width, depth) {
+  const canvas = Object.assign(document.createElement('canvas'), { width: width * FLOOR.px, height: depth * FLOOR.px });
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#1b2430';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -26,9 +26,9 @@ function tileTexture() {
   return texture;
 }
 
-/** One hall's tiled floor; the map lays one under each factory (KJC-TSK-1452). */
-export function createFloor() {
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR.width, FLOOR.depth), new THREE.MeshStandardMaterial({ map: tileTexture(), roughness: 0.85 }));
+/** A tiled floor; the map lays one as big as each hall under it (KJC-TSK-1452, 1454). */
+export function createFloor(width = FLOOR.width, depth = FLOOR.depth) {
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), new THREE.MeshStandardMaterial({ map: tileTexture(width, depth), roughness: 0.85 }));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   return floor;
