@@ -25,6 +25,12 @@ export function mergeCards(lists) {
   return [...byId.values()];
 }
 
+/** KJC-TSK-1460 (ADR 0050, point 6): a factory's name on the map, with its cards in progress when it has any. */
+export function mapName(project, cards) {
+  const doing = cards.filter((c) => columnOf(c.status) === 'doing').length;
+  return doing ? `${project} · ${doing} in progress` : project;
+}
+
 /** The status list's line for the board, or null when it holds no card. */
 export function boardLine(cards) {
   const count = (column) => cards.filter((c) => columnOf(c.status) === column).length;

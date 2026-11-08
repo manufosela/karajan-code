@@ -69,6 +69,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
   };
   return {
     settle,
+    /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
+    cards: () => state.cards ?? [],
     /** Takes one stream event at `now` (performance clock, ms). */
     push(event, now) {
       const next = withEvent(state, event);
