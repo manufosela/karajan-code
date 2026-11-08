@@ -156,6 +156,45 @@ describe("agent runtime locks in the contract block", () => {
   });
 });
 
+// KJC-BUG-0525 (#3622): a repo that re-includes the harness dir still keeps the
+// runtime state kj writes there out of git; the guards themselves stay visible.
+describe("runtime state in a re-included harness dir", () => {
+  const touch = (rel) => {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), "");
+  };
+  const STATE_IGNORED = { state: true, trace: true, guard: false };
+  const harnessIgnores = () => {
+    for (const rel of [".karajan/harness/sentinel-state.json", ".karajan/harness/cards.jsonl", ".karajan/harness/stop.mjs"]) touch(rel);
+    return {
+      state: ignored(".karajan/harness/sentinel-state.json"),
+      trace: ignored(".karajan/harness/cards.jsonl"),
+      guard: ignored(".karajan/harness/stop.mjs"),
+    };
+  };
+
+  // The reported shape: `.karajan/*`, the person's re-include, then the rest of the block.
+  // (A second `.karajan/*` after the re-include would exclude the whole dir again.)
+  it("ignores the state when the re-include sits before the block's state lines", () => {
+    const lines = CONTRACT_BLOCK.toSpliced(CONTRACT_BLOCK.indexOf(".karajan/*") + 1, 0, "!.karajan/harness/");
+    fs.writeFileSync(path.join(dir, ".gitignore"), `${lines.join("\n")}\n`);
+    expect(harnessIgnores()).toEqual(STATE_IGNORED);
+  });
+
+  it("ignores the state when the re-include sits after the block", () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), `${CONTRACT_BLOCK.join("\n")}\n!.karajan/harness/\n`);
+    expect(harnessIgnores()).toEqual(STATE_IGNORED);
+  });
+
+  it("an older block without the state lines is completed", async () => {
+    const before = CONTRACT_BLOCK.filter((l) => !l.startsWith(".karajan/harness/"));
+    fs.writeFileSync(path.join(dir, ".gitignore"), `${before.join("\n")}\n!.karajan/harness/\n`);
+    expect((await ensureGateTrackable(dir)).changed).toBe(true);
+    expect(harnessIgnores()).toEqual(STATE_IGNORED);
+    expect((await ensureGateTrackable(dir)).changed).toBe(false);
+  });
+});
+
 describe("ensureContractBlockPresent", () => {
   it("appends the canonical block to a gitignore with no .karajan mention", async () => {
     const { ensureContractBlockPresent } = await import("../../src/review/gate-gitignore.js");

@@ -14,6 +14,12 @@ import path from "node:path";
 
 import { runCommand } from "../utils/process.js";
 
+// KJC-BUG-0525 (#3622): a repo may re-include the harness dir to version its guards,
+// which overrides the info/exclude entry. The state kj writes there per session (Sentinel
+// state, beats, activity, traces, denials) is all .json/.jsonl, while the sealed guards
+// are .mjs: ignored by extension, a new state file needs no new line.
+const HARNESS_STATE = [".karajan/harness/*.json", ".karajan/harness/*.jsonl"];
+
 // KJC-BUG-0123 (issue #1268): exported as the SINGLE source of truth — kj
 // init and the orchestrator's autoInit write this same block instead of a
 // bare `.karajan/` exclude (which git cannot re-include children of).
@@ -54,6 +60,8 @@ export const CONTRACT_BLOCK = [
   "!.karajan/kj.config.yml",
   "!.karajan/atril.json",
   "!.karajan/atril.lock.json",
+  // KJC-BUG-0525: after the re-includes, so the harness state stays out of git.
+  ...HARNESS_STATE,
 ];
 
 /**
@@ -151,7 +159,9 @@ export async function ensureGateTrackable(projectDir) {
     const reInclude = lines.findLastIndex((x) => x.trim() === `!.karajan/${l.trim()}`);
     return reInclude === -1 || i > reInclude ? "drop" : "move";
   };
-  if (reIncludes.every((l) => text.includes(l)) && lines.every((l, i) => placed(l, i) === "keep")) return { changed: false };
+  // KJC-BUG-0525: an older block without the harness state ignores is completed too.
+  const hasState = HARNESS_STATE.every((s) => lines.some((l) => l.trim() === s));
+  if (hasState && reIncludes.every((l) => text.includes(l)) && lines.every((l, i) => placed(l, i) === "keep")) return { changed: false };
   if (idx === -1) return { changed: false };
 
   // Drop EVERY .karajan root exclude (a later duplicate would override the
