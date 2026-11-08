@@ -21,8 +21,10 @@
         <div class="header__subtitle">story management dashboard</div>
       </div>
     </div>
-    <nav class="header__nav">
+    <nav class="header__nav" aria-label="Board">
       <button class="nav-btn active" data-view="dashboard" title="Per-project landing: stats grid + project list. Click a project card to load that project — its views appear in the project bar below.">Dashboard</button>
+      <!-- KJC-TSK-1456 (ADR 0049): every factory at once, so it belongs to no one project. -->
+      <a class="nav-btn" href="/stage.html?map=1" title="The map of every factory: one live 3D factory per project of yours, all working at once. Zoom in, drag, click one to fly there.">Factories</a>
       <div class="header__controls">
         <button class="control-btn" id="help-btn" title="What does each view do? Quick reference for Board / Graph / Dashboard / Sessions / Pipeline.">?</button>
         <button class="control-btn" id="config-btn" title="Configurar Karajan (modelos, agentes, tope de iteraciones, …)">⚙</button>
@@ -38,7 +40,7 @@
   <!-- KJC-TSK-0820: project sub-bar. Hidden until a project is loaded from
        the dashboard; every entry here shows data of THAT project. Switching
        projects = back to Dashboard (the select is gone on purpose). -->
-  <nav class="project-nav" id="project-nav" hidden>
+  <nav class="project-nav" id="project-nav" aria-label="Loaded project" hidden>
     <span class="project-nav__name" id="project-nav-name"></span>
     <button class="nav-btn nav-btn--project" data-view="board" title="Kanban board: every HU of the loaded project, grouped by status (Pending → Certified → Done). Click an HU card to expand the detail panel.">Board</button>
     <button class="nav-btn nav-btn--project" data-view="graph" title="Dependency graph of the loaded project's HUs — who blocks whom. Useful before scheduling work.">Graph</button>

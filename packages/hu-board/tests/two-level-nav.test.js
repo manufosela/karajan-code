@@ -17,7 +17,7 @@ const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf
 const appSrc = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 
 const headerNav = html.slice(
-  html.indexOf('<nav class="header__nav">'),
+  html.indexOf('<nav class="header__nav"'),
   html.indexOf('</header>')
 );
 const projectNavStart = html.indexOf('id="project-nav"');
@@ -50,6 +50,12 @@ describe('two-level nav (KJC-TSK-0820)', () => {
     for (const scoped of ['data-view="board"', 'data-view="graph"', 'data-view="sessions"', 'data-view="governance"', '/pipeline.html', '/rag.html', '/wiki.html']) {
       expect(projectNav).toContain(scoped);
     }
+  });
+
+  // KJC-TSK-1456 (ADR 0049): the map shows every factory, so it belongs to no one project.
+  it('the map of every factory sits in the generic top bar, not in the project sub-bar', () => {
+    expect(headerNav).toContain('href="/stage.html?map=1"');
+    expect(projectNav).not.toContain('map=1');
   });
 
   it('project-scoped buttons carry their own visual level (nav-btn--project)', () => {
