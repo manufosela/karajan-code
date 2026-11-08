@@ -7,7 +7,7 @@ import process from "node:process";
 import { readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { CODE, TESTS, ROOT, cardOf, branchOf, enterLane, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, cardOf, branchOf, enterLane, insideRepo, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
 import { traceHost } from "./sentinel-activity.mjs";
 let raw = "";
@@ -210,7 +210,7 @@ process.stdin.on("end", () => {
     const rec = top === laneTop() ? s : (((s.lanes ||= {})[top]) ||= { edited_sources: [], edited_tests: [] });
     const rel = relative(top, file).replaceAll("\\", "/");
     // KJC-BUG-0279 (#1981): a file outside the repository is not one of its sources.
-    const inside = rel && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("/");
+    const inside = insideRepo(rel);
     const bucketOf = () => {
       if (TESTS.test(rel)) return rec.edited_tests;
       return CODE.test(rel) ? rec.edited_sources : null;

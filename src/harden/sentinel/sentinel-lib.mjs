@@ -5,7 +5,7 @@ import process from "node:process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execSync, spawnSync } from "node:child_process";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, posix, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 // KJC-TSK-1202 (ADR 0030): installed in a project the guard sits in .karajan/harness,
@@ -250,13 +250,18 @@ const baseHoldsWork = (files, top) => {
 // laneViolations: those of every other lane the session wrote in, each named by its lane.
 export const laneViolations = (s) => Object.entries(s?.lanes ?? {})
   .flatMap(([top, rec]) => violations(rec, branchOf(top), [], top).map((x) => "[" + top + "] " + x));
-export const violations = (s, branch, pending = pendingMoves(s), top = ROOT) => {
+// KJC-BUG-0279/0523: a path outside the repository (empty, "..", "../…" or absolute on either
+// platform: "/x", or "C:/x" for a file on another Windows drive, separators already "/") is not one of its files.
+export const insideRepo = (rel) => Boolean(rel) && rel !== ".." && !rel.startsWith("../") && !posix.isAbsolute(rel) && !win32.isAbsolute(rel);
+export const violations = (rec, branch, pending = pendingMoves(rec), top = ROOT) => {
   const v = pending.map(pendingText);
-  if (!s || !(s.edited_sources || []).length) return v;
+  // KJC-BUG-0523: a state from an older harness may still hold paths outside; only the inside ones are judged.
+  const s = rec && { edited_sources: (rec.edited_sources || []).filter(insideRepo), edited_tests: (rec.edited_tests || []).filter(insideRepo) };
+  if (!s || !s.edited_sources.length) return v;
   if (bootstrapPhase()) return v;
   if (BASE_BRANCHES.has(branch)) { if (baseHoldsWork(s.edited_sources, top)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion"); }
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
-  if (!(s.edited_tests || []).length && sessionAddsCode(s, top)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
+  if (!s.edited_tests.length && sessionAddsCode(s, top)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
   return v;
 };
 // KJC-TSK-0795 AC1: deleting code adds no behavior to test — a session whose
