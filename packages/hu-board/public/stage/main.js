@@ -15,7 +15,10 @@ const status = document.getElementById('stage-status');
 const project = new URLSearchParams(location.search).get('project');
 // KJC-BUG-0492: off loopback the board asks for its token, as on the RAG and Wiki pages.
 const token = boardToken(location.search, () => localStorage);
-const tell = (lines) => status.replaceChildren(...lines.map((text) => Object.assign(document.createElement('li'), { textContent: text })));
+// KJC-TSK-1468: the loading indicator goes with the first word, once that frame is drawn.
+const loading = document.getElementById('stage-loading');
+const loaded = () => requestAnimationFrame(() => { loading.hidden = true; });
+const tell = (lines) => { status.replaceChildren(...lines.map((text) => Object.assign(document.createElement('li'), { textContent: text }))); loaded(); };
 
 /** Builds the hall with one workshop per lane; returns its pieces, crew, hall and render. */
 function buildScene(lanes) {
