@@ -16,11 +16,14 @@
  *     header, `?token=` query param, or `kj_board_token` cookie.
  *   - When the request comes from loopback (127.0.0.1 / ::1 / ::ffff:127.0.0.1)
  *     → skip auth. The browser running on the same machine just works.
+ *   - When the request travels over Tailscale (both ends on the tailnet)
+ *     → skip auth: Tailscale already authenticated the device (KJC-TSK-1465).
  *   - When `HU_BOARD_TOKEN` is unset → skip auth entirely. Tests and
  *     legacy callers keep working.
  */
 
 import { timingSafeEqual } from "node:crypto";
+import { isTailscalePeer } from "./tailscale-peer.js";
 
 /** Loopback addresses we trust without auth, regardless of token state. */
 const LOOPBACK_ADDRESSES = new Set([
@@ -41,6 +44,7 @@ export function authMiddleware() {
     if (!expected) return next();
 
     if (isLoopback(req)) return next();
+    if (isTailscalePeer(req.socket?.remoteAddress, req.socket?.localAddress)) return next();
 
     const token = extractToken(req);
     if (tokensMatch(token, expected)) return next();
