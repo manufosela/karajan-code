@@ -19,7 +19,8 @@ import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js
 import { diffHash, loadVerdict, saveVerdict } from "./verdict-store.js";
 import { summarizeGeneratedFiles } from "./prompt-diff.js";
 
-const SECURITY_PATTERN = /injection|xss|csrf|secret|credential|password|token leak|auth(entication|orization)?|crypt|session|sanitiz|traversal|rce\b/i;
+// KJC-BUG-0526 (#3632): rce only as a whole word (not source/force), plus the phrase spelled out.
+const SECURITY_PATTERN = /injection|xss|csrf|secret|credential|password|token leak|auth(entication|orization)?|crypt|session|sanitiz|traversal|\brce\b|remote code execution/i;
 
 // Structured signal first (`category: "security"` — part of the reviewer's
 // JSON schema since AB-E); the free-text pattern stays as a fail-closed net

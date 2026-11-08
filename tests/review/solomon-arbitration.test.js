@@ -134,6 +134,33 @@ describe("runSolomonArbitration", () => {
     expect(res.reasoning).not.toMatch(/C1/);
   });
 
+  // KJC-BUG-0526 (#3632): rce counts only as a whole word, never inside source or force.
+  it.each([
+    "The new queue source and component have no production consumer",
+    "the resource is never released",
+    "force the rebuild on every run",
+    "enforce the limit in the caller",
+  ])("a finding that only contains rce inside a word is arbitrated: %s", async (description) => {
+    await seedRejected([{ id: "C1", severity: "high", description }]);
+    const agent = ruling("approve");
+    const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", createAgentFn: () => agent });
+    expect(agent.reviewTask).toHaveBeenCalled();
+    expect(res.ruling).toBe("approve");
+  });
+
+  it.each([
+    ["RCE via unsafe eval", undefined, /matches "RCE"/],
+    ["allows remote code execution through the template", undefined, /matches "remote code execution"/],
+    ["the queue source is unused", "security", /category security/],
+  ])("a finding about RCE or with category security is never arbitrated: %s", async (description, category, reason) => {
+    await seedRejected([{ id: "S1", severity: "high", category, description }]);
+    const agent = ruling("approve");
+    const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", createAgentFn: () => agent });
+    expect(agent.reviewTask).not.toHaveBeenCalled();
+    expect(res.ruling).toBe("reject");
+    expect(res.reasoning).toMatch(reason);
+  });
+
   // KJC-TSK-1379 (#3207): one finding at a time; the gate opens only when none is left.
   describe("--finding <id>", () => {
     const two = [
