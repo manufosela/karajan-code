@@ -7,7 +7,9 @@ import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } fr
 import { join } from 'node:path';
 
 import { listLanes } from './lanes.js';
-import { activityEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
+import { activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
+// The scene folds the live card events with this same function (ADR 0050).
+import { withCard } from '../public/stage/cards.js';
 
 /** A start older than this with no end is a run that died without saying so, not work. */
 const STALE_START_MS = 30 * 60 * 1000;
@@ -59,9 +61,12 @@ function newestVerdict(dir) {
   return null;
 }
 
-export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now() } = {}) {
+export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main' } = {}) {
   const root = join(projectDir, '.karajan');
+  // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card of the lane.
+  const cards = tailRecords(join(root, 'harness', 'cards.jsonl'), cardEvent, tailBytes).reduce((all, ev) => withCard(all, { ...ev, lane }), []);
   return {
+    cards,
     denial: lastRecord(join(root, 'harness', 'denials.jsonl'), denialEvent, tailBytes),
     verdict: newestVerdict(join(root, 'reviews')),
     seal: lastRecord(join(root, 'policy-decisions.jsonl'), decisionEvent, tailBytes),
@@ -72,4 +77,4 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
 
 /** KJC-TSK-1432 (ADR 0048): the last state of every lane, the main checkout first. */
 export const laneStates = (projectDir, options) =>
-  listLanes(projectDir).map(({ lane, dir }) => ({ lane, ...lastStageState(dir, options) }));
+  listLanes(projectDir).map(({ lane, dir }) => ({ lane, ...lastStageState(dir, { ...options, lane }) }));

@@ -52,6 +52,17 @@ describe('acrossLanes (ADR 0048)', () => {
     expect(restState(state, NOW).lines).toEqual(['At work: claude working (Bash) in kj-stage, claude subagent Plan in kj-stage']);
   });
 
+  // KJC-TSK-1458 (ADR 0050): one board for the factory, from every lane, live too.
+  it('merges the cards of every lane, moves them live and tells the board', () => {
+    const state = acrossLanes([
+      { ...empty, lane: 'main', cards: [{ id: 'HU-1', title: 'Login', status: 'pending', lane: 'main', at: '2026-11-03T09:00:00Z' }] },
+      { ...empty, lane: 'kj-stage', cards: [{ id: 'HU-2', title: 'Logout', status: 'pending', lane: 'kj-stage', at: '2026-11-03T09:10:00Z' }] },
+    ]);
+    const moved = withEvent(state, { type: 'card', action: 'move', id: 'HU-1', title: null, status: 'running', lane: 'kj-stage', at: '2026-11-03T09:20:00Z', queued: false });
+    expect(moved.cards.map((c) => [c.id, c.status, c.lane])).toEqual([['HU-2', 'pending', 'kj-stage'], ['HU-1', 'running', 'kj-stage']]);
+    expect(restState(moved, NOW).lines).toEqual(['Board: 1 to do, 1 in progress, 0 done']);
+  });
+
   it('a live start and end only touch the robot of their own lane', () => {
     const at = (lane, phase) => ({ type: 'agent-activity', agent: 'codex', role: 'reviewer', phase, lane, at: 'x' });
     let state = withEvent(withEvent({ working: [] }, at('a', 'start')), at('b', 'start'));

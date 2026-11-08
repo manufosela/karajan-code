@@ -1,5 +1,6 @@
 // KJC-TSK-1398 (ADR 0046): the stage at rest shows the last real state of each
 // piece (from /api/stage/state): its light, and a line a screen reader can read.
+import { boardLine, mergeCards, withCard } from './cards.js';
 
 /** A denial older than this no longer lights the Sentinel. */
 const RECENT_MS = 15 * 60 * 1000;
@@ -20,7 +21,9 @@ const newest = (records) => records.filter(Boolean).toSorted((a, b) => Date.pars
 export function acrossLanes(lanes) {
   const pick = (key) => newest(lanes.map((l) => l[key]));
   const working = lanes.flatMap((l) => (l.working ?? []).map((w) => ({ ...w, lane: l.lane })));
-  return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), working, lanes };
+  // KJC-TSK-1458 (ADR 0050): one board for the factory, a card that went through lanes at its newest.
+  const cards = mergeCards(lanes.map((l) => l.cards ?? []));
+  return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), working, cards, lanes };
 }
 
 /** The last real state after a live event (KJC-TSK-1399): only the piece it touches moves. */
@@ -41,6 +44,11 @@ export function withEvent(state, event) {
     }
     // KJC-TSK-1438: the RAG answered a lane; kaRAGan takes it there.
     case 'rag-answer': return { ...state, rag: { sources: event.sources, lane: event.lane ?? 'main', at: event.at } };
+    // KJC-TSK-1458 (ADR 0050): a card pinned or moved; a queued move changes nothing yet.
+    case 'card': {
+      const cards = withCard(state.cards ?? [], event);
+      return cards === state.cards ? state : { ...state, cards };
+    }
     default: return state;
   }
 }
@@ -60,7 +68,7 @@ function ragLine(rag, now) {
   return `kaRAGan: answered with ${sources}${where}, ${ago(rag.at, now)}`;
 }
 
-export function restState({ denial, verdict, seal, gate, rag, working = [] }, now) {
+export function restState({ denial, verdict, seal, gate, rag, working = [], cards = [] }, now) {
   const lights = {};
   const lines = [];
   if (denial) {
@@ -81,6 +89,8 @@ export function restState({ denial, verdict, seal, gate, rag, working = [] }, no
     lines.push(gateLine(gate, now));
   }
   if (rag) lines.push(ragLine(rag, now));
+  const board = boardLine(cards); // KJC-TSK-1458: the factory's task board, counted
+  if (board) lines.push(board);
   // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
   const using = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
   const where = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
