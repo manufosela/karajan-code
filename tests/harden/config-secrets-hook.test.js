@@ -53,10 +53,11 @@ describe("pre-commit: no secret in the shared kj.config.yml", () => {
     expect(check().status).toBe(0);
   });
 
-  it("does not let it in when kj is not installed to check it", () => {
+  // HU-3530: the hooks of kj apply only to someone who has kj; without it the check is skipped, visibly.
+  it("skips the check with a notice when kj is not installed", () => {
     stageConfig("sonarqube:\n  host: h\n");
     const res = check(false);
-    expect(res.status).toBe(1);
-    expect(res.stdout).toMatch(/kj is not installed/);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toMatch(/skipped.*kj is not installed/);
   });
 });
