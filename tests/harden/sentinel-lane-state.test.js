@@ -75,6 +75,27 @@ describe("the RAG ledger of a lane", () => {
     expect(ledger.sessionId).toBe("mine");
     expect(ledger.hits).toEqual(["mine.js"]);
   });
+  it("joins the hits and queries of every session of the lane (kj code runs its coder as another one)", () => {
+    const q = (ts, text) => ({ ts, text, hits: [] });
+    write(main, { sessions: {
+      first: sess(5, { rag_hits: ["a.js", "b.js"], rag_queries: [q(1, "one")] }),
+      later: sess(9, { rag_hits: ["a.js"], rag_queries: [q(0, "zero")] }),
+    } });
+    mark("first", lane);
+    mark("later", lane);
+    const ledger = readRagLedger(lane);
+    expect(ledger.sessionId).toBe("later");
+    expect(ledger.sessions).toBe(2);
+    expect([...ledger.hits].sort()).toEqual(["a.js", "b.js"]);
+    expect(ledger.queries.map((x) => x.text)).toEqual(["zero", "one"]);
+  });
+  it("reads only the latest session in the main tree itself", () => {
+    write(main, { sessions: { old: sess(1, { rag_hits: ["old.js"] }), live: sess(2, { rag_hits: ["live.js"] }) } });
+    const ledger = readRagLedger(main);
+    expect(ledger.sessionId).toBe("live");
+    expect(ledger.sessions).toBe(1);
+    expect(ledger.hits).toEqual(["live.js"]);
+  });
   it("is unavailable when only another lane's session exists", () => {
     write(main, { sessions: { theirs: sess(99) } });
     mark("theirs", other);
