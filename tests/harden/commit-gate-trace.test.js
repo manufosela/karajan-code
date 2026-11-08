@@ -86,4 +86,24 @@ describe("commit-msg guard trace", () => {
     expect(run(`${OK}\n`).status).toBe(0);
     expect(existsSync(join(dir, ".karajan", "harness"))).toBe(false);
   });
+
+  // KJC-BUG-0521: dash aborts the whole hook on a failed redirection (read-only harness dir).
+  describe.skipIf(process.getuid?.() === 0)("read-only harness folder", () => {
+    const harness = () => join(dir, ".karajan", "harness");
+    beforeEach(() => { mkdirSync(harness(), { recursive: true }); chmodSync(harness(), 0o555); });
+    afterEach(() => chmodSync(harness(), 0o755));
+
+    it("still accepts a good message", () => {
+      const res = run(`${OK}\n`);
+      expect(res.status).toBe(0);
+      expect(res.stderr).not.toMatch(/cannot create/);
+    });
+
+    it("still refuses a bad message with its own refusal", () => {
+      const res = run("not conventional at all\n");
+      expect(res.status).toBe(1);
+      expect(res.stdout).not.toBe("");
+      expect(res.stderr).not.toMatch(/cannot create/);
+    });
+  });
 });
