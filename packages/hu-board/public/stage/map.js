@@ -10,6 +10,7 @@ import { tagAt } from './screen.js';
 import { withToken } from './token.js';
 import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { FLIGHT_MS, flightAt, groundAt, lotAt } from './flight.js';
+import { mapName } from './cards.js';
 import { MARK_MS } from './marks.js';
 
 const NAME_OVER = new THREE.Vector3(0, 2.5, -8.5); // the factory's name stands at the back of its floor
@@ -120,7 +121,9 @@ export function startMap({ canvas, factories, token, tell, counts }) {
     // KJC-TSK-1455: from far away only the factories' names; their labels as the camera comes closer.
     const near = zoomNow() < LABELS_BELOW;
     for (const { live, own } of lives.values()) { live.frame(ms); own.hidden = !near; }
-    names.replaceChildren(...placed.map(({ project, lot }) => tagAt(project, NAME_OVER, camera, { className: 'stage-worker', origin: lot.position })));
+    // KJC-TSK-1460 (ADR 0050): each name says how many cards its factory has in progress.
+    const named = ({ project, lot }) => tagAt(mapName(project, lives.get(project).live.cards()), NAME_OVER, camera, { className: 'stage-worker', origin: lot.position });
+    names.replaceChildren(...placed.map(named));
     render();
   }
   const events = new EventSource(withToken('/api/events?map=1', token));
