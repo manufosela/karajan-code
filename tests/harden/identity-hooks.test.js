@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { hookBody, SHEBANG } from "../../src/harden/hook-templates.js";
+import { fakeKjPath } from "./_fake-kj.js";
 
 let dir, ghDir;
 const declare = (gh, email) => {
@@ -49,8 +50,9 @@ describe("pre-commit identity lock", () => {
     expect(commit({ GIT_AUTHOR_EMAIL: "zzz@x.y" }).status).not.toBe(0);
   });
 
+  // The advisory is printed only when kj is installed (HU-3530): the test brings its own kj.
   it("sin identidad declarada: aviso, no bloqueo", () => {
-    const res = commit();
+    const res = commit({ PATH: fakeKjPath(ghDir, { basePath: process.env.PATH }) });
     expect(res.status).toBe(0);
     expect(`${res.stdout}${res.stderr}`).toMatch(/no identity declared/);
   });

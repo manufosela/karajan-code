@@ -98,7 +98,8 @@ function identityGuard(hook) {
     "if [ -f .karajan/identity.local.yml ]; then",
   ];
   const tail = [
-    "elif [ ! -f .karajan/identity.local.yml ]; then",
+    // HU-3530: the advice names a kj command, so it only shows to someone who has kj.
+    "elif [ ! -f .karajan/identity.local.yml ] && command -v kj >/dev/null 2>&1; then",
     "  echo 'kj harden: no identity declared for this clone — run kj identity set (advisory)'",
     "fi",
   ];
@@ -183,10 +184,14 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
         "fi",
         "# KJC-TSK-1234 (ADR 0032): the project's kj.config.yml travels with the repo, so its staged",
         "# version is checked for secrets by kj, which parses the YAML (raw text can spell a key in",
-        "# too many ways). Without kj nothing can check it, so it does not enter.",
+        "# too many ways). HU-3530: the hooks of kj apply to whoever has kj; without it the check is",
+        "# skipped with a notice, never silently and never blocking.",
         "if git diff --cached --name-only --diff-filter=d | grep -qx '.karajan/kj.config.yml'; then",
-        "  command -v kj >/dev/null 2>&1 || { echo 'kj harden: .karajan/kj.config.yml is staged but kj is not installed to check it holds no secret'; exit 1; }",
-        "  git show ':.karajan/kj.config.yml' | kj config --check-secrets - || { echo 'kj harden: keep tokens and passwords out of the shared kj.config.yml'; exit 1; }",
+        "  if command -v kj >/dev/null 2>&1; then",
+        "    git show ':.karajan/kj.config.yml' | kj config --check-secrets - || { echo 'kj harden: keep tokens and passwords out of the shared kj.config.yml'; exit 1; }",
+        "  else",
+        "    echo 'kj harden: secret check of .karajan/kj.config.yml skipped, kj is not installed'",
+        "  fi",
         "fi",
         "# KJC-TSK-1205 (ADR 0030): a tampered Sentinel is caught before each commit,",
         "# not only when the turn ends. Only where it is installed; no kj, no check.",
@@ -200,10 +205,11 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
         "# exempt (no gate can exist before it does), and it cannot be bypassed",
         "# by deleting the working-tree file.",
         "if git cat-file -e HEAD:.karajan/review-gate 2>/dev/null; then",
-        "  if ! command -v kj >/dev/null 2>&1; then",
-        "    echo 'kj: review gate is enabled but kj is not installed — see karajancode.com/docs/getting-started/installation'; exit 1",
+        "  if command -v kj >/dev/null 2>&1; then",
+        "    kj review --check || { echo 'kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`'; exit 1; }",
+        "  else",
+        "    echo 'kj: review gate skipped, kj is not installed (karajancode.com/docs/getting-started/installation)'",
         "  fi",
-        "  kj review --check || { echo 'kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`'; exit 1; }",
         "fi"
       );
       return [...lines, ...chain].join("\n");
