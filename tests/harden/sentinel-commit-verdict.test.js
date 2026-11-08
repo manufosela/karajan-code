@@ -29,6 +29,16 @@ describe("commitStaging", () => {
     }
   });
 
+  it("a redirection after git commit is not a pathspec; a real path or -a still stages (HU-3629)", () => {
+    expect(commitStaging("git commit -F msg.txt 2>&1 | tail -15")).toEqual({ commits: true, stages: false, dir: null });
+    for (const cmd of ["git commit -m x > out.log", "git commit -m x 2> err.log", "git commit -m x 2>err.log", "git commit -m x &>all.log", "git commit -m x >| out.log", "git commit -F - < msg.txt", "git commit -F - <<EOF"]) {
+      expect(commitStaging(cmd).stages, cmd).toBe(false);
+    }
+    for (const cmd of ["git commit -m x 2>&1 src/a.js", "git commit -a -m x 2>&1", "git commit -m x > out.log src/a.js"]) {
+      expect(commitStaging(cmd).stages, cmd).toBe(true);
+    }
+  });
+
   it("no commit, nothing to check", () => {
     expect(commitStaging("git log --oneline").commits).toBe(false);
     expect(commitStaging("echo 'git commit -m x'").commits).toBe(false);

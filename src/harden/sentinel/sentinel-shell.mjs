@@ -344,11 +344,22 @@ const commitArg = (a) => {
   return { stages: true, words: 1 }; // a pathspec
 };
 
-/** -a/--all, or a path (with or without --), makes git commit stage on its own. */
+// KJC-BUG-0524 (HU-3629): an fd number or & then the operator, then the target glued or nothing.
+const COMMIT_REDIRECTION = /^(?:\d+|&)?(?:>>|>&|>\||<<<|<<|<&|>|<)(.*)$/;
+/** Words a redirection takes (0: not one): 1 with its target glued, 2 when the target is the next word. */
+const redirectionWords = (a) => {
+  const m = COMMIT_REDIRECTION.exec(a);
+  if (!m) return 0;
+  return m[1] ? 1 : 2;
+};
+
+/** -a/--all, or a path (with or without --), makes git commit stage on its own; a redirection is not an argument. */
 const commitStagesItself = (args) => {
   let i = 0;
   while (i < args.length) {
     if (args[i] === "--") return i + 1 < args.length;
+    const redirection = redirectionWords(args[i]);
+    if (redirection) { i += redirection; continue; }
     const { stages, words } = commitArg(args[i]);
     if (stages) return true;
     i += words;
