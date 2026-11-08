@@ -14,6 +14,8 @@ import { wireLegacy } from "./_legacy-wiring.js";
 import { placeGuardCopies } from "./_guard-copies.js";
 
 let dir, postScript, stopScript, statePath, idEnv;
+// A suite run from a runner's subprocess (kj code) inherits KJ_POLICY_ROLE: hosts here must not.
+const hostEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== "KJ_POLICY_ROLE"));
 const run = (script, payload, env = {}) =>
   spawnSync("node", [script], {
     input: typeof payload === "string" ? payload : JSON.stringify(payload),
@@ -21,7 +23,7 @@ const run = (script, payload, env = {}) =>
     // The clone declares the identity the session runs as (no escape, ADR 0015).
     // rag-first has its own suite (sentinel-rag-gate.test.js): here the state
     // is an empty index, where that gate stands down.
-    env: { ...process.env, ...idEnv, ...env },
+    env: { ...hostEnv, ...idEnv, ...env },
   });
 const editTool = (file, session = "s1") => ({ session_id: session, tool_name: "Edit", tool_input: { file_path: file } });
 const state = () => JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -591,7 +593,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     run(gate, { session_id: "s8", tool_name: "Edit", tool_input: { file_path: path.join(inTree, "src", "x.js") }, cwd: inTree });
     const spawn = (command) => spawnSync("node", [gate], {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
-      encoding: "utf8", cwd: dir, env: { ...process.env },
+      encoding: "utf8", cwd: dir, env: { ...hostEnv },
     });
     const bare = spawn("sed -i s/a/b/ .kj/worktrees/wt2/src/x.js");
     expect(bare.status).toBe(2);
@@ -717,7 +719,7 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
       input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${rel}` } }),
       encoding: "utf8",
       cwd: dir,
-      env: { ...process.env },
+      env: { ...hostEnv },
     });
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("carril");
@@ -801,6 +803,39 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     free();
     run(gate, inLane({ ...laneEdit(), session_id: "s2" }));
     run(gate, inLane(editTool(notes(dir), "s2"), dir));
+    expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
+  });
+  // KJC-BUG-0516: a runner's subprocess (kj code's coder) is the host's guest in its lane: no mark, no hold.
+  const marks = () => {
+    const lanes = path.join(execSync("git rev-parse --path-format=absolute --git-common-dir", { cwd: dir }).toString().trim(), "kj-lanes");
+    return fs.existsSync(lanes) ? fs.readdirSync(lanes) : [];
+  };
+  it("a session with KJ_POLICY_ROLE writes no presence mark entering a lane", () => {
+    free();
+    expect(run(gate, inLane({ ...laneEdit(), session_id: "coder" }), { KJ_POLICY_ROLE: "coder" }).stderr).not.toContain("carril");
+    expect(marks()).toEqual([]);
+  });
+  it("a session with KJ_POLICY_ROLE holds no lane it writes in from elsewhere", () => {
+    free();
+    expect(run(gate, { ...editTool(notes(lane), "coder") }, { KJ_POLICY_ROLE: "coder" }).status).toBe(0);
+    expect(marks()).toEqual([]);
+  });
+  it("a session with KJ_POLICY_ROLE is refused a lane another live host holds", () => {
+    free();
+    expect(run(gate, editTool(path.join(lane, "notes.md"), "host")).status).toBe(0);
+    const res = run(gate, editTool(path.join(lane, "notes.md"), "coder"), { KJ_POLICY_ROLE: "coder" });
+    expect(res.status).toBe(2);
+    expect(res.stderr).toMatch(/otra sesi[oó]n viva/);
+  });
+  it("a session with KJ_POLICY_ROLE writing in its own lane is allowed and leaves no mark", () => {
+    free();
+    const res = run(gate, inLane({ ...laneEdit(), session_id: "coder" }), { KJ_POLICY_ROLE: "coder" });
+    expect(res.stderr).not.toContain("carril");
+    expect(marks()).toEqual([]);
+  });
+  it("a host is not refused a lane a KJ_POLICY_ROLE session used meanwhile", () => {
+    free();
+    run(gate, inLane({ ...laneEdit(), session_id: "coder" }), { KJ_POLICY_ROLE: "coder" });
     expect(run(gate, inLane(laneEdit())).stderr).not.toContain("carril");
   });
   // ADR 0034 (KJC-TSK-1244): one session writes in any free lane and holds it; never in a held one.

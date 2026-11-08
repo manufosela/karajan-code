@@ -88,8 +88,11 @@ const heldByOther = (dir, top, now) => readdirSync(dir).filter((f) => f.startsWi
   .some((r) => r?.sid !== _sid && ((r?.lane === top && live(r.at, now)) || live(r?.held?.[top], now)));
 const liveHeld = (mark, now) => Object.fromEntries(Object.entries(mark?.held ?? {}).filter(([, at]) => live(at, now)));
 // The lane the session may take: `lane` when it is home, already its live lane, or free.
+// KJC-BUG-0516: a session with KJ_POLICY_ROLE is a runner's subprocess (kj code's coder), started
+// by the host inside the host's lane. Its marks must not lock the host out: it claims and holds nothing.
+const isRunner = () => Boolean(process.env.KJ_POLICY_ROLE);
 const claimLane = (root, lane, now = Date.now()) => {
-  if (!_sid || !root.common) return lane;
+  if (!_sid || !root.common || isRunner()) return lane;
   const dir = join(root.common, "kj-lanes");
   const mark = join(dir, "session-" + laneKey(_sid) + ".json");
   const write = (top) => writeFileSync(mark, JSON.stringify({ sid: _sid, lane: top, at: now, held: liveHeld(readJson(mark), now) }));
@@ -134,6 +137,14 @@ export const holdLane = (top, now = Date.now()) => {
   if (!_sid || !own.common) return "(sin sesión identificada no se reclama " + top + ")";
   const dir = join(own.common, "kj-lanes");
   const mark = join(dir, "session-" + laneKey(_sid) + ".json");
+  // A runner never writes a mark, but another live session's lane stays closed to it.
+  if (isRunner()) {
+    try {
+      return heldByOther(dir, top, now) ? "(" + top + " tiene otra sesión viva: un carril, una sesión, ADR 0033/0034)" : null;
+    } catch (error) {
+      return error?.code === "ENOENT" ? null : "(no se pudo reclamar " + top + ")";
+    }
+  }
   try {
     mkdirSync(dir, { recursive: true });
     const mine = { sid: _sid, lane: own.top, at: now, ...readJson(mark) };
