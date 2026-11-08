@@ -1,7 +1,8 @@
 // KJC-TSK-1452 (ADR 0049): where each factory stands on the map of every factory.
 import { describe, expect, it } from 'vitest';
 
-import { LOT, lotOrigin, mapSize } from '../public/stage/map-layout.js';
+import { AISLE, LOT, lotOrigin, lotSize, mapSize } from '../public/stage/map-layout.js';
+import { hallWidth } from '../public/stage/layout.js';
 
 describe('lotOrigin', () => {
   it('puts a lone factory at the centre of the map', () => {
@@ -27,6 +28,25 @@ describe('lotOrigin', () => {
     const lots = Array.from({ length: 9 }, (_, i) => lotOrigin(i, 9));
     expect(lots.reduce((sum, { x }) => sum + x, 0)).toBeCloseTo(0);
     expect(lots.reduce((sum, { z }) => sum + z, 0)).toBeCloseTo(0);
+  });
+});
+
+describe('lotSize', () => {
+  it('fits the widest hall plus an aisle, not the 80 m floor of the single view', () => {
+    const lot = lotSize([1, 2]);
+    expect(lot.width).toBe(hallWidth(2) + AISLE + 2);
+    expect(lot.width).toBeLessThan(30);
+    expect(lot).toEqual(lotSize([2]));
+  });
+
+  it('grows with the hall that has the most lanes', () => {
+    expect(lotSize([1, 12]).width).toBe(hallWidth(12) + AISLE + 2);
+  });
+
+  it('places the lots with the size given', () => {
+    const lot = { width: 30, depth: 20 };
+    expect(lotOrigin(1, 2, lot)).toEqual({ x: 15, z: 0 });
+    expect(mapSize(4, lot)).toEqual({ width: 60, depth: 40 });
   });
 });
 
