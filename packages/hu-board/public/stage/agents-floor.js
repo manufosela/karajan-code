@@ -36,8 +36,8 @@ function badge(name, accent) {
   return plate;
 }
 
-/** A robot that left frees what it holds on the GPU: each one has its own geometry. */
-function dispose(robot) {
+/** A robot that left frees what it holds on the GPU: each one has its own geometry (couriers.js too). */
+export function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
 }
 
