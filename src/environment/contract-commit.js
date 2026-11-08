@@ -69,6 +69,19 @@ export function contractChanges(projectDir, git = runner(projectDir, process.env
 const hasCommits = (git) => { try { git(["rev-parse", "--verify", "HEAD"]); return true; } catch { return false; } };
 const branchOf = (git) => { try { return git(["symbolic-ref", "--short", "HEAD"]).trim(); } catch { return ""; } };
 
+/** Takes back from the index what kj staged; returns "" or why it could not. */
+function unstage(git, files, fresh) {
+  const added = new Set(fresh);
+  const tracked = files.filter((f) => !added.has(f));
+  try {
+    if (tracked.length > 0) git(["restore", "--staged", "--", ...tracked]);
+    if (fresh.length > 0) git(["rm", "--cached", "-q", "--", ...fresh]);
+    return "";
+  } catch (err) {
+    return String(err.stderr || err.message).trim().split("\n")[0];
+  }
+}
+
 /**
  * @param {{projectDir: string, before?: Set<string>, baseBranch?: string, env?: object}} opts
  *   `before`: the contract files already dirty BEFORE kj generated anything,
@@ -83,7 +96,10 @@ export function commitContract({ projectDir, before = new Set(), baseBranch = "m
   // commit's: regenerated together after a version bump, the gate refused the one
   // and the seal the other, and the person had to unstage the hook by hand. The
   // first install (untracked hooks) still rides in the contract commit.
-  const files = contractStatus(git).filter(([file, code]) => !before.has(file) && !(history && code !== "??" && isSupervisor(file))).map(([file]) => file).sort();
+  const mine = contractStatus(git).filter(([file, code]) => !before.has(file) && !(history && code !== "??" && isSupervisor(file)));
+  const files = mine.map(([file]) => file).sort();
+  // Files git did not track before kj added them: they leave the index with `rm --cached`.
+  const fresh = mine.filter(([, code]) => code === "??" || !history).map(([file]) => file);
   if (files.length === 0) return { committed: false, reason: "nothing of the contract to commit" };
   if (history && branchOf(git) === baseBranch) {
     // kj never commits on the base branch, and will not switch the person's branch
@@ -95,10 +111,13 @@ export function commitContract({ projectDir, before = new Set(), baseBranch = "m
     // --only: these paths and nothing else. What the person had staged stays staged.
     git(["commit", "--only", "-m", history ? REGEN_MESSAGE : FRESH_MESSAGE, "--", ...files]);
   } catch (err) {
-    // KJC-BUG-0302: the files stay staged, and the reason names the way to commit them.
+    // KJC-BUG-0302 / KJC-BUG-0522: the files stay in the working tree, not staged, so
+    // the seal can still run; the reason names the way to commit them.
     const why = String(err.stderr || err.message).trim().split("\n")[0];
     const quoted = files.map((f) => "'" + f.replaceAll("'", String.raw`'\''`) + "'").join(" ");
-    return { committed: false, files, reason: `git could not commit the contract: ${why}. Commit these generated files on a branch yourself: git add -- ${quoted} && kj review --staged && git commit -m "chore(kj): el contrato del método, generado por kj"` };
+    const failed = unstage(git, files, fresh);
+    const note = failed ? ` (and they could not be unstaged: ${failed})` : "";
+    return { committed: false, files, reason: `git could not commit the contract: ${why}${note}. Commit these generated files on a branch yourself: git add -- ${quoted} && kj review --staged && git commit -m "chore(kj): el contrato del método, generado por kj"` };
   }
   return { committed: true, files };
 }
