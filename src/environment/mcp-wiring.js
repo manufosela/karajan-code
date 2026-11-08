@@ -3,9 +3,10 @@
  * agents in karajan projects grep code by hand because the RAG is only "a
  * Bash command a text line told them about". Agents use the tools in their
  * toolbox, so env install wires kj's RAG-only MCP server (`kj-rag-mcp`,
- * ships with the package) into the project's `.mcp.json` — the official
- * path must be cheaper than the shortcut. Merge preserves the user's
- * entries; invalid JSON is left untouched (preserve, never clobber).
+ * ships with the package) into Claude Code's LOCAL scope (HU-3529: personal,
+ * never the versioned `.mcp.json`, so a teammate without kj sees no broken
+ * server). The legacy `kj-rag` entry in `.mcp.json` is removed, nothing else;
+ * invalid JSON is left untouched (preserve, never clobber).
  */
 
 import { spawnSync } from "node:child_process";
@@ -29,12 +30,48 @@ const defaultQmd = {
   },
 };
 
+// Wired = the LAUNCH SPEC runs kj-rag-mcp (command or an arg, so `npx
+// kj-rag-mcp` and absolute paths count) — never env/description fields.
+const launchesRagMcp = (s) =>
+  Boolean(s) && typeof s === "object" && (
+    (typeof s.command === "string" && s.command.includes("kj-rag-mcp")) ||
+    (Array.isArray(s.args) && s.args.some((a) => typeof a === "string" && a.includes("kj-rag-mcp")))
+  );
+
+const RAG_ADD_ARGS = ["mcp", "add", "--scope", "local", "kj-rag", "--", "kj-rag-mcp"];
+// What `claude mcp add` prints (exit 1) when the name is taken: "MCP server kj-rag already exists in local config".
+const ALREADY_REGISTERED = /^MCP server kj-rag already exists\b/m;
+const RAG_ADD_CMD = `claude ${RAG_ADD_ARGS.join(" ")}`;
+
+/** Wire kj-rag-mcp at Claude Code's local scope (~/.claude.json, never versioned). "ok" or a reason. */
+function wireRagLocally({ projectDir, logger }) {
+  const manual = (why) => logger.warn?.(`kj env: ${why} — run this yourself in the project to get the native kj_rag_query tool: ${RAG_ADD_CMD}`);
+  const added = spawnSync("claude", RAG_ADD_ARGS, { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  if (added.error) {
+    manual("the claude CLI is not on PATH, so kj-rag-mcp was not wired");
+    return "no-claude-cli";
+  }
+  if (added.status !== 0) {
+    // Only the exit status and what `add` itself prints decide this; `claude mcp get` is never read.
+    if (ALREADY_REGISTERED.test(`${added.stdout}${added.stderr}`)) {
+      logger.warn?.("kj env: a server named kj-rag is already registered for this project; kj did not check what it launches (inspect it with `claude mcp get kj-rag`), so the native RAG tool is not confirmed");
+      return "kj-rag-already-registered";
+    }
+    manual("`claude mcp add` failed");
+    return "claude-mcp-add-failed";
+  }
+  logger.info?.("✓ kj_rag_query wired as a NATIVE tool (claude local scope → kj-rag-mcp): personal, nothing added to the shared .mcp.json");
+  return "ok";
+}
+
 export function installProjectMcp({ projectDir = process.cwd(), logger = console, qmd = defaultQmd } = {}) {
   const mcpPath = join(projectDir, ".mcp.json");
   let cfg = {};
+  let rawText = null;
   if (existsSync(mcpPath)) {
     try {
-      cfg = JSON.parse(readFileSync(mcpPath, "utf8"));
+      rawText = readFileSync(mcpPath, "utf8");
+      cfg = JSON.parse(rawText);
     } catch {
       logger.warn?.(`kj env: ${mcpPath} is not valid JSON — leaving it untouched (wire kj-rag-mcp manually for native RAG queries)`);
       return { wired: false, reason: "invalid-json" };
@@ -45,17 +82,22 @@ export function installProjectMcp({ projectDir = process.cwd(), logger = console
     return { wired: false, reason: "unexpected-shape" };
   }
   cfg.mcpServers = cfg.mcpServers || {};
-  // Wired = the LAUNCH SPEC runs kj-rag-mcp (command or an arg, so `npx
-  // kj-rag-mcp` and absolute paths count) — never env/description fields.
-  const launchesRagMcp = (s) =>
-    Boolean(s) && typeof s === "object" && (
-      (typeof s.command === "string" && s.command.includes("kj-rag-mcp")) ||
-      (Array.isArray(s.args) && s.args.some((a) => typeof a === "string" && a.includes("kj-rag-mcp")))
-    );
-  const present = Object.values(cfg.mcpServers).some(launchesRagMcp);
-  if (!present) {
-    cfg.mcpServers["kj-rag"] = { command: "kj-rag-mcp", args: [] };
-    logger.info?.("✓ kj_rag_query wired as a NATIVE tool (.mcp.json → kj-rag-mcp): querying the RAG is now the agent's cheapest path");
+  // HU-3529: kj's own wiring is personal. A `kj-rag` entry an older kj wrote
+  // into the shared file is removed (only that entry); the server is wired at
+  // Claude Code's local scope instead.
+  const strippedLegacy = launchesRagMcp(cfg.mcpServers["kj-rag"]);
+  const serialize = () => writeFileSync(mcpPath, `${JSON.stringify(cfg, null, 2)}\n`);
+  if (strippedLegacy) {
+    delete cfg.mcpServers["kj-rag"];
+    serialize(); // before calling claude; restored below if nothing gets wired
+  }
+  // A user's own entry that runs kj-rag-mcp counts as wired.
+  if (!Object.values(cfg.mcpServers).some(launchesRagMcp)) {
+    const personal = wireRagLocally({ projectDir, logger });
+    if (personal !== "ok") {
+      if (strippedLegacy) writeFileSync(mcpPath, rawText); // nothing wired: keep the file as it was
+      return { wired: false, reason: personal };
+    }
   }
   // KJC-TSK-1067: qmd answers about the project's documents with fewer tokens and a source.
   let qmdState = "absent";
@@ -66,6 +108,6 @@ export function installProjectMcp({ projectDir = process.cwd(), logger = console
     qmdState = "added";
     logger.info?.("✓ qmd wired as a NATIVE tool (.mcp.json → qmd mcp): questions about docs, notes, ADRs and plans answer from the documents, with fewer tokens");
   }
-  if (!present || qmdState === "added") writeFileSync(mcpPath, `${JSON.stringify(cfg, null, 2)}\n`);
-  return { wired: true, added: !present, qmd: qmdState };
+  if (qmdState === "added") serialize();
+  return { wired: true, qmd: qmdState };
 }

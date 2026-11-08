@@ -26,6 +26,8 @@ vi.mock("../../src/environment/board-access.js", () => ({
 vi.mock("../../src/commands/harden.js", () => ({ hardenCommand: vi.fn(async () => ({ ok: true })) }));
 vi.mock("../../src/commands/review-gate.js", () => ({ reviewGateCommand: vi.fn(async () => ({ installed: true, enforced: true })) }));
 
+// HU-3529: the personal wiring would run the real `claude mcp add` here.
+vi.mock("../../src/environment/mcp-wiring.js", () => ({ installProjectMcp: vi.fn(() => ({ wired: true })) }));
 import { envInstallCommand } from "../../src/commands/env.js";
 import { hardenCommand } from "../../src/commands/harden.js";
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
@@ -72,8 +74,8 @@ describe("env install — installing IS activating (KJC-BUG-0133)", () => {
     });
     await envInstallCommand({ config: { projectDir: dir, rag: {} }, flags: { rag: false } });
     expect(git("log", "-1", "--format=%s").trim()).toMatch(/^chore\(kj\):/);
-    // KJC-BUG-0346: the .mcp.json env install wires is contract too.
-    expect(git("show", "--name-only", "--format=", "HEAD").trim().split("\n").sort()).toEqual([".claude/skills/kj-run/SKILL.md", ".mcp.json", "CLAUDE.md"]);
+    // HU-3529: kj-rag is wired for the person, so no .mcp.json travels in the contract.
+    expect(git("show", "--name-only", "--format=", "HEAD").trim().split("\n").sort()).toEqual([".claude/skills/kj-run/SKILL.md", "CLAUDE.md"]);
     expect(git("status", "--porcelain")).toMatch(/src\.js/);
   });
 

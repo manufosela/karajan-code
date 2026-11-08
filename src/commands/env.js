@@ -227,7 +227,7 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
   try {
     installProjectMcp({ projectDir, logger: console });
   } catch (err) {
-    console.log(`⚠ could not wire kj-rag-mcp into .mcp.json: ${err.message}`);
+    console.log(`⚠ could not wire kj-rag-mcp: ${err.message}`);
   }
 
   if (boardBlocked(result, config, projectDir)) return result;
