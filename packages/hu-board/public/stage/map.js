@@ -1,6 +1,6 @@
 // KJC-TSK-1452 (ADR 0049): the map of every factory of the user. One factory per
 // known project on its lot, the busiest first; one stream for them all, each event
-// taken to the factory of its project. The flight to a factory comes later (8d-2).
+// taken to the factory of its project. A click on a factory flies there (KJC-TSK-1455).
 import * as THREE from 'three';
 import { buildFactory, createFactory, createFloor, framing } from './factory.js';
 import { AISLE, FLOOR_Z, lotOrigin, lotSize, mapSize } from './map-layout.js';
@@ -9,13 +9,17 @@ import { acrossLanes } from './rest.js';
 import { tagAt } from './screen.js';
 import { withToken } from './token.js';
 import { listenPan, listenZoom, panTarget } from './zoom.js';
+import { FLIGHT_MS, flightAt, groundAt, lotAt } from './flight.js';
 import { MARK_MS } from './marks.js';
 
 const NAME_OVER = new THREE.Vector3(0, 2.5, -8.5); // the factory's name stands at the back of its floor
 const MAP_ZOOM = { min: 0.06, max: 1.3 }; // the closest shows one workshop whole
+const CLICK_PX = 6; // a press that moves less than this is a click, not a drag
+const HALL_LOOK_Z = -0.6; // where the camera looks in a hall, as on one factory (factory.js)
+const LABELS_BELOW = 0.45; // robots' and marks' labels only show this close; the names always
 
 /** The scene of the map with every factory on its lot; returns the factories and the render. */
-function buildMap(canvas, factories) {
+function buildMap(canvas, factories, { instant, onView }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -45,16 +49,45 @@ function buildMap(canvas, factories) {
     render();
   };
   addEventListener('resize', refit);
+  let flight = null; // KJC-TSK-1455: the flight to a factory, if one is under way
   // From the whole map down to one workshop; dragging walks over the map at any zoom.
-  listenZoom(canvas, (k) => { zoom = k; refit(); }, MAP_ZOOM);
+  const wheel = listenZoom(canvas, (k) => { zoom = k; flight = null; refit(); }, MAP_ZOOM);
   listenPan(canvas, (dx, dy) => {
     const metresPerPx = (2 * camera.position.distanceTo(target) * Math.tan((camera.fov * Math.PI) / 360)) / innerHeight;
     const next = panTarget(target, dx, dy, metresPerPx, bounds);
     target.set(next.x, 0, next.z);
+    flight = null;
     refit();
   });
+  // KJC-TSK-1455: a click (a press that did not drag) on a factory's floor flies there.
+  const origins = placed.map(({ lot }) => lot.position);
+  const factoryZoom = () => framing(size.width, camera.aspect).length() / framing(Math.max(bounds.width, bounds.depth * camera.aspect), camera.aspect).length();
+  let pressed = null;
+  canvas.addEventListener('pointerdown', (e) => { pressed = { x: e.clientX, y: e.clientY }; });
+  canvas.addEventListener('pointerup', (e) => {
+    const click = pressed && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) < CLICK_PX;
+    pressed = null;
+    if (!click) return;
+    const ray = new THREE.Vector3((e.clientX / innerWidth) * 2 - 1, 1 - (e.clientY / innerHeight) * 2, 0.5).unproject(camera).sub(camera.position);
+    const i = lotAt(groundAt(camera.position, ray), origins, size, AISLE);
+    if (i < 0) return; // the aisle between factories
+    const to = { x: origins[i].x, z: origins[i].z + HALL_LOOK_Z, zoom: Math.max(MAP_ZOOM.min, factoryZoom()) };
+    // Someone who asked for no motion lands at once.
+    flight = { from: { x: target.x, z: target.z, zoom }, to, start: performance.now() - (instant ? FLIGHT_MS : 0) };
+    onView();
+  });
+  /** Moves the camera along the flight at `now`; the wheel picks up from where it landed. */
+  const step = (now) => {
+    const at = flightAt(flight, now);
+    if (!at) return;
+    target.set(at.x, 0, at.z);
+    zoom = at.zoom;
+    wheel.set(zoom);
+    if (at.done) flight = null;
+    refit();
+  };
   refit();
-  return { placed, camera, render, refit };
+  return { placed, camera, render, refit, step, zoomNow: () => zoom };
 }
 
 /**
@@ -62,7 +95,13 @@ function buildMap(canvas, factories) {
  * stream: `tell` gets one status line per factory, `counts` holds the labels.
  */
 export function startMap({ canvas, factories, token, tell, counts }) {
-  const { placed, camera, render, refit } = buildMap(canvas, factories);
+  // ADR 0048, as on one factory: nothing moves without a real event, and someone who
+  // asked for no motion gets one frame per event and another once its mark has gone.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const { placed, camera, render, refit, step, zoomNow } = buildMap(canvas, factories, {
+    instant: still,
+    onView: () => { if (still) draw(performance.now()); },
+  });
   const lines = new Map(factories.map(({ project }) => [project, 'at rest']));
   const tellAll = () => tell([...lines].map(([project, line]) => `${project}: ${line}`));
   const lives = new Map(placed.map((factory) => {
@@ -72,22 +111,22 @@ export function startMap({ canvas, factories, token, tell, counts }) {
     const live = createLive({ ...factory, scene: factory.lot, camera, refit, origin: factory.lot.position },
       { state: acrossLanes(factory.lanes), tell: tellOne, counts: own });
     tellOne(live.settle().lines);
-    return [factory.project, live];
+    return [factory.project, { live, own }];
   }));
   const names = document.createElement('div');
   counts.append(names);
-  const draw = (ms) => {
-    for (const live of lives.values()) live.frame(ms);
+  function draw(ms) {
+    step(ms);
+    // KJC-TSK-1455: from far away only the factories' names; their labels as the camera comes closer.
+    const near = zoomNow() < LABELS_BELOW;
+    for (const { live, own } of lives.values()) { live.frame(ms); own.hidden = !near; }
     names.replaceChildren(...placed.map(({ project, lot }) => tagAt(project, NAME_OVER, camera, { className: 'stage-worker', origin: lot.position })));
     render();
-  };
-  // ADR 0048, as on one factory: nothing moves without a real event, and someone who
-  // asked for no motion gets one frame per event and another once its mark has gone.
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
   const events = new EventSource(withToken('/api/events?map=1', token));
   events.onmessage = ({ data }) => {
     const event = JSON.parse(data);
-    lives.get(event.project)?.push(event, performance.now()); // a project not on the map has no factory
+    lives.get(event.project)?.live.push(event, performance.now()); // a project not on the map has no factory
     if (still) { draw(performance.now()); setTimeout(() => draw(performance.now()), MARK_MS + 50); }
   };
   const loop = (ms) => { draw(ms); requestAnimationFrame(loop); };

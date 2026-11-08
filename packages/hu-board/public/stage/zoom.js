@@ -12,6 +12,7 @@ export const pinchZoom = (zoom, from, to, limits = ZOOM) => (from > 0 && to > 0 
 
 /**
  * Listens to the wheel and to two-finger pinches on `el`; `onZoom(k)` gets each new zoom.
+ * Returns the zoom's getter and setter.
  * The map passes deeper `limits`, down to one workshop (KJC-TSK-1454).
  */
 export function listenZoom(el, onZoom, limits = ZOOM) {
@@ -32,7 +33,8 @@ export function listenZoom(el, onZoom, limits = ZOOM) {
     onZoom(zoom);
     gap = next;
   }, { passive: false });
-  return () => zoom;
+  // The map's flight moves the zoom too, so the wheel picks up from where it landed (KJC-TSK-1455).
+  return { get: () => zoom, set: (k) => { zoom = k; } };
 }
 
 /**
