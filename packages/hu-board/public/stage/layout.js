@@ -12,6 +12,8 @@ export const SENTINEL_POST = { x: 0, z: -5.4, height: 1.8 };
 export const PLINTH_WIDTH = 1;
 /** Pieces and robots are drawn for different shots in the film: these bring them to one smaller height. */
 export const SCALE = { piece: 1, crew: 0.5, stand: 0.8 };
+/** KJC-TSK-1459 (ADR 0050): the task board wall, behind the posts, right of the Sentinel's tower. */
+export const WALL = { x: 3.6, y: 0.3, z: -6.4, width: 3.4, height: 2.1 };
 /** Where kj sends its agents in from: the back of the hall, behind the posts. */
 export const DOOR = { x: 0, z: -7.5 };
 
