@@ -9,13 +9,11 @@
 
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import os from "node:os";
-import { extname, join } from "node:path";
+import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { redactPII } from "karajan-rag";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", ".kj"]);
-const BINARY_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz", ".tgz", ".woff", ".woff2", ".ttf", ".eot", ".mp4", ".db", ".sqlite"]);
-const MAX_FILE_BYTES = 512 * 1024;
 
 export function privacyConfigPath(home = os.homedir()) {
   // KJ_PRIVACY_CONFIG: test/CI override of the global denylist location.
@@ -207,10 +205,11 @@ export function scanText(text, { list = loadPrivacyList(), source = "<text>" } =
   return findings;
 }
 
-/** Scan files/dirs recursively (skips node_modules/.git, binaries, big files). */
+/** Scan files/dirs recursively (skips node_modules/.git and NUL-byte binaries, which it counts). */
 export function scanPaths(paths, { list = loadPrivacyList() } = {}) {
   const findings = [];
   let discarded = 0;
+  let skippedBinary = 0;
   const visit = (p) => {
     if (!existsSync(p)) return;
     // Skip symlinks: an ancestor link recurses forever; an outside link ships nothing.
@@ -222,14 +221,17 @@ export function scanPaths(paths, { list = loadPrivacyList() } = {}) {
       }
       return;
     }
-    if (BINARY_EXT.has(extname(p).toLowerCase()) || st.size > MAX_FILE_BYTES) return;
     const content = readFileSync(p);
-    if (content.includes(0)) return; // binary sniff: NUL byte
+    if (content.includes(0)) { // binary, as git's diff sees it: not read, but counted
+      skippedBinary += 1;
+      return;
+    }
     const fileFindings = scanText(content.toString("utf8"), { list, source: p });
     discarded += fileFindings.discardedByContext || 0;
     findings.push(...fileFindings);
   };
   for (const p of paths) visit(p);
   findings.discardedByContext = discarded;
+  findings.skippedBinary = skippedBinary;
   return findings;
 }
