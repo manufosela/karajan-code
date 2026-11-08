@@ -44,7 +44,7 @@ describe("kj worktree", () => {
     const r = await worktreeCommand({ config: cfg(), action: "start", args: ["lista"], flags: {} });
     expect(fs.readFileSync(path.join(r.path, ".karajan", "identity.local.yml"), "utf8")).toBe("github: someone\n");
     expect(JSON.parse(fs.readFileSync(path.join(r.path, ".claude", "settings.local.json"), "utf8")).hooks).toBeTruthy();
-    expect(r.setup).toEqual({ identity: true, wired: true });
+    expect(r.setup).toEqual({ identity: true, config: false, wired: true });
     expect(execFileSync("git", ["-C", r.path, "status", "--porcelain", "--untracked-files=no"]).toString()).toBe("");
   });
 
