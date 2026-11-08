@@ -5,6 +5,7 @@
  * target repo's `.github/workflows/`. Bodies are plain strings (NOT template
  * literals) so the `${{ … }}` GitHub expressions survive verbatim.
  */
+import { AI_ATTRIBUTION } from "./hook-templates.js";
 
 // Blocks AI self-attribution in PR commit messages. Pure bash + grep, no Node.
 // Pins github.base_ref to an env var (never interpolated into the run block).
@@ -48,8 +49,8 @@ export const NO_AI_ATTRIBUTION_WORKFLOW = [
   '          if ! msgs=$(git log --format=%B "origin/${BASE_REF}...HEAD"); then',
   '            echo "::error::cannot resolve origin/${BASE_REF}...HEAD — the scan did not run"; exit 1',
   "          fi",
-  "          pat='co-authored-by:.*(claude|anthropic|openai|chatgpt|gpt-[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)'",
-  "          pat=\"$pat|(generated|written|authored|assisted|powered) (by|with|using) .*(claude|anthropic|openai|copilot|gemini)\"",
+  // KJC-BUG-0503: the same list the local hooks and kj review judge with.
+  `          pat='${AI_ATTRIBUTION}'`,
   '          if printf "%s" "$msgs" | grep -qiE "$pat"; then',
   '            echo "::error::AI attribution detected in commit messages"; exit 1',
   "          fi",
