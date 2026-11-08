@@ -25,6 +25,7 @@ import { listWithCache, queueMove, flushQueue } from "../hu/team-board-cache.js"
 import { writeTeamMirror } from "../hu/team-board-mirror.js";
 import { boardKey } from "../hu/board-key.js";
 import { startAction } from "./hu-start.js";
+import { traceCard } from "../hu/card-trace.js";
 
 // KJC-TSK-0661 (Jorge's friction): every HU records WHO created it — the
 // board must never show work nobody can trace. Host agent env → that agent;
@@ -279,6 +280,17 @@ async function moveTeamOrQueue({ projectDir, args, flags, deps, emit, who, key }
   }
 }
 
+// KJC-TSK-1457 (ADR 0050): the card trace kj stage reads; a lost line is said on this console.
+const warnHere = (m) => console.warn(m);
+function tracedAdd(projectDir, args, added) {
+  traceCard(projectDir, { action: "add", id: added.short_id || added.id, title: args[0], status: added.status }, warnHere);
+  return added;
+}
+function tracedMove(projectDir, args, moved) {
+  traceCard(projectDir, { action: "move", id: args[0], status: moved.status, queued: moved.queued }, warnHere);
+  return moved;
+}
+
 // KJC-TSK-1047 (TEAM-A): who works this clone, the one a started card is reserved to.
 const workerOf = (projectDir) => readIdentity(projectDir)?.gh_user || effectiveGitEmail(projectDir) || null;
 
@@ -307,12 +319,13 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   if (shared && action === "list") return listTeam({ projectDir, key, flags, deps });
   // KJC-BUG-0392: a zero-padded id (HU-0104) is a local HU from before the shared board: it stays local.
   const legacyLocal = /^HU-0\d+$/i.test(String(args[0] ?? ""));
-  if (shared && action === "move" && !legacyLocal) return moveTeamOrQueue({ projectDir, args, flags, deps, emit, who, key });
+  // KJC-TSK-1457 (ADR 0050): every add and move, on either board (queued ones too), leaves its card trace.
+  if (shared && action === "move" && !legacyLocal) return tracedMove(projectDir, args, await moveTeamOrQueue({ projectDir, args, flags, deps, emit, who, key }));
 
   // KJC-TSK-1257: one function per action on the local board (add also routes to the shared one).
   if (action === "list") return listLocal({ projectDir, flags });
-  if (action === "add") return addAction({ projectDir, board, args, flags, deps, emit, externalBoard: externalBoardOf(config) });
-  if (action === "move") return moveLocal({ projectDir, args, flags, deps, emit });
+  if (action === "add") return tracedAdd(projectDir, args, await addAction({ projectDir, board, args, flags, deps, emit, externalBoard: externalBoardOf(config) }));
+  if (action === "move") return tracedMove(projectDir, args, await moveLocal({ projectDir, args, flags, deps, emit }));
   // KJC-TSK-1372 (#2853): card, lane, running, in that order.
   if (action === "start") {
     const findCard = deps.findCard ?? (shared ? findSharedCard(deps) : findLocalCard(projectDir));

@@ -47,6 +47,21 @@ export function activityEvent(raw) {
   return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null, skills, id: name(r.id), tool: name(r.tool), kind: name(r.kind) };
 }
 
+const CARD_ACTIONS = new Set(['add', 'move']);
+const CARD_STATUSES = new Set(['pending', 'running', 'done', 'failed', 'skipped']);
+
+/**
+ * KJC-TSK-1457 (ADR 0050): a line of .karajan/harness/cards.jsonl (kj hu add and kj hu
+ * move) → a card event, or null. The id, a short title and where it went; a move queued
+ * without network says so, since the card is not there yet.
+ */
+export function cardEvent(raw) {
+  const r = parse(raw);
+  if (!r?.at || !CARD_ACTIONS.has(r.action) || typeof r.id !== 'string' || !CARD_STATUSES.has(r.status)) return null;
+  const title = typeof r.title === 'string' ? r.title.slice(0, 80) : null;
+  return { type: 'card', at: r.at, action: r.action, id: r.id.slice(0, 60), title, status: r.status, queued: r.queued === true };
+}
+
 /** A .karajan/reviews/<hash>.json → a review-verdict event, or null. */
 export function verdictEvent(raw) {
   const r = parse(raw);
@@ -105,6 +120,7 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
     [join(root, 'policy-decisions.jsonl'), decisionEvent],
     [join(root, 'harness', 'commit-gate.jsonl'), gateEvent],
     [join(root, 'harness', 'agent-activity.jsonl'), activityEvent],
+    [join(root, 'harness', 'cards.jsonl'), cardEvent],
   ]);
   const tails = new Map([...logs.keys()].map((file) => [file, createTail(file)]));
   const emit = (event, raw, file) => {

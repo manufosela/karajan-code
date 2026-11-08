@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { activityEvent, denialEvent, decisionEvent, gateEvent, ragEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
+import { activityEvent, cardEvent, denialEvent, decisionEvent, gateEvent, ragEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 
@@ -48,6 +48,17 @@ describe('stage events from kj records', () => {
     expect(ragEvent(JSON.stringify({ at: 1e20, sources: [] }))).toBeNull();
     expect(ragEvent(JSON.stringify({ at: '2026', sources: [] }))).toBeNull();
     expect(ragEvent(JSON.stringify({ at: 5, sources: 'a' }))).toBeNull();
+  });
+
+  // KJC-TSK-1457 (ADR 0050): the card trace kj hu add and kj hu move leave in the lane.
+  it('a card line gives the card, its short title and where it went; a queued move says so', () => {
+    expect(cardEvent(JSON.stringify({ at: 't8', action: 'add', id: 'HU-1', title: 'Login', status: 'pending' })))
+      .toEqual({ type: 'card', at: 't8', action: 'add', id: 'HU-1', title: 'Login', status: 'pending', queued: false });
+    expect(cardEvent(JSON.stringify({ at: 't9', action: 'move', id: 'HU-1', status: 'running', queued: true })))
+      .toEqual({ type: 'card', at: 't9', action: 'move', id: 'HU-1', title: null, status: 'running', queued: true });
+    expect(cardEvent(JSON.stringify({ at: 't9', action: 'add', id: 'HU-1', title: 'x'.repeat(200), status: 'pending' })).title).toHaveLength(80);
+    expect(cardEvent(JSON.stringify({ at: 't9', action: 'delete', id: 'HU-1', status: 'done' }))).toBeNull();
+    expect(cardEvent(JSON.stringify({ at: 't9', action: 'move', id: 'HU-1', status: 'lost' }))).toBeNull();
   });
 
   it('a malformed or shapeless record gives no event', () => {
@@ -113,6 +124,9 @@ describe('watchStageFeed', () => {
     const activity = join(dir, '.karajan', 'harness', 'agent-activity.jsonl');
     appendFileSync(activity, line({ at: 't7', agent: 'claude', role: 'coder', phase: 'start' }));
     watcher.emit('add', activity);
+    const cards = join(dir, '.karajan', 'harness', 'cards.jsonl');
+    appendFileSync(cards, line({ at: 't8', action: 'add', id: 'HU-1', title: 'Login', status: 'pending' }));
+    watcher.emit('add', cards);
     // KJC-TSK-1438: the RAG's answer note, once per answer, with its count and never its question.
     const note = join(dir, '.karajan', 'harness', 'rag-answer.json');
     writeFileSync(note, JSON.stringify({ at: 1000, text: 'SECRET question', sources: ['a', 'b'] }));
@@ -121,7 +135,7 @@ describe('watchStageFeed', () => {
     watcher.emit('change', join(dir, '.karajan', 'other.json'));
     expect(sent.map((e) => [e.type, e.project])).toEqual([
       ['sentinel-deny', 'demo'], ['ledger-seal', 'demo'], ['review-verdict', 'demo'], ['commit-gate', 'demo'], ['agent-activity', 'demo'],
-      ['rag-answer', 'demo'],
+      ['card', 'demo'], ['rag-answer', 'demo'],
     ]);
     expect(sent.at(-1)).toEqual({ type: 'rag-answer', at: '1970-01-01T00:00:01.000Z', sources: 2, project: 'demo' });
     expect(JSON.stringify(sent)).not.toContain('SECRET');
