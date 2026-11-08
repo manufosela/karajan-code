@@ -13,8 +13,49 @@
  * porque entran en su contexto en cada ejecucion.
  */
 import { describe, expect, it } from "vitest";
+import { budgetedAdded, budgetedNet, countsTowardBudget, movedLines, parseNumstat, showSpec } from "../../src/review/loc-budget.js";
 
-import { budgetedAdded, budgetedNet, countsTowardBudget } from "../../src/review/loc-budget.js";
+// KJC-BUG-0504: `git diff -M --numstat -z`: plain = "a\tr\tpath\0", rename = "a\tr\t\0old\0new\0".
+const move = (a, r, from, to) => `${a}\t${r}\t\0${from}\0${to}\0`;
+
+describe("parseNumstat (-z)", () => {
+  it("reads plain entries, renames and binaries", () => {
+    const raw = `1\t2\ta.js\0${move(0, 0, "src/old.js", "dist/new.js")}-\t-\timg.png\0`;
+    expect(parseNumstat(raw).map((r) => [r.from, r.to])).toEqual([["a.js", "a.js"], ["src/old.js", "dist/new.js"], ["img.png", "img.png"]]);
+  });
+  it("a plain file literally named with an arrow is judged by its literal name", () => {
+    const raw = "40\t0\tsrc/a => docs/x.js\0";
+    expect(parseNumstat(raw)).toEqual([{ added: 40, removed: 0, from: "src/a => docs/x.js", to: "src/a => docs/x.js" }]);
+    expect(budgetedNet(raw)).toEqual({ net: 40, exempt: 0 });
+  });
+});
+
+describe("renames in the budget", () => {
+  it("a move into dist/ or docs/ frees no budget", () => {
+    const stat = `${move(300, 300, "src/big.js", "dist/big.js")}${move(300, 300, "notes.md", "docs/notes.md")}`;
+    expect(budgetedNet(stat)).toEqual({ net: 0, exempt: 600 });
+    expect(budgetedAdded(stat).exempt).toBe(600);
+  });
+  it("a counted-to-counted rename keeps added - removed", () => {
+    expect(budgetedNet(move(5, 2, "src/a/x.js", "src/b/x.js"))).toEqual({ net: 3, exempt: 0 });
+  });
+  it("a pure rename out of an exempt path counts the whole destination", () => {
+    const stat = move(0, 0, "dist/notes.js", "src/notes.js");
+    expect(budgetedNet(stat, () => 300)).toEqual({ net: 300, exempt: 0 });
+    expect(budgetedAdded(stat, () => 300).added).toBe(300);
+    expect(() => budgetedNet(stat)).toThrow(/linesOf/);
+  });
+  it("movedLines reads only the destinations that enter the budget", async () => {
+    const stat = `${move(0, 0, "dist/a.js", "src/a.js")}${move(0, 0, "src/b.js", "src/c.js")}`;
+    const read = [];
+    const linesOf = await movedLines(stat, async (p) => { read.push(p); return "x\ny\n"; });
+    expect(read).toEqual(["src/a.js"]);
+    expect(linesOf("src/a.js")).toBe(2);
+  });
+  it("showSpec reads the index when staged, else the head of the range", () => {
+    expect([showSpec(null, "a.js"), showSpec("main...pr", "a.js"), showSpec("main..", "a.js")]).toEqual([":a.js", "pr:a.js", "HEAD:a.js"]);
+  });
+});
 
 describe("countsTowardBudget", () => {
   it.each([

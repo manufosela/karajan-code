@@ -42,10 +42,10 @@ describe("prRequirementChecks", () => {
     const calls = [];
     const run = async (_dir, args) => {
       calls.push(args.join(" "));
-      return args[0] === "diff" ? "10\t0\tsrc/a.js\n4\t0\ttests/a.test.js\n" : "abc123\x1ffeat: add a\x1f\x1e";
+      return args[0] === "diff" ? "10\t0\tsrc/a.js\x004\t0\ttests/a.test.js\0" : "abc123\x1ffeat: add a\x1f\x1e";
     };
     const checks = await prRequirementChecks({ range: "main...pr", projectDir: "/nowhere", config: {}, run });
-    expect(calls).toEqual(["diff --numstat main...pr", "log --format=%H%x1f%s%x1f%b%x1e main..pr"]);
+    expect(calls).toEqual(["diff -M --numstat -z main...pr", "log --format=%H%x1f%s%x1f%b%x1e main..pr"]);
     expect(checks.map((c) => [c.id, c.ok])).toEqual([["size", true], ["conventional-commits", null], ["ai-attribution", true], ["tests", true]]);
   });
 });
