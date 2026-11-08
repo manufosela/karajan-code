@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.7.0",
-  "generated_at": "2026-11-07T04:58:14.087Z",
+  "kj_version": "5.9.0",
+  "generated_at": "2026-11-08T20:35:59.382Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -16,13 +16,8 @@
   },
   "files": [
     {
-      "file": ".claude/settings.json",
-      "sha256": "78922a784ee78e9e50587e93628cd3b9d4dfbe49087adc4514e6781cea38cbb9",
-      "local": true
-    },
-    {
       "file": ".claude/settings.local.json",
-      "sha256": "327739a6b9816cb83d3097e41aa8acb28aa4f93237e2f5a0c9201737e7ec0971",
+      "sha256": "eb77e2e27f47d1d1a12000e2d8fe3c676f8377411d69fc732d276dc413d1e19d",
       "local": true
     },
     {
@@ -47,7 +42,7 @@
     },
     {
       "file": ".github/workflows/kj-no-ai-attribution.yml",
-      "sha256": "e01c40dbd0f4a98432a205bacdd54711096572db31ccf28422ac167144121445"
+      "sha256": "2da12bf23d5ffbf3689e6bfdfac3a6e5e10c2a51054fb991a319123d1c0e4e4c"
     },
     {
       "file": ".github/workflows/kj-pack-smoke.yml",
@@ -55,7 +50,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "ac6121fb834245317540fbda8196f8e7ae344d13b63f49a15e5247ce77e0c94b"
+      "sha256": "44fc3472c8922ea5a3536683078a094a52d46578dfd485d3206b4146b017cf7b"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -103,7 +98,7 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "0094fd227bc3aebfc5302d5468c6c793c41bbebdf1fd135867d85ce36792e47e"
+      "sha256": "c2eb9af212aabc4da39634132639e4d1374fa9eb10defb846ece4c1b61e55cee"
     },
     {
       "file": ".karajan/hooks/post-merge",
@@ -111,7 +106,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "89d9d2cd58b70432ef7c935161734480199513dd65aae99d88b4b1ee7c99aa17"
+      "sha256": "d31488d0e6ac398119db961ad75fb7d93eeeba9a08f13f7f803a68853f446bc9"
     },
     {
       "file": ".karajan/hooks/pre-push",
@@ -179,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "9617d287a6e49f0a3453843a67cd0f4a",
-    "nonce": "a634f427b39e360fbbff3532ed3dbeaf",
-    "project": "kj-stage",
-    "filesHash": "54746875cfb2f04fcb8acba2c7e6040b17dfb8edd1c21d4ae336ed83180ecc3f",
+    "cid": "65cd5e500ab7ac7a6572176c1e031550",
+    "nonce": "af26bb02b69c955930db7f063affc918",
+    "project": "harden-5.9.0",
+    "filesHash": "99182ee343d12469e08c6ceb9d5736f1b3c6d7f44c809f907e87e7c307ba1cd4",
     "v": 2,
-    "kjVersion": "5.7.0",
-    "issuedMs": 1794027477265,
-    "expiresMs": 1794027627265,
+    "kjVersion": "5.9.0",
+    "issuedMs": 1794170149388,
+    "expiresMs": 1794170299388,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "FRDPINzPMMKeMR+QEv/E19BKFBMRZDuTsk9MtKghLxDhSpgfcepdGsLkzKhzqEAXe+6hNOMr7hSi2LuUmatEAA=="
+    "signature": "eF9vEE7A96H+Oaj/SXZyudBJ06AyX3nrWxkJP8UJMtgw1R8vqEM29tQXp1fzXNTFS/2NeoGp5QM9eRSHDGmhAQ=="
   }
 }

@@ -21,8 +21,7 @@ jobs:
           if ! msgs=$(git log --format=%B "origin/${BASE_REF}...HEAD"); then
             echo "::error::cannot resolve origin/${BASE_REF}...HEAD — the scan did not run"; exit 1
           fi
-          pat='co-authored-by:.*(claude|anthropic|openai|chatgpt|gpt-[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)'
-          pat="$pat|(generated|written|authored|assisted|powered) (by|with|using) .*(claude|anthropic|openai|copilot|gemini)"
+          pat='co-authored-by:.*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)|(generated|written|authored|assisted|powered|created|made) (by|with|using) .*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)'
           if printf "%s" "$msgs" | grep -qiE "$pat"; then
             echo "::error::AI attribution detected in commit messages"; exit 1
           fi
