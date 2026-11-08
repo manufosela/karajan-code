@@ -24,7 +24,7 @@ import { listPlans, loadPlan } from "../plan/plan-store.js";
 // The pid itself, not the marker's expiry: an indexer past MAX_RUN_MS still runs. EPERM is a process too.
 const pidAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (err) { return err.code === "EPERM"; } };
 
-const REF_SEPARATOR =" · "; // external_ref joins a tracker card and an issue (src/commands/hu.js)
+export const REF_SEPARATOR = " · "; // external_ref joins a tracker card and an issue (src/commands/hu.js)
 
 // KJC-TSK-1316: ONE gh call for every lane, open and merged PRs alike.
 const listPrs = async (cwd) => JSON.parse((await execFileAsync("gh", ["pr", "list", "--state", "all", "--limit", "200", "--json", "number,url,state,headRefName"], { cwd })).stdout);

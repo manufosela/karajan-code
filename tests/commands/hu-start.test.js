@@ -5,9 +5,12 @@ import { slugOf, startAction } from "../../src/commands/hu-start.js";
 
 const card = (over = {}) => ({ id: "HU-42", title: "Board ▶ opens a lane", status: "pending", claimed_by: null, ...over });
 
-function harness({ found = card(), who = "manufosela" } = {}) {
+const laneOf = (branch) => ({ slug: branch.replace("feat/", ""), branch, path: `/repo/.kj/worktrees/${branch.replace("feat/", "")}` });
+
+function harness({ found = card(), who = "manufosela", lanes = [] } = {}) {
   const calls = [];
   const deps = {
+    lanes: async () => lanes,
     findCard: async (ref) => { calls.push(`find ${ref}`); return found; },
     worktree: async ({ args }) => { calls.push(`lane ${args[0]}`); return { path: `/repo/.kj/worktrees/${args[0]}`, branch: `feat/${args[0]}` }; },
   };
@@ -44,7 +47,7 @@ describe("kj hu start — KJC-TSK-1372", () => {
   // KJC-TSK-1324: the board's ▶ starts the card and has the panel coder write in its lane.
   it("with --code the panel coder runs in the lane on the card, after the card is running", async () => {
     const calls = [];
-    const deps = { findCard: async () => card(), worktree: async () => ({ path: "/lanes/HU-42-x", branch: "feat/HU-42-x" }), runCoder: (o) => { calls.push(o); return 0; } };
+    const deps = { lanes: async () => [], findCard: async () => card(), worktree: async () => ({ path: "/lanes/HU-42-x", branch: "feat/HU-42-x" }), runCoder: (o) => { calls.push(o); return 0; } };
     await startAction({ config: {}, args: ["HU-42", "x"], flags: { code: true }, deps, move: async () => calls.push("moved"), who: "me", emit: (o) => o });
     expect(calls).toEqual(["moved", { cwd: "/lanes/HU-42-x", card: "HU-42", task: "Board ▶ opens a lane" }]);
     const failing = { ...deps, runCoder: () => 3 };
@@ -56,8 +59,37 @@ describe("kj hu start — KJC-TSK-1372", () => {
     const mine = harness({ found: card({ status: "running", claimed_by: "manufosela" }) });
     await expect(mine.run(["HU-42", "x"])).resolves.toMatchObject({ id: "HU-42" });
     const { run } = harness();
-    const failing = (args) => startAction({ config: {}, args, deps: { findCard: async () => card(), worktree: async () => ({ path: "/l", branch: "feat/HU-42-x" }) }, move: async () => { throw new Error("offline"); }, who: "manufosela", emit: (o) => o });
+    const failing = (args) => startAction({ config: {}, args, deps: { lanes: async () => [], findCard: async () => card(), worktree: async () => ({ path: "/l", branch: "feat/HU-42-x" }) }, move: async () => { throw new Error("offline"); }, who: "manufosela", emit: (o) => o });
     await expect(failing(["HU-42", "x"])).rejects.toThrow(/lane feat\/HU-42-x is ready.*kj hu move HU-42 running/);
     await expect(run([])).rejects.toThrow(/usage: kj hu start/);
+  });
+
+  // KJC-BUG-0517: a card that already has a lane does not get a second one.
+  it("reuses the lane whose branch names the card id or its external_ref, without opening another", async () => {
+    const byId = harness({ lanes: [laneOf("feat/HU-42-old")] });
+    expect(await byId.run(["HU-42"])).toMatchObject({ reused: true, branch: "feat/HU-42-old", lane: "/repo/.kj/worktrees/HU-42-old" });
+    expect(byId.calls).toEqual(["find HU-42", "move running"]);
+    const byRef = harness({ found: card({ external_ref: "gh#1 · KJC-BUG-0517" }), lanes: [laneOf("feat/KJC-BUG-0517-x")] });
+    expect(await byRef.run(["HU-42"])).toMatchObject({ reused: true, branch: "feat/KJC-BUG-0517-x" });
+    expect(byRef.calls).not.toContainEqual(expect.stringMatching(/^lane /));
+  });
+
+  it("does not take the lane of HU-427 for HU-42", async () => {
+    const { calls, run } = harness({ lanes: [laneOf("feat/HU-427-other")] });
+    expect(await run(["HU-42", "x"])).not.toHaveProperty("reused");
+    expect(calls).toContain("lane HU-42-x");
+  });
+
+  it("two lanes of one card: fails naming both, before moving or creating anything", async () => {
+    const { calls, run } = harness({ lanes: [laneOf("feat/HU-42-a"), laneOf("feat/HU-42-b")] });
+    await expect(run(["HU-42"])).rejects.toThrow(/HU-42-a.*HU-42-b.*kj worktree done/s);
+    expect(calls).toEqual(["find HU-42"]);
+  });
+
+  it("with --code on a reused lane the coder runs in that lane", async () => {
+    const runs = [];
+    const deps = { lanes: async () => [laneOf("feat/HU-42-old")], findCard: async () => card(), runCoder: (o) => { runs.push(o.cwd); return 0; } };
+    await startAction({ config: {}, args: ["HU-42"], flags: { code: true }, deps, move: async () => {}, who: "me", emit: (o) => o });
+    expect(runs).toEqual(["/repo/.kj/worktrees/HU-42-old"]);
   });
 });

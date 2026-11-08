@@ -20,7 +20,7 @@ const card = async () => (await hu("list", [])).find((h) => h.short_id === "T-1"
 // KJC-TSK-1372 (#2853): kj hu start on the local board finds the card, opens its lane and claims it.
 describe("kj hu start on the local board", () => {
   beforeEach(async () => { await hu("add", ["Shared work"], { flags: { id: "T-1" } }); });
-  const start = (args, who, worktree) => huCommand({ config: { projectDir: dir }, action: "start", args, flags: { json: true }, deps: { who, worktree } });
+  const start = (args, who, worktree) => huCommand({ config: { projectDir: dir }, action: "start", args, flags: { json: true }, deps: { who, worktree, lanes: async () => [] } });
   const lane = async ({ args }) => ({ path: `/lanes/${args[0]}`, branch: `feat/${args[0]}` });
 
   it("opens the lane named after the card and leaves the card running, held by who started it", async () => {

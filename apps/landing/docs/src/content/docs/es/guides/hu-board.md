@@ -86,7 +86,7 @@ Cada card pendiente sin carril tiene un ▶. Al confirmar, el board ejecuta `kj 
 3. Pasa la card a en marcha, reservada a tu nombre.
 4. El coder que declaraste en tu panel la escribe ahí (`kj code --card <id>`), y su log se abre en el board.
 
-La revisión y el commit siguen siendo tuyos o de tu agente, dentro del carril. Una card que ya tiene carril no se arranca otra vez: el board te dice dónde está. Desde la terminal es lo mismo con `kj hu start <id> [slug]`, y `--code` para que el coder la escriba.
+La revisión y el commit siguen siendo tuyos o de tu agente, dentro del carril. Una card que ya tiene carril no se arranca otra vez: el board te dice dónde está. Desde la terminal es lo mismo con `kj hu start <id> [slug]`, y `--code` para que el coder la escriba. Si la card ya tiene un carril, uno cuya rama lleva su id o su referencia (una card del Planning Game, por ejemplo), `kj hu start` arranca la card en ese carril en vez de abrir otro; si tiene más de uno, se para y los nombra.
 
 ## Cómo Funciona
 

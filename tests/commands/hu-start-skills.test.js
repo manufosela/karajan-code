@@ -20,6 +20,16 @@ afterEach(() => { vi.restoreAllMocks(); fs.rmSync(dir, { recursive: true, force:
 const skills = vi.fn(async ({ task }) => ({ skills: /frontend/i.test(task) ? [{ name: "frontend-ui-engineering", path: "/k/frontend-ui-engineering/SKILL.md", catalog: true }] : [], dropped: [] }));
 const hu = (action, args, flags = {}) => huCommand({ config: { projectDir: dir }, action, args, flags, deps: { who: "ana", skills } });
 
+// KJC-BUG-0517: the card kj hu start reads carries its `ref`, so the lane named after it is reused.
+it("hu start reuses the lane named after the ref the shared board's row carries", async () => {
+  const row = { short_id: "HU-9", title: "x", status: "pending", claimed_by: null, ref: "KJC-BUG-0517" };
+  const manager = { isId: () => true, list: async () => [row], claim: async () => row, update: async () => row, move: async () => row };
+  const lanes = async () => [{ slug: "KJC-BUG-0517-x", branch: "fix/KJC-BUG-0517-x", path: "/repo/.kj/worktrees/KJC-BUG-0517-x" }];
+  const deps = { who: "ana", manager, lanes, boardConfig: async () => ({ backend: "github", repo: "o/r" }), pinGhIdentity: () => {} };
+  const out = await huCommand({ config: { projectDir: dir }, action: "start", args: ["HU-9"], flags: { json: true }, deps });
+  expect(out).toMatchObject({ reused: true, branch: "fix/KJC-BUG-0517-x" });
+});
+
 describe("starting an HU names its skills", () => {
   it("moving to running prints the skills that apply and where to read them, from the HU's text", async () => {
     await hu("add", ["Responsive frontend login form"], { id: "T-1" });
