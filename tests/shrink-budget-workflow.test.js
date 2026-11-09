@@ -11,11 +11,8 @@
 
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import yaml from "js-yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,26 +24,14 @@ async function loadWorkflow() {
 }
 
 describe("shrink-budget workflow", () => {
-  // KJC-BUG-0375: the excludes were anchored to the root, so a lockfile in a
-  // package (packages/radar/frontend/pnpm-lock.yaml) counted as code.
-  it("keeps lockfiles out of the budget wherever they live", async () => {
-    const raw = await readFile(WORKFLOW_PATH, "utf8");
-    const excludes = [...raw.matchAll(/"(:\(exclude\)[^"]+)"/g)].map((m) => m[1]);
-    const dir = mkdtempSync(join(tmpdir(), "kj-shrink-"));
-    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
-    git("init", "-q", "-b", "main");
-    git("config", "user.email", "t@t"); git("config", "user.name", "t");
-    git("commit", "-q", "--allow-empty", "-m", "base");
-    for (const lock of ["pnpm-lock.yaml", "packages/a/pnpm-lock.yaml", "apps/b/package-lock.json", "c/d/yarn.lock"]) {
-      mkdirSync(dirname(join(dir, lock)), { recursive: true });
-      writeFileSync(join(dir, lock), "x\n".repeat(300));
-    }
-    mkdirSync(join(dir, "src"));
-    writeFileSync(join(dir, "src", "a.js"), "x\n");
-    git("add", "-A"); git("commit", "-qm", "change");
-    const counted = git("diff", "--numstat", "HEAD~1...HEAD", "--", ".", ...excludes).trim().split("\n").map((l) => l.split("\t")[2]);
-    rmSync(dir, { recursive: true, force: true });
-    expect(counted).toEqual(["src/a.js"]);
+  // KJC-BUG-0519: the delta is counted by kj pr-size with kj's own budget (loc-budget.js, where
+  // KJC-BUG-0375's nested lockfiles are tested), by the BASE branch's kj, never a list copied here.
+  it("counts with the base branch's kj pr-size and keeps no exclusion list of its own", async () => {
+    const wf = await loadWorkflow();
+    const run = wf.jobs["loc-budget"].steps.find((s) => s.id === "loc").run;
+    expect(run).toContain('git worktree add --detach "$JUDGE" "origin/${BASE_REF}"');
+    expect(run).toContain('node "$JUDGE/bin/kj.js" pr-size --base "$BASE_REF" --limit "$LOC_LIMIT" --json');
+    expect(await readFile(WORKFLOW_PATH, "utf8")).not.toContain(":(exclude)");
   });
 
   it("parses as valid YAML", async () => {
