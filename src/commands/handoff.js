@@ -6,7 +6,8 @@ import { addHandoff, listHandoffs, markHandoffDone, readHandoff, watchHandoffs }
 
 const line = (h) => {
   const why = h.kind === "task" ? "  (" + h.why + ")" : "";
-  return `${h.id}  ${h.status.padEnd(8)}  ${h.createdAt}  ${h.command}${why}`;
+  const stops = h.blocking ? "  BLOQUEANTE" : "";
+  return `${h.id}  ${h.status.padEnd(8)}  ${h.createdAt}  ${h.command}${why}${stops}`;
 };
 
 /** @returns {Promise<0|1>} */
@@ -14,8 +15,9 @@ export async function handoffCommand({ action = "list", config, flags = {}, log 
   const projectDir = config?.projectDir || process.cwd();
   try {
     if (action === "add") {
-      const record = addHandoff({ projectDir, command: flags.command, cwd: flags.cwd ?? projectDir, why: flags.why ?? null });
+      const record = addHandoff({ projectDir, command: flags.command, cwd: flags.cwd ?? projectDir, why: flags.why ?? null, blocking: flags.blocking === true });
       log(`encargo ${record.id} registrado: ${record.command}`);
+      if (record.blocking) log("bloqueante: para y pregunta a tu usuario solo por este encargo; no sigas hasta que lo haga o te diga que sigas.");
       if (record.kind === "task") log(`para qué (propuesto por el agente): ${record.why}`);
       else log(`por qué lo negó el gate (${record.denial.at}):\n${record.denial.why}`);
       log(`tu usuario lo revisa con kj handoff show ${record.id}; nadie copia y pega el comando.`);

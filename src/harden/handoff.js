@@ -30,7 +30,7 @@ export function findDenial({ projectDir, command }) {
  * exact bytes there is nothing to hand off: the agent does not write the why.
  * @returns {{id: string, command: string, sha256: string, why: string}}
  */
-export function addHandoff({ projectDir, command, cwd = projectDir, why = null }) {
+export function addHandoff({ projectDir, command, cwd = projectDir, why = null, blocking = false }) {
   if (typeof command !== "string" || !command.trim()) throw new Error("kj handoff add: falta el comando exacto que el gate negó");
   const denial = findDenial({ projectDir, command });
   // KJC-TSK-1066: an action only the human can take (publish, seal) is a TASK, with
@@ -40,7 +40,8 @@ export function addHandoff({ projectDir, command, cwd = projectDir, why = null }
   const createdAt = new Date().toISOString();
   const digest = sha256(command);
   const id = sha256(`${digest}:${createdAt}`).slice(0, 8);
-  const base = { id, command, sha256: digest, cwd, createdAt, status: "pending" };
+  // KJC-TSK-1474: blocking = the agent cannot go on without it; any other waits while the work goes on.
+  const base = { id, command, sha256: digest, cwd, createdAt, status: "pending", blocking: blocking === true };
   const record = task ? { ...base, kind: "task", why: why.trim(), denial: null } : { ...base, kind: "denial", denial: { at: denial.at, tool: denial.tool, why: denial.why } };
   writeRecord(projectDir, record);
   return record;
