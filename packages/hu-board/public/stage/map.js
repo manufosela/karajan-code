@@ -109,7 +109,9 @@ export function startMap({ canvas, factories, token, tell, counts }) {
     onView: () => { if (still) draw(performance.now()); },
   });
   const lines = new Map(factories.map(({ project }) => [project, 'at rest']));
-  const tellAll = () => tell([...lines].map(([project, line]) => `${project}: ${line}`));
+  // KJC-TSK-1482: the folder's name; a board older than it sends only the slug.
+  const titles = new Map(factories.map(({ project, name }) => [project, name ?? project]));
+  const tellAll = () => tell([...lines].map(([project, line]) => `${titles.get(project)}: ${line}`));
   const lives = new Map(placed.map((factory) => {
     const own = document.createElement('div'); // each factory relabels only its own corner
     counts.append(own);
@@ -135,7 +137,8 @@ export function startMap({ canvas, factories, token, tell, counts }) {
     const nameOf = (project) => {
       const { live, box } = lives.get(project);
       const mail = mailTotal(box);
-      return mail ? `${mapName(project, live.cards())} · ✉ ${mail}` : mapName(project, live.cards());
+      const title = mapName(titles.get(project), live.cards());
+      return mail ? `${title} · ✉ ${mail}` : title;
     };
     const named = ({ project, lot }) => tagAt(nameOf(project), NAME_OVER, camera, { className: 'stage-worker', origin: lot.position });
     names.replaceChildren(...placed.map(named));
