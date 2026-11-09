@@ -165,6 +165,13 @@ If a gate fails while it checks a command (a file it cannot read, a state it can
 
 The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Every lane the session wrote in is judged with its own branch and tree, and its violations name the lane. Resolve the listed violations. State: `kj sentinel status`.
 
+## handoff
+
+What only the user can do (a publish, a seal) is registered with `kj handoff add`, and the agent minds it so the user does not have to:
+
+- At the end of a turn, at most once every 30 minutes per lane, the turn is held once: the agent checks each pending handoff, closes with `kj handoff done <id>` the ones already done or no longer needed, and ends its message with the rest as its last lines, with the one step each needs. Work is never stopped for these.
+- A handoff registered with `--blocking` is one the agent cannot go on without. While it is pending, every action but reading, asking and `kj handoff` is denied: the agent stops and asks about that handoff alone, and closes it once the user did it or says to go on without it.
+
 ## push-gate
 
 The Sentinel no longer reads `git push` (ADR 0015): what it checked is enforced where the agent cannot reach. The base branch is protected with the method's required checks, the card and the tests are judged at commit by `kj review`, `pre-push` checks the identity of every commit it sends, and pending card moves keep the turn from ending (stop gate).

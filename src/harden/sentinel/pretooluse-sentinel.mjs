@@ -16,6 +16,7 @@ import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, cardOf, e
 import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { sandboxCovers, shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
+import { blockingDeny, pendingHandoffs } from "./sentinel-handoffs.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const inOrder = (want, got) => { let i = 0; for (const w of got) if (w === want[i] && ++i === want.length) return true; return false; };
 // KJC-BUG-0333: a publish is read per simple command by the shell reader, so
@@ -189,6 +190,9 @@ process.stdin.on("end", () => {
       }
     }
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
+    // KJC-TSK-1475: a blocking handoff stops the agent until its user answers.
+    const stopped = blockingDeny(pendingHandoffs(laneTop()), tool, input);
+    if (stopped) { console.error(stopped + doc("handoff")); process.exit(2); }
     // ADR 0015 (KJC-TSK-0927): no gate has an escape any more, so the command
     // text is read only by the identity lock below.
     const CMD_TEXT = tool === "Bash" ? String(input.command || "") : "";

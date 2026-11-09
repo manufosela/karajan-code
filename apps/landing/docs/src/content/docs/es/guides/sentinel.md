@@ -165,6 +165,13 @@ Si un gate falla mientras comprueba un comando (un fichero que no puede leer, un
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Cada carril en el que escribió la sesión se juzga con su propia rama y su árbol, y sus violaciones nombran el carril. Resuelve las violaciones listadas. Estado: `kj sentinel status`.
 
+## handoff
+
+Lo que solo puede hacer el usuario (un publish, un sello) se registra con `kj handoff add`, y lo vigila el agente para que el usuario no tenga que hacerlo:
+
+- Al terminar un turno, como mucho una vez cada 30 minutos por carril, el turno se retiene una vez: el agente revisa cada encargo pendiente, cierra con `kj handoff done <id>` los que ya están hechos o ya no hacen falta, y termina su mensaje con el resto como últimas líneas, con el paso único que pide cada uno. El trabajo nunca se para por estos.
+- Un encargo registrado con `--blocking` es uno sin el que el agente no puede seguir. Mientras esté pendiente, se deniega toda acción salvo leer, preguntar y `kj handoff`: el agente se para y pregunta solo por ese encargo, y lo cierra cuando el usuario lo ha hecho o le dice que siga sin él.
+
 ## push-gate
 
 El Sentinel ya no lee `git push` (ADR 0015): lo que comprobaba se impone donde el agente no llega. La rama base está protegida con los checks obligatorios del método, la card y los tests se juzgan al commitear con `kj review`, `pre-push` comprueba la identidad de cada commit que envía, y las cards pendientes de mover impiden terminar el turno (stop gate).
