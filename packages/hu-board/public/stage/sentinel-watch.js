@@ -9,7 +9,7 @@ import { SENTINEL_POST, WORKSHOP } from './layout.js';
 export const DESCENT_MS = 1500;
 export const STAY_MS = 1800;
 // Beside the host at the bench of the lane, facing it.
-const BY_THE_AGENT = { dx: -2.1, z: WORKSHOP.z - 0.4 };
+const BY_THE_AGENT = { dx: -2.1, dz: -0.4 };
 
 const lane = (event) => event.lane ?? 'main';
 
@@ -31,15 +31,15 @@ function descent(t) {
   return smooth(1 - (t - DESCENT_MS - STAY_MS) / DESCENT_MS);
 }
 
-/** Where the Sentinel is at `now`, where it looks (yaw) and whether it is down; `xOf` gives a lane's x. */
-export function sentinelAt(watch, now, xOf) {
+/** Where the Sentinel is at `now`, where it looks (yaw) and whether it is down; `xOf`/`zOf` give a lane's workshop. */
+export function sentinelAt(watch, now, xOf, zOf = () => WORKSHOP.z) {
   const post = { x: SENTINEL_POST.x, y: SENTINEL_POST.height, z: SENTINEL_POST.z };
   const k = watch.stop ? descent(now - watch.stop.at) : null;
   if (k !== null) {
-    const agent = { x: xOf(watch.stop.lane) + BY_THE_AGENT.dx, y: 0, z: BY_THE_AGENT.z };
+    const agent = { x: xOf(watch.stop.lane) + BY_THE_AGENT.dx, y: 0, z: zOf(watch.stop.lane) + BY_THE_AGENT.dz };
     const at = { x: post.x + (agent.x - post.x) * k, y: post.y * (1 - k), z: post.z + (agent.z - post.z) * k };
     return { ...at, yaw: facing(post, agent), down: true };
   }
-  const yaw = watch.lane ? facing(post, { x: xOf(watch.lane), z: WORKSHOP.z }) : 0;
+  const yaw = watch.lane ? facing(post, { x: xOf(watch.lane), z: zOf(watch.lane) }) : 0;
   return { ...post, yaw, down: false };
 }

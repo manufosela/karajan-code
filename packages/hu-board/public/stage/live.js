@@ -37,7 +37,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
   let gatesLit = new Set();
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
-  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, origin }, working, performance.now());
+  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin }, working, performance.now());
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
   const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
   /** Every station back to its last real state; returns that state. */
@@ -58,7 +58,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
       // The gates' mark sits over the gates themselves, at the back corner of the workshop.
       const atGates = mark.kind === 'gates';
       if (atGates) { hall.lightGates(mark.lane, mark.tone, mark.level); gatesLit.add(mark.lane); }
-      const over = new Vector3(hall.xOf(mark.lane) + (atGates ? GATES_DX : 0), MARK_Y[mark.kind], WORKSHOP.z - (atGates ? WORKSHOP.depth / 2 : 0));
+      const over = new Vector3(hall.xOf(mark.lane) + (atGates ? GATES_DX : 0), MARK_Y[mark.kind], hall.zOf(mark.lane) - (atGates ? WORKSHOP.depth / 2 : 0));
       const tag = overPiece(mark.text, over, camera, origin, `stage-mark stage-mark-${mark.tone}`);
       tag.style.opacity = String(mark.level); // it fades as it ages
       return tag;
@@ -66,7 +66,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
   };
   /** KJC-TSK-1438: kaRAGan takes the RAG's answer to the lane that asked, and comes back. */
   const moveRagan = (now) => {
-    const pose = raganAt(rag, now, hall.xOf);
+    const pose = raganAt(rag, now, hall.xOf, hall.zOf);
     crew.rag.root.position.set(pose.x, 0, pose.z);
     crew.rag.root.rotation.y = pose.yaw;
     crew.rag.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
@@ -98,9 +98,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       moveRagan(now);
-      couriers.frame(now, hall.xOf);
-      benchNotes.frame(state.cards ?? [], hall.xOf, couriers.carried());
-      const sentinel = sentinelAt(watch, now, hall.xOf);
+      couriers.frame(now, hall.xOf, hall.zOf);
+      benchNotes.frame(state.cards ?? [], hall.xOf, couriers.carried(), hall.zOf);
+      const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;
       tags.push(...showMarks(now));

@@ -53,11 +53,11 @@ export function createCouriers(scene) {
     },
     /** KJC-TSK-1462: the cards a robot is still carrying, not on their bench yet. */
     carried: () => new Set(trips.map((trip) => trip.id)),
-    /** Moves every robot on an errand at `now`; `xOf(lane)` is the centre of a lane's workshop. */
-    frame(now, xOf) {
+    /** Moves every robot on an errand at `now`; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
+    frame(now, xOf, zOf) {
       for (const trip of trips) {
         const key = `${trip.id}@${trip.at}`;
-        const pose = courierAt(trip, now, xOf);
+        const pose = courierAt(trip, now, xOf, zOf);
         if (!pose) {
           if (couriers.has(key)) leave(key);
           continue;
@@ -72,7 +72,7 @@ export function createCouriers(scene) {
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
         card.visible = pose.holding;
       }
-      trips = trips.filter((trip) => courierAt(trip, now, xOf) !== null);
+      trips = trips.filter((trip) => courierAt(trip, now, xOf, zOf) !== null);
     },
   };
 }
