@@ -1,11 +1,11 @@
 // KJC-TSK-1457 (ADR 0050, point 5): kj hu add and kj hu move leave one line in
-// .karajan/harness/cards.jsonl of the lane where they run, whatever board holds
+// .karajan/traces/cards.jsonl (KJC-BUG-0527: writable under the sandbox) of the lane where they run, whatever board holds
 // the cards, so kj stage draws each factory's task board from real events only.
 // Only the card's id, a short title and where it went: never its criteria.
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-export const CARDS_FILE = ".karajan/harness/cards.jsonl";
+export const CARDS_FILE = ".karajan/traces/cards.jsonl";
 const TITLE_MAX = 80;
 
 /**
@@ -16,7 +16,7 @@ export function traceCard(projectDir, { action, id, title, status, queued }, war
   // A move queued without network is said as such: the card is not there yet (KJC-TSK-1457).
   const line = { at: new Date().toISOString(), action, id, ...(title ? { title: String(title).slice(0, TITLE_MAX) } : {}), status, ...(queued ? { queued: true } : {}) };
   try {
-    mkdirSync(join(projectDir, ".karajan", "harness"), { recursive: true });
+    mkdirSync(join(projectDir, ".karajan", "traces"), { recursive: true });
     appendFileSync(join(projectDir, CARDS_FILE), `${JSON.stringify(line)}\n`);
   } catch (err) {
     // The trace is for the stage only: the card is already where it should be.

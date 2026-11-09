@@ -1,5 +1,5 @@
 // KJC-TSK-1401 (decided by the maintainer on 2026-11-05): the commit-msg guard
-// leaves one line per attempt in .karajan/harness/commit-gate.jsonl, so kj stage
+// leaves one line per attempt in .karajan/traces/commit-gate.jsonl, so kj stage
 // can open or keep shut its Git gates station. Never the message text.
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -22,7 +22,7 @@ const run = (message) => {
   writeFileSync(join(dir, "MSG"), message);
   return spawnSync("sh", [hook, join(dir, "MSG")], { cwd: dir, encoding: "utf8" });
 };
-const trace = () => readFileSync(join(dir, ".karajan", "harness", "commit-gate.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+const trace = () => readFileSync(join(dir, ".karajan", "traces", "commit-gate.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
 const OK = "fix(x): something short KJC-TSK-1401";
 
 describe("commit-msg guard trace", () => {
@@ -78,20 +78,20 @@ describe("commit-msg guard trace", () => {
 
   it("never writes the message text", () => {
     run("secret-looking words here\n");
-    expect(readFileSync(join(dir, ".karajan", "harness", "commit-gate.jsonl"), "utf8")).not.toMatch(/secret/);
+    expect(readFileSync(join(dir, ".karajan", "traces", "commit-gate.jsonl"), "utf8")).not.toMatch(/secret/);
   });
 
   it("does not block a good commit when the trace cannot be written", () => {
     writeFileSync(join(dir, ".karajan"), "a file where the folder should be");
     expect(run(`${OK}\n`).status).toBe(0);
-    expect(existsSync(join(dir, ".karajan", "harness"))).toBe(false);
+    expect(existsSync(join(dir, ".karajan", "traces"))).toBe(false);
   });
 
-  // KJC-BUG-0521: dash aborts the whole hook on a failed redirection (read-only harness dir).
-  describe.skipIf(process.getuid?.() === 0)("read-only harness folder", () => {
-    const harness = () => join(dir, ".karajan", "harness");
-    beforeEach(() => { mkdirSync(harness(), { recursive: true }); chmodSync(harness(), 0o555); });
-    afterEach(() => chmodSync(harness(), 0o755));
+  // KJC-BUG-0521: dash aborts the whole hook on a failed redirection (read-only traces dir).
+  describe.skipIf(process.getuid?.() === 0)("read-only traces folder", () => {
+    const traces = () => join(dir, ".karajan", "traces");
+    beforeEach(() => { mkdirSync(traces(), { recursive: true }); chmodSync(traces(), 0o555); });
+    afterEach(() => chmodSync(traces(), 0o755));
 
     it("still accepts a good message", () => {
       const res = run(`${OK}\n`);

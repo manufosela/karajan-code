@@ -28,6 +28,14 @@ describe("the card trace of kj hu", () => {
     expect(trace()).toEqual([{ at: expect.any(String), action: "add", id: "HU-0001", title: "Login with SSO", status: "pending" }]);
   });
 
+  // KJC-BUG-0527: the sandbox leaves .karajan/traces writable, not .karajan/harness.
+  it("lands in .karajan/traces, not in the harness", async () => {
+    await run("add", ["Login with SSO"]);
+    expect(CARDS_FILE).toBe(".karajan/traces/cards.jsonl");
+    expect(fs.existsSync(path.join(dir, ".karajan", "traces", "cards.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, ".karajan", "harness"))).toBe(false);
+  });
+
   it("kj hu move leaves the card and where it went", async () => {
     await run("add", ["Login with SSO"]);
     await run("move", ["HU-0001", "running"]);
@@ -49,9 +57,9 @@ describe("the card trace of kj hu", () => {
     expect(trace()).toMatchObject([{ action: "add", id: "HU-42", title: "Login with SSO", status: "pending" }]);
   });
 
-  it("a harness it cannot write never stops the card: it is created and the lost trace is said", async () => {
+  it("a traces folder it cannot write never stops the card: it is created and the lost trace is said", async () => {
     fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
-    fs.writeFileSync(path.join(dir, ".karajan", "harness"), "a file where the folder should be");
+    fs.writeFileSync(path.join(dir, ".karajan", "traces"), "a file where the folder should be");
     const r = await run("add", ["Login with SSO"]);
     expect(r.short_id).toBe("HU-0001");
     expect(warnings.join("\n")).toMatch(/card trace/);

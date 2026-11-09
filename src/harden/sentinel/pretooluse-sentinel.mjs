@@ -7,7 +7,7 @@
 import console from "node:console";
 import process from "node:process";
 import { dirname, join, relative, resolve } from "node:path";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -40,7 +40,8 @@ process.stdin.on("end", () => {
       errOrig("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
       // Only what a handoff needs: the exact Bash command, or the path an edit aimed at; never file contents.
       const what = tool === "Bash" ? { command: input.command } : { file_path: input.file_path || input.notebook_path || null };
-      try { appendFileSync(join(dirname(STATE), "denials.jsonl"), JSON.stringify({ at: new Date().toISOString(), sid, tool, input: what, why: said.join("\n") }) + "\n"); } catch { /* the deny stands without its record */ }
+      // KJC-BUG-0527: the record goes to .karajan/traces (the sandbox leaves it writable), next to the harness folder STATE lives in.
+      try { const traces = join(dirname(dirname(STATE)), "traces"); mkdirSync(traces, { recursive: true }); appendFileSync(join(traces, "denials.jsonl"), JSON.stringify({ at: new Date().toISOString(), sid, tool, input: what, why: said.join("\n") }) + "\n"); } catch { /* the deny stands without its record */ }
     });
     // KJC-BUG-0238 (#1886): de quien es cada cambio. La primera vez que la
     // sesion toca un fichero se anota si estaba limpio: solo entonces un

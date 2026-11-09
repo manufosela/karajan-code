@@ -10,7 +10,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from "node:path";
 
 export const HANDOFFS_DIR = ".karajan/handoffs";
-export const DENIALS_FILE = ".karajan/harness/denials.jsonl";
+// KJC-BUG-0527: traces live where the sandbox leaves the agent a writable folder.
+export const DENIALS_FILE = ".karajan/traces/denials.jsonl";
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
 /** The Sentinel's denials, oldest first; a line that is not JSON is skipped. */
