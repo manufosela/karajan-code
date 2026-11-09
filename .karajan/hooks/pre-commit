@@ -18,7 +18,7 @@ if [ -f .karajan/identity.local.yml ]; then
   if [ -n "$kj_declared_email" ] && { [ "$kj_author" != "$kj_declared_email" ] || [ "$kj_committer" != "$kj_declared_email" ]; }; then
     echo "kj harden: identity lock — committing as $kj_author / $kj_committer but this clone is declared as $kj_declared_email (kj identity show)"; exit 1
   fi
-elif [ ! -f .karajan/identity.local.yml ]; then
+elif [ ! -f .karajan/identity.local.yml ] && command -v kj >/dev/null 2>&1; then
   echo 'kj harden: no identity declared for this clone — run kj identity set (advisory)'
 fi
 # Lint + format the working tree with the project's native tools.
@@ -47,15 +47,25 @@ if git diff --cached --name-only --diff-filter=d | grep -qE '^(\.claude/[^/]*\.l
 fi
 # KJC-TSK-1234 (ADR 0032): the project's kj.config.yml travels with the repo, so its staged
 # version is checked for secrets by kj, which parses the YAML (raw text can spell a key in
-# too many ways). Without kj nothing can check it, so it does not enter.
+# too many ways). HU-3530: the hooks of kj apply to whoever has kj; without it the check is
+# skipped with a notice, never silently and never blocking.
 if git diff --cached --name-only --diff-filter=d | grep -qx '.karajan/kj.config.yml'; then
-  command -v kj >/dev/null 2>&1 || { echo 'kj harden: .karajan/kj.config.yml is staged but kj is not installed to check it holds no secret'; exit 1; }
-  git show ':.karajan/kj.config.yml' | kj config --check-secrets - || { echo 'kj harden: keep tokens and passwords out of the shared kj.config.yml'; exit 1; }
+  if command -v kj >/dev/null 2>&1; then
+    git show ':.karajan/kj.config.yml' | kj config --check-secrets - || { echo 'kj harden: keep tokens and passwords out of the shared kj.config.yml'; exit 1; }
+  else
+    echo 'kj harden: secret check of .karajan/kj.config.yml skipped, kj is not installed'
+  fi
 fi
 # KJC-TSK-1205 (ADR 0030): a tampered Sentinel is caught before each commit,
 # not only when the turn ends. Only where it is installed; no kj, no check.
 if [ -d .karajan/harness ] && command -v kj >/dev/null 2>&1; then
   kj sentinel verify >/dev/null 2>&1 || { echo 'kj harden: the Sentinel is tampered with (kj sentinel verify says how) — restore it with kj harden'; exit 1; }
+fi
+# Chain the repo's own hook in .git/hooks, looked up when the hook runs (KJC-BUG-0509, HU-2762).
+kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"
+if [ -n "$kj_repo" ] && [ -x "$kj_repo/pre-commit" ] && [ "$(cd "$kj_repo" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  "$kj_repo/pre-commit" "$@"; rc=$?
+  [ "$rc" -eq 0 ] || exit "$rc"
 fi
 # v4 review gate (ENV-C1, opt-in via `kj review --install-gate`):
 # a staged diff only enters with a recorded cross-AI approved verdict.
@@ -64,17 +74,13 @@ fi
 # exempt (no gate can exist before it does), and it cannot be bypassed
 # by deleting the working-tree file.
 if git cat-file -e HEAD:.karajan/review-gate 2>/dev/null; then
-  if ! command -v kj >/dev/null 2>&1; then
-    echo 'kj: review gate is enabled but kj is not installed — see karajancode.com/docs/getting-started/installation'; exit 1
+  if command -v kj >/dev/null 2>&1; then
+    kj review --check || { echo 'kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`'; exit 1; }
+  else
+    echo 'kj: review gate skipped, kj is not installed (karajancode.com/docs/getting-started/installation)'
   fi
-  kj review --check || { echo 'kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`'; exit 1; }
 fi
-# Chain the repo's own hook in .git/hooks, then the machine's global one, both looked up when the hook runs (KJC-TSK-0645, HU-2762).
-kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"
-if [ -n "$kj_repo" ] && [ -x "$kj_repo/pre-commit" ] && [ "$(cd "$kj_repo" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
-  "$kj_repo/pre-commit" "$@"; rc=$?
-  [ "$rc" -eq 0 ] || exit "$rc"
-fi
+# Chain the machine's global hook, looked up when the hook runs (KJC-TSK-0645, HU-2762).
 kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
 if [ -n "$kj_global" ] && [ -x "$kj_global/pre-commit" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   "$kj_global/pre-commit" "$@"; rc=$?
