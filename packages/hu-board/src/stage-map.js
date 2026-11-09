@@ -4,6 +4,8 @@
  * project and its directory resolves (ADR 0011). Factories with robots at work
  * go first; the rest keep the board's order (latest activity first).
  */
+import { basename } from 'node:path';
+
 import { getProjects } from './db.js';
 import { projectDirForSlug } from './project-dir.js';
 import { watchLanes as watchProjectLanes } from './stage-feed.js';
@@ -24,11 +26,12 @@ const factories = ({ projects, dirOf }) => projects
 
 const atWork = (factory) => factory.lanes.reduce((n, lane) => n + (lane.working?.length ?? 0), 0);
 
-/** @returns {Array<{project: string, lanes: object[]}>} every factory with the state of its lanes. */
+/** @returns {Array<{project: string, name: string, lanes: object[]}>} every factory with the state of its lanes. */
 export function stageMap(options = {}) {
   const deps = withDefaults(options);
   return factories(deps)
-    .map(({ project, dir }) => ({ project, lanes: deps.lanesOf(dir) }))
+    // KJC-TSK-1482: the factory is called after its folder; the slug spells the whole path.
+    .map(({ project, dir }) => ({ project, name: basename(dir), lanes: deps.lanesOf(dir) }))
     .toSorted((a, b) => atWork(b) - atWork(a));
 }
 

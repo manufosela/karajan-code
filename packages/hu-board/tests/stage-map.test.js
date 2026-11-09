@@ -15,9 +15,15 @@ const deps = {
 describe('stageMap', () => {
   it('is one factory per real project that resolves, the ones at work first', () => {
     expect(stageMap(deps)).toEqual([
-      { project: 'beta', lanes: states['/w/beta'] },
-      { project: 'alpha', lanes: states['/w/alpha'] },
+      { project: 'beta', name: 'beta', lanes: states['/w/beta'] },
+      { project: 'alpha', name: 'alpha', lanes: states['/w/alpha'] },
     ]);
+  });
+
+  it('names each factory after its folder, not the slug of its whole path (KJC-TSK-1482)', () => {
+    const slug = 'home_manu_ws_npm-packages_karajan-code';
+    const map = stageMap({ projects: [{ id: slug }], dirOf: () => '/home/manu/ws_npm-packages/karajan-code', lanesOf: () => lanesWith([]) });
+    expect(map[0]).toMatchObject({ project: slug, name: 'karajan-code' });
   });
 
   it('keeps the board order among factories with the same work', () => {

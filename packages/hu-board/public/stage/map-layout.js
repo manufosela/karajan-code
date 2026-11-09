@@ -7,6 +7,9 @@ import { hallWidth } from './layout.js';
 /** The hall from behind its door to past its nameplates, along z (layout.js). */
 export const FLOOR_Z = { back: -9.5, front: 6 };
 export const GAP = 1.5;
+// KJC-TSK-1482: the name stands at the back of each floor; seen at three quarters it
+// rose over the factory behind, so rows keep more room between them than neighbours.
+export const ROW_GAP = 7;
 const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
 const MID = (FLOOR_Z.back + FLOOR_Z.front) / 2;
 const WIDER = 1.5; // rows a little wider than a square, as the screen is
@@ -31,13 +34,13 @@ function rowsOf(widths, target) {
  */
 export function packLots(laneCounts) {
   const widths = laneCounts.map((n) => hallWidth(n) + 2);
-  const area = widths.reduce((sum, w) => sum + (w + GAP) * (DEPTH + GAP), 0);
+  const area = widths.reduce((sum, w) => sum + (w + GAP) * (DEPTH + ROW_GAP), 0);
   const rows = rowsOf(widths, Math.max(...widths, Math.sqrt(area * WIDER)));
   const width = Math.max(...rows.map((row) => row.width));
-  const depth = rows.length * DEPTH + (rows.length - 1) * GAP;
+  const depth = rows.length * DEPTH + (rows.length - 1) * ROW_GAP;
   const lots = [];
   for (const [r, row] of rows.entries()) {
-    const z = -depth / 2 + DEPTH / 2 + r * (DEPTH + GAP) - MID;
+    const z = -depth / 2 + DEPTH / 2 + r * (DEPTH + ROW_GAP) - MID;
     let left = -row.width / 2;
     for (const i of row.items) {
       lots[i] = { x: left + widths[i] / 2, z, width: widths[i] };
