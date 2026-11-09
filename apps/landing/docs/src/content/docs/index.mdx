@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.12.0: a quality check that reads the repo, and handoffs the agent minds (current)
+### v5.13.0: lanes that clean up after a merge, and a warning before GitHub's 2 December change (current)
+
+`kj worktree prune` now retires merged lanes that only hold kj's own files (it archives their review verdicts and gate decisions first) and deletes every local branch already merged into the base. The board daemon runs that sweep every hour on each of your projects. The MCP servers record which kj install they run from, so the job that refreshes a stable install no longer rewrites one in use. In a public repo, `kj harden` warns you to allow `pull_request_target` in an Actions policy before 2 December 2026, when GitHub stops running it without one.
+
+### v5.12.0: a quality check that reads the repo, and handoffs the agent minds
 
 The Quality workflow `kj harden` generates no longer assumes Node 22, `npm test` and PHP 8.3: it takes the Node version from `.nvmrc`, `.node-version`, `engines` or the repo's own workflows, runs `test` or `test:unit`, and installs the PHP version `composer.json` requires, and it says what it assumed when it cannot tell. The agent minds the handoffs that wait for you: at the end of a turn it lists the ones still pending, and `kj handoff add --blocking` stops it until you answer.
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.13.0] - 2026-11-09
+
+Merged lanes piled up by the hundreds because nothing retired them after a merge, and the stable install kj runs from was rewritten under MCP servers still using it. Merged lanes and branches are now cleaned up, the MCP servers record which install they run from, and `kj harden` warns a public repo before GitHub stops running `pull_request_target` on 2 December.
+
+### Added
+- **The board daemon sweeps abandoned lanes of every project every hour** (KJC-TSK-1479, #3669): it runs `kj worktree prune` at start and hourly on the main checkout of each project with kj lanes, one project at a time, and logs what it retired; a failing project does not stop the sweep.
+- **`kj worktree prune` deletes every local branch already merged into the base** (KJC-TSK-1480, #3671): not only the loose `kj-hu-*` ones. Branches checked out in a worktree and the base itself are kept; a dry run only counts them.
+
+### Fixed
+- **`kj worktree prune` retires merged lanes whose only leftovers are kj's own files** (KJC-TSK-1477, #3666): caches, the index and traces go with the lane, and the governance record (review verdicts, gate decisions) is archived under `.karajan/retired-lanes/<slug>/` of the main checkout first, also by `kj worktree done`. A lane with a pending handoff is kept.
+- **Long-lived kj servers leave their pid in the install they run from** (KJC-BUG-0531, #3674): the MCP servers write `.kj-running/<pid>` in their install, so a job that refreshes a kj install can tell it is in use and leave it alone.
+- **`kj harden` tells the admin of a public repo to allow `pull_request_target`** (KJC-BUG-0532, #3676): from 2 December 2026 GitHub does not run that event in public repos without an Actions policy that allows it, and the generated Policy check uses it. `kj harden` checks the repo's Actions policies and, if none allows the event, names the settings page and every event the repo's workflows use. kj never changes the setting.
+
 ## [5.12.0] - 2026-11-09
 
 A team that has not installed kj got a sealed CI check that was red from the first PR: the generated Quality workflow assumed Node 22, `npm test` and PHP 8.3 whatever the repo used. It now reads them from the repo. And the agent minds what waits for its user: pending handoffs come up at the end of a turn, and a blocking one stops the agent until the user answers.
