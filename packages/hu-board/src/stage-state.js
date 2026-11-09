@@ -7,6 +7,7 @@ import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } fr
 import { join } from 'node:path';
 
 import { listLanes } from './lanes.js';
+import { pendingMail } from './stage-mail.js';
 import { activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
 import { withCard } from '../public/stage/cards.js';
@@ -72,6 +73,7 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
     seal: lastRecord(join(root, 'policy-decisions.jsonl'), decisionEvent, tailBytes),
     gate: lastRecord(join(root, 'harness', 'commit-gate.jsonl'), gateEvent, tailBytes),
     working: agentsAtWork(join(root, 'harness', 'agent-activity.jsonl'), tailBytes, now),
+    mail: pendingMail(projectDir),
   };
 }
 
