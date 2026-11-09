@@ -22,13 +22,14 @@ export const workshopX = (i, n) => (i - (n - 1) / 2) * (WORKSHOP.width + WORKSHO
 /** The x of each piece's post, the row centred behind the workshops. */
 export const postX = (id) => (POSTS.indexOf(id) - (POSTS.length - 1) / 2) * POST.spacing;
 /** How wide the hall is with `n` workshops, so the camera can fit it. */
-export const hallWidth = (n) => Math.max(n * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + 2));
+export const hallWidth = (n) => Math.max(n * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + 3.5));
 
 /** Where kaRAGan, Karajan and kaWATCHan wait: at the ends of the row of posts. */
 const END = ((POSTS.length + 1) / 2) * POST.spacing;
 export const CREW = {
   conductor: { x: -END, z: POST.z, yaw: 0.6 },
-  rag: { x: -END - 1.3, z: POST.z - 0.6, yaw: 0.5 },
+  // KJC-TSK-1487: beside atril, on its outer side; in front of it, it hid it from the camera.
+  rag: { x: -END - 2.8, z: POST.z - 1.5, yaw: 0.5 },
   watch: { x: END, z: POST.z, yaw: -0.6 },
 };
 export const STAND = { x: -END - 1.4, z: POST.z - 1.8, yaw: 0.7 };

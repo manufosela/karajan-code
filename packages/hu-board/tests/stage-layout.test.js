@@ -1,7 +1,7 @@
 // ADR 0048: one workshop per lane at the front, Karajan's posts at the back, no line.
 import { describe, expect, it } from 'vitest';
 
-import { CREW, PLINTH_WIDTH, POST, POSTS, SCALE, SENTINEL_POST, WORKSHOP, hallWidth, postX, workshopX } from '../public/stage/layout.js';
+import { CREW, PLINTH_WIDTH, POST, POSTS, SCALE, SENTINEL_POST, STAND, WORKSHOP, hallWidth, postX, workshopX } from '../public/stage/layout.js';
 
 describe('factory layout', () => {
   it('centres the row of workshops and never lets two touch', () => {
@@ -27,5 +27,11 @@ describe('factory layout', () => {
   it('grows the hall with its workshops and always fits the posts', () => {
     expect(hallWidth(8)).toBeGreaterThan(hallWidth(2));
     expect(hallWidth(1)).toBeGreaterThan(2 * Math.abs(postX(POSTS[0])));
+  });
+
+  it('keeps kaRAGan beside atril, never between it and the camera, inside the hall (KJC-TSK-1487)', () => {
+    // A robot is about 1.7 m wide before its crew scale; atril stands to its side.
+    expect(Math.abs(CREW.rag.x - STAND.x)).toBeGreaterThanOrEqual(1.7 * SCALE.crew + 0.4);
+    expect(hallWidth(1) / 2).toBeGreaterThan(Math.abs(CREW.rag.x) + 0.5);
   });
 });
