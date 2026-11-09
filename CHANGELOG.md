@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.11.0] - 2026-11-09
+
+The day after 5.10.0, @jorgecasar fixed in `kj harden` what his own repos ran into: the order of the generated pre-commit, the branch the generated workflows trigger on, and a Gradle repo read as Go. The traces kj writes for `kj stage` moved out of the folder the sandbox keeps read-only, and `kj stage` gets a mailbox for what only the human can do.
+
+### Added
+- **kj stage: the human's mailbox** (KJC-TSK-1472, 1473, #3647, #3649): each lane counts its pending handoffs (`kj handoff add`), and each factory on the map has a mailbox that blinks while one waits; the factory's name says how many.
+- **atril recommends Cloudflare's security-audit skill** (HU-3645, by @jorgecasar): added to the third-party catalog, pinned to a reviewed commit.
+
+### Fixed
+- **kj's traces live in `.karajan/traces`** (KJC-BUG-0527, #3652, #3654): the sandbox kj configures keeps `.karajan/harness` read-only, so the card, commit-gate, activity and denial traces written from Bash were lost. `kj stage` reads both folders, so a commit-msg hook sealed before this keeps showing until the next `kj harden`.
+- **A lane without settings of its own is no longer reported as tampered** (KJC-BUG-0528, #3640): when a lane has no readable hooks, the Sentinel checks the main checkout's wiring, so the Stop gate no longer loops there.
+- **The generated pre-commit runs the repo's own hook before the review gate** (HU-3605, by @jorgecasar): what that hook changes and re-stages is part of the diff the verdict covers. Run `kj harden` and seal to get it.
+- **The generated workflows trigger on the repo's base branch** (HU-3531, by @jorgecasar), not on a fixed `main`.
+- **A Gradle repo is detected as Gradle** (HU-3520, by @jorgecasar): a stray helper script no longer makes it Go, and no lint is inferred for it.
+- **The kj-rag MCP server is wired for the person, not in the shared `.mcp.json`** (HU-3529, by @jorgecasar): a teammate without kj gets no failing server.
+
 ## [5.10.0] - 2026-11-09
 
 Other sessions of the maintainer, in other repos, upgraded to 5.9.0 and reported what got in their way: a commit hook that refused valid commits inside kj's own sandbox, a seal that refused to run because of files kj itself had staged, a Stop gate that blocked every turn after an upgrade, and a security net that read "rce" inside "source". All of them are fixed here, with the generated hooks no longer blocking a teammate who has not installed kj.

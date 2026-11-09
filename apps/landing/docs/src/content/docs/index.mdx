@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.10.0: what other repos found in 5.9.0, fixed (current)
+### v5.11.0: traces the sandbox can write, and harden fixes from the field (current)
+
+The traces kj writes for `kj stage` (cards, commit gate, agent activity, denials) move to `.karajan/traces`, since the sandbox kj configures keeps the harness folder read-only. A lane without settings of its own is no longer reported as tampered. From Jorge's repos: the generated pre-commit runs the repo's own hook before the review gate, the workflows trigger on the repo's base branch, a Gradle repo is read as Gradle, and the kj-rag MCP server is wired for the person. `kj stage` gets a mailbox that blinks while a handoff waits for you.
+
+### v5.10.0: what other repos found in 5.9.0, fixed
 
 Sessions in other repos upgraded to 5.9.0 and reported what got in their way, and this release fixes it. The commit hook no longer refuses a valid commit inside kj's own sandbox, `kj harden --commit` no longer refuses to seal because of files kj staged, the Stop gate ignores old sources outside the repo, a `2>&1` after `git commit` is no longer a path, and Solomon no longer reads "rce" inside "source". Without kj installed, the generated hooks skip with a notice. The HU Board trusts Tailscale peers, and `kj stage` builds a lighter map.
 
