@@ -14,6 +14,11 @@
       "source": "trailofbits/skills",
       "commit": "2be6433b39e009cd2b6fd3be1895f6b1faa5af9a",
       "note": "security review skills and plugins, picked one per task"
+    },
+    {
+      "source": "cloudflare/security-audit-skill/skills",
+      "commit": "c1c8a8c1471069fb0e188eeaff69b8e8db6564a8",
+      "note": "security audit in six phases with isolated agents and independently verified findings (MIT); source-first, it runs target code only inside an OS sandbox and writes its report outside the repo; picked per task"
     }
   ]
 }

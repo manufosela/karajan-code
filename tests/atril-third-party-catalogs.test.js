@@ -18,6 +18,16 @@ describe("third-party catalogs", () => {
       expect(note.trim(), source).not.toBe("");
     }
   });
+  it("lists no source twice", () => {
+    const declared = sources.map(({ source }) => source.toLowerCase());
+    expect(new Set(declared).size).toBe(declared.length);
+  });
+  it("pins the reviewed security-audit source", () => {
+    const entry = sources.find(({ source }) => source === "cloudflare/security-audit-skill/skills");
+    expect(entry).toBeDefined();
+    expect(entry.commit).toBe("c1c8a8c1471069fb0e188eeaff69b8e8db6564a8");
+    expect(entry.note).toContain("MIT");
+  });
   it("declares nothing that collides with Karajan's method", () => {
     const declared = sources.map(({ source }) => source.toLowerCase());
     for (const banned of OUT_FOR_GOOD) expect(declared.some((s) => s.includes(banned)), banned).toBe(false);
