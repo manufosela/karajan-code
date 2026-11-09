@@ -61,7 +61,9 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
   // repo; the review and each PR's CI verify them when the seal is made. A check
   // over the repo's history (release check) judges only what is versioned.
   // KJC-BUG-0513: host settings sealed as local (`local: true`) differ per clone and lane: skipped too.
-  const entries = (Array.isArray(prov?.files) ? prov.files : []).filter((e) => !trackedOnly || !(String(e?.file).startsWith(HARNESS_PREFIX) || e?.local === true));
+  // KJC-BUG-0535: the mark is not signed and kj puts it only on the host settings: elsewhere it skips nothing.
+  const localHostSettings = (e) => e?.local === true && HOST_SETTINGS_FILES.includes(e.file);
+  const entries = (Array.isArray(prov?.files) ? prov.files : []).filter((e) => !trackedOnly || !(String(e?.file).startsWith(HARNESS_PREFIX) || localHostSettings(e)));
   // KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre tambien los guardias del
   // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
   // exige que TODAS las entradas verifiquen, el sello no se podia ni commitear.

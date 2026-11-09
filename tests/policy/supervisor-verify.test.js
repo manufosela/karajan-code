@@ -233,6 +233,19 @@ describe("lo que aqui no se puede comprobar no es un fallo (KJC-BUG-0212)", () =
     expect(verified.files.has(".karajan/hooks/pre-commit")).toBe(false);
   });
 
+  // KJC-BUG-0535: the local mark is not signed, and kj puts it only on the host settings.
+  it("the history (trackedOnly) still judges a hook whose entry is marked local", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    const msgHook = renderCanonicalHook("commit-msg", generation);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
+    writeFileSync(join(repo, ".karajan", "hooks", "commit-msg"), `${msgHook}\n# tampered`);
+    writeProvenance([
+      { file: ".karajan/hooks/pre-commit", sha256: sha(hook) },
+      { file: ".karajan/hooks/commit-msg", sha256: sha(msgHook), local: true },
+    ]);
+    expect(verifiedSupervisorFiles({ projectDir: repo, trackedOnly: true }).complete).toBe(false);
+  });
+
   it("versioned host settings travel with the repo: sealed and then absent, the seal is not complete", () => {
     const hook = renderCanonicalHook("pre-commit", generation);
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook);
