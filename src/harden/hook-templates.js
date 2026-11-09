@@ -163,13 +163,27 @@ function identityGuard(hook) {
   ];
 }
 
+// HU-3521: the executable a generated step runs (`test -z "$(gofmt -l .)"` runs gofmt); null when it is not a plain name.
+const toolOf = (cmd) => {
+  const tool = cmd.replace(/^test -z "\$\(/, "").split(/\s+/)[0];
+  return /^[\w./@-]+$/.test(tool) ? tool : null;
+};
+
+/** A lint/format step that says it was skipped, and why, when its tool is not on PATH: never a failure of every commit. */
+function toolStep(step, cmd, failure) {
+  const run = `${cmd} || { echo 'kj harden: ${failure}'; exit 1; }`;
+  const tool = toolOf(cmd);
+  if (!tool) return [run];
+  return [`if command -v ${tool} >/dev/null 2>&1; then`, `  ${run}`, "else", `  echo 'kj harden: ${step} skipped: ${tool} not found'`, "fi"];
+}
+
 export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
   const chain = hook === "pre-commit" ? chainToGlobalOnly(hook) : chainToGlobal(hook);
   switch (hook) {
     case "pre-commit": {
       const lines = [...baseBranchGuard(baseBranch), ...identityGuard("pre-commit"), "# Lint + format the working tree with the project's native tools."];
-      if (cmds.lint) lines.push(`${cmds.lint} || { echo 'kj harden: lint failed'; exit 1; }`);
-      if (cmds.format) lines.push(`${cmds.format} || { echo 'kj harden: format check failed'; exit 1; }`);
+      if (cmds.lint) lines.push(...toolStep("lint", cmds.lint, "lint failed"));
+      if (cmds.format) lines.push(...toolStep("format", cmds.format, "format check failed"));
       if (!cmds.lint && !cmds.format) lines.push("# (no lint/format command detected for this stack)");
       lines.push(
         "# KJC-BUG-0164: attribution is surface EVERYWHERE — the staged diff's",

@@ -53,8 +53,9 @@ const JS_TEST_CMD = {
  * Non-JS stacks use their native toolchain (go/ruff/…); JS/TS is built from
  * the project's own package.json scripts so no npm command is ever assumed.
  */
-export async function resolveCmds(projectDir, language) {
-  const lang = language ?? detectStackRoots(projectDir)[0]?.language ?? null;
+export async function resolveCmds(projectDir, language, scope = {}) {
+  // HU-3521: the fallback detection takes the same --only/--exclude as the run, or an excluded root comes back.
+  const lang = language ?? detectStackRoots(projectDir, scope)[0]?.language ?? null;
   const cmds = commandsForLanguage(lang, projectDir);
   if (lang !== "javascript" && lang !== "typescript") return cmds;
 
@@ -164,7 +165,7 @@ export async function hardenCommand({
   }
 
   const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });
-  const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null);
+  const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null, { only: onlyDirs, exclude: excludeDirs });
   // KJC-TSK-0647: CI already running the suite per PR ⇒ pre-push drops its
   // test command (false-red source under local parallelism); opt back in
   // via package.json kj.harden.test_on_push.
