@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { createRobot } from './cast/robot.js';
 import { dispose } from './agents-floor.js';
 import { SCALE } from './layout.js';
-import { courierAt, tripFor } from './courier.js';
+import { courierAt, noteLines, tripFor } from './courier.js';
 
 const COURIER = 0x8fa3b8; // a plain grey-blue: it is Karajan's errand robot, not an agent
 const NOTE_OVER = 4.2; // metres over the robot's feet before scaling: above its helmet
@@ -17,10 +17,18 @@ export function cardNote(id) {
   ctx.fillStyle = '#f0d58c';
   ctx.fillRect(0, 0, 256, 160);
   ctx.fillStyle = '#10161f';
-  ctx.font = '700 56px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(id.slice(0, 9), 128, 80);
+  // KJC-TSK-1493: the prefix small on top, the number big below, each shrunk to fit.
+  const [prefix, number] = noteLines(id);
+  const fit = (text, size, y) => {
+    ctx.font = `700 ${size}px system-ui, sans-serif`;
+    const scale = Math.min(1, 232 / Math.max(1, ctx.measureText(text).width));
+    ctx.font = `700 ${Math.floor(size * scale)}px system-ui, sans-serif`;
+    ctx.fillText(text, 128, y);
+  };
+  if (prefix) fit(prefix, 36, 42);
+  fit(number, 72, prefix ? 106 : 80);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));

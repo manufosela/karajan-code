@@ -7,6 +7,15 @@ import { WALL, WORKSHOP } from './layout.js';
 export const COURIER_WALK_MS = 2400;
 export const PIN_MS = 900;
 
+/**
+ * KJC-TSK-1493: the two lines of a card's note, its prefix small and its number big,
+ * so a long id (OXP-TSK-0123) is read whole instead of cut at the edge.
+ */
+export function noteLines(id) {
+  const cut = id.lastIndexOf('-');
+  return cut < 0 ? ['', id] : [id.slice(0, cut), id.slice(cut + 1)];
+}
+
 /** The errand a `card` event sets going at `now`, or null when none does. */
 export function tripFor(event, now) {
   if (event?.type !== 'card' || event.queued) return null;
