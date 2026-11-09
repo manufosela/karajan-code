@@ -26,7 +26,7 @@ const REPO_ROOT = (() => {
   const here = dirname(fileURLToPath(import.meta.url));     // packages/hu-board/src
   return join(here, "..", "..", "..");                       // → repo root
 })();
-const KJ_CLI = join(REPO_ROOT, "src", "cli.js");
+export const KJ_CLI = join(REPO_ROOT, "src", "cli.js");
 
 // Path now lives in db.js::getHuBoardRunsDir() — KJC-TSK-0421
 // unification. The local helper is gone; callers import directly.

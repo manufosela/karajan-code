@@ -21,6 +21,7 @@ import { reapZombieSessions } from './zombie-reaper.js';
 import { reapZombieHus } from './hu-zombie-reaper.js';
 import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
+import { startLaneSweeper } from './lane-sweeper.js';
 import { startupBanner } from './startup-banner.js';
 import { spaFallback } from './spa-fallback.js';
 import { findAvailablePort as findAvailablePortBase } from 'karajan-core/port-check';
@@ -270,6 +271,9 @@ async function main() {
   } catch (err) {
     console.warn(`[ephemeral-cleaner] skipped: ${err.message}`);
   }
+
+  // KJC-TSK-1479: abandoned lanes of every project are retired at start and every hour.
+  startLaneSweeper();
 
   // Start file watcher
   const watcher = startWatcher();
