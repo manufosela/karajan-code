@@ -16,6 +16,18 @@ const SUBAGENT = { z: WORKSHOP.z + 0.9, from: -1.5, step: 0.75, slots: 5, row: 0
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
 const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
 export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;
+/** How long one hand takes to strike a key, in ms (KJC-TSK-1486). */
+export const KEY_MS = 140;
+
+/**
+ * KJC-TSK-1486: how far forward each arm swings while the agent types, its hands
+ * taking turns over the laptop's keyboard (1 rests on it, 1.25 is the top of a stroke).
+ */
+export function typingAt(now) {
+  const stroke = Math.sin((Math.PI * now) / KEY_MS);
+  return { L: 1 + 0.25 * Math.max(0, stroke), R: 1 + 0.25 * Math.max(0, -stroke) };
+}
+
 /** How long atril takes to turn one page, in ms (KJC-TSK-1428). */
 export const TURN_MS = 1200;
 
