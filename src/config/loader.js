@@ -179,7 +179,10 @@ export async function loadConfig(projectDir) {
   // KJC-TSK-1387 (ADR 0045): every gate reads its rule's resolved value.
   merged = applyEffectiveGates(merged, projectDir || process.cwd());
   // HU-3522: merged.base_branch is "main" even when nobody wrote it; this says whether a layer did.
-  const baseBranchExplicit = [globalConfig, projectConfig, localConfig].some((layer) => !!layer?.base_branch);
+  // HU-3694: `kj init` dumps the defaults into the global file, so a global "main" is not a choice.
+  const globalBase = globalConfig?.base_branch;
+  const baseBranchExplicit = (!!globalBase && globalBase !== DEFAULTS.base_branch)
+    || [projectConfig, localConfig].some((layer) => !!layer?.base_branch);
   return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig, baseBranchExplicit };
 }
 

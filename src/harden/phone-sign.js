@@ -11,6 +11,8 @@ import { join } from "node:path";
 
 import qrcode from "qrcode-terminal";
 
+import { sealRepoMismatch } from "./seal-repo.js";
+
 const SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 // La config del relé (apiKey de cliente Firestore — pública por diseño, la
 // misma que la página firmante lleva incrustada) NO viaja en el tarball: el
@@ -153,7 +155,10 @@ export function provenanceSignature({ projectDir, provenance }) {
   // deletion (no hash): a signed, hashed entry later marked deleted no longer matches its signature.
   const files = entries.map(({ file, sha256, deleted }) => ({ file, sha256: deleted === true ? "" : (sha256 ?? "") }));
   const check = verifySignedFiles({ sig: provenance?.signature, files, keys: new Set(roster) });
-  return check.ok ? { required: true, ok: true } : { required: true, ok: false, reason: `el padrón tiene firmantes y la procedencia ${check.reason}` };
+  if (!check.ok) return { required: true, ok: false, reason: `el padrón tiene firmantes y la procedencia ${check.reason}` };
+  // KJC-BUG-0506: a seal signed for another repo, with the same files and a key of this roster, backs nothing here.
+  const mismatch = sealRepoMismatch({ projectDir, signedProject: provenance.signature.project });
+  return mismatch ? { required: true, ok: false, reason: `la procedencia ${mismatch}` } : { required: true, ok: true };
 }
 
 /**

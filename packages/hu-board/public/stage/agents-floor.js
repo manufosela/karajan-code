@@ -70,8 +70,8 @@ function work(robot, worker, pose, t) {
   if (typing) robot.root.rotation.y = pose.yaw + TYPING.yaw;
 }
 
-/** `lanes` is [{lane, working}] of the last state; `xOf(lane)` the centre of a lane's workshop. */
-export function createAgentsFloor({ scene, camera, xOf, origin }, lanes, now) {
+/** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
+export function createAgentsFloor({ scene, camera, xOf, zOf, origin }, lanes, now) {
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
   return {
@@ -80,7 +80,7 @@ export function createAgentsFloor({ scene, camera, xOf, origin }, lanes, now) {
     frame(t) {
       const tags = [];
       for (const worker of workers) {
-        const pose = workerAt(worker, t, xOf);
+        const pose = workerAt(worker, t, xOf, zOf);
         const key = visitKey(worker);
         let robot = robots.get(key);
         if (!pose) {
@@ -100,7 +100,7 @@ export function createAgentsFloor({ scene, camera, xOf, origin }, lanes, now) {
         const head = robot.root.position.clone().setY(3.6 * scaleOf(worker));
         tags.push(tagAt(labelOf(worker), head, camera, { className: 'stage-worker', origin }));
       }
-      workers = workers.filter((w) => workerAt(w, t, xOf) !== null);
+      workers = workers.filter((w) => workerAt(w, t, xOf, zOf) !== null);
       return tags;
     },
   };

@@ -13,6 +13,7 @@ import { humanActOf } from "./human-act.js";
 import { PHONE_ENROLL, PHONE_INVITE, PHONE_OR_NORMAL } from "./phone-texts.js";
 import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 import { readSecurityLevel } from "./security-level.js";
+import { sealRepoOf } from "./seal-repo.js";
 
 const EXPLAIN = {
   "supervisor-seal": [
@@ -70,7 +71,8 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
   }
   if (level.level === "normal") logger.warn?.(`${act.label}: seguridad normal, la garantía es menor que con la máxima; kj security max la sube`);
   const signed = await phone.request({
-    project: basename(projectDir), files, kjVersion, changes, branch, why: explainAct(id),
+    // KJC-BUG-0506: the repo, which the verifier checks; the folder only where there is no origin.
+    project: sealRepoOf(projectDir) ?? basename(projectDir), files, kjVersion, changes, branch, why: explainAct(id),
     origin: `${act.label} (kj ${kjVersion})`, logger, deps: { projectDir, home },
   });
   if (!signed.ok) throw new Error(`${act.label}: firma del móvil rechazada (${signed.reason}); con móvil enrolado el acto exige su firma (ADR 0018)`);

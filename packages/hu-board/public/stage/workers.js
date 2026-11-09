@@ -7,12 +7,13 @@ import { DOOR, WORKSHOP } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
-const BENCH_Z = WORKSHOP.z - 0.4;
+// How far in front of (+) or behind (-) its workshop's centre each one works.
+const BENCH_DZ = -0.4;
 // Side by side at the bench: the host (KJC-TSK-1435), the coder kj launches, the
 // reviewer beside it, Solomon beside the reviewer it arbitrates.
 const ROLE_SHIFT = { host: -1.3, coder: -0.5, reviewer: 0.4, solomon: 1.3 };
 // KJC-TSK-1435 (ADR 0048): the host's subagents work in rows of five in front of the bench.
-const SUBAGENT = { z: WORKSHOP.z + 0.9, from: -1.5, step: 0.75, slots: 5, row: 0.6 };
+const SUBAGENT = { dz: 0.9, from: -1.5, step: 0.75, slots: 5, row: 0.6 };
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
 const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
 export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;
@@ -47,13 +48,13 @@ export function turnAt(turn, now) {
 /** The key of one robot's whole visit, from walking in to walking out. */
 export const visitKey = (w) => `${w.agent}:${w.role}:${w.id ?? ''}:${w.since}`;
 
-/** Where an agent in `role` works in the workshop centred at `laneX`; a subagent, in its `slot` before the bench. */
-export function spotOf(role, laneX = 0, slot = 0) {
+/** Where an agent in `role` works in the workshop centred at (`laneX`, `laneZ`); a subagent, in its `slot` before the bench. */
+export function spotOf(role, laneX = 0, slot = 0, laneZ = WORKSHOP.z) {
   if (role === 'subagent') {
     const row = Math.floor(slot / SUBAGENT.slots);
-    return { x: laneX + SUBAGENT.from + (slot % SUBAGENT.slots) * SUBAGENT.step, z: SUBAGENT.z + row * SUBAGENT.row };
+    return { x: laneX + SUBAGENT.from + (slot % SUBAGENT.slots) * SUBAGENT.step, z: laneZ + SUBAGENT.dz + row * SUBAGENT.row };
   }
-  return { x: laneX + (ROLE_SHIFT[role] ?? 0), z: BENCH_Z };
+  return { x: laneX + (ROLE_SHIFT[role] ?? 0), z: laneZ + BENCH_DZ };
 }
 
 const laneOf = (ev) => ev.lane ?? 'main';
@@ -100,13 +101,14 @@ const facing = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
 
 /**
  * Where a worker is at `now` and whether it walks, or null once it has left;
- * `xOf` gives a lane's x. A subagent walks out of its host and back to it;
+ * `xOf`/`zOf` give a lane's workshop. A subagent walks out of its host and back to it;
  * everyone else comes in by the door and leaves by it.
  */
-export function workerAt(worker, now, xOf = () => 0) {
+export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z) {
   const laneX = xOf(worker.lane);
-  const spot = spotOf(worker.role, laneX, worker.slot);
-  const gate = worker.role === 'subagent' ? spotOf('host', laneX) : DOOR;
+  const laneZ = zOf(worker.lane);
+  const spot = spotOf(worker.role, laneX, worker.slot, laneZ);
+  const gate = worker.role === 'subagent' ? spotOf('host', laneX, 0, laneZ) : DOOR;
   if (worker.leftAt !== undefined && now >= worker.leftAt) {
     const k = (now - worker.leftAt) / WALK_MS;
     return k >= 1 ? null : { ...lerp(spot, gate, k), yaw: facing(spot, gate), walking: true };
