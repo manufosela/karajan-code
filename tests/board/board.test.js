@@ -1,9 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const originalKjHome = process.env.KJ_HOME;
+
+/** A port nothing listens on: the OS hands one out and it is closed at once. */
+const freePort = () => new Promise((resolve) => {
+  const server = net.createServer().listen(0, "127.0.0.1", () => {
+    const { port } = server.address();
+    server.close(() => resolve(port));
+  });
+});
 
 describe("board command", () => {
   let tmpDir;
@@ -41,10 +50,22 @@ describe("board command", () => {
   });
 
   it("stopBoard succeeds when not running", async () => {
-    const { stopBoard } = await import("../../src/commands/board.js");
-    const result = await stopBoard();
-    expect(result.ok).toBe(true);
-    expect(result.wasRunning).toBe(false);
+    // KJC-BUG-0536: the real stopBoard() asked lsof who listens on 4000 on any interface
+    // and SIGTERMed the user's own board, bound to another address. The test never
+    // reaches the host: a free port, no port occupant, and process.kill a stub.
+    vi.resetModules();
+    vi.doMock("../../src/utils/port-occupant.js", () => ({ getPortOccupant: async () => null }));
+    const kill = vi.spyOn(process, "kill").mockImplementation(() => true);
+    try {
+      const { stopBoard } = await import("../../src/commands/board.js");
+      const result = await stopBoard({ port: await freePort() });
+      expect(result.ok).toBe(true);
+      expect(result.wasRunning).toBe(false);
+      expect(kill.mock.calls.filter(([, signal]) => signal === "SIGTERM")).toEqual([]);
+    } finally {
+      kill.mockRestore();
+      vi.doUnmock("../../src/utils/port-occupant.js");
+    }
   });
 });
 
