@@ -11,6 +11,7 @@ import { turnAt } from './workers.js';
 import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withRag } from './ragan.js';
+import { conductorAt, withBeat } from './conductor.js';
 import { WORKSHOP } from './layout.js';
 import { tagAt } from './screen.js';
 import { Vector3 } from 'three';
@@ -34,6 +35,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
   let marks = []; // KJC-TSK-1437: what the roles just did, by lane
   let rag = null; // KJC-TSK-1438: the answer kaRAGan is taking, and where
+  let beat = null; // KJC-TSK-1490: the act of the method Karajan answers
   let gatesLit = new Set();
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
@@ -71,6 +73,13 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
     crew.rag.root.rotation.y = pose.yaw;
     crew.rag.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
   };
+  /** KJC-TSK-1490: Karajan turns to the lane the method just acted on and conducts it, or stops it. */
+  const conduct = (now) => {
+    const pose = conductorAt(beat, now, hall.xOf, hall.zOf);
+    crew.conductor.root.rotation.y = pose.yaw;
+    crew.conductor.pose('L', ...pose.L);
+    crew.conductor.pose('R', ...pose.R);
+  };
   return {
     settle,
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
@@ -90,6 +99,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
       watch = withWatch(watch, event, now);
       marks = withMark(marks, event, now);
       rag = withRag(rag, event, now);
+      beat = withBeat(beat, event, now);
       tell(settle().lines);
     },
     /** Flashes the pieces that handled a real event just now. */
@@ -98,6 +108,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       moveRagan(now);
+      conduct(now);
       couriers.frame(now, hall.xOf, hall.zOf);
       benchNotes.frame(state.cards ?? [], hall.xOf, couriers.carried(), hall.zOf);
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
