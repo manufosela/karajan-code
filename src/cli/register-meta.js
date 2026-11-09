@@ -184,6 +184,7 @@ export function registerMeta(program, { pkgVersion }) {
   handoffCmd.command("add").description("Register the EXACT command a gate denied (the why comes from the Sentinel's record, not from you), or with --why an action only the human can take")
     .argument("<command...>", "the denied command, as it was run").option("--cwd <dir>", "Directory the command runs in (default: the project)")
     .option("--why <text>", "KJC-TSK-1066: what an action only the human can take is for (publish, seal); marked as the agent's")
+    .option("--blocking", "KJC-TSK-1474: the agent cannot go on without it, so it stops and asks; without it the work goes on and the human is reminded")
     .action((parts, flags) => handoff("add", { ...flags, command: parts.join(" ") }));
   handoffCmd.command("list", { isDefault: true }).description("The handoffs registered in this project").action((flags) => handoff("list", flags));
   handoffCmd.command("show").description("A handoff: the exact command, its sha256 and why the gate denied it")
