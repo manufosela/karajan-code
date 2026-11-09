@@ -278,7 +278,7 @@ describe("installWorkflows", () => {
   });
 
   it("a repo without a lint script gets NO lint step — a gate that exists always enforces", () => {
-    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x" }));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", scripts: { test: "vitest" } }));
     installWorkflows({ projectDir: dir, language: "javascript" });
     const q = read(join(".github", "workflows", "kj-quality.yml"));
     expect(q).not.toContain("lint");
