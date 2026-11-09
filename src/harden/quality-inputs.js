@@ -33,9 +33,12 @@ function workflowVersions(projectDir) {
 export function detectNodeVersion({ projectDir, appDir, root = "." }) {
   const prefix = root === "." || root === "" ? "" : `${root}/`;
   const pkg = readPackageJson(appDir);
-  const file = [".nvmrc", ".node-version"].find((name) => existsSync(join(appDir, name)))
-    ?? (pkg?.engines?.node ? "package.json" : null);
+  const file = [".nvmrc", ".node-version"].find((name) => existsSync(join(appDir, name)));
   if (file) return { file: `${prefix}${file}` };
+  // KJC-BUG-0533 (#3679): engines.node is a range, and setup-node would install the newest Node it allows,
+  // whose npm may reject the repo's lockfile. Its lowest major is the one the repo surely supports.
+  const enginesMajor = lowestNodeMajor(pkg?.engines?.node);
+  if (enginesMajor) return { version: enginesMajor };
   const found = new Set(workflowVersions(projectDir));
   const [only] = found;
   return found.size === 1 && VERSION_LITERAL.test(only) ? { version: only } : null;
@@ -90,6 +93,33 @@ export function detectPhpVersion(appDir) {
   if (lowest.includes(null)) return null;
   const version = lowest.toSorted(comparePhp)[0].join(".");
   return PHP_VERSION.test(version) ? version : null;
+}
+
+// KJC-BUG-0533: an engines.node alternative open from a minimum, where every release of its major qualifies:
+// `>=22`, `>=22.5`, `^20.11.0`, `22`, `22.x`, `~22`. A bare `20.11.0` pins one release and `~20.11` bounds
+// the minor, so they are not, and neither is major 0, where a caret bounds the minor (`^0.5.0` means `<0.6.0`).
+const OPEN_FROM_MAJOR = /^(?:(?:>=|\^)([1-9]\d*)(?:\.\d+){0,2}|~?([1-9]\d*)(?:\.[xX*]){0,2})$/;
+// The only cap allowed beside it: one that ends at a later major (`<23`, `<23.0.0`).
+const NEXT_MAJOR_CAP = /^<(\d+)(?:\.0){0,2}$/;
+
+/** The major of one alternative, or null when its range bounds the minor or patch (`>=20.11.0 <20.12.0`, `~20.11`). */
+function majorOfAlternative(alternative) {
+  // Every token kept, a hyphen range's upper end too (`20 - 20.5`), unlike PHP's termsOf.
+  const tokens = alternative.replaceAll(/([<>=^~])\s+/g, "$1").split(/[\s,]+/).filter(Boolean);
+  const [minimum = "", cap, ...rest] = tokens;
+  const match = OPEN_FROM_MAJOR.exec(minimum);
+  if (!match || rest.length > 0) return null;
+  const major = Number(match[1] ?? match[2]);
+  if (cap === undefined) return major;
+  const capMajor = NEXT_MAJOR_CAP.exec(cap)?.[1];
+  return capMajor && Number(capMajor) > major ? major : null;
+}
+
+/** "22" for the lowest Node major engines.node allows, or null when the range is not open across a whole major. */
+function lowestNodeMajor(range) {
+  if (typeof range !== "string") return null;
+  const majors = range.split(OR_SEPARATOR).map(majorOfAlternative);
+  return majors.includes(null) ? null : String(Math.min(...majors));
 }
 
 /** The PHP inputs for qualityWorkflowFor's options, plus the note when kj falls back to 8.3. */

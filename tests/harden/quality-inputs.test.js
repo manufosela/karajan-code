@@ -38,10 +38,29 @@ describe("Quality workflow Node version", () => {
     expect(quality({ root: "app" }).text).toContain("node-version-file: app/.nvmrc");
   });
 
-  it("uses engines.node through package.json", () => {
-    pkg({ test: "x" }, { engines: { node: ">=24" } });
-    expect(quality().text).toContain("node-version-file: package.json");
+  // KJC-BUG-0533 (#3679): setup-node resolves a range to the newest Node it allows, whose npm may reject the lockfile.
+  it.each([
+    [">=22", "22"],
+    ["^20.11.0 || >=22", "20"],
+    ["22.x", "22"],
+    [">=18 <23", "18"],
+    ["~20", "20"],
+  ])("installs the lowest major engines.node %s allows", (range, major) => {
+    pkg({ test: "x" }, { engines: { node: range } });
+    const { text } = quality();
+    expect(text).toContain(`node-version: ${major}\n`);
+    expect(text).not.toContain("node-version-file");
   });
+
+  // A major would install releases outside these ranges: the repo's own workflows decide instead.
+  it.each(["lts/*", ">=20.11.0 <20.12.0", "~20.11", "20.11.0", ">=20 <20.5", "^0.5.0", "20 - 20.5", "22 - 22.1"])(
+    "falls back to the repo's workflows when engines.node %s does not span a whole major",
+    (range) => {
+      pkg({ test: "x" }, { engines: { node: range } });
+      put(".github/workflows/ci.yml", "          node-version: 24.1.0\n");
+      expect(quality().text).toContain("node-version: 24.1.0\n");
+    },
+  );
 
   it("reuses the literal of the repo's own workflows, never kj's", () => {
     pkg({ test: "x" });
