@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { branchSize } from "../../src/commands/pr-size.js";
+import { branchSize, prSizeCommand } from "../../src/commands/pr-size.js";
 
 let dir;
 const git = (...a) => execFileSync("git", a, { cwd: dir, encoding: "utf8" });
@@ -62,5 +62,36 @@ describe("branchSize", () => {
     writeFileSync(join(dir, "README.md"), lines(50));
     const s = await branchSize({ projectDir: dir, base: "main" });
     expect(s).toMatchObject({ added: 0, exempt: 50 });
+  });
+});
+
+// KJC-TSK-1491 (KJC-BUG-0519): the CI gate runs kj pr-size with the PR's base and the budget.
+describe("prSizeCommand --base --limit", () => {
+  const run = async (flags, config = { projectDir: dir }) => {
+    const out = [];
+    const res = await prSizeCommand({ config, flags, logger: { info: (l) => out.push(l), error: (l) => out.push(l) } });
+    return { res, out: out.join("\n") };
+  };
+
+  it("over the limit it fails and says by how much", async () => {
+    writeFileSync(join(dir, "b.js"), lines(12));
+    const { res, out } = await run({ limit: "10" });
+    expect(res.over).toBe(true);
+    expect(out).toContain("adds 12 net line(s) against main, over the limit of 10");
+  });
+
+  it("within the limit it passes, and --base wins over the configured base", async () => {
+    git("checkout", "-q", "-b", "release", "main");
+    writeFileSync(join(dir, "c.js"), lines(3));
+    git("add", "-A");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "c");
+    git("checkout", "-q", "-b", "feat/y");
+    writeFileSync(join(dir, "d.js"), lines(4));
+    const { res } = await run({ base: "release", limit: "5" }, { projectDir: dir, base_branch: "main" });
+    expect(res).toMatchObject({ net: 4, base: "release", over: false });
+  });
+
+  it("refuses a limit that is not a whole number", async () => {
+    await expect(run({ limit: "lots" })).rejects.toThrow("pr-size: --limit must be a whole number of lines (got lots)");
   });
 });

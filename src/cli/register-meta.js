@@ -793,10 +793,13 @@ export function registerMeta(program, { pkgVersion }) {
   program.command("pr-size")
     .description("Lines this branch adds against its base, with the CI budget (committed, uncommitted and new files)")
     .option("--json", "Machine-readable result")
+    .option("--base <branch>", "Base branch to measure against (default: the configured base_branch)")
+    .option("--limit <lines>", "Fail (exit 1) when the net lines exceed this budget, as the CI gate does")
     .action(async (flags) => {
       await withConfig(pkgVersion, "pr-size", flags, async ({ config, logger }) => {
         const { prSizeCommand } = await import("../commands/pr-size.js");
-        await prSizeCommand({ config, logger, flags });
+        const result = await prSizeCommand({ config, logger, flags });
+        if (result.over) process.exitCode = 1;
       });
     });
 
