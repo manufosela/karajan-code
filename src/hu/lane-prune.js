@@ -156,6 +156,12 @@ export async function commitsNotIn({ git, base, ref = "HEAD", cwd }) {
   return Number(stdout);
 }
 
+/** KJC-TSK-1480: local branches whole in `base` that no worktree has out, the base itself excepted. */
+export async function mergedBranches({ git, base, baseName }) {
+  const { stdout } = await git(["for-each-ref", `--merged=${base}`, "--format=%(refname:short) %(worktreepath)", "refs/heads"]);
+  return stdout.split("\n").map((l) => l.trim()).filter((l) => l && !l.includes(" ") && l !== baseName);
+}
+
 /** KJC-TSK-1037: loose kj-hu-* branches (no worktree): the empty ones, and the ones with work and how much. */
 export async function looseLaneBranches({ git, base }) {
   const { stdout: listed } = await git(["for-each-ref", "--format=%(refname:short) %(worktreepath)", "refs/heads/kj-hu-*"]);
