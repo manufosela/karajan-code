@@ -1,7 +1,8 @@
 // KJC-PCS-0049 Step 7 — MCP handlers calling src/rag/* directly. Imports
 // from src/commands/* are forbidden by the layer-boundaries test
 // (MCP and CLI are peer layers); we hit the pure rag/* modules instead.
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { countChunks, projectSlug } from "../../rag/vec-store.js";
 import { openProjectStore } from "../../rag/project-store.js";
 import { countProjectChunks, emptyIndexRemedy } from "../../rag/migrate.js";
@@ -19,6 +20,13 @@ const silentLogger = {
   info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, setContext: () => {},
 };
 
+const packageDir = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
+// HU-3689 (#3673): a module that cannot load is named with its repair, not left as a bare "Cannot find module".
+function failureText(tool, err) {
+  const missing = err?.code === "MODULE_NOT_FOUND" || /^Cannot find (module|package)/.test(err?.message ?? "");
+  if (!missing) return `${tool} failed: ${err.message}`;
+  return `${tool} failed: the RAG store could not load: ${err.message}. Reinstall kj (npm install -g karajan-code) or run npm rebuild in ${packageDir}`;
+}
 export async function handleRagQuery(args, server) {
   const text = args?.text;
   if (typeof text !== "string" || text.length === 0) {
@@ -51,7 +59,7 @@ export async function handleRagQuery(args, server) {
       return responseText({ hits, empty: false, topK, scope, project });
     } finally { db.close(); }
   } catch (err) {
-    return failPayload(`kj_rag_query failed: ${err.message}`);
+    return failPayload(failureText("kj_rag_query", err));
   }
 }
 
@@ -81,6 +89,6 @@ export async function handleRagIndex(args, server) {
       db.close();
     }
   } catch (err) {
-    return failPayload(`kj_rag_index failed: ${err.message}`);
+    return failPayload(failureText("kj_rag_index", err));
   }
 }
