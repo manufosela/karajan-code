@@ -115,7 +115,7 @@ export async function protectionAdvice({ owner, repo, branch, checks, run = runC
 }
 
 // Owner and repo go into a command an admin copies: only the characters GitHub allows in them.
-const GITHUB_REMOTE = /github\.com[^:/]*[:/]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/;
+export const GITHUB_REMOTE = /github\.com[^:/]*[:/]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/;
 
 /** kj harden's last step: on a GitHub remote, what the base branch needs and who runs it. */
 export async function adviseBranchProtection({ projectDir, branch, logger, run = runCommand, identity = assertGhIdentity }) {
