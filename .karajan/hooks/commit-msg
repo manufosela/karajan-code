@@ -4,7 +4,8 @@ set -e
 # KJC-TSK-1401: one line per attempt in .karajan/harness/commit-gate.jsonl (time, outcome, rule;
 # never the message) for kj stage's Git gates station. Best effort: a trace that cannot be
 # written never blocks a commit, it only goes missing from the stage.
-kj_trace() { mkdir -p .karajan/harness 2>/dev/null && printf '{"at":"%s","outcome":"%s","rule":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> .karajan/harness/commit-gate.jsonl 2>/dev/null; return 0; }
+# The write is in a subshell: dash aborts the whole hook on a failed redirection (KJC-BUG-0521).
+kj_trace() { mkdir -p .karajan/harness 2>/dev/null && ( printf '{"at":"%s","outcome":"%s","rule":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> .karajan/harness/commit-gate.jsonl ) 2>/dev/null || :; return 0; }
 kj_refuse() { kj_trace refuse "$1"; echo "$2"; exit 1; }
 msg_file="$1"
 header=$(head -n1 "$msg_file")
@@ -49,11 +50,12 @@ fi
 if grep -qiE 'co-authored-by:.*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)|(generated|written|authored|assisted|powered|created|made) (by|with|using) .*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)' "$msg_file"; then
   kj_refuse attribution 'kj harden: AI attribution is not allowed in commit messages'
 fi
-# Chain the repo's own hook in .git/hooks, then the machine's global one, both looked up when the hook runs (KJC-TSK-0645, HU-2762).
+# Chain the repo's own hook in .git/hooks, looked up when the hook runs (KJC-BUG-0509, HU-2762).
 kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"
 if [ -n "$kj_repo" ] && [ -x "$kj_repo/commit-msg" ] && [ "$(cd "$kj_repo" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   if "$kj_repo/commit-msg" "$@"; then :; else rc=$?; kj_trace refuse repo-hook; exit "$rc"; fi
 fi
+# Chain the machine's global hook, looked up when the hook runs (KJC-TSK-0645, HU-2762).
 kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
 if [ -n "$kj_global" ] && [ -x "$kj_global/commit-msg" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   if "$kj_global/commit-msg" "$@"; then :; else rc=$?; kj_trace refuse global-hook; exit "$rc"; fi

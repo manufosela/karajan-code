@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.9.0",
-  "generated_at": "2026-11-08T20:35:59.382Z",
+  "kj_version": "5.10.0",
+  "generated_at": "2026-11-09T09:41:39.806Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -50,7 +50,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "44fc3472c8922ea5a3536683078a094a52d46578dfd485d3206b4146b017cf7b"
+      "sha256": "4149ebf699c9b82cdf5d5589213d0bb2e6481f19509ea29e8cd6dce8c60ab90c"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -98,23 +98,23 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "c2eb9af212aabc4da39634132639e4d1374fa9eb10defb846ece4c1b61e55cee"
+      "sha256": "8e390301e7a6d39781edb76ef2ee691f0bf8e0888dddf42aa381a1bb843406c8"
     },
     {
       "file": ".karajan/hooks/post-merge",
-      "sha256": "079f0153f15a0d437ceb9880817bd7a43f28b8f59802806134a413756afbe32e"
+      "sha256": "b4010bdf0375d6170dadb7aa0d95804e1b6152ff920a2ebfd042ba2b36f04045"
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "d31488d0e6ac398119db961ad75fb7d93eeeba9a08f13f7f803a68853f446bc9"
+      "sha256": "1d3442cc54c84ee8b0092b5ec30bf39858cd7dc6228002b62e2da4591176980b"
     },
     {
       "file": ".karajan/hooks/pre-push",
-      "sha256": "d623d9a5c59e9a433856974e66bb48fc524568eda2caf65eff82ccd114290e53"
+      "sha256": "71109259e9d19cb64ebaf8725154bdcf45fc0ba5fad3784193a82fe430224941"
     },
     {
       "file": ".karajan/hooks/prepare-commit-msg",
-      "sha256": "e5e20936abd93401c3384410642b40385a3b275d3e5cc0a94edfca88c6af47d0"
+      "sha256": "e61d46c11e9b7928aa168a1f9a2081203df9a9fa236e41b39ba1fba240ab08ef"
     },
     {
       "file": ".karajan/policy.yml",
@@ -174,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "65cd5e500ab7ac7a6572176c1e031550",
-    "nonce": "af26bb02b69c955930db7f063affc918",
-    "project": "harden-5.9.0",
-    "filesHash": "99182ee343d12469e08c6ceb9d5736f1b3c6d7f44c809f907e87e7c307ba1cd4",
+    "cid": "3c204fef1c85bcfc9eb9cda12bb70e26",
+    "nonce": "e351573d480db8441a3cbfc7638e7435",
+    "project": "HU-3639-harden-5.10.0",
+    "filesHash": "72fa131d3d031a285fc011073c2f9185151274699c68f4919bcfcdc84e01580c",
     "v": 2,
-    "kjVersion": "5.9.0",
-    "issuedMs": 1794170149388,
-    "expiresMs": 1794170299388,
+    "kjVersion": "5.10.0",
+    "issuedMs": 1794217291346,
+    "expiresMs": 1794217441346,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "eF9vEE7A96H+Oaj/SXZyudBJ06AyX3nrWxkJP8UJMtgw1R8vqEM29tQXp1fzXNTFS/2NeoGp5QM9eRSHDGmhAQ=="
+    "signature": "3djJGIUtKXdW/OuktFCF9b+IYRNUL2AtZrFgxujkk4/ZV13+C1kS6xnSWQWLrSusseHkwrR4bmOLwLoAXlB8CA=="
   }
 }

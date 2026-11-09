@@ -34,17 +34,18 @@ if [ -f .karajan/identity.local.yml ]; then
   if [ -n "$kj_declared_gh" ] && [ "$kj_active_gh" != "$kj_declared_gh" ]; then
     echo "kj harden: identity lock — gh session is ${kj_active_gh:-none} but this clone is declared as $kj_declared_gh — run: gh auth switch --user $kj_declared_gh (or set the gh of that account, e.g. gh-<account>, as the credential helper)"; exit 1
   fi
-elif [ ! -f .karajan/identity.local.yml ]; then
+elif [ ! -f .karajan/identity.local.yml ] && command -v kj >/dev/null 2>&1; then
   echo 'kj harden: no identity declared for this clone — run kj identity set (advisory)'
 fi
 # Run the test suite before pushing.
 # (no test command detected for this stack)
-# Chain the repo's own hook in .git/hooks, then the machine's global one, both looked up when the hook runs (KJC-TSK-0645, HU-2762).
+# Chain the repo's own hook in .git/hooks, looked up when the hook runs (KJC-BUG-0509, HU-2762).
 kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"
 if [ -n "$kj_repo" ] && [ -x "$kj_repo/pre-push" ] && [ "$(cd "$kj_repo" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   printf '%s\n' "$kj_push_refs" | "$kj_repo/pre-push" "$@"; rc=$?
   [ "$rc" -eq 0 ] || exit "$rc"
 fi
+# Chain the machine's global hook, looked up when the hook runs (KJC-TSK-0645, HU-2762).
 kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)
 if [ -n "$kj_global" ] && [ -x "$kj_global/pre-push" ] && [ "$(cd "$kj_global" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
   printf '%s\n' "$kj_push_refs" | "$kj_global/pre-push" "$@"; rc=$?
