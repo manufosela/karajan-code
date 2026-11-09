@@ -2,7 +2,7 @@
 // is a robot of its own that walks in, works behind its station and walks out.
 import { describe, expect, it } from 'vitest';
 
-import { DOOR, KEY_MS, TURN_MS, WALK_MS, accentOf, labelOf, spotOf, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
+import { DOOR, KEY_MS, SCROLL_MS, TURN_MS, codeScrollAt, WALK_MS, accentOf, labelOf, spotOf, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
 import { WORKSHOP } from '../public/stage/layout.js';
 
 const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
@@ -123,6 +123,18 @@ describe('a worker over time', () => {
     const [w] = workersFrom([{ agent: 'agy', role: 'solomon', at: 'x' }], 5000, 'kj-stage');
     expect(w.lane).toBe('kj-stage');
     expect(workerAt(w, 5000, () => 3)).toMatchObject({ ...spotOf('solomon', 3), walking: false });
+  });
+});
+
+describe('codeScrollAt (KJC-TSK-1493)', () => {
+  it('scrolls the code up one screen per period, then starts over without a jump', () => {
+    expect(codeScrollAt(0)).toBeCloseTo(0.5);
+    expect(codeScrollAt(SCROLL_MS / 2)).toBeCloseTo(0.25);
+    expect(codeScrollAt(SCROLL_MS)).toBeCloseTo(0.5);
+    for (let t = 0; t < SCROLL_MS * 2; t += 97) {
+      expect(codeScrollAt(t)).toBeGreaterThan(0);
+      expect(codeScrollAt(t)).toBeLessThanOrEqual(0.5);
+    }
   });
 });
 

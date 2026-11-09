@@ -7,7 +7,7 @@ import { createRobot } from './cast/robot.js';
 import { SCALE } from './layout.js';
 import { tagAt } from './screen.js';
 import { createLaptop } from './laptop.js';
-import { accentOf, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
+import { accentOf, codeScrollAt, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
@@ -61,6 +61,7 @@ function work(robot, worker, pose, t) {
     robot.hover.add(robot.laptop);
   }
   if (robot.laptop) robot.laptop.visible = typing;
+  if (typing) robot.laptop.userData.scroll(codeScrollAt(t - worker.since)); // KJC-TSK-1493
   // The baton the family robot holds stays in its hand only while it walks.
   for (const held of robot.armR.hand.children) held.visible = !typing;
   // Each agent types at its own pace, from the moment it arrived.

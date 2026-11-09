@@ -17,6 +17,16 @@ const SUBAGENT = { dz: 0.9, from: -1.5, step: 0.75, slots: 5, row: 0.6 };
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
 const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
 export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;
+/** How long the laptop's code takes to scroll up one screen, in ms (KJC-TSK-1493). */
+export const SCROLL_MS = 6000;
+
+/**
+ * KJC-TSK-1493: where the laptop's screen looks at `now` on its code, drawn twice one
+ * over the other: the vertical texture offset, from 0.5 (the top copy) down towards 0,
+ * so the lines rise and the second copy takes over where the first began.
+ */
+export const codeScrollAt = (now) => 0.5 - ((now % SCROLL_MS) / SCROLL_MS) * 0.5;
+
 /** How long one hand takes to strike a key, in ms (KJC-TSK-1486). */
 export const KEY_MS = 140;
 

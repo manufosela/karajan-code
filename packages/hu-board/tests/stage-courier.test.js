@@ -2,7 +2,7 @@
 // workshop and the board wall: to pin it, to take it, to bring it back.
 import { describe, expect, it } from 'vitest';
 
-import { COURIER_WALK_MS, PIN_MS, courierAt, tripFor } from '../public/stage/courier.js';
+import { COURIER_WALK_MS, PIN_MS, courierAt, noteLines, tripFor } from '../public/stage/courier.js';
 import { WALL, WORKSHOP } from '../public/stage/layout.js';
 
 const card = (over) => ({ type: 'card', at: 'x', action: 'add', id: 'HU-1', title: 'Login', status: 'pending', queued: false, lane: 'feat-x', ...over });
@@ -45,5 +45,16 @@ describe('courierAt', () => {
     const pin = { ...trip, out: true, back: false };
     expect(courierAt(pin, 1000 + COURIER_WALK_MS / 2, xOf).holding).toBe(true);
     expect(courierAt(pin, 1000 + COURIER_WALK_MS + PIN_MS + 10, xOf).holding).toBe(false);
+  });
+});
+
+describe('noteLines (KJC-TSK-1493)', () => {
+  it('splits an id into its prefix and its number, so the number is read whole', () => {
+    expect(noteLines('OXP-TSK-0123')).toEqual(['OXP-TSK', '0123']);
+    expect(noteLines('HU-3705')).toEqual(['HU', '3705']);
+  });
+
+  it('keeps an id with no dash whole, on the big line', () => {
+    expect(noteLines('main')).toEqual(['', 'main']);
   });
 });
