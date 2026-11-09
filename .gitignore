@@ -1,6 +1,8 @@
 node_modules/
 coverage/
 dist/
+# KJC-BUG-0531: pid files of the kj servers running from this install
+.kj-running/
 # KJL-TSK-0133: the built docs (pagefind's binary index included) are a deploy artifact, built by
 # the firebase predeploy from apps/landing/docs; the source stays in git, the output does not.
 apps/landing/public/docs/
