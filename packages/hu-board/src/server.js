@@ -25,6 +25,7 @@ import { startLaneSweeper } from './lane-sweeper.js';
 import { startupBanner } from './startup-banner.js';
 import { spaFallback } from './spa-fallback.js';
 import { findAvailablePort as findAvailablePortBase } from 'karajan-core/port-check';
+import { holdInstall } from '../../../src/utils/install-lease.js';
 
 /**
  * Path to the PID file the CLI's `kj board start` / `kj board stop`
@@ -428,9 +429,18 @@ export function isDaemonEntryPoint() {
   }
 }
 
+/**
+ * KJC-BUG-0534: declare the kj copy this daemon runs from, so the cron that
+ * rotates the stable kj does not delete it while the board still serves it.
+ */
+export function holdBoardInstall(hold = holdInstall) {
+  hold({ name: 'hu-board' });
+}
+
 // Only run main() when this file is the entry point. Tests import
 // the helpers above without spinning up the server.
 if (isDaemonEntryPoint()) {
+  holdBoardInstall();
   // A dying daemon must never die in silence: the launcher wires
   // stderr to hu-board.log, so log the cause before exiting non-zero.
   process.on('uncaughtException', (err) => {
