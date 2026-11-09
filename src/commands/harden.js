@@ -29,6 +29,7 @@ import { installSandbox } from "../harden/sandbox.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { detectPackageManager, installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
 import { adviseBranchProtection } from "../harden/branch-protection.js";
+import { adviseEventPolicy } from "../harden/event-policy.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { ensureIdentity } from "../identity/bootstrap.js";
 import { commitContract, contractChanges } from "../environment/contract-commit.js";
@@ -294,6 +295,8 @@ async function afterInstall({ out, result, projectDir, profile, commitSupervisor
   }
   // KJC-TSK-0928: the method's checks only stop a merge with branch protection; kj says the exact command.
   out.branchProtection = await adviseBranchProtection({ projectDir, branch: await resolveBaseBranch(projectDir), logger });
+  // KJC-BUG-0532: public repos need an Actions event policy allowing pull_request_target (admin act).
+  out.eventPolicy = await adviseEventPolicy({ projectDir, logger });
   // KJC-BUG-0161 / ADR 0009 (opción A): --commit versiona la regeneración
   // del supervisor con procedencia sellada. Acto humano — el guard vive en
   // commitSupervisorRegeneration y rechaza sesiones de agente.
