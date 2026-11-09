@@ -1,17 +1,17 @@
 // KJC-TSK-1429 (format decided by the maintainer on 2026-11-05): an agent kj
 // launches leaves one line when it starts and one when it ends, in
-// .karajan/harness/agent-activity.jsonl, so kj stage knows who works now.
+// .karajan/traces/agent-activity.jsonl (KJC-BUG-0527: the sandbox leaves traces writable), so kj stage knows who works now.
 // Never the prompt nor the output. Only where the caller names the project:
 // without one there is nothing to trace, and tests leave no activity behind.
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { takeLoaded } from "../skills/loaded.js";
 
-export const ACTIVITY_FILE = ".karajan/harness/agent-activity.jsonl";
+export const ACTIVITY_FILE = ".karajan/traces/agent-activity.jsonl";
 
 function note(projectDir, record, logger) {
   try {
-    mkdirSync(join(projectDir, ".karajan", "harness"), { recursive: true });
+    mkdirSync(join(projectDir, ".karajan", "traces"), { recursive: true });
     appendFileSync(join(projectDir, ACTIVITY_FILE), `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`);
   } catch (err) {
     // The trace is for the stage only: losing it must never stop the agent's work.

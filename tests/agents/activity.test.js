@@ -1,7 +1,7 @@
 // KJC-TSK-1429 (format decided by the maintainer on 2026-11-05): an agent kj
-// launches leaves a start and an end line in .karajan/harness/agent-activity.jsonl,
+// launches leaves a start and an end line in .karajan/traces/agent-activity.jsonl,
 // so kj stage knows who works now. Never the prompt nor the output.
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,6 +29,13 @@ describe("traceActivity", () => {
     expect(end).toMatchObject({ agent: "codex", role: "reviewer", phase: "end", outcome: "ok" });
     expect(Date.parse(start.at)).not.toBeNaN();
     expect(readFileSync(join(dir, ACTIVITY_FILE), "utf8")).not.toMatch(/secret/);
+  });
+
+  // KJC-BUG-0527: the sandbox leaves .karajan/traces writable, not .karajan/harness.
+  it("lands in .karajan/traces", async () => {
+    await traceActivity(fakeAgent(() => "ok"), { name: "codex", role: "reviewer", projectDir: dir }).reviewTask({});
+    expect(ACTIVITY_FILE).toBe(".karajan/traces/agent-activity.jsonl");
+    expect(existsSync(join(dir, ".karajan", "traces", "agent-activity.jsonl"))).toBe(true);
   });
 
   it("the start line carries the atril skills just loaded for that role (KJC-TSK-1428)", async () => {

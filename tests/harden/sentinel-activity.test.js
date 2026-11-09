@@ -64,14 +64,17 @@ describe("traceHost", () => {
   it("appends the lines to the lane's agent-activity trace with their time, and remembers the beat", () => {
     traceHost(root, call("Bash"), "pre", Date.parse("2026-11-05T20:00:00Z"));
     traceHost(root, call("Read"), "pre", Date.parse("2026-11-05T20:00:10Z"));
-    const rows = readFileSync(join(root, ".karajan", "harness", "agent-activity.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const rows = readFileSync(join(root, ".karajan", "traces", "agent-activity.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
     expect(rows).toEqual([{ at: "2026-11-05T20:00:00.000Z", agent: "claude", role: "host", phase: "start", id: "s1", tool: "Bash" }]);
+    // KJC-BUG-0527: the trace is in traces; the beats (Sentinel state) stay in harness.
+    expect(existsSync(join(root, ".karajan", "harness", "host-beats.json"))).toBe(true);
+    expect(existsSync(join(root, ".karajan", "harness", "agent-activity.jsonl"))).toBe(false);
   });
 
   it("notes nothing while the user has the Sentinel off", () => {
     process.env.KJ_SENTINEL_OFF = "1";
     try { traceHost(root, call("Agent"), "post", 0); } finally { delete process.env.KJ_SENTINEL_OFF; }
-    expect(existsSync(join(root, ".karajan", "harness", "agent-activity.jsonl"))).toBe(false);
+    expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(false);
   });
 
   it("never throws: a trace it cannot write is not a reason to stop a tool call", () => {

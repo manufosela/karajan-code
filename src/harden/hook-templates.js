@@ -230,11 +230,11 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
     case "commit-msg":
       // Pure POSIX — Conventional Commits header, length cap, AI-attribution.
       return [
-        "# KJC-TSK-1401: one line per attempt in .karajan/harness/commit-gate.jsonl (time, outcome, rule;",
+        "# KJC-TSK-1401: one line per attempt in .karajan/traces/commit-gate.jsonl (KJC-BUG-0527; time, outcome, rule;",
         "# never the message) for kj stage's Git gates station. Best effort: a trace that cannot be",
         "# written never blocks a commit, it only goes missing from the stage.",
         "# The write is in a subshell: dash aborts the whole hook on a failed redirection (KJC-BUG-0521).",
-        String.raw`kj_trace() { mkdir -p .karajan/harness 2>/dev/null && ( printf '{"at":"%s","outcome":"%s","rule":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> .karajan/harness/commit-gate.jsonl ) 2>/dev/null || :; return 0; }`,
+        String.raw`kj_trace() { mkdir -p .karajan/traces 2>/dev/null && ( printf '{"at":"%s","outcome":"%s","rule":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> .karajan/traces/commit-gate.jsonl ) 2>/dev/null || :; return 0; }`,
         'kj_refuse() { kj_trace refuse "$1"; echo "$2"; exit 1; }',
         'msg_file="$1"',
         'header=$(head -n1 "$msg_file")',

@@ -31,6 +31,10 @@ describe("the Sentinel's record of denials", () => {
     expect(r.status).toBe(2);
     const [record] = readDenials({ projectDir: dir });
     expect(record).toMatchObject({ sid: "s1", tool: "Bash", input: { command: DENIED } });
+    // KJC-BUG-0527: the record lands in .karajan/traces, not in the read-only harness.
+    expect(DENIALS_FILE).toBe(".karajan/traces/denials.jsonl");
+    expect(fs.existsSync(path.join(dir, ".karajan", "traces", "denials.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, ".karajan", "harness", "denials.jsonl"))).toBe(false);
     expect(record.why).toMatch(/karajan sentinel: /);
     expect(record.why).toBe(r.stderr.split("\n").filter((l) => l.startsWith("karajan sentinel:")).join("\n").trim().replace(/\n+$/, ""));
     expect(guard({ session_id: "s1", tool_name: "Bash", tool_input: { command: "git status" } }).status).toBe(0);

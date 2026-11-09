@@ -54,9 +54,12 @@ export function traceHost(root, call, phase, now = Date.now()) {
     try { beats = JSON.parse(readFileSync(beatsFile, "utf8")); } catch { /* first call of the lane */ }
     const { lines, beats: after } = hostTrace(beats, call, phase, now);
     if (!lines.length) return;
+    // KJC-BUG-0527: the activity trace goes to .karajan/traces; the beats stay in harness (Sentinel state).
+    const traces = join(root, ".karajan", "traces");
     mkdirSync(dir, { recursive: true });
+    mkdirSync(traces, { recursive: true });
     const at = new Date(now).toISOString();
-    appendFileSync(join(dir, "agent-activity.jsonl"), lines.map((l) => JSON.stringify({ at, ...l }) + "\n").join(""));
+    appendFileSync(join(traces, "agent-activity.jsonl"), lines.map((l) => JSON.stringify({ at, ...l }) + "\n").join(""));
     writeFileSync(beatsFile, JSON.stringify(after));
   } catch { /* the trace is for the stage: it never stops a tool call */ }
 }
