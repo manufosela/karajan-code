@@ -95,3 +95,51 @@ describe("Quality workflow test step", () => {
     expect(text).toContain("      - run: npm test");
   });
 });
+
+// KJC-BUG-0529 (#3661, part 2): the PHP quality workflow takes its version from composer.json.
+describe("Quality workflow PHP version", () => {
+  const composer = (require) => put("composer.json", JSON.stringify({ require }));
+  const phpQuality = () => quality({ language: "php" });
+
+  it.each([
+    ["^8.4", "8.4"],
+    ["~8.4", "8.4"],
+    [">=8.4", "8.4"],
+    ["8.4.*", "8.4"],
+    ["^8.4.1", "8.4"],
+    ["^8.2 || ^8.3", "8.2"],
+    [">=8.4 <9.0", "8.4"],
+    [">= 8.4, < 9.0", "8.4"],
+    ["<9.0 >=8.2 ^8.3", "8.3"],
+    [">=8.2 != 8.2.5", "8.2"],
+    [">=8.2 <>8.3.1", "8.2"],
+    ["<> 8.3.1 >=8.2", "8.2"],
+    [">=8.4 <9.0 || ^8.2", "8.2"],
+    ["^7.4|^8.0", "7.4"],
+    ["8.1 - 8.4", "8.1"],
+    ["8.1 - 8.4,>=8.2", "8.2"],
+    [">8.3", "8.3"],
+    ["^8", "8.0"],
+    ["=8.4", "8.4"],
+    ["== 8.4.2", "8.4"],
+  ])("reads the lowest version allowed by php %s, which is %s", (constraint, expected) => {
+    composer({ php: constraint });
+    const { text, note } = phpQuality();
+    expect(text).toContain(`php-version: '${expected}'`);
+    expect(note).toBeUndefined();
+  });
+
+  it("falls back to 8.3 with a note when there is no composer.json", () => {
+    const { text, note } = phpQuality();
+    expect(text).toContain("php-version: '8.3'");
+    expect(note).toBe("kj-quality: no minimum PHP version in composer.json require.php; using 8.3");
+  });
+
+  // `>>8.4`, `^~8.4`: a term carries one operator at most, so a doubled one is not read as 8.4.
+  it.each(["*", "<9.0", ">=8.2 ^8.4@dev", ">>8.4", "^~8.4"])("falls back to 8.3 with a note when php %s sets no minimum kj can read", (constraint) => {
+    composer({ php: constraint });
+    const { text, note } = phpQuality();
+    expect(text).toContain("php-version: '8.3'");
+    expect(note).toContain("using 8.3");
+  });
+});

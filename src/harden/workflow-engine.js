@@ -15,7 +15,7 @@ import { dirname } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { publishedPin } from "./published-pin.js";
-import { qualityInputs } from "./quality-inputs.js";
+import { phpInputs, qualityInputs } from "./quality-inputs.js";
 import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
@@ -122,7 +122,10 @@ export function installWorkflows({
   const appDir = join(projectDir, root);
   // KJC-BUG-0529: Node version and test script come from the repo, not fixed.
   const isJs = language === "javascript" || language === "typescript";
-  const inputs = isJs ? qualityInputs({ projectDir, appDir, root }) : null;
+  // KJC-BUG-0529 (#3661, part 2): the PHP version comes from composer.json the same way.
+  let inputs = null;
+  if (isJs) inputs = qualityInputs({ projectDir, appDir, root });
+  else if (language === "php") inputs = phpInputs({ appDir });
   const quality = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root, inputs?.options);
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;

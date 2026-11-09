@@ -203,26 +203,34 @@ const QUALITY_BY_LANGUAGE = {
     "      - run: go vet ./...",
     "      - run: go test ./...",
   ]),
-  php: header([
+};
+
+// KJC-BUG-0529 (#3661, part 2): the engine decides the PHP version; this validates and renders it.
+function phpQualityBody(phpVersion = null) {
+  const version = phpVersion ?? "8.3";
+  if (!/^\d+\.\d+$/.test(version)) throw new Error(`kj harden: "${version}" is not a PHP version`);
+  return header([
     `      - uses: ${PINNED_ACTIONS.setupPhp}`,
     "        with:",
-    "          php-version: '8.3'",
+    `          php-version: '${version}'`,
     "      - run: composer install --no-interaction --no-progress",
     "      - run: vendor/bin/phpstan analyse --no-progress",
     "      - run: vendor/bin/phpunit",
-  ]),
-};
+  ]);
+}
 /**
  * Stack-aware Quality workflow entry, or null for an unknown language.
  * `lint:false` drops the JS lint step entirely (project has no lint script,
  * KJC-BUG-0137) — mirroring the local hook, which also omits it.
  */
-export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test" } = {}) {
+export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null } = {}) {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
-  const body =
-    language === "javascript" || language === "typescript"
-      ? header([...nodeSetupSteps(pm, nodeVersion), ...(lint ? [`      - run: ${c.lint}`] : []), ...testStep(c, testScript)])
-      : QUALITY_BY_LANGUAGE[language];
+  let body = QUALITY_BY_LANGUAGE[language];
+  if (language === "javascript" || language === "typescript") {
+    body = header([...nodeSetupSteps(pm, nodeVersion), ...(lint ? [`      - run: ${c.lint}`] : []), ...testStep(c, testScript)]);
+  } else if (language === "php") {
+    body = phpQualityBody(phpVersion);
+  }
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body: inRoot(body, root) } : null;
 }
 
