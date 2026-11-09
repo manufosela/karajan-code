@@ -75,6 +75,19 @@ export function supervisorDrift({ projectDir, gitFn }) {
 }
 
 /**
+ * KJC-BUG-0507 (user's decision): one seal per branch. A later seal replaces the provenance, the
+ * first one no longer matches the head, so it is neither a seal act nor reviewable: the PR got stuck.
+ * Without the base on origin there is no PR to get stuck.
+ */
+function refuseSecondSeal(run, baseBranch) {
+  const base = `origin/${baseBranch || "main"}`;
+  try { run(["rev-parse", "--verify", "--quiet", base]); } catch { return; }
+  const sealed = run(["log", "--format=%h", `${base}..HEAD`, "--", PROVENANCE_FILE]).split("\n").filter(Boolean);
+  if (sealed.length === 0) return;
+  throw new Error(`harden --commit: esta rama ya lleva un sello sin mergear (${sealed.join(", ")}): mergea su PR y sella en una rama nueva desde ${base}; dos sellos en una PR no se pueden mergear`);
+}
+
+/**
  * @returns {Promise<{committed: boolean, reason?: string, files?: object[]}>}
  */
 export async function commitSupervisorRegeneration({
@@ -101,6 +114,7 @@ export async function commitSupervisorRegeneration({
       `harden --commit: hay cambios en el stage que no son del supervisor (${foreign.slice(0, 5).join(", ")}${foreign.length > 5 ? ", …" : ""}): commitéalos en su rama o sácalos del stage (git restore --staged <ficheros>) antes de sellar`,
     );
   }
+  refuseSecondSeal(run, generation?.baseBranch);
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   seal.confirm(deps.confirm);
