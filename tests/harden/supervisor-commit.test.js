@@ -126,6 +126,20 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(git(["diff", "--cached", "--name-only"])).toContain("other.txt");
   });
 
+  it("KJC-BUG-0507: seals once per branch; a second seal is refused before asking the human", async () => {
+    git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    expect((await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation })).committed).toBe(true);
+    const sealCommit = git(["rev-parse", "--short", "HEAD"]).trim();
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnewer\n");
+    let asked = false;
+    const deps = { ...HUMAN.deps, confirm: (n) => { asked = true; return n; } };
+    const second = commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps });
+    await expect(second).rejects.toThrow(`esta rama ya lleva un sello sin mergear (${sealCommit})`);
+    expect(asked).toBe(false);
+    expect(git(["log", "--oneline"]).split("\n").filter(Boolean).length).toBe(2);
+  });
+
   it("a DELETED hook is drift too — recorded as deleted, committed (codex catch)", async () => {
     rmSync(join(repo, ".karajan", "hooks", "pre-commit"));
     const res = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
