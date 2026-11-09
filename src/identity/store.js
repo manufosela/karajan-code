@@ -9,6 +9,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import yaml from "js-yaml";
 
@@ -21,7 +22,7 @@ export function identityPath(projectDir) {
 
 /**
  * @param {string} projectDir
- * @returns {{gh_user: string, git_email: string, declared_at: string}|null}
+ * @returns {{gh_user: string, git_email: string, declared_at: string, gh_config_dir?: string}|null}
  */
 export function readIdentity(projectDir) {
   const p = identityPath(projectDir);
@@ -33,8 +34,13 @@ export function readIdentity(projectDir) {
     return null; // corrupt or half-written file = no identity (review catch)
   }
   if (!parsed || typeof parsed !== "object" || !parsed.gh_user || !parsed.git_email) return null;
-  return { gh_user: String(parsed.gh_user), git_email: String(parsed.git_email), declared_at: String(parsed.declared_at || "") };
+  const identity = { gh_user: String(parsed.gh_user), git_email: String(parsed.git_email), declared_at: String(parsed.declared_at || "") };
+  // KJC-BUG-0530: the gh config dir that holds this clone's account, when it is not gh's default one.
+  if (typeof parsed.gh_config_dir === "string" && parsed.gh_config_dir) identity.gh_config_dir = expandHome(parsed.gh_config_dir);
+  return identity;
 }
+
+const expandHome = (dir) => (dir === "~" || dir.startsWith("~/") ? join(homedir(), dir.slice(2)) : dir);
 
 /**
  * Write the declaration and make sure it never gets tracked. Fails loud on
@@ -53,6 +59,7 @@ export function writeIdentity(projectDir, identity) {
   ensureIgnored(projectDir);
   mkdirSync(join(projectDir, ".karajan"), { recursive: true });
   const record = { gh_user: identity.gh_user, git_email: identity.git_email, declared_at: new Date().toISOString() };
+  if (identity.gh_config_dir) record.gh_config_dir = identity.gh_config_dir;
   writeFileSync(identityPath(projectDir), yaml.dump(record, { lineWidth: 120 }), "utf8");
   return record;
 }

@@ -16,6 +16,7 @@ import { printWelcomeScreen } from "./utils/welcome.js";
 import { migrateKjToKarajan } from "./utils/home-migration.js";
 import { pinGitDiffFormat } from "./utils/git-diff-format.js";
 import { pinGhAccount } from "./utils/gh-account.js";
+import { applyDeclaredGhConfig } from "./hu/gh-identity.js";
 
 // KJC-BUG-0408: every git kj runs prints a/ and b/, whatever the user's gitconfig says.
 pinGitDiffFormat();
@@ -147,6 +148,7 @@ program.action(async (_opts, command) => {
 try {
   const { config } = await loadConfig().catch(() => ({ config: null }));
   const githubAccount = config?.review?.github_account ?? null;
+  applyDeclaredGhConfig({ projectDir: process.cwd() });
   const ghPin = pinGhAccount({ account: githubAccount });
   if (githubAccount && ghPin.reason) console.warn(`\x1b[33m[warn]\x1b[0m review.github_account: ${ghPin.reason}`);
 } catch (err) {

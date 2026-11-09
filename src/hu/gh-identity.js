@@ -16,6 +16,15 @@ export function ghHostsPath(env = process.env) {
   return join(dir, "hosts.yml");
 }
 
+/**
+ * KJC-BUG-0530: a clone whose account lives in another gh config dir (gh-ox, gh-tribbu) declares
+ * it, and it becomes GH_CONFIG_DIR for every gh kj runs. One already set is the user's choice.
+ */
+export function applyDeclaredGhConfig({ projectDir, env = process.env }) {
+  const dir = readIdentity(projectDir)?.gh_config_dir;
+  if (dir && !env.GH_CONFIG_DIR) env.GH_CONFIG_DIR = dir;
+}
+
 /** The account gh would use now for github.com, or null when gh has none. */
 export function activeGhUser(env = process.env) {
   let raw;
