@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.12.0] - 2026-11-09
+
+A team that has not installed kj got a sealed CI check that was red from the first PR: the generated Quality workflow assumed Node 22, `npm test` and PHP 8.3 whatever the repo used. It now reads them from the repo. And the agent minds what waits for its user: pending handoffs come up at the end of a turn, and a blocking one stops the agent until the user answers.
+
+### Added
+- **The agent minds the handoffs that wait for its user** (KJC-TSK-1474, 1475, #3655, #3659): `kj handoff add --blocking` marks a handoff that stops the agent (only reading, asking and `kj handoff` pass until the user answers). At the end of a turn, at most once every 30 minutes per lane, the Stop hook has the agent close the handoffs already done and end its message with the ones that still wait, each with its one step. A handoff that is not blocking never stops the work. Run `kj harden` and seal to get it.
+
+### Fixed
+- **The generated Quality workflow uses the repo's Node version and its own test script** (KJC-BUG-0529, #3661, #3662): Node comes from `.nvmrc`, `.node-version` or `engines` (setup-node reads the file), else from the version the repo's own workflows pin; the test step runs `test`, else `test:unit` through the repo's package manager, else none. `kj harden` says what it assumed. Run `kj harden` and seal to get it.
+- **The PHP Quality workflow installs the PHP version composer.json requires** (KJC-BUG-0529, #3663): the lowest version `require.php` allows, also for ranges like `>=8.4 <9.0`; 8.3 with a note when it cannot be read.
+
 ## [5.11.0] - 2026-11-09
 
 The day after 5.10.0, @jorgecasar fixed in `kj harden` what his own repos ran into: the order of the generated pre-commit, the branch the generated workflows trigger on, and a Gradle repo read as Go. The traces kj writes for `kj stage` moved out of the folder the sandbox keeps read-only, and `kj stage` gets a mailbox for what only the human can do.

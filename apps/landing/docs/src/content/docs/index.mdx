@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.11.0: traces the sandbox can write, and harden fixes from the field (current)
+### v5.12.0: a quality check that reads the repo, and handoffs the agent minds (current)
+
+The Quality workflow `kj harden` generates no longer assumes Node 22, `npm test` and PHP 8.3: it takes the Node version from `.nvmrc`, `.node-version`, `engines` or the repo's own workflows, runs `test` or `test:unit`, and installs the PHP version `composer.json` requires, and it says what it assumed when it cannot tell. The agent minds the handoffs that wait for you: at the end of a turn it lists the ones still pending, and `kj handoff add --blocking` stops it until you answer.
+
+### v5.11.0: traces the sandbox can write, and harden fixes from the field
 
 The traces kj writes for `kj stage` (cards, commit gate, agent activity, denials) move to `.karajan/traces`, since the sandbox kj configures keeps the harness folder read-only. A lane without settings of its own is no longer reported as tampered. From Jorge's repos: the generated pre-commit runs the repo's own hook before the review gate, the workflows trigger on the repo's base branch, a Gradle repo is read as Gradle, and the kj-rag MCP server is wired for the person. `kj stage` gets a mailbox that blinks while a handoff waits for you.
 
