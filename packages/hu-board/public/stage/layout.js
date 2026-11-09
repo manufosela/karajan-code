@@ -19,10 +19,28 @@ export const DOOR = { x: 0, z: -7.5 };
 
 /** The x of the centre of workshop `i` of `n`, the row centred on the hall. */
 export const workshopX = (i, n) => (i - (n - 1) / 2) * (WORKSHOP.width + WORKSHOP.gap);
+
+// KJC-TSK-1488 (decided by the maintainer on 2026-11-09): a factory of many lanes lays
+// its workshops in rows and columns, wider than deep as the screen is, the first row in
+// front of the posts and the next ones towards the camera; up to four stay in one row.
+const ONE_ROW = 4;
+/** From one row of workshops to the next: a workshop and room for its nameplate. */
+const ROW_STEP = WORKSHOP.depth + 2.4;
+const columnsOf = (n) => (n <= ONE_ROW ? n : Math.max(ONE_ROW, Math.ceil(Math.sqrt(2 * n))));
+const rowsOf = (n) => Math.ceil(n / Math.max(1, columnsOf(n)));
+
+/** The centre `{x, z}` of workshop `i` of `n`, row by row, each row centred on the hall. */
+export function workshopAt(i, n) {
+  const columns = columnsOf(n);
+  return { x: workshopX(i % columns, columns), z: WORKSHOP.z + Math.floor(i / columns) * ROW_STEP };
+}
+
+/** How much deeper than a one-row hall the rows of `n` workshops make it. */
+export const hallDepth = (n) => (rowsOf(n) - 1) * ROW_STEP;
 /** The x of each piece's post, the row centred behind the workshops. */
 export const postX = (id) => (POSTS.indexOf(id) - (POSTS.length - 1) / 2) * POST.spacing;
 /** How wide the hall is with `n` workshops, so the camera can fit it. */
-export const hallWidth = (n) => Math.max(n * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + 3.5));
+export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + 3.5));
 
 /** Where kaRAGan, Karajan and kaWATCHan wait: at the ends of the row of posts. */
 const END = ((POSTS.length + 1) / 2) * POST.spacing;

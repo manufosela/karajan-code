@@ -3,7 +3,7 @@
 // nothing is simulated. The live cues come from the director (KJC-TSK-1399).
 import * as THREE from 'three';
 import { buildFactory, createFactory, framing } from './factory.js';
-import { hallWidth } from './layout.js';
+import { hallDepth, hallWidth } from './layout.js';
 import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
 import { boardToken, withToken } from './token.js';
@@ -26,6 +26,7 @@ function buildScene(lanes) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer);
+  const HALL_CENTRE_Z = target.z;
   const { crew, pieces, stand, hall, wall } = buildFactory(scene, lanes);
   const render = () => renderer.render(scene, camera);
   // The camera pulls back as the hall grows or the screen narrows, so every workshop
@@ -34,7 +35,12 @@ function buildScene(lanes) {
   const refit = () => {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
-    camera.position.copy(target).add(framing(hallWidth(hall.count()), camera.aspect).multiplyScalar(zoom));
+    // KJC-TSK-1488: the camera looks at the middle of the rows and fits their depth too.
+    const n = hall.count();
+    // The status lines sit over the bottom of the view, so the front row needs some room below it.
+    const deep = hallDepth(n) > 0 ? hallDepth(n) + 10 : 0;
+    target.z = HALL_CENTRE_Z + deep / 2;
+    camera.position.copy(target).add(framing(Math.max(hallWidth(n), deep * camera.aspect), camera.aspect).multiplyScalar(zoom));
     camera.lookAt(target);
     camera.updateProjectionMatrix();
     render();

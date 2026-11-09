@@ -2,7 +2,7 @@
 // hall: a floor pad with the lane's name and a bench. A lane seen for the first
 // time gets its workshop and the row recentres.
 import * as THREE from 'three';
-import { WORKSHOP, workshopX } from './layout.js';
+import { WORKSHOP, workshopAt } from './layout.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
@@ -64,7 +64,9 @@ export function createHall(scene, lanes) {
   const shops = new Map();
   const lights = new Map();
   const order = [];
-  const relayout = () => order.forEach((lane, i) => shops.get(lane).position.set(workshopX(i, order.length), 0, WORKSHOP.z));
+  // KJC-TSK-1488: in rows and columns once there are many.
+  const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
+  const relayout = () => order.forEach((lane) => shops.get(lane).position.set(at(lane).x, 0, at(lane).z));
   const ensure = (lane) => {
     if (shops.has(lane)) return false;
     const shop = workshop(lane);
@@ -81,9 +83,9 @@ export function createHall(scene, lanes) {
   return {
     /** Adds the lane's workshop if it is new; true when the row changed. */
     ensure,
-    xOf: (lane) => workshopX(Math.max(0, order.indexOf(lane)), order.length),
+    xOf: (lane) => at(lane).x,
     /** KJC-TSK-1488: the z of a lane's workshop, which a factory of several rows sets apart. */
-    zOf: () => WORKSHOP.z,
+    zOf: (lane) => at(lane).z,
     count: () => order.length,
     /** Lights a lane's gates green (approve) or red (refuse) at `level` 0..1; 0 puts them out. */
     lightGates(lane, tone, level) {

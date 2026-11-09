@@ -9,7 +9,8 @@ import { createWall } from './wall.js';
 
 const matte = (color, roughness = 0.85) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0.1 });
 
-const FLOOR = { width: 80, depth: 40, px: 32 };
+// KJC-TSK-1488: deep enough for several rows of workshops in front of the posts.
+const FLOOR = { width: 80, depth: 64, px: 32 };
 const FOV = 36;
 
 /** The floor tiles and their seams, one per metre (the trimmed bundle has no GridHelper nor RepeatWrapping). */

@@ -18,6 +18,10 @@ Decided and accepted by the maintainer on 2026-11-05. It replaces the ambient mo
 5. The host robot wears a badge on its chest with the host name and colour; the npm package never ships a third-party logo (trademark).
 6. Everything shares one smaller scale so several workshops fit, and the camera zooms in and out with the wheel and with pinch, within limits.
 
+## Amendment, 2026-11-09
+
+Decided by the maintainer on 2026-11-09 (KJC-TSK-1488): a factory of 25 lanes made one row of workshops that ran off the screen. Point 2 now reads: one workshop per lane, laid out in rows and columns, wider than deep as the screen is; the first row stands in front of the posts and the next ones towards the camera; a factory of up to four lanes keeps one row. On the map each factory's floor is as deep as its rows.
+
 ## Consequences
 
 The ambient loop and the conveyor are removed. The Sentinel check of every tool call and the RAG queries need a trace they do not leave today, throttled so the files stay small and are tailed, never read whole. The hook templates change, so the maintainer seals them again with kj harden. The work is split in atomic PRs: lanes feed, workshops and zoom, host trace, roles that act (one PR per role), subagents, avatar.

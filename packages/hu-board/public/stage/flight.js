@@ -24,9 +24,10 @@ export function groundAt(origin, dir) {
   return { x: origin.x + dir.x * t, z: origin.z + dir.z * t };
 }
 
-/** The index of the factory whose floor holds `point`, from the `{ x, z, width }` of each lot, or -1. */
+/** The index of the factory whose floor holds `point`, from the `{ x, z, width, depth }` of each lot, or -1. */
 export function lotAt(point, lots) {
   if (!point) return -1;
-  return lots.findIndex(({ x, z, width }) =>
-    Math.abs(point.x - x) <= width / 2 && point.z >= z + FLOOR_Z.back && point.z <= z + FLOOR_Z.front);
+  // KJC-TSK-1488: a factory of several rows of workshops has a deeper floor.
+  return lots.findIndex(({ x, z, width, depth = FLOOR_Z.front - FLOOR_Z.back }) =>
+    Math.abs(point.x - x) <= width / 2 && point.z >= z + FLOOR_Z.back && point.z <= z + FLOOR_Z.back + depth);
 }
