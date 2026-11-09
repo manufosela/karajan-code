@@ -158,6 +158,23 @@ describe("installWorkflows", () => {
     expect(text).toContain("vendor/bin/phpunit");
   });
 
+  it("php renders today's version 8.3 without composer.json, and the lowest allowed one with it", () => {
+    installWorkflows({ projectDir: dir, language: "php" });
+    expect(read(join(".github", "workflows", "kj-quality.yml"))).toContain("php-version: '8.3'");
+    writeFileSync(join(dir, "composer.json"), JSON.stringify({ require: { php: "^8.2 || ^8.3" } }));
+    installWorkflows({ projectDir: dir, language: "php", dryRun: false });
+    expect(read(join(".github", "workflows", "kj-quality.yml"))).toContain("php-version: '8.2'");
+  });
+
+  it("php refuses a version that is not major.minor instead of writing it into the YAML", async () => {
+    const { qualityWorkflowFor } = await import("../../src/harden/workflow-templates.js");
+    expect(qualityWorkflowFor("php", "npm", true, ".", { phpVersion: "8.4" }).body).toContain("php-version: '8.4'");
+    // `\d` is ASCII-only in JavaScript, like the `[0-9]` it replaced: fullwidth digits are refused too.
+    for (const phpVersion of ["8", "8.4.1", "8.4'\n  run: x", "８.４"]) {
+      expect(() => qualityWorkflowFor("php", "npm", true, ".", { phpVersion })).toThrow(/is not a PHP version/);
+    }
+  });
+
   it("python gets ruff + pytest, javascript gets npm", () => {
     const py = mkdtempSync(join(tmpdir(), "kj-wf-py-"));
     installWorkflows({ projectDir: py, language: "python" });
