@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.12.0: un check de calidad que lee el repo, y handoffs de los que se ocupa el agente (actual)
+### v5.13.0: carriles que se limpian tras el merge, y un aviso antes del cambio de GitHub del 2 de diciembre (actual)
+
+`kj worktree prune` ya retira los carriles mergeados que solo guardan ficheros de kj (antes archiva sus veredictos de review y sus decisiones de gate) y borra cada rama local que ya está en la base. El daemon del board hace ese barrido cada hora en cada uno de tus proyectos. Los servidores MCP anotan desde qué instalación de kj se ejecutan, así que el trabajo que refresca una instalación estable ya no reescribe una que está en uso. En un repo público, `kj harden` te avisa de que permitas `pull_request_target` en una política de Actions antes del 2 de diciembre de 2026, cuando GitHub deja de ejecutarlo sin ella. El workflow de calidad instala la versión mayor de Node más baja que permite `engines.node`, no la más nueva, cuyo npm puede rechazar tu lockfile.
+
+### v5.12.0: un check de calidad que lee el repo, y handoffs de los que se ocupa el agente
 
 El workflow de calidad que genera `kj harden` ya no supone Node 22, `npm test` y PHP 8.3: toma la versión de Node de `.nvmrc`, `.node-version`, `engines` o los propios workflows del repo, ejecuta `test` o `test:unit`, instala la versión de PHP que exige `composer.json` y avisa de lo que supone cuando no puede saberlo. El agente se ocupa de los handoffs que te esperan: al terminar un turno enumera los que siguen pendientes, y `kj handoff add --blocking` lo detiene hasta que contestes.
 
