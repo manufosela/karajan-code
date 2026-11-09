@@ -11,8 +11,8 @@ export function createBenchNotes(scene) {
   const notes = new Map();
   return {
     /** Puts each card in progress over its bench; `carried` are the ids a robot still holds. */
-    frame(cards, xOf, carried) {
-      const spots = benchSpots(cards, xOf, carried);
+    frame(cards, xOf, carried, zOf) {
+      const spots = benchSpots(cards, xOf, carried, zOf);
       const here = new Set(spots.map((s) => s.id));
       for (const [id, note] of notes) {
         if (here.has(id)) continue;

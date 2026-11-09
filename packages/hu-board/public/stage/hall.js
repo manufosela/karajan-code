@@ -82,6 +82,8 @@ export function createHall(scene, lanes) {
     /** Adds the lane's workshop if it is new; true when the row changed. */
     ensure,
     xOf: (lane) => workshopX(Math.max(0, order.indexOf(lane)), order.length),
+    /** KJC-TSK-1488: the z of a lane's workshop, which a factory of several rows sets apart. */
+    zOf: () => WORKSHOP.z,
     count: () => order.length,
     /** Lights a lane's gates green (approve) or red (refuse) at `level` 0..1; 0 puts them out. */
     lightGates(lane, tone, level) {
