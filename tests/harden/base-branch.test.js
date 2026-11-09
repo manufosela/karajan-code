@@ -61,10 +61,16 @@ describe("resolveBaseBranch: remote HEAD", () => {
     expect(await resolveBaseBranch(proj)).toBe("release");
   });
 
-  it("keeps an explicit main from the global config over the remote HEAD", async () => {
+  it("a global base_branch equal to the default does not hide the remote HEAD (HU-3694)", async () => {
     withRemoteHead("develop");
     writeFileSync(join(home, "kj.config.yml"), "base_branch: main\n");
-    expect(await resolveBaseBranch(proj)).toBe("main");
+    expect(await resolveBaseBranch(proj)).toBe("develop");
+  });
+
+  it("a global base_branch other than the default still wins over the remote HEAD", async () => {
+    withRemoteHead("develop");
+    writeFileSync(join(home, "kj.config.yml"), "base_branch: release\n");
+    expect(await resolveBaseBranch(proj)).toBe("release");
   });
 
   it("keeps an explicit main from the local override over the remote HEAD", async () => {
