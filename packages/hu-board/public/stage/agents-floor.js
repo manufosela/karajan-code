@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { createRobot } from './cast/robot.js';
 import { SCALE } from './layout.js';
 import { tagAt } from './screen.js';
-import { accentOf, labelOf, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
+import { createLaptop } from './laptop.js';
+import { accentOf, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
@@ -48,6 +49,27 @@ function robotFor(worker) {
   return robot;
 }
 
+// KJC-TSK-1486: typing, the hands come in towards the keyboard and the agent
+// turns side on to the camera, which sees its hands on the keys and its lit screen.
+const TYPING = { spread: -0.25, yaw: 1.85 };
+
+/** KJC-TSK-1486: at its spot the agent opens its laptop and types; walking, it puts it away. */
+function work(robot, worker, pose, t) {
+  const typing = !pose.walking;
+  if (typing && !robot.laptop) {
+    robot.laptop = createLaptop(accentOf(worker.agent));
+    robot.hover.add(robot.laptop);
+  }
+  if (robot.laptop) robot.laptop.visible = typing;
+  // The baton the family robot holds stays in its hand only while it walks.
+  for (const held of robot.armR.hand.children) held.visible = !typing;
+  // Each agent types at its own pace, from the moment it arrived.
+  const hands = typing ? typingAt(t - worker.since) : { L: 0, R: 0 };
+  robot.pose('L', typing ? TYPING.spread : 0, hands.L);
+  robot.pose('R', typing ? TYPING.spread : 0, hands.R);
+  if (typing) robot.root.rotation.y = pose.yaw + TYPING.yaw;
+}
+
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)` the centre of a lane's workshop. */
 export function createAgentsFloor({ scene, camera, xOf, origin }, lanes, now) {
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
@@ -73,6 +95,7 @@ export function createAgentsFloor({ scene, camera, xOf, origin }, lanes, now) {
         robot.root.position.set(pose.x, 0, pose.z);
         robot.root.rotation.y = pose.yaw;
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
+        work(robot, worker, pose, t);
         // Just above the helmet, so the label never sits on it.
         const head = robot.root.position.clone().setY(3.6 * scaleOf(worker));
         tags.push(tagAt(labelOf(worker), head, camera, { className: 'stage-worker', origin }));

@@ -2,7 +2,7 @@
 // is a robot of its own that walks in, works behind its station and walks out.
 import { describe, expect, it } from 'vitest';
 
-import { DOOR, TURN_MS, WALK_MS, accentOf, labelOf, spotOf, turnAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
+import { DOOR, KEY_MS, TURN_MS, WALK_MS, accentOf, labelOf, spotOf, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
 import { WORKSHOP } from '../public/stage/layout.js';
 
 const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
@@ -123,5 +123,23 @@ describe('a worker over time', () => {
     const [w] = workersFrom([{ agent: 'agy', role: 'solomon', at: 'x' }], 5000, 'kj-stage');
     expect(w.lane).toBe('kj-stage');
     expect(workerAt(w, 5000, () => 3)).toMatchObject({ ...spotOf('solomon', 3), walking: false });
+  });
+});
+
+describe('typingAt (KJC-TSK-1486)', () => {
+  it('holds both hands over the keyboard, one striking while the other rises', () => {
+    const struck = typingAt(KEY_MS / 2);
+    expect(struck.L).toBeGreaterThan(struck.R);
+    const other = typingAt(KEY_MS * 1.5);
+    expect(other.R).toBeGreaterThan(other.L);
+  });
+
+  it('never drops a hand from the keyboard nor lifts it past it', () => {
+    for (let t = 0; t < KEY_MS * 4; t += 37) {
+      for (const hand of Object.values(typingAt(t))) {
+        expect(hand).toBeGreaterThanOrEqual(1);
+        expect(hand).toBeLessThanOrEqual(1.25);
+      }
+    }
   });
 });
