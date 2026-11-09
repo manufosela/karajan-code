@@ -55,6 +55,12 @@ describe('the host and its subagents (KJC-TSK-1435)', () => {
     expect(workerAt(workers[0], WALK_MS, xOf)).toMatchObject({ ...spotOf('host', 10), walking: false });
   });
 
+  it('a host whose session has a name says it instead of its agent (KJC-TSK-1483)', () => {
+    const [worker] = withActivity([], { ...host('start', 'Bash'), name: 'kj-stage' }, 0);
+    expect(labelOf(worker)).toBe('kj-stage · Bash');
+    expect(labelOf({ ...worker, tool: null })).toBe('kj-stage');
+  });
+
   it('each subagent walks out of the host to its own slot before the bench, and back into it', () => {
     let workers = withActivity([], host('start', 'Agent'), 0);
     workers = withActivity(workers, sub('start', 'a1'), 100);

@@ -11,6 +11,7 @@ import { basename, dirname, join, sep } from 'node:path';
 import { watch as chokidarWatch } from 'chokidar';
 
 import { LANE_HOMES, listLanes } from './lanes.js';
+import { withSessionName } from './session-names.js';
 import { HANDOFFS_DIR, pendingMail } from './stage-mail.js';
 
 /**
@@ -130,7 +131,8 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
   ]);
   const tails = new Map([...logs.keys()].map((file) => [file, createTail(file)]));
   const emit = (event, raw, file) => {
-    if (event) send({ ...event, project });
+    // KJC-TSK-1483: a host's robot says its session's name.
+    if (event) send({ ...withSessionName(event), project });
     else warn(`[stage-feed] skipped an unreadable record in ${file}`);
   };
   const onFile = (file) => {

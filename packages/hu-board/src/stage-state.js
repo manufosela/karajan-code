@@ -7,6 +7,7 @@ import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } fr
 import { join } from 'node:path';
 
 import { listLanes } from './lanes.js';
+import { sessionName, withSessionName } from './session-names.js';
 import { pendingMail } from './stage-mail.js';
 import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
@@ -72,7 +73,7 @@ function newestVerdict(dir) {
   return null;
 }
 
-export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main' } = {}) {
+export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main', nameOf = sessionName } = {}) {
   const root = join(projectDir, '.karajan');
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card of the lane.
   const trace = (name, toEvent) => traceRecords(root, name, toEvent, tailBytes);
@@ -83,7 +84,7 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
     verdict: newestVerdict(join(root, 'reviews')),
     seal: lastRecord(join(root, 'policy-decisions.jsonl'), decisionEvent, tailBytes),
     gate: lastOf(trace('commit-gate.jsonl', gateEvent)),
-    working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now),
+    working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now).map((w) => withSessionName(w, nameOf)),
     mail: pendingMail(projectDir),
   };
 }
