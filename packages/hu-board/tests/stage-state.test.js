@@ -77,6 +77,26 @@ describe('lastStageState', () => {
     expect(lastStageState(proj).gate).toEqual({ type: 'commit-gate', at: 'c2', outcome: 'refuse', rule: 'header' });
   });
 
+  // KJC-BUG-0527: the traces moved to .karajan/traces; hooks sealed earlier still write to harness.
+  it('reads the traces from traces/ and merges them with harness/ in time order', () => {
+    mkdirSync(kj('traces'), { recursive: true });
+    writeFileSync(kj('traces', 'cards.jsonl'), jsonl({ at: '2026-11-08T10:00:00Z', action: 'add', id: 'HU-1', title: 'Login', status: 'pending' }));
+    expect(lastStageState(proj).cards).toHaveLength(1);
+    writeFileSync(kj('harness', 'cards.jsonl'), jsonl({ at: '2026-11-08T10:05:00Z', action: 'move', id: 'HU-1', status: 'running' }));
+    writeFileSync(kj('traces', 'cards.jsonl'), jsonl(
+      { at: '2026-11-08T10:00:00Z', action: 'add', id: 'HU-1', title: 'Login', status: 'pending' },
+      { at: '2026-11-08T10:09:00Z', action: 'move', id: 'HU-1', status: 'done' },
+    ));
+    expect(lastStageState(proj).cards.map((c) => [c.id, c.status])).toEqual([['HU-1', 'done']]);
+  });
+
+  it('takes the newer gate whichever folder holds it', () => {
+    mkdirSync(kj('traces'), { recursive: true });
+    writeFileSync(kj('harness', 'commit-gate.jsonl'), jsonl({ at: '2026-11-08T10:00:00Z', outcome: 'pass', rule: 'old' }));
+    writeFileSync(kj('traces', 'commit-gate.jsonl'), jsonl({ at: '2026-11-08T11:00:00Z', outcome: 'refuse', rule: 'new' }));
+    expect(lastStageState(proj).gate.rule).toBe('new');
+  });
+
   it('takes the last denial and seal and the newest verdict', () => {
     writeFileSync(kj('harness', 'denials.jsonl'), jsonl({ at: 't1', tool: 'Bash', why: 'a' }, { at: 't2', tool: 'Edit', why: 'b' }));
     writeFileSync(kj('policy-decisions.jsonl'), jsonl({ ts: 's1', decision: 'allow', chokepoint: 'commit' }));

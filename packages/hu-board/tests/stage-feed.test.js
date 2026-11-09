@@ -142,4 +142,15 @@ describe('watchStageFeed', () => {
     stop();
     expect(watcher.closed).toBe(true);
   });
+
+  it('sends a commit gate line appended to .karajan/traces and lets the way down to it through', () => {
+    watchStageFeed(dir, (ev) => sent.push(ev), { project: 'demo', watch, warn: () => {} });
+    const traces = join(dir, '.karajan', 'traces');
+    mkdirSync(traces, { recursive: true });
+    const gate = join(traces, 'commit-gate.jsonl');
+    appendFileSync(gate, line({ at: 't9', outcome: 'refuse', rule: 'header' }));
+    watcher.emit('add', gate);
+    expect(sent).toEqual([{ type: 'commit-gate', at: 't9', outcome: 'refuse', rule: 'header', project: 'demo' }]);
+    expect([traces, gate].map((p) => watcher.opts.ignored(p))).toEqual([false, false]);
+  });
 });

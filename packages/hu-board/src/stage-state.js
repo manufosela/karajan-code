@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 import { listLanes } from './lanes.js';
 import { pendingMail } from './stage-mail.js';
-import { activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
+import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
 import { withCard } from '../public/stage/cards.js';
 
@@ -28,7 +28,17 @@ function tailRecords(file, toEvent, tailBytes) {
   return lines.map((raw) => raw.trim() && toEvent(raw)).filter(Boolean);
 }
 
-const lastRecord = (file, toEvent, tailBytes) => tailRecords(file, toEvent, tailBytes).at(-1) ?? null;
+/**
+ * KJC-BUG-0527: the records of one trace across every trace folder, in time order. The
+ * oldest folder goes first so that, at the same instant, the newer location wins.
+ */
+function traceRecords(root, name, toEvent, tailBytes) {
+  const all = TRACE_DIRS.toReversed().flatMap((dir) => tailRecords(join(root, dir, name), toEvent, tailBytes));
+  return all.toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
+const lastOf = (records) => records.at(-1) ?? null;
+const lastRecord = (file, toEvent, tailBytes) => lastOf(tailRecords(file, toEvent, tailBytes));
 
 /** KJC-TSK-1435: the host beats at least once a minute while it works, so a silent host has stopped sooner. */
 const STALE_HOST_MS = 5 * 60 * 1000;
@@ -37,9 +47,9 @@ const STALE_HOST_MS = 5 * 60 * 1000;
  * KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role;
  * KJC-TSK-1435: by id when the trace names one (the host's session, each subagent).
  */
-function agentsAtWork(file, tailBytes, now) {
+function agentsAtWork(records, now) {
   const last = new Map();
-  for (const ev of tailRecords(file, activityEvent, tailBytes)) last.set(ev.id ?? `${ev.agent}:${ev.role}`, ev);
+  for (const ev of records) last.set(ev.id ?? `${ev.agent}:${ev.role}`, ev);
   const fresh = (ev) => now - Date.parse(ev.at) < (ev.role === 'host' ? STALE_HOST_MS : STALE_START_MS);
   return [...last.values()]
     .filter((ev) => ev.phase === 'start' && fresh(ev))
@@ -65,14 +75,15 @@ function newestVerdict(dir) {
 export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main' } = {}) {
   const root = join(projectDir, '.karajan');
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card of the lane.
-  const cards = tailRecords(join(root, 'harness', 'cards.jsonl'), cardEvent, tailBytes).reduce((all, ev) => withCard(all, { ...ev, lane }), []);
+  const trace = (name, toEvent) => traceRecords(root, name, toEvent, tailBytes);
+  const cards = trace('cards.jsonl', cardEvent).reduce((all, ev) => withCard(all, { ...ev, lane }), []);
   return {
     cards,
-    denial: lastRecord(join(root, 'harness', 'denials.jsonl'), denialEvent, tailBytes),
+    denial: lastOf(trace('denials.jsonl', denialEvent)),
     verdict: newestVerdict(join(root, 'reviews')),
     seal: lastRecord(join(root, 'policy-decisions.jsonl'), decisionEvent, tailBytes),
-    gate: lastRecord(join(root, 'harness', 'commit-gate.jsonl'), gateEvent, tailBytes),
-    working: agentsAtWork(join(root, 'harness', 'agent-activity.jsonl'), tailBytes, now),
+    gate: lastOf(trace('commit-gate.jsonl', gateEvent)),
+    working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now),
     mail: pendingMail(projectDir),
   };
 }

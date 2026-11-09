@@ -13,10 +13,17 @@ import { watch as chokidarWatch } from 'chokidar';
 import { LANE_HOMES, listLanes } from './lanes.js';
 import { HANDOFFS_DIR, pendingMail } from './stage-mail.js';
 
+/**
+ * KJC-BUG-0527: the folders kj's jsonl traces live in, newest location first. The sandbox
+ * makes harness/ read-only, so the traces moved to traces/; hooks sealed earlier still write
+ * to harness/ until their next kj harden, so both are read.
+ */
+export const TRACE_DIRS = ['traces', 'harness'];
+
 const parse = (raw) => { try { return JSON.parse(raw); } catch { return null; } };
 const firstLine = (text) => String(text ?? '').split('\n')[0];
 
-/** A line of .karajan/harness/denials.jsonl → a sentinel-deny event, or null. */
+/** A line of denials.jsonl (traces/, or harness/ for older hooks) → a sentinel-deny event, or null. */
 export function denialEvent(raw) {
   const r = parse(raw);
   if (!r?.at || !r.tool) return null;
@@ -30,14 +37,14 @@ export function decisionEvent(raw) {
   return { type: 'ledger-seal', at: r.ts, decision: r.decision, chokepoint: r.chokepoint };
 }
 
-/** A line of .karajan/harness/commit-gate.jsonl (the commit-msg guard, KJC-TSK-1401) → a commit-gate event, or null. */
+/** A line of commit-gate.jsonl (traces/, or harness/ for older hooks; the commit-msg guard, KJC-TSK-1401) → a commit-gate event, or null. */
 export function gateEvent(raw) {
   const r = parse(raw);
   if (!r?.at || !['pass', 'refuse'].includes(r.outcome) || !r.rule) return null;
   return { type: 'commit-gate', at: r.at, outcome: r.outcome, rule: r.rule };
 }
 
-/** A line of .karajan/harness/agent-activity.jsonl (KJC-TSK-1429) → an agent-activity event, or null. */
+/** A line of agent-activity.jsonl (traces/, or harness/ for older hooks; KJC-TSK-1429) → an agent-activity event, or null. */
 export function activityEvent(raw) {
   const r = parse(raw);
   if (!r?.at || !r.agent || !r.role || !['start', 'end'].includes(r.phase)) return null;
@@ -52,7 +59,7 @@ const CARD_ACTIONS = new Set(['add', 'move']);
 const CARD_STATUSES = new Set(['pending', 'running', 'done', 'failed', 'skipped']);
 
 /**
- * KJC-TSK-1457 (ADR 0050): a line of .karajan/harness/cards.jsonl (kj hu add and kj hu
+ * KJC-TSK-1457 (ADR 0050): a line of cards.jsonl (traces/, or harness/ for older hooks; kj hu add and kj hu
  * move) → a card event, or null. The id, a short title and where it went; a move queued
  * without network says so, since the card is not there yet.
  */
@@ -116,12 +123,10 @@ export function createTail(file) {
 export function watchStageFeed(projectDir, send, { project, watch = chokidarWatch, warn = console.warn } = {}) {
   const root = join(projectDir, '.karajan');
   const reviews = join(root, 'reviews');
+  const traceEvents = [['denials.jsonl', denialEvent], ['commit-gate.jsonl', gateEvent], ['agent-activity.jsonl', activityEvent], ['cards.jsonl', cardEvent]];
   const logs = new Map([
-    [join(root, 'harness', 'denials.jsonl'), denialEvent],
     [join(root, 'policy-decisions.jsonl'), decisionEvent],
-    [join(root, 'harness', 'commit-gate.jsonl'), gateEvent],
-    [join(root, 'harness', 'agent-activity.jsonl'), activityEvent],
-    [join(root, 'harness', 'cards.jsonl'), cardEvent],
+    ...TRACE_DIRS.flatMap((dir) => traceEvents.map(([name, event]) => [join(root, dir, name), event])),
   ]);
   const tails = new Map([...logs.keys()].map((file) => [file, createTail(file)]));
   const emit = (event, raw, file) => {
@@ -150,11 +155,11 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
   let lastAnswer = null;
   // chokidar misses a path that did not exist when the watch began, so it
   // watches the project and lets through only the way down to these records.
-  const harness = join(root, 'harness');
+  const traceDirs = TRACE_DIRS.map((dir) => join(root, dir));
   const inReviews = (p) => p.startsWith(`${reviews}${sep}`);
   const handoffs = join(projectDir, ...HANDOFFS_DIR);
   const inHandoffs = (p) => p.startsWith(`${handoffs}${sep}`) && p.endsWith('.json');
-  const wanted = (p) => [projectDir, root, harness, reviews, ragNote, handoffs].includes(p) || logs.has(p) || inReviews(p) || inHandoffs(p);
+  const wanted = (p) => [projectDir, root, ...traceDirs, reviews, ragNote, handoffs].includes(p) || logs.has(p) || inReviews(p) || inHandoffs(p);
   const watcher = watch(projectDir, {
     ignored: (p) => !wanted(p),
     ignoreInitial: true,
