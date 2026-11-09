@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import yaml from "js-yaml";
 import * as prettier from "prettier";
@@ -334,7 +333,7 @@ describe("pinned actions — no mutable tags in generated workflows (KJC-BUG-013
     };
     const corpora = [
       t.NO_AI_ATTRIBUTION_WORKFLOW,
-      t.SHRINK_BUDGET_WORKFLOW,
+      t.shrinkBudgetWorkflowFor("9.9.9"),
       t.packSmokeWorkflow("npm"),
       t.packSmokeWorkflow("pnpm"),
       ...["node", "python", "go", "php"].map((lang) => flat(t.qualityWorkflowFor(lang))),
@@ -362,33 +361,14 @@ describe("pinned actions — no mutable tags in generated workflows (KJC-BUG-013
     }
   });
 
-  // KJC-TSK-0795 AC4 (epic KJC-PCS-0082) — measured in GREBLA: a 414-line
-  // budget warning that was almost all pnpm-lock.yaml. Generated weight
-  // nobody wrote must not count against anyone's budget.
-  it("the generated shrink budget excludes lockfiles and generated output", async () => {
+  // KJC-TSK-1492 (KJC-BUG-0519): the budget is counted by kj itself (loc-budget.js: lockfiles,
+  // generated output, docs, shared plans), with the kj that ran harden, not a list of its own.
+  it("the generated shrink budget runs the pinned kj pr-size, with no exclusion list of its own", async () => {
     const t = await import("../../src/harden/workflow-templates.js");
-    for (const p of ["*.lock", "package-lock.json", "pnpm-lock.yaml", "npm-shrinkwrap.json", "dist/**", "build/**", "coverage/**", "**/*.snap", "**/__snapshots__/**"]) {
-      expect(t.SHRINK_BUDGET_WORKFLOW).toContain(`':!${p}'`);
-    }
-  });
-
-  // KJC-BUG-0318: and the plan JSON `kj plan share` writes, only directly under
-  // .karajan-shared/plans/ (glob magic: `*` does not cross `/`), as loc-budget.js.
-  it("the shrink budget leaves out the shared plan JSON and nothing nested under it", async () => {
-    const t = await import("../../src/harden/workflow-templates.js");
-    const spec = ".karajan-shared/plans/*.json";
-    expect(t.SHRINK_BUDGET_WORKFLOW).toContain(`':(glob,exclude)${spec}'`);
-    const repo = mkdtempSync(join(tmpdir(), "kj-shared-plans-"));
-    try {
-      const git = (...a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8" });
-      git("init", "-q");
-      for (const f of [".karajan-shared/plans/p.json", ".karajan-shared/plans/n/x.json", "src/a.js"]) {
-        mkdirSync(dirname(join(repo, f)), { recursive: true });
-        writeFileSync(join(repo, f), "{}\n");
-      }
-      git("add", "-A");
-      const listed = git("diff", "--cached", "--name-only", "--", ".", `:(glob,exclude)${spec}`).trim().split("\n");
-      expect(listed.sort()).toEqual([".karajan-shared/plans/n/x.json", "src/a.js"]);
-    } finally { rmSync(repo, { recursive: true, force: true }); }
+    const body = t.shrinkBudgetWorkflowFor("9.9.9", "karajan-code");
+    expect(body).toContain("npm install --no-save --ignore-scripts --no-audit --no-fund karajan-code@9.9.9");
+    expect(body).toContain('pr-size --base "$BASE_REF" --limit "$LOC_LIMIT"');
+    expect(body).toContain('LOC_LIMIT: "200"');
+    expect(body).not.toMatch(/:!|exclude\)/);
   });
 });

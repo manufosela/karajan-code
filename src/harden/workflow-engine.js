@@ -127,12 +127,12 @@ export function installWorkflows({
   if (isJs) inputs = qualityInputs({ projectDir, appDir, root });
   else if (language === "php") inputs = phpInputs({ appDir });
   const quality = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root, inputs?.options);
-  const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
   // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
   // recurso inalcanzable en los caminos reales.
   const pinned = kjVersion ?? ownPkg()?.version ?? "latest";
+  const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm, kjVersion: pinned, kjName: ownPkg()?.name ?? "karajan-code" });
   const policy = policyDeclared(projectDir)
     ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") }
     : null;
