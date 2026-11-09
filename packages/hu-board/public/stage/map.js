@@ -12,12 +12,15 @@ import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { FLIGHT_MS, flightAt, groundAt, lotAt } from './flight.js';
 import { mapName } from './cards.js';
 import { MARK_MS } from './marks.js';
+import { glowAt, mailboxOf, mailTotal, withMail } from './mail.js';
+import { createMailbox } from './mailbox.js';
 
 const NAME_OVER = new THREE.Vector3(0, 2.5, -8.5); // the factory's name stands at the back of its floor
 const MAP_ZOOM = { min: 0.06, max: 1.3 }; // the closest shows one workshop whole
 const CLICK_PX = 6; // a press that moves less than this is a click, not a drag
 const HALL_LOOK_Z = -0.6; // where the camera looks in a hall, as on one factory (factory.js)
 const LABELS_BELOW = 0.45; // robots' and marks' labels only show this close; the names always
+const MAILBOX_INSET = 1.5; // metres from the floor's front right corner
 
 /** The scene of the map with every factory on its lot; returns the factories and the render. */
 function buildMap(canvas, factories, { instant, onView }) {
@@ -34,8 +37,12 @@ function buildMap(canvas, factories, { instant, onView }) {
     const floor = createFloor(lots[i].width, FLOOR_Z.front - FLOOR_Z.back);
     floor.position.z = (FLOOR_Z.back + FLOOR_Z.front) / 2;
     lot.add(floor);
+    // KJC-TSK-1473: the human's mailbox at the front right corner of the floor.
+    const mailbox = createMailbox();
+    mailbox.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, FLOOR_Z.front - MAILBOX_INSET);
+    lot.add(mailbox.group);
     scene.add(lot);
-    return { project, lanes, lot, ...buildFactory(lot, lanes.map((l) => l.lane)) };
+    return { project, lanes, lot, mailbox, ...buildFactory(lot, lanes.map((l) => l.lane)) };
   });
   const render = () => renderer.render(scene, camera);
   let zoom = 1;
@@ -110,7 +117,7 @@ export function startMap({ canvas, factories, token, tell, counts }) {
     const live = createLive({ ...factory, scene: factory.lot, camera, refit, origin: factory.lot.position },
       { state: acrossLanes(factory.lanes), tell: tellOne, counts: own });
     tellOne(live.settle().lines);
-    return [factory.project, { live, own }];
+    return [factory.project, { live, own, box: mailboxOf(factory.lanes), mailbox: factory.mailbox }];
   }));
   const names = document.createElement('div');
   counts.append(names);
@@ -118,16 +125,28 @@ export function startMap({ canvas, factories, token, tell, counts }) {
     step(ms);
     // KJC-TSK-1455: from far away only the factories' names; their labels as the camera comes closer.
     const near = zoomNow() < LABELS_BELOW;
-    for (const { live, own } of lives.values()) { live.frame(ms); own.hidden = !near; }
-    // KJC-TSK-1460 (ADR 0050): each name says how many cards its factory has in progress.
-    const named = ({ project, lot }) => tagAt(mapName(project, lives.get(project).live.cards()), NAME_OVER, camera, { className: 'stage-worker', origin: lot.position });
+    for (const { live, own, box, mailbox } of lives.values()) {
+      live.frame(ms);
+      own.hidden = !near;
+      mailbox.light(glowAt(mailTotal(box), ms, still));
+    }
+    // KJC-TSK-1460 (ADR 0050): each name says how many cards its factory has in progress,
+    // and KJC-TSK-1473 how many handoffs wait for the human.
+    const nameOf = (project) => {
+      const { live, box } = lives.get(project);
+      const mail = mailTotal(box);
+      return mail ? `${mapName(project, live.cards())} · ✉ ${mail}` : mapName(project, live.cards());
+    };
+    const named = ({ project, lot }) => tagAt(nameOf(project), NAME_OVER, camera, { className: 'stage-worker', origin: lot.position });
     names.replaceChildren(...placed.map(named));
     render();
   }
   const events = new EventSource(withToken('/api/events?map=1', token));
   events.onmessage = ({ data }) => {
     const event = JSON.parse(data);
-    lives.get(event.project)?.live.push(event, performance.now()); // a project not on the map has no factory
+    const factory = lives.get(event.project); // a project not on the map has no factory
+    if (factory) factory.box = withMail(factory.box, event);
+    factory?.live.push(event, performance.now());
     if (still) { draw(performance.now()); setTimeout(() => draw(performance.now()), MARK_MS + 50); }
   };
   const loop = (ms) => { draw(ms); requestAnimationFrame(loop); };
