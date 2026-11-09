@@ -11,9 +11,11 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { isSea } from "node:sea";
+
+import { mainCheckout } from "../utils/main-checkout.js";
 
 // KJC-TSK-1204 (ADR 0030): the tool gate is a module of the package, like the
 // Sentinel's guards, so kj-hook can run it from there.
@@ -88,9 +90,25 @@ function hooksOf(projectDir) {
   return found ? merged : null;
 }
 
-export function wiringState({ projectDir, entries }) {
+/**
+ * KJC-BUG-0528: a running Sentinel hook proves its wiring sits in a settings file Claude Code
+ * loaded. A lane with no readable hooks at all (created before KJC-TSK-1444) was opened from the
+ * main checkout, so that is the wiring in effect. Narrow on purpose: a lane with hooks of its own
+ * is judged on them alone, and the main checkout itself has nothing to fall back to.
+ */
+function effectiveHooks(projectDir, mainOf) {
+  const own = hooksOf(projectDir);
+  if (own) return own;
+  const main = mainOf(projectDir);
+  return main && resolve(main) !== resolve(projectDir) ? hooksOf(main) : null;
+}
+
+/** A lane's `.git` is a file pointing at the common dir; any other dir has no main checkout to ask. */
+const laneMainCheckout = (dir) => (statSync(join(dir, ".git"), { throwIfNoEntry: false })?.isFile() ? mainCheckout(dir) : null);
+
+export function wiringState({ projectDir, entries, mainOf = laneMainCheckout }) {
   // A repo not migrated yet still has the wiring in settings.json: it counts until kj harden moves it.
-  const hooks = hooksOf(projectDir);
+  const hooks = effectiveHooks(projectDir, mainOf);
   if (!hooks) return { mode: "wiring", missing: [`${LOCAL_SETTINGS} (sin hooks legibles)`] };
   const missing = [];
   let legacy = false;

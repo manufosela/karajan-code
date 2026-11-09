@@ -67,3 +67,41 @@ describe("the Sentinel's wiring is personal", () => {
     expect(wiringState({ projectDir: dir, entries: HARNESS_WIRING }).missing).toEqual([]);
   });
 });
+
+// KJC-BUG-0528: a lane created before KJC-TSK-1444 has no settings of its own; the Sentinel hook that
+// runs there was loaded from the main checkout's, so that is the wiring to verify. Only then.
+describe("a lane with no settings of its own", () => {
+  let main;
+  beforeEach(() => { main = fs.mkdtempSync(path.join(os.tmpdir(), "kj-main-checkout-")); });
+  afterEach(() => fs.rmSync(main, { recursive: true, force: true }));
+  const wire = (root, entries = HARNESS_WIRING) => mergeClaudeHooks({ projectDir: root, entries, viaKj: false });
+  const stateOf = (projectDir, mainOf = () => main) => wiringState({ projectDir, entries: HARNESS_WIRING, mainOf });
+
+  it("is verified against the main checkout's wiring", () => {
+    wire(main);
+    expect(stateOf(dir).missing).toEqual([]);
+  });
+
+  it("stays missing everything, named with the lane's file, when the main checkout has none either", () => {
+    expect(stateOf(dir).missing).toEqual([".claude/settings.local.json (sin hooks legibles)"]);
+  });
+
+  it("with its own settings missing a guard keeps that guard missing, whatever the main checkout has", () => {
+    wire(main);
+    wire(dir, HARNESS_WIRING.slice(1));
+    const [first] = HARNESS_WIRING;
+    expect(stateOf(dir).missing).toEqual([`${first.event} → ${first.script.replace(/\.mjs$/, "")}`]);
+  });
+
+  it("in the main checkout itself, an unwired dir is reported as before", () => {
+    expect(stateOf(main, (d) => d).missing).toEqual([".claude/settings.local.json (sin hooks legibles)"]);
+  });
+
+  it("finds the main checkout of a real git lane by default", () => {
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init"], { cwd: dir });
+    const lane = path.join(dir, "lane");
+    execFileSync("git", ["worktree", "add", "-q", lane], { cwd: dir });
+    wire(dir);
+    expect(wiringState({ projectDir: lane, entries: HARNESS_WIRING }).missing).toEqual([]);
+  });
+});
