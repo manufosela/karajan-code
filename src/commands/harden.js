@@ -184,7 +184,7 @@ export async function hardenCommand({
     else logger.error?.(`kj harden: ${err.message}`);
     return { ok: false, error: err.message };
   }
-  const out = { ok: true, ...result, ...(await installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger })) };
+  const out = { ok: true, ...result, ...(await installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger, baseBranch })) };
   // KJC-BUG-0289 (#1984): what kj harden generates, kj commits (KJC-BUG-0273's
   // path): only that, never on the base branch. Left to the agent, 3.2k generated
   // lines exceeded its own PR size and stayed untracked. The seal (--commit, ADR
@@ -227,7 +227,7 @@ async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch
 }
 
 /** Configs, workflows and guidelines (standard+), with the language detected for the first root. */
-async function installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger }) {
+async function installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger, baseBranch }) {
   const full = profile !== "minimal";
   const language = roots[0]?.language ?? null;
   // Config (lint/format/commit) ships with standard+, per language root so a
@@ -236,7 +236,7 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
   // KJC-BUG-0420: consumer CI installs kj from npm, so the workflows pin a published version.
   const pin = ci && full ? await resolveKjPin({ projectDir, fetchFn }) : null;
   if (pin?.note) logger.warn?.(`⚠ ${pin.note}`);
-  const wf = ci && full ? installWorkflows({ projectDir, language, root: roots[0]?.dir ?? ".", profile, mutation, dryRun, kjVersion: pin?.version ?? null }) : null;
+  const wf = ci && full ? installWorkflows({ projectDir, language, root: roots[0]?.dir ?? ".", profile, mutation, dryRun, kjVersion: pin?.version ?? null, baseBranch }) : null;
   const withGuidelines = guidelines && full;
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
   // the configs already use — a Python project must not be told to use `const`.

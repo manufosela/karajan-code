@@ -60,6 +60,17 @@ export const NO_AI_ATTRIBUTION_WORKFLOW = [
   '          echo "AI attribution scan: clean"',
 ].join("\n");
 
+// HU-3531: the templates carry `branches: [main]`; the engine swaps in the repo's base branch.
+// Only `main` stays bare (it renders byte for byte as before); every other name is single-quoted,
+// because YAML would read bare 123, true, null or ~ as a number, boolean or null, not a string.
+// A control character or ": " would end the scalar or open a mapping: refused, never injected.
+export function onBaseBranch(body, baseBranch) {
+  if (typeof baseBranch !== "string" || baseBranch === "" || /[\x00-\x1f\x7f]|: /.test(baseBranch)) {
+    throw new Error(`kj harden: ${JSON.stringify(baseBranch)} is not a safe base branch name for the generated workflows`);
+  }
+  const scalar = baseBranch === "main" ? baseBranch : `'${baseBranch.replaceAll("'", "''")}'`;
+  return body.replaceAll("    branches: [main]", () => `    branches: [${scalar}]`);
+}
 /** Universal workflows (every stack). style:hash ⇒ marker in YAML comments. */
 export const WORKFLOWS = [
   { file: "kj-no-ai-attribution.yml", blockId: "wf-no-ai", body: NO_AI_ATTRIBUTION_WORKFLOW },
