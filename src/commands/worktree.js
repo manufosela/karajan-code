@@ -14,6 +14,7 @@ import { promisify } from "node:util";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
+import { archiveKjState } from "../hu/lane-kj-state.js";
 import { stopBootstrap } from "../rag/bootstrap-index.js";
 import { catchUpLine } from "../rag/lane-catchup.js";
 import { recordGateDecision } from "../policy/decisions.js";
@@ -143,6 +144,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     const base = await resolveBase({ git, base: baseName });
     // A missing base must not block removing a clean lane: the branch is kept, with its remedy.
     const ahead = branch ? await commitsNotIn({ git, base, ref: branch }).catch(() => null) : 0;
+    archiveKjState(wtPath, path.join(mainCheckout(projectDir), ".karajan", "retired-lanes", slug)); // KJC-TSK-1477
     // Only setup files left (checked above): git still calls them untracked, so the remove is forced.
     await git(["worktree", "remove", ...(flags.force || status.trim() ? ["--force"] : []), wtPath]);
     // -D after our own check: -d measures against HEAD/upstream, not origin/<base>. Never the base itself.
@@ -179,7 +181,9 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       console.log(`✓ deleted branch ${b}`);
     }
     for (const l of abandoned) {
-      // Judged abandoned above: what is left are setup or regenerable files, which git would refuse.
+      // KJC-TSK-1477: the governance record outlives the lane, archived in the main checkout.
+      archiveKjState(l.path, path.join(mainCheckout(projectDir), ".karajan", "retired-lanes", l.slug));
+      // Judged abandoned above: what is left are setup, kj state or regenerable files, which git would refuse.
       await git(["worktree", "remove", "--force", l.path]);
       if (l.branch) await git(["branch", "-D", l.branch]);
       console.log(`✓ retired ${l.slug} (${l.branch ?? "detached"})`);

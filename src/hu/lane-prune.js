@@ -9,11 +9,12 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { isLaneSetupFile, laneWork } from "./lane-setup.js";
 import { readBootstrap } from "../rag/bootstrap-index.js";
+import { isKjState, pendingHandoffs } from "./lane-kj-state.js";
 
 const IDLE_HOURS = 24;
-// HU-3092: the lane's index and what rides along it (-wal, -shm, .bootstrap, .embed-schema) is regenerable state.
-const RAG_STATE = /^\.karajan\/rag\.db([.-]|$)/;
-const REGENERABLE = new Set(["node_modules", "dist", "build", "coverage", ".venv", "venv", "__pycache__", ".cache", "target"]);
+// KJC-TSK-1477: at any depth (packages/x/node_modules); .scannerwork is the Sonar scanner's.
+const REGENERABLE = new Set(["node_modules", "dist", "build", "coverage", ".venv", "venv", "__pycache__", ".cache", "target", ".scannerwork"]);
+const regenerable = (rel) => rel.split("/").some((part) => REGENERABLE.has(part));
 
 const LSOF = "/usr/sbin/lsof";
 const LSOF_TIMEOUT_MS = 10_000;
@@ -73,14 +74,14 @@ async function idleHours(git, lanePath, now) {
 
 const inside = (cwd, dir) => cwd === dir || cwd.startsWith(dir + path.sep);
 
-/** A folder git lists whole (an ignored `.karajan/`) holds only index state and setup when every file in it does. */
-function onlyRagState(lanePath, dir) {
+/** A folder git lists whole (an ignored `.karajan/`) holds only kj state and setup when every file in it does. */
+function onlyKjState(lanePath, dir) {
   try {
     return fs.readdirSync(path.join(lanePath, dir), { recursive: true, withFileTypes: true }).filter((d) => !d.isDirectory()) // symlinks and the like are the user's, never state
-      .every((d) => { const rel = path.relative(lanePath, path.join(d.parentPath, d.name)); return RAG_STATE.test(rel) || isLaneSetupFile(lanePath, rel, true); });
+      .every((d) => { const rel = path.relative(lanePath, path.join(d.parentPath, d.name)); return isKjState(rel.split(path.sep).join("/")) || isLaneSetupFile(lanePath, rel, true); });
   } catch { return false; }
 }
-const ragOnly = (lanePath, p) => RAG_STATE.test(p) || (p.endsWith("/") && onlyRagState(lanePath, p));
+const kjOnly = (lanePath, p) => isKjState(p) || (p.endsWith("/") && onlyKjState(lanePath, p));
 
 /**
  * The pid of the lane's background indexer: the one its marker names, while the marker notes no stop.
@@ -114,11 +115,13 @@ export async function classifyLanes({ git, laneRoot, base, processes, now = Date
     const reasons = [];
     // KJC-TSK-1371: the identity and Sentinel files lane setup wrote are not the lane's work.
     const { stdout: status } = await git(["status", "--porcelain", "--ignored=matching", "--untracked-files=all"], lane.path);
-    const entries = laneWork(status, lane.path).filter((e) => !ragOnly(lane.path, e.slice(3)));
+    const entries = laneWork(status, lane.path).filter((e) => !kjOnly(lane.path, e.slice(3)));
     if (entries.some((e) => !e.startsWith("!! "))) reasons.push("uncommitted changes");
     // Ignored files can be valuable (.env, local artifacts); only regenerable dirs are not.
-    const precious = entries.filter((e) => e.startsWith("!! ") && !REGENERABLE.has(e.slice(3).split("/")[0]));
+    const precious = entries.filter((e) => e.startsWith("!! ") && !regenerable(e.slice(3)));
     if (precious.length > 0) reasons.push(`ignored files that are not regenerable (${precious[0].slice(3)}${precious.length > 1 ? ", …" : ""})`);
+    const waiting = pendingHandoffs(lane.path);
+    if (waiting > 0) reasons.push(`${waiting} pending handoff(s) for the user`);
     // The lane's HEAD, branch or detached: a detached lane's commits have no other name.
     const ahead = await commitsNotIn({ git, base, cwd: lane.path });
     if (ahead > 0) reasons.push(`${ahead} commit(s) not in ${base}`);
