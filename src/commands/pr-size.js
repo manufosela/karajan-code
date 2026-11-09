@@ -44,9 +44,19 @@ export async function branchSize({ projectDir = process.cwd(), base = "main", ex
   return { ...budgetedAdded(rows, linesOf), net: budgetedNet(rows, linesOf).net, base };
 }
 
+// KJC-TSK-1491 (KJC-BUG-0519): the CI gate passes the PR's base and the budget, so it counts as kj does.
+function limitOf(raw) {
+  if (raw === undefined) return null;
+  if (!/^\d+$/.test(String(raw))) throw new Error(`pr-size: --limit must be a whole number of lines (got ${raw})`);
+  return Number(raw);
+}
+
 export async function prSizeCommand({ config, logger = console, flags = {} }) {
-  const s = await branchSize({ projectDir: config?.projectDir || process.cwd(), base: config?.base_branch || "main" });
-  if (flags.json) process.stdout.write(`${JSON.stringify(s)}\n`);
+  const limit = limitOf(flags.limit);
+  const s = await branchSize({ projectDir: config?.projectDir || process.cwd(), base: flags.base || config?.base_branch || "main" });
+  const result = limit === null ? s : { ...s, limit, over: s.net > limit };
+  if (flags.json) process.stdout.write(`${JSON.stringify(result)}\n`);
+  else if (result.over) logger.error(`pr-size: the branch adds ${s.net} net line(s) against ${s.base}, over the limit of ${limit}: partition it`);
   else logger.info(`pr-size: ${s.net} net line(s) against ${s.base}, as the CI gate counts them (${s.added} added, ${s.testAdded} in tests, ${s.exempt} exempt)`);
-  return s;
+  return result;
 }
