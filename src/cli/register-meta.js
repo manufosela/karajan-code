@@ -139,6 +139,7 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Declare this clone's identity from the active gh session and git config (or --gh/--email)")
     .option("--gh <user>", "gh account to bind")
     .option("--email <email>", "git email to bind")
+    .option("--gh-config-dir <dir>", "gh config dir that holds the account, when it is not gh's default (default: $GH_CONFIG_DIR)")
     .option("--yes", "Do not ask for confirmation")
     .action(async (flags) => {
       await withConfig(pkgVersion, "identity-set", flags, async ({ config }) => {

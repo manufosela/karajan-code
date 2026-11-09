@@ -9,6 +9,8 @@
  */
 
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { signAct } from "../harden/act-sign.js";
 import { enrollPhone, isPhoneEnrolled, readEnrolledKey, readEnrolledKeys, validatePhonePublicKey } from "../harden/phone-sign.js";
@@ -116,15 +118,23 @@ async function confirmBinding(candidate, { log, flags, deps }) {
 
 async function setAction(ctx) {
   const { projectDir, log, flags, deps } = ctx;
-  const effective = effectiveIdentity(projectDir, deps);
-  const candidate = { gh_user: flags.gh || effective.gh_user, git_email: flags.email || effective.git_email };
+  // KJC-BUG-0530: the account may live in another gh config dir (gh-ox): it is declared with the clone.
+  const ghConfigDir = flags.ghConfigDir ?? (deps.env ?? process.env).GH_CONFIG_DIR ?? null;
+  const hostsPath = ghConfigDir ? join(ghConfigDir, "hosts.yml") : deps.hostsPath;
+  if (ghConfigDir && !existsSync(hostsPath)) {
+    log(`kj identity: cannot declare — ${ghConfigDir} has no gh login (hosts.yml). Log in there with GH_CONFIG_DIR=${ghConfigDir} gh auth login.`);
+    return 1;
+  }
+  const effective = effectiveIdentity(projectDir, { ...deps, hostsPath });
+  const candidate = { gh_user: flags.gh || effective.gh_user, git_email: flags.email || effective.git_email, gh_config_dir: ghConfigDir };
   if (!candidate.gh_user || !candidate.git_email) {
     log(`kj identity: cannot declare — gh account: ${candidate.gh_user ?? "no session"}, git email: ${candidate.git_email ?? "none"}. Log in / set git config, or pass --gh <user> --email <email>.`);
     return 1;
   }
   if (!(await confirmBinding(candidate, ctx))) return 1;
   writeIdentity(projectDir, candidate);
-  log(`kj identity: declared gh ${candidate.gh_user} / git ${candidate.git_email} → .karajan/identity.local.yml (ignored by git).`);
+  const dirNote = ghConfigDir ? ` (gh config ${ghConfigDir})` : "";
+  log(`kj identity: declared gh ${candidate.gh_user}${dirNote} / git ${candidate.git_email} → .karajan/identity.local.yml (ignored by git).`);
   return 0;
 }
 
@@ -139,6 +149,7 @@ function showAction({ projectDir, log, deps }) {
   const mark = (field) => (result.mismatches.some((m) => m.field === field) ? "DISTINTA" : "ACTIVA");
   log(`gh_user    ${declared.gh_user}  [${mark("gh_user")}: ${effective.gh_user ?? "no session"}]`);
   log(`git_email  ${declared.git_email}  [${mark("git_email")}: ${effective.git_email ?? "none"}]`);
+  if (declared.gh_config_dir) log(`gh_config  ${declared.gh_config_dir}`);
   for (const m of result.mismatches) log(`  → ${m.remedy}`);
   return result.ok ? 0 : 2;
 }
