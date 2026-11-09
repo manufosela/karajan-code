@@ -11,6 +11,7 @@ import { basename, dirname, join, sep } from 'node:path';
 import { watch as chokidarWatch } from 'chokidar';
 
 import { LANE_HOMES, listLanes } from './lanes.js';
+import { HANDOFFS_DIR, pendingMail } from './stage-mail.js';
 
 const parse = (raw) => { try { return JSON.parse(raw); } catch { return null; } };
 const firstLine = (text) => String(text ?? '').split('\n')[0];
@@ -134,6 +135,9 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
       let raw;
       try { raw = readFileSync(file, 'utf8'); } catch { return; } // pruned before it was read
       emit(verdictEvent(raw), raw, file);
+    } else if (inHandoffs(file)) {
+      // KJC-TSK-1472: a handoff added or marked done changes the lane's mail.
+      send({ type: 'mail', pending: pendingMail(projectDir), project });
     } else if (file === ragNote) {
       // Rewritten on every query: it is a new answer only when its time moved on.
       let raw;
@@ -148,7 +152,9 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
   // watches the project and lets through only the way down to these records.
   const harness = join(root, 'harness');
   const inReviews = (p) => p.startsWith(`${reviews}${sep}`);
-  const wanted = (p) => [projectDir, root, harness, reviews, ragNote].includes(p) || logs.has(p) || inReviews(p);
+  const handoffs = join(projectDir, ...HANDOFFS_DIR);
+  const inHandoffs = (p) => p.startsWith(`${handoffs}${sep}`) && p.endsWith('.json');
+  const wanted = (p) => [projectDir, root, harness, reviews, ragNote, handoffs].includes(p) || logs.has(p) || inReviews(p) || inHandoffs(p);
   const watcher = watch(projectDir, {
     ignored: (p) => !wanted(p),
     ignoreInitial: true,

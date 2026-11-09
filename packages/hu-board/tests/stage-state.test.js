@@ -31,7 +31,7 @@ afterEach(() => {
 
 describe('lastStageState', () => {
   it('is all null in a project without records', () => {
-    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, working: [], cards: [] });
+    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, working: [], cards: [], mail: 0 });
   });
 
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card, in its lane.
@@ -105,7 +105,7 @@ describe('GET /api/stage/state', () => {
     const { default: apiRoutes } = await import('../src/routes/api.js');
     const app = express().use('/api', apiRoutes);
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
-    const empty = { denial: null, verdict: null, seal: null, gate: null, working: [], cards: [] };
+    const empty = { denial: null, verdict: null, seal: null, gate: null, working: [], cards: [], mail: 0 };
     expect(ok.body).toEqual({ ...empty, lanes: [{ lane: 'main', ...empty }] });
     await request(app).get('/api/stage/state?project=nowhere').expect(400);
     await request(app).get('/api/stage/state').expect(400);
