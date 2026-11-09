@@ -58,16 +58,27 @@ function chainFrom(hook, dir, rule) {
   ];
 }
 
-function chainToGlobal(hook) {
+// HU-3605: split in two so pre-commit can run the repo's hook before the review gate.
+function chainToRepo(hook) {
   return [
     // KJC-BUG-0509: core.hooksPath also eclipses the repo's own .git/hooks (git-secrets, syntax
     // checks). The common git dir, not --git-path hooks: that one follows core.hooksPath back here.
-    "# Chain the repo's own hook in .git/hooks, then the machine's global one, both looked up when the hook runs (KJC-TSK-0645, HU-2762).",
+    "# Chain the repo's own hook in .git/hooks, looked up when the hook runs (KJC-BUG-0509, HU-2762).",
     'kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"',
     ...chainFrom(hook, "kj_repo", "repo-hook"),
+  ];
+}
+
+function chainToGlobalOnly(hook) {
+  return [
+    "# Chain the machine's global hook, looked up when the hook runs (KJC-TSK-0645, HU-2762).",
     "kj_global=$(git config --global --type=path --get core.hooksPath 2>/dev/null || true)",
     ...chainFrom(hook, "kj_global", "global-hook"),
   ];
+}
+
+function chainToGlobal(hook) {
+  return [...chainToRepo(hook), ...chainToGlobalOnly(hook)];
 }
 
 // KJC-TSK-0648: branch-first, enforced. The first external session of the
@@ -153,7 +164,7 @@ function identityGuard(hook) {
 }
 
 export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
-  const chain = chainToGlobal(hook);
+  const chain = hook === "pre-commit" ? chainToGlobalOnly(hook) : chainToGlobal(hook);
   switch (hook) {
     case "pre-commit": {
       const lines = [...baseBranchGuard(baseBranch), ...identityGuard("pre-commit"), "# Lint + format the working tree with the project's native tools."];
@@ -198,6 +209,8 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
         "if [ -d .karajan/harness ] && command -v kj >/dev/null 2>&1; then",
         "  kj sentinel verify >/dev/null 2>&1 || { echo 'kj harden: the Sentinel is tampered with (kj sentinel verify says how) — restore it with kj harden'; exit 1; }",
         "fi",
+        // HU-3605: the repo's own hook runs first, so what it re-stages is in the diff the verdict covers.
+        ...chainToRepo(hook),
         "# v4 review gate (ENV-C1, opt-in via `kj review --install-gate`):",
         "# a staged diff only enters with a recorded cross-AI approved verdict.",
         "# KJC-BUG-0165: the gate is active once the marker is COMMITTED (HEAD),",
