@@ -243,7 +243,9 @@ function inRoot(body, root) {
 }
 
 // Caps the net LOC delta of a PR (strict profile only — it is opinionated).
-export const SHRINK_BUDGET_WORKFLOW = [
+// KJC-TSK-1492 (KJC-BUG-0519): counted by the kj that ran harden, with kj's own budget
+// (loc-budget.js), not with a list of exclusions copied into the YAML.
+export const shrinkBudgetWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "name: Shrink budget",
   "on:",
   "  pull_request:",
@@ -258,24 +260,18 @@ export const SHRINK_BUDGET_WORKFLOW = [
   `      - uses: ${PINNED_ACTIONS.checkout}`,
   "        with:",
   "          fetch-depth: 0",
+  `      - uses: ${PINNED_ACTIONS.setupNode}`,
+  "        with:",
+  "          node-version: 22",
   "      - name: Net LOC delta within budget",
   "        env:",
   "          BASE_REF: ${{ github.base_ref }}",
   "        run: |",
-  // KJC-TSK-0795 AC4 — measured in GREBLA: a 414-line warning that was almost
-  // all pnpm-lock.yaml. Generated files are weight nobody wrote.
-  //
-  // KJC-BUG-0205: this line used to exclude `**/*.md` wholesale while claiming
-  // to apply "the same exclusions kj's own repo applies". It did not: kj counts
-  // AI-rule files (CLAUDE.md, AGENTS.md, templates/**) ON PURPOSE, because they
-  // enter the agent's context every run and unbounded growth there dilutes the
-  // signal. Documentation is exempt where documentation lives; markdown that
-  // instructs an agent is code.
-  "          d=$(git diff --numstat \"origin/${BASE_REF}...HEAD\" -- . ':!**/docs/**/*.md' ':!**/docs/**/*.mdx' ':!**/docs/**/*.txt' ':!**/docs/**/*.rst' ':!README.md' ':!README.*.md' ':!CHANGELOG.md' ':!CONTRIBUTING.md' ':!SECURITY.md' ':!CODE_OF_CONDUCT.md' ':!MIGRATION*.md' ':!TODO*.md' ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!npm-shrinkwrap.json' ':!dist/**' ':!build/**' ':!coverage/**' ':!**/*.snap' ':!**/__snapshots__/**' ':!**/*.min.js' ':!**/*.map' ':(glob,exclude).karajan-shared/plans/*.json' || true)",
-  '          a=$(printf "%s\\n" "$d" | awk \'$1!="-"{s+=$1}END{print s+0}\')',
-  '          r=$(printf "%s\\n" "$d" | awk \'$2!="-"{s+=$2}END{print s+0}\')',
-  '          net=$((a - r)); echo "net=$net (limit=$LOC_LIMIT)"',
-  '          if [ "$net" -gt "$LOC_LIMIT" ]; then echo "::error::PR adds $net net lines (limit $LOC_LIMIT)"; exit 1; fi',
+  // The counter is installed apart and never from the PR: the PR is only the tree it measures.
+  '          JUDGE="$RUNNER_TEMP/kj-size"',
+  '          mkdir -p "$JUDGE"',
+  `          (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund ${kjName}@${kjVersion})`,
+  `          node "$JUDGE/node_modules/${kjName}/bin/kj.js" pr-size --base "$BASE_REF" --limit "$LOC_LIMIT"`,
 ].join("\n");
 
 // Packs the tarball and installs it clean — only for publishable npm packages.
@@ -392,10 +388,10 @@ export function stewardWorkflowFor(kjVersion, pkgName = "karajan-code") {
 }
 
 /** Conditional workflows: shrink-budget on strict, pack-smoke when publishable. */
-export function extraWorkflowsFor({ profile = "standard", publishable = false, pm = "npm" } = {}) {
+export function extraWorkflowsFor({ profile = "standard", publishable = false, pm = "npm", kjVersion, kjName } = {}) {
   const extras = [];
   if (profile === "strict") {
-    extras.push({ file: "kj-shrink-budget.yml", blockId: "wf-shrink", body: SHRINK_BUDGET_WORKFLOW });
+    extras.push({ file: "kj-shrink-budget.yml", blockId: "wf-shrink", body: shrinkBudgetWorkflowFor(kjVersion, kjName) });
   }
   if (publishable) {
     extras.push({ file: "kj-pack-smoke.yml", blockId: "wf-pack-smoke", body: packSmokeWorkflow(pm) });
