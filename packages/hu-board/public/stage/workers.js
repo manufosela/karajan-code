@@ -64,7 +64,7 @@ const freeSlot = (workers, lane) => {
 /** A new worker from a start event (or a still-open start of the last state). */
 const newWorker = (workers, ev, since) => {
   const lane = laneOf(ev);
-  const worker = { agent: ev.agent, role: ev.role, lane, id: ev.id ?? null, tool: ev.tool ?? null, kind: ev.kind ?? null, since };
+  const worker = { agent: ev.agent, role: ev.role, lane, id: ev.id ?? null, tool: ev.tool ?? null, kind: ev.kind ?? null, name: ev.name ?? null, since };
   return ev.role === 'subagent' ? { ...worker, slot: freeSlot(workers, lane) } : worker;
 };
 
@@ -103,9 +103,12 @@ export function workerAt(worker, now, xOf = () => 0) {
   return k < 1 ? { ...lerp(gate, spot, k), yaw: facing(gate, spot), walking: true } : { ...spot, yaw: 0, walking: false };
 }
 
-/** What the label over a worker says: the host and the tool it uses, a subagent its type, others their name. */
+/**
+ * What the label over a worker says: the host its session's name (KJC-TSK-1483; its
+ * agent when the session has none) and the tool it uses, a subagent its type, others their name.
+ */
 export function labelOf(worker) {
   if (worker.role === 'subagent') return worker.kind ?? 'subagent';
-  if (worker.role === 'host' && worker.tool) return `${worker.agent} · ${worker.tool}`;
-  return worker.agent;
+  const who = (worker.role === 'host' && worker.name) || worker.agent;
+  return worker.role === 'host' && worker.tool ? `${who} · ${worker.tool}` : who;
 }

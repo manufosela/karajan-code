@@ -70,6 +70,9 @@ describe('lastStageState', () => {
     expect(lastStageState(proj, { now }).working.map((w) => [w.role, w.id, w.tool ?? w.kind])).toEqual([
       ['host', 's1', 'Bash'], ['subagent', 'a1', 'Explore'], ['subagent', 'a2', 'Plan'],
     ]);
+    // KJC-TSK-1483: the host carries its session's name.
+    const nameOf = (id) => (id === 's1' ? 'kj-stage' : null);
+    expect(lastStageState(proj, { now, nameOf }).working[0]).toMatchObject({ id: 's1', name: 'kj-stage' });
   });
 
   it('takes the last commit attempt the commit-msg guard traced (KJC-TSK-1427)', () => {
