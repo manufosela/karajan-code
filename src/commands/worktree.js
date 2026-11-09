@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
-import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
+import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, mergedBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
 import { archiveKjState } from "../hu/lane-kj-state.js";
 import { stopBootstrap } from "../rag/bootstrap-index.js";
 import { catchUpLine } from "../rag/lane-catchup.js";
@@ -25,6 +25,7 @@ import { listPlans, loadPlan } from "../plan/plan-store.js";
 // The pid itself, not the marker's expiry: an indexer past MAX_RUN_MS still runs. EPERM is a process too.
 const pidAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (err) { return err.code === "EPERM"; } };
 
+const MERGED_BATCH = 200; // KJC-TSK-1480: branches per git branch -D, well under any argv limit
 export const REF_SEPARATOR = " · "; // external_ref joins a tracker card and an issue (src/commands/hu.js)
 
 // KJC-TSK-1316: ONE gh call for every lane, open and merged PRs alike.
@@ -171,15 +172,20 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     // KJC-TSK-1037: loose kj-hu-* branches of old runs, measured against the same base.
     const { empty: branches, withWork } = await looseLaneBranches({ git, base });
     for (const b of withWork) console.log(`kept    branch ${b.branch.padEnd(17)} ${b.reason}`);
+    // KJC-TSK-1480: any other local branch already whole in the base, out of every worktree.
+    const merged = (await mergedBranches({ git, base, baseName })).filter((b) => !branches.includes(b));
     if (flags.dryRun) {
       for (const l of abandoned) console.log(`would retire ${l.slug} (${l.branch ?? "detached"})${l.indexer ? ` (stopping its background index, pid ${l.indexer.pid})` : ""}`);
       for (const b of branches) console.log(`would delete branch ${b}`);
-      return { wouldRemove: abandoned, kept, wouldRemoveBranches: branches, branchesKept: withWork };
+      if (merged.length > 0) console.log(`would delete ${merged.length} local branch(es) already in ${base}`);
+      return { wouldRemove: abandoned, kept, wouldRemoveBranches: branches, branchesKept: withWork, wouldRemoveMerged: merged };
     }
     for (const b of branches) {
       await git(["branch", "-D", b]);
       console.log(`✓ deleted branch ${b}`);
     }
+    for (let i = 0; i < merged.length; i += MERGED_BATCH) await git(["branch", "-D", ...merged.slice(i, i + MERGED_BATCH)]);
+    if (merged.length > 0) console.log(`✓ deleted ${merged.length} local branch(es) already in ${base}`);
     for (const l of abandoned) {
       // KJC-TSK-1477: the governance record outlives the lane, archived in the main checkout.
       archiveKjState(l.path, path.join(mainCheckout(projectDir), ".karajan", "retired-lanes", l.slug));
@@ -188,10 +194,10 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       if (l.branch) await git(["branch", "-D", l.branch]);
       console.log(`✓ retired ${l.slug} (${l.branch ?? "detached"})`);
     }
-    if (abandoned.length > 0 || branches.length > 0) {
-      recordGateDecision(projectDir, { decision: "allow", chokepoint: "tool", kind: "worktree-prune", lanes: abandoned.map((l) => l.slug), branches });
+    if (abandoned.length > 0 || branches.length > 0 || merged.length > 0) {
+      recordGateDecision(projectDir, { decision: "allow", chokepoint: "tool", kind: "worktree-prune", lanes: abandoned.map((l) => l.slug), branches: [...branches, ...merged] });
     }
-    return { removed: abandoned, kept, branchesRemoved: branches, branchesKept: withWork };
+    return { removed: abandoned, kept, branchesRemoved: branches, branchesKept: withWork, mergedBranchesRemoved: merged };
   }
 
   throw new Error(`unknown action "${action}" — use: start | list | done | prune`);
