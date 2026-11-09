@@ -145,25 +145,44 @@ const header = (steps) =>
 // its script is missing protects nothing (KJC-BUG-0137, issue #1357); the
 // engine omits the step instead when the project has no lint script.
 export const PM_COMMANDS = {
-  npm: { setup: [], install: "npm ci", lint: "npm run -s lint", test: "npm test" },
+  npm: { setup: [], install: "npm ci", run: "npm run -s", lint: "npm run -s lint", test: "npm test" },
   pnpm: {
     setup: ["      - run: corepack enable"],
     install: "pnpm install --frozen-lockfile",
+    run: "pnpm run -s",
     lint: "pnpm run -s lint",
     test: "pnpm test",
   },
   yarn: {
     setup: ["      - run: corepack enable"],
     install: "yarn install --frozen-lockfile",
+    run: "yarn run", // yarn's own runner (Plug'n'Play), bare like the hooks': Yarn 2+ rejects -s
     lint: "npm run -s lint",
     test: "yarn test",
   },
 };
 
-const nodeSetupSteps = (pm) => [
+// KJC-BUG-0529: the engine decides the Node version; this only renders it.
+function nodeVersionLine(nodeVersion) {
+  if (nodeVersion?.file) {
+    if (!/^(?:[\w.-]+\/)*(?:\.nvmrc|\.node-version|package\.json)$/.test(nodeVersion.file)) throw new Error(`kj harden: "${nodeVersion.file}" is not a Node version file`);
+    return `          node-version-file: ${nodeVersion.file}`;
+  }
+  if (nodeVersion?.version && !/^[0-9][0-9.x]*$/.test(nodeVersion.version)) throw new Error(`kj harden: "${nodeVersion.version}" is not a Node version`);
+  return `          node-version: ${nodeVersion?.version ?? 22}`;
+}
+
+// "test" runs the pm's test command, another script runs through the pm, null runs nothing.
+const testStep = (c, testScript) => {
+  if (testScript === null) return [];
+  const command = testScript === "test" ? c.test : `${c.run} ${testScript}`;
+  return [`      - run: ${command}`];
+};
+
+const nodeSetupSteps = (pm, nodeVersion = null) => [
   `      - uses: ${PINNED_ACTIONS.setupNode}`,
   "        with:",
-  "          node-version: 22",
+  nodeVersionLine(nodeVersion),
   ...(PM_COMMANDS[pm] || PM_COMMANDS.npm).setup,
   `      - run: ${(PM_COMMANDS[pm] || PM_COMMANDS.npm).install}`,
 ];
@@ -198,11 +217,11 @@ const QUALITY_BY_LANGUAGE = {
  * `lint:false` drops the JS lint step entirely (project has no lint script,
  * KJC-BUG-0137) — mirroring the local hook, which also omits it.
  */
-export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".") {
+export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test" } = {}) {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
   const body =
     language === "javascript" || language === "typescript"
-      ? header([...nodeSetupSteps(pm), ...(lint ? [`      - run: ${c.lint}`] : []), `      - run: ${c.test}`])
+      ? header([...nodeSetupSteps(pm, nodeVersion), ...(lint ? [`      - run: ${c.lint}`] : []), ...testStep(c, testScript)])
       : QUALITY_BY_LANGUAGE[language];
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body: inRoot(body, root) } : null;
 }

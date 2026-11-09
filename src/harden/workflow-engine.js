@@ -15,6 +15,7 @@ import { dirname } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { publishedPin } from "./published-pin.js";
+import { qualityInputs } from "./quality-inputs.js";
 import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
@@ -119,7 +120,10 @@ export function installWorkflows({
   // KJC-BUG-0309: the Quality workflow reads the package manager and the lint
   // script where the language root is, and runs its steps there.
   const appDir = join(projectDir, root);
-  const quality = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root);
+  // KJC-BUG-0529: Node version and test script come from the repo, not fixed.
+  const isJs = language === "javascript" || language === "typescript";
+  const inputs = isJs ? qualityInputs({ projectDir, appDir, root }) : null;
+  const quality = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root, inputs?.options);
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
@@ -162,7 +166,9 @@ export function installWorkflows({
     }
     // KJC-BUG-0424: the PR that moves the trigger cannot report policy-check.
     const movesTrigger = wf.blockId === "wf-policy" && action !== "unchanged" && /^\s*pull_request:\s*$/m.test(source);
-    results.push({ file: label, action, ...(movesTrigger ? { note: POLICY_TRIGGER_MOVE_NOTE } : {}) });
+    const qualityNote = wf.blockId === "wf-quality" ? inputs?.note : "";
+    const note = movesTrigger ? POLICY_TRIGGER_MOVE_NOTE : qualityNote;
+    results.push({ file: label, action, ...(note ? { note } : {}) });
   }
   return { dryRun, workflows: results };
 }
