@@ -34,12 +34,14 @@ function buildMap(canvas, factories, { instant, onView }) {
   const placed = factories.map(({ project, lanes }, i) => {
     const lot = new THREE.Group();
     lot.position.set(lots[i].x, 0, lots[i].z);
-    const floor = createFloor(lots[i].width, FLOOR_Z.front - FLOOR_Z.back);
-    floor.position.z = (FLOOR_Z.back + FLOOR_Z.front) / 2;
+    // KJC-TSK-1488: the floor runs from behind the door to past the front row of workshops.
+    const front = FLOOR_Z.back + lots[i].depth;
+    const floor = createFloor(lots[i].width, lots[i].depth);
+    floor.position.z = (FLOOR_Z.back + front) / 2;
     lot.add(floor);
     // KJC-TSK-1473: the human's mailbox at the front right corner of the floor.
     const mailbox = createMailbox();
-    mailbox.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, FLOOR_Z.front - MAILBOX_INSET);
+    mailbox.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, front - MAILBOX_INSET);
     lot.add(mailbox.group);
     scene.add(lot);
     return { project, lanes, lot, mailbox, ...buildFactory(lot, lanes.map((l) => l.lane)) };
@@ -67,7 +69,9 @@ function buildMap(canvas, factories, { instant, onView }) {
     refit();
   });
   // KJC-TSK-1455: a click (a press that did not drag) on a factory's floor flies there.
-  const factoryZoom = (i) => framing(lots[i].width, camera.aspect).length() / framing(Math.max(bounds.width, bounds.depth * camera.aspect), camera.aspect).length();
+  // KJC-TSK-1488: a factory of several rows is framed by its depth as well as its width.
+  const extra = (i) => lots[i].depth - (FLOOR_Z.front - FLOOR_Z.back);
+  const factoryZoom = (i) => framing(Math.max(lots[i].width, extra(i) * camera.aspect), camera.aspect).length() / framing(Math.max(bounds.width, bounds.depth * camera.aspect), camera.aspect).length();
   let pressed = null;
   canvas.addEventListener('pointerdown', (e) => { pressed = { x: e.clientX, y: e.clientY }; });
   canvas.addEventListener('pointerup', (e) => {
@@ -77,7 +81,7 @@ function buildMap(canvas, factories, { instant, onView }) {
     const ray = new THREE.Vector3((e.clientX / innerWidth) * 2 - 1, 1 - (e.clientY / innerHeight) * 2, 0.5).unproject(camera).sub(camera.position);
     const i = lotAt(groundAt(camera.position, ray), lots);
     if (i < 0) return; // the gap between factories
-    const to = { x: lots[i].x, z: lots[i].z + HALL_LOOK_Z, zoom: Math.max(MAP_ZOOM.min, factoryZoom(i)) };
+    const to = { x: lots[i].x, z: lots[i].z + HALL_LOOK_Z + extra(i) / 2, zoom: Math.max(MAP_ZOOM.min, factoryZoom(i)) };
     // Someone who asked for no motion lands at once.
     flight = { from: { x: target.x, z: target.z, zoom }, to, start: performance.now() - (instant ? FLIGHT_MS : 0) };
     onView();

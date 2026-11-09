@@ -46,4 +46,10 @@ describe('lotAt', () => {
     expect(lotAt({ x: 10, z: 6.5 }, lots)).toBe(-1);
     expect(lotAt(null, lots)).toBe(-1);
   });
+
+  it('reaches to the front of a deeper floor, one of several rows of workshops (KJC-TSK-1488)', () => {
+    const deep = [{ x: 0, z: 0, width: 20, depth: 30 }];
+    expect(lotAt({ x: 0, z: 18 }, deep)).toBe(0);
+    expect(lotAt({ x: 0, z: 21 }, deep)).toBe(-1);
+  });
 });

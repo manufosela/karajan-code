@@ -2,7 +2,7 @@
 // busiest factory (first in the list) at the back left. KJC-TSK-1467: each lot is
 // only as wide as its own hall, and the lots are packed in rows with a narrow gap;
 // one lot as wide as the widest hall left the small factories in a sea of floor.
-import { hallWidth } from './layout.js';
+import { hallDepth, hallWidth } from './layout.js';
 
 /** The hall from behind its door to past its nameplates, along z (layout.js). */
 export const FLOOR_Z = { back: -9.5, front: 6 };
@@ -11,7 +11,6 @@ export const GAP = 1.5;
 // rose over the factory behind, so rows keep more room between them than neighbours.
 export const ROW_GAP = 7;
 const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
-const MID = (FLOOR_Z.back + FLOOR_Z.front) / 2;
 const WIDER = 1.5; // rows a little wider than a square, as the screen is
 
 /** Splits the widths into rows of about `target` metres, in order. */
@@ -29,23 +28,28 @@ function rowsOf(widths, target) {
 
 /**
  * Each factory's lot from the lane count of each: `lots[i]` is the origin of its
- * hall and the width of its floor (1 m wider each side than the hall); `width` and
- * `depth` are the bounds of the whole map, centred on 0.
+ * hall, the width of its floor (1 m wider each side than the hall) and its depth,
+ * from behind the door to past its front row of workshops (KJC-TSK-1488); `width`
+ * and `depth` are the bounds of the whole map, centred on 0.
  */
 export function packLots(laneCounts) {
   const widths = laneCounts.map((n) => hallWidth(n) + 2);
-  const area = widths.reduce((sum, w) => sum + (w + GAP) * (DEPTH + ROW_GAP), 0);
+  const depths = laneCounts.map((n) => DEPTH + hallDepth(n));
+  const area = widths.reduce((sum, w, i) => sum + (w + GAP) * (depths[i] + ROW_GAP), 0);
   const rows = rowsOf(widths, Math.max(...widths, Math.sqrt(area * WIDER)));
+  // Each row of the map is as deep as its deepest floor; the floors line up at the back.
+  const rowDepths = rows.map((row) => Math.max(...row.items.map((i) => depths[i])));
   const width = Math.max(...rows.map((row) => row.width));
-  const depth = rows.length * DEPTH + (rows.length - 1) * ROW_GAP;
+  const depth = rowDepths.reduce((sum, d) => sum + d, 0) + (rows.length - 1) * ROW_GAP;
   const lots = [];
+  let back = -depth / 2;
   for (const [r, row] of rows.entries()) {
-    const z = -depth / 2 + DEPTH / 2 + r * (DEPTH + ROW_GAP) - MID;
     let left = -row.width / 2;
     for (const i of row.items) {
-      lots[i] = { x: left + widths[i] / 2, z, width: widths[i] };
+      lots[i] = { x: left + widths[i] / 2, z: back - FLOOR_Z.back, width: widths[i], depth: depths[i] };
       left += widths[i] + GAP;
     }
+    back += rowDepths[r] + ROW_GAP;
   }
   return { lots, width, depth };
 }

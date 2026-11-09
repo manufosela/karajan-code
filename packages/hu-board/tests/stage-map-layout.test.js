@@ -2,12 +2,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { FLOOR_Z, GAP, ROW_GAP, packLots } from '../public/stage/map-layout.js';
-import { hallWidth } from '../public/stage/layout.js';
+import { hallDepth, hallWidth } from '../public/stage/layout.js';
 
 const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
-const floorMid = ({ z }) => z + (FLOOR_Z.back + FLOOR_Z.front) / 2;
+// KJC-TSK-1488: a floor runs from behind the door to past the front row of its workshops.
+const floorMid = ({ z, depth }) => z + FLOOR_Z.back + depth / 2;
 const overlap = (a, b) =>
-  Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(floorMid(a) - floorMid(b)) < DEPTH;
+  Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(floorMid(a) - floorMid(b)) < (a.depth + b.depth) / 2;
 
 describe('packLots (KJC-TSK-1467)', () => {
   it('gives each factory only its own hall plus 1 m a side, not the widest one', () => {
@@ -48,7 +49,18 @@ describe('packLots (KJC-TSK-1467)', () => {
     const { lots, width, depth } = packLots([5, 1, 2, 1, 1, 3, 1]);
     for (const lot of lots) {
       expect(Math.abs(lot.x) + lot.width / 2).toBeLessThanOrEqual(width / 2 + 1e-9);
-      expect(Math.abs(floorMid(lot)) + DEPTH / 2).toBeLessThanOrEqual(depth / 2 + 1e-9);
+      expect(Math.abs(floorMid(lot)) + lot.depth / 2).toBeLessThanOrEqual(depth / 2 + 1e-9);
+    }
+  });
+
+  it('gives a factory of several rows of workshops a floor deep enough for all of them (KJC-TSK-1488)', () => {
+    const counts = [25, 1, 3, 9, 1, 2];
+    const { lots, width, depth } = packLots(counts);
+    expect(lots.map((lot) => lot.depth)).toEqual(counts.map((n) => DEPTH + hallDepth(n)));
+    for (const [i, a] of lots.entries()) for (const b of lots.slice(i + 1)) expect(overlap(a, b)).toBe(false);
+    for (const lot of lots) {
+      expect(Math.abs(lot.x) + lot.width / 2).toBeLessThanOrEqual(width / 2 + 1e-9);
+      expect(Math.abs(floorMid(lot)) + lot.depth / 2).toBeLessThanOrEqual(depth / 2 + 1e-9);
     }
   });
 });
