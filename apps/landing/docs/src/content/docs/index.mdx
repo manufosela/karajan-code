@@ -86,7 +86,7 @@ The most recent releases, newest first. Older versions live in [Architecture ›
 
 ### v5.13.0: lanes that clean up after a merge, and a warning before GitHub's 2 December change (current)
 
-`kj worktree prune` now retires merged lanes that only hold kj's own files (it archives their review verdicts and gate decisions first) and deletes every local branch already merged into the base. The board daemon runs that sweep every hour on each of your projects. The MCP servers record which kj install they run from, so the job that refreshes a stable install no longer rewrites one in use. In a public repo, `kj harden` warns you to allow `pull_request_target` in an Actions policy before 2 December 2026, when GitHub stops running it without one.
+`kj worktree prune` now retires merged lanes that only hold kj's own files (it archives their review verdicts and gate decisions first) and deletes every local branch already merged into the base. The board daemon runs that sweep every hour on each of your projects. The MCP servers record which kj install they run from, so the job that refreshes a stable install no longer rewrites one in use. In a public repo, `kj harden` warns you to allow `pull_request_target` in an Actions policy before 2 December 2026, when GitHub stops running it without one. The Quality workflow installs the lowest Node major `engines.node` allows, not the newest, whose npm may reject your lockfile.
 
 ### v5.12.0: a quality check that reads the repo, and handoffs the agent minds
 
