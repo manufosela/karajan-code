@@ -55,6 +55,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 
 // --- Orphan process protection + version watcher ---
 import { setupOrphanGuard, setupVersionWatcher, setupMemoryWatchdog, readAndDeleteRestartMarker } from "./orphan-guard.js";
+import { holdInstall } from "../utils/install-lease.js";
 
 // Check if this is a restart after update
 const restartedVersion = readAndDeleteRestartMarker();
@@ -63,6 +64,8 @@ if (restartedVersion) {
 }
 
 setupOrphanGuard();
+// KJC-BUG-0531: say, in the install this server runs from, that it is alive.
+holdInstall({ name: "karajan-mcp" });
 setupVersionWatcher({ pkgPath: PKG_PATH, currentVersion: LOADED_VERSION });
 setupMemoryWatchdog();
 

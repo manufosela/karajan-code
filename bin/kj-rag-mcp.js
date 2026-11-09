@@ -16,6 +16,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { handleRagQuery, handleRagIndex } from "../src/mcp/handlers/rag-handler.js";
 import { responseText, enrichedFailPayload } from "../src/mcp/shared-helpers.js";
 import { setupOrphanGuard } from "../src/mcp/orphan-guard.js";
+import { holdInstall } from "../src/utils/install-lease.js";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PKG_PATH = path.resolve(MODULE_DIR, "../package.json");
@@ -70,6 +71,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 setupOrphanGuard();
+// KJC-BUG-0531: say, in the install this server runs from, that it is alive.
+holdInstall({ name: "kj-rag-mcp" });
 
 const transport = new StdioServerTransport();
 await mcpServer.connect(transport);
