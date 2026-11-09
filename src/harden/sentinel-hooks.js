@@ -45,6 +45,8 @@ const SCRIPT_BODIES = {
   "pretooluse-rules.mjs": readFileSync(new URL("./sentinel/pretooluse-rules.mjs", import.meta.url), "utf8"),
   // KJC-TSK-1434 (ADR 0048): the host's trace for kj stage, noted by the guards above.
   "sentinel-activity.mjs": readFileSync(new URL("./sentinel/sentinel-activity.mjs", import.meta.url), "utf8"),
+  // KJC-TSK-1475: what waits for the user, read by the stop and tool guards.
+  "sentinel-handoffs.mjs": readFileSync(new URL("./sentinel/sentinel-handoffs.mjs", import.meta.url), "utf8"),
 };
 
 /**

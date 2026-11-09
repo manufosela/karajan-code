@@ -10,7 +10,8 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { doc, load, save, branchOf, enterLane, laneViolations, violations, ROOT } from "./sentinel-lib.mjs";
+import { doc, load, save, branchOf, enterLane, laneTop, laneViolations, violations, ROOT } from "./sentinel-lib.mjs";
+import { takeReminder } from "./sentinel-handoffs.mjs";
 import { traceHost } from "./sentinel-activity.mjs";
 // KJC-TSK-0774: when the turn ends green with cards closed, remind the user
 // where to look — the board URL if it runs (pid file alive), else how to start it.
@@ -60,6 +61,11 @@ process.stdin.on("end", () => {
       process.exit(2);
     }
     state.tamper_blocks = 0;
+    // KJC-TSK-1475: what waits for the user, at most once every 30 min per lane. The turn
+    // is held once, so the agent checks each handoff, closes the stale ones and ends with
+    // the rest as its last lines; the next stop goes. Work is never held for this.
+    const reminder = takeReminder(state, laneTop(), Date.now());
+    if (reminder) { save(state); console.error(reminder); process.exit(2); }
     // CLM-B (KJC-TSK-0802, claims-with-evidence ADR): the hard data of the turn's
     // final message, crossed against that turn's outputs. It runs even without a
     // tracked session — a turn with no edits still ends with a final message. The
