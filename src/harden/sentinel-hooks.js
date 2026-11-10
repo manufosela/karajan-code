@@ -205,7 +205,7 @@ export function verifySentinelScripts({ projectDir, readFileFn = readFileSync, g
  * and are retired; the session state and the denial log stay. The next seal
  * records them as deleted. Not wired (unreadable settings), nothing is removed.
  */
-export function installSentinelHooks({ projectDir = process.cwd(), logger = console } = {}) {
+export function installSentinelHooks({ projectDir = process.cwd(), logger = console, moveShared = true } = {}) {
   // KJC-BUG-0223: instalado desde un subdirectorio, esto sembraba un segundo
   // `.karajan/harness` ahi, y el gate (que mira otro sitio) pasaba a verlo. El
   // ritual quedaba "arreglado" y el arbol se llenaba de arneses huerfanos que
@@ -214,7 +214,7 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
   if (root !== projectDir) logger?.info?.(`kj harden: el harness es del proyecto, se instala en su raíz (${root})`);
   projectDir = root;
   mkdirSync(join(projectDir, ".karajan", "harness"), { recursive: true });
-  const { wired } = mergeClaudeHooks({ projectDir, logger, entries: SENTINEL_WIRING });
+  const { wired } = mergeClaudeHooks({ projectDir, logger, entries: SENTINEL_WIRING, moveShared });
   const retired = wired ? retireGuardCopies(projectDir, [...Object.keys(SCRIPT_BODIES), INSTALLED_RECORD]) : [];
   if (retired.length > 0) logger?.info?.(`kj harden: los guardias corren desde el kj instalado; retiradas las copias del proyecto (${retired.join(", ")})`);
   return { wired, retired };

@@ -131,8 +131,10 @@ export function wiringState({ projectDir, entries, mainOf = laneMainCheckout }) 
  * entries: [{ event, matcher?, script }] where script is a .karajan/harness
  * basename; an entry is present when that script already appears under the
  * same event (and matcher, when given).
+ * moveShared: false leaves a versioned settings.json as it is (KJC-BUG-0537: a lane wires
+ * itself without editing the branch's files; kj harden moves kj's hooks out and commits it).
  */
-export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj = isSea() || !kjHookOnPath() }) {
+export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj = isSea() || !kjHookOnPath(), moveShared = true }) {
   const settingsPath = join(projectDir, LOCAL_SETTINGS);
   let settings = {};
   if (existsSync(settingsPath)) {
@@ -168,7 +170,7 @@ export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj 
   mkdirSync(join(projectDir, ".claude"), { recursive: true });
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
   ignoreLocalSettings(projectDir);
-  moveOutOfShared(projectDir, entries);
+  moveOutOfShared(projectDir, entries, moveShared);
   return { wired: true };
 }
 
@@ -187,7 +189,8 @@ function ignoreLocalSettings(projectDir) {
 }
 
 /** KJC-TSK-1444: a versioned settings.json loses kj's hook commands, and keeps everything else. */
-function moveOutOfShared(projectDir, entries) {
+function moveOutOfShared(projectDir, entries, enabled) {
+  if (!enabled) return;
   const file = join(projectDir, SHARED_SETTINGS);
   let shared;
   try { shared = JSON.parse(readFileSync(file, "utf8")); } catch { return; }
@@ -233,14 +236,14 @@ export const HARNESS_WIRING = [
  * (ADR 0030): the gate runs from the installed kj, so the copy an older kj wrote
  * into the project is retired once the hooks call the package's.
  */
-export function installHarnessHooks({ projectDir = process.cwd(), logger = console } = {}) {
+export function installHarnessHooks({ projectDir = process.cwd(), logger = console, moveShared = true } = {}) {
   // KJC-BUG-0223: el harness es del proyecto y vive en su raiz. Instalado desde
   // un subdirectorio sembraba ahi un segundo `.karajan/harness` que no gobierna
   // nada, y el gate seguia mirando otro sitio.
   const root = resolveProjectRoot(projectDir);
   if (root !== projectDir) logger?.info?.(`kj harden: el harness es del proyecto, se instala en su raíz (${root})`);
   projectDir = root;
-  const { wired } = mergeClaudeHooks({ projectDir, logger, entries: HARNESS_WIRING });
+  const { wired } = mergeClaudeHooks({ projectDir, logger, entries: HARNESS_WIRING, moveShared });
   const copy = join(projectDir, ".karajan", "harness", "pretooluse.mjs");
   if (wired && existsSync(copy)) rmSync(copy);
   return { wired };
