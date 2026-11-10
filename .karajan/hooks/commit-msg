@@ -11,8 +11,8 @@ msg_file="$1"
 header=$(head -n1 "$msg_file")
 # KJC-TSK-1390 (ADR 0045): the project's convention (kj gates value commit-convention):
 # free or the project's own commitlint skip this header check; anything else keeps it.
-kj_conv=conventional
-if command -v kj >/dev/null 2>&1; then kj_conv=$(kj gates value commit-convention 2>/dev/null) || kj_conv=conventional; fi
+kj_conv=project
+if command -v kj >/dev/null 2>&1; then kj_conv=$(kj gates value commit-convention 2>/dev/null) || kj_conv=project; fi
 # HU-3591: what commitlint ignores is valid whole to it, length caps included. Tested on the header only.
 kj_ignored=no
 if printf '%s\n' "$header" | grep -qE '^(Merge |Revert "|(fixup|squash|amend)!)'; then kj_ignored=yes; fi
