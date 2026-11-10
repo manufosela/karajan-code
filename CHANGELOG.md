@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.16.0] - 2026-11-10
+
+A team that runs PHP inside Docker could not run `kj harden`: it wrote host commands into the hooks and overwrote the team's hand edits, and the commit-msg hook imposed Conventional Commits whenever kj was not on the PATH. The hooks now run the project's Makefile targets, a step's command can be pinned with `kj hooks set`, and commit-msg keeps the project's own convention.
+
+### Added
+- **The hooks run the project's Makefile targets** (KJC-TSK-1506, ADR 0051, #3772): `make lint` plus `make analyse` (or `analyze`), `make test` and `make format-check`, when the root Makefile has them, over the commands detected for the stack.
+- **`kj hooks`** (KJC-TSK-1506, #3778): lists each hook step with its command and where it comes from; `kj hooks set <step> <command>` pins one in the project's `kj.config.yml` and `kj hooks unset <step>` releases it. Both are human acts, as a pin replaces a quality step.
+- **`karajan-rag init --claude` writes its rule into AGENTS.md** (KJR-TSK-0164, #3770), or into the folder's CLAUDE.md when it keeps one, so Claude still reads it.
+
+### Fixed
+- **commit-msg keeps the project's commit convention without kj on the PATH** (KJC-BUG-0538, #3766, reported in #3763): `kj harden` writes the convention it resolves into the hook, so an IDE commit in a `free` project is no longer forced into Conventional Commits.
+- **pre-push says when no test command was detected** (KJC-TSK-1507, #3775, from #3731 by @jorgecasar), instead of running nothing in silence.
+- **`kj code --retry` asks the RAG with the card and the review's findings** (KJC-BUG-0540, #3781): it queried with an empty text and the retry coder wrote without project context.
+
+### Infrastructure
+- The test suite no longer writes fake agent activity into the checkout's traces that kj stage reads (KJC-BUG-0539, #3777), and a Sentinel test no longer depends on the kj role of the session running it (KJC-BUG-0541, #3782).
+- The repo's nested agent files live in AGENTS.md alone (#3768), and this repo's review rules carry the five review axes (#3762, by @jorgecasar).
+
 ## [5.15.0] - 2026-11-10
 
 kj kept the same rules in three files, CLAUDE.md, AGENTS.md and GEMINI.md, which drifted apart and paid the AI-rule line budget three times. kj now writes AGENTS.md alone: Claude Code reads it when there is no CLAUDE.md, Gemini CLI once its settings name it, and kj moves an old CLAUDE.md or GEMINI.md into it. `kj worktree start` also works again in a repo that versions its Claude settings.
