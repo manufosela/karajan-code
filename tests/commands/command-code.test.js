@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -38,6 +38,7 @@ vi.mock("node:fs/promises", () => ({
 
 function makeConfig(overrides = {}) {
   return {
+    projectDir: repo, // never the checkout: the activity trace would land in its real .karajan/traces
     roles: { coder: { provider: "codex" } },
     coder_rules: ".karajan/coder-rules.md",
     development: { methodology: "tdd" },
@@ -81,6 +82,15 @@ describe("commands/code", () => {
 
   afterEach(() => {
     rmSync(repo, { recursive: true, force: true });
+  });
+
+  // KJC-BUG-0539: the suite must leave no agent activity in the checkout's real traces.
+  it("leaves the checkout's real agent-activity trace untouched", async () => {
+    const real = join(process.cwd(), ".karajan/traces/agent-activity.jsonl");
+    const read = () => (existsSync(real) ? readFileSync(real, "utf8") : "");
+    const before = read();
+    await codeCommandWith({});
+    expect(read()).toBe(before);
   });
 
   it("asserts coder provider is available", async () => {
