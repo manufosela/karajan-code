@@ -28,5 +28,5 @@ export async function rejectedReview({ projectDir, run = runCommand }) {
     `${verdict.reviewer} found these blocking issues in the staged work: fix them and keep the rest of it.`,
     ...items,
   ].join("\n");
-  return { reviewer: verdict.reviewer, count: items.length, section };
+  return { reviewer: verdict.reviewer, count: items.length, findings: items, section };
 }
