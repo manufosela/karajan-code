@@ -6,14 +6,14 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AI_ATTRIBUTION, CONVENTIONAL_TYPES } from "../harden/hook-templates.js";
+import { AI_ATTRIBUTION, CONVENTIONAL_HEADER } from "../harden/hook-templates.js";
 import { loadPolicy } from "../policy/engine.js";
 import { runCommand } from "../utils/process.js";
 import { budgetedNet, movedLines, parseNumstat, showSpec } from "./loc-budget.js";
 import { checkTestsWithCode } from "./tests-with-code.js";
 
 const HEADER_MAX = 100;
-const CONVENTIONAL = new RegExp(String.raw`^(${CONVENTIONAL_TYPES})(\([^)]+\))?!?: \S`);
+const CONVENTIONAL = new RegExp(CONVENTIONAL_HEADER);
 const ATTRIBUTION = new RegExp(AI_ATTRIBUTION, "i");
 
 // A binary file counts as one added line; a rename is judged by its new path.
