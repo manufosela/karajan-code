@@ -1,7 +1,7 @@
 // KJC-TSK-1369 (ADR 0037, step 2 of KJC-TSK-1269): `kj main-guard` audits a push to main
 // against GitHub and fails with a markdown report the sealed workflow posts as the alarm.
 import { describe, expect, it } from "vitest";
-import { pushedCommits, renderReport, runMainGuard } from "../../src/commands/main-guard.js";
+import { githubApi, pushedCommits, renderReport, runMainGuard } from "../../src/commands/main-guard.js";
 
 const ZERO = "0000000000000000000000000000000000000000";
 const clean = { ok: true, merges: [], protection: [] };
@@ -55,5 +55,41 @@ describe("commands/main-guard — KJC-TSK-1369", () => {
     expect(seen).toMatchObject({ repo: "acme/app", keys });
     const md = renderReport(excepted, { repo: "acme/app", branch: "main" });
     expect(md).toMatch(/PR #7 merged by @manufosela without quality, on the maintainer's signed exception: transition merge/);
+  });
+});
+
+// HU-3747: GitHub may not have linked a just-pushed merge to its PR yet, and gh calls fail transiently.
+describe("githubApi retries — HU-3747", () => {
+  const mk = (answers) => {
+    const calls = [];
+    const sleeps = [];
+    const run = (path) => {
+      calls.push(path);
+      const a = answers.shift();
+      if (a instanceof Error) throw a;
+      return JSON.stringify(a);
+    };
+    return { calls, sleeps, api: githubApi({ repo: "acme/app", branch: "main", run, sleep: async (ms) => { sleeps.push(ms); } }) };
+  };
+
+  it("asks again once when the pulls answer is empty, and takes the PR the second answer brings", async () => {
+    const { api, calls, sleeps } = mk([[], [{ number: 5, merged_at: null }]]);
+    expect(await api.pullsOf("m1")).toEqual([{ number: 5, merged_at: null }]);
+    expect(calls).toHaveLength(2);
+    expect(sleeps).toHaveLength(1);
+  });
+
+  it("a commit still without a PR after the retry stays empty: a direct push", async () => {
+    const { api, calls } = mk([[], []]);
+    expect(await api.pullsOf("m1")).toEqual([]);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("retries a failed check-runs call once; a second failure throws naming the command", async () => {
+    const boom = () => new Error("Command failed: gh api check-runs");
+    const ok = mk([boom(), { check_runs: [{ name: "a", conclusion: "success" }] }, { statuses: [] }]);
+    expect(await ok.api.checksOf("m1")).toEqual([{ name: "a", conclusion: "success" }]);
+    const bad = mk([boom(), boom()]);
+    await expect(bad.api.checksOf("m1")).rejects.toThrow(/Command failed: gh api check-runs/);
   });
 });
