@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.14.0: a seal bound to its repo, one per branch, and a size gate that counts like kj (current)
+### v5.15.0: one rules file, AGENTS.md, for every agent (current)
+
+kj now writes the method and the project guidelines into AGENTS.md alone, instead of the same text in CLAUDE.md, AGENTS.md and GEMINI.md. Claude Code reads AGENTS.md when the project has no CLAUDE.md, and `kj harden` names it in `.gemini/settings.json` so Gemini CLI reads it too. An old CLAUDE.md or GEMINI.md is moved into AGENTS.md, keeping what you wrote by hand, and `kj doctor` tells you when an agent would still miss it (a file left behind, or a Claude Code older than 2.1.277). `kj worktree start` works again in a repo that versions its Claude settings, and the review rules template now carries the five review axes.
+
+### v5.14.0: a seal bound to its repo, one per branch, and a size gate that counts like kj
 
 A seal now names its repo (`owner/repo`) and is rejected in any other, and `kj harden --commit` refuses a branch that already carries an unmerged seal. The size gate `kj harden` generates asks `kj pr-size`, which takes `--base` and `--limit` and fails over the budget, instead of keeping its own exclusion list. A clone of a second GitHub account can declare its gh config dir with `kj identity set --gh-config-dir`. And the pack privacy check and `kj privacy scan` fail when they had nothing to check, instead of reading as clean. Run `kj harden` and seal to get the new size gate.
 
