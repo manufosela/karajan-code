@@ -31,6 +31,9 @@ describe("review-rules template (HU-3751)", () => {
     expect(addy.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(text).toContain(`Origin: the five axes follow addyosmani/agent-skills code-review-and-quality @ ${addy.commit}; the skill adds detail when atril provides it.`);
   });
+  it("is the same text this repository's own reviewer reads", () => {
+    expect(fs.readFileSync(path.join(root, ".karajan", "review-rules.md"), "utf8")).toBe(text);
+  });
   it("is at most 40 lines", () => {
     expect(text.trimEnd().split("\n").length).toBeLessThanOrEqual(40);
   });
