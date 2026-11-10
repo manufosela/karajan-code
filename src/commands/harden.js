@@ -20,7 +20,8 @@ import { installConfigsForRoots } from "../harden/config-engine.js";
 import { readHardenConfig } from "../harden/harden-scope.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
 import { commitConventionOf } from "../gates/summary.js";
-import { maybeRulesyncGenerate } from "../utils/rulesync.js";
+import { detectRulesync, maybeRulesyncGenerate } from "../utils/rulesync.js";
+import { installGeminiContext } from "../harden/gemini-context.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
@@ -227,6 +228,9 @@ async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch
   return result;
 }
 
+/** Gemini CLI reads AGENTS.md only when its settings say so; Rulesync writes its own agent files. */
+const geminiContext = (projectDir, dryRun) => (detectRulesync(projectDir) ? [] : [installGeminiContext({ projectDir, dryRun })]);
+
 /** Configs, workflows and guidelines (standard+), with the language detected for the first root. */
 async function installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger, baseBranch }) {
   const full = profile !== "minimal";
@@ -248,6 +252,8 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
   // KJC-BUG-0510: the guidelines name the commit convention the project really uses.
   const commitConvention = withGuidelines ? commitConventionOf({ config: kjConfig, projectDir }) : undefined;
   const gl = withGuidelines ? installGuidelines({ projectDir, language, dryRun, commitConvention }) : null;
+  // KJC-TSK-1504: with the guidelines, Gemini CLI is told to read AGENTS.md (skipped without them).
+  gl?.guidelines.push(...geminiContext(projectDir, dryRun));
   // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
   if (withGuidelines && !dryRun) {
     maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
@@ -276,6 +282,7 @@ function printHardenSummary({ out, result, profile, dryRun, logger }) {
 
 function printGuideline(g, logger) {
   logger.info?.(`  • ${g.file}: ${g.action}`);
+  if (g.note) logger.warn?.(`    ⚠ ${g.note}`);
   // KJC-BUG-0206: quitar reglas no puede leerse como "updated" y nada más.
   if (g.shrank) logger.warn?.(`    ⚠ ${g.file} queda con MENOS reglas que antes — revisa si el lenguaje detectado es el que crees (kj check lo dice)`);
   // KJC-BUG-0232: cuales. Si una es tuya, vivia dentro del bloque: va fuera.
