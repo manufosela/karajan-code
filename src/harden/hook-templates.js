@@ -10,6 +10,9 @@
 
 // KJC-TSK-1076: exported so the third-party PR checks apply the same rules.
 export const CONVENTIONAL_TYPES = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert";
+// HU-3730: the ONE header pattern of the commit-msg hook and `kj review`. A POSIX ERE that is also a JS
+// RegExp source (no `\S`, no single quote; a literal tab, `\t` in a bracket is no tab in ERE). Commitlint `conventional`: a written scope is not empty, the subject does not start blank.
+export const CONVENTIONAL_HEADER = String.raw`^(${CONVENTIONAL_TYPES})(\([^)]+\))?!?: [^ ${"\t"}]`;
 // KJC-BUG-0503: the ONE list every judge uses (commit-msg, pre-commit, kj review, the CI
 // workflow). A POSIX ERE that is also a JS RegExp source: no single quote, no `\d`-style escapes.
 const VENDORS = ["claude", "anthropic", "openai", "chatgpt", "codex", "gpt-?[0-9]", "copilot", "gemini", "cursor", "windsurf", "codeium", "deepseek"].join("|");
@@ -263,7 +266,7 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
         "  yes:*|no:free|no:project) ;;",
         "  *)",
         "    # The scope is anything but a closing parenthesis, as in commitlint's parser.",
-        String.raw`    if ! printf '%s' "$header" | grep -qE '^(${CONVENTIONAL_TYPES})(\([^)]*\))?!?: .+'; then`,
+        String.raw`    if ! printf '%s' "$header" | grep -qE '${CONVENTIONAL_HEADER}'; then`,
         "      kj_refuse header 'kj harden: commit header must follow Conventional Commits (type: subject)'",
         "    fi",
         "    # config-conventional subject-case (sentence/start/pascal/upper all start uppercase) and",
