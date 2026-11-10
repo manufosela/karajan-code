@@ -48,7 +48,8 @@ describe("thirdPartyReview", () => {
     expect(run).toHaveBeenCalledWith(expect.objectContaining({ diff: DIFF, persist: false, reviewerOverride: "claude" }));
     expect(res).toMatchObject({
       mode: "third-party", range: "main...pr", reviewer: "claude",
-      verdict: { approved: false, summary: "s" },
+      verdict: { approved: false, summary: "rejected: 1 finding (1 of 1 files reviewed). Top: [high] x.js:1 d" },
+      batches: [{ batch: 1, reviewer: "claude", summary: "s" }],
       findings: [{ file: "x.js", line: 1, severity: "high", description: "d", suggested_fix: "f" }],
       suggestions: ["n"], checks: [{ id: "secrets", ok: true, detail: `scanned ${DIFF.length} chars` }, { id: "sonar", ok: true, detail: "not available: no SonarQube" }],
       // KJC-BUG-0379 (#2263): the house requirements travel apart, never mixed with the security checks.
@@ -287,6 +288,48 @@ describe("thirdPartyReview with two reviewers", () => {
       reviewers: [{ reviewer: "claude" }, { reviewer: "codex", model: "gpt-5" }],
       verdict: { status: "rejected" },
       findings: [{ file: "x.js", found_by: ["claude", "codex"], verification: { codex: "confirmed", claude: "confirmed" } }],
+    });
+  });
+
+  // HU-3725 (#3411): one summary for the whole review; the per-batch notes live in batches[].
+  describe("one summary for a multi-batch, two-reviewer review", () => {
+    const file = (name) => [`diff --git a/${name} b/${name}`, "@@ -1 +1 @@", ...Array.from({ length: 5 }, (_, i) => `+${name} ${i}`)].join("\n");
+    const diff = [file("a.js"), file("b.js"), file("c.js")].join("\n");
+    const NOTE = "I found no blocking issues in the reviewed scope";
+    const run = vi.fn(async ({ diff: batch, reviewerOverride }) => {
+      const bad = batch.includes("a/c.js");
+      return { verdict: bad ? "rejected" : "approved", reviewer: reviewerOverride, summary: bad ? "c.js is broken" : NOTE,
+        issues: bad ? [{ file: "c.js", line: 3, severity: "high", description: "null deref" }] : [], suggestions: [] };
+    });
+    const verify = async ({ findings, verifier }) => ({
+      findings, outcomes: findings.map(() => "confirmed"), verification: { verifier, confirmed: findings.length, downgraded: 0, rejected: [], unverified: 0, kept_by_rule: 0 },
+    });
+    const reviewers = [{ provider: "claude", model: null }, { provider: "codex", model: null }];
+    const go = () => thirdPartyReview({ ...base, gitDiff: async () => diff, run, verify, reviewers, limit: file("a.js").length * 2 + 2, maxBatches: 5 });
+
+    it("builds verdict.summary once, from the findings, and keeps the batch notes apart", async () => {
+      const res = await go();
+      expect(run.mock.calls.length).toBeGreaterThan(2);
+      expect(res.verdict.summary).not.toContain("\n");
+      expect(res.verdict.summary).not.toMatch(/no blocking issues|no issues/i);
+      expect(res.verdict.summary).toMatch(/c\.js:3/);
+      expect(res.batches).toHaveLength(run.mock.calls.length);
+      expect(res.batches.map((b) => b.summary)).toContain(NOTE);
+      expect(res.batches.map((b) => b.reviewer).sort()).toEqual(expect.arrayContaining(["claude", "codex"]));
+    });
+
+    it("does the same for a single reviewer", async () => {
+      const res = await thirdPartyReview({ ...base, config: { roles: { reviewer: { provider: "claude" } } }, gitDiff: async () => diff, run, limit: file("a.js").length * 2 + 2, maxBatches: 5 });
+      expect(res.verdict.summary).not.toContain("\n");
+      expect(res.verdict.summary).not.toMatch(/no blocking issues|no issues/i);
+      expect(res.verdict.summary).toMatch(/c\.js:3/);
+      expect(res.batches.map((b) => b.summary)).toContain(NOTE);
+    });
+
+    it("says there were no findings only when there were none", async () => {
+      const clean = vi.fn(async ({ reviewerOverride }) => ({ verdict: "approved", reviewer: reviewerOverride, summary: NOTE, issues: [], suggestions: [] }));
+      const res = await thirdPartyReview({ ...base, config: { roles: { reviewer: { provider: "claude" } } }, gitDiff: async () => diff, run: clean });
+      expect(res.verdict).toMatchObject({ status: "approved", summary: expect.stringMatching(/no findings/i) });
     });
   });
 
