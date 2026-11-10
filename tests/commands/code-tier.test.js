@@ -47,8 +47,10 @@ describe("kj code --card with a tier", () => {
   it("reads the card from the directory it runs in when the config carries no projectDir", async () => {
     resolveCardContext.mockResolvedValue(card("trivial"));
     const { projectDir: _none, ...withoutDir } = config();
+    // The cwd is stubbed to a temp folder so the activity trace stays out of the checkout (KJC-BUG-0539).
+    vi.spyOn(process, "cwd").mockReturnValue(repo);
     await codeCommand({ task: "t", config: withoutDir, logger, flags: { card: "HU-9" } });
-    expect(resolveCardContext.mock.calls.at(-1)[0]).toMatchObject({ projectDir: process.cwd(), ref: "HU-9" });
+    expect(resolveCardContext.mock.calls.at(-1)[0]).toMatchObject({ projectDir: repo, ref: "HU-9" });
   });
 
   // KJC-TSK-1450: the card already says what to do; the agent does not write the task again.
