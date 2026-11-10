@@ -81,45 +81,39 @@ describe("installPlaybook", () => {
   beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-pb-")); });
   afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
-  it("creates CLAUDE.md and AGENTS.md with the managed block (legacy target both)", async () => {
-    const res = await installPlaybook({ projectDir: dir, target: "both" });
-    expect(res.files.sort()).toEqual(["AGENTS.md", "CLAUDE.md"]);
-    for (const f of res.files) {
-      const text = fs.readFileSync(path.join(dir, f), "utf8");
+  // KJC-TSK-1504: AGENTS.md is the one file of agent rules for every host; the
+  // old targets stay as aliases so no script that passes them breaks.
+  for (const target of PLAYBOOK_TARGETS) {
+    it(`target ${target} writes only AGENTS.md`, async () => {
+      const res = await installPlaybook({ projectDir: dir, target });
+      expect(res.files).toEqual(["AGENTS.md"]);
+      const text = fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8");
       expect(text).toMatch(/kj:managed:playbook/);
       expect(text).toMatch(/kj review --staged/);
-    }
-  });
+      expect(fs.existsSync(path.join(dir, "CLAUDE.md"))).toBe(false);
+      expect(fs.existsSync(path.join(dir, "GEMINI.md"))).toBe(false);
+    });
+  }
 
-  // AB-A (KJC-TSK-0650): any agent can be the brain — gemini gets GEMINI.md
-  // and "all" (the new default) covers every host from the single source.
-  it("target gemini writes GEMINI.md", async () => {
-    const res = await installPlaybook({ projectDir: dir, target: "gemini" });
-    expect(res.files).toEqual(["GEMINI.md"]);
-    expect(fs.readFileSync(path.join(dir, "GEMINI.md"), "utf8")).toMatch(/kj:managed:playbook/);
-  });
-
-  it("target all writes the three host files", async () => {
-    const res = await installPlaybook({ projectDir: dir, target: "all" });
-    expect(res.files.sort()).toEqual(["AGENTS.md", "CLAUDE.md", "GEMINI.md"]);
+  it("moves an old CLAUDE.md and GEMINI.md into AGENTS.md, keeping what a person wrote", async () => {
+    fs.writeFileSync(path.join(dir, "CLAUDE.md"), "# My project rules\n\nNever touch this line.\n");
+    fs.writeFileSync(path.join(dir, "GEMINI.md"), "");
+    const res = await installPlaybook({ projectDir: dir });
+    expect(res.migrated).toEqual([{ file: "CLAUDE.md", moved: 2 }, { file: "GEMINI.md", moved: 0 }]);
+    expect(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8")).toMatch(/^# My project rules\n\nNever touch this line\.\n<!-- >>> kj:managed:playbook/);
+    expect(fs.existsSync(path.join(dir, "CLAUDE.md"))).toBe(false);
   });
 
   it("preserves user content and is idempotent", async () => {
     const userContent = "# My project rules\n\nNever touch this line.\n";
-    fs.writeFileSync(path.join(dir, "CLAUDE.md"), userContent);
-    await installPlaybook({ projectDir: dir, target: "claude" });
-    const once = fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8");
+    fs.writeFileSync(path.join(dir, "AGENTS.md"), userContent);
+    await installPlaybook({ projectDir: dir });
+    const once = fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8");
     expect(once).toContain("Never touch this line.");
-    await installPlaybook({ projectDir: dir, target: "claude" });
-    const twice = fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8");
+    await installPlaybook({ projectDir: dir });
+    const twice = fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8");
     expect(twice).toBe(once); // second run: unchanged
     expect(twice.match(/kj:managed:playbook/g).length).toBe(once.match(/kj:managed:playbook/g).length);
-  });
-
-  it("respects --target claude (no AGENTS.md written)", async () => {
-    const res = await installPlaybook({ projectDir: dir, target: "claude" });
-    expect(res.files).toEqual(["CLAUDE.md"]);
-    expect(fs.existsSync(path.join(dir, "AGENTS.md"))).toBe(false);
   });
 
   it("rejects an unknown target", async () => {

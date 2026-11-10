@@ -31,9 +31,9 @@ describe("detectRulesync", () => {
 });
 
 describe("kj harden guidelines con Rulesync", () => {
-  it("sin Rulesync, nada cambia: CLAUDE.md y AGENTS.md, y ningun fichero de Rulesync", () => {
+  it("sin Rulesync, va a AGENTS.md (KJC-TSK-1504), y ningun fichero de Rulesync", () => {
     installGuidelines({ projectDir: dir, language: "javascript" });
-    expect(existsSync(join(dir, "CLAUDE.md"))).toBe(true);
+    expect(existsSync(join(dir, "AGENTS.md"))).toBe(true);
     expect(existsSync(rule())).toBe(false);
   });
 

@@ -37,8 +37,8 @@ describe("kj env install con Rulesync", () => {
     expect((await installPlaybook({ projectDir: dir, target: "all" })).files).toEqual([RULESYNC_RULE]);
   });
 
-  it("sin Rulesync, el target decide como siempre", async () => {
+  it("sin Rulesync, cualquier target va a AGENTS.md (KJC-TSK-1504)", async () => {
     const res = await installPlaybook({ projectDir: dir, target: "claude" });
-    expect(res.files).toEqual(["CLAUDE.md"]);
+    expect(res.files).toEqual(["AGENTS.md"]);
   });
 });
