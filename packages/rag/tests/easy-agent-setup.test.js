@@ -3,6 +3,7 @@
 // the consult-before-assuming rule into CLAUDE.md, idempotently, like `kj env install` does.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -43,15 +44,47 @@ test('claudeMdBlock names the server and the tools, and tells the agent to ask b
   for (const needle of ['rag-docs', 'rag_query', 'rag_status', '/x/docs']) assert.ok(block.includes(needle), needle);
 });
 
-test('writeClaudeMd: creates, then reports unchanged, then updates when the block changes', async () => {
+// KJR-TSK-0164 (KJC-TSK-1504): AGENTS.md is the one rules file of the Karajan family.
+test('writeClaudeMd: writes AGENTS.md, then reports unchanged, then updates when the block changes', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'kjr-agent-'));
   try {
-    assert.equal((await writeClaudeMd(root, { serverName: 'rag-a' })).action, 'created');
+    assert.deepEqual(await writeClaudeMd(root, { serverName: 'rag-a' }), { path: path.join(root, 'AGENTS.md'), file: 'AGENTS.md', action: 'created' });
+    assert.equal(existsSync(path.join(root, 'CLAUDE.md')), false);
     assert.equal((await writeClaudeMd(root, { serverName: 'rag-a' })).action, 'unchanged');
-    await writeFile(path.join(root, 'CLAUDE.md'), `# Mine\n${await readFile(path.join(root, 'CLAUDE.md'), 'utf8')}`);
+    await writeFile(path.join(root, 'AGENTS.md'), `# Mine\n${await readFile(path.join(root, 'AGENTS.md'), 'utf8')}`);
     assert.equal((await writeClaudeMd(root, { serverName: 'rag-b' })).action, 'updated');
-    const text = await readFile(path.join(root, 'CLAUDE.md'), 'utf8');
+    const text = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
     assert.ok(text.startsWith('# Mine') && text.includes('rag-b') && !text.includes('rag-a'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('writeClaudeMd: a folder that keeps a CLAUDE.md gets the block there, the file Claude reads', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-agent-'));
+  try {
+    await writeFile(path.join(root, 'CLAUDE.md'), '# Theirs\n');
+    const res = await writeClaudeMd(root, { serverName: 'rag-a' });
+    assert.equal(res.file, 'CLAUDE.md');
+    assert.ok((await readFile(path.join(root, 'CLAUDE.md'), 'utf8')).includes('rag-a'));
+    assert.equal(existsSync(path.join(root, 'AGENTS.md')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('writeClaudeMd: a CLAUDE.md added later takes the block, which leaves AGENTS.md (the rest stays)', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-agent-'));
+  try {
+    await writeFile(path.join(root, 'AGENTS.md'), '# Shared rules\n');
+    await writeClaudeMd(root, { serverName: 'rag-a' });
+    await writeFile(path.join(root, 'CLAUDE.md'), '# Theirs\n');
+    await writeClaudeMd(root, { serverName: 'rag-b' });
+    const agents = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
+    assert.equal(agents, '# Shared rules\n');
+    const claude = await readFile(path.join(root, 'CLAUDE.md'), 'utf8');
+    assert.equal(claude.split(BLOCK_START).length, 2);
+    assert.ok(claude.includes('rag-b'));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -86,7 +119,7 @@ test('setupClaude: registers, writes the block and says what it did', async () =
     const res = await setupClaude({ rootDir: root, log: (m) => logs.push(m), run: async () => ({ stdout: '' }) });
     assert.equal(res.registered, true);
     assert.equal(res.claudeMd.action, 'created');
-    assert.ok(logs.some((l) => l.includes('claude mcp add')) && logs.some((l) => l.includes('CLAUDE.md')));
+    assert.ok(logs.some((l) => l.includes('claude mcp add')) && logs.some((l) => l.includes('AGENTS.md')));
     const off = await setupClaude({ rootDir: root, log: (m) => logs.push(m), run: async () => { throw Object.assign(new Error('x'), { code: 'ENOENT' }); } });
     assert.equal(off.registered, false);
     assert.ok(logs.at(-2)?.includes('PATH'), 'tells that claude is missing and leaves the command');

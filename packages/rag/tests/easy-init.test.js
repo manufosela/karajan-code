@@ -21,7 +21,7 @@ test('parseInitArgs: defaults y flags', () => {
 });
 
 // KJR-TSK-0162: --claude goes from folder to agent in one command.
-test('runInitCommand --yes --claude: indexes, registers the MCP and writes CLAUDE.md', async () => {
+test('runInitCommand --yes --claude: indexes, registers the MCP and writes the rule in AGENTS.md', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'kjr-init-'));
   /** @type {string[]} */
   const logs = [];
@@ -37,7 +37,7 @@ test('runInitCommand --yes --claude: indexes, registers the MCP and writes CLAUD
     });
     assert.deepEqual(indexed, [[root]]);
     assert.deepEqual(ran, [['claude', 'mcp', 'add', serverNameFor(root), '--', 'karajan-rag', 'serve', root]]);
-    assert.ok((await readFile(path.join(root, 'CLAUDE.md'), 'utf8')).includes('rag_query'));
+    assert.ok((await readFile(path.join(root, 'AGENTS.md'), 'utf8')).includes('rag_query'));
     assert.ok(logs.at(-1)?.includes('abre Claude Code'));
   } finally {
     await rm(root, { recursive: true, force: true });
