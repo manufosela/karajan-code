@@ -10,10 +10,15 @@ import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 import { placeGuardCopies } from "./_guard-copies.js";
 import { declareTestIdentity } from "./_test-identity.js";
 
-let dir, pre, idEnv;
+let dir, pre, idEnv, savedRole;
 const gitEnv = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
+// KJC-BUG-0541: run inside a kj code coder, process.env carries KJ_POLICY_ROLE, and the Sentinel
+// takes the call as kj's own; the hook starts from a plain session's env, without the kj
+// variables that change what the Sentinel does.
+const SENTINEL_SWITCHES = new Set(["KJ_POLICY_ROLE", "KJ_SENTINEL_OFF"]);
+const hookEnv = () => ({ ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !SENTINEL_SWITCHES.has(name))), ...idEnv });
 const bash = (command) => spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
-  encoding: "utf8", cwd: dir, env: { ...process.env, ...idEnv } });
+  encoding: "utf8", cwd: dir, env: hookEnv() });
 const sandbox = (sb) => fs.writeFileSync(path.join(dir, ".claude", "settings.local.json"), JSON.stringify({ sandbox: sb }));
 const COVERING = {
   enabled: true, allowUnsandboxedCommands: false,
@@ -21,6 +26,9 @@ const COVERING = {
 };
 
 beforeEach(() => {
+  // The runner looks like a kj code coder in every session, so the scrub is always exercised.
+  savedRole = process.env.KJ_POLICY_ROLE;
+  process.env.KJ_POLICY_ROLE = "coder";
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-sbx-retire-"));
   fs.mkdirSync(path.join(dir, "src"));
   fs.writeFileSync(path.join(dir, "src", "a.py"), "x = 1\n");
@@ -33,9 +41,13 @@ beforeEach(() => {
   // ADR 0034: guard 12 denies a lane another live session holds; s9 works in "other".
   const other = path.join(dir, ".kj", "worktrees", "other");
   spawnSync("node", [pre], { input: JSON.stringify({ session_id: "s9", tool_name: "Edit", tool_input: { file_path: path.join(other, "src", "a.py") }, cwd: other }),
-    encoding: "utf8", cwd: dir, env: { ...process.env, ...idEnv } });
+    encoding: "utf8", cwd: dir, env: hookEnv() });
 });
-afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+  if (savedRole === undefined) delete process.env.KJ_POLICY_ROLE;
+  else process.env.KJ_POLICY_ROLE = savedRole;
+  fs.rmSync(dir, { recursive: true, force: true });
+});
 
 const CASES = [
   ["guard 4, supervisor files", "cp /tmp/x .karajan/harness/x.mjs", "supervisor"],
