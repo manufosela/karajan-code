@@ -23,6 +23,7 @@ import { commitConventionOf } from "../gates/summary.js";
 import { detectRulesync, maybeRulesyncGenerate } from "../utils/rulesync.js";
 import { installGeminiContext } from "../harden/gemini-context.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
+import { makefileCommands } from "../harden/makefile-targets.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
@@ -58,7 +59,7 @@ export async function resolveCmds(projectDir, language, scope = {}) {
   // HU-3521: the fallback detection takes the same --only/--exclude as the run, or an excluded root comes back.
   const lang = language ?? detectStackRoots(projectDir, scope)[0]?.language ?? null;
   const cmds = commandsForLanguage(lang, projectDir);
-  if (lang !== "javascript" && lang !== "typescript") return cmds;
+  if (lang !== "javascript" && lang !== "typescript") return withMakefileTargets(cmds, projectDir);
 
   const pkgPath = join(projectDir, "package.json");
   if (existsSync(pkgPath)) {
@@ -78,8 +79,11 @@ export async function resolveCmds(projectDir, language, scope = {}) {
     const { framework } = await detectTestFramework(projectDir);
     if (framework && JS_TEST_CMD[framework]) cmds.test = JS_TEST_CMD[framework];
   }
-  return cmds;
+  return withMakefileTargets(cmds, projectDir);
 }
+
+/** ADR 0051 (#3763): the project's Makefile targets win over the commands detected for its stack. */
+const withMakefileTargets = (cmds, projectDir) => ({ ...cmds, ...makefileCommands(projectDir) });
 
 const DEFAULT_BASE_BRANCH = "main";
 
