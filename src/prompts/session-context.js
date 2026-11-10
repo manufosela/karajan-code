@@ -38,10 +38,25 @@ export function ragSection(hits) {
 }
 
 /**
+ * What to ask the index (KJC-BUG-0540): the task text, plus the card's title and
+ * criteria and the review's findings. A retry has no task text, so the card and
+ * the findings are the whole question. Empty when there is nothing to ask.
+ */
+export function ragQueryText({ task, card, review }) {
+  const criteria = card?.acceptanceTests?.map((t) => t.content) ?? [];
+  const parts = [task, card?.title, ...criteria, ...(review?.findings ?? [])];
+  return parts.filter((p) => typeof p === "string" && p.trim()).join("\n").trim();
+}
+
+/**
  * @returns {Promise<null|{section: string|null, sources: string[]}>}
  */
 export async function resolveRagContext({ task, config, logger, deps = {} }) {
   const run = deps.ragQueryCommand || ragQueryCommand;
+  if (!task?.trim()) {
+    logger?.warn?.("rag context skipped (nothing to ask the index) — the coder writes without project context");
+    return null;
+  }
   // The index warns on stdout in CLI mode; here the hits are the product, so
   // its narration is swallowed and only OUR verdict reaches the user.
   const quiet = { info: () => {}, warn: () => {}, error: () => {} };

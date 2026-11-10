@@ -5,7 +5,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { composeTask, ragSection, resolveRagContext } from "../../src/prompts/session-context.js";
+import { composeTask, ragQueryText, ragSection, resolveRagContext } from "../../src/prompts/session-context.js";
 
 const hit = (over = {}) => ({
   source: "src/review/gate.js",
@@ -63,6 +63,41 @@ describe("resolveRagContext", () => {
     });
     expect(res).toBeNull();
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("store is locked"));
+  });
+});
+
+describe("ragQueryText (KJC-BUG-0540)", () => {
+  it("a retry has no task text: the card statement and the findings are the query", () => {
+    const text = ragQueryText({
+      task: "",
+      card: { title: "Gate the push", acceptanceTests: [{ type: "gherkin", content: "Given a push" }] },
+      review: { findings: ["src/a.js: missing check"] },
+    });
+    expect(text).toContain("Gate the push");
+    expect(text).toContain("Given a push");
+    expect(text).toContain("missing check");
+  });
+
+  it("nothing at all gives an empty text", () => {
+    expect(ragQueryText({ task: "  ", card: null, review: null })).toBe("");
+  });
+});
+
+describe("resolveRagContext without text (KJC-BUG-0540)", () => {
+  it("never calls the RAG with an empty text and says so in one line", async () => {
+    const ragQueryCommand = vi.fn(async () => [hit()]);
+    const log = logger();
+    const res = await resolveRagContext({ task: "", config: {}, logger: log, deps: { ragQueryCommand } });
+    expect(res).toBeNull();
+    expect(ragQueryCommand).not.toHaveBeenCalled();
+    expect(log.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a retry with a card and findings queries with non-empty text built from them", async () => {
+    const ragQueryCommand = vi.fn(async () => [hit()]);
+    const text = ragQueryText({ task: "", card: { title: "Gate the push" }, review: { findings: ["missing check"] } });
+    await resolveRagContext({ task: text, config: {}, logger: logger(), deps: { ragQueryCommand } });
+    expect(ragQueryCommand).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("missing check") }));
   });
 });
 
