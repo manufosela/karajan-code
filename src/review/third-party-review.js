@@ -27,6 +27,7 @@ import { readTaskFile } from "../utils/task-file.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 import { assertCrossFamily, verifyFindings } from "./run-verifier.js";
 import { reconcileReviews } from "./dual-review.js";
+import { batchNotes, summaryOf } from "./review-summary.js";
 
 // KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
 const MAX_REVIEW_BATCHES = 10;
@@ -109,11 +110,14 @@ async function singleReview({ provider, reviewWith, verifier, verifierModel, ver
   const findings = records.flatMap((r) => (r.issues ?? []).map(finding));
   // KJC-TSK-1195 (#2369): with a verifier, the findings are the verified ones and the block says what changed.
   const verified = verifier ? await verify({ findings, diff, verifier, model: verifierModel, config, logger }) : null;
+  const kept = verified ? verified.findings : findings;
+  const reviewer = records[0]?.reviewer ?? provider;
   return {
-    reviewer: records[0]?.reviewer ?? provider,
-    verdict: verdictOf(records, coverage),
+    reviewer,
+    verdict: verdictOf(records, kept, coverage),
+    batches: batchNotes(reviewer, records),
     coverage,
-    findings: verified ? verified.findings : findings,
+    findings: kept,
     ...(verified && { verification: verified.verification }),
     suggestions: records.flatMap((r) => r.suggestions ?? []),
   };
@@ -155,10 +159,11 @@ async function dualReview({ reviewers, reviewWith, verify, diff, coverage, confi
     const other = reviewers[1 - i];
     const found = records[i].flatMap((r) => (r.issues ?? []).map(finding));
     const verified = await verify({ findings: found, diff, verifier: other.provider, model: other.model, config, logger });
-    return { reviewer: me.provider, model: me.model, coverage, verdict: verdictOf(records[i], coverage), ...verified };
+    return { reviewer: me.provider, model: me.model, coverage, verdict: verdictOf(records[i], verified.findings, coverage), ...verified };
   }));
   const reconciled = reconcileReviews(sides);
-  return { reviewer: reviewers.map((r) => r.provider).join("+"), ...reconciled, suggestions: records.flat().flatMap((r) => r.suggestions ?? []) };
+  const batches = reviewers.flatMap((r, i) => batchNotes(r.provider, records[i]));
+  return { reviewer: reviewers.map((r) => r.provider).join("+"), ...reconciled, batches, suggestions: records.flat().flatMap((r) => r.suggestions ?? []) };
 }
 
 /** KJC-TSK-1356 (#3027): the too_large result, or null when the PR is within the ceiling. */
@@ -184,12 +189,11 @@ function adviceFor(diff, budget) {
 }
 
 /** Rejected if any batch was; approved only when every file was reviewed; partial otherwise. */
-function verdictOf(records, coverage) {
+function verdictOf(records, findings, coverage) {
   let status = "approved";
   if (records.some((r) => r.verdict !== "approved")) status = "rejected";
   else if (coverage.truncated) status = "partial";
-  const summary = records.map((r) => r.summary).filter(Boolean).join("\n");
-  return { status, approved: status === "approved", summary };
+  return { status, approved: status === "approved", summary: summaryOf({ status, findings, coverage }) };
 }
 
 // KJC-TSK-1153: flags of the own-work review that this mode would otherwise ignore in silence.

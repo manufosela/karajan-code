@@ -5,6 +5,7 @@
  * found it and how it was verified, the ones both found rank first, the rejected are listed
  * apart (never dropped), and there is one verdict.
  */
+import { summaryOf } from "./review-summary.js";
 
 const RANK = { low: 0, medium: 1, high: 2, critical: 3 };
 const rank = (f) => RANK[f.severity] ?? -1;
@@ -65,15 +66,16 @@ function mergeFindings(a, b) {
 
 function verdictOf(sides, findings, coverage) {
   const blockers = findings.filter((f) => isBlocker(f) && isConfirmed(f));
-  const summary = sides.map((s) => s.verdict?.summary).filter(Boolean).join("\n");
-  if (blockers.length) return { status: "rejected", approved: false, reason: `confirmed blocker(s): ${blockers.map(where).join(", ")}`, summary };
+  // HU-3725 (#3411): one summary of the reconciled result, not the sides' notes joined.
+  const summaryFor = (status) => summaryOf({ status, findings, coverage });
+  if (blockers.length) return { status: "rejected", approved: false, reason: `confirmed blocker(s): ${blockers.map(where).join(", ")}`, summary: summaryFor("rejected") };
   const rejecting = sides.filter((s) => !s.verdict?.approved).map((s) => s.reviewer);
-  if (rejecting.length === 0 && !coverage.truncated) return { status: "approved", approved: true, summary };
+  if (rejecting.length === 0 && !coverage.truncated) return { status: "approved", approved: true, summary: summaryFor("approved") };
   const dispute = rejecting.length ? `${rejecting.join(" and ")} rejected, but no blocking finding was confirmed by the other family` : null;
   // KJC-BUG-0453 (#2921): "partial" only when files were left out (they are in coverage.unreviewed);
   // everything reviewed and the reviewers disagreeing is "disputed".
-  if (coverage.truncated) return { status: "partial", approved: false, reason: ["not every file was reviewed", dispute].filter(Boolean).join("; "), summary };
-  return { status: "disputed", approved: false, reason: dispute, summary };
+  if (coverage.truncated) return { status: "partial", approved: false, reason: ["not every file was reviewed", dispute].filter(Boolean).join("; "), summary: summaryFor("partial") };
+  return { status: "disputed", approved: false, reason: dispute, summary: summaryFor("disputed") };
 }
 
 /** The two sides (reviewer, model, verdict, coverage, findings, outcomes, verification) as one result. */
