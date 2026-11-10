@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.15.0: one rules file, AGENTS.md, for every agent (current)
+### v5.16.0: hooks that run your Makefile, and a commit convention that holds without kj (current)
+
+When your project wraps its tools in a Makefile (PHP inside Docker, for instance), the hooks `kj harden` writes now run `make lint`, `make analyse`, `make test` and `make format-check` instead of host commands. Any step can be pinned by hand with `kj hooks set <step> <command>`, and `kj hooks` shows what each step runs and why. The commit-msg hook keeps your project's own commit convention even when kj is not on the PATH, as in a commit from the IDE, and pre-push says when it found no test command instead of running nothing in silence. Run `kj harden` and seal to get the new hooks.
+
+### v5.15.0: one rules file, AGENTS.md, for every agent
 
 kj now writes the method and the project guidelines into AGENTS.md alone, instead of the same text in CLAUDE.md, AGENTS.md and GEMINI.md. Claude Code reads AGENTS.md when the project has no CLAUDE.md, and `kj harden` names it in `.gemini/settings.json` so Gemini CLI reads it too. An old CLAUDE.md or GEMINI.md is moved into AGENTS.md, keeping what you wrote by hand, and `kj doctor` tells you when an agent would still miss it (a file left behind, or a Claude Code older than 2.1.277). `kj worktree start` works again in a repo that versions its Claude settings, and the review rules template now carries the five review axes.
 

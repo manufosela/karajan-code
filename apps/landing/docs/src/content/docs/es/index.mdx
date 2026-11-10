@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.15.0: un solo fichero de reglas, AGENTS.md, para todos los agentes (actual)
+### v5.16.0: hooks que ejecutan tu Makefile, y una convención de commits que se mantiene sin kj (actual)
+
+Si tu proyecto envuelve sus herramientas en un Makefile (PHP dentro de Docker, por ejemplo), los hooks que escribe `kj harden` ejecutan ahora `make lint`, `make analyse`, `make test` y `make format-check` en vez de comandos del host. Cualquier paso se puede fijar a mano con `kj hooks set <paso> <comando>`, y `kj hooks` muestra qué ejecuta cada paso y por qué. El hook commit-msg mantiene la convención de commits de tu proyecto aunque kj no esté en el PATH, como en un commit desde el IDE, y pre-push dice cuándo no encontró comando de test en vez de no ejecutar nada en silencio. Ejecuta `kj harden` y sella para tener los hooks nuevos.
+
+### v5.15.0: un solo fichero de reglas, AGENTS.md, para todos los agentes
 
 kj escribe ahora el método y las guías del proyecto solo en AGENTS.md, en vez del mismo texto en CLAUDE.md, AGENTS.md y GEMINI.md. Claude Code lee AGENTS.md cuando el proyecto no tiene CLAUDE.md, y `kj harden` lo declara en `.gemini/settings.json` para que Gemini CLI también lo lea. Un CLAUDE.md o GEMINI.md antiguo se pasa a AGENTS.md conservando lo que escribiste a mano, y `kj doctor` te avisa cuando un agente aún no lo leería (un fichero que se quedó, o un Claude Code anterior a la 2.1.277). `kj worktree start` vuelve a funcionar en un repo que versiona los ajustes de Claude, y la plantilla de reglas de revisión trae ahora los cinco ejes de revisión.
 
