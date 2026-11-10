@@ -10,7 +10,14 @@ const addedLines = (diff) =>
   diff.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++")).map((l) => l.slice(1)).join("\n");
 
 export async function privacyScanCommand({ paths = [], flags = {}, logger = console } = {}) {
-  const list = loadPrivacyList();
+  let list;
+  try {
+    list = loadPrivacyList();
+  } catch (err) { // HU-3727: a corrupt privacy.yml is an error, never "no denylist"
+    logger.error?.(err.message);
+    process.exitCode = 2;
+    return { ok: false, findings: [] };
+  }
   let findings;
   if (flags.staged) {
     const res = await runCommand("git", ["diff", "--cached", "--no-ext-diff", "--unified=0"]);

@@ -20,15 +20,34 @@ export function privacyConfigPath(home = os.homedir()) {
   return process.env.KJ_PRIVACY_CONFIG || join(home, ".karajan", "privacy.yml");
 }
 
-/** Personal denylist + public-identity allowlist. Absent file → generics only. */
+/**
+ * Personal denylist + public-identity allowlist. Only a MISSING file (ENOENT)
+ * reads as absent → generics only. HU-3727: anything else wrong with it (unreadable,
+ * invalid YAML, personal/allow not a list) throws — a corrupt denylist must not
+ * quietly stop blocking.
+ */
 export function loadPrivacyList({ home = os.homedir() } = {}) {
+  const file = privacyConfigPath(home);
+  let text;
   try {
-    const raw = parseYaml(readFileSync(privacyConfigPath(home), "utf8")) || {};
-    const clean = (xs) => (Array.isArray(xs) ? xs.map(String).map((s) => s.trim()).filter(Boolean) : []);
-    return { personal: clean(raw.personal), allow: clean(raw.allow), present: true };
-  } catch {
-    return { personal: [], allow: [], present: false };
+    text = readFileSync(file, "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") return { personal: [], allow: [], present: false };
+    throw new Error(`kj privacy: cannot read ${file}: ${err.message}`, { cause: err });
   }
+  let raw;
+  try {
+    raw = parseYaml(text) ?? {};
+  } catch (err) {
+    throw new Error(`kj privacy: ${file} is invalid YAML: ${err.message}`, { cause: err });
+  }
+  if (typeof raw !== "object" || Array.isArray(raw)) throw new Error(`kj privacy: ${file}: the document must be a mapping (personal:, allow:)`);
+  const clean = (key) => {
+    const xs = raw?.[key] ?? [];
+    if (!Array.isArray(xs)) throw new Error(`kj privacy: ${file}: "${key}" must be a list`);
+    return xs.map(String).map((s) => s.trim()).filter(Boolean);
+  };
+  return { personal: clean("personal"), allow: clean("allow"), present: true };
 }
 
 const maskValue = (v) => (v.length <= 4 ? "***" : `${v.slice(0, 2)}***${v.slice(-2)}`);
