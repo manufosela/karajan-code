@@ -822,6 +822,20 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // HU-3773 (ADR 0051): the command each hook step runs; set/unset pin it (human acts).
+  program.command("hooks [action] [step] [command...]")
+    .description("List the command each hook step runs and where it comes from; set <step> <command> pins one, unset <step> releases it")
+    .action(async (action, step, command, flags) => {
+      await withConfig(pkgVersion, "hooks", flags, async ({ config }) => {
+        const hooks = await import("../commands/hooks.js");
+        const projectDir = config?.projectDir || process.cwd();
+        if (action === "set") await hooks.hooksSetCommand({ step, command: command.join(" "), kjVersion: pkgVersion, projectDir });
+        else if (action === "unset") await hooks.hooksUnsetCommand({ step, kjVersion: pkgVersion, projectDir });
+        else if (action) throw new Error(`unknown action "${action}": kj hooks, kj hooks set <step> <command> or kj hooks unset <step>`);
+        else await hooks.hooksCommand({ projectDir });
+      });
+    });
+
   // KJC-TSK-1369 (ADR 0037): the audit job on every push to the protected branch.
   program.command("main-guard")
     .description("Audit a push to the protected branch: merges without their required checks, and the protection (exit 1 with a markdown report)")

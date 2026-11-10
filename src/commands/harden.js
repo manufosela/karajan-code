@@ -24,6 +24,7 @@ import { detectRulesync, maybeRulesyncGenerate } from "../utils/rulesync.js";
 import { installGeminiContext } from "../harden/gemini-context.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { makefileCommands } from "../harden/makefile-targets.js";
+import { pinnedCommands } from "../harden/pinned-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
@@ -184,7 +185,11 @@ export async function hardenCommand({
   }
 
   const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });
-  const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null, { only: onlyDirs, exclude: excludeDirs });
+  // ADR 0051 (HU-3773): a command pinned with `kj hooks set` wins over the Makefile and the detected one.
+  const cmds = {
+    ...(await resolveCmds(projectDir, roots[0]?.language ?? null, { only: onlyDirs, exclude: excludeDirs })),
+    ...(await pinnedCommands(projectDir)),
+  };
   // KJC-TSK-0647: CI already running the suite per PR ⇒ pre-push drops its
   // test command (false-red source under local parallelism); opt back in
   // via package.json kj.harden.test_on_push.
