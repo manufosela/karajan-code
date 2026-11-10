@@ -21,7 +21,13 @@ export async function privacyScanCommand({ paths = [], flags = {}, logger = cons
       process.exitCode = 2;
       return { ok: false, findings: [] };
     }
-    findings = scanPaths(paths, { list });
+    try {
+      findings = scanPaths(paths, { list });
+    } catch (err) {
+      logger.error?.(err.message);
+      process.exitCode = 2;
+      return { ok: false, findings: [] };
+    }
   }
 
   const blocks = findings.filter((f) => f.severity === "block");
