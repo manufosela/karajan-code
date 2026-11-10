@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadPrivacyList, scanText, scanPaths } from "../../src/privacy/scan.js";
+import { privacyScanCommand } from "../../src/commands/privacy.js";
 
 let home, dir;
 beforeEach(() => {
@@ -154,6 +155,22 @@ describe("privacy/scan", () => {
     const f = scanPaths([dir], { list: list() });
     expect(f).toHaveLength(0);
     expect(f.skippedBinary).toBe(1);
+  });
+
+  // HU-3504: a path that does not exist is not "clean" — a typo or a dist/ not built yet read as a pass.
+  it("scanPaths refuses a path that does not exist instead of reading it as clean", () => {
+    expect(() => scanPaths([join(dir, "no-such-dir")], { list: list() })).toThrow(/path not found.*no-such-dir/);
+  });
+
+  it("kj privacy scan on a missing path exits 2 and says so", async () => {
+    const errors = [];
+    const prev = process.exitCode;
+    const res = await privacyScanCommand({ paths: [join(dir, "no-such-dir")], logger: { error: (m) => errors.push(m), info: () => {}, warn: () => {} } });
+    const code = process.exitCode;
+    process.exitCode = prev;
+    expect(res.ok).toBe(false);
+    expect(code).toBe(2);
+    expect(errors.join("\n")).toMatch(/path not found/);
   });
 });
 

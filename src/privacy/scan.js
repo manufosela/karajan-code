@@ -230,7 +230,11 @@ export function scanPaths(paths, { list = loadPrivacyList() } = {}) {
     discarded += fileFindings.discardedByContext || 0;
     findings.push(...fileFindings);
   };
-  for (const p of paths) visit(p);
+  for (const p of paths) {
+    // HU-3504: a path that is not there scanned nothing, and nothing found read as clean.
+    if (!existsSync(p)) throw new Error(`kj privacy scan: path not found: ${p}`);
+    visit(p);
+  }
   findings.discardedByContext = discarded;
   findings.skippedBinary = skippedBinary;
   return findings;
