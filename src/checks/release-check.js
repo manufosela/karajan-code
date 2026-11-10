@@ -134,7 +134,10 @@ async function packPrivacyCheck(projectDir, pkg) {
   if (!pkg || pkg.private === true || !pkg.name || !pkg.version) return null;
   try {
     const out = await runCommand("npm", ["pack", "--dry-run", "--json", "--silent"], { cwd: projectDir });
+    // Fail closed: a broken or empty pack must never read as "clean".
+    if (out.exitCode !== 0) return { name: "pack-privacy", ok: false, detail: `npm pack exited ${out.exitCode}` };
     const files = (JSON.parse(out.stdout || "[]")[0]?.files || []).map((f) => join(projectDir, f.path));
+    if (files.length === 0) return { name: "pack-privacy", ok: false, detail: "npm pack listed no files" };
     const blocks = scanPaths(files, { list: loadPrivacyList() }).filter((f) => f.severity === "block");
     return { name: "pack-privacy", ok: blocks.length === 0, detail: blocks.length ? `${blocks.length} personal-data/secret hit(s) in the publishable files` : `${files.length} publishable file(s) clean` };
   } catch (err) {
