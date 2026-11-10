@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.13.0",
-  "generated_at": "2026-11-10T10:52:33.282Z",
+  "kj_version": "5.15.0",
+  "generated_at": "2026-11-10T15:59:31.586Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -50,7 +50,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "50e0fc2733c6c6f130ee7cfbd7af281c68882ae41e0fc64eac63c6f94e9c9bb3"
+      "sha256": "3f0931381dcaf4e2352401ae06be1bb6c075878ec6f7cf062f0dd2c9dc3e22d5"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -98,7 +98,7 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "f5cf348889a493bddb811d7b8373e3f36c280c59d21c63beeb515454c12149ef"
+      "sha256": "e740e2d05d40fe5ae7a776c4ae94979f602dd091ac4b5fc29ec2f43d8d7365e5"
     },
     {
       "file": ".karajan/hooks/post-merge",
@@ -106,7 +106,7 @@
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "1d3442cc54c84ee8b0092b5ec30bf39858cd7dc6228002b62e2da4591176980b"
+      "sha256": "669fc22768e84696516a886b3317828adb0d3d4157611195c61e12ebcdbb48a1"
     },
     {
       "file": ".karajan/hooks/pre-push",
@@ -174,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "1a2838aa907631b94de16b1564735183",
-    "nonce": "fa6e290f318485bea3f4ca9b06867b9d",
+    "cid": "1459029f1b5a46b68a468dd4b3203c92",
+    "nonce": "8002b36820d55d2ea597fc7234260334",
     "project": "manufosela/karajan-code",
-    "filesHash": "f5899f5fb157c8abce3463d5d2083851a8ea2aa69965261661426f10c9623dbc",
+    "filesHash": "3c6437e91d59b73558e937e660bc66a68b3d1fea8d9dd823c4bceea8e657efb1",
     "v": 2,
-    "kjVersion": "5.13.0",
-    "issuedMs": 1794307910044,
-    "expiresMs": 1794308060044,
+    "kjVersion": "5.15.0",
+    "issuedMs": 1794326365759,
+    "expiresMs": 1794326515759,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "lJsSu3yiaizA4O/sR9f4WcRJKFwEsDQo0mL1eGnHENXgvB2t9s6U8IxvQckTtgl6bKPsi1XQhVEvy6BVz4ssAQ=="
+    "signature": "MbUHDN8Nf55CA7LY0WtHtoAm9mFPPLFzGjbe/4KCDiqXqPrSMS6jEktA4yM6j9Q0R2sOdkY9YaF31RUAQx2pDA=="
   }
 }

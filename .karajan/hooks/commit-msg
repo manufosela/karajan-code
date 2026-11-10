@@ -20,7 +20,7 @@ case "$kj_ignored:$kj_conv" in
   yes:*|no:free|no:project) ;;
   *)
     # The scope is anything but a closing parenthesis, as in commitlint's parser.
-    if ! printf '%s' "$header" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]*\))?!?: .+'; then
+    if ! printf '%s' "$header" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?: [^ 	]'; then
       kj_refuse header 'kj harden: commit header must follow Conventional Commits (type: subject)'
     fi
     # config-conventional subject-case (sentence/start/pascal/upper all start uppercase) and
@@ -46,6 +46,9 @@ if [ "$kj_ignored" = no ] && [ -n "$kj_long" ] && [ -n "$(printf '%s\n' "$kj_lon
 fi
 if [ -x node_modules/.bin/commitlint ]; then
   node_modules/.bin/commitlint --edit "$msg_file" || { kj_trace refuse commitlint; exit 1; }
+elif [ "$kj_conv" = project ]; then
+  # HU-3729: the project's commitlint owns the header check and it is not installed here: say so, never block.
+  echo 'kj harden: commitlint header check skipped: commitlint not found (run npm install); CI will still check the header' >&2
 fi
 if grep -qiE 'co-authored-by:.*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)|(generated|written|authored|assisted|powered|created|made) (by|with|using) .*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)' "$msg_file"; then
   kj_refuse attribution 'kj harden: AI attribution is not allowed in commit messages'
