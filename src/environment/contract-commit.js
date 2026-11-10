@@ -24,6 +24,8 @@ export const CONTRACT_PATHS = [
   "CLAUDE.md",
   "AGENTS.md",
   "GEMINI.md",
+  // KJC-TSK-1504: names AGENTS.md as the rules file Gemini CLI reads.
+  ".gemini/settings.json",
   // KJC-TSK-0879: in a Rulesync repo kj's rules live in .rulesync/rules/karajan.md.
   ".rulesync/",
   // KJC-BUG-0289 (#1984): the governance the whole team inherits (ADR 0016, KJC-BUG-0269).

@@ -170,6 +170,13 @@ describe("hardenCommand", () => {
     expect(existsSync(join(repo, ".karajan", "hooks", "commit-msg"))).toBe(true);
   });
 
+  // KJC-TSK-1504: Gemini CLI reads GEMINI.md unless its settings name AGENTS.md.
+  it("names AGENTS.md in .gemini/settings.json with the guidelines", async () => {
+    const res = await hardenCommand({ projectDir: repo, profile: "standard", ci: false, logger });
+    expect(res.guidelines).toContainEqual({ file: ".gemini/settings.json", action: "inserted" });
+    expect(JSON.parse(readFileSync(join(repo, ".gemini", "settings.json"), "utf8")).context.fileName).toEqual(["AGENTS.md"]);
+  });
+
   // KJC-TSK-1241: inside the sandbox kj run cannot push, open the PR or reach
   // Sonar, and the Sentinel guards the harness without it. So it is opt-in.
   it("leaves the host sandbox alone unless asked (KJC-TSK-1241)", async () => {
