@@ -38,7 +38,7 @@ elif [ ! -f .karajan/identity.local.yml ] && command -v kj >/dev/null 2>&1; then
   echo 'kj harden: no identity declared for this clone — run kj identity set (advisory)'
 fi
 # Run the test suite before pushing.
-# (no test command detected for this stack)
+# Tests run in CI on each PR, not on push.
 # Chain the repo's own hook in .git/hooks, looked up when the hook runs (KJC-BUG-0509, HU-2762).
 kj_repo="$(git rev-parse --git-common-dir 2>/dev/null || true)/hooks"
 if [ -n "$kj_repo" ] && [ -x "$kj_repo/pre-push" ] && [ "$(cd "$kj_repo" 2>/dev/null && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then

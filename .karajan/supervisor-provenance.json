@@ -1,13 +1,15 @@
 {
-  "kj_version": "5.15.0",
-  "generated_at": "2026-11-10T15:59:31.586Z",
+  "kj_version": "5.16.0",
+  "generated_at": "2026-11-10T20:51:12.855Z",
   "generation": {
     "profile": "standard",
     "cmds": {
       "lint": "npm run -s lint",
-      "format": "npm run -s format:check"
+      "format": "npm run -s format:check",
+      "testSkippedByCi": true
     },
-    "baseBranch": "main"
+    "baseBranch": "main",
+    "commitConvention": "project"
   },
   "who": {
     "gh": "manufosela",
@@ -50,7 +52,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "3f0931381dcaf4e2352401ae06be1bb6c075878ec6f7cf062f0dd2c9dc3e22d5"
+      "sha256": "44a6bdb7e9979d6422325efb8462742f17683743c279bac4f8e0c9180f859a44"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -98,7 +100,7 @@
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "e740e2d05d40fe5ae7a776c4ae94979f602dd091ac4b5fc29ec2f43d8d7365e5"
+      "sha256": "3d6038a5a391a010584b5d412ca48318937eaf99092667206b46cd05ab3a77ba"
     },
     {
       "file": ".karajan/hooks/post-merge",
@@ -110,7 +112,7 @@
     },
     {
       "file": ".karajan/hooks/pre-push",
-      "sha256": "71109259e9d19cb64ebaf8725154bdcf45fc0ba5fad3784193a82fe430224941"
+      "sha256": "52a79e38c0d817aa14d6928f4800c86933e9be72f408b7cbf4a53b4585eaa4c5"
     },
     {
       "file": ".karajan/hooks/prepare-commit-msg",
@@ -174,15 +176,15 @@
     }
   ],
   "signature": {
-    "cid": "1459029f1b5a46b68a468dd4b3203c92",
-    "nonce": "8002b36820d55d2ea597fc7234260334",
+    "cid": "a7540e035631a489b494409d8921da98",
+    "nonce": "fb66b4c0a80ced31926f5810b2b1c95d",
     "project": "manufosela/karajan-code",
-    "filesHash": "3c6437e91d59b73558e937e660bc66a68b3d1fea8d9dd823c4bceea8e657efb1",
+    "filesHash": "136b2c3ffea26b2ee6f8365514ece58940497ef482e88b9ca597d6557434d51f",
     "v": 2,
-    "kjVersion": "5.15.0",
-    "issuedMs": 1794326365759,
-    "expiresMs": 1794326515759,
+    "kjVersion": "5.16.0",
+    "issuedMs": 1794343867130,
+    "expiresMs": 1794344017130,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "MbUHDN8Nf55CA7LY0WtHtoAm9mFPPLFzGjbe/4KCDiqXqPrSMS6jEktA4yM6j9Q0R2sOdkY9YaF31RUAQx2pDA=="
+    "signature": "EgRoURp2Xm3YqdTMKoLjBw2FUnGAEurp03iWtkOjQy2+D6XZTxWCKTyM2x6AMmdG6+YJhDy9NW+JZ+MLjZLdDg=="
   }
 }

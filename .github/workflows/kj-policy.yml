@@ -29,7 +29,7 @@ jobs:
             KJ="node $JUDGE/bin/kj.js"
           else
             mkdir -p "$JUDGE"
-            (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund karajan-code@5.15.0)
+            (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund karajan-code@5.16.0)
             KJ="node $JUDGE/node_modules/karajan-code/bin/kj.js"
           fi
           git worktree add --detach "$PR_TREE" origin/kj-pr-head
