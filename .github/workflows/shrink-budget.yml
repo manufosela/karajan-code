@@ -50,11 +50,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
       - name: Compute net LOC delta
         id: loc
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
 
@@ -68,80 +71,28 @@ jobs:
           # Exportado a los steps posteriores (Enforce) — el env de un run no cruza steps.
           echo "LOC_LIMIT=$LOC_LIMIT" >> "$GITHUB_ENV"
 
-          # Excluded paths: lockfiles, snapshots, build output, vendored
-          # third-party, minified bundles, generated diet baselines,
-          # binary fixtures, and *human-facing documentation* — README,
-          # CHANGELOG, the `docs/` tree, etc. (clarified 2026-05-09 —
-          # the gate exists to cap code growth, not to ration docs).
-          #
-          # IMPORTANT: AI-rule Markdown files (CLAUDE.md, AGENTS.md,
-          # templates/**/*.md including role prompts) DO count toward
-          # the budget on purpose — those files become part of the
-          # agent's context window every run, and unbounded growth
-          # there dilutes the signal the AI receives. They follow the
-          # same ≤200 LOC discipline as code.
-          excludes=(
-            # KJC-BUG-0375: lockfiles wherever they live (packages/*, apps/*), not only at the root.
-            ":(exclude)package-lock.json"
-            ":(exclude)pnpm-lock.yaml"
-            ":(exclude)yarn.lock"
-            ":(exclude)**/package-lock.json"
-            ":(exclude)**/pnpm-lock.yaml"
-            ":(exclude)**/yarn.lock"
-            ":(exclude)**/*.snap"
-            ":(exclude)**/*.snapshot"
-            ":(exclude)dist/**"
-            ":(exclude)**/dist/**"
-            ":(exclude)node_modules/**"
-            ":(exclude)**/*.min.js"
-            ":(exclude)tests/_diet/**"
-            ":(exclude)public/docs/**"
-            ":(exclude)apps/landing/public/docs/**"
-            ":(exclude)docs/*.md"
-            ":(exclude)docs/**/*.md"
-            ":(exclude)docs/*.mdx"
-            ":(exclude)docs/**/*.mdx"
-            # KJC-BUG-0205: desde MONO-3 el SOURCE de la documentacion vive en
-            # apps/landing/docs/src/**, y las reglas de arriba, ancladas en la
-            # raiz, dejaron de cazarlo: documentar empezo a costar presupuesto,
-            # que es como una release acaba entregando lo que nadie encuentra
-            # (KJC-TSK-0871). Los ficheros de reglas para la IA (CLAUDE.md,
-            # AGENTS.md, templates/**) siguen contando a proposito.
-            ":(exclude)**/docs/**/*.md"
-            ":(exclude)**/docs/**/*.mdx"
-            ":(exclude)**/docs/**/*.txt"
-            ":(exclude)**/docs/**/*.rst"
-            ":(exclude)docs/*.txt"
-            ":(exclude)docs/**/*.txt"
-            ":(exclude)docs/*.rst"
-            ":(exclude)docs/**/*.rst"
-            ":(exclude)CHANGELOG.md"
-            ":(exclude)README.md"
-            ":(exclude)README.*.md"
-            ":(exclude)CODE_OF_CONDUCT.md"
-            ":(exclude)CONTRIBUTING.md"
-            ":(exclude)SECURITY.md"
-            ":(exclude)MIGRATION*.md"
-            ":(exclude)TODO*.md"
-          )
+          # KJC-BUG-0519: the delta is counted by kj pr-size, with kj's own budget
+          # (src/review/loc-budget.js: lockfiles, generated output and human docs
+          # out; AI-rule Markdown such as CLAUDE.md, AGENTS.md and templates/**
+          # in), not with a copy of the list here. The counter is the kj of the
+          # BASE branch, checked out apart: the PR is only the tree it measures.
+          JUDGE="$RUNNER_TEMP/kj-size"
+          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          git worktree add --detach "$JUDGE" "origin/${BASE_REF}"
+          (cd "$JUDGE" && npm ci --ignore-scripts --no-audit --no-fund)
+          node "$JUDGE/bin/kj.js" pr-size --base "$BASE_REF" --limit "$LOC_LIMIT" --json > "$RUNNER_TEMP/kj-size.json" || true
+          net=$(jq -er '.net' "$RUNNER_TEMP/kj-size.json")
 
-          stats=$(git diff --numstat "$BASE_SHA"..."$HEAD_SHA" -- . "${excludes[@]}")
-          # numstat columns: added removed path. Binary files emit '-'; skip those.
-          added=$(echo "$stats" | awk '$1 != "-" { sum += $1 } END { print sum + 0 }')
-          removed=$(echo "$stats" | awk '$2 != "-" { sum += $2 } END { print sum + 0 }')
-          net=$(( added - removed ))
-
-          echo "added=$added"     >> "$GITHUB_OUTPUT"
-          echo "removed=$removed" >> "$GITHUB_OUTPUT"
-          echo "net=$net"         >> "$GITHUB_OUTPUT"
+          echo "net=$net" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Shrink Budget — net LOC delta"
+            echo "## Shrink Budget — net LOC delta (kj pr-size)"
             echo ""
             echo "| Metric | Value |"
             echo "| --- | --- |"
-            echo "| Lines added | $added |"
-            echo "| Lines removed | $removed |"
+            echo "| Lines added | $(jq -r '.added' "$RUNNER_TEMP/kj-size.json") |"
+            echo "| In tests | $(jq -r '.testAdded' "$RUNNER_TEMP/kj-size.json") |"
+            echo "| Exempt | $(jq -r '.exempt' "$RUNNER_TEMP/kj-size.json") |"
             echo "| **Net delta** | **$net** |"
             echo "| Limit | ${LOC_LIMIT} |"
           } >> "$GITHUB_STEP_SUMMARY"

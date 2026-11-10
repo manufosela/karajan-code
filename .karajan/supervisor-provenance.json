@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.10.0",
-  "generated_at": "2026-11-09T09:41:39.806Z",
+  "kj_version": "5.13.0",
+  "generated_at": "2026-11-10T10:52:33.282Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -50,7 +50,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "4149ebf699c9b82cdf5d5589213d0bb2e6481f19509ea29e8cd6dce8c60ab90c"
+      "sha256": "50e0fc2733c6c6f130ee7cfbd7af281c68882ae41e0fc64eac63c6f94e9c9bb3"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -94,11 +94,11 @@
     },
     {
       "file": ".github/workflows/shrink-budget.yml",
-      "sha256": "4914209140ffe4cf8c40840098b11fb286e074d34db11b7cc5497985c8bdb8c8"
+      "sha256": "67a3e86c1f3c2614742712823a678bafa5c6ec4b4b7cb8bc3322958f3a736ae6"
     },
     {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "8e390301e7a6d39781edb76ef2ee691f0bf8e0888dddf42aa381a1bb843406c8"
+      "sha256": "f5cf348889a493bddb811d7b8373e3f36c280c59d21c63beeb515454c12149ef"
     },
     {
       "file": ".karajan/hooks/post-merge",
@@ -174,15 +174,15 @@
     }
   ],
   "signature": {
-    "cid": "3c204fef1c85bcfc9eb9cda12bb70e26",
-    "nonce": "e351573d480db8441a3cbfc7638e7435",
-    "project": "HU-3639-harden-5.10.0",
-    "filesHash": "72fa131d3d031a285fc011073c2f9185151274699c68f4919bcfcdc84e01580c",
+    "cid": "1a2838aa907631b94de16b1564735183",
+    "nonce": "fa6e290f318485bea3f4ca9b06867b9d",
+    "project": "manufosela/karajan-code",
+    "filesHash": "f5899f5fb157c8abce3463d5d2083851a8ea2aa69965261661426f10c9623dbc",
     "v": 2,
-    "kjVersion": "5.10.0",
-    "issuedMs": 1794217291346,
-    "expiresMs": 1794217441346,
+    "kjVersion": "5.13.0",
+    "issuedMs": 1794307910044,
+    "expiresMs": 1794308060044,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "3djJGIUtKXdW/OuktFCF9b+IYRNUL2AtZrFgxujkk4/ZV13+C1kS6xnSWQWLrSusseHkwrR4bmOLwLoAXlB8CA=="
+    "signature": "lJsSu3yiaizA4O/sR9f4WcRJKFwEsDQo0mL1eGnHENXgvB2t9s6U8IxvQckTtgl6bKPsi1XQhVEvy6BVz4ssAQ=="
   }
 }
