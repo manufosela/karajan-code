@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.15.0] - 2026-11-10
+
+kj kept the same rules in three files, CLAUDE.md, AGENTS.md and GEMINI.md, which drifted apart and paid the AI-rule line budget three times. kj now writes AGENTS.md alone: Claude Code reads it when there is no CLAUDE.md, Gemini CLI once its settings name it, and kj moves an old CLAUDE.md or GEMINI.md into it. `kj worktree start` also works again in a repo that versions its Claude settings.
+
+### Changed
+- **The agent rules live in AGENTS.md alone** (KJC-TSK-1504, #3741): `kj env install` and `kj harden` write only AGENTS.md; `--target claude`, `gemini`, `both` and `all` stay as aliases. An old CLAUDE.md or GEMINI.md has kj's blocks dropped, the paragraphs a person wrote moved into AGENTS.md and the file removed; both commands say what moved. Rulesync repos are untouched.
+
+### Added
+- **Gemini CLI reads AGENTS.md** (KJC-TSK-1504, #3743, #3757): `kj harden` adds AGENTS.md to `context.fileName` in `.gemini/settings.json`, keeping every other setting, and formats the file with the project's own Prettier when it has one.
+- **`kj doctor` says when an agent would not read AGENTS.md** (KJC-TSK-1504, #3749): a CLAUDE.md or GEMINI.md left in the project, a Claude Code older than 2.1.277, or a Gemini CLI whose settings do not name AGENTS.md, each with its fix.
+- **The review rules template carries the five review axes** (#3754, by @jorgecasar): correctness, readability, architecture, security and performance, the approval standard, and kj's own rules for gates that pass when their tool is missing, copies that must agree and weakened tests.
+
+### Fixed
+- **`kj worktree start` no longer rejects the lane it creates** (KJC-BUG-0537, #3745, reported in #3739): lane setup writes only the lane's ignored `settings.local.json` and leaves a versioned `.claude/settings.json` as the branch has it.
+- **`kj harden --exclude` drops the root from detection, and a lint step whose tool is missing is skipped** (#3693, by @jorgecasar).
+- **A corrupt `privacy.yml` fails loud** instead of reading as absent (#3737, by @jorgecasar).
+- **The commit-msg hook says when commitlint is not installed** under `commit-convention=project` (#3748, by @jorgecasar).
+- **main-guard asks GitHub once more before calling a merge a direct push** (#3752, by @jorgecasar, issue #3398).
+- **The commit hook and `kj review` check the header with one pattern** (#3738, by @jorgecasar).
+
 ## [5.14.0] - 2026-11-10
 
 A seal could be copied to another repo and still verify, two seals in one branch could never merge, and the CI size gate counted with its own list instead of kj's. A seal now names its repo, a branch carries one, and the size gate asks `kj pr-size`. A clone can also declare which gh account it uses, and several gates that read as green when they had checked nothing now fail.

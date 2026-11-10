@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.14.0: un sello atado a su repo, uno por rama, y un gate de tamaño que cuenta como kj (actual)
+### v5.15.0: un solo fichero de reglas, AGENTS.md, para todos los agentes (actual)
+
+kj escribe ahora el método y las guías del proyecto solo en AGENTS.md, en vez del mismo texto en CLAUDE.md, AGENTS.md y GEMINI.md. Claude Code lee AGENTS.md cuando el proyecto no tiene CLAUDE.md, y `kj harden` lo declara en `.gemini/settings.json` para que Gemini CLI también lo lea. Un CLAUDE.md o GEMINI.md antiguo se pasa a AGENTS.md conservando lo que escribiste a mano, y `kj doctor` te avisa cuando un agente aún no lo leería (un fichero que se quedó, o un Claude Code anterior a la 2.1.277). `kj worktree start` vuelve a funcionar en un repo que versiona los ajustes de Claude, y la plantilla de reglas de revisión trae ahora los cinco ejes de revisión.
+
+### v5.14.0: un sello atado a su repo, uno por rama, y un gate de tamaño que cuenta como kj
 
 Un sello nombra ahora su repo (`owner/repo`) y se rechaza en cualquier otro, y `kj harden --commit` rechaza una rama que ya lleva un sello sin mergear. El gate de tamaño que genera `kj harden` pregunta a `kj pr-size`, que acepta `--base` y `--limit` y falla por encima del presupuesto, en vez de llevar su propia lista de exclusiones. Un clon de una segunda cuenta de GitHub puede declarar su carpeta de configuración de gh con `kj identity set --gh-config-dir`. Y el check de privacidad del paquete y `kj privacy scan` fallan cuando no tenían nada que revisar, en vez de darlo por limpio. Ejecuta `kj harden` y sella para tener el gate de tamaño nuevo.
 
