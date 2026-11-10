@@ -27,10 +27,11 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
     fs.mkdirSync(path.join(main, ".karajan"));
     fs.writeFileSync(path.join(main, ".karajan", "identity.local.yml"), IDENTITY);
     const calls = [];
-    const install = { sentinel: (o) => { calls.push(["sentinel", o.projectDir]); return { wired: true }; }, harness: (o) => { calls.push(["harness", o.projectDir]); return { wired: true }; } };
+    const install = { sentinel: (o) => { calls.push(["sentinel", o.projectDir, o.moveShared]); return { wired: true }; }, harness: (o) => { calls.push(["harness", o.projectDir, o.moveShared]); return { wired: true }; } };
     const r = await setupLane({ mainDir: main, lanePath: lane, logger: quiet, install });
     expect(fs.readFileSync(path.join(lane, ".karajan", "identity.local.yml"), "utf8")).toBe(IDENTITY);
-    expect(calls).toEqual([["sentinel", lane], ["harness", lane]]);
+    // KJC-BUG-0537 (#3739): the lane never edits the branch's versioned settings.json.
+    expect(calls).toEqual([["sentinel", lane, false], ["harness", lane, false]]);
     expect(r).toEqual({ identity: true, config: false, wired: true });
   });
 

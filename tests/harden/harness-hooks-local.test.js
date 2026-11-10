@@ -57,6 +57,17 @@ describe("the Sentinel's wiring is personal", () => {
     expect(commandsIn("settings.local.json")).toContain(kjCommand);
   });
 
+  // KJC-BUG-0537 (#3739): a lane wires itself and never edits the branch's versioned settings.json;
+  // moving kj's hooks out of it is kj harden's, which commits the change.
+  it("with moveShared false, leaves a versioned settings.json byte for byte", () => {
+    fs.mkdirSync(path.join(dir, ".claude"));
+    const before = JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: kjCommand }] }] } });
+    fs.writeFileSync(path.join(dir, ".claude", "settings.json"), before);
+    expect(mergeClaudeHooks({ projectDir: dir, entries: HARNESS_WIRING, viaKj: false, moveShared: false }).wired).toBe(true);
+    expect(fs.readFileSync(path.join(dir, ".claude", "settings.json"), "utf8")).toBe(before);
+    expect(commandsIn("settings.local.json")).toContain(kjCommand);
+  });
+
   it("finds the wiring in either file, so a repo not yet migrated is not reported broken", () => {
     fs.mkdirSync(path.join(dir, ".claude"));
     const wired = { hooks: { PreToolUse: [{ matcher: "Write", hooks: [{ type: "command", command: kjCommand }] }, { matcher: "Bash", hooks: [{ type: "command", command: kjCommand }] }] } };

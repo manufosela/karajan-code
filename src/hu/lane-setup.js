@@ -93,7 +93,10 @@ export async function setupLane({ mainDir, lanePath, logger = console, install =
 
   step("the Sentinel wiring", () => {
     const quiet = { info: () => {}, warn: (m) => logger.warn?.(m) };
-    const results = [install.sentinel({ projectDir: lanePath, logger: quiet }), install.harness({ projectDir: lanePath, logger: quiet })];
+    // KJC-BUG-0537 (#3739): only the lane's ignored settings.local.json; the versioned settings.json
+    // is the branch's, and editing it made the start reject the lane it had just created.
+    const opts = { projectDir: lanePath, logger: quiet, moveShared: false };
+    const results = [install.sentinel(opts), install.harness(opts)];
     if (results.some((r) => !r?.wired)) throw new Error("the hooks were not wired (unreadable .claude/settings.json?)");
   });
   logger.info?.("  Sentinel: hooks wired in the lane");
