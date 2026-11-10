@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.14.0] - 2026-11-10
+
+A seal could be copied to another repo and still verify, two seals in one branch could never merge, and the CI size gate counted with its own list instead of kj's. A seal now names its repo, a branch carries one, and the size gate asks `kj pr-size`. A clone can also declare which gh account it uses, and several gates that read as green when they had checked nothing now fail.
+
+### Added
+- **A clone declares the gh config dir of its account** (KJC-BUG-0530, #3700): `kj identity set --gh-config-dir <dir>` records it in the clone's identity (it needs a `hosts.yml` there), and kj exports `GH_CONFIG_DIR` from it when the shell has none, so a repo of a second GitHub account uses that account's gh. `kj identity show` prints it.
+- **`kj pr-size --base <branch> --limit <lines>`** (KJC-TSK-1491, #3717): measures against the given base and exits 1 over the limit, naming the net lines and the limit. A limit that is not a whole number is refused.
+
+### Fixed
+- **A seal names its repo and is checked against it** (KJC-BUG-0506, #3711): the phone signature covers `owner/repo` from the origin remote, and a seal signed for another repo is rejected. Seals that name only a folder still verify until the next seal.
+- **`kj harden --commit` seals once per branch** (KJC-BUG-0507, #3714): a branch that already carries an unmerged seal is refused, with the steps to merge it and seal on a new branch from the base.
+- **The size gate counts with kj's own budget** (KJC-BUG-0519, #3720, #3734): the workflow `kj harden` generates runs `kj pr-size` with the pinned kj version, and this repo's runs the base branch's `kj pr-size`, so a PR cannot change the counter that judges it. No exclusion list is kept in the workflow any more. Run `kj harden` and seal to get it.
+- **The history check skips only host settings marked local** (KJC-BUG-0535, #3706): the local mark no longer hides other tracked files from the supervisor check.
+- **A global `base_branch` equal to the default no longer hides `origin/HEAD`** (#3697, by @jorgecasar).
+- **The MCP RAG tool resolves `better-sqlite3` and says what is missing** (#3692, by @jorgecasar).
+- **The board daemon holds the kj copy it runs from** (KJC-BUG-0534, #3696), like the MCP servers since 5.13.0.
+- **Gates that checked nothing no longer read as green** (#3733, #3732, by @jorgecasar): the pack privacy check is red when `npm pack` fails or lists no files, and `kj privacy scan` exits 2 on a path that does not exist.
+- **A third-party review has one summary** (#3726, by @jorgecasar): built from the reconciled findings, not one line per batch; each batch's notes stay apart in `batches[]`.
+- **A board test no longer stops the user's real HU board** (KJC-BUG-0536, #3724).
+
+### Infrastructure
+- `kj stage`: agents open a laptop and type, the conductor waves its baton when the method acts, a factory's workshops stand in rows and columns, and bench notes show the whole task id (#3701, #3703, #3709, #3713, #3715, #3722).
+
 ## [5.13.0] - 2026-11-09
 
 Merged lanes piled up by the hundreds because nothing retired them after a merge, and the stable install kj runs from was rewritten under MCP servers still using it. Merged lanes and branches are now cleaned up, the MCP servers record which install they run from, and `kj harden` warns a public repo before GitHub stops running `pull_request_target` on 2 December.
