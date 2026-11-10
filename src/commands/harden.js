@@ -84,6 +84,20 @@ export async function resolveCmds(projectDir, language, scope = {}) {
 const DEFAULT_BASE_BRANCH = "main";
 
 /**
+ * KJC-BUG-0538 (#3763): the commit convention kj resolves for the project (its kj config and
+ * history), written into commit-msg so the hook keeps it when kj is not on the PATH.
+ */
+export async function resolveCommitConvention(projectDir, load = loadConfig) {
+  let config = null;
+  try {
+    config = (await load(projectDir))?.config ?? null;
+  } catch {
+    /* no kj config: the convention comes from the project's own signals */
+  }
+  return commitConventionOf({ config, projectDir });
+}
+
+/**
  * KJC-BUG-0233: loadConfig returns `{ config, ... }`; reading `base_branch` off
  * the result was always undefined, so the guard always protected "main".
  */
@@ -179,9 +193,10 @@ export async function hardenCommand({
   // Resolved from the project's kj config (default "main"); best-effort so
   // harden keeps working on repos that never ran kj init.
   const baseBranch = await resolveBaseBranch(projectDir, loadConfig, logger);
+  const commitConvention = await resolveCommitConvention(projectDir);
   let result;
   try {
-    result = await installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitSupervisor, sandbox, logger });
+    result = await installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention, commitSupervisor, sandbox, logger });
   } catch (err) {
     if (json) logger.info?.(JSON.stringify({ ok: false, error: err.message }));
     else logger.error?.(`kj harden: ${err.message}`);
@@ -209,8 +224,8 @@ export async function hardenCommand({
 }
 
 /** The git hooks and, from standard up, the tool gate, the Sentinel and the optional sandbox. */
-async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitSupervisor, sandbox, logger }) {
-  const result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch });
+async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention, commitSupervisor, sandbox, logger }) {
+  const result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention });
   // KJC-TSK-0710 — the TOOL gate: rules imposed at tool time (Claude Code
   // PreToolUse). Standard+ only; minimal stays hooks-lite.
   if (profile === "minimal" || dryRun) return result;

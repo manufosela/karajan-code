@@ -29,12 +29,13 @@ export function isGitRepo(projectDir) {
  * compara por hash: un fichero con una sola coma manual ya no coincide.
  */
 export function renderCanonicalHook(hook, generation = {}) {
-  const { cmds = {}, baseBranch = null } = generation;
+  // KJC-BUG-0538: a provenance sealed before commitConvention existed renders it as conventional, as it was.
+  const { cmds = {}, baseBranch = null, commitConvention = "conventional" } = generation;
   const { content } = upsertManagedBlock({
     source: HOOK_PREAMBLE,
     blockId: `hook:${hook}`,
     version: BLOCK_VERSION,
-    body: hookBody(hook, cmds, { baseBranch }),
+    body: hookBody(hook, cmds, { baseBranch, commitConvention }),
     style: "hash",
   });
   return content;
@@ -52,6 +53,7 @@ export async function installHooks({
   cmds = {},
   dryRun = false,
   baseBranch = null,
+  commitConvention = "conventional",
 } = {}) {
   if (!isGitRepo(projectDir)) throw new Error(`Not a git repository: ${projectDir}`);
   const hooks = PROFILE_HOOKS[profile];
@@ -66,7 +68,7 @@ export async function installHooks({
       source,
       blockId: `hook:${hook}`,
       version: BLOCK_VERSION,
-      body: hookBody(hook, cmds, { baseBranch }),
+      body: hookBody(hook, cmds, { baseBranch, commitConvention }),
       style: "hash",
     });
     results.push({ hook, target, action });
@@ -83,5 +85,5 @@ export async function installHooks({
 
   // KJC-BUG-0161: los parámetros con los que SE GENERÓ — lo que la
   // provenance necesita registrar para que CI pueda recomputar y comparar.
-  return { profile, hooksPath: HOOKS_DIR, dryRun, hooks: results, generation: { profile, cmds, baseBranch } };
+  return { profile, hooksPath: HOOKS_DIR, dryRun, hooks: results, generation: { profile, cmds, baseBranch, commitConvention } };
 }

@@ -180,8 +180,18 @@ function toolStep(step, cmd, failure) {
   return [`if command -v ${tool} >/dev/null 2>&1; then`, `  ${run}`, "else", `  echo 'kj harden: ${step} skipped: ${tool} not found'`, "fi"];
 }
 
-export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
+// KJC-BUG-0538 (#3763): the values `kj gates value commit-convention` can give (ADR 0045).
+const COMMIT_CONVENTIONS = new Set(["conventional", "project", "free"]);
+
+/** The convention written into commit-msg: the one kj resolved for the project, checked. */
+function bakedConvention(value) {
+  if (!COMMIT_CONVENTIONS.has(value)) throw new Error(`unknown commit-convention "${value}"`);
+  return value;
+}
+
+export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention = "conventional" } = {}) {
   const chain = hook === "pre-commit" ? chainToGlobalOnly(hook) : chainToGlobal(hook);
+  const conv = bakedConvention(commitConvention);
   switch (hook) {
     case "pre-commit": {
       const lines = [...baseBranchGuard(baseBranch), ...identityGuard("pre-commit"), "# Lint + format the working tree with the project's native tools."];
@@ -257,8 +267,9 @@ export function hookBody(hook, cmds = {}, { baseBranch = null } = {}) {
         'header=$(head -n1 "$msg_file")',
         "# KJC-TSK-1390 (ADR 0045): the project's convention (kj gates value commit-convention):",
         "# free or the project's own commitlint skip this header check; anything else keeps it.",
-        "kj_conv=conventional",
-        "if command -v kj >/dev/null 2>&1; then kj_conv=$(kj gates value commit-convention 2>/dev/null) || kj_conv=conventional; fi",
+        // KJC-BUG-0538: without kj on the PATH, the convention kj harden resolved; kj, when there, decides.
+        `kj_conv=${conv}`,
+        `if command -v kj >/dev/null 2>&1; then kj_conv=$(kj gates value commit-convention 2>/dev/null) || kj_conv=${conv}; fi`,
         "# HU-3591: what commitlint ignores is valid whole to it, length caps included. Tested on the header only.",
         "kj_ignored=no",
         String.raw`if printf '%s\n' "$header" | grep -qE '^(Merge |Revert "|(fixup|squash|amend)!)'; then kj_ignored=yes; fi`,
