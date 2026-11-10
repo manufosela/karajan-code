@@ -22,8 +22,16 @@ elif [ ! -f .karajan/identity.local.yml ] && command -v kj >/dev/null 2>&1; then
   echo 'kj harden: no identity declared for this clone — run kj identity set (advisory)'
 fi
 # Lint + format the working tree with the project's native tools.
-npm run -s lint || { echo 'kj harden: lint failed'; exit 1; }
-npm run -s format:check || { echo 'kj harden: format check failed'; exit 1; }
+if command -v npm >/dev/null 2>&1; then
+  npm run -s lint || { echo 'kj harden: lint failed'; exit 1; }
+else
+  echo 'kj harden: lint skipped: npm not found'
+fi
+if command -v npm >/dev/null 2>&1; then
+  npm run -s format:check || { echo 'kj harden: format check failed'; exit 1; }
+else
+  echo 'kj harden: format skipped: npm not found'
+fi
 # KJC-BUG-0164: attribution is surface EVERYWHERE — the staged diff's
 # ADDED lines (changelog, docs, code comments) are scanned too, with
 # the same precise pattern (tool MENTIONS stay legal; attribution not).
