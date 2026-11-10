@@ -252,7 +252,7 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
   if (withGuidelines && !dryRun) {
     maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
   }
-  return { configs: cfg?.configs ?? [], workflows: wf?.workflows ?? [], guidelines: gl?.guidelines ?? [] };
+  return { configs: cfg?.configs ?? [], workflows: wf?.workflows ?? [], guidelines: gl?.guidelines ?? [], migrated: gl?.migrated ?? [] };
 }
 
 /** KJC-TSK-1257: what was installed, file by file, in the order it always had. */
@@ -269,6 +269,8 @@ function printHardenSummary({ out, result, profile, dryRun, logger }) {
     if (w.note) logger.warn?.(`⚠ ${w.note}`);
   }
   for (const g of out.guidelines) printGuideline(g, logger);
+  // KJC-TSK-1504: an old agent file is gone; say where its words went.
+  for (const m of out.migrated ?? []) logger.info?.(`  • ${m.file}: ${dryRun ? "would move" : "moved"} into AGENTS.md (${m.moved} paragraph(s) written by hand)`);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
 }
 

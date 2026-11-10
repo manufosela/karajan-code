@@ -246,8 +246,8 @@ export function registerMeta(program, { pkgVersion }) {
   // orchestrates, Karajan installs the method it must follow.
   const env = program.command("env").description("Karajan Environment (v4) — playbook for host agents");
   env.command("install")
-    .description("Install/refresh the Karajan playbook for any host agent (CLAUDE.md, AGENTS.md, GEMINI.md)")
-    .option("--target <target>", "claude | codex | gemini | all", "all")
+    .description("Install/refresh the Karajan playbook in AGENTS.md, the one file every host agent reads")
+    .option("--target <target>", "claude | codex | gemini | all (all of them write AGENTS.md)", "all")
     .option("--no-rag", "Skip building the RAG index when the project has none (ENV-E1)")
     .option("--no-enforce", "Skip installing the git hooks + verdict gate (KJC-BUG-0133 — installing IS activating; skipping this leaves the method narratable)")
     .action(async (flags) => {

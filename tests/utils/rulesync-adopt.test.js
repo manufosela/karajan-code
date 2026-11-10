@@ -59,7 +59,7 @@ describe("offerRulesyncAdoption", () => {
     expect(ledger.entries["rules/karajan.md#guidelines"].owner).toBe("kj");
   });
 
-  it("on no, adopts nothing and kj keeps writing its rules into CLAUDE.md", async () => {
+  it("on no, adopts nothing and kj keeps writing its rules into AGENTS.md (KJC-TSK-1504)", async () => {
     installLocalBin();
     const run = vi.fn();
     const res = await offerRulesyncAdoption({ projectDir: dir, flags: {}, interactive: true, confirm: async () => false, logger: logger(), run });
@@ -68,7 +68,7 @@ describe("offerRulesyncAdoption", () => {
     expect(run).not.toHaveBeenCalled();
     expect(existsSync(join(dir, ".rulesync"))).toBe(false);
     installGuidelines({ projectDir: dir });
-    expect(readFileSync(join(dir, "CLAUDE.md"), "utf8")).toMatch(/Team rule: be kind\.[\s\S]*kj:managed:guidelines/);
+    expect(readFileSync(join(dir, "AGENTS.md"), "utf8")).toMatch(/Team rule: be kind\.[\s\S]*kj:managed:guidelines/);
   });
 
   it("without a TTY and without a flag, does not adopt and says how", async () => {
@@ -119,13 +119,13 @@ describe("offerRulesyncAdoption", () => {
     const adopt = offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run: fakeRulesync(...hooks) });
     await expect(adopt).rejects.toThrow(message);
   });
-  it("a half-done adoption is not rulesync for harden: --no-rulesync keeps CLAUDE.md", async () => {
+  it("a half-done adoption is not rulesync for harden: --no-rulesync writes AGENTS.md", async () => {
     installLocalBin();
     await expect(offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: true }, interactive: false, logger: logger(), run: fakeRulesync(boom) })).rejects.toThrow();
     writeFileSync(join(dir, "CLAUDE.md"), "# My project\n");
     expect(await offerRulesyncAdoption({ projectDir: dir, flags: { rulesync: false }, interactive: false })).toMatchObject({ reason: "declined" });
     installGuidelines({ projectDir: dir });
-    expect(readFileSync(join(dir, "CLAUDE.md"), "utf8")).toContain("kj:managed:guidelines");
+    expect(readFileSync(join(dir, "AGENTS.md"), "utf8")).toContain("kj:managed:guidelines");
   });
   it("finishing an adoption never duplicates a block karajan.md already holds", async () => {
     installLocalBin();

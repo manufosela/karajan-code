@@ -2,7 +2,7 @@
  * Karajan Environment playbook (ENV-A1, KJC-TSK-0639).
  *
  * ONE source renders the method for every host agent: a managed block in
- * CLAUDE.md (Claude Code) and AGENTS.md (Codex). The body is data here —
+ * AGENTS.md, the one file they all read (KJC-TSK-1504). The body is data here —
  * not a template file — so it never counts as a repo AI-rule file and can
  * be parameterized later (rag/gate state, backend) without forking copies.
  *
@@ -16,19 +16,12 @@ import { detectRulesync, RULESYNC_RULE, rulesyncRuleSeed, writeRulesyncBlock } f
 import { panelLine } from "./panel.js";
 import { DEFAULTS } from "../config/defaults.js";
 import { commitConventionOf, commitConventionPhrase } from "../gates/summary.js";
+import { AGENTS_FILE, migrateLegacyAgentFiles } from "./agents-md.js";
 
-// AB-A (KJC-TSK-0650): any agent can be the brain. AGENTS.md is the
-// emerging standard (Codex, Cursor and most new CLIs read it); GEMINI.md
-// covers Gemini CLI. "both" is kept as a legacy alias of claude+codex.
+// AB-A (KJC-TSK-0650): any agent can be the brain. KJC-TSK-1504: they all read
+// one file, AGENTS.md (Claude Code when there is no CLAUDE.md, Gemini CLI through
+// .gemini/settings.json), so every target writes it; the names stay as aliases.
 export const PLAYBOOK_TARGETS = ["claude", "codex", "gemini", "both", "all"];
-
-const TARGET_FILES = {
-  claude: ["CLAUDE.md"],
-  codex: ["AGENTS.md"],
-  gemini: ["GEMINI.md"],
-  both: ["CLAUDE.md", "AGENTS.md"],
-  all: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
-};
 
 // ENV-D1 (KJC-TSK-0642): the tracking invariant names the CHOSEN state
 // backend — a playbook that says "board or PG" makes the host guess.
@@ -137,7 +130,9 @@ export async function installPlaybook({ projectDir, target = "all", version = "1
   // KJC-TSK-0879: in a Rulesync repo its rule source is the only file of truth;
   // `rulesync generate` would erase a block written into the agent files.
   const rulesync = detectRulesync(projectDir);
-  for (const file of rulesync ? [RULESYNC_RULE] : TARGET_FILES[target]) {
+  // KJC-TSK-1504: what a person wrote in an old CLAUDE.md/GEMINI.md moves to AGENTS.md first.
+  const migrated = migrateLegacyAgentFiles({ projectDir, rulesync });
+  for (const file of [rulesync ? RULESYNC_RULE : AGENTS_FILE]) {
     const fullPath = path.join(projectDir, file);
     const render = (source) => upsertManagedBlock({
       source, blockId: "playbook", version, body: renderPlaybook({ stateBackend, boardName, config, commitConvention }), style: "html",
@@ -157,5 +152,5 @@ export async function installPlaybook({ projectDir, target = "all", version = "1
     }
     files.push(file);
   }
-  return { files, target };
+  return { files, target, migrated };
 }

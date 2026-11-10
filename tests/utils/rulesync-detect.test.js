@@ -50,11 +50,9 @@ describe("detectRulesync", () => {
     expect(detectRulesync(dir)).toBe(true); // atril's config is the other place that declares it
   });
 
-  it("with only atril's .rulesync, the method block lands in CLAUDE.md, AGENTS.md and GEMINI.md", async () => {
+  it("with only atril's .rulesync, the method block lands in AGENTS.md (KJC-TSK-1504)", async () => {
     await installPlaybook({ projectDir: dir, target: "all" });
-    for (const file of ["CLAUDE.md", "AGENTS.md", "GEMINI.md"]) {
-      expect(fs.readFileSync(path.join(dir, file), "utf8"), file).toMatch(/kj:managed:playbook/);
-    }
+    expect(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8")).toMatch(/kj:managed:playbook/);
     expect(fs.existsSync(path.join(dir, ".rulesync", "rules", "karajan.md"))).toBe(false);
   });
 });

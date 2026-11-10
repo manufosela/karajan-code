@@ -1,7 +1,7 @@
 /**
  * guidelines-engine — seeds AI-agent guideline files for `kj harden`
  * (KJC-TSK-0559), absorbing dev-hooks' generate_guidelines without an external
- * MCP. Writes a kj:managed block into AGENTS.md and CLAUDE.md, preserving any
+ * MCP. Writes a kj:managed block into AGENTS.md (KJC-TSK-1504), preserving any
  * content the user keeps outside the markers. Idempotent.
  */
 
@@ -11,9 +11,11 @@ import { dirname, join } from "node:path";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { detectRulesync, RULESYNC_RULE, rulesyncRuleSeed, writeRulesyncBlock } from "../utils/rulesync.js";
 import { guidelinesBody } from "./guidelines-templates.js";
+import { AGENTS_FILE, migrateLegacyAgentFiles } from "../environment/agents-md.js";
 
 const BLOCK_VERSION = 1;
-const TARGETS = ["AGENTS.md", "CLAUDE.md"];
+// KJC-TSK-1504: one file of agent rules; Claude and Gemini read AGENTS.md too.
+const TARGETS = [AGENTS_FILE];
 const DH_START = "<!-- @manufosela/dev-git-hooks:start -->";
 const DH_END = "<!-- @manufosela/dev-git-hooks:end -->";
 
@@ -64,6 +66,7 @@ export function installGuidelines({ projectDir = process.cwd(), dryRun = false, 
     const removed = shrank ? nonEmpty(raw).filter((l) => !kept.has(l) && !l.includes("kj:managed:")) : [];
     return { content, action: migrated ? "migrated" : action, ...(shrank ? { shrank: true, removed } : {}) };
   };
+  const migrated = migrateLegacyAgentFiles({ projectDir, dryRun, rulesync });
   for (const file of rulesync ? [RULESYNC_RULE] : TARGETS) {
     const target = join(projectDir, file);
     const seed = rulesync ? rulesyncRuleSeed() : "";
@@ -81,5 +84,5 @@ export function installGuidelines({ projectDir = process.cwd(), dryRun = false, 
     const { content: _content, ...summary } = res;
     results.push({ file, ...summary });
   }
-  return { dryRun, guidelines: results };
+  return { dryRun, guidelines: results, migrated };
 }

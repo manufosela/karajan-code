@@ -219,6 +219,7 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     config, // KJC-TSK-0865: the panel travels with the method
   });
   console.log(`✓ Karajan playbook installed in: ${result.files.join(", ")}`);
+  for (const m of result.migrated ?? []) console.log(`✓ ${m.file} moved into AGENTS.md (${m.moved} paragraph(s) written by hand) and removed`);
   // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
   maybeRulesyncGenerate({ projectDir, config, logger: console });
 
