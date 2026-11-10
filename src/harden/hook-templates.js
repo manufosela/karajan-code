@@ -189,6 +189,14 @@ function bakedConvention(value) {
   return value;
 }
 
+// HU-3731: with no test command the push still goes through, but the hook says
+// so. A suite dropped because CI runs it per PR (cmds.testSkippedByCi, set by
+// `kj harden`) is not a missing command, so it gets its own comment instead.
+function prePushWithoutTests(cmds) {
+  if (cmds.testSkippedByCi) return ["# Tests run in CI on each PR, not on push."];
+  return ["# No test command detected for this stack: say so, do not block the push.", "echo 'kj harden: tests skipped: no test command detected for this stack'"];
+}
+
 export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention = "conventional" } = {}) {
   const chain = hook === "pre-commit" ? chainToGlobalOnly(hook) : chainToGlobal(hook);
   const conv = bakedConvention(commitConvention);
@@ -326,7 +334,7 @@ export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention 
         "# Run the test suite before pushing.",
       ];
       if (cmds.test) lines.push(`${cmds.test} || { echo 'kj harden: tests failed'; exit 1; }`);
-      else lines.push("# (no test command detected for this stack)");
+      else lines.push(...prePushWithoutTests(cmds));
       return [...lines, ...chain].join("\n");
     }
     case "prepare-commit-msg":

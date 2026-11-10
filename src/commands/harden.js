@@ -192,6 +192,7 @@ export async function hardenCommand({
   if (top.reason) {
     logger.info?.(`kj harden: ${top.reason}`);
     cmds.test = undefined;
+    cmds.testSkippedByCi = true;
   }
   // KJC-TSK-0648: branch-first guard — the base branch only moves via PR.
   // Resolved from the project's kj config (default "main"); best-effort so
