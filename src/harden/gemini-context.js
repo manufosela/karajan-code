@@ -25,6 +25,13 @@ function readSettings(target) {
   }
 }
 
+/** Whether the project's Gemini CLI settings name AGENTS.md (what kj doctor checks). */
+export function geminiReadsAgentsFile(projectDir) {
+  const target = join(projectDir, GEMINI_SETTINGS);
+  const settings = existsSync(target) ? readSettings(target) : null;
+  return asList(settings?.context?.fileName).includes(RULES_FILE);
+}
+
 export function installGeminiContext({ projectDir, dryRun = false }) {
   const target = join(projectDir, GEMINI_SETTINGS);
   const exists = existsSync(target);

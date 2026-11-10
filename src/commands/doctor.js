@@ -43,6 +43,7 @@ import { getHardwareChecks } from "../checks/hardware.js";
 import { getOrphanChecks } from "../checks/orphans.js";
 import { getMethodChecks } from "../checks/method.js";
 import { getTaskManagerChecks } from "../checks/task-manager.js";
+import { getAgentRulesChecks } from "../checks/agent-rules.js";
 
 /**
  * Build the list of Check objects applicable to the current config.
@@ -59,7 +60,7 @@ import { getTaskManagerChecks } from "../checks/task-manager.js";
 function buildChecks(config, { projectOnly = false } = {}) {
   const projectDir = config?.projectDir || process.cwd();
   if (projectOnly) {
-    return [...getProjectChecks({ projectDir }), ...getRulesyncChecks({ projectDir })];
+    return [...getProjectChecks({ projectDir }), ...getRulesyncChecks({ projectDir }), ...getAgentRulesChecks({ projectDir })];
   }
   return [
     ...getSystemChecks(),
@@ -88,6 +89,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getQmdChecks(),
     ...getRagHooksChecks({ projectDir }),
     ...getRulesyncChecks({ projectDir }),
+    ...getAgentRulesChecks({ projectDir }),
     ...getProjectChecks({ projectDir }),
     ...getTaskManagerChecks({ projectDir }),
   ];
