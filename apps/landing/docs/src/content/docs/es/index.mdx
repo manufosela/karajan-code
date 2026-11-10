@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.13.0: carriles que se limpian tras el merge, y un aviso antes del cambio de GitHub del 2 de diciembre (actual)
+### v5.14.0: un sello atado a su repo, uno por rama, y un gate de tamaño que cuenta como kj (actual)
+
+Un sello nombra ahora su repo (`owner/repo`) y se rechaza en cualquier otro, y `kj harden --commit` rechaza una rama que ya lleva un sello sin mergear. El gate de tamaño que genera `kj harden` pregunta a `kj pr-size`, que acepta `--base` y `--limit` y falla por encima del presupuesto, en vez de llevar su propia lista de exclusiones. Un clon de una segunda cuenta de GitHub puede declarar su carpeta de configuración de gh con `kj identity set --gh-config-dir`. Y el check de privacidad del paquete y `kj privacy scan` fallan cuando no tenían nada que revisar, en vez de darlo por limpio. Ejecuta `kj harden` y sella para tener el gate de tamaño nuevo.
+
+### v5.13.0: carriles que se limpian tras el merge, y un aviso antes del cambio de GitHub del 2 de diciembre
 
 `kj worktree prune` ya retira los carriles mergeados que solo guardan ficheros de kj (antes archiva sus veredictos de review y sus decisiones de gate) y borra cada rama local que ya está en la base. El daemon del board hace ese barrido cada hora en cada uno de tus proyectos. Los servidores MCP anotan desde qué instalación de kj se ejecutan, así que el trabajo que refresca una instalación estable ya no reescribe una que está en uso. En un repo público, `kj harden` te avisa de que permitas `pull_request_target` en una política de Actions antes del 2 de diciembre de 2026, cuando GitHub deja de ejecutarlo sin ella. El workflow de calidad instala la versión mayor de Node más baja que permite `engines.node`, no la más nueva, cuyo npm puede rechazar tu lockfile.
 
