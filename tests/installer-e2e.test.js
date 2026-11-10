@@ -55,6 +55,8 @@ vi.mock("../src/checks/project-checks.js", () => ({
 }));
 // KJC-TSK-1268: the agent-token check calls GitHub; this flow test stays offline.
 vi.mock("../src/checks/agent-token.js", () => ({ getAgentTokenChecks: vi.fn(() => []) }));
+// KJC-TSK-1504: it reads the real checkout's agent files and the installed claude/gemini.
+vi.mock("../src/checks/agent-rules.js", () => ({ getAgentRulesChecks: vi.fn(() => []) }));
 
 vi.mock("node:child_process", async (orig) => {
   const real = await orig();
