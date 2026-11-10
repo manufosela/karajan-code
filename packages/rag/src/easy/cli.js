@@ -124,7 +124,7 @@ export function parseInitArgs(argv) {
     options: {
       yes: { type: 'boolean', default: false },
       force: { type: 'boolean', default: false },
-      // KJR-TSK-0162: also index, register the MCP in Claude Code and write the rule in CLAUDE.md.
+      // KJR-TSK-0162: also index, register the MCP in Claude Code and write the rule in AGENTS.md (KJR-TSK-0164).
       claude: { type: 'boolean', default: false },
     },
   });
