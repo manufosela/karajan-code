@@ -1,6 +1,6 @@
 # The seal is signed with a WebAuthn passkey instead of a key kept in the browser
 
-Status: proposed
+Status: accepted
 Date: 2026-11-11
 
 ## Context
