@@ -89,7 +89,8 @@ const freeSlot = (workers, lane) => {
 /** A new worker from a start event (or a still-open start of the last state). */
 const newWorker = (workers, ev, since) => {
   const lane = laneOf(ev);
-  const worker = { agent: ev.agent, role: ev.role, lane, id: ev.id ?? null, tool: ev.tool ?? null, kind: ev.kind ?? null, name: ev.name ?? null, since };
+  // KJC-TSK-1538: the model and effort it runs with dress its robot.
+  const worker = { agent: ev.agent, role: ev.role, lane, id: ev.id ?? null, tool: ev.tool ?? null, kind: ev.kind ?? null, name: ev.name ?? null, model: ev.model ?? null, effort: ev.effort ?? null, since };
   return ev.role === 'subagent' ? { ...worker, slot: freeSlot(workers, lane) } : worker;
 };
 
@@ -97,8 +98,10 @@ const newWorker = (workers, ev, since) => {
 export function withActivity(workers, event, now) {
   if (event?.type !== 'agent-activity' || event.role === PIECE_ROLE) return workers;
   if (event.phase === 'start') {
-    // A start of someone already at work is its beat: it only says which tool it uses now.
-    if (workers.some((w) => inside(w, event))) return workers.map((w) => (inside(w, event) && event.tool ? { ...w, tool: event.tool } : w));
+    // A start of someone already at work is its beat: it says which tool it uses now, and
+    // KJC-TSK-1538: the model it answers with, which the host may switch mid-session.
+    const beat = (w) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}) });
+    if (workers.some((w) => inside(w, event))) return workers.map((w) => (inside(w, event) ? beat(w) : w));
     return [...workers, newWorker(workers, event, now)];
   }
   return workers.map((w) => (inside(w, event) ? { ...w, leftAt: now } : w));

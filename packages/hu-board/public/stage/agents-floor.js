@@ -7,6 +7,7 @@ import { createRobot } from './cast/robot.js';
 import { SCALE } from './layout.js';
 import { tagAt } from './screen.js';
 import { createLaptop } from './laptop.js';
+import { dress } from './attire.js';
 import { accentOf, codeScrollAt, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -103,6 +104,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin }, lanes, no
         robot.root.rotation.y = pose.yaw;
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);
+        dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build
         // Just above the helmet, so the label never sits on it.
         const head = robot.root.position.clone().setY(3.6 * scaleOf(worker));
         tags.push(tagAt(labelOf(worker), head, camera, { className: 'stage-worker', origin }));

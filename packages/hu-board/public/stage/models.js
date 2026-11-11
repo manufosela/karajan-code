@@ -15,6 +15,10 @@ export function modelLabel(model) {
   return version ? `${name} ${version}` : name;
 }
 
+/** KJC-TSK-1538: how wide a robot is built for each effort; an effort it does not know keeps it as it is. */
+const BUILD = { minimal: 0.78, low: 0.78, medium: 1, high: 1.25, xhigh: 1.4, max: 1.4 };
+export const buildOf = (effort) => BUILD[String(effort ?? '').toLowerCase()] ?? 1;
+
 /** "(Opus 5.5, high)", "(gpt-5)" or "" for the status list. */
 export function launchedLabel({ model, effort }) {
   const parts = [modelLabel(model), effort].filter(Boolean);
