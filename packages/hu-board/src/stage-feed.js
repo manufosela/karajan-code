@@ -68,7 +68,9 @@ export function cardEvent(raw) {
   const r = parse(raw);
   if (!r?.at || !CARD_ACTIONS.has(r.action) || typeof r.id !== 'string' || !CARD_STATUSES.has(r.status)) return null;
   const title = typeof r.title === 'string' ? r.title.slice(0, 80) : null;
-  return { type: 'card', at: r.at, action: r.action, id: r.id.slice(0, 60), title, status: r.status, queued: r.queued === true };
+  // KJC-BUG-0546: kj hu writes a lane's lines in the main checkout, naming the lane.
+  const lane = typeof r.lane === 'string' && r.lane ? { lane: r.lane.slice(0, 120) } : {};
+  return { type: 'card', at: r.at, action: r.action, id: r.id.slice(0, 60), title, status: r.status, queued: r.queued === true, ...lane };
 }
 
 /** A .karajan/reviews/<hash>.json → a review-verdict event, or null. */
@@ -191,7 +193,8 @@ export function watchLanes(projectDir, send, { project, watch = chokidarWatch, w
   const feeds = new Map();
   const follow = ({ lane, dir }) => {
     if (feeds.has(dir)) return;
-    feeds.set(dir, watchStageFeed(dir, (event) => send({ ...event, lane }), { project, watch, warn }));
+    // An event that names its own lane keeps it (KJC-BUG-0546: card lines written from a lane).
+    feeds.set(dir, watchStageFeed(dir, (event) => send({ lane, ...event }), { project, watch, warn }));
   };
   listLanes(projectDir).forEach(follow);
   const homes = LANE_HOMES.map((home) => join(projectDir, ...home));

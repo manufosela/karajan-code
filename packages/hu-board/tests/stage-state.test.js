@@ -48,6 +48,15 @@ describe('lastStageState', () => {
     ]);
   });
 
+  // KJC-BUG-0546: kj hu writes a lane's card lines in the main checkout, naming the lane.
+  it('a card line that names its lane keeps it', () => {
+    writeFileSync(kj('harness', 'cards.jsonl'), jsonl(
+      { at: '2026-11-08T10:00:00Z', action: 'move', id: 'HU-1', status: 'running' },
+      { at: '2026-11-08T10:05:00Z', action: 'move', id: 'HU-1', status: 'done', lane: 'feat-x' },
+    ));
+    expect(lastStageState(proj).cards).toEqual([{ id: 'HU-1', title: null, status: 'done', lane: 'feat-x', at: '2026-11-08T10:05:00Z' }]);
+  });
+
   it('names the agents still at work: a recent start with no end (KJC-TSK-1430)', () => {
     const now = Date.parse('2026-11-05T10:00:00Z');
     writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl(

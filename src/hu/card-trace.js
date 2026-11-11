@@ -3,7 +3,8 @@
 // the cards, so kj stage draws each factory's task board from real events only.
 // Only the card's id, a short title and where it went: never its criteria.
 import { appendFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
+import { mainCheckout } from "../utils/main-checkout.js";
 
 export const CARDS_FILE = ".karajan/traces/cards.jsonl";
 const TITLE_MAX = 80;
@@ -16,8 +17,12 @@ export function traceCard(projectDir, { action, id, title, status, queued }, war
   // A move queued without network is said as such: the card is not there yet (KJC-TSK-1457).
   const line = { at: new Date().toISOString(), action, id, ...(title ? { title: String(title).slice(0, TITLE_MAX) } : {}), status, ...(queued ? { queued: true } : {}) };
   try {
-    mkdirSync(join(projectDir, ".karajan", "traces"), { recursive: true });
-    appendFileSync(join(projectDir, CARDS_FILE), `${JSON.stringify(line)}\n`);
+    // KJC-BUG-0546: a lane is swept after its merge, its trace with it. The line goes to the
+    // main checkout, naming the lane, so a card closed in a lane is not left running.
+    const main = mainCheckout(projectDir);
+    if (resolve(main) !== resolve(projectDir)) line.lane = basename(projectDir);
+    mkdirSync(join(main, ".karajan", "traces"), { recursive: true });
+    appendFileSync(join(main, CARDS_FILE), `${JSON.stringify(line)}\n`);
   } catch (err) {
     // The trace is for the stage only: the card is already where it should be.
     warn(`⚠ card trace not written in ${projectDir} (kj stage will not show ${id} until its next move): ${err.message}`);

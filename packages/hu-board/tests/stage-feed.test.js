@@ -66,6 +66,9 @@ describe('stage events from kj records', () => {
     expect(cardEvent(JSON.stringify({ at: 't9', action: 'add', id: 'HU-1', title: 'x'.repeat(200), status: 'pending' })).title).toHaveLength(80);
     expect(cardEvent(JSON.stringify({ at: 't9', action: 'delete', id: 'HU-1', status: 'done' }))).toBeNull();
     expect(cardEvent(JSON.stringify({ at: 't9', action: 'move', id: 'HU-1', status: 'lost' }))).toBeNull();
+    // KJC-BUG-0546: a line kj hu wrote from a lane into the main checkout names the lane.
+    expect(cardEvent(JSON.stringify({ at: 't9', action: 'move', id: 'HU-1', status: 'done', lane: 'feat-x' })).lane).toBe('feat-x');
+    expect(cardEvent(JSON.stringify({ at: 't9', action: 'move', id: 'HU-1', status: 'done', lane: 7 }))).not.toHaveProperty('lane');
   });
 
   it('a malformed or shapeless record gives no event', () => {
