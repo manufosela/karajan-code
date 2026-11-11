@@ -33,6 +33,18 @@ describe("landing sign page", () => {
     expect(html).toMatch(/expired: "This request has expired/);
   });
 
+  // HU-3927 (ADR 0053): only a phone signs; there the passkey is the primary action, Ed25519 the secondary.
+  it("on a desktop shows where to sign before touching any key, and offers the passkey first", () => {
+    expect(html).toContain('import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, signMethods } from "./sign-helpers.js"');
+    expect(html).toMatch(/desktopBody: "Ábrela en el móvil: aquí no se firma"/);
+    expect(html).toMatch(/desktopBody: "Open it on your phone: signing is not done here"/);
+    const main = html.slice(html.indexOf("const main = async"));
+    expect(main.indexOf('return show("desktop")')).toBeGreaterThan(-1);
+    expect(main.indexOf('return show("desktop")')).toBeLessThan(main.indexOf("idbOp("));
+    expect(html.indexOf('id="passkey-btn"')).toBeLessThan(html.indexOf('id="sign-btn"'));
+    expect(html).toContain('if (!keys && !methods.includes("passkey")) return enrollMode(keys);'); // no flag: as on main
+  });
+
   it("carries the public firebase api key and talks only to firestore", () => {
     expect(html).toContain("AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8");
     expect(html).toContain(

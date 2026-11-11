@@ -29,11 +29,18 @@
   dt { color: var(--dim); } dd { margin: 0; font-family: ui-monospace, monospace; }
   button { width: 100%; padding: 0.9rem; border: 1px solid var(--dim); border-radius: 8px; background: var(--line); color: #fff; font-size: 1.05rem; cursor: pointer; }
   button:disabled { opacity: 0.5; }
+  button.secondary { margin-top: 0.75rem; background: transparent; font-size: 0.95rem; }
+  .url { /* HU-3927: no QR code here, so the desktop shows the URL large enough to type. */ font: 1.3rem/1.4 ui-monospace, monospace; word-break: break-all; color: #fff; }
 </style>
 </head>
 <body>
 <main>
   <section id="loading"><p data-i18n="loading">Cargando…</p></section>
+  <section id="desktop" hidden>
+    <h1 data-i18n="desktopTitle">Firma desde el móvil</h1>
+    <p data-i18n="desktopBody">Ábrela en el móvil: aquí no se firma</p>
+    <p class="url" id="page-url"></p>
+  </section>
   <section id="enroll" hidden>
     <h1 data-i18n="enrollTitle">Tu clave de supervisor</h1>
     <p data-i18n="enrollIntro">Esta es la clave pública de este teléfono. La privada no sale del navegador.</p>
@@ -55,12 +62,14 @@
     <p class="hint" id="what-you-sign"></p>
     <p class="hint warn" id="no-detail" hidden></p>
     <ul id="files"></ul>
-    <button id="sign-btn" data-i18n="sign">Firmar el sello</button>
+    <button id="passkey-btn" data-i18n="passkey" hidden>Firmar con passkey</button>
+    <button id="sign-btn" data-i18n="sign" hidden>Firmar el sello</button>
   </section>
   <section id="done" hidden><h1 data-i18n="doneTitle">Firmado.</h1><p data-i18n="doneBody">Vuelve al ordenador.</p></section>
   <section id="error" hidden><h1 data-i18n="errorTitle">No se puede continuar</h1><p id="error-text"></p></section>
 </main>
-<script>
+<script type="module">
+  import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, signMethods } from "./sign-helpers.js";
   const API_KEY = "AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8";
   const BASE = "https://firestore.googleapis.com/v1/projects/karajan-code/databases/(default)/documents/kjSupervisorSign";
   // KJC-TSK-0992 (HUM-G): the page speaks the browser's language, Spanish or
@@ -74,7 +83,9 @@
       whatYouSign: "Firmas el sha256 de cada fichero tal como se muestra abajo: eso es lo que el sello garantiza. El detalle de qué cambia lo cuenta kj para que sepas qué firmas; despliega cada fichero para ver el diff.",
       noDetail: "Esta petición no trae el detalle de los cambios (kj anterior a 4.46): firmarías estos sha256 sin ver qué cambia. Actualiza kj y genera otra petición si quieres verlo antes de firmar.",
       status: { new: "nuevo", modified: "modificado", deleted: "borrado", local: "local, solo su hash" }, lines: (a, r) => `+${a} −${r} líneas`, showDiff: "Ver el diff", cutNote: "(diff recortado por tamaño)",
-      sign: "Firmar el sello", doneTitle: "Firmado.", doneBody: "Vuelve al ordenador.", errorTitle: "No se puede continuar",
+      sign: "Firmar el sello", signKey: "Firmar con la clave de este navegador", doneTitle: "Firmado.", doneBody: "Vuelve al ordenador.", errorTitle: "No se puede continuar",
+      passkey: "Firmar con passkey", desktopTitle: "Firma desde el móvil", desktopBody: "Ábrela en el móvil: aquí no se firma",
+      noSigner: "Este navegador no admite passkeys y no guarda una clave de firma. Abre el enlace en el navegador del móvil donde firmas.",
       offline: "Sin conexión. Revisa la red y recarga la página.", gone: "Esta petición de firma no existe o ha caducado. Genera una nueva desde el ordenador con kj.",
       readFail: (s) => `No se pudo leer la petición (error ${s}). Recarga la página; si sigue, genera otra desde kj.`, notPending: "Esta petición ya está firmada o ya no admite firma. Si necesitas firmar, genera una nueva desde kj.",
       noExpiry: "La petición no trae una vigencia legible. Genera una nueva desde kj.", expired: "Esta petición ha caducado y kj ya no la espera. Vuelve a lanzarla en el ordenador y firma la nueva.", rejected: (s) => `El servidor rechazó la firma (error ${s}). La petición pudo caducar: genera una nueva desde kj.`,
@@ -88,7 +99,9 @@
       whatYouSign: "You sign the sha256 of each file exactly as shown below: that is what the seal guarantees. kj tells what changes so you know what you sign; unfold each file to see the diff.",
       noDetail: "This request carries no detail of the changes (kj before 4.46): you would sign these sha256 without seeing what changes. Update kj and make a new request if you want to see it before signing.",
       status: { new: "new", modified: "modified", deleted: "deleted", local: "local, hash only" }, lines: (a, r) => `+${a} −${r} lines`, showDiff: "Show the diff", cutNote: "(diff cut for size)",
-      sign: "Sign the seal", doneTitle: "Signed.", doneBody: "Go back to the computer.", errorTitle: "Cannot continue",
+      sign: "Sign the seal", signKey: "Sign with this browser's key", doneTitle: "Signed.", doneBody: "Go back to the computer.", errorTitle: "Cannot continue",
+      passkey: "Sign with a passkey", desktopTitle: "Sign from your phone", desktopBody: "Open it on your phone: signing is not done here",
+      noSigner: "This browser supports no passkeys and holds no signing key. Open the link in the phone browser you sign with.",
       offline: "No connection. Check the network and reload the page.", gone: "This signing request does not exist or has expired. Make a new one from the computer with kj.",
       readFail: (s) => `The request could not be read (error ${s}). Reload the page; if it persists, make another one from kj.`, notPending: "This request is already signed or no longer accepts a signature. If you need to sign, make a new one from kj.",
       noExpiry: "The request carries no readable validity. Make a new one from kj.", expired: "This request has expired and kj no longer waits for it. Run it again on the computer and sign the new one.", rejected: (s) => `The server refused the signature (error ${s}). The request may have expired: make a new one from kj.`,
@@ -147,7 +160,6 @@
       req.onerror = () => rej(req.error);
     };
   });
-  const sha256hex = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", enc(s))).toHex();
   // kj polls every 2 s: a signature in the last seconds could land after its last look.
   const SIGN_MARGIN_MS = 5000;
   const signMode = async (cid, keys) => {
@@ -157,6 +169,10 @@
     if (!res.ok) return fail(TEXT.readFail(res.status));
     const f = (await res.json()).fields ?? {};
     if (f.state?.stringValue !== "pending") return fail(TEXT.notPending);
+    const methods = signMethods({ docFields: f, hasEd25519Key: Boolean(keys), hasWebAuthn: typeof globalThis.PublicKeyCredential === "function" });
+    if (!methods.length) return fail(TEXT.noSigner);
+    // As before the passkey: a phone without its Ed25519 key enrolls one.
+    if (!keys && !methods.includes("passkey")) return enrollMode(keys);
     const nonce = f.nonce?.stringValue ?? "";
     const project = f.project?.stringValue ?? "";
     const files = (f.files?.arrayValue?.values ?? []).map((v) => ({ file: v.mapValue.fields.file.stringValue, sha256: v.mapValue.fields.sha256.stringValue }));
@@ -180,42 +196,54 @@
     if (!hasDetail) $("no-detail").textContent = TEXT.noDetail;
     for (const it of files) $("files").append(renderFile(it, changes.find((c) => c.file === it.file) ?? null));
     show("approve");
-    $("sign-btn").onclick = async () => {
+    const signWith = (btn, fieldsOf) => async () => {
       // KJC-BUG-0432: past its expiry kj has stopped waiting; saying "signed" would be false.
       if (v2 && Date.now() >= expiresMs - SIGN_MARGIN_MS) return fail(TEXT.expired);
-      $("sign-btn").disabled = true;
+      btn.disabled = true;
       try {
-        const filesHash = await sha256hex(JSON.stringify(files));
-        const payload = v2
-          ? `kj-supervisor-sign:v2:${cid}:${nonce}:${project}:${kjVersion}:${issuedMs}:${expiresMs}:${filesHash}`
-          : `kj-supervisor-sign:v1:${cid}:${nonce}:${project}:${filesHash}`;
-        const signature = b64(await crypto.subtle.sign("Ed25519", keys.privateKey, enc(payload)));
-        const publicKey = b64(await crypto.subtle.exportKey("raw", keys.publicKey));
-        const mask = ["state", "signature", "publicKey", "signedAt"].map((p) => `updateMask.fieldPaths=${p}`).join("&");
-        const body = JSON.stringify({ fields: {
-          state: { stringValue: "signed" }, signature: { stringValue: signature },
-          publicKey: { stringValue: publicKey }, signedAt: { timestampValue: new Date().toISOString() },
-        } });
-        const patch = await fetch(`${BASE}/${cid}?${mask}&key=${API_KEY}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
-        if (!patch.ok) return fail(TEXT.rejected(patch.status));
-        show("done");
-      } catch { fail(TEXT.signFail); } finally { $("sign-btn").disabled = false; }
+        const payload = await canonicalPayload({ cid, nonce, project, files, v2, kjVersion, issuedMs, expiresMs });
+        await patchDoc(cid, await fieldsOf(payload));
+      } catch { fail(TEXT.signFail); } finally { btn.disabled = false; }
     };
+    // HU-3927 (ADR 0053): when kj accepts it, the passkey is the primary action; this phone's Ed25519 key, the secondary.
+    $("passkey-btn").hidden = !methods.includes("passkey");
+    $("sign-btn").hidden = !methods.includes("ed25519");
+    if (methods[0] === "passkey") { $("sign-btn").classList.add("secondary"); $("sign-btn").textContent = TEXT.signKey; }
+    $("passkey-btn").onclick = signWith($("passkey-btn"), async (payload) => passkeyFields(
+      await navigator.credentials.get({ publicKey: passkeyRequest(await passkeyChallenge(payload)) }), new Date().toISOString()));
+    $("sign-btn").onclick = signWith($("sign-btn"), async (payload) => ({
+      state: { stringValue: "signed" },
+      signature: { stringValue: b64(await crypto.subtle.sign("Ed25519", keys.privateKey, enc(payload))) },
+      publicKey: { stringValue: b64(await crypto.subtle.exportKey("raw", keys.publicKey)) },
+      signedAt: { timestampValue: new Date().toISOString() },
+    }));
+  };
+  const patchDoc = async (cid, fields) => {
+    const mask = Object.keys(fields).map((p) => `updateMask.fieldPaths=${p}`).join("&");
+    const patch = await fetch(`${BASE}/${cid}?${mask}&key=${API_KEY}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields }) });
+    if (!patch.ok) return fail(TEXT.rejected(patch.status));
+    show("done");
   };
   const main = async () => {
+    // HU-3927 (maintainer's decision, ADR 0053): a desktop browser neither signs nor registers.
+    if (!isPhone({ userAgentData: navigator.userAgentData, userAgent: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints })) {
+      $("page-url").textContent = location.href;
+      return show("desktop");
+    }
     if (!crypto?.subtle || typeof Uint8Array.prototype.toBase64 !== "function") {
       return fail(TEXT.noCrypto);
     }
+    const cid = new URLSearchParams(location.search).get("c");
+    if (cid && !/^[0-9a-f]{32}$/.test(cid)) return fail(TEXT.badLink);
     let keys = await idbOp("readonly", (store) => store.get("v1")).catch(() => null);
-    const isNew = !keys;
-    if (isNew) {
+    return cid ? signMode(cid, keys) : enrollMode(keys);
+  };
+  const enrollMode = async (keys) => {
+    if (!keys) {
       try { keys = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]); }
       catch { return fail(TEXT.noEd25519); }
       await idbOp("readwrite", (store) => store.put(keys, "v1"));
     }
-    const cid = new URLSearchParams(location.search).get("c");
-    if (cid && !/^[0-9a-f]{32}$/.test(cid)) return fail(TEXT.badLink);
-    if (cid && !isNew) return signMode(cid, keys);
     $("pubkey").textContent = b64(await crypto.subtle.exportKey("raw", keys.publicKey));
     $("copy").onclick = async () => { await navigator.clipboard.writeText($("pubkey").textContent); $("copy").textContent = TEXT.copied; };
     show("enroll");
