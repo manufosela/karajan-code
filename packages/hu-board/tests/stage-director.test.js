@@ -12,6 +12,10 @@ describe('cueFor', () => {
     expect(cueFor({ type: 'ledger-seal', decision: 'allow' })).toMatchObject({ piece: 'ledger', tone: 'approve' });
     expect(cueFor({ type: 'ledger-seal', decision: 'deny' })).toMatchObject({ piece: 'ledger', tone: 'refuse' });
     expect(cueFor({ type: 'commit-gate', outcome: 'pass' })).toEqual({ piece: 'gates', tone: 'approve', key: 'commit-gate:pass' });
+    // KJC-TSK-1524: kj review's checks of TDD, Sonar and the Steward.
+    expect(cueFor({ type: 'method-check', piece: 'tdd', outcome: 'pass' })).toEqual({ piece: 'tdd', tone: 'approve', key: 'method-check:tdd:pass' });
+    expect(cueFor({ type: 'method-check', piece: 'steward', outcome: 'refuse' })).toMatchObject({ piece: 'steward', tone: 'refuse' });
+    expect(cueFor({ type: 'method-check', piece: 'oracle', outcome: 'pass' })).toBeNull();
     expect(cueFor({ type: 'commit-gate', outcome: 'refuse' })).toMatchObject({ piece: 'gates', tone: 'refuse' });
   });
 

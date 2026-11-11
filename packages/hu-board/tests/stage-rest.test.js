@@ -24,6 +24,23 @@ describe('restState', () => {
     ]);
   });
 
+  // KJC-TSK-1524: kj review's last check of TDD, Sonar and the Steward lights each and is told.
+  it('lights and tells the last check of TDD, Sonar and the Steward', () => {
+    let state = withEvent({}, { type: 'method-check', piece: 'tdd', outcome: 'pass', at: '2026-11-03T09:59:30Z' });
+    state = withEvent(state, { type: 'method-check', piece: 'sonar', outcome: 'refuse', at: '2026-11-03T09:59:40Z' });
+    const { lights, lines } = restState(state, NOW);
+    expect(lights).toEqual({ tdd: { gold: 1, red: 0 }, sonar: { gold: 0, red: 0.35 } });
+    expect(lines).toEqual(['TDD: passed, just now', 'SonarQube: refused, just now']);
+  });
+
+  it('opens with each check at its newest across lanes (KJC-TSK-1524)', () => {
+    const { checks } = acrossLanes([
+      { lane: 'main', checks: { tdd: { outcome: 'refuse', at: '2026-11-03T09:00:00Z' } } },
+      { lane: 'feat-x', checks: { tdd: { outcome: 'pass', at: '2026-11-03T09:30:00Z' }, steward: { outcome: 'pass', at: '2026-11-03T09:10:00Z' } } },
+    ]);
+    expect(checks).toEqual({ tdd: { outcome: 'pass', at: '2026-11-03T09:30:00Z' }, steward: { outcome: 'pass', at: '2026-11-03T09:10:00Z' } });
+  });
+
   it('an old denial no longer lights the Sentinel, but is still told', () => {
     const { lights, lines } = restState({ denial: { at: '2026-11-03T08:00:00Z', tool: 'Edit' }, verdict: null, seal: null }, NOW);
     expect(lights).toEqual({});

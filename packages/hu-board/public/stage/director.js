@@ -7,6 +7,8 @@
 export const CUE_MS = 1400;
 
 const tone = (passed) => (passed ? 'approve' : 'refuse');
+/** KJC-TSK-1524: the pieces kj review's checks move. */
+export const METHOD_PIECES = new Set(['tdd', 'sonar', 'steward']);
 
 /** The piece an event moves, and how; null for what the stage does not draw. */
 export function cueFor(event) {
@@ -19,6 +21,11 @@ export function cueFor(event) {
       return { piece: 'ledger', tone: tone(event.decision !== 'deny'), key: `ledger-seal:${event.decision}` };
     case 'commit-gate':
       return { piece: 'gates', tone: tone(event.outcome === 'pass'), key: `commit-gate:${event.outcome}` };
+    // KJC-TSK-1524: kj review checked TDD (tests with the code), Sonar or the Steward.
+    case 'method-check':
+      return METHOD_PIECES.has(event.piece)
+        ? { piece: event.piece, tone: tone(event.outcome === 'pass'), key: `method-check:${event.piece}:${event.outcome}` }
+        : null;
     default:
       return null;
   }

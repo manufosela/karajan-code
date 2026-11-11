@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { listLanes } from './lanes.js';
 import { sessionName, withSessionName } from './session-names.js';
 import { pendingMail } from './stage-mail.js';
-import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
+import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, methodEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
 import { withCard } from '../public/stage/cards.js';
 
@@ -85,6 +85,8 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
     verdict: newestVerdict(join(root, 'reviews')),
     seal: lastRecord(join(root, 'policy-decisions.jsonl'), decisionEvent, tailBytes),
     gate: lastOf(trace('commit-gate.jsonl', gateEvent)),
+    // KJC-TSK-1524: the last check kj review made of each of TDD, Sonar and the Steward.
+    checks: Object.fromEntries(trace('method.jsonl', methodEvent).map(({ piece, outcome, at }) => [piece, { outcome, at }])),
     working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now).map((w) => withSessionName(w, nameOf)),
     mail: pendingMail(projectDir),
   };

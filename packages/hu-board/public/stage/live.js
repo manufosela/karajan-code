@@ -13,7 +13,7 @@ import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
-import { pieceAt, withVisit } from './piece-visit.js';
+import { VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js';
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
 import { Vector3 } from 'three';
@@ -86,9 +86,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
     crew.conductor.pose('L', ...pose.L);
     crew.conductor.pose('R', ...pose.R);
   };
-  /** KJC-TSK-1517: AI review, the gates and the Ledger glide to the workshop they act on, and back. */
+  /** KJC-TSK-1517, 1524: each piece of the method glides to the workshop it acts on, and back. */
   const movePieces = (now) => {
-    for (const id of ['review', 'gates', 'ledger']) {
+    for (const id of Object.keys(VISIT_SPOTS)) {
       const pose = pieceAt(visits[id], now, { x: postX(id), z: POST.z }, hall.xOf, hall.zOf);
       pieces[id].group.position.set(pose.x, pose.walking ? 0.08 * Math.abs(Math.sin(now / 110)) : 0, pose.z);
       pieces[id].group.rotation.y = pose.yaw;

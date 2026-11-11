@@ -23,7 +23,10 @@ export function acrossLanes(lanes) {
   const working = lanes.flatMap((l) => (l.working ?? []).map((w) => ({ ...w, lane: l.lane })));
   // KJC-TSK-1458 (ADR 0050): one board for the factory, a card that went through lanes at its newest.
   const cards = mergeCards(lanes.map((l) => l.cards ?? []));
-  return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), working, cards, lanes };
+  // KJC-TSK-1524: each piece kj review checks at its newest check of any lane.
+  const pieces = new Set(lanes.flatMap((l) => Object.keys(l.checks ?? {})));
+  const checks = Object.fromEntries([...pieces].map((p) => [p, newest(lanes.map((l) => l.checks?.[p]))]));
+  return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), checks, working, cards, lanes };
 }
 
 /** The last real state after a live event (KJC-TSK-1399): only the piece it touches moves. */
@@ -46,6 +49,8 @@ export function withEvent(state, event) {
     case 'rag-answer': return { ...state, rag: { sources: event.sources, lane: event.lane ?? 'main', at: event.at } };
     // KJC-TSK-1522: the RAG starts or ends a reindex of a lane; kaRAGan types there meanwhile.
     case 'rag-index': return { ...state, reindex: { phase: event.phase, lane: event.lane ?? 'main', at: event.at } };
+    // KJC-TSK-1524: kj review checked TDD, Sonar or the Steward.
+    case 'method-check': return { ...state, checks: { ...state.checks, [event.piece]: { outcome: event.outcome, at: event.at } } };
     // KJC-TSK-1458 (ADR 0050): a card pinned or moved; a queued move changes nothing yet.
     case 'card': {
       const cards = withCard(state.cards ?? [], event);
@@ -79,8 +84,25 @@ function reindexLine({ phase, lane, at }, now) {
 /** What kaRAGan last answered and the reindex it is at, as far as each is known. */
 const kaRAGanLines = (rag, reindex, now) => [rag && ragLine(rag, now), reindex && reindexLine(reindex, now)].filter(Boolean);
 
-export function restState({ denial, verdict, seal, gate, rag, reindex, working = [], cards = [] }, now) {
-  const lights = {};
+// KJC-TSK-1524: kj review's checks, in the order of the pieces' row.
+const CHECKED = [['tdd', 'TDD'], ['sonar', 'SonarQube'], ['steward', 'Steward']];
+
+/** The light and the line of each piece kj review last checked. */
+function checkStates(checks = {}, now) {
+  const done = CHECKED.filter(([piece]) => checks[piece]);
+  const passed = (piece) => checks[piece].outcome === 'pass';
+  return {
+    lights: Object.fromEntries(done.map(([piece]) => [piece, passed(piece) ? PASSED : REFUSED])),
+    lines: done.map(([piece, name]) => `${name}: ${passed(piece) ? 'passed' : 'refused'}, ${ago(checks[piece].at, now)}`),
+  };
+}
+
+export function restState(state, now) {
+  const { denial, verdict, seal, gate, rag, reindex, checks } = state;
+  const working = state.working ?? [];
+  const cards = state.cards ?? [];
+  const checked = checkStates(checks, now);
+  const lights = { ...checked.lights };
   const lines = [];
   if (denial) {
     if (now - Date.parse(denial.at) < RECENT_MS) lights.sentinel = REFUSED;
@@ -99,6 +121,7 @@ export function restState({ denial, verdict, seal, gate, rag, reindex, working =
     lights.gates = gate.outcome === 'pass' ? PASSED : REFUSED;
     lines.push(gateLine(gate, now));
   }
+  lines.push(...checked.lines);
   lines.push(...kaRAGanLines(rag, reindex, now));
   const board = boardLine(cards); // KJC-TSK-1458: the factory's task board, counted
   if (board) lines.push(board);
