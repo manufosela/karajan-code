@@ -61,6 +61,14 @@ describe('pieceAt', () => {
     expect(at(visits, 'review', turn)).toMatchObject({ x: before.x, z: before.z });
   });
 
+  // KJC-TSK-1524: kj review's checks of TDD, Sonar and the Steward send them too.
+  it('sends TDD, Sonar or the Steward when kj review checks them', () => {
+    const visits = withVisit({}, { type: 'method-check', piece: 'sonar', outcome: 'refuse', lane: 'a' }, 0);
+    expect(visits.sonar.lane).toBe('a');
+    expect(at(visits, 'sonar', PIECE_WALK_MS + 10)).toMatchObject({ ...spotIn('sonar', 'a'), walking: false });
+    expect(withVisit({}, { type: 'method-check', piece: 'oracle', lane: 'a' }, 0)).toEqual({});
+  });
+
   it('puts each piece on a spot of its own, clear of the host, kaRAGan and the Sentinel', () => {
     const others = [{ dx: -1.3, dz: -0.4 }, { dx: -1.3, dz: -1.2 }, { dx: -2.1, dz: -0.4 }];
     const spots = Object.values(VISIT_SPOTS);

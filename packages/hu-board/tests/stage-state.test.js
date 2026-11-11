@@ -31,7 +31,7 @@ afterEach(() => {
 
 describe('lastStageState', () => {
   it('is all null in a project without records', () => {
-    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, working: [], cards: [], mail: 0 });
+    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0 });
   });
 
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card, in its lane.
@@ -46,6 +46,16 @@ describe('lastStageState', () => {
       { id: 'HU-2', title: 'Logout', status: 'pending', lane: 'feat-x', at: '2026-11-08T10:01:00Z' },
       { id: 'HU-1', title: 'Login', status: 'running', lane: 'feat-x', at: '2026-11-08T10:02:00Z' },
     ]);
+  });
+
+  // KJC-TSK-1524: the stage opens with kj review's last check of each piece.
+  it('keeps the last check of each of TDD, Sonar and the Steward', () => {
+    writeFileSync(kj('harness', 'method.jsonl'), jsonl(
+      { at: '2026-11-08T10:00:00Z', piece: 'tdd', outcome: 'refuse' },
+      { at: '2026-11-08T10:01:00Z', piece: 'sonar', outcome: 'pass' },
+      { at: '2026-11-08T10:02:00Z', piece: 'tdd', outcome: 'pass' },
+    ));
+    expect(lastStageState(proj).checks).toEqual({ tdd: { outcome: 'pass', at: '2026-11-08T10:02:00Z' }, sonar: { outcome: 'pass', at: '2026-11-08T10:01:00Z' } });
   });
 
   // KJC-BUG-0546: kj hu writes a lane's card lines in the main checkout, naming the lane.
@@ -137,7 +147,7 @@ describe('GET /api/stage/state', () => {
     const { default: apiRoutes } = await import('../src/routes/api.js');
     const app = express().use('/api', apiRoutes);
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
-    const empty = { denial: null, verdict: null, seal: null, gate: null, working: [], cards: [], mail: 0 };
+    const empty = { denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0 };
     expect(ok.body).toEqual({ ...empty, lanes: [{ lane: 'main', ...empty }] });
     await request(app).get('/api/stage/state?project=nowhere').expect(400);
     await request(app).get('/api/stage/state').expect(400);

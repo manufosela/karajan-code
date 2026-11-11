@@ -3,16 +3,23 @@
 // the Ledger from its post to the workshop of its lane; it stays a while and goes
 // back. Pure: live.js moves the pieces with what this says.
 import { WORKSHOP } from './layout.js';
+import { METHOD_PIECES } from './director.js';
 
 /** How long a piece glides each way, and how long it stays at the workshop. */
 export const PIECE_WALK_MS = 1800;
 export const VISIT_MS = 2400;
 const PIECE_OF = { 'review-verdict': 'review', 'commit-gate': 'gates', 'ledger-seal': 'ledger' };
+// KJC-TSK-1524: kj review's checks name their piece.
+const pieceOf = (event) => (event?.type === 'method-check' && METHOD_PIECES.has(event.piece) ? event.piece : PIECE_OF[event?.type]);
 /**
  * Where each piece stands in a workshop, from its centre: in a row behind the bench, a piece
- * width apart, the gates behind their bar at the back corner and the Ledger behind kaRAGan.
+ * width apart, the gates behind their bar at the back corner and the Ledger behind kaRAGan;
+ * KJC-TSK-1524: TDD, Sonar and the Steward in a second row behind them.
  */
-export const VISIT_SPOTS = { review: { dx: -0.2, dz: -2.1 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 } };
+export const VISIT_SPOTS = {
+  review: { dx: -0.2, dz: -2.1 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 },
+  tdd: { dx: -1.2, dz: -3.1 }, sonar: { dx: 0.2, dz: -3.1 }, steward: { dx: 1.6, dz: -3.1 },
+};
 
 const lerp = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, z: a.z + (b.z - a.z) * k });
 const facing = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
@@ -23,7 +30,7 @@ const spotOf = (visit, xOf, zOf) => {
 
 /** The visits after an event at `now`, by piece: a piece already in that lane's workshop stays longer. */
 export function withVisit(visits, event, now) {
-  const piece = PIECE_OF[event?.type];
+  const piece = pieceOf(event);
   if (!piece) return visits;
   const lane = event.lane ?? 'main';
   const old = visits[piece];
