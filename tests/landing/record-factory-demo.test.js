@@ -61,6 +61,18 @@ describe("recordDemo", () => {
   });
 });
 
+describe("recordDemo of a card that never ran", () => {
+  it("starts the window when the card was added", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kj-demo-"));
+    mkdirSync(join(dir, ".karajan", "traces"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "traces", "cards.jsonl"), jsonl([
+      { at: "2026-11-11T10:00:00Z", action: "add", id: "HU-2", title: "straight to done", status: "pending", lane: "main" },
+      { at: "2026-11-11T10:30:00Z", action: "move", id: "HU-2", status: "done", lane: "main" },
+    ]));
+    expect(recordDemo({ projectDir: dir, task: "HU-2", lanes: ["main"] })).toMatchObject({ from: "2026-11-11T10:00:00Z", to: "2026-11-11T10:30:00Z" });
+  });
+});
+
 describe("sanitizeWhy", () => {
   it("drops absolute paths and refuses an email", () => {
     expect(sanitizeWhy("no write to /tmp/a/b.js here")).toBe("no write to … here");

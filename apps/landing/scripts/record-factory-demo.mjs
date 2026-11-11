@@ -16,7 +16,7 @@ const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 /** A denial's reason without absolute paths; an email in it stops the recording. */
 export function sanitizeWhy(why) {
   if (EMAIL.test(why ?? '')) throw new Error('record-factory-demo: a denial names an email; the demo is not recorded');
-  return String(why ?? '').replace(PATH, '…');
+  return String(why ?? '').replaceAll(PATH, '…');
 }
 
 const read = (file) => { try { return readFileSync(file, 'utf8'); } catch { return null; } };
@@ -45,7 +45,8 @@ function stateAt(lane, before) {
 function sanitizer() {
   const ids = new Map();
   return (e) => {
-    const { name: _name, ...rest } = e;
+    const rest = { ...e };
+    delete rest.name;
     if (rest.type === 'agent-activity' && rest.id) rest.id = ids.get(rest.id) ?? ids.set(rest.id, `session-${ids.size + 1}`).get(rest.id);
     if (rest.why !== undefined) rest.why = sanitizeWhy(rest.why);
     return rest;
@@ -57,9 +58,10 @@ export function recordDemo({ projectDir, task, lanes }) {
     .filter((e) => e.type !== 'card' || lanes.includes(e.lane))
     .toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const own = all.filter((e) => e.type === 'card' && e.id === task);
-  const from = own.find((e) => e.status === 'running')?.at;
+  // A card can go straight from pending to done: then the task starts when it was added.
+  const from = (own.find((e) => e.status === 'running') ?? own.find((e) => e.action === 'add'))?.at;
   const to = own.findLast((e) => e.status === 'done')?.at;
-  if (!from || !to) throw new Error(`record-factory-demo: ${task} never went from running to done in these lanes`);
+  if (!from || !to) throw new Error(`record-factory-demo: ${task} was never added and done in these lanes`);
   const clean = sanitizer();
   const before = all.filter((e) => e.at < from).map(clean);
   return {
