@@ -14,6 +14,8 @@ export const PLINTH_WIDTH = 1;
 export const SCALE = { piece: 1, crew: 0.5, stand: 0.8 };
 /** KJC-TSK-1459 (ADR 0050): the task board wall, behind the posts, right of the Sentinel's tower. */
 export const WALL = { x: 3.6, y: 0.3, z: -6.4, width: 3.4, height: 2.1 };
+/** KJC-TSK-1526: the "Ready to release" table, right of the wall, past kaWATCHan. */
+export const RELEASE_TABLE = { x: 7.4, z: -5.4, yaw: -0.5 };
 /** Where kj sends its agents in from: the back of the hall, behind the posts. */
 export const DOOR = { x: 0, z: -7.5 };
 

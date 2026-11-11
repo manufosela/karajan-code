@@ -26,7 +26,9 @@ export function acrossLanes(lanes) {
   // KJC-TSK-1524: each piece kj review checks at its newest check of any lane.
   const pieces = new Set(lanes.flatMap((l) => Object.keys(l.checks ?? {})));
   const checks = Object.fromEntries([...pieces].map((p) => [p, newest(lanes.map((l) => l.checks?.[p]))]));
-  return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), checks, working, cards, lanes };
+  // KJC-TSK-1525: the last release, which only the main checkout's state carries.
+  const release = pick('release');
+  return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), checks, release, working, cards, lanes };
 }
 
 /** The last real state after a live event (KJC-TSK-1399): only the piece it touches moves. */
@@ -88,7 +90,8 @@ const kaRAGanLines = (rag, reindex, now) => [rag && ragLine(rag, now), reindex &
 const CHECKED = [['tdd', 'TDD'], ['sonar', 'SonarQube'], ['steward', 'Steward']];
 
 /** The light and the line of each piece kj review last checked. */
-function checkStates(checks = {}, now) {
+function checkStates(given, now) {
+  const checks = given ?? {};
   const done = CHECKED.filter(([piece]) => checks[piece]);
   const passed = (piece) => checks[piece].outcome === 'pass';
   return {
@@ -121,8 +124,7 @@ export function restState(state, now) {
     lights.gates = gate.outcome === 'pass' ? PASSED : REFUSED;
     lines.push(gateLine(gate, now));
   }
-  lines.push(...checked.lines);
-  lines.push(...kaRAGanLines(rag, reindex, now));
+  lines.push(...checked.lines, ...kaRAGanLines(rag, reindex, now));
   const board = boardLine(cards); // KJC-TSK-1458: the factory's task board, counted
   if (board) lines.push(board);
   // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
