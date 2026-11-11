@@ -9,6 +9,7 @@ import { PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { identityCommand } from "../commands/identity.js";
 import { securityCommand } from "../commands/security.js";
 import { handoffCommand } from "../commands/handoff.js";
+import { linkCommand } from "../commands/link.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
 import { stewardSweepCommand, stewardBenchCommand } from "../commands/steward.js";
@@ -194,6 +195,18 @@ export function registerMeta(program, { pkgVersion }) {
     .argument("<id>", "handoff id (8 hex)").action((id, flags) => handoff("done", { ...flags, id }));
   handoffCmd.command("watch").description("Your task window: the pending handoffs, then each new one as it lands, with date and why (Ctrl+C to leave)")
     .action((flags) => handoff("watch", flags));
+
+  // HU-3804 (ADR 0043): agents of different people talk through the board's message adapter. Pull only.
+  const linkCmd = program.command("link").description("Agent link: send a message to a thread, or read what arrived (on demand, never pushed)");
+  const link = (action, flags) => withConfig(pkgVersion, `link-${action}`, flags, async ({ config }) => { process.exitCode = await linkCommand({ action, config, flags }); });
+  linkCmd.command("send").description("Post a message to issue:<n> or pr:<n>; a post holding private data is refused")
+    .argument("<thread>", "issue:<n> or pr:<n>").requiredOption("--type <type>", "message type (status, blocker, decision_needed, ...)")
+    .requiredOption("--to <user|all>", "who it is for").requiredOption("--text <conclusion>", "the one-line conclusion")
+    .option("--reply-to <id>", "id of the message answered").option("--context <ref>", "card or PR the message is about")
+    .action((thread, flags) => link("send", { ...flags, thread }));
+  linkCmd.command("inbox").description("What arrived: each message inside an untrusted wrapper; the cursor moves only with --mark-read")
+    .requiredOption("--thread <thread>", "issue:<n> or pr:<n>").option("--json", "Output structured JSON")
+    .option("--mark-read", "Advance the cursor past what was printed").action((flags) => link("inbox", flags));
 
   // KJC-TSK-0986 (HUM-F): the invitation to enroll the phone, once per version.
   identityCmd
