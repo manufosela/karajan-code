@@ -13,13 +13,13 @@ import path from "node:path";
 import {
   VERDICTS, resolveFreshness, evaluateMainCi, evaluateSecurityAudit,
   evaluateVulnAging, evaluateDeadCodeTrend, evaluateCoverageConfig,
-  evaluatePhantomCoverage, runInvariants,
+  evaluatePhantomCoverage, evaluateDuplicateMembers, runInvariants,
 } from "../steward/invariants.js";
 import { loadPreviousAudit } from "../audit/basal-cost.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { syncProposedWork } from "../steward/proposed-work.js";
-import { sweepPhantoms } from "../steward/phantom-sweep.js";
+import { sweepPhantoms, sweepDuplicateMembers } from "../steward/phantom-sweep.js";
 import { benchDetector } from "../steward/history-bench.js";
 import { probeEmbedderLoad, evaluateEmbedderLoad } from "../checks/embedder-load.js";
 
@@ -75,6 +75,9 @@ function phantomSweep(projectDir, probes) {
   try { return sweepPhantoms({ projectDir }); } catch (err) { return { reason: `the phantom sweep failed (${err.message})` }; }
 }
 
+/** Classes that define one member twice; a throw becomes UNKNOWN in runInvariants, never clean. */
+const duplicateMembersSweep = (projectDir, probes) => probes.duplicateMembers ?? sweepDuplicateMembers({ projectDir });
+
 export async function stewardSweepCommand({ flags = {}, config = {}, logger = console, probes = {} } = {}) {
   const projectDir = config.projectDir || process.cwd();
   const baseBranch = config.base_branch || "main";
@@ -99,6 +102,7 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
     { id: "dead-code-trend", renew: "kj audit (knip inventory)", evaluate: () => evaluateDeadCodeTrend({ current: deadNow, previous: prevReport?.deadCodeBaseline ?? null }) },
     { id: "coverage-config", renew: "configure a coverage threshold", evaluate: () => evaluateCoverageConfig({ projectDir }) },
     { id: "phantom-coverage", renew: "kj steward sweep (runs the phantom detectors)", evaluate: () => evaluatePhantomCoverage(phantomSweep(projectDir, probes)) },
+    { id: "duplicate-members", renew: "kj steward sweep", evaluate: () => evaluateDuplicateMembers(duplicateMembersSweep(projectDir, probes)) },
     { id: "embedder-load", renew: "kj doctor (embedder-load)", evaluate: () => evaluateEmbedderLoad(embedder) },
   ];
   const results = runInvariants(invariants, {}).map((r, i) => ({ ...r, renew: invariants[i].renew }));

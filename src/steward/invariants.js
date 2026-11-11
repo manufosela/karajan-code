@@ -186,6 +186,27 @@ export function evaluatePhantomCoverage({ phantoms, reason } = {}) {
   }
   return { verdict: VERDICTS.OK, evidence: "no phantom tests in the detectors' output", remedy: null };
 }
+/** KJC-TSK-1515 — duplicate class members: JS keeps the LAST definition, the
+ * first silently stops running. `results` = per-file output of findDuplicateMembers. */
+export function evaluateDuplicateMembers({ results } = {}) {
+  const remedy = "remove or rename the duplicate; the last definition silently wins";
+  const unparsed = (results ?? []).filter((r) => r.observable === false).map((r) => r.file);
+  const analysed = (results ?? []).filter((r) => r.observable !== false);
+  const found = analysed.flatMap((r) => r.duplicates.map((d) => ({ file: r.file, ...d })));
+  const note = unparsed.length > 0 ? ` (could not parse: ${unparsed.join(", ")})` : "";
+  if (found.length > 0) {
+    const shown = found.slice(0, 3).map((d) => `${d.file}:${d.lines.join("/")} ${d.class}.${d.member}`).join("; ");
+    return { verdict: VERDICTS.BROKEN, evidence: `${found.length} duplicate member(s): ${shown}${found.length > 3 ? "; …" : ""}${note}`, remedy };
+  }
+  if (analysed.length === 0) {
+    return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: `no source file could be analysed${note}`, remedy: "run the sweep in a git repository with JS/TS sources" };
+  }
+  // A sweep with files it could not read is incomplete: never reported clean.
+  if (unparsed.length > 0) {
+    return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: `${analysed.length} file(s) analysed without duplicates, but ${unparsed.length} could not be parsed${note}`, remedy: "fix or exclude the files that do not parse" };
+  }
+  return { verdict: VERDICTS.OK, evidence: `${analysed.length} file(s) analysed, no class defines a member twice${note}`, remedy: null };
+}
 /**
  * Run a list of invariants. A child whose `dependsOn` parent came out
  * not-observable INHERITS it — an invariant built on an unobserved one must

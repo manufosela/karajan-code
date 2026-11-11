@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { analyzeMemberReachability } from "../audit/member-reachability.js";
+import { findDuplicateMembers } from "../audit/duplicate-members.js";
 import { detectPhantomUnit, detectPhantomE2E } from "./phantom-coverage.js";
 import { listProjectFiles } from "../rag/indexable.js";
 
@@ -27,6 +28,22 @@ function importedCandidates(test, text, candidates) {
 }
 
 const defaultRead = (projectDir) => (rel) => fs.readFileSync(path.join(projectDir, rel), "utf8");
+
+/** KJC-TSK-1515 — duplicate members over the project's non-test JS/TS sources. */
+export function sweepDuplicateMembers({ projectDir, files = listProjectFiles(projectDir), read = defaultRead(projectDir) }) {
+  if (!Array.isArray(files)) return { results: [] };
+  const results = [];
+  for (const file of files.filter((x) => CODE.test(x) && !TEST.test(x))) {
+    let text;
+    try { text = read(file); } catch (err) {
+      if (err?.code === "ENOENT") continue; // listed but gone from the tree
+      results.push({ file, observable: false, reason: `could not be read (${err?.message ?? err})` });
+      continue;
+    }
+    results.push({ file, ...findDuplicateMembers(text, { file }) });
+  }
+  return { results };
+}
 
 /**
  * @param {{projectDir: string, files?: string[]|null, read?: (rel: string) => string}} opts
