@@ -36,6 +36,8 @@ describe("landing sign page", () => {
   // HU-3927 (ADR 0053): only a phone signs; there the passkey is the primary action, Ed25519 the secondary.
   it("on a desktop shows where to sign before touching any key, and offers the passkey first", () => {
     expect(html).toContain('import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, signMethods } from "./sign-helpers.js"');
+    // KJC-BUG-0556: kj opens /sign without a trailing slash, so the relative import needs the page's base.
+    expect(html).toContain('<base href="/sign/" />');
     expect(html).toMatch(/desktopBody: "Ábrela en el móvil: aquí no se firma"/);
     expect(html).toMatch(/desktopBody: "Open it on your phone: signing is not done here"/);
     const main = html.slice(html.indexOf("const main = async"));
