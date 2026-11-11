@@ -141,4 +141,18 @@ describe("pre-push identity lock", () => {
     git("-c", "core.hooksPath=/dev/null", "-c", "user.email=intruder@x.y", "commit", "-q", "-m", "feat: y");
     expect(update().stdout).toMatch(/identity lock — commit \w+ is authored\/committed as intruder@x\.y/);
   });
+
+  // KJC-BUG-0550 (#3834): the installed hook runs under set -e; a lookup that finds nothing must not end it in silence.
+  it("no credential helper for github.com and no hosts.yml: passes or refuses with a message, never a silent exit", () => {
+    const pushE = () => spawnSync("sh", ["-e", path.join(dir, ".karajan", "hooks", "pre-push")], {
+      cwd: dir, encoding: "utf8", env: { ...process.env, GH_CONFIG_DIR: ghDir, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
+    });
+    declare("manufosela", "t@t");
+    hosts("manufosela");
+    expect(pushE().status).toBe(0);
+    fs.rmSync(path.join(ghDir, "hosts.yml"));
+    const denied = pushE();
+    expect(denied.status).not.toBe(0);
+    expect(denied.stdout).toContain("gh session is none");
+  });
 });
