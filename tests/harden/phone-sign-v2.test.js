@@ -103,8 +103,11 @@ describe("the signer page signs what it shows", () => {
   it("shows project, kj version, expiry and files", () => {
     for (const id of ["project", "version", "expires", "files"]) expect(page, id).toMatch(new RegExp(`id="${id}"`));
   });
+  // HU-3927: the page builds the payload with the canonicalPayload of its helpers module.
   it("its v2 payload includes every one of them", () => {
-    const line = page.split("\n").find((l) => l.includes("kj-supervisor-sign:v2"));
+    expect(page).toMatch(/import \{[^}]*canonicalPayload[^}]*\} from "\.\/sign-helpers\.js"/);
+    const helpers = readFileSync(join(import.meta.dirname, "..", "..", "apps", "landing", "public", "sign", "sign-helpers.js"), "utf8");
+    const line = helpers.split("\n").find((l) => l.includes("kj-supervisor-sign:v2"));
     expect(line).toBeTruthy();
     for (const v of ["project", "kjVersion", "issuedMs", "expiresMs", "filesHash"]) expect(line, v).toContain(`\${${v}}`);
   });

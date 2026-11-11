@@ -39,3 +39,18 @@ it("a v2 request may expire up to 10 minutes after creation, and is signed until
   const update = rules.slice(rules.indexOf("allow update:"));
   expect(update).toMatch(/request\.time < \('expires_at' in resource\.data \? resource\.data\.expires_at : resource\.data\.createdAt \+ duration\.value\(3, 'm'\)\)/);
 });
+
+// HU-3927 (ADR 0053): a passkey signature PATCHes the assertion and the credential id, as strings.
+it("the update rule admits a passkey assertion, as strings", () => {
+  const update = rules.slice(rules.indexOf("allow update:"));
+  expect(update).toContain("affectedKeys().hasOnly(['state', 'signature', 'publicKey', 'signedAt', 'authenticatorData', 'clientDataJSON', 'credentialId'])");
+  for (const key of ["authenticatorData", "clientDataJSON", "credentialId"]) {
+    expect(update).toContain(`(!('${key}' in request.resource.data) || request.resource.data.${key} is string)`);
+  }
+});
+
+// HU-3927: kj marks a request that accepts a passkey with passkey: true, a bool.
+it("the create rule admits a passkey flag, as a bool", () => {
+  expect(admitted.has("passkey")).toBe(true);
+  expect(rules).toContain("(!('passkey' in request.resource.data) || request.resource.data.passkey is bool)");
+});

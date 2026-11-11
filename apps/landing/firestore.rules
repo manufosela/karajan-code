@@ -25,7 +25,8 @@ service cloud.firestore {
       // KJC-BUG-0303: since kj 4.46 the request also carries what the page shows
       // beside the hashes (KJC-TSK-0992 changes/branch/origin, KJC-TSK-0996 why),
       // outside the signed payload; a hasOnly without them rejected every seal (403).
-      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at', 'changes', 'branch', 'origin', 'why'])
+      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at', 'changes', 'branch', 'origin', 'why', 'passkey'])
+        && (!('passkey' in request.resource.data) || request.resource.data.passkey is bool)
         && (!('changes' in request.resource.data) || request.resource.data.changes is list)
         && (!('branch' in request.resource.data) || request.resource.data.branch is string)
         && (!('origin' in request.resource.data) || request.resource.data.origin is string)
@@ -45,7 +46,11 @@ service cloud.firestore {
         && request.resource.data.createdAt < request.time + duration.value(2, 'm');
       allow update: if resource.data.state == 'pending'
         && request.resource.data.state == 'signed'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'signature', 'publicKey', 'signedAt'])
+        // HU-3927 (ADR 0053): a passkey signature carries its assertion and credential id instead of publicKey.
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'signature', 'publicKey', 'signedAt', 'authenticatorData', 'clientDataJSON', 'credentialId'])
+        && (!('authenticatorData' in request.resource.data) || request.resource.data.authenticatorData is string)
+        && (!('clientDataJSON' in request.resource.data) || request.resource.data.clientDataJSON is string)
+        && (!('credentialId' in request.resource.data) || request.resource.data.credentialId is string)
         // KJC-TSK-1535: a v2 request is signed until its own expiry; an old one keeps the 3 minutes.
         && request.time < ('expires_at' in resource.data ? resource.data.expires_at : resource.data.createdAt + duration.value(3, 'm'));
     }
