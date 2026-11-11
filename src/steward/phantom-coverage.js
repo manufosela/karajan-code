@@ -10,13 +10,13 @@
  */
 import { parse } from "@babel/parser";
 
-const parseLoose = (source, file) =>
+export const parseLoose = (source, file) =>
   parse(source, {
     sourceType: "unambiguous", allowReturnOutsideFunction: true,
     plugins: [...(/\.(ts|tsx|mts|cts)$/.test(file) ? ["typescript"] : []), ...(/\.(tsx|jsx)$/.test(file) || !/\.(ts|mts|cts)$/.test(file) ? ["jsx"] : []), "decorators"],
   });
 
-function walk(node, visit) {
+export function walk(node, visit) {
   if (!node || typeof node.type !== "string") return;
   visit(node);
   for (const key of Object.keys(node)) {
