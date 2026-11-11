@@ -92,8 +92,8 @@ const fakePhone = ({ key = privateKey, pub = rawPub, state = "signed", mangle = 
 describe("requestPhoneSignature (KJC-TSK-0822)", () => {
   let t;
   beforeEach(() => { t = 0; });
-  const request = (fetchFn, extra = {}, logger = { info: () => {} }) => requestPhoneSignature({
-    project: "karajan-code", files: FILES, kjVersion: "9.9.9", logger,
+  const request = (fetchFn, extra = {}, logger = { info: () => {} }, ttlMs) => requestPhoneSignature({
+    project: "karajan-code", files: FILES, kjVersion: "9.9.9", logger, ...(ttlMs === undefined ? {} : { ttlMs }),
     deps: { fetch: fetchFn, home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {}, ...extra },
   });
 
@@ -138,6 +138,28 @@ describe("requestPhoneSignature (KJC-TSK-0822)", () => {
     await expect(request(fakePhone({ state: "pending" }))).resolves.toEqual({ ok: false, reason: "caducado" });
     expect(t).toBeGreaterThanOrEqual(150000);
     expect(t).toBeLessThan(180000);
+  });
+
+  // HU-3912: a new phone's link travels to another signer, who needs minutes, not 150 s.
+  it("ttlMs sets expires_at in the posted v2 body, the polling deadline and the log line", async () => {
+    enrollPhone(rawPub, { home });
+    let posted = null;
+    const inner = fakePhone({ state: "pending" });
+    const fetchFn = async (url, opts = {}) => {
+      if (String(url).endsWith("/sign/relay.json")) return { ok: true, json: async () => ({ projectId: "karajan-code", apiKey: "k", collection: "c", payloadVersion: 2 }) };
+      if (opts.method === "POST") posted = JSON.parse(opts.body);
+      return inner(url, opts);
+    };
+    const infos = [];
+    await request(fetchFn, {}, { info: (m) => infos.push(m) }, 600000);
+    expect(Date.parse(posted.fields.expires_at.timestampValue) - Date.parse(posted.fields.createdAt.timestampValue)).toBe(600000);
+    expect(t).toBeGreaterThanOrEqual(600000);
+    expect(infos.some((m) => /caduca en 10 min/.test(m))).toBe(true);
+  });
+
+  it.each([0, -1, 600001, 1.5, "1000", NaN])("an invalid ttlMs (%s) throws before anything is published", async (ttlMs) => {
+    enrollPhone(rawPub, { home });
+    await expect(request(fakePhone(), {}, { info: () => {} }, ttlMs)).rejects.toThrow(/ttlMs/);
   });
 
   it("logs the waiting message once, not on every poll", async () => {

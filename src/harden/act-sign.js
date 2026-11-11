@@ -77,7 +77,9 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
   const signed = await phone.request({
     // KJC-BUG-0506: the repo, which the verifier checks; the folder only where there is no origin.
     project: sealRepoOf(projectDir) ?? basename(projectDir), files, kjVersion, changes, branch, why: explainAct(id),
-    origin: `${act.label} (kj ${kjVersion})`, logger, deps: { projectDir, home },
+    origin: `${act.label} (kj ${kjVersion})`, logger,
+    // HU-3912: the link of a new phone travels to another signer; give it 10 minutes.
+    ...(id === "phone-enroll" ? { ttlMs: 600000 } : {}), deps: { projectDir, home },
   });
   if (!signed.ok) throw new Error(`${act.label}: firma del móvil rechazada (${signed.reason}); con móvil enrolado el acto exige su firma (ADR 0018)`);
   const signature = signed.challenge && signed.signer && signed.signature ? { ...signed.challenge, signer: signed.signer, signature: signed.signature } : null;

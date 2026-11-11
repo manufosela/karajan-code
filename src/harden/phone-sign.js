@@ -194,7 +194,15 @@ const changesValue = (changes) => ({ arrayValue: { values: changes.map((c) => ({
   summary: str(c.summary), diff: str(c.diff), truncated: { booleanValue: Boolean(c.truncated) },
 } } })) } });
 
-export async function requestPhoneSignature({ project, files, kjVersion, changes = null, branch = null, origin = null, why = null, logger = console, deps = {} }) {
+export const MAX_TTL_MS = 600000;
+const validTtl = (ttlMs) => {
+  if (!Number.isInteger(ttlMs) || ttlMs <= 0 || ttlMs > MAX_TTL_MS) throw new Error(`phone-sign: ttlMs debe ser un entero entre 1 y ${MAX_TTL_MS}`);
+  return ttlMs;
+};
+const humanTtl = (ms) => (ms >= 60000 ? `${Math.round(ms / 60000)} min` : `${ms / 1000}s`);
+
+export async function requestPhoneSignature({ project, files, kjVersion, changes = null, branch = null, origin = null, why = null, ttlMs = TTL_MS, logger = console, deps = {} }) {
+  const ttl = validTtl(ttlMs);
   const fetchFn = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -204,7 +212,7 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   const relay = await relayConfig(fetchFn);
   const v = relay.payloadVersion;
   const issuedMs = now();
-  const expiresMs = issuedMs + TTL_MS;
+  const expiresMs = issuedMs + ttl;
   const body = {
     fields: {
       nonce: { stringValue: nonce },
@@ -230,7 +238,7 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   }
   const signUrl = `${SIGN_PAGE}?c=${cid}`;
   drawQr(signUrl);
-  logger.info?.(`phone-sign: escanea el QR o abre ${signUrl} y firma en el móvil (caduca en ${TTL_MS / 1000}s)`);
+  logger.info?.(`phone-sign: escanea el QR o abre ${signUrl} y firma en el móvil (caduca en ${humanTtl(ttl)})`);
   if (!isPhoneEnrolled({ home: deps.home })) logger.info?.(`phone-sign: ${PHONE_REMOTE_SIGNER}`);
   logger.info?.("phone-sign: esperando la firma del móvil…");
   const spinner = deps.spinner ?? makeSpinner();
