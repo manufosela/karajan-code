@@ -13,7 +13,7 @@ import path from "node:path";
 import {
   VERDICTS, resolveFreshness, evaluateMainCi, evaluateSecurityAudit,
   evaluateVulnAging, evaluateDeadCodeTrend, evaluateCoverageConfig,
-  evaluatePhantomCoverage, evaluateDuplicateMembers, runInvariants,
+  evaluatePhantomCoverage, evaluateDuplicateMembers, evaluateMergedUnverified, mapStatusCheckRollup, runInvariants,
 } from "../steward/invariants.js";
 import { loadPreviousAudit } from "../audit/basal-cost.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
@@ -30,6 +30,24 @@ const ghRuns = (projectDir, baseBranch) => () => {
   const out = execFileSync("gh", ["run", "list", "--branch", baseBranch, "--event", "push", "--limit", "30", "--json", "name,conclusion,createdAt"], { cwd: projectDir, encoding: "utf8", timeout: 30_000 });
   return JSON.parse(out).map((r) => ({ workflow: r.name, conclusion: r.conclusion, createdAt: r.createdAt }));
 };
+
+const MERGED_WINDOW_DAYS = 14;
+const MERGED_LIMIT = 300;
+/** Every PR merged into the base inside the window, with its checks — the merged-unverified probe. */
+const ghMergedPrs = (projectDir, baseBranch, nowMs) => () => {
+  const since = new Date(nowMs - MERGED_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const args = ["pr", "list", "--state", "merged", "--base", baseBranch, "--search", `merged:>=${since}`, "--limit", String(MERGED_LIMIT), "--json", "number,mergedAt,statusCheckRollup"];
+  const out = execFileSync("gh", args, { cwd: projectDir, encoding: "utf8", timeout: 60_000 });
+  return JSON.parse(out).map((p) => ({ number: p.number, mergedAt: p.mergedAt, checks: mapStatusCheckRollup(p.statusCheckRollup) }));
+};
+
+/** Merged PRs via the probe; a failing gh is said (reason), never a clean list; a full page may be missing some. */
+function mergedPrsProbe(projectDir, baseBranch, probes, nowMs) {
+  try {
+    const prs = (probes.mergedPrs ?? ghMergedPrs(projectDir, baseBranch, nowMs))();
+    return { prs, truncated: prs.length >= MERGED_LIMIT, windowDays: MERGED_WINDOW_DAYS };
+  } catch (err) { return { prs: null, reason: err.message }; }
+}
 
 const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; } };
 
@@ -104,6 +122,7 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
     { id: "phantom-coverage", renew: "kj steward sweep (runs the phantom detectors)", evaluate: () => evaluatePhantomCoverage(phantomSweep(projectDir, probes)) },
     { id: "duplicate-members", renew: "kj steward sweep", evaluate: () => evaluateDuplicateMembers(duplicateMembersSweep(projectDir, probes)) },
     { id: "embedder-load", renew: "kj doctor (embedder-load)", evaluate: () => evaluateEmbedderLoad(embedder) },
+    { id: "merged-unverified", renew: "merge with required checks green", evaluate: () => evaluateMergedUnverified({ ...mergedPrsProbe(projectDir, baseBranch, probes, nowMs), nowMs }) },
   ];
   const results = runInvariants(invariants, {}).map((r, i) => ({ ...r, renew: invariants[i].renew }));
   const broken = results.filter((r) => r.verdict === VERDICTS.BROKEN);
