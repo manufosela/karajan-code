@@ -41,6 +41,8 @@ Cada decisión, cada deny, cada excepción, el propio allow del commit, se sella
 kj policy report              # un informe legible; una cadena manipulada sale con exit 1
 ```
 
+Las reglas que hay detrás de esas decisiones, las excepciones y la propia cadena se explican en [Gobernanza](/docs/es/v4/governance/).
+
 ## El gate de revisión (pre-commit)
 
 Con `.karajan/review-gate` presente (lo instala `kj review --install-gate`, trackeado en git para que todo el equipo lo herede):

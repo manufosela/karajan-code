@@ -41,6 +41,8 @@ Every decision — each deny, each exception, the commit's own allow — is seal
 kj policy report              # a readable report; a tampered chain exits 1
 ```
 
+The rules behind those decisions, the exceptions and the chain itself are explained in [Governance](/docs/v4/governance/).
+
 ## The review gate (pre-commit)
 
 With `.karajan/review-gate` present (installed by `kj review --install-gate`, tracked in git so the whole team inherits it):
