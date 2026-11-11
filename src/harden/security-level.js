@@ -13,7 +13,7 @@ import { basename, dirname, join } from "node:path";
 
 import { humanActOf } from "./human-act.js";
 import { PHONE_ENROLL } from "./phone-texts.js";
-import { isPhoneEnrolled, readEnrolledKeys, requestPhoneSignature, verifySignedFiles } from "./phone-sign.js";
+import { anyAuthorizedPhone, readEnrolledKeys, requestPhoneSignature, verifySignedFiles } from "./phone-sign.js";
 
 export const SECURITY_LEVEL_FILE = ".karajan/security-level.json";
 // ADR 0018 (KJC-TSK-0997): `max` is the default now that CI verifies the signature
@@ -90,8 +90,9 @@ export async function lowerSecurityLevel({ projectDir, home, kjVersion, env, tty
     logger.info?.(`${act.label}: nivel normal sin firma (no hay ningún móvil enrolado); en cuanto enroles uno vuelve a valer la máxima. ${PHONE_ENROLL}`);
     return { changed: true, level: readSecurityLevel({ projectDir, home }) };
   }
-  const phone = deps.phone ?? { enrolled: isPhoneEnrolled, request: requestPhoneSignature };
-  if (!phone.enrolled({ home })) throw new Error(`${act.label}: bajar el nivel se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
+  // HU-3887 (KJC-BUG-0551): any phone of the roster signs, not only this machine's.
+  const phone = { enrolled: anyAuthorizedPhone, request: requestPhoneSignature, ...deps.phone };
+  if (!phone.enrolled({ projectDir, home })) throw new Error(`${act.label}: bajar el nivel se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
   act.confirm(deps.confirm);
   const record = { level: "normal", since: new Date().toISOString() };
   let branch = null;

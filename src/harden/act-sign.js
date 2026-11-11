@@ -10,8 +10,8 @@
 import { basename } from "node:path";
 
 import { humanActOf } from "./human-act.js";
-import { PHONE_ENROLL, PHONE_INVITE, PHONE_OR_NORMAL } from "./phone-texts.js";
-import { isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
+import { PHONE_ENROLL, PHONE_INVITE } from "./phone-texts.js";
+import { anyAuthorizedPhone, isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
 import { readSecurityLevel } from "./security-level.js";
 import { sealRepoOf } from "./seal-repo.js";
 
@@ -61,10 +61,14 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
   const act = humanActOf(id);
   const level = readSecurityLevel({ projectDir, home });
   if (level.source === "invalid") logger.warn?.(`${act.label}: ${level.reason}`);
-  const phone = deps.phone ?? { enrolled: isPhoneEnrolled, request: requestPhoneSignature };
-  if (!phone.enrolled({ home })) {
+  // HU-3887 (KJC-BUG-0551): at max a phone that can sign is any key of the roster, not only this
+  // machine's. At normal the signed record itself puts a key in the roster, so there it stays this machine's.
+  const enrolled = level.level === "max" ? anyAuthorizedPhone : isPhoneEnrolled;
+  const phone = { enrolled, request: requestPhoneSignature, ...deps.phone };
+  if (!phone.enrolled({ projectDir, home })) {
+    // No key anywhere: enroll-phone runs as the bootstrap, so the refusal points there and nowhere that loops back.
     if (level.level === "max" && !bootstrap) {
-      throw new Error(`${act.label}: con seguridad máxima este acto se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL} ${PHONE_OR_NORMAL}`);
+      throw new Error(`${act.label}: con seguridad máxima este acto se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
     }
     logger.warn?.(`${act.label}: sin móvil enrolado solo valen las cuatro capas y la garantía es menor (ADR 0018). ${PHONE_INVITE}`);
     return { level, signature: null };

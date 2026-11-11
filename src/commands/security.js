@@ -4,7 +4,7 @@
  * `max` is free; `normal` is the catalog act security-level-down, signed by
  * the phone (src/harden/security-level.js).
  */
-import { isPhoneEnrolled } from "../harden/phone-sign.js";
+import { anyAuthorizedPhone, isPhoneEnrolled, readSigners } from "../harden/phone-sign.js";
 import { lowerSecurityLevel, raiseSecurityLevel, readSecurityLevel, SECURITY_LEVEL_FILE } from "../harden/security-level.js";
 
 const MEANING = {
@@ -15,6 +15,12 @@ const sourceLine = (level) => {
   if (level.source === "default") return "por defecto (sin registro)";
   if (level.source === "invalid") return `REGISTRO NO FIABLE: ${level.reason}`;
   return `registrado en ${SECURITY_LEVEL_FILE} desde ${level.since ?? "?"}${level.signer ? ", firmado por un móvil del padrón" : ""}`;
+};
+// HU-3887 (KJC-BUG-0551): this machine's phone and the repo's signers are two facts, said apart.
+const phoneLine = ({ projectDir, home }) => {
+  const signers = readSigners({ projectDir }).length;
+  const line = `en esta máquina: ${isPhoneEnrolled({ home }) ? "sí" : "no"} · firmantes del repo: ${signers}`;
+  return anyAuthorizedPhone({ projectDir, home }) ? line : `${line} (abre https://karajancode.com/sign en el móvil y kj identity enroll-phone <clave pública>)`;
 };
 
 /** @returns {Promise<0|1|2>} 2 when the record cannot be trusted */
@@ -29,7 +35,12 @@ export async function securityCommand({ action = "show", config, kjVersion, flag
   if (action === "normal") {
     try {
       const res = await lowerSecurityLevel({ projectDir, home, kjVersion, env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, deps, logger: deps.logger ?? console });
-      log(res.changed ? `kj security: nivel normal firmado y registrado en ${SECURITY_LEVEL_FILE} (commítealo). Desde ahora kj avisará en cada acto de que la garantía es menor; kj security max lo sube.` : "kj security: el nivel ya es normal");
+      if (!res.changed) {
+        log("kj security: el nivel ya es normal");
+        return 0;
+      }
+      const how = res.level.unsigned ? "sin firma" : "firmado";
+      log(`kj security: nivel normal ${how} y registrado en ${SECURITY_LEVEL_FILE} (commítealo). Desde ahora kj avisará en cada acto de que la garantía es menor; kj security max lo sube.`);
       return 0;
     } catch (err) {
       log(`kj security normal: ${err.message}`);
@@ -39,7 +50,7 @@ export async function securityCommand({ action = "show", config, kjVersion, flag
   const level = readSecurityLevel({ projectDir, home });
   log(`nivel   ${MEANING[level.level]}`);
   log(`origen  ${sourceLine(level)}`);
-  log(`móvil   ${isPhoneEnrolled({ home }) ? "enrolado" : "no enrolado (abre https://karajancode.com/sign en el móvil y kj identity enroll-phone <clave pública>)"}`);
+  log(`móvil   ${phoneLine({ projectDir, home })}`);
   if (flags.json) log(JSON.stringify(level));
   return level.source === "invalid" ? 2 : 0;
 }
