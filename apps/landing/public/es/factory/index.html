@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>La Factory: qué enseña kj stage · Karajan Code</title>
+  <meta name="description" content="kj stage dibuja tu proyecto como una fábrica vista desde arriba. Cada robot y cada luz responden a un hecho real: un commit, un veredicto, un bloqueo. Mira una tarea real reproducida.">
+  <link rel="icon" href="/img/logo-120.png">
+  <link rel="alternate" hreflang="en" href="/factory/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; --mono: 'JetBrains Mono', 'SF Mono', monospace; }
+    :root, [data-theme="dark"] { --bg: #0f1520; --bg-card: #1a2332; --border: #2a3a4e; --text: #e2e8f0; --text-muted: #a4aeb6; --accent: #e8b04b; color-scheme: dark; }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) { --bg: #f4f7f9; --bg-card: #ffffff; --border: #d0dbe3; --text: #1a2a35; --text-muted: #424c52; --accent: #8a5f14; color-scheme: light; }
+    }
+    [data-theme="light"] { --bg: #f4f7f9; --bg-card: #ffffff; --border: #d0dbe3; --text: #1a2a35; --text-muted: #424c52; --accent: #8a5f14; color-scheme: light; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+    .top { padding: 1.4rem 0; }
+    .top a { font-family: var(--mono); font-size: 0.82rem; color: var(--text-muted); text-decoration: none; }
+    h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); letter-spacing: -0.02em; margin: 1rem 0 0.6rem; }
+    h2 { font-size: 1.3rem; margin: 2.4rem 0 0.6rem; }
+    h3 { font-size: 1.05rem; margin: 0 0 0.3rem; }
+    p, li { color: var(--text-muted); }
+    p + p { margin-top: 0.8rem; }
+    code { font-family: var(--mono); font-size: 0.9em; color: var(--text); }
+    figure { margin: 1.6rem 0; }
+    figure img { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 12px; display: block; }
+    figcaption { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
+    .play { display: inline-block; margin: 0.4rem 0 1rem; padding: 0.8rem 1.4rem; border-radius: 10px; background: var(--accent); color: var(--bg); font-weight: 700; text-decoration: none; }
+    .play:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .pieces { list-style: none; display: grid; gap: 1rem; }
+    .pieces li { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.3rem; scroll-margin-top: 1rem; }
+    .story { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+    pre { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem; overflow-x: auto; margin: 0.8rem 0; }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') ?? localStorage.getItem('starlight-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+  </script>
+</head>
+<body>
+<div class="wrap">
+  <nav class="top" aria-label="Migas"><a href="/es/">← Karajan Code</a> · <a href="/factory/" lang="en" hreflang="en">English</a></nav>
+  <main>
+    <h1>La Factory</h1>
+    <p><code>kj stage</code> dibuja tu proyecto como una fábrica vista desde arriba. Cada taller es una línea de trabajo, cada robot es un agente o una pieza del método Karajan, y nada se mueve sin un hecho real: un commit, un veredicto de revisión, un comando que el Sentinel ha parado. Al abrirse, cada pieza enseña su último estado real; a partir de ahí reproduce lo que va pasando.</p>
+    <figure>
+      <img src="/img/factory-hu-3870.jpg" width="1568" height="684" alt="La fábrica a las 11:05 UTC durante la HU-3870: los talleres main y kj-stage, las piezas del método en fila detrás, la pared de tareas y una lista de estado que dice que codex acaba de rechazar la revisión.">
+      <figcaption>La HU-3870 a las 11:05 UTC, unos segundos después de que codex rechazara el primer diff.</figcaption>
+    </figure>
+    <a class="play" href="/factory/play/">Ver la HU-3870 reproducida, a pantalla completa</a>
+
+    <h2>Una tarea real: la HU-3870</h2>
+    <p>La reproducción no es una maqueta. Es el rastro que escribió kj mientras Claude Code hacía la HU-3870 del propio Karajan Code, el 11 de noviembre de 2026, de 10:53 a 11:24 UTC. Las esperas de más de 2,5 segundos se recortan, así que media hora se ve en menos de dos minutos; el reloj enseña la hora real de cada hecho.</p>
+    <ol class="story">
+      <li>Se crea la card y el agente empieza a editar en el taller <code>kj-stage</code>.</li>
+      <li>El Sentinel para dos comandos de shell que no puede verificar.</li>
+      <li>TDD, SonarQube y el Steward comprueban el diff y codex lo rechaza. El agente lo corrige y codex vuelve a rechazarlo.</li>
+      <li>En la tercera revisión codex lo aprueba; la puerta del commit lo deja pasar y el ledger lo sella.</li>
+    </ol>
+
+    <h2>Qué es cada pieza</h2>
+    <ul class="pieces">
+      <li id="workshops"><h3>Talleres</h3><p>Uno por carril: la copia principal y cada worktree en el que trabaja un agente. Cada uno tiene un suelo con el nombre del carril y un banco. Los worktrees nuevos aparecen al crearse. El agente anfitrión se sienta en su banco, abre un portátil y teclea; sus subagentes salen de él como robots pequeños y vuelven al terminar.</p></li>
+      <li id="sentinel"><h3>El Sentinel</h3><p>Está sobre un poste y se gira hacia el carril cuyo agente acaba de usar una herramienta. Cuando bloquea una, baja hasta ese agente, se queda un momento y vuelve a subir. La lista de estado nombra la herramienta que paró, nunca el comando.</p></li>
+      <li id="gates"><h3>Puertas de git y el ledger</h3><p>Cada taller tiene unas puertas en su esquina trasera. Un commit que pasa los hooks las enciende en verde; uno rechazado, en rojo, con la regla que lo rechazó. El ledger sella cada decisión en una cadena de hashes y va al carril para hacerlo.</p></li>
+      <li id="review"><h3>Revisión cruzada</h3><p>Cada diff lo revisa una IA distinta antes del commit. Cuando empieza la revisión, la pieza de revisión va al carril con el nombre del revisor; el veredicto sale sobre el taller, en verde si aprueba y en rojo si rechaza. Karajan, el director, mueve la batuta cuando el trabajo pasa y levanta la mano para pararlo cuando falla.</p></li>
+      <li id="checks"><h3>TDD, SonarQube y el Steward</h3><p>Antes de la revisión, kj comprueba los tests, el análisis estático y las garantías del proyecto. Cada comprobación enciende su pieza y la manda al taller que está comprobando.</p></li>
+      <li id="wall"><h3>La pared de tareas</h3><p>Tres columnas, To do, In progress y Done, con las cards del HU Board del proyecto. Al lado, la mesa de release apila las cards terminadas desde la última etiqueta de git.</p></li>
+      <li id="courier"><h3>El mensajero</h3><p>Un robot de recados, no un agente. Cuando una card empieza, la lleva de la pared al banco, donde se queda como una nota mientras dura el trabajo; cuando se termina, la devuelve.</p></li>
+      <li id="atril"><h3>atril y kaRAGan</h3><p>atril, el atril de partituras, pasa una página por cada skill con la que empieza un agente. kaRAGan lleva la respuesta del RAG del proyecto al agente que la pidió, y teclea en el carril mientras se reconstruye el índice.</p></li>
+      <li id="map"><h3>El mapa de fábricas</h3><p><code>kj stage</code> enseña un proyecto; si añades <code>?map=1</code> a su dirección, enseña una fábrica por cada proyecto de tu máquina, primero las que tienen trabajo, cada una con sus cards en curso y los encargos que te esperan.</p></li>
+    </ul>
+
+    <h2>Mira tu propia fábrica</h2>
+    <pre><code>kj stage</code></pre>
+    <p>Abre en tu navegador la página de la escena del HU Board. Todo corre en tu máquina: el board escucha en localhost, la escena lee los ficheros que kj escribe en <code>.karajan/</code> y no se envía nada a ningún sitio. Si has pedido al sistema que reduzca el movimiento, la fábrica enseña las luces y la lista de estado sin animar.</p>
+  </main>
+</div>
+</body>
+</html>
