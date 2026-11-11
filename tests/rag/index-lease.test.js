@@ -1,7 +1,7 @@
 // HU-2907: a foreground `kj rag index` holds the machine index lease for its full walk only, so
 // background lanes defer to it, and it never takes another live indexer's claim.
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -157,5 +157,21 @@ describe("ragIndexCommand deadline backstop", () => {
     await ragIndexCommand({ config: { projectDir: root }, logger, flags: {}, backstop: { setTimer: () => handle, clearTimer, exit } });
     expect(clearTimer).toHaveBeenCalledWith(handle);
     expect(exit).not.toHaveBeenCalled();
+  });
+});
+// KJC-TSK-1521: the index notes its start and its end in the project, so kj stage shows kaRAGan at it.
+describe("ragIndexCommand notes the reindex for kj stage", () => {
+  const note = () => JSON.parse(readFileSync(join(root, ".karajan", "harness", "rag-index.json"), "utf8"));
+  beforeEach(() => mkdirSync(join(root, ".karajan"), { recursive: true }));
+  it("says start while it walks and end once it is done", async () => {
+    let during;
+    indexProject.mockImplementation(async () => { during = note().phase; return totals; });
+    await run({});
+    expect([during, note().phase]).toEqual(["start", "end"]);
+  });
+  it("says end also when the walk fails", async () => {
+    indexProject.mockRejectedValue(new Error("boom"));
+    await expect(run({})).rejects.toThrow("boom");
+    expect(note().phase).toBe("end");
   });
 });

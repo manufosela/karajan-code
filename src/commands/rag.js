@@ -19,7 +19,7 @@ import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { countProjectChunks, countProjectSources, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
 import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
-import { noteRagAnswer } from "../rag/answer-note.js";
+import { noteRagAnswer, noteRagIndex } from "../rag/answer-note.js";
 
 // KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
 function openDb(config) {
@@ -80,6 +80,7 @@ export async function ragIndexCommand({ config, logger, flags = {}, backstop = {
   }, Math.max(0, deadline + BACKSTOP_GRACE_MS - Date.now()));
   timer?.unref?.();
   const db = openDb(config);
+  noteRagIndex({ projectDir, phase: "start" }); // KJC-TSK-1521: kj stage shows kaRAGan at it
   try {
     const slug = projectSlug(projectDir);
     const embedder = makeGovernedEmbedder(config);
@@ -150,6 +151,7 @@ export async function ragIndexCommand({ config, logger, flags = {}, backstop = {
   } finally {
     if (timer) clearTimer(timer);
     db.close();
+    noteRagIndex({ projectDir, phase: "end" });
   }
 }
 

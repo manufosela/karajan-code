@@ -11,7 +11,7 @@ import { indexProject } from "../../rag/indexer.js";
 import { ragExclude } from "../../rag/indexable.js";
 import { query } from "../../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../../rag/path-hits.js";
-import { noteRagAnswer } from "../../rag/answer-note.js";
+import { noteRagAnswer, noteRagIndex } from "../../rag/answer-note.js";
 import { claimLease, holderLabel, indexLeasePath, releaseLease } from "../../rag/pid-lease.js";
 import { getKarajanHome } from "../../utils/paths.js";
 import { resolveProjectDir, buildConfig, responseText, failPayload } from "../shared-helpers.js";
@@ -77,12 +77,13 @@ export async function handleRagIndex(args, server) {
       if (!claim.claimed && args?.force !== true) {
         return failPayload(`kj_rag_index: another index is running (${holderLabel(claim)}); not indexing. Pass force: true to index anyway`);
       }
+      noteRagIndex({ projectDir, phase: "start" }); // KJC-TSK-1521: kj stage shows kaRAGan at it
       const totals = await indexProject(projectDir, {
         db, embedder: makeGovernedEmbedder(config),
         karajanHome: getKarajanHome(), logger: silentLogger,
         withSources: Boolean(args?.withSources),
         exclude: ragExclude(config), // KJC-TSK-0891
-      });
+      }).finally(() => noteRagIndex({ projectDir, phase: "end" }));
       return responseText(totals);
     } finally {
       if (claim?.claimed) releaseLease(lease);
