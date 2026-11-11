@@ -56,7 +56,8 @@ function agentsAtWork(records, now) {
   const fresh = (ev) => now - Date.parse(ev.at) < (ev.role === 'host' ? STALE_HOST_MS : STALE_START_MS);
   return [...last.values()]
     .filter((ev) => ev.phase === 'start' && fresh(ev))
-    .map(({ agent, role, at, id, tool, kind }) => ({ agent, role, at, ...(id ? { id, tool, kind } : {}) }));
+    // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
+    .map(({ agent, role, at, id, tool, kind, model, effort }) => ({ agent, role, at, ...(id ? { id, tool, kind } : {}), ...(model ? { model } : {}), ...(effort ? { effort } : {}) }));
 }
 
 function newestVerdict(dir) {

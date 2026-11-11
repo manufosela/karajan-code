@@ -41,6 +41,9 @@ describe('stage events from kj records', () => {
     // KJC-TSK-1428: the atril skills on a start line, names only.
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', role: 'reviewer', phase: 'start', skills: ['tdd', 7] })).skills).toEqual(['tdd']);
     expect(activityEvent(JSON.stringify({ at: 't6', agent: 'codex', phase: 'nap' }))).toBeNull();
+    // KJC-TSK-1536: the model and effort a start line names, only when they are text.
+    expect(activityEvent(JSON.stringify({ at: 't7', agent: 'claude', role: 'coder', phase: 'start', model: 'claude-opus-5-5', effort: 'high' }))).toMatchObject({ model: 'claude-opus-5-5', effort: 'high' });
+    expect(activityEvent(JSON.stringify({ at: 't7', agent: 'claude', role: 'coder', phase: 'start', model: 7 }))).not.toHaveProperty('model');
   });
 
   it("the RAG's answer note gives its count, and none when its time or sources are not real (KJC-TSK-1438)", () => {

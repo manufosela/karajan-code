@@ -48,6 +48,13 @@ describe('lastStageState', () => {
     ]);
   });
 
+  // KJC-TSK-1536: an agent at work opens with the model and effort its start named.
+  it('keeps the model and effort of an agent still at work', () => {
+    const at = new Date(Date.now() - 60_000).toISOString();
+    writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl({ at, agent: 'claude', role: 'coder', phase: 'start', model: 'claude-sonnet-5-5', effort: 'low' }));
+    expect(lastStageState(proj).working).toEqual([{ agent: 'claude', role: 'coder', at, model: 'claude-sonnet-5-5', effort: 'low' }]);
+  });
+
   // KJC-TSK-1524: the stage opens with kj review's last check of each piece.
   it('keeps the last check of each of TDD, Sonar and the Steward', () => {
     writeFileSync(kj('harness', 'method.jsonl'), jsonl(

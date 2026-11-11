@@ -39,7 +39,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     const routed = routedCoderConfig({ config, card, attempt: review ? 2 : 1 });
     logger.info(`Coder (${coderRole.provider}) starting... model: ${routed.reason}`);
     runLog.logText(`[coder] provider=${coderRole.provider} model=${routed.route?.model ?? "declared"}`);
-    const coder = traceActivity(createAgent(coderRole.provider, routed.config, logger), { name: coderRole.provider, role: "coder", projectDir, logger });
+    const coder = traceActivity(createAgent(coderRole.provider, routed.config, logger), { name: coderRole.provider, role: "coder", projectDir, logger, config: routed.config });
     let coderRules = null;
     if (config.coder_rules) {
       try {
