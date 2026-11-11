@@ -74,8 +74,11 @@ describe('watchLanes', () => {
     // KJC-TSK-1438: the RAG's answer note carries its lane like every other record.
     writeFileSync(join(wtHarness, 'rag-answer.json'), JSON.stringify({ at: 5, text: 'q', sources: ['a'] }));
     watcherOf(wt).emit('change', join(wtHarness, 'rag-answer.json'));
+    // KJC-BUG-0546: a card line kj hu wrote from a lane into the main checkout keeps that lane.
+    appendFileSync(join(harness(proj), 'cards.jsonl'), line({ at: 't3', action: 'move', id: 'HU-1', status: 'done', lane: 'kj-stage' }));
+    watcherOf(proj).emit('add', join(harness(proj), 'cards.jsonl'));
     expect(sent.map((e) => [e.type, e.lane, e.project])).toEqual([
-      ['sentinel-deny', 'kj-stage', 'demo'], ['commit-gate', 'agent-a1', 'demo'], ['rag-answer', 'kj-stage', 'demo'],
+      ['sentinel-deny', 'kj-stage', 'demo'], ['commit-gate', 'agent-a1', 'demo'], ['rag-answer', 'kj-stage', 'demo'], ['card', 'kj-stage', 'demo'],
     ]);
     doors.emit('unlinkDir', late);
     expect(watcherOf(late).closed).toBe(true);

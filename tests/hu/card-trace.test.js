@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { huCommand } from "../../src/commands/hu.js";
 import { CARDS_FILE, traceCard } from "../../src/hu/card-trace.js";
 
@@ -63,6 +64,19 @@ describe("the card trace of kj hu", () => {
     const r = await run("add", ["Login with SSO"]);
     expect(r.short_id).toBe("HU-0001");
     expect(warnings.join("\n")).toMatch(/card trace/);
+  });
+
+  // KJC-BUG-0546: a lane is swept after its merge, and its trace with it: a card closed there
+  // stayed running in kj stage. The line lands in the main checkout, naming its lane.
+  it("from a lane, it lands in the main checkout's trace with the lane's name", () => {
+    const git = (...args) => execFileSync("git", ["-C", dir, "-c", "user.name=t", "-c", "user.email=t@t", ...args], { stdio: "ignore" });
+    git("init", "-q");
+    git("commit", "-q", "--allow-empty", "-m", "root");
+    const lane = path.join(dir, ".kj", "worktrees", "feat-x");
+    git("worktree", "add", "-q", lane);
+    traceCard(lane, { action: "move", id: "HU-7", status: "done" }, (m) => warnings.push(m));
+    expect(trace()).toEqual([{ at: expect.any(String), action: "move", id: "HU-7", status: "done", lane: "feat-x" }]);
+    expect(fs.existsSync(path.join(lane, CARDS_FILE))).toBe(false);
   });
 
   it("keeps the title short: the wall shows a short title, never the whole story", () => {

@@ -77,7 +77,8 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
   const root = join(projectDir, '.karajan');
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card of the lane.
   const trace = (name, toEvent) => traceRecords(root, name, toEvent, tailBytes);
-  const cards = trace('cards.jsonl', cardEvent).reduce((all, ev) => withCard(all, { ...ev, lane }), []);
+  // KJC-BUG-0546: a line that names its lane (written from it into the main checkout) keeps it.
+  const cards = trace('cards.jsonl', cardEvent).reduce((all, ev) => withCard(all, { lane, ...ev }), []);
   return {
     cards,
     denial: lastOf(trace('denials.jsonl', denialEvent)),
