@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { recordGateDecision } from "../policy/decisions.js";
+import { sealedFilesOf } from "../policy/engine.js";
 import { readIdentity } from "../identity/store.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { signAct } from "./act-sign.js";
@@ -40,8 +41,10 @@ export const HOST_SETTINGS = ".claude/settings.json";
 // KJC-TSK-1444: the Sentinel's wiring lives in the local settings (ignored by git, the developer's);
 // both files decide which guard runs, so the seal covers both.
 export const HOST_SETTINGS_FILES = [HOST_SETTINGS, ".claude/settings.local.json"];
-/** A file the seal covers by its hash alone: the governance config, every CI workflow and the host settings. */
-export const isSealedConfig = (file) => GOVERNANCE_FILES.includes(file) || WORKFLOW_FILE.test(file) || HOST_SETTINGS_FILES.includes(file);
+/** A file the seal covers by its hash alone: the governance config, every CI workflow, the host
+ *  settings and the `extra` files the project declares in policy.yml sealed_files (HU-3899). */
+export const isSealedConfig = (file, extra = []) =>
+  GOVERNANCE_FILES.includes(file) || WORKFLOW_FILE.test(file) || HOST_SETTINGS_FILES.includes(file) || extra.includes(file);
 
 const sha256 = (abs) => createHash("sha256").update(readFileSync(abs)).digest("hex");
 
@@ -105,10 +108,12 @@ export async function commitSupervisorRegeneration({
   const seal = humanActOf("supervisor-seal");
   seal.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
+  // HU-3899: the files the project declares in policy.yml sealed_files are sealed like the governance config.
+  const declared = sealedFilesOf(projectDir);
   // KJC-BUG-0244 (grebla #958): el commit sellado solo lleva el supervisor, pero
   // un stage ajeno se quedaba en esta rama y el siguiente commit caía aquí con la
   // card equivocada. Se para ANTES de pedir nada al humano y se nombra.
-  const foreign = run(["diff", "--cached", "--name-only"]).split("\n").filter((f) => f && !f.startsWith(HOOKS_PREFIX) && f !== PROVENANCE_FILE && !isSealedConfig(f));
+  const foreign = run(["diff", "--cached", "--name-only"]).split("\n").filter((f) => f && !f.startsWith(HOOKS_PREFIX) && f !== PROVENANCE_FILE && !isSealedConfig(f, declared));
   if (foreign.length > 0) {
     throw new Error(
       `harden --commit: hay cambios en el stage que no son del supervisor (${foreign.slice(0, 5).join(", ")}${foreign.length > 5 ? ", …" : ""}): commitéalos en su rama o sácalos del stage (git restore --staged <ficheros>) antes de sellar`,
@@ -118,14 +123,14 @@ export async function commitSupervisorRegeneration({
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   seal.confirm(deps.confirm);
-  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, ...HOST_SETTINGS_FILES, ".github/workflows"]).split("\n").filter(Boolean));
+  const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, ...HOST_SETTINGS_FILES, ".github/workflows", ...declared]).split("\n").filter(Boolean));
   // Local only when git ignores it; untracked but not ignored, it is committed with the seal.
   const gitIgnores = (file) => { try { run(["check-ignore", "-q", "--", file]); return true; } catch { return false; } };
   const settingsHere = HOST_SETTINGS_FILES.filter((f) => !tracked.has(f) && existsSync(join(projectDir, f)));
   const localSettings = settingsHere.filter(gitIgnores);
   const newSettings = settingsHere.filter((f) => !localSettings.includes(f));
   const onDisk = (() => { try { return readdirSync(join(projectDir, ".github", "workflows")).map((f) => `.github/workflows/${f}`); } catch { return []; } })();
-  const candidates = [...new Set([...GOVERNANCE_FILES, ...onDisk, ...tracked, ...newSettings])].filter(isSealedConfig).sort();
+  const candidates = [...new Set([...GOVERNANCE_FILES, ...declared, ...onDisk, ...tracked, ...newSettings])].filter((f) => isSealedConfig(f, declared)).sort();
   const governance = candidates.filter((f) => existsSync(join(projectDir, f)) || tracked.has(f));
   const governanceDrift = governance.length === 0 ? [] : run(["status", "--porcelain", "--", ...governance]).split("\n").map((l) => l.slice(3).trim()).filter(Boolean);
   const drift = [...supervisorDrift({ projectDir, gitFn: run }), ...governanceDrift];

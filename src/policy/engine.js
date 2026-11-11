@@ -7,9 +7,10 @@
  * pública de este módulo no cambia: loadPolicy/evalToolCall/checkStagedDiff
  * siguen siendo lo que los gates de PL-B consumen.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { isReadOnlyCommand, stripTextOptionValues } from "../harden/sentinel/sentinel-shell.mjs";
+import { escapeRegExp } from "../utils/escape-regexp.js";
 import {
   ALLOW_VERDICT,
   checkArtifacts,
@@ -75,7 +76,54 @@ export function loadPolicy({ projectDir = process.cwd(), deps = {} } = {}) {
       errors: [`policy.yml: ilegible (${err.code || err.message}) — presente pero no leible NO es "sin policy"`],
     };
   }
-  return parsePolicy(raw, { defaults: SUPERVISOR_DEFAULTS });
+  return withSealedFiles(parsePolicy(raw, { defaults: SUPERVISOR_DEFAULTS }), projectDir);
+}
+
+// HU-3899 (owner's decision, 11-nov): sealed_files lists extra repo-relative files that
+// enter only with the human's seal. The supervisor's own files keep their stronger proof.
+const GLOB_CHARS = /[*?[\]{}!]/;
+const isSealableFile = (f) =>
+  typeof f === "string" && !f.startsWith("/") && !f.includes("\\") && !GLOB_CHARS.test(f)
+  && f.split("/").every((s) => s !== "" && s !== "." && s !== "..")
+  && !SUPERVISOR_DEFAULTS[0].pattern.test(f);
+
+function sealedFilesErrors(list) {
+  if (list === undefined) return [];
+  if (!Array.isArray(list)) return ["policy.yml: sealed_files must be a list of repo-relative paths"];
+  return list.filter((f) => !isSealableFile(f)).map((f) =>
+    `policy.yml: sealed_files entry ${JSON.stringify(f)} must be a repo-relative POSIX path, without "..", leading "/", glob characters or supervisor files`);
+}
+
+const validSealedFiles = (list) => (Array.isArray(list) ? list.filter(isSealableFile) : []);
+
+// The project root as given and, for a symlinked checkout, as resolved: an agent's
+// Edit/Write passes an ABSOLUTE file_path, judged on its raw text.
+function rootPrefixes(projectDir) {
+  let real = projectDir;
+  try { real = realpathSync(projectDir); } catch { /* a root that does not exist has no other spelling */ }
+  return [...new Set([projectDir, real])].map((r) => String.raw`${escapeRegExp(r.replace(/\/+$/, ""))}\/`);
+}
+
+// Same anchoring as the built-in governance default, but a slash before the name is
+// another directory (docs/AGENTS.md) and the name must end the path (AGENTS.md.bak).
+function sealedFilesDefault(files, projectDir) {
+  const names = files.map(escapeRegExp).join("|");
+  const prefixes = [String.raw`\.\/`, ...rootPrefixes(projectDir)].join("|");
+  const pattern = new RegExp(String.raw`(^|[^\w./-])(${prefixes})?(${names})(?=$|[^\w./-])`);
+  return { ...SUPERVISOR_DEFAULTS[1], pattern };
+}
+
+function withSealedFiles({ policy, errors }, projectDir) {
+  const files = validSealedFiles(policy.sealed_files);
+  const allErrors = [...errors, ...sealedFilesErrors(policy.sealed_files)];
+  if (files.length === 0) return { policy, errors: allErrors };
+  const defaults = [...policy.defaults, sealedFilesDefault(files, projectDir)];
+  return { policy: { ...policy, defaults }, errors: allErrors };
+}
+
+/** The validated sealed_files of the project's policy ([] when absent or unreadable). */
+export function sealedFilesOf(projectDir, deps = {}) {
+  return validSealedFiles(loadPolicy({ projectDir, deps }).policy.sealed_files);
 }
 
 /** One tool call against the policy. `root` permite evaluar file_path

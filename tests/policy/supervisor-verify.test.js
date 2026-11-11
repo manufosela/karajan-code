@@ -360,3 +360,35 @@ describe("the governance config verifies by its sealed hash (KJC-TSK-1032)", () 
     expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(policy)).toBe(false);
   });
 });
+
+// HU-3899: a file declared in sealed_files verifies by its sealed hash, like the governance config.
+describe("files declared in sealed_files verify by their sealed hash (HU-3899)", () => {
+  const agents = "AGENTS.md";
+  const violations = [{ rule_id: "defaults.governance.write", file: agents }];
+  const declare = () => writeFileSync(join(repo, ".karajan", "policy.yml"), "version: 1\nsealed_files: [AGENTS.md]\n");
+
+  it("a declared AGENTS.md matching its hash verifies, stays complete and is lifted", () => {
+    declare();
+    writeFileSync(join(repo, agents), "# rules\n");
+    writeProvenance([{ file: agents, sha256: sha("# rules\n") }]);
+    const v = verifiedSupervisorFiles({ projectDir: repo });
+    expect(v.files.has(agents)).toBe(true);
+    expect(v.complete).toBe(true);
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toEqual([]);
+  });
+
+  it("a declared AGENTS.md changed after the seal is not lifted", () => {
+    declare();
+    writeFileSync(join(repo, agents), "# rules, edited\n");
+    writeProvenance([{ file: agents, sha256: sha("# rules\n") }]);
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations }).violations).toEqual(violations);
+  });
+
+  it("an undeclared AGENTS.md entry behaves as today: unknown, the provenance is incomplete", () => {
+    writeFileSync(join(repo, agents), "# rules\n");
+    writeProvenance([{ file: agents, sha256: sha("# rules\n") }]);
+    const v = verifiedSupervisorFiles({ projectDir: repo });
+    expect(v.files.has(agents)).toBe(false);
+    expect(v.complete).toBe(false);
+  });
+});

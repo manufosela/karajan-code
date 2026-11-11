@@ -12,6 +12,7 @@ import { renderCanonicalHook } from "../harden/harden-engine.js";
 import { provenanceSignature } from "../harden/phone-sign.js";
 import { canonicalHarnessBody } from "../harden/sentinel-hooks.js";
 import { HOST_SETTINGS_FILES, isSealedConfig, PROVENANCE_FILE } from "../harden/supervisor-commit.js";
+import { sealedFilesOf } from "./engine.js";
 
 const HOOKS_PREFIX = ".karajan/hooks/";
 const HARNESS_PREFIX = ".karajan/harness/";
@@ -68,11 +69,13 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
   // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
   // exige que TODAS las entradas verifiquen, el sello no se podia ni commitear.
   const ROOTS = [HOOKS_PREFIX, HARNESS_PREFIX].map((p) => [p, resolve(projectDir, p)]);
+  // HU-3899: the files the project declares in policy.yml sealed_files verify the same way.
+  const declared = sealedFilesOf(projectDir);
   for (const entry of entries) {
     if (typeof entry?.file !== "string") continue;
     // KJC-TSK-1032: the governance config has no canonical render; the sealed
     // hash, signed by the roster where there is one, is the proof.
-    if (isSealedConfig(entry.file)) {
+    if (isSealedConfig(entry.file, declared)) {
       const abs = resolve(projectDir, entry.file);
       let st = null;
       try { st = lstatSync(abs); } catch { /* absent */ }
