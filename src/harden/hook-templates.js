@@ -152,13 +152,14 @@ function identityGuard(hook) {
     '  kj_hosts="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}/hosts.yml"',
     // KJC-BUG-0459: a per-account gh (gh-tribbu, ADR 0040) as the credential helper is the account
     // git pushes as. The accounts guide makes gh-<account> use ~/.config/gh-<account>: read it.
-    "  kj_helper=$(git config --get-urlmatch credential.helper https://github.com 2>/dev/null)",
+    // KJC-BUG-0550 (#3834): the hook runs under set -e; a lookup that finds nothing must not end it.
+    "  kj_helper=$(git config --get-urlmatch credential.helper https://github.com 2>/dev/null || true)",
     '  case "$kj_helper" in',
     "    '!'*/gh-*' auth git-credential'*|'!'gh-*' auth git-credential'*)",
     '      kj_ghbin=${kj_helper#!}; kj_ghbin=${kj_ghbin%% *}',
     '      kj_hosts="${XDG_CONFIG_HOME:-$HOME/.config}/${kj_ghbin##*/}/hosts.yml" ;;',
     "  esac",
-    "  kj_active_gh=$(awk '/^github.com:/{f=1;next} f&&/^[^[:space:]]/{f=0} f&&/^[[:space:]]*user:/{sub(/^[[:space:]]*user:[[:space:]]*/,\"\");print;exit}' \"$kj_hosts\" 2>/dev/null)",
+    "  kj_active_gh=$(awk '/^github.com:/{f=1;next} f&&/^[^[:space:]]/{f=0} f&&/^[[:space:]]*user:/{sub(/^[[:space:]]*user:[[:space:]]*/,\"\");print;exit}' \"$kj_hosts\" 2>/dev/null || true)",
     '  if [ -n "$kj_declared_gh" ] && [ "$kj_active_gh" != "$kj_declared_gh" ]; then',
     '    echo "kj harden: identity lock — gh session is ${kj_active_gh:-none} but this clone is declared as $kj_declared_gh — run: gh auth switch --user $kj_declared_gh (or set the gh of that account, e.g. gh-<account>, as the credential helper)"; exit 1',
     "  fi",
