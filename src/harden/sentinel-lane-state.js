@@ -2,9 +2,10 @@
  * HU-3474 — the Sentinel state as `kj review` sees it from a lane.
  * A session that entered a lane through EnterWorktree keeps the host's project
  * dir on the MAIN tree, so the hooks write the state there (ADR 0034: one file
- * per repo, `sessions[sid].lanes[<top>]`). This reads that file for the lane:
- * the lane's own harness state wins; otherwise the main tree's, narrowed to the
- * sessions that belong to THIS lane. The Sentinel's layout is not changed.
+ * per repo, `sessions[sid].lanes[<top>]`). This reads that file for the lane,
+ * narrowed to the sessions that belong to THIS lane, joined with the lane's own
+ * harness state (where kj code's coder writes), whose entries win. The
+ * Sentinel's layout is not changed.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
@@ -31,14 +32,18 @@ const whereIs = (projectDir) => git(projectDir, "rev-parse", "--show-toplevel", 
 export function readLaneSentinelState(projectDir) {
   const [top = "", common = ""] = whereIs(projectDir);
   const own = readJson(path.join(top || projectDir, ...STATE_PARTS));
-  if (own || !top || !common) return own;
+  if (!top || !common) return own;
   const mainTop = path.dirname(common);
-  if (mainTop === top) return null;
+  if (mainTop === top) return own;
   const main = readJson(path.join(mainTop, ...STATE_PARTS));
-  if (!main) return null;
+  if (!main) return own;
   const marked = new Set(sessionsMarkedIn(common, top));
   const belongs = ([sid, s]) => marked.has(sid) || Boolean(s?.lanes?.[top]);
-  return { ...main, sessions: Object.fromEntries(Object.entries(main.sessions ?? {}).filter(belongs)) };
+  const mainSessions = Object.fromEntries(Object.entries(main.sessions ?? {}).filter(belongs));
+  // KJC-BUG-0552: kj code's coder writes the lane's own state and the orchestrator that entered the
+  // lane is recorded in the main tree: both are this lane's sessions. The lane's own entry wins.
+  if (own) return { ...own, sessions: { ...mainSessions, ...own.sessions } };
+  return { ...main, sessions: mainSessions };
 }
 
 /**

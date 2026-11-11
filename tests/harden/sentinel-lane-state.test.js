@@ -66,11 +66,19 @@ describe("the state a lane sees", () => {
     expect(readLaneSentinelState(lane).sessions).toEqual({});
     expect(sids(readLaneSentinelState(other))).toEqual(["s1", "s3"]);
   });
-  it("prefers the lane's own state file", () => {
-    write(main, { sessions: { s1: sess(5) } });
+  // KJC-BUG-0552: kj code's coder writes the lane's own state; the orchestrator that entered the lane
+  // is recorded in the main tree. Both are this lane's sessions, so both are read.
+  it("joins the lane's own sessions with the main tree's sessions of this lane, and no other lane's", () => {
+    write(main, { sessions: { s1: sess(5), s3: sess(6, { lanes: { [other]: { edited_sources: [] } } }) } });
     mark("s1", lane);
     write(lane, { sessions: { own: sess(1) } });
-    expect(sids(readLaneSentinelState(lane))).toEqual(["own"]);
+    expect(sids(readLaneSentinelState(lane))).toEqual(["own", "s1"]);
+  });
+  it("keeps the lane's own entry when the same session appears in both files", () => {
+    write(main, { sessions: { s1: sess(5, { rag_hits: ["main.js"] }) } });
+    mark("s1", lane);
+    write(lane, { sessions: { s1: sess(7, { rag_hits: ["own.js"] }) } });
+    expect(readLaneSentinelState(lane).sessions.s1.rag_hits).toEqual(["own.js"]);
   });
   it("reads a plain repository's state unfiltered", () => {
     write(main, { sessions: { a: sess(1), b: sess(2) } });
@@ -110,6 +118,12 @@ describe("the RAG ledger of a lane", () => {
     expect(ledger.sessionId).toBe("live");
     expect(ledger.sessions).toBe(1);
     expect(ledger.hits).toEqual(["live.js"]);
+  });
+  it("counts the orchestrator's queries from the main tree when a coder wrote the lane's own state", () => {
+    write(main, { sessions: { orch: sess(5, { rag_queries: [{ ts: 1, text: "asked", hits: [] }], rag_hits: [] }) } });
+    mark("orch", lane);
+    write(lane, { sessions: { coder: sess(9, { rag_queries: [], rag_hits: [] }) } });
+    expect(readRagLedger(lane).queries.map((x) => x.text)).toEqual(["asked"]);
   });
   it("is unavailable when only another lane's session exists", () => {
     write(main, { sessions: { theirs: sess(99) } });
