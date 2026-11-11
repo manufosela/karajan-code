@@ -160,4 +160,16 @@ export function startMap({ canvas, factories, token, tell, counts }) {
   if (still) draw(performance.now());
   else requestAnimationFrame(loop);
   tellAll();
+  return {
+    /** KJC-BUG-0557: each factory checked against the board's map now; a new factory waits for a reload. */
+    resync(now) {
+      for (const { project, lanes } of now) {
+        const factory = lives.get(project);
+        if (!factory) continue;
+        factory.box = mailboxOf(lanes);
+        factory.live.resync(acrossLanes(lanes), performance.now());
+      }
+      if (still) draw(performance.now());
+    },
+  };
 }
