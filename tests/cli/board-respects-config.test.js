@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import net from "node:net";
 import { spawnSync } from "node:child_process";
 
 const KJ = path.resolve("bin/kj.js");
@@ -23,13 +24,24 @@ const run = (...args) =>
 const runBoard = (...args) => run("board", ...args);
 const flat = (res) => `${res.stdout}${res.stderr}`.replaceAll(/\s+/g, " ");
 
-beforeEach(() => {
+/** A port nothing listens on: the OS hands one out and it is closed at once. */
+const freePort = () => new Promise((resolve) => {
+  const server = net.createServer().listen(0, "127.0.0.1", () => {
+    const { port } = server.address();
+    server.close(() => resolve(port));
+  });
+});
+
+// KJC-BUG-0549: with port 4000, `kj board stop` found no pidfile in this home, asked lsof who
+// listens on 4000 on any interface and SIGTERMed the user's own board. A free port reaches nobody.
+beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-board-cfg-"));
   home = path.join(dir, "home");
+  const port = await freePort();
   fs.mkdirSync(home, { recursive: true });
-  fs.writeFileSync(path.join(home, "kj.config.yml"), "hu_board:\n  enabled: true\n  port: 4000\n");
+  fs.writeFileSync(path.join(home, "kj.config.yml"), `hu_board:\n  enabled: true\n  port: ${port}\n`);
   fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
-  fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), "hu_board:\n  enabled: false\n  port: 4000\n  auto_start: false\n");
+  fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), `hu_board:\n  enabled: false\n  port: ${port}\n  auto_start: false\n`);
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
