@@ -170,6 +170,22 @@ describe("coverage — AC7: an invariant of CONFIGURATION, not of value", () => 
     fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { coverage: { thresholds: { lines: 70 } } } };\n");
     expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
   });
+  // #3604: in grebla's vitest config `thresholds:` sits 527 chars after `coverage`.
+  const configWithGap = (gap, tail) => {
+    const dir = repoWith(null);
+    const filler = `reporter: ['text', 'html'], include: [${"'src/**/*.js', ".repeat(Math.ceil(gap / 15))}]`.slice(0, gap);
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), `export default { test: { coverage: { ${filler}\n${tail} } } };\n`);
+    return dir;
+  };
+  it("a threshold ~520 chars after `coverage` (reporters, include lists) is found: ok", () => {
+    expect(evaluateCoverageConfig({ projectDir: configWithGap(520, "thresholds: { lines: 80 }") }).verdict).toBe(VERDICTS.OK);
+  });
+  it("coverage options but no thresholds at all: still NOT OBSERVABLE", () => {
+    expect(evaluateCoverageConfig({ projectDir: configWithGap(520, "exclude: ['tests/**']") }).verdict).toBe(VERDICTS.NOT_OBSERVABLE);
+  });
+  it("a thresholds key more than 800 chars away from `coverage` is not attributed to it", () => {
+    expect(evaluateCoverageConfig({ projectDir: configWithGap(820, "thresholds: { lines: 80 }") }).verdict).toBe(VERDICTS.NOT_OBSERVABLE);
+  });
 });
 describe("phantom coverage — the invariant consumes the detectors' output", () => {
   it("without detector output it stays NOT OBSERVABLE — never ok by absence", () => {

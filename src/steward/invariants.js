@@ -153,6 +153,10 @@ export function evaluateDeadCodeTrend({ current, previous }) {
   }
   return { verdict: VERDICTS.OK, evidence: `dead code ${delta === 0 ? "flat" : delta} since the last audit (now ${current.deadExports})`, remedy: null };
 }
+/** How far after `coverage` a threshold key is still attributed to it. 400 missed
+ *  grebla's real config (#3604: 527 chars); 800 finds it with no false ok. */
+const COVERAGE_THRESHOLD_WINDOW = 800;
+const COVERAGE_THRESHOLD_RE = new RegExp(String.raw`coverage[\s\S]{0,${COVERAGE_THRESHOLD_WINDOW}}?(thresholds?|lines|branches|functions|statements)\s*[:=]`);
 const COVERAGE_CONFIGS = ["vitest.config.js", "vitest.config.ts", "vitest.config.mjs", "jest.config.js", "jest.config.ts", "jest.config.json", "package.json"];
 /**
  * AC7 — coverage is an invariant of CONFIGURATION, not of value: no 80% is
@@ -163,7 +167,7 @@ export function evaluateCoverageConfig({ projectDir }) {
   for (const name of COVERAGE_CONFIGS) {
     let text;
     try { text = fs.readFileSync(path.join(projectDir, name), "utf8"); } catch { continue; }
-    if (/coverage[\s\S]{0,400}?(thresholds?|lines|branches|functions|statements)\s*[:=]/.test(text)) {
+    if (COVERAGE_THRESHOLD_RE.test(text)) {
       return { verdict: VERDICTS.OK, evidence: `coverage thresholds configured in ${name} — the level itself is CI's job`, remedy: null };
     }
   }
