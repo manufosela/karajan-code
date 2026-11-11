@@ -1,8 +1,9 @@
-// HU-3797/HU-3798 (ADR 0043): the message adapter over GitHub comments. Partial on purpose: conversations are
-// slice 7, so `assertMessageAdapter` (all ten operations) names them. gh holds the credential; the
+// HU-3797/HU-3798/HU-3800 (ADR 0043): the message adapter over GitHub comments, with ceremonies as issues
+// (all ten operations of `assertMessageAdapter`). gh holds the credential; the
 // caller pins the account (`pinGhIdentity` lives in the core).
 import { BoardRejectedError } from "./board-errors.js";
 import { gh, runCommand } from "./github-board.js";
+import { CEREMONY_LABEL, checkKind, kindLabel, titleFor } from "./ceremonies.js";
 
 /** The owner's decision (D4 of the spec): the one place the polling interval lives. */
 export const DEFAULT_POLL_SECONDS = 60;
@@ -59,11 +60,14 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
     checkThread(card);
     return (await paged(`repos/${repo}/issues/${card.number}/labels`)).map((l) => l.name);
   };
-  const assertLabelExists = async (label) => {
-    try { await api(`repos/${repo}/labels/${encodeURIComponent(label)}`); } catch (err) {
-      if (/HTTP 404/.test(err.message)) throw new BoardRejectedError(`label ${JSON.stringify(label)} does not exist in ${repo}: this adapter does not create labels`);
+  const labelExists = async (label) => {
+    try { await api(`repos/${repo}/labels/${encodeURIComponent(label)}`); return true; } catch (err) {
+      if (/HTTP 404/.test(err.message)) return false;
       throw err;
     }
+  };
+  const assertLabelExists = async (label) => {
+    if (!(await labelExists(label))) throw new BoardRejectedError(`label ${JSON.stringify(label)} does not exist in ${repo}: this adapter does not create labels`);
   };
   return {
     // Edits show up as a newer updated_at (the `since` filter is on it), so a reader sees the message again.
@@ -111,6 +115,20 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
       const since = messages.reduce((m, x) => (x.modifiedAt > m ? x.modifiedAt : m), seen?.since ?? "");
       const ids = [...(seen?.since === since ? seen.ids : []), ...messages.filter((m) => m.modifiedAt === since).map((m) => m.id)];
       return { messages, cursor: encode({ since, ids }) };
+    },
+    // HU-3800: a ceremony is a dedicated issue. `ceremonies` stays false: the contract means the native thread (Discussions, slice 9).
+    async openConversation(kind, title) {
+      checkKind(kind);
+      const full = titleFor(kind, title, now()); // validates before any gh call
+      const [, hasKindLabel] = await Promise.all([assertLabelExists(CEREMONY_LABEL), labelExists(kindLabel(kind))]);
+      const labels = hasKindLabel ? [CEREMONY_LABEL, kindLabel(kind)] : [CEREMONY_LABEL];
+      const issue = await write(["POST", `repos/${repo}/issues`, "-f", `title=${full}`, ...labels.flatMap((l) => ["-f", `labels[]=${l}`])]);
+      return { kind: "issue", number: issue.number };
+    },
+    async listConversations(kind) {
+      checkKind(kind);
+      const open = await paged(`repos/${repo}/issues`, `&state=open&labels=${CEREMONY_LABEL}&sort=created&direction=desc`);
+      return open.filter((i) => !i.pull_request && i.title.startsWith(`${kind}:`)).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((i) => ({ kind: "issue", number: i.number, title: i.title }));
     },
     async authorPermission(user) {
       if (typeof user !== "string" || !LOGIN.test(user)) throw new TypeError(`user ${JSON.stringify(user)} is not a GitHub login`);
