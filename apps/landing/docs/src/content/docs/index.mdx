@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.16.0: hooks that run your Makefile, and a commit convention that holds without kj (current)
+### v5.17.0: kj stage sees every lane, and releases and generated files stop fighting the gates (current)
+
+kj stage paints each session in the lane it works in, so several lanes at once show as several robots. A project can declare its release branches in `method_gates.review_exempt_branches`: on them the pre-commit lets through without a verdict a commit that only bumps the version of package.json and its lockfile and touches CHANGELOG.md; any other change still needs a review. Whatever the repo marks `linguist-generated` in .gitattributes stops counting as code for Sonar and for the line budget. And three Steward detectors were tuned after measuring them against a real repo's history. Run `kj harden` and seal to get the kj stage fix.
+
+### v5.16.0: hooks that run your Makefile, and a commit convention that holds without kj
 
 When your project wraps its tools in a Makefile (PHP inside Docker, for instance), the hooks `kj harden` writes now run `make lint`, `make analyse`, `make test` and `make format-check` instead of host commands. Any step can be pinned by hand with `kj hooks set <step> <command>`, and `kj hooks` shows what each step runs and why. The commit-msg hook keeps your project's own commit convention even when kj is not on the PATH, as in a commit from the IDE, and pre-push says when it found no test command instead of running nothing in silence. Run `kj harden` and seal to get the new hooks.
 

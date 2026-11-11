@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.17.0] - 2026-11-11
+
+kj stage showed a single robot while several lanes were being worked, because the host's activity went to the folder its session started in. That is fixed, and the Steward detectors were measured against a real repo's history for the first time, which tuned three of them. A team's release script can now commit its version bump, and files a repo marks as generated no longer count as code.
+
+### Added
+- **Declared branches may commit a version bump without a verdict** (KJC-TSK-1512, #3818, asked in #3763): `method_gates.review_exempt_branches` lists branch prefixes (none by default). On those branches the pre-commit lets through a change that only moves the `version` of the root package.json and package-lock.json, plus CHANGELOG.md; anything else still needs `kj review --staged`, and the pass is sealed.
+- **`kj steward bench`** (#3806, by @jorgecasar): runs one Steward detector commit by commit over a repository range, read-only, and reports where it first fires.
+- **An experimental message contract and the kj-link codec** for agents of different people (ADR 0043; #3807, #3808 and the spec in #3805, by @jorgecasar).
+
+### Fixed
+- **kj stage paints each session in the lane it works in** (KJC-BUG-0542, #3814): the host's trace goes to the work tree of each call's own folder when it belongs to the same repository. Run `kj harden` and seal to get it.
+- **Files marked `linguist-generated` in .gitattributes leave the Sonar requirement and the line budget** (KJC-BUG-0544, #3819, reported in #3788): generated translations no longer block every diff that touches them. AI-rule files always count.
+- **Steward main-ci judges each workflow on its own** (KJC-BUG-0543, #3813): a green run of one workflow no longer hides a red one of another.
+- **Steward coverage-config finds a threshold up to 800 characters after `coverage`** (KJC-TSK-1510, #3816): a real config had it 527 characters away.
+- **Steward temporal signature: a green run of the same test ends its failing streak** (KJC-TSK-1511, #3815).
+
 ## [5.16.0] - 2026-11-10
 
 A team that runs PHP inside Docker could not run `kj harden`: it wrote host commands into the hooks and overwrote the team's hand edits, and the commit-msg hook imposed Conventional Commits whenever kj was not on the PATH. The hooks now run the project's Makefile targets, a step's command can be pinned with `kj hooks set`, and commit-msg keeps the project's own convention.
