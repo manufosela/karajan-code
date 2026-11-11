@@ -164,6 +164,9 @@ section.band { padding-block: clamp(4rem, 11vh, 8rem); border-top: 1px solid var
 .ensemble { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap; gap: 0.5rem 2.2rem; color: var(--text-muted); }
 .ensemble b { color: var(--text); font-weight: 600; }
 
+.factory-still { margin-top: 2.5rem; }
+.factory-still img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 12px; }
+
 .five { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(2rem, 5vw, 5rem); align-items: end; }
 .shrink { font-family: var(--mono); }
 .shrink .row { display: grid; grid-template-columns: 5rem 1fr 7rem; gap: 1rem; align-items: center; margin-block: 0.8rem; font-size: 0.9rem; color: var(--text-muted); }
