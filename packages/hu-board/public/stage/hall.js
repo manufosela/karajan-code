@@ -6,34 +6,68 @@ import { WORKSHOP, workshopAt } from './layout.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
-/** The lane's name painted on the floor at the front of its workshop. */
+const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
+// KJC-TSK-1540: the colour of a lane's status line, by its state.
+const TONE = { 'waiting-person': '#f0b429', 'waiting-merge': '#7fb3ff', finished: '#2fd27a', idle: '#8a96a6', unknown: '#e0848a' };
+
+/**
+ * The lane's name painted on the floor at the front of its workshop, and under it what the
+ * lane is doing when it is not working (KJC-TSK-1540); `paint(line, state)` repaints it.
+ */
 function nameplate(name) {
-  const canvas = Object.assign(document.createElement('canvas'), { width: 512, height: 96 });
+  const canvas = Object.assign(document.createElement('canvas'), { width: 512, height: 150 });
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#c9d6e3';
-  ctx.font = '600 52px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(name.length > 18 ? `${name.slice(0, 17)}…` : name, 256, 48);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(WORKSHOP.width * 0.9, WORKSHOP.width * 0.17), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
+  const paint = (line, state) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#c9d6e3';
+    ctx.font = '600 52px system-ui, sans-serif';
+    ctx.fillText(cut(name, 18), 256, 48);
+    if (line) {
+      ctx.fillStyle = TONE[state] ?? '#c9d6e3';
+      // As large as fits the plate, down to a size still readable from the default camera.
+      let size = 42;
+      do ctx.font = `600 ${size--}px system-ui, sans-serif`;
+      while (size > 28 && ctx.measureText(line).width > 496);
+      ctx.fillText(cut(line, 30), 256, 112, 496);
+    }
+    texture.needsUpdate = true;
+  };
+  paint('', 'working');
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(WORKSHOP.width * 0.9, WORKSHOP.width * 0.9 * (150 / 512)), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
   plate.rotation.x = -Math.PI / 2;
-  plate.position.set(0, 0.03, WORKSHOP.depth / 2 + 0.35);
-  return plate;
+  plate.position.set(0, 0.03, WORKSHOP.depth / 2 + 0.55);
+  return { plate, paint };
 }
 
+const PAD = 0x243244;
+const PAD_DIM = 0x161d27;
+const BENCH = 0x5a4a3a;
+const BENCH_DIM = 0x352c24;
+
+/** A workshop and `show(line, state)`, which dims it and says why while its lane is not working. */
 function workshop(name) {
   const group = new THREE.Group();
-  const pad = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width, 0.04, WORKSHOP.depth), matte(0x243244));
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width, 0.04, WORKSHOP.depth), matte(PAD));
   pad.position.y = 0.02;
   pad.receiveShadow = true;
   // Low enough that the badge on a working robot's chest shows over it (KJC-TSK-1435).
-  const bench = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width * 0.8, 0.35, 0.6), matte(0x5a4a3a));
+  const bench = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width * 0.8, 0.35, 0.6), matte(BENCH));
   bench.position.set(0, 0.175, 0.4);
   bench.castShadow = true;
-  group.add(pad, bench, nameplate(name));
-  return group;
+  const { plate, paint } = nameplate(name);
+  group.add(pad, bench, plate);
+  const show = (line, state) => {
+    const lit = state === 'working';
+    pad.material.color.setHex(lit ? PAD : PAD_DIM);
+    bench.material.color.setHex(lit ? BENCH : BENCH_DIM);
+    paint(line, state);
+  };
+  return { group, show };
 }
 
 /**
@@ -62,20 +96,21 @@ const BOUNCE = 0xe0484f;
 /** The row of workshops; `xOf(lane)` is the centre of a lane's workshop. */
 export function createHall(scene, lanes) {
   const shops = new Map();
+  const shown = new Map(); // KJC-TSK-1540: each lane's status line, repainted only when it changes
   const lights = new Map();
   const order = [];
   // KJC-TSK-1488: in rows and columns once there are many.
   const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
-  const relayout = () => order.forEach((lane) => shops.get(lane).position.set(at(lane).x, 0, at(lane).z));
+  const relayout = () => order.forEach((lane) => shops.get(lane).group.position.set(at(lane).x, 0, at(lane).z));
   const ensure = (lane) => {
     if (shops.has(lane)) return false;
     const shop = workshop(lane);
     const { gate, light } = gates();
-    shop.add(gate);
+    shop.group.add(gate);
     lights.set(lane, light);
     shops.set(lane, shop);
     order.push(lane);
-    scene.add(shop);
+    scene.add(shop.group);
     relayout();
     return true;
   };
@@ -87,6 +122,15 @@ export function createHall(scene, lanes) {
     /** KJC-TSK-1488: the z of a lane's workshop, which a factory of several rows sets apart. */
     zOf: (lane) => at(lane).z,
     count: () => order.length,
+    /** KJC-TSK-1540: the lanes of the hall, in the order their workshops stand. */
+    names: () => [...order],
+    /** KJC-TSK-1540: dims a lane's workshop and says why while it is not working. */
+    showStatus(lane, line, state) {
+      const key = `${state}|${line}`;
+      if (!shops.has(lane) || shown.get(lane) === key) return;
+      shown.set(lane, key);
+      shops.get(lane).show(line, state);
+    },
     /** Lights a lane's gates green (approve) or red (refuse) at `level` 0..1; 0 puts them out. */
     lightGates(lane, tone, level) {
       const light = lights.get(lane);
