@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { branchFacts, parseBranch } from '../src/lane-branch.js';
-import { laneStatus } from '../public/stage/lane-status.js';
+import { laneStatus, laneStatuses, statusLine } from '../public/stage/lane-status.js';
 
 const synced = { head: 'feat/x', upstream: 'origin/feat/x', gone: false, ahead: 0 };
 const card = (status, lane = 'x') => ({ id: 'HU-1', status, lane, at: '2026-11-11T10:00:00Z' });
@@ -27,7 +27,7 @@ describe('laneStatus', () => {
   });
 
   it('waits for a merge when its branch is pushed whole and nobody works', () => {
-    expect(laneStatus({ lane: 'x', branch: synced }, [card('running')])).toEqual({ state: 'waiting-merge', why: 'pushed, waits for its merge' });
+    expect(laneStatus({ lane: 'x', branch: synced }, [card('running')])).toEqual({ state: 'waiting-merge', why: 'pushed, waits for merge' });
   });
 
   it('is idle with a running card, unpushed work and no activity', () => {
@@ -36,11 +36,36 @@ describe('laneStatus', () => {
   });
 
   it('is unknown, never working, when its branch cannot be read', () => {
-    expect(laneStatus({ lane: 'x', branch: null }, [card('running')])).toEqual({ state: 'unknown', why: 'its branch cannot be read' });
+    expect(laneStatus({ lane: 'x', branch: null }, [card('running')])).toEqual({ state: 'unknown', why: 'branch unreadable' });
   });
 
   it('reads the main checkout without a branch: idle unless it works or waits', () => {
     expect(laneStatus({ lane: 'main' }).state).toBe('idle');
+  });
+});
+
+// KJC-TSK-1540: the scene recomputes it live, from the agents at work and the mailbox.
+describe('laneStatuses', () => {
+  const lanes = [{ lane: 'main' }, { lane: 'x', branch: synced }];
+
+  it('gives every lane of the hall its status, a lane born live with no branch read as unknown', () => {
+    const working = [{ lane: 'main', role: 'host' }];
+    const statuses = laneStatuses(['main', 'x', 'late'], { lanes, working, cards: [] }, new Map([['x', 1]]));
+    expect([...statuses].map(([lane, s]) => [lane, s.state])).toEqual([['main', 'working'], ['x', 'waiting-person'], ['late', 'unknown']]);
+  });
+
+  it('an agent at work in a lane makes it working without a reload', () => {
+    const statuses = laneStatuses(['x'], { lanes, working: [{ lane: 'x', role: 'coder' }], cards: [] }, new Map());
+    expect(statuses.get('x').state).toBe('working');
+  });
+});
+
+describe('statusLine', () => {
+  it('says nothing for a working lane, what it waits for, and the state with its reason otherwise', () => {
+    expect(statusLine({ state: 'working', why: null })).toBe('');
+    expect(statusLine({ state: 'waiting-merge', why: 'pushed, waits for merge' })).toBe('pushed, waits for merge');
+    expect(statusLine({ state: 'finished', why: 'branch merged' })).toBe('finished: branch merged');
+    expect(statusLine({ state: 'unknown', why: 'branch unreadable' })).toBe('unknown: branch unreadable');
   });
 });
 

@@ -17,6 +17,8 @@ import { PIECE_WALK_MS, VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
 import { readyToRelease } from './release.js';
+import { laneStatuses, statusLine } from './lane-status.js';
+import { mailboxOf, withMail } from './mail.js';
 import { Vector3 } from 'three';
 
 // The marks stack over the workshop so two of one lane never sit on each other (tagAt adds OVER_PIECE).
@@ -42,6 +44,11 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let beat = null; // KJC-TSK-1490: the act of the method Karajan answers
   let visits = {}; // KJC-TSK-1517: the pieces out at a workshop, by piece
   let gatesLit = new Set();
+  let box = mailboxOf(initial.lanes ?? []); // KJC-TSK-1540: pending handoffs by lane
+  /** KJC-TSK-1540: dims each lane that is not working and says why on its nameplate. */
+  const showStatuses = () => {
+    for (const [lane, status] of laneStatuses(hall.names(), state, box)) hall.showStatus(lane, statusLine(status), status.state);
+  };
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin }, working, performance.now());
@@ -101,17 +108,21 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   for (const { lane, working: at } of working) {
     for (const w of at ?? []) visits = withVisit(visits, { type: 'agent-activity', role: w.role, agent: w.agent, phase: 'start', lane }, performance.now() - PIECE_WALK_MS);
   }
+  showStatuses();
   return {
     settle,
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
     cards: () => state.cards ?? [],
     /** Takes one stream event at `now` (performance clock, ms). */
     push(event, now) {
+      const mail = withMail(box, event);
+      if (mail !== box) { box = mail; showStatuses(); }
       const next = withEvent(state, event);
       if (next === state) return; // not a stage event
       state = next;
       // A lane seen for the first time gets its workshop (KJC-TSK-1433).
       if (event.lane && hall.ensure(event.lane)) refit();
+      showStatuses();
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
