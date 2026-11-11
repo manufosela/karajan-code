@@ -67,6 +67,14 @@ describe("signAct", () => {
     expect(res.signature).toEqual({ ...CHALLENGE, signer: "PUB", signature: "SIG" });
   });
 
+  // HU-3912: only the enrollment asks the relay for a 10-minute link.
+  it("phone-enroll asks for ttlMs 600000; any other act leaves the default", async () => {
+    await sign("phone-enroll", { deps: { phone: phone() } });
+    expect(asked.ttlMs).toBe(600000);
+    await sign("rules-approve", { deps: { phone: phone() } });
+    expect(asked).not.toHaveProperty("ttlMs");
+  });
+
   it("by default, a roster key is a phone that can sign: no refusal at max", async () => {
     atMax();
     addSigner(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64"), { projectDir: repo });
