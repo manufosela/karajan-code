@@ -40,7 +40,7 @@ process.stdin.on("end", () => {
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
     const { session_id: sid = "default", transcript_path: transcript = null, cwd = null } = JSON.parse(raw);
     // KJC-TSK-1434 (ADR 0048): the turn stops, the host's work ends (if this stop blocks, its next tool starts it again).
-    traceHost(ROOT, { session_id: sid }, "stop");
+    traceHost(ROOT, { session_id: sid, cwd }, "stop");
     const state = load();
     enterLane(state, sid, cwd);
     // Tamper check runs regardless of session state: shell indirection leaves
