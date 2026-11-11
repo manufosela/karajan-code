@@ -94,6 +94,45 @@ describe("listConversations", () => {
   });
 });
 
+describe("closeConversation", () => {
+  const thread = { kind: "issue", number: 42 };
+  const view = (extra = {}) => ok({ number: 42, state: "open", labels: [{ name: CEREMONY_LABEL }, { name: "ceremony:daily" }], ...extra });
+  const patches = (calls) => calls.filter((a) => a.includes("PATCH"));
+
+  it("closes one open ceremony issue with a single paced PATCH, state as a field", async () => {
+    const { adapter, calls } = make({ "-X PATCH": ok({ number: 42, state: "closed" }), "repos/o/r/issues/42": view() });
+    expect(await adapter.closeConversation(thread)).toEqual({ result: "closed" });
+    expect(patches(calls)).toEqual([["api", "-X", "PATCH", "repos/o/r/issues/42", "-f", "state=closed"]]);
+  });
+
+  it("reports an already closed ceremony issue and changes nothing", async () => {
+    const { adapter, calls } = make({ "repos/o/r/issues/42": view({ state: "closed" }) });
+    expect(await adapter.closeConversation(thread)).toEqual({ result: "already_closed" });
+    expect(patches(calls)).toHaveLength(0);
+  });
+
+  it.each([
+    ["an issue without the ceremony label", { labels: [{ name: "bug" }] }],
+    ["a pull request", { pull_request: {} }],
+  ])("refuses %s before changing anything", async (_, extra) => {
+    const { adapter, calls } = make({ "repos/o/r/issues/42": view(extra) });
+    await expect(adapter.closeConversation(thread)).rejects.toThrow(BoardRejectedError);
+    expect(patches(calls)).toHaveLength(0);
+  });
+
+  it.each([[{ kind: "pull_request", number: 42 }], [{ kind: "issue", number: "42; rm -rf /" }], [{ kind: "issue", number: 0 }], [undefined]])("refuses the thread %j before any gh call", async (bad) => {
+    const { adapter, calls } = make({});
+    await expect(adapter.closeConversation(bad)).rejects.toThrow(TypeError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("never retries a failed close", async () => {
+    const { adapter, calls } = make({ "-X PATCH": fail("gh: Server Error (HTTP 502)"), "repos/o/r/issues/42": view() });
+    await expect(adapter.closeConversation(thread)).rejects.toThrow(BoardRejectedError);
+    expect(patches(calls)).toHaveLength(1);
+  });
+});
+
 describe("the whole adapter", () => {
   it("has the ten operations, and ceremonies stays false: that capability is the native thread of Discussions", () => {
     const { adapter } = make({});
