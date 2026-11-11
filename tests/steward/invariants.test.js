@@ -17,6 +17,7 @@ const repoWith = (workflows) => {
   }
   return dir;
 };
+const COVERAGE_CI = { "ci.yml": "jobs:\n  t:\n    steps:\n      - run: npx vitest run --coverage\n" };
 const DAY = 86_400_000;
 const now = Date.parse("2026-08-27T12:00:00Z");
 describe("resolveFreshness — AC8: defaults are applied AND said", () => {
@@ -166,13 +167,58 @@ describe("coverage — AC7: an invariant of CONFIGURATION, not of value", () => 
     expect(r.remedy).toMatch(/threshold/);
   });
   it("a vitest config with thresholds: ok — the level itself is CI's job", () => {
-    const dir = repoWith(null);
+    const dir = repoWith(COVERAGE_CI);
     fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { coverage: { thresholds: { lines: 70 } } } };\n");
     expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
   });
+  const thresholdRepo = (workflows, pkgScripts) => {
+    const dir = repoWith(workflows);
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { coverage: { thresholds: { lines: 70 } } } };\n");
+    if (pkgScripts) fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: pkgScripts }));
+    return dir;
+  };
+  const wf = (run) => `jobs:\n  t:\n    steps:\n      - uses: actions/checkout@v4\n      - ${run}\n`;
+  it("threshold + a workflow running coverage: ok, evidence names the workflow file", () => {
+    const r = evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf("run: npx vitest run --coverage") }) });
+    expect(r.verdict).toBe(VERDICTS.OK);
+    expect(r.evidence).toMatch(/ci\.yml/);
+  });
+  it("threshold + no workflow runs coverage: broken, with the remedy", () => {
+    const r = evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf("run: npm run lint") }, { lint: "eslint ." }) });
+    expect(r.verdict).toBe(VERDICTS.BROKEN);
+    expect(r.evidence).toBe("the threshold in vitest.config.js is never applied: no CI workflow runs the tests with coverage");
+    expect(r.remedy).toBe("run the tests with coverage in CI (e.g. vitest run --coverage)");
+  });
+  it("threshold + no .github/workflows: not observable", () => {
+    const r = evaluateCoverageConfig({ projectDir: thresholdRepo(null) });
+    expect(r.verdict).toBe(VERDICTS.NOT_OBSERVABLE);
+    expect(r.evidence).toMatch(/no CI workflows to check/);
+  });
+  it("an npm script indirection counts: `npm test` whose script runs coverage", () => {
+    const r = evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yaml": wf("run: npm test") }, { test: "vitest run --coverage" }) });
+    expect(r.verdict).toBe(VERDICTS.OK);
+    expect(r.evidence).toMatch(/ci\.yaml/);
+  });
+  it("a multi-line `run: |` block counts, and c8 / nyc too", () => {
+    const body = "jobs:\n  t:\n    steps:\n      - run: |\n          npm ci\n          c8 node --test\n      - name: x\n        run: echo done\n";
+    expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": body }) }).verdict).toBe(VERDICTS.OK);
+  });
+  it("coverage on by default in the runner config: a plain test run applies it", () => {
+    const dir = repoWith({ "ci.yml": wf("run: npm test") });
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { coverage: { enabled: true, thresholds: { lines: 70 } } } };\n");
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
+  });
+  it("without coverage on by default, a plain test run does not apply it", () => {
+    expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf("run: npm test") }, { test: "vitest run" }) }).verdict).toBe(VERDICTS.BROKEN);
+  });
+  it("a coverage word outside any `run:` step does not count", () => {
+    const body = "jobs:\n  t:\n    steps:\n      - name: vitest run --coverage\n        run: echo hi\n";
+    expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": body }) }).verdict).toBe(VERDICTS.BROKEN);
+  });
   // #3604: in grebla's vitest config `thresholds:` sits 527 chars after `coverage`.
   const configWithGap = (gap, tail) => {
-    const dir = repoWith(null);
+    const dir = repoWith(COVERAGE_CI);
     const filler = `reporter: ['text', 'html'], include: [${"'src/**/*.js', ".repeat(Math.ceil(gap / 15))}]`.slice(0, gap);
     fs.writeFileSync(path.join(dir, "vitest.config.js"), `export default { test: { coverage: { ${filler}\n${tail} } } };\n`);
     return dir;

@@ -16,6 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { ciCoverageWorkflows, coverageOnByDefault } from "./ci-coverage.js";
 export const VERDICTS = { OK: "ok", BROKEN: "broken", UNKNOWN: "unknown", NOT_OBSERVABLE: "not-observable" };
 // Defaults CALIBRATED with GREBLA's measured decay (79 days without a security
 // audit; 21 days of red suite; 17 of them hiding a production bug). A project
@@ -167,11 +168,20 @@ export function evaluateCoverageConfig({ projectDir }) {
   for (const name of COVERAGE_CONFIGS) {
     let text;
     try { text = fs.readFileSync(path.join(projectDir, name), "utf8"); } catch { continue; }
-    if (COVERAGE_THRESHOLD_RE.test(text)) {
-      return { verdict: VERDICTS.OK, evidence: `coverage thresholds configured in ${name} — the level itself is CI's job`, remedy: null };
-    }
+    if (COVERAGE_THRESHOLD_RE.test(text)) return judgeThresholdInCi(projectDir, name, coverageOnByDefault(text));
   }
   return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "no coverage threshold configured anywhere — nothing measures the level", remedy: "instrument: configure a coverage threshold (any value the team stands behind — no 80% is demanded)" };
+}
+/** A configured threshold only counts when some CI workflow applies it. */
+function judgeThresholdInCi(projectDir, configName, alwaysOn) {
+  const { workflows, covering } = ciCoverageWorkflows(projectDir, { alwaysOn });
+  if (workflows.length === 0) {
+    return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: `coverage thresholds configured in ${configName}, but there are no CI workflows to check`, remedy: "instrument: add a CI workflow that runs the tests with coverage" };
+  }
+  if (covering.length === 0) {
+    return { verdict: VERDICTS.BROKEN, evidence: `the threshold in ${configName} is never applied: no CI workflow runs the tests with coverage`, remedy: "run the tests with coverage in CI (e.g. vitest run --coverage)" };
+  }
+  return { verdict: VERDICTS.OK, evidence: `coverage thresholds configured in ${configName} and applied by ${covering.join(", ")} — the level itself is CI's job`, remedy: null };
 }
 /** AC3 — phantom coverage: the sweep (KJC-TSK-1343) runs the two detectors
  * (KJC-TSK-0800) over the test↔source pairs and hands their output in.
