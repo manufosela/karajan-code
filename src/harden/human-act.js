@@ -110,6 +110,8 @@ export const HUMAN_ACTS = Object.freeze({
   "gates-loosen": { label: "kj gates set (aflojar una regla)", module: "src/commands/gates.js" },
   // KJC-TSK-1402 (ADR 0037): a merge past its required checks passes main-guard only with this.
   "main-guard-except": { label: "kj main-guard-except", module: "src/commands/main-guard-except.js" },
+  // HU-3773 (ADR 0051): pinning or releasing a hook step replaces a quality step.
+  "hooks-set": { label: "kj hooks set|unset", module: "src/commands/hooks.js" },
 });
 
 /**
