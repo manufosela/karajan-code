@@ -156,7 +156,9 @@ describe('GET /api/stage/state', () => {
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
     const empty = { denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0 };
     // KJC-TSK-1525: the main checkout says the last release (none in a project without tags).
-    expect(ok.body).toEqual({ ...empty, release: null, lanes: [{ lane: 'main', ...empty, release: null }] });
+    // KJC-TSK-1539: and what the lane is doing.
+    const status = { state: 'idle', why: 'no activity' };
+    expect(ok.body).toEqual({ ...empty, release: null, status, lanes: [{ lane: 'main', ...empty, release: null, status }] });
     await request(app).get('/api/stage/state?project=nowhere').expect(400);
     await request(app).get('/api/stage/state').expect(400);
   });

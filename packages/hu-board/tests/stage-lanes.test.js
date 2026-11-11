@@ -64,6 +64,14 @@ describe('laneStates', () => {
     const states = laneStates(proj);
     expect(states.map((s) => [s.lane, s.denial?.at ?? null])).toEqual([['main', null], ['kj-stage', 't1']]);
   });
+
+  it('says what each lane is doing, unknown when its branch cannot be read (KJC-TSK-1539)', () => {
+    worktree('.kj', 'worktrees', 'merged');
+    worktree('.kj', 'worktrees', 'broken');
+    const branchOf = (dir) => (dir.endsWith('merged') ? { head: 'feat/m', upstream: 'origin/feat/m', gone: true, ahead: 0 } : null);
+    const states = laneStates(proj, { branchOf });
+    expect(states.map((s) => [s.lane, s.status.state])).toEqual([['main', 'idle'], ['broken', 'unknown'], ['merged', 'finished']]);
+  });
 });
 
 describe('watchLanes', () => {
