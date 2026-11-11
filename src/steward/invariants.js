@@ -270,6 +270,18 @@ export function evaluateMergedUnverified({ prs, windowDays = 14, nowMs = Date.no
   const named = bad.slice(0, 3).map((p) => `#${p.number} (${p.why})`).join("; ");
   return { verdict: VERDICTS.BROKEN, evidence: `${bad.length} of ${recent.length} merged PR(s) unverified: ${named}`, remedy: "merge only when the PR's required checks are green: require them in branch protection" };
 }
+/** HU-3840 — agent worktree folders the test runner collects (grebla: ~500 extra
+ * files hung the pre-push). `folders`/`configs` = the output of sweepRunnerExcludes. */
+export function evaluateAgentWorktreesExcluded({ folders = [], configs = [] } = {}) {
+  if (folders.length === 0) return { verdict: VERDICTS.OK, evidence: "no agent worktree folders", remedy: null };
+  if (configs.length === 0) return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "no vitest or jest config to check", remedy: "instrument: add a test runner config that excludes the agent worktree folders" };
+  const leaks = configs.flatMap((c) => (c.leaks ?? []).map((f) => `${f} in ${c.name}`));
+  // An exclude replaces the runner's defaults: the remedy keeps them.
+  if (leaks.length > 0) return { verdict: VERDICTS.BROKEN, evidence: `the test runner collects agent worktrees: ${leaks.join("; ")}`, remedy: "exclude agent worktrees from the test runner (vitest: exclude: [...configDefaults.exclude, '**/.claude/**', '**/.kj/**']; jest: testPathIgnorePatterns: ['/node_modules/', '/.claude/', '/.kj/'])" };
+  const unread = configs.filter((c) => c.reason).map((c) => c.reason);
+  if (unread.length > 0) return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: unread.join("; "), remedy: "fix the runner config so it parses" };
+  return { verdict: VERDICTS.OK, evidence: `${configs.length} runner config(s) exclude ${folders.join(", ")}`, remedy: null };
+}
 /**
  * Run a list of invariants. A child whose `dependsOn` parent came out
  * not-observable INHERITS it — an invariant built on an unobserved one must

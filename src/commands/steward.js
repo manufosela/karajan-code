@@ -13,13 +13,15 @@ import path from "node:path";
 import {
   VERDICTS, resolveFreshness, evaluateMainCi, evaluateSecurityAudit,
   evaluateVulnAging, evaluateDeadCodeTrend, evaluateCoverageConfig,
-  evaluatePhantomCoverage, evaluateDuplicateMembers, evaluateMergedUnverified, mapStatusCheckRollup, runInvariants,
+  evaluatePhantomCoverage, evaluateDuplicateMembers, evaluateMergedUnverified, mapStatusCheckRollup,
+  evaluateAgentWorktreesExcluded, runInvariants,
 } from "../steward/invariants.js";
 import { loadPreviousAudit } from "../audit/basal-cost.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { syncProposedWork } from "../steward/proposed-work.js";
 import { sweepPhantoms, sweepDuplicateMembers } from "../steward/phantom-sweep.js";
+import { sweepRunnerExcludes } from "../steward/runner-excludes.js";
 import { benchDetector } from "../steward/history-bench.js";
 import { probeEmbedderLoad, evaluateEmbedderLoad } from "../checks/embedder-load.js";
 
@@ -121,6 +123,7 @@ export async function stewardSweepCommand({ flags = {}, config = {}, logger = co
     { id: "coverage-config", renew: "configure a coverage threshold", evaluate: () => evaluateCoverageConfig({ projectDir }) },
     { id: "phantom-coverage", renew: "kj steward sweep (runs the phantom detectors)", evaluate: () => evaluatePhantomCoverage(phantomSweep(projectDir, probes)) },
     { id: "duplicate-members", renew: "kj steward sweep", evaluate: () => evaluateDuplicateMembers(duplicateMembersSweep(projectDir, probes)) },
+    { id: "runner-collects-agent-worktrees", renew: "exclude agent worktrees in the test runner config", evaluate: () => evaluateAgentWorktreesExcluded(sweepRunnerExcludes(projectDir)) },
     { id: "embedder-load", renew: "kj doctor (embedder-load)", evaluate: () => evaluateEmbedderLoad(embedder) },
     { id: "merged-unverified", renew: "merge with required checks green", evaluate: () => evaluateMergedUnverified({ ...mergedPrsProbe(projectDir, baseBranch, probes, nowMs), nowMs }) },
   ];

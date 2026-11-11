@@ -23,7 +23,7 @@ export const ENTRYPOINT_CATALOG = {
   },
 };
 const BASES = new Map([["LitElement", "lit"]]);
-function walk(node, visit) {
+export function walk(node, visit) {
   if (!node || typeof node.type !== "string") return;
   visit(node);
   for (const key of Object.keys(node)) {
