@@ -1,0 +1,53 @@
+// KJC-TSK-1517 (decided by the maintainer on 2026-11-11): the pieces of the method
+// work where they act. A verdict, a commit or a seal sends AI review, Git gates or
+// the Ledger from its post to the workshop of its lane; it stays a while and goes
+// back. Pure: live.js moves the pieces with what this says.
+import { WORKSHOP } from './layout.js';
+
+/** How long a piece glides each way, and how long it stays at the workshop. */
+export const PIECE_WALK_MS = 1800;
+export const VISIT_MS = 2400;
+const PIECE_OF = { 'review-verdict': 'review', 'commit-gate': 'gates', 'ledger-seal': 'ledger' };
+/**
+ * Where each piece stands in a workshop, from its centre: in a row behind the bench, a piece
+ * width apart, the gates behind their bar at the back corner and the Ledger behind kaRAGan.
+ */
+export const VISIT_SPOTS = { review: { dx: -0.2, dz: -2.1 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 } };
+
+const lerp = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, z: a.z + (b.z - a.z) * k });
+const facing = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
+const spotOf = (visit, xOf, zOf) => {
+  const { dx, dz } = VISIT_SPOTS[visit.piece];
+  return { x: xOf(visit.lane) + dx, z: zOf(visit.lane) + dz };
+};
+
+/** The visits after an event at `now`, by piece: a piece already in that lane's workshop stays longer. */
+export function withVisit(visits, event, now) {
+  const piece = PIECE_OF[event?.type];
+  if (!piece) return visits;
+  const lane = event.lane ?? 'main';
+  const old = visits[piece];
+  if (old?.lane === lane && now < old.until) {
+    return { ...visits, [piece]: { ...old, until: Math.max(old.until, now + VISIT_MS) } };
+  }
+  // Called away while out (going, there or coming back): the new trip starts where the old one
+  // has the piece now. Once the old one reached its workshop, where it set off from no longer counts.
+  const out = old && now < old.until + PIECE_WALK_MS;
+  const arrived = old && now >= old.at + PIECE_WALK_MS;
+  const from = out ? { ...old, from: arrived ? null : old.from } : null;
+  return { ...visits, [piece]: { piece, lane, at: now, until: now + PIECE_WALK_MS + VISIT_MS, from } };
+}
+
+/** Where a piece is at `now`, where it faces, whether it glides and whether it is off its post. */
+export function pieceAt(visit, now, home, xOf, zOf = () => WORKSHOP.z) {
+  const rest = { x: home.x, z: home.z, yaw: 0, walking: false, away: false };
+  const t = visit ? now - visit.at : -1;
+  if (t < 0 || now >= visit.until + PIECE_WALK_MS) return rest;
+  const spot = spotOf(visit, xOf, zOf);
+  if (t < PIECE_WALK_MS) {
+    const from = visit.from ? pieceAt(visit.from, visit.at, home, xOf, zOf) : home;
+    return { ...lerp(from, spot, t / PIECE_WALK_MS), yaw: facing(from, spot), walking: true, away: true };
+  }
+  if (now < visit.until) return { ...spot, yaw: 0, walking: false, away: true };
+  return { ...lerp(spot, home, (now - visit.until) / PIECE_WALK_MS), yaw: facing(spot, home), walking: true, away: true };
+}
