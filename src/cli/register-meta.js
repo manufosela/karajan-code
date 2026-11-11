@@ -798,7 +798,11 @@ export function registerMeta(program, { pkgVersion }) {
     .action((flags) => {
       const res = boardGate({ projectDir: resolveSentinelRoot(), sessionId: flags.session });
       if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
-      else for (const c of res.carried) console.log(`ℓ board-sync: ${c.card} ${c.why} — se moverá al cerrarla`);
+      else {
+        for (const c of res.carried) console.log(`ℓ board-sync: ${c.card} ${c.why} — se moverá al cerrarla`);
+        for (const r of res.resolved ?? []) console.log(`ℓ board-sync: ${r.card}: ${r.why}`);
+        for (const h of res.heldElsewhere ?? []) console.log(`ℓ board-sync: ${h.card}: ${h.why}`);
+      }
       process.exitCode = res.blocking.length > 0 ? 2 : 0;
     });
 
