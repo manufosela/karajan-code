@@ -1,5 +1,5 @@
-// HU-3797 (ADR 0043): the READ half of the message adapter over GitHub comments. Partial on purpose: nothing
-// writes, so `assertMessageAdapter` (all ten operations) names the write side. gh holds the credential; the
+// HU-3797/HU-3798 (ADR 0043): the message adapter over GitHub comments. Partial on purpose: conversations are
+// slice 7, so `assertMessageAdapter` (all ten operations) names them. gh holds the credential; the
 // caller pins the account (`pinGhIdentity` lives in the core).
 import { BoardRejectedError } from "./board-errors.js";
 import { gh, runCommand } from "./github-board.js";
@@ -20,22 +20,90 @@ const decode = (s) => {
   throw new TypeError("cursor was not issued by listSince");
 };
 
-export function createGithubMessageReader({ repo, run = runCommand }) {
+const MAX_BODY = 60000;
+const MAX_LABEL = 50;
+const REVIEW_STATE = { APPROVED: "approved", CHANGES_REQUESTED: "changes_requested", COMMENTED: "commented" }; // PENDING says nothing
+const checkThread = (thread, kinds = ["issue", "pull_request"]) => {
+  if (!kinds.includes(thread?.kind) || !Number.isInteger(thread.number) || thread.number < 1) throw new TypeError(`thread ${JSON.stringify(thread)} must be { kind: ${kinds.join("|")}, number: positive integer }`);
+};
+const checkLabel = (label) => {
+  if (typeof label !== "string" || label.length < 1 || label.length > MAX_LABEL || [...label].some((ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127)) throw new TypeError(`label ${JSON.stringify(label)} must be 1 to ${MAX_LABEL} characters, no control characters`);
+};
+
+// The write side goes one call at a time, a pause apart, and never retries: a repeated POST can post twice.
+// `sleep` and `now` are injectable so tests do not wait.
+export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now }) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) throw new TypeError(`repo ${JSON.stringify(repo)} must be owner/name`);
   const api = async (path) => JSON.parse(await gh(run, ["api", path]));
+  const paged = async (path, query = "") => {
+    const all = [];
+    for (let page = 1, got = PAGE; got === PAGE; page++) {
+      const rows = await api(`${path}?per_page=${PAGE}&page=${page}${query}`);
+      all.push(...rows);
+      got = rows.length;
+    }
+    return all;
+  };
+  let queue = Promise.resolve();
+  let lastWriteAt = null;
+  const write = (args) => {
+    const turn = queue.then(async () => {
+      const wait = lastWriteAt === null ? 0 : lastWriteAt + WRITE_PAUSE_MS - now();
+      if (wait > 0) await sleep(wait);
+      try { return JSON.parse((await gh(run, ["api", "-X", ...args])) || "null"); } finally { lastWriteAt = now(); }
+    });
+    queue = turn.catch(() => {}); // a failed write frees the line for the next one; it is not retried
+    return turn;
+  };
+  const readLabels = async (card) => {
+    checkThread(card);
+    return (await paged(`repos/${repo}/issues/${card.number}/labels`)).map((l) => l.name);
+  };
+  const assertLabelExists = async (label) => {
+    try { await api(`repos/${repo}/labels/${encodeURIComponent(label)}`); } catch (err) {
+      if (/HTTP 404/.test(err.message)) throw new BoardRejectedError(`label ${JSON.stringify(label)} does not exist in ${repo}: this adapter does not create labels`);
+      throw err;
+    }
+  };
   return {
     // Edits show up as a newer updated_at (the `since` filter is on it), so a reader sees the message again.
-    capabilities: { tasks: false, reviews: false, labels: false, ceremonies: false, notice: false, edit_history: true },
+    capabilities: { tasks: true, reviews: true, labels: true, ceremonies: false, notice: false, edit_history: true },
     guarantees: { stableMessageId: true, serverTime: true },
-    async listSince(thread, cursor) {
-      if (!["issue", "pull_request"].includes(thread?.kind) || !Number.isInteger(thread.number) || thread.number < 1) throw new TypeError(`thread ${JSON.stringify(thread)} must be { kind: issue|pull_request, number: positive integer }`);
-      const seen = cursor === null ? null : decode(cursor);
-      const found = [];
-      for (let page = 1, got = PAGE; got === PAGE; page++) {
-        const rows = await api(`repos/${repo}/issues/${thread.number}/comments?per_page=${PAGE}&page=${page}${seen ? `&since=${seen.since}` : ""}`);
-        found.push(...rows);
-        got = rows.length;
+    async publish(thread, message) {
+      checkThread(thread);
+      if (typeof message?.body !== "string" || message.body.length < 1 || message.body.length > MAX_BODY) throw new TypeError(`message.body must be a string of 1 to ${MAX_BODY} characters`);
+      const c = await write(["POST", `repos/${repo}/issues/${thread.number}/comments`, "-f", `body=${message.body}`]);
+      return { id: String(c.id), author: c.user?.login ?? "ghost", serverTime: c.created_at };
+    },
+    readLabels,
+    async setLabel(card, label, on) {
+      checkThread(card);
+      checkLabel(label);
+      await assertLabelExists(label);
+      if (on) await write(["POST", `repos/${repo}/issues/${card.number}/labels`, "-f", `labels[]=${label}`]);
+      else if ((await readLabels(card)).includes(label)) await write(["DELETE", `repos/${repo}/issues/${card.number}/labels/${encodeURIComponent(label)}`]);
+    },
+    async readAssignee(card) {
+      checkThread(card);
+      return (await api(`repos/${repo}/issues/${card.number}`)).assignee?.login ?? null;
+    },
+    async readReviewers(change) {
+      checkThread(change, ["pull_request"]);
+      const base = `repos/${repo}/pulls/${change.number}`;
+      const [pull, reviews] = await Promise.all([api(base), paged(`${base}/reviews`)]);
+      const requested = pull.requested_reviewers ?? [];
+      const latest = new Map();
+      for (const r of reviews.sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at)))) {
+        if (r.state === "DISMISSED") latest.delete(r.user?.login); // a dismissed review voids what came before it
+        else if (r.user?.login && Object.hasOwn(REVIEW_STATE, r.state)) latest.set(r.user.login, REVIEW_STATE[r.state]);
       }
+      const asked = requested.map((u) => u.login);
+      return [...asked.map((user) => ({ user, state: "requested" })), ...[...latest].filter(([user]) => !asked.includes(user)).map(([user, state]) => ({ user, state }))];
+    },
+    async listSince(thread, cursor) {
+      checkThread(thread);
+      const seen = cursor === null ? null : decode(cursor);
+      const found = await paged(`repos/${repo}/issues/${thread.number}/comments`, seen ? `&since=${seen.since}` : "");
       const fresh = found.filter((c) => !(seen && c.updated_at === seen.since && seen.ids.includes(String(c.id))));
       if (fresh.length === 0) return { messages: [], cursor };
       // "ghost" is GitHub's own name for a deleted account.

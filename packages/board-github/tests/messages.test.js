@@ -99,10 +99,142 @@ describe("limits", () => {
   });
 });
 
-it("declares edit_history and the guarantees, and no write side: the full guard names exactly those", () => {
+// A fake gh for the write side, with a fake clock whose sleep advances it. `answers` maps a substring of the call to the result (first match wins).
+const writer = (answers) => {
+  const calls = [];
+  const sleeps = [];
+  let t = 0;
+  const run = async (cmd, args) => {
+    const line = args.join(" ");
+    calls.push({ args, at: t });
+    const key = Object.keys(answers).find((k) => line.includes(k));
+    if (!key) throw new Error(`unexpected gh call: ${line}`);
+    return answers[key];
+  };
+  const sleep = async (ms) => { sleeps.push(ms); t += ms; };
+  return { adapter: createGithubMessageReader({ repo: "o/r", run, sleep, now: () => t }), calls, sleeps };
+};
+const posted = ok({ id: 501, user: { login: "kj-bot" }, created_at: "2026-11-03T08:00:00Z" });
+
+describe("publish", () => {
+  it("posts one comment with the body as one argument and returns its id, author and server time", async () => {
+    const { adapter, calls } = writer({ "-X POST": posted });
+    const text = "hi; $(rm -rf /) `x` \"q\"\nline two";
+    expect(await adapter.publish(thread, { body: text })).toEqual({ id: "501", author: "kj-bot", serverTime: "2026-11-03T08:00:00Z" });
+    expect(calls.map((c) => c.args)).toEqual([["api", "-X", "POST", "repos/o/r/issues/7/comments", "-f", `body=${text}`]]);
+  });
+
+  it("separates two writes by the pause, and a concurrent call waits its turn", async () => {
+    const { adapter, calls, sleeps } = writer({ "-X POST": posted });
+    await adapter.publish(thread, { body: "one" });
+    expect(sleeps).toEqual([]); // the first write has nothing to wait for
+    await Promise.all([adapter.publish(thread, { body: "two" }), adapter.publish(thread, { body: "three" })]);
+    expect(calls.map((c) => c.at)).toEqual([0, 1000, 2000]);
+    expect(sleeps).toEqual([1000, 1000]);
+  });
+
+  it.each([[fail("gh: Forbidden (HTTP 403)"), BoardRejectedError], [fail("gh: Unprocessable (HTTP 422)"), BoardRejectedError], [fail("dial tcp: no such host"), BoardOfflineError]])("throws on %j and never retries", async (answer, error) => {
+    const { adapter, calls } = writer({ "-X POST": answer });
+    await expect(adapter.publish(thread, { body: "x" })).rejects.toThrow(error);
+    await expect(adapter.publish(thread, { body: "x" })).rejects.toThrow(error);
+    expect(calls).toHaveLength(2); // one attempt per call, none repeated
+  });
+
+  it.each([[thread, { body: "" }], [thread, { body: "x".repeat(60001) }], [thread, { body: 5 }], [thread, null], [{ kind: "issue", number: 0 }, { body: "x" }], [{ kind: "wiki", number: 7 }, { body: "x" }]])("rejects %j %j before any gh call", async (bad, message) => {
+    const { adapter, calls } = writer({});
+    await expect(adapter.publish(bad, message)).rejects.toThrow(TypeError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("accepts a body of exactly 60,000 characters", async () => {
+    await expect(writer({ "-X POST": posted }).adapter.publish(thread, { body: "x".repeat(60000) })).resolves.toMatchObject({ id: "501" });
+  });
+});
+
+describe("labels", () => {
+  const present = (names) => ({ "issues/7/labels?": ok(names.map((name) => ({ name }))), "labels/bug": ok({ name: "bug" }) });
+  it("lists the names of the labels of a card", async () => {
+    expect(await writer({ "issues/7/labels": ok([{ name: "bug" }, { name: "kj:hu" }]) }).adapter.readLabels(thread)).toEqual(["bug", "kj:hu"]);
+  });
+
+  it("follows the pages of labels", async () => {
+    const full = Array.from({ length: 100 }, (_, i) => ({ name: `l${i}` }));
+    const labels = await writer({ "&page=1": ok(full), "&page=2": ok([{ name: "bug" }]) }).adapter.readLabels(thread);
+    expect(labels).toHaveLength(101);
+    expect(labels.at(-1)).toBe("bug");
+  });
+
+  it("adds an existing label, and round-trips with readLabels", async () => {
+    const { adapter, calls } = writer({ "-X POST": ok([]), "labels/bug": ok({ name: "bug" }) });
+    await adapter.setLabel(thread, "bug", true);
+    expect(calls.map((c) => c.args)).toEqual([["api", "repos/o/r/labels/bug"], ["api", "-X", "POST", "repos/o/r/issues/7/labels", "-f", "labels[]=bug"]]);
+  });
+
+  it("removes a label the card has, and does nothing when it is not there", async () => {
+    const { adapter, calls } = writer({ "-X DELETE": ok([]), ...present(["bug"]) });
+    await adapter.setLabel(thread, "bug", false);
+    expect(calls.at(-1).args).toEqual(["api", "-X", "DELETE", "repos/o/r/issues/7/labels/bug"]);
+    const none = writer(present([]));
+    await none.adapter.setLabel(thread, "bug", false);
+    expect(none.calls.some((c) => c.args.includes("DELETE"))).toBe(false);
+  });
+
+  it("fails loud naming a label that does not exist, and creates nothing", async () => {
+    const { adapter, calls } = writer({ "labels/ghost": fail("gh: Not Found (HTTP 404)") });
+    await expect(adapter.setLabel(thread, "ghost", true)).rejects.toThrow(/"ghost"/);
+    expect(calls.some((c) => c.args.includes("POST"))).toBe(false);
+  });
+
+  it.each([[""], ["a\nb"], ["x".repeat(51)], [5], [undefined]])("rejects the label %j before any gh call", async (bad) => {
+    const { adapter, calls } = writer({});
+    await expect(adapter.setLabel(thread, bad, true)).rejects.toThrow(TypeError);
+    expect(calls).toHaveLength(0);
+  });
+
+});
+
+describe("readAssignee and readReviewers", () => {
+  const pr = { kind: "pull_request", number: 9 };
+  it("gives the assignee login, or null", async () => {
+    expect(await writer({ "issues/7": ok({ assignee: { login: "alice" } }) }).adapter.readAssignee(thread)).toBe("alice");
+    expect(await writer({ "issues/7": ok({ assignee: null }) }).adapter.readAssignee(thread)).toBeNull();
+  });
+
+  it("combines the requested reviewers and the reviews: the latest review of each wins", async () => {
+    const review = (login, state, at) => ({ user: { login }, state, submitted_at: at });
+    const { adapter } = writer({
+      "pulls/9/reviews": ok([review("bob", "CHANGES_REQUESTED", "2026-11-01T10:00:00Z"), review("bob", "APPROVED", "2026-11-02T10:00:00Z"), review("dan", "COMMENTED", "2026-11-01T09:00:00Z"), review("eve", "PENDING", "2026-11-01T09:00:00Z")]),
+      "pulls/9": ok({ requested_reviewers: [{ login: "carol" }] }),
+    });
+    expect(await adapter.readReviewers(pr)).toEqual([{ user: "carol", state: "requested" }, { user: "dan", state: "commented" }, { user: "bob", state: "approved" }]);
+  });
+
+  it("drops a reviewer whose later review was dismissed", async () => {
+    const { adapter } = writer({
+      "pulls/9/reviews": ok([{ user: { login: "bob" }, state: "APPROVED", submitted_at: "2026-11-01T00:00:00Z" }, { user: { login: "bob" }, state: "DISMISSED", submitted_at: "2026-11-02T00:00:00Z" }]),
+      "pulls/9": ok({ requested_reviewers: [] }),
+    });
+    expect(await adapter.readReviewers(pr)).toEqual([]);
+  });
+
+  it("finds a review on the second page of reviews", async () => {
+    const filler = Array.from({ length: 100 }, (_, i) => ({ user: { login: `u${i}` }, state: "COMMENTED", submitted_at: "2026-11-01T00:00:00Z" }));
+    const late = { user: { login: "u0" }, state: "CHANGES_REQUESTED", submitted_at: "2026-11-05T00:00:00Z" };
+    const { adapter } = writer({ "&page=1": ok(filler), "&page=2": ok([late]), "pulls/9": ok({ requested_reviewers: [] }) });
+    expect((await adapter.readReviewers(pr)).find((r) => r.user === "u0")).toEqual({ user: "u0", state: "changes_requested" });
+  });
+
+  it("rejects a change that is not a pull request before any gh call", async () => {
+    const { adapter, calls } = writer({});
+    await expect(adapter.readReviewers(thread)).rejects.toThrow(TypeError);
+    await expect(adapter.readAssignee({ kind: "issue", number: -1 })).rejects.toThrow(TypeError);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+it("declares what it implements, and the full guard names only the conversations", () => {
   const { adapter } = reader({});
-  expect(adapter.capabilities).toEqual({ tasks: false, reviews: false, labels: false, ceremonies: false, notice: false, edit_history: true });
+  expect(adapter.capabilities).toEqual({ tasks: true, reviews: true, labels: true, ceremonies: false, notice: false, edit_history: true });
   expect(adapter.guarantees).toEqual({ stableMessageId: true, serverTime: true });
-  expect(["publish", "setLabel", "openConversation"].map((op) => adapter[op])).toEqual([undefined, undefined, undefined]);
-  expect(() => assertMessageAdapter(adapter)).toThrow(/missing publish, readAssignee, readReviewers, setLabel, readLabels, openConversation, listConversations/);
+  expect(() => assertMessageAdapter(adapter)).toThrow(/missing openConversation, listConversations/);
 });
