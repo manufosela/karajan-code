@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readLaneSentinelState } from "../../src/harden/sentinel-lane-state.js";
+import { prunePendingMoves, readLaneSentinelState } from "../../src/harden/sentinel-lane-state.js";
 import { readRagLedger } from "../../src/review/rag-ledger.js";
 
 let tmp, main, lane, other;
@@ -34,6 +34,21 @@ beforeEach(() => {
   git(main, "worktree", "add", "-q", "--detach", other);
 });
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+// KJC-BUG-0548: a pending another session resolved is dropped in the real file, other sessions kept.
+describe("prunePendingMoves", () => {
+  const read = (dir) => JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "harness", "sentinel-state.json"), "utf8"));
+  it("drops the cards from the session in the main tree's file, from a lane, keeping every other session", () => {
+    write(main, { sessions: { s1: { pending_moves: [{ card: "HU-3827", pr: 3828 }, { card: "KJC-BUG-1", pr: 9 }] }, s9: { pending_moves: [{ card: "HU-3827", pr: 1 }] } } });
+    expect(prunePendingMoves(lane, "s1", ["HU-3827"])).toBe(true);
+    expect(read(main).sessions.s1.pending_moves).toEqual([{ card: "KJC-BUG-1", pr: 9 }]);
+    expect(read(main).sessions.s9.pending_moves).toHaveLength(1);
+  });
+  it("writes nothing when the session has no pending moves", () => {
+    write(main, { sessions: { s1: {} } });
+    expect(prunePendingMoves(lane, "s1", ["HU-3827"])).toBe(false);
+  });
+});
 
 describe("the state a lane sees", () => {
   it("reads from the main tree a session that entered the lane (its presence mark names the lane)", () => {
