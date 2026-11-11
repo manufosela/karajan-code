@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.17.0: kj stage sees every lane, and releases and generated files stop fighting the gates (current)
+### v5.18.0: no more phone-signature loop, sealed files, and hooks that no longer die in silence (current)
+
+A new phone is now approved by a current signer from their own phone, with a link that lasts 10 minutes, so `enroll-phone` and security normal no longer send you to each other. `sealed_files` in `.karajan/policy.yml` lists files such as AGENTS.md that change only with the signed seal: the agent cannot edit them, even by absolute path. The pre-push and post-merge hooks no longer abort in silence under `set -e`. The passkey signer begins: kj and CI verify a WebAuthn assertion and the signer page signs with a passkey from a phone, though signing still uses today's key until the next steps land. The Steward gained five checks, and kj link and the Senescal ceremonies grew. Run `kj harden` and have it sealed to regenerate the hooks with the fixes.
+
+### v5.17.0: kj stage sees every lane, and releases and generated files stop fighting the gates
 
 kj stage paints each session in the lane it works in, so several lanes at once show as several robots. A project can declare its release branches in `method_gates.review_exempt_branches`: on them the pre-commit lets through without a verdict a commit that only bumps the version of package.json and its lockfile and touches CHANGELOG.md; any other change still needs a review. Whatever the repo marks `linguist-generated` in .gitattributes stops counting as code for Sonar and for the line budget. And three Steward detectors were tuned after measuring them against a real repo's history. Run `kj harden` and seal to get the kj stage fix.
 

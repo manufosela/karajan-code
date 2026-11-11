@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.17.0: kj stage ve cada carril, y las releases y los ficheros generados ya no chocan con los gates (actual)
+### v5.18.0: se acabó el bucle de la firma del móvil, ficheros sellados y hooks que ya no mueren en silencio (actual)
+
+Un móvil nuevo lo aprueba ahora un firmante vigente desde su propio móvil, con un enlace que dura 10 minutos, así que `enroll-phone` y security normal ya no se mandan el uno al otro. `sealed_files` en `.karajan/policy.yml` lista ficheros como AGENTS.md que solo cambian con el sello firmado: el agente no puede editarlos, ni siquiera por ruta absoluta. Los hooks pre-push y post-merge ya no abortan en silencio bajo `set -e`. Empieza el firmante con passkey: kj y la CI verifican una aserción WebAuthn y la página de firma firma con passkey desde un móvil, aunque la firma sigue usando la clave de hoy hasta que lleguen los siguientes pasos. El Steward gana cinco comprobaciones, y kj link y las ceremonias del Senescal crecen. Ejecuta `kj harden` y pide el sello para regenerar los hooks con los arreglos.
+
+### v5.17.0: kj stage ve cada carril, y las releases y los ficheros generados ya no chocan con los gates
 
 kj stage pinta cada sesión en el carril donde trabaja, así que varios carriles a la vez se ven como varios robots. Un proyecto puede declarar sus ramas de release en `method_gates.review_exempt_branches`: en ellas el pre-commit deja pasar sin veredicto un commit que solo sube la versión de package.json y su lockfile y toca CHANGELOG.md; cualquier otro cambio sigue necesitando revisión. Lo que el repo marca `linguist-generated` en .gitattributes deja de contar como código para Sonar y para el presupuesto de líneas. Y tres detectores del Steward se han ajustado tras medirlos contra el historial de un repo real. Ejecuta `kj harden` y sella para tener el arreglo de kj stage.
 

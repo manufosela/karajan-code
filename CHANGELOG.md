@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.18.0] - 2026-11-11
+
+The phone-signature loop is gone: a new phone is now approved by a signer who already has one. A repo can also declare files that change only with the signed seal, the hooks no longer abort in silence under `set -e`, and the passkey signer begins, with its first two steps in place.
+
+### Added
+- **`sealed_files` in `.karajan/policy.yml`** (KJC-TSK-1527, #3914): files such as AGENTS.md that change only with the signed seal. The agent cannot edit them, even by absolute path; `kj harden --commit` seals them and the verifier checks them by hash.
+- **The passkey signer begins** (ADR 0053): kj and CI verify a WebAuthn passkey assertion against the signer roster (#3926), and the signer page signs with a passkey when kj asks for it and only from a phone (#3935). Signing still uses today's key until the next steps land.
+- **Steward:** a class that defines a member twice breaks `duplicate-members` (#3832, #3835); a PR merged before its checks finished breaks `merged-unverified` (#3838); a coverage threshold no CI workflow applies is not ok (#3888); agent worktrees the test runner collects break a new invariant (#3890); an invariant that stays not observable opens a proposed card (#3879).
+- **kj stage:** a table of the HUs done since the last release (KJC-TSK-1525, #3877), the board says whether each lane works, waits or has finished (KJC-TSK-1539, #3940), and each robot shows its model and effort (KJC-TSK-1536, KJC-TSK-1537, KJC-TSK-1538).
+- **kj link and Senescal ceremonies** (by @jorgecasar): `kj link` sends and reads messages on demand (#3871, #3876), a ceremony is a dedicated issue that the Senescal convenes, gathers (#3873, #3885) and closes with a result document (#3891, #3903), and the session context says how many unread messages wait (#3886).
+- **The rulesync spike doc** (#3889, by @jorgecasar): coverage of hooks and MCP, and byte stability.
+
+### Fixed
+- **The phone-signature loop** (KJC-BUG-0551, #3908, issue #3887 by @jorgecasar): with a phone in the repo's signer roster and none on this machine, `enroll-phone` and security normal sent you to each other. Now a current signer approves the new phone from their own phone, and the link lasts 10 minutes (#3911 relay rules, #3916).
+- **pre-push no longer aborts in silence under `set -e`** when there is no credential helper or no gh hosts.yml (KJC-BUG-0550, #3898, reported in #3834 by @aitormartinez-tribbu).
+- **post-merge survives a missing pid file or a raced pid write** under `set -e`, which used to skip the repo's own post-merge (KJC-BUG-0553, #3945, reported in #3910 by @jorgecasar).
+- **Review drops false absence claims** from a third party: a claim that a change is missing is checked against the diff (#3825).
+- **Board gates:** a shared-board HU already done elsewhere stops blocking (#3884), one held by someone else is theirs to move (#3941), and the lane's RAG ledger keeps the orchestrator's queries beside the coder's (#3934).
+
+After this release, `kj harden` plus the maintainer's seal regenerates the hooks with the fixes.
+
 ## [5.17.0] - 2026-11-11
 
 kj stage showed a single robot while several lanes were being worked, because the host's activity went to the folder its session started in. That is fixed, and the Steward detectors were measured against a real repo's history for the first time, which tuned three of them. A team's release script can now commit its version bump, and files a repo marks as generated no longer count as code.
