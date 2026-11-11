@@ -7,7 +7,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "@babel/parser";
 import { plugins } from "../audit/member-reachability.js";
-const DIRECT_COVERAGE_RE = /--coverage\b|(?:^|[\s;&|])(?:c8|nyc)(?:\s|$)/;
+const COVERAGE_TOOL_RE = /(?:^|[\s;&|])(?:c8|nyc)(?:\s|$)/;
+// `--coverage`, `--coverage=true`, `--coverage.enabled`; an explicit false or 0 turns it off.
+const COVERAGE_FLAG_RE = /--coverage(?:\.enabled)?(?:=(\S+))?(?=\s|$)/g;
+const OFF = new Set(["false", "0"]);
+const runsCoverageDirectly = (text) =>
+  COVERAGE_TOOL_RE.test(text) || [...text.matchAll(COVERAGE_FLAG_RE)].some((m) => !OFF.has(String(m[1] ?? "").toLowerCase()));
 const SCRIPT_CALL_RE = /\b(?:npm\s+run(?:-script)?|pnpm(?:\s+run)?|yarn(?:\s+run)?|npm)\s+([\w:.-]+)/g;
 const RUN_LINE_RE = /^(\s*)(?:-\s+)?run:\s*(.*)$/;
 const BLOCK_SCALAR_RE = /^[|>][+-]?\d*$/;
@@ -54,18 +59,21 @@ function walk(node, visit) {
  * A config that does not parse is not read as on.
  */
 export function coverageOnByDefault(configText, file = "vitest.config.js") {
-  if (/\bcollectCoverage["']?\s*:\s*true\b/.test(configText)) return true;
+  // A JSON config (jest.config.json, package.json) parses as an expression.
+  const source = file.endsWith(".json") ? `(${configText})` : configText;
   let tree;
-  try { tree = parse(configText, { sourceType: "unambiguous", plugins: plugins(file) }); } catch { return false; }
+  try { tree = parse(source, { sourceType: "unambiguous", plugins: plugins(file) }); } catch { return false; }
   let on = false;
   walk(tree.program, (n) => {
-    if (n.type !== "ObjectProperty" || keyOf(n) !== "coverage" || n.value?.type !== "ObjectExpression") return;
-    if (n.value.properties.some((p) => keyOf(p) === "enabled" && isTrue(p.value))) on = true;
+    if (n.type !== "ObjectProperty") return;
+    if (keyOf(n) === "collectCoverage" && isTrue(n.value)) on = true;
+    if (keyOf(n) === "coverage" && n.value?.type === "ObjectExpression"
+      && n.value.properties.some((p) => keyOf(p) === "enabled" && isTrue(p.value))) on = true;
   });
   return on;
 }
 export function commandRunsCoverage(command, scripts = {}, { alwaysOn = false } = {}) {
-  const matches = (text) => DIRECT_COVERAGE_RE.test(text) || (alwaysOn && TEST_RUN_RE.test(text));
+  const matches = (text) => runsCoverageDirectly(text) || (alwaysOn && TEST_RUN_RE.test(text));
   if (matches(command)) return true;
   return [...command.matchAll(SCRIPT_CALL_RE)].some((m) => matches(String(scripts[m[1]] ?? "")));
 }

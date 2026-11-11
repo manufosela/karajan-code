@@ -221,6 +221,16 @@ describe("coverage — AC7: an invariant of CONFIGURATION, not of value", () => 
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
     expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
   });
+  it("`--coverage=false` does not apply the threshold", () => {
+    expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf("run: npx vitest run --coverage=false") }) }).verdict).toBe(VERDICTS.BROKEN);
+  });
+  it("collectCoverage counts only as a real option, not inside a string or comment", () => {
+    const dir = repoWith({ "ci.yml": wf("run: npx jest") });
+    fs.writeFileSync(path.join(dir, "jest.config.js"), "// collectCoverage: true\nmodule.exports = { note: \"collectCoverage: true\", coverageThreshold: { global: { lines: 70 } } };\n");
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.BROKEN);
+    fs.writeFileSync(path.join(dir, "jest.config.js"), "module.exports = { collectCoverage: true, coverageThreshold: { global: { lines: 70 } } };\n");
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
+  });
   it("a quoted coverage key is read too", () => {
     const dir = repoWith({ "ci.yml": wf("run: npm test") });
     fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { \"coverage\": { enabled: true, thresholds: { lines: 70 } } } };\n");
