@@ -14,6 +14,9 @@ const line = (o) => `${JSON.stringify(o)}\n`;
 const lane = (...p) => join(proj, ...p);
 const harness = (dir) => { mkdirSync(join(dir, '.karajan', 'harness'), { recursive: true }); return join(dir, '.karajan', 'harness'); };
 
+// A git worktree keeps a `.git` FILE that points back to the main repository.
+const worktree = (...p) => { mkdirSync(lane(...p), { recursive: true }); writeFileSync(lane(...p, '.git'), 'gitdir: ../../.git/worktrees/x\n'); return lane(...p); };
+
 beforeEach(() => {
   proj = mkdtempSync(join(tmpdir(), 'stage-lanes-'));
   harness(proj);
@@ -22,8 +25,8 @@ afterEach(() => rmSync(proj, { recursive: true, force: true }));
 
 describe('listLanes', () => {
   it('is the main checkout first, then every worktree of kj and of claude by name', () => {
-    mkdirSync(lane('.kj', 'worktrees', 'kj-stage'), { recursive: true });
-    mkdirSync(lane('.claude', 'worktrees', 'agent-a1'), { recursive: true });
+    worktree('.kj', 'worktrees', 'kj-stage');
+    worktree('.claude', 'worktrees', 'agent-a1');
     writeFileSync(lane('.kj', 'worktrees', 'registry.json'), '{}');
     expect(listLanes(proj)).toEqual([
       { lane: 'main', dir: proj },
@@ -35,11 +38,28 @@ describe('listLanes', () => {
   it('is only the main checkout when the project has no worktrees', () => {
     expect(listLanes(proj)).toEqual([{ lane: 'main', dir: proj }]);
   });
+
+  it('counts a folder only when it holds a .git entry, and skips any whose name starts with a dot', () => {
+    worktree('.kj', 'worktrees', 'real');
+    mkdirSync(lane('.kj', 'worktrees', 'empty'), { recursive: true });
+    mkdirSync(lane('.kj', 'worktrees', '.claude', '.cc-writes'), { recursive: true });
+    worktree('.kj', 'worktrees', '.hidden');
+    expect(listLanes(proj)).toEqual([
+      { lane: 'main', dir: proj },
+      { lane: 'real', dir: lane('.kj', 'worktrees', 'real') },
+    ]);
+  });
+
+  it('keeps the sorted order of the real worktrees and still counts those under .claude/worktrees', () => {
+    worktree('.kj', 'worktrees', 'zeta');
+    worktree('.claude', 'worktrees', 'alpha');
+    expect(listLanes(proj).map((l) => l.lane)).toEqual(['main', 'alpha', 'zeta']);
+  });
 });
 
 describe('laneStates', () => {
   it('gives each lane its own last state', () => {
-    const wt = lane('.kj', 'worktrees', 'kj-stage');
+    const wt = worktree('.kj', 'worktrees', 'kj-stage');
     appendFileSync(join(harness(wt), 'denials.jsonl'), line({ at: 't1', tool: 'Bash', why: 'no' }));
     const states = laneStates(proj);
     expect(states.map((s) => [s.lane, s.denial?.at ?? null])).toEqual([['main', null], ['kj-stage', 't1']]);
@@ -57,7 +77,7 @@ describe('watchLanes', () => {
   beforeEach(() => { watchers = []; sent = []; });
 
   it('tags each event with its lane and follows a worktree born after it started', () => {
-    const wt = lane('.kj', 'worktrees', 'kj-stage');
+    const wt = worktree('.kj', 'worktrees', 'kj-stage');
     const wtHarness = harness(wt);
     const stop = watchLanes(proj, (ev) => sent.push(ev), { project: 'demo', watch, warn: () => {} });
     appendFileSync(join(wtHarness, 'denials.jsonl'), line({ at: 't1', tool: 'Bash', why: 'no' }));
