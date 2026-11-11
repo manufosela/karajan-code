@@ -33,7 +33,8 @@ service cloud.firestore {
         && (!('v' in request.resource.data) || (request.resource.data.v == 2
           && request.resource.data.expires_at is timestamp
           && request.resource.data.expires_at > request.resource.data.createdAt
-          && request.resource.data.expires_at <= request.resource.data.createdAt + duration.value(3, 'm')))
+          // KJC-TSK-1535: up to 10 minutes, so a phone enrollment link can reach another signer.
+          && request.resource.data.expires_at <= request.resource.data.createdAt + duration.value(10, 'm')))
         && request.resource.data.keys().hasAll(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state'])
         && request.resource.data.state == 'pending'
         && request.resource.data.nonce is string
@@ -45,7 +46,8 @@ service cloud.firestore {
       allow update: if resource.data.state == 'pending'
         && request.resource.data.state == 'signed'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'signature', 'publicKey', 'signedAt'])
-        && request.time < resource.data.createdAt + duration.value(3, 'm');
+        // KJC-TSK-1535: a v2 request is signed until its own expiry; an old one keeps the 3 minutes.
+        && request.time < ('expires_at' in resource.data ? resource.data.expires_at : resource.data.createdAt + duration.value(3, 'm'));
     }
 
     match /{document=**} {
