@@ -28,8 +28,29 @@ const spotOf = (visit, xOf, zOf) => {
   return { x: xOf(visit.lane) + dx, z: zOf(visit.lane) + dz };
 };
 
+/** KJC-TSK-1528: a review that never says it ended sends the AI review piece back after this long. */
+export const REVIEW_MAX_MS = 15 * 60 * 1000;
+
+/**
+ * KJC-TSK-1528 (decided by the maintainer on 2026-11-11): the AI review piece does the reviewing.
+ * A reviewer's start sends it to the lane with the agent's name for as long as the review lasts;
+ * its end sends it back (the verdict, just after, keeps it a while).
+ */
+function withReviewer(visits, event, now) {
+  const lane = event.lane ?? 'main';
+  const old = visits.review;
+  if (event.phase === 'start') {
+    const until = now + PIECE_WALK_MS + REVIEW_MAX_MS;
+    const here = old?.lane === lane && now < old.until;
+    return { ...visits, review: here ? { ...old, until, by: event.agent } : { ...withVisit(visits, { type: 'review-verdict', lane }, now).review, until, by: event.agent } };
+  }
+  if (old?.lane !== lane || now >= old.until) return visits;
+  return { ...visits, review: { ...old, until: Math.max(now, old.at + PIECE_WALK_MS) } };
+}
+
 /** The visits after an event at `now`, by piece: a piece already in that lane's workshop stays longer. */
 export function withVisit(visits, event, now) {
+  if (event?.type === 'agent-activity') return event.role === 'reviewer' ? withReviewer(visits, event, now) : visits;
   const piece = pieceOf(event);
   if (!piece) return visits;
   const lane = event.lane ?? 'main';

@@ -28,16 +28,23 @@ describe('spotOf (ADR 0048)', () => {
 
   it('sends each agent to the workshop of its own lane', () => {
     const xOf = (lane) => ({ main: -5, 'kj-stage': 5 })[lane];
-    const [w] = withActivity([], start('codex', 'reviewer', 'kj-stage'), 0);
-    expect(workerAt(w, WALK_MS, xOf)).toMatchObject({ ...spotOf('reviewer', 5), walking: false });
-    const [m] = withActivity([], start('codex', 'reviewer'), 0);
+    const [w] = withActivity([], start('agy', 'solomon', 'kj-stage'), 0);
+    expect(workerAt(w, WALK_MS, xOf)).toMatchObject({ ...spotOf('solomon', 5), walking: false });
+    const [m] = withActivity([], start('agy', 'solomon'), 0);
     expect(m.lane).toBe('main');
   });
 
+  // KJC-TSK-1528: the AI review piece does the reviewing, so a reviewer gets no robot of its own.
+  it('draws no robot for the reviewer, live or at work when the stage opens', () => {
+    const reviewing = { ...start('agy', 'solomon', 'a'), agent: 'codex', role: 'reviewer' };
+    expect(withActivity([], reviewing, 0)).toEqual([]);
+    expect(workersFrom([{ agent: 'codex', role: 'reviewer', at: 'x' }, { agent: 'agy', role: 'solomon', at: 'x' }], 0, 'a').map((w) => w.role)).toEqual(['solomon']);
+  });
+
   it('keeps one robot per agent and role in each lane', () => {
-    let workers = withActivity([], start('codex', 'reviewer', 'a'), 0);
-    workers = withActivity(workers, start('codex', 'reviewer', 'b'), 1);
-    workers = withActivity(workers, end('codex', 'reviewer', 'a'), 2);
+    let workers = withActivity([], start('agy', 'solomon', 'a'), 0);
+    workers = withActivity(workers, start('agy', 'solomon', 'b'), 1);
+    workers = withActivity(workers, end('agy', 'solomon', 'a'), 2);
     expect(workers.map((w) => [w.lane, w.leftAt])).toEqual([['a', 2], ['b', undefined]]);
   });
 });
@@ -87,20 +94,20 @@ describe('the host and its subagents (KJC-TSK-1435)', () => {
 
 describe('a worker over time', () => {
   it('walks in from the door, works at its spot, then walks out and is gone', () => {
-    let workers = withActivity([], start('codex', 'reviewer'), 1000);
+    let workers = withActivity([], start('agy', 'solomon'), 1000);
     const [codex] = workers;
     expect(workerAt(codex, 1000)).toMatchObject({ x: DOOR.x, z: DOOR.z, walking: true });
-    expect(workerAt(codex, 1000 + WALK_MS)).toMatchObject({ ...spotOf('reviewer'), walking: false });
-    workers = withActivity(workers, end('codex', 'reviewer'), 9000);
+    expect(workerAt(codex, 1000 + WALK_MS)).toMatchObject({ ...spotOf('solomon'), walking: false });
+    workers = withActivity(workers, end('agy', 'solomon'), 9000);
     expect(workerAt(workers[0], 9000 + WALK_MS / 2).walking).toBe(true);
     expect(workerAt(workers[0], 9000 + WALK_MS)).toBeNull();
   });
 
   it('a departure at time 0 is a departure: a new start brings a new robot', () => {
-    let workers = withActivity([], start('codex', 'reviewer'), -100);
-    workers = withActivity(workers, end('codex', 'reviewer'), 0);
-    workers = withActivity(workers, start('codex', 'reviewer'), 10);
-    workers = withActivity(workers, end('codex', 'reviewer'), 20);
+    let workers = withActivity([], start('agy', 'solomon'), -100);
+    workers = withActivity(workers, end('agy', 'solomon'), 0);
+    workers = withActivity(workers, start('agy', 'solomon'), 10);
+    workers = withActivity(workers, end('agy', 'solomon'), 20);
     expect(workers.map((w) => w.leftAt)).toEqual([0, 20]);
   });
 
@@ -114,8 +121,8 @@ describe('a worker over time', () => {
   it('gives each agent its own colour and keeps one key for its whole visit', () => {
     expect(accentOf('claude')).not.toBe(accentOf('codex'));
     expect(accentOf('someone-new')).toBe(accentOf('another-new'));
-    const [entering] = withActivity([], start('codex', 'reviewer'), 1000);
-    const [leaving] = withActivity([entering], end('codex', 'reviewer'), 2000);
+    const [entering] = withActivity([], start('agy', 'solomon'), 1000);
+    const [leaving] = withActivity([entering], end('agy', 'solomon'), 2000);
     expect(visitKey(leaving)).toBe(visitKey(entering));
   });
 

@@ -15,8 +15,8 @@ const zOf = () => WORKSHOP.z + ROW;
 
 describe('every piece goes to the row of its lane (KJC-TSK-1488)', () => {
   it('a worker stands at the bench of its lane\'s row', () => {
-    const [w] = workersFrom([{ agent: 'codex', role: 'reviewer', at: 'x' }], 0, 'far');
-    expect(workerAt(w, WALK_MS, xOf, zOf).z).toBeCloseTo(spotOf('reviewer', 4).z + ROW);
+    const [w] = workersFrom([{ agent: 'agy', role: 'solomon', at: 'x' }], 0, 'far');
+    expect(workerAt(w, WALK_MS, xOf, zOf).z).toBeCloseTo(spotOf('solomon', 4).z + ROW);
   });
 
   it('kaRAGan hands the answer over at that row', () => {

@@ -13,7 +13,7 @@ import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
-import { VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js';
+import { PIECE_WALK_MS, VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js';
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
 import { readyToRelease } from './release.js';
@@ -90,13 +90,17 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     crew.conductor.pose('R', ...pose.R);
   };
   /** KJC-TSK-1517, 1524: each piece of the method glides to the workshop it acts on, and back. */
-  const movePieces = (now) => {
-    for (const id of Object.keys(VISIT_SPOTS)) {
-      const pose = pieceAt(visits[id], now, { x: postX(id), z: POST.z }, hall.xOf, hall.zOf);
-      pieces[id].group.position.set(pose.x, pose.walking ? 0.08 * Math.abs(Math.sin(now / 110)) : 0, pose.z);
-      pieces[id].group.rotation.y = pose.yaw;
-    }
-  };
+  // KJC-TSK-1528: returns the name tag of the agent a piece works for (the reviewer over AI review).
+  const movePieces = (now) => Object.keys(VISIT_SPOTS).flatMap((id) => {
+    const pose = pieceAt(visits[id], now, { x: postX(id), z: POST.z }, hall.xOf, hall.zOf);
+    pieces[id].group.position.set(pose.x, pose.walking ? 0.08 * Math.abs(Math.sin(now / 110)) : 0, pose.z);
+    pieces[id].group.rotation.y = pose.yaw;
+    return pose.away && visits[id]?.by ? [overPiece(visits[id].by, pieces[id].group.position, camera, origin, 'stage-worker')] : [];
+  });
+  // KJC-TSK-1528: a review already going on when the stage opens has the AI review piece at it.
+  for (const { lane, working: at } of working) {
+    for (const w of at ?? []) visits = withVisit(visits, { type: 'agent-activity', role: w.role, agent: w.agent, phase: 'start', lane }, performance.now() - PIECE_WALK_MS);
+  }
   return {
     settle,
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
@@ -128,7 +132,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       moveRagan(now);
       conduct(now);
-      movePieces(now);
+      tags.push(...movePieces(now));
       couriers.frame(now, hall.xOf, hall.zOf);
       benchNotes.frame(state.cards ?? [], hall.xOf, couriers.carried(), hall.zOf);
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
