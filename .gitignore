@@ -6,6 +6,9 @@ dist/
 # KJL-TSK-0133: the built docs (pagefind's binary index included) are a deploy artifact, built by
 # the firebase predeploy from apps/landing/docs; the source stays in git, the output does not.
 apps/landing/public/docs/
+# KJL-TSK-0158 (ADR 0052): the kj stage scene the predeploy copies from the board.
+apps/landing/public/factory/stage-*/
+apps/landing/public/factory/stage.json
 *.log
 .DS_Store
 
