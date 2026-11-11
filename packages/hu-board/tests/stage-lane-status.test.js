@@ -60,6 +60,17 @@ describe('laneStatuses', () => {
   });
 });
 
+// KJC-TSK-1546: a lane's note says what it waits for, in quotes, as text.
+describe('a lane with a note', () => {
+  it('keeps it in its status and shows it quoted instead of the reason, never while it works', () => {
+    const lanes = [{ lane: 'x', branch: { ...synced, ahead: 2 }, note: "waits for Jorge's review" }];
+    const status = laneStatuses(['x'], { lanes }, new Map()).get('x');
+    expect(status).toEqual({ state: 'idle', why: 'no activity', note: "waits for Jorge's review" });
+    expect(statusLine(status)).toBe("“waits for Jorge's review”");
+    expect(statusLine({ state: 'working', why: null, note: 'x' })).toBe('');
+  });
+});
+
 describe('statusLine', () => {
   it('says nothing for a working lane, what it waits for, and the state with its reason otherwise', () => {
     expect(statusLine({ state: 'working', why: null })).toBe('');
