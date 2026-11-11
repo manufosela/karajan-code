@@ -47,7 +47,7 @@ Cada escritura pertenece al carril (worktree) de la ruta que toca (ADR 0034). Un
 
 ## identity
 
-El bloqueo de identidad (ADR 0005): `gh`, `git push` y los comandos que firman commits deben correr bajo la cuenta que este clon declara (`kj identity set`). Nació de un incidente real, una llamada `gh` sin conmutar publicó como una cuenta de cliente en un repo público. Escape: `KJ_ALLOW_IDENTITY=1`.
+El bloqueo de identidad (ADR 0005): `gh` y sus envoltorios por cuenta deben correr bajo la cuenta que este clon declara (`kj identity set`), y los hooks pre-commit y pre-push comprueban el email de cada commit. Nació de un incidente real, una llamada `gh` sin conmutar publicó como una cuenta de cliente en un repo público. No hay escape (ADR 0015): se cambia de cuenta, no el bloqueo. Más en [Gobernanza](/docs/es/v4/governance/#el-bloqueo-de-identidad).
 
 ## board-sync
 

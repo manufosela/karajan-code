@@ -64,6 +64,7 @@ export default defineConfig({
 								label: 'The method', translations: { es: 'El método' },
 								items: [
 									{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
+									{ label: 'Governance', slug: 'v4/governance', translations: { es: 'Gobernanza' } },
 									{ label: 'The Sentinel', slug: 'guides/sentinel', translations: { es: 'El Sentinel' } },
 									{ label: 'Hardening against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
 									{ label: 'The HU-Board', slug: 'guides/hu-board', translations: { es: 'El HU-Board' } },

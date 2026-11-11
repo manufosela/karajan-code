@@ -47,7 +47,7 @@ Each write belongs to the lane (worktree) of the path it touches (ADR 0034). One
 
 ## identity
 
-The identity lock (ADR 0005): `gh`, `git push` and commit-authoring commands must run under the account this clone declares (`kj identity set`). Born from a real incident — one unswitched `gh` call posted as a client account on a public repo. Escape: `KJ_ALLOW_IDENTITY=1`.
+The identity lock (ADR 0005): `gh` and its per-account wrappers must run under the account this clone declares (`kj identity set`), and the pre-commit and pre-push hooks check the email of every commit. Born from a real incident: one unswitched `gh` call posted as a client account on a public repo. There is no escape (ADR 0015): switch the account, not the lock. More in [Governance](/docs/v4/governance/#the-identity-lock).
 
 ## board-sync
 
