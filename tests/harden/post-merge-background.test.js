@@ -64,3 +64,43 @@ describe("post-merge hook", () => {
     expect(await waitFor(() => existsSync(join(dir, "runs")))).toBe(true);
   });
 });
+
+// HU-3936 (KJC-BUG-0553, #3910 points 3 and 4): the hook runs under set -e; an expected miss must not end it
+// before the repo's own post-merge is chained.
+describe("post-merge hook under set -e", () => {
+  const shells = ["sh", ...(spawnSync("dash", ["-c", "true"]).status === 0 ? ["dash"] : [])];
+  const marker = () => join(dir, "chained");
+  const repoHook = () => {
+    mkdirSync(join(dir, ".git", "hooks"), { recursive: true });
+    writeFileSync(join(dir, ".git", "hooks", "post-merge"), `#!/bin/sh\ntouch "${marker()}"\n`, { mode: 0o755 });
+  };
+  const runE = (shell, kjBody) => {
+    const bin = join(dir, "bin");
+    if (kjBody) writeFileSync(join(bin, "kj"), `#!/bin/sh\n${kjBody}\n`, { mode: 0o755 });
+    return spawnSync(shell, ["-e", join(dir, "post-merge")], {
+      cwd: dir, encoding: "utf8",
+      env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", PATH: `${bin}:${process.env.PATH}` },
+    });
+  };
+
+  for (const shell of shells) {
+    it(`${shell}: a lock dir with no pid file does not end the hook`, () => {
+      repoHook();
+      mkdirSync(join(dir, ".git", "kj-rag-index.lock"));
+      const res = runE(shell);
+      expect(res.status).toBe(0);
+      expect(existsSync(marker())).toBe(true);
+    });
+
+    it(`${shell}: the indexer removing the lock before the pid write does not end the hook`, () => {
+      repoHook();
+      // kj ends at once: the subshell's rm -rf of the lock can beat the parent's pid write.
+      for (let i = 0; i < 20; i++) {
+        rmSync(marker(), { force: true });
+        const res = runE(shell, "exit 0");
+        expect(res.status).toBe(0);
+        expect(existsSync(marker())).toBe(true);
+      }
+    });
+  }
+});
