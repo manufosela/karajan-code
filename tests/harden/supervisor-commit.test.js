@@ -13,6 +13,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { createHash } from "node:crypto";
 
 import { commitSupervisorRegeneration, harnessGuards, PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
+import { verifiedSupervisorFiles } from "../../src/policy/supervisor-verify.js";
 import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 let repo;
@@ -333,6 +334,39 @@ describe("the seal covers the governance config (KJC-TSK-1032)", () => {
     const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
     expect(prov.files).toContainEqual({ file: ".karajan/policy.yml", deleted: true });
     expect(git(["ls-files", ".karajan/policy.yml"]).trim()).toBe("");
+  });
+
+  // HU-3899: a file the project declares in policy.yml sealed_files is sealed like the governance config.
+  const declareAgents = () => {
+    writeFileSync(join(repo, "AGENTS.md"), "# rules\n");
+    writeFileSync(policy(), "version: 1\nsealed_files: [AGENTS.md, NEW.md, MISSING.md]\n");
+    git(["add", "-A"]);
+    git(["commit", "-qm", "declare", "--no-verify"]);
+  };
+
+  it("declared files, changed and staged or new to git, are sealed and committed, and the verifier accepts them (HU-3899)", async () => {
+    declareAgents();
+    writeFileSync(join(repo, "AGENTS.md"), "# rules, v2\n");
+    git(["add", "AGENTS.md"]);
+    writeFileSync(join(repo, "NEW.md"), "# new\n");
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    for (const f of ["AGENTS.md", "NEW.md"]) expect(prov.files).toContainEqual({ file: f, sha256: hashOf(join(repo, f)) });
+    expect(prov.files.map((f) => f.file)).not.toContain("MISSING.md");
+    expect(git(["show", "--name-only", "--format=", "HEAD"]).split("\n")).toEqual(expect.arrayContaining(["AGENTS.md", "NEW.md"]));
+    // HUMAN seals without a phone; the roster setNormalLevel left would demand a signature, so the hashes judge alone.
+    rmSync(join(repo, ".karajan", "supervisor-signers.json"));
+    expect([...verifiedSupervisorFiles({ projectDir: repo }).files]).toEqual(expect.arrayContaining(["AGENTS.md", "NEW.md"]));
+  });
+
+  it("a sealed declared file, deleted later, is recorded as deleted and committed (HU-3899)", async () => {
+    declareAgents();
+    await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    rmSync(join(repo, "AGENTS.md"));
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: "AGENTS.md", deleted: true });
+    expect(git(["ls-files", "AGENTS.md"]).trim()).toBe("");
   });
 });
 

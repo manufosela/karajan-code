@@ -2,7 +2,10 @@
 // cargar), engine as code (puro, fs inyectado, deny-wins).
 
 import { describe, it, expect } from "vitest";
-import { checkStagedDiff, evalToolCall, loadPolicy } from "../../src/policy/engine.js";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { checkStagedDiff, evalToolCall, loadPolicy, sealedFilesOf } from "../../src/policy/engine.js";
 
 const load = (yamlText) =>
   loadPolicy({ projectDir: "/p", deps: { readFile: () => yamlText } });
@@ -227,6 +230,56 @@ describe("governance config in a diff (KJC-TSK-1033)", () => {
 
   it("other config files are not governance", () => {
     expect(checkStagedDiff(policy, { role: "coder", files: [".karajan/policy-anchor.json", "src/policy.yml"], netLinesAdded: 1 })).toEqual([]);
+  });
+});
+
+// HU-3899: a project declares extra files that enter only sealed (sealed_files in policy.yml).
+describe("sealed_files in policy.yml (HU-3899)", () => {
+  const diff = (policy, files) => checkStagedDiff(policy, { role: "coder", files, netLinesAdded: 1 });
+
+  it("a declared file is a governance deny; the same name elsewhere is not", () => {
+    const { policy, errors } = load("version: 1\nsealed_files: [AGENTS.md]\n");
+    expect(errors).toEqual([]);
+    const [v] = diff(policy, ["AGENTS.md"]);
+    expect(v).toMatchObject({ rule_id: "defaults.governance.write", file: "AGENTS.md", enforcement: "deny", class: "security" });
+    expect(v.reason).toMatch(/kj harden --commit/);
+    expect(diff(policy, ["docs/AGENTS.md", "AGENTS.md.bak", "XAGENTS.md"])).toEqual([]);
+    expect(evalToolCall(policy, { tool: "Bash", input: { command: "echo x > ./AGENTS.md" } })).toMatchObject({ rule_id: "defaults.governance.write" });
+  });
+
+  it("an invalid entry is a load error", () => {
+    for (const bad of ["../x", "/abs", "*.md", "a/../b", ".karajan/hooks/pre-commit", 7]) {
+      const { errors } = load(`version: 1\nsealed_files: [${JSON.stringify(bad)}]\n`);
+      expect(errors.join(" "), String(bad)).toMatch(/sealed_files/);
+    }
+    expect(load("version: 1\nsealed_files: AGENTS.md\n").errors.join(" ")).toMatch(/sealed_files/);
+  });
+
+  it("an agent's absolute file_path at the project root is denied; elsewhere it is not", () => {
+    const root = mkdtempSync(join(tmpdir(), "kj-sealed-"));
+    const link = `${root}-link`;
+    try {
+      mkdirSync(join(root, ".karajan"));
+      writeFileSync(join(root, ".karajan", "policy.yml"), "version: 1\nsealed_files: [AGENTS.md]\n");
+      symlinkSync(root, link);
+      const edit = (dir, file_path) =>
+        evalToolCall(loadPolicy({ projectDir: dir }).policy, { tool: "Edit", input: { file_path }, root: dir });
+      expect(edit(root, join(root, "AGENTS.md"))).toMatchObject({ rule_id: "defaults.governance.write" });
+      expect(edit(link, join(realpathSync(root), "AGENTS.md"))).toMatchObject({ rule_id: "defaults.governance.write" });
+      expect(edit(root, join(root, "docs", "AGENTS.md")).decision).toBe("allow");
+      expect(edit(root, "/elsewhere/AGENTS.md").decision).toBe("allow");
+    } finally {
+      rmSync(link, { force: true });
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("without the key nothing changes", () => {
+    const { policy, errors } = load("version: 1\n");
+    expect(errors).toEqual([]);
+    expect(diff(policy, ["AGENTS.md"])).toEqual([]);
+    expect(sealedFilesOf("/p", { readFile: () => "version: 1\n" })).toEqual([]);
+    expect(sealedFilesOf("/p", { readFile: () => "version: 1\nsealed_files: [AGENTS.md]\n" })).toEqual(["AGENTS.md"]);
   });
 });
 
