@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { linguistGenerated } from "../review/linguist-generated.js";
 import { budgetedAdded, budgetedNet, countLines, movedLines, parseNumstat } from "../review/loc-budget.js";
 
 const git = (projectDir, args) =>
@@ -39,9 +40,11 @@ export async function branchSize({ projectDir = process.cwd(), base = "main", ex
     rows.push({ added: countLines(text), removed: 0, from: file, to: file });
   }
   // The diff is against the working tree, so a file moved out of an exempt path is counted from disk.
-  const linesOf = await movedLines(rows, (path) => readFileSync(join(projectDir, path), "utf8"));
+  // KJC-BUG-0544: the work tree's attributes decide what the repo marks linguist-generated.
+  const generated = linguistGenerated(rows.map((r) => r.to), { cwd: projectDir });
+  const linesOf = await movedLines(rows, (path) => readFileSync(join(projectDir, path), "utf8"), generated);
   // KJC-BUG-0434: `net` is what the CI gate and the policy measure; `added` stays for its readers.
-  return { ...budgetedAdded(rows, linesOf), net: budgetedNet(rows, linesOf).net, base };
+  return { ...budgetedAdded(rows, linesOf, generated), net: budgetedNet(rows, linesOf, generated).net, base };
 }
 
 // KJC-TSK-1491 (KJC-BUG-0519): the CI gate passes the PR's base and the budget, so it counts as kj does.

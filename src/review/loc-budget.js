@@ -56,10 +56,16 @@ export function isGenerated(file) {
   return Boolean(file) && GENERATED.some((re) => re.test(file));
 }
 
-/** @param {string} file @returns {boolean} */
-export function countsTowardBudget(file) {
+/**
+ * @param {string} file
+ * @param {Set<string>} [generated] files the repo marks linguist-generated (KJC-BUG-0544)
+ * @returns {boolean}
+ */
+export function countsTowardBudget(file, generated) {
   if (!file) return false;
+  // AI-rule files always count: marking them generated does not take them out of the budget.
   if (AI_RULES.some((re) => re.test(file))) return true;
+  if (generated?.has(file)) return false;
   return !EXEMPT.some((re) => re.test(file));
 }
 
@@ -102,7 +108,7 @@ export function countLines(text) {
 export const showSpec = (range, path) => `${range ? (range.split(/\.{2,3}/)[1] || "HEAD") : ""}:${path}`;
 
 const rowsOf = (numstat) => (Array.isArray(numstat) ? numstat : parseNumstat(numstat)).filter((r) => Number.isFinite(r.added) && Number.isFinite(r.removed));
-const entersBudget = (row) => row.from !== row.to && !countsTowardBudget(row.from) && countsTowardBudget(row.to);
+const entersBudget = (row, generated) => row.from !== row.to && !countsTowardBudget(row.from, generated) && countsTowardBudget(row.to, generated);
 
 /**
  * A pure rename shows 0/0, so a move OUT of an exempt path into a counted one
@@ -112,15 +118,15 @@ const entersBudget = (row) => row.from !== row.to && !countsTowardBudget(row.fro
  * @param {(path: string) => Promise<string>} read the content of a destination path at the diffed revision
  * @returns {Promise<(path: string) => number|undefined>} the `linesOf` the budget functions take
  */
-export async function movedLines(numstat, read) {
+export async function movedLines(numstat, read, generated) {
   const lines = new Map();
-  for (const row of rowsOf(numstat).filter(entersBudget)) lines.set(row.to, countLines(await read(row.to)));
+  for (const row of rowsOf(numstat).filter((r) => entersBudget(r, generated))) lines.set(row.to, countLines(await read(row.to)));
   return (path) => lines.get(path);
 }
 
-function weigh(row, linesOf) {
-  if (!countsTowardBudget(row.to)) return { added: 0, net: 0, exempt: row.added };
-  if (!entersBudget(row)) return { added: row.added, net: row.added - row.removed, exempt: 0 };
+function weigh(row, linesOf, generated) {
+  if (!countsTowardBudget(row.to, generated)) return { added: 0, net: 0, exempt: row.added };
+  if (!entersBudget(row, generated)) return { added: row.added, net: row.added - row.removed, exempt: 0 };
   const lines = linesOf?.(row.to);
   if (lines === undefined) throw new Error(`loc-budget: ${row.from} moved into ${row.to} needs its line count (linesOf)`);
   return { added: lines, net: lines, exempt: 0 };
@@ -136,11 +142,11 @@ function weigh(row, linesOf) {
  * @param {(path: string) => number|undefined} [linesOf] see movedLines
  * @returns {{net: number, exempt: number}}
  */
-export function budgetedNet(numstat, linesOf) {
+export function budgetedNet(numstat, linesOf, generated) {
   let net = 0;
   let exempt = 0;
   for (const row of rowsOf(numstat)) {
-    const w = weigh(row, linesOf);
+    const w = weigh(row, linesOf, generated);
     net += w.net;
     exempt += w.exempt;
   }
@@ -152,12 +158,12 @@ export function budgetedNet(numstat, linesOf) {
  * @param {(path: string) => number|undefined} [linesOf] see movedLines
  * @returns {{added: number, exempt: number, testAdded: number}}
  */
-export function budgetedAdded(numstat, linesOf) {
+export function budgetedAdded(numstat, linesOf, generated) {
   let added = 0;
   let exempt = 0;
   let testAdded = 0;
   for (const row of rowsOf(numstat)) {
-    const w = weigh(row, linesOf);
+    const w = weigh(row, linesOf, generated);
     added += w.added;
     exempt += w.exempt;
     if (w.added && /\/tests?\/|__tests__\/|\.test\.|\.spec\./.test(`/${row.to}`)) testAdded += w.added;
