@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { activityEvent, cardEvent, denialEvent, decisionEvent, gateEvent, ragEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
+import { activityEvent, cardEvent, denialEvent, decisionEvent, gateEvent, ragEvent, ragIndexEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 
@@ -48,6 +48,13 @@ describe('stage events from kj records', () => {
     expect(ragEvent(JSON.stringify({ at: 1e20, sources: [] }))).toBeNull();
     expect(ragEvent(JSON.stringify({ at: '2026', sources: [] }))).toBeNull();
     expect(ragEvent(JSON.stringify({ at: 5, sources: 'a' }))).toBeNull();
+  });
+
+  it("the RAG's index note gives whether a reindex starts or ends, and none for another phase (KJC-TSK-1521)", () => {
+    expect(ragIndexEvent(JSON.stringify({ at: 0, phase: 'start' }))).toEqual({ type: 'rag-index', at: '1970-01-01T00:00:00.000Z', phase: 'start' });
+    expect(ragIndexEvent(JSON.stringify({ at: 0, phase: 'end' })).phase).toBe('end');
+    expect(ragIndexEvent(JSON.stringify({ at: 0, phase: 'nap' }))).toBeNull();
+    expect(ragIndexEvent(JSON.stringify({ at: 1e20, phase: 'start' }))).toBeNull();
   });
 
   // KJC-TSK-1457 (ADR 0050): the card trace kj hu add and kj hu move leave in the lane.
@@ -133,11 +140,19 @@ describe('watchStageFeed', () => {
     watcher.emit('add', note);
     watcher.emit('change', note);
     watcher.emit('change', join(dir, '.karajan', 'other.json'));
+    expect(sent.at(-1)).toEqual({ type: 'rag-answer', at: '1970-01-01T00:00:01.000Z', sources: 2, project: 'demo' });
+    // KJC-TSK-1521: the index note, once per phase: a start, then its end in the same millisecond.
+    const index = join(dir, '.karajan', 'harness', 'rag-index.json');
+    writeFileSync(index, JSON.stringify({ at: 2000, phase: 'start' }));
+    watcher.emit('add', index);
+    watcher.emit('change', index);
+    writeFileSync(index, JSON.stringify({ at: 2000, phase: 'end' }));
+    watcher.emit('change', index);
     expect(sent.map((e) => [e.type, e.project])).toEqual([
       ['sentinel-deny', 'demo'], ['ledger-seal', 'demo'], ['review-verdict', 'demo'], ['commit-gate', 'demo'], ['agent-activity', 'demo'],
-      ['card', 'demo'], ['rag-answer', 'demo'],
+      ['card', 'demo'], ['rag-answer', 'demo'], ['rag-index', 'demo'], ['rag-index', 'demo'],
     ]);
-    expect(sent.at(-1)).toEqual({ type: 'rag-answer', at: '1970-01-01T00:00:01.000Z', sources: 2, project: 'demo' });
+    expect(sent.at(-1)).toEqual({ type: 'rag-index', at: '1970-01-01T00:00:02.000Z', phase: 'end', project: 'demo' });
     expect(JSON.stringify(sent)).not.toContain('SECRET');
     stop();
     expect(watcher.closed).toBe(true);

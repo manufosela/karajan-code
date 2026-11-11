@@ -91,6 +91,14 @@ export function ragEvent(raw) {
   return { type: 'rag-answer', at: at.toISOString(), sources: r.sources.length };
 }
 
+/** KJC-TSK-1521: .karajan/harness/rag-index.json (kj rag index starts or ends a reindex) → a rag-index event, or null. */
+export function ragIndexEvent(raw) {
+  const r = parse(raw);
+  const at = new Date(typeof r?.at === 'number' ? r.at : Number.NaN);
+  if (!Number.isFinite(at.getTime()) || !['start', 'end'].includes(r.phase)) return null;
+  return { type: 'rag-index', at: at.toISOString(), phase: r.phase };
+}
+
 const sizeOf = (file) => { try { return statSync(file).size; } catch { return 0; } };
 
 /**
@@ -145,23 +153,25 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
     } else if (inHandoffs(file)) {
       // KJC-TSK-1472: a handoff added or marked done changes the lane's mail.
       send({ type: 'mail', pending: pendingMail(projectDir), project });
-    } else if (file === ragNote) {
-      // Rewritten on every query: it is a new answer only when its time moved on.
+    } else if (notes.has(file)) {
+      // Rewritten on every query or phase: it is new only when its time or its phase moved on.
       let raw;
       try { raw = readFileSync(file, 'utf8'); } catch { return; }
-      const event = ragEvent(raw);
-      if (event && event.at !== lastAnswer) { lastAnswer = event.at; send({ ...event, project }); }
+      const event = notes.get(file)(raw);
+      const key = event && `${event.at}:${event.phase ?? ''}`;
+      if (event && key !== lastNote.get(file)) { lastNote.set(file, key); send({ ...event, project }); }
     }
   };
-  const ragNote = join(root, 'harness', 'rag-answer.json');
-  let lastAnswer = null;
+  // KJC-TSK-1438, 1521: what the RAG last answered and whether it is reindexing.
+  const notes = new Map([[join(root, 'harness', 'rag-answer.json'), ragEvent], [join(root, 'harness', 'rag-index.json'), ragIndexEvent]]);
+  const lastNote = new Map();
   // chokidar misses a path that did not exist when the watch began, so it
   // watches the project and lets through only the way down to these records.
   const traceDirs = TRACE_DIRS.map((dir) => join(root, dir));
   const inReviews = (p) => p.startsWith(`${reviews}${sep}`);
   const handoffs = join(projectDir, ...HANDOFFS_DIR);
   const inHandoffs = (p) => p.startsWith(`${handoffs}${sep}`) && p.endsWith('.json');
-  const wanted = (p) => [projectDir, root, ...traceDirs, reviews, ragNote, handoffs].includes(p) || logs.has(p) || inReviews(p) || inHandoffs(p);
+  const wanted = (p) => [projectDir, root, ...traceDirs, reviews, handoffs].includes(p) || logs.has(p) || notes.has(p) || inReviews(p) || inHandoffs(p);
   const watcher = watch(projectDir, {
     ignored: (p) => !wanted(p),
     ignoreInitial: true,

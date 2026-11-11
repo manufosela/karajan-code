@@ -14,3 +14,14 @@ export function noteRagAnswer({ projectDir, text, hits, now = Date.now() }) {
   const sources = [...new Set(hits.map((h) => h?.source).filter((s) => typeof s === "string"))];
   writeFileSync(join(dir, "rag-answer.json"), `${JSON.stringify({ at: now, text, sources })}\n`);
 }
+
+/**
+ * KJC-TSK-1521: that a reindex starts or ends here (`phase`), for kj stage, which shows
+ * kaRAGan at it meanwhile. Same rule: only in a kj project.
+ */
+export function noteRagIndex({ projectDir, phase, now = Date.now() }) {
+  if (!existsSync(join(projectDir, ".karajan"))) return;
+  const dir = join(projectDir, ".karajan", "harness");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "rag-index.json"), `${JSON.stringify({ at: now, phase })}\n`);
+}

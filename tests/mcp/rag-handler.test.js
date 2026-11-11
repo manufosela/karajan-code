@@ -134,6 +134,15 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
     expect(readLease(indexLeasePath())).toBeNull();
   });
 
+  // KJC-TSK-1521: like kj rag index, it notes the reindex for kj stage, its end last.
+  it("kj_rag_index leaves the end of its reindex noted in a kj project", async () => {
+    const projectDir = join(root, "p5");
+    mkdirSync(join(projectDir, ".karajan"), { recursive: true });
+    const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
+    await handleRagIndex({ projectDir }, {});
+    expect(JSON.parse(readFileSync(join(projectDir, ".karajan", "harness", "rag-index.json"), "utf8")).phase).toBe("end");
+  });
+
   // HU-3279: a live indexer holds the lease: the handler yields unless force is true.
   describe("kj_rag_index with another live indexer holding the lease", () => {
     let other, projectDir, handleRagIndex, leaseApi;
