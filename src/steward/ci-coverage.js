@@ -72,10 +72,7 @@ const isTrue = (node) => node?.type === "BooleanLiteral" && node.value === true;
 function walk(node, visit) {
   if (!node || typeof node.type !== "string") return;
   visit(node);
-  for (const child of Object.values(node)) {
-    if (Array.isArray(child)) child.forEach((c) => walk(c, visit));
-    else if (child && typeof child.type === "string") walk(child, visit);
-  }
+  for (const child of Object.values(node)) (Array.isArray(child) ? child : [child]).forEach((c) => walk(c, visit));
 }
 /**
  * The runner config turns coverage on by itself: vitest `coverage: { enabled: true }` (read from
