@@ -2,7 +2,7 @@
 // Ledger leave their post for the workshop of the lane they act on, and come back.
 import { describe, expect, it } from 'vitest';
 
-import { PIECE_WALK_MS, VISIT_MS, VISIT_SPOTS, pieceAt, withVisit } from '../public/stage/piece-visit.js';
+import { PIECE_WALK_MS, REVIEW_MAX_MS, VISIT_MS, VISIT_SPOTS, pieceAt, withVisit } from '../public/stage/piece-visit.js';
 
 const xOf = (lane) => ({ a: 10, b: -10 })[lane];
 const zOf = () => 2;
@@ -67,6 +67,32 @@ describe('pieceAt', () => {
     expect(visits.sonar.lane).toBe('a');
     expect(at(visits, 'sonar', PIECE_WALK_MS + 10)).toMatchObject({ ...spotIn('sonar', 'a'), walking: false });
     expect(withVisit({}, { type: 'method-check', piece: 'oracle', lane: 'a' }, 0)).toEqual({});
+  });
+
+  // KJC-TSK-1528 (decided by the maintainer on 2026-11-11): the AI review piece does the reviewing.
+  describe('while an agent reviews', () => {
+    const review = (phase, lane = 'a') => ({ type: 'agent-activity', agent: 'codex', role: 'reviewer', phase, lane });
+
+    it('the AI review piece goes to its lane with the agent name and stays as long as the review lasts', () => {
+      const visits = withVisit({}, review('start'), 0);
+      expect(visits.review).toMatchObject({ lane: 'a', by: 'codex' });
+      expect(at(visits, 'review', PIECE_WALK_MS + 10 * 60_000)).toMatchObject({ ...spotIn('review', 'a'), walking: false });
+      expect(withVisit({}, { ...review('start'), role: 'coder' }, 0)).toEqual({});
+    });
+
+    it('the end of the review sends it back, and the verdict right after keeps it a while', () => {
+      let visits = withVisit({}, review('start'), 0);
+      visits = withVisit(visits, review('end'), 60_000);
+      expect(at(visits, 'review', 60_000 + PIECE_WALK_MS / 2).walking).toBe(true);
+      visits = withVisit(withVisit({}, review('start'), 0), review('end'), 60_000);
+      visits = withVisit(visits, verdict('a'), 60_000);
+      expect(at(visits, 'review', 60_000 + VISIT_MS - 10)).toMatchObject({ ...spotIn('review', 'a'), walking: false });
+    });
+
+    it('goes back on its own when no end comes', () => {
+      const visits = withVisit({}, review('start'), 0);
+      expect(at(visits, 'review', REVIEW_MAX_MS + 2 * PIECE_WALK_MS)).toMatchObject({ ...home, away: false });
+    });
   });
 
   it('puts each piece on a spot of its own, clear of the host, kaRAGan and the Sentinel', () => {

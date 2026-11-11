@@ -68,6 +68,8 @@ export function spotOf(role, laneX = 0, slot = 0, laneZ = WORKSHOP.z) {
 }
 
 const laneOf = (ev) => ev.lane ?? 'main';
+/** KJC-TSK-1528 (decided by the maintainer on 2026-11-11): the AI review piece does the reviewing, so no robot. */
+const PIECE_ROLE = 'reviewer';
 /**
  * The worker this event is about that has not left yet (a leftAt of 0 is a real
  * departure): by its id when the trace names one (the host's session, a subagent),
@@ -93,7 +95,7 @@ const newWorker = (workers, ev, since) => {
 
 /** The workers after an agent-activity event at `now` (ms); other events change nothing. */
 export function withActivity(workers, event, now) {
-  if (event?.type !== 'agent-activity') return workers;
+  if (event?.type !== 'agent-activity' || event.role === PIECE_ROLE) return workers;
   if (event.phase === 'start') {
     // A start of someone already at work is its beat: it only says which tool it uses now.
     if (workers.some((w) => inside(w, event))) return workers.map((w) => (inside(w, event) && event.tool ? { ...w, tool: event.tool } : w));
@@ -104,7 +106,7 @@ export function withActivity(workers, event, now) {
 
 /** The agents already at work in `lane` when the stage opens, standing at their spot. */
 export const workersFrom = (working, now, lane = 'main') =>
-  working.reduce((all, w) => [...all, newWorker(all, { ...w, lane }, now - WALK_MS)], []);
+  working.filter((w) => w.role !== PIECE_ROLE).reduce((all, w) => [...all, newWorker(all, { ...w, lane }, now - WALK_MS)], []);
 
 const lerp = (from, to, k) => ({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k });
 const facing = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
