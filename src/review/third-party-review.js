@@ -27,6 +27,7 @@ import { readTaskFile } from "../utils/task-file.js";
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 import { assertCrossFamily, verifyFindings } from "./run-verifier.js";
 import { reconcileReviews } from "./dual-review.js";
+import { dropFalseAbsences } from "./absence-claims.js";
 import { batchNotes, summaryOf } from "./review-summary.js";
 
 // KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
@@ -110,7 +111,8 @@ async function singleReview({ provider, reviewWith, verifier, verifierModel, ver
   const findings = records.flatMap((r) => (r.issues ?? []).map(finding));
   // KJC-TSK-1195 (#2369): with a verifier, the findings are the verified ones and the block says what changed.
   const verified = verifier ? await verify({ findings, diff, verifier, model: verifierModel, config, logger }) : null;
-  const kept = verified ? verified.findings : findings;
+  // KJC-BUG-0545 (#3822): a claim of absence is checked against the whole diff, verifier or not.
+  const { kept, dropped } = dropFalseAbsences(verified ? verified.findings : findings, diff);
   const reviewer = records[0]?.reviewer ?? provider;
   return {
     reviewer,
@@ -118,6 +120,7 @@ async function singleReview({ provider, reviewWith, verifier, verifierModel, ver
     batches: batchNotes(reviewer, records),
     coverage,
     findings: kept,
+    ...(dropped.length && { dropped }),
     ...(verified && { verification: verified.verification }),
     suggestions: records.flatMap((r) => r.suggestions ?? []),
   };
@@ -159,11 +162,15 @@ async function dualReview({ reviewers, reviewWith, verify, diff, coverage, confi
     const other = reviewers[1 - i];
     const found = records[i].flatMap((r) => (r.issues ?? []).map(finding));
     const verified = await verify({ findings: found, diff, verifier: other.provider, model: other.model, config, logger });
-    return { reviewer: me.provider, model: me.model, coverage, verdict: verdictOf(records[i], verified.findings, coverage), ...verified };
+    const { kept, dropped, keptIndices } = dropFalseAbsences(verified.findings, diff);
+    // The verifier's outcomes are per finding: they follow the kept ones, index for index.
+    const outcomes = verified.outcomes && keptIndices.map((k) => verified.outcomes[k]);
+    return { reviewer: me.provider, model: me.model, coverage, verdict: verdictOf(records[i], kept, coverage), ...verified, findings: kept, outcomes, dropped };
   }));
   const reconciled = reconcileReviews(sides);
   const batches = reviewers.flatMap((r, i) => batchNotes(r.provider, records[i]));
-  return { reviewer: reviewers.map((r) => r.provider).join("+"), ...reconciled, batches, suggestions: records.flat().flatMap((r) => r.suggestions ?? []) };
+  const dropped = sides.flatMap((s) => s.dropped.map((d) => ({ ...d, found_by: s.reviewer })));
+  return { reviewer: reviewers.map((r) => r.provider).join("+"), ...reconciled, ...(dropped.length && { dropped }), batches, suggestions: records.flat().flatMap((r) => r.suggestions ?? []) };
 }
 
 /** KJC-TSK-1356 (#3027): the too_large result, or null when the PR is within the ceiling. */
