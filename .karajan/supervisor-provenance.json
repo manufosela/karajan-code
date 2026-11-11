@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.16.0",
-  "generated_at": "2026-11-10T20:51:12.855Z",
+  "kj_version": "5.17.0",
+  "generated_at": "2026-11-11T16:14:52.584Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -52,7 +52,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "44a6bdb7e9979d6422325efb8462742f17683743c279bac4f8e0c9180f859a44"
+      "sha256": "662fe5d2f37de168e365a8cf2ac802fe1eb8c5fd41e92e3bf9b4ce0d5f23cce7"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -176,15 +176,15 @@
     }
   ],
   "signature": {
-    "cid": "a7540e035631a489b494409d8921da98",
-    "nonce": "fb66b4c0a80ced31926f5810b2b1c95d",
+    "cid": "97b10ef857c617d74758128d83156922",
+    "nonce": "a2d7eaeb751c1cc194f0b2a6f502f37a",
     "project": "manufosela/karajan-code",
-    "filesHash": "136b2c3ffea26b2ee6f8365514ece58940497ef482e88b9ca597d6557434d51f",
+    "filesHash": "35b83cd502faa5976610ccb3d7353446dba8b9b69c0cb9b2f9a83ab9b2bf4cf2",
     "v": 2,
-    "kjVersion": "5.16.0",
-    "issuedMs": 1794343867130,
-    "expiresMs": 1794344017130,
+    "kjVersion": "5.17.0",
+    "issuedMs": 1794413637661,
+    "expiresMs": 1794413787661,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "EgRoURp2Xm3YqdTMKoLjBw2FUnGAEurp03iWtkOjQy2+D6XZTxWCKTyM2x6AMmdG6+YJhDy9NW+JZ+MLjZLdDg=="
+    "signature": "xFiQews5XjnNu3fqvzpXKNiHyUfHMic6AY8VfOskicGWQwyTTpdv00KyYJfhzAimL5S0y/QddUr9ey/oruDjDA=="
   }
 }
