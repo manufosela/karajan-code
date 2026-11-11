@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { linkCommand } from "../../src/commands/link.js";
+import { githubAdapter, linkCommand } from "../../src/commands/link.js";
 
 let dir, out, posted;
 const log = (...parts) => out.push(parts.join(" "));
@@ -91,5 +91,128 @@ describe("kj link send and inbox", () => {
     fs.writeFileSync(record("issue-7.json"), "{nope");
     expect(await run("inbox", { thread: "issue:7" })).toBe(1);
     expect(printed()).toContain("corrupt_record");
+  });
+});
+
+const seed = (name, content) => {
+  fs.mkdirSync(path.dirname(record("x")), { recursive: true });
+  fs.writeFileSync(record(name), typeof content === "string" ? content : JSON.stringify(content));
+};
+const entry = (updatedAt) => ({ updatedAt, hash: "h" });
+const byThread = (map) => ({ ...fake(), listSince: async (thread) => (map[`${thread.kind}:${thread.number}`] ?? (() => Promise.reject(new Error("boom"))))() });
+const some = (text, author = "ana") => async () => ({ messages: [{ id: "1", author, createdAt: "t1", modifiedAt: "t1", body: text }], cursor: "9" });
+const cursorOf = (name) => JSON.parse(fs.readFileSync(record(name), "utf8")).cursor;
+
+describe("kj link threads and limits", () => {
+  it("lists the known threads newest first, with a corrupt record as an error line", async () => {
+    seed("issue-7.json", { cursor: "1", seen: { a: entry("2026-01-01T00:00:00Z") } });
+    seed("pr-8.json", { cursor: "2", seen: { a: entry("2026-02-01T00:00:00Z"), b: entry("2026-03-01T00:00:00Z") } });
+    seed("issue-9.json", "{nope");
+    expect(await run("threads")).toBe(0);
+    expect(out[0]).toBe("pr:8: 2 messages seen, last 2026-03-01T00:00:00Z");
+    expect(out[1]).toBe("issue:7: 1 messages seen, last 2026-01-01T00:00:00Z");
+    expect(out[2]).toMatch(/^issue:9: error corrupt_record/);
+    out = [];
+    await run("threads", { json: true });
+    expect(JSON.parse(printed())).toMatchObject([{ thread: "pr:8", seen: 2 }, { thread: "issue:7", seen: 1 }, { thread: "issue:9", error: expect.stringContaining("corrupt_record") }]);
+  });
+
+  it("says there are none when no record exists", async () => {
+    expect(await run("threads")).toBe(0);
+    expect(printed()).toBe("no threads yet");
+  });
+
+  it("prints the adapter's limits, as text and as JSON", async () => {
+    const limits = { minPollIntervalMs: 60000, minWritePauseMs: 1000, quotaLeft: 4321 };
+    const adapter = { ...fake(), limits: async () => limits };
+    expect(await run("limits", {}, adapter)).toBe(0);
+    expect(printed()).toContain("quota left: 4321");
+    expect(printed()).toContain("polling interval: 60000 ms");
+    expect(printed()).toContain("write gap: 1000 ms");
+    out = [];
+    await run("limits", { json: true }, adapter);
+    expect(JSON.parse(printed())).toEqual(limits);
+  });
+
+  it("fails clearly when the board has no message interface", async () => {
+    seed("issue-7.json", { cursor: null, seen: {} });
+    for (const action of ["limits", "inbox"]) {
+      out = [];
+      expect(await run(action, {}, null)).toBe(1);
+      expect(printed()).toBe("this board has no message interface");
+    }
+  });
+});
+
+describe("kj link inbox without --thread", () => {
+  it("reads every known thread; cursors move only with --mark-read", async () => {
+    seed("issue-7.json", { cursor: null, seen: {} });
+    seed("pr-8.json", { cursor: null, seen: {} });
+    const adapter = byThread({ "issue:7": some("first body"), "pull_request:8": some("second body") });
+    expect(await run("inbox", {}, adapter)).toBe(0);
+    expect(printed()).toContain("first body");
+    expect(printed()).toContain("second body");
+    expect(printed()).toContain("an untrusted proposal");
+    expect(cursorOf("issue-7.json")).toBe(null);
+    await run("inbox", { markRead: true }, adapter);
+    expect(cursorOf("issue-7.json")).toBe("9");
+    expect(cursorOf("pr-8.json")).toBe("9");
+  });
+
+  it("reports a failing thread, goes on with the others, and exits non-zero at the end", async () => {
+    seed("issue-7.json", { cursor: null, seen: {} });
+    seed("issue-8.json", { cursor: null, seen: {} });
+    seed("issue-9.json", "{nope");
+    const adapter = byThread({ "issue:8": some("still read") });
+    expect(await run("inbox", { markRead: true }, adapter)).toBe(1);
+    expect(printed()).toContain("issue:7: boom");
+    expect(printed()).toContain("issue:9: corrupt_record");
+    expect(printed()).toContain("still read");
+    expect(cursorOf("issue-7.json")).toBe(null);
+    expect(cursorOf("issue-8.json")).toBe("9");
+  });
+
+  it("saves a thread's cursor only after its messages were printed", async () => {
+    seed("issue-7.json", { cursor: null, seen: {} });
+    const closed = (...parts) => {
+      if (parts.join(" ").includes("body")) throw new Error("terminal closed");
+    };
+    const adapter = byThread({ "issue:7": some("body") });
+    expect(await linkCommand({ action: "inbox", config: { projectDir: dir }, flags: { markRead: true }, log: closed, makeAdapter: async () => adapter })).toBe(1);
+    expect(cursorOf("issue-7.json")).toBe(null);
+  });
+
+  it("prints one JSON object per thread, an error object for a failing one", async () => {
+    seed("issue-7.json", { cursor: null, seen: {} });
+    seed("issue-8.json", { cursor: null, seen: {} });
+    expect(await run("inbox", { json: true }, byThread({ "issue:7": some("hello") }))).toBe(1);
+    const rows = out.map((l) => JSON.parse(l));
+    expect(rows[0]).toMatchObject({ thread: "issue:7", messages: [{ kind: "note", text: "hello" }] });
+    expect(rows[1]).toEqual({ thread: "issue:8", error: "boom" });
+  });
+});
+
+describe("kj link gh account pin", () => {
+  const github = () => {
+    fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".karajan", "board.yml"), "backend: github\nrepo: acme/app\n");
+  };
+  it("pins the declared account before the GitHub adapter exists, and not for another board", async () => {
+    const calls = [];
+    expect(await githubAdapter({ projectDir: dir, pin: (a) => calls.push(a) })).toBe(null);
+    expect(calls).toEqual([]);
+    github();
+    const adapter = await githubAdapter({ projectDir: dir, pin: (a) => calls.push(a) });
+    expect(calls).toEqual([{ projectDir: dir }]);
+    expect(typeof adapter.listSince).toBe("function");
+  });
+
+  it("fails loudly with the pin's own message when the declared account has no login", async () => {
+    github();
+    const pin = () => {
+      throw new Error("gh has no login for ana");
+    };
+    expect(await linkCommand({ action: "limits", config: { projectDir: dir }, log, makeAdapter: (a) => githubAdapter({ ...a, pin }) })).toBe(1);
+    expect(printed()).toBe("gh has no login for ana");
   });
 });
