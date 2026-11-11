@@ -123,7 +123,7 @@ export async function runOneShotReview({
     // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.
     const account = accountLabel(who, { env });
     logger?.info?.(`kj review: host=${hostAgent || "none"} → reviewer=${who} (cross-AI)${account ? ` [${account}]` : ""}`);
-    return traceActivity(createAgentFn(who, cfg, logger), { name: who, role: "reviewer", projectDir, logger }).reviewTask({ prompt, role: "reviewer" });
+    return traceActivity(createAgentFn(who, cfg, logger), { name: who, role: "reviewer", projectDir, logger, config: cfg }).reviewTask({ prompt, role: "reviewer" });
   };
 
   const first = await attempt(reviewer);

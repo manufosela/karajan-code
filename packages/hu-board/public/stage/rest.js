@@ -1,6 +1,7 @@
 // KJC-TSK-1398 (ADR 0046): the stage at rest shows the last real state of each
 // piece (from /api/stage/state): its light, and a line a screen reader can read.
 import { boardLine, mergeCards, withCard } from './cards.js';
+import { launchedLabel } from './models.js';
 
 /** A denial older than this no longer lights the Sentinel. */
 const RECENT_MS = 15 * 60 * 1000;
@@ -43,7 +44,9 @@ export function withEvent(state, event) {
       // KJC-TSK-1435: the host's session and each subagent are told apart by their id.
       const same = (w) => (w.lane ?? 'main') === lane && (event.id ? w.id === event.id : w.agent === event.agent && w.role === event.role);
       const others = (state.working ?? []).filter((w) => !same(w));
-      const now = { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null };
+      // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
+      const launched = Object.fromEntries(['model', 'effort'].filter((k) => event[k]).map((k) => [k, event[k]]));
+      const now = { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null, ...launched };
       const working = event.phase === 'start' ? [...others, now] : others;
       return { ...state, working };
     }
@@ -136,7 +139,8 @@ export function restState(state, now) {
     if (w.role === 'subagent') return ['subagent', ...(w.kind ? [w.kind] : [])];
     return [DOING[w.role] ?? w.role];
   };
-  const doing = (w) => [w.agent, ...what(w), ...where(w), ...using(w)].join(' ');
+  // KJC-TSK-1536: the model and effort it runs with, when known: "claude coding (Opus 5.5, high)".
+  const doing = (w) => [w.agent, ...what(w), ...where(w), ...using(w), launchedLabel(w)].filter(Boolean).join(' ');
   if (working.length) lines.push(`At work: ${working.map(doing).join(', ')}`);
   return { lights, lines };
 }

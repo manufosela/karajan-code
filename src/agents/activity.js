@@ -19,13 +19,19 @@ function note(projectDir, record, logger) {
   }
 }
 
+/** KJC-TSK-1536: the model and effort the role is launched with, as far as its config sets them. */
+const launchedWith = (config, role) => {
+  const { model, effort } = config?.roles?.[role] ?? {};
+  return { ...(typeof model === "string" && model ? { model } : {}), ...(typeof effort === "string" && effort ? { effort } : {}) };
+};
+
 /** An agent whose runTask and reviewTask note their start and their end; the original is not changed. */
-export function traceActivity(agent, { name, role, projectDir, logger }) {
+export function traceActivity(agent, { name, role, projectDir, logger, config }) {
   if (!projectDir) return agent;
   const traced = (method) => async (task) => {
     // KJC-TSK-1428: the atril skills loaded for this role ride on the start line.
     const skills = takeLoaded(projectDir, role);
-    note(projectDir, { agent: name, role, phase: "start", ...(skills.length ? { skills } : {}) }, logger);
+    note(projectDir, { agent: name, role, phase: "start", ...(skills.length ? { skills } : {}), ...launchedWith(config, role) }, logger);
     try {
       const result = await method(task);
       note(projectDir, { agent: name, role, phase: "end", outcome: "ok" }, logger);

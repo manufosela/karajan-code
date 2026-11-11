@@ -97,7 +97,7 @@ export async function runSolomonArbitration({
   ].join("\n");
 
   logger?.info?.(`kj solomon: brain=${hostAgent || "?"} vs reviewer=${verdict.reviewer} → arbiter=${solomon}`);
-  const agent = traceActivity(createAgentFn(solomon, config, logger), { name: solomon, role: "solomon", projectDir, logger });
+  const agent = traceActivity(createAgentFn(solomon, config, logger), { name: solomon, role: "solomon", projectDir, logger, config });
   const result = await agent.reviewTask({ prompt, role: "solomon" });
   if (!result?.ok) {
     // KJC-BUG-0121 layer 3: a binary on PATH is not an OPERATIONAL arbiter

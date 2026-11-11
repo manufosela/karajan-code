@@ -48,6 +48,18 @@ describe("traceActivity", () => {
     expect(second.skills).toBeUndefined();
   });
 
+  // KJC-TSK-1536: kj stage dresses each robot by its model and builds it by its effort.
+  it("the start line carries the model and effort its role is launched with, and only those set", async () => {
+    const config = { roles: { coder: { model: "claude-sonnet-5-5", effort: "medium" }, reviewer: { model: null } } };
+    await traceActivity(fakeAgent(() => "ok"), { name: "claude", role: "coder", projectDir: dir, config }).runTask({});
+    await traceActivity(fakeAgent(() => "ok"), { name: "codex", role: "reviewer", projectDir: dir, config }).reviewTask({});
+    const [coder, coderEnd, reviewer] = lines();
+    expect(coder).toMatchObject({ phase: "start", model: "claude-sonnet-5-5", effort: "medium" });
+    expect(coderEnd.model).toBeUndefined();
+    expect(reviewer).not.toHaveProperty("model");
+    expect(reviewer).not.toHaveProperty("effort");
+  });
+
   it("notes a failed run as ended with failure, and lets the error through", async () => {
     const agent = traceActivity(fakeAgent(() => { throw new Error("boom"); }), { name: "claude", role: "coder", projectDir: dir });
     await expect(agent.runTask({ prompt: "x" })).rejects.toThrow("boom");
