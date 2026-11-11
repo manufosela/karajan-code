@@ -1,37 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Factory · Karajan Code</title>
-  <meta name="description" content="Watch one real Karajan task, HU-3870, replayed on the 3D factory scene: the method's pieces react to every recorded event.">
-  <link rel="icon" href="data:,">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Factory: what kj stage shows · Karajan Code</title>
+  <meta name="description" content="kj stage draws your project as a factory seen from above. Every robot and light answers a real event: a commit, a review verdict, a denial. Watch one real task replayed.">
+  <link rel="icon" href="/img/logo-120.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <style>
-    html, body { margin: 0; height: 100%; background: #05080d; color: #e2e8f0; font: 14px/1.5 Inter, system-ui, sans-serif; }
-    #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-    header { position: fixed; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 12px 20px; }
-    header a { color: #8cb4c9; display: inline-flex; align-items: center; min-height: 44px; }
-    header button { min-width: 44px; min-height: 44px; padding: 0 16px; border: 1px solid #8cb4c9; border-radius: 8px; background: #10161f; color: #e2e8f0; font: inherit; cursor: pointer; }
-    header :focus-visible { outline: 3px solid #f0b429; outline-offset: 2px; }
-    #factory-clock { color: #9ca6ae; font-variant-numeric: tabular-nums; }
-    #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
-    #stage-loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #9ca6ae; pointer-events: none; }
-    #stage-loading[hidden] { display: none; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; --mono: 'JetBrains Mono', 'SF Mono', monospace; }
+    :root, [data-theme="dark"] { --bg: #0f1520; --bg-card: #1a2332; --border: #2a3a4e; --text: #e2e8f0; --text-muted: #a4aeb6; --accent: #e8b04b; color-scheme: dark; }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) { --bg: #f4f7f9; --bg-card: #ffffff; --border: #d0dbe3; --text: #1a2a35; --text-muted: #424c52; --accent: #8a5f14; color-scheme: light; }
+    }
+    [data-theme="light"] { --bg: #f4f7f9; --bg-card: #ffffff; --border: #d0dbe3; --text: #1a2a35; --text-muted: #424c52; --accent: #8a5f14; color-scheme: light; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+    .top { padding: 1.4rem 0; }
+    .top a { font-family: var(--mono); font-size: 0.82rem; color: var(--text-muted); text-decoration: none; }
+    h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); letter-spacing: -0.02em; margin: 1rem 0 0.6rem; }
+    h2 { font-size: 1.3rem; margin: 2.4rem 0 0.6rem; }
+    h3 { font-size: 1.05rem; margin: 0 0 0.3rem; }
+    p, li { color: var(--text-muted); }
+    p + p { margin-top: 0.8rem; }
+    code { font-family: var(--mono); font-size: 0.9em; color: var(--text); }
+    figure { margin: 1.6rem 0; }
+    figure img { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 12px; display: block; }
+    figcaption { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
+    .play { display: inline-block; margin: 0.4rem 0 1rem; padding: 0.8rem 1.4rem; border-radius: 10px; background: var(--accent); color: var(--bg); font-weight: 700; text-decoration: none; }
+    .play:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .pieces { list-style: none; display: grid; gap: 1rem; }
+    .pieces li { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.3rem; scroll-margin-top: 1rem; }
+    .story { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+    pre { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem; overflow-x: auto; margin: 0.8rem 0; }
   </style>
-  <script type="importmap">{ "imports": { "three": "/lib/three.min.js" } }</script>
+  <script>
+    const savedTheme = localStorage.getItem('theme') ?? localStorage.getItem('starlight-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+  </script>
 </head>
 <body>
-  <main><canvas id="stage" aria-label="3D factory: the method's pieces react to the recorded events of one real Karajan task"></canvas></main>
-  <header>
-    <a href="/">← Karajan Code</a>
-    <strong id="stage-project">The Factory: one real task, HU-3870</strong>
-    <time id="factory-clock"></time>
-    <button type="button" id="factory-play">Play</button>
-    <button type="button" id="factory-restart">Restart</button>
-  </header>
-  <output id="stage-loading" aria-live="polite">Loading the factory…</output>
-  <ul id="stage-status" aria-live="polite"></ul>
-  <div id="stage-counts" aria-hidden="true"></div>
-  <script type="module" src="./replay.js"></script>
+<div class="wrap">
+  <nav class="top" aria-label="Breadcrumb"><a href="/">← Karajan Code</a></nav>
+  <main>
+    <h1>The Factory</h1>
+    <p><code>kj stage</code> draws your project as a factory seen from above. Each workshop is a line of work, each robot is an agent or a piece of the Karajan method, and nothing moves without a real event: a commit, a review verdict, a command the Sentinel stopped. When it opens, every piece shows its last real state; from then on it plays what happens.</p>
+    <figure>
+      <img src="/img/factory-hu-3870.jpg" width="1568" height="684" alt="The factory at 11:05 UTC during HU-3870: the main and kj-stage workshops, the method's pieces in a row behind them, the task wall, and a status list saying codex has just rejected the review.">
+      <figcaption>HU-3870 at 11:05 UTC, a few seconds after codex rejected the first diff.</figcaption>
+    </figure>
+    <a class="play" href="/factory/play/">Watch HU-3870 replayed, full screen</a>
+
+    <h2>One real task: HU-3870</h2>
+    <p>The replay is not a mock-up. It is the trace kj wrote while Claude Code built HU-3870 of Karajan Code itself, on 11 November 2026, from 10:53 to 11:24 UTC. Waits longer than 2.5 seconds are shortened, so half an hour plays in under two minutes; the clock shows the real time of each event.</p>
+    <ol class="story">
+      <li>The card is added and the agent starts editing in the <code>kj-stage</code> workshop.</li>
+      <li>The Sentinel stops two shell commands it cannot verify.</li>
+      <li>TDD, SonarQube and the Steward check the diff, then codex rejects it. The agent fixes it and codex rejects it again.</li>
+      <li>On the third review codex approves; the commit gate lets the commit through and the ledger seals it.</li>
+    </ol>
+
+    <h2>What each piece is</h2>
+    <ul class="pieces">
+      <li id="workshops"><h3>Workshops</h3><p>One per lane: the main checkout and each worktree an agent works in. Each has a floor with the lane's name and a bench. New worktrees appear as they are created. The host agent sits at its bench, opens a laptop and types; its subagents walk out of it as small robots and back when they finish.</p></li>
+      <li id="sentinel"><h3>The Sentinel</h3><p>It stands on a raised post and turns to the lane whose agent just started a tool call. When it denies one, it goes down to that agent, stays a moment and climbs back. The status list names the tool it stopped, never the command itself.</p></li>
+      <li id="gates"><h3>Git gates and the ledger</h3><p>Each workshop has gates at its back corner. A commit that passes the hooks lights them green; a refused one lights them red with the rule that refused it. The ledger seals each decision in a hash chain and walks to the lane to do it.</p></li>
+      <li id="review"><h3>Cross-AI review</h3><p>Every diff is reviewed by a different AI before it is committed. When the review starts, the review piece walks to the lane with the reviewer's name; the verdict shows over the workshop, green when approved and red when rejected. Karajan, the conductor, waves its baton when the work passes and raises a hand to stop it when it fails.</p></li>
+      <li id="checks"><h3>TDD, SonarQube and the Steward</h3><p>Before the review, kj checks the tests, the static analysis and the project's guarantees. Each check flashes its piece and sends it to the workshop it is checking.</p></li>
+      <li id="wall"><h3>The task wall</h3><p>Three columns, To do, In progress and Done, with the cards of the project's HU Board. Next to it, the release table piles the cards done since the last git tag.</p></li>
+      <li id="courier"><h3>The courier</h3><p>An errand robot, not an agent. When a card starts, it fetches it from the wall to the bench, where it stays as a note while the work goes on; when the card is done, it carries it back.</p></li>
+      <li id="atril"><h3>atril and kaRAGan</h3><p>atril, the music stand, turns a page for each skill an agent starts with. kaRAGan brings the answer of the project's RAG to the agent that asked, and types at the lane while the index is rebuilt.</p></li>
+      <li id="map"><h3>The map of factories</h3><p><code>kj stage</code> shows one project; adding <code>?map=1</code> to its address shows a factory for every project on your machine, the busy ones first, each with the cards in progress and the handoffs waiting for you.</p></li>
+    </ul>
+
+    <h2>See your own factory</h2>
+    <pre><code>kj stage</code></pre>
+    <p>It opens the HU Board's stage page in your browser. Everything runs on your machine: the board listens on localhost, the scene reads the files kj writes in <code>.karajan/</code>, and nothing is sent anywhere. If you asked your system for reduced motion, the factory shows the lights and the status list without animating.</p>
+  </main>
+</div>
 </body>
 </html>

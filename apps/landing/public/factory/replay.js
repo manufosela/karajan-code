@@ -21,9 +21,10 @@ const showTime = (at) => {
   clock.textContent = `${utc.format(new Date(at))} UTC`;
 };
 
+// The page that shows the scene lives in play/ (KJL-TSK-0159): its files are found from this module's URL.
 async function loadScene() {
-  const { dir } = await (await fetch('./stage.json')).json();
-  document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: `./${dir}/stage.css` }));
+  const { dir } = await (await fetch(new URL('./stage.json', import.meta.url))).json();
+  document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: new URL(`./${dir}/stage.css`, import.meta.url).href }));
   const [factory, layout, live, rest, zoom, marks] = await Promise.all(
     ['factory', 'layout', 'live', 'rest', 'zoom', 'marks'].map((name) => import(`./${dir}/${name}.js`)),
   );
@@ -63,7 +64,8 @@ function player(demo, live, scene, marks) {
   let timer = null;
   let playing = false;
   const draw = () => { live.frame(performance.now()); scene.render(); };
-  const label = () => { playButton.textContent = playing ? 'Pause' : index >= steps.length ? 'Play again' : 'Play'; };
+  const idleLabel = () => (index >= steps.length ? 'Play again' : 'Play');
+  const label = () => { playButton.textContent = playing ? 'Pause' : idleLabel(); };
   const finish = () => { playing = false; label(); };
   const step = () => {
     const { event } = steps[index];
@@ -87,7 +89,7 @@ function player(demo, live, scene, marks) {
 }
 
 async function start() {
-  const demo = await (await fetch('./demo-hu-3870.json')).json();
+  const demo = await (await fetch(new URL('./demo-hu-3870.json', import.meta.url))).json();
   const modules = await loadScene();
   const state = modules.rest.acrossLanes(shifted(demo.state, Date.now() - Date.parse(demo.from)).lanes);
   const scene = buildScene(demo.lanes, modules);
@@ -99,5 +101,5 @@ async function start() {
   player(demo, live, scene, modules.marks);
 }
 
-if (!document.createElement('canvas').getContext('webgl2')) tell(['This browser has no WebGL2, so the 3D scene cannot be drawn.']);
-else await start();
+if (document.createElement('canvas').getContext('webgl2')) await start();
+else tell(['This browser has no WebGL2, so the 3D scene cannot be drawn.']);
