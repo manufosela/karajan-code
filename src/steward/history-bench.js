@@ -8,9 +8,11 @@
  */
 import { execFileSync } from "node:child_process";
 import { sweepPhantoms } from "./phantom-sweep.js";
+import { sweepDuplicateMembers } from "./duplicate-class-members.js";
 
 /** A detector gets a commit's tree as `{files, read}` and answers whether it fires. */
 export const DETECTORS = {
+  "duplicate-class-members": (tree) => sweepDuplicateMembers(tree).duplicates.length > 0,
   "phantom-coverage": ({ files, read }) => (sweepPhantoms({ projectDir: "", files, read }).phantoms ?? []).length > 0,
 };
 
