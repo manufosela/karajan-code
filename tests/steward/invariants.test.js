@@ -75,6 +75,25 @@ describe("main-ci — invariant #1", () => {
     const runs = [{ workflow: "CI", conclusion: "success", createdAt: new Date(now - 1 * DAY).toISOString() }];
     expect(evaluateMainCi({ projectDir: dir, baseBranch: "main", runsFn: () => runs, nowMs: now }).verdict).toBe(VERDICTS.OK);
   });
+  describe("each workflow judged on its own (KJC-BUG-0543)", () => {
+    const dir = () => repoWith({ "ci.yml": "name: CI\non:\n  push: {}\njobs: {}\n" });
+    // The shape `gh run list --json name,conclusion,createdAt` returns.
+    const run = (name, conclusion, daysAgo) => ({ name, conclusion, createdAt: new Date(now - daysAgo * DAY).toISOString() });
+    const judge = (runs) => evaluateMainCi({ projectDir: dir(), baseBranch: "main", runsFn: () => runs, nowMs: now });
+    it("newest run green but another workflow red past the window: broken, names it", () => {
+      const r = judge([run("Quality", "success", 0), run("E2E", "failure", 5), run("E2E", "success", 9)]);
+      expect(r.verdict).toBe(VERDICTS.BROKEN);
+      expect(r.evidence).toMatch(/E2E/);
+      expect(r.evidence).not.toMatch(/Quality/);
+    });
+    it("every workflow green: ok", () => {
+      expect(judge([run("Quality", "success", 0), run("E2E", "success", 1)]).verdict).toBe(VERDICTS.OK);
+    });
+    it("a red followed by the same workflow's own green: ok", () => {
+      const r = judge([run("E2E", "success", 1), run("E2E", "failure", 6), run("Quality", "success", 0)]);
+      expect(r.verdict).toBe(VERDICTS.OK);
+    });
+  });
 });
 // STW-A PR-B — audit freshness. AC5's "never" is GREBLA's real case: 79 days
 // with an open redirect and untouched dependencies, and no audit on record.

@@ -63,19 +63,34 @@ export function evaluateMainCi({ projectDir, baseBranch = "main", freshness = DE
   if (!Array.isArray(runs) || runs.length === 0) {
     return { verdict: VERDICTS.UNKNOWN, evidence: `instrumented (${instrumented.join(", ")}) but the runs could not be read`, remedy: "refresh: run the sweep where gh can list the runs" };
   }
-  const sorted = [...runs].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  // Each workflow is judged on its own: a green run of one must not hide a red one of another.
+  const groups = Object.values(Object.groupBy(runs, workflowKey));
+  const judged = groups.map((group) => judgeWorkflow(group, { baseBranch, freshness, nowMs }));
+  const broken = judged.filter((j) => j.broken);
+  if (broken.length > 0) {
+    return { verdict: VERDICTS.BROKEN, evidence: broken.map((j) => `${j.name}: ${j.evidence}`).join("; "), remedy: `fix or revert to green: ${broken.map((j) => j.name).join(", ")}; a red suite is the project's #1 invariant` };
+  }
+  const pick = judged.find((j) => j.red) ?? judged.toSorted((a, b) => Date.parse(b.latestAt) - Date.parse(a.latestAt))[0];
+  return { verdict: VERDICTS.OK, evidence: pick.evidence, remedy: null };
+}
+// `gh run list --json name` names the workflow in `name`; the others are kept for injected probes.
+const workflowKey = (r) => String(r.name ?? r.workflowName ?? r.workflow ?? r.workflowId ?? "(unnamed)");
+/** One workflow's runs → its own verdict, by its latest run and red streak. */
+function judgeWorkflow(group, { baseBranch, freshness, nowMs }) {
+  const sorted = [...group].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   const latest = sorted[0];
+  const base = { name: workflowKey(latest), latestAt: latest.createdAt };
   if (latest.conclusion === "success") {
-    return { verdict: VERDICTS.OK, evidence: `green on ${baseBranch} since ${latest.createdAt}`, remedy: null };
+    return { ...base, red: false, broken: false, evidence: `green on ${baseBranch} since ${latest.createdAt}` };
   }
   // The streak starts at the FIRST red after the last green — not at the green.
   const greenIdx = sorted.findIndex((r) => r.conclusion === "success");
   const firstRed = greenIdx === -1 ? sorted.at(-1) : sorted[greenIdx - 1];
   const redDays = days(nowMs - Date.parse(firstRed.createdAt));
   if (redDays > freshness.main_ci_red_days) {
-    return { verdict: VERDICTS.BROKEN, evidence: `${baseBranch} red for ${plural(redDays)} (tolerance ${freshness.main_ci_red_days}) — a suite this red stops meaning anything`, remedy: "fix or revert to green; a red suite is the project's #1 invariant" };
+    return { ...base, red: true, broken: true, evidence: `${baseBranch} red for ${plural(redDays)} (tolerance ${freshness.main_ci_red_days}) — a suite this red stops meaning anything` };
   }
-  return { verdict: VERDICTS.OK, evidence: `red for ${plural(redDays)}, inside the ${freshness.main_ci_red_days}-day tolerance — a fresh failure is work, not decay`, remedy: null };
+  return { ...base, red: true, broken: false, evidence: `red for ${plural(redDays)}, inside the ${freshness.main_ci_red_days}-day tolerance — a fresh failure is work, not decay` };
 }
 /** Where `kj audit` records its last run for the Steward to age. */
 export const securityAuditMarkerPath = (projectDir) => path.join(projectDir, ".karajan", "steward", "security-audit.json");
