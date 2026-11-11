@@ -75,16 +75,25 @@ export const isPhoneEnrolled = ({ home } = {}) => existsSync(phoneKeyPath(home))
 export const readEnrolledKey = ({ home } = {}) =>
   JSON.parse(readFileSync(phoneKeyPath(home), "utf8")).publicKey;
 
-/** Claves públicas del padrón versionado del repo (o [] si no hay). */
-export function readSigners({ projectDir } = {}) {
+/** Live entries of the repo roster (or [] if none). */
+function liveSigners(projectDir) {
   try {
     const doc = JSON.parse(readFileSync(signersPath(projectDir), "utf8"));
     // KJC-TSK-0999 (HUM-B2): a phone replaced with the recovery code is revoked and signs no more.
-    return Array.isArray(doc?.signers) ? doc.signers.filter((s) => !s?.revoked).map((s) => s.publicKey).filter(Boolean) : [];
+    return Array.isArray(doc?.signers) ? doc.signers.filter((s) => s && !s.revoked) : [];
   } catch {
     return [];
   }
 }
+
+/** Claves públicas ed25519 del padrón versionado del repo (o [] si no hay). HU-3919: an entry with a `type` is not one. */
+export const readSigners = ({ projectDir } = {}) =>
+  liveSigners(projectDir).filter((s) => s.type === undefined).map((s) => s.publicKey).filter(Boolean);
+
+/** HU-3919 (ADR 0053): the roster's live passkeys, as `verifyWebAuthnAssertion` takes them. */
+export const readPasskeyCredentials = ({ projectDir } = {}) =>
+  liveSigners(projectDir).filter((s) => s.type === "webauthn")
+    .map(({ credentialId, publicKey, alg, label }) => ({ credentialId, publicKey, alg, label: label ?? null }));
 
 /**
  * Conjunto de claves AUTORIZADAS a sellar: el padrón del repo ∪ la clave legacy
