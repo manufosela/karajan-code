@@ -6,6 +6,7 @@ import { populate } from './crew.js';
 import { createHall } from './hall.js';
 import { SENTINEL_POST } from './layout.js';
 import { createWall } from './wall.js';
+import { createReleaseTable } from './release-table.js';
 
 const matte = (color, roughness = 0.85) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0.1 });
 
@@ -62,7 +63,8 @@ function createLights() {
 export function buildFactory(parent, lanes) {
   parent.add(createTower());
   // KJC-TSK-1459 (ADR 0050): and its task board wall.
-  return { ...populate(parent), hall: createHall(parent, lanes), wall: createWall(parent) };
+  // KJC-TSK-1526: and the table of the cards ready to release.
+  return { ...populate(parent), hall: createHall(parent, lanes), wall: createWall(parent), releaseTable: createReleaseTable(parent) };
 }
 
 /**

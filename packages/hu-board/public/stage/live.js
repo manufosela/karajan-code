@@ -16,6 +16,7 @@ import { conductorAt, withBeat } from './conductor.js';
 import { VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js';
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
+import { readyToRelease } from './release.js';
 import { Vector3 } from 'three';
 
 // The marks stack over the workshop so two of one lane never sit on each other (tagAt adds OVER_PIECE).
@@ -31,7 +32,7 @@ const OVER_PIECE = 1.6;
 const overPiece = (text, position, camera, origin, className) =>
   tagAt(text, position.clone().setY(position.y + OVER_PIECE), camera, { className, origin });
 
-export function createLive({ scene, pieces, crew, camera, stand, hall, wall, refit, origin }, { state: initial, tell, counts }) {
+export function createLive({ scene, pieces, crew, camera, stand, hall, wall, releaseTable, refit, origin }, { state: initial, tell, counts }) {
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
@@ -51,6 +52,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
     const rest = restState(state, Date.now());
     for (const [id, piece] of Object.entries(pieces)) piece.setLight((rest.lights[id] ?? DARK).gold, (rest.lights[id] ?? DARK).red);
     wall.show(state.cards); // KJC-TSK-1459: repainted only when a card moved
+    // KJC-TSK-1526: the cards done since the last release, piled on their table.
+    releaseTable.show(readyToRelease(state.cards ?? [], state.release), state.release);
     return rest;
   };
   /**

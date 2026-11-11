@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { listLanes } from './lanes.js';
 import { boardStatuses, withBoardCache } from './stage-board-cache.js';
+import { lastRelease } from './stage-release.js';
 import { sessionName, withSessionName } from './session-names.js';
 import { pendingMail } from './stage-mail.js';
 import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, methodEvent, verdictEvent } from './stage-feed.js';
@@ -99,8 +100,11 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
  */
 export function laneStates(projectDir, options) {
   const statuses = boardStatuses(projectDir);
-  return listLanes(projectDir).map(({ lane, dir }) => {
+  const lanes = listLanes(projectDir).map(({ lane, dir }) => {
     const state = lastStageState(dir, { ...options, lane });
     return { lane, ...state, cards: withBoardCache(state.cards, statuses) };
   });
+  // KJC-TSK-1525: the release the "Ready to release" table counts from, once, on the main checkout.
+  lanes[0] = { ...lanes[0], release: lastRelease(projectDir) };
+  return lanes;
 }
