@@ -1,7 +1,8 @@
 // KJC-TSK-1434 (ADR 0048): the host agent leaves a trace from the hooks it already
 // runs, so kj stage shows it at work in its lane, and its subagents as they come and go.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BEAT_MS, hostTrace, traceHost } from "../../src/harden/sentinel/sentinel-activity.mjs";
@@ -69,6 +70,35 @@ describe("traceHost", () => {
     // KJC-BUG-0527: the trace is in traces; the beats (Sentinel state) stay in harness.
     expect(existsSync(join(root, ".karajan", "harness", "host-beats.json"))).toBe(true);
     expect(existsSync(join(root, ".karajan", "harness", "agent-activity.jsonl"))).toBe(false);
+  });
+
+  const git = (dir, ...args) => execFileSync("git", ["-C", dir, "-c", "user.name=t", "-c", "user.email=t@example.invalid", ...args], { stdio: "ignore" });
+  const repoAt = (dir) => { git(dir, "init", "-q"); git(dir, "commit", "-q", "--allow-empty", "-m", "init"); };
+
+  it("HU-3809: writes in the lane the call's cwd is in, not in the root the session started in", () => {
+    repoAt(root);
+    const lane = join(root, ".kj", "worktrees", "lane");
+    git(root, "worktree", "add", "-q", "--detach", lane);
+    mkdirSync(join(lane, "src"), { recursive: true });
+    traceHost(root, call("Bash", { cwd: join(lane, "src") }), "pre", 0);
+    expect(existsSync(join(lane, ".karajan", "traces", "agent-activity.jsonl"))).toBe(true);
+    expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(false);
+  });
+
+  it("HU-3809: a cwd in another repository keeps the trace in the root", () => {
+    repoAt(root);
+    const other = mkdtempSync(join(tmpdir(), "kj-other-repo-"));
+    try {
+      repoAt(other);
+      traceHost(root, call("Bash", { cwd: other }), "pre", 0);
+      expect(existsSync(join(other, ".karajan"))).toBe(false);
+      expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(true);
+    } finally { rmSync(other, { recursive: true, force: true }); }
+  });
+
+  it("HU-3809: falls back to the root when the cwd is missing or not in a git work tree", () => {
+    traceHost(root, call("Bash", { cwd: join(root, "nowhere") }), "pre", 0);
+    expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(true);
   });
 
   it("notes nothing while the user has the Sentinel off", () => {

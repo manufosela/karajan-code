@@ -6,7 +6,8 @@
 // Copied byte for byte into .karajan/harness.
 import process from "node:process";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { isAbsolute, join } from "node:path";
 
 export const BEAT_MS = 60 * 1000;
 const SUBAGENT_TOOLS = new Set(["Agent", "Task"]);
@@ -43,10 +44,27 @@ export function hostTrace(beats, call, phase, now) {
   return { lines, beats: next };
 }
 
-/** Writes what `hostTrace` says into the lane at `root`; any failure is swallowed. */
-export function traceHost(root, call, phase, now = Date.now()) {
+// [top-level, common git dir] of the work tree at `dir`.
+const gitWhere = (dir) => execFileSync("git", ["-C", dir, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().split("\n");
+
+/**
+ * HU-3809: the lane the call's own cwd is in, when it is a work tree of the same repository
+ * as `root`; otherwise `root`. Another repository's folder never receives this repo's trace.
+ */
+export function laneOf(root, call) {
+  const cwd = call?.cwd;
+  if (typeof cwd !== "string" || !isAbsolute(cwd)) return root;
+  try {
+    const [top, common] = gitWhere(cwd);
+    return top && common === gitWhere(root)[1] ? top : root;
+  } catch { return root; } // not in a git work tree: the root's trace
+}
+
+/** Writes what `hostTrace` says into the lane the call works in (else `rootDir`); any failure is swallowed. */
+export function traceHost(rootDir, call, phase, now = Date.now()) {
   // The user's switch for the whole Sentinel: off, the guards note nothing either.
   if (process.env.KJ_SENTINEL_OFF === "1") return;
+  const root = laneOf(rootDir, call);
   try {
     const dir = join(root, ".karajan", "harness");
     const beatsFile = join(dir, "host-beats.json");
