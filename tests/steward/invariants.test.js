@@ -209,6 +209,30 @@ describe("coverage — AC7: an invariant of CONFIGURATION, not of value", () => 
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
     expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
   });
+  it("`enabled: true` after a nested coverage option still turns coverage on", () => {
+    const dir = repoWith({ "ci.yml": wf("run: npm test") });
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { coverage: { thresholds: { lines: 70 }, enabled: true } } };\n");
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
+  });
+  it("a brace inside a coverage option string does not end the block", () => {
+    const dir = repoWith({ "ci.yml": wf("run: npm test") });
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { coverage: { reportsDirectory: \"coverage}tmp\", enabled: true, thresholds: { lines: 70 } } } };\n");
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
+  });
+  it("a quoted coverage key is read too", () => {
+    const dir = repoWith({ "ci.yml": wf("run: npm test") });
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { \"coverage\": { enabled: true, thresholds: { lines: 70 } } } };\n");
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
+  });
+  it("an `enabled: true` outside the coverage block does not turn coverage on", () => {
+    const dir = repoWith({ "ci.yml": wf("run: npm test") });
+    fs.writeFileSync(path.join(dir, "vitest.config.js"), "export default { test: { browser: { enabled: true }, coverage: { thresholds: { lines: 70 } } } };\n");
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.BROKEN);
+  });
   it("without coverage on by default, a plain test run does not apply it", () => {
     expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf("run: npm test") }, { test: "vitest run" }) }).verdict).toBe(VERDICTS.BROKEN);
   });

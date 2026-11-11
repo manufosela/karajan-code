@@ -5,6 +5,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { parse } from "@babel/parser";
+import { plugins } from "../audit/member-reachability.js";
 const DIRECT_COVERAGE_RE = /--coverage\b|(?:^|[\s;&|])(?:c8|nyc)(?:\s|$)/;
 const SCRIPT_CALL_RE = /\b(?:npm\s+run(?:-script)?|pnpm(?:\s+run)?|yarn(?:\s+run)?|npm)\s+([\w:.-]+)/g;
 const RUN_LINE_RE = /^(\s*)(?:-\s+)?run:\s*(.*)$/;
@@ -36,7 +38,32 @@ function readScripts(projectDir) {
 // With coverage on by default in the runner config, any test run applies the threshold.
 const TEST_RUN_RE = /(?:^|[\s;&|/])(?:vitest|jest)(?:\s|$)/;
 /** The runner config turns coverage on by itself (vitest `coverage: { enabled: true }`, jest `collectCoverage: true`). */
-export const coverageOnByDefault = (configText) => /\benabled\s*:\s*true\b|\bcollectCoverage["']?\s*:\s*true\b/.test(configText);
+const keyOf = (p) => p.key?.name ?? p.key?.value;
+const isTrue = (node) => node?.type === "BooleanLiteral" && node.value === true;
+function walk(node, visit) {
+  if (!node || typeof node.type !== "string") return;
+  visit(node);
+  for (const child of Object.values(node)) {
+    if (Array.isArray(child)) child.forEach((c) => walk(c, visit));
+    else if (child && typeof child.type === "string") walk(child, visit);
+  }
+}
+/**
+ * The runner config turns coverage on by itself: vitest `coverage: { enabled: true }` (read from
+ * the parsed config, so quotes, order and strings do not fool it) or jest `collectCoverage: true`.
+ * A config that does not parse is not read as on.
+ */
+export function coverageOnByDefault(configText, file = "vitest.config.js") {
+  if (/\bcollectCoverage["']?\s*:\s*true\b/.test(configText)) return true;
+  let tree;
+  try { tree = parse(configText, { sourceType: "unambiguous", plugins: plugins(file) }); } catch { return false; }
+  let on = false;
+  walk(tree.program, (n) => {
+    if (n.type !== "ObjectProperty" || keyOf(n) !== "coverage" || n.value?.type !== "ObjectExpression") return;
+    if (n.value.properties.some((p) => keyOf(p) === "enabled" && isTrue(p.value))) on = true;
+  });
+  return on;
+}
 export function commandRunsCoverage(command, scripts = {}, { alwaysOn = false } = {}) {
   const matches = (text) => DIRECT_COVERAGE_RE.test(text) || (alwaysOn && TEST_RUN_RE.test(text));
   if (matches(command)) return true;

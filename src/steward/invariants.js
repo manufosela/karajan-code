@@ -168,7 +168,7 @@ export function evaluateCoverageConfig({ projectDir }) {
   for (const name of COVERAGE_CONFIGS) {
     let text;
     try { text = fs.readFileSync(path.join(projectDir, name), "utf8"); } catch { continue; }
-    if (COVERAGE_THRESHOLD_RE.test(text)) return judgeThresholdInCi(projectDir, name, coverageOnByDefault(text));
+    if (COVERAGE_THRESHOLD_RE.test(text)) return judgeThresholdInCi(projectDir, name, coverageOnByDefault(text, name));
   }
   return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: "no coverage threshold configured anywhere — nothing measures the level", remedy: "instrument: configure a coverage threshold (any value the team stands behind — no 80% is demanded)" };
 }
