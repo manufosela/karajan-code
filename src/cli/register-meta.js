@@ -205,8 +205,12 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--reply-to <id>", "id of the message answered").option("--context <ref>", "card or PR the message is about")
     .action((thread, flags) => link("send", { ...flags, thread }));
   linkCmd.command("inbox").description("What arrived: each message inside an untrusted wrapper; the cursor moves only with --mark-read")
-    .requiredOption("--thread <thread>", "issue:<n> or pr:<n>").option("--json", "Output structured JSON")
+    .option("--thread <thread>", "issue:<n> or pr:<n>; without it, every thread that has a record").option("--json", "Output structured JSON")
     .option("--mark-read", "Advance the cursor past what was printed").action((flags) => link("inbox", flags));
+  linkCmd.command("threads").description("The threads with a record: messages seen and the time of the last one, newest first")
+    .option("--json", "Output structured JSON").action((flags) => link("threads", flags));
+  linkCmd.command("limits").description("What the board's message interface allows: quota left, polling interval, write gap")
+    .option("--json", "Output structured JSON").action((flags) => link("limits", flags));
 
   // KJC-TSK-0986 (HUM-F): the invitation to enroll the phone, once per version.
   identityCmd

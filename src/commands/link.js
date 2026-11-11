@@ -4,9 +4,12 @@
  * agent's context. Rejected: a long-running `kj link watch` printing messages as they arrive; it would put
  * an untrusted body in front of an agent unasked. Pull keeps "when to read" with the person.
  */
+import fs from "node:fs";
+import { dirname } from "node:path";
 import { readBoardConfig } from "../hu/board-config.js";
+import { pinGhIdentity } from "../hu/gh-identity.js";
 import { LINK_FIELDS } from "../link/block.js";
-import { loadRecord, markRead, saveRecord } from "../link/record.js";
+import { loadRecord, markRead, recordPath, saveRecord } from "../link/record.js";
 import { readInbox } from "../link/reader.js";
 import { PostRefusedError, prepareToPost, renderForAgent } from "../link/wrap.js";
 
@@ -24,9 +27,10 @@ function parseThread(value) {
 }
 
 /** The GitHub adapter when the board is a GitHub one; any other board has no message interface (null). */
-export async function githubAdapter({ projectDir }) {
+export async function githubAdapter({ projectDir, pin = pinGhIdentity }) {
   const board = await readBoardConfig(projectDir);
   if (board.backend !== "github") return null;
+  pin({ projectDir }); // ADR 0040: gh goes out as the account this clone declares, as the rest of the board does
   const { createGithubMessageReader } = await import("../../packages/board-github/src/messages.js");
   return createGithubMessageReader({ repo: board.repo });
 }
@@ -49,9 +53,58 @@ async function send({ projectDir, flags, log, makeAdapter }) {
   log(`posted message ${id}`);
 }
 
-async function inbox({ projectDir, flags, log, makeAdapter }) {
-  const { key, thread, name } = parseThread(flags.thread);
+/** One line per failure: the code when there is one, then the message. */
+const describeError = (err) => (err instanceof PostRefusedError ? `refused (${err.code}): ${err.message}` : err.code ? `${err.code}: ${err.message}` : err.message);
+
+/** The threads with a record under .karajan/link/, as keys; a name that is not `<kind>-<n>.json` is not a record. */
+function knownThreads(projectDir) {
+  let files;
+  try {
+    files = fs.readdirSync(dirname(recordPath(projectDir, { kind: "issue", number: 1 })));
+  } catch (err) {
+    if (err.code === "ENOENT") return [];
+    throw err;
+  }
+  return files.map((f) => /^(issue|pr)-([1-9]\d{0,9})\.json$/.exec(f)).filter(Boolean).map(([, kind, n]) => parseThread(`${kind}:${n}`));
+}
+
+async function threads({ projectDir, flags, log }) {
+  const rows = knownThreads(projectDir).map(({ key, name }) => {
+    try {
+      const times = Object.values(loadRecord(projectDir, key).seen).map((e) => e.updatedAt);
+      return { thread: name, seen: times.length, last: times.reduce((a, b) => (b > a ? b : a), "") || undefined };
+    } catch (err) {
+      return { thread: name, error: describeError(err) };
+    }
+  }).sort((a, b) => (b.last ?? "").localeCompare(a.last ?? "") || a.thread.localeCompare(b.thread));
+  if (flags.json) log(JSON.stringify(rows));
+  else if (rows.length === 0) log("no threads yet");
+  else for (const r of rows) log(r.error ? `${r.thread}: error ${r.error}` : `${r.thread}: ${r.seen} messages seen, last ${r.last ?? "never"}`);
+}
+
+async function limits({ projectDir, flags, log, makeAdapter }) {
   const adapter = await adapterOf(makeAdapter, projectDir);
+  const l = await adapter.limits();
+  log(flags.json ? JSON.stringify(l) : `quota left: ${l.quotaLeft}\npolling interval: ${l.minPollIntervalMs} ms\nwrite gap: ${l.minWritePauseMs} ms`);
+}
+
+/** Without --thread: every known thread, one after another; a failing one is reported and the rest go on. */
+async function inbox({ projectDir, flags, log, makeAdapter }) {
+  const adapter = await adapterOf(makeAdapter, projectDir);
+  if (flags.thread) return readThread({ projectDir, flags, log, adapter, ...parseThread(flags.thread) });
+  let failed = 0;
+  for (const known of knownThreads(projectDir)) {
+    try {
+      await readThread({ projectDir, flags, log, adapter, ...known });
+    } catch (err) {
+      failed++;
+      log(flags.json ? JSON.stringify({ thread: known.name, error: describeError(err) }) : `${known.name}: ${describeError(err)}`);
+    }
+  }
+  return { failed };
+}
+
+async function readThread({ projectDir, flags, log, adapter, key, thread, name }) {
   const store = loadRecord(projectDir, key);
   const result = await readInbox({ adapter, thread, store });
   const { messages, dropped } = result;
@@ -64,17 +117,16 @@ async function inbox({ projectDir, flags, log, makeAdapter }) {
   if (flags.markRead) saveRecord(projectDir, key, markRead(store, result));
 }
 
-const ACTIONS = { send, inbox }; // `threads` and `limits` are the follow-up PR of HU-3804
+const ACTIONS = { send, inbox, threads, limits };
 
-/** @returns {Promise<0|1>} */
+/** An action reports a partial failure as `{ failed: <count> }`; anything else is success. @returns {Promise<0|1>} */
 export async function linkCommand({ action, config, flags = {}, log = console.log, makeAdapter = githubAdapter }) {
   try {
-    if (!Object.hasOwn(ACTIONS, action)) throw new Error(`unknown link action "${action}": use send or inbox`);
-    await ACTIONS[action]({ projectDir: config?.projectDir || process.cwd(), flags, log, makeAdapter });
-    return 0;
+    if (!Object.hasOwn(ACTIONS, action)) throw new Error(`unknown link action "${action}": use send, inbox, threads or limits`);
+    return (await ACTIONS[action]({ projectDir: config?.projectDir || process.cwd(), flags, log, makeAdapter }))?.failed > 0 ? 1 : 0;
   } catch (err) {
     // A refusal names its code and the finding types and lines (never the matched text).
-    log(err instanceof PostRefusedError ? `refused (${err.code}): ${err.message}` : err.code ? `${err.code}: ${err.message}` : err.message);
+    log(describeError(err));
     return 1;
   }
 }
