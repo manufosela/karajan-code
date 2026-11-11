@@ -41,6 +41,11 @@ const EXPLAIN = {
     "Quien está en el padrón sella, aprueba reglas y baja el nivel: solo un móvil ya enrolado admite a otro.",
     "Una clave añadida sin la firma de un móvil del padrón daría a otro tu poder de firma.",
   ],
+  "hooks-set": [
+    "Se fija o se suelta el comando de un paso de los hooks (kj hooks set|unset), que sustituye al paso de calidad detectado.",
+    "El agente no puede cambiar qué comprueban los hooks que le vigilan: solo tú decides qué comando los ejecuta (ADR 0051).",
+    "Un comando fijado sin tu firma dejaría al agente vaciar o falsear la comprobación que le frena.",
+  ],
 };
 
 /** What the phone shows beside the files: what, why, and if another did it. */

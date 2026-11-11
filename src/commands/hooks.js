@@ -12,10 +12,10 @@ const CONFIG_FILE = path.join(".karajan", "kj.config.yml");
 const AFTER = "The hooks change only after `kj harden` and the seal.";
 
 // ADR 0018: the full human act, refused to an agent session, then signed by the phone if enrolled.
-async function pinAct({ projectDir, kjVersion, change }) {
-  humanAct("hooks-set");
+async function pinAct({ projectDir, kjVersion, change, deps = {} }) {
+  humanAct("hooks-set", { env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
   await signAct("hooks-set", {
-    projectDir, kjVersion, files: [{ file: ".karajan/kj.config.yml", sha256: "" }],
+    projectDir, home: deps.home, logger: deps.logger ?? console, deps, kjVersion, files: [{ file: ".karajan/kj.config.yml", sha256: "" }],
     changes: [{ file: ".karajan/kj.config.yml", status: "modified", summary: change, diff: change, truncated: false }],
   });
 }
@@ -30,22 +30,22 @@ async function savePins({ projectDir, step, command, load, write }) {
 }
 
 export async function hooksSetCommand({
-  step, command, projectDir = process.cwd(), kjVersion = "unknown",
+  step, command, projectDir = process.cwd(), kjVersion = "unknown", deps = {},
   load = loadProjectConfig, write = writeConfig, act = pinAct, print = console.log,
 }) {
   validatePin(step, command);
-  await act({ projectDir, kjVersion, change: `${step}: ${command}` });
+  await act({ projectDir, kjVersion, deps, change: `${step}: ${command}` });
   await savePins({ projectDir, step, command, load, write });
   print(`✓ ${step} pinned: ${command}\n${AFTER}`);
   return { step, command };
 }
 
 export async function hooksUnsetCommand({
-  step, projectDir = process.cwd(), kjVersion = "unknown",
+  step, projectDir = process.cwd(), kjVersion = "unknown", deps = {},
   load = loadProjectConfig, write = writeConfig, act = pinAct, print = console.log,
 }) {
   validatePin(step, "x");
-  await act({ projectDir, kjVersion, change: `${step}: unpinned` });
+  await act({ projectDir, kjVersion, deps, change: `${step}: unpinned` });
   await savePins({ projectDir, step, command: null, load, write });
   print(`✓ ${step} unpinned\n${AFTER}`);
   return { step };
