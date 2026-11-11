@@ -56,6 +56,53 @@ describe("syncProposedWork", () => {
     expect(map["main-ci"]).toBeUndefined();
   });
 
+  describe("HU-3841: a persistent not-observable invariant opens a proposed card", () => {
+    const blind = (id = "main-ci") => ({ id, verdict: "not-observable", evidence: "no push workflow on main", remedy: "add one" });
+    const sweep = (results, sweptAt) => syncProposedWork({ projectDir: dir, config: config(), results, sweptAt });
+    const day = (n) => `2026-11-${String(n).padStart(2, "0")}T00:00:00Z`;
+
+    it("1 and 2 sweeps make no card; the 3rd makes ONE; the 4th updates it", async () => {
+      expect(await sweep([blind()], day(1))).toMatchObject({ instrument: 0 });
+      expect(await sweep([blind()], day(2))).toMatchObject({ instrument: 0 });
+      expect(await allHus()).toHaveLength(0);
+      expect(await sweep([blind()], day(3))).toMatchObject({ created: 0, instrument: 1 });
+      const hus = await allHus();
+      expect(hus).toHaveLength(1);
+      expect(hus[0].title).toBe("steward: main-ci not observable — instrument it (review before executing)");
+      expect(hus[0].scope).toMatch(/2026-11-01.*3 consecutive sweeps/);
+      await sweep([{ ...blind(), evidence: "still blind" }], day(4));
+      const again = await allHus();
+      expect(again).toHaveLength(1);
+      expect(again[0].scope).toMatch(/still blind/);
+      expect(again[0].scope).toMatch(/4 consecutive sweeps/);
+    });
+
+    it("2 sweeps but since more than 7 days ago still opens the card", async () => {
+      await sweep([blind()], day(1));
+      await sweep([blind()], day(10));
+      expect(await allHus()).toHaveLength(1);
+    });
+
+    it("a green verdict in between clears the streak", async () => {
+      await sweep([blind()], day(1));
+      await sweep([blind()], day(2));
+      await sweep([ok("main-ci")], day(3));
+      await sweep([blind()], day(4));
+      expect(await allHus()).toHaveLength(0);
+    });
+
+    it("observable again resolves the card; a broken verdict then follows the broken path", async () => {
+      for (const n of [1, 2, 3]) await sweep([blind()], day(n));
+      const r = await sweep([broken("main-ci")], day(4));
+      expect(r).toMatchObject({ created: 1, resolved: 1 });
+      const hus = await allHus();
+      expect(hus.map((h) => h.status).sort()).toEqual(["done", "pending"]);
+      const map = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "steward", "cards.json"), "utf8"));
+      expect(map.notObservable).toBeUndefined();
+      expect(map["main-ci"].huId).toBeDefined();
+    });
+  });
+
   // KJC-BUG-0305: the HU Board is always kj's board; an external tracker gets the replica.
   it("with an external tracker the HU Board still gets the card, and the sync names where to replicate it", async () => {
     const r = await syncProposedWork({ projectDir: dir, config: { projectDir: dir, state_backend: "planning-game" }, results: [broken("main-ci")], sweptAt: "2026-08-27T00:00:00Z" });
