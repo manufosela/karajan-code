@@ -33,6 +33,19 @@ function rowsOf(widths, target) {
  * and `depth` are the bounds of the whole map, centred on 0.
  */
 export function packLots(laneCounts) {
+  return pack(laneCounts);
+}
+
+/**
+ * KJC-BUG-0555: the map packed again for the lane counts `now`, or null while they are the
+ * ones it was packed for (`before`): a factory that grows lanes gets a lot of its new size.
+ */
+export function repacked(before, now) {
+  const same = now.length === before.length && now.every((n, i) => n === before[i]);
+  return same ? null : pack(now);
+}
+
+function pack(laneCounts) {
   const widths = laneCounts.map((n) => hallWidth(n) + 2);
   const depths = laneCounts.map((n) => DEPTH + hallDepth(n));
   const area = widths.reduce((sum, w, i) => sum + (w + GAP) * (depths[i] + ROW_GAP), 0);
