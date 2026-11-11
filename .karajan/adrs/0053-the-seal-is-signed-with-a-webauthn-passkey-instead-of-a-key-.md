@@ -60,7 +60,7 @@ Proposed; the maintainer decides.
   - A synced passkey is as safe as the cloud account it syncs through (Google, iCloud).
   - A passkey on the same laptop the agent runs on is out of the agent's reach only through the platform's biometric or PIN prompt.
   - The rpId ties every passkey to karajancode.com: moving the signer page to another domain means re-enrolling.
-- **Open for the maintainer:**
-  - Accept synced passkeys, or require device-bound ones (the BE/BS flags tell them apart).
-  - Whether a passkey on the same machine is allowed.
-  - When Ed25519 stops being accepted.
+- **The maintainer's answers (2026-11-11):**
+  - **Synced passkeys are accepted.** A lost or new phone keeps signing. The cloud account they sync through must have two-factor authentication.
+  - **Signing happens only from a phone.** A synced passkey also reaches the laptop's browser, where an agent works. On a desktop browser the signer page does not sign; it shows the QR to sign from the phone. This cannot be enforced against an agent that drives the browser fully: the browser does not reliably tell a phone from a laptop. It closes the easy path and signing out of habit on the laptop. The last barrier stays the person's gesture and reading what the page shows.
+  - **Ed25519 is retired once every signer has migrated.** The retirement date and the migration process are set and announced first. Until then, kj warns on every act signed with an Ed25519 key and says how to migrate.
