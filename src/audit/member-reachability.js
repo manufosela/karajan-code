@@ -7,7 +7,7 @@
  * an inflated inventory gets switched off, and then nobody reads the real one.
  */
 import { parse } from "@babel/parser";
-const plugins = (file) => [
+export const plugins = (file) => [
   ...(/\.(ts|tsx|mts|cts)$/.test(file) ? ["typescript"] : []),
   ...(/\.(tsx|jsx)$/.test(file) || !/\.(ts|mts|cts)$/.test(file) ? ["jsx"] : []),
   "decorators",
