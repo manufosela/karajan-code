@@ -7,6 +7,7 @@ import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } fr
 import { join } from 'node:path';
 
 import { listLanes } from './lanes.js';
+import { boardStatuses, withBoardCache } from './stage-board-cache.js';
 import { sessionName, withSessionName } from './session-names.js';
 import { pendingMail } from './stage-mail.js';
 import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, verdictEvent } from './stage-feed.js';
@@ -90,6 +91,14 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
   };
 }
 
-/** KJC-TSK-1432 (ADR 0048): the last state of every lane, the main checkout first. */
-export const laneStates = (projectDir, options) =>
-  listLanes(projectDir).map(({ lane, dir }) => ({ lane, ...lastStageState(dir, { ...options, lane }) }));
+/**
+ * KJC-TSK-1432 (ADR 0048): the last state of every lane, the main checkout first.
+ * KJC-BUG-0547: each card checked against the shared board's cache of the main checkout.
+ */
+export function laneStates(projectDir, options) {
+  const statuses = boardStatuses(projectDir);
+  return listLanes(projectDir).map(({ lane, dir }) => {
+    const state = lastStageState(dir, { ...options, lane });
+    return { lane, ...state, cards: withBoardCache(state.cards, statuses) };
+  });
+}
