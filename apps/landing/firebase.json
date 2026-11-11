@@ -4,7 +4,8 @@
     "public": "public",
     "predeploy": [
       "npm --prefix docs run build",
-      "rsync -a --delete docs/dist/ public/docs/"
+      "rsync -a --delete docs/dist/ public/docs/",
+      "node scripts/copy-stage.mjs"
     ],
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [
