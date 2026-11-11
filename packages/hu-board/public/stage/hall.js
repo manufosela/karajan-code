@@ -115,12 +115,24 @@ export function createHall(scene, lanes) {
     return true;
   };
   lanes.forEach(ensure);
+  /** KJC-BUG-0557: takes a lane's workshop away and closes the gap; true when it had one. */
+  const remove = (lane) => {
+    if (!shops.has(lane)) return false;
+    scene.remove(shops.get(lane).group);
+    shops.delete(lane);
+    shown.delete(lane);
+    lights.delete(lane);
+    order.splice(order.indexOf(lane), 1);
+    relayout();
+    return true;
+  };
   return {
     /** Adds the lane's workshop if it is new; true when the row changed. */
     ensure,
     xOf: (lane) => at(lane).x,
     /** KJC-TSK-1488: the z of a lane's workshop, which a factory of several rows sets apart. */
     zOf: (lane) => at(lane).z,
+    remove,
     count: () => order.length,
     /** KJC-TSK-1540: the lanes of the hall, in the order their workshops stand. */
     names: () => [...order],

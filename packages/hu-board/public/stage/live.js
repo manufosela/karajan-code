@@ -19,6 +19,7 @@ import { tagAt } from './screen.js';
 import { readyToRelease } from './release.js';
 import { laneStatuses, statusLine } from './lane-status.js';
 import { mailboxOf, withMail } from './mail.js';
+import { goneLanes, staleEnds } from './resync.js';
 import { Vector3 } from 'three';
 
 // The marks stack over the workshop so two of one lane never sit on each other (tagAt adds OVER_PIECE).
@@ -109,8 +110,22 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     for (const w of at ?? []) visits = withVisit(visits, { type: 'agent-activity', role: w.role, agent: w.agent, phase: 'start', lane }, performance.now() - PIECE_WALK_MS);
   }
   showStatuses();
-  return {
+  const api = {
     settle,
+    /**
+     * KJC-BUG-0557: checks the scene against the board's state now (`server`, as acrossLanes
+     * gives it). A lane the board no longer lists goes, once no robot works in it (so the
+     * robots that leave walk out of their own workshop first); then everyone the board no
+     * longer sees at work walks out, as if their end had come.
+     */
+    resync(server, now) {
+      const gone = goneLanes(hall.names(), server.lanes ?? [], state.working ?? []);
+      if (gone.map((lane) => hall.remove(lane)).some(Boolean)) refit();
+      for (const end of staleEnds(state.working ?? [], server.working ?? [], new Date().toISOString())) api.push(end, now);
+      // The branch facts and notes the statuses read, as the board sees them now.
+      state = { ...state, lanes: server.lanes ?? state.lanes };
+      showStatuses();
+    },
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
     cards: () => state.cards ?? [],
     /** Takes one stream event at `now` (performance clock, ms). */
@@ -170,4 +185,5 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       counts.replaceChildren(...tags, ...floor.frame(now));
     },
   };
+  return api;
 }

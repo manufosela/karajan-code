@@ -10,6 +10,9 @@ import { boardToken, withToken } from './token.js';
 import { listenZoom } from './zoom.js';
 import { MARK_MS } from './marks.js';
 
+/** KJC-BUG-0557: how often the scene checks itself against the board's state. */
+const RESYNC_MS = 60 * 1000;
+
 const canvas = document.getElementById('stage');
 const status = document.getElementById('stage-status');
 const project = new URLSearchParams(location.search).get('project');
@@ -87,6 +90,11 @@ async function start() {
       setTimeout(draw, MARK_MS + 50);
     }
   };
+  // KJC-BUG-0557: every minute, the scene checks itself against the board's state.
+  setInterval(async () => {
+    const now = await fetchState();
+    if (now.state) live.resync(now.state, performance.now());
+  }, RESYNC_MS);
   const frame = (ms) => {
     live.frame(ms);
     scene.render();
@@ -104,7 +112,12 @@ async function startMapView() {
     if (!res.ok) { tell([`The board cannot draw the map: ${body.error}`]); return; }
     if (!body.length) { tell(['The board knows no project with a folder on this machine: there is no factory to show.']); return; }
     const { startMap } = await import('./map.js');
-    startMap({ canvas, factories: body, token, tell, counts: document.getElementById('stage-counts') });
+    const map = startMap({ canvas, factories: body, token, tell, counts: document.getElementById('stage-counts') });
+    // KJC-BUG-0557: every minute, each factory checks itself against the board's state.
+    setInterval(async () => {
+      const again = await fetch('/api/stage/map', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null);
+      if (again?.ok) map.resync(await again.json());
+    }, RESYNC_MS);
     status.classList.add('stage-unseen'); // KJC-TSK-1466: once the map is up its lines only speak to screen readers
   } catch (err) {
     tell([`The board did not answer (${err.message})`]);
