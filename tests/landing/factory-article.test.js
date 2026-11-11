@@ -7,7 +7,7 @@ const read = (path) => readFileSync(new URL(`../../apps/landing/public/factory/$
 describe("the factory scene page", () => {
   it("lives at /factory/play/ and loads the starter next to the scene", () => {
     const play = read("play/index.html");
-    expect(play).toContain('<script type="module" src="../replay.js"></script>');
+    expect(play).toMatch(/<script type="module" src="\.\.\/replay\.js\?v=[0-9a-f]{10}"><\/script>/);
     expect(play).toContain('"three": "/lib/three.min.js"');
   });
 

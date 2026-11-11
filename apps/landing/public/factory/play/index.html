@@ -18,7 +18,8 @@
     #stage-loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #9ca6ae; pointer-events: none; }
     #stage-loading[hidden] { display: none; }
   </style>
-  <script type="importmap">{ "imports": { "three": "/lib/three.min.js" } }</script>
+  <!-- The hosting caches .js as immutable: each module's URL carries a hash of its content (KJL-BUG-0016). -->
+  <script type="importmap">{ "imports": { "three": "/lib/three.min.js", "/factory/replay-timeline.js": "/factory/replay-timeline.js?v=e8207f1615" } }</script>
 </head>
 <body>
   <main><canvas id="stage" aria-label="3D factory: the method's pieces react to the recorded events of one real Karajan task"></canvas></main>
@@ -32,6 +33,6 @@
   <output id="stage-loading" aria-live="polite">Loading the factory…</output>
   <ul id="stage-status" aria-live="polite"></ul>
   <div id="stage-counts" aria-hidden="true"></div>
-  <script type="module" src="../replay.js"></script>
+  <script type="module" src="../replay.js?v=22d5c78819"></script>
 </body>
 </html>
