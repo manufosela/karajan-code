@@ -32,17 +32,26 @@ export function laneStatus({ lane, working = [], mail = 0, branch }, cards = [])
  * A lane born after the stage opened has no branch read yet.
  */
 export function laneStatuses(names, { lanes = [], working = [], cards = [] }, box) {
-  const branchOf = new Map(lanes.map((l) => [l.lane, l.branch]));
-  return new Map(names.map((lane) => [lane, laneStatus({
-    lane,
-    branch: branchOf.get(lane),
-    working: working.filter((w) => (w.lane ?? MAIN_LANE) === lane),
-    mail: box.get(lane) ?? 0,
-  }, cards)]));
+  const byLane = new Map(lanes.map((l) => [l.lane, l]));
+  return new Map(names.map((lane) => {
+    const status = laneStatus({
+      lane,
+      branch: byLane.get(lane)?.branch,
+      working: working.filter((w) => (w.lane ?? MAIN_LANE) === lane),
+      mail: box.get(lane) ?? 0,
+    }, cards);
+    // KJC-TSK-1546: what someone wrote it waits for (kj worktree note), kept as text.
+    const note = byLane.get(lane)?.note;
+    return [lane, note ? { ...status, note } : status];
+  }));
 }
 
-/** The line under a lane's name: nothing while it works, what it waits for, else its state and why. */
-export function statusLine({ state, why }) {
+/**
+ * The line under a lane's name: nothing while it works; its note, quoted, when it has one;
+ * what it waits for; else its state and why.
+ */
+export function statusLine({ state, why, note }) {
   if (state === 'working') return '';
+  if (note) return `“${note}”`;
   return state.startsWith('waiting-') ? why : `${state}: ${why}`;
 }
