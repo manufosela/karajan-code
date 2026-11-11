@@ -7,7 +7,7 @@
  * sessions that belong to THIS lane. The Sentinel's layout is not changed.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const STATE_PARTS = [".karajan", "harness", "sentinel-state.json"];
@@ -22,12 +22,14 @@ const sessionsMarkedIn = (common, top) => {
       .map((f) => readJson(path.join(common, "kj-lanes", f))).filter((m) => m?.lane === top && m.sid).map((m) => m.sid);
   } catch { return []; }
 };
+/** [toplevel, git common dir] of `projectDir`, both absolute ("" when git cannot answer). */
+const whereIs = (projectDir) => git(projectDir, "rev-parse", "--show-toplevel", "--path-format=absolute", "--git-common-dir").split("\n");
 /**
  * @param {string} projectDir
  * @returns {object|null} the state (`{sessions}`) of that dir; for a lane without its own state, only this lane's sessions.
  */
 export function readLaneSentinelState(projectDir) {
-  const [top = "", common = ""] = git(projectDir, "rev-parse", "--show-toplevel", "--path-format=absolute", "--git-common-dir").split("\n");
+  const [top = "", common = ""] = whereIs(projectDir);
   const own = readJson(path.join(top || projectDir, ...STATE_PARTS));
   if (own || !top || !common) return own;
   const mainTop = path.dirname(common);
@@ -37,4 +39,27 @@ export function readLaneSentinelState(projectDir) {
   const marked = new Set(sessionsMarkedIn(common, top));
   const belongs = ([sid, s]) => marked.has(sid) || Boolean(s?.lanes?.[top]);
   return { ...main, sessions: Object.fromEntries(Object.entries(main.sessions ?? {}).filter(belongs)) };
+}
+
+/**
+ * KJC-BUG-0548: drop pending board moves of one session, in the file the state really lives in
+ * (the lane's own, else the main tree's), re-read whole so no other session's state is lost.
+ * @returns {boolean} whether the file was rewritten
+ */
+export function prunePendingMoves(projectDir, sessionId, cards) {
+  const [top = "", common = ""] = whereIs(projectDir);
+  const own = path.join(top || projectDir, ...STATE_PARTS);
+  const file = readJson(own) || !common ? own : path.join(path.dirname(common), ...STATE_PARTS);
+  const state = readJson(file);
+  const s = state?.sessions?.[sessionId];
+  if (!Array.isArray(s?.pending_moves)) return false;
+  const drop = new Set(cards);
+  s.pending_moves = s.pending_moves.filter((p) => !drop.has(String(p.card ?? "").toUpperCase()));
+  // Atomic replace, so a reader never sees half a file. The hooks write this file the same
+  // unlocked way; a concurrent write that brings a pruned move back is pruned again on the
+  // next check (the prune is idempotent), and the gate keeps failing closed meanwhile.
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(state, null, 2));
+  renameSync(tmp, file);
+  return true;
 }

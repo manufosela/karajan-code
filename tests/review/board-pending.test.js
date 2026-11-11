@@ -104,6 +104,31 @@ describe("boardGate", () => {
     expect(res.reason).toMatch(/cuenta activa.*gh auth switch --user <cuenta>.*corre antes que el comando/);
   });
 
+  // KJC-BUG-0548 (#3880): the HU's owner moved it to done from their own session, so no call
+  // of this session ever cleared the pending and the Stop gate held the turn for good.
+  describe("a shared-board HU already done elsewhere", () => {
+    const issue = (state, labels) => JSON.stringify({ state, labels: labels.map((name) => ({ name })) });
+    const runWith = (issueJson) => (cmd, args) => {
+      if (args[0] === "issue") return issueJson;
+      if (args.join(" ").startsWith("pr list")) return "[]";
+      throw new Error("not needed");
+    };
+    const st = () => ({ sessions: { s1: { pending_moves: [P("HU-3827", 3828), P("KJC-BUG-0197")] } } });
+    it("is resolved and pruned from the state; the rest still decides as before", () => {
+      const pruned = [];
+      const res = boardGate({ sessionId: "s1", deps: { readState: st, run: runWith(issue("CLOSED", ["kj:hu", "kj:done"])), prune: (sid, cards) => pruned.push([sid, cards]) } });
+      expect(res.resolved).toEqual([{ card: "HU-3827", why: "ya está en done en el board compartido" }]);
+      expect(res.blocking.map((p) => p.card)).toEqual(["KJC-BUG-0197"]);
+      expect(pruned).toEqual([["s1", ["HU-3827"]]]);
+    });
+    it("stays blocking when the issue is open, closed without kj:done, or gh cannot read it", () => {
+      for (const run of [runWith(issue("OPEN", ["kj:done"])), runWith(issue("CLOSED", ["kj:hu"])), runWith("not json")]) {
+        const res = boardGate({ sessionId: "s1", deps: { readState: st, run, prune: () => { throw new Error("must not prune"); } } });
+        expect(res.blocking.map((p) => p.card)).toEqual(["HU-3827", "KJC-BUG-0197"]);
+      }
+    });
+  });
+
   it("decides nothing without state, session or pendings", () => {
     for (const st of [null, {}, { sessions: { s1: {} } }, { sessions: { s1: { pending_moves: [] } } }]) {
       expect(gate([], st)).toEqual({ blocking: [], carried: [] });

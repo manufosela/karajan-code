@@ -18,7 +18,7 @@
 
 import { execFileSync } from "node:child_process";
 
-import { readLaneSentinelState } from "../harden/sentinel-lane-state.js";
+import { prunePendingMoves, readLaneSentinelState } from "../harden/sentinel-lane-state.js";
 import { CARD_REF_RE } from "./card-first.js";
 
 const cardOf = (text) => {
@@ -71,18 +71,39 @@ export function blockingMoves({ pendings = [], openPrHeads = null, openPrNumbers
 }
 
 
+/**
+ * KJC-BUG-0548 (#3880): a shared-board HU whose issue GitHub shows CLOSED with `kj:done` was
+ * moved by someone (often its owner, from another session): the board is already true. Any
+ * doubt (open, closed without the label, unreadable) keeps it pending.
+ */
+function doneOnSharedBoard(run, card) {
+  const m = /^HU-(\d+)$/.exec(card ?? "");
+  if (!m) return false;
+  try {
+    const issue = JSON.parse(run("gh", ["issue", "view", m[1], "--json", "state,labels"]));
+    return issue.state === "CLOSED" && (issue.labels ?? []).some((l) => l.name === "kj:done");
+  } catch { return false; }
+}
+
 /** The decision the guard asks for, gathering the facts here so the rule ships
  * with npm instead of waiting for the human to reseal the harness. */
 export function boardGate({ projectDir = process.cwd(), sessionId = "default", deps = {} } = {}) {
   const state = deps.readState?.() ?? readLaneSentinelState(projectDir);
-  const pendings = state?.sessions?.[sessionId]?.pending_moves;
-  if (!Array.isArray(pendings) || pendings.length === 0) return { blocking: [], carried: [] };
+  const all = state?.sessions?.[sessionId]?.pending_moves;
+  if (!Array.isArray(all) || all.length === 0) return { blocking: [], carried: [] };
   // KJC-BUG-0364: gh can take several seconds; a timeout reads as "could not check" and blocks.
   const run = deps.run ?? ((cmd, args) => execFileSync(cmd, args, { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15000 }));
+  const doneCards = all.map((p) => String(p.card ?? "").toUpperCase()).filter((card) => doneOnSharedBoard(run, card));
+  const resolved = doneCards.map((card) => ({ card, why: "ya está en done en el board compartido" }));
+  // Pruned where the hooks keep it, so the Stop gate (which reads the state) stops holding the turn.
+  if (doneCards.length > 0) (deps.prune ?? ((sid, cards) => prunePendingMoves(projectDir, sid, cards)))(sessionId, doneCards);
+  const pendings = all.filter((p) => !doneCards.includes(String(p.card ?? "").toUpperCase()));
+  const withResolved = (res) => (resolved.length > 0 ? { ...res, resolved } : res);
+  if (pendings.length === 0) return withResolved({ blocking: [], carried: [] });
   let open = null;
   try { open = JSON.parse(run("gh", ["pr", "list", "--state", "open", "--limit", "100", "--json", "number,headRefName"])); } catch { /* fail closed */ }
   const listed = Array.isArray(open) ? open : null;
-  return blockingMoves({ pendings, openPrHeads: listed?.map((p) => p.headRefName) ?? null, openPrNumbers: listed?.map((p) => Number(p.number)) ?? [], ...localFacts(run, pendings) });
+  return withResolved(blockingMoves({ pendings, openPrHeads: listed?.map((p) => p.headRefName) ?? null, openPrNumbers: listed?.map((p) => Number(p.number)) ?? [], ...localFacts(run, pendings) }));
 }
 
 /** The current branch, its commits outside the base, and each merged PR's head; unreadable facts forgive nothing. */
