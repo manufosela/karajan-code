@@ -19,6 +19,7 @@
 import { execFileSync } from "node:child_process";
 
 import { prunePendingMoves, readLaneSentinelState } from "../harden/sentinel-lane-state.js";
+import { readIdentity } from "../identity/store.js";
 import { CARD_REF_RE } from "./card-first.js";
 
 const cardOf = (text) => {
@@ -76,13 +77,32 @@ export function blockingMoves({ pendings = [], openPrHeads = null, openPrNumbers
  * moved by someone (often its owner, from another session): the board is already true. Any
  * doubt (open, closed without the label, unreadable) keeps it pending.
  */
-function doneOnSharedBoard(run, card) {
+const isDone = (issue) => issue.state === "CLOSED" && (issue.labels ?? []).some((l) => l.name === "kj:done");
+
+/**
+ * KJC-BUG-0554 (HU-3937): a closed issue held only by people other than this clone's declared
+ * gh user is the holder's to move (`kj hu move` refuses without release). Any doubt: null.
+ */
+function heldByAnother(issue, me) {
+  const logins = (issue.assignees ?? []).map((a) => a?.login).filter(Boolean);
+  if (issue.state !== "CLOSED" || !me || logins.length === 0 || logins.includes(me)) return null;
+  return logins.join(", ");
+}
+
+/** @returns {{kind: "done"} | {kind: "held", holder: string} | null} one `gh issue view` per card. */
+function sharedBoardFact(run, card, me) {
   const m = /^HU-(\d+)$/.exec(card ?? "");
-  if (!m) return false;
+  if (!m) return null;
   try {
-    const issue = JSON.parse(run("gh", ["issue", "view", m[1], "--json", "state,labels"]));
-    return issue.state === "CLOSED" && (issue.labels ?? []).some((l) => l.name === "kj:done");
-  } catch { return false; }
+    const issue = JSON.parse(run("gh", ["issue", "view", m[1], "--json", "state,labels,assignees"]));
+    if (isDone(issue)) return { kind: "done" };
+    const holder = heldByAnother(issue, me);
+    return holder ? { kind: "held", holder } : null;
+  } catch { return null; }
+}
+
+function declaredGhUser(projectDir, deps) {
+  try { return (deps.readIdentity ?? readIdentity)(projectDir)?.gh_user ?? null; } catch { return null; }
 }
 
 /** The decision the guard asks for, gathering the facts here so the rule ships
@@ -93,12 +113,15 @@ export function boardGate({ projectDir = process.cwd(), sessionId = "default", d
   if (!Array.isArray(all) || all.length === 0) return { blocking: [], carried: [] };
   // KJC-BUG-0364: gh can take several seconds; a timeout reads as "could not check" and blocks.
   const run = deps.run ?? ((cmd, args) => execFileSync(cmd, args, { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15000 }));
-  const doneCards = all.map((p) => String(p.card ?? "").toUpperCase()).filter((card) => doneOnSharedBoard(run, card));
-  const resolved = doneCards.map((card) => ({ card, why: "ya está en done en el board compartido" }));
+  const me = declaredGhUser(projectDir, deps);
+  const facts = all.map((p) => { const card = String(p.card ?? "").toUpperCase(); return { card, fact: sharedBoardFact(run, card, me) }; });
+  const resolved = facts.filter((f) => f.fact?.kind === "done").map(({ card }) => ({ card, why: "ya está en done en el board compartido" }));
+  const heldElsewhere = facts.filter((f) => f.fact?.kind === "held").map(({ card, fact }) => ({ card, holder: fact.holder, why: `la mueve su titular (${fact.holder})` }));
+  const settled = [...resolved, ...heldElsewhere].map((r) => r.card);
   // Pruned where the hooks keep it, so the Stop gate (which reads the state) stops holding the turn.
-  if (doneCards.length > 0) (deps.prune ?? ((sid, cards) => prunePendingMoves(projectDir, sid, cards)))(sessionId, doneCards);
-  const pendings = all.filter((p) => !doneCards.includes(String(p.card ?? "").toUpperCase()));
-  const withResolved = (res) => (resolved.length > 0 ? { ...res, resolved } : res);
+  if (settled.length > 0) (deps.prune ?? ((sid, cards) => prunePendingMoves(projectDir, sid, cards)))(sessionId, settled);
+  const pendings = all.filter((p) => !settled.includes(String(p.card ?? "").toUpperCase()));
+  const withResolved = (res) => ({ ...res, ...(resolved.length > 0 && { resolved }), ...(heldElsewhere.length > 0 && { heldElsewhere }) });
   if (pendings.length === 0) return withResolved({ blocking: [], carried: [] });
   let open = null;
   try { open = JSON.parse(run("gh", ["pr", "list", "--state", "open", "--limit", "100", "--json", "number,headRefName"])); } catch { /* fail closed */ }
