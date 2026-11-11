@@ -2,6 +2,8 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<!-- KJC-BUG-0556: kj opens /sign without a trailing slash; relative imports resolve against /sign/. -->
+<base href="/sign/" />
 <title>Karajan — firma del supervisor</title>
 <style>
   :root { --bg: #0f1520; --panel: #1a2a35; --line: #2a3a4e; --text: #d0dbe3; --dim: #6b8fa3; }
