@@ -92,6 +92,35 @@ describe('the host and its subagents (KJC-TSK-1435)', () => {
   });
 });
 
+// KJC-BUG-0555: three host sessions in one lane stood on one spot; each robot takes a free seat.
+describe('bench seats', () => {
+  const host = (id, lane = 'a') => ({ ...start('claude', 'host', lane), id });
+  const spot = (w) => { const { x, z } = workerAt(w, 1e9, () => 0); return `${x},${z}`; };
+
+  it('gives several hosts of one lane each its own seat, and one of another lane its usual one', () => {
+    let workers = [];
+    for (const id of ['s1', 's2', 's3']) workers = withActivity(workers, host(id), 0);
+    workers = withActivity(workers, host('s4', 'b'), 0);
+    const inA = workers.filter((w) => w.lane === 'a').map(spot);
+    expect(new Set(inA).size).toBe(3);
+    expect(spot(workers.at(-1))).toBe(spot(workers[0]));
+  });
+
+  it('keeps each role on its usual seat while it is free, and frees a seat when its robot leaves', () => {
+    let workers = withActivity([], host('s1'), 0);
+    workers = withActivity(workers, start('claude', 'coder', 'a'), 0);
+    expect(workerAt(workers[1], 1e9)).toMatchObject(spotOf('coder'));
+    workers = withActivity(workers, { ...end('claude', 'host', 'a'), id: 's1' }, 0);
+    workers = withActivity(workers, host('s2'), 1);
+    expect(workers.at(-1).slot).toBe(workers[0].slot);
+  });
+
+  it('past the four seats of the bench, a second row stands behind it', () => {
+    const seats = Array.from({ length: 8 }, (_, seat) => spotOf('host', 0, seat)).map(({ x, z }) => `${x},${z}`);
+    expect(new Set(seats).size).toBe(8);
+  });
+});
+
 describe('a worker over time', () => {
   it('walks in from the door, works at its spot, then walks out and is gone', () => {
     let workers = withActivity([], start('agy', 'solomon'), 1000);
