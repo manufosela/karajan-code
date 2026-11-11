@@ -232,9 +232,9 @@ describe("readAssignee and readReviewers", () => {
   });
 });
 
-it("declares what it implements, and the full guard names only the conversations", () => {
+it("declares what it implements, and the full guard passes", () => {
   const { adapter } = reader({});
   expect(adapter.capabilities).toEqual({ tasks: true, reviews: true, labels: true, ceremonies: false, notice: false, edit_history: true });
   expect(adapter.guarantees).toEqual({ stableMessageId: true, serverTime: true });
-  expect(() => assertMessageAdapter(adapter)).toThrow(/missing openConversation, listConversations/);
+  expect(() => assertMessageAdapter(adapter)).not.toThrow();
 });
