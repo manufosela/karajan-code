@@ -4,7 +4,7 @@ import { traceActivity } from "../agents/activity.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { resolveCardContext } from "../prompts/card-context.js";
-import { composeTask, ragQueryText, resolveRagContext } from "../prompts/session-context.js";
+import { composeTask, ragQueryText, resolveMailContext, resolveRagContext } from "../prompts/session-context.js";
 import { resolveRole } from "../config.js";
 import { routedCoderConfig } from "../hu/coder-routing.js";
 import { rejectedReview } from "../review/retry-findings.js";
@@ -52,11 +52,12 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     // The session asks on the coder's behalf: a subprocess coder cannot run
     // `kj rag query` itself, so it used to guess the codebase instead.
     const rag = await resolveRagContext({ task: ragQueryText({ task, card, review }), config, logger });
+    const mail = await resolveMailContext({ projectDir, config, logger });
     // The pipeline always passed projectDir (it arms the directory-boundary
     // rule and the skills section) and the provider. `kj code` did not, so the
     // declared coder got a weaker prompt from the session than from `kj run`.
     const prompt = await buildCoderPrompt({
-      task: composeTask(effectiveTask, [card?.section, review?.section, rag?.section]),
+      task: composeTask(effectiveTask, [card?.section, review?.section, rag?.section, mail]),
       coderRules,
       methodology: config.development?.methodology || "tdd",
       projectDir,

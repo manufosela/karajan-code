@@ -11,7 +11,11 @@
  * work in a repo that simply has no index yet. What it never does is stay
  * quiet about it.
  */
+import fs from "node:fs";
+import { join } from "node:path";
 import { ragQueryCommand } from "../commands/rag.js";
+import { loadRecord } from "../link/record.js";
+import { readInbox } from "../link/reader.js";
 
 /** Hits to carry and how much of each: the prompt pays for every line. */
 const TOP_K = 5;
@@ -74,6 +78,47 @@ export async function resolveRagContext({ task, config, logger, deps = {} }) {
   const sources = [...new Set(hits.map((h) => h.source))];
   logger?.info?.(`RAG context: ${sources.length} file(s) — ${sources.join(", ")}`);
   return { section: ragSection(hits), sources };
+}
+
+/**
+ * HU-3803: how an agent learns there is mail. ONE line: the count of unread messages from permitted
+ * authors and the command that reads them. A number is the only thing that leaves the reader, so no
+ * body, author or subject can reach the prompt. Rejected: injecting the first messages themselves, which
+ * would put an untrusted text in front of the agent unasked (ADR 0043: pull only). Reads through
+ * readInbox (the permission filter) and never saves a record, so no cursor moves.
+ */
+const MAIL_TIMEOUT_MS = 3000;
+
+async function unreadIn(projectDir, adapter) {
+  const dir = join(projectDir, ".karajan", "link");
+  const keys = (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
+    .map((file) => /^(issue|pr)-([1-9]\d{0,9})\.json$/.exec(file))
+    .filter(Boolean)
+    .map(([, kind, digits]) => ({ kind, number: Number(digits) }));
+  const counts = await Promise.all(keys.map(async (key) => {
+    const thread = { kind: key.kind === "pr" ? "pull_request" : "issue", number: key.number };
+    return (await readInbox({ adapter, thread, store: loadRecord(projectDir, key) })).messages.length;
+  }));
+  return counts.reduce((a, b) => a + b, 0);
+}
+
+/** @returns {Promise<string|null>} the section, or null: off, no interface, none unread, an error or a timeout (never a zero). */
+export async function resolveMailContext({ projectDir, config, logger, deps = {} }) {
+  if (config?.link?.session_count === false) return null;
+  const { makeAdapter = async (a) => (await import("../commands/link.js")).githubAdapter(a), timeoutMs = MAIL_TIMEOUT_MS } = deps;
+  let timer;
+  try {
+    const adapter = await makeAdapter({ projectDir });
+    if (!adapter) return null;
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`timed out after ${timeoutMs} ms`)), timeoutMs); });
+    const count = await Promise.race([unreadIn(projectDir, adapter), timeout]);
+    return count > 0 ? `## Mail\n\n${count} unread message(s) wait for you: read them with \`kj link inbox\`.` : null;
+  } catch (err) {
+    logger?.warn?.(`mail count unavailable (${err.message}) — the session starts without it`);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** The task the coder reads: everything it was given, then its own statement. */
