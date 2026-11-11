@@ -11,7 +11,7 @@ import { securityCommand } from "../commands/security.js";
 import { handoffCommand } from "../commands/handoff.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
-import { stewardSweepCommand } from "../commands/steward.js";
+import { stewardSweepCommand, stewardBenchCommand } from "../commands/steward.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand, ragCoversCommand, ragMigrateCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
@@ -627,6 +627,13 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await stewardSweepCommand({ flags, config });
       });
     });
+  stewardCmd.command("bench")
+    .description("Read-only: corre UN detector del Steward commit a commit sobre un rango y dice dónde dispara por primera vez y cuántas veces (issue #3604)")
+    .requiredOption("--range <range>", "rango de git rev-list, p. ej. main..HEAD")
+    .option("--detector <name>", "detector a medir", "phantom-coverage")
+    .option("--repo <path>", "repositorio a leer (por defecto el actual)")
+    .option("--json", "Machine-readable")
+    .action((flags) => { process.exitCode = stewardBenchCommand({ flags }); });
   const claimsCmd = program.command("claims").description("Afirmaciones con fuente: comprueba los datos que la IA afirma en un turno contra las salidas de ese turno (ADR claims-with-evidence)");
   claimsCmd.command("check")
     .description("Cruza el mensaje final del turno con sus salidas — exit 2 solo si un dato está DESMENTIDO por su propia fuente; falla abierto si no puede leer el transcript")

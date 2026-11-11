@@ -20,6 +20,7 @@ import { collectOsvFindings } from "../audit/osv-findings.js";
 import { recordGateDecision } from "../policy/decisions.js";
 import { syncProposedWork } from "../steward/proposed-work.js";
 import { sweepPhantoms } from "../steward/phantom-sweep.js";
+import { benchDetector } from "../steward/history-bench.js";
 import { probeEmbedderLoad, evaluateEmbedderLoad } from "../checks/embedder-load.js";
 
 const stewardDir = (projectDir) => path.join(projectDir, ".karajan", "steward");
@@ -135,6 +136,18 @@ function writeReport(projectDir, report, freshness) {
   fs.mkdirSync(stewardDir(projectDir), { recursive: true });
   fs.writeFileSync(path.join(stewardDir(projectDir), "report.md"), md);
   fs.writeFileSync(path.join(stewardDir(projectDir), "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+}
+
+/** `kj steward bench` (HU-3791) — prints the measure; it never judges, so the exit is 0. */
+export function stewardBenchCommand({ flags = {}, logger = console } = {}) {
+  const result = benchDetector({ repoDir: flags.repo || process.cwd(), range: flags.range, detector: flags.detector });
+  if (flags.json) {
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+  const first = result.firstFiring ? `first fired at ${result.firstFiring.sha} (commit ${result.firstFiring.index + 1} of ${result.commits})` : "never fired";
+  logger.info?.(`steward bench: ${result.detector} over ${result.commits} commit(s): ${first}; fired on ${result.firings}`);
+  return 0;
 }
 
 /**
