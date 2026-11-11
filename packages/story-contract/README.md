@@ -39,6 +39,13 @@ runStoryContract("my manager", makeManager);
 
 Writing a manager? Read [docs/TASK-MANAGERS.md](../../docs/TASK-MANAGERS.md) and copy [`template/`](template/).
 
+## Messages between agents (experimental)
+A second interface, in its own module (`message-contract.js`) and suite (`runMessageSuite` from
+`@karajan-family/story-contract/message-suite`): the ten operations an adapter over a git system
+offers so agents of different people exchange messages (ADR 0043), the six capabilities, and
+`assertMessageAdapter`, which refuses an adapter without `authorPermission`, a stable message id or
+a server time. A manager without it reports every message capability absent. Experimental until its
+first real use: it may change in a minor version.
 ## Versions
 
 A change that breaks a manager that passes today's suite is a major version.
