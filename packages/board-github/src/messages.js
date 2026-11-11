@@ -130,6 +130,17 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
       const open = await paged(`repos/${repo}/issues`, `&state=open&labels=${CEREMONY_LABEL}&sort=created&direction=desc`);
       return open.filter((i) => !i.pull_request && i.title.startsWith(`${kind}:`)).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((i) => ({ kind: "issue", number: i.number, title: i.title }));
     },
+    // HU-3897: closes ONE open ceremony issue. Returns `{ result: "closed" }`, or `{ result: "already_closed" }` when it was
+    // closed before (reported, never hidden). The thread and the label are checked with a read before the one PATCH; no retry.
+    // Rejected: the Senescal closing the issue with its own raw gh call, which would skip these checks and the write pacing.
+    async closeConversation(thread) {
+      checkThread(thread, ["issue"]);
+      const issue = await api(`repos/${repo}/issues/${thread.number}`);
+      if (issue.pull_request || !(issue.labels ?? []).some((l) => l.name === CEREMONY_LABEL)) throw new BoardRejectedError(`#${thread.number} is not a ceremony issue (no "${CEREMONY_LABEL}" label, or a pull request): it is not closed`);
+      if (issue.state === "closed") return { result: "already_closed" };
+      await write(["PATCH", `repos/${repo}/issues/${thread.number}`, "-f", "state=closed"]);
+      return { result: "closed" };
+    },
     async authorPermission(user) {
       if (typeof user !== "string" || !LOGIN.test(user)) throw new TypeError(`user ${JSON.stringify(user)} is not a GitHub login`);
       let level;
