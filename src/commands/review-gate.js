@@ -23,6 +23,7 @@ import { checkCardFirst } from "../review/card-first.js";
 import { checkReleaseBump } from "../review/release-bump.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
+import { linguistGenerated } from "../review/linguist-generated.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { isGeneratedPath, splitAddedByFile } from "../privacy/diff-scope.js";
 import { budgetedAdded, budgetedNet, movedLines, showSpec } from "../review/loc-budget.js";
@@ -251,18 +252,18 @@ function rejected(reviewer, issues) {
  * source, shared with the third-party PR checks.
  * @returns {Promise<object|null>} the rejection, or null to go on
  */
-async function prSizeGate({ projectDir, config, range }) {
+async function prSizeGate({ projectDir, config, range, generated }) {
   const { ideal: sizeIdeal, limit: sizeWarn, source: sizeSource } = prSizeLimit({ projectDir, config });
   if (sizeWarn <= 0) return null;
   const numstat = await rawDiff(range, ["-M", "--numstat", "-z"]);
-  const linesOf = await movedLines(numstat, (path) => rawGit(["show", showSpec(range, path)]));
+  const linesOf = await movedLines(numstat, (path) => rawGit(["show", showSpec(range, path)]), generated);
   // KJC-BUG-0205: the budget caps CODE growth, so generated output and human
   // documentation are exempt — the same rule CI applies. Counting everything
   // here warned 234 lines on a doc-only PR that CI counted at 104, and two
   // implementations of one rule that disagree teach people to trust neither.
   // KJC-BUG-0434: measured NET, as CI and the policy's net_lines_added do — a rewrite in place is not growth.
-  const { added, testAdded } = budgetedAdded(numstat, linesOf);
-  const { net, exempt } = budgetedNet(numstat, linesOf);
+  const { added, testAdded } = budgetedAdded(numstat, linesOf, generated);
+  const { net, exempt } = budgetedNet(numstat, linesOf, generated);
   // Said out loud: an exemption nobody sees is indistinguishable from a gate
   // that is not looking.
   if (exempt > 0) console.log(`ℓ pr-size: ${exempt} line(s) exempt from the budget (generated output and human docs; AI-rule files always count)`);
@@ -329,11 +330,11 @@ function privacyGate({ diff, config }) {
  * exempt — deleting code adds no behavior to test.
  * @returns {Promise<object|null>} the rejection, or null to go on
  */
-async function testsWithCodeGate({ config, projectDir, range, changedFiles }) {
+async function testsWithCodeGate({ config, projectDir, range, changedFiles, generated }) {
   const numstat = (await rawDiff(range, ["--numstat"])).split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const [a, r, ...f] = l.split(/\s+/); return { file: f.join(" "), added: a === "-" ? 1 : Number(a) || 0, removed: r === "-" ? 0 : Number(r) || 0 }; });
   await markCommentOnlyAdditions(numstat, { range, projectDir });
-  const tests = checkTestsWithCode({ config, stagedFiles: changedFiles, numstat });
+  const tests = checkTestsWithCode({ config, stagedFiles: changedFiles, numstat, generated });
   if (tests.mode === "delete-only") console.log(`⚠ tests-with-code: exempt — ${tests.reason}`);
   if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
   if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);
@@ -351,12 +352,12 @@ const atFile = (v) => (v.file ? ` (${v.file})` : "");
  * 0015); class=security cierra además sin arbitraje.
  * @returns {Promise<{rejection: object|null, gate: object, seal: Function}>} `seal` records the chokepoint's decisions
  */
-async function policyGate({ projectDir, diff, pol, changedFiles, std, range, check }) {
+async function policyGate({ projectDir, diff, pol, changedFiles, std, range, check, generated }) {
   // KJC-BUG-0208: el mismo modulo que decide el presupuesto decide el metrico
   // del invariante. Sumar aqui el numstat entero daba dos cifras para la misma
   // regla en dos lineas seguidas del mismo comando.
   const numstat = await rawDiff(range, ["-M", "--numstat", "-z"]);
-  const { net } = budgetedNet(numstat, await movedLines(numstat, (path) => rawGit(["show", showSpec(range, path)])));
+  const { net } = budgetedNet(numstat, await movedLines(numstat, (path) => rawGit(["show", showSpec(range, path)]), generated), generated);
   const gate = evaluatePolicyGate({
     policy: pol.policy, errors: pol.errors, files: changedFiles, netLinesAdded: net,
     diffHashValue: diffHash(diff),
@@ -414,7 +415,7 @@ async function isPureMerge({ projectDir, diff, range }) {
  * The headless pipeline stamps its verdict after its own sonar stage and
  * carries no block yet (step 3 of the card) — said, never assumed silent.
  */
-function withSonarProof(res, { config, liveFiles, std }) {
+function withSonarProof(res, { config, liveFiles, std, generated }) {
   if (res.verdict.host === "kj-pipeline") {
     // The pipeline scans the whole project (no per-file proof yet), so its
     // stamp must at least show the stage RAN; no block or a skipped stage
@@ -424,7 +425,7 @@ function withSonarProof(res, { config, liveFiles, std }) {
     const why = stage ? `the pipeline's sonar stage did not run: ${stage.reason || "unknown reason"}` : "the pipeline verdict carries no sonar block";
     return { ok: false, verdict: res.verdict, reason: `Sonar is mandatory for code — ${why}` };
   }
-  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: res.verdict.sonar, standingExceptions: std.standing });
+  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: res.verdict.sonar, standingExceptions: std.standing, generated });
   if (!req.ok) return { ok: false, verdict: res.verdict, reason: req.reason };
   if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
   return res;
@@ -469,7 +470,7 @@ async function releaseBumpBranch({ config, range }) {
 }
 
 /** --check (the pre-commit): the staged diff enters only with an approved verdict that carries its proofs. */
-async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate, seal }) {
+async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate, seal, generated }) {
   if (await isPureMerge({ projectDir, diff, range })) {
     console.log("✓ pure merge commit — empty staged diff, parents already reviewed; gate passes with trail");
     process.exitCode = 0;
@@ -484,7 +485,7 @@ async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate
   }
   let res = await checkVerdict(projectDir, diff);
   if (res.note) console.log(`ℹ ${res.note}`);
-  if (res.ok) res = withSonarProof(res, { config, liveFiles, std });
+  if (res.ok) res = withSonarProof(res, { config, liveFiles, std, generated });
   const warnIds = gate.warns.map((w) => w.rule_id);
   if (res.ok) res = withRagProof(res, { config, liveFiles, std, projectDir, warnIds });
   console.log(res.ok
@@ -512,11 +513,11 @@ const listed = (items) => `${items.slice(0, 5).join(", ")}${items.length > 5 ? "
  * diff hash — a reviewed diff and a reviewed AND analysed diff must be
  * distinguishable by --check and by the method report.
  */
-async function sonarPregate({ config, logger, range, liveFiles, enabled }) {
+async function sonarPregate({ config, logger, range, liveFiles, enabled, generated }) {
   if (!enabled) return { record: { ran: false, reason: "--no-sonar: the pre-gate was skipped by flag" } };
   // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
   const touchedLines = addedLinesByFile(await rawDiff(range, ["--unified=0"]));
-  const pre = await runSonarPregate({ config, stagedFiles: liveFiles, touchedLines, logger });
+  const pre = await runSonarPregate({ config, stagedFiles: liveFiles, touchedLines, logger, generated });
   if (!pre.available) {
     // KJC-BUG-0156 (issue #1543): a scan that FAILED must not read like one
     // more config warning — it hid a dead quality gate for 8 straight PRs.
@@ -562,8 +563,8 @@ function printSonarPregate(pre, record) {
  * The verdict says on what grounds the requirement was met (proof, docs-only,
  * human grant): `record.mode`, read back by the method report.
  */
-function sonarRequirementGate({ config, liveFiles, std, record }) {
-  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: record, standingExceptions: std.standing });
+function sonarRequirementGate({ config, liveFiles, std, record, generated }) {
+  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: record, standingExceptions: std.standing, generated });
   if (!req.ok) {
     console.log(`✗ ${req.reason}`);
     return rejected("sonar", [{ severity: "high", file: undefined, description: req.reason }]);
@@ -688,28 +689,30 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // cuenta. El borrado danino lo cubre la review cruzada, que lee todo el diff.
   const liveFiles = (await rawDiff(flags.range, ["--name-only", "--diff-filter=ACMR"])).split("\n").map((f) => f.trim()).filter(Boolean);
 
+  // KJC-BUG-0544: what the repo marks linguist-generated leaves Sonar and the budget (staged index when no range).
+  const generated = linguistGenerated(changedFiles, { cwd: projectDir, cached: !flags.range });
   const pol = loadPolicy({ projectDir });
   // KJC-TSK-1257: the pre-gates in their order; the first rejection ends the review.
-  const preRejection = await prSizeGate({ projectDir, config, range: flags.range })
+  const preRejection = await prSizeGate({ projectDir, config, range: flags.range, generated })
     ?? privacyGate({ diff, config })
-    ?? await testsWithCodeGate({ config, projectDir, range: flags.range, changedFiles });
+    ?? await testsWithCodeGate({ config, projectDir, range: flags.range, changedFiles, generated });
   if (preRejection) return preRejection;
 
   // GOV-B (KJC-TSK-0746): las permanentes concedidas (kj policy grant)
   // eximen su regla mientras viven; el descarte de líneas corruptas se dice.
   const std = loadStandingExceptions(projectDir);
   if (std.discarded > 0) console.log(`⚠ policy: ${std.discarded} línea(s) corruptas descartadas en policy-exceptions.jsonl — revísalo`);
-  const { rejection: policyRejection, gate, seal } = await policyGate({ projectDir, diff, pol, changedFiles, std, range: flags.range, check: flags.check });
+  const { rejection: policyRejection, gate, seal } = await policyGate({ projectDir, diff, pol, changedFiles, std, range: flags.range, check: flags.check, generated });
   if (policyRejection) return policyRejection;
-  if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal });
+  if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal, generated });
 
   // KJC-TSK-1257: the review path's gates in their order; each may reject, and what they found
   // that does not reject travels to the reviewer inside the task. KJC-BUG-0423 (#2665): --check
   // does not run these, so their rejection is recorded for the diff, replacing an earlier APPROVED.
   const recorded = (rejection) => saveVerdict(projectDir, diff, rejection).then(() => rejection);
-  const sonar = await sonarPregate({ config, logger, range: flags.range, liveFiles, enabled: flags.sonar !== false });
+  const sonar = await sonarPregate({ config, logger, range: flags.range, liveFiles, enabled: flags.sonar !== false, generated });
   if (sonar.rejection) return recorded(sonar.rejection);
-  const sonarRejection = sonarRequirementGate({ config, liveFiles, std, record: sonar.record });
+  const sonarRejection = sonarRequirementGate({ config, liveFiles, std, record: sonar.record, generated });
   if (sonarRejection) return recorded(sonarRejection);
   const rag = await ragGate({ config, projectDir, range: flags.range, liveFiles, std });
   if (rag.rejection) return recorded(rag.rejection);

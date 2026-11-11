@@ -20,8 +20,8 @@ function liveGrant(standingExceptions, now) {
 /**
  * @returns {{ok: boolean, mode: "docs-only"|"pass"|"granted"|"block", reason?: string, grant?: object, sources?: string[]}}
  */
-export function checkSonarRequirement({ config = {}, stagedFiles = [], sonar, standingExceptions = [], now = new Date() }) {
-  const { sources } = sourceFilesOf(config, stagedFiles);
+export function checkSonarRequirement({ config = {}, stagedFiles = [], sonar, standingExceptions = [], now = new Date(), generated }) {
+  const { sources } = sourceFilesOf(config, stagedFiles, generated);
   if (sources.length === 0) return { ok: true, mode: "docs-only" };
 
   const grant = liveGrant(standingExceptions, now);

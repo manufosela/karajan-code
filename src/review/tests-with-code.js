@@ -18,7 +18,7 @@ const DEFAULT_SOURCE_EXTS = [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java"
  * extension and not a test. Shared by every gate that must tell "code" from
  * "docs" (tests-with-code, the sonar coverage proof of KJC-TSK-0838).
  */
-export function sourceFilesOf(config = {}, files = []) {
+export function sourceFilesOf(config = {}, files = [], generated = new Set()) {
   const patterns = config.development?.test_file_patterns || DEFAULT_TEST_PATTERNS;
   const exts = config.development?.source_file_extensions || DEFAULT_SOURCE_EXTS;
   // Staged paths are repo-relative (no leading slash) — normalize so the
@@ -26,13 +26,13 @@ export function sourceFilesOf(config = {}, files = []) {
   const isTest = (f) => patterns.some((p) => `/${f}`.includes(p));
   // KJC-BUG-0377: build output (a rebuilt docs site's _astro/*.js) is nobody's code.
   return {
-    sources: files.filter((f) => !isTest(f) && !isGenerated(f) && exts.some((e) => f.endsWith(e))),
+    sources: files.filter((f) => !isTest(f) && !isGenerated(f) && !generated.has(f) && exts.some((e) => f.endsWith(e))),
     hasTests: files.some(isTest),
   };
 }
 
-export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = null }) {
-  const { sources, hasTests } = sourceFilesOf(config, stagedFiles);
+export function checkTestsWithCode({ config = {}, stagedFiles = [], numstat = null, generated }) {
+  const { sources, hasTests } = sourceFilesOf(config, stagedFiles, generated);
 
   if (sources.length === 0 || hasTests) return { ok: true, mode: "pass" };
   // KJC-TSK-0795 AC1 (epic KJC-PCS-0082): deleting code adds no behavior to
