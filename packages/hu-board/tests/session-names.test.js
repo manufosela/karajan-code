@@ -46,8 +46,33 @@ describe('createSessionNames', () => {
   });
 });
 
+// KJC-TSK-1537: and the model it answers with, from the last answer of its transcript.
+describe('modelOf', () => {
+  const answer = (model) => `${JSON.stringify({ type: 'assistant', message: { model, content: [] } })}\n`;
+
+  it('reads the model of the last answer, and is null without one', () => {
+    const file = transcript('.claude', 'p', ID);
+    // A later record that is not an answer, naming another model, does not count.
+    const other = `${JSON.stringify({ type: 'system', model: 'claude-haiku-5-5' })}\n`;
+    writeFileSync(file, answer('claude-sonnet-5-5') + '{"type":"user"}\n' + answer('claude-opus-5-5') + other);
+    expect(createSessionNames({ home }).modelOf(ID)).toBe('claude-opus-5-5');
+    // Claude Code's own notices are answers that name no Claude model: the session's model stays.
+    writeFileSync(file, answer('claude-opus-5-5') + answer('<synthetic>') + `${JSON.stringify({ type: 'assistant', message: {} })}\n`);
+    expect(createSessionNames({ home }).modelOf(ID)).toBe('claude-opus-5-5');
+    writeFileSync(file, '{"type":"user"}\n');
+    expect(createSessionNames({ home }).modelOf(ID)).toBeNull();
+    expect(createSessionNames({ home }).modelOf('../../etc/passwd')).toBeNull();
+  });
+});
+
 describe('withSessionName', () => {
   const nameOf = (id) => (id === ID ? 'kj-stage' : null);
+
+  it('gives a host the model of its session when its transcript says it', () => {
+    const modelOf = (id) => (id === ID ? 'claude-opus-5-5' : null);
+    expect(withSessionName({ role: 'host', id: ID, agent: 'claude' }, nameOf, modelOf)).toMatchObject({ name: 'kj-stage', model: 'claude-opus-5-5' });
+    expect(withSessionName({ role: 'host', id: ID, agent: 'claude' }, nameOf, () => null)).not.toHaveProperty('model');
+  });
 
   it('names a host by its session; leaves anyone else untouched', () => {
     expect(withSessionName({ role: 'host', id: ID, agent: 'claude' }, nameOf)).toMatchObject({ name: 'kj-stage' });
