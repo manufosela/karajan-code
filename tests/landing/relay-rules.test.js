@@ -31,3 +31,11 @@ it("the create rule admits every field of a full v2 request, informative ones in
   expect(sent).toEqual(expect.arrayContaining(["nonce", "project", "files", "kj_version", "createdAt", "state", "v", "expires_at", "changes", "branch", "origin", "why"]));
   for (const key of sent) expect(admitted.has(key), `apps/landing/firestore.rules: the create rule's hasOnly must admit "${key}"`).toBe(true);
 });
+
+// KJC-TSK-1535 (owner's decision, 11-nov): a phone enrollment link travels to another signer, so a
+// v2 request may live up to 10 minutes, and the signature is admitted until the request's own expiry.
+it("a v2 request may expire up to 10 minutes after creation, and is signed until its own expiry", () => {
+  expect(rules).toContain("request.resource.data.expires_at <= request.resource.data.createdAt + duration.value(10, 'm')");
+  const update = rules.slice(rules.indexOf("allow update:"));
+  expect(update).toMatch(/request\.time < \('expires_at' in resource\.data \? resource\.data\.expires_at : resource\.data\.createdAt \+ duration\.value\(3, 'm'\)\)/);
+});
