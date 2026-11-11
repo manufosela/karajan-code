@@ -10,7 +10,7 @@ import { closeSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { basename, dirname, join, sep } from 'node:path';
 import { watch as chokidarWatch } from 'chokidar';
 
-import { LANE_HOMES, listLanes } from './lanes.js';
+import { isLaneDir, LANE_HOMES, listLanes } from './lanes.js';
 import { withSessionName } from './session-names.js';
 import { HANDOFFS_DIR, pendingMail } from './stage-mail.js';
 
@@ -206,12 +206,16 @@ export function watchLanes(projectDir, send, { project, watch = chokidarWatch, w
   listLanes(projectDir).forEach(follow);
   const homes = LANE_HOMES.map((home) => join(projectDir, ...home));
   const onTheWay = new Set([projectDir, ...LANE_HOMES.map(([top]) => join(projectDir, top)), ...homes]);
+  // The `.git` of a lane is let through: a worktree is born as a folder and gets it a moment later.
+  const isLaneGit = (p) => basename(p) === '.git' && homes.includes(dirname(dirname(p)));
   const doors = watch(projectDir, {
-    depth: 2,
-    ignored: (p) => !onTheWay.has(p) && !homes.includes(dirname(p)),
+    depth: 3,
+    ignored: (p) => !onTheWay.has(p) && !homes.includes(dirname(p)) && !isLaneGit(p),
     ignoreInitial: true,
   });
-  doors.on('addDir', (p) => { if (homes.includes(dirname(p))) follow({ lane: basename(p), dir: p }); });
+  const maybeFollow = (dir) => { if (isLaneDir(dir)) follow({ lane: basename(dir), dir }); };
+  doors.on('addDir', (p) => { if (homes.includes(dirname(p))) maybeFollow(p); });
+  doors.on('add', (p) => { if (isLaneGit(p)) maybeFollow(dirname(p)); });
   doors.on('unlinkDir', (p) => { feeds.get(p)?.(); feeds.delete(p); });
   return () => {
     doors.close();
