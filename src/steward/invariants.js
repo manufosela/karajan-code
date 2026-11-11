@@ -207,6 +207,59 @@ export function evaluateDuplicateMembers({ results } = {}) {
   }
   return { verdict: VERDICTS.OK, evidence: `${analysed.length} file(s) analysed, no class defines a member twice${note}`, remedy: null };
 }
+/** `gh pr list` statusCheckRollup → [{name, conclusion, completedAt}]; CheckRun and StatusContext. */
+export function mapStatusCheckRollup(rollup) {
+  return (Array.isArray(rollup) ? rollup : []).map((c) => {
+    const conclusion = c.conclusion || c.state || null;
+    // A StatusContext has no completedAt: once terminal, its own timestamp (startedAt or createdAt) is when it ended.
+    const done = c.completedAt || (c.state && c.state !== "PENDING" ? (c.startedAt ?? c.createdAt) : null);
+    // gh prints the zero time for a check that never finished.
+    return { name: c.name ?? c.context ?? "(unnamed)", conclusion, completedAt: done && !done.startsWith("0001") ? done : null };
+  });
+}
+// Allowlist: any other conclusion (failure, action_required, stale, startup_failure...) is unverified.
+const GOOD_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
+// A check re-run keeps its earlier runs in the rollup: only the latest run of each name counts.
+const finishedMs = (c) => (c.completedAt ? Date.parse(c.completedAt) : Infinity);
+function latestPerName(checks) {
+  const byName = new Map();
+  for (const c of checks ?? []) {
+    const prev = byName.get(c.name);
+    if (!prev || finishedMs(c) >= finishedMs(prev)) byName.set(c.name, c);
+  }
+  return [...byName.values()];
+}
+/** Why a merged PR was unverified (first reason found), or null when its checks were done and fine before the merge. */
+function unverifiedReason(pr) {
+  const mergedMs = Date.parse(pr.mergedAt);
+  for (const c of latestPerName(pr.checks)) {
+    if (!c.completedAt) return `${c.name}: never finished`;
+    if (Date.parse(c.completedAt) > mergedMs) return `${c.name}: finished after the merge`;
+    if (!GOOD_CONCLUSIONS.has(String(c.conclusion).toLowerCase())) return `${c.name}: ${String(c.conclusion).toLowerCase()}`;
+  }
+  return null;
+}
+/** Steward invariant — a PR merged before its checks finished (or red) was never verified (KJC-TSK-1516). */
+export function evaluateMergedUnverified({ prs, windowDays = 14, nowMs = Date.now(), reason, truncated = false } = {}) {
+  if (!Array.isArray(prs)) {
+    const why = reason ? " (" + reason + ")" : "";
+    return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: `merged PRs could not be read${why}`, remedy: "instrument: run the sweep where gh can list the merged PRs" };
+  }
+  const recent = prs.filter((p) => nowMs - Date.parse(p.mergedAt) <= windowDays * 86_400_000);
+  if (recent.length === 0) {
+    return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: `no PR merged in the last ${windowDays} days`, remedy: "nothing to observe until a PR is merged" };
+  }
+  const bad = recent.map((p) => ({ number: p.number, why: unverifiedReason(p) })).filter((p) => p.why);
+  // A full page may have left merges of the window out: what was read is fine, the rest is unseen.
+  if (bad.length === 0 && truncated) {
+    return { verdict: VERDICTS.NOT_OBSERVABLE, evidence: `the ${recent.length} PR(s) read are verified, but the read hit its limit and older merges of the ${windowDays} days are unseen`, remedy: "run the sweep more often than the merge rate fills the read" };
+  }
+  if (bad.length === 0) {
+    return { verdict: VERDICTS.OK, evidence: `${recent.length} PR(s) merged in ${windowDays} days, all with their checks complete and green`, remedy: null };
+  }
+  const named = bad.slice(0, 3).map((p) => `#${p.number} (${p.why})`).join("; ");
+  return { verdict: VERDICTS.BROKEN, evidence: `${bad.length} of ${recent.length} merged PR(s) unverified: ${named}`, remedy: "merge only when the PR's required checks are green: require them in branch protection" };
+}
 /**
  * Run a list of invariants. A child whose `dependsOn` parent came out
  * not-observable INHERITS it — an invariant built on an unobserved one must
