@@ -8,7 +8,7 @@
 import { execFile } from "node:child_process";
 import { BoardOfflineError, BoardRejectedError, HuClaimedError, isOffline, isRefusal } from "./board-errors.js";
 // The default gh runner: stdin closed, never rejects (a failure is an exitCode); callers inject their own.
-const runCommand = (cmd, args) => new Promise((resolve) => {
+export const runCommand = (cmd, args) => new Promise((resolve) => {
   const child = execFile(cmd, args, { maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
     resolve({ exitCode: err ? (typeof err.code === "number" ? err.code : 1) : 0, stdout, stderr: stderr || (err && typeof err.code !== "number" ? err.message : "") });
   });
@@ -30,7 +30,7 @@ export { BoardOfflineError, BoardRejectedError, HuClaimedError, isOffline, isRef
 // gh is not localized: these are the network failures it prints.
 const OFFLINE = /dial tcp|no such host|could not resolve host|connection refused|i\/o timeout|network is unreachable|error connecting to/i;
 
-async function gh(run, args) {
+export async function gh(run, args) {
   const res = await run("gh", args);
   if (res.exitCode === 0) return res.stdout ?? "";
   const why = (res.stderr || res.stdout || "").trim();
