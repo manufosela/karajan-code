@@ -11,8 +11,32 @@ const COVERAGE_TOOL_RE = /(?:^|[\s;&|])(?:c8|nyc)(?:\s|$)/;
 // `--coverage`, `--coverage=true`, `--coverage.enabled`; an explicit false or 0 turns it off.
 const COVERAGE_FLAG_RE = /--coverage(?:\.enabled)?(?:=(\S+))?(?=\s|$)/g;
 const OFF = new Set(["false", "0"]);
-const runsCoverageDirectly = (text) =>
-  COVERAGE_TOOL_RE.test(text) || [...text.matchAll(COVERAGE_FLAG_RE)].some((m) => !OFF.has(String(m[1] ?? "").toLowerCase()));
+const RUNNERS = new Set(["vitest", "jest"]);
+const PACKAGE_MANAGERS = new Set(["npm", "pnpm", "yarn"]);
+const TEST_ALIASES = new Set(["test", "t"]);
+const segmentsOf = (text) => text.split(/&&|\|\||[;|]/);
+/** The package script a segment runs (`npm run x`, `npm test`), or null when it runs none. */
+function scriptNameOf(rest) {
+  if (rest[0] === "run" || rest[0] === "run-script") return rest[1] && !rest[1].startsWith("-") ? rest[1] : null;
+  return TEST_ALIASES.has(rest[0]) ? "test" : null;
+}
+/**
+ * Whether one shell segment runs tests: its program is a runner, or a package manager running a
+ * script of package.json that itself runs a runner (followed two levels, so a loop cannot hang).
+ */
+function segmentRunsTests(segment, scripts, depth = 0) {
+  const words = segment.trim().split(/\s+/).filter((w) => !/^\w+=/.test(w)); // env assignments first
+  const [program, ...rest] = words[0] === "npx" ? words.slice(1) : words;
+  if (RUNNERS.has(program)) return true;
+  if (!PACKAGE_MANAGERS.has(program) || depth >= 2) return false;
+  const script = scripts[scriptNameOf(rest)];
+  return typeof script === "string" && segmentsOf(script).some((s) => segmentRunsTests(s, scripts, depth + 1));
+}
+const coverageFlagOn = (segment) => [...segment.matchAll(COVERAGE_FLAG_RE)].some((m) => !OFF.has(String(m[1] ?? "").toLowerCase()));
+// The flag means coverage only in a segment that runs tests (`echo --coverage`, `npm install --coverage`,
+// or `npm run lint -- --coverage` do not).
+const runsCoverageDirectly = (text, scripts = {}) => COVERAGE_TOOL_RE.test(text)
+  || segmentsOf(text).some((s) => segmentRunsTests(s, scripts) && coverageFlagOn(s));
 const SCRIPT_CALL_RE = /\b(?:npm\s+run(?:-script)?|pnpm(?:\s+run)?|yarn(?:\s+run)?|npm)\s+([\w:.-]+)/g;
 const RUN_LINE_RE = /^(\s*)(?:-\s+)?run:\s*(.*)$/;
 const BLOCK_SCALAR_RE = /^[|>][+-]?\d*$/;
@@ -73,7 +97,7 @@ export function coverageOnByDefault(configText, file = "vitest.config.js") {
   return on;
 }
 export function commandRunsCoverage(command, scripts = {}, { alwaysOn = false } = {}) {
-  const matches = (text) => runsCoverageDirectly(text) || (alwaysOn && TEST_RUN_RE.test(text));
+  const matches = (text) => runsCoverageDirectly(text, scripts) || (alwaysOn && TEST_RUN_RE.test(text));
   if (matches(command)) return true;
   return [...command.matchAll(SCRIPT_CALL_RE)].some((m) => matches(String(scripts[m[1]] ?? "")));
 }

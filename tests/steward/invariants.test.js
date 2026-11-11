@@ -221,6 +221,22 @@ describe("coverage — AC7: an invariant of CONFIGURATION, not of value", () => 
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
     expect(evaluateCoverageConfig({ projectDir: dir }).verdict).toBe(VERDICTS.OK);
   });
+  it("a `--coverage` on a command that runs no tests does not count", () => {
+    for (const run of ["run: echo --coverage", "run: npm install --coverage", "run: echo vitest --coverage", "run: npm audit --coverage"]) {
+      expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf(run) }) }).verdict).toBe(VERDICTS.BROKEN);
+    }
+  });
+  it("the flag counts on a runner or a script that runs one, also after && and with env assignments", () => {
+    const scripts = { test: "vitest run", ci: "npm run test" };
+    for (const run of ["run: npm ci && CI=1 npx vitest run --coverage", "run: npm test -- --coverage", "run: pnpm run test --coverage", "run: npm run ci -- --coverage"]) {
+      expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf(run) }, scripts) }).verdict).toBe(VERDICTS.OK);
+    }
+  });
+  it("the flag on a missing or non-test script does not count", () => {
+    for (const run of ["run: npm run lint -- --coverage", "run: npm run nope -- --coverage"]) {
+      expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf(run) }, { lint: "eslint ." }) }).verdict).toBe(VERDICTS.BROKEN);
+    }
+  });
   it("`--coverage=false` does not apply the threshold", () => {
     expect(evaluateCoverageConfig({ projectDir: thresholdRepo({ "ci.yml": wf("run: npx vitest run --coverage=false") }) }).verdict).toBe(VERDICTS.BROKEN);
   });
