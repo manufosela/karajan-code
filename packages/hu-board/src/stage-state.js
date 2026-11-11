@@ -6,14 +6,16 @@
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { listLanes } from './lanes.js';
+import { MAIN_LANE, listLanes } from './lanes.js';
+import { branchFacts } from './lane-branch.js';
 import { boardStatuses, withBoardCache } from './stage-board-cache.js';
 import { lastRelease } from './stage-release.js';
 import { sessionName, withSessionName } from './session-names.js';
 import { pendingMail } from './stage-mail.js';
 import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, methodEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
-import { withCard } from '../public/stage/cards.js';
+import { mergeCards, withCard } from '../public/stage/cards.js';
+import { laneStatus } from '../public/stage/lane-status.js';
 
 /** A start older than this with no end is a run that died without saying so, not work. */
 const STALE_START_MS = 30 * 60 * 1000;
@@ -99,13 +101,17 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
  * KJC-TSK-1432 (ADR 0048): the last state of every lane, the main checkout first.
  * KJC-BUG-0547: each card checked against the shared board's cache of the main checkout.
  */
-export function laneStates(projectDir, options) {
+export function laneStates(projectDir, { branchOf = branchFacts, ...options } = {}) {
   const statuses = boardStatuses(projectDir);
   const lanes = listLanes(projectDir).map(({ lane, dir }) => {
     const state = lastStageState(dir, { ...options, lane });
-    return { lane, ...state, cards: withBoardCache(state.cards, statuses) };
+    // KJC-TSK-1539: the main checkout has no branch of its own to wait on.
+    const branch = lane === MAIN_LANE ? undefined : branchOf(dir);
+    return { lane, ...state, cards: withBoardCache(state.cards, statuses), branch };
   });
   // KJC-TSK-1525: the release the "Ready to release" table counts from, once, on the main checkout.
   lanes[0] = { ...lanes[0], release: lastRelease(projectDir) };
-  return lanes;
+  // KJC-TSK-1539: a card's lane can be told in another lane's trace, so each lane reads the whole board.
+  const cards = mergeCards(lanes.map((l) => l.cards));
+  return lanes.map((l) => ({ ...l, status: laneStatus(l, cards) }));
 }
