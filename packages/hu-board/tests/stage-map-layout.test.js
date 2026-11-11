@@ -1,7 +1,7 @@
 // KJC-TSK-1452 (ADR 0049): where each factory stands on the map of every factory.
 import { describe, expect, it } from 'vitest';
 
-import { FLOOR_Z, GAP, ROW_GAP, packLots } from '../public/stage/map-layout.js';
+import { FLOOR_Z, GAP, ROW_GAP, packLots, repacked } from '../public/stage/map-layout.js';
 import { hallDepth, hallWidth } from '../public/stage/layout.js';
 
 const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
@@ -9,6 +9,20 @@ const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
 const floorMid = ({ z, depth }) => z + FLOOR_Z.back + depth / 2;
 const overlap = (a, b) =>
   Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(floorMid(a) - floorMid(b)) < (a.depth + b.depth) / 2;
+
+// KJC-BUG-0555: a factory that grew lanes after the map opened spilled over its neighbours.
+describe('repacked', () => {
+  it('packs nothing again while no factory changed its lanes', () => {
+    expect(repacked([2, 3], [2, 3])).toBeNull();
+  });
+
+  it('gives a factory that grew a lot of its new size, and no lot covers another', () => {
+    const before = packLots([4, 2, 3]).lots;
+    const { lots } = repacked([4, 2, 3], [11, 2, 3]);
+    expect(lots[0].depth).toBeGreaterThan(before[0].depth);
+    for (const [i, a] of lots.entries()) for (const b of lots.slice(i + 1)) expect(overlap(a, b)).toBe(false);
+  });
+});
 
 describe('packLots (KJC-TSK-1467)', () => {
   it('gives each factory only its own hall plus 1 m a side, not the widest one', () => {

@@ -3,7 +3,7 @@
 // taken to the factory of its project. A click on a factory flies there (KJC-TSK-1455).
 import * as THREE from 'three';
 import { buildFactory, createFactory, createFloor, framing } from './factory.js';
-import { FLOOR_Z, packLots } from './map-layout.js';
+import { FLOOR_Z, packLots, repacked } from './map-layout.js';
 import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
 import { tagAt } from './screen.js';
@@ -29,23 +29,50 @@ function buildMap(canvas, factories, { instant, onView }) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer, { floor: false, far: 3000 });
   // KJC-TSK-1467: each lot as wide as its own hall, packed in rows; its floor just under the hall.
-  const bounds = packLots(factories.map(({ lanes }) => lanes.length));
-  const { lots } = bounds;
-  const placed = factories.map(({ project, lanes }, i) => {
-    const lot = new THREE.Group();
-    lot.position.set(lots[i].x, 0, lots[i].z);
+  let counts = factories.map(({ lanes }) => lanes.length);
+  const bounds = packLots(counts);
+  const lots = [...bounds.lots];
+  /** Puts factory `p` on lot `i`: its place, a floor of the lot's size and the mailbox at its corner. */
+  const lay = (p, i) => {
+    p.lot.position.set(lots[i].x, 0, lots[i].z);
     // KJC-TSK-1488: the floor runs from behind the door to past the front row of workshops.
     const front = FLOOR_Z.back + lots[i].depth;
-    const floor = createFloor(lots[i].width, lots[i].depth);
-    floor.position.z = (FLOOR_Z.back + front) / 2;
-    lot.add(floor);
+    if (p.floor) {
+      // The old floor's tiles are a texture of their own (createFloor): all of it goes.
+      p.lot.remove(p.floor);
+      p.floor.geometry.dispose();
+      p.floor.material.map?.dispose();
+      p.floor.material.dispose();
+    }
+    p.floor = createFloor(lots[i].width, lots[i].depth);
+    p.floor.position.z = (FLOOR_Z.back + front) / 2;
+    p.lot.add(p.floor);
     // KJC-TSK-1473: the human's mailbox at the front right corner of the floor.
+    p.mailbox.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, front - MAILBOX_INSET);
+  };
+  const placed = factories.map(({ project, lanes }, i) => {
+    const lot = new THREE.Group();
     const mailbox = createMailbox();
-    mailbox.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, front - MAILBOX_INSET);
     lot.add(mailbox.group);
     scene.add(lot);
-    return { project, lanes, lot, mailbox, ...buildFactory(lot, lanes.map((l) => l.lane)) };
+    const p = { project, lanes, lot, mailbox, ...buildFactory(lot, lanes.map((l) => l.lane)) };
+    lay(p, i);
+    return p;
   });
+  /**
+   * KJC-BUG-0555: a factory that gains or loses a lane gets a lot of its new size and the map is
+   * packed again, so it never spills over its neighbours; true when anything moved.
+   */
+  const repack = () => {
+    const now = placed.map((p) => p.hall.count());
+    const next = repacked(counts, now);
+    if (!next) return false;
+    counts = now;
+    Object.assign(bounds, next);
+    lots.splice(0, lots.length, ...next.lots);
+    placed.forEach(lay);
+    return true;
+  };
   const render = () => renderer.render(scene, camera);
   let zoom = 1;
   const refit = () => {
@@ -97,7 +124,9 @@ function buildMap(canvas, factories, { instant, onView }) {
     refit();
   };
   refit();
-  return { placed, camera, render, refit, step, zoomNow: () => zoom };
+  /** What a factory calls when its row of workshops changed: the map packed again, and the camera. */
+  const relot = () => { repack(); refit(); };
+  return { placed, camera, render, refit: relot, step, zoomNow: () => zoom };
 }
 
 /**
