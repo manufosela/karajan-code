@@ -15,6 +15,7 @@ import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, mergedBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
 import { archiveKjState } from "../hu/lane-kj-state.js";
+import { clearLaneNote, noteLine, writeLaneNote } from "../hu/lane-note.js";
 import { stopBootstrap } from "../rag/bootstrap-index.js";
 import { catchUpLine } from "../rag/lane-catchup.js";
 import { recordGateDecision } from "../policy/decisions.js";
@@ -84,6 +85,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     }
     // KJC-TSK-1093: --no-track, so no upstream lands in .git/config (read-only in the host sandbox).
     await git(["worktree", "add", "--no-track", "-b", branch, wtPath, from]);
+    clearLaneNote(mainCheckout(projectDir), slug); // KJC-TSK-1541: never the note of an older lane of that slug
     const boot = await bootstrapWorktree({ worktreePath: wtPath, setupCommand: config?.session?.worktree_setup || null });
     // KJC-TSK-1371 (#2852): identity and Sentinel in the lane; a failure names the step and the way out.
     const retire = `kj worktree done ${slug} --force`;
@@ -98,6 +100,13 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     console.log(`  cd ${wtPath}`);
     console.log("  The gates travel with the repo — kj review --staged works there. When merged: kj worktree done " + slug);
     return { path: wtPath, branch, from, bootstrap: boot, setup };
+  }
+
+  // KJC-TSK-1541 (issue 3853): what a lane waits for, as kj stage shows it.
+  if (action === "note") {
+    const out = writeLaneNote({ mainDir: mainCheckout(projectDir), slug: String(args[0] ?? "").trim(), text: args.slice(1).join(" ") });
+    console.log(noteLine(out));
+    return out;
   }
 
   if (action === "list") {
@@ -148,6 +157,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     archiveKjState(wtPath, path.join(mainCheckout(projectDir), ".karajan", "retired-lanes", slug)); // KJC-TSK-1477
     // Only setup files left (checked above): git still calls them untracked, so the remove is forced.
     await git(["worktree", "remove", ...(flags.force || status.trim() ? ["--force"] : []), wtPath]);
+    clearLaneNote(mainCheckout(projectDir), slug);
     // -D after our own check: -d measures against HEAD/upstream, not origin/<base>. Never the base itself.
     const branchDeleted = Boolean(branch) && branch !== baseName && (ahead === 0 || Boolean(flags.force));
     if (branchDeleted) await git(["branch", "-D", branch]);
@@ -191,6 +201,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       archiveKjState(l.path, path.join(mainCheckout(projectDir), ".karajan", "retired-lanes", l.slug));
       // Judged abandoned above: what is left are setup, kj state or regenerable files, which git would refuse.
       await git(["worktree", "remove", "--force", l.path]);
+      clearLaneNote(mainCheckout(projectDir), l.slug);
       if (l.branch) await git(["branch", "-D", l.branch]);
       console.log(`✓ retired ${l.slug} (${l.branch ?? "detached"})`);
     }

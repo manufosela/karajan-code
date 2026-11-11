@@ -72,6 +72,16 @@ describe('laneStates', () => {
     const states = laneStates(proj, { branchOf });
     expect(states.map((s) => [s.lane, s.status.state])).toEqual([['main', 'idle'], ['broken', 'unknown'], ['merged', 'finished']]);
   });
+
+  it('gives each lane its note as plain text, and none from a broken file (KJC-TSK-1541)', () => {
+    worktree('.kj', 'worktrees', 'pay');
+    worktree('.kj', 'worktrees', 'odd');
+    mkdirSync(lane('.karajan', 'lane-notes'), { recursive: true });
+    writeFileSync(lane('.karajan', 'lane-notes', 'pay.json'), JSON.stringify({ note: 'waits for\u0007 the   seal', at: 't1' }));
+    writeFileSync(lane('.karajan', 'lane-notes', 'odd.json'), '{not json');
+    const states = laneStates(proj, { branchOf: () => null });
+    expect(states.map((s) => [s.lane, s.note])).toEqual([['main', null], ['odd', null], ['pay', 'waits for the seal']]);
+  });
 });
 
 describe('watchLanes', () => {
