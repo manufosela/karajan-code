@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkStagedDiff, evalToolCall, loadPolicy, sealedFilesOf } from "../../src/policy/engine.js";
+import { checkStagedDiff, evalToolCall, loadPolicy, POLICY_TOP_LEVEL_KEYS, sealedFilesOf } from "../../src/policy/engine.js";
 
 const load = (yamlText) =>
   loadPolicy({ projectDir: "/p", deps: { readFile: () => yamlText } });
@@ -280,6 +280,37 @@ describe("sealed_files in policy.yml (HU-3899)", () => {
     expect(diff(policy, ["AGENTS.md"])).toEqual([]);
     expect(sealedFilesOf("/p", { readFile: () => "version: 1\n" })).toEqual([]);
     expect(sealedFilesOf("/p", { readFile: () => "version: 1\nsealed_files: [AGENTS.md]\n" })).toEqual(["AGENTS.md"]);
+  });
+});
+
+// HU-3968 (KJC-BUG-0559): an unknown top-level key is a load error, so a typo never
+// silently disables the section the author meant to write.
+describe("unknown top-level keys in policy.yml (HU-3968)", () => {
+  const unknownKeyError = (key) =>
+    `policy.yml: unknown top-level key "${key}" (known: ${POLICY_TOP_LEVEL_KEYS.join(", ")})`;
+
+  it("a typo such as invariant: or role: names the key and the known ones", () => {
+    expect(load("version: 1\ninvariant:\n  - id: x\n").errors).toContain(unknownKeyError("invariant"));
+    expect(load("version: 1\nrole:\n  coder: {}\n").errors).toContain(unknownKeyError("role"));
+  });
+
+  it("defaults: written by the author is unknown: the consumer's defaults are not theirs to declare", () => {
+    expect(load("version: 1\ndefaults: []\n").errors).toContain(unknownKeyError("defaults"));
+  });
+
+  it("every known section together loads clean", () => {
+    expect(POLICY_TOP_LEVEL_KEYS).toEqual(["version", "roles", "invariants", "sealed_files"]);
+    expect(load(`${POLICY}sealed_files: [AGENTS.md]\n`).errors).toEqual([]);
+  });
+
+  it("an empty or absent policy adds no unknown-key error: its errors stay as today", () => {
+    expect(load("").errors.join(" ")).not.toMatch(/unknown top-level key/);
+    expect(load(null).errors).toEqual([]);
+  });
+
+  it("invalid YAML or a non-object root keeps the kernel's single error", () => {
+    expect(load("version: [\n").errors).toHaveLength(1);
+    expect(load("- a\n- b\n").errors).toHaveLength(1);
   });
 });
 

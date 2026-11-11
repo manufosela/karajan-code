@@ -9,6 +9,7 @@
  */
 import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
+import yaml from "js-yaml";
 import { isReadOnlyCommand, stripTextOptionValues } from "../harden/sentinel/sentinel-shell.mjs";
 import { escapeRegExp } from "../utils/escape-regexp.js";
 import {
@@ -76,7 +77,24 @@ export function loadPolicy({ projectDir = process.cwd(), deps = {} } = {}) {
       errors: [`policy.yml: ilegible (${err.code || err.message}) — presente pero no leible NO es "sin policy"`],
     };
   }
-  return withSealedFiles(parsePolicy(raw, { defaults: SUPERVISOR_DEFAULTS }), projectDir);
+  const loaded = withSealedFiles(parsePolicy(raw, { defaults: SUPERVISOR_DEFAULTS }), projectDir);
+  return { ...loaded, errors: [...loaded.errors, ...unknownTopLevelKeyErrors(raw)] };
+}
+
+// HU-3968 (KJC-BUG-0559): the sections a policy.yml may declare. A new section is one more entry.
+export const POLICY_TOP_LEVEL_KEYS = Object.freeze(["version", "roles", "invariants", "sealed_files"]);
+
+// The raw document, parsed again: the kernel's policy always carries roles, invariants and
+// defaults, so reading its keys would miss an author's own "defaults:". Invalid YAML or a
+// non-object root is already the kernel's error.
+function unknownTopLevelKeyErrors(raw) {
+  if (raw == null) return [];
+  let doc;
+  try { doc = yaml.load(raw); } catch { return []; }
+  if (doc === null || typeof doc !== "object" || Array.isArray(doc)) return [];
+  const known = POLICY_TOP_LEVEL_KEYS.join(", ");
+  return Object.keys(doc).filter((key) => !POLICY_TOP_LEVEL_KEYS.includes(key))
+    .map((key) => `policy.yml: unknown top-level key ${JSON.stringify(key)} (known: ${known})`);
 }
 
 // HU-3899 (owner's decision, 11-nov): sealed_files lists extra repo-relative files that
