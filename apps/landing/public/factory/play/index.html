@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Factory, full screen · Karajan Code</title>
+  <meta name="description" content="Watch one real Karajan task, HU-3870, replayed on the 3D factory scene: the method's pieces react to every recorded event.">
+  <link rel="icon" href="/img/logo-120.png">
+  <style>
+    html, body { margin: 0; height: 100%; background: #05080d; color: #e2e8f0; font: 14px/1.5 Inter, system-ui, sans-serif; }
+    #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+    header { position: fixed; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 12px 20px; }
+    header a { color: #8cb4c9; display: inline-flex; align-items: center; min-height: 44px; }
+    header button { min-width: 44px; min-height: 44px; padding: 0 16px; border: 1px solid #8cb4c9; border-radius: 8px; background: #10161f; color: #e2e8f0; font: inherit; cursor: pointer; }
+    header :focus-visible { outline: 3px solid #f0b429; outline-offset: 2px; }
+    #factory-clock { color: #9ca6ae; font-variant-numeric: tabular-nums; }
+    #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
+    #stage-loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #9ca6ae; pointer-events: none; }
+    #stage-loading[hidden] { display: none; }
+  </style>
+  <script type="importmap">{ "imports": { "three": "/lib/three.min.js" } }</script>
+</head>
+<body>
+  <main><canvas id="stage" aria-label="3D factory: the method's pieces react to the recorded events of one real Karajan task"></canvas></main>
+  <header>
+    <a href="/factory/">← What you are seeing</a>
+    <strong id="stage-project">The Factory: one real task, HU-3870</strong>
+    <time id="factory-clock"></time>
+    <button type="button" id="factory-play">Play</button>
+    <button type="button" id="factory-restart">Restart</button>
+  </header>
+  <output id="stage-loading" aria-live="polite">Loading the factory…</output>
+  <ul id="stage-status" aria-live="polite"></ul>
+  <div id="stage-counts" aria-hidden="true"></div>
+  <script type="module" src="../replay.js"></script>
+</body>
+</html>
