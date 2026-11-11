@@ -43,6 +43,16 @@ describe("the links to the Governance guide", () => {
     expect(read(`${docs}${page}`)).toContain(`](${href})`);
   });
 
+  // KJL-TSK-0128: the family pages give the kernel a docs link next to npm.
+  it.each([
+    ["family.html", "/docs/v4/governance/"],
+    ["es/family.html", "/docs/es/v4/governance/"],
+  ])("the Governance entry of %s links to it", (page, href) => {
+    expect(read(`apps/landing/public/${page}`)).toContain(
+      `<a href="https://www.npmjs.com/package/@karajan-family/governance">npm</a><a href="${href}">docs</a>`,
+    );
+  });
+
   it.each(["guides/sentinel.md", "es/guides/sentinel.md"])("%s no longer offers an identity escape", (page) => {
     expect(read(`${docs}${page}`)).not.toContain("KJ_ALLOW_IDENTITY");
   });
