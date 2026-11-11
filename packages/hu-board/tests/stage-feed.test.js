@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { activityEvent, cardEvent, denialEvent, decisionEvent, gateEvent, ragEvent, ragIndexEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
+import { activityEvent, cardEvent, denialEvent, decisionEvent, gateEvent, methodEvent, ragEvent, ragIndexEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 
@@ -69,6 +69,12 @@ describe('stage events from kj records', () => {
     // KJC-BUG-0546: a line kj hu wrote from a lane into the main checkout names the lane.
     expect(cardEvent(JSON.stringify({ at: 't9', action: 'move', id: 'HU-1', status: 'done', lane: 'feat-x' })).lane).toBe('feat-x');
     expect(cardEvent(JSON.stringify({ at: 't9', action: 'move', id: 'HU-1', status: 'done', lane: 7 }))).not.toHaveProperty('lane');
+  });
+
+  it('a method line gives the piece kj review checked and whether it passed (KJC-TSK-1523)', () => {
+    expect(methodEvent(JSON.stringify({ at: 't1', piece: 'sonar', outcome: 'refuse' }))).toEqual({ type: 'method-check', at: 't1', piece: 'sonar', outcome: 'refuse' });
+    expect(methodEvent(JSON.stringify({ at: 't1', piece: 'oracle', outcome: 'pass' }))).toBeNull();
+    expect(methodEvent(JSON.stringify({ at: 't1', piece: 'tdd', outcome: 'maybe' }))).toBeNull();
   });
 
   it('a malformed or shapeless record gives no event', () => {

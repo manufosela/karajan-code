@@ -45,6 +45,13 @@ export function gateEvent(raw) {
   return { type: 'commit-gate', at: r.at, outcome: r.outcome, rule: r.rule };
 }
 
+/** KJC-TSK-1523: a line of method.jsonl (kj review checked TDD, the Steward or Sonar) → a method-check event, or null. */
+export function methodEvent(raw) {
+  const r = parse(raw);
+  if (!r?.at || !['tdd', 'steward', 'sonar'].includes(r.piece) || !['pass', 'refuse'].includes(r.outcome)) return null;
+  return { type: 'method-check', at: r.at, piece: r.piece, outcome: r.outcome };
+}
+
 /** A line of agent-activity.jsonl (traces/, or harness/ for older hooks; KJC-TSK-1429) → an agent-activity event, or null. */
 export function activityEvent(raw) {
   const r = parse(raw);
@@ -134,7 +141,7 @@ export function createTail(file) {
 export function watchStageFeed(projectDir, send, { project, watch = chokidarWatch, warn = console.warn } = {}) {
   const root = join(projectDir, '.karajan');
   const reviews = join(root, 'reviews');
-  const traceEvents = [['denials.jsonl', denialEvent], ['commit-gate.jsonl', gateEvent], ['agent-activity.jsonl', activityEvent], ['cards.jsonl', cardEvent]];
+  const traceEvents = [['denials.jsonl', denialEvent], ['commit-gate.jsonl', gateEvent], ['agent-activity.jsonl', activityEvent], ['cards.jsonl', cardEvent], ['method.jsonl', methodEvent]];
   const logs = new Map([
     [join(root, 'policy-decisions.jsonl'), decisionEvent],
     ...TRACE_DIRS.flatMap((dir) => traceEvents.map(([name, event]) => [join(root, dir, name), event])),

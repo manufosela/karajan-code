@@ -30,6 +30,7 @@ import { budgetedAdded, budgetedNet, movedLines, showSpec } from "../review/loc-
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
 import { prSizeLimit } from "../review/pr-requirements.js";
 import { stewardBlocking } from "../steward/gate.js";
+import { traceMethod } from "../review/method-trace.js";
 import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
 import { evaluatePolicyGate } from "../review/policy-gate.js";
@@ -338,6 +339,7 @@ async function testsWithCodeGate({ config, projectDir, range, changedFiles, gene
   if (tests.mode === "delete-only") console.log(`⚠ tests-with-code: exempt — ${tests.reason}`);
   if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
   if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);
+  traceMethod(projectDir, { piece: "tdd", passed: tests.ok }); // KJC-TSK-1523: for kj stage
   if (tests.ok) return null;
   console.log(`✗ tests-with-code gate: ${tests.reason}`);
   return rejected("tests-with-code", [{ severity: "high", description: tests.reason }]);
@@ -533,6 +535,7 @@ async function sonarPregate({ config, logger, range, liveFiles, enabled, generat
     blocking: pre.blocking.length, advisory: pre.advisory.length,
   };
   printSonarPregate(pre, record);
+  traceMethod(config?.projectDir || process.cwd(), { piece: "sonar", passed: pre.blocking.length === 0 }); // KJC-TSK-1523
   if (pre.blocking.length > 0) {
     console.log("✗ REJECTED by sonar (deterministic) — fix the blocking findings; the cross-AI reviewer was not invoked.");
     return { record, rejection: rejected("sonar", pre.blocking.map((i) => ({ severity: i.severity, file: undefined, description: formatSonarFinding(i) }))) };
@@ -671,6 +674,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
 
   // KJC-TSK-1086: the Steward's block at commit too, not only where Edit starts work.
   const steward = stewardBlocking({ projectDir, config });
+  traceMethod(projectDir, { piece: "steward", passed: !steward }); // KJC-TSK-1523: for kj stage
   if (steward) {
     console.log(`✗ ${steward.reason}`);
     process.exitCode = 1;
