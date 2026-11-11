@@ -22,9 +22,10 @@ const LOOKS = {
 };
 const PIECES = STATIONS.map((id) => [id, ...LOOKS[id]]);
 // The film's accents: Karajan green, kaRAGan amber, kaWATCHan blue.
+export const RAGAN_ACCENT = 0xf0b429; // KJC-TSK-1522: its laptop too
 const ROBOTS = [
   ['conductor', { accent: 0x34e07f, bow: 0xeef1f6, name: 'Karajan Code' }],
-  ['rag', { accent: 0xf0b429, name: 'kaRAGan' }],
+  ['rag', { accent: RAGAN_ACCENT, name: 'kaRAGan' }],
   ['watch', { accent: 0x4fb3e8, name: 'kaWATCHan' }],
 ];
 

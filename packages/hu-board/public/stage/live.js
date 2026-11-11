@@ -4,13 +4,14 @@
 // unless an agent really starts or ends its work.
 import { createDirector, cueLevel, cueFor } from './director.js';
 import { restState, withEvent } from './rest.js';
-import { createAgentsFloor } from './agents-floor.js';
+import { createAgentsFloor, typeOn } from './agents-floor.js';
+import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
 import { createBenchNotes } from './bench-notes.js';
 import { turnAt } from './workers.js';
 import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
-import { raganAt, withRag } from './ragan.js';
+import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
 import { pieceAt, withVisit } from './piece-visit.js';
 import { POST, WORKSHOP, postX } from './layout.js';
@@ -36,6 +37,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
   let marks = []; // KJC-TSK-1437: what the roles just did, by lane
   let rag = null; // KJC-TSK-1438: the answer kaRAGan is taking, and where
+  let index = null; // KJC-TSK-1522: the reindex kaRAGan types at
   let beat = null; // KJC-TSK-1490: the act of the method Karajan answers
   let visits = {}; // KJC-TSK-1517: the pieces out at a workshop, by piece
   let gatesLit = new Set();
@@ -70,9 +72,11 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
   };
   /** KJC-TSK-1438: kaRAGan takes the RAG's answer to the lane that asked, and comes back. */
   const moveRagan = (now) => {
-    const pose = raganAt(rag, now, hall.xOf, hall.zOf);
+    const pose = raganAt(rag, now, hall.xOf, hall.zOf, index);
     crew.rag.root.position.set(pose.x, 0, pose.z);
     crew.rag.root.rotation.y = pose.yaw;
+    // KJC-TSK-1522: at a reindexing lane it types on its laptop, in its amber.
+    typeOn(crew.rag, { typing: Boolean(pose.typing), elapsed: now - (pose.since ?? now), yaw: pose.yaw, accent: RAGAN_ACCENT });
     crew.rag.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
   };
   /** KJC-TSK-1490: Karajan turns to the lane the method just acted on and conducts it, or stops it. */
@@ -109,6 +113,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, ref
       watch = withWatch(watch, event, now);
       marks = withMark(marks, event, now);
       rag = withRag(rag, event, now);
+      index = withIndex(index, event, now);
       beat = withBeat(beat, event, now);
       visits = withVisit(visits, event, now);
       tell(settle().lines);
