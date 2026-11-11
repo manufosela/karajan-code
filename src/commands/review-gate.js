@@ -20,6 +20,7 @@ import { checkUiEvidence, uiBlock } from "../review/ui-evidence.js";
 import { readRagLedger } from "../review/rag-ledger.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
+import { checkReleaseBump } from "../review/release-bump.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
@@ -450,12 +451,36 @@ function withRagProof(res, { config, liveFiles, std, projectDir, warnIds }) {
   return res;
 }
 
+const gitShow = async (spec) => {
+  const res = await runCommand("git", ["show", spec]);
+  return res.exitCode === 0 ? res.stdout : null;
+};
+
+/** HU-3812 (#3763): the branch, when it is declared exempt and the staged change is only a version bump. */
+async function releaseBumpBranch({ config, range }) {
+  const prefixes = config.method_gates?.review_exempt_branches ?? [];
+  if (!Array.isArray(prefixes)) throw new Error("method_gates.review_exempt_branches must be a list of branch prefixes");
+  if (range || prefixes.length === 0) return null;
+  const branch = (await runCommand("git", ["rev-parse", "--abbrev-ref", "HEAD"])).stdout?.trim() || "HEAD";
+  if (!prefixes.some((p) => typeof p === "string" && p && branch.startsWith(p))) return null;
+  const files = (await rawDiff(null, ["--name-only", "--no-renames"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  const bump = await checkReleaseBump(files, { readHead: (f) => gitShow(`HEAD:${f}`), readIndex: (f) => gitShow(`:${f}`) });
+  return bump.bump ? branch : null;
+}
+
 /** --check (the pre-commit): the staged diff enters only with an approved verdict that carries its proofs. */
 async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate, seal }) {
   if (await isPureMerge({ projectDir, diff, range })) {
     console.log("✓ pure merge commit — empty staged diff, parents already reviewed; gate passes with trail");
     process.exitCode = 0;
     return { ok: true, merge: true, reason: "pure merge commit (MERGE_HEAD, empty staged diff)" };
+  }
+  const branch = await releaseBumpBranch({ config, range });
+  if (branch) {
+    console.log(`✓ release bump on ${branch} (version and changelog only) — exempt by method_gates.review_exempt_branches; gate passes with trail`);
+    seal("allow", { exempt: "release-bump", branch });
+    process.exitCode = 0;
+    return { ok: true, exempt: "release-bump", branch, reason: "release bump on a declared branch" };
   }
   let res = await checkVerdict(projectDir, diff);
   if (res.note) console.log(`ℹ ${res.note}`);

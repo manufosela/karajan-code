@@ -80,6 +80,8 @@ const DEFAULTS = {
   method_gates: {
     card_first: "auto",
     card_first_exempt_branches: ["chore/release-"],
+    // HU-3812: branch prefixes whose pure version + changelog bump commits without a verdict.
+    review_exempt_branches: [],
     // MG-B: source changes without a test change — "warn" | "block".
     tests_with_code: "warn",
     // MG-C + KJC-BUG-0326: ~pr_size_warn added lines is the ideal; up to
