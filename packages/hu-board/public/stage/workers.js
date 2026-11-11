@@ -11,7 +11,10 @@ export const WALK_MS = 2500;
 const BENCH_DZ = -0.4;
 // Side by side at the bench: the host (KJC-TSK-1435), the coder kj launches, the
 // reviewer beside it, Solomon beside the reviewer it arbitrates.
-const ROLE_SHIFT = { host: -1.3, coder: -0.5, reviewer: 0.4, solomon: 1.3 };
+const SEATS = [-1.3, -0.5, 0.4, 1.3];
+const ROLE_SEAT = { host: 0, coder: 1, reviewer: 2, solomon: 3 };
+// KJC-BUG-0555: once the four seats are taken, the next ones stand in rows behind the bench.
+const SEAT_ROW = 0.9;
 // KJC-TSK-1435 (ADR 0048): the host's subagents work in rows of five in front of the bench.
 const SUBAGENT = { dz: 0.9, from: -1.5, step: 0.75, slots: 5, row: 0.6 };
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
@@ -58,13 +61,21 @@ export function turnAt(turn, now) {
 /** The key of one robot's whole visit, from walking in to walking out. */
 export const visitKey = (w) => `${w.agent}:${w.role}:${w.id ?? ''}:${w.since}`;
 
-/** Where an agent in `role` works in the workshop centred at (`laneX`, `laneZ`); a subagent, in its `slot` before the bench. */
-export function spotOf(role, laneX = 0, slot = 0, laneZ = WORKSHOP.z) {
+/**
+ * Where an agent in `role` works in the workshop centred at (`laneX`, `laneZ`): a subagent in
+ * its `slot` before the bench; anyone else in its seat at the bench (KJC-BUG-0555), its role's
+ * own when no seat is given, and the middle of the bench for a role without one.
+ */
+export function spotOf(role, laneX = 0, slot = undefined, laneZ = WORKSHOP.z) {
   if (role === 'subagent') {
-    const row = Math.floor(slot / SUBAGENT.slots);
-    return { x: laneX + SUBAGENT.from + (slot % SUBAGENT.slots) * SUBAGENT.step, z: laneZ + SUBAGENT.dz + row * SUBAGENT.row };
+    const at = slot ?? 0;
+    const row = Math.floor(at / SUBAGENT.slots);
+    return { x: laneX + SUBAGENT.from + (at % SUBAGENT.slots) * SUBAGENT.step, z: laneZ + SUBAGENT.dz + row * SUBAGENT.row };
   }
-  return { x: laneX + (ROLE_SHIFT[role] ?? 0), z: laneZ + BENCH_DZ };
+  const seat = slot ?? ROLE_SEAT[role];
+  if (seat === undefined) return { x: laneX, z: laneZ + BENCH_DZ };
+  const row = Math.floor(seat / SEATS.length);
+  return { x: laneX + SEATS[seat % SEATS.length], z: laneZ + BENCH_DZ - row * SEAT_ROW };
 }
 
 const laneOf = (ev) => ev.lane ?? 'main';
@@ -86,12 +97,27 @@ const freeSlot = (workers, lane) => {
   return slot;
 };
 
+/**
+ * KJC-BUG-0555: the seat at the bench of `lane` for a new robot in `role`: its role's own
+ * while free, else the first free one; none for a role without a seat of its own when its
+ * usual spot (the middle) is free, as before.
+ */
+const freeSeat = (workers, lane, role) => {
+  const held = new Set(workers.filter((w) => w.role !== 'subagent' && w.lane === lane && w.leftAt === undefined).map((w) => w.slot ?? ROLE_SEAT[w.role]));
+  const own = ROLE_SEAT[role];
+  if (own !== undefined && !held.has(own)) return own;
+  if (own === undefined && !workers.some((w) => w.lane === lane && w.leftAt === undefined && w.role === role)) return undefined;
+  let seat = 0;
+  while (held.has(seat)) seat += 1;
+  return seat;
+};
+
 /** A new worker from a start event (or a still-open start of the last state). */
 const newWorker = (workers, ev, since) => {
   const lane = laneOf(ev);
   // KJC-TSK-1538: the model and effort it runs with dress its robot.
   const worker = { agent: ev.agent, role: ev.role, lane, id: ev.id ?? null, tool: ev.tool ?? null, kind: ev.kind ?? null, name: ev.name ?? null, model: ev.model ?? null, effort: ev.effort ?? null, since };
-  return ev.role === 'subagent' ? { ...worker, slot: freeSlot(workers, lane) } : worker;
+  return { ...worker, slot: ev.role === 'subagent' ? freeSlot(workers, lane) : freeSeat(workers, lane, ev.role) };
 };
 
 /** The workers after an agent-activity event at `now` (ms); other events change nothing. */
