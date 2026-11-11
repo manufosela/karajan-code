@@ -1108,7 +1108,8 @@ export function registerMeta(program, { pkgVersion }) {
   program
     .command("board [action]")
     .description("Manage HU Board (start|stop|status|open|cleanup) — SIN acción arranca un servidor persistente en segundo plano (equivale a `start`)")
-    .option("--port <number>", "Port (default: 4000)", "4000")
+    // KJC-BUG-0549: no default here, or it always beat hu_board.port (and a test's free port).
+    .option("--port <number>", "Port (default: hu_board.port, else 4000)")
     .option("--bind <host>", "Bind host (default: 127.0.0.1; use 0.0.0.0 to expose on LAN — token auth auto-enforced)")
     .option("--force", "Arranca aunque hu_board.enabled sea false en kj.config.yml")
     .action(async (action = "start", opts) => {
