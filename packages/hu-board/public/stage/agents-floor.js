@@ -53,23 +53,29 @@ function robotFor(worker) {
 // turns side on to the camera, which sees its hands on the keys and its lit screen.
 const TYPING = { spread: -0.25, yaw: 1.85 };
 
-/** KJC-TSK-1486: at its spot the agent opens its laptop and types; walking, it puts it away. */
-function work(robot, worker, pose, t) {
-  const typing = !pose.walking;
+/**
+ * KJC-TSK-1486: typing, a robot opens its laptop in its `accent` and types, `elapsed` ms since
+ * it began; otherwise it puts it away. KJC-TSK-1522: kaRAGan types with it too.
+ */
+export function typeOn(robot, { typing, elapsed, yaw, accent }) {
   if (typing && !robot.laptop) {
-    robot.laptop = createLaptop(accentOf(worker.agent));
+    robot.laptop = createLaptop(accent);
     robot.hover.add(robot.laptop);
   }
   if (robot.laptop) robot.laptop.visible = typing;
-  if (typing) robot.laptop.userData.scroll(codeScrollAt(t - worker.since)); // KJC-TSK-1493
+  if (typing) robot.laptop.userData.scroll(codeScrollAt(elapsed)); // KJC-TSK-1493
   // The baton the family robot holds stays in its hand only while it walks.
   for (const held of robot.armR.hand.children) held.visible = !typing;
-  // Each agent types at its own pace, from the moment it arrived.
-  const hands = typing ? typingAt(t - worker.since) : { L: 0, R: 0 };
+  // Each robot types at its own pace, from the moment it arrived.
+  const hands = typing ? typingAt(elapsed) : { L: 0, R: 0 };
   robot.pose('L', typing ? TYPING.spread : 0, hands.L);
   robot.pose('R', typing ? TYPING.spread : 0, hands.R);
-  if (typing) robot.root.rotation.y = pose.yaw + TYPING.yaw;
+  if (typing) robot.root.rotation.y = yaw + TYPING.yaw;
 }
+
+/** KJC-TSK-1486: at its spot the agent opens its laptop and types; walking, it puts it away. */
+const work = (robot, worker, pose, t) =>
+  typeOn(robot, { typing: !pose.walking, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
 
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
 export function createAgentsFloor({ scene, camera, xOf, zOf, origin }, lanes, now) {

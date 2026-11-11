@@ -44,6 +44,8 @@ export function withEvent(state, event) {
     }
     // KJC-TSK-1438: the RAG answered a lane; kaRAGan takes it there.
     case 'rag-answer': return { ...state, rag: { sources: event.sources, lane: event.lane ?? 'main', at: event.at } };
+    // KJC-TSK-1522: the RAG starts or ends a reindex of a lane; kaRAGan types there meanwhile.
+    case 'rag-index': return { ...state, reindex: { phase: event.phase, lane: event.lane ?? 'main', at: event.at } };
     // KJC-TSK-1458 (ADR 0050): a card pinned or moved; a queued move changes nothing yet.
     case 'card': {
       const cards = withCard(state.cards ?? [], event);
@@ -68,7 +70,16 @@ function ragLine(rag, now) {
   return `kaRAGan: answered with ${sources}${where}, ${ago(rag.at, now)}`;
 }
 
-export function restState({ denial, verdict, seal, gate, rag, working = [], cards = [] }, now) {
+/** KJC-TSK-1522: the reindex kaRAGan is at, or the last one it did. */
+function reindexLine({ phase, lane, at }, now) {
+  const where = lane && lane !== 'main' ? ` in ${lane}` : '';
+  return phase === 'start' ? `kaRAGan: reindexing${where}, since ${ago(at, now)}` : `kaRAGan: reindexed${where}, ${ago(at, now)}`;
+}
+
+/** What kaRAGan last answered and the reindex it is at, as far as each is known. */
+const kaRAGanLines = (rag, reindex, now) => [rag && ragLine(rag, now), reindex && reindexLine(reindex, now)].filter(Boolean);
+
+export function restState({ denial, verdict, seal, gate, rag, reindex, working = [], cards = [] }, now) {
   const lights = {};
   const lines = [];
   if (denial) {
@@ -88,7 +99,7 @@ export function restState({ denial, verdict, seal, gate, rag, working = [], card
     lights.gates = gate.outcome === 'pass' ? PASSED : REFUSED;
     lines.push(gateLine(gate, now));
   }
-  if (rag) lines.push(ragLine(rag, now));
+  lines.push(...kaRAGanLines(rag, reindex, now));
   const board = boardLine(cards); // KJC-TSK-1458: the factory's task board, counted
   if (board) lines.push(board);
   // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
