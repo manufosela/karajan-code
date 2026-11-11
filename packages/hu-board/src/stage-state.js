@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { MAIN_LANE, listLanes } from './lanes.js';
 import { branchFacts } from './lane-branch.js';
+import { laneNote } from './lane-note.js';
 import { boardStatuses, withBoardCache } from './stage-board-cache.js';
 import { lastRelease } from './stage-release.js';
 import { sessionName, withSessionName } from './session-names.js';
@@ -107,7 +108,9 @@ export function laneStates(projectDir, { branchOf = branchFacts, ...options } = 
     const state = lastStageState(dir, { ...options, lane });
     // KJC-TSK-1539: the main checkout has no branch of its own to wait on.
     const branch = lane === MAIN_LANE ? undefined : branchOf(dir);
-    return { lane, ...state, cards: withBoardCache(state.cards, statuses), branch };
+    // KJC-TSK-1541: and what it waits for, when someone left it a note.
+    const note = lane === MAIN_LANE ? null : laneNote(projectDir, lane);
+    return { lane, ...state, cards: withBoardCache(state.cards, statuses), branch, note };
   });
   // KJC-TSK-1525: the release the "Ready to release" table counts from, once, on the main checkout.
   lanes[0] = { ...lanes[0], release: lastRelease(projectDir) };

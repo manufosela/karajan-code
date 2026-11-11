@@ -308,6 +308,13 @@ export function registerMeta(program, { pkgVersion }) {
         await worktreeCommand({ config, action: "list", flags });
       });
     });
+  wt.command("note <slug> [text...]")
+    .description("Leave a short note on a lane (what it waits for), shown by kj stage as text; no text clears it")
+    .action(async (slug, text, flags) => {
+      await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
+        await worktreeCommand({ config, action: "note", args: [slug, ...text], flags });
+      });
+    });
   wt.command("done <slug>")
     .option("--force", "Remove the lane even with uncommitted changes, and delete its branch even if not merged")
     .description("Remove a lane and delete its branch when merged into the base (refuses uncommitted changes without --force)")
