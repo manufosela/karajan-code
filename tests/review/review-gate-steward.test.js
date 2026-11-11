@@ -46,4 +46,13 @@ describe("review gate × steward", () => {
     const r = await reviewGateCommand({ config: { projectDir: dir, method_gates: { steward: "inform" } }, flags: { staged: true, sonar: false } });
     expect(r.reviewer).not.toBe("steward");
   });
+
+  // KJC-TSK-1523: each check leaves its line for kj stage: the Steward's, then the tests with the code.
+  it("leaves the Steward's check and the tests-with-code one in the lane's method trace", async () => {
+    const trace = () => fs.readFileSync(path.join(dir, ".karajan", "traces", "method.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    await reviewGateCommand({ config: { projectDir: dir, method_gates: { steward: "block" } }, flags: { staged: true, sonar: false } });
+    expect(trace().map((l) => [l.piece, l.outcome])).toEqual([["steward", "refuse"]]);
+    await reviewGateCommand({ config: { projectDir: dir, method_gates: { steward: "inform" } }, flags: { staged: true, sonar: false } });
+    expect(trace().map((l) => [l.piece, l.outcome]).slice(1)).toEqual([["steward", "pass"], ["tdd", "pass"]]);
+  });
 });
