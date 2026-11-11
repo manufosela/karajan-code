@@ -83,9 +83,9 @@ describe('watchLanes', () => {
     appendFileSync(join(wtHarness, 'denials.jsonl'), line({ at: 't1', tool: 'Bash', why: 'no' }));
     watcherOf(wt).emit('add', join(wtHarness, 'denials.jsonl'));
 
-    const late = lane('.claude', 'worktrees', 'agent-a1');
+    const late = worktree('.claude', 'worktrees', 'agent-a1');
     const lateHarness = harness(late);
-    const doors = watchers.find((w) => w.paths === proj && w.opts.depth === 2);
+    const doors = watchers.find((w) => w.paths === proj && w.opts.depth === 3);
     doors.emit('addDir', late);
     doors.emit('addDir', join(late, '.karajan'));
     appendFileSync(join(lateHarness, 'commit-gate.jsonl'), line({ at: 't2', outcome: 'pass', rule: 'ok' }));
@@ -110,12 +110,64 @@ describe('watchLanes', () => {
     mkdirSync(lane('.kj', 'worktrees'), { recursive: true });
     const stop = watchLanes(proj, (ev) => sent.push(ev), { project: 'demo', warn: () => {} });
     await new Promise((r) => setTimeout(r, 300));
-    const late = lane('.kj', 'worktrees', 'late');
+    const late = worktree('.kj', 'worktrees', 'late');
     const file = join(harness(late), 'denials.jsonl');
     await new Promise((r) => setTimeout(r, 500));
     appendFileSync(file, line({ at: 't9', tool: 'Bash', why: 'no' }));
     for (let i = 0; i < 40 && sent.length === 0; i++) await new Promise((r) => setTimeout(r, 100));
     stop();
     expect(sent.map((e) => [e.type, e.lane])).toEqual([['sentinel-deny', 'late']]);
+  });
+
+  describe('only a git worktree is a lane (HU-3860)', () => {
+    const doorsOf = () => watchers.find((w) => w.paths === proj && w.opts.depth === 3);
+    const start = () => watchLanes(proj, (ev) => sent.push(ev), { project: 'demo', watch, warn: () => {} });
+    const followed = (dir) => Boolean(watcherOf(dir));
+
+    it('does not follow a new dot folder under a lane home', () => {
+      const stop = start();
+      const dot = lane('.claude', 'worktrees', '.claude');
+      mkdirSync(dot, { recursive: true });
+      doorsOf().emit('addDir', dot);
+      stop();
+      expect(followed(dot)).toBe(false);
+    });
+
+    it('does not follow a folder without .git until it has one, then does', () => {
+      const stop = start();
+      const late = lane('.kj', 'worktrees', 'late');
+      mkdirSync(late, { recursive: true });
+      doorsOf().emit('addDir', late);
+      expect(followed(late)).toBe(false);
+      writeFileSync(join(late, '.git'), 'gitdir: ../../.git/worktrees/x\n');
+      doorsOf().emit('add', join(late, '.git'));
+      expect(followed(late)).toBe(true);
+      stop();
+    });
+
+    it('still follows a real worktree added while the feed runs', () => {
+      const stop = start();
+      const late = worktree('.kj', 'worktrees', 'late');
+      doorsOf().emit('addDir', late);
+      expect(followed(late)).toBe(true);
+      stop();
+    });
+
+    it('with the real chokidar, follows only the folder that gets a .git file after a delay', async () => {
+      mkdirSync(lane('.kj', 'worktrees'), { recursive: true });
+      const real = [];
+      const stop = watchLanes(proj, (ev) => real.push(ev), { project: 'demo', warn: () => {} });
+      await new Promise((r) => setTimeout(r, 300));
+      const [dot, empty, late] = ['.claude', 'empty', 'late'].map((n) => lane('.kj', 'worktrees', n));
+      for (const d of [dot, empty, late]) harness(d);
+      await new Promise((r) => setTimeout(r, 400));
+      writeFileSync(join(late, '.git'), 'gitdir: ../../.git/worktrees/x\n');
+      await new Promise((r) => setTimeout(r, 600));
+      for (const d of [dot, empty, late]) appendFileSync(join(d, '.karajan', 'harness', 'denials.jsonl'), line({ at: 't1', tool: 'Bash', why: 'no' }));
+      for (let i = 0; i < 40 && real.length === 0; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 400));
+      stop();
+      expect(real.map((e) => e.lane)).toEqual(['late']);
+    });
   });
 });

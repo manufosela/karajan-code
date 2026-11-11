@@ -4,7 +4,7 @@
  * own trace under its .karajan; nothing here writes.
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 /** Where kj (kj worktree start) and Claude Code put the worktrees of a project. */
 export const LANE_HOMES = [['.kj', 'worktrees'], ['.claude', 'worktrees']];
@@ -12,14 +12,14 @@ export const MAIN_LANE = 'main';
 
 const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return false; } };
 
-/** The worktrees under one lane home: a folder with a `.git` entry (a FILE in a worktree), never a dot folder. */
+/** A lane is a folder with a `.git` entry (a FILE in a worktree), never a dot folder. */
+export const isLaneDir = (dir) => !basename(dir).startsWith('.') && isDir(dir) && existsSync(join(dir, '.git'));
+
+/** The worktrees under one lane home. */
 function worktreesIn(home) {
   let names;
   try { names = readdirSync(home); } catch { return []; }
-  return names
-    .filter((n) => !n.startsWith('.'))
-    .map((n) => ({ lane: n, dir: join(home, n) }))
-    .filter(({ dir }) => isDir(dir) && existsSync(join(dir, '.git')));
+  return names.map((n) => ({ lane: n, dir: join(home, n) })).filter(({ dir }) => isLaneDir(dir));
 }
 
 /** The main checkout first, then every worktree by name. */
