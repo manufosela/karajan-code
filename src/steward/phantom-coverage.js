@@ -154,15 +154,23 @@ export function detectPhantomE2E({ sourceText, sourceAnalysis, testSource, file 
  * way indefinitely because it proves something that no longer exists.
  * kj holds no per-test history, so the source is INJECTED and said:
  * failures = [{test, reason, at}] from whoever owns the CI history.
+ * passes = [{test, at}] (optional): a green run of the SAME test resets the
+ * streak, which is measured from the first failure after the last pass.
+ * Without `passes` (runs lack a pass/fail per test) the old behaviour holds:
+ * the failures are taken as contiguous, which a job-level proxy over-flags.
  */
-export function assessTemporalSignature({ failures, thresholdDays = 7 } = {}) {
+export function assessTemporalSignature({ failures, passes, thresholdDays = 7 } = {}) {
   if (!Array.isArray(failures)) {
     return { observable: false, reason: "no per-test failure history handed in — kj holds none; inject it from the CI that owns it", suspects: [] };
   }
   const byTest = new Map();
   for (const f of failures) (byTest.get(f.test) ?? byTest.set(f.test, []).get(f.test)).push(f);
   const suspects = [];
-  for (const [test, rows] of byTest) {
+  const lastPass = (test) => Math.max(-Infinity, ...(Array.isArray(passes) ? passes : []).filter((p) => p.test === test).map((p) => Date.parse(p.at)).filter(Number.isFinite));
+  for (const [test, allRows] of byTest) {
+    const resetAt = lastPass(test);
+    const rows = resetAt === -Infinity ? allRows : allRows.filter((r) => Date.parse(r.at) > resetAt);
+    if (rows.length === 0) continue;
     const reasons = new Set(rows.map((r) => String(r.reason || "").trim().toLowerCase()));
     if (reasons.size !== 1) continue; // changing reasons look like a bug being worked
     const times = rows.map((r) => Date.parse(r.at)).filter(Number.isFinite);

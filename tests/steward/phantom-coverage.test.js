@@ -124,6 +124,23 @@ describe("assessTemporalSignature", () => {
     const r = assessTemporalSignature({ failures: [fail("a.spec", "x", 2), fail("a.spec", "x", 1)], nowMs: now });
     expect(r.suspects).toEqual([]);
   });
+  const pass = (test, daysAgo) => ({ test, at: new Date(now - daysAgo * DAY).toISOString() });
+  it("fail, pass, fail inside the window: the pass resets the streak, nothing is suspected", () => {
+    const failures = [fail("a.spec", "x", 9), fail("a.spec", "x", 1)];
+    expect(assessTemporalSignature({ failures, passes: [pass("a.spec", 5)] }).suspects).toEqual([]);
+  });
+  it("continuous failures past the threshold are still flagged when passes are known", () => {
+    const failures = [fail("a.spec", "x", 9), fail("a.spec", "x", 1)];
+    expect(assessTemporalSignature({ failures, passes: [] }).suspects).toEqual([expect.objectContaining({ test: "a.spec", days: 8 })]);
+  });
+  it("a pass BEFORE the window does not hide a later 8-day continuous failure", () => {
+    const failures = [fail("a.spec", "x", 9), fail("a.spec", "x", 1)];
+    expect(assessTemporalSignature({ failures, passes: [pass("a.spec", 20)] }).suspects).toEqual([expect.objectContaining({ days: 8 })]);
+  });
+  it("a pass of ANOTHER test resets nothing", () => {
+    const failures = [fail("a.spec", "x", 9), fail("a.spec", "x", 1)];
+    expect(assessTemporalSignature({ failures, passes: [pass("b.spec", 5)] }).suspects).toHaveLength(1);
+  });
   it("no history handed in: NOT OBSERVABLE — kj holds no per-test history, the source is injected and said", () => {
     const r = assessTemporalSignature({ failures: null });
     expect(r.observable).toBe(false);
