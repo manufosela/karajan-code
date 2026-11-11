@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.17.0",
-  "generated_at": "2026-11-11T16:14:52.584Z",
+  "kj_version": "5.18.0",
+  "generated_at": "2026-11-11T23:05:40.168Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -52,7 +52,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "662fe5d2f37de168e365a8cf2ac802fe1eb8c5fd41e92e3bf9b4ce0d5f23cce7"
+      "sha256": "d904df67c31b74500fee196d6218960f01c2873dc3d8682dfaf9bd6066170423"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -104,7 +104,7 @@
     },
     {
       "file": ".karajan/hooks/post-merge",
-      "sha256": "b4010bdf0375d6170dadb7aa0d95804e1b6152ff920a2ebfd042ba2b36f04045"
+      "sha256": "fe01565c613e6ef410ae8efb97628da7c22ac1fd72be2e2dae2a2531f2bd7c88"
     },
     {
       "file": ".karajan/hooks/pre-commit",
@@ -112,7 +112,7 @@
     },
     {
       "file": ".karajan/hooks/pre-push",
-      "sha256": "52a79e38c0d817aa14d6928f4800c86933e9be72f408b7cbf4a53b4585eaa4c5"
+      "sha256": "66535df0f9a46d7d80c91996e8ef5386a19e278ecfdbeb70900a268df6fdc334"
     },
     {
       "file": ".karajan/hooks/prepare-commit-msg",
@@ -176,15 +176,15 @@
     }
   ],
   "signature": {
-    "cid": "97b10ef857c617d74758128d83156922",
-    "nonce": "a2d7eaeb751c1cc194f0b2a6f502f37a",
+    "cid": "0e66d2d2cf969cd943d66729103faa5f",
+    "nonce": "db3cfe3bdd775f02d95826fd9bcb4722",
     "project": "manufosela/karajan-code",
-    "filesHash": "35b83cd502faa5976610ccb3d7353446dba8b9b69c0cb9b2f9a83ab9b2bf4cf2",
+    "filesHash": "6bed3f0aa6c54413c2c4956292e837a2bb0177672d9e82b170631b2668cb7f0c",
     "v": 2,
-    "kjVersion": "5.17.0",
-    "issuedMs": 1794413637661,
-    "expiresMs": 1794413787661,
+    "kjVersion": "5.18.0",
+    "issuedMs": 1794438316616,
+    "expiresMs": 1794438466616,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "xFiQews5XjnNu3fqvzpXKNiHyUfHMic6AY8VfOskicGWQwyTTpdv00KyYJfhzAimL5S0y/QddUr9ey/oruDjDA=="
+    "signature": "Bg30BmBRedPwwFftRfmUAh5FU5fyE1dZmMiiNU6GtQ2fTgNHJvUSxzLm6TdBFIPnm30xjAf8XtYExr3tjy1aAA=="
   }
 }
