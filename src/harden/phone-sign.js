@@ -11,6 +11,7 @@ import { join } from "node:path";
 
 import qrcode from "qrcode-terminal";
 
+import { PHONE_REMOTE_SIGNER } from "./phone-texts.js";
 import { sealRepoMismatch } from "./seal-repo.js";
 
 const SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
@@ -95,6 +96,9 @@ export function readEnrolledKeys({ projectDir, home } = {}) {
   if (isPhoneEnrolled({ home })) keys.add(readEnrolledKey({ home }));
   return keys;
 }
+
+/** HU-3887 (KJC-BUG-0551): some phone, on this machine or in the repo roster, can sign. */
+export const anyAuthorizedPhone = ({ projectDir, home } = {}) => readEnrolledKeys({ projectDir, home }).size > 0;
 
 /** Añade una clave pública al padrón versionado del repo (dedup). Acto humano. */
 export function addSigner(publicKeyBase64, { projectDir, label } = {}) {
@@ -227,6 +231,7 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   const signUrl = `${SIGN_PAGE}?c=${cid}`;
   drawQr(signUrl);
   logger.info?.(`phone-sign: escanea el QR o abre ${signUrl} y firma en el móvil (caduca en ${TTL_MS / 1000}s)`);
+  if (!isPhoneEnrolled({ home: deps.home })) logger.info?.(`phone-sign: ${PHONE_REMOTE_SIGNER}`);
   logger.info?.("phone-sign: esperando la firma del móvil…");
   const spinner = deps.spinner ?? makeSpinner();
   const deadline = expiresMs;

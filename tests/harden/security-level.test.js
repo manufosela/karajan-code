@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { canonicalPayload, enrollPhone } from "../../src/harden/phone-sign.js";
+import { addSigner, canonicalPayload, enrollPhone } from "../../src/harden/phone-sign.js";
 import { DEFAULT_LEVEL, lowerSecurityLevel, raiseSecurityLevel, readSecurityLevel, SECURITY_LEVEL_FILE, signedFilesOf } from "../../src/harden/security-level.js";
 
 const keyPair = () => {
@@ -87,6 +87,16 @@ describe("lowerSecurityLevel (the catalog act security-level-down), from max", (
     let confirmed = false;
     await expect(lower({ deps: { confirm: () => { confirmed = true; return "x"; }, phone: never } })).rejects.toThrow(/no hay ninguno enrolado.*kj identity enroll-phone/);
     expect(confirmed).toBe(false);
+  });
+
+  // HU-3887 (KJC-BUG-0551): this machine has no phone, the repo roster has one: its owner signs.
+  it("with a roster key and no phone on this machine it requests the signature instead of refusing", async () => {
+    const bare = mkdtempSync(join(tmpdir(), "kj-seclevel-bare-"));
+    addSigner(mine.pub, { projectDir: repo });
+    expect((await lower({ home: bare, deps: { phone: { request: phoneOf(mine).request } } })).changed).toBe(true);
+    expect(readSecurityLevel({ projectDir: repo, home: bare })).toMatchObject({ level: "normal", source: "file", signer: mine.pub });
+    await expect(lower({ home: bare, env: { CLAUDECODE: "1" } })).rejects.toThrow(/acto humano/);
+    rmSync(bare, { recursive: true, force: true });
   });
 
   // KJC-TSK-1045 (ADR 0020): with no phone anywhere, max only blocks; a person at

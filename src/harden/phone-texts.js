@@ -10,6 +10,10 @@ export const PHONE_ENROLL =
 /** KJC-BUG-0508: the way out while no phone is enrolled (ADR 0020). */
 export const PHONE_OR_NORMAL = "Si prefieres no usar el móvil, kj security normal baja el nivel desde tu terminal mientras no hay ninguno enrolado (ADR 0020).";
 
+/** HU-3887 (KJC-BUG-0551): a phone of the repo roster signs from wherever its owner is. */
+export const PHONE_REMOTE_SIGNER =
+  "esta máquina no tiene móvil en el padrón: firma el dueño de un móvil del padrón del repo (.karajan/supervisor-signers.json); envíale el enlace.";
+
 /** Normal level: without a phone the acts are signed with a typed code. */
 export const PHONE_INVITE =
   `El móvil no está enrolado: los sellos (kj harden --commit), las aprobaciones y los comandos del catálogo se firman hoy con un código tecleado, con menos garantía. ${PHONE_ENROLL}`;

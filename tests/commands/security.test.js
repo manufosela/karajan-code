@@ -25,7 +25,7 @@ const run = (action, deps = {}) => securityCommand({ action, config: { projectDi
 describe("kj security", () => {
   it("show: the level, where it comes from and the phone; exit 2 on a record that cannot be trusted", async () => {
     expect(await run("show")).toBe(0);
-    expect(lines.join("\n")).toMatch(/nivel {3}máxima.*\norigen {2}por defecto.*\nmóvil {3}no enrolado \(abre https:\/\/karajancode\.com\/sign en el móvil y kj identity enroll-phone/);
+    expect(lines.join("\n")).toMatch(/nivel {3}máxima.*\norigen {2}por defecto.*\nmóvil {3}en esta máquina: no · firmantes del repo: 0 \(abre https:\/\/karajancode\.com\/sign en el móvil y kj identity enroll-phone/);
     writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "normal", since: "2026-10-09" }));
     lines = [];
     expect(await run("show")).toBe(2);
@@ -43,15 +43,22 @@ describe("kj security", () => {
     expect(lines[1]).toMatch(/^origen {2}registrado en \.karajan\/security-level\.json desde 20/);
   });
 
-  it("normal: with a phone in the roster but none on this machine it is refused, with the way to enroll, and exit 1", async () => {
+  // HU-3887 (KJC-BUG-0551): the roster's phone signs from afar; refusing here looped with enroll-phone.
+  it("normal: with a phone in the roster but none on this machine it asks that phone to sign; show says both apart", async () => {
     await run("max");
     addSigner(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64"), { projectDir: repo });
     lines = [];
-    const deps = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, phone: { enrolled: () => false } };
+    let asked = 0;
+    const request = async () => { asked += 1; return { ok: false, reason: "caducado" }; };
+    const deps = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce, phone: { request } };
     expect(await run("normal", deps)).toBe(1);
-    expect(lines[0]).toMatch(/^kj security normal: kj security normal: bajar el nivel se firma con el móvil y no hay ninguno enrolado.*kj identity enroll-phone/);
+    expect(asked).toBe(1);
+    expect(lines[0]).toMatch(/^kj security normal: kj security normal: firma del móvil rechazada \(caducado\); el nivel no cambia/);
     expect(await run("normal", { env: { CLAUDECODE: "1" } })).toBe(1);
     expect(lines[1]).toMatch(/es un acto humano/);
+    lines = [];
+    await run("show");
+    expect(lines[2]).toBe("móvil   en esta máquina: no · firmantes del repo: 1");
   });
 
   // KJC-TSK-1045 (ADR 0020): with no phone anywhere, a person at the terminal lowers it.
@@ -59,6 +66,7 @@ describe("kj security", () => {
     await run("max");
     const deps = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
     expect(await run("normal", deps)).toBe(0);
+    expect(lines[1]).toMatch(/^kj security: nivel normal sin firma y registrado/);
     lines = [];
     await run("show");
     expect(lines[0]).toMatch(/nivel {3}normal/);

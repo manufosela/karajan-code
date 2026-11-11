@@ -92,8 +92,8 @@ const fakePhone = ({ key = privateKey, pub = rawPub, state = "signed", mangle = 
 describe("requestPhoneSignature (KJC-TSK-0822)", () => {
   let t;
   beforeEach(() => { t = 0; });
-  const request = (fetchFn, extra = {}) => requestPhoneSignature({
-    project: "karajan-code", files: FILES, kjVersion: "9.9.9", logger: { info: () => {} },
+  const request = (fetchFn, extra = {}, logger = { info: () => {} }) => requestPhoneSignature({
+    project: "karajan-code", files: FILES, kjVersion: "9.9.9", logger,
     deps: { fetch: fetchFn, home, now: () => t, sleep: async (ms) => { t += ms; }, qr: () => {}, ...extra },
   });
 
@@ -124,8 +124,11 @@ describe("requestPhoneSignature (KJC-TSK-0822)", () => {
     const other = generateKeyPairSync("ed25519");
     const otherPub = other.publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
     addSigner(otherPub, { projectDir, label: "alice" });
-    const res = await request(fakePhone({ key: other.privateKey, pub: otherPub }), { home: mkdtempSync(join(tmpdir(), "kj-nohome-")), projectDir });
+    const infos = [];
+    const res = await request(fakePhone({ key: other.privateKey, pub: otherPub }), { home: mkdtempSync(join(tmpdir(), "kj-nohome-")), projectDir }, { info: (m) => infos.push(m) });
     expect(res).toMatchObject({ ok: true, signer: otherPub });
+    // HU-3887: this machine has no phone, so whoever owns one of the roster must sign.
+    expect(infos.filter((m) => /esta máquina no tiene móvil.*padrón del repo.*envíale el enlace/.test(m))).toHaveLength(1);
     rmSync(projectDir, { recursive: true, force: true });
   });
 

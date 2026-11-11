@@ -1,4 +1,5 @@
 // KJC-TSK-0996 (HUM-D, ADR 0018): the level applied to every catalog act, in one place.
+import { generateKeyPairSync } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,6 +7,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { explainAct, signAct } from "../../src/harden/act-sign.js";
+import { addSigner, readEnrolledKeys } from "../../src/harden/phone-sign.js";
 import { SECURITY_LEVEL_FILE } from "../../src/harden/security-level.js";
 import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
@@ -47,9 +49,29 @@ describe("signAct", () => {
   it("at max with no phone: refused with the way to enroll, except the first enrollment (bootstrap)", async () => {
     atMax();
     await expect(sign("supervisor-seal", { deps: { phone: phone({ enrolled: false }) } })).rejects.toThrow(/con seguridad máxima este acto se firma con el móvil y no hay ninguno enrolado.*kj identity enroll-phone/);
+    await expect(sign("rules-approve", { deps: { phone: phone({ enrolled: false }) } })).rejects.not.toThrow(/kj security normal/);
     const res = await sign("phone-enroll", { bootstrap: true, deps: { phone: phone({ enrolled: false }) } });
     expect(res.signature).toBeNull();
     expect(warned[0]).toMatch(/kj identity enroll-phone: sin móvil enrolado solo valen las cuatro capas y la garantía es menor/);
+  });
+
+  // HU-3887 (KJC-BUG-0551): a phone of the repo roster signs even when this machine has none.
+  it("at max with a roster key and no phone on this machine: the signature is requested and returned", async () => {
+    atMax();
+    addSigner(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64"), { projectDir: repo });
+    const seen = [];
+    const enrolled = (where) => { seen.push(where); return readEnrolledKeys(where).size > 0; };
+    const res = await sign("phone-enroll", { deps: { phone: { ...phone(), enrolled } } });
+    expect(seen).toEqual([{ projectDir: repo, home }]);
+    expect(asked).toMatchObject({ files: FILES, deps: { projectDir: repo, home } });
+    expect(res.signature).toEqual({ ...CHALLENGE, signer: "PUB", signature: "SIG" });
+  });
+
+  it("by default, a roster key is a phone that can sign: no refusal at max", async () => {
+    atMax();
+    addSigner(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64"), { projectDir: repo });
+    const { request } = phone();
+    expect((await sign("rules-approve", { deps: { phone: { request } } })).signature).not.toBeNull();
   });
 
   it("at normal: the act says the guarantee is lesser; with a phone it still signs, without one it goes on", async () => {
