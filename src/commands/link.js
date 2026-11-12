@@ -4,8 +4,10 @@
  * agent's context. Rejected: a long-running `kj link watch` printing messages as they arrive; it would put
  * an untrusted body in front of an agent unasked. Pull keeps "when to read" with the person.
  */
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import { dirname } from "node:path";
+import { promisify } from "node:util";
 import { readBoardConfig } from "../hu/board-config.js";
 import { pinGhIdentity } from "../hu/gh-identity.js";
 import { LINK_FIELDS } from "../link/block.js";
@@ -119,12 +121,55 @@ async function readThread({ projectDir, flags, log, adapter, key, thread, name }
 }
 
 // The owner may rename these: `kj link ceremony <step>`. Nothing else in this file spells them.
-export const CEREMONY_STEPS = ["convene", "gather"];
+export const CEREMONY_STEPS = ["convene", "gather", "close"];
 const need = (flags, name, option) => flags[name] ?? Promise.reject(new Error(`ceremony ${flags.step} needs ${option}`));
+const SUMMARY_SECTIONS = ["conclusions", "improvements", "decisions", "rules"];
+const MAX_SUMMARY_BYTES = 64 * 1024;
+
+/** The summary of a ceremony from a JSON file: `{ conclusions, improvements, decisions, rules }`, each a list of `{ text, authors, security? }`. Fails before anything is written. */
+function readSummary(file) {
+  let stat;
+  try {
+    stat = fs.statSync(file);
+  } catch (err) {
+    throw new Error(`cannot read the summary file: ${err.code ?? err.message}`, { cause: err });
+  }
+  if (!stat.isFile()) throw new Error("the summary file must be a regular file");
+  if (stat.size > MAX_SUMMARY_BYTES) throw new Error(`the summary file is too large (limit ${MAX_SUMMARY_BYTES} bytes)`);
+  let summary;
+  try {
+    summary = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (err) {
+    throw new Error("the summary file is not valid JSON", { cause: err });
+  }
+  if (summary === null || typeof summary !== "object" || Array.isArray(summary)) throw new Error("the summary must be an object of sections");
+  for (const [section, items] of Object.entries(summary)) {
+    if (!SUMMARY_SECTIONS.includes(section)) throw new Error(`unknown section "${section}" in the summary: use ${SUMMARY_SECTIONS.join(", ")}`);
+    const valid = Array.isArray(items) && items.every((i) => typeof i?.text === "string" && (i.authors === undefined || typeof i.authors === "string" || (Array.isArray(i.authors) && i.authors.every((a) => typeof a === "string"))));
+    if (!valid) throw new Error(`section "${section}" must be a list of items with a text and authors`);
+  }
+  return summary;
+}
+
+// The Senescal takes git and the pull request as parameters; these are the real ones, tests inject their own.
+const execFileAsync = promisify(execFile);
+// git asks gh for its HTTPS credential, so the push goes out with the pinned token too (an SSH remote uses its key).
+const GH_CREDENTIAL = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"];
+
+/** git and gh as the account this clone declares (ADR 0040): the pinned token passed in their env, never the active account by accident. */
+function pinnedTools(projectDir, deps) {
+  const env = { ...process.env };
+  const { declared } = (deps.pin ?? pinGhIdentity)({ projectDir, env });
+  const exec = deps.exec ?? execFileAsync;
+  const tool = (cmd, pre = []) => async (args) => (await exec(cmd, [...pre, ...args], { cwd: projectDir, env })).stdout.trim();
+  const gh = tool("gh");
+  const openPr = async ({ branch, title, body }) => ({ url: (await gh(["pr", "create", "--head", branch, "--title", title, "--body", body])).split("\n").at(-1) });
+  return { git: deps.git ?? tool("git", declared ? GH_CREDENTIAL : []), openPr: deps.openPr ?? openPr };
+}
 
 /** A thin layer over the Senescal: options in, its answer out. `deps` injects the Senescal and the clock. */
 async function ceremony({ projectDir, flags, log, makeAdapter, deps }) {
-  const { convene, gather } = deps.senescal ?? realSenescal;
+  const { convene, gather, close } = deps.senescal ?? realSenescal;
   const now = deps.now ?? Date.now;
   if (!CEREMONY_STEPS.includes(flags.step)) throw new Error(`unknown ceremony step "${flags.step}": use ${CEREMONY_STEPS.join(", ")}`);
   if (flags.step === "convene") {
@@ -134,6 +179,13 @@ async function ceremony({ projectDir, flags, log, makeAdapter, deps }) {
     return log(flags.json ? JSON.stringify({ thread, opened }) : opened ? `opened ${input.kind} ceremony ${name}` : `${input.kind} ceremony already open: ${name}`);
   }
   const parsed = parseThread(await need(flags, "thread", "--thread"));
+  if (flags.step === "close") {
+    const author = await need(flags, "author", "--author");
+    const summary = readSummary(await need(flags, "summaryFile", "--summary-file"));
+    const adapter = await adapterOf(makeAdapter, projectDir);
+    const result = await close(adapter, parsed.thread, summary, { author, repo: projectDir, ...pinnedTools(projectDir, deps), now });
+    return log(flags.json ? JSON.stringify({ thread: parsed.name, ...result }) : `proposed the result as a pull request: ${result.url}`);
+  }
   // gather is read-only: no cursor moves, so a second run shows the same contributions
   const { byAuthor, dropped } = await gather(await adapterOf(makeAdapter, projectDir), parsed.thread, { record: loadRecord(projectDir, parsed.key), now });
   if (flags.json) return log(JSON.stringify({ thread: parsed.name, byAuthor, dropped }));
