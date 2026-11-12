@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.20.0] - 2026-11-12
+
+You can now sign with a passkey. `kj identity enroll-phone` without a key creates one on your phone, and the seal and every human act ask for it once it is in the roster. Today's Ed25519 key still signs. Also, an idle lane no longer blocks the stop gate, and the signer page no longer hangs on "Cargando" after a deploy.
+
+### Added
+- **Signing with a passkey** (ADR 0053, KJC-PCS-0110):
+  - `kj identity enroll-phone` without a public key creates a passkey on the phone, and a current signer approves it (#4009);
+  - kj and CI accept a seal, a roster admission, a security level or a main-guard exception signed with a passkey (#4015);
+  - kj asks for the passkey when the roster holds one and records its assertion (#4017);
+  - a roster with only passkeys requires the signed seal and the signed security level (#4020).
+
+  The Ed25519 key keeps signing. The migration and its retirement date come next.
+- **kj stage:**
+  - the board posts a status on each HU an agent works on, at most hourly (#3999);
+  - a teammate's workshop lights up while their status says an agent works on it (#4004);
+  - each lane's state is derived from facts, never from a robot (#3954, by @jorgecasar).
+- **kj link** (by @jorgecasar): `kj link ceremony` convenes and gathers a ceremony (#3994) and writes its result through the Senescal (#3996).
+- **The rulesync hooks** are checked against the repository, read-only (#3997, by @jorgecasar).
+
+### Fixed
+- **The stop gate judges only pending edits**, so an idle lane can rest (#4005, reported in #4001 by the KJ landing work). The board gate prunes a resolved move in the file that holds the session (#4011).
+- **The signer page no longer hangs on "Cargando" after a deploy.** It imports its helper by a URL that changes with the helper's content (#4007).
+
+After this release, run `kj harden` and have it sealed. CI then runs 5.20.0 and accepts a seal signed with a passkey.
+
 ## [5.19.0] - 2026-11-12
 
 The signer roster now keeps its integrity: each key appears once, and a known entry cannot change its type or credential. Updating is recommended. `kj hooks set` and `kj hooks unset` work again, a typo in `policy.yml` is now an error, and the passkey signer moves one step further.
