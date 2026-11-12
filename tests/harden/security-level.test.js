@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { addSigner, canonicalPayload, enrollPhone } from "../../src/harden/phone-sign.js";
 import { DEFAULT_LEVEL, lowerSecurityLevel, raiseSecurityLevel, readSecurityLevel, SECURITY_LEVEL_FILE, signedFilesOf } from "../../src/harden/security-level.js";
+import { passkey, passkeySigned } from "../_fixtures/passkey.js";
 
 const keyPair = () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -97,6 +98,18 @@ describe("lowerSecurityLevel (the catalog act security-level-down), from max", (
     expect(readSecurityLevel({ projectDir: repo, home: bare })).toMatchObject({ level: "normal", source: "file", signer: mine.pub });
     await expect(lower({ home: bare, env: { CLAUDECODE: "1" } })).rejects.toThrow(/acto humano/);
     rmSync(bare, { recursive: true, force: true });
+  });
+
+  // HU-4014 (ADR 0053): a record signed with a roster passkey verifies; off the roster it does not.
+  it("a normal record signed with a roster passkey verifies, named by its credential", () => {
+    const key = passkey("cred-level");
+    writeFileSync(join(repo, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers: [key.entry] }));
+    const record = { level: "normal", since: "2026-11-12T00:00:00.000Z" };
+    const write = (by) => writeFileSync(join(repo, SECURITY_LEVEL_FILE), `${JSON.stringify({ ...record, signature: passkeySigned(by, signedFilesOf(record)) }, null, 2)}\n`);
+    write(key);
+    expect(read()).toMatchObject({ level: "normal", source: "file", signer: "cred-level" });
+    write(passkey("cred-stranger"));
+    expect(read()).toMatchObject({ level: "max", source: "invalid", reason: expect.stringMatching(/passkey que no está en el padrón/) });
   });
 
   // KJC-TSK-1045 (ADR 0020): with no phone anywhere, max only blocks; a person at

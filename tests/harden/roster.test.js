@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { canonicalPayload, readPasskeyCredentials, readSigners } from "../../src/harden/phone-sign.js";
 import { admissionFiles, admitSigner, issueRecoveryCode, readRoster, redeemRecoveryCode, SIGNERS_FILE, verifyRosterChange } from "../../src/harden/roster.js";
+import { passkey as passkeyKey, passkeySigned } from "../_fixtures/passkey.js";
 
 const keyPair = () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -157,6 +158,17 @@ describe("verifyRosterChange with passkey entries (CI)", () => {
     expect(verifyRosterChange({ before: withPasskey, after: { ...withPasskey, signers: [one.signers[0], { ...pk, label: "renamed" }] } })).toEqual({ ok: true, added: 0, spent: false });
     const broken = { ...one, signers: [...one.signers, { ...pk, alg: -257 }] }; // written outside CI
     expect(verifyRosterChange({ before: broken, after: broken })).toMatchObject({ ok: false, reason: /no es una passkey válida: .*algoritmo/ });
+  });
+
+  it("HU-4014: a present passkey admits a new key; a forged or revoked one admits nobody", () => {
+    const key = passkeyKey("cred-present");
+    const c = keyPair();
+    const withKey = { ...one, signers: [...one.signers, key.entry] };
+    const admitted = (before, signedFor = c.pub) => ({ ...before, signers: [...before.signers, { publicKey: c.pub, admission: passkeySigned(key, admissionFiles(signedFor)) }] });
+    expect(verifyRosterChange({ before: withKey, after: admitted(withKey) })).toEqual({ ok: true, added: 1, spent: false });
+    expect(verifyRosterChange({ before: withKey, after: admitted(withKey, b.pub) })).toMatchObject({ ok: false, reason: /entra sin admisión válida: .*no corresponde/ });
+    const revoked = { ...one, signers: [...one.signers, { ...key.entry, revoked: { recoveryProof: "x" } }] };
+    expect(verifyRosterChange({ before: revoked, after: admitted(revoked) })).toMatchObject({ ok: false, reason: /passkey que no está en el padrón/ });
   });
 });
 
