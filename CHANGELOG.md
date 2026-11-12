@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.19.0] - 2026-11-12
+
+The signer roster now keeps its integrity: each key appears once, and a known entry cannot change its type or credential. Updating is recommended. `kj hooks set` and `kj hooks unset` work again, a typo in `policy.yml` is now an error, and the passkey signer moves one step further.
+
+### Fixed
+- **The signer roster** (#3991): each key appears once, a key with any revoked entry is not a live signer, and a known entry cannot change its type or its credential. This is roster integrity: update to this version.
+- **`kj hooks set` and `kj hooks unset` worked for nobody**: the act was missing from the catalog of human acts (#3966, #3961).
+- **An unknown top-level key in `policy.yml` is now a load error**, so a typo such as `invariant:` no longer disables a section in silence (#3967 reported by the KJ landing work, fixed in #3973).
+- **The review's RAG gate** no longer demands an answer for a file that `rag.exclude` keeps out of the index (#3983).
+- **kj stage:** a factory that gains or loses lanes gets a lot of its size (KJC-BUG-0555), each robot of a lane takes a free seat of the bench (#3964), and the scene drops agents that stopped and lanes that are gone without a reload (#3958).
+
+### Added
+- **Passkey signer, step by step** (ADR 0053): the roster verifier accepts passkey entries (#3991) and the signer page can register a passkey (#3984). Signing and enrolling with a passkey from kj comes next; today's key still signs.
+- **kj stage:** a table of the release pile with a drone that takes it away and a version counter that switches (#3971, #3975), the map draws each teammate's factory beside the own one with its cards in progress and says how old its news is (KJC-TSK-1549, #3977, #3989), and `kj worktree note` leaves a lane a note the board shows quoted (KJC-TSK-1541, KJC-TSK-1546).
+
 ## [5.18.0] - 2026-11-11
 
 The phone-signature loop is gone: a new phone is now approved by a signer who already has one. A repo can also declare files that change only with the signed seal, the hooks no longer abort in silence under `set -e`, and the passkey signer begins, with its first two steps in place.
