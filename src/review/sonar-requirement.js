@@ -10,6 +10,8 @@
 import { sourceFilesOf } from "./tests-with-code.js";
 
 export const SONAR_RULE_ID = "method.sonar.code";
+/** KJC-BUG-0229, HU-4046: the paths alive after a change (all but D, a type change T too), one set at commit, publish and CI. */
+export const LIVE_FILTER = "--diff-filter=ACMRT";
 
 const GRANT_HINT = `Only a human grant lifts this: kj policy grant --rule ${SONAR_RULE_ID} --until <iso> --reason "<why>"`;
 
@@ -44,4 +46,20 @@ export function checkSonarRequirement({ config = {}, stagedFiles = [], sonar, st
     return { ok: false, mode: "block", sources, reason: `${head} — the scan never indexed ${uncovered.length} of them (${list}): fix sonar-project.properties so they are analysed. ${GRANT_HINT}` };
   }
   return { ok: true, mode: "pass", sources };
+}
+
+/**
+ * HU-4046: the Sonar proof a verdict carries for the files it covers, one predicate for the
+ * commit gate (--check) and for kj review --publish-pr. The headless pipeline scans the whole
+ * project (no per-file proof yet), so its stamp must at least show the stage RAN.
+ * @returns {{ok: boolean, mode: "docs-only"|"pass"|"granted"|"block", reason?: string, grant?: object}}
+ */
+export function verdictSonarProof({ verdict, config, files, standingExceptions, generated }) {
+  if (verdict.host === "kj-pipeline") {
+    const stage = verdict.sonar;
+    if (stage?.ran) return { ok: true, mode: "pass" };
+    const why = stage ? `the pipeline's sonar stage did not run: ${stage.reason || "unknown reason"}` : "the pipeline verdict carries no sonar block";
+    return { ok: false, mode: "block", reason: `Sonar is mandatory for code — ${why}` };
+  }
+  return checkSonarRequirement({ config, stagedFiles: files, sonar: verdict.sonar, standingExceptions, generated });
 }

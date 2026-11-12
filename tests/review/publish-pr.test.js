@@ -5,21 +5,27 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { publishPrReview } from "../../src/review/publish-pr.js";
 import { saveVerdict } from "../../src/review/verdict-store.js";
+import { runCommand } from "../../src/utils/process.js";
+import { typeChangeCommit } from "./_type-change.js";
 
 let dir;
-beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-publish-")); });
+// A real repo, so git check-attr (linguist-generated) answers instead of failing.
+beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-publish-")); execFileSync("git", ["init", "-q", dir]); });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const DIFFS = { aaa1111: "diff --git a/a.js b/a.js\n+const a = 1;\n", bbb2222: "diff --git a/b.js b/b.js\n+const b = 2;\n" };
 const PR = { headRefOid: "bbb2222", commits: [{ oid: "aaa1111", messageHeadline: "feat: a" }, { oid: "bbb2222", messageHeadline: "fix: b" }] };
-const PUBLISHED = "- `aaa1111` feat: a\n- `bbb2222` fix: b\n<!-- kj-review head=bbb2222 -->";
+const PUBLISHED = "- `aaa1111` feat: a: approved · sonar ok\n- `bbb2222` fix: b: approved · sonar n/a\n<!-- kj-review head=bbb2222 -->";
+// HU-4046: what the Sonar pre-gate stamps on a verdict that analysed every source (a.js is the code).
+const SONAR = { ran: true, covered: ["a.js"] };
 
 // KJC-BUG-0391: mmm3333 is a clean merge of main (its tree is what git merge-tree gives).
 const MERGE = { rev: "mmm3333 bbb2222 main000", tree: "t1" };
 // KJC-BUG-0470: sss4444 touches only what the signed seal vouches for (a hook + the provenance).
-const NAMES = { sss4444: ".karajan/hooks/pre-push\n.karajan/supervisor-provenance.json\n", aaa1111: "a.js\n" };
+const NAMES = { sss4444: ".karajan/hooks/pre-push\n.karajan/supervisor-provenance.json\n", aaa1111: "a.js\n", bbb2222: "README.md\n" };
 const gitOf = (args) => {
   if (args[3] === "--name-only") return NAMES[args.at(-1)] ?? "";
   if (args[2] === "rev-list") return args.at(-1) === "mmm3333" ? MERGE.rev : `${args.at(-1)} p0`;
@@ -41,7 +47,7 @@ function fakeRun({ reviews = [], posted = [], ghDirs = [], pr = PR, labels = [] 
 
 describe("publishPrReview", () => {
   it("every commit with an approved verdict: one review with event COMMENT, each commit, reviewer and diff hash", async () => {
-    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", summary: "looks right" });
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR, summary: "looks right" });
     const posted = [];
     const ghDirs = [];
     const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, ghDirs }) });
@@ -58,7 +64,7 @@ describe("publishPrReview", () => {
 
   // KJC-BUG-0461 (#2315): with kj run retired, publishing the verdicts is where Karajan meets every PR.
   it("the PR gets the Karajan label, on a new publish and when the review was already there", async () => {
-    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     const labels = [];
     await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ labels }) });
     expect(labels.some((l) => l.startsWith("label create Karajan"))).toBe(true);
@@ -70,16 +76,52 @@ describe("publishPrReview", () => {
   });
 
   it("a commit without an approved verdict: fails naming it and publishes nothing", async () => {
-    await saveVerdict(dir, DIFFS.aaa1111, { verdict: "approved", reviewer: "codex" });
+    await saveVerdict(dir, DIFFS.aaa1111, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     await saveVerdict(dir, DIFFS.bbb2222, { verdict: "rejected", reviewer: "codex", issues: [] });
     const posted = [];
     await expect(publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted }) })).rejects.toThrow(/bbb2222 \(fix: b\)/);
     expect(posted).toHaveLength(0);
   });
 
+  // HU-4046: the commit gate's Sonar requirement, evaluated again where --no-verify cannot skip it.
+  it("each approved line carries its Sonar proof: ok for analysed code, n/a for a docs-only commit", async () => {
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR, summary: "two\nlines" });
+    const posted = [];
+    await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted }) });
+    const lines = posted[0].find((a) => a.startsWith("body=")).split("\n");
+    expect(lines.find((l) => l.startsWith("- `aaa1111`"))).toMatch(/\(diff [0-9a-f]{12}\)\. two lines · sonar ok$/);
+    expect(lines.find((l) => l.startsWith("- `bbb2222`"))).toMatch(/ · sonar n\/a$/);
+  });
+
+  it("an approved code commit whose verdict carries no sonar block: fails naming it and publishes nothing", async () => {
+    await saveVerdict(dir, DIFFS.aaa1111, { verdict: "approved", reviewer: "codex" });
+    await saveVerdict(dir, DIFFS.bbb2222, { verdict: "approved", reviewer: "codex" });
+    const posted = [];
+    await expect(publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted }) })).rejects.toThrow(/aaa1111 \(feat: a\): Sonar is mandatory for code/);
+    expect(posted).toHaveLength(0);
+  });
+
+  it("a commit that only changes a source's type (git T) is code: without its Sonar proof nothing is published", async () => {
+    const { oid, diff } = typeChangeCommit(dir);
+    await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    const posted = [];
+    const gh = fakeRun({ posted, pr: { headRefOid: oid, commits: [{ oid, messageHeadline: "feat: x" }] } });
+    const run = (cmd, args, opts) => (cmd === "git" ? runCommand(cmd, args, opts) : gh(cmd, args, opts));
+    await expect(publishPrReview({ projectDir: dir, pr: 42, run })).rejects.toThrow(/\(feat: x\): Sonar is mandatory for code/);
+    expect(posted).toHaveLength(0);
+  });
+
+  it("a review for that head published before the Sonar marks: it publishes again", async () => {
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
+    const posted = [];
+    const reviews = [{ body: "- `aaa1111` feat: a\n- `bbb2222` fix: b\n<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }];
+    expect(await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews }) })).toMatchObject({ published: true });
+    expect(posted).toHaveLength(1);
+  });
+
   // KJC-BUG-0470: verify-pr accepts the owner's kj harden --commit as a signed act; publish-pr must too.
   it("the owner's seal commit needs no AI verdict: the review lists it as the sealed act", async () => {
-    await saveVerdict(dir, DIFFS.aaa1111, { verdict: "approved", reviewer: "codex" });
+    await saveVerdict(dir, DIFFS.aaa1111, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     const sealed = { signed: true, complete: true, files: new Set([".karajan/hooks/pre-push"]) };
     const pr = { headRefOid: "sss4444", commits: [PR.commits[0], { oid: "sss4444", messageHeadline: "chore(harden): sealed" }] };
     const posted = [];
@@ -90,7 +132,7 @@ describe("publishPrReview", () => {
   });
 
   it("a clean merge of main on top needs no verdict and is not listed", async () => {
-    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     const posted = [];
     const pr = { headRefOid: "mmm3333", commits: [...PR.commits, { oid: "mmm3333", messageHeadline: "Merge branch 'main'" }] };
     expect(await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, pr }) })).toMatchObject({ published: true, commits: 2 });
@@ -98,7 +140,7 @@ describe("publishPrReview", () => {
   });
 
   it("already published for that head: it does not duplicate the review", async () => {
-    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     const posted = [];
     const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: PUBLISHED, author_association: "OWNER" }] }) });
     expect(r).toMatchObject({ published: false, reason: expect.stringMatching(/already/) });
@@ -107,7 +149,7 @@ describe("publishPrReview", () => {
 
   // KJC-BUG-0477 (#3127): a retargeted stacked PR gains its base's commit under the same head.
   it("a review for that head that misses a commit of the PR: it publishes again", async () => {
-    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     const posted = [];
     const reviews = [{ body: "- `bbb2222` fix: b: approved\n<!-- kj-review head=bbb2222 -->", author_association: "OWNER" }];
     const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews }) });
@@ -117,7 +159,7 @@ describe("publishPrReview", () => {
 
   // KJC-BUG-0456: verify-pr ignores a review by a non-member (another gh account), so it must not block publishing.
   it("a review for that head by a non-member does not count: it publishes again", async () => {
-    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     const posted = [];
     const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "NONE" }] }) });
     expect(r).toMatchObject({ published: true, commits: 2 });

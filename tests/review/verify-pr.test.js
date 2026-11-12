@@ -5,16 +5,22 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { publishPrReview } from "../../src/review/publish-pr.js";
+import { execFileSync } from "node:child_process";
+import { MARKER, publishPrReview } from "../../src/review/publish-pr.js";
 import { verifyPrReview } from "../../src/review/verify-pr.js";
-import { saveVerdict } from "../../src/review/verdict-store.js";
+import { diffHash, saveVerdict } from "../../src/review/verdict-store.js";
+import { runCommand } from "../../src/utils/process.js";
+import { typeChangeCommit } from "./_type-change.js";
 
 let dir;
-beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verify-")); });
+// A real repo, so git check-attr (linguist-generated) answers instead of failing.
+beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verify-")); execFileSync("git", ["init", "-q", dir]); });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const DIFFS = { aaa1111: "diff --git a/a.js b/a.js\n+const a = 1;\n", bbb2222: "diff --git a/b.js b/b.js\n+const b = 2;\n" };
 const PR = { headRefOid: "bbb2222", commits: [{ oid: "aaa1111", messageHeadline: "feat: a" }, { oid: "bbb2222", messageHeadline: "fix: b" }] };
+// HU-4046: a verdict whose Sonar pre-gate analysed x.js, the file every fake commit touches by default.
+const SONAR = { ran: true, covered: ["x.js"] };
 
 // KJC-BUG-0391: merges, as {sha: {parents, tree, merged}}; merged is what git merge-tree gives.
 // KJC-BUG-0438: blobs, as {"rev:file": id}; a file not listed has the same blob at every revision.
@@ -41,7 +47,7 @@ function fakeRun({ reviews = [], posted = [], diffs = DIFFS, pr = PR, merges = {
 
 /** The review body kj review --publish-pr posts for PR, so both sides read the same format. */
 async function publishedBody() {
-  for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", summary: "ok (diff deadbeef0000) inside" });
+  for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR, summary: "ok (diff deadbeef0000) inside" });
   const posted = [];
   await publishPrReview({ projectDir: dir, pr: 7, run: fakeRun({ posted }) });
   return posted[0].find((a) => a.startsWith("body=")).slice("body=".length);
@@ -52,6 +58,25 @@ describe("verifyPrReview", () => {
     const body = await publishedBody();
     const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [{ body, author_association: "OWNER" }] }) });
     expect(r).toEqual({ ok: true, commits: 2, problems: [] });
+  });
+
+  // HU-4046: --no-verify skips the commit gate's Sonar check, so CI reads the proof on the published line.
+  it("a code commit listed without its Sonar mark fails; a docs-only one passes without it", async () => {
+    const body = (await publishedBody()).replaceAll(" · sonar ok", "");
+    const reviews = [{ body, author_association: "OWNER" }];
+    const code = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews, names: { bbb2222: ["README.md"] } }) });
+    expect(code.problems).toEqual(["aaa1111 (feat: a): its verdict carries no Sonar proof: run kj review --staged with Sonar up, then kj review --publish-pr"]);
+    const docs = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews, names: { aaa1111: ["README.md"], bbb2222: ["docs/x.md"] } }) });
+    expect(docs).toEqual({ ok: true, commits: 2, problems: [] });
+  });
+
+  it("a commit that only changes a source's type (git T) is code: listed as sonar n/a, it fails", async () => {
+    const { oid, diff } = typeChangeCommit(dir);
+    const body = `- \`${oid.slice(0, 7)}\` feat: x: approved by codex (diff ${diffHash(diff).slice(0, 12)}) · sonar n/a\n${MARKER(oid)}`;
+    const gh = fakeRun({ reviews: [{ body, author_association: "OWNER" }], pr: { headRefOid: oid, commits: [{ oid, messageHeadline: "feat: x" }] } });
+    const run = (cmd, args, opts) => (cmd === "git" ? runCommand(cmd, args, opts) : gh(cmd, args, opts));
+    const r = await verifyPrReview({ projectDir: dir, pr: 7, run });
+    expect(r.problems).toEqual([expect.stringMatching(/\(feat: x\): its verdict carries no Sonar proof/)]);
   });
 
   it("fails naming the commit whose diff no longer matches the published hash", async () => {
@@ -66,7 +91,7 @@ describe("verifyPrReview", () => {
   it("passes when this clone abbreviates the index lines to another length than the publisher's", async () => {
     const as = (len) => Object.fromEntries(Object.entries(DIFFS).map(([sha, d]) => [sha, `index ${"0".repeat(len)}..${"a".repeat(len)}\n${d}`]));
     const seenByPublisher = as(9);
-    for (const diff of Object.values(seenByPublisher)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex" });
+    for (const diff of Object.values(seenByPublisher)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
     const posted = [];
     await publishPrReview({ projectDir: dir, pr: 7, run: fakeRun({ posted, diffs: seenByPublisher }) });
     const body = posted[0].find((a) => a.startsWith("body=")).slice("body=".length);

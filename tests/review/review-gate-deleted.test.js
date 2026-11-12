@@ -22,6 +22,7 @@ vi.mock("../../src/review/one-shot-review.js", () => ({ runOneShotReview: (...a)
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
 import { seedRagLedger } from "./_seed-rag-ledger.js";
+import { stageTypeChange } from "./_type-change.js";
 
 let dir;
 const cwd0 = process.cwd();
@@ -69,5 +70,14 @@ describe("review gate × ficheros borrados", () => {
     expect(r.reviewer).toBe("sonar");
     expect(r.issues[0].description).toContain("a.js");
     expect(r.issues[0].description).not.toContain("dora.js");
+  });
+
+  // HU-4046: un cambio de tipo (git T: un enlace que pasa a fichero con codigo) no es un borrado.
+  it("una fuente que solo cambia de tipo sigue viva: el scan la tiene que cubrir", async () => {
+    stageTypeChange(dir, "l.js");
+    pregateMock.mockResolvedValue({ available: true, projectKey: "k", blocking: [], advisory: [], totalProject: 0, covered: [], uncovered: ["l.js"] });
+    const r = await reviewGateCommand({ config: cfg(), flags: { staged: true } });
+    expect(pregateMock.mock.calls[0][0].stagedFiles).toEqual(["l.js"]);
+    expect(r).toMatchObject({ verdict: "rejected", reviewer: "sonar" });
   });
 });
