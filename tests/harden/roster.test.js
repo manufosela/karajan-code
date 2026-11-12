@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { canonicalPayload } from "../../src/harden/phone-sign.js";
+import { canonicalPayload, readPasskeyCredentials, readSigners } from "../../src/harden/phone-sign.js";
 import { admissionFiles, admitSigner, issueRecoveryCode, readRoster, redeemRecoveryCode, SIGNERS_FILE, verifyRosterChange } from "../../src/harden/roster.js";
 
 const keyPair = () => {
@@ -109,5 +109,81 @@ describe("verifyRosterChange (CI)", () => {
     ];
     expect(verifyRosterChange({ before: { signers: one.signers }, after: { signers: [...one.signers, { publicKey: b.pub, admission: signedBy(a, b.pub) }] } })).toMatchObject({ ok: false, reason: /falta cuando entra un móvil/ });
     for (const [after, reason] of cases) expect(verifyRosterChange({ before: one, after }), reason.source).toMatchObject({ ok: false, reason });
+  });
+});
+
+// HU-3987 (KJC-TSK-1532, ADR 0053): CI judges a passkey entry before kj writes any.
+describe("verifyRosterChange with passkey entries (CI)", () => {
+  const code = issueRecoveryCode();
+  const one = { signers: [{ publicKey: a.pub }], recovery: { fingerprint: code.fingerprint } };
+  const spki = (pair) => pair.publicKey.export({ type: "spki", format: "der" }).toString("base64");
+  const P256 = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const ED = generateKeyPairSync("ed25519");
+  const passkey = (over = {}) => ({ type: "webauthn", credentialId: "cred-1", publicKey: spki(P256), alg: -7, label: "phone", enrolledAt: "2026-11-12T00:00:00Z", ...over });
+  const signedIn = (entry) => ({ ...one, signers: [...one.signers, { ...entry, admission: signedBy(a, entry.publicKey) }] });
+
+  it("accepts a passkey as the first roster, admitted with the recovery code, or signed by a present Ed25519 signer", () => {
+    for (const entry of [passkey(), passkey({ publicKey: spki(ED), alg: -8 })]) {
+      expect(verifyRosterChange({ before: null, after: { signers: [entry], recovery: one.recovery } })).toEqual({ ok: true, bootstrap: true });
+    }
+    const redeemed = { signers: [...one.signers, { ...passkey(), admission: { recoveryProof: sha(code.code) } }], recovery: { fingerprint: issueRecoveryCode().fingerprint } };
+    expect(verifyRosterChange({ before: one, after: redeemed })).toEqual({ ok: true, added: 1, spent: true });
+    expect(verifyRosterChange({ before: one, after: signedIn(passkey()) })).toEqual({ ok: true, added: 1, spent: false });
+  });
+
+  it("refuses a wrong alg, a key off its alg, an empty credentialId, a non-SPKI key and an unknown type, first or added", () => {
+    const cases = [
+      [passkey({ alg: -257 }), /no es una passkey válida: .*algoritmo/],
+      [passkey({ alg: -8 }), /no es una passkey válida: .*no es del tipo de su algoritmo/],
+      [passkey({ credentialId: "" }), /no es una passkey válida: .*credentialId/],
+      [passkey({ publicKey: b.pub }), /no es una passkey válida: .*no es una SPKI/],
+      [passkey({ type: "x509" }), /tiene un tipo desconocido/],
+    ];
+    for (const [entry, reason] of cases) {
+      expect(verifyRosterChange({ before: null, after: { signers: [entry], recovery: one.recovery } }), reason.source).toMatchObject({ ok: false, reason: new RegExp(`el primer padrón lleva UN móvil.*${reason.source}`) });
+      expect(verifyRosterChange({ before: one, after: signedIn(entry) }), reason.source).toMatchObject({ ok: false, reason });
+    }
+  });
+
+  it("judges every entry, not only the new ones, and a known key keeps its type and credential", () => {
+    const pk = passkey();
+    const withPasskey = { ...one, signers: [...one.signers, pk] };
+    const rewritten = [
+      [one, [{ publicKey: a.pub, type: "webauthn", credentialId: "cred-1", alg: -7 }]], // a known Ed25519 signer rewritten as an invalid passkey
+      [withPasskey, [one.signers[0], { ...pk, credentialId: "cred-2" }]],
+      [withPasskey, [one.signers[0], { ...pk, alg: -8 }]],
+    ];
+    for (const [before, signers] of rewritten) expect(verifyRosterChange({ before, after: { ...before, signers } })).toMatchObject({ ok: false, reason: /cambia de tipo o de credencial/ });
+    expect(verifyRosterChange({ before: withPasskey, after: { ...withPasskey, signers: [one.signers[0], { ...pk, label: "renamed" }] } })).toEqual({ ok: true, added: 0, spent: false });
+    const broken = { ...one, signers: [...one.signers, { ...pk, alg: -257 }] }; // written outside CI
+    expect(verifyRosterChange({ before: broken, after: broken })).toMatchObject({ ok: false, reason: /no es una passkey válida: .*algoritmo/ });
+  });
+});
+
+// HU-3987: each key appears once in the roster, and a key with a revoked entry is not live.
+describe("each key appears once in the roster", () => {
+  const code = issueRecoveryCode();
+  const proof = sha(code.code);
+  const one = { signers: [{ publicKey: a.pub }], recovery: { fingerprint: code.fingerprint } };
+  const replaced = { signers: [{ publicKey: a.pub, revoked: { recoveryProof: proof } }, { publicKey: b.pub, admission: { recoveryProof: proof } }], recovery: { fingerprint: issueRecoveryCode().fingerprint } };
+  const repeats = /repite la clave .*: cada clave entra una vez/;
+
+  it("refuses a revoked key with an unrevoked copy appended, and a typed copy of a known key", () => {
+    expect(verifyRosterChange({ before: replaced, after: { ...replaced, signers: [...replaced.signers, { publicKey: a.pub }] } })).toMatchObject({ ok: false, reason: repeats });
+    expect(verifyRosterChange({ before: one, after: { ...one, signers: [...one.signers, { publicKey: a.pub, type: "webauthn" }] } })).toMatchObject({ ok: false, reason: repeats });
+  });
+
+  it("refuses a duplicate in a first roster, and reports a previous roster that holds one", () => {
+    const doubled = { ...one, signers: [...one.signers, ...one.signers] };
+    expect(verifyRosterChange({ before: null, after: doubled })).toMatchObject({ ok: false, reason: /^el padrón repite la clave/ });
+    expect(verifyRosterChange({ before: doubled, after: one })).toMatchObject({ ok: false, reason: /^el padrón anterior repite la clave .*: cada clave entra una vez/ });
+  });
+
+  it("the readers report a key with one revoked entry as not live", () => {
+    const pk = { type: "webauthn", credentialId: "cred-1", publicKey: generateKeyPairSync("ec", { namedCurve: "P-256" }).publicKey.export({ type: "spki", format: "der" }).toString("base64"), alg: -7 };
+    admit({ publicKey: a.pub }); // creates the roster's directory
+    writeFileSync(join(dir, SIGNERS_FILE), JSON.stringify({ signers: [...replaced.signers, { publicKey: a.pub }, { ...pk, revoked: { recoveryProof: proof } }, pk] }));
+    expect(readSigners({ projectDir: dir })).toEqual([b.pub]);
+    expect(readPasskeyCredentials({ projectDir: dir })).toEqual([]);
   });
 });

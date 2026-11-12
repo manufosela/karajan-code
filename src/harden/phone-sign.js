@@ -75,12 +75,14 @@ export const isPhoneEnrolled = ({ home } = {}) => existsSync(phoneKeyPath(home))
 export const readEnrolledKey = ({ home } = {}) =>
   JSON.parse(readFileSync(phoneKeyPath(home), "utf8")).publicKey;
 
-/** Live entries of the repo roster (or [] if none). */
+/** Live entries of the repo roster (or [] if none). HU-3987: a key with ANY revoked entry is not live. */
 function liveSigners(projectDir) {
   try {
     const doc = JSON.parse(readFileSync(signersPath(projectDir), "utf8"));
     // KJC-TSK-0999 (HUM-B2): a phone replaced with the recovery code is revoked and signs no more.
-    return Array.isArray(doc?.signers) ? doc.signers.filter((s) => s && !s.revoked) : [];
+    const signers = Array.isArray(doc?.signers) ? doc.signers.filter(Boolean) : [];
+    const revoked = new Set(signers.filter((s) => s.revoked).map((s) => s.publicKey));
+    return signers.filter((s) => !revoked.has(s.publicKey));
   } catch {
     return [];
   }

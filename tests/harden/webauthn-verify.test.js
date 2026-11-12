@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { readPasskeyCredentials, readSigners } from "../../src/harden/phone-sign.js";
-import { WEBAUTHN_ORIGIN, WEBAUTHN_RP_ID, verifyWebAuthnAssertion } from "../../src/harden/webauthn-verify.js";
+import { passkeyEntryProblem, WEBAUTHN_ORIGIN, WEBAUTHN_RP_ID, verifyWebAuthnAssertion } from "../../src/harden/webauthn-verify.js";
 
 // Literal, not imported: the exported constants are under test too.
 const RP_ID = "karajancode.com";
@@ -70,6 +70,27 @@ describe("verifyWebAuthnAssertion (HU-3919)", () => {
   });
 });
 
+// HU-3987: the shape of a roster passkey entry, as CI and the enrollment judge it.
+describe("passkeyEntryProblem (HU-3987)", () => {
+  it("accepts an ES256 and an Ed25519 passkey, and names each problem of a bad one", () => {
+    expect(passkeyEntryProblem(credentialOf(P256, -7))).toBeNull();
+    expect(passkeyEntryProblem(credentialOf(ED, -8))).toBeNull();
+    const raw = ED.publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+    const cases = [
+      [{ ...credentialOf(P256, -7), credentialId: "" }, /credentialId/],
+      [{ ...credentialOf(P256, -7), credentialId: "not base64url!" }, /credentialId/],
+      [{ ...credentialOf(P256, -7), alg: -257 }, /algoritmo/],
+      [{ ...credentialOf(P256, -7), publicKey: raw }, /no es una SPKI/],
+      [{ ...credentialOf(P256, -7), publicKey: undefined }, /no es una SPKI/],
+      [credentialOf(P256, -8), /no es del tipo de su algoritmo/],
+      [credentialOf(ED, -7), /no es del tipo de su algoritmo/],
+      [credentialOf(generateKeyPairSync("ec", { namedCurve: "P-384" }), -7), /no es del tipo de su algoritmo/],
+      [undefined, /credentialId/],
+    ];
+    for (const [entry, reason] of cases) expect(passkeyEntryProblem(entry), reason.source).toMatch(reason);
+  });
+});
+
 describe("roster with passkeys (HU-3919)", () => {
   it("returns only the non-revoked passkeys, and readSigners keeps only the Ed25519 keys", () => {
     const projectDir = mkdtempSync(join(tmpdir(), "kj-passkey-"));
@@ -79,7 +100,7 @@ describe("roster with passkeys (HU-3919)", () => {
       { publicKey: edKey, label: "old phone" },
       { publicKey: "revoked-ed25519", revoked: { at: "2026-11-11T00:00:00Z" } },
       passkey,
-      { ...passkey, credentialId: "cred-2", revoked: { at: "2026-11-11T00:00:00Z" } },
+      { ...passkey, credentialId: "cred-2", publicKey: spki(ED), alg: -8, revoked: { at: "2026-11-11T00:00:00Z" } },
     ];
     mkdirSync(join(projectDir, ".karajan"));
     writeFileSync(join(projectDir, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers }));

@@ -10,12 +10,46 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { validatePhonePublicKey, verifySignedFiles } from "./phone-sign.js";
+import { passkeyEntryProblem } from "./webauthn-verify.js";
 
 export const SIGNERS_FILE = ".karajan/supervisor-signers.json";
 const CODE_RE = /^kjrc(-[a-z2-7]{5}){4}$/;
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 const short = (key) => `${String(key).slice(0, 8)}…`;
 const validKey = (key) => { try { validatePhonePublicKey(key); return true; } catch { return false; } };
+
+/** HU-3987: why a roster entry is not valid, or null. No `type` is an Ed25519 key; "webauthn" a passkey (ADR 0053). */
+function entryProblem(entry) {
+  if (entry.type === undefined) return validKey(entry.publicKey) ? null : "no es una clave ed25519 válida (base64 de 32 bytes)";
+  if (entry.type !== "webauthn") return `tiene un tipo desconocido (${String(entry.type)})`;
+  const problem = passkeyEntryProblem(entry);
+  return problem ? `no es una passkey válida: ${problem}` : null;
+}
+
+/** HU-3987: what makes an entry the signer it is. A known key keeps them: rewriting them would retype or disable a signer with no proof. */
+const IDENTITY = ["type", "credentialId", "alg"];
+
+/** HU-3987: CI judges EVERY entry of the new roster, not only the new ones, and a known key keeps its identity. The first failure, or null. */
+function rosterProblem(prev, next) {
+  for (const entry of next.signers) {
+    const previous = prev.signers.find((s) => s.publicKey === entry.publicKey);
+    const rewritten = previous && IDENTITY.some((field) => entry[field] !== previous[field]);
+    const problem = rewritten ? "cambia de tipo o de credencial, y una clave del padrón no se rehace: la nueva entra aparte, admitida" : entryProblem(entry);
+    if (problem) return `la clave ${short(entry.publicKey)} ${problem}`;
+  }
+  return null;
+}
+
+/** HU-3987: the first entry whose key the roster already holds (each key appears once in the roster), or undefined. */
+const repeatedEntry = (roster) => roster.signers.find((s, i) => roster.signers.findIndex((o) => o.publicKey === s.publicKey) !== i);
+
+/** The first roster: ONE valid entry and its code's fingerprint; the rest enter admitted. */
+function verifyBootstrap(next, fresh) {
+  const rule = "el primer padrón lleva UN móvil (clave ed25519 o passkey válida) y la huella de su código de recuperación; los demás entran admitidos";
+  if (next.signers.length !== 1 || !fresh) return { ok: false, reason: rule };
+  const problem = rosterProblem({ signers: [] }, next);
+  return problem ? { ok: false, reason: `${rule}: ${problem}` } : { ok: true, bootstrap: true };
+}
 
 /** 100 random bits as kjrc-xxxxx-xxxxx-xxxxx-xxxxx; the roster keeps the fingerprint only. */
 export function issueRecoveryCode(random = randomBytes) {
@@ -73,7 +107,8 @@ export function admitSigner({ projectDir, publicKey, label = null, admission = n
 }
 
 /**
- * CI's judgment of a roster change: every key that enters carries a valid admission,
+ * CI's judgment of a roster change: each key appears once, every entry is valid and a known key keeps its type
+ * and credential (HU-3987), every key that enters carries a valid admission,
  * no key leaves, and the code's sha256 rotates only when one is spent (once).
  * @returns {{ok: boolean, reason?: string, bootstrap?: boolean, added?: number, spent?: boolean}}
  */
@@ -81,6 +116,10 @@ export function verifyRosterChange({ before, after }) {
   const fail = (reason) => ({ ok: false, reason });
   const prev = normalize(before);
   const next = normalize(after);
+  const repeatedBefore = repeatedEntry(prev);
+  if (repeatedBefore) return fail(`el padrón anterior repite la clave ${short(repeatedBefore.publicKey)}: cada clave entra una vez`);
+  const repeated = repeatedEntry(next);
+  if (repeated) return fail(`el padrón repite la clave ${short(repeated.publicKey)}: cada clave entra una vez`);
   // `known`: every key the previous roster had, revoked or not (a revoked one is not new);
   // `present`: the ones still allowed to sign, the only ones that can admit a key.
   const known = new Set(prev.signers.map((s) => s.publicKey));
@@ -95,11 +134,12 @@ export function verifyRosterChange({ before, after }) {
   const revoked = next.signers.filter((n) => n.revoked && !prev.signers.find((s) => s.publicKey === n.publicKey)?.revoked);
   if (revoked.length > 1) return fail("un código de recuperación revoca UN móvil, y este cambio revoca varios");
   if (revoked.length === 1 && !backed(revoked[0].revoked.recoveryProof)) return fail(`la clave ${short(revoked[0].publicKey)} se revoca sin el código de recuperación de este padrón`);
-  if (known.size === 0) return next.signers.length === 1 && fresh && validKey(next.signers[0].publicKey) ? { ok: true, bootstrap: true } : fail("el primer padrón lleva UN móvil (clave ed25519 válida) y la huella de su código de recuperación; los demás entran admitidos");
+  if (known.size === 0) return verifyBootstrap(next, fresh);
+  const invalid = rosterProblem(prev, next);
+  if (invalid) return fail(invalid);
   const added = next.signers.filter((n) => !known.has(n.publicKey));
   let spent = false;
   for (const entry of added) {
-    if (!validKey(entry.publicKey)) return fail(`la clave ${short(entry.publicKey)} no es una clave ed25519 válida (base64 de 32 bytes)`);
     const admission = entry.admission ?? null;
     if (admission?.recoveryProof) {
       if (spent) return fail("un código de recuperación admite UNA clave, y este cambio mete dos con él");
