@@ -16,7 +16,7 @@ import { conductorAt, withBeat } from './conductor.js';
 import { PIECE_WALK_MS, VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js';
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
-import { readyToRelease } from './release.js';
+import { newRelease, readyToRelease, versionLine } from './release.js';
 import { laneStatuses, statusLine } from './lane-status.js';
 import { mailboxOf, withMail } from './mail.js';
 import { goneLanes, staleEnds } from './resync.js';
@@ -35,7 +35,7 @@ const OVER_PIECE = 1.6;
 const overPiece = (text, position, camera, origin, className) =>
   tagAt(text, position.clone().setY(position.y + OVER_PIECE), camera, { className, origin });
 
-export function createLive({ scene, pieces, crew, camera, stand, hall, wall, releaseTable, refit, origin }, { state: initial, tell, counts }) {
+export function createLive({ scene, pieces, crew, camera, stand, hall, wall, releaseTable, versionBoard, refit, origin }, { state: initial, tell, counts }) {
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
@@ -62,6 +62,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     wall.show(state.cards); // KJC-TSK-1459: repainted only when a card moved
     // KJC-TSK-1526: the cards done since the last release, piled on their table.
     releaseTable.show(readyToRelease(state.cards ?? [], state.release), state.release);
+    versionBoard?.show(versionLine(state.release)); // KJC-TSK-1545
     return rest;
   };
   /**
@@ -122,8 +123,11 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const gone = goneLanes(hall.names(), server.lanes ?? [], state.working ?? []);
       if (gone.map((lane) => hall.remove(lane)).some(Boolean)) refit();
       for (const end of staleEnds(state.working ?? [], server.working ?? [], new Date().toISOString())) api.push(end, now);
-      // The branch facts and notes the statuses read, as the board sees them now.
-      state = { ...state, lanes: server.lanes ?? state.lanes };
+      // The branch facts and notes the statuses read, as the board sees them now; and
+      // KJC-TSK-1545: a new release takes the pile off the table and changes the counter.
+      const released = newRelease(state.release, server.release);
+      state = { ...state, lanes: server.lanes ?? state.lanes, ...(released ? { release: server.release } : {}) };
+      if (released) tell(settle().lines);
       showStatuses();
     },
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */

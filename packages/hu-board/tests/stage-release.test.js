@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { lastRelease } from '../src/stage-release.js';
 import { laneStates } from '../src/stage-state.js';
-import { readyToRelease, releaseSign } from '../public/stage/release.js';
+import { newRelease, readyToRelease, releaseSign, versionLine } from '../public/stage/release.js';
 import { acrossLanes } from '../public/stage/rest.js';
 
 let proj;
@@ -50,5 +50,24 @@ describe('readyToRelease', () => {
   it('signs the table with how many and since which release (KJC-TSK-1526)', () => {
     expect(releaseSign(3, { tag: 'v5.16.0', at: 'x' })).toEqual(['Ready to release · 3', 'since v5.16.0']);
     expect(releaseSign(0, null)).toEqual(['Ready to release · 0', 'no release yet']);
+  });
+});
+
+// KJC-TSK-1545 (asked by the maintainer on 2026-11-11): a counter shows the version, and a new
+// release seen when the scene resyncs is the moment the pile goes and the counter changes.
+describe('the version counter', () => {
+  const v1 = { tag: 'v5.15.0', at: '2026-11-10T10:00:00Z' };
+  const v2 = { tag: 'v5.16.0', at: '2026-11-12T10:00:00Z' };
+
+  it('says the last release, or that there is none yet', () => {
+    expect(versionLine(v2)).toBe('v5.16.0');
+    expect(versionLine(null)).toBe('no release yet');
+  });
+
+  it('sees a new release only when the tag changes to another one', () => {
+    expect(newRelease(v1, v2)).toBe(true);
+    expect(newRelease(null, v1)).toBe(true);
+    expect(newRelease(v1, { ...v1 })).toBe(false);
+    expect(newRelease(v1, null)).toBe(false);
   });
 });
