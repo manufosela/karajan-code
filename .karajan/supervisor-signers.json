@@ -16,6 +16,26 @@
         "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
         "signature": "lJnFyOE4/n9RAHqsvmAscRIKxFDM0AhgL4wa/zpBtt1mh6G5rsseMIuMjM/1Z7mDHBpw3aQ8mYus/Nbc1O6gDw=="
       }
+    },
+    {
+      "type": "webauthn",
+      "credentialId": "xWJyPFF0_V2TTKDp65cesw",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE3qxlx/ZrUwduFhcdTmObgw3BGnE3AcI5Zg4rf3CVDguN/nBAMPrtiiX1kwyCe/bp+wGYgSTaJgSP/ReWDlc9BQ==",
+      "alg": -7,
+      "label": "passkey-manu",
+      "enrolledAt": "2026-11-12T17:45:27.438Z",
+      "admission": {
+        "cid": "562f09b97c416a8823908d139c7baf6e",
+        "nonce": "e1dfb03a722e7953248dae489efcf627",
+        "project": "manufosela/karajan-code",
+        "filesHash": "2bbf3fcf8021e2c59aacd8669a6b1896148eb345f7754c505209648902fff3a7",
+        "v": 2,
+        "kjVersion": "5.20.0",
+        "issuedMs": 1794505513776,
+        "expiresMs": 1794506113776,
+        "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
+        "signature": "76Ieh+srN8tp3jyCaGIqWufsWVwmW492HN7CrsYvelWwR9xJy+M9OTIwdgvWyT+38U6A32ONrOD4Ex57tYMRCw=="
+      }
     }
   ],
   "recovery": {
