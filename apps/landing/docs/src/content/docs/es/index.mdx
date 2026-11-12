@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.19.0: la lista de firmantes conserva su integridad, `kj hooks set` funciona y las erratas de policy.yml se detectan (actual)
+### v5.20.0: firmas con una passkey (actual)
+
+`kj identity enroll-phone` sin clave crea una passkey en tu móvil, y la aprueba un firmante vigente. A partir de ahí el sello y cada acto humano piden esa passkey, y la CI la verifica. Una lista de firmantes con solo passkeys exige el sello firmado, igual que una con claves. La clave de hoy sigue firmando hasta la migración, que llega después con su fecha. Además, un carril parado ya no bloquea la puerta de parada, y la página de firma ya no se queda en «Cargando» tras un despliegue. Ejecuta `kj harden` y pide el sello, para que la CI acepte un sello firmado con passkey.
+
+### v5.19.0: la lista de firmantes conserva su integridad, `kj hooks set` funciona y las erratas de policy.yml se detectan
 
 La lista de firmantes conserva ahora su integridad: cada clave aparece una sola vez y una entrada conocida no puede cambiar de tipo ni de credencial, así que conviene actualizar a esta versión. `kj hooks set` y `kj hooks unset` vuelven a funcionar, y una clave de primer nivel desconocida en `policy.yml` es un error de carga, de modo que una errata como `invariant:` ya no desactiva una sección en silencio. El firmante con passkey avanza un paso: el verificador de la lista acepta entradas de passkey y la página del firmante puede registrar una passkey, mientras que la firma sigue usando la clave de hoy.
 

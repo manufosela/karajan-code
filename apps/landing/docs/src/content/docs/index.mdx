@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.19.0: the signer roster keeps its integrity, `kj hooks set` works, and policy.yml typos are caught (current)
+### v5.20.0: you sign with a passkey (current)
+
+`kj identity enroll-phone` without a key creates a passkey on your phone, and a current signer approves it. From then on the seal and every human act ask for that passkey, and CI verifies it. A roster with only passkeys requires the signed seal, as one with keys does. Today's key keeps signing until the migration, which comes next with its date. Also, an idle lane no longer blocks the stop gate, and the signer page no longer hangs on "Cargando" after a deploy. Run `kj harden` and have it sealed, so CI accepts a seal signed with a passkey.
+
+### v5.19.0: the signer roster keeps its integrity, `kj hooks set` works, and policy.yml typos are caught
 
 The signer roster now keeps its integrity: each key appears once and a known entry cannot change its type or credential, so update to this version. `kj hooks set` and `kj hooks unset` work again, and an unknown top-level key in `policy.yml` is a load error, so a typo such as `invariant:` no longer disables a section in silence. The passkey signer moves one step further: the roster verifier accepts passkey entries and the signer page can register a passkey, while signing still uses today's key.
 
