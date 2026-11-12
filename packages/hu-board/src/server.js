@@ -22,6 +22,7 @@ import { reapZombieHus } from './hu-zombie-reaper.js';
 import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
 import { startLaneSweeper } from './lane-sweeper.js';
+import { startStatusBeat } from './link-status.js';
 import { startupBanner } from './startup-banner.js';
 import { spaFallback } from './spa-fallback.js';
 import { findAvailablePort as findAvailablePortBase } from 'karajan-core/port-check';
@@ -275,6 +276,8 @@ async function main() {
 
   // KJC-TSK-1479: abandoned lanes of every project are retired at start and every hour.
   startLaneSweeper();
+  // KJC-TSK-1552 (ADR 0054): a status on each HU an agent works on, for the teammates' stage.
+  startStatusBeat();
 
   // Start file watcher
   const watcher = startWatcher();

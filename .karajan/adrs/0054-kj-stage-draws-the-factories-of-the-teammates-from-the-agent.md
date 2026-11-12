@@ -16,11 +16,13 @@ Accepted by the maintainer on 2026-11-11.
 3. It draws the last known state, not live animation, because ADR 0043 decides polling. Each remote factory shows the age of its last message and goes dim after a while.
 4. What is published obeys the privacy rules of ADR 0043: public repository, no home paths, no secrets, kj privacy scan before it goes.
 
+5. Decided by the maintainer on 2026-11-12: the own status is published as a status message on the issue of each HU in progress, at most once an hour while an agent works on it, and once more when it stops. The board daemon posts it through kj link, so the rules of use and the privacy scan of ADR 0043 apply; KJ_LINK_STATUS=off turns it off.
+
 Out of scope: the ceremonies of the Senescal (a later ADR) and any live event stream between machines.
 
 ## Open questions
 
-- How long until a remote factory goes dim.
+- How long until a remote factory goes dim (30 min to start with, KJC-TSK-1550).
 - Whether a person can hide their factory from the team map.
 - Where the Senescal ceremonies appear on the map.
 
