@@ -76,6 +76,12 @@ export const LANGUAGE_GUIDELINES = {
     "- Follow the Kotlin coding conventions; prefer `val`, null-safety over `!!`, and immutable data classes.",
     "- Lint and format run the tasks the build applies (ktlint, detekt, spotless); apply none and kj infers no lint step.",
   ],
+  swift: [
+    "",
+    "## Swift",
+    "- Follow the Swift API Design Guidelines; prefer `let`, value types, and `guard let` over force unwraps (`!`).",
+    "- SwiftLint and SwiftFormat run only with their config (`.swiftlint.yml`, `.swiftformat`); `swift test` only for SwiftPM.",
+  ],
   rust: [
     "",
     "## Rust",

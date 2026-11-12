@@ -58,7 +58,8 @@ export function rootTestSteps(cmds) {
   ];
   for (const root of cmds.roots) {
     const run = `${root.test} || { echo 'kj harden: tests failed in ${quoted(root.dir)}'; exit 1; }`;
-    lines.push(...(root.test ? rootBlock(root, cmds.roots, "kj_push_touches", [run]) : [noCommand(root, "test")]));
+    const why = root.testNote ? `: ${root.testNote}` : ""; // HU-4067: e.g. an Xcode root
+    lines.push(...(root.test ? rootBlock(root, cmds.roots, "kj_push_touches", [run]) : [`${noCommand(root, "test")}${why}`]));
   }
   return lines;
 }

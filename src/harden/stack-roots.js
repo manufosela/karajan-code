@@ -33,9 +33,22 @@ const IGNORE_DIRS = new Set([
   "testdata",
   "__fixtures__",
 ]);
-const DEFAULT_MAX_DEPTH = 2;
+// HU-4067: depth 3 reaches an iOS app beside its Android one (apps/mobile/iosApp).
+const DEFAULT_MAX_DEPTH = 3;
 // HU-3520: a Gradle build (Kotlin/Android/Java) is its own stack, whatever helper scripts sit beside it.
 const GRADLE_MARKERS = ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts", "gradlew"];
+
+/** HU-4067: a SwiftPM package, an XcodeGen spec that declares targets, or an Xcode project. */
+function isSwiftRoot(dir) {
+  if (existsSync(join(dir, "Package.swift"))) return true;
+  try {
+    const spec = join(dir, "project.yml");
+    if (existsSync(spec) && /^targets:/m.test(readFileSync(spec, "utf8"))) return true;
+    return readdirSync(dir, { withFileTypes: true }).some((e) => e.isDirectory() && e.name.endsWith(".xcodeproj"));
+  } catch {
+    return false; // an unreadable spec or dir is no evidence of Swift
+  }
+}
 
 /**
  * Minimal glob for harden scope flags — no dynamic RegExp (eslint security).
@@ -74,6 +87,7 @@ export function languageAt(dir) {
   if (existsSync(join(dir, "go.mod"))) return "go";
   if (existsSync(join(dir, "composer.json"))) return "php";
   if (GRADLE_MARKERS.some((f) => existsSync(join(dir, f)))) return "gradle";
+  if (isSwiftRoot(dir)) return "swift";
   return null;
 }
 

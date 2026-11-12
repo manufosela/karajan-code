@@ -92,7 +92,8 @@ export async function resolveHookCmds(projectDir, roots, scope = {}) {
   if (roots.every((r) => r.dir === ".")) return { ...(await resolveCmds(projectDir, roots[0]?.language ?? null, scope)), ...pinned };
   const perRoot = await Promise.all(roots.map(async ({ dir, language }) => {
     const found = await resolveCmds(join(projectDir, dir), language);
-    return { dir, language, ...Object.fromEntries(HOOK_STEPS.filter((s) => found[s] && !pinned[s]).map((s) => [s, found[s]])) };
+    const steps = Object.fromEntries(HOOK_STEPS.filter((s) => found[s] && !pinned[s]).map((s) => [s, found[s]]));
+    return { dir, language, ...steps, ...(found.testNote && { testNote: found.testNote }) };
   }));
   return { ...pinned, roots: perRoot };
 }

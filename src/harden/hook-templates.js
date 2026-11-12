@@ -182,7 +182,8 @@ function bakedConvention(value) {
 // `kj harden`) is not a missing command, so it gets its own comment instead.
 function prePushWithoutTests(cmds) {
   if (cmds.testSkippedByCi) return ["# Tests run in CI on each PR, not on push."];
-  return ["# No test command detected for this stack: say so, do not block the push.", "echo 'kj harden: tests skipped: no test command detected for this stack'"];
+  const why = cmds.testNote ? [`# No test step for ${cmds.testNote}.`] : []; // HU-4067
+  return [...why, "# No test command detected for this stack: say so, do not block the push.", "echo 'kj harden: tests skipped: no test command detected for this stack'"];
 }
 
 export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention = "conventional" } = {}) {
