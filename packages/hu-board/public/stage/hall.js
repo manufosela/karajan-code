@@ -3,6 +3,7 @@
 // time gets its workshop and the row recentres.
 import * as THREE from 'three';
 import { WORKSHOP, workshopAt } from './layout.js';
+import { plateName } from './lane-status.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
@@ -26,7 +27,7 @@ function nameplate(name) {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#c9d6e3';
     ctx.font = '600 52px system-ui, sans-serif';
-    ctx.fillText(cut(name, 18), 256, 48);
+    ctx.fillText(cut(plateName(name), 18), 256, 48);
     if (line) {
       ctx.fillStyle = TONE[state] ?? '#c9d6e3';
       // As large as fits the plate, down to a size still readable from the default camera.
