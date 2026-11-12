@@ -279,10 +279,23 @@ export const laneViolations = (s) => Object.entries(s?.lanes ?? {})
 // KJC-BUG-0279/0523: a path outside the repository (empty, "..", "../…" or absolute on either
 // platform: "/x", or "C:/x" for a file on another Windows drive, separators already "/") is not one of its files.
 export const insideRepo = (rel) => Boolean(rel) && rel !== ".." && !rel.startsWith("../") && !posix.isAbsolute(rel) && !win32.isAbsolute(rel);
+// HU-4092 (#4089): a file git ignores is not a source the work owes a test for. git answers
+// (literal pathspecs, untracked files only: a tracked file is never "ignored"); a git error
+// ignores nothing, so the gate stays armed.
+const gitIgnored = (files, top) => {
+  const r = spawnSync("git", ["-C", top, "check-ignore", "--stdin", "-z"], { encoding: "utf8", input: files.join("\0") });
+  return r.status === 0 ? r.stdout.split("\0").filter(Boolean) : [];
+};
+// `ignoredOf(files, top)` lists the ignored ones: injectable, so the rule is tested without git.
+export const notIgnored = (files, top, ignoredOf = gitIgnored) => {
+  if (!files.length) return files;
+  const ignored = new Set(ignoredOf(files, top));
+  return files.filter((f) => !ignored.has(f));
+};
 export const violations = (rec, branch, pending = pendingMoves(rec), top = laneTop()) => {
   const v = pending.map(pendingText);
   // KJC-BUG-0523: a state from an older harness may still hold paths outside; only the inside ones are judged.
-  const s = rec && { edited_sources: (rec.edited_sources || []).filter(insideRepo), edited_tests: (rec.edited_tests || []).filter(insideRepo) };
+  const s = rec && { edited_sources: notIgnored((rec.edited_sources || []).filter(insideRepo), top), edited_tests: (rec.edited_tests || []).filter(insideRepo) };
   if (!s || !s.edited_sources.length) return v;
   if (bootstrapPhase()) return v;
   if (!holdsPendingSource(s.edited_sources, top, laneBases(top, branch))) return v;
