@@ -42,6 +42,15 @@ describe("stop gate × delete-only source edits", () => {
     expect(r.status).toBe(0);
   });
 
+  it("a new source file that git ignores owes no test (#4089)", () => {
+    fs.writeFileSync(path.join(dir, ".gitignore"), "src/gen.js\n");
+    fs.writeFileSync(path.join(dir, "src", "gen.js"), "new()\n");
+    run(postScript, edit(path.join(dir, "src", "gen.js")));
+    const r = stop();
+    expect(`${r.stdout}${r.stderr}`).not.toMatch(/sin tocar un solo test/);
+    expect(r.status).toBe(0);
+  });
+
   it("a source edit that ADDS lines still owes its test", () => {
     fs.writeFileSync(path.join(dir, "src", "a.js"), "line1\nline2\nline3\nline4\nnew()\n");
     run(postScript, edit(path.join(dir, "src", "a.js")));
