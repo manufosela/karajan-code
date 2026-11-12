@@ -89,5 +89,6 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
     ...(id === "phone-enroll" ? { ttlMs: 600000 } : {}), deps: { projectDir, home },
   });
   if (!signed.ok) throw new Error(`${act.label}: firma del móvil rechazada (${signed.reason}); con móvil enrolado el acto exige su firma (ADR 0018)`);
-  return { level, signature: signed.challenge ? signed.block ?? null : null };
+  if (!signed.block) throw new Error(`${act.label}: el relé no devolvió una firma que kj pueda grabar; el acto no se aplica`);
+  return { level, signature: signed.block };
 }

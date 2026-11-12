@@ -39,11 +39,12 @@ describe("signAct", () => {
     expect(warned).toEqual([]);
   });
 
-  it("a refused signature, or an unknown act, is an error; a relay with no challenge gives no block", async () => {
+  it("a refused signature, or an unknown act, is an error; a signed answer with no block is an error, never a silent null", async () => {
     await expect(sign("supervisor-seal", { deps: { phone: phone({ ok: false }) } })).rejects.toThrow(/harden --commit: firma del móvil rechazada \(caducado\)/);
     await expect(sign("delete-all", { deps: { phone: phone() } })).rejects.toThrow(/not in the catalog/);
     expect(() => explainAct("handoff-run")).toThrow(/no explanation for the phone/);
-    expect((await sign("phone-enroll", { deps: { phone: phone({ challenge: null }) } })).signature).toBeNull();
+    const blockless = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUB", signature: "SIG", challenge: CHALLENGE }) };
+    await expect(sign("phone-enroll", { deps: { phone: blockless } })).rejects.toThrow(/no devolvió una firma que kj pueda grabar/);
   });
 
   it("at max with no phone: refused with the way to enroll, except the first enrollment (bootstrap)", async () => {

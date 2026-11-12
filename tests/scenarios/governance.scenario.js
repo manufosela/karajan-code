@@ -28,7 +28,7 @@ beforeAll(() => {
     request: async (req) => {
       const challenge = { cid: "c", nonce: "n", project: "p", v: 2, kjVersion: req.kjVersion, issuedMs: 1, expiresMs: 2 };
       const signature = sign(null, Buffer.from(canonicalPayload({ ...challenge, files: req.files }), "utf8"), privateKey).toString("base64");
-      return { ok: true, signer, signature, challenge };
+      return { ok: true, signer, signature, challenge, block: { ...challenge, signer, signature } };
     },
   };
   policyFile = path.join(p.dir, ".karajan", "policy.yml");
