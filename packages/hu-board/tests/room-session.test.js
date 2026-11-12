@@ -12,8 +12,14 @@ describe('repoFromRemote', () => {
     expect(repoFromRemote('https://github.com/a/b')).toBe('a/b');
   });
 
+  it('reads it through an SSH host alias of github.com (KJC-TSK-1578)', () => {
+    expect(repoFromRemote('git@github.com-manufosela:manufosela/karajan-code.git\n')).toBe('manufosela/karajan-code');
+  });
+
   it('is nothing for a remote that is not GitHub', () => {
     expect(repoFromRemote('https://gitlab.com/a/b.git')).toBeNull();
+    expect(repoFromRemote('https://github.company.com/a/b.git')).toBeNull();
+    expect(repoFromRemote('https://notgithub.com/a/b.git')).toBeNull();
     expect(repoFromRemote('')).toBeNull();
   });
 });
@@ -58,9 +64,18 @@ describe('openSession', () => {
     expect(calls.filter((c) => c.url.includes('securetoken'))).toHaveLength(1);
   });
 
-  it('is nothing for a repository that is not on GitHub, or a room that refuses it', async () => {
+  it('is nothing for a repository that is not on GitHub, without a gh token or refused, and says why (KJC-TSK-1578)', async () => {
+    const said = [];
+    const log = { warn: (m) => said.push(m) };
     const gitlab = async (cmd) => ({ exitCode: 0, stdout: cmd === 'git' ? 'https://gitlab.com/a/b.git' : 'tok' });
-    expect(await openSession('/w/x', { fetch: network().fetch, run: gitlab, now: () => 0 })).toBeNull();
-    expect(await openSession('/w/kc', { fetch: network({ joinStatus: 403 }).fetch, run, now: () => 0 })).toBeNull();
+    const noGh = async (cmd) => (cmd === 'git' ? run(cmd, []) : { exitCode: 1, stdout: '' });
+    expect(await openSession('/w/x', { fetch: network().fetch, run: gitlab, now: () => 0, log })).toBeNull();
+    expect(await openSession('/w/kc', { fetch: network().fetch, run: noGh, now: () => 0, log })).toBeNull();
+    expect(await openSession('/w/kc', { fetch: network({ joinStatus: 403 }).fetch, run, now: () => 0, log })).toBeNull();
+    expect(said).toEqual([
+      '[room] /w/x: its origin is not a GitHub repository',
+      '[room] /w/kc: gh gives no token',
+      '[room] /w/kc: the room of manufosela/karajan-code refused it (HTTP 403)',
+    ]);
   });
 });

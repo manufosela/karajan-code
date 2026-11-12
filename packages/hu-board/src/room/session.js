@@ -14,33 +14,37 @@ const REFRESH = 'https://securetoken.googleapis.com/v1/token';
 /** An id token is renewed this long before it expires. */
 const EARLY_MS = 5 * 60 * 1000;
 
-/** owner/name of a GitHub remote (https or ssh); nothing for any other host. */
+/**
+ * owner/name of a GitHub remote (https or ssh, also through an SSH host alias such as
+ * git@github.com-work:owner/name.git, KJC-TSK-1578); nothing for any other host.
+ */
 export function repoFromRemote(remote) {
-  const match = /github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?\s*$/.exec(remote ?? '');
+  const match = /(?:^|[@/])github\.com(?:-[\w.-]+)?[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?\s*$/.exec(remote ?? '');
   return match ? `${match[1]}/${match[2]}` : null;
 }
 
-const post = async (fetch, url, body, headers = {}) => {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
-  return res.ok ? res.json() : null;
-};
+const post = (fetch, url, body, headers = {}) =>
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
 
 /**
  * Opens a session in the room of the repository at `dir`, or nothing when it has no GitHub origin,
- * gh gives no token or the room refuses it.
+ * gh gives no token or the room refuses it; each time it says why (KJC-TSK-1578), never the token.
  * @returns {Promise<{login: string, room: string, repo: string, idToken: () => Promise<string>}|null>}
  */
-export async function openSession(dir, { fetch = globalThis.fetch, run = runCommand, now = Date.now } = {}) {
+export async function openSession(dir, { fetch = globalThis.fetch, run = runCommand, now = Date.now, log = console } = {}) {
+  const out = (why) => { log.warn(`[room] ${dir}: ${why}`); return null; };
   const remote = await run('git', ['-C', dir, 'remote', 'get-url', 'origin'], { timeout: 5000 });
   const repo = remote.exitCode === 0 ? repoFromRemote(remote.stdout) : null;
-  if (!repo) return null;
+  if (!repo) return out('its origin is not a GitHub repository');
   const gh = await run('gh', ['auth', 'token'], { timeout: 5000 });
-  if (gh.exitCode !== 0 || !gh.stdout.trim()) return null;
-  const admitted = await post(fetch, ROOM_JOIN, { repo }, { 'X-GitHub-Token': gh.stdout.trim() });
-  if (!admitted?.token) return null;
+  if (gh.exitCode !== 0 || !gh.stdout.trim()) return out('gh gives no token');
+  const joined = await post(fetch, ROOM_JOIN, { repo }, { 'X-GitHub-Token': gh.stdout.trim() });
+  const admitted = joined.ok ? await joined.json() : null;
+  if (!admitted?.token) return out(`the room of ${repo} refused it (HTTP ${joined.status})`);
   const { apiKey } = await (await fetch(WEB_CONFIG)).json();
-  const signed = await post(fetch, `${SIGN_IN}?key=${apiKey}`, { token: admitted.token, returnSecureToken: true });
-  if (!signed?.idToken) return null;
+  const signing = await post(fetch, `${SIGN_IN}?key=${apiKey}`, { token: admitted.token, returnSecureToken: true });
+  const signed = signing.ok ? await signing.json() : null;
+  if (!signed?.idToken) return out(`Firebase did not sign it in (HTTP ${signing.status})`);
   let current = { id: signed.idToken, refresh: signed.refreshToken, until: now() + Number(signed.expiresIn) * 1000 };
   const idToken = async () => {
     if (now() < current.until - EARLY_MS) return current.id;
