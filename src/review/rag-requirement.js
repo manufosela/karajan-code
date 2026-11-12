@@ -12,6 +12,8 @@
  * concepts that are not in the diff. That list travels to the reviewer,
  * because the bugs of 2026-09-16 were exactly the twin nobody touched.
  */
+import { matchesAny } from "@karajan-family/governance";
+import { ragExclude } from "../rag/indexable.js";
 import { kjProvenance } from "./kj-provenance.js";
 import { sourceFilesOf } from "./tests-with-code.js";
 
@@ -19,6 +21,13 @@ export const RAG_RULE_ID = "method.rag.code";
 
 const GRANT_HINT = `Only a human grant lifts this: kj policy grant --rule ${RAG_RULE_ID} --until <iso> --reason "<why>"`;
 const dirOf = (p) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
+
+/** HU-3981: a source the project keeps out of the index can never be returned; recomputed from the config, never from a stored claim. */
+function splitExcluded(config, allSources) {
+  const exclude = ragExclude(config);
+  const excluded = allSources.filter((f) => matchesAny(f, exclude));
+  return { excluded, sources: allSources.filter((f) => !excluded.includes(f)) };
+}
 
 function liveGrant(standingExceptions, now) {
   return standingExceptions.find((e) => e.rule_id === RAG_RULE_ID && new Date(e.expiresAt).getTime() > now.getTime()) || null;
@@ -43,11 +52,13 @@ function harnessRemedy(drift = []) {
 }
 
 export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = [], ledger, standingExceptions = [], now = new Date(), env = {} }) {
-  const { sources } = sourceFilesOf(config, stagedFiles);
-  if (sources.length === 0) return { ok: true, mode: "docs-only" };
+  const all = sourceFilesOf(config, stagedFiles).sources;
+  if (all.length === 0) return { ok: true, mode: "docs-only" };
+  const { sources, excluded } = splitExcluded(config, all);
 
   const grant = liveGrant(standingExceptions, now);
-  if (grant) return { ok: true, mode: "granted", grant, sources };
+  if (grant) return { ok: true, mode: "granted", grant, sources: all, excluded };
+  if (sources.length === 0) return { ok: true, mode: "pass", sources, excluded, queries: (ledger?.queries || []).length, covered: [], uncovered: [], twinsUntouched: [] };
 
   // An env override is REJECTED here, explicitly: whatever KJ_ALLOW_* the
   // process carries is named in the reason and changes nothing. The Sentinel
@@ -82,7 +93,7 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
   const uncovered = sources.filter((f) => !answered(f));
   const staged = new Set(stagedFiles);
   const twinsUntouched = hits.filter((h) => !staged.has(h));
-  const evidence = { queries, covered, uncovered, twinsUntouched };
+  const evidence = { queries, covered, uncovered, twinsUntouched, excluded };
   if (uncovered.length > 0) {
     const list = `${uncovered.slice(0, 5).join(", ")}${uncovered.length > 5 ? "…" : ""}`;
     return { ok: false, mode: "block", sources, ...evidence, reason: `${head} — no query of this session returned ${uncovered.length} of them (${list}): ask what they do and where else that concept lives, then run \`kj review --staged\` again. ${GRANT_HINT}` };
@@ -97,10 +108,12 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
  * `covered` was never answered about, whatever the block claims.
  */
 export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = true, verified = true, mismatched = [], drift = [], standingExceptions = [], now = new Date() }) {
-  const { sources } = sourceFilesOf(config, stagedFiles);
-  if (sources.length === 0) return { ok: true, mode: "docs-only" };
+  const all = sourceFilesOf(config, stagedFiles).sources;
+  if (all.length === 0) return { ok: true, mode: "docs-only" };
+  const { sources, excluded } = splitExcluded(config, all);
   const grant = liveGrant(standingExceptions, now);
-  if (grant) return { ok: true, mode: "granted", grant, sources };
+  if (grant) return { ok: true, mode: "granted", grant, sources: all, excluded };
+  if (sources.length === 0) return { ok: true, mode: "pass", sources, excluded };
   const head = `The RAG must have answered about code before it is committed (${sources.length} staged source${sources.length === 1 ? "" : "s"})`;
   // KJC-BUG-0192: same rule on the --check side, so the commit gate cannot be
   // opened by removing the supervisor either.
@@ -125,7 +138,7 @@ export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = 
     const list = `${uncovered.slice(0, 5).join(", ")}${uncovered.length > 5 ? "…" : ""}`;
     return { ok: false, mode: "block", sources, reason: `${head} — the session ledger never covered ${uncovered.length} of them (${list}); consult the RAG and run \`kj review --staged\` again. ${GRANT_HINT}` };
   }
-  return { ok: true, mode: "pass", sources };
+  return { ok: true, mode: "pass", sources, excluded };
 }
 
 /** The `rag` block stored in the verdict, bound to the diff hash like `sonar`. */
@@ -137,5 +150,6 @@ export function ragBlock(req, ledger) {
     covered: req.covered || [],
     uncovered: req.uncovered || [],
     twinsUntouched: req.twinsUntouched || [],
+    excluded: req.excluded || [],
   };
 }
