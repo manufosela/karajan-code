@@ -98,6 +98,8 @@ export async function runOneShotReview({
   env = process.env,
   // KJC-TSK-1272: skills resolved by the caller (a third-party repo's stack) instead of the project's.
   skills = null,
+  // HU-4032: what the reviewer reads when it is less than the diff; the verdict still binds to the whole diff.
+  shown = null,
 }) {
   if (!diff || !diff.trim()) {
     throw new Error("nothing to review — the diff is empty (stage your changes or pass --range)");
@@ -117,7 +119,7 @@ export async function runOneShotReview({
     const prompt = await buildReviewerPrompt({
       task: task || "Review the following diff for correctness, security and maintainability.",
       // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
-      diff: summarizeGeneratedFiles(diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
+      diff: summarizeGeneratedFiles(shown ?? diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
       factsBlock: formatDiffFacts(facts),
     });
     // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.
