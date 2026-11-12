@@ -1,0 +1,35 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$room": {
+        "presence": {
+          ".read": "auth != null && auth.token.room === $room",
+          "$login": {
+            ".write": "auth != null && auth.token.room === $room && auth.token.login === $login",
+            ".validate": "!newData.exists() || newData.isNumber()"
+          }
+        },
+        "signals": {
+          "$to": {
+            ".read": "auth != null && auth.token.room === $room && auth.token.login === $to",
+            "$from": {
+              "$msg": {
+                ".write": "auth != null && auth.token.room === $room && (auth.token.login === $from || (auth.token.login === $to && !newData.exists()))",
+                ".validate": "!newData.exists() || newData.val().length < 20000"
+              }
+            }
+          }
+        },
+        "relay": {
+          ".read": "auth != null && auth.token.room === $room",
+          "$login": {
+            ".write": "auth != null && auth.token.room === $room && auth.token.login === $login",
+            ".validate": "!newData.exists() || newData.val().length < 20000"
+          }
+        }
+      }
+    }
+  }
+}
