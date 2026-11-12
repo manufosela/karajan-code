@@ -47,14 +47,16 @@ export function readLaneSentinelState(projectDir) {
 }
 
 /**
- * KJC-BUG-0548: drop pending board moves of one session, in the file the state really lives in
- * (the lane's own, else the main tree's), re-read whole so no other session's state is lost.
+ * KJC-BUG-0548: drop pending board moves of one session, in the file that holds that session
+ * (the lane's own if it is there, else the main tree's), re-read whole so no other session's state is lost.
  * @returns {boolean} whether the file was rewritten
  */
 export function prunePendingMoves(projectDir, sessionId, cards) {
   const [top = "", common = ""] = whereIs(projectDir);
   const own = path.join(top || projectDir, ...STATE_PARTS);
-  const file = readJson(own) || !common ? own : path.join(path.dirname(common), ...STATE_PARTS);
+  const main = common ? path.join(path.dirname(common), ...STATE_PARTS) : own;
+  // KJC-BUG-0564: since KJC-BUG-0552 the read joins both files; prune in the one that holds this session.
+  const file = readJson(own)?.sessions?.[sessionId] ? own : main;
   const state = readJson(file);
   const s = state?.sessions?.[sessionId];
   if (!Array.isArray(s?.pending_moves)) return false;
