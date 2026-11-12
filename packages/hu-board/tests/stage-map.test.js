@@ -14,9 +14,10 @@ const deps = {
 
 describe('stageMap', () => {
   it('is one factory per real project that resolves, the ones at work first', () => {
+    // KJC-TSK-1548: with no board cache in their folders, nobody else works on them.
     expect(stageMap(deps)).toEqual([
-      { project: 'beta', name: 'beta', lanes: states['/w/beta'] },
-      { project: 'alpha', name: 'alpha', lanes: states['/w/alpha'] },
+      { project: 'beta', name: 'beta', lanes: states['/w/beta'], team: [] },
+      { project: 'alpha', name: 'alpha', lanes: states['/w/alpha'], team: [] },
     ]);
   });
 
