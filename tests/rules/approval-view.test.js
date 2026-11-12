@@ -2,7 +2,7 @@
 // order of what can hurt. The watched agent writes the proposal: a rule that
 // loses force, or that watches nothing, must not hide among a hundred others.
 import { describe, it, expect } from "vitest";
-import { approvalView } from "../../src/rules/approval-view.js";
+import { approvalView, isUnchanged } from "../../src/rules/approval-view.js";
 
 const gate = (id, matches = "deploy") => ({ id, kind: "deterministic", text: `Regla ${id}.`, when: { tool: "Bash", all: [{ arg: "command", matches }] } });
 const judged = (id) => ({ id, kind: "judgment", text: `Regla ${id}.`, when: { tool: "Bash" } });
@@ -61,6 +61,23 @@ describe("approvalView", () => {
     expect(text).toMatch(/3 rule\(s\) unchanged from what is approved today, not listed: kj rules approve --all shows them/);
     // a weakened rule is never hidden
     expect(approvalView([judged("R-a")], [gate("R-a")], new Set(), FILES).join("\n")).toMatch(/R-a {2}was deterministic, now judgment/);
+  });
+
+  // KJC-BUG-0568: the source decides versioned vs local; a source-only change is a change.
+  it("a rule whose only change is its source is listed as changed, with where it moves", () => {
+    const text = approvalView([{ ...gate("R-a"), source: "docs/rules.md" }], [{ ...gate("R-a"), source: "~/.claude/CLAUDE.md" }], new Set(), FILES).join("\n");
+    expect(text).toMatch(/R-a {2}deterministic/);
+    expect(text).toMatch(/source: ~\/\.claude\/CLAUDE\.md → docs\/rules\.md/);
+    expect(text).not.toMatch(/unchanged/);
+  });
+
+  it("an identical rule, same shape and source, stays unchanged", () => {
+    const rule = { ...gate("R-a"), source: "docs/rules.md" };
+    const text = approvalView([rule], [{ ...rule }], new Set(), FILES).join("\n");
+    expect(text).not.toMatch(/R-a {2}/);
+    expect(text).toMatch(/1 rule\(s\) unchanged/);
+    expect(isUnchanged(rule, { ...rule })).toBe(true);
+    expect(isUnchanged(rule, { ...rule, source: "x.md" })).toBe(false);
   });
 
   it("a first approval shows every rule, all of them new", () => {
