@@ -43,20 +43,43 @@ function checkAuthenticatorData(bytes) {
   return null;
 }
 
-/** The credential's SPKI key, only when it is the key type its alg names. */
-function credentialKey(publicKey, spec) {
+/** The SPKI DER key a base64 string holds, or null. */
+function loadSpki(publicKey) {
+  if (typeof publicKey !== "string") return null;
   try {
-    const key = createPublicKey({ key: Buffer.from(publicKey, "base64"), format: "der", type: "spki" });
-    return key.asymmetricKeyType === spec.keyType && key.asymmetricKeyDetails?.namedCurve === spec.curve ? key : null;
+    return createPublicKey({ key: Buffer.from(publicKey, "base64"), format: "der", type: "spki" });
   } catch {
     return null;
   }
 }
 
+const matchesAlg = (key, spec) => key.asymmetricKeyType === spec.keyType && key.asymmetricKeyDetails?.namedCurve === spec.curve;
+
+/** The credential's SPKI key, only when it is the key type its alg names. */
+function credentialKey(publicKey, spec) {
+  const key = loadSpki(publicKey);
+  return key && matchesAlg(key, spec) ? key : null;
+}
+
+/**
+ * HU-3987: why a roster passkey entry is not valid, or null when it is. CI judges
+ * every entry with it, and the enrollment checks what it is about to write.
+ * @param {{credentialId?: unknown, publicKey?: unknown, alg?: unknown}} entry
+ * @returns {string | null}
+ */
+export function passkeyEntryProblem(entry) {
+  if (typeof entry?.credentialId !== "string" || !B64URL.test(entry.credentialId)) return "el credentialId no es base64url no vacío";
+  const spec = ALGS.get(entry.alg);
+  if (!spec) return "el algoritmo no es ES256 (-7) ni Ed25519 (-8)";
+  const key = loadSpki(entry.publicKey);
+  if (!key) return "la clave pública no es una SPKI (DER en base64)";
+  return matchesAlg(key, spec) ? null : "la clave pública no es del tipo de su algoritmo";
+}
+
 function checkSignature({ authenticatorData, clientDataJSON, signature }, credential) {
   const spec = ALGS.get(credential?.alg);
   if (!spec) return "el algoritmo de la credencial no es ES256 (-7) ni Ed25519 (-8)";
-  const key = typeof credential.publicKey === "string" ? credentialKey(credential.publicKey, spec) : null;
+  const key = credentialKey(credential.publicKey, spec);
   if (!key) return "la clave de la credencial no es una SPKI de su algoritmo";
   const data = Buffer.concat([authenticatorData, sha256(clientDataJSON)]);
   let good = false;
