@@ -38,7 +38,7 @@ function buildScene(lanes, { factory, layout, zoom }) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = factory.createFactory(renderer);
   const centreZ = target.z;
-  const { crew, pieces, stand, hall, wall, releaseTable } = factory.buildFactory(scene, lanes);
+  const { crew, pieces, stand, hall, wall, releaseTable, versionBoard } = factory.buildFactory(scene, lanes);
   const render = () => renderer.render(scene, camera);
   let level = 1;
   const refit = () => {
@@ -55,7 +55,7 @@ function buildScene(lanes, { factory, layout, zoom }) {
   addEventListener('resize', refit);
   zoom.listenZoom(canvas, (k) => { level = k; refit(); });
   refit();
-  return { scene, pieces, crew, stand, hall, wall, releaseTable, camera, render, refit };
+  return { scene, pieces, crew, stand, hall, wall, releaseTable, versionBoard, camera, render, refit };
 }
 
 function player(demo, live, scene, marks) {
