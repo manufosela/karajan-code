@@ -10,8 +10,11 @@
 
 import { isGenerated } from "./loc-budget.js";
 
-const DEFAULT_TEST_PATTERNS =["/tests/", "/__tests__/", ".test.", ".spec."];
-const DEFAULT_SOURCE_EXTS = [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".rb", ".php", ".cs"];
+// HU-4073: Kotlin (src/test, KMP commonTest, androidTest) and Swift (*Tests.swift, SwiftPM Tests/).
+const DEFAULT_TEST_PATTERNS = ["/tests/", "/__tests__/", ".test.", ".spec.", "/src/test/", "/src/commonTest/", "/src/androidTest/", "Tests.swift", "/Tests/"];
+const DEFAULT_SOURCE_EXTS = [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".rb", ".php", ".cs", ".kt", ".kts", ".swift"];
+// A Gradle build/settings script is configuration, not code under test.
+const GRADLE_SCRIPT = /(^|\/)(build|settings)\.gradle\.kts$/;
 
 /**
  * The staged files that are SOURCE by the project's own definition: source
@@ -26,7 +29,7 @@ export function sourceFilesOf(config = {}, files = [], generated = new Set()) {
   const isTest = (f) => patterns.some((p) => `/${f}`.includes(p));
   // KJC-BUG-0377: build output (a rebuilt docs site's _astro/*.js) is nobody's code.
   return {
-    sources: files.filter((f) => !isTest(f) && !isGenerated(f) && !generated.has(f) && exts.some((e) => f.endsWith(e))),
+    sources: files.filter((f) => !isTest(f) && !isGenerated(f) && !generated.has(f) && !GRADLE_SCRIPT.test(f) && exts.some((e) => f.endsWith(e))),
     hasTests: files.some(isTest),
   };
 }

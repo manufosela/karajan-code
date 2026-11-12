@@ -94,6 +94,9 @@ export function buildScannerOpts(projectKey, scanner = {}, where = {}) {
   if (scanner.javascript_lcov_report_paths) {
     opts.push(`-Dsonar.javascript.lcov.reportPaths=${scanner.javascript_lcov_report_paths}`);
   }
+  if (scanner.jacoco_xml_report_paths) {
+    opts.push(`-Dsonar.coverage.jacoco.xmlReportPaths=${scanner.jacoco_xml_report_paths}`);
+  }
   const rules = scanner.disabled_rules || [];
   if (rules.length > 0) {
     // KJC-BUG-0139: the list property is declared ONCE — one `multicriteria=`
@@ -167,25 +170,33 @@ function coverageConfig(config) {
   return config?.sonarqube?.coverage || {};
 }
 
-function checkLcovExists(lcovPath, blockOnFailure, stdout = "") {
-  if (!lcovPath) return { ok: true, scannerPatch: {} };
-  if (fs.existsSync(lcovPath)) {
-    return { ok: true, scannerPatch: { javascript_lcov_report_paths: lcovPath } };
-  }
+// One check per report kind: every configured path must exist (HU-4073: lcov and jacoco may both be set).
+function checkReportExists(reportPaths, scannerKey, label, blockOnFailure, stdout = "") {
+  if (!reportPaths) return { ok: true, scannerPatch: {} };
+  const missing = reportPaths.split(",").map((p) => p.trim()).filter((p) => p && !fs.existsSync(p));
+  if (missing.length === 0) return { ok: true, scannerPatch: { [scannerKey]: reportPaths } };
   if (blockOnFailure) {
-    return { ok: false, exitCode: 1, stdout, stderr: `Configured lcov report path does not exist: ${lcovPath}` };
+    return { ok: false, exitCode: 1, stdout, stderr: `Configured ${label} report path does not exist: ${missing.join(", ")}` };
   }
   return { ok: true, scannerPatch: {} };
 }
 
-function handleCoverageNoCommand(lcovPath, blockOnFailure) {
-  if (!lcovPath) {
+function checkReportsExist(lcovPath, jacocoPaths, blockOnFailure, stdout = "") {
+  const lcov = checkReportExists(lcovPath, "javascript_lcov_report_paths", "lcov", blockOnFailure, stdout);
+  if (!lcov.ok) return lcov;
+  const jacoco = checkReportExists(jacocoPaths, "jacoco_xml_report_paths", "jacoco XML", blockOnFailure, stdout);
+  if (!jacoco.ok) return jacoco;
+  return { ok: true, scannerPatch: { ...lcov.scannerPatch, ...jacoco.scannerPatch } };
+}
+
+function handleCoverageNoCommand(lcovPath, jacocoPaths, blockOnFailure) {
+  if (!lcovPath && !jacocoPaths) {
     return {
       ok: false, exitCode: 1, stdout: "",
-      stderr: "Sonar coverage is enabled but neither coverage.command nor coverage.lcov_report_path is configured."
+      stderr: "Sonar coverage is enabled but neither coverage.command nor coverage.lcov_report_path nor coverage.jacoco_xml_report_paths is configured."
     };
   }
-  return checkLcovExists(lcovPath, blockOnFailure);
+  return checkReportsExist(lcovPath, jacocoPaths, blockOnFailure);
 }
 
 async function maybeRunCoverage(config) {
@@ -193,10 +204,11 @@ async function maybeRunCoverage(config) {
   if (!coverage.enabled) return { ok: true, scannerPatch: {} };
 
   const lcovPath = String(coverage.lcov_report_path || "").trim();
+  const jacocoPaths = String(coverage.jacoco_xml_report_paths || "").trim();
   const blockOnFailure = coverage.block_on_failure !== false;
 
   if (!String(coverage.command || "").trim()) {
-    return handleCoverageNoCommand(lcovPath, blockOnFailure);
+    return handleCoverageNoCommand(lcovPath, jacocoPaths, blockOnFailure);
   }
 
   const command = String(coverage.command || "").trim();
@@ -211,7 +223,7 @@ async function maybeRunCoverage(config) {
     return { ok: true, scannerPatch: {} };
   }
 
-  return checkLcovExists(lcovPath, blockOnFailure, run.stdout || "");
+  return checkReportsExist(lcovPath, jacocoPaths, blockOnFailure, run.stdout || "");
 }
 
 export async function resolveSonarTokenWithFallback(config, apiHost) {
@@ -241,7 +253,7 @@ export async function resolveSonarTokenWithFallback(config, apiHost) {
 export function respectRepoProperties(scanner = {}, props = {}) {
   if (!props.existed) return scanner;
   const kept = { ...scanner };
-  for (const k of ["project_name", "sources", "tests", "exclusions", "test_inclusions", "coverage_exclusions", "javascript_lcov_report_paths"]) delete kept[k];
+  for (const k of ["project_name", "sources", "tests", "exclusions", "test_inclusions", "coverage_exclusions", "javascript_lcov_report_paths", "jacoco_xml_report_paths"]) delete kept[k];
   return kept;
 }
 
