@@ -141,6 +141,19 @@ describe("kj worktree", () => {
     expect(fs.existsSync(wt)).toBe(false);
   });
 
+  // HU-4003: done retires the Sentinel's record of that lane, and only that lane's, in the main tree's state.
+  it("done prunes every session's record of the lane, keeping the rest of the state", async () => {
+    const { path: wt } = await worktreeCommand({ config: cfg(), action: "start", args: ["podada"], flags: {} });
+    const file = path.join(dir, ".karajan", "harness", "sentinel-state.json");
+    const rec = { edited_sources: ["a.js"], edited_tests: [] };
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ sessions: { s1: { edited_sources: ["b.js"], lanes: { [wt]: rec, "/other/lane": rec } }, s2: { lanes: { [wt]: rec } }, s3: { blocks: 1 } } }));
+    await worktreeCommand({ config: cfg(), action: "done", args: ["podada"], flags: {} });
+    expect(JSON.parse(fs.readFileSync(file, "utf8")).sessions).toEqual({
+      s1: { edited_sources: ["b.js"], lanes: { "/other/lane": rec } }, s2: { lanes: {} }, s3: { blocks: 1 },
+    });
+  });
+
   // HU-3114 (#2758 3/3): done stops the lane's background indexer while the lane still exists.
   it("done stops the lane's indexer before removing it; a failure only warns", async () => {
     const { path: wt } = await worktreeCommand({ config: cfg(), action: "start", args: ["idx"], flags: {} });

@@ -60,11 +60,35 @@ export function prunePendingMoves(projectDir, sessionId, cards) {
   if (!Array.isArray(s?.pending_moves)) return false;
   const drop = new Set(cards);
   s.pending_moves = s.pending_moves.filter((p) => !drop.has(String(p.card ?? "").toUpperCase()));
-  // Atomic replace, so a reader never sees half a file. The hooks write this file the same
-  // unlocked way; a concurrent write that brings a pruned move back is pruned again on the
-  // next check (the prune is idempotent), and the gate keeps failing closed meanwhile.
+  replaceState(file, state);
+  return true;
+}
+
+// Atomic replace, so a reader never sees half a file. The hooks write this file the same
+// unlocked way; a concurrent write that brings a pruned entry back is pruned again on the
+// next prune (it is idempotent), and the gate keeps failing closed meanwhile.
+const replaceState = (file, state) => {
   const tmp = `${file}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(state, null, 2));
   renameSync(tmp, file);
-  return true;
+};
+
+/**
+ * HU-4003: `kj worktree done` retires every session's record of the lane (`sessions[sid].lanes[top]`,
+ * its edited lists with it) in the main tree's file, re-read whole so no other lane or session is lost.
+ * @param {string} mainDir the main checkout
+ * @param {string[]} tops the lane's toplevel, as written and canonical
+ * @returns {boolean} whether the file was rewritten
+ */
+export function pruneLaneRecord(mainDir, tops) {
+  const file = path.join(mainDir, ...STATE_PARTS);
+  const state = readJson(file);
+  let pruned = false;
+  for (const s of Object.values(state?.sessions ?? {})) {
+    for (const top of tops) {
+      if (s?.lanes && Object.hasOwn(s.lanes, top)) { delete s.lanes[top]; pruned = true; }
+    }
+  }
+  if (pruned) replaceState(file, state);
+  return pruned;
 }

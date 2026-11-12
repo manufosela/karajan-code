@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { prunePendingMoves, readLaneSentinelState } from "../../src/harden/sentinel-lane-state.js";
+import { pruneLaneRecord, prunePendingMoves, readLaneSentinelState } from "../../src/harden/sentinel-lane-state.js";
 import { readRagLedger } from "../../src/review/rag-ledger.js";
 
 let tmp, main, lane, other;
@@ -47,6 +47,15 @@ describe("prunePendingMoves", () => {
   it("writes nothing when the session has no pending moves", () => {
     write(main, { sessions: { s1: {} } });
     expect(prunePendingMoves(lane, "s1", ["HU-3827"])).toBe(false);
+  });
+});
+
+// HU-4003: what kj worktree done retires; without a record of the lane nothing is written.
+describe("pruneLaneRecord", () => {
+  it("writes nothing when no session recorded the lane, or there is no state", () => {
+    expect(pruneLaneRecord(main, [lane])).toBe(false);
+    write(main, { sessions: { s1: { lanes: { [other]: {} } } } });
+    expect(pruneLaneRecord(main, [lane])).toBe(false);
   });
 });
 
