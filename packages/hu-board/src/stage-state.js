@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { MAIN_LANE, listLanes } from './lanes.js';
 import { branchFacts } from './lane-branch.js';
 import { laneNote } from './lane-note.js';
+import { deriveLaneState } from './lane-state.js';
 import { boardStatuses, withBoardCache } from './stage-board-cache.js';
 import { lastRelease } from './stage-release.js';
 import { sessionName, withSessionName } from './session-names.js';
@@ -102,7 +103,7 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
  * KJC-TSK-1432 (ADR 0048): the last state of every lane, the main checkout first.
  * KJC-BUG-0547: each card checked against the shared board's cache of the main checkout.
  */
-export function laneStates(projectDir, { branchOf = branchFacts, ...options } = {}) {
+export function laneStates(projectDir, { branchOf = branchFacts, readers = {}, ...options } = {}) {
   const statuses = boardStatuses(projectDir);
   const lanes = listLanes(projectDir).map(({ lane, dir }) => {
     const state = lastStageState(dir, { ...options, lane });
@@ -110,7 +111,11 @@ export function laneStates(projectDir, { branchOf = branchFacts, ...options } = 
     const branch = lane === MAIN_LANE ? undefined : branchOf(dir);
     // KJC-TSK-1541: and what it waits for, when someone left it a note.
     const note = lane === MAIN_LANE ? null : laneNote(projectDir, lane);
-    return { lane, ...state, cards: withBoardCache(state.cards, statuses), branch, note };
+    const cards = withBoardCache(state.cards, statuses);
+    // HU-3853: the lane's state, from facts. A reader that is missing or throws leaves its fact unread.
+    const readFact = (name) => { try { return readers[name]?.({ lane, dir }) ?? null; } catch { return null; } };
+    const facts = { working: state.working, cards, mail: state.mail, openPr: readFact('openPr'), merged: readFact('merged') };
+    return { lane, ...state, cards, branch, note, ...deriveLaneState(facts) };
   });
   // KJC-TSK-1525: the release the "Ready to release" table counts from, once, on the main checkout.
   lanes[0] = { ...lanes[0], release: lastRelease(projectDir) };
