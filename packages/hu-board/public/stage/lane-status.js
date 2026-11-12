@@ -12,6 +12,14 @@ const PIPELINE = {
 };
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+/** HU-4101: a lane resting detached is done with its work, not broken (running cards keep their wording). */
+function detachedStatus({ clean, atBase, base = 'main', oid }, running) {
+  if (!clean) return { state: 'idle', why: 'detached with uncommitted changes' };
+  if (running.length) return { state: 'idle', why: `${running.map((c) => c.id).join(', ')} running, no activity` };
+  if (atBase) return { state: 'idle', why: `resting at origin/${base}, no open card` };
+  return { state: 'idle', why: `resting, detached at ${String(oid).slice(0, 7)}` };
+}
+
 /**
  * @param {{ lane: string, working?: object[], mail?: number, branch?: {upstream: string|null, gone: boolean, ahead: number}|null, pipeline?: 'running'|'failed'|'passed'|null }} lane
  * @param {Array<{id: string, status: string, lane: string}>} cards the factory's cards; those of other lanes are skipped
@@ -31,6 +39,7 @@ export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = nu
   if (!isMain && !branch) return { state: 'unknown', why: 'branch unreadable' };
   if (!isMain && branch.upstream && branch.ahead === 0) return { state: 'waiting-merge', why: 'pushed, waits for merge' };
   const running = mine.filter((c) => c.status === 'running');
+  if (!isMain && branch.detached) return detachedStatus(branch, running);
   if (running.length) return { state: 'idle', why: `${running.map((c) => c.id).join(', ')} running, no activity` };
   return { state: 'idle', why: 'no activity' };
 }

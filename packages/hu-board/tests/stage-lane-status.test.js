@@ -11,6 +11,7 @@ import { laneStatus, laneStatuses, statusLine } from '../public/stage/lane-statu
 
 const synced = { head: 'feat/x', upstream: 'origin/feat/x', gone: false, ahead: 0 };
 const card = (status, lane = 'x') => ({ id: 'HU-1', status, lane, at: '2026-11-11T10:00:00Z' });
+const gitIn = (dir) => (...args) => execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], { stdio: 'pipe' });
 
 describe('laneStatus', () => {
   it('works while an agent of the lane is at work, whatever else it holds', () => {
@@ -90,16 +91,33 @@ describe('parseBranch', () => {
     expect(parseBranch('# branch.head feat/x\n# branch.upstream origin/feat/x\n').gone).toBe(true);
   });
 
-  it('reads a branch never pushed, and nothing from a detached head', () => {
+  it('reads a branch never pushed, and the facts of a detached head', () => {
     expect(parseBranch('# branch.head feat/x\n')).toEqual({ head: 'feat/x', upstream: null, gone: false, ahead: 0 });
-    expect(parseBranch('# branch.head (detached)\n')).toBeNull();
+    expect(parseBranch('# branch.oid abc123\n# branch.head (detached)\n')).toEqual({ head: null, detached: true, oid: 'abc123' });
+    expect(parseBranch('')).toBeNull();
+  });
+});
+
+// HU-4101: a lane resting detached at its base finished honestly; it is idle, not broken.
+describe('laneStatus of a detached lane', () => {
+  const rest = { head: null, detached: true, oid: 'abcdef1234567', clean: true, base: 'main', atBase: true };
+
+  it('is idle at its base, elsewhere, or with uncommitted changes', () => {
+    expect(laneStatus({ lane: 'x', branch: rest })).toEqual({ state: 'idle', why: 'resting at origin/main, no open card' });
+    expect(laneStatus({ lane: 'x', branch: { ...rest, atBase: false } })).toEqual({ state: 'idle', why: 'resting, detached at abcdef1' });
+    expect(laneStatus({ lane: 'x', branch: { ...rest, clean: false } })).toEqual({ state: 'idle', why: 'detached with uncommitted changes' });
+  });
+
+  it('keeps the running wording with a running card, and unknown for an unreadable branch', () => {
+    expect(laneStatus({ lane: 'x', branch: rest }, [card('running')]).why).toBe('HU-1 running, no activity');
+    expect(laneStatus({ lane: 'x', branch: null }).state).toBe('unknown');
   });
 });
 
 describe('branchFacts over a temp lane', () => {
   const dir = mkdtempSync(join(tmpdir(), 'kj-lane-status-'));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
-  const git = (...args) => execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], { stdio: 'pipe' });
+  const git = gitIn(dir);
 
   it('reads a real branch, and null from a folder that is not a repository', () => {
     git('init', '-q', '-b', 'feat/x');
@@ -108,5 +126,45 @@ describe('branchFacts over a temp lane', () => {
     git('commit', '-q', '-m', 'a');
     expect(branchFacts(dir)).toEqual({ head: 'feat/x', upstream: null, gone: false, ahead: 0 });
     expect(branchFacts(join(dir, 'missing'))).toBeNull();
+  });
+});
+
+// HU-4101: a detached lane is read against the base its origin/HEAD names, untracked files included.
+describe('branchFacts over a detached temp lane', () => {
+  const dirs = [];
+  afterAll(() => dirs.forEach((dir) => rmSync(dir, { recursive: true, force: true })));
+  /** A lane detached at the tip of origin/trunk; its origin/HEAD names trunk unless `originHead` is false. */
+  const detachedLane = ({ originHead = true } = {}) => {
+    const dir = mkdtempSync(join(tmpdir(), 'kj-lane-detached-'));
+    dirs.push(dir);
+    const git = gitIn(dir);
+    git('init', '-q', '-b', 'trunk');
+    writeFileSync(join(dir, 'a.txt'), 'a');
+    git('add', 'a.txt');
+    git('commit', '-q', '-m', 'a');
+    git('update-ref', 'refs/remotes/origin/trunk', 'HEAD');
+    if (originHead) git('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk');
+    git('checkout', '-q', '--detach');
+    return dir;
+  };
+
+  it('rests at the base its origin/HEAD names', () => {
+    const facts = branchFacts(detachedLane());
+    expect(facts).toMatchObject({ head: null, detached: true, clean: true, base: 'trunk', atBase: true });
+    expect(laneStatus({ lane: 'x', branch: facts })).toEqual({ state: 'idle', why: 'resting at origin/trunk, no open card' });
+  });
+
+  it('falls back to origin/main only when origin/HEAD is not set', () => {
+    const facts = branchFacts(detachedLane({ originHead: false }));
+    expect(facts).toMatchObject({ base: 'main', atBase: false });
+    expect(laneStatus({ lane: 'x', branch: facts }).why).toBe(`resting, detached at ${facts.oid.slice(0, 7)}`);
+  });
+
+  it('is not clean with only an untracked file', () => {
+    const dir = detachedLane();
+    writeFileSync(join(dir, 'b.txt'), 'b');
+    const facts = branchFacts(dir);
+    expect(facts.clean).toBe(false);
+    expect(laneStatus({ lane: 'x', branch: facts })).toEqual({ state: 'idle', why: 'detached with uncommitted changes' });
   });
 });
