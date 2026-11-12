@@ -61,11 +61,37 @@ afterEach(() => {
   delete process.env.KJ_HOME;
 });
 
-function mockHttpReply(status) {
-  httpRequest.mockImplementation((_opts, cb) => {
-    const fakeRes = { statusCode: status, resume: () => {} };
-    setImmediate(() => cb(fakeRes));
-    return { on: () => {}, end: () => {}, write: () => {}, destroy: () => {} };
+const BOARD_VERSION = JSON.stringify({ version: "1.0.0", boot_time: "2026-01-01T00:00:00.000Z" });
+
+function fakeReq() {
+  return { on: () => {}, end: () => {}, write: () => {}, destroy: () => {} };
+}
+
+function replyWith(cb, status, body) {
+  const handlers = {};
+  const res = { statusCode: status, resume: () => {}, on: (ev, fn) => { handlers[ev] = fn; } };
+  setImmediate(() => { cb(res); handlers.data?.(body); handlers.end?.(); });
+}
+
+// GET /api/version answers `versionBody`; every other request answers `status`.
+function mockHttpReply(status, versionBody = BOARD_VERSION) {
+  httpRequest.mockImplementation((opts, cb) => {
+    if (opts.path === "/api/version") replyWith(cb, 200, versionBody);
+    else replyWith(cb, status, "{}");
+    return fakeReq();
+  });
+}
+
+// An old board: identifies itself on /api/version but has no shutdown endpoint.
+function mockOldBoardNoShutdown() {
+  httpRequest.mockImplementation((opts, cb) => {
+    if (opts.path === "/api/version") {
+      replyWith(cb, 200, BOARD_VERSION);
+      return fakeReq();
+    }
+    const handlers = {};
+    setImmediate(() => handlers.error?.(new Error("ECONNREFUSED")));
+    return { ...fakeReq(), on: (ev, fn) => { handlers[ev] = fn; } };
   });
 }
 
@@ -109,7 +135,7 @@ describe("stopBoard — three-step fallback", () => {
   });
 
   it("strategy 3: API endpoint unavailable (old build) → port-occupant SIGTERM, reports via:port-occupant", async () => {
-    mockHttpError();
+    mockOldBoardNoShutdown();
     portOccupant.mockResolvedValue({ port: 4000, pid: 7777, command: "node", raw: "" });
     const { stopBoard } = await import("../../src/commands/board.js");
     const result = await stopBoard({ port: 4000 });
@@ -133,5 +159,16 @@ describe("stopBoard — three-step fallback", () => {
     await stopBoard({ port: 4000 });
     expect(killCalls.filter((c) => c.sig === "SIGTERM")).toHaveLength(0);
     expect(portOccupant).not.toHaveBeenCalled();
+  });
+
+  it("HU-4111: a foreign HTTP server on the port is neither shut down nor killed", async () => {
+    mockHttpReply(200, "<html>not a board</html>");
+    portOccupant.mockResolvedValue({ port: 4000, pid: 5555, command: "node", raw: "" });
+    const { stopBoard } = await import("../../src/commands/board.js");
+    const result = await stopBoard({ port: 4000 });
+    expect(result).toEqual({ ok: true, wasRunning: false });
+    expect(killCalls.filter((c) => c.sig === "SIGTERM")).toHaveLength(0);
+    expect(portOccupant).not.toHaveBeenCalled();
+    expect(httpRequest.mock.calls.some(([o]) => o.method === "POST")).toBe(false);
   });
 });
