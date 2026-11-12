@@ -16,7 +16,7 @@ import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { publishedPin } from "./published-pin.js";
 import { phpInputs, qualityInputs } from "./quality-inputs.js";
-import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
+import { extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
 // listens to pull_request, the new one to pull_request_target), so policy-check never reports.
@@ -105,18 +105,8 @@ export async function resolveKjPin({ projectDir, fetchFn } = {}) {
   return publishedPin({ name: own.name, version: own.version, fetchFn });
 }
 
-export function installWorkflows({
-  projectDir = process.cwd(),
-  language = null,
-  profile = "standard",
-  mutation = false,
-  dryRun = false,
-  kjVersion = null,
-  root = ".",
-  baseBranch = "main",
-} = {}) {
-  const dir = join(projectDir, WORKFLOWS_DIR);
-  const pm = detectPackageManager(projectDir);
+/** The Quality workflow of one stack root, or null when its language has no template. */
+function rootQuality(projectDir, { dir: root = ".", language = null }) {
   // KJC-BUG-0309: the Quality workflow reads the package manager and the lint
   // script where the language root is, and runs its steps there.
   const appDir = join(projectDir, root);
@@ -126,7 +116,31 @@ export function installWorkflows({
   let inputs = null;
   if (isJs) inputs = qualityInputs({ projectDir, appDir, root });
   else if (language === "php") inputs = phpInputs({ appDir });
-  const quality = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root, inputs?.options);
+  const wf = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root, inputs?.options);
+  return wf ? { root, wf, note: inputs?.note } : null;
+}
+
+/** HU-4049: one job per stack root with a template; a single one is the workflow it always was. */
+function qualityFor(projectDir, roots) {
+  const perRoot = roots.map((r) => rootQuality(projectDir, r)).filter(Boolean);
+  const note = perRoot.map((q) => q.note).filter(Boolean).join(" ");
+  return { quality: perRoot.length > 1 ? multiRootQualityWorkflow(perRoot) : (perRoot[0]?.wf ?? null), note };
+}
+
+export function installWorkflows({
+  projectDir = process.cwd(),
+  language = null,
+  profile = "standard",
+  mutation = false,
+  dryRun = false,
+  kjVersion = null,
+  root = ".",
+  roots = [{ dir: root, language }],
+  baseBranch = "main",
+} = {}) {
+  const dir = join(projectDir, WORKFLOWS_DIR);
+  const pm = detectPackageManager(projectDir);
+  const { quality, note: qualityNoteText } = qualityFor(projectDir, roots);
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
   // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
@@ -170,7 +184,7 @@ export function installWorkflows({
     }
     // KJC-BUG-0424: the PR that moves the trigger cannot report policy-check.
     const movesTrigger = wf.blockId === "wf-policy" && action !== "unchanged" && /^\s*pull_request:\s*$/m.test(source);
-    const qualityNote = wf.blockId === "wf-quality" ? inputs?.note : "";
+    const qualityNote = wf.blockId === "wf-quality" ? qualityNoteText : "";
     const note = movesTrigger ? POLICY_TRIGGER_MOVE_NOTE : qualityNote;
     results.push({ file: label, action, ...(note ? { note } : {}) });
   }

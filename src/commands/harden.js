@@ -275,7 +275,7 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
   // KJC-BUG-0420: consumer CI installs kj from npm, so the workflows pin a published version.
   const pin = ci && full ? await resolveKjPin({ projectDir, fetchFn }) : null;
   if (pin?.note) logger.warn?.(`⚠ ${pin.note}`);
-  const wf = ci && full ? installWorkflows({ projectDir, language, root: roots[0]?.dir ?? ".", profile, mutation, dryRun, kjVersion: pin?.version ?? null, baseBranch }) : null;
+  const wf = ci && full ? installWorkflows({ projectDir, language, roots, profile, mutation, dryRun, kjVersion: pin?.version ?? null, baseBranch }) : null;
   const withGuidelines = guidelines && full;
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
   // the configs already use — a Python project must not be told to use `const`.

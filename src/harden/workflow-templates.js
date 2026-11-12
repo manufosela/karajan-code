@@ -278,6 +278,35 @@ export function qualityWorkflowFor(language, pm = "npm", lint = true, root = "."
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body: inRoot(body, root) } : null;
 }
 
+const JOBS_LINE = "jobs:\n  quality:\n";
+
+// `base`, then `base-2`, `base-3`… until one is free: two roots never share a job key.
+function freeJobId(base, taken) {
+  let id = base;
+  let n = 2;
+  while (taken.has(id)) {
+    id = `${base}-${n}`;
+    n += 1;
+  }
+  return id;
+}
+
+/**
+ * HU-4049: several stack roots share one kj-quality.yml, one job per root, each
+ * built by qualityWorkflowFor for that root (which already checked the dir) and
+ * named after its dir so its required check says which root it judges.
+ */
+export function multiRootQualityWorkflow(perRoot) {
+  const ids = new Set();
+  const jobs = perRoot.map(({ root, wf }) => {
+    const id = freeJobId(`quality-${root === "." ? "root" : root.replaceAll(/[^\w-]/g, "-")}`, ids);
+    ids.add(id);
+    return `  ${id}:\n    name: quality (${root})\n${wf.body.slice(wf.body.indexOf(JOBS_LINE) + JOBS_LINE.length)}`;
+  });
+  const first = perRoot[0].wf.body;
+  return { file: "kj-quality.yml", blockId: "wf-quality", body: `${first.slice(0, first.indexOf(JOBS_LINE))}jobs:\n${jobs.join("\n")}` };
+}
+
 // KJC-BUG-0309 (#2023): a repo whose app lives in a subdirectory runs every step
 // there. The root goes into YAML, so it is a plain relative path or nothing.
 function inRoot(body, root) {
