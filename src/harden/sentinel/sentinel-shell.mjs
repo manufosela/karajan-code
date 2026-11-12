@@ -375,3 +375,23 @@ export const commitStaging = (cmd) => {
   const stages = gits.some((s) => INDEX_VERBS.has(s.g.verb)) || commits.some((s) => commitStagesItself(s.words.slice(s.g.at + 1)));
   return { commits: true, stages, dir: commits[0].g.dir };
 };
+
+// MONO-0 (KJC-TSK-0737): absolute, ~/, dot-relative AND bare dir/x tokens; a false
+// token (s/a/b/) is harmless, the callers judge only where each one lands.
+// A word starts the command or follows one of \s " ' = ; ( > <, and runs up to \s " ' ` ; | & ).
+const WORD = /(?<=^|[\s"'=;(><])[^\s"'`;|&)]+/g;
+// Where a path starts (sticky): dot-relative, absolute, ~/ or a bare dir/x.
+const PATH_AT = /\.\.?\/|~?\/.|[\w.@-]+\/./y;
+
+/** The token a word holds: from its start or after one of its = ( > < (x=./a), the first path. → [token] or [] */
+const pathIn = (word) => {
+  for (const at of [0, ...word.matchAll(/[=(><]/g).map((m) => m.index + 1)]) {
+    PATH_AT.lastIndex = at;
+    if (PATH_AT.test(word)) return [word.slice(at)];
+  }
+  return [];
+};
+
+/** The path-like tokens of a command, ~/ expanded with home (ADR 0055 shares it). → [{ token, path }] */
+export const pathTokens = (cmd, home) => [...String(cmd).matchAll(WORD)].flatMap((m) => pathIn(m[0]))
+  .map((token) => ({ token, path: token.startsWith("~/") ? (home || "~") + token.slice(1) : token }));

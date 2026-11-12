@@ -13,7 +13,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, cardOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText, stagedVerdict } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
-import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
+import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, pathTokens, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { sandboxCovers, shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 import { blockingDeny, pendingHandoffs } from "./sentinel-handoffs.mjs";
@@ -443,13 +443,12 @@ process.stdin.on("end", () => {
         // .kj/worktrees/). Un falso token (s/a/b/) resuelve al arbol propio
         // y foreignLane da null — solo deniega lo que CAE en otro carril.
         const seen = new Set();
-        for (const m of cmd.matchAll(/(?:^|[\s"'=;(><])((?:\.\.?\/)[^\s"'`;|&)]*|\/[^\s"'`;|&)]+|~\/[^\s"'`;|&)]+|[A-Za-z0-9_.@-]+\/[^\s"'`;|&)]+)/g)) {
-          const t = m[1].startsWith("~/") ? (process.env.HOME || "~") + m[1].slice(1) : m[1];
+        for (const { token, path: t } of pathTokens(cmd, process.env.HOME)) {
           const abs = resolve(t);
           if (seen.has(abs)) continue;
           seen.add(abs);
           const lane = laneOf(abs);
-          if (lane && laneDeny(m[1], lane)) process.exit(2);
+          if (lane && laneDeny(token, lane)) process.exit(2);
         }
       }
       }
