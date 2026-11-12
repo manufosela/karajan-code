@@ -21,6 +21,7 @@
     "helmet": "^8.1.0",
     "js-yaml": "^4.2.0",
     "karajan-core": "^1.7.0",
+    "node-datachannel": "^0.33.6",
     "node-pty": "^1.1.0",
     "sqlite-vec": "^0.1.9",
     "ws": "^8.21.3"
