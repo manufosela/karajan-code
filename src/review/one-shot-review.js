@@ -80,6 +80,8 @@ async function quotaFailover({ reviewer, hostAgent, config, logger, candidateSta
  */
 export async function runOneShotReview({
   diff, task, config, logger, projectDir,
+  // HU-4033: what the reviewer reads when that is less than `diff`; the verdict still binds to `diff`.
+  shown = null,
   // KJC-TSK-0838: what the sonar pre-gate saw, persisted with the verdict.
   sonar = null,
   // KJC-TSK-0849 (ADR 0010): what the session's RAG ledger proved, same place.
@@ -117,7 +119,7 @@ export async function runOneShotReview({
     const prompt = await buildReviewerPrompt({
       task: task || "Review the following diff for correctness, security and maintainability.",
       // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
-      diff: summarizeGeneratedFiles(diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
+      diff: summarizeGeneratedFiles(shown ?? diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
       factsBlock: formatDiffFacts(facts),
     });
     // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.

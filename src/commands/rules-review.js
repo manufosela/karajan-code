@@ -9,6 +9,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import yaml from "js-yaml";
+
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { shape } from "../rules/approval-view.js";
 import { loadRules, PROPOSAL_FILE, rulesCheck } from "./rules.js";
@@ -40,19 +42,31 @@ const TASK = [
   "enforce it. Approve when none is.",
 ].join("\n");
 
-// HU-4027 (issue 4025): a rule identical to the installed one was judged when it was approved.
-const scopeNote = (rules, installed) => {
+// HU-4033 (issue 4025): a rule identical to the installed one was judged when it was approved,
+// so the reviewer reads only the new and changed rules, and the installed rules the proposal removes, whole.
+const SCOPE = [
+  "",
+  "SCOPE: the YAML below has two lists. `rules` holds ONLY the rules that are new or differ from the installed ones:",
+  "unchanged rules were already approved and are not shown, do not judge them. `removed_rules` holds, whole and as",
+  "approved today, the installed rules the proposal REMOVES. A removal is a weakening of the gates unless its `text` is",
+  "gone from the MD at its `source`: report it as blocking if that text is still there.",
+].join("\n");
+
+// The source decides whether a rule is installed in the versioned file or the local one: moving it is a change.
+const unchanged = (rule, approved) => approved !== undefined && shape(rule) === shape(approved) && rule.source === approved.source;
+
+/**
+ * What the reviewer reads of a proposal: its new and changed rules, and the installed rules it removes, whole.
+ * @param {object[]} rules the rules of the checked proposal
+ * @param {object[]} installed the rules approved today (both files)
+ * @returns {{changed: object[], removed: object[]}}
+ */
+export function scopeOf(rules, installed) {
   const before = new Map(installed.map((rule) => [rule.id, rule]));
-  const same = rules.filter((rule) => before.has(rule.id) && shape(rule) === shape(before.get(rule.id))).map((rule) => rule.id);
-  if (!same.length) return "";
-  const changed = rules.filter((rule) => !same.includes(rule.id)).map((rule) => rule.id);
-  return [
-    "",
-    `SCOPE: judge ONLY the rules that are new or differ from the installed ones: ${changed.join(", ") || "(none)"}.`,
-    `These ${same.length} rule(s) are identical to the installed ones, already approved: do not judge them, do not report them: ${same.join(", ")}.`,
-    changed.length ? "" : "No rule changed: approve.",
-  ].join("\n");
-};
+  const changed = rules.filter((rule) => !unchanged(rule, before.get(rule.id)));
+  const kept = new Set(rules.map((rule) => rule.id));
+  return { changed, removed: installed.filter((rule) => !kept.has(rule.id)) };
+}
 
 /**
  * @param {{projectDir: string, file?: string, home?: string, config: object, logger?: object, deps?: object}} opts
@@ -64,7 +78,10 @@ export async function rulesReview({ projectDir, file = PROPOSAL_FILE, home = os.
   try { text = fs.readFileSync(path.resolve(projectDir, file), "utf8"); } catch { return { code: 1, lines: [`✗ no ${file}: nothing to review`] }; }
   const checked = rulesCheck({ projectDir, home, text });
   if (checked.code !== 0) return { code: 1, lines: checked.lines };
-  const record = await runOneShotReview({ diff: text, task: TASK + scopeNote(checked.rules, loadRules(projectDir).rules), config, logger, projectDir, ...deps });
+  const { changed, removed } = scopeOf(checked.rules, loadRules(projectDir).rules);
+  // One line per value, as the rules files hold it (lineWidth -1); the verdict binds to the whole file (`diff`).
+  const shown = yaml.dump({ rules: changed, removed_rules: removed }, { lineWidth: -1 });
+  const record = await runOneShotReview({ diff: text, shown, task: TASK + SCOPE, config, logger, projectDir, ...deps });
   if (record.verdict === "approved") {
     return { code: 0, lines: [`✓ APPROVED by ${record.reviewer}: ${record.summary || "the compilation enforces the rules as written"}`, "Now your user reads it and runs `kj rules approve` from their own terminal."] };
   }
