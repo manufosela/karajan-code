@@ -55,7 +55,36 @@ describe("checkRagRequirement", () => {
 
   it("ragBlock carries the evidence and the session, bound later to the diff hash like sonar", () => {
     const req = checkRagRequirement({ stagedFiles: ["src/a.js"], ledger: ledger(["src/a.js", "src/z.js"]) });
-    expect(ragBlock(req, ledger([]))).toEqual({ mode: "pass", sessionId: "s1", queries: 1, covered: ["src/a.js"], uncovered: [], twinsUntouched: ["src/z.js"] });
+    expect(ragBlock(req, ledger([]))).toEqual({ mode: "pass", sessionId: "s1", queries: 1, covered: ["src/a.js"], uncovered: [], twinsUntouched: ["src/z.js"], excluded: [] });
+  });
+
+  describe("rag.exclude (HU-3981)", () => {
+    const config = { rag: { exclude: ["apps/landing/public/**"] } };
+    const ex = "apps/landing/public/sign/sign-helpers.js";
+
+    it("a modified source matched by rag.exclude needs no answer and is listed in excluded", () => {
+      const r = checkRagRequirement({ config, stagedFiles: [ex], ledger: ledger(["src/a.js"]) });
+      expect(r).toMatchObject({ ok: true, mode: "pass", excluded: [ex] });
+      expect(ragBlock(r, ledger([])).excluded).toEqual([ex]);
+    });
+
+    it("the same file without the exclude still blocks", () => {
+      expect(checkRagRequirement({ stagedFiles: [ex], ledger: ledger(["src/a.js"]) }).ok).toBe(false);
+    });
+
+    it("a mix blocks on the indexable unanswered file only", () => {
+      const r = checkRagRequirement({ config, stagedFiles: [ex, "pkg/x/b.js"], ledger: ledger(["src/a.js"]) });
+      expect(r.ok).toBe(false);
+      expect(r.uncovered).toEqual(["pkg/x/b.js"]);
+      expect(r.excluded).toEqual([ex]);
+    });
+
+    it("checkRagVerdict recomputes exclusion from the config, never from the block", () => {
+      const rag = { mode: "pass", covered: [] };
+      expect(checkRagVerdict({ config, stagedFiles: [ex], rag })).toMatchObject({ ok: true, excluded: [ex] });
+      expect(checkRagVerdict({ stagedFiles: [ex], rag }).ok).toBe(false);
+      expect(checkRagVerdict({ stagedFiles: [ex], rag: { ...rag, excluded: [ex] } }).ok).toBe(false);
+    });
   });
 });
 

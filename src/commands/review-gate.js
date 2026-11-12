@@ -594,6 +594,7 @@ async function ragGate({ config, projectDir, range, liveFiles, std }) {
   if (req.mode === "granted") console.log(formatRagGrant(req.grant));
   if (req.mode === "no-harness") console.log("⚠ rag: no Sentinel harness in this tree — no session ledger to check (kj harden installs it)");
   const record = ragBlock(req, ledger);
+  if (record.excluded.length > 0) console.log(`ℹ rag: excluded from the index by rag.exclude: ${listed(record.excluded)}`);
   const twins = record.twinsUntouched;
   if (twins.length === 0) return { record };
   console.log(`ℹ rag twins: this session's queries also returned ${twins.length} file(s) the diff does not touch — ${listed(twins)}`);

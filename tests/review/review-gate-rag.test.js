@@ -71,7 +71,7 @@ describe("review gate × rag requirement", () => {
     const r = await reviewGateCommand({ config: cfg(), flags: { staged: true, task: "my intent" } });
     expect(r.verdict).toBe("approved");
     const call = reviewMock.mock.calls[0][0];
-    expect(call.rag).toEqual({ mode: "pass", sessionId: "s1", queries: 1, covered: ["a.js"], uncovered: [], twinsUntouched: ["lib/twin.js"] });
+    expect(call.rag).toEqual({ mode: "pass", sessionId: "s1", queries: 1, covered: ["a.js"], uncovered: [], twinsUntouched: ["lib/twin.js"], excluded: [] });
     expect(call.task).toContain("my intent");
     expect(call.task).toContain("- lib/twin.js");
   });
