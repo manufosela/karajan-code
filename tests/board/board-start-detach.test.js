@@ -37,6 +37,7 @@ vi.mock("node:net", () => ({
 // "no board there" before spawn and "board answered" after spawn.
 let httpCallIdx = 0;
 let httpAlwaysFail = false;
+let httpFailUntil = 0;
 let probedHosts = [];
 const listenedHosts = [];
 vi.mock("node:http", () => {
@@ -50,7 +51,7 @@ vi.mock("node:http", () => {
           on: (ev, h) => { handlers[ev] = h; },
           end: () => {
             setImmediate(() => {
-              if (httpAlwaysFail || idx === 0) {
+              if (httpAlwaysFail || idx === 0 || idx < httpFailUntil) {
                 handlers.error?.(new Error("ECONNREFUSED"));
               } else {
                 cb?.({ statusCode: 200, resume() {} });
@@ -73,6 +74,7 @@ beforeEach(() => {
   process.env.KJ_BOARD_READY_TIMEOUT_MS = "200";
   httpCallIdx = 0;
   httpAlwaysFail = false;
+  httpFailUntil = 0;
   probedHosts = [];
   listenedHosts.length = 0;
   unref.mockReset();
@@ -141,6 +143,53 @@ describe("startBoard — detaches properly", () => {
     );
     const pidPath = join(tmpHome, "hu-board.pid");
     expect(existsSync(pidPath)).toBe(false);
+  });
+
+  // HU-4115: a board that reads every plan on boot answers late. While the
+  // process lives, startBoard keeps waiting up to KJ_BOARD_BOOT_TIMEOUT_MS.
+  describe("a board still booting after the first budget", () => {
+    let killSpy;
+    beforeEach(() => {
+      killSpy = vi.spyOn(process, "kill").mockReturnValue(true);
+      process.env.KJ_BOARD_READY_TIMEOUT_MS = "30";
+      process.env.KJ_BOARD_BOOT_TIMEOUT_MS = "1500";
+    });
+    afterEach(() => {
+      killSpy.mockRestore();
+      delete process.env.KJ_BOARD_BOOT_TIMEOUT_MS;
+    });
+
+    it("succeeds when it answers within the ceiling and says so once", async () => {
+      httpFailUntil = 8;
+      const logger = { info: vi.fn() };
+      const { startBoard } = await import("../../src/commands/board.js");
+      const result = await startBoard(4000, { logger });
+      expect(result.ok).toBe(true);
+      const lines = logger.info.mock.calls.map((c) => c[0]).filter((l) => l.includes("still starting"));
+      expect(lines).toHaveLength(1);
+      expect(existsSync(join(tmpHome, "hu-board.pid"))).toBe(true);
+    });
+
+    it("reports the early-exit error when the process dies while waiting", async () => {
+      httpAlwaysFail = true;
+      const { startBoard } = await import("../../src/commands/board.js");
+      const pending = startBoard(4000, { logger: { info: vi.fn() } });
+      const rejection = expect(pending).rejects.toThrow(/died on startup \(exit code 1\)/);
+      await new Promise((r) => setTimeout(r, 150));
+      const exitCalls = child.once.mock.calls.filter((c) => c[0] === "exit");
+      exitCalls.at(-1)[1](1, null);
+      await rejection;
+    });
+
+    it("names the time waited when it never answers past the ceiling", async () => {
+      httpAlwaysFail = true;
+      process.env.KJ_BOARD_BOOT_TIMEOUT_MS = "300";
+      const { startBoard } = await import("../../src/commands/board.js");
+      await expect(startBoard(4000, { logger: { info: vi.fn() } })).rejects.toThrow(
+        /did not answer on http:\/\/localhost:4000 in time \(waited \d+ s more\)/
+      );
+      expect(existsSync(join(tmpHome, "hu-board.pid"))).toBe(false);
+    });
   });
 
   // KJC-BUG-0498: bound to one address the server listens only there, so the

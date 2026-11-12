@@ -133,16 +133,18 @@ export function boardUrl(port, path = "") {
  * @param {string} logPath
  * @returns {Promise<string|null>}
  */
+function diedOnStartupMessage(code, signal, logPath) {
+  const how = signal ? `signal ${signal}` : `exit code ${code}`;
+  return `HU Board daemon died on startup (${how}). See ${logPath} for the cause.`;
+}
+
 export function waitForEarlyExit(child, logPath) {
   const envWindow = Number(process.env.KJ_BOARD_START_WINDOW_MS);
   const windowMs = Number.isFinite(envWindow) && envWindow >= 0 ? envWindow : 1500;
   return new Promise((resolve) => {
     let settled = false;
     let timer = null;
-    const onExit = (code, signal) => {
-      const how = signal ? `signal ${signal}` : `exit code ${code}`;
-      finish(`HU Board daemon died on startup (${how}). See ${logPath} for the cause.`);
-    };
+    const onExit = (code, signal) => finish(diedOnStartupMessage(code, signal, logPath));
     function finish(value) {
       if (settled) return;
       settled = true;
@@ -178,8 +180,35 @@ async function waitForBoardReachable(port, totalTimeoutMs, host = "127.0.0.1") {
   return false;
 }
 
+// HU-4115: the board reads every plan before it listens, so a big
+// project can take far longer than the first budget. While the process
+// is alive, keep probing up to a longer ceiling (KJ_BOARD_BOOT_TIMEOUT_MS,
+// default 120 s). An exit while waiting throws the early-exit message.
+// Resolves to { reachable, waitedMs }.
+async function waitForBoardBoot(port, host, child, logPath, logger) {
+  const envCeiling = Number(process.env.KJ_BOARD_BOOT_TIMEOUT_MS);
+  const ceilingMs = Number.isFinite(envCeiling) && envCeiling >= 0 ? envCeiling : 120_000;
+  logger?.info(`the board is still starting (it reads every plan on boot); waiting up to ${Math.round(ceilingMs / 1000)} s…`);
+  let diedMessage = null;
+  const onExit = (code, signal) => { diedMessage = diedOnStartupMessage(code, signal, logPath); };
+  child.once("exit", onExit);
+  const startedAt = Date.now();
+  try {
+    while (Date.now() - startedAt < ceilingMs) {
+      if (diedMessage || !isProcessAlive(child.pid)) {
+        throw new Error(diedMessage ?? diedOnStartupMessage("unknown", null, logPath));
+      }
+      if (await isBoardReachable(port, 750, host)) return { reachable: true, waitedMs: Date.now() - startedAt };
+      await new Promise((r) => setTimeout(r, Math.min(200, Math.max(10, ceilingMs / 5))));
+    }
+    return { reachable: false, waitedMs: Date.now() - startedAt };
+  } finally {
+    child.removeListener("exit", onExit);
+  }
+}
+
 export async function startBoard(desiredPort = 4000, opts = {}) {
-  const { projectSlug = null, bind = "127.0.0.1" } = opts;
+  const { projectSlug = null, bind = "127.0.0.1", logger } = opts;
   const existingPid = readPid();
   if (existingPid && isProcessAlive(existingPid)) {
     // Trust the saved PID — port info comes from the PID file if present
@@ -261,11 +290,16 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   // or be still booting. Probe /api/dashboard before announcing
   // success — without this the CLI used to print "HU Board started
   // at http://localhost:4000" while :4000 actually returned nothing.
-  const reachable = await waitForBoardReachable(port, undefined, host);
+  let reachable = await waitForBoardReachable(port, undefined, host);
+  let waitedMs = 0;
+  if (!reachable && isProcessAlive(child.pid)) {
+    ({ reachable, waitedMs } = await waitForBoardBoot(port, host, child, logPath, logger));
+  }
   if (!reachable) {
     const where = host === "127.0.0.1" ? "localhost" : host;
+    const waited = waitedMs ? ` (waited ${Math.round(waitedMs / 1000)} s more)` : "";
     throw new Error(
-      `HU Board daemon spawned (PID ${child.pid}) but did not answer on http://${where}:${port} in time. See ${logPath} for the cause.`
+      `HU Board daemon spawned (PID ${child.pid}) but did not answer on http://${where}:${port} in time${waited}. See ${logPath} for the cause.`
     );
   }
   fs.writeFileSync(PID_FILE, String(child.pid));
@@ -432,7 +466,7 @@ export async function boardCommand({ action = "start", port = 4000, bind = "127.
     case "start": {
       let result;
       try {
-        result = await startBoard(port, { bind });
+        result = await startBoard(port, { bind, logger });
       } catch (err) {
         // The daemon died on boot (broken native module, crash) or no
         // free port was found. Surface it cleanly — the whole point of
