@@ -9,6 +9,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import yaml from "js-yaml";
+
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { shape } from "../rules/approval-view.js";
 import { loadRules, PROPOSAL_FILE, rulesCheck } from "./rules.js";
@@ -41,17 +43,20 @@ const TASK = [
 ].join("\n");
 
 // HU-4027 (issue 4025): a rule identical to the installed one was judged when it was approved.
-const scopeNote = (rules, installed) => {
+// HU-4032: those rules are not sent at all; the reviewer reads only the ones that changed.
+const scope = (rules, installed) => {
   const before = new Map(installed.map((rule) => [rule.id, rule]));
   const same = rules.filter((rule) => before.has(rule.id) && shape(rule) === shape(before.get(rule.id))).map((rule) => rule.id);
-  if (!same.length) return "";
-  const changed = rules.filter((rule) => !same.includes(rule.id)).map((rule) => rule.id);
-  return [
+  if (!same.length) return { note: "", shown: null };
+  const changedRules = rules.filter((rule) => !same.includes(rule.id));
+  const changed = changedRules.map((rule) => rule.id);
+  const note = [
     "",
     `SCOPE: judge ONLY the rules that are new or differ from the installed ones: ${changed.join(", ") || "(none)"}.`,
     `These ${same.length} rule(s) are identical to the installed ones, already approved: do not judge them, do not report them: ${same.join(", ")}.`,
     changed.length ? "" : "No rule changed: approve.",
   ].join("\n");
+  return { note, shown: yaml.dump({ version: 1, rules: changedRules }) };
 };
 
 /**
@@ -64,7 +69,8 @@ export async function rulesReview({ projectDir, file = PROPOSAL_FILE, home = os.
   try { text = fs.readFileSync(path.resolve(projectDir, file), "utf8"); } catch { return { code: 1, lines: [`✗ no ${file}: nothing to review`] }; }
   const checked = rulesCheck({ projectDir, home, text });
   if (checked.code !== 0) return { code: 1, lines: checked.lines };
-  const record = await runOneShotReview({ diff: text, task: TASK + scopeNote(checked.rules, loadRules(projectDir).rules), config, logger, projectDir, ...deps });
+  const { note, shown } = scope(checked.rules, loadRules(projectDir).rules);
+  const record = await runOneShotReview({ diff: text, shown, task: TASK + note, config, logger, projectDir, ...deps });
   if (record.verdict === "approved") {
     return { code: 0, lines: [`✓ APPROVED by ${record.reviewer}: ${record.summary || "the compilation enforces the rules as written"}`, "Now your user reads it and runs `kj rules approve` from their own terminal."] };
   }

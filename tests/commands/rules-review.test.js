@@ -52,6 +52,15 @@ describe("kj rules review", () => {
     expect(prompt).toMatch(/judge ONLY the rules that are new or differ/);
     expect(prompt).toMatch(/No rule changed: approve/);
     expect(prompt).toMatch(/identical to the installed ones/);
+    expect(prompt).not.toContain(rule.text); // HU-4032: an unchanged rule is not even sent
+    expect((await checkVerdict(dir, fs.readFileSync(proposal, "utf8"))).ok).toBe(true); // still bound to the whole proposal
+  });
+  it("sends a rule that differs from the installed one", async () => {
+    propose();
+    fs.writeFileSync(path.join(dir, ".karajan", "rules.yml"), fs.readFileSync(proposal, "utf8").replace("kind: judgment", "kind: out-of-scope"));
+    const agents = answering({ approved: true, blocking_issues: [] });
+    await review(agents);
+    expect(agents.mock.results[0].value.reviewTask.mock.calls[0][0].prompt).toContain(rule.text);
   });
 
   it("a rejection names the rules the reviewer found weak", async () => {
