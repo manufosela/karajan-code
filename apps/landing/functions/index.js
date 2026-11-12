@@ -19,6 +19,9 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+
+import { admitToRoom } from "./room.js";
 
 initializeApp();
 const db = getFirestore();
@@ -64,6 +67,45 @@ export const telemetry = onRequest(
       // Server-side log only — client never sees the reason.
       console.error("[telemetry] write failed:", err.message);
       res.status(500).end();
+    }
+  }
+);
+
+/**
+ * KJC-TSK-1566 (ADR 0056, point 4): a board joins its repository's room. POST {repo} with the
+ * board's GitHub token as `Authorization: Bearer`; the answer is a Firebase token for that room
+ * only (room.js). It runs as the Firebase Admin account, which may sign tokens. The GitHub token
+ * is never logged nor kept.
+ */
+export const roomJoin = onRequest(
+  {
+    region: "europe-west1",
+    cors: false,
+    maxInstances: 10,
+    serviceAccount: "firebase-adminsdk-fbsvc@karajan-code.iam.gserviceaccount.com",
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).set("Allow", "POST").end();
+      return;
+    }
+    if (Number(req.headers["content-length"] || 0) > MAX_BODY_BYTES) {
+      res.status(413).end();
+      return;
+    }
+    const githubToken = /^Bearer (\S+)$/.exec(req.headers.authorization ?? "")?.[1];
+    try {
+      const admitted = await admitToRoom(
+        { repo: req.body?.repo, githubToken },
+        { fetch, sign: (uid, claims) => getAuth().createCustomToken(uid, claims) },
+      );
+      res.set("Cache-Control", "no-store").json(admitted);
+    } catch (err) {
+      if (err.status) res.status(err.status).json({ error: err.message });
+      else {
+        console.error("[roomJoin] failed:", err.message);
+        res.status(500).end();
+      }
     }
   }
 );
