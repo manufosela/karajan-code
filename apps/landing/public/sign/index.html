@@ -67,11 +67,20 @@
     <button id="passkey-btn" data-i18n="passkey" hidden>Firmar con passkey</button>
     <button id="sign-btn" data-i18n="sign" hidden>Firmar el sello</button>
   </section>
+  <section id="register" hidden>
+    <h1 data-i18n="registerTitle">Crear una passkey</h1>
+    <dl>
+      <dt data-i18n="project">Proyecto</dt><dd id="register-project"></dd>
+      <dt data-i18n="label">Nombre</dt><dd id="register-label"></dd>
+    </dl>
+    <p class="hint" data-i18n="registerHint">kj pide una passkey de karajancode.com con este nombre.</p>
+    <button id="register-btn" data-i18n="register">Crear passkey</button>
+  </section>
   <section id="done" hidden><h1 data-i18n="doneTitle">Firmado.</h1><p data-i18n="doneBody">Vuelve al ordenador.</p></section>
   <section id="error" hidden><h1 data-i18n="errorTitle">No se puede continuar</h1><p id="error-text"></p></section>
 </main>
 <script type="module">
-  import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, signMethods } from "./sign-helpers.js";
+  import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "./sign-helpers.js";
   const API_KEY = "AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8";
   const BASE = "https://firestore.googleapis.com/v1/projects/karajan-code/databases/(default)/documents/kjSupervisorSign";
   // KJC-TSK-0992 (HUM-G): the page speaks the browser's language, Spanish or
@@ -87,6 +96,8 @@
       status: { new: "nuevo", modified: "modificado", deleted: "borrado", local: "local, solo su hash" }, lines: (a, r) => `+${a} −${r} líneas`, showDiff: "Ver el diff", cutNote: "(diff recortado por tamaño)",
       sign: "Firmar el sello", signKey: "Firmar con la clave de este navegador", doneTitle: "Firmado.", doneBody: "Vuelve al ordenador.", errorTitle: "No se puede continuar",
       passkey: "Firmar con passkey", desktopTitle: "Firma desde el móvil", desktopBody: "Ábrela en el móvil: aquí no se firma",
+      registerTitle: "Crear una passkey", label: "Nombre", registerHint: "kj pide una passkey de karajancode.com con este nombre.", register: "Crear passkey",
+      registeredTitle: "Passkey creada.", noPasskey: "Este navegador no admite passkeys. Abre el enlace en el navegador del móvil.",
       noSigner: "Este navegador no admite passkeys y no guarda una clave de firma. Abre el enlace en el navegador del móvil donde firmas.",
       offline: "Sin conexión. Revisa la red y recarga la página.", gone: "Esta petición de firma no existe o ha caducado. Genera una nueva desde el ordenador con kj.",
       readFail: (s) => `No se pudo leer la petición (error ${s}). Recarga la página; si sigue, genera otra desde kj.`, notPending: "Esta petición ya está firmada o ya no admite firma. Si necesitas firmar, genera una nueva desde kj.",
@@ -103,6 +114,8 @@
       status: { new: "new", modified: "modified", deleted: "deleted", local: "local, hash only" }, lines: (a, r) => `+${a} −${r} lines`, showDiff: "Show the diff", cutNote: "(diff cut for size)",
       sign: "Sign the seal", signKey: "Sign with this browser's key", doneTitle: "Signed.", doneBody: "Go back to the computer.", errorTitle: "Cannot continue",
       passkey: "Sign with a passkey", desktopTitle: "Sign from your phone", desktopBody: "Open it on your phone: signing is not done here",
+      registerTitle: "Create a passkey", label: "Name", registerHint: "kj asks for a karajancode.com passkey with this name.", register: "Create passkey",
+      registeredTitle: "Passkey created.", noPasskey: "This browser does not support passkeys. Open the link in your phone's browser.",
       noSigner: "This browser supports no passkeys and holds no signing key. Open the link in the phone browser you sign with.",
       offline: "No connection. Check the network and reload the page.", gone: "This signing request does not exist or has expired. Make a new one from the computer with kj.",
       readFail: (s) => `The request could not be read (error ${s}). Reload the page; if it persists, make another one from kj.`, notPending: "This request is already signed or no longer accepts a signature. If you need to sign, make a new one from kj.",
@@ -171,6 +184,7 @@
     if (!res.ok) return fail(TEXT.readFail(res.status));
     const f = (await res.json()).fields ?? {};
     if (f.state?.stringValue !== "pending") return fail(TEXT.notPending);
+    if (requestKind(f) === "register") return registerMode(cid, f);
     const methods = signMethods({ docFields: f, hasEd25519Key: Boolean(keys), hasWebAuthn: typeof globalThis.PublicKeyCredential === "function" });
     if (!methods.length) return fail(TEXT.noSigner);
     // As before the passkey: a phone without its Ed25519 key enrolls one.
@@ -219,6 +233,28 @@
       publicKey: { stringValue: b64(await crypto.subtle.exportKey("raw", keys.publicKey)) },
       signedAt: { timestampValue: new Date().toISOString() },
     }));
+  };
+  // HU-3976 (ADR 0053): a register request (kind "register") creates this phone's passkey; it signs nothing.
+  const registerMode = async (cid, f) => {
+    if (typeof globalThis.PublicKeyCredential !== "function") return fail(TEXT.noPasskey);
+    const userLabel = str(f.user_label).trim();
+    const expiresMs = Date.parse(f.expires_at?.timestampValue ?? "");
+    if (!userLabel || !str(f.nonce)) return fail(TEXT.badLink);
+    if (!Number.isFinite(expiresMs)) return fail(TEXT.noExpiry);
+    $("register-project").textContent = str(f.project);
+    $("register-label").textContent = userLabel;
+    show("register");
+    const btn = $("register-btn");
+    btn.onclick = async () => {
+      if (Date.now() >= expiresMs - SIGN_MARGIN_MS) return fail(TEXT.expired);
+      btn.disabled = true;
+      try {
+        const userIdBytes = crypto.getRandomValues(new Uint8Array(16));
+        const credential = await navigator.credentials.create({ publicKey: await registerRequest({ nonceBytes: enc(str(f.nonce)), userLabel, userIdBytes }) });
+        $("done").querySelector("h1").textContent = TEXT.registeredTitle;
+        await patchDoc(cid, registerFields(credential));
+      } catch { fail(TEXT.signFail); } finally { btn.disabled = false; }
+    };
   };
   const patchDoc = async (cid, fields) => {
     const mask = Object.keys(fields).map((p) => `updateMask.fieldPaths=${p}`).join("&");

@@ -54,3 +54,31 @@ it("the create rule admits a passkey flag, as a bool", () => {
   expect(admitted.has("passkey")).toBe(true);
   expect(rules).toContain("(!('passkey' in request.resource.data) || request.resource.data.passkey is bool)");
 });
+
+// HU-3976 (ADR 0053): a register request carries kind and user_label, as strings.
+it("the create rule admits a register request: kind and user_label, as strings", () => {
+  for (const key of ["kind", "user_label"]) {
+    expect(admitted.has(key), key).toBe(true);
+    expect(rules).toContain(`(!('${key}' in request.resource.data) || request.resource.data.${key} is string)`);
+  }
+});
+
+// HU-3976: a register request is answered pending -> registered with exactly the new passkey; signing stays as it was.
+it("a second update rule admits pending -> registered with exactly the passkey fields, until the request's expiry", () => {
+  const first = rules.indexOf("allow update:");
+  const last = rules.lastIndexOf("allow update:");
+  expect(first).toBeLessThan(last);
+  const register = rules.slice(last);
+  expect(register).toContain("resource.data.get('kind', '') == 'register'");
+  expect(register).toContain("request.resource.data.state == 'registered'");
+  const keys = "['state', 'credentialId', 'publicKey', 'alg', 'signedAt']";
+  expect(register).toContain(`affectedKeys().hasOnly(${keys})`);
+  expect(register).toContain(`affectedKeys().hasAll(${keys})`);
+  for (const key of ["credentialId", "publicKey"]) expect(register).toContain(`request.resource.data.${key} is string`);
+  expect(register).toContain("request.resource.data.alg is int");
+  expect(register).toContain("request.resource.data.signedAt is timestamp");
+  expect(register).toMatch(/request\.time < \('expires_at' in resource\.data \? resource\.data\.expires_at : resource\.data\.createdAt \+ duration\.value\(3, 'm'\)\)/);
+  const signing = rules.slice(first, last);
+  expect(signing).toContain("request.resource.data.state == 'signed'");
+  expect(signing).not.toContain("state == 'registered'");
+});

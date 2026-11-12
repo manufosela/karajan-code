@@ -25,8 +25,11 @@ service cloud.firestore {
       // KJC-BUG-0303: since kj 4.46 the request also carries what the page shows
       // beside the hashes (KJC-TSK-0992 changes/branch/origin, KJC-TSK-0996 why),
       // outside the signed payload; a hasOnly without them rejected every seal (403).
-      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at', 'changes', 'branch', 'origin', 'why', 'passkey'])
+      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at', 'changes', 'branch', 'origin', 'why', 'passkey', 'kind', 'user_label'])
         && (!('passkey' in request.resource.data) || request.resource.data.passkey is bool)
+        // HU-3976 (ADR 0053): a register request asks the phone for a passkey with this label.
+        && (!('kind' in request.resource.data) || request.resource.data.kind is string)
+        && (!('user_label' in request.resource.data) || request.resource.data.user_label is string)
         && (!('changes' in request.resource.data) || request.resource.data.changes is list)
         && (!('branch' in request.resource.data) || request.resource.data.branch is string)
         && (!('origin' in request.resource.data) || request.resource.data.origin is string)
@@ -52,6 +55,17 @@ service cloud.firestore {
         && (!('clientDataJSON' in request.resource.data) || request.resource.data.clientDataJSON is string)
         && (!('credentialId' in request.resource.data) || request.resource.data.credentialId is string)
         // KJC-TSK-1535: a v2 request is signed until its own expiry; an old one keeps the 3 minutes.
+        && request.time < ('expires_at' in resource.data ? resource.data.expires_at : resource.data.createdAt + duration.value(3, 'm'));
+      // HU-3976 (ADR 0053): a register request is answered once, pending -> registered, with exactly the new passkey.
+      allow update: if resource.data.state == 'pending'
+        && resource.data.get('kind', '') == 'register'
+        && request.resource.data.state == 'registered'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'credentialId', 'publicKey', 'alg', 'signedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAll(['state', 'credentialId', 'publicKey', 'alg', 'signedAt'])
+        && request.resource.data.credentialId is string
+        && request.resource.data.publicKey is string
+        && request.resource.data.alg is int
+        && request.resource.data.signedAt is timestamp
         && request.time < ('expires_at' in resource.data ? resource.data.expires_at : resource.data.createdAt + duration.value(3, 'm'));
     }
 
