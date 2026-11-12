@@ -46,7 +46,8 @@ export const plateName = (lane) => lane.split('@')[0];
 export function laneStatuses(names, { lanes = [], working = [], cards = [] }, box) {
   const byLane = new Map(lanes.map((l) => [l.lane, l]));
   return new Map(names.map((lane) => {
-    const { remote, owner, title, remoteWorking } = byLane.get(lane) ?? {};
+    // KJC-TSK-1577: a teammate's lane that came live, before the board lists it, is theirs too.
+    const { remote, owner, title, remoteWorking } = byLane.get(lane) ?? (lane.includes('@') ? { remote: true, owner: lane.split('@')[1], title: plateName(lane) } : {});
     const status = laneStatus({
       lane,
       remote, owner, title, remoteWorking,

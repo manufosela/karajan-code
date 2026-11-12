@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { teamLanes } from '../src/stage-team.js';
-import { laneStatus, plateName, statusLine } from '../public/stage/lane-status.js';
+import { laneStatus, laneStatuses, plateName, statusLine } from '../public/stage/lane-status.js';
 
 const team = [
   { person: 'jorgecasar', at: 't', cards: [{ id: 'HU-3', title: 'three', working: true }, { id: 'HU-4', title: 'four', working: false }] },
@@ -30,6 +30,11 @@ describe('a teammate\'s lane', () => {
     const status = laneStatus(teamLanes(team)[1]);
     expect(status).toEqual({ state: 'idle', why: '@jorgecasar: four', owner: 'jorgecasar' });
     expect(statusLine(status)).toBe('idle: @jorgecasar: four');
+  });
+
+  it('is a teammate\'s too when it comes live before the board lists it (KJC-TSK-1577)', () => {
+    const statuses = laneStatuses(['kj-stage@jorgecasar'], { lanes: [], working: [{ lane: 'kj-stage@jorgecasar', agent: 'codex' }] }, new Map());
+    expect(statuses.get('kj-stage@jorgecasar')).toEqual({ state: 'working', why: '@jorgecasar: kj-stage', owner: 'jorgecasar' });
   });
 
   it('shows only the card on its plate; an own lane keeps its whole name', () => {

@@ -5,7 +5,8 @@ import path from 'node:path';
 import { spawn as spawnChild } from 'node:child_process';
 
 import { getDashboardStats, getProjects } from '../../db.js';
-import { fullScan } from '../../sync.js';
+import { deriveProjectIdFromDir, fullScan } from '../../sync.js';
+import { listenEveryTeam, teamOfDir } from '../../room/team.js';
 import { subscribe as subscribeEvents } from '../../event-bus.js';
 import { readConfig, writeConfigPatch } from '../../config-yaml.js';
 import { requestProjectDir } from '../../project-dir.js';
@@ -85,6 +86,10 @@ router.get('/events', (req, res) => {
   const stopStageFeed = req.query.map === '1'
     ? watchMap(send)
     : stageDir && watchLanes(stageDir, send, { project: req.query.project });
+  // KJC-TSK-1577 (ADR 0056): and the teammates' agents, live from the room of each repository.
+  const stopTeam = req.query.map === '1'
+    ? listenEveryTeam((event, dir) => send({ ...event, project: deriveProjectIdFromDir(dir) }))
+    : stageDir && teamOfDir(stageDir)?.listen((event) => send({ ...event, project: req.query.project }));
 
   // 25s is well under the default 60-90s idle timeout of every sane
   // reverse proxy, but high enough that it doesn't spam the log.
@@ -96,6 +101,7 @@ router.get('/events', (req, res) => {
     clearInterval(keepAlive);
     unsubscribe();
     stopStageFeed?.();
+    stopTeam?.();
     res.end?.();
   });
 });
