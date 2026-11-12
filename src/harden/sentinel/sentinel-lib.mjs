@@ -274,7 +274,9 @@ const holdsPendingSource = (files, top, bases) => {
 // `top` is the tree the recorded paths are relative to: for the session's own record, its lane
 // (HU-4003: where posttooluse records it, ROOT unless the host moved it), or another lane (ADR 0034).
 // laneViolations: those of every other lane the session wrote in, each named by its lane.
+// HU-4112: a lane already removed (`kj worktree done --force`) has nothing left to judge.
 export const laneViolations = (s) => Object.entries(s?.lanes ?? {})
+  .filter(([top]) => existsSync(top))
   .flatMap(([top, rec]) => violations(rec, branchOf(top), [], top).map((x) => "[" + top + "] " + x));
 // KJC-BUG-0279/0523: a path outside the repository (empty, "..", "../…" or absolute on either
 // platform: "/x", or "C:/x" for a file on another Windows drive, separators already "/") is not one of its files.
