@@ -175,7 +175,7 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
   it("enrolled phone + valid signature: commits, and the phone signed the provenance files", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     let asked;
-    const phone = { enrolled: () => true, request: async (req) => { asked = req; return { ok: true }; } };
+    const phone = { enrolled: () => true, request: async (req) => { asked = req; return { ok: true, block: { signer: "s", signature: "g" } }; } };
     const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } });
     expect(res.committed).toBe(true);
     const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
@@ -188,7 +188,7 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
   it("enrolled phone returning a challenge+signature: provenance records the signature block", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
     const challenge = { cid: "cafe", nonce: "babe", project: "p", filesHash: "abc123" };
-    const phone = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUBKEY", signature: "SIG", challenge }) };
+    const phone = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUBKEY", signature: "SIG", challenge, block: { ...challenge, signer: "PUBKEY", signature: "SIG" } }) };
     const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, deps: { ...HUMAN.deps, phone } });
     expect(res.committed).toBe(true);
     const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
@@ -442,7 +442,7 @@ describe("el sello cubre los guardias del Sentinel (KJC-BUG-0197)", () => {
         ...HUMAN.deps,
         phone: {
           enrolled: () => true,
-          request: async ({ files }) => { signedFiles = files; return { ok: true, signer: "s" }; },
+          request: async ({ files }) => { signedFiles = files; return { ok: true, signer: "s", block: { signer: "s", signature: "g" } }; },
         },
       },
     });

@@ -27,7 +27,7 @@ const phoneOf = (key, { ok = true } = {}) => ({
     if (!ok) return { ok: false, reason: "caducado" };
     const challenge = { cid: "c1", nonce: "n1", project: req.project, v: 2, kjVersion: req.kjVersion, issuedMs: 1, expiresMs: 2 };
     const signature = cryptoSign(null, Buffer.from(canonicalPayload({ ...challenge, files: req.files }), "utf8"), key.privateKey).toString("base64");
-    return { ok: true, signer: key.pub, signature, challenge };
+    return { ok: true, signer: key.pub, signature, challenge, block: { ...challenge, signer: key.pub, signature } };
   },
 });
 const never = { enrolled: () => false, request: async () => { throw new Error("must not be called"); } };

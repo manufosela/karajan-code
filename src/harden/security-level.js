@@ -83,7 +83,7 @@ export async function lowerSecurityLevel({ projectDir, home, kjVersion, env, tty
   if (current.level === "normal") return { changed: false, level: current };
   // KJC-TSK-1045 (ADR 0020): with no phone anywhere, max only blocks; the human
   // layers and the typed code are the proof, and the record says it is unsigned.
-  if (readEnrolledKeys({ projectDir, home }).size === 0) {
+  if (readEnrolledKeys({ projectDir, home }).size === 0 && readPasskeyCredentials({ projectDir }).length === 0) {
     act.confirm(deps.confirm);
     mkdirSync(dirname(levelPath(projectDir)), { recursive: true });
     writeFileSync(levelPath(projectDir), recordBytes({ level: "normal", since: new Date().toISOString(), unsigned: NO_PHONE }), "utf8");
@@ -91,7 +91,7 @@ export async function lowerSecurityLevel({ projectDir, home, kjVersion, env, tty
     return { changed: true, level: readSecurityLevel({ projectDir, home }) };
   }
   // HU-3887 (KJC-BUG-0551): any phone of the roster signs, not only this machine's.
-  const phone = { enrolled: anyAuthorizedPhone, request: requestPhoneSignature, ...deps.phone };
+  const phone = { enrolled: (where) => anyAuthorizedPhone(where) || readPasskeyCredentials(where).length > 0, request: requestPhoneSignature, ...deps.phone };
   if (!phone.enrolled({ projectDir, home })) throw new Error(`${act.label}: bajar el nivel se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
   act.confirm(deps.confirm);
   const record = { level: "normal", since: new Date().toISOString() };
@@ -103,8 +103,8 @@ export async function lowerSecurityLevel({ projectDir, home, kjVersion, env, tty
     origin: `kj security normal (kj ${kjVersion})`, deps: { projectDir, home },
   });
   if (!signed.ok) throw new Error(`${act.label}: firma del móvil rechazada (${signed.reason}); el nivel no cambia`);
-  if (!signed.challenge || !signed.signer || !signed.signature) throw new Error(`${act.label}: el relé no devolvió un desafío firmado que kj pueda grabar; el nivel no cambia`);
-  const signature = { ...signed.challenge, signer: signed.signer, signature: signed.signature };
+  if (!signed.challenge || !signed.block) throw new Error(`${act.label}: el relé no devolvió un desafío firmado que kj pueda grabar; el nivel no cambia`);
+  const signature = signed.block;
   mkdirSync(dirname(levelPath(projectDir)), { recursive: true });
   writeFileSync(levelPath(projectDir), recordBytes({ ...record, signature }), "utf8");
   return { changed: true, level: readSecurityLevel({ projectDir, home }) };

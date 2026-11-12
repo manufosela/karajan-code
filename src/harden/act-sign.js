@@ -11,7 +11,7 @@ import { basename } from "node:path";
 
 import { humanActOf } from "./human-act.js";
 import { PHONE_ENROLL, PHONE_INVITE } from "./phone-texts.js";
-import { anyAuthorizedPhone, isPhoneEnrolled, requestPhoneSignature } from "./phone-sign.js";
+import { anyAuthorizedPhone, isPhoneEnrolled, readPasskeyCredentials, requestPhoneSignature } from "./phone-sign.js";
 import { readSecurityLevel } from "./security-level.js";
 import { sealRepoOf } from "./seal-repo.js";
 
@@ -68,7 +68,9 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
   if (level.source === "invalid") logger.warn?.(`${act.label}: ${level.reason}`);
   // HU-3887 (KJC-BUG-0551): at max a phone that can sign is any key of the roster, not only this
   // machine's. At normal the signed record itself puts a key in the roster, so there it stays this machine's.
-  const enrolled = level.level === "max" ? anyAuthorizedPhone : isPhoneEnrolled;
+  // HU-4016: a live roster passkey signs at both levels.
+  const hasPasskey = (where) => readPasskeyCredentials(where).length > 0;
+  const enrolled = (where) => hasPasskey(where) || (level.level === "max" ? anyAuthorizedPhone : isPhoneEnrolled)(where);
   const phone = { enrolled, request: requestPhoneSignature, ...deps.phone };
   if (!phone.enrolled({ projectDir, home })) {
     // No key anywhere: enroll-phone runs as the bootstrap, so the refusal points there and nowhere that loops back.
@@ -87,6 +89,6 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
     ...(id === "phone-enroll" ? { ttlMs: 600000 } : {}), deps: { projectDir, home },
   });
   if (!signed.ok) throw new Error(`${act.label}: firma del móvil rechazada (${signed.reason}); con móvil enrolado el acto exige su firma (ADR 0018)`);
-  const signature = signed.challenge && signed.signer && signed.signature ? { ...signed.challenge, signer: signed.signer, signature: signed.signature } : null;
-  return { level, signature };
+  if (!signed.block) throw new Error(`${act.label}: el relé no devolvió una firma que kj pueda grabar; el acto no se aplica`);
+  return { level, signature: signed.block };
 }

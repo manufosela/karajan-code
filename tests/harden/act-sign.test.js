@@ -16,7 +16,7 @@ const CHALLENGE = { cid: "c", nonce: "n", project: "p", v: 2, kjVersion: "9.9.9"
 let repo, home, warned, asked;
 const phone = ({ enrolled = true, ok = true, challenge = CHALLENGE } = {}) => ({
   enrolled: () => enrolled,
-  request: async (req) => { asked = req; return ok ? { ok: true, signer: "PUB", signature: "SIG", challenge } : { ok: false, reason: "caducado" }; },
+  request: async (req) => { asked = req; return ok ? { ok: true, signer: "PUB", signature: "SIG", challenge, block: { ...challenge, signer: "PUB", signature: "SIG" } } : { ok: false, reason: "caducado" }; },
 });
 const sign = (id, opts = {}) => signAct(id, { projectDir: repo, home, kjVersion: "9.9.9", files: FILES, logger: { warn: (l) => warned.push(l) }, ...opts });
 const atMax = () => writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "max", since: "2026-10-09" }));
@@ -39,11 +39,12 @@ describe("signAct", () => {
     expect(warned).toEqual([]);
   });
 
-  it("a refused signature, or an unknown act, is an error; a relay with no challenge gives no block", async () => {
+  it("a refused signature, or an unknown act, is an error; a signed answer with no block is an error, never a silent null", async () => {
     await expect(sign("supervisor-seal", { deps: { phone: phone({ ok: false }) } })).rejects.toThrow(/harden --commit: firma del móvil rechazada \(caducado\)/);
     await expect(sign("delete-all", { deps: { phone: phone() } })).rejects.toThrow(/not in the catalog/);
     expect(() => explainAct("handoff-run")).toThrow(/no explanation for the phone/);
-    expect((await sign("phone-enroll", { deps: { phone: phone({ challenge: null }) } })).signature).toBeNull();
+    const blockless = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUB", signature: "SIG", challenge: CHALLENGE }) };
+    await expect(sign("phone-enroll", { deps: { phone: blockless } })).rejects.toThrow(/no devolvió una firma que kj pueda grabar/);
   });
 
   it("at max with no phone: refused with the way to enroll, except the first enrollment (bootstrap)", async () => {

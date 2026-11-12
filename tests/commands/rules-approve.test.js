@@ -54,7 +54,7 @@ describe("kj rules approve", () => {
     await expect(approve({ deps: { ...HUMAN.deps, phone: { enrolled: () => false } } })).rejects.toThrow(/kj rules approve: con seguridad máxima.*kj identity enroll-phone/);
     expect(fs.existsSync(file("rules.yml"))).toBe(false);
     let asked;
-    const phone = { enrolled: () => true, request: async (req) => { asked = req; return { ok: true }; } };
+    const phone = { enrolled: () => true, request: async (req) => { asked = req; return { ok: true, block: { signer: "s", signature: "g" } }; } };
     expect((await approve({ deps: { ...HUMAN.deps, phone } })).code).toBe(0);
     const sha = (text) => createHash("sha256").update(text).digest("hex");
     expect(asked.files).toEqual([{ file: ".karajan/rules.yml", sha256: sha(fs.readFileSync(file("rules.yml"), "utf8")) }, { file: ".karajan/rules.local.yml", sha256: "" }]);
