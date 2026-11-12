@@ -20,8 +20,9 @@ describe("factory replay starter parity", () => {
     for (const key of wanted) expect(keys(returned[1])).toContain(key);
   });
 
-  it("takes exactly state, tell and counts as the second parameter", () => {
-    expect(keys(signature[2])).toEqual(["state", "tell", "counts"]);
+  it("takes exactly state, tell and counts as the second parameter, besides optional ones", () => {
+    // KJC-TSK-1569: an option with a default (the board's avatar) the landing may leave out.
+    expect(keys(signature[2]).filter((k) => !k.includes("="))).toEqual(["state", "tell", "counts"]);
   });
 
   it("buildFactory still returns hall, wall, releaseTable and spreads populate", () => {

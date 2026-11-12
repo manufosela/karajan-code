@@ -37,7 +37,7 @@ const OVER_PIECE = 1.6;
 const overPiece = (text, position, camera, origin, className) =>
   tagAt(text, position.clone().setY(position.y + OVER_PIECE), camera, { className, origin });
 
-export function createLive({ scene, pieces, crew, camera, stand, hall, wall, releaseTable, versionBoard, refit, origin }, { state: initial, tell, counts }) {
+export function createLive({ scene, pieces, crew, camera, stand, hall, wall, releaseTable, versionBoard, refit, origin }, { state: initial, tell, counts, avatar = null }) {
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
@@ -54,7 +54,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   };
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
-  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin }, working, performance.now());
+  // KJC-TSK-1569 (ADR 0056): the own robots wear this person's avatar.
+  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin, avatar }, working, performance.now());
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
   const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
   let flight = null; // KJC-TSK-1547: the release the drone is taking away, if one is

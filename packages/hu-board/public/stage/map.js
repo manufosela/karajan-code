@@ -136,7 +136,7 @@ function buildMap(canvas, factories, { instant, onView }) {
  * Mounts the map on `canvas` from the board's `/api/stage/map` answer and plays the
  * stream: `tell` gets one status line per factory, `counts` holds the labels.
  */
-export function startMap({ canvas, factories, token, tell, counts }) {
+export function startMap({ canvas, factories, token, tell, counts, avatar = null }) {
   // ADR 0048, as on one factory: nothing moves without a real event, and someone who
   // asked for no motion gets one frame per event and another once its mark has gone.
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -153,7 +153,7 @@ export function startMap({ canvas, factories, token, tell, counts }) {
     counts.append(own);
     const tellOne = (said) => { lines.set(factory.project, said[0] ?? 'at rest'); tellAll(); };
     const live = createLive({ ...factory, scene: factory.lot, camera, refit, origin: factory.lot.position },
-      { state: acrossLanes(factory.lanes), tell: tellOne, counts: own });
+      { state: acrossLanes(factory.lanes), tell: tellOne, counts: own, avatar });
     tellOne(live.settle().lines);
     return [factory.project, { live, own, box: mailboxOf(factory.lanes), mailbox: factory.mailbox }];
   }));
