@@ -9,6 +9,7 @@ import { acrossLanes } from './rest.js';
 import { boardToken, withToken } from './token.js';
 import { listenZoom } from './zoom.js';
 import { MARK_MS } from './marks.js';
+import { mountAvatarPanel } from './avatar-panel.js';
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
@@ -64,6 +65,24 @@ async function fetchAvatar() {
   }
 }
 
+/** KJC-TSK-1570: keeps `avatar` on the board; answers what it kept, or throws why it did not. */
+async function saveAvatar(avatar) {
+  const res = await fetch('/api/stage/me', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(avatar),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/** KJC-TSK-1570: the Avatar button opens the panel; a saved avatar dresses `scene`'s robots at once. */
+function offerAvatarPanel(scene) {
+  const button = document.getElementById('stage-avatar');
+  mountAvatarPanel({ button, dialog: document.getElementById('stage-avatar-panel'), load: fetchAvatar, save: saveAvatar, onSaved: (avatar) => scene.setAvatar(avatar) });
+  button.hidden = false;
+}
+
 /** The last real state of the project, or the reason the board could not give it. */
 async function fetchState() {
   try {
@@ -86,6 +105,7 @@ async function start() {
   const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts'), avatar: await fetchAvatar() });
   tellState(live.settle().lines);
   scene.render();
+  offerAvatarPanel(live);
   // ADR 0048: nothing moves without a real event. The frames only play what events
   // set going; someone who asked for no motion gets the lights and the list only.
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -123,6 +143,7 @@ async function startMapView() {
     if (!body.length) { tell(['The board knows no project with a folder on this machine: there is no factory to show.']); return; }
     const { startMap } = await import('./map.js');
     const map = startMap({ canvas, factories: body, token, tell, counts: document.getElementById('stage-counts'), avatar: await fetchAvatar() });
+    offerAvatarPanel(map);
     // KJC-BUG-0557: every minute, each factory checks itself against the board's state.
     setInterval(async () => {
       const again = await fetch('/api/stage/map', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null);
