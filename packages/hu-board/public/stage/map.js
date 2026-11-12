@@ -15,7 +15,7 @@ import { MARK_MS } from './marks.js';
 import { glowAt, mailboxOf, mailTotal, withMail } from './mail.js';
 import { createMailbox } from './mailbox.js';
 import { createHall } from './hall.js';
-import { mapLots } from './team-map.js';
+import { ageLabel, isStale, mapLots } from './team-map.js';
 
 const NAME_OVER = new THREE.Vector3(0, 2.5, -8.5); // the factory's name stands at the back of its floor
 const MAP_ZOOM = { min: 0.06, max: 1.3 }; // the closest shows one workshop whole
@@ -23,6 +23,14 @@ const CLICK_PX = 6; // a press that moves less than this is a click, not a drag
 const HALL_LOOK_Z = -0.6; // where the camera looks in a hall, as on one factory (factory.js)
 const LABELS_BELOW = 0.45; // robots' and marks' labels only show this close; the names always
 const MAILBOX_INSET = 1.5; // metres from the floor's front right corner
+
+/** KJC-TSK-1550: darkens a teammate's floor while its news is stale; a floor rebuilt by a repack is set again. */
+const dimLot = (p, dim) => {
+  if (p.dimmed === dim && p.dimmedFloor === p.floor) return;
+  p.dimmed = dim;
+  p.dimmedFloor = p.floor;
+  p.floor.material.color.setScalar(dim ? 0.35 : 1);
+};
 
 /** The scene of the map with every factory on its lot; returns the factories and the render. */
 function buildMap(canvas, factories, { instant, onView }) {
@@ -189,7 +197,10 @@ export function startMap({ canvas, factories, token, tell, counts }) {
       return mail ? `${title} · ✉ ${mail}` : title;
     };
     // KJC-TSK-1549: a teammate's factory says whose it is and how many cards it has in progress.
-    const nameOfLot = (p) => (p.own ? nameOf(p.project) : `${p.name} · ${p.cards.length} in progress`);
+    // KJC-TSK-1550: and how old its news is; once stale, its floor goes dim.
+    const wall = Date.now();
+    for (const p of placed) if (!p.own) dimLot(p, isStale(p.at, wall));
+    const nameOfLot = (p) => (p.own ? nameOf(p.project) : `${p.name} · ${p.cards.length} in progress · ${ageLabel(p.at, wall)}`);
     const named = (p) => tagAt(nameOfLot(p), NAME_OVER, camera, { className: 'stage-worker', origin: p.lot.position });
     names.replaceChildren(...placed.map(named));
     render();
