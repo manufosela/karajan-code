@@ -9,7 +9,7 @@ const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85
 const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 // KJC-TSK-1540: the colour of a lane's status line, by its state.
-const TONE = { 'waiting-person': '#f0b429', 'waiting-merge': '#7fb3ff', finished: '#2fd27a', idle: '#8a96a6', unknown: '#e0848a' };
+const TONE = { 'waiting-person': '#f0b429', 'waiting-merge': '#7fb3ff', finished: '#2fd27a', failed: '#ff5d5d', idle: '#8a96a6', unknown: '#e0848a' };
 
 /**
  * The lane's name painted on the floor at the front of its workshop, and under it what the
