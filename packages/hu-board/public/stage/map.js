@@ -14,6 +14,8 @@ import { mapName } from './cards.js';
 import { MARK_MS } from './marks.js';
 import { glowAt, mailboxOf, mailTotal, withMail } from './mail.js';
 import { createMailbox } from './mailbox.js';
+import { createHall } from './hall.js';
+import { mapLots } from './team-map.js';
 
 const NAME_OVER = new THREE.Vector3(0, 2.5, -8.5); // the factory's name stands at the back of its floor
 const MAP_ZOOM = { min: 0.06, max: 1.3 }; // the closest shows one workshop whole
@@ -29,7 +31,9 @@ function buildMap(canvas, factories, { instant, onView }) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer, { floor: false, far: 3000 });
   // KJC-TSK-1467: each lot as wide as its own hall, packed in rows; its floor just under the hall.
-  let counts = factories.map(({ lanes }) => lanes.length);
+  // KJC-TSK-1549 (ADR 0054): with a lot of its own for each teammate, right after its factory.
+  const all = mapLots(factories);
+  let counts = all.map(({ laneNames }) => laneNames.length);
   const bounds = packLots(counts);
   const lots = [...bounds.lots];
   /** Puts factory `p` on lot `i`: its place, a floor of the lot's size and the mailbox at its corner. */
@@ -48,14 +52,24 @@ function buildMap(canvas, factories, { instant, onView }) {
     p.floor.position.z = (FLOOR_Z.back + front) / 2;
     p.lot.add(p.floor);
     // KJC-TSK-1473: the human's mailbox at the front right corner of the floor.
-    p.mailbox.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, front - MAILBOX_INSET);
+    p.mailbox?.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, front - MAILBOX_INSET);
   };
-  const placed = factories.map(({ project, lanes }, i) => {
+  /** KJC-TSK-1549: a teammate's factory: a workshop per card, dimmed with its title; no crew, nothing live. */
+  const remote = (entry, lot) => {
+    const hall = createHall(lot, entry.laneNames);
+    for (const card of entry.cards) hall.showStatus(card.id, card.title ?? card.id, 'idle');
+    return { ...entry, project: entry.key, lot, hall, mailbox: null };
+  };
+  const placed = all.map((entry, i) => {
     const lot = new THREE.Group();
-    const mailbox = createMailbox();
-    lot.add(mailbox.group);
     scene.add(lot);
-    const p = { project, lanes, lot, mailbox, ...buildFactory(lot, lanes.map((l) => l.lane)) };
+    let p;
+    if (entry.own) {
+      const mailbox = createMailbox();
+      lot.add(mailbox.group);
+      const { lanes } = factories.find((f) => f.project === entry.project);
+      p = { ...entry, lanes, lot, mailbox, ...buildFactory(lot, entry.laneNames) };
+    } else p = remote(entry, lot);
     lay(p, i);
     return p;
   });
@@ -145,7 +159,8 @@ export function startMap({ canvas, factories, token, tell, counts }) {
   // KJC-TSK-1482: the folder's name; a board older than it sends only the slug.
   const titles = new Map(factories.map(({ project, name }) => [project, name ?? project]));
   const tellAll = () => tell([...lines].map(([project, line]) => `${titles.get(project)}: ${line}`));
-  const lives = new Map(placed.map((factory) => {
+  // KJC-TSK-1549 (ADR 0054): a teammate's factory is its last known state, never live.
+  const lives = new Map(placed.filter((p) => p.own).map((factory) => {
     const own = document.createElement('div'); // each factory relabels only its own corner
     counts.append(own);
     const tellOne = (said) => { lines.set(factory.project, said[0] ?? 'at rest'); tellAll(); };
@@ -173,7 +188,9 @@ export function startMap({ canvas, factories, token, tell, counts }) {
       const title = mapName(titles.get(project), live.cards());
       return mail ? `${title} · ✉ ${mail}` : title;
     };
-    const named = ({ project, lot }) => tagAt(nameOf(project), NAME_OVER, camera, { className: 'stage-worker', origin: lot.position });
+    // KJC-TSK-1549: a teammate's factory says whose it is and how many cards it has in progress.
+    const nameOfLot = (p) => (p.own ? nameOf(p.project) : `${p.name} · ${p.cards.length} in progress`);
+    const named = (p) => tagAt(nameOfLot(p), NAME_OVER, camera, { className: 'stage-worker', origin: p.lot.position });
     names.replaceChildren(...placed.map(named));
     render();
   }
