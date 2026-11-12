@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.19.0",
-  "generated_at": "2026-11-12T08:34:13.741Z",
+  "kj_version": "5.20.0",
+  "generated_at": "2026-11-12T14:58:07.326Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -12,8 +12,8 @@
     "commitConvention": "project"
   },
   "who": {
-    "gh": "manufosela",
-    "git": "1101670+manufosela@users.noreply.github.com",
+    "gh": "jorgecasar",
+    "git": "948953+jorgecasar@users.noreply.github.com",
     "grade": "declarada"
   },
   "files": [
@@ -52,7 +52,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "6b4af8ce9a6550664dbfbd46bd1242d57d3798316dcd766d55b6c24a2e7c3a84"
+      "sha256": "e2162d7e7b26523b8670f8d9a1859153833121cae623aca63e662ccb5f105068"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -124,7 +124,7 @@
     },
     {
       "file": ".karajan/rules.yml",
-      "sha256": "80a5c928185e8fba0fb0e96c3f8503fe82dbe9660092054a22798d60f2961d7c"
+      "sha256": "064776d4a8c1ef2166cb980026468867eb8e277dc50ac752cfc17ed3f143c2cf"
     },
     {
       "file": ".karajan/harness/posttooluse.mjs",
@@ -176,15 +176,15 @@
     }
   ],
   "signature": {
-    "cid": "d949e99fe7347f0621e1471ca25dad73",
-    "nonce": "329fdfc3ec2d2b251a7cf9ef1810f1ea",
+    "cid": "7ed38e88f874612822c81af8f6d1127c",
+    "nonce": "f981984f1fae48040d7a629a16b392e9",
     "project": "manufosela/karajan-code",
-    "filesHash": "27530162ea083f3633e18b3c2b4e39b4f7ca1517adcefa04ac70cd7cd1adec6b",
+    "filesHash": "2f5ee70477c24a83869b1092b98d80d22017e16c4c3ab8c3b4df5ff99972918a",
     "v": 2,
-    "kjVersion": "5.19.0",
-    "issuedMs": 1794472446501,
-    "expiresMs": 1794472596501,
+    "kjVersion": "5.20.0",
+    "issuedMs": 1794495382351,
+    "expiresMs": 1794495532351,
     "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "NEAU6tllFBk4wOt4u/x+JSlJ+EzH1hll6mLbqsK44UvF+uVw5Lg/8SzkFxa2XYypPKGrbUrfVItlLVT+vcMXCw=="
+    "signature": "OlD49TRqWh+CogCzFiH+DrnjJDpQ7RL6We8Qw0yFF/6xhYsv1ToT1c4CUOLMQoe1fk6JThvloIyLEUkBsyjwDQ=="
   }
 }
