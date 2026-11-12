@@ -23,6 +23,7 @@ import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailRes
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
 import { startLaneSweeper } from './lane-sweeper.js';
 import { startStatusBeat } from './link-status.js';
+import { startRooms } from './room/rooms.js';
 import { startupBanner } from './startup-banner.js';
 import { spaFallback } from './spa-fallback.js';
 import { findAvailablePort as findAvailablePortBase } from 'karajan-core/port-check';
@@ -278,6 +279,8 @@ async function main() {
   startLaneSweeper();
   // KJC-TSK-1552 (ADR 0054): a status on each HU an agent works on, for the teammates' stage.
   startStatusBeat();
+  // KJC-TSK-1573 (ADR 0056): the room of each repository it shows, its presence and who else is in.
+  const rooms = startRooms().catch((err) => { console.warn(`[room] skipped: ${err.message}`); return null; });
 
   // Start file watcher
   const watcher = startWatcher();
@@ -385,8 +388,11 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log('\n[server] Shutting down...');
+    // KJC-TSK-1573: out of every room before exiting; the 5 s deadline below bounds a hung leave.
+    const left = rooms.then((r) => r?.leave()).catch(() => {});
     // 1. Stop accepting new connections + force-close existing ones.
-    server.close(() => {
+    server.close(async () => {
+      await left;
       // The cleanup happens in the close callback so we don't run it
       // before the server has detached from its listening socket.
       try { watcher.close(); } catch { /* ignore */ }
