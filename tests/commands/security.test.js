@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { securityCommand } from "../../src/commands/security.js";
 import { SECURITY_LEVEL_FILE } from "../../src/harden/security-level.js";
 import { addSigner } from "../../src/harden/phone-sign.js";
+import { passkey } from "../_fixtures/passkey.js";
 import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 let repo, home, lines;
@@ -57,6 +58,13 @@ describe("kj security", () => {
     expect(await run("normal", { env: { CLAUDECODE: "1" } })).toBe(1);
     expect(lines[1]).toMatch(/es un acto humano/);
     lines = [];
+    await run("show");
+    expect(lines[2]).toBe("móvil   en esta máquina: no · firmantes del repo: 1");
+  });
+
+  // HU-4019: a roster passkey is a repo signer, and with one the enrollment hint is not shown.
+  it("show: counts the roster passkeys among the repo signers", async () => {
+    writeFileSync(join(repo, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers: [passkey().entry] }));
     await run("show");
     expect(lines[2]).toBe("móvil   en esta máquina: no · firmantes del repo: 1");
   });

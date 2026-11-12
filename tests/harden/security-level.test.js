@@ -131,6 +131,17 @@ describe("lowerSecurityLevel (the catalog act security-level-down), from max", (
       expect(readSecurityLevel({ projectDir: repo, home: bare })).toMatchObject({ level: "max" });
     });
 
+    // HU-4019: a live roster passkey is a phone too; the unsigned record no longer stands.
+    it("with a passkey-only roster, an unsigned record reads as max; a passkey-signed one as normal", () => {
+      const key = passkey("cred-only");
+      writeFileSync(join(repo, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers: [key.entry] }));
+      const record = { level: "normal", since: "2026-11-12T00:00:00.000Z" };
+      writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ ...record, unsigned: "no-phone-enrolled" }));
+      expect(readSecurityLevel({ projectDir: repo, home: bare })).toMatchObject({ level: "max", source: "invalid", reason: expect.stringMatching(/se bajó sin móvil/) });
+      writeFileSync(join(repo, SECURITY_LEVEL_FILE), `${JSON.stringify({ ...record, signature: passkeySigned(key, signedFilesOf(record)) }, null, 2)}\n`);
+      expect(readSecurityLevel({ projectDir: repo, home: bare })).toMatchObject({ level: "normal", source: "file", signer: "cred-only" });
+    });
+
     it("once a phone is enrolled, the unsigned record reads as max again", async () => {
       await lowerBare();
       enrollPhone(mine.pub, { home: bare });

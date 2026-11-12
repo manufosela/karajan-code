@@ -4,7 +4,7 @@
  * `max` is free; `normal` is the catalog act security-level-down, signed by
  * the phone (src/harden/security-level.js).
  */
-import { anyAuthorizedPhone, isPhoneEnrolled, readSigners } from "../harden/phone-sign.js";
+import { anyAuthorizedPhone, isPhoneEnrolled, readPasskeyCredentials, readSigners } from "../harden/phone-sign.js";
 import { lowerSecurityLevel, raiseSecurityLevel, readSecurityLevel, SECURITY_LEVEL_FILE } from "../harden/security-level.js";
 
 const MEANING = {
@@ -18,7 +18,8 @@ const sourceLine = (level) => {
 };
 // HU-3887 (KJC-BUG-0551): this machine's phone and the repo's signers are two facts, said apart.
 const phoneLine = ({ projectDir, home }) => {
-  const signers = readSigners({ projectDir }).length;
+  // HU-4019: a live roster passkey is a repo signer too.
+  const signers = readSigners({ projectDir }).length + readPasskeyCredentials({ projectDir }).length;
   const line = `en esta máquina: ${isPhoneEnrolled({ home }) ? "sí" : "no"} · firmantes del repo: ${signers}`;
   return anyAuthorizedPhone({ projectDir, home }) ? line : `${line} (abre https://karajancode.com/sign en el móvil y kj identity enroll-phone <clave pública>)`;
 };

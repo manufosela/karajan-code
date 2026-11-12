@@ -12,7 +12,7 @@ import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 
 import { signAct } from "../harden/act-sign.js";
-import { enrollPhone, isPhoneEnrolled, readEnrolledKey, readEnrolledKeys, readPasskeyCredentials, requestPasskeyRegistration, validatePhonePublicKey } from "../harden/phone-sign.js";
+import { anyAuthorizedPhone, enrollPhone, isPhoneEnrolled, readEnrolledKey, requestPasskeyRegistration, validatePhonePublicKey } from "../harden/phone-sign.js";
 import { admissionFiles, admitSigner, redeemRecoveryCode, SIGNERS_FILE } from "../harden/roster.js";
 import { sealRepoOf } from "../harden/seal-repo.js";
 import { phoneInvite } from "../harden/phone-invite.js";
@@ -45,7 +45,7 @@ function recoveryOf({ projectDir, log, flags, deps }) {
 // KJC-TSK-0998 (HUM-D, ADR 0018): a phone of the roster signs the key that enters;
 // the FIRST one (no key at all in the roster) has nobody to sign it and runs on the four layers.
 async function admissionOf({ projectDir, log, kjVersion, deps }, key, label, recovered) {
-  const noKey = readEnrolledKeys({ projectDir, home: deps.home }).size === 0 && readPasskeyCredentials({ projectDir }).length === 0;
+  const noKey = !anyAuthorizedPhone({ projectDir, home: deps.home });
   const { signature } = await signAct("phone-enroll", {
     projectDir, home: deps.home, kjVersion, logger: { warn: log, info: log },
     deps: recovered ? { ...deps, phone: { enrolled: () => false } } : deps,
