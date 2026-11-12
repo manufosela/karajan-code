@@ -46,6 +46,12 @@ describe("[opt-in: sonar] buildScannerOpts", () => {
     expect(result).toContain("-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info");
   });
 
+  it("passes jacoco XML report paths, together with lcov (HU-4073)", () => {
+    const result = buildScannerOpts("p", { javascript_lcov_report_paths: "l.info", jacoco_xml_report_paths: "a.xml,b.xml" });
+    expect(result).toContain("-Dsonar.coverage.jacoco.xmlReportPaths=a.xml,b.xml");
+    expect(result).toContain("-Dsonar.javascript.lcov.reportPaths=l.info");
+  });
+
   // KJC-BUG-0139: one `multicriteria=` property PER RULE meant last-wins —
   // with [S1116, S3776] only S3776 was really ignored. The property must be
   // declared ONCE with the full entry list; sub-properties stay per rule.

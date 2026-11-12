@@ -419,6 +419,27 @@ describe("[opt-in: sonar] runSonarScan", () => {
     }, { withSrc: true });
   });
 
+  it("injects jacoco paths with lcov; a missing jacoco path blocks or is dropped (HU-4073)", async () => {
+    const cov = (extra) => ({ sonarqube: { host: "http://localhost:9000", token: "t", scanner: { sources: "src" },
+      coverage: { enabled: true, command: null, lcov_report_path: "package.json", ...extra } } });
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "scan ok", stderr: "" });
+    await inRepoWithoutProperties(async () => {
+      const ok = await runSonarScan(cov({ jacoco_xml_report_paths: "package.json" }), "k");
+      expect(ok.ok).toBe(true);
+      const opts = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
+      expect(opts).toContain("-Dsonar.coverage.jacoco.xmlReportPaths=package.json");
+      expect(opts).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
+      runCommand.mockClear();
+      const blocked = await runSonarScan(cov({ jacoco_xml_report_paths: "package.json,nope.xml", block_on_failure: true }), "k");
+      expect(blocked.ok).toBe(false);
+      expect(blocked.stderr).toContain("nope.xml");
+      const soft = await runSonarScan(cov({ jacoco_xml_report_paths: "nope.xml", block_on_failure: false }), "k");
+      expect(soft.ok).toBe(true);
+      expect(runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS).not.toContain("jacoco");
+    }, { withSrc: true });
+  });
+
   it("uses configured Sonar network and scanner timeout", async () => {
     const config = {
       sonarqube: {

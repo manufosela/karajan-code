@@ -164,7 +164,11 @@ const DEFAULTS = {
       command: null,
       timeout_ms: 300000,
       block_on_failure: true,
-      lcov_report_path: null
+      lcov_report_path: null,
+      // Comma-separated jacoco XML reports (Kotlin/Java) -> sonar.coverage.jacoco.xmlReportPaths.
+      // May be set together with lcov_report_path. Like it, it applies only when kj builds
+      // the scanner options: a repo with its own sonar-project.properties owns this.
+      jacoco_xml_report_paths: null
     },
     quality_gate: true,
     enforcement_profile: "pragmatic",

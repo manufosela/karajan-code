@@ -89,6 +89,20 @@ describe("checkTestsWithCode", () => {
 
 // KJC-BUG-0377: a rebuilt docs site renames its _astro/*.js; nobody wrote those
 // files, so no gate (tests, RAG, Sonar) may treat them as source.
+describe("sourceFilesOf: Kotlin and Swift (HU-4073)", () => {
+  it("counts .kt and .swift as source, tests and gradle scripts as not", () => {
+    const files = [
+      "app/src/main/Foo.kt", "Sources/App/Foo.swift", "tools/deploy.main.kts",
+      "build.gradle.kts", "app/settings.gradle.kts",
+      "app/src/test/FooTest.kt", "lib/src/commonTest/Bar.kt", "app/src/androidTest/Baz.kt",
+      "Tests/FooTests.swift", "Sources/App/BarTests.swift",
+    ];
+    const { sources, hasTests } = sourceFilesOf({}, files);
+    expect(sources).toEqual(["app/src/main/Foo.kt", "Sources/App/Foo.swift", "tools/deploy.main.kts"]);
+    expect(hasTests).toBe(true);
+  });
+});
+
 describe("sourceFilesOf: generated output is not source", () => {
   it("leaves out build output and keeps the code", () => {
     const files = ["apps/landing/public/docs/_astro/page.cNngjUgL.js", "dist/kj.js", "packages/x/build/a.js", "src/a.js"];
