@@ -44,6 +44,14 @@ describe("prunePendingMoves", () => {
     expect(read(main).sessions.s1.pending_moves).toEqual([{ card: "KJC-BUG-1", pr: 9 }]);
     expect(read(main).sessions.s9.pending_moves).toHaveLength(1);
   });
+  // KJC-BUG-0564: the lane has its own state (kj code's coder), the session's move is in the main tree's.
+  it("prunes in the main tree's file when the session lives only there, even if the lane has its own state", () => {
+    write(main, { sessions: { s1: { pending_moves: [{ card: "HU-3995", pr: 3997 }] } } });
+    write(lane, { sessions: { coder: { edited_sources: [] } } });
+    expect(prunePendingMoves(lane, "s1", ["HU-3995"])).toBe(true);
+    expect(read(main).sessions.s1.pending_moves).toEqual([]);
+    expect(read(lane).sessions.coder).toEqual({ edited_sources: [] });
+  });
   it("writes nothing when the session has no pending moves", () => {
     write(main, { sessions: { s1: {} } });
     expect(prunePendingMoves(lane, "s1", ["HU-3827"])).toBe(false);
