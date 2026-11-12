@@ -235,7 +235,7 @@ const QUALITY_BY_LANGUAGE = {
   python: header([
     `      - uses: ${PINNED_ACTIONS.setupPython}`,
     "        with:",
-    "          python-version: '3.12'",
+    '          python-version: "3.12"',
     "      - run: pip install ruff pytest",
     "      - run: ruff check .",
     "      - run: pytest",
@@ -382,7 +382,7 @@ const MUTATION_TOOLCHAIN = {
   python: [
     `      - uses: ${PINNED_ACTIONS.setupPython}`,
     "        with:",
-    "          python-version: '3.12'",
+    '          python-version: "3.12"',
     "      - run: pip install mutmut pytest",
   ],
   php: [

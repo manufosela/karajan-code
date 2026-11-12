@@ -63,6 +63,18 @@ describe("installWorkflows", () => {
     }
   });
 
+  // HU-4050 (KJC-BUG-0569): the Python quality and mutation workflows too.
+  it("writes the Python workflows exactly as prettier formats them", async () => {
+    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"x\"\n");
+    const res = installWorkflows({ projectDir: dir, language: "python", mutation: true, kjVersion: "9.9.9" });
+    const python = res.workflows.filter((wf) => /python-version/.test(read(wf.file)));
+    expect(python.length).toBeGreaterThanOrEqual(1);
+    for (const wf of python) {
+      const text = read(wf.file);
+      expect(await prettier.format(text, { parser: "yaml" }), wf.file).toBe(text);
+    }
+  });
+
   // KJC-BUG-0399: the PR's own code must never judge the PR. The policy check ran
   // `node bin/kj.js` from the PR checkout, so a PR could rewrite the judge and pass.
   it("the policy check runs the base branch's kj on the PR as data, never the PR's own kj", () => {
