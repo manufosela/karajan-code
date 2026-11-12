@@ -11,6 +11,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gradleCommands } from "./gradle-commands.js";
+import { swiftCommands } from "./swift-commands.js";
 
 // KJC-BUG-0411 (#2563): uv and poetry keep pytest and ruff in the project's
 // venv, where a bare command exits 127; their manager runs them.
@@ -57,6 +58,7 @@ const runnerFor = (language, projectDir) => (language === "python" && projectDir
 /** Native commands for a language, or {} when JS/TS or unknown; python ones through uv/poetry when the project uses them. */
 export function commandsForLanguage(language, projectDir = null) {
   if (language === "gradle") return gradleCommands(projectDir);
+  if (language === "swift") return swiftCommands(projectDir);
   const cmds = { ...COMMANDS_BY_LANGUAGE[language] };
   const runner = runnerFor(language, projectDir);
   if (runner) for (const [step, command] of Object.entries(cmds)) cmds[step] = `${runner} ${command}`;

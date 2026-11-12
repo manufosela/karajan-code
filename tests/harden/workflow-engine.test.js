@@ -67,6 +67,12 @@ describe("installWorkflows", () => {
     const gradle = read(join(".github", "workflows", "kj-quality.yml"));
     expect(gradle).toContain("setup-java");
     expect(await prettier.format(gradle, { parser: "yaml" })).toBe(gradle);
+    // HU-4067: the Swift one as well.
+    for (const file of ["Package.swift", ".swiftlint.yml", ".swiftformat"]) writeFileSync(join(dir, file), "");
+    installWorkflows({ projectDir: dir, language: "swift" });
+    const swift = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(swift).toContain("brew install swiftlint swiftformat");
+    expect(await prettier.format(swift, { parser: "yaml" })).toBe(swift);
   });
 
   // HU-4050 (KJC-BUG-0569): the Python quality and mutation workflows too.

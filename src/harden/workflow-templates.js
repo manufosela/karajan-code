@@ -279,12 +279,22 @@ function gradleQualityBody({ javaVersion = null, lint = null, test = null } = {}
     ...runs.map((command) => `      - run: ${command}`),
   ]);
 }
+
+// HU-4067: a macOS runner, brew only for the tools whose step exists, then the root's hook commands.
+function swiftQualityBody({ lint = null, format = null, test = null } = {}) {
+  const runs = [lint, format, test].filter(Boolean);
+  if (runs.length === 0) return null;
+  const tools = [lint && "swiftlint", format && "swiftformat"].filter(Boolean);
+  const brew = tools.length > 0 ? [`brew install ${tools.join(" ")}`] : [];
+  const body = header([...brew, ...runs].map((command) => `      - run: ${command}`));
+  return body.replace("    runs-on: ubuntu-latest\n", "    runs-on: macos-latest\n");
+}
 /**
  * Stack-aware Quality workflow entry, or null for an unknown language.
  * `lint:false` drops the JS lint step entirely (project has no lint script,
  * KJC-BUG-0137) — mirroring the local hook, which also omits it.
  */
-export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null, gradle = null } = {}) {
+export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null, gradle = null, swift = null } = {}) {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
   let body = QUALITY_BY_LANGUAGE[language];
   if (language === "javascript" || language === "typescript") {
@@ -293,6 +303,8 @@ export function qualityWorkflowFor(language, pm = "npm", lint = true, root = "."
     body = phpQualityBody(phpVersion);
   } else if (language === "gradle") {
     body = gradleQualityBody(gradle ?? {});
+  } else if (language === "swift") {
+    body = swiftQualityBody(swift ?? {});
   }
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body: inRoot(body, root) } : null;
 }
@@ -331,7 +343,7 @@ export function multiRootQualityWorkflow(perRoot) {
 function inRoot(body, root) {
   if (root === "." || root === "") return body;
   if (!/^[\w.-]+(\/[\w.-]+)*$/.test(root) || root.split("/").includes("..")) throw new Error(`kj harden: "${root}" is not a safe directory for the Quality workflow`);
-  return body.replace("    runs-on: ubuntu-latest\n", `    runs-on: ubuntu-latest\n    defaults:\n      run:\n        working-directory: ${root}\n`);
+  return body.replace(/^( {4}runs-on: [\w-]+\n)/m, `$1    defaults:\n      run:\n        working-directory: ${root}\n`);
 }
 
 // Caps the net LOC delta of a PR (strict profile only — it is opinionated).

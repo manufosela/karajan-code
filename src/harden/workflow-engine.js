@@ -17,6 +17,7 @@ import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { publishedPin } from "./published-pin.js";
 import { phpInputs, qualityInputs } from "./quality-inputs.js";
 import { gradleInputs } from "./gradle-commands.js";
+import { swiftInputs } from "./swift-commands.js";
 import { extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
@@ -118,6 +119,7 @@ function rootQuality(projectDir, { dir: root = ".", language = null }) {
   if (isJs) inputs = qualityInputs({ projectDir, appDir, root });
   else if (language === "php") inputs = phpInputs({ appDir });
   else if (language === "gradle") inputs = gradleInputs({ appDir }); // HU-4037
+  else if (language === "swift") inputs = swiftInputs({ appDir }); // HU-4067
   const wf = qualityWorkflowFor(language, detectPackageManager(appDir), hasLintScript(appDir), root, inputs?.options);
   return wf ? { root, wf, note: inputs?.note } : null;
 }
