@@ -82,10 +82,14 @@ export function cardEvent(raw) {
   return { type: 'card', at: r.at, action: r.action, id: r.id.slice(0, 60), title, status: r.status, queued: r.queued === true, ...lane };
 }
 
-/** A .karajan/reviews/<hash>.json → a review-verdict event, or null. */
+/**
+ * A .karajan/reviews/<hash>.json → a review-verdict event, or null. HU-4104: a
+ * "rag-first" verdict does not judge the code, it only asks for a RAG query, so
+ * it is no verdict and the lane keeps the newest real one.
+ */
 export function verdictEvent(raw) {
   const r = parse(raw);
-  if (!r?.verdict || !r.diffHash) return null;
+  if (!r?.verdict || !r.diffHash || r.reviewer === 'rag-first') return null;
   return { type: 'review-verdict', at: r.timestamp, verdict: r.verdict, reviewer: r.reviewer, host: r.host, diffHash: r.diffHash };
 }
 

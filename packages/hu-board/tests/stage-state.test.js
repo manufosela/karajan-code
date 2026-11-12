@@ -138,6 +138,13 @@ describe('lastStageState', () => {
     expect(state.verdict).toMatchObject({ type: 'review-verdict', verdict: 'rejected', diffHash: 'new' });
   });
 
+  it('skips a newer rag-first verdict and keeps the older real one (HU-4104)', () => {
+    writeFileSync(kj('reviews', 'real.json'), JSON.stringify({ verdict: 'approved', diffHash: 'real', reviewer: 'codex' }));
+    writeFileSync(kj('reviews', 'rag.json'), JSON.stringify({ verdict: 'rejected', diffHash: 'rag', reviewer: 'rag-first' }));
+    utimesSync(kj('reviews', 'real.json'), new Date(1000), new Date(1000));
+    expect(lastStageState(proj).verdict).toMatchObject({ verdict: 'approved', diffHash: 'real' });
+  });
+
   it('reads only the tail of a large log, skipping a cut first line', () => {
     const filler = Array.from({ length: 2000 }, (_, i) => ({ at: `t${i}`, tool: 'Bash', why: 'x'.repeat(40) }));
     writeFileSync(kj('harness', 'denials.jsonl'), jsonl(...filler));
