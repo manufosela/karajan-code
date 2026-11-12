@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.20.0: you sign with a passkey (current)
+### v5.21.0: CI checks every verdict and its Sonar proof, and every stack of a monorepo gets its gates (current)
+
+CI checks that every commit of a PR carries its cross-AI verdict and, when it changes code, its Sonar proof, so `git commit --no-verify` no longer gets work past review. `kj harden` generates the check (`kj-verdicts.yml`). A monorepo gets hooks and a CI quality job for each of its stacks, run only when a change touches that stack. Kotlin projects on Gradle and Swift projects join the stacks kj knows: their lint and tests come from what the build declares, and their code counts for the tests and Sonar gates, with jacoco coverage. `kj rules review` and `kj rules approve` show only what a proposal changes, removed rules and moved ones included. Run `kj harden` and have it sealed to bring in the new check.
+
+### v5.20.0: you sign with a passkey
 
 `kj identity enroll-phone` without a key creates a passkey on your phone, and a current signer approves it. From then on the seal and every human act ask for that passkey, and CI verifies it. A roster with only passkeys requires the signed seal, as one with keys does. Today's key keeps signing until the migration, which comes next with its date. Also, an idle lane no longer blocks the stop gate, and the signer page no longer hangs on "Cargando" after a deploy. Run `kj harden` and have it sealed, so CI accepts a seal signed with a passkey.
 
