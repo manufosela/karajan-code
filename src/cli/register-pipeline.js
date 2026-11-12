@@ -6,6 +6,7 @@ import { codeCommand } from "../commands/code.js";
 import { retire } from "./retired-commands.js";
 import { tournamentCommand } from "../commands/tournament.js";
 import { resolveTaskInput } from "../utils/task-file.js";
+import { resolveLaneDir } from "../utils/lane-dir.js";
 import { reviewGateCommand, solomonCommand } from "../commands/review-gate.js";
 import { scanCommand } from "../commands/scan.js";
 import { installToolsCommand } from "../commands/install-tools.js";
@@ -135,6 +136,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--staged", "Review the staged diff with a cross-AI reviewer and record the verdict")
     .option("--check", "Verify the recorded verdict matches the staged diff (exit 0/1, hook-friendly)")
     .option("--range <range>", "Review a git range (e.g. main..HEAD) instead of the staged diff")
+    .option("--lane <slug>", "Run the gate in that lane (.kj/worktrees/<slug>): reviews the diff staged there, from any directory")
     .option("--install-gate", "Enable the pre-commit review gate for this project (creates .karajan/review-gate)")
     .option("--prune", "Garbage-collect verdicts in .karajan/reviews older than the TTL (they age out as diffs change)")
     .option("--prune-days <n>", "TTL in days for --prune (default: 14)")
@@ -184,6 +186,11 @@ export function registerPipeline(program, { pkgVersion }) {
         // ENV-B1 (KJC-TSK-0637): the gate mode records a verdict tied to
         // the exact diff so the pre-commit hook can enforce cross-AI review.
         if (flags.staged || flags.check || flags.range || flags.installGate || flags.prune) {
+          if (flags.lane) {
+            const laneDir = resolveLaneDir(flags.lane, config.projectDir || process.cwd());
+            process.chdir(laneDir);
+            config = { ...config, projectDir: laneDir };
+          }
           // KJC-BUG-0349: the gate's task is optional, but --task-file carries
           // the evidence the reviewer must weigh; it was never read here.
           const gateTask = task || flags.taskFile
