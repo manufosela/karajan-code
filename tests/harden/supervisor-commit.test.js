@@ -277,6 +277,17 @@ describe("the seal covers the governance config (KJC-TSK-1032)", () => {
     expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(".github/workflows/kj-policy.yml");
   });
 
+  // HU-4012: the verdicts check harden writes is sealed like kj-policy.yml, new or changed.
+  it("a new kj-verdicts.yml is sealed and committed with the seal", async () => {
+    const wf = join(repo, ".github", "workflows", "kj-verdicts.yml");
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    writeFileSync(wf, "name: Cross-AI verdicts\n");
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".github/workflows/kj-verdicts.yml", sha256: createHash("sha256").update(readFileSync(wf)).digest("hex") });
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(".github/workflows/kj-verdicts.yml");
+  });
+
   // KJC-TSK-1207 (ADR 0030): the host settings decide which guard runs.
   const settings = () => join(repo, ".claude", "settings.json");
   const hashOf = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
