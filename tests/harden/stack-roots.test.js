@@ -112,3 +112,30 @@ describe("matchesGlob", () => {
     expect(matchesGlob("anything", "*")).toBe(true);
   });
 });
+
+describe("detectStackRoots — JS workspace package under a TS root (HU-4018)", () => {
+  it("treats a JS workspace package as part of the TypeScript root", () => {
+    touch("package.json", JSON.stringify({ workspaces: ["packages/*"] }));
+    touch("tsconfig.json", "{}");
+    touch("packages/legacy/package.json", "{}");
+    expect(detectStackRoots(root)).toEqual([{ dir: ".", language: "typescript" }]);
+  });
+  it("accepts the workspaces object form", () => {
+    touch("package.json", JSON.stringify({ workspaces: { packages: ["libs/*"] } }));
+    touch("tsconfig.json", "{}");
+    touch("libs/a/package.json", "{}");
+    expect(detectStackRoots(root)).toEqual([{ dir: ".", language: "typescript" }]);
+  });
+  it("keeps a JS package outside the workspaces as a separate root", () => {
+    touch("package.json", JSON.stringify({ workspaces: ["packages/*"] }));
+    touch("tsconfig.json", "{}");
+    touch("tools/site/package.json", "{}");
+    expect(detectStackRoots(root).map((r) => r.dir)).toEqual([".", "tools/site"]);
+  });
+  it("keeps a JS package separate when the TypeScript root declares no workspaces", () => {
+    touch("package.json", "{}");
+    touch("tsconfig.json", "{}");
+    touch("web/package.json", "{}");
+    expect(detectStackRoots(root).map((r) => r.dir)).toEqual([".", "web"]);
+  });
+});

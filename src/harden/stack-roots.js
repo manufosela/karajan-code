@@ -75,6 +75,28 @@ export function languageAt(dir) {
   return null;
 }
 
+/** The `workspaces` globs a package.json declares (array or `{ packages }` form). */
+function workspaceGlobs(dir) {
+  try {
+    const { workspaces } = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    const globs = Array.isArray(workspaces) ? workspaces : workspaces?.packages;
+    return Array.isArray(globs) ? globs.filter((g) => typeof g === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** HU-4018: a plain-JS package that a TypeScript root lists in its workspaces belongs to that root. */
+function isWorkspaceMemberOfTsRoot(candidate, found, projectDir) {
+  if (candidate.language !== "javascript") return false;
+  return found.some((root) => {
+    if (root.language !== "typescript" || root.dir === candidate.dir) return false;
+    const rel = root.dir === "." ? candidate.dir : relative(root.dir, candidate.dir);
+    if (rel.startsWith("..")) return false;
+    return workspaceGlobs(join(projectDir, root.dir)).some((g) => matchesGlob(rel, g.replace(/^\.\//, "")));
+  });
+}
+
 export function detectStackRoots(projectDir, { maxDepth = DEFAULT_MAX_DEPTH, only = [], exclude = [] } = {}) {
   const found = [];
   function walk(dir, depth) {
@@ -98,6 +120,7 @@ export function detectStackRoots(projectDir, { maxDepth = DEFAULT_MAX_DEPTH, onl
   // Keep only the shallowest directory per language.
   const byLanguage = new Map();
   for (const f of found) {
+    if (isWorkspaceMemberOfTsRoot(f, found, projectDir)) continue;
     const cur = byLanguage.get(f.language);
     if (!cur || f.depth < cur.depth) byLanguage.set(f.language, f);
   }
