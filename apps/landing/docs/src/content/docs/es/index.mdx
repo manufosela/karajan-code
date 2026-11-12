@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.20.0: firmas con una passkey (actual)
+### v5.21.0: la CI comprueba cada veredicto y su prueba de Sonar, y cada stack de un monorepo tiene sus gates (actual)
+
+La CI comprueba que cada commit de una PR lleve su veredicto cruzado y, si cambia código, su prueba de Sonar, así que un `git commit --no-verify` ya no cuela trabajo sin revisión. `kj harden` genera ese check (`kj-verdicts.yml`). Un monorepo tiene hooks y un job de calidad en CI para cada uno de sus stacks, que solo corren cuando un cambio toca ese stack. Los proyectos Kotlin con Gradle y los proyectos Swift entran en los stacks que kj conoce: su lint y sus tests salen de lo que declara el build, y su código cuenta para las puertas de tests y de Sonar, con cobertura jacoco. `kj rules review` y `kj rules approve` muestran solo lo que cambia una propuesta, incluidas las reglas quitadas y las movidas. Ejecuta `kj harden` y pide el sello para traer el check nuevo.
+
+### v5.20.0: firmas con una passkey
 
 `kj identity enroll-phone` sin clave crea una passkey en tu móvil, y la aprueba un firmante vigente. A partir de ahí el sello y cada acto humano piden esa passkey, y la CI la verifica. Una lista de firmantes con solo passkeys exige el sello firmado, igual que una con claves. La clave de hoy sigue firmando hasta la migración, que llega después con su fecha. Además, un carril parado ya no bloquea la puerta de parada, y la página de firma ya no se queda en «Cargando» tras un despliegue. Ejecuta `kj harden` y pide el sello, para que la CI acepte un sello firmado con passkey.
 
