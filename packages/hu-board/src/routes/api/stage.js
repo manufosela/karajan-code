@@ -1,7 +1,9 @@
 // KJC-TSK-1405 (ADR 0046): what kj stage shows on open, per project.
 import { Router } from 'express';
 
+import { getKjHome } from '../../db-paths.js';
 import { lanePipelines } from '../../lane-pipeline.js';
+import { readAvatar, saveAvatar } from '../../stage-avatar.js';
 import { requestProjectDir } from '../../project-dir.js';
 import { stageMap } from '../../stage-map.js';
 import { laneStates } from '../../stage-state.js';
@@ -26,6 +28,15 @@ router.get('/stage/state', async (req, res) => {
   const lanes = laneStates(dir, { readers: { pipeline: ({ dir: laneDir }) => pipelines.get(laneDir) ?? null } });
   const { lane: _main, ...main } = lanes[0];
   res.json({ ...main, lanes });
+});
+
+/** GET/PUT /api/stage/me - KJC-TSK-1565 (ADR 0056): this person's avatar, an emblem and a colour per role. */
+router.get('/stage/me', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(readAvatar(getKjHome()));
+});
+router.put('/stage/me', (req, res) => {
+  try { res.json(saveAvatar(getKjHome(), req.body)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 /** GET /api/stage/map - KJC-TSK-1446 (ADR 0049): every factory of the user with the state of its lanes. */
