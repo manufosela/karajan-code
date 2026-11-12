@@ -10,6 +10,7 @@ import { watchLanes } from '../stage-feed.js';
 import { laneStates } from '../stage-state.js';
 import { createTeamFloor, incoming, outgoing } from './bridge.js';
 import { createMesh } from './mesh.js';
+import { createRelay } from './relay.js';
 import { nodeRtc } from './rtc-node.js';
 
 const REPEAT_MS = 30 * 1000;
@@ -25,23 +26,27 @@ export function listenEveryTeam(send) {
 }
 
 export function runTeam(room, {
-  meshOf = (deps) => createMesh({ ...deps, rtc: nodeRtc }),
+  meshOf = (deps) => createMesh({ ...deps, rtc: nodeRtc }), relayOf = createRelay,
   watch = watchLanes, lanesOf = laneStates, avatar = () => readAvatar(getKjHome()), repeatMs = REPEAT_MS, log = console,
 } = {}) {
   const floor = createTeamFloor();
   const listeners = new Set();
-  const mesh = meshOf({
-    session: room.session, rtdb: room.rtdb, log,
-    onMessage: (from, message) => {
-      const event = incoming(from, message);
-      if (!event) return;
-      floor.apply(event);
-      for (const fn of listeners) fn(event);
-    },
-  });
+  const leaving = new AbortController();
+  const onMessage = (from, message) => {
+    const event = incoming(from, message);
+    if (!event) return;
+    floor.apply(event);
+    for (const fn of listeners) fn(event);
+  };
+  const mesh = meshOf({ session: room.session, rtdb: room.rtdb, log, onMessage });
+  // KJC-TSK-1568: what a peer cannot hear directly goes, and comes, through the room's relay.
+  const relay = relayOf({ session: room.session, rtdb: room.rtdb, log, onMessage, hearsDirectly: (from) => mesh.open().includes(from), signal: leaving.signal });
+  let known = [];
   const send = (event) => {
     const message = outgoing(event, avatar());
-    if (message) mesh.send(message);
+    if (!message) return;
+    mesh.send(message);
+    if (known.some((peer) => !mesh.open().includes(peer))) relay.publish(message);
   };
   const stops = room.dirs.map((dir) => watch(dir, send));
   const repeat = () => {
@@ -51,7 +56,6 @@ export function runTeam(room, {
   };
   const timer = repeatMs ? setInterval(repeat, repeatMs) : null;
   timer?.unref?.();
-  let known = [];
   const team = {
     repeat,
     /** Links to the live peers and forgets the agents of those who left. */
@@ -64,6 +68,7 @@ export function runTeam(room, {
     listen(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     stop() {
       clearInterval(timer);
+      leaving.abort();
       stops.forEach((stop) => stop?.());
       mesh.close();
       for (const dir of room.dirs) byDir.delete(dir);

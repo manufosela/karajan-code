@@ -9,17 +9,19 @@ const start = { type: 'agent-activity', phase: 'start', agent: 'codex', role: 'c
 /** A room with one folder, a fake mesh and a fake watch of its lanes. */
 function setup() {
   const sent = [];
-  const mesh = { peers: [], setPeers(p) { mesh.peers = p; }, send: (m) => sent.push(m), close() { mesh.closed = true; } };
+  const relayed = [];
+  const mesh = { peers: [], linked: [], open: () => mesh.linked, setPeers(p) { mesh.peers = p; }, send: (m) => sent.push(m), close() { mesh.closed = true; } };
   let deliver;
   let feed;
   const team = runTeam({ session: { login: 'manufosela' }, rtdb: {}, dirs: ['/w/kc'] }, {
     meshOf: ({ onMessage }) => { deliver = onMessage; return mesh; },
+    relayOf: () => ({ publish: (m) => relayed.push(m) }),
     watch: (_dir, send) => { feed = send; return () => {}; },
     lanesOf: () => [{ lane: 'kj-stage', working: [{ agent: 'claude', role: 'host', id: 'h1', at: 't' }] }],
     avatar: () => ({ emblem: 'fox', colors: {} }),
     repeatMs: 0,
   });
-  return { team, mesh, sent, deliver: (...a) => deliver(...a), feed: (e) => feed(e) };
+  return { team, mesh, sent, relayed, deliver: (...a) => deliver(...a), feed: (e) => feed(e) };
 }
 
 describe('runTeam', () => {
@@ -28,6 +30,16 @@ describe('runTeam', () => {
     feed({ ...start, lane: 'kj-stage', prompt: 'secret' });
     feed({ type: 'sentinel-deny', lane: 'kj-stage' });
     expect(sent).toEqual([{ ...start, lane: 'kj-stage', avatar: { emblem: 'fox', colors: {} } }]);
+    team.stop();
+  });
+
+  it('relays through the room only while a live peer has no open channel (KJC-TSK-1568)', () => {
+    const { team, mesh, relayed, feed } = setup();
+    team.setPeers(['jorgecasar']);
+    feed({ ...start, lane: 'a' });
+    mesh.linked = ['jorgecasar'];
+    feed({ ...start, lane: 'b' });
+    expect(relayed.map((m) => m.lane)).toEqual(['a']);
     team.stop();
   });
 
