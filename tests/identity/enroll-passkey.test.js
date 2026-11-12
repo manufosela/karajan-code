@@ -37,7 +37,9 @@ describe("kj identity enroll-phone without a key", () => {
     expect(roster.signers).toEqual([expect.objectContaining({ type: "webauthn", credentialId: "cred_Id-1", publicKey: ES256, alg: -7, label: "mine" })]);
     expect(verifyRosterChange({ before: { signers: [] }, after: roster })).toEqual({ ok: true, bootstrap: true });
     expect(fs.existsSync(phoneFile())).toBe(false);
-    expect(lines.join("\n")).toMatch(/passkey enrolada.*próxima versión/is);
+    // HU-4056 (KJC-BUG-0570): since 5.20.0 the seal and the human acts ask for the passkey.
+    expect(lines.join("\n")).toMatch(/passkey enrolada.*cuando se mergee.*el sello y los actos humanos la pedirán/is);
+    expect(lines.join("\n")).not.toMatch(/próxima versión/i);
   });
 
   it("asks a present Ed25519 signer to sign the admission of the passkey's public key", async () => {

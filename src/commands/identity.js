@@ -94,7 +94,7 @@ async function enrollPhoneAction(ctx) {
     log(`kj identity enroll-phone: ${err.message}`);
     return 1;
   }
-  if (ctx.flags.publicKeyBase64 === undefined) log("Passkey enrolada en el padrón .karajan/supervisor-signers.json (commítealo); sellar con ella llega en la próxima versión.");
+  if (ctx.flags.publicKeyBase64 === undefined) log("Passkey enrolada en el padrón .karajan/supervisor-signers.json (commítealo): cuando se mergee, el sello y los actos humanos la pedirán.");
   else log("Móvil enrolado: la clave pública se añadió al padrón .karajan/supervisor-signers.json (commítealo) y a ~/.karajan/supervisor-phone.json. Sellar el supervisor pedirá la firma de un móvil del padrón.");
   if (recoveryCode) {
     log(`\nCÓDIGO DE RECUPERACIÓN, se enseña UNA sola vez. Guárdalo fuera de esta máquina:\n\n    ${recoveryCode}\n`);
