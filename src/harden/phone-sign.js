@@ -109,8 +109,9 @@ export function readEnrolledKeys({ projectDir, home } = {}) {
   return keys;
 }
 
-/** HU-3887 (KJC-BUG-0551): some phone, on this machine or in the repo roster, can sign. */
-export const anyAuthorizedPhone = ({ projectDir, home } = {}) => readEnrolledKeys({ projectDir, home }).size > 0;
+/** HU-3887 (KJC-BUG-0551): some phone, on this machine or in the repo roster, can sign. HU-4019: a live roster passkey too. */
+export const anyAuthorizedPhone = ({ projectDir, home } = {}) =>
+  readEnrolledKeys({ projectDir, home }).size > 0 || readPasskeyCredentials({ projectDir }).length > 0;
 
 /** Añade una clave pública al padrón versionado del repo (dedup). Acto humano. */
 export function addSigner(publicKeyBase64, { projectDir, label } = {}) {
@@ -158,11 +159,13 @@ export function verifyPhoneSignature({ payload, signature, publicKey }) {
  * machine that made it has no say. With signers in the versioned roster, a
  * provenance must be signed by one of them over the very files it declares.
  * With no roster nothing is required: the guarantee is local only.
+ * HU-4019 (ADR 0053): a live passkey is a signer of the roster, so a passkey-only roster requires it too.
  * @returns {{required: boolean, ok: boolean, reason?: string}}
  */
 export function provenanceSignature({ projectDir, provenance }) {
   const roster = readSigners({ projectDir });
-  if (roster.length === 0) return { required: false, ok: true };
+  const passkeys = readPasskeyCredentials({ projectDir });
+  if (roster.length === 0 && passkeys.length === 0) return { required: false, ok: true };
   // The files as the phone signed them: {file, sha256}, a deletion with no hash.
   // A provenance is read from the project: a malformed one is rejected, it does not crash.
   const entries = Array.isArray(provenance?.files) ? provenance.files : [];
@@ -170,7 +173,7 @@ export function provenanceSignature({ projectDir, provenance }) {
   // KJC-BUG-0502: the verifier trusts `deleted`, so a deleted entry is checked as the phone signs a
   // deletion (no hash): a signed, hashed entry later marked deleted no longer matches its signature.
   const files = entries.map(({ file, sha256, deleted }) => ({ file, sha256: deleted === true ? "" : (sha256 ?? "") }));
-  const check = verifySignedFiles({ sig: provenance?.signature, files, keys: new Set(roster), passkeys: readPasskeyCredentials({ projectDir }) });
+  const check = verifySignedFiles({ sig: provenance?.signature, files, keys: new Set(roster), passkeys });
   if (!check.ok) return { required: true, ok: false, reason: `el padrón tiene firmantes y la procedencia ${check.reason}` };
   // KJC-BUG-0506: a seal signed for another repo, with the same files and a key of this roster, backs nothing here.
   const mismatch = sealRepoMismatch({ projectDir, signedProject: provenance.signature.project });

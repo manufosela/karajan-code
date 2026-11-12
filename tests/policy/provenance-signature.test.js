@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 
 import { renderCanonicalHook } from "../../src/harden/harden-engine.js";
-import { canonicalPayload } from "../../src/harden/phone-sign.js";
+import { canonicalPayload, provenanceSignature } from "../../src/harden/phone-sign.js";
 import { PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
 import { liftSealedSupervisorViolations, verifiedSupervisorFiles } from "../../src/policy/supervisor-verify.js";
 import { passkey, passkeySigned } from "../_fixtures/passkey.js";
@@ -112,6 +112,22 @@ describe("a seal signed with a roster passkey", () => {
     expect(verified()).toMatchObject({ reason: expect.stringMatching(/no corresponde/) });
     writeSealed(passkeySigned(passkey("cred-stranger"), files));
     expect(verified()).toMatchObject({ reason: expect.stringMatching(/passkey que no está en el padrón/) });
+  });
+
+  // HU-4019: a roster that holds only passkeys requires the signature too.
+  it("with a passkey-only roster, an unsigned seal is required and refused; a passkey-signed one is ok", () => {
+    const key = passkey();
+    writeFileSync(join(repo, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers: [key.entry] }));
+    const judge = (signature) => provenanceSignature({ projectDir: repo, provenance: { files, ...(signature ? { signature } : {}) } });
+    expect(judge(null)).toMatchObject({ required: true, ok: false, reason: expect.stringMatching(/no lleva firma/) });
+    expect(judge(passkeySigned(key, files))).toEqual({ required: true, ok: true });
+  });
+
+  it("a roster whose only passkey is revoked requires nothing, as no roster at all", () => {
+    writeFileSync(join(repo, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers: [{ ...passkey().entry, revoked: true }] }));
+    expect(provenanceSignature({ projectDir: repo, provenance: { files } })).toEqual({ required: false, ok: true });
+    rmSync(join(repo, ".karajan", "supervisor-signers.json"));
+    expect(provenanceSignature({ projectDir: repo, provenance: { files } })).toEqual({ required: false, ok: true });
   });
 });
 

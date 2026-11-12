@@ -68,9 +68,8 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
   if (level.source === "invalid") logger.warn?.(`${act.label}: ${level.reason}`);
   // HU-3887 (KJC-BUG-0551): at max a phone that can sign is any key of the roster, not only this
   // machine's. At normal the signed record itself puts a key in the roster, so there it stays this machine's.
-  // HU-4016: a live roster passkey signs at both levels.
-  const hasPasskey = (where) => readPasskeyCredentials(where).length > 0;
-  const enrolled = (where) => hasPasskey(where) || (level.level === "max" ? anyAuthorizedPhone : isPhoneEnrolled)(where);
+  // HU-4016: a live roster passkey signs at both levels (HU-4019: at max, anyAuthorizedPhone counts it).
+  const enrolled = level.level === "max" ? anyAuthorizedPhone : (where) => isPhoneEnrolled(where) || readPasskeyCredentials(where).length > 0;
   const phone = { enrolled, request: requestPhoneSignature, ...deps.phone };
   if (!phone.enrolled({ projectDir, home })) {
     // No key anywhere: enroll-phone runs as the bootstrap, so the refusal points there and nowhere that loops back.

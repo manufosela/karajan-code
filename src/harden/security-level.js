@@ -46,8 +46,9 @@ export function readSecurityLevel({ projectDir, home } = {}) {
   const keys = readEnrolledKeys({ projectDir, home });
   // KJC-TSK-1045 (ADR 0020): lowered at the terminal while no phone existed; it
   // lasts only while none does, since every act at normal still asks for the human layers.
+  // HU-4019: a live roster passkey is a phone too.
   if (record.unsigned === NO_PHONE && !record.signature) {
-    if (keys.size === 0) return { level: "normal", source: "file", since: record.since, unsigned: true };
+    if (!anyAuthorizedPhone({ projectDir, home })) return { level: "normal", source: "file", since: record.since, unsigned: true };
     return invalid("el nivel normal se bajó sin móvil y ya hay uno enrolado; vale como máxima hasta bajarlo firmado");
   }
   const check = verifySignedFiles({ sig: record.signature, files: signedFilesOf(record), keys, passkeys: readPasskeyCredentials({ projectDir }) });
@@ -83,7 +84,7 @@ export async function lowerSecurityLevel({ projectDir, home, kjVersion, env, tty
   if (current.level === "normal") return { changed: false, level: current };
   // KJC-TSK-1045 (ADR 0020): with no phone anywhere, max only blocks; the human
   // layers and the typed code are the proof, and the record says it is unsigned.
-  if (readEnrolledKeys({ projectDir, home }).size === 0 && readPasskeyCredentials({ projectDir }).length === 0) {
+  if (!anyAuthorizedPhone({ projectDir, home })) {
     act.confirm(deps.confirm);
     mkdirSync(dirname(levelPath(projectDir)), { recursive: true });
     writeFileSync(levelPath(projectDir), recordBytes({ level: "normal", since: new Date().toISOString(), unsigned: NO_PHONE }), "utf8");
@@ -91,7 +92,7 @@ export async function lowerSecurityLevel({ projectDir, home, kjVersion, env, tty
     return { changed: true, level: readSecurityLevel({ projectDir, home }) };
   }
   // HU-3887 (KJC-BUG-0551): any phone of the roster signs, not only this machine's.
-  const phone = { enrolled: (where) => anyAuthorizedPhone(where) || readPasskeyCredentials(where).length > 0, request: requestPhoneSignature, ...deps.phone };
+  const phone = { enrolled: anyAuthorizedPhone, request: requestPhoneSignature, ...deps.phone };
   if (!phone.enrolled({ projectDir, home })) throw new Error(`${act.label}: bajar el nivel se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
   act.confirm(deps.confirm);
   const record = { level: "normal", since: new Date().toISOString() };
