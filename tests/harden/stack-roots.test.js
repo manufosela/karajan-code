@@ -139,3 +139,23 @@ describe("detectStackRoots — JS workspace package under a TS root (HU-4018)", 
     expect(detectStackRoots(root).map((r) => r.dir)).toEqual([".", "web"]);
   });
 });
+
+describe("detectStackRoots — pnpm-workspace.yaml (HU-4035)", () => {
+  beforeEach(() => {
+    touch("package.json", "{}");
+    touch("tsconfig.json", "{}");
+    touch("tools/arch/package.json", "{}");
+  });
+  it("joins a JS package listed in pnpm-workspace.yaml to the TypeScript root", () => {
+    touch("pnpm-workspace.yaml", "packages:\n  - 'tools/*'\n");
+    expect(detectStackRoots(root)).toEqual([{ dir: ".", language: "typescript" }]);
+  });
+  it("keeps a package matching a negated entry as a javascript root", () => {
+    touch("pnpm-workspace.yaml", "packages:\n  - 'tools/*'\n  - '!tools/arch'\n");
+    expect(detectStackRoots(root).map((r) => r.dir)).toEqual([".", "tools/arch"]);
+  });
+  it("treats a malformed pnpm-workspace.yaml as no workspaces", () => {
+    touch("pnpm-workspace.yaml", "packages: [unclosed\n  - : :\n");
+    expect(detectStackRoots(root).map((r) => r.dir)).toEqual([".", "tools/arch"]);
+  });
+});
