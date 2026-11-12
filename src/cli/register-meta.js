@@ -212,6 +212,15 @@ export function registerMeta(program, { pkgVersion }) {
   linkCmd.command("limits").description("What the board's message interface allows: quota left, polling interval, write gap")
     .option("--json", "Output structured JSON").action((flags) => link("limits", flags));
 
+  // HU-3979: ceremonies from the command line; the step names live in CEREMONY_STEPS (commands/link.js).
+  const ceremonyCmd = linkCmd.command("ceremony").description("Ceremonies (daily, refinement, retro): convene one, or gather what was said in it");
+  ceremonyCmd.command("convene").description("Open the ceremony of the day, or print the one already open")
+    .requiredOption("--kind <kind>", "daily, refinement or retro").requiredOption("--title <title>", "title of the ceremony")
+    .requiredOption("--agenda <agenda>", "what it is about").option("--json", "Output structured JSON")
+    .action((flags) => link("ceremony", { ...flags, step: "convene" }));
+  ceremonyCmd.command("gather").description("What was said, grouped by author, as data inside the untrusted wrapper; moves no cursor")
+    .requiredOption("--thread <thread>", "issue:<n> of the ceremony").option("--json", "Output structured JSON")
+    .action((flags) => link("ceremony", { ...flags, step: "gather" }));
   // KJC-TSK-0986 (HUM-F): the invitation to enroll the phone, once per version.
   identityCmd
     .command("phone-invite")

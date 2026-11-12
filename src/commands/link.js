@@ -12,6 +12,7 @@ import { LINK_FIELDS } from "../link/block.js";
 import { loadRecord, markRead, recordPath, saveRecord } from "../link/record.js";
 import { readInbox } from "../link/reader.js";
 import { PostRefusedError, prepareToPost, renderForAgent } from "../link/wrap.js";
+import * as realSenescal from "../link/senescal.js";
 
 const NO_INTERFACE = "this board has no message interface";
 const ADAPTER_KIND = { issue: "issue", pr: "pull_request" };
@@ -117,13 +118,36 @@ async function readThread({ projectDir, flags, log, adapter, key, thread, name }
   if (flags.markRead) saveRecord(projectDir, key, markRead(store, result));
 }
 
-const ACTIONS = { send, inbox, threads, limits };
+// The owner may rename these: `kj link ceremony <step>`. Nothing else in this file spells them.
+export const CEREMONY_STEPS = ["convene", "gather"];
+const need = (flags, name, option) => flags[name] ?? Promise.reject(new Error(`ceremony ${flags.step} needs ${option}`));
+
+/** A thin layer over the Senescal: options in, its answer out. `deps` injects the Senescal and the clock. */
+async function ceremony({ projectDir, flags, log, makeAdapter, deps }) {
+  const { convene, gather } = deps.senescal ?? realSenescal;
+  const now = deps.now ?? Date.now;
+  if (!CEREMONY_STEPS.includes(flags.step)) throw new Error(`unknown ceremony step "${flags.step}": use ${CEREMONY_STEPS.join(", ")}`);
+  if (flags.step === "convene") {
+    const input = { kind: await need(flags, "kind", "--kind"), title: await need(flags, "title", "--title"), agenda: await need(flags, "agenda", "--agenda") };
+    const { thread, opened } = await convene(await adapterOf(makeAdapter, projectDir), { ...input, now });
+    const name = `${thread.kind}:${thread.number}`;
+    return log(flags.json ? JSON.stringify({ thread, opened }) : opened ? `opened ${input.kind} ceremony ${name}` : `${input.kind} ceremony already open: ${name}`);
+  }
+  const parsed = parseThread(await need(flags, "thread", "--thread"));
+  // gather is read-only: no cursor moves, so a second run shows the same contributions
+  const { byAuthor, dropped } = await gather(await adapterOf(makeAdapter, projectDir), parsed.thread, { record: loadRecord(projectDir, parsed.key), now });
+  if (flags.json) return log(JSON.stringify({ thread: parsed.name, byAuthor, dropped }));
+  log(`${parsed.name}: ${byAuthor.length} authors, ${dropped.notPermitted + dropped.permissionError} dropped for permission`);
+  for (const { author, contributions } of byAuthor) log(`${author}:`, ...contributions.map(render));
+}
+
+const ACTIONS = { send, inbox, threads, limits, ceremony };
 
 /** An action reports a partial failure as `{ failed: <count> }`; anything else is success. @returns {Promise<0|1>} */
-export async function linkCommand({ action, config, flags = {}, log = console.log, makeAdapter = githubAdapter }) {
+export async function linkCommand({ action, config, flags = {}, log = console.log, makeAdapter = githubAdapter, deps = {} }) {
   try {
-    if (!Object.hasOwn(ACTIONS, action)) throw new Error(`unknown link action "${action}": use send, inbox, threads or limits`);
-    return (await ACTIONS[action]({ projectDir: config?.projectDir || process.cwd(), flags, log, makeAdapter }))?.failed > 0 ? 1 : 0;
+    if (!Object.hasOwn(ACTIONS, action)) throw new Error(`unknown link action "${action}": use send, inbox, threads, limits or ceremony`);
+    return (await ACTIONS[action]({ projectDir: config?.projectDir || process.cwd(), flags, log, makeAdapter, deps }))?.failed > 0 ? 1 : 0;
   } catch (err) {
     // A refusal names its code and the finding types and lines (never the matched text).
     log(describeError(err));
