@@ -43,6 +43,17 @@ describe("kj rules review", () => {
     expect((await checkVerdict(dir, fs.readFileSync(proposal, "utf8"))).ok).toBe(false);
   });
 
+  it("judges only the rules that differ from the installed ones", async () => {
+    propose();
+    fs.writeFileSync(path.join(dir, ".karajan", "rules.yml"), fs.readFileSync(proposal, "utf8"));
+    const agents = answering({ approved: true, blocking_issues: [] });
+    await review(agents);
+    const { prompt } = agents.mock.results[0].value.reviewTask.mock.calls[0][0];
+    expect(prompt).toMatch(/judge ONLY the rules that are new or differ/);
+    expect(prompt).toMatch(/No rule changed: approve/);
+    expect(prompt).toMatch(/identical to the installed ones/);
+  });
+
   it("a rejection names the rules the reviewer found weak", async () => {
     propose();
     const res = await review(answering({ approved: false, blocking_issues: [{ description: `${rule.id}: a tool call breaks it, judgment is too weak` }] }));

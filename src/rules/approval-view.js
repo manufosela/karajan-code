@@ -25,7 +25,7 @@ function weakening(rule, approved) {
 }
 
 // KJC-TSK-1410: a rule approved before and proposed again as it is was already read by the human.
-const shape = (rule) => JSON.stringify([rule.kind, rule.text, rule.when ?? null, rule.reason ?? null]);
+export const shape = (rule) => JSON.stringify([rule.kind, rule.text, rule.when ?? null, rule.reason ?? null]);
 
 /**
  * @param {object[]} proposed the rules of a checked proposal
