@@ -333,6 +333,10 @@ export async function stopBoard(opts = {}) {
   }
   fs.rmSync(PID_FILE, { force: true });
 
+  // HU-4111: paths 2 and 3 act on whatever holds the port, so first prove
+  // it is a HU Board. A foreign server on :4000 is never shut down or killed.
+  if (!(await isHuBoard(port))) return { ok: true, wasRunning: false };
+
   // Path 2: HTTP-ask the server to exit cleanly. Works for any
   // running server that has the /api/board/shutdown endpoint —
   // even when there's no PID file, no process tree to walk, etc.
@@ -355,6 +359,32 @@ export async function stopBoard(opts = {}) {
   } catch { /* lsof not installed etc — fall through */ }
 
   return { ok: true, wasRunning: false };
+}
+
+/**
+ * HU-4111: true only when `port` answers GET /api/version with the board's
+ * JSON shape ({ version, boot_time }). Any other server, error or timeout → false.
+ */
+function isHuBoard(port, timeoutMs = 750) {
+  return new Promise((resolve) => {
+    const req = http.request(
+      { host: '127.0.0.1', port, path: '/api/version', method: 'GET', timeout: timeoutMs },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          try {
+            const info = JSON.parse(body);
+            resolve(res.statusCode === 200 && typeof info?.boot_time === 'string' && 'version' in info);
+          } catch { resolve(false); }
+        });
+        res.on('error', () => resolve(false));
+      }
+    );
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.end();
+  });
 }
 
 /**
