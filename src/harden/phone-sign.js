@@ -13,6 +13,7 @@ import qrcode from "qrcode-terminal";
 
 import { PHONE_REMOTE_SIGNER } from "./phone-texts.js";
 import { sealRepoMismatch } from "./seal-repo.js";
+import { passkeyEntryProblem } from "./webauthn-verify.js";
 
 const SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 // La config del relé (apiKey de cliente Firestore — pública por diseño, la
@@ -44,12 +45,12 @@ const POLL_INTERVAL_MS = 2000;
 const TTL_MS = 150000;
 
 /** Spinner en su sitio (una línea, con \r) solo en TTY; no-op fuera de TTY o en tests. */
-function makeSpinner() {
+function makeSpinner(text = "esperando la firma del móvil…") {
   if (!process.stdout?.isTTY) return { tick() {}, stop() {} };
   const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   let i = 0;
   return {
-    tick() { process.stdout.write(`\r${frames[i++ % frames.length]} esperando la firma del móvil…`); },
+    tick() { process.stdout.write(`\r${frames[i++ % frames.length]} ${text}`); },
     stop() { process.stdout.write("\r\x1b[K"); },
   };
 }
@@ -253,35 +254,81 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   if (!isPhoneEnrolled({ home: deps.home })) logger.info?.(`phone-sign: ${PHONE_REMOTE_SIGNER}`);
   logger.info?.("phone-sign: esperando la firma del móvil…");
   const spinner = deps.spinner ?? makeSpinner();
-  const deadline = expiresMs;
+  const fields = await pollRelay({ fetchFn, relay, cid, now, sleep, spinner, deadline: expiresMs, state: "signed" });
+  if (!fields) return { ok: false, reason: "caducado" };
+  // KJC-TSK-0831 (ADR 0010): la clave que firma debe estar en el PADRÓN
+  // autorizado (repo ∪ legacy). El doc es transporte; la verdad es el padrón.
+  const authorized = readEnrolledKeys({ projectDir: deps.projectDir, home: deps.home });
+  const signerKey = fields.publicKey?.stringValue;
+  if (!signerKey || !authorized.has(signerKey)) {
+    return { ok: false, reason: "la publicKey que firma no está en el padrón autorizado — el doc es transporte, la verdad es el padrón" };
+  }
+  const signed2 = v === 2 ? { v, kjVersion, issuedMs, expiresMs } : {};
+  const payload = canonicalPayload({ cid, nonce, project, files, ...signed2 });
+  const signature = fields.signature?.stringValue ?? "";
+  const good = verifyPhoneSignature({ payload, signature, publicKey: signerKey });
+  if (!good) return { ok: false, reason: "firma ed25519 inválida para el payload canónico" };
+  // KJC-TSK-0901: una firma válida fuera de la vigencia que ella misma firma no vale.
+  if (v === 2 && now() > expiresMs) return { ok: false, reason: "la firma llegó fuera de su vigencia firmada" };
+  // KJC-TSK-0823: devuelve el desafío + firma para que el sello los GRABE en
+  // la provenance y CI pueda re-verificar server-side (clave del padrón).
+  const filesHash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
+  return { ok: true, signer: signerKey, signature, challenge: { cid, nonce, project, filesHash, ...signed2 } };
+}
+
+/** Polls the relay doc until its state is `state` (its fields) or `deadline` passes (null). HTTP not ok ⇒ throw. */
+async function pollRelay({ fetchFn, relay, cid, now, sleep, spinner, deadline, state }) {
   while (now() < deadline) {
     const res = await fetchFn(`${relay.url}/${cid}?key=${relay.apiKey}`);
-    if (!res.ok) { spinner.stop(); throw new Error(`phone-sign: fallo consultando la petición de firma (HTTP ${res.status})`); }
+    if (!res.ok) { spinner.stop(); throw new Error(`phone-sign: fallo consultando la petición en el relé (HTTP ${res.status})`); }
     const fields = (await res.json()).fields ?? {};
-    if (fields.state?.stringValue === "signed") {
-      spinner.stop();
-      // KJC-TSK-0831 (ADR 0010): la clave que firma debe estar en el PADRÓN
-      // autorizado (repo ∪ legacy). El doc es transporte; la verdad es el padrón.
-      const authorized = readEnrolledKeys({ projectDir: deps.projectDir, home: deps.home });
-      const signerKey = fields.publicKey?.stringValue;
-      if (!signerKey || !authorized.has(signerKey)) {
-        return { ok: false, reason: "la publicKey que firma no está en el padrón autorizado — el doc es transporte, la verdad es el padrón" };
-      }
-      const signed2 = v === 2 ? { v, kjVersion, issuedMs, expiresMs } : {};
-      const payload = canonicalPayload({ cid, nonce, project, files, ...signed2 });
-      const signature = fields.signature?.stringValue ?? "";
-      const good = verifyPhoneSignature({ payload, signature, publicKey: signerKey });
-      if (!good) return { ok: false, reason: "firma ed25519 inválida para el payload canónico" };
-      // KJC-TSK-0901: una firma válida fuera de la vigencia que ella misma firma no vale.
-      if (v === 2 && now() > expiresMs) return { ok: false, reason: "la firma llegó fuera de su vigencia firmada" };
-      // KJC-TSK-0823: devuelve el desafío + firma para que el sello los GRABE en
-      // la provenance y CI pueda re-verificar server-side (clave del padrón).
-      const filesHash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
-      return { ok: true, signer: signerKey, signature, challenge: { cid, nonce, project, filesHash, ...signed2 } };
-    }
+    if (fields.state?.stringValue === state) { spinner.stop(); return fields; }
     spinner.tick();
     await sleep(POLL_INTERVAL_MS);
   }
   spinner.stop();
-  return { ok: false, reason: "caducado" };
+  return null;
+}
+
+const credentialOf = (fields) => ({
+  credentialId: fields.credentialId?.stringValue ?? "",
+  publicKey: fields.publicKey?.stringValue ?? "",
+  alg: Number(fields.alg?.integerValue),
+});
+
+/** A register request, with exactly the fields the relay's create rule admits (apps/landing/firestore.rules). */
+const registerDoc = ({ project, label, kjVersion, issuedMs, expiresMs }) => ({
+  nonce: str(randomBytes(16).toString("hex")), project: str(project), kj_version: str(kjVersion), state: str("pending"),
+  createdAt: { timestampValue: new Date(issuedMs).toISOString() }, files: { arrayValue: { values: [] } },
+  v: { integerValue: "2" }, expires_at: { timestampValue: new Date(expiresMs).toISOString() },
+  kind: str("register"), passkey: { booleanValue: true }, user_label: str(label),
+});
+
+/**
+ * HU-3986 (ADR 0053): asks the relay for a new passkey; the signer page creates it on the phone.
+ * @returns {Promise<{ok: true, credential: {credentialId: string, publicKey: string, alg: number}} | {ok: false, reason: string}>}
+ */
+export async function requestPasskeyRegistration({ project, label, kjVersion, ttlMs = MAX_TTL_MS, logger = console, deps = {} }) {
+  const ttl = validTtl(ttlMs);
+  const fetchFn = deps.fetch ?? fetch;
+  const now = deps.now ?? Date.now;
+  const sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const drawQr = deps.qr ?? ((url) => qrcode.generate(url, { small: true }));
+  const cid = randomBytes(16).toString("hex");
+  const relay = await relayConfig(fetchFn);
+  const issuedMs = now();
+  const expiresMs = issuedMs + ttl;
+  const created = await fetchFn(`${relay.url}?documentId=${cid}&key=${relay.apiKey}`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fields: registerDoc({ project, label, kjVersion, issuedMs, expiresMs }) }),
+  });
+  if (!created.ok) throw new Error(`phone-sign: no se pudo publicar la petición de passkey (HTTP ${created.status})`);
+  const url = `${SIGN_PAGE}?c=${cid}`;
+  drawQr(url);
+  logger.info?.(`phone-sign: escanea el QR o abre ${url} en el móvil y crea la passkey (caduca en ${humanTtl(ttl)})`);
+  const spinner = deps.spinner ?? makeSpinner("esperando la passkey del móvil…");
+  const answer = await pollRelay({ fetchFn, relay, cid, now, sleep, spinner, deadline: expiresMs, state: "registered" });
+  if (!answer) return { ok: false, reason: "caducado" };
+  const credential = credentialOf(answer);
+  const problem = passkeyEntryProblem(credential);
+  return problem ? { ok: false, reason: problem } : { ok: true, credential };
 }
