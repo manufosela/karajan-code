@@ -1,7 +1,8 @@
 # The Sentinel watches a transversal session from the parent folder
 
-Status: proposed
+Status: accepted
 Date: 2026-11-12
+Accepted: 2026-11-12, by the maintainer
 
 ## Context
 
