@@ -8,13 +8,13 @@
  *           no session and no flags → exit 1.
  */
 
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { signAct } from "../harden/act-sign.js";
-import { enrollPhone, isPhoneEnrolled, readEnrolledKey, readEnrolledKeys, validatePhonePublicKey } from "../harden/phone-sign.js";
-import { admitSigner, redeemRecoveryCode } from "../harden/roster.js";
+import { enrollPhone, isPhoneEnrolled, readEnrolledKey, readEnrolledKeys, readPasskeyCredentials, requestPasskeyRegistration, validatePhonePublicKey } from "../harden/phone-sign.js";
+import { admissionFiles, admitSigner, redeemRecoveryCode, SIGNERS_FILE } from "../harden/roster.js";
+import { sealRepoOf } from "../harden/seal-repo.js";
 import { phoneInvite } from "../harden/phone-invite.js";
 import { readSecurityLevel } from "../harden/security-level.js";
 import { humanAct } from "../harden/human-act.js";
@@ -22,8 +22,6 @@ import { readIdentity, writeIdentity } from "../identity/store.js";
 import { activeGhUser, effectiveGitEmail } from "../identity/detect.js";
 import { compareIdentity } from "../identity/compare.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
-
-const SIGNERS_FILE = ".karajan/supervisor-signers.json";
 
 // Reading the effective identity never throws: both readers answer null when unknown.
 const effectiveIdentity = (projectDir, deps) => ({
@@ -44,26 +42,44 @@ function recoveryOf({ projectDir, log, flags, deps }) {
   return { recovered, lost };
 }
 
-// Returns the recovery code the roster issues for the new key.
-async function admitPhone(ctx) {
-  const { projectDir, log, kjVersion, flags, deps } = ctx;
-  // KJC-TSK-0966 (HUM-C, ADR 0018): enrolar es un acto del catálogo; hasta hoy
-  // solo lo frenaba el Sentinel, y un kj fuera de Claude no tiene Sentinel.
-  humanAct("phone-enroll", { env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
-  // KJC-TSK-0998 (HUM-D, ADR 0018): a phone of the roster signs the key that
-  // enters; the FIRST one has nobody to sign it (bootstrap) and runs on the four layers.
-  const key = validatePhonePublicKey(flags.publicKeyBase64);
-  const { recovered, lost } = recoveryOf(ctx);
+// KJC-TSK-0998 (HUM-D, ADR 0018): a phone of the roster signs the key that enters;
+// the FIRST one (no key at all in the roster) has nobody to sign it and runs on the four layers.
+async function admissionOf({ projectDir, log, kjVersion, deps }, key, label, recovered) {
+  const noKey = readEnrolledKeys({ projectDir, home: deps.home }).size === 0 && readPasskeyCredentials({ projectDir }).length === 0;
   const { signature } = await signAct("phone-enroll", {
     projectDir, home: deps.home, kjVersion, logger: { warn: log, info: log },
     deps: recovered ? { ...deps, phone: { enrolled: () => false } } : deps,
-    bootstrap: recovered !== null || readEnrolledKeys({ projectDir, home: deps.home }).size === 0,
-    files: [{ file: SIGNERS_FILE, sha256: createHash("sha256").update(key).digest("hex") }],
-    changes: [{ file: SIGNERS_FILE, status: "modified", added: 1, removed: 0, summary: `Entra la clave ${flags.label ?? "(sin etiqueta)"}`, diff: `+ ${key}`, truncated: false }],
+    bootstrap: recovered !== null || noKey, files: admissionFiles(key),
+    changes: [{ file: SIGNERS_FILE, status: "modified", added: 1, removed: 0, summary: `Entra la clave ${label ?? "(sin etiqueta)"}`, diff: `+ ${key}`, truncated: false }],
   });
+  return recovered ?? signature;
+}
+
+// HU-3986 (ADR 0053): no key given ⇒ the relay registers a passkey on the phone; it enters as any phone does.
+async function admitPasskey(ctx) {
+  const { projectDir, log, kjVersion, flags, deps } = ctx;
+  const { recovered, lost } = recoveryOf(ctx);
+  const label = flags.label ?? "passkey";
+  const registered = await requestPasskeyRegistration({ project: sealRepoOf(projectDir) ?? basename(projectDir), label, kjVersion, logger: { info: log }, deps });
+  if (!registered.ok) throw new Error(`la passkey no se registró (${registered.reason})`);
+  const { credentialId, publicKey, alg } = registered.credential;
+  const admission = await admissionOf(ctx, publicKey, label, recovered);
+  return admitSigner({ projectDir, publicKey, label, admission, replaces: lost, passkey: { credentialId, alg } }).recoveryCode;
+}
+
+// Returns the recovery code the roster issues for the new key.
+async function admitPhone(ctx) {
+  const { projectDir, flags, deps } = ctx;
+  // KJC-TSK-0966 (HUM-C, ADR 0018): enrolar es un acto del catálogo; hasta hoy
+  // solo lo frenaba el Sentinel, y un kj fuera de Claude no tiene Sentinel.
+  humanAct("phone-enroll", { env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
+  if (flags.publicKeyBase64 === undefined) return admitPasskey(ctx);
+  const key = validatePhonePublicKey(flags.publicKeyBase64);
+  const { recovered, lost } = recoveryOf(ctx);
+  const admission = await admissionOf(ctx, key, flags.label, recovered);
   // KJC-TSK-0831 (ADR 0010): the versioned roster, now with the admission CI
   // verifies (HUM-B); the legacy key in ~/.karajan stays.
-  const { recoveryCode } = admitSigner({ projectDir, publicKey: key, label: flags.label ?? null, admission: recovered ?? signature, replaces: lost });
+  const { recoveryCode } = admitSigner({ projectDir, publicKey: key, label: flags.label ?? null, admission, replaces: lost });
   enrollPhone(key, { home: deps.home });
   return recoveryCode;
 }
@@ -78,7 +94,8 @@ async function enrollPhoneAction(ctx) {
     log(`kj identity enroll-phone: ${err.message}`);
     return 1;
   }
-  log("Móvil enrolado: la clave pública se añadió al padrón .karajan/supervisor-signers.json (commítealo) y a ~/.karajan/supervisor-phone.json. Sellar el supervisor pedirá la firma de un móvil del padrón.");
+  if (ctx.flags.publicKeyBase64 === undefined) log("Passkey enrolada en el padrón .karajan/supervisor-signers.json (commítealo); sellar con ella llega en la próxima versión.");
+  else log("Móvil enrolado: la clave pública se añadió al padrón .karajan/supervisor-signers.json (commítealo) y a ~/.karajan/supervisor-phone.json. Sellar el supervisor pedirá la firma de un móvil del padrón.");
   if (recoveryCode) {
     log(`\nCÓDIGO DE RECUPERACIÓN, se enseña UNA sola vez. Guárdalo fuera de esta máquina:\n\n    ${recoveryCode}\n`);
     log("Sirve para enrolar un móvil nuevo si pierdes este: kj identity enroll-phone <clave nueva> --recovery <código>. Es de un solo uso: al usarlo se emite otro. Sin móvil y sin código no hay recuperación: el padrón se rehace por fuera de CI, a la vista de todos (ADR 0018).");

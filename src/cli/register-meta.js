@@ -149,8 +149,8 @@ export function registerMeta(program, { pkgVersion }) {
     });
   identityCmd
     .command("enroll-phone")
-    .description("Enroll the phone's PUBLIC signing key (base64 of the raw 32-byte ed25519 key) for the supervisor seal")
-    .argument("<publicKeyBase64>", "raw ed25519 public key, base64 (shown by the phone app)")
+    .description("Enroll a phone for the supervisor seal: its PUBLIC ed25519 key, or with no key a passkey created on the phone through the relay")
+    .argument("[publicKeyBase64]", "raw ed25519 public key, base64 (shown by the phone app); omit it to register a passkey")
     .option("--label <name>", "A name for this phone in the roster")
     .option("--recovery <code>", "Replace a lost phone with the recovery code shown at enrollment (spent on use, a new one is issued)")
     .option("--replaces <publicKeyBase64>", "With --recovery: the lost phone to revoke (default: the one enrolled on this machine)")

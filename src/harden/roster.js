@@ -81,8 +81,12 @@ export function redeemRecoveryCode(code, { projectDir }) {
  * Adds a signer with its admission and writes the roster. The first signer, a spent
  * code and a roster with no code yet issue a NEW code, returned once and never stored.
  */
-export function admitSigner({ projectDir, publicKey, label = null, admission = null, replaces = null, random }) {
-  validatePhonePublicKey(publicKey);
+export function admitSigner({ projectDir, publicKey, label = null, admission = null, replaces = null, passkey = null, random }) {
+  // HU-3986 (ADR 0053): a passkey enters as a webauthn entry, judged as CI judges it.
+  const signer = passkey ? { type: "webauthn", credentialId: passkey.credentialId, publicKey, alg: passkey.alg } : { publicKey };
+  if (!passkey) validatePhonePublicKey(publicKey);
+  const problem = passkey ? entryProblem(signer) : null;
+  if (problem) throw new Error(`la clave ${short(publicKey)} ${problem}`);
   const roster = readRoster({ projectDir });
   if (roster.signers.some((s) => s.publicKey === publicKey)) return { roster, recoveryCode: null };
   const first = roster.signers.length === 0;
@@ -93,7 +97,7 @@ export function admitSigner({ projectDir, publicKey, label = null, admission = n
   if (replaces && !admission?.recoveryProof) throw new Error("sustituir un móvil se hace con el código de recuperación");
   if (replaces && !roster.signers.some((s) => s.publicKey === replaces && !s.revoked)) throw new Error(`el móvil a sustituir (${short(replaces)}) no está en el padrón`);
   const kept = roster.signers.map((s) => (s.publicKey === replaces ? { ...s, revoked: { at: enrolledAt, recoveryProof: admission.recoveryProof } } : s));
-  const next = { signers: [...kept, { publicKey, label, enrolledAt, ...(admission ? { admission } : {}) }], recovery: roster.recovery };
+  const next = { signers: [...kept, { ...signer, label, enrolledAt, ...(admission ? { admission } : {}) }], recovery: roster.recovery };
   let recoveryCode = null;
   if (first || admission?.recoveryProof || !roster.recovery) {
     const issued = issueRecoveryCode(random);
