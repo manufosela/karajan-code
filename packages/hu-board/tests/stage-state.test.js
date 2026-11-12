@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import express from 'express';
 import request from 'supertest';
 
@@ -17,13 +17,13 @@ beforeEach(() => {
   proj = join(tmp, 'work', 'proj');
   mkdirSync(kj('harness'), { recursive: true });
   mkdirSync(kj('reviews'), { recursive: true });
-  prev = { home: process.env.KJ_HOME, plans: process.env.KJ_PLANS_DIR };
+  prev = { home: process.env.KJ_HOME, plans: process.env.KJ_PLANS_DIR, path: process.env.PATH };
   process.env.KJ_HOME = join(tmp, 'home');
   process.env.KJ_PLANS_DIR = join(tmp, 'plans');
 });
 
 afterEach(() => {
-  for (const [k, v] of [['KJ_HOME', prev.home], ['KJ_PLANS_DIR', prev.plans]]) {
+  for (const [k, v] of [['KJ_HOME', prev.home], ['KJ_PLANS_DIR', prev.plans], ['PATH', prev.path]]) {
     if (v === undefined) delete process.env[k]; else process.env[k] = v;
   }
   rmSync(tmp, { recursive: true, force: true });
@@ -146,13 +146,18 @@ describe('lastStageState', () => {
 });
 
 describe('GET /api/stage/state', () => {
-  it('answers the state of the project it names, and 400 without one it can resolve', async () => {
+  /** The board's api, and the slug of the test project it knows. */
+  const serve = async () => {
     const { deriveProjectIdFromDir } = await import('../src/sync.js');
     const slug = deriveProjectIdFromDir(proj);
     mkdirSync(join(tmp, 'plans', slug), { recursive: true });
     writeFileSync(join(tmp, 'plans', slug, 'plan-1.json'), JSON.stringify({ projectDir: proj }));
     const { default: apiRoutes } = await import('../src/routes/api.js');
-    const app = express().use('/api', apiRoutes);
+    return { slug, app: express().use('/api', apiRoutes) };
+  };
+
+  it('answers the state of the project it names, and 400 without one it can resolve', async () => {
+    const { slug, app } = await serve();
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
     const empty = { denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0 };
     // KJC-TSK-1525: the main checkout says the last release (none in a project without tags).
@@ -161,8 +166,28 @@ describe('GET /api/stage/state', () => {
     // HU-3853: without readers for the pull request and the merge, the lane's state is unknown.
     const unread = { state: 'unknown', stateReason: 'cannot read merged' };
     // KJC-TSK-1541: the main checkout carries no note.
-    expect(ok.body).toEqual({ ...empty, ...unread, release: null, status, note: null, lanes: [{ lane: 'main', ...empty, ...unread, release: null, status, note: null }] });
+    // HU-4029: nor a pipeline, there being no pull request to read.
+    expect(ok.body).toEqual({ ...empty, ...unread, release: null, status, note: null, pipeline: null, lanes: [{ lane: 'main', ...empty, ...unread, release: null, status, note: null, pipeline: null }] });
     await request(app).get('/api/stage/state?project=nowhere').expect(400);
     await request(app).get('/api/stage/state').expect(400);
+  });
+
+  // HU-4029: gh is a network call; while a slow one runs, the board answers everyone else.
+  it('reads the pipeline of each lane without holding the server', async () => {
+    mkdirSync(join(proj, '.kj', 'worktrees', 'pay'), { recursive: true });
+    writeFileSync(join(proj, '.kj', 'worktrees', 'pay', '.git'), 'gitdir: ../../.git/worktrees/pay\n');
+    const pr = JSON.stringify({ state: 'OPEN', statusCheckRollup: [{ __typename: 'CheckRun', status: 'IN_PROGRESS' }] });
+    mkdirSync(join(tmp, 'bin'));
+    writeFileSync(join(tmp, 'bin', 'gh'), `#!/bin/sh\nsleep 1\necho '${pr}'\n`, { mode: 0o755 });
+    process.env.PATH = `${join(tmp, 'bin')}${delimiter}${prev.path}`;
+    const { slug, app } = await serve();
+    app.get('/ping', (_req, res) => res.send('pong'));
+    const answered = [];
+    const stage = request(app).get(`/api/stage/state?project=${slug}`).then((res) => { answered.push('stage'); return res; });
+    await new Promise((r) => setTimeout(r, 200));
+    await request(app).get('/ping').expect(200).then(() => answered.push('ping'));
+    const { body } = await stage;
+    expect(answered).toEqual(['ping', 'stage']);
+    expect(body.lanes[1]).toMatchObject({ lane: 'pay', pipeline: 'running', status: { state: 'waiting-merge', why: 'pipeline running' } });
   });
 });

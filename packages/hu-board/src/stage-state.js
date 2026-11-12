@@ -115,7 +115,8 @@ export function laneStates(projectDir, { branchOf = branchFacts, readers = {}, .
     // HU-3853: the lane's state, from facts. A reader that is missing or throws leaves its fact unread.
     const readFact = (name) => { try { return readers[name]?.({ lane, dir }) ?? null; } catch { return null; } };
     const facts = { working: state.working, cards, mail: state.mail, openPr: readFact('openPr'), merged: readFact('merged') };
-    return { lane, ...state, cards, branch, note, ...deriveLaneState(facts) };
+    // HU-4029: how the pipeline of its open pull request stands.
+    return { lane, ...state, cards, branch, note, pipeline: lane === MAIN_LANE ? null : readFact('pipeline'), ...deriveLaneState(facts) };
   });
   // KJC-TSK-1525: the release the "Ready to release" table counts from, once, on the main checkout.
   lanes[0] = { ...lanes[0], release: lastRelease(projectDir) };

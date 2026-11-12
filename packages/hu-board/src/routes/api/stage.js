@@ -1,6 +1,7 @@
 // KJC-TSK-1405 (ADR 0046): what kj stage shows on open, per project.
 import { Router } from 'express';
 
+import { lanePipelines } from '../../lane-pipeline.js';
 import { requestProjectDir } from '../../project-dir.js';
 import { stageMap } from '../../stage-map.js';
 import { laneStates } from '../../stage-state.js';
@@ -8,7 +9,7 @@ import { laneStates } from '../../stage-state.js';
 const router = Router();
 
 /** GET /api/stage/state?project=<slug> - the last denial, verdict and seal. */
-router.get('/stage/state', (req, res) => {
+router.get('/stage/state', async (req, res) => {
   let dir;
   try { dir = requestProjectDir(req.query.project); } catch (err) {
     res.status(400).json({ error: err.message });
@@ -19,8 +20,10 @@ router.get('/stage/state', (req, res) => {
     return;
   }
   res.set('Cache-Control', 'no-store');
+  // HU-4029: the pipeline of each lane's open pull request, read from gh without holding the server.
+  const pipelines = await lanePipelines(dir);
   // KJC-TSK-1432 (ADR 0048): every lane; the main checkout's state stays at the top until the scene draws the lanes.
-  const lanes = laneStates(dir);
+  const lanes = laneStates(dir, { readers: { pipeline: ({ dir: laneDir }) => pipelines.get(laneDir) ?? null } });
   const { lane: _main, ...main } = lanes[0];
   res.json({ ...main, lanes });
 });
