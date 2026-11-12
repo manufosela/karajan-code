@@ -24,6 +24,13 @@ describe('stage events from kj records', () => {
     expect(verdictEvent(raw)).toEqual({ type: 'review-verdict', at: 't3', verdict: 'rejected', reviewer: 'agy', host: 'claude', diffHash: 'abc' });
   });
 
+  // HU-4104: a rag-first refusal asks for a RAG query, it does not judge the code.
+  it('a rag-first rejection is no verdict, but a codex rejection still is', () => {
+    const rejected = (reviewer) => JSON.stringify({ verdict: 'rejected', reviewer, diffHash: 'abc', timestamp: 't3' });
+    expect(verdictEvent(rejected('rag-first'))).toBeNull();
+    expect(verdictEvent(rejected('codex'))).toMatchObject({ type: 'review-verdict', verdict: 'rejected', reviewer: 'codex' });
+  });
+
   it('a commit attempt keeps when, its outcome and the rule (KJC-TSK-1427)', () => {
     expect(gateEvent(JSON.stringify({ at: 't4', outcome: 'refuse', rule: 'body' }))).toEqual({ type: 'commit-gate', at: 't4', outcome: 'refuse', rule: 'body' });
     expect(gateEvent(JSON.stringify({ at: 't4', outcome: 'maybe', rule: 'x' }))).toBeNull();
