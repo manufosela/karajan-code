@@ -132,6 +132,7 @@
     "yaml": "^2.9.0"
   },
   "optionalDependencies": {
+    "node-datachannel": "^0.33.6",
     "node-pty": "^1.1.0"
   },
   "devDependencies": {
