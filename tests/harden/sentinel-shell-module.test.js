@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { shellSegments, headIndex, shortOpts, optionValues, stripInertQuotes, withoutRedirections, isPublishCommand } from "../../src/harden/sentinel/sentinel-shell.mjs";
+import { shellSegments, headIndex, shortOpts, optionValues, stripInertQuotes, withoutRedirections, isPublishCommand, pathTokens } from "../../src/harden/sentinel/sentinel-shell.mjs";
 import { installSentinelHooks, canonicalHarnessBody, verifySentinelScripts } from "../../src/harden/sentinel-hooks.js";
 import { wireLegacy } from "./_legacy-wiring.js";
 import { placeGuardCopies } from "./_guard-copies.js";
@@ -111,6 +111,15 @@ describe("shortOpts", () => {
     expect(shortOpts("-fen")).toBe("f");
     expect(shortOpts("-xdf")).toBe("xdf");
     expect(shortOpts("--force")).toBe("");
+  });
+});
+
+// HU-4121: where a token starts and what makes it a path are two small patterns (Sonar S5843).
+describe("pathTokens", () => {
+  it("reads bare, absolute, dot-relative, ~/ and after-= paths, never a flag or a lone /", () => {
+    const tokens = pathTokens("cp -r --force src/x.js /etc/hosts ./a ../b ~/notes --file=./c -n /", "/home/u");
+    expect(tokens.map((t) => t.token)).toEqual(["src/x.js", "/etc/hosts", "./a", "../b", "~/notes", "./c"]);
+    expect(tokens[4].path).toBe("/home/u/notes");
   });
 });
 

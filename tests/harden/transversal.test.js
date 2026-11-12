@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { childRepoOf, childReposOf, transversalRoot } from "../../src/harden/transversal.mjs";
+import { childRepoOf, childReposOf, inParent, transversalRoot } from "../../src/harden/transversal.mjs";
 
 const gitInit = (dir) => {
   fs.mkdirSync(dir, { recursive: true });
@@ -69,5 +69,12 @@ describe("transversal parent and child repos (ADR 0055)", () => {
   it("returns the child plus the path that falls in none", () => {
     const stray = path.join(parent, "notes.md");
     expect(childReposOf([path.join(alpha, "a.js"), stray], parent)).toEqual({ repos: [alpha], stray: [stray] });
+  });
+
+  it("tells the parent's tree (itself, its own file, a loose folder, a child) from outside it, by real path", () => {
+    fs.symlinkSync(os.tmpdir(), path.join(parent, "out"));
+    fs.mkdirSync(path.join(parent, "..d"));
+    const paths = [parent, "notes.md", "group/new/x.md", "..d/x.md", alpha, os.tmpdir(), "../x", "out/x.md"];
+    expect(paths.map((p) => inParent(p, parent))).toEqual([true, true, true, true, true, false, false, false]);
   });
 });

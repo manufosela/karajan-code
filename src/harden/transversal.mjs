@@ -5,7 +5,7 @@
 import process from "node:process";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 // A hook may run with GIT_DIR/GIT_WORK_TREE set: they would pin every answer to one repo.
 const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_")));
@@ -53,6 +53,12 @@ export const childRepoOf = (path, parent) => {
   const dir = nearestDir(resolve(root, String(path)));
   const top = dir && gitToplevel(dir);
   return top && isBelow(top, root) ? top : null;
+};
+
+/** Whether path's nearest existing dir, real path, is parent or under it (relative paths read from parent). @returns {boolean} */
+export const inParent = (path, parent) => {
+  const root = canonical(resolve(String(parent)));
+  return !relative(root, nearestDir(resolve(root, String(path))) ?? root).split(sep).includes("..");
 };
 
 /** The distinct child repos of paths, and the paths in none. @returns {{repos: string[], stray: string[]}} */
