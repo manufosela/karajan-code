@@ -7,6 +7,7 @@
  * the project's NATIVE commands (from `cmds`), only when present. No npm/Node
  * is imposed on non-JS repos. See docs/specs/quality-harness.md §5.
  */
+import { rootLintSteps, rootTestSteps, toolStep } from "./root-steps.js";
 
 // KJC-TSK-1076: exported so the third-party PR checks apply the same rules.
 export const CONVENTIONAL_TYPES = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert";
@@ -167,20 +168,6 @@ function identityGuard(hook) {
   ];
 }
 
-// HU-3521: the executable a generated step runs (`test -z "$(gofmt -l .)"` runs gofmt); null when it is not a plain name.
-const toolOf = (cmd) => {
-  const tool = cmd.replace(/^test -z "\$\(/, "").split(/\s+/)[0];
-  return /^[\w./@-]+$/.test(tool) ? tool : null;
-};
-
-/** A lint/format step that says it was skipped, and why, when its tool is not on PATH: never a failure of every commit. */
-function toolStep(step, cmd, failure) {
-  const run = `${cmd} || { echo 'kj harden: ${failure}'; exit 1; }`;
-  const tool = toolOf(cmd);
-  if (!tool) return [run];
-  return [`if command -v ${tool} >/dev/null 2>&1; then`, `  ${run}`, "else", `  echo 'kj harden: ${step} skipped: ${tool} not found'`, "fi"];
-}
-
 // KJC-BUG-0538 (#3763): the values `kj gates value commit-convention` can give (ADR 0045).
 const COMMIT_CONVENTIONS = new Set(["conventional", "project", "free"]);
 
@@ -206,7 +193,8 @@ export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention 
       const lines = [...baseBranchGuard(baseBranch), ...identityGuard("pre-commit"), "# Lint + format the working tree with the project's native tools."];
       if (cmds.lint) lines.push(...toolStep("lint", cmds.lint, "lint failed"));
       if (cmds.format) lines.push(...toolStep("format", cmds.format, "format check failed"));
-      if (!cmds.lint && !cmds.format) lines.push("# (no lint/format command detected for this stack)");
+      if (cmds.roots) lines.push(...rootLintSteps(cmds));
+      else if (!cmds.lint && !cmds.format) lines.push("# (no lint/format command detected for this stack)");
       lines.push(
         "# KJC-BUG-0164: attribution is surface EVERYWHERE — the staged diff's",
         "# ADDED lines (changelog, docs, code comments) are scanned too, with",
@@ -335,6 +323,7 @@ export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention 
         "# Run the test suite before pushing.",
       ];
       if (cmds.test) lines.push(`${cmds.test} || { echo 'kj harden: tests failed'; exit 1; }`);
+      else if (cmds.roots?.some((r) => r.test)) lines.push(...rootTestSteps(cmds));
       else lines.push(...prePushWithoutTests(cmds));
       return [...lines, ...chain].join("\n");
     }
