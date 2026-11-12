@@ -10,12 +10,17 @@ import { getProjects } from './db.js';
 import { projectDirForSlug } from './project-dir.js';
 import { watchLanes as watchProjectLanes } from './stage-feed.js';
 import { laneStates } from './stage-state.js';
+import { teamCards } from './stage-team.js';
 
-const withDefaults = ({ projects, dirOf, lanesOf }) => ({
+const withDefaults = ({ projects, dirOf, lanesOf, teamOf }) => ({
   projects: projects ?? getProjects(),
   dirOf: dirOf ?? projectDirForSlug,
   lanesOf: lanesOf ?? laneStates,
+  teamOf: teamOf ?? teamCards,
 });
+
+/** KJC-TSK-1548 (ADR 0054): the cards of a factory's own lanes, which tell who I am on its board. */
+const ownCardIds = (lanes) => lanes.flatMap((l) => (l.cards ?? []).map((c) => c.id));
 
 const factories = ({ projects, dirOf }) => projects
   .filter((p) => !p.is_test)
@@ -31,7 +36,11 @@ export function stageMap(options = {}) {
   const deps = withDefaults(options);
   return factories(deps)
     // KJC-TSK-1482: the factory is called after its folder; the slug spells the whole path.
-    .map(({ project, dir }) => ({ project, name: basename(dir), lanes: deps.lanesOf(dir) }))
+    .map(({ project, dir }) => {
+      const lanes = deps.lanesOf(dir);
+      // KJC-TSK-1548 (ADR 0054): and the teammates with cards in progress on its shared board.
+      return { project, name: basename(dir), lanes, team: deps.teamOf(dir, ownCardIds(lanes)) };
+    })
     .toSorted((a, b) => atWork(b) - atWork(a));
 }
 
