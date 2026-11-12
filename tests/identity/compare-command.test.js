@@ -94,7 +94,7 @@ describe("kj identity show|set", () => {
     expect(roster()).toMatchObject({ signers: [{ publicKey: first, label: "mine" }], recovery: { fingerprint: sha(sha(code)) } });
     // a present phone admits the next one: its signature block is the admission
     const block = { cid: "c", nonce: "n", project: "p", signer: "PUB", signature: "SIG" };
-    const phone = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUB", signature: "SIG", challenge: { cid: "c", nonce: "n", project: "p" } }) };
+    const phone = { enrolled: () => true, request: async () => ({ ok: true, signer: "PUB", signature: "SIG", challenge: { cid: "c", nonce: "n", project: "p" }, block }) };
     expect(await run(second, { phone })).toBe(0);
     expect(roster().signers[1]).toMatchObject({ publicKey: second, admission: block });
     expect(codes().length).toBe(1); // no new code: none was spent

@@ -253,6 +253,8 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
       ...(origin ? { origin: str(origin) } : {}),
       // KJC-TSK-0996 (HUM-D): what is done, why the signature is asked, what if another did it.
       ...(why ? { why: str(why) } : {}),
+      // HU-4016 (ADR 0053): the page offers the passkey only when the roster holds one.
+      ...(v === 2 && readPasskeyCredentials({ projectDir: deps.projectDir }).length > 0 ? { passkey: { booleanValue: true } } : {}),
     },
   };
   const created = await fetchFn(`${relay.url}?documentId=${cid}&key=${relay.apiKey}`, {
@@ -269,6 +271,11 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   const spinner = deps.spinner ?? makeSpinner();
   const fields = await pollRelay({ fetchFn, relay, cid, now, sleep, spinner, deadline: expiresMs, state: "signed" });
   if (!fields) return { ok: false, reason: "caducado" };
+  const signed2 = v === 2 ? { v, kjVersion, issuedMs, expiresMs } : {};
+  const filesHash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
+  if (fields.credentialId && fields.authenticatorData) {
+    return passkeyAnswer({ fields, block: { cid, nonce, project, filesHash, ...signed2 }, files, projectDir: deps.projectDir, late: v === 2 && now() > expiresMs });
+  }
   // KJC-TSK-0831 (ADR 0010): la clave que firma debe estar en el PADRÓN
   // autorizado (repo ∪ legacy). El doc es transporte; la verdad es el padrón.
   const authorized = readEnrolledKeys({ projectDir: deps.projectDir, home: deps.home });
@@ -276,7 +283,6 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   if (!signerKey || !authorized.has(signerKey)) {
     return { ok: false, reason: "la publicKey que firma no está en el padrón autorizado — el doc es transporte, la verdad es el padrón" };
   }
-  const signed2 = v === 2 ? { v, kjVersion, issuedMs, expiresMs } : {};
   const payload = canonicalPayload({ cid, nonce, project, files, ...signed2 });
   const signature = fields.signature?.stringValue ?? "";
   const good = verifyPhoneSignature({ payload, signature, publicKey: signerKey });
@@ -285,8 +291,19 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   if (v === 2 && now() > expiresMs) return { ok: false, reason: "la firma llegó fuera de su vigencia firmada" };
   // KJC-TSK-0823: devuelve el desafío + firma para que el sello los GRABE en
   // la provenance y CI pueda re-verificar server-side (clave del padrón).
-  const filesHash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
-  return { ok: true, signer: signerKey, signature, challenge: { cid, nonce, project, filesHash, ...signed2 } };
+  const challenge = { cid, nonce, project, filesHash, ...signed2 };
+  return { ok: true, signer: signerKey, signature, challenge, block: { ...challenge, signer: signerKey, signature } };
+}
+
+/** HU-4016 (ADR 0053): a passkey answer becomes a webauthn block, judged by the same verifier CI uses. */
+function passkeyAnswer({ fields, block, files, projectDir, late }) {
+  const text = (name) => fields[name]?.stringValue ?? "";
+  const sig = { ...block, type: "webauthn", credentialId: text("credentialId"), authenticatorData: text("authenticatorData"),
+    clientDataJSON: text("clientDataJSON"), signature: text("signature") };
+  const check = verifySignedFiles({ sig, files, keys: new Set(), passkeys: readPasskeyCredentials({ projectDir }) });
+  if (!check.ok) return { ok: false, reason: `la firma de passkey no vale: ${check.reason}` };
+  if (late) return { ok: false, reason: "la firma llegó fuera de su vigencia firmada" };
+  return { ok: true, signer: sig.credentialId, signature: sig.signature, challenge: block, block: sig };
 }
 
 /** Polls the relay doc until its state is `state` (its fields) or `deadline` passes (null). HTTP not ok ⇒ throw. */

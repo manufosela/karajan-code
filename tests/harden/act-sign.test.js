@@ -16,7 +16,7 @@ const CHALLENGE = { cid: "c", nonce: "n", project: "p", v: 2, kjVersion: "9.9.9"
 let repo, home, warned, asked;
 const phone = ({ enrolled = true, ok = true, challenge = CHALLENGE } = {}) => ({
   enrolled: () => enrolled,
-  request: async (req) => { asked = req; return ok ? { ok: true, signer: "PUB", signature: "SIG", challenge } : { ok: false, reason: "caducado" }; },
+  request: async (req) => { asked = req; return ok ? { ok: true, signer: "PUB", signature: "SIG", challenge, block: { ...challenge, signer: "PUB", signature: "SIG" } } : { ok: false, reason: "caducado" }; },
 });
 const sign = (id, opts = {}) => signAct(id, { projectDir: repo, home, kjVersion: "9.9.9", files: FILES, logger: { warn: (l) => warned.push(l) }, ...opts });
 const atMax = () => writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "max", since: "2026-10-09" }));
