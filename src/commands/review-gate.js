@@ -14,7 +14,7 @@ import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
 import { addedAreCommentsOnly } from "../review/comment-only.js";
-import { checkSonarRequirement, SONAR_RULE_ID } from "../review/sonar-requirement.js";
+import { checkSonarRequirement, verdictSonarProof, LIVE_FILTER, SONAR_RULE_ID } from "../review/sonar-requirement.js";
 import { checkRagRequirement, checkRagVerdict, ragBlock, RAG_RULE_ID } from "../review/rag-requirement.js";
 import { checkUiEvidence, uiBlock } from "../review/ui-evidence.js";
 import { readRagLedger } from "../review/rag-ledger.js";
@@ -418,16 +418,7 @@ async function isPureMerge({ projectDir, diff, range }) {
  * carries no block yet (step 3 of the card) — said, never assumed silent.
  */
 function withSonarProof(res, { config, liveFiles, std, generated }) {
-  if (res.verdict.host === "kj-pipeline") {
-    // The pipeline scans the whole project (no per-file proof yet), so its
-    // stamp must at least show the stage RAN; no block or a skipped stage
-    // is refused like any other unanalysed code.
-    const stage = res.verdict.sonar;
-    if (stage?.ran) return res;
-    const why = stage ? `the pipeline's sonar stage did not run: ${stage.reason || "unknown reason"}` : "the pipeline verdict carries no sonar block";
-    return { ok: false, verdict: res.verdict, reason: `Sonar is mandatory for code — ${why}` };
-  }
-  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: res.verdict.sonar, standingExceptions: std.standing, generated });
+  const req = verdictSonarProof({ verdict: res.verdict, config, files: liveFiles, standingExceptions: std.standing, generated });
   if (!req.ok) return { ok: false, verdict: res.verdict, reason: req.reason };
   if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
   return res;
@@ -689,10 +680,10 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // ni sobre la que el RAG pueda responder, asi que exigirlo era pedir lo
   // imposible: una PR que retiraba 45 ficheros se paro dos veces y acumulo tres
   // excepciones por la misma causa mecanica. Los requisitos de Sonar y de RAG
-  // se evaluan sobre lo que sigue VIVO tras el cambio (A, C, M, R); policy, LOC
+  // se evaluan sobre lo que sigue VIVO tras el cambio (A, C, M, R y T, HU-4046); policy, LOC
   // y tests-with-code siguen viendo el diff entero, porque ahi un borrado si
   // cuenta. El borrado danino lo cubre la review cruzada, que lee todo el diff.
-  const liveFiles = (await rawDiff(flags.range, ["--name-only", "--diff-filter=ACMR"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  const liveFiles = (await rawDiff(flags.range, ["--name-only", LIVE_FILTER])).split("\n").map((f) => f.trim()).filter(Boolean);
 
   // KJC-BUG-0544: what the repo marks linguist-generated leaves Sonar and the budget (staged index when no range).
   const generated = linguistGenerated(changedFiles, { cwd: projectDir, cached: !flags.range });

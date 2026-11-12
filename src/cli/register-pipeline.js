@@ -168,13 +168,13 @@ export function registerPipeline(program, { pkgVersion }) {
         }
         // KJC-TSK-0913: the verdicts kj already holds, published on the PR as one review.
         if (flags.publishPr) {
-          const r = await publishPrReview({ projectDir: config.projectDir || process.cwd(), pr: flags.publishPr });
+          const r = await publishPrReview({ projectDir: config.projectDir || process.cwd(), pr: flags.publishPr, config });
           logger.info(r.published ? `✓ PR #${flags.publishPr}: review published (${r.commits} commit(s))` : `PR #${flags.publishPr}: ${r.reason}`);
           return;
         }
         // KJC-TSK-1088: the CI side of the same review; a commit without its verdict fails the check.
         if (flags.verifyPr) {
-          const r = await verifyPrReview({ projectDir: config.projectDir || process.cwd(), pr: flags.verifyPr });
+          const r = await verifyPrReview({ projectDir: config.projectDir || process.cwd(), pr: flags.verifyPr, config });
           if (r.ok) logger.info(`✓ PR #${flags.verifyPr}: ${r.commits} commit(s), each with its cross-AI verdict`);
           else logger.error(`✗ PR #${flags.verifyPr}:\n  - ${r.problems.join("\n  - ")}`);
           if (r.sealCommits) logger.info(`  seal commit(s) signed by the roster, a human act with no AI verdict: ${r.sealCommits.join(", ")}`);

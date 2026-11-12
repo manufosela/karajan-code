@@ -7,15 +7,35 @@
  */
 import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
-import { MARKER, TRUSTED } from "./publish-pr.js";
+import { commitFiles, MARKER, SONAR_MARKS, TRUSTED } from "./publish-pr.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { isSealCommit } from "./seal-commit.js";
+import { sourceFilesOf } from "./tests-with-code.js";
 
 // The marker of a kj review for any head: what MARKER writes up to the head itself.
 const MARKER_PREFIX = MARKER("\0").split("\0")[0];
-// One line per commit, as publish-pr writes it: - `<sha7>` headline: approved by X (diff <hash12>)...
-const LISTED = /^- `([0-9a-f]{7})` .*?\(diff ([0-9a-f]{12})\)/gm;
+// One line per commit, as publish-pr writes it: - `<sha7>` headline: approved by X (diff <hash12>)... · sonar <proof>
+const LISTED = /^- `([0-9a-f]{7})` .*?\(diff ([0-9a-f]{12})\)(.*)$/gm;
+// HU-4046: the marks that prove code was analysed, or that a human granted the Sonar rule.
+const PROVED = [SONAR_MARKS.pass, SONAR_MARKS.granted];
+const NO_SONAR = "its verdict carries no Sonar proof: run kj review --staged with Sonar up, then kj review --publish-pr";
+
+/** The commits each kj review lists; a line with its Sonar proof wins over one without it. */
+function listedCommits(kjReviews) {
+  const listed = new Map();
+  for (const m of kjReviews.flatMap((r) => [...r.body.matchAll(LISTED)])) {
+    const entry = { hash: m[2], proved: PROVED.some((mark) => m[3].endsWith(mark)) };
+    if (!listed.get(m[1])?.proved) listed.set(m[1], entry);
+  }
+  return listed;
+}
+
+/** Whether a commit touches code, by the extension rule and config the commit gate uses. */
+async function touchesCode(projectDir, sha, run, config) {
+  const { files, generated } = await commitFiles(projectDir, sha, run);
+  return sourceFilesOf(config, files, generated).sources.length > 0;
+}
 
 async function json(run, args, cwd) {
   const res = await run("gh", args, { cwd });
@@ -42,7 +62,7 @@ async function hashesOf(projectDir, sha, run) {
 /**
  * @returns {Promise<{ok: boolean, commits: number, problems: string[], sealCommits?: string[]}>}
  */
-export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null }) {
+export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null, config = {} }) {
   const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits"], projectDir);
   const commits = info.commits ?? [];
   // One review per line, every page: --slurp is missing from the gh that distros ship.
@@ -53,14 +73,17 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   // today's head: the diff hash of each commit is what proves it, and a commit pushed after
   // the review is simply not listed. "Update branch" no longer leaves the check red.
   const kjReviews = reviews.filter((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER_PREFIX));
-  const listed = new Map(kjReviews.flatMap((r) => [...r.body.matchAll(LISTED)].map((m) => [m[1], m[2]])));
+  const listed = listedCommits(kjReviews);
   const problems = [];
   const sealCommits = [];
   let seal = sealed;
   for (const c of commits) {
     if (await isCleanMerge(projectDir, c.oid, run)) continue;
-    const hash = listed.get(c.oid.slice(0, 7));
-    if (hash && (await hashesOf(projectDir, c.oid, run)).has(hash)) continue;
+    const entry = listed.get(c.oid.slice(0, 7));
+    if (entry && (await hashesOf(projectDir, c.oid, run)).has(entry.hash)) {
+      if (!entry.proved && (await touchesCode(projectDir, c.oid, run, config))) problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): ${NO_SONAR}`);
+      continue;
+    }
     seal ??= verifiedSupervisorFiles({ projectDir, trackedOnly: true });
     if (await isSealCommit(projectDir, c.oid, run, seal)) sealCommits.push(c.oid.slice(0, 7));
     else problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): no approved verdict for the diff it brings`);
