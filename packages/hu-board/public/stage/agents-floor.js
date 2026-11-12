@@ -8,6 +8,8 @@ import { SCALE } from './layout.js';
 import { tagAt } from './screen.js';
 import { createLaptop } from './laptop.js';
 import { dress } from './attire.js';
+import { accentFor, avatarFor } from './avatars.js';
+import { carry } from './backpack.js';
 import { accentOf, codeScrollAt, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -43,8 +45,10 @@ export function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
 }
 
-function robotFor(worker) {
-  const robot = createRobot({ accent: accentOf(worker.agent), name: worker.agent });
+function robotFor(worker, avatar) {
+  // KJC-TSK-1569 (ADR 0056): in the colour its owner gave its role, with its owner's backpack.
+  const robot = createRobot({ accent: accentFor(worker, avatar), name: worker.agent });
+  carry(robot, avatar?.emblem ?? null);
   if (worker.role === 'host') robot.hover.add(badge(worker.agent, accentOf(worker.agent)));
   robot.root.scale.setScalar(scaleOf(worker));
   return robot;
@@ -79,11 +83,18 @@ const work = (robot, worker, pose, t) =>
   typeOn(robot, { typing: !pose.walking, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
 
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
-export function createAgentsFloor({ scene, camera, xOf, zOf, origin }, lanes, now) {
+export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null }, lanes, now) {
+  let own = avatar; // KJC-TSK-1569: this person's avatar, which their robots wear
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
+    /** KJC-TSK-1569: a new own avatar; every robot is built again, in it, on the next frame. */
+    setAvatar(next) {
+      own = next;
+      for (const robot of robots.values()) { scene.remove(robot.root); dispose(robot); }
+      robots.clear();
+    },
     /** Moves every agent's robot; returns their name tags. */
     frame(t) {
       const tags = [];
@@ -96,7 +107,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin }, lanes, no
           continue;
         }
         if (!robot) {
-          robot = robotFor(worker);
+          robot = robotFor(worker, avatarFor(worker, own));
           scene.add(robot.root);
           robots.set(key, robot);
         }

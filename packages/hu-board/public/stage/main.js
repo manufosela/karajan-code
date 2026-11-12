@@ -54,6 +54,16 @@ function buildScene(lanes) {
   return { scene, pieces, crew, stand, hall, wall, releaseTable, versionBoard, camera, render, refit };
 }
 
+/** KJC-TSK-1569 (ADR 0056): this person's avatar from the board; none when it cannot be read. */
+async function fetchAvatar() {
+  try {
+    const res = await fetch('/api/stage/me', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The last real state of the project, or the reason the board could not give it. */
 async function fetchState() {
   try {
@@ -73,7 +83,7 @@ async function start() {
   const scene = buildScene((state.lanes ?? [{ lane: 'main' }]).map((l) => l.lane));
   // The status list never goes blank: with nothing to tell, it says so (also after a live event).
   const tellState = (lines) => tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
-  const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts') });
+  const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts'), avatar: await fetchAvatar() });
   tellState(live.settle().lines);
   scene.render();
   // ADR 0048: nothing moves without a real event. The frames only play what events
@@ -112,7 +122,7 @@ async function startMapView() {
     if (!res.ok) { tell([`The board cannot draw the map: ${body.error}`]); return; }
     if (!body.length) { tell(['The board knows no project with a folder on this machine: there is no factory to show.']); return; }
     const { startMap } = await import('./map.js');
-    const map = startMap({ canvas, factories: body, token, tell, counts: document.getElementById('stage-counts') });
+    const map = startMap({ canvas, factories: body, token, tell, counts: document.getElementById('stage-counts'), avatar: await fetchAvatar() });
     // KJC-BUG-0557: every minute, each factory checks itself against the board's state.
     setInterval(async () => {
       const again = await fetch('/api/stage/map', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null);

@@ -1,6 +1,7 @@
 // KJC-TSK-1565 (ADR 0056, decided by the maintainer on 2026-11-12): a person's avatar is a
 // backpack with an emblem picked from this list, and each role of the scene may get its own
 // colour. Pure, so the board (to keep it) and the scene (to draw and pick it) agree.
+import { accentOf } from './workers.js';
 
 export const EMBLEMS = [
   { id: 'fox', glyph: '🦊', label: 'Fox' },
@@ -20,6 +21,18 @@ export const ROLES = ['host', 'coder', 'reviewer', 'solomon', 'subagent'];
 
 const HEX = /^#[\da-f]{6}$/i;
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+/** KJC-TSK-1569: what a known emblem draws; nothing for none. */
+export const glyphOf = (emblem) => EMBLEMS.find((e) => e.id === emblem)?.glyph ?? null;
+
+/** KJC-TSK-1569: a teammate's robot brings its owner's avatar (cleaned); an own one wears `own`. */
+export const avatarFor = (worker, own) => (worker.avatar ? cleanAvatar(worker.avatar) : own);
+
+/** KJC-TSK-1569: the colour the owner gave the robot's role, else its agent's (workers.js). */
+export const accentFor = (worker, avatar) => {
+  const color = avatar?.colors?.[worker.role];
+  return color ? Number.parseInt(color.slice(1), 16) : accentOf(worker.agent);
+};
 
 /** Only a known emblem and a #rrggbb colour for a known role; anything else is dropped. */
 export function cleanAvatar(value) {
