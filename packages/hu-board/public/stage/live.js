@@ -17,6 +17,8 @@ import { PIECE_WALK_MS, VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
 import { newRelease, readyToRelease, versionLine } from './release.js';
+import { counterRelease, droneAt, releaseFlight, tableCards, watcherAt } from './drone.js';
+import { createDrone } from './drone-mesh.js';
 import { laneStatuses, statusLine } from './lane-status.js';
 import { mailboxOf, withMail } from './mail.js';
 import { goneLanes, staleEnds } from './resync.js';
@@ -55,15 +57,28 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin }, working, performance.now());
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
   const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
+  let flight = null; // KJC-TSK-1547: the release the drone is taking away, if one is
+  const drone = createDrone(scene);
   /** Every station back to its last real state; returns that state. */
   const settle = () => {
     const rest = restState(state, Date.now());
     for (const [id, piece] of Object.entries(pieces)) piece.setLight((rest.lights[id] ?? DARK).gold, (rest.lights[id] ?? DARK).red);
     wall.show(state.cards); // KJC-TSK-1459: repainted only when a card moved
-    // KJC-TSK-1526: the cards done since the last release, piled on their table.
-    releaseTable.show(readyToRelease(state.cards ?? [], state.release), state.release);
-    versionBoard?.show(versionLine(state.release)); // KJC-TSK-1545
+    // KJC-TSK-1526: the cards done since the last release, piled on their table; KJC-TSK-1547:
+    // the old pile stays until the drone takes it, and the counter until kaWATCHan switches it.
+    const now = performance.now();
+    const onTable = tableCards(flight, now, readyToRelease(state.cards ?? [], state.release));
+    releaseTable.show(onTable, onTable === flight?.cards ? flight.before : state.release);
+    versionBoard?.show(versionLine(counterRelease(flight, now, state.release))); // KJC-TSK-1545
     return rest;
+  };
+  /** KJC-TSK-1547: the drone flies the old pile away and kaWATCHan walks to the counter and back. */
+  const flyRelease = (now) => {
+    drone.show(droneAt(flight, now), now);
+    const pose = watcherAt(flight, now);
+    crew.watch.root.position.set(pose.x, 0, pose.z);
+    crew.watch.root.rotation.y = pose.yaw;
+    crew.watch.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
   };
   /**
    * KJC-TSK-1437: verdicts, commits and seals show on the workshop of their lane,
@@ -126,6 +141,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       // The branch facts and notes the statuses read, as the board sees them now; and
       // KJC-TSK-1545: a new release takes the pile off the table and changes the counter.
       const released = newRelease(state.release, server.release);
+      // KJC-TSK-1547: only a release seen while the stage is open has a pile to fly away.
+      if (released && state.release) flight = releaseFlight(state.release, server.release, readyToRelease(state.cards ?? [], state.release), now);
       state = { ...state, lanes: server.lanes ?? state.lanes, ...(released ? { release: server.release } : {}) };
       if (released) tell(settle().lines);
       showStatuses();
@@ -161,6 +178,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       moveRagan(now);
+      flyRelease(now);
       conduct(now);
       tags.push(...movePieces(now));
       couriers.frame(now, hall.xOf, hall.zOf);
