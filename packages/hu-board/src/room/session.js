@@ -27,8 +27,9 @@ const post = (fetch, url, body, headers = {}) =>
   fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
 
 /**
- * Opens a session in the room of the repository at `dir`, or nothing when it has no GitHub origin,
- * gh gives no token or the room refuses it; each time it says why (KJC-TSK-1578), never the token.
+ * Opens a session in the room of the repository at `dir`. It is nothing, said in the log, when the
+ * origin is not on GitHub or the room refuses it (KJC-TSK-1578); it fails, to be tried again, for a
+ * passing reason: no gh token yet, the room or Firebase down (KJC-TSK-1579). Never says the token.
  * @returns {Promise<{login: string, room: string, repo: string, idToken: () => Promise<string>}|null>}
  */
 export async function openSession(dir, { fetch = globalThis.fetch, run = runCommand, now = Date.now, log = console } = {}) {
@@ -37,14 +38,15 @@ export async function openSession(dir, { fetch = globalThis.fetch, run = runComm
   const repo = remote.exitCode === 0 ? repoFromRemote(remote.stdout) : null;
   if (!repo) return out('its origin is not a GitHub repository');
   const gh = await run('gh', ['auth', 'token'], { timeout: 5000 });
-  if (gh.exitCode !== 0 || !gh.stdout.trim()) return out('gh gives no token');
+  if (gh.exitCode !== 0 || !gh.stdout.trim()) throw new Error('gh gives no token');
   const joined = await post(fetch, ROOM_JOIN, { repo }, { 'X-GitHub-Token': gh.stdout.trim() });
+  if (joined.status === 401 || joined.status === 403) return out(`the room of ${repo} refused it (HTTP ${joined.status})`);
   const admitted = joined.ok ? await joined.json() : null;
-  if (!admitted?.token) return out(`the room of ${repo} refused it (HTTP ${joined.status})`);
+  if (!admitted?.token) throw new Error(`the room of ${repo} did not answer (HTTP ${joined.status})`);
   const { apiKey } = await (await fetch(WEB_CONFIG)).json();
   const signing = await post(fetch, `${SIGN_IN}?key=${apiKey}`, { token: admitted.token, returnSecureToken: true });
   const signed = signing.ok ? await signing.json() : null;
-  if (!signed?.idToken) return out(`Firebase did not sign it in (HTTP ${signing.status})`);
+  if (!signed?.idToken) throw new Error(`Firebase did not sign it in (HTTP ${signing.status})`);
   let current = { id: signed.idToken, refresh: signed.refreshToken, until: now() + Number(signed.expiresIn) * 1000 };
   const idToken = async () => {
     if (now() < current.until - EARLY_MS) return current.id;
