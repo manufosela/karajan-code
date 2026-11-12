@@ -21,6 +21,7 @@ export const PINNED_ACTIONS = {
   setupPython: "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5",
   setupGo: "actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5",
   setupPhp: "shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2",
+  setupJava: "actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4",
 };
 
 export const NO_AI_ATTRIBUTION_WORKFLOW = [
@@ -262,18 +263,36 @@ function phpQualityBody(phpVersion = null) {
     "      - run: vendor/bin/phpunit",
   ]);
 }
+
+// HU-4037: the engine reads the Java toolchain and the commands from the build; this validates and renders them.
+function gradleQualityBody({ javaVersion = null, lint = null, test = null } = {}) {
+  const version = javaVersion ?? "17";
+  if (!/^\d+$/.test(version)) throw new Error(`kj harden: "${version}" is not a Java version`);
+  const runs = [lint, test].filter(Boolean);
+  if (runs.length === 0) return null;
+  return header([
+    `      - uses: ${PINNED_ACTIONS.setupJava}`,
+    "        with:",
+    "          distribution: temurin",
+    `          java-version: "${version}"`,
+    "          cache: gradle",
+    ...runs.map((command) => `      - run: ${command}`),
+  ]);
+}
 /**
  * Stack-aware Quality workflow entry, or null for an unknown language.
  * `lint:false` drops the JS lint step entirely (project has no lint script,
  * KJC-BUG-0137) — mirroring the local hook, which also omits it.
  */
-export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null } = {}) {
+export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null, gradle = null } = {}) {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
   let body = QUALITY_BY_LANGUAGE[language];
   if (language === "javascript" || language === "typescript") {
     body = header([...nodeSetupSteps(pm, nodeVersion), ...(lint ? [`      - run: ${c.lint}`] : []), ...testStep(c, testScript)]);
   } else if (language === "php") {
     body = phpQualityBody(phpVersion);
+  } else if (language === "gradle") {
+    body = gradleQualityBody(gradle ?? {});
   }
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body: inRoot(body, root) } : null;
 }
