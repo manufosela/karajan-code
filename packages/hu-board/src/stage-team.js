@@ -7,6 +7,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { teamOfDir } from './room/team.js';
 import { readRecord, withStatus } from './team-status.js';
 
 const CACHE = /^board-cache(-[\w.-]+)?\.json$/;
@@ -45,9 +46,12 @@ export const teamLanes = (team) => team.flatMap(({ person, cards }) => cards.map
   lane: `${c.id}@${person}`, owner: person, title: c.title ?? c.id, remote: true, remoteWorking: Boolean(c.working), working: [],
 })));
 
-/** The lanes of the factory at `dir` and, after them, those of its teammates. */
-export function withTeam(dir, lanes, team = teamCards) {
-  return [...lanes, ...teamLanes(team(dir, lanes.flatMap((l) => (l.cards ?? []).map((c) => c.id))))];
+/**
+ * The lanes of the factory at `dir` and, after them, those of its teammates: their cards in
+ * progress and (KJC-TSK-1577) the lanes where the room says their agents work now.
+ */
+export function withTeam(dir, lanes, team = teamCards, live = (d) => teamOfDir(d)?.lanes() ?? []) {
+  return [...lanes, ...teamLanes(team(dir, lanes.flatMap((l) => (l.cards ?? []).map((c) => c.id)))), ...live(dir)];
 }
 
 /** The teammates of the project at `projectDir`, each with when the board cache saw them. */

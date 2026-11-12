@@ -14,7 +14,8 @@ function fakes(repos, peersOf = {}) {
     return repos[dir] ? { login: 'manufosela', room: repos[dir].replace('/', '~'), repo: repos[dir], idToken: async () => 'id' } : null;
   };
   const presence = (session, _rtdb, onPeers) => { onPeers(peersOf[session.repo] ?? []); return async () => {}; };
-  return { opened, deps: { open, rtdbOf: () => ({}), presence, log: quiet } };
+  const team = () => ({ peers: [], setPeers(p) { this.peers = p; }, stop() {} });
+  return { opened, deps: { open, rtdbOf: () => ({}), presence, team, log: quiet } };
 }
 
 describe('startRooms', () => {
@@ -28,7 +29,8 @@ describe('startRooms', () => {
   it('keeps who is live in each room', async () => {
     const { deps } = fakes({ '/w/kc': 'manufosela/karajan-code' }, { 'manufosela/karajan-code': ['jorgecasar'] });
     const rooms = await startRooms({ ...deps, targets: () => ['/w/kc'], env: {} });
-    expect(rooms.byRepo.get('manufosela/karajan-code').peers).toEqual(['jorgecasar']);
+    const room = rooms.byRepo.get('manufosela/karajan-code');
+    expect([room.peers, room.team.peers]).toEqual([['jorgecasar'], ['jorgecasar']]);
   });
 
   it('enters no real room under the test runner unless asked', async () => {
