@@ -74,7 +74,7 @@ export const LANGUAGE_GUIDELINES = {
     "## Gradle / Kotlin",
     "- Build and test through the wrapper (`./gradlew`), never a globally installed Gradle.",
     "- Follow the Kotlin coding conventions; prefer `val`, null-safety over `!!`, and immutable data classes.",
-    "- No lint command is inferred for Gradle: declare your own lint/format commands in the kj config.",
+    "- Lint and format run the tasks the build applies (ktlint, detekt, spotless); apply none and kj infers no lint step.",
   ],
   rust: [
     "",

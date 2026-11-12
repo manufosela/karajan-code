@@ -61,6 +61,12 @@ describe("installWorkflows", () => {
       const text = read(wf.file);
       expect(await prettier.format(text, { parser: "yaml" }), wf.file).toBe(text);
     }
+    // HU-4037: the Gradle Quality workflow too.
+    writeFileSync(join(dir, "build.gradle.kts"), 'plugins { id("io.gitlab.arturbosch.detekt") }\nkotlin { jvmToolchain(21) }\n');
+    installWorkflows({ projectDir: dir, language: "gradle" });
+    const gradle = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(gradle).toContain("setup-java");
+    expect(await prettier.format(gradle, { parser: "yaml" })).toBe(gradle);
   });
 
   // KJC-BUG-0399: the PR's own code must never judge the PR. The policy check ran

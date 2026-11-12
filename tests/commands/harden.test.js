@@ -50,7 +50,7 @@ describe("the hook commands of each stack root (HU-4036)", () => {
       lint: "my-lint",
       roots: [
         { dir: ".", language: "python", format: "ruff format --check .", test: "pytest" },
-        { dir: "android", language: "gradle" },
+        { dir: "android", language: "gradle", test: "gradle test" },
         { dir: "svc", language: "go", format: 'test -z "$(gofmt -l .)"', test: "go test ./..." },
       ],
     });
