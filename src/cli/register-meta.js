@@ -221,6 +221,10 @@ export function registerMeta(program, { pkgVersion }) {
   ceremonyCmd.command("gather").description("What was said, grouped by author, as data inside the untrusted wrapper; moves no cursor")
     .requiredOption("--thread <thread>", "issue:<n> of the ceremony").option("--json", "Output structured JSON")
     .action((flags) => link("ceremony", { ...flags, step: "gather" }));
+  ceremonyCmd.command("close").description("Write the result of the ceremony as a pull request and close its conversation")
+    .requiredOption("--thread <thread>", "issue:<n> of the ceremony").requiredOption("--author <who>", "who the result is written as")
+    .requiredOption("--summary-file <file>", "JSON file: conclusions, improvements, decisions, rules").option("--json", "Output structured JSON")
+    .action((flags) => link("ceremony", { ...flags, step: "close" }));
   // KJC-TSK-0986 (HUM-F): the invitation to enroll the phone, once per version.
   identityCmd
     .command("phone-invite")
