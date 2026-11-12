@@ -193,6 +193,10 @@ export function startMap({ canvas, factories, token, tell, counts, avatar = null
   else requestAnimationFrame(loop);
   tellAll();
   return {
+    /** KJC-TSK-1570: every factory's own robots, built again in a newly saved avatar. */
+    setAvatar(next) {
+      for (const { live } of lives.values()) live.setAvatar(next);
+    },
     /** KJC-BUG-0557: each factory checked against the board's map now; a new factory waits for a reload. */
     resync(now) {
       for (const { project, lanes } of now) {

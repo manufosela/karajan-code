@@ -22,6 +22,22 @@ export const ROLES = ['host', 'coder', 'reviewer', 'solomon', 'subagent'];
 const HEX = /^#[\da-f]{6}$/i;
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
+/** KJC-TSK-1570: the colour a role's picker shows before one is chosen (workers.js, an unknown agent's). */
+const PLAIN = '#c0c8d0';
+
+/** KJC-TSK-1570: what the panel's form saves: the emblem, and the colour of each role ticked as its own. */
+export function avatarFromForm(entries) {
+  const form = new Map(entries);
+  const colors = Object.fromEntries(ROLES.filter((role) => form.has(`own-${role}`)).map((role) => [role, form.get(`color-${role}`)]));
+  return cleanAvatar({ emblem: form.get('emblem') ?? null, colors });
+}
+
+/** KJC-TSK-1570: how the panel's form starts from a saved avatar (or none). */
+export function formOf(avatar) {
+  const { emblem, colors } = cleanAvatar(avatar);
+  return { emblem, roles: ROLES.map((role) => ({ role, own: role in colors, color: colors[role] ?? PLAIN })) };
+}
+
 /** KJC-TSK-1569: what a known emblem draws; nothing for none. */
 export const glyphOf = (emblem) => EMBLEMS.find((e) => e.id === emblem)?.glyph ?? null;
 

@@ -25,6 +25,23 @@
     .stage-mark { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 8px; background: #10161f; font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; }
     .stage-mark-approve { color: #2fd27a; border: 1px solid #2fd27a; }
     .stage-mark-refuse { color: #f2737a; border: 1px solid #e0484f; }
+    /* KJC-TSK-1570: the avatar panel. */
+    header button { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 4px 12px; cursor: pointer; }
+    #stage-avatar-panel { max-width: min(520px, calc(100vw - 32px)); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 20px; }
+    #stage-avatar-panel::backdrop { background: rgb(0 0 0 / 0.55); }
+    #stage-avatar-panel h2 { margin: 0 0 12px; font-size: 18px; }
+    #stage-avatar-panel fieldset { border: 1px solid #2a3a4e; border-radius: 8px; margin: 0 0 12px; display: grid; gap: 6px; }
+    .avatar-emblems { grid-template-columns: repeat(5, 1fr); }
+    .avatar-emblems label { display: grid; justify-items: center; font-size: 28px; padding: 4px; border-radius: 8px; cursor: pointer; }
+    .avatar-emblems label:has(input:checked) { background: #24364d; outline: 2px solid #8cb4c9; }
+    .avatar-emblems input { position: absolute; opacity: 0; }
+    .avatar-emblems label:has(input:focus-visible) { outline: 2px solid #f0b429; }
+    .avatar-name { font-size: 11px; color: #9ca6ae; }
+    .avatar-roles label { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+    #stage-avatar-panel menu { display: flex; justify-content: flex-end; gap: 8px; margin: 0; padding: 0; }
+    #stage-avatar-panel menu button { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+    #stage-avatar-panel menu button[type="submit"] { background: #2f6f9f; border-color: #3d86bd; }
+    .avatar-status { min-height: 1.5em; margin: 0 0 8px; color: #9ca6ae; }
   </style>
   <script type="importmap">{ "imports": { "three": "/stage/three.min.js" } }</script>
 </head>
@@ -34,7 +51,10 @@
     <a href="/">← Board</a>
     <strong id="stage-project">kj stage</strong>
     <a href="/stage.html?map=1">Every factory</a>
+    <button type="button" id="stage-avatar" hidden>Avatar</button>
   </header>
+  <!-- KJC-TSK-1570: the panel to pick the own emblem and each role's colour (avatar-panel.js). -->
+  <dialog id="stage-avatar-panel" aria-labelledby="avatar-title"></dialog>
   <!-- KJC-TSK-1468: until the stage says its first word, so it never looks dead. -->
   <output id="stage-loading" aria-live="polite">Loading the factories…</output>
   <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->

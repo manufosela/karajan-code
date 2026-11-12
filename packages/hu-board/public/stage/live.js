@@ -129,6 +129,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   showStatuses();
   const api = {
     settle,
+    /** KJC-TSK-1570: the own robots, built again in a newly saved avatar. */
+    setAvatar: (next) => floor.setAvatar(next),
     /**
      * KJC-BUG-0557: checks the scene against the board's state now (`server`, as acrossLanes
      * gives it). A lane the board no longer lists goes, once no robot works in it (so the
