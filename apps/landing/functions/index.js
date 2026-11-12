@@ -21,7 +21,7 @@ import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 
-import { admitToRoom } from "./room.js";
+import { admitToRoom, githubTokenOf } from "./room.js";
 
 initializeApp();
 const db = getFirestore();
@@ -73,7 +73,7 @@ export const telemetry = onRequest(
 
 /**
  * KJC-TSK-1566 (ADR 0056, point 4): a board joins its repository's room. POST {repo} with the
- * board's GitHub token as `Authorization: Bearer`; the answer is a Firebase token for that room
+ * board's GitHub token in `X-GitHub-Token` (room.js says why not Authorization); the answer is a Firebase token for that room
  * only (room.js). It runs as the Firebase Admin account, which may sign tokens. The GitHub token
  * is never logged nor kept.
  */
@@ -93,7 +93,7 @@ export const roomJoin = onRequest(
       res.status(413).end();
       return;
     }
-    const githubToken = /^Bearer (\S+)$/.exec(req.headers.authorization ?? "")?.[1];
+    const githubToken = githubTokenOf(req.headers);
     try {
       const admitted = await admitToRoom(
         { repo: req.body?.repo, githubToken },
