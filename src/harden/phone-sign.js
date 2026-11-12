@@ -13,7 +13,7 @@ import qrcode from "qrcode-terminal";
 
 import { PHONE_REMOTE_SIGNER } from "./phone-texts.js";
 import { sealRepoMismatch } from "./seal-repo.js";
-import { passkeyEntryProblem } from "./webauthn-verify.js";
+import { passkeyEntryProblem, verifyWebAuthnAssertion } from "./webauthn-verify.js";
 
 const SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 // La config del relé (apiKey de cliente Firestore — pública por diseño, la
@@ -170,7 +170,7 @@ export function provenanceSignature({ projectDir, provenance }) {
   // KJC-BUG-0502: the verifier trusts `deleted`, so a deleted entry is checked as the phone signs a
   // deletion (no hash): a signed, hashed entry later marked deleted no longer matches its signature.
   const files = entries.map(({ file, sha256, deleted }) => ({ file, sha256: deleted === true ? "" : (sha256 ?? "") }));
-  const check = verifySignedFiles({ sig: provenance?.signature, files, keys: new Set(roster) });
+  const check = verifySignedFiles({ sig: provenance?.signature, files, keys: new Set(roster), passkeys: readPasskeyCredentials({ projectDir }) });
   if (!check.ok) return { required: true, ok: false, reason: `el padrón tiene firmantes y la procedencia ${check.reason}` };
   // KJC-BUG-0506: a seal signed for another repo, with the same files and a key of this roster, backs nothing here.
   const mismatch = sealRepoMismatch({ projectDir, signedProject: provenance.signature.project });
@@ -181,9 +181,13 @@ export function provenanceSignature({ projectDir, provenance }) {
  * KJC-TSK-0967 (HUM-D): a signature block (challenge + signer + signature, as
  * the seal and the security level record it) over `files`, against `keys`.
  * The reason reads after a subject: "la procedencia no lleva firma".
+ * HU-4014 (ADR 0053): a block with `type: "webauthn"` is judged against `passkeys`, the live roster passkeys.
+ * @param {{sig: object, files: Array<{file: string, sha256: string}>, keys: Set<string>,
+ *   passkeys?: Array<{credentialId: string, publicKey: string, alg: number}>}} input
  * @returns {{ok: boolean, reason?: string}}
  */
-export function verifySignedFiles({ sig, files, keys }) {
+export function verifySignedFiles({ sig, files, keys, passkeys = [] }) {
+  if (sig?.type === "webauthn") return verifyPasskeySignedFiles({ sig, files, passkeys });
   if (typeof sig?.signature !== "string" || typeof sig?.signer !== "string") return { ok: false, reason: "no lleva firma" };
   if (!keys.has(sig.signer)) return { ok: false, reason: "está firmada por una clave que no está en el padrón" };
   let good = false;
@@ -191,6 +195,15 @@ export function verifySignedFiles({ sig, files, keys }) {
     good = verifyPhoneSignature({ payload: canonicalPayload({ ...sig, files }), signature: sig.signature, publicKey: sig.signer });
   } catch { /* a malformed key or signature is a signature that does not verify */ }
   return good ? { ok: true } : { ok: false, reason: "lleva una firma que no corresponde a los ficheros que declara" };
+}
+
+/** HU-4014 (ADR 0053): the passkey signs sha256 of the same canonical payload, in base64url (the page's passkeyChallenge). */
+function verifyPasskeySignedFiles({ sig, files, passkeys }) {
+  const credential = typeof sig.credentialId === "string" ? passkeys.find((p) => p.credentialId === sig.credentialId) : undefined;
+  if (!credential) return { ok: false, reason: "está firmada por una passkey que no está en el padrón" };
+  const expectedChallenge = createHash("sha256").update(canonicalPayload({ ...sig, files }), "utf8").digest("base64url");
+  const check = verifyWebAuthnAssertion({ assertion: sig, expectedChallenge, credential });
+  return check.ok ? { ok: true } : { ok: false, reason: `lleva una firma de passkey que no corresponde a los ficheros que declara (${check.reason})` };
 }
 
 /**

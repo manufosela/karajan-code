@@ -12,6 +12,7 @@ import { renderCanonicalHook } from "../../src/harden/harden-engine.js";
 import { canonicalPayload } from "../../src/harden/phone-sign.js";
 import { PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
 import { liftSealedSupervisorViolations, verifiedSupervisorFiles } from "../../src/policy/supervisor-verify.js";
+import { passkey, passkeySigned } from "../_fixtures/passkey.js";
 
 const KJ_VERSION = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
@@ -94,6 +95,23 @@ describe("the seal's signature against the versioned roster", () => {
     expect(liftSealedSupervisorViolations({ projectDir: repo, violations })).toMatchObject({ lifted: 1, note: expect.stringMatching(/sin padrón.*solo local/) });
     roster(phone().publicKey);
     expect(liftSealedSupervisorViolations({ projectDir: repo, violations })).toMatchObject({ lifted: 0, note: expect.stringMatching(/no lleva firma/) });
+  });
+});
+
+// HU-4014 (ADR 0053): CI judges a seal signed with a passkey of the roster.
+describe("a seal signed with a roster passkey", () => {
+  const writeSealed = (signature) => writeFileSync(join(repo, PROVENANCE_FILE), JSON.stringify({ kj_version: "9.9.9", generation, files, signature }));
+
+  it("verifies over the files it declares; over other files, or by a passkey off the roster, it does not", () => {
+    const key = passkey();
+    writeFileSync(join(repo, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers: [{ publicKey: phone().publicKey }, key.entry] }));
+    writeSealed(passkeySigned(key, files));
+    expect(verified()).toMatchObject({ complete: true });
+    expect(verified().files.has(HOOK)).toBe(true);
+    writeSealed(passkeySigned(key, [{ file: HOOK, sha256: sha("otro contenido") }]));
+    expect(verified()).toMatchObject({ reason: expect.stringMatching(/no corresponde/) });
+    writeSealed(passkeySigned(passkey("cred-stranger"), files));
+    expect(verified()).toMatchObject({ reason: expect.stringMatching(/passkey que no está en el padrón/) });
   });
 });
 

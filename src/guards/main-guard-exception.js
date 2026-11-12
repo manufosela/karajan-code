@@ -29,16 +29,16 @@ const blocksOf = (bodies) => bodies.flatMap((body) => [...String(body ?? "").mat
 
 /**
  * The first exception among the PR's comments that covers this PR and head and is signed by a
- * key of the roster.
+ * key of the roster (HU-4014: or by one of its live `passkeys`, named by its credential).
  * @returns {{ok: true, why: string, signer: string} | {ok: false, reason: string}}
  */
-export function findValidException({ bodies, repo, pr, head, keys }) {
+export function findValidException({ bodies, repo, pr, head, keys, passkeys = [] }) {
   const blocks = blocksOf(bodies).filter((b) => b.repo === repo && b.pr === pr && b.head === head);
   if (blocks.length === 0) return { ok: false, reason: `no signed exception for #${pr} at ${head.slice(0, 7)}` };
   let reason = "";
   for (const block of blocks) {
-    const verdict = verifySignedFiles({ sig: block.signature, files: exceptionFiles(block), keys });
-    if (verdict.ok) return { ok: true, why: block.why, signer: block.signature.signer };
+    const verdict = verifySignedFiles({ sig: block.signature, files: exceptionFiles(block), keys, passkeys });
+    if (verdict.ok) return { ok: true, why: block.why, signer: block.signature.signer ?? block.signature.credentialId };
     reason = verdict.reason;
   }
   return { ok: false, reason: `the exception for #${pr} ${reason}` };

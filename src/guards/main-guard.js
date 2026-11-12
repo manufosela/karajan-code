@@ -19,7 +19,7 @@ function mergedInto(pulls, branch) {
   return pulls.find((p) => p.merged_at && p.base?.ref === branch) ?? null;
 }
 
-async function auditCommit(sha, { branch, repo, requiredChecks, keys, api }) {
+async function auditCommit(sha, { branch, repo, requiredChecks, keys, passkeys = [], api }) {
   const pull = mergedInto(await api.pullsOf(sha), branch);
   if (!pull) return { sha, kind: "direct-push", detail: `no pull request merged into ${branch}` };
   const results = await api.checksOf(pull.head.sha);
@@ -28,8 +28,8 @@ async function auditCommit(sha, { branch, repo, requiredChecks, keys, api }) {
   if (missing.length === 0) return null;
   const finding = { sha, kind: "checks-skipped", pr: pull.number, mergedBy: pull.merged_by?.login ?? "unknown", missing };
   // KJC-TSK-1402: the maintainer's phone-signed exception for this PR and head lets it through, named.
-  if (!api.exceptionsOf || !keys?.size) return finding;
-  const found = findValidException({ bodies: await api.exceptionsOf(pull.number), repo, pr: pull.number, head: pull.head.sha, keys });
+  if (!api.exceptionsOf || (!keys?.size && passkeys.length === 0)) return finding;
+  const found = findValidException({ bodies: await api.exceptionsOf(pull.number), repo, pr: pull.number, head: pull.head.sha, keys: keys ?? new Set(), passkeys });
   return found.ok ? { ...finding, kind: "excepted", why: found.why, signer: found.signer } : finding;
 }
 
@@ -45,16 +45,16 @@ function auditProtection(protection, { branch, requiredChecks }) {
 }
 
 /**
- * @param {{ branch: string, repo?: string, commits: string[], requiredChecks: string[], keys?: Set<string>, api: object }} opts
- *   keys: the roster's public keys; api.exceptionsOf(pr): the PR's comment bodies (KJC-TSK-1402)
+ * @param {{ branch: string, repo?: string, commits: string[], requiredChecks: string[], keys?: Set<string>, passkeys?: object[], api: object }} opts
+ *   keys: the roster's public keys; passkeys: its live passkeys (HU-4014); api.exceptionsOf(pr): the PR's comment bodies (KJC-TSK-1402)
  * @returns {Promise<{ ok: boolean, merges: object[], protection: string[], exceptions?: object[] }>}
  */
-export async function auditMain({ branch, repo, commits, requiredChecks, keys, api }) {
+export async function auditMain({ branch, repo, commits, requiredChecks, keys, passkeys, api }) {
   if (!requiredChecks?.length) throw new Error("main-guard: declare at least one required check to audit against");
   const merges = [];
   const exceptions = [];
   for (const sha of commits) {
-    const finding = await auditCommit(sha, { branch, repo, requiredChecks, keys, api });
+    const finding = await auditCommit(sha, { branch, repo, requiredChecks, keys, passkeys, api });
     if (finding) (finding.kind === "excepted" ? exceptions : merges).push(finding);
   }
   // A change to the protection never takes an exception: it is reported whatever was signed.

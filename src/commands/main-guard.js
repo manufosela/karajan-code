@@ -11,7 +11,7 @@
 import { execFileSync } from "node:child_process";
 
 import { auditMain } from "../guards/main-guard.js";
-import { readSigners } from "../harden/phone-sign.js";
+import { readPasskeyCredentials, readSigners } from "../harden/phone-sign.js";
 
 const NEW_BRANCH = /^0+$/;
 
@@ -91,9 +91,9 @@ export function renderReport(result, { repo, branch }) {
 }
 
 /** @returns {Promise<number>} the exit code */
-export async function runMainGuard({ repo, branch, before, after, require, git, keys = new Set(), audit = auditMain, api, print = console.log }) {
+export async function runMainGuard({ repo, branch, before, after, require, git, keys = new Set(), passkeys = [], audit = auditMain, api, print = console.log }) {
   const commits = pushedCommits({ before, after, git });
-  const result = await audit({ branch, repo, commits, requiredChecks: require, keys, api });
+  const result = await audit({ branch, repo, commits, requiredChecks: require, keys, passkeys, api });
   print(renderReport(result, { repo, branch }));
   return result.ok ? 0 : 1;
 }
@@ -103,5 +103,6 @@ export async function mainGuardCommand({ flags, projectDir = process.cwd() }) {
   const api = githubApi({ repo, branch, protectionToken: process.env.MAIN_GUARD_PROTECTION_TOKEN });
   // The roster versioned in the repo: the only keys whose exception CI accepts.
   const keys = new Set(readSigners({ projectDir }));
-  process.exitCode = await runMainGuard({ repo, branch, before, after, require: flags.require, git: gitIn(projectDir), keys, api });
+  const passkeys = readPasskeyCredentials({ projectDir });
+  process.exitCode = await runMainGuard({ repo, branch, before, after, require: flags.require, git: gitIn(projectDir), keys, passkeys, api });
 }

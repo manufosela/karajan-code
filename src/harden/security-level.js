@@ -13,7 +13,7 @@ import { basename, dirname, join } from "node:path";
 
 import { humanActOf } from "./human-act.js";
 import { PHONE_ENROLL } from "./phone-texts.js";
-import { anyAuthorizedPhone, readEnrolledKeys, requestPhoneSignature, verifySignedFiles } from "./phone-sign.js";
+import { anyAuthorizedPhone, readEnrolledKeys, readPasskeyCredentials, requestPhoneSignature, verifySignedFiles } from "./phone-sign.js";
 
 export const SECURITY_LEVEL_FILE = ".karajan/security-level.json";
 // ADR 0018 (KJC-TSK-0997): `max` is the default now that CI verifies the signature
@@ -50,9 +50,9 @@ export function readSecurityLevel({ projectDir, home } = {}) {
     if (keys.size === 0) return { level: "normal", source: "file", since: record.since, unsigned: true };
     return invalid("el nivel normal se bajó sin móvil y ya hay uno enrolado; vale como máxima hasta bajarlo firmado");
   }
-  const check = verifySignedFiles({ sig: record.signature, files: signedFilesOf(record), keys });
+  const check = verifySignedFiles({ sig: record.signature, files: signedFilesOf(record), keys, passkeys: readPasskeyCredentials({ projectDir }) });
   if (!check.ok) return invalid(`el nivel normal ${check.reason}; vale como máxima`);
-  return { level: "normal", source: "file", since: record.since, signer: record.signature.signer };
+  return { level: "normal", source: "file", since: record.since, signer: record.signature.signer ?? record.signature.credentialId };
 }
 
 /** Up to `max`: no act, no signature; it also replaces a record that cannot be trusted. */

@@ -80,6 +80,20 @@ describe("guards/main-guard — KJC-TSK-1368", () => {
     expect((await run([renderException({ ...ex, signature })], new Set())).ok).toBe(false);
   });
 
+  // HU-4014 (ADR 0053): a roster passkey signs the exception too, with no Ed25519 key in the roster.
+  it("an exception signed with a roster passkey lets the merge through, named by its credential", async () => {
+    const { exceptionFiles, renderException } = await import("../../src/guards/main-guard-exception.js");
+    const { passkey, passkeySigned } = await import("../_fixtures/passkey.js");
+    const key = passkey("cred-guard");
+    const ex = { repo: "acme/app", pr: 11, head: "h1", why: "transition merge" };
+    const run = (passkeys) => auditMain({
+      branch: "main", repo: "acme/app", commits: ["m1"], requiredChecks: REQUIRED, passkeys,
+      api: { ...apiOf({ pulls: { m1: [pr(11, "h1")] }, checks: { h1: [] } }), exceptionsOf: async () => [renderException({ ...ex, signature: passkeySigned(key, exceptionFiles(ex)) })] },
+    });
+    expect(await run([key.entry])).toMatchObject({ ok: true, exceptions: [{ pr: 11, signer: "cred-guard" }] });
+    expect((await run([passkey("cred-other").entry])).ok).toBe(false);
+  });
+
   it("an unprotected main is reported, and an empty declaration is refused", async () => {
     expect((await audit([], { prot: null })).protection).toEqual(["main is not protected"]);
     await expect(auditMain({ branch: "main", commits: [], requiredChecks: [], api: apiOf() })).rejects.toThrow(/required check/);

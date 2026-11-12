@@ -128,6 +128,8 @@ export function verifyRosterChange({ before, after }) {
   // `present`: the ones still allowed to sign, the only ones that can admit a key.
   const known = new Set(prev.signers.map((s) => s.publicKey));
   const present = new Set(prev.signers.filter((s) => !s.revoked).map((s) => s.publicKey));
+  // HU-4014 (ADR 0053): a present passkey admits too, judged by its credential.
+  const presentPasskeys = prev.signers.filter((s) => s.type === "webauthn" && !s.revoked);
   const fresh = /^[0-9a-f]{64}$/.test(next.recovery?.fingerprint ?? "") ? next.recovery.fingerprint : null;
   const gone = prev.signers.find((s) => !next.signers.some((n) => n.publicKey === s.publicKey));
   if (gone) return fail(`el padrón pierde la clave ${short(gone.publicKey)}: una baja no tiene mecanismo en kj y solo se hace por fuera de CI, a la vista`);
@@ -151,7 +153,7 @@ export function verifyRosterChange({ before, after }) {
       spent = true;
       continue;
     }
-    const check = verifySignedFiles({ sig: admission, files: admissionFiles(entry.publicKey), keys: present });
+    const check = verifySignedFiles({ sig: admission, files: admissionFiles(entry.publicKey), keys: present, passkeys: presentPasskeys });
     if (!check.ok) return fail(`la clave ${short(entry.publicKey)} entra sin admisión válida: ${check.reason}`);
   }
   if (spent && (!fresh || fresh === prev.recovery?.fingerprint)) return fail("el código de recuperación se gastó y el padrón no trae la huella de uno nuevo");
