@@ -14,6 +14,14 @@ import { mergeCards } from '../public/stage/cards.js';
 import { KJ_CLI } from './command-runner.js';
 import { sweepTargets } from './lane-sweeper.js';
 import { laneStates } from './stage-state.js';
+import { teamCards } from './stage-team.js';
+import { WORKING_TEXT, readTeamStatus } from './team-status.js';
+
+/** KJC-TSK-1553: reads the teammates' status of the project at `dir`, for their workshops on the map. */
+const readTeam = (dir) => {
+  const ownIds = laneStates(dir).flatMap((l) => (l.cards ?? []).map((c) => c.id));
+  return readTeamStatus(dir, teamCards(dir, ownIds));
+};
 
 export const STATUS_EVERY_MS = 60 * 60 * 1000;
 const BEAT_EVERY_MS = 5 * 60 * 1000;
@@ -46,7 +54,7 @@ export function statusPosts(lanes, cards, last, now) {
 const readRecord = (dir) => { try { return JSON.parse(readFileSync(join(dir, ...RECORD), 'utf8')) ?? {}; } catch { return {}; } };
 
 /** The one-line conclusion each status carries: the HU and whether an agent works on it. */
-const textOf = ({ id, state }) => (state === 'working' ? `${id}: an agent is working on it` : `${id}: no agent is working on it now`);
+const textOf = ({ id, state }) => (state === 'working' ? `${id}: ${WORKING_TEXT}` : `${id}: no agent is working on it now`);
 
 const sendStatus = (cwd, p) => promisify(execFile)(process.execPath,
   [KJ_CLI, 'link', 'send', `issue:${p.issue}`, '--type', 'status', '--to', 'all', '--context', p.id, '--text', textOf(p)],
@@ -74,11 +82,12 @@ export async function beatStatus(dir, { lanesOf = laneStates, send = sendStatus,
 }
 
 /** Beats every project now and every 5 minutes, unless KJ_LINK_STATUS=off. Returns the stop. */
-export function startStatusBeat({ targets = sweepTargets, beat = beatStatus, everyMs = BEAT_EVERY_MS, log = console, env = process.env } = {}) {
+export function startStatusBeat({ targets = sweepTargets, beat = beatStatus, team = readTeam, everyMs = BEAT_EVERY_MS, log = console, env = process.env } = {}) {
   if (env.KJ_LINK_STATUS === 'off') return () => {};
   let running = null;
   const tick = () => {
-    running ??= (async () => { for (const dir of targets()) await beat(dir); })()
+    // KJC-TSK-1553: and then what the teammates said about theirs.
+    running ??= (async () => { for (const dir of targets()) { await beat(dir); await team(dir); } })()
       .catch((err) => log.warn(`[link-status] skipped: ${err.message}`)).finally(() => { running = null; });
   };
   tick();

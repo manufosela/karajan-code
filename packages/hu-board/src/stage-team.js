@@ -7,6 +7,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readRecord, withStatus } from './team-status.js';
+
 const CACHE = /^board-cache(-[\w.-]+)?\.json$/;
 
 /** The holder most of `ownIds` are claimed by, or null when none of them is held. */
@@ -36,13 +38,15 @@ export function teamOf(entries, ownIds) {
 const readJson = (file) => { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; } };
 
 /** The teammates of the project at `projectDir`, each with when the board cache saw them. */
-export function teamCards(projectDir, ownIds) {
+export function teamCards(projectDir, ownIds, now = Date.now) {
   const root = join(projectDir, '.karajan');
   let names;
   try { names = readdirSync(root).filter((n) => CACHE.test(n)); } catch { return []; }
   return names.flatMap((name) => {
     const cache = readJson(join(root, name));
     if (!Array.isArray(cache?.hus) || Number.isNaN(Date.parse(cache.updatedAt))) return [];
-    return teamOf(cache.hus, ownIds).map((t) => ({ ...t, at: cache.updatedAt }));
+    // KJC-TSK-1553: each card working while its holder's newest status says so.
+    const status = readRecord(projectDir);
+    return teamOf(cache.hus, ownIds).map((t) => ({ ...t, cards: withStatus(t.cards, status, t.person, now()), at: cache.updatedAt }));
   });
 }
