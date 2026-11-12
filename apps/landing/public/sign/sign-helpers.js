@@ -10,10 +10,11 @@ export const isPhone = ({ userAgentData, userAgent = "", maxTouchPoints = 0 } = 
   return PHONE_UA.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
 };
 
-const sha256 = async (text) => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+const digest = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+const sha256 = (text) => digest(new TextEncoder().encode(text));
 const toHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-const toBase64Url = (buffer) => btoa(String.fromCodePoint(...new Uint8Array(buffer)))
-  .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+const toBase64 = (buffer) => btoa(String.fromCodePoint(...new Uint8Array(buffer)));
+const toBase64Url = (buffer) => toBase64(buffer).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 
 /** The same bytes as kj's canonicalPayload: v2 also signs the version and the validity (ms). */
 export async function canonicalPayload({ cid, nonce, project, files, v2, kjVersion, issuedMs, expiresMs }) {
@@ -43,6 +44,37 @@ export function passkeyFields(credential, signedAt) {
     clientDataJSON: { stringValue: toBase64Url(clientDataJSON) },
     signature: { stringValue: toBase64Url(signature) },
     credentialId: { stringValue: toBase64Url(credential.rawId) },
+    signedAt: { timestampValue: signedAt },
+  };
+}
+
+/** HU-3976: a relay doc with kind "register" asks for a new passkey; any other is a signing request, as before. */
+export const requestKind = (docFields) => (docFields.kind?.stringValue === "register" ? "register" : "sign");
+
+/** The creation options of a register request: the challenge is the sha256 of the request's nonce bytes. */
+export async function registerRequest({ nonceBytes, userLabel, userIdBytes }) {
+  if (typeof userLabel !== "string" || !userLabel.trim()) throw new Error("register request: the user label is empty");
+  if (!(userIdBytes instanceof Uint8Array) || userIdBytes.length !== 16) throw new Error("register request: the user id must be 16 bytes");
+  return {
+    challenge: await digest(nonceBytes),
+    rp: { id: PASSKEY_RP_ID, name: "Karajan" },
+    user: { id: userIdBytes, name: userLabel, displayName: userLabel },
+    pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -8 }],
+    authenticatorSelection: { residentKey: "required", userVerification: "required" },
+    attestation: "none",
+    timeout: 120_000,
+  };
+}
+
+/** The relay doc's fields for a new passkey: credential id in base64url, public key as base64 SPKI. */
+export function registerFields(credential, signedAt = new Date().toISOString()) {
+  const spki = credential.response.getPublicKey();
+  if (!spki) throw new Error("register: the authenticator returned no public key");
+  return {
+    state: { stringValue: "registered" },
+    credentialId: { stringValue: toBase64Url(credential.rawId) },
+    publicKey: { stringValue: toBase64(spki) },
+    alg: { integerValue: String(credential.response.getPublicKeyAlgorithm()) },
     signedAt: { timestampValue: signedAt },
   };
 }

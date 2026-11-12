@@ -35,7 +35,6 @@ describe("landing sign page", () => {
 
   // HU-3927 (ADR 0053): only a phone signs; there the passkey is the primary action, Ed25519 the secondary.
   it("on a desktop shows where to sign before touching any key, and offers the passkey first", () => {
-    expect(html).toContain('import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, signMethods } from "./sign-helpers.js"');
     // KJC-BUG-0556: kj opens /sign without a trailing slash, so the relative import needs the page's base.
     expect(html).toContain('<base href="/sign/" />');
     expect(html).toMatch(/desktopBody: "Ábrela en el móvil: aquí no se firma"/);
@@ -45,6 +44,24 @@ describe("landing sign page", () => {
     expect(main.indexOf('return show("desktop")')).toBeLessThan(main.indexOf("idbOp("));
     expect(html.indexOf('id="passkey-btn"')).toBeLessThan(html.indexOf('id="sign-btn"'));
     expect(html).toContain('if (!keys && !methods.includes("passkey")) return enrollMode(keys);'); // no flag: as on main
+  });
+
+  // HU-3976 (ADR 0053): a register request creates a passkey; only kind "register" reaches it, never on a desktop.
+  it("reaches the register path only for kind register, after the desktop notice, and creates the passkey there", () => {
+    expect(html).toContain('import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "./sign-helpers.js"');
+    expect(html).toContain('id="register"');
+    expect(html).toMatch(/register: "Crear passkey"/);
+    expect(html).toMatch(/register: "Create passkey"/);
+    const sign = html.slice(html.indexOf("const signMode = async"));
+    const branch = sign.indexOf('if (requestKind(f) === "register") return registerMode(cid, f);');
+    expect(branch).toBeGreaterThan(-1);
+    expect(branch).toBeLessThan(sign.indexOf("signMethods("));
+    expect(html.match(/registerMode\(/g)).toHaveLength(1); // the kind branch is its only caller
+    const register = html.slice(html.indexOf("const registerMode = async"));
+    expect(register).toContain("navigator.credentials.create({ publicKey: await registerRequest(");
+    expect(register).toContain("registerFields(");
+    const main = html.slice(html.indexOf("const main = async"));
+    expect(main.indexOf('return show("desktop")')).toBeLessThan(main.indexOf("signMode("));
   });
 
   it("carries the public firebase api key and talks only to firestore", () => {

@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { canonicalPayload as kjPayload } from "../../src/harden/phone-sign.js";
-import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, signMethods } from "../../apps/landing/public/sign/sign-helpers.js";
+import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "../../apps/landing/public/sign/sign-helpers.js";
 
 const DESKTOP_CHROME = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 const MAC_SAFARI = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
@@ -80,4 +80,54 @@ it("signMethods: no flag is Ed25519 as before; the flag puts the passkey first i
   expect(methods(flag, false, true)).toEqual(["passkey"]);
   expect(methods(flag, true, false)).toEqual(["ed25519"]);
   expect(methods(flag, false, false)).toEqual([]); // nothing signs here: the page says so
+});
+
+// HU-3976 (ADR 0053): a register request (kind: "register") creates a passkey instead of signing.
+describe("registration", () => {
+  const nonceBytes = new TextEncoder().encode("ab".repeat(16));
+  const userIdBytes = new Uint8Array(16).fill(7);
+
+  it("requestKind: only kind register registers; anything else signs as before", () => {
+    expect(requestKind({ kind: { stringValue: "register" }, passkey: { booleanValue: true } })).toBe("register");
+    expect(requestKind({ passkey: { booleanValue: true } })).toBe("sign");
+    expect(requestKind({ kind: { stringValue: "other" } })).toBe("sign");
+    expect(requestKind({})).toBe("sign");
+  });
+
+  it("asks karajancode.com for a resident, user-verified ES256 or Ed25519 passkey, challenge = sha256(nonce bytes)", async () => {
+    const opts = await registerRequest({ nonceBytes, userLabel: "phone of ana", userIdBytes });
+    expect(Buffer.from(opts.challenge).equals(createHash("sha256").update(nonceBytes).digest())).toBe(true);
+    expect(opts).toMatchObject({
+      rp: { id: "karajancode.com", name: "Karajan" },
+      user: { id: userIdBytes, name: "phone of ana", displayName: "phone of ana" },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -8 }],
+      authenticatorSelection: { residentKey: "required", userVerification: "required" },
+      attestation: "none",
+    });
+  });
+
+  it("refuses an empty label or a user id that is not 16 bytes", async () => {
+    await expect(registerRequest({ nonceBytes, userLabel: "", userIdBytes })).rejects.toThrow(/label/);
+    await expect(registerRequest({ nonceBytes, userLabel: "x", userIdBytes: new Uint8Array(8) })).rejects.toThrow(/16 bytes/);
+  });
+
+  const created = (spki) => ({
+    rawId: new Uint8Array([251, 255, 0]).buffer,
+    response: { getPublicKey: () => spki, getPublicKeyAlgorithm: () => -7 },
+  });
+
+  it("registerFields PATCHes state registered, credentialId (base64url), publicKey (base64 SPKI), alg and signedAt", () => {
+    const spki = new Uint8Array([48, 251, 255, 63]).buffer;
+    expect(registerFields(created(spki), "2026-11-12T10:00:00.000Z")).toEqual({
+      state: { stringValue: "registered" },
+      credentialId: { stringValue: "-_8A" },
+      publicKey: { stringValue: Buffer.from(spki).toString("base64") },
+      alg: { integerValue: "-7" },
+      signedAt: { timestampValue: "2026-11-12T10:00:00.000Z" },
+    });
+  });
+
+  it("registerFields fails loudly when the authenticator gives no public key", () => {
+    expect(() => registerFields(created(null), "2026-11-12T10:00:00.000Z")).toThrow(/public key/);
+  });
 });
