@@ -9,6 +9,15 @@ const REPO = /^[\w.-]+\/[\w.-]+$/;
 const WRITERS = new Set(['write', 'maintain', 'admin']);
 const GITHUB = 'https://api.github.com';
 
+/**
+ * The board's GitHub token, from X-GitHub-Token. Not Authorization: Cloud Run checks a bearer
+ * there as a Google identity and answers 401 itself before the function runs.
+ */
+export const githubTokenOf = (headers) => {
+  const value = headers['x-github-token'];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+};
+
 /** A refusal the function answers with `status`. */
 const refuse = (status, message) => Object.assign(new Error(message), { status });
 

@@ -2,7 +2,7 @@
 // GitHub token, that its account may write to the repository; the token is never kept.
 import { describe, expect, it } from 'vitest';
 
-import { admitToRoom, roomKey } from '../../apps/landing/functions/room.js';
+import { admitToRoom, githubTokenOf, roomKey } from '../../apps/landing/functions/room.js';
 
 const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
 
@@ -17,6 +17,16 @@ function github({ login = 'jorgecasar', permission = 'write', seen = [] } = {}) 
   };
 }
 const sign = async (uid, claims) => `signed:${uid}:${JSON.stringify(claims)}`;
+
+describe('githubTokenOf', () => {
+  it('reads X-GitHub-Token, since Cloud Run answers a non-Google Authorization itself (401)', () => {
+    expect(githubTokenOf({ 'x-github-token': 'abc' })).toBe('abc');
+    expect(githubTokenOf({ 'x-github-token': '  abc ' })).toBe('abc');
+    expect(githubTokenOf({ authorization: 'Bearer abc' })).toBeUndefined();
+    expect(githubTokenOf({ 'x-github-token': ['a', 'b'] })).toBeUndefined();
+    expect(githubTokenOf({})).toBeUndefined();
+  });
+});
 
 describe('roomKey', () => {
   it('is the repository in lower case, safe as a Realtime Database key', () => {
