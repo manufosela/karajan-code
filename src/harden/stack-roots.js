@@ -12,6 +12,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import yaml from "js-yaml";
+
 const IGNORE_DIRS = new Set([
   "node_modules",
   "dist",
@@ -75,15 +77,32 @@ export function languageAt(dir) {
   return null;
 }
 
-/** The `workspaces` globs a package.json declares (array or `{ packages }` form). */
-function workspaceGlobs(dir) {
+/** Read a manifest and pull its glob list; unreadable or malformed yields no globs. */
+function readGlobs(file, extract) {
   try {
-    const { workspaces } = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
-    const globs = Array.isArray(workspaces) ? workspaces : workspaces?.packages;
+    const globs = extract(readFileSync(file, "utf8"));
     return Array.isArray(globs) ? globs.filter((g) => typeof g === "string") : [];
   } catch {
     return [];
   }
+}
+
+/** The globs a dir declares: package.json `workspaces` (array or `{ packages }`) plus pnpm-workspace.yaml `packages` (HU-4035). */
+function workspaceGlobs(dir) {
+  const fromPackageJson = readGlobs(join(dir, "package.json"), (text) => {
+    const { workspaces } = JSON.parse(text);
+    return Array.isArray(workspaces) ? workspaces : workspaces?.packages;
+  });
+  const fromPnpm = readGlobs(join(dir, "pnpm-workspace.yaml"), (text) => yaml.load(text)?.packages);
+  return [...fromPackageJson, ...fromPnpm];
+}
+
+/** A glob list admits `rel` when some include matches and no `!negated` entry does. */
+function globsAdmit(globs, rel) {
+  const clean = (g) => g.replace(/^\.\//, "");
+  const negated = globs.filter((g) => g.startsWith("!")).map((g) => clean(g.slice(1)));
+  if (negated.some((g) => matchesGlob(rel, g))) return false;
+  return globs.some((g) => !g.startsWith("!") && matchesGlob(rel, clean(g)));
 }
 
 /** HU-4018: a plain-JS package that a TypeScript root lists in its workspaces belongs to that root. */
@@ -93,7 +112,7 @@ function isWorkspaceMemberOfTsRoot(candidate, found, projectDir) {
     if (root.language !== "typescript" || root.dir === candidate.dir) return false;
     const rel = root.dir === "." ? candidate.dir : relative(root.dir, candidate.dir);
     if (rel.startsWith("..")) return false;
-    return workspaceGlobs(join(projectDir, root.dir)).some((g) => matchesGlob(rel, g.replace(/^\.\//, "")));
+    return globsAdmit(workspaceGlobs(join(projectDir, root.dir)), rel);
   });
 }
 
