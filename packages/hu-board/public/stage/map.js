@@ -65,7 +65,8 @@ function buildMap(canvas, factories, { instant, onView }) {
   /** KJC-TSK-1549: a teammate's factory: a workshop per card, dimmed with its title; no crew, nothing live. */
   const remote = (entry, lot) => {
     const hall = createHall(lot, entry.laneNames);
-    for (const card of entry.cards) hall.showStatus(card.id, card.title ?? card.id, 'idle');
+    // KJC-TSK-1553: lit while its holder's status says an agent works on it.
+    for (const card of entry.cards) hall.showStatus(card.id, card.title ?? card.id, card.working ? 'working' : 'idle');
     return { ...entry, project: entry.key, lot, hall, mailbox: null };
   };
   const placed = all.map((entry, i) => {
