@@ -14,8 +14,6 @@ import { mapName } from './cards.js';
 import { MARK_MS } from './marks.js';
 import { glowAt, mailboxOf, mailTotal, withMail } from './mail.js';
 import { createMailbox } from './mailbox.js';
-import { createHall } from './hall.js';
-import { ageLabel, isStale, mapLots } from './team-map.js';
 
 const NAME_OVER = new THREE.Vector3(0, 2.5, -8.5); // the factory's name stands at the back of its floor
 const MAP_ZOOM = { min: 0.06, max: 1.3 }; // the closest shows one workshop whole
@@ -24,14 +22,6 @@ const HALL_LOOK_Z = -0.6; // where the camera looks in a hall, as on one factory
 const LABELS_BELOW = 0.45; // robots' and marks' labels only show this close; the names always
 const MAILBOX_INSET = 1.5; // metres from the floor's front right corner
 
-/** KJC-TSK-1550: darkens a teammate's floor while its news is stale; a floor rebuilt by a repack is set again. */
-const dimLot = (p, dim) => {
-  if (p.dimmed === dim && p.dimmedFloor === p.floor) return;
-  p.dimmed = dim;
-  p.dimmedFloor = p.floor;
-  p.floor.material.color.setScalar(dim ? 0.35 : 1);
-};
-
 /** The scene of the map with every factory on its lot; returns the factories and the render. */
 function buildMap(canvas, factories, { instant, onView }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -39,8 +29,8 @@ function buildMap(canvas, factories, { instant, onView }) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target } = createFactory(renderer, { floor: false, far: 3000 });
   // KJC-TSK-1467: each lot as wide as its own hall, packed in rows; its floor just under the hall.
-  // KJC-TSK-1549 (ADR 0054): with a lot of its own for each teammate, right after its factory.
-  const all = mapLots(factories);
+  // KJC-TSK-1564 (ADR 0056): a teammate's cards are lanes of the repository's one factory.
+  const all = factories.map((f) => ({ project: f.project, name: f.name ?? f.project, laneNames: f.lanes.map((l) => l.lane) }));
   let counts = all.map(({ laneNames }) => laneNames.length);
   const bounds = packLots(counts);
   const lots = [...bounds.lots];
@@ -62,23 +52,13 @@ function buildMap(canvas, factories, { instant, onView }) {
     // KJC-TSK-1473: the human's mailbox at the front right corner of the floor.
     p.mailbox?.group.position.set(lots[i].width / 2 - MAILBOX_INSET, 0, front - MAILBOX_INSET);
   };
-  /** KJC-TSK-1549: a teammate's factory: a workshop per card, dimmed with its title; no crew, nothing live. */
-  const remote = (entry, lot) => {
-    const hall = createHall(lot, entry.laneNames);
-    // KJC-TSK-1553: lit while its holder's status says an agent works on it.
-    for (const card of entry.cards) hall.showStatus(card.id, card.title ?? card.id, card.working ? 'working' : 'idle');
-    return { ...entry, project: entry.key, lot, hall, mailbox: null };
-  };
   const placed = all.map((entry, i) => {
     const lot = new THREE.Group();
     scene.add(lot);
-    let p;
-    if (entry.own) {
-      const mailbox = createMailbox();
-      lot.add(mailbox.group);
-      const { lanes } = factories.find((f) => f.project === entry.project);
-      p = { ...entry, lanes, lot, mailbox, ...buildFactory(lot, entry.laneNames) };
-    } else p = remote(entry, lot);
+    const mailbox = createMailbox();
+    lot.add(mailbox.group);
+    const { lanes } = factories.find((f) => f.project === entry.project);
+    const p = { ...entry, lanes, lot, mailbox, ...buildFactory(lot, entry.laneNames) };
     lay(p, i);
     return p;
   });
@@ -168,8 +148,7 @@ export function startMap({ canvas, factories, token, tell, counts }) {
   // KJC-TSK-1482: the folder's name; a board older than it sends only the slug.
   const titles = new Map(factories.map(({ project, name }) => [project, name ?? project]));
   const tellAll = () => tell([...lines].map(([project, line]) => `${titles.get(project)}: ${line}`));
-  // KJC-TSK-1549 (ADR 0054): a teammate's factory is its last known state, never live.
-  const lives = new Map(placed.filter((p) => p.own).map((factory) => {
+  const lives = new Map(placed.map((factory) => {
     const own = document.createElement('div'); // each factory relabels only its own corner
     counts.append(own);
     const tellOne = (said) => { lines.set(factory.project, said[0] ?? 'at rest'); tellAll(); };
@@ -197,12 +176,7 @@ export function startMap({ canvas, factories, token, tell, counts }) {
       const title = mapName(titles.get(project), live.cards());
       return mail ? `${title} · ✉ ${mail}` : title;
     };
-    // KJC-TSK-1549: a teammate's factory says whose it is and how many cards it has in progress.
-    // KJC-TSK-1550: and how old its news is; once stale, its floor goes dim.
-    const wall = Date.now();
-    for (const p of placed) if (!p.own) dimLot(p, isStale(p.at, wall));
-    const nameOfLot = (p) => (p.own ? nameOf(p.project) : `${p.name} · ${p.cards.length} in progress · ${ageLabel(p.at, wall)}`);
-    const named = (p) => tagAt(nameOfLot(p), NAME_OVER, camera, { className: 'stage-worker', origin: p.lot.position });
+    const named = (p) => tagAt(nameOf(p.project), NAME_OVER, camera, { className: 'stage-worker', origin: p.lot.position });
     names.replaceChildren(...placed.map(named));
     render();
   }

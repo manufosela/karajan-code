@@ -16,9 +16,15 @@ describe('stageMap', () => {
   it('is one factory per real project that resolves, the ones at work first', () => {
     // KJC-TSK-1548: with no board cache in their folders, nobody else works on them.
     expect(stageMap(deps)).toEqual([
-      { project: 'beta', name: 'beta', lanes: states['/w/beta'], team: [] },
-      { project: 'alpha', name: 'alpha', lanes: states['/w/alpha'], team: [] },
+      { project: 'beta', name: 'beta', lanes: states['/w/beta'] },
+      { project: 'alpha', name: 'alpha', lanes: states['/w/alpha'] },
     ]);
+  });
+
+  it('puts the teammates\' cards in progress after the own lanes of the same factory (KJC-TSK-1564)', () => {
+    const teamOf = (dir) => (dir === '/w/alpha' ? [{ person: 'jorgecasar', at: 't', cards: [{ id: 'HU-3', title: 'three' }] }] : []);
+    const alpha = stageMap({ ...deps, teamOf }).find((f) => f.project === 'alpha');
+    expect(alpha.lanes.map((l) => l.lane)).toEqual(['main', 'HU-3@jorgecasar']);
   });
 
   it('names each factory after its folder, not the slug of its whole path (KJC-TSK-1482)', () => {

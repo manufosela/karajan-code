@@ -5,6 +5,7 @@ import { lanePipelines } from '../../lane-pipeline.js';
 import { requestProjectDir } from '../../project-dir.js';
 import { stageMap } from '../../stage-map.js';
 import { laneStates } from '../../stage-state.js';
+import { withTeam } from '../../stage-team.js';
 
 const router = Router();
 
@@ -23,7 +24,8 @@ router.get('/stage/state', async (req, res) => {
   // HU-4029: the pipeline of each lane's open pull request, read from gh without holding the server.
   const pipelines = await lanePipelines(dir);
   // KJC-TSK-1432 (ADR 0048): every lane; the main checkout's state stays at the top until the scene draws the lanes.
-  const lanes = laneStates(dir, { readers: { pipeline: ({ dir: laneDir }) => pipelines.get(laneDir) ?? null } });
+  // KJC-TSK-1564 (ADR 0056): and the teammates' cards in progress, lanes of the same factory.
+  const lanes = withTeam(dir, laneStates(dir, { readers: { pipeline: ({ dir: laneDir }) => pipelines.get(laneDir) ?? null } }));
   const { lane: _main, ...main } = lanes[0];
   res.json({ ...main, lanes });
 });

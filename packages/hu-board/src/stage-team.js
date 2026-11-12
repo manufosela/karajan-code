@@ -37,6 +37,19 @@ export function teamOf(entries, ownIds) {
 
 const readJson = (file) => { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; } };
 
+/**
+ * KJC-TSK-1564 (ADR 0056): one repository is one factory. Each card a teammate has in progress is
+ * a lane of it, `<card>@<owner>` (a worktree slug never holds an @), lit while its status says so.
+ */
+export const teamLanes = (team) => team.flatMap(({ person, cards }) => cards.map((c) => ({
+  lane: `${c.id}@${person}`, owner: person, title: c.title ?? c.id, remote: true, remoteWorking: Boolean(c.working), working: [],
+})));
+
+/** The lanes of the factory at `dir` and, after them, those of its teammates. */
+export function withTeam(dir, lanes, team = teamCards) {
+  return [...lanes, ...teamLanes(team(dir, lanes.flatMap((l) => (l.cards ?? []).map((c) => c.id))))];
+}
+
 /** The teammates of the project at `projectDir`, each with when the board cache saw them. */
 export function teamCards(projectDir, ownIds, now = Date.now) {
   const root = join(projectDir, '.karajan');

@@ -55,15 +55,15 @@ describe('teamCards', () => {
 });
 
 describe('stageMap with the team', () => {
-  it('gives each factory its teammates, from the cards of its own lanes', () => {
+  it('gives each factory its teammates, from the cards of its own lanes, as lanes of it (KJC-TSK-1564)', () => {
     const seen = [];
     const map = stageMap({
       projects: [{ id: 'kc' }],
       dirOf: () => '/w/kc',
       lanesOf: () => [{ lane: 'main', working: [], cards: [{ id: 'HU-1' }] }, { lane: 'x', working: [], cards: [{ id: 'HU-2' }] }],
-      teamOf: (dir, ids) => { seen.push([dir, ids]); return [{ person: 'jorgecasar', cards: [], at: 't' }]; },
+      teamOf: (dir, ids) => { seen.push([dir, ids]); return [{ person: 'jorgecasar', cards: [{ id: 'HU-9', title: 'nine' }], at: 't' }]; },
     });
     expect(seen).toEqual([['/w/kc', ['HU-1', 'HU-2']]]);
-    expect(map[0].team).toEqual([{ person: 'jorgecasar', cards: [], at: 't' }]);
+    expect(map[0].lanes.map((l) => l.lane)).toEqual(['main', 'x', 'HU-9@jorgecasar']);
   });
 });

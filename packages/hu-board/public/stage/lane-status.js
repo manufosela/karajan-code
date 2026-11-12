@@ -17,7 +17,9 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * @param {Array<{id: string, status: string, lane: string}>} cards the factory's cards; those of other lanes are skipped
  * @returns {{ state: 'working'|'waiting-person'|'finished'|'waiting-merge'|'failed'|'idle'|'unknown', why: string|null }}
  */
-export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = null }, cards = []) {
+export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = null, remote, owner, title, remoteWorking }, cards = []) {
+  // KJC-TSK-1564 (ADR 0056): a teammate's card has no branch here; its owner's status tells.
+  if (remote) return { state: working.length || remoteWorking ? 'working' : 'idle', why: `@${owner}: ${title}`, owner };
   if (working.length) return { state: 'working', why: null };
   if (mail > 0) return { state: 'waiting-person', why: `waits for you: ${plural(mail, 'handoff')}` };
   if (branch?.gone) return { state: 'finished', why: 'branch merged' };
@@ -33,6 +35,9 @@ export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = nu
   return { state: 'idle', why: 'no activity' };
 }
 
+/** KJC-TSK-1564: what a lane's plate says: a teammate's card without its owner, who goes under it. */
+export const plateName = (lane) => lane.split('@')[0];
+
 /**
  * KJC-TSK-1540: the status of each lane of the hall, live: `state` is the scene's last state
  * (its lanes with their branch, everyone at work, the cards) and `box` the mailbox by lane.
@@ -41,8 +46,10 @@ export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = nu
 export function laneStatuses(names, { lanes = [], working = [], cards = [] }, box) {
   const byLane = new Map(lanes.map((l) => [l.lane, l]));
   return new Map(names.map((lane) => {
+    const { remote, owner, title, remoteWorking } = byLane.get(lane) ?? {};
     const status = laneStatus({
       lane,
+      remote, owner, title, remoteWorking,
       branch: byLane.get(lane)?.branch,
       pipeline: byLane.get(lane)?.pipeline,
       working: working.filter((w) => (w.lane ?? MAIN_LANE) === lane),
@@ -58,8 +65,8 @@ export function laneStatuses(names, { lanes = [], working = [], cards = [] }, bo
  * The line under a lane's name: nothing while it works; its note, quoted, when it has one;
  * what it waits for; else its state and why.
  */
-export function statusLine({ state, why, note }) {
-  if (state === 'working') return '';
+export function statusLine({ state, why, note, owner }) {
+  if (state === 'working') return owner ? `@${owner}` : '';
   if (note) return `“${note}”`;
   return state.startsWith('waiting-') ? why : `${state}: ${why}`;
 }
