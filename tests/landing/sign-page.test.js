@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -16,6 +17,14 @@ describe("landing sign page", () => {
   it("shows the request's why before the files, hidden when the request carries none", () => {
     expect(html.indexOf('id="why"')).toBeLessThan(html.indexOf('id="files"'));
     expect(html).toMatch(/\$\("why"\)\.hidden = !str\(f\.why\)/);
+  });
+
+  // KJC-BUG-0563: *.js is cached for a year (immutable), so a changed helper needs a new URL or a phone keeps
+  // the old one, the import of a new name fails and the page stays at "Cargando".
+  it("imports the helper by a URL that changes with its content", () => {
+    const helper = readFileSync(new URL("../../apps/landing/public/sign/sign-helpers.js", import.meta.url));
+    const hash = createHash("sha256").update(helper).digest("hex").slice(0, 12);
+    expect(html).toContain(`from "./sign-helpers.js?v=${hash}"`);
   });
 
   it("loads no external scripts, styles or resources", () => {
@@ -48,7 +57,7 @@ describe("landing sign page", () => {
 
   // HU-3976 (ADR 0053): a register request creates a passkey; only kind "register" reaches it, never on a desktop.
   it("reaches the register path only for kind register, after the desktop notice, and creates the passkey there", () => {
-    expect(html).toContain('import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "./sign-helpers.js"');
+    expect(html).toMatch(/import \{ canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods \} from "\.\/sign-helpers\.js\?v=[0-9a-f]{12}"/);
     expect(html).toContain('id="register"');
     expect(html).toMatch(/register: "Crear passkey"/);
     expect(html).toMatch(/register: "Create passkey"/);
