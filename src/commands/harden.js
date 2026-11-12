@@ -24,7 +24,7 @@ import { detectRulesync, maybeRulesyncGenerate } from "../utils/rulesync.js";
 import { installGeminiContext } from "../harden/gemini-context.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { makefileCommands } from "../harden/makefile-targets.js";
-import { pinnedCommands } from "../harden/pinned-commands.js";
+import { HOOK_STEPS, pinnedCommands } from "../harden/pinned-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
@@ -85,6 +85,17 @@ export async function resolveCmds(projectDir, language, scope = {}) {
 
 /** ADR 0051 (#3763): the project's Makefile targets win over the commands detected for its stack. */
 const withMakefileTargets = (cmds, projectDir) => ({ ...cmds, ...makefileCommands(projectDir) });
+
+/** The hook commands; HU-4036: per stack root, from its dir, unless the top is the only root (or none). A `kj hooks set` pin wins repo-wide. */
+export async function resolveHookCmds(projectDir, roots, scope = {}) {
+  const pinned = await pinnedCommands(projectDir);
+  if (roots.every((r) => r.dir === ".")) return { ...(await resolveCmds(projectDir, roots[0]?.language ?? null, scope)), ...pinned };
+  const perRoot = await Promise.all(roots.map(async ({ dir, language }) => {
+    const found = await resolveCmds(join(projectDir, dir), language);
+    return { dir, language, ...Object.fromEntries(HOOK_STEPS.filter((s) => found[s] && !pinned[s]).map((s) => [s, found[s]])) };
+  }));
+  return { ...pinned, roots: perRoot };
+}
 
 const DEFAULT_BASE_BRANCH = "main";
 
@@ -185,18 +196,15 @@ export async function hardenCommand({
   }
 
   const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });
-  // ADR 0051 (HU-3773): a command pinned with `kj hooks set` wins over the Makefile and the detected one.
-  const cmds = {
-    ...(await resolveCmds(projectDir, roots[0]?.language ?? null, { only: onlyDirs, exclude: excludeDirs })),
-    ...(await pinnedCommands(projectDir)),
-  };
+  const cmds = await resolveHookCmds(projectDir, roots, { only: onlyDirs, exclude: excludeDirs });
   // KJC-TSK-0647: CI already running the suite per PR ⇒ pre-push drops its
   // test command (false-red source under local parallelism); opt back in
   // via package.json kj.harden.test_on_push.
-  const top = resolveTestOnPush({ projectDir, repoCfg, testCmd: cmds.test });
+  const top = resolveTestOnPush({ projectDir, repoCfg, testCmd: cmds.test ?? cmds.roots?.find((r) => r.test)?.test });
   if (top.reason) {
     logger.info?.(`kj harden: ${top.reason}`);
     cmds.test = undefined;
+    for (const root of cmds.roots ?? []) delete root.test;
     cmds.testSkippedByCi = true;
   }
   // KJC-TSK-0648: branch-first guard — the base branch only moves via PR.

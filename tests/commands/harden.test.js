@@ -5,7 +5,8 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { hardenCommand, resolveCmds } from "../../src/commands/harden.js";
+import { hardenCommand, resolveCmds, resolveHookCmds } from "../../src/commands/harden.js";
+import { detectStackRoots } from "../../src/harden/stack-roots.js";
 import { installSandbox } from "../../src/harden/sandbox.js";
 
 vi.mock("../../src/harden/sandbox.js", () => ({ installSandbox: vi.fn(() => ({ state: "on" })) }));
@@ -20,6 +21,40 @@ beforeEach(() => {
 });
 afterEach(() => {
   rmSync(repo, { recursive: true, force: true });
+});
+
+describe("the hook commands of each stack root (HU-4036)", () => {
+  const touch = (rel, content = "") => {
+    mkdirSync(join(repo, rel, ".."), { recursive: true });
+    writeFileSync(join(repo, rel), content);
+  };
+  it("a lone root at the top keeps today's flat commands, scoped or not", async () => {
+    touch("pyproject.toml");
+    expect(await resolveHookCmds(repo, detectStackRoots(repo))).toEqual(await resolveCmds(repo, "python"));
+    touch("backend/go.mod");
+    expect(await resolveHookCmds(repo, detectStackRoots(repo, { exclude: ["backend"] }))).toEqual(await resolveCmds(repo, "python"));
+  });
+
+  it("--only a nested root writes hooks that run its steps from that dir", async () => {
+    for (const rel of ["pyproject.toml", "backend/go.mod"]) touch(rel);
+    await hardenCommand({ projectDir: repo, only: ["backend"], config: false, ci: false, guidelines: false, json: true, logger });
+    const hook = (name) => readFileSync(join(repo, ".karajan", "hooks", name), "utf8");
+    expect(hook("pre-commit")).toContain("if kj_staged_touches ':(literal)backend'; then\n  (\n    cd 'backend'");
+    expect(hook("pre-push")).toContain("    cd 'backend'\n    go test ./... || { echo 'kj harden: tests failed in backend'; exit 1; }");
+  });
+
+  it("two roots resolve each one from its own dir; a pinned step stays repo-wide", async () => {
+    for (const rel of ["pyproject.toml", "svc/go.mod", "android/build.gradle"]) touch(rel);
+    touch(".karajan/kj.config.yml", "harden:\n  commands:\n    lint: my-lint\n");
+    expect(await resolveHookCmds(repo, detectStackRoots(repo))).toEqual({
+      lint: "my-lint",
+      roots: [
+        { dir: ".", language: "python", format: "ruff format --check .", test: "pytest" },
+        { dir: "android", language: "gradle" },
+        { dir: "svc", language: "go", format: 'test -z "$(gofmt -l .)"', test: "go test ./..." },
+      ],
+    });
+  });
 });
 
 describe("resolveCmds", () => {
