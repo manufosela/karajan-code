@@ -41,6 +41,34 @@ describe('startRooms', () => {
     expect(opened).toEqual(['/w/kc']);
   });
 
+  it('tries again later a folder that failed for a passing reason, not one refused (KJC-TSK-1579)', async () => {
+    const { opened, deps } = fakes({ '/w/gr': 'manufosela/grebla' });
+    let down = true;
+    const open = async (dir) => {
+      if (dir === '/w/kc' && down) { opened.push(dir); throw new Error('no network'); }
+      if (dir === '/w/kc') { opened.push(dir); return { login: 'manufosela', room: 'manufosela~karajan-code', repo: 'manufosela/karajan-code', idToken: async () => 'id' }; }
+      return deps.open(dir);
+    };
+    const rooms = await startRooms({ ...deps, open, retryMs: 5, targets: () => ['/w/kc', '/w/gr', '/w/off'], env: {} });
+    expect([...rooms.byRepo.keys()]).toEqual(['manufosela/grebla']);
+    down = false;
+    await new Promise((r) => setTimeout(r, 30));
+    expect([...rooms.byRepo.keys()]).toEqual(['manufosela/grebla', 'manufosela/karajan-code']);
+    expect(rooms.byRepo.get('manufosela/karajan-code').team).toBeTruthy();
+    expect(opened.filter((d) => d === '/w/off')).toHaveLength(1);
+    await rooms.leave();
+  });
+
+  it('stops trying once it leaves', async () => {
+    const { deps } = fakes({});
+    let tries = 0;
+    const open = async () => { tries += 1; throw new Error('no network'); };
+    const rooms = await startRooms({ ...deps, open, retryMs: 5, targets: () => ['/w/kc'], env: {} });
+    await rooms.leave();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(tries).toBe(1);
+  });
+
   it('enters no room with KJ_ROOM=off', async () => {
     const { opened, deps } = fakes({ '/w/kc': 'manufosela/karajan-code' });
     const rooms = await startRooms({ ...deps, targets: () => ['/w/kc'], env: { KJ_ROOM: 'off' } });

@@ -64,18 +64,21 @@ describe('openSession', () => {
     expect(calls.filter((c) => c.url.includes('securetoken'))).toHaveLength(1);
   });
 
-  it('is nothing for a repository that is not on GitHub, without a gh token or refused, and says why (KJC-TSK-1578)', async () => {
+  it('is nothing for a repository that is not on GitHub or refused, and says why (KJC-TSK-1578)', async () => {
     const said = [];
     const log = { warn: (m) => said.push(m) };
     const gitlab = async (cmd) => ({ exitCode: 0, stdout: cmd === 'git' ? 'https://gitlab.com/a/b.git' : 'tok' });
-    const noGh = async (cmd) => (cmd === 'git' ? run(cmd, []) : { exitCode: 1, stdout: '' });
     expect(await openSession('/w/x', { fetch: network().fetch, run: gitlab, now: () => 0, log })).toBeNull();
-    expect(await openSession('/w/kc', { fetch: network().fetch, run: noGh, now: () => 0, log })).toBeNull();
     expect(await openSession('/w/kc', { fetch: network({ joinStatus: 403 }).fetch, run, now: () => 0, log })).toBeNull();
     expect(said).toEqual([
       '[room] /w/x: its origin is not a GitHub repository',
-      '[room] /w/kc: gh gives no token',
       '[room] /w/kc: the room of manufosela/karajan-code refused it (HTTP 403)',
     ]);
+  });
+
+  it('fails, to be tried again, for a passing reason (KJC-TSK-1579)', async () => {
+    const noGh = async (cmd) => (cmd === 'git' ? run(cmd, []) : { exitCode: 1, stdout: '' });
+    await expect(openSession('/w/kc', { fetch: network().fetch, run: noGh, now: () => 0 })).rejects.toThrow('gh gives no token');
+    await expect(openSession('/w/kc', { fetch: network({ joinStatus: 503 }).fetch, run, now: () => 0 })).rejects.toThrow('HTTP 503');
   });
 });
