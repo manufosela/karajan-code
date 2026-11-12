@@ -28,6 +28,15 @@ function weakening(rule, approved) {
 export const shape = (rule) => JSON.stringify([rule.kind, rule.text, rule.when ?? null, rule.reason ?? null]);
 
 /**
+ * KJC-BUG-0568: unchanged means the same shape AND the same source. The source decides whether the
+ * rule is installed in the versioned file or the local one, so moving it is a change.
+ */
+export const isUnchanged = (rule, approved) => approved !== undefined && shape(rule) === shape(approved) && rule.source === approved.source;
+
+/** A line saying where a rule moves when its source changed, or none. */
+const moved = (rule, approved) => (approved && rule.source !== approved.source ? [`    source: ${approved.source ?? "none"} → ${rule.source ?? "none"}`] : []);
+
+/**
  * @param {object[]} proposed the rules of a checked proposal
  * @param {object[]} current the rules approved today (both files)
  * @param {Set<string>} local ids that go to the unversioned file
@@ -37,14 +46,14 @@ export const shape = (rule) => JSON.stringify([rule.kind, rule.text, rule.when ?
  */
 export function approvalView(proposed, current, local, files, { all = false } = {}) {
   const approved = new Map(current.map((rule) => [rule.id, rule]));
-  const unchanged = all ? [] : proposed.filter((rule) => approved.has(rule.id) && shape(rule) === shape(approved.get(rule.id)));
+  const unchanged = all ? [] : proposed.filter((rule) => isUnchanged(rule, approved.get(rule.id)));
   if (unchanged.length) {
     const same = new Set(unchanged.map((rule) => rule.id));
     const changes = approvalView(proposed.filter((rule) => !same.has(rule.id)), current.filter((rule) => !same.has(rule.id)), local, files, { all: true });
     return [...changes, `${unchanged.length} rule(s) unchanged from what is approved today, not listed: kj rules approve --all shows them.`];
   }
   const where = (rule) => (local.has(rule.id) ? `${files.unversioned}, not versioned` : files.versioned);
-  const shown = (rule) => [`${rule.id}  ${rule.kind}  → ${where(rule)}`, `    ${rule.text}`, `    ${compiled(rule)}`];
+  const shown = (rule) => [`${rule.id}  ${rule.kind}  → ${where(rule)}`, `    ${rule.text}`, `    ${compiled(rule)}`, ...moved(rule, approved.get(rule.id))];
   const weakened = proposed.map((rule) => ({ rule, how: weakening(rule, approved.get(rule.id)) })).filter(({ how }) => how);
   const seen = new Set(weakened.map(({ rule }) => rule.id));
   const rest = proposed.filter((rule) => !seen.has(rule.id));
@@ -55,7 +64,7 @@ export function approvalView(proposed, current, local, files, { all = false } = 
   const block = (title, lines) => (lines.length ? [title, ...lines, ""] : []);
   return [
     ...block(`⚠ ${weakened.length} rule(s) LOSE or CHANGE force against what is approved today:`, weakened.flatMap(({ rule, how }) => [
-      `${rule.id}  ${how}  → ${where(rule)}`, `    ${rule.text}`, `    was: ${compiled(approved.get(rule.id))}`, `    now: ${compiled(rule)}`,
+      `${rule.id}  ${how}  → ${where(rule)}`, `    ${rule.text}`, `    was: ${compiled(approved.get(rule.id))}`, `    now: ${compiled(rule)}`, ...moved(rule, approved.get(rule.id)),
     ])),
     ...block(`${ungated.length} rule(s) with NO effective gate: nothing is blocked on them.`, ungated.flatMap(shown)),
     ...block(`${gates.length} ${GATE} gate(s):`, gates.flatMap(shown)),

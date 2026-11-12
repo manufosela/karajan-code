@@ -12,7 +12,7 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { runOneShotReview } from "../review/one-shot-review.js";
-import { shape } from "../rules/approval-view.js";
+import { isUnchanged } from "../rules/approval-view.js";
 import { loadRules, PROPOSAL_FILE, rulesCheck } from "./rules.js";
 
 const TASK = [
@@ -52,9 +52,6 @@ const SCOPE = [
   "gone from the MD at its `source`: report it as blocking if that text is still there.",
 ].join("\n");
 
-// The source decides whether a rule is installed in the versioned file or the local one: moving it is a change.
-const unchanged = (rule, approved) => approved !== undefined && shape(rule) === shape(approved) && rule.source === approved.source;
-
 /**
  * What the reviewer reads of a proposal: its new and changed rules, and the installed rules it removes, whole.
  * @param {object[]} rules the rules of the checked proposal
@@ -63,7 +60,7 @@ const unchanged = (rule, approved) => approved !== undefined && shape(rule) === 
  */
 export function scopeOf(rules, installed) {
   const before = new Map(installed.map((rule) => [rule.id, rule]));
-  const changed = rules.filter((rule) => !unchanged(rule, before.get(rule.id)));
+  const changed = rules.filter((rule) => !isUnchanged(rule, before.get(rule.id)));
   const kept = new Set(rules.map((rule) => rule.id));
   return { changed, removed: installed.filter((rule) => !kept.has(rule.id)) };
 }
