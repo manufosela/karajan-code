@@ -18,6 +18,8 @@ Accepted by the maintainer on 2026-11-11.
 
 5. Decided by the maintainer on 2026-11-12: the own status is published as a status message on the issue of each HU in progress, at most once an hour while an agent works on it, and once more when it stops. The board daemon posts it through kj link, so the rules of use and the privacy scan of ADR 0043 apply; KJ_LINK_STATUS=off turns it off.
 
+Points 1 and 3 are replaced by ADR 0056 (2026-11-12): one repository is one factory, and the teammates' agents arrive live, board to board.
+
 Out of scope: the ceremonies of the Senescal (a later ADR) and any live event stream between machines.
 
 ## Open questions
