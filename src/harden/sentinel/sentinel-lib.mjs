@@ -246,19 +246,46 @@ const baseHoldsWork = (files, top) => {
     return execSync("git rev-list @{u}..HEAD", { cwd: top, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== "";
   } catch { return true; }
 };
-// `top` is the tree the recorded paths are relative to: ROOT, or another lane (ADR 0034).
+// HU-4003: the bases a lane's work must reach: origin/<branch> on a base branch; else the remote's
+// default branch as git keeps it locally (origin/HEAD, never the network); with no origin/HEAD,
+// every base origin has, so none is guessed. None of them there: [], and the work counts as pending.
+const laneBases = (top, branch) => {
+  const git = (args) => spawnSync("git", ["-C", top, ...args], { encoding: "utf8" });
+  const has = (ref) => git(["rev-parse", "--verify", "-q", ref]).status === 0;
+  const remote = (b) => "refs/remotes/origin/" + b;
+  if (BASE_BRANCHES.has(branch)) return [remote(branch)].filter(has);
+  const head = git(["symbolic-ref", "-q", "refs/remotes/origin/HEAD"]);
+  const named = head.status === 0 ? head.stdout.trim() : "";
+  return (named ? [named] : [...BASE_BRANCHES].map(remote)).filter(has);
+};
+// HU-4003 (KJC-BUG-0562): the session's record lasts the whole session, so its sources count only
+// while one is still pending in `top`: uncommitted (untracked included), or committed on HEAD and
+// not on one of the lane's bases. Git matches the recorded paths itself (literal pathspecs) and only
+// says whether any is there: no name is parsed back, so none git would print otherwise (one holding
+// a newline) slips past. A git error, or no base to measure against, counts as pending.
+const holdsPendingSource = (files, top, bases) => {
+  if (!bases.length) return true;
+  const git = (args) => spawnSync("git", ["--literal-pathspecs", "-C", top, ...args, "--", ...files], { encoding: "utf8" });
+  const untracked = git(["ls-files", "--others", "--exclude-standard"]);
+  if (untracked.status !== 0 || untracked.stdout !== "") return true;
+  // --quiet exits 1 on a difference; an error (128, or no status) is not 0 either, so it counts too.
+  return [["HEAD"], ...bases.map((b) => [b + "...HEAD"])].some((revs) => git(["diff", "--quiet", ...revs]).status !== 0);
+};
+// `top` is the tree the recorded paths are relative to: for the session's own record, its lane
+// (HU-4003: where posttooluse records it, ROOT unless the host moved it), or another lane (ADR 0034).
 // laneViolations: those of every other lane the session wrote in, each named by its lane.
 export const laneViolations = (s) => Object.entries(s?.lanes ?? {})
   .flatMap(([top, rec]) => violations(rec, branchOf(top), [], top).map((x) => "[" + top + "] " + x));
 // KJC-BUG-0279/0523: a path outside the repository (empty, "..", "../…" or absolute on either
 // platform: "/x", or "C:/x" for a file on another Windows drive, separators already "/") is not one of its files.
 export const insideRepo = (rel) => Boolean(rel) && rel !== ".." && !rel.startsWith("../") && !posix.isAbsolute(rel) && !win32.isAbsolute(rel);
-export const violations = (rec, branch, pending = pendingMoves(rec), top = ROOT) => {
+export const violations = (rec, branch, pending = pendingMoves(rec), top = laneTop()) => {
   const v = pending.map(pendingText);
   // KJC-BUG-0523: a state from an older harness may still hold paths outside; only the inside ones are judged.
   const s = rec && { edited_sources: (rec.edited_sources || []).filter(insideRepo), edited_tests: (rec.edited_tests || []).filter(insideRepo) };
   if (!s || !s.edited_sources.length) return v;
   if (bootstrapPhase()) return v;
+  if (!holdsPendingSource(s.edited_sources, top, laneBases(top, branch))) return v;
   if (BASE_BRANCHES.has(branch)) { if (baseHoldsWork(s.edited_sources, top)) v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion"); }
   else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
   if (!s.edited_tests.length && sessionAddsCode(s, top)) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");

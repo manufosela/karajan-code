@@ -884,6 +884,14 @@ describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
     run(postScript, editTool(path.join(lane, "tests", "x.test.js")));
     expect(run(stopScript, { session_id: "s1" }).status).toBe(0);
   });
+  // HU-4003: the session's own sources are judged in the lane the host put it in, where they were written.
+  it("the Stop gate judges the session's own sources in its lane, not in the start checkout", () => {
+    free();
+    execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: dir }); // the start checkout looks merged
+    run(postScript, { ...laneEdit(), cwd: lane });
+    expect(state().sessions.s1.edited_sources).toEqual(["src/x.js"]);
+    expect(run(stopScript, { session_id: "s1", cwd: lane }).stderr).toMatch(/'HEAD' no referencia ninguna card/);
+  });
 });
 
 describe("installSentinelHooks settings merge", () => {

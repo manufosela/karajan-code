@@ -15,6 +15,7 @@ import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, mergedBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
 import { archiveKjState } from "../hu/lane-kj-state.js";
+import { pruneLaneRecord } from "../harden/sentinel-lane-state.js";
 import { clearLaneNote, noteLine, writeLaneNote } from "../hu/lane-note.js";
 import { stopBootstrap } from "../rag/bootstrap-index.js";
 import { catchUpLine } from "../rag/lane-catchup.js";
@@ -155,9 +156,11 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     // A missing base must not block removing a clean lane: the branch is kept, with its remedy.
     const ahead = branch ? await commitsNotIn({ git, base, ref: branch }).catch(() => null) : 0;
     archiveKjState(wtPath, path.join(mainCheckout(projectDir), ".karajan", "retired-lanes", slug)); // KJC-TSK-1477
+    const laneTops = [...new Set([wtPath, fs.realpathSync(wtPath)])]; // HU-4003: before the lane is gone
     // Only setup files left (checked above): git still calls them untracked, so the remove is forced.
     await git(["worktree", "remove", ...(flags.force || status.trim() ? ["--force"] : []), wtPath]);
     clearLaneNote(mainCheckout(projectDir), slug);
+    pruneLaneRecord(mainCheckout(projectDir), laneTops); // HU-4003: a removed lane holds nothing pending
     // -D after our own check: -d measures against HEAD/upstream, not origin/<base>. Never the base itself.
     const branchDeleted = Boolean(branch) && branch !== baseName && (ahead === 0 || Boolean(flags.force));
     if (branchDeleted) await git(["branch", "-D", branch]);
