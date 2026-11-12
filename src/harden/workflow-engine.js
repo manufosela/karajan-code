@@ -16,7 +16,7 @@ import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { publishedPin } from "./published-pin.js";
 import { phpInputs, qualityInputs } from "./quality-inputs.js";
-import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
+import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
 // listens to pull_request, the new one to pull_request_target), so policy-check never reports.
@@ -137,7 +137,8 @@ export function installWorkflows({
     ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") }
     : null;
   const steward = stewardActionOn(projectDir) ?{ file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") } : null;
-  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
+  const verdicts = { file: "kj-verdicts.yml", blockId: "wf-verdicts", body: verdictsWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") };
+  const all = [...WORKFLOWS, verdicts, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
   const results = [];
   for (const wf of all.map((w) => ({ ...w, body: onBaseBranch(w.body, baseBranch) }))) {
     const target = join(dir, wf.file);

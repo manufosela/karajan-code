@@ -76,6 +76,20 @@ export const WORKFLOWS = [
   { file: "kj-no-ai-attribution.yml", blockId: "wf-no-ai", body: NO_AI_ATTRIBUTION_WORKFLOW },
 ];
 
+// The judge: a repo that ships kj itself (bin/kj.js on the base branch) judges with the
+// base's kj, checked out apart; any other with the pinned published kj, installed apart.
+const judgeLines = (kjVersion, kjName) => [
+  '          if git cat-file -e "origin/${BASE_REF}:bin/kj.js" 2>/dev/null; then',
+  '            git worktree add --detach "$JUDGE" "origin/${BASE_REF}"',
+  '            (cd "$JUDGE" && npm ci --ignore-scripts)',
+  '            KJ="node $JUDGE/bin/kj.js"',
+  "          else",
+  '            mkdir -p "$JUDGE"',
+  `            (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund ${kjName}@${kjVersion})`,
+  `            KJ="node $JUDGE/node_modules/${kjName}/bin/kj.js"`,
+  "          fi",
+];
+
 // PL-C (KJC-TSK-0735) — tier C del ADR 0001: re-check merge-blocking en CI
 // (cubre el hook local manipulado). Solo se siembra con policy declarada;
 // npx PINEADO a la versión del kj que corrió harden — jamás @latest en CI.
@@ -109,18 +123,48 @@ export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   '          PR_TREE="$RUNNER_TEMP/kj-pr"',
   '          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"',
   '          git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/kj-pr-head"',
-  '          if git cat-file -e "origin/${BASE_REF}:bin/kj.js" 2>/dev/null; then',
-  '            git worktree add --detach "$JUDGE" "origin/${BASE_REF}"',
-  '            (cd "$JUDGE" && npm ci --ignore-scripts)',
-  '            KJ="node $JUDGE/bin/kj.js"',
-  "          else",
-  '            mkdir -p "$JUDGE"',
-  `            (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund ${kjName}@${kjVersion})`,
-  `            KJ="node $JUDGE/node_modules/${kjName}/bin/kj.js"`,
-  "          fi",
+  ...judgeLines(kjVersion, kjName),
   '          git worktree add --detach "$PR_TREE" origin/kj-pr-head',
   '          cd "$PR_TREE"',
   '          $KJ policy check --range "origin/${BASE_REF}...HEAD" --strict',
+].join("\n");
+
+// HU-4012: every PR commit carries its published cross-AI verdict (kj review --publish-pr);
+// a commit made with --no-verify skipped the review and this check names it. The verdict is
+// published as a PR review, so a submitted review reruns it. The PR is only data.
+export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code") => [
+  "name: Cross-AI verdicts",
+  "on:",
+  "  pull_request:",
+  "    types: [opened, synchronize, reopened]",
+  "  pull_request_review:",
+  "    types: [submitted]",
+  "permissions:",
+  "  contents: read",
+  "  pull-requests: read",
+  "jobs:",
+  "  verdicts:",
+  // Forks and bots hold no kj verdicts to publish: the check is for the team's own branches.
+  "    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot'",
+  "    runs-on: ubuntu-latest",
+  "    steps:",
+  `      - uses: ${PINNED_ACTIONS.checkout}`,
+  "        with:",
+  "          fetch-depth: 0",
+  `      - uses: ${PINNED_ACTIONS.setupNode}`,
+  "        with:",
+  "          node-version: 22",
+  "      - name: Every commit has its published cross-AI verdict",
+  "        env:",
+  // Set on pull_request and pull_request_review alike (github.base_ref is empty on a review).
+  "          BASE_REF: ${{ github.event.pull_request.base.ref }}",
+  "          PR: ${{ github.event.pull_request.number }}",
+  "          GH_TOKEN: ${{ github.token }}",
+  "        run: |",
+  '          JUDGE="$RUNNER_TEMP/kj-judge"',
+  '          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"',
+  ...judgeLines(kjVersion, kjName),
+  '          $KJ review --verify-pr "$PR"',
 ].join("\n");
 
 const header = (steps) =>
