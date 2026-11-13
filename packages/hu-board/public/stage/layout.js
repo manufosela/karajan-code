@@ -46,6 +46,12 @@ export const postX = (id) => (POSTS.indexOf(id) - (POSTS.length - 1) / 2) * POST
 /** How wide the hall is with `n` workshops, so the camera can fit it. */
 export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + 3.5));
 
+/**
+ * KJC-TSK-1592: how far a drag may walk the view over a hall of `n` workshops: its width, and its
+ * depth from the door to the front of the last row, with room for that row's nameplates.
+ */
+export const hallSpan = (n) => ({ width: hallWidth(n), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z });
+
 /** Where kaRAGan, Karajan and kaWATCHan wait: at the ends of the row of posts. */
 const END = ((POSTS.length + 1) / 2) * POST.spacing;
 export const CREW = {

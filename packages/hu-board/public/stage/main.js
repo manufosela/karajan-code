@@ -3,11 +3,11 @@
 // nothing is simulated. The live cues come from the director (KJC-TSK-1399).
 import * as THREE from 'three';
 import { buildFactory, createFactory, framing } from './factory.js';
-import { hallDepth, hallWidth } from './layout.js';
+import { hallDepth, hallSpan, hallWidth } from './layout.js';
 import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
 import { boardToken, withToken } from './token.js';
-import { listenZoom } from './zoom.js';
+import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
 import { panelEntries, panelHref, panelLine } from './project-panel.js';
@@ -37,6 +37,8 @@ function buildScene(lanes) {
   // The camera pulls back as the hall grows or the screen narrows, so every workshop
   // fits; the wheel or a pinch brings it closer or further (KJC-TSK-1433).
   let zoom = 1;
+  // KJC-TSK-1592: how far a drag has walked the view from the middle of the hall.
+  let pan = { x: 0, z: 0 };
   const refit = () => {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
@@ -44,7 +46,8 @@ function buildScene(lanes) {
     const n = hall.count();
     // The status lines sit over the bottom of the view, so the front row needs some room below it.
     const deep = hallDepth(n) > 0 ? hallDepth(n) + 10 : 0;
-    target.z = HALL_CENTRE_Z + deep / 2;
+    target.x = pan.x;
+    target.z = HALL_CENTRE_Z + deep / 2 + pan.z;
     camera.position.copy(target).add(framing(Math.max(hallWidth(n), deep * camera.aspect), camera.aspect).multiplyScalar(zoom));
     camera.lookAt(target);
     camera.updateProjectionMatrix();
@@ -52,6 +55,12 @@ function buildScene(lanes) {
   };
   addEventListener('resize', refit);
   listenZoom(canvas, (k) => { zoom = k; refit(); });
+  // KJC-TSK-1592: dragging walks over the hall at any zoom, as on the map, and stops at its edge.
+  listenPan(canvas, (dx, dy) => {
+    const metresPerPx = (2 * camera.position.distanceTo(target) * Math.tan((camera.fov * Math.PI) / 360)) / innerHeight;
+    pan = panTarget(pan, dx, dy, metresPerPx, hallSpan(hall.count()));
+    refit();
+  });
   refit();
   return { scene, pieces, crew, stand, hall, wall, releaseTable, versionBoard, camera, render, refit };
 }
