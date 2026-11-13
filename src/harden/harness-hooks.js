@@ -134,7 +134,7 @@ export function wiringState({ projectDir, entries, mainOf = laneMainCheckout }) 
  * moveShared: false leaves a versioned settings.json as it is (KJC-BUG-0537: a lane wires
  * itself without editing the branch's files; kj harden moves kj's hooks out and commits it).
  */
-export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj = isSea() || !kjHookOnPath(), moveShared = true }) {
+export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj = isSea() || !kjHookOnPath(), moveShared = true, gitIgnore = true }) {
   const settingsPath = join(projectDir, LOCAL_SETTINGS);
   let settings = {};
   if (existsSync(settingsPath)) {
@@ -169,7 +169,7 @@ export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj 
   }
   mkdirSync(join(projectDir, ".claude"), { recursive: true });
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-  ignoreLocalSettings(projectDir);
+  if (gitIgnore) ignoreLocalSettings(projectDir);
   moveOutOfShared(projectDir, entries, moveShared);
   return { wired: true };
 }
@@ -190,11 +190,14 @@ function ignoreLocalSettings(projectDir) {
 
 /** KJC-TSK-1444: a versioned settings.json loses kj's hook commands, and keeps everything else. */
 function moveOutOfShared(projectDir, entries, enabled) {
-  if (!enabled) return;
-  const file = join(projectDir, SHARED_SETTINGS);
+  if (enabled) stripKjHooks(join(projectDir, SHARED_SETTINGS), entries);
+}
+
+/** Take kj's hook commands for entries out of a settings file, keeping everything else. @returns {boolean} changed */
+export function stripKjHooks(file, entries) {
   let shared;
-  try { shared = JSON.parse(readFileSync(file, "utf8")); } catch { return; }
-  if (!shared?.hooks || typeof shared.hooks !== "object") return;
+  try { shared = JSON.parse(readFileSync(file, "utf8")); } catch { return false; }
+  if (!shared?.hooks || typeof shared.hooks !== "object") return false;
   const kj = entries.flatMap(({ event, script }) => {
     const guard = script.replace(/\.mjs$/, "");
     const blocking = event === "PreToolUse";
@@ -210,6 +213,7 @@ function moveOutOfShared(projectDir, entries, enabled) {
     else delete shared.hooks[event];
   }
   if (changed) writeFileSync(file, `${JSON.stringify(shared, null, 2)}\n`);
+  return changed;
 }
 
 /**

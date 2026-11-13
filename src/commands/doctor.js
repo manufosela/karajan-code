@@ -44,6 +44,7 @@ import { getOrphanChecks } from "../checks/orphans.js";
 import { getMethodChecks } from "../checks/method.js";
 import { getTaskManagerChecks } from "../checks/task-manager.js";
 import { getAgentRulesChecks } from "../checks/agent-rules.js";
+import { transversalWiringReport } from "../harden/transversal-install.js";
 
 /**
  * Build the list of Check objects applicable to the current config.
@@ -156,12 +157,15 @@ export async function doctorCommand({ config, checkOnly = false, yes = false, js
   // KJC-TSK-0756 (campo, Pedro): el guarantee level del host actual se
   // DECLARA en runtime — la doctrina no vive solo en el README.
   report.guarantee = collectGuaranteeFacts({ projectDir: config?.projectDir || process.cwd() });
+  // ADR 0055 step 4: in a marked transversal parent, its wiring and each child repo's.
+  report.transversal = transversalWiringReport(config?.projectDir || process.cwd());
 
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     printHuman(report, { verbose });
     printGuaranteeLevel(report.guarantee);
+    printTransversal(report.transversal);
   }
 
   return hasBlockingFailure(report) ? 1 : 0;
@@ -176,6 +180,13 @@ function printGuaranteeLevel(g) {
   console.log(`  ${mark(g.tierA)} A tool-time (Sentinel en el turno): ${g.tierA.reason}`);
   console.log(`  ${mark(g.tierB)} B commit-time (git gates, el SUELO): ${g.tierB.reason}`);
   console.log(`  ${mark(g.tierC)} C merge-time (re-check en CI): ${g.tierC.reason}`);
+}
+
+function printTransversal(t) {
+  if (!t) return;
+  console.log();
+  console.log(`Transversal parent: ${t.wired ? "Sentinel wired" : "not wired (run kj harden here)"}`);
+  for (const c of t.children) console.log(`  ${c.wired ? "wired    " : "NOT wired"} ${c.repo}${c.wired ? "" : " (run kj harden in it)"}`);
 }
 
 function hasBlockingFailure(report) {

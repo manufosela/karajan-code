@@ -28,6 +28,7 @@ import { HOOK_STEPS, pinnedCommands } from "../harden/pinned-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
+import { installTransversalWiring, isTransversalParent, uninstallTransversalWiring } from "../harden/transversal-install.js";
 import { installSandbox } from "../harden/sandbox.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { detectPackageManager, installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
@@ -160,8 +161,11 @@ export async function hardenCommand({
   // (kj init captures them before writing its own). What is dirty NOW is the person's.
   contractBefore = null,
   fetchFn = fetch,
+  uninstallTransversal = false,
   logger = console,
 } = {}) {
+  const transversal = hardenTransversal({ projectDir, uninstallTransversal, dryRun, logger });
+  if (transversal) return transversal;
   const dirtyBefore = contractBefore ?? contractChanges(projectDir);
   const repoCfg = readHardenConfig(projectDir);
   const onlyDirs = [...(repoCfg.only ?? []), ...only];
@@ -240,6 +244,22 @@ export async function hardenCommand({
   printHardenSummary({ out, result, profile, dryRun, logger });
   if (!dryRun) await afterInstall({ out, result, projectDir, profile, commitSupervisor, kjVersion, logger });
   return out;
+}
+
+/** ADR 0055 step 4: a marked transversal parent gets only the hook wiring. null = not one, carry on. */
+function hardenTransversal({ projectDir, uninstallTransversal, dryRun, logger }) {
+  const parent = isTransversalParent(projectDir);
+  if (!parent && !uninstallTransversal) return null;
+  if (!parent) {
+    const error = `--uninstall-transversal solo vale en un padre marcado con .claude-transversal (no ${projectDir})`;
+    logger.error?.(`kj harden: ${error}`);
+    return { ok: false, error };
+  }
+  if (dryRun) {
+    logger.info?.(`kj harden (dry-run): padre transversal, ${uninstallTransversal ? "retiraría" : "cablearía"} los hooks de kj en .claude/settings.local.json`);
+    return { ok: true, transversal: true, dryRun: true };
+  }
+  return (uninstallTransversal ? uninstallTransversalWiring : installTransversalWiring)({ parent: projectDir, logger });
 }
 
 /** The git hooks and, from standard up, the tool gate, the Sentinel and the optional sandbox. */
