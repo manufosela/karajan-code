@@ -5,9 +5,9 @@
 // when the turn stops. Names only: never a tool's input. Never blocks, never throws.
 // Copied byte for byte into .karajan/harness.
 import process from "node:process";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 export const BEAT_MS = 60 * 1000;
 const SUBAGENT_TOOLS = new Set(["Agent", "Task"]);
@@ -47,15 +47,34 @@ export function hostTrace(beats, call, phase, now) {
 // [top-level, common git dir] of the work tree at `dir`.
 const gitWhere = (dir) => execFileSync("git", ["-C", dir, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().split("\n");
 
+// HU-4110 (ADR 0034 item 1): a Bash call's target dir, `git -C <dir>` or `--prefix <dir>`.
+const BASH_TARGET = /(?:^|[\s;&|(])(?:git\s+-C|--prefix)(?:\s+|=)([^\s;&|()'"]+)/;
+/** The path a call touches: an edit's file, a Bash git -C / --prefix target, else its cwd. */
+const placeOf = (call) => {
+  const input = call?.tool_input ?? {};
+  const cwd = typeof call?.cwd === "string" && isAbsolute(call.cwd) ? call.cwd : null;
+  const bash = call?.tool_name === "Bash" ? BASH_TARGET.exec(String(input.command ?? ""))?.[1] : null;
+  const path = input.file_path || input.notebook_path || bash;
+  if (typeof path !== "string") return cwd;
+  if (isAbsolute(path)) return path;
+  return cwd ? resolve(cwd, path) : null;
+};
+/** The deepest existing directory at or above `p` (a file not written yet resolves to its folder). */
+const dirOf = (p) => {
+  let d = p;
+  while (!(existsSync(d) && statSync(d).isDirectory()) && dirname(d) !== d) d = dirname(d);
+  return d;
+};
+
 /**
- * HU-3809: the lane the call's own cwd is in, when it is a work tree of the same repository
- * as `root`; otherwise `root`. Another repository's folder never receives this repo's trace.
+ * HU-3809, HU-4110: the lane of the path the call touches (see placeOf), when it is a work tree
+ * of the same repository as `root`; otherwise `root`. Another repository never receives this trace.
  */
 export function laneOf(root, call) {
-  const cwd = call?.cwd;
-  if (typeof cwd !== "string" || !isAbsolute(cwd)) return root;
+  const place = placeOf(call);
+  if (!place) return root;
   try {
-    const [top, common] = gitWhere(cwd);
+    const [top, common] = gitWhere(dirOf(place));
     return top && common === gitWhere(root)[1] ? top : root;
   } catch { return root; } // not in a git work tree: the root's trace
 }
