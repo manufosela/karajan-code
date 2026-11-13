@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.21.0: CI checks every verdict and its Sonar proof, and every stack of a monorepo gets its gates (current)
+### v5.22.0: the team agrees on each release, the Sentinel watches a folder of repositories, and kj stage shows your teammates' agents (current)
+
+A version is now agreed before it is published. `kj release propose` opens an issue that asks everyone with work in it; each answers with `kj release ack` after checking the candidate, anyone can hold it, silence after 4 hours counts as no objection, and a person signs the approval on their phone with `kj release approve`. CI publishes only what `kj release verify` accepts. A session opened in a parent folder that holds several repositories is now governed too: each tool call is judged and recorded as the child repository it touches, and a call that spans two repositories is refused. `kj harden` in the parent wires it, and `kj doctor` reports it. `kj harden` also generates `kj-secrets.yml`, which scans the lines each PR adds for credentials with the base branch's kj, and `kj policy check` reads git attributes from the base, so a PR cannot hide its own lines from the budget. kj stage joins the boards of one repository in a live room, so each person sees the agents of their teammates working. Run `kj harden` and have it sealed to bring in the secrets scan.
+
+### v5.21.0: CI checks every verdict and its Sonar proof, and every stack of a monorepo gets its gates
 
 CI checks that every commit of a PR carries its cross-AI verdict and, when it changes code, its Sonar proof, so `git commit --no-verify` no longer gets work past review. `kj harden` generates the check (`kj-verdicts.yml`). A monorepo gets hooks and a CI quality job for each of its stacks, run only when a change touches that stack. Kotlin projects on Gradle and Swift projects join the stacks kj knows: their lint and tests come from what the build declares, and their code counts for the tests and Sonar gates, with jacoco coverage. `kj rules review` and `kj rules approve` show only what a proposal changes, removed rules and moved ones included. Run `kj harden` and have it sealed to bring in the new check.
 
