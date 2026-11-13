@@ -4,6 +4,7 @@
 import { BoardRejectedError } from "./board-errors.js";
 import { gh, runCommand } from "./github-board.js";
 import { CEREMONY_LABEL, checkKind, kindLabel, titleFor } from "./ceremonies.js";
+import { discussionCeremonies, probeDiscussions } from "./discussions.js";
 
 /** The owner's decision (D4 of the spec): the one place the polling interval lives. */
 export const DEFAULT_POLL_SECONDS = 60;
@@ -31,10 +32,19 @@ const checkLabel = (label) => {
   if (typeof label !== "string" || label.length < 1 || label.length > MAX_LABEL || [...label].some((ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127)) throw new TypeError(`label ${JSON.stringify(label)} must be 1 to ${MAX_LABEL} characters, no control characters`);
 };
 
+const checkRepo = (repo) => {
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) throw new TypeError(`repo ${JSON.stringify(repo)} must be owner/name`);
+};
+/** HU-3802: probes the credential first; Discussions carry the ceremonies only when the probe says so. */
+export const createGithubMessageAdapter = async (opts) => {
+  checkRepo(opts.repo);
+  const probe = await probeDiscussions({ repo: opts.repo, run: opts.run ?? runCommand });
+  return { ...createGithubMessageReader({ ...opts, discussions: probe.ceremonies }), ceremoniesCause: probe.cause };
+};
 // The write side goes one call at a time, a pause apart, and never retries: a repeated POST can post twice.
 // `sleep` and `now` are injectable so tests do not wait.
-export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now }) {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) throw new TypeError(`repo ${JSON.stringify(repo)} must be owner/name`);
+export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now, discussions = false }) {
+  checkRepo(repo);
   const api = async (path) => JSON.parse(await gh(run, ["api", path]));
   const paged = async (path, query = "") => {
     const all = [];
@@ -71,7 +81,7 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
   };
   return {
     // Edits show up as a newer updated_at (the `since` filter is on it), so a reader sees the message again.
-    capabilities: { tasks: true, reviews: true, labels: true, ceremonies: false, notice: false, edit_history: true },
+    capabilities: { tasks: true, reviews: true, labels: true, ceremonies: discussions === true, notice: false, edit_history: true },
     guarantees: { stableMessageId: true, serverTime: true },
     async publish(thread, message) {
       checkThread(thread);
@@ -158,5 +168,6 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
       if (!Number.isInteger(remaining)) throw new BoardRejectedError("gh api rate_limit gave no core quota");
       return { minPollIntervalMs: DEFAULT_POLL_SECONDS * 1000, minWritePauseMs: WRITE_PAUSE_MS, quotaLeft: remaining };
     },
+    ...(discussions === true ? discussionCeremonies({ repo, run, write, now }) : {}), // replaces the issue path above
   };
 }
