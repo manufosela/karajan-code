@@ -52,10 +52,11 @@ describe('two-level nav (KJC-TSK-0820)', () => {
     }
   });
 
-  // KJC-TSK-1456 (ADR 0049): the map shows every factory, so it belongs to no one project.
-  it('the map of every factory sits in the generic top bar, not in the project sub-bar', () => {
-    expect(headerNav).toContain('href="/stage.html?map=1"');
-    expect(projectNav).not.toContain('map=1');
+  // KJC-TSK-1456 (ADR 0049): the factories belong to no one project. KJC-TSK-1590 (the maintainer,
+  // 2026-11-13): the button opens the projects panel, each factory alone; the map is a link away.
+  it('the factories sit in the generic top bar, not in the project sub-bar', () => {
+    expect(headerNav).toMatch(/href="\/stage\.html"[^>]*>Factories</);
+    expect(projectNav).not.toContain('>Factories<');
   });
 
   it('project-scoped buttons carry their own visual level (nav-btn--project)', () => {
