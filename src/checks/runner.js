@@ -233,7 +233,9 @@ function shouldAttemptRemediation(entry) {
 }
 
 function resolveStatusFromDetect(check, result) {
-  if (result.ok) return result.severity === "warn" ? STATUS.WARN : STATUS.OK;
+  // `severity` on a passing check is only a label for its failure mode; an
+  // explicit `advisory` flag is what makes a passing check show as WARN.
+  if (result.ok) return result.advisory === true ? STATUS.WARN : STATUS.OK;
   const severity = result.severity || "fail";
   if (severity === "warn") return STATUS.WARN;
   if (severity === "info") return STATUS.OK; // info is always non-failing

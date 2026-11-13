@@ -69,6 +69,7 @@ export function createNodeVersionCheck(opts = {}) {
         return {
           ok: true,
           severity: "warn",
+          advisory: true,
           detail: `${raw} works; Node ${RECOMMENDED_NODE_MAJOR} is recommended: Node 22 support ends in April 2027 and kj 6.0 will require ${RECOMMENDED_NODE_MAJOR}`,
           fix: `Upgrade to Node ${RECOMMENDED_NODE_MAJOR}: ${NODE_UPGRADE_GUIDE}`,
         };
