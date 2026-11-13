@@ -8,6 +8,7 @@ import { createAgentsFloor, typeOn } from './agents-floor.js';
 import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
 import { createBenchNotes } from './bench-notes.js';
+import { atHome } from './cards.js';
 import { turnAt } from './workers.js';
 import { blinkAt, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
@@ -197,7 +198,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       conduct(now);
       tags.push(...movePieces(now));
       couriers.frame(now, hall.xOf, hall.zOf);
-      benchNotes.frame(state.cards ?? [], hall.xOf, couriers.carried(), hall.zOf);
+      benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, couriers.carried(), hall.zOf);
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;

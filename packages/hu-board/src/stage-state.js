@@ -16,7 +16,7 @@ import { sessionName, withSessionName } from './session-names.js';
 import { pendingMail } from './stage-mail.js';
 import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, methodEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
-import { mergeCards, withCard } from '../public/stage/cards.js';
+import { atHome, mergeCards, withCard } from '../public/stage/cards.js';
 import { laneStatus } from '../public/stage/lane-status.js';
 
 /** A start older than this with no end is a run that died without saying so, not work. */
@@ -121,6 +121,7 @@ export function laneStates(projectDir, { branchOf = branchFacts, readers = {}, .
   // KJC-TSK-1525: the release the "Ready to release" table counts from, once, on the main checkout.
   lanes[0] = { ...lanes[0], release: lastRelease(projectDir) };
   // KJC-TSK-1539: a card's lane can be told in another lane's trace, so each lane reads the whole board.
-  const cards = mergeCards(lanes.map((l) => l.cards));
+  // KJC-TSK-1586: each card in the lane its id names, whichever lane moved it.
+  const cards = atHome(mergeCards(lanes.map((l) => l.cards)), lanes.map((l) => l.lane));
   return lanes.map((l) => ({ ...l, status: laneStatus(l, cards) }));
 }
