@@ -3,6 +3,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { PIECE_WALK_MS, REVIEW_MAX_MS, VISIT_MS, VISIT_SPOTS, pieceAt, withVisit } from '../public/stage/piece-visit.js';
+import { deskParts } from '../public/stage/desk-layout.js';
+import { PLINTH_WIDTH } from '../public/stage/layout.js';
+import { spotOf } from '../public/stage/workers.js';
 
 const xOf = (lane) => ({ a: 10, b: -10 })[lane];
 const zOf = () => 2;
@@ -93,6 +96,23 @@ describe('pieceAt', () => {
       const visits = withVisit({}, review('start'), 0);
       expect(at(visits, 'review', REVIEW_MAX_MS + 2 * PIECE_WALK_MS)).toMatchObject({ ...home, away: false });
     });
+  });
+
+  // KJC-TSK-1594 (the maintainer, 2026-11-13): reviewing, AI review stands beside the agent it reviews.
+  // On the camera's side: on the far one the robots hid it.
+  it('AI review stands at the coder\'s side, towards the camera, clear of it and its desk', () => {
+    const coder = spotOf('coder', 0, undefined, 0);
+    const piece = { x: VISIT_SPOTS.review.dx, z: VISIT_SPOTS.review.dz };
+    const half = PLINTH_WIDTH / 2;
+    expect(Math.abs(piece.x - coder.x)).toBeLessThan(0.3); // at its side, not ahead or behind it
+    expect(piece.z).toBeGreaterThan(coder.z + half); // clear of the robot
+    expect(piece.z - coder.z).toBeLessThan(1.2); // close enough to look at its screen
+    const desk = deskParts()[1];
+    const corners = [-1, 1].flatMap((a) => [-1, 1].map((c) => ({
+      x: desk.x + a * (desk.depth / 2) * Math.sin(desk.yaw) + c * (desk.width / 2) * Math.cos(desk.yaw),
+      z: desk.z + a * (desk.depth / 2) * Math.cos(desk.yaw) - c * (desk.width / 2) * Math.sin(desk.yaw),
+    })));
+    for (const corner of corners) expect(Math.abs(corner.x - piece.x) < half && Math.abs(corner.z - piece.z) < half).toBe(false);
   });
 
   it('puts each piece on a spot of its own, clear of the host, kaRAGan and the Sentinel', () => {
