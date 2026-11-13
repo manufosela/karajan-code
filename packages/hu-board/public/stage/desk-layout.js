@@ -1,21 +1,31 @@
-// KJC-TSK-1589 (asked by the maintainer on 2026-11-13): a workshop's desk, where its agents open
-// their laptops: a top on four legs where the bench was, and a chair behind each seat of the
-// bench (workers.js), where the robot stands. In the workshop's own frame, in metres. Pure:
-// hall.js builds the meshes.
-import { WORKSHOP } from './layout.js';
-import { SEATS } from './workers.js';
+// KJC-TSK-1589 (asked by the maintainer on 2026-11-13): desks on four legs where the agents open
+// their laptops, where the bench was. KJC-TSK-1591 (the maintainer, 2026-11-13): an agent types
+// side on (TYPING_YAW), so each seat has a standing desk of its own, turned with its agent and
+// under its laptop; no chair, which would stand where the next agent does. In the workshop's own
+// frame, in metres. Pure: hall.js builds the meshes.
+import { SCALE } from './layout.js';
+import { SEATS, TYPING_YAW, spotOf } from './workers.js';
 
-// Low enough that the badge on a working robot's chest shows over it (KJC-TSK-1435).
-export const DESK = { width: WORKSHOP.width * 0.8, depth: 0.6, height: 0.35, top: 0.05, z: 0.4, leg: 0.05 };
-const CHAIR = { z: -0.9, seat: 0.2, size: 0.32, back: 0.3 };
+// The laptop opens 1.05 ahead of its robot and 0.72 up, at the robot's scale (laptop.js,
+// agents-floor.js); the top stays just under its base. As wide as the laptop, a little deeper.
+export const DESK = { width: 0.72, depth: 0.34, top: 0.04, leg: 0.04, ahead: 1.05 * SCALE.crew, laptop: 0.35 };
 
-/** Where each part of the desk stands: its top, its legs and the chairs. */
+/** One desk per seat: its centre, its turn, its top and its legs, these in the desk's own frame. */
 export function deskParts() {
+  const height = DESK.laptop - 0.01;
   const inset = (span) => span / 2 - DESK.leg;
-  const legs = [-1, 1].flatMap((sx) => [-1, 1].map((sz) => ({ x: sx * inset(DESK.width), z: DESK.z + sz * inset(DESK.depth) })));
-  return {
-    top: { y: DESK.height - DESK.top / 2, z: DESK.z, width: DESK.width, depth: DESK.depth, thick: DESK.top },
-    legs: legs.map((leg) => ({ ...leg, height: DESK.height - DESK.top, size: DESK.leg })),
-    chairs: SEATS.map((x) => ({ x, z: CHAIR.z, seat: CHAIR.seat, size: CHAIR.size, back: CHAIR.back })),
-  };
+  const legs = [-1, 1].flatMap((sa) => [-1, 1].map((sc) => ({ along: sa * inset(DESK.depth), across: sc * inset(DESK.width) })));
+  return SEATS.map((_, seat) => {
+    const spot = spotOf('host', 0, seat, 0);
+    return {
+      x: spot.x + DESK.ahead * Math.sin(TYPING_YAW),
+      z: spot.z + DESK.ahead * Math.cos(TYPING_YAW),
+      yaw: TYPING_YAW,
+      width: DESK.width,
+      depth: DESK.depth,
+      height,
+      thick: DESK.top,
+      legs: legs.map((leg) => ({ ...leg, height: height - DESK.top, size: DESK.leg })),
+    };
+  });
 }

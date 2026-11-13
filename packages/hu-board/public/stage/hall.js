@@ -51,22 +51,23 @@ const PAD_DIM = 0x161d27;
 const BENCH = 0x5a4a3a;
 const BENCH_DIM = 0x352c24;
 
-/** KJC-TSK-1589: the desk of a workshop, its top on four legs and a chair behind each seat. */
-function desk(wood) {
+/** KJC-TSK-1591: a standing desk at each seat, its top on four legs, turned with its agent. */
+function desks(wood) {
   const group = new THREE.Group();
-  const box = (w, h, d, x, y, z) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wood);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    group.add(mesh);
-  };
-  const { top, legs, chairs } = deskParts();
-  box(top.width, top.thick, top.depth, 0, top.y, top.z);
-  for (const leg of legs) box(leg.size, leg.height, leg.size, leg.x, leg.height / 2, leg.z);
-  for (const chair of chairs) {
-    box(chair.size, 0.04, chair.size, chair.x, chair.seat, chair.z); // the seat
-    box(0.04, chair.seat, 0.04, chair.x, chair.seat / 2, chair.z); // its post
-    box(chair.size, chair.back, 0.04, chair.x, chair.seat + chair.back / 2, chair.z - chair.size / 2); // its back
+  for (const desk of deskParts()) {
+    const one = new THREE.Group();
+    const box = (w, h, d, x, y, z) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wood);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = true;
+      one.add(mesh);
+    };
+    // In the desk's own frame its width runs across (x) and its depth along the agent's way (z).
+    box(desk.width, desk.thick, desk.depth, 0, desk.height - desk.thick / 2, 0);
+    for (const leg of desk.legs) box(leg.size, leg.height, leg.size, leg.across, leg.height / 2, leg.along);
+    one.position.set(desk.x, 0, desk.z);
+    one.rotation.y = desk.yaw;
+    group.add(one);
   }
   return group;
 }
@@ -77,10 +78,10 @@ function workshop(name) {
   const pad = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width, 0.04, WORKSHOP.depth), matte(PAD));
   pad.position.y = 0.02;
   pad.receiveShadow = true;
-  // KJC-TSK-1589: a desk with its chairs where the bench was; one wood material, dimmed as one.
+  // KJC-TSK-1591: a desk at each seat where the bench was; one wood material, dimmed as one.
   const wood = matte(BENCH);
   const { plate, paint } = nameplate(name);
-  group.add(pad, desk(wood), plate);
+  group.add(pad, desks(wood), plate);
   const show = (line, state) => {
     const lit = state === 'working';
     pad.material.color.setHex(lit ? PAD : PAD_DIM);
