@@ -44,6 +44,20 @@ describe("releaseAckCommand", () => {
     expect(res.exitCode).toBe(0);
   });
 
+  it("prints the detail and posts it in <details> before the last, parseable block", async () => {
+    const { base, calls, printed } = setup({ suite: "fail", lane: "none", detail: "FAIL doctor.test.js\nat /home/ana/x" });
+    await releaseAckCommand({ ...base, decision: "ok" });
+    expect(printed.join("\n")).toContain("FAIL doctor.test.js");
+    const body = calls.find((a) => a.includes("--method")).find((a) => a.startsWith("body=")).slice(5);
+    expect(body).toContain("<details>");
+    expect(body).toContain("FAIL doctor.test.js\nat ~/x");
+    expect(body).not.toContain("/home/ana");
+    expect(body.indexOf("</details>")).toBeLessThan(body.indexOf("<!-- kj-release:ack"));
+    expect(body.trimEnd().endsWith("-->")).toBe(true);
+    const answer = parseAnswer(body);
+    expect(answer.check).toEqual({ suite: "fail", lane: "none" });
+  });
+
   it("ok with a failing check posts it and exits 1 explaining the hold", async () => {
     const { base, printed } = setup({ suite: "fail", lane: "none" });
     const res = await releaseAckCommand({ ...base, decision: "ok" });

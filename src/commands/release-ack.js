@@ -1,5 +1,6 @@
 // kj release ack <issue> <decision> (ADR 0057, step 4): answers a release proposal with a compatibility check.
 import { execFileSync } from "node:child_process";
+import { sanitize } from "../environment/issue-report.js";
 import { renderAnswer } from "../release/answers.js";
 import { compatCheck } from "../release/compat-check.js";
 import { parseProposal } from "../release/proposal.js";
@@ -28,6 +29,7 @@ export async function releaseAckCommand({ repo, issue, decision, why, include = 
   const url = (await gh(["api", "--method", "POST", `repos/${repo}/issues/${issue}/comments`, "-f", `body=${renderAnswer(answer)}`, "--jq", ".html_url"])).trim();
   print(url);
   const failed = result.suite === "fail" || result.lane === "fail";
+  if (failed && result.detail) print(sanitize(result.detail));
   if (decision === "ok" && failed) print("The check failed: this ok counts as a hold until a passing answer replaces it.");
   return { url, exitCode: decision === "ok" && failed ? 1 : 0 };
 }

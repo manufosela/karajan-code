@@ -21,11 +21,29 @@ describe("compatCheck", () => {
   it("removes the temporary worktree even when the suite fails", async () => {
     const { calls, run } = fakeRun({ failTest: true });
     const res = await compatCheck({ projectDir: "/p", candidate: "abc", run });
-    expect(res).toEqual({ suite: "fail", lane: "none" });
+    expect(res).toMatchObject({ suite: "fail", lane: "none" });
     const adds = calls.filter((c) => c.args[0] === "worktree" && c.args[1] === "add");
     const removes = calls.filter((c) => c.args[0] === "worktree" && c.args[1] === "remove");
     expect(adds).toHaveLength(1);
     expect(removes).toHaveLength(1);
+  });
+
+  it("installs with npm ci and no --ignore-scripts, and a passing run has no detail", async () => {
+    const { calls, run } = fakeRun();
+    const res = await compatCheck({ projectDir: "/p", candidate: "abc", run });
+    const install = calls.find((c) => c.cmd === "npm" && c.args[0] === "ci");
+    expect(install.args).toEqual(["ci"]);
+    expect(res).toEqual({ suite: "pass", lane: "none" });
+  });
+
+  it("keeps the last 20 lines of a failing test step as detail", async () => {
+    const lines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n");
+    const run = async (cmd, args) => (cmd === "npm" && args[0] === "test" ? { code: 1, stdout: lines, stderr: "boom\n" } : { code: 0, stdout: "0\n" });
+    const res = await compatCheck({ projectDir: "/p", candidate: "abc", run });
+    const detail = res.detail.split("\n");
+    expect(detail).toHaveLength(20);
+    expect(detail.at(-1)).toBe("boom");
+    expect(detail[0]).toBe("line 12");
   });
 
   it("only fetches and adds or removes worktrees on the user's tree", async () => {
