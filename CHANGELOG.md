@@ -17,7 +17,8 @@ A version is now agreed by the team before it is published: everyone with work i
   - `kj release ack <issue> ok|hold|include` answers from the participant's own session, after the suite runs on the candidate and on their own work rebased onto it, in temporary worktrees (#4186);
   - `kj release status <issue>` says who confirmed, who holds and who is silent; silence after the window counts as no objection, a hold always blocks (#4182);
   - `kj release approve <issue>` is a human act signed with the phone; it checks again after signing, posts the signed approval and tags the candidate (#4189);
-  - `kj release verify <tag>` is what CI runs before publishing: one ready release issue, the tag on its candidate, an approval signed by the roster (#4192).
+  - `kj release verify <tag>` is what CI runs before publishing: one ready release issue, the tag on its candidate, an approval signed by the roster (#4192). This repository's `release-npm.yml` runs it, sealed by the maintainer (#4223).
+- **The host gets the atril skills of its card**: `kj hu start` picks up to 3 for the card, as kj does for the coder and the reviewer, prints them after the `cd`, and notes them for kj stage (#4224, proposed by the kj stage work).
 - **Transversal sessions** (ADR 0055, accepted by the maintainer). In a parent folder marked `.claude-transversal`:
   - each tool call is judged and recorded as the child repository it touches; a call over two repositories, or over the parent's own files, is refused (#4120, #4125);
   - Stop judges every child the session worked in (#4131);
