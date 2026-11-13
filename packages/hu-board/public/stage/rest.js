@@ -32,6 +32,39 @@ export function acrossLanes(lanes) {
   return { denial: pick('denial'), verdict: pick('verdict'), seal: pick('seal'), gate: pick('gate'), checks, release, working, cards, lanes };
 }
 
+/** The agent in an activity event, as the state keeps it. */
+function workerOf(event, lane) {
+  // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
+  const launched = Object.fromEntries(['model', 'effort'].filter((k) => event[k]).map((k) => [k, event[k]]));
+  // KJC-BUG-0577: a teammate's keeps whose it is and its avatar.
+  const whose = event.owner ? { owner: event.owner, avatar: event.avatar ?? { emblem: null, color: null } } : {};
+  return { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null, ...launched, ...whose };
+}
+
+/** A worker without its wait: KJC-TSK-1607, a host that waited is at work again. */
+const atWork = (w) => Object.fromEntries(Object.entries(w).filter(([key]) => key !== 'waiting'));
+
+/** Who is at work after an activity event. */
+function workingAfter(working, event) {
+  const lane = event.lane ?? 'main';
+  // KJC-TSK-1435: the host's session and each subagent are told apart by their id.
+  // KJC-TSK-1610: kj hu start's host line has no id; it and the Sentinel's, with one, are one host.
+  const unnamedHost = (w) => event.role === 'host' && w.role === 'host' && !w.id;
+  const same = (w) => (w.lane ?? 'main') === lane && (event.id ? w.id === event.id || unnamedHost(w) : w.agent === event.agent && w.role === event.role);
+  // KJC-BUG-0581: a session works in one lane; its start in another takes it out of the first.
+  const moved = (w) => event.phase === 'start' && event.id && w.id === event.id;
+  const others = working.filter((w) => !same(w) && !moved(w));
+  const now = workerOf(event, lane);
+  if (event.phase === 'start') {
+    // KJC-TSK-1610: an id-less start of a host already there keeps it, with its id, at work again.
+    const kept = event.id ? null : working.find((w) => same(w) && w.id);
+    return [...others, kept ? { ...atWork(kept), skills: now.skills } : now];
+  }
+  // KJC-TSK-1607: a host whose turn ends waiting (KJC-TSK-1606) is still there, waiting.
+  const waits = event.role === 'host' && event.waits;
+  return [...others, ...(waits ? [{ ...now, waiting: waits }] : [])];
+}
+
 /** The last real state after a live event (KJC-TSK-1399): only the piece it touches moves. */
 export function withEvent(state, event) {
   switch (event?.type) {
@@ -39,23 +72,7 @@ export function withEvent(state, event) {
     case 'review-verdict': return { ...state, verdict: { verdict: event.verdict, reviewer: event.reviewer, at: event.at } };
     case 'ledger-seal': return { ...state, seal: { decision: event.decision, chokepoint: event.chokepoint, at: event.at } };
     case 'commit-gate': return { ...state, gate: { outcome: event.outcome, rule: event.rule, at: event.at } };
-    case 'agent-activity': {
-      const lane = event.lane ?? 'main';
-      // KJC-TSK-1435: the host's session and each subagent are told apart by their id.
-      const same = (w) => (w.lane ?? 'main') === lane && (event.id ? w.id === event.id : w.agent === event.agent && w.role === event.role);
-      // KJC-BUG-0581: a session works in one lane; its start in another takes it out of the first.
-      const moved = (w) => event.phase === 'start' && event.id && w.id === event.id;
-      const others = (state.working ?? []).filter((w) => !same(w) && !moved(w));
-      // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
-      const launched = Object.fromEntries(['model', 'effort'].filter((k) => event[k]).map((k) => [k, event[k]]));
-      // KJC-BUG-0577: a teammate's keeps whose it is and its avatar.
-      const whose = event.owner ? { owner: event.owner, avatar: event.avatar ?? { emblem: null, color: null } } : {};
-      const now = { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null, ...launched, ...whose };
-      // KJC-TSK-1607: a host whose turn ends waiting (KJC-TSK-1606) is still there, waiting.
-      const waits = event.phase === 'end' && event.role === 'host' && event.waits;
-      const working = event.phase === 'start' ? [...others, now] : [...others, ...(waits ? [{ ...now, waiting: waits }] : [])];
-      return { ...state, working };
-    }
+    case 'agent-activity': return { ...state, working: workingAfter(state.working ?? [], event) };
     // KJC-TSK-1438: the RAG answered a lane; kaRAGan takes it there.
     case 'rag-answer': return { ...state, rag: { sources: event.sources, lane: event.lane ?? 'main', at: event.at } };
     // KJC-TSK-1522: the RAG starts or ends a reindex of a lane; kaRAGan types there meanwhile.
