@@ -10,11 +10,16 @@ import { createLaptop } from './laptop.js';
 import { dress } from './attire.js';
 import { accentFor, avatarFor } from './avatars.js';
 import { carry } from './backpack.js';
+import { HOST_SCALE, chestOf, haloColor, hostLabel, laptopLift } from './host-look.js';
 import { TYPING_YAW, accentOf, codeScrollAt, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
-const scaleOf = (worker) => SCALE.crew * (worker.role === 'subagent' ? DWARF : 1);
+// KJC-TSK-1598: a host is a little bigger than everyone else.
+const SIZE = { subagent: DWARF, host: HOST_SCALE };
+const scaleOf = (worker) => SCALE.crew * (SIZE[worker.role] ?? 1);
+// Just over the helmet, in the robot's own frame.
+const HALO_Y = 3.75;
 
 /** KJC-TSK-1435 (ADR 0048): the host's name in its colour on its chest. Never a third-party logo. */
 function badge(name, accent) {
@@ -45,11 +50,27 @@ export function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
 }
 
+/** KJC-TSK-1598: a ring of light over a host's head, in its owner's host colour. */
+function halo(color) {
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.55, 0.06, 12, 48),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.2 }),
+  );
+  ring.position.y = HALO_Y;
+  ring.rotation.x = Math.PI / 2;
+  return ring;
+}
+
 function robotFor(worker, avatar) {
   // KJC-TSK-1569 (ADR 0056): in the colour its owner gave its role, with its owner's backpack.
   const robot = createRobot({ accent: accentFor(worker, avatar), name: worker.agent });
   carry(robot, avatar?.emblem ?? null);
-  if (worker.role === 'host') robot.hover.add(badge(worker.agent, accentOf(worker.agent)));
+  // KJC-TSK-1598: a host stands out: bigger, its halo, its owner's emblem on its chest.
+  if (worker.role === 'host') {
+    const color = haloColor(worker, avatar);
+    robot.hover.add(badge(chestOf(worker, avatar), color), halo(color));
+    robot.lift = HOST_SCALE;
+  }
   robot.root.scale.setScalar(scaleOf(worker));
   return robot;
 }
@@ -65,6 +86,10 @@ const TYPING = { spread: -0.25, yaw: TYPING_YAW };
 export function typeOn(robot, { typing, elapsed, yaw, accent }) {
   if (typing && !robot.laptop) {
     robot.laptop = createLaptop(accent);
+    // KJC-TSK-1598: a bigger host's laptop opens where everyone's does, over its desk.
+    const lift = laptopLift(robot.lift ?? 1);
+    robot.laptop.position.set(0, lift.up, lift.ahead);
+    robot.laptop.scale.setScalar(lift.scale);
     robot.hover.add(robot.laptop);
   }
   if (robot.laptop) robot.laptop.visible = typing;
@@ -86,6 +111,8 @@ const work = (robot, worker, pose, t) =>
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
 export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null }, lanes, now) {
   let own = avatar; // KJC-TSK-1569: this person's avatar, which their robots wear
+  // KJC-TSK-1598: this person's login, which names the own host; a saved avatar does not carry it.
+  const me = { login: avatar?.login ?? null };
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
   return {
@@ -118,8 +145,10 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         work(robot, worker, pose, t);
         dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build
         // Just above the helmet, so the label never sits on it.
-        const head = robot.root.position.clone().setY(3.6 * scaleOf(worker));
-        tags.push(tagAt(labelOf(worker), head, camera, { className: 'stage-worker', origin }));
+        // KJC-TSK-1598: over a host's halo, and its label says whose it is.
+        const head = robot.root.position.clone().setY((worker.role === 'host' ? HALO_Y + 0.4 : 3.6) * scaleOf(worker));
+        const label = worker.role === 'host' ? hostLabel(worker, me) : labelOf(worker);
+        tags.push(tagAt(label, head, camera, { className: 'stage-worker', origin }));
       }
       workers = workers.filter((w) => workerAt(w, t, xOf, zOf) !== null);
       return tags;
