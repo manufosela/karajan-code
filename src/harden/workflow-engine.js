@@ -18,7 +18,7 @@ import { publishedPin } from "./published-pin.js";
 import { phpInputs, qualityInputs } from "./quality-inputs.js";
 import { gradleInputs } from "./gradle-commands.js";
 import { swiftInputs } from "./swift-commands.js";
-import { extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
+import { extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, secretsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
 // listens to pull_request, the new one to pull_request_target), so policy-check never reports.
@@ -156,7 +156,8 @@ export function installWorkflows({
     : null;
   const steward = stewardActionOn(projectDir) ?{ file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") } : null;
   const verdicts = { file: "kj-verdicts.yml", blockId: "wf-verdicts", body: verdictsWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") };
-  const all = [...WORKFLOWS, verdicts, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
+  const secrets = { file: "kj-secrets.yml", blockId: "wf-secrets", body: secretsWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") };
+  const all = [...WORKFLOWS, verdicts, secrets, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
   const results = [];
   for (const wf of all.map((w) => ({ ...w, body: onBaseBranch(w.body, baseBranch) }))) {
     const target = join(dir, wf.file);
