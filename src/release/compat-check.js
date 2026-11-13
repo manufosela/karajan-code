@@ -42,12 +42,31 @@ function tail(step) {
 const passed = { pass: true };
 const failedAt = (step) => ({ pass: false, detail: tail(step) });
 
+const HEARTBEAT_MS = 30_000;
+/** The default progress sink: stderr, so the answer block on stdout stays clean. */
+export const stderrProgress = (line) => process.stderr.write(`${line}\n`);
+const elapsed = (ms) => (ms < 60_000 ? `${Math.floor(ms / 1000)} s` : `${Math.floor(ms / 60_000)} min`);
+
+/** Runs one step between its announcement and its outcome, with a heartbeat every 30 s while it runs. */
+async function step(progress, { label, starting = label }, work) {
+  progress(`release check: ${starting}…`);
+  const started = Date.now();
+  const beat = setInterval(() => progress(`release check: still ${label} (${elapsed(Date.now() - started)})…`), HEARTBEAT_MS);
+  try {
+    const result = await work();
+    progress(`release check: ${label}… ${result.code === 0 ? "passed" : "failed"}`);
+    return result;
+  } finally {
+    clearInterval(beat);
+  }
+}
+
 // Installed as the repository is installed day to day (scripts run, native modules such as node-pty get built):
 // the candidate is a commit of the reviewed base branch, the same code every participant installs in each lane.
-async function suiteOutcome(run, cwd) {
-  const install = await run("npm", ["ci"], { cwd });
-  if (install.code !== 0) return failedAt(install);
-  const test = await run("npm", ["test"], { cwd });
+async function suiteOutcome({ run, cwd, progress, who, install }) {
+  const installed = await step(progress, { label: install }, () => run("npm", ["ci"], { cwd }));
+  if (installed.code !== 0) return failedAt(installed);
+  const test = await step(progress, { label: `running ${who}'s suite`, starting: `running ${who}'s suite (several minutes)` }, () => run("npm", ["test"], { cwd }));
   return test.code === 0 ? passed : failedAt(test);
 }
 
@@ -58,19 +77,19 @@ async function hasOwnCommits({ run, projectDir, candidate, baseBranch }) {
   return Number(ahead.stdout.trim()) > 0;
 }
 
-async function laneResult({ run, projectDir, candidate }) {
+async function laneResult({ run, projectDir, candidate, progress }) {
   return inWorktree({ run, projectDir, ref: "HEAD" }, async (wt) => {
-    const rebase = await run("git", ["rebase", candidate], { cwd: wt });
-    return rebase.code === 0 ? suiteOutcome(run, wt) : failedAt(rebase);
+    const rebase = await step(progress, { label: "rebasing your lane onto the candidate" }, () => run("git", ["rebase", candidate], { cwd: wt }));
+    return rebase.code === 0 ? suiteOutcome({ run, cwd: wt, progress, who: "your lane", install: "installing your lane (npm ci)" }) : failedAt(rebase);
   });
 }
 
 /** @returns {Promise<{ suite: "pass"|"fail", lane: "pass"|"fail"|"none", detail?: string }>} detail: why a step failed */
-export async function compatCheck({ projectDir, candidate, baseBranch = "main", run = runDefault }) {
+export async function compatCheck({ projectDir, candidate, baseBranch = "main", run = runDefault, progress = stderrProgress }) {
   await run("git", ["fetch", "origin", candidate], { cwd: projectDir });
-  const suite = await inWorktree({ run, projectDir, ref: candidate }, (wt) => suiteOutcome(run, wt));
+  const suite = await inWorktree({ run, projectDir, ref: candidate }, (wt) => suiteOutcome({ run, cwd: wt, progress, who: "the candidate", install: `installing the candidate ${candidate.slice(0, 7)} (npm ci)` }));
   const own = await hasOwnCommits({ run, projectDir, candidate, baseBranch });
-  const lane = own ? await laneResult({ run, projectDir, candidate }) : null;
+  const lane = own ? await laneResult({ run, projectDir, candidate, progress }) : null;
   const detail = [suite.detail, lane?.detail].filter(Boolean).join("\n");
   const verdict = (outcome) => (outcome.pass ? "pass" : "fail");
   return { suite: verdict(suite), lane: lane ? verdict(lane) : "none", ...(detail ? { detail } : {}) };

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { compatCheck, exitCodeOf } from "../../src/release/compat-check.js";
 
 function fakeRun({ failTest = false } = {}) {
@@ -52,5 +52,61 @@ describe("compatCheck", () => {
     const onUserTree = calls.filter((c) => c.cmd === "git" && c.cwd === "/p").map((c) => c.args[0]);
     const allowed = new Set(["fetch", "worktree", "rev-parse", "rev-list"]);
     expect(onUserTree.every((a) => allowed.has(a))).toBe(true);
+  });
+});
+
+describe("compatCheck progress", () => {
+  const laneRun = async (cmd, args) => {
+    if (cmd === "git" && args[0] === "rev-parse") return { code: 0, stdout: "feat/lane\n" };
+    if (cmd === "git" && args[0] === "rev-list") return { code: 0, stdout: "1\n" };
+    return { code: 0, stdout: "" };
+  };
+
+  it("announces every step in order with its result", async () => {
+    const { run } = fakeRun();
+    const lines = [];
+    await compatCheck({ projectDir: "/p", candidate: "abc", run, progress: (l) => lines.push(l) });
+    expect(lines).toEqual([
+      "release check: installing the candidate abc (npm ci)…",
+      "release check: installing the candidate abc (npm ci)… passed",
+      "release check: running the candidate's suite (several minutes)…",
+      "release check: running the candidate's suite… passed",
+    ]);
+  });
+
+  it("announces the lane's rebase and suite after the candidate's", async () => {
+    const lines = [];
+    await compatCheck({ projectDir: "/p", candidate: "abc", run: laneRun, progress: (l) => lines.push(l) });
+    expect(lines.slice(4)).toEqual([
+      "release check: rebasing your lane onto the candidate…",
+      "release check: rebasing your lane onto the candidate… passed",
+      "release check: installing your lane (npm ci)…",
+      "release check: installing your lane (npm ci)… passed",
+      "release check: running your lane's suite (several minutes)…",
+      "release check: running your lane's suite… passed",
+    ]);
+  });
+
+  it("beats every 30 s while a step runs, and leaves no timer behind", async () => {
+    vi.useFakeTimers();
+    try {
+      let finishTest;
+      const gate = new Promise((resolve) => { finishTest = resolve; });
+      const slowTest = async (cmd, args) => {
+        if (cmd === "npm" && args[0] === "test") await gate;
+        return { code: 0, stdout: "", stderr: "" };
+      };
+      const lines = [];
+      const pending = compatCheck({ projectDir: "/p", candidate: "abc", run: slowTest, progress: (l) => lines.push(l) });
+      await vi.waitFor(() => expect(lines).toContain("release check: running the candidate's suite (several minutes)…"));
+      await vi.advanceTimersByTimeAsync(65_000);
+      finishTest();
+      await pending;
+      expect(lines).toContain("release check: still running the candidate's suite (30 s)…");
+      expect(lines).toContain("release check: still running the candidate's suite (1 min)…");
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -64,4 +64,16 @@ describe("releaseAckCommand", () => {
     expect(res.exitCode).toBe(1);
     expect(printed.join("\n")).toMatch(/counts as a hold/);
   });
+
+  it("says before the check that it runs the full suite and can take minutes", async () => {
+    const { base } = setup();
+    const lines = [];
+    const check = async ({ progress }) => {
+      progress("check started");
+      return { suite: "pass", lane: "none" };
+    };
+    await releaseAckCommand({ ...base, check, progress: (l) => lines.push(l), decision: "ok" });
+    expect(lines[0]).toMatch(/full suite on the candidate.*several minutes/);
+    expect(lines[1]).toBe("check started");
+  });
 });

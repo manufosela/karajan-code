@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { sanitize } from "../environment/issue-report.js";
 import { renderAnswer } from "../release/answers.js";
-import { compatCheck } from "../release/compat-check.js";
+import { compatCheck, stderrProgress } from "../release/compat-check.js";
 import { parseProposal } from "../release/proposal.js";
 
 const DECISIONS = ["ok", "hold", "include"];
@@ -20,11 +20,12 @@ function validate({ repo, issue, decision, why, include }) {
 }
 
 /** @returns {Promise<{ url: string, exitCode: number }>} */
-export async function releaseAckCommand({ repo, issue, decision, why, include = [], projectDir, gh = ghDefault, check = compatCheck, print = console.log }) {
+export async function releaseAckCommand({ repo, issue, decision, why, include = [], projectDir, gh = ghDefault, check = compatCheck, print = console.log, progress = stderrProgress }) {
   validate({ repo, issue, decision, why, include });
   const { body } = JSON.parse(await gh(["api", `repos/${repo}/issues/${issue}`]));
   const proposal = parseProposal(body);
-  const result = await check({ projectDir, candidate: proposal.candidate });
+  progress("release check: runs the full suite on the candidate (and on your lane, if it has commits); this can take several minutes.");
+  const result = await check({ projectDir, candidate: proposal.candidate, progress });
   const answer = { decision, why, include, candidate: proposal.candidate, check: result };
   const url = (await gh(["api", "--method", "POST", `repos/${repo}/issues/${issue}/comments`, "-f", `body=${renderAnswer(answer)}`, "--jq", ".html_url"])).trim();
   print(url);
