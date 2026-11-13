@@ -55,6 +55,12 @@ it("the create rule admits a passkey flag, as a bool", () => {
   expect(rules).toContain("(!('passkey' in request.resource.data) || request.resource.data.passkey is bool)");
 });
 
+// HU-4193: kj lists the roster's passkey ids in allow; the rules cap it as a list of at most 20.
+it("the create rule admits allow only as a list of at most 20", () => {
+  expect(admitted.has("allow")).toBe(true);
+  expect(rules).toContain("(!('allow' in request.resource.data) || (request.resource.data.allow is list && request.resource.data.allow.size() <= 20))");
+});
+
 // HU-3976 (ADR 0053): a register request carries kind and user_label, as strings.
 it("the create rule admits a register request: kind and user_label, as strings", () => {
   for (const key of ["kind", "user_label"]) {

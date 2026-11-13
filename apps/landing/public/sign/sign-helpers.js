@@ -32,8 +32,26 @@ export function signMethods({ docFields, hasEd25519Key, hasWebAuthn }) {
   return [hasWebAuthn && "passkey", hasEd25519Key && "ed25519"].filter(Boolean);
 }
 
-/** No allowCredentials: the passkey is discoverable; each signature asks for the person. */
-export const passkeyRequest = (challenge) => ({ challenge, rpId: PASSKEY_RP_ID, userVerification: "required", timeout: 120_000 });
+const BASE64URL = /^[A-Za-z0-9_-]+$/;
+const fromBase64Url = (text) => {
+  const padded = text.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(text.length / 4) * 4, "=");
+  return Uint8Array.from(atob(padded), (c) => c.codePointAt(0));
+};
+
+/** HU-4193: the passkeys kj allows (the roster's), from the request's `allow` list; [] when it has none. */
+export function allowedCredentials(docFields) {
+  const values = docFields.allow?.arrayValue?.values ?? [];
+  return values.map((v) => {
+    const id = v.stringValue;
+    if (typeof id !== "string" || !BASE64URL.test(id)) throw new Error("allow: an entry is not a base64url credential id");
+    return { type: "public-key", id: fromBase64Url(id) };
+  });
+}
+
+/** With `allow` the phone offers only those passkeys; without it the passkey is discoverable and each signature asks for the person. */
+export const passkeyRequest = (challenge, allow = []) => ({
+  challenge, rpId: PASSKEY_RP_ID, userVerification: "required", timeout: 120_000, ...(allow.length > 0 && { allowCredentials: allow }),
+});
 
 /** The relay doc's fields for a passkey assertion, in base64url as kj's verifier reads them. */
 export function passkeyFields(credential, signedAt) {
