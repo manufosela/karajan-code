@@ -3,7 +3,7 @@
 // repos under it. These pure blocks find that parent and map a path to its child
 // repo; the guards will judge each call with the repo it touches.
 import process from "node:process";
-import { existsSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
@@ -71,4 +71,20 @@ export const childReposOf = (paths, parent) => {
     else stray.push(p);
   }
   return { repos: [...repos], stray };
+};
+
+// ADR 0055 step 3: a dot dir or node_modules is never a child repo's home.
+const subdirs = (dir) => {
+  try { return readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules"); }
+  catch { return []; }
+};
+
+/** The repos under parent, nested ones up to depth levels down, never one inside another. @returns {string[]} */
+export const listChildRepos = (parent, depth = 3) => {
+  const walk = (dir, left) => subdirs(dir).flatMap((e) => {
+    const d = join(dir, e.name);
+    if (existsSync(join(d, ".git"))) return [d];
+    return left > 1 ? walk(d, left - 1) : [];
+  });
+  return walk(canonical(resolve(String(parent))), depth).toSorted();
 };

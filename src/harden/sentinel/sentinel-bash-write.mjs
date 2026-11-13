@@ -81,12 +81,13 @@ export const shellWrites = (words) => {
  * Real paths: a link outside (/tmp/link -> repo) points in.
  * @param {string} t
  * @param {string} root
+ * @param {string} [base] the dir a relative t is read from (ADR 0055: the shell's, in a transversal session)
  */
-export const writesRepo = (t, root) => {
+export const writesRepo = (t, root, base = root) => {
   if (t.includes("$") || t.includes("`")) return true;
   if (t.startsWith("&") || t.startsWith("/dev/")) return false;
   if (t.startsWith("~") && t !== "~" && !t.startsWith("~/")) return true;
-  let a = resolve(root, t.startsWith("~") ? homedir() + t.slice(1) : t);
+  let a = resolve(base, t.startsWith("~") ? homedir() + t.slice(1) : t);
   let tail = "";
   while (!existsSync(a) && dirname(a) !== a) {
     tail = join(a.slice(dirname(a).length + 1), tail);

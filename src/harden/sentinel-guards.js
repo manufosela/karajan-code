@@ -1,8 +1,10 @@
 import process from "node:process";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
+import { isSea } from "node:sea";
 import { Readable } from "node:stream";
-import { childReposOf, inParent, transversalRoot } from "./transversal.mjs";
+import { childReposOf, inParent, listChildRepos, transversalRoot } from "./transversal.mjs";
 import { pathTokens, shellSegments } from "./sentinel/sentinel-shell.mjs";
 import { shellWrites } from "./sentinel/sentinel-bash-write.mjs";
 
@@ -45,18 +47,52 @@ const touchedPaths = (call, parent) => {
   return all.length > 0 ? [...new Set(all)] : [cwd];
 };
 
+/** ADR 0055 step 3: one context line, the repos under the parent; their own session starts are theirs. */
+const announceChildren = (parent, exit) => {
+  const names = listChildRepos(parent).map((repo) => relative(parent, repo)).join(", ") || "ninguno";
+  const line = `Karajan: sesión transversal en ${parent} (repos: ${names}); cada llamada se juzga como el repo que toca.`;
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: line } }));
+  exit(0);
+  return false;
+};
+
+/** Whether repo's Sentinel state holds session sid: the session worked there. */
+const touchedBy = (repo, sid) => {
+  try { return Boolean(JSON.parse(readFileSync(join(repo, ".karajan", "harness", "sentinel-state.json"), "utf8"))?.sessions?.[sid]); }
+  catch { return false; }
+};
+/** This same hook command, to run again in a child (a single-file kj repeats its own path as argv[1]). */
+const sameEntry = () => [...process.execArgv, ...process.argv.slice(isSea() ? 2 : 1)];
+const noteOf = (stdout) => { try { return JSON.parse(stdout).systemMessage ?? null; } catch { return null; } };
+
+/** ADR 0055 step 3: the stop of every child the session worked in, each in its own process; one red holds the turn. */
+const stopEachChild = (bytes, parent, { logger, exit }) => {
+  const sid = parseCall(bytes).session_id ?? "default";
+  const runs = listChildRepos(parent).filter((repo) => touchedBy(repo, sid)).map((repo) => ({ name: relative(parent, repo),
+    res: spawnSync(process.execPath, sameEntry(), { cwd: repo, env: { ...process.env, CLAUDE_PROJECT_DIR: repo, KJ_TRANSVERSAL_PARENT: parent }, input: bytes, encoding: "utf8" }) }));
+  const notes = runs.map(({ res }) => noteOf(res.stdout)).filter(Boolean);
+  if (notes.length) process.stdout.write(JSON.stringify({ systemMessage: notes.join("\n") }));
+  const red = runs.filter(({ res }) => res.status === 2).flatMap(({ name, res }) => String(res.stderr).trim().split("\n").map((l) => `${name}: ${l}`));
+  if (red.length) logger.error(red.join("\n"));
+  exit(red.length ? 2 : 0);
+  return false;
+};
+
 /**
  * In a transversal session, move this process into the one child repo the call touches
  * (env, cwd and the stdin bytes re-injected) so the guard fixes its root there.
  * @returns {Promise<boolean>} false when the call was settled here (exit already called).
  */
 const enterChildRepo = async (name, parent, { logger, exit }) => {
-  if (name === "stop" || name === "sessionstart") {
-    logger.error("kj-hook: transversal session: stop/session checks per repo come next");
+  if (name === "sessionstart") return announceChildren(parent, exit);
+  // kj sentinel status runs stop from a terminal: nothing to read there, so nothing is read.
+  if (name === "stop" && (process.argv.includes("--status") || process.stdin.isTTY)) {
+    logger.error("kj-hook: transversal session: kj sentinel status reads one repository, run it inside a child repo");
     exit(0);
     return false;
   }
   const bytes = await readAll(process.stdin);
+  if (name === "stop") return stopEachChild(bytes, parent, { logger, exit });
   const { repos, stray } = childReposOf(touchedPaths(parseCall(bytes), parent), parent);
   // A path in the parent outside every repo is one no guard governs: a judging guard refuses the call.
   const loose = JUDGING.has(name) ? stray.filter((p) => inParent(p, parent)) : [];
@@ -69,6 +105,7 @@ const enterChildRepo = async (name, parent, { logger, exit }) => {
     return false;
   }
   process.env.CLAUDE_PROJECT_DIR = repos[0];
+  process.env.KJ_TRANSVERSAL_PARENT = parent;
   process.chdir(repos[0]);
   Object.defineProperty(process, "stdin", { value: Readable.from([bytes]), configurable: true, writable: true });
   return true;
@@ -86,6 +123,8 @@ export async function runGuard(name, { logger = console, exit = (code) => proces
     return;
   }
   const parent = transversalRoot(process.env.CLAUDE_PROJECT_DIR || process.cwd());
-  if (parent && !(await enterChildRepo(name, parent, { logger, exit }))) return;
+  // A guard this parent already routed (a child's stop) runs as is; outside a parent the mark means nothing.
+  if (!parent) delete process.env.KJ_TRANSVERSAL_PARENT;
+  else if (process.env.KJ_TRANSVERSAL_PARENT !== parent && !(await enterChildRepo(name, parent, { logger, exit }))) return;
   await guards[name]();
 }

@@ -46,4 +46,12 @@ describe("writesRepo", () => {
     fs.symlinkSync(root, link);
     try { expect(writesRepo(`${link}/src/a.py`, root)).toBe(true); } finally { fs.unlinkSync(link); }
   });
+
+  // ADR 0055 step 3: in a transversal session a relative target is read from the shell's cwd (the parent).
+  it("reads a relative target from the shell's dir when one is given", () => {
+    const repo = path.join(root, "a");
+    fs.mkdirSync(repo);
+    expect(writesRepo("a/src/x.js", repo, root)).toBe(true);
+    expect(writesRepo("src/x.js", repo, root)).toBe(false);
+  });
 });

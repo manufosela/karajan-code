@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { childRepoOf, childReposOf, inParent, transversalRoot } from "../../src/harden/transversal.mjs";
+import { childRepoOf, childReposOf, inParent, listChildRepos, transversalRoot } from "../../src/harden/transversal.mjs";
 
 const gitInit = (dir) => {
   fs.mkdirSync(dir, { recursive: true });
@@ -76,5 +76,12 @@ describe("transversal parent and child repos (ADR 0055)", () => {
     fs.mkdirSync(path.join(parent, "..d"));
     const paths = [parent, "notes.md", "group/new/x.md", "..d/x.md", alpha, os.tmpdir(), "../x", "out/x.md"];
     expect(paths.map((p) => inParent(p, parent))).toEqual([true, true, true, true, true, false, false, false]);
+  });
+
+  // ADR 0055 step 3: the repos Stop and SessionStart name, nested ones included, never one inside another.
+  it("lists every child repo under the parent", () => {
+    gitInit(path.join(alpha, "vendor", "inner"));
+    fs.mkdirSync(path.join(parent, "node_modules", "dep", ".git"), { recursive: true });
+    expect(listChildRepos(parent)).toEqual([alpha, beta]);
   });
 });

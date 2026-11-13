@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, cardOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, boardGate, pendingMoves, pendingText, stagedVerdict } from "./sentinel-lib.mjs";
+import { doc, CODE, TESTS, ROOT, BASE_BRANCHES, CARD, STATE, branchOf, cardOf, enterLane, holdLane, laneFor, laneRefusal, laneTop, load, save, session, shellDir, boardGate, pendingMoves, pendingText, stagedVerdict } from "./sentinel-lib.mjs";
 // KJC-TSK-0915 (ADR 0014): the shell reader is a real, unit-tested module copied here as is.
 import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, optionValues, pathTokens, shellSegments, stripInertQuotes, stripTextOptionValues, stripTextOnlyCommandValues } from "./sentinel-shell.mjs";
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
@@ -444,7 +444,7 @@ process.stdin.on("end", () => {
         // y foreignLane da null — solo deniega lo que CAE en otro carril.
         const seen = new Set();
         for (const { token, path: t } of pathTokens(cmd, process.env.HOME)) {
-          const abs = resolve(t);
+          const abs = resolve(shellDir(cwd) ?? process.cwd(), t);
           if (seen.has(abs)) continue;
           seen.add(abs);
           const lane = laneOf(abs);
@@ -464,7 +464,7 @@ process.stdin.on("end", () => {
       const subs = [...[...raw.matchAll(/[$][(]([^()]*)[)]/g)].map((m) => m[1]), ...raw.split(String.fromCharCode(96)).filter((_, k) => k % 2 === 1)];
       for (const words of [...shellSegments(raw), ...subs.flatMap((s) => shellSegments(s))]) {
         if (["cd", "pushd", "popd"].includes(words[0])) moved = true;
-        const inRepo = shellWrites(words).filter((t) => writesRepo(t, ROOT) || (moved && !t.startsWith("/")));
+        const inRepo = shellWrites(words).filter((t) => writesRepo(t, ROOT, shellDir(cwd) ?? ROOT) || (moved && !t.startsWith("/")));
         if (inRepo.length === 0) continue;
         console.error("karajan sentinel: escribir ficheros del repo desde Bash (" + inRepo.slice(0, 3).join(", ") + ") se salta los gates de Edit/Write — usa la tool Edit/Write; para renombrar, git mv; fuera del repo (/tmp, scratchpad) Bash es libre." + doc("bash-write"));
         process.exit(2);
