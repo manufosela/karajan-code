@@ -12,7 +12,7 @@ import { laneNote } from './lane-note.js';
 import { deriveLaneState } from './lane-state.js';
 import { boardStatuses, withBoardCache } from './stage-board-cache.js';
 import { lastRelease } from './stage-release.js';
-import { sessionName, withSessionName } from './session-names.js';
+import { sessionName, sessionWait, withSessionName } from './session-names.js';
 import { pendingMail } from './stage-mail.js';
 import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, methodEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
@@ -49,19 +49,26 @@ const lastRecord = (file, toEvent, tailBytes) => lastOf(tailRecords(file, toEven
 
 /** KJC-TSK-1435: the host beats at least once a minute while it works, so a silent host has stopped sooner. */
 const STALE_HOST_MS = 5 * 60 * 1000;
+/** KJC-TSK-1606: how long a host that ended its turn waiting is still drawn as waiting. */
+const WAITING_HOST_MS = 12 * 60 * 60 * 1000;
 
 /**
  * KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role;
  * KJC-TSK-1435: by id when the trace names one (the host's session, each subagent).
  */
-function agentsAtWork(records, now) {
+function agentsAtWork(records, now, waitOf) {
   const last = new Map();
   for (const ev of records) last.set(ev.id ?? `${ev.agent}:${ev.role}`, ev);
   const fresh = (ev) => now - Date.parse(ev.at) < (ev.role === 'host' ? STALE_HOST_MS : STALE_START_MS);
+  // KJC-TSK-1606: a host whose turn ended waiting for the person or a process is still there, for a while.
+  const waiting = (ev) => ev.phase === 'end' && ev.role === 'host' && ev.id && now - Date.parse(ev.at) < WAITING_HOST_MS ? waitOf(ev.id) : null;
   return [...last.values()]
-    .filter((ev) => ev.phase === 'start' && fresh(ev))
+    .map((ev) => ({ ev, wait: waiting(ev) }))
+    .filter(({ ev, wait }) => wait || (ev.phase === 'start' && fresh(ev)))
     // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
-    .map(({ agent, role, at, id, tool, kind, model, effort }) => ({ agent, role, at, ...(id ? { id, tool, kind } : {}), ...(model ? { model } : {}), ...(effort ? { effort } : {}) }));
+    .map(({ ev: { agent, role, at, id, tool, kind, model, effort }, wait }) => ({
+      agent, role, at, ...(id ? { id, tool, kind } : {}), ...(model ? { model } : {}), ...(effort ? { effort } : {}), ...(wait ? { waiting: wait } : {}),
+    }));
 }
 
 function newestVerdict(dir) {
@@ -80,7 +87,7 @@ function newestVerdict(dir) {
   return null;
 }
 
-export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main', nameOf = sessionName } = {}) {
+export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main', nameOf = sessionName, waitOf = sessionWait } = {}) {
   const root = join(projectDir, '.karajan');
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card of the lane.
   const trace = (name, toEvent) => traceRecords(root, name, toEvent, tailBytes);
@@ -94,7 +101,7 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
     gate: lastOf(trace('commit-gate.jsonl', gateEvent)),
     // KJC-TSK-1524: the last check kj review made of each of TDD, Sonar and the Steward.
     checks: Object.fromEntries(trace('method.jsonl', methodEvent).map(({ piece, outcome, at }) => [piece, { outcome, at }])),
-    working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now).map((w) => withSessionName(w, nameOf)),
+    working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now, waitOf).map((w) => withSessionName(w, nameOf)),
     mail: pendingMail(projectDir),
   };
 }

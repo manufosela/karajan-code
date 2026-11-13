@@ -65,8 +65,35 @@ describe('modelOf', () => {
   });
 });
 
+// KJC-TSK-1606: what the session's last stop line waits for.
+describe('waitOf', () => {
+  const said = (text) => `${JSON.stringify({ type: 'assistant', message: { model: 'claude-opus-5-5', content: [{ type: 'text', text }] } })}\n`;
+
+  it('reads the last stop line of the session\'s answers', () => {
+    const file = transcript('.claude', 'p', ID);
+    writeFileSync(file, said('Me paro porque no me queda trabajo.') + '{"type":"user"}\n' + said('Hecho.\n\nMe paro porque espero tu respuesta.'));
+    expect(createSessionNames({ home }).waitOf(ID)).toBe('person');
+    writeFileSync(file, said('Me paro porque espero a que termine la CI, que me avisará.'));
+    expect(createSessionNames({ home }).waitOf(ID)).toBe('process');
+  });
+
+  it('is null when the last answer has no stop line or there is no transcript', () => {
+    writeFileSync(transcript('.claude', 'p', ID), said('Me paro porque espero tu respuesta.') + said('Sigo con lo siguiente.'));
+    expect(createSessionNames({ home }).waitOf(ID)).toBeNull();
+    expect(createSessionNames({ home }).waitOf('../../etc/passwd')).toBeNull();
+  });
+});
+
 describe('withSessionName', () => {
   const nameOf = (id) => (id === ID ? 'kj-stage' : null);
+
+  // KJC-TSK-1606: a host's end says what it waits for, when its session says it.
+  it('marks a host\'s end with what its session waits for; not a start, not anyone else', () => {
+    const waitOf = (id) => (id === ID ? 'person' : null);
+    expect(withSessionName({ role: 'host', id: ID, agent: 'claude', phase: 'end' }, nameOf, () => null, waitOf)).toMatchObject({ waits: 'person' });
+    expect(withSessionName({ role: 'host', id: ID, agent: 'claude', phase: 'start' }, nameOf, () => null, waitOf)).not.toHaveProperty('waits');
+    expect(withSessionName({ role: 'host', id: 'other', agent: 'claude', phase: 'end' }, nameOf, () => null, waitOf)).not.toHaveProperty('waits');
+  });
 
   it('gives a host the model of its session when its transcript says it', () => {
     const modelOf = (id) => (id === ID ? 'claude-opus-5-5' : null);

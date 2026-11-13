@@ -101,6 +101,22 @@ describe('lastStageState', () => {
     expect(lastStageState(proj, { now, nameOf }).working[0]).toMatchObject({ id: 's1', name: 'kj-stage' });
   });
 
+  // KJC-TSK-1606: a host that ended its turn waiting for the person or a process is still there.
+  it('keeps a host that ended its turn waiting, for 12 hours, with what it waits for', () => {
+    const now = Date.parse('2026-11-05T10:00:00Z');
+    writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl(
+      { at: '2026-11-05T09:00:00Z', agent: 'claude', role: 'host', phase: 'start', id: 's1', tool: 'Bash' },
+      { at: '2026-11-05T09:01:00Z', agent: 'claude', role: 'host', phase: 'end', id: 's1' },
+      { at: '2026-11-05T09:00:00Z', agent: 'claude', role: 'host', phase: 'start', id: 's2', tool: 'Bash' },
+      { at: '2026-11-05T09:01:00Z', agent: 'claude', role: 'host', phase: 'end', id: 's2' },
+      { at: '2026-11-04T20:00:00Z', agent: 'claude', role: 'host', phase: 'end', id: 's3' },
+    ));
+    const waitOf = (id) => ({ s1: 'person', s3: 'person' })[id] ?? null;
+    const { working } = lastStageState(proj, { now, waitOf, nameOf: () => null });
+    expect(working).toHaveLength(1); // s2 says nothing to wait for; s3 ended 14 hours ago
+    expect(working[0]).toMatchObject({ agent: 'claude', role: 'host', at: '2026-11-05T09:01:00Z', id: 's1', waiting: 'person' });
+  });
+
   it('takes the last commit attempt the commit-msg guard traced (KJC-TSK-1427)', () => {
     writeFileSync(kj('harness', 'commit-gate.jsonl'), jsonl({ at: 'c1', outcome: 'pass', rule: 'ok' }, { at: 'c2', outcome: 'refuse', rule: 'header' }));
     expect(lastStageState(proj).gate).toEqual({ type: 'commit-gate', at: 'c2', outcome: 'refuse', rule: 'header' });

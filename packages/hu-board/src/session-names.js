@@ -6,6 +6,8 @@ import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { waitOf } from './stop-reason.js';
+
 const TAIL_BYTES = 256 * 1024;
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const TITLE = /"customTitle":("(?:[^"\\]|\\.){1,200}")/g;
@@ -67,29 +69,58 @@ function lastModel(home, id) {
 }
 
 /**
+ * KJC-TSK-1606: what the session waits for, by the stop line of its last answer with text
+ * (stop-reason.js): 'person', 'process', or null.
+ */
+function lastWait(home, id) {
+  const file = transcriptOf(home, id);
+  if (!file) return null;
+  let tail;
+  try { tail = tailOf(file); } catch { return null; }
+  let text = null;
+  for (const line of tail.split('\n')) {
+    if (!line.includes('"assistant"')) continue;
+    try {
+      const record = JSON.parse(line);
+      const said = record.type === 'assistant' && Array.isArray(record.message?.content)
+        ? record.message.content.filter((c) => c?.type === 'text').map((c) => c.text).join('\n')
+        : '';
+      if (said) text = said;
+    } catch { /* the first line of the tail may be cut */ }
+  }
+  return waitOf(text);
+}
+
+/**
  * `nameOf(sessionId)`: the session's name or null; KJC-TSK-1537: `modelOf(sessionId)`, the model of
- * its last answer or null. Both kept for `ttlMs` so a rename or a model switch shows soon.
+ * its last answer or null; KJC-TSK-1606: `waitOf(sessionId)`, what it waits for or null. Kept for
+ * `ttlMs` so a rename, a model switch or a new stop shows soon.
  */
 export function createSessionNames({ home = homedir(), now = Date.now, ttlMs = 60_000 } = {}) {
   const known = new Map();
   const read = (id) => {
-    if (typeof id !== 'string' || !SESSION_ID.test(id)) return { name: null, model: null };
+    if (typeof id !== 'string' || !SESSION_ID.test(id)) return { name: null, model: null, wait: null };
     const hit = known.get(id);
     if (hit && now() - hit.at < ttlMs) return hit;
-    const fresh = { name: lastOf(home, id, TITLE), model: lastModel(home, id), at: now() };
+    const fresh = { name: lastOf(home, id, TITLE), model: lastModel(home, id), wait: lastWait(home, id), at: now() };
     known.set(id, fresh);
     return fresh;
   };
-  return { nameOf: (id) => read(id).name, modelOf: (id) => read(id).model };
+  return { nameOf: (id) => read(id).name, modelOf: (id) => read(id).model, waitOf: (id) => read(id).wait };
 }
 
 const shared = createSessionNames();
 export const sessionName = (id) => shared.nameOf(id);
 export const sessionModel = (id) => shared.modelOf(id);
+export const sessionWait = (id) => shared.waitOf(id);
 
-/** A host's activity with its session's name and model (when known); anyone else's, untouched. */
-export function withSessionName(ev, nameOf = sessionName, modelOf = sessionModel) {
+/**
+ * A host's activity with its session's name and model (when known); anyone else's, untouched.
+ * KJC-TSK-1606: and a host's end, with what its session waits for, when it says.
+ */
+export function withSessionName(ev, nameOf = sessionName, modelOf = sessionModel, waitOf = sessionWait) {
   if (ev.role !== 'host' || !ev.id) return ev;
   const model = modelOf(ev.id);
-  return { ...ev, name: nameOf(ev.id), ...(model ? { model } : {}) };
+  const waits = ev.phase === 'end' ? waitOf(ev.id) : null;
+  return { ...ev, name: nameOf(ev.id), ...(model ? { model } : {}), ...(waits ? { waits } : {}) };
 }
