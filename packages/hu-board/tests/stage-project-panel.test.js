@@ -2,7 +2,7 @@
 // only the chosen factory, instead of every factory at once.
 import { describe, expect, it } from 'vitest';
 
-import { panelEntries, panelHref, panelLine } from '../public/stage/project-panel.js';
+import { panelBadge, panelEntries, panelHref, panelLine } from '../public/stage/project-panel.js';
 
 const lane = (name, working = 0, cards = []) => ({ lane: name, working: Array.from({ length: working }, () => ({ agent: 'claude' })), cards });
 const card = (id, status) => ({ id, status, lane: 'main', at: '2026-11-13T08:00:00.000Z' });
@@ -15,9 +15,15 @@ describe('panelEntries', () => {
 
   it('one entry per factory, in the map order, with its agents at work and its cards in progress', () => {
     expect(panelEntries(factories, 'home_b')).toEqual([
-      { project: 'home_a', name: 'karajan-code', working: 3, doing: 2, current: false },
-      { project: 'home_b', name: 'grebla', working: 0, doing: 0, current: true },
+      { project: 'home_a', name: 'karajan-code', working: 3, doing: 2, waiting: 0, current: false },
+      { project: 'home_b', name: 'grebla', working: 0, doing: 0, waiting: 0, current: true },
     ]);
+  });
+
+  // KJC-TSK-1605 (the maintainer, 2026-11-13): the panel flags the factories that need a human.
+  it('counts the handoffs that wait for the human in every lane of a factory', () => {
+    const mailed = [{ project: 'p', name: 'p', lanes: [{ ...lane('main'), mail: 2 }, { ...lane('x'), mail: 1 }, lane('y')] }];
+    expect(panelEntries(mailed, null)[0].waiting).toBe(3);
   });
 
   it('a card that went through two lanes counts once', () => {
@@ -32,6 +38,14 @@ describe('panelLine', () => {
     expect(panelLine({ working: 1, doing: 0 })).toBe('1 at work');
     expect(panelLine({ working: 0, doing: 1 })).toBe('1 in progress');
     expect(panelLine({ working: 0, doing: 0 })).toBe('quiet');
+  });
+});
+
+describe('panelBadge', () => {
+  it('says how many things wait for the human, for the eye and for a screen reader; none when nothing does', () => {
+    expect(panelBadge({ waiting: 3 })).toEqual({ text: '3', label: '3 waiting for you' });
+    expect(panelBadge({ waiting: 1 })).toEqual({ text: '1', label: '1 waiting for you' });
+    expect(panelBadge({ waiting: 0 })).toBeNull();
   });
 });
 

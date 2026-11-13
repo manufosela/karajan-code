@@ -11,9 +11,14 @@ export function panelEntries(factories, current) {
     working: lanes.reduce((n, l) => n + (l.working?.length ?? 0), 0),
     // A card that went through several lanes counts once, at its newest line.
     doing: mergeCards(lanes.map((l) => l.cards ?? [])).filter((c) => columnOf(c.status) === 'doing').length,
+    // KJC-TSK-1605: the handoffs that wait for the human, in every lane.
+    waiting: lanes.reduce((n, l) => n + (l.mail ?? 0), 0),
     current: project === current,
   }));
 }
+
+/** KJC-TSK-1605: the badge of a factory that needs the human: its count and what it says aloud; none otherwise. */
+export const panelBadge = ({ waiting }) => (waiting ? { text: String(waiting), label: `${waiting} waiting for you` } : null);
 
 /** What goes on in a project, under its name. */
 export function panelLine({ working, doing }) {

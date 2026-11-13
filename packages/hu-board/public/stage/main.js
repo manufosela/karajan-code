@@ -12,7 +12,7 @@ import { boardToken, withToken } from './token.js';
 import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
-import { panelEntries, panelHref, panelLine } from './project-panel.js';
+import { panelBadge, panelEntries, panelHref, panelLine } from './project-panel.js';
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
@@ -210,7 +210,15 @@ async function mountProjectPanel() {
     const link = Object.assign(document.createElement('a'), { href: panelHref(entry.project) });
     if (entry.current) link.setAttribute('aria-current', 'page');
     const what = Object.assign(document.createElement('small'), { textContent: panelLine(entry) });
-    link.append(Object.assign(document.createElement('strong'), { textContent: entry.name }), what);
+    const name = Object.assign(document.createElement('strong'), { textContent: entry.name });
+    // KJC-TSK-1605: an amber badge on a factory that needs the human, also said aloud.
+    const badge = panelBadge(entry);
+    if (badge) {
+      const mark = Object.assign(document.createElement('span'), { className: 'stage-attention', textContent: badge.text });
+      mark.setAttribute('aria-label', badge.label);
+      name.append(' ', mark);
+    }
+    link.append(name, what);
     const item = document.createElement('li');
     item.append(link);
     return item;
