@@ -2,8 +2,8 @@
 // and one person's host from another's. A little bigger, with a halo of light over its head in the
 // colour its owner gave the host role, its owner's emblem on its chest and its owner's login first on
 // its label. Pure: agents-floor.js dresses the robot with what this says.
-import { accentFor, glyphOf } from './avatars.js';
-import { labelOf } from './workers.js';
+import { glyphOf, ownerColor } from './avatars.js';
+import { accentOf, labelOf } from './workers.js';
 
 export const HOST_SCALE = 1.2;
 // Where the laptop opens on a robot of plain size, over its hover (laptop.js, agents-floor.js).
@@ -18,8 +18,11 @@ export function hostLabel(worker, own) {
   return owner ? `${owner} · ${labelOf(worker)}` : labelOf(worker);
 }
 
-/** Its halo's colour: the one its owner gave the host role (`avatar` is the one it wears), else its agent's. */
-export const haloColor = (worker, avatar) => accentFor(worker, avatar);
+/**
+ * The colour of its hologram and chest plate. KJC-TSK-1603: its owner's colour, the one that marks
+ * all their robots (`avatar` is the one it wears), else its agent's.
+ */
+export const hostColor = (worker, avatar) => ownerColor(avatar) ?? accentOf(worker.agent);
 
 /**
  * KJC-TSK-1601 (the maintainer, 2026-11-13): what the hologram over its head shows, instead of a

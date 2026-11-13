@@ -5,28 +5,30 @@ import { describe, expect, it } from 'vitest';
 
 import { avatarFromForm, formOf } from '../public/stage/avatars.js';
 
+// KJC-TSK-1603 (the maintainer, 2026-11-13): one colour of the person's own, for all their robots;
+// no colour per role.
 describe('avatarFromForm', () => {
-  it('keeps the picked emblem and the colour of each role ticked as its own', () => {
-    const entries = [['emblem', 'owl'], ['color-coder', '#FF8800'], ['own-coder', 'on'], ['color-host', '#112233']];
-    expect(avatarFromForm(entries)).toEqual({ emblem: 'owl', colors: { coder: '#ff8800' } });
+  it('keeps the picked emblem and the person\'s colour when ticked as their own', () => {
+    expect(avatarFromForm([['emblem', 'owl'], ['own-color', 'on'], ['color', '#FFCC00']])).toEqual({ emblem: 'owl', color: '#ffcc00' });
+    expect(avatarFromForm([['emblem', 'owl'], ['color', '#FFCC00']])).toEqual({ emblem: 'owl', color: null });
   });
 
   it('is cleaned like any avatar: no emblem when none or an unknown one was picked', () => {
-    expect(avatarFromForm([['emblem', 'dragon'], ['own-pilot', 'on'], ['color-pilot', '#000000']])).toEqual({ emblem: null, colors: {} });
-    expect(avatarFromForm([])).toEqual({ emblem: null, colors: {} });
+    expect(avatarFromForm([['emblem', 'dragon'], ['own-color', 'on'], ['color', 'red']])).toEqual({ emblem: null, color: null });
+    expect(avatarFromForm([])).toEqual({ emblem: null, color: null });
   });
 });
 
 describe('formOf', () => {
-  it('fills the form from a saved avatar: its emblem, and each role ticked with its colour', () => {
-    const form = formOf({ emblem: 'fox', colors: { reviewer: '#00aa55' } });
-    expect(form.emblem).toBe('fox');
-    expect(form.roles.find((r) => r.role === 'reviewer')).toEqual({ role: 'reviewer', own: true, color: '#00aa55' });
-    expect(form.roles.find((r) => r.role === 'coder')).toEqual({ role: 'coder', own: false, color: '#c0c8d0' });
+  it('fills the form from a saved avatar: its emblem and its colour, ticked', () => {
+    expect(formOf({ emblem: 'fox', color: '#ffcc00' })).toEqual({ emblem: 'fox', own: true, color: '#ffcc00' });
+  });
+
+  it('a saved colour per role comes as the person\'s colour', () => {
+    expect(formOf({ emblem: 'fox', colors: { host: '#ffcc00' } }).color).toBe('#ffcc00');
   });
 
   it('starts empty without an avatar', () => {
-    expect(formOf(null).emblem).toBeNull();
-    expect(formOf(null).roles.every((r) => !r.own)).toBe(true);
+    expect(formOf(null)).toEqual({ emblem: null, own: false, color: '#c0c8d0' });
   });
 });

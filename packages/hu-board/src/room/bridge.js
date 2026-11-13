@@ -18,7 +18,7 @@ export function outgoing(event, avatar) {
   const message = { ...pick(event), lane: event.lane ?? 'main' };
   if (!SLUG.test(message.lane)) return null;
   const clean = cleanAvatar(avatar);
-  return clean.emblem || Object.keys(clean.colors).length ? { ...message, avatar: clean } : message;
+  return clean.emblem || clean.color ? { ...message, avatar: clean } : message;
 }
 
 /** A teammate's message as a scene event in its lane@login, or nothing when it is off the contract. */

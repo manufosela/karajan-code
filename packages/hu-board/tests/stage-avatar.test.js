@@ -10,24 +10,30 @@ import { describe, expect, it } from 'vitest';
 import { EMBLEMS, ROLES, cleanAvatar } from '../public/stage/avatars.js';
 import { readAvatar, saveAvatar } from '../src/stage-avatar.js';
 
+// KJC-TSK-1603 (the maintainer, 2026-11-13): one colour per person, which marks all their robots;
+// no colour per role.
 describe('cleanAvatar', () => {
-  it('keeps a known emblem and a #rrggbb colour for each known role', () => {
-    expect(cleanAvatar({ emblem: 'fox', colors: { coder: '#FF8800', reviewer: '#00aa55' } }))
-      .toEqual({ emblem: 'fox', colors: { coder: '#ff8800', reviewer: '#00aa55' } });
+  it('keeps a known emblem and the person\'s #rrggbb colour', () => {
+    expect(cleanAvatar({ emblem: 'fox', color: '#FFCC00' })).toEqual({ emblem: 'fox', color: '#ffcc00' });
   });
 
-  it('drops an unknown emblem, an unknown role and a colour that is not #rrggbb', () => {
-    expect(cleanAvatar({ emblem: 'dragon', colors: { pilot: '#ffffff', coder: 'red', host: '#12345' } }))
-      .toEqual({ emblem: null, colors: {} });
+  it('drops an unknown emblem and a colour that is not #rrggbb', () => {
+    expect(cleanAvatar({ emblem: 'dragon', color: 'yellow' })).toEqual({ emblem: null, color: null });
+    expect(cleanAvatar({ emblem: 'cat', color: '#12345' })).toEqual({ emblem: 'cat', color: null });
   });
 
   it('drops a colour that is not a string, even one that reads as #rrggbb', () => {
-    expect(cleanAvatar({ emblem: 'cat', colors: { coder: ['#ffffff'], host: { toString: () => '#ffffff' } } }))
-      .toEqual({ emblem: 'cat', colors: {} });
+    expect(cleanAvatar({ emblem: 'cat', color: { toString: () => '#ffffff' } })).toEqual({ emblem: 'cat', color: null });
+  });
+
+  it('turns a colour per role, saved before or sent by an older kj, into the host\'s, else the first', () => {
+    expect(cleanAvatar({ emblem: 'owl', colors: { coder: '#FF8800', host: '#FFCC00' } })).toEqual({ emblem: 'owl', color: '#ffcc00' });
+    expect(cleanAvatar({ emblem: 'owl', colors: { reviewer: '#22aa66', coder: 'red' } })).toEqual({ emblem: 'owl', color: '#22aa66' });
+    expect(cleanAvatar({ emblem: 'owl', colors: { pilot: '#000000' } })).toEqual({ emblem: 'owl', color: null });
   });
 
   it('is empty for anything that is not an object', () => {
-    for (const bad of [null, 'fox', 3, []]) expect(cleanAvatar(bad)).toEqual({ emblem: null, colors: {} });
+    for (const bad of [null, 'fox', 3, []]) expect(cleanAvatar(bad)).toEqual({ emblem: null, color: null });
   });
 
   it('offers about ten emblems and the five roles of the scene', () => {
@@ -41,9 +47,9 @@ describe('the avatar on the board', () => {
 
   it('is empty until one is saved, and then the cleaned choice', () => {
     const dir = home();
-    expect(readAvatar(dir)).toEqual({ emblem: null, colors: {} });
-    expect(saveAvatar(dir, { emblem: 'owl', colors: { coder: '#ABCDEF', pilot: '#000000' } })).toEqual({ emblem: 'owl', colors: { coder: '#abcdef' } });
-    expect(readAvatar(dir)).toEqual({ emblem: 'owl', colors: { coder: '#abcdef' } });
+    expect(readAvatar(dir)).toEqual({ emblem: null, color: null });
+    expect(saveAvatar(dir, { emblem: 'owl', color: '#ABCDEF' })).toEqual({ emblem: 'owl', color: '#abcdef' });
+    expect(readAvatar(dir)).toEqual({ emblem: 'owl', color: '#abcdef' });
     expect(JSON.parse(readFileSync(join(dir, 'hu-board', 'avatar.json'), 'utf8')).emblem).toBe('owl');
   });
 
@@ -58,10 +64,10 @@ describe('the avatar on the board', () => {
     try {
       const url = `http://localhost:${server.address().port}/api/stage/me`;
       // KJC-TSK-1597: with the own GitHub login, none while the board is in no room.
-      expect(await (await fetch(url)).json()).toEqual({ emblem: null, colors: {}, login: null });
-      const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emblem: 'panda', colors: { host: '#123456', x: '#000000' } }) });
-      expect(await put.json()).toEqual({ emblem: 'panda', colors: { host: '#123456' } });
-      expect(await (await fetch(url)).json()).toEqual({ emblem: 'panda', colors: { host: '#123456' }, login: null });
+      expect(await (await fetch(url)).json()).toEqual({ emblem: null, color: null, login: null });
+      const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emblem: 'panda', color: '#123456', x: '#000000' }) });
+      expect(await put.json()).toEqual({ emblem: 'panda', color: '#123456' });
+      expect(await (await fetch(url)).json()).toEqual({ emblem: 'panda', color: '#123456', login: null });
     } finally {
       await new Promise((r) => server.close(r));
       if (prev === undefined) delete process.env.KARAJAN_HOME; else process.env.KARAJAN_HOME = prev;
@@ -72,6 +78,6 @@ describe('the avatar on the board', () => {
     const dir = home();
     saveAvatar(dir, { emblem: 'cat' });
     writeFileSync(join(dir, 'hu-board', 'avatar.json'), '{broken');
-    expect(readAvatar(dir)).toEqual({ emblem: null, colors: {} });
+    expect(readAvatar(dir)).toEqual({ emblem: null, color: null });
   });
 });
