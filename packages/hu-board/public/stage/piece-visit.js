@@ -48,6 +48,19 @@ function withReviewer(visits, event, now) {
   return { ...visits, review: { ...old, until: Math.max(now, old.at + PIECE_WALK_MS) } };
 }
 
+/** KJC-TSK-1583: what the event says of the work the piece looked at; nothing when it says nothing yet. */
+function toneOf(event) {
+  switch (event.type) {
+    case 'review-verdict':
+      if (!event.verdict) return undefined; // the reviewer's start sends the piece before any verdict
+      return event.verdict === 'approved' ? 'approve' : 'refuse';
+    case 'commit-gate': return event.outcome === 'pass' ? 'approve' : 'refuse';
+    case 'ledger-seal': return event.decision === 'deny' ? 'refuse' : 'approve';
+    case 'method-check': return event.outcome === 'pass' ? 'approve' : 'refuse';
+    default: return undefined;
+  }
+}
+
 /** The visits after an event at `now`, by piece: a piece already in that lane's workshop stays longer. */
 export function withVisit(visits, event, now) {
   if (event?.type === 'agent-activity') return event.role === 'reviewer' ? withReviewer(visits, event, now) : visits;
@@ -55,15 +68,34 @@ export function withVisit(visits, event, now) {
   if (!piece) return visits;
   const lane = event.lane ?? 'main';
   const old = visits[piece];
+  const tone = toneOf(event);
   if (old?.lane === lane && now < old.until) {
-    return { ...visits, [piece]: { ...old, until: Math.max(old.until, now + VISIT_MS) } };
+    return { ...visits, [piece]: { ...old, until: Math.max(old.until, now + VISIT_MS), ...(tone ? { tone, toneAt: now } : {}) } };
   }
   // Called away while out (going, there or coming back): the new trip starts where the old one
   // has the piece now. Once the old one reached its workshop, where it set off from no longer counts.
   const out = old && now < old.until + PIECE_WALK_MS;
   const arrived = old && now >= old.at + PIECE_WALK_MS;
   const from = out ? { ...old, from: arrived ? null : old.from } : null;
-  return { ...visits, [piece]: { piece, lane, at: now, until: now + PIECE_WALK_MS + VISIT_MS, from } };
+  return { ...visits, [piece]: { piece, lane, at: now, until: now + PIECE_WALK_MS + VISIT_MS, from, tone, toneAt: tone ? now : undefined } };
+}
+
+/** KJC-TSK-1583: how long a piece inspects at the workshop, and how long it answers. */
+export const INSPECT_MS = 800;
+export const GESTURE_MS = 900;
+
+/**
+ * What a piece does at the workshop at `now`: it inspects until it knows the result (and for a
+ * moment at least), then stamps (approve) or shakes its head (refuse), `k` from 0 to 1, then
+ * rests. Nothing while it walks or is at its post.
+ */
+export function gestureAt(visit, now) {
+  const arrive = visit ? visit.at + PIECE_WALK_MS : Infinity;
+  if (now < arrive || now >= visit.until) return null;
+  const start = visit.tone ? Math.max(arrive + INSPECT_MS, visit.toneAt) : Infinity;
+  if (now < start) return { kind: 'inspect', k: ((now - arrive) % INSPECT_MS) / INSPECT_MS };
+  const k = (now - start) / GESTURE_MS;
+  return k < 1 ? { kind: visit.tone, k } : null;
 }
 
 /** Where a piece is at `now`, where it faces, whether it glides and whether it is off its post. */

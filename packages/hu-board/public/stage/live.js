@@ -13,7 +13,7 @@ import { sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
-import { PIECE_WALK_MS, VISIT_SPOTS, pieceAt, withVisit } from './piece-visit.js';
+import { PIECE_WALK_MS, VISIT_SPOTS, gestureAt, pieceAt, withVisit } from './piece-visit.js';
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
 import { newRelease, readyToRelease, versionLine } from './release.js';
@@ -118,8 +118,12 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   // KJC-TSK-1528: returns the name tag of the agent a piece works for (the reviewer over AI review).
   const movePieces = (now) => Object.keys(VISIT_SPOTS).flatMap((id) => {
     const pose = pieceAt(visits[id], now, { x: postX(id), z: POST.z }, hall.xOf, hall.zOf);
-    pieces[id].group.position.set(pose.x, pose.walking ? 0.08 * Math.abs(Math.sin(now / 110)) : 0, pose.z);
-    pieces[id].group.rotation.y = pose.yaw;
+    // KJC-TSK-1583: at the workshop it leans over the box, then hops (approve) or shakes its head (refuse).
+    const act = gestureAt(visits[id], now);
+    const hop = act?.kind === 'approve' ? 0.25 * Math.sin(Math.PI * act.k) : 0;
+    pieces[id].group.position.set(pose.x, (pose.walking ? 0.08 * Math.abs(Math.sin(now / 110)) : 0) + hop, pose.z);
+    pieces[id].group.rotation.y = pose.yaw + (act?.kind === 'refuse' ? 0.5 * Math.sin(6 * Math.PI * act.k) * (1 - act.k) : 0);
+    pieces[id].group.rotation.x = act?.kind === 'inspect' ? 0.18 + 0.06 * Math.sin(2 * Math.PI * act.k) : 0;
     return pose.away && visits[id]?.by ? [overPiece(visits[id].by, pieces[id].group.position, camera, origin, 'stage-worker')] : [];
   });
   // KJC-TSK-1528: a review already going on when the stage opens has the AI review piece at it.
