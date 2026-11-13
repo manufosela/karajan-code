@@ -646,6 +646,18 @@ export function registerMeta(program, { pkgVersion }) {
       await releaseProposeCommand({ repo: sealRepoOf(process.cwd()), version });
     });
 
+  release.command("status <issue>")
+    .description("Who confirmed the release, who holds, who is silent and whether it is ready; exit 1 when not ready (ADR 0057)")
+    .option("--json", "Machine-readable result")
+    .action(async (issue, flags) => {
+      const { releaseStatusCommand } = await import("../commands/release-status.js");
+      const { sealRepoOf } = await import("../harden/seal-repo.js");
+      const print = flags.json ? () => {} : console.log;
+      const result = await releaseStatusCommand({ repo: sealRepoOf(process.cwd()), issue: Number(issue), print });
+      if (flags.json) console.log(JSON.stringify(result));
+      if (!result.ready) process.exitCode = 1;
+    });
+
   // KJC-BUG-0494: the Sentinel asks before every gh pr merge; exit 2 means the PR's checks say no.
   program.command("merge-gate")
     .description("Whether a gh pr merge command may run now: exit 2, with the reason, while the PR's checks run or are red")
