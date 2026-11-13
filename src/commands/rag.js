@@ -20,6 +20,7 @@ import { getKarajanHome } from "../utils/paths.js";
 import { countProjectChunks, countProjectSources, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
 import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
 import { noteRagAnswer, noteRagIndex } from "../rag/answer-note.js";
+import { resolveLaneDir } from "../utils/lane-dir.js";
 
 // KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
 function openDb(config) {
@@ -170,6 +171,8 @@ export async function ragInstallHooksCommand({ config, logger, flags = {} }) {
 
 export async function ragQueryCommand({ text, config, logger, flags = {} }) {
   if (!text) throw new Error("kj rag query: text argument required");
+  // HU-4123: --lane answers from that lane's own index and files.
+  if (flags.lane) config = { ...config, projectDir: resolveLaneDir(flags.lane, config?.projectDir || process.cwd()) };
   // ENV-E1 (KJC-TSK-0640): never serve stale code — delta-update on drift
   // before searching. Same escape hatches as the pre-run check
   // (--no-rag-update / config.rag.autoUpdate); failures degrade to a warn

@@ -961,6 +961,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--rag-mode <mode>", "hybrid (default) | semantic (cosine only) | keyword (BM25 only)", "hybrid")
     .option("--alpha <n>", "Deprecated: hybrid fusion is reciprocal rank since 4.63; tune rag.search.rrf_k (default 60) in kj.config.yml", "0.6")
     .option("--where <clause>", "Metadata filter: 'symbol=loadConfig', 'hu_id=HU-003 AND kind=plan', or a prefix with ~= such as 'source~=src/billing' (relative to the project)")
+    .option("--lane <slug>", "Answer for a worktree lane (.kj/worktrees/<slug>): its own index and files, not the main checkout's")
     .option("--library", "Query the distilled engineering canon (pattern cards shipped with kj + ~/.karajan/library, in ~/.karajan/library.db) instead of the project corpus; a project's own .karajan/library cards live in its index and answer normal queries. Cards carry problem signatures, when-NOT-to-apply and canonical citations (KJC-TSK-0697).")
     .option("--rerank", "Re-score the top-N candidates with a cross-encoder (needs @huggingface/transformers; or rag.search.rerank.enabled in kj.config.yml)")
     .option("--rerank-top-n <n>", "Candidates the cross-encoder re-scores before the top-K is cut (default 40, or rag.search.rerank.top_n)")
