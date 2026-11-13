@@ -831,6 +831,7 @@ export function registerMeta(program, { pkgVersion }) {
   privacy.command("scan [paths...]")
     .description("Scan files/dirs for personal data, always masked in output: denylist hits (~/.karajan/privacy.yml) block with exit 1, generic PII (email/phone/DNI/NIE/IBAN/card via karajan-rag redactPII) warns")
     .option("--staged", "Scan the ADDED lines of the staged diff instead of paths")
+    .option("--range <rev-range>", "Scan the ADDED lines of git diff <rev-range> (e.g. origin/main...HEAD), credentials included; exclusive with --staged and paths")
     .option("--json", "Machine-readable result (stdout carries exactly one JSON document)")
     .action(async (paths, flags) => {
       const { privacyScanCommand } = await import("../commands/privacy.js");
