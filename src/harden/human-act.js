@@ -112,6 +112,8 @@ export const HUMAN_ACTS = Object.freeze({
   "main-guard-except": { label: "kj main-guard-except", module: "src/commands/main-guard-except.js" },
   // HU-3773 (ADR 0051): pinning or releasing a hook step replaces a quality step.
   "hooks-set": { label: "kj hooks set|unset", module: "src/commands/hooks.js" },
+  // HU-4188 (ADR 0057): only a person approves a version for publishing and tags it.
+  "release-approve": { label: "kj release approve", module: "src/commands/release-approve.js" },
 });
 
 /**

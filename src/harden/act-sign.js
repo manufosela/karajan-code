@@ -36,6 +36,11 @@ const EXPLAIN = {
     "main-guard solo deja pasar ese merge con tu firma, y lo nombra en su informe con el motivo.",
     "Una excepción sin tu firma dejaría a cualquiera con tus credenciales saltarse los checks sin que saltara la alarma.",
   ],
+  "release-approve": [
+    "Se aprueba la publicación de una versión en el commit candidato que ves, y se crea su tag.",
+    "Los agentes proponen y comprueban la release; publicarla solo puede una persona (ADR 0057).",
+    "Cualquiera con tus credenciales podría publicar una versión que nadie ha acordado.",
+  ],
   "phone-enroll": [
     "Entra una clave pública nueva en el padrón de móviles que pueden firmar en este proyecto.",
     "Quien está en el padrón sella, aprueba reglas y baja el nivel: solo un móvil ya enrolado admite a otro.",
