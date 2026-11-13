@@ -207,6 +207,60 @@ describe("kj link gh account pin", () => {
     expect(typeof adapter.listSince).toBe("function");
   });
 
+  // A FAKE gh that records every call: no network, no token. `classic` adds the header only a classic token gets;
+  // `categories` are the repository's Discussions categories; the empty createDiscussion answers UNPROCESSABLE.
+  const fakeGh = ({ classic = false, categories = ["Daily"] } = {}) => {
+    const calls = [];
+    const answer = (args) => {
+      if (args[1] === "-i") return `HTTP/2.0 200 OK\r\n${classic ? "X-OAuth-Scopes: repo\r\n" : ""}\r\n{}`;
+      if (args[1] === "graphql" && args.some((a) => a.includes("createDiscussion"))) return JSON.stringify({ errors: [{ type: "UNPROCESSABLE", message: "blank" }] });
+      if (args[1] === "graphql") return JSON.stringify({ data: { repository: { id: "R", hasDiscussionsEnabled: true, discussionCategories: { nodes: categories.map((name) => ({ id: name, name })) } } } });
+      if (args[1] === "-X") return JSON.stringify({ id: 5, user: { login: "ana" }, created_at: "t" });
+      return args[1] === "rate_limit" ? JSON.stringify({ resources: { core: { remaining: 42 } } }) : "[]";
+    };
+    const run = async (cmd, args) => (calls.push(args), { exitCode: 0, stdout: answer(args), stderr: "" });
+    return { run, calls, probed: () => calls.some((a) => a[1] === "-i" || a[1] === "graphql") };
+  };
+  const viaGh = (action, flags, gh, senescal) => linkCommand({ action, config: { projectDir: dir }, flags, log, deps: { senescal }, makeAdapter: (a) => githubAdapter({ ...a, pin: () => {}, run: gh.run }) });
+  // The Senescal is faked: the test looks at the adapter the ceremony hands it.
+  const convening = () => {
+    const seen = [];
+    return { seen, convene: async (adapter) => (seen.push(adapter), { thread: { kind: "issue", number: 3 }, opened: true }) };
+  };
+  const convene = { step: "convene", kind: "daily", title: "sync", agenda: "status" };
+
+  it.each([["send", msg()], ["inbox", { thread: "issue:7" }], ["threads", {}], ["limits", {}]])("%s builds no probe and makes no probe call, even where the probe would fail", async (action, flags) => {
+    github();
+    const gh = fakeGh({ categories: [] });
+    expect(await viaGh(action, flags, gh)).toBe(0);
+    expect(gh.probed()).toBe(false);
+  });
+
+  it("a ceremony with a classic token says it goes as an issue and why, then goes on", async () => {
+    github();
+    const senescal = convening();
+    expect(await viaGh("ceremony", convene, fakeGh({ classic: true }), senescal)).toBe(0);
+    expect(senescal.seen[0].capabilities.ceremonies).toBe(false);
+    expect(out[0]).toBe("the ceremony goes as an issue: a classic token never writes the ceremonies as Discussions");
+    expect(out[1]).toBe("opened daily ceremony issue:3");
+  });
+
+  it("a ceremony with a credential the probe accepts goes as a Discussion, with no issue line", async () => {
+    github();
+    const senescal = convening();
+    expect(await viaGh("ceremony", convene, fakeGh(), senescal)).toBe(0);
+    expect(senescal.seen[0].capabilities.ceremonies).toBe(true);
+    expect(printed()).not.toContain("goes as an issue");
+  });
+
+  it("a missing ceremony category with a writable credential fails loud naming it, only in the ceremony", async () => {
+    github();
+    const senescal = convening();
+    expect(await viaGh("ceremony", convene, fakeGh({ categories: [] }), senescal)).toBe(1);
+    expect(printed()).toMatch(/category "Daily" does not exist in acme\/app/);
+    expect(senescal.seen).toEqual([]);
+  });
+
   it("fails loudly with the pin's own message when the declared account has no login", async () => {
     github();
     const pin = () => {
