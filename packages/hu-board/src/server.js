@@ -23,6 +23,7 @@ import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailRes
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
 import { startLaneSweeper } from './lane-sweeper.js';
 import { startStatusBeat } from './link-status.js';
+import { startCardRefresh } from './card-refresh.js';
 import { startRooms } from './room/rooms.js';
 import { startupBanner } from './startup-banner.js';
 import { spaFallback } from './spa-fallback.js';
@@ -279,6 +280,8 @@ async function main() {
   startLaneSweeper();
   // KJC-TSK-1552 (ADR 0054): a status on each HU an agent works on, for the teammates' stage.
   startStatusBeat();
+  // KJC-TSK-1587: the shared board's statuses, fresh, so a card closed by its merge leaves its desk.
+  startCardRefresh();
   // KJC-TSK-1573 (ADR 0056): the room of each repository it shows, its presence and who else is in.
   const rooms = startRooms().catch((err) => { console.warn(`[room] skipped: ${err.message}`); return null; });
 
