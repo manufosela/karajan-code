@@ -25,7 +25,11 @@ const token = boardToken(location.search, () => localStorage);
 // KJC-TSK-1468: the loading indicator goes with the first word, once that frame is drawn.
 const loading = document.getElementById('stage-loading');
 const loaded = () => requestAnimationFrame(() => { loading.hidden = true; });
-const tell = (lines) => { status.replaceChildren(...lines.map((text) => Object.assign(document.createElement('li'), { textContent: text }))); loaded(); };
+// KJC-TSK-1608: a line is a text, or a status entry with its tone and whether it is the newest.
+const itemOf = (line) => (typeof line === 'string'
+  ? { textContent: line }
+  : { textContent: line.text, className: `stage-tone-${line.tone}${line.newest ? ' stage-newest' : ''}` });
+const tell = (lines) => { status.replaceChildren(...lines.map((line) => Object.assign(document.createElement('li'), itemOf(line)))); loaded(); };
 
 /** Builds the hall with one workshop per lane; returns its pieces, crew, hall and render. */
 function buildScene(lanes) {
@@ -115,7 +119,7 @@ async function start() {
   // The status list never goes blank: with nothing to tell, it says so (also after a live event).
   const tellState = (lines) => tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
   const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts'), avatar: await fetchAvatar() });
-  tellState(live.settle().lines);
+  tellState(live.settle().ordered);
   offerAvatarPanel(live);
   // ADR 0048: nothing moves without a real event. The frames only play what events
   // set going; someone who asked for no motion gets the lights and the list only.

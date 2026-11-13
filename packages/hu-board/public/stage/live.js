@@ -218,7 +218,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const at = new Date().toISOString();
       for (const closed of closedCards(atHome(held, hall.names()), atHome(cards, hall.names()))) couriers.push({ ...closed, at }, now);
       state = { ...state, cards, lanes: server.lanes ?? state.lanes, ...(released ? { release: server.release } : {}) };
-      if (released || cards !== held) tell(settle().lines);
+      if (released || cards !== held) tell(settle().ordered);
       showStatuses();
     },
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
@@ -246,7 +246,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       beat = withBeat(beat, event, now);
       visits = withVisit(visits, event, now);
       reviews = withReviews(reviews, event, now); // KJC-TSK-1595
-      tell(settle().lines);
+      tell(settle().ordered); // KJC-TSK-1608: top down, the newest first
     },
     /** Flashes the pieces that handled a real event just now. */
     frame(now) {

@@ -92,8 +92,6 @@ function reindexLine({ phase, lane, at }, now) {
   return phase === 'start' ? `kaRAGan: reindexing${where}, since ${ago(at, now)}` : `kaRAGan: reindexed${where}, ${ago(at, now)}`;
 }
 
-/** What kaRAGan last answered and the reindex it is at, as far as each is known. */
-const kaRAGanLines = (rag, reindex, now) => [rag && ragLine(rag, now), reindex && reindexLine(reindex, now)].filter(Boolean);
 
 // KJC-TSK-1524: kj review's checks, in the order of the pieces' row.
 const CHECKED = [['tdd', 'TDD'], ['sonar', 'SonarQube'], ['steward', 'Steward']];
@@ -105,48 +103,80 @@ function checkStates(given, now) {
   const passed = (piece) => checks[piece].outcome === 'pass';
   return {
     lights: Object.fromEntries(done.map(([piece]) => [piece, passed(piece) ? PASSED : REFUSED])),
-    lines: done.map(([piece, name]) => `${name}: ${passed(piece) ? 'passed' : 'refused'}, ${ago(checks[piece].at, now)}`),
+    entries: done.map(([piece, name]) => entry(`${name}: ${passed(piece) ? 'passed' : 'refused'}, ${ago(checks[piece].at, now)}`, checks[piece].at, passed(piece) ? 'pass' : 'refuse')),
   };
 }
 
-export function restState(state, now) {
-  const { denial, verdict, seal, gate, rag, reindex, checks } = state;
-  const working = state.working ?? [];
-  const cards = state.cards ?? [];
-  const checked = checkStates(checks, now);
-  const lights = { ...checked.lights };
-  const lines = [];
+/** KJC-TSK-1608: a line of the status, when it happened (null: it is now, or has no time) and its tone. */
+const entry = (text, at, tone) => ({ text, at: at ? Date.parse(at) : null, tone });
+
+/**
+ * KJC-TSK-1608 (the maintainer, 2026-11-13): the status reads top down: who works now, then what
+ * happened from the newest down, the newest marked, then what has no time (the board's count).
+ */
+export function statusOrder(entries) {
+  const live = entries.filter((e) => e.tone === 'live' || (e.tone === 'wait' && e.at === null));
+  const timed = entries.filter((e) => e.at !== null).toSorted((a, b) => b.at - a.at);
+  const rest = entries.filter((e) => e.at === null && !live.includes(e));
+  return [...live, ...timed.map((e, i) => (i === 0 ? { ...e, newest: true } : e)), ...rest];
+}
+
+// KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
+const usingOf = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
+const whereOf = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
+// KJC-TSK-1435: the host says the tool it uses; a subagent, its type.
+function whatOf(w) {
+  // KJC-TSK-1607: a host that waits says for what.
+  if (w.role === 'host' && w.waiting) return [w.waiting === 'person' ? 'waits for you' : 'waits for a process'];
+  if (w.role === 'host') return w.tool ? ['working', `(${w.tool})`] : ['working'];
+  if (w.role === 'subagent') return ['subagent', ...(w.kind ? [w.kind] : [])];
+  return [DOING[w.role] ?? w.role];
+}
+// KJC-TSK-1536: the model and effort it runs with, when known: "claude coding (Opus 5.5, high)".
+const doingOf = (w) => [w.agent, ...whatOf(w), ...whereOf(w), ...usingOf(w), launchedLabel(w)].filter(Boolean).join(' ');
+
+/** KJC-TSK-1608: who works now, which leads the list; it waits when a host waits for the person. */
+const workingEntry = (working) => entry(`At work: ${working.map(doingOf).join(', ')}`, null, working.some((w) => w.waiting === 'person') ? 'wait' : 'live');
+
+const tone = (good) => (good ? 'pass' : 'refuse');
+
+/** The lights and lines of the Sentinel, the review, the Ledger and the Git gates, as far as each is known. */
+function pieceStates({ denial, verdict, seal, gate }, now) {
+  const lights = {};
+  const entries = [];
   if (denial) {
     if (now - Date.parse(denial.at) < RECENT_MS) lights.sentinel = REFUSED;
-    lines.push(`Sentinel: last denial ${ago(denial.at, now)} (${denial.tool})`);
+    entries.push(entry(`Sentinel: last denial ${ago(denial.at, now)} (${denial.tool})`, denial.at, 'refuse'));
   }
   if (verdict) {
-    lights.review = verdict.verdict === 'approved' ? PASSED : REFUSED;
-    lines.push(`Review: ${verdict.verdict} by ${verdict.reviewer ?? 'an unnamed reviewer'}, ${ago(verdict.at, now)}`);
+    const approved = verdict.verdict === 'approved';
+    lights.review = approved ? PASSED : REFUSED;
+    entries.push(entry(`Review: ${verdict.verdict} by ${verdict.reviewer ?? 'an unnamed reviewer'}, ${ago(verdict.at, now)}`, verdict.at, tone(approved)));
   }
   if (seal) {
-    lights.ledger = seal.decision === 'deny' ? REFUSED : PASSED;
-    lines.push(`Ledger: ${seal.decision} at ${seal.chokepoint}, ${ago(seal.at, now)}`);
+    const allowed = seal.decision !== 'deny';
+    lights.ledger = allowed ? PASSED : REFUSED;
+    entries.push(entry(`Ledger: ${seal.decision} at ${seal.chokepoint}, ${ago(seal.at, now)}`, seal.at, tone(allowed)));
   }
   // KJC-TSK-1427: the commit-msg guard's last attempt opens the Git gates or keeps them shut.
   if (gate) {
     lights.gates = gate.outcome === 'pass' ? PASSED : REFUSED;
-    lines.push(gateLine(gate, now));
+    entries.push(entry(gateLine(gate, now), gate.at, tone(gate.outcome === 'pass')));
   }
-  lines.push(...checked.lines, ...kaRAGanLines(rag, reindex, now));
-  const board = boardLine(cards); // KJC-TSK-1458: the factory's task board, counted
-  if (board) lines.push(board);
-  // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
-  const using = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
-  const where = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
-  // KJC-TSK-1435: the host says the tool it uses; a subagent, its type.
-  const what = (w) => {
-    if (w.role === 'host') return w.tool ? ['working', `(${w.tool})`] : ['working'];
-    if (w.role === 'subagent') return ['subagent', ...(w.kind ? [w.kind] : [])];
-    return [DOING[w.role] ?? w.role];
-  };
-  // KJC-TSK-1536: the model and effort it runs with, when known: "claude coding (Opus 5.5, high)".
-  const doing = (w) => [w.agent, ...what(w), ...where(w), ...using(w), launchedLabel(w)].filter(Boolean).join(' ');
-  if (working.length) lines.push(`At work: ${working.map(doing).join(', ')}`);
-  return { lights, lines };
+  return { lights, entries };
+}
+
+export function restState(state, now) {
+  const { rag, reindex, checks } = state;
+  const working = state.working ?? [];
+  const pieces = pieceStates(state, now);
+  const checked = checkStates(checks, now);
+  // KJC-TSK-1608: each line with when it happened and its tone, for statusOrder.
+  const entries = [...pieces.entries, ...checked.entries];
+  if (rag) entries.push(entry(ragLine(rag, now), rag.at, 'info'));
+  if (reindex) entries.push(entry(reindexLine(reindex, now), reindex.at, 'info'));
+  const board = boardLine(state.cards ?? []); // KJC-TSK-1458: the factory's task board, counted
+  if (board) entries.push(entry(board, null, 'info'));
+  if (working.length) entries.push(workingEntry(working));
+  return { lights: { ...checked.lights, ...pieces.lights }, lines: entries.map((e) => e.text), ordered: statusOrder(entries) };
 }
