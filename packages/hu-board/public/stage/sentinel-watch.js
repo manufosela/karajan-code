@@ -16,8 +16,20 @@ const lane = (event) => event.lane ?? 'main';
 /** The watch after an event: the lane it last looked at, and the denial it answers. */
 export function withWatch(watch, event, now) {
   if (event?.type === 'sentinel-deny') return { ...watch, lane: lane(event), stop: { lane: lane(event), at: now } };
-  if (event?.type === 'agent-activity' && event.role === 'host' && event.phase === 'start') return { ...watch, lane: lane(event) };
+  // KJC-TSK-1584: the beat is the Sentinel checking that call and letting it through.
+  if (event?.type === 'agent-activity' && event.role === 'host' && event.phase === 'start') return { ...watch, lane: lane(event), checked: now };
   return watch;
+}
+
+/** KJC-TSK-1584: how long the Sentinel's light blinks when it lets a call through. */
+export const BLINK_MS = 400;
+
+/** How bright the Sentinel's own light blinks at `now` (0..1); 0 while it is down answering a denial. */
+export function blinkAt(watch, now) {
+  if (watch.checked === undefined) return 0;
+  if (watch.stop && descent(now - watch.stop.at) !== null) return 0;
+  const t = now - watch.checked;
+  return t < 0 || t >= BLINK_MS ? 0 : Math.sin((Math.PI * t) / BLINK_MS);
 }
 
 const smooth = (k) => k * k * (3 - 2 * k);
