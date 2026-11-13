@@ -17,9 +17,14 @@ jobs:
   verify:
     name: Suite, verify-pack and privacy scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js 24
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -36,6 +41,18 @@ jobs:
           want="${GITHUB_REF_NAME#v}"
           got="$(node -p 'require("./package.json").version')"
           [ "$want" = "$got" ] || { echo "::error::tag $GITHUB_REF_NAME but package.json says $got"; exit 1; }
+
+      # ADR 0057: a version is published only when its release issue is ready and a person of the
+      # roster signed its approval at this commit. The tag must be on main, so the kj that judges
+      # it is the reviewed one, not code that only the tag carries.
+      - name: The release was approved (ADR 0057)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::$GITHUB_REF_NAME is not on main: only a reviewed commit is released"; exit 1; }
+          node bin/kj.js release verify "$GITHUB_REF_NAME"
 
       - name: Full suite
         run: npx vitest run --reporter=default --reporter=github-actions
