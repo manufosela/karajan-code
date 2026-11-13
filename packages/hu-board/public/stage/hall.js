@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { WORKSHOP, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
+import { deskParts } from './desk-layout.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
@@ -50,22 +51,40 @@ const PAD_DIM = 0x161d27;
 const BENCH = 0x5a4a3a;
 const BENCH_DIM = 0x352c24;
 
+/** KJC-TSK-1589: the desk of a workshop, its top on four legs and a chair behind each seat. */
+function desk(wood) {
+  const group = new THREE.Group();
+  const box = (w, h, d, x, y, z) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wood);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    group.add(mesh);
+  };
+  const { top, legs, chairs } = deskParts();
+  box(top.width, top.thick, top.depth, 0, top.y, top.z);
+  for (const leg of legs) box(leg.size, leg.height, leg.size, leg.x, leg.height / 2, leg.z);
+  for (const chair of chairs) {
+    box(chair.size, 0.04, chair.size, chair.x, chair.seat, chair.z); // the seat
+    box(0.04, chair.seat, 0.04, chair.x, chair.seat / 2, chair.z); // its post
+    box(chair.size, chair.back, 0.04, chair.x, chair.seat + chair.back / 2, chair.z - chair.size / 2); // its back
+  }
+  return group;
+}
+
 /** A workshop and `show(line, state)`, which dims it and says why while its lane is not working. */
 function workshop(name) {
   const group = new THREE.Group();
   const pad = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width, 0.04, WORKSHOP.depth), matte(PAD));
   pad.position.y = 0.02;
   pad.receiveShadow = true;
-  // Low enough that the badge on a working robot's chest shows over it (KJC-TSK-1435).
-  const bench = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width * 0.8, 0.35, 0.6), matte(BENCH));
-  bench.position.set(0, 0.175, 0.4);
-  bench.castShadow = true;
+  // KJC-TSK-1589: a desk with its chairs where the bench was; one wood material, dimmed as one.
+  const wood = matte(BENCH);
   const { plate, paint } = nameplate(name);
-  group.add(pad, bench, plate);
+  group.add(pad, desk(wood), plate);
   const show = (line, state) => {
     const lit = state === 'working';
     pad.material.color.setHex(lit ? PAD : PAD_DIM);
-    bench.material.color.setHex(lit ? BENCH : BENCH_DIM);
+    wood.color.setHex(lit ? BENCH : BENCH_DIM);
     paint(line, state);
   };
   return { group, show };

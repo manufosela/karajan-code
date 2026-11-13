@@ -11,7 +11,7 @@ export const WALK_MS = 2500;
 const BENCH_DZ = -0.4;
 // Side by side at the bench: the host (KJC-TSK-1435), the coder kj launches, the
 // reviewer beside it, Solomon beside the reviewer it arbitrates.
-const SEATS = [-1.3, -0.5, 0.4, 1.3];
+export const SEATS = [-1.3, -0.5, 0.4, 1.3];
 const ROLE_SEAT = { host: 0, coder: 1, reviewer: 2, solomon: 3 };
 // KJC-BUG-0555: once the four seats are taken, the next ones stand in rows behind the bench.
 const SEAT_ROW = 0.9;
