@@ -141,8 +141,13 @@ export function withActivity(workers, event, now) {
     // A start of someone already at work is its beat: it says which tool it uses now, and
     // KJC-TSK-1538: the model it answers with, which the host may switch mid-session.
     // KJC-TSK-1607: and a host that was waiting is at work again.
-    const beat = ({ waiting: _was, ...w }) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}) });
+    // KJC-TSK-1610: kj hu start gives the host atril's skills without its id: the host goes to read them.
+    const detour = !event.id && event.role === 'host' && event.skills?.length ? { detour: { at: now, reads: event.skills.length } } : {};
+    const beat = ({ waiting: _was, ...w }) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}), ...detour });
     if (workers.some((w) => inside(w, event))) return workers.map((w) => (inside(w, event) ? beat(w) : w));
+    // KJC-TSK-1610: the Sentinel's start, with the id, of a host that came in without one is that host.
+    const unnamed = (w) => event.role === 'host' && event.id && w.role === 'host' && !w.id && w.leftAt === undefined && w.lane === laneOf(event);
+    if (workers.some(unnamed)) return workers.map((w) => (unnamed(w) ? beat({ ...w, id: event.id }) : w));
     // KJC-BUG-0581: a session works in one lane; its start in another walks it out of the first.
     const elsewhere = (w) => event.id && w.id === event.id && w.leftAt === undefined && w.lane !== laneOf(event);
     const moved = workers.map((w) => (elsewhere(w) ? { ...w, leftAt: now } : w));
@@ -161,6 +166,17 @@ export const workersFrom = (working, now, lane = 'main') =>
 const lerp = (from, to, k) => ({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k });
 const facing = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
 
+/** KJC-TSK-1610: where a host on its way from its desk (`spot`) to atril and back is, or null outside it. */
+function detourAt(detour, now, spot) {
+  const t = detour ? now - detour.at : -1;
+  const read = detour ? detour.reads * TURN_MS : 0;
+  if (t < 0 || t >= 2 * WALK_MS + read) return null;
+  if (t < WALK_MS) return { ...lerp(spot, READER, t / WALK_MS), yaw: facing(spot, READER), walking: true, reading: false };
+  if (t < WALK_MS + read) return { ...READER, yaw: facing(READER, STAND), walking: false, reading: true };
+  const k = (t - WALK_MS - read) / WALK_MS;
+  return { ...lerp(READER, spot, k), yaw: facing(READER, spot), walking: true, reading: false };
+}
+
 /**
  * Where a worker is at `now` and whether it walks, or null once it has left;
  * `xOf`/`zOf` give a lane's workshop. A subagent walks out of its host and back to it;
@@ -175,6 +191,9 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z) {
     const k = (now - worker.leftAt) / WALK_MS;
     return k >= 1 ? null : { ...lerp(spot, gate, k), yaw: facing(spot, gate), walking: true };
   }
+  // KJC-TSK-1610: a host already at its desk goes to atril and back when kj gives it skills.
+  const away = detourAt(worker.detour, now, spot);
+  if (away) return away;
   // KJC-TSK-1596: with skills it stops before atril on its way in, one page per skill.
   const via = worker.reads ? READER : null;
   const t = Math.max(0, now - worker.since);
