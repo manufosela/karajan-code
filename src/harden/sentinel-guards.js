@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { isSea } from "node:sea";
 import { Readable } from "node:stream";
-import { childReposOf, inParent, listChildRepos, transversalRoot } from "./transversal.mjs";
+import { childReposOf, inParent, inWorkTree, listChildRepos, transversalRoot } from "./transversal.mjs";
 import { pathTokens, shellSegments } from "./sentinel/sentinel-shell.mjs";
 import { shellWrites } from "./sentinel/sentinel-bash-write.mjs";
 
@@ -122,9 +122,12 @@ export async function runGuard(name, { logger = console, exit = (code) => proces
     exit(2);
     return;
   }
-  const parent = transversalRoot(process.env.CLAUDE_PROJECT_DIR || process.cwd());
+  const start = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const parent = transversalRoot(start);
   // A guard this parent already routed (a child's stop) runs as is; outside a parent the mark means nothing.
-  if (!parent) delete process.env.KJ_TRANSVERSAL_PARENT;
-  else if (process.env.KJ_TRANSVERSAL_PARENT !== parent && !(await enterChildRepo(name, parent, { logger, exit }))) return;
+  const routed = Boolean(parent) && process.env.KJ_TRANSVERSAL_PARENT === parent;
+  if (!routed) delete process.env.KJ_TRANSVERSAL_PARENT;
+  // Only a session opened in the parent is transversal: one opened inside a child repo is that repo's own.
+  if (parent && !routed && !inWorkTree(start) && !(await enterChildRepo(name, parent, { logger, exit }))) return;
   await guards[name]();
 }

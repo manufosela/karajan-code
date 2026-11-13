@@ -47,6 +47,9 @@ export const transversalRoot = (dir) => {
   }
 };
 
+/** Whether dir lies inside a git work tree: a session opened there is that repo's own, never transversal. @returns {boolean} */
+export const inWorkTree = (dir) => Boolean(gitToplevel(String(dir)));
+
 /** The git toplevel of path's nearest existing dir when it lies below parent (relative paths read from parent). @returns {string|null} */
 export const childRepoOf = (path, parent) => {
   const root = canonical(resolve(String(parent)));
