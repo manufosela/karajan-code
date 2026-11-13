@@ -74,6 +74,15 @@ describe('cleanupZombies', () => {
     expect(r.projects).toHaveLength(6);
   });
 
+  it('catches macOS temp project ids (private_tmp_, private_var_folders_)', () => {
+    for (const id of ['private_tmp_x', 'private_var_folders_ab_T_x']) {
+      dbMod.upsertProject({ id, name: id, last_activity: isoDaysAgo(30) });
+    }
+    dbMod.upsertProject({ id: 'private_notes_x', name: 'n', last_activity: isoDaysAgo(30) });
+    const r = cleanupMod.cleanupZombies({ staleProjectDays: 7 });
+    expect(r.projects.sort()).toEqual(['private_tmp_x', 'private_var_folders_ab_T_x']);
+  });
+
   it('dryRun reports but does not touch DB or filesystem', () => {
     dbMod.upsertProject({ id: 'tmp_zombi', name: 'z', last_activity: isoDaysAgo(30) });
 
