@@ -2,7 +2,7 @@
 // per repository, and keeps its presence there; KJ_ROOM=off keeps it out of every room.
 import { describe, expect, it } from 'vitest';
 
-import { startRooms } from '../src/room/rooms.js';
+import { ownLogin, startRooms } from '../src/room/rooms.js';
 
 const quiet = { log: () => {}, warn: () => {} };
 
@@ -74,5 +74,14 @@ describe('startRooms', () => {
     const rooms = await startRooms({ ...deps, targets: () => ['/w/kc'], env: { KJ_ROOM: 'off' } });
     expect(opened).toEqual([]);
     expect(rooms.byRepo.size).toBe(0);
+  });
+
+  // KJC-TSK-1597: the scene names the own host by this login, as a teammate's by theirs.
+  it('remembers the login it entered with; none until it enters a room', async () => {
+    const { deps } = fakes({ '/w/kc': 'manufosela/karajan-code' });
+    await startRooms({ ...deps, targets: () => ['/w/kc'], env: { KJ_ROOM: 'off' } });
+    expect(ownLogin()).toBeNull();
+    await startRooms({ ...deps, targets: () => ['/w/off', '/w/kc'], env: {} });
+    expect(ownLogin()).toBe('manufosela');
   });
 });

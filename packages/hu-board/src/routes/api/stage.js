@@ -6,6 +6,7 @@ import { lanePipelines } from '../../lane-pipeline.js';
 import { laneUnreads } from '../../lane-unread.js';
 import { readAvatar, saveAvatar } from '../../stage-avatar.js';
 import { requestProjectDir } from '../../project-dir.js';
+import { ownLogin } from '../../room/rooms.js';
 import { stageMap } from '../../stage-map.js';
 import { laneStates } from '../../stage-state.js';
 import { withTeam } from '../../stage-team.js';
@@ -31,14 +32,15 @@ router.get('/stage/state', async (req, res) => {
   // HU-4211: and the unread link messages that wait for each lane.
   const unread = await laneUnreads(dir);
   const lanes = withTeam(dir, laneStates(dir, { readers: { pipeline: ({ dir: laneDir }) => pipelines.get(laneDir) ?? null, unread: ({ dir: laneDir }) => unread.get(laneDir) ?? null } }));
-  const { lane: _main, ...main } = lanes[0];
+  const main = Object.fromEntries(Object.entries(lanes[0]).filter(([key]) => key !== 'lane'));
   res.json({ ...main, lanes });
 });
 
 /** GET/PUT /api/stage/me - KJC-TSK-1565 (ADR 0056): this person's avatar, an emblem and a colour per role. */
 router.get('/stage/me', (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json(readAvatar(getKjHome()));
+  // KJC-TSK-1597: and the own GitHub login, which names the own host in the scene.
+  res.json({ ...readAvatar(getKjHome()), login: ownLogin() });
 });
 router.put('/stage/me', (req, res) => {
   try { res.json(saveAvatar(getKjHome(), req.body)); } catch (err) { res.status(500).json({ error: err.message }); }
