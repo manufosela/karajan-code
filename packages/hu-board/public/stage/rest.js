@@ -43,7 +43,9 @@ export function withEvent(state, event) {
       const lane = event.lane ?? 'main';
       // KJC-TSK-1435: the host's session and each subagent are told apart by their id.
       const same = (w) => (w.lane ?? 'main') === lane && (event.id ? w.id === event.id : w.agent === event.agent && w.role === event.role);
-      const others = (state.working ?? []).filter((w) => !same(w));
+      // KJC-BUG-0581: a session works in one lane; its start in another takes it out of the first.
+      const moved = (w) => event.phase === 'start' && event.id && w.id === event.id;
+      const others = (state.working ?? []).filter((w) => !same(w) && !moved(w));
       // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
       const launched = Object.fromEntries(['model', 'effort'].filter((k) => event[k]).map((k) => [k, event[k]]));
       // KJC-BUG-0577: a teammate's keeps whose it is and its avatar.

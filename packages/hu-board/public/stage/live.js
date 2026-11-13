@@ -61,7 +61,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   /** KJC-TSK-1540: dims each lane that is not working and says why on its nameplate. */
   let statuses = new Map(); // KJC-TSK-1588: each lane's status, for the signs over the desks
   const showStatuses = () => {
-    statuses = laneStatuses(hall.names(), state, box);
+    // KJC-BUG-0581: with the robots the floor has at work, so a sign never denies one that types.
+    statuses = laneStatuses(hall.names(), state, box, floor.working());
     for (const [lane, status] of statuses) hall.showStatus(lane, statusLine(status), status.state);
   };
   /** KJC-TSK-1588: over each desk whose card waits with no agent, what it waits for. */
@@ -231,10 +232,10 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       state = next;
       // A lane seen for the first time gets its workshop (KJC-TSK-1433).
       if (event.lane && hall.ensure(event.lane)) refit();
-      showStatuses();
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
+      showStatuses(); // KJC-BUG-0581: once the floor has its robots where this event puts them
       couriers.push(event, now);
       // KJC-TSK-1596: once the agent stands before atril.
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: turnFrom(event, now), skills: event.skills };

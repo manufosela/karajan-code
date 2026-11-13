@@ -161,6 +161,8 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   };
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
+    /** KJC-BUG-0581: the robots at work now (not walking out), each with its lane. */
+    working: () => workers.filter((w) => w.leftAt === undefined).map(({ agent, role, lane, id }) => ({ agent, role, lane, id })),
     /** KJC-TSK-1569: a new own avatar; every robot is built again, in it, on the next frame. */
     setAvatar(next) {
       own = next;

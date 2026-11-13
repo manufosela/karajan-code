@@ -138,7 +138,10 @@ export function withActivity(workers, event, now) {
     // KJC-TSK-1538: the model it answers with, which the host may switch mid-session.
     const beat = (w) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}) });
     if (workers.some((w) => inside(w, event))) return workers.map((w) => (inside(w, event) ? beat(w) : w));
-    return [...workers, newWorker(workers, event, now)];
+    // KJC-BUG-0581: a session works in one lane; its start in another walks it out of the first.
+    const elsewhere = (w) => event.id && w.id === event.id && w.leftAt === undefined && w.lane !== laneOf(event);
+    const moved = workers.map((w) => (elsewhere(w) ? { ...w, leftAt: now } : w));
+    return [...moved, newWorker(moved, event, now)];
   }
   return workers.map((w) => (inside(w, event) ? { ...w, leftAt: now } : w));
 }
