@@ -10,7 +10,7 @@ import { createLaptop } from './laptop.js';
 import { dress } from './attire.js';
 import { accentFor, avatarFor } from './avatars.js';
 import { carry } from './backpack.js';
-import { accentOf, codeScrollAt, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
+import { TYPING_YAW, accentOf, codeScrollAt, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
@@ -56,7 +56,7 @@ function robotFor(worker, avatar) {
 
 // KJC-TSK-1486: typing, the hands come in towards the keyboard and the agent
 // turns side on to the camera, which sees its hands on the keys and its lit screen.
-const TYPING = { spread: -0.25, yaw: 1.85 };
+const TYPING = { spread: -0.25, yaw: TYPING_YAW };
 
 /**
  * KJC-TSK-1486: typing, a robot opens its laptop in its `accent` and types, `elapsed` ms since
