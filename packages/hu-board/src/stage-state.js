@@ -116,12 +116,14 @@ export function laneStates(projectDir, { branchOf = branchFacts, readers = {}, .
     const readFact = (name) => { try { return readers[name]?.({ lane, dir }) ?? null; } catch { return null; } };
     const facts = { working: state.working, cards, mail: state.mail, openPr: readFact('openPr'), merged: readFact('merged') };
     // HU-4029: how the pipeline of its open pull request stands.
-    return { lane, ...state, cards, branch, note, pipeline: lane === MAIN_LANE ? null : readFact('pipeline'), ...deriveLaneState(facts) };
+    // HU-4211: and how many unread link messages wait for it, when someone could count them.
+    const unread = readFact('unread');
+    return { lane, ...state, cards, branch, note, pipeline: lane === MAIN_LANE ? null : readFact('pipeline'), ...(unread === null ? {} : { unread }), ...deriveLaneState(facts) };
   });
   // KJC-TSK-1525: the release the "Ready to release" table counts from, once, on the main checkout.
   lanes[0] = { ...lanes[0], release: lastRelease(projectDir) };
   // KJC-TSK-1539: a card's lane can be told in another lane's trace, so each lane reads the whole board.
   // KJC-TSK-1586: each card in the lane its id names, whichever lane moved it.
   const cards = atHome(mergeCards(lanes.map((l) => l.cards)), lanes.map((l) => l.lane));
-  return lanes.map((l) => ({ ...l, status: laneStatus(l, cards) }));
+  return lanes.map((l) => ({ ...l, status: { ...laneStatus(l, cards), ...(l.unread === undefined ? {} : { unread: l.unread }) } }));
 }

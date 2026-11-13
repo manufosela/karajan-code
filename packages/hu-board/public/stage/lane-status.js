@@ -78,7 +78,9 @@ export function laneStatuses(names, { lanes = [], working = [], cards = [] }, bo
     }, homed);
     // KJC-TSK-1546: what someone wrote it waits for (kj worktree note), kept as text.
     const note = byLane.get(lane)?.note;
-    return [lane, note ? { ...status, note } : status];
+    // HU-4211: and how many unread link messages wait for it.
+    const unread = byLane.get(lane)?.unread;
+    return [lane, { ...status, ...(note ? { note } : {}), ...(unread === undefined ? {} : { unread }) }];
   }));
 }
 
@@ -86,7 +88,13 @@ export function laneStatuses(names, { lanes = [], working = [], cards = [] }, bo
  * The line under a lane's name: nothing while it works; its note, quoted, when it has one;
  * what it waits for; else its state and why.
  */
-export function statusLine({ state, why, note, owner }) {
+export function statusLine({ state, why, note, owner, unread = 0 }) {
+  // HU-4211: the unread link messages that wait for the lane close the line.
+  const mail = unread > 0 ? `${unread} unread` : '';
+  return [baseLine({ state, why, note, owner }), mail].filter(Boolean).join(' · ');
+}
+
+function baseLine({ state, why, note, owner }) {
   if (state === 'working') return owner ? `@${owner}` : '';
   if (note) return `“${note}”`;
   return state.startsWith('waiting-') ? why : `${state}: ${why}`;
