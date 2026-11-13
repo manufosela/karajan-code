@@ -40,7 +40,9 @@ import {
 // initDb/closeDb (lifecycle) and cleanupZombies (logic).
 export { initDb, closeDb };
 
-const EPHEMERAL_PREFIXES = ['tmp_', 'test_', 'demo_', 'kj-test-', 's_', 'plan-'];
+const EPHEMERAL_PREFIXES = ['tmp_', 'test_', 'demo_', 'kj-test-', 's_', 'plan-',
+  // macOS: /private/tmp and /private/var/folders slugify to these ids
+  'private_tmp_', 'private_var_folders_'];
 
 function isEphemeralId(id) {
   return EPHEMERAL_PREFIXES.some((p) => id.startsWith(p));

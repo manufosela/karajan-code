@@ -197,7 +197,7 @@ function esc(str) {
   return el.innerHTML;
 }
 
-const EPHEMERAL_HEURISTIC_RE = /^(auto-)?(tmp_|test_|demo_|kj-test-)/i;
+const EPHEMERAL_HEURISTIC_RE = /^(auto-)?(tmp_|test_|demo_|kj-test-|private_tmp_|private_var_folders_)/i;
 
 function isTestIcon(p) {
   if (p.is_test === 1) return '🧪';
