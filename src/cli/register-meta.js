@@ -1244,9 +1244,11 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--dry-run", "Show what would change without writing")
     .option("--json", "Emit machine-readable JSON")
     .option("--commit", "Versiona la regeneración del supervisor con procedencia sellada (acto humano, ADR 0009)")
+    .option("--uninstall-transversal", "In a .claude-transversal parent: remove kj's hooks from its settings.local.json")
     .action(async (flags) => {
       await withConfig(pkgVersion, "harden", flags, async ({ logger }) => {
         await hardenCommand({
+          uninstallTransversal: Boolean(flags.uninstallTransversal),
           profile: flags.profile,
           commitSupervisor: flags.commit === true,
           kjVersion: pkgVersion,
