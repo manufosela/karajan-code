@@ -1,6 +1,6 @@
 // KJC-TSK-1570 (ADR 0056, point 2, decided by the maintainer on 2026-11-12): the panel of the
-// scene where a person picks their emblem from the list and, for each role they want, a colour of
-// its own. A native <dialog>, so focus and Escape work from the keyboard; what it saves is pure
+// scene where a person picks their emblem from the list and their own colour (KJC-TSK-1603).
+// A native <dialog>, so focus and Escape work from the keyboard; what it saves is pure
 // (avatars.js).
 import { EMBLEMS, avatarFromForm, formOf } from './avatars.js';
 
@@ -20,14 +20,15 @@ function emblemField(picked) {
   return field;
 }
 
-/** For each role, a box to give it its own colour and the colour itself. */
-function colourField(roles) {
-  const field = el('fieldset', { className: 'avatar-roles' }, el('legend', { textContent: 'Own colour of each role' }));
-  for (const { role, own, color } of roles) {
-    const tick = el('input', { type: 'checkbox', name: `own-${role}`, checked: own });
-    const picker = el('input', { type: 'color', name: `color-${role}`, value: color, ariaLabel: `Colour of the ${role}` });
-    field.append(el('label', {}, tick, el('span', { textContent: role }), picker));
-  }
+/**
+ * KJC-TSK-1603 (the maintainer, 2026-11-13): one colour of the person's own, which marks the
+ * backpack of all their robots and their host's hologram; no colour per role.
+ */
+function colourField(own, color) {
+  const field = el('fieldset', { className: 'avatar-roles' }, el('legend', { textContent: 'Your colour, on all your robots' }));
+  const tick = el('input', { type: 'checkbox', name: 'own-color', checked: own });
+  const picker = el('input', { type: 'color', name: 'color', value: color, ariaLabel: 'Your colour' });
+  field.append(el('label', {}, tick, el('span', { textContent: 'Use my colour' }), picker));
   return field;
 }
 
@@ -37,11 +38,11 @@ function colourField(roles) {
  */
 export function mountAvatarPanel({ button, dialog, load, save, onSaved }) {
   button.addEventListener('click', async () => {
-    const { emblem, roles } = formOf(await load());
+    const { emblem, own, color } = formOf(await load());
     const status = el('p', { className: 'avatar-status', role: 'status' });
     const form = el('form', { method: 'dialog' },
       el('h2', { id: 'avatar-title', textContent: 'Your avatar' }),
-      emblemField(emblem), colourField(roles), status,
+      emblemField(emblem), colourField(own, color), status,
       el('menu', {}, el('button', { type: 'button', value: 'cancel', textContent: 'Cancel' }), el('button', { type: 'submit', textContent: 'Save' })));
     form.querySelector('button[value="cancel"]').addEventListener('click', () => dialog.close());
     form.addEventListener('submit', async (event) => {

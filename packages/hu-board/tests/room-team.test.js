@@ -18,7 +18,7 @@ function setup() {
     relayOf: () => ({ publish: (m) => relayed.push(m) }),
     watch: (_dir, send) => { feed = send; return () => {}; },
     lanesOf: () => [{ lane: 'kj-stage', working: [{ agent: 'claude', role: 'host', id: 'h1', at: 't' }] }],
-    avatar: () => ({ emblem: 'fox', colors: {} }),
+    avatar: () => ({ emblem: 'fox', color: null }),
     repeatMs: 0,
   });
   return { team, mesh, sent, relayed, deliver: (...a) => deliver(...a), feed: (e) => feed(e) };
@@ -29,7 +29,7 @@ describe('runTeam', () => {
     const { team, sent, feed } = setup();
     feed({ ...start, lane: 'kj-stage', prompt: 'secret' });
     feed({ type: 'sentinel-deny', lane: 'kj-stage' });
-    expect(sent).toEqual([{ ...start, lane: 'kj-stage', avatar: { emblem: 'fox', colors: {} } }]);
+    expect(sent).toEqual([{ ...start, lane: 'kj-stage', avatar: { emblem: 'fox', color: null } }]);
     team.stop();
   });
 

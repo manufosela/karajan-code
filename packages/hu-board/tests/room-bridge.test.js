@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createTeamFloor, incoming, outgoing } from '../src/room/bridge.js';
 
-const avatar = { emblem: 'owl', colors: { coder: '#22aa66' } };
+const avatar = { emblem: 'owl', color: '#22aa66' }; // KJC-TSK-1603: one colour per person
 const start = { type: 'agent-activity', phase: 'start', agent: 'codex', role: 'coder', lane: 'kj-stage', id: 's1', model: 'gpt-5', effort: 'high', at: '2026-11-12T18:00:00Z', tool: 'Edit' };
 
 describe('outgoing', () => {
@@ -18,8 +18,8 @@ describe('outgoing', () => {
   });
 
   it('sends the own avatar cleaned, and none when nothing of it is valid', () => {
-    const dirty = { emblem: 'owl', colors: { coder: '#22aa66', pilot: '#000000' }, home: '/home/manu', token: 'x' };
-    expect(outgoing(start, dirty).avatar).toEqual({ emblem: 'owl', colors: { coder: '#22aa66' } });
+    const dirty = { emblem: 'owl', color: '#22AA66', home: '/home/manu', token: 'x' };
+    expect(outgoing(start, dirty).avatar).toEqual({ emblem: 'owl', color: '#22aa66' });
     expect(outgoing(start, { emblem: 'dragon', note: 'x' })).not.toHaveProperty('avatar');
   });
 
@@ -30,9 +30,14 @@ describe('outgoing', () => {
 
 describe('incoming', () => {
   it('takes a teammate\'s activity into its lane@login, with its avatar cleaned', () => {
-    expect(incoming('jorgecasar', { ...start, avatar: { emblem: 'fox', colors: { pilot: '#000000' } } })).toEqual({
-      ...start, lane: 'kj-stage@jorgecasar', owner: 'jorgecasar', avatar: { emblem: 'fox', colors: {} },
+    expect(incoming('jorgecasar', { ...start, avatar: { emblem: 'fox', color: 'red' } })).toEqual({
+      ...start, lane: 'kj-stage@jorgecasar', owner: 'jorgecasar', avatar: { emblem: 'fox', color: null },
     });
+  });
+
+  // KJC-TSK-1603: a teammate on an older kj still sends a colour per role; its host's becomes theirs.
+  it('takes an older kj\'s colour per role as the teammate\'s colour', () => {
+    expect(incoming('jorgecasar', { ...start, avatar: { emblem: 'fox', colors: { host: '#FF8800' } } }).avatar).toEqual({ emblem: 'fox', color: '#ff8800' });
   });
 
   it('drops anything off the contract', () => {

@@ -3,29 +3,29 @@
 // checked in the browser; here, what decides it.
 import { describe, expect, it } from 'vitest';
 
-import { accentFor, avatarFor, glyphOf } from '../public/stage/avatars.js';
-import { accentOf } from '../public/stage/workers.js';
+import { avatarFor, glyphOf, ownerColor } from '../public/stage/avatars.js';
 
-const own = { emblem: 'fox', colors: { coder: '#ff8800' } };
+// KJC-TSK-1603 (the maintainer, 2026-11-13): one colour per person, which marks all their robots.
+const own = { emblem: 'fox', color: '#ffcc00' };
 
 describe('avatarFor', () => {
   it('is the own avatar for an own robot, the one it brings for a teammate\'s', () => {
     expect(avatarFor({ agent: 'claude' }, own)).toBe(own);
-    const theirs = { emblem: 'owl', colors: {} };
+    const theirs = { emblem: 'owl', color: '#22aa66' };
     expect(avatarFor({ agent: 'claude', avatar: theirs }, own)).toEqual(theirs);
   });
 
   it('cleans what a teammate\'s robot brings, and is none without any', () => {
-    expect(avatarFor({ avatar: { emblem: 'dragon', colors: { coder: 'red' } } }, own)).toEqual({ emblem: null, colors: {} });
+    expect(avatarFor({ avatar: { emblem: 'dragon', color: 'red' } }, own)).toEqual({ emblem: null, color: null });
     expect(avatarFor({ agent: 'claude' }, null)).toBeNull();
   });
 });
 
-describe('accentFor', () => {
-  it('is the colour the owner gave the role, else the agent\'s', () => {
-    expect(accentFor({ agent: 'claude', role: 'coder' }, own)).toBe(0xff8800);
-    expect(accentFor({ agent: 'claude', role: 'reviewer' }, own)).toBe(accentOf('claude'));
-    expect(accentFor({ agent: 'codex', role: 'coder' }, null)).toBe(accentOf('codex'));
+describe('ownerColor', () => {
+  it('is the owner\'s colour as a number, none without one', () => {
+    expect(ownerColor(own)).toBe(0xffcc00);
+    expect(ownerColor({ emblem: 'fox', color: null })).toBeNull();
+    expect(ownerColor(null)).toBeNull();
   });
 });
 

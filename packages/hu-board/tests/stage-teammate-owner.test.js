@@ -6,8 +6,8 @@ import { avatarFor } from '../public/stage/avatars.js';
 import { withEvent } from '../public/stage/rest.js';
 import { withActivity, workersFrom } from '../public/stage/workers.js';
 
-const jorge = { emblem: 'fox', colors: { host: '#ff8800' } };
-const own = { emblem: 'owl', colors: {} };
+const jorge = { emblem: 'fox', color: '#ff8800' };
+const own = { emblem: 'owl', color: null };
 const start = { type: 'agent-activity', agent: 'codex', role: 'host', phase: 'start', id: 's1', lane: 'feat@jorge', owner: 'jorge', avatar: jorge, at: 'x' };
 
 describe('a teammate\'s robot', () => {
@@ -30,7 +30,7 @@ describe('a teammate\'s robot', () => {
 
   it('a teammate with no avatar looks plain, never like the own one', () => {
     const [w] = withActivity([], { ...start, avatar: undefined }, 0);
-    expect(avatarFor(w, own)).toEqual({ emblem: null, colors: {} });
+    expect(avatarFor(w, own)).toEqual({ emblem: null, color: null });
   });
 
   it('an own agent has neither, and wears the own avatar', () => {

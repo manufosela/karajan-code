@@ -9,9 +9,9 @@ import { onScreen, tagAt } from './screen.js';
 import { declutter, pickNear, tagText } from './robot-labels.js';
 import { createLaptop } from './laptop.js';
 import { dress } from './attire.js';
-import { accentFor, avatarFor } from './avatars.js';
+import { avatarFor, ownerColor } from './avatars.js';
 import { carry } from './backpack.js';
-import { HOST_SCALE, chestOf, haloColor, hologramOf, laptopLift } from './host-look.js';
+import { HOST_SCALE, chestOf, hologramOf, hostColor, laptopLift } from './host-look.js';
 import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -91,12 +91,13 @@ function hologram(glyph, color) {
 
 function robotFor(worker, avatar, me) {
   // KJC-TSK-1569 (ADR 0056): in the colour its owner gave its role, with its owner's backpack.
-  const robot = createRobot({ accent: accentFor(worker, avatar), name: worker.agent });
-  carry(robot, avatar?.emblem ?? null);
+  // KJC-TSK-1603: the robot in its agent's colour; its backpack in its owner's, which marks all theirs.
+  const robot = createRobot({ accent: accentOf(worker.agent), name: worker.agent });
+  carry(robot, avatar?.emblem ?? null, ownerColor(avatar));
   // KJC-TSK-1598: a host stands out: bigger, its owner's emblem on its chest. KJC-TSK-1601: and a
   // hologram of it over its head.
   if (worker.role === 'host') {
-    const color = haloColor(worker, avatar);
+    const color = hostColor(worker, avatar);
     robot.hologram = hologram(hologramOf(worker, avatar, me), color);
     robot.hover.add(badge(chestOf(worker, avatar), color), robot.hologram);
     robot.lift = HOST_SCALE;

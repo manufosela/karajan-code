@@ -3,12 +3,12 @@
 // owner's emblem on its chest and its owner's login on its label.
 import { describe, expect, it } from 'vitest';
 
-import { HOST_SCALE, chestOf, haloColor, hologramOf, hostLabel, laptopLift, ownerOf } from '../public/stage/host-look.js';
+import { HOST_SCALE, chestOf, hologramOf, hostColor, hostLabel, laptopLift, ownerOf } from '../public/stage/host-look.js';
 import { accentOf } from '../public/stage/workers.js';
 
-const own = { emblem: 'owl', colors: { host: '#123456' }, login: 'manufosela' };
+const own = { emblem: 'owl', color: '#123456', login: 'manufosela' };
 const mine = { agent: 'claude', role: 'host', lane: 'main', name: null, tool: 'Edit' };
-const jorges = { agent: 'codex', role: 'host', lane: 'feat@jorge', owner: 'jorge', avatar: { emblem: 'fox', colors: {} }, tool: null };
+const jorges = { agent: 'codex', role: 'host', lane: 'feat@jorge', owner: 'jorge', avatar: { emblem: 'fox', color: null }, tool: null };
 
 describe('a host\'s look', () => {
   it('is a little bigger than any other robot', () => {
@@ -28,24 +28,25 @@ describe('a host\'s look', () => {
     expect(hostLabel(mine, null)).toBe('claude · Edit');
   });
 
-  it('its halo is its owner\'s host colour, else its agent\'s', () => {
-    expect(haloColor(mine, own)).toBe(0x123456);
-    expect(haloColor(jorges, jorges.avatar)).toBe(accentOf('codex'));
+  // KJC-TSK-1603: one colour per person, the one that marks all their robots.
+  it('its hologram and chest plate are its owner\'s colour, else its agent\'s', () => {
+    expect(hostColor(mine, own)).toBe(0x123456);
+    expect(hostColor(jorges, jorges.avatar)).toBe(accentOf('codex'));
   });
 
   // KJC-TSK-1601 (the maintainer, 2026-11-13): a hologram over its head instead of a halo.
   it('its hologram shows its owner\'s emblem, else its owner\'s initial, else its agent\'s', () => {
     expect(hologramOf(mine, own, own)).toBe('🦉');
     expect(hologramOf(jorges, jorges.avatar, own)).toBe('🦊');
-    expect(hologramOf(mine, { emblem: null, colors: {} }, own)).toBe('M');
-    expect(hologramOf({ ...jorges, avatar: undefined }, { emblem: null, colors: {} }, own)).toBe('J');
-    expect(hologramOf(mine, { emblem: null, colors: {} }, null)).toBe('C');
+    expect(hologramOf(mine, { emblem: null, color: null }, own)).toBe('M');
+    expect(hologramOf({ ...jorges, avatar: undefined }, { emblem: null, color: null }, own)).toBe('J');
+    expect(hologramOf(mine, { emblem: null, color: null }, null)).toBe('C');
   });
 
   it('its chest shows its owner\'s emblem, else its agent\'s name as before', () => {
     expect(chestOf(mine, own)).toBe('🦉');
     expect(chestOf(jorges, jorges.avatar)).toBe('🦊');
-    expect(chestOf(mine, { emblem: null, colors: {} })).toBe('claude');
+    expect(chestOf(mine, { emblem: null, color: null })).toBe('claude');
   });
 
   it('its laptop is drawn back to the height and reach every other robot\'s has, over its desk', () => {
