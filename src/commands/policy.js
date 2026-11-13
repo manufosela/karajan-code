@@ -28,11 +28,20 @@ const execFileAsync = promisify(execFile);
 const gitRunner = (projectDir, gitFn) =>
   gitFn || (async (args) => (await execFileAsync("git", args, { cwd: projectDir, maxBuffer: 16 * 1024 * 1024 })).stdout);
 
+// HU-4150: in CI the check runs inside the PR's worktree, so its .gitattributes
+// (-diff, binary, a diff driver) would hide added lines from the budget. With a
+// range, attributes come from the range's base tree and no driver runs.
+const diffArgs = (range) => {
+  if (!range) return ["diff", "--cached"];
+  const baseRef = range.split(/\.{2,3}/)[0] || "HEAD";
+  return [`--attr-source=${baseRef}`, "diff", "--no-ext-diff", "--no-textconv", range];
+};
+
 async function stagedFacts(projectDir, gitFn, range = null) {
   const run = gitRunner(projectDir, gitFn);
   // PL-C (KJC-TSK-0735): en CI no hay staged — con --range se evalúa
   // base...head, el MISMO motor sobre el diff del PR (tier C del ADR 0001).
-  const base = range ? ["diff", range] : ["diff", "--cached"];
+  const base = diffArgs(range);
   const files = (await run([...base, "--name-only"]))
     .split("\n")
     .map((s) => s.trim())
