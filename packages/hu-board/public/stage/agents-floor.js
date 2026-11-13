@@ -11,6 +11,7 @@ import { createLaptop } from './laptop.js';
 import { dress } from './attire.js';
 import { avatarFor, ownerColor } from './avatars.js';
 import { carry } from './backpack.js';
+import { wear } from './costume-mesh.js';
 import { HOST_SCALE, chestOf, hologramOf, hostColor, laptopLift } from './host-look.js';
 import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
@@ -94,6 +95,7 @@ function robotFor(worker, avatar, me) {
   // KJC-TSK-1603: the robot in its agent's colour; its backpack in its owner's, which marks all theirs.
   const robot = createRobot({ accent: accentOf(worker.agent), name: worker.agent });
   carry(robot, avatar?.emblem ?? null, ownerColor(avatar));
+  wear(robot, worker.role); // KJC-TSK-1604: Solomon as a king
   // KJC-TSK-1598: a host stands out: bigger, its owner's emblem on its chest. KJC-TSK-1601: and a
   // hologram of it over its head.
   if (worker.role === 'host') {
