@@ -122,6 +122,9 @@ const newWorker = (workers, ev, since) => {
   const lane = laneOf(ev);
   // KJC-TSK-1538: the model and effort it runs with dress its robot.
   const worker = { agent: ev.agent, role: ev.role, lane, id: ev.id ?? null, tool: ev.tool ?? null, kind: ev.kind ?? null, name: ev.name ?? null, model: ev.model ?? null, effort: ev.effort ?? null, since };
+  // KJC-BUG-0577: a teammate's agent keeps whose it is and the avatar it wears.
+  // One with no avatar of its own looks plain, never like the own one.
+  if (ev.owner) Object.assign(worker, { owner: ev.owner, avatar: ev.avatar ?? { emblem: null, colors: {} } });
   // KJC-TSK-1596: how many of atril's skills it takes on its way in (a subagent comes out of its host).
   if (ev.role !== 'subagent' && ev.skills?.length) worker.reads = ev.skills.length;
   return { ...worker, slot: ev.role === 'subagent' ? freeSlot(workers, lane) : freeSeat(workers, lane, ev.role) };

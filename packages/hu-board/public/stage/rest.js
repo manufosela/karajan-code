@@ -46,7 +46,9 @@ export function withEvent(state, event) {
       const others = (state.working ?? []).filter((w) => !same(w));
       // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
       const launched = Object.fromEntries(['model', 'effort'].filter((k) => event[k]).map((k) => [k, event[k]]));
-      const now = { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null, ...launched };
+      // KJC-BUG-0577: a teammate's keeps whose it is and its avatar.
+      const whose = event.owner ? { owner: event.owner, avatar: event.avatar ?? { emblem: null, colors: {} } } : {};
+      const now = { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null, ...launched, ...whose };
       const working = event.phase === 'start' ? [...others, now] : others;
       return { ...state, working };
     }
