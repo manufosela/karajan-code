@@ -16,8 +16,10 @@ const pieceOf = (event) => (event?.type === 'method-check' && METHOD_PIECES.has(
  * width apart, the gates behind their bar at the back corner and the Ledger behind kaRAGan;
  * KJC-TSK-1524: TDD, Sonar and the Steward in a second row behind them.
  */
+// KJC-TSK-1594 (the maintainer, 2026-11-13): AI review stands at the side of the coder it reviews
+// (seat 1, workers.js), on the camera's side: on the far one the robots hid it.
 export const VISIT_SPOTS = {
-  review: { dx: -0.2, dz: -2.1 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 },
+  review: { dx: -0.5, dz: 0.55 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 },
   tdd: { dx: -1.2, dz: -3.1 }, sonar: { dx: 0.2, dz: -3.1 }, steward: { dx: 1.6, dz: -3.1 },
 };
 
