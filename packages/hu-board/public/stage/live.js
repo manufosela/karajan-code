@@ -23,7 +23,7 @@ import { newRelease, readyToRelease, versionLine } from './release.js';
 import { counterRelease, droneAt, releaseFlight, tableCards, watcherAt } from './drone.js';
 import { createDrone } from './drone-mesh.js';
 import { laneStatuses, statusLine } from './lane-status.js';
-import { mailboxOf, withMail } from './mail.js';
+import { mailboxOf, mailTotal, withMail } from './mail.js';
 import { goneLanes, staleEnds } from './resync.js';
 import { Vector3 } from 'three';
 
@@ -189,6 +189,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   showStatuses();
   const api = {
     settle,
+    /** KJC-BUG-0578: how many handoffs wait for the human in this factory. */
+    pending: () => mailTotal(box),
     /** KJC-TSK-1570: the own robots, built again in a newly saved avatar. */
     setAvatar: (next) => floor.setAvatar(next),
     /**

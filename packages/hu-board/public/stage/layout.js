@@ -52,6 +52,15 @@ export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSH
  */
 export const hallSpan = (n) => ({ width: hallWidth(n), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z });
 
+/**
+ * KJC-BUG-0578: where a factory opened alone stands its mailbox (KJC-TSK-1473): just right of its
+ * rightmost workshop, level with its last row; and how small, since here it is seen up close.
+ */
+export function mailboxSpot(n) {
+  const right = Math.max(...Array.from({ length: n }, (_, i) => workshopAt(i, n).x)) + WORKSHOP.width / 2;
+  return { x: right + 1.2, z: workshopAt(n - 1, n).z, scale: 0.55 };
+}
+
 /** Where kaRAGan, Karajan and kaWATCHan wait: at the ends of the row of posts. */
 const END = ((POSTS.length + 1) / 2) * POST.spacing;
 export const CREW = {

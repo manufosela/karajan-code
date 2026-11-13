@@ -3,7 +3,9 @@
 // nothing is simulated. The live cues come from the director (KJC-TSK-1399).
 import * as THREE from 'three';
 import { buildFactory, createFactory, framing } from './factory.js';
-import { hallDepth, hallSpan, hallWidth } from './layout.js';
+import { hallDepth, hallSpan, hallWidth, mailboxSpot } from './layout.js';
+import { glowAt } from './mail.js';
+import { createMailbox } from './mailbox.js';
 import { createLive } from './live.js';
 import { acrossLanes } from './rest.js';
 import { boardToken, withToken } from './token.js';
@@ -114,18 +116,30 @@ async function start() {
   const tellState = (lines) => tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
   const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts'), avatar: await fetchAvatar() });
   tellState(live.settle().lines);
-  scene.render();
   offerAvatarPanel(live);
   // ADR 0048: nothing moves without a real event. The frames only play what events
   // set going; someone who asked for no motion gets the lights and the list only.
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // KJC-BUG-0578: the factory's mailbox at the front right of its hall, lit while handoffs wait
+  // (the map draws its own for each factory).
+  const mailbox = createMailbox();
+  scene.scene.add(mailbox.group);
+  const play = (ms) => {
+    live.frame(ms);
+    const at = mailboxSpot(scene.hall.count());
+    mailbox.group.position.set(at.x, 0, at.z);
+    mailbox.group.scale.setScalar(at.scale);
+    mailbox.light(glowAt(live.pending(), ms, still));
+  };
+  play(performance.now());
+  scene.render();
   const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
   events.onmessage = ({ data }) => {
     live.push(JSON.parse(data), performance.now());
     // Without motion, each event still draws one frame: its lights, marks and gates, and
     // another once its mark has expired, so nothing stays lit (KJC-TSK-1437).
     if (still) {
-      const draw = () => { live.frame(performance.now()); scene.render(); };
+      const draw = () => { play(performance.now()); scene.render(); };
       draw();
       setTimeout(draw, MARK_MS + 50);
     }
@@ -136,7 +150,7 @@ async function start() {
     if (now.state) live.resync(now.state, performance.now());
   }, RESYNC_MS);
   const frame = (ms) => {
-    live.frame(ms);
+    play(ms);
     scene.render();
     requestAnimationFrame(frame);
   };
