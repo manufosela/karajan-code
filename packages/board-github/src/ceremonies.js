@@ -3,6 +3,8 @@
 export const CEREMONY_KINDS = ["daily", "refinement", "retro"];
 export const CEREMONY_LABEL = "ceremony";
 export const kindLabel = (kind) => `${CEREMONY_LABEL}:${kind}`;
+// HU-3802: the Discussions category of each kind, an open decision of the owner like D5; it lives ONLY here.
+export const CEREMONY_CATEGORIES = Object.freeze({ daily: "Daily", refinement: "Refinement", retro: "Retro" });
 const MAX_TITLE = 256; // GitHub's limit for an issue title
 /** `<kind>: <YYYY-MM-DD> <title>`; the date is UTC, from the injected clock. Throws on a title GitHub would refuse or that hides text. */
 export const titleFor = (kind, title, nowMs) => {
