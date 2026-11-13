@@ -16,6 +16,7 @@ import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
 import { PIECE_WALK_MS, VISIT_SPOTS, gestureAt, pieceAt, withVisit } from './piece-visit.js';
+import { reviewsAt, withReviews } from './review-crew.js';
 import { POST, WORKSHOP, postX } from './layout.js';
 import { tagAt } from './screen.js';
 import { newRelease, readyToRelease, versionLine } from './release.js';
@@ -54,6 +55,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let index = null; // KJC-TSK-1522: the reindex kaRAGan types at
   let beat = null; // KJC-TSK-1490: the act of the method Karajan answers
   let visits = {}; // KJC-TSK-1517: the pieces out at a workshop, by piece
+  let reviews = {}; // KJC-TSK-1595: the AI review pieces out, by lane
   let gatesLit = new Set();
   let box = mailboxOf(initial.lanes ?? []); // KJC-TSK-1540: pending handoffs by lane
   /** KJC-TSK-1540: dims each lane that is not working and says why on its nameplate. */
@@ -131,21 +133,58 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     crew.conductor.pose('L', ...pose.L);
     crew.conductor.pose('R', ...pose.R);
   };
-  /** KJC-TSK-1517, 1524: each piece of the method glides to the workshop it acts on, and back. */
-  // KJC-TSK-1528: returns the name tag of the agent a piece works for (the reviewer over AI review).
-  const movePieces = (now) => Object.keys(VISIT_SPOTS).flatMap((id) => {
-    const pose = pieceAt(visits[id], now, { x: postX(id), z: POST.z }, hall.xOf, hall.zOf);
-    // KJC-TSK-1583: at the workshop it leans over the box, then hops (approve) or shakes its head (refuse).
-    const act = gestureAt(visits[id], now);
+  /**
+   * Sets a piece's `group` at its pose at `now`; returns the name tag of the agent it works for.
+   * KJC-TSK-1583: at the workshop it leans over the box, then hops (approve) or shakes its head (refuse).
+   */
+  const place = (group, pose, act, by, now) => {
     const hop = act?.kind === 'approve' ? 0.25 * Math.sin(Math.PI * act.k) : 0;
-    pieces[id].group.position.set(pose.x, (pose.walking ? 0.08 * Math.abs(Math.sin(now / 110)) : 0) + hop, pose.z);
-    pieces[id].group.rotation.y = pose.yaw + (act?.kind === 'refuse' ? 0.5 * Math.sin(6 * Math.PI * act.k) * (1 - act.k) : 0);
-    pieces[id].group.rotation.x = act?.kind === 'inspect' ? 0.18 + 0.06 * Math.sin(2 * Math.PI * act.k) : 0;
-    return pose.away && visits[id]?.by ? [overPiece(visits[id].by, pieces[id].group.position, camera, origin, 'stage-worker')] : [];
+    group.position.set(pose.x, (pose.walking ? 0.08 * Math.abs(Math.sin(now / 110)) : 0) + hop, pose.z);
+    group.rotation.y = pose.yaw + (act?.kind === 'refuse' ? 0.5 * Math.sin(6 * Math.PI * act.k) * (1 - act.k) : 0);
+    group.rotation.x = act?.kind === 'inspect' ? 0.18 + 0.06 * Math.sin(2 * Math.PI * act.k) : 0;
+    return pose.away && by ? [overPiece(by, group.position, camera, origin, 'stage-worker')] : [];
+  };
+  /** KJC-TSK-1517, 1524: each piece of the method glides to the workshop it acts on, and back. */
+  // KJC-TSK-1595: AI review goes out as one copy per review (moveReviews).
+  const movePieces = (now) => Object.keys(VISIT_SPOTS).filter((id) => id !== 'review').flatMap((id) => {
+    const pose = pieceAt(visits[id], now, { x: postX(id), z: POST.z }, hall.xOf, hall.zOf);
+    return place(pieces[id].group, pose, gestureAt(visits[id], now), visits[id]?.by, now);
   });
+  /**
+   * KJC-TSK-1595 (the maintainer, 2026-11-13): one AI review piece of colour per review under way,
+   * at its agent's side; meanwhile the post keeps a see-through ghost of the piece in its place.
+   * The copies share the piece's materials, so its lights reach them; the ghost has its own.
+   */
+  const copies = new Map();
+  let ghost = null;
+  const seeThrough = (material) => Object.assign(material.clone(), { transparent: true, opacity: 0.25, depthWrite: false });
+  const ghostOf = (group) => {
+    const copy = group.clone();
+    copy.traverse((o) => { if (o.material) o.material = Array.isArray(o.material) ? o.material.map(seeThrough) : seeThrough(o.material); });
+    scene.add(copy);
+    return copy;
+  };
+  const moveReviews = (now) => {
+    const real = pieces.review.group;
+    const { pieces: out, ghost: away } = reviewsAt(reviews, now, { x: postX('review'), z: POST.z }, hall.xOf, hall.zOf);
+    if (away && !ghost) ghost = ghostOf(real);
+    if (ghost) ghost.visible = away;
+    real.visible = !away;
+    const lanes = new Set(out.map((p) => p.lane));
+    for (const [lane, copy] of copies) if (!lanes.has(lane)) { scene.remove(copy); copies.delete(lane); }
+    return out.flatMap(({ lane, by, pose, act }) => {
+      if (!copies.has(lane)) {
+        const copy = real.clone();
+        copy.visible = true;
+        scene.add(copy);
+        copies.set(lane, copy);
+      }
+      return place(copies.get(lane), pose, act, by, now);
+    });
+  };
   // KJC-TSK-1528: a review already going on when the stage opens has the AI review piece at it.
   for (const { lane, working: at } of working) {
-    for (const w of at ?? []) visits = withVisit(visits, { type: 'agent-activity', role: w.role, agent: w.agent, phase: 'start', lane }, performance.now() - PIECE_WALK_MS);
+    for (const w of at ?? []) reviews = withReviews(reviews, { type: 'agent-activity', role: w.role, agent: w.agent, phase: 'start', lane }, performance.now() - PIECE_WALK_MS);
   }
   showStatuses();
   const api = {
@@ -200,6 +239,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       index = withIndex(index, event, now);
       beat = withBeat(beat, event, now);
       visits = withVisit(visits, event, now);
+      reviews = withReviews(reviews, event, now); // KJC-TSK-1595
       tell(settle().lines);
     },
     /** Flashes the pieces that handled a real event just now. */
@@ -210,7 +250,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       moveRagan(now);
       flyRelease(now);
       conduct(now);
-      tags.push(...movePieces(now));
+      tags.push(...movePieces(now), ...moveReviews(now));
       couriers.frame(now, hall.xOf, hall.zOf);
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, couriers.carried(), hall.zOf);
       tags.push(...showSigns());
