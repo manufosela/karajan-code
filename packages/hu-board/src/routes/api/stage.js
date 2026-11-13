@@ -3,6 +3,7 @@ import { Router } from 'express';
 
 import { getKjHome } from '../../db-paths.js';
 import { lanePipelines } from '../../lane-pipeline.js';
+import { laneUnreads } from '../../lane-unread.js';
 import { readAvatar, saveAvatar } from '../../stage-avatar.js';
 import { requestProjectDir } from '../../project-dir.js';
 import { stageMap } from '../../stage-map.js';
@@ -27,7 +28,9 @@ router.get('/stage/state', async (req, res) => {
   const pipelines = await lanePipelines(dir);
   // KJC-TSK-1432 (ADR 0048): every lane; the main checkout's state stays at the top until the scene draws the lanes.
   // KJC-TSK-1564 (ADR 0056): and the teammates' cards in progress, lanes of the same factory.
-  const lanes = withTeam(dir, laneStates(dir, { readers: { pipeline: ({ dir: laneDir }) => pipelines.get(laneDir) ?? null } }));
+  // HU-4211: and the unread link messages that wait for each lane.
+  const unread = await laneUnreads(dir);
+  const lanes = withTeam(dir, laneStates(dir, { readers: { pipeline: ({ dir: laneDir }) => pipelines.get(laneDir) ?? null, unread: ({ dir: laneDir }) => unread.get(laneDir) ?? null } }));
   const { lane: _main, ...main } = lanes[0];
   res.json({ ...main, lanes });
 });
