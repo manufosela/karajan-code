@@ -9,6 +9,7 @@ import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
 import { createBenchNotes } from './bench-notes.js';
 import { atHome, freshCards } from './cards.js';
+import { closedCards, deskSigns } from './desk-signs.js';
 import { turnAt } from './workers.js';
 import { blinkAt, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
@@ -33,6 +34,8 @@ import { Vector3 } from 'three';
 const MARK_Y = { gates: -0.5 };
 const MARK_BASE_Y = 1.4;
 const MARK_ROW_PX = 22;
+// KJC-TSK-1588: a desk's sign, just over the card on it and under the workshop's marks.
+const DESK_SIGN_Y = -0.4;
 const GATES_DX = WORKSHOP.width / 2 - 0.9; // as hall.js places them
 
 const DARK = { gold: 0, red: 0 };
@@ -54,9 +57,14 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let gatesLit = new Set();
   let box = mailboxOf(initial.lanes ?? []); // KJC-TSK-1540: pending handoffs by lane
   /** KJC-TSK-1540: dims each lane that is not working and says why on its nameplate. */
+  let statuses = new Map(); // KJC-TSK-1588: each lane's status, for the signs over the desks
   const showStatuses = () => {
-    for (const [lane, status] of laneStatuses(hall.names(), state, box)) hall.showStatus(lane, statusLine(status), status.state);
+    statuses = laneStatuses(hall.names(), state, box);
+    for (const [lane, status] of statuses) hall.showStatus(lane, statusLine(status), status.state);
   };
+  /** KJC-TSK-1588: over each desk whose card waits with no agent, what it waits for. */
+  const showSigns = () => deskSigns(statuses, atHome(state.cards ?? [], hall.names())).map(({ lane, text, tone }) =>
+    overPiece(text, new Vector3(hall.xOf(lane), DESK_SIGN_Y, hall.zOf(lane) + 0.4), camera, origin, `stage-desk stage-desk-${tone}`));
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
   // KJC-TSK-1569 (ADR 0056): the own robots wear this person's avatar.
@@ -162,6 +170,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       // KJC-TSK-1587: a card the board closed (its merge leaves no line) leaves its desk.
       const held = state.cards ?? [];
       const cards = freshCards(held, server.cards ?? []);
+      // KJC-TSK-1588: and a robot takes it from its desk to the wall's Done column.
+      const at = new Date().toISOString();
+      for (const closed of closedCards(atHome(held, hall.names()), atHome(cards, hall.names()))) couriers.push({ ...closed, at }, now);
       state = { ...state, cards, lanes: server.lanes ?? state.lanes, ...(released ? { release: server.release } : {}) };
       if (released || cards !== held) tell(settle().lines);
       showStatuses();
@@ -202,6 +213,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       tags.push(...movePieces(now));
       couriers.frame(now, hall.xOf, hall.zOf);
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, couriers.carried(), hall.zOf);
+      tags.push(...showSigns());
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;
