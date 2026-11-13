@@ -638,6 +638,14 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  release.command("propose <version>")
+    .description("Open the release issue: what goes out, what stays out, who answers and the 4 h deadline (ADR 0057)")
+    .action(async (version) => {
+      const { releaseProposeCommand } = await import("../commands/release-propose.js");
+      const { sealRepoOf } = await import("../harden/seal-repo.js");
+      await releaseProposeCommand({ repo: sealRepoOf(process.cwd()), version });
+    });
+
   // KJC-BUG-0494: the Sentinel asks before every gh pr merge; exit 2 means the PR's checks say no.
   program.command("merge-gate")
     .description("Whether a gh pr merge command may run now: exit 2, with the reason, while the PR's checks run or are red")
