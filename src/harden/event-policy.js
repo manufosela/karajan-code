@@ -22,12 +22,20 @@ function workflowEvents(file) {
   try { return triggers(parseYaml(fs.readFileSync(file, "utf8"))?.on); } catch { return []; }
 }
 
-/** The union of the `on` events of every workflow in the project, sorted. */
-function projectEvents(projectDir) {
+/** Every workflow in the project as { name, events }, sorted by file name. */
+function projectWorkflows(projectDir) {
   const dir = path.join(projectDir, ".github", "workflows");
   if (!fs.existsSync(dir)) return [];
-  const files = fs.readdirSync(dir).filter((f) => /\.ya?ml$/.test(f));
-  return [...new Set(files.flatMap((f) => workflowEvents(path.join(dir, f))))].toSorted();
+  const files = fs.readdirSync(dir).filter((f) => /\.ya?ml$/.test(f)).toSorted();
+  return files.map((name) => ({ name, events: workflowEvents(path.join(dir, name)) }));
+}
+
+const unionEvents = (workflows) => [...new Set(workflows.flatMap((w) => w.events))].toSorted();
+
+/** "a.yml needs it" / "a.yml and b.yml need it" / "a.yml, b.yml and c.yml need it". */
+function needsPhrase(names) {
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+  return `${list} ${names.length > 1 ? "need" : "needs"} it`;
 }
 
 async function ghJson(run, endpoint) {
@@ -39,34 +47,35 @@ async function ghJson(run, endpoint) {
 const allows = (policies) => (policies ?? []).some((p) => p?.enforcement === "active"
   && (p.rules ?? []).some((r) => r?.type === "restrict_action_events" && r.parameters?.allowed_events?.includes(EVENT)));
 
-function warnInstructions({ logger, owner, repo, events, reason }) {
+function warnInstructions({ logger, owner, repo, events, workflows, reason }) {
   const head = reason ? `could not read the Actions event policies (${reason}). ` : "";
-  logger.warn?.(`  ⚠ event policy: ${head}GitHub blocks ${EVENT} in public repos from 2026-12-02 unless an Actions event policy allows it, and kj-policy.yml needs it.`);
+  logger.warn?.(`  ⚠ event policy: ${head}GitHub blocks ${EVENT} in public repos from 2026-12-02 unless an Actions event policy allows it, and ${needsPhrase(workflows)}.`);
   logger.warn?.(`      An admin creates the policy (a "Restrict events" rule) in https://github.com/${owner}/${repo}/settings/actions (Settings › Actions › Policies),`);
   logger.warn?.(`      allowing ${events.join(", ")}: that rule permits only the events it lists, so every event the workflows use must be in it.`);
 }
 
 /** kj harden: on a public GitHub repo, whether pull_request_target is allowed by an event policy. Never mutates. */
 export async function adviseEventPolicy({ projectDir, logger, run = runCommand, identity = assertGhIdentity }) {
-  const policyFile = path.join(projectDir, ".github", "workflows", "kj-policy.yml");
-  if (!fs.existsSync(policyFile) || !workflowEvents(policyFile).includes(EVENT)) return null;
+  const all = projectWorkflows(projectDir);
+  const workflows = all.filter((w) => w.events.includes(EVENT)).map((w) => w.name);
+  if (workflows.length === 0) return null;
   const remote = await run("git", ["-C", projectDir, "remote", "get-url", "origin"]).catch(() => null);
   const match = remote?.exitCode === 0 ? GITHUB_REMOTE.exec(remote.stdout.trim()) : null;
   if (!match) return null;
   const [, owner, repo] = match;
-  const events = projectEvents(projectDir);
+  const events = unionEvents(all);
   try {
     identity({ projectDir });
     if ((await ghJson(run, `repos/${owner}/${repo}`)).visibility !== "public") return null;
     const { policies } = await ghJson(run, `repos/${owner}/${repo}/actions/policies`);
     if (allows(policies)) {
       logger.info?.(`  • event policy: ${EVENT} is allowed`);
-      return { status: "ok", events };
+      return { status: "ok", events, workflows };
     }
-    warnInstructions({ logger, owner, repo, events });
-    return { status: "missing", events };
+    warnInstructions({ logger, owner, repo, events, workflows });
+    return { status: "missing", events, workflows };
   } catch (err) {
-    warnInstructions({ logger, owner, repo, events, reason: err.message });
-    return { status: "unverified", events };
+    warnInstructions({ logger, owner, repo, events, workflows, reason: err.message });
+    return { status: "unverified", events, workflows };
   }
 }
