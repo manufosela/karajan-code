@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DOOR, KEY_MS, READER, SCROLL_MS, TURN_MS, codeScrollAt, WALK_MS, accentOf, labelOf, spotOf, turnFrom, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
-import { STAND, WORKSHOP } from '../public/stage/layout.js';
+import { CREW, STAND, WORKSHOP } from '../public/stage/layout.js';
 
 const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
 const end = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'end', outcome: 'ok', lane });
@@ -122,10 +122,11 @@ describe('bench seats', () => {
 });
 
 describe('a worker over time', () => {
-  it('walks in from the door, works at its spot, then walks out and is gone', () => {
+  // KJC-TSK-1611: an agent Karajan launches comes out of Karajan (stage-mitosis.test.js).
+  it('comes in from Karajan, works at its spot, then walks out and is gone', () => {
     let workers = withActivity([], start('agy', 'solomon'), 1000);
     const [codex] = workers;
-    expect(workerAt(codex, 1000)).toMatchObject({ x: DOOR.x, z: DOOR.z, walking: true });
+    expect(workerAt(codex, 1000)).toMatchObject({ x: CREW.conductor.x, z: CREW.conductor.z, walking: true });
     expect(workerAt(codex, 1000 + WALK_MS)).toMatchObject({ ...spotOf('solomon'), walking: false });
     workers = withActivity(workers, end('agy', 'solomon'), 9000);
     expect(workerAt(workers[0], 9000 + WALK_MS / 2).walking).toBe(true);
@@ -167,9 +168,9 @@ describe('a worker over time', () => {
 describe('a worker that starts with skills', () => {
   const withSkills = (skills) => ({ ...start('claude', 'coder'), skills });
 
-  it('walks from the door to atril, reads one page per skill facing it, then walks to its desk', () => {
+  it('walks from Karajan to atril, reads one page per skill facing it, then walks to its desk', () => {
     const [w] = withActivity([], withSkills(['tdd', 'sonar']), 0);
-    expect(workerAt(w, 0)).toMatchObject({ x: DOOR.x, z: DOOR.z, walking: true });
+    expect(workerAt(w, 0)).toMatchObject({ x: CREW.conductor.x, z: CREW.conductor.z, walking: true });
     const reading = workerAt(w, WALK_MS + TURN_MS);
     expect(reading).toMatchObject({ ...READER, walking: false, reading: true });
     expect(reading.yaw).toBeCloseTo(Math.atan2(STAND.x - READER.x, STAND.z - READER.z));
