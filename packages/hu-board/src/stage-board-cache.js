@@ -31,9 +31,12 @@ export function boardStatuses(projectDir) {
   return statuses;
 }
 
-/** The cards with the cache's status where it is newer than their last line and one kj stage knows. */
+/**
+ * The cards with the cache's status where it is newer than their last line and one kj stage knows,
+ * dated when the cache said it (KJC-TSK-1587: so the open stage takes it as newer than what it holds).
+ */
 export const withBoardCache = (cards, statuses) => cards.map((card) => {
   const known = statuses.get(card.id);
   const newer = known && STATUSES.has(known.status) && Date.parse(known.at) > Date.parse(card.at);
-  return newer && known.status !== card.status ? { ...card, status: known.status } : card;
+  return newer && known.status !== card.status ? { ...card, status: known.status, at: known.at } : card;
 });

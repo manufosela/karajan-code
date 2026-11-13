@@ -44,7 +44,7 @@ describe('withBoardCache', () => {
   const statuses = new Map([['HU-1', { status: 'done', at: '2026-11-11T10:00:00Z' }], ['HU-2', { status: 'lost', at: '2026-11-11T10:00:00Z' }]]);
 
   it('a newer status in the cache wins; an older one, an unknown status or an absent card change nothing', () => {
-    expect(withBoardCache([card('HU-1', 'running')], statuses)).toEqual([card('HU-1', 'done')]);
+    expect(withBoardCache([card('HU-1', 'running')], statuses)).toEqual([card('HU-1', 'done', '2026-11-11T10:00:00Z')]);
     expect(withBoardCache([card('HU-1', 'running', '2026-11-11T11:00:00Z')], statuses)[0].status).toBe('running');
     expect(withBoardCache([card('HU-2', 'running'), card('HU-3', 'running')], statuses).map((c) => c.status)).toEqual(['running', 'running']);
   });

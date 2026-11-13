@@ -8,7 +8,7 @@ import { createAgentsFloor, typeOn } from './agents-floor.js';
 import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
 import { createBenchNotes } from './bench-notes.js';
-import { atHome } from './cards.js';
+import { atHome, freshCards } from './cards.js';
 import { turnAt } from './workers.js';
 import { blinkAt, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
@@ -159,8 +159,11 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const released = newRelease(state.release, server.release);
       // KJC-TSK-1547: only a release seen while the stage is open has a pile to fly away.
       if (released && state.release) flight = releaseFlight(state.release, server.release, readyToRelease(state.cards ?? [], state.release), now);
-      state = { ...state, lanes: server.lanes ?? state.lanes, ...(released ? { release: server.release } : {}) };
-      if (released) tell(settle().lines);
+      // KJC-TSK-1587: a card the board closed (its merge leaves no line) leaves its desk.
+      const held = state.cards ?? [];
+      const cards = freshCards(held, server.cards ?? []);
+      state = { ...state, cards, lanes: server.lanes ?? state.lanes, ...(released ? { release: server.release } : {}) };
+      if (released || cards !== held) tell(settle().lines);
       showStatuses();
     },
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */

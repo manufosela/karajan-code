@@ -39,6 +39,17 @@ export function atHome(cards, lanes) {
   });
 }
 
+/**
+ * KJC-TSK-1587: the cards the open stage `held`, with what the board says now (`server`): each
+ * card at its newest. The same `held` when no card changed status or lane, so nothing repaints.
+ */
+export function freshCards(held, server) {
+  const merged = mergeCards([held, server]);
+  const before = new Map(held.map((c) => [c.id, c]));
+  const changed = merged.some((c) => before.get(c.id)?.status !== c.status || before.get(c.id)?.lane !== c.lane);
+  return changed ? merged : held;
+}
+
 /** KJC-TSK-1460 (ADR 0050, point 6): a factory's name on the map, with its cards in progress when it has any. */
 export function mapName(project, cards) {
   const doing = cards.filter((c) => columnOf(c.status) === 'doing').length;
