@@ -85,6 +85,20 @@ describe("traceHost", () => {
     expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(false);
   });
 
+  // HU-4110 (ADR 0034): a subagent's cwd stays in the main checkout; the lane is the path it touches.
+  it.each([
+    ["an Edit's file_path", (lane) => call("Edit", { cwd: root, tool_input: { file_path: join(lane, "src", "a.js") } })],
+    ["a Bash git -C", (lane) => call("Bash", { cwd: root, tool_input: { command: "git -C " + lane + " status" } })],
+    ["a Bash npm --prefix", (lane) => call("Bash", { cwd: root, tool_input: { command: "npm --prefix " + lane + " test" } })],
+  ])("HU-4110: from the main checkout, %s inside a lane traces in that lane", (_what, make) => {
+    repoAt(root);
+    const lane = join(root, ".kj", "worktrees", "lane");
+    git(root, "worktree", "add", "-q", "--detach", lane);
+    traceHost(root, make(lane), "pre", 0);
+    expect(existsSync(join(lane, ".karajan", "traces", "agent-activity.jsonl"))).toBe(true);
+    expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(false);
+  });
+
   it("HU-3809: a cwd in another repository keeps the trace in the root", () => {
     repoAt(root);
     const other = mkdtempSync(join(tmpdir(), "kj-other-repo-"));
