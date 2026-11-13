@@ -29,13 +29,19 @@ function parseThread(value) {
   return { key: { kind, number }, thread: { kind: ADAPTER_KIND[kind], number }, name: `${kind}:${number}` };
 }
 
-/** The GitHub adapter when the board is a GitHub one; any other board has no message interface (null). */
-export async function githubAdapter({ projectDir, pin = pinGhIdentity }) {
+/**
+ * The GitHub adapter when the board is a GitHub one; any other board has no message interface (null).
+ * `probe` (only the ceremony action) builds it through the credential probe (HU-3802), which decides whether
+ * ceremonies go as Discussions and says why; every other action reads and writes comments with no probe call.
+ * `run` is the gh runner, injectable so tests answer gh without the network.
+ */
+export async function githubAdapter({ projectDir, pin = pinGhIdentity, run, probe = false }) {
   const board = await readBoardConfig(projectDir);
   if (board.backend !== "github") return null;
   pin({ projectDir }); // ADR 0040: gh goes out as the account this clone declares, as the rest of the board does
-  const { createGithubMessageReader } = await import("../../packages/board-github/src/messages.js");
-  return createGithubMessageReader({ repo: board.repo });
+  const messages = await import("../../packages/board-github/src/messages.js");
+  const opts = { repo: board.repo, ...(run ? { run } : {}) };
+  return probe ? messages.createGithubMessageAdapter(opts) : messages.createGithubMessageReader(opts);
 }
 
 /** What a person or an agent sees of one message: the wrapper in human format, never a bare body. */
@@ -44,7 +50,14 @@ const render = (m) => {
   return renderForAgent({ author: m.author, permission: "write", type: note ? "note" : m.type, conclusion: note ? "" : m.conclusion, suspect: m.suspect, body: note ? m.text : LINK_FIELDS.map((k) => `${k}: ${m[k]}`).join("\n") });
 };
 
-const adapterOf = async (makeAdapter, projectDir) => (await makeAdapter({ projectDir })) ?? Promise.reject(new Error(NO_INTERFACE));
+const adapterOf = async (makeAdapter, projectDir, opts = {}) => (await makeAdapter({ projectDir, ...opts })) ?? Promise.reject(new Error(NO_INTERFACE));
+
+/** The ceremony's adapter, probed; when the probe keeps ceremonies off it says once why they go as issues (not under --json). */
+async function ceremonyAdapter({ makeAdapter, projectDir, flags, log }) {
+  const adapter = await adapterOf(makeAdapter, projectDir, { probe: true });
+  if (adapter.capabilities?.ceremonies === false && adapter.ceremoniesCause && !flags.json) log(`the ceremony goes as an issue: ${adapter.ceremoniesCause}`);
+  return adapter;
+}
 
 async function send({ projectDir, flags, log, makeAdapter }) {
   const { key, thread } = parseThread(flags.thread);
@@ -171,10 +184,11 @@ function pinnedTools(projectDir, deps) {
 async function ceremony({ projectDir, flags, log, makeAdapter, deps }) {
   const { convene, gather, close } = deps.senescal ?? realSenescal;
   const now = deps.now ?? Date.now;
+  const open = () => ceremonyAdapter({ makeAdapter, projectDir, flags, log });
   if (!CEREMONY_STEPS.includes(flags.step)) throw new Error(`unknown ceremony step "${flags.step}": use ${CEREMONY_STEPS.join(", ")}`);
   if (flags.step === "convene") {
     const input = { kind: await need(flags, "kind", "--kind"), title: await need(flags, "title", "--title"), agenda: await need(flags, "agenda", "--agenda") };
-    const { thread, opened } = await convene(await adapterOf(makeAdapter, projectDir), { ...input, now });
+    const { thread, opened } = await convene(await open(), { ...input, now });
     const name = `${thread.kind}:${thread.number}`;
     return log(flags.json ? JSON.stringify({ thread, opened }) : opened ? `opened ${input.kind} ceremony ${name}` : `${input.kind} ceremony already open: ${name}`);
   }
@@ -182,12 +196,12 @@ async function ceremony({ projectDir, flags, log, makeAdapter, deps }) {
   if (flags.step === "close") {
     const author = await need(flags, "author", "--author");
     const summary = readSummary(await need(flags, "summaryFile", "--summary-file"));
-    const adapter = await adapterOf(makeAdapter, projectDir);
+    const adapter = await open();
     const result = await close(adapter, parsed.thread, summary, { author, repo: projectDir, ...pinnedTools(projectDir, deps), now });
     return log(flags.json ? JSON.stringify({ thread: parsed.name, ...result }) : `proposed the result as a pull request: ${result.url}`);
   }
   // gather is read-only: no cursor moves, so a second run shows the same contributions
-  const { byAuthor, dropped } = await gather(await adapterOf(makeAdapter, projectDir), parsed.thread, { record: loadRecord(projectDir, parsed.key), now });
+  const { byAuthor, dropped } = await gather(await open(), parsed.thread, { record: loadRecord(projectDir, parsed.key), now });
   if (flags.json) return log(JSON.stringify({ thread: parsed.name, byAuthor, dropped }));
   log(`${parsed.name}: ${byAuthor.length} authors, ${dropped.notPermitted + dropped.permissionError} dropped for permission`);
   for (const { author, contributions } of byAuthor) log(`${author}:`, ...contributions.map(render));
