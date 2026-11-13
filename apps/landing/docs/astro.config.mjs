@@ -68,6 +68,7 @@ export default defineConfig({
 									{ label: 'The Sentinel', slug: 'guides/sentinel', translations: { es: 'El Sentinel' } },
 									{ label: 'Hardening against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
 									{ label: 'The HU-Board', slug: 'guides/hu-board', translations: { es: 'El HU-Board' } },
+									{ label: 'The coordinated release', slug: 'guides/coordinated-release', translations: { es: 'La release coordinada' } },
 								],
 							},
 							{
