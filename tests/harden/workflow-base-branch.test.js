@@ -26,8 +26,8 @@ afterEach(() => {
 describe("workflows trigger on the repo's base branch (HU-3531)", () => {
   it("writes the base branch into every pull_request workflow", () => {
     seed("develop");
-    // Policy and verdicts judge every PR, whatever its base (HU-4012): no branches filter.
-    const files = readdirSync(wfDir()).filter((f) => f !== "kj-policy.yml" && f !== "kj-verdicts.yml");
+    // Policy, verdicts and the secret scan judge every PR, whatever its base (HU-4012, HU-4144).
+    const files = readdirSync(wfDir()).filter((f) => !["kj-policy.yml", "kj-verdicts.yml", "kj-secrets.yml"].includes(f));
     expect(files).toEqual(expect.arrayContaining(["kj-no-ai-attribution.yml", "kj-quality.yml", "kj-shrink-budget.yml", "kj-pack-smoke.yml"]));
     for (const f of files) expect(branchesOf(f), f).toEqual(["develop"]);
   });

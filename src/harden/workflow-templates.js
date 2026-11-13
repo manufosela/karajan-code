@@ -168,6 +168,43 @@ export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   '          $KJ review --verify-pr "$PR"',
 ].join("\n");
 
+// HU-4144 (HU-4013 step b): the PR's added lines are scanned for credentials and PII
+// (kj privacy scan --range); a credential fails the check. Like kj-policy.yml (KJC-BUG-0419)
+// it runs on pull_request_target, from the base's YAML, so a PR cannot rewrite nor drop it.
+// The scan runs in the base's checkout and reads the PR only as git objects: in a tree of the
+// PR, its .gitattributes (-diff) and .karajan/kj.config.yml would steer git diff and the guard.
+export const secretsWorkflowFor = (kjVersion, kjName = "karajan-code") => [
+  "name: Secret scan",
+  "# pull_request_target: a public repo needs the Actions event policy kj-policy.yml needs (Settings › Actions › Policies).",
+  "on:",
+  "  pull_request_target:",
+  "    types: [opened, synchronize, reopened]",
+  "permissions:",
+  "  contents: read",
+  "jobs:",
+  "  secrets:",
+  "    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot'",
+  "    runs-on: ubuntu-latest",
+  "    steps:",
+  `      - uses: ${PINNED_ACTIONS.checkout}`,
+  "        with:",
+  "          fetch-depth: 0",
+  `      - uses: ${PINNED_ACTIONS.setupNode}`,
+  "        with:",
+  "          node-version: 22",
+  "      # No ~/.karajan/privacy.yml (the personal denylist) in CI: only credential shapes block, generic PII warns.",
+  "      - name: No credentials in the PR's added lines",
+  "        env:",
+  "          BASE_REF: ${{ github.base_ref }}",
+  "          PR_NUMBER: ${{ github.event.pull_request.number }}",
+  "        run: |",
+  '          JUDGE="$RUNNER_TEMP/kj-judge"',
+  '          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"',
+  '          git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/kj-pr-head"',
+  ...judgeLines(kjVersion, kjName),
+  '          $KJ privacy scan --range "origin/${BASE_REF}...origin/kj-pr-head"',
+].join("\n");
+
 const header = (steps) =>
   [
     "name: Quality",

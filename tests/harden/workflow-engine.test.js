@@ -57,6 +57,7 @@ describe("installWorkflows", () => {
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", bin: { x: "cli.js" }, scripts: { lint: "eslint ." } }));
     const res = installWorkflows({ projectDir: dir, language: "javascript", profile: "strict", mutation: true, kjVersion: "9.9.9" });
     expect(res.workflows.length).toBeGreaterThanOrEqual(7);
+    expect(res.workflows.map((wf) => wf.file)).toContain(join(".github", "workflows", "kj-secrets.yml"));
     for (const wf of res.workflows) {
       const text = read(wf.file);
       expect(await prettier.format(text, { parser: "yaml" }), wf.file).toBe(text);
