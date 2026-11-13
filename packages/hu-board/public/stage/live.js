@@ -9,7 +9,7 @@ import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
 import { createBenchNotes } from './bench-notes.js';
 import { turnAt } from './workers.js';
-import { sentinelAt, withWatch } from './sentinel-watch.js';
+import { blinkAt, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
@@ -201,6 +201,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;
+      // KJC-TSK-1584: it blinks its own light each time it lets a host's call through.
+      const watchLight = lights.sentinel ?? DARK;
+      pieces.sentinel.setLight(Math.max(watchLight.gold, blinkAt(watch, now)), watchLight.red);
       tags.push(...showMarks(now));
       for (const cue of director.active(now)) {
         const flash = cueLevel(cue, now);
