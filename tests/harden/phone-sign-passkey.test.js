@@ -51,6 +51,22 @@ describe("requestPhoneSignature with a passkey", () => {
     expect(posted).not.toHaveProperty("passkey");
   });
 
+  it("sends the id of every live roster passkey in `allow`, and nothing without any", async () => {
+    roster([key.entry, passkey("cred-2").entry]);
+    await request(relay(passkeyAnswer()));
+    expect(posted.allow).toEqual({ arrayValue: { values: [s("cred-1"), s("cred-2")] } });
+    roster([]);
+    await request(relay(() => ({}))).catch(() => {});
+    expect(posted).not.toHaveProperty("allow");
+  });
+
+  it("throws before posting when the roster holds more passkeys than the relay rules admit", async () => {
+    roster(Array.from({ length: 21 }, (_, i) => passkey(`cred-${i}`).entry));
+    posted = null;
+    await expect(request(relay(() => ({})))).rejects.toThrow(/20/);
+    expect(posted).toBeNull();
+  });
+
   it("a passkey answer returns a webauthn block that the CI judge accepts", async () => {
     const res = await request(relay(passkeyAnswer()));
     expect(res).toMatchObject({ ok: true, block: { type: "webauthn", credentialId: "cred-1", v: 2 } });

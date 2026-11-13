@@ -257,7 +257,8 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
       // KJC-TSK-0996 (HUM-D): what is done, why the signature is asked, what if another did it.
       ...(why ? { why: str(why) } : {}),
       // HU-4016 (ADR 0053): the page offers the passkey only when the roster holds one.
-      ...(v === 2 && readPasskeyCredentials({ projectDir: deps.projectDir }).length > 0 ? { passkey: { booleanValue: true } } : {}),
+      // HU-4200: and only those passkeys (`allow`), so another roster's passkey is never offered.
+      ...(v === 2 ? passkeyFields(readPasskeyCredentials({ projectDir: deps.projectDir })) : {}),
     },
   };
   const created = await fetchFn(`${relay.url}?documentId=${cid}&key=${relay.apiKey}`, {
@@ -329,12 +330,24 @@ const credentialOf = (fields) => ({
   alg: Number(fields.alg?.integerValue),
 });
 
+/** HU-4200: the relay rules admit at most this many ids in `allow`. */
+const MAX_ALLOWED_PASSKEYS = 20;
+
+/** The `passkey` flag and the `allow` list of a signing request; none when the roster holds no passkey. */
+function passkeyFields(credentials) {
+  if (credentials.length === 0) return {};
+  if (credentials.length > MAX_ALLOWED_PASSKEYS) {
+    throw new Error(`phone-sign: el padrón tiene ${credentials.length} passkeys vivas y las reglas del relé admiten como máximo ${MAX_ALLOWED_PASSKEYS} en \`allow\``);
+  }
+  return { passkey: { booleanValue: true }, allow: { arrayValue: { values: credentials.map((c) => str(c.credentialId)) } } };
+}
+
 /** A register request, with exactly the fields the relay's create rule admits (apps/landing/firestore.rules). */
 const registerDoc = ({ project, label, kjVersion, issuedMs, expiresMs }) => ({
   nonce: str(randomBytes(16).toString("hex")), project: str(project), kj_version: str(kjVersion), state: str("pending"),
   createdAt: { timestampValue: new Date(issuedMs).toISOString() }, files: { arrayValue: { values: [] } },
   v: { integerValue: "2" }, expires_at: { timestampValue: new Date(expiresMs).toISOString() },
-  kind: str("register"), passkey: { booleanValue: true }, user_label: str(label),
+  kind: str("register"), passkey: { booleanValue: true }, user_label: str(`${label} · ${project}`),
 });
 
 /**

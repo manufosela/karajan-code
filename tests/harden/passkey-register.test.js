@@ -56,7 +56,7 @@ describe("requestPasskeyRegistration", () => {
     const { posted } = await register(answerOf({}));
     expect(Object.keys(posted).toSorted()).toEqual(["createdAt", "expires_at", "files", "kind", "kj_version", "nonce", "passkey", "project", "state", "user_label", "v"]);
     expect(posted).toMatchObject({
-      kind: { stringValue: "register" }, passkey: { booleanValue: true }, user_label: { stringValue: "mine" }, state: { stringValue: "pending" },
+      kind: { stringValue: "register" }, passkey: { booleanValue: true }, user_label: { stringValue: "mine · karajan-code" }, state: { stringValue: "pending" },
       v: { integerValue: "2" }, files: { arrayValue: { values: [] } }, project: { stringValue: "karajan-code" }, kj_version: { stringValue: "5.16.0" },
     });
     expect(Date.parse(posted.expires_at.timestampValue) - Date.parse(posted.createdAt.timestampValue)).toBe(600000);
