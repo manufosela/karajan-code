@@ -197,6 +197,8 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         }
         robot.root.position.set(pose.x, 0, pose.z);
         robot.root.rotation.y = pose.yaw;
+        // KJC-TSK-1611: one Karajan launches grows out of it and shrinks back into it.
+        robot.root.scale.setScalar(scaleOf(worker) * Math.max(0.001, pose.size ?? 1));
         if (robot.hologram) robot.hologram.rotation.y = t / 1200; // KJC-TSK-1601: it turns slowly
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);

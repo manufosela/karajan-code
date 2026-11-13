@@ -3,7 +3,7 @@
 // works at the bench of the workshop of its lane (ADR 0048) and walks out when
 // it ends. KJC-TSK-1435: so does the host agent, and each subagent it opens walks
 // out of it and back. Pure: the scene reads the poses.
-import { DOOR, STAND, WORKSHOP } from './layout.js';
+import { CREW, DOOR, STAND, WORKSHOP } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
@@ -49,6 +49,10 @@ export function typingAt(now) {
 
 /** How long atril takes to turn one page, in ms (KJC-TSK-1428). */
 export const TURN_MS = 1200;
+/** KJC-TSK-1611: Karajan, who launches the agents that bud out of it, and how long budding takes. */
+const KARAJAN = { x: CREW.conductor.x, z: CREW.conductor.z };
+export const BUD_MS = 600;
+const BUDDED = (role) => role !== 'host' && role !== 'subagent';
 /** KJC-TSK-1596: where an agent stands to take its skills, a metre in front of atril, facing it. */
 export const READER = { x: STAND.x + Math.sin(STAND.yaw), z: STAND.z + Math.cos(STAND.yaw) };
 
@@ -186,24 +190,45 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z) {
   const laneX = xOf(worker.lane);
   const laneZ = zOf(worker.lane);
   const spot = spotOf(worker.role, laneX, worker.slot, laneZ);
-  const gate = worker.role === 'subagent' ? spotOf('host', laneX, 0, laneZ) : DOOR;
-  if (worker.leftAt !== undefined && now >= worker.leftAt) {
-    const k = (now - worker.leftAt) / WALK_MS;
-    return k >= 1 ? null : { ...lerp(spot, gate, k), yaw: facing(spot, gate), walking: true };
-  }
+  const gate = gateOf(worker.role, laneX, laneZ);
+  if (worker.leftAt !== undefined && now >= worker.leftAt) return leavingAt(worker, now, spot, gate);
   // KJC-TSK-1610: a host already at its desk goes to atril and back when kj gives it skills.
   const away = detourAt(worker.detour, now, spot);
-  if (away) return away;
+  if (away) return { ...away, size: 1 };
+  return arrivingAt(worker, now, spot, gate);
+}
+
+/** KJC-TSK-1611: walking out by its gate, one Karajan launched shrinking into it; null once gone. */
+function leavingAt(worker, now, spot, gate) {
+  const k = (now - worker.leftAt) / WALK_MS;
+  if (k >= 1) return null;
+  const size = BUDDED(worker.role) ? Math.min(1, ((1 - k) * WALK_MS) / BUD_MS) : 1;
+  return { ...lerp(spot, gate, k), yaw: facing(spot, gate), walking: true, size };
+}
+
+/** Walking in from its gate to its desk, by atril when it brings skills, then at its desk. */
+function arrivingAt(worker, now, spot, gate) {
   // KJC-TSK-1596: with skills it stops before atril on its way in, one page per skill.
   const via = worker.reads ? READER : null;
   const t = Math.max(0, now - worker.since);
-  if (via && t < WALK_MS) return { ...lerp(gate, via, t / WALK_MS), yaw: facing(gate, via), walking: true, reading: false };
+  // KJC-TSK-1611: one Karajan launches buds out of it, growing.
+  const size = BUDDED(worker.role) ? Math.min(1, t / BUD_MS) : 1;
+  if (via && t < WALK_MS) return { ...lerp(gate, via, t / WALK_MS), yaw: facing(gate, via), walking: true, reading: false, size };
   const read = via ? worker.reads * TURN_MS : 0;
-  if (via && t < WALK_MS + read) return { ...via, yaw: facing(via, STAND), walking: false, reading: true };
+  if (via && t < WALK_MS + read) return { ...via, yaw: facing(via, STAND), walking: false, reading: true, size };
   const from = via ?? gate;
   const k = Math.min(1, (t - (via ? WALK_MS + read : 0)) / WALK_MS);
   // KJC-TSK-1607: a waiting host sits at its desk without typing.
-  return k < 1 ? { ...lerp(from, spot, k), yaw: facing(from, spot), walking: true, reading: false } : { ...spot, yaw: 0, walking: false, reading: false, waiting: Boolean(worker.waiting) };
+  return k < 1 ? { ...lerp(from, spot, k), yaw: facing(from, spot), walking: true, reading: false, size } : { ...spot, yaw: 0, walking: false, reading: false, waiting: Boolean(worker.waiting), size };
+}
+
+/**
+ * KJC-TSK-1611 (the maintainer, 2026-11-13): where a worker comes in and leaves by: a subagent by its
+ * host; the host, whose session the person opens, by the door; any agent Karajan launches, by Karajan.
+ */
+function gateOf(role, laneX, laneZ) {
+  if (role === 'subagent') return spotOf('host', laneX, 0, laneZ);
+  return role === 'host' ? DOOR : KARAJAN;
 }
 
 /**
