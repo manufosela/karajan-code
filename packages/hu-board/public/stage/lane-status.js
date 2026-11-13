@@ -2,6 +2,7 @@
 // pending handoffs, its cards and its branch against its upstream. A pushed branch stands for
 // its open pull request, whose pipeline the board reads (HU-4029). Pure, so the board (to open on it) and
 // the scene (live) decide it the same way.
+import { atHome } from './cards.js';
 
 /** The main checkout, as src/lanes.js names it: it has no branch of its own to wait on. */
 const MAIN_LANE = 'main';
@@ -35,11 +36,19 @@ export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = nu
   if (pipeline && PIPELINE[pipeline]) return PIPELINE[pipeline];
   const mine = cards.filter((c) => c.lane === lane);
   if (mine.length && mine.every((c) => c.status === 'done')) return { state: 'finished', why: `${mine.map((c) => c.id).join(', ')} done` };
-  const isMain = lane === MAIN_LANE;
-  if (!isMain && !branch) return { state: 'unknown', why: 'branch unreadable' };
-  if (!isMain && branch.upstream && branch.ahead === 0) return { state: 'waiting-merge', why: 'pushed, waits for merge' };
   const running = mine.filter((c) => c.status === 'running');
-  if (!isMain && branch.detached) return detachedStatus(branch, running);
+  return (lane === MAIN_LANE ? null : branchStatus(branch, running)) ?? restStatus(running);
+}
+
+/** What a lane's own branch says, null when it says nothing (a branch of its own, unlike main). */
+function branchStatus(branch, running) {
+  if (!branch) return { state: 'unknown', why: 'branch unreadable' };
+  if (branch.upstream && branch.ahead === 0) return { state: 'waiting-merge', why: 'pushed, waits for merge' };
+  return branch.detached ? detachedStatus(branch, running) : null;
+}
+
+/** A lane with no one at work and nothing else to tell. */
+function restStatus(running) {
   if (running.length) return { state: 'idle', why: `${running.map((c) => c.id).join(', ')} running, no activity` };
   return { state: 'idle', why: 'no activity' };
 }
@@ -54,6 +63,8 @@ export const plateName = (lane) => lane.split('@')[0];
  */
 export function laneStatuses(names, { lanes = [], working = [], cards = [] }, box) {
   const byLane = new Map(lanes.map((l) => [l.lane, l]));
+  // KJC-TSK-1586: each card counts in the lane its id names, whichever lane moved it.
+  const homed = atHome(cards, [...new Set([...names, ...lanes.map((l) => l.lane)])]);
   return new Map(names.map((lane) => {
     // KJC-TSK-1577: a teammate's lane that came live, before the board lists it, is theirs too.
     const { remote, owner, title, remoteWorking } = byLane.get(lane) ?? (lane.includes('@') ? { remote: true, owner: lane.split('@')[1], title: plateName(lane) } : {});
@@ -64,7 +75,7 @@ export function laneStatuses(names, { lanes = [], working = [], cards = [] }, bo
       pipeline: byLane.get(lane)?.pipeline,
       working: working.filter((w) => (w.lane ?? MAIN_LANE) === lane),
       mail: box.get(lane) ?? 0,
-    }, cards);
+    }, homed);
     // KJC-TSK-1546: what someone wrote it waits for (kj worktree note), kept as text.
     const note = byLane.get(lane)?.note;
     return [lane, note ? { ...status, note } : status];

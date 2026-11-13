@@ -25,6 +25,20 @@ export function mergeCards(lists) {
   return [...byId.values()];
 }
 
+/**
+ * KJC-TSK-1586: each card at its own lane, the one its id names (`HU-4154` or `HU-4154-…`),
+ * whichever lane `kj hu move` ran in; without one, the lane its line names while it stands
+ * in `lanes`, else none (null): a card of a swept lane has no desk.
+ */
+export function atHome(cards, lanes) {
+  const known = new Set(lanes);
+  const homeOf = (id) => lanes.find((lane) => lane === id || lane.startsWith(`${id}-`));
+  return cards.map((card) => {
+    const lane = homeOf(card.id) ?? (known.has(card.lane) ? card.lane : null);
+    return lane === card.lane ? card : { ...card, lane };
+  });
+}
+
 /** KJC-TSK-1460 (ADR 0050, point 6): a factory's name on the map, with its cards in progress when it has any. */
 export function mapName(project, cards) {
   const doing = cards.filter((c) => columnOf(c.status) === 'doing').length;
