@@ -80,3 +80,77 @@ describe("ceremonies as Discussions", () => {
     expect(calls.filter((c) => c.join(" ").includes("discussions(") && c.join(" ").includes("categoryId=C0"))).toHaveLength(2);
   });
 });
+
+// HU-4138: the agent link talks in the ceremony's own thread, a Discussion.
+describe("publish, listSince and close on a Discussion thread", () => {
+  const D7 = { kind: "discussion", number: 7 };
+  const thread = (closed, category = "Retro") => ok({ data: { repository: { discussion: { id: "D_7", closed, category: { name: category } } } } });
+  const note = (id, at, edited = at, login = "ana") => ({ databaseId: id, body: `m${id}`, createdAt: at, updatedAt: edited, author: login ? { login } : null });
+  const comments = (nodes, hasNextPage = false, endCursor = null) => ok({ data: { repository: { discussion: { comments: { nodes, pageInfo: { hasNextPage, endCursor } } } } } });
+  const T1 = "2026-11-11T09:00:00Z";
+  const T2 = "2026-11-11T10:00:00Z";
+
+  it("publish adds a comment to the Discussion, the number passed as an integer", async () => {
+    const posted = ok({ data: { addDiscussionComment: { comment: { databaseId: 91, createdAt: T1, author: { login: "bot" } } } } });
+    const { adapter, calls } = make({ addDiscussionComment: posted, "closed category": thread(false), ...WRITER });
+    expect(await (await adapter()).publish(D7, { body: "@hi" })).toEqual({ id: "91", author: "bot", serverTime: T1 });
+    expect(calls.find((c) => c.join(" ").includes("closed category"))).toEqual(expect.arrayContaining(["-F", "number=7"]));
+    expect(calls.at(-1)).toEqual(expect.arrayContaining(["-X", "POST", "discussionId=D_7", "body=@hi"]));
+  });
+
+  it("publish refuses a bad body before any GraphQL call on the thread", async () => {
+    const { adapter, calls } = make(WRITER);
+    const a = await adapter();
+    const before = calls.length;
+    await expect(a.publish(D7, { body: "" })).rejects.toThrow(TypeError);
+    expect(calls).toHaveLength(before);
+  });
+
+  it("a Discussion that does not exist fails loud", async () => {
+    const { adapter } = make({ "closed category": ok({ data: { repository: { discussion: null } } }), ...WRITER });
+    await expect((await adapter()).closeConversation(D7)).rejects.toThrow(/discussion #7 does not exist in o\/r/);
+  });
+
+  it("listSince reads every page, oldest first, then only what is new or edited", async () => {
+    const { adapter } = make({ "after=P1": comments([note(2, T2, T2, null)]), "comments(first": comments([note(1, T1)], true, "P1"), ...WRITER });
+    const a = await adapter();
+    const first = await a.listSince(D7, null);
+    expect(first.messages).toEqual([
+      { id: "1", author: "ana", createdAt: T1, modifiedAt: T1, body: "m1" },
+      { id: "2", author: "ghost", createdAt: T2, modifiedAt: T2, body: "m2" },
+    ]);
+    expect(await a.listSince(D7, first.cursor)).toEqual({ messages: [], cursor: first.cursor });
+  });
+
+  it("listSince sees an edit again", async () => {
+    const answers = { ...WRITER, "comments(first": comments([note(1, T1)]) };
+    const a = await make(answers).adapter();
+    const { cursor } = await a.listSince(D7, null);
+    answers["comments(first"] = comments([note(1, T1, T2)]);
+    expect((await a.listSince(D7, cursor)).messages.map((m) => m.modifiedAt)).toEqual([T2]);
+  });
+
+  it("listSince refuses a cursor it did not issue", async () => {
+    const { adapter } = make(WRITER);
+    await expect((await adapter()).listSince(D7, "nope")).rejects.toThrow(/not issued by listSince/);
+  });
+
+  it.each([[false, "closed", 1], [true, "already_closed", 0]])("close (closed before: %s) gives %s", async (closed, result, writes) => {
+    const { adapter, calls } = make({ closeDiscussion: ok({ data: { closeDiscussion: { discussion: { closed: true } } } }), "closed category": thread(closed), ...WRITER });
+    expect(await (await adapter()).closeConversation(D7)).toEqual({ result });
+    expect(calls.filter((c) => c.join(" ").includes("closeDiscussion"))).toHaveLength(writes);
+  });
+
+  it("close refuses a Discussion outside the ceremony categories", async () => {
+    const { adapter, calls } = make({ "closed category": thread(false, "General"), ...WRITER });
+    await expect((await adapter()).closeConversation(D7)).rejects.toThrow(/not a ceremony/);
+    expect(calls.some((c) => c.join(" ").includes("closeDiscussion"))).toBe(false);
+  });
+
+  it("without Discussions a discussion thread is refused and issues keep working", async () => {
+    const { adapter } = make({ "-i rate_limit": headed(["X-OAuth-Scopes: repo"]), "-X POST repos/o/r/issues/3/comments": ok({ id: 5, user: { login: "bot" }, created_at: T1 }) });
+    const a = await adapter();
+    await expect(a.publish(D7, { body: "x" })).rejects.toThrow(TypeError);
+    expect(await a.publish({ kind: "issue", number: 3 }, { body: "x" })).toEqual({ id: "5", author: "bot", serverTime: T1 });
+  });
+});

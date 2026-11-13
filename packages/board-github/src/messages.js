@@ -5,6 +5,7 @@ import { BoardRejectedError } from "./board-errors.js";
 import { gh, runCommand } from "./github-board.js";
 import { CEREMONY_LABEL, checkKind, kindLabel, titleFor } from "./ceremonies.js";
 import { discussionCeremonies, probeDiscussions } from "./discussions.js";
+import { checkBody, decodeCursor, pageSince } from "./comments.js";
 
 /** The owner's decision (D4 of the spec): the one place the polling interval lives. */
 export const DEFAULT_POLL_SECONDS = 60;
@@ -13,16 +14,6 @@ const PAGE = 100;
 const LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 // GitHub says triage and maintain as well: triage only reads and triages (read), maintain manages without admin (write).
 const LEVEL = { none: "none", read: "read", triage: "read", write: "write", maintain: "write", admin: "admin" };
-const encode = (c) => Buffer.from(JSON.stringify(c)).toString("base64url");
-const decode = (s) => {
-  try {
-    const c = JSON.parse(Buffer.from(s, "base64url").toString());
-    if (typeof c.since === "string" && Array.isArray(c.ids)) return c;
-  } catch { /* falls through to the loud error */ }
-  throw new TypeError("cursor was not issued by listSince");
-};
-
-const MAX_BODY = 60000;
 const MAX_LABEL = 50;
 const REVIEW_STATE = { APPROVED: "approved", CHANGES_REQUESTED: "changes_requested", COMMENTED: "commented" }; // PENDING says nothing
 const checkThread = (thread, kinds = ["issue", "pull_request"]) => {
@@ -79,13 +70,13 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
   const assertLabelExists = async (label) => {
     if (!(await labelExists(label))) throw new BoardRejectedError(`label ${JSON.stringify(label)} does not exist in ${repo}: this adapter does not create labels`);
   };
-  return {
+  const adapter = {
     // Edits show up as a newer updated_at (the `since` filter is on it), so a reader sees the message again.
     capabilities: { tasks: true, reviews: true, labels: true, ceremonies: discussions === true, notice: false, edit_history: true },
     guarantees: { stableMessageId: true, serverTime: true },
     async publish(thread, message) {
       checkThread(thread);
-      if (typeof message?.body !== "string" || message.body.length < 1 || message.body.length > MAX_BODY) throw new TypeError(`message.body must be a string of 1 to ${MAX_BODY} characters`);
+      checkBody(message);
       const c = await write(["POST", `repos/${repo}/issues/${thread.number}/comments`, "-f", `body=${message.body}`]);
       return { id: String(c.id), author: c.user?.login ?? "ghost", serverTime: c.created_at };
     },
@@ -116,15 +107,10 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
     },
     async listSince(thread, cursor) {
       checkThread(thread);
-      const seen = cursor === null ? null : decode(cursor);
+      const seen = decodeCursor(cursor);
       const found = await paged(`repos/${repo}/issues/${thread.number}/comments`, seen ? `&since=${seen.since}` : "");
-      const fresh = found.filter((c) => !(seen && c.updated_at === seen.since && seen.ids.includes(String(c.id))));
-      if (fresh.length === 0) return { messages: [], cursor };
       // "ghost" is GitHub's own name for a deleted account.
-      const messages = fresh.map((c) => ({ id: String(c.id), author: c.user?.login ?? "ghost", createdAt: c.created_at, modifiedAt: c.updated_at, body: c.body })).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id - b.id);
-      const since = messages.reduce((m, x) => (x.modifiedAt > m ? x.modifiedAt : m), seen?.since ?? "");
-      const ids = [...(seen?.since === since ? seen.ids : []), ...messages.filter((m) => m.modifiedAt === since).map((m) => m.id)];
-      return { messages, cursor: encode({ since, ids }) };
+      return pageSince(found.map((c) => ({ id: String(c.id), author: c.user?.login ?? "ghost", createdAt: c.created_at, modifiedAt: c.updated_at, body: c.body })), seen, cursor);
     },
     // HU-3800: a ceremony is a dedicated issue. `ceremonies` stays false: the contract means the native thread (Discussions, slice 9).
     async openConversation(kind, title) {
@@ -168,6 +154,7 @@ export function createGithubMessageReader({ repo, run = runCommand, sleep = (ms)
       if (!Number.isInteger(remaining)) throw new BoardRejectedError("gh api rate_limit gave no core quota");
       return { minPollIntervalMs: DEFAULT_POLL_SECONDS * 1000, minWritePauseMs: WRITE_PAUSE_MS, quotaLeft: remaining };
     },
-    ...(discussions === true ? discussionCeremonies({ repo, run, write, now }) : {}), // replaces the issue path above
   };
+  // HU-3802/HU-4138: Discussions replace the ceremony operations and take the discussion threads; issues go on as before.
+  return discussions === true ? { ...adapter, ...discussionCeremonies({ repo, run, write, now, issues: adapter }) } : adapter;
 }
