@@ -11,7 +11,7 @@ import { createLaptop } from './laptop.js';
 import { dress } from './attire.js';
 import { accentFor, avatarFor } from './avatars.js';
 import { carry } from './backpack.js';
-import { HOST_SCALE, chestOf, haloColor, laptopLift } from './host-look.js';
+import { HOST_SCALE, chestOf, haloColor, hologramOf, laptopLift } from './host-look.js';
 import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -51,25 +51,54 @@ export function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
 }
 
-/** KJC-TSK-1598: a ring of light over a host's head, in its owner's host colour. */
-function halo(color) {
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.55, 0.06, 12, 48),
-    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.2 }),
-  );
-  ring.position.y = HALO_Y;
-  ring.rotation.x = Math.PI / 2;
-  return ring;
+/** KJC-TSK-1601: what the hologram shows, drawn once in light on a see-through canvas. */
+function glyphTexture(glyph, color) {
+  const canvas = Object.assign(document.createElement('canvas'), { width: 256, height: 256 });
+  const ctx = canvas.getContext('2d');
+  ctx.font = '700 170px system-ui, "Noto Color Emoji", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = ctx.shadowColor;
+  ctx.fillText(glyph, 128, 140);
+  // Scan lines, as a projection has.
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let y = 0; y < 256; y += 6) ctx.fillRect(0, y, 256, 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
-function robotFor(worker, avatar) {
+/**
+ * KJC-TSK-1601 (the maintainer, 2026-11-13): over a host's head, instead of a halo, a hologram of
+ * `glyph` in `color` on a small base of light, with its beam; agents-floor.js turns it slowly.
+ */
+function hologram(glyph, color) {
+  const group = new THREE.Group();
+  group.position.y = HALO_Y;
+  const light = { color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending };
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.05, 32), new THREE.MeshBasicMaterial({ ...light, opacity: 0.9 }));
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.28, 0.9, 32, 1, true), new THREE.MeshBasicMaterial({ ...light, opacity: 0.12, side: THREE.DoubleSide }));
+  beam.position.y = 0.47;
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.95), new THREE.MeshBasicMaterial({
+    map: glyphTexture(glyph, color), transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  }));
+  face.position.y = 0.6;
+  group.add(base, beam, face);
+  return group;
+}
+
+function robotFor(worker, avatar, me) {
   // KJC-TSK-1569 (ADR 0056): in the colour its owner gave its role, with its owner's backpack.
   const robot = createRobot({ accent: accentFor(worker, avatar), name: worker.agent });
   carry(robot, avatar?.emblem ?? null);
-  // KJC-TSK-1598: a host stands out: bigger, its halo, its owner's emblem on its chest.
+  // KJC-TSK-1598: a host stands out: bigger, its owner's emblem on its chest. KJC-TSK-1601: and a
+  // hologram of it over its head.
   if (worker.role === 'host') {
     const color = haloColor(worker, avatar);
-    robot.hover.add(badge(chestOf(worker, avatar), color), halo(color));
+    robot.hologram = hologram(hologramOf(worker, avatar, me), color);
+    robot.hover.add(badge(chestOf(worker, avatar), color), robot.hologram);
     robot.lift = HOST_SCALE;
   }
   robot.root.scale.setScalar(scaleOf(worker));
@@ -152,18 +181,21 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
           continue;
         }
         if (!robot) {
-          robot = robotFor(worker, avatarFor(worker, own));
+          // `me` (this person's login, declared at the top of createAgentsFloor) names the own host's
+          // hologram; `own`, the saved avatar, does not carry the login.
+          robot = robotFor(worker, avatarFor(worker, own), me);
           scene.add(robot.root);
           robots.set(key, robot);
         }
         robot.root.position.set(pose.x, 0, pose.z);
         robot.root.rotation.y = pose.yaw;
+        if (robot.hologram) robot.hologram.rotation.y = t / 1200; // KJC-TSK-1601: it turns slowly
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);
         dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build
         // Just above the helmet, so the label never sits on it.
         // KJC-TSK-1598: over a host's halo. KJC-TSK-1600: what it says is decided below, for all at once.
-        const head = robot.root.position.clone().setY((worker.role === 'host' ? HALO_Y + 0.4 : 3.6) * scaleOf(worker));
+        const head = robot.root.position.clone().setY((worker.role === 'host' ? HALO_Y + 1.2 : 3.6) * scaleOf(worker));
         const body = robot.root.position.clone().setY(1.8 * scaleOf(worker));
         seen.push({ key, worker, head, body });
       }

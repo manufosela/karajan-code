@@ -21,6 +21,14 @@ export function hostLabel(worker, own) {
 /** Its halo's colour: the one its owner gave the host role (`avatar` is the one it wears), else its agent's. */
 export const haloColor = (worker, avatar) => accentFor(worker, avatar);
 
+/**
+ * KJC-TSK-1601 (the maintainer, 2026-11-13): what the hologram over its head shows, instead of a
+ * halo: its owner's emblem (`avatar` is the one it wears), else its owner's initial, else its agent's.
+ */
+export function hologramOf(worker, avatar, own) {
+  return glyphOf(avatar?.emblem) ?? (ownerOf(worker, own) ?? worker.agent).charAt(0).toUpperCase();
+}
+
 /** What its chest plate shows: its owner's emblem, else its agent's name as before. */
 export const chestOf = (worker, avatar) => glyphOf(avatar?.emblem) ?? worker.agent;
 
