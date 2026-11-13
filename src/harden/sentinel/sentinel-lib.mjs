@@ -75,6 +75,9 @@ export const enterLane = (_state, sid, cwd) => {
   _home = undefined;
   _refusal = null;
 };
+// ADR 0055 step 3: in a transversal session (runGuard names its parent) the shell runs in the
+// payload's cwd, not in the child repo this process moved into. Elsewhere null: today's base stays.
+export const shellDir = (cwd) => (process.env.KJ_TRANSVERSAL_PARENT ? cwd || process.env.KJ_TRANSVERSAL_PARENT : null);
 /** Why the session was kept out of the lane its cwd is in, or null. */
 export const laneRefusal = () => _refusal;
 const laneKey = (s) => createHash("sha256").update(String(s)).digest("hex").slice(0, 16);

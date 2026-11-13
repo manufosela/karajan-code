@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const GUARDS = pathToFileURL(path.resolve("src/harden/sentinel-guards.js")).href;
@@ -76,13 +76,51 @@ await runGuard(${JSON.stringify(name)}, { guards: { [${JSON.stringify(name)}]: f
     expect(err).toContain(why.replaceAll("<P>", () => parent));
   });
 
-  // Settled here without the guard: posttooluse across two repos records nothing; stop waits for its own step.
-  it.each([["posttooluse", { tool_name: "Bash", tool_input: { command: "cp a/x b/y" } }, ""], ["stop", {}, "stop/session checks per repo come next"]])(
-    "%s exits 0 without running its guard", (guard, call, note) => {
-      const { status, err, seen } = run(guard, { ...call, cwd: parent });
-      expect({ status, seen }).toEqual({ status: 0, seen: null });
-      expect(err).toContain(note);
-    });
+  it("posttooluse across two repos exits 0 without running its guard", () => {
+    const { status, seen } = run("posttooluse", { tool_name: "Bash", tool_input: { command: "cp a/x b/y" }, cwd: parent });
+    expect({ status, seen }).toEqual({ status: 0, seen: null });
+  });
+
+  // ADR 0055 step 3: Stop runs the child's own stop in every repo whose state holds this session.
+  const STOP_FAKE = `import fs from "node:fs";
+let raw = "";
+process.stdin.on("data", (d) => { raw += d; });
+process.stdin.on("end", () => {
+  const sid = JSON.parse(raw).session_id;
+  const st = JSON.parse(fs.readFileSync(".karajan/harness/sentinel-state.json", "utf8"));
+  if (st.sessions[sid]?.red && process.env.CLAUDE_PROJECT_DIR === process.cwd()) { console.error("red in " + process.cwd()); process.exit(2); }
+  process.exit(0);
+});
+`;
+  const stateIn = (repo, sessions) => {
+    fs.mkdirSync(path.join(repo, ".karajan", "harness"), { recursive: true });
+    fs.writeFileSync(path.join(repo, ".karajan", "harness", "sentinel-state.json"), JSON.stringify({ sessions }));
+  };
+  it.each([["s1", 2, ["a: red in <P>/a"]], ["s9", 0, []]])("stop for session %s judges only the repos it touched", (sid, code, lines) => {
+    fs.writeFileSync(fake, STOP_FAKE);
+    stateIn(a, { s1: { red: true } });
+    stateIn(path.join(parent, "b"), { s2: { red: true } });
+    const { status, err } = run("stop", { session_id: sid, cwd: parent });
+    expect(status).toBe(code);
+    expect(err.split("\n").filter((l) => l.includes("red in"))).toEqual(lines.map((l) => l.replaceAll("<P>", () => parent)));
+  });
+
+  it("sessionstart names the child repos and does not run their guard", () => {
+    const res = spawnSync(process.execPath, ["--input-type=module", "-e", `import { runGuard } from ${JSON.stringify(GUARDS)};
+await runGuard("sessionstart", { guards: { sessionstart: () => { throw new Error("ran"); } } });`], { cwd: parent, env: { ...process.env, CLAUDE_PROJECT_DIR: parent }, input: "{}", encoding: "utf8" });
+    expect(res.status).toBe(0);
+    expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toContain("a, b");
+  });
+
+  it("kj sentinel status (stop --status) never waits on a stdin that stays open", async () => {
+    const script = `import { runGuard } from ${JSON.stringify(GUARDS)};
+process.argv.push("--status");
+await runGuard("stop", { guards: { stop: () => process.exit(0) } });`;
+    const child = spawn(process.execPath, ["--input-type=module", "-e", script], { cwd: parent, env: { ...process.env, CLAUDE_PROJECT_DIR: parent }, stdio: ["pipe", "ignore", "ignore"] });
+    const code = await Promise.race([new Promise((ok) => child.on("exit", ok)), new Promise((ok) => setTimeout(() => ok("hung"), 5000))]);
+    child.kill();
+    expect(code).toBe(0);
+  });
 
   it("without the marker does not read stdin and hands it to the guard untouched", () => {
     fs.rmSync(path.join(parent, ".claude-transversal"));
