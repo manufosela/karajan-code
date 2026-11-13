@@ -30,7 +30,11 @@ A version is now agreed by the team before it is published: everyone with work i
   - teammates' agents come into the scene, with emblem and colours (#4093);
   - the board finds its room through an SSH host alias, and tries again after a passing failure (#4103, #4109);
   - the factory shows what each piece found: TDD, Sonar, the Steward and Sentinel denials leave a mark on the workshop, one colour per answer (approved, refused, stopped, exempt, undecided); the pieces inspect and then stamp or shake their head, and the Sentinel blinks each time it lets a call through (#4159, #4161, #4163, #4165);
-  - each lane is shown as it really is: a card sits on the desk of its own lane and leaves it when its merge closes it (the board refreshes card states every ten minutes, `KJ_CARD_REFRESH=off` stops it), a waiting card shows a coloured sign of what it waits for, workshops have desks with chairs, and a side panel of projects opens one factory alone with zoom; the board's Factories button now opens that panel, and the map stays in "Every factory" (#4169, #4172, #4175, #4177, #4179).
+  - each lane is shown as it really is: a card sits on the desk of its own lane and leaves it when its merge closes it (the board refreshes card states every ten minutes, `KJ_CARD_REFRESH=off` stops it), a waiting card shows a coloured sign of what it waits for, workshops have desks with chairs, and a side panel of projects opens one factory alone with zoom; the board's Factories button now opens that panel, and the map stays in "Every factory" (#4169, #4172, #4175, #4177, #4179);
+  - each agent types at a standing desk of its own, turned with it, and in a single factory dragging moves the view as on the map, within the hall (#4194, #4199);
+  - reviewing, an AI review piece stands beside the agent it reviews, one per review under way, with a ghost of it at its post while any is out (#4204, #4207);
+  - an agent kj launches with atril's skills stops at atril while its pages turn, then goes to its desk (#4212);
+  - each host stands out and says whose it is: a little bigger, a halo in its owner's host colour, its owner's emblem on its chest and its owner's login on its label; the board tells the scene its own GitHub login (/api/stage/me) (#4217, #4219).
 - **kj link and the board** (by @jorgecasar):
   - ceremonies as Discussions behind a credential probe (#4132, #4141, #4146);
   - `kj review --lane` and `kj rag query --lane` (#4129, #4136).
@@ -41,7 +45,7 @@ A version is now agreed by the team before it is published: everyone with work i
 - **`kj harden` warns** about the Actions event policy for every workflow on `pull_request_target`, not only `kj-policy.yml` (#4149).
 - **A test proves** a PR cannot edit or delete `kj-verdicts.yml` and still pass the policy check (#4152).
 - **`kj board start`** waits for a board that is still reading its plans on boot (#4118, reported by the KJ landing work).
-- **The stage** shows a lane resting at its base as idle, not unknown (#4107, issue #4100).
+- **The stage** shows a lane resting at its base as idle, not unknown (#4107, issue #4100), and a teammate's robots keep their owner and avatar instead of wearing the board owner's (#4215).
 - **The stop gate** ignores a lane already removed and a file git ignores, `kj board stop` stops only a board it started, and a RAG-first refusal is not a failed review (#4094, #4114, #4122, #4126, by @jorgecasar).
 
 After this release, run `kj harden` and have it sealed to bring in `kj-secrets.yml`. Public repositories need an Actions event policy that allows `pull_request_target` from 2026-12-02; `kj harden` says which workflows need it.
