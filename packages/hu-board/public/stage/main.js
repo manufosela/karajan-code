@@ -133,6 +133,17 @@ async function start() {
   };
   play(performance.now());
   scene.render();
+  // KJC-TSK-1600: the mouse over a robot, or a tap on it (a press that does not drag), shows its
+  // full label; without motion, each pointing draws one frame.
+  const pointAt = (at) => { live.point(at); if (still) { play(performance.now()); scene.render(); } };
+  let pressed = null;
+  canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') pointAt({ left: e.clientX, top: e.clientY }); });
+  canvas.addEventListener('pointerleave', () => pointAt(null));
+  canvas.addEventListener('pointerdown', (e) => { pressed = { left: e.clientX, top: e.clientY }; });
+  canvas.addEventListener('pointerup', (e) => {
+    const tap = pressed && Math.hypot(e.clientX - pressed.left, e.clientY - pressed.top) < 8;
+    if (tap && e.pointerType !== 'mouse') pointAt({ left: e.clientX, top: e.clientY });
+  });
   const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
   events.onmessage = ({ data }) => {
     live.push(JSON.parse(data), performance.now());

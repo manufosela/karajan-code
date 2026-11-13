@@ -5,13 +5,14 @@
 import * as THREE from 'three';
 import { createRobot } from './cast/robot.js';
 import { SCALE } from './layout.js';
-import { tagAt } from './screen.js';
+import { onScreen, tagAt } from './screen.js';
+import { declutter, pickNear, tagText } from './robot-labels.js';
 import { createLaptop } from './laptop.js';
 import { dress } from './attire.js';
 import { accentFor, avatarFor } from './avatars.js';
 import { carry } from './backpack.js';
-import { HOST_SCALE, chestOf, haloColor, hostLabel, laptopLift } from './host-look.js';
-import { TYPING_YAW, accentOf, codeScrollAt, labelOf, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
+import { HOST_SCALE, chestOf, haloColor, laptopLift } from './host-look.js';
+import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
@@ -115,6 +116,20 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   const me = { login: avatar?.login ?? null };
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
+  let pointer = null; // KJC-TSK-1600
+  const screenOf = (point) => onScreen((origin ? point.clone().add(origin) : point.clone()).project(camera), innerWidth, innerHeight);
+  /**
+   * KJC-TSK-1600: each robot's label as robot-labels.js says: the robot under the pointer says
+   * everything, a host its owner, the rest nothing; of two that overlap the more important stays.
+   */
+  const labelsOf = (seen) => {
+    const pointed = pickNear(pointer, seen.map(({ key, body }) => ({ key, ...screenOf(body) })));
+    const tags = seen.flatMap(({ key, worker, head }) => {
+      const text = tagText(worker, { own: me, pointed: key === pointed });
+      return text ? [{ ...screenOf(head), text, rank: key === pointed ? 2 : 1, head }] : [];
+    });
+    return declutter(tags).map(({ text, head }) => tagAt(text, head, camera, { className: 'stage-worker', origin }));
+  };
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
     /** KJC-TSK-1569: a new own avatar; every robot is built again, in it, on the next frame. */
@@ -124,8 +139,10 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
       robots.clear();
     },
     /** Moves every agent's robot; returns their name tags. */
+    /** KJC-TSK-1600: where the pointer is on screen, in css px; null once it leaves. */
+    point(at) { pointer = at; },
     frame(t) {
-      const tags = [];
+      const seen = [];
       for (const worker of workers) {
         const pose = workerAt(worker, t, xOf, zOf);
         const key = visitKey(worker);
@@ -145,13 +162,13 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         work(robot, worker, pose, t);
         dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build
         // Just above the helmet, so the label never sits on it.
-        // KJC-TSK-1598: over a host's halo, and its label says whose it is.
+        // KJC-TSK-1598: over a host's halo. KJC-TSK-1600: what it says is decided below, for all at once.
         const head = robot.root.position.clone().setY((worker.role === 'host' ? HALO_Y + 0.4 : 3.6) * scaleOf(worker));
-        const label = worker.role === 'host' ? hostLabel(worker, me) : labelOf(worker);
-        tags.push(tagAt(label, head, camera, { className: 'stage-worker', origin }));
+        const body = robot.root.position.clone().setY(1.8 * scaleOf(worker));
+        seen.push({ key, worker, head, body });
       }
       workers = workers.filter((w) => workerAt(w, t, xOf, zOf) !== null);
-      return tags;
+      return labelsOf(seen);
     },
   };
 }
