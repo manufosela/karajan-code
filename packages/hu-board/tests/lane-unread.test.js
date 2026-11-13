@@ -1,4 +1,7 @@
 // HU-4211: each lane of the stage shows how many unread link messages wait for it.
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { cachedUnread, laneUnreads, unreadFacts, unreadOf } from '../src/lane-unread.js';
 import { laneStates } from '../src/stage-state.js';
@@ -41,6 +44,20 @@ describe('laneUnreads', () => {
   });
 });
 
+describe('the count the Sentinel reads', () => {
+  const lane = () => mkdtempSync(join(tmpdir(), 'kj-unread-'));
+  const file = (dir) => join(dir, '.karajan', 'link', 'unread.json');
+  it('is written next to the lane as numbers only, and never for null', async () => {
+    const [a, b] = [lane(), lane()];
+    await laneUnreads('/nowhere', { lanes: [{ lane: 'a', dir: a }, { lane: 'b', dir: b }], read: async (d) => (d === a ? 4 : null) });
+    expect(JSON.parse(readFileSync(file(a), 'utf8'))).toEqual({ unread: 4, at: expect.any(Number) });
+    expect(existsSync(file(b))).toBe(false);
+  });
+  it('a write that fails never breaks the stage', async () => {
+    const reads = await laneUnreads('/nowhere', { lanes: [{ lane: 'x', dir: '/dev/null/nope' }], read: async () => 2 });
+    expect(reads.get('/dev/null/nope')).toBe(2);
+  });
+});
 describe('the lane carries its unread count', () => {
   it('puts it on the lane and its status when a reader gave one', () => {
     const [main] = laneStates(process.cwd(), { readers: { unread: () => 3 }, branchOf: () => null });
