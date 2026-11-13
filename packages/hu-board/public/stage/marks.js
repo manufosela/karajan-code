@@ -7,6 +7,10 @@
 export const MARK_MS = 6000;
 
 const tone = (passed) => (passed ? 'approve' : 'refuse');
+// KJC-TSK-1585: one colour per kind of answer; besides approve and refuse, a verdict that decides
+// nothing (an error) is unsure, a Ledger exemption is exempt and a Sentinel denial is a stop.
+const VERDICT_TONE = { approved: 'approve', rejected: 'refuse' };
+const SEAL_TONE = { allow: 'approve', deny: 'refuse', exempt: 'exempt' };
 // KJC-TSK-1582: what kj review checked, by piece, and how long a denial's reason may be.
 const CHECKED = { tdd: 'TDD', sonar: 'Sonar', steward: 'Steward' };
 const WHY_MAX = 48;
@@ -25,13 +29,13 @@ function markOf(event) {
         ? { kind: event.piece, text: `${CHECKED[event.piece]} ${event.outcome === 'pass' ? '✓' : '✗'}`, tone: tone(event.outcome === 'pass') }
         : null;
     case 'sentinel-deny':
-      return { kind: 'sentinel', text: `✗ ${event.tool ?? 'a tool'}: ${shortWhy(event.why)}`, tone: 'refuse' };
+      return { kind: 'sentinel', text: `✗ ${event.tool ?? 'a tool'}: ${shortWhy(event.why)}`, tone: 'stop' };
     case 'review-verdict':
-      return { kind: 'review', text: `${event.verdict} by ${event.reviewer ?? 'a reviewer'}`, tone: tone(event.verdict === 'approved') };
+      return { kind: 'review', text: `${event.verdict} by ${event.reviewer ?? 'a reviewer'}`, tone: VERDICT_TONE[event.verdict] ?? 'unsure' };
     case 'commit-gate':
       return { kind: 'gates', text: event.outcome === 'pass' ? 'commit passed' : `commit refused (${event.rule})`, tone: tone(event.outcome === 'pass') };
     case 'ledger-seal':
-      return { kind: 'ledger', text: `sealed ${event.decision} at ${event.chokepoint}`, tone: tone(event.decision !== 'deny') };
+      return { kind: 'ledger', text: `sealed ${event.decision} at ${event.chokepoint}`, tone: SEAL_TONE[event.decision] ?? 'approve' };
     default:
       return null;
   }

@@ -39,12 +39,17 @@ describe('marks in the lane', () => {
   it('a Sentinel denial says the tool and the short reason, and a burst counts (KJC-TSK-1582)', () => {
     const deny = { type: 'sentinel-deny', tool: 'Bash', why: 'karajan sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables', lane: 'a' };
     let marks = withMark([], deny, 0);
-    expect(marksAt(marks, 1)[0]).toMatchObject({ kind: 'sentinel', text: '✗ Bash: cd/pushd en un comando mutador', tone: 'refuse' });
+    expect(marksAt(marks, 1)[0]).toMatchObject({ kind: 'sentinel', text: '✗ Bash: cd/pushd en un comando mutador', tone: 'stop' });
     marks = withMark(marks, deny, 100);
     marks = withMark(marks, deny, 200);
     expect(marksAt(marks, 201).map((m) => m.text)).toEqual(['✗ Bash: cd/pushd en un comando mutador ×3']);
     const long = withMark([], { type: 'sentinel-deny', tool: 'Edit', why: 'x'.repeat(80), lane: 'a' }, 0);
     expect(marksAt(long, 1)[0].text).toBe(`✗ Edit: ${'x'.repeat(47)}…`);
+  });
+
+  it('an exemption and a verdict that decides nothing have their own tone (KJC-TSK-1585)', () => {
+    expect(marksAt(withMark([], seal('exempt', 'a'), 0), 1)[0]).toMatchObject({ text: 'sealed exempt at commit', tone: 'exempt' });
+    for (const v of ['error', 'unknown', 'broken']) expect(marksAt(withMark([], verdict(v, 'a'), 0), 1)[0].tone).toBe('unsure');
   });
 
   it('events with no mark change nothing, and a lane missing in the event is the main checkout', () => {
