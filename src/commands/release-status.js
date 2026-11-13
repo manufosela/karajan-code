@@ -4,7 +4,7 @@ import { evaluateRelease } from "../release/answers.js";
 import { parseProposal } from "../release/proposal.js";
 
 const ghDefault = async (args) => execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-const mentions = (logins) => logins.map((login) => `@${login}`).join(", ");
+export const mentions = (logins) => logins.map((login) => `@${login}`).join(", ");
 
 function verdictLine(result, proposal) {
   if (result.ready) return "Ready: the release can go out.";
