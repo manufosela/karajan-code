@@ -106,7 +106,8 @@ describe("kj-secrets.yml's scan, run where the workflow runs it (the base's chec
       ".gitattributes": "src/pay.js -diff\n",
       ".karajan/kj.config.yml": 'guards:\n  output:\n    non_secret_assignments: ["src/db.js:dbPasswordToken"]\n',
       "src/pay.js": `const k = "sk_live_${"a1B2c3D4".repeat(3)}";\n`,
-      "src/db.js": 'const dbPasswordToken = "a1B2c3D4e5F6g7H8i9";\n',
+      // Composed at runtime, like the key above, so the fixture holds no secret-shaped literal.
+      "src/db.js": `const dbPasswordToken = "${"a1B2c3".repeat(3)}";\n`,
     });
     git("switch", "-q", "main");
     git("update-ref", "refs/remotes/origin/main", "main");
