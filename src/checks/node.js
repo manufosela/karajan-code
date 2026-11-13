@@ -11,11 +11,16 @@
  * Strategy: manual — we cannot auto-upgrade the runtime. Users on older
  * Node get a clear upgrade instruction with nvm + brew hints instead of a
  * silent runtime crash.
+ * KJC-TSK-1602 (2026-11-13): Node 22 still works but Node 24 is recommended
+ * (22 support ends April 2027; kj 6.0 will require 24). A version in between
+ * is ok with severity "warn": doctor shows it and the exit code stays 0.
  */
 
 import { STRATEGY } from "./types.js";
 
 export const MIN_NODE_MAJOR = 22;
+export const RECOMMENDED_NODE_MAJOR = 24;
+export const NODE_UPGRADE_GUIDE = "https://karajancode.com/docs/guides/node-24/";
 
 /**
  * Accepts a version string in the form "v20.12.1" or "20.12.1" and returns
@@ -56,8 +61,17 @@ export function createNodeVersionCheck(opts = {}) {
           ok: false,
           severity: "fail",
           detail: `Node ${raw} detected, requires >=${MIN_NODE_MAJOR}`,
-          fix: `Upgrade Node to ${MIN_NODE_MAJOR}+ (nvm install ${MIN_NODE_MAJOR} && nvm use ${MIN_NODE_MAJOR}, or brew upgrade node).`,
+          fix: `Upgrade Node to ${MIN_NODE_MAJOR}+ (nvm install ${RECOMMENDED_NODE_MAJOR} && nvm use ${RECOMMENDED_NODE_MAJOR}, or brew upgrade node). Guide: ${NODE_UPGRADE_GUIDE}`,
           extra: { detected: parsed, required: MIN_NODE_MAJOR },
+        };
+      }
+      if (parsed.major < RECOMMENDED_NODE_MAJOR) {
+        return {
+          ok: true,
+          severity: "warn",
+          advisory: true,
+          detail: `${raw} works; Node ${RECOMMENDED_NODE_MAJOR} is recommended: Node 22 support ends in April 2027 and kj 6.0 will require ${RECOMMENDED_NODE_MAJOR}`,
+          fix: `Upgrade to Node ${RECOMMENDED_NODE_MAJOR}: ${NODE_UPGRADE_GUIDE}`,
         };
       }
       return { ok: true, severity: "info", detail: `${raw} (>= ${MIN_NODE_MAJOR} required)` };

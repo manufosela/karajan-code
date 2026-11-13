@@ -85,6 +85,27 @@ describe("checks/runner", () => {
     });
   });
 
+  describe("passing check with advisory (KJC-TSK-1602)", () => {
+    it("shows as WARN and never counts as a failure, so doctor exits 0", async () => {
+      const c = makeCheck({
+        strategy: STRATEGY.MANUAL,
+        detect: vi.fn(async () => ({ ok: true, severity: "warn", advisory: true, detail: "works", fix: "upgrade" })),
+      });
+      const report = await runChecks([c], { config: {} });
+      expect(report.checks[0].status).toBe(STATUS.WARN);
+      expect(report.summary).toMatchObject({ warn: 1, fail: 0, timeout: 0 });
+    });
+
+    it("a passing check whose severity is only the label of its failure mode stays OK", async () => {
+      const c = makeCheck({
+        strategy: STRATEGY.MANUAL,
+        detect: vi.fn(async () => ({ ok: true, severity: "warn", detail: "present" })),
+      });
+      const report = await runChecks([c], { config: {} });
+      expect(report.checks[0].status).toBe(STATUS.OK);
+    });
+  });
+
   describe("degradable checks (KJC-BUG-0049)", () => {
     it("degrades FAIL → WARN and disables feature flag when check is degradable", async () => {
       const c = makeCheck({

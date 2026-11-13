@@ -163,20 +163,24 @@ describe("auto-remediation end-to-end", () => {
       expect(report.checks[0].fix).toContain("nvm install");
     });
 
-    it("Node 22 → OK (current minimum baseline since v3.0.0)", async () => {
+    it("Node 22 → still works (not a failure), warns to recommend Node 24 with the guide", async () => {
       const { createNodeVersionCheck } = await import("../../src/checks/node.js");
       const check = createNodeVersionCheck({ version: "v22.22.1" });
       const report = await runChecks([check], { config: {} });
 
-      expect(report.checks[0].status).toBe(STATUS.OK);
+      expect(report.checks[0].status).toBe(STATUS.WARN);
+      expect(report.checks[0].status).not.toBe(STATUS.FAIL);
+      expect(report.checks[0].detail).toContain("Node 24 is recommended");
+      expect(report.checks[0].fix).toContain("https://karajancode.com/docs/guides/node-24/");
     });
 
-    it("Node 24 → OK", async () => {
+    it("Node 24 → OK with no warning", async () => {
       const { createNodeVersionCheck } = await import("../../src/checks/node.js");
       const check = createNodeVersionCheck({ version: "v24.0.0" });
       const report = await runChecks([check], { config: {} });
 
       expect(report.checks[0].status).toBe(STATUS.OK);
+      expect(report.checks[0].fix).toBeUndefined();
     });
   });
 
