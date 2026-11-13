@@ -7,7 +7,9 @@ const CLOSE = "-->";
 // "--" inside an HTML comment would end it early ("-->"), so each "-" of it goes out as its JSON
 // unicode escape, which JSON.parse turns back. Outside strings JSON never has "--": nothing is lost.
 const ESCAPED_DASHES = String.raw`\u002d\u002d`;
-export const RELEASE_BLOCK = (data) => `${OPEN}${JSON.stringify(data).replaceAll("--", ESCAPED_DASHES)} ${CLOSE}`;
+/** A JSON block in an HTML comment: `<!-- <marker> {json} -->`, safe against "--" in its strings. */
+export const commentBlock = (marker, data) => `<!-- ${marker} ${JSON.stringify(data).replaceAll("--", ESCAPED_DASHES)} ${CLOSE}`;
+export const RELEASE_BLOCK = (data) => commentBlock("kj-release:proposal", data);
 
 const who = (entry) => (entry.login ? `@${entry.login}` : entry.who);
 
