@@ -10,7 +10,7 @@ import { createCouriers } from './couriers.js';
 import { createBenchNotes } from './bench-notes.js';
 import { atHome, freshCards } from './cards.js';
 import { closedCards, deskSigns } from './desk-signs.js';
-import { turnAt } from './workers.js';
+import { turnAt, turnFrom } from './workers.js';
 import { blinkAt, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
@@ -232,7 +232,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
       couriers.push(event, now);
-      if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: now, skills: event.skills };
+      // KJC-TSK-1596: once the agent stands before atril.
+      if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: turnFrom(event, now), skills: event.skills };
       watch = withWatch(watch, event, now);
       marks = withMark(marks, event, now);
       rag = withRag(rag, event, now);

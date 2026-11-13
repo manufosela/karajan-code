@@ -3,7 +3,7 @@
 // works at the bench of the workshop of its lane (ADR 0048) and walks out when
 // it ends. KJC-TSK-1435: so does the host agent, and each subagent it opens walks
 // out of it and back. Pure: the scene reads the poses.
-import { DOOR, WORKSHOP } from './layout.js';
+import { DOOR, STAND, WORKSHOP } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
@@ -47,6 +47,8 @@ export function typingAt(now) {
 
 /** How long atril takes to turn one page, in ms (KJC-TSK-1428). */
 export const TURN_MS = 1200;
+/** KJC-TSK-1596: where an agent stands to take its skills, a metre in front of atril, facing it. */
+export const READER = { x: STAND.x + Math.sin(STAND.yaw), z: STAND.z + Math.cos(STAND.yaw) };
 
 /**
  * Which page atril is turning for the skills an agent started with, and how far
@@ -120,6 +122,8 @@ const newWorker = (workers, ev, since) => {
   const lane = laneOf(ev);
   // KJC-TSK-1538: the model and effort it runs with dress its robot.
   const worker = { agent: ev.agent, role: ev.role, lane, id: ev.id ?? null, tool: ev.tool ?? null, kind: ev.kind ?? null, name: ev.name ?? null, model: ev.model ?? null, effort: ev.effort ?? null, since };
+  // KJC-TSK-1596: how many of atril's skills it takes on its way in (a subagent comes out of its host).
+  if (ev.role !== 'subagent' && ev.skills?.length) worker.reads = ev.skills.length;
   return { ...worker, slot: ev.role === 'subagent' ? freeSlot(workers, lane) : freeSeat(workers, lane, ev.role) };
 };
 
@@ -138,7 +142,8 @@ export function withActivity(workers, event, now) {
 
 /** The agents already at work in `lane` when the stage opens, standing at their spot. */
 export const workersFrom = (working, now, lane = 'main') =>
-  working.filter((w) => w.role !== PIECE_ROLE).reduce((all, w) => [...all, newWorker(all, { ...w, lane }, now - WALK_MS)], []);
+  // KJC-TSK-1596: already at its desk, it took its skills before the stage opened.
+  working.filter((w) => w.role !== PIECE_ROLE).reduce((all, w) => [...all, newWorker(all, { ...w, lane, skills: [] }, now - WALK_MS)], []);
 
 const lerp = (from, to, k) => ({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k });
 const facing = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
@@ -157,9 +162,22 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z) {
     const k = (now - worker.leftAt) / WALK_MS;
     return k >= 1 ? null : { ...lerp(spot, gate, k), yaw: facing(spot, gate), walking: true };
   }
-  const k = Math.min(1, Math.max(0, (now - worker.since) / WALK_MS));
-  return k < 1 ? { ...lerp(gate, spot, k), yaw: facing(gate, spot), walking: true } : { ...spot, yaw: 0, walking: false };
+  // KJC-TSK-1596: with skills it stops before atril on its way in, one page per skill.
+  const via = worker.reads ? READER : null;
+  const t = Math.max(0, now - worker.since);
+  if (via && t < WALK_MS) return { ...lerp(gate, via, t / WALK_MS), yaw: facing(gate, via), walking: true, reading: false };
+  const read = via ? worker.reads * TURN_MS : 0;
+  if (via && t < WALK_MS + read) return { ...via, yaw: facing(via, STAND), walking: false, reading: true };
+  const from = via ?? gate;
+  const k = Math.min(1, (t - (via ? WALK_MS + read : 0)) / WALK_MS);
+  return k < 1 ? { ...lerp(from, spot, k), yaw: facing(from, spot), walking: true, reading: false } : { ...spot, yaw: 0, walking: false, reading: false };
 }
+
+/**
+ * KJC-TSK-1596: when atril starts turning the pages of a start at `now`: once its robot stands
+ * before it; at once for the reviewer, which has no robot, and for a subagent.
+ */
+export const turnFrom = (event, now) => (event.role === PIECE_ROLE || event.role === 'subagent' ? now : now + WALK_MS);
 
 /**
  * What the label over a worker says: the host its session's name (KJC-TSK-1483; its
