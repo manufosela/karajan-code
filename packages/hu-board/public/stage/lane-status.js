@@ -61,7 +61,10 @@ export const plateName = (lane) => lane.split('@')[0];
  * (its lanes with their branch, everyone at work, the cards) and `box` the mailbox by lane.
  * A lane born after the stage opened has no branch read yet.
  */
-export function laneStatuses(names, { lanes = [], working = [], cards = [] }, box) {
+export function laneStatuses(names, { lanes = [], working: listed = [], cards = [] }, box, floor = []) {
+  // KJC-BUG-0581: and every robot the scene has at work, so a lane never says nobody works in it
+  // while one of its robots types.
+  const working = [...listed, ...floor];
   const byLane = new Map(lanes.map((l) => [l.lane, l]));
   // KJC-TSK-1586: each card counts in the lane its id names, whichever lane moved it.
   const homed = atHome(cards, [...new Set([...names, ...lanes.map((l) => l.lane)])]);
