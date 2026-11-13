@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { canonicalPayload as kjPayload } from "../../src/harden/phone-sign.js";
-import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "../../apps/landing/public/sign/sign-helpers.js";
+import { allowedCredentials, canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "../../apps/landing/public/sign/sign-helpers.js";
 
 const DESKTOP_CHROME = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 const MAC_SAFARI = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
@@ -48,6 +48,34 @@ describe("the passkey challenge", () => {
     const req = passkeyRequest(new Uint8Array(32));
     expect(req).toMatchObject({ challenge: new Uint8Array(32), rpId: "karajancode.com", userVerification: "required", timeout: 120_000 });
     expect(req).not.toHaveProperty("allowCredentials");
+    expect(passkeyRequest(new Uint8Array(32), [])).not.toHaveProperty("allowCredentials");
+  });
+
+  // HU-4193: kj lists the roster's passkeys; the phone offers only those.
+  it("restricts the request to the allowed credentials when there are some", () => {
+    const allow = [{ type: "public-key", id: new Uint8Array([1]) }];
+    expect(passkeyRequest(new Uint8Array(32), allow).allowCredentials).toBe(allow);
+  });
+});
+
+describe("allowedCredentials", () => {
+  const str = (stringValue) => ({ stringValue });
+  const doc = (...ids) => ({ allow: { arrayValue: { values: ids.map(str) } } });
+
+  it("decodes each base64url id into a public-key descriptor", () => {
+    const out = allowedCredentials(doc("AQID", "-_8"));
+    expect(out.map((c) => c.type)).toEqual(["public-key", "public-key"]);
+    expect([...new Uint8Array(out[0].id)]).toEqual([1, 2, 3]);
+    expect([...new Uint8Array(out[1].id)]).toEqual([251, 255]);
+  });
+
+  it("returns [] when the request carries no allow field", () => {
+    expect(allowedCredentials({})).toEqual([]);
+  });
+
+  it("throws on an entry that is not a base64url string", () => {
+    expect(() => allowedCredentials(doc("AQID", "no valid!"))).toThrow(/allow/);
+    expect(() => allowedCredentials({ allow: { arrayValue: { values: [{ integerValue: "1" }] } } })).toThrow(/allow/);
   });
 });
 

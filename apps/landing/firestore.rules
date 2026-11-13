@@ -25,8 +25,11 @@ service cloud.firestore {
       // KJC-BUG-0303: since kj 4.46 the request also carries what the page shows
       // beside the hashes (KJC-TSK-0992 changes/branch/origin, KJC-TSK-0996 why),
       // outside the signed payload; a hasOnly without them rejected every seal (403).
-      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at', 'changes', 'branch', 'origin', 'why', 'passkey', 'kind', 'user_label'])
+      allow create: if request.resource.data.keys().hasOnly(['nonce', 'project', 'files', 'kj_version', 'createdAt', 'state', 'v', 'expires_at', 'changes', 'branch', 'origin', 'why', 'passkey', 'kind', 'user_label', 'allow'])
         && (!('passkey' in request.resource.data) || request.resource.data.passkey is bool)
+        // HU-4193: the ids of the roster's passkeys, so the phone offers only those. The rules
+        // language has no per-element type check without a loop: the page validates each id.
+        && (!('allow' in request.resource.data) || (request.resource.data.allow is list && request.resource.data.allow.size() <= 20))
         // HU-3976 (ADR 0053): a register request asks the phone for a passkey with this label.
         && (!('kind' in request.resource.data) || request.resource.data.kind is string)
         && (!('user_label' in request.resource.data) || request.resource.data.user_label is string)

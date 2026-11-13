@@ -80,7 +80,7 @@
   <section id="error" hidden><h1 data-i18n="errorTitle">No se puede continuar</h1><p id="error-text"></p></section>
 </main>
 <script type="module">
-  import { canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "./sign-helpers.js?v=e31b559ea84d";
+  import { allowedCredentials, canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods } from "./sign-helpers.js?v=d0f230a22c4b";
   const API_KEY = "AIzaSyBEZ7CYkAgs1OQbFHeZIW_VVPAXMiIz1X8";
   const BASE = "https://firestore.googleapis.com/v1/projects/karajan-code/databases/(default)/documents/kjSupervisorSign";
   // KJC-TSK-0992 (HUM-G): the page speaks the browser's language, Spanish or
@@ -226,7 +226,7 @@
     $("sign-btn").hidden = !methods.includes("ed25519");
     if (methods[0] === "passkey") { $("sign-btn").classList.add("secondary"); $("sign-btn").textContent = TEXT.signKey; }
     $("passkey-btn").onclick = signWith($("passkey-btn"), async (payload) => passkeyFields(
-      await navigator.credentials.get({ publicKey: passkeyRequest(await passkeyChallenge(payload)) }), new Date().toISOString()));
+      await navigator.credentials.get({ publicKey: passkeyRequest(await passkeyChallenge(payload), allowedCredentials(f)) }), new Date().toISOString()));
     $("sign-btn").onclick = signWith($("sign-btn"), async (payload) => ({
       state: { stringValue: "signed" },
       signature: { stringValue: b64(await crypto.subtle.sign("Ed25519", keys.privateKey, enc(payload))) },

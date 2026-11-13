@@ -57,7 +57,7 @@ describe("landing sign page", () => {
 
   // HU-3976 (ADR 0053): a register request creates a passkey; only kind "register" reaches it, never on a desktop.
   it("reaches the register path only for kind register, after the desktop notice, and creates the passkey there", () => {
-    expect(html).toMatch(/import \{ canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods \} from "\.\/sign-helpers\.js\?v=[0-9a-f]{12}"/);
+    expect(html).toMatch(/import \{ allowedCredentials, canonicalPayload, isPhone, passkeyChallenge, passkeyFields, passkeyRequest, registerFields, registerRequest, requestKind, signMethods \} from "\.\/sign-helpers\.js\?v=[0-9a-f]{12}"/);
     expect(html).toContain('id="register"');
     expect(html).toMatch(/register: "Crear passkey"/);
     expect(html).toMatch(/register: "Create passkey"/);
