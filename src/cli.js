@@ -12,6 +12,7 @@ import { registerMeta } from "./cli/register-meta.js";
 import { registerSonar } from "./cli/register-sonar.js";
 import { registerRetired } from "./cli/retired-commands.js";
 import { printUpdateNotice } from "./utils/update-check.js";
+import { printNodeReminder } from "./utils/node-reminder.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
 import { migrateKjToKarajan } from "./utils/home-migration.js";
 import { pinGitDiffFormat } from "./utils/git-diff-format.js";
@@ -26,6 +27,8 @@ const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
 
 // Non-blocking update check (runs in background, prints after command output)
 printUpdateNotice(PKG_VERSION).catch(() => {});
+// Daily Node 24 reminder: stderr only, so --json and stdout-parsing hooks stay clean (KJC-BUG-0389)
+printNodeReminder();
 
 const program = new Command();
 program
