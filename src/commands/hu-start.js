@@ -10,7 +10,10 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { note } from "../agents/activity.js";
 import { lanesByCard, parseLanes } from "../hu/lanes.js";
+import { buildRoleSkillSection, roleSkills } from "../skills/role-skills.js";
+import { detectHostAgent } from "../utils/agent-detect.js";
 import { REF_SEPARATOR, worktreeCommand } from "./worktree.js";
 
 const SLUG_MAX = 40;
@@ -70,6 +73,30 @@ export async function startAction({ config, args, flags = {}, deps, move, who, e
     const status = (deps.runCoder ?? runCoderIn)({ cwd: lane.path, card: ref, task: card.title });
     if (status !== 0) throw new Error(`the coder (kj code --card ${ref}) ended with exit ${status} in ${lane.path}`);
   }
-  if (existing) return emit({ id: ref, branch: lane.branch, lane: lane.path, reused: true }, `✓ ${ref} started in its existing lane ${lane.branch}\n  cd ${lane.path}`);
-  return emit({ id: ref, branch: lane.branch, lane: lane.path }, `✓ ${ref} started in its lane ${lane.branch}\n  cd ${lane.path}`);
+  const { skills, section } = await hostSkillsFor({ card, lane, deps });
+  const extra = skills.length ? { skills } : {};
+  const tail = section ? `\n${section}` : "";
+  if (existing) return emit({ id: ref, branch: lane.branch, lane: lane.path, reused: true, ...extra }, `✓ ${ref} started in its existing lane ${lane.branch}\n  cd ${lane.path}${tail}`);
+  return emit({ id: ref, branch: lane.branch, lane: lane.path, ...extra }, `✓ ${ref} started in its lane ${lane.branch}\n  cd ${lane.path}${tail}`);
+}
+
+/**
+ * HU-4222: the atril skills of the card for the host agent, noted on the lane's activity for kj stage.
+ * The lane and the move already happened, so a failure here is a warning line, never an undone start:
+ * this is the one place where the start stays usable on purpose.
+ */
+async function hostSkillsFor({ card, lane, deps }) {
+  const none = { skills: [], section: "" };
+  const host = (deps.detectHost ?? detectHostAgent)();
+  if (!host) return none;
+  try {
+    const result = await (deps.hostSkills ?? roleSkills)({ role: "host", task: card.title, projectDir: lane.path });
+    const skills = result.skills.map((s) => s.name);
+    if (!skills.length) return none;
+    note(lane.path, { agent: host, role: "host", phase: "start", skills });
+    return { skills, section: buildRoleSkillSection(result, { provider: host }) };
+  } catch (err) {
+    console.warn(`! skills for the host not resolved: ${err.message}`);
+    return none;
+  }
 }
