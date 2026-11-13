@@ -14,9 +14,13 @@ const HEIGHT_PX = 20;
 
 /** What a robot's label says: a host its owner, the one pointed at everything, anyone else nothing. */
 export function tagText(worker, { own, pointed = false }) {
-  if (pointed) return worker.role === 'host' ? hostLabel(worker, own) : labelOf(worker);
-  return worker.role === 'host' ? ownerOf(worker, own) ?? worker.agent : null;
+  if (worker.role !== 'host') return pointed ? labelOf(worker) : null;
+  const base = pointed ? hostLabel(worker, own) : ownerOf(worker, own) ?? worker.agent;
+  // KJC-TSK-1607: a waiting host says what it waits for.
+  return worker.waiting ? `${base} · ${WAITS[worker.waiting] ?? WAITS.process}` : base;
 }
+
+const WAITS = { person: 'waits for you', process: 'waits for a process' };
 
 /** The key of the robot nearest the pointer on screen within `reach`; null when none or no pointer. */
 export function pickNear(pointer, robots, reach = REACH_PX) {

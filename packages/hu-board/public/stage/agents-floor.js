@@ -139,7 +139,8 @@ export function typeOn(robot, { typing, elapsed, yaw, accent }) {
 /** KJC-TSK-1486: at its spot the agent opens its laptop and types; walking, it puts it away. */
 const work = (robot, worker, pose, t) =>
   // KJC-TSK-1596: before atril it reads, its laptop still away.
-  typeOn(robot, { typing: !pose.walking && !pose.reading, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
+  // KJC-TSK-1607: and a waiting host keeps its laptop closed.
+  typeOn(robot, { typing: !pose.walking && !pose.reading && !pose.waiting, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
 
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
 export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null }, lanes, now) {
@@ -158,14 +159,16 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     const pointed = pickNear(pointer, seen.map(({ key, body }) => ({ key, ...screenOf(body) })));
     const tags = seen.flatMap(({ key, worker, head }) => {
       const text = tagText(worker, { own: me, pointed: key === pointed });
-      return text ? [{ ...screenOf(head), text, rank: key === pointed ? 2 : 1, head }] : [];
+      // KJC-TSK-1607: a waiting host's label in the colour of what it waits for.
+      const className = worker.waiting ? `stage-worker stage-wait-${worker.waiting}` : 'stage-worker';
+      return text ? [{ ...screenOf(head), text, rank: key === pointed ? 2 : 1, head, className }] : [];
     });
-    return declutter(tags).map(({ text, head }) => tagAt(text, head, camera, { className: 'stage-worker', origin }));
+    return declutter(tags).map(({ text, head, className }) => tagAt(text, head, camera, { className, origin }));
   };
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
     /** KJC-BUG-0581: the robots at work now (not walking out), each with its lane. */
-    working: () => workers.filter((w) => w.leftAt === undefined).map(({ agent, role, lane, id }) => ({ agent, role, lane, id })),
+    working: () => workers.filter((w) => w.leftAt === undefined).map(({ agent, role, lane, id, waiting }) => ({ agent, role, lane, id, ...(waiting ? { waiting } : {}) })),
     /** KJC-TSK-1569: a new own avatar; every robot is built again, in it, on the next frame. */
     setAvatar(next) {
       own = next;
