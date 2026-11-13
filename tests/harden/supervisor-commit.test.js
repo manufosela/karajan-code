@@ -213,6 +213,24 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(res.committed).toBe(true);
   });
 
+  // HU-4130 (#4113): an unsigned seal is no exempt act, so the PR gate wants a verdict of its diff.
+  it("no phone enrolled: tells how to get the verdict the unsigned seal needs; a signed seal does not", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    const lines = [];
+    const logger = { info: (m) => lines.push(m) };
+    await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, logger });
+    const sha = git(["rev-parse", "--short", "HEAD"]).trim();
+    expect(lines.join("\n")).toContain(`kj review --range ${sha}^..${sha}`);
+    expect(lines.join("\n")).toContain("--publish-pr");
+
+    git(["checkout", "-q", "-b", "other", "HEAD~1"]);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnewer\n");
+    const signedLines = [];
+    const phone = { enrolled: () => true, request: async () => ({ ok: true, block: { signer: "s", signature: "g" } }) };
+    await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, logger: { info: (m) => signedLines.push(m) }, deps: { ...HUMAN.deps, phone } });
+    expect(signedLines.join("\n")).not.toContain("kj review --range");
+  });
+
   // KJC-TSK-0996 (HUM-D, ADR 0018): at max the seal needs the phone; no typed code instead.
   it("security level max and no phone enrolled: the seal is refused, told how to enroll, and commits NOTHING", async () => {
     writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");

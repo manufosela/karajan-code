@@ -218,5 +218,15 @@ export async function commitSupervisorRegeneration({
     ...governance,
   ]);
   logger.info?.(`harden --commit: ${hashed.length} fichero(s) de supervisor versionados con procedencia sellada`);
+  if (!signatureBlock) logSealVerdictHint(run, logger);
   return { committed: true, files: hashed };
+}
+
+/**
+ * HU-4130 (#4113): an unsigned seal is no exempt act, so kj-verdicts.yml wants the cross-AI
+ * verdict of its diff like any other commit. Say how to record and publish it.
+ */
+function logSealVerdictHint(run, logger) {
+  const sha = run(["rev-parse", "--short", "HEAD"]).trim();
+  logger.info?.(`harden --commit: sello sin firma del móvil — kj-verdicts.yml exige su veredicto cross-AI: kj review --range ${sha}^..${sha} y, con la PR abierta, kj review --publish-pr <n>`);
 }
