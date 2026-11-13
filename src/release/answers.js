@@ -2,6 +2,7 @@
  * Answers to a release proposal (ADR 0057, step 3): one issue comment per answer, with a JSON block
  * at its end, and the pure rule that says who confirmed, who holds, who is silent and whether it is ready.
  */
+import { sanitize } from "../environment/issue-report.js";
 import { commentBlock } from "./proposal.js";
 
 const MARKER = "kj-release:ack";
@@ -12,7 +13,11 @@ const DECISIONS = ["ok", "hold", "include"];
 /** @returns {string} a short readable line plus the block */
 export function renderAnswer(answer) {
   const why = answer.why ? `: ${answer.why}` : "";
-  return `${answer.decision} for candidate ${String(answer.candidate).slice(0, 7)}${why}\n\n${commentBlock(MARKER, answer)}`;
+  const { detail, ...check } = answer.check ?? {};
+  const fence = "```";
+  const shown = detail ? `\n\n<details><summary>Why the check failed</summary>\n\n${fence}\n${sanitize(detail).replaceAll(fence, "'''")}\n${fence}\n\n</details>` : "";
+  const block = commentBlock(MARKER, answer.check ? { ...answer, check } : answer);
+  return `${answer.decision} for candidate ${String(answer.candidate).slice(0, 7)}${why}${shown}\n\n${block}`;
 }
 
 /** The answer of a comment (only its last block counts), null without a block; throws on a malformed one. */

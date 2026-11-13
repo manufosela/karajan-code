@@ -14,8 +14,8 @@ export function exitCodeOf(error) {
 }
 
 const runDefault = (cmd, args, opts = {}) => new Promise((resolve) => {
-  execFile(cmd, args, { ...opts, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }, (error, stdout) => {
-    resolve({ code: exitCodeOf(error), stdout });
+  execFile(cmd, args, { ...opts, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
+    resolve({ code: exitCodeOf(error), stdout, stderr });
   });
 });
 
@@ -32,10 +32,23 @@ async function inWorktree({ run, projectDir, ref }, work) {
   }
 }
 
-async function suitePasses(run, cwd) {
-  const install = await run("npm", ["ci", "--ignore-scripts"], { cwd });
-  if (install.code !== 0) return false;
-  return (await run("npm", ["test"], { cwd })).code === 0;
+const DETAIL_LINES = 20;
+
+/** The last lines of a failed step (stdout then stderr), trimmed: why it failed. */
+function tail(step) {
+  return `${step.stdout ?? ""}\n${step.stderr ?? ""}`.trim().split("\n").slice(-DETAIL_LINES).join("\n").trim();
+}
+
+const passed = { pass: true };
+const failedAt = (step) => ({ pass: false, detail: tail(step) });
+
+// Installed as the repository is installed day to day (scripts run, native modules such as node-pty get built):
+// the candidate is a commit of the reviewed base branch, the same code every participant installs in each lane.
+async function suiteOutcome(run, cwd) {
+  const install = await run("npm", ["ci"], { cwd });
+  if (install.code !== 0) return failedAt(install);
+  const test = await run("npm", ["test"], { cwd });
+  return test.code === 0 ? passed : failedAt(test);
 }
 
 async function hasOwnCommits({ run, projectDir, candidate, baseBranch }) {
@@ -48,15 +61,17 @@ async function hasOwnCommits({ run, projectDir, candidate, baseBranch }) {
 async function laneResult({ run, projectDir, candidate }) {
   return inWorktree({ run, projectDir, ref: "HEAD" }, async (wt) => {
     const rebase = await run("git", ["rebase", candidate], { cwd: wt });
-    if (rebase.code !== 0) return "fail";
-    return (await suitePasses(run, wt)) ? "pass" : "fail";
+    return rebase.code === 0 ? suiteOutcome(run, wt) : failedAt(rebase);
   });
 }
 
-/** @returns {Promise<{ suite: "pass"|"fail", lane: "pass"|"fail"|"none" }>} */
+/** @returns {Promise<{ suite: "pass"|"fail", lane: "pass"|"fail"|"none", detail?: string }>} detail: why a step failed */
 export async function compatCheck({ projectDir, candidate, baseBranch = "main", run = runDefault }) {
   await run("git", ["fetch", "origin", candidate], { cwd: projectDir });
-  const suite = await inWorktree({ run, projectDir, ref: candidate }, async (wt) => ((await suitePasses(run, wt)) ? "pass" : "fail"));
+  const suite = await inWorktree({ run, projectDir, ref: candidate }, (wt) => suiteOutcome(run, wt));
   const own = await hasOwnCommits({ run, projectDir, candidate, baseBranch });
-  return { suite, lane: own ? await laneResult({ run, projectDir, candidate }) : "none" };
+  const lane = own ? await laneResult({ run, projectDir, candidate }) : null;
+  const detail = [suite.detail, lane?.detail].filter(Boolean).join("\n");
+  const verdict = (outcome) => (outcome.pass ? "pass" : "fail");
+  return { suite: verdict(suite), lane: lane ? verdict(lane) : "none", ...(detail ? { detail } : {}) };
 }
