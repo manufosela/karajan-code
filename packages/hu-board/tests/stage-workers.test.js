@@ -2,8 +2,8 @@
 // is a robot of its own that walks in, works behind its station and walks out.
 import { describe, expect, it } from 'vitest';
 
-import { DOOR, KEY_MS, SCROLL_MS, TURN_MS, codeScrollAt, WALK_MS, accentOf, labelOf, spotOf, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
-import { WORKSHOP } from '../public/stage/layout.js';
+import { DOOR, KEY_MS, READER, SCROLL_MS, TURN_MS, codeScrollAt, WALK_MS, accentOf, labelOf, spotOf, turnFrom, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
+import { STAND, WORKSHOP } from '../public/stage/layout.js';
 
 const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
 const end = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'end', outcome: 'ok', lane });
@@ -159,6 +159,39 @@ describe('a worker over time', () => {
     const [w] = workersFrom([{ agent: 'agy', role: 'solomon', at: 'x' }], 5000, 'kj-stage');
     expect(w.lane).toBe('kj-stage');
     expect(workerAt(w, 5000, () => 3)).toMatchObject({ ...spotOf('solomon', 3), walking: false });
+  });
+});
+
+// KJC-TSK-1596 (the maintainer, 2026-11-13): an agent kj launches with atril's skills takes them
+// before it works: from the door it stops before atril while its pages turn, then goes to its desk.
+describe('a worker that starts with skills', () => {
+  const withSkills = (skills) => ({ ...start('claude', 'coder'), skills });
+
+  it('walks from the door to atril, reads one page per skill facing it, then walks to its desk', () => {
+    const [w] = withActivity([], withSkills(['tdd', 'sonar']), 0);
+    expect(workerAt(w, 0)).toMatchObject({ x: DOOR.x, z: DOOR.z, walking: true });
+    const reading = workerAt(w, WALK_MS + TURN_MS);
+    expect(reading).toMatchObject({ ...READER, walking: false, reading: true });
+    expect(reading.yaw).toBeCloseTo(Math.atan2(STAND.x - READER.x, STAND.z - READER.z));
+    expect(workerAt(w, WALK_MS + 2 * TURN_MS + WALK_MS / 2)).toMatchObject({ walking: true, reading: false });
+    expect(workerAt(w, 2 * WALK_MS + 2 * TURN_MS)).toMatchObject({ ...spotOf('coder'), walking: false, reading: false });
+  });
+
+  it('atril turns its pages while the agent stands before it, not before it arrives', () => {
+    expect(turnFrom(withSkills(['tdd']), 1000)).toBe(1000 + WALK_MS);
+    expect(turnFrom({ ...start('codex', 'reviewer'), skills: ['tdd'] }, 1000)).toBe(1000); // no robot comes
+  });
+
+  it('with no skills, or already at work when the stage opens, it goes straight to its desk', () => {
+    const [plain] = withActivity([], start('claude', 'coder'), 0);
+    expect(workerAt(plain, WALK_MS)).toMatchObject({ ...spotOf('coder'), walking: false });
+    const [open] = workersFrom([{ agent: 'claude', role: 'coder', at: 'x', skills: ['tdd'] }], 5000, 'main');
+    expect(workerAt(open, 5000)).toMatchObject({ ...spotOf('coder'), walking: false });
+  });
+
+  it('READER stands clear in front of atril', () => {
+    expect(Math.hypot(READER.x - STAND.x, READER.z - STAND.z)).toBeGreaterThan(0.6);
+    expect(READER.z).toBeGreaterThan(STAND.z);
   });
 });
 

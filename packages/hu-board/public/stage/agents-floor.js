@@ -80,7 +80,8 @@ export function typeOn(robot, { typing, elapsed, yaw, accent }) {
 
 /** KJC-TSK-1486: at its spot the agent opens its laptop and types; walking, it puts it away. */
 const work = (robot, worker, pose, t) =>
-  typeOn(robot, { typing: !pose.walking, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
+  // KJC-TSK-1596: before atril it reads, its laptop still away.
+  typeOn(robot, { typing: !pose.walking && !pose.reading, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
 
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
 export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null }, lanes, now) {
