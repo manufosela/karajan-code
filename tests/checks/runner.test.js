@@ -85,6 +85,18 @@ describe("checks/runner", () => {
     });
   });
 
+  describe("ok with severity warn (KJC-TSK-1602)", () => {
+    it("shows as WARN and never counts as a failure, so doctor exits 0", async () => {
+      const c = makeCheck({
+        strategy: STRATEGY.MANUAL,
+        detect: vi.fn(async () => ({ ok: true, severity: "warn", detail: "works", fix: "upgrade" })),
+      });
+      const report = await runChecks([c], { config: {} });
+      expect(report.checks[0].status).toBe(STATUS.WARN);
+      expect(report.summary).toMatchObject({ warn: 1, fail: 0, timeout: 0 });
+    });
+  });
+
   describe("degradable checks (KJC-BUG-0049)", () => {
     it("degrades FAIL → WARN and disables feature flag when check is degradable", async () => {
       const c = makeCheck({

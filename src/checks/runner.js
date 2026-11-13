@@ -233,7 +233,7 @@ function shouldAttemptRemediation(entry) {
 }
 
 function resolveStatusFromDetect(check, result) {
-  if (result.ok) return STATUS.OK;
+  if (result.ok) return result.severity === "warn" ? STATUS.WARN : STATUS.OK;
   const severity = result.severity || "fail";
   if (severity === "warn") return STATUS.WARN;
   if (severity === "info") return STATUS.OK; // info is always non-failing
