@@ -4,6 +4,8 @@
  * author or subject reaches the stage. It is a network call: kept for a while per lane, a few at a time.
  */
 import { execFile } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { KJ_CLI } from './command-runner.js';
@@ -37,12 +39,25 @@ export function cachedUnread(dir, { now = Date.now(), read = unreadFacts } = {})
   return value;
 }
 
+/** Notes the count in the lane for the Sentinel's Stop hook (numbers only); best effort, never throws. */
+export function noteUnread(dir, unread, at = Date.now()) {
+  if (typeof unread !== 'number') return;
+  try {
+    mkdirSync(join(dir, '.karajan', 'link'), { recursive: true });
+    writeFileSync(join(dir, '.karajan', 'link', 'unread.json'), JSON.stringify({ unread, at }));
+  } catch { /* best effort */ }
+}
+
 /** The unread count of each lane of the project, by its dir, `limit` at a time. */
 export async function laneUnreads(projectDir, { limit = AT_ONCE, read = cachedUnread, lanes = listLanes(projectDir) } = {}) {
   const queue = lanes.map(({ dir }) => dir);
   const counts = new Map();
   const worker = async () => {
-    for (let dir = queue.shift(); dir; dir = queue.shift()) counts.set(dir, await read(dir));
+    for (let dir = queue.shift(); dir; dir = queue.shift()) {
+      const unread = await read(dir);
+      counts.set(dir, unread);
+      noteUnread(dir, unread);
+    }
   };
   await Promise.all(Array.from({ length: limit }, worker));
   return counts;

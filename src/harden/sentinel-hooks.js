@@ -47,6 +47,8 @@ const SCRIPT_BODIES = {
   "sentinel-activity.mjs": readFileSync(new URL("./sentinel/sentinel-activity.mjs", import.meta.url), "utf8"),
   // KJC-TSK-1475: what waits for the user, read by the stop and tool guards.
   "sentinel-handoffs.mjs": readFileSync(new URL("./sentinel/sentinel-handoffs.mjs", import.meta.url), "utf8"),
+  // HU-4210: the link mail that waits, read from a file by the stop guard.
+  "sentinel-mail.mjs": readFileSync(new URL("./sentinel/sentinel-mail.mjs", import.meta.url), "utf8"),
 };
 
 /**
