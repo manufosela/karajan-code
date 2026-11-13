@@ -42,10 +42,39 @@ const allowing = (enforcement, events) => ({ enforcement, rules: [{ type: "restr
 const identity = () => {};
 
 describe("adviseEventPolicy", () => {
-  it("says nothing and calls no gh without kj-policy.yml", async () => {
+  it("says nothing and calls no gh when no workflow runs on pull_request_target", async () => {
     const { run, calls } = fakeRun({ policies: policiesOf([]) });
     expect(await adviseEventPolicy({ projectDir: dir, logger: logger(), run, identity })).toBeNull();
     expect(calls).toEqual([]);
+  });
+
+  it("warns for kj-secrets.yml alone, naming it (KJC-BUG-0574)", async () => {
+    fs.writeFileSync(path.join(wf, "kj-secrets.yml"), "on:\n  pull_request_target:\njobs: {}\n");
+    const log = logger();
+    const { run } = fakeRun({ policies: policiesOf([]) });
+    const res = await adviseEventPolicy({ projectDir: dir, logger: log, run, identity });
+    expect(res.status).toBe("missing");
+    expect(res.workflows).toEqual(["kj-secrets.yml"]);
+    expect(log.lines.warn[0]).toContain("kj-secrets.yml needs it");
+  });
+
+  it("warns once naming both workflows that need the policy", async () => {
+    withWorkflows();
+    fs.writeFileSync(path.join(wf, "kj-secrets.yml"), "on: [pull_request_target]\njobs: {}\n");
+    const log = logger();
+    const { run } = fakeRun({ policies: policiesOf([]) });
+    await adviseEventPolicy({ projectDir: dir, logger: log, run, identity });
+    expect(log.lines.warn.filter((l) => l.includes("event policy"))).toHaveLength(1);
+    expect(log.lines.warn[0]).toContain("kj-policy.yml and kj-secrets.yml need it");
+  });
+
+  it("ignores pull_request_target mentioned only in a comment", async () => {
+    fs.writeFileSync(path.join(wf, "ci.yml"), "# moved off pull_request_target\non:\n  pull_request: # not pull_request_target\njobs: {}\n");
+    const log = logger();
+    const { run, calls } = fakeRun({ policies: policiesOf([]) });
+    expect(await adviseEventPolicy({ projectDir: dir, logger: log, run, identity })).toBeNull();
+    expect(calls).toEqual([]);
+    expect(log.lines.warn).toEqual([]);
   });
 
   it("returns null for a private repo", async () => {
