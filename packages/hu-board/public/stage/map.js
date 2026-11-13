@@ -151,7 +151,8 @@ export function startMap({ canvas, factories, token, tell, counts, avatar = null
   const lives = new Map(placed.map((factory) => {
     const own = document.createElement('div'); // each factory relabels only its own corner
     counts.append(own);
-    const tellOne = (said) => { lines.set(factory.project, said[0] ?? 'at rest'); tellAll(); };
+    // KJC-TSK-1608: a factory's lines come ordered, each a text with its tone; the map says the first.
+    const tellOne = (said) => { lines.set(factory.project, said[0]?.text ?? said[0] ?? 'at rest'); tellAll(); };
     const live = createLive({ ...factory, scene: factory.lot, camera, refit, origin: factory.lot.position },
       { state: acrossLanes(factory.lanes), tell: tellOne, counts: own, avatar });
     tellOne(live.settle().lines);

@@ -7,7 +7,7 @@ const NOW = Date.parse('2026-11-03T10:00:00Z');
 
 describe('restState', () => {
   it('leaves every piece at rest in a project without records', () => {
-    expect(restState({ denial: null, verdict: null, seal: null }, NOW)).toEqual({ lights: {}, lines: [] });
+    expect(restState({ denial: null, verdict: null, seal: null }, NOW)).toEqual({ lights: {}, lines: [], ordered: [] });
   });
 
   it('lights review and Ledger by their outcome and the Sentinel by its last denial', () => {

@@ -12,6 +12,13 @@
     header a { color: #8cb4c9; }
     #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
     #stage-status li { margin: 2px 0; }
+    /* KJC-TSK-1608: each line in the tone of what it says; the newest in Matrix green, bold. */
+    #stage-status .stage-tone-live { color: #e2e8f0; }
+    #stage-status .stage-tone-pass { color: #7ed69a; }
+    #stage-status .stage-tone-refuse { color: #ff7b7b; }
+    #stage-status .stage-tone-wait { color: #f0b429; }
+    #stage-status .stage-tone-info { color: #9ca6ae; }
+    #stage-status .stage-newest { color: #00ff41; font-weight: 700; text-shadow: 0 0 6px rgb(0 255 65 / 0.45); }
     /* KJC-TSK-1466: on the map the list only speaks to screen readers; one line per factory covered the scene. */
     #stage-status.stage-unseen { clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; white-space: nowrap; }
     #stage-loading { position: fixed; inset: 0; display: flex; gap: 12px; align-items: center; justify-content: center; color: #9ca6ae; pointer-events: none; }
