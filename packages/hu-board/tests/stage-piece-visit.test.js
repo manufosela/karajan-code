@@ -115,6 +115,11 @@ describe('pieceAt', () => {
     for (const corner of corners) expect(Math.abs(corner.x - piece.x) < half && Math.abs(corner.z - piece.z) < half).toBe(false);
   });
 
+  // KJC-TSK-1609: every piece that visits a workshop has its spot (a stray comment once hid two).
+  it('has a spot for every piece that visits a workshop', () => {
+    expect(Object.keys(VISIT_SPOTS)).toEqual(['review', 'gates', 'ledger', 'tdd', 'sonar', 'steward']);
+  });
+
   it('puts each piece on a spot of its own, clear of the host, kaRAGan and the Sentinel', () => {
     const others = [{ dx: -1.3, dz: -0.4 }, { dx: -1.3, dz: -1.2 }, { dx: -2.1, dz: -0.4 }];
     const spots = Object.values(VISIT_SPOTS);
