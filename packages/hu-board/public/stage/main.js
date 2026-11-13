@@ -10,6 +10,7 @@ import { boardToken, withToken } from './token.js';
 import { listenZoom } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
+import { panelEntries, panelHref, panelLine } from './project-panel.js';
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
@@ -155,8 +156,43 @@ async function startMapView() {
   }
 }
 
-const wantsMap = new URLSearchParams(location.search).get('map') === '1';
-if (!document.createElement('canvas').getContext('webgl2')) tell(['This browser has no WebGL2, so the 3D stage cannot be drawn.']);
-else if (wantsMap) await startMapView();
-else if (project) await start();
-else tell(['Open the stage of a project: kj stage, or the Stage link of the board. Every factory at once: add ?map=1.']);
+/**
+ * KJC-TSK-1590: the side panel of projects; each opens its factory alone. It folds on a narrow
+ * screen behind its button. The map's request also tells what goes on in each.
+ */
+async function mountProjectPanel() {
+  const panel = document.getElementById('stage-projects');
+  const toggle = document.getElementById('stage-projects-toggle');
+  toggle.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') !== 'true';
+    toggle.setAttribute('aria-expanded', String(open));
+    panel.classList.toggle('stage-projects-open', open);
+  });
+  const res = await fetch('/api/stage/map', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null);
+  if (!res?.ok) { panel.querySelector('p').textContent = 'The board did not list its projects.'; return; }
+  const factories = await res.json();
+  if (!factories.length) { panel.querySelector('p').textContent = 'The board knows no project with a folder on this machine.'; return; }
+  const items = panelEntries(factories, project).map((entry) => {
+    const link = Object.assign(document.createElement('a'), { href: panelHref(entry.project) });
+    if (entry.current) link.setAttribute('aria-current', 'page');
+    const what = Object.assign(document.createElement('small'), { textContent: panelLine(entry) });
+    link.append(Object.assign(document.createElement('strong'), { textContent: entry.name }), what);
+    const item = document.createElement('li');
+    item.append(link);
+    return item;
+  });
+  panel.querySelector('p').remove();
+  panel.querySelector('ul').replaceChildren(...items);
+}
+
+/** The map, one factory, or the word to pick one in the panel. */
+async function startStage() {
+  const wantsMap = new URLSearchParams(location.search).get('map') === '1';
+  if (!document.createElement('canvas').getContext('webgl2')) tell(['This browser has no WebGL2, so the 3D stage cannot be drawn.']);
+  else if (wantsMap) await startMapView();
+  else if (project) await start();
+  else tell(['Pick a project in the panel to open its factory. Every factory at once: the Every factory link.']);
+}
+
+// KJC-TSK-1590: the panel and the scene load side by side; neither waits for the other.
+await Promise.all([mountProjectPanel(), startStage()]);

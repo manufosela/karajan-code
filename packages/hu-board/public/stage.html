@@ -36,6 +36,23 @@
     .stage-desk-stopped { background: #545e6e; }
     .stage-desk-person { background: #7a5d00; }
     .stage-desk-done { background: #1d7f45; }
+    /* KJC-TSK-1590: the projects panel at the left; folded behind its button on a narrow screen. */
+    #stage-projects { position: fixed; z-index: 2; top: 56px; left: 0; bottom: 0; width: 230px; overflow-y: auto; padding: 8px; box-sizing: border-box; background: rgb(14 21 32 / 0.88); border-right: 1px solid #2a3a4e; }
+    #stage-projects p { margin: 8px; color: #9ca6ae; }
+    #stage-projects ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+    #stage-projects a { display: grid; padding: 8px 10px; border-radius: 8px; color: #e2e8f0; text-decoration: none; }
+    #stage-projects a:hover { background: #1a2332; }
+    #stage-projects a:focus-visible { outline: 2px solid #f0b429; }
+    #stage-projects a[aria-current="page"] { background: #24364d; outline: 1px solid #8cb4c9; }
+    #stage-projects strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #stage-projects small { color: #9ca6ae; }
+    #stage-projects-toggle { display: none; }
+    @media (min-width: 721px) { #stage-status { left: 250px; } }
+    @media (max-width: 720px) {
+      #stage-projects { display: none; width: min(280px, calc(100vw - 32px)); }
+      #stage-projects.stage-projects-open { display: block; }
+      #stage-projects-toggle { display: inline-block; }
+    }
     /* KJC-TSK-1570: the avatar panel. */
     header button { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 4px 12px; cursor: pointer; }
     #stage-avatar-panel { max-width: min(520px, calc(100vw - 32px)); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 20px; }
@@ -61,9 +78,12 @@
   <header>
     <a href="/">← Board</a>
     <strong id="stage-project">kj stage</strong>
+    <button type="button" id="stage-projects-toggle" aria-controls="stage-projects" aria-expanded="false">Projects</button>
     <a href="/stage.html?map=1">Every factory</a>
     <button type="button" id="stage-avatar" hidden>Avatar</button>
   </header>
+  <!-- KJC-TSK-1590: the projects; each opens its factory alone (main.js fills it). -->
+  <nav id="stage-projects" aria-label="Projects"><p>Loading the projects…</p><ul></ul></nav>
   <!-- KJC-TSK-1570: the panel to pick the own emblem and each role's colour (avatar-panel.js). -->
   <dialog id="stage-avatar-panel" aria-labelledby="avatar-title"></dialog>
   <!-- KJC-TSK-1468: until the stage says its first word, so it never looks dead. -->
