@@ -69,6 +69,7 @@ export default defineConfig({
 									{ label: 'Hardening against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
 									{ label: 'The HU-Board', slug: 'guides/hu-board', translations: { es: 'El HU-Board' } },
 									{ label: 'The coordinated release', slug: 'guides/coordinated-release', translations: { es: 'La release coordinada' } },
+									{ label: 'Move to Node 24', slug: 'guides/node-24', translations: { es: 'Pasar a Node 24' } },
 								],
 							},
 							{
