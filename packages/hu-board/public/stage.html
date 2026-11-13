@@ -22,9 +22,13 @@
     .stage-cue { color: #e2e8f0; }
     .stage-worker { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 8px; background: #1a2332; border: 1px solid #2a3a4e; font-size: 12px; color: #e2e8f0; pointer-events: none; }
     .stage-count { position: fixed; transform: translate(-50%, -100%); font-weight: 700; color: #f0b429; pointer-events: none; }
-    .stage-mark { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 8px; background: #10161f; font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; }
-    .stage-mark-approve { color: #2fd27a; border: 1px solid #2fd27a; }
-    .stage-mark-refuse { color: #f2737a; border: 1px solid #e0484f; }
+    /* KJC-TSK-1585: one filled colour per kind of answer, white text that reads on each. */
+    .stage-mark { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 8px; color: #fff; border: 1px solid rgb(255 255 255 / 0.25); font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; }
+    .stage-mark-approve { background: #1d7f45; }
+    .stage-mark-refuse { background: #b8282f; }
+    .stage-mark-stop { background: #6d35b5; }
+    .stage-mark-exempt { background: #9a5b0c; }
+    .stage-mark-unsure { background: #545e6e; }
     /* KJC-TSK-1570: the avatar panel. */
     header button { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 4px 12px; cursor: pointer; }
     #stage-avatar-panel { max-width: min(520px, calc(100vw - 32px)); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 20px; }
