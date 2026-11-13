@@ -658,6 +658,18 @@ export function registerMeta(program, { pkgVersion }) {
       if (!result.ready) process.exitCode = 1;
     });
 
+  release.command("ack <issue> <decision>")
+    .description("Answer the release issue (ok|hold|include) with a compatibility check on the candidate; exit 1 when an ok's check fails (ADR 0057)")
+    .option("--why <text>", "Why (required for hold)")
+    .option("--include <prs...>", "PR numbers to bring into the release (include)")
+    .action(async (issue, decision, flags) => {
+      const { releaseAckCommand } = await import("../commands/release-ack.js");
+      const { sealRepoOf } = await import("../harden/seal-repo.js");
+      const include = (flags.include ?? []).map(Number);
+      const res = await releaseAckCommand({ repo: sealRepoOf(process.cwd()), issue: Number(issue), decision, why: flags.why, include, projectDir: process.cwd() });
+      process.exitCode = res.exitCode;
+    });
+
   // KJC-BUG-0494: the Sentinel asks before every gh pr merge; exit 2 means the PR's checks say no.
   program.command("merge-gate")
     .description("Whether a gh pr merge command may run now: exit 2, with the reason, while the PR's checks run or are red")
