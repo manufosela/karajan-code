@@ -29,6 +29,13 @@
     .stage-mark-stop { background: #6d35b5; }
     .stage-mark-exempt { background: #9a5b0c; }
     .stage-mark-unsure { background: #545e6e; }
+    /* KJC-TSK-1588: the sign over a desk whose card waits with no agent, one colour per lane state. */
+    .stage-desk { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 6px; color: #fff; border: 1px solid rgb(255 255 255 / 0.25); font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; }
+    .stage-desk-merge { background: #9a5b0c; }
+    .stage-desk-failed { background: #b8282f; }
+    .stage-desk-stopped { background: #545e6e; }
+    .stage-desk-person { background: #7a5d00; }
+    .stage-desk-done { background: #1d7f45; }
     /* KJC-TSK-1570: the avatar panel. */
     header button { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 4px 12px; cursor: pointer; }
     #stage-avatar-panel { max-width: min(520px, calc(100vw - 32px)); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 20px; }
