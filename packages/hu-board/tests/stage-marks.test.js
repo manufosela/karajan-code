@@ -27,8 +27,28 @@ describe('marks in the lane', () => {
     expect(marksAt(marks, 60).map((m) => m.text)).toEqual(['commit passed']);
   });
 
+  it('TDD, Sonar and the Steward leave what they checked (KJC-TSK-1582)', () => {
+    let marks = withMark([], { type: 'method-check', piece: 'tdd', outcome: 'pass', lane: 'a' }, 0);
+    marks = withMark(marks, { type: 'method-check', piece: 'sonar', outcome: 'refuse', lane: 'a' }, 1);
+    marks = withMark(marks, { type: 'method-check', piece: 'steward', outcome: 'pass', lane: 'a' }, 2);
+    expect(marksAt(marks, 10).map(({ kind, text, tone }) => [kind, text, tone])).toEqual([
+      ['tdd', 'TDD ✓', 'approve'], ['sonar', 'Sonar ✗', 'refuse'], ['steward', 'Steward ✓', 'approve'],
+    ]);
+  });
+
+  it('a Sentinel denial says the tool and the short reason, and a burst counts (KJC-TSK-1582)', () => {
+    const deny = { type: 'sentinel-deny', tool: 'Bash', why: 'karajan sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables', lane: 'a' };
+    let marks = withMark([], deny, 0);
+    expect(marksAt(marks, 1)[0]).toMatchObject({ kind: 'sentinel', text: '✗ Bash: cd/pushd en un comando mutador', tone: 'refuse' });
+    marks = withMark(marks, deny, 100);
+    marks = withMark(marks, deny, 200);
+    expect(marksAt(marks, 201).map((m) => m.text)).toEqual(['✗ Bash: cd/pushd en un comando mutador ×3']);
+    const long = withMark([], { type: 'sentinel-deny', tool: 'Edit', why: 'x'.repeat(80), lane: 'a' }, 0);
+    expect(marksAt(long, 1)[0].text).toBe(`✗ Edit: ${'x'.repeat(47)}…`);
+  });
+
   it('events with no mark change nothing, and a lane missing in the event is the main checkout', () => {
-    const marks = withMark([], { type: 'sentinel-deny' }, 0);
+    const marks = withMark([], { type: 'method-check', piece: 'other', outcome: 'pass' }, 0);
     expect(marks).toEqual([]);
     expect(marksAt(withMark([], verdict('rejected'), 0), 1)[0]).toMatchObject({ lane: 'main', tone: 'refuse' });
   });
