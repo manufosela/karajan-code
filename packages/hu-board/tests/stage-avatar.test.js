@@ -57,10 +57,11 @@ describe('the avatar on the board', () => {
     const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
     try {
       const url = `http://localhost:${server.address().port}/api/stage/me`;
-      expect(await (await fetch(url)).json()).toEqual({ emblem: null, colors: {} });
+      // KJC-TSK-1597: with the own GitHub login, none while the board is in no room.
+      expect(await (await fetch(url)).json()).toEqual({ emblem: null, colors: {}, login: null });
       const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emblem: 'panda', colors: { host: '#123456', x: '#000000' } }) });
       expect(await put.json()).toEqual({ emblem: 'panda', colors: { host: '#123456' } });
-      expect(await (await fetch(url)).json()).toEqual({ emblem: 'panda', colors: { host: '#123456' } });
+      expect(await (await fetch(url)).json()).toEqual({ emblem: 'panda', colors: { host: '#123456' }, login: null });
     } finally {
       await new Promise((r) => server.close(r));
       if (prev === undefined) delete process.env.KARAJAN_HOME; else process.env.KARAJAN_HOME = prev;
