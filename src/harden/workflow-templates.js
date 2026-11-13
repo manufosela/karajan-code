@@ -134,6 +134,9 @@ export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
 // a commit made with --no-verify skipped the review and this check names it. The verdict is
 // published as a PR review, so a submitted review reruns it. The PR is only data.
 export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code") => [
+  "# Runs on pull_request because pull_request_target has no review event. kj-policy.yml (the",
+  "# base's workflow) refuses an unsealed change to this file, so a PR cannot edit or delete it",
+  "# and pass the required policy-check.",
   "name: Cross-AI verdicts",
   "on:",
   "  pull_request:",
