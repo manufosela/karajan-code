@@ -1,6 +1,10 @@
 // KJC-TSK-1372 (#2853, step 7 of #2566): `kj hu start <id> [slug]` checks the card, opens its
 // lane feat/<id>-<slug> and moves it to running, in the order that works.
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { ACTIVITY_FILE } from "../../src/agents/activity.js";
 import { slugOf, startAction } from "../../src/commands/hu-start.js";
 
 const card = (over = {}) => ({ id: "HU-42", title: "Board ▶ opens a lane", status: "pending", claimed_by: null, ...over });
@@ -91,5 +95,50 @@ describe("kj hu start — KJC-TSK-1372", () => {
     const deps = { lanes: async () => [laneOf("feat/HU-42-old")], findCard: async () => card(), runCoder: (o) => { runs.push(o.cwd); return 0; } };
     await startAction({ config: {}, args: ["HU-42"], flags: { code: true }, deps, move: async () => {}, who: "me", emit: (o) => o });
     expect(runs).toEqual(["/repo/.kj/worktrees/HU-42-old"]);
+  });
+});
+
+// HU-4222: the host gets the atril skills of its card and kj stage hears of them.
+describe("kj hu start gives the host its skills — HU-4222", () => {
+  const two = async () => ({ skills: [{ name: "a-skill" }, { name: "b-skill" }], dropped: [], limit: 3 });
+  const start = async (extra) => {
+    const lane = fs.mkdtempSync(path.join(os.tmpdir(), "kj-hu-host-"));
+    const deps = { lanes: async () => [], findCard: async () => card(), worktree: async () => ({ path: lane, branch: "feat/HU-42-x" }), detectHost: () => "claude", ...extra };
+    const out = [];
+    const r = await startAction({ config: {}, args: ["HU-42"], deps, move: async () => {}, who: "m", emit: (o, text) => { out.push(text); return o; } });
+    const file = path.join(lane, ACTIVITY_FILE);
+    const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+    fs.rmSync(lane, { recursive: true, force: true });
+    return { r, text: out[0], lines };
+  };
+
+  it("names the skills after the cd, in the JSON and on one host start line", async () => {
+    const { r, text, lines } = await start({ hostSkills: two });
+    expect(text).toMatch(/cd \S+\n## Domain Skills[\s\S]*a-skill, b-skill/);
+    expect(r.skills).toEqual(["a-skill", "b-skill"]);
+    expect(lines).toEqual([expect.objectContaining({ agent: "claude", role: "host", phase: "start", skills: ["a-skill", "b-skill"] })]);
+  });
+
+  it("with none, output and JSON are as before and nothing is noted", async () => {
+    const { r, text, lines } = await start({ hostSkills: async () => ({ skills: [], dropped: [] }) });
+    expect(r).not.toHaveProperty("skills");
+    expect(text).toMatch(/cd \S+$/);
+    expect(lines).toEqual([]);
+  });
+
+  it("no host detected: nothing is resolved", async () => {
+    const hostSkills = vi.fn(two);
+    const { lines } = await start({ hostSkills, detectHost: () => null });
+    expect(hostSkills).not.toHaveBeenCalled();
+    expect(lines).toEqual([]);
+  });
+
+  it("a resolver that throws leaves the start standing, with one warning line", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { r } = await start({ hostSkills: async () => { throw new Error("store broken"); } });
+    expect(r).toMatchObject({ id: "HU-42" });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/store broken/);
+    warn.mockRestore();
   });
 });

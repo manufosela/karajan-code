@@ -9,7 +9,7 @@ import { takeLoaded } from "../skills/loaded.js";
 
 export const ACTIVITY_FILE = ".karajan/traces/agent-activity.jsonl";
 
-function note(projectDir, record, logger) {
+export function note(projectDir, record, logger) {
   try {
     mkdirSync(join(projectDir, ".karajan", "traces"), { recursive: true });
     appendFileSync(join(projectDir, ACTIVITY_FILE), `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`);
