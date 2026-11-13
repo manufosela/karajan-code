@@ -127,6 +127,8 @@ const newWorker = (workers, ev, since) => {
   if (ev.owner) Object.assign(worker, { owner: ev.owner, avatar: ev.avatar ?? { emblem: null, color: null } });
   // KJC-TSK-1596: how many of atril's skills it takes on its way in (a subagent comes out of its host).
   if (ev.role !== 'subagent' && ev.skills?.length) worker.reads = ev.skills.length;
+  // KJC-TSK-1607: a host already waiting when the stage opens.
+  if (ev.waiting) worker.waiting = ev.waiting;
   return { ...worker, slot: ev.role === 'subagent' ? freeSlot(workers, lane) : freeSeat(workers, lane, ev.role) };
 };
 
@@ -136,14 +138,17 @@ export function withActivity(workers, event, now) {
   if (event.phase === 'start') {
     // A start of someone already at work is its beat: it says which tool it uses now, and
     // KJC-TSK-1538: the model it answers with, which the host may switch mid-session.
-    const beat = (w) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}) });
+    // KJC-TSK-1607: and a host that was waiting is at work again.
+    const beat = ({ waiting: _was, ...w }) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}) });
     if (workers.some((w) => inside(w, event))) return workers.map((w) => (inside(w, event) ? beat(w) : w));
     // KJC-BUG-0581: a session works in one lane; its start in another walks it out of the first.
     const elsewhere = (w) => event.id && w.id === event.id && w.leftAt === undefined && w.lane !== laneOf(event);
     const moved = workers.map((w) => (elsewhere(w) ? { ...w, leftAt: now } : w));
     return [...moved, newWorker(moved, event, now)];
   }
-  return workers.map((w) => (inside(w, event) ? { ...w, leftAt: now } : w));
+  // KJC-TSK-1607: a host whose turn ends waiting (KJC-TSK-1606) stays at its desk; anyone else leaves.
+  const ends = (w) => (event.waits && w.role === 'host' ? { ...w, waiting: event.waits } : { ...w, leftAt: now });
+  return workers.map((w) => (inside(w, event) ? ends(w) : w));
 }
 
 /** The agents already at work in `lane` when the stage opens, standing at their spot. */
@@ -176,7 +181,8 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z) {
   if (via && t < WALK_MS + read) return { ...via, yaw: facing(via, STAND), walking: false, reading: true };
   const from = via ?? gate;
   const k = Math.min(1, (t - (via ? WALK_MS + read : 0)) / WALK_MS);
-  return k < 1 ? { ...lerp(from, spot, k), yaw: facing(from, spot), walking: true, reading: false } : { ...spot, yaw: 0, walking: false, reading: false };
+  // KJC-TSK-1607: a waiting host sits at its desk without typing.
+  return k < 1 ? { ...lerp(from, spot, k), yaw: facing(from, spot), walking: true, reading: false } : { ...spot, yaw: 0, walking: false, reading: false, waiting: Boolean(worker.waiting) };
 }
 
 /**

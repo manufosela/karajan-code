@@ -12,7 +12,8 @@ export function panelEntries(factories, current) {
     // A card that went through several lanes counts once, at its newest line.
     doing: mergeCards(lanes.map((l) => l.cards ?? [])).filter((c) => columnOf(c.status) === 'doing').length,
     // KJC-TSK-1605: the handoffs that wait for the human, in every lane.
-    waiting: lanes.reduce((n, l) => n + (l.mail ?? 0), 0),
+    // KJC-TSK-1607: and every host that waits for the human.
+    waiting: lanes.reduce((n, l) => n + (l.mail ?? 0) + (l.working ?? []).filter((w) => w.waiting === 'person').length, 0),
     current: project === current,
   }));
 }

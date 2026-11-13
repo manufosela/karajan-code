@@ -29,6 +29,8 @@ function detachedStatus({ clean, atBase, base = 'main', oid }, running) {
 export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = null, remote, owner, title, remoteWorking }, cards = []) {
   // KJC-TSK-1564 (ADR 0056): a teammate's card has no branch here; its owner's status tells.
   if (remote) return { state: working.length || remoteWorking ? 'working' : 'idle', why: `@${owner}: ${title}`, owner };
+  // KJC-TSK-1607: a lane whose only work is a host waiting for the person waits for the person.
+  if (working.length && working.every((w) => w.waiting) && working.some((w) => w.waiting === 'person')) return { state: 'waiting-person', why: 'its host waits for you' };
   if (working.length) return { state: 'working', why: null };
   if (mail > 0) return { state: 'waiting-person', why: `waits for you: ${plural(mail, 'handoff')}` };
   if (branch?.gone) return { state: 'finished', why: 'branch merged' };

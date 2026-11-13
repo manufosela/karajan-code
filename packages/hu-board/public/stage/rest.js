@@ -51,7 +51,9 @@ export function withEvent(state, event) {
       // KJC-BUG-0577: a teammate's keeps whose it is and its avatar.
       const whose = event.owner ? { owner: event.owner, avatar: event.avatar ?? { emblem: null, color: null } } : {};
       const now = { agent: event.agent, role: event.role, lane, at: event.at, skills: event.skills ?? [], id: event.id ?? null, tool: event.tool ?? null, kind: event.kind ?? null, ...launched, ...whose };
-      const working = event.phase === 'start' ? [...others, now] : others;
+      // KJC-TSK-1607: a host whose turn ends waiting (KJC-TSK-1606) is still there, waiting.
+      const waits = event.phase === 'end' && event.role === 'host' && event.waits;
+      const working = event.phase === 'start' ? [...others, now] : [...others, ...(waits ? [{ ...now, waiting: waits }] : [])];
       return { ...state, working };
     }
     // KJC-TSK-1438: the RAG answered a lane; kaRAGan takes it there.
