@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.22.0: the team agrees on each release, the Sentinel watches a folder of repositories, and kj stage shows your teammates' agents (current)
+### v5.23.0: fixes for teams on develop and out of quota, Node 24 recommended, and existing issues adopted as cards (current)
+
+The fixes for what teams hit the night 5.22.0 came out. A repo that works on `develop` gets it as its base without configuring anything; a reviewer out of quota hands over to the next one again; a verdict counts when its author has write access, even with a private org membership; `kj harden` never pins a workflow to a kj that cannot run it; and sealing warns when CI will not be able to verify the seal. kj now recommends Node 24, with a prompt your agent follows to move you (`karajancode.com/node-24.md`), and `kj hu adopt` turns an issue you already have into a card.
+
+### v5.22.0: the team agrees on each release, the Sentinel watches a folder of repositories, and kj stage shows your teammates' agents
 
 A version is now agreed before it is published. `kj release propose` opens an issue that asks everyone with work in it; each answers with `kj release ack` after checking the candidate, anyone can hold it, silence after 4 hours counts as no objection, and a person signs the approval on their phone with `kj release approve`. CI publishes only what `kj release verify` accepts. A session opened in a parent folder that holds several repositories is now governed too: each tool call is judged and recorded as the child repository it touches, and a call that spans two repositories is refused. `kj harden` in the parent wires it, and `kj doctor` reports it. `kj harden` also generates `kj-secrets.yml`, which scans the lines each PR adds for credentials with the base branch's kj, and `kj policy check` reads git attributes from the base, so a PR cannot hide its own lines from the budget. kj stage joins the boards of one repository in a live room, so each person sees the agents of their teammates working. Run `kj harden` and have it sealed to bring in the secrets scan.
 

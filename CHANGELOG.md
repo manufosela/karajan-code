@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.23.0] - 2026-11-14
+
+Fixes for what teams hit the night 5.22.0 came out: a repo that works on `develop`, a reviewer out of quota, a private org membership, workflows pinned to a kj that could not run them, and a seal CI could not verify. kj now recommends Node 24 and adopts an existing GitHub issue as a card.
+
+### Added
+- **Node 24 recommended** (ADR 0058): `kj doctor` warns on Node 22 and 23 without failing, any `kj` command reminds you once a day, and the guide "Move to Node 24" gives a prompt your agent follows (`karajancode.com/node-24.md`). kj keeps working on Node 22; a later 6.0 will require 24, on an announced date (#4238, #4242, #4254).
+- **`kj hu adopt <number>`** turns an existing GitHub issue into a card without creating another, and card-first recognises branches named `GH-<n>` or `<n>` (#4287, issue #4166).
+- **kj stage**:
+  - robot labels are short and never overlap, with the full one on hover (#4233);
+  - the host wears a hologram of its owner's emblem, one colour per person marks all their robots, and Solomon is a robot of its own, in a king's robe (#4237, #4244, #4246);
+  - the factories panel flags the ones that need a human; a host that ends its turn waiting stays at its desk and says what it waits for (#4248, #4250, #4252);
+  - the status list reads top down, newest in green; wider workshops with room between agents; switching factory no longer reloads the page (#4256, #4261, #4274, #4279);
+  - the host goes to atril when kj gives it skills, and the agents Karajan launches bud out of it and melt back into it (#4263, #4265).
+
+### Fixed
+- **Base branch**: without `base_branch`, kj takes the remote's default branch (`origin/HEAD`) everywhere, so a repo that works on `develop` no longer fails with `base "main" not found` (#4272, #4284, issue #4259).
+- **A reviewer out of quota** falls back to the next one again: codex's "You've hit your usage limit" was read as an expired session (#4277, issue #4271).
+- **`verify-pr` in CI** counts a verdict whose author has write access even when their org membership is private (#4275, issue #4198).
+- **`kj harden` pins each workflow** to a published kj that has what it uses, and leaves the workflow as it is when there is none or npm cannot be read (#4280, issue #4260).
+- **`kj harden --commit` warns** when CI will not be able to verify the seal: unsigned, or signed by a key the repo's roster does not hold, with the step to take (#4282, issue #4113).
+- **`kj release ack`** installs the candidate as usual, says which tests failed, and says what it is doing while the suite runs (#4232, #4258).
+- **kj stage**: a lane never says "no agent" while its robot types, and only a lane's latest host can be drawn waiting (#4240, #4267).
+
 ## [5.22.0] - 2026-11-13
 
 A version is now agreed by the team before it is published: everyone with work in it is asked, anyone can hold it, and a person signs the approval (ADR 0057). The Sentinel watches a session opened in a folder that holds several repositories: each call is judged as the repository it touches. CI checks every PR for credentials, and the policy check no longer lets a PR's own `.gitattributes` hide its lines. kj stage connects the boards of one repository in a live room, so each person sees the teammates' agents working.
