@@ -17,9 +17,10 @@ const TIP_WIDTH = 340;
 /**
  * Watches `canvas` over `scene`'s hall: `tip` is the tooltip element, `cardsOf()` the cards the
  * stage knows now. KJC-TSK-1621: `openHu(hu)` opens one; answers `tapAt(event)`, for a tap or a
- * click that did not drag. KJC-TSK-1625: `thingsOf()` what the hall's things hold now.
+ * click that did not drag. KJC-TSK-1625: `thingsOf()` what the hall's things hold now;
+ * KJC-TSK-1627: `openWall(cards)` opens the task wall large.
  */
-export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf }) {
+export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf, openWall }) {
   // The board's three.js has no Raycaster: the ray goes from the camera through the pointer.
   const laneUnder = ({ clientX, clientY }) => {
     const { camera, hall } = scene;
@@ -35,7 +36,7 @@ export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf }
   /** The tooltip's lines under the pointer, and whether a click there opens something; null when none. */
   const tipUnder = (event) => {
     const thing = thingUnder(event);
-    if (thing) return { lines: thingTip(thing, thingsOf()), opens: false };
+    if (thing) return { lines: thingTip(thing, thingsOf()), opens: thing === 'wall' };
     const lane = laneUnder(event);
     if (!lane) return null;
     const hu = huOfLane(lane, cardsOf());
@@ -54,7 +55,10 @@ export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf }
   });
   canvas.addEventListener('pointerleave', hide);
   return (event) => {
-    if (thingUnder(event)) return;
+    // KJC-TSK-1627: the task wall opens its tasks large; the other things only explain themselves.
+    const thing = thingUnder(event);
+    if (thing === 'wall') { hide(); openWall(thingsOf().cards); }
+    if (thing) return;
     const lane = laneUnder(event);
     const hu = lane && huOfLane(lane, cardsOf());
     if (hu) { hide(); openHu(hu); }

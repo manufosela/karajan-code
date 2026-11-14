@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { rectOf, thingAt, thingBoxes, thingTip } from '../public/stage/hall-things.js';
 import { RELEASE_TABLE, WALL } from '../public/stage/layout.js';
+import { wallLists } from '../public/stage/wall-layout.js';
 
 describe('thingBoxes', () => {
   it('the release table, the task wall and, while it has blocks, the stack', () => {
@@ -57,7 +58,19 @@ describe('thingTip', () => {
     ]);
   });
 
-  it('the wall: how many cards in each column', () => {
-    expect(thingTip('wall', { cards, release, stacked: [] })).toEqual(['Task wall', '1 to do · 1 in progress · 2 done']);
+  it('the wall: how many cards in each column, and that a click opens them', () => {
+    expect(thingTip('wall', { cards, release, stacked: [] })).toEqual(['Task wall', '1 to do · 1 in progress · 2 done', 'Click to see every task']);
+  });
+});
+
+// KJC-TSK-1627 (the maintainer, 2026-11-14): "the board, show its tasks large".
+describe('wallLists', () => {
+  it('every card in its column, the newest first, with its title', () => {
+    const lists = wallLists([...Array.from({ length: 9 }, (_, i) => ({ id: `HU-${i}`, title: `T${i}`, status: 'done', at: `2026-11-1${i % 9}T00:00:00.000Z` })), { id: 'HU-X', title: null, status: 'pending', at: '2026-11-01T00:00:00.000Z' }]);
+    expect(lists.map((l) => l.title)).toEqual(['To do', 'In progress', 'Done']);
+    expect(lists[0].cards).toEqual([{ id: 'HU-X', title: '' }]);
+    expect(lists[1].cards).toEqual([]);
+    expect(lists[2].cards).toHaveLength(9); // all of them, not just the wall's rows
+    expect(lists[2].cards[0]).toEqual({ id: 'HU-8', title: 'T8' });
   });
 });
