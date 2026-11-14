@@ -48,13 +48,64 @@ const applies = (rule, tool, input) =>
   && (rule.when.all ?? []).every((cond) => holds(cond, input))
   && (!rule.when.any?.length || rule.when.any.some((cond) => holds(cond, input)));
 
+// KJC-BUG-0592: `handoff add '<cmd>' --why <text>`, one small pattern per part.
+const HANDOFF_ADD = /handoff\s+add\s+/g;
+/**
+ * Quoted text the shell keeps as is. In double quotes a backslash keeps the next character
+ * literal (\" \$ \`), while a bare $ or ` expands it (a $(...) runs at registration).
+ */
+const QUOTED = /^(?:'[^']*'|"(?:[^"\\$`]|\\[\s\S])*")/;
+const WHY_FLAG = /^\s+--why\s+/;
+/** A bare word: no quote, escape, expansion or operator in it. */
+const PLAIN_WORD = /^[^\s|&;()<>'"`$\\]+/;
+
+/** What pattern matches at the very start of text ("" when nothing does). */
+const leading = (pattern, text) => pattern.exec(text)?.[0] ?? "";
+
+/**
+ * The quoted command that opens rest and the --why right after it.
+ * @returns {{span: number, blank: string} | null} the characters they take and their stand-in; null without a command
+ */
+function registration(rest) {
+  const command = leading(QUOTED, rest);
+  if (!command) return null;
+  const flag = leading(WHY_FLAG, rest.slice(command.length));
+  const whyText = rest.slice(command.length + flag.length);
+  const why = flag && (leading(QUOTED, whyText) || leading(PLAIN_WORD, whyText));
+  if (!why) return { span: command.length, blank: "'_'" };
+  return { span: command.length + flag.length + why.length, blank: "'_' --why '_'" };
+}
+
+/**
+ * KJC-BUG-0592: `kj handoff add '<cmd>' --why "..."` only REGISTERS <cmd> for the human to
+ * run later; a rule about running an act must not fire on that data. Blank the quoted
+ * command (and the --why prose) of handoff add; the rest of the command stays visible.
+ * @param {string} command the Bash command of the tool call
+ * @returns {string} the same command with what handoff add registers blanked
+ */
+export function blankHandoffAdd(command) {
+  let out = "";
+  let from = 0;
+  for (const head of command.matchAll(HANDOFF_ADD)) {
+    const start = head.index + head[0].length;
+    const found = head.index < from ? null : registration(command.slice(start));
+    if (!found) continue;
+    out += command.slice(from, start) + found.blank;
+    from = start + found.span;
+  }
+  return out + command.slice(from);
+}
+
+const forMatching = (tool, input) =>
+  tool === "Bash" && typeof input.command === "string" ? { ...input, command: blankHandoffAdd(input.command) } : input;
+
 /**
  * @param {object[]} rules what parseRules returned
  * @param {{tool: string, input?: object}} call
  * @returns {{decision: "allow"} | {decision: "deny", rule_id: string, source: string|null, text: string|null, message: string}}
  */
 export function evalRules(rules, { tool, input }) {
-  const args = isObject(input) ? input : {};
+  const args = forMatching(tool, isObject(input) ? input : {});
   const hit = rules.find((rule) => rule.kind === "deterministic" && applies(rule, tool, args));
   if (!hit) return { decision: "allow" };
   return {
