@@ -98,6 +98,17 @@ describe("checkCardFirst — external / planning-game (presence check, warns by 
     expect(r.note).toBeUndefined();
   });
 
+  // HU-4285 (#4166): an adopted issue is named by its number, as GH-187 or right after the type prefix.
+  it("recognises an adopted card by GH-<n> or a bare <n> after the type prefix, never inside other numbers or words", async () => {
+    await savePlan(dir, {
+      version: 2, planId: "plan-adopted", name: "github", task: "t", status: "ready", createdAt: new Date().toISOString(),
+      hus: [{ id: "HU-187", short_id: "HU-187", title: "Adoptada", status: "pending", external_ref: "acme/app#187" }],
+    });
+    const modes = async (branches) => Promise.all(branches.map(async (branch) => (await checkCardFirst({ config: {}, projectDir: dir, branch, env: {} })).mode));
+    expect(await modes(["feat/GH-187-headings", "feat/187-headings", "fix/gh-187"])).toEqual(["pass", "pass", "pass"]);
+    expect(await modes(["feat/1870-x", "feat/x-187", "feat/a187-x"])).not.toContain("pass");
+  });
+
   it("a tracker reference no HU links still passes, naming the HU Board remedy", async () => {
     const r = await checkCardFirst({ config: ext, projectDir: dir, branch: "jorge/lin-123-fix", env: {} });
     expect(r).toMatchObject({ ok: true, ref: "lin-123" });

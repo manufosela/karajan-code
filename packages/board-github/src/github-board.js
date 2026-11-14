@@ -75,6 +75,27 @@ export async function createHu({ repo, title, acceptanceCriteria = [], tests = [
   return { short_id: `HU-${number}`, number, status: "pending", title };
 }
 
+/**
+ * HU-4285 (#4166): an issue that already exists becomes a card, nothing is created: the kj:hu and
+ * kj:pending labels plus the body marker createHu writes, the body kept as it was above it.
+ */
+export async function adoptHu({ repo, number, run = runCommand }) {
+  const raw = await gh(run, ["api", `repos/${repo}/issues/${number}`]).catch((err) => {
+    if (/not found|404/i.test(err.message)) throw new BoardRejectedError(`issue #${number} does not exist in ${repo}`, { cause: err });
+    throw err;
+  });
+  const issue = JSON.parse(raw);
+  if (issue.pull_request) throw new BoardRejectedError(`#${number} is a pull request, not an issue: only issues become cards`);
+  if (issue.state !== "open") throw new BoardRejectedError(`issue #${number} is closed: reopen it before adopting it`);
+  if (issue.labels.some((l) => l.name === HU_LABEL)) throw new BoardRejectedError(`issue #${number} already is a card (HU-${number}): work it, do not adopt it again`);
+  await ensureLabels(repo, run);
+  const body = [(issue.body ?? "").trimEnd(), "", "<!-- kj:hu -->"].join("\n").trimStart();
+  await gh(run, ["issue", "edit", String(number), "-R", repo, "--body", body, "--add-label", HU_LABEL, "--add-label", statusLabel("pending")]);
+  const card = (await listHus({ repo, run })).find((h) => h.number === number);
+  if (!card) throw new BoardRejectedError(`issue #${number} was labelled but the board does not list it: check its labels by hand`);
+  return card;
+}
+
 /** Every HU of the repo, with its status and who holds it. */
 export async function listHus({ repo, run = runCommand }) {
   const issues = listOf(await gh(run, ["issue", "list", "-R", repo, "--label", HU_LABEL, "--state", "all", "--limit", "1000", "--json", "number,title,state,labels,assignees,body"]));
