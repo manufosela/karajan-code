@@ -24,10 +24,25 @@ export function huOfLane(lane, cards) {
 
 /**
  * The tooltip's lines: the lane's whole name; with an HU, its id and title (never the name again);
- * and the lane's status `line`, which the plate cuts as well.
+ * the lane's status `line`, which the plate cuts as well; and, when a click `opens` the HU, so.
  */
-export function tipOf(lane, hu, line = '') {
+export function tipOf(lane, hu, line = '', opens = false) {
   const name = plateName(lane);
   const card = hu?.title ? `${hu.id} · ${hu.title}` : hu?.id;
-  return [name, card === name ? null : card, line].filter(Boolean);
+  return [name, card === name ? null : card, line, hu && opens ? 'Click to open the HU' : null].filter(Boolean);
+}
+
+/** KJC-TSK-1621: the board's address of a project's HU. */
+export const storyPath = (project, id) => `/api/stories/${encodeURIComponent([project, id].join('::'))}`;
+
+const FACTS = [
+  ['status', 'Status'], ['assignee', 'Assignee'], ['certified_as', 'As'], ['certified_want', 'I want'],
+  ['certified_so_that', 'So that'], ['original_text', 'Story'], ['acceptance_criteria', 'Acceptance criteria'],
+  ['outcome', 'Outcome'], ['updated_at', 'Updated'],
+];
+
+/** KJC-TSK-1621: what the board holds of an HU, as [label, text] in reading order; empty ones left out. */
+export function storyFacts(story) {
+  return FACTS.filter(([key]) => story[key] !== null && story[key] !== undefined && String(story[key]).trim() !== '')
+    .map(([key, label]) => [label, key === 'updated_at' ? String(story[key]).slice(0, 16).replace('T', ' ') : String(story[key])]);
 }

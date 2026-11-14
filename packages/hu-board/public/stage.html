@@ -86,6 +86,16 @@
     #stage-tip { position: fixed; z-index: 5; max-width: 340px; padding: 8px 10px; border-radius: 8px; border: 1px solid #2a3a4e; background: rgb(14 21 32 / 0.95); color: #e2e8f0; font-size: 13px; line-height: 1.4; pointer-events: none; overflow-wrap: anywhere; }
     #stage-tip div:first-child { font-weight: 700; }
     #stage-tip div + div { color: #8cb4c9; }
+    /* KJC-TSK-1621: a workshop's HU. */
+    #stage-hu-panel { width: min(560px, calc(100vw - 32px)); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 20px; }
+    #stage-hu-panel::backdrop { background: rgb(0 0 0 / 0.55); }
+    .hu-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .hu-top h2 { margin: 0 0 12px; font-size: 18px; overflow-wrap: anywhere; }
+    .hu-close { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+    #stage-hu-panel dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0 0 12px; }
+    #stage-hu-panel dt { font-weight: 700; color: #8cb4c9; }
+    #stage-hu-panel dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #stage-hu-panel a { color: #8cb4c9; }
     /* KJC-TSK-1617: the cast legend, as collectable cards; each kind its frame's colour. */
     #stage-cast-panel { width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 48px); color: #e2e8f0; background: #0b111a; border: 1px solid #2a3a4e; border-radius: 14px; padding: 0 20px 20px; }
     #stage-cast-panel::backdrop { background: rgb(0 0 0 / 0.6); }
@@ -128,6 +138,8 @@
   <dialog id="stage-cast-panel" aria-labelledby="cast-title"></dialog>
   <!-- KJC-TSK-1620: a workshop's whole name and HU under the pointer. -->
   <div id="stage-tip" role="tooltip" hidden></div>
+  <!-- KJC-TSK-1621: a workshop's HU from the board, to read (hu-panel.js). -->
+  <dialog id="stage-hu-panel" aria-labelledby="hu-title"></dialog>
   <!-- KJC-TSK-1468: until the stage says its first word, so it never looks dead. -->
   <output id="stage-loading" aria-live="polite">Loading the factories…</output>
   <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->

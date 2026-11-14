@@ -15,6 +15,8 @@ import { mountAvatarPanel } from './avatar-panel.js';
 import { opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
 import { mountLegend } from './legend-panel.js';
 import { watchWorkshops } from './workshop-pointer.js';
+import { storyPath } from './workshop-info.js';
+import { mountHuPanel } from './hu-panel.js';
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
@@ -116,6 +118,18 @@ function offerAvatarPanel(scene) {
   button.hidden = false;
 }
 
+/** KJC-TSK-1621: a workshop's HU, from the board, in its dialog; the project is the one on screen. */
+const openHu = mountHuPanel({
+  dialog: document.getElementById('stage-hu-panel'),
+  boardHref: () => `/#board/${encodeURIComponent(project)}`,
+  load: async (id) => {
+    const res = await fetch(storyPath(project, id), { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (res.status === 404) return null; // the board keeps no record of it
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+});
+
 /** The last real state of the project, or the reason the board could not give it. */
 async function fetchState() {
   try {
@@ -169,13 +183,15 @@ async function start(signal) {
   canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') pointAt({ left: e.clientX, top: e.clientY }); });
   canvas.addEventListener('pointerleave', () => pointAt(null));
   canvas.addEventListener('pointerdown', (e) => { pressed = { left: e.clientX, top: e.clientY }; });
+  // KJC-TSK-1620: the workshop under the pointer says its whole name and its HU; KJC-TSK-1621: a
+  // tap or a click that does not drag opens that HU.
+  let cards = state.cards ?? [];
+  const tapAt = watchWorkshops({ canvas, scene, tip: document.getElementById('stage-tip'), cardsOf: () => cards, openHu });
   canvas.addEventListener('pointerup', (e) => {
     const tap = pressed && Math.hypot(e.clientX - pressed.left, e.clientY - pressed.top) < 8;
     if (tap && e.pointerType !== 'mouse') pointAt({ left: e.clientX, top: e.clientY });
+    if (tap) tapAt(e);
   });
-  // KJC-TSK-1620: the workshop under the pointer says its whole name and its HU.
-  let cards = state.cards ?? [];
-  watchWorkshops({ canvas, scene, tip: document.getElementById('stage-tip'), cardsOf: () => cards });
   const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
   signal.addEventListener('abort', () => events.close());
   events.onmessage = ({ data }) => {

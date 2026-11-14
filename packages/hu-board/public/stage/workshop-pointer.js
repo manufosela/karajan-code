@@ -6,8 +6,12 @@ import { huOfLane, laneAtPoint, tipOf } from './workshop-info.js';
 
 const TIP_WIDTH = 340;
 
-/** Watches `canvas` over `scene`'s hall: `tip` is the tooltip element, `cardsOf()` the cards the stage knows now. */
-export function watchWorkshops({ canvas, scene, tip, cardsOf }) {
+/**
+ * Watches `canvas` over `scene`'s hall: `tip` is the tooltip element, `cardsOf()` the cards the
+ * stage knows now. KJC-TSK-1621: `openHu(hu)` opens one; answers `tapAt(event)`, for a tap or a
+ * click that did not drag.
+ */
+export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu }) {
   // The board's three.js has no Raycaster: the ray goes from the camera through the pointer.
   const laneUnder = ({ clientX, clientY }) => {
     const { camera, hall } = scene;
@@ -15,16 +19,22 @@ export function watchWorkshops({ canvas, scene, tip, cardsOf }) {
     const dir = through.sub(camera.position).normalize();
     return laneAtPoint(groundAt(camera.position, dir), hall.names(), hall.xOf, hall.zOf);
   };
-  const hide = () => { tip.hidden = true; };
+  const hide = () => { tip.hidden = true; canvas.style.cursor = ''; };
   canvas.addEventListener('pointermove', (event) => {
     if (event.pointerType !== 'mouse') return;
     const lane = laneUnder(event);
     if (!lane) { hide(); return; }
     const hu = huOfLane(lane, cardsOf());
-    tip.replaceChildren(...tipOf(lane, hu, scene.hall.lineOf(lane)).map((line) => Object.assign(document.createElement('div'), { textContent: line })));
+    tip.replaceChildren(...tipOf(lane, hu, scene.hall.lineOf(lane), true).map((line) => Object.assign(document.createElement('div'), { textContent: line })));
     tip.style.left = `${Math.min(event.clientX + 14, innerWidth - TIP_WIDTH - 8)}px`;
     tip.style.top = `${event.clientY + 16}px`;
     tip.hidden = false;
+    canvas.style.cursor = hu ? 'pointer' : '';
   });
   canvas.addEventListener('pointerleave', hide);
+  return (event) => {
+    const lane = laneUnder(event);
+    const hu = lane && huOfLane(lane, cardsOf());
+    if (hu) { hide(); openHu(hu); }
+  };
 }
