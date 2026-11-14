@@ -6,7 +6,7 @@
 export const KINDS = { agent: 'Agent', crew: 'Crew', piece: 'Method piece', tool: 'Tool', thing: 'In the hall' };
 
 /** KJC-TSK-1617: the cards in one section per kind that has any, in the order of KINDS. */
-export const legendSections = (cards) => Object.entries(KINDS)
+export const legendSections = (cards, kinds = KINDS) => Object.entries(kinds)
   .map(([kind, title]) => ({ kind, title, cards: cards.filter((card) => card.kind === kind) }))
   .filter((section) => section.cards.length);
 
