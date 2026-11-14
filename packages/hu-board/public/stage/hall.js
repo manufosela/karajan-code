@@ -2,7 +2,7 @@
 // hall: a floor pad with the lane's name and a bench. A lane seen for the first
 // time gets its workshop and the row recentres.
 import * as THREE from 'three';
-import { WORKSHOP, workshopAt } from './layout.js';
+import { WORKSHOP, doorAt, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
 
@@ -96,6 +96,30 @@ function workshop(name) {
  * leaves for the base branch: two posts and a bar that lights when a commit
  * passes or bounces. Returns the gate and its bar's material.
  */
+/**
+ * KJC-TSK-1628 (the maintainer, 2026-11-14): the side door the hosts come in and leave by: a frame
+ * with a softly lit opening, facing the workshops.
+ */
+function sideDoor() {
+  const frame = matte(0x3a4656);
+  const group = new THREE.Group();
+  for (const side of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.3, 0.16), frame);
+    post.position.set(0, 1.15, side * 0.7);
+    group.add(post);
+  }
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 1.56), frame);
+  lintel.position.y = 2.3;
+  const glow = new THREE.MeshStandardMaterial({ color: 0x1b2a3a, emissive: 0x4fb3e8, emissiveIntensity: 0.35, transparent: true, opacity: 0.85 });
+  const opening = new THREE.Mesh(new THREE.PlaneGeometry(1.24, 2.2), glow);
+  opening.position.y = 1.1;
+  opening.rotation.y = Math.PI / 2;
+  group.add(lintel, opening);
+  // Half turned to the camera, so its opening shows; it still opens towards the workshops.
+  group.rotation.y = -Math.PI / 4;
+  return group;
+}
+
 function gates() {
   const gate = new THREE.Group();
   for (const x of [-0.6, 0.6]) {
@@ -123,7 +147,14 @@ export function createHall(scene, lanes) {
   const order = [];
   // KJC-TSK-1488: in rows and columns once there are many.
   const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
-  const relayout = () => order.forEach((lane) => shops.get(lane).group.position.set(at(lane).x, 0, at(lane).z));
+  // KJC-TSK-1628: the side door moves with the first column of workshops.
+  const door = sideDoor();
+  scene.add(door);
+  const relayout = () => {
+    order.forEach((lane) => shops.get(lane).group.position.set(at(lane).x, 0, at(lane).z));
+    const spot = doorAt(order.length);
+    door.position.set(spot.x, 0, spot.z);
+  };
   const ensure = (lane) => {
     if (shops.has(lane)) return false;
     const shop = workshop(lane);

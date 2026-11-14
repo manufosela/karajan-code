@@ -41,6 +41,17 @@ export function workshopAt(i, n) {
   return { x: workshopX(i % columns, columns), z: WORKSHOP.z + Math.floor(i / columns) * ROW_STEP };
 }
 
+/**
+ * KJC-TSK-1628 (the maintainer, 2026-11-14): the aisle in front of a row of workshops, past their
+ * name plates and before the next row, where a host walks between the side door and its desk.
+ */
+export const AISLE_DZ = WORKSHOP.depth / 2 + 1.9;
+/**
+ * KJC-TSK-1628: the side door, at the left end of the first row's aisle, in line with the left
+ * edge of the first workshop (further out, the projects panel covers it).
+ */
+export const doorAt = (n) => ({ x: workshopAt(0, Math.max(1, n)).x - WORKSHOP.width / 2, z: WORKSHOP.z + AISLE_DZ });
+
 /** How much deeper than a one-row hall the rows of `n` workshops make it. */
 export const hallDepth = (n) => (rowsOf(n) - 1) * ROW_STEP;
 /** The x of each piece's post, the row centred behind the workshops. */
