@@ -90,7 +90,8 @@ function hologram(glyph, color) {
   return group;
 }
 
-function robotFor(worker, avatar, me) {
+/** A worker's robot, as the floor draws it (KJC-TSK-1618: the legend's portraits too). */
+export function robotFor(worker, avatar, me) {
   // KJC-TSK-1569 (ADR 0056): in the colour its owner gave its role, with its owner's backpack.
   // KJC-TSK-1603: the robot in its agent's colour; its backpack in its owner's, which marks all theirs.
   const robot = createRobot({ accent: accentOf(worker.agent), name: worker.agent });

@@ -300,7 +300,14 @@ async function startStage() {
   }
 }
 
-// KJC-TSK-1617: the Cast button, in the factory and on the map alike.
-mountLegend({ button: document.getElementById('stage-cast'), dialog: document.getElementById('stage-cast-panel') });
+// KJC-TSK-1617: the Cast button, in the factory and on the map alike. KJC-TSK-1618: each card's
+// portrait, drawn the first time the legend opens, in this person's avatar; none without WebGL2.
+let portraits = null;
+const portraitOf = async (card) => {
+  portraits ??= Promise.all([import('./legend-portraits.js'), fetchAvatar()]).then(([{ createPortraits }, own]) => createPortraits(own));
+  return (await portraits)(card);
+};
+const canDraw = Boolean(document.createElement('canvas').getContext('webgl2'));
+mountLegend({ button: document.getElementById('stage-cast'), dialog: document.getElementById('stage-cast-panel'), portraitOf: canDraw ? portraitOf : null });
 // KJC-TSK-1590: the panel and the scene load side by side; neither waits for the other.
 await Promise.all([mountProjectPanel(), startStage()]);

@@ -14,7 +14,7 @@ import { ledgerBody } from './cast/pieces/ledger.js';
 import { stewardBody } from './cast/pieces/steward.js';
 
 // The film's seven pieces, in the order of layout.js.
-const LOOKS = {
+export const LOOKS = { // KJC-TSK-1618: the legend's portraits build them too
   tdd: ['TDD', 'tool', tddBody], sentinel: ['Sentinel', 'method', sentinelBody],
   review: ['AI review', 'method', reviewBody], gates: ['Git gates', 'method', gatesBody],
   sonar: ['SonarQube', 'tool', sonarBody], ledger: ['Ledger', 'method', ledgerBody],
@@ -23,7 +23,7 @@ const LOOKS = {
 const PIECES = STATIONS.map((id) => [id, ...LOOKS[id]]);
 // The film's accents: Karajan green, kaRAGan amber, kaWATCHan blue.
 export const RAGAN_ACCENT = 0xf0b429; // KJC-TSK-1522: its laptop too
-const ROBOTS = [
+export const ROBOTS = [
   ['conductor', { accent: 0x34e07f, bow: 0xeef1f6, name: 'Karajan Code' }],
   ['rag', { accent: RAGAN_ACCENT, name: 'kaRAGan' }],
   ['watch', { accent: 0x4fb3e8, name: 'kaWATCHan' }],
