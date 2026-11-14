@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 // agent types side on (KJC-TSK-1486); each agent now has a standing desk of its own, turned with it.
 import { DESK, deskParts } from '../public/stage/desk-layout.js';
 import { SEATS, TYPING_YAW, spotOf } from '../public/stage/workers.js';
+import { HOST_SCALE } from '../public/stage/host-look.js';
+import { SCALE } from '../public/stage/layout.js';
 
 /** Where `point` falls in a desk's own frame: along the way its agent faces, and across it. */
 const inDesk = (desk, point) => {
@@ -37,6 +39,19 @@ describe('deskParts', () => {
       expect(onDesk(desk, spots[seat])).toBe(false);
       expect(desk.height).toBeLessThan(DESK.laptop);
     });
+  });
+
+  // KJC-TSK-1612 (the maintainer, 2026-11-14): "the ones with a backpack take a lot of room; they
+  // overlap". Along the row, a desk's far edge and the next agent's backpack leave room between them.
+  it('leaves room between one agent\'s desk and the backpack of the next, the bigger host included', () => {
+    const PACK_REACH = 1.3; // the backpack's back, behind its robot, before scaling (backpack.js)
+    const hostScale = SCALE.crew * HOST_SCALE;
+    const along = Math.sin(TYPING_YAW); // how much of a reach along the agent's way runs along the row
+    for (let seat = 0; seat + 1 < SEATS.length; seat++) {
+      const deskEdge = spots[seat].x + (DESK.ahead + DESK.depth / 2) * along;
+      const packBack = spots[seat + 1].x - PACK_REACH * hostScale * along;
+      expect(packBack - deskEdge).toBeGreaterThan(0.2);
+    }
   });
 
   it('no desk stands where a neighbour agent stands', () => {

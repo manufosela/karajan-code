@@ -1,8 +1,9 @@
 // ADR 0048: where everything stands in the factory hall, in metres. One workshop
 // per lane in a row along x at the front; Karajan's pieces wait at their posts
 // at the back, the Sentinel on a raised post over the whole hall. No conveyor.
-// KJC-TSK-1609 (the maintainer, 2026-11-13): wider, so its seats stand further apart (workers.js).
-export const WORKSHOP = { width: 5, depth: 3, gap: 0.8, z: 2.2 };
+// KJC-TSK-1609 (the maintainer, 2026-11-13): wider, so its seats stand further apart (workers.js);
+// KJC-TSK-1612: wider still, for the room each agent's backpack takes.
+export const WORKSHOP = { width: 6.6, depth: 3, gap: 0.8, z: 2.2 };
 /** Karajan's pieces, in the film's order (crew.js builds them in it). */
 export const STATIONS = ['tdd', 'sentinel', 'review', 'gates', 'sonar', 'ledger', 'steward'];
 /** The pieces that wait in the row of posts: the Sentinel has its raised post. */

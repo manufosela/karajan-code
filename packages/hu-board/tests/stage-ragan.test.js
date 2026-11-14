@@ -1,7 +1,7 @@
 // KJC-TSK-1438 (ADR 0048): kaRAGan takes the RAG's answer to the agent of the lane that asked.
 import { describe, expect, it } from 'vitest';
 
-import { CREW } from '../public/stage/layout.js';
+import { CREW, WORKSHOP } from '../public/stage/layout.js';
 import { HAND_MS, INDEX_MAX_MS, RAGAN_WALK_MS, raganAt, withIndex, withRag } from '../public/stage/ragan.js';
 import { restState, withEvent } from '../public/stage/rest.js';
 
@@ -19,7 +19,7 @@ describe('kaRAGan at work', () => {
     expect(raganAt(rag, 1000 + RAGAN_WALK_MS / 2, xOf).walking).toBe(true);
     const there = raganAt(rag, 1000 + RAGAN_WALK_MS + HAND_MS / 2, xOf);
     expect(there.walking).toBe(false);
-    expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(2);
+    expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(WORKSHOP.width / 2); // inside that lane's workshop
     expect(raganAt(rag, 1000 + 2 * RAGAN_WALK_MS + HAND_MS, xOf)).toMatchObject({ x: CREW.rag.x, z: CREW.rag.z, walking: false });
   });
 
@@ -40,7 +40,7 @@ describe('kaRAGan reindexing', () => {
     expect(raganAt(null, 1000 + RAGAN_WALK_MS / 2, xOf, undefined, start)).toMatchObject({ walking: true, typing: false });
     const there = raganAt(null, 1000 + RAGAN_WALK_MS + 60_000, xOf, undefined, start);
     expect(there).toMatchObject({ walking: false, typing: true, since: 1000 + RAGAN_WALK_MS });
-    expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(2);
+    expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(WORKSHOP.width / 2); // inside that lane's workshop
   });
 
   it('when it ends it puts the laptop away and walks back to its post, over an answer trip', () => {
