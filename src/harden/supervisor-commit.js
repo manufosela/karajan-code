@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { recordGateDecision } from "../policy/decisions.js";
 import { sealedFilesOf } from "../policy/engine.js";
 import { readIdentity } from "../identity/store.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { signAct } from "./act-sign.js";
 import { provenanceSignature } from "./phone-sign.js";
@@ -83,8 +84,8 @@ export function supervisorDrift({ projectDir, gitFn }) {
  * first one no longer matches the head, so it is neither a seal act nor reviewable: the PR got stuck.
  * Without the base on origin there is no PR to get stuck.
  */
-function refuseSecondSeal(run, baseBranch) {
-  const base = `origin/${baseBranch || "main"}`;
+function refuseSecondSeal(run, baseBranch, projectDir) {
+  const base = `origin/${baseBranch ?? baseBranchFrom({ projectDir, label: "kj harden" })}`;
   try { run(["rev-parse", "--verify", "--quiet", base]); } catch { return; }
   const sealed = run(["log", "--format=%h", `${base}..HEAD`, "--", PROVENANCE_FILE]).split("\n").filter(Boolean);
   if (sealed.length === 0) return;
@@ -138,7 +139,7 @@ export async function commitSupervisorRegeneration({
       `harden --commit: hay cambios en el stage que no son del supervisor (${foreign.slice(0, 5).join(", ")}${foreign.length > 5 ? ", …" : ""}): commitéalos en su rama o sácalos del stage (git restore --staged <ficheros>) antes de sellar`,
     );
   }
-  refuseSecondSeal(run, generation?.baseBranch);
+  refuseSecondSeal(run, generation?.baseBranch, projectDir);
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   seal.confirm(deps.confirm);

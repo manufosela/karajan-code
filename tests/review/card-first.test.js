@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { checkCardFirst, CARD_REF_RE } from "../../src/review/card-first.js";
@@ -204,5 +205,15 @@ describe("checkCardFirst — exemptions", () => {
     }
     const r = await checkCardFirst({ config: {}, projectDir: dir, branch: "feat/sin-card", env: { KJ_ALLOW_NO_CARD: "1" } });
     expect(r).toMatchObject({ ok: false, mode: "block" });
+  });
+
+  it("the remote default branch (origin/HEAD develop) is exempt when base_branch is not set", async () => {
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { stdio: "ignore" });
+    git("init", "-q", "-b", "develop");
+    git("-c", "user.name=t", "-c", "user.email=t@t.t", "commit", "-q", "--allow-empty", "-m", "base");
+    git("remote", "add", "origin", "https://example.invalid/r.git");
+    git("update-ref", "refs/remotes/origin/develop", "HEAD");
+    git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop");
+    expect(await hu("develop")).toMatchObject({ ok: true, mode: "exempt" });
   });
 });

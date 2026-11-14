@@ -22,6 +22,7 @@ import { initCommand } from "./init.js";
 import { envInstallCommand } from "./env.js";
 import { commitContract, contractChanges } from "../environment/contract-commit.js";
 import { runStartScript, START_SCRIPT_CONTRACT } from "../start/project-script.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 
 const STEP_LABEL = {
   git: "repositorio",
@@ -85,7 +86,7 @@ export async function bootstrapCommand({ config = {}, logger = console, flags = 
   //    kj generated, never the person's own code, never on the base branch
   //    once there is history (KJC-BUG-0273). This is NOT the supervisor seal,
   //    which stays a human act with its own four layers (ADR 0009).
-  const contract = commitContract({ projectDir, before, baseBranch: config.base_branch || "main" });
+  const contract = commitContract({ projectDir, before, baseBranch: baseBranchFrom({ config, projectDir, label: "kj bootstrap" }) });
   if (contract.committed) say("contract", "done", `${contract.files.length} ruta(s) del contrato`);
   else if (contract.reason.startsWith("nothing")) say("contract", "already", "no hay contrato que commitear");
   // Lo más probable: la identidad del clon (KJC-BUG-0188) o la rama base.

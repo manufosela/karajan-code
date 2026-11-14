@@ -14,6 +14,7 @@ import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fall
 import { verifyBoardAccess } from "../environment/board-access.js";
 import { pickStateBackend } from "../environment/board-select.js";
 import { ensurePrivacyList } from "../privacy/onboarding.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 import { installProjectMcp } from "../environment/mcp-wiring.js";
 import { createWizard } from "../utils/wizard.js";
 import { hardenCommand } from "./harden.js";
@@ -250,7 +251,7 @@ async function finishInstall({ config, projectDir, dirtyBefore }) {
   console.log("  The host agent now follows the method: RAG first, TDD, cross-AI review before commit.");
   // KJC-BUG-0273: the contract is kj's to commit. Left to the agent, its own
   // PR-size rules forbid a 1200-line commit of generated files and it stops.
-  const contract = commitContract({ projectDir, before: dirtyBefore, baseBranch: config?.base_branch || "main" });
+  const contract = commitContract({ projectDir, before: dirtyBefore, baseBranch: baseBranchFrom({ config, projectDir, label: "kj env" }) });
   if (contract.committed) console.log(`✓ contract committed by kj: ${contract.files.length} generated file(s), nothing for the agent to commit`);
   else if (!contract.reason.startsWith("nothing")) console.log(`⚠ the contract kj generated is NOT committed (${contract.reason}): run \`kj env install\` again once that is fixed`);
   // KJC-BUG-0133 (part 2): a mid-session install lands the playbook in
