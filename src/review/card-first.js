@@ -10,6 +10,7 @@
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { escapeRegExp } from "../utils/escape-regexp.js";
 import { verifyCardAlive } from "./card-verify.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 
 // KJC-BUG-0323: coding/reviewing are the run working the HU, certified is ready
 // to run; the gate blocked the pipeline's own commit on its own HU.
@@ -58,14 +59,14 @@ const failedCheck = (effective, reason, extra = {}) => (effective === "block"
   ? { ok: false, mode: "block", reason, ...extra }
   : { ok: true, mode: "warn", reason, ...extra });
 
-function exemption(config, branch) {
+function exemption(config, branch, projectDir) {
   const exempt = config.method_gates?.card_first_exempt_branches || DEFAULT_EXEMPT_PREFIXES;
   if (exempt.some((p) => branch.startsWith(p))) {
     return { ok: true, mode: "exempt", reason: `branch prefix exempt (${branch.split("/")[0]}/…)` };
   }
   // The base branch belongs to the branch-first gate — card-first here
   // would only double-report (and HEAD covers detached checkouts in CI).
-  if ([config.base_branch || "main", "main", "master", "HEAD"].includes(branch)) {
+  if ([baseBranchFrom({ config, projectDir, announce: false }), "main", "master", "HEAD"].includes(branch)) {
     return { ok: true, mode: "exempt", reason: "base branch — the branch-first gate owns this case" };
   }
   return null;
@@ -122,7 +123,7 @@ async function externalBoardCheck({ config, projectDir, branch, deps, backend, p
 }
 
 export async function checkCardFirst({ config = {}, projectDir = process.cwd(), branch, deps = {} }) {
-  const exempt = exemption(config, branch);
+  const exempt = exemption(config, branch, projectDir);
   if (exempt) return exempt;
   const backend = config.state_backend || "hu-board";
   const policy = config.method_gates?.card_first || "auto";

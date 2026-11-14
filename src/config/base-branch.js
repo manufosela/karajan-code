@@ -28,7 +28,7 @@ function remoteDefaultBranch(projectDir) {
 }
 
 /** Synchronous: for callers that already hold a loaded config. `explicit` overrides the flag the config carries. */
-export function baseBranchFrom({ config = null, explicit, projectDir = process.cwd(), logger = stderrOnce, announce = true } = {}) {
+export function baseBranchFrom({ config = null, explicit, projectDir = process.cwd(), logger = stderrOnce, announce = true, label = "kj" } = {}) {
   // A config not made by loadConfig carries no flag: a value other than the default can only be somebody's choice.
   const isExplicit = explicit ?? config?.[BASE_EXPLICIT] ?? (!!config?.base_branch && config.base_branch !== DEFAULT_BASE_BRANCH);
   if (isExplicit && config?.base_branch) return config.base_branch;
@@ -37,17 +37,17 @@ export function baseBranchFrom({ config = null, explicit, projectDir = process.c
     if (announce) logger.info?.(`kj: base branch ${branch} (from origin/HEAD)`);
     return branch;
   }
-  logger.info?.(`kj harden: could not read the default branch (no origin/HEAD); using ${DEFAULT_BASE_BRANCH}. Set base_branch in the kj config or run \`git remote set-head origin -a\`.`);
+  logger.info?.(`${label}: could not read the default branch (no origin/HEAD); using ${DEFAULT_BASE_BRANCH}. Set base_branch in the kj config or run \`git remote set-head origin -a\`.`);
   return DEFAULT_BASE_BRANCH;
 }
 
 /** KJC-BUG-0233: loadConfig returns `{ config, ... }`; only a layer that set base_branch counts. */
-export async function resolveBaseBranch(projectDir, { load = loadConfig, logger = {}, announce = false } = {}) {
+export async function resolveBaseBranch(projectDir, { load = loadConfig, logger = {}, announce = false, label = "kj" } = {}) {
   let loaded = null;
   try {
     loaded = await load(projectDir);
   } catch {
     /* no kj config: the repository decides */
   }
-  return baseBranchFrom({ config: loaded?.config ?? null, explicit: !!loaded?.baseBranchExplicit, projectDir, logger, announce });
+  return baseBranchFrom({ config: loaded?.config ?? null, explicit: !!loaded?.baseBranchExplicit, projectDir, logger, announce, label });
 }

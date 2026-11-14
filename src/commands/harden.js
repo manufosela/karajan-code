@@ -114,7 +114,7 @@ export async function resolveCommitConvention(projectDir, load = loadConfig) {
 }
 
 /** HU-4268: the resolver lives in config/base-branch.js (same behaviour); the positional signature stays. */
-export const resolveBaseBranch = (projectDir, load = loadConfig, logger = {}) => resolveBase(projectDir, { load, logger });
+export const resolveBaseBranch = (projectDir, load = loadConfig, logger = {}) => resolveBase(projectDir, { load, logger, label: "kj harden" });
 
 export async function hardenCommand({
   projectDir = process.cwd(),

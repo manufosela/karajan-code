@@ -14,6 +14,7 @@ import { currentBranch } from "../utils/git.js";
 import { buildProgressNotifier } from "./progress.js";
 import { compressResponse, compactStringify } from "./response-compressor.js";
 import { classifyError } from "./error-classifiers.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 
 export { classifyError } from "./error-classifiers.js";
 
@@ -91,7 +92,7 @@ export function failPayload(message, details = {}) {
 }
 
 export async function assertNotOnBaseBranch(config, { allowForRun = false } = {}) {
-  const baseBranch = config?.base_branch || "main";
+  const baseBranch = baseBranchFrom({ config });
   let branch;
   try {
     branch = await currentBranch();

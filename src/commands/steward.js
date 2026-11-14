@@ -16,6 +16,7 @@ import {
   evaluatePhantomCoverage, evaluateDuplicateMembers, evaluateMergedUnverified, mapStatusCheckRollup,
   evaluateAgentWorktreesExcluded, runInvariants,
 } from "../steward/invariants.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 import { loadPreviousAudit } from "../audit/basal-cost.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { recordGateDecision } from "../policy/decisions.js";
@@ -100,7 +101,7 @@ const duplicateMembersSweep = (projectDir, probes) => probes.duplicateMembers ??
 
 export async function stewardSweepCommand({ flags = {}, config = {}, logger = console, probes = {} } = {}) {
   const projectDir = config.projectDir || process.cwd();
-  const baseBranch = config.base_branch || "main";
+  const baseBranch = baseBranchFrom({ config, projectDir, label: "kj steward" });
   const fresh = freshReport(projectDir, flags, probes);
   if (fresh) {
     logger.info?.(`steward: report is fresh (swept ${fresh.sweptAt}) — not re-sweeping`);

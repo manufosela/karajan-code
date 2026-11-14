@@ -26,6 +26,20 @@ beforeEach(() => {
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
+describe("kj steward sweep: base branch", () => {
+  it("sweeps the remote default branch (origin/HEAD develop) when base_branch is not set", async () => {
+    const git = (cmd) => execSync(`git ${cmd}`, { cwd: dir, stdio: "ignore" });
+    git("checkout -q -b develop");
+    git("-c user.name=t -c user.email=t@t.t commit -q --allow-empty -m base");
+    git("remote add origin https://example.invalid/r.git");
+    git("update-ref refs/remotes/origin/develop HEAD");
+    git("symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop");
+    await run();
+    const json = JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "steward", "report.json"), "utf8"));
+    expect(json.baseBranch).toBe("develop");
+  });
+});
+
 describe("kj steward sweep", () => {
   it("writes the report in the repo: verdict, last evidence and the renewing command per invariant", async () => {
     const code = await run();

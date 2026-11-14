@@ -69,6 +69,16 @@ describe("baseBranchFrom", () => {
     baseBranchFrom({ config: null, projectDir: dir, logger: { info: (m) => said.push(m) } });
     expect(said).toEqual(["kj: base branch develop (from origin/HEAD)"]);
   });
+
+  it("names the command that asked in the fallback note, kj by default", () => {
+    git("init", "-q", "-b", "main");
+    const said = [];
+    const logger = { info: (m) => said.push(m) };
+    baseBranchFrom({ config: null, projectDir: dir, logger, label: "kj steward" });
+    baseBranchFrom({ config: null, projectDir: dir, logger });
+    expect(said[0]).toMatch(/^kj steward: could not read the default branch/);
+    expect(said[1]).toMatch(/^kj: could not read the default branch/);
+  });
 });
 
 describe("kj worktree start with origin/HEAD develop and no main", () => {
