@@ -14,6 +14,7 @@ import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
 import { opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
 import { mountLegend } from './legend-panel.js';
+import { watchWorkshops } from './workshop-pointer.js';
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
@@ -172,6 +173,9 @@ async function start(signal) {
     const tap = pressed && Math.hypot(e.clientX - pressed.left, e.clientY - pressed.top) < 8;
     if (tap && e.pointerType !== 'mouse') pointAt({ left: e.clientX, top: e.clientY });
   });
+  // KJC-TSK-1620: the workshop under the pointer says its whole name and its HU.
+  let cards = state.cards ?? [];
+  watchWorkshops({ canvas, scene, tip: document.getElementById('stage-tip'), cardsOf: () => cards });
   const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
   signal.addEventListener('abort', () => events.close());
   events.onmessage = ({ data }) => {
@@ -188,6 +192,7 @@ async function start(signal) {
   const resync = setInterval(async () => {
     const now = await fetchState();
     if (now.state && !signal.aborted) live.resync(now.state, performance.now());
+    if (now.state?.cards) cards = now.state.cards;
   }, RESYNC_MS);
   signal.addEventListener('abort', () => clearInterval(resync));
   const frame = (ms) => {

@@ -118,6 +118,7 @@ const BOUNCE = 0xe0484f;
 export function createHall(scene, lanes) {
   const shops = new Map();
   const shown = new Map(); // KJC-TSK-1540: each lane's status line, repainted only when it changes
+  const lines = new Map(); // KJC-TSK-1620: and that line, whole
   const lights = new Map();
   const order = [];
   // KJC-TSK-1488: in rows and columns once there are many.
@@ -142,6 +143,7 @@ export function createHall(scene, lanes) {
     scene.remove(shops.get(lane).group);
     shops.delete(lane);
     shown.delete(lane);
+    lines.delete(lane);
     lights.delete(lane);
     order.splice(order.indexOf(lane), 1);
     relayout();
@@ -157,11 +159,14 @@ export function createHall(scene, lanes) {
     count: () => order.length,
     /** KJC-TSK-1540: the lanes of the hall, in the order their workshops stand. */
     names: () => [...order],
+    /** KJC-TSK-1620: the status line a lane's plate shows (cut), whole, for its tooltip. */
+    lineOf: (lane) => lines.get(lane) ?? '',
     /** KJC-TSK-1540: dims a lane's workshop and says why while it is not working. */
     showStatus(lane, line, state) {
       const key = `${state}|${line}`;
       if (!shops.has(lane) || shown.get(lane) === key) return;
       shown.set(lane, key);
+      lines.set(lane, line);
       shops.get(lane).show(line, state);
     },
     /** Lights a lane's gates green (approve) or red (refuse) at `level` 0..1; 0 puts them out. */

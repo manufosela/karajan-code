@@ -82,6 +82,10 @@
     #stage-avatar-panel menu button { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
     #stage-avatar-panel menu button[type="submit"] { background: #2f6f9f; border-color: #3d86bd; }
     .avatar-status { min-height: 1.5em; margin: 0 0 8px; color: #9ca6ae; }
+    /* KJC-TSK-1620: a workshop's tooltip. */
+    #stage-tip { position: fixed; z-index: 5; max-width: 340px; padding: 8px 10px; border-radius: 8px; border: 1px solid #2a3a4e; background: rgb(14 21 32 / 0.95); color: #e2e8f0; font-size: 13px; line-height: 1.4; pointer-events: none; overflow-wrap: anywhere; }
+    #stage-tip div:first-child { font-weight: 700; }
+    #stage-tip div + div { color: #8cb4c9; }
     /* KJC-TSK-1617: the cast legend, as collectable cards; each kind its frame's colour. */
     #stage-cast-panel { width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 48px); color: #e2e8f0; background: #0b111a; border: 1px solid #2a3a4e; border-radius: 14px; padding: 0 20px 20px; }
     #stage-cast-panel::backdrop { background: rgb(0 0 0 / 0.6); }
@@ -122,6 +126,8 @@
   <dialog id="stage-avatar-panel" aria-labelledby="avatar-title"></dialog>
   <!-- KJC-TSK-1617: the legend of the characters, as collectable cards (legend-panel.js). -->
   <dialog id="stage-cast-panel" aria-labelledby="cast-title"></dialog>
+  <!-- KJC-TSK-1620: a workshop's whole name and HU under the pointer. -->
+  <div id="stage-tip" role="tooltip" hidden></div>
   <!-- KJC-TSK-1468: until the stage says its first word, so it never looks dead. -->
   <output id="stage-loading" aria-live="polite">Loading the factories…</output>
   <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->
