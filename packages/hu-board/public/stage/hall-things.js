@@ -50,5 +50,5 @@ export function thingTip(id, { cards, release, stacked }) {
       'One box per lane; the table holds the cards. The release takes both.'];
   }
   const count = (column) => cards.filter((c) => columnOf(c.status) === column).length;
-  return ['Task wall', `${count('todo')} to do · ${count('doing')} in progress · ${count('done')} done`];
+  return ['Task wall', `${count('todo')} to do · ${count('doing')} in progress · ${count('done')} done`, 'Click to see every task'];
 }

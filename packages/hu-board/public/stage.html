@@ -110,6 +110,16 @@
     #stage-hu-panel dt { font-weight: 700; color: #8cb4c9; }
     #stage-hu-panel dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
     #stage-hu-panel a { color: #8cb4c9; }
+    /* KJC-TSK-1627: the task wall, large. */
+    #stage-wall-panel { width: min(1100px, calc(100vw - 32px)); max-height: calc(100vh - 48px); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 0 20px 20px; }
+    #stage-wall-panel::backdrop { background: rgb(0 0 0 / 0.55); }
+    .wall-top { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 16px 0 8px; background: #0e1520; }
+    .wall-top h2 { margin: 0; font-size: 20px; }
+    .wall-close { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+    .wall-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .wall-columns h3 { margin: 0 0 8px; font-size: 15px; color: #8cb4c9; text-transform: uppercase; letter-spacing: 0.06em; }
+    .wall-columns ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+    .wall-columns li { padding: 8px 10px; border-radius: 8px; background: #1a2332; border-left: 4px solid #8cb4c9; font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
     /* KJC-TSK-1617: the cast legend, as collectable cards; each kind its frame's colour. */
     #stage-cast-panel { width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 48px); color: #e2e8f0; background: #0b111a; border: 1px solid #2a3a4e; border-radius: 14px; padding: 0 20px 20px; }
     #stage-cast-panel::backdrop { background: rgb(0 0 0 / 0.6); }
@@ -154,6 +164,8 @@
   <div id="stage-tip" role="tooltip" hidden></div>
   <!-- KJC-TSK-1621: a workshop's HU from the board, to read (hu-panel.js). -->
   <dialog id="stage-hu-panel" aria-labelledby="hu-title"></dialog>
+  <!-- KJC-TSK-1627: the task wall, large (wall-panel.js). -->
+  <dialog id="stage-wall-panel" aria-labelledby="wall-title"></dialog>
   <!-- KJC-TSK-1468: until the stage says its first word, so it never looks dead. -->
   <output id="stage-loading" aria-live="polite">Loading the factories…</output>
   <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->
