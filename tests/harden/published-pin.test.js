@@ -9,7 +9,7 @@ const registry = (versions) => vi.fn(async () => ({ ok: true, json: async () => 
 describe("publishedPin", () => {
   it("keeps the running version when npm has it", async () => {
     const fetchFn = registry(["4.69.0", "4.70.0"]);
-    expect(await publishedPin({ name: "@karajan-family/code", version: "4.70.0", fetchFn })).toEqual({ version: "4.70.0" });
+    expect(await publishedPin({ name: "@karajan-family/code", version: "4.70.0", fetchFn })).toMatchObject({ version: "4.70.0" });
     expect(fetchFn.mock.calls[0][0]).toBe("https://registry.npmjs.org/%40karajan-family%2Fcode");
   });
 
@@ -17,13 +17,14 @@ describe("publishedPin", () => {
     const pin = await publishedPin({ name: "karajan-code", version: "5.0.0", fetchFn: registry(["4.69.0", "4.70.2", "5.0.0-beta.1", "3.0.0"]) });
     expect(pin.version).toBe("4.70.2");
     expect(pin.note).toMatch(/5\.0\.0 is not on npm.*4\.70\.2/);
+    expect(pin.published).toContain("4.70.2");
   });
 
-  it("keeps the running version, loudly, when the registry cannot confirm it", async () => {
+  it("pins nothing, loudly, when the registry cannot be read (HU-4278)", async () => {
     const down = vi.fn(async () => { throw new Error("getaddrinfo ENOTFOUND"); });
     const pin = await publishedPin({ name: "karajan-code", version: "4.70.0", fetchFn: down });
-    expect(pin).toMatchObject({ version: "4.70.0", note: expect.stringMatching(/could not confirm.*4\.70\.0.*ENOTFOUND/) });
+    expect(pin).toMatchObject({ version: null, published: null, note: expect.stringMatching(/could not confirm.*ENOTFOUND/) });
     const none = await publishedPin({ name: "karajan-code", version: "1.0.0", fetchFn: registry(["4.70.0"]) });
-    expect(none).toMatchObject({ version: "1.0.0", note: expect.stringMatching(/could not confirm/) });
+    expect(none).toMatchObject({ version: null, published: ["4.70.0"] });
   });
 });

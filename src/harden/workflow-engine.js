@@ -14,11 +14,11 @@ import { dirname } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { publishedPin } from "./published-pin.js";
+import { pinForMinimum, publishedPin } from "./published-pin.js";
 import { phpInputs, qualityInputs } from "./quality-inputs.js";
 import { gradleInputs } from "./gradle-commands.js";
 import { swiftInputs } from "./swift-commands.js";
-import { extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, secretsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
+import { KJ_MIN_VERSION, extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, secretsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
 // listens to pull_request, the new one to pull_request_target), so policy-check never reports.
@@ -100,10 +100,10 @@ function stewardActionOn(projectDir) {
   }
 }
 
-/** KJC-BUG-0420: the published kj version the policy and steward workflows pin; null when neither is seeded. */
-export async function resolveKjPin({ projectDir, fetchFn } = {}) {
+/** KJC-BUG-0420: the published kj versions the workflows that install kj pin from; null without a package.json. */
+export async function resolveKjPin({ fetchFn } = {}) {
   const own = ownPkg();
-  if (!own || !(policyDeclared(projectDir) || stewardActionOn(projectDir))) return null;
+  if (!own) return null;
   return publishedPin({ name: own.name, version: own.version, fetchFn });
 }
 
@@ -131,6 +131,13 @@ function qualityFor(projectDir, roots) {
   return { quality: perRoot.length > 1 ? multiRootQualityWorkflow(perRoot) : (perRoot[0]?.wf ?? null), note };
 }
 
+/** HU-4278: a workflow that installs kj, kept untouched. Unreadable registry: harden's own warning says why. */
+function leftAsIs(label, file, published) {
+  if (published === null) return { file: label, action: "left" };
+  const name = ownPkg()?.name ?? "karajan-code";
+  return { file: label, action: "left", note: `${file} needs ${name} >= ${KJ_MIN_VERSION[file]}, which is not on npm yet; it is left as it is until that version is published` };
+}
+
 export function installWorkflows({
   projectDir = process.cwd(),
   language = null,
@@ -141,6 +148,7 @@ export function installWorkflows({
   root = ".",
   roots = [{ dir: root, language }],
   baseBranch = "main",
+  published, // HU-4278: versions on npm; undefined = not checked, null = registry unreadable
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const pm = detectPackageManager(projectDir);
@@ -149,19 +157,27 @@ export function installWorkflows({
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
   // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
   // recurso inalcanzable en los caminos reales.
-  const pinned = kjVersion ?? ownPkg()?.version ?? "latest";
-  const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm, kjVersion: pinned, kjName: ownPkg()?.name ?? "karajan-code" });
+  const running = kjVersion ?? ownPkg()?.version ?? "latest";
+  // HU-4278: each workflow pins the newest published kj within [its minimum, running]; null = leave it.
+  const pinOf = (file) => pinForMinimum({ published, running, min: KJ_MIN_VERSION[file] });
+  const pinned = (file) => pinOf(file) ?? running;
+  const kjName = ownPkg()?.name ?? "karajan-code";
+  const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm, kjVersion: pinned("kj-shrink-budget.yml"), kjName });
   const policy = policyDeclared(projectDir)
-    ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") }
+    ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned("kj-policy.yml"), kjName) }
     : null;
-  const steward = stewardActionOn(projectDir) ?{ file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") } : null;
-  const verdicts = { file: "kj-verdicts.yml", blockId: "wf-verdicts", body: verdictsWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") };
-  const secrets = { file: "kj-secrets.yml", blockId: "wf-secrets", body: secretsWorkflowFor(pinned, ownPkg()?.name ?? "karajan-code") };
+  const steward = stewardActionOn(projectDir) ? { file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned("kj-steward.yml"), kjName) } : null;
+  const verdicts = { file: "kj-verdicts.yml", blockId: "wf-verdicts", body: verdictsWorkflowFor(pinned("kj-verdicts.yml"), kjName) };
+  const secrets = { file: "kj-secrets.yml", blockId: "wf-secrets", body: secretsWorkflowFor(pinned("kj-secrets.yml"), kjName) };
   const all = [...WORKFLOWS, verdicts, secrets, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
   const results = [];
   for (const wf of all.map((w) => ({ ...w, body: onBaseBranch(w.body, baseBranch) }))) {
     const target = join(dir, wf.file);
     const label = join(WORKFLOWS_DIR, wf.file);
+    if (KJ_MIN_VERSION[wf.file] && pinOf(wf.file) === null) {
+      results.push(leftAsIs(label, wf.file, published));
+      continue;
+    }
     const exists = existsSync(target);
     const source = exists ? readFileSync(target, "utf8") : "";
     if (exists && !source.includes(`kj:managed:${wf.blockId}`)) {
