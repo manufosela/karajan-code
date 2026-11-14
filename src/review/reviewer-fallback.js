@@ -78,9 +78,15 @@ const RATE_LIMITS_TELEMETRY = /"rate_limits"\s*:\s*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]
 // KJC-BUG-0471 (#3064): a revoked or expired session. The fix is to sign in again, not to wait.
 const AUTH_RE = /\b401\b|unauthori[sz]ed|refresh_token_(?:invalidated|expired|reused)|token (?:was |has been )?(?:revoked|expired)|(?:log|sign) (?:out and sign )?in again|not logged in/i;
 
+// KJC-BUG-0587 (#4271): the account itself says it is out of quota. That statement wins over
+// auth-looking lines elsewhere in the output (a 401 from a token refresh, for one).
+const EXPLICIT_QUOTA_RE = /hit your .{0,20}limit|usage limit|out of credits|try again at [A-Z]/i;
+
 /** True when the agent could not authenticate: the session, not the quota. */
 export function isAuthFailure(text) {
-  return typeof text === "string" && AUTH_RE.test(text.replace(RATE_LIMITS_TELEMETRY, ""));
+  if (typeof text !== "string") return false;
+  const clean = text.replace(RATE_LIMITS_TELEMETRY, "");
+  return AUTH_RE.test(clean) && !EXPLICIT_QUOTA_RE.test(clean);
 }
 
 /** True when the agent error smells like exhausted quota, not a real failure. An auth failure never is. */

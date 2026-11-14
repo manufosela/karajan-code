@@ -10,6 +10,7 @@ import path from "node:path";
 import {
   REVIEWER_CANDIDATES,
   isQuotaExhausted,
+  isAuthFailure,
   candidateStatus,
   pickQuotaFallback,
   formatCandidateMenu,
@@ -59,6 +60,47 @@ describe("an auth failure is never quota", () => {
     expect(msg).toMatch(/not signed in.*codex-tribbu/);
     expect(msg).toMatch(/codex logout.*codex login/);
     expect(msg).not.toMatch(/cuota|quota/i);
+  });
+});
+
+// KJC-BUG-0587 (#4271): an explicit quota statement wins over auth-looking noise in codex's output.
+const CODEX_OUT_OF_QUOTA =
+  "ERROR: You have hit your usage limit. Upgrade to Pro, visit chatgpt.com/codex/settings/usage to purchase more credits or try again at Nov 18th, 2026 10:59 AM.";
+const CODEX_NOISY_QUOTA = `WARN codex_core::auth: token refresh got 401 Unauthorized, will retry\n${CODEX_OUT_OF_QUOTA}`;
+
+describe("an explicit quota statement beats incidental auth text", () => {
+  it("is quota, not auth, even next to a 401 line", () => {
+    expect(isAuthFailure(CODEX_NOISY_QUOTA)).toBe(false);
+    expect(isQuotaExhausted(CODEX_NOISY_QUOTA)).toBe(true);
+    expect(reviewerFailureMessage("codex", CODEX_NOISY_QUOTA)).not.toMatch(/not signed in/);
+  });
+  it("a 401 / refresh_token_expired with no quota statement stays auth; telemetry alone is neither", () => {
+    expect(isAuthFailure("ERROR: 401 refresh_token_expired")).toBe(true);
+    const telemetry = '{"rate_limits":{"primary":{"used_percent":3}}}';
+    expect(isAuthFailure(telemetry)).toBe(false);
+    expect(isQuotaExhausted(telemetry)).toBe(false);
+  });
+  it("kj review falls back to the next reviewer and records its verdict", async () => {
+    const approve = JSON.stringify({ approved: true, blocking_issues: [], summary: "ok" });
+    const agents = {
+      codex: { reviewTask: async () => ({ ok: false, error: CODEX_NOISY_QUOTA }) },
+      copilot: { reviewTask: async () => ({ ok: true, output: approve }) },
+    };
+    const record = await runOneShotReview({
+      diff: "diff --git a/x.js b/x.js\n+1\n",
+      task: "review",
+      config: {},
+      logger: { info: () => {}, warn: () => {} },
+      projectDir: fs.mkdtempSync(path.join(os.tmpdir(), "kj-fb-proj-")),
+      hostAgent: "claude",
+      detectAgents: async () => [{ name: "codex", available: true }, { name: "copilot", available: true }],
+      createAgentFn: (name) => agents[name],
+      candidateStatusFn: async () => [
+        { name: "codex", installed: true, authenticated: true },
+        { name: "copilot", installed: true, authenticated: true },
+      ],
+    });
+    expect(record.reviewer).toBe("copilot");
   });
 });
 
