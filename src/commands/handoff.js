@@ -2,7 +2,7 @@
  * kj handoff add|list|show (KJC-TSK-0968, HUM-E, ADR 0018): the agent registers
  * what a gate denied it, with the gate's why; the human reads it by id.
  */
-import { addHandoff, listHandoffs, markHandoffDone, readHandoff, watchHandoffs } from "../harden/handoff.js";
+import { addHandoff, listHandoffs, markHandoffDone, readHandoff, waitHandoff, watchHandoffs } from "../harden/handoff.js";
 
 const line = (h) => {
   const why = h.kind === "task" ? "  (" + h.why + ")" : "";
@@ -10,7 +10,17 @@ const line = (h) => {
   return `${h.id}  ${h.status.padEnd(8)}  ${h.createdAt}  ${h.command}${why}${stops}`;
 };
 
-/** @returns {Promise<0|1>} */
+/** HU-4306: blocks until the handoff is done (0) or the timeout passes (2). */
+async function waitCommand({ projectDir, flags, log }) {
+  const minutes = Number(flags.timeout ?? 60);
+  if (!(minutes > 0)) throw new Error("kj handoff wait: --timeout es un número de minutos mayor que 0");
+  const h = await waitHandoff({ projectDir, id: flags.id, timeoutMs: minutes * 60000, intervalMs: flags.intervalMs });
+  if (!h) { log(`encargo ${flags.id} sigue abierto tras ${minutes} min`); return 2; }
+  log(`encargo ${h.id} hecho (${h.doneAt}): ${h.result ?? h.command}`);
+  return 0;
+}
+
+/** @returns {Promise<0|1|2>} */
 export async function handoffCommand({ action = "list", config, flags = {}, log = console.log }) {
   const projectDir = config?.projectDir || process.cwd();
   try {
@@ -21,8 +31,10 @@ export async function handoffCommand({ action = "list", config, flags = {}, log 
       if (record.kind === "task") log(`para qué (propuesto por el agente): ${record.why}`);
       else log(`por qué lo negó el gate (${record.denial.at}):\n${record.denial.why}`);
       log(`tu usuario lo revisa con kj handoff show ${record.id}; nadie copia y pega el comando.`);
+      log(`the agent can wait for it: kj handoff wait ${record.id}`);
       return 0;
     }
+    if (action === "wait") return await waitCommand({ projectDir, flags, log });
     if (action === "show") {
       const h = readHandoff({ projectDir, id: flags.id });
       if (flags.json) { log(JSON.stringify(h)); return 0; }

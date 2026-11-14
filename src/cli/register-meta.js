@@ -193,6 +193,8 @@ export function registerMeta(program, { pkgVersion }) {
     .argument("<id>", "handoff id (8 hex)").option("--json", "Output the record as JSON").action((id, flags) => handoff("show", { ...flags, id }));
   handoffCmd.command("done").description("The human did it: it leaves the pending handoffs and stays in the history")
     .argument("<id>", "handoff id (8 hex)").action((id, flags) => handoff("done", { ...flags, id }));
+  handoffCmd.command("wait").description("Block until the handoff is done (exit 0) or the timeout passes (exit 2); no network")
+    .argument("<id>", "handoff id (8 hex)").option("--timeout <minutes>", "minutes to wait (default 60)").action((id, flags) => handoff("wait", { ...flags, id }));
   handoffCmd.command("watch").description("Your task window: the pending handoffs, then each new one as it lands, with date and why (Ctrl+C to leave)")
     .action((flags) => handoff("watch", flags));
 
