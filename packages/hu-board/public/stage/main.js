@@ -186,7 +186,7 @@ async function start(signal) {
   // KJC-TSK-1620: the workshop under the pointer says its whole name and its HU; KJC-TSK-1621: a
   // tap or a click that does not drag opens that HU.
   let cards = state.cards ?? [];
-  const tapAt = watchWorkshops({ canvas, scene, tip: document.getElementById('stage-tip'), cardsOf: () => cards, openHu });
+  const tapAt = watchWorkshops({ canvas, scene, tip: document.getElementById('stage-tip'), cardsOf: () => cards, openHu, thingsOf: () => live.things() });
   canvas.addEventListener('pointerup', (e) => {
     const tap = pressed && Math.hypot(e.clientX - pressed.left, e.clientY - pressed.top) < 8;
     if (tap && e.pointerType !== 'mouse') pointAt({ left: e.clientX, top: e.clientY });
