@@ -1,10 +1,10 @@
 // KJC-TSK-1611 (the maintainer, 2026-11-13): the agents Karajan launches come out of it, as a cell
 // divides, and melt back into it when they end; they no longer walk in and out by the back door.
-// The host, whose session the person opens, still uses the door; a subagent, its host.
+// A subagent does so with its host; the host, whose session the person opens, by the side door.
 import { describe, expect, it } from 'vitest';
 
-import { CREW } from '../public/stage/layout.js';
-import { BUD_MS, DOOR, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
+import { CREW, WORKSHOP, doorAt, workshopAt } from '../public/stage/layout.js';
+import { BUD_MS, HOST_WALK_MS, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
 
 const start = (role, agent = 'codex') => ({ type: 'agent-activity', agent, role, phase: 'start', lane: 'main' });
 const end = (role, agent = 'codex') => ({ type: 'agent-activity', agent, role, phase: 'end', lane: 'main' });
@@ -28,9 +28,42 @@ describe('mitosis', () => {
     expect(workerAt(workers[0], 10_000 + WALK_MS)).toBeNull();
   });
 
-  it('the host still comes in by the door, full size', () => {
-    const [w] = withActivity([], { ...start('host', 'claude'), id: 's1' }, 0);
-    expect(workerAt(w, 0)).toMatchObject({ x: DOOR.x, z: DOOR.z });
-    expect(workerAt(w, 0).size).toBe(1);
+  // KJC-TSK-1628 (the maintainer, 2026-11-14): "the bots go behind the Sentinel… put the door on a
+  // side, and not walking over everyone… it goes back where it came from and melts beside it".
+  describe('the host and the side door', () => {
+    const lanes = ['main', 'HU-1-a', 'HU-2-b', 'HU-3-c'];
+    const xOf = (lane) => workshopAt(lanes.indexOf(lane), lanes.length).x;
+    const zOf = (lane) => workshopAt(lanes.indexOf(lane), lanes.length).z;
+    const door = doorAt(lanes.length);
+    const host = (lane) => withActivity([], { ...start('host', 'claude'), lane, id: 's1' }, 0)[0];
+    /** Whether a point stands on a workshop's pad (its plate in front is floor anyone walks). */
+    const onPad = ({ x, z }) => lanes.some((lane) => Math.abs(x - xOf(lane)) < WORKSHOP.width / 2 - 0.2 && Math.abs(z - zOf(lane)) < WORKSHOP.depth / 2 - 0.2);
+
+    it('the door stands at the left end of the aisle in front of the first row, and moves as the hall grows', () => {
+      expect(door.x).toBeCloseTo(xOf('main') - WORKSHOP.width / 2);
+      expect(door.z).toBeGreaterThan(zOf('main') + WORKSHOP.depth / 2);
+      expect(doorAt(8).x).toBeLessThan(doorAt(2).x);
+    });
+
+    it('comes in by the door, budding beside it, along the aisle and up to its desk, over no workshop on the way', () => {
+      const w = host('HU-3-c');
+      expect(workerAt(w, 0, xOf, zOf, door)).toMatchObject({ x: door.x, z: door.z, size: 0 });
+      expect(workerAt(w, BUD_MS, xOf, zOf, door).size).toBe(1);
+      for (let t = 0; t < HOST_WALK_MS; t += 50) {
+        const at = workerAt(w, t, xOf, zOf, door);
+        const spot = spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c'));
+        if (Math.hypot(at.x - spot.x, at.z - spot.z) > WORKSHOP.depth) expect(onPad(at), `t=${t}`).toBe(false);
+      }
+      expect(workerAt(w, HOST_WALK_MS, xOf, zOf, door)).toMatchObject({ ...spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c')), walking: false });
+    });
+
+    it('when its session ends it walks back the same way and melts beside the door', () => {
+      const [w] = withActivity([host('HU-2-b')], { ...end('host', 'claude'), lane: 'HU-2-b', id: 's1' }, 10_000);
+      const almost = workerAt(w, 10_000 + HOST_WALK_MS - 1, xOf, zOf, door);
+      expect(almost.size).toBeLessThan(0.01);
+      expect(almost.x).toBeCloseTo(door.x, 1);
+      expect(almost.z).toBeCloseTo(door.z, 1);
+      expect(workerAt(w, 10_000 + HOST_WALK_MS, xOf, zOf, door)).toBeNull();
+    });
   });
 });

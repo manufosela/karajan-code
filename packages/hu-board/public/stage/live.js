@@ -17,7 +17,7 @@ import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
 import { PIECE_WALK_MS, VISIT_SPOTS, gestureAt, pieceAt, withVisit } from './piece-visit.js';
 import { reviewsAt, withReviews } from './review-crew.js';
-import { POST, WORKSHOP, postX } from './layout.js';
+import { POST, WORKSHOP, doorAt, postX } from './layout.js';
 import { tagAt } from './screen.js';
 import { newRelease, readyToRelease, versionLine } from './release.js';
 import { counterRelease, droneAt, releaseFlight, tableCards, watcherAt } from './drone.js';
@@ -83,7 +83,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   const director = createDirector();
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
   // KJC-TSK-1569 (ADR 0056): the own robots wear this person's avatar.
-  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin, avatar }, working, performance.now());
+  const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin, avatar, doorOf: () => doorAt(hall.count()) }, working, performance.now());
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
   const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
   let flight = null; // KJC-TSK-1547: the release the drone is taking away, if one is

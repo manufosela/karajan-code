@@ -144,7 +144,7 @@ const work = (robot, worker, pose, t) =>
   typeOn(robot, { typing: !pose.walking && !pose.reading && !pose.waiting, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
 
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
-export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null }, lanes, now) {
+export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null, doorOf }, lanes, now) {
   let own = avatar; // KJC-TSK-1569: this person's avatar, which their robots wear
   // KJC-TSK-1598: this person's login, which names the own host; a saved avatar does not carry it.
   const me = { login: avatar?.login ?? null };
@@ -182,7 +182,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     frame(t) {
       const seen = [];
       for (const worker of workers) {
-        const pose = workerAt(worker, t, xOf, zOf);
+        const pose = workerAt(worker, t, xOf, zOf, doorOf?.()); // KJC-TSK-1628: the side door of this hall
         const key = visitKey(worker);
         let robot = robots.get(key);
         if (!pose) {
@@ -210,7 +210,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         const body = robot.root.position.clone().setY(1.8 * scaleOf(worker));
         seen.push({ key, worker, head, body });
       }
-      workers = workers.filter((w) => workerAt(w, t, xOf, zOf) !== null);
+      workers = workers.filter((w) => workerAt(w, t, xOf, zOf, doorOf?.()) !== null);
       return labelsOf(seen);
     },
   };

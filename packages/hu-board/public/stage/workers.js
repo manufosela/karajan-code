@@ -3,10 +3,12 @@
 // works at the bench of the workshop of its lane (ADR 0048) and walks out when
 // it ends. KJC-TSK-1435: so does the host agent, and each subagent it opens walks
 // out of it and back. Pure: the scene reads the poses.
-import { CREW, DOOR, STAND, WORKSHOP } from './layout.js';
+import { AISLE_DZ, CREW, STAND, WORKSHOP, doorAt } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
+/** KJC-TSK-1628: a host's longer way between the side door and its desk, along the aisle. */
+export const HOST_WALK_MS = 2 * WALK_MS;
 // How far in front of (+) or behind (-) its workshop's centre each one works. KJC-TSK-1609 (the
 // maintainer, 2026-11-13): in the middle, so no empty floor is left in front of the desks.
 const BENCH_DZ = 0;
@@ -192,16 +194,48 @@ function detourAt(detour, now, spot) {
  * `xOf`/`zOf` give a lane's workshop. A subagent walks out of its host and back to it;
  * everyone else comes in by the door and leaves by it.
  */
-export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z) {
+export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, door = doorAt(1)) {
   const laneX = xOf(worker.lane);
   const laneZ = zOf(worker.lane);
   const spot = spotOf(worker.role, laneX, worker.slot, laneZ);
-  const gate = gateOf(worker.role, laneX, laneZ);
+  // KJC-TSK-1628: the host walks the aisle between the side door and its desk (unless it brings
+  // skills: then by atril, as before, from the side door).
+  if (worker.role === 'host' && !(worker.reads && worker.leftAt === undefined)) return hostAt(worker, now, spot, hostWay(door, spot, laneZ));
+  const gate = worker.role === 'host' ? door : gateOf(worker.role, laneX, laneZ);
   if (worker.leftAt !== undefined && now >= worker.leftAt) return leavingAt(worker, now, spot, gate);
   // KJC-TSK-1610: a host already at its desk goes to atril and back when kj gives it skills.
   const away = detourAt(worker.detour, now, spot);
   if (away) return { ...away, size: 1 };
   return arrivingAt(worker, now, spot, gate);
+}
+
+/** KJC-TSK-1628: from the side door along the left edge to its row's aisle, along it, and up to its desk. */
+const hostWay = (door, spot, laneZ) => [door, { x: door.x, z: laneZ + AISLE_DZ }, { x: spot.x, z: laneZ + AISLE_DZ }, spot];
+
+/** Where a walk along `points` is at `k` (0..1 of its length), and which way it faces. */
+function along(points, k) {
+  const legs = points.slice(1).map((to, i) => ({ from: points[i], to, length: Math.hypot(to.x - points[i].x, to.z - points[i].z) }));
+  let left = Math.max(0, Math.min(1, k)) * legs.reduce((sum, leg) => sum + leg.length, 0);
+  for (const leg of legs) {
+    if (left <= leg.length && leg.length > 0) return { ...lerp(leg.from, leg.to, left / leg.length), yaw: facing(leg.from, leg.to) };
+    left -= leg.length;
+  }
+  return { ...points.at(-1), yaw: 0 };
+}
+
+/** KJC-TSK-1628: a host budding at the side door and walking to its desk, or back to melt there; null once gone. */
+function hostAt(worker, now, spot, way) {
+  if (worker.leftAt !== undefined && now >= worker.leftAt) {
+    const k = (now - worker.leftAt) / HOST_WALK_MS;
+    if (k >= 1) return null;
+    return { ...along(way.toReversed(), k), walking: true, size: Math.min(1, ((1 - k) * HOST_WALK_MS) / BUD_MS) };
+  }
+  const away = detourAt(worker.detour, now, spot);
+  if (away) return { ...away, size: 1 };
+  const t = Math.max(0, now - worker.since);
+  const size = Math.min(1, t / BUD_MS);
+  if (t < HOST_WALK_MS) return { ...along(way, t / HOST_WALK_MS), walking: true, reading: false, size };
+  return { ...spot, yaw: 0, walking: false, reading: false, waiting: Boolean(worker.waiting), size };
 }
 
 /** KJC-TSK-1611: walking out by its gate, one Karajan launched shrinking into it; null once gone. */
@@ -230,11 +264,10 @@ function arrivingAt(worker, now, spot, gate) {
 
 /**
  * KJC-TSK-1611 (the maintainer, 2026-11-13): where a worker comes in and leaves by: a subagent by its
- * host; the host, whose session the person opens, by the door; any agent Karajan launches, by Karajan.
+ * host; any agent Karajan launches, by Karajan. KJC-TSK-1628: the host, by the side door (workerAt).
  */
 function gateOf(role, laneX, laneZ) {
-  if (role === 'subagent') return spotOf('host', laneX, 0, laneZ);
-  return role === 'host' ? DOOR : KARAJAN;
+  return role === 'subagent' ? spotOf('host', laneX, 0, laneZ) : KARAJAN;
 }
 
 /**

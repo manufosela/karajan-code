@@ -2,7 +2,7 @@
 // is a robot of its own that walks in, works behind its station and walks out.
 import { describe, expect, it } from 'vitest';
 
-import { DOOR, KEY_MS, READER, SCROLL_MS, TURN_MS, codeScrollAt, WALK_MS, accentOf, labelOf, spotOf, turnFrom, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
+import { DOOR, HOST_WALK_MS, KEY_MS, READER, SCROLL_MS, TURN_MS, codeScrollAt, WALK_MS, accentOf, labelOf, spotOf, turnFrom, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
 import { CREW, STAND, WORKSHOP } from '../public/stage/layout.js';
 
 const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
@@ -59,7 +59,8 @@ describe('the host and its subagents (KJC-TSK-1435)', () => {
     workers = withActivity(workers, host('start', 'Edit'), 60_000);
     expect(workers).toHaveLength(1);
     expect(labelOf(workers[0])).toBe('claude · Edit');
-    expect(workerAt(workers[0], WALK_MS, xOf)).toMatchObject({ ...spotOf('host', 10), walking: false });
+    // KJC-TSK-1628: once it has walked the aisle from the side door.
+    expect(workerAt(workers[0], HOST_WALK_MS, xOf)).toMatchObject({ ...spotOf('host', 10), walking: false });
   });
 
   it('a host whose session has a name says it instead of its agent (KJC-TSK-1483)', () => {
