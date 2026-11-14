@@ -15,6 +15,7 @@ import { sealedFilesOf } from "../policy/engine.js";
 import { readIdentity } from "../identity/store.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { signAct } from "./act-sign.js";
+import { provenanceSignature } from "./phone-sign.js";
 import { humanActOf } from "./human-act.js";
 import { describeSupervisorChanges } from "./sign-changes.js";
 
@@ -88,6 +89,24 @@ function refuseSecondSeal(run, baseBranch) {
   const sealed = run(["log", "--format=%h", `${base}..HEAD`, "--", PROVENANCE_FILE]).split("\n").filter(Boolean);
   if (sealed.length === 0) return;
   throw new Error(`harden --commit: esta rama ya lleva un sello sin mergear (${sealed.join(", ")}): mergea su PR y sella en una rama nueva desde ${base}; dos sellos en una PR no se pueden mergear`);
+}
+
+/**
+ * KJC-BUG-0584: CI judges the seal with the repo roster alone (provenanceSignature), never with the
+ * ~/.karajan key kj also accepts here, and a seal it cannot verify is an ordinary commit there. The
+ * signer of THIS seal decides, not whoever else the roster holds. It warns before recording, never refuses.
+ */
+const VERDICT_ROUTE = "CI pedirá el veredicto cross-AI del commit del sello: kj review --range <sha>^..<sha> y, con la PR abierta, kj review --publish-pr <n>.";
+const ENROLL_ROUTE = "Desde un carril de este repo, teclea a mano kj identity enroll-phone --label <nombre>, mergéalo a main en su propia PR y vuelve a sellar; o usa la ruta del veredicto para este sello.";
+
+function warnIfRosterCannotVerify({ projectDir, logger, provenance }) {
+  if (!provenance.signature) {
+    logger.warn?.(`harden --commit: este sello no lleva firma (sin móvil), el padrón no puede verificarlo. ${VERDICT_ROUTE}`);
+    return;
+  }
+  const verdict = provenanceSignature({ projectDir, provenance });
+  if (verdict.required && verdict.ok) return;
+  logger.warn?.(`harden --commit: el padrón de este repo (.karajan/supervisor-signers.json) no contiene la clave que ha firmado este sello, así que CI no lo aceptará. ${VERDICT_ROUTE} ${ENROLL_ROUTE}`);
 }
 
 /**
@@ -188,6 +207,7 @@ export async function commitSupervisorRegeneration({
     files: hashed,
     ...(signatureBlock ? { signature: signatureBlock } : {}),
   };
+  warnIfRosterCannotVerify({ projectDir, logger, provenance });
   writeFileSync(join(projectDir, PROVENANCE_FILE), `${JSON.stringify(provenance, null, 2)}\n`, "utf8");
   recordGateDecision(projectDir, {
     decision: "exempt",

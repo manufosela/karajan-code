@@ -10,10 +10,12 @@ import { join } from "node:path";
 
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 
 import { commitSupervisorRegeneration, harnessGuards, PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
+import { addSigner, canonicalPayload } from "../../src/harden/phone-sign.js";
 import { verifiedSupervisorFiles } from "../../src/policy/supervisor-verify.js";
+import { CHALLENGE, passkey, passkeySigned } from "../_fixtures/passkey.js";
 import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 let repo;
@@ -458,5 +460,57 @@ describe("el sello cubre los guardias del Sentinel (KJC-BUG-0197)", () => {
       },
     });
     expect(signedFiles.map((f) => f.file)).toContain(".karajan/harness/stop.mjs");
+  });
+});
+
+describe("roster warning before the seal is recorded (KJC-BUG-0584)", () => {
+  // Real signatures, so the seal is judged as CI judges it; setNormalLevel leaves a roster with another key.
+  const phoneKey = generateKeyPairSync("ed25519");
+  const KEY = phoneKey.publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+  const keySigned = (files) => ({ ...CHALLENGE, signer: KEY, signature: sign(null, Buffer.from(canonicalPayload({ ...CHALLENGE, files }), "utf8"), phoneKey.privateKey).toString("base64") });
+  const rosterFile = () => join(repo, ".karajan", "supervisor-signers.json");
+  const rosterAdd = (entry) => writeFileSync(rosterFile(), JSON.stringify({ signers: [...JSON.parse(readFileSync(rosterFile(), "utf8")).signers, entry] }));
+  // `setup` turns the roster into the case under test; `signs` is who signs this seal on the phone.
+  const seal = async (setup, signs = keySigned) => {
+    setup();
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    const warns = [];
+    const phone = signs ? { enrolled: () => true, request: async ({ files }) => ({ ok: true, block: signs(files) }) } : HUMAN.deps.phone;
+    const logger = { info() {}, warn: (m) => warns.push(m) };
+    const res = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion: "9.9.9", generation, logger, deps: { ...HUMAN.deps, phone } });
+    return { res, warns: warns.filter((m) => m.includes("cross-AI")) };
+  };
+
+  it("no roster: warns with the enroll step and the seal still runs", async () => {
+    const { res, warns } = await seal(() => rmSync(rosterFile()));
+    expect(res.committed).toBe(true);
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain("kj identity enroll-phone --label <nombre>");
+  });
+
+  it("unsigned seal (no phone): warns with the verdict route, not the enroll step", async () => {
+    const { res, warns } = await seal(() => {}, null);
+    expect(res.committed).toBe(true);
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain("kj review --range <sha>^..<sha>");
+    expect(warns[0]).toContain("kj review --publish-pr <n>");
+    expect(warns[0]).not.toContain("enroll-phone");
+  });
+
+  it("roster holding the key that signed: no warning", async () => {
+    expect((await seal(() => addSigner(KEY, { projectDir: repo }))).warns).toEqual([]);
+  });
+
+  it("roster with other keys only: warns", async () => {
+    expect((await seal(() => {})).warns).toHaveLength(1);
+  });
+
+  it("an unrostered phone key with an unrelated passkey in the roster: warns", async () => {
+    expect((await seal(() => rosterAdd(passkey("cred-other").entry))).warns).toHaveLength(1);
+  });
+
+  it("a roster passkey signs: no warning", async () => {
+    const roster = passkey("cred-1");
+    expect((await seal(() => rosterAdd(roster.entry), (files) => passkeySigned(roster, files))).warns).toEqual([]);
   });
 });
