@@ -6,11 +6,11 @@
  * (eslint/prettier) and CI gates land in later slices (H-C / H-D).
  */
 
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { loadConfig } from "../config.js";
+import { resolveBaseBranch as resolveBase } from "../config/base-branch.js";
 import { resolveTestOnPush } from "../harden/test-on-push.js";
 import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { interactiveHarden } from "../harden/interactive.js";
@@ -99,8 +99,6 @@ export async function resolveHookCmds(projectDir, roots, scope = {}) {
   return { ...pinned, roots: perRoot };
 }
 
-const DEFAULT_BASE_BRANCH = "main";
-
 /**
  * KJC-BUG-0538 (#3763): the commit convention kj resolves for the project (its kj config and
  * history), written into commit-msg so the hook keeps it when kj is not on the PATH.
@@ -115,31 +113,8 @@ export async function resolveCommitConvention(projectDir, load = loadConfig) {
   return commitConventionOf({ config, projectDir });
 }
 
-/**
- * KJC-BUG-0233: loadConfig returns `{ config, ... }`; reading `base_branch` off
- * the result was always undefined, so the guard always protected "main".
- */
-export async function resolveBaseBranch(projectDir, load = loadConfig, logger = {}) {
-  let configured = null;
-  try {
-    // The merged value is "main" even when nobody wrote it: only a layer that set it (global, project, local) counts.
-    const loaded = await load(projectDir);
-    if (loaded?.baseBranchExplicit) configured = loaded.config?.base_branch || null;
-  } catch {
-    /* no kj config: the repository decides */
-  }
-  if (configured) return configured;
-  try {
-    // HU-3522: the remote HEAD, read locally (never the network); a person's own base_branch wins above.
-    const head = execFileSync("git", ["-C", projectDir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-    const branch = head.trim().replace(/^origin\//, "");
-    if (branch) return branch;
-  } catch {
-    /* no remote or no origin/HEAD: say so below */
-  }
-  logger.info?.(`kj harden: could not read the default branch (no origin/HEAD); using ${DEFAULT_BASE_BRANCH}. Set base_branch in the kj config or run \`git remote set-head origin -a\`.`);
-  return DEFAULT_BASE_BRANCH;
-}
+/** HU-4268: the resolver lives in config/base-branch.js (same behaviour); the positional signature stays. */
+export const resolveBaseBranch = (projectDir, load = loadConfig, logger = {}) => resolveBase(projectDir, { load, logger });
 
 export async function hardenCommand({
   projectDir = process.cwd(),

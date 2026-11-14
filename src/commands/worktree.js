@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { baseBranchFrom } from "../config/base-branch.js";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, mergedBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
@@ -60,7 +61,7 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
   // #2566: lanes hang from the main checkout, never from the lane the command runs in.
   const lanesDir = path.join(mainCheckout(projectDir), WORKTREE_DIR);
   const lanePath = (slug) => path.join(lanesDir, slug);
-  const baseName = config?.base_branch || "main";
+  const baseName = baseBranchFrom({ config, projectDir });
 
   if (action === "start") {
     const slug = String(args[0] || "").trim();

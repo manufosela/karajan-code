@@ -183,6 +183,8 @@ export async function loadConfig(projectDir) {
   const globalBase = globalConfig?.base_branch;
   const baseBranchExplicit = (!!globalBase && globalBase !== DEFAULTS.base_branch)
     || [projectConfig, localConfig].some((layer) => !!layer?.base_branch);
+  // HU-4268: callers that only hold `config` read the same flag from it (see config/base-branch.js).
+  Object.defineProperty(merged, Symbol.for("kj.baseBranchExplicit"), { value: baseBranchExplicit, enumerable: false });
   return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig, baseBranchExplicit };
 }
 

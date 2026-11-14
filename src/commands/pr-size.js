@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { baseBranchFrom } from "../config/base-branch.js";
 import { linguistGenerated } from "../review/linguist-generated.js";
 import { budgetedAdded, budgetedNet, countLines, movedLines, parseNumstat } from "../review/loc-budget.js";
 
@@ -56,7 +57,8 @@ function limitOf(raw) {
 
 export async function prSizeCommand({ config, logger = console, flags = {} }) {
   const limit = limitOf(flags.limit);
-  const s = await branchSize({ projectDir: config?.projectDir || process.cwd(), base: flags.base || config?.base_branch || "main" });
+  const projectDir = config?.projectDir || process.cwd();
+  const s = await branchSize({ projectDir, base: flags.base || baseBranchFrom({ config, projectDir }) });
   const result = limit === null ? s : { ...s, limit, over: s.net > limit };
   if (flags.json) process.stdout.write(`${JSON.stringify(result)}\n`);
   else if (result.over) logger.error(`pr-size: the branch adds ${s.net} net line(s) against ${s.base}, over the limit of ${limit}: partition it`);

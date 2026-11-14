@@ -38,6 +38,7 @@ import { correctionNote, reviewCorrectionRounds } from "../review/correction-rou
 import { cooldownAdvisories, cooldownGate, DEFAULT_COOLDOWN_HOURS, formatCooldown } from "../review/dep-cooldown.js";
 import { branchOverlaps, formatOverlaps } from "../review/branch-overlap.js";
 import { gateHookStatus } from "../review/gate-hook.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 
 // KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
 // (before spending sonar/reviewer effort) AND on --check — the pre-commit
@@ -717,7 +718,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   if (mutation.rejection) return recorded(mutation.rejection);
   // KJC-TSK-1052 (TEAM-F): another branch in progress touching the same files is said, never blocks.
   if (flags.staged && !flags.range) {
-    for (const line of formatOverlaps(await branchOverlaps({ projectDir, stagedFiles: changedFiles, base: config?.base_branch || "main" }))) console.log(line);
+    for (const line of formatOverlaps(await branchOverlaps({ projectDir, stagedFiles: changedFiles, base: baseBranchFrom({ config, projectDir }) }))) console.log(line);
   }
   const cooldown = await cooldownStep({ diff, config, std });
   if (cooldown.rejection) return recorded(cooldown.rejection);
