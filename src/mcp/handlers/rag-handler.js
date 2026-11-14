@@ -11,7 +11,7 @@ import { indexProject } from "../../rag/indexer.js";
 import { ragExclude } from "../../rag/indexable.js";
 import { query } from "../../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../../rag/path-hits.js";
-import { noteRagAnswer, noteRagIndex } from "../../rag/answer-note.js";
+import { noteRagAnswer, noteRagIndex, noteRagQuery } from "../../rag/answer-note.js";
 import { claimLease, holderLabel, indexLeasePath, releaseLease } from "../../rag/pid-lease.js";
 import { getKarajanHome } from "../../utils/paths.js";
 import { resolveProjectDir, buildConfig, responseText, failPayload } from "../shared-helpers.js";
@@ -51,6 +51,7 @@ export async function handleRagQuery(args, server) {
         const remedy = emptyIndexRemedy({ slug: project, legacyPath: join(getKarajanHome(), "rag.db"), dim });
         return responseText({ hits: [], empty: true, topK, scope, project, remedy });
       }
+      noteRagQuery({ projectDir }); // KJC-TSK-1630: kj stage shows kaRAGan at it until the answer
       const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project });
       // KJC-BUG-0348: a file the question names comes first, as in the CLI.
       const hits = withPathNamedHits(pathNamedHits(db, text, { project, projectDir }), ranked, topK);

@@ -256,7 +256,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: turnFrom(event, now), skills: event.skills };
       watch = withWatch(watch, event, now);
       marks = withMark(marks, event, now);
-      rag = withRag(rag, event, now);
+      rag = withRag(rag, event, now, index); // KJC-TSK-1630: before the answer ends its query
       index = withIndex(index, event, now);
       beat = withBeat(beat, event, now);
       visits = withVisit(visits, event, now);
