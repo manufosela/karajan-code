@@ -3,9 +3,12 @@
 // draws the panel.
 import { columnOf, mergeCards } from './cards.js';
 
-/** One entry per factory of the map (`/api/stage/map`), in its order; `current` is the open one. */
+// KJC-TSK-1629 (the maintainer, 2026-11-14): alphabetically, case and accents aside, to find one.
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+/** One entry per factory of the map (`/api/stage/map`), by name; `current` is the open one. */
 export function panelEntries(factories, current) {
-  return factories.map(({ project, name, lanes = [] }) => ({
+  return factories.toSorted(byName).map(({ project, name, lanes = [] }) => ({
     project,
     name,
     working: lanes.reduce((n, l) => n + (l.working?.length ?? 0), 0),
