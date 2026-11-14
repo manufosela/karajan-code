@@ -13,10 +13,9 @@ import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { LIVE_FILTER, verdictSonarProof } from "./sonar-requirement.js";
 import { linguistGenerated } from "./linguist-generated.js";
 import { loadStandingExceptions } from "../policy/exceptions.js";
+import { trustedReviews } from "./trusted-review.js";
 
 export const MARKER = (head) => `<!-- kj-review head=${head} -->`;
-/** Who may publish a kj review that counts: verify-pr ignores anyone else. */
-export const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
 // gh runs in the project's own directory, so it reads and writes the same repo the verdicts belong to.
 async function json(run, cmd, args, cwd) {
@@ -86,7 +85,9 @@ export async function publishPrReview({ projectDir, pr, run = runCommand, sealed
   // HU-4046: nor one published before the Sonar marks: its code commits fail verify-pr.
   const marked = (body, r) => body.split("\n").some((l) => l.startsWith(`- \`${r.oid.slice(0, 7)}\``) && l.endsWith(r.mark));
   const listsAll = (body) => rows.every((r) => marked(body, r)) && seals.every((c) => body.includes(`\`${c.oid.slice(0, 7)}\``));
-  if ((reviews ?? []).some((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER(info.headRefOid)) && listsAll(String(r.body)))) {
+  // HU-4270: the same judge of the author as verify-pr (trusted-review.js).
+  const forHead = (reviews ?? []).filter((r) => String(r.body ?? "").includes(MARKER(info.headRefOid)) && listsAll(String(r.body)));
+  if ((await trustedReviews(forHead, { projectDir, run })).trusted.length > 0) {
     return { published: false, reason: `a kj review for head ${info.headRefOid.slice(0, 7)} is already published` };
   }
   const body = [

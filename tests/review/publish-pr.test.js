@@ -40,6 +40,7 @@ function fakeRun({ reviews = [], posted = [], ghDirs = [], pr = PR, labels = [] 
     if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(pr) };
     if (cmd === "git") return { exitCode: 0, stdout: gitOf(args) };
     if (cmd === "gh" && args.includes("POST")) { posted.push(args); return { exitCode: 0, stdout: "{}" }; }
+    if (cmd === "gh" && String(args[1]).endsWith("/jorge/permission")) return { exitCode: 0, stdout: "write\n" };
     if (cmd === "gh" && args[0] === "api") return { exitCode: 0, stdout: JSON.stringify(reviews) };
     throw new Error(`unexpected ${cmd} ${args.join(" ")}`);
   };
@@ -164,5 +165,14 @@ describe("publishPrReview", () => {
     const r = await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews: [{ body: "…<!-- kj-review head=bbb2222 -->", author_association: "NONE" }] }) });
     expect(r).toMatchObject({ published: true, commits: 2 });
     expect(posted).toHaveLength(1);
+  });
+
+  // HU-4270: the same judge as verify-pr, a CONTRIBUTOR who can write to the repo counts.
+  it("a review for that head by a CONTRIBUTOR with write permission counts: it does not duplicate it", async () => {
+    for (const diff of Object.values(DIFFS)) await saveVerdict(dir, diff, { verdict: "approved", reviewer: "codex", sonar: SONAR });
+    const posted = [];
+    const reviews = [{ body: PUBLISHED, author_association: "CONTRIBUTOR", user: { login: "jorge" } }];
+    expect(await publishPrReview({ projectDir: dir, pr: 42, run: fakeRun({ posted, reviews }) })).toMatchObject({ published: false });
+    expect(posted).toHaveLength(0);
   });
 });
