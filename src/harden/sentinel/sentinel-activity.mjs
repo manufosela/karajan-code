@@ -83,6 +83,9 @@ export function laneOf(root, call) {
 export function traceHost(rootDir, call, phase, now = Date.now()) {
   // The user's switch for the whole Sentinel: off, the guards note nothing either.
   if (process.env.KJ_SENTINEL_OFF === "1") return;
+  // KJC-BUG-0589: a session kj launched (its role in KJ_POLICY_ROLE, claude-agent.js) is not the
+  // host: kj already traces it in that role, and noting it here drew a second host beside it.
+  if (process.env.KJ_POLICY_ROLE) return;
   const root = laneOf(rootDir, call);
   try {
     const dir = join(root, ".karajan", "harness");

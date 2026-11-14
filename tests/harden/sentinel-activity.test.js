@@ -121,6 +121,18 @@ describe("traceHost", () => {
     expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(false);
   });
 
+  // KJC-BUG-0589 (the maintainer, 2026-11-14): agents piled up behind the bench. The coder kj
+  // launches is a Claude session too, whose hooks noted it as a second host beside it.
+  it("notes nothing for a session kj launched, which kj traces in its own role", () => {
+    process.env.KJ_POLICY_ROLE = "coder";
+    try {
+      traceHost(root, call("Edit"), "pre", 0);
+      traceHost(root, call("Agent"), "pre", 1);
+      traceHost(root, call("Edit"), "stop", 2);
+    } finally { delete process.env.KJ_POLICY_ROLE; }
+    expect(existsSync(join(root, ".karajan", "traces", "agent-activity.jsonl"))).toBe(false);
+  });
+
   it("never throws: a trace it cannot write is not a reason to stop a tool call", () => {
     expect(() => traceHost(join(root, "missing\0dir"), call("Bash"), "pre", 0)).not.toThrow();
   });
