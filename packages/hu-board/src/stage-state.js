@@ -50,7 +50,8 @@ const lastRecord = (file, toEvent, tailBytes) => lastOf(tailRecords(file, toEven
 /** KJC-TSK-1435: the host beats at least once a minute while it works, so a silent host has stopped sooner. */
 const STALE_HOST_MS = 5 * 60 * 1000;
 /** KJC-TSK-1606: how long a host that ended its turn waiting is still drawn as waiting. */
-const WAITING_HOST_MS = 12 * 60 * 60 * 1000;
+// KJC-BUG-0583: two hours, not twelve; a session closed while waiting is not drawn for the day.
+const WAITING_HOST_MS = 2 * 60 * 60 * 1000;
 
 /**
  * KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role;
@@ -61,7 +62,11 @@ function agentsAtWork(records, now, waitOf) {
   for (const ev of records) last.set(ev.id ?? `${ev.agent}:${ev.role}`, ev);
   const fresh = (ev) => now - Date.parse(ev.at) < (ev.role === 'host' ? STALE_HOST_MS : STALE_START_MS);
   // KJC-TSK-1606: a host whose turn ended waiting for the person or a process is still there, for a while.
-  const waiting = (ev) => ev.phase === 'end' && ev.role === 'host' && ev.id && now - Date.parse(ev.at) < WAITING_HOST_MS ? waitOf(ev.id) : null;
+  // KJC-BUG-0583: and only the lane's latest host: one that another host followed has gone.
+  const hosts = [...last.values()].filter((ev) => ev.role === 'host').map((ev) => Date.parse(ev.at));
+  const latest = Math.max(...hosts);
+  const recent = (ev) => now - Date.parse(ev.at) < WAITING_HOST_MS && Date.parse(ev.at) >= latest;
+  const waiting = (ev) => (ev.phase === 'end' && ev.role === 'host' && ev.id && recent(ev) ? waitOf(ev.id) : null);
   return [...last.values()]
     .map((ev) => ({ ev, wait: waiting(ev) }))
     .filter(({ ev, wait }) => wait || (ev.phase === 'start' && fresh(ev)))

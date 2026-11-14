@@ -102,7 +102,7 @@ describe('lastStageState', () => {
   });
 
   // KJC-TSK-1606: a host that ended its turn waiting for the person or a process is still there.
-  it('keeps a host that ended its turn waiting, for 12 hours, with what it waits for', () => {
+  it('keeps a host that ended its turn waiting, for a while, with what it waits for', () => {
     const now = Date.parse('2026-11-05T10:00:00Z');
     writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl(
       { at: '2026-11-05T09:00:00Z', agent: 'claude', role: 'host', phase: 'start', id: 's1', tool: 'Bash' },
@@ -115,6 +115,21 @@ describe('lastStageState', () => {
     const { working } = lastStageState(proj, { now, waitOf, nameOf: () => null });
     expect(working).toHaveLength(1); // s2 says nothing to wait for; s3 ended 14 hours ago
     expect(working[0]).toMatchObject({ agent: 'claude', role: 'host', at: '2026-11-05T09:01:00Z', id: 's1', waiting: 'person' });
+  });
+
+  // KJC-BUG-0583 (the maintainer, 2026-11-14): a factory showed dozens of hosts waiting, one per
+  // session that had passed through the lane that day. Only the lane's latest host can be waiting.
+  it('only the latest host of the lane can be waiting, and for two hours at most', () => {
+    const now = Date.parse('2026-11-05T10:00:00Z');
+    writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl(
+      { at: '2026-11-05T09:00:00Z', agent: 'claude', role: 'host', phase: 'end', id: 'old1' },
+      { at: '2026-11-05T09:10:00Z', agent: 'claude', role: 'host', phase: 'end', id: 'old2' },
+      { at: '2026-11-05T09:20:00Z', agent: 'claude', role: 'host', phase: 'end', id: 'new' },
+    ));
+    const waitOf = () => 'person';
+    expect(lastStageState(proj, { now, waitOf, nameOf: () => null }).working.map((w) => w.id)).toEqual(['new']);
+    // three hours later, not even the latest
+    expect(lastStageState(proj, { now: now + 3 * 60 * 60 * 1000, waitOf, nameOf: () => null }).working).toEqual([]);
   });
 
   it('takes the last commit attempt the commit-msg guard traced (KJC-TSK-1427)', () => {
