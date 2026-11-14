@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CARDS, KINDS, legendSections } from '../public/stage/legend.js';
 import { STATIONS } from '../public/stage/layout.js';
+import { TEAMMATE, recipeOf } from '../public/stage/portrait-recipes.js';
 
 const byId = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
@@ -55,6 +56,22 @@ describe('legendSections', () => {
       for (const card of section.cards) expect(card.kind).toBe(section.kind);
     }
     expect(sections.flatMap((s) => s.cards)).toHaveLength(CARDS.length);
+  });
+
+  it('KJC-TSK-1618: every card has a portrait recipe, of the kind its character is drawn with', () => {
+    for (const card of CARDS) expect(recipeOf(card.id), card.id).not.toBeNull();
+    for (const id of STATIONS) expect(recipeOf(id)).toEqual({ piece: id });
+    expect(recipeOf('host')).toMatchObject({ worker: { role: 'host' }, avatar: 'own' });
+    expect(recipeOf('teammate')).toMatchObject({ worker: { role: 'host' }, avatar: 'teammate' });
+    // The coder wears Sonnet's headphones: the dark band over the head the maintainer asked about.
+    expect(recipeOf('coder')).toMatchObject({ worker: { role: 'coder', model: 'sonnet' } });
+    expect(recipeOf('wardrobe').wardrobe).toEqual(['fable', 'opus', 'sonnet', 'haiku']);
+    expect(recipeOf('nobody')).toBeNull();
+  });
+
+  it('KJC-TSK-1618: a teammate\'s portrait wears another person\'s colour and emblem', () => {
+    expect(TEAMMATE.emblem).toMatch(/\S/);
+    expect(TEAMMATE.color).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it('a kind without cards leaves no empty section', () => {

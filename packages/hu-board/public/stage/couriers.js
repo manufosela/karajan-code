@@ -7,7 +7,7 @@ import { dispose } from './agents-floor.js';
 import { SCALE } from './layout.js';
 import { courierAt, noteLines, tripFor } from './courier.js';
 
-const COURIER = 0x8fa3b8; // a plain grey-blue: it is Karajan's errand robot, not an agent
+export const COURIER = 0x8fa3b8; // a plain grey-blue: it is Karajan's errand robot, not an agent
 const NOTE_OVER = 4.2; // metres over the robot's feet before scaling: above its helmet
 
 /** The card's note, its id painted on it, as the wall shows it (bench-notes.js puts it on the benches too). */
