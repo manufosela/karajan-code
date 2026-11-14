@@ -114,6 +114,14 @@ export function ragIndexEvent(raw) {
   return { type: 'rag-index', at: at.toISOString(), phase: r.phase };
 }
 
+/** KJC-TSK-1630: .karajan/harness/rag-query.json (kj rag query starts) → a rag-query event, or null. Never the question. */
+export function ragQueryEvent(raw) {
+  const r = parse(raw);
+  const at = new Date(typeof r?.at === 'number' ? r.at : Number.NaN);
+  if (!Number.isFinite(at.getTime()) || r.phase !== 'start') return null;
+  return { type: 'rag-query', at: at.toISOString(), phase: 'start' };
+}
+
 const sizeOf = (file) => { try { return statSync(file).size; } catch { return 0; } };
 
 /**
@@ -177,8 +185,11 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
       if (event && key !== lastNote.get(file)) { lastNote.set(file, key); send({ ...event, project }); }
     }
   };
-  // KJC-TSK-1438, 1521: what the RAG last answered and whether it is reindexing.
-  const notes = new Map([[join(root, 'harness', 'rag-answer.json'), ragEvent], [join(root, 'harness', 'rag-index.json'), ragIndexEvent]]);
+  // KJC-TSK-1438, 1521, 1630: what the RAG last answered, whether it is reindexing and a query that starts.
+  const notes = new Map([
+    [join(root, 'harness', 'rag-answer.json'), ragEvent], [join(root, 'harness', 'rag-index.json'), ragIndexEvent],
+    [join(root, 'harness', 'rag-query.json'), ragQueryEvent],
+  ]);
   const lastNote = new Map();
   // chokidar misses a path that did not exist when the watch began, so it
   // watches the project and lets through only the way down to these records.

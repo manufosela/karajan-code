@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { noteRagAnswer, noteRagIndex } from "../../src/rag/answer-note.js";
+import { noteRagAnswer, noteRagIndex, noteRagQuery } from "../../src/rag/answer-note.js";
 
 let dir;
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-answer-note-")); });
@@ -38,6 +38,20 @@ describe("noteRagIndex", () => {
 
   it("writes nothing outside a kj project", () => {
     noteRagIndex({ projectDir: dir, phase: "start" });
+    expect(fs.existsSync(path.join(dir, ".karajan"))).toBe(false);
+  });
+});
+
+// KJC-TSK-1630 (the maintainer, 2026-11-14): "if the RAG is querying, shouldn't kaRAGan move?"
+describe("noteRagQuery", () => {
+  it("writes when a query starts in a kj project, never the question", () => {
+    fs.mkdirSync(path.join(dir, ".karajan"));
+    noteRagQuery({ projectDir: dir, now: 5 });
+    expect(JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "harness", "rag-query.json"), "utf8"))).toEqual({ at: 5, phase: "start" });
+  });
+
+  it("writes nothing outside a kj project", () => {
+    noteRagQuery({ projectDir: dir });
     expect(fs.existsSync(path.join(dir, ".karajan"))).toBe(false);
   });
 });

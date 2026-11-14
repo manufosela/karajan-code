@@ -19,6 +19,17 @@ export function noteRagAnswer({ projectDir, text, hits, now = Date.now() }) {
  * KJC-TSK-1521: that a reindex starts or ends here (`phase`), for kj stage, which shows
  * kaRAGan at it meanwhile. Same rule: only in a kj project.
  */
+/**
+ * KJC-TSK-1630: that a query starts here, for kj stage, which shows kaRAGan at it until its answer
+ * (noteRagAnswer) comes. Never the question. Same rule: only in a kj project.
+ */
+export function noteRagQuery({ projectDir, now = Date.now() }) {
+  if (!existsSync(join(projectDir, ".karajan"))) return;
+  const dir = join(projectDir, ".karajan", "harness");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "rag-query.json"), `${JSON.stringify({ at: now, phase: "start" })}\n`);
+}
+
 export function noteRagIndex({ projectDir, phase, now = Date.now() }) {
   if (!existsSync(join(projectDir, ".karajan"))) return;
   const dir = join(projectDir, ".karajan", "harness");

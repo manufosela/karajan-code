@@ -77,6 +77,8 @@ export function withEvent(state, event) {
     case 'rag-answer': return { ...state, rag: { sources: event.sources, lane: event.lane ?? 'main', at: event.at } };
     // KJC-TSK-1522: the RAG starts or ends a reindex of a lane; kaRAGan types there meanwhile.
     case 'rag-index': return { ...state, reindex: { phase: event.phase, lane: event.lane ?? 'main', at: event.at } };
+    // KJC-TSK-1630: a query that starts, which kaRAGan works at until its answer.
+    case 'rag-query': return { ...state, ragQuery: { lane: event.lane ?? 'main', at: event.at } };
     // KJC-TSK-1524: kj review checked TDD, Sonar or the Steward.
     case 'method-check': return { ...state, checks: { ...state.checks, [event.piece]: { outcome: event.outcome, at: event.at } } };
     // KJC-TSK-1458 (ADR 0050): a card pinned or moved; a queued move changes nothing yet.

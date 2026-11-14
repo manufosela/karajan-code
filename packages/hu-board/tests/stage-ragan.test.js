@@ -57,6 +57,25 @@ describe('kaRAGan reindexing', () => {
     expect(raganAt(null, 1000 + INDEX_MAX_MS + RAGAN_WALK_MS, xOf, undefined, start)).toMatchObject({ x: CREW.rag.x, z: CREW.rag.z, walking: false });
   });
 
+  // KJC-TSK-1630 (the maintainer, 2026-11-14): "I only see the agent waiting; if the RAG is querying,
+  // shouldn't it move?" A query in progress keeps kaRAGan typing at the lane until its answer comes.
+  it('a query in progress: it walks to the lane and types there until that lane\'s answer, with no second trip', () => {
+    const query = withIndex(null, { type: 'rag-query', phase: 'start', lane: 'kj-stage', at: '2026-11-14T10:00:00Z' }, 1000);
+    expect(query).toMatchObject({ lane: 'kj-stage', at: 1000, end: null, query: true });
+    expect(raganAt(null, 1000 + RAGAN_WALK_MS + 5000, xOf, undefined, query)).toMatchObject({ walking: false, typing: true });
+    expect(withIndex(query, answer('main'), 9000)).toBe(query); // another lane's answer does not end it
+    const answered = withIndex(query, answer('kj-stage'), 9000);
+    expect(answered.end).toBe(9000);
+    expect(withRag(null, answer('kj-stage'), 9000, query)).toBeNull(); // it is there already
+    expect(withRag(null, answer('main'), 9000, query)).toEqual({ lane: 'main', at: 9000 });
+    expect(raganAt(null, 9000 + RAGAN_WALK_MS, xOf, undefined, answered)).toMatchObject({ x: CREW.rag.x, z: CREW.rag.z, walking: false });
+  });
+
+  it('the stage takes a query start as an event of its own', () => {
+    const event = { type: 'rag-query', phase: 'start', lane: 'kj-stage', at: '2026-11-14T10:00:00Z' };
+    expect(withEvent({}, event)).not.toEqual({});
+  });
+
   it('the status list says it reindexes, and where', () => {
     const state = withEvent({}, index('start'));
     expect(restState(state, Date.parse('2026-11-11T10:00:30Z')).lines).toEqual(['kaRAGan: reindexing in kj-stage, since just now']);

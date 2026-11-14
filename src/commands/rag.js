@@ -19,7 +19,7 @@ import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { countProjectChunks, countProjectSources, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
 import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
-import { noteRagAnswer, noteRagIndex } from "../rag/answer-note.js";
+import { noteRagAnswer, noteRagIndex, noteRagQuery } from "../rag/answer-note.js";
 import { resolveLaneDir } from "../utils/lane-dir.js";
 
 // KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
@@ -198,6 +198,7 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // KJC-TSK-1180 (RAG-B3): a relative `source~=` prefix is placed under this project's root.
     const where = whereFor(flags, library);
     const rerankOpts = rerankOptionsFor({ config, flags, logger });
+    noteRagQuery({ projectDir }); // KJC-TSK-1630: kj stage shows kaRAGan at it until the answer
     const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, rrfK, where, whereRoot: projectDir, rerankOpts });
     const hits = library ? ranked : withPathNamedHits(pathNamedHits(db, text, { project, projectDir }), ranked, topK);
     printHits(hits, flags, logger);

@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { activityEvent, cardEvent, denialEvent, decisionEvent, gateEvent, methodEvent, ragEvent, ragIndexEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
+import { activityEvent, cardEvent, denialEvent, decisionEvent, gateEvent, methodEvent, ragEvent, ragIndexEvent, ragQueryEvent, verdictEvent, createTail, watchStageFeed } from '../src/stage-feed.js';
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 
@@ -65,6 +65,13 @@ describe('stage events from kj records', () => {
     expect(ragIndexEvent(JSON.stringify({ at: 0, phase: 'end' })).phase).toBe('end');
     expect(ragIndexEvent(JSON.stringify({ at: 0, phase: 'nap' }))).toBeNull();
     expect(ragIndexEvent(JSON.stringify({ at: 1e20, phase: 'start' }))).toBeNull();
+  });
+
+  // KJC-TSK-1630: kj rag query says when it starts, so kaRAGan works while it runs.
+  it('a query start gives a rag-query event, never what was asked', () => {
+    expect(ragQueryEvent(JSON.stringify({ at: 0, phase: 'start', text: 'secret' }))).toEqual({ type: 'rag-query', at: '1970-01-01T00:00:00.000Z', phase: 'start' });
+    expect(ragQueryEvent(JSON.stringify({ at: 0, phase: 'end' }))).toBeNull();
+    expect(ragQueryEvent('not json')).toBeNull();
   });
 
   // KJC-TSK-1457 (ADR 0050): the card trace kj hu add and kj hu move leave in the lane.
