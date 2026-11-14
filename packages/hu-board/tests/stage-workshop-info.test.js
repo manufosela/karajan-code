@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { WORKSHOP } from '../public/stage/layout.js';
-import { huOfLane, laneAtPoint, tipOf } from '../public/stage/workshop-info.js';
+import { huOfLane, laneAtPoint, storyFacts, storyPath, tipOf } from '../public/stage/workshop-info.js';
 
 const lanes = ['main', 'HU-4295-the-signer-page-says-who-signs'];
 const xOf = (lane) => ({ main: -4, 'HU-4295-the-signer-page-says-who-signs': 4 })[lane];
@@ -50,5 +50,24 @@ describe('tipOf', () => {
 
   it('adds the lane\'s status line, which the plate cuts too, whole', () => {
     expect(tipOf('main', null, 'idle: @teammate: lane states of every board')).toEqual(['main', 'idle: @teammate: lane states of every board']);
+  });
+
+  it('KJC-TSK-1621: with an HU, it says a click opens it', () => {
+    expect(tipOf('HU-9-x', { id: 'HU-9', title: 'T' }, '', true)).toEqual(['HU-9-x', 'HU-9 · T', 'Click to open the HU']);
+  });
+});
+
+// KJC-TSK-1621 (the maintainer, 2026-11-14): "ideally open a popup with the HU from the board, to inform".
+describe('the HU from the board', () => {
+  it('asks the board for the story by its project and id', () => {
+    expect(storyPath('home_manu_ws x', 'HU-4295')).toBe('/api/stories/home_manu_ws%20x%3A%3AHU-4295');
+  });
+
+  it('shows only what the board holds of it, in reading order', () => {
+    const story = { status: 'running', title: 'T', certified_as: 'a maintainer', certified_want: 'X', certified_so_that: 'Y', assignee: null, acceptance_criteria: '["Given A"]', outcome: '', updated_at: '2026-11-14T09:14:35.042Z' };
+    expect(storyFacts(story)).toEqual([
+      ['Status', 'running'], ['As', 'a maintainer'], ['I want', 'X'], ['So that', 'Y'],
+      ['Acceptance criteria', '["Given A"]'], ['Updated', '2026-11-14 09:14'],
+    ]);
   });
 });
