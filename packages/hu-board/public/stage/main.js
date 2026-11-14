@@ -12,14 +12,24 @@ import { boardToken, withToken } from './token.js';
 import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
-import { panelBadge, panelEntries, panelHref, panelLine } from './project-panel.js';
+import { opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
 
-const canvas = document.getElementById('stage');
+let canvas = document.getElementById('stage');
 const status = document.getElementById('stage-status');
-const project = new URLSearchParams(location.search).get('project');
+// KJC-TSK-1613: the factory on screen, which the panel switches without reloading the page.
+let project = projectOf(location.search);
+const wantsMap = new URLSearchParams(location.search).get('map') === '1';
+/** KJC-TSK-1613: the factory drawn now: how to stop it, and what a saved avatar dresses. */
+let current = null;
+/** KJC-TSK-1613: the old canvas goes with every listener on it; the new one takes its place. */
+const freshCanvas = () => {
+  const next = canvas.cloneNode(false);
+  canvas.replaceWith(next);
+  canvas = next;
+};
 // KJC-BUG-0492: off loopback the board asks for its token, as on the RAG and Wiki pages.
 const token = boardToken(location.search, () => localStorage);
 // KJC-TSK-1468: the loading indicator goes with the first word, once that frame is drawn.
@@ -32,7 +42,7 @@ const itemOf = (line) => (typeof line === 'string'
 const tell = (lines) => { status.replaceChildren(...lines.map((line) => Object.assign(document.createElement('li'), itemOf(line)))); loaded(); };
 
 /** Builds the hall with one workshop per lane; returns its pieces, crew, hall and render. */
-function buildScene(lanes) {
+function buildScene(lanes, signal) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -59,7 +69,7 @@ function buildScene(lanes) {
     camera.updateProjectionMatrix();
     render();
   };
-  addEventListener('resize', refit);
+  addEventListener('resize', refit, { signal });
   listenZoom(canvas, (k) => { zoom = k; refit(); });
   // KJC-TSK-1592: dragging walks over the hall at any zoom, as on the map, and stops at its edge.
   listenPan(canvas, (dx, dy) => {
@@ -68,7 +78,7 @@ function buildScene(lanes) {
     refit();
   });
   refit();
-  return { scene, pieces, crew, stand, hall, wall, releaseTable, versionBoard, camera, render, refit };
+  return { scene, pieces, crew, stand, hall, wall, releaseTable, versionBoard, camera, render, refit, renderer };
 }
 
 /** KJC-TSK-1569 (ADR 0056): this person's avatar from the board; none when it cannot be read. */
@@ -92,10 +102,15 @@ async function saveAvatar(avatar) {
   return res.json();
 }
 
-/** KJC-TSK-1570: the Avatar button opens the panel; a saved avatar dresses `scene`'s robots at once. */
+/**
+ * KJC-TSK-1570: the Avatar button opens the panel; a saved avatar dresses the robots on screen at
+ * once. KJC-TSK-1613: mounted once, it dresses whichever scene is drawn when it is saved.
+ */
+let avatarTarget = null;
 function offerAvatarPanel(scene) {
   const button = document.getElementById('stage-avatar');
-  mountAvatarPanel({ button, dialog: document.getElementById('stage-avatar-panel'), load: fetchAvatar, save: saveAvatar, onSaved: (avatar) => scene.setAvatar(avatar) });
+  if (!avatarTarget) mountAvatarPanel({ button, dialog: document.getElementById('stage-avatar-panel'), load: fetchAvatar, save: saveAvatar, onSaved: (avatar) => avatarTarget.setAvatar(avatar) });
+  avatarTarget = scene;
   button.hidden = false;
 }
 
@@ -111,14 +126,22 @@ async function fetchState() {
   }
 }
 
-async function start() {
+/**
+ * KJC-TSK-1613: draws `project`'s factory until `signal` aborts; then its events, timers and
+ * frames stop and its renderer lets the canvas go.
+ */
+async function start(signal) {
   document.getElementById('stage-project').textContent = `kj stage · ${project}`;
   const { state, error } = await fetchState();
+  if (signal.aborted) return;
   if (error) { tell([`The board cannot read this project: ${error}`]); return; }
-  const scene = buildScene((state.lanes ?? [{ lane: 'main' }]).map((l) => l.lane));
+  const scene = buildScene((state.lanes ?? [{ lane: 'main' }]).map((l) => l.lane), signal);
+  // The browser keeps only a few WebGL contexts: the old one is let go, not left for the collector.
+  signal.addEventListener('abort', () => { scene.renderer.dispose(); scene.renderer.forceContextLoss(); });
   // The status list never goes blank: with nothing to tell, it says so (also after a live event).
   const tellState = (lines) => tell(lines.length ? lines : ['Nothing has happened in this project yet: the stage is at rest.']);
   const live = createLive(scene, { state, tell: tellState, counts: document.getElementById('stage-counts'), avatar: await fetchAvatar() });
+  if (signal.aborted) return;
   tellState(live.settle().ordered);
   offerAvatarPanel(live);
   // ADR 0048: nothing moves without a real event. The frames only play what events
@@ -149,22 +172,25 @@ async function start() {
     if (tap && e.pointerType !== 'mouse') pointAt({ left: e.clientX, top: e.clientY });
   });
   const events = new EventSource(withToken(`/api/events?project=${encodeURIComponent(project)}`, token));
+  signal.addEventListener('abort', () => events.close());
   events.onmessage = ({ data }) => {
     live.push(JSON.parse(data), performance.now());
     // Without motion, each event still draws one frame: its lights, marks and gates, and
     // another once its mark has expired, so nothing stays lit (KJC-TSK-1437).
     if (still) {
-      const draw = () => { play(performance.now()); scene.render(); };
+      const draw = () => { if (!signal.aborted) { play(performance.now()); scene.render(); } };
       draw();
       setTimeout(draw, MARK_MS + 50);
     }
   };
   // KJC-BUG-0557: every minute, the scene checks itself against the board's state.
-  setInterval(async () => {
+  const resync = setInterval(async () => {
     const now = await fetchState();
-    if (now.state) live.resync(now.state, performance.now());
+    if (now.state && !signal.aborted) live.resync(now.state, performance.now());
   }, RESYNC_MS);
+  signal.addEventListener('abort', () => clearInterval(resync));
   const frame = (ms) => {
+    if (signal.aborted) return;
     play(ms);
     scene.render();
     requestAnimationFrame(frame);
@@ -212,7 +238,16 @@ async function mountProjectPanel() {
   if (!factories.length) { panel.querySelector('p').textContent = 'The board knows no project with a folder on this machine.'; return; }
   const items = panelEntries(factories, project).map((entry) => {
     const link = Object.assign(document.createElement('a'), { href: panelHref(entry.project) });
+    link.dataset.project = entry.project;
     if (entry.current) link.setAttribute('aria-current', 'page');
+    // KJC-TSK-1613: from one factory, a plain click switches to the other in the same page.
+    link.addEventListener('click', (event) => {
+      if (wantsMap || !opensInPlace(event)) return;
+      event.preventDefault();
+      if (entry.project === project) return;
+      history.pushState(null, '', link.href);
+      switchTo(entry.project);
+    });
     const what = Object.assign(document.createElement('small'), { textContent: panelLine(entry) });
     const name = Object.assign(document.createElement('strong'), { textContent: entry.name });
     // KJC-TSK-1605: an amber badge on a factory that needs the human, also said aloud.
@@ -231,13 +266,37 @@ async function mountProjectPanel() {
   panel.querySelector('ul').replaceChildren(...items);
 }
 
+/** KJC-TSK-1613: draws `project`'s factory, stopping the one drawn before; none, the word to pick one. */
+async function showFactory() {
+  current?.abort();
+  current = new AbortController();
+  if (project) await start(current.signal);
+  else tell(['Pick a project in the panel to open its factory. Every factory at once: the Every factory link.']);
+}
+
+/** KJC-TSK-1613: leaves the factory on screen for `next`'s, in the same page and canvas place. */
+function switchTo(next) {
+  project = next;
+  for (const link of document.querySelectorAll('#stage-projects a[data-project]')) {
+    if (link.dataset.project === next) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  current?.abort();
+  freshCanvas();
+  loading.hidden = false;
+  status.replaceChildren();
+  return showFactory();
+}
+
 /** The map, one factory, or the word to pick one in the panel. */
 async function startStage() {
-  const wantsMap = new URLSearchParams(location.search).get('map') === '1';
   if (!document.createElement('canvas').getContext('webgl2')) tell(['This browser has no WebGL2, so the 3D stage cannot be drawn.']);
   else if (wantsMap) await startMapView();
-  else if (project) await start();
-  else tell(['Pick a project in the panel to open its factory. Every factory at once: the Every factory link.']);
+  else {
+    // KJC-TSK-1613: back and forward walk the factories the panel opened, without reloading either.
+    addEventListener('popstate', () => switchTo(projectOf(location.search)));
+    await showFactory();
+  }
 }
 
 // KJC-TSK-1590: the panel and the scene load side by side; neither waits for the other.

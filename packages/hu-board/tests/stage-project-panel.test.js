@@ -2,7 +2,7 @@
 // only the chosen factory, instead of every factory at once.
 import { describe, expect, it } from 'vitest';
 
-import { panelBadge, panelEntries, panelHref, panelLine } from '../public/stage/project-panel.js';
+import { opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from '../public/stage/project-panel.js';
 
 const lane = (name, working = 0, cards = []) => ({ lane: name, working: Array.from({ length: working }, () => ({ agent: 'claude' })), cards });
 const card = (id, status) => ({ id, status, lane: 'main', at: '2026-11-13T08:00:00.000Z' });
@@ -52,5 +52,26 @@ describe('panelBadge', () => {
 describe('panelHref', () => {
   it('opens the factory of that project alone', () => {
     expect(panelHref('home_manu_ws npm/x')).toBe('/stage.html?project=home_manu_ws%20npm%2Fx');
+  });
+});
+
+// KJC-TSK-1613 (the maintainer, 2026-11-14): "and switching project reloads everything? really?"
+describe('opensInPlace', () => {
+  const click = (extra = {}) => ({ button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...extra });
+
+  it('a plain click switches the factory in the same page', () => {
+    expect(opensInPlace(click())).toBe(true);
+  });
+
+  it('a click that asks for another tab or window is left to the browser', () => {
+    for (const key of ['metaKey', 'ctrlKey', 'shiftKey', 'altKey']) expect(opensInPlace(click({ [key]: true }))).toBe(false);
+    expect(opensInPlace(click({ button: 1 }))).toBe(false);
+  });
+});
+
+describe('projectOf', () => {
+  it('the project a stage address opens, the one panelHref writes', () => {
+    expect(projectOf(new URL(panelHref('home_manu_ws npm/x'), 'http://board').search)).toBe('home_manu_ws npm/x');
+    expect(projectOf('?map=1')).toBeNull();
   });
 });

@@ -29,3 +29,12 @@ export function panelLine({ working, doing }) {
 
 /** The stage of that project's factory alone. */
 export const panelHref = (project) => `/stage.html?project=${encodeURIComponent(project)}`;
+
+/** KJC-TSK-1613: the project a stage address (its `location.search`) opens; null when none. */
+export const projectOf = (search) => new URLSearchParams(search).get('project');
+
+/**
+ * KJC-TSK-1613: whether a click on a panel entry switches the factory in the same page; one that
+ * asks for another tab or window (a modifier key, the middle button) is left to the browser.
+ */
+export const opensInPlace = (event) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
