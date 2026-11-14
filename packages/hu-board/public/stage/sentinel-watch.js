@@ -9,7 +9,7 @@ import { SENTINEL_POST, WORKSHOP } from './layout.js';
 export const DESCENT_MS = 1500;
 export const STAY_MS = 1800;
 // Beside the host at the bench of the lane, facing it.
-const BY_THE_AGENT = { dx: -2.1, dz: -0.4 };
+const BY_THE_AGENT = { dx: -3, dz: -0.6 }; // KJC-TSK-1612: beside the host's seat, further out
 
 const lane = (event) => event.lane ?? 'main';
 

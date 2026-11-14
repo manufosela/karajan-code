@@ -13,7 +13,9 @@ const BENCH_DZ = 0;
 // Side by side at the bench: the host (KJC-TSK-1435), the coder kj launches, the
 // reviewer beside it, Solomon beside the reviewer it arbitrates. KJC-TSK-1609: 1.2 m apart, so
 // an agent fits between one desk and the next.
-export const SEATS = [-1.8, -0.6, 0.6, 1.8];
+// KJC-TSK-1612 (the maintainer, 2026-11-14): 1.7 m, so a backpack behind one agent clears the desk
+// of the one before it.
+export const SEATS = [-2.55, -0.85, 0.85, 2.55];
 // KJC-TSK-1486: typing, an agent turns side on to the camera, which sees its hands and its screen.
 // KJC-TSK-1591: its desk turns with it.
 export const TYPING_YAW = 1.85;
@@ -21,7 +23,7 @@ const ROLE_SEAT = { host: 0, coder: 1, reviewer: 2, solomon: 3 };
 // KJC-BUG-0555: once the four seats are taken, the next ones stand in rows behind the bench.
 const SEAT_ROW = 0.9;
 // KJC-TSK-1435 (ADR 0048): the host's subagents work in rows of five in front of the bench.
-const SUBAGENT = { dz: 1.2, from: -1.8, step: 0.9, slots: 5, row: 0.6 };
+const SUBAGENT = { dz: 1.2, from: -2.4, step: 1.2, slots: 5, row: 0.6 };
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
 const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
 export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;

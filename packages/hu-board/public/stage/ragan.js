@@ -6,8 +6,8 @@ import { CREW, WORKSHOP } from './layout.js';
 /** How long kaRAGan walks each way, and how long it stays handing the answer over. */
 export const RAGAN_WALK_MS = 2200;
 export const HAND_MS = 1500;
-// Behind the host's spot at the bench (workers.js puts the host 1.3 m to the left).
-const BEHIND_HOST = { dx: -1.3, dz: -1.2 };
+// Behind the host's spot at the bench (workers.js SEATS[0]; KJC-TSK-1612 moved it further out).
+const BEHIND_HOST = { dx: -2.55, dz: -1.1 };
 
 /** The answer kaRAGan is taking after an event at `now`, or the one it had. */
 export const withRag = (rag, event, now) =>
