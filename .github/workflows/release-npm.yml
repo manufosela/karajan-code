@@ -57,6 +57,13 @@ jobs:
       - name: Full suite
         run: npx vitest run --reporter=default --reporter=github-actions
 
+      # KJC-TSK-1619: a release must never leave a user's repo blocked. A repo hardened with the
+      # previous published kj re-hardens with this one and its seal PR passes every judge.
+      - name: Upgrade path from the previous release
+        env:
+          KJ_UPGRADE_PATH: "1"
+        run: npx vitest run tests/e2e/upgrade-path.test.js --reporter=default --reporter=github-actions
+
       - name: verify-pack (karajan-code)
         run: node scripts/verify-pack.mjs
 
