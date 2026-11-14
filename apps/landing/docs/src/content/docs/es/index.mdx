@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.22.0: el equipo acuerda cada release, el Sentinel vigila una carpeta de repositorios y kj stage enseña los agentes de tu equipo (actual)
+### v5.23.0: arreglos para equipos en develop y sin cuota, Node 24 recomendado e issues existentes adoptadas como cards (actual)
+
+Los arreglos de lo que encontraron los equipos la noche en que salió la 5.22.0. Un repo que trabaja en `develop` la toma como base sin configurar nada; un revisor sin cuota vuelve a pasar el turno al siguiente; un veredicto cuenta cuando su autor tiene permiso de escritura, aunque su pertenencia a la organización sea privada; `kj harden` nunca fija un workflow a un kj que no puede ejecutarlo; y al sellar se avisa cuando la CI no podrá verificar el sello. kj recomienda ahora Node 24, con un prompt que tu agente sigue para cambiarte (`karajancode.com/node-24.md`), y `kj hu adopt` convierte en card una issue que ya tienes.
+
+### v5.22.0: el equipo acuerda cada release, el Sentinel vigila una carpeta de repositorios y kj stage enseña los agentes de tu equipo
 
 Una versión se acuerda ahora antes de publicarse. `kj release propose` abre una issue que pregunta a todo el que tiene trabajo en ella; cada uno contesta con `kj release ack` tras comprobar el candidato, cualquiera puede retenerla, el silencio pasadas 4 horas cuenta como sin objeción, y una persona firma la aprobación en su móvil con `kj release approve`. La CI solo publica lo que acepta `kj release verify`. Una sesión abierta en una carpeta padre con varios repositorios queda también gobernada: cada llamada se juzga y se registra como el repositorio hijo que toca, y una llamada que abarca dos repositorios se rechaza. `kj harden` en el padre lo instala y `kj doctor` lo muestra. `kj harden` genera además `kj-secrets.yml`, que busca credenciales en las líneas que añade cada PR con el kj de la rama base, y `kj policy check` lee los atributos de git de la base, así que una PR no puede esconder sus propias líneas del presupuesto. kj stage une los boards de un mismo repositorio en una sala en directo, y cada persona ve trabajar a los agentes de sus compañeros. Ejecuta `kj harden` y pide el sello para traer la búsqueda de credenciales.
 
