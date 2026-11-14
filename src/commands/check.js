@@ -5,6 +5,7 @@
  */
 
 import { checkHarden } from "../harden/check.js";
+import { baseBranchFrom } from "../config/base-branch.js";
 import { collectMethodStats, formatMethodStats } from "../checks/method.js";
 import { createRagCoverageCheck } from "../checks/rag-coverage.js";
 import { checkAiSurface, formatAiSurface } from "../checks/ai-surface.js";
@@ -28,7 +29,7 @@ export async function checkCommand({ projectDir = process.cwd(), profile = "stan
   const aiSurface = await observedAiSurface(projectDir);
 
   // KJC-TSK-1059: young dependencies the branch brings in, a warning outside the review.
-  const depCooldown = await branchCooldownLines({ projectDir, base: config?.base_branch ?? "main", thresholdHours: config?.supply_chain?.cooldown_hours })
+  const depCooldown = await branchCooldownLines({ projectDir, base: baseBranchFrom({ config, projectDir }), thresholdHours: config?.supply_chain?.cooldown_hours })
     .catch((err) => [`⚠ supply-chain cooldown not checked: ${err.message}`]);
   // KJC-TSK-0719 (SPD-C): the audit is due by work cycles too; visibility, never the exit code.
   const audit = await auditCycle({ projectDir, config }).catch((err) => ({ due: false, line: `⚠ audit cycle not checked: ${err.message}` }));
