@@ -8,6 +8,9 @@ import { runCommand } from "../utils/process.js";
 import { loadPrivacyList, scanPaths, scanText, privacyConfigPath } from "../privacy/scan.js";
 import { CREDENTIAL_PATTERNS, extractAddedLines, scanDiff } from "../guards/output-guard.js";
 import { loadConfig } from "../config.js";
+import { rangeIsOnlySeals } from "../review/seal-commit.js";
+
+const SEAL_ONLY = "privacy scan: the range only brings the signed seal (kj harden --commit), verified against the roster; nothing to scan";
 
 const CREDENTIAL_IDS = new Set(CREDENTIAL_PATTERNS.map((p) => p.id));
 
@@ -78,11 +81,20 @@ export async function privacyScanCommand({ paths = [], flags = {}, logger = cons
   let list, findings;
   try {
     list = loadPrivacyList(); // HU-3727: a corrupt privacy.yml is an error, never "no denylist"
+    // KJC-BUG-0590: the owner's signed act passes this judge as it passes verify-pr.
+    if (flags.range && (await rangeIsOnlySeals({ projectDir: cwd, range: flags.range, run: runCommand }))) return sealOnly(flags, logger);
     findings = await collectFindings(paths, flags, { cwd, list, loadKjConfig });
   } catch (err) {
     return fail(logger, err.message);
   }
   return report(findings, list, flags, logger);
+}
+
+function sealOnly(flags, logger) {
+  process.exitCode = 0;
+  if (flags.json) process.stdout.write(`${JSON.stringify({ ok: true, sealOnly: true, blocks: 0, warns: 0, discardedByContext: 0, findings: [] })}\n`);
+  else logger.info?.(SEAL_ONLY);
+  return { ok: true, findings: [] };
 }
 
 function report(findings, list, flags, logger) {
