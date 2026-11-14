@@ -294,6 +294,15 @@ function tracedMove(projectDir, args, moved) {
 // KJC-TSK-1047 (TEAM-A): who works this clone, the one a started card is reserved to.
 const workerOf = (projectDir) => readIdentity(projectDir)?.gh_user || effectiveGitEmail(projectDir) || null;
 
+/** HU-4285 (#4166): an existing GitHub issue becomes a card, not a twin; the gates see it at once through the mirror. */
+async function adoptAction({ projectDir, board, key, args, deps, emit }) {
+  if (board.backend !== "github") throw new Error("kj hu adopt is for GitHub Issues boards: turn it on first with kj hu backend github");
+  if (!/^[1-9]\d*$/.test(String(args[0] ?? ""))) throw new Error("usage: kj hu adopt <issue number>");
+  const card = await deps.manager.adopt(Number(args[0]));
+  await (deps.writeMirror ?? writeTeamMirror)(projectDir, await deps.manager.list(), { repo: key.place, key });
+  return emit({ ...card, board: key.name, repo: key.place }, `✓ HU adopted: ${card.short_id} (${card.status}) from ${key.describe(card)}`);
+}
+
 export async function huCommand({ config = null, action, args = [], flags = {}, deps = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   const emit = (obj, human) => { console.log(flags.json ? JSON.stringify(obj) : human); return obj; };
@@ -312,6 +321,7 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
   // that account (GH_TOKEN pinned before the first one), whatever another session switches to.
   if (board.backend === "github") (deps.pinGhIdentity ?? pinGhIdentity)({ projectDir });
   const who = deps.who === undefined ? workerOf(projectDir) : deps.who;
+  if (action === "adopt") return adoptAction({ projectDir, board, key, args, deps, emit });
   if (action === "migrate") return migrateAction({ projectDir, board, flags, deps, emit, who });
   // KJC-TSK-1165 (TEAM-GH-D): moves made without network go first, once the manager answers.
   if (shared) await applyQueuedMoves({ projectDir, key, deps });
@@ -340,7 +350,7 @@ export async function huCommand({ config = null, action, args = [], flags = {}, 
     const tier = tierOfHu(card);
     return emit({ id: card.short_id || card.id, tier }, `${args[0]}: ${tier ?? "no tier (kj hu add --tier gives one)"}`);
   }
-  throw new Error(`unknown action "${action}" — use: add | move | list | start | tier | backend`);
+  throw new Error(`unknown action "${action}" — use: add | adopt | move | list | start | tier | backend`);
 }
 
 async function listLocal({ projectDir, flags }) {

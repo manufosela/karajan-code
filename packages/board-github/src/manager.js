@@ -4,13 +4,13 @@
  * HU-<n> (or #<n>) is this adapter's business, the core hands over the id as it got it.
  * `board` lets a caller swap any of those functions (tests, offline fakes).
  */
-import { createHu, listHus, setStatus, claim, assertNotHeld } from "./github-board.js";
+import { createHu, adoptHu, listHus, setStatus, claim, assertNotHeld } from "./github-board.js";
 
 const ISSUE_ID = /^(?:HU-|#)(\d+)$/i;
 const SHARED_ID = /^(?:HU-|#)[1-9]\d*$/i;
 
 export function createGithubManager({ repo, run, board = {} }) {
-  const fn = { createHu, listHus, setStatus, claim, assertNotHeld, ...Object.fromEntries(Object.entries(board).filter(([, f]) => f)) };
+  const fn = { createHu, adoptHu, listHus, setStatus, claim, assertNotHeld, ...Object.fromEntries(Object.entries(board).filter(([, f]) => f)) };
   const base = run ? { repo, run } : { repo };
   const idHint = "HU-<issue number>";
   const numberOf = (id) => {
@@ -35,6 +35,7 @@ export function createGithubManager({ repo, run, board = {} }) {
     write,
     list: () => fn.listHus(base),
     create: async (args) => ({ claimed_by: null, ref: args.ref ?? null, ...(await fn.createHu({ ...base, ...args })) }),
+    adopt: (number) => fn.adoptHu({ ...base, number }),
     move: async (id, status) => { await write.move(id, status); return find(id); },
     claim: async (id, who, opts) => { await write.claim(id, who, opts); return find(id); },
     /** Not part of the contract: a running HU held by someone else is theirs (the core decides what to do). */

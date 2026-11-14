@@ -31,6 +31,12 @@ function refInBranch(ref, branchLower) {
   return new RegExp(`(^|[^a-z0-9])${escapeRegExp(String(ref).toLowerCase())}([^a-z0-9]|$)`).test(branchLower);
 }
 
+// HU-4285 (#4166): an adopted issue is named in a branch by its number: GH-187, or 187 right after
+// the type prefix (feat/187-x). Only a whole token matches: 1870 and x-187 are other things.
+function issueNumberInBranch(number, branchLower) {
+  return refInBranch(`GH-${number}`, branchLower) || new RegExp(`^[a-z]+/${number}([^a-z0-9]|$)`).test(branchLower);
+}
+
 async function findLiveCardInBranch(projectDir, branch) {
   const needle = branch.toLowerCase();
   // Scan EVERY match before deciding: any live reference satisfies the
@@ -44,7 +50,8 @@ async function findLiveCardInBranch(projectDir, branch) {
       // KJC-BUG-0353: an HU is also named by the id of its replica in an external tracker.
       // KJC-BUG-0443: a shared-board HU carries "repo#n · ref"; each part names it.
       for (const ref of [h.short_id, h.id, ...String(h.external_ref ?? "").split(" · ")]) {
-        if (ref && refInBranch(ref, needle)) {
+        const issue = /^[^\s#]+\/[^\s#]+#(\d+)$/.exec(ref ?? "")?.[1];
+        if (ref && (refInBranch(ref, needle) || (issue && issueNumberInBranch(issue, needle)))) {
           if (LIVE_STATUSES.has(h.status)) return { ref, live: true, status: h.status };
           closedHit = { ref, live: false, status: h.status };
         }

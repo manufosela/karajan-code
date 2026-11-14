@@ -362,6 +362,14 @@ export function registerMeta(program, { pkgVersion }) {
         await huCommand({ config, action: "add", args: [title], flags });
       });
     });
+  hu.command("adopt <number>")
+    .description("Turn an existing GitHub issue into a card (shared GitHub board only), without creating a twin")
+    .option("--json", "Machine-readable output")
+    .action(async (number, flags) => {
+      await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
+        await huCommand({ config, action: "adopt", args: [number], flags });
+      });
+    });
   hu.command("tier <id>")
     .description("The tier a card was planned with (kj hu add --tier), whatever board keeps it")
     .option("--json", "Machine-readable output")
