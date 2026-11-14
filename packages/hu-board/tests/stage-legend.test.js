@@ -4,7 +4,7 @@
 // like collectable cards."
 import { describe, expect, it } from 'vitest';
 
-import { CARDS, KINDS } from '../public/stage/legend.js';
+import { CARDS, KINDS, legendSections } from '../public/stage/legend.js';
 import { STATIONS } from '../public/stage/layout.js';
 
 const byId = Object.fromEntries(CARDS.map((card) => [card.id, card]));
@@ -42,5 +42,22 @@ describe('the cast legend', () => {
   it('the wardrobe card tells what each model wears on its head, the headphones among them, and what the build means', () => {
     const marks = byId.wardrobe.marks.map((m) => `${m.mark} ${m.means}`.toLowerCase()).join(' | ');
     for (const word of ['fable', 'opus', 'sonnet', 'haiku', 'headphones', 'effort']) expect(marks).toContain(word);
+  });
+});
+
+// KJC-TSK-1617: the Cast dialog shows the cards in sections, one per kind, in the kinds' order.
+describe('legendSections', () => {
+  it('one section per kind with cards, in the order of KINDS, each card once and in its own', () => {
+    const sections = legendSections(CARDS);
+    expect(sections.map((s) => s.kind)).toEqual(Object.keys(KINDS).filter((k) => CARDS.some((c) => c.kind === k)));
+    for (const section of sections) {
+      expect(section.title).toBe(KINDS[section.kind]);
+      for (const card of section.cards) expect(card.kind).toBe(section.kind);
+    }
+    expect(sections.flatMap((s) => s.cards)).toHaveLength(CARDS.length);
+  });
+
+  it('a kind without cards leaves no empty section', () => {
+    expect(legendSections([CARDS.find((c) => c.kind === 'thing')]).map((s) => s.kind)).toEqual(['thing']);
   });
 });

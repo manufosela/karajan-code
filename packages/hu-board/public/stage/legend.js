@@ -5,6 +5,11 @@
 /** The kinds of card, as each one's frame tells them. */
 export const KINDS = { agent: 'Agent', crew: 'Crew', piece: 'Method piece', tool: 'Tool', thing: 'In the hall' };
 
+/** KJC-TSK-1617: the cards in one section per kind that has any, in the order of KINDS. */
+export const legendSections = (cards) => Object.entries(KINDS)
+  .map(([kind, title]) => ({ kind, title, cards: cards.filter((card) => card.kind === kind) }))
+  .filter((section) => section.cards.length);
+
 const COLOUR = { mark: 'Body colour', means: 'Its AI: Claude orange, Codex lilac, agy mint, any other grey.' };
 const BACKPACK = { mark: 'Backpack', means: 'In the colour of the person it works for, with their emblem: every robot of one person carries the same.' };
 const LAPTOP = { mark: 'Laptop', means: 'Open and lit in its AI\'s colour while it types.' };

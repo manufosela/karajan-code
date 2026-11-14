@@ -13,6 +13,7 @@ import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
 import { opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
+import { mountLegend } from './legend-panel.js';
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
@@ -299,5 +300,7 @@ async function startStage() {
   }
 }
 
+// KJC-TSK-1617: the Cast button, in the factory and on the map alike.
+mountLegend({ button: document.getElementById('stage-cast'), dialog: document.getElementById('stage-cast-panel') });
 // KJC-TSK-1590: the panel and the scene load side by side; neither waits for the other.
 await Promise.all([mountProjectPanel(), startStage()]);
