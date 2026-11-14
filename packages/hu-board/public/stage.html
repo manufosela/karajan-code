@@ -67,6 +67,20 @@
     }
     /* KJC-TSK-1570: the avatar panel. */
     header button { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 4px 12px; cursor: pointer; }
+    /* KJC-TSK-1624 (the maintainer, 2026-11-14): Avatar and Cast, bigger and each in its own colour. */
+    header strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #stage-avatar, #stage-cast { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; padding: 8px 16px; border: 2px solid; border-radius: 999px; box-shadow: 0 2px 10px rgb(0 0 0 / 0.4); }
+    #stage-avatar { color: #fff; background-color: #1e4e79; background-image: linear-gradient(135deg, #2b6cb0, #1e4e79); border-color: #7cc0ee; }
+    #stage-cast { color: #10161f; background: linear-gradient(135deg, #ffcc4d, #e09a14); border-color: #ffe08a; }
+    #stage-avatar:hover, #stage-cast:hover { filter: brightness(1.12); }
+    #stage-avatar:focus-visible, #stage-cast:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+    #stage-avatar[hidden], #stage-cast[hidden] { display: none; }
+    /* On a narrow screen, the icon alone; its name still reads aloud. */
+    @media (max-width: 720px) {
+      header { gap: 10px; padding: 10px 12px; }
+      #stage-avatar, #stage-cast { font-size: 0; padding: 7px 10px; }
+      #stage-avatar span, #stage-cast span { font-size: 18px; }
+    }
     #stage-avatar-panel { max-width: min(520px, calc(100vw - 32px)); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 20px; }
     #stage-avatar-panel::backdrop { background: rgb(0 0 0 / 0.55); }
     #stage-avatar-panel h2 { margin: 0 0 12px; font-size: 18px; }
@@ -127,8 +141,8 @@
     <strong id="stage-project">kj stage</strong>
     <button type="button" id="stage-projects-toggle" aria-controls="stage-projects" aria-expanded="false">Projects</button>
     <a href="/stage.html?map=1">Every factory</a>
-    <button type="button" id="stage-avatar" hidden>Avatar</button>
-    <button type="button" id="stage-cast" aria-controls="stage-cast-panel" hidden>Cast</button>
+    <button type="button" id="stage-avatar" hidden><span aria-hidden="true">🎒</span>Avatar</button>
+    <button type="button" id="stage-cast" aria-controls="stage-cast-panel" hidden><span aria-hidden="true">🃏</span>Cast</button>
   </header>
   <!-- KJC-TSK-1590: the projects; each opens its factory alone (main.js fills it). -->
   <nav id="stage-projects" aria-label="Projects"><p>Loading the projects…</p><ul></ul></nav>
