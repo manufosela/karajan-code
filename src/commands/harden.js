@@ -37,6 +37,7 @@ import { adviseEventPolicy } from "../harden/event-policy.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { ensureIdentity } from "../identity/bootstrap.js";
 import { commitContract, contractChanges } from "../environment/contract-commit.js";
+import { reviewContractCommit } from "../harden/contract-review.js";
 
 // How each package manager runs a package.json script in a hook (`bun test` is bun's own runner, not the script).
 const HOOK_RUNNERS = {
@@ -136,6 +137,7 @@ export async function hardenCommand({
   // (kj init captures them before writing its own). What is dirty NOW is the person's.
   contractBefore = null,
   fetchFn = fetch,
+  contractReview = undefined, // HU-4316: injectable reviewer of the contract commit
   uninstallTransversal = false,
   logger = console,
 } = {}) {
@@ -207,8 +209,10 @@ export async function hardenCommand({
   // 0009) stays a human act over the supervisor alone.
   if (!dryRun) {
     out.contract = commitContract({ projectDir, before: dirtyBefore, baseBranch });
-    if (out.contract.committed) logger.info?.(`kj harden: contract committed by kj, ${out.contract.files.length} generated file(s)`);
-    else if (!out.contract.reason.startsWith("nothing")) logger.warn?.(`kj harden: the contract kj generated is NOT committed (${out.contract.reason})`);
+    if (out.contract.committed) {
+      logger.info?.(`kj harden: contract committed by kj, ${out.contract.files.length} generated file(s)`);
+      out.contract.review = await reviewContractCommit({ projectDir, say: (line) => logger.info?.(line), review: contractReview });
+    } else if (!out.contract.reason.startsWith("nothing")) logger.warn?.(`kj harden: the contract kj generated is NOT committed (${out.contract.reason})`);
   }
 
   if (json) {

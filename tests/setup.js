@@ -22,6 +22,8 @@ import path from "node:path";
 import { getKarajanHome } from "../src/utils/paths.js";
 import { pinGitDiffFormat } from "../src/utils/git-diff-format.js";
 
+// HU-4316: harden's contract-commit review never calls a real reviewer under test.
+process.env.KJ_NO_CONTRACT_REVIEW ??= "1";
 process.env.ANTHROPIC_API_KEY ??= "sk-test-anthropic";
 process.env.OPENAI_API_KEY ??= "sk-test-openai";
 process.env.GEMINI_API_KEY ??= "sk-test-gemini";
