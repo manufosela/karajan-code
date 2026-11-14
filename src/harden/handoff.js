@@ -9,6 +9,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { mainCheckout } from "../utils/main-checkout.js";
+
 export const HANDOFFS_DIR = ".karajan/handoffs";
 // KJC-BUG-0527: traces live where the sandbox leaves the agent a writable folder.
 export const DENIALS_FILE = ".karajan/traces/denials.jsonl";
@@ -48,16 +50,60 @@ export function addHandoff({ projectDir, command, cwd = projectDir, why = null, 
   return record;
 }
 
+// HU-4306: the store hangs from the MAIN checkout, so the agent in a lane and the human's terminal
+// in another lane (or in the main one) read and write the same handoffs.
+const storeDir = (projectDir) => join(mainCheckout(projectDir), HANDOFFS_DIR);
+
 const writeRecord = (projectDir, record) => {
-  mkdirSync(join(projectDir, HANDOFFS_DIR), { recursive: true });
-  writeFileSync(join(projectDir, HANDOFFS_DIR, `${record.id}.json`), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  mkdirSync(storeDir(projectDir), { recursive: true });
+  writeFileSync(join(storeDir(projectDir), `${record.id}.json`), `${JSON.stringify(record, null, 2)}\n`, "utf8");
 };
 
 /** KJC-TSK-1066: the human did it; it leaves the pending ones and stays in the history. */
-export function markHandoffDone({ projectDir, id }) {
-  const record = { ...readHandoff({ projectDir, id }), status: "done", doneAt: new Date().toISOString() };
+export function markHandoffDone({ projectDir, id, result = null }) {
+  const record = { ...readHandoff({ projectDir, id }), status: "done", doneAt: new Date().toISOString(), ...(result ? { result } : {}) };
   writeRecord(projectDir, record);
   return record;
+}
+
+const stripKj = (text) => text.replace(/^kj\s+/, "");
+const tokensOf = (text) => text.split(/\s+/).filter(Boolean);
+const startsWith = (tokens, head) => head.every((token, i) => tokens[i] === token);
+const sameTokens = (a, b) => a.length === b.length && startsWith(a, b);
+/** "kj hooks set|unset" → ["hooks set", "hooks unset"]; "kj gates set (aflojar …)" → ["gates set"]. */
+function labelPrefixes(label) {
+  const base = stripKj(label.replace(/\s*\(.*\)\s*$/, ""));
+  const alt = base.match(/^(.*\s)([\w-]+(?:\|[\w-]+)+)$/);
+  return alt ? alt[2].split("|").map((a) => alt[1] + a) : [base];
+}
+
+/**
+ * HU-4306: a human act of the catalog succeeded; every pending handoff whose command is that act
+ * (ignoring a leading `cd <dir> &&`) invoked exactly as `args` (the same tokens, in the same order
+ * and as many) is done. Never called for a failed act.
+ * @returns {string[]} the ids closed
+ */
+export function closeHandoffsOfAct({ projectDir, label, args = [], result = null }) {
+  const prefixes = labelPrefixes(label).map(tokensOf);
+  const closed = [];
+  for (const h of listHandoffs({ projectDir }).filter((x) => x.status === "pending")) {
+    const invocation = tokensOf(stripKj(h.command.replace(/^\s*cd\s+\S+\s*&&\s*/, "").trim()));
+    if (!prefixes.some((p) => startsWith(invocation, p)) || !sameTokens(invocation, args)) continue;
+    markHandoffDone({ projectDir, id: h.id, result: result ?? `${label} succeeded` });
+    closed.push(h.id);
+  }
+  return closed;
+}
+
+/** HU-4306: polls the store until the handoff is done; null when the timeout comes first. No network. */
+export async function waitHandoff({ projectDir, id, timeoutMs, intervalMs = 3000, now = Date.now, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
+  const deadline = now() + timeoutMs;
+  for (;;) {
+    const record = readHandoff({ projectDir, id });
+    if (record.status === "done") return record;
+    if (now() >= deadline) return null;
+    await sleep(intervalMs);
+  }
 }
 
 /** The handoff as the watch window shows it: local date and time, the command, and why. */
@@ -97,7 +143,7 @@ export async function watchHandoffs({ projectDir, log, intervalMs = 2000, signal
 
 export function readHandoff({ projectDir, id }) {
   if (!/^[0-9a-f]{8}$/.test(id ?? "")) throw new Error(`kj handoff: "${id}" no es un identificador de encargo (8 hex)`);
-  const path = join(projectDir, HANDOFFS_DIR, `${id}.json`);
+  const path = join(storeDir(projectDir), `${id}.json`);
   if (!existsSync(path)) throw new Error(`kj handoff: no hay ningún encargo ${id}`);
   const record = JSON.parse(readFileSync(path, "utf8"));
   // The bytes the human will run are the bytes that were registered, or nothing.
@@ -107,6 +153,6 @@ export function readHandoff({ projectDir, id }) {
 
 export function listHandoffs({ projectDir }) {
   let names;
-  try { names = readdirSync(join(projectDir, HANDOFFS_DIR)).filter((n) => /^[0-9a-f]{8}\.json$/.test(n)); } catch { return []; }
+  try { names = readdirSync(storeDir(projectDir)).filter((n) => /^[0-9a-f]{8}\.json$/.test(n)); } catch { return []; }
   return names.map((n) => readHandoff({ projectDir, id: n.slice(0, 8) })).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }

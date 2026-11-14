@@ -116,6 +116,9 @@ export const HUMAN_ACTS = Object.freeze({
   "release-approve": { label: "kj release approve", module: "src/commands/release-approve.js" },
 });
 
+/** HU-4306: labels of the acts this process got past the refusal of; read once the command ends. */
+export const attempted = new Set();
+
 /**
  * The one mechanism, by catalog id: `refuse` (layers 1 to 3) and `confirm`
  * (layer 4), apart because an act may check things in between (the seal looks
@@ -127,7 +130,9 @@ export function humanActOf(id) {
   if (!act) throw new Error(`"${id}" is not in the catalog of human acts (src/harden/human-act.js, ADR 0018)`);
   return {
     label: act.label,
-    refuse: (opts = {}) => refuseAgentSession(act.label, opts),
+    // HU-4306: an act that passed the refusal is one this process is carrying out; cli.js closes
+    // its handoffs only if the command then ends well.
+    refuse: (opts = {}) => { refuseAgentSession(act.label, opts); attempted.add(act.label); },
     confirm: (confirm = null) => confirmHuman(act.label, confirm),
   };
 }

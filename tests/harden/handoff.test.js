@@ -50,7 +50,7 @@ describe("kj handoff", () => {
     const log = (l) => lines.push(l);
     expect(await handoffCommand({ action: "add", config: { projectDir: dir }, flags: { command: "git add  -A" }, log })).toBe(1); // not the exact bytes
     expect(await handoffCommand({ action: "add", config: { projectDir: dir }, flags: { command: DENIED }, log })).toBe(0);
-    const id = lines.at(-3).match(/encargo ([0-9a-f]{8}) registrado/)[1];
+    const id = lines.at(-4).match(/encargo ([0-9a-f]{8}) registrado/)[1];
     expect(lines.join("\n")).toMatch(/por qué lo negó el gate .*:\nkarajan sentinel: /);
     const h = readHandoff({ projectDir: dir, id });
     expect(h).toMatchObject({ id, command: DENIED, status: "pending", cwd: dir, denial: { tool: "Bash" } });

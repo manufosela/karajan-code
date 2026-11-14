@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Command, Help } from "commander";
 import { loadConfig } from "./config.js";
+import { closeHandoffsOfAct } from "./harden/handoff.js";
+import { attempted } from "./harden/human-act.js";
 import { isAdvancedCommand } from "./cli/advanced-commands.js";
 import { registerPipeline } from "./cli/register-pipeline.js";
 import { registerPlan } from "./cli/register-plan.js";
@@ -171,6 +173,14 @@ try {
 
 try {
   await program.parseAsync();
+  // HU-4306: the one place every human act passes through once it has succeeded.
+  if (!process.exitCode) {
+    try {
+      for (const label of attempted) closeHandoffsOfAct({ projectDir: process.cwd(), label, args: process.argv.slice(2) });
+    } catch (err) {
+      console.warn(`\x1b[33m[warn]\x1b[0m the act succeeded but its handoff was not closed: ${err.message}`);
+    }
+  }
 } catch (error) {
   console.error(error.message);
   process.exit(1);
