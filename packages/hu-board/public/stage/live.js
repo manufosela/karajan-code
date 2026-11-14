@@ -25,6 +25,8 @@ import { createDrone } from './drone-mesh.js';
 import { laneStatuses, statusLine } from './lane-status.js';
 import { mailboxOf, mailTotal, withMail } from './mail.js';
 import { goneLanes, staleEnds } from './resync.js';
+import { finishedLanes, stackOf } from './finished-stack.js';
+import { createStack } from './stack-mesh.js';
 import { Vector3 } from 'three';
 
 // The marks stack over the workshop so two of one lane never sit on each other (tagAt adds OVER_PIECE).
@@ -60,9 +62,18 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let box = mailboxOf(initial.lanes ?? []); // KJC-TSK-1540: pending handoffs by lane
   /** KJC-TSK-1540: dims each lane that is not working and says why on its nameplate. */
   let statuses = new Map(); // KJC-TSK-1588: each lane's status, for the signs over the desks
+  // KJC-TSK-1623: the finished lanes, folded out of the row into the stack by the release table.
+  let folded = new Set();
+  const stack = createStack(scene);
   const showStatuses = () => {
     // KJC-BUG-0581: with the robots the floor has at work, so a sign never denies one that types.
-    statuses = laneStatuses(hall.names(), state, box, floor.working());
+    const all = laneStatuses([...new Set([...hall.names(), ...folded])], state, box, floor.working());
+    const finished = new Set(finishedLanes(all));
+    // A lane that finished leaves the row; one that works again comes back to it.
+    const moved = [...finished].map((lane) => hall.remove(lane)).concat([...folded].filter((lane) => !finished.has(lane)).map((lane) => hall.ensure(lane)));
+    folded = finished;
+    if (moved.some(Boolean)) refit();
+    statuses = new Map([...all].filter(([lane]) => !finished.has(lane)));
     for (const [lane, status] of statuses) hall.showStatus(lane, statusLine(status), status.state);
   };
   /** KJC-TSK-1588: over each desk whose card waits with no agent, what it waits for. */
@@ -231,7 +242,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       if (next === state) return; // not a stage event
       state = next;
       // A lane seen for the first time gets its workshop (KJC-TSK-1433).
-      if (event.lane && hall.ensure(event.lane)) refit();
+      // KJC-TSK-1623: a folded lane comes back only when its status says it works again.
+      if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane)) refit();
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
@@ -255,6 +267,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       moveRagan(now);
       flyRelease(now);
+      // KJC-TSK-1623: the stack waits for the release; it goes once the drone lifts that release's pile.
+      const lifted = !flight || tableCards(flight, now, null) !== flight.cards;
+      stack.show(stackOf([...folded], state.cards ?? [], lifted ? state.release : flight.before));
       conduct(now);
       tags.push(...movePieces(now), ...moveReviews(now));
       couriers.frame(now, hall.xOf, hall.zOf);
