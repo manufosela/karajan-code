@@ -50,12 +50,9 @@ export default defineConfig({
     // architecture test pins hookTimeout === testTimeout.
     hookTimeout: 120000,
     pool: "forks",
-    poolOptions: {
-      forks: {
-        maxForks: 6,
-        minForks: 1,
-      },
-    },
+    // KJC-BUG-0591: Vitest 4 removed poolOptions; maxWorkers is its top-level heir.
+    // minForks: 1 has no heir and was the default anyway.
+    maxWorkers: 6,
     // Audit recommendation #7: per-directory coverage thresholds for the
     // areas the audit flagged as "large surfaces with no same-name test
     // file". Coverage isn't a CI gate yet (would block PRs unrelated to
