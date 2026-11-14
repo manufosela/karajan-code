@@ -1,4 +1,5 @@
 // KJC-BUG-0161 / ADR 0009 — verifica por RECOMPUTACIÓN, o nada.
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -390,5 +391,25 @@ describe("files declared in sealed_files verify by their sealed hash (HU-3899)",
     const v = verifiedSupervisorFiles({ projectDir: repo });
     expect(v.files.has(agents)).toBe(false);
     expect(v.complete).toBe(false);
+  });
+});
+
+// KJC-BUG-0590: judged at a ref, a tree entry is the sealed file only as a regular file, as lstat demands in the tree.
+describe("judged at a ref, only a regular file is a sealed file (KJC-BUG-0590)", () => {
+  const git = (args, input) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: repo, input }).toString().trim();
+  const commitAndJudge = (entries) => {
+    for (const e of entries) git(["update-index", "--add", "--cacheinfo", e]);
+    git(["commit", "-qm", "x"]);
+    return verifiedSupervisorFiles({ projectDir: repo, ref: "HEAD" }).files;
+  };
+  it("a symlink or a directory holding the sealed bytes verifies nothing; the regular file does", () => {
+    const hook = renderCanonicalHook("pre-commit", generation);
+    writeProvenance([{ file: ".karajan/hooks/pre-commit", sha256: sha(hook) }, { file: ".karajan/hooks/post-merge", deleted: true }]);
+    git(["init", "-q"]);
+    git(["add", PROVENANCE_FILE]);
+    const oid = git(["hash-object", "-w", "--stdin"], hook);
+    expect(commitAndJudge([`120000,${oid},.karajan/hooks/pre-commit`, `100644,${oid},.karajan/hooks/post-merge/x`])).toEqual(new Set());
+    git(["rm", "-q", "--cached", ".karajan/hooks/post-merge/x"]);
+    expect(commitAndJudge([`100755,${oid},.karajan/hooks/pre-commit`])).toEqual(new Set([".karajan/hooks/pre-commit", ".karajan/hooks/post-merge"]));
   });
 });

@@ -4,6 +4,7 @@
  * coincide (sha256) con la provenance sellada Y con el render canónico
  * recomputado. No confía: recomputa. Una coma manual sigue denegada.
  */
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 import { resolve, sep } from "node:path";
@@ -32,14 +33,38 @@ const kjVersion = () => {
   return kjVersionCache;
 };
 
+// KJC-BUG-0590: a file's bytes in the tree or, given `ref`, at that commit (pull_request_target
+// checks the base out and the PR head is only data). undefined = absent, null = not a regular file:
+// at a ref the entry's mode says it, as lstat does here (a symlink with the sealed bytes is none).
+const REGULAR_ENTRY = /^100(?:644|755) blob ([0-9a-f]+)\t(.*)$/s;
+function fileReader(projectDir, ref) {
+  const git = (...args) => execFileSync("git", ["--literal-pathspecs", "-C", projectDir, ...args], { stdio: ["ignore", "pipe", "ignore"] });
+  const atRef = (file) => {
+    try { // a git error proves no absence (a sealed deletion would pass): no regular file
+      const rows = git("ls-tree", "-z", "--full-tree", "--end-of-options", ref, file).toString().split("\0").filter(Boolean);
+      if (rows.length === 0) return undefined;
+      const m = rows.length === 1 ? REGULAR_ENTRY.exec(rows[0]) : null;
+      return m?.[2] === file ? git("cat-file", "blob", m[1]) : null;
+    } catch { return null; }
+  };
+  return ref != null ? atRef : (file) => {
+    const abs = resolve(projectDir, file);
+    let st;
+    try { st = lstatSync(abs); } catch { return undefined; }
+    return st.isFile() ? readFileSync(abs) : null;
+  };
+}
+
 /**
+ * `ref`: judge the seal at that commit, read with git; the roster stays the one in projectDir's tree.
  * @returns {{files: Set<string>, reason?: string}} rutas repo-relativas de
  * supervisor cuyo estado actual está respaldado por la provenance sellada.
  */
-export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
+export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }) {
+  const read = fileReader(projectDir, ref);
   let prov;
   try {
-    prov = JSON.parse(readFileSync(resolve(projectDir, PROVENANCE_FILE), "utf8"));
+    prov = JSON.parse(ref == null ? readFileSync(resolve(projectDir, PROVENANCE_FILE), "utf8") : (read(PROVENANCE_FILE) ?? ""));
   } catch {
     return { files: new Set(), reason: "sin provenance" };
   }
@@ -76,14 +101,12 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
     // KJC-TSK-1032: the governance config has no canonical render; the sealed
     // hash, signed by the roster where there is one, is the proof.
     if (isSealedConfig(entry.file, declared)) {
-      const abs = resolve(projectDir, entry.file);
-      let st = null;
-      try { st = lstatSync(abs); } catch { /* absent */ }
+      const bytes = read(entry.file);
       // KJC-TSK-1207: host settings sealed as ignored by git (local) live only where
       // they were sealed; absent from this checkout they cannot be judged here (CI,
       // another clone). Versioned ones travel with the repo, so absent they fail.
-      if (st === null && entry.local === true && HOST_SETTINGS_FILES.includes(entry.file)) unjudgeable.add(entry.file);
-      else if (entry.deleted === true ? st === null : st?.isFile() && sha256(readFileSync(abs)) === entry.sha256) ok.add(entry.file);
+      if (bytes === undefined && entry.local === true && HOST_SETTINGS_FILES.includes(entry.file)) unjudgeable.add(entry.file);
+      else if (entry.deleted === true ? bytes === undefined : bytes && sha256(bytes) === entry.sha256) ok.add(entry.file);
       continue;
     }
     const kind = ROOTS.find(([prefix]) => entry.file.startsWith(prefix));
@@ -92,10 +115,9 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
     // Contención por resolución, no por prefijo textual (catch de codex).
     const abs = resolve(projectDir, entry.file);
     if (!abs.startsWith(root + sep)) continue;
-    let st = null;
-    try { st = lstatSync(abs); } catch { /* no hay objeto en la ruta */ }
+    const bytes = read(entry.file);
     if (entry.deleted === true) {
-      if (st === null) ok.add(entry.file);
+      if (bytes === undefined) ok.add(entry.file);
       continue;
     }
     // KJC-BUG-0212: los guardias estan en .gitignore, viven solo en la maquina
@@ -105,7 +127,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
     // Pero "no esta aqui" no vale como cheque en blanco: el hash declarado
     // tiene que ser el de un guardia que kj CONOCE, o una procedencia forjada
     // colaria entradas ausentes con cualquier hash (catch de la review).
-    if (prefix === HARNESS_PREFIX && st === null) {
+    if (prefix === HARNESS_PREFIX && bytes === undefined) {
       // KJC-TSK-0877: with the roster's signature verified, the human signed this
       // guard's hash with the rest; that vouches for it without seeing the file.
       if (signed.required && typeof entry.sha256 === "string") { signedAbsent.add(entry.file); continue; }
@@ -113,8 +135,8 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false }) {
       if (body != null && typeof entry.sha256 === "string" && sha256(Buffer.from(body, "utf8")) === entry.sha256) unjudgeable.add(entry.file);
       continue;
     }
-    if (typeof entry.sha256 !== "string" || !st?.isFile()) continue;
-    if (sha256(readFileSync(abs)) !== entry.sha256) continue;
+    if (typeof entry.sha256 !== "string" || !bytes) continue;
+    if (sha256(bytes) !== entry.sha256) continue;
     // No se confia en el hash sellado: se recomputa lo que kj escribiria.
     let canonical;
     try {
