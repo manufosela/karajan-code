@@ -72,6 +72,16 @@ export function onBaseBranch(body, baseBranch) {
   const scalar = baseBranch === "main" ? baseBranch : `'${baseBranch.replaceAll("'", "''")}'`;
   return body.replaceAll("    branches: [main]", () => `    branches: [${scalar}]`);
 }
+// HU-4278: the oldest published kj whose commands each workflow that installs kj uses
+// (from CHANGELOG.md); harden pins none older and leaves the workflow alone when none is on npm.
+export const KJ_MIN_VERSION = {
+  "kj-secrets.yml": "5.22.0", // privacy scan --range
+  "kj-verdicts.yml": "5.21.0", // review --verify-pr with the Sonar proof, as the template calls it
+  "kj-policy.yml": "4.70.1", // policy check --range --strict, judged from the base
+  "kj-shrink-budget.yml": "5.14.0", // pr-size --base --limit
+  "kj-steward.yml": "4.23.0", // steward sweep, the scheduled action
+};
+
 /** Universal workflows (every stack). style:hash ⇒ marker in YAML comments. */
 export const WORKFLOWS = [
   { file: "kj-no-ai-attribution.yml", blockId: "wf-no-ai", body: NO_AI_ATTRIBUTION_WORKFLOW },

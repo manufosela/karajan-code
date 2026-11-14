@@ -3,8 +3,8 @@
  *
  * A consumer repo's CI installs kj from npm, so the pin must be a published
  * version. A checkout ahead of npm pins the newest published version that is
- * not newer than itself; when the registry cannot confirm anything, the
- * running version stays and the note says so.
+ * not newer than itself; when the registry cannot be read nothing is pinned
+ * (HU-4278): the workflows that install kj are left as they are, with a note.
  */
 
 import { isNewerVersion } from "../utils/update-check.js";
@@ -17,18 +17,31 @@ async function publishedVersions(name, fetchFn) {
   return Object.keys((await res.json()).versions ?? {});
 }
 
-/** @returns {Promise<{version: string, note?: string}>} */
+const stable = (versions) => versions.filter((v) => !v.includes("-"));
+const newest = (versions) => versions.reduce((best, v) => (best && !isNewerVersion(v, best) ? best : v), null);
+
+/**
+ * HU-4278: the pin of one workflow, the newest published version within [min, running].
+ * `published` undefined = no registry check was asked (the running version stands);
+ * null = the registry could not be read (nothing is pinned); no match = null as well.
+ */
+export function pinForMinimum({ published, running, min }) {
+  if (published === undefined) return running;
+  if (published === null) return null;
+  return newest(stable(published).filter((v) => !isNewerVersion(v, running) && (!min || !isNewerVersion(min, v))));
+}
+
+/** @returns {Promise<{version: string|null, published: string[]|null, note?: string}>} */
 export async function publishedPin({ name, version, fetchFn = fetch }) {
-  const unconfirmed = (why) => ({ version, note: `could not confirm on npm that ${name}@${version} is published (${why}); the workflow pins it as is` });
   let published;
   try {
     published = await publishedVersions(name, fetchFn);
   } catch (err) {
-    return unconfirmed(err.message);
+    // HU-4278: never pin what could not be confirmed; the workflows that install kj stay as they are.
+    return { version: null, published: null, note: `could not confirm the published ${name} versions on npm (${err.message}); the workflows that install it are left as they are` };
   }
-  if (published.includes(version)) return { version };
-  const older = published.filter((v) => !v.includes("-") && !isNewerVersion(v, version));
-  const newest = older.reduce((best, v) => (best && !isNewerVersion(v, best) ? best : v), null);
-  if (!newest) return unconfirmed("no published version at or below it");
-  return { version: newest, note: `${name}@${version} is not on npm yet; the workflow pins ${newest}, the newest published one` };
+  if (published.includes(version)) return { version, published };
+  const pinned = newest(stable(published).filter((v) => !isNewerVersion(v, version)));
+  if (!pinned) return { version: null, published };
+  return { version: pinned, published, note: `${name}@${version} is not on npm yet; each workflow pins the newest published version it accepts (at most ${pinned})` };
 }

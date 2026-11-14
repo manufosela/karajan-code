@@ -231,11 +231,11 @@ describe("hardenCommand", () => {
   it("pins the policy workflow to a version npm has, and warns when it is not the running one", async () => {
     mkdirSync(join(repo, ".karajan"), { recursive: true });
     writeFileSync(join(repo, ".karajan", "policy.yml"), "rules: []\n");
-    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => ({ versions: { "0.0.1": {} } }) }));
+    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => ({ versions: { "4.70.1": {} } }) }));
     const warn = vi.fn();
     await hardenCommand({ projectDir: repo, profile: "standard", guidelines: false, fetchFn, logger: { ...logger, warn } });
-    expect(readFileSync(join(repo, ".github", "workflows", "kj-policy.yml"), "utf8")).toMatch(/@0\.0\.1\b/);
-    expect(warn.mock.calls.flat().join("\n")).toMatch(/is not on npm yet; the workflow pins 0\.0\.1/);
+    expect(readFileSync(join(repo, ".github", "workflows", "kj-policy.yml"), "utf8")).toMatch(/@4\.70\.1\b/);
+    expect(warn.mock.calls.flat().join("\n")).toMatch(/is not on npm yet; each workflow pins/);
   });
 
   it("returns ok:false on a non-repo dir without throwing", async () => {
