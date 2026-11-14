@@ -65,6 +65,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   // KJC-TSK-1623: the finished lanes, folded out of the row into the stack by the release table.
   let folded = new Set();
   const stack = createStack(scene);
+  let stacked = []; // the blocks the stack shows now
   const showStatuses = () => {
     // KJC-BUG-0581: with the robots the floor has at work, so a sign never denies one that types.
     const all = laneStatuses([...new Set([...hall.names(), ...folded])], state, box, floor.working());
@@ -234,6 +235,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     },
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
     cards: () => state.cards ?? [],
+    /** KJC-TSK-1625: what the hall's things hold now, for their tooltips. */
+    things: () => ({ cards: state.cards ?? [], release: state.release ?? null, stacked }),
     /** Takes one stream event at `now` (performance clock, ms). */
     push(event, now) {
       const mail = withMail(box, event);
@@ -269,7 +272,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       flyRelease(now);
       // KJC-TSK-1623: the stack waits for the release; it goes once the drone lifts that release's pile.
       const lifted = !flight || tableCards(flight, now, null) !== flight.cards;
-      stack.show(stackOf([...folded], state.cards ?? [], lifted ? state.release : flight.before));
+      stacked = stackOf([...folded], state.cards ?? [], lifted ? state.release : flight.before);
+      stack.show(stacked);
       conduct(now);
       tags.push(...movePieces(now), ...moveReviews(now));
       couriers.frame(now, hall.xOf, hall.zOf);

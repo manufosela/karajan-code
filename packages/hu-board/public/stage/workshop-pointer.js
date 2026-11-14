@@ -3,15 +3,23 @@
 import * as THREE from 'three';
 import { groundAt } from './flight.js';
 import { huOfLane, laneAtPoint, tipOf } from './workshop-info.js';
+import { rectOf, thingAt, thingBoxes, thingTip } from './hall-things.js';
+import { onScreen } from './screen.js';
+
+/** KJC-TSK-1625: a thing's box as it falls on the screen. */
+function onScreenRect({ min, max }, camera) {
+  const corners = [min.x, max.x].flatMap((x) => [min.y, max.y].flatMap((y) => [min.z, max.z].map((z) => new THREE.Vector3(x, y, z))));
+  return rectOf(corners.map((corner) => onScreen(corner.project(camera), innerWidth, innerHeight)));
+}
 
 const TIP_WIDTH = 340;
 
 /**
  * Watches `canvas` over `scene`'s hall: `tip` is the tooltip element, `cardsOf()` the cards the
  * stage knows now. KJC-TSK-1621: `openHu(hu)` opens one; answers `tapAt(event)`, for a tap or a
- * click that did not drag.
+ * click that did not drag. KJC-TSK-1625: `thingsOf()` what the hall's things hold now.
  */
-export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu }) {
+export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf }) {
   // The board's three.js has no Raycaster: the ray goes from the camera through the pointer.
   const laneUnder = ({ clientX, clientY }) => {
     const { camera, hall } = scene;
@@ -19,20 +27,34 @@ export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu }) {
     const dir = through.sub(camera.position).normalize();
     return laneAtPoint(groundAt(camera.position, dir), hall.names(), hall.xOf, hall.zOf);
   };
+  // KJC-TSK-1625: the release table, the finished stack and the task wall, before the workshops.
+  const thingUnder = ({ clientX, clientY }) => {
+    const rects = thingBoxes(thingsOf().stacked.length).map((b) => ({ id: b.id, rect: onScreenRect(b, scene.camera) }));
+    return thingAt({ left: clientX, top: clientY }, rects);
+  };
+  /** The tooltip's lines under the pointer, and whether a click there opens something; null when none. */
+  const tipUnder = (event) => {
+    const thing = thingUnder(event);
+    if (thing) return { lines: thingTip(thing, thingsOf()), opens: false };
+    const lane = laneUnder(event);
+    if (!lane) return null;
+    const hu = huOfLane(lane, cardsOf());
+    return { lines: tipOf(lane, hu, scene.hall.lineOf(lane), true), opens: Boolean(hu) };
+  };
   const hide = () => { tip.hidden = true; canvas.style.cursor = ''; };
   canvas.addEventListener('pointermove', (event) => {
     if (event.pointerType !== 'mouse') return;
-    const lane = laneUnder(event);
-    if (!lane) { hide(); return; }
-    const hu = huOfLane(lane, cardsOf());
-    tip.replaceChildren(...tipOf(lane, hu, scene.hall.lineOf(lane), true).map((line) => Object.assign(document.createElement('div'), { textContent: line })));
+    const under = tipUnder(event);
+    if (!under) { hide(); return; }
+    tip.replaceChildren(...under.lines.map((line) => Object.assign(document.createElement('div'), { textContent: line })));
     tip.style.left = `${Math.min(event.clientX + 14, innerWidth - TIP_WIDTH - 8)}px`;
     tip.style.top = `${event.clientY + 16}px`;
     tip.hidden = false;
-    canvas.style.cursor = hu ? 'pointer' : '';
+    canvas.style.cursor = under.opens ? 'pointer' : '';
   });
   canvas.addEventListener('pointerleave', hide);
   return (event) => {
+    if (thingUnder(event)) return;
     const lane = laneUnder(event);
     const hu = lane && huOfLane(lane, cardsOf());
     if (hu) { hide(); openHu(hu); }
