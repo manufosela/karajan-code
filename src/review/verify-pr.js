@@ -7,7 +7,8 @@
  */
 import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
-import { commitFiles, MARKER, SONAR_MARKS, TRUSTED } from "./publish-pr.js";
+import { commitFiles, MARKER, SONAR_MARKS } from "./publish-pr.js";
+import { trustedReviews } from "./trusted-review.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { isSealCommit } from "./seal-commit.js";
@@ -66,13 +67,15 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits"], projectDir);
   const commits = info.commits ?? [];
   // One review per line, every page: --slurp is missing from the gh that distros ship.
-  const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/pulls/${pr}/reviews`, "--jq", ".[] | {body, author_association}"], { cwd: projectDir });
+  const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/pulls/${pr}/reviews`, "--jq", ".[] | {body, author_association, user: {login: .user.login}}"], { cwd: projectDir });
   if (res.exitCode !== 0) throw new Error(`gh api reviews failed: ${(res.stderr || res.stdout || "").trim()}`);
   const reviews = (res.stdout || "").split("\n").filter(Boolean).map((line) => JSON.parse(line));
   // KJC-BUG-0391: any kj review a member published on the PR counts, not only the one for
   // today's head: the diff hash of each commit is what proves it, and a commit pushed after
   // the review is simply not listed. "Update branch" no longer leaves the check red.
-  const kjReviews = reviews.filter((r) => TRUSTED.has(r.author_association) && String(r.body ?? "").includes(MARKER_PREFIX));
+  // HU-4270: a private org member reads as CONTRIBUTOR to the CI token; write access counts too.
+  const judged = await trustedReviews(reviews.filter((r) => String(r.body ?? "").includes(MARKER_PREFIX)), { projectDir, run });
+  const kjReviews = judged.trusted;
   const listed = listedCommits(kjReviews);
   const problems = [];
   const sealCommits = [];
@@ -91,6 +94,6 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   // A PR that only brings the seal needs no review; anything else without one (a clean merge
   // included, KJC-BUG-0438) is told to publish it.
   const onlySeals = sealCommits.length > 0 && sealCommits.length === commits.length;
-  if (kjReviews.length === 0 && !onlySeals) problems.splice(0, problems.length, `no kj review published by a member: run kj review --publish-pr ${pr}`);
+  if (kjReviews.length === 0 && !onlySeals) problems.splice(0, problems.length, `no kj review published by a member: run kj review --publish-pr ${pr}`, ...judged.rejected);
   return { ok: problems.length === 0, commits: commits.length, problems, ...(sealCommits.length > 0 ? { sealCommits } : {}) };
 }

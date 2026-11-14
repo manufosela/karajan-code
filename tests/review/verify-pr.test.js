@@ -34,9 +34,12 @@ function fakeGit(args, diffs, merges, names = {}, blobs = {}) {
   return { exitCode: 0, stdout: diffs[args.at(-1)] ?? "" };
 }
 
-function fakeRun({ reviews = [], posted = [], diffs = DIFFS, pr = PR, merges = {}, names = {}, blobs = {} } = {}) {
+// HU-4270: permissions, as {login: permission}; a login not listed fails the lookup (HTTP 404).
+function fakeRun({ reviews = [], posted = [], diffs = DIFFS, pr = PR, merges = {}, names = {}, blobs = {}, permissions = {}, asked = [] } = {}) {
   return async (cmd, args) => {
     if (cmd === "gh" && args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify(pr) };
+    const login = /\/collaborators\/(.+)\/permission$/.exec(String(args[1]))?.[1];
+    if (cmd === "gh" && login) { asked.push(login); return login in permissions ? { exitCode: 0, stdout: `${permissions[login]}\n` } : { exitCode: 1, stderr: "HTTP 404: Not Found" }; }
     if (cmd === "git") return fakeGit(args, diffs, merges, names, blobs);
     if (cmd === "gh" && args.includes("POST")) { posted.push(args); return { exitCode: 0, stdout: "{}" }; }
     if (cmd === "gh" && args.includes("--jq")) return { exitCode: 0, stdout: reviews.map((r) => JSON.stringify(r)).join("\n") };
@@ -127,6 +130,38 @@ describe("verifyPrReview", () => {
     const body = await publishedBody();
     const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [{ body, author_association: "CONTRIBUTOR" }] }) });
     expect(r.ok).toBe(false);
+  });
+
+  // HU-4270 (KJC-BUG-0586, #4198): the CI token cannot see a private org membership, so a member reads as CONTRIBUTOR.
+  describe("a review whose association is not trusted", () => {
+    const by = (body, login, author_association = "CONTRIBUTOR") => ({ body, author_association, user: { login } });
+    it("counts when its author has write permission on the repository", async () => {
+      const body = await publishedBody();
+      const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [by(body, "jorge")], permissions: { jorge: "write" } }) });
+      expect(r).toEqual({ ok: true, commits: 2, problems: [] });
+    });
+
+    it("does not count with read permission, naming the login, the association and the permission", async () => {
+      const body = await publishedBody();
+      const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [by(body, "jorge")], permissions: { jorge: "read" } }) });
+      expect(r.ok).toBe(false);
+      expect(r.problems).toContain("review by jorge not counted: association CONTRIBUTOR and repository permission read; if jorge is an org member, their membership may be private: make it public (orgs/<org>/public_members) or give them write access");
+    });
+
+    it("does not count when the permission lookup fails, and names it", async () => {
+      const body = await publishedBody();
+      const r = await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews: [by(body, "jorge", "FIRST_TIME_CONTRIBUTOR")] }) });
+      expect(r.ok).toBe(false);
+      expect(r.problems).toContain("review by jorge not counted: association FIRST_TIME_CONTRIBUTOR and permission lookup failed: HTTP 404: Not Found");
+    });
+
+    it("asks the permission once per login, however many reviews it wrote", async () => {
+      const body = await publishedBody();
+      const asked = [];
+      const reviews = [by(body, "jorge"), by(body, "jorge", "NONE"), by(body, "ana"), by("loose comment", "eve")];
+      await verifyPrReview({ projectDir: dir, pr: 7, run: fakeRun({ reviews, permissions: { jorge: "read", ana: "maintain" }, asked }) });
+      expect(asked).toEqual(["jorge", "ana"]);
+    });
   });
 
   it("fails naming a commit the review does not list", async () => {
