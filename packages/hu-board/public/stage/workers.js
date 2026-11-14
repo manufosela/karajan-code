@@ -21,9 +21,11 @@ export const SEATS = [-2.55, -0.85, 0.85, 2.55];
 export const TYPING_YAW = 1.85;
 const ROLE_SEAT = { host: 0, coder: 1, reviewer: 2, solomon: 3 };
 // KJC-BUG-0555: once the four seats are taken, the next ones stand in rows behind the bench.
-const SEAT_ROW = 0.9;
+// KJC-BUG-0589: a robot's width (the host's included) apart, not 0.9 m, where their heads piled up.
+const SEAT_ROW = 1.7;
 // KJC-TSK-1435 (ADR 0048): the host's subagents work in rows of five in front of the bench.
-const SUBAGENT = { dz: 1.2, from: -2.4, step: 1.2, slots: 5, row: 0.6 };
+// KJC-BUG-0589: further from the bench, and their rows a robot's depth with its backpack apart.
+const SUBAGENT = { dz: 1.4, from: -2.4, step: 1.2, slots: 5, row: 0.9 };
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
 const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
 export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;
@@ -88,7 +90,9 @@ export function spotOf(role, laneX = 0, slot = undefined, laneZ = WORKSHOP.z) {
   const seat = slot ?? ROLE_SEAT[role];
   if (seat === undefined) return { x: laneX, z: laneZ + BENCH_DZ };
   const row = Math.floor(seat / SEATS.length);
-  return { x: laneX + SEATS[seat % SEATS.length], z: laneZ + BENCH_DZ - row * SEAT_ROW };
+  // KJC-BUG-0589: every other row half a seat over, in the gap between the robots in front of it.
+  const stagger = (row % 2) * ((SEATS[1] - SEATS[0]) / 2);
+  return { x: laneX + SEATS[seat % SEATS.length] + stagger, z: laneZ + BENCH_DZ - row * SEAT_ROW };
 }
 
 const laneOf = (ev) => ev.lane ?? 'main';
