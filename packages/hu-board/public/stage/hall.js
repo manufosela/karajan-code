@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { BOOTH, WORKSHOP, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
+import { createBelt } from './belt.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
@@ -143,6 +144,7 @@ export function createHall(scene, lanes) {
   const shown = new Map(); // KJC-TSK-1540: each lane's status line, repainted only when it changes
   const lines = new Map(); // KJC-TSK-1620: and that line, whole
   const lights = new Map();
+  const belts = new Map(); // KJC-TSK-1639: each lane's pipeline belt
   const order = [];
   // KJC-TSK-1488: in rows and columns once there are many.
   const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
@@ -155,6 +157,9 @@ export function createHall(scene, lanes) {
     const { gate, light } = gates();
     shop.group.add(gate);
     lights.set(lane, light);
+    const belt = createBelt();
+    shop.group.add(belt.group);
+    belts.set(lane, belt);
     shops.set(lane, shop);
     order.push(lane);
     scene.add(shop.group);
@@ -170,6 +175,7 @@ export function createHall(scene, lanes) {
     shown.delete(lane);
     lines.delete(lane);
     lights.delete(lane);
+    belts.delete(lane);
     order.splice(order.indexOf(lane), 1);
     relayout();
     return true;
@@ -194,6 +200,10 @@ export function createHall(scene, lanes) {
       lines.set(lane, line);
       shops.get(lane).show(line, state);
     },
+    /** KJC-TSK-1639: shows a lane's pipeline on its belt (null: no open pull request, no belt). */
+    showPipeline: (lane, pipeline) => belts.get(lane)?.show(pipeline),
+    /** KJC-TSK-1639: moves the boxes of every belt. */
+    frameBelts: (now) => belts.forEach((belt) => belt.frame(now)),
     /** Lights a lane's gates green (approve) or red (refuse) at `level` 0..1; 0 puts them out. */
     lightGates(lane, tone, level) {
       const light = lights.get(lane);

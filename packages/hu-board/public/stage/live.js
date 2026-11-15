@@ -77,6 +77,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     if (moved.some(Boolean)) refit();
     statuses = new Map([...all].filter(([lane]) => !finished.has(lane)));
     for (const [lane, status] of statuses) hall.showStatus(lane, statusLine(status), status.state);
+    // KJC-TSK-1639: and its open pull request's pipeline on its belt.
+    const pipelines = new Map((state.lanes ?? []).map(({ lane, pipeline }) => [lane, pipeline ?? null]));
+    for (const lane of hall.names()) hall.showPipeline(lane, pipelines.get(lane) ?? null);
   };
   /** KJC-TSK-1588: over each desk whose card waits with no agent, what it waits for. */
   const showSigns = () => deskSigns(statuses, atHome(state.cards ?? [], hall.names())).map(({ lane, text, tone }) =>
@@ -279,6 +282,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       conduct(now);
       tags.push(...movePieces(now), ...moveReviews(now));
       couriers.frame(now, hall.xOf, hall.zOf);
+      hall.frameBelts(now); // KJC-TSK-1639
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, couriers.carried(), hall.zOf);
       tags.push(...showSigns());
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
