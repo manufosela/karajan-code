@@ -169,6 +169,24 @@ describe("commitContract", () => {
     expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .karajan/hooks/pre-commit", " M .karajan/supervisor-provenance.json"]);
   });
 
+  // HU-4384 (KJC-BUG-0600): the seal covers workflows and governance files by hash, so a
+  // tracked one that was regenerated is the seal's, like the hooks; a new one still rides.
+  it("a sealed workflow or governance file that was regenerated is left to the seal", () => {
+    write(".github/workflows/kj-policy.yml", "name: old\n");
+    write(".karajan/rules.yml", "rules: []\n");
+    git("add", ".");
+    git("commit", "-q", "-m", "chore: sealed");
+    git("checkout", "-q", "-b", "chore/kj");
+    write("CLAUDE.md", "# method\n");
+    write(".github/workflows/kj-policy.yml", "name: new\n");
+    write(".github/workflows/kj-verdicts.yml", "name: v\n"); // new: first install
+    write(".karajan/rules.yml", "rules: [a]\n");
+    const res = commitContract({ projectDir: dir });
+    expect(res.committed).toBe(true);
+    expect(committed()).toEqual([".github/workflows/kj-verdicts.yml", "CLAUDE.md"]);
+    expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .github/workflows/kj-policy.yml", " M .karajan/rules.yml"]);
+  });
+
   it("a commit git refuses names the files and the way to commit them", () => {
     write("README.md", "# app\n");
     git("add", "README.md");

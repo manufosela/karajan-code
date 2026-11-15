@@ -12,6 +12,7 @@ import { rmSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
+import { isSealedConfig } from "../harden/supervisor-commit.js";
 
 /** What kj generates and the whole team must inherit by cloning (prefixes). */
 export const CONTRACT_PATHS = [
@@ -110,7 +111,8 @@ function planContract({ git, before, baseBranch }) {
   // commit's: regenerated together after a version bump, the gate refused the one
   // and the seal the other, and the person had to unstage the hook by hand. The
   // first install (untracked hooks) still rides in the contract commit.
-  const mine = contractStatus(git).filter(([file, code]) => !before.has(file) && !(history && code !== "??" && isSupervisor(file)));
+  // HU-4384: the workflows and governance files the seal covers by hash are the seal's too.
+  const mine = contractStatus(git).filter(([file, code]) => !before.has(file) && !(history && code !== "??" && (isSupervisor(file) || isSealedConfig(file))));
   const files = mine.map(([file]) => file).sort();
   // Files git did not track before kj added them: they leave the index with `rm --cached`.
   const fresh = mine.filter(([, code]) => code === "??" || !history).map(([file]) => file);
