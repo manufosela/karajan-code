@@ -3,47 +3,56 @@
  * exact diff, like any other commit, so `kj review --publish-pr` and verify-pr
  * accept it. Never fails the harden run: no reviewer means a printed command.
  */
-import { execFileSync } from "node:child_process";
-
 import { loadConfig } from "../config.js";
 
-/** `kj review --range <sha>^..<sha>`, run from the project (the review reads git from the cwd). */
-async function reviewRange({ projectDir, range }) {
+/** `kj review --staged`, run from the project (the review reads git from the cwd). */
+async function reviewStaged({ projectDir }) {
   const { reviewGateCommand } = await import("../commands/review-gate.js");
   const { config } = await loadConfig(projectDir);
   const cwd = process.cwd();
   const exitCode = process.exitCode;
   process.chdir(projectDir);
   try {
-    return await reviewGateCommand({ config: { ...config, projectDir }, flags: { range } });
+    return await reviewGateCommand({ config: { ...config, projectDir }, flags: { staged: true } });
   } finally {
     process.chdir(cwd);
     process.exitCode = exitCode; // a rejection here is reported by harden, not by the exit code
   }
 }
 
-const headSha = (projectDir) => execFileSync("git", ["-C", projectDir, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+/** HU-4361: the review runs git from this process, so while it runs GIT_INDEX_FILE names the index it reads. */
+async function withIndexFile(indexFile, run) {
+  if (!indexFile) return run();
+  const previous = process.env.GIT_INDEX_FILE;
+  process.env.GIT_INDEX_FILE = indexFile;
+  try {
+    return await run();
+  } finally {
+    if (previous === undefined) delete process.env.GIT_INDEX_FILE;
+    else process.env.GIT_INDEX_FILE = previous;
+  }
+}
 
 /**
- * @param {{projectDir: string, say?: (line: string) => void, review?: Function, env?: object}} opts
- * @returns {Promise<{status: "approved"|"rejected"|"unavailable"|"skipped", command?: string}>}
+ * HU-4361: reviews the contract diff BEFORE the commit, so the verdict is there
+ * when the pre-commit gate looks for it. `indexFile`: the index that holds the
+ * contract alone, which the review reads in place of the person's own.
+ * @param {{projectDir: string, indexFile?: string, say?: (line: string) => void, review?: Function, env?: object}} opts
+ * @returns {Promise<{status: "approved"|"rejected"|"unavailable"|"skipped"}>}
  */
-export async function reviewContractCommit({ projectDir, say = (line) => process.stdout.write(`${line}\n`), review = reviewRange, env = process.env }) {
+export async function reviewContractCommit({ projectDir, indexFile, say = (line) => process.stdout.write(`${line}\n`), review = reviewStaged, env = process.env }) {
   if (env.KJ_NO_CONTRACT_REVIEW === "1") return { status: "skipped" };
-  const sha = headSha(projectDir);
-  const range = `${sha}^..${sha}`;
-  const command = `kj review --range ${sha.slice(0, 7)}^..${sha.slice(0, 7)}`;
   try {
-    const record = await review({ projectDir, range });
+    const record = await withIndexFile(indexFile, () => review({ projectDir }));
     if (record?.verdict === "approved") {
-      say(`kj harden: contract commit ${sha.slice(0, 7)} reviewed by ${record.reviewer}: approved`);
+      say(`kj harden: the contract reviewed by ${record.reviewer}: approved`);
       return { status: "approved" };
     }
     const issues = (record?.issues ?? []).map((i) => `  - ${i.description ?? i.id}`).join("\n");
-    say(`kj harden: the contract commit ${sha.slice(0, 7)} needs a fix before the PR (rejected by ${record?.reviewer ?? "the reviewer"}):\n${issues}`);
+    say(`kj harden: the contract needs a fix before it is committed (rejected by ${record?.reviewer ?? "the reviewer"}):\n${issues}`);
     return { status: "rejected" };
   } catch (err) {
-    say(`kj harden: no reviewer reviewed the contract commit (${String(err.message).split("\n")[0]}). Run later: ${command}`);
-    return { status: "unavailable", command };
+    say(`kj harden: no reviewer reviewed the contract (${String(err.message).split("\n")[0]})`);
+    return { status: "unavailable" };
   }
 }

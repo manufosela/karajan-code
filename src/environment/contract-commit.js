@@ -8,7 +8,8 @@
  * seal (ADR 0009), which stays a human act.
  */
 import { execFileSync } from "node:child_process";
-import { basename } from "node:path";
+import { rmSync } from "node:fs";
+import { basename, resolve } from "node:path";
 
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
 
@@ -85,6 +86,9 @@ export function commitFailureReason(err) {
 const hasCommits = (git) => { try { git(["rev-parse", "--verify", "HEAD"]); return true; } catch { return false; } };
 const branchOf = (git) => { try { return git(["symbolic-ref", "--short", "HEAD"]).trim(); } catch { return ""; } };
 
+/** Git's own first line of an error: what failed, before its advice. */
+const firstLine = (err) => String(err.stderr || err.message).trim().split("\n")[0];
+
 /** Takes back from the index what kj staged; returns "" or why it could not. */
 function unstage(git, files, fresh) {
   const added = new Set(fresh);
@@ -94,18 +98,12 @@ function unstage(git, files, fresh) {
     if (fresh.length > 0) git(["rm", "--cached", "-q", "--", ...fresh]);
     return "";
   } catch (err) {
-    return String(err.stderr || err.message).trim().split("\n")[0];
+    return firstLine(err);
   }
 }
 
-/**
- * @param {{projectDir: string, before?: Set<string>, baseBranch?: string, env?: object}} opts
- *   `before`: the contract files already dirty BEFORE kj generated anything,
- *   tracked or not. They may carry the person's words, so they stay out.
- * @returns {{committed: boolean, files?: string[], reason?: string}}
- */
-export function commitContract({ projectDir, before = new Set(), baseBranch = "main", env = process.env }) {
-  const git = runner(projectDir, env);
+/** What would be committed: `{ result }` when there is nothing to do, else the files to stage. */
+function planContract({ git, before, baseBranch }) {
   const history = hasCommits(git);
   // KJC-BUG-0302: a sealed supervisor regenerated (tracked hooks or provenance
   // that changed) is the seal's, a human act (ADR 0009), never the contract
@@ -116,24 +114,99 @@ export function commitContract({ projectDir, before = new Set(), baseBranch = "m
   const files = mine.map(([file]) => file).sort();
   // Files git did not track before kj added them: they leave the index with `rm --cached`.
   const fresh = mine.filter(([, code]) => code === "??" || !history).map(([file]) => file);
-  if (files.length === 0) return { committed: false, reason: "nothing of the contract to commit" };
+  if (files.length === 0) return { result: { committed: false, reason: "nothing of the contract to commit" } };
   if (history && branchOf(git) === baseBranch) {
     // kj never commits on the base branch, and will not switch the person's branch
     // for them: the files are named so the commit can be made where it belongs.
-    return { committed: false, files, reason: `on the base branch '${baseBranch}', where kj never commits: create a branch and commit these generated files there (git checkout -b chore/kj-contract && git add -- ${files.join(" ")} && git commit -m "chore(kj): el contrato del método")` };
+    return { result: { committed: false, files, reason: `on the base branch '${baseBranch}', where kj never commits: create a branch and commit these generated files there (git checkout -b chore/kj-contract && git add -- ${files.join(" ")} && git commit -m "chore(kj): el contrato del método")` } };
+  }
+  return { files, fresh, history, message: history ? REGEN_MESSAGE : FRESH_MESSAGE };
+}
+
+const stageContract = (git, { files }) => git(["add", "--", ...files]);
+// --only: these paths and nothing else. What the person had staged stays staged.
+const commitStaged = (git, { files, message }) => git(["commit", "--only", "-m", message, "--", ...files]);
+
+/** The way to commit the generated files by hand, named whenever kj could not. */
+function commitByHand(files) {
+  const quoted = files.map((f) => "'" + f.replaceAll("'", String.raw`'\''`) + "'").join(" ");
+  return `Commit these generated files on a branch yourself: git add -- ${quoted} && kj review --staged && git commit -m "chore(kj): el contrato del método, generado por kj"`;
+}
+
+/** KJC-BUG-0302 / KJC-BUG-0522: the files stay in the working tree, not staged, so the seal can still run; the reason names the way to commit them. */
+function commitFailure(git, { files, fresh }, err) {
+  const why = commitFailureReason(err);
+  const failed = unstage(git, files, fresh);
+  const note = failed ? ` (and they could not be unstaged: ${failed})` : "";
+  return { committed: false, files, reason: `git could not commit the contract: ${why}${note}. ${commitByHand(files)}` };
+}
+
+/** Stages the contract and commits it alone (`--only`). */
+function commitPlan(git, plan) {
+  try {
+    stageContract(git, plan);
+    commitStaged(git, plan);
+  } catch (err) {
+    return commitFailure(git, plan, err);
+  }
+  return { committed: true, files: plan.files };
+}
+
+/**
+ * @param {{projectDir: string, before?: Set<string>, baseBranch?: string, env?: object}} opts
+ *   `before`: the contract files already dirty BEFORE kj generated anything,
+ *   tracked or not. They may carry the person's words, so they stay out.
+ * @returns {{committed: boolean, files?: string[], reason?: string}}
+ */
+export function commitContract({ projectDir, before = new Set(), baseBranch = "main", env = process.env }) {
+  const git = runner(projectDir, env);
+  const plan = planContract({ git, before, baseBranch });
+  return plan.result ?? commitPlan(git, plan);
+}
+
+/**
+ * HU-4361 (KJC-BUG-0599): the review reads a throwaway index, next to git's own,
+ * holding HEAD plus the contract alone: what `commit --only` commits. The person's
+ * index, and what they had staged in it, is neither reviewed nor touched.
+ */
+async function reviewContractAlone({ projectDir, env, git, plan, reviewStaged }) {
+  let indexFile = "";
+  try {
+    indexFile = resolve(projectDir, git(["rev-parse", "--git-dir"]).trim(), `kj-contract-index-${process.pid}`);
+    const alone = runner(projectDir, { ...env, GIT_INDEX_FILE: indexFile });
+    alone(["read-tree", plan.history ? "HEAD" : "--empty"]);
+    stageContract(alone, plan);
+  } catch (err) {
+    if (indexFile) rmSync(indexFile, { force: true });
+    return { status: "unindexed", error: firstLine(err) };
   }
   try {
-    git(["add", "--", ...files]);
-    // --only: these paths and nothing else. What the person had staged stays staged.
-    git(["commit", "--only", "-m", history ? REGEN_MESSAGE : FRESH_MESSAGE, "--", ...files]);
+    return await reviewStaged({ indexFile });
   } catch (err) {
-    // KJC-BUG-0302 / KJC-BUG-0522: the files stay in the working tree, not staged, so
-    // the seal can still run; the reason names the way to commit them.
-    const why = commitFailureReason(err);
-    const quoted = files.map((f) => "'" + f.replaceAll("'", String.raw`'\''`) + "'").join(" ");
-    const failed = unstage(git, files, fresh);
-    const note = failed ? ` (and they could not be unstaged: ${failed})` : "";
-    return { committed: false, files, reason: `git could not commit the contract: ${why}${note}. Commit these generated files on a branch yourself: git add -- ${quoted} && kj review --staged && git commit -m "chore(kj): el contrato del método, generado por kj"` };
+    return { status: "unavailable", error: firstLine(err) };
+  } finally {
+    rmSync(indexFile, { force: true });
   }
-  return { committed: true, files };
+}
+
+/**
+ * HU-4361 (KJC-BUG-0599): like commitContract, but the contract diff is reviewed
+ * BEFORE the commit, so a repo with the review gate finds its verdict in the
+ * pre-commit hook. A rejection commits nothing; a reviewer that cannot run still
+ * lets the commit be tried (a repo without the gate commits fine), and then the
+ * review carries the command that reviews that commit later.
+ * @param {{reviewStaged: (opts: {indexFile: string}) => Promise<{status: string}>}} opts reviewStaged: reviews what indexFile stages
+ * @returns {Promise<{committed: boolean, files?: string[], reason?: string, review?: object}>}
+ */
+export async function commitContractReviewed({ projectDir, before = new Set(), baseBranch = "main", env = process.env, reviewStaged }) {
+  const git = runner(projectDir, env);
+  const plan = planContract({ git, before, baseBranch });
+  if (plan.result) return plan.result;
+  const review = await reviewContractAlone({ projectDir, env, git, plan, reviewStaged });
+  if (review.status === "unindexed") return { committed: false, files: plan.files, review, reason: `kj could not stage the contract alone for its review: ${review.error}. ${commitByHand(plan.files)}` };
+  if (review.status === "rejected") return { committed: false, files: plan.files, review, reason: "the cross-AI review rejected the contract diff, nothing was committed" };
+  const done = commitPlan(git, plan);
+  if (!done.committed || review.status !== "unavailable") return { ...done, review };
+  const sha = git(["rev-parse", "--short=7", "HEAD"]).trim();
+  return { ...done, review: { ...review, command: `kj review --range ${sha}^..${sha}` } };
 }
