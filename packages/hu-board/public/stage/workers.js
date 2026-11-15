@@ -57,8 +57,12 @@ export function typingAt(now) {
 export const TURN_MS = 1200;
 /** KJC-TSK-1611: Karajan, who launches the agents that bud out of it, and how long budding takes. */
 const KARAJAN = { x: CREW.conductor.x, z: CREW.conductor.z };
-export const BUD_MS = 600;
-const BUDDED = (role) => role !== 'host' && role !== 'subagent';
+// KJC-TSK-1637 (the maintainer, 2026-11-15): "no hurry": the teleport takes its time, standing still.
+export const BUD_MS = 1500;
+// Every robot but a subagent (which walks out of its host and back) teleports in and out.
+const BUDDED = (role) => role !== 'subagent';
+/** KJC-TSK-1637: standing at `at`, teleporting: whole at `size` 1, gone at 0. */
+const teleporting = (at, size, extra = {}) => ({ x: at.x, z: at.z, yaw: 0, walking: false, reading: false, ...extra, size: Math.max(0, Math.min(1, size)) });
 /** KJC-TSK-1596: where an agent stands to take its skills, a metre in front of atril, facing it. */
 export const READER = { x: STAND.x + Math.sin(STAND.yaw), z: STAND.z + Math.cos(STAND.yaw) };
 
@@ -173,7 +177,8 @@ export function withActivity(workers, event, now) {
 /** The agents already at work in `lane` when the stage opens, standing at their spot. */
 export const workersFrom = (working, now, lane = 'main') =>
   // KJC-TSK-1596: already at its desk, it took its skills before the stage opened.
-  working.filter((w) => w.role !== PIECE_ROLE).reduce((all, w) => [...all, newWorker(all, { ...w, lane, skills: [] }, now - WALK_MS)], []);
+  // KJC-TSK-1637: long enough ago to have teleported in and walked the host's longer way.
+  working.filter((w) => w.role !== PIECE_ROLE).reduce((all, w) => [...all, newWorker(all, { ...w, lane, skills: [] }, now - BUD_MS - HOST_WALK_MS)], []);
 
 const lerp = (from, to, k) => ({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k });
 const facing = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
@@ -229,34 +234,40 @@ function along(points, k) {
 
 /** KJC-TSK-1628: a host budding at the side door and walking to its desk, or back to melt there; null once gone. */
 function hostAt(worker, now, spot, way) {
+  // KJC-TSK-1637: back to the booth whole, and only standing in it does it teleport out.
   if (worker.leftAt !== undefined && now >= worker.leftAt) {
-    const k = (now - worker.leftAt) / HOST_WALK_MS;
-    if (k >= 1) return null;
-    return { ...along(way.toReversed(), k), walking: true, size: Math.min(1, ((1 - k) * HOST_WALK_MS) / BUD_MS) };
+    const t = now - worker.leftAt;
+    if (t < HOST_WALK_MS) return { ...along(way.toReversed(), t / HOST_WALK_MS), walking: true, size: 1 };
+    return t < HOST_WALK_MS + BUD_MS ? teleporting(way[0], 1 - (t - HOST_WALK_MS) / BUD_MS) : null;
   }
   const away = detourAt(worker.detour, now, spot);
   if (away) return { ...away, size: 1 };
   const t = Math.max(0, now - worker.since);
-  const size = Math.min(1, t / BUD_MS);
-  if (t < HOST_WALK_MS) return { ...along(way, t / HOST_WALK_MS), walking: true, reading: false, size };
-  return { ...spot, yaw: 0, walking: false, reading: false, waiting: Boolean(worker.waiting), size };
+  // It teleports in standing in the booth, and walks off once whole.
+  if (t < BUD_MS) return teleporting(way[0], t / BUD_MS);
+  if (t < BUD_MS + HOST_WALK_MS) return { ...along(way, (t - BUD_MS) / HOST_WALK_MS), walking: true, reading: false, size: 1 };
+  return { ...spot, yaw: 0, walking: false, reading: false, waiting: Boolean(worker.waiting), size: 1 };
 }
 
 /** KJC-TSK-1611: walking out by its gate, one Karajan launched shrinking into it; null once gone. */
 function leavingAt(worker, now, spot, gate) {
   const k = (now - worker.leftAt) / WALK_MS;
-  if (k >= 1) return null;
-  const size = BUDDED(worker.role) ? Math.min(1, ((1 - k) * WALK_MS) / BUD_MS) : 1;
-  return { ...lerp(spot, gate, k), yaw: facing(spot, gate), walking: true, size };
+  if (k < 1) return { ...lerp(spot, gate, k), yaw: facing(spot, gate), walking: true, size: 1 };
+  // KJC-TSK-1637: once it stands by its gate, one Karajan launched teleports out; a subagent is gone.
+  const fade = (now - worker.leftAt - WALK_MS) / BUD_MS;
+  return BUDDED(worker.role) && fade < 1 ? teleporting(gate, 1 - fade) : null;
 }
 
 /** Walking in from its gate to its desk, by atril when it brings skills, then at its desk. */
 function arrivingAt(worker, now, spot, gate) {
   // KJC-TSK-1596: with skills it stops before atril on its way in, one page per skill.
   const via = worker.reads ? READER : null;
-  const t = Math.max(0, now - worker.since);
-  // KJC-TSK-1611: one Karajan launches buds out of it, growing.
-  const size = BUDDED(worker.role) ? Math.min(1, t / BUD_MS) : 1;
+  // KJC-TSK-1611, 1637: one Karajan launches teleports in standing by its gate, and walks once whole.
+  const shift = BUDDED(worker.role) ? BUD_MS : 0;
+  const since = Math.max(0, now - worker.since);
+  if (since < shift) return teleporting(gate, since / BUD_MS);
+  const t = since - shift;
+  const size = 1;
   if (via && t < WALK_MS) return { ...lerp(gate, via, t / WALK_MS), yaw: facing(gate, via), walking: true, reading: false, size };
   const read = via ? worker.reads * TURN_MS : 0;
   if (via && t < WALK_MS + read) return { ...via, yaw: facing(via, STAND), walking: false, reading: true, size };
@@ -278,7 +289,7 @@ function gateOf(role, laneX, laneZ) {
  * KJC-TSK-1596: when atril starts turning the pages of a start at `now`: once its robot stands
  * before it; at once for the reviewer, which has no robot, and for a subagent.
  */
-export const turnFrom = (event, now) => (event.role === PIECE_ROLE || event.role === 'subagent' ? now : now + WALK_MS);
+export const turnFrom = (event, now) => (event.role === PIECE_ROLE || event.role === 'subagent' ? now : now + BUD_MS + WALK_MS);
 
 /**
  * What the label over a worker says: the host its session's name (KJC-TSK-1483; its
