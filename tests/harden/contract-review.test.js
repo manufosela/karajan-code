@@ -13,7 +13,9 @@ let repo;
 const lines = [];
 const logger = { info: (l) => lines.push(l), warn: (l) => lines.push(l), error: (l) => lines.push(l) };
 const git = (...args) => execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
-const harden = (contractReview) => hardenCommand({ projectDir: repo, profile: "minimal", ci: false, guidelines: false, contractReview, logger });
+// KJC-BUG-0608: with history the hooks are the seal's, so the contract under review is the
+// configs standard generates (minimal generates hooks alone, and its contract would be empty).
+const harden = (contractReview) => hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, contractReview, logger });
 const rangeDiff = () => git("diff", "HEAD^..HEAD");
 const stagedPaths = () => git("diff", "--cached", "--name-only").trim();
 const approve = async ({ projectDir }) => saveVerdict(projectDir, git("diff", "--cached"), { verdict: "approved", reviewer: "fake", issues: [] });

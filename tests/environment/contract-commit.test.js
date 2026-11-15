@@ -152,7 +152,10 @@ describe("commitContract", () => {
   // KJC-BUG-0302: after a version bump kj harden regenerates the contract AND the
   // supervisor's hooks; committed together, the gate refused the contract commit
   // and the seal refused the stage, and the person had to unstage the hook by hand.
-  it("a sealed supervisor that was regenerated is left to the seal, unstaged; a first install still rides", () => {
+  // KJC-BUG-0608 (HU-4400): a NEW hook or workflow is the seal's too. Since the contract is
+  // reviewed before its commit (HU-4361), the review's policy denies them outside the seal, and
+  // the first kj harden of a repo with history committed nothing at all.
+  it("a sealed supervisor, regenerated or new, is left to the seal, unstaged", () => {
     write(".karajan/hooks/pre-commit", "#!/bin/sh\nexit 0\n");
     write(".karajan/supervisor-provenance.json", "{}\n");
     git("add", ".");
@@ -161,17 +164,24 @@ describe("commitContract", () => {
     generate();
     write(".karajan/hooks/pre-commit", "#!/bin/sh\n# regenerated\nexit 0\n");
     write(".karajan/supervisor-provenance.json", "{\"v\":2}\n");
-    write(".karajan/hooks/pre-push", "#!/bin/sh\nexit 0\n"); // a new hook: first install, not a reseal
+    write(".karajan/hooks/pre-push", "#!/bin/sh\nexit 0\n"); // a new hook
     const res = commitContract({ projectDir: dir });
     expect(res.committed).toBe(true);
-    expect(committed()).toEqual([".claude/skills/kj-run/SKILL.md", ".github/workflows/kj-policy.yml", ".karajan/hooks/pre-push", ".karajan/review-gate", "CLAUDE.md"]);
+    expect(committed()).toEqual([".claude/skills/kj-run/SKILL.md", ".karajan/review-gate", "CLAUDE.md"]);
     expect(git("diff", "--cached", "--name-only").trim()).toBe("");
-    expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .karajan/hooks/pre-commit", " M .karajan/supervisor-provenance.json"]);
+    expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .karajan/hooks/pre-commit", " M .karajan/supervisor-provenance.json", "?? .github/", "?? .karajan/hooks/pre-push"]);
+  });
+
+  it("without history the bootstrap commit still carries the supervisor and the workflows", () => {
+    generate();
+    write(".karajan/hooks/pre-commit", "#!/bin/sh\nexit 0\n");
+    expect(commitContract({ projectDir: dir }).committed).toBe(true);
+    expect(committed()).toEqual(expect.arrayContaining([".github/workflows/kj-policy.yml", ".karajan/hooks/pre-commit"]));
   });
 
   // HU-4384 (KJC-BUG-0600): the seal covers workflows and governance files by hash, so a
-  // tracked one that was regenerated is the seal's, like the hooks; a new one still rides.
-  it("a sealed workflow or governance file that was regenerated is left to the seal", () => {
+  // tracked one that was regenerated is the seal's, like the hooks; KJC-BUG-0608: a new one too.
+  it("a sealed workflow or governance file, regenerated or new, is left to the seal", () => {
     write(".github/workflows/kj-policy.yml", "name: old\n");
     write(".karajan/rules.yml", "rules: []\n");
     git("add", ".");
@@ -183,8 +193,8 @@ describe("commitContract", () => {
     write(".karajan/rules.yml", "rules: [a]\n");
     const res = commitContract({ projectDir: dir });
     expect(res.committed).toBe(true);
-    expect(committed()).toEqual([".github/workflows/kj-verdicts.yml", "CLAUDE.md"]);
-    expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .github/workflows/kj-policy.yml", " M .karajan/rules.yml"]);
+    expect(committed()).toEqual(["CLAUDE.md"]);
+    expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .github/workflows/kj-policy.yml", " M .karajan/rules.yml", "?? .github/workflows/kj-verdicts.yml"]);
   });
 
   it("a commit git refuses names the files and the way to commit them", () => {

@@ -109,10 +109,11 @@ function planContract({ git, before, baseBranch }) {
   // KJC-BUG-0302: a sealed supervisor regenerated (tracked hooks or provenance
   // that changed) is the seal's, a human act (ADR 0009), never the contract
   // commit's: regenerated together after a version bump, the gate refused the one
-  // and the seal the other, and the person had to unstage the hook by hand. The
-  // first install (untracked hooks) still rides in the contract commit.
+  // and the seal the other, and the person had to unstage the hook by hand.
   // HU-4384: the workflows and governance files the seal covers by hash are the seal's too.
-  const mine = contractStatus(git).filter(([file, code]) => !before.has(file) && !(history && code !== "??" && (isSupervisor(file) || isSealedConfig(file))));
+  // KJC-BUG-0608: new or regenerated alike. The contract is reviewed before its commit and the
+  // review's policy denies them outside the seal; only the bootstrap (no history) carries them.
+  const mine = contractStatus(git).filter(([file]) => !before.has(file) && !(history && (isSupervisor(file) || isSealedConfig(file))));
   const files = mine.map(([file]) => file).sort();
   // Files git did not track before kj added them: they leave the index with `rm --cached`.
   const fresh = mine.filter(([, code]) => code === "??" || !history).map(([file]) => file);
