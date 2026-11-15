@@ -33,16 +33,81 @@ const FRONTMATTER = [
 // the project as a rulesync one. Local state: never commit it.
 export const ADOPTION_PENDING = join(".rulesync", ".kj-adoption-pending");
 
+const RULESYNC_CONFIG = "rulesync.jsonc";
+
+// Index just past the string literal that opens at `start`.
+function stringEnd(text, start) {
+  let i = start + 1;
+  while (i < text.length && text[i] !== '"') i += text[i] === "\\" ? 2 : 1;
+  return i + 1;
+}
+
+// Removes // and /* */ comments outside strings.
+function dropComments(text) {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === '"') { const end = stringEnd(text, i); out += text.slice(i, end); i = end; }
+    else if (text.startsWith("//", i)) { const eol = text.indexOf("\n", i); i = eol === -1 ? text.length : eol; }
+    else if (text.startsWith("/*", i)) { const close = text.indexOf("*/", i + 2); i = close === -1 ? text.length : close + 2; }
+    else { out += text[i]; i += 1; }
+  }
+  return out;
+}
+
+// Removes a comma that comes right before } or ], outside strings.
+function dropTrailingCommas(text) {
+  const closesNext = /\s*[}\]]/y;
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === '"') { const end = stringEnd(text, i); out += text.slice(i, end); i = end; }
+    else {
+      closesNext.lastIndex = i + 1;
+      if (text[i] !== "," || !closesNext.test(text)) out += text[i];
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/** Parses JSONC (comments and trailing commas) as JSON; throws when it is not valid. */
+export function parseJsonc(text) {
+  return JSON.parse(dropTrailingCommas(dropComments(text)));
+}
+
 /**
- * The project uses Rulesync when it has `rulesync.jsonc`, rulesync in package.json, or
- * `rulesync.generate: true` in its kj config, and no adoption is half done.
+ * Rulesync is present when the project has `rulesync.jsonc`, rulesync in package.json, or
+ * `rulesync.generate: true` in its kj config, and no adoption is half done. Used for the
+ * MCP side too, so it does not say whether Rulesync compiles kj's rules.
  */
-export function detectRulesync(projectDir) {
+export function rulesyncPresent(projectDir) {
   if (existsSync(join(projectDir, ADOPTION_PENDING))) return false;
   // KJC-BUG-0482 (agreed in #2430): .rulesync/ alone is atril's shared ground (ADR 0041), created
   // in every atril project; taken for Rulesync it kept kj's blocks out of the agent files.
-  if (existsSync(join(projectDir, "rulesync.jsonc"))) return true;
+  if (existsSync(join(projectDir, RULESYNC_CONFIG))) return true;
   return rulesyncInPackage(projectDir) || generateDeclared(projectDir);
+}
+
+/**
+ * Rulesync compiles kj's rules when it is present and its `rulesync.jsonc` does not
+ * declare features without "rules" or "*" (e.g. only "mcp").
+ */
+export function detectRulesync(projectDir) {
+  return rulesyncPresent(projectDir) && rulesManagedByRulesync(projectDir);
+}
+
+function rulesManagedByRulesync(projectDir) {
+  const features = rulesyncFeatures(projectDir);
+  return features === null || features.includes("rules") || features.includes("*");
+}
+
+// No features key, or an absent or unreadable config: null, which keeps the rules managed.
+function rulesyncFeatures(projectDir) {
+  try {
+    const config = parseJsonc(readFileSync(join(projectDir, RULESYNC_CONFIG), "utf8"));
+    return Array.isArray(config?.features) ? config.features : null;
+  } catch { return null; }
 }
 
 function rulesyncInPackage(projectDir) {

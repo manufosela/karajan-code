@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { detectRulesync } from "../../src/utils/rulesync.js";
+import { detectRulesync, rulesyncPresent } from "../../src/utils/rulesync.js";
 import { installPlaybook } from "../../src/environment/playbook.js";
 
 let dir;
@@ -48,6 +48,37 @@ describe("detectRulesync", () => {
     expect(detectRulesync(dir)).toBe(false);
     write(".karajan/atril.json", JSON.stringify({ rulesync: { generate: true } }));
     expect(detectRulesync(dir)).toBe(true); // atril's config is the other place that declares it
+  });
+
+  describe("rulesync.jsonc features", () => {
+    const withFeatures = (features) => write("rulesync.jsonc", JSON.stringify({ targets: ["claudecode"], features }));
+
+    it("features without rules (only mcp) means Rulesync does not manage rules", () => {
+      withFeatures(["mcp"]);
+      expect(detectRulesync(dir)).toBe(false);
+    });
+
+    it("features with rules, or with *, means Rulesync manages rules", () => {
+      withFeatures(["rules", "mcp"]);
+      expect(detectRulesync(dir)).toBe(true);
+      withFeatures(["*"]);
+      expect(detectRulesync(dir)).toBe(true);
+    });
+
+    it("no features key keeps the rules managed", () => {
+      write("rulesync.jsonc", JSON.stringify({ targets: ["claudecode"] }));
+      expect(detectRulesync(dir)).toBe(true);
+    });
+
+    it("JSONC with comments and trailing commas is read", () => {
+      write("rulesync.jsonc", '// managed by kj\n{\n  /* MCP only */\n  "features": ["mcp", ], // no rules\n}\n');
+      expect(detectRulesync(dir)).toBe(false);
+    });
+
+    it("rulesyncPresent still says Rulesync is there for MCP, whatever its features", () => {
+      withFeatures(["mcp"]);
+      expect(rulesyncPresent(dir)).toBe(true);
+    });
   });
 
   it("with only atril's .rulesync, the method block lands in AGENTS.md (KJC-TSK-1504)", async () => {
