@@ -39,7 +39,7 @@ A card planned with a tier (`kj hu add --tier`) is written by `kj code`, in a cl
 
 ## rag-first
 
-The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Docs, config and tests stay out, like card-first. A file the index cannot hold, or an empty index, is decided by the gate itself. No escape (ADR 0015).
+The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Docs, config and tests stay out, like card-first. A file the index cannot hold, or an empty index, is decided by the gate itself. A file the index could hold but does not, the gate indexes on the spot (the hook runs outside the host sandbox, where the embedder is reachable) and then asks for the query; when kj cannot index it, the gate says why and the command to run from your terminal. No escape (ADR 0015).
 
 ## cross-lane
 
