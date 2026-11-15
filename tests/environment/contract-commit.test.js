@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { commitContract, contractChanges } from "../../src/environment/contract-commit.js";
+import { commitContract, commitFailureReason, contractChanges } from "../../src/environment/contract-commit.js";
 
 let dir;
 const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
@@ -181,5 +181,42 @@ describe("commitContract", () => {
     const res = commitContract({ projectDir: dir });
     expect(res.committed).toBe(false);
     expect(res.reason).toMatch(/no verdict.*git add -- '\.claude\/skills\/kj-run\/SKILL\.md'.*kj review --staged/s);
+  });
+
+  // KJC-BUG-0597: the first line of a hook's output (an eslint warning) was named as the reason.
+  it("names the hook's own kj line, not the first line the hook printed", () => {
+    write("README.md", "# app\n");
+    git("add", "README.md");
+    git("commit", "-q", "-m", "chore: init");
+    git("checkout", "-q", "-b", "chore/kj");
+    write("hooks/pre-commit", "#!/bin/sh\necho 'eslint: warning on plugin-compat'\necho 'kj harden: format check failed' >&2\nexit 1\n");
+    fs.chmodSync(path.join(dir, "hooks", "pre-commit"), 0o755);
+    git("config", "core.hooksPath", "hooks");
+    generate();
+    const res = commitContract({ projectDir: dir });
+    expect(res.committed).toBe(false);
+    expect(res.reason).toMatch(/git could not commit the contract: kj harden: format check failed\./);
+    expect(res.reason).not.toMatch(/eslint/);
+  });
+});
+
+describe("commitFailureReason", () => {
+  it("picks the last kj line over an eslint warning printed first", () => {
+    const err = { stdout: "", stderr: "eslint: warning\nkj harden: format check failed\n" };
+    expect(commitFailureReason(err)).toBe("kj harden: format check failed");
+  });
+
+  it("takes the kj line from stdout too, and the last one when there are several", () => {
+    const err = { stdout: "kj: first\nnoise\n", stderr: "kj harden: lint failed\n" };
+    expect(commitFailureReason(err)).toBe("kj harden: lint failed");
+  });
+
+  it("falls back to the last non-empty line when no line is the hook's", () => {
+    const err = { stdout: "", stderr: "first\n\nlast line\n\n" };
+    expect(commitFailureReason(err)).toBe("last line");
+  });
+
+  it("uses the error message when git printed nothing", () => {
+    expect(commitFailureReason({ stdout: "", stderr: "", message: "Command failed" })).toBe("Command failed");
   });
 });
