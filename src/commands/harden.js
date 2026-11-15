@@ -36,7 +36,7 @@ import { adviseBranchProtection } from "../harden/branch-protection.js";
 import { adviseEventPolicy } from "../harden/event-policy.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { ensureIdentity } from "../identity/bootstrap.js";
-import { commitContract, contractChanges } from "../environment/contract-commit.js";
+import { commitContractReviewed, contractChanges } from "../environment/contract-commit.js";
 import { reviewContractCommit } from "../harden/contract-review.js";
 
 // How each package manager runs a package.json script in a hook (`bun test` is bun's own runner, not the script).
@@ -208,10 +208,12 @@ export async function hardenCommand({
   // lines exceeded its own PR size and stayed untracked. The seal (--commit, ADR
   // 0009) stays a human act over the supervisor alone.
   if (!dryRun) {
-    out.contract = commitContract({ projectDir, before: dirtyBefore, baseBranch });
+    // HU-4361: the contract diff is reviewed BEFORE the commit, so the review gate finds its verdict.
+    const reviewStaged = ({ indexFile }) => reviewContractCommit({ projectDir, indexFile, say: (line) => logger.info?.(line), review: contractReview });
+    out.contract = await commitContractReviewed({ projectDir, before: dirtyBefore, baseBranch, reviewStaged });
     if (out.contract.committed) {
       logger.info?.(`kj harden: contract committed by kj, ${out.contract.files.length} generated file(s)`);
-      out.contract.review = await reviewContractCommit({ projectDir, say: (line) => logger.info?.(line), review: contractReview });
+      if (out.contract.review.command) logger.info?.(`kj harden: the contract commit has no verdict yet. Run later: ${out.contract.review.command}`);
     } else if (!out.contract.reason.startsWith("nothing")) logger.warn?.(`kj harden: the contract kj generated is NOT committed (${out.contract.reason})`);
   }
 

@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { commitContract, commitFailureReason, contractChanges } from "../../src/environment/contract-commit.js";
+import { commitContract, commitContractReviewed, commitFailureReason, contractChanges } from "../../src/environment/contract-commit.js";
 
 let dir;
 const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
@@ -197,6 +197,31 @@ describe("commitContract", () => {
     expect(res.committed).toBe(false);
     expect(res.reason).toMatch(/git could not commit the contract: kj harden: format check failed\./);
     expect(res.reason).not.toMatch(/eslint/);
+  });
+});
+
+// HU-4361 (KJC-BUG-0599): the review reads HEAD plus the contract alone, before the commit.
+describe("commitContractReviewed", () => {
+  const stagedIn = (indexFile) => execFileSync("git", ["-C", dir, "diff", "--cached", "--name-only"], { encoding: "utf8", env: { ...process.env, GIT_INDEX_FILE: indexFile } }).trim().split("\n").sort();
+
+  it("with no commit yet, the review reads the contract alone, then the contract commits", async () => {
+    generate();
+    write("notes.md", "mine\n");
+    git("add", "notes.md");
+    const res = await commitContractReviewed({ projectDir: dir, reviewStaged: async ({ indexFile }) => ({ status: "approved", seen: stagedIn(indexFile) }) });
+    expect(res.committed).toBe(true);
+    expect(res.review.seen).toEqual(res.files);
+    expect(committed()).toEqual(res.files);
+    expect(git("diff", "--cached", "--name-only").trim()).toBe("notes.md");
+  });
+
+  it("an index kj cannot make for the review commits nothing and names why", async () => {
+    generate();
+    write(`.git/kj-contract-index-${process.pid}.lock`, "");
+    const res = await commitContractReviewed({ projectDir: dir, reviewStaged: async () => ({ status: "approved" }) });
+    expect(res.committed).toBe(false);
+    expect(res.reason).toMatch(/could not stage the contract alone for its review: .*kj-contract-index-\d+\.lock.*git add -- /);
+    expect(git("status", "--porcelain")).toMatch(/\?\? CLAUDE\.md/);
   });
 });
 
