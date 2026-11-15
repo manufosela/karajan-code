@@ -3,7 +3,7 @@
 // A subagent does so with its host; the host, whose session the person opens, by the side door.
 import { describe, expect, it } from 'vitest';
 
-import { CREW, WORKSHOP, boothAt, workshopAt } from '../public/stage/layout.js';
+import { CREW, POST, POSTS, STAND, WORKSHOP, boothAt, postX, workshopAt } from '../public/stage/layout.js';
 import { BUD_MS, HOST_WALK_MS, READER, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
 
 const start = (role, agent = 'codex') => ({ type: 'agent-activity', agent, role, phase: 'start', lane: 'main' });
@@ -40,9 +40,14 @@ describe('mitosis', () => {
     /** Whether a point stands on a workshop's pad (its plate in front is floor anyone walks). */
     const onPad = ({ x, z }) => lanes.some((lane) => Math.abs(x - xOf(lane)) < WORKSHOP.width / 2 - 0.2 && Math.abs(z - zOf(lane)) < WORKSHOP.depth / 2 - 0.2);
 
-    it('the booth stands beside Karajan, clear of atril\'s reader, wherever the workshops are', () => {
-      expect(Math.hypot(door.x - CREW.conductor.x, door.z - CREW.conductor.z)).toBeLessThan(2);
-      expect(Math.hypot(door.x - READER.x, door.z - READER.z)).toBeGreaterThan(1);
+    // KJC-TSK-1636 (2026-11-15): "the booth hides atril; beside it, to the right of the agent by atril,
+    // with room enough".
+    it('the booth stands to the right of Karajan, with room around it, clear of atril, wherever the workshops are', () => {
+      const room = (p) => Math.hypot(door.x - p.x, door.z - p.z);
+      expect(door.x).toBeGreaterThan(CREW.conductor.x);
+      expect(room(CREW.conductor)).toBeLessThan(2.5);
+      for (const near of [CREW.conductor, { x: postX(POSTS[0]), z: POST.z }, STAND, READER]) expect(room(near)).toBeGreaterThan(1.5);
+      expect(door.z + 0.9).toBeLessThan(WORKSHOP.z - WORKSHOP.depth / 2); // in front of it, the first row's back
       expect(boothAt(8)).toMatchObject({ x: door.x, z: door.z });
       // The way out runs left of every workshop, wider as the hall grows.
       expect(door.edgeX).toBeLessThan(xOf('main') - WORKSHOP.width / 2);
