@@ -1311,7 +1311,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--uninstall-transversal", "In a .claude-transversal parent: remove kj's hooks from its settings.local.json")
     .action(async (flags) => {
       await withConfig(pkgVersion, "harden", flags, async ({ logger }) => {
-        await hardenCommand({
+        const result = await hardenCommand({
           uninstallTransversal: Boolean(flags.uninstallTransversal),
           profile: flags.profile,
           commitSupervisor: flags.commit === true,
@@ -1329,6 +1329,9 @@ export function registerMeta(program, { pkgVersion }) {
           json: Boolean(flags.json),
           logger,
         });
+        // KJC-BUG-0601: a harden that failed (a --commit that did not seal) exits 1, so cli.js
+        // does not close the seal's handoff as done and a script sees the failure.
+        if (result?.ok === false) process.exitCode = 1;
       });
     });
 
