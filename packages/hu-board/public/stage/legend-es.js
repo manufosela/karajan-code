@@ -25,7 +25,7 @@ const ES = {
     COLOUR, BACKPACK, ['Portátil', 'Abierto y encendido en el color de su IA mientras teclea.']]],
   solomon: ['Solomon', 'Arbitra: una tercera IA decide cuando el coder y el revisor no se ponen de acuerdo.', 'Solo cuando las iteraciones de revisión acaban sin acuerdo; se va cuando dictamina.', 'Karajan (kj solomon), nunca el coder ni el revisor.', [
     ['Túnica y corona', 'El rey Salomón, el juez.'], COLOUR, BACKPACK]],
-  subagent: ['Subagente', 'Un ayudante que el anfitrión abre para un encargo: una búsqueda, una revisión, un plan.', 'Brota de su anfitrión y forma en filas delante de la mesa hasta acabar el encargo.', 'El anfitrión, con su herramienta Agent.', [
+  subagent: ['Subagente', 'Un ayudante que el anfitrión abre para un encargo: una búsqueda, una revisión, un plan.', 'Brota de su anfitrión y forma en filas a su lado, hacia el centro del taller, hasta acabar el encargo.', 'El anfitrión, con su herramienta Agent.', [
     ['Tamaño', 'Pequeño: trabaja para el anfitrión.'], BACKPACK]],
   wardrobe: ['Lo que lleva un agente', 'Dice de un vistazo con qué modelo y esfuerzo trabaja un agente.', 'En todo agente cuyo modelo conoce el board.', 'El modelo y el esfuerzo con que se lanzó.', [
     ['Birrete', 'Fable.'], ['Gafas redondas', 'Opus.'], ['Auriculares (la banda oscura sobre la cabeza)', 'Sonnet.'], ['Gorra', 'Haiku.'],

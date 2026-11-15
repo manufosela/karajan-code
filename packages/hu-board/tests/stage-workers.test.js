@@ -87,7 +87,30 @@ describe('the host and its subagents (KJC-TSK-1435)', () => {
     expect(workers.at(-1).slot).toBe(0);
   });
 
-  it('never puts two subagents on one spot: past a row of five they start another', () => {
+  // KJC-BUG-0607 (the maintainer, 2026-11-16, with a picture of HU-4387): "agents still pile up". The
+  // row of subagents stood right in front of the first seat and covered a host sitting there.
+  it('a host\'s subagents line up beside it, toward the middle of the workshop, whatever its seat, never in front of it', () => {
+    for (const seat of [0, 1, 2, 3]) {
+      const host = spotOf('host', 0, seat);
+      const spots = Array.from({ length: 8 }, (_, slot) => spotOf('subagent', 0, slot, undefined, seat));
+      for (const s of spots) {
+        expect(Math.abs(s.x - host.x), `seat ${seat}`).toBeGreaterThanOrEqual(1.1);
+        expect(Math.abs(s.x)).toBeLessThan(WORKSHOP.width / 2);
+      }
+      expect(new Set(spots.map(({ x, z }) => `${x},${z}`)).size).toBe(8);
+    }
+  });
+
+  it('a subagent comes out of the host of its lane that launched it (its last tool, Agent), wherever it sits', () => {
+    let workers = withActivity([], { ...host('start', 'Bash'), id: 's1' }, 0);
+    workers = withActivity(workers, { ...host('start', 'Agent'), id: 's2' }, 0); // a second host, seat 1
+    workers = withActivity(workers, sub('start', 'a1'), 100);
+    const [, , a1] = workers;
+    expect(a1.hostSeat).toBe(workers[1].slot);
+    expect(workerAt(a1, 100, xOf)).toMatchObject({ ...spotOf('host', 10, workers[1].slot), walking: true });
+  });
+
+  it('never puts two subagents on one spot: past a row of four they start another', () => {
     const spots = Array.from({ length: 12 }, (_, slot) => spotOf('subagent', 0, slot)).map(({ x, z }) => `${x},${z}`);
     expect(new Set(spots).size).toBe(12);
   });
