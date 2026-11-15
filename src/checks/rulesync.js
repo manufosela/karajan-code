@@ -5,7 +5,7 @@
  * version it never ran against is said, never assumed to work.
  */
 import { runCommand } from "../utils/process.js";
-import { detectRulesync, rulesyncCommand } from "../utils/rulesync.js";
+import { rulesyncCommand, rulesyncPresent } from "../utils/rulesync.js";
 import { isNewerVersion } from "../utils/update-check.js";
 import { STRATEGY } from "./types.js";
 
@@ -51,7 +51,7 @@ function createRulesyncCheck({ projectDir, run }) {
     strategy: STRATEGY.MANUAL,
     detectTimeoutMs: VERSION_TIMEOUT_MS + 5_000,
     async detect() {
-      if (!detectRulesync(projectDir)) return { ok: true, severity: "info", detail: "not used in this project" };
+      if (!rulesyncPresent(projectDir)) return { ok: true, severity: "info", detail: "not used in this project" };
       const { version, error } = await readVersion(projectDir, run);
       if (error) return warn(`the project uses rulesync but its version could not be read (${error}); tested range ${EXPECTED}`);
       if (!inTestedRange(version)) return warn(`rulesync ${version} is outside the range kj was tested with (${EXPECTED})`);

@@ -1,4 +1,4 @@
 {
   "targets": ["claudecode"],
-  "features": ["rules", "mcp"],
+  "features": ["mcp"],
 }
