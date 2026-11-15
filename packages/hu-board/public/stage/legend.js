@@ -98,6 +98,18 @@ export const CARDS = [
     calledBy: 'The board, as the card moves.',
     marks: [],
   },
+  // KJC-TSK-1641: the plumber who fixes a failed pipeline's belt.
+  {
+    id: 'plumber', kind: 'crew', name: 'Plumber',
+    does: 'Fixes a lane\'s pipeline: works on its belt while its CI has failed.',
+    when: 'When a lane\'s pipeline fails; it goes back to the booth once it runs or passes again.',
+    calledBy: 'The pipeline of the lane\'s open pull request.',
+    marks: [
+      { mark: 'Gray', means: 'A plain gray robot: it is no AI and works for no one in particular.' },
+      { mark: 'Overalls and hard hat', means: 'Blue overalls and a yellow hard hat: the hall\'s tradesman.' },
+      { mark: 'Pipe wrench', means: 'In its right hand; it swings it while it works on the belt.' },
+    ],
+  },
   { id: 'tdd', kind: 'tool', name: 'TDD', does: 'The failing test first, and the suite never left red.', when: 'At its post; it lights when a test run is judged.', calledBy: 'The method, on every change.', marks: [] },
   {
     id: 'sentinel', kind: 'piece', name: 'Sentinel',
