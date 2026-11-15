@@ -51,8 +51,8 @@ function badge(name, accent) {
 
 /** A robot that left frees what it holds on the GPU: each one has its own geometry (couriers.js too). */
 // KJC-TSK-1633: the beam a teleporting robot stands in, one shape for all of them.
-const BEAM_HEIGHT = 3.2;
-const BEAM_GEOMETRY = new THREE.CylinderGeometry(0.42, 0.55, BEAM_HEIGHT, 24, 1, true);
+export const BEAM_HEIGHT = 3.2;
+export const BEAM_GEOMETRY =new THREE.CylinderGeometry(0.42, 0.55, BEAM_HEIGHT, 24, 1, true);
 
 export function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });

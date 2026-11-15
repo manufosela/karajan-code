@@ -7,6 +7,7 @@ import { restState, withEvent } from './rest.js';
 import { createAgentsFloor, typeOn } from './agents-floor.js';
 import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
+import { createPlumbersFloor } from './plumbers-floor.js';
 import { createBenchNotes } from './bench-notes.js';
 import { atHome, freshCards } from './cards.js';
 import { closedCards, deskSigns } from './desk-signs.js';
@@ -80,6 +81,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     // KJC-TSK-1639: and its open pull request's pipeline on its belt.
     const pipelines = new Map((state.lanes ?? []).map(({ lane, pipeline }) => [lane, pipeline ?? null]));
     for (const lane of hall.names()) hall.showPipeline(lane, pipelines.get(lane) ?? null);
+    // KJC-TSK-1642: and a plumber to each workshop whose pipeline failed.
+    plumbers.update(new Map(hall.names().map((lane) => [lane, pipelines.get(lane) ?? null])), performance.now());
   };
   /** KJC-TSK-1588: over each desk whose card waits with no agent, what it waits for. */
   const showSigns = () => deskSigns(statuses, atHome(state.cards ?? [], hall.names())).map(({ lane, text, tone }) =>
@@ -89,6 +92,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   // KJC-TSK-1569 (ADR 0056): the own robots wear this person's avatar.
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin, avatar, doorOf: () => boothAt(hall.count()) }, working, performance.now());
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
+  const plumbers = createPlumbersFloor(scene); // KJC-TSK-1642: the ones that fix a failed pipeline
   const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
   let flight = null; // KJC-TSK-1547: the release the drone is taking away, if one is
   const drone = createDrone(scene);
@@ -283,6 +287,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       tags.push(...movePieces(now), ...moveReviews(now));
       couriers.frame(now, hall.xOf, hall.zOf);
       hall.frameBelts(now); // KJC-TSK-1639
+      plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, couriers.carried(), hall.zOf);
       tags.push(...showSigns());
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
