@@ -232,8 +232,11 @@ function along(points, k) {
   return { ...points.at(-1), yaw: 0 };
 }
 
-/** KJC-TSK-1628: a host budding at the side door and walking to its desk, or back to melt there; null once gone. */
-function hostAt(worker, now, spot, way) {
+/**
+ * KJC-TSK-1628: a host budding at the side door and walking to its desk, or back to melt there; null
+ * once gone. KJC-TSK-1642: the plumber comes and goes by the booth the same way (plumbers.js).
+ */
+export function hostAt(worker, now, spot, way) {
   // KJC-TSK-1637: back to the booth whole, and only standing in it does it teleport out.
   if (worker.leftAt !== undefined && now >= worker.leftAt) {
     const t = now - worker.leftAt;
