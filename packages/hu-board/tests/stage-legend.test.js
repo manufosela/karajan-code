@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CARDS, KINDS, legendSections } from '../public/stage/legend.js';
+import { cardsIn } from '../public/stage/legend-es.js';
 import { STATIONS } from '../public/stage/layout.js';
 import { TEAMMATE, recipeOf } from '../public/stage/portrait-recipes.js';
 
@@ -42,6 +43,13 @@ describe('the cast legend', () => {
     const marks = byId.plumber.marks.map((m) => `${m.mark} ${m.means}`.toLowerCase()).join(' | ');
     for (const word of ['gray', 'overalls', 'hard hat', 'wrench']) expect(marks).toContain(word);
     expect(recipeOf('plumber')).toEqual({ crew: 'plumber' });
+  });
+
+  // KJC-TSK-1646 (the maintainer, 2026-11-15): "remove those posts, I don't know what they are and
+  // they get in the way". A commit lights the workshop's back edge instead.
+  it('the git gates\' card says a commit lights the back edge of the lane\'s workshop', () => {
+    expect(byId.gates.when).toMatch(/back edge/);
+    expect(cardsIn('es').find((c) => c.id === 'gates').when).toMatch(/borde trasero/);
   });
 
   it('the host\'s card tells its colour, its hologram, its backpack and its waiting label', () => {

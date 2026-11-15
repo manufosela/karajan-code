@@ -93,11 +93,6 @@ function workshop(name) {
 }
 
 /**
- * KJC-TSK-1437 (ADR 0048): the workshop's git gates, at the back where its work
- * leaves for the base branch: two posts and a bar that lights when a commit
- * passes or bounces. Returns the gate and its bar's material.
- */
-/**
  * KJC-TSK-1632 (the maintainer, 2026-11-15): the teleport booth the hosts come and go by, beside
  * Karajan: a lit pad, a see-through glass tube and a glowing ring on top.
  */
@@ -120,18 +115,16 @@ function booth() {
   return group;
 }
 
+/**
+ * KJC-TSK-1437 (ADR 0048): the workshop's git gates, at the back where its work leaves for the base
+ * branch. KJC-TSK-1646 (the maintainer, 2026-11-15): "remove those posts, I don't know what they are and they
+ * get in the way". The workshop's git gates are no longer two posts and a bar: a flat strip along the
+ * back edge of its pad, which lights when a commit passes or bounces. Returns it and its material.
+ */
 function gates() {
-  const gate = new THREE.Group();
-  for (const x of [-0.6, 0.6]) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 0.1), matte(0x3a4656));
-    post.position.set(x, 0.45, 0);
-    gate.add(post);
-  }
-  const light = new THREE.MeshStandardMaterial({ color: 0x55606e, emissive: 0x000000, roughness: 0.5 });
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 0.12), light);
-  bar.position.y = 0.9;
-  gate.add(bar);
-  gate.position.set(WORKSHOP.width / 2 - 0.9, 0, -WORKSHOP.depth / 2);
+  const light = new THREE.MeshStandardMaterial({ color: 0x2a3442, emissive: 0x000000, roughness: 0.5 });
+  const gate = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width, 0.03, 0.14), light);
+  gate.position.set(0, 0.05, -WORKSHOP.depth / 2 + 0.07);
   return { gate, light };
 }
 

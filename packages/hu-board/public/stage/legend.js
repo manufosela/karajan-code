@@ -125,7 +125,7 @@ export const CARDS = [
     calledBy: 'kj review, before every commit.',
     marks: [{ mark: 'No robot', means: 'The reviewer is this piece, not an agent at a desk.' }],
   },
-  { id: 'gates', kind: 'piece', name: 'Git gates', does: 'Let a commit in only with a verdict from another AI; main moves only by PR.', when: 'At its post; the lane\'s gates light with each commit.', calledBy: 'Every commit and push.', marks: [] },
+  { id: 'gates', kind: 'piece', name: 'Git gates', does: 'Let a commit in only with a verdict from another AI; main moves only by PR.', when: 'At its post; the back edge of the lane\'s workshop lights with each commit.', calledBy: 'Every commit and push.', marks: [] },
   { id: 'sonar', kind: 'tool', name: 'SonarQube', does: 'Static analysis and a quality gate on the code you change.', when: 'At its post; it lights when the gate is judged.', calledBy: 'The method, before a commit.', marks: [] },
   { id: 'ledger', kind: 'piece', name: 'Ledger', does: 'Seals every command, verdict and exception in a hash chain: the past cannot be rewritten unseen.', when: 'At its post; it lights with each seal.', calledBy: 'Each sealed event.', marks: [] },
   { id: 'steward', kind: 'piece', name: 'Steward', does: 'Re-verifies the guarantees on a schedule; stale evidence stops counting.', when: 'At its post; it lights when it checks.', calledBy: 'Its schedule.', marks: [] },
