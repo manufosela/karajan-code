@@ -216,9 +216,11 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, doo
 
 /** KJC-TSK-1628: from the side door along the left edge to its row's aisle, along it, and up to its desk. */
 // KJC-TSK-1632: from the booth by Karajan, out to the left of every workshop first (`edgeX`).
+// KJC-BUG-0603: the booth stands in the crew's row; out of it in front first (`exitZ`), then left.
 const hostWay = (door, spot, laneZ) => {
   const edgeX = door.edgeX ?? door.x;
-  return [{ x: door.x, z: door.z }, { x: edgeX, z: door.z }, { x: edgeX, z: laneZ + AISLE_DZ }, { x: spot.x, z: laneZ + AISLE_DZ }, spot];
+  const exitZ = door.exitZ ?? door.z;
+  return [{ x: door.x, z: door.z }, { x: door.x, z: exitZ }, { x: edgeX, z: exitZ }, { x: edgeX, z: laneZ + AISLE_DZ }, { x: spot.x, z: laneZ + AISLE_DZ }, spot];
 };
 
 /** Where a walk along `points` is at `k` (0..1 of its length), and which way it faces. */

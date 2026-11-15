@@ -52,7 +52,7 @@ export const hallDepth = (n) => (rowsOf(n) - 1) * ROW_STEP;
 /** The x of each piece's post, the row centred behind the workshops. */
 export const postX = (id) => (POSTS.indexOf(id) - (POSTS.length - 1) / 2) * POST.spacing;
 /** How wide the hall is with `n` workshops, so the camera can fit it. */
-export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + 3.5));
+export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + BOOTH_ROOM + 3.5));
 
 /**
  * KJC-TSK-1592: how far a drag may walk the view over a hall of `n` workshops: its width, and its
@@ -71,20 +71,24 @@ export function mailboxSpot(n) {
 
 /** Where kaRAGan, Karajan and kaWATCHan wait: at the ends of the row of posts. */
 const END = ((POSTS.length + 1) / 2) * POST.spacing;
+// KJC-BUG-0603 (the maintainer, 2026-11-15): room for the booth on Karajan's right, in its row: Karajan,
+// atril and kaRAGan stand this much further left than the end of the row of posts.
+const BOOTH_ROOM = 2.6;
 export const CREW = {
-  conductor: { x: -END, z: POST.z, yaw: 0.6 },
+  conductor: { x: -END - BOOTH_ROOM, z: POST.z, yaw: 0.6 },
   // KJC-TSK-1487: beside atril, on its outer side; in front of it, it hid it from the camera.
-  rag: { x: -END - 2.8, z: POST.z - 1.5, yaw: 0.5 },
+  rag: { x: -END - BOOTH_ROOM - 2.8, z: POST.z - 1.5, yaw: 0.5 },
   watch: { x: END, z: POST.z, yaw: -0.6 },
 };
-export const STAND = { x: -END - 1.4, z: POST.z - 1.8, yaw: 0.7 };
+export const STAND = { x: -END - BOOTH_ROOM - 1.4, z: POST.z - 1.8, yaw: 0.7 };
 
 /**
  * KJC-TSK-1632 (the maintainer, 2026-11-15): the teleport booth the hosts come and go by, beside
- * Karajan. KJC-TSK-1636: to its right and a little in front, between it and the first post, with
- * room around it; on its left it hid atril.
+ * Karajan; on its left it hid atril (KJC-TSK-1636). KJC-BUG-0603: in Karajan's own row, on its right,
+ * halfway to the first post, as tall as a robot and more; `exitZ` is where its way leaves the row,
+ * in front of it, so it walks through none of the crew.
  */
-export const BOOTH = { x: CREW.conductor.x + 0.8, z: CREW.conductor.z + 1.8 };
+export const BOOTH = { x: (CREW.conductor.x + postX(POSTS[0])) / 2, z: POST.z, height: 2.2, exitZ: POST.z + 1.8 };
 /**
  * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
  * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
