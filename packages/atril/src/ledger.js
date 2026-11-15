@@ -70,7 +70,7 @@ export function withLedger(projectDir, change) {
     const ledger = readLedger(projectDir);
     change(ledger);
     validate(join(projectDir, LEDGER_FILE), ledger);
-    writeAtomic(join(projectDir, LEDGER_FILE), JSON.stringify(ledger, null, 2));
+    writeAtomic(join(projectDir, LEDGER_FILE), `${JSON.stringify(ledger, null, 2)}\n`);
     return ledger;
   } finally {
     rmSync(lock, { force: true });

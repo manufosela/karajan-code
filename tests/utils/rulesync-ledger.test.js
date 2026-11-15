@@ -77,6 +77,13 @@ describe("withLedger", () => {
     withLedger(dir, "kj", () => expect(readFileSync(join(dir, LOCK_FILE), "utf8")).toBe(`kj ${process.pid}`));
   });
 
+  it("writes the ledger ending with exactly one newline, as prettier expects", () => {
+    withLedger(dir, "kj", (l) => { l.entries[mcpKey("a")] = { owner: "kj", hash: hashContent("a") }; });
+    const text = readFileSync(ledgerPath(), "utf8");
+    expect(text.endsWith("}\n")).toBe(true);
+    expect(text.endsWith("\n\n")).toBe(false);
+  });
+
   it("an empty owner fails before taking the lock", () => {
     expect(() => withLedger(dir, "", () => {})).toThrow(/owner/);
     expect(existsSync(join(dir, LOCK_FILE))).toBe(false);
