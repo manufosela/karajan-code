@@ -46,11 +46,6 @@ export function workshopAt(i, n) {
  * name plates and before the next row, where a host walks between the side door and its desk.
  */
 export const AISLE_DZ = WORKSHOP.depth / 2 + 1.9;
-/**
- * KJC-TSK-1628: the side door, at the left end of the first row's aisle, in line with the left
- * edge of the first workshop (further out, the projects panel covers it).
- */
-export const doorAt = (n) => ({ x: workshopAt(0, Math.max(1, n)).x - WORKSHOP.width / 2, z: WORKSHOP.z + AISLE_DZ });
 
 /** How much deeper than a one-row hall the rows of `n` workshops make it. */
 export const hallDepth = (n) => (rowsOf(n) - 1) * ROW_STEP;
@@ -83,3 +78,11 @@ export const CREW = {
   watch: { x: END, z: POST.z, yaw: -0.6 },
 };
 export const STAND = { x: -END - 1.4, z: POST.z - 1.8, yaw: 0.7 };
+
+/** KJC-TSK-1632 (the maintainer, 2026-11-15): the teleport booth the hosts come and go by, beside Karajan. */
+export const BOOTH = { x: CREW.conductor.x - 1.4, z: CREW.conductor.z + 0.8 };
+/**
+ * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
+ * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
+ */
+export const boothAt = (n) => ({ ...BOOTH, edgeX: Math.min(BOOTH.x, workshopAt(0, Math.max(1, n)).x - WORKSHOP.width / 2 - 0.8) });
