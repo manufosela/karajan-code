@@ -12,6 +12,8 @@ import { rmSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
+import { isSealedConfig } from "../harden/supervisor-commit.js";
+import { sealedFilesOf } from "../policy/engine.js";
 
 /** What kj generates and the whole team must inherit by cloning (prefixes). */
 export const CONTRACT_PATHS = [
@@ -48,8 +50,11 @@ const runner = (projectDir, env) => (args) => execFileSync("git", ["-C", project
 // or under a stack root (a fullstack monorepo is hardened on every side).
 const isContract = (file) =>
   CONTRACT_PATHS.some((p) => (p.endsWith("/") || p.endsWith("-") ? file.startsWith(p) : file === p)) || GENERATED_CONFIG_FILES.has(basename(file));
-/** The supervisor's files: the hooks and their provenance, sealed by the human (ADR 0009). */
-const isSupervisor = (file) => file.startsWith(".karajan/hooks/") || file === ".karajan/supervisor-provenance.json";
+/**
+ * What the human's seal carries (ADR 0009): the hooks and their provenance and, KJC-BUG-0600,
+ * every file the seal covers by hash (the CI workflows, the governance config, the declared ones).
+ */
+const isSealed = (file, declared) => file.startsWith(".karajan/hooks/") || file === ".karajan/supervisor-provenance.json" || isSealedConfig(file, declared);
 
 /** The contract files git sees as changed, with their porcelain code (`??` untracked). */
 function contractStatus(git) {
@@ -103,14 +108,15 @@ function unstage(git, files, fresh) {
 }
 
 /** What would be committed: `{ result }` when there is nothing to do, else the files to stage. */
-function planContract({ git, before, baseBranch }) {
+function planContract({ git, before, baseBranch, projectDir }) {
   const history = hasCommits(git);
+  const declared = sealedFilesOf(projectDir);
   // KJC-BUG-0302: a sealed supervisor regenerated (tracked hooks or provenance
   // that changed) is the seal's, a human act (ADR 0009), never the contract
   // commit's: regenerated together after a version bump, the gate refused the one
   // and the seal the other, and the person had to unstage the hook by hand. The
   // first install (untracked hooks) still rides in the contract commit.
-  const mine = contractStatus(git).filter(([file, code]) => !before.has(file) && !(history && code !== "??" && isSupervisor(file)));
+  const mine = contractStatus(git).filter(([file, code]) => !before.has(file) && !(history && code !== "??" && isSealed(file, declared)));
   const files = mine.map(([file]) => file).sort();
   // Files git did not track before kj added them: they leave the index with `rm --cached`.
   const fresh = mine.filter(([, code]) => code === "??" || !history).map(([file]) => file);
@@ -160,7 +166,7 @@ function commitPlan(git, plan) {
  */
 export function commitContract({ projectDir, before = new Set(), baseBranch = "main", env = process.env }) {
   const git = runner(projectDir, env);
-  const plan = planContract({ git, before, baseBranch });
+  const plan = planContract({ git, before, baseBranch, projectDir });
   return plan.result ?? commitPlan(git, plan);
 }
 
@@ -200,7 +206,7 @@ async function reviewContractAlone({ projectDir, env, git, plan, reviewStaged })
  */
 export async function commitContractReviewed({ projectDir, before = new Set(), baseBranch = "main", env = process.env, reviewStaged }) {
   const git = runner(projectDir, env);
-  const plan = planContract({ git, before, baseBranch });
+  const plan = planContract({ git, before, baseBranch, projectDir });
   if (plan.result) return plan.result;
   const review = await reviewContractAlone({ projectDir, env, git, plan, reviewStaged });
   if (review.status === "unindexed") return { committed: false, files: plan.files, review, reason: `kj could not stage the contract alone for its review: ${review.error}. ${commitByHand(plan.files)}` };

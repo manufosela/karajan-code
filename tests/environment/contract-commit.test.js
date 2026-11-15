@@ -169,6 +169,34 @@ describe("commitContract", () => {
     expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .karajan/hooks/pre-commit", " M .karajan/supervisor-provenance.json"]);
   });
 
+  // KJC-BUG-0600 (HU-4384): the seal covers every CI workflow and the governance config by hash.
+  // A re-harden that re-pinned the judge put the tracked workflows in the contract too, the
+  // policy refused them there, and kj harden warned that its contract was NOT committed.
+  it("tracked sealed workflows and governance config that were regenerated are left to the seal", () => {
+    write(".github/workflows/kj-policy.yml", "name: kj\n");
+    write(".karajan/rules.yml", "rules: []\n");
+    git("add", ".");
+    git("commit", "-q", "-m", "chore: sealed governance");
+    git("checkout", "-q", "-b", "chore/kj");
+    write(".github/workflows/kj-policy.yml", "name: kj\n# judge re-pinned\n");
+    write(".karajan/rules.yml", "rules: [a]\n");
+    write(".github/workflows/kj-secrets.yml", "name: kj\n"); // a new workflow: first install, not a reseal
+    write("CLAUDE.md", "# method\n");
+    const res = commitContract({ projectDir: dir });
+    expect(res.committed).toBe(true);
+    expect(committed()).toEqual([".github/workflows/kj-secrets.yml", "CLAUDE.md"]);
+    expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .github/workflows/kj-policy.yml", " M .karajan/rules.yml"]);
+  });
+
+  it("a contract of sealed files alone is nothing to commit, not a failure", () => {
+    write(".github/workflows/kj-policy.yml", "name: kj\n");
+    git("add", ".");
+    git("commit", "-q", "-m", "chore: sealed governance");
+    git("checkout", "-q", "-b", "chore/kj");
+    write(".github/workflows/kj-policy.yml", "name: kj\n# judge re-pinned\n");
+    expect(commitContract({ projectDir: dir })).toEqual({ committed: false, reason: "nothing of the contract to commit" });
+  });
+
   it("a commit git refuses names the files and the way to commit them", () => {
     write("README.md", "# app\n");
     git("add", "README.md");
