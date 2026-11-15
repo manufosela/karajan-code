@@ -17,8 +17,9 @@ export const bareToolsPath = (parentDir, tools = ["sh", "git", "grep", "sed", "h
   return bin;
 };
 
-export const fakeKjPath =(parentDir, { exitCode = 0, basePath = SYSTEM_PATH } = {}) => {
+// `says`: a line the fake prints first, as kj says why it refuses (HU-4338).
+export const fakeKjPath =(parentDir, { exitCode = 0, basePath = SYSTEM_PATH, says = "" } = {}) => {
   const bin = fs.mkdtempSync(path.join(parentDir, "bin-kj-"));
-  fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\nexit ${exitCode}\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\n${says ? `echo '${says}'\n` : ""}exit ${exitCode}\n`, { mode: 0o755 });
   return `${bin}:${basePath}`;
 };

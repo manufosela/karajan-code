@@ -29,8 +29,8 @@ describe("pre-commit: repo hook before the review gate", () => {
     fs.writeFileSync(path.join(repo, "kj-pre-commit"), `#!/bin/sh\nset -e\n${hookBody("pre-commit", {}, {})}\n`);
     seen = path.join(repo, "gate-saw.txt");
     const bin = fs.mkdtempSync(path.join(repo, "bin-kj-"));
-    // The fake gate records the staged content it is asked to judge, and refuses (no verdict).
-    fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\n[ "$1" = review ] && { git show :a.txt > "${seen}"; exit 1; }\nexit 0\n`, { mode: 0o755 });
+    // The fake gate records the staged content it is asked to judge, and refuses as kj does with no verdict.
+    fs.writeFileSync(path.join(bin, "kj"), `#!/bin/sh\n[ "$1" = review ] && { git show :a.txt > "${seen}"; echo 'kj: no approved cross-AI verdict'; exit 1; }\nexit 0\n`, { mode: 0o755 });
     env = { ...process.env, PATH: `${bin}:${SYSTEM_PATH}`, GIT_CONFIG_GLOBAL: path.join(repo, "none") };
   });
   afterEach(() => fs.rmSync(repo, { recursive: true, force: true }));

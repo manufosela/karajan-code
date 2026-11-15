@@ -46,10 +46,12 @@ describe("verdict store", () => {
     expect(res.ok).toBe(false);
     expect(res.reason).toMatch(/rejected/i);
     expect(res.verdict.issues).toHaveLength(1);
+    expect(res.missing).toBeUndefined(); // HU-4338: a verdict was found, so none is missing
   });
 
   it("checkVerdict fails cleanly when nothing was ever reviewed", async () => {
     const res = await checkVerdict(dir, DIFF);
     expect(res.ok).toBe(false);
+    expect(res.missing).toBe(true);
   });
 });

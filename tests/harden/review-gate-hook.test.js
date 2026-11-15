@@ -16,8 +16,8 @@ describe("pre-commit template includes the opt-in review gate", () => {
   it("guards on the COMMITTED .karajan/review-gate marker and calls kj review --check", () => {
     const body = hookBody("pre-commit", {});
     expect(body).toMatch(/\.karajan\/review-gate/);
-    expect(body).toMatch(/kj review --check/);
-    expect(body).toMatch(/kj review --staged/); // actionable message
+    // HU-4338: the hook keeps kj's exit code; the actionable message is kj's own (the e2e below sees it).
+    expect(body).toMatch(/^\s*kj review --check \|\| exit$/m);
     // KJC-BUG-0165: the gate keys on the marker being COMMITTED (HEAD), not
     // merely present — so the bootstrap commit that introduces it is exempt.
     expect(body).toMatch(/cat-file -e HEAD:\.karajan\/review-gate/);
