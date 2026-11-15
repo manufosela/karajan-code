@@ -113,6 +113,14 @@
     /* KJC-TSK-1627: the task wall, large. */
     #stage-wall-panel { width: min(1100px, calc(100vw - 32px)); max-height: calc(100vh - 48px); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 0 20px 20px; }
     #stage-wall-panel::backdrop { background: rgb(0 0 0 / 0.55); }
+    /* KJC-TSK-1638: the mailbox's list, in the wall's frame; amber as the mailbox's glow. */
+    #stage-mail-panel { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); color: #e2e8f0; background: #0e1520; border: 1px solid #2a3a4e; border-radius: 12px; padding: 0 20px 20px; }
+    #stage-mail-panel::backdrop { background: rgb(0 0 0 / 0.55); }
+    .mail-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+    .mail-list li { display: grid; gap: 4px; padding: 10px 12px; border-radius: 8px; background: #1a2332; border-left: 4px solid #ffb347; font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+    .mail-list li.mail-denial { border-left-color: #f87171; }
+    .mail-meta { font-size: 13px; color: #8cb4c9; }
+    .mail-list code { font-family: ui-monospace, monospace; font-size: 14px; color: #fde68a; background: #0b111a; border-radius: 6px; padding: 4px 8px; }
     .wall-top { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 16px 0 8px; background: #0e1520; }
     .wall-top h2 { margin: 0; font-size: 20px; }
     .wall-close { font: inherit; color: #e2e8f0; background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
@@ -169,6 +177,8 @@
   <dialog id="stage-hu-panel" aria-labelledby="hu-title"></dialog>
   <!-- KJC-TSK-1627: the task wall, large (wall-panel.js). -->
   <dialog id="stage-wall-panel" aria-labelledby="wall-title"></dialog>
+  <!-- KJC-TSK-1638: what waits for the human (mail-panel.js). -->
+  <dialog id="stage-mail-panel" aria-labelledby="mail-title"></dialog>
   <!-- KJC-TSK-1468: until the stage says its first word, so it never looks dead. -->
   <output id="stage-loading" aria-live="polite">Loading the factories…</output>
   <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->

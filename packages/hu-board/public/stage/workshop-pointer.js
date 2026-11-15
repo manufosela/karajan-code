@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { groundAt } from './flight.js';
 import { huOfLane, laneAtPoint, tipOf } from './workshop-info.js';
 import { rectOf, thingAt, thingBoxes, thingTip } from './hall-things.js';
+import { mailboxSpot } from './layout.js';
 import { onScreen } from './screen.js';
 
 /** KJC-TSK-1625: a thing's box as it falls on the screen. */
@@ -13,14 +14,16 @@ function onScreenRect({ min, max }, camera) {
 }
 
 const TIP_WIDTH = 340;
+/** The things a click opens large. */
+const OPENS = new Set(['wall', 'mailbox']);
 
 /**
  * Watches `canvas` over `scene`'s hall: `tip` is the tooltip element, `cardsOf()` the cards the
  * stage knows now. KJC-TSK-1621: `openHu(hu)` opens one; answers `tapAt(event)`, for a tap or a
  * click that did not drag. KJC-TSK-1625: `thingsOf()` what the hall's things hold now;
- * KJC-TSK-1627: `openWall(cards)` opens the task wall large.
+ * KJC-TSK-1627: `openWall(cards)` opens the task wall large; KJC-TSK-1638: `openMail(letters)` the mailbox's list.
  */
-export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf, openWall }) {
+export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf, openWall, openMail }) {
   // The board's three.js has no Raycaster: the ray goes from the camera through the pointer.
   const laneUnder = ({ clientX, clientY }) => {
     const { camera, hall } = scene;
@@ -29,14 +32,15 @@ export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf, 
     return laneAtPoint(groundAt(camera.position, dir), hall.names(), hall.xOf, hall.zOf);
   };
   // KJC-TSK-1625: the release table, the finished stack and the task wall, before the workshops.
+  // KJC-TSK-1638: and the mailbox, where the hall puts it.
   const thingUnder = ({ clientX, clientY }) => {
-    const rects = thingBoxes(thingsOf().stacked.length).map((b) => ({ id: b.id, rect: onScreenRect(b, scene.camera) }));
+    const rects = thingBoxes(thingsOf().stacked.length, mailboxSpot(scene.hall.count())).map((b) => ({ id: b.id, rect: onScreenRect(b, scene.camera) }));
     return thingAt({ left: clientX, top: clientY }, rects);
   };
   /** The tooltip's lines under the pointer, and whether a click there opens something; null when none. */
   const tipUnder = (event) => {
     const thing = thingUnder(event);
-    if (thing) return { lines: thingTip(thing, thingsOf()), opens: thing === 'wall' };
+    if (thing) return { lines: thingTip(thing, thingsOf()), opens: OPENS.has(thing) };
     const lane = laneUnder(event);
     if (!lane) return null;
     const hu = huOfLane(lane, cardsOf());
@@ -58,6 +62,7 @@ export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf, 
     // KJC-TSK-1627: the task wall opens its tasks large; the other things only explain themselves.
     const thing = thingUnder(event);
     if (thing === 'wall') { hide(); openWall(thingsOf().cards); }
+    if (thing === 'mailbox') { hide(); openMail(thingsOf().letters ?? []); }
     if (thing) return;
     const lane = laneUnder(event);
     const hu = lane && huOfLane(lane, cardsOf());
