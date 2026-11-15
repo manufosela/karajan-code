@@ -12,6 +12,7 @@ import { LOOKS, ROBOTS } from './crew.js';
 import { createDrone } from './drone-mesh.js';
 import { STATIONS } from './layout.js';
 import { createMailbox } from './mailbox.js';
+import { createPlumber } from './plumber.js';
 import { TEAMMATE, recipeOf } from './portrait-recipes.js';
 import { createReleaseTable } from './release-table.js';
 import { createWall } from './wall.js';
@@ -44,7 +45,11 @@ function wardrobeOf(models) {
   return row;
 }
 
-const crewOf = (id) => turned(createRobot(id === 'courier' ? { accent: COURIER, name: 'courier' } : ROBOTS.find(([key]) => key === id)[1]).root);
+/** A crew robot; KJC-TSK-1641: the plumber is built by its own. */
+function crewOf(id) {
+  if (id === 'plumber') return turned(createPlumber().root);
+  return turned(createRobot(id === 'courier' ? { accent: COURIER, name: 'courier' } : ROBOTS.find(([key]) => key === id)[1]).root);
+}
 function pieceOf(id) {
   const [name, kind, body] = LOOKS[id];
   const piece = createPiece(STATIONS.indexOf(id), name, { kind, body });

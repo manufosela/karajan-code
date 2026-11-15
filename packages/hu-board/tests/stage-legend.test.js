@@ -35,6 +35,15 @@ describe('the cast legend', () => {
     for (const id of ['conductor', 'rag', 'watch', 'atril', 'courier', 'mailbox', 'wall', 'release', 'drone']) expect(byId[id], id).toBeDefined();
   });
 
+  // KJC-TSK-1641 (the maintainer, 2026-11-15): "a pipeline, so show a plumber?" A gray robot with
+  // overalls, a hard hat and a pipe wrench; nothing of any known character (no red cap, no moustache).
+  it('the plumber has its card: gray, overalls, hard hat and pipe wrench, and a portrait of its own', () => {
+    expect(byId.plumber?.kind).toBe('crew');
+    const marks = byId.plumber.marks.map((m) => `${m.mark} ${m.means}`.toLowerCase()).join(' | ');
+    for (const word of ['gray', 'overalls', 'hard hat', 'wrench']) expect(marks).toContain(word);
+    expect(recipeOf('plumber')).toEqual({ crew: 'plumber' });
+  });
+
   it('the host\'s card tells its colour, its hologram, its backpack and its waiting label', () => {
     const marks = byId.host.marks.map((m) => m.mark.toLowerCase()).join(' | ');
     for (const word of ['colour', 'hologram', 'backpack', 'chest', 'label']) expect(marks).toContain(word);
