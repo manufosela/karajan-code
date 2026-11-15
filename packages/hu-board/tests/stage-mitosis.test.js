@@ -3,8 +3,8 @@
 // A subagent does so with its host; the host, whose session the person opens, by the side door.
 import { describe, expect, it } from 'vitest';
 
-import { CREW, WORKSHOP, doorAt, workshopAt } from '../public/stage/layout.js';
-import { BUD_MS, HOST_WALK_MS, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
+import { CREW, WORKSHOP, boothAt, workshopAt } from '../public/stage/layout.js';
+import { BUD_MS, HOST_WALK_MS, READER, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
 
 const start = (role, agent = 'codex') => ({ type: 'agent-activity', agent, role, phase: 'start', lane: 'main' });
 const end = (role, agent = 'codex') => ({ type: 'agent-activity', agent, role, phase: 'end', lane: 'main' });
@@ -28,24 +28,28 @@ describe('mitosis', () => {
     expect(workerAt(workers[0], 10_000 + WALK_MS)).toBeNull();
   });
 
-  // KJC-TSK-1628 (the maintainer, 2026-11-14): "the bots go behind the Sentinel… put the door on a
-  // side, and not walking over everyone… it goes back where it came from and melts beside it".
-  describe('the host and the side door', () => {
+  // KJC-TSK-1628 (the maintainer, 2026-11-14): "the bots go behind the Sentinel… not walking over
+  // everyone… it goes back where it came from and melts beside it". KJC-TSK-1632 (2026-11-15):
+  // "better a booth, beside the orchestrator agent by atril".
+  describe('the host and the booth', () => {
     const lanes = ['main', 'HU-1-a', 'HU-2-b', 'HU-3-c'];
     const xOf = (lane) => workshopAt(lanes.indexOf(lane), lanes.length).x;
     const zOf = (lane) => workshopAt(lanes.indexOf(lane), lanes.length).z;
-    const door = doorAt(lanes.length);
+    const door = boothAt(lanes.length);
     const host = (lane) => withActivity([], { ...start('host', 'claude'), lane, id: 's1' }, 0)[0];
     /** Whether a point stands on a workshop's pad (its plate in front is floor anyone walks). */
     const onPad = ({ x, z }) => lanes.some((lane) => Math.abs(x - xOf(lane)) < WORKSHOP.width / 2 - 0.2 && Math.abs(z - zOf(lane)) < WORKSHOP.depth / 2 - 0.2);
 
-    it('the door stands at the left end of the aisle in front of the first row, and moves as the hall grows', () => {
-      expect(door.x).toBeCloseTo(xOf('main') - WORKSHOP.width / 2);
-      expect(door.z).toBeGreaterThan(zOf('main') + WORKSHOP.depth / 2);
-      expect(doorAt(8).x).toBeLessThan(doorAt(2).x);
+    it('the booth stands beside Karajan, clear of atril\'s reader, wherever the workshops are', () => {
+      expect(Math.hypot(door.x - CREW.conductor.x, door.z - CREW.conductor.z)).toBeLessThan(2);
+      expect(Math.hypot(door.x - READER.x, door.z - READER.z)).toBeGreaterThan(1);
+      expect(boothAt(8)).toMatchObject({ x: door.x, z: door.z });
+      // The way out runs left of every workshop, wider as the hall grows.
+      expect(door.edgeX).toBeLessThan(xOf('main') - WORKSHOP.width / 2);
+      expect(boothAt(8).edgeX).toBeLessThan(boothAt(2).edgeX);
     });
 
-    it('comes in by the door, budding beside it, along the aisle and up to its desk, over no workshop on the way', () => {
+    it('comes out of the booth, budding beside it, round the workshops and along the aisle to its desk, over no workshop', () => {
       const w = host('HU-3-c');
       expect(workerAt(w, 0, xOf, zOf, door)).toMatchObject({ x: door.x, z: door.z, size: 0 });
       expect(workerAt(w, BUD_MS, xOf, zOf, door).size).toBe(1);
@@ -57,7 +61,7 @@ describe('mitosis', () => {
       expect(workerAt(w, HOST_WALK_MS, xOf, zOf, door)).toMatchObject({ ...spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c')), walking: false });
     });
 
-    it('when its session ends it walks back the same way and melts beside the door', () => {
+    it('when its session ends it walks back the same way and melts in the booth', () => {
       const [w] = withActivity([host('HU-2-b')], { ...end('host', 'claude'), lane: 'HU-2-b', id: 's1' }, 10_000);
       const almost = workerAt(w, 10_000 + HOST_WALK_MS - 1, xOf, zOf, door);
       expect(almost.size).toBeLessThan(0.01);

@@ -3,7 +3,7 @@
 // works at the bench of the workshop of its lane (ADR 0048) and walks out when
 // it ends. KJC-TSK-1435: so does the host agent, and each subagent it opens walks
 // out of it and back. Pure: the scene reads the poses.
-import { AISLE_DZ, CREW, STAND, WORKSHOP, doorAt } from './layout.js';
+import { AISLE_DZ, CREW, STAND, WORKSHOP, boothAt } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
@@ -194,7 +194,7 @@ function detourAt(detour, now, spot) {
  * `xOf`/`zOf` give a lane's workshop. A subagent walks out of its host and back to it;
  * everyone else comes in by the door and leaves by it.
  */
-export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, door = doorAt(1)) {
+export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, door = boothAt(1)) {
   const laneX = xOf(worker.lane);
   const laneZ = zOf(worker.lane);
   const spot = spotOf(worker.role, laneX, worker.slot, laneZ);
@@ -210,7 +210,11 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, doo
 }
 
 /** KJC-TSK-1628: from the side door along the left edge to its row's aisle, along it, and up to its desk. */
-const hostWay = (door, spot, laneZ) => [door, { x: door.x, z: laneZ + AISLE_DZ }, { x: spot.x, z: laneZ + AISLE_DZ }, spot];
+// KJC-TSK-1632: from the booth by Karajan, out to the left of every workshop first (`edgeX`).
+const hostWay = (door, spot, laneZ) => {
+  const edgeX = door.edgeX ?? door.x;
+  return [{ x: door.x, z: door.z }, { x: edgeX, z: door.z }, { x: edgeX, z: laneZ + AISLE_DZ }, { x: spot.x, z: laneZ + AISLE_DZ }, spot];
+};
 
 /** Where a walk along `points` is at `k` (0..1 of its length), and which way it faces. */
 function along(points, k) {
