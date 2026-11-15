@@ -18,9 +18,11 @@ import { watchWorkshops } from './workshop-pointer.js';
 import { storyPath } from './workshop-info.js';
 import { mountHuPanel } from './hu-panel.js';
 import { mountWallPanel } from './wall-panel.js';
+import { mountMailPanel } from './mail-panel.js';
 
 /** KJC-TSK-1627: the task wall, large, on a click. */
 const openWall = mountWallPanel({ dialog: document.getElementById('stage-wall-panel') });
+const openMail = mountMailPanel({ dialog: document.getElementById('stage-mail-panel') }); // KJC-TSK-1638
 
 /** KJC-BUG-0557: how often the scene checks itself against the board's state. */
 const RESYNC_MS = 60 * 1000;
@@ -190,7 +192,7 @@ async function start(signal) {
   // KJC-TSK-1620: the workshop under the pointer says its whole name and its HU; KJC-TSK-1621: a
   // tap or a click that does not drag opens that HU.
   let cards = state.cards ?? [];
-  const tapAt = watchWorkshops({ canvas, scene, tip: document.getElementById('stage-tip'), cardsOf: () => cards, openHu, thingsOf: () => live.things(), openWall });
+  const tapAt = watchWorkshops({ canvas, scene, tip: document.getElementById('stage-tip'), cardsOf: () => cards, openHu, thingsOf: () => live.things(), openWall, openMail });
   canvas.addEventListener('pointerup', (e) => {
     const tap = pressed && Math.hypot(e.clientX - pressed.left, e.clientY - pressed.top) < 8;
     if (tap && e.pointerType !== 'mouse') pointAt({ left: e.clientX, top: e.clientY });

@@ -4,18 +4,26 @@
 // Pure: workshop-pointer.js projects the boxes and shows the tooltip.
 import { columnOf } from './cards.js';
 import { RELEASE_TABLE, WALL } from './layout.js';
+import { mailTip } from './mail-tip.js';
 import { readyToRelease } from './release.js';
 import { STACK, stackSpot } from './finished-stack.js';
 
 const box = (id, [x0, y0, z0], [x1, y1, z1]) => ({ id, min: { x: x0, y: y0, z: z0 }, max: { x: x1, y: y1, z: z1 } });
 const half = STACK.size / 2;
 
-/** The boxes of the things, the stack first while it has `stacked` blocks (it stands before the table). */
-export function thingBoxes(stacked) {
+/** KJC-TSK-1638: the mailbox's box where the hall puts it (layout.js mailboxSpot; mailbox.js its size). */
+const mailboxBox = ({ x, z, scale }) => box('mailbox', [x - 0.8 * scale, 0, z - scale], [x + 0.8 * scale, 3.3 * scale, z + scale]);
+
+/**
+ * The boxes of the things, the stack first while it has `stacked` blocks (it stands before the
+ * table); the mailbox last, when `mailbox` says where it stands.
+ */
+export function thingBoxes(stacked, mailbox = null) {
   const t = RELEASE_TABLE;
   const things = [
     box('release', [t.x - 1, 0, t.z - 0.8], [t.x + 1, 1.4, t.z + 0.8]),
     box('wall', [WALL.x - WALL.width / 2, WALL.y, WALL.z - 0.1], [WALL.x + WALL.width / 2, WALL.y + WALL.height, WALL.z + 0.1]),
+    ...(mailbox ? [mailboxBox(mailbox)] : []),
   ];
   if (!stacked) return things;
   const first = stackSpot(0);
@@ -38,7 +46,8 @@ export const thingAt = (pointer, rects) => rects.find(({ rect }) => pointer.left
 const plural = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 /** What a thing says: its name, what it holds now and how it goes. */
-export function thingTip(id, { cards, release, stacked }) {
+export function thingTip(id, { cards, release, stacked, letters = [], now = Date.now() }) {
+  if (id === 'mailbox') return mailTip(letters, now);
   if (id === 'release') {
     const ready = readyToRelease(cards, release);
     const ids = ready.length ? `: ${ready.map((c) => c.id).join(', ')}` : '';
