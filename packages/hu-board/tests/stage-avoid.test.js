@@ -35,6 +35,21 @@ describe('avoidance', () => {
     expect(offsets[1].dx).toBeGreaterThan(0);
   });
 
+  // KJC-BUG-0598 (the maintainer, 2026-11-15, with a picture of two robots on one seat).
+  it('two standing still on the same spot step apart, half each, and stop overlapping', () => {
+    const a = still(0, 0);
+    const b = still(0.1, 0);
+    const offsets = avoidance([a, b]);
+    expect(offsets[0].dx).toBeLessThan(0);
+    expect(offsets[1].dx).toBeCloseTo(-offsets[0].dx);
+    expect(gap(a, b, offsets)).toBeGreaterThanOrEqual(AVOID.overlap);
+  });
+
+  it('robots standing still at their usual distance, as at the seats of a bench, do not move', () => {
+    expect(avoidance([still(0, 0), still(1.7, 0)])).toEqual([{ dx: 0, dz: 0 }, { dx: 0, dz: 0 }]);
+    expect(avoidance([still(0, 0), still(AVOID.overlap + 0.01, 0)])).toEqual([{ dx: 0, dz: 0 }, { dx: 0, dz: 0 }]);
+  });
+
   it('a crowd never throws one further than a robot\'s width', () => {
     const offsets = avoidance([walking(0, 0), walking(0.05, 0), walking(-0.05, 0), walking(0, 0.05), walking(0, -0.05)]);
     for (const { dx, dz } of offsets) expect(Math.hypot(dx, dz)).toBeLessThanOrEqual(AVOID.radius + 1e-9);
