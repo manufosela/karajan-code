@@ -11,9 +11,8 @@
  * serialized canonically (JSON, keys sorted) by every writer.
  */
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { writeJsonAtomicSync } from "./atomic-write.js";
 
 export const LEDGER_FILE = join(".rulesync", ".owners.json");
 export const LOCK_FILE = join(".rulesync", ".owners.lock");
@@ -69,6 +68,13 @@ function takeLock(lock, owner) {
   }
 }
 
+/** Atomic write (temp file + rename) of the ledger as JSON ending with one newline. */
+function writeLedgerAtomic(file, ledger) {
+  const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(temp, `${JSON.stringify(ledger, null, 2)}\n`, { flag: "wx" });
+  renameSync(temp, file);
+}
+
 /**
  * Read, change and write the ledger under its lock, so two writers never
  * interleave. The write is atomic; a change that throws writes nothing. A
@@ -85,7 +91,7 @@ export function withLedger(projectDir, owner, change) {
     const ledger = readLedger(projectDir);
     change(ledger);
     validate(join(projectDir, LEDGER_FILE), ledger);
-    writeJsonAtomicSync(join(projectDir, LEDGER_FILE), ledger);
+    writeLedgerAtomic(join(projectDir, LEDGER_FILE), ledger);
     return ledger;
   } finally {
     rmSync(lock, { force: true });

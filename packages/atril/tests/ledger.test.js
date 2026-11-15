@@ -30,6 +30,13 @@ describe("ledger", () => {
     expect(JSON.parse(readFileSync(join(dir, LEDGER_FILE), "utf8")).entries["commands/atril.md"]).toEqual({ owner: "atril", hash: HASH });
   });
 
+  it("writes the ledger ending with exactly one newline, as prettier expects", () => {
+    withLedger(dir, (ledger) => { ledger.entries["commands/atril.md"] = { owner: "atril", hash: HASH }; });
+    const text = readFileSync(join(dir, LEDGER_FILE), "utf8");
+    expect(text.endsWith("}\n")).toBe(true);
+    expect(text.endsWith("\n\n")).toBe(false);
+  });
+
   it("writes nothing when the change throws or leaves a malformed entry", () => {
     expect(() => withLedger(dir, () => { throw new Error("boom"); })).toThrow("boom");
     expect(() => withLedger(dir, (ledger) => { ledger.entries.x = { owner: "atril" }; })).toThrow(/entry "x" needs/);
