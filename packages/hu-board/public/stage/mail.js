@@ -16,6 +16,22 @@ export function withMail(box, event) {
   return new Map(box).set(event.lane ?? 'main', event.pending);
 }
 
+// KJC-TSK-1638: the letters, beside the count: lane → what each pending handoff asks
+// ({ id, kind, why, command, since }, stage-mail.js), for the mailbox's tooltip and its list.
+
+/** The letters of a factory from its lanes' state. */
+export const lettersOf = (lanes) => new Map(lanes.map(({ lane, handoffs }) => [lane ?? 'main', Array.isArray(handoffs) ? handoffs : []]));
+
+/** The letters after `event`: a mail event that lists its handoffs sets its lane's; anything else leaves them. */
+export function withLetters(letters, event) {
+  if (event?.type !== 'mail' || !Array.isArray(event.handoffs)) return letters;
+  return new Map(letters).set(event.lane ?? 'main', event.handoffs);
+}
+
+/** Every letter of the factory with its lane, the oldest first. */
+export const allLetters = (letters) => [...letters].flatMap(([lane, list]) => list.map((letter) => ({ ...letter, lane })))
+  .toSorted((a, b) => (a.since ?? '').localeCompare(b.since ?? ''));
+
 /** How lit the mailbox is at `now`, 0 to 1: dark without mail, blinking with it, steady when still. */
 export function glowAt(pending, now, still) {
   if (!pending) return 0;
