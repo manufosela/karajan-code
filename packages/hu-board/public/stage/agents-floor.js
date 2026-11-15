@@ -14,6 +14,7 @@ import { carry } from './backpack.js';
 import { wear } from './costume-mesh.js';
 import { HOST_SCALE, chestOf, hologramOf, hostColor, laptopLift } from './host-look.js';
 import { teleportLook } from './teleport.js';
+import { avoidance } from './avoid.js';
 import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -203,8 +204,13 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     point(at) { pointer = at; },
     frame(t) {
       const seen = [];
-      for (const worker of workers) {
-        const pose = workerAt(worker, t, xOf, zOf, doorOf?.()); // KJC-TSK-1628: the side door of this hall
+      // KJC-TSK-1628: the hosts' booth of this hall. KJC-TSK-1634: every pose first, then those walking
+      // step aside from each other before any robot is drawn.
+      const posed = workers.map((worker) => ({ worker, pose: workerAt(worker, t, xOf, zOf, doorOf?.()) }));
+      const placed = posed.filter((p) => p.pose);
+      const offsets = avoidance(placed.map((p) => p.pose));
+      placed.forEach((p, i) => { p.pose = { ...p.pose, x: p.pose.x + offsets[i].dx, z: p.pose.z + offsets[i].dz }; });
+      for (const { worker, pose } of posed) {
         const key = visitKey(worker);
         let robot = robots.get(key);
         if (!pose) {

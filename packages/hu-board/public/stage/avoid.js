@@ -1,0 +1,36 @@
+// KJC-TSK-1634 (asked by the maintainer on 2026-11-15): "when they cross they go through each other
+// like ghosts; they should step aside. Like in a game". Separation steering: each walking robot
+// steps away from every robot closer than a robot's width; one standing still never moves.
+// Pure: agents-floor.js draws each robot at its pose plus its offset.
+
+/** How close two robots may come, in metres (a robot's width at the crew's scale). */
+export const AVOID = { radius: 0.8 };
+
+/** The way a robot steps from `other`: straight away, or to its own right when they share a spot. */
+function awayFrom(self, other) {
+  const dx = self.x - other.x;
+  const dz = self.z - other.z;
+  const d = Math.hypot(dx, dz);
+  // At the very same spot each takes its own right, so two meeting head on go to opposite sides.
+  return d > 1e-6 ? { ux: dx / d, uz: dz / d, d } : { ux: Math.cos(self.yaw), uz: -Math.sin(self.yaw), d };
+}
+
+/** Each pose's offset `{ dx, dz }`: none apart or standing still; at most a robot's width. */
+export function avoidance(poses) {
+  return poses.map((self, i) => {
+    if (!self.walking) return { dx: 0, dz: 0 };
+    let dx = 0;
+    let dz = 0;
+    poses.forEach((other, j) => {
+      if (i === j) return;
+      const { ux, uz, d } = awayFrom(self, other);
+      if (d >= AVOID.radius) return;
+      // Two walking share the step; past one standing still, the walker takes all of it.
+      const push = (AVOID.radius - d) * (other.walking ? 0.5 : 1);
+      dx += ux * push;
+      dz += uz * push;
+    });
+    const k = Math.min(1, AVOID.radius / (Math.hypot(dx, dz) || 1));
+    return { dx: dx * k, dz: dz * k };
+  });
+}
