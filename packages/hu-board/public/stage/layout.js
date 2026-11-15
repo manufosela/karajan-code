@@ -79,8 +79,12 @@ export const CREW = {
 };
 export const STAND = { x: -END - 1.4, z: POST.z - 1.8, yaw: 0.7 };
 
-/** KJC-TSK-1632 (the maintainer, 2026-11-15): the teleport booth the hosts come and go by, beside Karajan. */
-export const BOOTH = { x: CREW.conductor.x - 1.4, z: CREW.conductor.z + 0.8 };
+/**
+ * KJC-TSK-1632 (the maintainer, 2026-11-15): the teleport booth the hosts come and go by, beside
+ * Karajan. KJC-TSK-1636: to its right and a little in front, between it and the first post, with
+ * room around it; on its left it hid atril.
+ */
+export const BOOTH = { x: CREW.conductor.x + 0.8, z: CREW.conductor.z + 1.8 };
 /**
  * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
  * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
