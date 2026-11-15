@@ -13,10 +13,14 @@ export const PLUMBER_GONE_MS = HOST_WALK_MS + BUD_MS;
 /** Where it works: behind its lane's belt, near its left end, facing it. */
 export const plumberSpot = (laneX, laneZ) => ({ x: laneX + BELT.from + 1.2, z: laneZ + BELT.z - 0.6 });
 
-/** From the booth out to the left of every workshop, along behind the row, and in to its spot. */
+/**
+ * Out of the booth in front of the crew's row (KJC-BUG-0603), out to the left of every workshop,
+ * along behind the row, and in to its spot.
+ */
 const wayTo = (door, spot) => {
   const edgeX = door.edgeX ?? door.x;
-  return [{ x: door.x, z: door.z }, { x: edgeX, z: door.z }, { x: edgeX, z: spot.z }, spot];
+  const exitZ = door.exitZ ?? door.z;
+  return [{ x: door.x, z: door.z }, { x: door.x, z: exitZ }, { x: edgeX, z: exitZ }, { x: edgeX, z: spot.z }, spot];
 };
 
 /**

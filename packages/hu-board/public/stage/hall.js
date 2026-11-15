@@ -107,13 +107,13 @@ function booth() {
   pad.position.y = 0.07;
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.02, 32), glow(0.9));
   disc.position.y = 0.15;
-  // KJC-TSK-1636: low, a teleport pad's glass ring, so seen from above it hides none of the crew
-  // behind it; the teleport's beam (KJC-TSK-1633) gives it height.
-  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.7, 32, 1, true), glow(0.18));
-  tube.position.y = 0.5;
+  // KJC-BUG-0603: in the crew's row, with room around it, it stands its full height again, taller
+  // than a robot: a see-through glass tube with a glowing ring on top.
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, BOOTH.height, 32, 1, true), glow(0.18));
+  tube.position.y = 0.15 + BOOTH.height / 2;
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.06, 12, 40), glow(0.95));
   ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.85;
+  ring.position.y = 0.15 + BOOTH.height;
   const group = new THREE.Group();
   group.add(pad, disc, tube, ring);
   group.position.set(BOOTH.x, 0, BOOTH.z);

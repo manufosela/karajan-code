@@ -3,7 +3,7 @@
 // A subagent does so with its host; the host, whose session the person opens, by the side door.
 import { describe, expect, it } from 'vitest';
 
-import { CREW, POST, POSTS, STAND, WORKSHOP, boothAt, postX, workshopAt } from '../public/stage/layout.js';
+import { BOOTH, CREW, POST, POSTS, STAND, WORKSHOP, boothAt, postX, workshopAt } from '../public/stage/layout.js';
 import { BUD_MS, HOST_WALK_MS, READER, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
 
 const start = (role, agent = 'codex') => ({ type: 'agent-activity', agent, role, phase: 'start', lane: 'main' });
@@ -51,12 +51,16 @@ describe('mitosis', () => {
 
     // KJC-TSK-1636 (2026-11-15): "the booth hides atril; beside it, to the right of the agent by atril,
     // with room enough".
-    it('the booth stands to the right of Karajan, with room around it, clear of atril, wherever the workshops are', () => {
+    // KJC-BUG-0603 (the maintainer, 2026-11-15, with a picture): "it is smaller and still right in the
+    // middle instead of where I told you": in Karajan's own row, on its right, with room, full height.
+    it('the booth stands in Karajan\'s row, on its right, with room on both sides, clear of atril, full height', () => {
       const room = (p) => Math.hypot(door.x - p.x, door.z - p.z);
       expect(door.x).toBeGreaterThan(CREW.conductor.x);
-      expect(room(CREW.conductor)).toBeLessThan(2.5);
-      for (const near of [CREW.conductor, { x: postX(POSTS[0]), z: POST.z }, STAND, READER]) expect(room(near)).toBeGreaterThan(1.5);
-      expect(door.z + 0.9).toBeLessThan(WORKSHOP.z - WORKSHOP.depth / 2); // in front of it, the first row's back
+      expect(door.x).toBeLessThan(postX(POSTS[0]));
+      expect(Math.abs(door.z - CREW.conductor.z)).toBeLessThan(0.3);
+      for (const near of [CREW.conductor, { x: postX(POSTS[0]), z: POST.z }]) expect(room(near)).toBeGreaterThanOrEqual(1.9);
+      for (const near of [STAND, READER, CREW.rag]) expect(room(near)).toBeGreaterThan(2.5);
+      expect(BOOTH.height).toBeGreaterThanOrEqual(1.8); // taller than a robot
       expect(boothAt(8)).toMatchObject({ x: door.x, z: door.z });
       // The way out runs left of every workshop, wider as the hall grows.
       expect(door.edgeX).toBeLessThan(xOf('main') - WORKSHOP.width / 2);
@@ -71,6 +75,8 @@ describe('mitosis', () => {
         const at = workerAt(w, t, xOf, zOf, door);
         const spot = spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c'));
         if (Math.hypot(at.x - spot.x, at.z - spot.z) > WORKSHOP.depth) expect(onPad(at), `t=${t}`).toBe(false);
+        // KJC-BUG-0603: out of the row first, so it walks through none of the crew.
+        for (const crew of [CREW.conductor, CREW.rag, STAND]) expect(Math.hypot(at.x - crew.x, at.z - crew.z), `t=${t}`).toBeGreaterThan(1);
       }
       expect(workerAt(w, BUD_MS + HOST_WALK_MS, xOf, zOf, door)).toMatchObject({ ...spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c')), walking: false });
     });
