@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.23.0: fixes for teams on develop and out of quota, Node 24 recommended, and existing issues adopted as cards (current)
+### v5.24.0: no release leaves a user blocked, and the agent knows when you seal (current)
+
+Before publishing, a repo hardened with the previous version is now re-hardened with the new one, and its seal PR must pass every check. Three things that blocked a re-harden PR are fixed: the signed seal passes the PR judges, `kj harden` reviews the contract commit it makes, and the commit hook names the real cause when `kj review --check` fails. When you seal or sign, your agent finds out on its own (`kj handoff wait`). kj stage gains a Cast of collectable character cards, workshops that open their HU, a task wall and a side door. Run `kj harden` once after updating and have it sealed.
+
+### v5.23.0: fixes for teams on develop and out of quota, Node 24 recommended, and existing issues adopted as cards
 
 The fixes for what teams hit the night 5.22.0 came out. A repo that works on `develop` gets it as its base without configuring anything; a reviewer out of quota hands over to the next one again; a verdict counts when its author has write access, even with a private org membership; `kj harden` never pins a workflow to a kj that cannot run it; and sealing warns when CI will not be able to verify the seal. kj now recommends Node 24, with a prompt your agent follows to move you (`karajancode.com/node-24.md`), and `kj hu adopt` turns an issue you already have into a card.
 

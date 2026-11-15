@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.24.0] - 2026-11-15
+
+Releases now refuse to leave users blocked: before publishing, a repo hardened with the previous version is re-hardened with the new one, and its seal PR must pass every check. Three things that blocked a re-harden PR are fixed: the signed seal now passes the PR judges, kj reviews the contract commit it makes, and the commit hook names the real cause of a failure. When the user seals or signs, the agent finds out on its own.
+
+### Added
+- **The upgrade path is tested before each release.** A repo hardened with the previous published kj is re-hardened with the candidate, its seal is signed with a test key, and its PR judges run with the base's kj. `release-npm.yml` does not publish if that fails (#4312, #4323).
+- **A human act closes its handoff**, and `kj handoff wait <id>` lets the agent go on the moment the user seals or signs, without them writing back (#4310). Registering a human act with `kj handoff add` is no longer refused by a rule about running it (#4335).
+- **kj stage**:
+  - a Cast button presents every character of the factory as a collectable card with its portrait, in English and Spanish (#4297, #4299, #4301, #4327);
+  - workshops show their name, HU and status on hover, and open their HU on a click; finished ones fold into a stack by "Ready to release" (#4304, #4307, #4309);
+  - bigger Avatar and Cast buttons; the release table, the stack and the task wall explain themselves, and the wall opens every task (#4318, #4321, #4324);
+  - hosts come and go by a side door, factories are listed alphabetically, and `kj rag query` notes when it starts, so the scene shows kaRAGan at work (#4330, #4332, #4334).
+
+### Fixed
+- **A PR that only brings the signed seal passes `kj privacy scan --range`.** The seal is verified at the PR head, against the base's roster, so a re-harden is not blocked by an older judge on main (#4302).
+- **`kj harden` reviews its own contract commit.** It used to have no verdict, so `publish-pr` and `verify-pr` refused it and the harden PR could not merge (#4320).
+- **`kj review --check` names the real cause.** A missing verdict has its own exit code, and the commit hook gives the "no approved verdict" hint only then. A file it cannot write in a sandbox, or another gate's refusal, now says so (#4339).
+- **`kj privacy`** no longer takes epoch-millisecond timestamps in the signer roster for credit cards (#4337).
+- **Vitest 4**: `maxWorkers` instead of the removed `poolOptions` (#4315).
+- **kj stage**: extra rows of seats, and subagents leave a robot between them (#4294).
+
+After this release, run `kj harden` and have it sealed: the commit hook gets the clearer message.
+
 ## [5.23.0] - 2026-11-14
 
 Fixes for what teams hit the night 5.22.0 came out: a repo that works on `develop`, a reviewer out of quota, a private org membership, workflows pinned to a kj that could not run them, and a seal CI could not verify. kj now recommends Node 24 and adopts an existing GitHub issue as a card.
