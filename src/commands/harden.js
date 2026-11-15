@@ -30,6 +30,7 @@ import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
 import { installTransversalWiring, isTransversalParent, uninstallTransversalWiring } from "../harden/transversal-install.js";
 import { installSandbox } from "../harden/sandbox.js";
+import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { detectPackageManager, installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
 import { adviseBranchProtection } from "../harden/branch-protection.js";
@@ -208,6 +209,8 @@ export async function hardenCommand({
   // lines exceeded its own PR size and stayed untracked. The seal (--commit, ADR
   // 0009) stays a human act over the supervisor alone.
   if (!dryRun) {
+    // HU-4393: a repo hardened by an older kj keeps its old .karajan block; complete it.
+    if ((await ensureGateTrackable(projectDir)).changed) logger.info?.("kj harden: .gitignore .karajan block completed");
     // HU-4361: the contract diff is reviewed BEFORE the commit, so the review gate finds its verdict.
     const reviewStaged = ({ indexFile }) => reviewContractCommit({ projectDir, indexFile, say: (line) => logger.info?.(line), review: contractReview });
     out.contract = await commitContractReviewed({ projectDir, before: dirtyBefore, baseBranch, reviewStaged });

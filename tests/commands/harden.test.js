@@ -212,6 +212,30 @@ describe("hardenCommand", () => {
     expect(JSON.parse(readFileSync(join(repo, ".gemini", "settings.json"), "utf8")).context.fileName).toEqual(["AGENTS.md"]);
   });
 
+  // HU-4393: a repo hardened by an older kj keeps its old .karajan block; harden completes it.
+  it("completes the .karajan block of a .gitignore written by an older kj (HU-4393)", async () => {
+    writeFileSync(join(repo, ".gitignore"), "node_modules/\n.karajan/\n");
+    await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
+    const ignore = readFileSync(join(repo, ".gitignore"), "utf8");
+    expect(ignore).toContain("!.karajan/kj.config.yml");
+    expect(ignore).not.toMatch(/^\.karajan\/$/m);
+    expect(ignore).toContain("node_modules/");
+  });
+
+  it("does not rewrite a completed .karajan block on a second harden (HU-4393)", async () => {
+    writeFileSync(join(repo, ".gitignore"), ".karajan/\n");
+    await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
+    const first = readFileSync(join(repo, ".gitignore"), "utf8");
+    await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
+    expect(readFileSync(join(repo, ".gitignore"), "utf8")).toBe(first);
+  });
+
+  it("leaves the .gitignore alone on a dry run (HU-4393)", async () => {
+    writeFileSync(join(repo, ".gitignore"), ".karajan/\n");
+    await hardenCommand({ projectDir: repo, profile: "standard", dryRun: true, logger });
+    expect(readFileSync(join(repo, ".gitignore"), "utf8")).toBe(".karajan/\n");
+  });
+
   // KJC-TSK-1241: inside the sandbox kj run cannot push, open the PR or reach
   // Sonar, and the Sentinel guards the harness without it. So it is opt-in.
   it("leaves the host sandbox alone unless asked (KJC-TSK-1241)", async () => {
