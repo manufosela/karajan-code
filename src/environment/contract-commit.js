@@ -68,6 +68,20 @@ export function contractChanges(projectDir, git = runner(projectDir, process.env
   return new Set(contractStatus(git).map(([file]) => file));
 }
 
+/**
+ * The reason a failed git commit names (KJC-BUG-0597): the hook's own `kj:` line
+ * (the last one), else the last non-empty line. Stdout and stderr both count,
+ * since git may relay the hook's echo on either.
+ * @param {{stdout?: string, stderr?: string, message?: string}} err
+ * @returns {string}
+ */
+export function commitFailureReason(err) {
+  const output = [err.stdout, err.stderr || err.message].filter(Boolean).join("\n");
+  const lines = output.split("\n").map((line) => line.trim()).filter(Boolean);
+  const hookLines = lines.filter((line) => line.startsWith("kj harden:") || line.startsWith("kj:"));
+  return hookLines.at(-1) ?? lines.at(-1) ?? "";
+}
+
 const hasCommits = (git) => { try { git(["rev-parse", "--verify", "HEAD"]); return true; } catch { return false; } };
 const branchOf = (git) => { try { return git(["symbolic-ref", "--short", "HEAD"]).trim(); } catch { return ""; } };
 
@@ -115,7 +129,7 @@ export function commitContract({ projectDir, before = new Set(), baseBranch = "m
   } catch (err) {
     // KJC-BUG-0302 / KJC-BUG-0522: the files stay in the working tree, not staged, so
     // the seal can still run; the reason names the way to commit them.
-    const why = String(err.stderr || err.message).trim().split("\n")[0];
+    const why = commitFailureReason(err);
     const quoted = files.map((f) => "'" + f.replaceAll("'", String.raw`'\''`) + "'").join(" ");
     const failed = unstage(git, files, fresh);
     const note = failed ? ` (and they could not be unstaged: ${failed})` : "";
