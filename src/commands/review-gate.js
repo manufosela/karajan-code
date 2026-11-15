@@ -3,7 +3,7 @@
  * cross-AI review gate. Unlike the legacy task-review mode, this reviews a
  * raw git diff with an AI DIFFERENT from the host agent and records the
  * verdict tied to the exact diff (verdict-store), so the pre-commit hook
- * (ENV-C) can verify it. Exit code 0 = approved, 1 = rejected/stale.
+ * (ENV-C) can verify it. Exit code 0 = approved, 1 = rejected/stale, 2 = --check could not finish.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
@@ -463,6 +463,8 @@ async function releaseBumpBranch({ config, range }) {
   return bump.bump ? branch : null;
 }
 
+const NO_VERDICT_HINT = "kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`";
+
 /** --check (the pre-commit): the staged diff enters only with an approved verdict that carries its proofs. */
 async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate, seal, generated }) {
   if (await isPureMerge({ projectDir, diff, range })) {
@@ -472,8 +474,8 @@ async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate
   }
   const branch = await releaseBumpBranch({ config, range });
   if (branch) {
+    seal("allow", { exempt: "release-bump", branch }); // HU-4338: the trail first, so a pass is never said before it is kept
     console.log(`✓ release bump on ${branch} (version and changelog only) — exempt by method_gates.review_exempt_branches; gate passes with trail`);
-    seal("allow", { exempt: "release-bump", branch });
     process.exitCode = 0;
     return { ok: true, exempt: "release-bump", branch, reason: "release bump on a declared branch" };
   }
@@ -485,6 +487,8 @@ async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate
   console.log(res.ok
     ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
     : `✗ ${res.reason}`);
+  // HU-4338: only when no verdict was recorded at all; a rejected or unproven one says its own reason above.
+  if (res.missing) console.log(NO_VERDICT_HINT);
   // GOV-C: el allow del chokepoint de COMMIT es evidencia — se sella. PL-E
   // (KJC-TSK-0767): con las reglas que AVISARON, para que "nace avisando y
   // gana dientes" se decida con datos (kj policy report), no a ciegas.
@@ -655,7 +659,33 @@ async function cooldownStep({ diff, config, std }) {
   return { note: cooldown.note || null };
 }
 
-export async function reviewGateCommand({ config, logger = null, flags = {} }) {
+const WRITE_HINT_CODES = new Set(["EROFS", "EACCES"]);
+
+/** HU-4338: the one-line real cause when --check could not finish (a write the shell refused, say). */
+export function describeCheckFailure(err) {
+  const message = err instanceof Error ? err.message : String(err);
+  // A system error names its code, call and path in the message already; any other error gets its code.
+  const detail = err?.code && !message.includes(err.code) ? `${err.code}: ${message}` : message;
+  const hint = WRITE_HINT_CODES.has(err?.code)
+    ? " (a sandboxed shell? commit from your own terminal or turn the sandbox off for this command)"
+    : "";
+  return `kj: review --check could not finish: ${detail}${hint}`;
+}
+
+/** --check exits 1 when a gate refuses the diff (each one says why) and 2 when it could not finish (the cause on stderr). */
+export async function reviewGateCommand(args) {
+  if (!args.flags?.check) return runReviewGate(args);
+  try {
+    return await runReviewGate(args);
+  } catch (err) {
+    const reason = describeCheckFailure(err);
+    console.error(reason);
+    process.exitCode = 2;
+    return { ok: false, reason };
+  }
+}
+
+async function runReviewGate({ config, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   if (flags.installGate) return installGateAction(projectDir);
   if (flags.prune) return pruneAction(projectDir, flags);

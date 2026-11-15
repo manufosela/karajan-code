@@ -76,7 +76,7 @@ describe("pre-commit with kj on PATH keeps blocking", () => {
     stage(".karajan/review-gate", "");
     git("commit", "-q", "--no-verify", "-m", "chore: gate");
     stage("f.js", "// change\n");
-    const res = preCommit(failingKjBin);
+    const res = preCommit(fakeKjPath(repo, { exitCode: 1, says: "kj: no approved cross-AI verdict for the staged diff" }));
     expect(res.status).toBe(1);
     expect(output(res)).toMatch(/no approved cross-AI verdict/);
   });

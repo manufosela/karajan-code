@@ -148,13 +148,13 @@ function coverageFor(sonar, stagedNames) {
 }
 
 /**
- * Is there an APPROVED verdict for exactly this diff?
- * @returns {Promise<{ok: boolean, verdict?: object, reason?: string}>}
+ * Is there an APPROVED verdict for exactly this diff? `missing` (HU-4338): none was recorded at all.
+ * @returns {Promise<{ok: boolean, missing?: true, verdict?: object, reason?: string, note?: string}>}
  */
 export async function checkVerdict(projectDir, diff) {
   const verdict = await loadVerdict(projectDir, diffHash(diff));
   if (!verdict) {
-    return { ok: false, reason: "no verdict recorded for the current diff — run `kj review`" };
+    return { ok: false, missing: true, reason: "no verdict recorded for the current diff — run `kj review`" };
   }
   if (verdict.verdict !== "approved") {
     return { ok: false, verdict, reason: `review was rejected by ${verdict.reviewer} — fix the issues and run \`kj review\` again` };

@@ -134,7 +134,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--reviewer-model <name>")
     .option("--base-ref <ref>")
     .option("--staged", "Review the staged diff with a cross-AI reviewer and record the verdict")
-    .option("--check", "Verify the recorded verdict matches the staged diff (exit 0/1, hook-friendly)")
+    .option("--check", "Verify the recorded verdict matches the staged diff (exit 0/1, 2 when it cannot finish; hook-friendly)")
     .option("--range <range>", "Review a git range (e.g. main..HEAD) instead of the staged diff")
     .option("--lane <slug>", "Run the gate in that lane (.kj/worktrees/<slug>): reviews the diff staged there, from any directory")
     .option("--install-gate", "Enable the pre-commit review gate for this project (creates .karajan/review-gate)")

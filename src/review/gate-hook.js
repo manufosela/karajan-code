@@ -9,7 +9,8 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 // The contract: a line that RUNS the check and stops the commit when it fails, as the
-// pre-commit kj harden writes (`kj review --check || { ...; exit 1; }`) or `|| exit 1`.
+// pre-commit kj harden writes (`kj review --check || exit`, `|| { ...; exit 1; }` before
+// HU-4338) or `|| exit 1`.
 // A comment, the phrase inside an echo, `|| true`, `|| exit 0` or a group that does
 // not END in `exit N` (N in 1-255: the shell keeps N mod 256) enforce nothing. Right
 // after `||`, a bare `exit` keeps the failing check's status; inside a group it would
