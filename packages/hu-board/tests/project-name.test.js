@@ -80,4 +80,28 @@ describe('board project naming (KJC-BUG-0162)', () => {
     expect(project).toBeTruthy();
     expect(project.name).toBe('Linux Assistant');
   });
+
+  // KJC-BUG-0605 (the maintainer, 2026-11-15): two repos mirroring one Linear board did not show up:
+  // the team board's mirror (src/hu/team-board-mirror.js) names its plan after the manager, "linear",
+  // and only the first project could take that name. A mirror's name is no user choice either.
+  it('a team board mirror\'s plan names no project: each takes its directory, and both sync', async () => {
+    // As in ~/.karajan/plans: one folder per project, both mirrors with the same plan id.
+    process.env.KJ_PLANS_DIR = join(tmpDir, 'plans');
+    for (const repo of ['tribbu-app', 'tribbu-platform']) {
+      const projectDir = join(tmpDir, repo);
+      mkdirSync(projectDir, { recursive: true });
+      const dir = join(tmpDir, 'plans', `home_${repo}`);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'plan-linear-board.json'), JSON.stringify({
+        version: 2, planId: 'plan-linear-board', name: 'linear', alias: 'linear', readonly: 'linear', projectDir,
+        hus: [{ id: 'hu-01', status: 'pending', title: 'Una tarea' }], status: 'ready', createdAt: '2026-11-15T00:00:00Z',
+      }));
+    }
+    const db = await import('../src/db.js');
+    db.initDb();
+    const sync = await import('../src/sync.js');
+    await sync.fullScan();
+    const names = db.getProjects().filter((p) => p.id.includes('tribbu-')).map((p) => p.name).sort();
+    expect(names).toEqual(['Tribbu App', 'Tribbu Platform']);
+  });
 });

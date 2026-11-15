@@ -132,6 +132,19 @@ export function syncSessionFile(filePath) {
 }
 
 /**
+ * The plan's name when the user chose it; null for a name nobody chose.
+ * KJC-BUG-0162: the default backlog plan is named "brain-backlog", a DEFAULT, not a user choice:
+ * every project synced through it ended up named "brain-backlog", indistinguishable in the picker.
+ * KJC-BUG-0605: nor is a team board mirror's (src/hu/team-board-mirror.js), named after its manager
+ * ("linear") with `readonly` set to that same name: every repo mirroring it would share it, and the
+ * board takes a name only once (KJC-BUG-0163).
+ */
+function userGivenName(data) {
+  if (!data.name || data.name === 'brain-backlog') return null;
+  return typeof data.readonly === 'string' && data.readonly === data.name ? null : data.name;
+}
+
+/**
  * Sync a v2 plan file (with embedded HUs) to SQLite.
  * Plans are the authoritative source — replaces hu-stories for plan-based runs.
  */
@@ -200,12 +213,7 @@ export function syncPlanFile(filePath) {
     //      with a SPEC about "Linux Assistant", the basename here would
     //      misleadingly say "Hu Board" — that's why plan.name wins.
     //   3. slugToTitle of the task / projectId as a last resort.
-    // KJC-BUG-0162: the default backlog plan is named "brain-backlog" — a
-    // DEFAULT, not a user choice. Every project synced through it ended up
-    // named "brain-backlog", indistinguishable in the picker. Only a real,
-    // user-given plan name may override the repo-derived name.
-    const userGivenName = data.name && data.name !== 'brain-backlog' ? data.name : null;
-    const projectName = userGivenName
+    const projectName = userGivenName(data)
       || (canonicalDir ? titleCaseBasename(basename(canonicalDir)) : null)
       || slugToTitle(data.task || '')
       || projectId;
