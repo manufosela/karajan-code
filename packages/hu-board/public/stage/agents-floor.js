@@ -13,6 +13,7 @@ import { avatarFor, ownerColor } from './avatars.js';
 import { carry } from './backpack.js';
 import { wear } from './costume-mesh.js';
 import { HOST_SCALE, chestOf, hologramOf, hostColor, laptopLift } from './host-look.js';
+import { teleportLook } from './teleport.js';
 import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -48,6 +49,10 @@ function badge(name, accent) {
 }
 
 /** A robot that left frees what it holds on the GPU: each one has its own geometry (couriers.js too). */
+// KJC-TSK-1633: the beam a teleporting robot stands in, one shape for all of them.
+const BEAM_HEIGHT = 3.2;
+const BEAM_GEOMETRY = new THREE.CylinderGeometry(0.42, 0.55, BEAM_HEIGHT, 24, 1, true);
+
 export function dispose(robot) {
   robot.root.traverse((o) => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
 }
@@ -151,6 +156,23 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
   let pointer = null; // KJC-TSK-1600
+  /** KJC-TSK-1633: the beam of light over a robot that teleports, as bright as `level` (0: none). */
+  const beamOver = (robot, pose, level) => {
+    if (level > 0 && !robot.beam) {
+      robot.beam = new THREE.Mesh(BEAM_GEOMETRY, new THREE.MeshBasicMaterial({ color: 0x9fe3ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+      scene.add(robot.beam);
+    }
+    if (!robot.beam) return;
+    robot.beam.visible = level > 0;
+    robot.beam.material.opacity = 0.45 * level;
+    robot.beam.position.set(pose.x, BEAM_HEIGHT / 2, pose.z);
+  };
+  /** A robot out of the scene, with its beam. */
+  const drop = (robot) => {
+    scene.remove(robot.root);
+    dispose(robot);
+    if (robot.beam) { scene.remove(robot.beam); robot.beam.material.dispose(); }
+  };
   const screenOf = (point) => onScreen((origin ? point.clone().add(origin) : point.clone()).project(camera), innerWidth, innerHeight);
   /**
    * KJC-TSK-1600: each robot's label as robot-labels.js says: the robot under the pointer says
@@ -173,7 +195,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     /** KJC-TSK-1569: a new own avatar; every robot is built again, in it, on the next frame. */
     setAvatar(next) {
       own = next;
-      for (const robot of robots.values()) { scene.remove(robot.root); dispose(robot); }
+      for (const robot of robots.values()) drop(robot);
       robots.clear();
     },
     /** Moves every agent's robot; returns their name tags. */
@@ -186,7 +208,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         const key = visitKey(worker);
         let robot = robots.get(key);
         if (!pose) {
-          if (robot) { scene.remove(robot.root); dispose(robot); robots.delete(key); }
+          if (robot) { drop(robot); robots.delete(key); }
           continue;
         }
         if (!robot) {
@@ -198,8 +220,10 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         }
         robot.root.position.set(pose.x, 0, pose.z);
         robot.root.rotation.y = pose.yaw;
-        // KJC-TSK-1611: one Karajan launches grows out of it and shrinks back into it.
-        robot.root.scale.setScalar(scaleOf(worker) * Math.max(0.001, pose.size ?? 1));
+        // KJC-TSK-1611, 1633: one that appears or leaves teleports: a thin, tall line in a beam of light.
+        const look = teleportLook(pose.size);
+        robot.root.scale.set(scaleOf(worker) * look.across, scaleOf(worker) * look.up, scaleOf(worker) * look.across);
+        beamOver(robot, pose, look.beam);
         if (robot.hologram) robot.hologram.rotation.y = t / 1200; // KJC-TSK-1601: it turns slowly
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);
