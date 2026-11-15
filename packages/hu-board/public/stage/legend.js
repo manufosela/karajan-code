@@ -53,7 +53,7 @@ export const CARDS = [
   {
     id: 'subagent', kind: 'agent', name: 'Subagent',
     does: 'A helper the host opens for one job: a search, a review, a plan.',
-    when: 'It buds out of its host and stands in rows in front of the bench until the job ends.',
+    when: 'It buds out of its host and stands in rows beside it, toward the middle of the workshop, until the job ends.',
     calledBy: 'The host, with its Agent tool.',
     marks: [{ mark: 'Size', means: 'Small: it works for the host.' }, BACKPACK],
   },

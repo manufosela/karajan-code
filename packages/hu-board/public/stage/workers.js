@@ -25,9 +25,11 @@ const ROLE_SEAT = { host: 0, coder: 1, reviewer: 2, solomon: 3 };
 // KJC-BUG-0555: once the four seats are taken, the next ones stand in rows behind the bench.
 // KJC-BUG-0589: a robot's width (the host's included) apart, not 0.9 m, where their heads piled up.
 const SEAT_ROW = 1.7;
-// KJC-TSK-1435 (ADR 0048): the host's subagents work in rows of five in front of the bench.
+// KJC-TSK-1435 (ADR 0048): the host's subagents work in rows in front of the bench.
 // KJC-BUG-0589: further from the bench, and their rows a robot's depth with its backpack apart.
-const SUBAGENT = { dz: 1.4, from: -2.4, step: 1.2, slots: 5, row: 0.9 };
+// KJC-BUG-0607 (the maintainer, 2026-11-16): beside their host, not in front of it: the row starts
+// `beside` from the host's seat and runs toward the middle of the workshop, `step` apart.
+const SUBAGENT = { dz: 1.4, beside: 1.2, step: 0.95, slots: 4, row: 0.9 };
 // Each agent wears its own colour; one kj does not know yet wears a neutral grey.
 const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
 export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;
@@ -87,11 +89,15 @@ export const visitKey = (w) => `${w.agent}:${w.role}:${w.id ?? ''}:${w.since}`;
  * its `slot` before the bench; anyone else in its seat at the bench (KJC-BUG-0555), its role's
  * own when no seat is given, and the middle of the bench for a role without one.
  */
-export function spotOf(role, laneX = 0, slot = undefined, laneZ = WORKSHOP.z) {
+export function spotOf(role, laneX = 0, slot = undefined, laneZ = WORKSHOP.z, hostSeat = ROLE_SEAT.host) {
   if (role === 'subagent') {
     const at = slot ?? 0;
     const row = Math.floor(at / SUBAGENT.slots);
-    return { x: laneX + SUBAGENT.from + (at % SUBAGENT.slots) * SUBAGENT.step, z: laneZ + SUBAGENT.dz + row * SUBAGENT.row };
+    // KJC-BUG-0607: from beside its host's seat toward the middle (rightward from a left seat).
+    const from = SEATS[hostSeat % SEATS.length];
+    const toward = from <= 0 ? 1 : -1;
+    const x = from + toward * (SUBAGENT.beside + (at % SUBAGENT.slots) * SUBAGENT.step);
+    return { x: laneX + x, z: laneZ + SUBAGENT.dz + row * SUBAGENT.row };
   }
   const seat = slot ?? ROLE_SEAT[role];
   if (seat === undefined) return { x: laneX, z: laneZ + BENCH_DZ };
@@ -147,8 +153,18 @@ const newWorker = (workers, ev, since) => {
   if (ev.role !== 'subagent' && ev.skills?.length) worker.reads = ev.skills.length;
   // KJC-TSK-1607: a host already waiting when the stage opens.
   if (ev.waiting) worker.waiting = ev.waiting;
-  return { ...worker, slot: ev.role === 'subagent' ? freeSlot(workers, lane) : freeSeat(workers, lane, ev.role) };
+  if (ev.role !== 'subagent') return { ...worker, slot: freeSeat(workers, lane, ev.role) };
+  return { ...worker, slot: freeSlot(workers, lane), hostSeat: launcherSeat(workers, lane) };
 };
+
+/**
+ * KJC-BUG-0607: the seat of the host a subagent comes out of: the lane's host whose last tool was
+ * Agent (the one that launched it), else its first host; the first seat with none.
+ */
+function launcherSeat(workers, lane) {
+  const hosts = workers.filter((w) => w.role === 'host' && w.lane === lane && w.leftAt === undefined);
+  return (hosts.findLast((w) => w.tool === 'Agent') ?? hosts[0])?.slot ?? ROLE_SEAT.host;
+}
 
 /** The workers after an agent-activity event at `now` (ms); other events change nothing. */
 export function withActivity(workers, event, now) {
@@ -202,11 +218,11 @@ function detourAt(detour, now, spot) {
 export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, door = boothAt(1)) {
   const laneX = xOf(worker.lane);
   const laneZ = zOf(worker.lane);
-  const spot = spotOf(worker.role, laneX, worker.slot, laneZ);
+  const spot = spotOf(worker.role, laneX, worker.slot, laneZ, worker.hostSeat);
   // KJC-TSK-1628: the host walks the aisle between the side door and its desk (unless it brings
   // skills: then by atril, as before, from the side door).
   if (worker.role === 'host' && !(worker.reads && worker.leftAt === undefined)) return hostAt(worker, now, spot, hostWay(door, spot, laneZ));
-  const gate = worker.role === 'host' ? door : gateOf(worker.role, laneX, laneZ);
+  const gate = worker.role === 'host' ? door : gateOf(worker.role, laneX, laneZ, worker.hostSeat);
   if (worker.leftAt !== undefined && now >= worker.leftAt) return leavingAt(worker, now, spot, gate);
   // KJC-TSK-1610: a host already at its desk goes to atril and back when kj gives it skills.
   const away = detourAt(worker.detour, now, spot);
@@ -286,8 +302,9 @@ function arrivingAt(worker, now, spot, gate) {
  * KJC-TSK-1611 (the maintainer, 2026-11-13): where a worker comes in and leaves by: a subagent by its
  * host; any agent Karajan launches, by Karajan. KJC-TSK-1628: the host, by the side door (workerAt).
  */
-function gateOf(role, laneX, laneZ) {
-  return role === 'subagent' ? spotOf('host', laneX, 0, laneZ) : KARAJAN;
+function gateOf(role, laneX, laneZ, hostSeat = ROLE_SEAT.host) {
+  // KJC-BUG-0607: its own host's seat, wherever that host sits.
+  return role === 'subagent' ? spotOf('host', laneX, hostSeat, laneZ) : KARAJAN;
 }
 
 /**
