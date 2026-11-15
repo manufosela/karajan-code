@@ -13,7 +13,7 @@ import { deriveLaneState } from './lane-state.js';
 import { boardStatuses, withBoardCache } from './stage-board-cache.js';
 import { lastRelease } from './stage-release.js';
 import { sessionName, sessionWait, withSessionName } from './session-names.js';
-import { pendingMail } from './stage-mail.js';
+import { pendingHandoffs, pendingMail } from './stage-mail.js';
 import { TRACE_DIRS, activityEvent, cardEvent, decisionEvent, denialEvent, gateEvent, methodEvent, verdictEvent } from './stage-feed.js';
 // The scene folds the live card events with this same function (ADR 0050).
 import { atHome, mergeCards, withCard } from '../public/stage/cards.js';
@@ -108,6 +108,7 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
     checks: Object.fromEntries(trace('method.jsonl', methodEvent).map(({ piece, outcome, at }) => [piece, { outcome, at }])),
     working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now, waitOf).map((w) => withSessionName(w, nameOf)),
     mail: pendingMail(projectDir),
+    handoffs: pendingHandoffs(projectDir), // KJC-TSK-1638: what the mail asks
   };
 }
 

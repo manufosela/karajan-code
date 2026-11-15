@@ -12,7 +12,7 @@ import { watch as chokidarWatch } from 'chokidar';
 
 import { isLaneDir, LANE_HOMES, listLanes } from './lanes.js';
 import { withSessionName } from './session-names.js';
-import { HANDOFFS_DIR, pendingMail } from './stage-mail.js';
+import { HANDOFFS_DIR, pendingHandoffs, pendingMail } from './stage-mail.js';
 
 /**
  * KJC-BUG-0527: the folders kj's jsonl traces live in, newest location first. The sandbox
@@ -175,7 +175,8 @@ export function watchStageFeed(projectDir, send, { project, watch = chokidarWatc
       emit(verdictEvent(raw), raw, file);
     } else if (inHandoffs(file)) {
       // KJC-TSK-1472: a handoff added or marked done changes the lane's mail.
-      send({ type: 'mail', pending: pendingMail(projectDir), project });
+      // KJC-TSK-1638: and what each pending one asks.
+      send({ type: 'mail', pending: pendingMail(projectDir), handoffs: pendingHandoffs(projectDir), project });
     } else if (notes.has(file)) {
       // Rewritten on every query or phase: it is new only when its time or its phase moved on.
       let raw;

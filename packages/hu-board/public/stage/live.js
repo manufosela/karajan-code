@@ -23,7 +23,7 @@ import { newRelease, readyToRelease, versionLine } from './release.js';
 import { counterRelease, droneAt, releaseFlight, tableCards, watcherAt } from './drone.js';
 import { createDrone } from './drone-mesh.js';
 import { laneStatuses, statusLine } from './lane-status.js';
-import { mailboxOf, mailTotal, withMail } from './mail.js';
+import { allLetters, lettersOf, mailboxOf, mailTotal, withLetters, withMail } from './mail.js';
 import { goneLanes, staleEnds } from './resync.js';
 import { finishedLanes, stackOf } from './finished-stack.js';
 import { createStack } from './stack-mesh.js';
@@ -60,6 +60,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let reviews = {}; // KJC-TSK-1595: the AI review pieces out, by lane
   let gatesLit = new Set();
   let box = mailboxOf(initial.lanes ?? []); // KJC-TSK-1540: pending handoffs by lane
+  let letters = lettersOf(initial.lanes ?? []); // KJC-TSK-1638: and what each one asks
   /** KJC-TSK-1540: dims each lane that is not working and says why on its nameplate. */
   let statuses = new Map(); // KJC-TSK-1588: each lane's status, for the signs over the desks
   // KJC-TSK-1623: the finished lanes, folded out of the row into the stack by the release table.
@@ -236,11 +237,12 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
     cards: () => state.cards ?? [],
     /** KJC-TSK-1625: what the hall's things hold now, for their tooltips. */
-    things: () => ({ cards: state.cards ?? [], release: state.release ?? null, stacked }),
+    things: () => ({ cards: state.cards ?? [], release: state.release ?? null, stacked, letters: allLetters(letters) }),
     /** Takes one stream event at `now` (performance clock, ms). */
     push(event, now) {
       const mail = withMail(box, event);
       if (mail !== box) { box = mail; showStatuses(); }
+      letters = withLetters(letters, event);
       const next = withEvent(state, event);
       if (next === state) return; // not a stage event
       state = next;

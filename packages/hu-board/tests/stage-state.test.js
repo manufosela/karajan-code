@@ -31,7 +31,7 @@ afterEach(() => {
 
 describe('lastStageState', () => {
   it('is all null in a project without records', () => {
-    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0 });
+    expect(lastStageState(proj)).toEqual({ denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0, handoffs: [] });
   });
 
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card, in its lane.
@@ -197,7 +197,7 @@ describe('GET /api/stage/state', () => {
   it('answers the state of the project it names, and 400 without one it can resolve', async () => {
     const { slug, app } = await serve();
     const ok = await request(app).get(`/api/stage/state?project=${slug}`).expect(200);
-    const empty = { denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0 };
+    const empty = { denial: null, verdict: null, seal: null, gate: null, checks: {}, working: [], cards: [], mail: 0, handoffs: [] };
     // KJC-TSK-1525: the main checkout says the last release (none in a project without tags).
     // KJC-TSK-1539: and what the lane is doing.
     const status = { state: 'idle', why: 'no activity' };
