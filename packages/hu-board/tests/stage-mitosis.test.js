@@ -11,21 +11,30 @@ const end = (role, agent = 'codex') => ({ type: 'agent-activity', agent, role, p
 const KARAJAN = { x: CREW.conductor.x, z: CREW.conductor.z };
 
 describe('mitosis', () => {
-  it('an agent Karajan launches buds from it, growing, and walks to its desk', () => {
+  // KJC-TSK-1637 (the maintainer, 2026-11-15): "they must not disintegrate until they have reached the
+  // booth perfectly; they disintegrate on the way. Put in a delay, there is no hurry".
+  it('an agent Karajan launches teleports in standing by it, whole before it takes a step, then walks to its desk', () => {
     const [w] = withActivity([], start('coder'), 0);
-    expect(workerAt(w, 0)).toMatchObject({ ...KARAJAN, walking: true, size: 0 });
+    expect(workerAt(w, 0)).toMatchObject({ ...KARAJAN, walking: false, size: 0 });
+    expect(workerAt(w, BUD_MS / 2)).toMatchObject({ ...KARAJAN, walking: false });
     expect(workerAt(w, BUD_MS / 2).size).toBeCloseTo(0.5);
-    expect(workerAt(w, BUD_MS).size).toBe(1);
-    expect(workerAt(w, WALK_MS)).toMatchObject({ ...spotOf('coder'), walking: false, size: 1 });
+    expect(workerAt(w, BUD_MS + 1)).toMatchObject({ walking: true, size: 1 });
+    expect(workerAt(w, BUD_MS + WALK_MS)).toMatchObject({ ...spotOf('coder'), walking: false, size: 1 });
   });
 
-  it('when it ends it walks back to Karajan and shrinks into it', () => {
+  it('when it ends it walks back whole to Karajan, stops by it, and only then teleports out', () => {
     let workers = withActivity([], start('solomon', 'agy'), 0);
     workers = withActivity(workers, end('solomon', 'agy'), 10_000);
-    const almost = workerAt(workers[0], 10_000 + WALK_MS - 1);
-    expect(almost.size).toBeLessThan(0.01);
-    expect(almost.x).toBeCloseTo(KARAJAN.x, 1);
-    expect(workerAt(workers[0], 10_000 + WALK_MS)).toBeNull();
+    expect(workerAt(workers[0], 10_000 + WALK_MS - 1)).toMatchObject({ walking: true, size: 1 });
+    const arrived = workerAt(workers[0], 10_000 + WALK_MS + 1);
+    expect(arrived).toMatchObject({ walking: false });
+    expect(arrived.x).toBeCloseTo(KARAJAN.x, 1);
+    expect(workerAt(workers[0], 10_000 + WALK_MS + BUD_MS - 1).size).toBeLessThan(0.01);
+    expect(workerAt(workers[0], 10_000 + WALK_MS + BUD_MS)).toBeNull();
+  });
+
+  it('there is no hurry: the teleport takes over a second', () => {
+    expect(BUD_MS).toBeGreaterThanOrEqual(1200);
   });
 
   // KJC-TSK-1628 (the maintainer, 2026-11-14): "the bots go behind the Sentinel… not walking over
@@ -56,23 +65,25 @@ describe('mitosis', () => {
 
     it('comes out of the booth, budding beside it, round the workshops and along the aisle to its desk, over no workshop', () => {
       const w = host('HU-3-c');
-      expect(workerAt(w, 0, xOf, zOf, door)).toMatchObject({ x: door.x, z: door.z, size: 0 });
-      expect(workerAt(w, BUD_MS, xOf, zOf, door).size).toBe(1);
-      for (let t = 0; t < HOST_WALK_MS; t += 50) {
+      expect(workerAt(w, 0, xOf, zOf, door)).toMatchObject({ x: door.x, z: door.z, size: 0, walking: false });
+      expect(workerAt(w, BUD_MS, xOf, zOf, door)).toMatchObject({ x: door.x, z: door.z, size: 1 });
+      for (let t = BUD_MS; t < BUD_MS + HOST_WALK_MS; t += 50) {
         const at = workerAt(w, t, xOf, zOf, door);
         const spot = spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c'));
         if (Math.hypot(at.x - spot.x, at.z - spot.z) > WORKSHOP.depth) expect(onPad(at), `t=${t}`).toBe(false);
       }
-      expect(workerAt(w, HOST_WALK_MS, xOf, zOf, door)).toMatchObject({ ...spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c')), walking: false });
+      expect(workerAt(w, BUD_MS + HOST_WALK_MS, xOf, zOf, door)).toMatchObject({ ...spotOf('host', xOf('HU-3-c'), undefined, zOf('HU-3-c')), walking: false });
     });
 
-    it('when its session ends it walks back the same way and melts in the booth', () => {
+    it('when its session ends it walks back whole to the booth, stops in it, and only then teleports out', () => {
       const [w] = withActivity([host('HU-2-b')], { ...end('host', 'claude'), lane: 'HU-2-b', id: 's1' }, 10_000);
-      const almost = workerAt(w, 10_000 + HOST_WALK_MS - 1, xOf, zOf, door);
-      expect(almost.size).toBeLessThan(0.01);
-      expect(almost.x).toBeCloseTo(door.x, 1);
-      expect(almost.z).toBeCloseTo(door.z, 1);
-      expect(workerAt(w, 10_000 + HOST_WALK_MS, xOf, zOf, door)).toBeNull();
+      expect(workerAt(w, 10_000 + HOST_WALK_MS - 1, xOf, zOf, door).size).toBe(1);
+      const inBooth = workerAt(w, 10_000 + HOST_WALK_MS + 1, xOf, zOf, door);
+      expect(inBooth).toMatchObject({ walking: false });
+      expect(inBooth.x).toBeCloseTo(door.x, 1);
+      expect(inBooth.z).toBeCloseTo(door.z, 1);
+      expect(workerAt(w, 10_000 + HOST_WALK_MS + BUD_MS - 1, xOf, zOf, door).size).toBeLessThan(0.01);
+      expect(workerAt(w, 10_000 + HOST_WALK_MS + BUD_MS, xOf, zOf, door)).toBeNull();
     });
   });
 });

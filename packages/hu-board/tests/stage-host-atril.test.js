@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { withEvent } from '../public/stage/rest.js';
-import { READER, TURN_MS, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
+import { BUD_MS, READER, TURN_MS, WALK_MS, spotOf, withActivity, workerAt } from '../public/stage/workers.js';
 
 const sentinel = (at = 'x') => ({ type: 'agent-activity', agent: 'claude', role: 'host', phase: 'start', id: 's1', tool: 'Edit', lane: 'main', at });
 const skills = { type: 'agent-activity', agent: 'claude', role: 'host', phase: 'start', skills: ['tdd-first', 'pr-size'], lane: 'main', at: 'x' };
@@ -37,7 +37,7 @@ describe('a host given skills when a card starts', () => {
   it('with no host there, one walks in through atril; the Sentinel\'s start with the id is that one', () => {
     let workers = withActivity([], skills, 0);
     expect(workers).toHaveLength(1);
-    expect(workerAt(workers[0], WALK_MS + TURN_MS)).toMatchObject({ ...READER, reading: true });
+    expect(workerAt(workers[0], BUD_MS + WALK_MS + TURN_MS)).toMatchObject({ ...READER, reading: true });
     workers = withActivity(workers, sentinel(), 5000);
     expect(workers).toHaveLength(1);
     expect(workers[0]).toMatchObject({ id: 's1', tool: 'Edit' });
