@@ -94,6 +94,9 @@ const DEFAULTS = {
     // is explicit) | "warn" (report only) | "block" (a datum DENIED by its own
     // source refuses to end the turn; unbacked data is still only reported).
     claims: "off",
+    // KJC-TSK-1651 (ADR 0059): the Stop gate holds the turn while the session's cards wait and the
+    // final message names no stop kj can check. "block" (default) | "warn" (report only) | "off".
+    continuation: "block",
     // KJC-TSK-0717 (SPD-A): the module mutation score a REWORK needs (0.8 = 80 %).
     rework_mutation_min: 0.8,
     // KJC-TSK-1056: a dependency published under supply_chain.cooldown_hours
