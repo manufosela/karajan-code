@@ -39,7 +39,7 @@ Una card planificada con nivel (`kj hu add --tier`) la escribe `kj code`, con co
 
 ## rag-first
 
-El RAG tiene que haber respondido sobre una zona antes de que la sesión la toque (ADR 0010). Cada `kj_rag_query` / `kj rag query` de la sesión deja un registro de las fuentes que devolvió; editar una fuente que ninguna consulta devolvió (ni a ella ni a un hermano de su directorio) se bloquea indicando la consulta a hacer. Un fichero nuevo solo exige que la sesión haya consultado algo. Docs, config y tests quedan fuera, como en card-first. Un fichero que el índice no puede tener, o un índice vacío, los decide el propio gate. Sin escape (ADR 0015).
+El RAG tiene que haber respondido sobre una zona antes de que la sesión la toque (ADR 0010). Cada `kj_rag_query` / `kj rag query` de la sesión deja un registro de las fuentes que devolvió; editar una fuente que ninguna consulta devolvió (ni a ella ni a un hermano de su directorio) se bloquea indicando la consulta a hacer. Un fichero nuevo solo exige que la sesión haya consultado algo. Docs, config y tests quedan fuera, como en card-first. Un fichero que el índice no puede tener, o un índice vacío, los decide el propio gate. Un fichero que el índice podría tener y no tiene lo indexa el gate en el momento (el hook corre fuera del sandbox del host, donde sí llega al embedder) y después pide la consulta; si kj no puede indexarlo, el gate dice por qué y qué comando ejecutar desde tu terminal. Sin escape (ADR 0015).
 
 ## cross-lane
 

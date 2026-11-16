@@ -641,7 +641,17 @@ process.stdin.on("end", () => {
             if (blind) {
               console.error("karajan sentinel: rag-first — " + blind + " — no se te exige consultar lo que el indice no puede tener; el gate lo anota y sigue" + doc("rag-first"));
             } else if (absent) {
-              console.error("karajan sentinel: rag-first — el indice aun no tiene " + rel + " (" + absent + "); indexalo y consulta despues: kj_rag_query / kj rag query <que hace " + rel + ">" + doc("rag-first"));
+              // KJC-BUG-0602: this hook runs outside the host sandbox, where the agent's Bash cannot
+              // reach the embedder, so the gate indexes the file itself. The query is still asked for.
+              const idx = spawnSync("kj", ["rag", "index", "--file", rel], { cwd: top, encoding: "utf8", timeout: 45000 });
+              // An index run can end 0 with every embedding failed: only the index itself says it holds the file.
+              const held = idx.status === 0 && spawnSync("kj", ["rag", "covers", rel, "--json"], { cwd: top, encoding: "utf8" }).status === 0;
+              if (held) {
+                console.error("karajan sentinel: rag-first — kj ha indexado " + rel + "; consulta ahora antes de tocarlo: kj_rag_query / kj rag query <que hace " + rel + ">" + doc("rag-first"));
+              } else {
+                const why = String(idx.stderr || idx.stdout || idx.error?.message || "").trim().split("\n").findLast(Boolean) || "sin respuesta de kj";
+                console.error("karajan sentinel: rag-first — el indice aun no tiene " + rel + " y kj no ha podido indexarlo (" + why + "). Indexalo desde tu terminal, fuera del sandbox: kj rag index --file " + rel + "; despues consulta: kj_rag_query / kj rag query <que hace " + rel + ">" + doc("rag-first"));
+              }
               process.exit(2);
             } else {
               // KJC-BUG-0293 (#1996): hits that fell outside the tree are named, so the
