@@ -146,6 +146,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     // KJC-TSK-1522: at a reindexing lane it types on its laptop, in its amber.
     typeOn(crew.rag, { typing: Boolean(pose.typing), elapsed: now - (pose.since ?? now), yaw: pose.yaw, accent: RAGAN_ACCENT });
     crew.rag.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
+    // KJC-BUG-0616: out of its post, its name over it, so no one takes it for another agent.
+    return pose.away ? [overPiece('kaRAGan', crew.rag.root.position.clone().setY(0.6), camera, origin, 'stage-worker')] : [];
   };
   /** KJC-TSK-1490: Karajan turns to the lane the method just acted on and conducts it, or stops it. */
   const conduct = (now) => {
@@ -277,7 +279,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const { lights } = settle();
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
-      moveRagan(now);
+      tags.push(...moveRagan(now));
       flyRelease(now);
       // KJC-TSK-1623: the stack waits for the release; it goes once the drone lifts that release's pile.
       const lifted = !flight || tableCards(flight, now, null) !== flight.cards;
