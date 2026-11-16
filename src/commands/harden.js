@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { loadConfig } from "../config.js";
 import { resolveBaseBranch as resolveBase } from "../config/base-branch.js";
-import { resolveTestOnPush } from "../harden/test-on-push.js";
+import { resolveTestOnPush, runsTests } from "../harden/test-on-push.js";
 import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { interactiveHarden } from "../harden/interactive.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
@@ -32,7 +32,7 @@ import { installTransversalWiring, isTransversalParent, uninstallTransversalWiri
 import { installSandbox } from "../harden/sandbox.js";
 import { ensureContractBlockPresent, ensureGateTrackable } from "../review/gate-gitignore.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
-import { detectPackageManager, installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
+import { detectPackageManager, installWorkflows, plannedQualityBody, resolveKjPin } from "../harden/workflow-engine.js";
 import { adviseBranchProtection } from "../harden/branch-protection.js";
 import { adviseEventPolicy } from "../harden/event-policy.js";
 import { detectTestFramework } from "../utils/project-detect.js";
@@ -183,7 +183,9 @@ export async function hardenCommand({
   // KJC-TSK-0647: CI already running the suite per PR ⇒ pre-push drops its
   // test command (false-red source under local parallelism); opt back in
   // via package.json kj.harden.test_on_push.
-  const top = resolveTestOnPush({ projectDir, repoCfg, testCmd: cmds.test ?? cmds.roots?.find((r) => r.test)?.test });
+  // KJC-BUG-0611: the CI this run installs counts, or the second run rewrites the sealed pre-push.
+  const installsCiTests = ci && profile !== "minimal" && runsTests(plannedQualityBody(projectDir, roots));
+  const top = resolveTestOnPush({ projectDir, repoCfg, testCmd: cmds.test ?? cmds.roots?.find((r) => r.test)?.test, installsCiTests });
   if (top.reason) {
     logger.info?.(`kj harden: ${top.reason}`);
     cmds.test = undefined;

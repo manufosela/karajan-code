@@ -138,6 +138,16 @@ function leftAsIs(label, file, published) {
   return { file: label, action: "left", note: `${file} needs ${name} >= ${KJ_MIN_VERSION[file]}, which is not on npm yet; it is left as it is until that version is published` };
 }
 
+/**
+ * KJC-BUG-0611: the kj-quality.yml body this run would install, written or not; null when kj
+ * installs none, or the repo keeps a kj-quality.yml of its own (kj leaves that one as it is).
+ */
+export function plannedQualityBody(projectDir, roots) {
+  const target = join(projectDir, WORKFLOWS_DIR, "kj-quality.yml");
+  if (existsSync(target) && !readFileSync(target, "utf8").includes("kj:managed:wf-quality")) return null;
+  return qualityFor(projectDir, roots).quality?.body ?? null;
+}
+
 export function installWorkflows({
   projectDir = process.cwd(),
   language = null,
