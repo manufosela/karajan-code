@@ -16,7 +16,7 @@ import { commitSupervisorRegeneration, harnessGuards, PROVENANCE_FILE } from "..
 import { addSigner, canonicalPayload } from "../../src/harden/phone-sign.js";
 import { verifiedSupervisorFiles } from "../../src/policy/supervisor-verify.js";
 import { CHALLENGE, passkey, passkeySigned } from "../_fixtures/passkey.js";
-import { setNormalLevel } from "../_fixtures/set-normal-level.js";
+import { setNormalLevel, setSignedLevel } from "../_fixtures/set-normal-level.js";
 
 let repo;
 const git = (args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" });
@@ -544,5 +544,32 @@ describe("roster warning before the seal is recorded (KJC-BUG-0584)", () => {
   it("a roster passkey signs: no warning", async () => {
     const roster = passkey("cred-1");
     expect((await seal(() => rosterAdd(roster.entry), (files) => passkeySigned(roster, files))).warns).toEqual([]);
+  });
+});
+
+// KJC-TSK-1654 (ADR 0060): at critical the phone signs a seal only when it changes who governs.
+describe("kj harden --commit at the critical level", () => {
+  const phoneAsked = [];
+  const atCritical = () => ({ ...HUMAN, logger: { info() {}, warn() {} }, deps: { ...HUMAN.deps, phone: { enrolled: () => true, request: async ({ files }) => { phoneAsked.push(files); return { ok: false, reason: "test" }; } } } });
+  beforeEach(() => {
+    phoneAsked.length = 0;
+    setSignedLevel(repo, "critical");
+    git(["add", "-A"]);
+    git(["commit", "-qm", "critical", "--no-verify"]);
+  });
+
+  it("seals the hooks kj regenerated with no phone", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    const r = await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...atCritical() });
+    expect(r.committed).toBe(true);
+    expect(phoneAsked).toEqual([]);
+    expect(JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8")).signature).toBeUndefined();
+  });
+
+  it("asks the phone when the seal changes the governance config", async () => {
+    mkdirSync(join(repo, ".karajan"), { recursive: true });
+    writeFileSync(join(repo, ".karajan", "policy.yml"), "version: 1\n");
+    await expect(commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...atCritical() })).rejects.toThrow(/firma del móvil rechazada/);
+    expect(phoneAsked).toHaveLength(1);
   });
 });

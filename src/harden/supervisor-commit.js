@@ -16,6 +16,7 @@ import { readIdentity } from "../identity/store.js";
 import { baseBranchFrom } from "../config/base-branch.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { signAct } from "./act-sign.js";
+import { sealGoverns } from "./critical-seal.js";
 import { provenanceSignature } from "./phone-sign.js";
 import { humanActOf } from "./human-act.js";
 import { describeSupervisorChanges } from "./sign-changes.js";
@@ -194,8 +195,10 @@ export async function commitSupervisorRegeneration({
   // file; KJC-TSK-0823: the block is recorded so CI re-verifies server-side.
   let branch = null;
   try { branch = run(["rev-parse", "--abbrev-ref", "HEAD"]).trim(); } catch { /* unborn HEAD */ }
+  // KJC-TSK-1654 (ADR 0060): at critical only a seal that changes who governs asks the phone.
+  const governs = sealGoverns({ hashed, previous, isGovernance: (f) => isSealedConfig(f, declared), run, baseBranch: generation?.baseBranch });
   const { signature: signatureBlock } = await signAct("supervisor-seal", {
-    projectDir, kjVersion, branch, logger, deps,
+    projectDir, kjVersion, branch, logger, deps, governs,
     files: hashed.map(({ file, sha256: hash }) => ({ file, sha256: hash ?? "" })),
     changes: (deps.describeChanges ?? describeSupervisorChanges)({ projectDir, files: hashed }),
   });
