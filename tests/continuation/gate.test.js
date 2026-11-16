@@ -1,6 +1,6 @@
 // KJC-TSK-1651 (ADR 0059): the turn does not end while the session's cards wait, unless the stop is one kj can check.
 import { describe, expect, it } from "vitest";
-import { judgeStop, runningBackground, sessionCards } from "../../src/continuation/gate.js";
+import { judgeStop, runningBackground, sessionCards, settleWithBoard } from "../../src/continuation/gate.js";
 
 const out = (text) => ({ kind: "output", text });
 const user = (text) => ({ kind: "user", text });
@@ -55,5 +55,21 @@ describe("judgeStop", () => {
   });
   it("does not take a checkable fact without a stated stop", () => {
     expect(judgeStop({ ...base, handoffsOpen: true, text: "Hecho." })).toMatchObject({ hold: true });
+  });
+});
+
+// KJC-BUG-0622 (#4478): the transcript remembers moves the board has since overtaken.
+describe("settleWithBoard", () => {
+  const cards = new Map([["HU-1", "running"], ["HU-2", "pending"], ["HU-3", "running"], ["HU-4", "pending"]]);
+  const board = new Map([
+    ["HU-1", { status: "done", claimed_by: null }],
+    ["HU-2", { status: "running", claimed_by: "someone" }],
+    ["HU-3", { status: "running", claimed_by: "me" }],
+  ]);
+  it("takes the board's status, drops cards someone else holds and keeps the ones it does not know", () => {
+    expect(settleWithBoard(cards, board, "me")).toEqual(new Map([["HU-1", "done"], ["HU-3", "running"], ["HU-4", "pending"]]));
+  });
+  it("keeps a held card when kj cannot tell who works this clone", () => {
+    expect(settleWithBoard(cards, board, null).get("HU-2")).toBe("running");
   });
 });
