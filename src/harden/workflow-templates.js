@@ -28,6 +28,8 @@ export const NO_AI_ATTRIBUTION_WORKFLOW = [
   "name: Block AI attribution",
   "on:",
   "  pull_request:",
+  // KJC-BUG-0606 (#4397): the job scans the PR title and body, so an edit of them reruns it.
+  "    types: [opened, synchronize, reopened, edited]",
   "    branches: [main]",
   "permissions:",
   "  contents: read",

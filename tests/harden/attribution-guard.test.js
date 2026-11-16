@@ -114,6 +114,11 @@ describe("one attribution list for every judge (KJC-BUG-0503)", () => {
     expect(NO_AI_ATTRIBUTION_WORKFLOW).toContain('"$msgs" | grep -qiE "$pat"; then');
   });
 
+  // KJC-BUG-0606 (#4397): the job scans the PR title and body, so editing them must rerun it.
+  it("the workflow reruns when the PR title or body is edited", () => {
+    expect(NO_AI_ATTRIBUTION_WORKFLOW).toMatch(/ {2}pull_request:\n {4}types: \[opened, synchronize, reopened, edited\]\n/);
+  });
+
   it("a code line with the robot emoji is not attribution", () => {
     expect(new RegExp(AI_ATTRIBUTION, "i").test('icon: "🤖"')).toBe(false);
     expect(posixGrep('icon: "🤖"')).toBe(false);
