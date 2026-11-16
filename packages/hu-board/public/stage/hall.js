@@ -6,8 +6,23 @@ import { BOOTH, WORKSHOP, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
 import { createBelt } from './belt.js';
+import { opacityAt, slideAt } from './hall-motion.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
+
+/** KJC-BUG-0623: a workshop seen at `k` (0..1) of its own opacity; whole again, as it was. */
+function fade(group, k) {
+  if (group.userData.k === k) return;
+  group.userData.k = k;
+  group.traverse((o) => {
+    for (const m of [o.material].flat().filter(Boolean)) {
+      m.userData.base ??= { opacity: m.opacity, transparent: m.transparent };
+      m.opacity = m.userData.base.opacity * k;
+      const transparent = m.userData.base.transparent || k < 1;
+      if (m.transparent !== transparent) { m.transparent = transparent; m.needsUpdate = true; }
+    }
+  });
+}
 
 const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
@@ -143,10 +158,40 @@ export function createHall(scene, lanes) {
   const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
   // KJC-TSK-1632: the booth the hosts come and go by, beside Karajan.
   scene.add(booth());
-  const relayout = () => order.forEach((lane) => shops.get(lane).group.position.set(at(lane).x, 0, at(lane).z));
+  // KJC-BUG-0623: a workshop already standing slides to its new place; a new one stands there at once.
+  let opening = true; // the workshops of the first state stand whole, with no fade in
+  const relayout = (now = performance.now()) => order.forEach((lane) => {
+    const { group } = shops.get(lane);
+    const to = at(lane);
+    // While the first state lays the hall out, every workshop stands straight at its place.
+    if (!group.userData.placed || opening) {
+      group.position.set(to.x, 0, to.z);
+      group.userData.placed = true;
+    } else if (group.position.x !== to.x || group.position.z !== to.z) {
+      shops.get(lane).move = { from: { x: group.position.x, z: group.position.z }, to, at: now };
+    }
+  });
+  /** KJC-BUG-0623: a workshop gone for good: out of the scene, its gap closed by the others sliding. */
+  const drop = (lane) => {
+    scene.remove(shops.get(lane).group);
+    shops.delete(lane);
+    shown.delete(lane);
+    lines.delete(lane);
+    lights.delete(lane);
+    belts.delete(lane);
+    order.splice(order.indexOf(lane), 1);
+    relayout();
+  };
   const ensure = (lane) => {
+    // KJC-BUG-0623: one fading out that comes back fades in again where it stands.
+    if (shops.get(lane)?.leaving) {
+      shops.get(lane).leaving = null;
+      shops.get(lane).born = performance.now();
+      return true;
+    }
     if (shops.has(lane)) return false;
     const shop = workshop(lane);
+    shop.born = opening ? -Infinity : performance.now();
     const { gate, light } = gates();
     shop.group.add(gate);
     lights.set(lane, light);
@@ -160,19 +205,30 @@ export function createHall(scene, lanes) {
     return true;
   };
   lanes.forEach(ensure);
-  /** KJC-BUG-0557: takes a lane's workshop away and closes the gap; true when it had one. */
+  opening = false;
+  /**
+   * KJC-BUG-0557: takes a lane's workshop away and closes the gap; true when it had one.
+   * KJC-BUG-0623: it fades out first, keeping its place; then the others slide into the gap (frame).
+   */
   const remove = (lane) => {
-    if (!shops.has(lane)) return false;
-    scene.remove(shops.get(lane).group);
-    shops.delete(lane);
-    shown.delete(lane);
-    lines.delete(lane);
-    lights.delete(lane);
-    belts.delete(lane);
-    order.splice(order.indexOf(lane), 1);
-    relayout();
+    const shop = shops.get(lane);
+    if (!shop || shop.leaving) return false;
+    shop.leaving = { at: performance.now() };
     return true;
   };
+  /** KJC-BUG-0623: fades and slides the workshops at `now`; one done fading out goes for good. */
+  const frame = (now) => {
+    // Deleting the entry being visited (drop) is safe while iterating a Map.
+    for (const [lane, shop] of shops) {
+      const k = opacityAt(shop, now);
+      if (shop.leaving && k === 0) { drop(lane); continue; }
+      fade(shop.group, k);
+      const slid = slideAt(shop.move, now);
+      if (slid) shop.group.position.set(slid.x, 0, slid.z);
+      if (slid && slid.x === shop.move.to.x && slid.z === shop.move.to.z) shop.move = null;
+    }
+  };
+  const standing = () => order.filter((lane) => !shops.get(lane).leaving);
   return {
     /** Adds the lane's workshop if it is new; true when the row changed. */
     ensure,
@@ -180,9 +236,11 @@ export function createHall(scene, lanes) {
     /** KJC-TSK-1488: the z of a lane's workshop, which a factory of several rows sets apart. */
     zOf: (lane) => at(lane).z,
     remove,
-    count: () => order.length,
+    frame,
+    // KJC-BUG-0623: one fading out still holds its gap (xOf/zOf) but no longer counts as standing.
+    count: () => standing().length,
     /** KJC-TSK-1540: the lanes of the hall, in the order their workshops stand. */
-    names: () => [...order],
+    names: () => standing(),
     /** KJC-TSK-1620: the status line a lane's plate shows (cut), whole, for its tooltip. */
     lineOf: (lane) => lines.get(lane) ?? '',
     /** KJC-TSK-1540: dims a lane's workshop and says why while it is not working. */
