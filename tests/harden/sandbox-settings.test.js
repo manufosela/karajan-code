@@ -43,6 +43,8 @@ describe("installSandbox", () => {
     // Outside the project, only state and caches: never a whole config directory.
     for (const broad of ["~/.claude", "~/.codex", "~/.config", "~/.npm", "~"]) expect(s.sandbox.filesystem.allowWrite).not.toContain(broad);
     expect(s.sandbox.network.allowedDomains).toEqual(expect.arrayContaining(["example.com", "github.com", "registry.npmjs.org"]));
+    // KJC-TSK-1656 (#4499): a dev server the agent starts is reachable from the browser (macOS; Linux keeps localhost private).
+    expect(s.sandbox.network.allowLocalBinding).toBe(true);
   });
 
   it("takes back the lanes an earlier kj denied, and keeps what the person added", () => {

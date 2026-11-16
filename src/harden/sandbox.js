@@ -93,7 +93,9 @@ function withMethodSandbox(settings) {
       allowUnsandboxedCommands: false,
       excludedCommands: union(sb.excludedCommands, METHOD_SANDBOX.excludedCommands),
       filesystem: { ...fsCfg, denyWrite: union(fsCfg.denyWrite, METHOD_SANDBOX.denyWrite).filter((d) => !RETIRED_DENY.has(d)), allowWrite: union(fsCfg.allowWrite, METHOD_SANDBOX.allowWrite) },
-      network: { ...net, allowedDomains: union(net.allowedDomains, METHOD_SANDBOX.allowedDomains) },
+      // KJC-TSK-1656 (#4499): a dev server the agent starts is reachable from the browser. Claude
+      // Code honours it on macOS; on Linux the sandbox's localhost stays private (sentinel guide).
+      network: { ...net, allowLocalBinding: net.allowLocalBinding ?? true, allowedDomains: union(net.allowedDomains, METHOD_SANDBOX.allowedDomains) },
     },
   };
 }
