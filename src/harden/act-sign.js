@@ -67,13 +67,15 @@ export function explainAct(id) {
  *   `bootstrap`: the act may run with no phone enrolled even at max (the first enrollment).
  * @returns {Promise<{level: object, signature: object|null}>} the block to record, or null when no phone signed
  */
-export async function signAct(id, { projectDir, home, kjVersion, files, changes = [], branch = null, bootstrap = false, logger = console, deps = {} }) {
+export async function signAct(id, { projectDir, home, kjVersion, files, changes = [], branch = null, bootstrap = false, governs = null, logger = console, deps = {} }) {
   const act = humanActOf(id);
   const level = readSecurityLevel({ projectDir, home });
   if (level.source === "invalid") logger.warn?.(`${act.label}: ${level.reason}`);
   // KJC-TSK-1654 (ADR 0060): at critical an act that does not change who governs stops at the
-  // human layers its module already applied; the phone is not asked.
-  if (level.level === "critical" && !CRITICAL_ACTS.has(id)) return { level, signature: null };
+  // human layers its module already applied; the phone is not asked. `governs` names why this
+  // instance of the act does change it (a seal of the governance config), and then it signs.
+  if (level.level === "critical" && !CRITICAL_ACTS.has(id) && !governs) return { level, signature: null };
+  if (level.level === "critical" && governs) logger.info?.(`${act.label}: se firma con el móvil porque ${governs}`);
   // HU-3887 (KJC-BUG-0551): at max a phone that can sign is any key of the roster, not only this
   // machine's. At normal the signed record itself puts a key in the roster, so there it stays this machine's.
   // HU-4016: a live roster passkey signs at both levels (HU-4019: at max, anyAuthorizedPhone counts it).

@@ -106,6 +106,14 @@ describe("signAct", () => {
     await expect(sign("gates-loosen", { deps: { phone: phone({ enrolled: false }) } })).rejects.toThrow(/este acto se firma con el móvil y no hay ninguno enrolado/);
   });
 
+  it("at critical: a seal that changes who governs signs, and says why", async () => {
+    setSignedLevel(repo, "critical");
+    const infos = [];
+    const res = await sign("supervisor-seal", { governs: "the seal changes the governance config (.karajan/policy.yml)", logger: { info: (l) => infos.push(l), warn: (l) => warned.push(l) }, deps: { phone: phone() } });
+    expect(res.signature).not.toBeNull();
+    expect(infos[0]).toMatch(/harden --commit: se firma con el móvil porque the seal changes the governance config/);
+  });
+
   it("a record that cannot be trusted is said, and the act runs at max", async () => {
     writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "normal", since: "x" }));
     await expect(sign("rules-approve", { deps: { phone: phone({ enrolled: false }) } })).rejects.toThrow(/seguridad máxima/);
