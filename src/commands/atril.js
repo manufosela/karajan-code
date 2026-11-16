@@ -10,6 +10,11 @@ export function rawAtrilArgs(argv) {
   return at === -1 ? [] : argv.slice(at + 1);
 }
 
+/** True when the first non-option word is atril: the root version option must not fire for that run (HU-4480). */
+export function isAtrilRun(argv) {
+  return argv.slice(2).find((arg) => !arg.startsWith("-")) === "atril";
+}
+
 /** Runs atril with exactly the person's arguments; returns atril's exit code. */
 export function atrilCommand({ args = [], ...deps }) {
   const [action, ...rest] = args;
