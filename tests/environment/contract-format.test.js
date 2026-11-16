@@ -44,8 +44,9 @@ describe("the contract formatted by the repo's prettier (KJC-BUG-0604)", () => {
     fakePrettier(MARKING);
     expect(commitContract({ projectDir: dir }).committed).toBe(true);
     expect(read("AGENTS.md")).toBe("# rules\nformatted\n");
-    expect(read(".github/workflows/kj-policy.yml")).toBe("name: kj\n");
     expect(read(".karajan/review-gate")).toBe("x\n");
+    // KJC-BUG-0608: with history the workflow is the seal's; on disk it keeps kj's bytes for it.
+    expect(fs.readFileSync(path.join(dir, ".github/workflows/kj-policy.yml"), "utf8")).toBe("name: kj\n");
   });
 
   it("the review reads the formatted contract, the one that is committed", async () => {
