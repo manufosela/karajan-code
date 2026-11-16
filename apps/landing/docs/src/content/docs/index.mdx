@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.26.0: lanes cut from any branch (current)
+### v5.26.1: the RAG index in the background (current)
+
+`kj_rag_index` starts the index in the background and answers at once; called again, it says how many files it has done out of how many, so a large repo never runs past the host's tool timeout. The seal commits the harness files its own run deletes, and a withdrawn release proposal no longer stops a release. This is the npm release of 5.26.0, which stopped before npm when the upgrade-path test read a release with nothing to re-seal as a failure. kj stage: the courier teleports from the booth, a lane's host fetches its own card, and the Sentinel goes to the workshop it stopped.
+
+### v5.26.0: lanes cut from any branch
 
 `kj worktree start --base <branch>` cuts a lane from that branch and keeps it as the lane's base, so a team working on an epic branch gets each issue's lane and PR against it, with `kj pr-size`, `kj check` and the review gate measuring against that branch. The contract `kj harden` commits leaves the files a project declares sealed in `policy.yml` to the seal, and `kj release propose` always proposes the remote base branch, never a lane's HEAD. In kj stage, kaRAGan types beside the host, with its name over it.
 

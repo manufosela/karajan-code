@@ -7,13 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.26.1] - 2026-11-16
+
+The npm release of 5.26.0, with what merged after it. 5.26.0 stopped before npm: the test of the upgrade path read a release with nothing to re-seal as a failure. Its GitHub Release and binaries stay as published.
+
 ### Fixed
-- **`kj_rag_index` runs in the background**, so a large repo no longer runs past the host's tool timeout: the tool answers at once, and called again it says how many files the index has done out of how many, then its totals (#4455, #4458).
-- **`kj release verify` skips a withdrawn proposal**: a release issue closed as not planned no longer counts as a second proposal for the version (#4436).
+- **`kj_rag_index` runs in the background**, so a large repo no longer runs past the host's tool timeout: the tool answers at once, and called again it says how many files the index has done out of how many, then its totals (#4455, #4460).
+- **The seal commits the harness files its own run deletes**, so a seal no longer leaves them behind as uncommitted changes (#4437, by @jorgecasar).
+- **`kj release verify` skips a withdrawn proposal**: a release issue closed as not planned no longer counts as a second proposal for the version (#4438).
+- **A release with nothing to re-seal passes the upgrade-path test**: re-hardening either seals its changes or leaves nothing pending (#4466).
+- **board**: one empty read of a team board (Linear) no longer drops its project from the board and the stage (#4453).
+- **kj stage**:
+  - the courier comes out of the booth and goes back to it, teleporting, instead of appearing and vanishing at a workshop (#4450);
+  - a lane's host at work fetches or pins its own card at the task wall and walks back to its desk; the courier only comes when no host is there (#4459);
+  - the Sentinel answers a denial at the workshop where the stopped session's robot is; with none seen it stays at its post, lit red, instead of going down to an empty main (#4456);
+  - the projects panel reads a light summary (who works, cards in progress, pending notices, from the traces alone) every 30 seconds instead of the whole map once, so it weighs less and its amber badges go once their notices are resolved (#4471).
 
 ## [5.26.0] - 2026-11-16
 
-A lane can now be cut from any branch, so a team working on an epic branch gets each issue's lane and PR against it. The contract `kj harden` commits leaves the files a project declares sealed to the seal, and a release is always proposed from the remote base branch.
+Published on GitHub only (its binaries); npm got 5.26.1. A lane can now be cut from any branch, so a team working on an epic branch gets each issue's lane and PR against it. The contract `kj harden` commits leaves the files a project declares sealed to the seal, and a release is always proposed from the remote base branch.
 
 ### Added
 - **`kj worktree start --base <branch>`** cuts the lane from `origin/<branch>` and keeps that branch as the lane's base, so `kj pr-size`, `kj check` and the review gate in that lane measure against it. A branch that does not exist fails with its name (#4426).

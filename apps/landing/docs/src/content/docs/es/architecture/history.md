@@ -1989,6 +1989,10 @@ Volver a preparar el propio karajan-code con la 5.24.0 sacó cinco bugs en un d�
 
 Un equipo que usa kj sobre una rama de épica pidió que el carril de cada issue saliera de esa rama, con su PR contra ella, y el mantenedor lo adelantó en la cola. `kj worktree start --base` saca el carril de la rama y la anota en el git dir del propio carril, donde la leen primero todos los gates que miden un diff. Al publicar la 5.25.0 aparecieron dos juntas más: proponer la release desde un carril tomaba como candidato el HEAD del carril, y un fichero sellado que declara el propio proyecto se colaba en el contrato que commitea `kj harden`. Las dos están arregladas.
 
+## Phase 182: v5.26.1, el índice de la RAG en segundo plano
+
+La 5.26.0 nunca llegó a npm. Su candidato no cambiaba ningún fichero sellado, así que volver a preparar un repo de la 5.25.0 no dejaba nada que resellar, y el test del camino de actualización, escrito para releases que siempre resellan, lo tomó por un fallo y paró la publicación. Su GitHub Release y sus binarios ya habían salido, así que el mantenedor eligió dejarlos y publicar la 5.26.1 antes que reescribir una etiqueta pública. Mientras tanto, un agente en un repo grande había visto `kj_rag_index` superar su timeout de herramienta sin decir nada del progreso; el mantenedor eligió ejecutarlo en segundo plano, y ahora la herramienta responde al momento y, llamada otra vez, dice cuántos ficheros lleva de cuántos. El mantenedor pidió también un gate contra los agentes que se paran con trabajo en el board, y aceptó el ADR 0059: el turno no termina mientras el board tenga trabajo que el agente pueda hacer.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

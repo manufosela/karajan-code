@@ -1990,6 +1990,10 @@ Re-hardening karajan-code itself with 5.24.0 brought five bugs in one day, all a
 
 A team running kj on an epic branch asked for each issue's lane to come from that branch, with its PR against it, and the maintainer moved it ahead of the queue. `kj worktree start --base` cuts the lane from the branch and records it in the lane's own git dir, where every gate that measures a diff reads it first. Two more joints showed up while releasing 5.25.0: proposing the release from a lane took the lane's HEAD as the candidate, and a sealed file a project declares itself rode in the contract `kj harden` commits. Both are fixed.
 
+## Phase 182: v5.26.1, the RAG index in the background
+
+5.26.0 never reached npm. Its candidate changed no sealed file, so re-hardening a 5.25.0 repo left nothing to re-seal, and the upgrade-path test, written for releases that always re-seal, read that as a failure and stopped the publish. Its GitHub Release and binaries had already gone out, so the maintainer chose to leave them and publish 5.26.1 rather than rewrite a public tag. Meanwhile an agent on a large repo had found `kj_rag_index` running past its tool timeout with no word of progress; the maintainer chose to run it in the background, and the tool now answers at once and reports files done out of total when called again. The maintainer also asked for a gate against agents that stop with work left on the board, and accepted ADR 0059: the turn does not end while the board holds work the agent can do.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
