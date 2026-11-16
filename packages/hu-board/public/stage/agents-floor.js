@@ -15,7 +15,8 @@ import { wear } from './costume-mesh.js';
 import { HOST_SCALE, chestOf, hologramOf, hostColor, laptopLift } from './host-look.js';
 import { teleportLook } from './teleport.js';
 import { avoidance } from './avoid.js';
-import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from './workers.js';
+import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, withErrand, workerAt, workersFrom } from './workers.js';
+import { cardNote } from './couriers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
@@ -149,6 +150,18 @@ const work = (robot, worker, pose, t) =>
   // KJC-TSK-1607: and a waiting host keeps its laptop closed.
   typeOn(robot, { typing: !pose.walking && !pose.reading && !pose.waiting, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
 
+/** KJC-TSK-1650: the card a host on its errand holds, before its chest, while it holds it. */
+function holdCard(robot, pose) {
+  if (pose.holding && robot.note?.userData.card !== pose.card) {
+    if (robot.note) robot.hover.remove(robot.note);
+    robot.note = cardNote(pose.card);
+    robot.note.userData.card = pose.card;
+    robot.note.position.set(0, 2.3, 1.1);
+    robot.hover.add(robot.note);
+  }
+  if (robot.note) robot.note.visible = Boolean(pose.holding);
+}
+
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
 export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null, doorOf }, lanes, now) {
   let own = avatar; // KJC-TSK-1569: this person's avatar, which their robots wear
@@ -191,6 +204,14 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   };
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
+    /** KJC-TSK-1650: a card's `trip` at `at`: its lane's host at work runs it; true when one took it. */
+    errand(trip, at) {
+      const next = withErrand(workers, trip, at);
+      workers = next.workers;
+      return next.taken;
+    },
+    /** KJC-TSK-1650: the cards hosts are carrying at `now`, not on their bench yet. */
+    carried: (now) => new Set(workers.filter((w) => w.errand && now - w.errand.at < ERRAND_MS).map((w) => w.errand.id)),
     /** KJC-BUG-0581: the robots at work now (not walking out), each with its lane. */
     working: () => workers.filter((w) => w.leftAt === undefined).map(({ agent, role, lane, id, waiting }) => ({ agent, role, lane, id, ...(waiting ? { waiting } : {}) })),
     /** KJC-TSK-1569: a new own avatar; every robot is built again, in it, on the next frame. */
@@ -233,6 +254,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         if (robot.hologram) robot.hologram.rotation.y = t / 1200; // KJC-TSK-1601: it turns slowly
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);
+        holdCard(robot, pose);
         dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build
         // Just above the helmet, so the label never sits on it.
         // KJC-TSK-1598: over a host's halo. KJC-TSK-1600: what it says is decided below, for all at once.

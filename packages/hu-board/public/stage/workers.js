@@ -3,7 +3,7 @@
 // works at the bench of the workshop of its lane (ADR 0048) and walks out when
 // it ends. KJC-TSK-1435: so does the host agent, and each subagent it opens walks
 // out of it and back. Pure: the scene reads the poses.
-import { AISLE_DZ, CREW, STAND, WORKSHOP, boothAt } from './layout.js';
+import { AISLE_DZ, CREW, STAND, WALL, WORKSHOP, boothAt } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
@@ -199,6 +199,33 @@ export const workersFrom = (working, now, lane = 'main') =>
 const lerp = (from, to, k) => ({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k });
 const facing = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
 
+/**
+ * KJC-TSK-1650 (the maintainer, 2026-11-16): a lane's host at work runs its own card's errand to the
+ * wall: it stops typing, walks there, pins or takes the card and walks back to its desk.
+ */
+export const PIN_MS = 900;
+export const ERRAND_MS = 2 * WALK_MS + PIN_MS;
+const WALL_SPOT = { x: WALL.x, z: WALL.z + 0.6 };
+
+/** The workers after a card's `trip` (courier.js tripFor) at `now`: its lane's host takes it, if one is at work. */
+export function withErrand(workers, trip, now) {
+  const host = workers.find((w) => w.role === 'host' && w.lane === trip.lane && w.leftAt === undefined);
+  if (!host) return { workers, taken: false };
+  const errand = { at: now, out: trip.out, id: trip.id };
+  return { workers: workers.map((w) => (w === host ? { ...w, errand } : w)), taken: true };
+}
+
+/** Where a host on its errand is: to the wall, there, and back to its desk (`spot`), holding the card on its way; null outside it. */
+function errandAt(errand, now, spot) {
+  const t = errand ? now - errand.at : -1;
+  if (t < 0 || t >= ERRAND_MS) return null;
+  const card = errand.id;
+  if (t < WALK_MS) return { ...lerp(spot, WALL_SPOT, t / WALK_MS), yaw: facing(spot, WALL_SPOT), walking: true, reading: false, holding: errand.out, card };
+  if (t < WALK_MS + PIN_MS) return { ...WALL_SPOT, yaw: Math.PI, walking: false, reading: false, holding: true, card };
+  const k = (t - WALK_MS - PIN_MS) / WALK_MS;
+  return { ...lerp(WALL_SPOT, spot, k), yaw: facing(WALL_SPOT, spot), walking: true, reading: false, holding: !errand.out, card };
+}
+
 /** KJC-TSK-1610: where a host on its way from its desk (`spot`) to atril and back is, or null outside it. */
 function detourAt(detour, now, spot) {
   const t = detour ? now - detour.at : -1;
@@ -225,7 +252,8 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, doo
   const gate = worker.role === 'host' ? door : gateOf(worker.role, laneX, laneZ, worker.hostSeat);
   if (worker.leftAt !== undefined && now >= worker.leftAt) return leavingAt(worker, now, spot, gate);
   // KJC-TSK-1610: a host already at its desk goes to atril and back when kj gives it skills.
-  const away = detourAt(worker.detour, now, spot);
+  // KJC-TSK-1650: its card's errand to the wall goes before atril.
+  const away = errandAt(worker.errand, now, spot) ?? detourAt(worker.detour, now, spot);
   if (away) return { ...away, size: 1 };
   return arrivingAt(worker, now, spot, gate);
 }
@@ -261,7 +289,8 @@ export function hostAt(worker, now, spot, way) {
     if (t < HOST_WALK_MS) return { ...along(way.toReversed(), t / HOST_WALK_MS), walking: true, size: 1 };
     return t < HOST_WALK_MS + BUD_MS ? teleporting(way[0], 1 - (t - HOST_WALK_MS) / BUD_MS) : null;
   }
-  const away = detourAt(worker.detour, now, spot);
+  // KJC-TSK-1650: its card's errand to the wall goes before atril.
+  const away = errandAt(worker.errand, now, spot) ?? detourAt(worker.detour, now, spot);
   if (away) return { ...away, size: 1 };
   const t = Math.max(0, now - worker.since);
   // It teleports in standing in the booth, and walks off once whole.
