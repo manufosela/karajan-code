@@ -309,6 +309,7 @@ export function registerMeta(program, { pkgVersion }) {
   const wt = program.command("worktree").description("Isolated task lanes (git worktrees) for the host agent");
   wt.command("start <slug>")
     .description("Create a lane: worktree + feat/<slug> branch from origin/<base> + dependency bootstrap")
+    .option("--base <branch>", "Cut the lane from origin/<branch> and keep it as the lane's base (pr-size, check, the review gate)")
     .action(async (slug, flags) => {
       await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
         await worktreeCommand({ config, action: "start", args: [slug], flags });
