@@ -34,7 +34,7 @@ const HUMAN = { env: {}, tty: true, logger: { info() {}, warn() {} }, deps: {
 } };
 
 const GIT_ID = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
-let work, repo, home, prevVersion, prevRoot;
+let work, repo, home, prevVersion, prevRoot, current;
 const git = (...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: repo, encoding: "utf8" });
 const kjRun = (root, args) => {
   const r = spawnSync(process.execPath, [join(root, "bin", "kj.js"), ...args], {
@@ -44,7 +44,7 @@ const kjRun = (root, args) => {
   return { ok: r.status === 0, output: `exit ${r.status}\n${r.stdout}${r.stderr}` };
 };
 /** kj harden with the given kj, its generated files on main, then the seal signed by the test key. */
-const hardenAndSeal = async (root, kjVersion) => {
+const hardenAndSeal = async (root, kjVersion, { allowNoDrift = false } = {}) => {
   git("checkout", "-q", "-B", `harden-${kjVersion}`, "main");
   const h = kjRun(root, ["harden", "--json"]);
   // The seal records the generation harden used: the judges render the canonical hooks from it.
@@ -57,7 +57,10 @@ const hardenAndSeal = async (root, kjVersion) => {
   git("commit", "-q", "--no-verify", "--allow-empty", "-m", `chore: kj ${kjVersion} harden contract`);
   git("branch", "-f", "main", "HEAD"); // the contract PR, merged: the seal PR brings the seal alone
   const sealed = await commitSupervisorRegeneration({ ...HUMAN, projectDir: repo, kjVersion, generation, gitFn: (args) => git(...args) });
-  if (!sealed.committed) throw new Error(`the seal with kj ${kjVersion} committed nothing: ${sealed.reason}`);
+  if (sealed.committed) return { noDrift: false };
+  // KJC-BUG-0621: a release that changes no sealed file leaves nothing to re-seal: no seal PR, nobody blocked.
+  if (allowNoDrift && sealed.reason === "sin drift") return { noDrift: true };
+  throw new Error(`the seal with kj ${kjVersion} committed nothing: ${sealed.reason}`);
 };
 
 // verify-pr reads the PR from GitHub: gh answers with the seal PR and no published review.
@@ -92,12 +95,18 @@ describe.skipIf(process.env.KJ_UPGRADE_PATH !== "1")("upgrade path: previous kj 
     git("commit", "-q", "--no-verify", "-m", "chore: init");
     await hardenAndSeal(prevRoot, prevVersion);
     git("branch", "-f", "main", "HEAD");
-    await hardenAndSeal(ROOT, CURRENT);
+    current = await hardenAndSeal(ROOT, CURRENT, { allowNoDrift: true });
   }, 900000);
+
+  it("re-hardening with this checkout either seals its changes or has nothing to seal", () => {
+    const pending = git("log", "--format=%s", "main..HEAD").trim();
+    if (current.noDrift) expect(pending).toBe("");
+    else expect(pending).toMatch(/^chore\(harden\): supervisor regenerated and sealed/);
+  });
   afterAll(() => { if (work) rmSync(work, { recursive: true, force: true }); });
 
-  it("every judge of the seal PR passes, with the base's kj and with this checkout's", async () => {
-    expect(git("log", "--format=%s", "main..HEAD").trim()).toMatch(/^chore\(harden\): supervisor regenerated and sealed/);
+  it("every judge of the seal PR passes, with the base's kj and with this checkout's", async (ctx) => {
+    if (current.noDrift) return ctx.skip(); // no seal PR to judge
     const head = git("rev-parse", "--abbrev-ref", "HEAD").trim();
     const results = [];
     const judge = (name, version, r) => results.push({ name, version, ...r });
