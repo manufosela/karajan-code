@@ -61,11 +61,12 @@ export function probeSandbox({ platform = process.platform, which = whichOnPath,
 // supervisor and the phone key stay out of reach.
 const METHOD_SANDBOX = {
   // KJC-TSK-1114: with these denied, the Sentinel's Bash-text guards step aside (plan KJC-TSK-1081);
-  // kj worktree runs outside, it is the sanctioned way to create and remove lanes.
+  // kj worktree runs outside, it is the sanctioned way to create and remove lanes. The lanes are
+  // not denied (KJC-BUG-0625): the cross-lane guard keeps confining Bash there.
   excludedCommands: ["gh *", "kj review *", "kj worktree *"],
   denyWrite: [
     ".karajan/harness", ".karajan/hooks", ".claude/settings.json", ".claude/settings.local.json", ".karajan/supervisor-provenance.json", "~/.karajan/supervisor-phone.json",
-    "kj.config.yml", ".ragignore", ".kj/worktrees",
+    "kj.config.yml", ".ragignore",
   ],
   allowWrite: ["~/.karajan", "~/.npm/_cacache", "~/.npm/_logs", "~/.npm/_npx", "~/.cache", "~/.config/configstore"],
   allowedDomains: [
@@ -76,6 +77,9 @@ const METHOD_SANDBOX = {
 };
 
 const union = (have, add) => [...new Set([...(Array.isArray(have) ? have : []), ...add])];
+// KJC-BUG-0625 (#4494): denying the lanes from the main checkout's settings left the session's own
+// lane read-only for Bash; the Sentinel's cross-lane guard confines Bash instead. An earlier kj wrote it.
+const RETIRED_DENY = new Set([".kj/worktrees"]);
 
 function withMethodSandbox(settings) {
   const sb = settings.sandbox ?? {};
@@ -88,7 +92,7 @@ function withMethodSandbox(settings) {
       enabled: true,
       allowUnsandboxedCommands: false,
       excludedCommands: union(sb.excludedCommands, METHOD_SANDBOX.excludedCommands),
-      filesystem: { ...fsCfg, denyWrite: union(fsCfg.denyWrite, METHOD_SANDBOX.denyWrite), allowWrite: union(fsCfg.allowWrite, METHOD_SANDBOX.allowWrite) },
+      filesystem: { ...fsCfg, denyWrite: union(fsCfg.denyWrite, METHOD_SANDBOX.denyWrite).filter((d) => !RETIRED_DENY.has(d)), allowWrite: union(fsCfg.allowWrite, METHOD_SANDBOX.allowWrite) },
       network: { ...net, allowedDomains: union(net.allowedDomains, METHOD_SANDBOX.allowedDomains) },
     },
   };

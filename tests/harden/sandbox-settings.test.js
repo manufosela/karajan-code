@@ -37,10 +37,20 @@ describe("installSandbox", () => {
     expect(s.sandbox.excludedCommands).toEqual(expect.arrayContaining(["docker *", "gh *", "kj review *", "kj worktree *"]));
     expect(s.sandbox.filesystem.denyWrite).toEqual(expect.arrayContaining([".karajan/harness", "~/.karajan/supervisor-phone.json"]));
     // KJC-TSK-1114: what the Sentinel's Bash-text guards hand over to the sandbox.
-    expect(s.sandbox.filesystem.denyWrite).toEqual(expect.arrayContaining([".karajan/hooks", ".claude/settings.json", "kj.config.yml", ".ragignore", ".kj/worktrees"]));
+    expect(s.sandbox.filesystem.denyWrite).toEqual(expect.arrayContaining([".karajan/hooks", ".claude/settings.json", "kj.config.yml", ".ragignore"]));
+    // KJC-BUG-0625 (#4494): never the lanes, or the session's own lane is read-only for Bash.
+    expect(s.sandbox.filesystem.denyWrite).not.toContain(".kj/worktrees");
     // Outside the project, only state and caches: never a whole config directory.
     for (const broad of ["~/.claude", "~/.codex", "~/.config", "~/.npm", "~"]) expect(s.sandbox.filesystem.allowWrite).not.toContain(broad);
     expect(s.sandbox.network.allowedDomains).toEqual(expect.arrayContaining(["example.com", "github.com", "registry.npmjs.org"]));
+  });
+
+  it("takes back the lanes an earlier kj denied, and keeps what the person added", () => {
+    writeLocal(JSON.stringify({ sandbox: { filesystem: { denyWrite: [".kj/worktrees", "secrets/"] } } }));
+    installSandbox({ projectDir: dir, logger: logs(), probe: ready });
+    const { denyWrite } = read().sandbox.filesystem;
+    expect(denyWrite).not.toContain(".kj/worktrees");
+    expect(denyWrite).toContain("secrets/");
   });
 
   it("is idempotent: a second run adds no duplicates", () => {
