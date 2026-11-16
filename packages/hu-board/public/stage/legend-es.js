@@ -34,7 +34,7 @@ const ES = {
     ['Verde, con batuta', 'Agita la batuta cuando el trabajo pasa y levanta la mano cuando no.']]],
   rag: ['kaRAGan', 'La memoria: responde preguntas sobre el código desde el índice del proyecto.', 'Lleva la respuesta al carril que preguntó; durante una reindexación teclea allí.', 'kj rag query y kj rag index.', [['Ámbar', 'Su color, también el de su portátil.']]],
   watch: ['kaWATCHan', 'El vigilante de los repositorios y guardián del contador de versión.', 'Tras una release va al contador y pone la versión nueva.', 'Una release.', [['Azul', 'Su color.']]],
-  courier: ['Mensajero', 'Lleva una card entre el tablero y su carril, con la card sobre la cabeza.', 'Cuando una card se crea, empieza o termina; se va al acabar el recado.', 'El board, según se mueve la card.', []],
+  courier: ['Mensajero', 'Lleva una card entre el tablero y su carril, con la card sobre la cabeza.', 'Cuando una card se crea, empieza o termina: sale de la cabina y vuelve a ella al acabar el recado.', 'El board, según se mueve la card.', []],
   plumber: ['Fontanero', 'Arregla el pipeline de un carril: trabaja en su cinta mientras su CI está fallado.', 'Cuando falla el pipeline de un carril; vuelve a la cabina en cuanto corre o pasa de nuevo.', 'El pipeline de la PR abierta del carril.', [
     ['Gris', 'Un robot gris sin más: no es una IA ni trabaja para nadie en concreto.'], ['Peto y casco', 'Peto azul y casco amarillo: el operario de la nave.'],
     ['Llave de tubo', 'En la mano derecha; la mueve mientras trabaja en la cinta.']]],

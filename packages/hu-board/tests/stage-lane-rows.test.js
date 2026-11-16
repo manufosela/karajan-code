@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 
 import { WORKSHOP } from '../public/stage/layout.js';
 import { RAGAN_WALK_MS, raganAt } from '../public/stage/ragan.js';
-import { COURIER_WALK_MS, courierAt } from '../public/stage/courier.js';
+import { COURIER_WALK_MS, PIN_MS, courierAt } from '../public/stage/courier.js';
 import { DESCENT_MS, sentinelAt } from '../public/stage/sentinel-watch.js';
 import { benchSpots } from '../public/stage/bench-notes-layout.js';
-import { WALK_MS, spotOf, workerAt, workersFrom } from '../public/stage/workers.js';
+import { BUD_MS, WALK_MS, spotOf, workerAt, workersFrom } from '../public/stage/workers.js';
 
 const ROW = 9; // how far back the lane's row is from the first one
 const xOf = () => 4;
@@ -24,10 +24,11 @@ describe('every piece goes to the row of its lane (KJC-TSK-1488)', () => {
     expect(pose.z).toBeCloseTo(raganAt({ lane: 'far', at: 0 }, RAGAN_WALK_MS + 10, xOf).z + ROW);
   });
 
-  it('a courier leaves from and returns to that row', () => {
+  it('a courier takes and leaves its card at that row', () => {
     const trip = { id: 'HU-1', lane: 'far', at: 0, out: true, back: false };
-    expect(courierAt(trip, 0, xOf, zOf).z).toBeCloseTo(courierAt(trip, 0, xOf).z + ROW);
-    expect(courierAt(trip, 2 * COURIER_WALK_MS + 800, xOf, zOf).z).toBeGreaterThan(WORKSHOP.z);
+    const atBench = BUD_MS + COURIER_WALK_MS + PIN_MS / 2; // KJC-BUG-0618: its first stop, from the booth
+    expect(courierAt(trip, atBench, xOf, zOf).z).toBeCloseTo(courierAt(trip, atBench, xOf).z + ROW);
+    expect(courierAt(trip, atBench, xOf, zOf).z).toBeGreaterThan(WORKSHOP.z);
   });
 
   it('the Sentinel goes down beside the agent of that row', () => {

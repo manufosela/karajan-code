@@ -94,7 +94,7 @@ export const CARDS = [
   {
     id: 'courier', kind: 'crew', name: 'Courier',
     does: 'Carries a card between the wall and its lane, with the card over its head.',
-    when: 'When a card is created, started or done; it leaves when the errand ends.',
+    when: 'When a card is created, started or done: it comes out of the booth and goes back to it when the errand ends.',
     calledBy: 'The board, as the card moves.',
     marks: [],
   },

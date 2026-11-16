@@ -287,7 +287,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       stack.show(stacked);
       conduct(now);
       tags.push(...movePieces(now), ...moveReviews(now));
-      couriers.frame(now, hall.xOf, hall.zOf);
+      couriers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-BUG-0618: by the booth
       hall.frameBelts(now); // KJC-TSK-1639
       plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, couriers.carried(), hall.zOf);
