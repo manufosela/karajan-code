@@ -278,6 +278,20 @@ describe("hardenCommand", () => {
     expect(warn.mock.calls.flat().join("\n")).toMatch(/is not on npm yet; each workflow pins/);
   });
 
+  // KJC-BUG-0611 (HU-4410): test-on-push was decided before the workflows were written, so the
+  // second kj harden saw the new CI and rewrote the sealed pre-push hook with nothing changed.
+  it("converges on the first run: pre-push already leaves the tests to the CI it installs", async () => {
+    writeFileSync(join(repo, "package.json"), '{"name":"conv","version":"1.0.0","scripts":{"test":"vitest run"}}\n');
+    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => ({ versions: {} }) }));
+    const info = vi.fn();
+    await hardenCommand({ projectDir: repo, profile: "standard", guidelines: false, fetchFn, logger: { ...logger, info } });
+    expect(info.mock.calls.flat().join("\n")).toMatch(/CI already runs the suite per PR/);
+    const prePush = readFileSync(join(repo, ".karajan", "hooks", "pre-push"), "utf8");
+    const again = await hardenCommand({ projectDir: repo, profile: "standard", guidelines: false, fetchFn, logger });
+    expect(again.hooks.find((h) => h.hook === "pre-push").action).toBe("unchanged");
+    expect(readFileSync(join(repo, ".karajan", "hooks", "pre-push"), "utf8")).toBe(prePush);
+  });
+
   it("returns ok:false on a non-repo dir without throwing", async () => {
     const plain = mkdtempSync(join(tmpdir(), "kj-plain-"));
     const res = await hardenCommand({ projectDir: plain, logger });

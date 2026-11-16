@@ -13,6 +13,9 @@ import { join } from "node:path";
 
 const TEST_STEP = /\b(npm (run )?test|vitest|jest|pytest|go test|phpunit|cargo test)\b/;
 
+/** Whether a workflow's text runs the tests. */
+export const runsTests = (body) => typeof body === "string" && TEST_STEP.test(body);
+
 export function ciRunsTests(projectDir) {
   const dir = join(projectDir, ".github", "workflows");
   if (!existsSync(dir)) return false;
@@ -25,10 +28,11 @@ export function ciRunsTests(projectDir) {
   }
 }
 
-export function resolveTestOnPush({ projectDir, repoCfg = {}, testCmd = null }) {
+// KJC-BUG-0611: `installsCiTests`, the CI the same kj harden run installs runs the tests.
+export function resolveTestOnPush({ projectDir, repoCfg = {}, testCmd = null, installsCiTests = false }) {
   if (!testCmd) return { testCmd: null, reason: null };
   if (repoCfg.test_on_push === true) return { testCmd, reason: null };
-  if (ciRunsTests(projectDir)) {
+  if (installsCiTests || ciRunsTests(projectDir)) {
     return {
       testCmd: null,
       reason: "CI already runs the suite per PR — pre-push keeps only the identity guard (opt back in with kj.harden.test_on_push: true in package.json)",

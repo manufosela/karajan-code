@@ -56,10 +56,12 @@ describe("hookBody is pure POSIX (no Node imposed)", () => {
   });
 });
 
+// KJC-BUG-0611: with CI the tests run there, not on push (KJC-TSK-0647), from the first run on;
+// the native test command reaches pre-push where no CI runs it, so these run without CI.
 describe("kj harden uses native commands per language, never npm by default", () => {
   it("a Go repo gets go tooling and no npm", async () => {
     writeFileSync(join(repo, "go.mod"), "module example.com/x\n");
-    await hardenCommand({ projectDir: repo, logger });
+    await hardenCommand({ projectDir: repo, ci: false, logger });
     expect(hook("pre-commit")).toContain("go vet ./...");
     expect(hook("pre-push")).toContain("go test ./...");
     expect(hook("pre-commit")).not.toContain("npm");
@@ -67,7 +69,7 @@ describe("kj harden uses native commands per language, never npm by default", ()
 
   it("a Python repo gets ruff and pytest", async () => {
     writeFileSync(join(repo, "pyproject.toml"), "[project]\nname = 'x'\n");
-    await hardenCommand({ projectDir: repo, logger });
+    await hardenCommand({ projectDir: repo, ci: false, logger });
     expect(hook("pre-commit")).toContain("ruff check .");
     expect(hook("pre-push")).toContain("pytest");
     expect(hook("pre-commit")).not.toContain("npm");
@@ -75,7 +77,7 @@ describe("kj harden uses native commands per language, never npm by default", ()
 
   it("a PHP repo gets phpstan/php-cs-fixer/phpunit, no npm", async () => {
     writeFileSync(join(repo, "composer.json"), "{}");
-    await hardenCommand({ projectDir: repo, logger });
+    await hardenCommand({ projectDir: repo, ci: false, logger });
     expect(hook("pre-commit")).toContain("vendor/bin/phpstan analyse");
     expect(hook("pre-push")).toContain("vendor/bin/phpunit");
     expect(hook("pre-commit")).not.toContain("npm");
