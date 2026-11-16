@@ -294,6 +294,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       tags.push(...movePieces(now), ...moveReviews(now));
       couriers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-BUG-0618: by the booth
       hall.frameBelts(now); // KJC-TSK-1639
+      hall.frame(now); // KJC-BUG-0623: workshops fade in and out, and slide to their places
       plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, new Set([...couriers.carried(), ...floor.carried(now)]), hall.zOf);
       tags.push(...showSigns());
