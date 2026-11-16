@@ -108,8 +108,9 @@ export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = 
  * block — the diff hash pins the file set, so a source missing from
  * `covered` was never answered about, whatever the block claims.
  */
-export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = true, verified = true, mismatched = [], drift = [], standingExceptions = [], now = new Date() }) {
-  const all = sourceFilesOf(config, stagedFiles).sources;
+export function checkRagVerdict({ config = {}, stagedFiles = [], rag, harness = true, verified = true, mismatched = [], drift = [], standingExceptions = [], now = new Date(), generated }) {
+  // KJC-BUG-0624 (#4486): what nobody wrote leaves the commit gate as it left the review (KJC-BUG-0613).
+  const all = sourceFilesOf(config, stagedFiles, generated).sources;
   if (all.length === 0) return { ok: true, mode: "docs-only" };
   const { sources, excluded } = splitExcluded(config, all);
   const grant = liveGrant(standingExceptions, now);

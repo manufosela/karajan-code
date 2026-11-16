@@ -6,10 +6,13 @@
 // default suite, so every PR's CI and every release run it (plan KJC-PCS-0111). Without the
 // network the workflows' pin falls back as kj harden does for a person.
 import { generateKeyPairSync, sign } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { commitSupervisorRegeneration } from "../../src/harden/supervisor-commit.js";
+import { publishPrReview } from "../../src/review/publish-pr.js";
+import { verifyPrReview } from "../../src/review/verify-pr.js";
+import { runCommand } from "../../src/utils/process.js";
 import { addSigner, canonicalPayload } from "../../src/harden/phone-sign.js";
 import { CHALLENGE } from "../_fixtures/passkey.js";
 import { makeGovernedRepo } from "./helpers/governed-repo.js";
@@ -106,5 +109,36 @@ describe("governance flow on a real-shaped repo (KJC-TSK-1645)", () => {
     const seal = r.kj("harden", "--commit"); // no terminal here: the human act refuses
     expect(seal.status, seal.output).toBe(1);
     expect(JSON.parse(readFileSync(join(r.repo, ".karajan", "handoffs", `${id}.json`), "utf8")).status).toBe("pending");
+  }, 300000);
+
+  // KJC-BUG-0624 (#4486): a nested package gets its own commitlint config from kj harden; the
+  // contract PR passes kj review --verify-pr as CI runs it, with no Sonar proof asked for kj's file.
+  it("the contract of a nested package passes kj review --verify-pr", async () => {
+    reviewedCommit(r, `chore/${card}-functions`, "chore: add the functions package", () => {
+      mkdirSync(join(r.repo, "functions"));
+      // Firebase functions in TypeScript: a root of its own beside the JavaScript one. As prettier
+      // leaves the files: the repo's hooks check the format.
+      writeFileSync(join(r.repo, "functions", "package.json"), `${JSON.stringify({ name: "functions", private: true, type: "module" }, null, 2)}\n`);
+      writeFileSync(join(r.repo, "functions", "tsconfig.json"), `${JSON.stringify({ compilerOptions: { strict: true } }, null, 2)}\n`);
+      r.git("add", "functions/package.json", "functions/tsconfig.json");
+    });
+    r.git("checkout", "-q", "-b", `chore/${card}-functions-contract`);
+    const h = r.kj("harden");
+    expect(h.ok, h.output).toBe(true);
+    expect(h.output).not.toMatch(/NOT committed/);
+    expect(committedFiles(r)).toContain("functions/commitlint.config.js");
+    // GitHub, as the PR sees it: kj review --publish-pr posts the review, verify-pr reads it back.
+    const commits = r.git("log", "--format=%H%x09%s", "main..HEAD").split("\n").filter(Boolean).map((l) => ({ oid: l.split("\t")[0], messageHeadline: l.split("\t")[1] }));
+    const posted = [];
+    const github = (reviews) => (cmd, args, opts) => {
+      if (cmd !== "gh") return runCommand(cmd, args, opts);
+      if (args[0] === "pr") return { exitCode: 0, stdout: JSON.stringify({ headRefOid: commits[0].oid, commits }), stderr: "" };
+      if (args.includes("POST")) { posted.push(args.find((a) => a.startsWith("body=")).slice(5)); return { exitCode: 0, stdout: "{}", stderr: "" }; }
+      return { exitCode: 0, stdout: reviews, stderr: "" }; // labels and the reviews list
+    };
+    expect(await publishPrReview({ projectDir: r.repo, pr: 1, run: github("[]") })).toMatchObject({ published: true });
+    const published = `${JSON.stringify({ body: posted[0], author_association: "OWNER", user: { login: "owner" } })}\n`;
+    const verdict = await verifyPrReview({ projectDir: r.repo, pr: 1, run: github(published) });
+    expect(verdict.ok, JSON.stringify(verdict, null, 2)).toBe(true);
   }, 300000);
 });

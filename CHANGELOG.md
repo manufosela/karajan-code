@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **The agent does not stop with the session's cards waiting** (ADR 0059). With the method green, the Sentinel stop hook holds the turn while a card the session created or started is pending or running, unless the final message names a stop kj can check: an open handoff, a closing question to you, or a background task still running. It names the next card, steps aside after 3 holds in a row, and `method_gates.continuation` sets it to `warn` or `off` (#4472, #4475, #4476). After updating, run `kj harden` and seal it: the stop hook changes.
 
+### Fixed
+- **The contract `kj harden` commits in a nested package passes every gate.** The commit gate's RAG check and `kj review --publish-pr` (and CI's `--verify-pr`) counted a config kj writes, such as `functions/commitlint.config.js`, as code: the contract could not be committed or published without a human grant. They now leave it out, as the review already did, and the governance e2e runs that path (#4486).
+- **The continuation gate reads the board kj keeps on your machine**: a card already closed there, or held by someone else, no longer holds the turn (#4478).
+- **kj stage**:
+  - a waiting host shows what it waits for: waiting for you, it turns to the camera with its hand up under an amber "!" that beats; waiting for a process, a blue hourglass turns beside its head (#4488);
+  - a workshop that goes fades out in its place, keeping its gap, and the others then slide gently into place; a new one fades in (#4491);
+  - the camera glides to its new framing when a workshop comes or goes, instead of jumping (#4495).
+
 ## [5.26.1] - 2026-11-16
 
 The npm release of 5.26.0, with what merged after it. 5.26.0 stopped before npm: the test of the upgrade path read a release with nothing to re-seal as a failure. Its GitHub Release and binaries stay as published.

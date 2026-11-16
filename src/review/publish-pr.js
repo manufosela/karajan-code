@@ -11,7 +11,7 @@ import { labelKarajanPr } from "../git/karajan-label.js";
 import { isSealCommit } from "./seal-commit.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { LIVE_FILTER, verdictSonarProof } from "./sonar-requirement.js";
-import { linguistGenerated } from "./linguist-generated.js";
+import { generatedFiles } from "./linguist-generated.js";
 import { loadStandingExceptions } from "../policy/exceptions.js";
 import { trustedReviews } from "./trusted-review.js";
 
@@ -35,7 +35,13 @@ export async function commitFiles(projectDir, sha, run) {
   const res = await run("git", ["-C", projectDir, "diff", "--name-only", LIVE_FILTER, `${sha}^`, sha]);
   if (res.exitCode !== 0) throw new Error(`git diff --name-only ${sha.slice(0, 7)} failed: ${(res.stderr || "").trim()}`);
   const files = (res.stdout || "").split("\n").map((f) => f.trim()).filter(Boolean);
-  return { files, generated: linguistGenerated(files, { cwd: projectDir }) };
+  // KJC-BUG-0624 (#4486): generated as the commit gate judges it, a config kj writes included,
+  // read as this commit left it.
+  const textOf = async (file) => {
+    const shown = await run("git", ["-C", projectDir, "show", `${sha}:${file}`]);
+    return shown.exitCode === 0 ? shown.stdout : null;
+  };
+  return { files, generated: await generatedFiles(files, { cwd: projectDir, textOf }) };
 }
 
 /** The proof CI reads at the end of a commit's line, by the mode of the Sonar requirement. */
