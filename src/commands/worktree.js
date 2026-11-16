@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { baseBranchFrom } from "../config/base-branch.js";
+import { LANE_BASE_FILE, baseBranchFrom } from "../config/base-branch.js";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { laneWork, setupLane } from "../hu/lane-setup.js";
 import { classifyLanes, commitsNotIn, liveProcesses, looseLaneBranches, mergedBranches, resolveBase, stopLaneIndexers } from "../hu/lane-prune.js";
@@ -73,13 +73,17 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
       throw new Error(`lane "${slug}" already exists — cd ${wtPath}, or finish it with: kj worktree done ${slug}`);
     }
     const branch = `feat/${slug}`;
+    // HU-4424: --base names the branch this lane is cut from and keeps as its base.
+    const base = flags.base ? String(flags.base).trim() : baseName;
     // HU-2761: a lane is cut from origin/<base>, never from the HEAD the command runs in (#2566).
-    const from = await resolveBase({ git, base: baseName });
+    const from = await resolveBase({ git, base });
     try { await git(["rev-parse", "--verify", "--quiet", `${from}^{commit}`]); } catch {
-      throw new Error(`base "${baseName}" not found — set base_branch in kj config`);
+      throw new Error(flags.base
+        ? `base "${base}" not found: no origin/${base} nor local ${base} (git fetch origin ${base}, or check the name)`
+        : `base "${base}" not found — set base_branch in kj config`);
     }
-    if (from === baseName) {
-      console.warn(`! no origin/${baseName} ref — lane starts from local ${baseName}, which may lag (git fetch origin ${baseName} to refresh)`);
+    if (from === base) {
+      console.warn(`! no origin/${base} ref — lane starts from local ${base}, which may lag (git fetch origin ${base} to refresh)`);
     }
     const leftover = await git(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).then(() => true, () => false);
     if (leftover) {
@@ -87,6 +91,11 @@ export async function worktreeCommand({ config = null, action, args = [], flags 
     }
     // KJC-TSK-1093: --no-track, so no upstream lands in .git/config (read-only in the host sandbox).
     await git(["worktree", "add", "--no-track", "-b", branch, wtPath, from]);
+    if (flags.base) {
+      // HU-4424: in the lane's own git dir: per lane, never tracked, no write to .git/config.
+      const { stdout: laneGitDir } = await git(["rev-parse", "--path-format=absolute", "--git-dir"], wtPath);
+      fs.writeFileSync(path.join(laneGitDir.trim(), LANE_BASE_FILE), `${base}\n`);
+    }
     clearLaneNote(mainCheckout(projectDir), slug); // KJC-TSK-1541: never the note of an older lane of that slug
     const boot = await bootstrapWorktree({ worktreePath: wtPath, setupCommand: config?.session?.worktree_setup || null });
     // KJC-TSK-1371 (#2852): identity and Sentinel in the lane; a failure names the step and the way out.
