@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.25.0] - 2026-11-16
+
+The governance path is now proven end to end. A new test runs kj's flow as a person runs it, on a repo shaped like a real one: a card, the first `kj harden` and its reviewed contract through the repo's own hooks (prettier included), the seal, a second `kj harden` that changes nothing, the review gate, and a seal that fails. It runs on every PR and before every release. Running it found the bugs below, which kept the first `kj harden` of a repo with history from committing its contract.
+
+### Added
+- **The governance flow is tested end to end** on a real-shaped repo, with no `--no-verify` and no test-runner switches, in the default suite, so every PR and every release runs it (#4415).
+- **rag-first indexes the file it asks about.** The gate runs outside the host sandbox, where the agent's Bash cannot reach the embedder, so it indexes the file itself and still asks for the query. When kj cannot index it, the gate names kj's reason and the command to run from your terminal (#4403).
+- **The Sentinel compares two versions of a test file line by line**, with the spec (#4376, by @jorgecasar).
+- **kj stage**:
+  - the booth where hosts arrive and leave stands beside Karajan, in his row (#4345, #4356, #4381); agents teleport in and out with a beam, only once they stand in the booth or by Karajan (#4347, #4362);
+  - walking robots step aside instead of passing through each other, and two standing on one spot step apart (#4351, #4359); a host's subagents line up beside it (#4401);
+  - the mailbox says what waits for you: on hover, how many handoffs and the oldest; on click, the full list with the command to type (#4364, #4365);
+  - a conveyor belt at the back of each workshop shows its open PR's pipeline, and when it fails the plumber comes from the booth to fix it with his wrench (#4367, #4369, #4372, #4375); no gate posts behind the workshops (#4386).
+
+### Fixed
+- **The first `kj harden` of a repo with history commits its contract.** The contract is reviewed before its commit (#4373), and the review refused it for things kj itself put there: new hooks and workflows, which are the seal's (#4390 by @jorgecasar, #4402); files the repo's prettier rejected, which kj now formats with that prettier (#4404); and configs kj generates, which were asked for Sonar, tests and the RAG (#4409, #4413).
+- **`kj harden` converges on the first run.** The second run no longer rewrites the sealed pre-push hook because the CI the first run installed now runs the tests (#4411).
+- **A seal that did not happen keeps its handoff open.** `kj harden` exits 1 when `--commit` does not seal (#4383).
+- **`kj harden` keeps kj's runtime out of git** in a repo that never ran `kj init`, and completes the `.gitignore` of a repo hardened by an older kj (#4406, #4395 by @jorgecasar).
+- **kj keeps its guidelines in AGENTS.md** when `rulesync.jsonc` does not manage rules (#4374).
+- **A failed contract commit names the hook's own reason**, and the owners ledger ends with a newline, so a prettier-checked repo takes it (#4358, #4355).
+- **`kj-no-ai-attribution` reruns when the PR title or body is edited** (#4414, issue #4397).
+- **An unsigned seal commit says how to get its verdict** (#4135, by @jorgecasar). A team board mirror's plan name no longer names a project (#4389).
+- `kj rag index --with-sources` help: it indexes every text file git versions, in any language.
+
+After this release, run `kj harden` and seal it: the attribution workflow and the hooks get these fixes.
+
 ## [5.24.0] - 2026-11-15
 
 Releases now refuse to leave users blocked: before publishing, a repo hardened with the previous version is re-hardened with the new one, and its seal PR must pass every check. Three things that blocked a re-harden PR are fixed: the signed seal now passes the PR judges, kj reviews the contract commit it makes, and the commit hook names the real cause of a failure. When the user seals or signs, the agent finds out on its own.
