@@ -28,7 +28,8 @@ const firstLine = (text) => String(text ?? '').split('\n')[0];
 export function denialEvent(raw) {
   const r = parse(raw);
   if (!r?.at || !r.tool) return null;
-  return { type: 'sentinel-deny', at: r.at, tool: r.tool, why: firstLine(r.why) };
+  // KJC-BUG-0620: the session it stopped, so the stage finds that session's robot (its lane).
+  return { type: 'sentinel-deny', at: r.at, tool: r.tool, why: firstLine(r.why), ...(typeof r.sid === 'string' ? { sid: r.sid } : {}) };
 }
 
 /** A line of .karajan/policy-decisions.jsonl → a ledger-seal event, or null. */

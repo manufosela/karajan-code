@@ -11,7 +11,8 @@ const line = (o) => `${JSON.stringify(o)}\n`;
 describe('stage events from kj records', () => {
   it('a Sentinel denial keeps when, tool and the first line of why, never the input', () => {
     const ev = denialEvent(JSON.stringify({ at: 't1', sid: 's', tool: 'Bash', input: 'echo SECRET', why: 'blocked\nmore' }));
-    expect(ev).toEqual({ type: 'sentinel-deny', at: 't1', tool: 'Bash', why: 'blocked' });
+    // KJC-BUG-0620: and the session it stopped, so the stage finds that session's robot.
+    expect(ev).toEqual({ type: 'sentinel-deny', at: 't1', tool: 'Bash', why: 'blocked', sid: 's' });
   });
 
   it('a sealed decision keeps its decision and chokepoint', () => {

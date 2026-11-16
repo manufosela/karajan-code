@@ -12,7 +12,7 @@ import { createBenchNotes } from './bench-notes.js';
 import { atHome, freshCards } from './cards.js';
 import { closedCards, deskSigns } from './desk-signs.js';
 import { turnAt, turnFrom } from './workers.js';
-import { blinkAt, sentinelAt, withWatch } from './sentinel-watch.js';
+import { blinkAt, placeDenial, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { conductorAt, withBeat } from './conductor.js';
@@ -248,7 +248,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     /** KJC-TSK-1625: what the hall's things hold now, for their tooltips. */
     things: () => ({ cards: state.cards ?? [], release: state.release ?? null, stacked, letters: allLetters(letters) }),
     /** Takes one stream event at `now` (performance clock, ms). */
-    push(event, now) {
+    push(raw, now) {
+      // KJC-BUG-0620: a denial goes to the lane where the robot of the session it stopped is seen.
+      const event = placeDenial(raw, floor.working());
       const mail = withMail(box, event);
       if (mail !== box) { box = mail; showStatuses(); }
       letters = withLetters(letters, event);

@@ -29,6 +29,8 @@ function markOf(event) {
         ? { kind: event.piece, text: `${CHECKED[event.piece]} ${event.outcome === 'pass' ? '✓' : '✗'}`, tone: tone(event.outcome === 'pass') }
         : null;
     case 'sentinel-deny':
+      // KJC-BUG-0620: a denial of a session with no robot seen marks no workshop.
+      if (event.unseen) return null;
       return { kind: 'sentinel', text: `✗ ${event.tool ?? 'a tool'}: ${shortWhy(event.why)}`, tone: 'stop' };
     case 'review-verdict':
       return { kind: 'review', text: `${event.verdict} by ${event.reviewer ?? 'a reviewer'}`, tone: VERDICT_TONE[event.verdict] ?? 'unsure' };

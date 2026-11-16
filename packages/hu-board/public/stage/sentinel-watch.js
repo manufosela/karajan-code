@@ -13,8 +13,21 @@ const BY_THE_AGENT = { dx: -3, dz: -0.6 }; // KJC-TSK-1612: beside the host's se
 
 const lane = (event) => event.lane ?? 'main';
 
+/**
+ * KJC-BUG-0620 (the maintainer, 2026-11-16): "why does the Sentinel go to look at main if no one works
+ * there?". A lane's session's denials are written in main's trace with no lane. A denial goes to the
+ * lane where the robot of the session it stopped (`sid`) is seen; with none seen it is `unseen`.
+ */
+export function placeDenial(event, workers) {
+  if (event?.type !== 'sentinel-deny') return event;
+  const robot = event.sid ? workers.find((w) => w.id === event.sid) : null;
+  return robot ? { ...event, lane: robot.lane } : { ...event, unseen: true };
+}
+
 /** The watch after an event: the lane it last looked at, and the denial it answers. */
 export function withWatch(watch, event, now) {
+  // KJC-BUG-0620: with no robot seen to answer it, the Sentinel stays at its post (it lights red there).
+  if (event?.type === 'sentinel-deny' && event.unseen) return watch;
   if (event?.type === 'sentinel-deny') return { ...watch, lane: lane(event), stop: { lane: lane(event), at: now } };
   // KJC-TSK-1584: the beat is the Sentinel checking that call and letting it through.
   if (event?.type === 'agent-activity' && event.role === 'host' && event.phase === 'start') return { ...watch, lane: lane(event), checked: now };
