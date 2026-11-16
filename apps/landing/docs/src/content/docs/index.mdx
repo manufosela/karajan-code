@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.25.0: the governance path proven end to end (current)
+### v5.26.0: lanes cut from any branch (current)
+
+`kj worktree start --base <branch>` cuts a lane from that branch and keeps it as the lane's base, so a team working on an epic branch gets each issue's lane and PR against it, with `kj pr-size`, `kj check` and the review gate measuring against that branch. The contract `kj harden` commits leaves the files a project declares sealed in `policy.yml` to the seal, and `kj release propose` always proposes the remote base branch, never a lane's HEAD. In kj stage, kaRAGan types beside the host, with its name over it.
+
+### v5.25.0: the governance path proven end to end
 
 A new test runs kj's flow as a person runs it, on a repo shaped like a real one: a card, the first `kj harden` and its reviewed contract through the repo's own hooks (prettier included), the seal, a second `kj harden` that changes nothing, the review gate, and a seal that fails. It runs on every PR and before every release. What it found is fixed: the first `kj harden` of a repo with history now commits its contract, kj formats what it generates with the repo's own prettier, one `kj harden` converges, and a seal that did not happen keeps its handoff open. rag-first now indexes the file it asks about from outside the host sandbox, so a large repo in PHP, Kotlin or Swift is not blocked. kj stage gains a teleport booth beside Karajan and a plumber who fixes failed pipelines. Run `kj harden` once after updating and have it sealed.
 

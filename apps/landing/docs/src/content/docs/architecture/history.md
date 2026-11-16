@@ -1986,6 +1986,10 @@ Re-hardening with 5.23.0 left several teams with a seal PR that could not merge:
 
 Re-hardening karajan-code itself with 5.24.0 brought five bugs in one day, all at the joints between pieces that only unit tests with fakes covered, and a seal whose handoff said "succeeded" when it had failed. The maintainer said he did not trust kj and asked why there was no end-to-end test, one of the things he always asks for. There was one for upgrades, but it used a bare repo and committed the contract by hand with `--no-verify`, so it skipped exactly what broke. The plan he approved: a test of the whole flow on a repo shaped like a real one, gates that say how to unblock when kj itself cannot meet them, and no new features until both held. The test found six more bugs the same night, one after another: the first `kj harden` of any repo with history could not commit its contract, because the review that 5.24's fix put before the commit refused what kj itself had put in it. Meanwhile a coding agent working PHP, Kotlin and Swift repos could not edit at all, since rag-first asked it to index files from a sandbox that cannot reach the embedder; the gate now indexes them itself, from outside. The test runs on every PR and before every release.
 
+## Phase 181: v5.26.0, lanes cut from any branch
+
+A team running kj on an epic branch asked for each issue's lane to come from that branch, with its PR against it, and the maintainer moved it ahead of the queue. `kj worktree start --base` cuts the lane from the branch and records it in the lane's own git dir, where every gate that measures a diff reads it first. Two more joints showed up while releasing 5.25.0: proposing the release from a lane took the lane's HEAD as the candidate, and a sealed file a project declares itself rode in the contract `kj harden` commits. Both are fixed.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

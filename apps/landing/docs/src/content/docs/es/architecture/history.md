@@ -1985,6 +1985,10 @@ Volver a preparar con la 5.23.0 dejó a varios equipos con una PR de sello que n
 
 Volver a preparar el propio karajan-code con la 5.24.0 sacó cinco bugs en un día, todos en las juntas entre piezas que solo cubrían tests unitarios con dobles, y un sello cuyo encargo decía «succeeded» cuando había fallado. El mantenedor dijo que no se fiaba de kj y preguntó por qué no había un test de punta a punta, una de las cosas que siempre pide. Había uno de actualización, pero usaba un repo vacío y commiteaba el contrato a mano con `--no-verify`, así que se saltaba justo lo que se rompió. El plan que aprobó: un test del flujo entero sobre un repo con forma de repo real, gates que dicen cómo desbloquearse cuando ni kj puede cumplirlos, y ninguna novedad hasta tener las dos cosas. Esa misma noche el test encontró seis bugs más, uno detrás de otro: el primer `kj harden` de cualquier repo con historia no podía commitear su contrato, porque la revisión que el arreglo de la 5.24 puso antes del commit rechazaba lo que el propio kj había metido en él. Mientras tanto, un agente que trabaja repos en PHP, Kotlin y Swift no podía editar nada, porque rag-first le pedía indexar ficheros desde un sandbox que no llega al embedder; ahora el gate los indexa él mismo, desde fuera. El test corre en cada PR y antes de cada release.
 
+## Phase 181: v5.26.0, carriles desde cualquier rama
+
+Un equipo que usa kj sobre una rama de épica pidió que el carril de cada issue saliera de esa rama, con su PR contra ella, y el mantenedor lo adelantó en la cola. `kj worktree start --base` saca el carril de la rama y la anota en el git dir del propio carril, donde la leen primero todos los gates que miden un diff. Al publicar la 5.25.0 aparecieron dos juntas más: proponer la release desde un carril tomaba como candidato el HEAD del carril, y un fichero sellado que declara el propio proyecto se colaba en el contrato que commitea `kj harden`. Las dos están arregladas.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
