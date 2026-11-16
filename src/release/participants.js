@@ -74,11 +74,16 @@ const toCommit = ({ message, ...c }) => ({ ...c, subject: message.split("\n")[0]
  * @param {{ repo: string, gh?: (args: string[]) => Promise<string>, git?: (args: string[]) => string }} opts
  * @returns {Promise<{ tag: string, head: string, commits: ReleaseCommit[], prs: ReleasePr[] }>}
  */
-export async function readReleaseInputs({ repo, gh = ghDefault, git = gitDefault }) {
+// KJC-BUG-0615: the candidate is the remote base branch, fetched now, never the local HEAD (a lane's
+// HEAD carries commits without their PR). `local` is the HEAD, so the caller can say when they differ.
+export async function readReleaseInputs({ repo, gh = ghDefault, git = gitDefault, base = "main" }) {
   if (!OWNER_NAME.test(repo)) throw new Error(`Not an owner/name repo: ${JSON.stringify(repo)}`);
   const tag = lastTag(git);
-  const head = git(["rev-parse", "HEAD"]).trim();
+  // An explicit destination, so the remote-tracking ref read below is the one just fetched.
+  git(["fetch", "-q", "origin", `+refs/heads/${base}:refs/remotes/origin/${base}`]);
+  const head = git(["rev-parse", `origin/${base}`]).trim();
+  const local = git(["rev-parse", "HEAD"]).trim();
   const commits = await everyPage(gh, `repos/${repo}/compare/${tag}...${head}?per_page=100`, COMMIT_FIELDS);
   const prs = await everyPage(gh, `repos/${repo}/pulls?state=open&per_page=100`, PR_FIELDS);
-  return { tag, head, commits: commits.map(toCommit), prs };
+  return { tag, head, local, commits: commits.map(toCommit), prs };
 }
