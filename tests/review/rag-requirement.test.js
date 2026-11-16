@@ -120,6 +120,12 @@ describe("harness states", () => {
 });
 
 describe("checkRagVerdict (the --check side)", () => {
+  // KJC-BUG-0624 (#4486): the commit gate leaves the generated files out, as the review did.
+  it("a generated file needs no rag block at commit either, a source beside it still does", () => {
+    const generated = new Set(["functions/commitlint.config.js"]);
+    expect(checkRagVerdict({ stagedFiles: ["functions/commitlint.config.js", "AGENTS.md"], generated, rag: { mode: "docs-only" } })).toMatchObject({ ok: true, mode: "docs-only" });
+    expect(checkRagVerdict({ stagedFiles: ["functions/commitlint.config.js", "src/a.js"], generated, rag: null }).ok).toBe(false);
+  });
   it("recomputes coverage from the block, demands a block for code, and honours the recorded modes", () => {
     const staged = ["src/a.js", "src/b.js"];
     expect(checkRagVerdict({ stagedFiles: ["README.md"], rag: null })).toMatchObject({ ok: true, mode: "docs-only" });

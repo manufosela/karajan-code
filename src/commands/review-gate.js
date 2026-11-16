@@ -433,14 +433,14 @@ function withSonarProof(res, { config, liveFiles, std, generated }) {
  * warn under the rule id, so the exception is auditable (kj policy report)
  * and gains teeth with data — never accepted in silence.
  */
-function withRagProof(res, { config, liveFiles, std, projectDir, warnIds }) {
+function withRagProof(res, { config, liveFiles, std, projectDir, warnIds, generated }) {
   if (res.verdict.host === "kj-pipeline") {
     console.log(`⚠ rag [${RAG_RULE_ID}]: the pipeline verdict carries no session ledger — the headless pipeline does not consult the RAG yet; sealed as a warn`);
     if (!warnIds.includes(RAG_RULE_ID)) warnIds.push(RAG_RULE_ID);
     return res;
   }
   const { harness, verified, mismatched, drift } = readRagLedger(projectDir);
-  const rreq = checkRagVerdict({ config, stagedFiles: liveFiles, rag: res.verdict.rag, harness, verified, mismatched, drift, standingExceptions: std.standing });
+  const rreq = checkRagVerdict({ config, stagedFiles: liveFiles, rag: res.verdict.rag, harness, verified, mismatched, drift, standingExceptions: std.standing, generated });
   if (!rreq.ok) return { ok: false, verdict: res.verdict, reason: rreq.reason };
   if (rreq.mode === "granted" && rreq.grant) console.log(formatRagGrant(rreq.grant));
   return res;
@@ -483,7 +483,7 @@ async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate
   if (res.note) console.log(`ℹ ${res.note}`);
   if (res.ok) res = withSonarProof(res, { config, liveFiles, std, generated });
   const warnIds = gate.warns.map((w) => w.rule_id);
-  if (res.ok) res = withRagProof(res, { config, liveFiles, std, projectDir, warnIds });
+  if (res.ok) res = withRagProof(res, { config, liveFiles, std, projectDir, warnIds, generated });
   console.log(res.ok
     ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`
     : `✗ ${res.reason}`);
