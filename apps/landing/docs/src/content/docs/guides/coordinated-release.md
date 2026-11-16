@@ -66,7 +66,7 @@ The tag starts the release workflow. Before publishing, it runs:
 kj release verify v5.22.0
 ```
 
-It passes only when the tag is on `main`, there is exactly one release issue for that version, the tag points to its candidate, the release is still ready (a hold posted after the approval also stops it), and the approval is signed by someone of the roster. Anything else stops the publish and says why.
+It passes only when the tag is on `main`, there is exactly one release issue for that version, the tag points to its candidate, the release is still ready (a hold posted after the approval also stops it), and the approval is signed by someone of the roster. Anything else stops the publish and says why. To withdraw a proposal and open another, close the old issue as not planned: verify no longer counts it.
 
 ## A repository with one person
 
