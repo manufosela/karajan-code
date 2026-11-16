@@ -1,6 +1,8 @@
 // HU-4441: `kj atril [args...]` is a proxy: atril's own CLI, on the .karajan store.
 import { describe, it, expect, vi } from "vitest";
 import { Command } from "commander";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { atrilCommand, rawAtrilArgs } from "../../src/commands/atril.js";
 import { registerRolesSkills } from "../../src/cli/register-roles-skills.js";
 
@@ -77,5 +79,24 @@ describe("kj atril", () => {
       process.argv = savedArgv;
       exit.mockRestore();
     }
+  });
+  describe("--version / -V (HU-4480)", () => {
+    const kj = (...args) => spawnSync(process.execPath, ["src/cli.js", ...args], { encoding: "utf8", timeout: 60_000 });
+    const atrilOwn = (flag) => spawnSync(process.execPath, ["node_modules/@karajan-family/atril/bin/atril.js", flag], { encoding: "utf8" });
+    const kjVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
+
+    it.each(["--version", "-V"])("kj atril %s prints atril's version and its exit code", (flag) => {
+      const own = atrilOwn(flag);
+      const res = kj("atril", flag);
+      expect(res.stdout.trim()).not.toBe(kjVersion);
+      expect(res.stdout).toBe(own.stdout);
+      expect(res.status).toBe(own.status);
+    });
+    it.each(["--version", "-V"])("kj %s still prints kj's version", (flag) => {
+      expect(kj(flag).stdout.trim()).toBe(kjVersion);
+    });
+    it("another command keeps its behaviour: kj skills --version is not atril's", () => {
+      expect(kj("skills", "--version").stdout).not.toBe(atrilOwn("--version").stdout);
+    });
   });
 });

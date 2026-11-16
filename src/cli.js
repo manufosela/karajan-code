@@ -3,6 +3,7 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Command, Help } from "commander";
+import { isAtrilRun } from "./commands/atril.js";
 import { loadConfig } from "./config.js";
 import { closeHandoffsOfAct } from "./harden/handoff.js";
 import { attempted } from "./harden/human-act.js";
@@ -36,7 +37,6 @@ const program = new Command();
 program
   .name("kj")
   .description("Karajan Code CLI")
-  .version(PKG_VERSION)
   // Tell Commander to surface "did you mean…?" + a help pointer on every
   // CLI error (typo'd subcommand, missing required arg, etc.). Propagates
   // automatically to subcommands.
@@ -57,6 +57,9 @@ program
 // basics in `kj --help`; the advanced/specialized ones live under
 // `kj advanced`. The filter applies to the ROOT help only — subcommand help
 // keeps listing its own subcommands untouched.
+// HU-4480: a root option wins wherever it appears, so a root --version would never let it reach atril.
+if (!isAtrilRun(process.argv)) program.version(PKG_VERSION);
+
 program.configureHelp({
   visibleCommands(cmd) {
     const cmds = Help.prototype.visibleCommands.call(this, cmd);
