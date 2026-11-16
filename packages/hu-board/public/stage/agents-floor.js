@@ -14,6 +14,8 @@ import { carry } from './backpack.js';
 import { wear } from './costume-mesh.js';
 import { HOST_SCALE, chestOf, hologramOf, hostColor, laptopLift } from './host-look.js';
 import { teleportLook } from './teleport.js';
+import { waitLook } from './wait-look.js';
+import { showWaitMark } from './wait-mark.js';
 import { avoidance } from './avoid.js';
 import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, withErrand, workerAt, workersFrom } from './workers.js';
 import { cardNote } from './couriers.js';
@@ -145,10 +147,18 @@ export function typeOn(robot, { typing, elapsed, yaw, accent }) {
 }
 
 /** KJC-TSK-1486: at its spot the agent opens its laptop and types; walking, it puts it away. */
-const work = (robot, worker, pose, t) =>
+const work = (robot, worker, pose, t) => {
   // KJC-TSK-1596: before atril it reads, its laptop still away.
   // KJC-TSK-1607: and a waiting host keeps its laptop closed.
   typeOn(robot, { typing: !pose.walking && !pose.reading && !pose.waiting, elapsed: t - worker.since, yaw: pose.yaw, accent: accentOf(worker.agent) });
+  // KJC-TSK-1653: and shows what it waits for: you (its hand up to the camera) or a process.
+  const look = pose.waiting && !pose.walking ? waitLook(worker.waiting, t) : null;
+  showWaitMark(robot, look);
+  if (look?.facesCamera) {
+    robot.root.rotation.y = 0;
+    robot.pose('R', look.hand, 0);
+  }
+};
 
 /** KJC-TSK-1650: the card a host on its errand holds, before its chest, while it holds it. */
 function holdCard(robot, pose) {
