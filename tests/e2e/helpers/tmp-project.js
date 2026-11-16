@@ -11,6 +11,20 @@ import path from "node:path";
 import { execSync } from "node:child_process";
 
 /**
+ * Throws unless `dir` is strictly inside the real system tmpdir.
+ * @param {string} dir
+ */
+export function assertUnderTmp(dir) {
+  const tmp = fs.realpathSync(os.tmpdir());
+  let target = path.resolve(dir);
+  try { target = fs.realpathSync(target); } catch { /* not created yet: use the resolved path */ }
+  const rel = path.relative(tmp, target);
+  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error(`refusing to delete "${dir}": not under the system tmpdir (${tmp})`);
+  }
+}
+
+/**
  * @param {object} [opts]
  * @param {string} [opts.prefix="kj-e2e-"] — tmpdir name prefix
  * @param {string} [opts.spec] — content for SPEC.md (omitted = no SPEC)
@@ -41,6 +55,7 @@ export function makeTmpProject({ prefix = "kj-e2e-", spec } = {}) {
     projectDir,
     kjHome,
     cleanup: () => {
+      assertUnderTmp(projectDir); // outside the system tmpdir: throw, never swallowed
       try { fs.rmSync(projectDir, { recursive: true, force: true }); } catch { /* ignore */ }
     },
   };
