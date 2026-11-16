@@ -233,6 +233,19 @@ describe("hardenCommand", () => {
     expect(readFileSync(join(repo, ".gitignore"), "utf8")).toBe(first);
   });
 
+  // KJC-BUG-0609 (HU-4405): a repo never kj-init'ed got no .karajan block, and kj's own runtime
+  // (.karajan/traces/) showed up untracked after the first commit.
+  it("writes kj's .karajan block into a .gitignore that has none, and once (KJC-BUG-0609)", async () => {
+    writeFileSync(join(repo, ".gitignore"), "node_modules/\n");
+    await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
+    const ignore = readFileSync(join(repo, ".gitignore"), "utf8");
+    expect(ignore).toMatch(/^node_modules\/\n/);
+    expect(ignore).toMatch(/^\.karajan\/\*$/m);
+    expect(ignore).toContain("!.karajan/hooks/pre-commit");
+    await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
+    expect(readFileSync(join(repo, ".gitignore"), "utf8")).toBe(ignore);
+  });
+
   it("leaves the .gitignore alone on a dry run (HU-4393)", async () => {
     writeFileSync(join(repo, ".gitignore"), ".karajan/\n");
     await hardenCommand({ projectDir: repo, profile: "standard", dryRun: true, logger });

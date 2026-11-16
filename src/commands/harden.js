@@ -30,7 +30,7 @@ import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
 import { installTransversalWiring, isTransversalParent, uninstallTransversalWiring } from "../harden/transversal-install.js";
 import { installSandbox } from "../harden/sandbox.js";
-import { ensureGateTrackable } from "../review/gate-gitignore.js";
+import { ensureContractBlockPresent, ensureGateTrackable } from "../review/gate-gitignore.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { detectPackageManager, installWorkflows, resolveKjPin } from "../harden/workflow-engine.js";
 import { adviseBranchProtection } from "../harden/branch-protection.js";
@@ -211,6 +211,8 @@ export async function hardenCommand({
   if (!dryRun) {
     // HU-4393: a repo hardened by an older kj keeps its old .karajan block; complete it.
     if ((await ensureGateTrackable(projectDir)).changed) logger.info?.("kj harden: .gitignore .karajan block completed");
+    // KJC-BUG-0609: a repo never kj-init'ed has no block at all; kj's runtime (.karajan/traces) stayed untracked.
+    else if ((await ensureContractBlockPresent(projectDir)).changed) logger.info?.("kj harden: .gitignore .karajan block written");
     // HU-4361: the contract diff is reviewed BEFORE the commit, so the review gate finds its verdict.
     const reviewStaged = ({ indexFile }) => reviewContractCommit({ projectDir, indexFile, say: (line) => logger.info?.(line), review: contractReview });
     out.contract = await commitContractReviewed({ projectDir, before: dirtyBefore, baseBranch, reviewStaged });
