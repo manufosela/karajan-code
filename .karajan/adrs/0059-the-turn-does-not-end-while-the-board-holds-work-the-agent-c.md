@@ -1,6 +1,6 @@
 # The turn does not end while the board holds work the agent can do
 
-Status: proposed
+Status: accepted
 Date: 2026-11-16
 
 ## Context
