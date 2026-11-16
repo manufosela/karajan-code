@@ -12,6 +12,7 @@ import { handoffCommand } from "../commands/handoff.js";
 import { linkCommand } from "../commands/link.js";
 import { policyCommand } from "../commands/policy.js";
 import { claimsCommand, claimsGateCommand } from "../commands/claims.js";
+import { continuationGateCommand } from "../commands/continuation.js";
 import { stewardSweepCommand, stewardBenchCommand } from "../commands/steward.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand, ragCoversCommand, ragMigrateCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
@@ -748,6 +749,16 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "claims-gate", flags, async ({ config }) => {
         process.exitCode = await claimsGateCommand({ flags, config });
+      });
+    });
+  // KJC-TSK-1651 (ADR 0059): the stop hook asks whether the turn may end with the session's cards waiting.
+  program.command("continuation").description("ADR 0059: el turno no termina mientras queden cards de la sesión, salvo por un motivo que kj pueda comprobar")
+    .command("gate")
+    .description("Lo invoca el hook de parada: exit 2 retiene el turno (method_gates.continuation: block por defecto | warn | off)")
+    .requiredOption("--transcript <path>", "Ruta del transcript de la sesión")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "continuation-gate", flags, async ({ config }) => {
+        process.exitCode = await continuationGateCommand({ flags, config });
       });
     });
 
