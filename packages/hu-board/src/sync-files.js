@@ -141,8 +141,17 @@ export function syncSessionFile(filePath) {
  */
 function userGivenName(data) {
   if (!data.name || data.name === 'brain-backlog') return null;
-  return typeof data.readonly === 'string' && data.readonly === data.name ? null : data.name;
+  return isTeamMirror(data) ? null : data.name;
 }
+
+/** A team board's mirror (src/hu/team-board-mirror.js): read-only, `readonly` set to its own name. */
+const isTeamMirror = (data) => typeof data.readonly === 'string' && data.readonly === data.name;
+
+/**
+ * Whether a plan has nothing to sync: no HUs. KJC-BUG-0619: a team board's mirror keeps its project
+ * even when one read of the board came back empty, so its factory stays and the next read can fill it.
+ */
+const hasNothingToSync = (data) => !Array.isArray(data.hus) || (data.hus.length === 0 && !isTeamMirror(data));
 
 /**
  * Sync a v2 plan file (with embedded HUs) to SQLite.
@@ -164,7 +173,7 @@ export function syncPlanFile(filePath) {
     if (data.version > 2) {
       console.warn(`[sync] ${filePath}: plan version ${data.version} (expected 2) — syncing anyway; re-save with current kj to normalize`);
     }
-    if (!Array.isArray(data.hus) || data.hus.length === 0) return;
+    if (hasNothingToSync(data)) return;
 
     // Bug fix: pre-patch, `projectId = data.planId` — every plan was a separate
     // "project" on the board, so 2 464 plans across the same repo produced
