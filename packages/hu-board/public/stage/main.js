@@ -260,10 +260,26 @@ async function mountProjectPanel() {
     toggle.setAttribute('aria-expanded', String(open));
     panel.classList.toggle('stage-projects-open', open);
   });
-  const res = await fetch('/api/stage/map', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null);
+  // KJC-TSK-1652 (the maintainer, 2026-11-16): a light summary, not the whole map, asked again every
+  // PANEL_MS so its amber numbers go once the notices are resolved.
+  const summary = () => fetch('/api/stage/summary', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null);
+  const res = await summary();
   if (!res?.ok) { panel.querySelector('p').textContent = 'The board did not list its projects.'; return; }
   const factories = await res.json();
   if (!factories.length) { panel.querySelector('p').textContent = 'The board knows no project with a folder on this machine.'; return; }
+  panel.querySelector('p').remove();
+  showPanel(panel, factories);
+  setInterval(async () => {
+    const again = await summary();
+    if (again?.ok) showPanel(panel, await again.json());
+  }, PANEL_MS);
+}
+
+/** KJC-TSK-1652: how often the projects panel asks for its summary again. */
+const PANEL_MS = 30_000;
+
+/** The projects panel's entries for `factories`, the open one marked. */
+function showPanel(panel, factories) {
   const items = panelEntries(factories, project).map((entry) => {
     const link = Object.assign(document.createElement('a'), { href: panelHref(entry.project) });
     link.dataset.project = entry.project;
@@ -290,7 +306,6 @@ async function mountProjectPanel() {
     item.append(link);
     return item;
   });
-  panel.querySelector('p').remove();
   panel.querySelector('ul').replaceChildren(...items);
 }
 

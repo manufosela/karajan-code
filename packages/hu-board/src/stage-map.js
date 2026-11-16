@@ -38,6 +38,27 @@ export function stageMap(options = {}) {
     .toSorted((a, b) => atWork(b) - atWork(a));
 }
 
+/**
+ * KJC-TSK-1652 (the maintainer, 2026-11-16): "it overloads the browser… and I see the amber numbers
+ * once the notices are resolved". What the projects panel shows of each factory, read from its lanes'
+ * traces alone (no git, no pipelines, no teammates): who works and whether it waits, the cards'
+ * status, the pending notices. Light enough for the panel to ask for it again and again.
+ */
+export function stageSummary(options = {}) {
+  const deps = withDefaults(options);
+  const light = { branchOf: () => null, readers: {} };
+  return factories(deps).map(({ project, dir }) => ({
+    project,
+    name: basename(dir),
+    lanes: deps.lanesOf(dir, light).map(({ lane, working = [], cards = [], mail = 0 }) => ({
+      lane,
+      working: working.map(({ waiting }) => (waiting ? { waiting } : {})),
+      cards: cards.map(({ id, status, at, lane: home }) => ({ id, status, at, lane: home })),
+      mail,
+    })),
+  }));
+}
+
 /** Watches the lanes of every factory; each event comes tagged with its project and lane. */
 export function watchMap(send, { watchLanes = watchProjectLanes, ...options } = {}) {
   const stops = factories(withDefaults(options)).map(({ project, dir }) => watchLanes(dir, send, { project }));
