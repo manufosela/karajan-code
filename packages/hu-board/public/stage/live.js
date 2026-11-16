@@ -7,6 +7,7 @@ import { restState, withEvent } from './rest.js';
 import { createAgentsFloor, typeOn } from './agents-floor.js';
 import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
+import { tripFor } from './courier.js';
 import { createPlumbersFloor } from './plumbers-floor.js';
 import { createBenchNotes } from './bench-notes.js';
 import { atHome, freshCards } from './cards.js';
@@ -262,7 +263,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
       showStatuses(); // KJC-BUG-0581: once the floor has its robots where this event puts them
-      couriers.push(event, now);
+      // KJC-TSK-1650: the lane's host at work runs its card's errand; with none, the courier does.
+      const trip = tripFor(event, now);
+      if (!trip || !floor.errand(trip, now)) couriers.push(event, now);
       // KJC-TSK-1596: once the agent stands before atril.
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: turnFrom(event, now), skills: event.skills };
       watch = withWatch(watch, event, now);
@@ -290,7 +293,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       couriers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-BUG-0618: by the booth
       hall.frameBelts(now); // KJC-TSK-1639
       plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642
-      benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, couriers.carried(), hall.zOf);
+      benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, new Set([...couriers.carried(), ...floor.carried(now)]), hall.zOf);
       tags.push(...showSigns());
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
