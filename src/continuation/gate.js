@@ -17,6 +17,20 @@ export function sessionCards(texts) {
   return status;
 }
 
+/**
+ * KJC-BUG-0622 (#4478): the board has the last word over the transcript. A card it knows takes its
+ * status there; one someone else holds is not this session's work. `me` unknown: nothing is dropped.
+ */
+export function settleWithBoard(cards, board, me) {
+  const settled = new Map();
+  for (const [id, status] of cards) {
+    const card = board.get(id);
+    if (me && card?.claimed_by && card.claimed_by !== me) continue;
+    settled.set(id, card?.status ?? status);
+  }
+  return settled;
+}
+
 /** The background tasks the session started whose completion notice has not come yet. */
 export function runningBackground(texts) {
   const started = [];

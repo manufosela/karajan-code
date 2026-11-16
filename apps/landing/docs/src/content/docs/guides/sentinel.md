@@ -167,7 +167,7 @@ The turn cannot end while the method is red: suite failing, unreviewed diffs, pe
 
 ## continuation
 
-ADR 0059: with the method green, the turn still does not end while the cards this session created or started are pending or running. The agent may stop only by naming its stop (`Me paro por <reason>` or `Stopping because <reason>`) for a reason kj can check in the session: an open handoff (`kj handoff`), a question to you that closes its message, or a background task it started that has not finished. A reason such as "the session is long" holds the turn and names the next card. A card the agent cannot do goes to `failed` or `skipped`. After 3 holds in a row the gate steps aside and records it. `method_gates.continuation`: `block` (default), `warn` or `off`.
+ADR 0059: with the method green, the turn still does not end while the cards this session created or started are pending or running. The agent may stop only by naming its stop (`Me paro por <reason>` or `Stopping because <reason>`) for a reason kj can check in the session: an open handoff (`kj handoff`), a question to you that closes its message, or a background task it started that has not finished. A reason such as "the session is long" holds the turn and names the next card. A card the agent cannot do goes to `failed` or `skipped`. The board kj keeps on this machine has the last word: a card it has closed, or that someone else holds, does not hold the turn. After 3 holds in a row the gate steps aside and records it. `method_gates.continuation`: `block` (default), `warn` or `off`.
 
 ## handoff
 

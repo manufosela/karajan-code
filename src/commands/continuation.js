@@ -1,8 +1,24 @@
 // KJC-TSK-1651 (ADR 0059): `kj continuation gate --transcript <path>`, invoked by the Sentinel stop hook.
 // Exit 2 holds the turn (method_gates.continuation: block, the default); warn reports; off is silent.
-import { judgeStop, runningBackground, sessionCards } from "../continuation/gate.js";
+import { judgeStop, runningBackground, sessionCards, settleWithBoard } from "../continuation/gate.js";
 import { listHandoffs } from "../harden/handoff.js";
 import { readEntries, readTurn } from "../claims/turn.js";
+import { listPlans, loadPlan } from "../plan/plan-store.js";
+import { readIdentity } from "../identity/store.js";
+import { effectiveGitEmail } from "../identity/detect.js";
+
+/** KJC-BUG-0622: the cards kj keeps on this machine (local plans and the shared board's mirror), no network. */
+async function localBoard(projectDir) {
+  const board = new Map();
+  for (const meta of await listPlans(projectDir)) {
+    const plan = await loadPlan(projectDir, meta.planId);
+    for (const h of plan?.hus ?? []) board.set(h.short_id || h.id, { status: h.status, claimed_by: h.claimed_by ?? null });
+  }
+  return board;
+}
+
+// Who works this clone, as kj hu start reserves a card to it.
+const workerOf = (projectDir) => readIdentity(projectDir)?.gh_user || effectiveGitEmail(projectDir) || null;
 
 function textOf(value) {
   if (typeof value === "string") return value;
@@ -24,14 +40,16 @@ function transcriptTexts(entries) {
   return texts;
 }
 
-export async function continuationGateCommand({ flags = {}, config = {}, logger = console, handoffsFn = listHandoffs } = {}) {
+export async function continuationGateCommand({ flags = {}, config = {}, logger = console, handoffsFn = listHandoffs, boardFn = localBoard, whoFn = workerOf } = {}) {
   const mode = config?.method_gates?.continuation ?? "block";
   if (mode !== "warn" && mode !== "block") return 0;
   let verdict;
   try {
+    const projectDir = config?.projectDir ?? process.cwd();
     const texts = transcriptTexts(readEntries(flags.transcript));
-    const handoffsOpen = handoffsFn({ projectDir: config?.projectDir ?? process.cwd() }).some((h) => h.status === "pending");
-    verdict = judgeStop({ text: readTurn(flags.transcript).text, cards: sessionCards(texts), handoffsOpen, background: runningBackground(texts) });
+    const handoffsOpen = handoffsFn({ projectDir }).some((h) => h.status === "pending");
+    const cards = settleWithBoard(sessionCards(texts), await boardFn(projectDir), whoFn(projectDir));
+    verdict = judgeStop({ text: readTurn(flags.transcript).text, cards, handoffsOpen, background: runningBackground(texts) });
   } catch {
     return 0; // not observable: a gate that cannot read its inputs gets out of the way
   }

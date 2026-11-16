@@ -167,7 +167,7 @@ El turno no puede terminar mientras el método esté en rojo: suite fallando, di
 
 ## continuation
 
-ADR 0059: con el método en verde, el turno tampoco termina mientras las cards que esta sesión creó o empezó sigan pendientes o en curso. El agente solo puede pararse diciendo por qué (`Me paro por <motivo>` o `Stopping because <motivo>`) con un motivo que kj pueda comprobar en la sesión: un encargo abierto (`kj handoff`), una pregunta para ti que cierra su mensaje, o una tarea en segundo plano que lanzó y aún no ha terminado. Un motivo como «llevamos mucho rato» retiene el turno y le nombra la siguiente card. Una card que el agente no puede hacer pasa a `failed` o `skipped`. Tras 3 retenciones seguidas el gate se aparta y lo deja registrado. `method_gates.continuation`: `block` (por defecto), `warn` u `off`.
+ADR 0059: con el método en verde, el turno tampoco termina mientras las cards que esta sesión creó o empezó sigan pendientes o en curso. El agente solo puede pararse diciendo por qué (`Me paro por <motivo>` o `Stopping because <motivo>`) con un motivo que kj pueda comprobar en la sesión: un encargo abierto (`kj handoff`), una pregunta para ti que cierra su mensaje, o una tarea en segundo plano que lanzó y aún no ha terminado. Un motivo como «llevamos mucho rato» retiene el turno y le nombra la siguiente card. Una card que el agente no puede hacer pasa a `failed` o `skipped`. Manda el board que kj guarda en esta máquina: una card que ya cerró, o que tiene otra persona, no retiene el turno. Tras 3 retenciones seguidas el gate se aparta y lo deja registrado. `method_gates.continuation`: `block` (por defecto), `warn` u `off`.
 
 ## handoff
 
