@@ -13,6 +13,7 @@ import { basename, resolve } from "node:path";
 
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
 import { isSealedConfig } from "../harden/supervisor-commit.js";
+import { formatWithRepoPrettier } from "./format-contract.js";
 
 /** What kj generates and the whole team must inherit by cloning (prefixes). */
 export const CONTRACT_PATHS = [
@@ -163,8 +164,20 @@ function commitPlan(git, plan) {
  */
 export function commitContract({ projectDir, before = new Set(), baseBranch = "main", env = process.env }) {
   const git = runner(projectDir, env);
-  const plan = planContract({ git, before, baseBranch });
+  const plan = planFormatted({ git, before, baseBranch, projectDir, env });
   return plan.result ?? commitPlan(git, plan);
+}
+
+/**
+ * KJC-BUG-0604: the plan, after the repo's prettier formatted the files kj generated. Planned
+ * again when it formatted, since a file it brought back to HEAD's bytes is no longer a change.
+ */
+function planFormatted({ git, before, baseBranch, projectDir, env }) {
+  const draft = planContract({ git, before, baseBranch });
+  if (draft.result) return draft;
+  const fmt = formatWithRepoPrettier({ projectDir, files: draft.files, env });
+  if (fmt.error) return { result: { committed: false, files: draft.files, reason: `the repo's prettier could not format kj's files: ${fmt.error}. ${commitByHand(draft.files)}` } };
+  return fmt.formatted.length > 0 ? planContract({ git, before, baseBranch }) : draft;
 }
 
 /**
@@ -203,7 +216,7 @@ async function reviewContractAlone({ projectDir, env, git, plan, reviewStaged })
  */
 export async function commitContractReviewed({ projectDir, before = new Set(), baseBranch = "main", env = process.env, reviewStaged }) {
   const git = runner(projectDir, env);
-  const plan = planContract({ git, before, baseBranch });
+  const plan = planFormatted({ git, before, baseBranch, projectDir, env });
   if (plan.result) return plan.result;
   const review = await reviewContractAlone({ projectDir, env, git, plan, reviewStaged });
   if (review.status === "unindexed") return { committed: false, files: plan.files, review, reason: `kj could not stage the contract alone for its review: ${review.error}. ${commitByHand(plan.files)}` };
