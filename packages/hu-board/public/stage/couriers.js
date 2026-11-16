@@ -3,7 +3,8 @@
 // courier.js says where each one is.
 import * as THREE from 'three';
 import { createRobot } from './cast/robot.js';
-import { dispose } from './agents-floor.js';
+import { BEAM_GEOMETRY, BEAM_HEIGHT, dispose } from './agents-floor.js';
+import { teleportLook } from './teleport.js';
 import { SCALE } from './layout.js';
 import { courierAt, noteLines, tripFor } from './courier.js';
 
@@ -49,10 +50,13 @@ export function createCouriers(scene) {
   const couriers = new Map();
   const leave = (key) => {
     const gone = couriers.get(key);
-    scene.remove(gone.robot.root);
+    scene.remove(gone.robot.root, gone.beam);
+    gone.beam.material.dispose();
     dispose(gone.robot);
     couriers.delete(key);
   };
+  // KJC-BUG-0618: it teleports in and out at the booth, in a beam of light, as every robot does.
+  const beamOf = () => new THREE.Mesh(BEAM_GEOMETRY, new THREE.MeshBasicMaterial({ color: 0x9fe3ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
   return {
     /** A `card` event at `now` may send a robot on an errand. */
     push(event, now) {
@@ -61,26 +65,34 @@ export function createCouriers(scene) {
     },
     /** KJC-TSK-1462: the cards a robot is still carrying, not on their bench yet. */
     carried: () => new Set(trips.map((trip) => trip.id)),
-    /** Moves every robot on an errand at `now`; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
-    frame(now, xOf, zOf) {
+    /**
+     * Moves every robot on an errand at `now`; `xOf(lane)`, `zOf(lane)`: the centre of a lane's
+     * workshop; `door`: the booth it comes and goes by (layout.js boothAt).
+     */
+    frame(now, xOf, zOf, door) {
       for (const trip of trips) {
         const key = `${trip.id}@${trip.at}`;
-        const pose = courierAt(trip, now, xOf, zOf);
+        const pose = courierAt(trip, now, xOf, zOf, door);
         if (!pose) {
           if (couriers.has(key)) leave(key);
           continue;
         }
         if (!couriers.has(key)) {
-          couriers.set(key, courierFor(trip));
-          scene.add(couriers.get(key).robot.root);
+          couriers.set(key, { ...courierFor(trip), beam: beamOf() });
+          scene.add(couriers.get(key).robot.root, couriers.get(key).beam);
         }
-        const { robot, card } = couriers.get(key);
+        const { robot, card, beam } = couriers.get(key);
+        const look = teleportLook(pose.size);
         robot.root.position.set(pose.x, 0, pose.z);
         robot.root.rotation.y = pose.yaw;
+        robot.root.scale.set(SCALE.crew * look.across, SCALE.crew * look.up, SCALE.crew * look.across);
+        beam.visible = look.beam > 0;
+        beam.material.opacity = 0.45 * look.beam;
+        beam.position.set(pose.x, BEAM_HEIGHT / 2, pose.z);
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
         card.visible = pose.holding;
       }
-      trips = trips.filter((trip) => courierAt(trip, now, xOf, zOf) !== null);
+      trips = trips.filter((trip) => courierAt(trip, now, xOf, zOf, door) !== null);
     },
   };
 }
