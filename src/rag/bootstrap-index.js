@@ -68,6 +68,21 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
 /** HU-3278: a seeded lane catches up with `kj rag index --since auto` (no per-query cap), same marker and machine lease. */
 export const startDeltaIndex = (projectDir, opts) => startBootstrap(projectDir, { ...opts, indexArgs: ["--since", "auto"] });
 
+/**
+ * KJC-BUG-0610: the background indexer puts its progress `{ done, total }` (and, at the end, its totals) on
+ * the marker, only while the marker names it. False when it names another pid or another command holds it.
+ */
+export function noteIndexProgress(projectDir, { pid = process.pid, now = Date.now(), progress, totals } = {}) {
+  const file = markerPath(projectDir);
+  return withMutex(file, now, () => {
+    const note = { ...readLease(file, { now }) };
+    if (note.pid !== pid || note.stoppedAt) return false;
+    delete note.running; // derived on read, never stored
+    writeLease(file, { ...note, progress, ...(totals ? { totals } : {}) });
+    return true;
+  }) === true;
+}
+
 /** HU-3092: the indexer that reached its deadline notes it, only while the marker still names it. */
 export const noteDeadline = (projectDir, { pid = process.pid, now = Date.now(), wait } = {}) => noteStopped(markerPath(projectDir), pid, now, "deadline", wait);
 

@@ -75,6 +75,16 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     expect(readEmbedSchema(projectDir)).toBe(1); // the legacy default: nothing was written
   });
 
+  // KJC-BUG-0610: a background index says how far it is, file by file, out of the sources it will walk.
+  it("indexProject reports its progress over the sources after each file", async () => {
+    const projectDir = join(root, "proj-progress");
+    mkdirSync(join(projectDir, "src"), { recursive: true });
+    for (const n of ["a", "b"]) writeFileSync(join(projectDir, "src", `${n}.js`), `export const ${n} = 1;\n`);
+    const seen = [];
+    await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: join(root, "missing-pg"), logger: noopLogger, withSources: true, onProgress: (p) => seen.push(p) });
+    expect(seen).toEqual([{ done: 1, total: 2 }, { done: 2, total: 2 }]);
+  });
+
   it("indexFile detects onboarding kind for ~/.karajan/onboarding/*.md", async () => {
     mkdirSync(join(root, "onboarding"), { recursive: true });
     const briefPath = join(root, "onboarding", "myproj.md");

@@ -22,7 +22,7 @@ vi.mock("../../src/rag/pid-lease.js", async () => {
   return { ...real, stopLeaseHolder: vi.fn(real.stopLeaseHolder) };
 });
 
-const { startBootstrap, stopBootstrap, noteDeadline, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS, DEADLINE_MARGIN_MS } = await import("../../src/rag/bootstrap-index.js");
+const { startBootstrap, stopBootstrap, noteDeadline, noteIndexProgress, readBootstrap, RETRY_MS, GRACE_MS, MAX_RUN_MS, DEADLINE_MARGIN_MS } = await import("../../src/rag/bootstrap-index.js");
 const { claimLease, indexLeasePath, readLease, stopLeaseHolder, writeLease } = await import("../../src/rag/pid-lease.js");
 const { maybeAutoUpdate } = await import("../../src/rag/auto-update.js");
 
@@ -336,6 +336,19 @@ describe("bootstrap deadline", () => {
     for (let i = 0; i < 2; i += 1) expect(await maybeAutoUpdate({ projectDir: root, config: {}, logger })).toMatchObject({ reason: "bootstrap-failed" });
     expect(warned.filter((l) => /deadline.*partial.*kj rag index --with-sources/.test(l))).toHaveLength(1);
     stopBootstrap.mockReset(); stopLeaseHolder.mockReset();
+  });
+  // KJC-BUG-0610: whoever asks sees how far the background index is, and its totals once it ends.
+  it("noteIndexProgress puts the progress, then the totals, on the marker that names the indexer", () => {
+    startBootstrap(root, { spawnFn, lease });
+    expect(noteIndexProgress(root, { progress: { done: 3, total: 10 } })).toBe(true);
+    expect(readBootstrap(root)).toMatchObject({ pid: process.pid, progress: { done: 3, total: 10 }, running: true });
+    noteIndexProgress(root, { progress: { done: 10, total: 10 }, totals: { indexed: 40, failed: 0, files: 10 } });
+    expect(readBootstrap(root)).toMatchObject({ progress: { done: 10, total: 10 }, totals: { indexed: 40, files: 10 } });
+  });
+  it("noteIndexProgress leaves a marker that names another pid untouched", () => {
+    startBootstrap(root, { spawnFn: () => ({ pid: 4242, unref: vi.fn() }), lease });
+    expect(noteIndexProgress(root, { progress: { done: 1, total: 2 } })).toBe(false);
+    expect(readBootstrap(root).progress).toBeUndefined();
   });
   it("noteDeadline leaves a marker that names another pid untouched", () => {
     startBootstrap(root, { spawnFn: () => ({ pid: 4242, unref: vi.fn() }), lease });

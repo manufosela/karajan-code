@@ -12,7 +12,7 @@ import { fileIndexState } from "../rag/coverage.js";
 import { query } from "../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../rag/path-hits.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
-import { noteDeadline } from "../rag/bootstrap-index.js";
+import { noteDeadline, noteIndexProgress } from "../rag/bootstrap-index.js";
 import { claimLease, holderLabel, indexLeasePath, releaseLease } from "../rag/pid-lease.js";
 import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { compareToBaseline, loadGoldenQueries, runEval } from "../rag/eval.js";
@@ -62,6 +62,20 @@ function reportDeadline({ totals, projectDir, logger, json }) {
   return totals;
 }
 
+// KJC-BUG-0610: a background index notes how far it is on its marker (a foreground one is not named
+// there, so nothing is written), at most this often, and always the last file.
+export const PROGRESS_EVERY_MS = 2000;
+function progressNoter(projectDir, clock = Date.now) {
+  let last = null, at = 0;
+  const onProgress = (progress) => {
+    last = progress;
+    if (progress.done < progress.total && clock() - at < PROGRESS_EVERY_MS) return;
+    at = clock();
+    noteIndexProgress(projectDir, { progress });
+  };
+  return { onProgress, finish: (totals) => noteIndexProgress(projectDir, { progress: last, totals }) };
+}
+
 // HU-3116: the cooperative stop only looks between files; a hung embed call is ended this long after the deadline.
 // It stays inside DEADLINE_MARGIN_MS (60 s), so the child is gone before its lease reads as expired.
 export const BACKSTOP_GRACE_MS = 30 * 1000;
@@ -99,9 +113,10 @@ export async function ragIndexCommand({ config, logger, flags = {}, backstop = {
       if (!since) logger.warn?.("[rag] --since auto: no previous index recorded; running full index");
     }
     let totals;
+    const progress = progressNoter(projectDir);
     if (since) {
       try {
-        totals = await indexProjectDelta(projectDir, { db, embedder, since, logger, exclude: ragExclude(config) });
+        totals = await indexProjectDelta(projectDir, { db, embedder, since, logger, exclude: ragExclude(config), onProgress: progress.onProgress });
       } catch (err) {
         logger.warn?.(`[rag] delta index failed (${err.message}); falling back to full index`);
         totals = null;
@@ -127,10 +142,11 @@ export async function ragIndexCommand({ config, logger, flags = {}, backstop = {
           db, embedder,
           karajanHome: getKarajanHome(), logger,
           withSources: Boolean(flags.withSources),
-          exclude: ragExclude(config), deadline,
+          exclude: ragExclude(config), deadline, onProgress: progress.onProgress,
         });
       } finally { if (claim.claimed) releaseLease(lease); }
     }
+    progress.finish(totals); // before the deadline note, which closes the marker
     if (totals.stopped) return reportDeadline({ totals, projectDir, logger, json: flags.json });
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
     // KJC-TSK-0697 — the library corpus refreshes on every index run.

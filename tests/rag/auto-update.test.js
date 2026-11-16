@@ -86,7 +86,11 @@ describe("indexProjectDelta — KJC-TSK-0455", () => {
     mkdirSync(join(projectDir, "dist"), { recursive: true });
     writeFileSync(join(projectDir, "dist", "bundle.js"), "// noise");
     await gitCommit(projectDir, "delta");
-    const t = await indexProjectDelta(projectDir, { db, embedder, since: base, logger: noopLogger });
+    const seen = [];
+    const t = await indexProjectDelta(projectDir, { db, embedder, since: base, logger: noopLogger, onProgress: (p) => seen.push(p) });
+    // KJC-BUG-0610: one progress per operation of the delta, the last one at its total.
+    expect(seen.map((p) => p.done)).toEqual(Array.from({ length: seen.length }, (_, k) => k + 1));
+    expect(seen.at(-1)).toEqual({ done: seen.length, total: seen.length });
     expect(t.indexed).toBeGreaterThan(0); // added.js + new.js
     expect(t.deleted).toBeGreaterThan(0); // doomed.js + old.js
     // KJC-TSK-0891: README.md is text, so it enters now;
