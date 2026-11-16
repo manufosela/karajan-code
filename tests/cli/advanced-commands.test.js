@@ -39,6 +39,12 @@ describe("advanced-commands registry (KJC-TSK-0582)", () => {
     expect(unknown).toEqual([]);
   });
 
+  it("lists the atril proxy next to skills in the infra group (HU-4441)", () => {
+    const infra = ADVANCED_GROUPS.find((g) => g.title === "Infra / setup");
+    expect(infra.commands).toContain("atril");
+    expect(classifyCommand("atril")).toBe("advanced");
+  });
+
   it("every classified command is actually registered", () => {
     const program = buildProgram();
     const registered = new Set(program.commands.map((c) => c.name()));

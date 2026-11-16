@@ -20,6 +20,16 @@ export function registerRolesSkills(program, { pkgVersion }) {
     });
 
   program
+    .command("atril [args...]")
+    .description("Run atril's own CLI on the .karajan store; every argument goes to atril untouched")
+    .allowUnknownOption()
+    .helpOption(false)
+    .action(async () => {
+      const { atrilCommand, rawAtrilArgs } = await import("../commands/atril.js");
+      process.exit(atrilCommand({ args: rawAtrilArgs(process.argv) }));
+    });
+
+  program
     .command("roles [subcommand] [role]")
     .description("List pipeline roles or show role template instructions")
     .action(async (subcommand, role) => {
