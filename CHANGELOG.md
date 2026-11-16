@@ -20,7 +20,8 @@ The npm release of 5.26.0, with what merged after it. 5.26.0 stopped before npm:
 - **kj stage**:
   - the courier comes out of the booth and goes back to it, teleporting, instead of appearing and vanishing at a workshop (#4450);
   - a lane's host at work fetches or pins its own card at the task wall and walks back to its desk; the courier only comes when no host is there (#4459);
-  - the Sentinel answers a denial at the workshop where the stopped session's robot is; with none seen it stays at its post, lit red, instead of going down to an empty main (#4456).
+  - the Sentinel answers a denial at the workshop where the stopped session's robot is; with none seen it stays at its post, lit red, instead of going down to an empty main (#4456);
+  - the projects panel reads a light summary (who works, cards in progress, pending notices, from the traces alone) every 30 seconds instead of the whole map once, so it weighs less and its amber badges go once their notices are resolved (#4471).
 
 ## [5.26.0] - 2026-11-16
 
