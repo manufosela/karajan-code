@@ -175,3 +175,23 @@ describe("ragIndexCommand notes the reindex for kj stage", () => {
     expect(note().phase).toBe("end");
   });
 });
+// KJC-BUG-0610: the background indexer the marker names leaves its progress and totals there.
+describe("ragIndexCommand notes its progress on the marker that names it", () => {
+  it("puts the last progress and the totals on the marker", async () => {
+    const { readBootstrap } = await import("../../src/rag/bootstrap-index.js");
+    projectDbPath.mockReturnValue(join(root, "rag.db"));
+    writeLease(join(root, "rag.db.bootstrap"), { pid: process.pid, at: Date.now() });
+    indexProject.mockImplementation(async (_dir, opts) => { opts.onProgress({ done: 1, total: 2 }); opts.onProgress({ done: 2, total: 2 }); return totals; });
+    await run({ withSources: true });
+    expect(readBootstrap(root)).toMatchObject({ progress: { done: 2, total: 2 }, totals });
+  });
+  it("a walk stopped at its deadline leaves its last progress, then the deadline", async () => {
+    const { readBootstrap } = await import("../../src/rag/bootstrap-index.js");
+    projectDbPath.mockReturnValue(join(root, "rag.db"));
+    writeLease(join(root, "rag.db.bootstrap"), { pid: process.pid, at: Date.now() });
+    const partial = { ...totals, stopped: "deadline" };
+    indexProject.mockImplementation(async (_dir, opts) => { opts.onProgress({ done: 1, total: 3 }); opts.onProgress({ done: 2, total: 3 }); return partial; });
+    await run({ withSources: true });
+    expect(readBootstrap(root)).toMatchObject({ progress: { done: 2, total: 3 }, totals: partial, stoppedBy: "deadline" });
+  });
+});

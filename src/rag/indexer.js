@@ -139,7 +139,7 @@ async function listFiles(dir, predicate) {
  * indexing tens of thousands of files is expensive — the CLI exposes
  * it as `--with-sources`.
  */
-export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false, exclude = [], deadline = null, now = Date.now } = {}) {
+export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false, exclude = [], deadline = null, now = Date.now, onProgress = null } = {}) {
   // KJC-TSK-0640: a full index must stamp HEAD too — without it,
   // last_indexed_commit stayed null after the FIRST index, so the drift
   // delta-update (maybeAutoUpdate) never engaged until a manual --since.
@@ -184,10 +184,11 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
     for (const { source } of db.prepare("SELECT DISTINCT source FROM chunks WHERE project_slug = ?").all(slug)) {
       if (source.startsWith(prefix) && outOf(source) !== null) deleteChunksBySource(db, source);
     }
-    for (const s of sources) {
+    for (const [i, s] of sources.entries()) {
       if (stop()) break;
       const r = await indexFile(s, { db, embedder, logger, project: slug, kind: sourceKind(), root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
+      onProgress?.({ done: i + 1, total: sources.length }); // KJC-BUG-0610
     }
     // KJC-TSK-1171: only a COMPLETE index of the sources carries the embed schema; a file the
     // embedder failed on leaves the marker as it was, so the rebuild is asked for again.
@@ -205,7 +206,7 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
  * `head` lets callers persist via setLastIndexedCommit. Throws on diff failure
  * (shallow clone, unknown ref) so the CLI can fall back to a full reindex.
  */
-export async function indexProjectDelta(projectDir, { db, embedder, since, logger = console, exclude = [], worktree = false, reconcile = [] } = {}) {
+export async function indexProjectDelta(projectDir, { db, embedder, since, logger = console, exclude = [], worktree = false, reconcile = [], onProgress = null } = {}) {
   const totals = { indexed: 0, failed: 0, files: 0, deleted: 0, head: null };
   const slug = projectDir.split("/").pop()?.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase() || "project";
   const { stdout: head } = await execa("git", ["-C", projectDir, "rev-parse", "HEAD"]);
@@ -231,7 +232,7 @@ export async function indexProjectDelta(projectDir, { db, embedder, since, logge
   for (const p of reconcile) if (!seen.has(p)) ops.push({ kind: existsSync(join(projectDir, p)) ? "idx" : "del", p });
   const adapters = detectAdaptersForProject(projectDir);
   await prepareAdapters(adapters, { logger });
-  for (const { kind, p } of ops) {
+  for (const [n, { kind, p }] of ops.entries()) {
     const abs = isAbsolute(p) ? p : join(projectDir, p);
     if (kind === "del") {
       totals.deleted += deleteChunksBySource(db, abs);
@@ -241,6 +242,7 @@ export async function indexProjectDelta(projectDir, { db, embedder, since, logge
       const r = await indexFile(abs, { db, embedder, logger, project: slug, kind: sourceKind(), root: projectDir });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
+    onProgress?.({ done: n + 1, total: ops.length }); // KJC-BUG-0610
   }
   return totals;
 }
