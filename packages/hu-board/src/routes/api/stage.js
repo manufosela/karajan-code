@@ -7,7 +7,7 @@ import { laneUnreads } from '../../lane-unread.js';
 import { readAvatar, saveAvatar } from '../../stage-avatar.js';
 import { requestProjectDir } from '../../project-dir.js';
 import { ownLogin } from '../../room/rooms.js';
-import { stageMap } from '../../stage-map.js';
+import { stageMap, stageSummary } from '../../stage-map.js';
 import { laneStates } from '../../stage-state.js';
 import { withTeam } from '../../stage-team.js';
 
@@ -50,6 +50,12 @@ router.put('/stage/me', (req, res) => {
 router.get('/stage/map', (_req, res) => {
   res.set('Cache-Control', 'no-store');
   try { res.json(stageMap()); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// KJC-TSK-1652: what the projects panel shows of every factory, light enough to ask for every 30 s.
+router.get('/stage/summary', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json(stageSummary()); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;
