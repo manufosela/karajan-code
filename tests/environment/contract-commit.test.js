@@ -197,6 +197,20 @@ describe("commitContract", () => {
     expect(git("status", "--porcelain").split("\n").filter(Boolean).sort()).toEqual([" M .github/workflows/kj-policy.yml", " M .karajan/rules.yml", "?? .github/workflows/kj-verdicts.yml"]);
   });
 
+  // KJC-BUG-0614 (HU-4418): a file the project declares in policy.yml sealed_files (HU-3899) is
+  // the seal's too; without it the review's policy refused it in the contract.
+  it("a file the project declares sealed is left to the seal like the governance config", () => {
+    write(".karajan/policy.yml", "version: 1\nsealed_files: [AGENTS.md]\n");
+    git("add", ".");
+    git("commit", "-q", "-m", "chore: the project seals AGENTS.md");
+    git("checkout", "-q", "-b", "chore/kj");
+    write("AGENTS.md", "# rules\n");
+    write("CLAUDE.md", "# method\n");
+    expect(commitContract({ projectDir: dir }).committed).toBe(true);
+    expect(committed()).toEqual(["CLAUDE.md"]);
+    expect(git("status", "--porcelain").split("\n").filter(Boolean)).toEqual(["?? AGENTS.md"]);
+  });
+
   it("a commit git refuses names the files and the way to commit them", () => {
     write("README.md", "# app\n");
     git("add", "README.md");

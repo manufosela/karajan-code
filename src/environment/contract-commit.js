@@ -13,6 +13,7 @@ import { basename, resolve } from "node:path";
 
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
 import { isSealedConfig } from "../harden/supervisor-commit.js";
+import { sealedFilesOf } from "../policy/engine.js";
 import { formatWithRepoPrettier } from "./format-contract.js";
 
 /** What kj generates and the whole team must inherit by cloning (prefixes). */
@@ -105,7 +106,7 @@ function unstage(git, files, fresh) {
 }
 
 /** What would be committed: `{ result }` when there is nothing to do, else the files to stage. */
-function planContract({ git, before, baseBranch }) {
+function planContract({ git, before, baseBranch, projectDir }) {
   const history = hasCommits(git);
   // KJC-BUG-0302: a sealed supervisor regenerated (tracked hooks or provenance
   // that changed) is the seal's, a human act (ADR 0009), never the contract
@@ -114,7 +115,9 @@ function planContract({ git, before, baseBranch }) {
   // HU-4384: the workflows and governance files the seal covers by hash are the seal's too.
   // KJC-BUG-0608: new or regenerated alike. The contract is reviewed before its commit and the
   // review's policy denies them outside the seal; only the bootstrap (no history) carries them.
-  const mine = contractStatus(git).filter(([file]) => !before.has(file) && !(history && (isSupervisor(file) || isSealedConfig(file))));
+  // KJC-BUG-0614: with the files the project declares in policy.yml sealed_files (HU-3899).
+  const declared = history ? sealedFilesOf(projectDir) : [];
+  const mine = contractStatus(git).filter(([file]) => !before.has(file) && !(history && (isSupervisor(file) || isSealedConfig(file, declared))));
   const files = mine.map(([file]) => file).sort();
   // Files git did not track before kj added them: they leave the index with `rm --cached`.
   const fresh = mine.filter(([, code]) => code === "??" || !history).map(([file]) => file);
@@ -173,11 +176,11 @@ export function commitContract({ projectDir, before = new Set(), baseBranch = "m
  * again when it formatted, since a file it brought back to HEAD's bytes is no longer a change.
  */
 function planFormatted({ git, before, baseBranch, projectDir, env }) {
-  const draft = planContract({ git, before, baseBranch });
+  const draft = planContract({ git, before, baseBranch, projectDir });
   if (draft.result) return draft;
   const fmt = formatWithRepoPrettier({ projectDir, files: draft.files, env });
   if (fmt.error) return { result: { committed: false, files: draft.files, reason: `the repo's prettier could not format kj's files: ${fmt.error}. ${commitByHand(draft.files)}` } };
-  return fmt.formatted.length > 0 ? planContract({ git, before, baseBranch }) : draft;
+  return fmt.formatted.length > 0 ? planContract({ git, before, baseBranch, projectDir }) : draft;
 }
 
 /**
