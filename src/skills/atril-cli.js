@@ -15,7 +15,14 @@ export const ATRIL_COMMANDS = ["search", "route", "scan", "install", "remove", "
 const ownsRoot = (args) => args.some((arg) => arg === "--root" || arg.startsWith("--root="));
 
 /** The arguments atril gets: the user's, plus `--root .karajan` when they named none. */
-export const atrilArgs = (action, args = []) => [action, ...args, ...(ownsRoot(args) ? [] : ["--root", ATRIL_ROOT])];
+export const atrilArgs = (action, args = []) => {
+  if (action === undefined) return []; // `kj atril` alone: atril prints its usage
+  const all = [action, ...args];
+  const sep = all.indexOf("--");
+  const head = sep === -1 ? all : all.slice(0, sep);
+  if (ownsRoot(head)) return all;
+  return [...head, "--root", ATRIL_ROOT, ...all.slice(head.length)];
+};
 
 const INSTALL_HINT = "install it with npm i -g @karajan-family/atril, or install kj from npm (the single-file binary does not carry it)";
 
