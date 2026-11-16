@@ -131,15 +131,18 @@ describe("hardenCommand", () => {
     expect(res.contract.committed).toBe(true);
     expect(git("log", "-1", "--format=%s")).toMatch(/^chore\(kj\)/);
     const files = git("show", "--name-only", "--format=", "HEAD").trim().split("\n");
-    expect(files).toContain(".karajan/hooks/pre-commit");
     expect(files).toContain(".editorconfig");
     expect(files).not.toContain("CLAUDE.md");
     expect(git("status", "--porcelain", "--", "CLAUDE.md").trim()).toBe("?? CLAUDE.md");
+    // KJC-BUG-0608: with history the hooks are the seal's (kj harden --commit), never the contract's.
+    expect(files).not.toContain(".karajan/hooks/pre-commit");
+    expect(git("status", "--porcelain", "--", ".karajan/hooks").trim()).toMatch(/^\?\? \.karajan\/hooks\//);
   });
 
   it("on the base branch it commits nothing and says where the commit belongs", async () => {
     withHistory();
-    const res = await hardenCommand({ projectDir: repo, profile: "minimal", logger });
+    // standard: minimal generates hooks alone, which with history are the seal's, not the contract's.
+    const res = await hardenCommand({ projectDir: repo, profile: "standard", ci: false, guidelines: false, logger });
     expect(res.ok).toBe(true);
     expect(res.contract.committed).toBe(false);
     expect(res.contract.reason).toMatch(/base branch/);

@@ -973,7 +973,7 @@ export function registerMeta(program, { pkgVersion }) {
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
   rag.command("index")
     .description("Index plans + onboarding (and optionally project sources) into the local vector store")
-    .option("--with-sources", "Also index the projectDir's JS/TS files")
+    .option("--with-sources", "Also index the project's sources: every text file git versions, in any language")
     .option("--since <ref>", "Only re-index files changed since <ref> ('auto' uses the last indexed commit; falls back to full index if unset). KJC-TSK-0455.")
     .option("--file <paths...>", "Index exactly these files (a missing one leaves the index): the remedy for a file absent from the index")
     .option("--force", "Index even when another indexer holds the machine lease (otherwise exits 75)")

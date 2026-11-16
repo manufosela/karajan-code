@@ -78,7 +78,7 @@ describe('deskParts', () => {
   it('the host\'s subagents keep clear of the bench, and each row of them of the next', () => {
     const sub = SCALE.crew * DWARF;
     const first = spotOf('subagent', 0, 0, 0);
-    const next = spotOf('subagent', 0, 5, 0);
+    const next = spotOf('subagent', 0, 4, 0); // KJC-BUG-0607: rows of four beside the host
     expect(next.x).toBeCloseTo(first.x);
     expect(next.z - first.z).toBeGreaterThan((AHEAD + BEHIND) * sub + GAP);
     expect(first.z - BEHIND * sub - HALF_WIDTH * SCALE.crew * HOST_SCALE).toBeGreaterThan(GAP);
