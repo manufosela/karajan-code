@@ -24,7 +24,9 @@ export const readBootstrap = (projectDir, o) => readLease(markerPath(projectDir)
  * `{ started, pid }`, or `{ started: false, recent: true }` when the last attempt died less
  * than RETRY_MS ago: the index is then asked for by hand instead of being retried blindly.
  */
-export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now = Date.now(), lease = indexLeasePath(), indexArgs = ["--with-sources"] } = {}) {
+// KJC-BUG-0610: `explicit` (an index asked for by hand) skips RETRY_MS and the stops that are final for the
+// background; `force` starts beside a live holder of the machine lease, whose lease is left as it is.
+export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now = Date.now(), lease = indexLeasePath(), indexArgs = ["--with-sources"], explicit = false, force = false } = {}) {
   const file = markerPath(projectDir);
   mkdirSync(dirname(file), { recursive: true });
   // One claimant at a time: the lock directory is created atomically, so of two commands arriving
@@ -37,18 +39,19 @@ export function startBootstrap(projectDir, { spawnFn = spawn, bin = KJ_BIN, now 
     if (last?.running) return { started: false, pid: last.pid };
     // HU-2758: one stopped for running too long is not respawned in the background, at any age.
     // HU-3092: so is one that stopped itself at its deadline.
-    if (last?.stoppedBy === "max-run" || last?.stoppedBy === "deadline") return { started: false, recent: true, stopped: last.stoppedBy };
-    if (last && now - (last.stoppedAt ?? last.at) < RETRY_MS) return { started: false, recent: true, pid: null };
+    if (!explicit && (last?.stoppedBy === "max-run" || last?.stoppedBy === "deadline")) return { started: false, recent: true, stopped: last.stoppedBy };
+    if (!explicit && last && now - (last.stoppedAt ?? last.at) < RETRY_MS) return { started: false, recent: true, pid: null };
     // One indexer per machine: the lease is taken inside the project mutex, before the marker is
     // written, so a queued project does not spend its RETRY_MS. Both mutexes yield, never wait.
     const slug = projectSlug(projectDir);
     const res = withMutex(lease, now, () => {
       const holder = readLease(lease, { now });
-      if (holder?.running && holder.pid !== process.pid) return { started: false, busy: { projectDir: holder.projectDir, slug: holder.slug, pid: holder.pid } };
+      const held = holder?.running && holder.pid !== process.pid;
+      if (held && !force) return { started: false, busy: { projectDir: holder.projectDir, slug: holder.slug, pid: holder.pid } };
       // Marker and lease land whole each time: first with the claimant's pid, so they read as
       // running meanwhile, then with the indexer's.
       const command = [process.execPath, bin, "rag", "index", ...indexArgs].join(" ");
-      const note = (pid) => { writeLease(file, { pid, at: now, command }); writeLease(lease, { pid, at: now, command, projectDir, slug }); };
+      const note = (pid) => { writeLease(file, { pid, at: now, command }); if (!held) writeLease(lease, { pid, at: now, command, projectDir, slug }); };
       note(process.pid);
       try {
         const child = spawnFn(process.execPath, [bin, "rag", "index", ...indexArgs], { cwd: projectDir, detached: true, stdio: "ignore", env: { ...process.env, KJ_RAG_DEADLINE: String(now + MAX_RUN_MS - DEADLINE_MARGIN_MS) } });

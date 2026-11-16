@@ -228,7 +228,7 @@ export const tools = [
   },
   {
     name: "kj_rag_index",
-    description: "(Re)index this project's Karajan-managed assets — every plan-*.json under ~/.karajan/plans/<slug>/ plus the onboarding brief at ~/.karajan/onboarding/<slug>.md — into the local vector store. Idempotent: a re-run replaces the chunks for each source, never appends duplicates. Pass `withSources: true` to also index the project's JS/TS files (skips node_modules / .git / dist / etc.). Required as a one-time bootstrap before kj_rag_query returns anything; safe to re-run after every `kj plan generate`.",
+    description: "(Re)index this project's Karajan-managed assets — every plan-*.json under ~/.karajan/plans/<slug>/ plus the onboarding brief at ~/.karajan/onboarding/<slug>.md — into the local vector store. The index runs in the background and the tool answers at once with `started` and the last run's totals; call it again to get `running` and `progress` ({ done, total } files) until it ends. kj_rag_query answers from the current index meanwhile. Idempotent: a re-run replaces the chunks for each source, never appends duplicates. Pass `withSources: true` to also index the project's text files git versions (skips node_modules / .git / dist / etc.). Required as a one-time bootstrap before kj_rag_query returns anything.",
     inputSchema: {
       type: "object",
       properties: {

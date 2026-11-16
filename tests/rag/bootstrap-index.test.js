@@ -101,6 +101,15 @@ describe("startBootstrap", () => {
     expect(startBootstrap(root, { spawnFn: dead, now: t0 + RETRY_MS - 1 })).toEqual({ started: false, recent: true, pid: null });
     expect(startBootstrap(root, { spawnFn: dead, now: t0 + RETRY_MS })).toMatchObject({ started: true });
   });
+  // KJC-BUG-0610: kj_rag_index asks for an index by hand: no RETRY_MS, and a stop by deadline is not final.
+  it("an explicit start retries a recent dead attempt and one stopped at its deadline", () => {
+    const dead = vi.fn(() => ({ pid: 2 ** 22 - 1, unref: vi.fn() }));
+    const t0 = 1_000_000;
+    startBootstrap(root, { spawnFn: dead, now: t0 });
+    expect(startBootstrap(root, { spawnFn: dead, now: t0 + 1, explicit: true })).toMatchObject({ started: true });
+    noteDeadline(root, { pid: 2 ** 22 - 1, now: t0 + 2 });
+    expect(startBootstrap(root, { spawnFn: dead, now: t0 + 3, explicit: true })).toMatchObject({ started: true });
+  });
 });
 
 // HU-2757: one background index per machine. Another lane's indexer is a live pid that is not this one.
@@ -121,6 +130,11 @@ describe("startBootstrap machine lease", () => {
     expect(inB()).toMatchObject({ started: false, busy: { pid: process.ppid, slug: "p" } });
     expect(spawnOther).toHaveBeenCalledTimes(1);
     expect(readBootstrap(rootB)).toBeNull();
+  });
+
+  it("with force, a second project starts anyway and leaves the other holder's lease", () => {
+    expect(inB({ force: true })).toEqual({ started: true, pid: process.ppid });
+    expect(readLease(lease, { now: t0 })).toMatchObject({ pid: process.ppid, projectDir: root });
   });
 
   it("a lease whose holder is dead is taken over", () => {
