@@ -9,6 +9,7 @@ import { lowerSecurityLevel, raiseSecurityLevel, readSecurityLevel, SECURITY_LEV
 
 const MEANING = {
   max: "máxima: todo acto del catálogo (sello, reglas, enrolar un móvil) se firma con el móvil",
+  critical: "critical: el móvil firma lo que cambia quién gobierna (enrolar, bajar el nivel, aflojar un gate, excepción de main-guard); el resto se confirma en tu terminal",
   normal: "normal: las cuatro capas de ADR 0009 y un código tecleado; la garantía es menor",
 };
 const sourceLine = (level) => {
@@ -33,18 +34,19 @@ export async function securityCommand({ action = "show", config, kjVersion, flag
     log(res.changed ? `kj security: nivel máxima registrado en ${SECURITY_LEVEL_FILE} (commítealo: viaja con el repo)` : "kj security: el nivel ya es máxima");
     return 0;
   }
-  if (action === "normal") {
+  // KJC-TSK-1654 (ADR 0060): critical, like normal, is reached through the signed act.
+  if (action === "normal" || action === "critical") {
     try {
-      const res = await lowerSecurityLevel({ projectDir, home, kjVersion, env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, deps, logger: deps.logger ?? console });
+      const res = await lowerSecurityLevel({ projectDir, home, kjVersion, to: action, env: deps.env ?? process.env, tty: deps.ttyHuman ?? process.stdout.isTTY, deps, logger: deps.logger ?? console });
       if (!res.changed) {
-        log("kj security: el nivel ya es normal");
+        log(`kj security: el nivel ya es ${action}`);
         return 0;
       }
       const how = res.level.unsigned ? "sin firma" : "firmado";
-      log(`kj security: nivel normal ${how} y registrado en ${SECURITY_LEVEL_FILE} (commítealo). Desde ahora kj avisará en cada acto de que la garantía es menor; kj security max lo sube.`);
+      log(`kj security: nivel ${action} ${how} y registrado en ${SECURITY_LEVEL_FILE} (commítealo). ${MEANING[action]}; kj security max lo sube.`);
       return 0;
     } catch (err) {
-      log(`kj security normal: ${err.message}`);
+      log(`kj security ${action}: ${err.message}`);
       return 1;
     }
   }

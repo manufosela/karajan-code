@@ -9,7 +9,7 @@
  */
 import { basename } from "node:path";
 
-import { humanActOf } from "./human-act.js";
+import { CRITICAL_ACTS, humanActOf } from "./human-act.js";
 import { PHONE_ENROLL, PHONE_INVITE } from "./phone-texts.js";
 import { anyAuthorizedPhone, isPhoneEnrolled, readPasskeyCredentials, requestPhoneSignature } from "./phone-sign.js";
 import { readSecurityLevel } from "./security-level.js";
@@ -71,15 +71,19 @@ export async function signAct(id, { projectDir, home, kjVersion, files, changes 
   const act = humanActOf(id);
   const level = readSecurityLevel({ projectDir, home });
   if (level.source === "invalid") logger.warn?.(`${act.label}: ${level.reason}`);
+  // KJC-TSK-1654 (ADR 0060): at critical an act that does not change who governs stops at the
+  // human layers its module already applied; the phone is not asked.
+  if (level.level === "critical" && !CRITICAL_ACTS.has(id)) return { level, signature: null };
   // HU-3887 (KJC-BUG-0551): at max a phone that can sign is any key of the roster, not only this
   // machine's. At normal the signed record itself puts a key in the roster, so there it stays this machine's.
   // HU-4016: a live roster passkey signs at both levels (HU-4019: at max, anyAuthorizedPhone counts it).
-  const enrolled = level.level === "max" ? anyAuthorizedPhone : (where) => isPhoneEnrolled(where) || readPasskeyCredentials(where).length > 0;
+  const enrolled = level.level !== "normal" ? anyAuthorizedPhone : (where) => isPhoneEnrolled(where) || readPasskeyCredentials(where).length > 0;
   const phone = { enrolled, request: requestPhoneSignature, ...deps.phone };
   if (!phone.enrolled({ projectDir, home })) {
     // No key anywhere: enroll-phone runs as the bootstrap, so the refusal points there and nowhere that loops back.
-    if (level.level === "max" && !bootstrap) {
-      throw new Error(`${act.label}: con seguridad máxima este acto se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
+    if (level.level !== "normal" && !bootstrap) {
+      const which = level.level === "max" ? "con seguridad máxima" : "con seguridad critical";
+      throw new Error(`${act.label}: ${which} este acto se firma con el móvil y no hay ninguno enrolado. ${PHONE_ENROLL}`);
     }
     logger.warn?.(`${act.label}: sin móvil enrolado solo valen las cuatro capas y la garantía es menor (ADR 0018). ${PHONE_INVITE}`);
     return { level, signature: null };

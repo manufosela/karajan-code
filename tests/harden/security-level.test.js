@@ -157,4 +157,15 @@ describe("lowerSecurityLevel (the catalog act security-level-down), from max", (
     writeFileSync(join(repo, SECURITY_LEVEL_FILE), "{broken");
     expect(raise()).toMatchObject({ changed: true, level: { level: "max", source: "file" } });
   });
+
+  // KJC-TSK-1654 (ADR 0060): critical sits between max and normal; reaching it is the same signed act.
+  it("lowers to critical signed, says what the phone keeps signing, and an unsigned critical record reads as max", async () => {
+    expect((await lower({ to: "critical" })).changed).toBe(true);
+    expect(asked.last.origin).toMatch(/^kj security critical/);
+    expect(asked.last.changes[0].summary).toMatch(/de máxima a critical/);
+    expect(read()).toMatchObject({ level: "critical", source: "file", signer: mine.pub });
+    expect((await lower({ to: "critical", deps: { phone: never } })).changed).toBe(false);
+    writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "critical", since: "2026-11-16" }));
+    expect(read()).toMatchObject({ level: "max", source: "invalid", reason: /nivel critical no lleva firma/ });
+  });
 });

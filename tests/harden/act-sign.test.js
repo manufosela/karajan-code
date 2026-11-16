@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { explainAct, signAct } from "../../src/harden/act-sign.js";
 import { addSigner, readEnrolledKeys } from "../../src/harden/phone-sign.js";
 import { SECURITY_LEVEL_FILE } from "../../src/harden/security-level.js";
-import { setNormalLevel } from "../_fixtures/set-normal-level.js";
+import { setNormalLevel, setSignedLevel } from "../_fixtures/set-normal-level.js";
 
 const FILES = [{ file: ".karajan/rules.yml", sha256: "ab".repeat(32) }];
 const CHALLENGE = { cid: "c", nonce: "n", project: "p", v: 2, kjVersion: "9.9.9", issuedMs: 1, expiresMs: 2 };
@@ -89,6 +89,21 @@ describe("signAct", () => {
     expect(warned[0]).toMatch(/seguridad normal, la garantía es menor.*kj security max/);
     expect((await sign("rules-approve", { deps: { phone: phone({ enrolled: false }) } })).signature).toBeNull();
     expect(warned[1]).toMatch(/sin móvil enrolado solo valen las cuatro capas/);
+  });
+
+  // KJC-TSK-1654 (ADR 0060): at critical the phone signs only what changes who governs.
+  it("at critical: the acts that change who governs sign; the others never ask the phone", async () => {
+    setSignedLevel(repo, "critical");
+    const never = { enrolled: () => true, request: async () => { throw new Error("the phone must not be asked"); } };
+    for (const id of ["supervisor-seal", "rules-approve", "hooks-set", "release-approve"]) {
+      expect((await sign(id, { deps: { phone: never } })).signature).toBeNull();
+    }
+    expect(warned).toEqual([]);
+    // security-level-down signs in its own flow (tests/harden/security-level.test.js).
+    for (const id of ["phone-enroll", "gates-loosen", "main-guard-except"]) {
+      expect((await sign(id, { deps: { phone: phone() } })).signature).not.toBeNull();
+    }
+    await expect(sign("gates-loosen", { deps: { phone: phone({ enrolled: false }) } })).rejects.toThrow(/este acto se firma con el móvil y no hay ninguno enrolado/);
   });
 
   it("a record that cannot be trusted is said, and the act runs at max", async () => {
