@@ -81,9 +81,30 @@ process.stdin.on("end", () => {
       if (!c.error && c.status === 2) claimsBlock = "claims: un dato del mensaje final esta DESMENTIDO por las salidas de este turno — verificalo o marcalo como no comprobado. Detalle: kj claims check --transcript " + transcript;
       else if (!c.error && c.status === 0 && (c.stderr || "").trim()) claimsNote = "kj claims: " + c.stderr.trim().split(String.fromCharCode(10))[0] + " — datos sin respaldo en este turno (informa, no bloquea).";
     }
+    // KJC-TSK-1651 (ADR 0059): with the method green, the turn does not end while the session's
+    // cards wait and the final message names no stop kj can check. kj judges (method_gates.continuation);
+    // the hook counts the holds per session and steps aside after 3 in a row, noting it.
+    const holdForContinuation = () => {
+      if (!transcript) return;
+      const g = spawnSync("kj", ["continuation", "gate", "--transcript", transcript], { cwd: ROOT, encoding: "utf8" });
+      const holds = (state.continuation_holds ||= {});
+      if (g.error || g.status !== 2) { if (holds[sid]) { holds[sid] = 0; save(state); } return; }
+      holds[sid] = (holds[sid] || 0) + 1;
+      if (holds[sid] > 3) {
+        holds[sid] = 0;
+        (state.continuation_fail_open ||= []).push({ session: sid, at: new Date().toISOString() });
+        save(state);
+        console.error("karajan sentinel: continuation se aparta tras 3 retenciones seguidas sin resolver; repasa con tu usuario las cards de esta sesion" + doc("continuation"));
+        return;
+      }
+      save(state);
+      console.error("karajan sentinel: el turno NO puede terminar:" + String.fromCharCode(10) + "- " + (g.stderr || "").trim() + doc("continuation"));
+      process.exit(2);
+    };
     const s = state.sessions?.[sid];
     if (!s) {
       if (claimsBlock) { console.error("karajan sentinel: el turno NO puede terminar:" + String.fromCharCode(10) + "- " + claimsBlock + doc("claims")); process.exit(2); }
+      holdForContinuation();
       if (claimsNote) console.log(JSON.stringify({ systemMessage: claimsNote }));
       process.exit(0);
     }
@@ -110,6 +131,7 @@ process.stdin.on("end", () => {
         s.closed_cards = [];
       }
       save(state);
+      holdForContinuation();
       if (notes.length) console.log(JSON.stringify({ systemMessage: notes.join("\n") }));
       process.exit(0);
     }

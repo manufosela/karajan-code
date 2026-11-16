@@ -165,6 +165,10 @@ Si un gate falla mientras comprueba un comando (un fichero que no puede leer, un
 
 El turno no puede terminar mientras el método esté en rojo: suite fallando, diffs sin revisar, movimientos de board pendientes, afirmaciones sin respaldo. Cada carril en el que escribió la sesión se juzga con su propia rama y su árbol, y sus violaciones nombran el carril. Resuelve las violaciones listadas. Estado: `kj sentinel status`.
 
+## continuation
+
+ADR 0059: con el método en verde, el turno tampoco termina mientras las cards que esta sesión creó o empezó sigan pendientes o en curso. El agente solo puede pararse diciendo por qué (`Me paro por <motivo>` o `Stopping because <motivo>`) con un motivo que kj pueda comprobar en la sesión: un encargo abierto (`kj handoff`), una pregunta para ti que cierra su mensaje, o una tarea en segundo plano que lanzó y aún no ha terminado. Un motivo como «llevamos mucho rato» retiene el turno y le nombra la siguiente card. Una card que el agente no puede hacer pasa a `failed` o `skipped`. Tras 3 retenciones seguidas el gate se aparta y lo deja registrado. `method_gates.continuation`: `block` (por defecto), `warn` u `off`.
+
 ## handoff
 
 Lo que solo puede hacer el usuario (un publish, un sello) se registra con `kj handoff add`, y lo vigila el agente para que el usuario no tenga que hacerlo:

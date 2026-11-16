@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **The agent does not stop with the session's cards waiting** (ADR 0059). With the method green, the Sentinel stop hook holds the turn while a card the session created or started is pending or running, unless the final message names a stop kj can check: an open handoff, a closing question to you, or a background task still running. It names the next card, steps aside after 3 holds in a row, and `method_gates.continuation` sets it to `warn` or `off` (#4472, #4475, #4476). After updating, run `kj harden` and seal it: the stop hook changes.
+
 ## [5.26.1] - 2026-11-16
 
 The npm release of 5.26.0, with what merged after it. 5.26.0 stopped before npm: the test of the upgrade path read a release with nothing to re-seal as a failure. Its GitHub Release and binaries stay as published.
