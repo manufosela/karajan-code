@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.24.0: no release leaves a user blocked, and the agent knows when you seal (current)
+### v5.25.0: the governance path proven end to end (current)
+
+A new test runs kj's flow as a person runs it, on a repo shaped like a real one: a card, the first `kj harden` and its reviewed contract through the repo's own hooks (prettier included), the seal, a second `kj harden` that changes nothing, the review gate, and a seal that fails. It runs on every PR and before every release. What it found is fixed: the first `kj harden` of a repo with history now commits its contract, kj formats what it generates with the repo's own prettier, one `kj harden` converges, and a seal that did not happen keeps its handoff open. rag-first now indexes the file it asks about from outside the host sandbox, so a large repo in PHP, Kotlin or Swift is not blocked. kj stage gains a teleport booth beside Karajan and a plumber who fixes failed pipelines. Run `kj harden` once after updating and have it sealed.
+
+### v5.24.0: no release leaves a user blocked, and the agent knows when you seal
 
 Before publishing, a repo hardened with the previous version is now re-hardened with the new one, and its seal PR must pass every check. Three things that blocked a re-harden PR are fixed: the signed seal passes the PR judges, `kj harden` reviews the contract commit it makes, and the commit hook names the real cause when `kj review --check` fails. When you seal or sign, your agent finds out on its own (`kj handoff wait`). kj stage gains a Cast of collectable character cards, workshops that open their HU, a task wall and a side door. Run `kj harden` once after updating and have it sealed.
 

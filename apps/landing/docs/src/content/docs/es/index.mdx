@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.24.0: ninguna release deja bloqueado a un usuario, y el agente sabe cuándo sellas (actual)
+### v5.25.0: el camino del gobierno, probado de punta a punta (actual)
+
+Un test nuevo ejecuta el flujo de kj como lo hace una persona, sobre un repo con forma de repo real: una card, el primer `kj harden` y su contrato revisado pasando por los hooks del propio repo (prettier incluido), el sello, un segundo `kj harden` que no cambia nada, la puerta de revisión y un sello que falla. Corre en cada PR y antes de cada release. Lo que encontró está arreglado: el primer `kj harden` de un repo con historia ya commitea su contrato, kj formatea lo que genera con el prettier del propio repo, un solo `kj harden` converge, y un sello que no se hizo deja su encargo abierto. rag-first indexa ahora el fichero por el que pregunta desde fuera del sandbox del anfitrión, así que un repo grande en PHP, Kotlin o Swift no se bloquea. kj stage estrena una cabina de teletransporte junto a Karajan y un fontanero que arregla los pipelines que fallan. Ejecuta `kj harden` una vez tras actualizar y séllalo.
+
+### v5.24.0: ninguna release deja bloqueado a un usuario, y el agente sabe cuándo sellas
 
 Antes de publicar, un repo preparado con la versión anterior se vuelve a preparar con la nueva, y su PR de sello tiene que pasar todos los checks. Se arreglan tres cosas que bloqueaban una PR de re-harden: el sello firmado pasa los jueces de la PR, `kj harden` revisa el commit de contrato que hace, y el hook de commit dice la causa real cuando falla `kj review --check`. Cuando sellas o firmas, tu agente se entera solo (`kj handoff wait`). kj stage suma un Reparto de cartas coleccionables de los personajes, talleres que abren su HU, un muro de tareas y una puerta lateral. Tras actualizar, ejecuta `kj harden` una vez y séllalo.
 
