@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { linguistGenerated } from "../../src/review/linguist-generated.js";
+import { generatedFiles, linguistGenerated } from "../../src/review/linguist-generated.js";
 import { budgetedNet, countsTowardBudget } from "../../src/review/loc-budget.js";
 import { sourceFilesOf } from "../../src/review/tests-with-code.js";
 
@@ -78,5 +78,47 @@ describe("consumers of the generated set", () => {
     const marked = new Set(["AGENTS.md", "templates/roles/coder.md"]);
     expect(countsTowardBudget("AGENTS.md", marked)).toBe(true);
     expect(countsTowardBudget("templates/roles/coder.md", marked)).toBe(true);
+  });
+});
+
+// KJC-BUG-0612 (HU-4408): the configs kj harden writes are nobody's code either. The contract
+// review asked Sonar for commitlint.config.js and rejected the first kj harden of a repo without it.
+describe("generatedFiles: linguist-generated and the configs kj harden writes", () => {
+  const KJ_COMMITLINT = "// >>> kj:managed:commitlint v1 >>>\nexport default {};\n// <<< kj:managed:commitlint <<<\n";
+  const KJ_RUFF = "# >>> kj:managed:ruff v1 >>>\nline-length = 100\n# <<< kj:managed:ruff <<<\n";
+  const stage = (cwd, files) => {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(cwd, path)), { recursive: true });
+      writeFileSync(join(cwd, path), text);
+    }
+    execFileSync("git", ["-C", cwd, "add", ...Object.keys(files)]);
+  };
+
+  it("names a harden config made of kj's managed block alone, at the root or under a stack root", async () => {
+    const cwd = repo(`${LOCALE} linguist-generated\n`);
+    stage(cwd, { "commitlint.config.js": KJ_COMMITLINT, "packages/api/ruff.toml": KJ_RUFF, "src/app.js": "export {};\n" });
+    const files = [LOCALE, "commitlint.config.js", "packages/api/ruff.toml", "src/app.js"];
+    const set = await generatedFiles(files, { cwd, cached: true });
+    expect([...set].sort()).toEqual([LOCALE, "commitlint.config.js", "packages/api/ruff.toml"].sort());
+    expect(sourceFilesOf({}, files, set).sources).toEqual(["src/app.js"]);
+  });
+
+  it("judges the text the caller gives as the reviewed result (a range, the working tree)", async () => {
+    const cwd = repo("");
+    const texts = { "commitlint.config.js": KJ_COMMITLINT, "eslint.config.js": "export default [];\n" };
+    const set = await generatedFiles(Object.keys(texts), { cwd, textOf: async (file) => texts[file] });
+    expect([...set]).toEqual(["commitlint.config.js"]);
+  });
+
+  // The review's catch: the name alone would let a config written by hand skip every gate.
+  it("a config of the same name written by hand, or with lines outside kj's block, stays under the gates", async () => {
+    const cwd = repo("");
+    stage(cwd, {
+      "commitlint.config.js": "export default { rules: {} };\n",
+      "packages/web/commitlint.config.js": `${KJ_COMMITLINT}export const extra = 1;\n`,
+      "packages/api/commitlint.config.js": "export default unsafe; // >>> kj:managed:commitlint v1 >>>\n// <<< kj:managed:commitlint <<<\n",
+    });
+    const files = ["commitlint.config.js", "packages/web/commitlint.config.js", "packages/api/commitlint.config.js"];
+    expect([...(await generatedFiles(files, { cwd, cached: true }))]).toEqual([]);
   });
 });

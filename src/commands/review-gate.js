@@ -23,7 +23,7 @@ import { checkCardFirst } from "../review/card-first.js";
 import { checkReleaseBump } from "../review/release-bump.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
-import { linguistGenerated } from "../review/linguist-generated.js";
+import { generatedFiles } from "../review/linguist-generated.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { isGeneratedPath, splitAddedByFile } from "../privacy/diff-scope.js";
 import { budgetedAdded, budgetedNet, movedLines, showSpec } from "../review/loc-budget.js";
@@ -717,7 +717,8 @@ async function runReviewGate({ config, logger = null, flags = {} }) {
   const liveFiles = (await rawDiff(flags.range, ["--name-only", LIVE_FILTER])).split("\n").map((f) => f.trim()).filter(Boolean);
 
   // KJC-BUG-0544: what the repo marks linguist-generated leaves Sonar and the budget (staged index when no range).
-  const generated = linguistGenerated(changedFiles, { cwd: projectDir, cached: !flags.range });
+  // KJC-BUG-0612: the configs kj harden writes are generated too.
+  const generated = await generatedFiles(changedFiles, { cwd: projectDir, cached: !flags.range, textOf: (file) => resultingContent(flags.range, file, projectDir) });
   const pol = loadPolicy({ projectDir });
   // KJC-TSK-1257: the pre-gates in their order; the first rejection ends the review.
   const preRejection = await prSizeGate({ projectDir, config, range: flags.range, generated })
