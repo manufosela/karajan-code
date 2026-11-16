@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.26.0] - 2026-11-16
+
+A lane can now be cut from any branch, so a team working on an epic branch gets each issue's lane and PR against it. The contract `kj harden` commits leaves the files a project declares sealed to the seal, and a release is always proposed from the remote base branch.
+
+### Added
+- **`kj worktree start --base <branch>`** cuts the lane from `origin/<branch>` and keeps that branch as the lane's base, so `kj pr-size`, `kj check` and the review gate in that lane measure against it. A branch that does not exist fails with its name (#4426).
+
+### Fixed
+- **The contract commit leaves the project's declared sealed files to the seal.** A file listed in `policy.yml` `sealed_files` that kj generates rode in the contract, and the review's policy refused it (#4421).
+- **`kj release propose` proposes the remote base branch**, never a lane's HEAD, and says so when your local HEAD differs (#4423).
+- **kj stage**: kaRAGan types beside the host's seat, facing it, with its name over it, instead of hiding behind a big host (#4427).
+
 ## [5.25.0] - 2026-11-16
 
 The governance path is now proven end to end. A new test runs kj's flow as a person runs it, on a repo shaped like a real one: a card, the first `kj harden` and its reviewed contract through the repo's own hooks (prettier included), the seal, a second `kj harden` that changes nothing, the review gate, and a seal that fails. It runs on every PR and before every release. Running it found the bugs below, which kept the first `kj harden` of a repo with history from committing its contract.
@@ -29,7 +41,7 @@ The governance path is now proven end to end. A new test runs kj's flow as a per
 - **kj keeps its guidelines in AGENTS.md** when `rulesync.jsonc` does not manage rules (#4374).
 - **A failed contract commit names the hook's own reason**, and the owners ledger ends with a newline, so a prettier-checked repo takes it (#4358, #4355).
 - **`kj-no-ai-attribution` reruns when the PR title or body is edited** (#4414, issue #4397).
-- **An unsigned seal commit says how to get its verdict** (#4135, by @jorgecasar). A team board mirror's plan name no longer names a project (#4389).
+- **An unsigned seal commit says how to get its verdict** (#4135, by @jorgecasar). Projects that mirror a team board (Linear) take their folder's name instead of all being called "linear" (#4389).
 - `kj rag index --with-sources` help: it indexes every text file git versions, in any language.
 
 After this release, run `kj harden` and seal it: the attribution workflow and the hooks get these fixes.

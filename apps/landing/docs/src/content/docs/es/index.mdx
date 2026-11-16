@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.25.0: el camino del gobierno, probado de punta a punta (actual)
+### v5.26.0: carriles desde cualquier rama (actual)
+
+`kj worktree start --base <rama>` saca un carril de esa rama y la guarda como base del carril, así que un equipo que trabaja sobre una rama de épica tiene el carril y la PR de cada issue contra ella, y `kj pr-size`, `kj check` y la puerta de revisión miden contra esa rama. El contrato que commitea `kj harden` deja al sello los ficheros que un proyecto declara sellados en `policy.yml`, y `kj release propose` propone siempre la rama base remota, nunca el HEAD de un carril. En kj stage, kaRAGan teclea junto al anfitrión, con su nombre encima.
+
+### v5.25.0: el camino del gobierno, probado de punta a punta
 
 Un test nuevo ejecuta el flujo de kj como lo hace una persona, sobre un repo con forma de repo real: una card, el primer `kj harden` y su contrato revisado pasando por los hooks del propio repo (prettier incluido), el sello, un segundo `kj harden` que no cambia nada, la puerta de revisión y un sello que falla. Corre en cada PR y antes de cada release. Lo que encontró está arreglado: el primer `kj harden` de un repo con historia ya commitea su contrato, kj formatea lo que genera con el prettier del propio repo, un solo `kj harden` converge, y un sello que no se hizo deja su encargo abierto. rag-first indexa ahora el fichero por el que pregunta desde fuera del sandbox del anfitrión, así que un repo grande en PHP, Kotlin o Swift no se bloquea. kj stage estrena una cabina de teletransporte junto a Karajan y un fontanero que arregla los pipelines que fallan. Ejecuta `kj harden` una vez tras actualizar y séllalo.
 
