@@ -17,6 +17,14 @@ describe("checkRagRequirement", () => {
     expect(checkRagRequirement({ stagedFiles: ["README.md", "docs/x.md"], ledger: { available: false } })).toMatchObject({ ok: true, mode: "docs-only" });
   });
 
+  // KJC-BUG-0613 (HU-4412): a generated file is nobody's code and the RAG never indexes harden's
+  // configs, so no query could cover them: the first kj harden's contract review was refused.
+  it("a generated file needs no consultation, a source beside it still does", () => {
+    const generated = new Set(["commitlint.config.js"]);
+    expect(checkRagRequirement({ stagedFiles: ["commitlint.config.js", "AGENTS.md"], generated, ledger: { available: false } })).toMatchObject({ ok: true, mode: "docs-only" });
+    expect(checkRagRequirement({ stagedFiles: ["commitlint.config.js", "src/a.js"], generated, ledger: { available: false } }).ok).toBe(false);
+  });
+
   it("passes when every staged source was returned, itself or through a sibling, and names the untouched twins", () => {
     const r = checkRagRequirement({ stagedFiles: ["src/a.js", "src/b.js", "README.md"], ledger: ledger(["src/a.js", "scripts/postinstall.js"], 2) });
     expect(r).toMatchObject({ ok: true, mode: "pass", queries: 2, covered: ["src/a.js", "src/b.js"], uncovered: [], twinsUntouched: ["scripts/postinstall.js"] });
