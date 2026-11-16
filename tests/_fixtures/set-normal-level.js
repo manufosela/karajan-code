@@ -9,13 +9,16 @@ import { join } from "node:path";
 import { canonicalPayload } from "../../src/harden/phone-sign.js";
 import { SECURITY_LEVEL_FILE, signedFilesOf } from "../../src/harden/security-level.js";
 
-export function setNormalLevel(projectDir) {
+// KJC-TSK-1654 (ADR 0060): the same way to any level below max, such as `critical`.
+export function setSignedLevel(projectDir, level) {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const signer = publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
   mkdirSync(join(projectDir, ".karajan"), { recursive: true });
   writeFileSync(join(projectDir, ".karajan", "supervisor-signers.json"), JSON.stringify({ signers: [{ publicKey: signer }] }));
-  const record = { level: "normal", since: "2026-10-10T00:00:00.000Z" };
+  const record = { level, since: "2026-10-10T00:00:00.000Z" };
   const challenge = { cid: "c", nonce: "n", project: "p", v: 2, kjVersion: "test", issuedMs: 1, expiresMs: 2 };
   const signature = sign(null, Buffer.from(canonicalPayload({ ...challenge, files: signedFilesOf(record) }), "utf8"), privateKey).toString("base64");
   writeFileSync(join(projectDir, SECURITY_LEVEL_FILE), `${JSON.stringify({ ...record, signature: { ...challenge, signer, signature } }, null, 2)}\n`);
 }
+
+export const setNormalLevel = (projectDir) => setSignedLevel(projectDir, "normal");

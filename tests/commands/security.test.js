@@ -79,4 +79,16 @@ describe("kj security", () => {
     await run("show");
     expect(lines[0]).toMatch(/nivel {3}normal/);
   });
+
+  // KJC-TSK-1654 (ADR 0060): critical is reached the same way and show says what the phone keeps.
+  it("critical: a person at the terminal sets it, and show says the phone signs what changes who governs", async () => {
+    await run("max");
+    const deps = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
+    expect(await run("critical", deps)).toBe(0);
+    expect(lines[1]).toMatch(/^kj security: nivel critical sin firma y registrado/);
+    lines = [];
+    await run("show");
+    expect(lines[0]).toMatch(/nivel {3}critical: el móvil firma lo que cambia quién gobierna/);
+    expect(await run("critical", { env: { CLAUDECODE: "1" } })).toBe(1);
+  });
 });

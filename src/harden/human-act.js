@@ -116,6 +116,12 @@ export const HUMAN_ACTS = Object.freeze({
   "release-approve": { label: "kj release approve", module: "src/commands/release-approve.js" },
 });
 
+/**
+ * KJC-TSK-1654 (ADR 0060): the acts that change who governs. At `critical` only these are signed
+ * on the phone; the rest of the catalog is confirmed at the person's terminal. `max` signs them all.
+ */
+export const CRITICAL_ACTS = Object.freeze(new Set(["phone-enroll", "security-level-down", "gates-loosen", "main-guard-except"]));
+
 /** HU-4306: labels of the acts this process got past the refusal of; read once the command ends. */
 export const attempted = new Set();
 

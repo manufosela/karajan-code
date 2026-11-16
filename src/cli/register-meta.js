@@ -164,10 +164,11 @@ export function registerMeta(program, { pkgVersion }) {
   // KJC-TSK-0995 (HUM-D, ADR 0018): the project's security level; going down is a signed act.
   const securityCmd = program
     .command("security")
-    .description("Security level of this project: max (every catalog act signed by the phone) or normal (four layers, lesser guarantee)");
+    .description("Security level of this project: max (every catalog act signed by the phone), critical (the phone signs only what changes who governs) or normal (four layers, lesser guarantee)");
   const SECURITY_ACTIONS = {
     show: "The level in force, where it comes from and whether a phone is enrolled (exit 2 on a record that cannot be trusted)",
     max: "Raise to max: no signature needed",
+    critical: "Set critical (ADR 0060): a human act signed by the enrolled phone (refused without one)",
     normal: "Lower to normal: a human act signed by the enrolled phone (refused without one)",
   };
   for (const [action, description] of Object.entries(SECURITY_ACTIONS)) {
