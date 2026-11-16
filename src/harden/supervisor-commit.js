@@ -227,7 +227,9 @@ export async function commitSupervisorRegeneration({
   // Por DIRECTORIO, no por fichero: un rename ya staged deja la ruta vieja
   // sin existir y `git add -- <vieja>` falla; `-A` sobre el dir del
   // supervisor versiona altas, cambios, borrados y renombrados por igual.
-  run(["add", "-A", "--", PROVENANCE_FILE, ".karajan/hooks", ...governance]);
+  // HU-4392: retireGuardCopies deletes tracked files under .karajan/harness in this same run.
+  const retired = run(["ls-files", "--deleted", "--", ".karajan/harness"]).split("\n").filter(Boolean);
+  run(["add", "-A", "--", PROVENANCE_FILE, ".karajan/hooks", ...governance, ...retired]);
   run([
     "commit",
     "--no-verify",
@@ -237,6 +239,7 @@ export async function commitSupervisorRegeneration({
     PROVENANCE_FILE,
     ".karajan/hooks",
     ...governance,
+    ...retired,
   ]);
   logger.info?.(`harden --commit: ${hashed.length} fichero(s) de supervisor versionados con procedencia sellada`);
   if (!signatureBlock) logSealVerdictHint(run, logger);

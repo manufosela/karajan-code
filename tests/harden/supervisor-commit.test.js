@@ -103,6 +103,20 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(shown).not.toContain("other.txt");
   });
 
+  it("HU-4392: the seal stages the deletions of tracked .karajan/harness files, and only those", async () => {
+    mkdirSync(join(repo, ".karajan", "harness"), { recursive: true });
+    for (const f of ["pretooluse-sentinel.mjs", "installed.json", "kept.mjs"]) writeFileSync(join(repo, ".karajan", "harness", f), `${f}\n`);
+    git(["add", "-f", ".karajan/harness"]);
+    git(["commit", "-qm", "track harness", "--no-verify"]);
+    rmSync(join(repo, ".karajan", "harness", "pretooluse-sentinel.mjs"));
+    rmSync(join(repo, ".karajan", "harness", "installed.json"));
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    expect(git(["status", "--porcelain", "--", ".karajan/harness"])).toBe("");
+    const deleted = git(["show", "--name-only", "--diff-filter=D", "--format=", "HEAD"]).split("\n").filter(Boolean);
+    expect(deleted).toEqual([".karajan/harness/installed.json", ".karajan/harness/pretooluse-sentinel.mjs"]);
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).not.toContain("kept.mjs");
+  });
   it("KJC-BUG-0264: an older .karajan block in .gitignore is completed, so the provenance is committed", async () => {
     const old = ".karajan/*\n!.karajan/review-gate\n!.karajan/hooks/\n.karajan/hooks/*\n!.karajan/hooks/pre-commit\n!.karajan/adrs/\n";
     writeFileSync(join(repo, ".gitignore"), old);
