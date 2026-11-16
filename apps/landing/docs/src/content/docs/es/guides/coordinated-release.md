@@ -66,7 +66,7 @@ La etiqueta lanza el workflow de release. Antes de publicar, ejecuta:
 kj release verify v5.22.0
 ```
 
-Solo pasa si la etiqueta está en `main`, hay exactamente una issue de release para esa versión, la etiqueta apunta a su candidato, la release sigue lista (un «retener» publicado después de la aprobación también la para) y la aprobación la firma alguien del padrón. Cualquier otra cosa para la publicación y dice por qué.
+Solo pasa si la etiqueta está en `main`, hay exactamente una issue de release para esa versión, la etiqueta apunta a su candidato, la release sigue lista (un «retener» publicado después de la aprobación también la para) y la aprobación la firma alguien del padrón. Cualquier otra cosa para la publicación y dice por qué. Para retirar una propuesta y abrir otra, cierra la issue vieja como «not planned»: verify deja de contarla.
 
 ## Un repositorio de una sola persona
 

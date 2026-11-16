@@ -41,6 +41,11 @@ describe("kj release verify", () => {
     expect(await verify()).toEqual({ ok: true, version: "1.2.0", issue: 9, signer });
   });
 
+  it("skips a withdrawn proposal: an issue closed as not planned", async () => {
+    const issues = [{ number: 7, title: "Release 1.2.0", withdrawn: true }, { number: 9, title: "Release 1.2.0" }];
+    expect(await verify({ issues })).toEqual({ ok: true, version: "1.2.0", issue: 9, signer });
+  });
+
   it("prints one line with the reason", async () => {
     const lines = [];
     await verify({}, { print: (line) => lines.push(line), tag: "1.2.0" });
@@ -67,7 +72,7 @@ describe("kj release verify", () => {
   });
 
   it.each([
-    ["every duplicate issue", { issues: [{ number: 9, title: "Release 1.2.0" }, { number: 12, title: "Release 1.2.0" }] }, {}, "several release issues for 1.2.0: #9, #12"],
+    ["every duplicate issue", { issues: [{ number: 9, title: "Release 1.2.0" }, { number: 12, title: "Release 1.2.0" }] }, {}, "several release issues for 1.2.0: #9, #12 (close the withdrawn ones as not planned)"],
     ["every holder", { comments: [answer("ana", "hold"), answer("bob", "hold"), approvalComment()] }, {}, "on hold by @ana, @bob"],
     ["every silent participant", { comments: [approvalComment()] }, { now: deadline - 1000 }, "not everyone answered: @ana, @bob until 2026-11-13T12:00:00.000Z"],
   ])("names %s in the reason", async (_name, overrides, patch, reason) => {

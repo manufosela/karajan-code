@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`kj release verify` skips a withdrawn proposal**: a release issue closed as not planned no longer counts as a second proposal for the version (#4436).
+
 ## [5.26.0] - 2026-11-16
 
 A lane can now be cut from any branch, so a team working on an epic branch gets each issue's lane and PR against it. The contract `kj harden` commits leaves the files a project declares sealed to the seal, and a release is always proposed from the remote base branch.

@@ -7,12 +7,13 @@ import { mentions, readRelease } from "./release-status.js";
 const TAG = /^v(\d+\.\d+\.\d+)$/;
 const ghDefault = async (args) => execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 const gitDefault = (args, cwd) => execFileSync("git", args, { encoding: "utf8", cwd }).trim();
-const JQ = ".[] | {number, title, pull: (.pull_request != null)}";
+// A proposal closed as not planned was withdrawn: it no longer speaks for the version.
+const JQ = '.[] | {number, title, pull: (.pull_request != null), withdrawn: (.state_reason == "not_planned")}';
 
 async function releaseIssues({ repo, version, gh }) {
   const out = await gh(["api", "--paginate", `repos/${repo}/issues?labels=release&state=all&per_page=100`, "--jq", JQ]);
   return out.split("\n").filter(Boolean).map((line) => JSON.parse(line))
-    .filter((entry) => !entry.pull && entry.title === `Release ${version}`).map((entry) => entry.number);
+    .filter((entry) => !entry.pull && !entry.withdrawn && entry.title === `Release ${version}`).map((entry) => entry.number);
 }
 
 /** `{ issue?, reason }`: the first reason the tag may not be published; `{ issue, signer }` when all is in order. */
@@ -21,7 +22,7 @@ async function judge({ repo, version, tag, projectDir, now, gh, git, keys, passk
   if (numbers.length === 0) return { reason: `no release issue titled "Release ${version}"` };
   if (numbers.length > 1) {
     const refs = numbers.map((n) => `#${n}`).join(", ");
-    return { reason: `several release issues for ${version}: ${refs}` };
+    return { reason: `several release issues for ${version}: ${refs} (close the withdrawn ones as not planned)` };
   }
   const issue = numbers[0];
   const { proposal, comments, result } = await readRelease({ repo, issue, now, gh });
