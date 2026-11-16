@@ -104,4 +104,28 @@ describe('board project naming (KJC-BUG-0162)', () => {
     const names = db.getProjects().filter((p) => p.id.includes('tribbu-')).map((p) => p.name).sort();
     expect(names).toEqual(['Tribbu App', 'Tribbu Platform']);
   });
+
+  // KJC-BUG-0619 (the maintainer, 2026-11-16): tribbu-platform vanished from the board and the stage.
+  // One read of its Linear board came back empty, the mirror was rewritten with no HUs, and the board,
+  // which skips an empty plan, gave it no project: its factory went and nothing refreshed it again.
+  it('a team board mirror that comes back empty still keeps its project; a plain empty plan does not', async () => {
+    process.env.KJ_PLANS_DIR = join(tmpDir, 'plans');
+    const plan = (repo, extra) => {
+      const projectDir = join(tmpDir, repo);
+      mkdirSync(projectDir, { recursive: true });
+      const dir = join(tmpDir, 'plans', `home_${repo}`);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'plan-1.json'), JSON.stringify({ version: 2, planId: 'plan-1', projectDir, hus: [], status: 'ready', createdAt: '2026-11-16T00:00:00Z', ...extra }));
+    };
+    plan('mirrored-repo', { name: 'linear', alias: 'linear', readonly: 'linear' });
+    plan('empty-repo', { name: 'Empty' });
+    const db = await import('../src/db.js');
+    db.initDb();
+    const sync = await import('../src/sync.js');
+    await sync.fullScan();
+    const ids = db.getProjects().map((p) => p.id);
+    expect(ids.some((id) => id.includes('mirrored-repo'))).toBe(true);
+    expect(ids.some((id) => id.includes('empty-repo'))).toBe(false);
+    expect(db.getProjects().find((p) => p.id.includes('mirrored-repo')).name).toBe('Mirrored Repo');
+  });
 });
