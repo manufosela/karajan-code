@@ -12,6 +12,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { assertBoardHomeUntouched, snapshotBoardHome } from "./real-home-guard.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const KJ_BIN = path.resolve(HERE, "..", "..", "..", "bin", "kj.js");
@@ -44,6 +45,7 @@ export function runKj(args, { cwd, kjHome, env = {}, timeoutMs = 60000, fixtureD
     nodeOptions = `${nodeOptions} --import="${importUrl}"`.trim();
   }
 
+  const boardBefore = snapshotBoardHome();
   const r = spawnSync(process.execPath, [KJ_BIN, ...args], {
     cwd,
     encoding: "utf8",
@@ -70,6 +72,7 @@ export function runKj(args, { cwd, kjHome, env = {}, timeoutMs = 60000, fixtureD
       ...env,
     },
   });
+  assertBoardHomeUntouched(boardBefore, args);
   return {
     exitCode: r.status,
     stdout: r.stdout || "",
