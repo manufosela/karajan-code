@@ -51,8 +51,9 @@ function harnessRemedy(drift = []) {
     : "the human runs `kj harden` to regenerate it";
 }
 
-export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = [], ledger, standingExceptions = [], now = new Date(), env = {} }) {
-  const all = sourceFilesOf(config, stagedFiles).sources;
+// KJC-BUG-0613: `generated` (the review gate's generatedFiles) leaves what nobody wrote out, as the other gates do.
+export function checkRagRequirement({ config = {}, stagedFiles = [], newFiles = [], ledger, standingExceptions = [], now = new Date(), env = {}, generated = new Set() }) {
+  const all = sourceFilesOf(config, stagedFiles, generated).sources;
   if (all.length === 0) return { ok: true, mode: "docs-only" };
   const { sources, excluded } = splitExcluded(config, all);
 

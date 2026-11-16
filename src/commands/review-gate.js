@@ -579,10 +579,10 @@ function sonarRequirementGate({ config, liveFiles, std, record, generated }) {
  * it returned that the diff does not touch travel to the reviewer by name —
  * the 16-sep bugs were exactly the twin nobody touched.
  */
-async function ragGate({ config, projectDir, range, liveFiles, std }) {
+async function ragGate({ config, projectDir, range, liveFiles, std, generated }) {
   const ledger = readRagLedger(projectDir);
   const newFiles = (await rawDiff(range, ["--name-only", "--diff-filter=A"])).split("\n").map((f) => f.trim()).filter(Boolean);
-  const req = checkRagRequirement({ config, stagedFiles: liveFiles, newFiles, ledger, standingExceptions: std.standing });
+  const req = checkRagRequirement({ config, stagedFiles: liveFiles, newFiles, ledger, standingExceptions: std.standing, generated });
   if (!req.ok) {
     console.log(`✗ ${req.reason}`);
     return { rejection: rejected("rag-first", [{ severity: "high", file: undefined, description: req.reason }]) };
@@ -742,7 +742,7 @@ async function runReviewGate({ config, logger = null, flags = {} }) {
   if (sonar.rejection) return recorded(sonar.rejection);
   const sonarRejection = sonarRequirementGate({ config, liveFiles, std, record: sonar.record, generated });
   if (sonarRejection) return recorded(sonarRejection);
-  const rag = await ragGate({ config, projectDir, range: flags.range, liveFiles, std });
+  const rag = await ragGate({ config, projectDir, range: flags.range, liveFiles, std, generated });
   if (rag.rejection) return recorded(rag.rejection);
   const uiRecord = uiEvidence({ changedFiles, flags, std });
   const mutation = await mutationGate({ config, projectDir, flags });
