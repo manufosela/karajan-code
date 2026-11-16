@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { SENTINEL_POST, WORKSHOP } from '../public/stage/layout.js';
-import { DESCENT_MS, STAY_MS, sentinelAt, withWatch } from '../public/stage/sentinel-watch.js';
+import { DESCENT_MS, STAY_MS, placeDenial, sentinelAt, withWatch } from '../public/stage/sentinel-watch.js';
 
 const xOf = (lane) => ({ main: -6, 'kj-stage': 6 })[lane] ?? 0;
 const beat = (lane) => ({ type: 'agent-activity', role: 'host', phase: 'start', lane });
@@ -29,6 +29,24 @@ describe('the Sentinel at work', () => {
     expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(WORKSHOP.width / 2 + 0.2);
     const back = sentinelAt(watch, 1000 + 2 * DESCENT_MS + STAY_MS, xOf);
     expect(back).toMatchObject({ x: SENTINEL_POST.x, y: SENTINEL_POST.height, down: false });
+  });
+
+  // KJC-BUG-0620 (the maintainer, 2026-11-16): "why does the Sentinel go to look at main if no one
+  // works there and no activity is seen?" A lane's session's denials are written in main's trace
+  // with no lane; the stage took them for main's.
+  it('a denial goes to the lane of the session it stopped, as its robot is seen there', () => {
+    const workers = [{ role: 'host', id: 's1', lane: 'HU-4448' }, { role: 'host', id: 's2', lane: 'kj-stage' }];
+    expect(placeDenial({ type: 'sentinel-deny', sid: 's1', tool: 'Edit' }, workers)).toMatchObject({ lane: 'HU-4448' });
+    expect(placeDenial({ type: 'sentinel-deny', sid: 's2', lane: 'main', tool: 'Edit' }, workers)).toMatchObject({ lane: 'kj-stage' });
+  });
+
+  it('a denial of a session with no robot seen stays at the post: it goes down nowhere and leaves no mark', () => {
+    const unseen = placeDenial({ type: 'sentinel-deny', sid: 'gone', tool: 'Bash' }, []);
+    expect(unseen).toMatchObject({ unseen: true });
+    const watch = withWatch({ lane: 'kj-stage' }, unseen, 1000);
+    expect(watch.stop).toBeUndefined();
+    expect(sentinelAt(watch, 1000 + DESCENT_MS, xOf)).toMatchObject({ y: SENTINEL_POST.height, down: false });
+    expect(placeDenial({ type: 'review-verdict' }, [])).toEqual({ type: 'review-verdict' });
   });
 
   it('other events change nothing; the latest denial is the one it answers', () => {

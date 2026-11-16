@@ -45,6 +45,8 @@ describe('marks in the lane', () => {
     expect(marksAt(marks, 201).map((m) => m.text)).toEqual(['✗ Bash: cd/pushd en un comando mutador ×3']);
     const long = withMark([], { type: 'sentinel-deny', tool: 'Edit', why: 'x'.repeat(80), lane: 'a' }, 0);
     expect(marksAt(long, 1)[0].text).toBe(`✗ Edit: ${'x'.repeat(47)}…`);
+    // KJC-BUG-0620: a denial of a session with no robot seen marks no workshop.
+    expect(withMark([], { ...deny, lane: undefined, unseen: true }, 0)).toEqual([]);
   });
 
   it('an exemption and a verdict that decides nothing have their own tone (KJC-TSK-1585)', () => {
