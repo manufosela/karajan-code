@@ -11,6 +11,7 @@ import { resolve, sep } from "node:path";
 
 import { renderCanonicalHook } from "../harden/harden-engine.js";
 import { provenanceSignature } from "../harden/phone-sign.js";
+import { readSecurityLevel } from "../harden/security-level.js";
 import { canonicalHarnessBody } from "../harden/sentinel-hooks.js";
 import { HOST_SETTINGS_FILES, isSealedConfig, PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 import { sealedFilesOf } from "./engine.js";
@@ -74,7 +75,11 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }
   }
   // KJC-TSK-0964 (ADR 0018): with a roster, an unsigned or mis-signed seal backs nothing.
   const signed = provenanceSignature({ projectDir, provenance: prov });
-  if (!signed.ok) return { files: new Set(), reason: signed.reason };
+  // KJC-TSK-1654 (ADR 0060): at critical a seal with no signature at all (a wrong one still backs
+  // nothing) backs only what kj recomputes byte for byte; the governance config stays signed-only.
+  const unsignedCritical = !signed.ok && prov?.signature == null && readSecurityLevel({ projectDir }).level === "critical";
+  if (!signed.ok && !unsignedCritical) return { files: new Set(), reason: signed.reason };
+  const vouches = signed.ok && signed.required;
   const ok = new Set();
   const unjudgeable = new Set();
   const signedAbsent = new Set();
@@ -101,6 +106,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }
     // KJC-TSK-1032: the governance config has no canonical render; the sealed
     // hash, signed by the roster where there is one, is the proof.
     if (isSealedConfig(entry.file, declared)) {
+      if (unsignedCritical) continue;
       const bytes = read(entry.file);
       // KJC-TSK-1207: host settings sealed as ignored by git (local) live only where
       // they were sealed; absent from this checkout they cannot be judged here (CI,
@@ -117,7 +123,8 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }
     if (!abs.startsWith(root + sep)) continue;
     const bytes = read(entry.file);
     if (entry.deleted === true) {
-      if (bytes === undefined) ok.add(entry.file);
+      // A deletion recomputes nothing, so only a signed seal backs it (ADR 0060).
+      if (bytes === undefined && !unsignedCritical) ok.add(entry.file);
       continue;
     }
     // KJC-BUG-0212: los guardias estan en .gitignore, viven solo en la maquina
@@ -130,7 +137,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }
     if (prefix === HARNESS_PREFIX && bytes === undefined) {
       // KJC-TSK-0877: with the roster's signature verified, the human signed this
       // guard's hash with the rest; that vouches for it without seeing the file.
-      if (signed.required && typeof entry.sha256 === "string") { signedAbsent.add(entry.file); continue; }
+      if (vouches && typeof entry.sha256 === "string") { signedAbsent.add(entry.file); continue; }
       const body = canonicalHarnessBody(entry.file.slice(prefix.length));
       if (body != null && typeof entry.sha256 === "string" && sha256(Buffer.from(body, "utf8")) === entry.sha256) unjudgeable.add(entry.file);
       continue;
@@ -150,7 +157,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }
     // re-render. A phone of the roster signed these very bytes: that vouches for
     // them. Without that signature recomputation is the only proof, so it stays
     // denied (an unsigned provenance could claim any version to skip it).
-    else if (olderSeal && signed.required) { ok.add(entry.file); vouched = true; }
+    else if (olderSeal && vouches) { ok.add(entry.file); vouched = true; }
     else if (olderSeal) stale = true;
   }
   // `complete` = ninguna entrada FALLO y alguna verifico. Exigir que todas

@@ -11,6 +11,8 @@ import { renderCanonicalHook } from "../../src/harden/harden-engine.js";
 import { PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
 import { canonicalHarnessBody } from "../../src/harden/sentinel-hooks.js";
 import { liftSealedSupervisorViolations, verifiedSupervisorFiles } from "../../src/policy/supervisor-verify.js";
+import { SECURITY_LEVEL_FILE } from "../../src/harden/security-level.js";
+import { setSignedLevel } from "../_fixtures/set-normal-level.js";
 
 let repo;
 const sha = (s) => createHash("sha256").update(Buffer.from(s, "utf8")).digest("hex");
@@ -411,5 +413,42 @@ describe("judged at a ref, only a regular file is a sealed file (KJC-BUG-0590)",
     expect(commitAndJudge([`120000,${oid},.karajan/hooks/pre-commit`, `100644,${oid},.karajan/hooks/post-merge/x`])).toEqual(new Set());
     git(["rm", "-q", "--cached", ".karajan/hooks/post-merge/x"]);
     expect(commitAndJudge([`100755,${oid},.karajan/hooks/pre-commit`])).toEqual(new Set([".karajan/hooks/pre-commit", ".karajan/hooks/post-merge"]));
+  });
+});
+
+// KJC-TSK-1654 (ADR 0060): at critical the phone does not sign a seal of what kj generates.
+describe("an unsigned seal at the critical level", () => {
+  const policy = ".karajan/policy.yml";
+  const hook = () => renderCanonicalHook("pre-commit", generation);
+  const seal = (extra = {}) => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), hook());
+    writeFileSync(join(repo, policy), "version: 1\n");
+    writeFileSync(join(repo, PROVENANCE_FILE), JSON.stringify({ kj_version: "9.9.9", generation, files: [{ file: ".karajan/hooks/pre-commit", sha256: sha(hook()) }, { file: policy, sha256: sha("version: 1\n") }], ...extra }));
+  };
+
+  it("backs what kj recomputes byte for byte, never the governance config", () => {
+    setSignedLevel(repo, "critical");
+    seal();
+    const v = verifiedSupervisorFiles({ projectDir: repo });
+    expect([...v.files]).toEqual([".karajan/hooks/pre-commit"]);
+    expect(v.complete).toBe(false);
+    expect(liftSealedSupervisorViolations({ projectDir: repo, violations: [{ rule_id: "defaults.governance.write", file: policy }] }).violations).toHaveLength(1);
+  });
+
+  it("never backs a deletion: it recomputes nothing", () => {
+    setSignedLevel(repo, "critical");
+    writeFileSync(join(repo, PROVENANCE_FILE), JSON.stringify({ kj_version: "9.9.9", generation, files: [{ file: ".karajan/hooks/pre-commit", deleted: true }] }));
+    const v = verifiedSupervisorFiles({ projectDir: repo });
+    expect(v.files.size).toBe(0);
+    expect(v.complete).toBe(false);
+  });
+
+  it("backs nothing at max, nor with a signature that does not verify", () => {
+    setSignedLevel(repo, "critical");
+    seal({ signature: { signer: "AAAA", signature: "AAAA" } });
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.size).toBe(0);
+    writeFileSync(join(repo, SECURITY_LEVEL_FILE), JSON.stringify({ level: "max" }));
+    seal();
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.size).toBe(0);
   });
 });
