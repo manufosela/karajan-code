@@ -7,18 +7,13 @@ import { countChunks, projectSlug } from "../../rag/vec-store.js";
 import { openProjectStore } from "../../rag/project-store.js";
 import { countProjectChunks, emptyIndexRemedy } from "../../rag/migrate.js";
 import { makeGovernedEmbedder } from "../../rag/governed-embedder.js";
-import { indexProject } from "../../rag/indexer.js";
-import { ragExclude } from "../../rag/indexable.js";
 import { query } from "../../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../../rag/path-hits.js";
-import { noteRagAnswer, noteRagIndex, noteRagQuery } from "../../rag/answer-note.js";
-import { claimLease, holderLabel, indexLeasePath, releaseLease } from "../../rag/pid-lease.js";
+import { noteRagAnswer, noteRagQuery } from "../../rag/answer-note.js";
+import { holderLabel } from "../../rag/pid-lease.js";
+import { readBootstrap, startBootstrap } from "../../rag/bootstrap-index.js";
 import { getKarajanHome } from "../../utils/paths.js";
 import { resolveProjectDir, buildConfig, responseText, failPayload } from "../shared-helpers.js";
-
-const silentLogger = {
-  info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, setContext: () => {},
-};
 
 const packageDir = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 // HU-3689 (#3673): a module that cannot load is named with its repair, not left as a bare "Cannot find module".
@@ -64,32 +59,22 @@ export async function handleRagQuery(args, server) {
   }
 }
 
-export async function handleRagIndex(args, server) {
+// KJC-BUG-0610: a large repo ran past the host's tool timeout with no progress. The index runs as
+// `kj rag index` in the background (the bootstrap's marker and machine lease, which it notes and
+// releases itself) and the tool answers at once; called again, it answers with the progress.
+const NEXT = "call kj_rag_index again to see its progress; kj_rag_query answers from the current index meanwhile";
+
+export async function handleRagIndex(args, server, { start = startBootstrap, read = readBootstrap } = {}) {
   try {
     const projectDir = await resolveProjectDir(server, args?.projectDir);
-    const config = await buildConfig({ ...args, projectDir }, "rag-index");
-    const db = openProjectStore({ projectDir, dim: config?.rag?.embedder?.dim || 768 });
-    // HU-2907: the long-lived host holds the machine lease for the walk and releases it in the finally.
-    const lease = indexLeasePath();
-    let claim;
-    try {
-      claim = claimLease(lease, { projectDir, slug: projectSlug(projectDir) });
-      // HU-3279: yield to another live indexer unless forced; its lease is never touched.
-      if (!claim.claimed && args?.force !== true) {
-        return failPayload(`kj_rag_index: another index is running (${holderLabel(claim)}); not indexing. Pass force: true to index anyway`);
-      }
-      noteRagIndex({ projectDir, phase: "start" }); // KJC-TSK-1521: kj stage shows kaRAGan at it
-      const totals = await indexProject(projectDir, {
-        db, embedder: makeGovernedEmbedder(config),
-        karajanHome: getKarajanHome(), logger: silentLogger,
-        withSources: Boolean(args?.withSources),
-        exclude: ragExclude(config), // KJC-TSK-0891
-      }).finally(() => noteRagIndex({ projectDir, phase: "end" }));
-      return responseText(totals);
-    } finally {
-      if (claim?.claimed) releaseLease(lease);
-      db.close();
-    }
+    const current = read(projectDir);
+    if (current?.running) return responseText({ running: true, pid: current.pid, progress: current.progress ?? null, next: NEXT });
+    const force = args?.force === true;
+    const indexArgs = [...(args?.withSources ? ["--with-sources"] : []), ...(force ? ["--force"] : [])];
+    const res = start(projectDir, { indexArgs, explicit: true, force });
+    // HU-3279: yield to another live indexer unless forced; its lease is never touched.
+    if (res.busy) return failPayload(`kj_rag_index: another index is running (${holderLabel({ holder: res.busy.pid ? res.busy : null })}); not indexing. Pass force: true to index anyway`);
+    return responseText({ started: res.started, pid: res.pid ?? null, last: current?.totals ?? null, next: NEXT });
   } catch (err) {
     return failPayload(failureText("kj_rag_index", err));
   }

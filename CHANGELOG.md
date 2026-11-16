@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`kj_rag_index` runs in the background**, so a large repo no longer runs past the host's tool timeout: the tool answers at once, and called again it says how many files the index has done out of how many, then its totals (#4455, #4458).
 - **`kj release verify` skips a withdrawn proposal**: a release issue closed as not planned no longer counts as a second proposal for the version (#4436).
 
 ## [5.26.0] - 2026-11-16

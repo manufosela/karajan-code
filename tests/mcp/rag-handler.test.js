@@ -1,5 +1,4 @@
 // KJC-PCS-0049 Step 7 — MCP rag handlers acceptance pins.
-import { spawn } from "node:child_process";
 import { mkdtempSync,mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,6 +24,16 @@ vi.mock("../../src/mcp/shared-helpers.js", async () => {
     })),
   };
 });
+
+// The index kj_rag_index starts in the background, walked here in the foreground so the queries have one.
+async function seedIndex(projectDir) {
+  const { openProjectStore } = await import("../../src/rag/project-store.js");
+  const { indexProject } = await import("../../src/rag/indexer.js");
+  const { makeGovernedEmbedder } = await import("../../src/rag/governed-embedder.js");
+  const db = openProjectStore({ projectDir, dim: 8 });
+  const embedder = makeGovernedEmbedder({ projectDir, rag: { embedder: { dim: 8 } } });
+  try { await indexProject(projectDir, { db, embedder, karajanHome: process.env.KARAJAN_HOME, logger: { info() {}, warn() {} } }); } finally { db.close(); }
+}
 
 describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
   let root, prevHome, prevDb;
@@ -72,8 +81,7 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
         join(process.env.KARAJAN_HOME, "plans", slug, "plan-001.json"),
         JSON.stringify({ hus: [{ id: `${slug}-A`, title: `alpha ${slug}`, description: `do alpha in ${slug}` }] })
       );
-      const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
-      await handleRagIndex({ projectDir }, {});
+      await seedIndex(projectDir);
       return projectDir;
     };
 
@@ -107,78 +115,50 @@ describe("MCP rag handlers — KJC-PCS-0049 Step 7", () => {
     });
   });
 
-  it("kj_rag_index returns totals from indexProject", async () => {
-    const slug = "p2";
-    const projectDir = join(root, slug);
-    mkdirSync(projectDir);
-    mkdirSync(join(process.env.KARAJAN_HOME, "plans", slug), { recursive: true });
-    writeFileSync(
-      join(process.env.KARAJAN_HOME, "plans", slug, "plan-001.json"),
-      JSON.stringify({ hus: [{ id: "A", title: "alpha", description: "do A" }] })
-    );
-    const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
-    const res = await handleRagIndex({ projectDir }, {});
-    const payload = JSON.parse(res.content[0].text);
-    expect(payload.files).toBeGreaterThan(0);
-    expect(payload.indexed).toBeGreaterThan(0);
-  });
-
-  // HU-2907: the long-lived host claims the machine lease for the walk and releases it after.
-  it("kj_rag_index claims the machine lease for its walk and releases it", async () => {
-    const { indexLeasePath, writeLease, readLease } = await import("../../src/rag/pid-lease.js");
-    writeLease(indexLeasePath(), { pid: process.pid, at: Date.now(), slug: "stale" });
-    const projectDir = join(root, "p3");
-    mkdirSync(projectDir);
-    const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
-    expect((await handleRagIndex({ projectDir }, {})).ok).not.toBe(false);
-    expect(readLease(indexLeasePath())).toBeNull();
-  });
-
-  // KJC-TSK-1521: like kj rag index, it notes the reindex for kj stage, its end last.
-  it("kj_rag_index leaves the end of its reindex noted in a kj project", async () => {
-    const projectDir = join(root, "p5");
-    mkdirSync(join(projectDir, ".karajan"), { recursive: true });
-    const { handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js");
-    await handleRagIndex({ projectDir }, {});
-    expect(JSON.parse(readFileSync(join(projectDir, ".karajan", "harness", "rag-index.json"), "utf8")).phase).toBe("end");
-  });
-
-  // HU-3279: a live indexer holds the lease: the handler yields unless force is true.
-  describe("kj_rag_index with another live indexer holding the lease", () => {
-    let other, projectDir, handleRagIndex, leaseApi;
+  // KJC-BUG-0610: a large repo ran past the host's tool timeout. The index runs in the background
+  // (the bootstrap's marker and machine lease) and the tool answers at once, then with its progress.
+  describe("kj_rag_index in the background", () => {
+    let projectDir, handleRagIndex, started;
+    const start = (dir, opts) => { started.push({ dir, opts }); return { started: true, pid: 123 }; };
+    const payloadOf = (res) => JSON.parse(res.content[0].text);
     beforeEach(async () => {
       ({ handleRagIndex } = await import("../../src/mcp/handlers/rag-handler.js"));
-      leaseApi = await import("../../src/rag/pid-lease.js");
-      other = spawn("sleep", ["30"]);
-      leaseApi.writeLease(leaseApi.indexLeasePath(), { pid: other.pid, at: Date.now(), slug: "other" });
-      projectDir = join(root, "p4");
+      projectDir = join(root, "bg");
       mkdirSync(projectDir);
+      started = [];
     });
-    afterEach(() => other.kill());
-    it("yields without force: names the holder and force, and leaves the lease", async () => {
-      const res = await handleRagIndex({ projectDir }, {});
+    it("starts it, asked by hand, with withSources and force, and answers at once with the last totals", async () => {
+      const read = () => ({ running: false, totals: { indexed: 4, files: 2 } });
+      const res = await handleRagIndex({ projectDir, withSources: true, force: true }, {}, { start, read });
+      expect(started).toEqual([{ dir: projectDir, opts: { indexArgs: ["--with-sources", "--force"], explicit: true, force: true } }]);
+      expect(payloadOf(res)).toMatchObject({ started: true, pid: 123, last: { indexed: 4, files: 2 } });
+      expect(payloadOf(res).next).toMatch(/kj_rag_index again.*progress/);
+    });
+    it("while it runs, answers with its progress and starts nothing", async () => {
+      const read = () => ({ running: true, pid: 9, progress: { done: 3, total: 10 } });
+      const res = await handleRagIndex({ projectDir }, {}, { start, read });
+      expect(started).toEqual([]);
+      expect(payloadOf(res)).toMatchObject({ running: true, pid: 9, progress: { done: 3, total: 10 } });
+    });
+    it("yields to another project's live indexer without force, naming it and force", async () => {
+      const busy = () => ({ started: false, busy: { slug: "other", pid: 77 } });
+      const res = await handleRagIndex({ projectDir }, {}, { start: busy, read: () => null });
       expect(res.ok).toBe(false);
-      expect(res.error).toMatch(new RegExp(`other.*pid ${other.pid}.*force: true`));
-      expect(leaseApi.readLease(leaseApi.indexLeasePath())).toMatchObject({ pid: other.pid });
-    });
-    it("indexes with force: true and leaves the other holder's lease", async () => {
-      const res = await handleRagIndex({ projectDir, force: true }, {});
-      expect(res.ok).not.toBe(false);
-      expect(leaseApi.readLease(leaseApi.indexLeasePath())).toMatchObject({ pid: other.pid });
+      expect(res.error).toMatch(/other, pid 77.*force: true/);
     });
   });
 
   // KJC-TSK-0883 (ADR 0011): el MCP lee el indice del PROYECTO, como la CLI
   // desde 0882; si no, dos clientes del mismo repo veian indices distintos.
-  it("kj_rag_index and kj_rag_query use <projectDir>/.karajan/rag.db, and an empty one names its remedy", async () => {
+  it("kj_rag_query reads <projectDir>/.karajan/rag.db, and an empty one names its remedy", async () => {
     delete process.env.KJ_RAG_DB;
     const a = join(root, "a");
     const b = join(root, "b");
     mkdirSync(join(process.env.KARAJAN_HOME, "plans", "a"), { recursive: true });
     writeFileSync(join(process.env.KARAJAN_HOME, "plans", "a", "plan-001.json"), JSON.stringify({ hus: [{ id: "A", title: "alpha", description: "do A" }] }));
     mkdirSync(a); mkdirSync(b);
-    const { handleRagIndex, handleRagQuery } = await import("../../src/mcp/handlers/rag-handler.js");
-    await handleRagIndex({ projectDir: a }, {});
+    const { handleRagQuery } = await import("../../src/mcp/handlers/rag-handler.js");
+    await seedIndex(a);
     const { openVecStore, countChunks } = await import("../../src/rag/vec-store.js");
     const db = openVecStore({ dim: 8, path: join(a, ".karajan", "rag.db") });
     try { expect(countChunks(db)).toBeGreaterThan(0); } finally { db.close(); }

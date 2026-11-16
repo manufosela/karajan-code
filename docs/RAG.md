@@ -91,6 +91,8 @@ kj rag index --with-sources   # + .js/.ts/.tsx/.jsx under projectDir
 
 A full index takes the machine-wide indexing lease. If another live indexer already holds it, `kj rag index` does not index: it names the holder and exits with code 75 (EX_TEMPFAIL). `kj rag index --force` indexes anyway without touching the holder's lease (the `kj_rag_index` MCP tool takes `force: true`).
 
+The `kj_rag_index` MCP tool runs `kj rag index` in the background, so a large repo never runs past the host's tool timeout. It answers at once with `started` and the last run's totals; call it again and it answers `running` with `progress` (`{ done, total }` files) until the index ends. `kj_rag_query` answers from the current index meanwhile.
+
 Walked dirs are filtered by `SKIP = {node_modules, .git, dist, build, coverage, .karajan, .next, .kj, _diet}`. `.kj/` and `_diet/` are scratch sandboxes Karajan itself creates during `kj run` and the test-diet audit harness — never user code.
 
 Indexing is **idempotent**: calling `indexFile` on the same path replaces its chunks, never duplicates.
