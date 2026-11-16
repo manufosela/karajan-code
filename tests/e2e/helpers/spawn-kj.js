@@ -20,6 +20,36 @@ const KJ_BIN = path.resolve(HERE, "..", "..", "..", "bin", "kj.js");
 const FAKE_AGENT_PATH = path.resolve(HERE, "..", "fixtures", "fake-coder.js");
 
 /**
+ * Env handed to the kj child. `undefined` values are dropped by spawnSync.
+ * getKjHome() reads KARAJAN_HOME before KJ_HOME, so an inherited one must go
+ * or the child writes into that home instead of the per-test one.
+ */
+export function buildKjEnv({ homeForRun, fixtureDir, nodeOptions, env = {} }) {
+  return {
+    ...process.env,
+    // Strip CLAUDECODE so a Claude Code parent doesn't bleed into
+    // the kj subprocess (per the workaround in CLAUDE.md).
+    CLAUDECODE: undefined,
+    KARAJAN_HOME: undefined,
+    KJ_HOME: homeForRun,
+    KJ_PLANS_DIR: path.join(homeForRun, "plans"),
+    // Suppress any TTY-driven prompts.
+    CI: "1",
+    // Skip side effects guarded by `process.env.VITEST` (auto-board
+    // start, auto-GC). E2E tests assert filesystem state, not the
+    // banner output.
+    VITEST: "1",
+    NODE_ENV: "test",
+    // Tell the fake-coder where to read its script + write call log.
+    ...(fixtureDir ? { TEST_FIXTURE_DIR: fixtureDir } : {}),
+    ...(nodeOptions ? { NODE_OPTIONS: nodeOptions } : {}),
+    // No real LLM calls — every coder/reviewer call must go through
+    // the fake fixture set per test.
+    ...env,
+  };
+}
+
+/**
  * @param {string[]} args   — kj arguments (e.g. ["plan", "generate", "--task-file", "X"])
  * @param {object} opts
  * @param {string} opts.cwd — working directory for the kj subprocess (the tmp project)
@@ -50,27 +80,7 @@ export function runKj(args, { cwd, kjHome, env = {}, timeoutMs = 60000, fixtureD
     cwd,
     encoding: "utf8",
     timeout: timeoutMs,
-    env: {
-      ...process.env,
-      // Strip CLAUDECODE so a Claude Code parent doesn't bleed into
-      // the kj subprocess (per the workaround in CLAUDE.md).
-      CLAUDECODE: undefined,
-      KJ_HOME: homeForRun,
-      KJ_PLANS_DIR: path.join(homeForRun, "plans"),
-      // Suppress any TTY-driven prompts.
-      CI: "1",
-      // Skip side effects guarded by `process.env.VITEST` (auto-board
-      // start, auto-GC). E2E tests assert filesystem state, not the
-      // banner output.
-      VITEST: "1",
-      NODE_ENV: "test",
-      // Tell the fake-coder where to read its script + write call log.
-      ...(fixtureDir ? { TEST_FIXTURE_DIR: fixtureDir } : {}),
-      ...(nodeOptions ? { NODE_OPTIONS: nodeOptions } : {}),
-      // No real LLM calls — every coder/reviewer call must go through
-      // the fake fixture set per test.
-      ...env,
-    },
+    env: buildKjEnv({ homeForRun, fixtureDir, nodeOptions, env }),
   });
   assertBoardHomeUntouched(boardBefore, args);
   return {
