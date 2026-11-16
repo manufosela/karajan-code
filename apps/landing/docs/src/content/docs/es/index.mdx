@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.26.0: carriles desde cualquier rama (actual)
+### v5.26.1: el índice de la RAG en segundo plano (actual)
+
+`kj_rag_index` lanza el índice en segundo plano y responde al momento; si se vuelve a llamar, dice cuántos ficheros lleva de cuántos, así que un repo grande ya no supera el timeout de herramienta del anfitrión. El sello commitea los ficheros del harness que borra su propia ejecución, y una propuesta de release retirada ya no para una release. Es la publicación en npm de la 5.26.0, que se paró antes de npm cuando el test del camino de actualización tomó por fallo una release sin nada que resellar. kj stage: el mensajero se teletransporta desde la cabina, el anfitrión de un carril recoge su propia card y el Sentinel va al taller que ha parado.
+
+### v5.26.0: carriles desde cualquier rama
 
 `kj worktree start --base <rama>` saca un carril de esa rama y la guarda como base del carril, así que un equipo que trabaja sobre una rama de épica tiene el carril y la PR de cada issue contra ella, y `kj pr-size`, `kj check` y la puerta de revisión miden contra esa rama. El contrato que commitea `kj harden` deja al sello los ficheros que un proyecto declara sellados en `policy.yml`, y `kj release propose` propone siempre la rama base remota, nunca el HEAD de un carril. En kj stage, kaRAGan teclea junto al anfitrión, con su nombre encima.
 
