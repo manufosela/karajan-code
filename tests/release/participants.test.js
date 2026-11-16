@@ -64,7 +64,7 @@ describe("readReleaseInputs", () => {
         ".[] | {number, title, author: .user.login, headRefName: .head.ref, isDraft: .draft}"],
     ]);
     expect(inputs).toEqual({
-      tag: "v1.0.0", head: "abc123",
+      tag: "v1.0.0", head: "abc123", local: "abc123",
       commits: [
         { sha: "a", subject: "subject a", login: "bob", name: "Name a", parents: 1 },
         { sha: "b", subject: "subject b", login: null, name: "Name b", parents: 2 },
