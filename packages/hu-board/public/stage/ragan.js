@@ -6,8 +6,9 @@ import { CREW, WORKSHOP } from './layout.js';
 /** How long kaRAGan walks each way, and how long it stays handing the answer over. */
 export const RAGAN_WALK_MS = 2200;
 export const HAND_MS = 1500;
-// Behind the host's spot at the bench (workers.js SEATS[0]; KJC-TSK-1612 moved it further out).
-const BEHIND_HOST = { dx: -2.55, dz: -1.1 };
+// KJC-BUG-0616 (the maintainer, 2026-11-16): beside the host's seat (workers.js SEATS[0]), level with
+// it, facing it; behind it, the host being big, it covered the host from the camera.
+const BESIDE_HOST = { dx: -2.55 - 1.3, dz: 0, yaw: Math.PI / 2 };
 
 /** A query of `lane` kaRAGan is working at (KJC-TSK-1630), with no answer yet. */
 const askedIn = (index, lane) => Boolean(index?.query && index.lane === lane && index.end === null);
@@ -36,7 +37,7 @@ export function withIndex(index, event, now) {
   return index?.lane === lane && index.end === null ? { ...index, end: now } : index;
 }
 
-const benchOf = (lane, xOf, zOf) => ({ x: xOf(lane) + BEHIND_HOST.dx, z: zOf(lane) + BEHIND_HOST.dz });
+const benchOf = (lane, xOf, zOf) => ({ x: xOf(lane) + BESIDE_HOST.dx, z: zOf(lane) + BESIDE_HOST.dz });
 
 /** KJC-TSK-1522: kaRAGan going to type at a reindexing lane, typing there, or coming back; null when not. */
 function indexingAt(index, now, home, xOf, zOf) {
@@ -45,9 +46,10 @@ function indexingAt(index, now, home, xOf, zOf) {
   const leave = Math.max(Math.min(index.end ?? Infinity, index.at + INDEX_MAX_MS), index.at + RAGAN_WALK_MS);
   const t = now - index.at;
   if (t < 0 || now >= leave + RAGAN_WALK_MS) return null;
-  if (t < RAGAN_WALK_MS) return { ...lerp(home, bench, t / RAGAN_WALK_MS), yaw: facing(home, bench), walking: true, typing: false };
-  if (now < leave) return { ...bench, yaw: 0, walking: false, typing: true, since: index.at + RAGAN_WALK_MS };
-  return { ...lerp(bench, home, (now - leave) / RAGAN_WALK_MS), yaw: facing(bench, home), walking: true, typing: false };
+  // KJC-BUG-0616: `away` from its post, so its name goes over it.
+  if (t < RAGAN_WALK_MS) return { ...lerp(home, bench, t / RAGAN_WALK_MS), yaw: facing(home, bench), walking: true, typing: false, away: true };
+  if (now < leave) return { ...bench, yaw: BESIDE_HOST.yaw, walking: false, typing: true, since: index.at + RAGAN_WALK_MS, away: true };
+  return { ...lerp(bench, home, (now - leave) / RAGAN_WALK_MS), yaw: facing(bench, home), walking: true, typing: false, away: true };
 }
 
 /**
@@ -63,8 +65,8 @@ export function raganAt(rag, now, xOf, zOf = () => WORKSHOP.z, index = null) {
   const bench = benchOf(rag.lane, xOf, zOf);
   const t = now - rag.at;
   if (t < 0 || t >= 2 * RAGAN_WALK_MS + HAND_MS) return rest;
-  if (t < RAGAN_WALK_MS) return { ...lerp(home, bench, t / RAGAN_WALK_MS), yaw: facing(home, bench), walking: true };
-  if (t < RAGAN_WALK_MS + HAND_MS) return { ...bench, yaw: 0, walking: false };
+  if (t < RAGAN_WALK_MS) return { ...lerp(home, bench, t / RAGAN_WALK_MS), yaw: facing(home, bench), walking: true, away: true };
+  if (t < RAGAN_WALK_MS + HAND_MS) return { ...bench, yaw: BESIDE_HOST.yaw, walking: false, away: true };
   const k = (t - RAGAN_WALK_MS - HAND_MS) / RAGAN_WALK_MS;
-  return { ...lerp(bench, home, k), yaw: facing(bench, home), walking: true };
+  return { ...lerp(bench, home, k), yaw: facing(bench, home), walking: true, away: true };
 }

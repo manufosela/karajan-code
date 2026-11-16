@@ -4,13 +4,29 @@ import { describe, expect, it } from 'vitest';
 import { CREW, WORKSHOP } from '../public/stage/layout.js';
 import { HAND_MS, INDEX_MAX_MS, RAGAN_WALK_MS, raganAt, withIndex, withRag } from '../public/stage/ragan.js';
 import { restState, withEvent } from '../public/stage/rest.js';
+import { spotOf } from '../public/stage/workers.js';
 
 const xOf = (lane) => ({ main: -6, 'kj-stage': 6 })[lane] ?? 0;
 const answer = (lane, sources = 3) => ({ type: 'rag-answer', lane, sources, at: '2026-11-05T10:00:00Z' });
 
+/**
+ * KJC-BUG-0616 (the maintainer, 2026-11-16, with a picture of HU-4424): it typed right behind the host
+ * and, the host being big, covered it from the camera. Beside the host's seat, level with it, facing
+ * it, and saying it is out of its post (its name goes over it), never behind it.
+ */
+function besideTheHost(pose, lane) {
+  const host = spotOf('host', xOf(lane), undefined, WORKSHOP.z);
+  expect(Math.abs(pose.z - host.z)).toBeLessThan(0.3);
+  expect(host.x - pose.x).toBeGreaterThanOrEqual(1.2);
+  expect(host.x - pose.x).toBeLessThan(WORKSHOP.width / 2);
+  expect(pose.yaw).toBeCloseTo(Math.PI / 2);
+  expect(pose.away).toBe(true);
+}
+
 describe('kaRAGan at work', () => {
   it('waits at its post until the RAG answers', () => {
     expect(raganAt(null, 0, xOf)).toMatchObject({ x: CREW.rag.x, z: CREW.rag.z, walking: false });
+    expect(raganAt(null, 0, xOf).away).toBeFalsy(); // at its post it needs no name over it
     expect(withRag(null, { type: 'review-verdict' }, 0)).toBeNull();
   });
 
@@ -19,7 +35,7 @@ describe('kaRAGan at work', () => {
     expect(raganAt(rag, 1000 + RAGAN_WALK_MS / 2, xOf).walking).toBe(true);
     const there = raganAt(rag, 1000 + RAGAN_WALK_MS + HAND_MS / 2, xOf);
     expect(there.walking).toBe(false);
-    expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(WORKSHOP.width / 2); // inside that lane's workshop
+    besideTheHost(there, 'kj-stage');
     expect(raganAt(rag, 1000 + 2 * RAGAN_WALK_MS + HAND_MS, xOf)).toMatchObject({ x: CREW.rag.x, z: CREW.rag.z, walking: false });
   });
 
@@ -40,7 +56,7 @@ describe('kaRAGan reindexing', () => {
     expect(raganAt(null, 1000 + RAGAN_WALK_MS / 2, xOf, undefined, start)).toMatchObject({ walking: true, typing: false });
     const there = raganAt(null, 1000 + RAGAN_WALK_MS + 60_000, xOf, undefined, start);
     expect(there).toMatchObject({ walking: false, typing: true, since: 1000 + RAGAN_WALK_MS });
-    expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(WORKSHOP.width / 2); // inside that lane's workshop
+    besideTheHost(there, 'kj-stage');
   });
 
   it('when it ends it puts the laptop away and walks back to its post, over an answer trip', () => {
