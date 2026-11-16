@@ -76,7 +76,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     // A lane that finished leaves the row; one that works again comes back to it.
     const moved = [...finished].map((lane) => hall.remove(lane)).concat([...folded].filter((lane) => !finished.has(lane)).map((lane) => hall.ensure(lane)));
     folded = finished;
-    if (moved.some(Boolean)) refit();
+    if (moved.some(Boolean)) refit({ glide: true }); // KJC-TSK-1655: the camera glides, no jump
     statuses = new Map([...all].filter(([lane]) => !finished.has(lane)));
     for (const [lane, status] of statuses) hall.showStatus(lane, statusLine(status), status.state);
     // KJC-TSK-1639: and its open pull request's pipeline on its belt.
@@ -227,7 +227,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
      */
     resync(server, now) {
       const gone = goneLanes(hall.names(), server.lanes ?? [], state.working ?? []);
-      if (gone.map((lane) => hall.remove(lane)).some(Boolean)) refit();
+      if (gone.map((lane) => hall.remove(lane)).some(Boolean)) refit({ glide: true });
       for (const end of staleEnds(state.working ?? [], server.working ?? [], new Date().toISOString())) api.push(end, now);
       // The branch facts and notes the statuses read, as the board sees them now; and
       // KJC-TSK-1545: a new release takes the pile off the table and changes the counter.
@@ -260,7 +260,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       state = next;
       // A lane seen for the first time gets its workshop (KJC-TSK-1433).
       // KJC-TSK-1623: a folded lane comes back only when its status says it works again.
-      if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane)) refit();
+      if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane)) refit({ glide: true });
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
       floor.push(event, now);
