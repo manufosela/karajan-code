@@ -6,7 +6,7 @@ import { BOOTH, CONSOLE, CREW, WORKSHOP, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
 import { createBelt } from './belt.js';
-import { opacityAt, slideAt } from './hall-motion.js';
+import { opacityAt, placeOf, slideAt } from './hall-motion.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
@@ -175,6 +175,7 @@ export function createHall(scene, lanes) {
   const lights = new Map();
   const belts = new Map(); // KJC-TSK-1639: each lane's pipeline belt
   const order = [];
+  const rank = new Map(); // KJC-BUG-0633: the order the lanes were first seen in, kept once they go
   // KJC-TSK-1488: in rows and columns once there are many.
   const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
   // KJC-TSK-1632: the booth the hosts come and go by, beside Karajan.
@@ -222,7 +223,7 @@ export function createHall(scene, lanes) {
     shop.group.add(belt.group);
     belts.set(lane, belt);
     shops.set(lane, shop);
-    order.push(lane);
+    order.splice(placeOf(order, rank, lane), 0, lane); // KJC-BUG-0633: back where it stood
     scene.add(shop.group);
     relayout();
     return true;

@@ -13,6 +13,20 @@ export const finishedLanes = (statuses) => [...statuses]
   .filter(([lane, status]) => lane !== 'main' && status.state === 'finished')
   .map(([lane]) => lane);
 
+/** KJC-BUG-0633: how long a lane stays finished before it folds: a pause between turns folds nothing. */
+export const FOLD_AFTER_MS = 60_000;
+
+/**
+ * KJC-BUG-0633: the lanes to fold at `now` out of the `finished` ones: those already `folded`, and
+ * those finished for FOLD_AFTER_MS on end. `since` (lane → when it was first seen finished, kept from
+ * call to call) is null while the stage opens, which folds them all at once. A lane that works leaves it.
+ */
+export function foldedNow(finished, folded, since, now) {
+  const next = new Map([...finished].map((lane) => [lane, since ? (since.get(lane) ?? now) : -Infinity]));
+  const fold = new Set([...finished].filter((lane) => folded.has(lane) || now - next.get(lane) >= FOLD_AFTER_MS));
+  return { fold, since: next };
+}
+
 const labelOf = (lane) => /^HU-\d+/.exec(lane)?.[0] ?? plateName(lane).slice(0, 10);
 
 /**

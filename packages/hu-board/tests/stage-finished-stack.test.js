@@ -2,7 +2,7 @@
 // but the workshops are still there; they should fade, move, stack… and go once done and published".
 import { describe, expect, it } from 'vitest';
 
-import { STACK, finishedLanes, stackOf, stackSpot } from '../public/stage/finished-stack.js';
+import { FOLD_AFTER_MS, STACK, finishedLanes, foldedNow, stackOf, stackSpot } from '../public/stage/finished-stack.js';
 import { RELEASE_TABLE, VERSION_BOARD } from '../public/stage/layout.js';
 
 const statuses = new Map([
@@ -56,5 +56,29 @@ describe('stackSpot', () => {
       const at = stackSpot(i);
       expect(Math.hypot(at.x - VERSION_BOARD.x, at.z - VERSION_BOARD.z)).toBeGreaterThan(1);
     }
+  });
+});
+
+// KJC-BUG-0633 (the maintainer, 2026-11-17): "blocks that come and go with no change, they just dance…
+// they must be lasting changes". A lane whose host steps out between turns is finished for a moment.
+describe('foldedNow', () => {
+  const none = new Map();
+
+  it('folds what the stage opens on at once', () => {
+    expect(foldedNow(new Set(['A']), new Set(), null, 0).fold).toEqual(new Set(['A']));
+  });
+
+  it('folds a lane only once it has been finished for a while, so a pause between turns folds nothing', () => {
+    let step = foldedNow(new Set(['A']), new Set(), none, 1000);
+    expect(step.fold).toEqual(new Set());
+    step = foldedNow(new Set(['A']), step.fold, step.since, 1000 + FOLD_AFTER_MS - 1);
+    expect(step.fold).toEqual(new Set());
+    expect(foldedNow(new Set(['A']), step.fold, step.since, 1000 + FOLD_AFTER_MS).fold).toEqual(new Set(['A']));
+  });
+
+  it('starts counting again when the lane works in between, and unfolds one that works at once', () => {
+    const working = foldedNow(new Set(), new Set(), foldedNow(new Set(['A']), new Set(), none, 0).since, 30_000);
+    expect(foldedNow(new Set(['A']), new Set(), working.since, FOLD_AFTER_MS).fold).toEqual(new Set());
+    expect(foldedNow(new Set(), new Set(['A']), new Map([['A', 0]]), 1).fold).toEqual(new Set());
   });
 });

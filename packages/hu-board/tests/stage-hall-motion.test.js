@@ -3,7 +3,19 @@
 // gently into its place".
 import { describe, expect, it } from 'vitest';
 
-import { FADE_MS, SLIDE_MS, opacityAt, slideAt } from '../public/stage/hall-motion.js';
+import { FADE_MS, SLIDE_MS, opacityAt, placeOf, slideAt } from '../public/stage/hall-motion.js';
+
+// KJC-BUG-0633 (the maintainer, 2026-11-17): "the 2nd goes to 1st… and goes back to its place 2nd".
+describe('placeOf', () => {
+  it('puts a new lane last, and one that comes back where it stood, between the ones seen before and after it', () => {
+    const rank = new Map();
+    expect(placeOf([], rank, 'A')).toBe(0);
+    for (const lane of ['B', 'C']) placeOf([], rank, lane);
+    expect(placeOf(['A', 'C'], rank, 'B')).toBe(1);
+    expect(placeOf(['A', 'B', 'C'], rank, 'D')).toBe(3);
+    expect(placeOf(['B', 'C'], rank, 'A')).toBe(0);
+  });
+});
 
 describe('opacityAt', () => {
   it('a workshop that leaves fades out over FADE_MS, and is then gone', () => {

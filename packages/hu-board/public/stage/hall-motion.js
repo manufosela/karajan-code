@@ -7,6 +7,16 @@
 export const FADE_MS = 700;
 export const SLIDE_MS = 900;
 
+/**
+ * KJC-BUG-0633: where in the row (`order`) a workshop goes: a new lane last; one that comes back,
+ * where it stood, after the lanes seen before it. `rank` (lane → when first seen) keeps that order.
+ */
+export function placeOf(order, rank, lane) {
+  if (!rank.has(lane)) rank.set(lane, rank.size);
+  const after = order.findIndex((other) => rank.get(other) > rank.get(lane));
+  return after === -1 ? order.length : after;
+}
+
 const clamp = (k) => Math.max(0, Math.min(1, k));
 const smooth = (k) => k * k * (3 - 2 * k);
 

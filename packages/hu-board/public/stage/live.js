@@ -29,7 +29,7 @@ import { createDrone } from './drone-mesh.js';
 import { laneStatuses, statusLine } from './lane-status.js';
 import { allLetters, lettersOf, mailboxOf, mailTotal, withLetters, withMail } from './mail.js';
 import { goneLanes, staleEnds } from './resync.js';
-import { finishedLanes, stackOf } from './finished-stack.js';
+import { finishedLanes, foldedNow, stackOf } from './finished-stack.js';
 import { createStack } from './stack-mesh.js';
 import { Vector3 } from 'three';
 
@@ -70,12 +70,16 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let statuses = new Map(); // KJC-TSK-1588: each lane's status, for the signs over the desks
   // KJC-TSK-1623: the finished lanes, folded out of the row into the stack by the release table.
   let folded = new Set();
+  let foldSince = null; // KJC-BUG-0633: since when each lane is finished; null while the stage opens
   const stack = createStack(scene);
   let stacked = []; // the blocks the stack shows now
   const showStatuses = () => {
     // KJC-BUG-0581: with the robots the floor has at work, so a sign never denies one that types.
     const all = laneStatuses([...new Set([...hall.names(), ...folded])], state, box, floor.working());
-    const finished = new Set(finishedLanes(all));
+    // KJC-BUG-0633: only once finished for a while, so a host stepping out between turns folds nothing.
+    const held = foldedNow(new Set(finishedLanes(all)), folded, foldSince, performance.now());
+    foldSince = held.since;
+    const finished = held.fold;
     // A lane that finished leaves the row; one that works again comes back to it.
     const moved = [...finished].map((lane) => hall.remove(lane)).concat([...folded].filter((lane) => !finished.has(lane)).map((lane) => hall.ensure(lane)));
     folded = finished;
