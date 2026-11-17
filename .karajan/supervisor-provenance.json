@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.24.0",
-  "generated_at": "2026-11-15T20:48:58.241Z",
+  "kj_version": "5.27.1",
+  "generated_at": "2026-11-17T10:51:13.830Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -13,7 +13,6 @@
   },
   "who": {
     "gh": "manufosela",
-    "git": "1101670+manufosela@users.noreply.github.com",
     "grade": "declarada"
   },
   "files": [
@@ -44,7 +43,7 @@
     },
     {
       "file": ".github/workflows/kj-no-ai-attribution.yml",
-      "sha256": "2da12bf23d5ffbf3689e6bfdfac3a6e5e10c2a51054fb991a319123d1c0e4e4c"
+      "sha256": "4f0e98f51608ed68fb855f8876b4714e1ecd9a07344b517c88bb3bba6884bdea"
     },
     {
       "file": ".github/workflows/kj-pack-smoke.yml",
@@ -52,7 +51,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "57805261fbe5aa55a423d5f51da3f6e4820a94c9234644a898dd2dd5e5f893b2"
+      "sha256": "af831fb65633d0720cb6ded846f7cd33d2356277374c1bed864d45f20672380a"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -60,11 +59,11 @@
     },
     {
       "file": ".github/workflows/kj-secrets.yml",
-      "sha256": "d05767945f533aff4cdcb4efc876f6b900fa398125534607e6b8b38e7ed9eccb"
+      "sha256": "07d795cfc600dbe5f8c3734f1ceba31cebdcc8b1f723c60836dcdf7ae2d9aaa2"
     },
     {
       "file": ".github/workflows/kj-verdicts.yml",
-      "sha256": "9cb30cf88f7eb2a0840bb3bf5e3a274b79db10e6f370443897b71e75272cfa65"
+      "sha256": "e4a6438a989a511534e05dc9c2e30f7bb556f7316c7b3f84737e999871812e72"
     },
     {
       "file": ".github/workflows/nightly.yml",
@@ -184,18 +183,18 @@
     }
   ],
   "signature": {
-    "cid": "b11ee148f0e45f78c62ea4e54b0576fa",
-    "nonce": "ffe14708a806262a34270ab82ce09f81",
+    "cid": "c20091f90b8951cccd57bf57ff50d866",
+    "nonce": "04db0ce6c0a5b3563da412d3acb87b17",
     "project": "manufosela/karajan-code",
-    "filesHash": "03875b7721ad62de3b1ed881d80707810c7f851d5277c3071177436f9dd05996",
+    "filesHash": "3d0ffbb742c4a7da1be555a754dad82f6757fdaa3f1abd6ef7a0f018937c8738",
     "v": 2,
-    "kjVersion": "5.24.0",
-    "issuedMs": 1794775702000,
-    "expiresMs": 1794775852000,
+    "kjVersion": "5.27.1",
+    "issuedMs": 1794912660115,
+    "expiresMs": 1794912810115,
     "type": "webauthn",
     "credentialId": "xWJyPFF0_V2TTKDp65cesw",
     "authenticatorData": "rXNnteqvZsxVFoAzmjFmd-OrJ0TSokRWHcqrVw7x-rQdAAAAAA",
-    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiSnpYenFKa01jcUZGWEkzN2cwZHlmZWFZWDlYQzBvNVFGZDFMRXdMSHB3byIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
-    "signature": "MEUCIQDi_41rEygPCaRk2LoVh9FBBz_lQbmfF5dSmdK8M-IgIwIgAMmMC53_fyKGWJ0Lq4fEdENhm8WrETyVMLpqU2M2LCo"
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiYWFuRXdXai13SEphS0pUUnlNX0xhRElOVkUwam5xRXFIMWtXRTRscUhVVSIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlLCJvdGhlcl9rZXlzX2Nhbl9iZV9hZGRlZF9oZXJlIjoiZG8gbm90IGNvbXBhcmUgY2xpZW50RGF0YUpTT04gYWdhaW5zdCBhIHRlbXBsYXRlLiBTZWUgaHR0cHM6Ly9nb28uZ2wveWFiUGV4In0",
+    "signature": "MEQCIHQNw8sowrQFPXVu0VvyDnJMwKssUrFjgzbUg8sPfyjWAiAHkK9x6-3MQKACGY0_xaZIRVVkY3bylnzAzDoL1tnXdw"
   }
 }

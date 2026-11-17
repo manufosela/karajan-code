@@ -2,6 +2,7 @@
 name: Block AI attribution
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main]
 permissions:
   contents: read
