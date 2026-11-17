@@ -21,7 +21,8 @@ const MIN_TO_JUDGE = 10;
 
 const defaultDeps = (projectDir) => ({
   readFile: (rel) => readFileSync(join(projectDir, rel), "utf8"),
-  gitSubjects: () => execFileSync("git", ["-C", projectDir, "log", `-n${HISTORY}`, "--format=%s"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+  // HU-4533: a merge commit's subject is git's, not the project's convention.
+  gitSubjects: () => execFileSync("git", ["-C", projectDir, "log", "--no-merges", `-n${HISTORY}`, "--format=%s"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
     .split("\n").filter(Boolean),
 });
 
