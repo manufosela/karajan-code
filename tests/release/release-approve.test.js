@@ -10,7 +10,7 @@ const AFTER = Date.parse("2026-11-13T13:00:00Z");
 const BEFORE = Date.parse("2026-11-13T10:00:00Z");
 
 /** The issue holds `acks` and `block`, read at `now`; `later` replaces any of them once the phone has signed. */
-function run({ later = {}, signature = { signer: "k" }, ...initial } = {}) {
+function run({ later = {}, signature = { signer: "k" }, level = "max", ...initial } = {}) {
   const calls = [];
   const issueNow = () => ({ acks: [ack("ana", "ok"), ack("bob", "ok")], block, now: AFTER, ...initial, ...(calls.some(([kind]) => kind === "act") ? later : {}) });
   const gh = async (args) => {
@@ -20,7 +20,7 @@ function run({ later = {}, signature = { signer: "k" }, ...initial } = {}) {
   };
   const git = async (args) => { calls.push(["git", ...args]); return ""; };
   const act = async (files) => { calls.push(["act", files[0].file]); return signature; };
-  return { promise: releaseApproveCommand({ repo: "o/r", issue: 7, clock: () => issueNow().now, gh, git, act, print: () => {} }), calls };
+  return { promise: releaseApproveCommand({ repo: "o/r", issue: 7, clock: () => issueNow().now, gh, git, act, levelOf: () => level, print: () => {} }), calls };
 }
 
 describe("kj release approve", () => {
@@ -34,6 +34,14 @@ describe("kj release approve", () => {
       ["act", "release-approval/o/r@1.0.1"], ["post", expect.stringMatching(/kj-release-approval/)],
       ["git", "tag", "v1.0.1", "abc1234"], ["git", "push", "origin", "v1.0.1"],
     ]);
+  });
+
+  // KJC-TSK-1654 (ADR 0060): at critical no phone signs; the approval says the terminal confirmed it.
+  it("at critical: posts the approval confirmed at the terminal, then tags and pushes", async () => {
+    const { promise, calls } = run({ signature: null, level: "critical" });
+    await expect(promise).resolves.toMatchObject({ tag: "v1.0.1" });
+    expect(calls.map(([kind]) => kind)).toEqual(["act", "post", "git", "git"]);
+    expect(calls[1][1]).toMatch(/confirmed at the maintainer's terminal/);
   });
 
   it.each([

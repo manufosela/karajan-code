@@ -79,3 +79,21 @@ describe("kj release verify", () => {
     expect((await verify(overrides, patch)).reason).toBe(reason);
   });
 });
+
+// KJC-TSK-1654 (ADR 0060): at critical a person with write access confirms the release at the terminal.
+describe("kj release verify at the critical level", () => {
+  const confirmedBy = (login) => ({ login, body: renderApproval({ repo, version: "1.2.0", issue: 9, candidate, signature: null }) });
+  const atCritical = (comments, permission) => {
+    const base = world({ comments: [answer("ana", "ok"), answer("bob", "ok"), ...comments] });
+    const gh = async (args) => (String(args[1]).includes("/collaborators/") ? `${permission}\n` : base.gh(args));
+    return releaseVerifyCommand({ ...base, gh, keys: new Set(), level: "critical" });
+  };
+
+  it("passes with an approval confirmed by someone with write access, with no roster at all", async () => {
+    expect(await atCritical([confirmedBy("maintainer")], "write")).toEqual({ ok: true, version: "1.2.0", issue: 9, signer: "maintainer" });
+  });
+  it("fails when its author cannot write, and at max a confirmed approval never counts", async () => {
+    expect((await atCritical([confirmedBy("maintainer")], "read")).reason).toMatch(/confirmed by someone with write access/);
+    expect((await verify({ comments: [answer("ana", "ok"), answer("bob", "ok"), confirmedBy("maintainer")] })).ok).toBe(false);
+  });
+});
