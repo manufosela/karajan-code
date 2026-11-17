@@ -23,6 +23,7 @@ import { installGuidelines } from "../harden/guidelines-engine.js";
 import { commitConventionOf } from "../gates/summary.js";
 import { detectRulesync, maybeRulesyncGenerate } from "../utils/rulesync.js";
 import { installGeminiContext } from "../harden/gemini-context.js";
+import { agentGuide } from "../harden/agent-guide.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { makefileCommands } from "../harden/makefile-targets.js";
 import { HOOK_STEPS, pinnedCommands } from "../harden/pinned-commands.js";
@@ -297,7 +298,8 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
   const commitConvention = withGuidelines ? commitConventionOf({ config: kjConfig, projectDir }) : undefined;
   const gl = withGuidelines ? installGuidelines({ projectDir, language, dryRun, commitConvention }) : null;
   // KJC-TSK-1504: with the guidelines, Gemini CLI is told to read AGENTS.md (skipped without them).
-  gl?.guidelines.push(...geminiContext(projectDir, dryRun));
+  // HU-4574: and the guide to working with Karajan lands as a project skill (Rulesync owns those).
+  gl?.guidelines.push(...geminiContext(projectDir, dryRun), ...(detectRulesync(projectDir) ? [] : agentGuide(projectDir, dryRun)));
   // KJC-TSK-0879: in a Rulesync repo, spread the rules only if the project opted in.
   if (withGuidelines && !dryRun) {
     maybeRulesyncGenerate({ projectDir, config: kjConfig, logger });
