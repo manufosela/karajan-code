@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.26.1: el índice de la RAG en segundo plano (actual)
+### v5.27.0: el móvil firma solo lo que cambia quién gobierna (actual)
+
+El nuevo nivel de seguridad por defecto, `critical`, reserva el móvil para lo que cambia quién gobierna: enrolar un móvil, bajar el nivel, aflojar un gate y la excepción de main-guard. El sello, las reglas, los hooks y la release se confirman en tu terminal; un sello de lo que genera kj, incluida la subida de versión de kj en los workflows de una release, se renueva solo, y publicar pide una sola aprobación. `kj security max` es el modo paranoico que lo firma todo como antes. El agente ya no se para con cards de la sesión pendientes (ADR 0059). Arreglado: el contrato que escribe `kj harden` en un paquete anidado pasa todos los gates, y el sandbox de Claude Code ya no deja el carril del agente de solo lectura.
+
+### v5.26.1: el índice de la RAG en segundo plano
 
 `kj_rag_index` lanza el índice en segundo plano y responde al momento; si se vuelve a llamar, dice cuántos ficheros lleva de cuántos, así que un repo grande ya no supera el timeout de herramienta del anfitrión. El sello commitea los ficheros del harness que borra su propia ejecución, y una propuesta de release retirada ya no para una release. Es la publicación en npm de la 5.26.0, que se paró antes de npm cuando el test del camino de actualización tomó por fallo una release sin nada que resellar. kj stage: el mensajero se teletransporta desde la cabina, el anfitrión de un carril recoge su propia card y el Sentinel va al taller que ha parado.
 

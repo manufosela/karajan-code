@@ -1993,6 +1993,10 @@ Un equipo que usa kj sobre una rama de épica pidió que el carril de cada issue
 
 La 5.26.0 nunca llegó a npm. Su candidato no cambiaba ningún fichero sellado, así que volver a preparar un repo de la 5.25.0 no dejaba nada que resellar, y el test del camino de actualización, escrito para releases que siempre resellan, lo tomó por un fallo y paró la publicación. Su GitHub Release y sus binarios ya habían salido, así que el mantenedor eligió dejarlos y publicar la 5.26.1 antes que reescribir una etiqueta pública. Mientras tanto, un agente en un repo grande había visto `kj_rag_index` superar su timeout de herramienta sin decir nada del progreso; el mantenedor eligió ejecutarlo en segundo plano, y ahora la herramienta responde al momento y, llamada otra vez, dice cuántos ficheros lleva de cuántos. El mantenedor pidió también un gate contra los agentes que se paran con trabajo en el board, y aceptó el ADR 0059: el turno no termina mientras el board tenga trabajo que el agente pueda hacer.
 
+## Phase 183: v5.27.0, el móvil firma solo lo que cambia quién gobierna
+
+El mantenedor vio que las firmas se habían ido de las manos: cada release de kj pedía un sello firmado nuevo en cada repo, y una release se firmaba en el móvil y luego se volvía a aprobar en GitHub. Pidió que por defecto el móvil firmara solo lo crítico, con un modo paranoico que lo firme todo, y aceptó el ADR 0060. El nuevo nivel por defecto, `critical`, firma en el móvil lo que cambia quién gobierna; un sello de lo que genera kj se verifica recomputándolo, incluida la subida de versión de kj en los workflows de una release, y se renueva solo; publicar mantiene una aprobación humana. Esa misma noche el test de punta a punta del gobierno incorporó los casos a los que habían llegado antes los informes de campo: un paquete anidado cuyo contrato no dejaba pasar ningún gate, y un carril que el sandbox dejaba de solo lectura.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

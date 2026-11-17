@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.27.0] - 2026-11-17
+
+Signing stops getting in the way. By default the phone signs only what changes who governs (ADR 0060); a seal of what kj generates renews itself and a release asks one approval. The agent no longer stops with the session's cards waiting (ADR 0059). After updating, run `kj harden` in each repo and seal it once with `kj harden --commit`: its CI still runs the previous kj, so this first re-seal is signed.
+
 ### Changed
 - **The phone signs only what changes who governs** (ADR 0060). The new default security level, `critical`, keeps the phone for enrolling a phone, lowering the level, loosening a gate and the main-guard exception. The seal, `kj rules approve`, `kj hooks set` and `kj release approve` are confirmed at your terminal; a seal of what kj generates, a release's workflow pin bump included, renews itself in `kj harden`, and publishing asks one approval ("Review deployments"). `kj security max` is the paranoid mode that signs every act as before, and a repo whose record already says `max` keeps it. Each repo's first re-seal onto this version is still signed once, because its CI runs the previous kj (#4493, #4500, #4502, #4505, #4507, #4510, #4509).
 

@@ -1994,6 +1994,10 @@ A team running kj on an epic branch asked for each issue's lane to come from tha
 
 5.26.0 never reached npm. Its candidate changed no sealed file, so re-hardening a 5.25.0 repo left nothing to re-seal, and the upgrade-path test, written for releases that always re-seal, read that as a failure and stopped the publish. Its GitHub Release and binaries had already gone out, so the maintainer chose to leave them and publish 5.26.1 rather than rewrite a public tag. Meanwhile an agent on a large repo had found `kj_rag_index` running past its tool timeout with no word of progress; the maintainer chose to run it in the background, and the tool now answers at once and reports files done out of total when called again. The maintainer also asked for a gate against agents that stop with work left on the board, and accepted ADR 0059: the turn does not end while the board holds work the agent can do.
 
+## Phase 183: v5.27.0, the phone signs only what changes who governs
+
+The maintainer found signing had got out of hand: every kj release asked for a new signed seal in every repo, and a release was signed on the phone and then approved again in GitHub. They asked for the phone to sign only what is critical by default, with a paranoid mode that signs everything, and accepted ADR 0060. The new default level, `critical`, signs on the phone what changes who governs; a seal of what kj generates verifies by recomputation, a release's workflow pin bump included, and renews itself; publishing keeps one human approval. The same night the governance end-to-end test grew the cases that field reports had reached first: a nested package whose contract no gate let through, and a lane the sandbox left read-only.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
