@@ -19,7 +19,7 @@ describe("kj release status", () => {
   it("prints who confirmed, who is silent and what it waits for", async () => {
     const { result, lines } = await run(7, Date.parse("2026-11-13T10:00:00Z"));
     expect(result.ready).toBe(false);
-    expect(lines).toEqual(["@ana: confirmed", "@bob: silent", "Not ready: waiting for @bob until 2026-11-13T12:00:00.000Z."]);
+    expect(lines).toEqual(["@ana: confirmed", "@bob: silent", "Not ready: waiting for @bob until 2026-11-13T12:00:00.000Z, or for the maintainer's kj release approve to close the wait."]);
   });
   it("is ready once the deadline passed", async () => {
     const { result, lines } = await run(7, Date.parse("2026-11-13T13:00:00Z"));

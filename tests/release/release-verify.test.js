@@ -42,6 +42,11 @@ describe("kj release verify", () => {
     expect(await verify()).toEqual({ ok: true, version: "1.2.0", issue: 9, signer });
   });
 
+  // KJC-TSK-1658: the maintainer's approval closes the wait early; a hold still blocks.
+  it("passes with silence before the deadline when the approval closed the wait", async () => {
+    expect(await verify({ comments: [answer("ana", "ok"), approvalComment()] }, { now: deadline - 1000 })).toEqual({ ok: true, version: "1.2.0", issue: 9, signer });
+  });
+
   it("skips a withdrawn proposal: an issue closed as not planned", async () => {
     const issues = [{ number: 7, title: "Release 1.2.0", withdrawn: true }, { number: 9, title: "Release 1.2.0" }];
     expect(await verify({ issues })).toEqual({ ok: true, version: "1.2.0", issue: 9, signer });
@@ -62,7 +67,7 @@ describe("kj release verify", () => {
     ["the tag on another commit", { commit: "fff0000aaa" }, {}, /fff0000/],
     ["a hold", { comments: [answer("ana", "ok"), answer("bob", "hold"), approvalComment()] }, {}, /hold by @bob/],
     ["a hold after the approval", { comments: [answer("ana", "ok"), answer("bob", "ok"), approvalComment(), answer("bob", "hold")] }, {}, /hold by @bob/],
-    ["silence before the deadline", { comments: [answer("ana", "ok"), approvalComment()] }, { now: deadline - 1000 }, /@bob/],
+    ["silence before the deadline and no approval", { comments: [answer("ana", "ok")] }, { now: deadline - 1000 }, /no signed approval/],
     ["no approval", { comments: [answer("ana", "ok"), answer("bob", "ok")] }, {}, /no signed approval/],
     ["a key out of the roster", {}, { keys: new Set([other]) }, /approval of 1\.2\.0/],
     ["an empty roster", {}, { keys: new Set() }, /roster has no signers/],
@@ -75,7 +80,6 @@ describe("kj release verify", () => {
   it.each([
     ["every duplicate issue", { issues: [{ number: 9, title: "Release 1.2.0" }, { number: 12, title: "Release 1.2.0" }] }, {}, "several release issues for 1.2.0: #9, #12 (close the withdrawn ones as not planned)"],
     ["every holder", { comments: [answer("ana", "hold"), answer("bob", "hold"), approvalComment()] }, {}, "on hold by @ana, @bob"],
-    ["every silent participant", { comments: [approvalComment()] }, { now: deadline - 1000 }, "not everyone answered: @ana, @bob until 2026-11-13T12:00:00.000Z"],
   ])("names %s in the reason", async (_name, overrides, patch, reason) => {
     expect((await verify(overrides, patch)).reason).toBe(reason);
   });

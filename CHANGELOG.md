@@ -13,6 +13,7 @@ Signing stops getting in the way. By default the phone signs only what changes w
 
 ### Changed
 - **The phone signs only what changes who governs** (ADR 0060). The new default security level, `critical`, keeps the phone for enrolling a phone, lowering the level, loosening a gate and the main-guard exception. The seal, `kj rules approve`, `kj hooks set` and `kj release approve` are confirmed at your terminal; a seal of what kj generates, a release's workflow pin bump included, renews itself in `kj harden`, and publishing asks one approval ("Review deployments"). `kj security max` is the paranoid mode that signs every act as before, and a repo whose record already says `max` keeps it. Each repo's first re-seal onto this version is still signed once, because its CI runs the previous kj (#4493, #4500, #4502, #4505, #4507, #4510, #4509).
+- **A release no longer waits 4 hours**: the maintainer's `kj release approve` before the deadline closes the wait, and the approval on the issue names who had not answered; a hold still blocks it (#4515).
 
 ### Added
 - **kj in the Claude Code sandbox**: on macOS the browser reaches a dev server the agent starts (`allowLocalBinding`); the Sentinel guide says how to run one on Linux, where the sandbox's localhost is private (#4499).
