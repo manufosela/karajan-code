@@ -25,6 +25,7 @@ import { reportUnparseableVerdict } from "./unparseable-verdict.js";
 import { detectWorkspace } from "./workspace.js";
 import { branchOf } from "./correction-rounds.js";
 import { isQuotaExhausted, candidateStatus, pickQuotaFallback, formatCandidateMenu, reviewerFailureMessage } from "./reviewer-fallback.js";
+import { recordRoleActing } from "./active-panel.js";
 
 // Cross-AI preference when the configured reviewer IS the host.
 const CROSS_ORDER = ["codex", "claude", "gemini", "opencode", "aider"];
@@ -100,6 +101,8 @@ export async function runOneShotReview({
   skills = null,
   // HU-4032: what the reviewer reads when it is less than the diff; the verdict still binds to the whole diff.
   shown = null,
+  // HU-4524: which agent acted as reviewer, for kj stage.
+  recordActive = recordRoleActing,
 }) {
   if (!diff || !diff.trim()) {
     throw new Error("nothing to review — the diff is empty (stage your changes or pass --range)");
@@ -136,6 +139,8 @@ export async function runOneShotReview({
   if (!result?.ok) {
     throw new Error(reviewerFailureMessage(activeReviewer, result?.error, { account: accountLabel(activeReviewer, { env }) }));
   }
+  // A third-party review stores nothing, the panel included.
+  if (persist) recordActive({ role: "reviewer", declared: reviewer, acting: activeReviewer });
 
   // KJC-BUG-0146, second half: parseMaybeJsonString only PARSES — it returns whatever JSON came
   // back, wrapper and all. Yesterday's fix taught normalizeReviewPayload to unwrap {ok, result},
