@@ -49,13 +49,14 @@ export function upsertProject(project) {
   // `.karajan-shared/`. COALESCE with the existing column keeps the badge
   // once it's been promoted — a second non-shared plan won't unset it.
   const stmt = getDb().prepare(`
-    INSERT INTO projects (id, name, first_seen, last_activity, total_stories, is_shared)
-    VALUES (@id, @name, @first_seen, @last_activity, @total_stories, @is_shared)
+    INSERT INTO projects (id, name, first_seen, last_activity, total_stories, is_shared, project_dir)
+    VALUES (@id, @name, @first_seen, @last_activity, @total_stories, @is_shared, @project_dir)
     ON CONFLICT(id) DO UPDATE SET
       name = COALESCE(@name, name),
       last_activity = COALESCE(@last_activity, last_activity),
       total_stories = COALESCE(@total_stories, total_stories),
-      is_shared = COALESCE(@is_shared, is_shared)
+      is_shared = COALESCE(@is_shared, is_shared),
+      project_dir = COALESCE(@project_dir, project_dir)
   `);
   stmt.run({
     id: project.id,
@@ -64,6 +65,7 @@ export function upsertProject(project) {
     last_activity: project.last_activity || new Date().toISOString(),
     total_stories: project.total_stories || 0,
     is_shared: project.is_shared ?? null,
+    project_dir: project.project_dir ?? null,
   });
 }
 

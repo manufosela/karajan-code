@@ -247,6 +247,8 @@ export function initDb() {
   // from `<projectDir>/.karajan-shared/plans/`. Surfaced as a 🔗 badge on the
   // board so the user can tell at a glance which projects are team-tracked.
   try { db.exec('ALTER TABLE projects ADD COLUMN is_shared INTEGER'); } catch { /* already migrated */ }
+  // project_dir (ADR 0062): where the project's plans say it lives; the list hides it while it is gone.
+  try { db.exec('ALTER TABLE projects ADD COLUMN project_dir TEXT'); } catch { /* already migrated */ }
 
   return db;
 }
