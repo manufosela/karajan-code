@@ -68,7 +68,9 @@ export function basePinOf(run, baseBranch = "main") {
  * @param {{hashed: object[], previous: object|null, isGovernance: (file: string) => boolean, run: Function, baseBranch?: string}} opts
  */
 export function sealGoverns({ hashed, previous, isGovernance, run, baseBranch = "main", readNow = () => null }) {
-  if (hashed.some((e) => e.deleted === true)) return "the seal records a deletion";
+  // HU-4573: a gone guard stays recorded as deleted in every later seal; only a NEW deletion governs.
+  const wasDeleted = new Set((previous?.files ?? []).filter((e) => e?.deleted === true).map((e) => e.file));
+  if (hashed.some((e) => e.deleted === true && !wasDeleted.has(e.file))) return "the seal records a deletion";
   const before = new Map((previous?.files ?? []).map((e) => [e?.file, e?.sha256]));
   // Step 2c: a workflow whose only change from the base is the kj it pins, moved up, governs nothing new.
   const pinBump = (file) => file.startsWith(".github/workflows/") && pinOnlyUpgrade(show(run, `${baseBranch}:${file}`), readNow(file));

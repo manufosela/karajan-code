@@ -28,6 +28,12 @@ describe("sealGoverns", () => {
     // HU-4527: 5.27.0 could not back the machine-local host settings of an unsigned seal.
     expect(sealGoverns({ hashed: [hook], previous: { files: [hook] }, isGovernance, run: runWith("5.27.0") })).toMatch(/kj 5\.27\.0, which reads no unsigned seal/);
   });
+  // HU-4573: a gone guard stays recorded as deleted in every later seal; only a NEW deletion governs.
+  it("a deletion the previous seal already recorded is not new; a new one still needs a person", () => {
+    const gone = { file: ".karajan/harness/stop.mjs", deleted: true };
+    expect(sealGoverns({ hashed: [hook, gone], previous: { files: [hook, gone] }, isGovernance, run: runWith("5.27.1") })).toBeNull();
+    expect(sealGoverns({ hashed: [hook, gone], previous: { files: [hook, { file: gone.file, sha256: "s1" }] }, isGovernance, run: runWith("5.27.1") })).toMatch(/deletion/);
+  });
   it("a workflow that only moves its kj pin up governs nothing new; any other change to it does", () => {
     const file = ".github/workflows/kj-verdicts.yml";
     const wf = { file, sha256: "w1" };
