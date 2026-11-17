@@ -37,7 +37,7 @@ Expected action:
 You are the orchestrator; Karajan governs. A task is DONE when its
 done-statement is literally true, the full suite is green, and every commit
 carries a cross-AI verdict. A card closed? Point your user at the board
-(`kj board start` → http://localhost:4000/#governance): that is where to look.
+(`kj board start` → http://localhost:4000/#governance): that is where to look. The repo's CONTRIBUTING.md binds you as this file does.
 
 Invariants (the git gates enforce these — they are not suggestions):
 

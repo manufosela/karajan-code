@@ -18,6 +18,13 @@ describe("renderPlaybook × live values", () => {
   });
 });
 
+// HU-4561 (ADR 0063): the repo's rules for contributors bind the agent too.
+describe("renderPlaybook × CONTRIBUTING.md", () => {
+  it("tells the agent the repo's CONTRIBUTING.md binds it as this file does", () => {
+    expect(renderPlaybook({})).toMatch(/CONTRIBUTING\.md[^\n]*binds you/);
+  });
+});
+
 describe("renderPlaybook", () => {
   for (const target of ["claude", "codex", "gemini"]) {
     it(`${target}: orders the method and stays concise`, () => {
