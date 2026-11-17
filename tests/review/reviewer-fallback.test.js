@@ -235,9 +235,13 @@ describe("runOneShotReview quota failover", () => {
       { name: "codex", installed: true, authenticated: true },
       { name: "copilot", installed: true, authenticated: true },
     ];
+    // HU-4524: the substitution is recorded for the stage.
+    const acted = [];
+    args.recordActive = (entry) => acted.push(entry);
     const record = await runOneShotReview(args);
     expect(record.verdict).toBe("approved");
     expect(record.reviewer).toBe("copilot");
+    expect(acted).toEqual([{ role: "reviewer", declared: "codex", acting: "copilot" }]);
     expect(warns.join(" ")).toMatch(/sin cuota|quota/i);
     // HU-4525: the substitution is temporary: the next review tries codex again, nothing is pinned.
     expect(warns.join(" ")).toMatch(/next review tries codex again/);
