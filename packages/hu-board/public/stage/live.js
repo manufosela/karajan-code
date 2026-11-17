@@ -9,6 +9,7 @@ import { RAGAN_ACCENT } from './crew.js';
 import { createCouriers } from './couriers.js';
 import { tripFor } from './courier.js';
 import { createPlumbersFloor } from './plumbers-floor.js';
+import { createCoffeeFloor } from './coffee-floor.js';
 import { createBenchNotes } from './bench-notes.js';
 import { atHome, freshCards } from './cards.js';
 import { closedCards, deskSigns } from './desk-signs.js';
@@ -97,6 +98,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin, avatar, doorOf: () => boothAt(hall.count()) }, working, performance.now());
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
   const plumbers = createPlumbersFloor(scene); // KJC-TSK-1642: the ones that fix a failed pipeline
+  const coffee = createCoffeeFloor(scene); // KJC-TSK-1663: the cart that serves a waiting host
   const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
   let flight = null; // KJC-TSK-1547: the release the drone is taking away, if one is
   const drone = createDrone(scene);
@@ -317,6 +319,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       hall.frameBelts(now); // KJC-TSK-1639
       hall.frame(now); // KJC-BUG-0623: workshops fade in and out, and slide to their places
       plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642
+      coffee.update(floor.hosts(), now); // KJC-TSK-1663: a cup for a host that waits, taken back when it works
+      coffee.frame(now, boothAt(hall.count()));
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, new Set([...couriers.carried(), ...floor.carried(now)]), hall.zOf);
       tags.push(...showSigns());
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);

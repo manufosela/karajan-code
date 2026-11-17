@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **`kj harden` leaves a CLAUDE.md that only imports AGENTS.md**: it removed that bridge and appended `@AGENTS.md` to AGENTS.md, which then imported itself. A bridge holds no copy that could drift, so it stays; an import of AGENTS.md is never moved into it (#4532).
+- **A repo that merges with merge commits keeps its Conventional Commits**: the convention read from git history counted the "Merge pull request" subjects, so such a repo was judged free and `kj harden` wrote "the commit style of the project's history" into AGENTS.md; merges are left out now (#4533).
 - **A seal renewed by itself at `critical` passes `kj policy check`**: the verifier compared the machine-local host settings (`.claude/settings.local.json`), which never reach git, with the base's tree, so the seal was never complete. They are judged against the base's seal now, and a base whose CI still runs 5.27.0 keeps getting a person's signed seal (#4527).
 - **`kj harden --commit` no longer writes the sealer's git email into the committed provenance**, which kj's own privacy gate then refused on the seal commit: the provenance names the GitHub user (#4487).
 

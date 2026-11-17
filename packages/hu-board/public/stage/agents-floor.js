@@ -17,7 +17,7 @@ import { teleportLook } from './teleport.js';
 import { waitLook } from './wait-look.js';
 import { showWaitMark } from './wait-mark.js';
 import { avoidance } from './avoid.js';
-import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, withErrand, workerAt, workersFrom } from './workers.js';
+import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, spotOf, typingAt, visitKey, withActivity, withErrand, workerAt, workersFrom } from './workers.js';
 import { cardNote } from './couriers.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
@@ -216,6 +216,9 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   };
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
+    /** KJC-TSK-1663: every host at work, whether it waits, and its seat, for the coffee cart. */
+    hosts: () => workers.filter((w) => w.role === 'host' && w.leftAt === undefined)
+      .map((w) => ({ key: visitKey(w), waiting: w.waiting ?? null, spot: spotOf('host', xOf(w.lane), w.slot, zOf(w.lane)) })),
     /** KJC-TSK-1660: the other groups' robots, which the agents step aside from on the next frame. */
     avoid(others) { obstacles = others; },
     /** KJC-TSK-1660: where the agents stood on the last frame, for the other groups to step aside. */
