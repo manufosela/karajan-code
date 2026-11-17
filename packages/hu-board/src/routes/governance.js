@@ -87,6 +87,27 @@ router.get("/", async (req, res) => {
   res.json({ ok: true, dir, policy: policySummary(dir), report, anchor: anchorState(dir, report.chain?.length ?? 0), identity: identityState(dir), lanes: await laneWarnings(dir), gates: await gatesState(dir) });
 });
 
+/**
+ * HU-4539: the panel kj resolves for the project (coder, reviewer, solomon) and the substitutions
+ * in force, for kj stage. kj decides it, the board only relays `kj config --json`.
+ */
+router.get("/panel", async (req, res) => {
+  const dir = resolve((typeof req.query.dir === "string" && req.query.dir.trim()) || nearestProject(process.env.KJ_PROJECT_DIR || process.cwd()));
+  if (!existsSync(join(dir, ".karajan")) || !statSync(join(dir, ".karajan")).isDirectory()) {
+    return res.json({ ok: false, error: "not a karajan project: no .karajan/ directory", dir });
+  }
+  try {
+    const r = await runCommand("kj", ["config", "--json"], { cwd: dir });
+    const out = String(r.stdout || "");
+    const start = out.indexOf("{");
+    if (r.exitCode !== 0 || start === -1) return res.json({ ok: false, dir, error: `kj config --json failed (exit ${r.exitCode})` });
+    const { panel } = JSON.parse(out.slice(start));
+    return res.json(panel ? { ok: true, dir, panel } : { ok: false, dir, error: "the kj in this project gives no panel yet: update kj" });
+  } catch (err) {
+    return res.json({ ok: false, dir, error: String(err.message || err) });
+  }
+});
+
 /** KJC-TSK-1393 (ADR 0045): the rules as `kj gates --json` resolves them (pretty-printed JSON after any log line). */
 async function gatesState(dir) {
   try {

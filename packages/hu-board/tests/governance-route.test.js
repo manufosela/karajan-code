@@ -27,6 +27,31 @@ beforeEach(() => {
   app.use("/api/governance", governanceRoutes);
 });
 
+// HU-4539: the panel kj resolves for the project, for kj stage.
+describe("GET /api/governance/panel", () => {
+  const panel = { coder: "claude", reviewer: "codex", solomon: "agy", substitutions: { reviewer: { declared: "codex", acting: "agy", reason: "quota", since: "2026-11-17T06:00:00.000Z" } } };
+
+  it("serves the panel kj config --json resolves in the project", async () => {
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: `${JSON.stringify({ path: "x", exists: true, config: {}, panel }, null, 2)}\n`, stderr: "" });
+    const res = await request(app).get("/api/governance/panel").query({ dir });
+    expect(res.body).toEqual({ ok: true, dir, panel });
+    expect(runCommand).toHaveBeenCalledWith("kj", ["config", "--json"], { cwd: dir });
+  });
+
+  it("says so when the kj there does not give the panel yet", async () => {
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: `${JSON.stringify({ path: "x", exists: true, config: {} })}\n`, stderr: "" });
+    const res = await request(app).get("/api/governance/panel").query({ dir });
+    expect(res.body).toMatchObject({ ok: false, error: expect.stringMatching(/no panel/) });
+  });
+
+  it("does not ask kj for a directory that is not a karajan project", async () => {
+    const plain = fs.mkdtempSync(path.join(os.tmpdir(), "hu-board-plain-"));
+    const res = await request(app).get("/api/governance/panel").query({ dir: plain });
+    expect(res.body).toMatchObject({ ok: false, error: expect.stringMatching(/not a karajan project/) });
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/governance/grant and /anchor (GUI-C)", () => {
   const identity = () => write(".karajan/identity.local.yml", "gh_user: manufosela\ngit_email: m@example.invalid\n");
 

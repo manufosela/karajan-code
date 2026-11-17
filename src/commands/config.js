@@ -4,6 +4,7 @@ import yaml from "js-yaml";
 import { loadConfig, validateConfig, getConfigPath, writeConfig } from "../config.js";
 import { ensureDir } from "../utils/fs.js";
 import { formatModelProfile } from "../utils/model-selector.js";
+import { activePanel } from "../review/active-panel.js";
 import path from "node:path";
 
 function resolveEditor() {
@@ -65,7 +66,8 @@ export async function configCommand({ json = false, edit = false }) {
 
   const { config, path: cfgPath, exists } = await loadConfig();
   if (json) {
-    console.log(JSON.stringify({ path: cfgPath, exists, config }, null, 2));
+    // HU-4539: the active panel, for the board and kj stage.
+    console.log(JSON.stringify({ path: cfgPath, exists, config, panel: activePanel(config) }, null, 2));
     return;
   }
 

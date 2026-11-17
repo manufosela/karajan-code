@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **The HU Board serves each project's active panel for kj stage**: `kj config --json` gives `panel` (coder, reviewer and solomon as kj resolves them, and the substitutions in force), and the board relays it at `/api/governance/panel` (#4539).
 - **kj records which agent acts as reviewer when it is not the panel's**: a substitution for lack of quota is kept in the kj home (`active-panel.json`: who replaces whom, why and since when) for kj stage to show, and cleared as soon as the panel's own reviewer reviews again (#4524).
 - **A role pinned off the declared panel is said**: when `roles.coder.provider` or `roles.reviewer.provider` pins another agent than `coder:` / `reviewer:`, `kj doctor` warns and every `kj review` says it, with the exact change to go back, so a pin made for lack of quota does not stay once the agent has quota again (#4536).
 
