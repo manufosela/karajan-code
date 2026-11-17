@@ -214,7 +214,8 @@ export async function commitSupervisorRegeneration({
     kj_version: kjVersion,
     generated_at: new Date().toISOString(),
     generation,
-    who: who ? { gh: who.gh_user ?? null, git: who.git_email ?? null, grade: "declarada" } : null,
+    // HU-4526 (#4487): the provenance is committed; kj's privacy gate refuses an email in it.
+    who: who ? { gh: who.gh_user ?? null, grade: "declarada" } : null,
     files: hashed,
     ...(signatureBlock ? { signature: signatureBlock } : {}),
   };
