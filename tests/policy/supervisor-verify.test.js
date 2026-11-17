@@ -460,6 +460,30 @@ describe("an unsigned seal at the critical level", () => {
     expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(wfFile)).toBe(false); // no base, no comparison
   });
 
+  // HU-4527: the machine-local host settings never reach git; the base's seal says what they were.
+  it("backs the machine-local host settings the base's seal recorded with the same hash, and cannot judge them absent", () => {
+    const local = ".claude/settings.local.json";
+    const git = (...args) => execFileSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", ...args], { encoding: "utf8" });
+    const sealOf = (text) => JSON.stringify({ kj_version: "9.9.9", generation, files: [{ file: local, sha256: sha(text), local: true }] });
+    setSignedLevel(repo, "critical");
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(join(repo, ".gitignore"), `${local}\n`);
+    writeFileSync(join(repo, PROVENANCE_FILE), sealOf('{"hooks":{}}'));
+    git("init", "-q");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    const judge = (text) => {
+      writeFileSync(join(repo, local), text);
+      writeFileSync(join(repo, PROVENANCE_FILE), sealOf(text));
+      return verifiedSupervisorFiles({ projectDir: repo, base: "HEAD" });
+    };
+    expect(judge('{"hooks":{}}').complete).toBe(true);
+    expect(judge('{"hooks":{"x":1}}').files.has(local)).toBe(false);
+    rmSync(join(repo, local));
+    writeFileSync(join(repo, PROVENANCE_FILE), sealOf('{"hooks":{}}'));
+    expect([...verifiedSupervisorFiles({ projectDir: repo, base: "HEAD" }).unjudgeable]).toEqual([local]);
+  });
+
   it("never backs a deletion: it recomputes nothing", () => {
     setSignedLevel(repo, "critical");
     writeFileSync(join(repo, PROVENANCE_FILE), JSON.stringify({ kj_version: "9.9.9", generation, files: [{ file: ".karajan/hooks/pre-commit", deleted: true }] }));

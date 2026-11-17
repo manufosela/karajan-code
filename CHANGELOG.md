@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A seal renewed by itself at `critical` passes `kj policy check`**: the verifier compared the machine-local host settings (`.claude/settings.local.json`), which never reach git, with the base's tree, so the seal was never complete. They are judged against the base's seal now, and a base whose CI still runs 5.27.0 keeps getting a person's signed seal (#4527).
+
 ## [5.27.0] - 2026-11-17
 
 Signing stops getting in the way. By default the phone signs only what changes who governs (ADR 0060); a seal of what kj generates renews itself and a release asks one approval. The agent no longer stops with the session's cards waiting (ADR 0059). After updating, run `kj harden` in each repo and seal it once with `kj harden --commit`: its CI still runs the previous kj, so this first re-seal is signed.
