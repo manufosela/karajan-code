@@ -44,6 +44,7 @@ import { getOrphanChecks } from "../checks/orphans.js";
 import { getMethodChecks } from "../checks/method.js";
 import { getTaskManagerChecks } from "../checks/task-manager.js";
 import { getAgentRulesChecks } from "../checks/agent-rules.js";
+import { getPanelPinChecks } from "../checks/panel-pin.js";
 import { transversalWiringReport } from "../harden/transversal-install.js";
 
 /**
@@ -78,6 +79,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getPhoneChecks(),
     ...getPortChecks(),
     ...getTokenChecks(config),
+    ...getPanelPinChecks(config),
     ...getAgentTokenChecks({ projectDir }),
     ...getMcpHealthChecks(),
     ...getSkillsChecks(),

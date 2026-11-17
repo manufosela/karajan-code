@@ -17,6 +17,7 @@ import { publishPrReview } from "../review/publish-pr.js";
 import { verifyPrReview } from "../review/verify-pr.js";
 import { thirdPartyReviewCommand } from "../review/third-party-review.js";
 import { panelOverrideNotice } from "../review/reviewer-fallback.js";
+import { pinnedRoleNotice } from "../checks/panel-pin.js";
 
 /**
  * Register the "core pipeline" commands: everything the user runs day-to-day
@@ -161,6 +162,9 @@ export function registerPipeline(program, { pkgVersion }) {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger, fileConfig }) => {
         const override = flags.thirdParty ? null : panelOverrideNotice({ fileConfig, flags });
         if (override) logger.warn(override);
+        // HU-4536: a role pinned off the panel in the config is said on every review.
+        const pinned = pinnedRoleNotice(fileConfig);
+        if (pinned) logger.warn(pinned);
         if ((flags.verifier || flags.verifierModel || flags.reviewers || flags.reviewerModels || flags.lessons) && !flags.thirdParty) {
           logger.error("--verifier, --verifier-model, --reviewers, --reviewer-models and --lessons work with --third-party only");
           process.exitCode = 1;
