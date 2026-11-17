@@ -17,21 +17,23 @@ const runWith = (pin, source = null) => (args) => {
 describe("sealGoverns", () => {
   it("is null for a seal of what kj generates, judged by a CI that reads unsigned seals", () => {
     const previous = { files: [{ ...hook, sha256: "a0" }, policy] };
-    expect(sealGoverns({ hashed: [hook, policy], previous, isGovernance, run: runWith("5.27.0") })).toBeNull();
+    expect(sealGoverns({ hashed: [hook, policy], previous, isGovernance, run: runWith("5.27.1") })).toBeNull();
     expect(sealGoverns({ hashed: [hook, policy], previous, isGovernance, run: runWith(null) })).toBeNull();
   });
   it("names the governance config it changes, a deletion, or a base CI too old to read it", () => {
     const previous = { files: [hook, { ...policy, sha256: "p0" }] };
-    expect(sealGoverns({ hashed: [hook, policy], previous, isGovernance, run: runWith("5.27.0") })).toMatch(/governance config \(\.karajan\/policy\.yml\)/);
-    expect(sealGoverns({ hashed: [{ file: hook.file, deleted: true }], previous: null, isGovernance, run: runWith("5.27.0") })).toMatch(/deletion/);
+    expect(sealGoverns({ hashed: [hook, policy], previous, isGovernance, run: runWith("5.27.1") })).toMatch(/governance config \(\.karajan\/policy\.yml\)/);
+    expect(sealGoverns({ hashed: [{ file: hook.file, deleted: true }], previous: null, isGovernance, run: runWith("5.27.1") })).toMatch(/deletion/);
     expect(sealGoverns({ hashed: [hook], previous: { files: [hook] }, isGovernance, run: runWith("5.26.1") })).toMatch(/kj 5\.26\.1, which reads no unsigned seal/);
+    // HU-4527: 5.27.0 could not back the machine-local host settings of an unsigned seal.
+    expect(sealGoverns({ hashed: [hook], previous: { files: [hook] }, isGovernance, run: runWith("5.27.0") })).toMatch(/kj 5\.27\.0, which reads no unsigned seal/);
   });
   it("a workflow that only moves its kj pin up governs nothing new; any other change to it does", () => {
     const file = ".github/workflows/kj-verdicts.yml";
     const wf = { file, sha256: "w1" };
     const previous = { files: [{ ...wf, sha256: "w0" }] };
     const isWorkflow = (f) => f === file;
-    const opts = { hashed: [wf], previous, isGovernance: isWorkflow, run: runWith("5.27.0") };
+    const opts = { hashed: [wf], previous, isGovernance: isWorkflow, run: runWith("5.27.1") };
     expect(sealGoverns({ ...opts, readNow: () => workflow("5.28.0") })).toBeNull();
     expect(sealGoverns({ ...opts, readNow: () => `${workflow("5.28.0")}- run: x\n` })).toMatch(/governance config/);
   });
