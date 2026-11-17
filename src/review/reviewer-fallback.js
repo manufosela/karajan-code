@@ -15,6 +15,18 @@ import os from "node:os";
 import path from "node:path";
 import { checkBinary } from "../utils/agent-detect.js";
 import { agentAuthFiles } from "../utils/agent-home.js";
+import { resolveRole } from "../config/role-resolver.js";
+
+/**
+ * HU-4525: a --reviewer that replaces the panel's reviewer is said on every review, so a
+ * substitution made for lack of quota does not stay by habit. Null when it is the panel's own.
+ */
+export function panelOverrideNotice({ fileConfig, flags }) {
+  const panel = resolveRole(fileConfig, "reviewer").provider;
+  if (!flags?.reviewer || !panel || flags.reviewer === panel) return null;
+  return `⚠ --reviewer ${flags.reviewer} replaces the panel's reviewer (${panel}) in this review only. ` +
+    `If it was for lack of quota, drop it: kj review falls back by itself when ${panel} has none, and tries ${panel} again the next time.`;
+}
 
 export const REVIEWER_CANDIDATES = [
   {
