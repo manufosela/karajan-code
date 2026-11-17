@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.27.1: se dice quién revisa, y un sello renovado solo pasa su CI (actual)
+### v5.28.0: Karajan se rige por el CONTRIBUTING.md del repo (actual)
+
+El CONTRIBUTING.md que muestra GitHub (en `.github/`, la raíz o `docs/`) es fuente de `kj rules compile`: sus reglas pasan a ser gates que apruebas con `kj rules approve`, y el playbook dice al agente que le obliga como AGENTS.md (ADR 0063). El HU Board oculta un proyecto cuyo directorio ya no existe y lo vuelve a listar cuando el directorio vuelve (ADR 0062). Arreglado: `kj doctor` ya no avisa de un CLAUDE.md que solo importa AGENTS.md, y los talleres de kj stage dejan de plegarse y desplegarse entre turnos.
+
+### v5.27.1: se dice quién revisa, y un sello renovado solo pasa su CI
 
 Un sello que se renueva solo en `critical` vuelve a pasar `kj policy check`: los ajustes locales del anfitrión se juzgan contra el sello de la base. Cuando codex no tiene cuota, la review cambia de agente solo para esa review y la siguiente vuelve a probar codex; un `--reviewer` o una configuración que fija un rol fuera del panel se avisa en cada review y en `kj doctor`, y el HU Board sirve el panel activo de cada proyecto para kj stage. Arreglado: el sello ya no commitea el correo de git de quien sella, un CLAUDE.md que solo importa AGENTS.md se deja tal cual, y un repo que mergea con merge commits conserva sus Conventional Commits.
 
