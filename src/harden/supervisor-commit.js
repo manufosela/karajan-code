@@ -17,6 +17,7 @@ import { baseBranchFrom } from "../config/base-branch.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { signAct } from "./act-sign.js";
 import { sealGoverns } from "./critical-seal.js";
+import { readSecurityLevel } from "./security-level.js";
 import { provenanceSignature } from "./phone-sign.js";
 import { humanActOf } from "./human-act.js";
 import { describeSupervisorChanges } from "./sign-changes.js";
@@ -123,11 +124,15 @@ export async function commitSupervisorRegeneration({
   env = process.env,
   tty = process.stdout.isTTY,
   deps = {},
+  renewal = false,
 }) {
   // El cauce es humano por diseño (ADR 0009): una sesión de agente no lo usa.
   // Capas 1 a 3 (entorno, tty y ascendencia de procesos): src/harden/human-act.js.
   const seal = humanActOf("supervisor-seal");
-  seal.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
+  // KJC-TSK-1654 (ADR 0060, step 3): at critical kj harden renews by itself a seal of what kj
+  // generates; whatever governs still goes to a person (checked below, before anything is written).
+  if (renewal && readSecurityLevel({ projectDir }).level !== "critical") return { committed: false, reason: "a seal renews itself only at the critical level" };
+  if (!renewal) seal.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
   const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
   // HU-3899: the files the project declares in policy.yml sealed_files are sealed like the governance config.
   const declared = sealedFilesOf(projectDir);
@@ -143,7 +148,7 @@ export async function commitSupervisorRegeneration({
   refuseSecondSeal(run, generation?.baseBranch, projectDir);
   // Capa 4 (test adversarial 6-sep: un huérfano a init con pty falso y
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
-  seal.confirm(deps.confirm);
+  if (!renewal) seal.confirm(deps.confirm);
   const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, ...HOST_SETTINGS_FILES, ".github/workflows", ...declared]).split("\n").filter(Boolean));
   // Local only when git ignores it; untracked but not ignored, it is committed with the seal.
   const gitIgnores = (file) => { try { run(["check-ignore", "-q", "--", file]); return true; } catch { return false; } };
@@ -198,6 +203,7 @@ export async function commitSupervisorRegeneration({
   // KJC-TSK-1654 (ADR 0060): at critical only a seal that changes who governs asks the phone.
   const readNow = (f) => { try { return readFileSync(join(projectDir, f), "utf8"); } catch { return null; } };
   const governs = sealGoverns({ hashed, previous, isGovernance: (f) => isSealedConfig(f, declared), run, baseBranch: generation?.baseBranch, readNow });
+  if (renewal && governs) return { committed: false, reason: `the seal needs a person: ${governs}` };
   const { signature: signatureBlock } = await signAct("supervisor-seal", {
     projectDir, kjVersion, branch, logger, deps, governs,
     files: hashed.map(({ file, sha256: hash }) => ({ file, sha256: hash ?? "" })),

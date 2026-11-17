@@ -16,6 +16,7 @@ import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { interactiveHarden } from "../harden/interactive.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
 import { commitSupervisorRegeneration } from "../harden/supervisor-commit.js";
+import { readSecurityLevel } from "../harden/security-level.js";
 import { installConfigsForRoots } from "../harden/config-engine.js";
 import { readHardenConfig } from "../harden/harden-scope.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
@@ -335,6 +336,24 @@ function printGuideline(g, logger) {
   logger.warn?.("      Si alguna es vuestra, estaba dentro del bloque gestionado: recuperadla de git y ponedla fuera de él.");
 }
 
+/**
+ * KJC-TSK-1654 (ADR 0060, step 3): at critical, a seal of what kj generates renews itself;
+ * what governs is left to `kj harden --commit` and said. Any other level: nothing happens here.
+ */
+async function renewSeal({ out, result, projectDir, profile, kjVersion, logger }) {
+  if (readSecurityLevel({ projectDir }).level !== "critical") return;
+  try {
+    const renewed = await commitSupervisorRegeneration({ projectDir, kjVersion: kjVersion ?? "unknown", generation: result.generation ?? { profile }, logger, renewal: true });
+    out.sealRenewal = renewed;
+    if (renewed.committed) logger.info?.("kj harden: seal renewed by itself (critical level: only what kj generates changed)");
+    else if (renewed.reason === "sin drift") logger.info?.("kj harden: the seal already covers what kj generates");
+    else logger.warn?.(`kj harden: ${renewed.reason}; a person seals it with kj harden --commit`);
+  } catch (err) {
+    out.sealRenewal = { committed: false, reason: err.message };
+    logger.warn?.(`kj harden: the seal did not renew itself (${err.message}); a person seals it with kj harden --commit`);
+  }
+}
+
 /** After a real install: who works the clone, the branch protection advice and, if asked, the human seal. */
 async function afterInstall({ out, result, projectDir, profile, commitSupervisor, kjVersion, logger }) {
   // IDN-A (KJC-TSK-0762): a hardened clone declares who works it. Captured
@@ -352,7 +371,10 @@ async function afterInstall({ out, result, projectDir, profile, commitSupervisor
   // KJC-BUG-0161 / ADR 0009 (opción A): --commit versiona la regeneración
   // del supervisor con procedencia sellada. Acto humano — el guard vive en
   // commitSupervisorRegeneration y rechaza sesiones de agente.
-  if (!commitSupervisor) return;
+  if (!commitSupervisor) {
+    await renewSeal({ out, result, projectDir, profile, kjVersion, logger });
+    return;
+  }
   try {
     out.supervisorCommit = await commitSupervisorRegeneration({
       projectDir,

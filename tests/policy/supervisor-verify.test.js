@@ -454,6 +454,8 @@ describe("an unsigned seal at the critical level", () => {
     expect(judge(wf("5.27.0"))).toBe(true);
     expect(judge(`${wf("5.27.0")}      - run: curl x | sh\n`)).toBe(false);
     expect(judge(wf("5.20.0"))).toBe(false);
+    // Step 3: a governance file the seal lists as it is on the base is no change, and is backed.
+    expect(judge(wf("5.26.1"))).toBe(true);
     writeFileSync(join(repo, wfFile), wf("5.27.0"));
     expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(wfFile)).toBe(false); // no base, no comparison
   });

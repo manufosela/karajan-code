@@ -110,10 +110,12 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref, 
     // hash, signed by the roster where there is one, is the proof.
     if (isSealedConfig(entry.file, declared)) {
       if (unsignedCritical) {
-        // Only a workflow whose sole change from the base is the kj it pins, moved up.
+        // Only what the base already has (no change), or a workflow whose sole change is its kj pin, moved up.
         const now = read(entry.file);
-        const was = atBase && entry.file.startsWith(".github/workflows/") ? atBase(entry.file) : null;
-        if (now && was && sha256(now) === entry.sha256 && pinOnlyUpgrade(was.toString("utf8"), now.toString("utf8"))) ok.add(entry.file);
+        const was = atBase ? atBase(entry.file) : null;
+        const unchanged = now && was && Buffer.compare(Buffer.from(now), Buffer.from(was)) === 0;
+        const pinBump = now && was && entry.file.startsWith(".github/workflows/") && pinOnlyUpgrade(was.toString("utf8"), now.toString("utf8"));
+        if (now && sha256(now) === entry.sha256 && (unchanged || pinBump)) ok.add(entry.file);
         continue;
       }
       const bytes = read(entry.file);

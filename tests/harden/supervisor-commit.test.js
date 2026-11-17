@@ -566,6 +566,26 @@ describe("kj harden --commit at the critical level", () => {
     expect(JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8")).signature).toBeUndefined();
   });
 
+  // Step 3: kj harden renews by itself a seal of what kj generates; anything else needs a person.
+  it("renewal: an agent session commits the regenerated hooks, and stops at what governs", async () => {
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nrenewed\n");
+    const agent = { env: { CLAUDECODE: "1" }, tty: false, logger: { info() {}, warn() {} } };
+    expect(await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, renewal: true, ...agent })).toMatchObject({ committed: true });
+    expect(git(["log", "-1", "--format=%s"])).toMatch(/supervisor regenerated and sealed/);
+    writeFileSync(join(repo, ".karajan", "policy.yml"), "version: 1\n");
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nagain\n");
+    expect(await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, renewal: true, ...agent })).toMatchObject({ committed: false, reason: expect.stringMatching(/needs a person: .*governance config/) });
+    expect(phoneAsked).toEqual([]);
+  });
+
+  it("renewal at any level but critical needs a person and changes nothing", async () => {
+    setNormalLevel(repo);
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nrenewed\n");
+    const before = git(["rev-parse", "HEAD"]);
+    expect(await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, renewal: true, env: { CLAUDECODE: "1" }, tty: false })).toMatchObject({ committed: false, reason: expect.stringMatching(/critical level/) });
+    expect(git(["rev-parse", "HEAD"])).toBe(before);
+  });
+
   it("asks the phone when the seal changes the governance config", async () => {
     mkdirSync(join(repo, ".karajan"), { recursive: true });
     writeFileSync(join(repo, ".karajan", "policy.yml"), "version: 1\n");
