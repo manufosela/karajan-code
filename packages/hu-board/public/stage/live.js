@@ -99,6 +99,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
   const plumbers = createPlumbersFloor(scene); // KJC-TSK-1642: the ones that fix a failed pipeline
   const coffee = createCoffeeFloor(scene); // KJC-TSK-1663: the cart that serves a waiting host
+  floor.cups(coffee.holds); // and the cup that host holds
   const benchNotes = createBenchNotes(scene); // KJC-TSK-1462: and the cards over the benches
   let flight = null; // KJC-TSK-1547: the release the drone is taking away, if one is
   const drone = createDrone(scene);
@@ -302,11 +303,12 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       // KJC-TSK-1660: nobody crashes: each group steps aside from where the others stood last frame.
-      const groups = { floor: floor.bodies(), couriers: couriers.bodies(), plumbers: plumbers.bodies(), ragan: raganBody ? [raganBody] : [] };
+      const groups = { floor: floor.bodies(), couriers: couriers.bodies(), plumbers: plumbers.bodies(), coffee: coffee.bodies(), ragan: raganBody ? [raganBody] : [] };
       const othersOf = (name) => Object.entries(groups).filter(([group]) => group !== name).flatMap(([, bodies]) => bodies);
       floor.avoid(othersOf('floor'));
       couriers.avoid(othersOf('couriers'));
       plumbers.avoid(othersOf('plumbers'));
+      coffee.avoid(othersOf('coffee'));
       tags.push(...moveRagan(now, othersOf('ragan')));
       flyRelease(now);
       // KJC-TSK-1623: the stack waits for the release; it goes once the drone lifts that release's pile.

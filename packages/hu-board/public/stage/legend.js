@@ -113,6 +113,14 @@ export const CARDS = [
       { mark: 'Pipe wrench', means: 'In its right hand; it swings it while it works on the belt.' },
     ],
   },
+  // KJC-TSK-1663: the coffee cart that serves a waiting host.
+  {
+    id: 'coffee', kind: 'crew', name: 'Coffee cart',
+    does: 'Brings a cup of coffee to a host that waits, and takes it back once the host works again.',
+    when: 'When a host starts waiting, for you or for a process: it comes out of the booth, hands over the cup and goes back.',
+    calledBy: 'The host\'s wait, as it starts and ends.',
+    marks: [{ mark: 'Cup in hand', means: 'A host holding a cup waits; it holds it until the cart comes to take it.' }],
+  },
   { id: 'tdd', kind: 'tool', name: 'TDD', does: 'The failing test first, and the suite never left red.', when: 'At its post; it lights when a test run is judged.', calledBy: 'The method, on every change.', marks: [] },
   {
     id: 'sentinel', kind: 'piece', name: 'Sentinel',

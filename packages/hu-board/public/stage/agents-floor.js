@@ -19,6 +19,7 @@ import { showWaitMark } from './wait-mark.js';
 import { avoidance } from './avoid.js';
 import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, spotOf, typingAt, visitKey, withActivity, withErrand, workerAt, workersFrom } from './workers.js';
 import { cardNote } from './couriers.js';
+import { createCup } from './cast/coffee-cart.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
@@ -172,6 +173,20 @@ function holdCard(robot, pose) {
   if (robot.note) robot.note.visible = Boolean(pose.holding);
 }
 
+/** KJC-TSK-1663: the cup of coffee a waiting host holds in its left hand, from the cart's hand-over to its taking it. */
+const CUP_ARM = 1.2;
+function holdCup(robot, holds) {
+  if (holds && !robot.cup) {
+    robot.cup = createCup();
+    robot.cup.scale.setScalar(1.4);
+    robot.cup.position.set(0, -0.15, 0.2);
+    robot.cup.rotation.x = CUP_ARM; // upright, the arm raised before it
+    robot.armL.hand.add(robot.cup);
+  }
+  if (robot.cup) robot.cup.visible = holds;
+  if (holds) robot.pose('L', 0, CUP_ARM); // before its chest
+}
+
 /** `lanes` is [{lane, working}] of the last state; `xOf(lane)`, `zOf(lane)`: the centre of a lane's workshop. */
 export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = null, doorOf }, lanes, now) {
   let own = avatar; // KJC-TSK-1569: this person's avatar, which their robots wear
@@ -181,6 +196,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   const robots = new Map();
   let pointer = null; // KJC-TSK-1600
   let obstacles = []; // KJC-TSK-1660: the other groups' robots, as they stood on the last frame
+  let holdsCup = null; // KJC-TSK-1663: whether a host holds its coffee
   let bodies = []; // and the agents, for them
   /** KJC-TSK-1633: the beam of light over a robot that teleports, as bright as `level` (0: none). */
   const beamOver = (robot, pose, level) => {
@@ -242,6 +258,8 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     /** Moves every agent's robot; returns their name tags. */
     /** KJC-TSK-1600: where the pointer is on screen, in css px; null once it leaves. */
     point(at) { pointer = at; },
+    /** KJC-TSK-1663: `holds(key, t)`, whether the host `key` holds its cup of coffee at `t`. */
+    cups(holds) { holdsCup = holds; },
     frame(t) {
       const seen = [];
       // KJC-TSK-1628: the hosts' booth of this hall. KJC-TSK-1634: every pose first, then those walking
@@ -276,6 +294,7 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);
         holdCard(robot, pose);
+        holdCup(robot, worker.role === 'host' && holdsCup?.(key, t) === true);
         dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build
         // Just above the helmet, so the label never sits on it.
         // KJC-TSK-1598: over a host's halo. KJC-TSK-1600: what it says is decided below, for all at once.
