@@ -57,6 +57,17 @@ function fileReader(projectDir, ref) {
   };
 }
 
+/** The entries of the seal the base carries; none without a base or a readable seal there. */
+function baseSealEntries(atBase) {
+  if (!atBase) return [];
+  try {
+    const files = JSON.parse(String(atBase(PROVENANCE_FILE) ?? "")).files;
+    return Array.isArray(files) ? files : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * `ref`: judge the seal at that commit, read with git; the roster stays the one in projectDir's tree.
  * @returns {{files: Set<string>, reason?: string}} rutas repo-relativas de
@@ -97,6 +108,8 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref, 
   // KJC-BUG-0513: host settings sealed as local (`local: true`) differ per clone and lane: skipped too.
   // KJC-BUG-0535: the mark is not signed and kj puts it only on the host settings: elsewhere it skips nothing.
   const localHostSettings = (e) => e?.local === true && HOST_SETTINGS_FILES.includes(e.file);
+  const baseSeal = baseSealEntries(atBase);
+  const baseSealed = (e) => baseSeal.some((b) => b?.file === e.file && b?.sha256 === e.sha256);
   const entries = (Array.isArray(prov?.files) ? prov.files : []).filter((e) => !trackedOnly || !(String(e?.file).startsWith(HARNESS_PREFIX) || localHostSettings(e)));
   // KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre tambien los guardias del
   // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
@@ -110,8 +123,14 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref, 
     // hash, signed by the roster where there is one, is the proof.
     if (isSealedConfig(entry.file, declared)) {
       if (unsignedCritical) {
-        // Only what the base already has (no change), or a workflow whose sole change is its kj pin, moved up.
         const now = read(entry.file);
+        // HU-4527: machine-local host settings never reach git, so the base's seal says what they were.
+        if (localHostSettings(entry)) {
+          if (now === undefined) unjudgeable.add(entry.file);
+          else if (sha256(now) === entry.sha256 && baseSealed(entry)) ok.add(entry.file);
+          continue;
+        }
+        // Only what the base already has (no change), or a workflow whose sole change is its kj pin, moved up.
         const was = atBase ? atBase(entry.file) : null;
         const unchanged = now && was && Buffer.compare(Buffer.from(now), Buffer.from(was)) === 0;
         const pinBump = now && was && entry.file.startsWith(".github/workflows/") && pinOnlyUpgrade(was.toString("utf8"), now.toString("utf8"));
