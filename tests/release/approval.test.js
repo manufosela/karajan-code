@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { canonicalPayload } from "../../src/harden/phone-sign.js";
-import { approvalFiles, findValidApproval, renderApproval } from "../../src/release/approval.js";
+import { approvalFiles, findConfirmedApproval, findValidApproval, renderApproval } from "../../src/release/approval.js";
 
 const { publicKey, privateKey } = generateKeyPairSync("ed25519");
 const signer = publicKey.export({ format: "der", type: "spki" }).subarray(12).toString("base64");
@@ -33,5 +33,23 @@ describe("release approval", () => {
     const changed = body.replace('"issue": 9', '"issue": 10');
     expect(findValidApproval({ bodies: [changed], ...approval, issue: 10, keys }).ok).toBe(false);
     expect(findValidApproval({ bodies: ["plain", ...malformed], ...approval, keys, passkeys })).toMatchObject({ ok: false, reason: expect.stringMatching(/no signed approval/) });
+  });
+});
+
+// KJC-TSK-1654 (ADR 0060): at critical a release is approved at a person's terminal, with no phone.
+describe("an approval confirmed at the terminal", () => {
+  const confirmed = renderApproval({ ...approval, signature: null });
+  const canWrite = async (login) => login === "maintainer";
+
+  it("says it was confirmed at the terminal, and is never read as a signed approval", () => {
+    expect(confirmed).toMatch(/^Release 1\.2\.0 approved at abc1234, confirmed at the maintainer's terminal/);
+    expect(findValidApproval({ bodies: [confirmed], ...approval, keys }).ok).toBe(false);
+  });
+
+  it("counts only for this release and when its author has write access to the repo", async () => {
+    expect(await findConfirmedApproval({ comments: [{ login: "maintainer", body: confirmed }], ...approval, canWrite })).toEqual({ ok: true, signer: "maintainer" });
+    expect((await findConfirmedApproval({ comments: [{ login: "someone", body: confirmed }], ...approval, canWrite })).ok).toBe(false);
+    expect((await findConfirmedApproval({ comments: [{ login: "maintainer", body: confirmed }], ...approval, version: "1.3.0", canWrite })).ok).toBe(false);
+    expect((await findConfirmedApproval({ comments: [{ login: "maintainer", body: body.replace(/"signature": \{[\s\S]*?\}/, '"signature": null') }], ...approval, canWrite })).ok).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { signAct } from "../harden/act-sign.js";
 import { humanAct } from "../harden/human-act.js";
 import { approvalFiles, renderApproval } from "../release/approval.js";
+import { readSecurityLevel } from "../harden/security-level.js";
 import { holdLine, readRelease } from "./release-status.js";
 
 const run = (bin) => async (args) => execFileSync(bin, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -28,11 +29,12 @@ async function readyProposal({ repo, issue, clock, gh }, signed) {
 }
 
 /** @returns {Promise<{url: string, tag: string}>} */
-export async function releaseApproveCommand({ repo, issue, projectDir = process.cwd(), kjVersion = "unknown", clock = Date.now, gh = run("gh"), git = run("git"), act = approveAct, print = console.log }) {
+export async function releaseApproveCommand({ repo, issue, projectDir = process.cwd(), kjVersion = "unknown", clock = Date.now, gh = run("gh"), git = run("git"), act = approveAct, levelOf = (dir) => readSecurityLevel({ projectDir: dir }).level, print = console.log }) {
   const { version, candidate } = await readyProposal({ repo, issue, clock, gh });
   const files = approvalFiles({ repo, version, issue, candidate });
   const signature = await act(files, { projectDir, kjVersion, summary: `approve ${repo}@${version} at ${candidate.slice(0, 7)} (issue #${issue})` });
-  if (!signature) throw new Error("release approve: the approval needs the phone's signature, and no phone signed it: enroll one with kj identity enroll-phone");
+  // KJC-TSK-1654 (ADR 0060): at critical the act stops at the terminal and the approval says so.
+  if (!signature && levelOf(projectDir) !== "critical") throw new Error("release approve: the approval needs the phone's signature, and no phone signed it: enroll one with kj identity enroll-phone");
   // A hold or an edit may land, and the deadline pass, while the phone signs: judge the release again, now, before anything goes out.
   await readyProposal({ repo, issue, clock, gh }, { version, candidate });
   const body = renderApproval({ repo, version, issue, candidate, signature });
@@ -40,7 +42,7 @@ export async function releaseApproveCommand({ repo, issue, projectDir = process.
   const tag = `v${version}`;
   await git(["tag", tag, candidate]);
   await git(["push", "origin", tag]);
-  print(`✓ signed approval of ${version} posted: ${url}`);
+  print(`✓ ${signature ? "signed approval" : "approval confirmed at the terminal"} of ${version} posted: ${url}`);
   print(`✓ tagged ${candidate.slice(0, 7)} as ${tag} and pushed it`);
   return { url, tag };
 }
