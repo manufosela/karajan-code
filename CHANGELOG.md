@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **kj records which agent acts as reviewer when it is not the panel's**: a substitution for lack of quota is kept in the kj home (`active-panel.json`: who replaces whom, why and since when) for kj stage to show, and cleared as soon as the panel's own reviewer reviews again (#4524).
+- **A role pinned off the declared panel is said**: when `roles.coder.provider` or `roles.reviewer.provider` pins another agent than `coder:` / `reviewer:`, `kj doctor` warns and every `kj review` says it, with the exact change to go back, so a pin made for lack of quota does not stay once the agent has quota again (#4536).
 
 ### Changed
 - **A reviewer substitution made for lack of quota does not stay**: when codex has no quota, `kj review` falls back for that review only and now says the next one tries codex again, instead of advising to pin the fallback in the config; and a `--reviewer` that replaces the panel's reviewer is said on every review, with how to go back (#4525).
