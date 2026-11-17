@@ -164,6 +164,19 @@ async function fetchState() {
   }
 }
 
+/** KJC-TSK-1670: the governance panel kj resolves for the project; null, with the reason logged, without one. */
+async function fetchPanel() {
+  try {
+    const res = await fetch(`/api/governance/panel?project=${encodeURIComponent(project)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const body = await res.json();
+    if (!body.ok) console.warn(`kj stage: no governance panel: ${body.error}`);
+    return body.ok ? body.panel : null;
+  } catch (err) {
+    console.warn(`kj stage: no governance panel: ${err.message}`);
+    return null;
+  }
+}
+
 /**
  * KJC-TSK-1613: draws `project`'s factory until `signal` aborts; then its events, timers and
  * frames stop and its renderer lets the canvas go.
@@ -227,8 +240,12 @@ async function start(signal) {
       setTimeout(draw, MARK_MS + 50);
     }
   };
+  // KJC-TSK-1670: who is coder, reviewer and solomon, on open and with every check.
+  const showPanel = async () => { const panel = await fetchPanel(); if (!signal.aborted) live.setPanel(panel); };
+  showPanel();
   // KJC-BUG-0557: every minute, the scene checks itself against the board's state.
   const resync = setInterval(async () => {
+    showPanel();
     const now = await fetchState();
     if (now.state && !signal.aborted) live.resync(now.state, performance.now());
     if (now.state?.cards) cards = now.state.cards;

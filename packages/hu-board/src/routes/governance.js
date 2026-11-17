@@ -9,6 +9,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import yaml from "js-yaml";
 import { runCommand } from "karajan-core/process";
+import { requestProjectDir } from "../project-dir.js";
 
 const router = Router();
 
@@ -92,7 +93,10 @@ router.get("/", async (req, res) => {
  * in force, for kj stage. kj decides it, the board only relays `kj config --json`.
  */
 router.get("/panel", async (req, res) => {
-  const dir = resolve((typeof req.query.dir === "string" && req.query.dir.trim()) || nearestProject(process.env.KJ_PROJECT_DIR || process.cwd()));
+  // KJC-TSK-1670: kj stage names its factory by slug, resolved as /api/stage/state resolves it.
+  let factory;
+  try { factory = requestProjectDir(req.query.project); } catch (err) { return res.json({ ok: false, error: err.message }); }
+  const dir = resolve(factory || (typeof req.query.dir === "string" && req.query.dir.trim()) || nearestProject(process.env.KJ_PROJECT_DIR || process.cwd()));
   if (!existsSync(join(dir, ".karajan")) || !statSync(join(dir, ".karajan")).isDirectory()) {
     return res.json({ ok: false, error: "not a karajan project: no .karajan/ directory", dir });
   }
