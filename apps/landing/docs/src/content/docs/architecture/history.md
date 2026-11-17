@@ -1998,6 +1998,10 @@ A team running kj on an epic branch asked for each issue's lane to come from tha
 
 The maintainer found signing had got out of hand: every kj release asked for a new signed seal in every repo, and a release was signed on the phone and then approved again in GitHub. They asked for the phone to sign only what is critical by default, with a paranoid mode that signs everything, and accepted ADR 0060. The new default level, `critical`, signs on the phone what changes who governs; a seal of what kj generates verifies by recomputation, a release's workflow pin bump included, and renews itself; publishing keeps one human approval. The same night the governance end-to-end test grew the cases that field reports had reached first: a nested package whose contract no gate let through, and a lane the sandbox left read-only.
 
+## Phase 184: v5.27.1, who reviews is said, and a seal renewed by itself passes its CI
+
+Hours after 5.27.0, the governance end-to-end test ran its critical path for the first time, once main itself was on 5.27.0, and failed: a seal renewed by itself listed the machine-local host settings, which the verifier looked for in the base's tree, where they never are. The fix judges them against the base's seal, and 5.27.1 becomes the first kj whose CI reads an unsigned seal. The maintainer also saw pull requests "approved by agy" while the panel says codex: a session had kept passing `--reviewer agy` from an old note. They asked for the stage to show who acts in each role and for any change made for lack of quota to go back as soon as it can; the quota fallback stopped advising to pin the substitute, an off-panel reviewer is said on every review, and the board serves the active panel.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

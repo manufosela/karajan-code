@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.27.0: el móvil firma solo lo que cambia quién gobierna (actual)
+### v5.27.1: se dice quién revisa, y un sello renovado solo pasa su CI (actual)
+
+Un sello que se renueva solo en `critical` vuelve a pasar `kj policy check`: los ajustes locales del anfitrión se juzgan contra el sello de la base. Cuando codex no tiene cuota, la review cambia de agente solo para esa review y la siguiente vuelve a probar codex; un `--reviewer` o una configuración que fija un rol fuera del panel se avisa en cada review y en `kj doctor`, y el HU Board sirve el panel activo de cada proyecto para kj stage. Arreglado: el sello ya no commitea el correo de git de quien sella, un CLAUDE.md que solo importa AGENTS.md se deja tal cual, y un repo que mergea con merge commits conserva sus Conventional Commits.
+
+### v5.27.0: el móvil firma solo lo que cambia quién gobierna
 
 El nuevo nivel de seguridad por defecto, `critical`, reserva el móvil para lo que cambia quién gobierna: enrolar un móvil, bajar el nivel, aflojar un gate y la excepción de main-guard. El sello, las reglas, los hooks y la release se confirman en tu terminal; un sello de lo que genera kj, incluida la subida de versión de kj en los workflows de una release, se renueva solo, y publicar pide una sola aprobación. `kj security max` es el modo paranoico que lo firma todo como antes. El agente ya no se para con cards de la sesión pendientes (ADR 0059). Arreglado: el contrato que escribe `kj harden` en un paquete anidado pasa todos los gates, y el sandbox de Claude Code ya no deja el carril del agente de solo lectura.
 
