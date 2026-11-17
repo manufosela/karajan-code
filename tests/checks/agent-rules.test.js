@@ -30,6 +30,15 @@ describe("agent-rules doctor check (KJC-TSK-1504)", () => {
     expect(res.fix).toMatch(/kj harden/);
   });
 
+  // HU-4549: a file that only imports AGENTS.md is the bridge kj harden keeps (HU-4532), not a copy.
+  it("does not warn about a CLAUDE.md or GEMINI.md that only imports AGENTS.md", async () => {
+    writeFileSync(join(dir, "CLAUDE.md"), "@AGENTS.md\n");
+    writeFileSync(join(dir, "GEMINI.md"), "@./AGENTS.md\n");
+    expect((await detect()).ok).toBe(true);
+    writeFileSync(join(dir, "CLAUDE.md"), "@AGENTS.md\n\nAlways run the tests.\n");
+    expect((await detect()).detail).toMatch(/^CLAUDE\.md still here/);
+  });
+
   it("warns when the installed Claude Code is older than the one that reads AGENTS.md", async () => {
     const res = await detect({ claude: "2.1.200 (Claude Code)" });
     expect(res.ok).toBe(false);

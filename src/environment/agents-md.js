@@ -31,6 +31,12 @@ const paragraphs = (text) => text.split(/\n\s*\n/).map((p) => p.trim()).filter(B
 const IMPORTS_AGENTS = /^@(?:\.\/)?AGENTS\.md$/;
 const withoutAgentsImport = (text) => text.split("\n").filter((line) => !IMPORTS_AGENTS.test(line.trim())).join("\n");
 
+/** A legacy file that only imports AGENTS.md holds no copy that could drift (HU-4532, HU-4549). */
+export const onlyBridgesToAgents = (source) => {
+  const own = handWritten(source);
+  return paragraphs(own).length > 0 && paragraphs(withoutAgentsImport(own)).length === 0;
+};
+
 /**
  * Move the hand-written part of CLAUDE.md and GEMINI.md into AGENTS.md (only the
  * paragraphs it does not already hold) and delete the old files. In a Rulesync
@@ -45,10 +51,9 @@ export function migrateLegacyAgentFiles({ projectDir, dryRun = false, rulesync =
   for (const file of LEGACY_AGENT_FILES) {
     const legacyPath = join(projectDir, file);
     if (!existsSync(legacyPath)) continue;
-    const own = handWritten(readFileSync(legacyPath, "utf8"));
-    const rules = paragraphs(withoutAgentsImport(own));
-    // A file that only imports AGENTS.md holds no copy that could drift: it stays as it is.
-    if (rules.length === 0 && paragraphs(own).length > 0) continue;
+    const source = readFileSync(legacyPath, "utf8");
+    if (onlyBridgesToAgents(source)) continue;
+    const rules = paragraphs(withoutAgentsImport(handWritten(source)));
     const known = new Set(paragraphs(agents));
     const moved = rules.filter((p) => !known.has(p));
     if (moved.length > 0) {
