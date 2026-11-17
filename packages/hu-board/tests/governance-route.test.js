@@ -9,8 +9,10 @@ import express from "express";
 import request from "supertest";
 
 vi.mock("karajan-core/process", () => ({ runCommand: vi.fn() }));
+vi.mock("../src/project-dir.js", () => ({ requestProjectDir: vi.fn() }));
 
 import { runCommand } from "karajan-core/process";
+import { requestProjectDir } from "../src/project-dir.js";
 import governanceRoutes from "../src/routes/governance.js";
 
 let app, dir;
@@ -36,6 +38,14 @@ describe("GET /api/governance/panel", () => {
     const res = await request(app).get("/api/governance/panel").query({ dir });
     expect(res.body).toEqual({ ok: true, dir, panel });
     expect(runCommand).toHaveBeenCalledWith("kj", ["config", "--json"], { cwd: dir });
+  });
+
+  // KJC-TSK-1670: the stage knows its factory by slug, as /api/stage/state does, not by path.
+  it("takes the project by its slug, and says why when the slug resolves to no directory", async () => {
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: `${JSON.stringify({ panel })}\n`, stderr: "" });
+    requestProjectDir.mockImplementation((slug) => (slug === "factory" ? dir : (() => { throw new Error(`project "${slug}" has no plan`); })()));
+    expect((await request(app).get("/api/governance/panel").query({ project: "factory" })).body).toEqual({ ok: true, dir, panel });
+    expect((await request(app).get("/api/governance/panel").query({ project: "nowhere" })).body).toMatchObject({ ok: false, error: expect.stringMatching(/no plan/) });
   });
 
   it("says so when the kj there does not give the panel yet", async () => {
