@@ -17,6 +17,7 @@ import { blinkAt, placeDenial, sentinelAt, withWatch } from './sentinel-watch.js
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { buttonAt, conductorAt, withBeat } from './conductor.js';
+import { avoidance } from './avoid.js';
 import { PIECE_WALK_MS, VISIT_SPOTS, gestureAt, pieceAt, withVisit } from './piece-visit.js';
 import { reviewsAt, withReviews } from './review-crew.js';
 import { POST, WORKSHOP, boothAt, postX } from './layout.js';
@@ -142,8 +143,13 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     });
   };
   /** KJC-TSK-1438: kaRAGan takes the RAG's answer to the lane that asked, and comes back. */
-  const moveRagan = (now) => {
-    const pose = raganAt(rag, now, hall.xOf, hall.zOf, index);
+  let raganBody = null; // KJC-TSK-1660: where kaRAGan stood on the last frame
+  const moveRagan = (now, others) => {
+    const at = raganAt(rag, now, hall.xOf, hall.zOf, index);
+    // KJC-TSK-1660: it steps aside from everyone else on the floor too.
+    const [step] = avoidance([at], others);
+    const pose = { ...at, x: at.x + step.dx, z: at.z + step.dz };
+    raganBody = { x: pose.x, z: pose.z, yaw: pose.yaw, walking: Boolean(pose.walking) };
     crew.rag.root.position.set(pose.x, 0, pose.z);
     crew.rag.root.rotation.y = pose.yaw;
     // KJC-TSK-1522: at a reindexing lane it types on its laptop, in its amber.
@@ -293,7 +299,13 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const { lights } = settle();
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
-      tags.push(...moveRagan(now));
+      // KJC-TSK-1660: nobody crashes: each group steps aside from where the others stood last frame.
+      const groups = { floor: floor.bodies(), couriers: couriers.bodies(), plumbers: plumbers.bodies(), ragan: raganBody ? [raganBody] : [] };
+      const othersOf = (name) => Object.entries(groups).filter(([group]) => group !== name).flatMap(([, bodies]) => bodies);
+      floor.avoid(othersOf('floor'));
+      couriers.avoid(othersOf('couriers'));
+      plumbers.avoid(othersOf('plumbers'));
+      tags.push(...moveRagan(now, othersOf('ragan')));
       flyRelease(now);
       // KJC-TSK-1623: the stack waits for the release; it goes once the drone lifts that release's pile.
       const lifted = !flight || tableCards(flight, now, null) !== flight.cards;

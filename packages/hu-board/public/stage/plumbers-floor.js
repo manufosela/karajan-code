@@ -7,12 +7,15 @@ import { SCALE } from './layout.js';
 import { createPlumber } from './plumber.js';
 import { plumberAt, withPipelines } from './plumbers.js';
 import { teleportLook } from './teleport.js';
+import { avoidance } from './avoid.js';
 
 const keyOf = (p) => `${p.lane}@${p.since}`;
 
 /** The plumbers mounted on `scene`: `update(pipelines, now)` as the lanes' pipelines change, `frame(...)` every frame. */
 export function createPlumbersFloor(scene) {
   let plumbers = [];
+  let obstacles = []; // KJC-TSK-1660
+  let bodies = [];
   const robots = new Map();
   const drop = (key) => {
     const robot = robots.get(key);
@@ -37,12 +40,19 @@ export function createPlumbersFloor(scene) {
       plumbers = withPipelines(plumbers, pipelines, now);
       return plumbers.filter((p) => p.leftAt === undefined).length > before;
     },
+    /** KJC-TSK-1660: the other groups' robots, which the plumbers step aside from on the next frame. */
+    avoid(others) { obstacles = others; },
+    /** KJC-TSK-1660: where the plumbers stood on the last frame. */
+    bodies: () => bodies,
     /** Moves every plumber at `now`; `door` is the booth (layout.js boothAt). */
     frame(now, xOf, zOf, door) {
       const seen = new Set();
-      for (const plumber of plumbers) {
-        const pose = plumberAt(plumber, now, xOf, zOf, door);
-        if (!pose) continue;
+      // KJC-TSK-1660: every plumber first, then they step aside from each other and from the rest.
+      const posed = plumbers.map((plumber) => ({ plumber, pose: plumberAt(plumber, now, xOf, zOf, door) })).filter((p) => p.pose);
+      const offsets = avoidance(posed.map((p) => p.pose), obstacles);
+      posed.forEach((p, i) => { p.pose = { ...p.pose, x: p.pose.x + offsets[i].dx, z: p.pose.z + offsets[i].dz }; });
+      bodies = posed.map(({ pose: { x, z, yaw, walking } }) => ({ x, z, yaw, walking }));
+      for (const { plumber, pose } of posed) {
         const key = keyOf(plumber);
         seen.add(key);
         const robot = robotFor(key);
