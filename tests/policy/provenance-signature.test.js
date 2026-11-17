@@ -40,6 +40,8 @@ beforeEach(() => {
   const canonical = renderCanonicalHook("pre-commit", generation);
   writeFileSync(join(repo, HOOK), canonical);
   files = [{ file: HOOK, sha256: sha(canonical) }];
+  // ADR 0060: critical is the default; these cases are the paranoid mode, where every seal is signed.
+  writeFileSync(join(repo, ".karajan", "security-level.json"), JSON.stringify({ level: "max" }));
 });
 afterEach(() => rmSync(repo, { recursive: true, force: true }));
 

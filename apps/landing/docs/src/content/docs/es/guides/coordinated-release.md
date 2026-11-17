@@ -56,7 +56,7 @@ Dice quién ha confirmado, quién retiene y por qué, quién no ha contestado y 
 kj release approve 4242
 ```
 
-Es un acto humano: kj lo rechaza en la sesión de un agente, y pide tu firma en el móvil, con una passkey o una clave del padrón de firmantes. Antes de firmar comprueba que la release está lista; después de firmar vuelve a leer la issue y se para si alguien la ha retenido entretanto. Luego publica la aprobación firmada en la issue, etiqueta el candidato como `v5.22.0` y sube la etiqueta.
+Es un acto humano: kj lo rechaza en la sesión de un agente. En el nivel de seguridad `critical`, el de por defecto (ADR 0060), lo confirmas en tu terminal y no se pide el móvil: «Review deployments» del entorno de npm es la única aprobación humana de la publicación. En `max`, el modo paranoico, además pide tu firma en el móvil, con una passkey o una clave del padrón de firmantes. Antes de aprobar comprueba que la release está lista; después vuelve a leer la issue y se para si alguien la ha retenido entretanto. Luego publica la aprobación en la issue, etiqueta el candidato como `v5.22.0` y sube la etiqueta.
 
 ### 5. Publicar
 
@@ -66,7 +66,7 @@ La etiqueta lanza el workflow de release. Antes de publicar, ejecuta:
 kj release verify v5.22.0
 ```
 
-Solo pasa si la etiqueta está en `main`, hay exactamente una issue de release para esa versión, la etiqueta apunta a su candidato, la release sigue lista (un «retener» publicado después de la aprobación también la para) y la aprobación la firma alguien del padrón. Cualquier otra cosa para la publicación y dice por qué. Para retirar una propuesta y abrir otra, cierra la issue vieja como «not planned»: verify deja de contarla.
+Solo pasa si la etiqueta está en `main`, hay exactamente una issue de release para esa versión, la etiqueta apunta a su candidato, la release sigue lista (un «retener» publicado después de la aprobación también la para) y la aprobación vale: en `critical`, la publica alguien con permiso de escritura en el repositorio; en `max`, la firma alguien del padrón. Cualquier otra cosa para la publicación y dice por qué. Para retirar una propuesta y abrir otra, cierra la issue vieja como «not planned»: verify deja de contarla.
 
 ## Un repositorio de una sola persona
 

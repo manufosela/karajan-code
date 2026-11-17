@@ -56,7 +56,7 @@ It says who confirmed, who holds and why, who has not answered and until when. I
 kj release approve 4242
 ```
 
-This is a human act: kj refuses it in an agent's session, and it asks for your signature on your phone, with a passkey or a key of the signer roster. Before signing it checks that the release is ready; after signing it reads the issue again and stops if someone held it meanwhile. Then it posts the signed approval on the issue, tags the candidate as `v5.22.0` and pushes the tag.
+This is a human act: kj refuses it in an agent's session. At the `critical` security level, the default (ADR 0060), you confirm it at your terminal and no phone is asked: the npm environment's "Review deployments" is the one human approval of the publish. At `max`, the paranoid mode, it also asks for your signature on your phone, with a passkey or a key of the signer roster. Before approving it checks that the release is ready; after that it reads the issue again and stops if someone held it meanwhile. Then it posts the approval on the issue, tags the candidate as `v5.22.0` and pushes the tag.
 
 ### 5. Publish
 
@@ -66,7 +66,7 @@ The tag starts the release workflow. Before publishing, it runs:
 kj release verify v5.22.0
 ```
 
-It passes only when the tag is on `main`, there is exactly one release issue for that version, the tag points to its candidate, the release is still ready (a hold posted after the approval also stops it), and the approval is signed by someone of the roster. Anything else stops the publish and says why. To withdraw a proposal and open another, close the old issue as not planned: verify no longer counts it.
+It passes only when the tag is on `main`, there is exactly one release issue for that version, the tag points to its candidate, the release is still ready (a hold posted after the approval also stops it), and the approval is valid: at `critical`, posted by someone with write access to the repository; at `max`, signed by someone of the roster. Anything else stops the publish and says why. To withdraw a proposal and open another, close the old issue as not planned: verify no longer counts it.
 
 ## A repository with one person
 

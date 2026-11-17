@@ -184,6 +184,16 @@ The Sentinel no longer reads `git push` (ADR 0015): what it checked is enforced 
 
 AI attribution is forbidden by a deterministic project rule — everywhere, with no escape. Three layers enforce it: the commit-msg hook rejects it in commit messages; the pre-commit hook scans the staged diff's ADDED lines (changelog, docs, code comments — tool *mentions* stay legal, attribution does not); and the Sentinel scans every `gh` command that publishes text (PR/issue/release create, edit, comment, review), including the contents of `--body-file`/`--notes-file` — an unreadable file does not publish either. CI re-checks commits, PR body and title. Born from a real catch: 15 PR bodies shipped an attribution footer because only commit messages were scanned (KJC-BUG-0164).
 
+## security-level
+
+ADR 0060: what a person signs on the phone depends on the project's security level, in `.karajan/security-level.json`.
+
+- `critical`, the default. The phone signs only what changes who governs: enrolling a phone, lowering the level, loosening a gate and the main-guard exception. The other human acts (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj release approve`) are confirmed at your terminal. A seal of what kj generates (hooks, harness, a workflow whose only change is the kj it pins) renews itself in `kj harden`. A seal that governs (the governance config, a deletion, any other workflow change) still asks the phone, and so does a seal the base branch's CI would judge with a kj older than 5.27.0, so each repo's first re-seal onto 5.27.0 is signed once.
+- `max`, the paranoid mode. Every human act is signed on the phone. `kj security max` turns it on, free; a repo whose record already says `max` keeps it.
+- `normal`. Every act, the critical ones included, is confirmed at the terminal. Lowering to it is a signed act.
+
+`kj security show` says the level in force and where it comes from.
+
 ## sandbox
 
 `kj harden --sandbox` turns on the Claude Code sandbox in `.claude/settings.local.json` where it can start on this machine. It denies writing the supervisor (hooks, harness, settings, `kj.config.yml`, `.ragignore`) and kj's phone key, and lets out only kj's state and package caches. It does not deny the lanes: the Sentinel's cross-lane guard confines Bash there, so a session can work in its own lane. `gh *`, `kj review *` and `kj worktree *` run outside the sandbox, but only as a command of their own: inside `&&` or `;` they stay inside, and `kj review` then reaches neither Docker nor a running SonarQube. A dev server the agent starts is reachable from your browser on macOS (`allowLocalBinding`). On Linux the sandbox's `localhost` is private, so a browser outside gets "connection refused": start the server from your own terminal, or add that exact command to `excludedCommands` yourself.
