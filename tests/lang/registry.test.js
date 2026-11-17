@@ -22,7 +22,7 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     const a = getAdapters();
     const b = getAdapters();
     expect(a).not.toBe(b);
-    expect(a.map((x) => x.id).sort()).toEqual(["go", "java", "js", "python", "rust"]);
+    expect(a.map((x) => x.id).sort()).toEqual(["go", "java", "js", "python", "rust", "swift"]);
   });
 
   it("only Python, Rust, Go and Java adapters expose prepare() (JS uses sync @babel)", () => {
@@ -51,6 +51,19 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     const r2 = mkRoot();
     writeFileSync(join(r2, "build.gradle.kts"), "plugins { java }\n");
     expect(detectAdaptersForProject(r2).map((a) => a.id)).toEqual(["java"]);
+  });
+
+  it("detects Swift via Package.swift and skips SwiftPM / Xcode outputs (HU-4547)", () => {
+    const root = mkRoot();
+    writeFileSync(join(root, "Package.swift"), "// swift-tools-version:5.9\n");
+    const adapters = detectAdaptersForProject(root);
+    expect(adapters.map((a) => a.id)).toEqual(["swift"]);
+    const m = buildMatchers(adapters);
+    expect(m.isCodeFile("/x/Sources/App.swift")).toBe(true);
+    for (const dir of [".build", "DerivedData", "Pods", "Carthage"]) {
+      expect(m.shouldSkip(`/x/${dir}/Gen.swift`)).toBe(true);
+    }
+    expect(m.shouldSkip("/x/Sources/App.swift")).toBe(false);
   });
 
   it("detects Go via go.mod", () => {
