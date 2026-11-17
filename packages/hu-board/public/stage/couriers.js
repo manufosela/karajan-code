@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createRobot } from './cast/robot.js';
 import { BEAM_GEOMETRY, BEAM_HEIGHT, dispose } from './agents-floor.js';
 import { teleportLook } from './teleport.js';
+import { avoidance } from './avoid.js';
 import { SCALE } from './layout.js';
 import { courierAt, noteLines, tripFor } from './courier.js';
 
@@ -47,6 +48,8 @@ function courierFor(trip) {
 /** The errand robots of one factory, mounted on `scene` (the factory's group on the map). */
 export function createCouriers(scene) {
   let trips = [];
+  let obstacles = []; // KJC-TSK-1660
+  let bodies = [];
   const couriers = new Map();
   const leave = (key) => {
     const gone = couriers.get(key);
@@ -65,14 +68,23 @@ export function createCouriers(scene) {
     },
     /** KJC-TSK-1462: the cards a robot is still carrying, not on their bench yet. */
     carried: () => new Set(trips.map((trip) => trip.id)),
+    /** KJC-TSK-1660: the other groups' robots, which the couriers step aside from on the next frame. */
+    avoid(others) { obstacles = others; },
+    /** KJC-TSK-1660: where the couriers stood on the last frame. */
+    bodies: () => bodies,
     /**
      * Moves every robot on an errand at `now`; `xOf(lane)`, `zOf(lane)`: the centre of a lane's
      * workshop; `door`: the booth it comes and goes by (layout.js boothAt).
      */
     frame(now, xOf, zOf, door) {
-      for (const trip of trips) {
+      // KJC-TSK-1660: every courier first, then they step aside from each other and from the rest.
+      const posed = trips.map((trip) => ({ trip, pose: courierAt(trip, now, xOf, zOf, door) }));
+      const walking = posed.filter((p) => p.pose);
+      const offsets = avoidance(walking.map((p) => p.pose), obstacles);
+      walking.forEach((p, i) => { p.pose = { ...p.pose, x: p.pose.x + offsets[i].dx, z: p.pose.z + offsets[i].dz }; });
+      bodies = walking.map(({ pose: { x, z, yaw, walking: moving } }) => ({ x, z, yaw, walking: moving }));
+      for (const { trip, pose } of posed) {
         const key = `${trip.id}@${trip.at}`;
-        const pose = courierAt(trip, now, xOf, zOf, door);
         if (!pose) {
           if (couriers.has(key)) leave(key);
           continue;

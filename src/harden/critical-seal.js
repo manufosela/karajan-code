@@ -2,8 +2,11 @@
  * KJC-TSK-1654 (ADR 0060): at the critical level a seal is signed on the phone only when it
  * changes who governs, or when the CI that will judge it cannot read an unsigned seal yet.
  */
-/** The first kj whose seal verifier reads an unsigned seal at critical (src/policy/supervisor-verify.js). */
-export const CRITICAL_SINCE = [5, 27, 0];
+/**
+ * The first kj whose seal verifier reads an unsigned seal at critical (src/policy/supervisor-verify.js).
+ * HU-4527: 5.27.0 could not back the machine-local host settings, so a base CI on it still gets a signed seal.
+ */
+export const CRITICAL_SINCE = [5, 27, 1];
 const PIN = /(?:karajan-code|@karajan-family\/code)@(\d+)\.(\d+)\.(\d+)/;
 const below = (a, b) => {
   const i = a.findIndex((n, k) => n !== b[k]);

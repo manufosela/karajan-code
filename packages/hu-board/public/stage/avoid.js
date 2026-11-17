@@ -47,12 +47,15 @@ function sideStep(self, other) {
 }
 
 /** Each pose's offset `{ dx, dz }`: none apart or standing still; at most a robot's width. */
-export function avoidance(poses) {
+export function avoidance(poses, others = []) {
+  // KJC-TSK-1660: the robots of the other groups (couriers, plumbers, kaRAGan, agents) are in the
+  // way too; they step aside on their own side, so here they only count as obstacles.
+  const everyone = [...poses, ...others];
   return poses.map((self, i) => {
-    if (!self.walking) return stillOffset(self, i, poses);
+    if (!self.walking) return stillOffset(self, i, everyone);
     let dx = 0;
     let dz = 0;
-    poses.forEach((other, j) => {
+    everyone.forEach((other, j) => {
       if (i === j) return;
       const { ux, uz, d } = sideStep(self, other);
       if (d >= AVOID.sight) return;

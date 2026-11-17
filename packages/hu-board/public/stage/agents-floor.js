@@ -180,6 +180,8 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   let workers = lanes.flatMap(({ lane, working }) => workersFrom(working, now, lane));
   const robots = new Map();
   let pointer = null; // KJC-TSK-1600
+  let obstacles = []; // KJC-TSK-1660: the other groups' robots, as they stood on the last frame
+  let bodies = []; // and the agents, for them
   /** KJC-TSK-1633: the beam of light over a robot that teleports, as bright as `level` (0: none). */
   const beamOver = (robot, pose, level) => {
     if (level > 0 && !robot.beam) {
@@ -217,6 +219,10 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     /** KJC-TSK-1663: every host at work, whether it waits, and its seat, for the coffee cart. */
     hosts: () => workers.filter((w) => w.role === 'host' && w.leftAt === undefined)
       .map((w) => ({ key: visitKey(w), waiting: w.waiting ?? null, spot: spotOf('host', xOf(w.lane), w.slot, zOf(w.lane)) })),
+    /** KJC-TSK-1660: the other groups' robots, which the agents step aside from on the next frame. */
+    avoid(others) { obstacles = others; },
+    /** KJC-TSK-1660: where the agents stood on the last frame, for the other groups to step aside. */
+    bodies: () => bodies,
     /** KJC-TSK-1650: a card's `trip` at `at`: its lane's host at work runs it; true when one took it. */
     errand(trip, at) {
       const next = withErrand(workers, trip, at);
@@ -242,8 +248,10 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
       // step aside from each other before any robot is drawn.
       const posed = workers.map((worker) => ({ worker, pose: workerAt(worker, t, xOf, zOf, doorOf?.()) }));
       const placed = posed.filter((p) => p.pose);
-      const offsets = avoidance(placed.map((p) => p.pose));
+      // KJC-TSK-1660: and from the other groups' robots (couriers, plumbers, kaRAGan).
+      const offsets = avoidance(placed.map((p) => p.pose), obstacles);
       placed.forEach((p, i) => { p.pose = { ...p.pose, x: p.pose.x + offsets[i].dx, z: p.pose.z + offsets[i].dz }; });
+      bodies = placed.map(({ pose: { x, z, yaw, walking } }) => ({ x, z, yaw, walking }));
       for (const { worker, pose } of posed) {
         const key = visitKey(worker);
         let robot = robots.get(key);

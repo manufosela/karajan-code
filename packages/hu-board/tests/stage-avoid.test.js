@@ -49,6 +49,22 @@ describe('avoidance', () => {
     expect(Math.abs(avoidance([east, west])[0].dz)).toBeGreaterThan(0);
   });
 
+  // KJC-TSK-1660 (the maintainer, 2026-11-17): "that nobody crashes": agents, the courier, the
+  // plumber and kaRAGan step aside from each other, not only agents among themselves.
+  it('steps aside from robots of other groups too, which it gets as obstacles and gives no offset', () => {
+    const agent = { x: 0, z: 0, yaw: Math.PI / 2, walking: true };
+    const courier = { x: 1, z: 0, yaw: -Math.PI / 2, walking: true };
+    const [step] = avoidance([agent], [courier]);
+    expect(Math.abs(step.dz)).toBeGreaterThan(0.1);
+    expect(Math.abs(step.dx)).toBeLessThan(1e-9);
+    expect(avoidance([agent], [])).toEqual([{ dx: 0, dz: 0 }]);
+    expect(avoidance([], [courier])).toEqual([]);
+  });
+
+  it('a robot standing still keeps still beside another group\'s, unless they overlap', () => {
+    expect(avoidance([still(0, 0)], [still(2, 0)])).toEqual([{ dx: 0, dz: 0 }]);
+  });
+
   it('one standing still stays put; the one walking goes round it', () => {
     const offsets = avoidance([still(0, 0), walking(0.2, 0)]);
     expect(offsets[0]).toEqual({ dx: 0, dz: 0 });

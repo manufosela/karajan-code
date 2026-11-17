@@ -103,6 +103,16 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(shown).not.toContain("other.txt");
   });
 
+  // HU-4526 (#4487): the provenance is committed, and kj's own privacy gate refuses an email in it.
+  it("the committed provenance names the GitHub user of who sealed, never their git email", async () => {
+    writeFileSync(join(repo, ".karajan", "identity.local.yml"), "gh_user: octo\ngit_email: octo@example.org\ndeclared_at: x\n");
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    const committed = git(["show", `HEAD:${PROVENANCE_FILE}`]);
+    expect(JSON.parse(committed).who).toEqual({ gh: "octo", grade: "declarada" });
+    expect(committed).not.toContain("octo@example.org");
+  });
+
   it("HU-4392: the seal stages the deletions of tracked .karajan/harness files, and only those", async () => {
     mkdirSync(join(repo, ".karajan", "harness"), { recursive: true });
     for (const f of ["pretooluse-sentinel.mjs", "installed.json", "kept.mjs"]) writeFileSync(join(repo, ".karajan", "harness", f), `${f}\n`);
