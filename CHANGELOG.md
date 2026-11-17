@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.28.0] - 2026-11-17
+
+Karajan follows each repo's CONTRIBUTING.md, and a project whose directory is gone leaves the HU Board's list. After updating, run `kj rules compile` in a repo with a CONTRIBUTING.md and approve its gates with `kj rules approve`.
+
+### Added
+- **Karajan follows each repo's CONTRIBUTING.md** (ADR 0063): the one GitHub shows (`.github/`, then the root, then `docs/`) is a source of `kj rules compile`, so its rules become gates you approve with `kj rules approve`, and `kj rules coverage` names the ones still without a gate. The playbook kj writes in AGENTS.md tells the agent it binds it as that file does (#4558, #4561).
+
+### Changed
+- **The HU Board hides a project whose directory is gone** (ADR 0062): the board records each project's directory when it syncs its plans, and the project list leaves out one whose directory no longer exists. Nothing is deleted: it is listed again when the directory comes back (#4394).
+
+### Fixed
+- **`kj doctor` no longer warns about a CLAUDE.md or GEMINI.md that only imports AGENTS.md**: it is the bridge `kj harden` keeps, so the warning could never be cleared; one with rules of its own is still reported (#4549).
+- **kj stage**: a workshop whose lane is merged no longer folds and unfolds each time its host leaves between turns; it folds after a minute finished, and a workshop that comes back takes its place again (#4560).
+
 ## [5.27.1] - 2026-11-17
 
 A seal renewed by itself at `critical` passes its CI again, and a reviewer substitution made for lack of quota no longer stays. After updating, run `kj harden` in each repo: while its CI still runs 5.27.0, a person seals it once with `kj harden --commit`; from then on the seal of what kj generates renews itself.

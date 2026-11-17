@@ -2002,6 +2002,10 @@ The maintainer found signing had got out of hand: every kj release asked for a n
 
 Hours after 5.27.0, the governance end-to-end test ran its critical path for the first time, once main itself was on 5.27.0, and failed: a seal renewed by itself listed the machine-local host settings, which the verifier looked for in the base's tree, where they never are. The fix judges them against the base's seal, and 5.27.1 becomes the first kj whose CI reads an unsigned seal. The maintainer also saw pull requests "approved by agy" while the panel says codex: a session had kept passing `--reviewer agy` from an old note. They asked for the stage to show who acts in each role and for any change made for lack of quota to go back as soon as it can; the quota fallback stopped advising to pin the substitute, an off-panel reviewer is said on every review, and the board serves the active panel.
 
+## Phase 185: v5.28.0, Karajan follows the repo's CONTRIBUTING.md
+
+The same day the maintainer's panel changed: agy reviews, since a reviewer acts on every commit, and copilot arbitrates, since Solomon is called only on a disagreement. The maintainer also asked that Karajan be ruled by each repo's CONTRIBUTING.md and chose to reuse what already existed (ADR 0063): the file GitHub shows is a source of `kj rules compile`, so its rules become gates the maintainer approves, and the playbook tells the agent it binds it. A question a contributor had left open was settled too (ADR 0062): the HU Board hides a project whose directory is gone instead of deleting it, and lists it again when the directory comes back.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

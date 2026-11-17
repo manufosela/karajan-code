@@ -2001,6 +2001,10 @@ El mantenedor vio que las firmas se habían ido de las manos: cada release de kj
 
 Horas después de la 5.27.0, el test de punta a punta del gobierno recorrió por primera vez su camino de `critical`, en cuanto main pasó a la 5.27.0, y falló: un sello renovado solo listaba los ajustes locales del anfitrión, que el verificador buscaba en el árbol de la base, donde nunca están. El arreglo los juzga contra el sello de la base, y la 5.27.1 pasa a ser el primer kj cuyo CI lee un sello sin firmar. El mantenedor vio además PRs «approved by agy» con un panel que dice codex: una sesión seguía pasando `--reviewer agy` por una nota antigua. Pidió que el stage muestre quién actúa en cada rol y que cualquier cambio hecho por falta de cuota vuelva en cuanto se pueda; el cambio por cuota dejó de aconsejar fijar el sustituto, un reviewer fuera del panel se avisa en cada review y el board sirve el panel activo.
 
+## Phase 185: v5.28.0, Karajan se rige por el CONTRIBUTING.md del repo
+
+Ese mismo día cambió el panel del mantenedor: agy revisa, porque el revisor actúa en cada commit, y copilot arbitra, porque a Solomon solo se le llama cuando hay desacuerdo. El mantenedor pidió además que Karajan se rija por el CONTRIBUTING.md de cada repo y eligió reutilizar lo que ya existía (ADR 0063): el fichero que muestra GitHub es fuente de `kj rules compile`, así que sus reglas pasan a ser gates que el mantenedor aprueba, y el playbook dice al agente que le obliga. También quedó resuelta una pregunta que había dejado abierta un colaborador (ADR 0062): el HU Board oculta un proyecto cuyo directorio ya no existe en vez de borrarlo, y lo vuelve a listar cuando el directorio vuelve.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
