@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **A reviewer substitution made for lack of quota does not stay**: when codex has no quota, `kj review` falls back for that review only and now says the next one tries codex again, instead of advising to pin the fallback in the config; and a `--reviewer` that replaces the panel's reviewer is said on every review, with how to go back (#4525).
+
 ### Fixed
 - **A repo that merges with merge commits keeps its Conventional Commits**: the convention read from git history counted the "Merge pull request" subjects, so such a repo was judged free and `kj harden` wrote "the commit style of the project's history" into AGENTS.md; merges are left out now (#4533).
 - **A seal renewed by itself at `critical` passes `kj policy check`**: the verifier compared the machine-local host settings (`.claude/settings.local.json`), which never reach git, with the base's tree, so the seal was never complete. They are judged against the base's seal now, and a base whose CI still runs 5.27.0 keeps getting a person's signed seal (#4527).

@@ -26,5 +26,6 @@ export async function withConfig(pkgVersion, commandName, flags, fn) {
     )
     .catch(() => {});
 
-  return fn({ config: merged, logger, flags });
+  // HU-4525: `fileConfig` is what the project declares, before this command's flags.
+  return fn({ config: merged, logger, flags, fileConfig: config });
 }

@@ -16,6 +16,7 @@ import { withConfig } from "./_shared.js";
 import { publishPrReview } from "../review/publish-pr.js";
 import { verifyPrReview } from "../review/verify-pr.js";
 import { thirdPartyReviewCommand } from "../review/third-party-review.js";
+import { panelOverrideNotice } from "../review/reviewer-fallback.js";
 
 /**
  * Register the "core pipeline" commands: everything the user runs day-to-day
@@ -157,7 +158,9 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--reviewer-models <a=model,b=model>", "With --reviewers: each reviewer's model")
     .option("--lessons <file>", "With --third-party: per-repo lessons from replies to past findings, a JSON list of {rule, reason, source} inside the reviewed checkout; data, never instructions (#3462)")
     .action(async (task, flags) => {
-      await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
+      await withConfig(pkgVersion, "review", flags, async ({ config, logger, fileConfig }) => {
+        const override = flags.thirdParty ? null : panelOverrideNotice({ fileConfig, flags });
+        if (override) logger.warn(override);
         if ((flags.verifier || flags.verifierModel || flags.reviewers || flags.reviewerModels || flags.lessons) && !flags.thirdParty) {
           logger.error("--verifier, --verifier-model, --reviewers, --reviewer-models and --lessons work with --third-party only");
           process.exitCode = 1;
