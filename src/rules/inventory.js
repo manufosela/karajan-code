@@ -79,9 +79,15 @@ export function extractRules(markdown, file) {
   return rules;
 }
 
+// HU-4558 (ADR 0063): the repo's rules for contributors, the one GitHub shows (.github/, root, docs/).
+const CONTRIBUTING_DIRS = [".github", ".", "docs"];
+const contributingFile = (projectDir) =>
+  CONTRIBUTING_DIRS.map((d) => path.join(projectDir, d, "CONTRIBUTING.md")).find((f) => fs.existsSync(f)) ?? null;
+
 /**
  * The MD files that govern a session in projectDir (KJC-TSK-0942): its CLAUDE.md
- * and AGENTS.md, the global ~/.claude/CLAUDE.md and the project's feedback memories.
+ * and AGENTS.md, its CONTRIBUTING.md, the global ~/.claude/CLAUDE.md and the
+ * project's feedback memories.
  * @param {string} projectDir
  * @param {{home?: string}} [opts]
  */
@@ -95,9 +101,10 @@ export function ruleSources(projectDir, { home = os.homedir() } = {}) {
   return [
     path.join(projectDir, "CLAUDE.md"),
     path.join(projectDir, "AGENTS.md"),
+    contributingFile(projectDir),
     path.join(home, ".claude", "CLAUDE.md"),
     ...feedback,
-  ].filter((f) => fs.existsSync(f));
+  ].filter((f) => f && fs.existsSync(f));
 }
 
 /** Whether an MD file is part of the project, and so as public as the repo is. */
