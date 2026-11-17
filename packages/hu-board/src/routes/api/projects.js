@@ -1,5 +1,6 @@
 // KJC-TSK-0541: the project endpoints of /api, composed by routes/api.js.
 import { Router } from 'express';
+import { statSync } from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 
@@ -20,12 +21,15 @@ import { projectPlans } from '../../plans-service.js';
 
 const router = Router();
 
+const isDirectory = (dir) => statSync(dir, { throwIfNoEntry: false })?.isDirectory() === true;
+
 /**
- * GET /api/projects - List all projects with story counts.
+ * GET /api/projects - List all projects with story counts. ADR 0062: a project
+ * whose recorded directory is gone is left out (kept, and listed when it comes back).
  */
 router.get('/projects', (_req, res) => {
   try {
-    const projects = getProjects();
+    const projects = getProjects().filter((p) => !p.project_dir || isDirectory(p.project_dir));
     res.json(projects);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -238,6 +238,7 @@ export function syncPlanFile(filePath) {
       last_activity: data.updatedAt || data.createdAt || new Date().toISOString(),
       total_stories: data.hus.length,
       is_shared: isSharedPath(filePath) || data.shared === true ? 1 : undefined,
+      project_dir: canonicalDir,
     });
 
     for (let i = 0; i < data.hus.length; i += 1) {
