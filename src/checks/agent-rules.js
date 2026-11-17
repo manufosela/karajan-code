@@ -5,10 +5,10 @@
  * instead), a Claude Code older than the release that reads AGENTS.md, or a
  * Gemini CLI whose settings do not name it.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { LEGACY_AGENT_FILES } from "../environment/agents-md.js";
+import { LEGACY_AGENT_FILES, onlyBridgesToAgents } from "../environment/agents-md.js";
 import { GEMINI_SETTINGS, geminiReadsAgentsFile } from "../harden/gemini-context.js";
 import { runCommand } from "../utils/process.js";
 import { detectRulesync } from "../utils/rulesync.js";
@@ -32,7 +32,7 @@ async function versionOf(bin, run) {
 
 async function problemsIn(projectDir, run) {
   const problems = [];
-  const left = LEGACY_AGENT_FILES.filter((f) => existsSync(join(projectDir, f)));
+  const left = LEGACY_AGENT_FILES.filter((f) => existsSync(join(projectDir, f)) && !onlyBridgesToAgents(readFileSync(join(projectDir, f), "utf8")));
   if (left.length > 0) problems.push({ detail: `${left.join(" and ")} still here, read instead of AGENTS.md`, fix: "kj harden moves what was written by hand into AGENTS.md" });
   const claude = await versionOf("claude", run);
   if (claude && isNewerVersion(CLAUDE_READS_AGENTS_MD, claude)) {
