@@ -40,6 +40,8 @@ const ES = {
   plumber: ['Fontanero', 'Arregla el pipeline de un carril: trabaja en su cinta mientras su CI está fallado.', 'Cuando falla el pipeline de un carril; vuelve a la cabina en cuanto corre o pasa de nuevo.', 'El pipeline de la PR abierta del carril.', [
     ['Gris', 'Un robot gris sin más: no es una IA ni trabaja para nadie en concreto.'], ['Peto y casco', 'Peto azul y casco amarillo: el operario de la nave.'],
     ['Llave de tubo', 'En la mano derecha; la mueve mientras trabaja en la cinta.']]],
+  coffee: ['Carrito de café', 'Lleva una taza de café al anfitrión que espera, y se la recoge cuando vuelve a trabajar.', 'Cuando un anfitrión empieza a esperar, a ti o a un proceso: sale de la cabina, le da la taza y vuelve.', 'La espera del anfitrión, al empezar y al acabar.', [
+    ['Taza en la mano', 'Un anfitrión con taza está esperando; la tiene hasta que el carrito viene a recogerla.']]],
   tdd: ['TDD', 'Primero el test que falla, y la suite nunca en rojo.', 'En su puesto; se enciende cuando se juzga una pasada de tests.', 'El método, en cada cambio.', []],
   sentinel: ['Sentinel', 'Revisa cada llamada a herramienta del anfitrión contra el método y para las que lo rompen.', 'En su puesto elevado, mirando al carril que revisa; su luz parpadea en cada llamada que deja pasar.', 'Cada llamada a herramienta. Si deniega, baja junto a ese agente, se queda un momento y vuelve a subir.', []],
   review: ['Revisión IA', 'Otra IA revisa el diff exacto; su veredicto queda atado a él.', 'Se pone al lado del coder mientras revisa. Con varias revisiones a la vez, un fantasma transparente guarda su puesto.', 'kj review, antes de cada commit.', [['Sin robot', 'El revisor es esta pieza, no un agente en una mesa.']]],

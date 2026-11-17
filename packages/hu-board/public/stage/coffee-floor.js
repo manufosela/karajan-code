@@ -2,35 +2,17 @@
 // in warm brown pushing a cart with a cup on its tray, teleporting in a beam at the booth.
 import * as THREE from 'three';
 import { BEAM_GEOMETRY, BEAM_HEIGHT, dispose } from './agents-floor.js';
-import { createRobot } from './cast/robot.js';
-import { cartAt, withCoffee } from './coffee.js';
+import { avoidance } from './avoid.js';
+import { createCoffeeCart } from './cast/coffee-cart.js';
+import { cartAt, hasCup, withCoffee } from './coffee.js';
 import { SCALE } from './layout.js';
 import { teleportLook } from './teleport.js';
-
-const COFFEE = 0x9a6b45;
-const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
-
-/** The robot with its cart before it, and the cup on the cart's tray. */
-function cartRobot() {
-  const robot = createRobot({ accent: COFFEE, name: 'coffee' });
-  const cart = new THREE.Group();
-  const tray = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.9), matte(0x7a4e2c));
-  tray.position.y = 1.4;
-  cart.add(tray);
-  const stand = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.5), matte(0x8a96a6));
-  stand.position.y = 0.7;
-  cart.add(stand);
-  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.44, 16), matte(0xffffff));
-  cup.position.y = 1.64;
-  cart.add(cup);
-  cart.position.z = 1.3;
-  robot.hover.add(cart);
-  return { ...robot, cup };
-}
 
 /** The carts mounted on `scene`: `update(hosts, now)` as the hosts wait or work, `frame(now, door)` every frame. */
 export function createCoffeeFloor(scene) {
   let trips = [];
+  let obstacles = []; // KJC-TSK-1660: nobody crashes, the cart included
+  let bodies = [];
   const robots = new Map();
   const beamOf = () => new THREE.Mesh(BEAM_GEOMETRY, new THREE.MeshBasicMaterial({ color: 0x9fe3ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
   const drop = (key) => {
@@ -43,15 +25,23 @@ export function createCoffeeFloor(scene) {
   return {
     /** `hosts`: { key, waiting, spot } of every host at work, as the floor has them now. */
     update(hosts, now) { trips = withCoffee(trips, hosts, now); },
+    /** Whether the host `key` holds its cup at `now`. */
+    holds: (key, now) => hasCup(trips, key, now),
+    /** KJC-TSK-1660: the other groups' robots, which the carts step aside from on the next frame. */
+    avoid(others) { obstacles = others; },
+    /** KJC-TSK-1660: where the carts stood on the last frame. */
+    bodies: () => bodies,
     frame(now, door) {
       const seen = new Set();
-      for (const trip of trips) {
-        const pose = cartAt(trip, now, door);
-        if (!pose) continue;
+      const posed = trips.map((trip) => ({ trip, pose: cartAt(trip, now, door) })).filter((p) => p.pose);
+      const offsets = avoidance(posed.map((p) => p.pose), obstacles);
+      posed.forEach((p, i) => { p.pose = { ...p.pose, x: p.pose.x + offsets[i].dx, z: p.pose.z + offsets[i].dz }; });
+      bodies = posed.map(({ pose: { x, z, yaw, walking } }) => ({ x, z, yaw, walking }));
+      for (const { trip, pose } of posed) {
         const key = `${trip.host}@${trip.at}`;
         seen.add(key);
         if (!robots.has(key)) {
-          robots.set(key, { ...cartRobot(), beam: beamOf() });
+          robots.set(key, { ...createCoffeeCart(), beam: beamOf() });
           scene.add(robots.get(key).root, robots.get(key).beam);
         }
         const robot = robots.get(key);
