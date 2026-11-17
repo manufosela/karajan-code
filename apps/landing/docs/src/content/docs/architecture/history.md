@@ -2006,6 +2006,10 @@ Hours after 5.27.0, the governance end-to-end test ran its critical path for the
 
 The same day the maintainer's panel changed: agy reviews, since a reviewer acts on every commit, and copilot arbitrates, since Solomon is called only on a disagreement. The maintainer also asked that Karajan be ruled by each repo's CONTRIBUTING.md and chose to reuse what already existed (ADR 0063): the file GitHub shows is a source of `kj rules compile`, so its rules become gates the maintainer approves, and the playbook tells the agent it binds it. A question a contributor had left open was settled too (ADR 0062): the HU Board hides a project whose directory is gone instead of deleting it, and lists it again when the directory comes back.
 
+## Phase 186: v5.29.0, an agent learns Karajan from kj itself
+
+The maintainer noticed that Karajan worked well for their agents and less for a contributor's, and saw why: what an agent needs to work with it lived in one person's notes. They chose to ship it as a skill that kj installs, so the playbook stays short and points at it. The same evening the post-release reharden asked for a signature again, and the cause was in the seal: a guard removed once stayed recorded as deleted in every later seal, and both sides counted it as new. A team found the opposite wall, a workflow kj does not own that no sealed path could delete, and a contributor found an opencode reviewer whose verdict kj never read.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

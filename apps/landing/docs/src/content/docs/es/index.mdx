@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.28.0: Karajan se rige por el CONTRIBUTING.md del repo (actual)
+### v5.29.0: un agente aprende Karajan del propio kj (actual)
+
+`kj harden` instala la skill `working-with-karajan`: lo que un agente necesita para desarrollar con Karajan, desde el orden de una tarea hasta los comandos que acepta el Sentinel y los actos humanos que te deja a ti. Un sello cuyo sello anterior registraba un borrado vuelve a renovarse solo, un workflow que no es de kj se puede borrar con `git rm` y `kj harden --commit`, y `kj review` lee el veredicto de un revisor opencode. El RAG indexa Swift por símbolo, y kj stage muestra quién sustituye a quién en el panel.
+
+### v5.28.0: Karajan se rige por el CONTRIBUTING.md del repo
 
 El CONTRIBUTING.md que muestra GitHub (en `.github/`, la raíz o `docs/`) es fuente de `kj rules compile`: sus reglas pasan a ser gates que apruebas con `kj rules approve`, y el playbook dice al agente que le obliga como AGENTS.md (ADR 0063). El HU Board oculta un proyecto cuyo directorio ya no existe y lo vuelve a listar cuando el directorio vuelve (ADR 0062). Arreglado: `kj doctor` ya no avisa de un CLAUDE.md que solo importa AGENTS.md, y los talleres de kj stage dejan de plegarse y desplegarse entre turnos.
 

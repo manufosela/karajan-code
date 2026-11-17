@@ -2005,6 +2005,10 @@ Horas después de la 5.27.0, el test de punta a punta del gobierno recorrió por
 
 Ese mismo día cambió el panel del mantenedor: agy revisa, porque el revisor actúa en cada commit, y copilot arbitra, porque a Solomon solo se le llama cuando hay desacuerdo. El mantenedor pidió además que Karajan se rija por el CONTRIBUTING.md de cada repo y eligió reutilizar lo que ya existía (ADR 0063): el fichero que muestra GitHub es fuente de `kj rules compile`, así que sus reglas pasan a ser gates que el mantenedor aprueba, y el playbook dice al agente que le obliga. También quedó resuelta una pregunta que había dejado abierta un colaborador (ADR 0062): el HU Board oculta un proyecto cuyo directorio ya no existe en vez de borrarlo, y lo vuelve a listar cuando el directorio vuelve.
 
+## Phase 186: v5.29.0, un agente aprende Karajan del propio kj
+
+El mantenedor notó que Karajan funcionaba bien con sus agentes y peor con los de un colaborador, y vio por qué: lo que un agente necesita para trabajar con él vivía en las notas de una sola persona. Eligió entregarlo como una skill que instala kj, para que el playbook siga corto y le apunte. Esa misma tarde el reharden tras la release volvió a pedir firma, y la causa estaba en el sello: un guardia retirado una vez seguía anotado como borrado en cada sello posterior, y los dos lados lo contaban como nuevo. Un equipo encontró el muro contrario, un workflow que no es de kj y que ningún camino sellado podía borrar, y un colaborador, un revisor opencode cuyo veredicto kj nunca leía.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
