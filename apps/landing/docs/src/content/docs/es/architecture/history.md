@@ -1997,6 +1997,10 @@ La 5.26.0 nunca llegó a npm. Su candidato no cambiaba ningún fichero sellado, 
 
 El mantenedor vio que las firmas se habían ido de las manos: cada release de kj pedía un sello firmado nuevo en cada repo, y una release se firmaba en el móvil y luego se volvía a aprobar en GitHub. Pidió que por defecto el móvil firmara solo lo crítico, con un modo paranoico que lo firme todo, y aceptó el ADR 0060. El nuevo nivel por defecto, `critical`, firma en el móvil lo que cambia quién gobierna; un sello de lo que genera kj se verifica recomputándolo, incluida la subida de versión de kj en los workflows de una release, y se renueva solo; publicar mantiene una aprobación humana. Esa misma noche el test de punta a punta del gobierno incorporó los casos a los que habían llegado antes los informes de campo: un paquete anidado cuyo contrato no dejaba pasar ningún gate, y un carril que el sandbox dejaba de solo lectura.
 
+## Phase 184: v5.27.1, se dice quién revisa, y un sello renovado solo pasa su CI
+
+Horas después de la 5.27.0, el test de punta a punta del gobierno recorrió por primera vez su camino de `critical`, en cuanto main pasó a la 5.27.0, y falló: un sello renovado solo listaba los ajustes locales del anfitrión, que el verificador buscaba en el árbol de la base, donde nunca están. El arreglo los juzga contra el sello de la base, y la 5.27.1 pasa a ser el primer kj cuyo CI lee un sello sin firmar. El mantenedor vio además PRs «approved by agy» con un panel que dice codex: una sesión seguía pasando `--reviewer agy` por una nota antigua. Pidió que el stage muestre quién actúa en cada rol y que cualquier cambio hecho por falta de cuota vuelva en cuanto se pueda; el cambio por cuota dejó de aconsejar fijar el sustituto, un reviewer fuera del panel se avisa en cada review y el board sirve el panel activo.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

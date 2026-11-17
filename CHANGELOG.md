@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.27.1] - 2026-11-17
+
+A seal renewed by itself at `critical` passes its CI again, and a reviewer substitution made for lack of quota no longer stays. After updating, run `kj harden` in each repo: while its CI still runs 5.27.0, a person seals it once with `kj harden --commit`; from then on the seal of what kj generates renews itself.
+
 ### Added
+- **kj stage**: robots meeting head on step aside to their right before they touch, instead of bouncing back (#4518); a console stands beside the booth and Karajan presses its button when someone teleports in (#4521); everyone on the floor steps aside from everyone, the courier, the plumber and kaRAGan included (#4523); a coffee cart serves a waiting host, who holds the cup until the cart takes it back, and the cart has its card (#4531, #4538).
 - **The HU Board serves each project's active panel for kj stage**: `kj config --json` gives `panel` (coder, reviewer and solomon as kj resolves them, and the substitutions in force), and the board relays it at `/api/governance/panel` (#4539).
 - **kj records which agent acts as reviewer when it is not the panel's**: a substitution for lack of quota is kept in the kj home (`active-panel.json`: who replaces whom, why and since when) for kj stage to show, and cleared as soon as the panel's own reviewer reviews again (#4524).
 - **A role pinned off the declared panel is said**: when `roles.coder.provider` or `roles.reviewer.provider` pins another agent than `coder:` / `reviewer:`, `kj doctor` warns and every `kj review` says it, with the exact change to go back, so a pin made for lack of quota does not stay once the agent has quota again (#4536).
