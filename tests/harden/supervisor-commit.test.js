@@ -321,6 +321,20 @@ describe("the seal covers the governance config (KJC-TSK-1032)", () => {
     expect(git(["show", "--name-only", "--format=", "HEAD"])).toContain(".github/workflows/kj-policy.yml");
   });
 
+  // HU-4577: a workflow kj does not own, removed with git rm, leaves the index: the seal still takes it.
+  it("a workflow deleted with git rm is recorded as deleted and its deletion committed with the seal", async () => {
+    const wf = join(repo, ".github", "workflows", "third-party-review.yml");
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    writeFileSync(wf, "name: Review\n");
+    git(["add", "-A"]);
+    git(["commit", "-qm", "wf", "--no-verify"]);
+    git(["rm", "-q", ".github/workflows/third-party-review.yml"]);
+    expect((await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN })).committed).toBe(true);
+    const prov = JSON.parse(readFileSync(join(repo, PROVENANCE_FILE), "utf8"));
+    expect(prov.files).toContainEqual({ file: ".github/workflows/third-party-review.yml", deleted: true });
+    expect(git(["show", "--name-only", "--diff-filter=D", "--format=", "HEAD"])).toContain(".github/workflows/third-party-review.yml");
+  });
+
   // HU-4012: the verdicts check harden writes is sealed like kj-policy.yml, new or changed.
   it("a new kj-verdicts.yml is sealed and committed with the seal", async () => {
     const wf = join(repo, ".github", "workflows", "kj-verdicts.yml");
