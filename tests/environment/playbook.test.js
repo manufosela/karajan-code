@@ -23,6 +23,10 @@ describe("renderPlaybook × CONTRIBUTING.md", () => {
   it("tells the agent the repo's CONTRIBUTING.md binds it as this file does", () => {
     expect(renderPlaybook({})).toMatch(/CONTRIBUTING\.md[^\n]*binds you/);
   });
+  // HU-4574: the playbook stays short and points at the guide kj installs as a skill.
+  it("points at the working-with-karajan skill when a gate stops the agent", () => {
+    expect(renderPlaybook({})).toMatch(/gate stopped you\?[^\n]*working-with-karajan/);
+  });
 });
 
 describe("renderPlaybook", () => {

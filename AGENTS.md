@@ -85,7 +85,7 @@ architect, tester, security, audit, board) · `kj hu add|move|list` ·
 `kj review --staged` · `kj review --check` · `kj solomon --position` ·
 `kj agent run <agent>` · `kj report` · `kj check`
 
-Hit a kj bug or friction? Diagnose it and file it upstream with
+A kj gate stopped you? The working-with-karajan skill says how to go on. Hit a kj bug or friction? Diagnose it and file it upstream with
 `kj report-issue` (sanitized; ask your user before `--publish`). kj announces a newer version?
 Tell your user what it brings and ask — never run `kj update` on your own.
 Something only your user can do (publish, seal, run a script)? Register it:
