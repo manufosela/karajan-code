@@ -10,6 +10,9 @@ const below = (a, b) => {
   return i >= 0 && a[i] < b[i];
 };
 
+/** Whether a kj version (as [major, minor, patch]) is older than the first that reads an unsigned seal. */
+export const predatesCritical = (pin) => Array.isArray(pin) && below(pin, CRITICAL_SINCE);
+
 const PINS = /(?:karajan-code|@karajan-family\/code)@(\d+)\.(\d+)\.(\d+)/g;
 const versionsOf = (text) => [...text.matchAll(PINS)].map((m) => m.slice(1).map(Number));
 
@@ -69,6 +72,6 @@ export function sealGoverns({ hashed, previous, isGovernance, run, baseBranch = 
   const changed = hashed.filter((e) => isGovernance(e.file) && before.get(e.file) !== e.sha256 && !pinBump(e.file)).map((e) => e.file);
   if (changed.length > 0) return `the seal changes the governance config (${changed.join(", ")})`;
   const pin = basePinOf(run, baseBranch);
-  if (pin && below(pin, CRITICAL_SINCE)) return `the base branch's CI runs kj ${pin.join(".")}, which reads no unsigned seal`;
+  if (predatesCritical(pin)) return `the base branch's CI runs kj ${pin.join(".")}, which reads no unsigned seal`;
   return null;
 }

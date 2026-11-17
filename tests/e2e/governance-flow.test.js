@@ -14,6 +14,8 @@ import { publishPrReview } from "../../src/review/publish-pr.js";
 import { verifyPrReview } from "../../src/review/verify-pr.js";
 import { runCommand } from "../../src/utils/process.js";
 import { addSigner, canonicalPayload } from "../../src/harden/phone-sign.js";
+import { SECURITY_LEVEL_FILE, signedFilesOf } from "../../src/harden/security-level.js";
+import { basePinOf, predatesCritical } from "../../src/harden/critical-seal.js";
 import { CHALLENGE } from "../_fixtures/passkey.js";
 import { makeGovernedRepo } from "./helpers/governed-repo.js";
 
@@ -140,5 +142,40 @@ describe("governance flow on a real-shaped repo (KJC-TSK-1645)", () => {
     const published = `${JSON.stringify({ body: posted[0], author_association: "OWNER", user: { login: "owner" } })}\n`;
     const verdict = await verifyPrReview({ projectDir: r.repo, pr: 1, run: github(published) });
     expect(verdict.ok, JSON.stringify(verdict, null, 2)).toBe(true);
+  }, 300000);
+
+  // KJC-TSK-1654 (ADR 0060, step 3): at critical, a seal of what kj generates renews itself.
+  it("at critical, kj harden renews the seal of the hooks it regenerates, and the PR passes policy check", async () => {
+    reviewedCommit(r, `chore/${card}-critical`, "chore: the critical security level", () => {
+      const record = { level: "critical", since: "2026-11-17T00:00:00.000Z" };
+      writeFileSync(join(r.repo, SECURITY_LEVEL_FILE), `${JSON.stringify({ ...record, signature: keySigned(signedFilesOf(record)) }, null, 2)}\n`);
+      r.git("add", SECURITY_LEVEL_FILE);
+    });
+    // What the cases above left to seal (the functions package changed kj-quality.yml): the person seals it.
+    r.git("checkout", "-q", "-B", `chore/${card}-resealed`, "main");
+    expect(r.kj("harden").ok).toBe(true);
+    const sealed = await commitSupervisorRegeneration({ ...HUMAN, projectDir: r.repo, kjVersion: KJ_VERSION, generation, gitFn: (args) => r.git(...args) });
+    expect(sealed.committed, sealed.reason).toBe(true);
+    merge(r, `chore/${card}-resealed`);
+    // A project choice that changes a hook kj generates: the tests run on push again.
+    reviewedCommit(r, `chore/${card}-test-on-push`, "chore: run the tests on push", () => {
+      const pkg = JSON.parse(readFileSync(join(r.repo, "package.json"), "utf8"));
+      writeFileSync(join(r.repo, "package.json"), `${JSON.stringify({ ...pkg, kj: { harden: { test_on_push: true } } }, null, 2)}\n`);
+      r.git("add", "package.json");
+    });
+    r.git("checkout", "-q", "-b", `chore/${card}-renewal`);
+    const h = r.kj("harden");
+    expect(h.ok, h.output).toBe(true);
+    const said = h.output.split("\n").filter((l) => /seal/.test(l)).join("\n");
+    // A base CI whose kj predates the critical level cannot read an unsigned seal: until then a person seals.
+    const pin = basePinOf((args) => r.git(...args), "main");
+    if (predatesCritical(pin)) {
+      expect(said).toMatch(new RegExp(`base branch's CI runs kj ${pin.join("\\.")}, which reads no unsigned seal`));
+      return;
+    }
+    expect(said).toMatch(/seal renewed by itself/);
+    expect(lastSubject(r)).toMatch(/^chore\(harden\): supervisor regenerated and sealed/);
+    const check = r.kj("policy", "check", "--range", "main...HEAD", "--strict");
+    expect(check.ok, check.output).toBe(true);
   }, 300000);
 });
