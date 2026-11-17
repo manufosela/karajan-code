@@ -22,6 +22,7 @@ import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.j
 import { checkCardFirst } from "../review/card-first.js";
 import { checkReleaseBump } from "../review/release-bump.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
+import { sealBase } from "../harden/critical-seal.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { generatedFiles } from "../review/linguist-generated.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
@@ -370,7 +371,8 @@ async function policyGate({ projectDir, diff, pol, changedFiles, std, range, che
   // ADR 0009 (KJC-BUG-0161): la exención ESTRUCTURAL del supervisor — un
   // diff de .karajan/hooks respaldado por la provenance sellada Y el render
   // canónico no es una edición: es la regeneración de kj harden --commit.
-  const lifted = liftSealedSupervisorViolations({ projectDir, violations: gate.denials });
+  // ADR 0060 (step 2c): judged against what the diff starts from.
+  const lifted = liftSealedSupervisorViolations({ projectDir, violations: gate.denials, base: await sealBase(rawGit, range) });
   if (lifted.lifted > 0) {
     console.log(`✓ policy: ${lifted.lifted} fichero(s) de supervisor verificados contra la provenance sellada (ADR 0009) — regeneración, no edición`);
     gate.denials = lifted.violations;

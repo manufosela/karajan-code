@@ -196,7 +196,8 @@ export async function commitSupervisorRegeneration({
   let branch = null;
   try { branch = run(["rev-parse", "--abbrev-ref", "HEAD"]).trim(); } catch { /* unborn HEAD */ }
   // KJC-TSK-1654 (ADR 0060): at critical only a seal that changes who governs asks the phone.
-  const governs = sealGoverns({ hashed, previous, isGovernance: (f) => isSealedConfig(f, declared), run, baseBranch: generation?.baseBranch });
+  const readNow = (f) => { try { return readFileSync(join(projectDir, f), "utf8"); } catch { return null; } };
+  const governs = sealGoverns({ hashed, previous, isGovernance: (f) => isSealedConfig(f, declared), run, baseBranch: generation?.baseBranch, readNow });
   const { signature: signatureBlock } = await signAct("supervisor-seal", {
     projectDir, kjVersion, branch, logger, deps, governs,
     files: hashed.map(({ file, sha256: hash }) => ({ file, sha256: hash ?? "" })),
