@@ -34,6 +34,18 @@ describe("ruleSources / listRules", () => {
     expect(rules.every((r) => path.isAbsolute(r.file))).toBe(true);
   });
 
+  // HU-4558 (ADR 0063): the repo's CONTRIBUTING.md governs too, the one GitHub shows.
+  it("reads the repo's CONTRIBUTING.md, the first of .github/, the root and docs/", () => {
+    fs.mkdirSync(path.join(project, "docs"));
+    fs.writeFileSync(path.join(project, "docs", "CONTRIBUTING.md"), "- Always sign off every commit.\n");
+    expect(ruleSources(project, { home }).map((f) => path.relative(project, f))).toEqual([path.join("docs", "CONTRIBUTING.md")]);
+    fs.writeFileSync(path.join(project, "CONTRIBUTING.md"), "- Always squash before merging.\n");
+    fs.mkdirSync(path.join(project, ".github"));
+    fs.writeFileSync(path.join(project, ".github", "CONTRIBUTING.md"), "- Never mix two changes in one PR.\n");
+    expect(ruleSources(project, { home }).map((f) => path.relative(project, f))).toEqual([path.join(".github", "CONTRIBUTING.md")]);
+    expect(listRules(project, { home }).map((r) => r.text)).toEqual(["Never mix two changes in one PR."]);
+  });
+
   it("a project with no governing MD file has no rules", () => {
     expect(ruleSources(project, { home })).toEqual([]);
     expect(listRules(project, { home })).toEqual([]);
