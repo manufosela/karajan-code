@@ -56,6 +56,25 @@ describe("migrateLegacyAgentFiles (KJC-TSK-1504)", () => {
     expect(existsSync(join(dir, "CLAUDE.md"))).toBe(true);
   });
 
+  // HU-4532 (MAXWELL): a CLAUDE.md that only imports AGENTS.md is a bridge, not rules to move.
+  it("leaves a CLAUDE.md that only imports AGENTS.md, and adds nothing to AGENTS.md", () => {
+    write("AGENTS.md", "# Rules\n\nBe kind.\n");
+    write("CLAUDE.md", "@AGENTS.md\n");
+    write("GEMINI.md", `@./AGENTS.md\n\n${block("playbook", "method")}\n`);
+    expect(migrateLegacyAgentFiles({ projectDir: dir })).toEqual([]);
+    expect(read("CLAUDE.md")).toBe("@AGENTS.md\n");
+    expect(existsSync(join(dir, "GEMINI.md"))).toBe(true);
+    expect(read("AGENTS.md")).toBe("# Rules\n\nBe kind.\n");
+  });
+
+  it("moves the rules of a CLAUDE.md that also imports AGENTS.md, without the import", () => {
+    write("AGENTS.md", "# Rules\n");
+    write("CLAUDE.md", "@AGENTS.md\nOnly Claude knew this.\n");
+    expect(migrateLegacyAgentFiles({ projectDir: dir })).toEqual([{ file: "CLAUDE.md", moved: 1 }]);
+    expect(read("AGENTS.md")).toBe("# Rules\n\nOnly Claude knew this.\n");
+    expect(existsSync(join(dir, "CLAUDE.md"))).toBe(false);
+  });
+
   it("without legacy files it does nothing", () => {
     expect(migrateLegacyAgentFiles({ projectDir: dir })).toEqual([]);
     expect(existsSync(join(dir, "AGENTS.md"))).toBe(false);
