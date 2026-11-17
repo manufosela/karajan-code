@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.27.1",
-  "generated_at": "2026-11-17T10:51:13.830Z",
+  "kj_version": "5.28.0",
+  "generated_at": "2026-11-17T17:39:33.159Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -51,7 +51,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "af831fb65633d0720cb6ded846f7cd33d2356277374c1bed864d45f20672380a"
+      "sha256": "1d8ec5d752f9eefe6a19dc4f5ce495dd1ac182c7a1aa005d2d511a73fbc434a8"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -59,11 +59,11 @@
     },
     {
       "file": ".github/workflows/kj-secrets.yml",
-      "sha256": "07d795cfc600dbe5f8c3734f1ceba31cebdcc8b1f723c60836dcdf7ae2d9aaa2"
+      "sha256": "d40c9cba6c4fba7e633ff725ad1a79aeaa73d89f527d577c24633337e85331e6"
     },
     {
       "file": ".github/workflows/kj-verdicts.yml",
-      "sha256": "e4a6438a989a511534e05dc9c2e30f7bb556f7316c7b3f84737e999871812e72"
+      "sha256": "4823b57a8292d622a056793cb485f36d5fa0fcc5448df0e96b7da03694192e07"
     },
     {
       "file": ".github/workflows/nightly.yml",
@@ -183,18 +183,18 @@
     }
   ],
   "signature": {
-    "cid": "c20091f90b8951cccd57bf57ff50d866",
-    "nonce": "04db0ce6c0a5b3563da412d3acb87b17",
+    "cid": "420413451cf3bdc9fc2e594d711e3106",
+    "nonce": "0e116cd305807aad20e9160e898dd723",
     "project": "manufosela/karajan-code",
-    "filesHash": "3d0ffbb742c4a7da1be555a754dad82f6757fdaa3f1abd6ef7a0f018937c8738",
+    "filesHash": "79a519ff7bbdf732268c9c7f8585a7c7c41debab272959f9f5764f8c8841ea33",
     "v": 2,
-    "kjVersion": "5.27.1",
-    "issuedMs": 1794912660115,
-    "expiresMs": 1794912810115,
+    "kjVersion": "5.28.0",
+    "issuedMs": 1794937127668,
+    "expiresMs": 1794937277668,
     "type": "webauthn",
     "credentialId": "xWJyPFF0_V2TTKDp65cesw",
     "authenticatorData": "rXNnteqvZsxVFoAzmjFmd-OrJ0TSokRWHcqrVw7x-rQdAAAAAA",
-    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiYWFuRXdXai13SEphS0pUUnlNX0xhRElOVkUwam5xRXFIMWtXRTRscUhVVSIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlLCJvdGhlcl9rZXlzX2Nhbl9iZV9hZGRlZF9oZXJlIjoiZG8gbm90IGNvbXBhcmUgY2xpZW50RGF0YUpTT04gYWdhaW5zdCBhIHRlbXBsYXRlLiBTZWUgaHR0cHM6Ly9nb28uZ2wveWFiUGV4In0",
-    "signature": "MEQCIHQNw8sowrQFPXVu0VvyDnJMwKssUrFjgzbUg8sPfyjWAiAHkK9x6-3MQKACGY0_xaZIRVVkY3bylnzAzDoL1tnXdw"
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiWDdUSlk0YWhZSkNXZ2pZQUV3U3dCRVhIWVYwLXlPa0ZwTDd3M0pvamltVSIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
+    "signature": "MEQCIGQM8jy35mhgyjiKNuqUd-3I6CMjnJnvvjBcP0nfHtDIAiAhlJ2pH6ajjKil4fOajqxlAWy63aerFilw9FCpObJ-TQ"
   }
 }
