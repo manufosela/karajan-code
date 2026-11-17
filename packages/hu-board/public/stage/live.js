@@ -16,7 +16,7 @@ import { turnAt, turnFrom } from './workers.js';
 import { blinkAt, placeDenial, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
-import { conductorAt, withBeat } from './conductor.js';
+import { buttonAt, conductorAt, withBeat } from './conductor.js';
 import { PIECE_WALK_MS, VISIT_SPOTS, gestureAt, pieceAt, withVisit } from './piece-visit.js';
 import { reviewsAt, withReviews } from './review-crew.js';
 import { POST, WORKSHOP, boothAt, postX } from './layout.js';
@@ -58,6 +58,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let rag = null; // KJC-TSK-1438: the answer kaRAGan is taking, and where
   let index = null; // KJC-TSK-1522: the reindex kaRAGan types at
   let beat = null; // KJC-TSK-1490: the act of the method Karajan answers
+  let pressed = null; // KJC-TSK-1659: when Karajan last pressed the booth's button (someone came in)
   let visits = {}; // KJC-TSK-1517: the pieces out at a workshop, by piece
   let reviews = {}; // KJC-TSK-1595: the AI review pieces out, by lane
   let gatesLit = new Set();
@@ -83,7 +84,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     const pipelines = new Map((state.lanes ?? []).map(({ lane, pipeline }) => [lane, pipeline ?? null]));
     for (const lane of hall.names()) hall.showPipeline(lane, pipelines.get(lane) ?? null);
     // KJC-TSK-1642: and a plumber to each workshop whose pipeline failed.
-    plumbers.update(new Map(hall.names().map((lane) => [lane, pipelines.get(lane) ?? null])), performance.now());
+    // KJC-TSK-1659: a plumber called teleports in: Karajan presses the booth's button.
+    if (plumbers.update(new Map(hall.names().map((lane) => [lane, pipelines.get(lane) ?? null])), performance.now())) pressed = performance.now();
   };
   /** KJC-TSK-1588: over each desk whose card waits with no agent, what it waits for. */
   const showSigns = () => deskSigns(statuses, atHome(state.cards ?? [], hall.names())).map(({ lane, text, tone }) =>
@@ -152,7 +154,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   };
   /** KJC-TSK-1490: Karajan turns to the lane the method just acted on and conducts it, or stops it. */
   const conduct = (now) => {
-    const pose = conductorAt(beat, now, hall.xOf, hall.zOf);
+    // KJC-TSK-1659: a press at the booth's console goes before a beat; its button lights with it.
+    const pose = conductorAt(beat, now, hall.xOf, hall.zOf, pressed);
+    hall.lightConsole(buttonAt(pressed, now));
     crew.conductor.root.rotation.y = pose.yaw;
     crew.conductor.pose('L', ...pose.L);
     crew.conductor.pose('R', ...pose.R);
@@ -263,11 +267,16 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane)) refit({ glide: true });
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
+      // KJC-TSK-1659: a host that comes in teleports in at the booth: Karajan presses its button.
+      const hostsBefore = floor.working().filter((w) => w.role === 'host').length;
       floor.push(event, now);
+      if (floor.working().filter((w) => w.role === 'host').length > hostsBefore) pressed = now;
       showStatuses(); // KJC-BUG-0581: once the floor has its robots where this event puts them
       // KJC-TSK-1650: the lane's host at work runs its card's errand; with none, the courier does.
       const trip = tripFor(event, now);
-      if (!trip || !floor.errand(trip, now)) couriers.push(event, now);
+      const courierGoes = Boolean(trip) && !floor.errand(trip, now);
+      if (courierGoes) pressed = now; // KJC-TSK-1659: the courier teleports in at the booth
+      if (!trip || courierGoes) couriers.push(event, now);
       // KJC-TSK-1596: once the agent stands before atril.
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: turnFrom(event, now), skills: event.skills };
       watch = withWatch(watch, event, now);

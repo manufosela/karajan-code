@@ -2,7 +2,7 @@
 // hall: a floor pad with the lane's name and a bench. A lane seen for the first
 // time gets its workshop and the row recentres.
 import * as THREE from 'three';
-import { BOOTH, WORKSHOP, workshopAt } from './layout.js';
+import { BOOTH, CONSOLE, CREW, WORKSHOP, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
 import { createBelt } from './belt.js';
@@ -136,6 +136,27 @@ function booth() {
  * get in the way". The workshop's git gates are no longer two posts and a bar: a flat strip along the
  * back edge of its pad, which lights when a commit passes or bounces. Returns it and its material.
  */
+/**
+ * KJC-TSK-1659 (the maintainer, 2026-11-17): the booth's console, within Karajan's reach: a slanted
+ * desk on a post with a round button that lights as Karajan presses it. Returns it and `light(k)`.
+ */
+function boothConsole() {
+  const group = new THREE.Group();
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.9, 0.16), matte(0x3a4656));
+  post.position.y = 0.45;
+  const desk = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.42), matte(0x2a3442));
+  desk.position.y = 0.95;
+  desk.rotation.x = -0.35;
+  const glow = new THREE.MeshStandardMaterial({ color: 0x1f6e8c, emissive: 0x4fb3e8, emissiveIntensity: 0 });
+  const button = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.07, 24), glow);
+  button.position.set(0, 1.01, 0.02);
+  button.rotation.x = -0.35;
+  group.add(post, desk, button);
+  group.position.set(CONSOLE.x, 0, CONSOLE.z);
+  group.rotation.y = Math.atan2(CREW.conductor.x - CONSOLE.x, CREW.conductor.z - CONSOLE.z); // facing Karajan
+  return { group, light: (k) => { glow.emissiveIntensity = 2.2 * k; } };
+}
+
 function gates() {
   const light = new THREE.MeshStandardMaterial({ color: 0x2a3442, emissive: 0x000000, roughness: 0.5 });
   const gate = new THREE.Mesh(new THREE.BoxGeometry(WORKSHOP.width, 0.03, 0.14), light);
@@ -158,6 +179,8 @@ export function createHall(scene, lanes) {
   const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
   // KJC-TSK-1632: the booth the hosts come and go by, beside Karajan.
   scene.add(booth());
+  const desk = boothConsole(); // KJC-TSK-1659
+  scene.add(desk.group);
   // KJC-BUG-0623: a workshop already standing slides to its new place; a new one stands there at once.
   let opening = true; // the workshops of the first state stand whole, with no fade in
   const relayout = (now = performance.now()) => order.forEach((lane) => {
@@ -237,6 +260,8 @@ export function createHall(scene, lanes) {
     zOf: (lane) => at(lane).z,
     remove,
     frame,
+    /** KJC-TSK-1659: how lit the booth console's button is, 0 to 1. */
+    lightConsole: (k) => desk.light(k),
     // KJC-BUG-0623: one fading out still holds its gap (xOf/zOf) but no longer counts as standing.
     count: () => standing().length,
     /** KJC-TSK-1540: the lanes of the hall, in the order their workshops stand. */

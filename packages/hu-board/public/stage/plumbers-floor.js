@@ -31,7 +31,12 @@ export function createPlumbersFloor(scene) {
   };
   return {
     /** `pipelines`: lane → its open pull request's pipeline, as the lanes' state says now. */
-    update(pipelines, now) { plumbers = withPipelines(plumbers, pipelines, now); },
+    /** KJC-TSK-1659: true when a new plumber was called (it teleports in at the booth). */
+    update(pipelines, now) {
+      const before = plumbers.filter((p) => p.leftAt === undefined).length;
+      plumbers = withPipelines(plumbers, pipelines, now);
+      return plumbers.filter((p) => p.leftAt === undefined).length > before;
+    },
     /** Moves every plumber at `now`; `door` is the booth (layout.js boothAt). */
     frame(now, xOf, zOf, door) {
       const seen = new Set();

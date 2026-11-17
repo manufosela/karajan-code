@@ -89,6 +89,8 @@ export const STAND = { x: -END - BOOTH_ROOM - 1.4, z: POST.z - 1.8, yaw: 0.7 };
  * in front of it, so it walks through none of the crew.
  */
 export const BOOTH = { x: (CREW.conductor.x + postX(POSTS[0])) / 2, z: POST.z, height: 2.2, exitZ: POST.z + 1.8 };
+/** KJC-TSK-1659: the booth's console, between Karajan and the booth, a little ahead, within its reach. */
+export const CONSOLE = { x: CREW.conductor.x + 0.9, z: POST.z + 0.5 };
 /**
  * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
  * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
