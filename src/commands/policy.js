@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
+import { sealBase } from "../harden/critical-seal.js";
 import { rosterViolation } from "../policy/roster-check.js";
 import { adrNumberViolation } from "../policy/adr-number-check.js";
 import { loadExceptionRecords, loadGlobalExceptionRecords, loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
@@ -312,7 +313,8 @@ async function checkViolations({ projectDir, policy, flags, logger, deps, facts 
   let violations = checkStagedDiff(policy, { role: flags.role || "coder", ...facts });
   // ADR 0009 (KJC-BUG-0161): en CI la misma exención estructural que en la
   // review — supervisor respaldado por provenance sellada + render canónico.
-  const sup = liftSealedSupervisorViolations({ projectDir, violations });
+  const base = await sealBase(gitRunner(projectDir, deps.gitFn), flags.range || null);
+  const sup = liftSealedSupervisorViolations({ projectDir, violations, base });
   if (sup.lifted > 0) {
     logger.info?.(`✓ policy: ${sup.lifted} fichero(s) de supervisor verificados contra la provenance sellada (ADR 0009)`);
     // KJC-BUG-0212: lo que este sitio no ha podido juzgar se dice, no se calla.

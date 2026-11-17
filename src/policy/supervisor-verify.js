@@ -12,6 +12,7 @@ import { resolve, sep } from "node:path";
 import { renderCanonicalHook } from "../harden/harden-engine.js";
 import { provenanceSignature } from "../harden/phone-sign.js";
 import { readSecurityLevel } from "../harden/security-level.js";
+import { pinOnlyUpgrade } from "../harden/critical-seal.js";
 import { canonicalHarnessBody } from "../harden/sentinel-hooks.js";
 import { HOST_SETTINGS_FILES, isSealedConfig, PROVENANCE_FILE } from "../harden/supervisor-commit.js";
 import { sealedFilesOf } from "./engine.js";
@@ -61,8 +62,10 @@ function fileReader(projectDir, ref) {
  * @returns {{files: Set<string>, reason?: string}} rutas repo-relativas de
  * supervisor cuyo estado actual está respaldado por la provenance sellada.
  */
-export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }) {
+export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref, base }) {
   const read = fileReader(projectDir, ref);
+  // ADR 0060 (step 2c): the base the change is judged against, to recognise a release's pin bump.
+  const atBase = base ? fileReader(projectDir, base) : null;
   let prov;
   try {
     prov = JSON.parse(ref == null ? readFileSync(resolve(projectDir, PROVENANCE_FILE), "utf8") : (read(PROVENANCE_FILE) ?? ""));
@@ -106,7 +109,13 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }
     // KJC-TSK-1032: the governance config has no canonical render; the sealed
     // hash, signed by the roster where there is one, is the proof.
     if (isSealedConfig(entry.file, declared)) {
-      if (unsignedCritical) continue;
+      if (unsignedCritical) {
+        // Only a workflow whose sole change from the base is the kj it pins, moved up.
+        const now = read(entry.file);
+        const was = atBase && entry.file.startsWith(".github/workflows/") ? atBase(entry.file) : null;
+        if (now && was && sha256(now) === entry.sha256 && pinOnlyUpgrade(was.toString("utf8"), now.toString("utf8"))) ok.add(entry.file);
+        continue;
+      }
       const bytes = read(entry.file);
       // KJC-TSK-1207: host settings sealed as ignored by git (local) live only where
       // they were sealed; absent from this checkout they cannot be judged here (CI,
@@ -177,11 +186,11 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref }
  * `note` dice lo que este sitio NO ha podido juzgar, para que un levantamiento
  * mas laxo de lo que parece no pase por silencio (KJC-BUG-0212).
  */
-export function liftSealedSupervisorViolations({ projectDir, violations, trackedOnly = false }) {
+export function liftSealedSupervisorViolations({ projectDir, violations, trackedOnly = false, base }) {
   // KJC-TSK-1033: the governance config is lifted by the same seal.
   const RULES = new Set(["defaults.supervisor.write", "defaults.governance.write"]);
   if (!violations.some((v) => RULES.has(v.rule_id) && v.file)) return { violations, lifted: 0 };
-  const sealed = verifiedSupervisorFiles({ projectDir, trackedOnly });
+  const sealed = verifiedSupervisorFiles({ projectDir, trackedOnly, base });
   // La violación sobre la PROPIA provenance solo se alza si la provenance
   // entera verificó — a medias no describe la verdad y sigue denegada.
   const liftable = (v) =>
