@@ -23,7 +23,23 @@ export function agentAnswerText(raw) {
     const event = extractFirstJson(lines[i]);
     if (event?.type === "result" && typeof event.result === "string") return event.result;
   }
-  return raw;
+  return opencodeText(lines) ?? raw;
+}
+
+// HU-4569: opencode run --format json streams step_start / text / tool_use / step_finish events;
+// the answer is the text of the last step that wrote any.
+function opencodeText(lines) {
+  let step = [];
+  let answer = null;
+  for (const line of lines) {
+    const event = extractFirstJson(line);
+    if (event?.type === "step_start") step = [];
+    else if (event?.type === "text" && typeof event.part?.text === "string") {
+      step.push(event.part.text);
+      answer = step.join("");
+    }
+  }
+  return answer;
 }
 
 /** The review verdict in an agent's answer, or null: the one path kj review reads it by. */
