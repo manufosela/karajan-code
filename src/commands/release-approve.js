@@ -4,7 +4,7 @@ import { signAct } from "../harden/act-sign.js";
 import { humanAct } from "../harden/human-act.js";
 import { approvalFiles, renderApproval } from "../release/approval.js";
 import { readSecurityLevel } from "../harden/security-level.js";
-import { holdLine, readRelease } from "./release-status.js";
+import { holdLine, mentions, readRelease } from "./release-status.js";
 
 const run = (bin) => async (args) => execFileSync(bin, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 // The candidate becomes an argument of git tag: only a commit sha, never an option like --force.
@@ -17,15 +17,18 @@ async function approveAct(files, { projectDir, kjVersion, summary }) {
   return (await signAct("release-approve", { projectDir, kjVersion, files, changes })).signature;
 }
 
-/** The proposal of a ready release, read and judged at this moment; once `signed`, still the version and candidate the phone signed. */
+/**
+ * The proposal of an approvable release, read and judged at this moment; once `signed`, still the version and
+ * candidate the phone signed. KJC-TSK-1658: only a hold stops it; before the deadline the approval closes the wait.
+ */
 async function readyProposal({ repo, issue, clock, gh }, signed) {
   const { proposal, result } = await readRelease({ repo, issue, now: clock(), gh });
   const moved = signed && (proposal.version !== signed.version || proposal.candidate !== signed.candidate);
   if (moved) throw new Error(`release approve: the proposal changed while you signed (now ${proposal.version} at ${String(proposal.candidate).slice(0, 7)}): nothing was posted nor tagged`);
   if (!SHA.test(proposal.candidate)) throw new Error(`release approve: the proposal's candidate is not a commit sha: ${JSON.stringify(proposal.candidate)}`);
-  if (result.ready) return proposal;
-  const lines = [...result.holds.map(holdLine), ...result.silent.map((login) => `@${login}: silent until ${proposal.deadline}`)];
-  throw new Error(`release approve: the release is ${signed ? "no longer" : "not"} ready, nothing was posted nor tagged:\n${lines.join("\n")}`);
+  if (result.holds.length > 0) throw new Error(`release approve: the release is ${signed ? "no longer" : "not"} ready, nothing was posted nor tagged:\n${result.holds.map(holdLine).join("\n")}`);
+  const earlyClose = result.ready ? null : { deadline: proposal.deadline, silent: result.silent };
+  return { ...proposal, earlyClose };
 }
 
 /** @returns {Promise<{url: string, tag: string}>} */
@@ -36,13 +39,14 @@ export async function releaseApproveCommand({ repo, issue, projectDir = process.
   // KJC-TSK-1654 (ADR 0060): at critical the act stops at the terminal and the approval says so.
   if (!signature && levelOf(projectDir) !== "critical") throw new Error("release approve: the approval needs the phone's signature, and no phone signed it: enroll one with kj identity enroll-phone");
   // A hold or an edit may land, and the deadline pass, while the phone signs: judge the release again, now, before anything goes out.
-  await readyProposal({ repo, issue, clock, gh }, { version, candidate });
-  const body = renderApproval({ repo, version, issue, candidate, signature });
+  const { earlyClose } = await readyProposal({ repo, issue, clock, gh }, { version, candidate });
+  const body = renderApproval({ repo, version, issue, candidate, signature, earlyClose });
   const url = String(await gh(["api", "--method", "POST", `repos/${repo}/issues/${issue}/comments`, "-f", `body=${body}`, "--jq", ".html_url"])).trim();
   const tag = `v${version}`;
   await git(["tag", tag, candidate]);
   await git(["push", "origin", tag]);
   print(`✓ ${signature ? "signed approval" : "approval confirmed at the terminal"} of ${version} posted: ${url}`);
+  if (earlyClose) print(`✓ it closed the wait early: ${mentions(earlyClose.silent)} had not answered`);
   print(`✓ tagged ${candidate.slice(0, 7)} as ${tag} and pushed it`);
   return { url, tag };
 }

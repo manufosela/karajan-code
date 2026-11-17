@@ -44,9 +44,23 @@ describe("kj release approve", () => {
     expect(calls[1][1]).toMatch(/confirmed at the maintainer's terminal/);
   });
 
+  // KJC-TSK-1658: the maintainer's approval closes the wait early, and the issue says who had not answered.
+  it("closes the wait before the deadline when nobody holds, naming who had not answered", async () => {
+    const { promise, calls } = run({ acks: [ack("ana", "ok")], now: BEFORE });
+    await expect(promise).resolves.toMatchObject({ tag: "v1.0.1" });
+    expect(calls.map(([kind]) => kind)).toEqual(["act", "post", "git", "git"]);
+    expect(calls[1][1]).toMatch(/closed the wait before 2026-11-13T12:00:00.000Z: @bob had not answered/);
+  });
+
+  it("past the deadline the approval names nobody as closing the wait early", async () => {
+    const { promise, calls } = run({ acks: [ack("ana", "ok")] });
+    await promise;
+    expect(calls[1][1]).not.toMatch(/closed the wait/);
+  });
+
   it.each([
     ["a release with a hold, naming who holds and why", { acks: [hold, ack("bob", "ok")] }, /@ana: hold \(flaky suite\)/, []],
-    ["a release with someone silent before the deadline, naming them and it", { acks: [ack("ana", "ok")], now: BEFORE }, /@bob.*2026-11-13T12:00:00.000Z/, []],
+    ["a release held before the deadline, however many are silent", { acks: [hold], now: BEFORE }, /@ana: hold \(flaky suite\)/, []],
     ["a candidate that is not a commit sha", { block: { ...block, candidate: "--force" } }, /not a commit sha/, []],
     ["an approval no phone signed", { signature: null }, /signature/, ["act"]],
     ["a hold that lands while the phone signs", { later: { acks: [hold, ack("bob", "ok")] } }, /no longer ready[\s\S]*@ana: hold \(flaky suite\)/, ["act"]],

@@ -7,7 +7,7 @@ When several people work on one repository, each with their own agents, a releas
 
 ## The idea in one paragraph
 
-Someone proposes a version. kj opens a GitHub issue that lists what goes out, by author, and what stays out, by owner of each open pull request, and mentions all of them. Each of them answers from their own session, and their agent checks the candidate commit first. After 4 hours, silence counts as no objection; a hold always blocks. When the release is ready, a person of the signer roster approves it with their phone, and only then is the tag created. CI publishes nothing that is not approved.
+Someone proposes a version. kj opens a GitHub issue that lists what goes out, by author, and what stays out, by owner of each open pull request, and mentions all of them. Each of them answers from their own session, and their agent checks the candidate commit first. After 4 hours, silence counts as no objection, and the maintainer's approval can close that wait earlier; a hold always blocks. When the release is ready, a person of the signer roster approves it with their phone, and only then is the tag created. CI publishes nothing that is not approved.
 
 ## Who is asked
 
@@ -56,7 +56,7 @@ It says who confirmed, who holds and why, who has not answered and until when. I
 kj release approve 4242
 ```
 
-This is a human act: kj refuses it in an agent's session. At the `critical` security level, the default (ADR 0060), you confirm it at your terminal and no phone is asked: the npm environment's "Review deployments" is the one human approval of the publish. At `max`, the paranoid mode, it also asks for your signature on your phone, with a passkey or a key of the signer roster. Before approving it checks that the release is ready; after that it reads the issue again and stops if someone held it meanwhile. Then it posts the approval on the issue, tags the candidate as `v5.22.0` and pushes the tag.
+This is a human act: kj refuses it in an agent's session. At the `critical` security level, the default (ADR 0060), you confirm it at your terminal and no phone is asked: the npm environment's "Review deployments" is the one human approval of the publish. At `max`, the paranoid mode, it also asks for your signature on your phone, with a passkey or a key of the signer roster. Before approving it checks that nobody holds the release; after that it reads the issue again and stops if someone held it meanwhile. You do not have to wait for the 4 hours: approving before the deadline closes the wait, and the approval on the issue names who had not answered. A hold blocks it at any time. Then it posts the approval on the issue, tags the candidate as `v5.22.0` and pushes the tag.
 
 ### 5. Publish
 

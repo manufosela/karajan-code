@@ -7,7 +7,7 @@ Cuando varias personas trabajan en un mismo repositorio, cada una con sus agente
 
 ## La idea en un párrafo
 
-Alguien propone una versión. kj abre una issue de GitHub con lo que sale, por autor, y lo que se queda fuera, por dueño de cada pull request abierta, y los menciona a todos. Cada uno contesta desde su propia sesión, y su agente comprueba antes el commit candidato. Pasadas 4 horas, el silencio cuenta como sin objeción; un «retener» bloquea siempre. Cuando la release está lista, una persona del padrón de firmantes la aprueba con su móvil, y solo entonces se crea la etiqueta. La CI no publica nada que no esté aprobado.
+Alguien propone una versión. kj abre una issue de GitHub con lo que sale, por autor, y lo que se queda fuera, por dueño de cada pull request abierta, y los menciona a todos. Cada uno contesta desde su propia sesión, y su agente comprueba antes el commit candidato. Pasadas 4 horas, el silencio cuenta como sin objeción, y la aprobación del mantenedor puede cerrar antes esa espera; un «retener» bloquea siempre. Cuando la release está lista, una persona del padrón de firmantes la aprueba con su móvil, y solo entonces se crea la etiqueta. La CI no publica nada que no esté aprobado.
 
 ## A quién se pregunta
 
@@ -56,7 +56,7 @@ Dice quién ha confirmado, quién retiene y por qué, quién no ha contestado y 
 kj release approve 4242
 ```
 
-Es un acto humano: kj lo rechaza en la sesión de un agente. En el nivel de seguridad `critical`, el de por defecto (ADR 0060), lo confirmas en tu terminal y no se pide el móvil: «Review deployments» del entorno de npm es la única aprobación humana de la publicación. En `max`, el modo paranoico, además pide tu firma en el móvil, con una passkey o una clave del padrón de firmantes. Antes de aprobar comprueba que la release está lista; después vuelve a leer la issue y se para si alguien la ha retenido entretanto. Luego publica la aprobación en la issue, etiqueta el candidato como `v5.22.0` y sube la etiqueta.
+Es un acto humano: kj lo rechaza en la sesión de un agente. En el nivel de seguridad `critical`, el de por defecto (ADR 0060), lo confirmas en tu terminal y no se pide el móvil: «Review deployments» del entorno de npm es la única aprobación humana de la publicación. En `max`, el modo paranoico, además pide tu firma en el móvil, con una passkey o una clave del padrón de firmantes. Antes de aprobar comprueba que nadie retiene la release; después vuelve a leer la issue y se para si alguien la ha retenido entretanto. No hace falta esperar las 4 horas: aprobar antes del plazo cierra la espera, y la aprobación en la issue dice quién no había contestado. Un «retener» la bloquea en cualquier momento. Luego publica la aprobación en la issue, etiqueta el candidato como `v5.22.0` y sube la etiqueta.
 
 ### 5. Publicar
 

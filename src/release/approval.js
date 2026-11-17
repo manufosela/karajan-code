@@ -14,11 +14,14 @@ export const approvalFiles = ({ repo, version, issue, candidate }) => [
 ];
 
 /** The issue comment: the conclusion first, then the signed approval as a block. */
-export function renderApproval({ repo, version, issue, candidate, signature }) {
+export function renderApproval({ repo, version, issue, candidate, signature, earlyClose = null }) {
   // KJC-TSK-1654 (ADR 0060): at critical no phone signs; the block says the terminal confirmed it.
   const how = signature ? "signed on the maintainer's phone" : "confirmed at the maintainer's terminal";
   const block = JSON.stringify({ v: 1, repo, version, issue, candidate, signature, ...(signature ? {} : { confirmed: "terminal" }) }, null, 2);
-  return `Release ${version} approved at ${candidate.slice(0, 7)}, ${how}.\n\n\`\`\`kj-release-approval\n${block}\n\`\`\``;
+  // KJC-TSK-1658: an approval before the deadline closes the wait, and says who had not answered.
+  const silent = earlyClose?.silent.map((login) => "@".concat(login)).join(", ");
+  const early = earlyClose ? ` It closed the wait before ${earlyClose.deadline}: ${silent} had not answered.` : "";
+  return `Release ${version} approved at ${candidate.slice(0, 7)}, ${how}.${early}\n\n\`\`\`kj-release-approval\n${block}\n\`\`\``;
 }
 
 const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);

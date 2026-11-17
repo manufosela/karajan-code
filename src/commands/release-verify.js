@@ -31,7 +31,7 @@ async function judge({ repo, version, tag, projectDir, now, gh, git, keys, passk
   const commit = git(["rev-list", "-n", "1", tag], projectDir);
   if (proposal.candidate !== commit) return { issue, reason: `${tag} points to ${commit.slice(0, 7)}, not the candidate ${String(proposal.candidate).slice(0, 7)}` };
   if (result.holds.length > 0) return { issue, reason: `on hold by ${mentions(result.holds.map((h) => h.login))}` };
-  if (!result.ready) return { issue, reason: `not everyone answered: ${mentions(result.silent)} until ${proposal.deadline}` };
+  // KJC-TSK-1658: silence before the deadline does not stop a tag; the approval found below closed the wait.
   const roster = keys ?? new Set(readSigners({ projectDir }));
   const credentials = passkeys ?? readPasskeyCredentials({ projectDir });
   // KJC-TSK-1654 (ADR 0060): at critical the phone does not sign a release; a person with write

@@ -9,7 +9,7 @@ export const mentions = (logins) => logins.map((login) => `@${login}`).join(", "
 function verdictLine(result, proposal) {
   if (result.ready) return "Ready: the release can go out.";
   if (result.holds.length > 0) return `Not ready: waiting for ${mentions(result.holds.map((h) => h.login))} to lift the hold.`;
-  return `Not ready: waiting for ${mentions(result.silent)} until ${proposal.deadline}.`;
+  return `Not ready: waiting for ${mentions(result.silent)} until ${proposal.deadline}, or for the maintainer's kj release approve to close the wait.`;
 }
 
 export function holdLine({ login, decision, why }) {
