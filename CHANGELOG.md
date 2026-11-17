@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.29.0] - 2026-11-17
+
+An agent learns how to work with Karajan from kj itself, and a seal that only carries what kj generates renews itself again. After updating, run `kj harden` in each repo: it installs the `working-with-karajan` skill, and a repo whose last seal recorded a deletion renews it this time without asking.
+
+### Added
+- **The `working-with-karajan` skill**: what an agent needs to develop with Karajan (the order of a task, the commands the Sentinel accepts, reviews, human acts and handoffs, decisions and size, what to do when kj is wrong). `kj harden` installs it as a project skill in `.claude/skills/working-with-karajan/SKILL.md`, refreshes the copy it wrote and leaves one written by hand; the playbook in AGENTS.md points at it (#4574).
+- **RAG**: Swift is indexed by symbol, one chunk per top-level declaration, and the SwiftPM and Xcode build folders are skipped (#4547).
+- **kj stage**: the status shows the governance panel and who stands in for whom, and `/api/governance/panel` also takes `?project=<slug>` (#4565).
+
+### Fixed
+- **A seal renews itself again when its last seal recorded a deletion**: a guard removed once stayed recorded as deleted in every later seal, and both `kj harden` and the CI verifier counted it as a new deletion, so every seal asked a person. A deletion the previous seal already recorded is carried; a new one still goes to a person (#4573).
+- **A workflow kj does not own can be deleted**: a deletion staged with `git rm` had left the index, so `kj harden --commit` did not see it and there was no sealed path to remove it. The seal records it as deleted and commits it (#4577).
+- **`kj review` reads an opencode reviewer's verdict**: it is taken from the text events of opencode's JSON stream, so an opencode review no longer counts as a refusal (#4569).
+
 ## [5.28.0] - 2026-11-17
 
 Karajan follows each repo's CONTRIBUTING.md, and a project whose directory is gone leaves the HU Board's list. After updating, run `kj rules compile` in a repo with a CONTRIBUTING.md and approve its gates with `kj rules approve`.
