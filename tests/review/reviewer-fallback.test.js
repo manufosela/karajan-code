@@ -15,6 +15,7 @@ import {
   pickQuotaFallback,
   formatCandidateMenu,
   reviewerFailureMessage,
+  panelOverrideNotice,
 } from "../../src/review/reviewer-fallback.js";
 import { runOneShotReview } from "../../src/review/one-shot-review.js";
 
@@ -187,6 +188,18 @@ describe("pickQuotaFallback", () => {
   });
 });
 
+// HU-4525: a --reviewer that replaces the panel's is said each time, so it does not stay by habit.
+describe("panelOverrideNotice", () => {
+  const fileConfig = { reviewer: "codex", roles: { reviewer: { provider: null } } };
+  it("names the panel's reviewer a different --reviewer replaces, and how to go back", () => {
+    expect(panelOverrideNotice({ fileConfig, flags: { reviewer: "agy" } })).toMatch(/--reviewer agy replaces the panel's reviewer \(codex\).*drop it/);
+  });
+  it("says nothing without --reviewer, or with the panel's own", () => {
+    expect(panelOverrideNotice({ fileConfig, flags: {} })).toBeNull();
+    expect(panelOverrideNotice({ fileConfig, flags: { reviewer: "codex" } })).toBeNull();
+  });
+});
+
 describe("runOneShotReview quota failover", () => {
   const baseArgs = (agents) => ({
     diff: "diff --git a/x.js b/x.js\n+1\n",
@@ -230,7 +243,9 @@ describe("runOneShotReview quota failover", () => {
     expect(record.reviewer).toBe("copilot");
     expect(acted).toEqual([{ role: "reviewer", declared: "codex", acting: "copilot" }]);
     expect(warns.join(" ")).toMatch(/sin cuota|quota/i);
-    expect(warns.join(" ")).toMatch(/roles\.reviewer\.provider/);
+    // HU-4525: the substitution is temporary: the next review tries codex again, nothing is pinned.
+    expect(warns.join(" ")).toMatch(/next review tries codex again/);
+    expect(warns.join(" ")).not.toMatch(/roles\.reviewer\.provider: copilot/);
     expect(seenConfigs.codex.roles.reviewer.model).toBe("gpt-5.4-mini");
     expect(seenConfigs.copilot.roles.reviewer.model).toBeNull();
   });

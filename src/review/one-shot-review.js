@@ -62,8 +62,9 @@ async function quotaFailover({ reviewer, hostAgent, config, logger, candidateSta
     );
   }
   logger?.warn?.(
-    `⚠ reviewer ${reviewer} sin cuota → usando ${fallback} SOLO en esta invocación. ` +
-    `Para fijarlo: roles.reviewer.provider: ${fallback} (avisando, nunca en silencio — KJC-TSK-0730).`
+    // HU-4525: the substitution never sticks, so nothing has to be undone once the quota is back.
+    `⚠ reviewer ${reviewer} sin cuota → usando ${fallback} SOLO en esta invocación; ` +
+    `the next review tries ${reviewer} again. Do not pin ${fallback} in the config for this (KJC-TSK-0730).`
   );
   // The role's model pin belongs to the exhausted provider (a codex
   // model name means nothing to copilot) — the candidate runs on its

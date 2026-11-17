@@ -45,6 +45,13 @@ describe('the cast legend', () => {
     expect(recipeOf('plumber')).toEqual({ crew: 'plumber' });
   });
 
+  // KJC-TSK-1663 (the maintainer, 2026-11-17): the coffee cart that serves a waiting host.
+  it('the coffee cart has its card, says a cup in hand means waiting, and has a portrait of its own', () => {
+    expect(byId.coffee?.kind).toBe('crew');
+    expect(byId.coffee.marks.map((m) => m.mark)).toEqual(['Cup in hand']);
+    expect(recipeOf('coffee')).toEqual({ crew: 'coffee' });
+  });
+
   // KJC-TSK-1646 (the maintainer, 2026-11-15): "remove those posts, I don't know what they are and
   // they get in the way". A commit lights the workshop's back edge instead.
   it('the git gates\' card says a commit lights the back edge of the lane\'s workshop', () => {

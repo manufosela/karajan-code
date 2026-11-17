@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **kj records which agent acts as reviewer when it is not the panel's**: a substitution for lack of quota is kept in the kj home (`active-panel.json`: who replaces whom, why and since when) for kj stage to show, and cleared as soon as the panel's own reviewer reviews again (#4524).
 
+### Changed
+- **A reviewer substitution made for lack of quota does not stay**: when codex has no quota, `kj review` falls back for that review only and now says the next one tries codex again, instead of advising to pin the fallback in the config; and a `--reviewer` that replaces the panel's reviewer is said on every review, with how to go back (#4525).
+
 ### Fixed
+- **`kj harden` leaves a CLAUDE.md that only imports AGENTS.md**: it removed that bridge and appended `@AGENTS.md` to AGENTS.md, which then imported itself. A bridge holds no copy that could drift, so it stays; an import of AGENTS.md is never moved into it (#4532).
 - **A repo that merges with merge commits keeps its Conventional Commits**: the convention read from git history counted the "Merge pull request" subjects, so such a repo was judged free and `kj harden` wrote "the commit style of the project's history" into AGENTS.md; merges are left out now (#4533).
 - **A seal renewed by itself at `critical` passes `kj policy check`**: the verifier compared the machine-local host settings (`.claude/settings.local.json`), which never reach git, with the base's tree, so the seal was never complete. They are judged against the base's seal now, and a base whose CI still runs 5.27.0 keeps getting a person's signed seal (#4527).
 - **`kj harden --commit` no longer writes the sealer's git email into the committed provenance**, which kj's own privacy gate then refused on the seal commit: the provenance names the GitHub user (#4487).
