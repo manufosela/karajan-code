@@ -40,6 +40,7 @@ describe("signAct", () => {
   });
 
   it("a refused signature, or an unknown act, is an error; a signed answer with no block is an error, never a silent null", async () => {
+    atMax();
     await expect(sign("supervisor-seal", { deps: { phone: phone({ ok: false }) } })).rejects.toThrow(/harden --commit: firma del móvil rechazada \(caducado\)/);
     await expect(sign("delete-all", { deps: { phone: phone() } })).rejects.toThrow(/not in the catalog/);
     expect(() => explainAct("handoff-run")).toThrow(/no explanation for the phone/);
@@ -70,6 +71,7 @@ describe("signAct", () => {
 
   // HU-3912: only the enrollment asks the relay for a 10-minute link.
   it("phone-enroll asks for ttlMs 600000; any other act leaves the default", async () => {
+    atMax();
     await sign("phone-enroll", { deps: { phone: phone() } });
     expect(asked.ttlMs).toBe(600000);
     await sign("rules-approve", { deps: { phone: phone() } });

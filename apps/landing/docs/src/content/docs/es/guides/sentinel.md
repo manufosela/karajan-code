@@ -184,6 +184,16 @@ El Sentinel ya no lee `git push` (ADR 0015): lo que comprobaba se impone donde e
 
 La atribución a IA está prohibida por una regla determinista del proyecto, en todas partes, sin escape. Tres capas la imponen: el hook commit-msg la rechaza en los mensajes de commit; el hook pre-commit escanea las líneas AÑADIDAS del diff staged (changelog, docs, comentarios de código, *mencionar* una herramienta sigue siendo legal, atribuir no); y el Sentinel escanea cada comando `gh` que publica texto (crear/editar/comentar/revisar PR/issue/release), incluido el contenido de `--body-file`/`--notes-file`, un fichero ilegible tampoco publica. El CI re-comprueba commits, cuerpo y título del PR. Nació de una pillada real: 15 cuerpos de PR llevaron un pie de atribución porque solo se escaneaban los mensajes de commit (KJC-BUG-0164).
 
+## security-level
+
+ADR 0060: lo que una persona firma en el móvil depende del nivel de seguridad del proyecto, en `.karajan/security-level.json`.
+
+- `critical`, el de por defecto. El móvil firma solo lo que cambia quién gobierna: enrolar un móvil, bajar el nivel, aflojar un gate y la excepción de main-guard. Los demás actos humanos (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj release approve`) se confirman en tu terminal. Un sello de lo que genera kj (hooks, harness, un workflow cuyo único cambio es la versión de kj que fija) se renueva solo en `kj harden`. Un sello que gobierna (la configuración de gobierno, un borrado, cualquier otro cambio de workflow) sigue pidiendo el móvil, y también uno que el CI de la rama base juzgaría con un kj anterior a 5.27.0: el primer resello de cada repo a 5.27.0 se firma una vez.
+- `max`, el modo paranoico. Todo acto humano se firma en el móvil. `kj security max` lo activa, gratis; un repo cuyo registro ya dice `max` lo mantiene.
+- `normal`. Todo acto, también los críticos, se confirma en la terminal. Bajar a él es un acto firmado.
+
+`kj security show` dice el nivel vigente y de dónde sale.
+
 ## sandbox
 
 `kj harden --sandbox` activa el sandbox de Claude Code en `.claude/settings.local.json` donde puede arrancar en esta máquina. Impide escribir el supervisor (hooks, harness, settings, `kj.config.yml`, `.ragignore`) y la clave del móvil de kj, y fuera del proyecto solo deja escribir el estado de kj y las cachés de paquetes. No bloquea los carriles: ahí a Bash lo contiene el guard de carriles del Sentinel, así que una sesión puede trabajar en su propio carril. `gh *`, `kj review *` y `kj worktree *` se ejecutan fuera del sandbox, pero solo como comando suelto: dentro de `&&` o `;` se quedan dentro, y entonces `kj review` no llega ni a Docker ni a un SonarQube arrancado. En macOS, tu navegador ve el servidor de desarrollo que arranca el agente (`allowLocalBinding`). En Linux, el `localhost` del sandbox es privado y un navegador de fuera recibe «conexión rechazada»: arranca el servidor desde tu terminal, o añade tú ese comando exacto a `excludedCommands`.

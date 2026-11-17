@@ -16,10 +16,11 @@ import { PHONE_ENROLL } from "./phone-texts.js";
 import { anyAuthorizedPhone, readEnrolledKeys, readPasskeyCredentials, requestPhoneSignature, verifySignedFiles } from "./phone-sign.js";
 
 export const SECURITY_LEVEL_FILE = ".karajan/security-level.json";
-// ADR 0018 (KJC-TSK-0997): `max` is the default now that CI verifies the signature
-// (HUM-A) and the recovery code exists (HUM-B). The level that protects whoever
-// does not know the risk exists; `kj security normal` lowers it, signed.
-export const DEFAULT_LEVEL = "max";
+// ADR 0018 (KJC-TSK-0997) made `max` the default. ADR 0060 (KJC-TSK-1654, the maintainer's
+// decision of 2026-11-16): `critical` is the default, the phone signs what changes who governs;
+// `kj security max` (free) is the paranoid mode that signs every act, and a repo whose record
+// already says max keeps it.
+export const DEFAULT_LEVEL = "critical";
 
 const levelPath = (projectDir) => join(projectDir, SECURITY_LEVEL_FILE);
 const NO_PHONE = "no-phone-enrolled";

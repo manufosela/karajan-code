@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The phone signs only what changes who governs** (ADR 0060). The new default security level, `critical`, keeps the phone for enrolling a phone, lowering the level, loosening a gate and the main-guard exception. The seal, `kj rules approve`, `kj hooks set` and `kj release approve` are confirmed at your terminal; a seal of what kj generates, a release's workflow pin bump included, renews itself in `kj harden`, and publishing asks one approval ("Review deployments"). `kj security max` is the paranoid mode that signs every act as before, and a repo whose record already says `max` keeps it. Each repo's first re-seal onto this version is still signed once, because its CI runs the previous kj (#4493, #4500, #4502, #4505, #4507, #4510, #4509).
+
 ### Added
+- **kj in the Claude Code sandbox**: on macOS the browser reaches a dev server the agent starts (`allowLocalBinding`); the Sentinel guide says how to run one on Linux, where the sandbox's localhost is private (#4499).
 - **The agent does not stop with the session's cards waiting** (ADR 0059). With the method green, the Sentinel stop hook holds the turn while a card the session created or started is pending or running, unless the final message names a stop kj can check: an open handoff, a closing question to you, or a background task still running. It names the next card, steps aside after 3 holds in a row, and `method_gates.continuation` sets it to `warn` or `off` (#4472, #4475, #4476). After updating, run `kj harden` and seal it: the stop hook changes.
 
 ### Fixed
+- **The sandbox kj writes no longer makes the agent's own lane read-only**: it denied `.kj/worktrees`, which from the main checkout covers every lane; a re-harden takes the entry back, and the Sentinel's cross-lane guard keeps confining Bash (#4494).
 - **The contract `kj harden` commits in a nested package passes every gate.** The commit gate's RAG check and `kj review --publish-pr` (and CI's `--verify-pr`) counted a config kj writes, such as `functions/commitlint.config.js`, as code: the contract could not be committed or published without a human grant. They now leave it out, as the review already did, and the governance e2e runs that path (#4486).
 - **The continuation gate reads the board kj keeps on your machine**: a card already closed there, or held by someone else, no longer holds the turn (#4478).
 - **kj stage**:

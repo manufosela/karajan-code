@@ -32,7 +32,8 @@ function world({ issues = [{ number: 9, title: "Release 1.2.0", pull: false }], 
     return JSON.stringify({ body });
   };
   const git = () => commit;
-  return { repo, tag: "v1.2.0", projectDir: "/p", now: after, gh, git, keys: new Set([signer]), passkeys: [], print: () => {} };
+  // The signed flow is the paranoid mode since ADR 0060 made critical the default.
+  return { repo, tag: "v1.2.0", projectDir: "/p", now: after, gh, git, keys: new Set([signer]), passkeys: [], level: "max", print: () => {} };
 }
 const verify = (overrides, patch = {}) => releaseVerifyCommand({ ...world(overrides), ...patch });
 

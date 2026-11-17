@@ -53,7 +53,8 @@ beforeEach(() => {
   git("init", "-q");
   mkdirSync(join(repo, ".karajan", "hooks"), { recursive: true });
   phone = newPhone();
-  commit("chore: base", { "README.md": "base\n", [PROVENANCE_FILE]: '{"kj_version":"1.0.0","files":[]}', ".karajan/supervisor-signers.json": roster(phone) });
+  // ADR 0060: critical is the default; here every seal is signed, the paranoid mode.
+  commit("chore: base", { "README.md": "base\n", [PROVENANCE_FILE]: '{"kj_version":"1.0.0","files":[]}', ".karajan/supervisor-signers.json": roster(phone), ".karajan/security-level.json": '{"level":"max"}' });
   git("tag", "base");
 });
 afterEach(() => {
