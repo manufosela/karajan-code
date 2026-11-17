@@ -492,6 +492,25 @@ describe("an unsigned seal at the critical level", () => {
     expect(v.complete).toBe(false);
   });
 
+  // HU-4573: a deletion the base's seal already recorded is carried, not new: the base's seal backs it.
+  it("backs a deletion only when the base's seal already recorded it", () => {
+    const gone = ".karajan/hooks/pre-commit";
+    const git = (...args) => execFileSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", ...args], { encoding: "utf8" });
+    const sealWith = (entry) => JSON.stringify({ kj_version: "9.9.9", generation, files: [entry] });
+    setSignedLevel(repo, "critical");
+    rmSync(join(repo, gone), { force: true });
+    writeFileSync(join(repo, PROVENANCE_FILE), sealWith({ file: gone, deleted: true }));
+    git("init", "-q");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    expect(verifiedSupervisorFiles({ projectDir: repo, base: "HEAD" }).files.has(gone)).toBe(true);
+    writeFileSync(join(repo, PROVENANCE_FILE), sealWith({ file: gone, sha256: "a0" }));
+    git("add", "-A");
+    git("commit", "-qm", "base without the deletion");
+    writeFileSync(join(repo, PROVENANCE_FILE), sealWith({ file: gone, deleted: true }));
+    expect(verifiedSupervisorFiles({ projectDir: repo, base: "HEAD" }).files.has(gone)).toBe(false);
+  });
+
   it("backs nothing at max, nor with a signature that does not verify", () => {
     setSignedLevel(repo, "critical");
     seal({ signature: { signer: "AAAA", signature: "AAAA" } });

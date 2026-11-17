@@ -110,6 +110,7 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref, 
   const localHostSettings = (e) => e?.local === true && HOST_SETTINGS_FILES.includes(e.file);
   const baseSeal = baseSealEntries(atBase);
   const baseSealed = (e) => baseSeal.some((b) => b?.file === e.file && b?.sha256 === e.sha256);
+  const baseDeleted = (e) => baseSeal.some((b) => b?.file === e.file && b?.deleted === true);
   const entries = (Array.isArray(prov?.files) ? prov.files : []).filter((e) => !trackedOnly || !(String(e?.file).startsWith(HARNESS_PREFIX) || localHostSettings(e)));
   // KJC-BUG-0211: desde KJC-BUG-0197 el sello cubre tambien los guardias del
   // supervisor, y aqui solo se sabian verificar los hooks. Como `complete`
@@ -153,8 +154,9 @@ export function verifiedSupervisorFiles({ projectDir, trackedOnly = false, ref, 
     if (!abs.startsWith(root + sep)) continue;
     const bytes = read(entry.file);
     if (entry.deleted === true) {
-      // A deletion recomputes nothing, so only a signed seal backs it (ADR 0060).
-      if (bytes === undefined && !unsignedCritical) ok.add(entry.file);
+      // A deletion recomputes nothing, so only a signed seal backs it (ADR 0060), or, unsigned,
+      // the base's seal that already recorded it (HU-4573).
+      if (bytes === undefined && (!unsignedCritical || baseDeleted(entry))) ok.add(entry.file);
       continue;
     }
     // KJC-BUG-0212: los guardias estan en .gitignore, viven solo en la maquina
