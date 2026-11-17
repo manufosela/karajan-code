@@ -29,6 +29,26 @@ describe('avoidance', () => {
     expect(offsets[1].dx).toBeCloseTo(-offsets[0].dx);
   });
 
+  // KJC-BUG-0626 (the maintainer, 2026-11-17): "when one going out and one coming back cross they do
+  // not dodge: they seem to crash, and each turns back". The step aside was straight away from the
+  // other, which head on is back along the way.
+  it('two walking head on step aside sideways, each to its own right, never back along their way', () => {
+    const east = { x: 0, z: 0, yaw: Math.PI / 2, walking: true }; // walks towards +x
+    const west = { x: 1, z: 0, yaw: -Math.PI / 2, walking: true }; // walks towards -x
+    const [a, b] = avoidance([east, west]);
+    expect(Math.abs(a.dx)).toBeLessThan(1e-9);
+    expect(Math.abs(b.dx)).toBeLessThan(1e-9);
+    expect(Math.sign(a.dz)).toBe(-Math.sign(b.dz));
+    expect(Math.abs(a.dz)).toBeGreaterThan(0.1);
+  });
+
+  it('they start stepping aside before they touch, from further than a robot\'s width', () => {
+    const east = { x: 0, z: 0, yaw: Math.PI / 2, walking: true };
+    const west = { x: AVOID.sight - 0.1, z: 0, yaw: -Math.PI / 2, walking: true };
+    expect(AVOID.sight).toBeGreaterThan(AVOID.radius);
+    expect(Math.abs(avoidance([east, west])[0].dz)).toBeGreaterThan(0);
+  });
+
   it('one standing still stays put; the one walking goes round it', () => {
     const offsets = avoidance([still(0, 0), walking(0.2, 0)]);
     expect(offsets[0]).toEqual({ dx: 0, dz: 0 });
