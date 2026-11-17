@@ -150,6 +150,10 @@ export async function commitSupervisorRegeneration({
   // prompts a ciegas llegó hasta aquí): nonce aleatorio tecleado de vuelta.
   if (!renewal) seal.confirm(deps.confirm);
   const tracked = new Set(run(["ls-files", "--", ...GOVERNANCE_FILES, ...HOST_SETTINGS_FILES, ".github/workflows", ...declared]).split("\n").filter(Boolean));
+  // HU-4577: a file removed with git rm has left the index, so ls-files no longer names it; the
+  // deletion is still the person's change to seal (a workflow kj does not own, for one).
+  const stagedGone = run(["diff", "--cached", "--name-only", "--diff-filter=D"]).split("\n").filter((f) => f && isSealedConfig(f, declared));
+  for (const f of stagedGone) tracked.add(f);
   // Local only when git ignores it; untracked but not ignored, it is committed with the seal.
   const gitIgnores = (file) => { try { run(["check-ignore", "-q", "--", file]); return true; } catch { return false; } };
   const settingsHere = HOST_SETTINGS_FILES.filter((f) => !tracked.has(f) && existsSync(join(projectDir, f)));
@@ -240,7 +244,8 @@ export async function commitSupervisorRegeneration({
   // supervisor versiona altas, cambios, borrados y renombrados por igual.
   // HU-4392: retireGuardCopies deletes tracked files under .karajan/harness in this same run.
   const retired = run(["ls-files", "--deleted", "--", ".karajan/harness"]).split("\n").filter(Boolean);
-  run(["add", "-A", "--", PROVENANCE_FILE, ".karajan/hooks", ...governance, ...retired]);
+  // HU-4577: a deletion already staged is left as it is; git add of a path in no tree fails.
+  run(["add", "-A", "--", PROVENANCE_FILE, ".karajan/hooks", ...governance.filter((f) => !stagedGone.includes(f)), ...retired]);
   run([
     "commit",
     "--no-verify",
