@@ -20,6 +20,13 @@ describe('waitOf', () => {
   it('nothing to wait for when no work is left, or there is no stop line', () => {
     expect(waitOf('Me paro porque no me queda trabajo en este carril.')).toBeNull();
     expect(waitOf('Me paro porque no queda trabajo pendiente.')).toBeNull();
+    // KJC-BUG-0638 (the maintainer, 2026-11-18): "it has finished, shouldn't it leave?"
+    expect(waitOf('Me paro por no quedar trabajo pendiente de estos encargos.')).toBeNull();
+    expect(waitOf('Me paro por no quedarme nada que hacer.')).toBeNull();
+    expect(waitOf('Me paro porque ya no quedan tareas.')).toBeNull();
+    expect(waitOf('Me paro por no tener más trabajo.')).toBeNull();
+    // Waiting for a process still says so.
+    expect(waitOf('Me paro por esperar al CI de la PR en segundo plano.')).toBe('process');
     expect(waitOf('Hecho, mergeado.')).toBeNull();
     expect(waitOf(null)).toBeNull();
   });
