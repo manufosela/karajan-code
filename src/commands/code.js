@@ -17,6 +17,7 @@ import { ONE_SHOT_POLICY } from "../brain/one-shot-policy.js";
 import { sealPanel } from "../environment/panel.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
+import { linesSince, treeLines } from "../usage/tree-lines.js";
 
 export async function codeCommand({ task, config, logger, flags = {} }) {
   // KJC-BUG-0512: a config without projectDir is the project kj runs in, as for every other command.
@@ -40,14 +41,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     logger.info(`Coder (${coderRole.provider}) starting... model: ${routed.reason}`);
     runLog.logText(`[coder] provider=${coderRole.provider} model=${routed.route?.model ?? "declared"}`);
     const coder = traceActivity(createAgent(coderRole.provider, routed.config, logger), { name: coderRole.provider, role: "coder", projectDir, logger, config: routed.config });
-    let coderRules = null;
-    if (config.coder_rules) {
-      try {
-        coderRules = await fs.readFile(config.coder_rules, "utf8");
-      } catch { /* configured coder_rules path not found — try fallback */
-        try { coderRules = await fs.readFile("coder-rules.md", "utf8"); } catch { /* no coder rules file */ }
-      }
-    }
+    const coderRules = await readCoderRules(config);
     // The method's first invariant is that the RAG answers before you assume.
     // The session asks on the coder's behalf: a subprocess coder cannot run
     // `kj rag query` itself, so it used to guess the codebase instead.
@@ -73,7 +67,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     try {
       result = await withBrainRecovery({
         agent: { runTask: (args) => coder.runTask(args), provider: coderRole.provider, model: routed.route?.model ?? coderRole.model },
-        taskArgs: { prompt, onOutput: progress.onOutput, role: "coder" },
+        taskArgs: { prompt, onOutput: progress.onOutput, role: "coder", measureLines: coderLinesMeasure(projectDir, logger) },
         role: "coder",
         provider: coderRole.provider,
         logger,
@@ -82,17 +76,7 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
       });
       progress.finish(result.ok ? "done" : "failed");
     } catch (err) { progress.finish("failed"); throw err; }
-    if (!result.ok) {
-      if (result.error) logger.error(result.error);
-      throw new Error(result.error || result.output || `Coder failed (exit ${result.exitCode})`);
-    }
-    if (result.output) {
-      console.log(flags.brief ? briefOf(result.output) : result.output);
-    }
-    if (result.error) {
-      logger.warn(result.error);
-    }
-    logger.info(`Coder completed (exit ${result.exitCode})`);
+    reportCoderResult(result, { brief: Boolean(flags.brief), logger });
     // KJC-TSK-0873: aqui es donde el panel SE CUMPLE — el coder declarado ha
     // escrito. Queda asentado junto a las desviaciones para que el recuento de
     // kj report signifique algo: casi siempre y casi nunca no se ven igual.
@@ -112,6 +96,44 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
     const route = routed.route ? { model: routed.route.model, effort: routed.route.effort } : null;
     return { ok: true, provider: coderRole.provider, card: card?.huId ?? null, route, ragSources: rag?.sources ?? [] };
   });
+}
+
+/** A failed coder throws with its error; a finished one prints its answer (its end with --brief). */
+function reportCoderResult(result, { brief, logger }) {
+  if (!result.ok) {
+    if (result.error) logger.error(result.error);
+    throw new Error(result.error || result.output || `Coder failed (exit ${result.exitCode})`);
+  }
+  if (result.output) {
+    console.log(brief ? briefOf(result.output) : result.output);
+  }
+  if (result.error) {
+    logger.warn(result.error);
+  }
+  logger.info(`Coder completed (exit ${result.exitCode})`);
+}
+
+/** The configured coder rules; when that path is missing, coder-rules.md; null with neither. */
+async function readCoderRules(config) {
+  if (!config.coder_rules) return null;
+  try {
+    return await fs.readFile(config.coder_rules, "utf8");
+  } catch { /* configured coder_rules path not found — try fallback */ }
+  try {
+    return await fs.readFile("coder-rules.md", "utf8");
+  } catch { /* no coder rules file */
+    return null;
+  }
+}
+
+/** HU-4619: counts the tree before the coder runs, so its call records only the lines it wrote. */
+function coderLinesMeasure(projectDir, logger) {
+  try {
+    return linesSince(projectDir, treeLines(projectDir));
+  } catch (err) {
+    logger.warn(`usage: the coder's lines go unrecorded, git cannot count them here (${err.message.split("\n")[0]})`);
+    return undefined;
+  }
 }
 
 /** A written task wins; with --card and none, the card's title says what to do. */
