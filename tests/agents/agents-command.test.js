@@ -24,7 +24,7 @@ vi.mock("../../src/config.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    loadConfig: vi.fn(),
+    loadGlobalConfigFile: vi.fn(),
     writeConfig: vi.fn(),
     getConfigPath: vi.fn(() => "/home/user/.karajan/kj.config.yml"),
     loadProjectConfig: vi.fn(() => null),
@@ -40,7 +40,7 @@ vi.mock("../../src/config.js", async (importOriginal) => {
 });
 
 const { listAgents, setAgent, agentsCommand } = await import("../../src/commands/agents.js");
-const { loadConfig, writeConfig, getProjectConfigPath } = await import("../../src/config.js");
+const { loadGlobalConfigFile, writeConfig, getProjectConfigPath } = await import("../../src/config.js");
 const { mkdtempSync, mkdirSync } = await import("node:fs");
 const { tmpdir } = await import("node:os");
 const { join } = await import("node:path");
@@ -76,9 +76,7 @@ describe("agents command", () => {
 
   describe("setAgent", () => {
     it("updates role provider in config and writes to disk with global=true", async () => {
-      loadConfig.mockResolvedValue({
-        config: { roles: { coder: { provider: "claude" } } }
-      });
+      loadGlobalConfigFile.mockResolvedValue({ roles: { coder: { provider: "claude" } } });
       writeConfig.mockResolvedValue(undefined);
 
       const result = await setAgent("coder", "gemini", { global: true });
@@ -136,9 +134,7 @@ describe("agents command", () => {
     });
 
     it("creates role entry if it does not exist with global=true", async () => {
-      loadConfig.mockResolvedValue({
-        config: { roles: {} }
-      });
+      loadGlobalConfigFile.mockResolvedValue({ roles: {} });
       writeConfig.mockResolvedValue(undefined);
 
       const result = await setAgent("planner", "codex", { global: true });
@@ -173,7 +169,7 @@ describe("agents command", () => {
       expect(result.scope).toBe("project");
       expect(writeConfig).toHaveBeenCalledTimes(1);
       expect(writeConfig).toHaveBeenCalledWith(configPath, expect.anything());
-      expect(loadConfig).not.toHaveBeenCalled();
+      expect(loadGlobalConfigFile).not.toHaveBeenCalled();
     });
 
     it("writes the project's config with --local", async () => {
@@ -183,7 +179,7 @@ describe("agents command", () => {
     });
 
     it("writes ~/.karajan/kj.config.yml with --global", async () => {
-      loadConfig.mockResolvedValue({ config: { roles: {} } });
+      loadGlobalConfigFile.mockResolvedValue({ roles: {} });
       expect((await set({ global: true })).scope).toBe("global");
       expect(writeConfig).toHaveBeenCalledWith("/home/user/.karajan/kj.config.yml", expect.anything());
     });
