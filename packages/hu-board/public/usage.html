@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karajan · Usage and cost</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header__logo"><div><div class="header__title">Usage and cost</div><div class="header__subtitle">every agent call kj launched, per project and account</div></div></div>
+    <nav class="header__nav">
+      <a class="nav-btn" href="/">← Board</a>
+      <button class="nav-btn active">Usage</button>
+      <div class="header__controls"><button class="control-btn" id="usage-refresh" title="Reload the usage">🔄</button></div>
+    </nav>
+  </header>
+  <form class="usage-filters" id="usage-filters">
+    <label>Project <select id="usage-project"><option value="">Every project</option></select></label>
+    <label>Group by <select id="usage-period"><option value="day">Day</option><option value="month" selected>Month</option><option value="year">Year</option><option value="total">Total</option></select></label>
+    <label>From <input type="month" id="usage-from" required></label>
+    <label>To <input type="month" id="usage-to" required></label>
+    <button type="button" class="nav-btn" id="usage-export" disabled title="Pick one project: its calls of the To month, as CSV">Export CSV</button>
+  </form>
+  <main class="main" id="usage-app"><div class="loading"><div class="loading__spinner"></div><p>Loading…</p></div></main>
+  <script src="/usage.js"></script>
+</body>
+</html>

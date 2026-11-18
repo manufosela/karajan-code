@@ -1020,6 +1020,16 @@ body.scoped-mode a[href="/pipeline.html"] {
 .rag-bar__fill { display: block; height: 14px; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 3px; }
 .rag-bar__value { text-align: right; color: var(--text-primary, #f8fafc); font-variant-numeric: tabular-nums; }
 
+/* HU-4593 — Usage and cost page */
+.usage-filters { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; padding: 1rem 1rem 0; }
+.usage-filters label { display: grid; gap: .25rem; font-size: .8rem; color: var(--text-secondary, #94a3b8); }
+.usage-filters select, .usage-filters input { background: var(--bg-secondary, #1e1e2e); color: var(--text-primary, #f8fafc); border: 1px solid #334155; border-radius: 6px; padding: .35rem .5rem; }
+.usage-table { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.usage-table th, .usage-table td { padding: .4rem .5rem; border-bottom: 1px solid #334155; text-align: right; white-space: nowrap; }
+.usage-table th:nth-child(-n+3), .usage-table td:nth-child(-n+3) { text-align: left; }
+.usage-table th { color: var(--text-secondary, #94a3b8); font-weight: 600; }
+.rag-card--wide:has(.usage-table) { overflow-x: auto; }
+
 /* KJC-TSK-0508 — Wiki panel (QMD semantic search) */
 .wiki-search { padding: 1rem; }
 .wiki-form { display: grid; grid-template-columns: 1fr 220px auto auto; gap: .5rem; align-items: center; }
