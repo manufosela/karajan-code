@@ -2,7 +2,7 @@
 // only the chosen factory, instead of every factory at once.
 import { describe, expect, it } from 'vitest';
 
-import { opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from '../public/stage/project-panel.js';
+import { liveEntries, opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from '../public/stage/project-panel.js';
 
 const lane = (name, working = 0, cards = []) => ({ lane: name, working: Array.from({ length: working }, () => ({ agent: 'claude' })), cards });
 const card = (id, status) => ({ id, status, lane: 'main', at: '2026-11-13T08:00:00.000Z' });
@@ -35,6 +35,21 @@ describe('panelEntries', () => {
   it('a card that went through two lanes counts once', () => {
     const twice = [{ project: 'p', name: 'p', lanes: [lane('main', 0, [card('HU-1', 'running')]), lane('x', 0, [card('HU-1', 'running')])] }];
     expect(panelEntries(twice, null)[0].doing).toBe(1);
+  });
+});
+
+// KJC-TSK-1690 (the maintainer, 2026-11-18): "only the ones with a connection, not the ones that are
+// not open; I see many that are stopped".
+describe('liveEntries', () => {
+  const entry = (project, working, current = false) => ({ project, name: project, working, doing: 0, waiting: 0, current });
+
+  it('keeps the factories with an agent in them, working or waiting, and the one on screen', () => {
+    const entries = [entry('a', 2), entry('b', 0), entry('c', 0, true), entry('d', 1)];
+    expect(liveEntries(entries).map((e) => e.project)).toEqual(['a', 'c', 'd']);
+  });
+
+  it('is empty when no factory has a session on and none is open', () => {
+    expect(liveEntries([entry('a', 0), entry('b', 0)])).toEqual([]);
   });
 });
 

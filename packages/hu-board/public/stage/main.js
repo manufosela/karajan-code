@@ -13,7 +13,7 @@ import { boardToken, withToken } from './token.js';
 import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
-import { opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
+import { liveEntries, opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
 import { mountLegend } from './legend-panel.js';
 import { watchWorkshops } from './workshop-pointer.js';
 import { storyPath } from './workshop-info.js';
@@ -318,7 +318,6 @@ async function mountProjectPanel() {
   if (!res?.ok) { panel.querySelector('p').textContent = 'The board did not list its projects.'; return; }
   const factories = await res.json();
   if (!factories.length) { panel.querySelector('p').textContent = 'The board knows no project with a folder on this machine.'; return; }
-  panel.querySelector('p').remove();
   showPanel(panel, factories);
   setInterval(async () => {
     const again = await summary();
@@ -331,7 +330,12 @@ const PANEL_MS = 30_000;
 
 /** The projects panel's entries for `factories`, the open one marked. */
 function showPanel(panel, factories) {
-  const items = panelEntries(factories, project).map((entry) => {
+  // KJC-TSK-1690: only the factories with a session on, and the one on screen.
+  const live = liveEntries(panelEntries(factories, project));
+  const note = panel.querySelector('p');
+  note.hidden = live.length > 0;
+  note.textContent = 'No project has a session on. Every factory, stopped ones too: the Every factory link.';
+  const items = live.map((entry) => {
     const link = Object.assign(document.createElement('a'), { href: panelHref(entry.project) });
     link.dataset.project = entry.project;
     if (entry.current) link.setAttribute('aria-current', 'page');
