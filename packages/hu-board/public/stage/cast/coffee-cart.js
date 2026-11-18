@@ -6,13 +6,32 @@ import { createRobot } from './robot.js';
 const COFFEE = 0x9a6b45;
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
 
-/** A red mug with coffee in it: red, to stand out against a white robot. */
+// KJC-BUG-0637 (the maintainer, 2026-11-18): "it looks like a red button, more than a cup". A cup
+// reads by its shape: a handle, a saucer, the coffee inside and its steam; a brown band sets it apart
+// from the white robot that holds it.
+const CUP = 0xf7f2ea;
+const BAND = 0x8a5a32;
+const STEAM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false });
+
+/** A wisp of steam: a thin wavy line rising from the coffee. */
+function wisp(x, phase) {
+  const points = Array.from({ length: 8 }, (_, i) => new THREE.Vector3(x + 0.05 * Math.sin(phase + i * 0.9), 0.24 + i * 0.07, 0));
+  return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 16, 0.018, 6), STEAM);
+}
+
+/** A cup of coffee on its saucer: white, with a handle, a brown band, the coffee inside and steam. */
 export function createCup() {
-  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.44, 16), matte(0xd23c32));
-  const coffee = new THREE.Mesh(new THREE.CircleGeometry(0.23, 16), matte(0x3b2314));
+  const cup = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.18, 0.4, 20), matte(CUP));
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.245, 0.215, 0.12, 20), matte(BAND));
+  const coffee = new THREE.Mesh(new THREE.CircleGeometry(0.22, 20), matte(0x3b2314));
   coffee.rotation.x = -Math.PI / 2;
-  coffee.position.y = 0.2;
-  cup.add(coffee);
+  coffee.position.y = 0.19;
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 16), matte(CUP));
+  handle.position.x = 0.26;
+  const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.3, 0.04, 24), matte(CUP));
+  saucer.position.y = -0.21;
+  cup.add(body, band, coffee, handle, saucer, wisp(-0.07, 0), wisp(0.07, 2));
   return cup;
 }
 

@@ -178,8 +178,8 @@ const CUP_ARM = 1.2;
 function holdCup(robot, holds) {
   if (holds && !robot.cup) {
     robot.cup = createCup();
-    robot.cup.scale.setScalar(1.4);
-    robot.cup.position.set(0, -0.15, 0.2);
+    robot.cup.scale.setScalar(1.8); // KJC-BUG-0637: big enough to read as a cup
+    robot.cup.position.set(0, -0.15, 0.35);
     robot.cup.rotation.x = CUP_ARM; // upright, the arm raised before it
     robot.armL.hand.add(robot.cup);
   }
