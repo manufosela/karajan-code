@@ -9,6 +9,7 @@ import { fullScan, startWatcher } from './sync.js';
 import apiRoutes from './routes/api.js';
 import pipelineRoutes from './routes/pipeline.js';
 import ragRoutes from './routes/rag.js';
+import usageRoutes from './routes/usage.js';
 import wikiRoutes from './routes/wiki.js';
 import governanceRoutes from './routes/governance.js';
 import lanesRoutes from './routes/lanes.js';
@@ -307,6 +308,7 @@ async function main() {
   app.use('/api', buildRateLimiter(), authMiddleware(), apiRoutes);
   app.use('/api/pipeline', authMiddleware(), pipelineRoutes);
   app.use('/api/rag', authMiddleware(), ragRoutes);
+  app.use('/api/usage', authMiddleware(), usageRoutes);
   app.use('/api/wiki', authMiddleware(), wikiRoutes);
   app.use('/api/governance', authMiddleware(), governanceRoutes);
   app.use('/api/lanes', authMiddleware(), lanesRoutes);
