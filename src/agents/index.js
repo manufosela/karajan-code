@@ -7,6 +7,7 @@ import { QwenAgent } from "./qwen-agent.js";
 import { CopilotAgent } from "./copilot-agent.js";
 import { KimiAgent } from "./kimi-agent.js";
 import { AgyAgent } from "./agy-agent.js";
+import { withUsageRecord } from "../usage/record.js";
 
 const agentRegistry = new Map();
 
@@ -44,7 +45,8 @@ export function createAgent(agentName, config, logger, environment) {
   if (!entry) {
     throw new Error(`Unsupported agent: ${agentName}`);
   }
-  return new entry.AgentClass(agentName, config, logger, environment);
+  // HU-4592: every agent kj creates leaves each call in the local usage record.
+  return withUsageRecord(new entry.AgentClass(agentName, config, logger, environment), { logger });
 }
 
 // Auto-register built-in agents with CLI metadata
