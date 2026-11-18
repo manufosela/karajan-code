@@ -51,6 +51,7 @@ import { detectHostAgent } from "../utils/agent-detect.js";
 import { listRules } from "../rules/inventory.js";
 import { PROPOSAL_FILE, readToolInput, rulesCheck, rulesCoverage, rulesEval, rulesTest } from "../commands/rules.js";
 import { rulesApprove } from "../commands/rules-approve.js";
+import { accountCommand } from "../commands/account.js";
 import { rulesDecide } from "../commands/rules-decide.js";
 import { rulesReview } from "../commands/rules-review.js";
 import { rulesCompileBrief } from "../commands/rules-compile.js";
@@ -431,6 +432,15 @@ export function registerMeta(program, { pkgVersion }) {
         await huCommand({ config, action: "backend", args: [backend], flags });
       });
     });
+
+  // HU-4599 (ADR 0064): the agent accounts, kept in ~/.karajan/accounts.json.
+  const account = program.command("account").description("Agent accounts: the login each provider's agents run on (none: the inherited one)");
+  account.command("add <id>").requiredOption("--provider <name>", "claude or codex")
+    .requiredOption("--dir <path>", "the account's login directory (its CLAUDE_CONFIG_DIR or CODEX_HOME)")
+    .action((id, flags) => accountCommand("add", { id, ...flags }));
+  account.command("list", { isDefault: true }).description("The accounts; * marks each provider's default").action(() => accountCommand("list"));
+  account.command("remove <id>").description("Remove an account").action((id) => accountCommand("remove", { id }));
+  account.command("default <id>").description("Make it its provider's default account").action((id) => accountCommand("default", { id }));
 
   const adr = program.command("adr").description("Architecture decision records in .karajan/adrs/ (git-tracked)");
   adr.command("add <title>")
