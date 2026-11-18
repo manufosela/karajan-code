@@ -185,19 +185,6 @@ function pieceStates({ denial, verdict, seal, gate }, now) {
   return { lights, entries };
 }
 
-/** KJC-TSK-1670: the governance panel, each role with its agent; one standing in says for whom and why. */
-const PANEL_ROLES = ['coder', 'reviewer', 'solomon'];
-const REASONS = { quota: 'no quota' };
-function panelEntry(panel) {
-  const subs = panel.substitutions ?? {};
-  const agentOf = (role) => {
-    const sub = subs[role];
-    return sub ? `${sub.acting} (for ${sub.declared}: ${REASONS[sub.reason] ?? sub.reason})` : panel[role];
-  };
-  const roles = PANEL_ROLES.filter((role) => panel[role] || subs[role]).map((role) => `${role} ${agentOf(role)}`);
-  return entry(`Panel: ${roles.join(' · ')}`, null, Object.keys(subs).length ? 'wait' : 'info');
-}
-
 export function restState(state, now) {
   const { rag, reindex, checks } = state;
   const working = state.working ?? [];
@@ -210,6 +197,5 @@ export function restState(state, now) {
   const board = boardLine(state.cards ?? []); // KJC-TSK-1458: the factory's task board, counted
   if (board) entries.push(entry(board, null, 'info'));
   if (working.length) entries.push(workingEntry(working));
-  if (state.panel) entries.push(panelEntry(state.panel));
   return { lights: { ...checked.lights, ...pieces.lights }, lines: entries.map((e) => e.text), ordered: statusOrder(entries) };
 }
