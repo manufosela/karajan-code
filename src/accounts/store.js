@@ -76,15 +76,37 @@ export function setDefault(id, { home = getKarajanHome() } = {}) {
   write(data, home);
 }
 
-/** The env that moves an agent to the project's first account for its provider, else the default; {} when none. */
-export function accountEnv(agent, { home = getKarajanHome(), projectKey } = {}) {
+/** HU-4591: the pacing of an account; every field optional. */
+export function setPace(id, pace, { home = getKarajanHome() } = {}) {
+  const { gapSeconds, maxConcurrent, limitWaitSeconds } = pace ?? {};
+  for (const [name, value] of Object.entries({ gapSeconds, limitWaitSeconds })) {
+    if (value !== undefined && !(Number.isFinite(value) && value >= 0)) throw new Error(`accounts: pace ${name} must be a number >= 0, got "${value}"`);
+  }
+  if (maxConcurrent !== undefined && !(Number.isInteger(maxConcurrent) && maxConcurrent >= 1)) {
+    throw new Error(`accounts: pace maxConcurrent must be an integer >= 1, got "${maxConcurrent}"`);
+  }
+  const data = readAccounts({ home });
+  find(data, id).pace = { gapSeconds, maxConcurrent, limitWaitSeconds };
+  write(data, home);
+}
+
+/** The env that moves an agent to its account; {} when none. */
+export function accountEnv(agent, options) {
+  return accountFor(agent, options).env;
+}
+
+/** The account an agent runs on: the project's first for its provider, else the default. id null when none. */
+export function accountFor(agent, { home = getKarajanHome(), projectKey } = {}) {
   const name = ACCOUNT_VAR[agent];
-  if (!name) return {};
+  const none = { id: null, env: {}, pace: undefined };
+  if (!name) return none;
   const data = readAccounts({ home });
   const ordered = data.projects[projectKey]?.[agent]?.[0];
   if (ordered && !data.accounts.some((a) => a.id === ordered)) {
     throw new Error(`accounts: project "${path.basename(projectKey)}" orders the account "${ordered}", which no longer exists`);
   }
   const id = ordered ?? data.default[agent];
-  return id ? { [name]: find(data, id).dir } : {};
+  if (!id) return none;
+  const account = find(data, id);
+  return { id, env: { [name]: account.dir }, pace: account.pace };
 }

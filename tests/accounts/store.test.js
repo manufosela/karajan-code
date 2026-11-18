@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { accountEnv, addAccount, assignAccounts, readAccounts, removeAccount, setDefault } from "../../src/accounts/store.js";
+import { accountEnv, accountFor, addAccount, assignAccounts, readAccounts, removeAccount, setDefault, setPace } from "../../src/accounts/store.js";
 
 let home;
 let login;
@@ -96,6 +96,16 @@ describe("accounts store (HU-4587, ADR 0064)", () => {
     });
   });
 
+  it("stores a validated pace and resolves it with the account (HU-4591)", () => {
+    addAccount({ id: "work", provider: "claude", dir: login }, { home });
+    expect(accountFor("claude", { home }).pace).toBeUndefined();
+    setPace("work", { gapSeconds: 2, maxConcurrent: 3, limitWaitSeconds: 60 }, { home });
+    expect(accountFor("claude", { home })).toEqual({ id: "work", env: { CLAUDE_CONFIG_DIR: login }, pace: { gapSeconds: 2, maxConcurrent: 3, limitWaitSeconds: 60 } });
+    expect(() => setPace("work", { gapSeconds: -1 }, { home })).toThrow(/gapSeconds/);
+    expect(() => setPace("work", { maxConcurrent: 0 }, { home })).toThrow(/maxConcurrent/);
+    expect(() => setPace("work", { maxConcurrent: 1.5 }, { home })).toThrow(/maxConcurrent/);
+    expect(() => setPace("nope", {}, { home })).toThrow(/no account/);
+  });
   it("fails loudly on a broken file instead of running on the wrong login", () => {
     fs.writeFileSync(path.join(home, "accounts.json"), "{not json");
     expect(() => accountEnv("claude", { home })).toThrow(/accounts\.json/);
