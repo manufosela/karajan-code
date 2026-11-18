@@ -441,6 +441,8 @@ export function registerMeta(program, { pkgVersion }) {
   account.command("list", { isDefault: true }).description("The accounts; * marks each provider's default").action(() => accountCommand("list"));
   account.command("remove <id>").description("Remove an account").action((id) => accountCommand("remove", { id }));
   account.command("default <id>").description("Make it its provider's default account").action((id) => accountCommand("default", { id }));
+  account.command("use [ids...]").description("This project's accounts per provider, in order: kj launches the first (HU-4588)")
+    .option("--clear", "Back to the default accounts").action((ids, flags) => accountCommand("use", { ids, clear: flags.clear }));
 
   const adr = program.command("adr").description("Architecture decision records in .karajan/adrs/ (git-tracked)");
   adr.command("add <title>")
