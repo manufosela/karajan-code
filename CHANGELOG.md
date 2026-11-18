@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.0] - 2026-11-18
+
+kj runs each provider's agents on the account you choose, per project, and keeps a local record of every agent call; a repo whose own CI runs its tests keeps that CI as its quality gate. After updating, run `kj harden` in each repo: where your own workflow already runs the tests, it removes kj's `kj-quality` workflow, and a person seals that with `kj harden --commit`.
+
+### Added
+- **Agent accounts** (ADR 0064): `kj account add <id> --provider claude|codex --dir <login dir>` registers the login an agent runs on (its `CLAUDE_CONFIG_DIR` or `CODEX_HOME`), with `list`, `remove` and `default`. Accounts live under `~/.karajan`, never in a repo, and a user with one account per provider configures nothing (#4587, #4599).
+- **Accounts per project, in order**: `kj account use <ids...>` names a project's accounts per provider; kj launches the first, and `--clear` goes back to the default ones (#4588).
+- **Pacing per account**: a minimum gap between agent calls, a maximum of calls at once and a longer wait after a limit message, set with `kj account pace <id> --gap --max --limit-wait` (#4591, #4608).
+- **A local usage record**: every agent call kj launches is written to `~/.karajan/usage/YYYY-MM.jsonl` with its project, account, provider, role, model, duration, tokens and estimated cost where the agent reports them, and the lines `kj code`'s coder added and removed. Nothing leaves the machine (#4592, #4619).
+- **RAG**: PHP and Kotlin are indexed by symbol, and Composer's `vendor/` and the Gradle and Kotlin build outputs are skipped (#4548, #4546).
+- **kj stage**: the governance panel is a card on top with each agent in its colour and a stand-in in amber; the coffee cup looks like a cup and the coffee cart robot dresses as a waiter (#4606, #4604, #4616).
+
+### Fixed
+- **`kj-quality` no longer blocks a repo whose own CI runs its tests**: it ran lint and tests without the steps the repo's CI takes first (building types, setting up Java), failed, and its red check made the merge gate block every PR. Where a workflow of the repo's own already runs the tests, `kj harden` adds no `kj-quality`, removes the managed one and names the workflow it defers to, and `kj check` no longer misses it (ADR 0065, #4611).
+- **kj stage**: a stop line saying no work is left, in the infinitive too, lets the host leave (#4614).
+
 ## [5.29.0] - 2026-11-17
 
 An agent learns how to work with Karajan from kj itself, and a seal that only carries what kj generates renews itself again. After updating, run `kj harden` in each repo: it installs the `working-with-karajan` skill, and a repo whose last seal recorded a deletion renews it this time without asking.

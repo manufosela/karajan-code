@@ -2009,6 +2009,10 @@ Ese mismo día cambió el panel del mantenedor: agy revisa, porque el revisor ac
 
 El mantenedor notó que Karajan funcionaba bien con sus agentes y peor con los de un colaborador, y vio por qué: lo que un agente necesita para trabajar con él vivía en las notas de una sola persona. Eligió entregarlo como una skill que instala kj, para que el playbook siga corto y le apunte. Esa misma tarde el reharden tras la release volvió a pedir firma, y la causa estaba en el sello: un guardia retirado una vez seguía anotado como borrado en cada sello posterior, y los dos lados lo contaban como nuevo. Un equipo encontró el muro contrario, un workflow que no es de kj y que ningún camino sellado podía borrar, y un colaborador, un revisor opencode cuyo veredicto kj nunca leía.
 
+## Phase 187: v5.30.0, cada proyecto con sus cuentas
+
+El mantenedor trabaja para varios clientes desde un mismo portátil y quería que el trabajo de cada cliente corriera, y se contara, en las cuentas de ese cliente. Primero esbozó un modo personal y un modo empresa, y luego quitó los modos (ADR 0064): kj guarda una sola lista de cuentas, nunca sabe de quién son, y cada proyecto nombra las suyas en orden de preferencia. El mantenedor y un colaborador se repartieron el trabajo, y kj empezó a anotar cada llamada de agente en un registro local que una página posterior convertirá en uso y coste por proyecto. Ese mismo día el repo de un equipo quedó bloqueado por `kj-quality`, que ejecutaba sus tests sin los pasos que su propio CI hace antes; el mantenedor decidió que el CI propio de un repo, cuando ejecuta los tests, es su gate de calidad (ADR 0065).
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
