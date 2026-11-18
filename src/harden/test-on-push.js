@@ -28,6 +28,16 @@ export function ciRunsTests(projectDir) {
   }
 }
 
+/** HU-4621 (ADR 0065): the repo's own workflow (not a kj-* one) that runs the tests, or null. */
+export function ownTestWorkflow(projectDir) {
+  const dir = join(projectDir, ".github", "workflows");
+  if (!existsSync(dir)) return null;
+  const own = readdirSync(dir)
+    .filter((f) => /\.ya?ml$/.test(f) && !f.startsWith("kj-"))
+    .toSorted();
+  return own.find((f) => TEST_STEP.test(readFileSync(join(dir, f), "utf8"))) ?? null;
+}
+
 // KJC-BUG-0611: `installsCiTests`, the CI the same kj harden run installs runs the tests.
 export function resolveTestOnPush({ projectDir, repoCfg = {}, testCmd = null, installsCiTests = false }) {
   if (!testCmd) return { testCmd: null, reason: null };

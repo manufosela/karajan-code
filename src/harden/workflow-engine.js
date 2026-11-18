@@ -6,11 +6,10 @@
  * workflows refresh in place. Markers ride in YAML `#` comments.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
@@ -18,6 +17,7 @@ import { pinForMinimum, publishedPin } from "./published-pin.js";
 import { phpInputs, qualityInputs } from "./quality-inputs.js";
 import { gradleInputs } from "./gradle-commands.js";
 import { swiftInputs } from "./swift-commands.js";
+import { ownTestWorkflow } from "./test-on-push.js";
 import { KJ_MIN_VERSION, extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, secretsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
@@ -145,7 +145,56 @@ function leftAsIs(label, file, published) {
 export function plannedQualityBody(projectDir, roots) {
   const target = join(projectDir, WORKFLOWS_DIR, "kj-quality.yml");
   if (existsSync(target) && !readFileSync(target, "utf8").includes("kj:managed:wf-quality")) return null;
+  if (ownTestWorkflow(projectDir)) return null;
   return qualityFor(projectDir, roots).quality?.body ?? null;
+}
+
+/** HU-4621 (ADR 0065): the repo's own CI runs its tests; kj's managed kj-quality goes, one of the repo's own stays. */
+function deferQuality(projectDir, ownWorkflow, dryRun) {
+  const label = join(WORKFLOWS_DIR, "kj-quality.yml");
+  const target = join(projectDir, label);
+  const note = `kj-quality: ${ownWorkflow} already runs your tests, so it is this repo's quality gate; kj adds no kj-quality workflow`;
+  if (!existsSync(target)) return { file: label, action: "deferred", note };
+  if (!readFileSync(target, "utf8").includes("kj:managed:wf-quality")) return { file: label, action: "skipped" };
+  if (!dryRun) rmSync(target);
+  return { file: label, action: "removed", note };
+}
+
+/** HU-4621: the Quality workflow to install, or none where the repo's own CI runs the tests (`defersTo` names it). */
+function qualityPlan(projectDir, roots) {
+  const defersTo = ownTestWorkflow(projectDir);
+  return defersTo ? { quality: null, note: "", defersTo } : { ...qualityFor(projectDir, roots), defersTo: null };
+}
+
+/** One kj workflow written or refreshed in place; one the repo wrote itself (no marker) is skipped. */
+function upsertWorkflow({ wf, target, label, dir, dryRun, qualityNoteText }) {
+  const exists = existsSync(target);
+  const source = exists ? readFileSync(target, "utf8") : "";
+  if (exists && !source.includes(`kj:managed:${wf.blockId}`)) return { file: label, action: "skipped" };
+  // KJC-BUG-0182: prettier's YAML printer puts a blank line between the last
+  // line of a block scalar (`run: |`) and a comment at column 0 — which is
+  // exactly our closing marker. Every template ends with a blank line, so the
+  // file harden writes is the file prettier would write (the pre-commit's
+  // format:check must accept its own harness).
+  const { content, action } = upsertManagedBlock({
+    source,
+    blockId: wf.blockId,
+    version: BLOCK_VERSION,
+    body: wf.body.endsWith("\n") ? wf.body : `${wf.body}\n`,
+    style: "hash",
+  });
+  if (!dryRun && action !== "unchanged") {
+    mkdirSync(dir, { recursive: true });
+    // Newline final SIEMPRE: prettier (y POSIX) lo exigen y el bloque
+    // gestionado no lo garantiza — sin esto, el format-check del propio
+    // pre-commit rechaza el fichero recién generado.
+    writeFileSync(target, content.endsWith("\n") ? content : `${content}\n`);
+  }
+  // KJC-BUG-0424: the PR that moves the trigger cannot report policy-check.
+  const movesTrigger = wf.blockId === "wf-policy" && action !== "unchanged" && /^\s*pull_request:\s*$/m.test(source);
+  const qualityNote = wf.blockId === "wf-quality" ? qualityNoteText : "";
+  const note = movesTrigger ? POLICY_TRIGGER_MOVE_NOTE : qualityNote;
+  return { file: label, action, ...(note ? { note } : {}) };
 }
 
 export function installWorkflows({
@@ -162,7 +211,7 @@ export function installWorkflows({
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const pm = detectPackageManager(projectDir);
-  const { quality, note: qualityNoteText } = qualityFor(projectDir, roots);
+  const { quality, note: qualityNoteText, defersTo } = qualityPlan(projectDir, roots);
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
   // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último
@@ -188,36 +237,8 @@ export function installWorkflows({
       results.push(leftAsIs(label, wf.file, published));
       continue;
     }
-    const exists = existsSync(target);
-    const source = exists ? readFileSync(target, "utf8") : "";
-    if (exists && !source.includes(`kj:managed:${wf.blockId}`)) {
-      results.push({ file: label, action: "skipped" });
-      continue;
-    }
-    // KJC-BUG-0182: prettier's YAML printer puts a blank line between the last
-    // line of a block scalar (`run: |`) and a comment at column 0 — which is
-    // exactly our closing marker. Every template ends with a blank line, so the
-    // file harden writes is the file prettier would write (the pre-commit's
-    // format:check must accept its own harness).
-    const { content, action } = upsertManagedBlock({
-      source,
-      blockId: wf.blockId,
-      version: BLOCK_VERSION,
-      body: wf.body.endsWith("\n") ? wf.body : `${wf.body}\n`,
-      style: "hash",
-    });
-    if (!dryRun && action !== "unchanged") {
-      mkdirSync(dir, { recursive: true });
-      // Newline final SIEMPRE: prettier (y POSIX) lo exigen y el bloque
-      // gestionado no lo garantiza — sin esto, el format-check del propio
-      // pre-commit rechaza el fichero recién generado.
-      writeFileSync(target, content.endsWith("\n") ? content : `${content}\n`);
-    }
-    // KJC-BUG-0424: the PR that moves the trigger cannot report policy-check.
-    const movesTrigger = wf.blockId === "wf-policy" && action !== "unchanged" && /^\s*pull_request:\s*$/m.test(source);
-    const qualityNote = wf.blockId === "wf-quality" ? qualityNoteText : "";
-    const note = movesTrigger ? POLICY_TRIGGER_MOVE_NOTE : qualityNote;
-    results.push({ file: label, action, ...(note ? { note } : {}) });
+    results.push(upsertWorkflow({ wf, target, label, dir, dryRun, qualityNoteText }));
   }
+  if (defersTo) results.push(deferQuality(projectDir, defersTo, dryRun));
   return { dryRun, workflows: results };
 }
