@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createAgent, registerAgent, getAvailableAgents } from "../../src/agents/index.js";
 import { ClaudeAgent } from "../../src/agents/claude-agent.js";
@@ -6,6 +9,7 @@ import { GeminiAgent } from "../../src/agents/gemini-agent.js";
 import { AiderAgent } from "../../src/agents/aider-agent.js";
 import { BaseAgent } from "../../src/agents/base-agent.js";
 import { createNoopLogger } from "../_fixtures/loggers.js";
+import { readUsage } from "../../src/usage/record.js";
 
 const config = { session: { max_iteration_minutes: 5 } };
 const logger = createNoopLogger();
@@ -44,6 +48,23 @@ describe("agents/index registerAgent", () => {
     const agent = createAgent("custom", config, logger);
     expect(agent).toBeInstanceOf(CustomAgent);
     expect(agent.name).toBe("custom");
+  });
+
+  it("records each call of an agent it creates in the usage record (HU-4592)", async () => {
+    class UsageAgent extends BaseAgent {
+      async runTask() { return { ok: true, exitCode: 0, cost_usd: 0.5 }; }
+    }
+    registerAgent("usage-probe", UsageAgent);
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-usage-index-"));
+    vi.stubEnv("KARAJAN_HOME", home);
+    try {
+      await createAgent("usage-probe", config, logger).runTask({ role: "planner" });
+      const calls = readUsage(new Date().toISOString().slice(0, 7), { home });
+      expect(calls).toEqual([expect.objectContaining({ provider: "usage-probe", role: "planner", costUsd: 0.5, exitCode: 0 })]);
+    } finally {
+      vi.unstubAllEnvs();
+      fs.rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it("throws when name is empty", () => {
