@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+// kj's own state (run log, traces) is written during the call too; it is never the coder's work.
+const NOT_KJ_STATE = ["--", ".", ":(exclude).kj", ":(exclude).karajan"];
 const git = (projectDir, args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
 function textLines(file) {
@@ -16,13 +18,13 @@ function textLines(file) {
 export function treeLines(projectDir) {
   let added = 0;
   let removed = 0;
-  for (const row of git(projectDir, ["diff", "--numstat", "HEAD"]).split("\n").filter(Boolean)) {
+  for (const row of git(projectDir, ["diff", "--numstat", "HEAD", ...NOT_KJ_STATE]).split("\n").filter(Boolean)) {
     const [plus, minus] = row.split("\t");
     if (plus === "-") continue;
     added += Number(plus);
     removed += Number(minus);
   }
-  for (const file of git(projectDir, ["ls-files", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean)) {
+  for (const file of git(projectDir, ["ls-files", "--others", "--exclude-standard", "-z", ...NOT_KJ_STATE]).split("\0").filter(Boolean)) {
     added += textLines(path.join(projectDir, file));
   }
   return { added, removed };

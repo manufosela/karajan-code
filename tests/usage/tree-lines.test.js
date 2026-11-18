@@ -25,6 +25,14 @@ describe("treeLines (HU-4619)", () => {
     expect(treeLines(repo)).toEqual({ added: 3, removed: 2 });
   });
 
+  it("leaves out kj's own state (.kj and .karajan) even where the repo does not ignore it", () => {
+    fs.mkdirSync(path.join(repo, ".kj"));
+    fs.mkdirSync(path.join(repo, ".karajan"));
+    fs.writeFileSync(path.join(repo, ".kj", "run.log"), "a\nb\n");
+    fs.writeFileSync(path.join(repo, ".karajan", "trace.jsonl"), "{}\n");
+    expect(treeLines(repo)).toEqual({ added: 0, removed: 0 });
+  });
+
   it("fails loudly outside a git repo", () => {
     const bare = fs.mkdtempSync(path.join(os.tmpdir(), "kj-tree-lines-none-"));
     try {
