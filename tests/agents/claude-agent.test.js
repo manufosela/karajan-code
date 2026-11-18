@@ -1,4 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createNoopLogger } from "../_fixtures/loggers.js";
 import { baseAgentConfig } from "../_fixtures/agents.js";
 
@@ -333,6 +336,27 @@ describe("ClaudeAgent", () => {
 
     it.each([null, ""])("returns 'Unknown error' for empty input (%p)", (input) => {
       expect(sanitizeClaudeError(input)).toBe("Unknown error");
+    });
+  });
+
+  // HU-4587: default account -> CLAUDE_CONFIG_DIR
+  describe("accounts", () => {
+    const home = mkdtempSync(join(tmpdir(), "kj-cl-"));
+    const accounts = [{ id: "work", provider: "claude", home, default: true }];
+    const run = (config, env) => new ClaudeAgent("claude", config, logger).runCommand("claude", [], env ? { env } : {});
+
+    it("passes the default account and lets an explicit env win", async () => {
+      await new ClaudeAgent("claude", { ...baseConfig, accounts }, logger).runTask({ prompt: "t", role: "coder" });
+      expect(runCommand.mock.calls[0][2].env.CLAUDE_CONFIG_DIR).toBe(home);
+      await run({ ...baseConfig, accounts }, { CLAUDE_CONFIG_DIR: "/explicit" });
+      expect(runCommand.mock.calls[1][2].env.CLAUDE_CONFIG_DIR).toBe("/explicit");
+    });
+
+    it("adds nothing without accounts and throws naming id and path for a missing dir", async () => {
+      await run(baseConfig);
+      expect(runCommand.mock.calls[0][2].env?.CLAUDE_CONFIG_DIR).toBe(process.env.CLAUDE_CONFIG_DIR);
+      const bad = [{ ...accounts[0], home: join(home, "gone") }];
+      await expect(run({ ...baseConfig, accounts: bad })).rejects.toThrow(/"work".*gone/);
     });
   });
 });

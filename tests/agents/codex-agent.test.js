@@ -1,4 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createNoopLogger } from "../_fixtures/loggers.js";
 import { baseAgentConfig } from "../_fixtures/agents.js";
 
@@ -237,6 +240,27 @@ describe("CodexAgent", () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "just regular output", stderr: "" });
       const result = await new CodexAgent("codex", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
       expect(result.cached_tokens).toBeUndefined();
+    });
+  });
+
+  // HU-4587: default account -> CODEX_HOME
+  describe("accounts", () => {
+    const home = mkdtempSync(join(tmpdir(), "kj-cx-"));
+    const accounts = [{ id: "cx", provider: "codex", home, default: true }];
+    const run = (config, env) => new CodexAgent("codex", config, logger).runCommand("codex", [], env ? { env } : {});
+
+    it("passes the default account and lets an explicit env win", async () => {
+      await new CodexAgent("codex", { ...baseConfig, accounts }, logger).runTask({ prompt: "t", role: "coder" });
+      expect(runCommand.mock.calls[0][2].env.CODEX_HOME).toBe(home);
+      await run({ ...baseConfig, accounts }, { CODEX_HOME: "/explicit" });
+      expect(runCommand.mock.calls[1][2].env.CODEX_HOME).toBe("/explicit");
+    });
+
+    it("adds nothing without accounts and throws naming id and path for a missing dir", async () => {
+      await run(baseConfig);
+      expect(runCommand.mock.calls[0][2].env?.CODEX_HOME).toBe(process.env.CODEX_HOME);
+      const bad = [{ ...accounts[0], home: join(home, "gone") }];
+      await expect(run({ ...baseConfig, accounts: bad })).rejects.toThrow(/"cx".*gone/);
     });
   });
 });

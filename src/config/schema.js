@@ -19,6 +19,7 @@
  */
 
 import * as v from "valibot";
+import { accountsProblem } from "./accounts.js";
 
 /**
  * Positive integer (>= 1). Used where 0 / negative would be a clear bug
@@ -228,6 +229,18 @@ const ModelRouting = v.optional(v.looseObject({
   })),
 }));
 
+// HU-4587: agent accounts. Provider/id/default rules live in accounts.js so the
+// message can name the offending entry.
+const Accounts = v.optional(v.pipe(
+  v.array(v.looseObject({
+    id: v.pipe(v.string("accounts[].id must be a string"), v.minLength(1, "accounts[].id must not be empty")),
+    provider: v.string("accounts[].provider must be a string"),
+    home: v.pipe(v.string("accounts[].home must be a string"), v.minLength(1, "accounts[].home must not be empty")),
+    default: v.optional(v.boolean("accounts[].default must be true or false")),
+  })),
+  v.check((list) => accountsProblem(list) === null, (issue) => accountsProblem(issue.input)),
+));
+
 /**
  * Main config schema. `looseObject` lets every consumer that reads an
  * undeclared key keep working while the schema catches the bugs we care
@@ -279,6 +292,7 @@ export const ConfigSchema = v.looseObject({
   telemetry: v.optional(v.boolean()),
   skills: Skills,
   model_routing: ModelRouting,
+  accounts: Accounts,
 });
 
 /**
