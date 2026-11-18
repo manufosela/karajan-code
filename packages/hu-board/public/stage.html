@@ -10,7 +10,14 @@
     #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
     header { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 16px; align-items: center; padding: 12px 20px; }
     header a { color: #8cb4c9; }
-    #stage-status { position: fixed; left: 20px; bottom: 16px; margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
+    #stage-log { position: fixed; left: 20px; bottom: 16px; }
+    #stage-status { margin: 0; padding: 0; list-style: none; color: #9ca6ae; }
+    /* KJC-TSK-1694: the button that folds the lines; folded, they leave the view and still speak to screen readers. */
+    #stage-status-fold { font: inherit; font-size: 13px; color: #9ca6ae; background: rgb(14 21 32 / 0.85); border: 1px solid #2a3a4e; border-radius: 999px; padding: 2px 12px; margin-bottom: 4px; cursor: pointer; }
+    #stage-status-fold::before { content: '▾ '; }
+    #stage-status-fold[aria-expanded="false"]::before { content: '▸ '; }
+    #stage-status-fold[hidden] { display: none; }
+    #stage-status.stage-folded { clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; white-space: nowrap; }
     #stage-status li { margin: 2px 0; }
     /* KJC-TSK-1608: each line in the tone of what it says; the newest in Matrix green, bold. */
     #stage-status .stage-tone-live { color: #e2e8f0; }
@@ -59,7 +66,7 @@
     #stage-projects small { font-size: 14px; color: #b4bec7; }
     #stage-projects .stage-attention { display: inline-block; min-width: 1.4em; padding: 0 6px; border-radius: 999px; background: #f0b429; color: #10161f; font-size: 13px; font-weight: 700; text-align: center; }
     #stage-projects-toggle { display: none; }
-    @media (min-width: 721px) { #stage-status { left: 280px; } }
+    @media (min-width: 721px) { #stage-log { left: 280px; } }
     @media (max-width: 720px) {
       #stage-projects { display: none; width: min(280px, calc(100vw - 32px)); }
       #stage-projects.stage-projects-open { display: block; }
@@ -195,7 +202,10 @@
   <!-- KJC-TSK-1468: until the stage says its first word, so it never looks dead. -->
   <output id="stage-loading" aria-live="polite">Loading the factories…</output>
   <!-- What the scene shows, as text: the last state of each piece, then each live cue. -->
-  <ul id="stage-status" aria-live="polite"></ul>
+  <section id="stage-log" aria-label="Status">
+    <button type="button" id="stage-status-fold" aria-controls="stage-status" aria-expanded="true">Status</button>
+    <ul id="stage-status" aria-live="polite"></ul>
+  </section>
   <!-- The crew's workshop talk: ambient, so screen readers skip it. -->
   <!-- Burst counts over the crates on the line; the status list already tells each event. -->
   <div id="stage-counts" aria-hidden="true"></div>
