@@ -18,6 +18,7 @@ import { phpInputs, qualityInputs } from "./quality-inputs.js";
 import { gradleInputs } from "./gradle-commands.js";
 import { swiftInputs } from "./swift-commands.js";
 import { ownTestWorkflow } from "./test-on-push.js";
+import { workflowChecks } from "./branch-protection.js";
 import { KJ_MIN_VERSION, extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, secretsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
@@ -160,10 +161,26 @@ function deferQuality(projectDir, ownWorkflow, dryRun) {
   return { file: label, action: "removed", note };
 }
 
+/**
+ * HU-4645: why kj-quality must stay although the repo's own CI runs the tests, or null when nothing
+ * holds it. `requiredChecks`: the checks the base branch requires; null = unreadable, undefined = not read.
+ */
+function qualityHold(quality, ownWorkflow, requiredChecks) {
+  if (!quality || requiredChecks === undefined) return null;
+  const keeps = `kj-quality: ${ownWorkflow} already runs your tests, but`;
+  if (requiredChecks === null) return `${keeps} the base branch protection could not be read; kj keeps kj-quality so no required check goes missing`;
+  const held = workflowChecks(quality.body).filter((c) => requiredChecks.has(c));
+  if (held.length === 0) return null;
+  return `${keeps} the base branch requires ${held.join(", ")}, which only kj-quality publishes; kj keeps it until an admin drops that requirement, then kj harden removes it`;
+}
+
 /** HU-4621: the Quality workflow to install, or none where the repo's own CI runs the tests (`defersTo` names it). */
-function qualityPlan(projectDir, roots) {
+function qualityPlan(projectDir, roots, requiredChecks) {
   const defersTo = ownTestWorkflow(projectDir);
-  return defersTo ? { quality: null, note: "", defersTo } : { ...qualityFor(projectDir, roots), defersTo: null };
+  if (!defersTo) return { ...qualityFor(projectDir, roots), defersTo: null };
+  const planned = qualityFor(projectDir, roots);
+  const hold = qualityHold(planned.quality, defersTo, requiredChecks);
+  return hold ? { quality: planned.quality, note: hold, defersTo: null } : { quality: null, note: "", defersTo };
 }
 
 /** One kj workflow written or refreshed in place; one the repo wrote itself (no marker) is skipped. */
@@ -208,10 +225,11 @@ export function installWorkflows({
   roots = [{ dir: root, language }],
   baseBranch = "main",
   published, // HU-4278: versions on npm; undefined = not checked, null = registry unreadable
+  requiredChecks, // HU-4645: the base branch's required checks; undefined = not read, null = unreadable
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const pm = detectPackageManager(projectDir);
-  const { quality, note: qualityNoteText, defersTo } = qualityPlan(projectDir, roots);
+  const { quality, note: qualityNoteText, defersTo } = qualityPlan(projectDir, roots, requiredChecks);
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   // PL-C: el tier C solo existe donde el proyecto DECLARA policy. Versión a
   // pinear: la plumbeada por el CLI (SEA) o la propia; "latest" es último

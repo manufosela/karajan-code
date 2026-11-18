@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { loadConfig } from "../config.js";
 import { resolveBaseBranch as resolveBase } from "../config/base-branch.js";
-import { resolveTestOnPush, runsTests } from "../harden/test-on-push.js";
+import { ownTestWorkflow, resolveTestOnPush, runsTests } from "../harden/test-on-push.js";
 import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { interactiveHarden } from "../harden/interactive.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
@@ -35,7 +35,7 @@ import { installSandbox } from "../harden/sandbox.js";
 import { ensureContractBlockPresent, ensureGateTrackable } from "../review/gate-gitignore.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { detectPackageManager, installWorkflows, plannedQualityBody, resolveKjPin } from "../harden/workflow-engine.js";
-import { adviseBranchProtection } from "../harden/branch-protection.js";
+import { adviseBranchProtection, baseBranchRequiredChecks } from "../harden/branch-protection.js";
 import { adviseEventPolicy } from "../harden/event-policy.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 import { ensureIdentity } from "../identity/bootstrap.js";
@@ -276,6 +276,15 @@ async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch
 /** Gemini CLI reads AGENTS.md only when its settings say so; Rulesync writes its own agent files. */
 const geminiContext = (projectDir, dryRun) => (detectRulesync(projectDir) ? [] : [installGeminiContext({ projectDir, dryRun })]);
 
+/** The CI workflows (standard+). HU-4645: kj-quality gives way to the repo's own CI only once no required check needs it. */
+async function installCiWorkflows({ projectDir, baseBranch, fetchFn, logger, ...opts }) {
+  // KJC-BUG-0420: consumer CI installs kj from npm, so the workflows pin a published version.
+  const pin = await resolveKjPin({ projectDir, fetchFn });
+  if (pin?.note) logger.warn?.(`⚠ ${pin.note}`);
+  const requiredChecks = ownTestWorkflow(projectDir) ? await baseBranchRequiredChecks({ projectDir, branch: baseBranch }) : undefined;
+  return installWorkflows({ projectDir, baseBranch, kjVersion: null, published: pin?.published, requiredChecks, ...opts });
+}
+
 /** Configs, workflows and guidelines (standard+), with the language detected for the first root. */
 async function installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger, baseBranch }) {
   const full = profile !== "minimal";
@@ -283,10 +292,7 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
   // Config (lint/format/commit) ships with standard+, per language root so a
   // fullstack monorepo is hardened on every side, not just one.
   const cfg = config && full ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
-  // KJC-BUG-0420: consumer CI installs kj from npm, so the workflows pin a published version.
-  const pin = ci && full ? await resolveKjPin({ projectDir, fetchFn }) : null;
-  if (pin?.note) logger.warn?.(`⚠ ${pin.note}`);
-  const wf = ci && full ? installWorkflows({ projectDir, language, roots, profile, mutation, dryRun, kjVersion: null, published: pin?.published, baseBranch }) : null;
+  const wf = ci && full ? await installCiWorkflows({ projectDir, language, roots, profile, mutation, dryRun, baseBranch, fetchFn, logger }) : null;
   const withGuidelines = guidelines && full;
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
   // the configs already use — a Python project must not be told to use `const`.
