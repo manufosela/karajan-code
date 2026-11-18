@@ -70,6 +70,13 @@ export function assignAccounts(projectKey, provider, ids, { home = getKarajanHom
   write(data, home);
 }
 
+/** HU-4588: the project goes back to the default accounts. */
+export function clearProject(projectKey, { home = getKarajanHome() } = {}) {
+  const data = readAccounts({ home });
+  delete data.projects[projectKey];
+  write(data, home);
+}
+
 export function setDefault(id, { home = getKarajanHome() } = {}) {
   const data = readAccounts({ home });
   data.default[find(data, id).provider] = id;
