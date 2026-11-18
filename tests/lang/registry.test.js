@@ -22,7 +22,7 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     const a = getAdapters();
     const b = getAdapters();
     expect(a).not.toBe(b);
-    expect(a.map((x) => x.id).sort()).toEqual(["go", "java", "js", "python", "rust", "swift"]);
+    expect(a.map((x) => x.id).sort()).toEqual(["go", "java", "js", "kotlin", "python", "rust", "swift"]);
   });
 
   it("only Python, Rust, Go and Java adapters expose prepare() (JS uses sync @babel)", () => {
@@ -50,7 +50,8 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     expect(detectAdaptersForProject(r1).map((a) => a.id)).toEqual(["java"]);
     const r2 = mkRoot();
     writeFileSync(join(r2, "build.gradle.kts"), "plugins { java }\n");
-    expect(detectAdaptersForProject(r2).map((a) => a.id)).toEqual(["java"]);
+    // A Gradle project may hold Java or Kotlin: both adapters claim the manifest (HU-4546).
+    expect(detectAdaptersForProject(r2).map((a) => a.id)).toEqual(["java", "kotlin"]);
   });
 
   it("detects Swift via Package.swift and skips SwiftPM / Xcode outputs (HU-4547)", () => {
@@ -64,6 +65,18 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
       expect(m.shouldSkip(`/x/${dir}/Gen.swift`)).toBe(true);
     }
     expect(m.shouldSkip("/x/Sources/App.swift")).toBe(false);
+  });
+
+  it("selects Kotlin from settings.gradle.kts and skips its build folders (HU-4546)", () => {
+    const root = mkRoot();
+    writeFileSync(join(root, "settings.gradle.kts"), "rootProject.name = \"x\"\n");
+    const adapters = detectAdaptersForProject(root);
+    expect(adapters.map((a) => a.id)).toEqual(["kotlin"]);
+    const m = buildMatchers(adapters);
+    expect(m.isCodeFile("/x/Main.kt")).toBe(true);
+    expect(m.shouldSkip("/x/.gradle/caches/A.kt")).toBe(true);
+    expect(m.shouldSkip("/x/.kotlin/sessions/A.kt")).toBe(true);
+    expect(m.shouldSkip("/x/src/Main.kt")).toBe(false);
   });
 
   it("detects Go via go.mod", () => {

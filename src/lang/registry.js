@@ -8,6 +8,7 @@ import { extname, join } from "node:path";
 import { GO_ADAPTER } from "./go.js";
 import { JAVA_ADAPTER } from "./java.js";
 import { JS_ADAPTER } from "./js.js";
+import { KOTLIN_ADAPTER } from "./kotlin.js";
 import { PYTHON_ADAPTER } from "./python.js";
 import { RUST_ADAPTER } from "./rust.js";
 import { SWIFT_ADAPTER } from "./swift.js";
@@ -18,7 +19,7 @@ import { SWIFT_ADAPTER } from "./swift.js";
 // KJC-BUG-0231: `.claude` guarda worktrees de subagentes, copias enteras del repo.
 const COMMON_SKIP_SEGMENTS = [".git", "dist", "build", "coverage", ".karajan", ".kj", "_diet", ".claude"];
 
-const REGISTRY = [JS_ADAPTER, PYTHON_ADAPTER, RUST_ADAPTER, GO_ADAPTER, JAVA_ADAPTER, SWIFT_ADAPTER];
+const REGISTRY = [JS_ADAPTER, PYTHON_ADAPTER, RUST_ADAPTER, GO_ADAPTER, JAVA_ADAPTER, SWIFT_ADAPTER, KOTLIN_ADAPTER];
 
 export function getAdapters() {
   return REGISTRY.slice();
