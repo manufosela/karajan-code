@@ -90,6 +90,35 @@ describe("kj account (HU-4599, ADR 0064)", () => {
     });
   });
 
+  describe("pace (HU-4608)", () => {
+    beforeEach(() => {
+      run("add", { id: "work", provider: "claude", dir: login });
+      lines = [];
+    });
+    const pace = () => readAccounts({ home }).accounts[0].pace;
+
+    it("says an account without a pace runs its calls as they come", () => {
+      run("pace", { id: "work" });
+      expect(lines).toEqual(["work has no pace: its calls run as they come"]);
+    });
+
+    it("sets the pace from the flags and keeps the fields not given", () => {
+      run("pace", { id: "work", gap: "30", max: "1" });
+      run("pace", { id: "work", limitWait: "600" });
+      expect(pace()).toEqual({ gapSeconds: 30, maxConcurrent: 1, limitWaitSeconds: 600 });
+      expect(lines.at(-1)).toBe("✓ work: 30s between calls, at most 1 at once, 600s after a limit");
+      lines = [];
+      run("pace", { id: "work" });
+      expect(lines).toEqual(["work: 30s between calls, at most 1 at once, 600s after a limit"]);
+    });
+
+    it("refuses a value that is not a valid number and writes nothing", () => {
+      expect(() => run("pace", { id: "work", max: "0" })).toThrow(/maxConcurrent/);
+      expect(() => run("pace", { id: "work", gap: "soon" })).toThrow(/gapSeconds/);
+      expect(pace()).toBeUndefined();
+    });
+  });
+
   it("fails on an unknown id or action", () => {
     expect(() => run("remove", { id: "nope" })).toThrow(/no account "nope"/);
     expect(() => run("rename", {})).toThrow(/unknown action/);

@@ -443,6 +443,10 @@ export function registerMeta(program, { pkgVersion }) {
   account.command("default <id>").description("Make it its provider's default account").action((id) => accountCommand("default", { id }));
   account.command("use [ids...]").description("This project's accounts per provider, in order: kj launches the first (HU-4588)")
     .option("--clear", "Back to the default accounts").action((ids, flags) => accountCommand("use", { ids, clear: flags.clear }));
+  account.command("pace <id>").description("An account's pacing; without flags, shows it (HU-4608)")
+    .option("--gap <seconds>", "Minimum seconds between the end of a call and the next")
+    .option("--max <n>", "Maximum calls at once").option("--limit-wait <seconds>", "Seconds to wait after a limit message")
+    .action((id, flags) => accountCommand("pace", { id, gap: flags.gap, max: flags.max, limitWait: flags.limitWait }));
 
   const adr = program.command("adr").description("Architecture decision records in .karajan/adrs/ (git-tracked)");
   adr.command("add <title>")
