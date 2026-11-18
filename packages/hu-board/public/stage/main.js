@@ -13,6 +13,7 @@ import { boardToken, withToken } from './token.js';
 import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
+import { mountStatusFold } from './status-fold.js';
 import { liveEntries, opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
 import { mountLegend } from './legend-panel.js';
 import { watchWorkshops } from './workshop-pointer.js';
@@ -31,6 +32,9 @@ const RESYNC_MS = 60 * 1000;
 
 let canvas = document.getElementById('stage');
 const status = document.getElementById('stage-status');
+// KJC-TSK-1694: the status lines fold and unfold; the choice stays in this browser.
+const statusFold = document.getElementById('stage-status-fold');
+mountStatusFold({ button: statusFold, list: status, storage: () => localStorage });
 // KJC-TSK-1613: the factory on screen, which the panel switches without reloading the page.
 let project = projectOf(location.search);
 const wantsMap = new URLSearchParams(location.search).get('map') === '1';
@@ -294,6 +298,7 @@ async function startMapView() {
       if (again?.ok) map.resync(await again.json());
     }, RESYNC_MS);
     status.classList.add('stage-unseen'); // KJC-TSK-1466: once the map is up its lines only speak to screen readers
+    statusFold.hidden = true; // KJC-TSK-1694: with nothing shown, nothing to fold
   } catch (err) {
     tell([`The board did not answer (${err.message})`]);
   }
