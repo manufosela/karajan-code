@@ -2010,6 +2010,10 @@ The same day the maintainer's panel changed: agy reviews, since a reviewer acts 
 
 The maintainer noticed that Karajan worked well for their agents and less for a contributor's, and saw why: what an agent needs to work with it lived in one person's notes. They chose to ship it as a skill that kj installs, so the playbook stays short and points at it. The same evening the post-release reharden asked for a signature again, and the cause was in the seal: a guard removed once stayed recorded as deleted in every later seal, and both sides counted it as new. A team found the opposite wall, a workflow kj does not own that no sealed path could delete, and a contributor found an opencode reviewer whose verdict kj never read.
 
+## Phase 187: v5.30.0, each project on its own accounts
+
+The maintainer works for several clients from one laptop and wanted each client's work to run, and be counted, on that client's own accounts. They first sketched a personal mode and a company mode, then dropped the modes (ADR 0064): kj keeps one list of accounts, never knows whose they are, and each project names its own in order of preference. The maintainer and a contributor split the work, and kj started writing every agent call to a local record that a later page will turn into usage and cost per project. The same day a team's repo was blocked by `kj-quality`, which ran their tests without the steps their own CI takes first; the maintainer chose that a repo's own CI, when it runs the tests, is its quality gate (ADR 0065).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

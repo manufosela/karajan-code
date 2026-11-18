@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.29.0: an agent learns Karajan from kj itself (current)
+### v5.30.0: each project on its own accounts, and a local record of every call (current)
+
+`kj account` keeps the accounts each provider's agents run on (their `CLAUDE_CONFIG_DIR` or `CODEX_HOME`), and `kj account use` picks a project's, in order; `kj account pace` sets each account's pacing. Every agent call is written to `~/.karajan/usage/` with its project, account, tokens, estimated cost and the lines the coder wrote; nothing leaves the machine. `kj-quality` makes way for the repo's own CI when that CI already runs the tests, instead of failing and blocking its PRs. The RAG indexes PHP and Kotlin by symbol, and kj stage draws the governance panel as a card.
+
+### v5.29.0: an agent learns Karajan from kj itself
 
 `kj harden` installs the `working-with-karajan` skill: what an agent needs to develop with Karajan, from the order of a task to the commands the Sentinel accepts and the human acts it hands to you. A seal whose last seal recorded a deletion renews itself again, a workflow kj does not own can be deleted with `git rm` and `kj harden --commit`, and `kj review` reads an opencode reviewer's verdict. The RAG indexes Swift by symbol, and kj stage shows who stands in for whom on the panel.
 
