@@ -17,7 +17,7 @@ kj runs each provider's agents on the account you choose, per project, and keeps
 - **Pacing per account**: a minimum gap between agent calls, a maximum of calls at once and a longer wait after a limit message, set with `kj account pace <id> --gap --max --limit-wait` (#4591, #4608).
 - **A local usage record**: every agent call kj launches is written to `~/.karajan/usage/YYYY-MM.jsonl` with its project, account, provider, role, model, duration, tokens and estimated cost where the agent reports them, and the lines `kj code`'s coder added and removed. Nothing leaves the machine (#4592, #4619).
 - **RAG**: PHP and Kotlin are indexed by symbol, and Composer's `vendor/` and the Gradle and Kotlin build outputs are skipped (#4548, #4546).
-- **kj stage**: the governance panel is a card on top with each agent in its colour and a stand-in in amber; the coffee cup looks like a cup and the coffee cart robot dresses as a waiter (#4606, #4604, #4616).
+- **kj stage**: the governance panel is a card on top with each agent in its colour and a stand-in in amber; the coffee cup looks like a cup and the coffee cart robot dresses as a waiter; the projects panel lists only the factories with a session on, and the one on screen (#4606, #4604, #4616, #4624).
 
 ### Fixed
 - **`kj-quality` no longer blocks a repo whose own CI runs its tests**: it ran lint and tests without the steps the repo's CI takes first (building types, setting up Java), failed, and its red check made the merge gate block every PR. Where a workflow of the repo's own already runs the tests, `kj harden` adds no `kj-quality`, removes the managed one and names the workflow it defers to, and `kj check` no longer misses it (ADR 0065, #4611).
