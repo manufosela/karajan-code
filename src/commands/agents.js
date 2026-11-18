@@ -1,4 +1,4 @@
-import { loadConfig, writeConfig, getConfigPath, getProjectConfigPath, loadProjectConfig, resolveRole } from "../config.js";
+import { loadGlobalConfigFile, writeConfig, getConfigPath, getProjectConfigPath, loadProjectConfig, resolveRole } from "../config.js";
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -41,7 +41,7 @@ export async function setAgent(role, provider, { global: isGlobal = false } = {}
   }
 
   if (isGlobal) {
-    const { config } = await loadConfig();
+    const config = await loadGlobalConfigFile();
     config.roles = config.roles || {};
     config.roles[role] = config.roles[role] || {};
     config.roles[role].provider = provider;

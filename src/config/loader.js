@@ -86,6 +86,11 @@ async function readYamlIfPresent(filePath) {
   return parseYamlOrThrow(await fs.readFile(filePath, "utf8"), filePath);
 }
 
+/** HU-4643: the global file alone, unmerged, for a change that must write only that file. */
+export async function loadGlobalConfigFile() {
+  return (await readYamlIfPresent(getConfigPath())) ?? {};
+}
+
 export async function loadProjectConfig(projectDir = process.cwd()) {
   return readYamlIfPresent(getProjectConfigPath(projectDir));
 }
@@ -215,7 +220,7 @@ function stripRuntimeOnlyKeys(config) {
   // runtime ignores it. Persisting it would re-trigger the deprecation
   // warning on every subsequent kj run.
   if (out.sonarqube && typeof out.sonarqube === "object"
-      && Object.prototype.hasOwnProperty.call(out.sonarqube, "enabled")) {
+      && Object.hasOwn(out.sonarqube, "enabled")) {
     const rest = { ...out.sonarqube };
     delete rest.enabled;
     out.sonarqube = rest;
@@ -239,7 +244,8 @@ function stripSecrets(config) {
   for (const [section, key] of SECRET_PATHS) {
     const block = out?.[section];
     if (!block || typeof block !== "object" || block[key] == null) continue;
-    const { [key]: _secret, ...kept } = block;
+    const kept = { ...block };
+    delete kept[key];
     out = { ...out, [section]: kept };
     stripped.push(`${section}.${key}`);
   }

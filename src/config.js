@@ -27,6 +27,7 @@ export {
   getProjectConfigPath,
   getLocalConfigPath,
   loadProjectConfig,
+  loadGlobalConfigFile,
   loadConfig,
   writeConfig,
 } from "./config/loader.js";
