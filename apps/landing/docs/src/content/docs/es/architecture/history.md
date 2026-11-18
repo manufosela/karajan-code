@@ -2013,6 +2013,10 @@ El mantenedor notó que Karajan funcionaba bien con sus agentes y peor con los d
 
 El mantenedor trabaja para varios clientes desde un mismo portátil y quería que el trabajo de cada cliente corriera, y se contara, en las cuentas de ese cliente. Primero esbozó un modo personal y un modo empresa, y luego quitó los modos (ADR 0064): kj guarda una sola lista de cuentas, nunca sabe de quién son, y cada proyecto nombra las suyas en orden de preferencia. El mantenedor y un colaborador se repartieron el trabajo, y kj empezó a anotar cada llamada de agente en un registro local que una página posterior convertirá en uso y coste por proyecto. Ese mismo día el repo de un equipo quedó bloqueado por `kj-quality`, que ejecutaba sus tests sin los pasos que su propio CI hace antes; el mantenedor decidió que el CI propio de un repo, cuando ejecuta los tests, es su gate de calidad (ADR 0065).
 
+## Phase 188: v5.31.0, lo que costó cada llamada
+
+El registro de cada llamada de agente se convirtió en una página del HU Board: uso y coste por periodo, proyecto y cuenta, y un CSV del mes de un proyecto para la factura. Esa misma noche el mantenedor quiso que un repo lo revisara otro agente y vio que `kj agents set` siempre había escrito la config compartida, nunca la del repo, así que un cambio en un repo llegaba a todos los que no tenían panel propio. Pidió que cada repo lleve su propio panel, y el compartido solo para los repos sin el suyo. Al rehacer el harden de karajan-code con la 5.30.0 apareció la otra cara de la ADR 0065: la rama base seguía exigiendo el check del `kj-quality` que borraba, y toda PR se habría quedado esperándolo, así que kj lo conserva hasta que un admin quita ese requisito.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

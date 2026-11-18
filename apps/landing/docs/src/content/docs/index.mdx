@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.30.0: each project on its own accounts, and a local record of every call (current)
+### v5.31.0: what every call cost, per project, and each repo with its own panel (current)
+
+The HU Board has a usage and cost page: the calls kj launched in a range of months, grouped by day, month, year or in total, per project and account, and one project's month exported as CSV to attach to an invoice. `kj agents set` changes the panel of the repo you are in (`--global` the shared one), and `kj account check` says whether the session runs on one of the project's accounts. `kj harden` keeps `kj-quality` while the base branch still requires its check, so no PR waits for a check nobody publishes.
+
+### v5.30.0: each project on its own accounts, and a local record of every call
 
 `kj account` keeps the accounts each provider's agents run on (their `CLAUDE_CONFIG_DIR` or `CODEX_HOME`), and `kj account use` picks a project's, in order; `kj account pace` sets each account's pacing. Every agent call is written to `~/.karajan/usage/` with its project, account, tokens, estimated cost and the lines the coder wrote; nothing leaves the machine. `kj-quality` makes way for the repo's own CI when that CI already runs the tests, instead of failing and blocking its PRs. The RAG indexes PHP and Kotlin by symbol, and kj stage draws the governance panel as a card.
 

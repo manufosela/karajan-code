@@ -2014,6 +2014,10 @@ The maintainer noticed that Karajan worked well for their agents and less for a 
 
 The maintainer works for several clients from one laptop and wanted each client's work to run, and be counted, on that client's own accounts. They first sketched a personal mode and a company mode, then dropped the modes (ADR 0064): kj keeps one list of accounts, never knows whose they are, and each project names its own in order of preference. The maintainer and a contributor split the work, and kj started writing every agent call to a local record that a later page will turn into usage and cost per project. The same day a team's repo was blocked by `kj-quality`, which ran their tests without the steps their own CI takes first; the maintainer chose that a repo's own CI, when it runs the tests, is its quality gate (ADR 0065).
 
+## Phase 188: v5.31.0, what every call cost
+
+The record of every agent call became a page on the HU Board: usage and cost per period, project and account, and a CSV of one project's month for the invoice. The same night the maintainer wanted one repo reviewed by another agent and found that `kj agents set` had always written the shared config, never the repo's own, so a change in one repo reached every repo without a panel of its own. They asked that each repo carry its own panel, with the shared one only for repos without theirs. Rehardening karajan-code with 5.30.0 then showed the other side of ADR 0065: the base branch still required the check of the `kj-quality` it removed, and every PR would have waited for it, so kj now keeps it until an admin drops that requirement.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

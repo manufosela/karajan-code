@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.31.0] - 2026-11-19
+
+Each repo carries its own panel of agents, the HU Board shows what every agent call cost per project and account, and a repo whose base branch requires the `quality` check keeps `kj-quality`. If you ran `kj harden` with 5.30.0 in such a repo and it removed `kj-quality`, update and run `kj harden` again before sealing: it writes it back.
+
+### Added
+- **Usage and cost page** on the HU Board (`/usage.html`, linked from the board's bar): the calls kj launched in a range of months, grouped by day, month, year or in total, with totals of calls, agent time, estimated cost, tokens and lines, and one row per period, project and account. With one project picked, **Export CSV** downloads that project's calls of a month, ready to attach to an invoice (`GET /api/usage`, `GET /api/usage/export`) (#4632, #4634, #4593).
+- **`kj account check`** says whether the interactive session runs on one of the project's accounts, and names the account to use when it does not (#4595).
+- **kj stage**: the status list at the bottom left folds and unfolds with a Status button; folded, it still speaks to screen readers, and the choice is remembered in the browser (#4641).
+
+### Fixed
+- **`kj harden` keeps `kj-quality` while the base branch requires its check**: since 5.30.0 it removed the managed `kj-quality` where the repo's own CI runs the tests, and a branch that still required `quality` blocked every PR waiting for it. It now reads the required checks (classic protection and rulesets), keeps or writes back `kj-quality` while one of its checks is required or the protection cannot be read, says why, and removes it once an admin drops the requirement (#4645).
+- **`kj agents set` writes this project's config by default**: it always wrote `~/.karajan/kj.config.yml`, so a change in one repo changed every repo without its own panel. `--local` (the default) writes `.karajan/kj.config.yml`, `--global` the shared file; both together fail, and so does the default outside a project (#4640).
+- **`kj agents set --global` writes only the global file**: it wrote the merged config (defaults and the repo's own settings) into `~/.karajan/kj.config.yml` (#4643).
+
 ## [5.30.0] - 2026-11-18
 
 kj runs each provider's agents on the account you choose, per project, and keeps a local record of every agent call; a repo whose own CI runs its tests keeps that CI as its quality gate. After updating, run `kj harden` in each repo: where your own workflow already runs the tests, it removes kj's `kj-quality` workflow, and a person seals that with `kj harden --commit`.
