@@ -119,6 +119,32 @@ describe("kj account (HU-4599, ADR 0064)", () => {
     });
   });
 
+  describe("check (HU-4595)", () => {
+    const names = ["CLAUDE_CONFIG_DIR", "CODEX_HOME"];
+    const saved = Object.fromEntries(names.map((n) => [n, process.env[n]]));
+    afterEach(() => {
+      for (const n of names) {
+        if (saved[n] === undefined) delete process.env[n]; else process.env[n] = saved[n];
+      }
+    });
+    it("says it cannot tell when no login variable is set", () => {
+      for (const n of names) delete process.env[n];
+      run("check");
+      expect(lines).toEqual(["cannot tell which login this session uses"]);
+    });
+    it("says ok on a project account and warns on another", () => {
+      run("add", { id: "work", provider: "claude", dir: login });
+      lines = [];
+      delete process.env.CODEX_HOME;
+      process.env.CLAUDE_CONFIG_DIR = login;
+      run("check");
+      expect(lines).toEqual(["ok"]);
+      lines = [];
+      process.env.CLAUDE_CONFIG_DIR = os.tmpdir();
+      run("check");
+      expect(lines[0]).toMatch(/this project uses account "work"/);
+    });
+  });
   it("fails on an unknown id or action", () => {
     expect(() => run("remove", { id: "nope" })).toThrow(/no account "nope"/);
     expect(() => run("rename", {})).toThrow(/unknown action/);

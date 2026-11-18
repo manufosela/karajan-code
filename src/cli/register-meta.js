@@ -443,6 +443,7 @@ export function registerMeta(program, { pkgVersion }) {
   account.command("default <id>").description("Make it its provider's default account").action((id) => accountCommand("default", { id }));
   account.command("use [ids...]").description("This project's accounts per provider, in order: kj launches the first (HU-4588)")
     .option("--clear", "Back to the default accounts").action((ids, flags) => accountCommand("use", { ids, clear: flags.clear }));
+  account.command("check").description("Does this session run on one of the project's accounts? (HU-4595)").action(() => accountCommand("check"));
   account.command("pace <id>").description("An account's pacing; without flags, shows it (HU-4608)")
     .option("--gap <seconds>", "Minimum seconds between the end of a call and the next")
     .option("--max <n>", "Maximum calls at once").option("--limit-wait <seconds>", "Seconds to wait after a limit message")
