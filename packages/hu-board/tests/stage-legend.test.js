@@ -48,7 +48,8 @@ describe('the cast legend', () => {
   // KJC-TSK-1663 (the maintainer, 2026-11-17): the coffee cart that serves a waiting host.
   it('the coffee cart has its card, says a cup in hand means waiting, and has a portrait of its own', () => {
     expect(byId.coffee?.kind).toBe('crew');
-    expect(byId.coffee.marks.map((m) => m.mark)).toEqual(['Cup in hand']);
+    // KJC-TSK-1688 (the maintainer, 2026-11-18): dressed as a waiter, bow tie and towel.
+    expect(byId.coffee.marks.map((m) => m.mark)).toEqual(['Bow tie and towel', 'Cup in hand']);
     expect(recipeOf('coffee')).toEqual({ crew: 'coffee' });
   });
 
