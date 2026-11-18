@@ -4,7 +4,11 @@
 // for one to end), or nothing (no work left). Pure: session-names.js reads the transcript.
 
 const STOP = /^\s*«?\s*(me paro por.*)$/i;
-const NOTHING = /no (?:me )?queda(?:n)? (?:trabajo|nada)|sin trabajo|no (?:tengo|hay) (?:m[aá]s )?trabajo/i;
+// KJC-BUG-0638: and in the infinitive ("por no quedar trabajo", "no quedarme nada"), with "tareas" too.
+const NOTHING = [
+  /no (?:me )?qued(?:an?|ar(?:me)?) (?:trabajo|nada|tareas)/i,
+  /sin trabajo|no (?:tengo|tener|hay) (?:m[aá]s )?(?:trabajo|tareas)/i,
+];
 // Words that ask the person: "your…" and "you", and the verbs a stop line asks them with.
 const YOU = /(?:^|[\s(,])(?:tus?|t[uú]|ti)(?=[\s,.;:)]|$)/i;
 const ASKS = /apruebes|decidas|elijas|confirmes|teclees|firmes|respondas|\bOTP\b/i;
@@ -20,6 +24,6 @@ export function stopLine(text) {
 /** What a stop line waits for: 'person', 'process', or null when nothing is left to do or there is none. */
 export function waitOf(text) {
   const line = stopLine(text);
-  if (!line || NOTHING.test(line)) return null;
+  if (!line || NOTHING.some((said) => said.test(line))) return null;
   return asksPerson(line) ? 'person' : 'process';
 }
