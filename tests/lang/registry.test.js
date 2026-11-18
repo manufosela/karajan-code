@@ -22,7 +22,7 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     const a = getAdapters();
     const b = getAdapters();
     expect(a).not.toBe(b);
-    expect(a.map((x) => x.id).sort()).toEqual(["go", "java", "js", "kotlin", "python", "rust", "swift"]);
+    expect(a.map((x) => x.id).sort()).toEqual(["go", "java", "js", "kotlin", "php", "python", "rust", "swift"]);
   });
 
   it("only Python, Rust, Go and Java adapters expose prepare() (JS uses sync @babel)", () => {
@@ -77,6 +77,17 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     expect(m.shouldSkip("/x/.gradle/caches/A.kt")).toBe(true);
     expect(m.shouldSkip("/x/.kotlin/sessions/A.kt")).toBe(true);
     expect(m.shouldSkip("/x/src/Main.kt")).toBe(false);
+  });
+
+  it("detects PHP via composer.json and skips vendor (HU-4548)", () => {
+    const root = mkRoot();
+    writeFileSync(join(root, "composer.json"), "{}\n");
+    const adapters = detectAdaptersForProject(root);
+    expect(adapters.map((a) => a.id)).toEqual(["php"]);
+    const m = buildMatchers(adapters);
+    expect(m.isCodeFile("/x/src/User.php")).toBe(true);
+    expect(m.shouldSkip("/x/vendor/lib/A.php")).toBe(true);
+    expect(m.shouldSkip("/x/src/User.php")).toBe(false);
   });
 
   it("detects Go via go.mod", () => {
