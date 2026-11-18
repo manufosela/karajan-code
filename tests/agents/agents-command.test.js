@@ -39,8 +39,11 @@ vi.mock("../../src/config.js", async (importOriginal) => {
   };
 });
 
-const { listAgents, setAgent } = await import("../../src/commands/agents.js");
-const { loadConfig, writeConfig } = await import("../../src/config.js");
+const { listAgents, setAgent, agentsCommand } = await import("../../src/commands/agents.js");
+const { loadConfig, writeConfig, getProjectConfigPath } = await import("../../src/config.js");
+const { mkdtempSync, mkdirSync } = await import("node:fs");
+const { tmpdir } = await import("node:os");
+const { join } = await import("node:path");
 const { setRuntimeOverride } = await import("../../src/session/runtime-overrides.js");
 
 describe("agents command", () => {
@@ -150,6 +153,51 @@ describe("agents command", () => {
           })
         })
       );
+    });
+  });
+
+  // HU-4640: each repo carries its own panel; the global config is the one a repo without its own uses.
+  describe("agentsCommand set: --local by default, --global on request", () => {
+    const projectWithKarajan = () => {
+      const dir = mkdtempSync(join(tmpdir(), "kj-agents-"));
+      mkdirSync(join(dir, ".karajan"));
+      const configPath = join(dir, ".karajan", "kj.config.yml");
+      getProjectConfigPath.mockReturnValue(configPath);
+      return configPath;
+    };
+    const set = (flags) => agentsCommand({ config: {}, subcommand: "set", role: "reviewer", provider: "codex", ...flags });
+
+    it("writes the project's config when no scope is given", async () => {
+      const configPath = projectWithKarajan();
+      const result = await set({});
+      expect(result.scope).toBe("project");
+      expect(writeConfig).toHaveBeenCalledTimes(1);
+      expect(writeConfig).toHaveBeenCalledWith(configPath, expect.anything());
+      expect(loadConfig).not.toHaveBeenCalled();
+    });
+
+    it("writes the project's config with --local", async () => {
+      const configPath = projectWithKarajan();
+      expect((await set({ local: true })).scope).toBe("project");
+      expect(writeConfig).toHaveBeenCalledWith(configPath, expect.anything());
+    });
+
+    it("writes ~/.karajan/kj.config.yml with --global", async () => {
+      loadConfig.mockResolvedValue({ config: { roles: {} } });
+      expect((await set({ global: true })).scope).toBe("global");
+      expect(writeConfig).toHaveBeenCalledWith("/home/user/.karajan/kj.config.yml", expect.anything());
+    });
+
+    it("refuses --local and --global together and writes nothing", async () => {
+      projectWithKarajan();
+      await expect(set({ local: true, global: true })).rejects.toThrow("--local and --global");
+      expect(writeConfig).not.toHaveBeenCalled();
+    });
+
+    it("refuses the default outside a project instead of creating a .karajan there", async () => {
+      getProjectConfigPath.mockReturnValue(join(mkdtempSync(join(tmpdir(), "kj-agents-")), ".karajan", "kj.config.yml"));
+      await expect(set({})).rejects.toThrow("--global");
+      expect(writeConfig).not.toHaveBeenCalled();
     });
   });
 
