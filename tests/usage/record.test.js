@@ -68,6 +68,12 @@ describe("withUsageRecord (HU-4592)", () => {
     expect(entry).toMatchObject({ provider: "codex", role: "reviewer", account: null, model: null, tokensIn: null, costUsd: null });
   });
 
+  it("records the lines a task's measure gives after the call (HU-4619)", async () => {
+    const agent = withUsageRecord(fakeAgent("claude", async () => ({ ok: true, exitCode: 0 })), { home });
+    await agent.runTask({ cwd, measureLines: () => ({ linesAdded: 7, linesRemoved: 3 }) });
+    expect(readUsage(thisMonth(), { home })[0]).toMatchObject({ linesAdded: 7, linesRemoved: 3 });
+  });
+
   it("records a call that throws and lets the error through", async () => {
     const agent = withUsageRecord(fakeAgent("claude", async () => { throw new Error("boom"); }), { home, clock: ticking() });
     await expect(agent.runTask({ cwd })).rejects.toThrow("boom");

@@ -52,8 +52,10 @@ function entryFor(agent, task, role, result, durationMs, home) {
     cachedTokens: orNull(result?.cached_tokens),
     costUsd: orNull(result?.cost_usd),
     rescue: false,
+    // HU-4619: kj code passes a measure of its coder's diff; the other calls write no lines.
     linesAdded: null,
     linesRemoved: null,
+    ...task.measureLines?.(),
   };
 }
 
