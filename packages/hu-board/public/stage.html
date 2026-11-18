@@ -75,6 +75,17 @@
     #stage-avatar:hover, #stage-cast:hover { filter: brightness(1.12); }
     #stage-avatar:focus-visible, #stage-cast:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
     #stage-avatar[hidden], #stage-cast[hidden] { display: none; }
+    /* KJC-TSK-1685: the governance panel, a card on top: each role, its agent in its colour, a stand-in in amber. */
+    #stage-governance { position: fixed; z-index: 2; top: 60px; right: 20px; display: flex; gap: 8px; padding: 8px; border-radius: 12px; background: rgb(14 21 32 / 0.9); border: 1px solid #2a3a4e; }
+    #stage-governance[hidden] { display: none; }
+    .stage-gov-cell { display: grid; padding: 6px 14px; border-radius: 8px; background: #1a2332; }
+    .stage-gov-cell small { font-size: 13px; color: #9ca6ae; text-transform: uppercase; letter-spacing: 0.06em; }
+    .stage-gov-cell strong { font-size: 22px; }
+    .stage-gov-cell em { font-size: 14px; font-style: normal; color: #10161f; }
+    .stage-gov-standin { background: #f0b429; }
+    .stage-gov-standin small { color: #3a2a05; }
+    .stage-gov-standin strong { color: #10161f; }
+    @media (max-width: 720px) { #stage-governance { top: 52px; right: 8px; gap: 4px; padding: 4px; } .stage-gov-cell { padding: 4px 8px; } .stage-gov-cell strong { font-size: 16px; } }
     /* On a narrow screen, the icon alone; its name still reads aloud. */
     @media (max-width: 720px) {
       header { gap: 10px; padding: 10px 12px; }
@@ -165,6 +176,8 @@
     <button type="button" id="stage-avatar" hidden><span aria-hidden="true">🎒</span>Avatar</button>
     <button type="button" id="stage-cast" aria-controls="stage-cast-panel" hidden><span aria-hidden="true">🃏</span>Cast</button>
   </header>
+  <!-- KJC-TSK-1685: who is coder, reviewer and solomon, and who stands in (main.js fills it). -->
+  <section id="stage-governance" aria-label="Governance panel" aria-live="polite" hidden></section>
   <!-- KJC-TSK-1590: the projects; each opens its factory alone (main.js fills it). -->
   <nav id="stage-projects" aria-label="Projects"><p>Loading the projects…</p><ul></ul></nav>
   <!-- KJC-TSK-1570: the panel to pick the own emblem and each role's colour (avatar-panel.js). -->

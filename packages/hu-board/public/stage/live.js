@@ -236,11 +236,6 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     setAvatar: (next) => floor.setAvatar(next),
     /** KJC-TSK-1600: the pointer on screen (css px), whose robot shows its full label; null once it leaves. */
     point: (at) => floor.point(at),
-    /** KJC-TSK-1670: the governance panel (coder, reviewer, solomon, who stands in), for the status. */
-    setPanel(panel) {
-      state = { ...state, panel };
-      tell(settle().ordered);
-    },
     /**
      * KJC-BUG-0557: checks the scene against the board's state now (`server`, as acrossLanes
      * gives it). A lane the board no longer lists goes, once no robot works in it (so the

@@ -20,6 +20,7 @@ import { storyPath } from './workshop-info.js';
 import { mountHuPanel } from './hu-panel.js';
 import { mountWallPanel } from './wall-panel.js';
 import { mountMailPanel } from './mail-panel.js';
+import { panelCells } from './governance-card.js';
 
 /** KJC-TSK-1627: the task wall, large, on a click. */
 const openWall = mountWallPanel({ dialog: document.getElementById('stage-wall-panel') });
@@ -177,6 +178,21 @@ async function fetchPanel() {
   }
 }
 
+/** KJC-TSK-1685: the governance card on top: a cell per role, its agent in its colour, a stand-in in amber. */
+function drawGovernance(panel) {
+  const card = document.getElementById('stage-governance');
+  const cells = panelCells(panel).map(({ role, agent, colour, standIn }) => {
+    const cell = Object.assign(document.createElement('div'), { className: standIn ? 'stage-gov-cell stage-gov-standin' : 'stage-gov-cell' });
+    const name = Object.assign(document.createElement('strong'), { textContent: agent });
+    if (!standIn) name.style.color = colour; // a stand-in reads dark on its amber
+    cell.append(Object.assign(document.createElement('small'), { textContent: role }), name);
+    if (standIn) cell.append(Object.assign(document.createElement('em'), { textContent: standIn }));
+    return cell;
+  });
+  card.replaceChildren(...cells);
+  card.hidden = !cells.length;
+}
+
 /**
  * KJC-TSK-1613: draws `project`'s factory until `signal` aborts; then its events, timers and
  * frames stop and its renderer lets the canvas go.
@@ -240,12 +256,13 @@ async function start(signal) {
       setTimeout(draw, MARK_MS + 50);
     }
   };
-  // KJC-TSK-1670: who is coder, reviewer and solomon, on open and with every check.
-  const showPanel = async () => { const panel = await fetchPanel(); if (!signal.aborted) live.setPanel(panel); };
-  showPanel();
+  // KJC-TSK-1670, 1685: who is coder, reviewer and solomon, on a card on top, on open and with every check.
+  const showGovernance = async () => { const panel = await fetchPanel(); if (!signal.aborted) drawGovernance(panel); };
+  showGovernance();
+  signal.addEventListener('abort', () => drawGovernance(null));
   // KJC-BUG-0557: every minute, the scene checks itself against the board's state.
   const resync = setInterval(async () => {
-    showPanel();
+    showGovernance();
     const now = await fetchState();
     if (now.state && !signal.aborted) live.resync(now.state, performance.now());
     if (now.state?.cards) cards = now.state.cards;

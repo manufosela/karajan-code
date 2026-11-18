@@ -90,15 +90,10 @@ describe('acrossLanes (ADR 0048)', () => {
 
 // KJC-TSK-1670 (the maintainer, 2026-11-17): the factory shows who is coder, reviewer and solomon,
 // and when one stands in for another for lack of quota.
-describe('the governance panel line', () => {
-  const panel = { coder: 'claude', reviewer: 'agy', solomon: 'copilot', substitutions: {} };
-
-  it('names each role and its agent', () => {
-    expect(restState({ panel }, NOW).lines).toEqual(['Panel: coder claude · reviewer agy · solomon copilot']);
-  });
-
-  it('says who stands in for whom, and why, waiting on the person until it ends', () => {
-    const stood = { ...panel, reviewer: 'codex', substitutions: { reviewer: { declared: 'codex', acting: 'agy', reason: 'quota', since: '2026-11-17T06:00:00Z' } } };
-    expect(restState({ panel: stood }, NOW).ordered).toMatchObject([{ text: 'Panel: coder claude · reviewer agy (for codex: no quota) · solomon copilot', tone: 'wait' }]);
+// KJC-TSK-1685: the panel left the status for a card of its own on top (governance-card.js).
+describe('the governance panel', () => {
+  it('is no longer a line of the status', () => {
+    const panel = { coder: 'claude', reviewer: 'agy', solomon: 'copilot', substitutions: {} };
+    expect(restState({ panel }, NOW).lines).toEqual([]);
   });
 });
