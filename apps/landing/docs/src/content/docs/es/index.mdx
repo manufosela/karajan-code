@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.30.0: cada proyecto con sus cuentas, y un registro local de cada llamada (actual)
+### v5.31.0: lo que costó cada llamada, por proyecto, y cada repo con su panel (actual)
+
+El HU Board tiene una página de uso y coste: las llamadas que kj lanzó en un rango de meses, agrupadas por día, mes, año o en total, por proyecto y cuenta, y el mes de un proyecto exportado en CSV para adjuntarlo a una factura. `kj agents set` cambia el panel del repo en el que estás (`--global`, el compartido), y `kj account check` dice si la sesión corre en una de las cuentas del proyecto. `kj harden` conserva `kj-quality` mientras la rama base siga exigiendo su check, para que ninguna PR espere un check que nadie publica.
+
+### v5.30.0: cada proyecto con sus cuentas, y un registro local de cada llamada
 
 `kj account` guarda las cuentas con las que se lanzan los agentes de cada proveedor (su `CLAUDE_CONFIG_DIR` o `CODEX_HOME`), y `kj account use` elige las de cada proyecto, en orden; `kj account pace` fija el ritmo de cada cuenta. Cada llamada de agente queda anotada en `~/.karajan/usage/`, con su proyecto, su cuenta, tokens, coste estimado y las líneas que escribió el coder; nada sale del equipo. `kj-quality` deja paso al CI propio del repo cuando este ya ejecuta los tests, en vez de fallar y bloquear sus PRs. El RAG indexa PHP y Kotlin por símbolo, y kj stage pinta el panel de gobierno como una tarjeta.
 
