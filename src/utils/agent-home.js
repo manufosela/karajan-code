@@ -8,7 +8,7 @@
 import os from "node:os";
 import path from "node:path";
 
-const ACCOUNT_VAR = { codex: "CODEX_HOME", claude: "CLAUDE_CONFIG_DIR" };
+export const ACCOUNT_VAR = { codex: "CODEX_HOME", claude: "CLAUDE_CONFIG_DIR" };
 
 export const codexHome = ({ home = os.homedir(), env = process.env } = {}) =>
   env.CODEX_HOME || path.join(home, ".codex");
