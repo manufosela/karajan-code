@@ -41,7 +41,8 @@ export function registerRolesSkills(program, { pkgVersion }) {
   program
     .command("agents [subcommand] [role] [provider]")
     .description("List or change AI agent assignments per role (e.g. kj agents set coder gemini)")
-    .option("--global", "Persist change to kj.config.yml (default for CLI)")
+    .option("--local", "Write this project's .karajan/kj.config.yml (the default)")
+    .option("--global", "Write ~/.karajan/kj.config.yml, the panel of projects without their own")
     // KJC-TSK-0755: el --help enumera valores REALES (de las constantes, no
     // duplicados a mano) — la firma genérica obligaba a preguntar.
     .addHelpText("after", [
@@ -55,12 +56,12 @@ export function registerRolesSkills(program, { pkgVersion }) {
       "",
       "Examples:",
       "  kj agents                          # current assignments",
-      "  kj agents set reviewer codex",
-      "  kj agents set solomon agy --global",
+      "  kj agents set reviewer codex       # this project only",
+      "  kj agents set solomon agy --global # projects without their own panel",
     ].join("\n"))
     .action(async (subcommand, role, provider, flags) => {
       await withConfig(pkgVersion, "agents", {}, async ({ config }) => {
-        await agentsCommand({ config, subcommand: subcommand || "list", role, provider, global: flags.global });
+        await agentsCommand({ config, subcommand: subcommand || "list", role, provider, local: flags.local, global: flags.global });
       });
     });
 }

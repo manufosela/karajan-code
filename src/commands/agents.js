@@ -1,5 +1,7 @@
 import { loadConfig, writeConfig, getConfigPath, getProjectConfigPath, loadProjectConfig, resolveRole } from "../config.js";
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 // Exportados para que el --help se autoalimente de las constantes reales
 // (KJC-TSK-0755, hallazgo de campo: la firma genérica obligaba a preguntar).
@@ -77,15 +79,27 @@ export async function setAgent(role, provider, { global: isGlobal = false } = {}
   }
 }
 
-export async function agentsCommand({ config, subcommand, role, provider, global: isGlobal }) {
+/** HU-4640: a set writes this project's config unless --global asks for the shared one. */
+function assertWritableScope(isLocal, isGlobal) {
+  if (isLocal && isGlobal) {
+    throw new Error("--local and --global are exclusive: --local (the default) writes this project's .karajan/kj.config.yml, --global writes ~/.karajan/kj.config.yml");
+  }
+  const projectDir = path.dirname(getProjectConfigPath());
+  if (!isGlobal && !existsSync(projectDir)) {
+    throw new Error(`No ${projectDir} here: run kj agents set inside a project, or pass --global to change ~/.karajan/kj.config.yml`);
+  }
+}
+
+export async function agentsCommand({ config, subcommand, role, provider, local: isLocal, global: isGlobal }) {
   if (subcommand === "set") {
     if (!role || !provider) {
-      console.log("Usage: kj agents set <role> <provider> [--global]");
+      console.log("Usage: kj agents set <role> <provider> [--local | --global]");
       console.log(`Roles: ${ASSIGNABLE_ROLES.join(", ")}`);
       console.log(`Providers: ${VALID_PROVIDERS.join(", ")}`);
       return;
     }
-    const result = await setAgent(role, provider, { global: isGlobal ?? true });
+    assertWritableScope(isLocal, isGlobal);
+    const result = await setAgent(role, provider, { global: Boolean(isGlobal) });
     console.log(`Set ${result.role} -> ${result.provider} (scope: ${result.scope})`);
     return result;
   }
