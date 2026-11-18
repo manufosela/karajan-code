@@ -15,7 +15,10 @@ const NOT_REQUIRED = new Set(["kj-mutation.yml", "kj-steward.yml"]);
 // KJC-BUG-0484: only a workflow that runs on a PR publishes its check there; requiring any other
 // one (main-guard runs on the push to main) would block every PR.
 const PR_EVENTS = new Set(["pull_request", "pull_request_target"]);
-const triggers = (on) => (typeof on === "string" ? [on] : Array.isArray(on) ? on : Object.keys(on ?? {}));
+function triggers(on) {
+  if (typeof on === "string") return [on];
+  return Array.isArray(on) ? on : Object.keys(on ?? {});
+}
 
 /** The GitHub check name of each job: its `name:` when it has one, its id otherwise. */
 function jobChecks(text) {
@@ -34,19 +37,23 @@ export function requiredChecksFrom(projectDir) {
     .flatMap((f) => jobChecks(fs.readFileSync(path.join(dir, f), "utf8")));
 }
 
-const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
+const ESCAPED_QUOTE = String.raw`'\''`;
+const shellQuote = (value) => `'${String(value).replaceAll("'", ESCAPED_QUOTE)}'`;
+const fieldArg = (field) => `-f ${shellQuote(field)}`;
 
 // A base branch such as release/1.0 is one path segment of the REST endpoint.
 const protectionPath = ({ owner, repo, branch }) => `repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}/protection`;
 
 function protectCommand({ checks, ...target }) {
-  const contexts = checks.map((c) => `-f ${shellQuote(`required_status_checks[contexts][]=${c}`)}`).join(" ");
+  const contexts = checks.map((c) => fieldArg(`required_status_checks[contexts][]=${c}`)).join(" ");
   // KJC-BUG-0401: enforce_admins=true; an agent working with an admin's token would skip every check otherwise.
   return `gh api -X PUT ${protectionPath(target)} -F 'required_status_checks[strict]=false' ${contexts} -F enforce_admins=true -F required_pull_request_reviews=null -F restrictions=null -F allow_force_pushes=false`;
 }
 
-const addCommand = ({ missing, ...target }) =>
-  `gh api -X POST ${protectionPath(target)}/required_status_checks/contexts ${missing.map((c) => `-f ${shellQuote(`contexts[]=${c}`)}`).join(" ")}`;
+function addCommand({ missing, ...target }) {
+  const contexts = missing.map((c) => fieldArg(`contexts[]=${c}`)).join(" ");
+  return `gh api -X POST ${protectionPath(target)}/required_status_checks/contexts ${contexts}`;
+}
 
 const settingsUrl = ({ owner, repo }) => `https://github.com/${owner}/${repo}/settings/branches`;
 const rulesUrl = ({ owner, repo }) => `https://github.com/${owner}/${repo}/settings/rules`;
@@ -68,6 +75,25 @@ async function branchRules({ owner, repo, branch }, run) {
 const rulesetChecks = (rules) => rules
   .filter((r) => r?.type === "required_status_checks")
   .flatMap((r) => (r.parameters?.required_status_checks ?? []).map((c) => c.context));
+
+/**
+ * HU-4645: every check the base branch requires, classic protection and rulesets together.
+ * An empty set when nothing protects it; null when either layer cannot be read.
+ */
+export async function requiredContexts({ owner, repo, branch, run = runCommand }) {
+  const target = { owner, repo, branch };
+  let res;
+  try { res = await run("gh", ["api", protectionPath(target)]); } catch { return null; }
+  const unprotected = res.exitCode !== 0 && /404|not protected/i.test(`${res.stderr}${res.stdout}`);
+  if (res.exitCode !== 0 && !unprotected) return null;
+  const rules = await branchRules(target, run);
+  if (rules === null) return null;
+  const classic = unprotected ? [] : (JSON.parse(res.stdout || "{}").required_status_checks?.contexts ?? []);
+  return new Set([...classic, ...rulesetChecks(rules)]);
+}
+
+/** The GitHub check names a workflow publishes on a PR (HU-4645: what a required check binds). */
+export const workflowChecks = (text) => jobChecks(text);
 
 /** No classic protection: the rulesets decide, and they are fixed in their own page, never with a PUT. */
 function rulesetAdvice({ rules, checks, target }) {
@@ -116,6 +142,22 @@ export async function protectionAdvice({ owner, repo, branch, checks, run = runC
 
 // Owner and repo go into a command an admin copies: only the characters GitHub allows in them.
 export const GITHUB_REMOTE = /github\.com[^:/]*[:/]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/;
+
+/**
+ * HU-4645: the checks the clone's base branch requires, read as the account the clone declares.
+ * undefined when the origin is not on GitHub (nothing to block); null when they cannot be read.
+ */
+export async function baseBranchRequiredChecks({ projectDir, branch, run = runCommand, identity = assertGhIdentity }) {
+  const remote = await run("git", ["-C", projectDir, "remote", "get-url", "origin"]).catch(() => null);
+  const match = remote?.exitCode === 0 ? GITHUB_REMOTE.exec(remote.stdout.trim()) : null;
+  if (!match) return undefined;
+  try {
+    identity({ projectDir });
+  } catch {
+    return null;
+  }
+  return requiredContexts({ owner: match[1], repo: match[2], branch, run });
+}
 
 /** kj harden's last step: on a GitHub remote, what the base branch needs and who runs it. */
 export async function adviseBranchProtection({ projectDir, branch, logger, run = runCommand, identity = assertGhIdentity }) {
