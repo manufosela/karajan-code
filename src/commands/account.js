@@ -1,7 +1,15 @@
 // kj account (HU-4599, ADR 0064): add, list, remove and choose the default agent account, never by editing a file.
 import path from "node:path";
-import { addAccount, assignAccounts, clearProject, readAccounts, removeAccount, setDefault } from "../accounts/store.js";
+import { addAccount, assignAccounts, clearProject, readAccounts, removeAccount, setDefault, setPace } from "../accounts/store.js";
 import { projectKey } from "../accounts/project-key.js";
+
+const describePace = ({ gapSeconds, maxConcurrent, limitWaitSeconds } = {}) => [
+  gapSeconds === undefined ? null : `${gapSeconds}s between calls`,
+  maxConcurrent === undefined ? null : `at most ${maxConcurrent} at once`,
+  limitWaitSeconds === undefined ? null : `${limitWaitSeconds}s after a limit`,
+].filter(Boolean).join(", ");
+
+const asNumber = (value) => (value === undefined ? undefined : Number(value));
 
 const ACTIONS = {
   add: ({ id, provider, dir }, opts, print) => {
@@ -17,6 +25,20 @@ const ACTIONS = {
     for (const [provider, ids] of Object.entries(readAccounts(opts).projects[key] ?? {})) {
       print(`${path.basename(key)}: ${provider} ${ids.join(", ")}`);
     }
+  },
+  // HU-4608: an account's pacing (HU-4591); the fields not given keep their value.
+  pace: ({ id, gap, max, limitWait }, opts, print) => {
+    const account = readAccounts(opts).accounts.find((a) => a.id === id);
+    if (!account) throw new Error(`accounts: no account "${id}"`);
+    const given = { gapSeconds: asNumber(gap), maxConcurrent: asNumber(max), limitWaitSeconds: asNumber(limitWait) };
+    if (Object.values(given).every((v) => v === undefined)) {
+      const current = describePace(account.pace);
+      return print(current ? `${id}: ${current}` : `${id} has no pace: its calls run as they come`);
+    }
+    const pace = { ...account.pace };
+    for (const [name, value] of Object.entries(given)) if (value !== undefined) pace[name] = value;
+    setPace(id, pace, opts);
+    print(`✓ ${id}: ${describePace(pace)}`);
   },
   // HU-4588: the project's order per provider; the first account is the one kj launches.
   use: ({ ids = [], clear }, opts, print) => {
