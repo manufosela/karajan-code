@@ -37,7 +37,18 @@ export function createCup() {
 
 /** The robot with its cart before it, and the cup on the cart's tray. */
 export function createCoffeeCart() {
-  const robot = createRobot({ accent: COFFEE, name: 'coffee' });
+  // KJC-TSK-1688 (the maintainer, 2026-11-18): dressed as a waiter, a black bow tie and a white towel
+  // folded over its left forearm.
+  const robot = createRobot({ accent: COFFEE, bow: 0x15171a, name: 'coffee' });
+  // Cream with two brown stripes, on the outer side of the arm, so it shows against the white robot.
+  const towel = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.62, 0.4), matte(0xfff4dc));
+  for (const y of [-0.18, 0.18]) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.05, 0.405), matte(BAND));
+    stripe.position.y = y;
+    towel.add(stripe);
+  }
+  towel.position.set(-0.24, -0.6, 0);
+  robot.armL.swing.add(towel);
   const cart = new THREE.Group();
   const tray = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.9), matte(0x7a4e2c));
   tray.position.y = 1.4;

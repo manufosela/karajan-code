@@ -119,7 +119,10 @@ export const CARDS = [
     does: 'Brings a cup of coffee to a host that waits, and takes it back once the host works again.',
     when: 'When a host starts waiting, for you or for a process: it comes out of the booth, hands over the cup and goes back.',
     calledBy: 'The host\'s wait, as it starts and ends.',
-    marks: [{ mark: 'Cup in hand', means: 'A host holding a cup waits; it holds it until the cart comes to take it.' }],
+    marks: [
+      { mark: 'Bow tie and towel', means: 'A black bow tie and a white towel over its arm: the hall\'s waiter.' },
+      { mark: 'Cup in hand', means: 'A host holding a cup waits; it holds it until the cart comes to take it.' },
+    ],
   },
   { id: 'tdd', kind: 'tool', name: 'TDD', does: 'The failing test first, and the suite never left red.', when: 'At its post; it lights when a test run is judged.', calledBy: 'The method, on every change.', marks: [] },
   {
