@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BaseAgent } from "../../src/agents/base-agent.js";
-import { addAccount, assignAccounts } from "../../src/accounts/store.js";
+import { addAccount, assignAccounts, setPace } from "../../src/accounts/store.js";
 import { projectKey } from "../../src/accounts/project-key.js";
 import { withKarajanHome } from "../../src/utils/paths.js";
 import { createNoopLogger } from "../_fixtures/loggers.js";
@@ -46,6 +46,24 @@ describe("BaseAgent.runCommand and the default account (HU-4587)", () => {
     const env = await spawnEnv("claude", { env: { PATH: "/bin" } });
     expect(env.CLAUDE_CONFIG_DIR).toBe(other);
     fs.rmSync(other, { recursive: true, force: true });
+  });
+
+  it("paces the call only when the account has a pace (HU-4591)", async () => {
+    addAccount({ id: "work", provider: "claude", dir: login }, { home });
+    setPace("work", { maxConcurrent: 1 }, { home });
+    let active = 0;
+    let peak = 0;
+    const run = vi.fn(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setImmediate(resolve));
+      active -= 1;
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+    const agent = new BaseAgent("claude", {}, createNoopLogger(), { runner: { run } });
+    await withKarajanHome(home, () => Promise.all([1, 2, 3].map(() => agent.runCommand("claude", ["-p"], { env: { PATH: "/bin" } }))));
+    expect(run).toHaveBeenCalledTimes(3);
+    expect(peak).toBe(1);
   });
 
   it("gives codex its CODEX_HOME and leaves other agents untouched", async () => {

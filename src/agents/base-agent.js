@@ -12,7 +12,8 @@
 
 import { defaultEnvironment } from "../infrastructure/environment.js";
 import { buildAgentEnv } from "../utils/role-env.js";
-import { accountEnv } from "../accounts/store.js";
+import { accountFor } from "../accounts/store.js";
+import { pacer } from "../accounts/pacer.js";
 import { projectKey } from "../accounts/project-key.js";
 import { isModelCompatible } from "../config/role-resolver.js";
 import { deadModelRecord } from "./dead-models.js";
@@ -69,8 +70,8 @@ export class BaseAgent {
    */
   async runCommand(command, args = [], options = {}) {
     // HU-4587 (ADR 0064): the provider's default account, when one is added, wins over the inherited login.
-    const account = accountEnv(this.name, { projectKey: projectKey(options.cwd) });
-    if (Object.keys(account).length > 0) options = { ...options, env: { ...options.env, ...account } };
+    const account = accountFor(this.name, { projectKey: projectKey(options.cwd) });
+    if (Object.keys(account.env).length > 0) options = { ...options, env: { ...options.env, ...account.env } };
     // KJC-TSK-0693: the subprocess gets an env allowlist, never the user's
     // whole environment. security.env_allowlist:false opts out.
     if (this.config?.security?.env_allowlist !== false) {
@@ -90,7 +91,9 @@ export class BaseAgent {
         }),
       };
     }
-    return this.environment.runner.run(command, args, options);
+    const run = () => this.environment.runner.run(command, args, options);
+    // HU-4591: paced only when the account declares a pace; otherwise exactly the plain call.
+    return account.pace ? pacer.run(account.id, account.pace, run) : run();
   }
 
   /**
