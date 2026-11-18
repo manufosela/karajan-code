@@ -62,7 +62,38 @@ function badRequest({ period, from, to }) {
   return null;
 }
 
+// HU-4634: the export's columns, in the order of kj's usage record.
+const CSV_COLUMNS = ["ts", "project", "account", "provider", "role", "model", "exitCode", "durationMs", ...SUMS.slice(0, 4), "rescue", ...SUMS.slice(5)];
+
+/** One CSV cell: empty for null, a text a spreadsheet would run as a formula kept as text, quoted when needed. */
+function csvCell(value) {
+  if (value === null || value === undefined) return "";
+  let text = String(value);
+  if (typeof value === "string" && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+export function usageCsv(calls) {
+  const rows = [CSV_COLUMNS, ...calls.map((c) => CSV_COLUMNS.map((col) => c[col]))];
+  return `${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
 const router = Router();
+
+router.get("/export", (req, res) => {
+  const { project, month } = req.query;
+  if (typeof project !== "string" || !project) return res.status(400).json({ ok: false, error: "project is required" });
+  if (!MONTH.test(month ?? "")) return res.status(400).json({ ok: false, error: "month must be a YYYY-MM month" });
+  try {
+    const calls = readMonth(getKarajanHome(), month).filter((c) => c.project === project);
+    const name = path.basename(project).replaceAll(/[^\w.-]/g, "_");
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set("Content-Disposition", `attachment; filename="usage-${name}-${month}.csv"`);
+    res.send(usageCsv(calls));
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 router.get("/", (req, res) => {
   const { period, from, to, project } = req.query;
