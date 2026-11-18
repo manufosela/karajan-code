@@ -2,6 +2,7 @@
 import path from "node:path";
 import { addAccount, assignAccounts, clearProject, readAccounts, removeAccount, setDefault, setPace } from "../accounts/store.js";
 import { projectKey } from "../accounts/project-key.js";
+import { sessionWarnings, tellableProviders } from "../accounts/session.js";
 
 const describePace = ({ gapSeconds, maxConcurrent, limitWaitSeconds } = {}) => [
   gapSeconds === undefined ? null : `${gapSeconds}s between calls`,
@@ -56,6 +57,12 @@ const ACTIONS = {
       assignAccounts(key, provider, list, opts);
       print(`✓ ${path.basename(key)} uses ${provider}: ${list.join(", ")}`);
     }
+  },
+  // HU-4595: does this session run on one of the project's accounts?
+  check: (_args, opts, print) => {
+    if (tellableProviders().length === 0) return print("cannot tell which login this session uses");
+    const lines = sessionWarnings({ projectKey: projectKey(opts.cwd), home: opts.home });
+    for (const line of lines.length ? lines : ["ok"]) print(line);
   },
   remove: ({ id }, opts, print) => {
     removeAccount(id, opts);
