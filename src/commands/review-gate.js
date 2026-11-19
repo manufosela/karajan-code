@@ -23,6 +23,7 @@ import { checkCardFirst } from "../review/card-first.js";
 import { checkReleaseBump } from "../review/release-bump.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { sealBase } from "../harden/critical-seal.js";
+import { SIGNERS_FILE, verifyRosterChange } from "../harden/roster.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { generatedFiles } from "../review/linguist-generated.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
@@ -465,6 +466,21 @@ async function releaseBumpBranch({ config, range }) {
   return bump.bump ? branch : null;
 }
 
+const parseRoster = (text) => (text === null ? null : JSON.parse(text));
+
+/** HU-4700 (#4661): the verified roster change, when the staged files are only the roster; else null (unparsable included). */
+async function stagedRosterChange(range) {
+  if (range) return null;
+  const files = (await rawDiff(null, ["--name-only", "--no-renames"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  if (files.length !== 1 || files[0] !== SIGNERS_FILE) return null;
+  try {
+    const verified = verifyRosterChange({ before: parseRoster(await gitShow(`HEAD:${SIGNERS_FILE}`)), after: parseRoster(await gitShow(`:${SIGNERS_FILE}`)) });
+    return verified.ok ? verified : null;
+  } catch {
+    return null;
+  }
+}
+
 const NO_VERDICT_HINT = "kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`";
 
 /** --check (the pre-commit): the staged diff enters only with an approved verdict that carries its proofs. */
@@ -480,6 +496,14 @@ async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate
     console.log(`✓ release bump on ${branch} (version and changelog only) — exempt by method_gates.review_exempt_branches; gate passes with trail`);
     process.exitCode = 0;
     return { ok: true, exempt: "release-bump", branch, reason: "release bump on a declared branch" };
+  }
+  const roster = await stagedRosterChange(range);
+  if (roster) {
+    const bootstrap = roster.bootstrap === true;
+    seal("allow", { exempt: "roster-change", bootstrap });
+    console.log(`✓ signer roster change verified by its signatures (ADR 0018), no AI verdict needed; gate passes with trail${bootstrap ? " (first roster)" : ""}`);
+    process.exitCode = 0;
+    return { ok: true, exempt: "roster-change", reason: "roster change verified by the roster" };
   }
   let res = await checkVerdict(projectDir, diff);
   if (res.note) console.log(`ℹ ${res.note}`);

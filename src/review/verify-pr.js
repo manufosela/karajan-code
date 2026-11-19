@@ -12,6 +12,7 @@ import { trustedReviews } from "./trusted-review.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { isSealCommit } from "./seal-commit.js";
+import { isRosterCommit } from "./roster-commit.js";
 import { sourceFilesOf } from "./tests-with-code.js";
 
 // The marker of a kj review for any head: what MARKER writes up to the head itself.
@@ -79,6 +80,7 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   const listed = listedCommits(kjReviews);
   const problems = [];
   const sealCommits = [];
+  const rosterCommits = [];
   let seal = sealed;
   for (const c of commits) {
     if (await isCleanMerge(projectDir, c.oid, run)) continue;
@@ -89,11 +91,14 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
     }
     seal ??= verifiedSupervisorFiles({ projectDir, trackedOnly: true });
     if (await isSealCommit(projectDir, c.oid, run, seal)) sealCommits.push(c.oid.slice(0, 7));
+    else if (await isRosterCommit(projectDir, c.oid, run)) rosterCommits.push(c.oid.slice(0, 7));
     else problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): no approved verdict for the diff it brings`);
   }
   // A PR that only brings the seal needs no review; anything else without one (a clean merge
   // included, KJC-BUG-0438) is told to publish it.
-  const onlySeals = sealCommits.length > 0 && sealCommits.length === commits.length;
+  // HU-4700: roster commits the roster verifies count with the seals.
+  const exempt = sealCommits.length + rosterCommits.length;
+  const onlySeals = exempt > 0 && exempt === commits.length;
   if (kjReviews.length === 0 && !onlySeals) problems.splice(0, problems.length, `no kj review published by a member: run kj review --publish-pr ${pr}`, ...judged.rejected);
-  return { ok: problems.length === 0, commits: commits.length, problems, ...(sealCommits.length > 0 ? { sealCommits } : {}) };
+  return { ok: problems.length === 0, commits: commits.length, problems, ...(sealCommits.length > 0 ? { sealCommits } : {}), ...(rosterCommits.length > 0 ? { rosterCommits } : {}) };
 }
