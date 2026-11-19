@@ -101,6 +101,20 @@ describe('lastStageState', () => {
     expect(lastStageState(proj, { now, nameOf }).working[0]).toMatchObject({ id: 's1', name: 'kj-stage' });
   });
 
+  // KJC-TSK-1699 (the maintainer, 2026-11-19): a host inside one long tool (tests, a review, the CI)
+  // beats no more, yet its turn has not ended: it stays, marked long, for half an hour at most.
+  it('keeps the lane latest host inside a long tool, marked long, up to half an hour', () => {
+    const now = Date.parse('2026-11-05T10:00:00Z');
+    writeFileSync(kj('harness', 'agent-activity.jsonl'), jsonl(
+      { at: '2026-11-05T09:40:00Z', agent: 'claude', role: 'host', phase: 'start', id: 'old', tool: 'Read' },
+      { at: '2026-11-05T09:48:00Z', agent: 'claude', role: 'host', phase: 'start', id: 's1', tool: 'Bash' },
+    ));
+    const at = (ms) => lastStageState(proj, { now: ms, nameOf: () => null }).working;
+    expect(at(now)).toEqual([expect.objectContaining({ role: 'host', at: '2026-11-05T09:48:00Z', id: 's1', tool: 'Bash', long: true })]);
+    expect(at(Date.parse('2026-11-05T09:50:00Z'))[0]).not.toHaveProperty('long');
+    expect(at(Date.parse('2026-11-05T10:18:00Z'))).toEqual([]);
+  });
+
   // KJC-TSK-1606: a host that ended its turn waiting for the person or a process is still there.
   it('keeps a host that ended its turn waiting, for a while, with what it waits for', () => {
     const now = Date.parse('2026-11-05T10:00:00Z');

@@ -153,6 +153,8 @@ const newWorker = (workers, ev, since) => {
   if (ev.role !== 'subagent' && ev.skills?.length) worker.reads = ev.skills.length;
   // KJC-TSK-1607: a host already waiting when the stage opens.
   if (ev.waiting) worker.waiting = ev.waiting;
+  // KJC-TSK-1699: a host already inside a long tool when the stage opens.
+  if (ev.long) worker.long = true;
   if (ev.role !== 'subagent') return { ...worker, slot: freeSeat(workers, lane, ev.role) };
   return { ...worker, slot: freeSlot(workers, lane), hostSeat: launcherSeat(workers, lane) };
 };
@@ -175,7 +177,8 @@ export function withActivity(workers, event, now) {
     // KJC-TSK-1607: and a host that was waiting is at work again.
     // KJC-TSK-1610: kj hu start gives the host atril's skills without its id: the host goes to read them.
     const detour = !event.id && event.role === 'host' && event.skills?.length ? { detour: { at: now, reads: event.skills.length } } : {};
-    const beat = ({ waiting: _was, ...w }) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}), ...detour });
+    // KJC-TSK-1699: and one that was inside a long tool has come out of it.
+    const beat = ({ waiting: _was, long: _long, ...w }) => ({ ...w, ...(event.tool ? { tool: event.tool } : {}), ...(event.model ? { model: event.model } : {}), ...detour });
     if (workers.some((w) => inside(w, event))) return workers.map((w) => (inside(w, event) ? beat(w) : w));
     // KJC-TSK-1610: the Sentinel's start, with the id, of a host that came in without one is that host.
     const unnamed = (w) => event.role === 'host' && event.id && w.role === 'host' && !w.id && w.leftAt === undefined && w.lane === laneOf(event);
@@ -188,6 +191,21 @@ export function withActivity(workers, event, now) {
   // KJC-TSK-1607: a host whose turn ends waiting (KJC-TSK-1606) stays at its desk; anyone else leaves.
   const ends = (w) => (event.waits && w.role === 'host' ? { ...w, waiting: event.waits } : { ...w, leftAt: now });
   return workers.map((w) => (inside(w, event) ? ends(w) : w));
+}
+
+/**
+ * KJC-TSK-1699: the hosts the board sees inside a long tool (`server`, as acrossLanes lists who
+ * works) carry the mark; the rest lose it.
+ */
+export function withLongRuns(workers, server) {
+  const longKey = (w) => `${w.lane ?? 'main'}|${w.id}`;
+  const long = new Set(server.filter((w) => w.long && w.id).map(longKey));
+  const unmarked = (w) => Object.fromEntries(Object.entries(w).filter(([key]) => key !== 'long'));
+  return workers.map((w) => {
+    if (w.role !== 'host') return w;
+    if (long.has(longKey(w))) return w.long ? w : { ...w, long: true };
+    return w.long ? unmarked(w) : w;
+  });
 }
 
 /** The agents already at work in `lane` when the stage opens, standing at their spot. */

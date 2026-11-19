@@ -52,6 +52,11 @@ const STALE_HOST_MS = 5 * 60 * 1000;
 /** KJC-TSK-1606: how long a host that ended its turn waiting is still drawn as waiting. */
 // KJC-BUG-0583: two hours, not twelve; a session closed while waiting is not drawn for the day.
 const WAITING_HOST_MS = 2 * 60 * 60 * 1000;
+/**
+ * KJC-TSK-1699: the host beats only before a tool, so one inside a long tool (tests, a review, the
+ * CI) goes silent though its turn has not ended. The lane's latest host stays that long, marked long.
+ */
+const LONG_HOST_MS = 30 * 60 * 1000;
 
 /**
  * KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role;
@@ -67,12 +72,14 @@ function agentsAtWork(records, now, waitOf) {
   const latest = Math.max(...hosts);
   const recent = (ev) => now - Date.parse(ev.at) < WAITING_HOST_MS && Date.parse(ev.at) >= latest;
   const waiting = (ev) => (ev.phase === 'end' && ev.role === 'host' && ev.id && recent(ev) ? waitOf(ev.id) : null);
+  const long = (ev) => ev.phase === 'start' && ev.role === 'host' && !fresh(ev) && now - Date.parse(ev.at) < LONG_HOST_MS && Date.parse(ev.at) >= latest;
   return [...last.values()]
-    .map((ev) => ({ ev, wait: waiting(ev) }))
-    .filter(({ ev, wait }) => wait || (ev.phase === 'start' && fresh(ev)))
+    .map((ev) => ({ ev, wait: waiting(ev), long: long(ev) }))
+    .filter(({ ev, wait, long: inLongTool }) => wait || inLongTool || (ev.phase === 'start' && fresh(ev)))
     // KJC-TSK-1536: and the model and effort it was launched with, when its start said them.
-    .map(({ ev: { agent, role, at, id, tool, kind, model, effort }, wait }) => ({
+    .map(({ ev: { agent, role, at, id, tool, kind, model, effort }, wait, long: inLongTool }) => ({
       agent, role, at, ...(id ? { id, tool, kind } : {}), ...(model ? { model } : {}), ...(effort ? { effort } : {}), ...(wait ? { waiting: wait } : {}),
+      ...(inLongTool ? { long: true } : {}),
     }));
 }
 
