@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { WORKSHOP } from '../public/stage/layout.js';
 import { RAGAN_WALK_MS, raganAt } from '../public/stage/ragan.js';
 import { COURIER_WALK_MS, PIN_MS, courierAt } from '../public/stage/courier.js';
-import { DESCENT_MS, sentinelAt } from '../public/stage/sentinel-watch.js';
+import { sentinelVisit } from '../public/stage/sentinel-watch.js';
+import { pieceDroneAt } from '../public/stage/piece-drone.js';
+import { PIECE_WALK_MS } from '../public/stage/piece-visit.js';
 import { benchSpots } from '../public/stage/bench-notes-layout.js';
 import { BUD_MS, WALK_MS, spotOf, workerAt, workersFrom } from '../public/stage/workers.js';
 
@@ -31,9 +33,11 @@ describe('every piece goes to the row of its lane (KJC-TSK-1488)', () => {
     expect(courierAt(trip, atBench, xOf, zOf).z).toBeGreaterThan(WORKSHOP.z);
   });
 
-  it('the Sentinel goes down beside the agent of that row', () => {
-    const watch = { lane: 'far', stop: { lane: 'far', at: 0 } };
-    expect(sentinelAt(watch, DESCENT_MS + 10, xOf, zOf).z).toBeCloseTo(sentinelAt(watch, DESCENT_MS + 10, xOf).z + ROW);
+  // KJC-TSK-1707: the Sentinel stays on its post; its drone flies to the agent of that row.
+  it('the Sentinel\'s drone flies beside the agent of that row', () => {
+    const visit = sentinelVisit({ lane: 'far', stop: { lane: 'far', at: 0 } });
+    const home = { x: 0, y: 1.8, z: -5.4 };
+    expect(pieceDroneAt(visit, PIECE_WALK_MS + 10, home, xOf, zOf).z).toBeCloseTo(pieceDroneAt(visit, PIECE_WALK_MS + 10, home, xOf, () => WORKSHOP.z).z + ROW);
   });
 
   it('a card in progress sits over the bench of that row', () => {

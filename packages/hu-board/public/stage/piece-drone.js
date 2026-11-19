@@ -14,7 +14,8 @@ const CABLE_MS = 450;
 
 const clamp = (k) => Math.max(0, Math.min(1, k));
 const smooth = (k) => k * k * (3 - 2 * k);
-const docked = (home) => ({ x: home.x, y: DOCK_Y, z: home.z, cable: 0, flying: false });
+// KJC-TSK-1707: a home with its own height (the Sentinel's raised post) docks above it.
+const docked = (home) => ({ x: home.x, y: (home.y ?? 0) + DOCK_Y, z: home.z, cable: 0, flying: false });
 
 /** From `a` to `b` at `k`: along a smooth line, rising to the cruise height on the way. */
 function flight(a, b, k) {
@@ -27,7 +28,7 @@ function flight(a, b, k) {
 export function pieceDroneAt(visit, now, home, xOf, zOf) {
   const t = visit ? now - visit.at : -1;
   if (t < 0 || now >= visit.until + PIECE_WALK_MS) return docked(home);
-  const { dx, dz } = VISIT_SPOTS[visit.piece];
+  const { dx, dz } = visit.spot ?? VISIT_SPOTS[visit.piece];
   const over = { x: xOf(visit.lane) + dx, y: HOVER_Y, z: zOf(visit.lane) + dz };
   // Called away on its way, it turns from where it is (piece-visit.js keeps the old visit in `from`).
   const start = visit.from ? pieceDroneAt(visit.from, visit.at, home, xOf, zOf) : docked(home);

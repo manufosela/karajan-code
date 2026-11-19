@@ -4,6 +4,8 @@ import * as THREE from 'three';
 
 /** Each piece's colour, so its drone is known for whose it is. */
 export const DRONE_TINT = { tdd: 0x3fb950, sonar: 0x4e9bd8, steward: 0xb07cd8, ledger: 0xe8b04b, gates: 0xe07a5f };
+/** KJC-TSK-1707: the Sentinel's drone, in its guard's gold. */
+export const SENTINEL_TINT = 0xd4a017;
 const TONE = { approve: 0x2fd27a, refuse: 0xff5d5d };
 
 /** Mounts a drone of `tint` on `parent`; `show(pose, act, now)` flies it, lowers its camera and lights it. */

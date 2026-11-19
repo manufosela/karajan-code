@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { SENTINEL_POST, WORKSHOP } from '../public/stage/layout.js';
-import { DESCENT_MS, STAY_MS, placeDenial, sentinelAt, withWatch } from '../public/stage/sentinel-watch.js';
+import { DESCENT_MS, STAY_MS, placeDenial, sentinelAt, sentinelVisit, withWatch } from '../public/stage/sentinel-watch.js';
+import { PIECE_WALK_MS } from '../public/stage/piece-visit.js';
 
 const xOf = (lane) => ({ main: -6, 'kj-stage': 6 })[lane] ?? 0;
 const beat = (lane) => ({ type: 'agent-activity', role: 'host', phase: 'start', lane });
@@ -20,15 +21,15 @@ describe('the Sentinel at work', () => {
     expect(right.y).toBe(SENTINEL_POST.height);
   });
 
-  it('on a denial goes down to that lane, stays with the agent, and climbs back to its post', () => {
+  // KJC-TSK-1707 (the maintainer, 2026-11-19): the pieces send drones; the Sentinel too.
+  it('on a denial stays on its post and sends its drone to the agent it stopped, for the stop', () => {
     const watch = withWatch({}, deny('kj-stage'), 1000);
-    expect(sentinelAt(watch, 1000, xOf)).toMatchObject({ y: SENTINEL_POST.height });
-    const there = sentinelAt(watch, 1000 + DESCENT_MS + STAY_MS / 2, xOf);
-    expect(there).toMatchObject({ y: 0, down: true });
-    // within the workshop of the lane it stopped (the pad is WORKSHOP.width wide, plus a step)
-    expect(Math.abs(there.x - xOf('kj-stage'))).toBeLessThan(WORKSHOP.width / 2 + 0.2);
-    const back = sentinelAt(watch, 1000 + 2 * DESCENT_MS + STAY_MS, xOf);
-    expect(back).toMatchObject({ x: SENTINEL_POST.x, y: SENTINEL_POST.height, down: false });
+    expect(sentinelAt(watch, 1000 + DESCENT_MS + STAY_MS / 2, xOf)).toMatchObject({ y: SENTINEL_POST.height, down: false });
+    const visit = sentinelVisit(watch);
+    expect(visit).toMatchObject({ piece: 'sentinel', lane: 'kj-stage', at: 1000, until: 1000 + PIECE_WALK_MS + STAY_MS });
+    // by the agent, within the workshop of the lane it stopped (the pad is WORKSHOP.width wide)
+    expect(Math.abs(visit.spot.dx)).toBeLessThan(WORKSHOP.width / 2);
+    expect(sentinelVisit({ lane: 'main' })).toBeUndefined();
   });
 
   // KJC-BUG-0620 (the maintainer, 2026-11-16): "why does the Sentinel go to look at main if no one
