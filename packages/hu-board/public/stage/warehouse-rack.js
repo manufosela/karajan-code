@@ -28,7 +28,7 @@ const placed = (geometry, x, y, z) => {
 function shelves(bays) {
   const group = new THREE.Group();
   const depth = bays * RACK.bay;
-  const z = rackSpot(0).z - RACK.bay / 2 + depth / 2;
+  const z = rackSpot(0).z + RACK.bay / 2 - depth / 2; // KJC-BUG-0644: the bays go to the back
   const top = rackSpot(RACK.high - 1).y + RACK.h;
   for (let level = 0; level < RACK.high; level += 1) group.add(placed(new THREE.BoxGeometry(RACK.w + 0.2, 0.05, depth), RACK.x, rackSpot(level).y - RACK.h / 2 - 0.03, z));
   for (const dx of [-1, 1]) group.add(placed(new THREE.BoxGeometry(0.05, top, depth), RACK.x + dx * (RACK.w / 2 + 0.1), top / 2, z));

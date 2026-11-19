@@ -22,6 +22,16 @@ export function takeSlot(slots, last, lane) {
   return next;
 }
 
+/**
+ * KJC-BUG-0644: every gap closes, in order, and `last` learns the new slots. Only while the stage opens
+ * (the idle lanes just stored), so nobody is seen to move.
+ */
+export function packSlots(slots, last) {
+  const packed = slots.filter(Boolean);
+  packed.forEach((lane, i) => last.set(lane, i));
+  return packed;
+}
+
 /** A lane leaves its slot: a gap for the next one, and the gaps at the end close. */
 export function leaveSlot(slots, last, lane) {
   const at = slots.indexOf(lane);

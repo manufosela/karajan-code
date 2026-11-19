@@ -89,7 +89,7 @@ function buildScene(lanes, signal) {
     target.x = pan.x;
     target.z = HALL_CENTRE_Z + deep / 2 + pan.z;
     // KJC-TSK-1704: and the warehouse beside it, when it holds any workshop.
-    const rack = scene.userData.shelved ? 2 * (RACK.x + RACK.w / 2 + 3) : 0;
+    const rack = scene.userData.shelved ? 2 * (RACK.x + RACK.w / 2 + 1.5) : 0;
     const to = { pos: target.clone().add(framing(Math.max(hallWidth(n), rack, deep * camera.aspect), camera.aspect).multiplyScalar(zoom)), target: target.clone() };
     glide = smoothly && !matchMedia('(prefers-reduced-motion: reduce)').matches ? { from, to, at: performance.now() } : null;
     look(glide ? from.pos : to.pos, glide ? from.target : to.target);

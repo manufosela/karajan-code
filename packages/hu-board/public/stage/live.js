@@ -113,6 +113,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     shelve(leaving, back);
     // KJC-TSK-1705: the crane carries each one between its slab and its slot.
     const away = leaving.map((lane) => hall.remove(lane, { instant, to: slabOf(lane) }));
+    // KJC-BUG-0644: on opening the busy workshops close up, or they stay rows ahead, out of view.
+    if (instant) hall.pack();
     return [...away, ...back.map((lane) => hall.ensure(lane, { from: slabs.get(lane) }))].some(Boolean);
   };
   const showStatuses = () => {
