@@ -65,6 +65,13 @@ export function setRescue(provider, { key, rules = {} } = {}, { home = getKaraja
   writeAll(data, home);
 }
 
+/** Deletes the provider's entry; none stored is a no-op. */
+export function removeRescue(provider, { home = getKarajanHome() } = {}) {
+  const data = readAll(home);
+  if (!(provider in data)) return;
+  delete data[provider];
+  writeAll(data, home);
+}
 /** @returns {{rules: object, hasKey: boolean}} the rules and whether a key is stored, never the key. */
 export function rescueFor(provider, { home = getKarajanHome() } = {}) {
   const entry = readAll(home)[provider];

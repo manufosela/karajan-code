@@ -448,6 +448,13 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--gap <seconds>", "Minimum seconds between the end of a call and the next")
     .option("--max <n>", "Maximum calls at once").option("--limit-wait <seconds>", "Seconds to wait after a limit message")
     .action((id, flags) => accountCommand("pace", { id, gap: flags.gap, max: flags.max, limitWait: flags.limitWait }));
+  account.command("rescue <provider>").description("A provider's rescue API key and when it may serve; without flags, shows the rules (HU-4688)")
+    .option("--limit", "Serve when the subscription limit is reached").option("--window <from>-<to>", "Serve between two local hours, like 22-6")
+    .option("--roles <list>", "Only these roles, comma separated").option("--models <list>", "Only these models, comma separated")
+    .option("--daily <n>", "Daily budget").option("--monthly <n>", "Monthly budget")
+    .option("--key-stdin", "Read the key from stdin").option("--key-env <NAME>", "Read the key from this environment variable")
+    .option("--remove", "Delete the rescue key and its rules")
+    .action((provider, flags) => accountCommand("rescue", { provider, ...flags }));
 
   const adr = program.command("adr").description("Architecture decision records in .karajan/adrs/ (git-tracked)");
   adr.command("add <title>")
