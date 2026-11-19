@@ -236,10 +236,12 @@ export function createHall(scene, lanes) {
    * KJC-BUG-0557: takes a lane's workshop away and closes the gap; true when it had one.
    * KJC-BUG-0623: it fades out first, keeping its place; then the others slide into the gap (frame).
    */
-  const remove = (lane) => {
+  const remove = (lane, { instant = false } = {}) => {
     const shop = shops.get(lane);
     if (!shop || shop.leaving) return false;
-    shop.leaving = { at: performance.now() };
+    // KJC-TSK-1704: one stored while the stage opens was never seen in the hall: it goes at once.
+    if (instant) drop(lane);
+    else shop.leaving = { at: performance.now() };
     return true;
   };
   /** KJC-BUG-0623: fades and slides the workshops at `now`; one done fading out goes for good. */
