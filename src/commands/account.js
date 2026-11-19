@@ -1,5 +1,7 @@
 // kj account (HU-4599, ADR 0064): add, list, remove and choose the default agent account, never by editing a file.
+import fs from "node:fs";
 import path from "node:path";
+import { rescueAction } from "./account-rescue.js";
 import { addAccount, assignAccounts, clearProject, readAccounts, removeAccount, setDefault, setPace } from "../accounts/store.js";
 import { projectKey } from "../accounts/project-key.js";
 import { sessionWarnings, tellableProviders } from "../accounts/session.js";
@@ -64,6 +66,8 @@ const ACTIONS = {
     const lines = sessionWarnings({ projectKey: projectKey(opts.cwd), home: opts.home });
     for (const line of lines.length ? lines : ["ok"]) print(line);
   },
+  // HU-4688: the rescue key and its rules (ADR 0064 decision 4).
+  rescue: rescueAction,
   remove: ({ id }, opts, print) => {
     removeAccount(id, opts);
     print(`✓ account ${id} removed`);
@@ -75,8 +79,12 @@ const ACTIONS = {
   },
 };
 
-export function accountCommand(action, args = {}, { home, cwd = process.cwd(), print = console.log } = {}) {
+const stdinText = () => fs.readFileSync(0, "utf8");
+
+export function accountCommand(action, args = {}, {
+  home, cwd = process.cwd(), print = console.log, readStdin = stdinText, env = process.env,
+} = {}) {
   const handler = ACTIONS[action];
   if (!handler) throw new Error(`kj account: unknown action "${action}" (${Object.keys(ACTIONS).join(", ")})`);
-  handler(args, { home, cwd }, print);
+  handler(args, { home, cwd, readStdin, env }, print);
 }

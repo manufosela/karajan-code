@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { setRescue, rescueFor, rescueKey, rescueDecision } from "../../src/accounts/rescue.js";
+import { setRescue, rescueFor, rescueKey, rescueDecision, removeRescue } from "../../src/accounts/rescue.js";
 
 const KEY = "sk-secret-123";
 let home;
@@ -21,6 +21,15 @@ describe("rescue storage", () => {
     expect(fs.statSync(file).mode & 0o777).toBe(0o600);
     expect(fs.existsSync(path.join(home, "accounts.json"))).toBe(false);
     expect(rescueKey("claude", { home })).toBe(KEY);
+  });
+
+  it("removeRescue deletes only that provider's entry and is a no-op when there is none", () => {
+    setRescue("claude", { key: KEY }, { home });
+    setRescue("codex", { key: "other" }, { home });
+    removeRescue("claude", { home });
+    removeRescue("claude", { home });
+    expect(rescueFor("claude", { home }).hasKey).toBe(false);
+    expect(rescueFor("codex", { home }).hasKey).toBe(true);
   });
 
   it("rescueFor returns rules and hasKey, never the key", () => {
