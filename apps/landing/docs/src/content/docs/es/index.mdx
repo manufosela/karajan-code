@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.31.0: lo que costó cada llamada, por proyecto, y cada repo con su panel (actual)
+### v5.31.1: un repo sin móvil en el padrón vuelve a mergear su sello (actual)
+
+Sin móvil en el padrón el sello no va firmado, y el revisor de IA rechazaba que kj sacara sus propios hooks de la config compartida de Claude. Un commit de sello cuyos ficheros son solo salida de kj, recalculada, ya es el acto del sello y no necesita veredicto de IA; cualquier otra cosa en él, un borrado incluido, sí (ADR 0066).
+
+### v5.31.0: lo que costó cada llamada, por proyecto, y cada repo con su panel
 
 El HU Board tiene una página de uso y coste: las llamadas que kj lanzó en un rango de meses, agrupadas por día, mes, año o en total, por proyecto y cuenta, y el mes de un proyecto exportado en CSV para adjuntarlo a una factura. `kj agents set` cambia el panel del repo en el que estás (`--global`, el compartido), y `kj account check` dice si la sesión corre en una de las cuentas del proyecto. `kj harden` conserva `kj-quality` mientras la rama base siga exigiendo su check, para que ninguna PR espere un check que nadie publica.
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.31.1] - 2026-11-19
+
+A repo without a phone roster can merge its seal again. The check of verdicts runs the kj its workflow pins, so the fix applies from the first PR whose base pins 5.31.1; the seal that moves the pin there still needs a signed seal (a phone enrolled with `kj identity enroll-phone`) or its cross-AI verdict.
+
+### Fixed
+- **An unsigned seal of kj's own output needs no AI verdict** (ADR 0066): with no roster the seal is unsigned, so the check asked for a cross-AI verdict of the `kj harden --commit` commit, and the reviewer rejected kj moving its hooks out of the shared Claude settings, a security finding Solomon does not arbitrate. Now that commit is the seal act when every file it brings is kj's own output, recomputed: a re-rendered hook, a workflow whose only change is its kj pin, the shared settings minus kj's hook entries, a complete provenance. Anything else in it, a deletion included, still needs the verdict (#4653).
+
 ## [5.31.0] - 2026-11-19
 
 Each repo carries its own panel of agents, the HU Board shows what every agent call cost per project and account, and a repo whose base branch requires the `quality` check keeps `kj-quality`. If you ran `kj harden` with 5.30.0 in such a repo and it removed `kj-quality`, update and run `kj harden` again before sealing: it writes it back.
