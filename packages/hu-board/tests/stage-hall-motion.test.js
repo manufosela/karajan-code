@@ -3,17 +3,36 @@
 // gently into its place".
 import { describe, expect, it } from 'vitest';
 
-import { FADE_MS, SLIDE_MS, opacityAt, placeOf, slideAt } from '../public/stage/hall-motion.js';
+import { FADE_MS, SLIDE_MS, leaveSlot, opacityAt, slideAt, takeSlot } from '../public/stage/hall-motion.js';
 
 // KJC-BUG-0633 (the maintainer, 2026-11-17): "the 2nd goes to 1st… and goes back to its place 2nd".
-describe('placeOf', () => {
-  it('puts a new lane last, and one that comes back where it stood, between the ones seen before and after it', () => {
-    const rank = new Map();
-    expect(placeOf([], rank, 'A')).toBe(0);
-    for (const lane of ['B', 'C']) placeOf([], rank, lane);
-    expect(placeOf(['A', 'C'], rank, 'B')).toBe(1);
-    expect(placeOf(['A', 'B', 'C'], rank, 'D')).toBe(3);
-    expect(placeOf(['B', 'C'], rank, 'A')).toBe(0);
+// KJC-TSK-1702 (2026-11-19): "no quiero baile de bloques de trabajo": each workshop keeps its slot;
+// one that goes leaves a gap that waits for the next one, and the others never move.
+describe('slots', () => {
+  it('a new lane takes the first gap, else the end', () => {
+    const last = new Map();
+    expect(takeSlot([], last, 'A')).toEqual(['A']);
+    expect(takeSlot(['A', null, 'C'], last, 'D')).toEqual(['A', 'D', 'C']);
+    expect(takeSlot(['A', 'B'], last, 'D')).toEqual(['A', 'B', 'D']);
+  });
+
+  it('one that goes leaves its gap and nobody else moves; trailing gaps close', () => {
+    const last = new Map();
+    expect(leaveSlot(['A', 'B', 'C'], last, 'B')).toEqual(['A', null, 'C']);
+    expect(leaveSlot(['A', null, 'C'], last, 'C')).toEqual(['A']);
+  });
+
+  it('one that comes back takes its old slot when it is free', () => {
+    const last = new Map();
+    const gone = leaveSlot(['A', 'B', 'C'], last, 'B');
+    expect(takeSlot(gone, last, 'B')).toEqual(['A', 'B', 'C']);
+    const taken = takeSlot(gone, last, 'D');
+    expect(takeSlot(taken, last, 'B')).toEqual(['A', 'D', 'C', 'B']);
+  });
+
+  it('a lane already in place stays as it is', () => {
+    const slots = ['A', 'B'];
+    expect(takeSlot(slots, new Map(), 'B')).toBe(slots);
   });
 });
 

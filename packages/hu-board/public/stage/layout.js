@@ -33,13 +33,18 @@ export const workshopX = (i, n) => (i - (n - 1) / 2) * (WORKSHOP.width + WORKSHO
 const ONE_ROW = 4;
 /** From one row of workshops to the next: a workshop and room for its nameplate. */
 const ROW_STEP = WORKSHOP.depth + 2.4;
-const columnsOf = (n) => (n <= ONE_ROW ? n : Math.max(ONE_ROW, Math.ceil(Math.sqrt(2 * n))));
-const rowsOf = (n) => Math.ceil(n / Math.max(1, columnsOf(n)));
+/**
+ * KJC-TSK-1702 (the maintainer, 2026-11-19): "no quiero baile de bloques de trabajo". Each slot has one
+ * place whatever the number of workshops: four columns, filled from the centre out, row after row.
+ * The columns the hall spans are the ones its slots use: the middle two for up to two, all four after.
+ */
+const CENTRE_OUT = [1, 2, 0, 3];
+const columnsOf = (n) => (n <= 2 ? 2 : ONE_ROW);
+const rowsOf = (n) => Math.ceil(n / ONE_ROW);
 
-/** The centre `{x, z}` of workshop `i` of `n`, row by row, each row centred on the hall. */
-export function workshopAt(i, n) {
-  const columns = columnsOf(n);
-  return { x: workshopX(i % columns, columns), z: WORKSHOP.z + Math.floor(i / columns) * ROW_STEP };
+/** The centre `{x, z}` of slot `i` (of `_n`, which no longer moves it), row by row from the front. */
+export function workshopAt(i, _n) {
+  return { x: workshopX(CENTRE_OUT[i % ONE_ROW], ONE_ROW), z: WORKSHOP.z + Math.floor(i / ONE_ROW) * ROW_STEP };
 }
 
 /**
@@ -111,4 +116,6 @@ export const CONSOLE = { x: CREW.conductor.x + 0.9, z: POST.z + 0.5 };
  * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
  * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
  */
-export const boothAt = (n) => ({ ...BOOTH, edgeX: Math.min(BOOTH.x, workshopAt(0, Math.max(1, n)).x - WORKSHOP.width / 2 - 0.8) });
+// KJC-TSK-1702: the leftmost slot is not the first one now that slots fill from the centre out.
+const leftmostX = (n) => Math.min(...Array.from({ length: Math.min(Math.max(1, n), ONE_ROW) }, (_, i) => workshopAt(i, n).x));
+export const boothAt = (n) => ({ ...BOOTH, edgeX: Math.min(BOOTH.x, leftmostX(n) - WORKSHOP.width / 2 - 0.8) });
