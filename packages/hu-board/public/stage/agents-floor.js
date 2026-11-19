@@ -17,7 +17,7 @@ import { teleportLook } from './teleport.js';
 import { waitLook } from './wait-look.js';
 import { showWaitMark } from './wait-mark.js';
 import { avoidance } from './avoid.js';
-import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, spotOf, typingAt, visitKey, withActivity, withErrand, workerAt, workersFrom } from './workers.js';
+import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, spotOf, typingAt, visitKey, withActivity, withErrand, withLongRuns, workerAt, workersFrom } from './workers.js';
 import { cardNote } from './couriers.js';
 import { createCup } from './cast/coffee-cart.js';
 
@@ -232,6 +232,8 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
   };
   return {
     push(event, at) { workers = withActivity(workers, event, at); },
+    /** KJC-TSK-1699: the hosts the board sees inside a long tool carry the mark. */
+    longRuns(server) { workers = withLongRuns(workers, server); },
     /** KJC-TSK-1663: every host at work, whether it waits, and its seat, for the coffee cart. */
     hosts: () => workers.filter((w) => w.role === 'host' && w.leftAt === undefined)
       .map((w) => ({ key: visitKey(w), waiting: w.waiting ?? null, spot: spotOf('host', xOf(w.lane), w.slot, zOf(w.lane)) })),

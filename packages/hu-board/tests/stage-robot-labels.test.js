@@ -20,6 +20,12 @@ describe('tagText', () => {
     expect(tagText(coder, { own })).toBeNull();
   });
 
+  // KJC-TSK-1699: a host inside one long tool says so, so it does not look stopped.
+  it('a host inside a long tool says long run', () => {
+    expect(tagText({ ...host, long: true }, { own })).toBe('manufosela · long run');
+    expect(tagText({ ...host, long: true }, { own, pointed: true })).toBe('manufosela · kj-stage · Bash · long run');
+  });
+
   it('the robot pointed at says everything', () => {
     expect(tagText(host, { own, pointed: true })).toBe('manufosela · kj-stage · Bash');
     expect(tagText(coder, { own, pointed: true })).toBe('codex');

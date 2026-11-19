@@ -17,7 +17,9 @@ export function tagText(worker, { own, pointed = false }) {
   if (worker.role !== 'host') return pointed ? labelOf(worker) : null;
   const base = pointed ? hostLabel(worker, own) : ownerOf(worker, own) ?? worker.agent;
   // KJC-TSK-1607: a waiting host says what it waits for.
-  return worker.waiting ? `${base} · ${WAITS[worker.waiting] ?? WAITS.process}` : base;
+  if (worker.waiting) return `${base} · ${WAITS[worker.waiting] ?? WAITS.process}`;
+  // KJC-TSK-1699: and one inside a long tool says so, so it does not look stopped.
+  return worker.long ? `${base} · long run` : base;
 }
 
 const WAITS = { person: 'waits for you', process: 'waits for a process' };

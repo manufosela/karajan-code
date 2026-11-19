@@ -246,6 +246,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const gone = goneLanes(hall.names(), server.lanes ?? [], state.working ?? []);
       if (gone.map((lane) => hall.remove(lane)).some(Boolean)) refit({ glide: true });
       for (const end of staleEnds(state.working ?? [], server.working ?? [], new Date().toISOString())) api.push(end, now);
+      // KJC-TSK-1699: a host inside a long tool, as the board sees it, says so over its robot.
+      floor.longRuns(server.working ?? []);
       // The branch facts and notes the statuses read, as the board sees them now; and
       // KJC-TSK-1545: a new release takes the pile off the table and changes the counter.
       const released = newRelease(state.release, server.release);
