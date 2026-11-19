@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { mainCheckout } from "../utils/main-checkout.js";
 
 const NORMATIVE = /\b(nunca|siempre|prohibido|obligatorio|jam[aá]s|never|always|must|forbidden|required|do not|don't)\b/i;
 
@@ -84,20 +85,24 @@ const CONTRIBUTING_DIRS = [".github", ".", "docs"];
 const contributingFile = (projectDir) =>
   CONTRIBUTING_DIRS.map((d) => path.join(projectDir, d, "CONTRIBUTING.md")).find((f) => fs.existsSync(f)) ?? null;
 
+// Claude Code names a project's memory folder after its path, every non-alphanumeric char as "-".
+function feedbackMemories(dir, home) {
+  const memory = path.join(home, ".claude", "projects", dir.replaceAll(/[^A-Za-z0-9]/g, "-"), "memory");
+  try {
+    return fs.readdirSync(memory).filter((f) => /^feedback_.*\.md$/.test(f)).sort().map((f) => path.join(memory, f));
+  } catch { return []; /* no memories for this folder */ }
+}
+
 /**
  * The MD files that govern a session in projectDir (KJC-TSK-0942): its CLAUDE.md
  * and AGENTS.md, its CONTRIBUTING.md, the global ~/.claude/CLAUDE.md and the
- * project's feedback memories.
+ * feedback memories (those of the main checkout, then the lane's own, HU-4703).
  * @param {string} projectDir
  * @param {{home?: string}} [opts]
  */
 export function ruleSources(projectDir, { home = os.homedir() } = {}) {
-  // Claude Code names a project's folder after its path, every non-alphanumeric char as "-".
-  const memory = path.join(home, ".claude", "projects", path.resolve(projectDir).replaceAll(/[^A-Za-z0-9]/g, "-"), "memory");
-  let feedback = [];
-  try {
-    feedback = fs.readdirSync(memory).filter((f) => /^feedback_.*\.md$/.test(f)).sort().map((f) => path.join(memory, f));
-  } catch { /* no memories for this project */ }
+  const dirs = [...new Set([mainCheckout(projectDir), projectDir].map((d) => path.resolve(d)))];
+  const feedback = [...new Set(dirs.flatMap((d) => feedbackMemories(d, home)))];
   return [
     path.join(projectDir, "CLAUDE.md"),
     path.join(projectDir, "AGENTS.md"),
