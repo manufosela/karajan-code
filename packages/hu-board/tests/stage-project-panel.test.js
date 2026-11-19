@@ -51,6 +51,13 @@ describe('liveEntries', () => {
   it('is empty when no factory has a session on and none is open', () => {
     expect(liveEntries([entry('a', 0), entry('b', 0)])).toEqual([]);
   });
+
+  // KJC-BUG-0645 (the maintainer, 2026-11-19): "en la lista de every se ven en la pantalla más fábricas de
+  // las que salen en la lista". On the map of every factory the list names every factory it draws.
+  it('on the map of every factory keeps them all, as the map draws them', () => {
+    const entries = [entry('a', 2), entry('b', 0)];
+    expect(liveEntries(entries, { map: true })).toEqual(entries);
+  });
 });
 
 describe('panelLine', () => {
