@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.31.2: el sello ya no trae un kj-quality que harden había dejado fuera (actual)
+### v5.32.0: drones, grúa y almacén en el stage; página de cuentas en el board (actual)
+
+En `kj stage` las piezas y el Sentinel se quedan en su puesto y mandan un dron al agente que revisan o paran. Los talleres sin actividad esperan en un almacén junto a la nave y una grúa los trae de vuelta cuando vuelve un agente, así los que trabajan quedan juntos delante. El HU Board tiene una página de cuentas que ejecuta los mismos comandos `kj account` que la terminal, y `kj account rescue` guarda la clave de rescate sin mostrarla nunca.
+
+### v5.31.2: el sello ya no trae un kj-quality que harden había dejado fuera
 
 `kj harden --commit` vuelve a ejecutar `kj harden` en tu terminal, donde gh puede no leer la protección de la rama base que sí leyó el agente. kj volvía a crear `kj-quality` y la PR del sello fallaba en el check de veredictos. Con la protección ilegible, kj conserva un `kj-quality` que ya existe y nunca lo crea, y un test de punta a punta nuevo sella 36 formas de repo y comprueba que cada sello pasa su propio CI.
 
