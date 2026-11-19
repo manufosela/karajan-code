@@ -19,7 +19,9 @@ import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { buttonAt, conductorAt, withBeat } from './conductor.js';
 import { avoidance } from './avoid.js';
-import { PIECE_WALK_MS, VISIT_SPOTS, gestureAt, pieceAt, withVisit } from './piece-visit.js';
+import { PIECE_WALK_MS, gestureAt, withVisit } from './piece-visit.js';
+import { pieceDroneAt } from './piece-drone.js';
+import { DRONE_TINT, createPieceDrone } from './piece-drone-mesh.js';
 import { reviewsAt, withReviews } from './review-crew.js';
 import { POST, WORKSHOP, boothAt, postX } from './layout.js';
 import { tagAt } from './screen.js';
@@ -215,11 +217,17 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     group.rotation.x = act?.kind === 'inspect' ? 0.18 + 0.06 * Math.sin(2 * Math.PI * act.k) : 0;
     return pose.away && by ? [overPiece(by, group.position, camera, origin, 'stage-worker')] : [];
   };
-  /** KJC-TSK-1517, 1524: each piece of the method glides to the workshop it acts on, and back. */
-  // KJC-TSK-1595: AI review goes out as one copy per review (moveReviews).
-  const movePieces = (now) => Object.keys(VISIT_SPOTS).filter((id) => id !== 'review').flatMap((id) => {
-    const pose = pieceAt(visits[id], now, { x: postX(id), z: POST.z }, hall.xOf, hall.zOf);
-    return place(pieces[id].group, pose, gestureAt(visits[id], now), visits[id]?.by, now);
+  /**
+   * KJC-TSK-1517, 1524: each piece of the method acts on a workshop; KJC-TSK-1701: it stays on its post
+   * and sends its drone there, and gestures from its post as the drone looks.
+   * KJC-TSK-1595: AI review goes out as one copy per review (moveReviews).
+   */
+  const drones = Object.fromEntries(Object.keys(DRONE_TINT).map((id) => [id, createPieceDrone(scene, DRONE_TINT[id])]));
+  const movePieces = (now) => Object.keys(DRONE_TINT).flatMap((id) => {
+    const home = { x: postX(id), z: POST.z };
+    const act = gestureAt(visits[id], now);
+    drones[id].show(pieceDroneAt(visits[id], now, home, hall.xOf, hall.zOf), act, now);
+    return place(pieces[id].group, { ...home, yaw: 0, walking: false, away: false }, act, null, now);
   });
   /**
    * KJC-TSK-1595 (the maintainer, 2026-11-13): one AI review piece of colour per review under way,
