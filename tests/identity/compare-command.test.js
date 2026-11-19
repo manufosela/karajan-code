@@ -58,7 +58,7 @@ describe("kj identity show|set", () => {
     // KJC-TSK-0966: enrolar es un acto humano del catálogo; aquí las cuatro capas pasan.
     const human = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
     const run = (publicKeyBase64, extra = human) =>
-      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64 }, deps: { ...deps(), home: dir, ...extra } });
+      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64 }, deps: { ...deps(), home: dir, commitRoster: () => "abc1234", ...extra } });
     expect(await run(good, { ...human, env: { CLAUDECODE: "1" } })).toBe(1);
     expect(lines.join("\n")).toMatch(/acto humano/);
     expect(await run("corta")).toBe(1);
@@ -83,7 +83,7 @@ describe("kj identity show|set", () => {
     const sha = (text) => createHash("sha256").update(text).digest("hex");
     const human = { env: {}, ttyHuman: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
     const run = (publicKeyBase64, extra = {}, flags = {}) =>
-      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64, ...flags }, deps: { ...deps(), home: dir, ...human, ...extra } });
+      identityCommand({ action: "enroll-phone", config: { projectDir: dir }, flags: { publicKeyBase64, ...flags }, deps: { ...deps(), home: dir, ...human, commitRoster: () => "abc1234", ...extra } });
     const roster = () => JSON.parse(fs.readFileSync(path.join(dir, ".karajan", "supervisor-signers.json"), "utf8"));
     const codes = () => lines.join("\n").match(/kjrc(-[a-z2-7]{5}){4}/g) ?? [];
     const [first, second, third] = [7, 9, 3].map((n) => Buffer.alloc(32, n).toString("base64"));
