@@ -6,7 +6,7 @@ import { BOOTH, CONSOLE, CREW, WORKSHOP, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
 import { createBelt } from './belt.js';
-import { leaveSlot, opacityAt, slideAt, takeSlot } from './hall-motion.js';
+import { leaveSlot, opacityAt, packSlots, slideAt, takeSlot } from './hall-motion.js';
 import { CRANE, craneAt } from './crane.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
@@ -325,6 +325,16 @@ export function createHall(scene, lanes) {
     lightConsole: (k) => desk.light(k),
     // KJC-TSK-1702: how many slots the hall spans, gaps included, which sizes the view and its edges.
     count: () => slots.length,
+    /** KJC-BUG-0644: closes every gap at once, the workshops straight at their new slots (only while it opens). */
+    pack() {
+      slots = packSlots(slots, last);
+      for (const lane of order()) {
+        const { group } = shops.get(lane);
+        const to = at(lane);
+        group.position.set(to.x, 0, to.z);
+        shops.get(lane).move = null;
+      }
+    },
     /** KJC-TSK-1540: the lanes of the hall, in the order their workshops stand. */
     names: () => standing(),
     /** KJC-TSK-1620: the status line a lane's plate shows (cut), whole, for its tooltip. */

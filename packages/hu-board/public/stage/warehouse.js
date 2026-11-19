@@ -6,11 +6,13 @@
 import { WORKSHOP } from './layout.js';
 
 /** Shelves `high` levels tall at a fixed `x` right of the hall's four columns; a slab per stored workshop. */
-export const RACK = { x: 18.4, high: 4, step: 0.7, bay: 1.3, w: 1.8, h: 0.32, d: 0.9 };
+// KJC-BUG-0644 (the maintainer, 2026-11-19): "muy alejado... más cerca del centro y más arriba": right
+// against the columns, taller, and growing to the back of the hall instead of towards the camera.
+export const RACK = { x: 15.9, high: 6, step: 0.62, bay: 1.15, w: 1.8, h: 0.32, d: 0.9 };
 
-/** Where the slab of slot `i` of the warehouse stands: bottom shelf first, then the next bay. */
+/** Where the slab of slot `i` of the warehouse stands: bottom shelf first, then the next bay back. */
 export function rackSpot(i) {
-  return { x: RACK.x, y: RACK.h / 2 + 0.25 + (i % RACK.high) * RACK.step, z: WORKSHOP.z + Math.floor(i / RACK.high) * RACK.bay };
+  return { x: RACK.x, y: RACK.h / 2 + 0.25 + (i % RACK.high) * RACK.step, z: WORKSHOP.z - Math.floor(i / RACK.high) * RACK.bay };
 }
 
 /** How many bays deep the warehouse is with `n` slabs, for the camera; 0 when empty. */

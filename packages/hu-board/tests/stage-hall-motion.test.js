@@ -3,7 +3,7 @@
 // gently into its place".
 import { describe, expect, it } from 'vitest';
 
-import { FADE_MS, SLIDE_MS, leaveSlot, opacityAt, slideAt, takeSlot } from '../public/stage/hall-motion.js';
+import { FADE_MS, SLIDE_MS, leaveSlot, opacityAt, packSlots, slideAt, takeSlot } from '../public/stage/hall-motion.js';
 
 // KJC-BUG-0633 (the maintainer, 2026-11-17): "the 2nd goes to 1st… and goes back to its place 2nd".
 // KJC-TSK-1702 (2026-11-19): "no quiero baile de bloques de trabajo": each workshop keeps its slot;
@@ -28,6 +28,14 @@ describe('slots', () => {
     expect(takeSlot(gone, last, 'B')).toEqual(['A', 'B', 'C']);
     const taken = takeSlot(gone, last, 'D');
     expect(takeSlot(taken, last, 'B')).toEqual(['A', 'D', 'C', 'B']);
+  });
+
+  // KJC-BUG-0644 (the maintainer, 2026-11-19): with the idle lanes stored on opening, the busy ones kept
+  // slots rows ahead, out of view. Once, while the stage opens, the gaps close.
+  it('packing closes every gap, in order, and remembers the new slots', () => {
+    const last = new Map();
+    expect(packSlots(['a', null, null, 'b', null, 'c'], last)).toEqual(['a', 'b', 'c']);
+    expect(last.get('c')).toBe(2);
   });
 
   it('a lane already in place stays as it is', () => {

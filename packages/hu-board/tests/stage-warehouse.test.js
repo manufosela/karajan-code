@@ -7,19 +7,23 @@ import { RACK, STORE_AFTER_MS, rackBays, rackSpot, storedNow } from '../public/s
 import { WORKSHOP, workshopAt } from '../public/stage/layout.js';
 
 describe('the warehouse rack', () => {
-  it('stands right of every column of the hall, clear of it', () => {
+  // KJC-BUG-0644 (the maintainer, 2026-11-19): "lo veo muy alejado... ponlo más cerca del centro de la
+  // acción y más arriba": right against the hall's columns, and growing to the back, not to the camera.
+  it('stands right against every column of the hall, clear of it', () => {
     const right = Math.max(...Array.from({ length: 4 }, (_, i) => workshopAt(i, 4).x)) + WORKSHOP.width / 2;
-    expect(RACK.x - RACK.w / 2).toBeGreaterThan(right + 1.5);
+    expect(RACK.x - RACK.w / 2).toBeGreaterThan(right + 0.3);
+    expect(RACK.x - RACK.w / 2).toBeLessThan(right + 1);
   });
 
-  it('stacks the slabs shelf over shelf, then bay after bay, none on another', () => {
+  it('stacks the slabs shelf over shelf, then bay after bay towards the back, none on another', () => {
     const spots = Array.from({ length: 9 }, (_, i) => rackSpot(i));
     expect(spots.slice(0, RACK.high).every((s) => s.z === spots[0].z)).toBe(true);
     expect(spots[1].y - spots[0].y).toBeGreaterThan(RACK.h);
-    expect(spots[RACK.high].z).toBeGreaterThan(spots[0].z);
+    expect(spots[RACK.high].z).toBeLessThan(spots[0].z);
+    expect(spots[0].z).toBeLessThanOrEqual(WORKSHOP.z);
     expect(new Set(spots.map((s) => `${s.y}|${s.z}`)).size).toBe(9);
     expect(rackBays(0)).toBe(0);
-    expect(rackBays(5)).toBe(2);
+    expect(rackBays(RACK.high + 1)).toBe(2);
   });
 });
 
