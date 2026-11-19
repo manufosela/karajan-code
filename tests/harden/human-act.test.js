@@ -2,7 +2,7 @@
 // tests (supervisor-commit.test.js) keep proving them through `harden --commit`;
 // these prove the module any other human-only command builds on.
 import { describe, it, expect } from "vitest";
-import { HUMAN_ACTS, agentAncestry, confirmHuman, humanAct, humanActOf, refuseAgentSession } from "../../src/harden/human-act.js";
+import { HUMAN_ACTS, agentAncestry, confirmHuman, humanAct, humanActOf, refuseAgentSession, ttyDevice, winProcessTable } from "../../src/harden/human-act.js";
 
 // KJC-TSK-0966 (HUM-C, ADR 0018): one closed catalog, one mechanism.
 describe("the catalog of human acts", () => {
@@ -57,6 +57,62 @@ describe("agentAncestry without /proc", () => {
     const outputs = { 400: "  350 node kj\n", 350: "    1 claude --session\n" };
     const ps = (pid) => outputs[pid];
     expect(agentAncestry({ pid: 400, hasProc: false, ps })).toMatchObject({ agent: true, match: "claude --session" });
+  });
+});
+
+// KJC-BUG-0647 (#4637): Windows has neither /proc nor ps; the chain comes from the system
+// PowerShell's process table, read once, and the nonce from the console, never from stdin.
+describe("agentAncestry on Windows", () => {
+  const table = (rows) => () => rows.map(([ProcessId, ParentProcessId, Name, CommandLine]) => ({ ProcessId, ParentProcessId, Name, CommandLine }));
+
+  it("walks the chain of the process table and finds an agent ancestor", () => {
+    const winTable = table([[400, 350, "node.exe", "node kj harden --commit"], [350, 300, "pwsh.exe", "pwsh"], [300, 4, "claude.exe", null]]);
+    expect(agentAncestry({ pid: 400, platform: "win32", winTable })).toMatchObject({ agent: true, match: "claude.exe" });
+  });
+
+  it("a human chain is not unknown, so the act goes through", () => {
+    const winTable = table([[400, 350, "node.exe", "node kj security normal"], [350, 300, "powershell.exe", "powershell"], [300, 4, "explorer.exe", "C:\\Windows\\explorer.exe"]]);
+    expect(agentAncestry({ pid: 400, platform: "win32", winTable })).toEqual({ agent: false });
+    expect(() => refuseAgentSession("kj x", { ...HUMAN, ancestry: { pid: 400, platform: "win32", winTable } })).not.toThrow();
+  });
+
+  it("a table that cannot be read, or that lacks the process itself, is unknown", () => {
+    expect(agentAncestry({ pid: 400, platform: "win32", winTable: () => { throw new Error("no powershell"); } })).toMatchObject({ unknown: true });
+    expect(agentAncestry({ pid: 400, platform: "win32", winTable: table([[1, 0, "System", null]]) })).toMatchObject({ unknown: true });
+  });
+});
+
+describe("winProcessTable", () => {
+  it.skipIf(process.platform === "win32")("throws without the system PowerShell, so the ancestry fails closed", () => {
+    expect(() => winProcessTable()).toThrow(/no system PowerShell/);
+    expect(agentAncestry({ pid: 400, platform: "win32" })).toMatchObject({ unknown: true });
+  });
+
+  // The review of HU-4697: Windows may live on another volume, so the root is the one the
+  // kernel's \SystemRoot link resolves to, the same for the exe and for SystemRoot.
+  it("runs the PowerShell under the directory \\SystemRoot resolves to, with it as SystemRoot", () => {
+    const calls = [];
+    const realpath = (p) => { if (p !== "\\\\?\\GLOBALROOT\\SystemRoot") throw new Error(`ENOENT ${p}`); return "D:\\Windows"; };
+    const run = (exe, args, { env }) => { calls.push({ exe, env }); return '{"ProcessId":4,"ParentProcessId":0,"Name":"System","CommandLine":null}'; };
+    expect(winProcessTable({ realpath, exists: () => true, run })).toEqual([{ ProcessId: 4, ParentProcessId: 0, Name: "System", CommandLine: null }]);
+    expect(calls).toEqual([{ exe: "D:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", env: { SystemRoot: "D:\\Windows" } }]);
+    calls.length = 0;
+    winProcessTable({ realpath: () => "\\\\?\\D:\\Windows", exists: () => true, run });
+    expect(calls[0].env).toEqual({ SystemRoot: "D:\\Windows" });
+  });
+
+  it("runs nothing when \\SystemRoot does not resolve or holds no PowerShell", () => {
+    const run = () => { throw new Error("must not run"); };
+    expect(() => winProcessTable({ realpath: () => { throw new Error("ENOENT"); }, exists: () => true, run })).toThrow(/no system PowerShell/);
+    expect(() => winProcessTable({ realpath: () => "D:\\Windows", exists: () => false, run })).toThrow(/no system PowerShell \(D:\\Windows\\System32/);
+  });
+});
+
+describe("the terminal a nonce is read from", () => {
+  it("is the console input on Windows and /dev/tty elsewhere, never stdin", () => {
+    expect(ttyDevice("win32")).toBe("CONIN$");
+    expect(ttyDevice("linux")).toBe("/dev/tty");
+    expect(ttyDevice("darwin")).toBe("/dev/tty");
   });
 });
 

@@ -4,12 +4,13 @@
  *
  *  1-2. the environment and the terminal: an agent session declares itself;
  *  3.   the process ancestry: a kj launched by an agent DESCENDS from it, and
- *       that is in /proc whoever fakes the pty or cleans the environment;
+ *       that is in /proc (ps on macOS, the process table on Windows) whoever
+ *       fakes the pty or cleans the environment;
  *  4.   a random nonce typed back, read from the real controlling terminal.
  */
 import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync } from "node:fs";
 
 const AGENT_PROC = /claude|codex|copilot|gemini|opencode|\bagy\b/i;
 
@@ -36,8 +37,44 @@ const psRead = (ps) => (p) => {
   return { ppid: Number(m[1]), cmd: m[2].trim() };
 };
 
-export function agentAncestry({ pid = process.pid, readProc = null, maxDepth = 40, hasProc = existsSync("/proc/self/stat"), ps = psOutput } = {}) {
-  const read = readProc || (hasProc ? procRead : psRead(ps));
+// KJC-BUG-0647: Windows has neither /proc nor ps; the table comes from the SYSTEM
+// PowerShell by absolute path, under the directory the kernel's \SystemRoot link resolves
+// to: not the SystemRoot variable (the agent controls the environment), nor a guessed
+// C:\Windows (Windows may live on another volume).
+const WIN_ROOT_LINK = "\\\\?\\GLOBALROOT\\SystemRoot";
+const WIN_QUERY = "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json -Compress";
+/** @param {{ realpath?: (p: string) => string, exists?: (p: string) => boolean, run?: typeof execFileSync }} [seams] test seams */
+export const winProcessTable = ({ realpath = realpathSync.native, exists = existsSync, run = execFileSync } = {}) => {
+  let root;
+  // The resolved path may keep the \\?\ prefix; SystemRoot wants the plain drive path.
+  try { root = realpath(WIN_ROOT_LINK).replace(/^\\\\\?\\/, ""); } catch (cause) { throw new Error(`no system PowerShell (${WIN_ROOT_LINK} does not resolve)`, { cause }); }
+  const exe = `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
+  if (!exists(exe)) throw new Error(`no system PowerShell (${exe})`);
+  // That same root as SystemRoot, never the caller's: PowerShell needs it to start at all.
+  const out = run(exe, ["-NoProfile", "-NonInteractive", "-Command", WIN_QUERY], { encoding: "utf8", env: { SystemRoot: root } });
+  const rows = JSON.parse(out);
+  return Array.isArray(rows) ? rows : [rows];
+};
+// A pid missing at the first step is unknown; a parent missing later is a system process: the chain ends.
+const winRead = (table) => {
+  const byPid = new Map(table.map((r) => [r.ProcessId, r]));
+  let first = true;
+  return (p) => {
+    const row = byPid.get(p);
+    const isFirst = first;
+    first = false;
+    if (row) return { ppid: row.ParentProcessId, cmd: row.CommandLine || row.Name || "" };
+    if (isFirst) throw new Error(`pid ${p} is not in the process table`);
+    return { ppid: 0, cmd: "" };
+  };
+};
+
+export function agentAncestry({ pid = process.pid, readProc = null, maxDepth = 40, hasProc = existsSync("/proc/self/stat"), ps = psOutput, platform = process.platform, winTable = winProcessTable } = {}) {
+  let read = readProc;
+  if (!read && platform === "win32") {
+    try { read = winRead(winTable()); } catch { return { agent: false, unknown: true }; }
+  }
+  read ??= hasProc ? procRead : psRead(ps);
   let cur = pid;
   for (let i = 0; i < maxDepth && cur > 1; i += 1) {
     let info;
@@ -66,12 +103,13 @@ export function refuseAgentSession(what, { env = process.env, tty = process.stdo
 }
 
 // The answer comes from the process's REAL tty (not stdin, which an attacker
-// feeds through a pipe): /dev/tty only exists with a controlling terminal.
+// feeds through a pipe): /dev/tty (CONIN$ on Windows) only exists with a controlling terminal.
+export const ttyDevice = (platform = process.platform) => (platform === "win32" ? "CONIN$" : "/dev/tty");
 function readTty(what, nonce) {
   process.stdout.write(`${what}: teclea "${nonce}" para confirmar que eres humano: `);
   try {
     const buf = Buffer.alloc(64);
-    const fd = openSync("/dev/tty", "r");
+    const fd = openSync(ttyDevice(), "r");
     const n = readSync(fd, buf, 0, 64);
     closeSync(fd);
     return buf.toString("utf8", 0, n).trim();
