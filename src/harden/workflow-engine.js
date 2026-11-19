@@ -179,7 +179,10 @@ function qualityPlan(projectDir, roots, requiredChecks) {
   const defersTo = ownTestWorkflow(projectDir);
   if (!defersTo) return { ...qualityFor(projectDir, roots), defersTo: null };
   const planned = qualityFor(projectDir, roots);
-  const hold = qualityHold(planned.quality, defersTo, requiredChecks);
+  // HU-4663 (#4661): an unreadable protection keeps a kj-quality that is there, it never writes one
+  // back: the seal runs in the person's terminal, whose gh may not read what the agent's harden read.
+  const unread = requiredChecks === null && !existsSync(join(projectDir, WORKFLOWS_DIR, "kj-quality.yml"));
+  const hold = unread ? null : qualityHold(planned.quality, defersTo, requiredChecks);
   return hold ? { quality: planned.quality, note: hold, defersTo: null } : { quality: null, note: "", defersTo };
 }
 
