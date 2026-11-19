@@ -6,7 +6,7 @@ import { BOOTH, CONSOLE, CREW, WORKSHOP, workshopAt } from './layout.js';
 import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
 import { createBelt } from './belt.js';
-import { opacityAt, placeOf, slideAt } from './hall-motion.js';
+import { leaveSlot, opacityAt, slideAt, takeSlot } from './hall-motion.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
@@ -174,17 +174,19 @@ export function createHall(scene, lanes) {
   const lines = new Map(); // KJC-TSK-1620: and that line, whole
   const lights = new Map();
   const belts = new Map(); // KJC-TSK-1639: each lane's pipeline belt
-  const order = [];
-  const rank = new Map(); // KJC-BUG-0633: the order the lanes were first seen in, kept once they go
+  // KJC-TSK-1702: the slots of the hall, a lane or a gap; each workshop keeps its slot.
+  let slots = [];
+  const last = new Map(); // KJC-BUG-0633: the slot each lane stood in, to come back to it
   // KJC-TSK-1488: in rows and columns once there are many.
-  const at = (lane) => workshopAt(Math.max(0, order.indexOf(lane)), order.length);
+  const at = (lane) => workshopAt(Math.max(0, slots.indexOf(lane)), slots.length);
+  const order = () => slots.filter(Boolean);
   // KJC-TSK-1632: the booth the hosts come and go by, beside Karajan.
   scene.add(booth());
   const desk = boothConsole(); // KJC-TSK-1659
   scene.add(desk.group);
   // KJC-BUG-0623: a workshop already standing slides to its new place; a new one stands there at once.
   let opening = true; // the workshops of the first state stand whole, with no fade in
-  const relayout = (now = performance.now()) => order.forEach((lane) => {
+  const relayout = (now = performance.now()) => order().forEach((lane) => {
     const { group } = shops.get(lane);
     const to = at(lane);
     // While the first state lays the hall out, every workshop stands straight at its place.
@@ -195,7 +197,7 @@ export function createHall(scene, lanes) {
       shops.get(lane).move = { from: { x: group.position.x, z: group.position.z }, to, at: now };
     }
   });
-  /** KJC-BUG-0623: a workshop gone for good: out of the scene, its gap closed by the others sliding. */
+  /** KJC-BUG-0623: a workshop gone for good: out of the scene; KJC-TSK-1702: its gap waits for the next one. */
   const drop = (lane) => {
     scene.remove(shops.get(lane).group);
     shops.delete(lane);
@@ -203,7 +205,7 @@ export function createHall(scene, lanes) {
     lines.delete(lane);
     lights.delete(lane);
     belts.delete(lane);
-    order.splice(order.indexOf(lane), 1);
+    slots = leaveSlot(slots, last, lane);
     relayout();
   };
   const ensure = (lane) => {
@@ -223,7 +225,7 @@ export function createHall(scene, lanes) {
     shop.group.add(belt.group);
     belts.set(lane, belt);
     shops.set(lane, shop);
-    order.splice(placeOf(order, rank, lane), 0, lane); // KJC-BUG-0633: back where it stood
+    slots = takeSlot(slots, last, lane); // KJC-BUG-0633: back where it stood, if free
     scene.add(shop.group);
     relayout();
     return true;
@@ -252,7 +254,7 @@ export function createHall(scene, lanes) {
       if (slid && slid.x === shop.move.to.x && slid.z === shop.move.to.z) shop.move = null;
     }
   };
-  const standing = () => order.filter((lane) => !shops.get(lane).leaving);
+  const standing = () => order().filter((lane) => !shops.get(lane).leaving);
   return {
     /** Adds the lane's workshop if it is new; true when the row changed. */
     ensure,
@@ -263,8 +265,8 @@ export function createHall(scene, lanes) {
     frame,
     /** KJC-TSK-1659: how lit the booth console's button is, 0 to 1. */
     lightConsole: (k) => desk.light(k),
-    // KJC-BUG-0623: one fading out still holds its gap (xOf/zOf) but no longer counts as standing.
-    count: () => standing().length,
+    // KJC-TSK-1702: how many slots the hall spans, gaps included, which sizes the view and its edges.
+    count: () => slots.length,
     /** KJC-TSK-1540: the lanes of the hall, in the order their workshops stand. */
     names: () => standing(),
     /** KJC-TSK-1620: the status line a lane's plate shows (cut), whole, for its tooltip. */

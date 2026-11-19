@@ -8,13 +8,28 @@ export const FADE_MS = 700;
 export const SLIDE_MS = 900;
 
 /**
- * KJC-BUG-0633: where in the row (`order`) a workshop goes: a new lane last; one that comes back,
- * where it stood, after the lanes seen before it. `rank` (lane → when first seen) keeps that order.
+ * KJC-TSK-1702 (the maintainer, 2026-11-19): "no quiero baile de bloques de trabajo". The hall is a
+ * row of slots (`slots`, a lane or null): a lane takes its old slot when free (`last`, lane → slot;
+ * KJC-BUG-0633, back where it stood), else the first gap, else the end. Nobody else moves.
  */
-export function placeOf(order, rank, lane) {
-  if (!rank.has(lane)) rank.set(lane, rank.size);
-  const after = order.findIndex((other) => rank.get(other) > rank.get(lane));
-  return after === -1 ? order.length : after;
+export function takeSlot(slots, last, lane) {
+  if (slots.includes(lane)) return slots;
+  const old = last.get(lane);
+  const gap = old !== undefined && old < slots.length && slots[old] === null ? old : slots.indexOf(null);
+  const at = gap === -1 ? slots.length : gap;
+  const next = at === slots.length ? [...slots, lane] : slots.with(at, lane);
+  last.set(lane, at);
+  return next;
+}
+
+/** A lane leaves its slot: a gap for the next one, and the gaps at the end close. */
+export function leaveSlot(slots, last, lane) {
+  const at = slots.indexOf(lane);
+  if (at === -1) return slots;
+  last.set(lane, at);
+  const next = slots.with(at, null);
+  while (next.length && next.at(-1) === null) next.pop();
+  return next;
 }
 
 const clamp = (k) => Math.max(0, Math.min(1, k));

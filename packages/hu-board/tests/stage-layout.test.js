@@ -40,22 +40,27 @@ describe('workshops in rows and columns (KJC-TSK-1488)', () => {
   const cells = (n) => Array.from({ length: n }, (_, i) => workshopAt(i, n));
 
   it('keeps a factory of up to four lanes in one row, as before', () => {
-    for (const n of [1, 2, 4]) {
-      expect(cells(n).every((c) => c.z === WORKSHOP.z)).toBe(true);
-      expect(cells(n).map((c) => c.x)).toEqual(cells(n).map((_, i) => workshopX(i, n)));
-    }
+    for (const n of [1, 2, 4]) expect(cells(n).every((c) => c.z === WORKSHOP.z)).toBe(true);
   });
 
-  it('lays a big factory out wider than deep, centred, the first row at the front of the posts', () => {
-    const grid = cells(25);
-    const rows = new Set(grid.map((c) => c.z)).size;
-    const columns = new Set(grid.map((c) => c.x)).size;
-    expect(columns).toBeGreaterThan(rows);
-    expect(rows).toBeGreaterThan(1);
-    expect(Math.min(...grid.map((c) => c.z))).toBe(WORKSHOP.z);
-    expect(Math.min(...grid.map((c) => c.x)) + Math.max(...grid.map((c) => c.x))).toBeCloseTo(0);
-    expect(hallDepth(25)).toBeGreaterThan(hallDepth(4));
-    expect(hallWidth(25)).toBeLessThan(25 * (WORKSHOP.width + WORKSHOP.gap) / 2);
+  // KJC-TSK-1702 (the maintainer, 2026-11-19): "no quiero baile de bloques de trabajo". A slot stands
+  // where it stands whatever the number of workshops: four columns, filled from the centre out.
+  it('puts each slot at one place, whatever the number of workshops', () => {
+    for (let n = 1; n <= 12; n += 1) {
+      for (let i = 0; i < n; i += 1) expect(workshopAt(i, n)).toEqual(workshopAt(i, 12));
+    }
+    expect(workshopAt(0, 1).x + workshopAt(1, 2).x).toBeCloseTo(0);
+    expect(new Set(cells(4).map((c) => c.x)).size).toBe(4);
+    expect(workshopAt(4, 5).z).toBeGreaterThan(WORKSHOP.z);
+    expect(Math.min(...cells(4).map((c) => c.x)) + Math.max(...cells(4).map((c) => c.x))).toBeCloseTo(0);
+    expect(hallDepth(5)).toBeGreaterThan(hallDepth(4));
+  });
+
+  it('is wide enough for every slot it holds', () => {
+    for (const n of [1, 2, 3, 6]) {
+      const edge = Math.max(...cells(n).map((c) => Math.abs(c.x))) + WORKSHOP.width / 2;
+      expect(hallWidth(n) / 2).toBeGreaterThanOrEqual(edge);
+    }
   });
 
   it('never lets two workshops touch, side by side or front to back', () => {
