@@ -154,7 +154,8 @@ export function startMap({ canvas, factories, token, tell, counts, avatar = null
     // KJC-TSK-1608: a factory's lines come ordered, each a text with its tone; the map says the first.
     const tellOne = (said) => { lines.set(factory.project, said[0]?.text ?? said[0] ?? 'at rest'); tellAll(); };
     const live = createLive({ ...factory, scene: factory.lot, camera, refit, origin: factory.lot.position },
-      { state: acrossLanes(factory.lanes), tell: tellOne, counts: own, avatar });
+      // KJC-TSK-1704: on the map every factory keeps its workshops: no room for a warehouse beside each.
+      { state: acrossLanes(factory.lanes), tell: tellOne, counts: own, avatar, warehouse: false });
     tellOne(live.settle().lines);
     return [factory.project, { live, own, box: mailboxOf(factory.lanes), mailbox: factory.mailbox }];
   }));

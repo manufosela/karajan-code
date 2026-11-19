@@ -31,6 +31,9 @@ import { allLetters, lettersOf, mailboxOf, mailTotal, withLetters, withMail } fr
 import { goneLanes, staleEnds } from './resync.js';
 import { finishedLanes, foldedNow, stackOf } from './finished-stack.js';
 import { createStack } from './stack-mesh.js';
+import { storedNow } from './warehouse.js';
+import { createRack } from './warehouse-rack.js';
+import { leaveSlot, takeSlot } from './hall-motion.js';
 import { Vector3 } from 'three';
 
 // The marks stack over the workshop so two of one lane never sit on each other (tagAt adds OVER_PIECE).
@@ -52,7 +55,7 @@ const OVER_PIECE = 1.6;
 const overPiece = (text, position, camera, origin, className) =>
   tagAt(text, position.clone().setY(position.y + OVER_PIECE), camera, { className, origin });
 
-export function createLive({ scene, pieces, crew, camera, stand, hall, wall, releaseTable, versionBoard, refit, origin }, { state: initial, tell, counts, avatar = null }) {
+export function createLive({ scene, pieces, crew, camera, stand, hall, wall, releaseTable, versionBoard, refit, origin }, { state: initial, tell, counts, avatar = null, warehouse = true }) {
   let state = initial;
   let turn = null; // KJC-TSK-1428: the atril skills an agent just started with
   let watch = {}; // KJC-TSK-1436: the lane the Sentinel looks at and the denial it answers
@@ -73,7 +76,34 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   let foldSince = null; // KJC-BUG-0633: since when each lane is finished; null while the stage opens
   const stack = createStack(scene);
   let stacked = []; // the blocks the stack shows now
+  // KJC-TSK-1704: the idle lanes on the warehouse's shelves, by slot; its clock is null while it opens.
+  let stored = new Set();
+  let storeSince = null;
+  let shelf = [];
+  const shelfLast = new Map();
+  const rack = createRack(scene);
+  const shelve = (take, give) => {
+    for (const lane of take) shelf = takeSlot(shelf, shelfLast, lane);
+    for (const lane of give) shelf = leaveSlot(shelf, shelfLast, lane);
+    rack.show(shelf);
+    scene.userData.shelved = shelf.length; // main.js frames the warehouse too
+  };
+  /** A stored lane with activity of its own comes back; its idle clock starts again. */
+  const unstore = (lane) => { stored.delete(lane); storeSince?.delete(lane); shelve([], [lane]); };
+  /** Idle lanes (no agent, no pipeline running) go, busy ones come back; never on the map, no room. */
+  const store = () => {
+    if (!warehouse) return false;
+    const busy = new Set([...floor.working().map((w) => w.lane ?? 'main'), ...(state.lanes ?? []).filter((l) => l.pipeline === 'running').map((l) => l.lane)]);
+    const held = storedNow([...new Set([...hall.names(), ...stored])], busy, stored, storeSince, performance.now());
+    const instant = storeSince === null; // while the stage opens they leave the hall at once
+    const leaving = [...held.store].filter((lane) => !stored.has(lane));
+    const back = [...stored].filter((lane) => !held.store.has(lane));
+    ({ store: stored, since: storeSince } = held);
+    shelve(leaving, back);
+    return [...leaving.map((lane) => hall.remove(lane, { instant })), ...back.map((lane) => hall.ensure(lane))].some(Boolean);
+  };
   const showStatuses = () => {
+    if (store()) refit({ glide: true });
     // KJC-BUG-0581: with the robots the floor has at work, so a sign never denies one that types.
     const all = laneStatuses([...new Set([...hall.names(), ...folded])], state, box, floor.working());
     // KJC-BUG-0633: only once finished for a while, so a host stepping out between turns folds nothing.
@@ -279,6 +309,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       state = next;
       // A lane seen for the first time gets its workshop (KJC-TSK-1433).
       // KJC-TSK-1623: a folded lane comes back only when its status says it works again.
+      // KJC-TSK-1704: one stored in the warehouse comes back to the hall with any activity of its own.
+      if (event.lane && stored.has(event.lane)) unstore(event.lane);
       if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane)) refit({ glide: true });
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
