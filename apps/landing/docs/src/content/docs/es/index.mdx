@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.31.1: un repo sin móvil en el padrón vuelve a mergear su sello (actual)
+### v5.31.2: el sello ya no trae un kj-quality que harden había dejado fuera (actual)
+
+`kj harden --commit` vuelve a ejecutar `kj harden` en tu terminal, donde gh puede no leer la protección de la rama base que sí leyó el agente. kj volvía a crear `kj-quality` y la PR del sello fallaba en el check de veredictos. Con la protección ilegible, kj conserva un `kj-quality` que ya existe y nunca lo crea, y un test de punta a punta nuevo sella 36 formas de repo y comprueba que cada sello pasa su propio CI.
+
+### v5.31.1: un repo sin móvil en el padrón vuelve a mergear su sello
 
 Sin móvil en el padrón el sello no va firmado, y el revisor de IA rechazaba que kj sacara sus propios hooks de la config compartida de Claude. Un commit de sello cuyos ficheros son solo salida de kj, recalculada, ya es el acto del sello y no necesita veredicto de IA; cualquier otra cosa en él, un borrado incluido, sí (ADR 0066).
 
