@@ -45,6 +45,14 @@ describe("kj harden keeps kj-quality while the base branch requires its check (H
     expect(existsSync(join(dir, quality))).toBe(true);
   });
 
+  // HU-4663 (#4661): the person's kj harden --commit runs where gh may not read the protection the
+  // agent's kj harden read; an unreadable protection keeps a kj-quality, it never creates one.
+  it("does not create it when the protection could not be read and it is gone", () => {
+    rmSync(join(dir, quality));
+    expect(qualityResult(harden(null)).action).toBe("deferred");
+    expect(existsSync(join(dir, quality))).toBe(false);
+  });
+
   it("removes it once no required check holds it (ADR 0065)", () => {
     expect(qualityResult(harden(new Set(["scan"]))).action).toBe("removed");
     expect(existsSync(join(dir, quality))).toBe(false);
