@@ -1,9 +1,10 @@
 // KJC-TSK-1436 (ADR 0048): the Sentinel as it works. It watches from its raised
 // post and turns to the lane whose host it is checking (the host's beat comes
-// from the very hook the Sentinel runs on every tool call); on a denial it goes
-// down to that lane's bench, stays by the agent it stopped, and climbs back.
-// Pure: live.js moves the piece with what this says.
+// from the very hook the Sentinel runs on every tool call); on a denial its drone
+// (KJC-TSK-1707) flies to the agent it stopped, hovers by it, and comes back.
+// Pure: live.js moves the piece and its drone with what this says.
 import { SENTINEL_POST, WORKSHOP } from './layout.js';
+import { PIECE_WALK_MS } from './piece-visit.js';
 
 /** How long the Sentinel takes to go down (and back up), and how long it stays. */
 export const DESCENT_MS = 1500;
@@ -56,15 +57,21 @@ function descent(t) {
   return smooth(1 - (t - DESCENT_MS - STAY_MS) / DESCENT_MS);
 }
 
-/** Where the Sentinel is at `now`, where it looks (yaw) and whether it is down; `xOf`/`zOf` give a lane's workshop. */
+/**
+ * Where the Sentinel is at `now` and where it looks (yaw); `xOf`/`zOf` give a lane's workshop.
+ * KJC-TSK-1707 (the maintainer, 2026-11-19): it no longer goes down: it sends its drone (sentinelVisit).
+ */
 export function sentinelAt(watch, now, xOf, zOf = () => WORKSHOP.z) {
   const post = { x: SENTINEL_POST.x, y: SENTINEL_POST.height, z: SENTINEL_POST.z };
-  const k = watch.stop ? descent(now - watch.stop.at) : null;
-  if (k !== null) {
-    const agent = { x: xOf(watch.stop.lane) + BY_THE_AGENT.dx, y: 0, z: zOf(watch.stop.lane) + BY_THE_AGENT.dz };
-    const at = { x: post.x + (agent.x - post.x) * k, y: post.y * (1 - k), z: post.z + (agent.z - post.z) * k };
-    return { ...at, yaw: facing(post, agent), down: true };
-  }
-  const yaw = watch.lane ? facing(post, { x: xOf(watch.lane), z: zOf(watch.lane) }) : 0;
+  const stopping = watch.stop && descent(now - watch.stop.at) !== null;
+  const lane = stopping ? watch.stop.lane : watch.lane;
+  const yaw = lane ? facing(post, { x: xOf(lane), z: zOf(lane) }) : 0;
   return { ...post, yaw, down: false };
+}
+
+/** KJC-TSK-1707: a denial as the visit of the Sentinel's drone (piece-drone.js), by the agent it stopped; none without one. */
+export function sentinelVisit(watch) {
+  if (!watch.stop) return undefined;
+  const { lane: stopped, at } = watch.stop;
+  return { piece: 'sentinel', lane: stopped, at, until: at + PIECE_WALK_MS + STAY_MS, spot: BY_THE_AGENT, from: null };
 }
