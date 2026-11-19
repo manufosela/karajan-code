@@ -198,7 +198,8 @@ describe("verifyPrReview", () => {
 
     it("still needs one when the seal is unsigned, incomplete, or the commit touches anything else", async () => {
       for (const [names, sealed] of [
-        [{ aaa1111: [HOOK, PROV] }, { ...signedSeal, signed: false }],
+        // HU-4654: no roster (unsigned) and a hook the seal's verification did not re-render.
+        [{ aaa1111: [HOOK, PROV] }, { ...signedSeal, signed: false, files: new Set() }],
         [{ aaa1111: [HOOK, PROV] }, { ...signedSeal, complete: false }],
         [{ aaa1111: [HOOK, "src/a.js"] }, signedSeal],
         [{ aaa1111: [] }, signedSeal],
