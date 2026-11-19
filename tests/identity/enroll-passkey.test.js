@@ -25,7 +25,7 @@ const relayFetch = ({ credentialId = "cred_Id-1", publicKey = ES256, alg = -7 } 
 };
 const run = (extra = {}, credential) => identityCommand({
   action: "enroll-phone", config: { projectDir: dir }, flags: { label: "mine" },
-  deps: { log: (l) => lines.push(l), home: dir, ...human, fetch: relayFetch(credential), qr: () => {}, spinner: { tick() {}, stop() {} }, ...extra },
+  deps: { log: (l) => lines.push(l), home: dir, ...human, fetch: relayFetch(credential), qr: () => {}, spinner: { tick() {}, stop() {} }, commitRoster: () => "abc1234", ...extra },
 });
 const rosterPath = () => path.join(dir, ".karajan", "supervisor-signers.json");
 const phoneFile = () => path.join(dir, ".karajan", "supervisor-phone.json");

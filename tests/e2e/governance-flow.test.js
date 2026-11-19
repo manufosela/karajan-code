@@ -13,7 +13,8 @@ import { commitSupervisorRegeneration } from "../../src/harden/supervisor-commit
 import { publishPrReview } from "../../src/review/publish-pr.js";
 import { verifyPrReview } from "../../src/review/verify-pr.js";
 import { runCommand } from "../../src/utils/process.js";
-import { addSigner, canonicalPayload } from "../../src/harden/phone-sign.js";
+import { canonicalPayload } from "../../src/harden/phone-sign.js";
+import { identityCommand } from "../../src/commands/identity.js";
 import { SECURITY_LEVEL_FILE, signedFilesOf } from "../../src/harden/security-level.js";
 import { basePinOf, predatesCritical } from "../../src/harden/critical-seal.js";
 import { CHALLENGE } from "../_fixtures/passkey.js";
@@ -68,10 +69,16 @@ describe("governance flow on a real-shaped repo (KJC-TSK-1645)", () => {
   }, 300000);
 
   it("the person's seal commits the hooks and the workflows, and leaves the tree clean", async () => {
-    // The phone's enrolment is its own human act (kj identity enroll-phone), committed through the hooks.
-    addSigner(KEY, { projectDir: r.repo });
-    r.git("add", ".karajan/supervisor-signers.json");
-    r.git("commit", "-q", "-m", "chore: enroll the test phone key");
+    // The phone's enrolment is its own human act, and it commits the roster itself through the
+    // repo's hooks (HU-4699, #4661): no hand-made commit here, the person's own path is the test.
+    const enrolled = await identityCommand({
+      action: "enroll-phone", config: { projectDir: r.repo }, flags: { publicKeyBase64: KEY, label: "test phone" },
+      deps: { log() {}, home: r.env.HOME, env: {}, ttyHuman: true, ancestry: HUMAN.deps.ancestry, confirm: (n) => n, gitEnv: r.env },
+    });
+    expect(enrolled).toBe(0);
+    // The repo's commit-msg hook appends the branch's card, as it does to every commit.
+    expect(lastSubject(r)).toMatch(/^chore\(identity\): enroll test phone in the signer roster \(HU-\d+\)$/);
+    expect(committedFiles(r)).toEqual([".karajan/supervisor-signers.json"]);
     const sealed = await commitSupervisorRegeneration({ ...HUMAN, projectDir: r.repo, kjVersion: KJ_VERSION, generation, gitFn: (args) => r.git(...args) });
     expect(sealed.committed, sealed.reason).toBe(true);
     expect(committedFiles(r)).toEqual(expect.arrayContaining([".karajan/hooks/pre-commit", ".karajan/supervisor-provenance.json"]));

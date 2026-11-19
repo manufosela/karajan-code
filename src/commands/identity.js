@@ -8,9 +8,11 @@
  *           no session and no flags → exit 1.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 
+import { commitFailureReason } from "../environment/contract-commit.js";
 import { signAct } from "../harden/act-sign.js";
 import { anyAuthorizedPhone, enrollPhone, isPhoneEnrolled, readEnrolledKey, requestPasskeyRegistration, validatePhonePublicKey } from "../harden/phone-sign.js";
 import { admissionFiles, admitSigner, redeemRecoveryCode, SIGNERS_FILE } from "../harden/roster.js";
@@ -84,6 +86,16 @@ async function admitPhone(ctx) {
   return recoveryCode;
 }
 
+// HU-4699 (KJC-BUG-0648): the roster is governance an agent session cannot commit and the seal does not
+// carry, so enroll-phone (a human act) commits it itself, alone: `--only` leaves anything else staged out.
+// The repo's hooks judge that commit like any other (no --no-verify): a refusal is named, never skipped.
+function commitRoster({ projectDir, flags, deps }, defaultLabel) {
+  const git = (...args) => execFileSync("git", args, { cwd: projectDir, env: { ...process.env, ...deps.gitEnv }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("add", "--", SIGNERS_FILE);
+  git("commit", "--only", "-m", `chore(identity): enroll ${flags.label ?? defaultLabel} in the signer roster`, "--", SIGNERS_FILE);
+  return git("rev-parse", "--short", "HEAD");
+}
+
 // KJC-TSK-0822: enrola la clave PÚBLICA del móvil (la privada nunca toca esta máquina).
 async function enrollPhoneAction(ctx) {
   const { log } = ctx;
@@ -94,12 +106,22 @@ async function enrollPhoneAction(ctx) {
     log(`kj identity enroll-phone: ${err.message}`);
     return 1;
   }
-  if (ctx.flags.publicKeyBase64 === undefined) log("Passkey enrolada en el padrón .karajan/supervisor-signers.json (commítealo): cuando se mergee, el sello y los actos humanos la pedirán.");
-  else log("Móvil enrolado: la clave pública se añadió al padrón .karajan/supervisor-signers.json (commítealo) y a ~/.karajan/supervisor-phone.json. Sellar el supervisor pedirá la firma de un móvil del padrón.");
+  const passkey = ctx.flags.publicKeyBase64 === undefined;
+  // The recovery code is shown once: it prints before anything about the commit can fail.
   if (recoveryCode) {
     log(`\nCÓDIGO DE RECUPERACIÓN, se enseña UNA sola vez. Guárdalo fuera de esta máquina:\n\n    ${recoveryCode}\n`);
     log("Sirve para enrolar un móvil nuevo si pierdes este: kj identity enroll-phone <clave nueva> --recovery <código>. Es de un solo uso: al usarlo se emite otro. Sin móvil y sin código no hay recuperación: el padrón se rehace por fuera de CI, a la vista de todos (ADR 0018).");
   }
+  let sha;
+  try {
+    sha = (ctx.deps.commitRoster ?? commitRoster)(ctx, passkey ? "passkey" : "a phone");
+  } catch (err) {
+    log(`no se pudo commitear el padrón (${commitFailureReason(err)}): commítealo a mano en su propia PR antes de sellar`);
+    return 1;
+  }
+  const merge = `el padrón se commiteó: el commit ${sha} del padrón va en su propia PR y se mergea antes de sellar; CI lo verifica por las firmas del padrón, sin veredicto de IA.`;
+  if (passkey) log(`Passkey enrolada en el padrón .karajan/supervisor-signers.json: ${merge} Cuando se mergee, el sello y los actos humanos la pedirán.`);
+  else log(`Móvil enrolado: la clave pública se añadió al padrón .karajan/supervisor-signers.json y a la clave local del móvil; ${merge} Sellar el supervisor pedirá la firma de un móvil del padrón.`);
   return 0;
 }
 
