@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.31.2] - 2026-11-19
+
+The seal no longer brings a `kj-quality` that `kj harden` had left out. If a seal PR of yours failed its verdicts check for that reason, update, run `kj harden` on a new branch from your base and seal again.
+
+### Fixed
+- **The seal never writes back a kj-quality the agent's harden deferred**: `kj harden --commit` runs `kj harden` again in your terminal, whose gh may not read the base branch protection the agent's run read. With the protection unreadable kj kept `kj-quality` by creating it again, so the seal brought a file that is not kj's output and the verdicts check rejected it. An unreadable protection now keeps a `kj-quality` that is there and never creates one (#4661).
+
+### Changed
+- **The seal is tested on every repo shape**: a new end-to-end test seals 36 repo shapes (the repo's own CI running its tests or not; a base protection that requires `quality`, is readable or cannot be read, seen by your gh as by the agent's or not; no phone roster, a roster on the base or a phone enrolled on the seal branch) and checks that your pass changes nothing the agent left and that every seal passes the privacy, policy and verdicts checks of its CI.
+- **kj stage**: an agent inside one long command (tests, a review, waiting on the CI) stays in its workshop up to half an hour while its turn has not ended, labelled "long run"; the agents and the courier reach the task wall through a passage in the row of pieces; each workshop keeps its slot in the hall (four fixed columns, filled from the centre out).
+
 ## [5.31.1] - 2026-11-19
 
 A repo without a phone roster can merge its seal again. The check of verdicts runs the kj its workflow pins, so the fix applies from the first PR whose base pins 5.31.1; the seal that moves the pin there still needs a signed seal (a phone enrolled with `kj identity enroll-phone`) or its cross-AI verdict.
