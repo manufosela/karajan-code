@@ -197,6 +197,16 @@ function moveOutOfShared(projectDir, entries, enabled) {
 export function stripKjHooks(file, entries) {
   let shared;
   try { shared = JSON.parse(readFileSync(file, "utf8")); } catch { return false; }
+  const changed = withoutKjHooks(shared, entries);
+  if (changed) writeFileSync(file, `${JSON.stringify(shared, null, 2)}\n`);
+  return changed;
+}
+
+/**
+ * HU-4654: the same, on parsed settings (changed in place), so the seal check can recompute what
+ * kj harden leaves in a settings file. @returns {boolean} changed
+ */
+export function withoutKjHooks(shared, entries) {
   if (!shared?.hooks || typeof shared.hooks !== "object") return false;
   const kj = entries.flatMap(({ event, script }) => {
     const guard = script.replace(/\.mjs$/, "");
@@ -212,7 +222,6 @@ export function stripKjHooks(file, entries) {
     if (kept.length) shared.hooks[event] = kept;
     else delete shared.hooks[event];
   }
-  if (changed) writeFileSync(file, `${JSON.stringify(shared, null, 2)}\n`);
   return changed;
 }
 

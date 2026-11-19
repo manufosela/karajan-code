@@ -128,8 +128,8 @@ describe("publishPrReview", () => {
     const posted = [];
     expect(await publishPrReview({ projectDir: dir, pr: 42, sealed, run: fakeRun({ posted, pr }) })).toMatchObject({ published: true, commits: 1 });
     expect(posted[0].join(" ")).toMatch(/sss4444.*sealed act/s);
-    // Unsigned, or a commit that is not the seal: still refused.
-    await expect(publishPrReview({ projectDir: dir, pr: 42, sealed: { ...sealed, signed: false }, run: fakeRun({ pr }) })).rejects.toThrow(/sss4444/);
+    // Unsigned with a hook kj did not re-render (HU-4654), or a commit that is not the seal: still refused.
+    await expect(publishPrReview({ projectDir: dir, pr: 42, sealed: { ...sealed, signed: false, files: new Set() }, run: fakeRun({ pr }) })).rejects.toThrow(/sss4444/);
   });
 
   it("a clean merge of main on top needs no verdict and is not listed", async () => {
