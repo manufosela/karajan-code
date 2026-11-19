@@ -15,7 +15,8 @@ export const PLINTH_WIDTH = 1;
 /** Pieces and robots are drawn for different shots in the film: these bring them to one smaller height. */
 export const SCALE = { piece: 1, crew: 0.5, stand: 0.8 };
 /** KJC-TSK-1459 (ADR 0050): the task board wall, behind the posts, right of the Sentinel's tower. */
-export const WALL = { x: 3.6, y: 0.3, z: -6.4, width: 3.4, height: 2.1 };
+// KJC-TSK-1703: straight behind the passage in the row of pieces (PASSAGE.x), so the way in is clear.
+export const WALL = { x: 3.2, y: 0.3, z: -6.4, width: 3.4, height: 2.1 };
 /** KJC-TSK-1526: the "Ready to release" table, right of the wall, past kaWATCHan. */
 export const RELEASE_TABLE = { x: 7.4, z: -5.4, yaw: -0.5 };
 /** KJC-TSK-1545: the version counter, on its post beside the table, turned as it is. */
@@ -49,8 +50,22 @@ export const AISLE_DZ = WORKSHOP.depth / 2 + 1.9;
 
 /** How much deeper than a one-row hall the rows of `n` workshops make it. */
 export const hallDepth = (n) => (rowsOf(n) - 1) * ROW_STEP;
-/** The x of each piece's post, the row centred behind the workshops. */
-export const postX = (id) => (POSTS.indexOf(id) - (POSTS.length - 1) / 2) * POST.spacing;
+/**
+ * KJC-TSK-1703 (the maintainer, 2026-11-19): the robots walked over the row of pieces on their way
+ * to the task wall. The row opens a passage after the Ledger, in front of the wall: `gap` is how
+ * much wider than a post's spacing it is, half taken from each side so the row stays centred.
+ */
+const PASSAGE_GAP = 1.2;
+const PASSAGE_AFTER = 'ledger';
+/** The x of each piece's post, the row centred behind the workshops, with the passage. */
+export const postX = (id) => {
+  const i = POSTS.indexOf(id);
+  const side = i > POSTS.indexOf(PASSAGE_AFTER) ? 1 : -1;
+  return (i - (POSTS.length - 1) / 2) * POST.spacing + (side * PASSAGE_GAP) / 2;
+};
+const passageX = (postX(PASSAGE_AFTER) + postX(POSTS[POSTS.indexOf(PASSAGE_AFTER) + 1])) / 2;
+/** The passage: its x, and `front`, where a way to the wall turns into it from the hall. */
+export const PASSAGE = { x: passageX, front: { x: passageX, z: POST.z + 1.2 } };
 /** How wide the hall is with `n` workshops, so the camera can fit it. */
 export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + BOOTH_ROOM + 3.5));
 
@@ -70,7 +85,8 @@ export function mailboxSpot(n) {
 }
 
 /** Where kaRAGan, Karajan and kaWATCHan wait: at the ends of the row of posts. */
-const END = ((POSTS.length + 1) / 2) * POST.spacing;
+// KJC-TSK-1703: the passage widens the row by half its gap on each side.
+const END = ((POSTS.length + 1) / 2) * POST.spacing + PASSAGE_GAP / 2;
 // KJC-BUG-0603 (the maintainer, 2026-11-15): room for the booth on Karajan's right, in its row: Karajan,
 // atril and kaRAGan stand this much further left than the end of the row of posts.
 const BOOTH_ROOM = 2.6;
