@@ -3,6 +3,7 @@
 // not decide how they are compiled.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -134,5 +135,34 @@ describe("kj rules approve", () => {
     await propose([entry(rules[0])]);
     expect((await approve()).code).toBe(0);
     expect(fs.existsSync(file("rules.local.yml"))).toBe(false);
+  });
+
+  // KJC-BUG-0650 (#4705): the personal rules are the operator's, kept in the main checkout; a lane
+  // only carries a copy (HU-4695). Approved from a lane, they must not die with the lane.
+  it("approved from a lane, the personal rules land in the main checkout and in the lane's copy", async () => {
+    const git = (cwd, ...args) => execFileSync("git", ["-C", cwd, "-c", "user.email=t@t", "-c", "user.name=t", ...args], { encoding: "utf8" });
+    git(dir, "init", "-q", "-b", "main");
+    git(dir, "commit", "-q", "--allow-empty", "-m", "base");
+    const main = dir;
+    dir = path.join(main, ".kj", "worktrees", "lane");
+    git(main, "worktree", "add", "-q", "-b", "feat/lane", dir);
+    fs.writeFileSync(path.join(dir, "CLAUDE.md"), "- Nunca despliegues sin permiso.\n");
+    setNormalLevel(dir);
+    fs.mkdirSync(path.join(home, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(home, ".claude", "CLAUDE.md"), "- Nunca toques otro repo.\n");
+    const [own, foreign] = listRules(dir, { home });
+    await propose([entry(own), entry(foreign, undefined, "~/.claude/CLAUDE.md")]);
+    const done = await approve();
+    expect(done.code).toBe(0);
+    expect(done.lines[0]).toContain("of the main checkout and this lane (not versioned, yours alone)");
+    const mainLocal =path.join(main, ".karajan", "rules.local.yml");
+    expect(yaml.load(fs.readFileSync(mainLocal, "utf8")).rules.map((rule) => rule.id)).toEqual([foreign.id]);
+    expect(installed("rules.local.yml")).toEqual([foreign.id]);
+    expect(fs.existsSync(path.join(main, ".karajan", "rules.yml"))).toBe(false); // the versioned part is the lane's branch
+    await propose([entry(own)]);
+    expect((await approve()).code).toBe(0);
+    expect(fs.existsSync(mainLocal)).toBe(false);
+    expect(fs.existsSync(file("rules.local.yml"))).toBe(false);
+    dir = main; // afterEach removes it, the lane inside
   });
 });

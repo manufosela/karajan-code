@@ -17,6 +17,7 @@ import { signAct } from "../harden/act-sign.js";
 import { humanActOf } from "../harden/human-act.js";
 import { checkVerdict } from "../review/verdict-store.js";
 import { approvalView } from "../rules/approval-view.js";
+import { mainCheckout } from "../utils/main-checkout.js";
 import { loadRules, LOCAL_RULES_FILE, PROPOSAL_FILE, RULES_FILE, rulesCheck } from "./rules.js";
 
 
@@ -70,12 +71,23 @@ export async function rulesApprove({ projectDir, file = PROPOSAL_FILE, home, kjV
       summary: `${parts.find(([n]) => n === name)[1].length} rule(s)`, diff: view.join("\n"), truncated: false,
     })),
   });
+  // HU-4705: the personal rules are the user's, not the branch's: they go to the main checkout
+  // (where lanes inherit them from) and to this dir when it is a lane.
+  const main = mainCheckout(projectDir);
+  const lane = path.resolve(main) !== path.resolve(projectDir);
   for (const [name, text] of dumps) {
-    const target = path.join(projectDir, name);
-    if (text) fs.writeFileSync(target, text);
-    else fs.rmSync(target, { force: true }); // no rule left for this file: none stays behind
+    const dirs = name === LOCAL_RULES_FILE && lane ? [main, projectDir] : [projectDir];
+    for (const dir of dirs) writeOrRemove(path.join(dir, name), text);
   }
   fs.rmSync(proposal, { force: true });
   const [[, versioned], [, kept]] = parts;
-  return { code: 0, lines: [`✓ ${versioned.length} rule(s) approved into ${RULES_FILE} (commit it, it travels with the repo) and ${kept.length} into ${LOCAL_RULES_FILE} (not versioned, yours alone)`] };
+  const where = lane ? " of the main checkout and this lane" : "";
+  return { code: 0, lines: [`✓ ${versioned.length} rule(s) approved into ${RULES_FILE} (commit it, it travels with the repo) and ${kept.length} into ${LOCAL_RULES_FILE}${where} (not versioned, yours alone)`] };
+}
+
+function writeOrRemove(target, text) {
+  if (text) {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, text);
+  } else fs.rmSync(target, { force: true }); // no rule left for this file: none stays behind
 }
