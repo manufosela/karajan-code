@@ -32,7 +32,7 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
     expect(fs.readFileSync(path.join(lane, ".karajan", "identity.local.yml"), "utf8")).toBe(IDENTITY);
     // KJC-BUG-0537 (#3739): the lane never edits the branch's versioned settings.json.
     expect(calls).toEqual([["sentinel", lane, false], ["harness", lane, false]]);
-    expect(r).toEqual({ identity: true, config: false, wired: true });
+    expect(r).toEqual({ identity: true, config: false, rules: false, wired: true });
   });
 
   // HU-3574 (#3554): only a config git ignores travels, and only that copy is setup.
@@ -111,6 +111,53 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
       put(lane, "x: 1\n");
       fs.rmSync(path.join(main, CONFIG)); // gone from the main checkout: nothing proves the lane's is a copy
       expect(laneWork(`!! ${CONFIG}`, lane)).toEqual([`!! ${CONFIG}`]);
+    });
+  });
+
+  // KJC-BUG-0646 (#4695): the personal rules (ADR 0017) travel like the local config, or no
+  // personal rule is enforced inside the lane.
+  describe("the operator's personal rules — KJC-BUG-0646", () => {
+    const RULES = ".karajan/rules.local.yml";
+    const git = (cwd, ...args) => execFileSync("git", ["-C", cwd, "-c", "user.email=t@t", "-c", "user.name=t", ...args], { encoding: "utf8" });
+    const put = (dir, text) => {
+      fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
+      fs.writeFileSync(path.join(dir, RULES), text);
+    };
+    const cut = () => {
+      git(main, "init", "-q", "-b", "main");
+      fs.writeFileSync(path.join(main, ".gitignore"), ".karajan/*\n");
+      git(main, "add", ".gitignore");
+      git(main, "commit", "-qm", "base");
+      git(main, "worktree", "add", "-q", "--no-track", "-b", "feat/lane", lane);
+    };
+
+    it("copies the rules git ignores, byte for byte, and the lane does not count them as its work", async () => {
+      cut();
+      put(main, "rules: []\n");
+      const infos = [];
+      const r = await setupLane({ mainDir: main, lanePath: lane, logger: { info: (m) => infos.push(m), warn: () => {} }, install: wired });
+      expect(fs.readFileSync(path.join(lane, RULES), "utf8")).toBe("rules: []\n");
+      expect(r.rules).toBe(true);
+      expect(infos).toContain(`  rules: ${RULES} copied from the main checkout (git ignores it)`);
+      expect(laneWork(git(lane, "status", "--porcelain", "--ignored=matching", "--untracked-files=all"), lane)).toEqual([]);
+    });
+
+    it("never overwrites the lane's own rules", async () => {
+      cut();
+      put(main, "from: main\n");
+      put(lane, "from: lane\n");
+      const r = await setupLane({ mainDir: main, lanePath: lane, logger: quiet, install: wired });
+      expect(fs.readFileSync(path.join(lane, RULES), "utf8")).toBe("from: lane\n");
+      expect(r.rules).toBe(false);
+    });
+
+    it("never injects rules the main checkout tracks", async () => {
+      cut();
+      put(main, "x: 1\n");
+      git(main, "add", "-f", RULES);
+      git(main, "commit", "-qm", "rules");
+      expect((await setupLane({ mainDir: main, lanePath: lane, logger: quiet, install: wired })).rules).toBe(false);
+      expect(fs.existsSync(path.join(lane, RULES))).toBe(false);
     });
   });
 
