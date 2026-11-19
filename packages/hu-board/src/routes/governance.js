@@ -150,7 +150,7 @@ async function laneWarnings(dir) {
 // GUI-C (KJC-TSK-0773): actions go through the SAME CLI commands the
 // terminal uses — the inexemptable (security, defaults.*) is refused by kj
 // itself and its message travels back verbatim; nothing is re-implemented.
-const projectOf = (req) => {
+export const projectOf = (req) => {
   const raw = (typeof req.body?.dir === "string" && req.body.dir.trim()) || nearestProject(process.env.KJ_PROJECT_DIR || process.cwd());
   const dir = resolve(raw);
   return existsSync(join(dir, ".karajan")) ? dir : null;
@@ -158,7 +158,7 @@ const projectOf = (req) => {
 
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
 
-async function runKj(res, dir, args) {
+export async function runKj(res, dir, args) {
   try {
     const r = await runCommand("kj", args, { cwd: dir });
     // kj logs with colours; the board shows text (ESC built by code: no control char in a regex literal).
