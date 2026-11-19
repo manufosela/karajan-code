@@ -2,7 +2,7 @@
 // and the board wall. A new card is carried to the wall and pinned; a card started is
 // fetched from the wall to the workshop; a card done is carried back. Pure, as ragan.js:
 // couriers.js moves the robots.
-import { WALL, WORKSHOP, boothAt } from './layout.js';
+import { PASSAGE, WALL, WORKSHOP, boothAt } from './layout.js';
 import { BUD_MS } from './workers.js';
 
 export const COURIER_WALK_MS = 2400;
@@ -56,7 +56,12 @@ export function courierAt(trip, now, xOf, zOf = () => WORKSHOP.z, door = boothAt
   // Out of the booth in front of the crew's row first, as the hosts do (BOOTH.exitZ).
   const exit = { x: door.x, z: door.exitZ ?? door.z };
   const [first, second] = trip.out ? [bench, wall] : [wall, bench];
-  const legs = [[booth, exit, first], [first, second], [second, exit, booth]];
+  // KJC-TSK-1703: every way to or from the wall goes through the passage in the row of pieces.
+  const viaPassage = (leg) => leg.flatMap((stop, i) => {
+    const next = leg[i + 1];
+    return next && (stop === wall) !== (next === wall) ? [stop, PASSAGE.front] : [stop];
+  });
+  const legs = [[booth, exit, first], [first, second], [second, exit, booth]].map(viaPassage);
   const face = (stop) => (stop === wall ? Math.PI : 0);
   if (t < BUD_MS) return teleporting(booth, t / BUD_MS);
   let left = t - BUD_MS;

@@ -3,7 +3,7 @@
 // works at the bench of the workshop of its lane (ADR 0048) and walks out when
 // it ends. KJC-TSK-1435: so does the host agent, and each subagent it opens walks
 // out of it and back. Pure: the scene reads the poses.
-import { AISLE_DZ, CREW, STAND, WALL, WORKSHOP, boothAt } from './layout.js';
+import { AISLE_DZ, CREW, PASSAGE, STAND, WALL, WORKSHOP, boothAt } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
@@ -220,10 +220,12 @@ function errandAt(errand, now, spot) {
   const t = errand ? now - errand.at : -1;
   if (t < 0 || t >= ERRAND_MS) return null;
   const card = errand.id;
-  if (t < WALK_MS) return { ...lerp(spot, WALL_SPOT, t / WALK_MS), yaw: facing(spot, WALL_SPOT), walking: true, reading: false, holding: errand.out, card };
+  // KJC-TSK-1703: through the passage in the row of pieces, never over them.
+  const way = [spot, PASSAGE.front, WALL_SPOT];
+  if (t < WALK_MS) return { ...along(way, t / WALK_MS), walking: true, reading: false, holding: errand.out, card };
   if (t < WALK_MS + PIN_MS) return { ...WALL_SPOT, yaw: Math.PI, walking: false, reading: false, holding: true, card };
   const k = (t - WALK_MS - PIN_MS) / WALK_MS;
-  return { ...lerp(WALL_SPOT, spot, k), yaw: facing(WALL_SPOT, spot), walking: true, reading: false, holding: !errand.out, card };
+  return { ...along(way.toReversed(), k), walking: true, reading: false, holding: !errand.out, card };
 }
 
 /** KJC-TSK-1610: where a host on its way from its desk (`spot`) to atril and back is, or null outside it. */
