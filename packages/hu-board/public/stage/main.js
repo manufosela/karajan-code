@@ -339,7 +339,7 @@ const PANEL_MS = 30_000;
 /** The projects panel's entries for `factories`, the open one marked. */
 function showPanel(panel, factories) {
   // KJC-TSK-1690: only the factories with a session on, and the one on screen.
-  const live = liveEntries(panelEntries(factories, project));
+  const live = liveEntries(panelEntries(factories, project), { map: wantsMap });
   const note = panel.querySelector('p');
   note.hidden = live.length > 0;
   note.textContent = 'No project has a session on. Every factory, stopped ones too: the Every factory link.';

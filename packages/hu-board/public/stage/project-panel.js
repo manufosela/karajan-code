@@ -25,7 +25,8 @@ export function panelEntries(factories, current) {
  * KJC-TSK-1690 (the maintainer, 2026-11-18): only the factories with a session on, an agent in them
  * working or waiting; and the one on screen, even stopped, so it is never lost from the list.
  */
-export const liveEntries = (entries) => entries.filter((entry) => entry.working > 0 || entry.current);
+// KJC-BUG-0645: on the map of every factory (`map`), all of them, as the map draws them.
+export const liveEntries = (entries, { map = false } = {}) => (map ? entries : entries.filter((entry) => entry.working > 0 || entry.current));
 
 /** KJC-TSK-1605: the badge of a factory that needs the human: its count and what it says aloud; none otherwise. */
 export const panelBadge = ({ waiting }) => (waiting ? { text: String(waiting), label: `${waiting} waiting for you` } : null);
