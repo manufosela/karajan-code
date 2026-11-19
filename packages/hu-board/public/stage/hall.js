@@ -7,6 +7,7 @@ import { plateName } from './lane-status.js';
 import { deskParts } from './desk-layout.js';
 import { createBelt } from './belt.js';
 import { leaveSlot, opacityAt, slideAt, takeSlot } from './hall-motion.js';
+import { CRANE, craneAt } from './crane.js';
 
 const matte = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1 });
 
@@ -168,6 +169,22 @@ const PASS = 0x2fd27a;
 const BOUNCE = 0xe0484f;
 
 /** The row of workshops; `xOf(lane)` is the centre of a lane's workshop. */
+/** KJC-TSK-1705: the crane's rail height, and how far over the workshop's floor its hook hangs. */
+const HOOK_TOP = 8;
+const HOOK_DY = 0.9;
+/** The crane's hook: a cable up from over the workshop to a trolley on the rail (hall.js stretches it). */
+function hookMesh() {
+  const steel = matte(0x8a96a6);
+  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 6).translate(0, 0.5, 0), steel);
+  cable.position.y = HOOK_DY;
+  const trolley = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.6), matte(0xf0b429));
+  const hook = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.3), steel);
+  hook.position.y = HOOK_DY;
+  const group = new THREE.Group();
+  group.add(cable, trolley, hook);
+  return group;
+}
+
 export function createHall(scene, lanes) {
   const shops = new Map();
   const shown = new Map(); // KJC-TSK-1540: each lane's status line, repainted only when it changes
@@ -208,16 +225,28 @@ export function createHall(scene, lanes) {
     slots = leaveSlot(slots, last, lane);
     relayout();
   };
-  const ensure = (lane) => {
-    // KJC-BUG-0623: one fading out that comes back fades in again where it stands.
-    if (shops.get(lane)?.leaving) {
-      shops.get(lane).leaving = null;
-      shops.get(lane).born = performance.now();
+  /** KJC-TSK-1705: the crane takes a workshop from where it hangs now to `to` (its slot, or its slab). */
+  const hoist = (lane, from, to) => {
+    const shop = shops.get(lane);
+    shop.crane = { from, to, at: performance.now() };
+    shop.hook ??= hookMesh();
+    scene.add(shop.hook);
+  };
+  const slotOf = (lane) => ({ ...at(lane), y: 0, scale: 1 });
+  const hanging = ({ group }) => ({ x: group.position.x, y: group.position.y, z: group.position.z, scale: group.scale.x });
+  /** Adds the lane's workshop; KJC-TSK-1705: `from` its slab on the warehouse's shelves, carried in by the crane. */
+  const ensure = (lane, { from } = {}) => {
+    // KJC-BUG-0623: one fading out that comes back fades in again where it stands; one on the crane turns back.
+    const old = shops.get(lane);
+    if (old?.leaving) {
+      old.leaving = null;
+      if (old.crane) hoist(lane, hanging(old), slotOf(lane));
+      else old.born = performance.now();
       return true;
     }
-    if (shops.has(lane)) return false;
+    if (old) return false;
     const shop = workshop(lane);
-    shop.born = opening ? -Infinity : performance.now();
+    shop.born = opening || from ? -Infinity : performance.now();
     const { gate, light } = gates();
     shop.group.add(gate);
     lights.set(lane, light);
@@ -228,6 +257,7 @@ export function createHall(scene, lanes) {
     slots = takeSlot(slots, last, lane); // KJC-BUG-0633: back where it stood, if free
     scene.add(shop.group);
     relayout();
+    if (from) hoist(lane, { ...from, scale: CRANE.small }, slotOf(lane));
     return true;
   };
   lanes.forEach(ensure);
@@ -236,19 +266,45 @@ export function createHall(scene, lanes) {
    * KJC-BUG-0557: takes a lane's workshop away and closes the gap; true when it had one.
    * KJC-BUG-0623: it fades out first, keeping its place; then the others slide into the gap (frame).
    */
-  const remove = (lane, { instant = false } = {}) => {
+  const remove = (lane, { instant = false, to = null } = {}) => {
     const shop = shops.get(lane);
     if (!shop || shop.leaving) return false;
     // KJC-TSK-1704: one stored while the stage opens was never seen in the hall: it goes at once.
     if (instant) drop(lane);
-    else shop.leaving = { at: performance.now() };
+    else shop.leaving = { at: performance.now(), crane: Boolean(to) };
+    // KJC-TSK-1705: one stored while the stage is open is carried to its slab by the crane.
+    if (to && !instant) hoist(lane, hanging(shop), { ...to, scale: CRANE.small });
     return true;
+  };
+  /** KJC-TSK-1705: moves a workshop and its hook along the crane's trip; false once it is set down. */
+  const carry = (lane, shop, now) => {
+    const pose = shop.crane && craneAt(shop.crane, now);
+    if (pose) {
+      shop.group.position.set(pose.x, pose.y, pose.z);
+      shop.group.scale.setScalar(pose.scale);
+      shop.hook.position.set(pose.x, pose.y, pose.z);
+      const [cable, trolley] = shop.hook.children;
+      cable.scale.y = HOOK_TOP - pose.y - HOOK_DY;
+      trolley.position.y = HOOK_TOP - pose.y;
+      return true;
+    }
+    if (!shop.crane) return false;
+    const { to } = shop.crane;
+    shop.crane = null;
+    scene.remove(shop.hook);
+    if (shop.leaving) drop(lane);
+    else {
+      shop.group.position.set(to.x, 0, to.z);
+      shop.group.scale.setScalar(1);
+    }
+    return false;
   };
   /** KJC-BUG-0623: fades and slides the workshops at `now`; one done fading out goes for good. */
   const frame = (now) => {
     // Deleting the entry being visited (drop) is safe while iterating a Map.
     for (const [lane, shop] of shops) {
-      const k = opacityAt(shop, now);
+      if (carry(lane, shop, now) || !shops.has(lane)) continue;
+      const k = shop.leaving?.crane ? 1 : opacityAt(shop, now);
       if (shop.leaving && k === 0) { drop(lane); continue; }
       fade(shop.group, k);
       const slid = slideAt(shop.move, now);

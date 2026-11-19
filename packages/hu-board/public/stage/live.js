@@ -31,7 +31,7 @@ import { allLetters, lettersOf, mailboxOf, mailTotal, withLetters, withMail } fr
 import { goneLanes, staleEnds } from './resync.js';
 import { finishedLanes, foldedNow, stackOf } from './finished-stack.js';
 import { createStack } from './stack-mesh.js';
-import { storedNow } from './warehouse.js';
+import { rackSpot, storedNow } from './warehouse.js';
 import { createRack } from './warehouse-rack.js';
 import { leaveSlot, takeSlot } from './hall-motion.js';
 import { Vector3 } from 'three';
@@ -88,8 +88,16 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     rack.show(shelf);
     scene.userData.shelved = shelf.length; // main.js frames the warehouse too
   };
-  /** A stored lane with activity of its own comes back; its idle clock starts again. */
-  const unstore = (lane) => { stored.delete(lane); storeSince?.delete(lane); shelve([], [lane]); };
+  /** KJC-TSK-1705: where a stored lane's slab stands, where the crane takes it from or to. */
+  const slabOf = (lane) => rackSpot(shelf.indexOf(lane));
+  /** A stored lane with activity of its own comes back (from its slab); its idle clock starts again. */
+  const unstore = (lane) => {
+    const from = slabOf(lane);
+    stored.delete(lane);
+    storeSince?.delete(lane);
+    shelve([], [lane]);
+    return from;
+  };
   /** Idle lanes (no agent, no pipeline running) go, busy ones come back; never on the map, no room. */
   const store = () => {
     if (!warehouse) return false;
@@ -98,9 +106,12 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     const instant = storeSince === null; // while the stage opens they leave the hall at once
     const leaving = [...held.store].filter((lane) => !stored.has(lane));
     const back = [...stored].filter((lane) => !held.store.has(lane));
+    const slabs = new Map(back.map((lane) => [lane, slabOf(lane)]));
     ({ store: stored, since: storeSince } = held);
     shelve(leaving, back);
-    return [...leaving.map((lane) => hall.remove(lane, { instant })), ...back.map((lane) => hall.ensure(lane))].some(Boolean);
+    // KJC-TSK-1705: the crane carries each one between its slab and its slot.
+    const away = leaving.map((lane) => hall.remove(lane, { instant, to: slabOf(lane) }));
+    return [...away, ...back.map((lane) => hall.ensure(lane, { from: slabs.get(lane) }))].some(Boolean);
   };
   const showStatuses = () => {
     if (store()) refit({ glide: true });
@@ -310,8 +321,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       // A lane seen for the first time gets its workshop (KJC-TSK-1433).
       // KJC-TSK-1623: a folded lane comes back only when its status says it works again.
       // KJC-TSK-1704: one stored in the warehouse comes back to the hall with any activity of its own.
-      if (event.lane && stored.has(event.lane)) unstore(event.lane);
-      if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane)) refit({ glide: true });
+      // KJC-TSK-1705: the crane brings it from its slab.
+      const from = event.lane && stored.has(event.lane) ? unstore(event.lane) : undefined;
+      if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane, { from })) refit({ glide: true });
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
       // KJC-TSK-1659: a host that comes in teleports in at the booth: Karajan presses its button.
