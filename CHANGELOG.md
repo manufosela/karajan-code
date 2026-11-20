@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.32.0] - 2026-11-19
+## [5.32.0] - 2026-11-20
 
-kj stage gets drones, a crane and a warehouse, and the board gets an Accounts page.
+kj stage gets drones, a crane and a warehouse, the board gets an Accounts page, `kj identity enroll-phone` commits the roster it writes, and the human acts run on Windows.
 
 ### Added
 - **kj stage: the pieces send a drone**: TDD, the ledger, the steward and the other pieces stay on their posts and send a drone to the workshop they check. It flies over the hall, hovers over the agent with its camera down on a rope, and lands back, with a shadow on the floor (#4677).
@@ -18,9 +18,16 @@ kj stage gets drones, a crane and a warehouse, and the board gets an Accounts pa
 - **kj stage: a crane carries the workshops**: a workshop goes to the warehouse and back hanging from a crane, instead of fading in and out (#4679).
 - **HU Board: Accounts page**: `/accounts.html`, next to Usage, lists the agents' accounts and adds, assigns, orders and paces them through the same `kj account` commands as the terminal. A rescue key never reaches the page (#4681, #4684).
 - **`kj account rescue <provider>`**: sets, shows and removes the rescue key and its rules; showing never prints the key (#4689).
+- **A roster-only change the roster verifies needs no AI verdict**: a commit that brings only `.karajan/supervisor-signers.json`, whose change the roster's own signatures verify, passes `kj review --check` and `kj review --verify-pr` as a seal commit does. Any other file in it still needs the verdict (#4701).
 
 ### Fixed
 - **kj stage: busy workshops close up on opening**: with many idle lanes, the busy ones kept their far slots and the camera framed every empty one, so only main showed, tiny. The busy workshops now close up and the warehouse sits against the hall (#4687).
+- **kj stage: the map of every factory lists every factory**: its side panel lists again each factory the map draws (#4692).
+- **`kj identity enroll-phone` commits the roster it writes**: it only said "commit it", but the agent session may not commit governance and the seal does not carry the roster, so CI rejected the signed seal. Enrolling, a human act, now commits the roster on the current branch through the repo's hooks; the recovery code prints before the commit (#4661, #4702).
+- **Human acts on Windows**: `kj harden --commit`, `kj security normal` and `kj identity enroll-phone` failed closed on Windows, where the ancestry check found no `/proc` nor `ps`. The parent chain now comes from the system PowerShell's process table, found under the kernel's `\SystemRoot`, and the nonce is read from the console (#4637, #4698).
+- **A new lane gets your personal rules**: `kj worktree start` copied the local config into a lane but not `.karajan/rules.local.yml`, so no personal gate held there. It travels on the same terms as the local config (#4696).
+- **`kj rules` in a lane reads the main checkout's memories**: it looked under the lane's path, found none and reported every memory rule as stale (#4704).
+- **Personal rules approved from a lane reach the main checkout**: `kj rules approve` wrote `.karajan/rules.local.yml` only in the lane, lost with `kj worktree done`. It now writes the main checkout's too (#4706).
 
 ## [5.31.2] - 2026-11-19
 
