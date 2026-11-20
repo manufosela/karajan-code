@@ -35,6 +35,18 @@ const installPrettier = (repo) => {
 // The reviewer the review gate asks: the fake agent; Sonar needs a server the e2e does not have.
 const KJ_CONFIG = "roles:\n  reviewer:\n    provider: fake\nsonarqube:\n  enabled: false\n";
 
+/**
+ * Text for a failed or killed spawn: its exit status, then the signal and the error (a timeout
+ * shows as ETIMEDOUT) when there are, then stdout and stderr. A normal run reads as before.
+ * @param {{status: number|null, signal?: string|null, error?: {code?: string, message?: string}, stdout?: string|null, stderr?: string|null}} result
+ * @returns {string}
+ */
+export function describeSpawn(result) {
+  const lines = [`exit ${result.status}`];
+  if (result.signal) lines.push(`signal ${result.signal}`);
+  if (result.error) lines.push(`error ${result.error.code ?? result.error.message}`);
+  return `${lines.join("\n")}\n${result.stdout ?? ""}${result.stderr ?? ""}`;
+}
 /** @returns {{repo: string, env: object, git: (...args: string[]) => string, kj: (...args: string[]) => {ok: boolean, status: number, output: string}, cleanup: () => void}} */
 export function makeGovernedRepo() {
   const work = realpathSync(mkdtempSync(join(tmpdir(), "kj-governed-")));
@@ -48,7 +60,7 @@ export function makeGovernedRepo() {
   const git = (...args) => execFileSync("git", args, { cwd: repo, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   const kj = (...args) => {
     const r = spawnSync(join(bin, "kj"), args, { cwd: repo, env, encoding: "utf8", timeout: 240000 });
-    return { ok: r.status === 0, status: r.status, output: `exit ${r.status}\n${r.stdout}${r.stderr}` };
+    return { ok: r.status === 0, status: r.status, output: describeSpawn(r) };
   };
   git("init", "-q", "-b", "main");
   installPrettier(repo);
