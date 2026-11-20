@@ -36,14 +36,23 @@ const lastSubject = (r) => r.git("log", "-1", "--format=%s").trim();
 const committedFiles = (r) => r.git("show", "--name-only", "--format=", "HEAD").split("\n").filter(Boolean);
 const dirty = (r) => r.git("status", "--porcelain", "--untracked-files=all").split("\n").filter(Boolean);
 const merge = (r, branch) => { r.git("checkout", "-q", "main"); r.git("merge", "-q", "--ff-only", branch); };
+/** The repo as a failure needs to see it: its working tree and its last commits (HU-4712). */
+const repoState = (r) => `git status --short:\n${r.git("status", "--short")}git log --oneline -3:\n${r.git("log", "--oneline", "-3")}`;
 /** A change reviewed by the gate's reviewer and committed through the hooks, then merged into main. */
-const reviewedCommit = (r, branch, message, stage) => {
+const commitReviewed = (r, branch, message, stage) => {
   r.git("checkout", "-q", "-B", branch, "main");
   stage();
   const review = r.kj("review", "--staged");
   if (!review.ok) throw new Error(`kj review --staged failed:\n${review.output}`);
   r.git("commit", "-q", "-m", message);
   merge(r, branch);
+};
+const reviewedCommit = (r, branch, message, stage) => {
+  try {
+    commitReviewed(r, branch, message, stage);
+  } catch (err) {
+    throw new Error(`${err.message}\n${repoState(r)}`, { cause: err });
+  }
 };
 
 describe("governance flow on a real-shaped repo (KJC-TSK-1645)", () => {
