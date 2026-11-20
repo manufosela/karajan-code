@@ -68,4 +68,19 @@ describe("ruleSources / listRules", () => {
     expect(ruleSources(lane, { home }).map((f) => path.basename(f))).toEqual(["feedback_main.md", "feedback_lane.md"]);
     expect(ruleSources(project, { home }).map((f) => path.basename(f))).toEqual(["feedback_main.md"]);
   });
+
+  // HU-4714: a project reached through a symlink finds the memories of its real path, and of the link's own path.
+  it("a project reached through a symlink finds the memories named after its real path or the link's path", () => {
+    const realDir = path.join(project, "real");
+    const linkDir = path.join(project, "link");
+    fs.mkdirSync(realDir);
+    fs.symlinkSync(realDir, linkDir);
+    const memoryOf = (dir) => path.join(home, ".claude", "projects", dir.replaceAll(/[^A-Za-z0-9]/g, "-"), "memory");
+    fs.mkdirSync(memoryOf(fs.realpathSync(linkDir)), { recursive: true });
+    fs.writeFileSync(path.join(memoryOf(fs.realpathSync(linkDir)), "feedback_real.md"), "Nunca tocar el enlace.\n");
+    expect(ruleSources(linkDir, { home }).map((f) => path.basename(f))).toEqual(["feedback_real.md"]);
+    fs.mkdirSync(memoryOf(linkDir), { recursive: true });
+    fs.writeFileSync(path.join(memoryOf(linkDir), "feedback_link.md"), "Never trust a symlink path.\n");
+    expect(ruleSources(linkDir, { home }).map((f) => path.basename(f))).toContain("feedback_link.md");
+  });
 });

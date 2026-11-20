@@ -85,6 +85,10 @@ const CONTRIBUTING_DIRS = [".github", ".", "docs"];
 const contributingFile = (projectDir) =>
   CONTRIBUTING_DIRS.map((d) => path.join(projectDir, d, "CONTRIBUTING.md")).find((f) => fs.existsSync(f)) ?? null;
 
+// Claude Code names a memory folder after the real path (symlinks resolved), so a symlinked dir maps to the same folder.
+const realPath = (dir) => {
+  try { return fs.realpathSync(dir); } catch { return path.resolve(dir); /* does not exist: keep the lexical path */ }
+};
 // Claude Code names a project's memory folder after its path, every non-alphanumeric char as "-".
 function feedbackMemories(dir, home) {
   const memory = path.join(home, ".claude", "projects", dir.replaceAll(/[^A-Za-z0-9]/g, "-"), "memory");
@@ -101,7 +105,7 @@ function feedbackMemories(dir, home) {
  * @param {{home?: string}} [opts]
  */
 export function ruleSources(projectDir, { home = os.homedir() } = {}) {
-  const dirs = [...new Set([mainCheckout(projectDir), projectDir].map((d) => path.resolve(d)))];
+  const dirs = [...new Set([mainCheckout(projectDir), projectDir].flatMap((d) => [realPath(d), path.resolve(d)]))];
   const feedback = [...new Set(dirs.flatMap((d) => feedbackMemories(d, home)))];
   return [
     path.join(projectDir, "CLAUDE.md"),
