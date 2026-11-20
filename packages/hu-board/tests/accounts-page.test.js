@@ -51,3 +51,37 @@ describe('accounts page (HU-4683)', () => {
     expect(read('accounts.js')).not.toContain('innerHTML');
   });
 });
+
+describe('rescue section (HU-4718)', () => {
+  const RESCUE = {
+    claude: { hasKey: true, rules: { when: { limit: true, window: { from: 9, to: 18 } }, roles: ['coder'], models: ['<b>x</b>'], dailyBudget: 5, monthlyBudget: 50 } },
+    codex: { hasKey: false, rules: {} },
+  };
+
+  it('renders hasKey and the rules in words, markup staying text', () => {
+    const [claude, codex] = load().renderRescue(RESCUE);
+    expect(claude).toMatchObject({ provider: 'claude', hasKey: true });
+    expect(claude.rules).toBe('on limit · between 9 and 18 · roles coder · models <b>x</b> · daily 5 · monthly 50');
+    expect(codex).toMatchObject({ provider: 'codex', hasKey: false, rules: 'no rules' });
+  });
+
+  it('sends only the filled fields, typed', () => {
+    const { rescueBody } = load();
+    expect(rescueBody('claude', {})).toEqual({ provider: 'claude' });
+    const body = rescueBody('codex', { limit: true, from: '9', to: '18', roles: 'coder, tester', models: '', daily: '5', monthly: '' });
+    expect(JSON.parse(JSON.stringify(body))).toEqual({ provider: 'codex', limit: true, window: '9-18', roles: ['coder', 'tester'], daily: 5 });
+  });
+
+  it('leaves the window out when only one hour is filled', () => {
+    const { rescueBody } = load();
+    expect(rescueBody('claude', { from: '9', to: '' })).toEqual({ provider: 'claude' });
+    expect(rescueBody('claude', { to: '18' })).toEqual({ provider: 'claude' });
+  });
+  it('has no key input, only the terminal hint, and routes through call()', () => {
+    const js = read('accounts.js');
+    expect(js).toContain('kj account rescue');
+    expect(js).toContain('--key-stdin');
+    expect(js).not.toMatch(/name:\s*"key"|type:\s*"password"/);
+    expect(js).toContain('"rescue/remove"');
+  });
+});

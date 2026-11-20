@@ -15,6 +15,34 @@ function renderAccounts(payload) {
   return { rows, orders };
 }
 
+/** The rescue payload as one row per provider, its rules in words. */
+function renderRescue(payload) {
+  return ["claude", "codex"].map((provider) => {
+    const { hasKey = false, rules = {} } = payload?.[provider] ?? {};
+    const { limit, window: w } = rules.when ?? {};
+    const parts = [
+      limit && "on limit",
+      w && `between ${w.from} and ${w.to}`,
+      rules.roles?.length && `roles ${rules.roles.join(", ")}`,
+      rules.models?.length && `models ${rules.models.join(", ")}`,
+      rules.dailyBudget !== undefined && `daily ${rules.dailyBudget}`,
+      rules.monthlyBudget !== undefined && `monthly ${rules.monthlyBudget}`,
+    ].filter(Boolean);
+    return { provider, hasKey, rules: parts.join(" · ") || "no rules" };
+  });
+}
+
+/** The POST body for the filled fields only; `values` holds the raw form strings. */
+function rescueBody(provider, values) {
+  const list = (text) => (text ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  const body = { provider };
+  if (values.limit) body.limit = true;
+  if (values.from && values.to) body.window = `${values.from}-${values.to}`;
+  for (const key of ["roles", "models"]) { const items = list(values[key]); if (items.length) body[key] = items; }
+  for (const key of ["daily", "monthly"]) if (values[key]) body[key] = Number(values[key]);
+  return body;
+}
+
 function el(tag, text, attrs = {}) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -102,22 +130,61 @@ function orderForm(rows, status) {
   return form;
 }
 
-function draw(app, payload) {
+function rescueForm(provider, status) {
+  const form = el("form");
+  const hours = { type: "number", min: "0", max: "23", step: "1" };
+  const budget = { type: "number", min: "0", step: "any" };
+  form.append(field("on limit", "limit", { type: "checkbox" }), field("window from (hour)", "from", hours), field("to (hour)", "to", hours), field("roles, comma separated", "roles"), field("models, comma separated", "models"), field("daily budget", "daily", budget), field("monthly budget", "monthly", budget), el("button", "Set rules", { type: "submit", class: "control-btn" }));
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const values = Object.fromEntries(["from", "to", "roles", "models", "daily", "monthly"].map((k) => [k, form.elements[k].value]));
+    call("rescue", rescueBody(provider, { ...values, limit: form.elements.limit.checked }), status);
+  });
+  return form;
+}
+
+/** Same inline two-step confirm as removeButton, aimed at the rescue route. */
+function removeRescue(provider, status) {
+  const holder = el("span");
+  const ask = () => {
+    holder.replaceChildren(button(`Confirm remove rescue ${provider}`, () => call("rescue/remove", { provider }, status)), button("Cancel", () => holder.replaceChildren(button("Remove rescue", ask))));
+  };
+  holder.append(button("Remove rescue", ask));
+  return holder;
+}
+
+function rescueCard(row, status) {
+  const card = el("article", undefined, { class: "rag-card" });
+  card.append(el("h3", row.provider), el("p", row.hasKey ? "key set" : "no key stored: rules need a key first"), el("p", row.rules), rescueForm(row.provider, status), removeRescue(row.provider, status));
+  return card;
+}
+
+function rescueSection(rescue, status) {
+  const grid = el("div", undefined, { class: "rag-grid" });
+  grid.append(...renderRescue(rescue).map((r) => rescueCard(r, status)));
+  const section = el("section");
+  section.append(el("h2", "Rescue"), el("p", "The key is set from the terminal with: kj account rescue <provider> --key-stdin"), grid);
+  return section;
+}
+
+function draw(app, payload, rescue) {
   const { rows, orders } = renderAccounts(payload);
   const status = el("p", lastMessage, { role: "status" });
   const list = el("section", undefined, { class: "rag-grid" });
   list.append(...(rows.length ? rows.map((r) => accountCard(r, status)) : [el("p", "No accounts yet.", { class: "rag-empty" })]));
   const order = el("section");
   order.append(el("h2", "Project order"), ...orders.map((o) => el("p", `${o.project} · ${o.provider}: ${o.ids.join(" → ")}`)), orderForm(rows, status));
-  app.replaceChildren(el("h2", "Accounts"), list, el("h2", "Add an account"), addForm(status), order, status);
+  app.replaceChildren(el("h2", "Accounts"), list, el("h2", "Add an account"), addForm(status), order, rescueSection(rescue, status), status);
 }
 
 async function load() {
   const app = document.getElementById("accounts-app");
   try {
-    const r = await fetch("/api/accounts", { headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {} });
+    const headers = TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {};
+    const [r, rr] = await Promise.all([fetch("/api/accounts", { headers }), fetch("/api/accounts/rescue", { headers })]);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    draw(app, await r.json());
+    if (!rr.ok) throw new Error(`HTTP ${rr.status}`);
+    draw(app, await r.json(), (await rr.json()).rescue);
   } catch (e) { app.replaceChildren(el("p", `Error: ${e.message}`, { class: "rag-card rag-card--error" })); }
 }
 
