@@ -40,12 +40,14 @@
     .stage-worker.stage-wait-process { background: #1d4f7a; border-color: #3d86bd; color: #e2e8f0; }
     .stage-count { position: fixed; transform: translate(-50%, -100%); font-weight: 700; color: #f0b429; pointer-events: none; }
     /* KJC-TSK-1585: one filled colour per kind of answer, white text that reads on each. */
-    .stage-mark { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 8px; color: #fff; border: 1px solid rgb(255 255 255 / 0.25); font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; }
-    .stage-mark-approve { background: #1d7f45; }
-    .stage-mark-refuse { background: #b8282f; }
-    .stage-mark-stop { background: #6d35b5; }
-    .stage-mark-exempt { background: #9a5b0c; }
-    .stage-mark-unsure { background: #545e6e; }
+    /* KJC-TSK-1711: a comic bubble, a few words a line, its tail on the workshop; the tone is its edge. */
+    .stage-mark { --tone: #545e6e; position: fixed; transform: translate(-50%, calc(-100% - 12px)); width: max-content; max-width: 190px; padding: 6px 11px; border-radius: 16px; background: #fffdf5; color: #10161f; border: 2.5px solid var(--tone); box-shadow: 0 3px 10px rgb(0 0 0 / 0.35); font-size: 13px; font-weight: 700; line-height: 1.25; text-align: center; overflow-wrap: anywhere; pointer-events: none; }
+    .stage-mark::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; background: #fffdf5; border-right: 2.5px solid var(--tone); border-bottom: 2.5px solid var(--tone); transform: translateX(-50%) rotate(45deg); }
+    .stage-mark-approve { --tone: #1d7f45; }
+    .stage-mark-refuse { --tone: #b8282f; }
+    .stage-mark-stop { --tone: #6d35b5; }
+    .stage-mark-exempt { --tone: #9a5b0c; }
+    .stage-mark-unsure { --tone: #545e6e; }
     /* KJC-TSK-1588: the sign over a desk whose card waits with no agent, one colour per lane state. */
     .stage-desk { position: fixed; transform: translate(-50%, -100%); padding: 1px 8px; border-radius: 6px; color: #fff; border: 1px solid rgb(255 255 255 / 0.25); font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; }
     .stage-desk-merge { background: #9a5b0c; }

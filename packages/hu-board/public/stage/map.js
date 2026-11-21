@@ -11,7 +11,7 @@ import { withToken } from './token.js';
 import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { FLIGHT_MS, flightAt, groundAt, lotAt } from './flight.js';
 import { mapName } from './cards.js';
-import { MARK_MS } from './marks.js';
+import { MARK_MS, MAX_QUEUED } from './marks.js';
 import { glowAt, mailboxOf, mailTotal, withMail } from './mail.js';
 import { createMailbox } from './mailbox.js';
 
@@ -188,7 +188,10 @@ export function startMap({ canvas, factories, token, tell, counts, avatar = null
     const factory = lives.get(event.project); // a project not on the map has no factory
     if (factory) factory.box = withMail(factory.box, event);
     factory?.live.push(event, performance.now());
-    if (still) { draw(performance.now()); setTimeout(() => draw(performance.now()), MARK_MS + 50); }
+    if (!still) return;
+    draw(performance.now());
+    // KJC-TSK-1711: the marks queue one after another, so a still map redraws at each turn.
+    for (let turn = 1; turn <= MAX_QUEUED + 1; turn += 1) setTimeout(() => draw(performance.now()), turn * MARK_MS + 50);
   };
   const loop = (ms) => { draw(ms); requestAnimationFrame(loop); };
   if (still) draw(performance.now());

@@ -45,7 +45,6 @@ import { Vector3 } from 'three';
 // whatever the camera's distance.
 const MARK_Y = { gates: -0.5 };
 const MARK_BASE_Y = 1.4;
-const MARK_ROW_PX = 22;
 // KJC-TSK-1588: a desk's sign, just over the card on it and under the workshop's marks.
 const DESK_SIGN_Y = -0.4;
 const GATES_DX = WORKSHOP.width / 2 - 0.9; // as hall.js places them
@@ -180,16 +179,13 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   const showMarks = (now) => {
     for (const lane of gatesLit) hall.lightGates(lane, 'approve', 0);
     gatesLit = new Set();
-    const rows = new Map(); // lane -> marks already stacked over its workshop
+    // KJC-TSK-1711: one mark at a time (marks.js queues them), so none stacks over another.
     return marksAt(marks, now).map((mark) => {
       // The gates' mark sits over the gates themselves, at the back corner of the workshop.
       const atGates = mark.kind === 'gates';
       if (atGates) { hall.lightGates(mark.lane, mark.tone, mark.level); gatesLit.add(mark.lane); }
       const over = new Vector3(hall.xOf(mark.lane) + (atGates ? GATES_DX : 0), MARK_Y[mark.kind] ?? MARK_BASE_Y, hall.zOf(mark.lane) - (atGates ? WORKSHOP.depth / 2 : 0));
       const tag = overPiece(mark.text, over, camera, origin, `stage-mark stage-mark-${mark.tone}`);
-      const row = atGates ? 0 : rows.get(mark.lane) ?? 0;
-      if (!atGates) rows.set(mark.lane, row + 1);
-      tag.style.marginTop = `${-row * MARK_ROW_PX}px`;
       tag.style.opacity = String(mark.level); // it fades as it ages
       return tag;
     });
