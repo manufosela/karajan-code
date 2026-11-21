@@ -7,13 +7,13 @@
  */
 import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
-import { commitFiles, MARKER, SONAR_MARKS } from "./publish-pr.js";
+import { commitFiles, MARKER, SONAR_MARKS, prBaseLayout } from "./publish-pr.js";
 import { trustedReviews } from "./trusted-review.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { isSealCommit } from "./seal-commit.js";
 import { isRosterCommit } from "./roster-commit.js";
-import { sourceFilesOf } from "./tests-with-code.js";
+import { sonarSourcesOf } from "./sonar-requirement.js";
 
 // The marker of a kj review for any head: what MARKER writes up to the head itself.
 const MARKER_PREFIX = MARKER("\0").split("\0")[0];
@@ -34,9 +34,9 @@ function listedCommits(kjReviews) {
 }
 
 /** Whether a commit touches code, by the extension rule and config the commit gate uses. */
-async function touchesCode(projectDir, sha, run, config) {
+export async function touchesCode(projectDir, sha, run, config, layout) {
   const { files, generated } = await commitFiles(projectDir, sha, run);
-  return sourceFilesOf(config, files, generated).sources.length > 0;
+  return sonarSourcesOf({ config, files, generated, layout }).length > 0;
 }
 
 async function json(run, args, cwd) {
@@ -65,8 +65,9 @@ async function hashesOf(projectDir, sha, run) {
  * @returns {Promise<{ok: boolean, commits: number, problems: string[], sealCommits?: string[]}>}
  */
 export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null, config = {} }) {
-  const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits"], projectDir);
+  const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits,baseRefName"], projectDir);
   const commits = info.commits ?? [];
+  const layout = await prBaseLayout(projectDir, info);
   // One review per line, every page: --slurp is missing from the gh that distros ship.
   const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/pulls/${pr}/reviews`, "--jq", ".[] | {body, author_association, user: {login: .user.login}}"], { cwd: projectDir });
   if (res.exitCode !== 0) throw new Error(`gh api reviews failed: ${(res.stderr || res.stdout || "").trim()}`);
@@ -86,7 +87,7 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
     if (await isCleanMerge(projectDir, c.oid, run)) continue;
     const entry = listed.get(c.oid.slice(0, 7));
     if (entry && (await hashesOf(projectDir, c.oid, run)).has(entry.hash)) {
-      if (!entry.proved && (await touchesCode(projectDir, c.oid, run, config))) problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): ${NO_SONAR}`);
+      if (!entry.proved && (await touchesCode(projectDir, c.oid, run, config, layout))) problems.push(`${c.oid.slice(0, 7)} (${c.messageHeadline}): ${NO_SONAR}`);
       continue;
     }
     seal ??= verifiedSupervisorFiles({ projectDir, trackedOnly: true });

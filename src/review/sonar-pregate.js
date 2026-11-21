@@ -16,7 +16,7 @@ import { getOpenIssues } from "../sonar/api.js";
 import { acquireToolLock } from "../utils/tool-governor.js";
 
 const DEFAULT_SCAN_SLOTS = 2;
-import { sourceFilesOf } from "./tests-with-code.js";
+import { sonarSourcesOf } from "./sonar-requirement.js";
 
 const BLOCKING_SEVERITIES = new Set(["BLOCKER", "CRITICAL"]);
 
@@ -112,8 +112,8 @@ async function scanGroup(config, dir, { projectDir, rootCwd, logger }) {
   };
 }
 
-function pregateResult({ config, stagedFiles, touchedLines, indexed, issues, keys, totalProject, generated }) {
-  const { sources } = sourceFilesOf(config, stagedFiles, generated);
+export function pregateResult({ config, stagedFiles, touchedLines, indexed, issues, keys, totalProject, generated, layout }) {
+  const sources = sonarSourcesOf({ config, files: stagedFiles, generated, layout });
   const staged = new Set(stagedFiles);
   const onStaged = issues.filter((i) => staged.has(issueFile(i)));
   // KJC-TSK-0795 AC3: with the diff's line map, only issues on lines the PR
@@ -135,7 +135,7 @@ function pregateResult({ config, stagedFiles, touchedLines, indexed, issues, key
 }
 
 // KJC-TSK-1078: projectDir is where the files live (a third-party PR's clone may not be the cwd).
-export async function runSonarPregate({ config, stagedFiles = [], touchedLines = null, logger = null, exists = existsSync, projectDir = process.cwd(), generated }) {
+export async function runSonarPregate({ config, stagedFiles = [], touchedLines = null, logger = null, exists = existsSync, projectDir = process.cwd(), generated, layout }) {
   if (config?.review_gate?.sonar === false) {
     return { available: false, reason: "disabled in config (review_gate.sonar: false)" };
   }
@@ -163,7 +163,7 @@ export async function runSonarPregate({ config, stagedFiles = [], touchedLines =
       totalProject += group.total;
       issues.push(...group.issues);
     }
-    return pregateResult({ config, stagedFiles, touchedLines, indexed, issues, keys, totalProject, generated });
+    return pregateResult({ config, stagedFiles, touchedLines, indexed, issues, keys, totalProject, generated, layout });
   } catch (err) {
     logger?.warn?.(`[sonar-pregate] ${err.message}`);
     return { available: false, reason: err.message };
