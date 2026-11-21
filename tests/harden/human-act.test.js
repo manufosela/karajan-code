@@ -2,7 +2,7 @@
 // tests (supervisor-commit.test.js) keep proving them through `harden --commit`;
 // these prove the module any other human-only command builds on.
 import { describe, it, expect } from "vitest";
-import { HUMAN_ACTS, agentAncestry, confirmHuman, humanAct, humanActOf, refuseAgentSession, ttyDevice, winProcessTable } from "../../src/harden/human-act.js";
+import { HUMAN_ACTS, agentAncestry, confirmHuman, humanAct, humanActOf, readTty, refuseAgentSession, ttyDevice, winProcessTable } from "../../src/harden/human-act.js";
 
 // KJC-TSK-0966 (HUM-C, ADR 0018): one closed catalog, one mechanism.
 describe("the catalog of human acts", () => {
@@ -113,6 +113,43 @@ describe("the terminal a nonce is read from", () => {
     expect(ttyDevice("win32")).toBe("CONIN$");
     expect(ttyDevice("linux")).toBe("/dev/tty");
     expect(ttyDevice("darwin")).toBe("/dev/tty");
+  });
+});
+
+describe("readTty", () => {
+  const fakeFs = (typed) => {
+    const log = [];
+    let next = 3;
+    return {
+      log,
+      openSync: (path, flags) => { log.push(["open", path, flags]); return next++; },
+      writeSync: (fd, text) => { log.push(["write", fd, text]); },
+      readSync: (fd, buf) => { log.push(["read", fd]); return buf.write(typed); },
+      closeSync: (fd) => { log.push(["close", fd]); },
+    };
+  };
+
+  it("writes the code to the terminal itself before it waits, never to stdout", () => {
+    const fs = fakeFs("abc123\n");
+    expect(readTty("kj x", "abc123", { platform: "linux", fs })).toBe("abc123");
+    const write = fs.log.findIndex(([op]) => op === "write");
+    const read = fs.log.findIndex(([op]) => op === "read");
+    expect(fs.log[0]).toEqual(["open", "/dev/tty", "w"]);
+    expect(fs.log[write][2]).toContain('teclea "abc123"');
+    expect(write).toBeLessThan(read);
+    expect(fs.log.filter(([op]) => op === "close")).toHaveLength(2);
+  });
+
+  it("on Windows writes to the console output and reads the console input", () => {
+    const fs = fakeFs("abc123");
+    readTty("kj x", "abc123", { platform: "win32", fs });
+    const opened = fs.log.filter(([op]) => op === "open").map(([, path]) => path);
+    expect(opened).toEqual(["CONOUT$", "CONIN$"]);
+  });
+
+  it("answers null when the terminal cannot be opened", () => {
+    const fs = { ...fakeFs(""), openSync: () => { throw new Error("ENXIO"); } };
+    expect(readTty("kj x", "abc123", { platform: "linux", fs })).toBeNull();
   });
 });
 

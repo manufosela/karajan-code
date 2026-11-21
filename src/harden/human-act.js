@@ -10,7 +10,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, writeSync } from "node:fs";
 
 const AGENT_PROC = /claude|codex|copilot|gemini|opencode|\bagy\b/i;
 
@@ -105,13 +105,20 @@ export function refuseAgentSession(what, { env = process.env, tty = process.stdo
 // The answer comes from the process's REAL tty (not stdin, which an attacker
 // feeds through a pipe): /dev/tty (CONIN$ on Windows) only exists with a controlling terminal.
 export const ttyDevice = (platform = process.platform) => (platform === "win32" ? "CONIN$" : "/dev/tty");
-function readTty(what, nonce) {
-  process.stdout.write(`${what}: teclea "${nonce}" para confirmar que eres humano: `);
+const ttyOutDevice = (platform) => (platform === "win32" ? "CONOUT$" : "/dev/tty");
+const TTY_FS = { openSync, readSync, writeSync, closeSync };
+
+// KJC-BUG-0651: the code goes to the terminal it is read from, written
+// synchronously before the read blocks; stdout may be a pipe that never shows it.
+export function readTty(what, nonce, { platform = process.platform, fs = TTY_FS } = {}) {
   try {
+    const out = fs.openSync(ttyOutDevice(platform), "w");
+    fs.writeSync(out, `${what}: teclea "${nonce}" para confirmar que eres humano: `);
+    fs.closeSync(out);
     const buf = Buffer.alloc(64);
-    const fd = openSync(ttyDevice(), "r");
-    const n = readSync(fd, buf, 0, 64);
-    closeSync(fd);
+    const fd = fs.openSync(ttyDevice(platform), "r");
+    const n = fs.readSync(fd, buf, 0, 64);
+    fs.closeSync(fd);
     return buf.toString("utf8", 0, n).trim();
   } catch {
     return null;
