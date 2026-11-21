@@ -62,19 +62,21 @@ describe("kj worktree prune", () => {
     expect(r.kept[0].reasons.join()).toMatch(/not regenerable \(\.env\)/);
   });
 
-  // HU-3574 (#3554): the ignored config a lane inherits is setup; edited in the lane, it is the lane's.
-  it.each([["its own pattern", "kj.config.yml\n"], ["a whole ignored .karajan/", ".karajan/\n"]])("retires a lane holding the inherited local config (%s), keeps an edited one", async (_n, ignore) => {
+  // HU-4757 (replaces HU-3574): the local config is ONE file; the lane holds a link to main's, regenerable.
+  it.each([["its own pattern", "kj.config.yml\n"], ["a whole ignored .karajan/", ".karajan/\n"]])("retires a lane whose local config is the link to main's (%s)", async (_n, ignore) => {
     fs.writeFileSync(path.join(dir, ".gitignore"), ignore); git("add", ".gitignore"); git("commit", "-qm", "ignore");
     fs.mkdirSync(path.join(dir, ".karajan"));
-    fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), "x: 1\n");
-    const edited = await lane("edited");
-    fs.writeFileSync(path.join(edited, ".karajan", "kj.config.yml"), "x: 2\n");
-    const inherited = await lane("inherited");
-    expect(fs.readFileSync(path.join(inherited, ".karajan", "kj.config.yml"), "utf8")).toBe("x: 1\n");
-    fs.writeFileSync(path.join(inherited, ".karajan", "rag.db"), "db");
+    const main = path.join(dir, ".karajan", "kj.config.yml");
+    fs.writeFileSync(main, "x: 1\n");
+    const linked = await lane("linked");
+    const held = path.join(linked, ".karajan", "kj.config.yml");
+    expect(fs.lstatSync(held).isSymbolicLink()).toBe(true);
+    fs.writeFileSync(main, "x: 2\n");
+    expect(fs.readFileSync(held, "utf8")).toBe("x: 2\n");
+    fs.writeFileSync(path.join(linked, ".karajan", "rag.db"), "db");
     const r = await prune();
-    expect(r.removed.map((l) => l.slug)).toEqual(["inherited"]);
-    expect(r.kept.map((l) => [l.slug, l.reasons.join()])).toEqual([["edited", expect.stringMatching(/not regenerable/)]]);
+    expect(r.removed.map((l) => l.slug)).toEqual(["linked"]);
+    expect(fs.readFileSync(main, "utf8")).toBe("x: 2\n");
   });
 
   it("a detached lane with commits of its own is kept", async () => {
