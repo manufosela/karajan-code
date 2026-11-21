@@ -49,6 +49,8 @@ const SCRIPT_BODIES = {
   "sentinel-handoffs.mjs": readFileSync(new URL("./sentinel/sentinel-handoffs.mjs", import.meta.url), "utf8"),
   // HU-4210: the link mail that waits, read from a file by the stop guard.
   "sentinel-mail.mjs": readFileSync(new URL("./sentinel/sentinel-mail.mjs", import.meta.url), "utf8"),
+  // HU-4745: the presence beat, the sessions open for kj stage.
+  "presence.mjs": readFileSync(new URL("./sentinel/presence.mjs", import.meta.url), "utf8"),
 };
 
 /**
@@ -257,6 +259,10 @@ export const SENTINEL_WIRING = [
   { event: "SessionStart", matcher: "resume", script: "sessionstart.mjs" },
   // KJC-TSK-0949: a new session hears of MD rules with no gate, and nothing else.
   { event: "SessionStart", matcher: "startup", script: "sessionstart.mjs" },
+  // HU-4745: presence for kj stage, the sessions open and waiting for the user. Governs nothing.
+  { event: "SessionStart", script: "presence.mjs", stage: true },
+  { event: "UserPromptSubmit", script: "presence.mjs", stage: true },
+  { event: "SessionEnd", script: "presence.mjs", stage: true },
 ];
 
 /** The wiring that governs: what the checks demand. kj harden installs SENTINEL_WIRING whole. */

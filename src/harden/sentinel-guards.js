@@ -21,6 +21,7 @@ export const SENTINEL_GUARDS = {
   posttooluse: () => import("./sentinel/posttooluse.mjs"),
   stop: () => import("./sentinel/stop.mjs"),
   sessionstart: () => import("./sentinel/sessionstart.mjs"),
+  presence: () => import("./sentinel/presence.mjs"),
 };
 
 // ADR 0055 step 2 (KJC-TSK-1558): the guards that judge a call before it runs.

@@ -21,12 +21,26 @@ const kindOf = (tool) => {
 
 /**
  * The trace lines a hook adds and the beats after it. `beats` is {sessionId:
- * last start ms}; `phase` is "pre" (before a tool), "post" (after it) or "stop".
+ * last start ms}; `phase` is "pre" (before a tool), "post" (after it), "stop", "open" or "close".
  */
 export function hostTrace(beats, call, phase, now) {
   const sid = String(call?.session_id ?? "default");
   const next = { ...beats };
   const lines = [];
+  // HU-4745: presence, kept apart from the work beat. "open" (session start, a prompt) at most
+  // once a minute, with the host's pid; "close" when the session ends.
+  const seen = `open:${sid}`;
+  if (phase === "open") {
+    if (seen in next && now - next[seen] < BEAT_MS) return { lines, beats: next };
+    const pid = Number.isInteger(call?.host_pid) ? { pid: call.host_pid } : {};
+    next[seen] = now;
+    return { lines: [{ agent: AGENT, role: "host", phase: "open", id: sid, ...pid }], beats: next };
+  }
+  if (phase === "close") {
+    delete next[seen];
+    delete next[sid];
+    return { lines: [{ agent: AGENT, role: "host", phase: "close", id: sid }], beats: next };
+  }
   if (phase === "stop") {
     if (sid in next) lines.push({ agent: AGENT, role: "host", phase: "end", id: sid });
     delete next[sid];
@@ -92,7 +106,8 @@ export function traceHost(rootDir, call, phase, now = Date.now()) {
     const beatsFile = join(dir, "host-beats.json");
     let beats = {};
     try { beats = JSON.parse(readFileSync(beatsFile, "utf8")); } catch { /* first call of the lane */ }
-    const { lines, beats: after } = hostTrace(beats, call, phase, now);
+    // HU-4745: the hook's parent is the host process, so the stage can tell a session still open.
+    const { lines, beats: after } = hostTrace(beats, phase === "open" ? { ...call, host_pid: process.ppid } : call, phase, now);
     if (!lines.length) return;
     // KJC-BUG-0527: the activity trace goes to .karajan/traces; the beats stay in harness (Sentinel state).
     const traces = join(root, ".karajan", "traces");
