@@ -55,6 +55,8 @@ function workingAfter(working, event) {
   const moved = (w) => event.phase === 'start' && event.id && w.id === event.id;
   const others = working.filter((w) => !same(w) && !moved(w));
   const now = workerOf(event, lane);
+  // KJC-TSK-1715: a session that opens is there, waiting, unless it already was.
+  if (event.phase === 'open') return working.some(same) ? working : [...working, { ...now, waiting: 'person' }];
   if (event.phase === 'start') {
     // KJC-TSK-1610: an id-less start of a host already there keeps it, with its id, at work again.
     const kept = event.id ? null : working.find((w) => same(w) && w.id);

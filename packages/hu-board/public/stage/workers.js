@@ -188,8 +188,11 @@ export function withActivity(workers, event, now) {
     const moved = workers.map((w) => (elsewhere(w) ? { ...w, leftAt: now } : w));
     return [...moved, newWorker(moved, event, now)];
   }
+  // KJC-TSK-1715: a session that opens sits waiting at its desk, unless it is already there.
+  if (event.phase === 'open') return workers.some((w) => inside(w, event)) ? workers : [...workers, newWorker(workers, { ...event, waiting: 'person' }, now)];
   // KJC-TSK-1607: a host whose turn ends waiting (KJC-TSK-1606) stays at its desk; anyone else leaves.
-  const ends = (w) => (event.waits && w.role === 'host' ? { ...w, waiting: event.waits } : { ...w, leftAt: now });
+  // KJC-TSK-1715: a session that closes says nothing to wait for, so it leaves.
+  const ends =(w) => (event.waits && w.role === 'host' ? { ...w, waiting: event.waits } : { ...w, leftAt: now });
   return workers.map((w) => (inside(w, event) ? ends(w) : w));
 }
 
