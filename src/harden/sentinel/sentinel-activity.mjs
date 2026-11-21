@@ -93,6 +93,36 @@ export function laneOf(root, call) {
   } catch { return root; } // not in a git work tree: the root's trace
 }
 
+// HU-4756: what runs between the host and the guard is the hook itself: its sh -c (which does not
+// exec the guard) and the node running kj-hook or `kj sentinel hook`. Each names the guard in its
+// command line; the host, or a shell or node of the user's, does not. The host is the first above.
+const HOOK_LAYER = /kj-hook|sentinel hook|\.karajan[\\/]harness|presence\.mjs/;
+
+/** One process's parent and command line: /proc on Linux, ps elsewhere; throws when neither answers. */
+const readProcess = (p) => {
+  try {
+    const stat = readFileSync(`/proc/${p}/stat`, "utf8");
+    const cmd = readFileSync(`/proc/${p}/cmdline`, "utf8").replaceAll("\0", " ");
+    return { ppid: Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]), cmd };
+  } catch {
+    const [ppid, ...cmd] = execFileSync("ps", ["-o", "ppid=", "-o", "args=", "-p", String(p)], { encoding: "utf8" }).trim().split(/\s+/);
+    return { ppid: Number(ppid), cmd: cmd.join(" ") };
+  }
+};
+
+/** The host's pid: climbs from `from` past the hook's own processes; undefined when the chain cannot be read. */
+export function hostPid({ from = process.ppid, read = readProcess, maxDepth = 12 } = {}) {
+  let cur = from;
+  try {
+    for (let i = 0; i < maxDepth && cur > 1; i++) {
+      const { ppid, cmd } = read(cur);
+      if (!HOOK_LAYER.test(cmd)) return cur;
+      cur = ppid;
+    }
+  } catch { /* no /proc and no ps (Windows): the stage gets no pid rather than a wrong one */ }
+  return undefined;
+}
+
 /** Writes what `hostTrace` says into the lane the call works in (else `rootDir`); any failure is swallowed. */
 export function traceHost(rootDir, call, phase, now = Date.now()) {
   // The user's switch for the whole Sentinel: off, the guards note nothing either.
@@ -106,8 +136,8 @@ export function traceHost(rootDir, call, phase, now = Date.now()) {
     const beatsFile = join(dir, "host-beats.json");
     let beats = {};
     try { beats = JSON.parse(readFileSync(beatsFile, "utf8")); } catch { /* first call of the lane */ }
-    // HU-4745: the hook's parent is the host process, so the stage can tell a session still open.
-    const { lines, beats: after } = hostTrace(beats, phase === "open" ? { ...call, host_pid: process.ppid } : call, phase, now);
+    // HU-4745: the host's pid, so the stage can tell a session still open (HU-4756: not the hook's sh).
+    const { lines, beats: after } = hostTrace(beats, phase === "open" ? { ...call, host_pid: hostPid() } : call, phase, now);
     if (!lines.length) return;
     // KJC-BUG-0527: the activity trace goes to .karajan/traces; the beats stay in harness (Sentinel state).
     const traces = join(root, ".karajan", "traces");
