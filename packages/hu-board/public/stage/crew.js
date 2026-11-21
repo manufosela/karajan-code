@@ -5,6 +5,7 @@ import { CREW, POST, SCALE, SENTINEL_POST, STAND, STATIONS, postX } from './layo
 import { createRobot } from './cast/robot.js';
 import { createPiece } from './cast/piece.js';
 import { createStand } from './cast/stand.js';
+import { plinthTint } from './drone-tint.js';
 import { tddBody } from './cast/pieces/tdd.js';
 import { sentinelBody } from './cast/pieces/sentinel.js';
 import { reviewBody } from './cast/pieces/review.js';
@@ -46,7 +47,7 @@ export function populate(scene) {
   const stand = createStand('atril', [['atril', 'skills'], ...PIECES.map(([, name]) => [name, 'skill'])]);
   place(stand.group, STAND, SCALE.stand);
   const pieces = Object.fromEntries(PIECES.map(([id, name, kind, body], i) => {
-    const piece = createPiece(i, name, { kind, body });
+    const piece = createPiece(i, name, { kind, body, tint: plinthTint(id) });
     // ADR 0048: each piece waits at its post; the Sentinel watches from its raised one.
     if (id === 'sentinel') {
       place(piece.group, SENTINEL_POST, SCALE.piece);

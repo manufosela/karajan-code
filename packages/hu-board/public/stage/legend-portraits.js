@@ -14,6 +14,7 @@ import { STATIONS } from './layout.js';
 import { createMailbox } from './mailbox.js';
 import { createPlumber } from './plumber.js';
 import { createCoffeeCart } from './cast/coffee-cart.js';
+import { plinthTint } from './drone-tint.js';
 import { TEAMMATE, recipeOf } from './portrait-recipes.js';
 import { createReleaseTable } from './release-table.js';
 import { createWall } from './wall.js';
@@ -54,7 +55,7 @@ function crewOf(id) {
 }
 function pieceOf(id) {
   const [name, kind, body] = LOOKS[id];
-  const piece = createPiece(STATIONS.indexOf(id), name, { kind, body });
+  const piece = createPiece(STATIONS.indexOf(id), name, { kind, body, tint: plinthTint(id) });
   piece.setLight(1);
   return piece.group;
 }
