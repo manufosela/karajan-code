@@ -146,6 +146,11 @@ const CONTEXT_DISCARDS = [
   // (about 1 in 100) still warns, because nothing tells it apart from a phone
   // written after "R-"; the allow list is the way out for that one.
   { type: "rule-id", re: /\bR-(?=\d*[a-f])[0-9a-f]{10}\b/g },
+  // HU-4724 (#4722): `Cache-Control: max-age=31536000` is one year in seconds, a
+  // phone-shaped run that every hosting config repeats. Only the VALUE after one of
+  // the four age directives and `=`, at most 10 digits. A bare number or any other
+  // key still warns.
+  { type: "cache-control-age", re: /(?<=\b(?:max-age|s-maxage|stale-while-revalidate|stale-if-error)=)\d{1,10}(?!\d)/g },
   // KJC-BUG-0317: a kj plan id is `plan-` + a YYYYMMDDHHMMSS stamp + `-` + 4
   // lowercase alphanumerics, also inside an HU id (hu_<planId>_007, hence the
   // lookarounds instead of \b). Only that WHOLE shape with a real 20xx date and
