@@ -60,7 +60,7 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
       const r = await start({ info: (m) => infos.push(m), warn: () => {} });
       expect(fs.readFileSync(path.join(lane, CONFIG), "utf8")).toBe("development:\n  source_file_extensions: [.js]\n");
       expect(r.config).toBe(true);
-      expect(infos).toContain(`  config: ${CONFIG} copied from the main checkout (git ignores it)`);
+      expect(infos).toContain(`  config: ${CONFIG} linked to the main checkout (git ignores it)`);
       expect(laneWork(git(lane, "status", "--porcelain", "--ignored=matching", "--untracked-files=all"), lane)).toEqual([]);
     });
 
@@ -76,7 +76,8 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
       expect(fs.existsSync(path.join(lane, CONFIG))).toBe(false);
     });
 
-    it("never overwrites the lane's own config and says nothing", async () => {
+    it("never overwrites a lane config git does not ignore, and says nothing", async () => {
+      cut("");
       put(main, "from: main\n");
       put(lane, "from: lane\n");
       const infos = [];
@@ -84,6 +85,25 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
       expect(fs.readFileSync(path.join(lane, CONFIG), "utf8")).toBe("from: lane\n");
       expect(r.config).toBe(false);
       expect(infos.join("\n")).not.toMatch(/config:/);
+    });
+
+    // HU-4757: the config is one file; the lane follows main, and an old copy converges.
+    it("sees a later change to the main config", async () => {
+      cut("kj.config.yml\n");
+      put(main, "reviewer: agy\n");
+      await start();
+      put(main, "reviewer: codex\n");
+      expect(fs.readFileSync(path.join(lane, CONFIG), "utf8")).toBe("reviewer: codex\n");
+    });
+
+    it("replaces a stale plain copy so it follows main", async () => {
+      cut("kj.config.yml\n");
+      put(main, "reviewer: codex\n");
+      put(lane, "reviewer: agy\n");
+      expect((await start()).config).toBe(true);
+      put(main, "reviewer: claude\n");
+      expect(fs.readFileSync(path.join(lane, CONFIG), "utf8")).toBe("reviewer: claude\n");
+      expect((await start()).config).toBe(false);
     });
 
     it("without one in the main checkout it does nothing and does not warn", async () => {
@@ -106,6 +126,7 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
       expect(laneWork(`!! ${CONFIG}\n!! .karajan/`, lane)).toEqual([]);
       expect(laneWork(`?? ${CONFIG}\n M ${CONFIG}`, lane)).toEqual([`?? ${CONFIG}`, ` M ${CONFIG}`]);
       expect(laneWork(`!! ${CONFIG}`)).toEqual([`!! ${CONFIG}`]); // no lane to compare: not provably inherited
+      fs.rmSync(path.join(lane, CONFIG)); // the lane's link, so a diverging copy can stand in its place
       put(lane, "x: 2\n");
       expect(laneWork(`!! ${CONFIG}\n!! .karajan/`, lane)).toEqual([`!! ${CONFIG}`, "!! .karajan/"]);
       put(lane, "x: 1\n");
@@ -138,17 +159,18 @@ describe("hu/lane-setup — KJC-TSK-1371", () => {
       const r = await setupLane({ mainDir: main, lanePath: lane, logger: { info: (m) => infos.push(m), warn: () => {} }, install: wired });
       expect(fs.readFileSync(path.join(lane, RULES), "utf8")).toBe("rules: []\n");
       expect(r.rules).toBe(true);
-      expect(infos).toContain(`  rules: ${RULES} copied from the main checkout (git ignores it)`);
+      expect(infos).toContain(`  rules: ${RULES} linked to the main checkout (git ignores it)`);
       expect(laneWork(git(lane, "status", "--porcelain", "--ignored=matching", "--untracked-files=all"), lane)).toEqual([]);
     });
 
-    it("never overwrites the lane's own rules", async () => {
+    it("replaces a stale copy of the rules so they follow main", async () => {
       cut();
       put(main, "from: main\n");
       put(lane, "from: lane\n");
       const r = await setupLane({ mainDir: main, lanePath: lane, logger: quiet, install: wired });
-      expect(fs.readFileSync(path.join(lane, RULES), "utf8")).toBe("from: lane\n");
-      expect(r.rules).toBe(false);
+      put(main, "from: main 2\n");
+      expect(fs.readFileSync(path.join(lane, RULES), "utf8")).toBe("from: main 2\n");
+      expect(r.rules).toBe(true);
     });
 
     it("never injects rules the main checkout tracks", async () => {

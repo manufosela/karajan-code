@@ -70,13 +70,31 @@ function gitIgnores(dir, rel) {
   return r.status === 0;
 }
 
-/** Copies an operator's local file only when git ignores it on both sides; never over a lane file. */
-function copyLocalFile(mainDir, lanePath, rel) {
+/** How the lane holds the file, for the log: "linked to" main's, or "copied from" it (the copy fallback). */
+const linkedOrCopied = (lanePath, rel) => (fs.lstatSync(path.join(lanePath, rel)).isSymbolicLink() ? "linked to" : "copied from");
+
+/**
+ * HU-4757: the operator's local file is ONE file. Where git ignores it on both sides the lane gets a
+ * symlink to the main checkout's, so a later change there (the panel's reviewer, say) is seen at once;
+ * an older plain copy is replaced so lanes made before converge. Never a tracked file, never a lane
+ * file git does not ignore. Where a symlink needs privileges (EPERM, Windows) a plain copy is made
+ * instead; it is replaced by the link, or a fresh copy, the next time the lane is set up.
+ * @returns {boolean} whether the lane's file was created or replaced
+ */
+function linkLocalFile(mainDir, lanePath, rel) {
   const source = path.join(mainDir, rel);
   const target = path.join(lanePath, rel);
-  if (!fs.existsSync(source) || fs.existsSync(target) || !gitIgnores(mainDir, rel) || !gitIgnores(lanePath, rel)) return false;
+  if (!fs.existsSync(source) || !gitIgnores(mainDir, rel) || !gitIgnores(lanePath, rel)) return false;
+  const held = fs.lstatSync(target, { throwIfNoEntry: false });
+  if (held?.isSymbolicLink() && fs.readlinkSync(target) === source) return false;
   fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.copyFileSync(source, target);
+  fs.rmSync(target, { force: true });
+  try {
+    fs.symlinkSync(source, target);
+  } catch (err) {
+    if (err?.code !== "EPERM") throw err;
+    fs.copyFileSync(source, target);
+  }
   return true;
 }
 
@@ -92,11 +110,11 @@ export async function setupLane({ mainDir, lanePath, logger = console, install =
   if (identity) logger.info?.(`  identity: ${IDENTITY} copied from the main checkout`);
   else logger.warn?.(`! no ${IDENTITY} in the main checkout: run kj identity set in the lane before pushing`);
 
-  const config = step("the local kj config", () => copyLocalFile(mainDir, lanePath, LOCAL_CONFIG));
-  if (config) logger.info?.(`  config: ${LOCAL_CONFIG} copied from the main checkout (git ignores it)`);
+  const config = step("the local kj config", () => linkLocalFile(mainDir, lanePath, LOCAL_CONFIG));
+  if (config) logger.info?.(`  config: ${LOCAL_CONFIG} ${linkedOrCopied(lanePath, LOCAL_CONFIG)} the main checkout (git ignores it)`);
 
-  const rules = step("the personal rules", () => copyLocalFile(mainDir, lanePath, LOCAL_RULES));
-  if (rules) logger.info?.(`  rules: ${LOCAL_RULES} copied from the main checkout (git ignores it)`);
+  const rules = step("the personal rules", () => linkLocalFile(mainDir, lanePath, LOCAL_RULES));
+  if (rules) logger.info?.(`  rules: ${LOCAL_RULES} ${linkedOrCopied(lanePath, LOCAL_RULES)} the main checkout (git ignores it)`);
 
   step("the Sentinel wiring", () => {
     const quiet = { info: () => {}, warn: (m) => logger.warn?.(m) };
