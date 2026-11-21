@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.32.0: drones, grúa y almacén en el stage; página de cuentas en el board (actual)
+### v5.33.0: las reglas de rescate en el board; el código de confirmación siempre a la vista (actual)
+
+La página de cuentas del HU Board tiene una sección de rescate que muestra y cambia cuándo puede usarse la clave de rescate, con qué y cuánto, sin llevar nunca la clave. El código de confirmación de un acto humano (`kj rules approve`, `kj harden --commit`) se escribe en la propia terminal antes de que kj lo espere, así que ya no se queda sin verse. El privacy scan deja de leer como teléfono el número de `max-age` y `kj rules` encuentra las memorias de un proyecto enlazado con un symlink. En `kj stage` las marcas de los drones salen como bocadillos de cómic, de una en una, y los drones parecen drones.
+
+### v5.32.0: drones, grúa y almacén en el stage; página de cuentas en el board
 
 En `kj stage` las piezas y el Sentinel se quedan en su puesto y mandan un dron al agente que revisan o paran. Los talleres sin actividad esperan en un almacén junto a la nave y una grúa los trae de vuelta cuando vuelve un agente, así los que trabajan quedan juntos delante. El HU Board tiene una página de cuentas que ejecuta los mismos comandos `kj account` que la terminal, y `kj account rescue` guarda la clave de rescate sin mostrarla nunca. `kj identity enroll-phone` commitea el padrón de firmantes que escribe, y un cambio solo del padrón que verifican sus firmas no necesita veredicto de IA, así que el sello firmado por un móvil recién enrolado pasa su CI. Los actos humanos funcionan en Windows, y un carril recibe y conserva tus reglas personales.
 

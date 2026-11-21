@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.33.0] - 2026-11-21
+
+The board's Accounts page shows and sets the rescue rules, and the confirmation code of a human act always reaches your terminal.
+
+### Added
+- **HU Board: a Rescue section on the Accounts page**: it shows and sets when the rescue key may run, with what and how much, through an API that never carries the key itself (#4717, #4719).
+- **kj stage: the drones' marks are comic bubbles**: marks from several drones no longer overwrite each other; they queue and show one at a time, the same mark again counts ×N, and the queue keeps the newest four (#4725).
+- **kj stage: the drones look like drones**: a body in their piece's colour, four arms, rotors that stand out from the dark floor and a blinking light in flight (#4727).
+
+### Fixed
+- **The confirmation code of a human act reaches the terminal before kj waits**: `kj rules approve` and `kj harden --commit` could block reading the code with the prompt still unseen. It is now written to the terminal itself, the console on Windows, before the read (#4721).
+- **privacy scan: the number after a Cache-Control age directive is not a phone**: `max-age=31536000` and the like no longer stop a deploy (#4728).
+- **`kj rules` finds the memories of a symlinked project dir**: it looked under the symlink's path and reported every memory rule as stale (#4715).
+
 ## [5.32.0] - 2026-11-20
 
 kj stage gets drones, a crane and a warehouse, the board gets an Accounts page, `kj identity enroll-phone` commits the roster it writes, and the human acts run on Windows.
