@@ -44,20 +44,37 @@ function markOf(event) {
 }
 
 /**
- * The marks after an event at `now`: a newer mark of a kind replaces the older one in its lane;
- * the same mark again while the older still shows counts, ×N (KJC-TSK-1582).
+ * KJC-TSK-1711 (the maintainer, 2026-11-21): three drones at once wrote three texts over each
+ * other and none could be read. The marks queue and show one at a time, a little behind Karajan;
+ * the queue keeps the newest few, so it never runs far behind.
+ */
+export const MAX_QUEUED = 4;
+/** The last part of a mark's time, in which it fades. */
+const FADE_MS = 1200;
+
+/**
+ * The marks after an event at `now`, queued one after another (KJC-TSK-1711): a newer mark of a
+ * kind replaces the one of that kind still waiting in its lane; the same mark again while the
+ * older waits or shows counts, ×N (KJC-TSK-1582).
  */
 export function withMark(marks, event, now) {
   const mark = markOf(event);
   if (!mark) return marks;
   const lane = event.lane ?? 'main';
-  const same = marks.find((m) => m.lane === lane && m.kind === mark.kind && m.base === mark.text && now - m.at < MARK_MS);
-  const count = (same?.count ?? 0) + 1;
-  const text = count > 1 ? `${mark.text} ×${count}` : mark.text;
-  return [...marks.filter((m) => m.lane !== lane || m.kind !== mark.kind), { ...mark, text, base: mark.text, count, lane, at: now }];
+  const live = marks.filter((m) => now - m.at < MARK_MS);
+  const same = live.find((m) => m.lane === lane && m.kind === mark.kind && m.base === mark.text);
+  if (same) {
+    const count = same.count + 1;
+    return live.map((m) => (m === same ? { ...m, count, text: `${mark.text} ×${count}` } : m));
+  }
+  const showing = live.filter((m) => m.at <= now);
+  const waiting = [...live.filter((m) => m.at > now && (m.lane !== lane || m.kind !== mark.kind)),
+    { ...mark, base: mark.text, count: 1, lane }].slice(-MAX_QUEUED);
+  const start = Math.max(now, ...showing.map((m) => m.at + MARK_MS));
+  return [...showing, ...waiting.map((m, i) => ({ ...m, at: start + i * MARK_MS }))];
 }
 
-/** The marks still showing at `now`, each with how strongly (1 when new, fading to 0). */
+/** The marks showing at `now`, each with how strongly: 1 while it holds, fading to 0 at its end. */
 export const marksAt = (marks, now) => marks
   .filter((m) => now >= m.at && now - m.at < MARK_MS)
-  .map((m) => ({ ...m, level: 1 - (now - m.at) / MARK_MS }));
+  .map((m) => ({ ...m, level: Math.min(1, (MARK_MS - (now - m.at)) / FADE_MS) }));
