@@ -93,6 +93,30 @@ describe("board-sync gate", () => {
     expect(r.status).toBe(0);
     expect(state().sessions.s1.pending_moves[0]).toMatchObject({ card, pr: 152 });
   });
+  // HU-4749: a merged PR whose KNOWN head names no card leaves nothing to move; an unknown head still fails closed.
+  const mergeWithHead = (headJson) => {
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin, { recursive: true });
+    fs.writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho '{"number":153,"state":"MERGED"${headJson}}'\n`, { mode: 0o755 });
+    return spawnSync("node", [post], {
+      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `gh auth switch --user ${TEST_GH_USER} && gh pr merge 153 --squash` }, tool_response: { stdout: "", stderr: "" } }),
+      encoding: "utf8", cwd: dir, env: { ...process.env, ...env, PATH: `${bin}:${process.env.PATH}` },
+    });
+  };
+  it("a known head that names no card records no pending move and says so", () => {
+    const r = mergeWithHead(',"headRefName":"feat/rules-email-hash-required-hu-390"');
+    expect(r.status).toBe(0);
+    expect(r.stderr).toMatch(/#153/);
+    expect(state().sessions.s1.pending_moves ?? []).toHaveLength(0);
+  });
+  it("a known head that leads with a card id records that card", () => {
+    mergeWithHead(',"headRefName":"feat/HU-390-x"');
+    expect(state().sessions.s1.pending_moves).toEqual([expect.objectContaining({ card: "HU-390", pr: 153 })]);
+  });
+  it("an unknown head keeps the pending (card from the local branch), marked unknown", () => {
+    mergeWithHead("");
+    expect(state().sessions.s1.pending_moves).toEqual([expect.objectContaining({ card: "KJC-TSK-0042", pr: 153, head: "unknown" })]);
+  });
   it("con una card pendiente: commit, nuevo PR y cierre de turno se deniegan nombrando card+PR y el remedio", () => {
     merged(12);
     // KJC-TSK-1089 (ADR 0015): el push ya no se lee; la card pendiente la sigue parando el cierre de turno.

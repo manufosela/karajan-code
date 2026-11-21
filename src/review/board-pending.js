@@ -20,11 +20,15 @@ import { execFileSync } from "node:child_process";
 
 import { prunePendingMoves, readLaneSentinelState } from "../harden/sentinel-lane-state.js";
 import { readIdentity } from "../identity/store.js";
-import { CARD_REF_RE } from "./card-first.js";
 
+// HU-4749 (#4733): a card is read from a branch only when the id LEADS the slug (after any
+// "type/" segments); a bare slug needs the id in capitals. Same rule as boardCardOf in
+// src/harden/sentinel/sentinel-lib.mjs (minus the split-card suffix): keep them identical.
+const LEADING_CARD = /^(?:[^/]+\/)*([a-z][a-z0-9]{1,9}(?:-[a-z][a-z0-9]{1,9})?-\d{1,6})(?![A-Za-z0-9]|\.\d)/i;
 const cardOf = (text) => {
-  const m = CARD_REF_RE.exec(String(text || ""));
-  return m ? m[0].toUpperCase() : null;
+  const ref = String(text || "");
+  const id = LEADING_CARD.exec(ref)?.[1];
+  return id && (ref.includes("/") || id === id.toUpperCase()) ? id.toUpperCase() : null;
 };
 
 /**
