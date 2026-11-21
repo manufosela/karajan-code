@@ -14,6 +14,7 @@ import { SENTINEL_WIRING } from "../../src/harden/sentinel-hooks.js";
 import { PROVENANCE_FILE } from "../../src/harden/supervisor-commit.js";
 import { rangeIsOnlySeals } from "../../src/review/seal-commit.js";
 import { runCommand } from "../../src/utils/process.js";
+import { isolatedGitEnv } from "../_helpers/isolated-git.js";
 
 const HOOK = ".karajan/hooks/pre-commit";
 const SETTINGS = ".claude/settings.json";
@@ -33,7 +34,7 @@ const withKjHooks = () => {
 const workflow = (version) => `name: kj verdicts\non: pull_request_target\njobs:\n  verdicts:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx -y karajan-code@${version} review --check\n`;
 
 let repo;
-const git = (...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: repo, stdio: "pipe" });
+const git = (...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: repo, stdio: "pipe", env: isolatedGitEnv() });
 const write = (entries) => {
   for (const [file, text] of Object.entries(entries)) writeFileSync(join(repo, file), text);
   git("add", "-A");

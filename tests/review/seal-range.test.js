@@ -13,12 +13,13 @@ import { rangeIsOnlySeals } from "../../src/review/seal-commit.js";
 import { privacyScanCommand } from "../../src/commands/privacy.js";
 import { policyCommand } from "../../src/commands/policy.js";
 import { runCommand } from "../../src/utils/process.js";
+import { isolatedGitEnv } from "../_helpers/isolated-git.js";
 
 const HOOK = ".karajan/hooks/pre-commit";
 const KEY = `sk_live_${"a1B2c3D4".repeat(3)}`;
 const generation = { profile: "standard", cmds: {}, baseBranch: "main", globalHooksDir: "$HOME/.git-hooks" };
 let repo;
-const git = (...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: repo, stdio: "pipe" });
+const git = (...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd: repo, stdio: "pipe", env: isolatedGitEnv() });
 const commit = (msg, entries) => {
   for (const [file, text] of Object.entries(entries)) writeFileSync(join(repo, file), text);
   git("add", ...Object.keys(entries));

@@ -6,9 +6,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { detectStack } from "../../src/review/repo-stack.js";
+import { isolatedGitEnv } from "../_helpers/isolated-git.js";
 
 let dir;
-const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8", env: isolatedGitEnv() }).trim();
 const write = (file, text) => {
   fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
   fs.writeFileSync(path.join(dir, file), text);
