@@ -14,6 +14,7 @@ import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding, addedLinesByFile } from "../review/sonar-pregate.js";
 import { addedAreCommentsOnly } from "../review/comment-only.js";
+import { readBaseSonarLayout } from "../review/sonar-layout.js";
 import { checkSonarRequirement, verdictSonarProof, LIVE_FILTER, SONAR_RULE_ID } from "../review/sonar-requirement.js";
 import { checkRagRequirement, checkRagVerdict, ragBlock, RAG_RULE_ID } from "../review/rag-requirement.js";
 import { checkUiEvidence, uiBlock } from "../review/ui-evidence.js";
@@ -421,8 +422,8 @@ async function isPureMerge({ projectDir, diff, range }) {
  * The headless pipeline stamps its verdict after its own sonar stage and
  * carries no block yet (step 3 of the card) — said, never assumed silent.
  */
-function withSonarProof(res, { config, liveFiles, std, generated }) {
-  const req = verdictSonarProof({ verdict: res.verdict, config, files: liveFiles, standingExceptions: std.standing, generated });
+function withSonarProof(res, { config, liveFiles, std, generated, layout }) {
+  const req = verdictSonarProof({ verdict: res.verdict, config, files: liveFiles, standingExceptions: std.standing, generated, layout });
   if (!req.ok) return { ok: false, verdict: res.verdict, reason: req.reason };
   if (req.mode === "granted") console.log(formatSonarGrant(req.grant));
   return res;
@@ -484,7 +485,7 @@ async function stagedRosterChange(range) {
 const NO_VERDICT_HINT = "kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`";
 
 /** --check (the pre-commit): the staged diff enters only with an approved verdict that carries its proofs. */
-async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate, seal, generated }) {
+async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate, seal, generated, layout }) {
   if (await isPureMerge({ projectDir, diff, range })) {
     console.log("✓ pure merge commit — empty staged diff, parents already reviewed; gate passes with trail");
     process.exitCode = 0;
@@ -507,7 +508,7 @@ async function checkPath({ projectDir, config, diff, range, liveFiles, std, gate
   }
   let res = await checkVerdict(projectDir, diff);
   if (res.note) console.log(`ℹ ${res.note}`);
-  if (res.ok) res = withSonarProof(res, { config, liveFiles, std, generated });
+  if (res.ok) res = withSonarProof(res, { config, liveFiles, std, generated, layout });
   const warnIds = gate.warns.map((w) => w.rule_id);
   if (res.ok) res = withRagProof(res, { config, liveFiles, std, projectDir, warnIds, generated });
   console.log(res.ok
@@ -537,11 +538,11 @@ const listed = (items) => `${items.slice(0, 5).join(", ")}${items.length > 5 ? "
  * diff hash — a reviewed diff and a reviewed AND analysed diff must be
  * distinguishable by --check and by the method report.
  */
-async function sonarPregate({ config, logger, range, liveFiles, enabled, generated }) {
+async function sonarPregate({ config, logger, range, liveFiles, enabled, generated, layout }) {
   if (!enabled) return { record: { ran: false, reason: "--no-sonar: the pre-gate was skipped by flag" } };
   // KJC-TSK-0795 AC3: only issues on lines this diff ADDS may veto.
   const touchedLines = addedLinesByFile(await rawDiff(range, ["--unified=0"]));
-  const pre = await runSonarPregate({ config, stagedFiles: liveFiles, touchedLines, logger, generated });
+  const pre = await runSonarPregate({ config, stagedFiles: liveFiles, touchedLines, logger, generated, layout });
   if (!pre.available) {
     // KJC-BUG-0156 (issue #1543): a scan that FAILED must not read like one
     // more config warning — it hid a dead quality gate for 8 straight PRs.
@@ -588,8 +589,8 @@ function printSonarPregate(pre, record) {
  * The verdict says on what grounds the requirement was met (proof, docs-only,
  * human grant): `record.mode`, read back by the method report.
  */
-function sonarRequirementGate({ config, liveFiles, std, record, generated }) {
-  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: record, standingExceptions: std.standing, generated });
+function sonarRequirementGate({ config, liveFiles, std, record, generated, layout }) {
+  const req = checkSonarRequirement({ config, stagedFiles: liveFiles, sonar: record, standingExceptions: std.standing, generated, layout });
   if (!req.ok) {
     console.log(`✗ ${req.reason}`);
     return rejected("sonar", [{ severity: "high", file: undefined, description: req.reason }]);
@@ -758,15 +759,17 @@ async function runReviewGate({ config, logger = null, flags = {} }) {
   if (std.discarded > 0) console.log(`⚠ policy: ${std.discarded} línea(s) corruptas descartadas en policy-exceptions.jsonl — revísalo`);
   const { rejection: policyRejection, gate, seal } = await policyGate({ projectDir, diff, pol, changedFiles, std, range: flags.range, check: flags.check, generated });
   if (policyRejection) return policyRejection;
-  if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal, generated });
+  // HU-4746: the Sonar layout of the BASE branch, read once (never the staged or working copy).
+  const layout = await readBaseSonarLayout({ cwd: projectDir, base: `origin/${baseBranchFrom({ config, projectDir, announce: false })}` });
+  if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal, generated, layout });
 
   // KJC-TSK-1257: the review path's gates in their order; each may reject, and what they found
   // that does not reject travels to the reviewer inside the task. KJC-BUG-0423 (#2665): --check
   // does not run these, so their rejection is recorded for the diff, replacing an earlier APPROVED.
   const recorded = (rejection) => saveVerdict(projectDir, diff, rejection).then(() => rejection);
-  const sonar = await sonarPregate({ config, logger, range: flags.range, liveFiles, enabled: flags.sonar !== false, generated });
+  const sonar = await sonarPregate({ config, logger, range: flags.range, liveFiles, enabled: flags.sonar !== false, generated, layout });
   if (sonar.rejection) return recorded(sonar.rejection);
-  const sonarRejection = sonarRequirementGate({ config, liveFiles, std, record: sonar.record, generated });
+  const sonarRejection = sonarRequirementGate({ config, liveFiles, std, record: sonar.record, generated, layout });
   if (sonarRejection) return recorded(sonarRejection);
   const rag = await ragGate({ config, projectDir, range: flags.range, liveFiles, std, generated });
   if (rag.rejection) return recorded(rag.rejection);

@@ -11,6 +11,7 @@ import { labelKarajanPr } from "../git/karajan-label.js";
 import { isSealCommit } from "./seal-commit.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { LIVE_FILTER, verdictSonarProof } from "./sonar-requirement.js";
+import { readBaseSonarLayout } from "./sonar-layout.js";
 import { generatedFiles } from "./linguist-generated.js";
 import { loadStandingExceptions } from "../policy/exceptions.js";
 import { trustedReviews } from "./trusted-review.js";
@@ -47,9 +48,13 @@ export async function commitFiles(projectDir, sha, run) {
 /** The proof CI reads at the end of a commit's line, by the mode of the Sonar requirement. */
 export const SONAR_MARKS = { pass: " · sonar ok", granted: " · sonar granted", "docs-only": " · sonar n/a" };
 
+/** HU-4746: the Sonar layout of the PR's base branch (empty when `gh` named none or it cannot be resolved), read once per run. */
+export const prBaseLayout = (projectDir, info) =>
+  readBaseSonarLayout({ cwd: projectDir, base: info.baseRefName ? `origin/${info.baseRefName}` : undefined });
+
 /** HU-4046: the commit gate's Sonar requirement for an approved commit, where --no-verify cannot skip it. */
-async function sonarMarkOf({ projectDir, c, v, run, config, std }) {
-  const proof = verdictSonarProof({ verdict: v, config, ...(await commitFiles(projectDir, c.oid, run)), standingExceptions: std.standing });
+async function sonarMarkOf({ projectDir, c, v, run, config, std, layout }) {
+  const proof = verdictSonarProof({ verdict: v, config, ...(await commitFiles(projectDir, c.oid, run)), standingExceptions: std.standing, layout });
   return proof.ok ? { mark: SONAR_MARKS[proof.mode] } : { problem: `${c.oid.slice(0, 7)} (${c.messageHeadline}): ${proof.reason}` };
 }
 
@@ -57,7 +62,8 @@ async function sonarMarkOf({ projectDir, c, v, run, config, std }) {
  * @returns {Promise<{published: boolean, commits?: number, reason?: string}>}
  */
 export async function publishPrReview({ projectDir, pr, run = runCommand, sealed = null, config = {} }) {
-  const info = await json(run, "gh", ["pr", "view", String(pr), "--json", "headRefOid,commits"], projectDir);
+  const info = await json(run, "gh", ["pr", "view", String(pr), "--json", "headRefOid,commits,baseRefName"], projectDir);
+  const layout = await prBaseLayout(projectDir, info);
   const rows = [];
   const seals = [];
   const uncovered = [];
@@ -69,7 +75,7 @@ export async function publishPrReview({ projectDir, pr, run = runCommand, sealed
     if (await isCleanMerge(projectDir, c.oid, run)) continue;
     const v = await verdictOf(projectDir, c.oid, run);
     if (v?.verdict === "approved") {
-      const { mark, problem } = await sonarMarkOf({ projectDir, c, v, run, config, std });
+      const { mark, problem } = await sonarMarkOf({ projectDir, c, v, run, config, std, layout });
       if (problem) unproved.push(problem);
       else rows.push({ ...c, v, mark });
       continue;

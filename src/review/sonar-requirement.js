@@ -23,14 +23,21 @@ function liveGrant(standingExceptions, now) {
 }
 
 /**
+ * HU-4746: what Sonar counts as code — the sources of the tests-with-code gate minus the files
+ * the layout calls test or excluded. `layout` must come from the BASE branch (readBaseSonarLayout),
+ * never from the diff under review: a commit must not declare its own code as tests (or excluded)
+ * in the same change and so dodge the Sonar requirement. One filter for all five gates.
+ */
+export function sonarSourcesOf({ config = {}, files = [], generated, layout = EMPTY_LAYOUT }) {
+  const { sources } = sourceFilesOf(config, files, generated);
+  return sources.filter((file) => classifyBySonar(layout, file) === null);
+}
+
+/**
  * @returns {{ok: boolean, mode: "docs-only"|"pass"|"granted"|"block", reason?: string, grant?: object, sources?: string[]}}
  */
 export function checkSonarRequirement({ config = {}, stagedFiles = [], sonar, standingExceptions = [], now = new Date(), generated, layout = EMPTY_LAYOUT }) {
-  // HU-4737: `layout` must come from the BASE branch (readBaseSonarLayout), never
-  // from the diff under review: a commit must not declare its own code as tests
-  // (or excluded) in the same change and so dodge the Sonar requirement.
-  const { sources: candidates } = sourceFilesOf(config, stagedFiles, generated);
-  const sources = candidates.filter((file) => classifyBySonar(layout, file) === null);
+  const sources = sonarSourcesOf({ config, files: stagedFiles, generated, layout });
   if (sources.length === 0) return { ok: true, mode: "docs-only" };
 
   const grant = liveGrant(standingExceptions, now);
@@ -61,12 +68,12 @@ export function checkSonarRequirement({ config = {}, stagedFiles = [], sonar, st
  * project (no per-file proof yet), so its stamp must at least show the stage RAN.
  * @returns {{ok: boolean, mode: "docs-only"|"pass"|"granted"|"block", reason?: string, grant?: object}}
  */
-export function verdictSonarProof({ verdict, config, files, standingExceptions, generated }) {
+export function verdictSonarProof({ verdict, config, files, standingExceptions, generated, layout }) {
   if (verdict.host === "kj-pipeline") {
     const stage = verdict.sonar;
     if (stage?.ran) return { ok: true, mode: "pass" };
     const why = stage ? `the pipeline's sonar stage did not run: ${stage.reason || "unknown reason"}` : "the pipeline verdict carries no sonar block";
     return { ok: false, mode: "block", reason: `Sonar is mandatory for code — ${why}` };
   }
-  return checkSonarRequirement({ config, stagedFiles: files, sonar: verdict.sonar, standingExceptions, generated });
+  return checkSonarRequirement({ config, stagedFiles: files, sonar: verdict.sonar, standingExceptions, generated, layout });
 }
