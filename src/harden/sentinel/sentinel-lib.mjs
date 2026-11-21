@@ -209,6 +209,22 @@ export const bootstrapPhase = () => {
 // `kj review --check` reads it (sha256 of `git diff --cached`, trailing blanks trimmed,
 // in <top>/.karajan/reviews). gate:false when the repo has not committed the gate marker.
 // state: approved | rejected | missing | empty (nothing staged) | unknown (git failed).
+// HU-4482: the diff is printed with the pins of src/utils/git-diff-format.js (the harness cannot
+// import it; a test keeps both lists equal), or a user's diff.algorithm changes the hash.
+export const DIFF_PINS = [
+  ["diff.mnemonicPrefix", "false"],
+  ["diff.noprefix", "false"],
+  ["diff.srcPrefix", "a/"],
+  ["diff.dstPrefix", "b/"],
+  ["diff.algorithm", "myers"],
+  ["diff.context", "3"],
+  ["diff.interHunkContext", "0"],
+  ["diff.indentHeuristic", "true"],
+  ["diff.suppressBlankEmpty", "false"],
+  ["diff.renames", "true"],
+  ["diff.relative", "false"],
+  ["color.diff", "false"],
+];
 export const stagedVerdict = (dir) => {
   const git = (args) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
   // No commit yet (or no repo): no committed marker exists. A git error fails closed.
@@ -217,7 +233,7 @@ export const stagedVerdict = (dir) => {
   if (marker.status !== 0) return { gate: true, state: "unknown" };
   if (!marker.stdout.trim()) return { gate: false };
   const top = git(["rev-parse", "--show-toplevel"]).stdout?.trim();
-  const diff = git(["diff", "--cached"]);
+  const diff = git([...DIFF_PINS.flatMap(([key, value]) => ["-c", `${key}=${value}`]), "diff", "--cached"]);
   if (!top || diff.status !== 0) return { gate: true, state: "unknown" };
   if (!diff.stdout.trim()) return { gate: true, state: "empty" };
   const hash = createHash("sha256").update(diff.stdout.trimEnd(), "utf8").digest("hex");

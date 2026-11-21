@@ -10,7 +10,7 @@
 // KJC-BUG-0415 (#2622): a verdict binds to the hash of the diff text, so every option that
 // changes that text is pinned to git's default too, or the hash kj review --staged records on a
 // machine with diff.algorithm=histogram is not the one CI recomputes.
-const PINS = [
+export const PINS = [
   ["diff.mnemonicPrefix", "false"],
   ["diff.noprefix", "false"],
   ["diff.srcPrefix", "a/"],
