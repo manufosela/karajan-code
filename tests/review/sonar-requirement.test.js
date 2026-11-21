@@ -50,3 +50,20 @@ describe("checkSonarRequirement", () => {
     expect(blocked({ env: { KJ_ALLOW_SONAR: "1", KJ_ALLOW_POLICY: "1", KJ_ALLOW_NO_TESTS: "1" } })).toBe(false);
   });
 });
+
+describe("checkSonarRequirement with a Sonar layout (HU-4737)", () => {
+  const layout = { tests: ["tests"], testInclusions: ["**/*.test.js"], testExclusions: [], exclusions: ["gen/**"] };
+  const check = (stagedFiles, extra = {}) => checkSonarRequirement({ config: {}, stagedFiles, sonar: null, ...extra });
+  it("does not require a file under sonar.tests that matches the inclusions", () => {
+    expect(check(["tests/a.test.js"], { layout })).toMatchObject({ ok: true, mode: "docs-only" });
+  });
+  it("still requires a normal source", () => {
+    expect(check(["src/a.js", "tests/a.test.js"], { layout })).toMatchObject({ ok: false, mode: "block", sources: ["src/a.js"] });
+  });
+  it("does not require a file excluded by sonar.exclusions", () => {
+    expect(check(["gen/a.js"], { layout })).toMatchObject({ ok: true, mode: "docs-only" });
+  });
+  it("behaves as before when layout is omitted", () => {
+    expect(check(["gen/a.js"])).toMatchObject({ ok: false, mode: "block", sources: ["gen/a.js"] });
+  });
+});

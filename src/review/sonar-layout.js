@@ -3,6 +3,8 @@
  * that say what Sonar counts as test or excluded from properties TEXT and
  * matches repo-relative files against them. No file, no git, no dependency.
  */
+import { runCommand } from "../utils/process.js";
+
 const KEYS = {
   "sonar.tests": "tests",
   "sonar.test.inclusions": "testInclusions",
@@ -46,6 +48,27 @@ export function parseSonarLayout(text) {
     if (field) layout[field] = splitList(match[2]);
   }
   return layout;
+}
+
+const defaultRun = async (args, cwd) => {
+  const res = await runCommand("git", args, { cwd });
+  if (res.exitCode !== 0) throw new Error(`git ${args.join(" ")} failed: ${res.stderr || res.stdout}`);
+  return res.stdout;
+};
+
+/**
+ * HU-4737: the layout as COMMITTED at `base` (git show), never the working tree
+ * or the index: a commit must not declare its own code as tests in the same diff.
+ * No base, no file at that ref or a git error: the empty layout, never a throw.
+ * @param {{cwd?: string, base?: string, run?: (args: string[], cwd?: string) => Promise<string>}} opts
+ */
+export async function readBaseSonarLayout({ cwd, base, run = defaultRun } = {}) {
+  if (typeof base !== "string" || base.trim() === "") return emptyLayout();
+  try {
+    return parseSonarLayout(await run(["show", `${base}:sonar-project.properties`], cwd));
+  } catch {
+    return emptyLayout();
+  }
 }
 
 const escapeLiteral = (s) => s.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&");

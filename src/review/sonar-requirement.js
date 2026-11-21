@@ -8,6 +8,9 @@
  * (KRD-TSK-0023 reached main in 4 code PRs with no real analysis).
  */
 import { sourceFilesOf } from "./tests-with-code.js";
+import { classifyBySonar } from "./sonar-layout.js";
+
+const EMPTY_LAYOUT = { tests: [], testInclusions: [], testExclusions: [], exclusions: [] };
 
 export const SONAR_RULE_ID = "method.sonar.code";
 /** KJC-BUG-0229, HU-4046: the paths alive after a change (all but D, a type change T too), one set at commit, publish and CI. */
@@ -22,8 +25,12 @@ function liveGrant(standingExceptions, now) {
 /**
  * @returns {{ok: boolean, mode: "docs-only"|"pass"|"granted"|"block", reason?: string, grant?: object, sources?: string[]}}
  */
-export function checkSonarRequirement({ config = {}, stagedFiles = [], sonar, standingExceptions = [], now = new Date(), generated }) {
-  const { sources } = sourceFilesOf(config, stagedFiles, generated);
+export function checkSonarRequirement({ config = {}, stagedFiles = [], sonar, standingExceptions = [], now = new Date(), generated, layout = EMPTY_LAYOUT }) {
+  // HU-4737: `layout` must come from the BASE branch (readBaseSonarLayout), never
+  // from the diff under review: a commit must not declare its own code as tests
+  // (or excluded) in the same change and so dodge the Sonar requirement.
+  const { sources: candidates } = sourceFilesOf(config, stagedFiles, generated);
+  const sources = candidates.filter((file) => classifyBySonar(layout, file) === null);
   if (sources.length === 0) return { ok: true, mode: "docs-only" };
 
   const grant = liveGrant(standingExceptions, now);
