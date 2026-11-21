@@ -20,6 +20,7 @@ vi.mock("../../src/review/card-first.js", async (orig) => ({
 
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
 import { seedRagLedger } from "./_seed-rag-ledger.js";
+import { isolatedGitEnv } from "../_helpers/isolated-git.js";
 
 let dir;
 const cwd0 = process.cwd();
@@ -28,7 +29,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.exitCode = 0;
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-prsize-"));
-  const git = (...args) => execFileSync("git", ["-C", dir, ...args]);
+  const git = (...args) => execFileSync("git", ["-C", dir, ...args], { env: isolatedGitEnv() });
   git("init", "-q");
   git("config", "user.email", "t@t"); git("config", "user.name", "t");
   fs.writeFileSync(path.join(dir, "a.js"), "base\n");
@@ -69,7 +70,7 @@ describe("pr-size policy", () => {
   // above 200, partition, always. The agent asked for an OK inside the allowed band.
   it("between the ideal and the limit it only informs, even with block, and asks nothing", async () => {
     fs.writeFileSync(path.join(dir, "a.js"), Array.from({ length: 170 }, (_, i) => `line ${i}`).join("\n"));
-    execFileSync("git", ["-C", dir, "add", "a.js"]);
+    execFileSync("git", ["-C", dir, "add", "a.js"], { env: isolatedGitEnv() });
     const logs = [];
     const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
     const r = await reviewGateCommand({ config: cfg("block"), flags: { staged: true } });
@@ -94,7 +95,7 @@ describe("pr-size policy", () => {
   // KJC-BUG-0434: the CI gate and the policy count NET lines; a pure refactor that rewrites
   // 250 lines in place adds 250 and removes 250, and must not be told to partition.
   it("a refactor that rewrites lines in place is measured net, as in CI", async () => {
-    const git = (...args) => execFileSync("git", ["-C", dir, ...args]);
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { env: isolatedGitEnv() });
     fs.writeFileSync(path.join(dir, "a.js"), Array.from({ length: 300 }, (_, i) => `old ${i}`).join("\n"));
     git("add", "-A"); git("commit", "-qm", "before the refactor");
     fs.writeFileSync(path.join(dir, "a.js"), Array.from({ length: 300 }, (_, i) => (i < 250 ? `new ${i}` : `old ${i}`)).join("\n"));

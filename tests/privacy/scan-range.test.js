@@ -6,10 +6,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { privacyScanCommand } from "../../src/commands/privacy.js";
+import { isolatedGitEnv } from "../_helpers/isolated-git.js";
 
 const KEY = `sk_live_${"a1B2c3D4".repeat(3)}`;
 let repo;
-const git = (...args) => execFileSync("git", args, { cwd: repo, stdio: "pipe" });
+const git = (...args) => execFileSync("git", args, { cwd: repo, stdio: "pipe", env: isolatedGitEnv() });
 const commit = (file, text) => {
   mkdirSync(join(repo, "src"), { recursive: true });
   writeFileSync(join(repo, file), text);
