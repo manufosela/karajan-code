@@ -62,7 +62,7 @@ const LONG_HOST_MS = 30 * 60 * 1000;
  * KJC-TSK-1430: the agents whose last trace is a recent start, by agent and role;
  * KJC-TSK-1435: by id when the trace names one (the host's session, each subagent).
  */
-function agentsAtWork(records, now, waitOf) {
+function hostsAtWork(records, now, waitOf) {
   const last = new Map();
   for (const ev of records) last.set(ev.id ?? `${ev.agent}:${ev.role}`, ev);
   const fresh = (ev) => now - Date.parse(ev.at) < (ev.role === 'host' ? STALE_HOST_MS : STALE_START_MS);
@@ -83,6 +83,35 @@ function agentsAtWork(records, now, waitOf) {
     }));
 }
 
+/** KJC-TSK-1715: how long an open session with no pid to ask is still open, from its last line. */
+const OPEN_HOST_MS = 12 * 60 * 60 * 1000;
+const PRESENCE = new Set(['open', 'close']);
+
+/** Whether a process lives; EPERM is one that lives under another user. */
+function pidAlive(pid) {
+  try { process.kill(pid, 0); return true; } catch (err) { return err.code === 'EPERM'; }
+}
+
+/**
+ * KJC-TSK-1715: who works (hostsAtWork, from the work lines), less the sessions the Sentinel closed
+ * after their last line, plus the sessions it says are open (HU-4745), waiting at their desk.
+ */
+function agentsAtWork(records, now, waitOf, alive) {
+  const lastAt = new Map();
+  const presence = new Map();
+  for (const ev of records.filter((r) => r.role === 'host' && r.id)) {
+    lastAt.set(ev.id, ev.at);
+    if (PRESENCE.has(ev.phase)) presence.set(ev.id, ev);
+  }
+  const closed = (id) => presence.get(id)?.phase === 'close' && presence.get(id).at === lastAt.get(id);
+  const open = (ev) => ev.phase === 'open' && (Number.isInteger(ev.pid) ? alive(ev.pid) : now - Date.parse(lastAt.get(ev.id)) < OPEN_HOST_MS);
+  const busy = hostsAtWork(records.filter((r) => !PRESENCE.has(r.phase)), now, waitOf).filter((w) => !closed(w.id));
+  const listed = new Set(busy.map((w) => w.id));
+  const idle = [...presence.values()].filter((ev) => open(ev) && !listed.has(ev.id))
+    .map(({ agent, role, at, id }) => ({ agent, role, at, id, waiting: waitOf(id) ?? 'person' }));
+  return [...busy, ...idle];
+}
+
 function newestVerdict(dir) {
   let names;
   try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return null; }
@@ -99,7 +128,7 @@ function newestVerdict(dir) {
   return null;
 }
 
-export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main', nameOf = sessionName, waitOf = sessionWait } = {}) {
+export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.now(), lane = 'main', nameOf = sessionName, waitOf = sessionWait, alive = pidAlive } = {}) {
   const root = join(projectDir, '.karajan');
   // KJC-TSK-1458 (ADR 0050): the factory's board opens on the last line of each card of the lane.
   const trace = (name, toEvent) => traceRecords(root, name, toEvent, tailBytes);
@@ -113,7 +142,7 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
     gate: lastOf(trace('commit-gate.jsonl', gateEvent)),
     // KJC-TSK-1524: the last check kj review made of each of TDD, Sonar and the Steward.
     checks: Object.fromEntries(trace('method.jsonl', methodEvent).map(({ piece, outcome, at }) => [piece, { outcome, at }])),
-    working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now, waitOf).map((w) => withSessionName(w, nameOf)),
+    working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now, waitOf, alive).map((w) => withSessionName(w, nameOf)),
     mail: pendingMail(projectDir),
     handoffs: pendingHandoffs(projectDir), // KJC-TSK-1638: what the mail asks
   };

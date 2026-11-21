@@ -56,14 +56,16 @@ export function methodEvent(raw) {
 /** A line of agent-activity.jsonl (traces/, or harness/ for older hooks; KJC-TSK-1429) → an agent-activity event, or null. */
 export function activityEvent(raw) {
   const r = parse(raw);
-  if (!r?.at || !r.agent || !r.role || !['start', 'end'].includes(r.phase)) return null;
+  // KJC-TSK-1715: and the Sentinel's presence (HU-4745), a host session that opens or closes.
+  if (!r?.at || !r.agent || !r.role || !['start', 'end', 'open', 'close'].includes(r.phase)) return null;
   // KJC-TSK-1428: the atril skills a start line names, names only.
   const skills = Array.isArray(r.skills) ? r.skills.filter((s) => typeof s === 'string') : [];
   // KJC-TSK-1434 (ADR 0048): the host's session or subagent id, the kind of tool it uses, the subagent's type.
   const name = (v) => (typeof v === 'string' ? v.slice(0, 60) : null);
   // KJC-TSK-1536: the model and effort the agent was launched with, when its line says them.
   const launched = Object.fromEntries(['model', 'effort'].filter((k) => name(r[k])).map((k) => [k, name(r[k])]));
-  return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null, skills, id: name(r.id), tool: name(r.tool), kind: name(r.kind), ...launched };
+  const pid = Number.isInteger(r.pid) ? { pid: r.pid } : {};
+  return { type: 'agent-activity', at: r.at, agent: r.agent, role: r.role, phase: r.phase, outcome: r.outcome ?? null, skills, id: name(r.id), tool: name(r.tool), kind: name(r.kind), ...launched, ...pid };
 }
 
 const CARD_ACTIONS = new Set(['add', 'move']);
