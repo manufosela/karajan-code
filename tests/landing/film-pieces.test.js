@@ -13,7 +13,8 @@ describe("film pieces", () => {
   const frame = read("piece.js");
 
   it("keeps the crates' light, and adds the hands that catch and the head that says no", () => {
-    expect(frame).toContain("export function createPiece(index, name, { kind, body })");
+    // KJC-TSK-1713: an optional tint paints the plinth; the film leaves it out.
+    expect(frame).toContain("export function createPiece(index, name, { kind, body, tint = null })");
     for (const api of ["setLight(gold, red = 0)", "catch(level)", "shake(amount, t)"]) expect(frame).toContain(api);
   });
 

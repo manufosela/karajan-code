@@ -7,7 +7,7 @@ import { createArm, createFace, handWhite, metalIn } from './parts.js';
 import { labelTexture, KINDS, RED } from './props.js';
 
 /** The plinth's size, and the height where the hands meet to catch the diff. */
-export const PIECE = { w: 1.0, plinth: 0.3, d: 0.62, catchY: 1.66 };
+export const PIECE = { w: 1, plinth: 0.3, d: 0.62, catchY: 1.66 };
 const ARM = 0.42;
 // Arms hang a little open at rest and rise above the head to catch.
 const REST = 0.45, CATCH = Math.PI - 0.5;
@@ -15,18 +15,19 @@ const REST = 0.45, CATCH = Math.PI - 0.5;
 /**
  * A piece on the staff. `kind` is 'method' or 'tool'; `body(look)` builds what
  * stands on the plinth and returns { group, face: { y, z, width }, shoulders: { x, y, z } }.
+ * KJC-TSK-1713: `tint`, when given, paints the plinth (its drone's colour) and darkens the plate's ink.
  */
-export function createPiece(index, name, { kind, body }) {
+export function createPiece(index, name, { kind, body, tint = null }) {
   const look = KINDS[kind];
   if (!look) throw new Error(`piece "${name}": unknown kind "${kind}"`);
   const group = new THREE.Group();
   const stone = new THREE.MeshPhysicalMaterial({
-    color: look.body, roughness: 0.45, metalness: 0.2, clearcoat: 0.6, emissive: new THREE.Color(0x000000),
+    color: tint ?? look.body, roughness: 0.45, metalness: 0.2, clearcoat: 0.6, emissive: new THREE.Color(0x000000),
   });
   const plinth = new THREE.Mesh(new THREE.RoundedBoxGeometry(PIECE.w, PIECE.plinth, PIECE.d, 3, 0.05), stone);
   plinth.position.y = PIECE.plinth / 2;
   const plateMaterial = new THREE.MeshBasicMaterial({
-    map: labelTexture([String(index + 1).padStart(2, '0'), name], { color: look.ink, height: 170 }),
+    map: labelTexture([String(index + 1).padStart(2, '0'), name], { color: tint === null ? look.ink : '#10161f', height: 170 }),
     transparent: true, toneMapped: false,
   });
   // The plate keeps the label's 512x170 proportions across the plinth's front.
