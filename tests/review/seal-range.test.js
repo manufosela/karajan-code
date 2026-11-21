@@ -92,13 +92,13 @@ describe("the judges of a PR over the signed seal (--range)", () => {
   });
   it("passes the signed seal at the head from the base's tree, and blocks a credential beside it", async () => {
     sealCommit(phone);
-    git("tag", "head");
+    git("tag", "pr-tip");
     commit("feat: pay", { "pay.js": `const apiKey = "${KEY}";\n` });
     git("tag", "dirty");
     git("checkout", "-q", "base");
-    expect([await only("base...head"), await only("base..head")]).toEqual([true, true]);
+    expect([await only("base...pr-tip"), await only("base..pr-tip")]).toEqual([true, true]);
     const note = /only brings the signed seal \(kj harden --commit\), verified against the roster; nothing to scan/;
-    expect(await scan("base...head")).toEqual({ code: 0, text: expect.stringMatching(note) });
+    expect(await scan("base...pr-tip")).toEqual({ code: 0, text: expect.stringMatching(note) });
     const { code, text } = await scan("base...dirty");
     expect([code, text]).toEqual([1, expect.stringMatching(/stripe-key/)]);
   });
