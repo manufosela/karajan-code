@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.34.0] - 2026-11-22
+
+A PR without a kj review can count the repo's automatic AI review, and `kj code` writes again in a lane cut from main.
+
+### Added
+- **`kj review --verify-pr <n> --automatic-review codex-state`**: a PR with no kj review counts the automatic AI review its repo runs, read from the codex-state comment of `github-actions[bot]`. It counts only when that review is of the PR head, recommends APPROVE and leaves no open finding; a CRITICAL or MAJOR finding can never be dismissed, a MINOR one only by another person with write access, and a PR that changes `.github/workflows` never counts it (#4772, #4776, #4777).
+- **The Sonar gates follow the base branch's test layout**: a file in a folder the base branch's `sonar-project.properties` declares as tests is treated as a test by the commit gate, publish-pr, the pre-gate and verify-pr (#4744, #4747).
+- **Exhausted accounts are remembered until their reset**: kj records until when each agent account is out, in a file every process shares, so the next launch does not spend a call to find out again (#4771).
+- **kj stage**: the open host sessions that wait for you stay at their desk while their process lives, and leave when it closes (#4748, #4755, #4758); a strip at the top counts the kaRAGans and Karajans at work in every factory (#4766); each piece's pedestal wears its drone's colour (#4743).
+
+### Fixed
+- **`kj code` writes again in a lane cut from main**: the presence hook main wires is a guard this kj-hook knows, so it no longer blocks the coder's prompt (#4770).
+- **The Sentinel finds the staged verdict whatever your diff settings**: with `diff.algorithm=histogram` in your gitconfig it hashed another diff and refused a reviewed commit (#4761).
+- **A lane links your local kj config to the main checkout**: a lane no longer keeps an old copy that names another reviewer (#4760).
+- **`kj hu list` prints a board card with no short id or status** instead of dying with "Cannot read properties of undefined (reading 'padEnd')" (#4778).
+- **kj keeps a harness copy while a settings file still runs it**: an old `node .karajan/harness/...` hook in a versioned settings file no longer crashes node on every tool call (#4780).
+
 ## [5.33.0] - 2026-11-21
 
 The board's Accounts page shows and sets the rescue rules, and the confirmation code of a human act always reaches your terminal.
