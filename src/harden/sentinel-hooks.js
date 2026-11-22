@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { HARNESS_BODIES, mergeClaudeHooks, wiringState, writeHarnessScript } from "./harness-hooks.js";
+import { HARNESS_BODIES, harnessCalls, mergeClaudeHooks, wiringState, writeHarnessScript } from "./harness-hooks.js";
 
 /** The harness lives at the PROJECT root — resolve it even from a subdir. */
 export function resolveSentinelRoot(dir = process.cwd()) {
@@ -219,16 +219,23 @@ export function installSentinelHooks({ projectDir = process.cwd(), logger = cons
   projectDir = root;
   mkdirSync(join(projectDir, ".karajan", "harness"), { recursive: true });
   const { wired } = mergeClaudeHooks({ projectDir, logger, entries: SENTINEL_WIRING, moveShared });
-  const retired = wired ? retireGuardCopies(projectDir, [...Object.keys(SCRIPT_BODIES), INSTALLED_RECORD]) : [];
+  const retired = wired ? retireGuardCopies(projectDir, [...Object.keys(SCRIPT_BODIES), INSTALLED_RECORD], logger) : [];
   if (retired.length > 0) logger?.info?.(`kj harden: los guardias corren desde el kj instalado; retiradas las copias del proyecto (${retired.join(", ")})`);
   return { wired, retired };
 }
 
 /** KJC-TSK-1208: remove the named files from .karajan/harness, returning those that were there. */
-export function retireGuardCopies(projectDir, names) {
+export function retireGuardCopies(projectDir, names, logger = null) {
   const dir = join(projectDir, ".karajan", "harness");
+  const calls = harnessCalls(projectDir);
   return names.filter((name) => {
     if (!existsSync(join(dir, name))) return false;
+    // HU-4768: a settings file that still runs the copy would crash node on every tool call.
+    const caller = calls.find(({ script }) => script === name);
+    if (caller) {
+      logger?.info?.(`kj harden: ${caller.file} still runs ${name}, so the copy stays; run kj harden from the main checkout (moveShared) to move that wiring out`);
+      return false;
+    }
     rmSync(join(dir, name));
     return true;
   });

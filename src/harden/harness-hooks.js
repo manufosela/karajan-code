@@ -12,7 +12,7 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { isSea } from "node:sea";
 
 import { mainCheckout } from "../utils/main-checkout.js";
@@ -103,13 +103,42 @@ function effectiveHooks(projectDir, mainOf) {
   return main && resolve(main) !== resolve(projectDir) ? hooksOf(main) : null;
 }
 
+const HARNESS_CALL = /^node\s+(?:"?\$CLAUDE_PROJECT_DIR"?\/)?\.karajan\/harness\/([\w.-]+)$/;
+
+/**
+ * HU-4768: every hook command, in either settings file of the project, that runs a
+ * `.karajan/harness/<file>` copy: `{ file, event, command, script }`.
+ */
+export function harnessCalls(projectDir) {
+  const calls = [];
+  for (const file of [LOCAL_SETTINGS, SHARED_SETTINGS]) {
+    let hooks;
+    try { hooks = JSON.parse(readFileSync(join(projectDir, file), "utf8"))?.hooks; } catch { continue; }
+    for (const [event, list] of Object.entries(hooks && typeof hooks === "object" ? hooks : {})) {
+      for (const entry of Array.isArray(list) ? list : []) {
+        for (const { command } of Array.isArray(entry?.hooks) ? entry.hooks : []) {
+          const script = HARNESS_CALL.exec(typeof command === "string" ? command.trim() : "")?.[1];
+          if (script) calls.push({ file: file.split(sep).join("/"), event, command, script });
+        }
+      }
+    }
+  }
+  return calls;
+}
+
+/** HU-4768: the calls whose harness file is gone, as `<settings file> <event> → <command>`. */
+const danglingCalls = (projectDir) => harnessCalls(projectDir)
+  .filter(({ script }) => !existsSync(join(projectDir, ".karajan", "harness", script)))
+  .map(({ file, event, command }) => `${file} ${event} → ${command}`);
+
 /** A lane's `.git` is a file pointing at the common dir; any other dir has no main checkout to ask. */
 const laneMainCheckout = (dir) => (statSync(join(dir, ".git"), { throwIfNoEntry: false })?.isFile() ? mainCheckout(dir) : null);
 
 export function wiringState({ projectDir, entries, mainOf = laneMainCheckout }) {
   // A repo not migrated yet still has the wiring in settings.json: it counts until kj harden moves it.
   const hooks = effectiveHooks(projectDir, mainOf);
-  if (!hooks) return { mode: "wiring", missing: [`${LOCAL_SETTINGS} (sin hooks legibles)`] };
+  const dangling = danglingCalls(projectDir);
+  if (!hooks) return { mode: "wiring", missing: [`${LOCAL_SETTINGS} (sin hooks legibles)`], dangling };
   const missing = [];
   let legacy = false;
   for (const { event, matcher, script } of entries) {
@@ -121,7 +150,7 @@ export function wiringState({ projectDir, entries, mainOf = laneMainCheckout }) 
     if (here.some((h) => h?.command === old)) legacy = true;
     else missing.push(`${event} → ${guard}`);
   }
-  return { mode: legacy ? "files" : "wiring", missing: [...new Set(missing)] };
+  return { mode: legacy ? "files" : "wiring", missing: [...new Set(missing)], dangling };
 }
 
 /**
@@ -258,6 +287,8 @@ export function installHarnessHooks({ projectDir = process.cwd(), logger = conso
   projectDir = root;
   const { wired } = mergeClaudeHooks({ projectDir, logger, entries: HARNESS_WIRING, moveShared });
   const copy = join(projectDir, ".karajan", "harness", "pretooluse.mjs");
-  if (wired && existsSync(copy)) rmSync(copy);
+  const caller = harnessCalls(projectDir).find(({ script }) => script === "pretooluse.mjs");
+  if (caller) logger?.info?.(`kj harden: ${caller.file} still runs pretooluse.mjs, so the copy stays; run kj harden from the main checkout to move that wiring out`);
+  else if (wired && existsSync(copy)) rmSync(copy);
   return { wired };
 }
