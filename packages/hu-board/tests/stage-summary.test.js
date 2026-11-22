@@ -17,7 +17,8 @@ describe('stageSummary', () => {
     const deps = { projects: [{ id: 'alpha' }], dirOf: () => '/w/alpha', lanesOf: () => [lane] };
     expect(stageSummary(deps)).toEqual([{
       project: 'alpha', name: 'alpha',
-      lanes: [{ lane: 'main', working: [{ waiting: 'person' }], cards: [{ id: 'HU-1', status: 'running', at: 't', lane: 'main' }], mail: 1 }],
+      // KJC-TSK-1718: and each agent's role and the lane's kaRAGan, for the census over the panel.
+      lanes: [{ lane: 'main', rag: null, working: [{ role: 'host', waiting: 'person' }], cards: [{ id: 'HU-1', status: 'running', at: 't', lane: 'main' }], mail: 1 }],
     }]);
   });
 

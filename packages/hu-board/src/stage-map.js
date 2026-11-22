@@ -50,9 +50,11 @@ export function stageSummary(options = {}) {
   return factories(deps).map(({ project, dir }) => ({
     project,
     name: basename(dir),
-    lanes: deps.lanesOf(dir, light).map(({ lane, working = [], cards = [], mail = 0 }) => ({
+    // KJC-TSK-1718: with each agent's role and the lane's kaRAGan, for the census over the panel.
+    lanes: deps.lanesOf(dir, light).map(({ lane, working = [], cards = [], mail = 0, rag = null }) => ({
       lane,
-      working: working.map(({ waiting }) => (waiting ? { waiting } : {})),
+      rag,
+      working: working.map(({ role, waiting }) => ({ role, ...(waiting ? { waiting } : {}) })),
       cards: cards.map(({ id, status, at, lane: home }) => ({ id, status, at, lane: home })),
       mail,
     })),

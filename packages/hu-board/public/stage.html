@@ -67,6 +67,11 @@
     #stage-projects strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #stage-projects small { font-size: 14px; color: #b4bec7; }
     #stage-projects .stage-attention { display: inline-block; min-width: 1.4em; padding: 0 6px; border-radius: 999px; background: #f0b429; color: #10161f; font-size: 13px; font-weight: 700; text-align: center; }
+    /* KJC-TSK-1718: the census of every factory, over the list. */
+    #stage-census { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: #1a2332; border: 1px solid #2a3a4e; font-size: 14px; }
+    #stage-census[hidden] { display: none; }
+    #stage-census dt { font-weight: 700; color: #8cb4c9; }
+    #stage-census dd { margin: 0; color: #e2e8f0; }
     #stage-projects-toggle { display: none; }
     @media (min-width: 721px) { #stage-log { left: 280px; } }
     @media (max-width: 720px) {
@@ -188,7 +193,7 @@
   <!-- KJC-TSK-1685: who is coder, reviewer and solomon, and who stands in (main.js fills it). -->
   <section id="stage-governance" aria-label="Governance panel" aria-live="polite" hidden></section>
   <!-- KJC-TSK-1590: the projects; each opens its factory alone (main.js fills it). -->
-  <nav id="stage-projects" aria-label="Projects"><p>Loading the projects…</p><ul></ul></nav>
+  <nav id="stage-projects" aria-label="Projects"><dl id="stage-census" aria-label="Across every factory" hidden><dt>kaRAGan</dt><dd data-census="rag"></dd><dt>Karajan</dt><dd data-census="karajan"></dd></dl><p>Loading the projects…</p><ul></ul></nav>
   <!-- KJC-TSK-1570: the panel to pick the own emblem and each role's colour (avatar-panel.js). -->
   <dialog id="stage-avatar-panel" aria-labelledby="avatar-title"></dialog>
   <!-- KJC-TSK-1617: the legend of the characters, as collectable cards (legend-panel.js). -->

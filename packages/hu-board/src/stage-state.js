@@ -112,6 +112,31 @@ function agentsAtWork(records, now, waitOf, alive) {
   return [...busy, ...idle];
 }
 
+/** KJC-TSK-1718: a query not answered in this long is one whose answer was lost, not one still running. */
+const QUERY_MS = 2 * 60 * 1000;
+
+/** KJC-TSK-1718: one of kj rag's json notes in `root`/harness, or null. */
+function ragNote(root, name) {
+  try { return JSON.parse(readFileSync(join(root, 'harness', name), 'utf8')); } catch { return null; }
+}
+
+/**
+ * KJC-TSK-1718: whether the lane's kaRAGan indexes (a reindex started and not ended, half an hour at
+ * most, like any start) or answers (a query newer than its last answer, two minutes at most).
+ */
+export function ragNow(root, now) {
+  const index = ragNote(root, 'rag-index.json');
+  const query = ragNote(root, 'rag-query.json');
+  const answer = ragNote(root, 'rag-answer.json');
+  const recent = (note, ms) => typeof note?.at === 'number' && now - note.at < ms;
+  // An answer at the query's very millisecond or later has answered it.
+  const answered = typeof answer?.at === 'number' && typeof query?.at === 'number' && answer.at >= query.at;
+  return {
+    indexing: index?.phase === 'start' && recent(index, STALE_START_MS),
+    answering: query?.phase === 'start' && recent(query, QUERY_MS) && !answered,
+  };
+}
+
 function newestVerdict(dir) {
   let names;
   try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return null; }
@@ -145,6 +170,7 @@ export function lastStageState(projectDir, { tailBytes = 64 * 1024, now = Date.n
     working: agentsAtWork(trace('agent-activity.jsonl', activityEvent), now, waitOf, alive).map((w) => withSessionName(w, nameOf)),
     mail: pendingMail(projectDir),
     handoffs: pendingHandoffs(projectDir), // KJC-TSK-1638: what the mail asks
+    rag: ragNow(root, now), // KJC-TSK-1718: whether its kaRAGan indexes or answers
   };
 }
 
