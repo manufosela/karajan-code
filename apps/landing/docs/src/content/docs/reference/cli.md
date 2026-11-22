@@ -231,6 +231,8 @@ kj review "Check for security issues" --reviewer claude --base-ref HEAD~5
 
 `kj review --publish-pr <n>` publishes, as one GitHub review, the verdict kj holds for each commit of the PR, bound to the hash of the diff it brought. `kj review --verify-pr <n>` is its CI side: it exits 1 naming every commit that the review for the PR's current head does not list with a matching diff hash. Only a review written by an owner, member or collaborator of the repo counts, so skipping the pre-commit hook (`--no-verify`) no longer leaves a commit unreviewed. `--publish-pr` also gives the PR the `Karajan` label (created if missing; it means "went through Karajan", not "written by an AI"), so a team can measure how much of its change goes through the method; a labelling failure is logged and the publish goes on.
 
+A repo whose PRs may carry an automatic AI review instead of a kj one declares it with `--automatic-review codex-state` on `--verify-pr`: the last `github-actions[bot]` comment in the codex-state format, approving the PR head with no active finding, then counts. `--wait-automatic <minutes>` (1 to 60, needs `--automatic-review`) waits that long for the bot to review the head before failing. See [Working without kj](/docs/guides/working-without-kj/) for exactly what counts.
+
 ### Reviewing someone else's PR (`--third-party`)
 
 For reviewer agents and people who review other people's PRs. In a clone with the PR's head checked out:
