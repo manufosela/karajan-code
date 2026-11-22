@@ -35,6 +35,44 @@ describe("verdictsWorkflowFor", () => {
   });
 });
 
+// HU-4789: a repo that declares its automatic AI review waits for it.
+describe("verdictsWorkflowFor: automatic review", () => {
+  it("is byte for byte today's with a null automatic review", () => {
+    expect(verdictsWorkflowFor("9.9.9", "karajan-code", { automaticReview: null })).toBe(verdictsWorkflowFor("9.9.9", "karajan-code"));
+  });
+
+  it("codex-state adds the concurrency group, the timeout and both flags", () => {
+    const text = verdictsWorkflowFor("9.9.9", "karajan-code", { automaticReview: "codex-state" });
+    const parsed = yaml.load(text);
+    expect(parsed.concurrency).toEqual({ group: "kj-verdicts-${{ github.event.pull_request.number }}", "cancel-in-progress": true });
+    expect(parsed.jobs.verdicts["timeout-minutes"]).toBe(30);
+    expect(parsed.jobs.verdicts.steps.at(-1).run).toContain('$KJ review --verify-pr "$PR" --automatic-review codex-state --wait-automatic 20');
+    expect(text).not.toContain("`");
+  });
+});
+
+describe("installWorkflows: review.automatic in the config", () => {
+  let dir;
+  const wf = () => join(dir, ".github", "workflows", "kj-verdicts.yml");
+  const declare = (value) => {
+    mkdirSync(join(dir, ".karajan"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "kj.config.yml"), `review:\n  automatic: ${value}\n`);
+  };
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-verdicts-auto-")); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it("bakes the flags into the workflow when the repo declares codex-state", () => {
+    declare("codex-state");
+    installWorkflows({ projectDir: dir, kjVersion: "9.9.9" });
+    expect(readFileSync(wf(), "utf8")).toContain("--automatic-review codex-state --wait-automatic 20");
+  });
+
+  it("throws naming the key, the value and the known formats on an unknown value", () => {
+    declare("bogus");
+    expect(() => installWorkflows({ projectDir: dir, kjVersion: "9.9.9" })).toThrow(/review\.automatic.*"bogus".*codex-state/);
+  });
+});
+
 describe("installWorkflows: kj-verdicts.yml", () => {
   let dir;
   const verdicts = (res) => res.workflows.find((w) => w.file.endsWith("kj-verdicts.yml"));

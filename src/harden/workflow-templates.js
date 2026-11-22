@@ -84,6 +84,10 @@ export const KJ_MIN_VERSION = {
   "kj-steward.yml": "4.23.0", // steward sweep, the scheduled action
 };
 
+// HU-4789: kj-verdicts.yml of a repo that declares its automatic AI review needs --wait-automatic (HU-4787).
+export const KJ_MIN_VERSION_AUTOMATIC_REVIEW = "5.35.0";
+export const AUTOMATIC_REVIEW_FORMATS = ["codex-state"];
+
 /** Universal workflows (every stack). style:hash ⇒ marker in YAML comments. */
 export const WORKFLOWS = [
   { file: "kj-no-ai-attribution.yml", blockId: "wf-no-ai", body: NO_AI_ATTRIBUTION_WORKFLOW },
@@ -145,7 +149,7 @@ export const policyWorkflowFor = (kjVersion, kjName = "karajan-code") => [
 // HU-4012: every PR commit carries its published cross-AI verdict (kj review --publish-pr);
 // a commit made with --no-verify skipped the review and this check names it. The verdict is
 // published as a PR review, so a submitted review reruns it. The PR is only data.
-export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code") => [
+export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code", { automaticReview = null } = {}) => [
   "# Runs on pull_request because pull_request_target has no review event. kj-policy.yml (the",
   "# base's workflow) refuses an unsealed change to this file, so a PR cannot edit or delete it",
   "# and pass the required policy-check.",
@@ -158,8 +162,10 @@ export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   "permissions:",
   "  contents: read",
   "  pull-requests: read",
+  ...(automaticReview ? ["concurrency:", "  group: kj-verdicts-${{ github.event.pull_request.number }}", "  cancel-in-progress: true"] : []),
   "jobs:",
   "  verdicts:",
+  ...(automaticReview ? ["    timeout-minutes: 30"] : []),
   // Forks and bots hold no kj verdicts to publish: the check is for the team's own branches.
   "    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot'",
   "    runs-on: ubuntu-latest",
@@ -180,7 +186,10 @@ export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code") => [
   '          JUDGE="$RUNNER_TEMP/kj-judge"',
   '          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"',
   ...judgeLines(kjVersion, kjName),
-  '          $KJ review --verify-pr "$PR"',
+  ...(automaticReview ? [
+    "          # The bot's review workflow comments minutes after the push, so the check waits for it.",
+    `          $KJ review --verify-pr "$PR" --automatic-review ${automaticReview} --wait-automatic 20`,
+  ] : ['          $KJ review --verify-pr "$PR"']),
 ].join("\n");
 
 // HU-4144 (HU-4013 step b): the PR's added lines are scanned for credentials and PII
