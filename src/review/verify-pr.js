@@ -9,7 +9,9 @@ import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
 import { commitFiles, MARKER, SONAR_MARKS, prBaseLayout } from "./publish-pr.js";
 import { trustedReviews, canWriteRepo } from "./trusted-review.js";
-import { judgeAutomaticReview } from "./automatic-review.js";
+import { setTimeout as delay } from "node:timers/promises";
+import { judgeAutomaticReview, BOT } from "./automatic-review.js";
+import { isCodexStateComment, parseCodexState } from "./codex-state.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { isSealCommit } from "./seal-commit.js";
@@ -25,6 +27,8 @@ const PROVED = [SONAR_MARKS.pass, SONAR_MARKS.granted];
 const NO_SONAR = "its verdict carries no Sonar proof: run kj review --staged with Sonar up, then kj review --publish-pr";
 // HU-4774: the automatic AI reviews verify-pr can judge when a PR has no kj review.
 const AUTOMATIC_REVIEWS = new Set(["codex-state"]);
+// HU-4787: how often the PR comments are re-read while waiting for the bot.
+const POLL_MS = 30_000;
 
 /** The commits each kj review lists; a line with its Sonar proof wins over one without it. */
 function listedCommits(kjReviews) {
@@ -68,34 +72,72 @@ async function hashesOf(projectDir, sha, run) {
  * HU-4774: the judge's problems with the PR's automatic review. gh lists at most 100 files of a
  * PR, so a PR that changes more cannot prove it leaves the workflows alone: it never counts.
  */
-async function automaticReviewProblems({ projectDir, pr, run, info }) {
-  const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/issues/${pr}/comments`, "--jq", ".[] | {body, user: {login: .user.login}}"], { cwd: projectDir });
-  if (res.exitCode !== 0) throw new Error(`gh api comments failed: ${(res.stderr || res.stdout || "").trim()}`);
-  const comments = (res.stdout || "").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+async function automaticReviewProblems({ projectDir, pr, run, info, wait }) {
   const files = (info.files ?? []).map((f) => String(f.path));
   if (files.length !== info.changedFiles) return [`gh lists ${files.length} of its ${info.changedFiles} changed files, so the automatic review cannot count; get a kj review`];
+  const read = async () => {
+    const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/issues/${pr}/comments`, "--jq", ".[] | {body, user: {login: .user.login}}"], { cwd: projectDir });
+    if (res.exitCode !== 0) throw new Error(`gh api comments failed: ${(res.stderr || res.stdout || "").trim()}`);
+    return (res.stdout || "").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  };
+  const { comments, timedOut } = await waitForBot({ read, head: info.headRefOid, ...wait });
   const canWrite = (login) => canWriteRepo(login, { projectDir, run });
   const judged = await judgeAutomaticReview({ comments, head: info.headRefOid, files, prAuthor: String(info.author?.login ?? ""), canWrite });
-  return judged.problems;
+  const waited = timedOut ? [`waited ${wait.minutes} minute(s) and the bot has not reviewed the head ${info.headRefOid.slice(0, 7)}`] : [];
+  return [...judged.problems, ...waited];
+}
+
+/** Whether the bot's last codex-state comment is settled: of the head, or unreadable (the judge fails it closed). */
+function botSettled(comments, head) {
+  const last = comments.findLast((c) => c?.user?.login === BOT && isCodexStateComment(c.body));
+  if (!last) return false;
+  try {
+    const { state } = parseCodexState(last.body);
+    return state.reviewed.head === head && state.observedHead === head;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * HU-4787: re-reads the comments every POLL_MS until the bot reviewed the head or the deadline
+ * passes; the last sleep ends at the deadline, never past it.
+ */
+async function waitForBot({ read, head, minutes = null, sleep, now }) {
+  const deadline = minutes === null ? 0 : now() + minutes * 60_000;
+  for (;;) {
+    const comments = await read();
+    if (minutes === null || botSettled(comments, head)) return { comments, timedOut: false };
+    const left = deadline - now();
+    if (left <= 0) return { comments, timedOut: true };
+    await sleep(Math.min(POLL_MS, left));
+  }
 }
 
 /** The problems of a PR with no kj review by a member; the automatic review, when asked for, may cover it. */
-async function noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected }) {
+async function noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected, wait }) {
   const missing = `no kj review published by a member: run kj review --publish-pr ${pr}`;
   if (!automaticReview) return [missing, ...rejected];
-  const automatic = await automaticReviewProblems({ projectDir, pr, run, info });
+  const automatic = await automaticReviewProblems({ projectDir, pr, run, info, wait });
   return automatic.length === 0 ? [] : [missing, ...automatic.map((p) => `automatic review: ${p}`), ...rejected];
 }
 
 /**
  * @param {{automaticReview?: "codex-state" | null}} options HU-4774: the automatic AI review that
  *   may cover a PR with no kj review by a member; null (the default) never reads it.
+ * @param {{waitAutomatic?: number | null}} options HU-4787: minutes (integer 1..60) to wait for the bot
+ *   to review the head, polling every 30 s; needs automaticReview. sleep(ms) and now() are injectable.
  * @returns {Promise<{ok: boolean, commits: number, problems: string[], sealCommits?: string[], automaticReview?: true}>}
  */
-export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null, config = {}, automaticReview = null }) {
+export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null, config = {}, automaticReview = null, waitAutomatic = null, sleep = delay, now = Date.now }) {
   if (automaticReview !== null && !AUTOMATIC_REVIEWS.has(automaticReview)) {
     throw new Error(`unknown automatic review format ${automaticReview}: the known one is ${[...AUTOMATIC_REVIEWS].join(", ")}`);
   }
+  if (waitAutomatic !== null && automaticReview === null) throw new Error("waitAutomatic needs an automatic review format (--automatic-review)");
+  if (waitAutomatic !== null && !(Number.isInteger(waitAutomatic) && waitAutomatic >= 1 && waitAutomatic <= 60)) {
+    throw new Error(`waitAutomatic ${waitAutomatic} is not an integer from 1 to 60 minutes`);
+  }
+  const wait = { minutes: waitAutomatic, sleep, now };
   const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits,baseRefName,author,files,changedFiles"], projectDir);
   const commits = info.commits ?? [];
   const layout = await prBaseLayout(projectDir, info);
@@ -133,7 +175,7 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   const onlySeals = exempt > 0 && exempt === commits.length;
   // HU-4774: covered by the automatic review, no kj review exists, so no per-commit verdict applies.
   const missing = kjReviews.length === 0 && !onlySeals;
-  if (missing) problems.splice(0, problems.length, ...(await noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected: judged.rejected })));
+  if (missing) problems.splice(0, problems.length, ...(await noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected: judged.rejected, wait })));
   const covered = missing && problems.length === 0;
   return { ok: problems.length === 0, commits: commits.length, problems, ...(covered ? { automaticReview: true } : {}), ...(sealCommits.length > 0 ? { sealCommits } : {}), ...(rosterCommits.length > 0 ? { rosterCommits } : {}) };
 }

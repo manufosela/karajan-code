@@ -6,7 +6,7 @@
  */
 import { isCodexStateComment, parseCodexState } from "./codex-state.js";
 
-const BOT = "github-actions[bot]";
+export const BOT = "github-actions[bot]";
 const WORKFLOWS = ".github/workflows/";
 const STATUSES = new Set(["active", "fixed", "dismissed"]);
 const label = (f) => `${f.id} (${String(f.severity).toUpperCase()}, ${f.path}:${f.line})`;
