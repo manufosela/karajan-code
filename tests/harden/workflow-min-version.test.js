@@ -46,6 +46,14 @@ describe("kj harden workflows pin per minimum version", () => {
     expect(res.workflows.some((w) => w.note)).toBe(false); // the single warning comes from harden
   });
 
+  it("leaves verdicts as it is when the repo declares the automatic review and only older kj is published", () => {
+    mkdirSync(join(dir, ".karajan"), { recursive: true });
+    writeFileSync(join(dir, ".karajan", "kj.config.yml"), "review:\n  automatic: codex-state\n");
+    const res = installWorkflows({ projectDir: dir, kjVersion: "5.35.0", published: ["5.22.0", "5.34.0"] });
+    expect(entry(res, "kj-verdicts.yml")).toMatchObject({ action: "left", note: expect.stringContaining("needs karajan-code >= 5.35.0") });
+    expect(existsSync(wfPath("kj-verdicts.yml"))).toBe(false);
+  });
+
   it("keeps an existing kj-secrets.yml byte for byte when its minimum is not published", () => {
     mkdirSync(join(dir, ".github", "workflows"), { recursive: true });
     const old = "# kj:managed:wf-secrets v1 start\nname: old\n# kj:managed:wf-secrets end\n";

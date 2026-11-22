@@ -19,7 +19,7 @@ import { gradleInputs } from "./gradle-commands.js";
 import { swiftInputs } from "./swift-commands.js";
 import { ownTestWorkflow } from "./test-on-push.js";
 import { workflowChecks } from "./branch-protection.js";
-import { KJ_MIN_VERSION, extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, secretsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
+import { AUTOMATIC_REVIEW_FORMATS, KJ_MIN_VERSION, KJ_MIN_VERSION_AUTOMATIC_REVIEW, extraWorkflowsFor, multiRootQualityWorkflow, mutationWorkflowFor, qualityWorkflowFor, policyWorkflowFor, stewardWorkflowFor, verdictsWorkflowFor, secretsWorkflowFor, onBaseBranch, WORKFLOWS } from "./workflow-templates.js";
 
 // KJC-BUG-0424: on the PR that brings this change GitHub runs neither YAML (the base's
 // listens to pull_request, the new one to pull_request_target), so policy-check never reports.
@@ -101,6 +101,21 @@ function stewardActionOn(projectDir) {
   }
 }
 
+// HU-4789: review.automatic in the config declares the repo's automatic AI review; null = none.
+function automaticReviewOf(projectDir) {
+  let value;
+  try {
+    value = parseYaml(readFileSync(join(projectDir, ".karajan", "kj.config.yml"), "utf8"))?.review?.automatic;
+  } catch {
+    return null; // no config: none declared
+  }
+  if (value === undefined || value === null) return null;
+  if (!AUTOMATIC_REVIEW_FORMATS.includes(value)) {
+    throw new Error(`kj harden: review.automatic is ${JSON.stringify(value)} in .karajan/kj.config.yml; known formats: ${AUTOMATIC_REVIEW_FORMATS.join(", ")}`);
+  }
+  return value;
+}
+
 /** KJC-BUG-0420: the published kj versions the workflows that install kj pin from; null without a package.json. */
 export async function resolveKjPin({ fetchFn } = {}) {
   const own = ownPkg();
@@ -133,10 +148,10 @@ function qualityFor(projectDir, roots) {
 }
 
 /** HU-4278: a workflow that installs kj, kept untouched. Unreadable registry: harden's own warning says why. */
-function leftAsIs(label, file, published) {
+function leftAsIs(label, file, published, min) {
   if (published === null) return { file: label, action: "left" };
   const name = ownPkg()?.name ?? "karajan-code";
-  return { file: label, action: "left", note: `${file} needs ${name} >= ${KJ_MIN_VERSION[file]}, which is not on npm yet; it is left as it is until that version is published` };
+  return { file: label, action: "left", note: `${file} needs ${name} >= ${min}, which is not on npm yet; it is left as it is until that version is published` };
 }
 
 /**
@@ -239,7 +254,9 @@ export function installWorkflows({
   // recurso inalcanzable en los caminos reales.
   const running = kjVersion ?? ownPkg()?.version ?? "latest";
   // HU-4278: each workflow pins the newest published kj within [its minimum, running]; null = leave it.
-  const pinOf = (file) => pinForMinimum({ published, running, min: KJ_MIN_VERSION[file] });
+  const automaticReview = automaticReviewOf(projectDir);
+  const minOf = (file) => (file === "kj-verdicts.yml" && automaticReview ? KJ_MIN_VERSION_AUTOMATIC_REVIEW : KJ_MIN_VERSION[file]);
+  const pinOf = (file) => pinForMinimum({ published, running, min: minOf(file) });
   const pinned = (file) => pinOf(file) ?? running;
   const kjName = ownPkg()?.name ?? "karajan-code";
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm, kjVersion: pinned("kj-shrink-budget.yml"), kjName });
@@ -247,7 +264,7 @@ export function installWorkflows({
     ? { file: "kj-policy.yml", blockId: "wf-policy", body: policyWorkflowFor(pinned("kj-policy.yml"), kjName) }
     : null;
   const steward = stewardActionOn(projectDir) ? { file: "kj-steward.yml", blockId: "wf-steward", body: stewardWorkflowFor(pinned("kj-steward.yml"), kjName) } : null;
-  const verdicts = { file: "kj-verdicts.yml", blockId: "wf-verdicts", body: verdictsWorkflowFor(pinned("kj-verdicts.yml"), kjName) };
+  const verdicts = { file: "kj-verdicts.yml", blockId: "wf-verdicts", body: verdictsWorkflowFor(pinned("kj-verdicts.yml"), kjName, { automaticReview }) };
   const secrets = { file: "kj-secrets.yml", blockId: "wf-secrets", body: secretsWorkflowFor(pinned("kj-secrets.yml"), kjName) };
   const all = [...WORKFLOWS, verdicts, secrets, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : []), ...(policy ? [policy] : []), ...(steward ? [steward] : [])];
   const results = [];
@@ -255,7 +272,7 @@ export function installWorkflows({
     const target = join(dir, wf.file);
     const label = join(WORKFLOWS_DIR, wf.file);
     if (KJ_MIN_VERSION[wf.file] && pinOf(wf.file) === null) {
-      results.push(leftAsIs(label, wf.file, published));
+      results.push(leftAsIs(label, wf.file, published, minOf(wf.file)));
       continue;
     }
     results.push(upsertWorkflow({ wf, target, label, dir, dryRun, qualityNoteText }));
