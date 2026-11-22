@@ -8,7 +8,8 @@
 import { runCommand } from "../utils/process.js";
 import { diffHash } from "./verdict-store.js";
 import { commitFiles, MARKER, SONAR_MARKS, prBaseLayout } from "./publish-pr.js";
-import { trustedReviews } from "./trusted-review.js";
+import { trustedReviews, canWriteRepo } from "./trusted-review.js";
+import { judgeAutomaticReview } from "./automatic-review.js";
 import { isCleanMerge } from "./clean-merge.js";
 import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { isSealCommit } from "./seal-commit.js";
@@ -22,6 +23,8 @@ const LISTED = /^- `([0-9a-f]{7})` .*?\(diff ([0-9a-f]{12})\)(.*)$/gm;
 // HU-4046: the marks that prove code was analysed, or that a human granted the Sonar rule.
 const PROVED = [SONAR_MARKS.pass, SONAR_MARKS.granted];
 const NO_SONAR = "its verdict carries no Sonar proof: run kj review --staged with Sonar up, then kj review --publish-pr";
+// HU-4774: the automatic AI reviews verify-pr can judge when a PR has no kj review.
+const AUTOMATIC_REVIEWS = new Set(["codex-state"]);
 
 /** The commits each kj review lists; a line with its Sonar proof wins over one without it. */
 function listedCommits(kjReviews) {
@@ -62,10 +65,38 @@ async function hashesOf(projectDir, sha, run) {
 }
 
 /**
- * @returns {Promise<{ok: boolean, commits: number, problems: string[], sealCommits?: string[]}>}
+ * HU-4774: the judge's problems with the PR's automatic review. gh lists at most 100 files of a
+ * PR, so a PR that changes more cannot prove it leaves the workflows alone: it never counts.
  */
-export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null, config = {} }) {
-  const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits,baseRefName"], projectDir);
+async function automaticReviewProblems({ projectDir, pr, run, info }) {
+  const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/issues/${pr}/comments`, "--jq", ".[] | {body, user: {login: .user.login}}"], { cwd: projectDir });
+  if (res.exitCode !== 0) throw new Error(`gh api comments failed: ${(res.stderr || res.stdout || "").trim()}`);
+  const comments = (res.stdout || "").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  const files = (info.files ?? []).map((f) => String(f.path));
+  if (files.length !== info.changedFiles) return [`gh lists ${files.length} of its ${info.changedFiles} changed files, so the automatic review cannot count; get a kj review`];
+  const canWrite = (login) => canWriteRepo(login, { projectDir, run });
+  const judged = await judgeAutomaticReview({ comments, head: info.headRefOid, files, prAuthor: String(info.author?.login ?? ""), canWrite });
+  return judged.problems;
+}
+
+/** The problems of a PR with no kj review by a member; the automatic review, when asked for, may cover it. */
+async function noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected }) {
+  const missing = `no kj review published by a member: run kj review --publish-pr ${pr}`;
+  if (!automaticReview) return [missing, ...rejected];
+  const automatic = await automaticReviewProblems({ projectDir, pr, run, info });
+  return automatic.length === 0 ? [] : [missing, ...automatic.map((p) => `automatic review: ${p}`), ...rejected];
+}
+
+/**
+ * @param {{automaticReview?: "codex-state" | null}} options HU-4774: the automatic AI review that
+ *   may cover a PR with no kj review by a member; null (the default) never reads it.
+ * @returns {Promise<{ok: boolean, commits: number, problems: string[], sealCommits?: string[], automaticReview?: true}>}
+ */
+export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed = null, config = {}, automaticReview = null }) {
+  if (automaticReview !== null && !AUTOMATIC_REVIEWS.has(automaticReview)) {
+    throw new Error(`unknown automatic review format ${automaticReview}: the known one is ${[...AUTOMATIC_REVIEWS].join(", ")}`);
+  }
+  const info = await json(run, ["pr", "view", String(pr), "--json", "headRefOid,commits,baseRefName,author,files,changedFiles"], projectDir);
   const commits = info.commits ?? [];
   const layout = await prBaseLayout(projectDir, info);
   // One review per line, every page: --slurp is missing from the gh that distros ship.
@@ -100,6 +131,9 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   // HU-4700: roster commits the roster verifies count with the seals.
   const exempt = sealCommits.length + rosterCommits.length;
   const onlySeals = exempt > 0 && exempt === commits.length;
-  if (kjReviews.length === 0 && !onlySeals) problems.splice(0, problems.length, `no kj review published by a member: run kj review --publish-pr ${pr}`, ...judged.rejected);
-  return { ok: problems.length === 0, commits: commits.length, problems, ...(sealCommits.length > 0 ? { sealCommits } : {}), ...(rosterCommits.length > 0 ? { rosterCommits } : {}) };
+  // HU-4774: covered by the automatic review, no kj review exists, so no per-commit verdict applies.
+  const missing = kjReviews.length === 0 && !onlySeals;
+  if (missing) problems.splice(0, problems.length, ...(await noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected: judged.rejected })));
+  const covered = missing && problems.length === 0;
+  return { ok: problems.length === 0, commits: commits.length, problems, ...(covered ? { automaticReview: true } : {}), ...(sealCommits.length > 0 ? { sealCommits } : {}), ...(rosterCommits.length > 0 ? { rosterCommits } : {}) };
 }

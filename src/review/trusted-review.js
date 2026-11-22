@@ -21,6 +21,11 @@ async function permissionOf(login, { projectDir, run }) {
   return { permission: (res.stdout || "").trim() };
 }
 
+/** HU-4774: whether the login can write to the repository; a lookup that fails is false, never true. */
+export async function canWriteRepo(login, { projectDir, run }) {
+  return WRITERS.has((await permissionOf(String(login ?? ""), { projectDir, run })).permission);
+}
+
 function rejection(login, association, { permission, error }) {
   const why = error ?? `repository permission ${permission}`;
   const hint = HIDDEN.has(association)
