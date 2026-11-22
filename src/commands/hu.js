@@ -252,6 +252,20 @@ async function migrateLanePlansLoudly(projectDir) {
   if (moved.length || kept.length) console.warn(`plans from lanes: ${moved.length} moved to the main checkout${keptNote}`);
 }
 
+// HU-4769: a card that came without what the listing prints shows "?" there and is named in a
+// warning after the listing; the id falls back to `id`. Never a throw, never a silent skip.
+function printableCard(card) {
+  const id = card.short_id || card.id;
+  const missing = [!id && "short_id", !card.status && "status"].filter(Boolean);
+  return { id: id || "?", status: card.status || "?", missing };
+}
+function warnIncompleteCards(cards, where) {
+  for (const card of cards) {
+    const { missing } = printableCard(card);
+    if (missing.length) console.warn(`⚠ a card of ${where} came without ${missing.join(" and ")}: ${card.short_id || card.id || card.title}`);
+  }
+}
+
 async function listTeam({ projectDir, key, flags, deps }) {
   const { source, rows: hus, updatedAt } = await listWithCache({ projectDir, file: key.cacheFile, list: deps.manager.list });
   if (source === "cache") console.warn(`⚠ ${key.service} did not answer: this is the local copy of the board from ${updatedAt}`);
@@ -259,11 +273,13 @@ async function listTeam({ projectDir, key, flags, deps }) {
   else await writeTeamMirror(projectDir, hus, { repo: key.place, key });
   const rows = hus.map((h) => ({ ...h, id: h.short_id, plan: key.name }));
   if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
-  for (const r of rows) {
-    const held = r.claimed_by ? " · held by " + r.claimed_by : "";
-    console.log(`${r.short_id.padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${key.place}${held}]`);
+  for (const h of hus) {
+    const held = h.claimed_by ? " · held by " + h.claimed_by : "";
+    const { id, status } = printableCard(h);
+    console.log(`${id.padEnd(28)} ${status.padEnd(8)} ${h.title}  [${key.place}${held}]`);
   }
   if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
+  warnIncompleteCards(hus, "the shared board");
   return rows;
 }
 
@@ -375,10 +391,12 @@ async function listLocal({ projectDir, flags }) {
     const reserved = r.status === "running" && r.claimed_by ? `reserved by ${r.claimed_by}` : null;
     const suffixes = [r.created_at?.slice(0, 10), r.external_ref, reserved].filter(Boolean).map((s) => ` · ${s}`).join("");
     const origin = `${r.plan} · by ${r.created_by || "?"}${suffixes}`;
-    console.log(`${(r.short_id || r.id).padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${origin}]`);
+    const { id, status } = printableCard(r);
+    console.log(`${id.padEnd(28)} ${status.padEnd(8)} ${r.title}  [${origin}]`);
   }
   if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
   else console.log("→ work one: ask your agent · discard one: kj hu move <id> skipped");
+  warnIncompleteCards(rows, "the local board");
   return rows;
 }
 
