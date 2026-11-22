@@ -15,6 +15,7 @@ import { listenPan, listenZoom, panTarget } from './zoom.js';
 import { MARK_MS } from './marks.js';
 import { mountAvatarPanel } from './avatar-panel.js';
 import { mountStatusFold } from './status-fold.js';
+import { censusLines, censusOf } from './census.js';
 import { liveEntries, opensInPlace, panelBadge, panelEntries, panelHref, panelLine, projectOf } from './project-panel.js';
 import { mountLegend } from './legend-panel.js';
 import { watchWorkshops } from './workshop-pointer.js';
@@ -339,6 +340,11 @@ const PANEL_MS = 30_000;
 /** The projects panel's entries for `factories`, the open one marked. */
 function showPanel(panel, factories) {
   // KJC-TSK-1690: only the factories with a session on, and the one on screen.
+  // KJC-TSK-1718: the census of every factory, over the list.
+  const census = document.getElementById('stage-census');
+  const lines = censusLines(censusOf(factories));
+  for (const dd of census.querySelectorAll('dd')) dd.textContent = lines[dd.dataset.census];
+  census.hidden = false;
   const live = liveEntries(panelEntries(factories, project), { map: wantsMap });
   const note = panel.querySelector('p');
   note.hidden = live.length > 0;
