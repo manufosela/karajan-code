@@ -85,7 +85,7 @@ const withoutStale = (list, stale, scope = () => true) => list.flatMap((e) => {
 // KJC-TSK-1444 (ADR, 6-nov): the wiring is personal. It lives in settings.local.json, which git
 // ignores, so a teammate who uses Claude Code without kj is not blocked by a versioned file.
 export const LOCAL_SETTINGS = join(".claude", "settings.local.json");
-const SHARED_SETTINGS = join(".claude", "settings.json");
+export const SHARED_SETTINGS = join(".claude", "settings.json");
 
 /** The hooks of both settings files, merged per event; null when neither has readable hooks. */
 function hooksOf(projectDir) {

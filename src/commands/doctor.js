@@ -46,6 +46,7 @@ import { getTaskManagerChecks } from "../checks/task-manager.js";
 import { getAgentRulesChecks } from "../checks/agent-rules.js";
 import { getPanelPinChecks } from "../checks/panel-pin.js";
 import { getDanglingHookChecks } from "../checks/dangling-hooks.js";
+import { getHookGuardChecks } from "../checks/hook-guards.js";
 import { transversalWiringReport } from "../harden/transversal-install.js";
 
 /**
@@ -82,6 +83,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getTokenChecks(config),
     ...getPanelPinChecks(config),
     ...getDanglingHookChecks(config),
+    ...getHookGuardChecks(config),
     ...getAgentTokenChecks({ projectDir }),
     ...getMcpHealthChecks(),
     ...getSkillsChecks(),

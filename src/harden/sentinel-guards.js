@@ -112,6 +112,17 @@ const enterChildRepo = async (name, parent, { logger, exit }) => {
   return true;
 };
 
+/** A name that can never be a guard: asking kj-hook for it makes it list the guards it knows (kj doctor). */
+export const GUARD_PROBE = "--kj-doctor-probe";
+
+const REFUSAL = /is not a Sentinel guard \(([^)]*)\)/;
+
+/** The guard names in the refusal runGuard prints for an unknown name, or null when the text has another shape. */
+export function guardsFromRefusal(stderr) {
+  const list = REFUSAL.exec(String(stderr ?? ""))?.[1];
+  return list === undefined ? null : list.split(",").map((name) => name.trim()).filter(Boolean);
+}
+
 /**
  * Run one guard: it reads the hook's input from stdin and exits on its own.
  * A name outside the list exits 2, because a wiring that names no known guard
