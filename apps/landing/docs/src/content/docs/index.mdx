@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.33.0: the rescue rules on the board; the confirmation code always in sight (current)
+### v5.34.0: the automatic AI review counts; kj code writes again in a lane (current)
+
+A PR without a kj review can now count the automatic AI review its repo runs: `kj review --verify-pr <n> --automatic-review codex-state` reads the codex-state comment of the bot and accepts it only when it reviewed the latest commit, recommends APPROVE and leaves no open finding, with no CRITICAL or MAJOR finding dismissed and a MINOR one only by another maintainer. `kj code` writes again in a lane cut from main, the Sentinel finds the staged verdict whatever your diff settings, a lane follows your local kj config, and the Sonar gates follow the base branch's test layout. Exhausted agent accounts are remembered until their reset. On `kj stage` the sessions that wait for you stay at their desk, and a strip counts who is at work in every factory.
+
+### v5.33.0: the rescue rules on the board; the confirmation code always in sight
 
 The HU Board's Accounts page gets a Rescue section that shows and sets when the rescue key may run, with what and how much, without ever carrying the key. The confirmation code of a human act (`kj rules approve`, `kj harden --commit`) is written to the terminal itself before kj waits for it, so it no longer stays unseen. The privacy scan stops reading the number after `max-age` as a phone, and `kj rules` finds the memories of a project reached through a symlink. On `kj stage` the drones' marks show as comic bubbles, one at a time, and the drones look like drones.
 
