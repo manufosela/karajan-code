@@ -150,6 +150,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--walked-with <tool>", "Con qué se comprobó el recorrido (por ejemplo chrome-devtools)")
     .option("--publish-pr <n>", "Publish the cross-AI verdicts of a PR's commits on it as one GitHub review")
     .option("--verify-pr <n>", "CI check: every commit of the PR is listed, with its diff hash, in the kj review a member published")
+    .option("--automatic-review <format>", "With --verify-pr: a PR with no kj review may count the repo's automatic AI review (codex-state)")
     .option("--third-party", "Review someone else's PR (--range base...head): reviewer only, no own-work gates, no verdict stored")
     .option("--json", "With --third-party: print the review as one JSON document on stdout")
     .option("--lens <lens>", "With --third-party: what the reviewer looks at; qa = test coverage, weak assertions, flakiness, test data")
@@ -183,8 +184,9 @@ export function registerPipeline(program, { pkgVersion }) {
         }
         // KJC-TSK-1088: the CI side of the same review; a commit without its verdict fails the check.
         if (flags.verifyPr) {
-          const r = await verifyPrReview({ projectDir: config.projectDir || process.cwd(), pr: flags.verifyPr, config });
-          if (r.ok) logger.info(`✓ PR #${flags.verifyPr}: ${r.commits} commit(s), each with its cross-AI verdict`);
+          const r = await verifyPrReview({ projectDir: config.projectDir || process.cwd(), pr: flags.verifyPr, config, automaticReview: flags.automaticReview ?? null });
+          if (r.ok && r.automaticReview) logger.info(`✓ PR #${flags.verifyPr}: ${r.commits} commit(s), covered by the automatic AI review (${flags.automaticReview})`);
+          else if (r.ok) logger.info(`✓ PR #${flags.verifyPr}: ${r.commits} commit(s), each with its cross-AI verdict`);
           else logger.error(`✗ PR #${flags.verifyPr}:\n  - ${r.problems.join("\n  - ")}`);
           if (r.sealCommits) logger.info(`  seal commit(s) signed by the roster, a human act with no AI verdict: ${r.sealCommits.join(", ")}`);
           process.exitCode = r.ok ? 0 : 1;
