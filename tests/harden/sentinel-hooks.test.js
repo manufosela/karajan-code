@@ -909,7 +909,9 @@ describe("installSentinelHooks settings merge", () => {
     // KJC-BUG-0236 (#1886): and MCP kj_rag_query — without it the recorder
     // never ran and the official tool could not satisfy rag-first.
     // KJC-TSK-1434 (ADR 0048): and Agent|Task, a subagent coming back, for kj stage.
-    expect((JSON.stringify(cfg.hooks.PostToolUse).match(/then (kj-hook|kj sentinel hook) posttooluse;/g) || []).length).toBe(5);
+    // HU-4781: the Agent|Task one is a stage entry, so its guard call fails open (|| true).
+    expect((JSON.stringify(cfg.hooks.PostToolUse).match(/then (kj-hook|kj sentinel hook) posttooluse;/g) || []).length).toBe(4);
+    expect((JSON.stringify(cfg.hooks.PostToolUse).match(/then (kj-hook|kj sentinel hook) posttooluse \|\| true;/g) || []).length).toBe(1);
     const matchers = cfg.hooks.PostToolUse.map((e) => e.matcher);
     expect(matchers).toContain("Bash");
     expect(matchers).toContain("Agent|Task");

@@ -43,22 +43,33 @@ export function writeHarnessScript(projectDir, name, body) {
  * it through `kj sentinel hook`, which exists wherever kj harden ran. Without
  * the runner, a hook before a tool blocks (no kj, no governance: the
  * maintainer's decision) and any other one warns.
+ * HU-4781: failOpen (a stage entry, it governs nothing) never exits 2: an installed kj-hook
+ * older than the wiring answers an unknown guard with exit 2, and that blocked every prompt.
  */
 export const kjHookOnPath = () => spawnSync("sh", ["-c", "command -v kj-hook"], { stdio: "ignore" }).status === 0;
 
-export function guardCommand(guard, { blocking = false, viaKj = isSea() || !kjHookOnPath() } = {}) {
+export function guardCommand(guard, { blocking = false, viaKj = isSea() || !kjHookOnPath(), failOpen = false } = {}) {
   const [bin, run] = viaKj ? ["kj", `kj sentinel hook ${guard}`] : ["kj-hook", `kj-hook ${guard}`];
   const missing = `echo "karajan: ${bin} no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión" >&2`;
+  if (failOpen) return `if command -v ${bin} >/dev/null 2>&1; then ${run} || true; else ${missing}; fi`;
   return `if command -v ${bin} >/dev/null 2>&1; then ${run}; else ${missing}${blocking ? "; exit 2" : ""}; fi`;
 }
+
+/** HU-4781: every command kj writes or wrote for an entry, both runners; a stage entry adds its fail-open form. */
+const kjCommandsOf = ({ event, script, stage }) => {
+  const guard = script.replace(/\.mjs$/, "");
+  const blocking = event === "PreToolUse";
+  const forms = [true, false].flatMap((viaKj) => [guardCommand(guard, { blocking, viaKj }), ...(stage ? [guardCommand(guard, { viaKj, failOpen: true })] : [])]);
+  return [`node ${join(".karajan", "harness", script)}`, ...forms];
+};
 
 /**
  * Drop the commands that ran this guard some other way: node on the project's copy
  * (before ADR 0030) or the other runner (KJC-BUG-0403: switching runner must not
  * leave the guard wired twice).
  */
-const withoutStale = (list, stale) => list.flatMap((e) => {
-  if (!Array.isArray(e?.hooks) || !e.hooks.some((h) => stale.includes(h?.command))) return [e];
+const withoutStale = (list, stale, scope = () => true) => list.flatMap((e) => {
+  if (!scope(e) || !Array.isArray(e?.hooks) || !e.hooks.some((h) => stale.includes(h?.command))) return [e];
   const hooks = e.hooks.filter((h) => !stale.includes(h?.command));
   return hooks.length ? [{ ...e, hooks }] : [];
 });
@@ -181,12 +192,16 @@ export function mergeClaudeHooks({ projectDir, logger = console, entries, viaKj 
       return { wired: false };
     }
   }
-  for (const { event, matcher, script } of entries) {
+  for (const { event, matcher, script, stage } of entries) {
     const guard = script.replace(/\.mjs$/, "");
     const blocking = event === "PreToolUse";
-    const stale = [`node ${join(".karajan", "harness", script)}`, guardCommand(guard, { blocking, viaKj: !viaKj })];
-    const list = withoutStale(Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [], stale);
-    const command = guardCommand(guard, { blocking, viaKj });
+    const failOpen = Boolean(stage);
+    const command = guardCommand(guard, { blocking, viaKj, failOpen });
+    const stale = [`node ${join(".karajan", "harness", script)}`, guardCommand(guard, { blocking, viaKj: !viaKj, failOpen })];
+    let list = withoutStale(Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [], stale);
+    // HU-4781: the old blocking form of a stage command goes, but only under its own matcher: a
+    // governing entry of the same guard (posttooluse on Bash) runs that very command and keeps it.
+    if (stage) list = withoutStale(list, kjCommandsOf({ event, script }), (e) => e?.matcher === matcher);
     const present = list.some(
       (e) => (e?.hooks || []).some((h) => h?.command === command) && (matcher === undefined || e?.matcher === matcher),
     );
@@ -237,11 +252,7 @@ export function stripKjHooks(file, entries) {
  */
 export function withoutKjHooks(shared, entries) {
   if (!shared?.hooks || typeof shared.hooks !== "object") return false;
-  const kj = entries.flatMap(({ event, script }) => {
-    const guard = script.replace(/\.mjs$/, "");
-    const blocking = event === "PreToolUse";
-    return [`node ${join(".karajan", "harness", script)}`, guardCommand(guard, { blocking, viaKj: true }), guardCommand(guard, { blocking, viaKj: false })];
-  });
+  const kj = entries.flatMap(kjCommandsOf);
   let changed = false;
   for (const event of new Set(entries.map((e) => e.event))) {
     if (!Array.isArray(shared.hooks[event])) continue;
