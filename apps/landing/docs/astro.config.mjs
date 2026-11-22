@@ -70,6 +70,7 @@ export default defineConfig({
 									{ label: 'The HU-Board', slug: 'guides/hu-board', translations: { es: 'El HU-Board' } },
 									{ label: 'The coordinated release', slug: 'guides/coordinated-release', translations: { es: 'La release coordinada' } },
 									{ label: 'Move to Node 24', slug: 'guides/node-24', translations: { es: 'Pasar a Node 24' } },
+									{ label: 'Working without kj', slug: 'guides/working-without-kj', translations: { es: 'Trabajar sin kj' } },
 								],
 							},
 							{
