@@ -50,6 +50,22 @@ describe("seeded eslint.config.js (ES2025 deprecated-API blacklist)", () => {
     expect(result.errorCount).toBeGreaterThanOrEqual(3);
   });
 
+  // HU-4759: console.log is visible in lint (warn) but breaks no build.
+  it("warns on console.log and console.debug, and allows warn, error and info", async () => {
+    const result = await lint("console.log('a'); console.debug('b'); console.warn('c'); console.error('d'); console.info('e');");
+    const flagged = result.messages.filter((m) => m.ruleId === "no-console");
+    expect(flagged).toHaveLength(2);
+    expect(flagged.every((m) => m.severity === 1)).toBe(true);
+    expect(result.errorCount).toBe(0);
+  });
+
+  it("carries no-console in the TypeScript twin too", async () => {
+    const { ESLINT_BODY, ESLINT_TS_BODY } = await import("../../src/harden/config-templates.js");
+    for (const body of [ESLINT_BODY, ESLINT_TS_BODY]) {
+      expect(body).toContain('"no-console": ["warn", { allow: ["warn", "error", "info"] }]');
+    }
+  });
+
   it("passes clean modern code with zero errors", async () => {
     const result = await lint("const url = encodeURIComponent('z');\ndocument.body.append(url);\n");
     expect(result.errorCount).toBe(0);
