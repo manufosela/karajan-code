@@ -96,6 +96,10 @@ vi.mock("../src/harden/phone-sign.js", async (importOriginal) => ({
 const stubCheck = (name, label) => ({ name, label, strategy: "none", detect: async () => ({ ok: true, severity: "info", detail: "stubbed in the doctor unit test" }) });
 vi.mock("../src/checks/rag-coverage.js", () => ({ createRagCoverageCheck: () => stubCheck("rag-coverage", "RAG index coverage (ADR 0010)") }));
 vi.mock("../src/checks/action-pins.js", () => ({ createActionPinsCheck: () => stubCheck("action-pins", "actions fijadas por SHA") }));
+// HU-4817: these two read the repo's real .claude/settings.local.json, so a clone with the harness
+// installed turned this unit test red while CI stayed green; their own tests cover them.
+vi.mock("../src/checks/dangling-hooks.js", () => ({ getDanglingHookChecks: () => [stubCheck("dangling-hooks", "Hooks that run a missing harness file")] }));
+vi.mock("../src/checks/hook-guards.js", () => ({ getHookGuardChecks: () => [stubCheck("hook-guards", "Guards the installed kj-hook knows")] }));
 
 const baseConfig = {
   review_mode: "standard",
