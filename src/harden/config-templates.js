@@ -52,6 +52,8 @@ export const ESLINT_BODY = [
   '      "no-var": "error",',
   '      "no-eval": "error",',
   '      "no-new-func": "error",',
+  // HU-4759: warn, not error: console.log is a Node CLI's normal output.
+  '      "no-console": ["warn", { allow: ["warn", "error", "info"] }],',
   '      "no-restricted-globals": [',
   '        "error",',
   '        { name: "alert", message: "Use the app modal, not alert()." },',

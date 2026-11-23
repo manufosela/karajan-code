@@ -64,6 +64,7 @@ const IMPROVEMENTS = {
     { needle: "no-var", id: "no-var", detail: "bans var (ES2025: const/let)" },
     { needle: "no-restricted-globals", id: "no-legacy-globals", detail: "bans alert/confirm/prompt, escape/unescape" },
     { needle: "no-restricted-properties", id: "no-legacy-apis", detail: "bans document.write, substr" },
+    { needle: "no-console", id: "no-console", detail: "warns on console.log (use a logger)" },
   ],
   commitlint: [
     { needle: "header-max-length", id: "header-max-length", detail: "caps the commit header at 100 chars" },
