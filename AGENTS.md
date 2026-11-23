@@ -57,7 +57,7 @@ Invariants (the git gates enforce these — they are not suggestions):
   and it must be reviewed again. Disagree with a rejection? `kj solomon`.
   A correction from the other AI is the method working: apply it and move
   on, no apology, and never report it as your mistake.
-- The panel is your user's, not yours: coder=claude, reviewer=agy, solomon=copilot. Wrote a card yourself? Say so.
+- The panel is your user's, not yours: coder=claude, reviewer=codex, solomon=agy. Wrote a card yourself? Say so.
 - Security findings are never overridable — not even by arbitration. You
   absorb the security role: `kj brief security` states what must be true.
   Task touches auth, user input, secrets, network or deps? Run
