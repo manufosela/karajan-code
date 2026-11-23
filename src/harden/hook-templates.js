@@ -140,7 +140,8 @@ function identityGuard(hook) {
     '      case "$kj_lsha" in *[!0]*) ;; *) continue ;; esac',
     // What the PUSH TARGET ($1, the remote git hands the hook) does not have yet. KJC-BUG-0436:
     // an existing ref too, or merging main into a pushed branch judges main's own merges.
-    '      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_lsha" --not "$kj_rsha" --remotes="${1:-origin}") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac',
+    // HU-4815 (#4808): a remote tip this clone lacks makes rev-list fail; refuse rather than push unchecked.
+    '      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_lsha" --not "$kj_rsha" --remotes="${1:-origin}") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac || { echo "kj harden: identity lock — cannot list the commits pushed to $kj_rref (git fetch, then push again)"; exit 1; }',
     "      for kj_c in $kj_new; do",
     '        kj_who=$(git log -1 --format="%ae %ce" "$kj_c")',
     '        if [ "$kj_who" != "$kj_declared_email $kj_declared_email" ]; then',

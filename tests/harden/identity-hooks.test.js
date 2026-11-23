@@ -142,6 +142,22 @@ describe("pre-push identity lock", () => {
     expect(update().stdout).toMatch(/identity lock — commit \w+ is authored\/committed as intruder@x\.y/);
   });
 
+  // HU-4815 (#4808, point 3): a remote tip the clone lacks makes rev-list fail; the loop sat left of
+  // `|| exit 1`, set -e never stopped it, and the push went out with no commit checked.
+  it("refuses with a message when the commits of the push cannot be listed", () => {
+    declare("manufosela", "t@t");
+    hosts("manufosela");
+    fs.writeFileSync(path.join(dir, "f.js"), "// intruder\n");
+    execFileSync("git", ["add", "f.js"], { cwd: dir });
+    execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "user.email=intruder@x.y", "commit", "-q", "-m", "feat: y"], { cwd: dir });
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
+    const denied = spawnSync("sh", ["-e", path.join(dir, ".karajan", "hooks", "pre-push")], {
+      cwd: dir, encoding: "utf8", input: `refs/heads/x ${sha} refs/heads/x ${"1".repeat(40)}\n`, env: { ...process.env, GH_CONFIG_DIR: ghDir },
+    });
+    expect(denied.status).not.toBe(0);
+    expect(denied.stdout).toMatch(/identity lock — cannot list the commits pushed to refs\/heads\/x.*git fetch/);
+  });
+
   // KJC-BUG-0550 (#3834): the installed hook runs under set -e; a lookup that finds nothing must not end it in silence.
   it("no credential helper for github.com and no hosts.yml: passes or refuses with a message, never a silent exit", () => {
     const pushE = () => spawnSync("sh", ["-e", path.join(dir, ".karajan", "hooks", "pre-push")], {
