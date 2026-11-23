@@ -102,5 +102,18 @@ describe("post-merge hook under set -e", () => {
         expect(existsSync(marker())).toBe(true);
       }
     });
+
+    // HU-4819 (#4809, point 3): under set -e a failing indexer ended the subshell before it removed the lock.
+    it(`${shell}: a failing kj rag index still frees the lock`, async () => {
+      const res = runE(shell, "exit 3");
+      expect(res.status).toBe(0);
+      expect(await waitFor(() => !existsSync(join(dir, ".git", "kj-rag-index.lock")))).toBe(true);
+    });
+
+    it(`${shell}: a failing kj rag index keeps its output in the log`, async () => {
+      runE(shell, "echo indexer-failed >&2; exit 3");
+      const log = join(dir, ".git", "kj-rag-index.log");
+      expect(await waitFor(() => existsSync(log) && readFileSync(log, "utf8").includes("indexer-failed"))).toBe(true);
+    });
   }
 });
