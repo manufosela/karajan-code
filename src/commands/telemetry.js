@@ -1,4 +1,5 @@
 import { TELEMETRY_ENDPOINT, buildTelemetryPayload, isTelemetryEnabled } from "../utils/telemetry.js";
+import { otelEnabled, previewSpan } from "../telemetry/otel.js";
 
 /**
  * Render the exact payload that would be POSTed for every event type.
@@ -30,7 +31,7 @@ function buildPreview(version) {
 }
 
 export async function telemetryPreviewCommand({ config, logger, version, json }) {
-  const preview = buildPreview(version);
+  const preview = { ...buildPreview(version), otel: previewSpan() };
   if (json) {
     logger.info(JSON.stringify(preview, null, 2));
     return preview;
@@ -46,6 +47,11 @@ export async function telemetryPreviewCommand({ config, logger, version, json })
     logger.info(`    ${JSON.stringify(payload)}`);
     logger.info("");
   }
+  logger.info(`OpenTelemetry spans (${otelEnabled() ? "on" : "off"}: set OTEL_EXPORTER_OTLP_ENDPOINT to opt in).`);
+  logger.info("Exact attributes one role-call span would carry (never prompts, code or keys):");
+  logger.info(`  [${preview.otel.name}]`);
+  for (const [name, value] of Object.entries(preview.otel.attributes)) logger.info(`    ${name} = ${JSON.stringify(value)}`);
+  logger.info("");
   logger.info("No data was sent — `kj telemetry preview` never opens a socket.");
   return preview;
 }
