@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { findEquivalentIn } from "./advisory.js";
+import { findEquivalentIn, UnreadableConfigError } from "./advisory.js";
 import { artifactIdForConfig, findAlternative } from "./alternatives.js";
 import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 
@@ -45,10 +45,21 @@ export function configLeftAlone(cfg, altDirs) {
   // package.json#eslintConfig…) means the config already EXISTS — seeding
   // kj's default filename next to it would silently ECLIPSE the user's
   // real config (eslint resolves eslint.config.js before .mjs).
-  const variant = findEquivalentIn(altDirs, id);
-  if (variant) return { action: "covered", by: variant };
+  const sameTool = sameToolVerdict(altDirs, id);
+  if (sameTool) return sameTool;
   // KJC-BUG-0137: no tool ⇒ no config — report the actionable gap instead.
   return missingToolGap(cfg, altDirs);
+}
+
+/** The user's own config of the same tool (covered), one kj cannot read (omitted, HU-4823), or null. */
+function sameToolVerdict(altDirs, id) {
+  try {
+    const variant = findEquivalentIn(altDirs, id);
+    return variant ? { action: "covered", by: variant } : null;
+  } catch (error) {
+    if (!(error instanceof UnreadableConfigError)) throw error;
+    return { action: "omitted", note: error.message };
+  }
 }
 
 /** KJC-BUG-0376: the first tool the config needs and the project lacks, as a report entry. */

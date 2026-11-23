@@ -2,14 +2,17 @@
  * advisory — per-artifact comparison engine for `kj harden` advisory mode
  * (KJC-TSK-0565, épica KJC-PCS-0060). For each artifact harden manages it
  * classifies the repo state: MISSING (no file nor equivalent), KJ_MANAGED (a
- * kj:managed block, up to date or outdated vN) or USER_OWNED (the user's own,
- * possibly in another format). Read-only; never writes or prints. The result
+ * kj:managed block, up to date or outdated vN), USER_OWNED (the user's own,
+ * possibly in another format) or UNREADABLE (a file that may hold it, which kj
+ * cannot parse: HU-4823). Read-only; never writes or prints. The result
  * feeds `--report` (Advisory B) / `--interactive` (Advisory C). Per-type
  * improvement heuristics for USER_OWNED land in the follow-up slice (PR2).
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { parse as parseToml, TomlError } from "smol-toml";
 
 import { findManagedBlock } from "../utils/managed-markers.js";
 import { findAlternative } from "./alternatives.js";
@@ -26,14 +29,42 @@ const EQUIVALENTS = {
   commitlint: { files: [".commitlintrc", ".commitlintrc.js", ".commitlintrc.cjs", ".commitlintrc.mjs", ".commitlintrc.json", ".commitlintrc.yaml", ".commitlintrc.yml", "commitlint.config.mjs", "commitlint.config.cjs", "commitlint.config.ts"], pkgKey: "commitlint" },
   eslint: { files: ["eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts", "eslint.config.mts", "eslint.config.cts", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json", ".eslintrc.yaml", ".eslintrc.yml"], pkgKey: "eslintConfig" },
   prettier: { files: [".prettierrc", ".prettierrc.js", ".prettierrc.yaml", ".prettierrc.yml", ".prettierrc.json5", ".prettierrc.toml", "prettier.config.js", "prettier.config.mjs", "prettier.config.cjs", "prettier.config.ts"], pkgKey: "prettier" },
+  // ruff also reads pyproject.toml's tool.ruff table (HU-4823): a ruff.toml would shadow it.
+  ruff: { files: [".ruff.toml"], pyprojectTool: "ruff" },
 };
+
+/** HU-4823: a config file kj cannot parse, so it cannot tell what that file configures. */
+export class UnreadableConfigError extends Error {}
+
+/** HU-4823: a TOML table, as smol-toml parses one: an object that is neither an array nor a date. */
+function isTomlTable(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date);
+}
+
+/**
+ * HU-4823: does `dir`'s pyproject.toml hold a `tool.<name>` table? Parsed, never
+ * pattern-matched: TOML spells one in many ways ([ tool . "ruff" ], dotted keys,
+ * inline tables) and a header inside a string is no table at all.
+ */
+function pyprojectDeclares(dir, name) {
+  const path = join(dir, "pyproject.toml");
+  if (!existsSync(path)) return false;
+  try {
+    return isTomlTable(parseToml(readFileSync(path, "utf8")).tool?.[name]);
+  } catch (error) {
+    const where = error instanceof TomlError ? ` at line ${error.line}, column ${error.column}` : ` (${error.message})`;
+    const why = `kj cannot tell whether it configures ${name}: fix it, then re-run kj harden`;
+    throw new UnreadableConfigError(`${path} is not readable TOML${where}, so ${why}`, { cause: error });
+  }
+}
 
 /**
  * KJC-BUG-0119 — same-tool filename variant for `artifactId` in any of
  * `searchDirs` (file or inline package.json config); null when none exists.
  * Seeding kj's default filename NEXT TO a variant eclipses the user's real
  * config (eslint resolves eslint.config.js before .mjs), so config-engine
- * must consult this before treating an artifact as absent.
+ * must consult this before treating an artifact as absent. Throws
+ * UnreadableConfigError when a file that may hold the config cannot be parsed.
  */
 export function findEquivalentIn(searchDirs, artifactId) {
   const spec = EQUIVALENTS[artifactId];
@@ -42,6 +73,7 @@ export function findEquivalentIn(searchDirs, artifactId) {
     for (const rel of spec.files) {
       if (existsSync(join(dir, rel))) return rel;
     }
+    if (spec.pyprojectTool && pyprojectDeclares(dir, spec.pyprojectTool)) return `pyproject.toml#tool.${spec.pyprojectTool}`;
     if (spec.pkgKey && existsSync(join(dir, "package.json"))) {
       try {
         if (JSON.parse(readFileSync(join(dir, "package.json"), "utf8"))[spec.pkgKey] != null) {
@@ -104,6 +136,16 @@ function findArtifactFile(searchDir, artifact) {
   return findEquivalentIn([searchDir], artifact.id);
 }
 
+/** HU-4823: the user's file for an artifact, or why kj cannot tell; any other error still throws. */
+function locateArtifact(searchDir, artifact) {
+  try {
+    return { foundAt: findArtifactFile(searchDir, artifact) };
+  } catch (error) {
+    if (!(error instanceof UnreadableConfigError)) throw error;
+    return { foundAt: null, unreadable: error.message };
+  }
+}
+
 /** Read the artifact body, or the JSON of an inline package.json key. */
 function readArtifactContent(searchDir, foundAt) {
   const [file, key] = foundAt.split("#");
@@ -125,6 +167,8 @@ function recommend(state) {
       mergeable: false,
     };
   }
+  // HU-4823: kj keeps its hands off a config it cannot read, and says why.
+  if (state.status === "UNREADABLE") return { recommendation: "keep", rationale: state.note, mergeable: false };
   if (state.status === "MISSING") return { recommendation: "install", rationale: `kj would add ${state.file}`, mergeable: true };
   if (state.status === "USER_OWNED") {
     const n = state.improvements?.length ?? 0;
@@ -139,14 +183,14 @@ function recommend(state) {
 /**
  * Classify a single artifact found (or not) under `searchDir`. `altDirs`
  * widens the cross-tool alternative lookup (a root-level biome.json covers a
- * monorepo's language roots); the user's OWN config of the same tool still
- * wins over an alternative.
+ * monorepo's language roots); the user's OWN config of the same tool, even one
+ * kj cannot read (HU-4823), still wins over an alternative.
  */
 export function classifyArtifact(searchDir, artifact, altDirs = [searchDir]) {
-  const foundAt = findArtifactFile(searchDir, artifact);
+  const { foundAt, unreadable } = locateArtifact(searchDir, artifact);
   const base = { foundAt, managedVersion: null, upToDate: null, improvements: [] };
-  let state = { ...base, status: "MISSING" };
-  if (!foundAt) {
+  let state = unreadable ? { ...base, status: "UNREADABLE", note: unreadable } : { ...base, status: "MISSING" };
+  if (!foundAt && !unreadable) {
     const alt = findAlternative(altDirs, artifact.id);
     if (alt) state = { ...base, status: "SATISFIED_BY_ALTERNATIVE", foundAt: alt.foundAt, alternativeTool: alt.tool };
   }

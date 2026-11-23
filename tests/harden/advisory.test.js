@@ -2,11 +2,18 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildManagedBlock } from "../../src/utils/managed-markers.js";
-import { compareHarden, formatAdvisoryReport } from "../../src/harden/advisory.js";
+import { compareHarden, findEquivalentIn, formatAdvisoryReport, UnreadableConfigError } from "../../src/harden/advisory.js";
+import { findAlternative } from "../../src/harden/alternatives.js";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
+
+// HU-4823: the real lookup, which one test overrides (no other tool stands in for ruff today).
+vi.mock("../../src/harden/alternatives.js", async (importOriginal) => {
+  const real = await importOriginal();
+  return { ...real, findAlternative: vi.fn(real.findAlternative) };
+});
 
 let root;
 const touch = (rel, content = "") => {
@@ -22,6 +29,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
+  findAlternative.mockReset();
 });
 
 // KJC-BUG-0335 (#2094): the report compared configs only and said "0 missing" in a
@@ -148,5 +156,90 @@ describe("formatAdvisoryReport", () => {
 
   it("handles an empty comparison (minimal profile)", () => {
     expect(formatAdvisoryReport({ artifacts: [] })[0]).toMatch(/nothing to compare/);
+  });
+});
+
+// HU-4823: ruff reads pyproject.toml's [tool.ruff] tables, so findEquivalentIn must
+// recognize them as the ruff config a seeded ruff.toml would shadow.
+describe("findEquivalentIn — ruff (HU-4823)", () => {
+  it("finds a [tool.ruff] table in pyproject.toml", () => {
+    touch("pyproject.toml", "[tool.ruff]\nline-length = 120\n");
+    expect(findEquivalentIn([root], "ruff")).toBe("pyproject.toml#tool.ruff");
+  });
+
+  it("finds a [tool.ruff.lint] sub-table", () => {
+    touch("pyproject.toml", "[tool.ruff.lint]\nselect = ['E']\n");
+    expect(findEquivalentIn([root], "ruff")).toBe("pyproject.toml#tool.ruff");
+  });
+
+  // TOML ignores whitespace around a table key and its dots, and a bare key may be quoted.
+  it.each(["[ tool.ruff ]", "[tool.ruff ]", "[tool . ruff]", "[ tool.ruff.lint ]", '[tool."ruff"]', "[tool.'ruff']", '["tool".ruff]', "  [tool.ruff]  # ruff settings"])(
+    "finds the table written as %s",
+    (header) => {
+      touch("pyproject.toml", `[project]\nname = 'x'\n\n${header}\nline-length = 120\n`);
+      expect(findEquivalentIn([root], "ruff")).toBe("pyproject.toml#tool.ruff");
+    },
+  );
+
+  // No table header at all, and ruff still reads them: only a TOML parser sees these.
+  it.each([
+    ["a dotted key under [tool]", "[tool]\nruff.line-length = 120\n"],
+    ["a top-level dotted key", "tool.ruff.line-length = 120\n\n[project]\nname = 'x'\n"],
+    ["an inline table", "[tool]\nruff = { line-length = 120 }\n"],
+  ])("finds the table declared by %s", (_label, body) => {
+    touch("pyproject.toml", body);
+    expect(findEquivalentIn([root], "ruff")).toBe("pyproject.toml#tool.ruff");
+  });
+
+  it.each([
+    ["ruff named only in a comment or a value", "[project]\nname = 'x'\n# [tool.ruff] lives elsewhere\ndescription = \"[tool.ruff]\"\n"],
+    ["a table header inside a multi-line string", '[project]\nname = "x"\ndescription = """\n[tool.ruff]\n"""\n'],
+    ["a look-alike table ([tool.ruffian])", "[tool.ruffian]\nx = 1\n"],
+    ["another tool ([tool.ruff-lsp])", "[tool.ruff-lsp]\nx = 1\n"],
+    ["a quoted key that only contains ruff", '[tool."ruff.lint"]\nx = 1\n'],
+    // Ruff reads only a table there: any other TOML value configures nothing.
+    ["a string, not a table", "[tool]\nruff = 'x'\n"],
+    ["an array, not a table", "[tool]\nruff = ['E']\n"],
+    ["an array of tables ([[tool.ruff]])", "[[tool.ruff]]\nx = 1\n"],
+    ["a date, which parses to an object yet is no table", "[tool]\nruff = 1979-05-27\n"],
+  ])("ignores %s", (_label, body) => {
+    touch("pyproject.toml", body);
+    expect(findEquivalentIn([root], "ruff")).toBeNull();
+  });
+
+  // Ruff itself cannot read such a file: kj cannot tell either, and says where it breaks.
+  it("throws UnreadableConfigError, with the line, for a pyproject.toml that is not valid TOML", () => {
+    touch("pyproject.toml", "[project]\nname = 'x'\n[tool.ruff\n");
+    expect(() => findEquivalentIn([root], "ruff")).toThrow(UnreadableConfigError);
+    expect(() => findEquivalentIn([root], "ruff")).toThrow(/pyproject\.toml is not readable TOML at line 3, column \d+, so/);
+  });
+
+  it("throws UnreadableConfigError, with the cause, for a pyproject.toml it cannot even read", () => {
+    mkdirSync(join(root, "pyproject.toml"));
+    expect(() => findEquivalentIn([root], "ruff")).toThrow(/pyproject\.toml is not readable TOML \(EISDIR\b.*\), so/);
+  });
+
+  it("compareHarden recommends keeping a ruff config it cannot read, never replacing it, and says why", () => {
+    touch("pyproject.toml", "[tool.ruff\n");
+    expect(find(run(), "ruff")).toMatchObject({ status: "UNREADABLE", recommendation: "keep", mergeable: false, foundAt: null });
+    expect(find(run(), "ruff").rationale).toMatch(/pyproject\.toml is not readable TOML .*fix it, then re-run kj harden/);
+  });
+
+  // A file kj cannot read may be the user's own ruff config, and their own config wins over another tool.
+  it("keeps the parse error when another tool would cover ruff", () => {
+    findAlternative.mockImplementation((_dirs, id) => (id === "ruff" ? { tool: "other-linter", foundAt: "other-linter.toml" } : null));
+    touch("pyproject.toml", "[tool.ruff\n");
+    expect(find(run(), "ruff")).toMatchObject({ status: "UNREADABLE", recommendation: "keep", foundAt: null });
+    expect(find(run(), "ruff").rationale).toMatch(/pyproject\.toml is not readable TOML/);
+  });
+
+  it("finds a .ruff.toml file", () => {
+    touch(".ruff.toml", "line-length = 120\n");
+    expect(findEquivalentIn([root], "ruff")).toBe(".ruff.toml");
+  });
+
+  it("returns null when there is no ruff config at all", () => {
+    touch("pyproject.toml", "[project]\nname = 'x'\n");
+    expect(findEquivalentIn([root], "ruff")).toBeNull();
   });
 });
