@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getKarajanHome } from "../utils/paths.js";
 import { ACCOUNT_VAR } from "../utils/agent-home.js";
+import { exhaustedUntil } from "./exhausted.js";
 
 const ID = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const fileOf = (home) => path.join(home, "accounts.json");
@@ -102,18 +103,29 @@ export function accountEnv(agent, options) {
   return accountFor(agent, options).env;
 }
 
-/** The account an agent runs on: the project's first for its provider, else the default. id null when none. */
-export function accountFor(agent, { home = getKarajanHome(), projectKey } = {}) {
+/** HU-4751: the accounts to try for a provider, in order: the project's, else the default alone, else []. */
+export function accountsFor(agent, { home = getKarajanHome(), projectKey } = {}) {
   const name = ACCOUNT_VAR[agent];
-  const none = { id: null, env: {}, pace: undefined };
-  if (!name) return none;
+  if (!name) return [];
   const data = readAccounts({ home });
-  const ordered = data.projects[projectKey]?.[agent]?.[0];
-  if (ordered && !data.accounts.some((a) => a.id === ordered)) {
-    throw new Error(`accounts: project "${path.basename(projectKey)}" orders the account "${ordered}", which no longer exists`);
-  }
-  const id = ordered ?? data.default[agent];
-  if (!id) return none;
-  const account = find(data, id);
-  return { id, env: { [name]: account.dir }, pace: account.pace };
+  const order = data.projects[projectKey]?.[agent];
+  const ids = order?.length ? order : [data.default[agent]].filter(Boolean);
+  return ids.map((id) => {
+    const account = data.accounts.find((a) => a.id === id);
+    if (!account) throw new Error(`accounts: project "${path.basename(projectKey)}" orders the account "${id}", which no longer exists`);
+    return { id, env: { [name]: account.dir }, pace: account.pace };
+  });
+}
+
+/**
+ * The account an agent runs on: the first of its accounts not exhausted at `now`. When every one is out,
+ * the first plus `allExhausted: [{ id, until }]`. id null when none.
+ */
+export function accountFor(agent, { home = getKarajanHome(), projectKey, now = new Date() } = {}) {
+  const list = accountsFor(agent, { home, projectKey });
+  if (list.length === 0) return { id: null, env: {}, pace: undefined };
+  const untils = list.map((a) => exhaustedUntil(a.id, { home, now }));
+  const free = untils.findIndex((until) => !until);
+  if (free >= 0) return list[free];
+  return { ...list[0], allExhausted: list.map((a, i) => ({ id: a.id, until: untils[i] })) };
 }
