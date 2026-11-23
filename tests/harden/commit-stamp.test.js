@@ -46,6 +46,8 @@ describe("prepare-commit-msg card stamp", () => {
   it("leaves merges, refless branches and over-limit headers untouched", () => {
     onBranch("feat/KJW-TSK-0001-x");
     expect(runHook("Merge branch 'main'\n")).toBe("Merge branch 'main'\n");
+    // HU-4821 (#4809, point 4): git commit --fixup=amend:<c> or reword:<c>; a stamp breaks --autosquash.
+    for (const header of ["fixup! feat: x", "squash! feat: x", "amend! feat: x"]) expect(runHook(`${header}\n`)).toBe(`${header}\n`);
     const long = `feat: ${"x".repeat(90)}`;
     expect(runHook(`${long}\n`)).toBe(`${long}\n`); // stamping would exceed 100
     onBranch("feat/sin-referencia");

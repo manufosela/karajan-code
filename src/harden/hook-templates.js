@@ -344,7 +344,7 @@ export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention 
         'header=$(head -n1 "$msg_file")',
         'if [ -n "$ref" ] && [ -n "$header" ]; then',
         '  case "$header" in',
-        "    Merge*|fixup!*|squash!*) ;;",
+        "    Merge*|fixup!*|squash!*|amend!*) ;;",
         "    *)",
         "      # Boundary match — a header mentioning KJW-TSK-00011 must not",
         "      # suppress the KJW-TSK-0001 stamp. $ref is [a-z0-9-] only by",
