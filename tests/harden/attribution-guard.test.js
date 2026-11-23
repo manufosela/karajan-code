@@ -3,7 +3,7 @@
 // staged (ejecutado de verdad, no leído), y el workflow cubre cuerpo y
 // título de la PR. Las menciones legítimas a herramientas siguen siendo
 // legales; la ATRIBUCIÓN no.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -70,6 +70,39 @@ describe("pre-commit scans ADDED content for AI attribution (KJC-BUG-0164)", () 
 
 // KJC-BUG-0503 (HU-3580): the local hook, kj review and the CI workflow judge
 // with ONE list. Every judge refuses the same messages and accepts the same.
+// HU-4825 (#4810, point 2): the scan ran on origin/<base>...HEAD, a symmetric range, so a commit
+// that landed on the base after the PR's merge commit was made failed a PR that does not bring it.
+describe("the workflow scans only the PR's commits (HU-4825)", () => {
+  const runScan = (env) => {
+    const lines = NO_AI_ATTRIBUTION_WORKFLOW.split("\n");
+    const script = lines.slice(lines.indexOf("        run: |") + 1).map((l) => l.replace(/^ {10}/, "")).join("\n");
+    return spawnSync("bash", ["-c", script], { cwd: repo, encoding: "utf8", env: { ...process.env, BASE_REF: "main", PR_BODY: "", PR_TITLE: "feat: x", ...env } });
+  };
+  const commitOn = (branch, message) => {
+    git(["checkout", "-q", branch]);
+    git(["commit", "-q", "--allow-empty", "-m", message, "--no-verify"]);
+    return git(["rev-parse", "HEAD"]).trim();
+  };
+
+  it("a base-only commit with attribution does not fail a clean PR; a PR commit with it does", () => {
+    const head = commitOn("feat/x", "feat: clean change");
+    const base = commitOn("main", "chore: on main\n\nCo-Authored-By: Claude <noreply@anthropic.com>");
+    git(["update-ref", "refs/remotes/origin/main", base]);
+    git(["checkout", "-q", "feat/x"]);
+    const clean = runScan({ BASE_SHA: base, HEAD_SHA: head });
+    expect(clean.status).toBe(0);
+    expect(clean.stdout).toContain("AI attribution scan: clean");
+    const dirty = commitOn("feat/x", "feat: more\n\nCo-Authored-By: Claude <noreply@anthropic.com>");
+    expect(runScan({ BASE_SHA: base, HEAD_SHA: dirty }).status).not.toBe(0);
+  });
+
+  it("takes the shas from the pull request event, never the moving base ref", () => {
+    expect(NO_AI_ATTRIBUTION_WORKFLOW).toContain("BASE_SHA: ${{ github.event.pull_request.base.sha }}");
+    expect(NO_AI_ATTRIBUTION_WORKFLOW).toContain("HEAD_SHA: ${{ github.event.pull_request.head.sha }}");
+    expect(NO_AI_ATTRIBUTION_WORKFLOW).not.toContain('"origin/${BASE_REF}...HEAD"');
+  });
+});
+
 describe("one attribution list for every judge (KJC-BUG-0503)", () => {
   const refused = [
     "Co-authored-by: Claude <noreply@anthropic.com>",

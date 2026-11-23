@@ -42,15 +42,18 @@ export const NO_AI_ATTRIBUTION_WORKFLOW = [
   "          fetch-depth: 0",
   "      - name: Scan commit messages and PR body for AI attribution",
   "        env:",
-  "          BASE_REF: ${{ github.base_ref }}",
+  // HU-4825: the shas come from the PR event, never from the moving base ref. A symmetric
+  // range over origin/<base> also scanned base commits that landed after the PR's merge.
+  "          BASE_SHA: ${{ github.event.pull_request.base.sha }}",
+  "          HEAD_SHA: ${{ github.event.pull_request.head.sha }}",
   // KJC-BUG-0164: el cuerpo de la PR tambien es superficie — 15 PRs entraron
   // con pie de atribucion porque solo se escaneaban commits. Via env, jamas
   // interpolado en el script (el cuerpo es texto no confiable).
   "          PR_BODY: ${{ github.event.pull_request.body }}",
   "          PR_TITLE: ${{ github.event.pull_request.title }}",
   "        run: |",
-  '          if ! msgs=$(git log --format=%B "origin/${BASE_REF}...HEAD"); then',
-  '            echo "::error::cannot resolve origin/${BASE_REF}...HEAD — the scan did not run"; exit 1',
+  '          if ! msgs=$(git log --format=%B "${BASE_SHA}..${HEAD_SHA}"); then',
+  '            echo "::error::cannot resolve ${BASE_SHA}..${HEAD_SHA} — the scan did not run"; exit 1',
   "          fi",
   // KJC-BUG-0503: the same list the local hooks and kj review judge with.
   `          pat='${AI_ATTRIBUTION}'`,
