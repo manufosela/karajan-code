@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.34.0: la review automática de IA cuenta; kj code vuelve a escribir en un carril (actual)
+### v5.35.0: la review automática de IA se espera; kj doctor revisa los hooks (actual)
+
+`kj review --verify-pr` ya puede esperar al bot: con `--wait-automatic <minutos>` el check espera hasta ese tiempo a la review automática de IA del último commit de la PR, en vez de fallar mientras se hace. Con `review: { automatic: codex-state }` en `.karajan/kj.config.yml`, `kj harden` escribe ese check en el workflow kj-verdicts. Una guía nueva explica cómo trabajar sin kj en un repo con kj, con un prompt que un agente puede seguir para montar la review automática, y `docs/operating-contract.md` recoge cómo funciona kj, decisión a decisión. `kj doctor` ya falla con un hook que ejecuta un fichero del harness que no existe y con un guard que el kj-hook instalado no conoce. Un hook de `kj stage` nunca bloquea, y con varias cuentas kj elige la primera que no está agotada.
+
+### v5.34.0: la review automática de IA cuenta; kj code vuelve a escribir en un carril
 
 Una PR sin review de kj ya puede contar la review automática de IA que hace su repo: `kj review --verify-pr <n> --automatic-review codex-state` lee el comentario codex-state del bot y solo lo acepta si revisó el último commit, recomienda APPROVE y no deja hallazgos abiertos, sin ningún CRITICAL ni MAJOR descartado y un MINOR solo si lo descarta otra persona con permiso de escritura. `kj code` vuelve a escribir en un carril cortado de main, el Sentinel encuentra el veredicto del diff stageado sea cual sea tu configuración de diff, un carril sigue tu configuración local de kj y los gates de Sonar siguen la estructura de tests de la rama base. Las cuentas de agente agotadas se recuerdan hasta que se reinician. En `kj stage` las sesiones que te esperan se quedan en su mesa y una franja cuenta quién trabaja en cada fábrica.
 
