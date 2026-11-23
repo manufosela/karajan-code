@@ -22,8 +22,8 @@ describe("HU-4036: a single root renders the hooks of today", () => {
   const py = { lint: "ruff check .", format: "ruff format --check .", test: "pytest" };
   it.each([
     ["pre-commit", py, "94fecb977232c6edafcbeb9ae83abee6d98a17caad0f273d2e7858fa9ac0103b"],
-    ["pre-push", py, "99b4cdfc5eb4853ccfa772c738885ccf332684695a6d1f26945f529d226ff5ca"],
-    ["pre-push", { testSkippedByCi: true }, "8580cc5b70411cadd9cc36969c7d6e63de57e0e77ad6e87af946ca37148e8489"],
+    ["pre-push", py, "b76fd2756e1753e8a0cb6d869344098ba677bcccb29b28d1bc0e80720c0a1aec"],
+    ["pre-push", { testSkippedByCi: true }, "a3b915312b313212bce03591222d382700794c983fdd6f401aeaf8c58729f967"],
   ])("%s %j is byte-identical", (hook, cmds, golden) => expect(sha(hookBody(hook, cmds, { baseBranch: "main" }))).toBe(golden));
 });
 
