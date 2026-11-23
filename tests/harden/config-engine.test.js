@@ -52,6 +52,46 @@ describe("installConfigs", () => {
     expect(res.configs.some((c) => c.file === "commitlint.config.js")).toBe(false);
   });
 
+  // HU-4823 (#4811, point 2): ruff prefers ruff.toml over pyproject.toml, so a seeded ruff.toml
+  // silently replaced the project's own ruff settings and its pre-commit failed by the hundreds.
+  describe("a python project that already configures ruff", () => {
+    const python = (files) => {
+      rmSync(join(dir, "package.json"), { force: true });
+      for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), body);
+      return Object.fromEntries(installConfigs({ projectDir: dir, language: "python" }).configs.map((c) => [c.file, c]));
+    };
+
+    it("pyproject.toml with a [tool.ruff] table: no ruff.toml, covered by it", () => {
+      const byFile = python({ "pyproject.toml": "[project]\nname = 'demo'\n\n[tool.ruff]\nline-length = 120\n" });
+      expect(existsSync(join(dir, "ruff.toml"))).toBe(false);
+      expect(byFile["ruff.toml"]).toMatchObject({ action: "covered", by: "pyproject.toml#tool.ruff" });
+    });
+
+    it("pyproject.toml with only a [tool.ruff.lint] table: covered too", () => {
+      const byFile = python({ "pyproject.toml": "[project]\nname = 'demo'\n\n[tool.ruff.lint]\nselect = ['E']\n" });
+      expect(existsSync(join(dir, "ruff.toml"))).toBe(false);
+      expect(byFile["ruff.toml"]).toMatchObject({ action: "covered", by: "pyproject.toml#tool.ruff" });
+    });
+
+    it("a .ruff.toml: no ruff.toml, covered by it", () => {
+      const byFile = python({ "pyproject.toml": "[project]\nname = 'demo'\n", ".ruff.toml": "line-length = 120\n" });
+      expect(existsSync(join(dir, "ruff.toml"))).toBe(false);
+      expect(byFile["ruff.toml"]).toMatchObject({ action: "covered", by: ".ruff.toml" });
+    });
+
+    it("a pyproject.toml kj cannot parse may hold ruff's config: no ruff.toml, omitted saying why", () => {
+      const byFile = python({ "pyproject.toml": "[project]\nname = 'demo'\n[tool.ruff\n" });
+      expect(existsSync(join(dir, "ruff.toml"))).toBe(false);
+      expect(byFile["ruff.toml"]).toMatchObject({ action: "omitted" });
+      expect(byFile["ruff.toml"].note).toMatch(/pyproject\.toml is not readable TOML at line 3, column \d+, so/);
+    });
+
+    it("pyproject.toml without ruff (a [tool.ruffian] table is not ruff): ruff.toml is seeded", () => {
+      python({ "pyproject.toml": "[project]\nname = 'demo'\n\n[tool.ruffian]\nx = 1\n" });
+      expect(read("ruff.toml")).toContain("kj:managed:ruff");
+    });
+  });
+
   it("a javascript project still gets commitlint, where Node is already there", () => {
     withTools({ devDependencies: { eslint: "^9", prettier: "^3", "@commitlint/cli": "^19" } });
     installConfigs({ projectDir: dir, language: "javascript" });
