@@ -20,6 +20,14 @@ function readJsonFile(dir, name) {
 
 const readPackageJson = (dir) => readJsonFile(dir, "package.json");
 
+function readTextFile(dir, name) {
+  try {
+    return readFileSync(join(dir, name), "utf8");
+  } catch {
+    return null;
+  }
+}
+
 // node-version values the repo's own workflows use, kj's managed ones skipped.
 function workflowVersions(projectDir) {
   const dir = join(projectDir, ".github", "workflows");
@@ -120,6 +128,24 @@ function lowestNodeMajor(range) {
   if (typeof range !== "string") return null;
   const majors = range.split(OR_SEPARATOR).map(majorOfAlternative);
   return majors.includes(null) ? null : String(Math.min(...majors));
+}
+
+// HU-4827: the Python version a repo declares: .python-version first, then pyproject.toml requires-python.
+const REQUIRES_PYTHON = /^\s*requires-python\s*=/m;
+
+/** `.python-version` or `pyproject.toml` (under `root`) when the repo declares a Python version, else null. */
+export function detectPythonVersionFile({ appDir, root = "." }) {
+  const prefix = root === "." || root === "" ? "" : `${root}/`;
+  if (existsSync(join(appDir, ".python-version"))) return `${prefix}.python-version`;
+  if (REQUIRES_PYTHON.test(readTextFile(appDir, "pyproject.toml") ?? "")) return `${prefix}pyproject.toml`;
+  return null;
+}
+
+/** The Python inputs for qualityWorkflowFor's options, plus the note when kj falls back to 3.12. */
+export function pythonInputs({ appDir, root }) {
+  const pythonFile = detectPythonVersionFile({ appDir, root });
+  const note = pythonFile ? "" : "kj-quality: no Python version in .python-version or pyproject.toml requires-python; using 3.12";
+  return { options: { pythonFile }, note };
 }
 
 /** The PHP inputs for qualityWorkflowFor's options, plus the note when kj falls back to 8.3. */

@@ -6,6 +6,7 @@ import yaml from "js-yaml";
 import * as prettier from "prettier";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { pythonInputs } from "../../src/harden/quality-inputs.js";
 import { installWorkflows } from "../../src/harden/workflow-engine.js";
 
 let dir;
@@ -206,6 +207,45 @@ describe("installWorkflows", () => {
     rmSync(py, { recursive: true, force: true });
     installWorkflows({ projectDir: dir, language: "typescript" });
     expect(read(join(".github", "workflows", "kj-quality.yml"))).toContain("npm test");
+  });
+
+  // HU-4827 (#4810, point 5): kj-quality pinned 3.12 whatever Python the project declares.
+  it("python takes its version from .python-version, then pyproject.toml requires-python, else 3.12", () => {
+    const py = mkdtempSync(join(tmpdir(), "kj-wf-pyver-"));
+    const quality = () => readFileSync(join(py, ".github", "workflows", "kj-quality.yml"), "utf8");
+    try {
+      installWorkflows({ projectDir: py, language: "python" });
+      expect(quality()).toContain('python-version: "3.12"');
+      writeFileSync(join(py, "pyproject.toml"), "[project]\nname = 'demo'\nrequires-python = '>=3.10'\n");
+      installWorkflows({ projectDir: py, language: "python" });
+      expect(quality()).toContain("python-version-file: pyproject.toml");
+      expect(quality()).not.toContain('python-version: "3.12"');
+      writeFileSync(join(py, ".python-version"), "3.11\n");
+      installWorkflows({ projectDir: py, language: "python" });
+      expect(quality()).toContain("python-version-file: .python-version");
+      writeFileSync(join(py, "pyproject.toml"), "[project]\nname = 'demo'\n");
+      rmSync(join(py, ".python-version"));
+      installWorkflows({ projectDir: py, language: "python" });
+      expect(quality()).toContain('python-version: "3.12"');
+    } finally {
+      rmSync(py, { recursive: true, force: true });
+    }
+  });
+
+  // HU-4827: pythonInputs names the file it found (under the root), and says so when it falls back to 3.12.
+  it("pythonInputs prefers .python-version, prefixes the root, and notes the 3.12 fallback", () => {
+    const py = mkdtempSync(join(tmpdir(), "kj-wf-pyin-"));
+    try {
+      expect(pythonInputs({ appDir: py, root: "." })).toEqual({
+        options: { pythonFile: null },
+        note: "kj-quality: no Python version in .python-version or pyproject.toml requires-python; using 3.12",
+      });
+      writeFileSync(join(py, "pyproject.toml"), "[project]\nrequires-python = '>=3.10'\n");
+      writeFileSync(join(py, ".python-version"), "3.11\n");
+      expect(pythonInputs({ appDir: py, root: "app" })).toEqual({ options: { pythonFile: "app/.python-version" }, note: "" });
+    } finally {
+      rmSync(py, { recursive: true, force: true });
+    }
   });
 
   // KJC-BUG-0309 (#2023): the app lives in a subdirectory and the root has no package.json.

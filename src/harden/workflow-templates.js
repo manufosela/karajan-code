@@ -293,15 +293,25 @@ const nodeSetupSteps = (pm, nodeVersion = null) => [
   `      - run: ${(PM_COMMANDS[pm] || PM_COMMANDS.npm).install}`,
 ];
 
-const QUALITY_BY_LANGUAGE = {
-  python: header([
+// HU-4827: the engine finds the repo's Python version file; this renders it, or 3.12 when there is none.
+function pythonVersionLine(pythonFile) {
+  if (!pythonFile) return '          python-version: "3.12"';
+  if (!/^(?:[\w.-]+\/)*(?:\.python-version|pyproject\.toml)$/.test(pythonFile)) throw new Error(`kj harden: "${pythonFile}" is not a Python version file`);
+  return `          python-version-file: ${pythonFile}`;
+}
+
+function pythonQualityBody(pythonFile = null) {
+  return header([
     `      - uses: ${PINNED_ACTIONS.setupPython}`,
     "        with:",
-    '          python-version: "3.12"',
+    pythonVersionLine(pythonFile),
     "      - run: pip install ruff pytest",
     "      - run: ruff check .",
     "      - run: pytest",
-  ]),
+  ]);
+}
+
+const QUALITY_BY_LANGUAGE = {
   go: header([
     `      - uses: ${PINNED_ACTIONS.setupGo}`,
     "        with:",
@@ -355,11 +365,13 @@ function swiftQualityBody({ lint = null, format = null, test = null } = {}) {
  * `lint:false` drops the JS lint step entirely (project has no lint script,
  * KJC-BUG-0137) — mirroring the local hook, which also omits it.
  */
-export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null, gradle = null, swift = null } = {}) {
+export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null, pythonFile = null, gradle = null, swift = null } = {}) {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
   let body = QUALITY_BY_LANGUAGE[language];
   if (language === "javascript" || language === "typescript") {
     body = header([...nodeSetupSteps(pm, nodeVersion), ...(lint ? [`      - run: ${c.lint}`] : []), ...testStep(c, testScript)]);
+  } else if (language === "python") {
+    body = pythonQualityBody(pythonFile);
   } else if (language === "php") {
     body = phpQualityBody(phpVersion);
   } else if (language === "gradle") {
