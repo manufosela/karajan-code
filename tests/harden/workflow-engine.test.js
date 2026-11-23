@@ -26,14 +26,14 @@ describe("installWorkflows", () => {
     const text = read(wfPath);
     expect(text).toContain(">>> kj:managed:wf-no-ai v1 >>>");
     // GitHub expressions survive verbatim (not interpolated by JS).
-    expect(text).toContain("${{ github.base_ref }}");
+    expect(text).toContain("${{ github.event.pull_request.base.sha }}");
     const parsed = yaml.load(text);
     expect(parsed.name).toBe("Block AI attribution");
     expect(parsed.jobs.scan["runs-on"]).toBe("ubuntu-latest");
     // Fail-loud (codex catch, KJC-TSK-0818): an unresolvable base range must
     // FAIL the job — swallowing it would pass the scan on an empty corpus.
     expect(text).not.toContain("|| true");
-    expect(text).toContain("cannot resolve origin/");
+    expect(text).toContain("cannot resolve ${BASE_SHA}..${HEAD_SHA}");
     // KJC-BUG-0164: the PR body is attribution surface too — via env (never
     // interpolated into the script: untrusted text), scanned with the pattern.
     expect(text).toContain("PR_BODY: ${{ github.event.pull_request.body }}");
