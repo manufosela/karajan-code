@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.34.0: the automatic AI review counts; kj code writes again in a lane (current)
+### v5.35.0: the automatic AI review is awaited; kj doctor checks the hooks (current)
+
+`kj review --verify-pr` can now wait for the bot: with `--wait-automatic <minutes>` the check waits up to that long for the automatic AI review of the PR head instead of failing while it runs. With `review: { automatic: codex-state }` in `.karajan/kj.config.yml`, `kj harden` writes that check into the kj-verdicts workflow. A new guide explains how to work in a kj repo without kj, with a prompt an agent can follow to set up the automatic review, and `docs/operating-contract.md` records how kj works, one decision at a time. `kj doctor` now fails on a hook that runs a missing harness file and on a guard the installed kj-hook does not know. A `kj stage` hook never blocks, and with several accounts kj picks the first one that is not exhausted.
+
+### v5.34.0: the automatic AI review counts; kj code writes again in a lane
 
 A PR without a kj review can now count the automatic AI review its repo runs: `kj review --verify-pr <n> --automatic-review codex-state` reads the codex-state comment of the bot and accepts it only when it reviewed the latest commit, recommends APPROVE and leaves no open finding, with no CRITICAL or MAJOR finding dismissed and a MINOR one only by another maintainer. `kj code` writes again in a lane cut from main, the Sentinel finds the staged verdict whatever your diff settings, a lane follows your local kj config, and the Sonar gates follow the base branch's test layout. Exhausted agent accounts are remembered until their reset. On `kj stage` the sessions that wait for you stay at their desk, and a strip counts who is at work in every factory.
 

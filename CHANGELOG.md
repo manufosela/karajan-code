@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.35.0] - 2026-11-23
+
+The check of an automatic AI review waits for its bot, and `kj doctor` names the hooks that cannot run.
+
+### Added
+- **`kj review --verify-pr <n> --automatic-review codex-state --wait-automatic <minutes>`**: the check waits up to that many minutes (1 to 60) for the bot to review the PR head, instead of failing while the review is still running. A comment it cannot read stops the wait, and when time runs out it says how long it waited and which head the bot has not reviewed (#4788).
+- **`kj harden` writes the automatic AI review into kj-verdicts**: with `review: { automatic: codex-state }` in `.karajan/kj.config.yml`, the workflow runs the check with `--wait-automatic 20`, cancels the run of an older push and stops after 30 minutes. It needs kj 5.35.0, so a repo pinned to an older kj keeps its workflow as it is (#4790).
+- **Working without kj**: a guide (EN and ES) on what a person who does not use kj needs so their PR passes, with a prompt an agent can follow to set up the automatic AI review (#4792); and `docs/operating-contract.md`, where the decisions on how kj works are written one by one (#4794).
+- **`kj doctor` checks the hooks**: `dangling-hooks` fails on a hook that runs a harness file that no longer exists (#4786), and `hook-guards` fails when the installed kj-hook does not know a guard the hooks wire, naming the settings file and event of each (#4796).
+- **The first account that is not exhausted**: with several accounts for an agent, kj picks the first one that is not out, and says who is out and until when when all are (#4797).
+
+### Fixed
+- **A `kj stage` hook never blocks**: the stage hooks govern nothing, so they let the call through even when the installed kj-hook is older than the wiring (#4785).
+
 ## [5.34.0] - 2026-11-22
 
 A PR without a kj review can count the repo's automatic AI review, and `kj code` writes again in a lane cut from main.
