@@ -66,6 +66,54 @@ describe("BaseAgent.runCommand and the default account (HU-4587)", () => {
     expect(peak).toBe(1);
   });
 
+  describe("a limit message (HU-4752)", () => {
+    const limited = { exitCode: 1, stdout: "", stderr: "Claude usage limit reached. Please try again in 2 hours" };
+    const ok = { exitCode: 0, stdout: "done", stderr: "" };
+    const setup = (results) => {
+      const dirs = ["a", "b"].map(() => fs.mkdtempSync(path.join(os.tmpdir(), "kj-login-")));
+      addAccount({ id: "a", provider: "claude", dir: dirs[0] }, { home });
+      addAccount({ id: "b", provider: "claude", dir: dirs[1] }, { home });
+      assignAccounts(projectKey(process.cwd()), "claude", ["a", "b"], { home });
+      const run = vi.fn(async () => results.shift());
+      const agent = new BaseAgent("claude", {}, createNoopLogger(), { runner: { run } });
+      return { run, agent, dirs };
+    };
+    const go = (agent) => withKarajanHome(home, () => agent.runCommand("claude", ["-p"], { env: { PATH: "/bin" } }));
+
+    it("retries the same command on the next account and holds the first", async () => {
+      const { run, agent, dirs } = setup([limited, ok, ok]);
+      expect((await go(agent)).stdout).toBe("done");
+      expect(run.mock.calls.map((c) => c[2].env.CLAUDE_CONFIG_DIR)).toEqual(dirs);
+      await go(agent);
+      expect(run.mock.calls[2][2].env.CLAUDE_CONFIG_DIR).toBe(dirs[1]);
+    });
+
+    it("stops naming every account and until when, after calling the hook", async () => {
+      const { run, agent } = setup([limited, limited]);
+      agent.onAllExhausted = vi.fn(async () => null);
+      await expect(go(agent)).rejects.toThrow(/every claude account.*a until .*b until /);
+      expect(agent.onAllExhausted).toHaveBeenCalledOnce();
+      expect(run).toHaveBeenCalledTimes(2);
+    });
+
+    it("lets the hook take over with a rescue env", async () => {
+      const { run, agent } = setup([limited, limited, ok]);
+      agent.onAllExhausted = async () => ({ env: { ANTHROPIC_API_KEY: "rescue" } });
+      expect((await go(agent)).stdout).toBe("done");
+      expect(run.mock.calls[2][2].env.ANTHROPIC_API_KEY).toBe("rescue");
+    });
+
+    it("leaves a call with no account, or without a limit message, untouched", async () => {
+      const bare = vi.fn(async () => limited);
+      const noAccount = new BaseAgent("claude", {}, createNoopLogger(), { runner: { run: bare } });
+      expect(await go(noAccount)).toBe(limited);
+      expect(bare).toHaveBeenCalledTimes(1);
+      const { run, agent } = setup([{ exitCode: 1, stdout: "", stderr: "boom" }]);
+      expect((await go(agent)).stderr).toBe("boom");
+      expect(run).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("gives codex its CODEX_HOME and leaves other agents untouched", async () => {
     addAccount({ id: "ci", provider: "codex", dir: login }, { home });
     expect((await spawnEnv("codex", {})).CODEX_HOME).toBe(login);

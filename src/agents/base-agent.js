@@ -14,6 +14,8 @@ import { defaultEnvironment } from "../infrastructure/environment.js";
 import { buildAgentEnv } from "../utils/role-env.js";
 import { accountFor } from "../accounts/store.js";
 import { pacer } from "../accounts/pacer.js";
+import { markExhausted, limitHold } from "../accounts/exhausted.js";
+import { detectRateLimit } from "../utils/rate-limit-detector.js";
 import { projectKey } from "../accounts/project-key.js";
 import { isModelCompatible } from "../config/role-resolver.js";
 import { deadModelRecord } from "./dead-models.js";
@@ -69,8 +71,32 @@ export class BaseAgent {
    * @returns {Promise<CommandRunResult>}
    */
   async runCommand(command, args = [], options = {}) {
+    // HU-4752: a limit message from an account holds it until its reset and the same command goes to the
+    // next account of the project. Each pass holds one more account, so the loop ends.
+    for (;;) {
+      const account = accountFor(this.name, { projectKey: projectKey(options.cwd) });
+      if (account.allExhausted) return this.#allExhausted(account.allExhausted, command, args, options);
+      const result = await this.#runOn(account, command, args, options);
+      if (!account.id || result?.exitCode === 0) return result;
+      const limit = detectRateLimit(result);
+      if (!limit.isRateLimit || limit.isProviderOutage) return result;
+      const until = limitHold(limit.message, account.pace);
+      if (until <= new Date()) return result;
+      markExhausted(account.id, until);
+      this.logger?.warn?.(`account "${account.id}" hit its limit; held until ${until.toISOString()}, trying the next`);
+    }
+  }
+
+  /** HU-4752: every account is out. The hook may hand back a rescue env to take over; otherwise stop, naming each. */
+  async #allExhausted(all, command, args, options) {
+    const rescue = await this.onAllExhausted?.({ agent: this.name, accounts: all });
+    if (rescue?.env) return this.#runOn({ id: null, env: rescue.env }, command, args, options);
+    const list = all.map(({ id, until }) => `${id} until ${until.toISOString()}`).join(", ");
+    throw new Error(`accounts: every ${this.name} account is out of its limit: ${list}`);
+  }
+
+  async #runOn(account, command, args, options) {
     // HU-4587 (ADR 0064): the provider's default account, when one is added, wins over the inherited login.
-    const account = accountFor(this.name, { projectKey: projectKey(options.cwd) });
     if (Object.keys(account.env).length > 0) options = { ...options, env: { ...options.env, ...account.env } };
     // KJC-TSK-0693: the subprocess gets an env allowlist, never the user's
     // whole environment. security.env_allowlist:false opts out.
