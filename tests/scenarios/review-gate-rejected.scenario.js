@@ -8,7 +8,7 @@ import path from "node:path";
 import { makeScenarioProject } from "./helpers/scenario-project.js";
 
 const verdict = (approved) => ({
-  output: JSON.stringify({ approved, blocking_issues: approved ? [] : [{ severity: "high", description: "scenario blocker" }], non_blocking_suggestions: [], summary: approved ? "ok" : "no" }),
+  output: JSON.stringify({ approved, blocking_issues: approved ? [] : [{ id: "S-1", severity: "high", category: "correctness", file: null, line: null, description: "scenario blocker", suggested_fix: "fix it" }], non_blocking_suggestions: [], summary: approved ? "ok" : "no" }),
 });
 
 let p;
