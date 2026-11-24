@@ -56,6 +56,26 @@ describe("runOneShotReview", () => {
     expect(agent.reviewTask).toHaveBeenCalledOnce();
   });
 
+  // HU-4833: the schema is checked by default; reviewer_options.require_schema: false keeps the old path.
+  it("refuses a verdict that breaks its schema unless require_schema is false", async () => {
+    const broken = reviewOutput(false, [{ id: "R-1", severity: "urgent", category: "correctness", file: "x.js", line: 1, description: "d", suggested_fix: "f" }]);
+    const run = (cfg) => runOneShotReview({
+      diff: DIFF, config: cfg, projectDir: dir, hostAgent: "claude",
+      createAgentFn: () => fakeAgent(broken), detectAgents: agentsUp("claude", "codex"),
+    });
+    await expect(run(config)).rejects.toThrow(/blocking_issues\[0\]\.severity/);
+    const record = await run({ ...config, reviewer_options: { require_schema: false } });
+    expect(record.verdict).toBe("rejected");
+  });
+
+  it("keeps checking the schema when require_schema is true", async () => {
+    const broken = reviewOutput(false, [{ id: "R-1", severity: "urgent", category: "correctness", file: "x.js", line: 1, description: "d", suggested_fix: "f" }]);
+    await expect(runOneShotReview({
+      diff: DIFF, config: { ...config, reviewer_options: { require_schema: true } }, projectDir: dir, hostAgent: "claude",
+      createAgentFn: () => fakeAgent(broken), detectAgents: agentsUp("claude", "codex"),
+    })).rejects.toThrow(/breaks its schema/);
+  });
+
   // KJC-TSK-1380 (#3207): the reviewer starts from facts computed without a model, kept in the verdict.
   it("hands the reviewer the diff's facts and keeps them in the verdict", async () => {
     const agent = fakeAgent(reviewOutput(true));
@@ -81,7 +101,7 @@ describe("runOneShotReview", () => {
   it("stores a rejected verdict with the blocking issues", async () => {
     const record = await runOneShotReview({
       diff: DIFF, config, projectDir: dir, hostAgent: "claude",
-      createAgentFn: () => fakeAgent(reviewOutput(false, [{ id: "I1", severity: "high" }])),
+      createAgentFn: () => fakeAgent(reviewOutput(false, [{ id: "I1", severity: "high", category: "correctness", file: null, line: null, description: "d", suggested_fix: "f" }])),
     });
     expect(record.verdict).toBe("rejected");
     expect(record.issues).toHaveLength(1);
