@@ -75,6 +75,10 @@ kj init  # Seleccionar "Enable HU Board" cuando se pregunte
 - **Fallback de Puerto**: Arranca en el puerto 4000 por defecto; prueba automáticamente 4001–4009 si el puerto primario está ocupado
 - **Carriles y Gobierno**: cada card muestra su carril, rama, commits por delante y PR; la vista de Gobierno lista los carriles fuera del método
 
+### Páginas Usage y Accounts
+
+Dos páginas se abren desde la cabecera del board. **Usage** (`/usage.html`) suma cada llamada a un agente que lanzó kj, por proyecto y cuenta, agrupada por día, mes, año o total, con exportación a CSV por proyecto y mes. **Accounts** (`/accounts.html`) muestra los logins de proveedor, su orden y su ritmo, y no lleva nunca una clave. Qué leen y qué no registra nunca kj: [Observabilidad y veracidad de las reviews](/docs/es/guides/observability/).
+
 Hasta la 4.x el board podía lanzar también el pipeline de `kj run` (el botón **Run plan**). Ese pipeline se retiró en la 5.0: ver [Migrar a la 5.0](/docs/es/v4/migration/).
 
 ### Arrancar una card desde el board (▶)

@@ -66,6 +66,7 @@ export default defineConfig({
 									{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
 									{ label: 'Governance', slug: 'v4/governance', translations: { es: 'Gobernanza' } },
 									{ label: 'The Sentinel', slug: 'guides/sentinel', translations: { es: 'El Sentinel' } },
+									{ label: 'Observability and review truth', slug: 'guides/observability', translations: { es: 'Observabilidad y veracidad de las reviews' } },
 									{ label: 'Hardening against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
 									{ label: 'The HU-Board', slug: 'guides/hu-board', translations: { es: 'El HU-Board' } },
 									{ label: 'The coordinated release', slug: 'guides/coordinated-release', translations: { es: 'La release coordinada' } },

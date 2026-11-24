@@ -15,6 +15,11 @@ A second mode, `--project`, runs **only project-aware checks**: it inspects the 
 
 That last one is the maintenance that pinning moved onto kj. The workflows `kj harden` writes pin their actions to a commit SHA, because a moving tag lets whoever controls an action run code with your repo's secrets. The trade is that nobody delivers the upstream patch either, so `kj doctor` asks GitHub what each tag points at today and warns with both SHAs and the literal line that updates the pin. It asks through `gh` when you have it (your own credentials, 5000 calls an hour) and falls back to an unauthenticated call, which GitHub caps at 60 an hour per IP. When it cannot reach the API it **says so** rather than reporting green: an unchecked pin is not a current pin. This check lives here and deliberately **not** in `kj check`, because a gate that needs the network is a gate that fails on a plane.
 
+Two checks guard the hooks of the Sentinel. Both fail loudly, because a broken hook blocks every tool call of your agent:
+
+- **`dangling-hooks`** ("Hooks that run a missing harness file") catches a hook in `.claude/settings.json` or `.claude/settings.local.json` that runs a `.karajan/harness/<file>` that does not exist, so node crashes on every call. Fix: remove those lines from that settings file, or run `kj harden` from the main checkout.
+- **`hook-guards`** ("Guards the installed kj-hook knows") catches a hook that runs `kj-hook <guard>` when the `kj-hook` on your PATH is older than the wiring and does not know that guard (it exits 2 and blocks). It asks the installed `kj-hook` which guards it knows and names each wired one it lacks. Fix: update kj so `kj-hook` knows them, or run `kj harden` to rewrite the wiring. When `kj-hook` is not on the PATH the hooks run through kj and the check passes.
+
 The exit code is meaningful: a blocking failure (a check that's `fail` or `timeout`) makes `kj doctor` exit non-zero, so a CI step can gate on it.
 
 ## When to use
