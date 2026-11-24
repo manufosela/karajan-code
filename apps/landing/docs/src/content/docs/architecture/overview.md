@@ -3,6 +3,10 @@ title: Architecture Overview
 description: High-level architecture of Karajan Code.
 ---
 
+:::caution[v3 docs (legacy)]
+This page describes the v3 pipeline (`kj run`, the orchestrator and its roles), retired in 5.0. See [Work with your agent](/docs/v4/working-with-your-agent/), the [Command reference](/docs/v4/commands/) and [Migrating to 5.0](/docs/v4/migration/).
+:::
+
 Karajan Code implements a **Role-Based AI Orchestration** pattern. The system coordinates multiple AI agents through a structured pipeline where each responsibility (coding, reviewing, testing, security) is a discrete, independently configurable role.
 
 ## Design Principles

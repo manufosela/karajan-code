@@ -3,6 +3,10 @@ title: Visión General de la Arquitectura
 description: Arquitectura de alto nivel de Karajan Code.
 ---
 
+:::caution[Docs de v3 (legacy)]
+Esta página describe el pipeline v3 (`kj run`, el orquestador y sus roles), retirado en la 5.0. Consulta [Trabajar con tu agente](/docs/es/v4/working-with-your-agent/), la [Referencia de comandos](/docs/es/v4/commands/) y [Migrar a la 5.0](/docs/es/v4/migration/).
+:::
+
 Karajan Code implementa un patrón de **Orquestación de IA basada en Roles**. El sistema coordina múltiples agentes de IA a través de un pipeline estructurado donde cada responsabilidad (codificar, revisar, testear, seguridad) es un rol discreto e independientemente configurable.
 
 ## Principios de Diseño
