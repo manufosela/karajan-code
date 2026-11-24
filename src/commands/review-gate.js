@@ -20,6 +20,7 @@ import { checkRagRequirement, checkRagVerdict, ragBlock, RAG_RULE_ID } from "../
 import { checkUiEvidence, uiBlock } from "../review/ui-evidence.js";
 import { readRagLedger } from "../review/rag-ledger.js";
 import { runMutationPregate, formatSurvivor } from "../review/mutation-pregate.js";
+import { diffTestsGate } from "../review/diff-tests-gate.js";
 import { checkCardFirst } from "../review/card-first.js";
 import { checkReleaseBump } from "../review/release-bump.js";
 import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
@@ -796,13 +797,20 @@ async function runReviewGate({ config, logger = null, flags = {} }) {
   const uiRecord = uiEvidence({ changedFiles, flags, std });
   const mutation = await mutationGate({ config, projectDir, flags });
   if (mutation.rejection) return recorded(mutation.rejection);
+  // HU-4870: the diff's own test files run before the reviewer; a red one rejects without the model.
+  const diffTests = await diffTestsGate({ projectDir, liveFiles });
+  if (diffTests.rejection) {
+    console.log(`✗ diff-tests: ${diffTests.rejection.issues[0].description.split("\n")[0]}`);
+    process.exitCode = 1;
+    return recorded(diffTests.rejection);
+  }
   // KJC-TSK-1052 (TEAM-F): another branch in progress touching the same files is said, never blocks.
   if (flags.staged && !flags.range) {
     for (const line of formatOverlaps(await branchOverlaps({ projectDir, stagedFiles: changedFiles, base: baseBranchFrom({ config, projectDir }) }))) console.log(line);
   }
   const cooldown = await cooldownStep({ diff, config, std });
   if (cooldown.rejection) return recorded(cooldown.rejection);
-  const task = [sonar.note, rag.note, mutation.note, cooldown.note].reduce(withNote, flags.task);
+  const task = [sonar.note, rag.note, mutation.note, diffTests.note, cooldown.note].reduce(withNote, flags.task);
 
   const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonar.record, rag: rag.record, ui: uiRecord });
   printVerdict(record, record.verdict === "approved" ? await reviewCorrectionRounds(projectDir, record) : 0);
