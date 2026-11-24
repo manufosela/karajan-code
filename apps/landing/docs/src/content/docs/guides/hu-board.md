@@ -75,6 +75,10 @@ kj init  # Select "Enable HU Board" when prompted
 - **Port Fallback**: Starts on port 4000 by default; automatically tries 4001–4009 if the primary port is busy
 - **Lanes and Governance**: each card shows its lane, branch, commits ahead and PR; the Governance view lists lanes outside the method
 
+### Usage and Accounts pages
+
+Two pages open from the board's header. **Usage** (`/usage.html`) sums every agent call kj launched, per project and account, grouped by day, month, year or total, with a CSV export per project and month. **Accounts** (`/accounts.html`) shows the provider logins, their order and pace, and never carries a key. What they read and what kj never records: [Observability and review truth](/docs/guides/observability/).
+
 Up to 4.x the board could also launch the `kj run` pipeline (the **Run plan** button). That pipeline was retired in 5.0: see [Migrating to 5.0](/docs/v4/migration/).
 
 ### Start a card from the board (▶)

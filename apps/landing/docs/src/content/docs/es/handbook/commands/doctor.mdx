@@ -15,6 +15,11 @@ Un segundo modo, `--project`, corre **solo checks project-aware**: inspecciona e
 
 Lo último es el mantenimiento que fijar trasladó a kj. Los workflows que escribe `kj harden` fijan sus actions a un SHA de commit, porque una etiqueta móvil deja que quien controle una action ejecute código con los secretos de tu repo. El precio es que tampoco te llega el parche de aguas arriba, así que `kj doctor` le pregunta a GitHub a qué apunta hoy cada etiqueta y avisa con los dos SHA y la línea literal que actualiza el pin. Pregunta por `gh` cuando lo tienes (tus credenciales, 5000 llamadas por hora) y cae a una llamada sin autenticar, que GitHub limita a 60 por hora y por IP. Cuando no alcanza la API **lo dice**, en vez de dar verde: un pin sin comprobar no es un pin al día. Este check vive aquí y a propósito **no** en `kj check`, porque un gate que necesita red es un gate que falla en un avión.
 
+Dos checks vigilan los hooks del Sentinel. Ambos fallan en voz alta, porque un hook roto bloquea cada llamada de herramienta de tu agente:
+
+- **`dangling-hooks`** («Hooks that run a missing harness file») detecta un hook de `.claude/settings.json` o `.claude/settings.local.json` que ejecuta un `.karajan/harness/<fichero>` que no existe, con lo que node se cae en cada llamada. Arreglo: quita esas líneas de ese fichero de settings, o ejecuta `kj harden` desde el checkout principal.
+- **`hook-guards`** («Guards the installed kj-hook knows») detecta un hook que ejecuta `kj-hook <guard>` cuando el `kj-hook` de tu PATH es más viejo que el cableado y no conoce ese guard (sale con 2 y bloquea). Le pregunta al `kj-hook` instalado qué guards conoce y nombra cada uno cableado que le falta. Arreglo: actualiza kj para que `kj-hook` los conozca, o ejecuta `kj harden` para reescribir el cableado. Si `kj-hook` no está en el PATH, los hooks corren a través de kj y el check pasa.
+
 El exit code es significativo: un fallo bloqueante (un check `fail` o `timeout`) hace que `kj doctor` salga con código no-cero, así que un paso de CI puede gatear sobre ello.
 
 ## Cuándo usarlo
