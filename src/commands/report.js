@@ -6,6 +6,7 @@ import { loadConfig } from "../config.js";
 import { DEFAULTS } from "../config/defaults.js";
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { formatModelTally, modelTally } from "../report/model-tally.js";
+import { formatReviewTruth, reviewTruthReport } from "../report/review-truth.js";
 import { readLaneSentinelState } from "../harden/sentinel-lane-state.js";
 
 function parseBudgetFromActivityLog(logText) {
@@ -283,6 +284,9 @@ async function printSentinelEscapes({ projectDir = process.cwd(), format } = {})
   } catch (err) {
     console.log(`\nCoder models: the plans could not be read (${err.message})`);
   }
+  // HU-4845: how truthful the reviews are, from the verdicts kept in .karajan/reviews.
+  const truth = await reviewTruthReport({ projectDir });
+  if (truth.verdicts > 0) console.log(`\n${formatReviewTruth(truth).join("\n")}`);
 }
 
 function formatDuration(ms) {

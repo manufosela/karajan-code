@@ -168,7 +168,7 @@ export async function runOneShotReview({
   const record = await verdictRecord(parsed, { reviewer: activeReviewer, hostAgent, projectDir, sonar, rag, ui });
   if (!parsed.approved) {
     record.issues = split.blocking;
-    if (split.unanchored.length > 0) record.unanchored = split.unanchored;
+    record.unanchored = split.unanchored;
     if (onlyUnanchored(split)) record.reason = "unanchored-only";
   }
   if (facts.length > 0) record.facts = facts;

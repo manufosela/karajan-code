@@ -127,6 +127,13 @@ describe("unanchored findings in kj review --staged", () => {
     expect(record.reason).toBeUndefined();
   });
 
+  // HU-4845: kj report tells a measured rejection from one saved before the anchoring by this field.
+  it("a rejection whose findings all anchor still carries unanchored: [], so it counts as measured", async () => {
+    const agent = { reviewTask: vi.fn().mockResolvedValue(answer(false, [REAL])) };
+    const record = await review(agent);
+    expect(record.unanchored).toEqual([]);
+  });
+
   it("an approval is stored as it comes: nothing to anchor", async () => {
     const agent = { reviewTask: vi.fn().mockResolvedValue(answer(true, [])) };
     const record = await review(agent);
