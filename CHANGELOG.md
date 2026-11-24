@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.36.0] - 2026-11-24
+
+A reviewer's finding that cites no real code no longer blocks a commit or reaches the coder, and `kj harden` stops imposing JavaScript habits on Python projects.
+
+### Added
+- **The reviewer's verdict is checked against its schema**: `reviewer_options.require_schema` was declared and never read. A verdict whose findings lack an id, a description or a fix, or name an unknown severity or category, is refused naming the field, its raw answer kept; `require_schema: false` keeps the old path (#4834).
+- **Findings that do not anchor are kept apart**: every blocking finding is checked, without a model, against the cited file, line and quoted code (#4836, #4839). What does not hold is stored apart with its reason and printed in its own block; a rejection made only of such findings is asked again once, and a security or critical finding keeps blocking whatever happens. kj never approves on its own (#4840, #4842).
+- **`kj code --retry` hands the coder only what holds**: findings that do not anchor go in a Not verified section, told not to be fixed (#4844).
+- **`kj report` measures how truthful the reviews are**: per reviewer, the findings and the share that does not anchor; the mean correction rounds before an approval; Solomon's arbitrations by ruling (#4846).
+- **A limited call moves to the next account**: with several accounts for an agent, a call that hits a rate limit is retried on the next one (#4804).
+- **The OpenTelemetry seam**: opt-in through `OTEL_EXPORTER_OTLP_ENDPOINT`, with an allow-list of span attributes that never carries prompts, code or keys (#4802).
+- **The managed eslint config warns on `console.log`** (#4805).
+
+### Fixed
+- **`kj harden` no longer writes a `ruff.toml` over the project's ruff config**: a `[tool.ruff]` table in `pyproject.toml` or a `.ruff.toml` counts as the project's own, so ruff stops ignoring it (#4824).
+- **The seeded `.editorconfig` keeps each language's indentation**: 4 spaces for Python, tabs for Go and Makefile; 2 spaces stays the default (#4830).
+- **The generated Python quality workflow** installs the project and its dependencies (uv, poetry, requirements files or `pip install -e .`) before pytest, and uses the Python version the project declares (#4828, #4832).
+- **The generated attribution workflow** scans only the PR's commits, between its base and head shas, so a commit on the base no longer fails an unrelated PR (#4826).
+- **The generated pre-push hook** refuses a push whose commits it cannot list instead of letting it through unchecked (#4816).
+- **The generated post-merge hook** frees its reindex lock when `kj rag index` fails (#4820), and **prepare-commit-msg** leaves an `amend!` header untouched, so `--autosquash` still pairs it (#4822).
+- **`AGENTS.md` names the configured panel** again (reviewer codex, solomon agy) (#4814).
+
 ## [5.35.0] - 2026-11-23
 
 The check of an automatic AI review waits for its bot, and `kj doctor` names the hooks that cannot run.

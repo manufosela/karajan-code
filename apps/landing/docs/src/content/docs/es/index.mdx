@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.35.0: la review automática de IA se espera; kj doctor revisa los hooks (actual)
+### v5.36.0: un hallazgo que no cita código real ya no bloquea; kj harden respeta los proyectos Python (actual)
+
+kj comprueba ahora cada hallazgo bloqueante de una review contra el código antes de que bloquee un commit o llegue al coder: el fichero, la línea y el código citado tienen que existir, y se decide sin ningún modelo. Lo que no se sostiene queda aparte con su motivo, un rechazo hecho solo de eso se repregunta una vez, y un hallazgo de seguridad o crítico sigue bloqueando pase lo que pase; kj nunca aprueba por su cuenta. El veredicto del revisor se valida contra su esquema, `kj code --retry` pasa al coder solo lo que se sostiene, y `kj report` muestra la parte de hallazgos que no se anclan, las rondas de corrección y los arbitrajes de Solomon. En proyectos Python, `kj harden` ya no escribe un `ruff.toml` encima de la configuración de ruff del proyecto, el `.editorconfig` mantiene 4 espacios para Python y el workflow de calidad instala el proyecto y usa su versión de Python. Los hooks generados y el workflow de atribución quedan arreglados para forks, reindexados fallidos y commits `amend!`.
+
+### v5.35.0: la review automática de IA se espera; kj doctor revisa los hooks
 
 `kj review --verify-pr` ya puede esperar al bot: con `--wait-automatic <minutos>` el check espera hasta ese tiempo a la review automática de IA del último commit de la PR, en vez de fallar mientras se hace. Con `review: { automatic: codex-state }` en `.karajan/kj.config.yml`, `kj harden` escribe ese check en el workflow kj-verdicts. Una guía nueva explica cómo trabajar sin kj en un repo con kj, con un prompt que un agente puede seguir para montar la review automática, y `docs/operating-contract.md` recoge cómo funciona kj, decisión a decisión. `kj doctor` ya falla con un hook que ejecuta un fichero del harness que no existe y con un guard que el kj-hook instalado no conoce. Un hook de `kj stage` nunca bloquea, y con varias cuentas kj elige la primera que no está agotada.
 

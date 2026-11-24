@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.35.0: the automatic AI review is awaited; kj doctor checks the hooks (current)
+### v5.36.0: a finding that cites no real code no longer blocks; kj harden respects Python projects (current)
+
+kj now checks every blocking finding of a review against the code before it blocks a commit or reaches the coder: the cited file, line and quoted code must exist, decided without a model. What does not hold is kept apart with its reason, a rejection made only of it is asked again once, and a security or critical finding keeps blocking whatever happens; kj never approves on its own. The reviewer's verdict is checked against its schema, `kj code --retry` hands the coder only what holds, and `kj report` shows the share of findings that do not anchor, the correction rounds and Solomon's arbitrations. For Python projects, `kj harden` no longer writes a `ruff.toml` over the project's ruff config, the `.editorconfig` keeps 4 spaces for Python, and the quality workflow installs the project and uses its Python version. The generated hooks and the attribution workflow are fixed for forks, failed reindexes and `amend!` commits.
+
+### v5.35.0: the automatic AI review is awaited; kj doctor checks the hooks
 
 `kj review --verify-pr` can now wait for the bot: with `--wait-automatic <minutes>` the check waits up to that long for the automatic AI review of the PR head instead of failing while it runs. With `review: { automatic: codex-state }` in `.karajan/kj.config.yml`, `kj harden` writes that check into the kj-verdicts workflow. A new guide explains how to work in a kj repo without kj, with a prompt an agent can follow to set up the automatic review, and `docs/operating-contract.md` records how kj works, one decision at a time. `kj doctor` now fails on a hook that runs a missing harness file and on a guard the installed kj-hook does not know. A `kj stage` hook never blocks, and with several accounts kj picks the first one that is not exhausted.
 
