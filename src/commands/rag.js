@@ -20,6 +20,7 @@ import { getKarajanHome } from "../utils/paths.js";
 import { countProjectChunks, countProjectSources, emptyIndexRemedy, migrateProjectIndex } from "../rag/migrate.js";
 import { openLibraryStore, openProjectStore, projectDbPath } from "../rag/project-store.js";
 import { noteRagAnswer, noteRagIndex, noteRagQuery } from "../rag/answer-note.js";
+import { staleFromUpdate, traceRagQuery } from "../rag/rag-trace.js";
 import { resolveLaneDir } from "../utils/lane-dir.js";
 
 // KJC-TSK-0882 (ADR 0011): el indice es del proyecto, no de la maquina.
@@ -193,7 +194,7 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
   // before searching. Same escape hatches as the pre-run check
   // (--no-rag-update / config.rag.autoUpdate); failures degrade to a warn
   // inside maybeAutoUpdate and the query proceeds with the current index.
-  await maybeAutoUpdate({ projectDir: config?.projectDir || process.cwd(), config, logger, flags });
+  const update = await maybeAutoUpdate({ projectDir: config?.projectDir || process.cwd(), config, logger, flags });
   // KJC-TSK-0883: --library abre la base del canon, no la del proyecto.
   const db = flags.library ? openLibraryStore({ dim: config?.rag?.embedder?.dim || 768 }) : openDb(config);
   try {
@@ -204,7 +205,12 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // its own project namespace plus the kind filter.
     const library = Boolean(flags.library);
     const project = library ? LIBRARY_PROJECT : queryProject(flags, projectDir);
-    if (reportEmptyIndex({ db, project, library, config, flags, topK, scope, logger })) return [];
+    const checkedAt = performance.now();
+    if (reportEmptyIndex({ db, project, library, config, flags, topK, scope, logger })) {
+      // HU-4867: an empty index answers too, so it leaves its line, with no hits.
+      traceRagQuery(projectDir, { source: "cli", hits: [], latencyMs: performance.now() - checkedAt, stale: staleFromUpdate(update) }, { logger });
+      return [];
+    }
     // KJC-BUG-0258: chunks of plans and briefs but none of the project's own files
     // answer nothing about the code; said now, not when kj review --staged blocks.
     if (!library && project && countProjectSources(db, project, projectDir) === 0) {
@@ -215,10 +221,13 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     const where = whereFor(flags, library);
     const rerankOpts = rerankOptionsFor({ config, flags, logger });
     noteRagQuery({ projectDir }); // KJC-TSK-1630: kj stage shows kaRAGan at it until the answer
+    const startedAt = performance.now();
     const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, rrfK, where, whereRoot: projectDir, rerankOpts });
     const hits = library ? ranked : withPathNamedHits(pathNamedHits(db, text, { project, projectDir }), ranked, topK);
+    const latencyMs = performance.now() - startedAt;
     printHits(hits, flags, logger);
     noteRagAnswer({ projectDir, text, hits });
+    traceRagQuery(projectDir, { source: "cli", hits, latencyMs, stale: staleFromUpdate(update) }, { logger }); // HU-4867
     return hits;
   } finally {
     db.close();

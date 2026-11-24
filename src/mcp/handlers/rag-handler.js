@@ -10,6 +10,7 @@ import { makeGovernedEmbedder } from "../../rag/governed-embedder.js";
 import { query } from "../../rag/retriever.js";
 import { pathNamedHits, withPathNamedHits } from "../../rag/path-hits.js";
 import { noteRagAnswer, noteRagQuery } from "../../rag/answer-note.js";
+import { traceRagQuery } from "../../rag/rag-trace.js";
 import { holderLabel } from "../../rag/pid-lease.js";
 import { readBootstrap, startBootstrap } from "../../rag/bootstrap-index.js";
 import { getKarajanHome } from "../../utils/paths.js";
@@ -42,16 +43,21 @@ export async function handleRagQuery(args, server) {
     // KJC-TSK-0883 (ADR 0011): el indice del proyecto, como la CLI (0882).
     const db = openProjectStore({ projectDir, dim });
     try {
+      const checkedAt = performance.now();
       if (countChunks(db) === 0 || (project && countProjectChunks(db, project) === 0)) {
         const remedy = emptyIndexRemedy({ slug: project, legacyPath: join(getKarajanHome(), "rag.db"), dim });
+        traceRagQuery(projectDir, { source: "mcp", hits: [], latencyMs: performance.now() - checkedAt, stale: null }); // HU-4867: an empty index answers too
         return responseText({ hits: [], empty: true, topK, scope, project, remedy });
       }
       noteRagQuery({ projectDir }); // KJC-TSK-1630: kj stage shows kaRAGan at it until the answer
+      const startedAt = performance.now();
       const ranked = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project });
       // KJC-BUG-0348: a file the question names comes first, as in the CLI.
       const hits = withPathNamedHits(pathNamedHits(db, text, { project, projectDir }), ranked, topK);
+      const latencyMs = performance.now() - startedAt;
       // KJC-TSK-1438 (ADR 0048): the answer note, as the CLI leaves it, so kj stage sees the MCP's answers too.
       noteRagAnswer({ projectDir, text, hits });
+      traceRagQuery(projectDir, { source: "mcp", hits, latencyMs, stale: null }); // HU-4867: the MCP path does not auto-update
       return responseText({ hits, empty: false, topK, scope, project });
     } finally { db.close(); }
   } catch (err) {
