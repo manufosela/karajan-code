@@ -22,6 +22,7 @@ import { diffFacts, formatDiffFacts } from "./diff-facts.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { reportUnparseableVerdict } from "./unparseable-verdict.js";
+import { verdictSchemaProblems } from "./verdict-schema.js";
 import { detectWorkspace } from "./workspace.js";
 import { branchOf } from "./correction-rounds.js";
 import { isQuotaExhausted, candidateStatus, pickQuotaFallback, formatCandidateMenu, reviewerFailureMessage } from "./reviewer-fallback.js";
@@ -151,6 +152,13 @@ export async function runOneShotReview({
   if (!parsed || typeof parsed.approved !== "boolean") {
     // KJC-BUG-0146: keep the answer. Throwing it away is what left eight occurrences undiagnosed.
     throw new Error(await reportUnparseableVerdict({ projectDir, reviewer: activeReviewer, output: result.output, hash: diffHash(diff) }));
+  }
+
+  // HU-4833: parseable is not valid. A verdict that breaks its schema is a refusal, never a pass.
+  const problems = config?.reviewer_options?.require_schema === false ? [] : verdictSchemaProblems(parsed);
+  if (problems.length > 0) {
+    const saved = await reportUnparseableVerdict({ projectDir, reviewer: activeReviewer, output: result.output, hash: diffHash(diff) });
+    throw new Error(`reviewer ${activeReviewer} answered a verdict that breaks its schema:\n- ${problems.join("\n- ")}\n${saved}`);
   }
 
   const record = await verdictRecord(parsed, { reviewer: activeReviewer, hostAgent, projectDir, sonar, rag, ui });

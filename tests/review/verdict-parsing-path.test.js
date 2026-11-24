@@ -73,7 +73,7 @@ describe("runOneShotReview against a reviewer that wraps its answer", () => {
   });
 
   it("a wrapped rejection is stored as rejected, with its issues", async () => {
-    const record = await review(JSON.stringify({ ok: true, result: { approved: false, blocking_issues: [{ id: "leak" }] } }));
+    const record = await review(JSON.stringify({ ok: true, result: { approved: false, blocking_issues: [{ id: "leak", severity: "high", category: "security", file: null, line: null, description: "leaks", suggested_fix: "f" }] } }));
     expect(record).toMatchObject({ verdict: "rejected" });
     expect(record.issues).toHaveLength(1);
   });

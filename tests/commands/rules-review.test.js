@@ -130,7 +130,7 @@ describe("kj rules review", () => {
 
   it("a rejection names the rules the reviewer found weak", async () => {
     propose();
-    const res = await review(answering({ approved: false, blocking_issues: [{ description: `${rule.id}: a tool call breaks it, judgment is too weak` }] }));
+    const res = await review(answering({ approved: false, blocking_issues: [{ id: "R-1", severity: "high", category: "correctness", file: null, line: null, description: `${rule.id}: a tool call breaks it, judgment is too weak`, suggested_fix: "tighten it" }] }));
     expect(res.code).toBe(1);
     expect(res.lines.join("\n")).toMatch(new RegExp(`REJECTED by codex[\\s\\S]*${rule.id}`));
     expect((await checkVerdict(dir, fs.readFileSync(proposal, "utf8"))).ok).toBe(false);
