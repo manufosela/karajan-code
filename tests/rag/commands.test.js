@@ -1,5 +1,5 @@
 // KJC-PCS-0049 Step 6 — kj rag command acceptance pins.
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -79,11 +79,17 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
     process.exitCode = prevExit;
   });
 
-  it("ragQueryCommand on an empty store warns and returns []", async () => {
+  // HU-4867: an empty index answers too, so it leaves its trace line, in its project and without the text.
+  it("ragQueryCommand on an empty store warns, returns [] and leaves its trace line", async () => {
     const { ragQueryCommand } = await import("../../src/commands/rag.js");
-    const hits = await ragQueryCommand({ text: "anything", config: { rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: {} });
+    const projectDir = join(root, "myp");
+    mkdirSync(join(projectDir, ".karajan"), { recursive: true });
+    const hits = await ragQueryCommand({ text: "anything", config: { projectDir, rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: {} });
     expect(hits).toEqual([]);
     expect(noopLogger.warn).toHaveBeenCalledWith(expect.stringMatching(/holds no chunks of .*kj rag index --with-sources/));
+    const trace = readFileSync(join(projectDir, ".karajan", "traces", "rag.jsonl"), "utf8");
+    expect(JSON.parse(trace)).toMatchObject({ source: "cli", hits: 0, stale: null });
+    expect(trace).not.toMatch(/anything/);
   });
 
   // KJC-TSK-0882 (feedback de grebla): "0 chunks de este proyecto" y "nada se
@@ -112,11 +118,13 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
   // populated store returning zero hits.
   it("ragQueryCommand --json on empty store emits {hits:[], empty:true, topK, scope}", async () => {
     const { ragQueryCommand } = await import("../../src/commands/rag.js");
+    const projectDir = join(root, "myp"); // HU-4867: not this checkout, whose real traces it would write
+    mkdirSync(projectDir);
     const chunks = [];
     const origWrite = process.stdout.write.bind(process.stdout);
     process.stdout.write = (s) => { chunks.push(String(s)); return true; };
     try {
-      await ragQueryCommand({ text: "x", config: { rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: { json: true, topK: 7, scope: "plans" } });
+      await ragQueryCommand({ text: "x", config: { projectDir, rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: { json: true, topK: 7, scope: "plans" } });
     } finally {
       process.stdout.write = origWrite;
     }
