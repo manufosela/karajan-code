@@ -15,12 +15,13 @@ jobs:
           fetch-depth: 0
       - name: Scan commit messages and PR body for AI attribution
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if ! msgs=$(git log --format=%B "origin/${BASE_REF}...HEAD"); then
-            echo "::error::cannot resolve origin/${BASE_REF}...HEAD — the scan did not run"; exit 1
+          if ! msgs=$(git log --format=%B "${BASE_SHA}..${HEAD_SHA}"); then
+            echo "::error::cannot resolve ${BASE_SHA}..${HEAD_SHA} — the scan did not run"; exit 1
           fi
           pat='co-authored-by:.*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)|(generated|written|authored|assisted|powered|created|made) (by|with|using) .*(claude|anthropic|openai|chatgpt|codex|gpt-?[0-9]|copilot|gemini|cursor|windsurf|codeium|deepseek)'
           if printf "%s" "$msgs" | grep -qiE "$pat"; then

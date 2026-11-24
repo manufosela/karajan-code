@@ -13,7 +13,7 @@ if [ -f .karajan/identity.local.yml ]; then
   if [ -n "$kj_declared_email" ]; then
     printf "%s\n" "$kj_push_refs" | while read -r kj_lref kj_lsha kj_rref kj_rsha; do
       case "$kj_lsha" in *[!0]*) ;; *) continue ;; esac
-      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_lsha" --not "$kj_rsha" --remotes="${1:-origin}") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac
+      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_lsha" --not "$kj_rsha" --remotes="${1:-origin}") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac || { echo "kj harden: identity lock — cannot list the commits pushed to $kj_rref (git fetch, then push again)"; exit 1; }
       for kj_c in $kj_new; do
         kj_who=$(git log -1 --format="%ae %ce" "$kj_c")
         if [ "$kj_who" != "$kj_declared_email $kj_declared_email" ]; then
