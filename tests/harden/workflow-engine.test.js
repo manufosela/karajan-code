@@ -237,12 +237,36 @@ describe("installWorkflows", () => {
     const py = mkdtempSync(join(tmpdir(), "kj-wf-pyin-"));
     try {
       expect(pythonInputs({ appDir: py, root: "." })).toEqual({
-        options: { pythonFile: null },
+        options: { pythonFile: null, pythonInstall: null },
         note: "kj-quality: no Python version in .python-version or pyproject.toml requires-python; using 3.12",
       });
       writeFileSync(join(py, "pyproject.toml"), "[project]\nrequires-python = '>=3.10'\n");
       writeFileSync(join(py, ".python-version"), "3.11\n");
-      expect(pythonInputs({ appDir: py, root: "app" })).toEqual({ options: { pythonFile: "app/.python-version" }, note: "" });
+      expect(pythonInputs({ appDir: py, root: "app" })).toEqual({ options: { pythonFile: "app/.python-version", pythonInstall: { tool: "editable", requirements: [] } }, note: "" });
+    } finally {
+      rmSync(py, { recursive: true, force: true });
+    }
+  });
+
+  // HU-4831 (#4810, point 4): installing only ruff and pytest made pytest fail at collection
+  // on any project with runtime or test dependencies.
+  it.each([
+    ["uv", { "uv.lock": "", "pyproject.toml": "[project]\nname = 'demo'\n" }, ["uv sync", "uv run --with pytest pytest", "uv run --with ruff ruff check ."], ["pip install -e .", "poetry install"]],
+    ["poetry", { "poetry.lock": "", "pyproject.toml": "[tool.poetry]\nname = 'demo'\n" }, ["poetry install", "poetry run python -m pip install ruff pytest", "poetry run pytest", "poetry run ruff check ."], ["pip install -e .", "uv sync"]],
+    ["requirements files", { "requirements.txt": "requests\n", "requirements-dev.txt": "pytest\n" }, ["pip install -r requirements.txt", "pip install -r requirements-dev.txt", "pytest"], ["pip install -e ."]],
+    ["an installable pyproject", { "pyproject.toml": "[project]\nname = 'demo'\n" }, ["pip install -e .", "pip install ruff pytest", "pytest"], ["uv sync", "poetry install"]],
+    ["nothing to install", {}, ["pip install ruff pytest", "pytest"], ["pip install -e .", "pip install -r", "uv sync", "poetry install"]],
+  ])("python with %s installs the project before pytest", (_name, files, present, absent) => {
+    const py = mkdtempSync(join(tmpdir(), "kj-wf-pydeps-"));
+    try {
+      for (const [name, body] of Object.entries(files)) writeFileSync(join(py, name), body);
+      installWorkflows({ projectDir: py, language: "python" });
+      const text = readFileSync(join(py, ".github", "workflows", "kj-quality.yml"), "utf8");
+      for (const line of present) expect(text).toContain(line);
+      for (const line of absent) expect(text).not.toContain(line);
+      // Whatever installs the project runs before the tests.
+      const installAt = Math.max(...["uv sync", "poetry install", "pip install -r", "pip install -e ."].map((s) => text.indexOf(s)));
+      expect(text.lastIndexOf("pytest")).toBeGreaterThan(installAt);
     } finally {
       rmSync(py, { recursive: true, force: true });
     }
