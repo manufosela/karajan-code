@@ -18,6 +18,16 @@ export const EDITORCONFIG_BODY = [
   "trim_trailing_whitespace = true",
   "indent_style = space",
   "indent_size = 2",
+  "",
+  // HU-4829: one indent width for every language fought PEP 8 and gofmt.
+  "[*.py]",
+  "indent_size = 4",
+  "",
+  "[*.go]",
+  "indent_style = tab",
+  "",
+  "[Makefile]",
+  "indent_style = tab",
 ].join("\n");
 
 export const PRETTIER_BODY = JSON.stringify(
