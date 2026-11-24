@@ -33,6 +33,18 @@ describe("installConfigs", () => {
     const ec = read(".editorconfig");
     expect(ec).toContain(">>> kj:managed:editorconfig v1 >>>");
     expect(ec).toContain("root = true");
+    // HU-4829 (#4811, point 2): one indent width for every language fought PEP 8 and gofmt.
+    // The card's acceptance criteria keep [*] at 2 spaces (what every JS project relied on);
+    // the per-language sections override it. This assertion is the contract: never drop it.
+    expect(ec).toMatch(/\[\*\]\n(?:[a-z_]+ = [^\n]+\n)*indent_size = 2\n/);
+    expect(ec).toMatch(/\[\*\.py\]\nindent_size = 4\n/);
+    expect(ec).toMatch(/\[\*\.go\]\nindent_style = tab\n/);
+    expect(ec).toMatch(/\[Makefile\]\nindent_style = tab\n/);
+    // EditorConfig applies the last matching section: an override above [*] would lose to it.
+    const sectionAt = (name) => ec.indexOf(`\n[${name}]\n`);
+    for (const override of ["*.py", "*.go", "Makefile"]) {
+      expect(sectionAt(override)).toBeGreaterThan(sectionAt("*"));
+    }
 
     expect(read("commitlint.config.js")).toContain("config-conventional");
     expect(JSON.parse(read(".prettierrc.json"))).toMatchObject({ printWidth: 110 });
