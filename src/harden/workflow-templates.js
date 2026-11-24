@@ -303,14 +303,30 @@ function pythonVersionLine(pythonFile) {
   return `          python-version-file: ${pythonFile}`;
 }
 
-function pythonQualityBody(pythonFile = null) {
+// HU-4831: install the project, not just the linters: pytest fails at collection on the first missing import.
+// uv sync and poetry install add only what the project declares, so ruff and pytest join that environment too.
+function pythonInstallSteps(install) {
+  const run = (command) => `      - run: ${command}`;
+  if (install?.tool === "uv") return { steps: [run("pip install uv"), run("uv sync")], lint: "uv run --with ruff ruff check .", test: "uv run --with pytest pytest" };
+  if (install?.tool === "poetry") {
+    const steps = [run("pip install poetry"), run("poetry install"), run("poetry run python -m pip install ruff pytest")];
+    return { steps, lint: "poetry run ruff check .", test: "poetry run pytest" };
+  }
+  const files = install?.requirements ?? [];
+  for (const file of files) if (!/^requirements[\w.-]*\.txt$/.test(file)) throw new Error(`kj harden: "${file}" is not a requirements file`);
+  const project = install?.tool === "editable" ? [run("pip install -e .")] : [];
+  return { steps: [...files.map((file) => run(`pip install -r ${file}`)), ...project, run("pip install ruff pytest")], lint: "ruff check .", test: "pytest" };
+}
+
+function pythonQualityBody(pythonFile = null, install = null) {
+  const { steps, lint, test } = pythonInstallSteps(install);
   return header([
     `      - uses: ${PINNED_ACTIONS.setupPython}`,
     "        with:",
     pythonVersionLine(pythonFile),
-    "      - run: pip install ruff pytest",
-    "      - run: ruff check .",
-    "      - run: pytest",
+    ...steps,
+    `      - run: ${lint}`,
+    `      - run: ${test}`,
   ]);
 }
 
@@ -368,13 +384,13 @@ function swiftQualityBody({ lint = null, format = null, test = null } = {}) {
  * `lint:false` drops the JS lint step entirely (project has no lint script,
  * KJC-BUG-0137) — mirroring the local hook, which also omits it.
  */
-export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null, pythonFile = null, gradle = null, swift = null } = {}) {
+export function qualityWorkflowFor(language, pm = "npm", lint = true, root = ".", { nodeVersion = null, testScript = "test", phpVersion = null, pythonFile = null, pythonInstall = null, gradle = null, swift = null } = {}) {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
   let body = QUALITY_BY_LANGUAGE[language];
   if (language === "javascript" || language === "typescript") {
     body = header([...nodeSetupSteps(pm, nodeVersion), ...(lint ? [`      - run: ${c.lint}`] : []), ...testStep(c, testScript)]);
   } else if (language === "python") {
-    body = pythonQualityBody(pythonFile);
+    body = pythonQualityBody(pythonFile, pythonInstall);
   } else if (language === "php") {
     body = phpQualityBody(phpVersion);
   } else if (language === "gradle") {

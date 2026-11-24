@@ -141,11 +141,24 @@ export function detectPythonVersionFile({ appDir, root = "." }) {
   return null;
 }
 
+// HU-4831: how the repo installs its own dependencies: uv.lock, poetry.lock, requirements files, an installable pyproject.
+const PROJECT_TABLE = /^\s*\[project\]/m;
+
+/** `{ tool: "uv" | "poetry" | "editable" | "requirements", requirements }`, or null when there is nothing to install. */
+export function detectPythonInstall(appDir) {
+  if (existsSync(join(appDir, "uv.lock"))) return { tool: "uv", requirements: [] };
+  if (existsSync(join(appDir, "poetry.lock"))) return { tool: "poetry", requirements: [] };
+  const requirements = ["requirements.txt", "requirements-dev.txt"].filter((name) => existsSync(join(appDir, name)));
+  const installable = PROJECT_TABLE.test(readTextFile(appDir, "pyproject.toml") ?? "");
+  if (!installable && requirements.length === 0) return null;
+  return { tool: installable ? "editable" : "requirements", requirements };
+}
+
 /** The Python inputs for qualityWorkflowFor's options, plus the note when kj falls back to 3.12. */
 export function pythonInputs({ appDir, root }) {
   const pythonFile = detectPythonVersionFile({ appDir, root });
   const note = pythonFile ? "" : "kj-quality: no Python version in .python-version or pyproject.toml requires-python; using 3.12";
-  return { options: { pythonFile }, note };
+  return { options: { pythonFile, pythonInstall: detectPythonInstall(appDir) }, note };
 }
 
 /** The PHP inputs for qualityWorkflowFor's options, plus the note when kj falls back to 8.3. */
