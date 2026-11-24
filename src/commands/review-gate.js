@@ -127,25 +127,45 @@ export const formatExempted = (e) => (e.standing
   ? `⚠ policy standing [${e.rule_id}] — excepción permanente${e.standing.origin === "global" ? " GLOBAL" : ""} viva hasta ${e.standing.expiresAt} (${e.standing.justification || "sin justificación"})`
   : `⚠ policy exempt [${e.rule_id}] — excepción registrada en .karajan/policy-exceptions.jsonl (${e.justification})`);
 
+// HU-4841 (KJC-TSK-1731): the verdict as printed lines. Findings that do not anchor are set apart
+// in their own block with their reason; a rejection made only of them points to kj solomon.
+const issueWhere = (issue) => (issue.file ? ` [${issue.file}${issue.line ? `:${issue.line}` : ""}]` : "");
+
+const blockingLines = (issue) => {
+  const marked = issue.unanchored ? ` (not anchored: ${issue.unanchored})` : "";
+  const lines = [`  - (${issue.severity || "high"})${issueWhere(issue)} ${issue.description || issue.id}${marked}`];
+  if (issue.suggested_fix) lines.push(`    fix: ${issue.suggested_fix}`);
+  return lines;
+};
+
+const unanchoredLines = (unanchored = []) => (unanchored.length === 0 ? [] : [
+  "  not anchored (kept apart, not blocking):",
+  ...unanchored.map((f) => `  - (${f.severity || "high"})${issueWhere(f)} ${f.description || f.id} — ${f.reason}`),
+]);
+
+const solomonHint = (record) => (record.reason === "unanchored-only"
+  ? ["Only findings that do not anchor: `kj solomon --position \"<why>\"` is the way on, or cite the real file and line."]
+  : []);
+
+const rejectionLines = (record) => [
+  `✗ REJECTED by ${record.reviewer} — ${record.issues.length} blocking issue(s):`,
+  ...record.issues.flatMap(blockingLines),
+  ...unanchoredLines(record.unanchored),
+  ...solomonHint(record),
+  "Fix the issues and run `kj review --staged` again — the verdict is tied to the exact diff.",
+];
+
+export function verdictLines(record, rounds = 0) {
+  if (record.verdict !== "approved") return rejectionLines(record);
+  const ws = record.workspace ? ` [${record.workspace}]` : "";
+  const lines = [`✓ APPROVED by ${record.reviewer} (diff ${record.diffHash.slice(0, 12)})${ws}`];
+  if (record.summary) lines.push(`  ${record.summary}`);
+  if (rounds > 0) lines.push(`  ${correctionNote(rounds)}`);
+  return lines;
+}
+
 function printVerdict(record, rounds = 0) {
-  if (record.verdict === "approved") {
-    const ws = record.workspace ? ` [${record.workspace}]` : "";
-    console.log(`✓ APPROVED by ${record.reviewer} (diff ${record.diffHash.slice(0, 12)})${ws}`);
-    if (record.summary) console.log(`  ${record.summary}`);
-    if (rounds > 0) console.log(`  ${correctionNote(rounds)}`);
-    return;
-  }
-  console.log(`✗ REJECTED by ${record.reviewer} — ${record.issues.length} blocking issue(s):`);
-  for (const issue of record.issues) {
-    let where = "";
-    if (issue.file) {
-      const line = issue.line ? `:${issue.line}` : "";
-      where = ` [${issue.file}${line}]`;
-    }
-    console.log(`  - (${issue.severity || "high"})${where} ${issue.description || issue.id}`);
-    if (issue.suggested_fix) console.log(`    fix: ${issue.suggested_fix}`);
-  }
-  console.log("Fix the issues and run `kj review --staged` again — the verdict is tied to the exact diff.");
+  for (const line of verdictLines(record, rounds)) console.log(line);
 }
 
 /**
