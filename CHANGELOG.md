@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.37.0] - 2026-11-25
+
+The review runs the diff's own tests before the reviewer and sees a removed assertion as a fact; `kj code` fails the coder that removes one; `kj report` shows the project blocks again.
+
+### Added
+- **The diff's own tests run before the reviewer**: `kj review --staged` runs the test files the diff touches (vitest, jest or pytest) after the mutation gate. A red run rejects without a model, as reviewer `diff-tests`, with the last 40 lines of the output; an unknown runner is a one-line note (#4871).
+- **A removed assertion is a diff fact**: an assertion (`expect(...)`, `assert(...)`, `assert.x(...)`, `assertX(...)`) removed from a test file that already existed is a `test-weakened` fact with its file and base line. Moved unchanged to any test file of the diff it is no fact; rewritten on the same subject in the same file it is an `assertion-rewritten` fact the reviewer judges (#4873).
+- **`kj code` fails the coder that removes an existing assertion**: it lists each removed assertion, asks to restore it and run `kj code --card <id> --retry`, and exits non-zero (#4875).
+- **Each RAG query leaves a metadata trace**: `.karajan/traces/rag.jsonl` gets one line per `kj rag query` or `kj_rag_query` with its time, source, number of hits, latency and whether the index was stale; never the query text (#4868).
+- **The first observability aggregators** (ADR 0068): pure functions in `src/observe/` that count agent calls per day, project, account, provider and role, the repo traces per day, piece and outcome, and the host, reviewer and Solomon interactions from the verdicts. No command uses them yet (#4854, #4856, #4866).
+
+### Fixed
+- **`kj report` prints the project blocks with no session report**: kj 5 runs no `kj run` sessions, so `kj report` said "No reports yet" and never showed the Cross-AI review truth of 5.36.0. It now says so in one line and prints the Sentinel escapes, the panel tally, the coder models and the review truth; with `--format json` it prints one JSON document (#4879).
+
+### Documentation
+- **The v4 command reference covers every live command**, checked sentence by sentence against the code: human acts marked (including `kj hooks set|unset` and loosening with `kj gates set`), the review pre-gates in order, and the review flags for ranges, lanes, PRs and third-party reviews (#4858, #4877).
+- **New guides**: observability and review truth, lanes, and the operating contract, in English and Spanish (#4860, #4862, #4877). The architecture overview says it describes the retired v3 pipeline (#4864).
+
 ## [5.36.0] - 2026-11-24
 
 A reviewer's finding that cites no real code no longer blocks a commit or reaches the coder, and `kj harden` stops imposing JavaScript habits on Python projects.

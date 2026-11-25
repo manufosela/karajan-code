@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.36.0: un hallazgo que no cita código real ya no bloquea; kj harden respeta los proyectos Python (actual)
+### v5.37.0: los tests del propio diff corren antes del revisor; quitar una aserción hace fallar al coder (actual)
+
+`kj review --staged` ejecuta ahora los ficheros de test que toca el diff (vitest, jest o pytest) antes del revisor: si salen en rojo, rechaza sin ningún modelo y enseña el final de la salida. Una aserción quitada de un test que ya existía es un hecho que ve el revisor, con su fichero y su línea; movida tal cual a otro fichero de test no es hecho, y reescrita sobre el mismo sujeto es un hecho que juzga el revisor. `kj code` hace fallar al coder que quita una y pide restaurarla y reintentar. Cada consulta al RAG deja una traza de metadatos en `.karajan/traces/rag.jsonl`, nunca su texto, y ya están los primeros agregadores de observabilidad. `kj report` vuelve a mostrar en kj 5, donde no hay informes de sesión, la veracidad de las reviews y los demás bloques del proyecto. La referencia de comandos y tres guías nuevas (observabilidad, carriles y contrato de funcionamiento) se han comprobado contra el código.
+
+### v5.36.0: un hallazgo que no cita código real ya no bloquea; kj harden respeta los proyectos Python
 
 kj comprueba ahora cada hallazgo bloqueante de una review contra el código antes de que bloquee un commit o llegue al coder: el fichero, la línea y el código citado tienen que existir, y se decide sin ningún modelo. Lo que no se sostiene queda aparte con su motivo, un rechazo hecho solo de eso se repregunta una vez, y un hallazgo de seguridad o crítico sigue bloqueando pase lo que pase; kj nunca aprueba por su cuenta. El veredicto del revisor se valida contra su esquema, `kj code --retry` pasa al coder solo lo que se sostiene, y `kj report` muestra la parte de hallazgos que no se anclan, las rondas de corrección y los arbitrajes de Solomon. En proyectos Python, `kj harden` ya no escribe un `ruff.toml` encima de la configuración de ruff del proyecto, el `.editorconfig` mantiene 4 espacios para Python y el workflow de calidad instala el proyecto y usa su versión de Python. Los hooks generados y el workflow de atribución quedan arreglados para forks, reindexados fallidos y commits `amend!`.
 
