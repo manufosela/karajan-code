@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.37.1: a seal is signed with a key of the repo's roster (current)
+### v5.37.2: the review sees the whole diff; changing the panel or granting an exception is yours (current)
+
+`kj review --staged` no longer approves code the reviewer never read: a diff larger than one reviewer prompt used to be clipped at 12000 characters, and is now reviewed whole in batches of whole files, approved only when every batch is; a file too large for one prompt rejects the verdict by name. `kj agents set` (who codes, reviews and arbitrates) and `kj policy grant` (an exception that lifts a gate) are human acts: refused to an agent session, confirmed at your terminal and, at `critical`, signed by your phone. `kj report` counts the rejections of kj's own gates apart from the reviewers, the session reminder no longer names the retired `KJ_ALLOW_*` escapes, and the help of `kj security` and `kj brief` says what the code does.
+
+### v5.37.1: a seal is signed with a key of the repo's roster
 
 With a roster in the repo (`.karajan/supervisor-signers.json`), `kj harden --commit` only accepts a phone key of that roster, the same set CI verifies the seal against. Before, a repo whose roster held only a passkey could get a seal signed with the machine's own phone key, and CI rejected it. The refusal names the roster and, when it holds passkeys, says to sign with the passkey on the page. With no roster, the machine's phone key signs as before.
 
