@@ -18,24 +18,24 @@ kj worktree done <slug>
 ```
 
 - `kj worktree start <slug>` creates the worktree, cuts the branch `feat/<slug>` from `origin/<base>` and bootstraps the dependencies. `--base <branch>` cuts the lane from `origin/<branch>` and keeps that branch as the lane's base for the size check, `kj check` and the review gate.
-- `kj worktree list` shows the active lanes. With `--json` it adds each lane's commits ahead of the base and the cards its branch names; with `--prs` it also adds each lane's PR.
+- `kj worktree list` shows the active lanes. With `--json` it adds each lane's commits ahead of the base and the cards its branch names; with `--json --prs` it also adds each lane's PR.
 - `kj worktree done <slug>` removes the lane and deletes its branch when it is merged into the base. It refuses to remove a lane with uncommitted changes unless you pass `--force`, which also deletes the branch even if it is not merged.
 
 To check that you are in a lane and not in the main checkout, `git rev-parse --git-dir` must differ from `git rev-parse --git-common-dir`.
 
-Every lane uses the operator's one local config (`.karajan/kj.config.yml` and `rules.local.yml`): each lane links it to the main checkout's copy, and there is no per-lane config. See the [operating contract](/docs/guides/operating-contract/).
+Where git ignores the operator's local config (`.karajan/kj.config.yml` and `rules.local.yml`), every lane links it to the main checkout's copy, so there is one and no per-lane copy (a plain copy where a symlink is not allowed). A tracked config belongs to the branch and is never replaced. See the [operating contract](/docs/guides/operating-contract/).
 
 The full list of options is in the [command reference](/docs/v4/commands/).
 
 ## What the Sentinel enforces
 
-The [Sentinel](/docs/guides/sentinel/#cross-lane) judges each write by the lane of the path it touches (ADR 0034). For Edit and Write that is the worktree that contains the file. For Bash it is the worktree of the directory the command runs in, or the `git -C` or `--prefix` target.
+The [Sentinel](/docs/guides/sentinel/#cross-lane) judges each write by the lane of the path it touches (ADR 0034). For Edit and Write that is the worktree that contains the file. For Bash it is every path the command names, resolved from the session's directory (unless the host sandbox already confines `.kj/worktrees`).
 
 - **One live session per lane.** A write is refused, with the reason, when another live session holds that lane: one that started there or one that switched into it (ADR 0033). A session that writes in a lane renews its presence mark there, and a lane it stops writing in is released after the idle period. A lane another live session wrote in during the last 30 minutes is refused.
 - **One session can hold several lanes.** It carries several tasks in parallel, one mark per lane. Two sessions never write in the same lane.
 - **Each write is judged with its own lane.** Its branch, its card and its supervisor are the lane's, not the session's start checkout.
 - **Reading is free.** Any session can read any lane.
-- **Mutations it cannot verify are refused.** That includes `cd` in a mutator chain, command substitution, shell expansion, and redirections whose target hides behind a variable. Use `git -C`, `npm --prefix` and literal paths.
+- **Mutations it cannot verify are refused.** That includes `cd` in a mutator chain, command substitution, shell expansion, and redirections whose target hides behind a variable. Use `git -C`, `npm --prefix` and literal paths (this applies where the host sandbox does not already confine the lanes).
 
 ## What a person can still do
 
