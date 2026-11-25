@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.37.0: los tests del propio diff corren antes del revisor; quitar una aserción hace fallar al coder (actual)
+### v5.37.1: un sello se firma con una clave del padrón del repo (actual)
+
+Con un padrón en el repo (`.karajan/supervisor-signers.json`), `kj harden --commit` solo acepta una clave de móvil de ese padrón, el mismo conjunto contra el que la CI verifica el sello. Antes, en un repo cuyo padrón solo tenía una passkey, el sello podía firmarse con la clave del móvil guardada en la máquina, y la CI lo rechazaba. El rechazo nombra el padrón y, si tiene passkeys, dice que se firme con la passkey en la página. Sin padrón, la clave del móvil de la máquina firma como antes.
+
+### v5.37.0: los tests del propio diff corren antes del revisor; quitar una aserción hace fallar al coder
 
 `kj review --staged` ejecuta ahora los ficheros de test que toca el diff (vitest, jest o pytest) antes del revisor: si salen en rojo, rechaza sin ningún modelo y enseña el final de la salida. Una aserción quitada de un test que ya existía es un hecho que ve el revisor, con su fichero y su línea; movida tal cual a otro fichero de test no es hecho, y reescrita sobre el mismo sujeto es un hecho que juzga el revisor. `kj code` hace fallar al coder que quita una y pide restaurarla y reintentar. Cada consulta al RAG deja una traza de metadatos en `.karajan/traces/rag.jsonl`, nunca su texto, y ya están los primeros agregadores de observabilidad. `kj report` vuelve a mostrar en kj 5, donde no hay informes de sesión, la veracidad de las reviews y los demás bloques del proyecto. La referencia de comandos y tres guías nuevas (observabilidad, carriles y contrato de funcionamiento) se han comprobado contra el código.
 

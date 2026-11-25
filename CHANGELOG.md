@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.37.1] - 2026-11-25
+
+A seal is signed with a key of the repo's roster, the same set CI verifies it against.
+
+### Fixed
+- **A seal is signed with what the repo's roster holds**: in a repo whose roster (`.karajan/supervisor-signers.json`) held only a passkey, `kj harden --commit` accepted a signature from the machine's own phone key in `~/.karajan`, and CI, which verifies against the roster alone, rejected the seal. With a roster in the repo, only a phone key of that roster signs; the refusal names the roster and, when it holds passkeys, says to sign with the passkey on the page. With no roster, the machine's phone key signs as before (#4888).
+
 ## [5.37.0] - 2026-11-25
 
 The review runs the diff's own tests before the reviewer and sees a removed assertion as a fact; `kj code` fails the coder that removes one; `kj report` shows the project blocks again.

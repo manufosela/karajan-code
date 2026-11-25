@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.37.0: the diff's own tests run before the reviewer; a removed assertion fails the coder (current)
+### v5.37.1: a seal is signed with a key of the repo's roster (current)
+
+With a roster in the repo (`.karajan/supervisor-signers.json`), `kj harden --commit` only accepts a phone key of that roster, the same set CI verifies the seal against. Before, a repo whose roster held only a passkey could get a seal signed with the machine's own phone key, and CI rejected it. The refusal names the roster and, when it holds passkeys, says to sign with the passkey on the page. With no roster, the machine's phone key signs as before.
+
+### v5.37.0: the diff's own tests run before the reviewer; a removed assertion fails the coder
 
 `kj review --staged` now runs the test files the diff touches (vitest, jest or pytest) before the reviewer: a red run rejects without a model and shows the end of the output. An assertion removed from a test that already existed is a fact the reviewer sees, with its file and line; moved unchanged to another test file it is no fact, rewritten on the same subject it is a fact to judge. `kj code` fails the coder that removes one and asks to restore it and retry. Each RAG query leaves a metadata trace in `.karajan/traces/rag.jsonl`, never its text, and the first observability aggregators are in place. `kj report` shows the Cross-AI review truth and the other project blocks again in kj 5, where there are no session reports. The command reference and three new guides (observability, lanes, operating contract) were checked against the code.
 
