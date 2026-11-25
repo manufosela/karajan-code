@@ -90,6 +90,8 @@ describe("kj security", () => {
     lines = [];
     await run("show");
     expect(lines[0]).toMatch(/nivel {3}critical: el móvil firma lo que cambia quién gobierna/);
+    // HU-4903: a policy grant is a human act the phone signs at critical.
+    expect(lines[0]).toMatch(/aflojar un gate, una concesión de policy, excepción de main-guard/);
     expect(await run("critical", { env: { CLAUDECODE: "1" } })).toBe(1);
   });
 });

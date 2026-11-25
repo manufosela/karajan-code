@@ -37,6 +37,7 @@ import { reportIssueCommand } from "../commands/report-issue.js";
 import { huCommand, HU_STATUSES } from "../commands/hu.js";
 import { worktreeCommand } from "../commands/worktree.js";
 import { addAdr, listAdrs } from "../environment/adr.js";
+import { BRIEF_ROLES } from "../environment/briefs.js";
 import { settleRulesyncEntry } from "../utils/rulesync.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { policyAddCommand } from "../policy/add.js";
@@ -165,12 +166,12 @@ export function registerMeta(program, { pkgVersion }) {
   // KJC-TSK-0995 (HUM-D, ADR 0018): the project's security level; going down is a signed act.
   const securityCmd = program
     .command("security")
-    .description("Security level of this project: max (every catalog act signed by the phone), critical (the phone signs only what changes who governs) or normal (four layers, lesser guarantee)");
+    .description("Security level of this project, critical by default: max signs every human act with the phone; critical signs with the phone only what changes who governs and confirms the rest at the terminal; normal confirms at the terminal and signs only with a phone already enrolled");
   const SECURITY_ACTIONS = {
     show: "The level in force, where it comes from and whether a phone is enrolled (exit 2 on a record that cannot be trusted)",
     max: "Raise to max: no signature needed",
-    critical: "Set critical (ADR 0060): a human act signed by the enrolled phone (refused without one)",
-    normal: "Lower to normal: a human act signed by the enrolled phone (refused without one)",
+    critical: "Set critical (ADR 0060): a human act, signed by the phone when one is enrolled; with no phone anywhere it is recorded unsigned",
+    normal: "Lower to normal: a human act, signed by the phone when one is enrolled; with no phone anywhere it is recorded unsigned",
   };
   for (const [action, description] of Object.entries(SECURITY_ACTIONS)) {
     securityCmd
@@ -618,8 +619,8 @@ export function registerMeta(program, { pkgVersion }) {
   // AB-C (KJC-TSK-0652): role briefs for the brain (any host agent).
   program
     .command("brief")
-    .description("Show the distilled method of a pipeline role (for the host agent to execute)")
-    .argument("[role]", "triage | planner | researcher | architect | tester | security | audit")
+    .description("Print the method brief of a role for the agent that does the work (kj calls no model); with no role, list them")
+    .argument("[role]", BRIEF_ROLES.join(" | "))
     .option("--json", "Machine-readable output")
     .action(async (role, flags) => {
       await withConfig(pkgVersion, "brief", flags, async ({ config }) => {
