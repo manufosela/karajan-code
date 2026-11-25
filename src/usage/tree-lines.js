@@ -14,6 +14,9 @@ function textLines(file) {
   return content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
 }
 
+/** HU-4872: the unified diff of the tracked files in the tree against HEAD. */
+export const treeDiff = (projectDir) => git(projectDir, ["diff", "HEAD", ...NOT_KJ_STATE]);
+
 /** {added, removed} of the tree against HEAD; binary files count 0. Throws outside a git repo with a commit. */
 export function treeLines(projectDir) {
   let added = 0;

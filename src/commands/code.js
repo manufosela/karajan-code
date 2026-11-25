@@ -17,7 +17,8 @@ import { ONE_SHOT_POLICY } from "../brain/one-shot-policy.js";
 import { sealPanel } from "../environment/panel.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
-import { linesSince, treeLines } from "../usage/tree-lines.js";
+import { linesSince, treeLines, treeDiff } from "../usage/tree-lines.js";
+import { diffFacts } from "../review/diff-facts.js";
 
 export async function codeCommand({ task, config, logger, flags = {} }) {
   // KJC-BUG-0512: a config without projectDir is the project kj runs in, as for every other command.
@@ -89,6 +90,15 @@ export async function codeCommand({ task, config, logger, flags = {} }) {
       try { sealPanel({ projectDir, coder: coderRole.provider, host: ranBy, honoured: ranBy === coderRole.provider }); }
       catch (err) { logger.warn(`panel: no se pudo sellar quién escribió (${err.message}) — el trabajo del coder no se toca`); }
     }
+    const weakened = weakenedAssertions(projectDir, logger);
+    if (weakened.length > 0) {
+      const listed = weakened.map((f) => `  ${f.file}:${f.line} ${f.text}`).join("\n");
+      const cardFlag = card ? ` --card ${card.huId}` : "";
+      logger.error(`The coder failed: it weakened an existing test instead of fixing the code.\n${listed}\nRestore the assertion and run: kj code${cardFlag} --retry`);
+      runLog.logText(`[coder] weakened ${weakened.length} assertion(s)`);
+      process.exitCode = 1;
+      return { ok: false, provider: coderRole.provider, card: card?.huId ?? null, weakened };
+    }
     // The work is in the tree, not committed: the gate is the next step and a
     // DIFFERENT AI runs it. Saying so here is what keeps the panel honest.
     logger.info(`The work is in the tree. Review it before committing: kj review --staged (a different AI than ${coderRole.provider}).`);
@@ -133,6 +143,16 @@ function coderLinesMeasure(projectDir, logger) {
   } catch (err) {
     logger.warn(`usage: the coder's lines go unrecorded, git cannot count them here (${err.message.split("\n")[0]})`);
     return undefined;
+  }
+}
+
+/** HU-4872: assertions the coder removed from existing tests, read off the tree against HEAD. */
+function weakenedAssertions(projectDir, logger) {
+  try {
+    return diffFacts(treeDiff(projectDir)).filter((f) => f.kind === "test-weakened");
+  } catch (err) {
+    logger.warn(`test-weakened: the coder's change could not be checked, git cannot diff here (${err.message.split("\n")[0]})`);
+    return [];
   }
 }
 
