@@ -76,7 +76,7 @@ kj policy grant --rule roles.coder.write.deny \
   --reason "the deploy scripts move to infra/ this sprint"
 ```
 
-- All three flags are required, and `--until` is a strict ISO-8601 date. Only the commit gate (`kj review`) honours a grant, and once the date passes it stops on its own; the Sentinel's tool-time check and CI's `kj policy check` do not read grants. `kj policy grant` is not a human act today: an agent session can run it (ADR 0012).
+- All three flags are required, and `--until` is a strict ISO-8601 date. Only the commit gate (`kj review`) honours a grant, and once the date passes it stops on its own; the Sentinel's tool-time check and CI's `kj policy check` do not read grants. `kj policy grant` is a human act (ADR 0015): kj refuses it inside an agent session or a process that descends from an agent, you confirm it with the code it shows at your terminal, and at the `critical` level your phone signs it, as it signs loosening a gate. A refused grant records nothing.
 - Security rules and Karajan's built-in defaults cannot be granted, and nothing can be granted while the policy file is invalid.
 - Grants are appended to `.karajan/policy-exceptions.jsonl`. With `--global` they go to `~/.karajan` and apply to every project on your machine.
 - Each grant records who made it, from your git and system user. That identity is declared, not authenticated: the record tells you who said they granted it.

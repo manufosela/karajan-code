@@ -56,6 +56,11 @@ const EXPLAIN = {
     "El panel es tuyo: un agente no puede elegir a su propio revisor ni a su árbitro (ADR 0018).",
     "Un panel cambiado sin tu firma dejaría al agente poner como revisor a quien le conviene.",
   ],
+  "policy-grant": [
+    "Se registra una excepción permanente (kj policy grant) que levanta la regla que ves, hasta la fecha y con el motivo indicados.",
+    "Una excepción levanta un gate que vigila al agente: solo una persona lo levanta (ADR 0015).",
+    "Una excepción sin tu firma dejaría al agente saltarse el gate que le frena con solo pedirlo.",
+  ],
 };
 
 /** What the phone shows beside the files: what, why, and if another did it. */

@@ -76,7 +76,7 @@ kj policy grant --rule roles.coder.write.deny \
   --reason "los scripts de despliegue pasan a infra/ en este sprint"
 ```
 
-- Los tres parámetros son obligatorios y `--until` es una fecha ISO-8601 estricta. Solo el gate de commit (`kj review`) respeta una concesión, y cuando pasa la fecha deja de aplicarla por sí solo; ni la comprobación del Sentinel al usar herramientas ni `kj policy check` en la CI leen las concesiones. Hoy `kj policy grant` no es un acto humano: lo puede ejecutar una sesión de agente (ADR 0012).
+- Los tres parámetros son obligatorios y `--until` es una fecha ISO-8601 estricta. Solo el gate de commit (`kj review`) respeta una concesión, y cuando pasa la fecha deja de aplicarla por sí solo; ni la comprobación del Sentinel al usar herramientas ni `kj policy check` en la CI leen las concesiones. `kj policy grant` es un acto humano (ADR 0015): kj lo rechaza dentro de una sesión de agente o en un proceso que desciende de un agente, lo confirmas con el código que enseña en tu terminal y, en el nivel `critical`, lo firma tu móvil, como firma aflojar un gate. Una concesión rechazada no registra nada.
 - No se pueden conceder excepciones a reglas de seguridad ni a los valores por defecto de Karajan, y no se puede conceder nada mientras el fichero de policy sea inválido.
 - Las concesiones se añaden a `.karajan/policy-exceptions.jsonl`. Con `--global` van a `~/.karajan` y valen para todos los proyectos de tu máquina.
 - Cada concesión registra quién la hizo, a partir de tu usuario de git y del sistema. Esa identidad es declarada, no autenticada: el registro dice quién dijo que la concedía.
