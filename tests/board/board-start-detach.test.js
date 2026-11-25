@@ -137,10 +137,23 @@ describe("startBoard — detaches properly", () => {
   it("throws when the daemon never answers /api/dashboard within the readiness budget", async () => {
     httpAlwaysFail = true;
     process.env.KJ_BOARD_READY_TIMEOUT_MS = "50";
-    const { startBoard } = await import("../../src/commands/board.js");
-    await expect(startBoard(4000)).rejects.toThrow(
-      /did not answer on http:\/\/localhost:4000/
-    );
+    // HU-4909 (KJC-BUG-0667): the fake daemon is gone once the budget passes. Without this the
+    // test asked the real OS about pid 4242, and a short-lived process with that pid on the CI
+    // runner sent startBoard into the long boot wait, where it saw it die ("died on startup").
+    const gone = Object.assign(new Error("kill ESRCH"), { code: "ESRCH" });
+    const killSpy = vi.spyOn(process, "kill").mockImplementation((pid) => {
+      if (pid === child.pid) throw gone;
+      return true;
+    });
+    try {
+      const { startBoard } = await import("../../src/commands/board.js");
+      await expect(startBoard(4000)).rejects.toThrow(
+        /did not answer on http:\/\/localhost:4000/
+      );
+      expect(killSpy).toHaveBeenCalledWith(child.pid, 0);
+    } finally {
+      killSpy.mockRestore();
+    }
     const pidPath = join(tmpHome, "hu-board.pid");
     expect(existsSync(pidPath)).toBe(false);
   });
